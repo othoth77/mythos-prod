@@ -2,7 +2,7 @@
 
 **Version:** 1.0  
 **Date:** 2026-07-30  
-**Status:** Design document — authoritative reference for all future development  
+**Status:** Stage 1B complete — event bus and platform registry operational  
 **Constraint:** Pure PHP + Vanilla JS. No framework. No build step. No npm. No ES modules.
 
 ---
@@ -179,7 +179,7 @@ var _API_ENDPOINT                   // 'api.php' — overridable for multi-tenan
 
 ### 2.6 Event Bus — `js/core/events.js` *(planned)*
 
-**Current status:** Does not exist. Cross-module communication currently happens via direct function calls with `typeof` guards (`if (typeof updateDashboardStats === 'function') updateDashboardStats()`).
+**Current status:** Implemented (Stage 1B, `js/core/events.js`). Cross-module communication currently still happens via direct function calls with `typeof` guards in app.js; migration to Events will happen per-module during shared-app extraction (Stage 3) (`if (typeof updateDashboardStats === 'function') updateDashboardStats()`).
 
 **Problem solved:** The sync engine (`syncFromServer`) currently hardcodes calls to UI functions in specific business modules. Adding a new module that needs to react to sync requires editing `syncFromServer`. The event bus decouples this.
 
@@ -1272,6 +1272,7 @@ mythos-prod/                          ← git root (workspace)
 | 0 | Docs only | 9 948 | ✓ Complete |
 | 1 (Phase 1) | utils.js extracted | 9 725 | ✓ Complete |
 | 1A | core/storage.js + core/api.js foundations | 9 703 | ✓ Complete |
+| 1B | core/events.js + core/platform.js | 9 703 | ✓ Complete |
 | 1B | Migrate raw fetch calls to _apiPost/_apiGet | ~9 650 | Next |
 | 2 | core/ complete (events, platform, auth, logger, sync) | ~9 100 | Planned |
 | 3 | Shared apps extracted (contacts, calendar, tasks, planning, notes, dashboard) | ~6 000 | Planned |
