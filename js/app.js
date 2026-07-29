@@ -611,63 +611,17 @@ function restoreBackup20260516Once() {
 }
 
 // ── UTILITY FUNCTIONS ──
-function todayStr() {
-  const d = new Date();
-  return d.getFullYear() + '-' +
-         String(d.getMonth() + 1).padStart(2, '0') + '-' +
-         String(d.getDate()).padStart(2, '0');
-}
+// [utils.js] todayStr
 
-function money(val) {
-  return parseFloat(val || 0).toFixed(3);
-}
+// [utils.js] money
 
-function escapeHtml(text) {
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
-  return String(text || '').replace(/[&<>"']/g, m => map[m]);
-}
+// [utils.js] escapeHtml
 
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString('fr-FR');
-}
+// [utils.js] formatDate
 
-function formatDateLong(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr + 'T00:00:00');
-  const months = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-  return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
-}
+// [utils.js] formatDateLong
 
-function getStampSVG() {
-  const lines = [
-    'Mythos Production',
-    '04 Rue Habib Thamer, Khelidia 2054',
-    'MF: 1367868NAM000',
-    'Tel: 98.999.660 - 21.821.921',
-    'Email: ste.mythosprod@gmail.com'
-  ];
-  let svg = '<svg width="240" height="95" viewBox="0 0 240 95" xmlns="http://www.w3.org/2000/svg">';
-  svg += '<rect x="2" y="4" width="236" height="87" fill="none" stroke="#1e40af" stroke-width="3"/>';
-
-  const fontSizes = [15, 12, 11, 11, 11];
-  const yPositions = [22, 37, 50, 63, 76];
-  const weights = ['bold', 'normal', 'normal', 'normal', 'normal'];
-
-  lines.forEach((line, i) => {
-    const fontWeight = weights[i] || 'normal';
-    svg += `<text x="120" y="${yPositions[i]}" text-anchor="middle" font-size="${fontSizes[i]}" font-weight="${fontWeight}" fill="#1e40af" font-family="Arial">${line}</text>`;
-  });
-  svg += '</svg>';
-  return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
-}
+// [utils.js] getStampSVG
 
 // Cachet (tampon) généré dynamiquement selon la société émettrice du devis
 function getStampSVGFor(societeId) {
@@ -689,13 +643,7 @@ function getStampSVGFor(societeId) {
   return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
 }
 
-function getSignatureSVG() {
-  const svg = `<svg width="180" height="60" viewBox="0 0 180 60" xmlns="http://www.w3.org/2000/svg">
-    <path d="M 10 45 Q 20 30 35 35 Q 45 40 50 50 Q 55 55 60 48 Q 65 40 75 42 Q 85 45 90 35 Q 95 25 105 30 Q 115 35 120 50 Q 125 60 135 45 Q 145 30 160 38"
-          fill="none" stroke="#1e40af" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>`;
-  return 'data:image/svg+xml;base64,' + btoa(svg);
-}
+// [utils.js] getSignatureSVG
 
 // ── DASHBOARD STATISTICS ──
 function updateDashboardStats() {
@@ -2385,26 +2333,13 @@ let supplierSearchQuery = '';
 let fournisseurFilterCategory = 'all';
 let fournisseurSearchQuery = '';
 
-function esc(text) {
-  return escapeHtml(text);
-}
+// [utils.js] esc
 
-function num(value) {
-  return Number(value || 0);
-}
+// [utils.js] num
 
-function fmtMoney(value) {
-  return num(value).toFixed(3) + ' TND';
-}
+// [utils.js] fmtMoney
 
-function paymentModeLabel(mode) {
-  const labels = {
-    virement: 'Virement bancaire',
-    especes: 'Esp\u00e8ces',
-    cheque: 'Ch\u00e8que'
-  };
-  return labels[mode] || labels.virement;
-}
+// [utils.js] paymentModeLabel
 
 function updateInvoicePaymentModeVisibility() {
   const status = document.getElementById('f-status')?.value || 'pending';
@@ -2412,88 +2347,25 @@ function updateInvoicePaymentModeVisibility() {
   if (group) group.style.display = status === 'paid' ? 'flex' : 'none';
 }
 
-function getInvoiceTotal(inv) {
-  if (inv.ttc !== undefined) return num(inv.ttc);
-  if (inv.totalTTC !== undefined) return num(inv.totalTTC);
-  return num(inv.ht || inv.totalHT);
-}
+// [utils.js] getInvoiceTotal
 
-function getInvoiceHT(inv) {
-  if (inv.ht !== undefined) return num(inv.ht);
-  if (inv.totalHT !== undefined) return num(inv.totalHT);
-  return (inv.lines || []).reduce((sum, line) => sum + num(line.qty) * num(line.pu), 0);
-}
+// [utils.js] getInvoiceHT
 
-function getRdvAmount(rdv) {
-  if (rdv.montant !== undefined) return num(rdv.montant);
-  return (rdv.prestations || []).reduce((sum, p) => sum + num(p.montant), 0);
-}
+// [utils.js] getRdvAmount
 
-function getRdvPaidAmount(rdv) {
-  if (rdv.status === 'paid') return getRdvAmount(rdv);
-  return (rdv.prestations || []).filter(p => p.statut === 'paid').reduce((sum, p) => sum + num(p.montant), 0);
-}
+// [utils.js] getRdvPaidAmount
 
-function isRdvPaid(rdv) {
-  if (rdv.status) return rdv.status === 'paid';
-  const prestations = rdv.prestations || [];
-  return prestations.length > 0 && prestations.every(p => p.statut === 'paid');
-}
+// [utils.js] isRdvPaid
 
-function dateInputValue(offsetDays = 0) {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().split('T')[0];
-}
+// [utils.js] dateInputValue
 
-function calendarDateCard(dateStr) {
-  const months = ['JAN', 'FEV', 'MAR', 'AVR', 'MAI', 'JUIN', 'JUIL', 'AOUT', 'SEP', 'OCT', 'NOV', 'DEC'];
-  const d = new Date(String(dateStr || '') + 'T00:00:00');
-  if (Number.isNaN(d.getTime())) return { day: '--', month: '', jour: 'Jour ?' };
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.round((d - today) / 86400000);
-  const jour = diff === 0 ? 'Jour J' : diff > 0 ? 'J-' + diff : 'J+' + Math.abs(diff);
-  return { day: String(d.getDate()).padStart(2, '0'), month: months[d.getMonth()], jour };
-}
+// [utils.js] calendarDateCard
 
-function isDateInCurrentWeek(dateStr) {
-  const d = new Date(String(dateStr || '') + 'T00:00:00');
-  if (Number.isNaN(d.getTime())) return false;
-  const now = new Date();
-  const diff = (now.getDay() + 6) % 7;
-  const start = new Date(now);
-  start.setDate(now.getDate() - diff);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 6);
-  end.setHours(23, 59, 59, 999);
-  return d >= start && d <= end;
-}
+// [utils.js] isDateInCurrentWeek
 
-function normalizeRdv(rdv) {
-  return {
-    id: rdv.id,
-    date: rdv.date || '',
-    heure: rdv.heure || '',
-    nature: rdv.nature || rdv.title || 'Rendez-vous',
-    client: rdv.client || rdv.clientName || '',
-    lieu: rdv.lieu || rdv.place || '',
-    notes: rdv.notes || '',
-    status: rdv.status || '',
-    collaborateur: rdv.collaborateur || { nom: rdv.collabName || '', role: rdv.collabRole || '', contact: '' },
-    prestations: Array.isArray(rdv.prestations) ? rdv.prestations : [{ desc: rdv.nature || 'Prestation', montant: num(rdv.montant), statut: rdv.status === 'paid' ? 'paid' : 'unpaid' }]
-  };
-}
+// [utils.js] normalizeRdv
 
-function cleanRestoredValue(value) {
-  if (typeof value === 'string') return cleanPrintText(value);
-  if (Array.isArray(value)) return value.map(cleanRestoredValue);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cleanRestoredValue(item)]));
-  }
-  return value;
-}
+// [utils.js] cleanRestoredValue
 
 function forceRestoreBackup20260516() {
   const backup = window.MYTHOS_RESTORE_1778961756472;
@@ -4839,66 +4711,7 @@ function closePreview() {
   document.getElementById('preview-modal').style.display = 'none';
 }
 
-function numberToFrenchWords(num) {
-  const ones = ['', 'un', 'deux', 'trois', 'quatre', 'cinq', 'six', 'sept', 'huit', 'neuf'];
-  const teens = ['dix', 'onze', 'douze', 'treize', 'quatorze', 'quinze', 'seize', 'dix-sept', 'dix-huit', 'dix-neuf'];
-  const tens = ['', '', 'vingt', 'trente', 'quarante', 'cinquante', 'soixante', 'soixante-dix', 'quatre-vingt', 'quatre-vingt-dix'];
-
-  function convertIntegerToWords(n) {
-    if (n === 0) return 'zéro';
-
-    let words = '';
-    let billions = Math.floor(n / 1000000000);
-    let millions = Math.floor((n % 1000000000) / 1000000);
-    let thousands = Math.floor((n % 1000000) / 1000);
-    let hundreds = Math.floor((n % 1000) / 100);
-    let remainder = Math.floor(n % 100);
-
-    if (billions > 0) {
-      if (billions === 1) words += 'un milliard ';
-      else words += ones[billions] + ' milliards ';
-    }
-
-    if (millions > 0) {
-      if (millions === 1) words += 'un million ';
-      else words += ones[millions] + ' millions ';
-    }
-
-    if (thousands > 0) {
-      if (thousands === 1) words += 'mille ';
-      else words += ones[thousands] + ' mille ';
-    }
-
-    if (hundreds > 0) {
-      words += ones[hundreds] + ' cent' + (hundreds > 1 ? 's ' : ' ');
-    }
-
-    if (remainder > 0) {
-      if (remainder < 10) {
-        words += ones[remainder];
-      } else if (remainder < 20) {
-        words += teens[remainder - 10];
-      } else {
-        let t = Math.floor(remainder / 10);
-        let o = remainder % 10;
-        words += tens[t] + (o > 0 ? '-' + ones[o] : '');
-      }
-    }
-
-    return words.trim();
-  }
-
-  let dinars = Math.floor(num);
-  let millimes = Math.round((num - dinars) * 1000);
-
-  let result = convertIntegerToWords(dinars) + ' dinars tunisiens';
-
-  if (millimes > 0) {
-    result += ' et ' + convertIntegerToWords(millimes) + ' millimes';
-  }
-
-  return result;
-}
+// [utils.js] numberToFrenchWords
 
 function buildInvoiceHTML(inv) {
   const rows = (inv.lines || []).map(line => `<tr style="height:32px;background:#fff;"><td style="padding:10px 8px;border:1px solid #000;">${esc(line.desc)}</td><td style="text-align:center;padding:10px 8px;border:1px solid #000;">${line.qty}</td><td style="text-align:center;padding:10px 8px;border:1px solid #000;">${esc(line.unit || '')}</td><td style="text-align:right;padding:10px 8px;border:1px solid #000;">${fmtMoney(line.pu)}</td><td style="text-align:right;padding:10px 8px;border:1px solid #000;">${fmtMoney(num(line.qty) * num(line.pu))}</td></tr>`).join('');
@@ -5216,29 +5029,7 @@ function closeOMPreview() {
   document.getElementById('om-preview-modal').style.display = 'none';
 }
 
-function cleanPrintText(text) {
-  let value = String(text || '');
-  const replacements = [
-    [/\u00c3\u00a9/g, '\u00e9'],
-    [/\u00c3\u00a8/g, '\u00e8'],
-    [/\u00c3\u00aa/g, '\u00ea'],
-    [/\u00c3\u00a0/g, '\u00e0'],
-    [/\u00c3\u00a2/g, '\u00e2'],
-    [/\u00c3\u00b4/g, '\u00f4'],
-    [/\u00c3\u00ae/g, '\u00ee'],
-    [/\u00c3\u00a7/g, '\u00e7'],
-    [/\u00c3\u2030/g, '\u00c9'],
-    [/\u00c2\u00b0/g, '\u00b0'],
-    [/\u00c2\u00b7/g, '\u00b7'],
-    [/\u00e2\u20ac\u2122/g, '\u2019'],
-    [/\u00e2\u20ac\u0153/g, '\u201c'],
-    [/\u00e2\u20ac\u009d/g, '\u201d']
-  ];
-  replacements.forEach(([pattern, replacement]) => {
-    value = value.replace(pattern, replacement);
-  });
-  return value;
-}
+// [utils.js] cleanPrintText
 
 function buildOMHTML(om) {
   const persons = Array.isArray(om.persons) && om.persons.length ? om.persons : Array(11).fill({ nom: '' });
@@ -8240,21 +8031,9 @@ function renderStatistique() {
     '</div>';
 }
 
-function _statKpi(icon, label, value, color) {
-  return '<div class="stat-section-card" style="text-align:center;padding:14px 10px;">' +
-    '<div style="font-size:22px;margin-bottom:6px;">' + icon + '</div>' +
-    '<div style="color:' + color + ';font-size:17px;font-weight:800;line-height:1.1;">' + value + '</div>' +
-    '<div style="color:#888;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;margin-top:4px;">' + label + '</div>' +
-  '</div>';
-}
+// [utils.js] _statKpi
 
-function _statMini(label, count, sub) {
-  return '<div style="background:#111;border:1px solid #2a2a2a;border-radius:10px;padding:12px;text-align:center;">' +
-    '<div style="color:#d4af37;font-size:22px;font-weight:800;">' + count + '</div>' +
-    '<div style="color:#ccc;font-size:12px;font-weight:600;">' + label + '</div>' +
-    '<div style="color:#555;font-size:10px;">' + sub + '</div>' +
-  '</div>';
-}
+// [utils.js] _statMini
 
 function renderRepresentations() {
   const el = document.getElementById('representations-dashboard');
@@ -8382,9 +8161,7 @@ function closeModalFromOutsideClick(event) {
 }
 
 // ── SANITIZE INPUT ──
-function sanitizeInput(str, maxLen = 1000) {
-  return String(str || '').trim().substring(0, maxLen);
-}
+// [utils.js] sanitizeInput
 
 // ── AUTO BACKUP JOURNALIER ──
 function checkDailyBackup() {
