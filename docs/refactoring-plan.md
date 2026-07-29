@@ -1,7 +1,10 @@
 # Mythos Prod — Refactoring Plan
 
 **Last updated:** 2026-07-29  
+**Superseded by:** `docs/mythos-os-platform.md` (Mythos OS platform architecture, also 2026-07-29)  
 **Constraint:** No frameworks. No build step. No module system (no `import`/`export`). Vanilla JS only.
+
+> **Note:** The phase structure below predates the Mythos OS redesign. Phases 1 (utils) and Stage 1A (core/storage.js + core/api.js foundations) are complete. All future work follows the 6-stage migration in `docs/mythos-os-platform.md`. This document is retained for historical reference.
 
 ---
 
@@ -43,7 +46,7 @@ Reference: `addLine` (lines 1919, 4485), `editInvoice` (1078, 4599), `deleteInvo
 
 ---
 
-## Phase 1 — Utilities
+## Phase 1 — Utilities ✓ (complete, commit d0688d2)
 
 **Objective:** Extract all pure functions (no DOM, no localStorage, no API calls) into `js/utils.js`.
 
@@ -90,7 +93,7 @@ In `utils.js`, define one canonical `escHtml(text)` using the regex approach (no
 
 ---
 
-## Phase 2 — API service
+## Phase 2 — API service (superseded by Stage 1 in mythos-os-platform.md)
 
 **Objective:** Extract all direct `fetch('api.php', ...)` and `sendBeacon` calls into `js/api-service.js`.
 

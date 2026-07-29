@@ -1,6 +1,6 @@
 # Mythos OS — Platform Architecture
 
-**Status:** Design document — no code changes yet  
+**Status:** Stage 1A complete — core/storage.js and core/api.js introduced  
 **Date:** 2026-07-29  
 **Context:** Mythos Prod is being reconceived as one module inside a larger platform. This document defines what the platform looks like, how modules relate, and how to migrate the existing codebase toward this structure.
 
@@ -316,9 +316,11 @@ That is a Phase 5+ concern.
 
 Define the target architecture before touching code. This document.
 
-### Stage 1 — Core extraction
+### Stage 1 — Core extraction ✓ (Stage 1A complete)
 
-Extract the sync engine out of app.js into `js/core/storage.js` and `js/core/api.js`. No behaviour change. app.js shrinks by ~500 lines. This is a prerequisite for all subsequent stages.
+**1A (done):** `js/core/storage.js` — `_memCache`, `_storeGet`, `_safeSet`, `_storeHas`, `_storeRemove`. `js/core/api.js` — `_apiFetch`, `_apiGet`, `_apiPost`, `_apiTimeout`, `_apiParseJson`, `_apiRetry`. app.js: 9725 → 9703 lines.
+
+**1B (next):** Migrate existing `fetch('api.php', ...)` calls in `_flushPending`, `_pushCollection`, `_triggerAutoBackup`, `syncFromServer` to call through `_apiPost`/`_apiGet`. This is the second part of Stage 1.
 
 Loading order after Stage 1:
 ```html

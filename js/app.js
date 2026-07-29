@@ -188,29 +188,7 @@ function _pullFromServerNow() {
 // ex. grosses collections comme le répertoire de contacts), les données
 // restent au moins disponibles en mémoire pour la session en cours —
 // elles seront re-synchronisées depuis le serveur au prochain chargement.
-var _memCache = {};
-function _storeGet(key, def) {
-  try {
-    var raw = localStorage.getItem(key);
-    if (raw !== null) return JSON.parse(raw);
-  } catch(e) {}
-  if (Object.prototype.hasOwnProperty.call(_memCache, key)) return _memCache[key];
-  try { return JSON.parse(def); } catch(e) { return def; }
-}
-
-// ── Écriture locale "sûre" : jamais d'exception bloquante ───────────
-// Utilisée partout où l'on écrit dans localStorage (sync + store) afin
-// qu'un quota dépassé ne casse jamais toute la synchronisation.
-function _safeSet(key, value) {
-  _memCache[key] = value;
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-    return true;
-  } catch(e) {
-    console.warn('[Mythos Store] Quota localStorage dépassé pour "' + key + '" — conservé en mémoire pour cette session (' + e.message + ').');
-    return false;
-  }
-}
+// [core/storage.js] _memCache, _storeGet, _safeSet
 
 // ── AUTO-BACKUP SERVEUR (debounce 3s après la dernière action) ───────
 var _autoBackupTimer = null;
