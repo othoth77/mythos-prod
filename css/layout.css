@@ -1,0 +1,678 @@
+html {
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    overflow: hidden !important;
+    scrollbar-gutter: stable;
+}
+
+body {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    margin: 0;
+    overflow: hidden !important;
+}
+
+#main-app,
+.app {
+    width: 100%;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+}
+
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 280px;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow: hidden !important;
+    z-index: 20;
+}
+
+.sidebar-header {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 12px 8px;
+    box-sizing: border-box;
+}
+
+.sidebar-header .logo {
+    width: 100%;
+    height: auto;
+    margin: 0;
+    padding: 0;
+    border-bottom: 0;
+    display: block;
+}
+
+.sidebar-logo,
+.sidebar-header .logo-img {
+    width: 100%;
+    height: 110px;
+    border: 1px solid rgba(212,175,55,0.5);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-sizing: border-box;
+    background: linear-gradient(145deg, rgba(212,175,55,0.07), rgba(0,0,0,0.3));
+    box-shadow: 0 0 0 1px rgba(212,175,55,0.12), 0 4px 24px rgba(0,0,0,0.5), inset 0 1px 0 rgba(212,175,55,0.15);
+    padding: 6px;
+}
+
+.sidebar-logo img,
+.sidebar-header .logo-img img,
+#sidebar-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    object-position: center;
+    display: block;
+    margin: 0 auto;
+}
+
+.logo-photo {
+    transform: none !important;
+}
+
+.sidebar-header .logo > div:last-child {
+    margin-top: 6px;
+}
+
+.sidebar-menu {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    padding-left: 8px;
+    padding-right: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(212,175,55,0.9) rgba(255,215,120,0.04);
+    scroll-behavior: smooth;
+}
+
+/* Indicateur scroll — fixé en bas du sidebar, au dessus du footer */
+#nav-scroll-hint {
+    height: 0;
+    overflow: visible;
+    position: relative;
+    z-index: 1;
+    flex-shrink: 0;
+}
+#nav-scroll-hint.has-more::before {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 36px;
+    background: linear-gradient(to bottom, transparent, rgba(10,10,10,0.75));
+    pointer-events: none;
+}
+#nav-scroll-hint.has-more::after {
+    content: '\25BE';
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(212,175,55,0.7);
+    font-size: 16px;
+    pointer-events: none;
+    animation: bounce-hint 1.4s ease-in-out infinite;
+}
+@keyframes bounce-hint {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50%       { transform: translateX(-50%) translateY(3px); }
+}
+
+.sidebar-footer {
+    flex-shrink: 0;
+    padding: 4px 8px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    background: var(--surface);
+    /* z-index retiré — il bloquait les clics sur les boutons du nav */
+}
+
+.nav-btn,
+.sidebar-link {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    border-radius: 10px;
+    padding: 7px 14px;
+    position: relative;
+}
+
+.nav-btn:hover,
+.sidebar-link:hover,
+.nav-btn.active,
+.sidebar-link.active {
+    width: 100%;
+    background: linear-gradient(
+        90deg,
+        rgba(212,175,55,0.22),
+        rgba(212,175,55,0.08)
+    );
+    box-shadow: inset 0 0 0 1px rgba(212,175,55,0.12);
+}
+
+.main-content {
+    margin-left: 280px;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding-bottom: 0 !important;
+    box-sizing: border-box;
+    position: relative;
+    z-index: 1;
+    scrollbar-gutter: stable;
+    scrollbar-color: rgba(212,175,55,0.9) rgba(255,215,120,0.04);
+}
+
+.main-content::-webkit-scrollbar,
+.sidebar-menu::-webkit-scrollbar {
+    width: 7px;
+}
+
+.main-content::-webkit-scrollbar-track,
+.sidebar-menu::-webkit-scrollbar-track {
+    background: rgba(255,215,120,0.03);
+}
+
+.main-content::-webkit-scrollbar-thumb,
+.sidebar-menu::-webkit-scrollbar-thumb {
+    background: linear-gradient(
+        180deg,
+        rgba(212,175,55,0.95),
+        rgba(184,134,11,0.92)
+    );
+    border-radius: 20px;
+    border: 1px solid rgba(255,215,120,0.15);
+}
+
+.view,
+.view.active,
+.dashboard-hero,
+.category-hub {
+    max-height: none;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+}
+
+.dashboard-hero {
+    min-height: auto !important;
+    height: auto !important;
+    padding-top: 18px !important;
+    padding-bottom: 18px !important;
+}
+
+.category-hub {
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    gap: 14px !important;
+    padding-bottom: 10px !important;
+}
+
+.hub-card,
+.category-card {
+    min-height: 120px !important;
+    padding: 18px !important;
+}
+
+.hub-card h2,
+.hub-card h3,
+.category-card h2,
+.category-card h3,
+.category-title {
+    margin-bottom: 6px !important;
+}
+
+.hub-icon,
+.category-icon {
+    width: 36px !important;
+    height: 36px !important;
+    margin-bottom: 12px !important;
+}
+
+body::after,
+.app::after,
+.main-content::after {
+    display: none !important;
+    content: none !important;
+    pointer-events: none !important;
+}
+
+#global-logout-btn:hover {
+    background: rgba(239,68,68,0.22) !important;
+    border-color: rgba(239,68,68,0.6) !important;
+}
+
+/* ══════════════════════════════════════════
+   BOUTON HAMBURGER (mobile uniquement)
+══════════════════════════════════════════ */
+#hamburger-btn {
+    display: none;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 200;
+    width: 40px;
+    height: 40px;
+    background: rgba(212,175,55,0.12);
+    border: 1px solid rgba(212,175,55,0.35);
+    border-radius: 8px;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 5px;
+    padding: 8px;
+}
+#hamburger-btn span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: #d4af37;
+    border-radius: 2px;
+    transition: all 0.25s;
+}
+/* Overlay sombre derrière la sidebar ouverte */
+#sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    z-index: 18;
+    backdrop-filter: blur(2px);
+}
+
+/* ══════════════════════════════════════════
+   RESPONSIVE MOBILE (≤ 768px)
+══════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+    /* Hamburger visible */
+    #hamburger-btn { display: flex; }
+
+    /* Sidebar cachée hors écran par défaut */
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+        z-index: 19;
+    }
+    /* Sidebar ouverte */
+    .sidebar.open {
+        transform: translateX(0);
+    }
+
+    /* Main content pleine largeur */
+    .main-content {
+        margin-left: 0 !important;
+        padding-top: 60px !important;
+    }
+
+    /* Overlay visible quand sidebar ouverte */
+    #sidebar-overlay.open {
+        display: block;
+    }
+
+    /* Bouton déconnexion — décalé pour ne pas chevaucher le hamburger */
+    #global-logout-btn {
+        top: 12px !important;
+        right: 12px !important;
+        font-size: 11px !important;
+        padding: 6px 10px !important;
+    }
+
+    /* Tableaux scrollables horizontalement */
+    .data-table,
+    .clients-list-table,
+    .representations-list-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Grilles → 1 colonne */
+    .form-grid,
+    .invoice-grid,
+    .compta-grid,
+    .stat-grid,
+    .ops-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Modal plein écran */
+    .modal {
+        width: 95vw !important;
+        max-height: 90dvh;
+        overflow-y: auto;
+    }
+
+    /* Page header flex wrap */
+    .page-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    /* Cards factures */
+    .invoice-list-card {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+}
+    padding-top: 18px !important;
+    padding-bottom: 18px !important;
+}
+
+.category-hub {
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    gap: 14px !important;
+    padding-bottom: 10px !important;
+}
+
+/* Bouton déconnexion hover */
+#global-logout-btn:hover {
+    background: rgba(239,68,68,0.22) !important;
+    border-color: rgba(239,68,68,0.6) !important;
+}
+
+/* ══════════════════════════════════════════
+   HAMBURGER
+══════════════════════════════════════════ */
+#hamburger-btn {
+    display: none;
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 200;
+    width: 44px;
+    height: 44px;
+    background: rgba(212,175,55,0.12);
+    border: 1px solid rgba(212,175,55,0.4);
+    border-radius: 10px;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 5px;
+    padding: 10px;
+}
+#hamburger-btn span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: #d4af37;
+    border-radius: 2px;
+    transition: all 0.2s;
+}
+
+#sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 18;
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+}
+
+/* ══════════════════════════════════════════
+   MOBILE ≤ 768px
+══════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+    /* Hamburger visible */
+    #hamburger-btn { display: flex; }
+
+    /* Sidebar cachée par défaut */
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+        width: 260px;
+    }
+    .sidebar.open { transform: translateX(0); }
+
+    /* Overlay actif */
+    #sidebar-overlay.open { display: block; }
+
+    /* Contenu pleine largeur */
+    .main-content {
+        margin-left: 0 !important;
+        padding-top: 64px !important;
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+
+    /* Déconnexion décalée */
+    #global-logout-btn {
+        top: 12px !important;
+        right: 12px !important;
+        font-size: 11px !important;
+        padding: 6px 10px !important;
+    }
+
+    /* Page header */
+    .page-header {
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 16px 0 12px !important;
+    }
+    .page-title { font-size: 20px !important; }
+
+    /* Boutons — plus grands pour toucher */
+    .btn { min-height: 40px; font-size: 13px; }
+    .btn-sm { min-height: 34px; font-size: 12px; }
+
+    /* Grilles → 1 colonne */
+    .form-grid,
+    .invoice-grid,
+    .compta-grid,
+    .stat-grid,
+    .ops-grid,
+    .spectacle-calculator-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .form-group.full { grid-column: 1 !important; }
+
+    /* Tableaux scrollables */
+    .data-table,
+    .clients-list-table,
+    .representations-list-table,
+    table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+    }
+
+    /* Modals plein écran */
+    .modal-overlay { align-items: flex-end !important; padding: 0 !important; }
+    .modal {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 92dvh !important;
+        overflow-y: auto !important;
+        border-radius: 20px 20px 0 0 !important;
+        padding: 20px 16px !important;
+    }
+
+    /* Cards factures */
+    .invoice-list-card,
+    .rdv-card {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+    }
+    .inv-actions, .invoice-list-actions {
+        width: 100%;
+        justify-content: flex-end;
+        margin-top: 8px;
+    }
+
+    /* Dashboard stats */
+    .dashboard-header { padding: 16px 12px !important; }
+
+    /* Settings */
+    .settings-row { grid-template-columns: 1fr !important; gap: 4px; }
+
+    /* Documentation cards */
+    #doc-main-container > div:first-child + div {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Inputs plus grands */
+    input[type="text"],
+    input[type="number"],
+    input[type="date"],
+    input[type="email"],
+    select,
+    textarea {
+        font-size: 16px !important; /* évite zoom auto iOS/Android */
+        min-height: 44px;
+        padding: 10px 12px !important;
+    }
+
+    /* Sidebar menu dans overlay */
+    .sidebar-menu {
+        padding-bottom: 20px;
+    }
+    .nav-btn { padding: 10px 14px; font-size: 14px; }
+    .nav-section { font-size: 10px; }
+}
+
+/* ══════════════════════════════════════════
+   TRÈS PETIT ≤ 420px (petits téléphones)
+══════════════════════════════════════════ */
+@media (max-width: 420px) {
+    .page-title { font-size: 18px !important; }
+    .btn { padding: 9px 12px !important; }
+    .modal { padding: 16px 12px !important; }
+    .dashboard-header h1 { font-size: 20px !important; }
+}
+
+/* Mobile menu final override: keep the hamburger visible after cached CSS updates. */
+@media (max-width: 900px) {
+    #hamburger-btn {
+        display: flex !important;
+        position: fixed !important;
+        top: 12px !important;
+        left: 12px !important;
+        z-index: 1001 !important;
+        width: 48px !important;
+        height: 48px !important;
+        min-width: 48px !important;
+        min-height: 48px !important;
+        padding: 11px !important;
+        align-items: center !important;
+        justify-content: center !important;
+        flex-direction: column !important;
+        gap: 5px !important;
+        background: rgba(10, 10, 10, 0.94) !important;
+        border: 1px solid rgba(212, 175, 55, 0.75) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 215, 120, 0.08) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        touch-action: manipulation;
+    }
+
+    #hamburger-btn span {
+        display: block !important;
+        width: 24px !important;
+        height: 2px !important;
+        flex: 0 0 2px !important;
+        background: #d4af37 !important;
+        border-radius: 999px !important;
+    }
+
+    .sidebar {
+        width: min(82vw, 300px) !important;
+        transform: translateX(-105%) !important;
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        z-index: 1000 !important;
+    }
+
+    .sidebar.open {
+        transform: translateX(0) !important;
+    }
+
+    #sidebar-overlay {
+        z-index: 999 !important;
+    }
+
+    #sidebar-overlay.open {
+        display: block !important;
+    }
+
+    .main-content {
+        margin-left: 0 !important;
+        padding-top: 68px !important;
+    }
+
+    #global-logout-btn {
+        top: 12px !important;
+        right: 12px !important;
+        z-index: 900 !important;
+    }
+
+    /* ── Correction tactile : sur mobile, le zoom CSS (html zoom:0.8 +
+       125dvh, body zoom:1.14) n'est pas géré de façon fiable par tous les
+       navigateurs avec position:fixed → la barre latérale dépassait
+       l'écran et le bas de la liste de navigation devenait inatteignable
+       au doigt. On annule ce hack uniquement sur mobile pour restaurer un
+       scroll tactile normal. */
+    html, body {
+        zoom: 1 !important;
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+    }
+    #main-app, .app {
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+    }
+    .sidebar {
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    .sidebar-menu {
+        -webkit-overflow-scrolling: touch;
+        touch-action: pan-y;
+    }
+    .main-content {
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+@supports (top: max(0px)) {
+    @media (max-width: 900px) {
+        #hamburger-btn {
+            top: max(12px, env(safe-area-inset-top)) !important;
+            left: max(12px, env(safe-area-inset-left)) !important;
+        }
+
+        #global-logout-btn {
+            top: max(12px, env(safe-area-inset-top)) !important;
+            right: max(12px, env(safe-area-inset-right)) !important;
+        }
+    }
+}

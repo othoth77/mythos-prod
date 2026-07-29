@@ -1,0 +1,21 @@
+# Runtime data — NEVER commit
+appdata/
+appdata/backups/
+documents/
+
+# Credentials — NEVER commit
+google_config.php
+ACCES.txt
+
+# Restore snapshots
+data/restore-*.js
+
+# Logs & temp
+*.log
+*.tmp
+*.bak
+/tmp/
+
+# OS artefacts
+.DS_Store
+Thumbs.db

@@ -1,0 +1,9 @@
+<?php
+// Copy this file to google_config.php and fill in your real values.
+// NEVER commit google_config.php — it is excluded by .gitignore.
+
+return [
+    'client_id'     => 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
+    'client_secret' => 'YOUR_GOOGLE_CLIENT_SECRET',
+    'redirect_uri'  => 'https://yourdomain.tn/0726/Prod/google_callback.php',
+];

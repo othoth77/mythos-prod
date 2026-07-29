@@ -1,0 +1,2179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="description" content="Uthina Chess - Gestion du club d'échecs.">
+<meta name="robots" content="noindex, nofollow">
+<title>Gestionnaire d'événement</title>
+<link rel="icon" type="image/png" href="assets/logos/logo-uthina-chess.png">
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Uthina Chess">
+<link rel="apple-touch-icon" href="assets/logos/logo-uthina-chess.png">
+<meta name="theme-color" content="#d4af37">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/main.css?v=20260621-nozoom">
+<link rel="stylesheet" href="css/layout.css?v=20260621-nozoom">
+<link rel="stylesheet" href="css/professional.css?v=20260621-rctoolbar">
+<link rel="stylesheet" href="css/dashboard.css?v=20260603-mobile-menu">
+<script src="js/rappels.js?v=20260606" defer></script>
+<script src="js/redaction.js?v=20260606" defer></script>
+<style>
+  /* Bande jaune verticale + effet lift sur nav-btn */
+  .nav-btn {
+    transition: background 0.15s, color 0.15s,
+                box-shadow 0.22s cubic-bezier(0.34,1.56,0.64,1),
+                transform 0.22s cubic-bezier(0.34,1.56,0.64,1) !important;
+  }
+  .nav-btn:hover {
+    box-shadow: inset -3px 0 0 rgba(201,168,76,0.55) !important;
+    transform: translateY(-1px) !important;
+  }
+  .nav-btn.active {
+    box-shadow: inset -3px 0 0 #c9a84c !important;
+    transform: translateY(-2px) !important;
+  }
+</style>
+</head>
+<body>
+<!-- ✅ Authentification supprimée - localhost uniquement -->
+<div class="app" id="main-app" style="display:none">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <div class="logo-img" onclick="showView('dashboard')" title="Accueil"><img id="sidebar-logo" class="logo-photo" src="assets/logos/logo-uthina-chess.png" alt="Uthina Chess Logo"></div>
+        <div><span>Gestionnaire d'événement</span></div>
+      </div>
+    </div>
+    <nav class="nav sidebar-menu" id="sidebar-nav">
+      <div class="nav-section">Dashboard</div>
+      <button class="nav-btn active" onclick="showView('dashboard')" id="nav-dashboard"><span class="ico">&#8962;</span> Dashboard</button>
+      <button class="nav-btn" onclick="showView('tache')" id="nav-tache"><span class="ico">📋</span> Mes T&acirc;ches</button>
+      <div class="nav-section">Membres</div>
+      <button class="nav-btn" onclick="showView('inscriptions')" id="nav-inscriptions"><span class="ico">&#128203;</span> Liste d'inscription</button>
+      <button class="nav-btn" onclick="showView('appel')" id="nav-appel"><span class="ico">&#128222;</span> Membre &agrave; l'appel</button>
+      <button class="nav-btn" onclick="showView('conformite')" id="nav-conformite"><span class="ico">&#9989;</span> Liste conforme</button>
+      <div class="nav-section">Tournois</div>
+      <button class="nav-btn" onclick="showView('participations')" id="nav-participations"><span class="ico">&#9818;</span> Liste de participation</button>
+      <button class="nav-btn" onclick="showView('paiements')" id="nav-paiements"><span class="ico">&#128176;</span> Re&ccedil;u de paiement</button>
+      <button class="nav-btn" onclick="showView('joueurs')" id="nav-joueurs"><span class="ico">&#9818;</span> Liste des joueurs</button>
+      <button class="nav-btn" onclick="showView('certifications')" id="nav-certifications"><span class="ico">&#127942;</span> Les certifications</button>
+      <div class="nav-section">Gestion</div>
+      <button class="nav-btn" onclick="showView('documentation')" id="nav-documentation"><span class="ico">&#128193;</span> Documentation</button>
+      <button class="nav-btn" onclick="showView('parametres')" id="nav-parametres"><span class="ico">&#9881;</span> Param&egrave;tres</button>
+    </nav>
+    <div id="nav-scroll-hint" aria-hidden="true" style="pointer-events:none;"></div>
+    <div id="sidebar-stats" class="sidebar-stats-bar"></div>
+    <div class="sidebar-footer">
+    </div>
+  </aside>
+
+  <!-- OVERLAY sidebar mobile -->
+  <div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- HAMBURGER (mobile) -->
+  <button id="hamburger-btn" onclick="toggleSidebar()" aria-label="Menu" aria-controls="sidebar" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+
+  <!-- BOUTON DÉCONNEXION — fixé en haut à droite sur toutes les pages -->
+  <button id="global-logout-btn"
+    onclick="handleGlobalLogout()"
+    title="D&eacute;connexion"
+    style="position:fixed;top:16px;right:20px;z-index:100;
+           display:flex;align-items:center;gap:8px;
+           background:linear-gradient(135deg,rgba(30,30,30,0.95),rgba(20,20,20,0.98));
+           border:1px solid rgba(212,175,55,0.25);
+           color:#c0a050;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+           padding:8px 16px;border-radius:30px;cursor:pointer;
+           box-shadow:0 2px 12px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.04);
+           transition:all 0.2s;font-family:inherit;backdrop-filter:blur(8px);"
+    onmouseover="this.style.borderColor='rgba(212,175,55,0.6)';this.style.color='#d4af37';this.style.boxShadow='0 4px 20px rgba(212,175,55,0.15),inset 0 1px 0 rgba(255,255,255,0.06)'"
+    onmouseout="this.style.borderColor='rgba(212,175,55,0.25)';this.style.color='#c0a050';this.style.boxShadow='0 2px 12px rgba(0,0,0,0.4),inset 0 1px 0 rgba(255,255,255,0.04)'">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    D&eacute;connexion
+  </button>
+
+  <main class="main main-content">
+    <!-- DASHBOARD -->
+    <div class="view active" id="view-dashboard">
+      <!-- HEADER -->
+      <div style="padding:24px 24px 0; background:linear-gradient(135deg,#141414 0%,#1e1e1e 100%); display:flex; flex-direction:column; align-items:center; justify-content:center; flex-wrap:wrap; gap:12px; border-bottom:1px solid #222;">
+        <!-- Grande date -->
+        <div id="dashboard-date-display" style="display:flex;align-items:center;gap:16px;"></div>
+
+        <!-- COMPTE À REBOURS TOURNOI -->
+        <div style="background:linear-gradient(135deg,#161616 0%,#1f1f1f 100%);border:1px solid rgba(212,175,55,0.25);border-radius:16px;padding:18px 26px;text-align:center;margin-bottom:20px;">
+          <div id="uc-countdown" style="display:flex;justify-content:center;gap:14px;flex-wrap:wrap;">
+            <div class="uc-cd-box"><span id="uc-cd-days">00</span><small>Jours</small></div>
+            <div class="uc-cd-box"><span id="uc-cd-hours">00</span><small>Heures</small></div>
+            <div class="uc-cd-box"><span id="uc-cd-minutes">00</span><small>Minutes</small></div>
+            <div class="uc-cd-box"><span id="uc-cd-seconds">00</span><small>Secondes</small></div>
+          </div>
+        </div>
+
+        <!-- CARTE INSCRIPTIONS -->
+        <button onclick="showView('inscriptions')" style="cursor:pointer;font:inherit;background:linear-gradient(145deg,#1a1a1a 0%,#101010 100%);border:1px solid rgba(212,175,55,0.3);border-radius:18px;padding:18px 36px;text-align:center;margin-bottom:24px;display:flex;align-items:center;gap:20px;box-shadow:0 10px 28px rgba(0,0,0,0.4);transition:transform .2s,box-shadow .2s;" onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 14px 36px rgba(201,168,76,0.25)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 10px 28px rgba(0,0,0,0.4)'">
+          <div style="width:54px;height:54px;border-radius:14px;background:linear-gradient(135deg,#c9a84c 0%,#e4c472 100%);display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 6px 16px rgba(201,168,76,0.35);">&#128203;</div>
+          <div style="text-align:left;">
+            <div id="dashboard-inscriptions-count" style="font-family:'Inter',sans-serif;font-size:34px;font-weight:800;color:#e4c472;line-height:1;">0</div>
+            <div style="font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.08em;margin-top:4px;">Inscriptions re&ccedil;ues</div>
+          </div>
+        </button>
+      </div>
+      <style>
+        .uc-cd-box{background:#0e0e0e;border:1px solid #2a2a2a;border-radius:10px;padding:12px 18px;min-width:74px;}
+        .uc-cd-box span{display:block;color:#d4af37;font-size:28px;font-weight:800;font-family:monospace;line-height:1;}
+        .uc-cd-box small{display:block;color:#888;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;margin-top:6px;}
+      </style>
+      <script>
+        (function(){
+          var target = new Date('2026-07-05T09:00:00+01:00').getTime();
+          function tick(){
+            var diff = target - Date.now();
+            if (diff < 0) diff = 0;
+            var d = Math.floor(diff/(1000*60*60*24));
+            var h = Math.floor((diff/(1000*60*60))%24);
+            var m = Math.floor((diff/(1000*60))%60);
+            var s = Math.floor((diff/1000)%60);
+            var pad = function(n){ return String(n).padStart(2,'0'); };
+            var elD=document.getElementById('uc-cd-days');
+            if(elD){
+              elD.textContent = pad(d);
+              document.getElementById('uc-cd-hours').textContent = pad(h);
+              document.getElementById('uc-cd-minutes').textContent = pad(m);
+              document.getElementById('uc-cd-seconds').textContent = pad(s);
+            }
+          }
+          tick();
+          setInterval(tick, 1000);
+        })();
+      </script>
+
+      <!-- Mes Tâches zone (injectée par taches.js) -->
+      <div id="dash-taches-zone" style="padding:24px 24px 32px;"></div>
+
+      <div id="dashboard-overview" style="height:24px;"></div>
+    </div>
+
+    <!-- FACTURES LIST -->
+    <div class="view" id="view-list">
+      <div class="page-header">
+        <h2 class="page-title"><span>Factures</span></h2>
+        <button class="btn btn-gold" onclick="showView('new')">+ Nouvelle facture</button>
+      </div>
+      <div id="invoice-list"></div>
+    </div>
+
+        <!-- NOUVELLE FACTURE -->
+    <div class="view" id="view-new">
+      <div class="page-header">
+        <h2 class="page-title" id="form-page-title">Nouvelle <span>Facture</span></h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" onclick="cancelForm()">Annuler</button>
+          <button class="btn btn-gold" onclick="saveInvoice()">Enregistrer</button>
+        </div>
+      </div>
+      <div class="form-card">
+        <input type="hidden" id="edit-id">
+        <div class="section-title">Informations facture</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Type de facture</label>
+            <select id="f-type" onchange="handleInvoiceTypeChange()">
+              <option value="tva">Facture TVA</option>
+              <option value="sans_tva">Facture sans TVA</option>
+            </select>
+          </div>
+          <div class="form-group" id="invoice-number-group">
+            <label>Num&eacute;ro de facture</label>
+            <div class="invoice-number-fields">
+              <div>
+                <span>Ann&eacute;e</span>
+                <input type="number" id="f-num-year" min="2000" max="2099" step="1" placeholder="2026" oninput="handleInvoiceYearChange()">
+              </div>
+              <div>
+                <span>N&deg;</span>
+                <input type="text" id="f-num-seq" inputmode="numeric" maxlength="3" placeholder="006" oninput="syncInvoiceNumberPreview()">
+              </div>
+            </div>
+            <input type="hidden" id="f-num">
+            <div class="field-hint">Num&eacute;ro final : <span id="f-num-preview">---</span></div>
+          </div>
+          <div class="form-group"><label>Date</label><input type="date" id="f-date" onchange="handleInvoiceDateChange()"></div>
+          <div class="form-group">
+            <label>Statut paiement</label>
+            <select id="f-status" onchange="updateInvoicePaymentModeVisibility()">
+              <option value="pending">Non pay&eacute;e</option>
+              <option value="paid">Pay&eacute;e</option>
+            </select>
+          </div>
+          <div class="form-group" id="invoice-payment-mode-group">
+            <label>Mode de paiement</label>
+            <select id="f-payment-mode">
+              <option value="virement">Virement bancaire</option>
+              <option value="especes">Esp&egrave;ces</option>
+              <option value="cheque">Ch&egrave;que</option>
+            </select>
+          </div>
+        </div>
+        <div class="section-title">Client</div>
+        <div class="form-grid">
+          <div class="form-group"><label>S&eacute;lectionner client existant</label><select id="f-client-select" onchange="fillClientFromSelect()"><option value="">&mdash; Nouveau client &mdash;</option></select></div>
+          <div class="form-group"><label>Nom / Soci&eacute;t&eacute;</label><input type="text" id="f-client-name" placeholder="Nom ou soci&eacute;t&eacute;"></div>
+          <div class="form-group full"><label>Adresse</label><input type="text" id="f-client-addr" placeholder="Adresse compl&egrave;te"></div>
+          <div class="form-group"><label>Matricule fiscal</label><input type="text" id="f-client-mf" placeholder="ex: 1358425MPM000"></div>
+        </div>
+        <div class="section-title">Prestations</div>
+        <table class="lines-table">
+          <thead><tr><th style="width:50%">Description</th><th style="width:10%">Qt&eacute;</th><th style="width:15%">Unit&eacute;</th><th style="width:15%">Prix unitaire (TND)</th><th style="width:10%">Total HT</th><th style="width:5%"></th></tr></thead>
+          <tbody id="lines-body"></tbody>
+        </table>
+        <button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="addLine()">+ Ajouter une ligne</button>
+        <div class="totals-box">
+          <div class="totals-inner">
+            <div class="total-row"><span>Total HT</span><span class="val" id="t-ht">0.000 TND</span></div>
+            <div class="total-row" id="tva-row"><span>TVA <input type="number" id="f-tva" value="7" min="0" max="100" step="1" onchange="calcTotals()" style="width:45px;padding:2px 4px;display:inline;font-size:12px;">%</span><span class="val" id="t-tva">0.000 TND</span></div>
+            <div class="total-row" id="timbre-row"><span>Timbre fiscal (TND) <input type="number" id="f-timbre-amount" value="1.000" min="0" step="0.001" onchange="calcTotals()" style="width:65px;padding:2px 4px;display:inline;font-size:12px;border:1px solid #444;border-radius:2px;background:#2d2d2d;color:#fff;"></span><span class="val" id="t-timbre">1.000 TND</span></div>
+            <div class="total-row big"><span id="total-label">Total TTC</span><span class="val" id="t-ttc">0.000 TND</span></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:20px;margin-top:16px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="f-addStamp" checked> Ajouter le cachet</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEVIS LIST -->
+    <div class="view" id="view-devis">
+      <div class="page-header">
+        <h2 class="page-title"><span>Devis</span></h2>
+        <button class="btn btn-gold" onclick="showView('devis-form')">+ Nouveau devis</button>
+      </div>
+      <div id="devis-container"></div>
+    </div>
+
+    <!-- DEVIS FORM -->
+    <div class="view" id="view-devis-form">
+      <div class="page-header">
+        <h2 class="page-title" id="devis-form-title">Nouveau <span>Devis</span></h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" onclick="cancelDevisForm()">Annuler</button>
+          <button class="btn btn-gold" onclick="saveDevis()">Enregistrer</button>
+        </div>
+      </div>
+      <div class="form-card">
+        <input type="hidden" id="dev-edit-id">
+        <div class="section-title">Émetteur (société)</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Société émettrice</label>
+            <select id="dev-societe" onchange="onDevisSocieteChange()">
+              <option value="mythos">Uthina Chess</option>
+              <option value="kacem">Kacem aluminium</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Logo (en-tête du devis)</label>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <img id="dev-logo-preview" src="assets/logos/logo-uthina-chess.png" style="height:48px;max-width:130px;object-fit:contain;background:#fff;border:1px solid #444;border-radius:4px;padding:4px;">
+              <input type="file" id="dev-logo-custom" accept="image/*" onchange="onDevisLogoFileChange(event)" style="font-size:11px;color:#ccc;max-width:200px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="resetDevisLogo()">Logo par défaut</button>
+            </div>
+            <input type="hidden" id="dev-logo-override">
+          </div>
+        </div>
+        <div class="section-title">Informations devis</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Numéro de devis</label>
+            <div class="invoice-number-fields">
+              <div>
+                <span>Année</span>
+                <input type="number" id="dev-num-year" min="2000" max="2099" step="1" placeholder="2026" oninput="syncDevisNumberPreview()">
+              </div>
+              <div>
+                <span>N°</span>
+                <input type="text" id="dev-num-seq" inputmode="numeric" maxlength="3" placeholder="001" oninput="syncDevisNumberPreview()">
+              </div>
+            </div>
+            <input type="hidden" id="dev-num">
+            <div class="field-hint">Numéro final : <span id="dev-num-preview">---</span></div>
+          </div>
+          <div class="form-group"><label>Date</label><input type="date" id="dev-date" onchange="syncDevisNumberPreview()"></div>
+        </div>
+        <div class="section-title">Client</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Sélectionner client existant</label><select id="dev-client-select" onchange="syncDevisClientFromSelect()"><option value="">— Nouveau client —</option></select></div>
+          <div class="form-group"><label>Nom / Société</label><input type="text" id="dev-client-name" placeholder="Nom ou société"></div>
+          <div class="form-group full"><label>Adresse</label><input type="text" id="dev-client-addr" placeholder="Adresse complète"></div>
+          <div class="form-group"><label>Matricule fiscal</label><input type="text" id="dev-client-mf" placeholder="ex: 1358425MPM000"></div>
+        </div>
+        <div class="section-title">Prestations</div>
+        <table class="lines-table">
+          <thead><tr><th style="width:50%">Description</th><th style="width:10%">Qté</th><th style="width:15%">Unité</th><th style="width:15%">Prix unitaire (TND)</th><th style="width:10%">Total HT</th><th style="width:5%"></th></tr></thead>
+          <tbody id="dev-lines-body"></tbody>
+        </table>
+        <button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="addDevisLine()">+ Ajouter une ligne</button>
+        <div class="totals-box">
+          <div class="totals-inner">
+            <div class="total-row"><span>Total HT</span><span class="val" id="dev-t-ht">0.000 TND</span></div>
+            <div class="total-row" id="dev-tva-row"><span>TVA <input type="number" id="dev-tva-percent" value="7" min="0" max="100" step="0.1" onchange="calcDevisTotals()" style="width:45px;padding:2px 4px;display:inline;font-size:12px;">%</span><span class="val" id="dev-t-tva">0.000 TND</span></div>
+            <div class="total-row" id="dev-timbre-row"><span>Timbre fiscal (TND) <input type="number" id="dev-timbre-amount" value="1.000" min="0" step="0.001" onchange="calcDevisTotals()" style="width:65px;padding:2px 4px;display:inline;font-size:12px;border:1px solid #444;border-radius:2px;background:#2d2d2d;color:#fff;"></span><span class="val" id="dev-t-timbre">1.000 TND</span></div>
+            <div class="total-row big"><span id="dev-total-label">Total TTC</span><span class="val" id="dev-t-ttc">0.000 TND</span></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:20px;margin-top:16px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="dev-addStamp"> Ajouter le cachet</label>
+        </div>
+        <input type="hidden" id="dev-total-ht" value="0">
+        <input type="hidden" id="dev-total-ttc" value="0">
+        <input type="hidden" id="dev-tva" value="0">
+      </div>
+    </div>
+
+    <!-- CONTRATS LIST -->
+    <div class="view" id="view-contracts">
+      <div class="page-header">
+        <h2 class="page-title"><span>Contrats</span></h2>
+        <button class="btn btn-gold" onclick="showView('contract-form')">+ Nouveau contrat</button>
+      </div>
+      <div id="contracts-list"></div>
+    </div>
+
+    <!-- CONTRAT FORM -->
+    <div class="view" id="view-contract-form">
+      <div class="page-header">
+        <h2 class="page-title" id="contract-form-title">Nouveau <span>Contrat</span></h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" onclick="cancelContractForm()">Annuler</button>
+          <button class="btn btn-gold" onclick="saveContract()">Enregistrer</button>
+        </div>
+      </div>
+      <div class="form-card">
+        <input type="hidden" id="contract-edit-id">
+        <div class="section-title">Client & Contrat</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Date contrat</label><input type="date" id="contract-date"></div>
+          <div class="form-group"><label>Reference contrat</label><input type="text" id="contract-ref" placeholder="Ex: CONT-2026-001"></div>
+          <div class="form-group"><label>Selectionner client</label><select id="contract-client-select" onchange="fillContractClientFromSelect()"><option value="">&mdash; Nouveau client &mdash;</option></select></div>
+          <div class="form-group"><label>Client / Societe</label><input type="text" id="contract-client-name" placeholder="Nom ou societe"></div>
+          <div class="form-group full"><label>Ce qui est prevu dans le contrat</label><textarea id="contract-details" rows="4" style="resize:vertical;" placeholder="Details, obligations, prestation, dates, conditions..."></textarea></div>
+        </div>
+        <div class="section-title">Montants & Retenue</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Montant convenu (TND)</label><input type="number" id="contract-amount" min="0" step="0.001" value="0" oninput="calcContractTotals()"></div>
+          <div class="form-group"><label>Retenue a la source (%)</label><input type="number" id="contract-retention-rate" min="0" max="100" step="0.1" value="0" oninput="calcContractTotals()"></div>
+          <div class="form-group">
+            <label>Option</label>
+            <label class="contract-option-card">
+              <input class="contract-option-input" type="checkbox" id="contract-vat-advance-enabled" onchange="toggleContractVatAdvance()">
+              <span class="contract-switch" aria-hidden="true"></span>
+              <span class="contract-option-copy">
+                <span class="contract-option-title">Avance sur TVA</span>
+                <span class="contract-option-note">Ajouter une avance saisie manuellement</span>
+              </span>
+            </label>
+          </div>
+          <div class="form-group" id="contract-vat-advance-group"><label>Montant avance TVA (TND)</label><input type="number" id="contract-vat-advance-amount" min="0" step="0.001" value="0" oninput="calcContractTotals()"></div>
+          <div class="form-group"><label>Montant retenue (TND)</label><input type="text" id="contract-retention-amount" value="0.000 TND" readonly></div>
+          <div class="form-group"><label>Somme d'impots (TND)</label><input type="text" id="contract-tax-total" value="0.000 TND" readonly></div>
+          <div class="form-group"><label>Net a recevoir (TND)</label><input type="text" id="contract-net-amount" value="0.000 TND" readonly></div>
+          <div class="form-group"><label>Statut de paiement</label><select id="contract-status"><option value="pending">Non paye</option><option value="paid">Paye</option></select></div>
+          <div class="form-group"><label>Mode de paiement</label><input type="text" id="contract-payment-mode" value="Virement bancaire" readonly></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ORDRES DE MISSION LIST -->
+    <div class="view" id="view-om-list">
+      <div class="page-header">
+        <h2 class="page-title">Ordres de <span>Mission</span></h2>
+        <button class="btn btn-gold" onclick="showView('om-new')">+ Nouvel ordre</button>
+      </div>
+      <div id="om-list"></div>
+    </div>
+
+    <!-- NOUVEL ORDRE DE MISSION -->
+        <div class="view" id="view-om-new">
+      <div class="page-header">
+        <h2 class="page-title" id="om-form-title">Nouvel <span>Ordre de Mission</span></h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" onclick="cancelOM()">Annuler</button>
+          <button class="btn btn-gold" onclick="saveOM()">Enregistrer</button>
+        </div>
+      </div>
+      <div class="form-card">
+        <input type="hidden" id="om-edit-id">
+        <div class="section-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+          <span>V&eacute;hicule & Chauffeur</span>
+          <span style="display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:#555;">
+            <img id="om-logo-preview" src="" style="height:32px;max-width:90px;object-fit:contain;">
+            <span id="om-societe-preview"></span>
+          </span>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>N&deg; immatriculation v&eacute;hicule</label>
+            <div style="display:flex;gap:6px;">
+              <select id="om-plaque" onchange="onOmVehiculeChange()" style="flex:1;"></select>
+              <button class="btn btn-outline btn-sm" type="button" onclick="addOmVehicule()" title="Ajouter un véhicule">+</button>
+            </div>
+          </div>
+          <div class="form-group"><label>Chauffeur</label><input type="text" id="om-chauffeur" placeholder="Nom complet" value="Othman Haddad"></div>
+          <div class="form-group"><label>Num&eacute;ro carte d'identit&eacute;</label><input type="text" id="om-cin" placeholder="ex: 07119027" value="07119027"></div>
+          <div class="form-group"><label>Num&eacute;ro de permis de conduire</label><input type="text" id="om-permis" placeholder="ex: 23/109141" value="23/109141"></div>
+        </div>
+        <div class="section-title">Mission</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Date de d&eacute;part</label>
+            <input type="date" id="om-date">
+            <div class="quick-field-actions">
+              <button class="btn btn-outline btn-sm" type="button" onclick="setOmDateQuick(0)">Aujourd'hui</button>
+              <button class="btn btn-outline btn-sm" type="button" onclick="setOmDateQuick(1)">Demain</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Heure de d&eacute;part</label>
+            <input type="time" id="om-heure">
+            <div class="quick-field-actions">
+              <button class="btn btn-outline btn-sm" type="button" onclick="setOmTimeQuick('09:00')">09:00</button>
+              <button class="btn btn-outline btn-sm" type="button" onclick="setOmTimeQuick('13:30')">13:30</button>
+              <button class="btn btn-outline btn-sm" type="button" onclick="setOmTimeQuick('18:00')">18:00</button>
+              <button class="btn btn-outline btn-sm" type="button" onclick="setOmTimeQuick('now')">Maintenant</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Date d'arriv&eacute;e (optionnel)</label>
+            <input type="date" id="om-date-arrivee">
+          </div>
+          <div class="form-group">
+            <label>Heure d'arriv&eacute;e (optionnel)</label>
+            <input type="time" id="om-heure-arrivee">
+          </div>
+          <div class="form-group"><label>Lieu de d&eacute;part</label><input type="text" id="om-depart" placeholder="Lieu de d&eacute;part"></div>
+          <div class="form-group"><label>Lieu d'arriv&eacute;e</label><input type="text" id="om-arrivee" placeholder="Lieu d'arriv&eacute;e"></div>
+          <div class="form-group full">
+            <label>Description de la mission</label>
+            <select id="om-mission-type" onchange="applyOmMissionType()">
+              <option value="aller_retour">Aller Retour</option>
+              <option value="aller_simple">Aller Simple</option>
+            </select>
+            <textarea id="om-mission" placeholder="D&eacute;crire la mission...">Assurer le transport aller-retour du groupe, apr&egrave;s leur visite professionnelle, avec bagages et d&eacute;cors.</textarea>
+          </div>
+        </div>
+        <div class="section-title">Passagers & Personnes</div>
+        <table class="lines-table">
+          <thead><tr><th style="width:6%;text-align:center;">#</th><th style="width:61%;text-align:center;">Nom et pr&eacute;nom</th><th style="width:28%;text-align:center;">Signature</th><th style="width:5%"></th></tr></thead>
+          <tbody id="om-persons-body"></tbody>
+        </table>
+        <button class="btn btn-outline btn-sm" style="margin-top:10px" onclick="addOmPerson()">+ Ajouter une personne</button>
+        <div style="display:flex;gap:20px;margin-top:20px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="om-addStamp" checked> Ajouter le cachet</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- RENDEZ-VOUS -->
+    <div class="view" id="view-rendez-vous">
+      <div class="page-header">
+        <h2 class="page-title">Rendez-vous</h2>
+        <button class="btn btn-gold" onclick="rdvOpenForm()">+ Nouveau</button>
+      </div>
+      <div id="rdv-list"></div>
+    </div>
+
+    <!-- STEP 1: DATE + TIME PICKER -->
+    <div id="rdv-modal-step1" class="modal-overlay" style="display:none;">
+      <div class="modal" style="width:600px;">
+        <div class="modal-header">
+          <h3>Nouveau Rendez-vous - Sélectionner Date</h3>
+          <button class="close-btn" onclick="rdvClose()">&times;</button>
+        </div>
+        <div class="form-grid">
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>📅 Date *</label>
+            <input type="date" id="rdv-date-picker" value="" onchange="rdvShowExistingRdvs()">
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>⏰ Heure (optionnel)</label>
+            <input type="time" id="rdv-time-picker" value="09:00">
+          </div>
+        </div>
+
+        <!-- Show existing RDVs for this date -->
+        <div id="rdv-existing" style="margin-top:20px;padding-top:20px;border-top:1px solid #555;"></div>
+
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+          <button class="btn btn-outline" onclick="rdvClose()">Annuler</button>
+          <button class="btn btn-gold" onclick="rdvGoToStep2()">Continuer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STEP 2: DETAILS FORM -->
+    <div id="rdv-modal-step2" class="modal-overlay" style="display:none;">
+      <div class="modal" style="width:700px;">
+        <div class="modal-header">
+          <h3>Rendez-vous - Détails</h3>
+          <button class="close-btn" onclick="rdvBackToStep1()">&times;</button>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>👤 Client</label>
+            <select id="rdv-client"><option>-- Sélectionner --</option></select>
+          </div>
+          <div class="form-group">
+            <label>🤝 Collaborateur</label>
+            <select id="rdv-collab"><option>-- Sélectionner --</option></select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>✦ Représentation</label>
+            <select id="rdv-rep" onchange="rdvCalcFee()"><option>-- Sélectionner --</option></select>
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>💰 Cachet (TND)</label>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
+              <!-- Type selector -->
+              <div style="grid-column:1/-1;">
+                <select id="rdv-fee-type-select" style="width:100%;padding:12px;border:1px solid #d4af37;border-radius:8px;background:#0a0a0a;color:#d4af37;font-weight:600;cursor:pointer;" onchange="rdvFeeTypeSelectChanged()">
+                  <option value="direct">💵 Ajouter direct</option>
+                  <option value="invoice">📄 Lier à Facture</option>
+                  <option value="devis">📋 Lier à Devis</option>
+                  <option value="contract">📑 Lier à Contrat</option>
+                </select>
+              </div>
+
+              <!-- Direct amount input -->
+              <div id="rdv-direct-section" style="grid-column:1/-1;">
+                <input type="number" id="rdv-fee-amount" placeholder="Montant (TND)" step="0.001" style="width:100%;padding:12px;border:1px solid #d4af37;border-radius:8px;background:#0a0a0a;color:#d4af37;font-weight:600;">
+              </div>
+
+              <!-- Invoice section -->
+              <div id="rdv-invoice-section" style="grid-column:1/-1;display:none;">
+                <select id="rdv-fee-invoice" style="width:100%;padding:12px;border:1px solid #64b4ff;border-radius:8px;background:#0a0a0a;color:#64b4ff;margin-bottom:12px;" onchange="rdvInvoiceChanged()">
+                  <option value="">-- Sélectionner une facture --</option>
+                </select>
+                <input type="number" id="rdv-fee-invoice-amount" placeholder="Montant (TND)" step="0.001" style="width:100%;padding:12px;border:1px solid #64b4ff;border-radius:8px;background:#0a0a0a;color:#64b4ff;font-weight:600;">
+              </div>
+
+              <!-- Devis section -->
+              <div id="rdv-devis-section" style="grid-column:1/-1;display:none;">
+                <select id="rdv-fee-devis" style="width:100%;padding:12px;border:1px solid #4cc964;border-radius:8px;background:#0a0a0a;color:#4cc964;margin-bottom:12px;" onchange="rdvDevisChanged()">
+                  <option value="">-- Sélectionner un devis --</option>
+                </select>
+                <input type="number" id="rdv-fee-devis-amount" placeholder="Montant (TND)" step="0.001" style="width:100%;padding:12px;border:1px solid #4cc964;border-radius:8px;background:#0a0a0a;color:#4cc964;font-weight:600;">
+              </div>
+
+              <!-- Contract section -->
+              <div id="rdv-contract-section" style="grid-column:1/-1;display:none;">
+                <select id="rdv-fee-contract" style="width:100%;padding:12px;border:1px solid #c864ff;border-radius:8px;background:#0a0a0a;color:#c864ff;margin-bottom:12px;" onchange="rdvContractChanged()">
+                  <option value="">-- Sélectionner un contrat --</option>
+                </select>
+                <input type="number" id="rdv-fee-contract-amount" placeholder="Montant (TND)" step="0.001" style="width:100%;padding:12px;border:1px solid #c864ff;border-radius:8px;background:#0a0a0a;color:#c864ff;font-weight:600;">
+              </div>
+            </div>
+
+            <input type="hidden" id="rdv-fee">
+          </div>
+          <div class="form-group">
+            <label>📋 Nature</label>
+            <select id="rdv-nature"><option>-- Sélectionner --</option></select>
+          </div>
+          <div class="form-group">
+            <label>📍 Lieu</label>
+            <input type="text" id="rdv-lieu">
+          </div>
+          <div class="form-group" style="grid-column:1/-1;">
+            <label>📝 Notes</label>
+            <textarea id="rdv-notes" rows="3"></textarea>
+          </div>
+          <div class="form-group">
+            <label>📊 Statut</label>
+            <select id="rdv-status">
+              <option value="planifié">📋 Planifié</option>
+              <option value="confirmé">✓ Confirmé</option>
+              <option value="fait">✅ Fait</option>
+              <option value="annulé">❌ Annulé</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+          <button class="btn btn-outline" onclick="rdvBackToStep1()">Retour</button>
+          <button class="btn btn-gold" onclick="rdvSave()">Enregistrer</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLIENTS -->
+    <div class="view" id="view-clients">
+      <div class="page-header">
+        <h2 class="page-title">Mes <span>Clients</span></h2>
+        <button class="btn btn-gold" onclick="openClientModal()">+ Ajouter client</button>
+      </div>
+      <div id="clients-list"></div>
+    </div>
+
+    <!-- CLIENT DETAIL -->
+    <div class="view" id="view-client-detail">
+      <div class="client-detail-back" onclick="showView('clients')">← Retour aux clients</div>
+      <div class="client-detail-hero">
+        <div class="client-detail-header">
+          <div class="client-detail-header-left">
+            <h1 id="client-detail-name">Client</h1>
+            <div class="client-detail-info" id="client-detail-info-container"></div>
+            <div id="client-detail-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-top:24px;padding-top:24px;border-top:1px solid rgba(201,168,76,.2);"></div>
+          </div>
+          <div class="client-detail-header-right">
+            <button class="btn btn-gold" onclick="openClientModal(currentClientDetailId)">Modifier</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom:40px;">
+        <h3 class="invoices-section-title">Factures du Client</h3>
+        <div class="client-invoices-grid" id="client-detail-invoices"></div>
+      </div>
+    </div>
+
+    <!-- COLLABORATEURS -->
+    <div class="view" id="view-collaborateurs">
+      <div class="page-header">
+        <h2 class="page-title"><span>Collaborateurs</span></h2>
+        <button class="btn btn-gold" onclick="openCollabModal()">+ Ajouter collaborateur</button>
+      </div>
+      <div id="collaborateurs-list"></div>
+    </div>
+
+    <!-- COLLABORATEUR DETAIL -->
+    <div class="view" id="view-collab-detail">
+      <div class="client-detail-back" onclick="showView('collaborateurs')">← Retour aux collaborateurs</div>
+      <div class="client-detail-hero">
+        <div class="client-detail-header">
+          <div class="client-detail-header-left">
+            <h1 id="collab-detail-name">Collaborateur</h1>
+            <div class="client-detail-info" id="collab-detail-info-container"></div>
+            <div id="collab-detail-stats" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-top:24px;padding-top:24px;border-top:1px solid rgba(201,168,76,.2);"></div>
+          </div>
+          <div class="client-detail-header-right">
+            <button class="btn btn-gold" onclick="openCollabModal(currentCollabDetailId)">Modifier</button>
+          </div>
+        </div>
+      </div>
+      <div style="margin-bottom:40px;">
+        <h3 class="invoices-section-title">Ordres de Mission</h3>
+        <div class="client-invoices-grid" id="collab-detail-oms"></div>
+      </div>
+    </div>
+
+    <!-- NATURES DE TRAVAIL -->
+    <div class="view" id="view-natures">
+      <div class="page-header">
+        <h2 class="page-title"><span>Natures de travail</span></h2>
+        <button class="btn btn-gold" onclick="openNatureModal()">+ Ajouter nature</button>
+      </div>
+      <div id="natures-list"></div>
+    </div>
+
+    <!-- FOURNISSEURS -->
+    <div class="view" id="view-fournisseurs">
+      <div class="page-header">
+        <h2 class="page-title"><span>Fournisseurs</span></h2>
+        <button class="btn btn-gold" onclick="openFournisseurModal()">+ Ajouter fournisseur</button>
+      </div>
+      <div id="fournisseurs-list">
+        <div style="padding:16px; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04)); border:1px solid rgba(201,168,76,0.15); border-radius:12px; margin-bottom:16px;">
+          <div style="color:var(--gold); font-weight:700; margin-bottom:12px; font-size:13px;">🔍 RECHERCHER & FILTRER</div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:12px;">
+            <input type="text" id="fournisseur-search" placeholder="Tapez pour chercher..." style="width:100%; padding:8px; background:#1a1a1a; color:#c9a84c; border:1px solid #333; border-radius:6px;">
+            <button class="btn btn-outline btn-sm" style="width:100%;">🔄 Réinitialiser</button>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px;">
+          <div style="padding:16px; border:1px solid rgba(201,168,76,0.2); border-radius:10px; background:#0a0a0a;">
+            <div style="color:#c9a84c; font-weight:700; margin-bottom:8px; font-size:14px;">🔌 STEG</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Contact:</strong> +216 71 962 000</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Adresse:</strong> Tunis</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:8px;"><strong>Catégorie:</strong> Électricité</div>
+            <div style="color:var(--muted); font-size:11px; font-style:italic;">Électricité</div>
+          </div>
+          <div style="padding:16px; border:1px solid rgba(201,168,76,0.2); border-radius:10px; background:#0a0a0a;">
+            <div style="color:#c9a84c; font-weight:700; margin-bottom:8px; font-size:14px;">💧 SONEDE</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Contact:</strong> +216 71 330 000</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Adresse:</strong> Tunis</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:8px;"><strong>Catégorie:</strong> Eau</div>
+            <div style="color:var(--muted); font-size:11px; font-style:italic;">Eau</div>
+          </div>
+          <div style="padding:16px; border:1px solid rgba(201,168,76,0.2); border-radius:10px; background:#0a0a0a;">
+            <div style="color:#c9a84c; font-weight:700; margin-bottom:8px; font-size:14px;">📱 Office Télécommande</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Contact:</strong> +216 20 999 999</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Adresse:</strong> Ben Arous</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:8px;"><strong>Catégorie:</strong> Télécommunications</div>
+            <div style="color:var(--muted); font-size:11px; font-style:italic;">Internet</div>
+          </div>
+          <div style="padding:16px; border:1px solid rgba(201,168,76,0.2); border-radius:10px; background:#0a0a0a;">
+            <div style="color:#c9a84c; font-weight:700; margin-bottom:8px; font-size:14px;">🖨️ Imprimerie Moderne</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Contact:</strong> +216 71 555 123</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Adresse:</strong> La Marsa</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:8px;"><strong>Catégorie:</strong> Imprimerie</div>
+            <div style="color:var(--muted); font-size:11px; font-style:italic;">Impression</div>
+          </div>
+          <div style="padding:16px; border:1px solid rgba(201,168,76,0.2); border-radius:10px; background:#0a0a0a;">
+            <div style="color:#c9a84c; font-weight:700; margin-bottom:8px; font-size:14px;">🚚 ProLogistique</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Contact:</strong> +216 25 333 444</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Adresse:</strong> Sfax</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:8px;"><strong>Catégorie:</strong> Transport</div>
+            <div style="color:var(--muted); font-size:11px; font-style:italic;">Logistique</div>
+          </div>
+          <div style="padding:16px; border:1px solid rgba(201,168,76,0.2); border-radius:10px; background:#0a0a0a;">
+            <div style="color:#c9a84c; font-weight:700; margin-bottom:8px; font-size:14px;">📋 Bureau Office</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Contact:</strong> +216 71 666 777</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Adresse:</strong> Tunis</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:8px;"><strong>Catégorie:</strong> Fournitures</div>
+            <div style="color:var(--muted); font-size:11px; font-style:italic;">Fournitures</div>
+          </div>
+          <div style="padding:16px; border:1px solid rgba(201,168,76,0.2); border-radius:10px; background:#0a0a0a;">
+            <div style="color:#c9a84c; font-weight:700; margin-bottom:8px; font-size:14px;">🧹 Nettoyage Étoile</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Contact:</strong> +216 22 111 222</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Adresse:</strong> Ariana</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:8px;"><strong>Catégorie:</strong> Nettoyage</div>
+            <div style="color:var(--muted); font-size:11px; font-style:italic;">Maintenance</div>
+          </div>
+          <div style="padding:16px; border:1px solid rgba(201,168,76,0.2); border-radius:10px; background:#0a0a0a;">
+            <div style="color:#c9a84c; font-weight:700; margin-bottom:8px; font-size:14px;">💼 Cabinet Comptable</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Contact:</strong> +216 71 888 999</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Adresse:</strong> Tunis</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:8px;"><strong>Catégorie:</strong> Conseil</div>
+            <div style="color:var(--muted); font-size:11px; font-style:italic;">Comptabilité</div>
+          </div>
+          <div style="padding:16px; border:1px solid rgba(201,168,76,0.2); border-radius:10px; background:#0a0a0a;">
+            <div style="color:#c9a84c; font-weight:700; margin-bottom:8px; font-size:14px;">🛡️ Assurances</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Contact:</strong> +216 71 444 555</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Adresse:</strong> Tunis</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:8px;"><strong>Catégorie:</strong> Assurance</div>
+            <div style="color:var(--muted); font-size:11px; font-style:italic;">Couverture</div>
+          </div>
+          <div style="padding:16px; border:1px solid rgba(201,168,76,0.2); border-radius:10px; background:#0a0a0a;">
+            <div style="color:#c9a84c; font-weight:700; margin-bottom:8px; font-size:14px;">🎉 Agence Événementielle</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Contact:</strong> +216 25 888 666</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:4px;"><strong>Adresse:</strong> Sousse</div>
+            <div style="color:var(--muted); font-size:12px; margin-bottom:8px;"><strong>Catégorie:</strong> Événements</div>
+            <div style="color:var(--muted); font-size:11px; font-style:italic;">Events</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CALENDRIER -->
+    <!-- MES TÂCHES -->
+    <div class="view" id="view-tache">
+      <div class="page-header">
+        <h2 class="page-title">&#128203; <span>Mes T&acirc;ches</span></h2>
+        <div style="display:flex; gap:10px;">
+          <button class="btn btn-outline" onclick="tachesManualSync()" id="btn-tache-sync">&#128260; Actualiser</button>
+          <button class="btn btn-gold" onclick="tachesOpenModal()">+ Nouvelle t&acirc;che</button>
+        </div>
+      </div>
+      <div id="tache-page-content"></div>
+    </div>
+
+    <!-- LISTE D'INSCRIPTION (Google Sheet en direct) -->
+    <div class="view" id="view-inscriptions">
+      <div class="page-header">
+        <h2 class="page-title">Liste d'<span>inscription</span>
+          <span id="inscriptions-count" style="display:inline-flex;align-items:center;justify-content:center;min-width:54px;height:46px;padding:0 16px;margin-left:14px;border-radius:999px;background:#0e0e0e;border:2px solid #d4af37;color:#e4c472 !important;-webkit-text-fill-color:#e4c472 !important;-webkit-background-clip:border-box !important;background-clip:border-box !important;font-family:'Inter',sans-serif;font-size:24px;font-weight:800;vertical-align:middle;box-shadow:0 6px 18px rgba(0,0,0,0.5), inset 0 0 12px rgba(201,168,76,0.15);">0</span>
+        </h2>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-gold" onclick="loadInscriptions()">&#8635; Actualiser</button>
+          <button class="btn btn-outline" onclick="validerToutesInscriptions()">&#10003; Valider tout</button>
+        </div>
+      </div>
+      <div class="ops-card" style="padding:0;overflow:hidden;border-radius:18px;box-shadow:0 16px 40px rgba(0,0,0,0.35);">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:linear-gradient(135deg,#1f1a0d 0%,#1a1a1a 100%);">
+              <th style="text-align:left;padding:18px 22px;color:#e4c472;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;border-bottom:2px solid rgba(201,168,76,0.25);">&#128274; N&deg;</th>
+              <th style="text-align:left;padding:18px 22px;color:#e4c472;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;border-bottom:2px solid rgba(201,168,76,0.25);">&#128197; Date</th>
+              <th style="text-align:left;padding:18px 22px;color:#e4c472;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;border-bottom:2px solid rgba(201,168,76,0.25);">&#128337; Heure</th>
+              <th style="text-align:left;padding:18px 22px;color:#e4c472;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;border-bottom:2px solid rgba(201,168,76,0.25);">&#128100; Nom</th>
+              <th style="text-align:left;padding:18px 22px;color:#e4c472;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;border-bottom:2px solid rgba(201,168,76,0.25);">&#128222; T&eacute;l&eacute;phone</th>
+              <th style="text-align:center;padding:18px 22px;color:#e4c472;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;border-bottom:2px solid rgba(201,168,76,0.25);">&#9989; Action</th>
+            </tr>
+          </thead>
+          <tbody id="inscriptions-tbody">
+            <tr><td colspan="6" style="padding:48px;text-align:center;color:#666;font-size:15px;">Chargement&hellip;</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MEMBRE À L'APPEL -->
+    <div class="view" id="view-appel">
+      <div class="page-header">
+        <h2 class="page-title">Membre &agrave; <span>l'appel</span> <span id="appel-count" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:34px;padding:0 10px;margin-left:10px;border-radius:999px;background:#0e0e0e;border:2px solid #d4af37;color:#e4c472 !important;-webkit-text-fill-color:#e4c472 !important;-webkit-background-clip:border-box !important;background-clip:border-box !important;font-family:'Inter',sans-serif;font-size:17px;font-weight:800;vertical-align:middle;">0</span></h2>
+        <button class="btn btn-gold" onclick="loadInscriptions()">&#8635; Actualiser</button>
+      </div>
+      <div class="ops-card" style="padding:0;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#1a1a1a;">
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Nom &amp; Pr&eacute;nom</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">T&eacute;l&eacute;phone</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Motif de l'appel</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Date</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Statut</th>
+            </tr>
+          </thead>
+          <tbody id="appel-tbody">
+            <tr><td colspan="5" style="padding:32px;text-align:center;color:#666;font-size:13px;">&#128222; Aucun appel pour le moment.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LISTE CONFORME — auto : Candidats sérieux issus de Membre à l'appel -->
+    <div class="view" id="view-conformite">
+      <div class="page-header">
+        <h2 class="page-title">Liste <span>conforme</span> <span id="conformite-count" style="display:inline-flex;align-items:center;justify-content:center;min-width:40px;height:34px;padding:0 10px;margin-left:10px;border-radius:999px;background:#0e0e0e;border:2px solid #d4af37;color:#e4c472 !important;-webkit-text-fill-color:#e4c472 !important;-webkit-background-clip:border-box !important;background-clip:border-box !important;font-family:'Inter',sans-serif;font-size:17px;font-weight:800;vertical-align:middle;">0</span></h2>
+        <button class="btn btn-gold" onclick="renderListeConforme()">&#8635; Actualiser</button>
+      </div>
+      <p style="color:#666;font-size:12px;margin:-6px 0 14px;">Rempli automatiquement avec les contacts marqu&eacute;s &#9989; Candidat s&eacute;rieux dans Membre &agrave; l'appel.</p>
+      <div class="ops-card" style="padding:0;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#1a1a1a;">
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Nom &amp; Pr&eacute;nom</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">T&eacute;l&eacute;phone</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Ville</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Niveau</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Domaine</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Statut</th>
+            </tr>
+          </thead>
+          <tbody id="conformite-tbody">
+            <tr><td colspan="6" style="padding:32px;text-align:center;color:#666;font-size:13px;">&#9989; Aucun candidat s&eacute;rieux pour le moment.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LISTE DE PARTICIPATION (à développer) -->
+    <div class="view" id="view-participations">
+      <div class="page-header">
+        <h2 class="page-title">Liste de <span>participation</span></h2>
+        <button class="btn btn-gold" onclick="alert('Module en cours de développement.')">+ Ajouter une participation</button>
+      </div>
+      <div class="ops-card" style="padding:0;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#1a1a1a;">
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Joueur</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Tournoi / &Eacute;v&eacute;nement</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Date</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Classement</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">R&eacute;sultat</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="5" style="padding:32px;text-align:center;color:#666;font-size:13px;">&#9818; Aucune participation pour le moment &mdash; module en cours de d&eacute;veloppement.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- REÇU DE PAIEMENT (à développer) -->
+    <div class="view" id="view-paiements">
+      <div class="page-header">
+        <h2 class="page-title">Re&ccedil;u de <span>paiement</span></h2>
+        <button class="btn btn-gold" onclick="alert('Module en cours de développement.')">+ Nouveau re&ccedil;u</button>
+      </div>
+      <div class="ops-card" style="padding:0;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#1a1a1a;">
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">N&deg; re&ccedil;u</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Membre</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Motif</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Montant</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="5" style="padding:32px;text-align:center;color:#666;font-size:13px;">&#128176; Aucun re&ccedil;u pour le moment &mdash; module en cours de d&eacute;veloppement.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LISTE DES JOUEURS (à développer) -->
+    <div class="view" id="view-joueurs">
+      <div class="page-header">
+        <h2 class="page-title">Liste des <span>joueurs</span></h2>
+        <button class="btn btn-gold" onclick="alert('Module en cours de développement.')">+ Ajouter un joueur</button>
+      </div>
+      <div class="ops-card" style="padding:0;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#1a1a1a;">
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Nom &amp; Pr&eacute;nom</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Cat&eacute;gorie</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Classement Elo</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Club / Origine</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="5" style="padding:32px;text-align:center;color:#666;font-size:13px;">&#9818; Aucun joueur pour le moment &mdash; module en cours de d&eacute;veloppement.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- LES CERTIFICATIONS (à développer) -->
+    <div class="view" id="view-certifications">
+      <div class="page-header">
+        <h2 class="page-title">Les <span>certifications</span></h2>
+        <button class="btn btn-gold" onclick="alert('Module en cours de développement.')">+ Ajouter une certification</button>
+      </div>
+      <div class="ops-card" style="padding:0;overflow:hidden;">
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="background:#1a1a1a;">
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Joueur</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Niveau / Titre</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Organisme</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Date d'obtention</th>
+              <th style="text-align:left;padding:12px 16px;color:#d4af37;font-size:12px;text-transform:uppercase;letter-spacing:0.05em;">Document</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="5" style="padding:32px;text-align:center;color:#666;font-size:13px;">&#127942; Aucune certification pour le moment &mdash; module en cours de d&eacute;veloppement.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="view" id="view-calendrier">
+      <div class="page-header">
+        <h2 class="page-title">&#128197; <span>Calendrier</span></h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" onclick="showView('rendez-vous')">&#128203; Rendez-vous</button>
+          <button class="btn btn-gold" onclick="openRdvModal()">+ Nouveau rendez-vous</button>
+        </div>
+      </div>
+      <div class="cal-toolbar">
+        <div class="btn-group">
+          <button id="filter-all" onclick="setCalFilter('all',this)">Tous</button>
+          <button class="active" id="filter-upcoming" onclick="setCalFilter('upcoming',this)">&Agrave; venir</button>
+          <button id="filter-today" onclick="setCalFilter('today',this)">Aujourd'hui</button>
+          <button id="filter-week" onclick="setCalFilter('week',this)">Semaine</button>
+          <button id="filter-month" onclick="setCalFilter('month',this)">Mois</button>
+          <button id="filter-past" onclick="setCalFilter('past',this)">Pass&eacute;s</button>
+          <button id="filter-paid" onclick="setCalFilter('paid',this)">Pay&eacute;s</button>
+          <button id="filter-unpaid" onclick="setCalFilter('unpaid',this)">Non pay&eacute;s</button>
+        </div>
+        <input class="cal-search" type="text" placeholder="Rechercher..." id="cal-search" oninput="renderCalendrier()">
+        <select class="cal-filter" id="cal-type-filter" onchange="renderCalendrier()">
+          <option value="">Toutes natures</option>
+        </select>
+        <select class="cal-filter" id="cal-collab-filter" onchange="renderCalendrier()">
+          <option value="">Tous collaborateurs</option>
+        </select>
+        <select class="cal-filter" id="cal-status-filter" onchange="renderCalendrier()">
+          <option value="">Tous statuts agenda</option>
+          <option value="planned">Planifie</option>
+          <option value="done">Fait</option>
+          <option value="cancelled">Annule</option>
+        </select>
+      </div>
+      <div id="cal-rdv-list"></div>
+    </div>
+
+    <!-- COMPTABILITE -->
+    <div class="view" id="view-comptabilite">
+      <div class="page-header">
+        <h2 class="page-title"><span>Comptabilit&eacute;</span></h2>
+        <button class="btn btn-outline" onclick="renderComptaViews()">Actualiser</button>
+      </div>
+
+      <!-- Navigation des sections -->
+      <div class="compta-sections-grid">
+        <div class="compta-section-card" onclick="showView('compta-suppliers')">
+          <div class="section-icon">&#128274;</div>
+          <div class="section-title">Fournisseurs</div>
+          <div class="section-desc">Liste des fournisseurs</div>
+        </div>
+
+        <div class="compta-section-card" onclick="showView('compta-purchases')">
+          <div class="section-icon">📄</div>
+          <div class="section-title">Factures achats</div>
+          <div class="section-desc">Achat de matieres et services</div>
+        </div>
+
+        <div class="compta-section-card" onclick="showView('compta-expenses')">
+          <div class="section-icon">💰</div>
+          <div class="section-title">D&eacute;penses</div>
+          <div class="section-desc">D&eacute;penses par p&eacute;riode</div>
+        </div>
+
+        <div class="compta-section-card" onclick="showView('compta-bank')">
+          <div class="section-icon">🏦</div>
+          <div class="section-title">Extrait BIAT</div>
+          <div class="section-desc">Relev&eacute; bancaire</div>
+        </div>
+
+        <div class="compta-section-card" onclick="showView('compta-cash')">
+          <div class="section-icon">🪙</div>
+          <div class="section-title">Caisse</div>
+          <div class="section-desc">Retraits en espèces</div>
+        </div>
+
+        <div class="compta-section-card" onclick="showView('compta-categories')">
+          <div class="section-icon">🏷️</div>
+          <div class="section-title">Catégories</div>
+          <div class="section-desc">Gestion des catégories de dépenses</div>
+        </div>
+      </div>
+
+      <!-- Synthèse -->
+      <div class="compta-toolbar">
+        <div class="compta-badge">Synth&egrave;se automatique : Factures + Calendrier</div>
+      </div>
+      <div id="compta-dashboard"></div>
+    </div>
+
+    <div class="view" id="view-compta-suppliers">
+      <div class="page-header">
+        <h2 class="page-title">Liste des <span>Fournisseurs</span></h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="showView('comptabilite')">Retour Comptabilit&eacute;</button>
+          <button class="btn btn-gold" onclick="openFournisseurModal()">+ Ajouter fournisseur</button>
+        </div>
+      </div>
+      <div id="compta-suppliers-page"></div>
+    </div>
+
+    <div class="view" id="view-compta-purchases">
+      <div class="page-header">
+        <h2 class="page-title">Factures <span>achats</span></h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="showView('comptabilite')">Retour Comptabilit&eacute;</button>
+          <button class="btn btn-gold" onclick="openPurchaseModal()">+ Ajouter facture achat</button>
+        </div>
+      </div>
+      <div id="compta-purchases-page"></div>
+    </div>
+
+    <div class="view" id="view-compta-expenses">
+      <div class="page-header">
+        <h2 class="page-title">D&eacute;penses <span>par p&eacute;riode</span></h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="showView('comptabilite')">Retour Comptabilit&eacute;</button>
+          <button class="btn btn-gold" onclick="openExpenseModal()">+ Ajouter d&eacute;pense</button>
+        </div>
+      </div>
+      <div class="compta-toolbar">
+        <div class="compta-badge">Filtre p&eacute;riode</div>
+        <select class="cal-filter" onchange="setComptaExpenseFilter(this.value)">
+          <option value="all">Toutes</option>
+          <option value="day">Jour</option>
+          <option value="week">Semaine</option>
+          <option value="month" selected>Mois</option>
+          <option value="year">Ann&eacute;e</option>
+          <option value="previous">Ann&eacute;es pr&eacute;c&eacute;dentes</option>
+        </select>
+      </div>
+      <div id="compta-expenses-page"></div>
+    </div>
+
+    <div class="view" id="view-compta-bank">
+      <div class="page-header">
+        <h2 class="page-title">Extrait bancaire <span>BIAT</span></h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="showView('comptabilite')">Retour Comptabilit&eacute;</button>
+          <button class="btn btn-gold" onclick="document.getElementById('bank-import-file').click()">Importer CSV</button>
+          <input class="backup-file" id="bank-import-file" type="file" accept=".csv,.xlsx" onchange="importBankFile(event)" style="display:none;">
+        </div>
+      </div>
+      <div id="compta-bank-page"></div>
+    </div>
+
+    <div class="view" id="view-compta-cash">
+      <div class="page-header">
+        <h2 class="page-title">Gestion <span>Caisse</span></h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="showView('comptabilite')">Retour Comptabilité</button>
+          <button class="btn btn-gold" onclick="openCashModal()">+ Ajouter à caisse</button>
+        </div>
+      </div>
+      <div class="compta-toolbar">
+        <div class="compta-badge">Retraits en espèces du compte BIAT</div>
+      </div>
+      <div id="compta-cash-page"></div>
+    </div>
+
+    <div class="view" id="view-compta-categories">
+      <div class="page-header">
+        <h2 class="page-title">Catégories de <span>dépenses</span></h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="showView('comptabilite')">Retour Comptabilité</button>
+        </div>
+      </div>
+      <div id="compta-categories-page"></div>
+    </div>
+
+    <!-- RECONCILIATION -->
+    <div class="view" id="view-compta-reconciliation">
+      <div class="page-header">
+        <h2 class="page-title">Tappabq <span>shamilah</span> (Réconciliation)</h2>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn btn-outline" onclick="showView('comptabilite')">Retour Comptabilité</button>
+          <button class="btn btn-outline" onclick="renderReconciliationPage()">Actualiser</button>
+        </div>
+      </div>
+      <div id="compta-reconciliation-page"></div>
+    </div>
+
+    <!-- STATISTIQUE -->
+    <div class="view" id="view-statistique">
+      <div class="page-header">
+        <h2 class="page-title">Statistique <span>globale</span></h2>
+        <button class="btn btn-outline" onclick="renderStatistique()">Actualiser</button>
+      </div>
+      <div id="statistique-dashboard"></div>
+    </div>
+
+    <!-- REPRESENTATIONS -->
+    <div class="view" id="view-representations">
+      <div class="page-header">
+        <h2 class="page-title">Mes <span>Repr&eacute;sentations</span></h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline" onclick="showView('calculateur-spectacle')" title="Calculateur spectacle">&Sigma; Calculateur</button>
+          <button class="btn btn-gold" onclick="openRepresentationModal()">+ Nouvelle repr&eacute;sentation</button>
+        </div>
+      </div>
+      <div id="representations-dashboard"></div>
+    </div>
+
+
+    <!-- CALCULATEUR SPECTACLE -->
+    <div class="view" id="view-calculateur-spectacle">
+      <div class="page-header">
+        <h2 class="page-title">Calculateur <span>spectacle</span></h2>
+      </div>
+      <div class="spectacle-calculator-shell">
+        <div class="spectacle-calculator-card">
+          <div class="spectacle-calculator-head">
+            <div>
+              <h3>Subvention d'un spectacle soutenu</h3>
+              <p>Accedez a votre Bureau Virtuel</p>
+            </div>
+            <div class="spectacle-calculator-badge">Dark / Gold premium</div>
+          </div>
+          <div class="spectacle-calculator-grid">
+            <div class="form-group">
+              <label for="spectacle-actors">👥 Nombre d'acteurs</label>
+              <select id="spectacle-actors"></select>
+            </div>
+            <div class="form-group">
+              <label for="spectacle-distance">📍 Distance aller-retour</label>
+              <select id="spectacle-distance"></select>
+            </div>
+          </div>
+          <div class="spectacle-result-card">
+            <div class="spectacle-result-label">💰 Montant de la subvention</div>
+            <div class="spectacle-result-amount"><span id="spectacle-amount">1 500</span><small>TND</small></div>
+            <div class="spectacle-result-note" id="spectacle-selection-text">📋 00 à 50 km, 1 ou 2 acteurs.</div>
+          </div>
+          <div class="spectacle-calculator-footer">
+            Outil de simulation rapide pour la pr&eacute;paration budg&eacute;taire des repr&eacute;sentations.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GESTION DE CONTACTS -->
+    <div class="view" id="view-gestion-contacts">
+      <div class="page-header">
+        <h2 class="page-title">Carnet d'<span>adresses</span></h2>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-gold" onclick="startGoogleContactsImport()" id="btn-import-google-contacts">&#127760; Importer depuis Google</button>
+          <button class="btn btn-outline" onclick="triggerContactsFileImport()" id="btn-import-file-contacts">&#9889; Importer un fichier .vcf</button>
+          <input type="file" id="rc-file-input" accept=".vcf,text/vcard,text/x-vcard" style="display:none;" onchange="handleContactsFileImport(event)">
+          <button class="btn btn-outline" onclick="addRepertoireContactRow()">+ Ajouter manuellement</button>
+        </div>
+      </div>
+
+      <div id="repertoire-contacts-info" style="display:none; background:rgba(212,175,55,0.08); border:1px solid rgba(212,175,55,0.25); border-radius:8px; padding:10px 14px; font-size:12px; color:#d4af37; margin-bottom:14px;"></div>
+
+      <div class="rc-tabs">
+        <button class="rc-tab-btn active" id="rc-tab-btn-repertoire" onclick="setContactsTab('repertoire')">&#128209; R&eacute;pertoire <span class="rc-tab-badge" id="rc-tab-count-repertoire"></span></button>
+        <button class="rc-tab-btn" id="rc-tab-btn-annuaire" onclick="setContactsTab('annuaire')">&#128222; Annuaire d'appel</button>
+      </div>
+
+      <div style="margin:14px 0; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+        <input type="text" id="repertoire-contacts-search" placeholder="Rechercher par nom, t&eacute;l&eacute;phone, email, m&eacute;tier..." oninput="rcSearchInputChanged()" onkeydown="if(event.key==='Escape'){this.value='';rcSearchInputChanged();}" style="width:100%; max-width:420px; padding:9px 12px; background:#161616; border:1px solid #2a2a2a; border-radius:8px; color:#e8e4dc; font-size:13px; transition: border-color .15s ease, box-shadow .15s ease;">
+        <div id="repertoire-contacts-count" style="color:#888; font-size:12px;"></div>
+      </div>
+
+      <!-- ONGLET REPERTOIRE : collecte / gestion des fiches -->
+      <div id="rc-panel-repertoire" class="rc-panel">
+        <div id="repertoire-duplicates-banner" style="display:none;"></div>
+
+        <div class="ops-card" style="margin-bottom:14px; padding:14px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+            <h3 style="font-size:13px; color:#d4af37; margin:0; text-transform:uppercase; letter-spacing:0.05em;">&#128203; Historique des importations</h3>
+            <button class="btn btn-outline btn-sm" onclick="setRepertoireContactsFilter(null)" id="btn-rc-show-all">Voir tous les contacts ensemble</button>
+          </div>
+          <div id="repertoire-imports-history" style="display:flex; flex-direction:column; gap:6px;"></div>
+        </div>
+
+        <div class="cc-toolbar rc-table-toolbar">
+          <div class="cc-toolbar-controls">
+            <select id="rc-table-sort-select" class="cc-select" onchange="renderRepertoireContactsPage()">
+              <option value="nom">Trier : Nom (A-Z)</option>
+              <option value="numero_asc">Trier : N&deg; (croissant)</option>
+              <option value="numero_desc">Trier : N&deg; (d&eacute;croissant)</option>
+              <option value="ville">Trier : Ville</option>
+              <option value="recent">Trier : Dernier contact (r&eacute;cent)</option>
+              <option value="oldest">Trier : Dernier contact (ancien)</option>
+            </select>
+            <select id="rc-table-filter-select" class="cc-select" onchange="renderRepertoireContactsPage()">
+              <option value="all">Tous les contacts</option>
+              <option value="today">Contact&eacute;s aujourd'hui</option>
+              <option value="week">Contact&eacute;s cette semaine</option>
+              <option value="never">Jamais contact&eacute;s</option>
+              <option value="followup_due">Suivi &agrave; faire</option>
+            </select>
+            <select id="rc-table-tag-filter" class="cc-select" onchange="renderRepertoireContactsPage()">
+              <option value="">Tous les tags</option>
+            </select>
+            <select id="rc-table-responsable-filter" class="cc-select" onchange="renderRepertoireContactsPage()">
+              <option value="">Tous les responsables</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="_rcResetTableFilters()" title="R&eacute;initialiser le tri et les filtres">&#8635; R&eacute;initialiser</button>
+          </div>
+        </div>
+
+        <div class="ops-card rc-table-wrap" style="padding:0;">
+          <table class="rc-table">
+            <thead>
+              <tr>
+                <th>N&deg;</th>
+                <th>Nom</th>
+                <th>Pr&eacute;nom</th>
+                <th>Adresse</th>
+                <th>Ville</th>
+                <th>Gouvernorat</th>
+                <th>Pays</th>
+                <th>T&eacute;l 1</th>
+                <th>T&eacute;l 2</th>
+                <th>Email</th>
+                <th>M&eacute;tier</th>
+                <th>Domaine</th>
+                <th>Note</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="repertoire-contacts-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ONGLET ANNUAIRE : utilisation / appel rapide (style call center) -->
+      <div id="rc-panel-annuaire" class="rc-panel" style="display:none;">
+        <div class="cc-stats" id="rc-annuaire-stats"></div>
+
+        <div class="cc-toolbar">
+          <div class="cc-counts" id="rc-annuaire-counts"></div>
+          <div class="cc-toolbar-controls">
+            <select id="rc-sort-select" class="cc-select" onchange="renderContactsDirectory()">
+              <option value="nom">Trier : Nom (A-Z)</option>
+              <option value="recent">Trier : Dernier contact (r&eacute;cent)</option>
+              <option value="oldest">Trier : Dernier contact (ancien)</option>
+              <option value="ville">Trier : Ville</option>
+            </select>
+            <select id="rc-filter-select" class="cc-select" onchange="renderContactsDirectory()">
+              <option value="all">Tous les contacts</option>
+              <option value="today">Contact&eacute;s aujourd'hui</option>
+              <option value="week">Contact&eacute;s cette semaine</option>
+              <option value="never">Jamais contact&eacute;s</option>
+              <option value="followup_due">Suivi &agrave; faire</option>
+            </select>
+            <select id="rc-tag-filter" class="cc-select" onchange="renderContactsDirectory()">
+              <option value="">Tous les tags</option>
+            </select>
+            <select id="rc-responsable-filter" class="cc-select" onchange="renderContactsDirectory()">
+              <option value="">Tous les responsables</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="exportContactsDirectoryCSV()" title="Exporter la liste filtr&eacute;e">&#128228; Exporter</button>
+          </div>
+        </div>
+        <div id="contacts-directory-grid" class="cc-row-list"></div>
+      </div>
+    </div>
+
+    <!-- FICHE CONTACT -->
+    <div class="view" id="view-contact-fiche">
+      <div class="client-detail-back" onclick="showView('gestion-contacts')">&larr; Retour au carnet d'adresses</div>
+      <div class="ops-card contact-fiche-card">
+        <div id="contact-fiche-header" class="contact-fiche-header"></div>
+        <div id="contact-fiche-body" class="contact-fiche-body"></div>
+      </div>
+    </div>
+
+    <!-- PARAMETRES -->
+    <div class="view" id="view-parametres">
+      <div class="page-header">
+        <h2 class="page-title"><span>Param&egrave;tres</span></h2>
+      </div>
+      <div class="ops-card">
+        <div class="settings-list">
+          <div class="settings-row"><div class="settings-key">Club</div><div class="settings-value">Uthina Chess</div></div>
+          <div class="settings-row"><div class="settings-key">Adresse</div><div class="settings-value">&Agrave; configurer</div></div>
+          <div class="settings-row"><div class="settings-key">Stockage</div><div class="settings-value">Ind&eacute;pendant (appdata propre &agrave; Uthina Chess)</div></div>
+          <div class="settings-row"><div class="settings-key">Devise</div><div class="settings-value">TND</div></div>
+          <div class="settings-row"><div class="settings-key">Interface</div><div class="settings-value">Dark / Gold premium</div></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;">
+        <button class="btn btn-gold" onclick="showView('sauvegarde')" style="flex:1;min-width:140px;padding:14px;font-size:14px;">
+          &#8681; Sauvegarde des donn&eacute;es
+        </button>
+        <button class="btn btn-outline" onclick="showView('logs')" style="flex:1;min-width:140px;padding:14px;font-size:14px;">
+          &#128203; Journal d'activit&eacute;
+        </button>
+      </div>
+
+      <!-- Remise à zéro des listes -->
+      <div class="ops-card" style="margin-top:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <span style="color:#d4af37;font-size:14px;font-weight:700;">&#9888; Remise &agrave; z&eacute;ro des listes</span>
+        </div>
+        <p style="color:#666;font-size:12px;margin:0 0 14px;">R&eacute;initialise <strong>Liste d'inscription</strong>, <strong>Membre &agrave; l'appel</strong> et <strong>Liste conforme</strong>. La liste d'inscription (Google Sheet) s'affichera &agrave; z&eacute;ro dans l'application (les donn&eacute;es restent dans le Sheet, elles ne sont plus affich&eacute;es). Les listes "Membre &agrave; l'appel" et "Liste conforme" sont effac&eacute;es d&eacute;finitivement.</p>
+        <button class="btn btn-danger" onclick="reinitialiserListes()" style="width:100%;padding:14px;font-size:14px;">
+          &#8634; R&eacute;initialiser les 3 listes
+        </button>
+        <button class="btn btn-outline" onclick="reafficherInscriptions()" style="width:100%;padding:12px;font-size:13px;margin-top:10px;">
+          &#8635; R&eacute;afficher toutes les inscriptions du Sheet (annuler la remise &agrave; z&eacute;ro)
+        </button>
+      </div>
+
+      <!-- Script d'appel — éditable -->
+      <div class="ops-card" style="margin-top:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <span style="color:#d4af37;font-size:14px;font-weight:700;">&#127908; Script &agrave; lire au t&eacute;l&eacute;phone</span>
+          <button class="btn btn-outline" onclick="resetCallScriptToDefault()" style="font-size:12px;padding:6px 12px;">&#8634; R&eacute;initialiser par d&eacute;faut</button>
+        </div>
+        <p style="color:#666;font-size:12px;margin:0 0 10px;">Ce texte s'affiche dans la fiche d'appel (cat&eacute;gorie "Membre &agrave; l'appel") pour guider l'agent pendant la communication.</p>
+        <textarea id="settings-call-script" rows="8" style="width:100%;box-sizing:border-box;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:8px;padding:12px 14px;color:#e0e0e0;font-size:14px;line-height:1.7;font-family:inherit;resize:vertical;"></textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+          <button class="btn btn-gold" onclick="saveCallScriptFromSettings()">&#128190; Enregistrer le script</button>
+        </div>
+      </div>
+
+      <!-- Synchronisation Google Sheet — Liste conforme -->
+      <div class="ops-card" style="margin-top:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+          <span style="color:#d4af37;font-size:14px;font-weight:700;">&#128202; Google Sheet &mdash; Liste conforme</span>
+          <button class="btn btn-outline" onclick="testSheetWebhookFromSettings()" style="font-size:12px;padding:6px 12px;">&#9889; Tester</button>
+        </div>
+        <p style="color:#666;font-size:12px;margin:0 0 10px;">Colle ici l'URL de ton application web Google Apps Script (termine par <code>/exec</code>). Chaque &#9989; Candidat s&eacute;rieux sera automatiquement ajout&eacute; &agrave; ta Google Sheet, avec toutes les infos de la fiche, date/heure d'inscription et date/heure d'appel.</p>
+        <input id="settings-sheet-url" type="text" placeholder="https://script.google.com/macros/s/XXXXX/exec" style="width:100%;box-sizing:border-box;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:8px;padding:12px 14px;color:#e0e0e0;font-size:14px;font-family:inherit;">
+        <div style="display:flex;justify-content:flex-end;margin-top:10px;">
+          <button class="btn btn-gold" onclick="saveSheetUrlFromSettings()">&#128190; Enregistrer l'URL</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SAUVEGARDE -->
+    <div class="view" id="view-sauvegarde">
+      <div class="page-header">
+        <h2 class="page-title">Sauvegarde <span>donn&eacute;es</span></h2>
+      </div>
+      <div class="backup-actions">
+        <button class="btn btn-gold" id="btn-push-server" onclick="pushAllToServer()" style="background:linear-gradient(135deg,#16a34a,#15803d);border-color:#16a34a;">&#9729; Synchroniser vers le serveur</button>
+        <button class="btn btn-gold" onclick="createBackupVersion()">Creer une version</button>
+        <button class="btn btn-gold" onclick="exportBackup()">Exporter JSON</button>
+        <button class="btn btn-outline" onclick="exportVersionHistory()">Exporter historique</button>
+        <button class="btn btn-outline" onclick="document.getElementById('backup-file').click()">Importer JSON</button>
+        <input class="backup-file" id="backup-file" type="file" accept="application/json" onchange="importBackup(event)">
+      </div>
+      <div id="backup-dashboard"></div>
+    </div>
+  
+    <!-- ACTIVITY LOGS -->
+    <div class="view" id="view-logs">
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <h2 class="page-title">&#128274; Activit&eacute; <span>et s&eacute;curit&eacute;</span></h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline btn-sm" onclick="renderLogsView()">&#8635; Actualiser</button>
+          <button class="btn btn-outline btn-sm" onclick="if(typeof LOGGER!=='undefined')LOGGER.exportLogs()">&#8681; Exporter JSON</button>
+          <button class="btn btn-danger btn-sm" onclick="if(confirm('Effacer tous les logs ?')){LOGGER.clearLogs();renderLogsView();}">&#128465; Effacer logs</button>
+        </div>
+      </div>
+      <div id="logs-dashboard" style="padding:0 4px;"></div>
+    </div>
+
+    <!-- DOCUMENTATION -->
+    <div class="view" id="view-documentation">
+      <div class="page-header">
+        <h2 class="page-title">&#128193; <span>Documentation</span></h2>
+      </div>
+      <div id="doc-main-container"></div>
+    </div>
+
+    <!-- ESPACE DE RÉDACTION — Direction des arts scéniques -->
+    <div class="view" id="view-redaction-das">
+      <div class="page-header">
+        <h2 class="page-title">&#127914; <span>Direction des arts sc&eacute;niques</span></h2>
+      </div>
+      <div id="redaction-editor-das" class="redaction-editor"></div>
+    </div>
+
+    <!-- ESPACE DE RÉDACTION — Autres -->
+    <div class="view" id="view-redaction-autres">
+      <div class="page-header">
+        <h2 class="page-title">&#128196; <span>Autres</span></h2>
+      </div>
+      <div id="redaction-editor-autres" class="redaction-editor"></div>
+    </div>
+
+</main>
+
+<!-- MODAL DOCUMENTATION -->
+<div class="modal-overlay" id="doc-modal" style="display:none;">
+  <div class="modal" style="width:520px;">
+    <div class="modal-header">
+      <span class="modal-title" id="doc-modal-title">Nouveau document</span>
+      <button class="close-btn" onclick="closeDocModal()">&times;</button>
+    </div>
+    <input type="hidden" id="doc-edit-id">
+    <input type="hidden" id="doc-edit-cat">
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Nom du document</label>
+        <input type="text" id="doc-name" placeholder="Ex: Contrat Opéra de Tunis 2025">
+      </div>
+      <div class="form-group full">
+        <label>Photo / Image du document</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <input type="file" id="doc-photo-input" accept="image/*,application/pdf,.doc,.docx,.xlsx,.xls,.csv,.txt" onchange="previewDocPhoto(this)" style="flex:1;min-width:0;">
+          <button type="button" onclick="openCameraModal('doc-form')" title="Prendre une photo" style="background:rgba(212,175,55,0.1);border:1px solid rgba(212,175,55,0.35);color:#d4af37;border-radius:10px;padding:9px 13px;font-size:18px;cursor:pointer;transition:background 0.15s;flex-shrink:0;" onmouseover="this.style.background='rgba(212,175,55,0.2)'" onmouseout="this.style.background='rgba(212,175,55,0.1)'">&#128247;</button>
+        </div>
+        <div id="doc-photo-preview" style="margin-top:10px;"></div>
+      </div>
+      <div class="form-group full">
+        <label>Note <span style="color:#666;font-size:11px;">(optionnel)</span></label>
+        <input type="text" id="doc-note" placeholder="Ex: Original signé, copie certifiée, valide jusqu'au...">
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;">
+      <button class="btn btn-outline" onclick="closeDocModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveDoc()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL CAMÉRA -->
+<div class="modal-overlay" id="camera-modal" style="display:none;">
+  <div class="modal" style="width:520px;max-width:98vw;">
+    <div class="modal-header">
+      <span class="modal-title">&#128247; Prendre une photo</span>
+      <button class="close-btn" onclick="closeCameraModal()">&times;</button>
+    </div>
+    <div style="text-align:center;">
+      <video id="camera-video" autoplay playsinline style="width:100%;max-height:340px;border-radius:10px;background:#000;display:block;"></video>
+      <canvas id="camera-canvas" style="display:none;"></canvas>
+      <div id="camera-preview-result" style="display:none;margin-top:10px;">
+        <img id="camera-result-img" style="max-width:100%;max-height:260px;border-radius:10px;border:1px solid #333;">
+      </div>
+      <!-- Input caméra mobile (fallback) -->
+      <input type="file" id="camera-mobile-input" accept="image/*" capture="environment" style="display:none;" onchange="cameraMobileCapture(this)">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:16px;flex-wrap:wrap;">
+      <button class="btn btn-outline" id="camera-switch-btn" onclick="switchCamera()" style="display:none;">&#8635; Retourner</button>
+      <button class="btn btn-gold" id="camera-capture-btn" onclick="capturePhoto()">&#128247; Capturer</button>
+      <button class="btn btn-gold" id="camera-save-btn" onclick="saveCapturedPhoto()" style="display:none;">&#8679; Enregistrer dans Nouveau</button>
+      <button class="btn btn-outline" id="camera-retake-btn" onclick="retakePhoto()" style="display:none;">&#8634; Reprendre</button>
+    </div>
+    <div id="camera-status" style="text-align:center;color:#888;font-size:11px;margin-top:8px;"></div>
+  </div>
+</div>
+
+<!-- MODAL BULK UPLOAD -->
+<div class="modal-overlay" id="bulk-upload-modal" style="display:none;">
+  <div class="modal" style="width:560px;">
+    <div class="modal-header">
+      <span class="modal-title">&#8679; Upload groupé</span>
+      <button class="close-btn" onclick="closeBulkUploadModal()">&times;</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Dossier de destination</label>
+        <select id="bulk-target-folder">
+          <option value="mythos">&#128196; Les documents d'Uthina Chess</option>
+          <!-- default handled by JS -->
+          <option value="travail">&#128221; Contrats de travail</option>
+          <option value="partenariat">&#129309; Contrats de partenariat</option>
+          <option value="retenues">&#128200; Les retenues &agrave; la source</option>
+          <option value="nouveau">&#127381; Nouveau</option>
+          <option value="archive">&#128451; Archive</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>Fichiers <span style="color:#666;font-size:11px;">(images ou PDF — s&eacute;lection multiple)</span></label>
+        <input type="file" id="bulk-files-input" accept="image/*,application/pdf,.doc,.docx,.xlsx,.xls,.csv,.txt" multiple onchange="previewBulkFiles(this)">
+      </div>
+      <div id="bulk-preview-list" class="form-group full"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:20px;">
+      <button class="btn btn-outline" onclick="closeBulkUploadModal()">Annuler</button>
+      <button class="btn btn-gold" id="bulk-save-btn" onclick="saveBulkDocs()">&#8679; Enregistrer tout</button>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- MODAL TYPES DE RAPPELS -->
+<div class="modal-overlay" id="rappel-types-modal" style="display:none;z-index:9999;position:fixed;">
+  <div class="modal" style="width:480px;max-width:98vw;">
+    <div class="modal-header">
+      <h3>&#128276; Types de rappels</h3>
+      <button class="close-btn" onclick="document.getElementById('rappel-types-modal').style.display='none'">&times;</button>
+    </div>
+    <div style="padding:16px 20px;">
+      <!-- Ajouter un type -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input type="text" id="new-rappel-type-input" placeholder="Nouveau type..." style="flex:1;" onkeydown="if(event.key==='Enter')addRappelTypeFromManager()">
+        <button class="btn btn-gold" onclick="addRappelTypeFromManager()">+ Ajouter</button>
+      </div>
+      <!-- Liste des types -->
+      <div id="rappel-types-list-container"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;padding:0 20px 20px;">
+      <button class="btn btn-outline" onclick="document.getElementById('rappel-types-modal').style.display='none'">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<!-- FICHE D'APPEL (Membre à l'appel) -->
+<div class="modal-overlay" id="appel-fiche-modal" style="display:none;z-index:9999;position:fixed;align-items:center;justify-content:center;">
+  <div style="background:#111;border:1px solid rgba(201,168,76,0.3);border-radius:16px;width:min(1000px,97vw);max-height:95vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.8);">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid rgba(201,168,76,0.2);background:#0e0e0e;flex-shrink:0;">
+      <span style="font-size:15px;font-weight:700;color:#e4c472;letter-spacing:0.03em;">&#128222; Fiche d'appel &mdash; <span id="appel-fiche-nom" style="color:#fff;">&nbsp;</span></span>
+      <button class="close-btn" onclick="closeAppelFicheModal()" style="background:none;border:none;color:#888;font-size:22px;cursor:pointer;line-height:1;">&times;</button>
+    </div>
+    <input type="hidden" id="appel-fiche-id">
+
+    <!-- Corps : deux colonnes -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;flex:1;overflow:hidden;">
+
+      <!-- Colonne gauche : formulaire + résultat -->
+      <div style="padding:18px 16px 18px 20px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;border-right:1px solid rgba(255,255,255,0.06);">
+
+        <!-- Résultat de l'appel -->
+        <div>
+          <div style="color:#888;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:8px;">Résultat de l'appel</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;">
+            <button class="appel-result-btn" data-result="Num&eacute;ro injoignable" onclick="setAppelResult(this)" style="cursor:pointer;font:inherit;background:#1a0a0a;color:#ff8c82;border:1px solid rgba(192,57,43,0.45);border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;">&#128222;&#9888; Injoignable</button>
+            <button class="appel-result-btn" data-result="Num&eacute;ro faux" onclick="setAppelResult(this)" style="cursor:pointer;font:inherit;background:#1a0a0a;color:#ff8c82;border:1px solid rgba(192,57,43,0.45);border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;">&#10060; Num&eacute;ro faux</button>
+            <button class="appel-result-btn" data-result="Candidat s&eacute;rieux" onclick="setAppelResult(this)" style="cursor:pointer;font:inherit;background:#0a1a10;color:#7be698;border:1px solid rgba(63,201,107,0.45);border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;">&#9989; Candidat s&eacute;rieux</button>
+            <button class="appel-result-btn" data-result="Candidat fantaisiste" onclick="setAppelResult(this)" style="cursor:pointer;font:inherit;background:#191408;color:#e4c472;border:1px solid rgba(201,168,76,0.45);border-radius:8px;padding:10px 8px;font-size:12px;font-weight:700;">&#129300; Fantaisiste</button>
+          </div>
+          <input type="hidden" id="appel-fiche-result">
+        </div>
+
+        <!-- Champs -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Nom</label>
+            <input type="text" id="appel-fiche-f-nom" placeholder="Nom" style="background:#1a1a1a;border:1px solid #333;border-radius:8px;color:#fff;padding:9px 11px;font-size:13px;font:inherit;">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Prénom</label>
+            <input type="text" id="appel-fiche-f-prenom" placeholder="Prénom" style="background:#1a1a1a;border:1px solid #333;border-radius:8px;color:#fff;padding:9px 11px;font-size:13px;font:inherit;">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Ville</label>
+            <input type="text" id="appel-fiche-f-ville" placeholder="Ville" style="background:#1a1a1a;border:1px solid #333;border-radius:8px;color:#fff;padding:9px 11px;font-size:13px;font:inherit;">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;grid-column:1/-1;">
+            <label style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Date de naissance</label>
+            <div style="display:grid;grid-template-columns:0.8fr 1.4fr 1fr;gap:6px;">
+              <select id="appel-fiche-f-jour" style="background:#1a1a1a;border:1px solid #333;border-radius:8px;color:#fff;padding:9px 6px;font-size:13px;font:inherit;">
+                <option value="">Jour</option>
+              </select>
+              <select id="appel-fiche-f-mois" style="background:#1a1a1a;border:1px solid #333;border-radius:8px;color:#fff;padding:9px 6px;font-size:13px;font:inherit;">
+                <option value="">Mois</option>
+              </select>
+              <select id="appel-fiche-f-annee" style="background:#1a1a1a;border:1px solid #333;border-radius:8px;color:#fff;padding:9px 6px;font-size:13px;font:inherit;">
+                <option value="">Année</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Fide ID</label>
+            <input type="text" id="appel-fiche-f-niveau" placeholder="N° Fide ID" style="background:#1a1a1a;border:1px solid #333;border-radius:8px;color:#fff;padding:9px 11px;font-size:13px;font:inherit;">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;">
+            <label style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Domaine</label>
+            <input type="text" id="appel-fiche-f-domaine" placeholder="Études / profession" style="background:#1a1a1a;border:1px solid #333;border-radius:8px;color:#fff;padding:9px 11px;font-size:13px;font:inherit;">
+          </div>
+          <div style="display:flex;flex-direction:column;gap:4px;grid-column:1/-1;">
+            <label style="font-size:11px;color:#888;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;">Note</label>
+            <textarea id="appel-fiche-f-note" rows="3" placeholder="Notes sur l'appel..." style="background:#1a1a1a;border:1px solid #333;border-radius:8px;color:#fff;padding:9px 11px;font-size:13px;font:inherit;resize:none;"></textarea>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:auto;padding-top:4px;">
+          <button class="btn btn-outline" onclick="closeAppelFicheModal()" style="font-size:13px;padding:9px 18px;">Annuler</button>
+          <button class="btn btn-gold" onclick="saveAppelFiche()" style="font-size:13px;padding:9px 20px;">&#10003; Enregistrer</button>
+        </div>
+      </div>
+
+      <!-- Colonne droite : script d'appel -->
+      <div style="padding:18px 20px 18px 16px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;background:#0d0d0d;">
+        <div style="color:#d4af37;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;display:flex;align-items:center;gap:6px;flex-shrink:0;">
+          &#127908; السكريبت — اقرأ بالهاتف
+        </div>
+        <div id="appel-fiche-script" dir="rtl" style="color:#ddd;font-size:14.5px;line-height:2;white-space:pre-wrap;text-align:right;direction:rtl;font-family:inherit;flex:1;background:linear-gradient(160deg,#161616,#111);border:1px solid rgba(201,168,76,0.18);border-radius:12px;padding:16px 18px;"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- SUPPLIER MODAL -->
+<div class="modal-overlay" id="supplier-modal" style="display:none">
+  <div class="modal" style="width:640px;">
+    <div class="modal-header">
+      <span class="modal-title" id="supplier-modal-title">Fournisseur</span>
+      <button class="close-btn" onclick="closeSupplierModal()">&times;</button>
+    </div>
+    <input type="hidden" id="supplier-edit-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Nom fournisseur</label><input type="text" id="supplier-name" placeholder="Nom fournisseur"></div>
+      <div class="form-group"><label>Contact</label><input type="text" id="supplier-contact" placeholder="Nom / T&eacute;l&eacute;phone"></div>
+      <div class="form-group full"><label>Adresse</label><input type="text" id="supplier-addr" placeholder="Adresse compl&egrave;te"></div>
+      <div class="form-group"><label>Matricule fiscal</label><input type="text" id="supplier-mf" placeholder="Matricule fiscal"></div>
+      <div class="form-group"><label>RIB</label><input type="text" id="supplier-rib" placeholder="RIB / Compte bancaire"></div>
+      <div class="form-group"><label>Cat&eacute;gorie</label><input type="text" id="supplier-category" placeholder="Mat&eacute;riel, transport, h&ocirc;tel..."></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;">
+      <button class="btn btn-outline" onclick="closeSupplierModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveSupplier()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- PURCHASE MODAL -->
+<div class="modal-overlay" id="purchase-modal" style="display:none">
+  <div class="modal" style="width:720px;">
+    <div class="modal-header">
+      <span class="modal-title" id="purchase-modal-title">Facture achat</span>
+      <button class="close-btn" onclick="closePurchaseModal()">&times;</button>
+    </div>
+    <input type="hidden" id="purchase-edit-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Num&eacute;ro facture achat</label><input type="text" id="purchase-num" placeholder="ACH-001"></div>
+      <div class="form-group"><label>Date</label><input type="date" id="purchase-date"></div>
+      <div class="form-group"><label>Fournisseur</label><select id="purchase-supplier-id" onchange="syncPurchaseSupplier()"><option value="">-- S&eacute;lectionner fournisseur --</option></select></div>
+      <div class="form-group"><label>Nom fournisseur affich&eacute;</label><input type="text" id="purchase-supplier-name" placeholder="Fournisseur"></div>
+      <div class="form-group"><label>Mode de paiement</label>
+        <select id="purchase-payment">
+          <option value="Virement">Virement</option>
+          <option value="Esp&egrave;ces">Esp&egrave;ces</option>
+          <option value="Ch&egrave;que">Ch&egrave;que</option>
+          <option value="Carte">Carte</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Statut</label>
+        <select id="purchase-status">
+          <option value="paid">Pay&eacute;e</option>
+          <option value="pending">En attente</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Montant TTC (TND)</label><input type="number" id="purchase-amount" min="0" step="0.001" placeholder="0.000"></div>
+      <div class="form-group"><label>Cat&eacute;gorie achat</label><input type="text" id="purchase-category" placeholder="Mat&eacute;riel, d&eacute;cor, carburant..."></div>
+
+      <!-- TVA Calcul Section (Full Width) -->
+      <div class="form-group full" style="display:flex;flex-direction:column;gap:8px;">
+        <label>Calcul TVA</label>
+        <div style="background-color:#1a1a1a;padding:20px;border-radius:10px;border:2px solid #c9a84c;overflow:hidden;">
+          <div style="display:grid;grid-template-columns:1fr;gap:12px;align-items:stretch;">
+            <!-- TVA Total -->
+            <div style="display:grid;grid-template-columns:35% 65%;gap:10px;align-items:center;padding:14px;background-color:#0e0e0e;border-radius:6px;border:2px solid #c9a84c;">
+              <div style="font-weight:700;color:#c9a84c;font-size:14px;">TVA Total:</div>
+              <input type="text" id="purchase-tva-total" readonly placeholder="0.000" style="width:100%;background-color:transparent;color:#c9a84c;font-weight:700;font-size:17px;padding:8px;border:none;text-align:right;">
+            </div>
+
+            <!-- TVA 19% -->
+            <div style="display:grid;grid-template-columns:35% 65%;gap:10px;align-items:center;padding:14px;background-color:#0e0e0e;border-radius:6px;border:2px solid #c9a84c;">
+              <div style="font-weight:700;color:#c9a84c;font-size:14px;">19%:</div>
+              <input type="number" id="purchase-tva19-amount" min="0" step="0.001" placeholder="0.000" style="width:100%;background-color:transparent;color:#c9a84c;font-weight:700;font-size:14px;padding:8px;border:none;text-align:right;" onchange="updateTVATotal()">
+            </div>
+
+            <!-- TVA 13% -->
+            <div style="display:grid;grid-template-columns:35% 65%;gap:10px;align-items:center;padding:14px;background-color:#0e0e0e;border-radius:6px;border:1px solid #444;">
+              <div style="font-weight:700;color:#999;font-size:14px;">13%:</div>
+              <input type="number" id="purchase-tva13-amount" min="0" step="0.001" placeholder="0.000" style="width:100%;background-color:transparent;color:#999;font-weight:700;font-size:14px;padding:8px;border:none;text-align:right;" onchange="updateTVATotal()">
+            </div>
+
+            <!-- TVA 7% -->
+            <div style="display:grid;grid-template-columns:35% 65%;gap:10px;align-items:center;padding:14px;background-color:#0e0e0e;border-radius:6px;border:1px solid #444;">
+              <div style="font-weight:700;color:#999;font-size:14px;">7%:</div>
+              <input type="number" id="purchase-tva7-amount" min="0" step="0.001" placeholder="0.000" style="width:100%;background-color:transparent;color:#999;font-weight:700;font-size:14px;padding:8px;border:none;text-align:right;" onchange="updateTVATotal()">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group full"><label>Notes</label><textarea id="purchase-notes" rows="2" style="resize:vertical;" placeholder="Remarques comptables..."></textarea></div>
+      <input type="hidden" id="purchase-tva" value="19">
+      <input type="hidden" id="purchase-addStamp" value="false">
+      <input type="hidden" id="purchase-addSignature" value="false">
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;">
+      <button class="btn btn-outline" onclick="closePurchaseModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="savePurchase()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPENSE MODAL -->
+<div class="modal-overlay" id="expense-modal" style="display:none">
+  <div class="modal" style="width:720px;">
+    <div class="modal-header">
+      <span class="modal-title" id="expense-modal-title">D&eacute;pense</span>
+      <button class="close-btn" onclick="closeExpenseModal()">&times;</button>
+    </div>
+    <input type="hidden" id="expense-edit-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Date</label><input type="date" id="expense-date"></div>
+      <div class="form-group"><label>Libell&eacute;</label><input type="text" id="expense-label" placeholder="D&eacute;pense du jour"></div>
+      <div class="form-group"><label>Cat&eacute;gorie principale</label>
+        <select id="expense-category" onchange="updateExpenseSubcategories()">
+          <option value="">-- S&eacute;lectionner une cat&eacute;gorie --</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Sous-cat&eacute;gorie</label>
+        <select id="expense-subcategory">
+          <option value="">-- Sous-cat&eacute;gorie --</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Mode de paiement</label>
+        <select id="expense-payment">
+          <option value="BIAT">BIAT</option>
+          <option value="Virement">Virement</option>
+          <option value="Esp&egrave;ces">Esp&egrave;ces</option>
+          <option value="Ch&egrave;que">Ch&egrave;que</option>
+          <option value="Carte">Carte</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Montant (TND)</label><input type="number" id="expense-amount" min="0" step="0.001" placeholder="0.000"></div>
+      <div class="form-group full"><label>Notes</label><textarea id="expense-notes" rows="2" style="resize:vertical;" placeholder="Notes de la d&eacute;pense..."></textarea></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;">
+      <button class="btn btn-outline" onclick="closeExpenseModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveExpense()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- BANK MODAL -->
+<div class="modal-overlay" id="bank-modal" style="display:none">
+  <div class="modal" style="width:720px;">
+    <div class="modal-header">
+      <span class="modal-title" id="bank-modal-title">Extrait bancaire BIAT</span>
+      <button class="close-btn" onclick="closeBankModal()">&times;</button>
+    </div>
+    <input type="hidden" id="bank-edit-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Date</label><input type="date" id="bank-date"></div>
+      <div class="form-group"><label>Type mouvement</label>
+        <select id="bank-type">
+          <option value="debit">D&eacute;bit</option>
+          <option value="credit">Cr&eacute;dit</option>
+        </select>
+      </div>
+      <div class="form-group full"><label>Libell&eacute;</label><input type="text" id="bank-label" placeholder="Libell&eacute; bancaire"></div>
+      <div class="form-group"><label>Montant (TND)</label><input type="number" id="bank-amount" min="0" step="0.001" placeholder="0.000"></div>
+      <div class="form-group"><label>Solde apr&egrave;s mouvement</label><input type="number" id="bank-balance" min="0" step="0.001" placeholder="0.000"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;">
+      <button class="btn btn-outline" onclick="closeBankModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveBankEntry()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- BANK LINK MODAL -->
+<div class="modal-overlay" id="bank-link-modal" style="display:none">
+  <div class="modal" style="width:760px;">
+    <div class="modal-header">
+      <span class="modal-title" id="bank-link-title">Lier la transaction bancaire</span>
+      <button class="close-btn" onclick="closeBankLinkModal()">&times;</button>
+    </div>
+    <input type="hidden" id="bank-link-id">
+    <div class="form-grid">
+      <div style="padding:14px; background:linear-gradient(135deg, rgba(76,201,100,0.12), rgba(76,201,100,0.06)); border:1px solid rgba(76,201,100,0.2); border-radius:10px; margin-bottom:16px;">
+        <div style="color:#4cc964; font-weight:700; margin-bottom:4px; font-size:13px;">📋 Type de transaction détecté</div>
+        <div style="color:#999; font-size:12px;" id="bank-link-hint">Transaction bancaire</div>
+      </div>
+
+      <div style="padding:16px; background:linear-gradient(135deg, rgba(255,100,100,0.08), rgba(255,100,100,0.04)); border:1px solid rgba(255,100,100,0.15); border-radius:10px; margin-bottom:16px;">
+        <div class="form-group full">
+          <label style="color:#ff6464; font-weight:700; margin-bottom:12px; display:block;">🔴 Lier à une D&eacute;pense (Retrait de compte)</label>
+          <select id="bank-link-expense" style="width:100%;">
+            <option value="">-- Aucune d&eacute;pense --</option>
+          </select>
+          <div style="color:var(--muted); font-size:11px; margin-top:8px; font-style:italic;">Argent qui sort de votre compte</div>
+        </div>
+      </div>
+
+      <div style="text-align:center; color:var(--muted); margin:16px 0; font-size:12px; font-weight:700;">— OU —</div>
+
+      <div style="padding:16px; background:linear-gradient(135deg, rgba(76,201,100,0.08), rgba(76,201,100,0.04)); border:1px solid rgba(76,201,100,0.15); border-radius:10px; margin-bottom:16px;">
+        <div class="form-group full">
+          <label style="color:#4cc964; font-weight:700; margin-bottom:12px; display:block;">🟢 Lier à une Facture (Alimentation de compte)</label>
+          <select id="bank-link-invoice" style="width:100%;">
+            <option value="">-- Aucune facture --</option>
+          </select>
+          <div style="color:var(--muted); font-size:11px; margin-top:8px; font-style:italic;">Argent qui entre dans votre compte</div>
+        </div>
+      </div>
+
+      <div style="text-align:center; color:var(--muted); margin:16px 0; font-size:12px; font-weight:700;">— OU —</div>
+
+      <div style="padding:16px; background:linear-gradient(135deg, rgba(201,168,76,0.10), rgba(201,168,76,0.04)); border:1px solid rgba(201,168,76,0.20); border-radius:10px; margin-bottom:16px;">
+        <div class="form-group full">
+          <label style="color:var(--gold); font-weight:700; margin-bottom:12px; display:block;">&#9998; Lier Ã  un Contrat (Alimentation de compte)</label>
+          <select id="bank-link-contract" style="width:100%;">
+            <option value="">-- Aucun contrat --</option>
+          </select>
+          <div style="color:var(--muted); font-size:11px; margin-top:8px; font-style:italic;">Paiement reÃ§u dans le cadre d'un contrat</div>
+        </div>
+      </div>
+
+      <div style="text-align:center; color:var(--muted); margin:16px 0; font-size:12px; font-weight:700;">â€” OU â€”</div>
+
+      <div style="padding:16px; background:linear-gradient(135deg, rgba(150,150,150,0.08), rgba(150,150,150,0.04)); border:1px solid rgba(150,150,150,0.15); border-radius:10px; margin-bottom:16px;">
+        <div class="form-group full">
+          <label style="color:#ff9800; font-weight:700; margin-bottom:12px; display:block;">🟠 Lier à un Fournisseur <span style="font-size:11px; font-weight:400;">(optionnel, peut être combiné avec facture)</span></label>
+          <select id="bank-link-supplier" style="width:100%;">
+            <option value="">-- Aucun fournisseur --</option>
+          </select>
+          <div style="color:var(--muted); font-size:11px; margin-top:8px; font-style:italic;">Vous pouvez lier à la fois une facture ET un fournisseur</div>
+        </div>
+      </div>
+
+      <div style="padding:16px; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04)); border:1px solid rgba(201,168,76,0.15); border-radius:12px; margin-top:8px;">
+        <div style="color:var(--gold); font-weight:700; margin-bottom:8px;">💡 Codes couleur:</div>
+        <div style="color:var(--muted); font-size:12px; line-height:1.6;">
+          <div>🔴 <strong>ROUGE</strong> = Retraits (débits) → À lier avec une dépense</div>
+          <div>🟢 <strong>VERT</strong> = Alimentations (crédits) → À lier avec une facture</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;">
+      <button class="btn btn-outline" onclick="closeBankLinkModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveBankLink()">Lier cette transaction</button>
+    </div>
+  </div>
+</div>
+
+<!-- BANK DETAIL MODAL -->
+<div id="bank-detail-modal" style="display:none;"></div>
+
+<!-- IMPORT RESULTS MODAL -->
+<div id="import-results-modal" style="display:none;"></div>
+
+<!-- CASH LINK MODAL -->
+<div class="modal-overlay" id="cash-link-modal" style="display:none">
+  <div class="modal" style="width:800px;">
+    <div class="modal-header">
+      <span class="modal-title" id="cash-link-title">Lier l'entr&eacute;e caisse</span>
+      <button class="close-btn" onclick="closeCashLinkModal()">&times;</button>
+    </div>
+    <input type="hidden" id="cash-link-id">
+    <div class="form-grid">
+      <div style="padding:14px; background:linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.06)); border:1px solid rgba(201,168,76,0.2); border-radius:10px; margin-bottom:16px;">
+        <div style="color:var(--gold); font-weight:700; margin-bottom:4px; font-size:13px;">📋 Entr&eacute;e de caisse</div>
+        <div style="color:#999; font-size:12px;" id="cash-link-hint">Associez cette entr&eacute;e de caisse</div>
+      </div>
+
+      <div style="padding:16px; background:linear-gradient(135deg, rgba(255,100,100,0.08), rgba(255,100,100,0.04)); border:1px solid rgba(255,100,100,0.15); border-radius:10px; margin-bottom:16px;">
+        <div class="form-group full">
+          <label style="color:#ff6464; font-weight:700; margin-bottom:12px; display:block;">🔴 Lier &agrave; une D&eacute;pense</label>
+          <select id="cash-link-expense" style="width:100%;">
+            <option value="">-- Aucune d&eacute;pense --</option>
+          </select>
+          <div style="color:var(--muted); font-size:11px; margin-top:8px; font-style:italic;">Argent qui sort de la caisse</div>
+        </div>
+      </div>
+
+      <div style="text-align:center; color:var(--muted); margin:12px 0; font-size:12px; font-weight:700;">— OU —</div>
+
+      <div style="padding:16px; background:linear-gradient(135deg, rgba(76,201,100,0.08), rgba(76,201,100,0.04)); border:1px solid rgba(76,201,100,0.15); border-radius:10px; margin-bottom:16px;">
+        <div class="form-group full">
+          <label style="color:#4cc964; font-weight:700; margin-bottom:12px; display:block;">🟢 Lier &agrave; un Revenu (Facture)</label>
+          <select id="cash-link-income" style="width:100%;">
+            <option value="">-- Aucun revenu --</option>
+          </select>
+          <div style="color:var(--muted); font-size:11px; margin-top:8px; font-style:italic;">Argent qui entre dans la caisse</div>
+        </div>
+      </div>
+
+      <div style="text-align:center; color:var(--muted); margin:12px 0; font-size:12px; font-weight:700;">— OU —</div>
+
+      <div style="padding:16px; background:linear-gradient(135deg, rgba(100,180,255,0.08), rgba(100,180,255,0.04)); border:1px solid rgba(100,180,255,0.15); border-radius:10px; margin-bottom:16px;">
+        <div class="form-group full">
+          <label style="color:#64b4ff; font-weight:700; margin-bottom:12px; display:block;">💳 Virement Bancaire (Compte → Caisse)</label>
+          <select id="cash-link-bank" style="width:100%;">
+            <option value="">-- Aucune transaction bancaire --</option>
+          </select>
+          <div style="color:var(--muted); font-size:11px; margin-top:8px; font-style:italic;">Transfert entre votre compte et la caisse</div>
+        </div>
+      </div>
+
+      <div style="padding:16px; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04)); border:1px solid rgba(201,168,76,0.15); border-radius:12px; margin-top:8px;">
+        <div style="color:var(--gold); font-weight:700; margin-bottom:8px;">💡 Types de liaison:</div>
+        <div style="color:var(--muted); font-size:12px; line-height:1.6;">
+          <div>🔴 <strong>Dépense</strong> = Argent de caisse qui sort vers une dépense</div>
+          <div>🟢 <strong>Revenu</strong> = Argent de caisse qui rentre depuis une facture</div>
+          <div>💳 <strong>Virement</strong> = Transfert direct entre compte bancaire et caisse</div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;">
+      <button class="btn btn-outline" onclick="closeCashLinkModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveCashLink()">Lier cette entr&eacute;e</button>
+    </div>
+  </div>
+</div>
+
+<!-- CASH MODAL -->
+<div class="modal-overlay" id="cash-modal" style="display:none">
+  <div class="modal" style="width:720px;">
+    <div class="modal-header">
+      <span class="modal-title" id="cash-modal-title">Gestion Caisse</span>
+      <button class="close-btn" onclick="closeCashModal()">&times;</button>
+    </div>
+    <input type="hidden" id="cash-edit-id">
+    <div class="form-grid">
+      <div class="form-group"><label>Date</label><input type="date" id="cash-date"></div>
+      <div class="form-group"><label>Montant (TND)</label><input type="number" id="cash-amount" min="0" step="0.001" placeholder="0.000"></div>
+      <div class="form-group full"><label>Motif / Description</label><input type="text" id="cash-description" placeholder="Raison du retrait"></div>
+      <div class="form-group full"><label>Lié à (Retrait bancaire)</label>
+        <select id="cash-linked-bank">
+          <option value="">-- Sélectionner un retrait --</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;">
+      <button class="btn btn-outline" onclick="closeCashModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveCashEntry()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- CATEGORY MODAL -->
+<div class="modal-overlay" id="category-modal" style="display:none">
+  <div class="modal" style="width:720px;">
+    <div class="modal-header">
+      <span class="modal-title" id="category-modal-title">Nouvelle catégorie</span>
+      <button class="close-btn" onclick="closeCategoryModal()">&times;</button>
+    </div>
+    <input type="hidden" id="category-edit-id">
+    <div class="form-grid">
+      <div class="form-group full"><label>Nom de la catégorie</label><input type="text" id="category-name" placeholder="Ex: Transport, Décoration, Matériel"></div>
+      <div class="form-group"><label>Icône / Emoji</label><input type="text" id="category-icon" placeholder="Ex: 🚚"></div>
+      <div class="form-group"><label>Couleur</label><input type="color" id="category-color"></div>
+      <div class="form-group full"><label>Sous-catégories (une par ligne)</label><textarea id="category-subcategories" rows="5" placeholder="Ex:&#10;Carburant&#10;Parking&#10;Autoroute&#10;Entretien" style="resize:vertical;"></textarea></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;">
+      <button class="btn btn-outline" onclick="closeCategoryModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveCategory()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- REPRESENTATION MODAL -->
+<div class="modal-overlay" id="representation-modal" style="display:none">
+  <div class="modal" style="width:760px;">
+    <div class="modal-header">
+      <span class="modal-title" id="representation-modal-title">Nouvelle repr&eacute;sentation</span>
+      <button class="close-btn" onclick="closeRepresentationModal()">&times;</button>
+    </div>
+    <input type="hidden" id="rep-edit-id">
+    <div class="rdv-form-grid">
+      <div class="form-group full">
+        <label>Le nom de spectacle</label>
+        <input type="text" id="rep-spectacle" placeholder="Nom du spectacle">
+      </div>
+      <div class="form-group">
+        <label>Client / Interlocuteur</label>
+        <select id="rep-client-id" onchange="syncRepresentationClient()">
+          <option value="">-- S&eacute;lectionner client --</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Nom client affich&eacute;</label>
+        <input type="text" id="rep-client-name" placeholder="Nom du client">
+      </div>
+      <div class="form-group">
+        <label>Metteur en sc&egrave;ne</label>
+        <input type="text" id="rep-director" placeholder="Nom du metteur en sc&egrave;ne">
+      </div>
+      <div class="form-group">
+        <label>Mon cachet (TND)</label>
+        <input type="number" id="rep-fee" min="0" step="0.001" placeholder="0.000">
+      </div>
+      <div class="form-group full">
+        <label>Natures de travail / Nature affich&eacute;e</label>
+        <div id="rep-nature-lines"></div>
+        <button class="btn btn-outline btn-sm" type="button" style="margin-top:10px" onclick="addRepresentationNatureLine()">+ Ajouter une ligne</button>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:28px;">
+      <button class="btn btn-outline" onclick="closeRepresentationModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveRepresentation()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- INVOICE PREVIEW MODAL -->
+<div class="modal-overlay" id="preview-modal" style="display:none">
+  <div class="modal" style="width:900px;">
+    <div class="modal-header no-print">
+      <span class="modal-title">Aper&ccedil;u Facture</span>
+      <div style="display:flex;gap:8px;"><button class="btn btn-outline btn-sm" onclick="printModal('invoice-preview')">Imprimer / PDF</button><button class="close-btn" onclick="closePreview()">&times;</button></div>
+    </div>
+    <div class="preview-wrap"><div id="invoice-preview"></div></div>
+  </div>
+</div>
+
+<!-- OM PREVIEW MODAL -->
+<div class="modal-overlay" id="om-preview-modal" style="display:none">
+  <div class="modal" style="width:900px;">
+    <div class="modal-header no-print">
+      <span class="modal-title">Aper&ccedil;u Ordre de Mission</span>
+      <div style="display:flex;gap:8px;"><button class="btn btn-outline btn-sm" onclick="printModal('om-preview')">Imprimer / PDF</button><button class="close-btn" onclick="closeOMPreview()">&times;</button></div>
+    </div>
+    <div class="preview-wrap"><div id="om-preview"></div></div>
+  </div>
+</div>
+
+<!-- DEVIS PREVIEW MODAL -->
+<div class="modal-overlay" id="devis-preview-modal" style="display:none">
+  <div class="modal" style="width:900px;">
+    <div class="modal-header no-print">
+      <span class="modal-title">Aperçu Devis</span>
+      <div style="display:flex;gap:8px;"><button class="btn btn-outline btn-sm" onclick="printModal('devis-preview')">Imprimer / PDF</button><button class="close-btn" onclick="closeDevisPreview()">&times;</button></div>
+    </div>
+    <div class="preview-wrap"><div id="devis-preview"></div></div>
+  </div>
+</div>
+
+<!-- CLIENT MODAL -->
+<div class="modal-overlay" id="client-modal" style="display:none">
+  <div class="modal" style="width:560px;">
+    <div class="modal-header">
+      <span class="modal-title" id="client-modal-title">Client</span>
+      <button class="close-btn" onclick="closeClientModal()">&times;</button>
+    </div>
+    <input type="hidden" id="cm-id">
+    <div class="form-grid">
+      <div class="form-group full"><label>Nom / Entreprise</label><input type="text" id="cm-name" placeholder="Nom du client"></div>
+      <div class="form-group"><label>Contact</label><input type="text" id="cm-contact" placeholder="Nom du contact"></div>
+      <div class="form-group"><label>Téléphone</label><input type="text" id="cm-tel" placeholder="Téléphone"></div>
+      <div class="form-group full"><label>Adresse</label><input type="text" id="cm-addr" placeholder="Adresse complète"></div>
+      <div class="form-group"><label>Matricule fiscal</label><input type="text" id="cm-mf" placeholder="Matricule fiscal"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;">
+      <button class="btn btn-outline" onclick="closeClientModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveClient()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- COLLAB MODAL -->
+<div class="modal-overlay" id="collab-modal" style="display:none">
+  <div class="modal" style="width:520px;">
+    <div class="modal-header">
+      <span class="modal-title" id="collab-modal-title">Collaborateur</span>
+      <button class="close-btn" onclick="closeCollabModal()">&times;</button>
+    </div>
+    <input type="hidden" id="collab-edit-id">
+    <div class="form-grid">
+      <div class="form-group full"><label>Nom</label><input type="text" id="collab-nom" placeholder="Nom du collaborateur"></div>
+      <div class="form-group"><label>Rôle</label><input type="text" id="collab-role" placeholder="Musicien, Technicien..."></div>
+      <div class="form-group"><label>Contact</label><input type="text" id="collab-contact" placeholder="Tél / Email"></div>
+      <div class="form-group full"><label>Notes</label><textarea id="collab-notes" rows="3" placeholder="Notes..."></textarea></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;">
+      <button class="btn btn-outline" onclick="closeCollabModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveCollab()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- NATURE MODAL -->
+<div class="modal-overlay" id="nature-modal" style="display:none">
+  <div class="modal" style="width:480px;">
+    <div class="modal-header">
+      <span class="modal-title" id="nature-modal-title">Nature de travail</span>
+      <button class="close-btn" onclick="closeNatureModal()">&times;</button>
+    </div>
+    <input type="hidden" id="nature-edit-id">
+    <div class="form-grid">
+      <div class="form-group full"><label>Nom</label><input type="text" id="nature-nom" placeholder="Ex: Transport spectacle"></div>
+      <div class="form-group"><label>Icône</label><input type="text" id="nature-icon" placeholder="🎭"></div>
+      <div class="form-group full"><label>Description</label><input type="text" id="nature-desc" placeholder="Description courte"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;">
+      <button class="btn btn-outline" onclick="closeNatureModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveNature()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- FOURNISSEUR MODAL -->
+<div class="modal-overlay" id="fournisseur-modal" style="display:none">
+  <div class="modal" style="width:580px;">
+    <div class="modal-header">
+      <span class="modal-title" id="fournisseur-modal-title">Fournisseur</span>
+      <button class="close-btn" onclick="closeFournisseurModal()">&times;</button>
+    </div>
+    <input type="hidden" id="fournisseur-edit-id">
+    <div class="form-grid">
+      <div class="form-group full"><label>Nom</label><input type="text" id="fournisseur-nom" placeholder="Nom du fournisseur"></div>
+      <div class="form-group"><label>Contact</label><input type="text" id="fournisseur-contact" placeholder="Nom / Téléphone"></div>
+      <div class="form-group"><label>Immatricule</label><input type="text" id="fournisseur-immatricule" placeholder="Matricule fiscal"></div>
+      <div class="form-group full"><label>Adresse</label><input type="text" id="fournisseur-adresse" placeholder="Adresse complète"></div>
+      <div class="form-group"><label>Spécialité</label><input type="text" id="fournisseur-specialite" placeholder="Transport, Son, Lumière..."></div>
+      <div class="form-group full"><label>Notes</label><textarea id="fournisseur-notes" rows="3" placeholder="Notes..."></textarea></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:24px;">
+      <button class="btn btn-outline" onclick="closeFournisseurModal()">Annuler</button>
+      <button class="btn btn-gold" onclick="saveFournisseur()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/logger.js?v=20260606"></script>
+<script src="js/auth.js?v=20260620-blackscreenfix"></script>
+<script src="js/app.js?v=20260626-devis-kacem"></script>
+<script src="js/taches.js?v=20260620-syncfast"></script>
+</body>
+</html>                                                 
