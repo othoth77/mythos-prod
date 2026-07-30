@@ -340,6 +340,8 @@ Define the target architecture before touching code. This document.
 
 **3C (done):** Notes runtime plugin. `notes.runtime.js` replaces `notes.plugin.js`. onBoot storage validation for `mp_rddocs_das` and `mp_rddocs_autres`, onReady MythosSearch provider registered with order 7. All notes/redaction logic stays in `redaction.js` and `app.js`.
 
+**3D (done):** Planning runtime plugin. `planning.runtime.js` replaces `planning.plugin.js`. onBoot storage validation for `mp_rappels` and `mp_rappel_types`, onReady MythosSearch provider (order 7) and MythosCalendar provider (order 5) registered. Calendar events use `dateDebut` as start date, allDay true. Planning has no dedicated route (modal-based). All rappel CRUD, rendering, and recurrence logic stays in `rappels.js` and `app.js`.
+
 **1C Part 2 (next):** Revisit after Stage 3 extracts business-module code. Migration candidates will be isolated in plugin `onReady` handlers where context is cleaner.
 
 Loading order after Stage 1:

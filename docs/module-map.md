@@ -344,7 +344,7 @@ js/plugins/production.plugin.js
 js/plugins/dashboard.plugin.js
 js/plugins/calendar.plugin.js
 js/plugins/tasks.plugin.js
-js/plugins/planning.plugin.js
+js/plugins/planning.runtime.js  ← Stage 3D: planning bootstrap migrated (onBoot storage validation for mp_rappels + mp_rappel_types, onReady MythosSearch + MythosCalendar providers; all rappel logic stays in rappels.js)
 js/plugins/contacts.runtime.js  ← Stage 3B: contacts bootstrap migrated (onBoot storage validation, onReady MythosSearch provider; all contact logic stays in app.js)
 js/plugins/notes.runtime.js  ← Stage 3C: notes bootstrap migrated (onBoot storage validation, onReady MythosSearch provider; all redaction logic stays in redaction.js)
 js/logger.js               ← Existing app scripts (unchanged)
