@@ -344,6 +344,8 @@ Define the target architecture before touching code. This document.
 
 **3E (done):** Calendar runtime plugin. `calendar.runtime.js` replaces `calendar.plugin.js`. Calendar is the aggregation consumer of MythosCalendar providers — it does NOT register a search provider (no own data) and does NOT register a calendar provider (it IS the consumer). `tasks.runtime.js` and `planning.runtime.js` register their MythosCalendar providers; `calendar.runtime.js` reads them. `onBoot` is a no-op (Calendar owns no storage keys). `onReady` calls `_calendarInit()` which sets the initialized flag. `renderCalendrier()` stays in `app.js`; a future stage will refactor it to call `MythosCalendar.getEvents(range)`.
 
+**3F (done):** Dashboard runtime plugin. `dashboard.runtime.js` replaces `dashboard.plugin.js`. Dashboard is a pure aggregation consumer — it does NOT register a search provider (no own data) and does NOT register a calendar provider (it is not a calendar source). It owns no storage keys (`storageKeys: []`). `onBoot` is a no-op. `onReady` calls `_dashboardInit()` which sets the initialized flag. All rendering (`updateDashboardStats`, `updateDashboardOperational`, `loadDashboardInscriptionsCount`) stays in `app.js` and is triggered by `showView('dashboard')` unchanged. No MythosWidgets registered at this stage — scaffolding in place for a future stage to add widget registrations inside `_dashboardInit()`.
+
 **1C Part 2 (next):** Revisit after Stage 3 extracts business-module code. Migration candidates will be isolated in plugin `onReady` handlers where context is cleaner.
 
 Loading order after Stage 1:

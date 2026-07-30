@@ -327,7 +327,7 @@ index.html     —     uses  uses      —        —         —
 | ID | Label | Type | Routes | Storage keys |
 |----|-------|------|--------|-------------|
 | `production` | Production | business | 30 routes (dashboard → parametres) | 19 keys (mp_invoices … mp_appels) |
-| `dashboard` | Dashboard | shared | `dashboard` | — (reads from other plugins) |
+| `dashboard` | Dashboard | shared | `dashboard` | — (pure aggregation consumer; reads from production + tasks via updateDashboardStats/renderTachesDashboard; registered via dashboard.runtime.js Stage 3F) |
 | `calendar` | Calendrier | shared | `calendrier` | — (aggregation consumer; reads from production + tasks + planning via MythosCalendar) |
 | `tasks` | Tâches | shared | `tache` | `mp_taches` |
 | `planning` | Planning | shared | — (modal-only) | `mp_rappels`, `mp_rappel_types` |
@@ -341,7 +341,7 @@ js/core/storage.js         ← Storage helpers
 js/core/api.js             ← API fetch wrappers
 js/core/platform.js        ← Plugin registry + lifecycle
 js/plugins/production.plugin.js
-js/plugins/dashboard.plugin.js
+js/plugins/dashboard.runtime.js  ← Stage 3F: dashboard bootstrap migrated (pure aggregation consumer; no own storage; no search provider; no calendar provider)
 js/plugins/calendar.runtime.js  ← Stage 3E: calendar bootstrap migrated (aggregation consumer of MythosCalendar; no own storage; no search provider; no calendar provider)
 js/plugins/tasks.runtime.js     ← Stage 3A: tasks bootstrap migrated
 js/plugins/planning.runtime.js  ← Stage 3D: planning bootstrap migrated (onBoot storage validation for mp_rappels + mp_rappel_types, onReady MythosSearch + MythosCalendar providers; all rappel logic stays in rappels.js)
