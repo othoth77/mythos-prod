@@ -309,3 +309,36 @@ Reasons:
 - Immediately reduces the global namespace by ~15 functions.
 - Sets the pattern for all subsequent extractions.
 - Fully reversible: if something breaks, put the functions back in app.js and remove the script tag.
+
+---
+
+## Stage 1C — API layer migration (fetch() audit)
+
+**Status:** Part 1 complete (2026-07-30)
+**Test file:** `tests/stage1c-part1-test.js`
+**Inventory:** `docs/fetch-inventory.md`
+
+### Part 1 result: zero calls migrated
+
+An exhaustive audit of all `fetch()` calls was performed across the five target
+files. **23 calls were found**, all in protected categories:
+
+| Category | Count | Reason not migrated |
+|----------|-------|---------------------|
+| Sync engine (_flushPending, _pushCollection, syncFromServer, pushAllToServer) | 7 | `keepalive`, AbortController signals, no-timeout required |
+| Auto-backup (_triggerAutoBackup) | 1 | Silent background call; 20 s timeout would risk silent data loss |
+| Backup / restore / cleanup | 4 | Explicitly excluded in Stage 1C spec |
+| File upload / download / delete (/upload.php) | 5 | FormData, DELETE verb, dynamic URL — not supported by _apiPost |
+| Google Sheets / external URLs | 4 | Not api.php; external endpoints |
+| Google OAuth proxy | 1 | Explicitly excluded |
+| Auth logout beacon (keepalive) | 2 | keepalive — must survive page teardown |
+
+**taches.js, rappels.js, redaction.js:** zero fetch() calls.
+
+### Part 2 plan
+
+After Stage 3 extracts business module code into `js/shared/` and `js/prod/`
+plugin files, each module's fetch calls will be isolated in `onReady` handlers.
+At that point individual calls can be migrated one plugin at a time, with
+regression tests per plugin. The compatibility guard pattern is documented in
+`docs/fetch-inventory.md`.
