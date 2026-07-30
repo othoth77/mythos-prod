@@ -1,6 +1,6 @@
 # Mythos OS — Platform Architecture
 
-**Status:** Stage 2D complete — Plugin SDK introduced (js/core/plugin-sdk.js)  
+**Status:** Stage 3A complete — Tasks runtime plugin migrated (js/plugins/tasks.runtime.js)  
 **Date:** 2026-07-29  
 **Context:** Mythos Prod is being reconceived as one module inside a larger platform. This document defines what the platform looks like, how modules relate, and how to migrate the existing codebase toward this structure.
 
@@ -331,6 +331,8 @@ Define the target architecture before touching code. This document.
 **1C Part 1 (done):** Full fetch() audit across app.js, taches.js, rappels.js, redaction.js, auth.js. 23 calls found — all fall into protected categories (sync engine, backup/restore, upload/download, Google, auth beacon). Zero calls migrated. Inventory document: `docs/fetch-inventory.md`. taches.js, rappels.js, redaction.js have zero fetch() calls.
 
 **2D (done):** `js/core/plugin-sdk.js` — Plugin SDK with fluent builder API. Plugin.create() + 9 define*() methods + build(). 110/110 tests pass.
+
+**3A (done):** `js/plugins/tasks.runtime.js` — Tasks bootstrap migrated from `taches.js` to Platform lifecycle. Plugin registered via SDK. Search + calendar providers added. Platform.boot()/ready() wired into bootstrapStableApp.
 
 **1C Part 2 (next):** Revisit after Stage 3 extracts business-module code. Migration candidates will be isolated in plugin `onReady` handlers where context is cleaner.
 

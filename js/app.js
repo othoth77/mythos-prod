@@ -8222,6 +8222,10 @@ function bootstrapStableApp() {
   // Charger depuis le serveur, puis démarrer l'app
   syncFromServer(function() {
     initializeDemoData();
+    if (typeof Platform !== 'undefined' && typeof Platform.boot === 'function') {
+      try { Platform.boot(); } catch(e) {}
+      try { Platform.ready(); } catch(e) {}
+    }
     const initial = location.hash ? location.hash.replace('#', '') : 'dashboard';
     showView(initial);
     initNavScrollHint();
