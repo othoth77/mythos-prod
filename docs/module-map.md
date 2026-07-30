@@ -1,6 +1,29 @@
 # Mythos Prod — Module Map
 
-**Last audited:** 2026-07-29
+**Last audited:** 2026-07-30
+
+---
+
+## Runtime Architecture Summary (Stage 3H)
+
+All 7 runtime plugins are active on `main`. Each is loaded via `js/plugins/*.runtime.js` and registered with the Platform through the Plugin SDK.
+
+| Plugin | File | Type | MythosSearch | MythosCalendar | Storage Keys |
+|--------|------|------|:------------:|:--------------:|:------------:|
+| production | production.runtime.js | business | id=production | id=production | 20 |
+| dashboard | dashboard.runtime.js | shared | — | — | 0 |
+| calendar | calendar.runtime.js | shared | — | — | 0 |
+| tasks | tasks.runtime.js | shared | id=tasks | id=tasks | 1 |
+| planning | planning.runtime.js | shared | id=planning | id=planning | 2 |
+| contacts | contacts.runtime.js | shared | id=contacts | — | 2 |
+| notes | notes.runtime.js | shared | id=notes | — | 2 |
+
+**MythosSearch providers:** 5 (production, tasks, planning, contacts, notes)  
+**MythosCalendar providers:** 3 (production, tasks, planning)  
+**Total runtime plugin lines:** 1 478  
+**Full architecture:** see `docs/runtime-consolidation.md`
+
+---
 
 This file maps every JS module, its global symbols, its localStorage dependencies, and its coupling to other modules.
 

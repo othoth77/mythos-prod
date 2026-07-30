@@ -1,7 +1,7 @@
 # Mythos OS — Platform Architecture
 
-**Status:** Stage 3A.5 complete — Runtime Services foundation (js/core/services/)  
-**Date:** 2026-07-29  
+**Status:** Stage 3H complete — Runtime Architecture Consolidation  
+**Date:** 2026-07-30  
 **Context:** Mythos Prod is being reconceived as one module inside a larger platform. This document defines what the platform looks like, how modules relate, and how to migrate the existing codebase toward this structure.
 
 ---
@@ -347,6 +347,8 @@ Define the target architecture before touching code. This document.
 **3F (done):** Dashboard runtime plugin. `dashboard.runtime.js` replaces `dashboard.plugin.js`. Dashboard is a pure aggregation consumer — it does NOT register a search provider (no own data) and does NOT register a calendar provider (it is not a calendar source). It owns no storage keys (`storageKeys: []`). `onBoot` is a no-op. `onReady` calls `_dashboardInit()` which sets the initialized flag. All rendering (`updateDashboardStats`, `updateDashboardOperational`, `loadDashboardInscriptionsCount`) stays in `app.js` and is triggered by `showView('dashboard')` unchanged. No MythosWidgets registered at this stage — scaffolding in place for a future stage to add widget registrations inside `_dashboardInit()`.
 
 **3G (done):** Production runtime plugin. `production.runtime.js` replaces `production.plugin.js`. Production is the **primary business data plugin** — it owns all core business collections (20 storage keys) and registers both a MythosSearch provider (order 10, searches 8 collections: invoices, clients, devis, contracts, rdvs, oms, representations, collabs) and a MythosCalendar provider (order 10, dated events from `mp_rdvs` and `mp_representations`). `onBoot` validates all 20 owned localStorage keys (malformed JSON or non-array → `'[]'`; null untouched; valid data preserved). `onReady` calls `_productionInit()`. All CRUD, rendering, business logic, sync engine, and dashboard statistics stay in `app.js` unchanged. Dashboard reads Production data via `STORE` directly; no changes to `updateDashboardStats()` or `showView()` wiring.
+
+**3H (done):** Runtime consolidation. All 7 plugins migrated across Stages 3A–3G. Comprehensive architecture documented in `docs/runtime-consolidation.md`. Runtime graph, provider graph, startup sequence, ownership map, legacy dependencies, dead code findings, and future migration plan all recorded. Tests in `tests/stage3h-test.js` (8 sections). No new features, no code moves, no behavior changes — documentation and tests only.
 
 **1C Part 2 (next):** Revisit after Stage 3 extracts business-module code. Migration candidates will be isolated in plugin `onReady` handlers where context is cleaner.
 
