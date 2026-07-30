@@ -123,6 +123,20 @@ MythosCalendar.getEvents(range, ctx?)   // → Promise<NormalizedEvent[]>
 
 Events are sorted chronologically by `start`.
 
+### Calendar Aggregation Architecture (Stage 3E)
+
+`MythosCalendar` is **consumed** by `calendar.runtime.js` and **fed** by provider plugins:
+
+| Plugin | Role | Provider id |
+|--------|------|-------------|
+| `tasks.runtime.js` | Producer — registers tasks with `dueDate` | `'tasks'` |
+| `planning.runtime.js` | Producer — registers rappels with `dateDebut` | `'planning'` |
+| `calendar.runtime.js` | Consumer only — does not register a provider | — |
+
+`renderCalendrier()` (in `app.js`) currently reads `STORE.rdvs()` and `getRappels()` directly.
+A future stage will replace those calls with `MythosCalendar.getEvents(range)` so all providers
+are consumed uniformly. Calendar is the aggregation layer; it does not own any data.
+
 ---
 
 ## 3. Widgets Service — `MythosWidgets`

@@ -1282,6 +1282,7 @@ mythos-prod/                          ← git root (workspace)
 | 3B | js/plugins/contacts.runtime.js — Contacts bootstrap migrated, onBoot storage validation, onReady MythosSearch provider | 9 703 | ✓ Complete |
 | 3C | js/plugins/notes.runtime.js — Notes bootstrap migrated, onBoot storage validation for mp_rddocs_das + mp_rddocs_autres, onReady MythosSearch provider | 9 703 | ✓ Complete |
 | 3D | js/plugins/planning.runtime.js — Planning bootstrap migrated, onBoot storage validation for mp_rappels + mp_rappel_types, onReady MythosSearch + MythosCalendar providers. No dedicated route (modal-based). | 9 703 | ✓ Complete |
+| 3E | js/plugins/calendar.runtime.js — Calendar bootstrap migrated. Calendar is the aggregation consumer of MythosCalendar (tasks + planning register providers; Calendar reads them). No search provider. No calendar provider. onBoot no-op (no own storage). renderCalendrier() stays in app.js. | 9 703 | ✓ Complete |
 | 1B | Migrate raw fetch calls to _apiPost/_apiGet | ~9 650 | Next |
 | 2 | core/ complete (events, platform, auth, logger, sync) | ~9 100 | Planned |
 | 3 | Shared apps extracted (contacts, calendar, tasks, planning, notes, dashboard) | ~6 000 | Planned |

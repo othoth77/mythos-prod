@@ -342,6 +342,8 @@ Define the target architecture before touching code. This document.
 
 **3D (done):** Planning runtime plugin. `planning.runtime.js` replaces `planning.plugin.js`. onBoot storage validation for `mp_rappels` and `mp_rappel_types`, onReady MythosSearch provider (order 7) and MythosCalendar provider (order 5) registered. Calendar events use `dateDebut` as start date, allDay true. Planning has no dedicated route (modal-based). All rappel CRUD, rendering, and recurrence logic stays in `rappels.js` and `app.js`.
 
+**3E (done):** Calendar runtime plugin. `calendar.runtime.js` replaces `calendar.plugin.js`. Calendar is the aggregation consumer of MythosCalendar providers — it does NOT register a search provider (no own data) and does NOT register a calendar provider (it IS the consumer). `tasks.runtime.js` and `planning.runtime.js` register their MythosCalendar providers; `calendar.runtime.js` reads them. `onBoot` is a no-op (Calendar owns no storage keys). `onReady` calls `_calendarInit()` which sets the initialized flag. `renderCalendrier()` stays in `app.js`; a future stage will refactor it to call `MythosCalendar.getEvents(range)`.
+
 **1C Part 2 (next):** Revisit after Stage 3 extracts business-module code. Migration candidates will be isolated in plugin `onReady` handlers where context is cleaner.
 
 Loading order after Stage 1:
