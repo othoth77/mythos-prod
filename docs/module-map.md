@@ -346,7 +346,7 @@ js/plugins/calendar.plugin.js
 js/plugins/tasks.plugin.js
 js/plugins/planning.plugin.js
 js/plugins/contacts.runtime.js  ← Stage 3B: contacts bootstrap migrated (onBoot storage validation, onReady MythosSearch provider; all contact logic stays in app.js)
-js/plugins/notes.plugin.js
+js/plugins/notes.runtime.js  ← Stage 3C: notes bootstrap migrated (onBoot storage validation, onReady MythosSearch provider; all redaction logic stays in redaction.js)
 js/logger.js               ← Existing app scripts (unchanged)
 js/auth.js
 js/app.js

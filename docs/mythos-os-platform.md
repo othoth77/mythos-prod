@@ -338,6 +338,8 @@ Define the target architecture before touching code. This document.
 
 **3B (done):** Contacts runtime plugin. `contacts.runtime.js` replaces `contacts.plugin.js`. onBoot storage validation, onReady MythosSearch provider. All contacts logic stays in app.js.
 
+**3C (done):** Notes runtime plugin. `notes.runtime.js` replaces `notes.plugin.js`. onBoot storage validation for `mp_rddocs_das` and `mp_rddocs_autres`, onReady MythosSearch provider registered with order 7. All notes/redaction logic stays in `redaction.js` and `app.js`.
+
 **1C Part 2 (next):** Revisit after Stage 3 extracts business-module code. Migration candidates will be isolated in plugin `onReady` handlers where context is cleaner.
 
 Loading order after Stage 1:

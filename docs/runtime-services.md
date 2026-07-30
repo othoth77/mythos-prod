@@ -288,3 +288,4 @@ Plugin.create({
 - `tasks.runtime.js` works without any of the runtime services
 - `app.js` works without `PluginServices` loaded
 - `contacts.runtime.js` (Stage 3B) degrades gracefully without `MythosSearch` (skips provider registration) or without `Shell` (plugin registration still succeeds)
+- `notes.runtime.js` (Stage 3C) degrades gracefully without `MythosSearch` (skips provider registration) or without `Shell` (plugin registration still succeeds); `redaction.js` CRUD and rendering are entirely unaffected

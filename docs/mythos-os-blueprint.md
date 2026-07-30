@@ -1280,6 +1280,7 @@ mythos-prod/                          ← git root (workspace)
 | 3A | js/plugins/tasks.runtime.js — Tasks bootstrap migrated, lifecycle wired | 9 650 | ✓ Complete |
 | 3A.5 | js/core/services/ — 5 runtime services + PluginServices bridge | 9 703 | ✓ Complete |
 | 3B | js/plugins/contacts.runtime.js — Contacts bootstrap migrated, onBoot storage validation, onReady MythosSearch provider | 9 703 | ✓ Complete |
+| 3C | js/plugins/notes.runtime.js — Notes bootstrap migrated, onBoot storage validation for mp_rddocs_das + mp_rddocs_autres, onReady MythosSearch provider | 9 703 | ✓ Complete |
 | 1B | Migrate raw fetch calls to _apiPost/_apiGet | ~9 650 | Next |
 | 2 | core/ complete (events, platform, auth, logger, sync) | ~9 100 | Planned |
 | 3 | Shared apps extracted (contacts, calendar, tasks, planning, notes, dashboard) | ~6 000 | Planned |
