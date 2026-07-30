@@ -314,3 +314,65 @@ index.html     —     uses  uses      —        —         —
   nextDate, note, done, updatedAt
 }
 ```
+
+---
+
+## Platform: Mythos OS Registry
+
+**Status:** Stage 2B complete
+**Last updated:** 2026-07-30
+
+### Registered plugins (7 total)
+
+| ID | Label | Type | Routes | Storage keys |
+|----|-------|------|--------|-------------|
+| `production` | Production | business | 30 routes (dashboard → parametres) | 19 keys (mp_invoices … mp_appels) |
+| `dashboard` | Dashboard | shared | `dashboard` | — (reads from other plugins) |
+| `calendar` | Calendrier | shared | `calendrier` | — (reads from production + tasks) |
+| `tasks` | Tâches | shared | `tache` | `mp_taches` |
+| `planning` | Planning | shared | — (modal-only) | `mp_rappels`, `mp_rappel_types` |
+| `contacts` | Contacts | shared | `gestion-contacts`, `contact-fiche` | `mp_repertoire_contacts`, `mp_repertoire_imports` |
+| `notes` | Rédaction | shared | `redaction-das`, `redaction-autres` | `mp_rddocs_das`, `mp_rddocs_autres` |
+
+### Loading order (index.html)
+```
+js/core/events.js          ← Event bus
+js/core/storage.js         ← Storage helpers
+js/core/api.js             ← API fetch wrappers
+js/core/platform.js        ← Plugin registry + lifecycle
+js/plugins/production.plugin.js
+js/plugins/dashboard.plugin.js
+js/plugins/calendar.plugin.js
+js/plugins/tasks.plugin.js
+js/plugins/planning.plugin.js
+js/plugins/contacts.plugin.js
+js/plugins/notes.plugin.js
+js/logger.js               ← Existing app scripts (unchanged)
+js/auth.js
+js/app.js
+js/taches.js
+(js/rappels.js  — defer)
+(js/redaction.js — defer)
+```
+
+### Storage key ownership map
+
+| Key pattern | Owner plugin | Shared readers |
+|-------------|-------------|----------------|
+| `mp_invoices`, `mp_devis`, `mp_contracts` | production | dashboard |
+| `mp_rdvs`, `mp_representations` | production | calendar, dashboard |
+| `mp_oms` | production | dashboard |
+| `mp_clients`, `mp_collabs`, `mp_natures` | production | — |
+| `mp_bank_entries`, `mp_cash_entries` | production | dashboard |
+| `mp_expenses`, `mp_expense_categories` | production | — |
+| `mp_suppliers`, `mp_purchases` | production | — |
+| `mp_vehicules`, `mp_documents` | production | — |
+| `mp_validated_inscriptions`, `mp_appels` | production | dashboard |
+| `mp_taches` | tasks | calendar, dashboard |
+| `mp_rappels`, `mp_rappel_types` | planning | calendar |
+| `mp_repertoire_contacts`, `mp_repertoire_imports` | contacts | — |
+| `mp_rddocs_das`, `mp_rddocs_autres` | notes | — |
+| `mp_rdtpl_*`, `mp_rdent_*` | notes (dynamic per doc) | — |
+| `mp_activity_log` | logger.js (not a plugin yet) | — |
+| `mp_auth_session` | auth.js (not a plugin yet) | — |
+
