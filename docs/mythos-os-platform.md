@@ -336,6 +336,8 @@ Define the target architecture before touching code. This document.
 
 **3A.5 (done):** Runtime Services foundation. 5 services + plugin-services bridge. MythosSearch, MythosCalendar, MythosWidgets, MythosNotifications, MythosDialogs. 152/152 tests pass.
 
+**3B (done):** Contacts runtime plugin. `contacts.runtime.js` replaces `contacts.plugin.js`. onBoot storage validation, onReady MythosSearch provider. All contacts logic stays in app.js.
+
 **1C Part 2 (next):** Revisit after Stage 3 extracts business-module code. Migration candidates will be isolated in plugin `onReady` handlers where context is cleaner.
 
 Loading order after Stage 1:

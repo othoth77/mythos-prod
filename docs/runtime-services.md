@@ -287,3 +287,4 @@ Plugin.create({
 - Plugins that call `Platform.registerPlugin()` directly (without the SDK) are not affected
 - `tasks.runtime.js` works without any of the runtime services
 - `app.js` works without `PluginServices` loaded
+- `contacts.runtime.js` (Stage 3B) degrades gracefully without `MythosSearch` (skips provider registration) or without `Shell` (plugin registration still succeeds)
