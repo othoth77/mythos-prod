@@ -326,7 +326,7 @@ index.html     —     uses  uses      —        —         —
 
 | ID | Label | Type | Routes | Storage keys |
 |----|-------|------|--------|-------------|
-| `production` | Production | business | 30 routes (dashboard → parametres) | 19 keys (mp_invoices … mp_appels) |
+| `production` | Production | business | 30 routes (dashboard → parametres) | 20 keys (mp_invoices … mp_appels + mp_rendez_vous) — registered via production.runtime.js Stage 3G |
 | `dashboard` | Dashboard | shared | `dashboard` | — (pure aggregation consumer; reads from production + tasks via updateDashboardStats/renderTachesDashboard; registered via dashboard.runtime.js Stage 3F) |
 | `calendar` | Calendrier | shared | `calendrier` | — (aggregation consumer; reads from production + tasks + planning via MythosCalendar) |
 | `tasks` | Tâches | shared | `tache` | `mp_taches` |
@@ -340,7 +340,7 @@ js/core/events.js          ← Event bus
 js/core/storage.js         ← Storage helpers
 js/core/api.js             ← API fetch wrappers
 js/core/platform.js        ← Plugin registry + lifecycle
-js/plugins/production.plugin.js
+js/plugins/production.runtime.js  ← Stage 3G: production bootstrap migrated (onBoot validation for 20 storage keys, onReady MythosSearch provider order 10 across 8 collections, MythosCalendar provider for mp_rdvs + mp_representations; all CRUD/rendering/business logic stays in app.js)
 js/plugins/dashboard.runtime.js  ← Stage 3F: dashboard bootstrap migrated (pure aggregation consumer; no own storage; no search provider; no calendar provider)
 js/plugins/calendar.runtime.js  ← Stage 3E: calendar bootstrap migrated (aggregation consumer of MythosCalendar; no own storage; no search provider; no calendar provider)
 js/plugins/tasks.runtime.js     ← Stage 3A: tasks bootstrap migrated

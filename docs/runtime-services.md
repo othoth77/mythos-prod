@@ -129,6 +129,7 @@ Events are sorted chronologically by `start`.
 
 | Plugin | Role | Provider id |
 |--------|------|-------------|
+| `production.runtime.js` | Producer — registers RDVs (`mp_rdvs`) and Représentations (`mp_representations`) with `date` | `'production'` |
 | `tasks.runtime.js` | Producer — registers tasks with `dueDate` | `'tasks'` |
 | `planning.runtime.js` | Producer — registers rappels with `dateDebut` | `'planning'` |
 | `calendar.runtime.js` | Consumer only — does not register a provider | — |
@@ -249,6 +250,26 @@ Automatically connects plugin manifests to runtime services when a plugin calls 
 ### Compatibility Fallback
 
 `tasks.runtime.js` also registers directly with `MythosSearch` and `MythosCalendar` inside `_tasksInit()` — only if `plugin-services.js` has not already registered them (`!hasProvider('tasks')` guard). This ensures Tasks works in partial-migration scenarios.
+
+`production.runtime.js` (Stage 3G) follows the same pattern: `_productionInit()` registers with `MythosSearch` (provider `'production'`, order 10, 8 collections) and `MythosCalendar` (provider `'production'`, order 10, RDVs + Représentations). Both are guarded by `hasProvider()`.
+
+### Registered Search Providers (Stage 3G complete)
+
+| Provider id | Plugin file | Collections searched |
+|-------------|-------------|---------------------|
+| `'production'` | `production.runtime.js` | invoices, clients, devis, contracts, rdvs, oms, representations, collabs |
+| `'tasks'` | `tasks.runtime.js` | mp_taches (note text) |
+| `'planning'` | `planning.runtime.js` | mp_rappels (titre, type, details) |
+| `'contacts'` | `contacts.runtime.js` | mp_repertoire_contacts (nom, prenom, tel1, tel2, email, metier, domaine, note) |
+| `'notes'` | `notes.runtime.js` | mp_rddocs_das, mp_rddocs_autres (titre, contenu, tags) |
+
+### Registered Calendar Providers (Stage 3G complete)
+
+| Provider id | Plugin file | Date source |
+|-------------|-------------|-------------|
+| `'production'` | `production.runtime.js` | `mp_rdvs[].date`, `mp_representations[].date` |
+| `'tasks'` | `tasks.runtime.js` | `mp_taches[].dueDate` |
+| `'planning'` | `planning.runtime.js` | `mp_rappels[].dateDebut` |
 
 ---
 
