@@ -376,3 +376,68 @@ js/taches.js
 | `mp_activity_log` | logger.js (not a plugin yet) | — |
 | `mp_auth_session` | auth.js (not a plugin yet) | — |
 
+---
+
+## Module: js/core/shell.js
+
+**Status:** Stage 2C — Foundation complete
+**Load order:** blocking, after core/platform.js and before plugin manifests
+
+### Global object
+- `Shell` — singleton IIFE
+
+### Sub-APIs
+
+#### Shell.navigation
+- `go(route)` — delegates to `showView(route)` when available, else sets `location.hash`
+- `current()` — reads `location.hash`, defaults to `'dashboard'`
+- Emits: `mythos:shell:navigate` `{ route }`
+
+#### Shell.workspace
+- `setTitle(title)` — stores title, updates `document.title`, emits `mythos:shell:title`
+- `setSubtitle(text)` — stores subtitle, emits `mythos:shell:subtitle`
+- `clear()` — no-op (each view manages its own DOM), emits `mythos:shell:clear`
+- `getTitle()` / `getSubtitle()` — read stored values
+
+#### Shell.sidebar
+- `registerSection(id, label, order)` — idempotent, emits `mythos:shell:section:registered`
+- `registerItem(manifest)` — manifest: `{ id, section, route, label, icon, order }`
+- `getSections()` — sorted by order, safe copies
+- `getItems(section?)` — filtered + sorted, safe copies
+- `hasSection(id)` / `hasItem(id)`
+
+#### Shell.widgets
+- `register(manifest)` — manifest: `{ id, label, zone, render, order }`
+- `getAll(zone?)` — filtered + sorted, safe copies
+- `hasWidget(id)`
+- Emits: `mythos:shell:widget:registered` `{ id, zone }`
+
+#### Shell.header
+- `getLogoEl()` — `document.getElementById('sidebar-logo')`
+- `getSidebarEl()` — `document.getElementById('sidebar')`
+- `getNavEl()` — `document.getElementById('sidebar-nav')`
+- `getLogoutEl()` — `document.getElementById('global-logout-btn')`
+
+### Platform integration
+- Listens to `mythos:plugin:registered` — auto-derives `sectionId` from `plugin.menu.section`,
+  calls `registerSection()` and one `registerItem()` per route
+- Listens to `mythos:ready` — emits `mythos:shell:ready` `{ sections, items, widgets }`
+
+### Events emitted
+| Event | Payload |
+|-------|---------|
+| `mythos:shell:navigate` | `{ route }` |
+| `mythos:shell:title` | `{ title }` |
+| `mythos:shell:subtitle` | `{ subtitle }` |
+| `mythos:shell:clear` | `{}` |
+| `mythos:shell:section:registered` | `{ id, label }` |
+| `mythos:shell:item:registered` | `{ id, route, section }` |
+| `mythos:shell:widget:registered` | `{ id, zone }` |
+| `mythos:shell:ready` | `{ sections, items, widgets }` |
+
+### Compatibility constraints
+- Does NOT modify any existing DOM structure
+- Does NOT change `showView()` behaviour
+- Does NOT touch invoice, tasks, contacts, or dashboard logic
+- Only maintains in-memory registries
+

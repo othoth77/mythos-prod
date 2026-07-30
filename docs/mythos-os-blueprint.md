@@ -2,7 +2,7 @@
 
 **Version:** 1.0  
 **Date:** 2026-07-30  
-**Status:** Stage 2B complete — 7 plugins registered (1 business, 6 shared)  
+**Status:** Stage 2C complete — Shell foundation (js/core/shell.js) introduced  
 **Constraint:** Pure PHP + Vanilla JS. No framework. No build step. No npm. No ES modules.
 
 ---
@@ -1275,6 +1275,7 @@ mythos-prod/                          ← git root (workspace)
 | 1B | core/events.js + core/platform.js | 9 703 | ✓ Complete |
 | 2A | js/plugins/production.plugin.js | 9 703 | ✓ Complete |
 | 2B | 6 shared plugins (dashboard, calendar, tasks, planning, contacts, notes) | 9 703 | ✓ Complete |
+| 2C | js/core/shell.js — Shell foundation (sidebar, workspace, navigation, widgets) | 9 703 | ✓ Complete |
 | 1B | Migrate raw fetch calls to _apiPost/_apiGet | ~9 650 | Next |
 | 2 | core/ complete (events, platform, auth, logger, sync) | ~9 100 | Planned |
 | 3 | Shared apps extracted (contacts, calendar, tasks, planning, notes, dashboard) | ~6 000 | Planned |

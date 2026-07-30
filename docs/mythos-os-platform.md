@@ -1,6 +1,6 @@
 # Mythos OS — Platform Architecture
 
-**Status:** Stage 2B complete — all shared application plugins registered  
+**Status:** Stage 2C complete — Mythos Shell foundation introduced  
 **Date:** 2026-07-29  
 **Context:** Mythos Prod is being reconceived as one module inside a larger platform. This document defines what the platform looks like, how modules relate, and how to migrate the existing codebase toward this structure.
 
@@ -325,6 +325,8 @@ Define the target architecture before touching code. This document.
 **2A (done):** `js/plugins/production.plugin.js` — Production plugin registered with 30 routes, 19 storageKeys, empty lifecycle hooks. 42/42 tests pass.
 
 **2B (done):** 6 shared plugins registered (dashboard, calendar, tasks, planning, contacts, notes). 105/105 tests pass.
+
+**2C (done):** `js/core/shell.js` — Shell layer: sidebar registry, workspace state, navigation adapter, widget registry, header accessors. Auto-registers plugin menu items via Events. 83/83 tests pass.
 
 **1C (next):** Migrate existing `fetch('api.php', ...)` calls in `_flushPending`, `_pushCollection`, `_triggerAutoBackup`, `syncFromServer` to call through `_apiPost`/`_apiGet`. This is the second part of Stage 1.
 
