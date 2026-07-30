@@ -1,6 +1,6 @@
 # Mythos OS — Platform Architecture
 
-**Status:** Stage 1C Part 1 complete — fetch() audit done (0 calls migrated, all protected)  
+**Status:** Stage 2D complete — Plugin SDK introduced (js/core/plugin-sdk.js)  
 **Date:** 2026-07-29  
 **Context:** Mythos Prod is being reconceived as one module inside a larger platform. This document defines what the platform looks like, how modules relate, and how to migrate the existing codebase toward this structure.
 
@@ -329,6 +329,8 @@ Define the target architecture before touching code. This document.
 **2C (done):** `js/core/shell.js` — Shell layer: sidebar registry, workspace state, navigation adapter, widget registry, header accessors. Auto-registers plugin menu items via Events. 83/83 tests pass.
 
 **1C Part 1 (done):** Full fetch() audit across app.js, taches.js, rappels.js, redaction.js, auth.js. 23 calls found — all fall into protected categories (sync engine, backup/restore, upload/download, Google, auth beacon). Zero calls migrated. Inventory document: `docs/fetch-inventory.md`. taches.js, rappels.js, redaction.js have zero fetch() calls.
+
+**2D (done):** `js/core/plugin-sdk.js` — Plugin SDK with fluent builder API. Plugin.create() + 9 define*() methods + build(). 110/110 tests pass.
 
 **1C Part 2 (next):** Revisit after Stage 3 extracts business-module code. Migration candidates will be isolated in plugin `onReady` handlers where context is cleaner.
 
