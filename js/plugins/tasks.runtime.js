@@ -100,6 +100,39 @@ function _tasksInit() {
       typeof renderTachePage === 'function') {
     renderTachePage();
   }
+
+  // 7. Direct registration with runtime services (fallback if plugin-services.js
+  //    did not handle automatic wiring, e.g. partial migration scenarios).
+  if (typeof MythosSearch !== 'undefined' && !MythosSearch.hasProvider('tasks')) {
+    MythosSearch.registerProvider({
+      id:     'tasks',
+      label:  'Taches',
+      order:  3,
+      search: function (query) {
+        if (typeof getTaches !== 'function') return [];
+        var q = String(query || '').toLowerCase();
+        return getTaches()
+          .filter(function (t) { return !t.archived && t.note && t.note.toLowerCase().indexOf(q) !== -1; })
+          .map(function (t) { return { label: t.note.slice(0, 80), route: 'tache', data: t }; });
+      }
+    });
+  }
+
+  if (typeof MythosCalendar !== 'undefined' && !MythosCalendar.hasProvider('tasks')) {
+    MythosCalendar.registerProvider({
+      id:        'tasks',
+      label:     'Taches',
+      order:     3,
+      getEvents: function (range) {
+        if (typeof getTaches !== 'function') return [];
+        var start = range && range.start ? new Date(range.start) : new Date(0);
+        var end   = range && range.end   ? new Date(range.end)   : new Date(8.64e15);
+        return getTaches()
+          .filter(function (t) { return !t.archived && t.dueDate && new Date(t.dueDate) >= start && new Date(t.dueDate) <= end; })
+          .map(function (t) { return { id: 'task-' + t.id, title: t.note.slice(0, 60), start: t.dueDate, allDay: true, route: 'tache', data: t }; });
+      }
+    });
+  }
 }
 
 // ── Plugin registration via SDK ───────────────────────────────────────

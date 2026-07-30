@@ -2,7 +2,7 @@
 
 **Version:** 1.0  
 **Date:** 2026-07-30  
-**Status:** Stage 3A complete — Tasks runtime plugin migrated  
+**Status:** Stage 3A.5 complete — Runtime Services foundation  
 **Constraint:** Pure PHP + Vanilla JS. No framework. No build step. No npm. No ES modules.
 
 ---
@@ -1278,6 +1278,7 @@ mythos-prod/                          ← git root (workspace)
 | 2C | js/core/shell.js — Shell foundation (sidebar, workspace, navigation, widgets) | 9 703 | ✓ Complete |
 | 2D | js/core/plugin-sdk.js — Plugin SDK (fluent builder, 9 define* methods) | 9 703 | ✓ Complete |
 | 3A | js/plugins/tasks.runtime.js — Tasks bootstrap migrated, lifecycle wired | 9 650 | ✓ Complete |
+| 3A.5 | js/core/services/ — 5 runtime services + PluginServices bridge | 9 703 | ✓ Complete |
 | 1B | Migrate raw fetch calls to _apiPost/_apiGet | ~9 650 | Next |
 | 2 | core/ complete (events, platform, auth, logger, sync) | ~9 100 | Planned |
 | 3 | Shared apps extracted (contacts, calendar, tasks, planning, notes, dashboard) | ~6 000 | Planned |

@@ -1,6 +1,6 @@
 # Mythos OS — Platform Architecture
 
-**Status:** Stage 3A complete — Tasks runtime plugin migrated (js/plugins/tasks.runtime.js)  
+**Status:** Stage 3A.5 complete — Runtime Services foundation (js/core/services/)  
 **Date:** 2026-07-29  
 **Context:** Mythos Prod is being reconceived as one module inside a larger platform. This document defines what the platform looks like, how modules relate, and how to migrate the existing codebase toward this structure.
 
@@ -333,6 +333,8 @@ Define the target architecture before touching code. This document.
 **2D (done):** `js/core/plugin-sdk.js` — Plugin SDK with fluent builder API. Plugin.create() + 9 define*() methods + build(). 110/110 tests pass.
 
 **3A (done):** `js/plugins/tasks.runtime.js` — Tasks bootstrap migrated from `taches.js` to Platform lifecycle. Plugin registered via SDK. Search + calendar providers added. Platform.boot()/ready() wired into bootstrapStableApp.
+
+**3A.5 (done):** Runtime Services foundation. 5 services + plugin-services bridge. MythosSearch, MythosCalendar, MythosWidgets, MythosNotifications, MythosDialogs. 152/152 tests pass.
 
 **1C Part 2 (next):** Revisit after Stage 3 extracts business-module code. Migration candidates will be isolated in plugin `onReady` handlers where context is cleaner.
 

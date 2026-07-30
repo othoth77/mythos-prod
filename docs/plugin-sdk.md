@@ -438,3 +438,22 @@ Plugin.create({ id: 'my-plugin', label: 'My Plugin', version: '1.0.0', type: 'sh
   .defineRoutes([{ id: 'my-view', label: 'My View', icon: '📋' }])
   .build();
 ```
+
+
+---
+
+## Runtime Services Integration
+
+When `js/core/services/plugin-services.js` is loaded (after the services, before `plugin-sdk.js`), plugin manifests are **automatically bridged** to the runtime services:
+
+| `define*()` call | Manifest key | Auto-registered with |
+|---|---|---|
+| `.defineSearch({ handler })` | `manifest.search.handler` | `MythosSearch` |
+| `.defineCalendar({ provider })` | `manifest.calendar.provider` | `MythosCalendar` |
+| `.defineWidgets([...])` | `manifest.widgets[]` | `MythosWidgets` |
+
+This happens automatically via the `mythos:plugin:registered` event. No additional code is needed in the plugin. The handler/provider functions remain on the manifest for backward compatibility.
+
+When a service global (`MythosSearch`, `MythosCalendar`, `MythosWidgets`) is absent, wiring is silently skipped — the plugin registers normally in Platform.
+
+See `docs/runtime-services.md` for the complete service API.
