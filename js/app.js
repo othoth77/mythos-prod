@@ -2269,22 +2269,8 @@ function initApp() {
 // Stable app layer - restores the complete screen logic
 // =====================================================
 
-Object.assign(STORE, {
-  rdvs: () => JSON.parse(localStorage.getItem('mp_rdvs') || '[]'),
-  saveRdvs: d => localStorage.setItem('mp_rdvs', JSON.stringify(d)),
-  representations: () => JSON.parse(localStorage.getItem('mp_representations') || '[]'),
-  saveRepresentations: d => localStorage.setItem('mp_representations', JSON.stringify(d)),
-  suppliers: () => JSON.parse(localStorage.getItem('mp_suppliers') || '[]'),
-  saveSuppliers: d => localStorage.setItem('mp_suppliers', JSON.stringify(d)),
-  purchases: () => JSON.parse(localStorage.getItem('mp_purchases') || '[]'),
-  savePurchases: d => localStorage.setItem('mp_purchases', JSON.stringify(d)),
-  expenses: () => JSON.parse(localStorage.getItem('mp_expenses') || '[]'),
-  saveExpenses: d => localStorage.setItem('mp_expenses', JSON.stringify(d)),
-  bankEntries: () => JSON.parse(localStorage.getItem('mp_bank_entries') || '[]'),
-  saveBankEntries: d => localStorage.setItem('mp_bank_entries', JSON.stringify(d)),
-  backupVersions: () => JSON.parse(localStorage.getItem('mp_backup_versions') || '[]'),
-  saveBackupVersions: d => localStorage.setItem('mp_backup_versions', JSON.stringify(d))
-});
+STORE.backupVersions = function() { return _storeGet('mp_backup_versions', '[]'); };
+STORE.saveBackupVersions = function(d) { return _storeSave('mp_backup_versions', d); };
 
 const RESTORE_20260516_FORCE_FLAG = 'mp_restored_from_1778961756472_v4';
 const OM_MISSION_TEXTS = {
