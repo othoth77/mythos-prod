@@ -258,4 +258,4 @@ ok(sb._pendingAdded.indexOf('mp_rdvs') !== -1,
 _results.forEach(function (r) { console.log(r); });
 console.log('\n' + (_fail === 0 ? '\u2713' : '\u2717') +
   ' ' + _pass + '/' + (_pass + _fail) + ' tests passed');
-if (_fail > 0) { process.exit(1); }
+process.exit(_fail > 0 ? 1 : 0);
