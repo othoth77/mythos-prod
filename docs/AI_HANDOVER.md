@@ -15,8 +15,8 @@ HEAD:     <see Stage 4B commit below>
 
 **Stage 4B is committed.** Sync engine extracted from `js/app.js` into `js/core/sync.js`. All Stage 4B tests pass. Regression suite passes (77/77). Total passing: 1526.
 
-Commit: (see Stage 4B section below)
-Remote HEAD: (see Stage 4B section below)
+Commit: `a77f3766a8c8a07991579a8715040be7ea3decf6`
+Remote HEAD: `a77f3766a8c8a07991579a8715040be7ea3decf6`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
@@ -62,7 +62,8 @@ sync.js depends on storage.js for: `_storeGet`, `_safeSet`, `_storeSave`, `_meta
 ### Commit
 
 ```
-<TBD — to be filled after push>
+a77f3766a8c8a07991579a8715040be7ea3decf6
+refactor(sync): extract sync engine into js/core/sync.js
 ```
 
 Parent: `1fb71392579754f521fb5187ecfbecd5b3c31a9b` (docs(handover): record Stage 4A commit hash and remote HEAD)
