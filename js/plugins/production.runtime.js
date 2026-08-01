@@ -23,11 +23,14 @@
 //   - _productionSearchHandler  — late-bound, reads STORE at call time
 //   - _productionCalendarProvider — late-bound, reads STORE at call time
 //
-// What stays in app.js (untouched):
-//   - All CRUD (saveInvoice, saveDevis, saveClient, rdvSave, omSave, …)
-//   - All rendering (renderInvoiceList, renderClientsList, rdvList, …)
+// What lives in js/shared/natures.js (Stage 4F extraction):
+//   - renderNatures, showNatureDetail, openNatureModal,
+//     closeNatureModal, saveNature, deleteNature
+//
+// What stays in app.js:
+//   - Remaining CRUD (saveInvoice, saveDevis, saveClient, rdvSave, omSave, …)
+//   - All other rendering (renderInvoiceList, renderClientsList, rdvList, …)
 //   - Business logic (getInvoiceTotal, normalizeRdv, getRdvAmount, …)
-//   - updateDashboardStats() / updateDashboardOperational()
 //   - loadDashboardInscriptionsCount()
 //   - Sync engine (syncFromServer, _buildPendingBulk, sendBeacon, …)
 //   - STORE object and all its accessors
