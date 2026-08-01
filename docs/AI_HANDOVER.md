@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-01 UTC
-**From:** Stage 4G — Clients CRUD extraction
+**From:** Stage 4H — Collaborateurs CRUD extraction
 **To:** Next AI session
 
 ---
@@ -10,13 +10,13 @@
 
 ```
 Branch:   main
-HEAD:     37cb662fb6dc2c16721952b9c07514fd6cbe5de5
+HEAD:     fa1fa4a94aa220f9fed3b8849291baab094c6a5c
 ```
 
-**Stage 4G is committed.** Clients CRUD extracted from `js/app.js` into `js/shared/clients.js`. All Stage 4G tests pass (49/49). Regression suite passes (77/77). Total passing: 1707.
+**Stage 4H is committed.** Collaborateurs CRUD extracted from `js/app.js` into `js/shared/collaborateurs.js`. All Stage 4H tests pass (51/51). Regression suite passes (168/168). Total passing: 1758.
 
-Commit: `37cb662fb6dc2c16721952b9c07514fd6cbe5de5`
-Remote HEAD: `37cb662fb6dc2c16721952b9c07514fd6cbe5de5`
+Commit: `fa1fa4a` (full: run `git rev-parse HEAD` to confirm)
+Remote HEAD: `fa1fa4a` (pushed to origin/main)
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
@@ -74,14 +74,65 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4H
+## Stage 4H — Collaborateurs CRUD Extraction
 
-Stage 4G is complete. Continue CRUD extraction per AGENTS.md §19 step 6.
+**Objective:** Extract Collaborateurs CRUD from `js/app.js` into `js/shared/collaborateurs.js` (AGENTS.md §19 step 6, continued).
 
-Recommended next: **Collaborateurs CRUD** — `currentCollabDetailId`, `renderCollaborateurs`, `showCollabDetail`, `openCollabModal`, `closeCollabModal`, `saveCollab`, `deleteCollab` into `js/shared/collaborateurs.js`.
+### Changed Files
 
-**Preflight required before starting Stage 4H:**
-1. `git fetch origin && git rev-parse HEAD origin/main` — confirm both = `37cb662fb6dc2c16721952b9c07514fd6cbe5de5`
+| File | Change |
+|------|--------|
+| `js/shared/collaborateurs.js` | NEW: 101 lines — Collaborateurs CRUD verbatim from app.js |
+| `js/app.js` | Trimmed: 8502 → 8407 lines. Lines 4269–4366 (98 lines) replaced by 3-line reference comment |
+| `index.html` | 1 line: `<script src="js/shared/collaborateurs.js?v=20260801">` after clients.js |
+| `tests/stage4h-test.js` | NEW: 51 tests — globals, renderCollaborateurs, openCollabModal, closeCollabModal, saveCollab (create+update), deleteCollab (confirmed+cancelled), showCollabDetail (unknown/no-oms/with-oms), regression chain |
+
+### Extracted Globals (now in shared/collaborateurs.js, removed from app.js)
+
+`currentCollabDetailId` (changed `let`→`var` for vm testability), `renderCollaborateurs`, `showCollabDetail`, `openCollabModal`, `closeCollabModal`, `saveCollab`, `deleteCollab`
+
+### Dependencies
+
+collaborateurs.js resolved at call time: `STORE.collabs/saveCollabs/oms` (storage via app.js); `esc`, `formatDate` (utils.js); `showView` (router.js); `previewOM`, `editOM` (app.js — onclick attributes).
+No LOGGER calls in this module.
+
+### Script Load Order (after Stage 4H)
+
+`js/app.js` → `js/shared/calendar.js` → `js/shared/dashboard.js` → `js/shared/natures.js` → `js/shared/clients.js` → **`js/shared/collaborateurs.js`** → `js/taches.js`
+
+### Test Results
+
+| Suite | Tests | Result |
+|-------|-------|--------|
+| `tests/stage4h-test.js` | 51 | ✓ 51/51 |
+| `tests/stage4g-test.js` | 49 | ✓ 49/49 |
+| `tests/stage4f-test.js` | 37 | ✓ 37/37 |
+| `tests/stage4e-test.js` | 31 | ✓ 31/31 |
+| `tests/stage1a-sync-bypass-regression-test.js` | 77 | ✓ 77/77 (regression) |
+
+### Commit
+
+```
+fa1fa4a94aa220f9fed3b8849291baab094c6a5c
+Stage 4H: extract Collaborateurs CRUD into js/shared/collaborateurs.js
+```
+
+Parent: `daef11459e3c31b9cd9e32c8bbc31bdc585b31d2` (docs: record Stage 4G commit hash)
+
+### Known Issues
+
+Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
+
+---
+
+## Next Stage: Stage 4I
+
+Stage 4H is complete. Continue CRUD extraction per AGENTS.md §19 step 6.
+
+Recommended next: **Fournisseurs CRUD** — `renderFournisseurs`, `saveFournisseur`, `deleteFournisseur` (and any `currentFournisseurDetailId`) into `js/shared/fournisseurs.js`.
+
+**Preflight required before starting Stage 4I:**
+1. `git fetch origin && git rev-parse HEAD origin/main` — confirm both = `fa1fa4a94aa220f9fed3b8849291baab094c6a5c`
 2. `git status --short` — confirm clean
 3. Read `AGENTS.md`, `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`
 
