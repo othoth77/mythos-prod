@@ -15,6 +15,9 @@ HEAD:     <see Stage 4A commit below>
 
 **Stage 4A is committed.** Pending write pipeline extracted from `js/app.js` into `js/core/storage.js`. All Stage 4A tests pass. Regression suite passes (77/77). Total passing: 1474.
 
+Commit: `09b808e5bc3c0c84022bf43c9419f2824cc1d809`
+Remote HEAD: `09b808e5bc3c0c84022bf43c9419f2824cc1d809`
+
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
 ---
@@ -58,6 +61,7 @@ Plus event listeners: `visibilitychange`, `pagehide`, `focus`, `online`, `setInt
 ### Commit
 
 ```
+09b808e5bc3c0c84022bf43c9419f2824cc1d809
 refactor(storage): extract pending write pipeline
 ```
 
