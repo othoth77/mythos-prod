@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-01 UTC
-**From:** Stage 4H — Collaborateurs CRUD extraction
+**From:** Stage 4I — Fournisseurs CRUD extraction
 **To:** Next AI session
 
 ---
@@ -10,13 +10,13 @@
 
 ```
 Branch:   main
-HEAD:     fa1fa4a94aa220f9fed3b8849291baab094c6a5c
+HEAD:     70df5e099f86f35b31bd6f93bc505f9235f9edf6
 ```
 
-**Stage 4H is committed.** Collaborateurs CRUD extracted from `js/app.js` into `js/shared/collaborateurs.js`. All Stage 4H tests pass (51/51). Regression suite passes (168/168). Total passing: 1758.
+**Stage 4I is committed.** Fournisseurs CRUD extracted from `js/app.js` into `js/shared/fournisseurs.js`. All Stage 4I tests pass (69/69). Regression suite passes (237/237). Total passing: 1827.
 
-Commit: `fa1fa4a` (full: run `git rev-parse HEAD` to confirm)
-Remote HEAD: `fa1fa4a` (pushed to origin/main)
+Commit: `70df5e099f86f35b31bd6f93bc505f9235f9edf6`
+Remote HEAD: `70df5e099f86f35b31bd6f93bc505f9235f9edf6` (pushed to origin/main)
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
@@ -125,14 +125,65 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4I
+## Stage 4I — Fournisseurs CRUD Extraction
 
-Stage 4H is complete. Continue CRUD extraction per AGENTS.md §19 step 6.
+**Objective:** Extract Fournisseurs CRUD from `js/app.js` into `js/shared/fournisseurs.js` (AGENTS.md §19 step 6, continued).
 
-Recommended next: **Fournisseurs CRUD** — `renderFournisseurs`, `saveFournisseur`, `deleteFournisseur` (and any `currentFournisseurDetailId`) into `js/shared/fournisseurs.js`.
+### Changed Files
 
-**Preflight required before starting Stage 4I:**
-1. `git fetch origin && git rev-parse HEAD origin/main` — confirm both = `fa1fa4a94aa220f9fed3b8849291baab094c6a5c`
+| File | Change |
+|------|--------|
+| `js/shared/fournisseurs.js` | NEW: 173 lines — Fournisseurs CRUD verbatim from app.js |
+| `js/app.js` | Trimmed: 8407 → 8243 lines. Function block (lines 4276–4443, 168 lines) → 5-line reference comment; state vars (lines 1563–1564, 2 lines) → 1-line reference |
+| `index.html` | 1 line: `<script src="js/shared/fournisseurs.js?v=20260801">` after collaborateurs.js |
+| `tests/stage4i-test.js` | NEW: 69 tests — globals, category style/icon helpers, renderFournisseurs (empty/data/filter-search/filter-category), setFournisseurSearch, setFournisseurFilterCategory, resetFournisseurFilters, openFournisseurModal (DOM safety/new/existing), closeFournisseurModal, saveFournisseur (name guard/create/update), deleteFournisseur (confirmed/cancelled), regression chain |
+
+### Extracted Globals (now in shared/fournisseurs.js, removed from app.js)
+
+`fournisseurFilterCategory` (line 1563, `let`→`var`), `fournisseurSearchQuery` (line 1564, `let`→`var`), `renderFournisseurs`, `getFournisseurCategoryStyle`, `getFournisseurCategoryIcon`, `setFournisseurSearch`, `setFournisseurFilterCategory`, `resetFournisseurFilters`, `openFournisseurModal`, `closeFournisseurModal`, `saveFournisseur`, `deleteFournisseur`
+
+### Dependencies
+
+fournisseurs.js resolved at call time: `STORE.suppliers/saveSuppliers` (defined in app.js line 81 → `_storeSave('mp_suppliers',…)`); `esc` (utils.js); browser DOM (`document`, `alert`, `confirm`, `console.error`). No `showView`, no `LOGGER`, no `formatDate`.
+
+### Script Load Order (after Stage 4I)
+
+`js/app.js` → `js/shared/calendar.js` → `js/shared/dashboard.js` → `js/shared/natures.js` → `js/shared/clients.js` → `js/shared/collaborateurs.js` → **`js/shared/fournisseurs.js`** → `js/taches.js`
+
+### Test Results
+
+| Suite | Tests | Result |
+|-------|-------|--------|
+| `tests/stage4i-test.js` | 69 | ✓ 69/69 |
+| `tests/stage4h-test.js` | 51 | ✓ 51/51 |
+| `tests/stage4g-test.js` | 49 | ✓ 49/49 |
+| `tests/stage4f-test.js` | 37 | ✓ 37/37 |
+| `tests/stage4e-test.js` | 31 | ✓ 31/31 |
+| `tests/stage1a-sync-bypass-regression-test.js` | 77 | ✓ 77/77 (regression) |
+
+### Commit
+
+```
+70df5e099f86f35b31bd6f93bc505f9235f9edf6
+Stage 4I: extract Fournisseurs CRUD into js/shared/fournisseurs.js
+```
+
+Parent: `1b50e62876e6773affad64cd56af5fdbaeb18f6f` (docs: record Stage 4H commit hash)
+
+### Known Issues
+
+Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
+
+---
+
+## Next Stage: Stage 4J
+
+Stage 4I is complete. Continue CRUD extraction per AGENTS.md §19 step 6.
+
+Remaining deferred CRUD blocks in app.js: all invoice/devis/contract/RDV/OM/representation/accounting/bank CRUD.
+
+**Preflight required before starting Stage 4J:**
+1. `git fetch origin && git rev-parse HEAD origin/main` — confirm both = `70df5e099f86f35b31bd6f93bc505f9235f9edf6`
 2. `git status --short` — confirm clean
 3. Read `AGENTS.md`, `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`
 
