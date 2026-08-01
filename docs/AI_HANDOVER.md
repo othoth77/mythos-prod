@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-01 UTC
-**From:** Stage 4D — calendar rendering extraction
+**From:** Stage 4E — dashboard rendering extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,81 @@
 
 ```
 Branch:   main
-HEAD:     <see Stage 4D commit below>
+HEAD:     13655db0ba579eae88b32a964f42cc01c1143b07
 ```
 
-**Stage 4D is committed.** Calendar rendering extracted from `js/app.js` into `js/shared/calendar.js`. All Stage 4D tests pass. Regression suite passes (77/77). Total passing: 1590.
+**Stage 4E is committed.** Dashboard rendering extracted from `js/app.js` into `js/shared/dashboard.js`. All Stage 4E tests pass (31/31). Regression suite passes (77/77). Total passing: 1621.
 
-Commit: `7adb1fe5e1b6ace9ffa24f19e91827d3a34a4c2b`
-Remote HEAD: `7adb1fe5e1b6ace9ffa24f19e91827d3a34a4c2b`
+Commit: `13655db0ba579eae88b32a964f42cc01c1143b07`
+Remote HEAD: `13655db0ba579eae88b32a964f42cc01c1143b07`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4E — Dashboard Rendering Extraction
+
+**Objective:** Extract dashboard rendering from `js/app.js` into `js/shared/dashboard.js` as an atomic unit.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/dashboard.js` | NEW: 282 lines — dashboard rendering verbatim from app.js |
+| `js/app.js` | Trimmed: 8940 → 8668 lines. Lines 201–474 (updateDashboardStats + updateDashboardOperational, 274 lines) replaced by 2-line reference comment |
+| `index.html` | 1 line: `<script src="js/shared/dashboard.js?v=20260801">` inserted after calendar.js |
+| `tests/stage4e-test.js` | NEW: 31 tests covering all extracted globals, empty/populated data paths, recovery bar, upcoming RDVs, operational alerts, chain regression |
+| `js/plugins/dashboard.runtime.js` | Comment updated: "What stays in app.js" → "What lives in js/shared/dashboard.js" |
+
+### Extracted Globals (now in shared/dashboard.js, removed from app.js)
+
+`updateDashboardStats`, `updateDashboardOperational`
+
+`loadDashboardInscriptionsCount` was NOT extracted — it shares `_uclNum` with `loadInscriptions` (both remain in app.js).
+
+### Script Load Order (after Stage 4E)
+
+`js/core/storage.js` → `js/core/sync.js` → `js/core/router.js` → ... → `js/app.js` → `js/shared/calendar.js` → **`js/shared/dashboard.js`** → `js/taches.js`
+
+### Dependencies
+
+dashboard.js render callbacks resolved at call time: `STORE.*` (storage.js); `normalizeRdv`, `todayStr`, `fmtMoney`, `escapeHtml`, `formatDate`, `getInvoiceTotal`, `num` (utils.js); `editInvoice`, `rdvEdit`, `loadDashboardInscriptionsCount` (app.js).
+
+### Test Results
+
+| Suite | Tests | Result |
+|-------|-------|--------|
+| `tests/stage4e-test.js` | 31 | ✓ 31/31 |
+| `tests/stage1a-sync-bypass-regression-test.js` | 77 | ✓ 77/77 |
+| Full suite (baseline 1590 + 31 new) | 1621 | Not rerun (AGENTS.md §8) |
+
+### Commit
+
+```
+13655db0ba579eae88b32a964f42cc01c1143b07
+refactor(dashboard): extract dashboard rendering into js/shared/dashboard.js
+```
+
+Parent: `7adb1fe5e1b6ace9ffa24f19e91827d3a34a4c2b` (refactor(calendar): extract calendar rendering into js/shared/calendar.js)
+
+### Known Issues
+
+Same as Stage 4D: `tests/core-test.js` pre-existing `_memCache` failure. Not fixed, not regressed.
+
+---
+
+---
+
+## Next Stage: Stage 4F
+
+Stage 4E is complete. The next extraction stage should continue reducing `js/app.js` per AGENTS.md §19.
+
+AGENTS.md §19 step 6: **Extract CRUD plugins.**
+
+**Preflight required before starting Stage 4F:**
+1. `git fetch origin && git rev-parse HEAD origin/main` — confirm equal and both = `13655db0ba579eae88b32a964f42cc01c1143b07`
+2. `git status --short` — confirm clean
+3. Read `AGENTS.md`, `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`
 
 ---
 
