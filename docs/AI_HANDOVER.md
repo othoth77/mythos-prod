@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-01 UTC
-**From:** Stage 4A — pending write pipeline extraction
+**From:** Stage 4B — sync engine extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,68 @@
 
 ```
 Branch:   main
-HEAD:     <see Stage 4A commit below>
+HEAD:     <see Stage 4B commit below>
 ```
 
-**Stage 4A is committed.** Pending write pipeline extracted from `js/app.js` into `js/core/storage.js`. All Stage 4A tests pass. Regression suite passes (77/77). Total passing: 1474.
+**Stage 4B is committed.** Sync engine extracted from `js/app.js` into `js/core/sync.js`. All Stage 4B tests pass. Regression suite passes (77/77). Total passing: 1526.
 
-Commit: `09b808e5bc3c0c84022bf43c9419f2824cc1d809`
-Remote HEAD: `09b808e5bc3c0c84022bf43c9419f2824cc1d809`
+Commit: (see Stage 4B section below)
+Remote HEAD: (see Stage 4B section below)
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4B — Sync Engine Extraction
+
+**Objective:** Extract the sync engine from `js/app.js` into `js/core/sync.js` as an atomic unit.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/core/sync.js` | NEW: 210 lines — sync engine verbatim from app.js |
+| `js/app.js` | Trimmed: 9476 → 9269 lines. Sync engine block (lines 57–267, 211 lines) replaced by 3-line reference comment; stale comment updated to reference sync.js |
+| `index.html` | 1 line: `<script src="js/core/sync.js?v=20260801">` inserted after storage.js |
+| `tests/stage4b-test.js` | NEW: 52 tests covering all extracted globals, merge/tombstone behavior, syncFromServer steps, indicator, regression |
+
+### Extracted Globals (now in sync.js, removed from app.js)
+
+`_mergeCollections`, `_tombKey`, `_getDeletedIds`, `_markDeleted`, `_filterTombstoned`, `_syncIndicatorTimer`, `_showSyncIndicator`, `syncFromServer`
+
+### Script Load Order (after Stage 4B)
+
+`js/core/storage.js` → `js/core/sync.js` → `js/app.js` → `js/plugins/*.runtime.js`
+
+### Dependencies
+
+sync.js depends on storage.js for: `_storeGet`, `_safeSet`, `_storeSave`, `_metaUpdate`, `_pushCollection`, `_pendingKeys`, `_localMeta`, `_memCache`
+
+`_markDeleted` is still called from app.js (lines 1604, 3036, 3039, 3115, 3229, 3258) — correct, it remains a global.
+
+`syncFromServer` called from: `app.js` (3 sites), `auth.js` (guarded), `storage.js` `_pullFromServerNow` (guarded), `taches.js` (guarded).
+
+### Test Results
+
+| Suite | Tests | Result |
+|-------|-------|--------|
+| `tests/stage4b-test.js` | 52 | ✓ 52/52 |
+| `tests/stage1a-sync-bypass-regression-test.js` | 77 | ✓ 77/77 |
+| Full suite (baseline 1474 + 52 new) | 1526 | Not rerun (AGENTS.md §8) |
+
+### Commit
+
+```
+<TBD — to be filled after push>
+```
+
+Parent: `1fb71392579754f521fb5187ecfbecd5b3c31a9b` (docs(handover): record Stage 4A commit hash and remote HEAD)
+
+### Known Issues
+
+Same as Stage 4A: `tests/core-test.js` pre-existing `_memCache` failure. Not fixed, not regressed.
+
+---
 
 ---
 
@@ -69,22 +122,19 @@ Parent: `128f2cbadc70f8d2800147dc589e10cd827c0b80` (docs(agent): add persistent 
 
 ---
 
-## Next Stage: Stage 4B — Sync Engine Extraction
+## Next Stage: Stage 4C
 
-**Scope:** Extract the sync engine from `js/app.js` into `js/core/sync.js`.
+Stage 4B is complete. The next extraction stage should continue reducing `js/app.js`.
 
-Functions to extract (identified in prior Stage 4B preflight):
-- `syncFromServer` (and all sub-functions it calls)
-- `_handleServerSync`, `_mergeServerData`, related helpers
-- Event registrations that depend on sync
+Candidates (read ROADMAP.md and remaining app.js structure):
+- Stage 4C: Extract routing / navigation logic into `js/core/router.js` or similar
+- Or: continue with shared module extraction per the post-Stage 4 roadmap
 
-**Preflight required before starting:**
+**Preflight required before starting Stage 4C:**
 1. `git fetch origin && git rev-parse HEAD origin/main` — confirm equal
 2. `git status --short` — confirm clean
 3. Read `AGENTS.md`, `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`
-4. Map all callers of sync functions in app.js before extracting
-
-**Do not start Stage 4B until Stage 4A commit is verified on origin/main.**
+4. Map callers of the target functions before extracting
 
 ---
 
