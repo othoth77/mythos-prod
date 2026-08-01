@@ -21,15 +21,17 @@
 //   - onReady: initialize once, wire lifecycle guard, register widgets when available
 //   - window.load fallback
 //
-// What stays in app.js (untouched):
+// What lives in js/shared/dashboard.js (Stage 4E extraction):
 //   - updateDashboardStats()            — KPI aggregation, KPI DOM writes
 //   - updateDashboardOperational()      — operational section renderer
-//   - loadDashboardInscriptionsCount()  — external inscriptions fetch
+//
+// What stays in app.js:
+//   - loadDashboardInscriptionsCount()  — external inscriptions fetch (shares _uclNum with loadInscriptions)
 //   - renderBackupDashboard()           — backup dashboard view
-//   - currentPage / navigateTo()        — legacy navigation state
+//   - currentPage / navigateTo()        — legacy navigation state (router.js)
 //   - showView('dashboard')             — triggers updateDashboardStats() + inscriptions load
 //
-// Rendering is triggered by showView('dashboard') in app.js:
+// Rendering is triggered by showView('dashboard') in router.js:
 //   if (view === 'dashboard') { updateDashboardStats(); loadDashboardInscriptionsCount(); }
 //
 // Depends on: Plugin (js/core/plugin-sdk.js)
