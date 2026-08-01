@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-01 UTC
-**From:** Stage 4B — sync engine extraction
+**From:** Stage 4C — routing extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,73 @@
 
 ```
 Branch:   main
-HEAD:     <see Stage 4B commit below>
+HEAD:     <see Stage 4C commit below>
 ```
 
-**Stage 4B is committed.** Sync engine extracted from `js/app.js` into `js/core/sync.js`. All Stage 4B tests pass. Regression suite passes (77/77). Total passing: 1526.
+**Stage 4C is committed.** Routing extracted from `js/app.js` into `js/core/router.js`. All Stage 4C tests pass. Regression suite passes (77/77). Total passing: 1558.
 
-Commit: `a77f3766a8c8a07991579a8715040be7ea3decf6`
-Remote HEAD: `a77f3766a8c8a07991579a8715040be7ea3decf6`
+Commit: `c377a3ba5aa346b4bb70afe278714ee21a147126`
+Remote HEAD: `c377a3ba5aa346b4bb70afe278714ee21a147126`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4C — Routing Extraction
+
+**Objective:** Extract routing/navigation from `js/app.js` into `js/core/router.js` as an atomic unit.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/core/router.js` | NEW: 93 lines — routing verbatim from app.js |
+| `js/app.js` | Trimmed: 9269 → 9179 lines. Two routing blocks (lines 476–514 and 2426–2480, 90 lines total) replaced by 2-line reference comments each |
+| `index.html` | 1 line: `<script src="js/core/router.js?v=20260801">` inserted after sync.js |
+| `tests/stage4c-test.js` | NEW: 32 tests covering all extracted globals, navigateTo, showPage, showView, updateSidebarStats, regression |
+
+### Extracted Globals (now in router.js, removed from app.js)
+
+`currentPage`, `navigateTo`, `showPage`, `showView`, `updateSidebarStats`
+
+`currentPage` was changed from `let` to `var` to become a true global (consistent with storage.js/sync.js module pattern).
+
+The two runtime `showView` overrides at app.js lines 7826–7869 (mobile sidebar close, logs view) remain in app.js — they patch `window.showView` at execution time.
+
+### Script Load Order (after Stage 4C)
+
+`js/core/storage.js` → `js/core/sync.js` → `js/core/router.js` → `js/app.js` → `js/plugins/*.runtime.js`
+
+### Dependencies
+
+router.js render callbacks (`updateDashboardStats`, `renderList`, `renderClients`, etc.) remain in app.js — resolved at call time (runtime), not at load time.
+
+`navigateTo` called from app.js at: lines 592, 1479, 1503, 1837 — unchanged (global).
+`showView` called 50+ times in app.js and HTML `onclick` attributes — unchanged (global).
+`Shell.navigation.go()` in shell.js delegates to `showView` — unchanged.
+
+### Test Results
+
+| Suite | Tests | Result |
+|-------|-------|--------|
+| `tests/stage4c-test.js` | 32 | ✓ 32/32 |
+| `tests/stage1a-sync-bypass-regression-test.js` | 77 | ✓ 77/77 |
+| Full suite (baseline 1526 + 32 new) | 1558 | Not rerun (AGENTS.md §8) |
+
+### Commit
+
+```
+c377a3ba5aa346b4bb70afe278714ee21a147126
+refactor(router): extract routing into js/core/router.js
+```
+
+Parent: `9e0e368c5e6e040b7520d65083ec067073224002` (docs(handover): record Stage 4B commit hash and remote HEAD)
+
+### Known Issues
+
+Same as Stage 4B: `tests/core-test.js` pre-existing `_memCache` failure. Not fixed, not regressed.
+
+---
 
 ---
 
@@ -123,16 +181,16 @@ Parent: `128f2cbadc70f8d2800147dc589e10cd827c0b80` (docs(agent): add persistent 
 
 ---
 
-## Next Stage: Stage 4C
+## Next Stage: Stage 4D
 
-Stage 4B is complete. The next extraction stage should continue reducing `js/app.js`.
+Stage 4C is complete. The next extraction stage should continue reducing `js/app.js` per AGENTS.md §19.
 
-Candidates (read ROADMAP.md and remaining app.js structure):
-- Stage 4C: Extract routing / navigation logic into `js/core/router.js` or similar
-- Or: continue with shared module extraction per the post-Stage 4 roadmap
+AGENTS.md §19 step 4: **Extract calendar behavior.**
 
-**Preflight required before starting Stage 4C:**
-1. `git fetch origin && git rev-parse HEAD origin/main` — confirm equal
+Candidates per ROADMAP.md: `calendar.js` (app.js lines ~8600–8841), or continue with shared module extraction for contacts, dashboard, or other bounded modules.
+
+**Preflight required before starting Stage 4D:**
+1. `git fetch origin && git rev-parse HEAD origin/main` — confirm equal and both = `c377a3ba5aa346b4bb70afe278714ee21a147126`
 2. `git status --short` — confirm clean
 3. Read `AGENTS.md`, `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`
 4. Map callers of the target functions before extracting
