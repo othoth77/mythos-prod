@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-01 UTC
-**From:** Stage 4I — Fournisseurs CRUD extraction
+**From:** Stage 4J — Representations CRUD extraction
 **To:** Next AI session
 
 ---
@@ -10,13 +10,13 @@
 
 ```
 Branch:   main
-HEAD:     70df5e099f86f35b31bd6f93bc505f9235f9edf6
+HEAD:     73f72c3b (pushed to origin/main)
 ```
 
-**Stage 4I is committed.** Fournisseurs CRUD extracted from `js/app.js` into `js/shared/fournisseurs.js`. All Stage 4I tests pass (69/69). Regression suite passes (237/237). Total passing: 1827.
+**Stage 4J is committed.** Representations CRUD extracted from `js/app.js` into `js/shared/representations.js`. All Stage 4J tests pass (66/66). Stage1a sync bypass regression: 77/77. Full accumulated 4E–4J suite: 303 tests.
 
-Commit: `70df5e099f86f35b31bd6f93bc505f9235f9edf6`
-Remote HEAD: `70df5e099f86f35b31bd6f93bc505f9235f9edf6` (pushed to origin/main)
+Commit: `73f72c3` — `Stage 4J: extract Representations CRUD into js/shared/representations.js`
+Remote HEAD: matches local (pushed to origin/main)
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
@@ -176,16 +176,72 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4J
+## Stage 4J — Representations CRUD Extraction
 
-Stage 4I is complete. Continue CRUD extraction per AGENTS.md §19 step 6.
+**Objective:** Extract Representations CRUD from `js/app.js` into `js/shared/representations.js` (AGENTS.md §19 step 6, continued).
 
-Remaining deferred CRUD blocks in app.js: all invoice/devis/contract/RDV/OM/representation/accounting/bank CRUD.
+### Changed Files
 
-**Preflight required before starting Stage 4J:**
-1. `git fetch origin && git rev-parse HEAD origin/main` — confirm both = `70df5e099f86f35b31bd6f93bc505f9235f9edf6`
-2. `git status --short` — confirm clean
-3. Read `AGENTS.md`, `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`
+| File | Change |
+|------|--------|
+| `js/shared/representations.js` | NEW: 124 lines — Representations CRUD verbatim from app.js |
+| `js/app.js` | Trimmed: 8243 → 8131 lines. Function block (lines 6790–6907, 118 lines) → 6-line reference comment; state var (line 1550, 1 line) → 1-line reference |
+| `index.html` | 1 line: `<script src="js/shared/representations.js?v=20260801">` after fournisseurs.js |
+| `tests/stage4j-test.js` | NEW: 66 tests — globals, renderRepresentations (empty/data), showRepresentationDetail (unknown/known), fillRepresentationClients, syncRepresentationClient (match/no-match), openRepresentationModal (new/existing), closeRepresentationModal, addRepresentationNatureLine (counter), saveRepresentation (create/update), deleteRepresentation (confirmed/cancelled), printRepresentations (window.open mock), stableRepNatureRows reset, regression chain |
+| `tests/stage1a-sync-bypass-regression-test.js` | Fix: `if (_fail > 0) process.exit(1)` → `process.exit(_fail > 0 ? 1 : 0)` to prevent 5-minute hang from storage.js auto-backup timer |
+
+### Extracted Globals (now in shared/representations.js, removed from app.js)
+
+`stableRepNatureRows` (line 1550, `let`→`var`), `renderRepresentations`, `showRepresentationDetail`, `openRepresentationModal`, `closeRepresentationModal`, `fillRepresentationClients`, `syncRepresentationClient`, `addRepresentationNatureLine`, `saveRepresentation`, `deleteRepresentation`, `printRepresentations`
+
+### Dependencies
+
+representations.js resolved at call time: `STORE.representations/saveRepresentations/clients/natures` (defined in app.js STORE block); `esc`, `fmtMoney`, `num`, `formatDate`, `formatDateLong`, `todayStr` (utils.js); browser DOM (`document`, `window.open`, `confirm`, `setTimeout`).
+
+### Script Load Order (after Stage 4J)
+
+`js/app.js` → `js/shared/calendar.js` → `js/shared/dashboard.js` → `js/shared/natures.js` → `js/shared/clients.js` → `js/shared/collaborateurs.js` → `js/shared/fournisseurs.js` → **`js/shared/representations.js`** → `js/taches.js`
+
+### Test Results
+
+| Suite | Tests | Result |
+|-------|-------|--------|
+| `tests/stage4j-test.js` | 66 | ✓ 66/66 |
+| `tests/stage4i-test.js` | 69 | ✓ 69/69 |
+| `tests/stage4h-test.js` | 51 | ✓ 51/51 |
+| `tests/stage4g-test.js` | 49 | ✓ 49/49 |
+| `tests/stage4f-test.js` | 37 | ✓ 37/37 |
+| `tests/stage4e-test.js` | 31 | ✓ 31/31 |
+| `tests/stage1a-sync-bypass-regression-test.js` | 77 | ✓ 77/77 (regression) |
+
+### Commit
+
+```
+73f72c3
+Stage 4J: extract Representations CRUD into js/shared/representations.js
+```
+
+Parent: `58b199754a198acce008436f43be8a1b5f4b3c67` (docs: record Stage 4I commit hash)
+
+### Known Issues
+
+Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
+
+---
+
+## Next Stage: Stage 4K
+
+Stage 4J is complete. Continue CRUD extraction per AGENTS.md §19 step 6.
+
+Remaining deferred CRUD blocks in app.js: invoices, devis, contracts, RDVs, ordres de mission, accounting/bank, and any other remaining CRUD domains.
+
+**Preflight required before starting Stage 4K:**
+1. `git fetch origin`
+2. Confirm local HEAD = origin/main (both = `73f72c3...`)
+3. `git status --short` — confirm clean
+4. Verify Stage 4J commit exists: `73f72c3`
+5. Read `AGENTS.md`, `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`
+6. Inventory remaining CRUD blocks in `js/app.js` — select smallest coherent responsibility with clear boundaries
 
 ---
 
