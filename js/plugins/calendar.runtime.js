@@ -19,16 +19,18 @@
 //   - onReady: initialize once, wire lifecycle guard
 //   - window.load fallback
 //
-// What stays in app.js (untouched):
+// What lives in js/shared/calendar.js (Stage 4D extraction):
 //   - renderCalendrier()     — main calendar render function
 //   - setCalFilter()         — filter mode setter
 //   - _calDateLabel()        — date label helper
 //   - _calDateSeparator()    — date separator HTML helper
 //   - _calRenderItem()       — card renderer
 //   - calFilterMode          — filter state variable
+//
+// What stays in app.js:
 //   - All rdv CRUD functions (rdvOpenForm, rdvSave, rdvEdit, etc.)
 //
-// Rendering is triggered by showView('calendrier') in app.js:
+// Rendering is triggered by showView('calendrier') in router.js:
 //   if (view === 'calendrier') renderCalendrier();
 //
 // Depends on: Plugin (js/core/plugin-sdk.js)
