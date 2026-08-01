@@ -34,15 +34,17 @@ function makeSandbox(overrides) {
     document: {
       readyState: 'complete',
       title: '',
-      createElement: function () { return { style: {}, setAttribute: function () {} }; },
+      visibilityState: 'visible',
+      createElement: function () { return { style: {}, setAttribute: function () {}, appendChild: function() {} }; },
       getElementById: function () { return null; },
       querySelector: function () { return null; },
       querySelectorAll: function () { return []; },
-      body: { appendChild: function () {} }
+      body: { appendChild: function () {} },
+      addEventListener: function () {}
     },
     window: { addEventListener: function () {} },
     location: { hash: '' },
-    navigator: { sendBeacon: function () { return true; } },
+    navigator: { onLine: true, sendBeacon: function () { return true; } },
     localStorage: {
       getItem: function (k) { _lsSpy.gets.push(k); return Object.prototype.hasOwnProperty.call(_ls, k) ? _ls[k] : null; },
       setItem: function (k, v) { _lsSpy.sets.push(k); _ls[k] = String(v); },
@@ -51,7 +53,7 @@ function makeSandbox(overrides) {
     fetch: function () {
       return Promise.resolve({ ok: true, status: 200, json: function () { return Promise.resolve({ ok: true }); } });
     },
-    // Sync engine spies
+    // Sync engine spies (may be overwritten by storage.js after Stage 4A)
     _pendingAdd: function (key) { _pendingAdded.push(key); },
     _metaUpdate: function (key, ts) {},
     _triggerAutoBackup: function (label) {},
@@ -67,8 +69,16 @@ function makeSandbox(overrides) {
     Array:     Array,
     Object:    Object,
     String:    String,
+    Set:       Set,
+    Map:       Map,
+    Math:      Math,
+    Number:    Number,
+    Boolean:   Boolean,
     setTimeout:    setTimeout,
     clearTimeout:  clearTimeout,
+    setInterval:   function() { return 1; },
+    clearInterval: function() {},
+    Blob:          function() { return {}; },
     encodeURIComponent: encodeURIComponent,
     Uint8Array: Uint8Array
   };
@@ -81,19 +91,26 @@ function load(sandbox, rel) {
   vm.runInContext(fs.readFileSync(path.join(BASE, rel), 'utf8'), sandbox);
 }
 
-// ── Utility: read specific lines from app.js ──────────────────────────
+// ── Utility: read STORE block from app.js (dynamic — tolerates line shifts) ──
 function loadAppJsSTORE(sandbox) {
   var appJs = fs.readFileSync(path.join(BASE, 'js/app.js'), 'utf8').split('\n');
 
-  // Extract STORE definition (lines 486-531 after fix, 0-indexed 485-530)
-  // vm.createContext makes const invisible on the sandbox object, so use var
-  var storeDef = appJs.slice(485, 531).join('\n').replace(/^const STORE/, 'var STORE');
+  // Find STORE definition dynamically (line number shifts after Stage 4A extraction)
+  var storeStart = appJs.findIndex(function(l) { return /^const STORE\s*=/.test(l); });
+  if (storeStart === -1) throw new Error('STORE definition not found in app.js');
+  var storeEnd = storeStart + 1;
+  while (storeEnd < appJs.length && !/^};/.test(appJs[storeEnd].trimEnd())) storeEnd++;
+  storeEnd++; // include the closing };
+
+  var storeDef = appJs.slice(storeStart, storeEnd).join('\n').replace(/^const STORE/, 'var STORE');
   vm.runInContext(storeDef, sandbox);
 
-  // Extract backupVersions lines (after the fix, lines 2272-2273, 0-indexed 2271-2272)
-  // These are property assignments to existing STORE — no const issue
-  var fixLines = appJs.slice(2271, 2273).join('\n');
-  vm.runInContext(fixLines, sandbox);
+  // Find backupVersions property assignment dynamically
+  var bkvIdx = appJs.findIndex(function(l) { return l.indexOf('STORE.backupVersions =') !== -1; });
+  if (bkvIdx !== -1) {
+    var fixLines = appJs[bkvIdx] + '\n' + appJs[bkvIdx + 1];
+    vm.runInContext(fixLines, sandbox);
+  }
 }
 
 // ── SECTION 1: _storeSave routing ─────────────────────────────────────
@@ -101,10 +118,22 @@ section('1. _storeSave routing — no direct localStorage.setItem');
 
 var sb = makeSandbox();
 
-// Load storage.js (defines _storeGet, _safeSet, _memCache)
+// Load storage.js — after Stage 4A this includes the pending write pipeline
 load(sb, 'js/core/storage.js');
 
-// Define _storeSave (replica of app.js:256-273) using sandbox spies
+// Re-install _pendingAdd spy after Stage 4A (storage.js overwrites the initial spy).
+// Use assignment (not declaration) to avoid function-hoisting capturing the new fn.
+vm.runInContext(
+  '(function() {' +
+  '  var _orig = _pendingAdd;' +
+  '  _pendingAdded = [];' +
+  '  _pendingAdd = function(key) { _orig(key); _pendingAdded.push(key); };' +
+  '})()',
+  sb
+);
+
+// Redefine _storeSave as a controlled stub so tests remain isolated from
+// server-side effects (_pushCollection, beacon). Routes through the spy _pendingAdd.
 vm.runInContext(
   'function _storeSave(key, data) {' +
   '  _safeSet(key, data);' +
