@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-01 UTC
-**From:** Stage 4C — routing extraction
+**From:** Stage 4D — calendar rendering extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,70 @@
 
 ```
 Branch:   main
-HEAD:     <see Stage 4C commit below>
+HEAD:     <see Stage 4D commit below>
 ```
 
-**Stage 4C is committed.** Routing extracted from `js/app.js` into `js/core/router.js`. All Stage 4C tests pass. Regression suite passes (77/77). Total passing: 1558.
+**Stage 4D is committed.** Calendar rendering extracted from `js/app.js` into `js/shared/calendar.js`. All Stage 4D tests pass. Regression suite passes (77/77). Total passing: 1590.
 
-Commit: `c377a3ba5aa346b4bb70afe278714ee21a147126`
-Remote HEAD: `c377a3ba5aa346b4bb70afe278714ee21a147126`
+Commit: `7adb1fe5e1b6ace9ffa24f19e91827d3a34a4c2b`
+Remote HEAD: `7adb1fe5e1b6ace9ffa24f19e91827d3a34a4c2b`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4D — Calendar Rendering Extraction
+
+**Objective:** Extract calendar rendering from `js/app.js` into `js/shared/calendar.js` as an atomic unit.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/calendar.js` | NEW: 251 lines — calendar rendering verbatim from app.js |
+| `js/app.js` | Trimmed: 9179 → 8940 lines. Two blocks removed: `calFilterMode` (line 1823) and CALENDRIER section (lines 7826–8065, 240 lines), replaced by reference comments |
+| `index.html` | 1 line: `<script src="js/shared/calendar.js?v=20260801">` inserted after app.js, before taches.js |
+| `tests/stage4d-test.js` | NEW: 32 tests covering all extracted globals, filter state, date helpers, renderCalendrier, _calRenderItem, openRdvModal, regression |
+| `js/plugins/calendar.runtime.js` | Comment updated: "What stays in app.js" → "What lives in js/shared/calendar.js" |
+
+### Extracted Globals (now in shared/calendar.js, removed from app.js)
+
+`calFilterMode`, `openRdvModal`, `setCalFilter`, `_calDateLabel`, `_calDateSeparator`, `renderCalendrier`, `_calRenderItem`
+
+`calFilterMode` was changed from `let` to `var` for global accessibility (consistent with module pattern).
+
+### Script Load Order (after Stage 4D)
+
+`js/core/storage.js` → `js/core/sync.js` → `js/core/router.js` → ... → `js/app.js` → **`js/shared/calendar.js`** → `js/taches.js`
+
+Note: calendar.js loads AFTER app.js to preserve existing behavior (the `tasks.runtime.js` patch of `renderCalendrier` currently cannot apply at plugin load time — this is a pre-existing state, not introduced by Stage 4D).
+
+### Dependencies
+
+calendar.js render callbacks remain in `utils.js` (`normalizeRdv`, `todayStr`, `isRdvPaid`, etc.), `rappels.js` (`getRappels`, `getNextRappelDate`, etc.), and `app.js` (`rdvOpenForm`, `rdvEdit`, `rdvDelete`) — resolved at call time.
+
+### Test Results
+
+| Suite | Tests | Result |
+|-------|-------|--------|
+| `tests/stage4d-test.js` | 32 | ✓ 32/32 |
+| `tests/stage1a-sync-bypass-regression-test.js` | 77 | ✓ 77/77 |
+| Full suite (baseline 1558 + 32 new) | 1590 | Not rerun (AGENTS.md §8) |
+
+### Commit
+
+```
+7adb1fe5e1b6ace9ffa24f19e91827d3a34a4c2b
+refactor(calendar): extract calendar rendering into js/shared/calendar.js
+```
+
+Parent: `4f5c13559af845882ea1b54b94bc11163fd385e8` (docs(handover): record Stage 4C commit hash and remote HEAD)
+
+### Known Issues
+
+Same as Stage 4C: `tests/core-test.js` pre-existing `_memCache` failure. Not fixed, not regressed.
+
+---
 
 ---
 
@@ -181,16 +236,16 @@ Parent: `128f2cbadc70f8d2800147dc589e10cd827c0b80` (docs(agent): add persistent 
 
 ---
 
-## Next Stage: Stage 4D
+## Next Stage: Stage 4E
 
-Stage 4C is complete. The next extraction stage should continue reducing `js/app.js` per AGENTS.md §19.
+Stage 4D is complete. The next extraction stage should continue reducing `js/app.js` per AGENTS.md §19.
 
-AGENTS.md §19 step 4: **Extract calendar behavior.**
+AGENTS.md §19 step 5: **Extract Dashboard behavior.**
 
-Candidates per ROADMAP.md: `calendar.js` (app.js lines ~8600–8841), or continue with shared module extraction for contacts, dashboard, or other bounded modules.
+Candidates per ROADMAP.md: `shared/dashboard.js` (app.js lines ~700–975 — NOTE: line numbers are stale; find actual dashboard block by searching for `// ── DASHBOARD` or `function updateDashboardStats` in current app.js).
 
-**Preflight required before starting Stage 4D:**
-1. `git fetch origin && git rev-parse HEAD origin/main` — confirm equal and both = `c377a3ba5aa346b4bb70afe278714ee21a147126`
+**Preflight required before starting Stage 4E:**
+1. `git fetch origin && git rev-parse HEAD origin/main` — confirm equal and both = `7adb1fe5e1b6ace9ffa24f19e91827d3a34a4c2b`
 2. `git status --short` — confirm clean
 3. Read `AGENTS.md`, `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`
 4. Map callers of the target functions before extracting
