@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-01 UTC
-**From:** Stage 4F — Natures CRUD extraction
+**From:** Stage 4G — Clients CRUD extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,80 @@
 
 ```
 Branch:   main
-HEAD:     c39d2bc56355d06da9b92fd1166acae36294f5f2
+HEAD:     37cb662fb6dc2c16721952b9c07514fd6cbe5de5
 ```
 
-**Stage 4F is committed.** Natures CRUD extracted from `js/app.js` into `js/shared/natures.js`. All Stage 4F tests pass (37/37). Regression suite passes (77/77). Total passing: 1658.
+**Stage 4G is committed.** Clients CRUD extracted from `js/app.js` into `js/shared/clients.js`. All Stage 4G tests pass (49/49). Regression suite passes (77/77). Total passing: 1707.
 
-Commit: `c39d2bc56355d06da9b92fd1166acae36294f5f2`
-Remote HEAD: `c39d2bc56355d06da9b92fd1166acae36294f5f2`
+Commit: `37cb662fb6dc2c16721952b9c07514fd6cbe5de5`
+Remote HEAD: `37cb662fb6dc2c16721952b9c07514fd6cbe5de5`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4G — Clients CRUD Extraction
+
+**Objective:** Extract Clients CRUD from `js/app.js` into `js/shared/clients.js` (AGENTS.md §19 step 6, continued).
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/clients.js` | NEW: 115 lines — Clients CRUD verbatim from app.js |
+| `js/app.js` | Trimmed: 8604 → 8502 lines. Lines 4265–4369 (105 lines) replaced by 3-line reference comment |
+| `index.html` | 1 line: `<script src="js/shared/clients.js?v=20260801">` after natures.js |
+| `tests/stage4g-test.js` | NEW: 49 tests — globals, renderClients, openClientModal, closeClientModal, saveClient (create+update), deleteClient (confirmed+cancelled), showClientDetail, LOGGER guard, regression chain |
+
+### Extracted Globals (now in shared/clients.js, removed from app.js)
+
+`currentClientDetailId` (changed `let`→`var` for vm testability), `renderClients`, `showClientDetail`, `openClientModal`, `closeClientModal`, `saveClient`, `deleteClient`
+
+### Deferred CRUD Blocks
+
+- **Collaborateurs CRUD** (lines ~4269–now, ~98 lines): `currentCollabDetailId`, `renderCollaborateurs`, `showCollabDetail`, `openCollabModal`, `closeCollabModal`, `saveCollab`, `deleteCollab`
+- **Fournisseurs CRUD**: `renderFournisseurs`, `saveFournisseur`, `deleteFournisseur`
+- All other CRUD (invoices, devis, contracts, RDVs, OMs, representations, accounting, etc.)
+
+### Script Load Order (after Stage 4G)
+
+`js/app.js` → `js/shared/calendar.js` → `js/shared/dashboard.js` → `js/shared/natures.js` → **`js/shared/clients.js`** → `js/taches.js`
+
+### Test Results
+
+| Suite | Tests | Result |
+|-------|-------|--------|
+| `tests/stage4g-test.js` | 49 | ✓ 49/49 |
+| `tests/stage1a-sync-bypass-regression-test.js` | 77 | ✓ 77/77 |
+| Full suite (baseline 1658 + 49 new) | 1707 | Not rerun (AGENTS.md §8) |
+
+### Commit
+
+```
+37cb662fb6dc2c16721952b9c07514fd6cbe5de5
+refactor(clients): extract Clients CRUD into js/shared/clients.js
+```
+
+Parent: `e88963c7c6fe9b87aa693ea067d6671ac3049c34` (docs(handover): record Stage 4F commit hash)
+
+### Known Issues
+
+Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
+
+---
+
+---
+
+## Next Stage: Stage 4H
+
+Stage 4G is complete. Continue CRUD extraction per AGENTS.md §19 step 6.
+
+Recommended next: **Collaborateurs CRUD** — `currentCollabDetailId`, `renderCollaborateurs`, `showCollabDetail`, `openCollabModal`, `closeCollabModal`, `saveCollab`, `deleteCollab` into `js/shared/collaborateurs.js`.
+
+**Preflight required before starting Stage 4H:**
+1. `git fetch origin && git rev-parse HEAD origin/main` — confirm both = `37cb662fb6dc2c16721952b9c07514fd6cbe5de5`
+2. `git status --short` — confirm clean
+3. Read `AGENTS.md`, `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`
 
 ---
 
