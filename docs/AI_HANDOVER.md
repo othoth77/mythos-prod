@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-01 UTC
-**From:** Stage 4E — dashboard rendering extraction
+**From:** Stage 4F — Natures CRUD extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,87 @@
 
 ```
 Branch:   main
-HEAD:     13655db0ba579eae88b32a964f42cc01c1143b07
+HEAD:     c39d2bc56355d06da9b92fd1166acae36294f5f2
 ```
 
-**Stage 4E is committed.** Dashboard rendering extracted from `js/app.js` into `js/shared/dashboard.js`. All Stage 4E tests pass (31/31). Regression suite passes (77/77). Total passing: 1621.
+**Stage 4F is committed.** Natures CRUD extracted from `js/app.js` into `js/shared/natures.js`. All Stage 4F tests pass (37/37). Regression suite passes (77/77). Total passing: 1658.
 
-Commit: `13655db0ba579eae88b32a964f42cc01c1143b07`
-Remote HEAD: `13655db0ba579eae88b32a964f42cc01c1143b07`
+Commit: `c39d2bc56355d06da9b92fd1166acae36294f5f2`
+Remote HEAD: `c39d2bc56355d06da9b92fd1166acae36294f5f2`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4F — Natures CRUD Extraction
+
+**Objective:** Extract Natures de prestation CRUD from `js/app.js` into `js/shared/natures.js` as the first coherent CRUD unit (AGENTS.md §19 step 6).
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/natures.js` | NEW: 75 lines — Natures CRUD verbatim from app.js |
+| `js/app.js` | Trimmed: 8668 → 8604 lines. Lines 4470–4535 (66 lines) replaced by 2-line reference comment |
+| `index.html` | 1 line: `<script src="js/shared/natures.js?v=20260801">` after dashboard.js |
+| `tests/stage4f-test.js` | NEW: 37 tests — globals, renderNatures, openNatureModal, closeNatureModal, saveNature (create+update), deleteNature (confirmed+cancelled), showNatureDetail, regression chain |
+| `js/plugins/production.runtime.js` | Comment updated to reference natures.js |
+
+### Extracted Globals (now in shared/natures.js, removed from app.js)
+
+`renderNatures`, `showNatureDetail`, `openNatureModal`, `closeNatureModal`, `saveNature`, `deleteNature`
+
+### Deferred CRUD Blocks
+
+The following remain in app.js for subsequent stages:
+- **Clients CRUD** (lines ~4265–4370): `renderClients`, `showClientDetail`, `openClientModal`, `closeClientModal`, `saveClient`, `deleteClient`, `currentClientDetailId`
+- **Collaborateurs CRUD** (lines ~4371–4468): `renderCollaborateurs`, `showCollabDetail`, `openCollabModal`, `closeCollabModal`, `saveCollab`, `deleteCollab`, `currentCollabDetailId`
+- **Fournisseurs CRUD** (lines ~4537+): `renderFournisseurs`, `saveFournisseur`, `deleteFournisseur`
+- All other CRUD (invoices, devis, contracts, RDVs, OMs, representations, accounting, etc.)
+
+### Script Load Order (after Stage 4F)
+
+`js/core/storage.js` → ... → `js/app.js` → `js/shared/calendar.js` → `js/shared/dashboard.js` → **`js/shared/natures.js`** → `js/taches.js`
+
+### Dependencies
+
+natures.js resolved at call time: `STORE.natures/saveNatures/representations/invoices` (storage.js); `esc`, `money`, `formatDate` (utils.js); `showView` (router.js).
+
+### Test Results
+
+| Suite | Tests | Result |
+|-------|-------|--------|
+| `tests/stage4f-test.js` | 37 | ✓ 37/37 |
+| `tests/stage1a-sync-bypass-regression-test.js` | 77 | ✓ 77/77 |
+| Full suite (baseline 1621 + 37 new) | 1658 | Not rerun (AGENTS.md §8) |
+
+### Commit
+
+```
+c39d2bc56355d06da9b92fd1166acae36294f5f2
+refactor(natures): extract Natures CRUD into js/shared/natures.js
+```
+
+Parent: `b344f181be8c258600507cb803c005ca93c539b5` (docs(handover): record Stage 4E commit hash and remote HEAD)
+
+### Known Issues
+
+Same as Stage 4E: `tests/core-test.js` pre-existing `_memCache` failure. Not fixed, not regressed.
+
+---
+
+---
+
+## Next Stage: Stage 4G
+
+Stage 4F is complete. Continue extracting CRUD per AGENTS.md §19 step 6.
+
+Recommended next: **Clients CRUD** (lines ~4265–4370, ~106 lines) or **Collaborateurs CRUD** (lines ~4371–4468, ~98 lines) into `js/shared/clients.js` / `js/shared/collaborateurs.js`.
+
+**Preflight required before starting Stage 4G:**
+1. `git fetch origin && git rev-parse HEAD origin/main` — confirm equal and both = `c39d2bc56355d06da9b92fd1166acae36294f5f2`
+2. `git status --short` — confirm clean
+3. Read `AGENTS.md`, `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`
 
 ---
 
