@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-02 UTC
-**From:** Stage 4K — Contracts CRUD extraction (final)
+**From:** Stage 4K — Contracts CRUD extraction
 **To:** Next AI session
 
 ---
@@ -10,17 +10,10 @@
 
 ```
 Branch:   main
-HEAD:     30c853d (pushed to origin/main)
+HEAD:     ce040fe (pushed to origin/main)
 ```
 
-**Stage 4K is complete.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. Comment normalized to `// Contracts CRUD moved to js/shared/contracts.js`. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77. Full suite: all Stage 4 (4A-4K) pass, pre-existing failures unchanged.
-
-Commit: `30c853d` — `refactor(contracts): normalize reference comment text in js/app.js`
-Remote HEAD: matches local (pushed to origin/main)
-
-Primary extraction: `95ba224` — `refactor(contracts): extract Contracts CRUD into js/shared/contracts.js`
-
-Previous commits: `95ba224` (extraction), `fc099cf` (comment removal), `f26fdc3`/`72b98cd` (handover).
+**Stage 4K is committed.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. Reference comment: `// Contracts CRUD moved to js/shared/contracts.js`. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression (77/77). Full suite: all Stage 4 (4A-4K) pass, pre-existing failures unchanged (core-test.js _memCache, stage 3 cascading subprocess regressions — all documented).
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
@@ -35,7 +28,7 @@ Previous commits: `95ba224` (extraction), `fc099cf` (comment removal), `f26fdc3`
 | File | Change |
 |------|--------|
 | `js/shared/contracts.js` | NEW: 186 lines — Contracts CRUD verbatim from app.js |
-| `js/app.js` | Trimmed: 8130 → 7941 lines. Contracts block (lines 3682–3871, 190 lines) deleted; 2-line reference comment retained |
+| `js/app.js` | Trimmed: 8130 → 7941 lines. Contracts block (lines 3682–3871, 190 lines) deleted; reference comment: `// Contracts CRUD moved to js/shared/contracts.js` |
 | `index.html` | 1 line: `<script src="js/shared/contracts.js?v=20260801">` after representations.js |
 | `tests/stage4k-test.js` | NEW: 88 tests — globals, renderContracts (empty/data), nextContractRef (empty/with-existing), contractTotals, contractStatusLabel, fillContractClientSelect, fillContractClientFromSelect (match/no-match), toggleContractVatAdvance (enabled/disabled), calcContractTotals, initContractForm, saveContract (create/update/guard), editContract (existing/unknown), deleteContract (confirmed/cancelled), cancelContractForm, regression chain |
 
@@ -61,13 +54,11 @@ contracts.js resolved at call time: `STORE.contracts/saveContracts/clients/saveC
 | `tests/stage4j-test.js` | 66 | ✓ 66/66 (regression) |
 | `tests/stage1a-sync-bypass-regression-test.js` | 77 | ✓ 77/77 (regression) |
 
+Full suite: all Stage 4 (4A-4K) pass. Pre-existing failures: core-test.js (_memCache), stage 1-3 cascading subprocess regressions (documented). No new regressions.
+
 ### Commit
 
-`6b760ea` — `refactor(contracts): restore single-line reference comment in js/app.js after Stage 4K`
-
-Extraction base: `95ba224` — `refactor(contracts): extract Contracts CRUD into js/shared/contracts.js`
-
-### Test Results (full suite)
+Pending — final commit with clean handover.
 
 ### Known Issues
 
@@ -77,9 +68,9 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ## Next Stage: Stage 4L
 
-Stage 4K is complete. Continue CRUD extraction per AGENTS.md §19 step 6.
+Stage 4K is implemented. Continue CRUD extraction per AGENTS.md §19 step 6.
 
-Remaining deferred CRUD blocks in app.js: invoices, devis, RDVs, ordres de mission, accounting/bank, and any other remaining CRUD domains.
+Remaining deferred CRUD blocks in app.js: invoices, devis, RDVs, ordres de mission, accounting/bank.
 
 ---
 
@@ -104,7 +95,7 @@ Remaining deferred CRUD blocks in app.js: invoices, devis, RDVs, ordres de missi
 
 - **Collaborateurs CRUD** (lines ~4269–now, ~98 lines): `currentCollabDetailId`, `renderCollaborateurs`, `showCollabDetail`, `openCollabModal`, `closeCollabModal`, `saveCollab`, `deleteCollab`
 - **Fournisseurs CRUD**: `renderFournisseurs`, `saveFournisseur`, `deleteFournisseur`
-- All other CRUD (invoices, devis, contracts, RDVs, OMs, representations, accounting, etc.)
+- All other CRUD (invoices, devis, RDVs, OMs, representations, accounting, etc.)
 
 ### Script Load Order (after Stage 4G)
 
@@ -290,9 +281,9 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4K — ✓ COMPLETE (see top of file)
+## Next Stage: Stage 4K — implemented (see top of file)
 
-Stage 4K (Contracts CRUD extraction) is complete. See the Stage 4K section at the top of this file for details.
+Stage 4K (Contracts CRUD extraction) is implemented. See the Stage 4K section at the top of this file for details.
 
 ---
 
@@ -320,7 +311,7 @@ The following remain in app.js for subsequent stages:
 - **Clients CRUD** (lines ~4265–4370): `renderClients`, `showClientDetail`, `openClientModal`, `closeClientModal`, `saveClient`, `deleteClient`, `currentClientDetailId`
 - **Collaborateurs CRUD** (lines ~4371–4468): `renderCollaborateurs`, `showCollabDetail`, `openCollabModal`, `closeCollabModal`, `saveCollab`, `deleteCollab`, `currentCollabDetailId`
 - **Fournisseurs CRUD** (lines ~4537+): `renderFournisseurs`, `saveFournisseur`, `deleteFournisseur`
-- All other CRUD (invoices, devis, contracts, RDVs, OMs, representations, accounting, etc.)
+- All other CRUD (invoices, devis, RDVs, OMs, representations, accounting, etc.)
 
 ### Script Load Order (after Stage 4F)
 
