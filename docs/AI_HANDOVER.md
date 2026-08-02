@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-02 UTC
-**From:** Stage 4K — Contracts CRUD extraction
+**From:** Stage 4K — Contracts CRUD extraction (cleanup)
 **To:** Next AI session
 
 ---
@@ -10,13 +10,10 @@
 
 ```
 Branch:   main
-HEAD:     95ba224 (pushed to origin/main)
+HEAD:     (pending commit — Stage 4K cleanup)
 ```
 
-**Stage 4K is committed.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77.
-
-Commit: `95ba224` — `refactor(contracts): extract Contracts CRUD into js/shared/contracts.js`
-Remote HEAD: matches local (pushed to origin/main)
+**Stage 4K cleanup in progress.** Reference comment removed from `js/app.js` (lines 3682-3685 deleted per request). Contracts code lives exclusively in `js/shared/contracts.js`. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77. Full suite: all Stage 4 tests pass (4A-4K), pre-existing failures in core-test.js and older stage 1-3 regression-only cascading subprocess tests (all documented, no new regressions).
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
@@ -31,7 +28,7 @@ Remote HEAD: matches local (pushed to origin/main)
 | File | Change |
 |------|--------|
 | `js/shared/contracts.js` | NEW: 186 lines — Contracts CRUD verbatim from app.js |
-| `js/app.js` | Trimmed: 8130 → 7944 lines. Contracts block (lines 3682–3871, 190 lines) replaced by 5-line reference comment |
+| `js/app.js` | Trimmed: 8130 → 7939 lines. Contracts block (lines 3682–3871, 190 lines) fully deleted; reference comment also removed in cleanup |
 | `index.html` | 1 line: `<script src="js/shared/contracts.js?v=20260801">` after representations.js |
 | `tests/stage4k-test.js` | NEW: 88 tests — globals, renderContracts (empty/data), nextContractRef (empty/with-existing), contractTotals, contractStatusLabel, fillContractClientSelect, fillContractClientFromSelect (match/no-match), toggleContractVatAdvance (enabled/disabled), calcContractTotals, initContractForm, saveContract (create/update/guard), editContract (existing/unknown), deleteContract (confirmed/cancelled), cancelContractForm, regression chain |
 

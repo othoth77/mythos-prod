@@ -3679,11 +3679,6 @@ function deleteInvoice(id) {
   updateSidebarStats();
 }
 
-// [js/shared/contracts.js] Contracts CRUD — nextContractRef, contractTotals, contractStatusLabel,
-//   fillContractClientSelect, fillContractClientFromSelect, toggleContractVatAdvance,
-//   calcContractTotals, renderContracts, initContractForm, saveContract, editContract,
-//   deleteContract, cancelContractForm
-
 function cancelForm() {
   showView('list');
 }
