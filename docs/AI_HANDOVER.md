@@ -10,12 +10,15 @@
 
 ```
 Branch:   main
-HEAD:     (pending commit — comment normalization)
+HEAD:     30c853d (pushed to origin/main)
 ```
 
 **Stage 4K is complete.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. Comment normalized to `// Contracts CRUD moved to js/shared/contracts.js`. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77. Full suite: all Stage 4 (4A-4K) pass, pre-existing failures unchanged.
 
-Primary extraction commit: `95ba224` — `refactor(contracts): extract Contracts CRUD into js/shared/contracts.js`
+Commit: `30c853d` — `refactor(contracts): normalize reference comment text in js/app.js`
+Remote HEAD: matches local (pushed to origin/main)
+
+Primary extraction: `95ba224` — `refactor(contracts): extract Contracts CRUD into js/shared/contracts.js`
 
 Previous commits: `95ba224` (extraction), `fc099cf` (comment removal), `f26fdc3`/`72b98cd` (handover).
 
