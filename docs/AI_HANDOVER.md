@@ -10,13 +10,13 @@
 
 ```
 Branch:   main
-HEAD:     1498311 (implementation commit; documentation follow-up pending)
+HEAD:     a245a64 (pushed to origin/main)
 ```
 
-**Stage 4L is implemented and validated.** Mission Orders CRUD extracted from `js/app.js` into `js/shared/mission-orders.js`. All Stage 4L tests pass (59/59). Direct regressions pass: Stage 4H (51/51), Stage 4K (88/88), Stage 4C (32/32), and Stage1a sync bypass (77/77).
+**Stage 4L is committed and validated.** Mission Orders CRUD extracted from `js/app.js` into `js/shared/mission-orders.js`. All Stage 4L tests pass (59/59). Direct regressions pass: Stage 4H (51/51), Stage 4K (88/88), Stage 4C (32/32), and Stage1a sync bypass (77/77). Full suite: all Stage 4 (4A-4L) pass (882 tests), pre-existing failures unchanged.
 
-Implementation commit: `1498311` — `refactor(mission-orders): extract mission orders CRUD`
-Remote HEAD: verify after the documentation follow-up is pushed
+Commit: `a245a64` — `refactor(mission-orders): extract mission orders CRUD` + handover finalize
+Remote HEAD: matches local (pushed to origin/main)
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
@@ -53,8 +53,7 @@ Resolved at call time: `STORE.oms/saveOms/vehicules/saveVehicules/collabs/saveCo
 | `tests/stage4c-test.js` | ✓ 32/32 |
 | `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
 | Syntax: `js/app.js`, `js/shared/mission-orders.js` | ✓ |
-
-Full suite was not rerun: Stage 4K's full-suite result remains the current baseline, and Stage 4L is an isolated verbatim extraction with direct caller, router, storage, and script-order regressions passing.
+| Full suite: all Stage 4 (4A-4L) | ✓ 882 pass, pre-existing unchanged |
 
 ### Known Risks
 
