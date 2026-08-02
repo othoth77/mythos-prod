@@ -1,24 +1,74 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-01 UTC
-**From:** Stage 4J — Representations CRUD extraction
+**Last updated:** 2026-08-02 UTC
+**From:** Stage 4K — Contracts CRUD extraction
 **To:** Next AI session
 
 ---
 
-## Repository State (verified 2026-08-01)
+## Repository State (verified 2026-08-02)
 
 ```
 Branch:   main
-HEAD:     73f72c3b (pushed to origin/main)
+HEAD:     (pending commit — Stage 4K)
 ```
 
-**Stage 4J is committed.** Representations CRUD extracted from `js/app.js` into `js/shared/representations.js`. All Stage 4J tests pass (66/66). Stage1a sync bypass regression: 77/77. Full accumulated 4E–4J suite: 303 tests.
-
-Commit: `73f72c3` — `Stage 4J: extract Representations CRUD into js/shared/representations.js`
-Remote HEAD: matches local (pushed to origin/main)
+**Stage 4K is pending commit.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77.
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4K — Contracts CRUD Extraction
+
+**Objective:** Extract Contracts CRUD from `js/app.js` into `js/shared/contracts.js` (AGENTS.md §19 step 6, continued).
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/contracts.js` | NEW: 186 lines — Contracts CRUD verbatim from app.js |
+| `js/app.js` | Trimmed: 8130 → 7944 lines. Contracts block (lines 3682–3871, 190 lines) replaced by 5-line reference comment |
+| `index.html` | 1 line: `<script src="js/shared/contracts.js?v=20260801">` after representations.js |
+| `tests/stage4k-test.js` | NEW: 88 tests — globals, renderContracts (empty/data), nextContractRef (empty/with-existing), contractTotals, contractStatusLabel, fillContractClientSelect, fillContractClientFromSelect (match/no-match), toggleContractVatAdvance (enabled/disabled), calcContractTotals, initContractForm, saveContract (create/update/guard), editContract (existing/unknown), deleteContract (confirmed/cancelled), cancelContractForm, regression chain |
+
+### Extracted Globals (now in shared/contracts.js, removed from app.js)
+
+`nextContractRef`, `contractTotals`, `contractStatusLabel`, `fillContractClientSelect`, `fillContractClientFromSelect`, `toggleContractVatAdvance`, `calcContractTotals`, `renderContracts`, `initContractForm`, `saveContract`, `editContract`, `deleteContract`, `cancelContractForm`
+
+No state variables to extract (no `let` or `var` contract state declarations in app.js).
+
+### Dependencies
+
+contracts.js resolved at call time: `STORE.contracts/saveContracts/clients/saveClients` (defined in app.js STORE block); `num`, `esc`, `fmtMoney`, `formatDate`, `todayStr` (utils.js); `showView`, `updateSidebarStats` (router.js); browser DOM (`document`, `alert`, `confirm`).
+
+### Script Load Order (after Stage 4K)
+
+`js/app.js` → `js/shared/calendar.js` → `js/shared/dashboard.js` → `js/shared/natures.js` → `js/shared/clients.js` → `js/shared/collaborateurs.js` → `js/shared/fournisseurs.js` → `js/shared/representations.js` → **`js/shared/contracts.js`** → `js/taches.js`
+
+### Test Results
+
+| Suite | Tests | Result |
+|-------|-------|--------|
+| `tests/stage4k-test.js` | 88 | ✓ 88/88 |
+| `tests/stage4j-test.js` | 66 | ✓ 66/66 (regression) |
+| `tests/stage1a-sync-bypass-regression-test.js` | 77 | ✓ 77/77 (regression) |
+
+### Commit
+
+Pending.
+
+### Known Issues
+
+Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
+
+---
+
+## Next Stage: Stage 4L
+
+Stage 4K is complete. Continue CRUD extraction per AGENTS.md §19 step 6.
+
+Remaining deferred CRUD blocks in app.js: invoices, devis, RDVs, ordres de mission, accounting/bank, and any other remaining CRUD domains.
 
 ---
 
@@ -229,19 +279,9 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4K
+## Next Stage: Stage 4K — ✓ COMPLETE (see top of file)
 
-Stage 4J is complete. Continue CRUD extraction per AGENTS.md §19 step 6.
-
-Remaining deferred CRUD blocks in app.js: invoices, devis, contracts, RDVs, ordres de mission, accounting/bank, and any other remaining CRUD domains.
-
-**Preflight required before starting Stage 4K:**
-1. `git fetch origin`
-2. Confirm local HEAD = origin/main (both = `73f72c3...`)
-3. `git status --short` — confirm clean
-4. Verify Stage 4J commit exists: `73f72c3`
-5. Read `AGENTS.md`, `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`
-6. Inventory remaining CRUD blocks in `js/app.js` — select smallest coherent responsibility with clear boundaries
+Stage 4K (Contracts CRUD extraction) is complete. See the Stage 4K section at the top of this file for details.
 
 ---
 
