@@ -73,6 +73,6 @@ var sans=sandbox();load(sans,'js/shared/invoices.js');sans._state.invoices=[{id:
 console.log('\n6. Integration');
 var html=fs.readFileSync(path.join(BASE,'index.html'),'utf8'),app=fs.readFileSync(path.join(BASE,'js/app.js'),'utf8');
 ok(html.indexOf('js/shared/invoices.js')>html.indexOf('js/shared/mission-orders.js'),'invoice script follows mission orders');ok(html.indexOf('js/shared/invoices.js')<html.indexOf('js/taches.js'),'invoice script precedes tasks');
-ok((app.match(/function renderList\(/g)||[]).length===0,'renderList removed from app.js');ok((app.match(/function saveInvoice\(/g)||[]).length===0,'saveInvoice removed from app.js');ok((app.match(/function buildInvoiceHTML\(/g)||[]).length===0,'buildInvoiceHTML removed from app.js');ok((app.match(/function printModal\(/g)||[]).length===1,'generic printModal remains in app.js');ok((app.match(/function nextDevisNum\(/g)||[]).length===1,'Devis numbering remains in app.js');
+ok((app.match(/function renderList\(/g)||[]).length===0,'renderList removed from app.js');ok((app.match(/function saveInvoice\(/g)||[]).length===0,'saveInvoice removed from app.js');ok((app.match(/function buildInvoiceHTML\(/g)||[]).length===0,'buildInvoiceHTML removed from app.js');ok((app.match(/function printModal\(/g)||[]).length===1,'generic printModal remains in app.js');ok((app.match(/function nextDevisNum\(/g)||[]).length===0,'Devis numbering extracted by Stage 4O');
 
 console.log('\nStage 4M: '+pass+' passed, '+fail+' failed');if(fail)process.exit(1);
