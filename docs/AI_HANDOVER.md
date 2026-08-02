@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-02 UTC
-**From:** Stage 4K — Contracts CRUD extraction (cleanup)
+**From:** Stage 4K — Contracts CRUD extraction (final)
 **To:** Next AI session
 
 ---
@@ -10,13 +10,12 @@
 
 ```
 Branch:   main
-HEAD:     fc099cf (pushed to origin/main)
+HEAD:     fc099cf → (pending commit for reference comment)
 ```
 
-**Stage 4K is committed and cleaned up.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. Reference comment removed. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77. Full suite: all Stage 4 tests pass (4A-4K), pre-existing failures in core-test.js and older stage 1-3 regression-only cascading subprocess tests (all documented, no new regressions).
+**Stage 4K is complete.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. Single reference comment retained per convention. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77. Full suite: all Stage 4 (4A-4K) pass, pre-existing failures unchanged (core-test.js `_memCache`, older stage 1-3 subprocess regression cascades — all documented, zero new regressions).
 
-Commit: `fc099cf` — `refactor(contracts): remove reference comment from js/app.js after Stage 4K extraction`
-Remote HEAD: matches local (pushed to origin/main)
+Previous commits: `95ba224` (extraction), `fc099cf` (comment removal), `f26fdc3` (handover).
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
@@ -31,7 +30,7 @@ Remote HEAD: matches local (pushed to origin/main)
 | File | Change |
 |------|--------|
 | `js/shared/contracts.js` | NEW: 186 lines — Contracts CRUD verbatim from app.js |
-| `js/app.js` | Trimmed: 8130 → 7939 lines. Contracts block (lines 3682–3871, 190 lines) fully deleted; reference comment also removed in cleanup |
+| `js/app.js` | Trimmed: 8130 → 7941 lines. Contracts block (lines 3682–3871, 190 lines) deleted; 2-line reference comment retained |
 | `index.html` | 1 line: `<script src="js/shared/contracts.js?v=20260801">` after representations.js |
 | `tests/stage4k-test.js` | NEW: 88 tests — globals, renderContracts (empty/data), nextContractRef (empty/with-existing), contractTotals, contractStatusLabel, fillContractClientSelect, fillContractClientFromSelect (match/no-match), toggleContractVatAdvance (enabled/disabled), calcContractTotals, initContractForm, saveContract (create/update/guard), editContract (existing/unknown), deleteContract (confirmed/cancelled), cancelContractForm, regression chain |
 
@@ -59,11 +58,10 @@ contracts.js resolved at call time: `STORE.contracts/saveContracts/clients/saveC
 
 ### Commit
 
-`fc099cf` — `refactor(contracts): remove reference comment from js/app.js after Stage 4K extraction`
+Primary: `95ba224` — `refactor(contracts): extract Contracts CRUD into js/shared/contracts.js`
+Post-extraction: `fc099cf` (comment removal), `72b98cd` (handover), current: pending (reference comment restored)
 
-Parent: `f26fdc3` (docs(handover): record Stage 4K commit and prepare Stage 4L preflight)
-
-Earlier extraction commit: `95ba224` — `refactor(contracts): extract Contracts CRUD into js/shared/contracts.js`
+### Test Results (full suite)
 
 ### Known Issues
 
