@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-02 UTC
-**From:** Stage 4K — Contracts CRUD extraction
+**From:** Stage 4L — Mission Orders CRUD extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,55 @@
 
 ```
 Branch:   main
-HEAD:     ec42b4a (pushed to origin/main)
+HEAD:     1498311 (implementation commit; documentation follow-up pending)
 ```
 
-**Stage 4K is committed.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. Reference comment: `// Contracts CRUD moved to js/shared/contracts.js`. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression (77/77). Full suite: all Stage 4 (4A-4K) pass, pre-existing failures unchanged.
+**Stage 4L is implemented and validated.** Mission Orders CRUD extracted from `js/app.js` into `js/shared/mission-orders.js`. All Stage 4L tests pass (59/59). Direct regressions pass: Stage 4H (51/51), Stage 4K (88/88), Stage 4C (32/32), and Stage1a sync bypass (77/77).
 
-Commit: `ec42b4a` — `docs(handover): clean Stage 4K handover, record test results`
-Remote HEAD: matches local (pushed to origin/main)
+Implementation commit: `1498311` — `refactor(mission-orders): extract mission orders CRUD`
+Remote HEAD: verify after the documentation follow-up is pushed
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4L — Mission Orders CRUD Extraction
+
+**Objective:** Extract Ordres de mission CRUD, vehicle helpers, form behavior, preview rendering, owned constants, and state from `js/app.js` into `js/shared/mission-orders.js` (AGENTS.md §19 step 6, continued).
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/mission-orders.js` | NEW: mission-order CRUD, vehicle helpers, form behavior, preview HTML, company definitions, mission texts, and `stableOmPersonCount` |
+| `js/app.js` | Removed the extracted mission-order implementation and retained concise reference comments; generic `printModal` remains in app.js |
+| `index.html` | Loads `mission-orders.js` after `contracts.js` and before `taches.js` |
+| `tests/stage4l-test.js` | NEW: 59 tests for globals, rendering, vehicles, form helpers, CRUD, preview, compatibility, and script integration |
+
+### Extracted Globals
+
+`SOCIETES`, `OM_MISSION_TEXTS`, `stableOmPersonCount`, `renderOMList`, `ensureDefaultVehicules`, `renderOmVehiculeOptions`, `updateOmLogoPreview`, `onOmVehiculeChange`, `addOmVehicule`, `initOMForm`, `setOmDateQuick`, `setOmTimeQuick`, `applyOmMissionType`, `addOmPerson`, `getOMPersons`, `saveOM`, `editOM`, `deleteOM`, `cancelOM`, `previewOM`, `closeOMPreview`, `buildOMHTML`
+
+### Dependencies and Compatibility
+
+Resolved at call time: `STORE.oms/saveOms/vehicules/saveVehicules/collabs/saveCollabs`; utilities `esc`, `cleanPrintText`, `formatDateLong`, `todayStr`, `dateInputValue`, `getStampSVG`; router globals `showView`, `updateSidebarStats`; browser DOM, prompts, alerts, and confirmation. Existing inline handlers, router calls, and Collaborateurs links continue using the same global names. Pre-existing compatibility stubs in app.js were not modified.
+
+### Test Results
+
+| Suite | Result |
+|-------|--------|
+| `tests/stage4l-test.js` | ✓ 59/59 |
+| `tests/stage4h-test.js` | ✓ 51/51 |
+| `tests/stage4k-test.js` | ✓ 88/88 |
+| `tests/stage4c-test.js` | ✓ 32/32 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Syntax: `js/app.js`, `js/shared/mission-orders.js` | ✓ |
+
+Full suite was not rerun: Stage 4K's full-suite result remains the current baseline, and Stage 4L is an isolated verbatim extraction with direct caller, router, storage, and script-order regressions passing.
+
+### Known Risks
+
+The pre-existing `tests/core-test.js` `_memCache` failure remains unchanged. Duplicate compatibility stubs in `js/app.js` remain intentionally deferred pending a complete inline-handler audit.
 
 ---
 
@@ -69,11 +109,11 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4L
+## Next Stage: Stage 4M
 
-Stage 4K is implemented. Continue CRUD extraction per AGENTS.md §19 step 6.
+Stage 4L is implemented. Continue CRUD extraction per AGENTS.md §19 step 6.
 
-Remaining deferred CRUD blocks in app.js: invoices, devis, RDVs, ordres de mission, accounting/bank.
+**Exact next scope:** extract the coherent Invoices CRUD block into `js/shared/invoices.js`, preserving existing globals, print behavior, script order, storage routing, and compatibility stubs. Remaining later blocks: devis, RDVs, accounting/bank.
 
 ---
 
