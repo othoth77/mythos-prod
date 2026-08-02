@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-02 UTC
-**From:** Stage 4L — Mission Orders CRUD extraction
+**From:** Stage 4M — Invoices CRUD extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,61 @@
 
 ```
 Branch:   main
-HEAD:     a245a64 (pushed to origin/main)
+HEAD:     96a2dbb (implementation commit; documentation follow-up pending)
 ```
 
-**Stage 4L is committed and validated.** Mission Orders CRUD extracted from `js/app.js` into `js/shared/mission-orders.js`. All Stage 4L tests pass (59/59). Direct regressions pass: Stage 4H (51/51), Stage 4K (88/88), Stage 4C (32/32), and Stage1a sync bypass (77/77). Full suite: all Stage 4 (4A-4L) pass (882 tests), pre-existing failures unchanged.
+**Stage 4M is implemented and validated.** Invoices CRUD extracted from `js/app.js` into `js/shared/invoices.js`. Stage 4M passes 76/76; directly relevant targeted suites pass 361/361 total. Full suite was run once: all Stage 4 suites (4A–4M) pass 711/711; 12 unchanged pre-existing suite failures remain in core-test and cascading Stage 1–3 regressions.
 
-Commit: `a245a64` — `refactor(mission-orders): extract mission orders CRUD` + handover finalize
-Remote HEAD: matches local (pushed to origin/main)
+Implementation commit: `96a2dbb` — `refactor(invoices): extract invoices CRUD`
+Verified baseline before Stage 4M: `4628ac93d7bf9d927b8407e72d0a19ec7bf0d0db`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4M — Invoices CRUD Extraction
+
+**Objective:** Extract the coherent Invoices CRUD, form, line calculation, numbering, list rendering, and preview rendering responsibilities from `js/app.js` into `js/shared/invoices.js` while preserving all existing behavior and globals.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/invoices.js` | NEW: invoice list, numbering, form, lines, totals, CRUD, preview, print HTML, and `stableLineCount` |
+| `js/app.js` | Removed extracted invoice implementations and retained concise reference comments; Devis helpers, compatibility stubs, and generic `printModal` remain |
+| `index.html` | Loads `invoices.js` after `mission-orders.js` and before `taches.js` |
+| `tests/stage4m-test.js` | NEW: 76 tests covering globals, rendering, numbering, forms, clients, lines, totals, CRUD, preview, compatibility, and script order |
+
+### Extracted Globals
+
+`stableLineCount`, `renderList`, `nextInvoiceNum`, `splitInvoiceNum`, `initNewForm`, `handleInvoiceTypeChange`, `handleInvoiceYearChange`, `handleInvoiceDateChange`, `syncInvoiceNumberPreview`, `fillClientSelect`, `fillClientFromSelect`, `addLine`, `removeLine`, `getLines`, `calcTotals`, `saveInvoice`, `editInvoice`, `deleteInvoice`, `cancelForm`, `previewInvoice`, `closePreview`, `buildInvoiceHTML`
+
+### Dependencies and Compatibility
+
+Resolved at call time: `STORE.invoices/saveInvoices/clients/saveClients`; invoice and formatting utilities from `utils.js`; `showView` and `updateSidebarStats` from router; guarded `LOGGER`; DOM, alerts, and confirmation. Existing router callbacks, Dashboard, Clients, Natures, and inline handlers continue using identical global names. The approved `_storeSave` write pipeline remains unchanged. Pre-existing invoice compatibility stubs in app.js were intentionally not modified.
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/invoices.js` | ✓ |
+| `tests/stage4m-test.js` | ✓ 76/76 |
+| `tests/stage4l-test.js` | ✓ 59/59 |
+| `tests/stage4g-test.js` | ✓ 49/49 |
+| `tests/stage4e-test.js` | ✓ 31/31 |
+| `tests/stage4f-test.js` | ✓ 37/37 |
+| `tests/stage4c-test.js` | ✓ 32/32 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4M) | ✓ 711/711 |
+
+The complete repository suite was run once. Nineteen suite files passed. Twelve suite files failed only through the documented pre-existing `_memCache` core failure and cascading Stage 1–3 subprocess regressions; no Stage 4 suite failed and no new regression was found.
+
+### Risks and Operations
+
+- Known pre-existing failures remain unchanged: `tests/core-test.js` (`_memCache`) and dependent Stage 1–3 subprocess regressions.
+- Duplicate compatibility stubs remain intentionally deferred pending inline-handler audit.
+- Deployment: not performed.
+- Data migration: not performed.
 
 ---
 
@@ -108,11 +154,11 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4M
+## Next Stage: Stage 4N
 
-Stage 4L is implemented. Continue CRUD extraction per AGENTS.md §19 step 6.
+Stage 4M is implemented. Continue CRUD extraction per AGENTS.md §19 step 6.
 
-**Exact next scope:** extract the coherent Invoices CRUD block into `js/shared/invoices.js`, preserving existing globals, print behavior, script order, storage routing, and compatibility stubs. Remaining later blocks: devis, RDVs, accounting/bank.
+**Exact next scope:** extract the coherent RDV CRUD and form workflow into `js/shared/rdvs.js`, preserving existing globals, router/calendar callers, storage routing, inline handlers, and compatibility stubs. Remaining later blocks: Devis and accounting/bank.
 
 ---
 
