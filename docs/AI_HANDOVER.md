@@ -10,10 +10,13 @@
 
 ```
 Branch:   main
-HEAD:     (pending commit — Stage 4K cleanup)
+HEAD:     fc099cf (pushed to origin/main)
 ```
 
-**Stage 4K cleanup in progress.** Reference comment removed from `js/app.js` (lines 3682-3685 deleted per request). Contracts code lives exclusively in `js/shared/contracts.js`. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77. Full suite: all Stage 4 tests pass (4A-4K), pre-existing failures in core-test.js and older stage 1-3 regression-only cascading subprocess tests (all documented, no new regressions).
+**Stage 4K is committed and cleaned up.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. Reference comment removed. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77. Full suite: all Stage 4 tests pass (4A-4K), pre-existing failures in core-test.js and older stage 1-3 regression-only cascading subprocess tests (all documented, no new regressions).
+
+Commit: `fc099cf` — `refactor(contracts): remove reference comment from js/app.js after Stage 4K extraction`
+Remote HEAD: matches local (pushed to origin/main)
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
@@ -56,7 +59,11 @@ contracts.js resolved at call time: `STORE.contracts/saveContracts/clients/saveC
 
 ### Commit
 
-Pending.
+`fc099cf` — `refactor(contracts): remove reference comment from js/app.js after Stage 4K extraction`
+
+Parent: `f26fdc3` (docs(handover): record Stage 4K commit and prepare Stage 4L preflight)
+
+Earlier extraction commit: `95ba224` — `refactor(contracts): extract Contracts CRUD into js/shared/contracts.js`
 
 ### Known Issues
 
