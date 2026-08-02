@@ -10,12 +10,15 @@
 
 ```
 Branch:   main
-HEAD:     fc099cf → (pending commit for reference comment)
+HEAD:     6b760ea (pushed to origin/main)
 ```
 
-**Stage 4K is complete.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. Single reference comment retained per convention. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77. Full suite: all Stage 4 (4A-4K) pass, pre-existing failures unchanged (core-test.js `_memCache`, older stage 1-3 subprocess regression cascades — all documented, zero new regressions).
+**Stage 4K is complete.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. Single reference comment retained per convention. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77. Full suite: all Stage 4 (4A-4K) pass, pre-existing failures unchanged.
 
-Previous commits: `95ba224` (extraction), `fc099cf` (comment removal), `f26fdc3` (handover).
+Commit: `6b760ea` — `refactor(contracts): restore single-line reference comment in js/app.js after Stage 4K`
+Remote HEAD: matches local (pushed to origin/main)
+
+Previous commits: `95ba224` (extraction), `fc099cf` (comment removal), `f26fdc3`/`72b98cd` (handover).
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
@@ -58,8 +61,9 @@ contracts.js resolved at call time: `STORE.contracts/saveContracts/clients/saveC
 
 ### Commit
 
-Primary: `95ba224` — `refactor(contracts): extract Contracts CRUD into js/shared/contracts.js`
-Post-extraction: `fc099cf` (comment removal), `72b98cd` (handover), current: pending (reference comment restored)
+`6b760ea` — `refactor(contracts): restore single-line reference comment in js/app.js after Stage 4K`
+
+Extraction base: `95ba224` — `refactor(contracts): extract Contracts CRUD into js/shared/contracts.js`
 
 ### Test Results (full suite)
 
