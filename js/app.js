@@ -3679,7 +3679,7 @@ function deleteInvoice(id) {
   updateSidebarStats();
 }
 
-// [js/shared/contracts.js] Contracts CRUD — nextContractRef, renderContracts, saveContract, editContract, deleteContract, etc.
+// Contracts CRUD moved to js/shared/contracts.js
 
 function cancelForm() {
   showView('list');

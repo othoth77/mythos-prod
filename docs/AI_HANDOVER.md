@@ -10,13 +10,12 @@
 
 ```
 Branch:   main
-HEAD:     6b760ea (pushed to origin/main)
+HEAD:     (pending commit — comment normalization)
 ```
 
-**Stage 4K is complete.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. Single reference comment retained per convention. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77. Full suite: all Stage 4 (4A-4K) pass, pre-existing failures unchanged.
+**Stage 4K is complete.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. Comment normalized to `// Contracts CRUD moved to js/shared/contracts.js`. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77. Full suite: all Stage 4 (4A-4K) pass, pre-existing failures unchanged.
 
-Commit: `6b760ea` — `refactor(contracts): restore single-line reference comment in js/app.js after Stage 4K`
-Remote HEAD: matches local (pushed to origin/main)
+Primary extraction commit: `95ba224` — `refactor(contracts): extract Contracts CRUD into js/shared/contracts.js`
 
 Previous commits: `95ba224` (extraction), `fc099cf` (comment removal), `f26fdc3`/`72b98cd` (handover).
 
