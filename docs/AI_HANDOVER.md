@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-02 UTC
-**From:** Stage 4N — RDV CRUD and form workflow extraction
+**From:** Stage 4O — Devis CRUD workflow extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,60 @@
 
 ```
 Branch:   main
-HEAD:     7644a40 (implementation commit; documentation follow-up pending)
+HEAD:     8990b66 (implementation commit; documentation follow-up pending)
 ```
 
-**Stage 4N is implemented and validated.** RDV CRUD and the two-step form workflow were extracted from `js/app.js` into `js/shared/rdvs.js`. Stage 4N passes 66/66; directly relevant targeted suites pass 314/314 total. Full suite was run once: all Stage 4 suites (4A–4N) pass 777/777; the same 12 documented pre-existing suite failures remain unchanged.
+**Stage 4O is implemented and validated.** Devis CRUD, form, numbering, issuer configuration, logo/stamp handling, and preview were extracted from `js/app.js` into `js/shared/devis.js`. Stage 4O passes 72/72; directly relevant targeted suites pass 323/323 total. Full suite was run once: all Stage 4 suites (4A–4O) pass 849/849; the same 12 documented pre-existing suite failures remain unchanged.
 
-Implementation commit: `7644a40` — `refactor(rdvs): extract RDV CRUD workflow`
-Verified baseline before Stage 4N: `7fd763f1d83e6bd119cdf44ca6a8736ed9dad6d6`
+Implementation commit: `8990b66` — `refactor(devis): extract Devis CRUD workflow`
+Verified baseline before Stage 4O: `424d364612028d91e81a9e4c0a3754f6444761d2`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4O — Devis CRUD Workflow Extraction
+
+**Objective:** Extract the coherent Devis CRUD, form workflow, numbering, line totals, issuer/logo/stamp handling, and preview rendering from `js/app.js` into `js/shared/devis.js` without changing behavior.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/devis.js` | NEW: issuer definitions, stamp generation, numbering, CRUD, list/form workflows, logo handling, line calculations, and preview HTML |
+| `js/app.js` | Removed the extracted Devis implementation and retained concise module references; unrelated compatibility functions and generic `printModal` remain |
+| `index.html` | Loads `devis.js` after `rdvs.js` and before `taches.js` |
+| `tests/stage4o-test.js` | NEW: 72 tests for globals, numbering, stamp, list/form, clients, logos, calculations, CRUD, preview, compatibility, and script order |
+| `tests/stage4m-test.js` | Updated the deferred Devis-numbering assertion to reflect the Stage 4O extraction |
+
+### Extracted Globals
+
+`KACEM_PRINT_LOGO_SRC`, `DEVIS_SOCIETES`, `getStampSVGFor`, `nextDevisNum`, `splitDevisNum`, `editDevis`, `deleteDevis`, `saveDevis`, `populateDevisList`, `cancelDevisForm`, `updateDevisLogoPreview`, `onDevisSocieteChange`, `onDevisLogoFileChange`, `resetDevisLogo`, `syncDevisNumberPreview`, `initDevisForm`, `fillDevisClientSelect`, `syncDevisClientFromSelect`, `devisLineCount`, `addDevisLine`, `removeDevisLine`, `calcDevisTotals`, `buildDevisHTML`, `printDevis`, `closeDevisPreview`
+
+### Dependencies and Compatibility
+
+Resolved at call time: `MYTHOS_PRINT_LOGO_SRC`, `STORE.devis/saveDevis/clients`, formatting and number utilities, guarded `LOGGER`, `showView`, DOM, `FileReader`, confirmation, alerts, and `setTimeout`. Existing inline handlers and RDV linked-source reads retain the same storage and global contracts. Writes continue through `STORE.saveDevis` and the approved `_storeSave` pipeline. The existing legacy-number filtering behavior is preserved exactly.
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/devis.js` | ✓ |
+| `tests/stage4o-test.js` | ✓ 72/72 |
+| `tests/stage4n-test.js` | ✓ 66/66 |
+| `tests/stage4m-test.js` | ✓ 76/76 |
+| `tests/stage4c-test.js` | ✓ 32/32 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4O) | ✓ 849/849 |
+
+The complete repository suite was run once. Twenty-one suite files passed. Twelve suite files failed only through the same documented pre-existing `_memCache` core failure and cascading Stage 1–3 subprocess regressions. The final Stage 4O suite was rerun after moving its issuer definitions and remained 72/72.
+
+### Risks and Operations
+
+- The 12 documented pre-existing suite failures remain unchanged.
+- Generic `printModal` and unrelated early compatibility functions remain in app.js intentionally.
+- Deployment: not performed.
+- Data migration: not performed.
 
 ---
 
@@ -199,11 +244,11 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4O
+## Next Stage: Stage 4P
 
-Stage 4N is implemented. Continue CRUD extraction per AGENTS.md §19 step 6.
+Stage 4O is implemented. Continue CRUD extraction per AGENTS.md §19 step 6.
 
-**Exact next scope:** extract the coherent Devis CRUD, form, numbering, and preview workflow into `js/shared/devis.js`, preserving existing globals, linked RDV source behavior, storage routing, print behavior, and compatibility stubs. Accounting/bank remains deferred.
+**Exact next scope:** inventory the remaining accounting block and extract the coherent Bank entries CRUD and bank page workflow into `js/shared/accounting-bank.js`, preserving filters, linked records, storage routing, router globals, and DOM contracts. Cash, expenses, and broader accounting remain deferred until subsequent bounded stages.
 
 ---
 
