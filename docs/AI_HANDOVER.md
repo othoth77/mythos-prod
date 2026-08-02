@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-02 UTC
-**From:** Stage 4M — Invoices CRUD extraction
+**From:** Stage 4N — RDV CRUD and form workflow extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,60 @@
 
 ```
 Branch:   main
-HEAD:     96a2dbb (implementation commit; documentation follow-up pending)
+HEAD:     7644a40 (implementation commit; documentation follow-up pending)
 ```
 
-**Stage 4M is implemented and validated.** Invoices CRUD extracted from `js/app.js` into `js/shared/invoices.js`. Stage 4M passes 76/76; directly relevant targeted suites pass 361/361 total. Full suite was run once: all Stage 4 suites (4A–4M) pass 711/711; 12 unchanged pre-existing suite failures remain in core-test and cascading Stage 1–3 regressions.
+**Stage 4N is implemented and validated.** RDV CRUD and the two-step form workflow were extracted from `js/app.js` into `js/shared/rdvs.js`. Stage 4N passes 66/66; directly relevant targeted suites pass 314/314 total. Full suite was run once: all Stage 4 suites (4A–4N) pass 777/777; the same 12 documented pre-existing suite failures remain unchanged.
 
-Implementation commit: `96a2dbb` — `refactor(invoices): extract invoices CRUD`
-Verified baseline before Stage 4M: `4628ac93d7bf9d927b8407e72d0a19ec7bf0d0db`
+Implementation commit: `7644a40` — `refactor(rdvs): extract RDV CRUD workflow`
+Verified baseline before Stage 4N: `7fd763f1d83e6bd119cdf44ca6a8736ed9dad6d6`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4N — RDV CRUD and Form Workflow Extraction
+
+**Objective:** Extract the coherent RDV two-step form, source dropdowns, fee selection, list rendering, CRUD, and tombstone behavior from `js/app.js` into `js/shared/rdvs.js` while preserving existing behavior and global interfaces.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/rdvs.js` | NEW: RDV form workflow, linked-source helpers, fee handling, CRUD, rendering, and delete tombstone |
+| `js/app.js` | Removed the extracted RDV implementation and retained a concise module reference; following legacy compatibility helpers remain unchanged |
+| `index.html` | Loads `rdvs.js` after `invoices.js` and before `taches.js` |
+| `tests/stage4n-test.js` | NEW: 66 tests for globals, wizard flow, sources, dropdowns, fee modes, CRUD, tombstones, rendering, compatibility, and script order |
+
+### Extracted Globals
+
+`rdvOpenForm`, `rdvClose`, `rdvShowExistingRdvs`, `rdvGoToStep2`, `rdvBackToStep1`, `getAllInvoices`, `getAllDevis`, `getAllContracts`, `rdvLoadDropdowns`, `rdvCalcFee`, `rdvFeeTypeSelectChanged`, `rdvInvoiceChanged`, `rdvDevisChanged`, `rdvContractChanged`, `rdvSave`, `rdvRender`, `rdvEdit`, `rdvDelete`
+
+### Dependencies and Compatibility
+
+Resolved at call time: `STORE.rdvs/saveRdvs`, invoice/devis/contract/client/collaborator/nature/representation readers, `esc`, `todayStr`, `_markDeleted`, DOM, alerts, confirmation, and `setTimeout`. Router, Calendar, Dashboard, and inline handlers continue using identical global names. RDV writes remain on `STORE.saveRdvs` and deletes still record `mp_rdvs` tombstones. No listener, timer, or initialization behavior was duplicated.
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/rdvs.js` | ✓ |
+| `tests/stage4n-test.js` | ✓ 66/66 |
+| `tests/stage4m-test.js` | ✓ 76/76 |
+| `tests/stage4d-test.js` | ✓ 32/32 |
+| `tests/stage4e-test.js` | ✓ 31/31 |
+| `tests/stage4c-test.js` | ✓ 32/32 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4N) | ✓ 777/777 |
+
+The complete repository suite was run once. Twenty suite files passed. Twelve suite files failed only through the documented pre-existing `_memCache` core failure and cascading Stage 1–3 subprocess regressions. No Stage 4 suite failed and no new regression was found.
+
+### Risks and Operations
+
+- The 12 documented pre-existing suite failures remain unchanged.
+- `stableRdvPrestRows` and unrelated legacy compatibility helpers remain in app.js because they are outside this coherent workflow and were not required by its callers.
+- Deployment: not performed.
+- Data migration: not performed.
 
 ---
 
@@ -154,11 +199,11 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4N
+## Next Stage: Stage 4O
 
-Stage 4M is implemented. Continue CRUD extraction per AGENTS.md §19 step 6.
+Stage 4N is implemented. Continue CRUD extraction per AGENTS.md §19 step 6.
 
-**Exact next scope:** extract the coherent RDV CRUD and form workflow into `js/shared/rdvs.js`, preserving existing globals, router/calendar callers, storage routing, inline handlers, and compatibility stubs. Remaining later blocks: Devis and accounting/bank.
+**Exact next scope:** extract the coherent Devis CRUD, form, numbering, and preview workflow into `js/shared/devis.js`, preserving existing globals, linked RDV source behavior, storage routing, print behavior, and compatibility stubs. Accounting/bank remains deferred.
 
 ---
 
