@@ -10,10 +10,13 @@
 
 ```
 Branch:   main
-HEAD:     (pending commit — Stage 4K)
+HEAD:     95ba224 (pushed to origin/main)
 ```
 
-**Stage 4K is pending commit.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77.
+**Stage 4K is committed.** Contracts CRUD extracted from `js/app.js` into `js/shared/contracts.js`. All Stage 4K tests pass (88/88). Stage 4J (66/66). Stage1a sync bypass regression: 77/77.
+
+Commit: `95ba224` — `refactor(contracts): extract Contracts CRUD into js/shared/contracts.js`
+Remote HEAD: matches local (pushed to origin/main)
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
