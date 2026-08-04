@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage 4Z — Dead-code audit; remove renderEntityPage
+**From:** Stage 4AA — Inscriptions/Appels workflow extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,73 @@
 
 ```
 Branch:   main
-HEAD:     d4f68b049c2f820d67345e5f9cdcf43be56cffad
+HEAD:     f92d80a (Stage 4AA commit)
 ```
 
-**Stage 4Z is complete.** `renderEntityPage` confirmed dead (zero callers in HTML, JS, PHP) and removed from `js/app.js`. Three prior test suites (4V, 4X, 4Y) updated to assert removal. Stage 4Z passes 40/40. Full Stage 4 suite (4A–4Z): 1432 tests, 0 failures. Stage 4 dead-code audit is done; active CRUD domains remain (see below). Stage 4 cannot close yet.
+**Stage 4AA is complete.** The Inscriptions/Appels CRUD workflow (~487 lines, `js/app.js` lines 731–1217) extracted to `js/shared/inscriptions.js`. Tests: 115/115. Full Stage 4 suite (4A–4AA, 27 files): 1547/1547, 0 failures. Stage 4 cannot close; active CRUD domains remain in `js/app.js` (see below).
 
-Implementation commit: `d4f68b0` — `refactor: Stage 4Z dead-code audit — remove renderEntityPage`
-Verified remote HEAD: `d4f68b049c2f820d67345e5f9cdcf43be56cffad`
+Implementation commit: `f92d80a` — `Stage 4AA — extract Inscriptions/Appels workflow to js/shared/inscriptions.js`
+Docs commit: see handover update
+Verified remote HEAD: `f92d80a`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4AA — Inscriptions/Appels Workflow Extraction
+
+**Objective:** Extract the complete Inscriptions/Appels CRUD workflow from `js/app.js` lines 731–1217 into `js/shared/inscriptions.js`. This is the Google Sheet inscription ingestion, UCL numbering, validation/bulk-validation pipeline, appel-fiche modal lifecycle, call-result tracking, call-script settings (editable from Paramètres), Google Sheet push webhook, and conformité list filtering.
+
+**Exact extraction boundary:** lines 731–1217, from `// ── Inscriptions` comment through the closing `}` of `saveAppelFiche`. Line 1219 (`// ── Routing → js/core/router.js`) is the first line NOT extracted.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/inscriptions.js` | NEW: INSCRIPTIONS_SCRIPT_URL, `_escHtmlInsc`, `loadDashboardInscriptionsCount`, `_uclNum`, `_appUid`, `loadInscriptions`, `validerToutesInscriptions`, `validerInscriptionRow`, `renderAppels`, `reinitialiserListes`, `reafficherInscriptions`, `renderListeConforme`, `getCallScript`/`saveCallScript`/`loadSettingsCallScript`/`saveCallScriptFromSettings`/`resetCallScriptToDefault`, `getSheetWebhookUrl`/`saveSheetWebhookUrl`/`loadSettingsSheetUrl`/`saveSheetUrlFromSettings`/`testSheetWebhookFromSettings`/`pushToGoogleSheet`, `MOIS_NOMS`, `_populateNaissanceSelects`, `openAppelFicheModal`/`closeAppelFicheModal`/`setAppelResult`/`saveAppelFiche` |
+| `js/app.js` | Removed 487 lines (731–1217); replaced with 11-line reference comment block |
+| `index.html` | Added `<script src="js/shared/inscriptions.js?v=20260805"></script>` after `statistics-dashboard.js`, before `taches.js` |
+| `tests/stage4aa-test.js` | NEW: 115 tests — globals, pure helpers (`_escHtmlInsc`/`_uclNum`/`_appUid`), `renderAppels`, `renderListeConforme`, `validerInscriptionRow`, `validerToutesInscriptions`, call-script settings, sheet-webhook settings, `openAppelFicheModal`/`closeAppelFicheModal`/`setAppelResult`, `saveAppelFiche`, integration checks |
+
+### Dependencies and Compatibility
+
+Resolved at call time:
+- `STORE.appels()`, `STORE.saveAppels()`, `STORE.validatedInscriptions()`, `STORE.saveValidatedInscriptions()` — defined in `js/app.js` STORE block (unchanged)
+- `_storeGet`, `_storeSave` — defined in `js/core/storage.js` (call-script and sheet-webhook settings use these directly for per-key localStorage access)
+- `_tchToast` — optional; checked with `typeof _tchToast === 'function'` before calling
+- `fetch`, `document`, `alert`, `confirm`, `Date`, `Math` — browser/Node globals
+- Router callers (`loadDashboardInscriptionsCount`, `loadInscriptions`, `renderAppels`, `renderListeConforme`) resolve globals at call time — `js/core/router.js` unchanged
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/inscriptions.js` | ✓ |
+| `tests/stage4aa-test.js` | ✓ 115/115 |
+| `tests/stage4z-test.js` | ✓ 40/40 |
+| `tests/stage4y-test.js` | ✓ 50/50 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4AA, 27 files) | ✓ 1547/1547 |
+
+No Stage 4 suite failed and no regression was found.
+
+### Risks, Remaining Responsibilities, and Operations
+
+- `js/app.js` still contains: Répertoire contacts (~1 400 lines), Documents (~780 lines), Backup dashboard (~265 lines), Spectacle price calculator (~60 lines), Settings page (~70 lines), Invoice/OM helpers (~175 lines), STORE object, shared utilities (`num`, `fmtMoney`, `escapeHtml`, etc.), initialization (`initApp`, `bootstrapStableApp`).
+- Stage 4 cannot close while these coherent domains remain in `js/app.js`.
+- Deployment: not performed. Data migration: not performed.
+
+### Exact Next Scope
+
+**Stage 4AB:** Extract Répertoire contacts domain from `js/app.js` (approx lines 742–2120 in current numbering after 4AA extraction, exact range to be confirmed by reading). This is the largest remaining domain. Read `js/app.js` from the line immediately after the `// ── Routing → js/core/router.js` comment to find the exact block. Verify with `grep -n 'function render\|function open\|function close\|function save\|function delete\|function add\|function filter\|var contact\|var repertoire'` in `js/app.js` to identify the boundary. Extract into `js/shared/contacts.js`.
+
+---
+
+## Stage 4Z — Dead-code Audit; Remove renderEntityPage
+
+**Stage 4Z is complete.** `renderEntityPage` confirmed dead (zero callers in HTML, JS, PHP) and removed from `js/app.js`. Three prior test suites (4V, 4X, 4Y) updated to assert removal. Stage 4Z passes 40/40. Full Stage 4 suite (4A–4Z): 1432 tests, 0 failures.
+
+Implementation commit: `d4f68b0` — `refactor: Stage 4Z dead-code audit — remove renderEntityPage`
 
 ---
 
