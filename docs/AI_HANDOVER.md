@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-04 UTC
-**From:** Stage 4R — Expenses CRUD, categories, reports, and page workflow extraction
+**From:** Stage 4S — Purchases CRUD, supplier synchronization, and page workflow extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,60 @@
 
 ```
 Branch:   main
-HEAD:     2a5e505 (implementation commit; documentation follow-up pending)
+HEAD:     f213822 (implementation commit; documentation follow-up pending)
 ```
 
-**Stage 4R is implemented and validated.** Expenses CRUD, period filtering, payment/category reports, category management, and category/subcategory form workflow were extracted from `js/app.js` into `js/shared/accounting-expenses.js`. Stage 4R passes 69/69; directly relevant targeted suites pass 324/324 total. Full suite was run once: all Stage 4 suites (4A–4R) pass 1033/1033; the same 12 documented pre-existing suite failures remain unchanged.
+**Stage 4S is implemented and validated.** Purchases CRUD, numbering, rendering, TVA totals, bulk selection, and supplier option synchronization were extracted from `js/app.js` into `js/shared/accounting-purchases.js`. Stage 4S passes 56/56; directly relevant targeted suites pass 514/514 total. Full suite was run once: all Stage 4 suites (4A–4S) pass 1088/1088; the same 12 documented pre-existing suite failures remain unchanged.
 
-Implementation commit: `2a5e505` — `refactor: extract expenses workflow`
-Verified baseline before Stage 4R: `ecaaffc89bd15505426a9419c7a1f4fe7847bd75`
+Implementation commit: `f213822` — `refactor: extract purchases workflow`
+Verified baseline before Stage 4S: `f7e562211608235ecf335ae515dfb967f72df222`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4S — Purchases CRUD, Supplier Synchronization, and Page Workflow Extraction
+
+**Objective:** Extract the coherent Purchases CRUD, numbering, rendering, TVA totals, bulk selection, and supplier option synchronization from `js/app.js` into `js/shared/accounting-purchases.js` without changing behavior.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/accounting-purchases.js` | NEW: Purchase numbering, rendering, bulk selection, CRUD form, supplier options, and supplier synchronization |
+| `js/app.js` | Removed the extracted Purchases implementation; supplier management, TVA calculator, statistics, and broader financial reports remain |
+| `index.html` | Loads `accounting-purchases.js` after `accounting-expenses.js` and before `taches.js` |
+| `tests/stage4s-test.js` | NEW: 56 tests for globals, numbering, rendering, TVA totals, selection, CRUD, supplier synchronization, exclusions, and script order |
+| `tests/stage4r-test.js` | Updated the Stage 4R extraction boundary and dependency-order assertion |
+
+### Dependencies and Compatibility
+
+Resolved at call time: `STORE.purchases/savePurchases/suppliers`, formatting/date utilities, generic modal helpers, the existing `calculateFromTTC`, `renderComptaViews`, DOM, alerts, confirmation, and `setTimeout`. Existing inline handlers, supplier-detail calls, router calls, Dashboard/statistics reads, and accounting overview calls retain identical globals and timing. Every write continues through `STORE.savePurchases` and the approved `_storeSave` pipeline. Supplier management, TVA calculation, statistics, and broader financial reports remain in `js/app.js`.
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/accounting-purchases.js`, `js/shared/accounting-expenses.js` | ✓ |
+| `tests/stage4s-test.js` | ✓ 56/56 |
+| `tests/stage4r-test.js` | ✓ 68/68 |
+| `tests/stage4q-test.js` | ✓ 57/57 |
+| `tests/stage4p-test.js` | ✓ 58/58 |
+| `tests/stage4i-test.js` | ✓ 69/69 |
+| `tests/stage4j-test.js` | ✓ 66/66 |
+| `tests/stage4c-test.js` | ✓ 32/32 |
+| `tests/stage4e-test.js` | ✓ 31/31 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4S) | ✓ 1088/1088 |
+
+The complete repository suite was run once. Twenty-four suite files passed. Twelve suite files failed only through the same documented pre-existing `_memCache` core failure and cascading Stage 1–3 subprocess regressions. No Stage 4 suite failed and no new regression was found.
+
+### Risks and Operations
+
+- The 12 documented pre-existing suite failures remain unchanged.
+- Supplier management, TVA calculation, statistics, reconciliation, and broader financial reports remain deliberately deferred.
+- Deployment: not performed.
+- Data migration: not performed.
 
 ---
 
@@ -369,11 +414,11 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4S
+## Next Stage: Stage 4T
 
-Stage 4R is implemented. Continue the bounded accounting extraction per AGENTS.md §19 step 6.
+Stage 4S is implemented. Continue the bounded accounting extraction per AGENTS.md §19 step 6.
 
-**Exact next scope:** inventory and extract the coherent Purchases CRUD, supplier synchronization, rendering, totals, and purchases page workflow into `js/shared/accounting-purchases.js`, preserving storage routing, supplier globals, router globals, and DOM contracts. Statistics and broader financial/accounting reports remain deferred until subsequent bounded stages.
+**Exact next scope:** inventory and extract the coherent financial reports, reconciliation, flow diagram, and analytics dashboard workflow into `js/shared/accounting-reports.js`, preserving report calculations, storage reads, router globals, and DOM contracts. Accounting overview, supplier management, TVA calculation, and unrelated statistics remain deferred until subsequent bounded stages.
 
 ---
 
