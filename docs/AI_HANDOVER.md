@@ -1,22 +1,22 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-04 UTC
-**From:** Stage 4Y — Statistics dashboard extraction
+**Last updated:** 2026-08-05 UTC
+**From:** Stage 4Z — Dead-code audit; remove renderEntityPage
 **To:** Next AI session
 
 ---
 
-## Repository State (verified 2026-08-04)
+## Repository State (verified 2026-08-05)
 
 ```
 Branch:   main
-HEAD:     1fe4690 (implementation commit; documentation follow-up pending)
+HEAD:     d4f68b049c2f820d67345e5f9cdcf43be56cffad
 ```
 
-**Stage 4Y is implemented and validated.** The complete `renderStatistique` workflow was extracted from `js/app.js` into `js/shared/statistics-dashboard.js`. Stage 4Y passes 50/50; directly relevant targeted suites pass 634/634 total. The Stage 4 suite was run once: all Stage 4 suites (4A–4Y) pass 1392/1392. The 12 documented pre-existing failures are outside the Stage 4 suite and were not rerun or changed by this extraction.
+**Stage 4Z is complete.** `renderEntityPage` confirmed dead (zero callers in HTML, JS, PHP) and removed from `js/app.js`. Three prior test suites (4V, 4X, 4Y) updated to assert removal. Stage 4Z passes 40/40. Full Stage 4 suite (4A–4Z): 1432 tests, 0 failures. Stage 4 dead-code audit is done; active CRUD domains remain (see below). Stage 4 cannot close yet.
 
-Implementation commit: `1fe4690` — `refactor: extract statistics dashboard`
-Verified baseline before Stage 4Y: `6418a0c6d48dfde701a3433e530bb6a1101bfd22`
+Implementation commit: `d4f68b0` — `refactor: Stage 4Z dead-code audit — remove renderEntityPage`
+Verified remote HEAD: `d4f68b049c2f820d67345e5f9cdcf43be56cffad`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
@@ -703,11 +703,75 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4Z
+## Stage 4Z — Dead-Code Audit: Remove renderEntityPage
 
-Stage 4Y is implemented. Continue the bounded legacy cleanup per AGENTS.md §19 step 7.
+**Objective:** Perform the bounded Stage 4 closure audit of confirmed extraction residue in `js/app.js`. Audit `renderEntityPage` for callers; remove if confirmed dead. Update prior test assertions. Determine whether Stage 4 can close.
 
-**Exact next scope:** perform a bounded Stage 4 closure audit of confirmed extraction residue in `js/app.js`, beginning with the apparently unreferenced `renderEntityPage` helper and adjacent extraction markers. Remove only code proven dead by repository-wide caller checks and regression tests; do not expand into initialization, backup/document workflows, storage/sync bypasses, production domains, or Stage 5 refactoring. Record whether Stage 4 can close and the exact next roadmap stage.
+**Exact extraction boundary:** `renderEntityPage` function (6 lines), lines 2521–2526. No other functions touched. Extraction markers and comments left in place as documentation.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/app.js` | Removed `renderEntityPage` (6 lines → 1-line marker comment). 3875 → 3870 lines. |
+| `tests/stage4v-test.js` | Flipped `renderEntityPage remains` assertion to `renderEntityPage removed` |
+| `tests/stage4x-test.js` | Same flip |
+| `tests/stage4y-test.js` | Same flip |
+| `tests/stage4z-test.js` | NEW: 40 tests — dead-code removal, extraction boundary completeness, active functions preserved, STORE integrity, script order, syntax |
+
+### Dead-Code Verdict
+
+Repository-wide caller scan (`grep -rn "renderEntityPage(" *.js *.html *.php`): zero callers. Definition-only. Confirmed dead.
+
+### Stage 4 Closure Verdict
+
+**Stage 4 cannot close.** Substantial active CRUD and feature domains remain in `js/app.js` (3870 lines):
+
+| Domain | Approx. lines | Functions |
+|--------|-------------|-----------|
+| Inscriptions / Appels | ~360 | loadInscriptions, validerToutesInscriptions, renderAppels, openAppelFicheModal, saveAppelFiche, … |
+| Settings (call script, sheet) | ~70 | getCallScript, saveCallScript, getSheetWebhookUrl, pushToGoogleSheet, … |
+| Repertoire contacts | ~1400 | renderRepertoireContactsPage, renderContactsDirectory, importPhoneContacts, handleContactsFileImport, addRepertoireContactRow, … |
+| Backup / export / version | ~265 | exportBackup, importBackup, createBackupVersion, renderBackupDashboard, runDiskCleanup, … |
+| Spectacle calculator | ~60 | initSpectacleCalculator |
+| Documents / camera / upload | ~780 | renderDocumentation, openDocModal, saveDoc, openCameraModal, saveCapturedPhoto, saveBulkDocs, … |
+| App init / bootstrap / nav | ~100 | initApp, bootstrapStableApp, toggleSidebar, initNavScrollHint, … |
+| Invoice/OM helpers | ~175 | populateInvoiceList, editInvoice, deleteInvoice, editOm, deleteOm, cancelOM, addLine, … |
+| Restore/migration (one-time) | ~90 | restoreBackup20260516Once, forceRestoreBackup20260516 |
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js` | ✓ |
+| `tests/stage4z-test.js` | ✓ 40/40 |
+| `tests/stage4y-test.js` | ✓ 50/50 |
+| `tests/stage4x-test.js` | ✓ 49/49 |
+| `tests/stage4w-test.js` | ✓ 44/44 |
+| `tests/stage4v-test.js` | ✓ 60/60 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4Z) | ✓ 1432/1432 |
+
+### Commit
+
+```
+d4f68b049c2f820d67345e5f9cdcf43be56cffad
+refactor: Stage 4Z dead-code audit — remove renderEntityPage
+```
+
+---
+
+## Next Stage: Stage 4AA — Inscriptions / Appels CRUD Extraction
+
+Stage 4Z is complete. Continue AGENTS.md §19 step 6 (remaining CRUD into modules).
+
+**Exact next scope:** extract the Inscriptions / Appels workflow from `js/app.js` into `js/shared/inscriptions.js`. This is the smallest coherent remaining domain (~360 lines, lines ~734–1092). Include all inscription loading/validation/rendering, appel-fiche modal lifecycle, and call-result tracking. Do not touch the call-script settings functions (separate concern), the repertoire contacts domain, or any active production initialization code.
+
+**Preflight required before starting Stage 4AA:**
+1. `git fetch origin`
+2. Confirm HEAD = origin/main = `d4f68b049c2f820d67345e5f9cdcf43be56cffad`
+3. `git status --short` — confirm clean
+4. Read `AGENTS.md`, `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`
 
 ---
 
