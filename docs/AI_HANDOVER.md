@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-04 UTC
-**From:** Stage 4U — Accounting overview and period workflow extraction
+**From:** Stage 4V — Accounting Suppliers workflow extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,63 @@
 
 ```
 Branch:   main
-HEAD:     75830d0 (implementation commit; documentation follow-up pending)
+HEAD:     a139d56 (implementation commit; documentation follow-up pending)
 ```
 
-**Stage 4U is implemented and validated.** Accounting period state/filtering, summary calculations/cards, module navigation, connection summaries, and financial-flow composition were extracted from `js/app.js` into `js/shared/accounting-overview.js`. Stage 4U passes 45/45; directly relevant targeted suites pass 423/423 total. Full suite was run once: all Stage 4 suites (4A–4U) pass 1189/1189; the same 12 documented pre-existing suite failures remain unchanged.
+**Stage 4V is implemented and validated.** The accounting-specific Suppliers page/detail/CRUD workflow, search/category filters, purchase links, and Bank links were extracted from `js/app.js` into `js/shared/accounting-suppliers.js`. Stage 4V passes 60/60; directly relevant targeted suites pass 521/521 total. The Stage 4 suite was run once: all Stage 4 suites (4A–4V) pass 1249/1249. The 12 documented pre-existing failures are outside the Stage 4 suite and were not rerun or changed by this extraction.
 
-Implementation commit: `75830d0` — `refactor: extract accounting overview workflow`
-Verified baseline before Stage 4U: `f5e9acc667a3ac39f8599723517c110e63e422ca`
+Implementation commit: `a139d56` — `refactor: extract accounting suppliers workflow`
+Verified baseline before Stage 4V: `1b7cb7be8c2395ed077bd49e468e2cec42fac4be`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4V — Accounting Suppliers Workflow Extraction
+
+**Objective:** Extract the accounting-specific Suppliers list/detail rendering, search/category filters, CRUD form workflow, linked purchases, and linked Bank entries from `js/app.js` into `js/shared/accounting-suppliers.js` without changing behavior.
+
+**Exact extraction boundaries:** the supplier filter state beside the accounting module state declarations; the block beginning at `renderSuppliersPage` and ending after `getSupplierCategoryStyle`; and the block beginning at `setSupplierSearch` and ending after `deleteSupplier`. The generic `renderEntityPage` helper between those blocks remains in `js/app.js`.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/accounting-suppliers.js` | NEW: accounting Supplier filter state, list/detail rendering, category styling, CRUD form, purchase links, Bank links, totals, and formatting |
+| `js/app.js` | Removed only the extracted Supplier state and functions; TVA calculator, generic modal helpers, and statistics remain |
+| `index.html` | Loads `accounting-suppliers.js` after the purchase and Bank dependencies and before reports/overview consumers |
+| `tests/stage4v-test.js` | NEW: 60 tests for globals/state, rendering, filters, detail relationships, totals, CRUD, writes, compatibility, exclusions, and script order |
+| `tests/stage4s-test.js`, `tests/stage4t-test.js`, `tests/stage4u-test.js` | Updated completed-extraction boundary assertions |
+
+### Dependencies and Compatibility
+
+Resolved at call time: `STORE.suppliers/saveSuppliers/purchases/bankEntries`, `esc`, `num`, `fmtMoney`, generic modal helpers, `fillPurchaseSuppliers`, purchase actions, and `openBankDetailModal`. Existing inline handlers and the router retain the same global names and initialization timing. Supplier saves/deletes continue through `STORE.saveSuppliers` and the approved `_storeSave` pipeline; purchase option synchronization remains at the same point after save. The legacy `js/shared/fournisseurs.js` domain remains separate and unchanged. No listeners, timers, schema changes, or duplicate initialization were introduced.
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/accounting-suppliers.js`, `js/shared/accounting-purchases.js`, `js/shared/accounting-bank.js` | ✓ |
+| `tests/stage4v-test.js` | ✓ 60/60 |
+| `tests/stage4u-test.js` | ✓ 45/45 |
+| `tests/stage4t-test.js` | ✓ 57/57 |
+| `tests/stage4s-test.js` | ✓ 55/55 |
+| `tests/stage4r-test.js` | ✓ 68/68 |
+| `tests/stage4p-test.js` | ✓ 58/58 |
+| `tests/stage4c-test.js` | ✓ 32/32 |
+| `tests/stage4i-test.js` | ✓ 69/69 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4V) | ✓ 1249/1249 |
+
+The Stage 4 suite was run exactly once. No Stage 4 suite failed and no new regression was found. The 12 documented pre-existing failures remain outside this bounded suite and unchanged by the extracted files.
+
+### Risks, Remaining Responsibilities, and Operations
+
+- The 12 documented pre-existing suite failures remain deferred and were not rerun.
+- `js/app.js` still owns the coherent TVA calculator, generic modal helpers, `renderStatistique`, initialization, backup/document workflows, and other unrelated legacy domains.
+- Stage 4 remains incomplete while the documented coherent TVA responsibility remains in `js/app.js`.
+- Deployment: not performed.
+- Data migration: not performed.
 
 ---
 
@@ -509,11 +557,11 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4V
+## Next Stage: Stage 4W
 
-Stage 4U is implemented. Continue the bounded accounting extraction per AGENTS.md §19 step 6.
+Stage 4V is implemented. Continue the bounded accounting extraction per AGENTS.md §19 step 6.
 
-**Exact next scope:** inventory and extract the accounting-specific Suppliers page/detail/CRUD workflow, search/category filters, purchase links, and Bank links into `js/shared/accounting-suppliers.js`, preserving the existing distinction from `js/shared/fournisseurs.js`, storage routing, purchase integration, router globals, and DOM contracts. TVA calculation, generic helpers, and unrelated statistics remain deferred.
+**Exact next scope:** inventory and extract the coherent purchase TVA calculator workflow (`calculateFromTTC`, `selectTVARate`, and `updateTVATotal`) into `js/shared/accounting-tva.js`, preserving formulas, purchase-form DOM contracts, compatibility globals, initialization timing, and the dependency used by `js/shared/accounting-purchases.js`. Generic modal helpers and unrelated statistics remain deferred.
 
 ---
 
