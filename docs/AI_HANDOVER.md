@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-04 UTC
-**From:** Stage 4W — Accounting TVA calculator extraction
+**From:** Stage 4X — Shared modal entity helpers extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,64 @@
 
 ```
 Branch:   main
-HEAD:     ced998e (implementation commit; documentation follow-up pending)
+HEAD:     acab46b (implementation commit; documentation follow-up pending)
 ```
 
-**Stage 4W is implemented and validated.** The existing purchase TVA reverse calculator, rate selection/highlighting, and manual TVA total calculation were extracted from `js/app.js` into `js/shared/accounting-tva.js`. Stage 4W passes 44/44; directly relevant targeted suites pass 406/406 total. The Stage 4 suite was run once: all Stage 4 suites (4A–4W) pass 1293/1293. The 12 documented pre-existing failures are outside the Stage 4 suite and were not rerun or changed by this extraction.
+**Stage 4X is implemented and validated.** The shared `fillModalFields` and `saveModalEntity` helpers were extracted from `js/app.js` into `js/shared/modal-entity-helpers.js`. Stage 4X passes 49/49; directly relevant targeted suites pass 570/570 total. The Stage 4 suite was run once: all Stage 4 suites (4A–4X) pass 1342/1342. The 12 documented pre-existing failures are outside the Stage 4 suite and were not rerun or changed by this extraction.
 
-Implementation commit: `ced998e` — `refactor: extract accounting TVA calculator`
-Verified baseline before Stage 4W: `208873a253b264ed73a07713e6b5ff1836fc1adb`
+Implementation commit: `acab46b` — `refactor: extract modal entity helpers`
+Verified baseline before Stage 4X: `8ee35ab4d8379d900fddf0140de9174f5dfc80f9`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4X — Shared Modal Entity Helpers Extraction
+
+**Objective:** Extract the shared form population and entity serialization/write helpers from `js/app.js` into `js/shared/modal-entity-helpers.js` without changing field mapping, coercion, callback timing, or storage routing.
+
+**Exact extraction boundary:** the contiguous block beginning at `fillModalFields` and ending after `saveModalEntity`, immediately before `renderStatistique`.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/modal-entity-helpers.js` | NEW: shared field population and entity create/update serialization helpers |
+| `js/app.js` | Removed only `fillModalFields` and `saveModalEntity`; generic rendering, statistics, and entity-specific modal lifecycle remain |
+| `index.html` | Loads the helper module immediately after `app.js` and before all extracted consumers |
+| `tests/stage4x-test.js` | NEW: 49 tests for globals, population/reset, key mappings, checkbox/number serialization, create/update behavior, writer/callback order, exclusions, and script order |
+| `tests/stage4w-test.js` | Updated the completed-extraction boundary assertion |
+
+### Dependencies and Compatibility
+
+Resolved at call time: `num`, `Date.now`, browser DOM, and the entity-specific reader/writer/render/close callbacks supplied by callers. The `supplier-id`, `supplier-name`, and `linked-bank` mappings, first-dash generic mapping, checkbox handling, numeric coercion, replacement-object update behavior, generated IDs, and `save → close → render` timing are preserved exactly. Existing Bank, Cash, Expenses, Purchases, and Suppliers modules continue calling the same globals. Every write still flows through the STORE writer callback supplied by the entity module. No modal lifecycle, focus, keyboard, overlay, validation, confirmation, deletion, listener, or business workflow was present in the extracted helpers, so those entity-specific responsibilities remain unchanged and outside this module.
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/modal-entity-helpers.js` | ✓ |
+| `tests/stage4x-test.js` | ✓ 49/49 |
+| `tests/stage4w-test.js` | ✓ 44/44 |
+| `tests/stage4v-test.js` | ✓ 60/60 |
+| `tests/stage4u-test.js` | ✓ 45/45 |
+| `tests/stage4t-test.js` | ✓ 57/57 |
+| `tests/stage4s-test.js` | ✓ 55/55 |
+| `tests/stage4r-test.js` | ✓ 68/68 |
+| `tests/stage4p-test.js` | ✓ 58/58 |
+| `tests/stage4q-test.js` | ✓ 57/57 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4X) | ✓ 1342/1342 |
+
+The Stage 4 suite was run exactly once. No Stage 4 suite failed and no new regression was found. The 12 documented pre-existing failures remain outside this bounded suite and unchanged by the extracted files.
+
+### Risks, Remaining Responsibilities, and Operations
+
+- The 12 documented pre-existing suite failures remain deferred and were not rerun.
+- `js/app.js` still owns `renderStatistique`, the generic `renderEntityPage` helper, initialization, backup/document workflows, and other unrelated legacy domains.
+- Stage 4 remains incomplete while the coherent statistics dashboard responsibility remains in `js/app.js`.
+- Deployment: not performed.
+- Data migration: not performed.
 
 ---
 
@@ -603,11 +652,11 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4X
+## Next Stage: Stage 4Y
 
-Stage 4W is implemented. Continue the bounded shared-module extraction per AGENTS.md §19 step 6.
+Stage 4X is implemented. Continue the bounded shared-module extraction per AGENTS.md §19 step 6.
 
-**Exact next scope:** inventory and extract the shared generic modal entity helpers (`fillModalFields` and `saveModalEntity`) into a bounded shared module, preserving key mapping, checkbox/number coercion, ID generation, approved STORE writers, render/close timing, compatibility globals, and the loading order required by extracted accounting modules. `renderStatistique` and unrelated initialization/workflows remain deferred.
+**Exact next scope:** inventory and extract the coherent `renderStatistique` dashboard workflow into a bounded shared statistics module, preserving all totals, monthly aggregation, status/category breakdowns, formatting, DOM output, compatibility global, router call, and script-loading timing. The generic `renderEntityPage` helper, initialization, backup/document workflows, and unrelated legacy domains remain deferred.
 
 ---
 
