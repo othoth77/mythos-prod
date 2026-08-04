@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-04 UTC
-**From:** Stage 4P — Bank entries CRUD and page workflow extraction
+**From:** Stage 4Q — Cash entries CRUD and page workflow extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,57 @@
 
 ```
 Branch:   main
-HEAD:     db3df65 (implementation commit; documentation follow-up pending)
+HEAD:     3685307 (implementation commit; documentation follow-up pending)
 ```
 
-**Stage 4P is implemented and validated.** Bank entries cleanup, CRUD, selection, filters, rendering, linked-record modals, and CSV import/result workflow were extracted from `js/app.js` into `js/shared/accounting-bank.js`. Stage 4P passes 59/59; directly relevant targeted suites pass 271/271 total. Full suite was run once: all Stage 4 suites (4A–4P) pass 908/908; the same 12 documented pre-existing suite failures remain unchanged.
+**Stage 4Q is implemented and validated.** Cash entries CRUD, filtering, rendering, linked-record workflow, bulk selection, and Bank withdrawal selection were extracted from `js/app.js` into `js/shared/accounting-cash.js`. Stage 4Q passes 58/58; directly relevant targeted suites pass 328/328 total. Full suite was run once: all Stage 4 suites (4A–4Q) pass 965/965; the same 12 documented pre-existing suite failures remain unchanged.
 
-Implementation commit: `db3df65` — `refactor: extract bank entries workflow`
-Verified baseline before Stage 4P: `336e1723c724ffe43f140c590f4f6f0a2a8a488a`
+Implementation commit: `3685307` — `refactor: extract cash entries workflow`
+Verified baseline before Stage 4Q: `70264c06d42b05602ff680fa84d800769f05cb86`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4Q — Cash Entries CRUD and Page Workflow Extraction
+
+**Objective:** Extract the coherent Cash entries CRUD, filtering, rendering, linked-record workflow, and Bank withdrawal selection from `js/app.js` into `js/shared/accounting-cash.js` without changing behavior.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/accounting-cash.js` | NEW: Cash filter state, page rendering, record linking, bulk selection, CRUD form, and Bank withdrawal selection |
+| `js/app.js` | Removed the extracted Cash implementation; expenses, statistics, and shared accounting helpers remain |
+| `index.html` | Loads `accounting-cash.js` after `accounting-bank.js` and before `taches.js` |
+| `tests/stage4q-test.js` | NEW: 58 tests for globals, rendering, filters, links, writes, CRUD, selection, Bank choices, exclusions, and script order |
+| `tests/stage4p-test.js` | Updated the Stage 4P integration boundary and script-order assertion for the Stage 4Q consumer |
+
+### Dependencies and Compatibility
+
+Resolved at call time: `STORE.cashEntries/saveCashEntries`, Bank/expense/invoice readers, formatting and date utilities, invoice totals, generic modal helpers, `renderComptaViews`, DOM, alerts, and confirmation. Existing inline handlers, router calls, Dashboard reads, and Bank-link contracts retain identical globals and timing. Every write continues through `STORE.saveCashEntries` and the approved `_storeSave` pipeline. Expenses and statistics remain in `js/app.js`.
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/accounting-cash.js`, `js/shared/accounting-bank.js` | ✓ |
+| `tests/stage4q-test.js` | ✓ 58/58 |
+| `tests/stage4p-test.js` | ✓ 58/58 |
+| `tests/stage4o-test.js` | ✓ 72/72 |
+| `tests/stage4c-test.js` | ✓ 32/32 |
+| `tests/stage4e-test.js` | ✓ 31/31 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4Q) | ✓ 965/965 |
+
+The complete repository suite was run once. Twenty-two suite files passed. Twelve suite files failed only through the same documented pre-existing `_memCache` core failure and cascading Stage 1–3 subprocess regressions. No Stage 4 suite failed and no new regression was found.
+
+### Risks and Operations
+
+- The 12 documented pre-existing suite failures remain unchanged.
+- Expenses, statistics, and broader accounting helpers remain deliberately deferred.
+- Deployment: not performed.
+- Data migration: not performed.
 
 ---
 
@@ -285,11 +327,11 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4Q
+## Next Stage: Stage 4R
 
-Stage 4P is implemented. Continue the bounded accounting extraction per AGENTS.md §19 step 6.
+Stage 4Q is implemented. Continue the bounded accounting extraction per AGENTS.md §19 step 6.
 
-**Exact next scope:** inventory and extract the coherent Cash entries CRUD and cash page workflow into `js/shared/accounting-cash.js`, preserving filters, Bank links, storage routing, router globals, and DOM contracts. Expenses, statistics, and broader accounting remain deferred until subsequent bounded stages.
+**Exact next scope:** inventory and extract the coherent Expenses CRUD, categories, filtering, reporting, and expenses page workflow into `js/shared/accounting-expenses.js`, preserving storage routing, router globals, and DOM contracts. Purchases, statistics, and broader accounting remain deferred until subsequent bounded stages.
 
 ---
 
