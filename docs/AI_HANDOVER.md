@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-04 UTC
-**From:** Stage 4S — Purchases CRUD, supplier synchronization, and page workflow extraction
+**From:** Stage 4T — Financial reports, reconciliation, flow, and analytics extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,63 @@
 
 ```
 Branch:   main
-HEAD:     f213822 (implementation commit; documentation follow-up pending)
+HEAD:     b6123c0 (implementation commit; documentation follow-up pending)
 ```
 
-**Stage 4S is implemented and validated.** Purchases CRUD, numbering, rendering, TVA totals, bulk selection, and supplier option synchronization were extracted from `js/app.js` into `js/shared/accounting-purchases.js`. Stage 4S passes 56/56; directly relevant targeted suites pass 514/514 total. Full suite was run once: all Stage 4 suites (4A–4S) pass 1088/1088; the same 12 documented pre-existing suite failures remain unchanged.
+**Stage 4T is implemented and validated.** Monthly financial reporting, cash-flow diagram, reconciliation, and financial analytics dashboard were extracted from `js/app.js` into `js/shared/accounting-reports.js`. Stage 4T passes 58/58; directly relevant targeted suites pass 436/436 total. Full suite was run once: all Stage 4 suites (4A–4T) pass 1145/1145; the same 12 documented pre-existing suite failures remain unchanged.
 
-Implementation commit: `f213822` — `refactor: extract purchases workflow`
-Verified baseline before Stage 4S: `f7e562211608235ecf335ae515dfb967f72df222`
+Implementation commit: `b6123c0` — `refactor: extract financial reports workflow`
+Verified baseline before Stage 4T: `e36542d2284964a44d4832463a7a98a248c1c4f5`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4T — Financial Reports, Reconciliation, Flow, and Analytics Extraction
+
+**Objective:** Extract the coherent monthly financial report, cash-flow diagram, reconciliation, and financial analytics dashboard workflow from `js/app.js` into `js/shared/accounting-reports.js` without changing calculations or rendering behavior.
+
+**Exact extraction boundary:** the contiguous block beginning at `generateMonthlyReport` and ending after `renderFinancialAnalyticsDashboard`, immediately before the generic `renderEntityPage` helper.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/accounting-reports.js` | NEW: monthly report calculations, flow diagram, reconciliation markup, and annual analytics dashboard |
+| `js/app.js` | Removed the extracted reporting block; accounting overview, suppliers, TVA calculator, generic helpers, and `renderStatistique` remain |
+| `index.html` | Loads `accounting-reports.js` after all accounting data modules and before `taches.js` |
+| `tests/stage4t-test.js` | NEW: 58 tests for globals, yearly/monthly calculations, totals, flow, reconciliation, analytics, compatibility, exclusions, and script order |
+| `tests/stage4r-test.js`, `tests/stage4s-test.js` | Updated deferred-report boundaries and dependency-order assertions |
+
+### Dependencies and Compatibility
+
+Resolved at call time: invoice/RDV/purchase/expense/Bank/Cash readers, `normalizeRdv`, invoice/RDV total helpers, date/number/money utilities, and the reconciliation DOM target. Existing accounting-overview and router callers retain identical global names and timing. The extracted workflow is read-only and does not introduce writes or chart instances; the existing return-before-DOM reconciliation behavior is preserved exactly rather than corrected in this extraction.
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/accounting-reports.js`, `js/shared/accounting-purchases.js` | ✓ |
+| `tests/stage4t-test.js` | ✓ 58/58 |
+| `tests/stage4s-test.js` | ✓ 55/55 |
+| `tests/stage4r-test.js` | ✓ 68/68 |
+| `tests/stage4q-test.js` | ✓ 57/57 |
+| `tests/stage4p-test.js` | ✓ 58/58 |
+| `tests/stage4c-test.js` | ✓ 32/32 |
+| `tests/stage4e-test.js` | ✓ 31/31 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4T) | ✓ 1145/1145 |
+
+The complete repository suite was run once. Twenty-five suite files passed. Twelve suite files failed only through the same documented pre-existing `_memCache` core failure and cascading Stage 1–3 subprocess regressions. No Stage 4 suite failed and no new regression was found.
+
+### Risks, Remaining Responsibilities, and Operations
+
+- The 12 documented pre-existing suite failures remain unchanged.
+- The pre-existing unreachable reconciliation DOM assignment and empty-data `NaN%` output remain unchanged.
+- `js/app.js` still owns accounting overview/period filtering, supplier management, TVA calculation, generic modal helpers, `renderStatistique`, initialization, and other unrelated legacy domains.
+- Stage 4 is not complete while these documented coherent responsibilities remain in `js/app.js`.
+- Deployment: not performed.
+- Data migration: not performed.
 
 ---
 
@@ -414,11 +462,11 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4T
+## Next Stage: Stage 4U
 
-Stage 4S is implemented. Continue the bounded accounting extraction per AGENTS.md §19 step 6.
+Stage 4T is implemented. Continue the bounded accounting extraction per AGENTS.md §19 step 6.
 
-**Exact next scope:** inventory and extract the coherent financial reports, reconciliation, flow diagram, and analytics dashboard workflow into `js/shared/accounting-reports.js`, preserving report calculations, storage reads, router globals, and DOM contracts. Accounting overview, supplier management, TVA calculation, and unrelated statistics remain deferred until subsequent bounded stages.
+**Exact next scope:** inventory and extract the coherent accounting overview, period state/filtering, summary cards, module navigation, and report composition into `js/shared/accounting-overview.js`, preserving storage reads, router globals, DOM contracts, and calls into the extracted accounting modules. Supplier management, TVA calculation, generic helpers, and unrelated statistics remain deferred.
 
 ---
 
