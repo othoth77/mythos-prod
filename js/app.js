@@ -2518,12 +2518,7 @@ function printModal(previewId) {
 
 // ── Accounting Suppliers → js/shared/accounting-suppliers.js ──────────────
 
-function renderEntityPage(targetId, items, renderTitle, editFn, deleteFn) {
-  const el = document.getElementById(targetId);
-  if (!el) return;
-  if (!items.length) { el.innerHTML = '<div class="empty-state">Aucune donnee.</div>'; return; }
-  el.innerHTML = '<div class="item-grid">' + items.map(item => `<div class="item-card compta-detail-row"><div><div class="item-name">${renderTitle(item)}</div></div><div class="item-actions"><button class="btn btn-outline btn-sm" onclick="${editFn.name}('${item.id}')" title="Modifier">✏️</button><button class="btn btn-danger btn-sm" onclick="${deleteFn.name}('${item.id}')" title="Supprimer">✕</button></div></div>`).join('') + '</div>';
-}
+// renderEntityPage removed in Stage 4Z — confirmed no callers in HTML, JS, or PHP.
 // Purchase TVA calculator moved to js/shared/accounting-tva.js.
 
 // Generic modal entity helpers moved to js/shared/modal-entity-helpers.js.
