@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-04 UTC
-**From:** Stage 4X — Shared modal entity helpers extraction
+**From:** Stage 4Y — Statistics dashboard extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,66 @@
 
 ```
 Branch:   main
-HEAD:     acab46b (implementation commit; documentation follow-up pending)
+HEAD:     1fe4690 (implementation commit; documentation follow-up pending)
 ```
 
-**Stage 4X is implemented and validated.** The shared `fillModalFields` and `saveModalEntity` helpers were extracted from `js/app.js` into `js/shared/modal-entity-helpers.js`. Stage 4X passes 49/49; directly relevant targeted suites pass 570/570 total. The Stage 4 suite was run once: all Stage 4 suites (4A–4X) pass 1342/1342. The 12 documented pre-existing failures are outside the Stage 4 suite and were not rerun or changed by this extraction.
+**Stage 4Y is implemented and validated.** The complete `renderStatistique` workflow was extracted from `js/app.js` into `js/shared/statistics-dashboard.js`. Stage 4Y passes 50/50; directly relevant targeted suites pass 634/634 total. The Stage 4 suite was run once: all Stage 4 suites (4A–4Y) pass 1392/1392. The 12 documented pre-existing failures are outside the Stage 4 suite and were not rerun or changed by this extraction.
 
-Implementation commit: `acab46b` — `refactor: extract modal entity helpers`
-Verified baseline before Stage 4X: `8ee35ab4d8379d900fddf0140de9174f5dfc80f9`
+Implementation commit: `1fe4690` — `refactor: extract statistics dashboard`
+Verified baseline before Stage 4Y: `6418a0c6d48dfde701a3433e530bb6a1101bfd22`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4Y — Statistics Dashboard Extraction
+
+**Objective:** Extract the complete statistics dashboard aggregation, KPI, comparison, and SVG rendering workflow from `js/app.js` into `js/shared/statistics-dashboard.js` without changing formulas, data sources, output, or navigation behavior.
+
+**Exact extraction boundary:** the contiguous `renderStatistique` function, beginning immediately after the modal-helper extraction marker and ending immediately before the `_statKpi` utility marker. Its nested donut, monthly bar, and expense line SVG renderers move with it.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/statistics-dashboard.js` | NEW: global totals/KPIs, 12-month aggregation, recovery donut, monthly activity bars, expense trend, top clients, and entity summaries |
+| `js/app.js` | Removed only `renderStatistique`; generic entity rendering, modal overlay behavior, initialization, backup/document workflows, and unrelated domains remain |
+| `index.html` | Loads `statistics-dashboard.js` after all extracted data/accounting dependencies and before `taches.js` |
+| `tests/stage4y-test.js` | NEW: 50 tests for globals, empty/partial data, totals, percentages, monthly datasets, SVG output, counts, escaping, routing, exclusions, and script order |
+| `tests/stage4q-test.js` through `tests/stage4x-test.js` where applicable | Updated completed-extraction boundary assertions |
+
+### Dependencies and Compatibility
+
+Resolved at call time: invoice/RDV/client/mission-order/representation/expense/Bank/contract readers, `normalizeRdv`, invoice/RDV amount helpers, number/money/HTML utilities, `_statKpi`, `_statMini`, browser DOM, and `Date`. The router and manual refresh button retain the same `renderStatistique` global and timing. Existing all-time KPI totals, paid-status logic, 12-calendar-month window, top-six client ranking, recovery percentage rounding, three-decimal formatting, SVG construction, optional contracts fallback, and empty states are preserved exactly. The implementation uses inline SVG rather than Chart.js, so no chart instances, destruction lifecycle, listeners, timers, or writes were introduced.
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/statistics-dashboard.js`, `js/shared/modal-entity-helpers.js` | ✓ |
+| `tests/stage4y-test.js` | ✓ 50/50 |
+| `tests/stage4x-test.js` | ✓ 49/49 |
+| `tests/stage4w-test.js` | ✓ 44/44 |
+| `tests/stage4v-test.js` | ✓ 60/60 |
+| `tests/stage4u-test.js` | ✓ 45/45 |
+| `tests/stage4t-test.js` | ✓ 57/57 |
+| `tests/stage4s-test.js` | ✓ 55/55 |
+| `tests/stage4r-test.js` | ✓ 68/68 |
+| `tests/stage4c-test.js` | ✓ 32/32 |
+| `tests/stage4e-test.js` | ✓ 31/31 |
+| `tests/stage4j-test.js` | ✓ 66/66 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4Y) | ✓ 1392/1392 |
+
+The Stage 4 suite was run exactly once. No Stage 4 suite failed and no new regression was found. The 12 documented pre-existing failures remain outside this bounded suite and unchanged by the extracted files.
+
+### Risks, Remaining Responsibilities, and Operations
+
+- The 12 documented pre-existing suite failures remain deferred and were not rerun.
+- `js/app.js` still contains the apparently unreferenced generic `renderEntityPage` helper plus extraction markers, initialization, backup/document workflows, and other unrelated legacy domains.
+- Stage 4 remains incomplete pending a bounded dead-code/residual extraction audit; no unverified helper was removed in Stage 4Y.
+- Deployment: not performed.
+- Data migration: not performed.
 
 ---
 
@@ -652,11 +703,11 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4Y
+## Next Stage: Stage 4Z
 
-Stage 4X is implemented. Continue the bounded shared-module extraction per AGENTS.md §19 step 6.
+Stage 4Y is implemented. Continue the bounded legacy cleanup per AGENTS.md §19 step 7.
 
-**Exact next scope:** inventory and extract the coherent `renderStatistique` dashboard workflow into a bounded shared statistics module, preserving all totals, monthly aggregation, status/category breakdowns, formatting, DOM output, compatibility global, router call, and script-loading timing. The generic `renderEntityPage` helper, initialization, backup/document workflows, and unrelated legacy domains remain deferred.
+**Exact next scope:** perform a bounded Stage 4 closure audit of confirmed extraction residue in `js/app.js`, beginning with the apparently unreferenced `renderEntityPage` helper and adjacent extraction markers. Remove only code proven dead by repository-wide caller checks and regression tests; do not expand into initialization, backup/document workflows, storage/sync bypasses, production domains, or Stage 5 refactoring. Record whether Stage 4 can close and the exact next roadmap stage.
 
 ---
 
