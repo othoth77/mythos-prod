@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-04 UTC
-**From:** Stage 4T — Financial reports, reconciliation, flow, and analytics extraction
+**From:** Stage 4U — Accounting overview and period workflow extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,62 @@
 
 ```
 Branch:   main
-HEAD:     b6123c0 (implementation commit; documentation follow-up pending)
+HEAD:     75830d0 (implementation commit; documentation follow-up pending)
 ```
 
-**Stage 4T is implemented and validated.** Monthly financial reporting, cash-flow diagram, reconciliation, and financial analytics dashboard were extracted from `js/app.js` into `js/shared/accounting-reports.js`. Stage 4T passes 58/58; directly relevant targeted suites pass 436/436 total. Full suite was run once: all Stage 4 suites (4A–4T) pass 1145/1145; the same 12 documented pre-existing suite failures remain unchanged.
+**Stage 4U is implemented and validated.** Accounting period state/filtering, summary calculations/cards, module navigation, connection summaries, and financial-flow composition were extracted from `js/app.js` into `js/shared/accounting-overview.js`. Stage 4U passes 45/45; directly relevant targeted suites pass 423/423 total. Full suite was run once: all Stage 4 suites (4A–4U) pass 1189/1189; the same 12 documented pre-existing suite failures remain unchanged.
 
-Implementation commit: `b6123c0` — `refactor: extract financial reports workflow`
-Verified baseline before Stage 4T: `e36542d2284964a44d4832463a7a98a248c1c4f5`
+Implementation commit: `75830d0` — `refactor: extract accounting overview workflow`
+Verified baseline before Stage 4U: `f5e9acc667a3ac39f8599723517c110e63e422ca`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4U — Accounting Overview and Period Workflow Extraction
+
+**Objective:** Extract accounting period state/filtering, summary calculations/cards, module navigation, connection summaries, and financial-flow composition from `js/app.js` into `js/shared/accounting-overview.js` without changing behavior.
+
+**Exact extraction boundary:** the contiguous block beginning at `comptaDashboardPeriod` and ending after `renderComptaViews`, immediately before `renderSuppliersPage`.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/accounting-overview.js` | NEW: period state, date filtering, overview totals/cards, accounting navigation, connection summaries, and report composition |
+| `js/app.js` | Removed the extracted overview block; supplier management, TVA calculator, generic modal helpers, and `renderStatistique` remain |
+| `index.html` | Loads `accounting-overview.js` after `accounting-reports.js` and before `taches.js` |
+| `tests/stage4u-test.js` | NEW: 45 tests for globals, period boundaries, calculations, cards, navigation, composition, compatibility, exclusions, and script order |
+| `tests/stage4t-test.js` | Updated the report-to-overview dependency and extraction-boundary assertions |
+
+### Dependencies and Compatibility
+
+Resolved at call time: invoice/purchase/expense/Bank/Cash/supplier readers, invoice totals, date/week/number/money utilities, expense categories, and `renderFinancialFlowDiagram`. Existing router and all extracted accounting-module callers retain the same `renderComptaViews` global and timing. Inline period buttons preserve the shared `comptaDashboardPeriod` lexical global. The overview remains read-only and introduces no listeners, timers, or writes.
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/accounting-overview.js`, `js/shared/accounting-reports.js` | ✓ |
+| `tests/stage4u-test.js` | ✓ 45/45 |
+| `tests/stage4t-test.js` | ✓ 57/57 |
+| `tests/stage4s-test.js` | ✓ 55/55 |
+| `tests/stage4r-test.js` | ✓ 68/68 |
+| `tests/stage4p-test.js` | ✓ 58/58 |
+| `tests/stage4c-test.js` | ✓ 32/32 |
+| `tests/stage4e-test.js` | ✓ 31/31 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4U) | ✓ 1189/1189 |
+
+The complete repository suite was run once. Twenty-six suite files passed. Twelve suite files failed only through the same documented pre-existing `_memCache` core failure and cascading Stage 1–3 subprocess regressions. No Stage 4 suite failed and no new regression was found.
+
+### Risks, Remaining Responsibilities, and Operations
+
+- The 12 documented pre-existing suite failures remain unchanged.
+- `js/app.js` still owns the accounting-specific supplier page/detail/CRUD workflow, TVA calculator, generic modal helpers, `renderStatistique`, initialization, and other unrelated legacy domains.
+- Stage 4 remains incomplete while these coherent responsibilities remain in `js/app.js`.
+- Deployment: not performed.
+- Data migration: not performed.
 
 ---
 
@@ -462,11 +509,11 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4U
+## Next Stage: Stage 4V
 
-Stage 4T is implemented. Continue the bounded accounting extraction per AGENTS.md §19 step 6.
+Stage 4U is implemented. Continue the bounded accounting extraction per AGENTS.md §19 step 6.
 
-**Exact next scope:** inventory and extract the coherent accounting overview, period state/filtering, summary cards, module navigation, and report composition into `js/shared/accounting-overview.js`, preserving storage reads, router globals, DOM contracts, and calls into the extracted accounting modules. Supplier management, TVA calculation, generic helpers, and unrelated statistics remain deferred.
+**Exact next scope:** inventory and extract the accounting-specific Suppliers page/detail/CRUD workflow, search/category filters, purchase links, and Bank links into `js/shared/accounting-suppliers.js`, preserving the existing distinction from `js/shared/fournisseurs.js`, storage routing, purchase integration, router globals, and DOM contracts. TVA calculation, generic helpers, and unrelated statistics remain deferred.
 
 ---
 
