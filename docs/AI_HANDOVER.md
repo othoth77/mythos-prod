@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-04 UTC
-**From:** Stage 4V — Accounting Suppliers workflow extraction
+**From:** Stage 4W — Accounting TVA calculator extraction
 **To:** Next AI session
 
 ---
@@ -10,15 +10,61 @@
 
 ```
 Branch:   main
-HEAD:     a139d56 (implementation commit; documentation follow-up pending)
+HEAD:     ced998e (implementation commit; documentation follow-up pending)
 ```
 
-**Stage 4V is implemented and validated.** The accounting-specific Suppliers page/detail/CRUD workflow, search/category filters, purchase links, and Bank links were extracted from `js/app.js` into `js/shared/accounting-suppliers.js`. Stage 4V passes 60/60; directly relevant targeted suites pass 521/521 total. The Stage 4 suite was run once: all Stage 4 suites (4A–4V) pass 1249/1249. The 12 documented pre-existing failures are outside the Stage 4 suite and were not rerun or changed by this extraction.
+**Stage 4W is implemented and validated.** The existing purchase TVA reverse calculator, rate selection/highlighting, and manual TVA total calculation were extracted from `js/app.js` into `js/shared/accounting-tva.js`. Stage 4W passes 44/44; directly relevant targeted suites pass 406/406 total. The Stage 4 suite was run once: all Stage 4 suites (4A–4W) pass 1293/1293. The 12 documented pre-existing failures are outside the Stage 4 suite and were not rerun or changed by this extraction.
 
-Implementation commit: `a139d56` — `refactor: extract accounting suppliers workflow`
-Verified baseline before Stage 4V: `1b7cb7be8c2395ed077bd49e468e2cec42fac4be`
+Implementation commit: `ced998e` — `refactor: extract accounting TVA calculator`
+Verified baseline before Stage 4W: `208873a253b264ed73a07713e6b5ff1836fc1adb`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4W — Accounting TVA Calculator Extraction
+
+**Objective:** Extract the existing purchase-form TVA reverse calculation, rate selection/highlighting, and manual TVA total calculation from `js/app.js` into `js/shared/accounting-tva.js` without changing tax formulas, rates, formatting, or DOM behavior.
+
+**Exact extraction boundary:** the contiguous block beginning at `calculateFromTTC` and ending after `updateTVATotal`, immediately before the generic `fillModalFields` helper.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/accounting-tva.js` | NEW: TTC-to-HT/TVA reverse calculation for 19/13/7%, rate selection/highlighting, and manual TVA total calculation |
+| `js/app.js` | Removed only the three extracted TVA functions; generic modal helpers and statistics remain |
+| `index.html` | Loads `accounting-tva.js` before `accounting-purchases.js`, preserving inline handlers and purchase-form DOM contracts |
+| `tests/stage4w-test.js` | NEW: 44 tests for globals, formulas, supported rates, rounding, empty/zero/negative/decimal inputs, DOM safety, manual totals, compatibility, exclusions, and script order |
+| `tests/stage4t-test.js`, `tests/stage4u-test.js`, `tests/stage4v-test.js` | Updated completed-extraction boundary assertions |
+
+### Dependencies and Compatibility
+
+Resolved at call time: `num`, `fmtMoney`, and the existing purchase-form DOM. `accounting-tva.js` loads before `accounting-purchases.js`, whose delayed `calculateFromTTC` call is unchanged. Inline `updateTVATotal` handlers and the compatibility globals retain their names and timing. The existing one-dinar stamp deduction, reverse formulas, `Math.max(0, ...)` clamps, three-decimal formatting, and default 19% selection are preserved exactly. No period-based, collected, deductible, payable, or credit TVA workflow existed in this extraction boundary, so none was invented. The module performs no storage writes and introduces no listeners or initialization.
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/accounting-tva.js`, `js/shared/accounting-overview.js`, `js/shared/accounting-reports.js` | ✓ |
+| `tests/stage4w-test.js` | ✓ 44/44 |
+| `tests/stage4v-test.js` | ✓ 60/60 |
+| `tests/stage4u-test.js` | ✓ 45/45 |
+| `tests/stage4t-test.js` | ✓ 57/57 |
+| `tests/stage4s-test.js` | ✓ 55/55 |
+| `tests/stage4r-test.js` | ✓ 68/68 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4W) | ✓ 1293/1293 |
+
+The Stage 4 suite was run exactly once. No Stage 4 suite failed and no new regression was found. The 12 documented pre-existing failures remain outside this bounded suite and unchanged by the extracted files.
+
+### Risks, Remaining Responsibilities, and Operations
+
+- The 12 documented pre-existing suite failures remain deferred and were not rerun.
+- `js/app.js` still owns the shared generic modal helpers, `renderStatistique`, initialization, backup/document workflows, and other unrelated legacy domains.
+- Stage 4 remains incomplete while these coherent shared responsibilities remain in `js/app.js`.
+- Deployment: not performed.
+- Data migration: not performed.
 
 ---
 
@@ -557,11 +603,11 @@ Same as prior stages: `tests/core-test.js` pre-existing `_memCache` failure.
 
 ---
 
-## Next Stage: Stage 4W
+## Next Stage: Stage 4X
 
-Stage 4V is implemented. Continue the bounded accounting extraction per AGENTS.md §19 step 6.
+Stage 4W is implemented. Continue the bounded shared-module extraction per AGENTS.md §19 step 6.
 
-**Exact next scope:** inventory and extract the coherent purchase TVA calculator workflow (`calculateFromTTC`, `selectTVARate`, and `updateTVATotal`) into `js/shared/accounting-tva.js`, preserving formulas, purchase-form DOM contracts, compatibility globals, initialization timing, and the dependency used by `js/shared/accounting-purchases.js`. Generic modal helpers and unrelated statistics remain deferred.
+**Exact next scope:** inventory and extract the shared generic modal entity helpers (`fillModalFields` and `saveModalEntity`) into a bounded shared module, preserving key mapping, checkbox/number coercion, ID generation, approved STORE writers, render/close timing, compatibility globals, and the loading order required by extracted accounting modules. `renderStatistique` and unrelated initialization/workflows remain deferred.
 
 ---
 
