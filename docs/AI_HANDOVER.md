@@ -10,7 +10,8 @@
 
 ```
 Branch:   main
-HEAD:     (see Stage 4AG handover commit below)
+HEAD:     012cc54  (docs: update AI_HANDOVER.md for Stage 4AG completion)
+Implementation commit: ebe42f9
 ```
 
 **Stage 4AG is complete.** 5 obsolete OM-side duplicates removed from js/app.js (1088 → 991 lines). 3 invoice-side symbols BLOCKED by stableLineCount collision — reserved for a dedicated stage. Haiku verification PASS. Full Stage 4 suite 33 files, all passing.
