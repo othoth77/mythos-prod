@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage IDA-1 — ID Auto Product Vision, Capture, Access and Data Governance Specification
+**From:** Stage AVA-0 — AutoValeur Foundation and Ecosystem Roadmap
 **To:** Next AI session
 
 ---
@@ -10,12 +10,15 @@
 
 ```
 Branch:   main
-HEAD:     e9afc7e  (docs(idauto): align product vision and capture architecture)
+HEAD:     58e0b07  (docs(autovaleur): establish product foundation and ecosystem roadmap)
+AVA-0 implementation commit: 58e0b07
 IDA-1 implementation commit: e9afc7e
 Stage 4AG implementation commit: ebe42f9
 Stage IDA-0 implementation commit: 7c75abd
 Stage 4AF implementation commit: 2dcbb99
 ```
+
+**Stage AVA-0 is complete.** AutoValeur product foundation established. 6 files created (projects/autovaleur/README.md, config/autovaleur.example.json, database/schema.sql, docs/AUTOVALEUR_PRODUCT_SPEC.md, docs/AUTOVALEUR_ARCHITECTURE.md, docs/AUTOVALEUR_ROADMAP.md), docs/ROADMAP.md updated. 18-table PostgreSQL schema drafted (not deployed). All feature flags false. No real data. JSON valid. SQL parens balanced (217/217). No PII columns. git diff --check exit 0.
 
 **Stage IDA-1 is complete.** Product vision, three access scopes (PUBLIC / PROFESSIONAL / MYTHOS_PRIVATE), observation-first data model, Smart Gate spec, Fixpert Atelier boundaries, PostgreSQL selected as target DBMS, LEGAL-REVIEW-REQUIRED items catalogued. 9 specification files created or updated. No runtime files changed. JSON valid. Targeted regression 42/42 + 44/44.
 
@@ -172,6 +175,118 @@ Local HEAD == origin/main == `e9afc7e`.
 - Mythos OS auth + audit integration
 - Synthetic and pilot data only
 - 50+ automated tests
+
+---
+
+## Stage AVA-0 — AutoValeur Foundation and Ecosystem Roadmap
+
+**Starting remote HEAD:** `bd6ec7e834bd41a5399c407098336663d5ad139d` (IDA-1 handover)
+
+**Objective:** Establish the AutoValeur product foundation inside the Mythos repository. Define product identity, ecosystem position, three product versions, valuation output model, comparable engine design, liquidity/opportunity scores, Deal Radar pipeline, Fixpert integration levels, model governance, manipulation resistance, access and privacy model, business model, and draft architecture and schema.
+
+### Product Decisions
+
+| Decision | Value |
+|---|---|
+| Official product name | AutoValeur |
+| Tagline | Estimation automobile et intelligence du marché tunisien |
+| Public promise | La vraie valeur de votre voiture |
+| Platform | Mythos ecosystem (distinct product domain) |
+| Target DBMS | PostgreSQL — shared cluster, `autovaleur` schema, NOT INSTALLED OR DEPLOYED |
+| Valuation output | Always a range (min/max/central/quick-sale/professional prices) — never a single number |
+| Valuation records | Immutable snapshots — never overwritten |
+| Model version | Mandatory on every result record |
+| Asking vs sale price | Always stored in separate fields — never merged or averaged |
+| Deal Radar | MYTHOS_PRIVATE — no automatic purchase, no automatic seller contact |
+| No real data | No marketplace scraping, no real listings, no PostgreSQL in AVA-0 |
+
+### Three Product Versions
+
+| Version | Access | Key outputs |
+|---|---|---|
+| Public | Any caller (rate-limited) | Range, central value, quick-sale price, confidence score, comparable summary, factors, recommendations |
+| Professional | Verified subscribers | Professional purchase/resale prices, repair estimates, margin analysis, bulk valuation, API access |
+| Intelligence | MYTHOS_PRIVATE (Super Admin only) | Deal alerts, deal pipeline, acquisition costs, model performance, all raw inputs |
+
+### Files Created
+
+| File | Description |
+|---|---|
+| `projects/autovaleur/README.md` | Product purpose, three versions, valuation outputs table, ecosystem integrations, data status, repository layout |
+| `projects/autovaleur/config/autovaleur.example.json` | Configuration draft: access scopes, product versions, valuation outputs, valuation factors, comparable engine, liquidity score, opportunity score, Deal Radar, repair estimate, integrations, model governance, fraud resistance, source trust, LEGAL-REVIEW-REQUIRED, feature flags |
+| `projects/autovaleur/database/schema.sql` | 18-table PostgreSQL schema (NOT DEPLOYED): model_versions, model_evaluations, source_catalogue, market_listings, listing_price_snapshots, valuations, valuation_inputs, comparables, condition_reports, repair_estimates, repair_estimate_lines, parts_quotes, liquidity_scores, opportunity_scores, deal_alerts, deal_pipeline, transactions, audit_events |
+| `docs/AUTOVALEUR_PRODUCT_SPEC.md` | 16 sections: product identity, ecosystem position, ownership boundaries, three versions, valuation output definition (17 fields), valuation factors, comparable engine, liquidity score, repair/reconditioning cost pipeline, opportunity score, Deal Radar (10-step pipeline, 11 states), Fixpert integration, model governance, manipulation/fraud resistance, privacy and access, business model, 17 LEGAL-REVIEW-REQUIRED items |
+| `docs/AUTOVALEUR_ARCHITECTURE.md` | 8 ADs (A1: valuation immutability, A2: model version mandatory, A3: asking/sale price separation, A4: no ID Auto duplication, A5: no PII duplication, A6: source provenance mandatory, A7: Deal Radar MYTHOS_PRIVATE, A8: all admin access audit-logged); integration contracts (ID Auto, Fixpert, parts, marketplace, Mythos OS); 3 data flow diagrams; deployment constraints |
+| `docs/AUTOVALEUR_ROADMAP.md` | AVA-0 through AVA-6 stage plan with prerequisites; LEGAL-REVIEW-REQUIRED blocking table (17 items) |
+
+### Files Updated
+
+| File | Change |
+|---|---|
+| `docs/ROADMAP.md` | Added AutoValeur product track (AVA-0 through AVA-6 table, key decisions); updated Current Priority to include AVA-1 |
+
+### Key Architecture Decisions
+
+| AD | Decision |
+|---|---|
+| AD-A1 | Valuation snapshots are immutable — no UPDATE path in production API |
+| AD-A2 | Model version mandatory on every result, evaluation, and comparable |
+| AD-A3 | Asking price and completed sale price always separate fields |
+| AD-A4 | AutoValeur stores ID Auto reference + JSON snapshot, not a live copy |
+| AD-A5 | No customer PII or marketplace seller PII in `autovaleur` schema |
+| AD-A6 | Every data record must reference a known source in `autovaleur_source_catalogue` |
+| AD-A7 | Deal Radar and deal pipeline always `access_scope = 'mythos_private'` |
+| AD-A8 | All Mythos Super Admin access audit-logged in `autovaleur_audit_events` |
+
+### PostgreSQL Status
+
+**PostgreSQL is the selected target DBMS. It is NOT installed or deployed. The schema.sql is a draft specification. Implementation begins AVA-1 (after IDA-2 provisions the shared cluster).**
+
+### LEGAL-REVIEW-REQUIRED Status
+
+All 17 items remain OPEN. Summary of blocking items:
+- Market listing ingestion from any external marketplace (AVA-3 gate)
+- Deal Radar listing source terms review (AVA-4 gate)
+- Fixpert repair data reuse for valuation (AVA-2 gate)
+- ID Auto vehicle data reuse for valuation (AVA-1 gate)
+- Professional subscriber data retention and GDPR compliance (AVA-2 gate)
+- Publication of valuation affecting financial decisions (AVA-1 gate)
+- Completed transaction price collection and display (AVA-5 gate)
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `JSON.parse(autovaleur.example.json)` | ✓ VALID |
+| Schema: paren balance | ✓ 217 open = 217 close |
+| Schema: CREATE TABLE count | ✓ 18 tables |
+| Schema: no PII columns | ✓ 0 violations |
+| `git diff --check` | ✓ exit 0, no whitespace errors |
+| No runtime application file changed | ✓ confirmed |
+| All feature flags false | ✓ confirmed |
+
+### Implementation Commit
+
+```
+58e0b07  docs(autovaleur): establish product foundation and ecosystem roadmap
+```
+
+Local HEAD == origin/main == `58e0b07`.
+
+### Next Stage
+
+**AVA-1 — Public Calculator MVP** (after IDA-2 provisions PostgreSQL cluster)
+
+- Deploy `autovaleur` PostgreSQL schema (core tables)
+- Manual vehicle entry form
+- Rule-based valuation engine (transparent, no ML)
+- Synthetic and authorised dataset
+- Public outputs: range, central value, quick-sale price, confidence, comparable summary
+- Clear disclaimer on every output
+- Rate limiting
+- Mythos OS auth integration
+- Save valuation (immutable record)
+- No Deal Radar, no marketplace ingestion, no Fixpert integration
 
 ---
 
