@@ -1,0 +1,287 @@
+{
+  "_version": "0.1.0-mae0-draft",
+  "_stage": "MAE-0",
+  "_note": "Ecosystem configuration example only. Not deployed. All flags disabled. Replace all placeholder values before use.",
+  "_legal": "LEGAL-REVIEW-REQUIRED items listed in docs/AUTOMOTIVE_RISK_REGISTER.md must be resolved before any production activation.",
+
+  "ecosystem": {
+    "brand": "Mythos Automotive",
+    "tagline": "La chaîne automobile numérique",
+    "repository": "othoth77/mythos-prod",
+    "canonical_currency": "TND",
+    "canonical_locale": "fr-TN",
+    "canonical_country": "TN",
+    "vehicle_id_authority": "idauto",
+    "taxonomy_authority": "idauto"
+  },
+
+  "database": {
+    "cluster": "shared-postgresql",
+    "host": "REPLACE_WITH_HOST",
+    "port": 5432,
+    "schemas": [
+      "mythos_core",
+      "idauto",
+      "fixpert",
+      "autovaleur",
+      "parts",
+      "automarket",
+      "fleet",
+      "assistance"
+    ],
+    "control_plane_schema": "mythos_automotive",
+    "ssl_required": true,
+    "migration_authority": "idauto for IDA-2; autovaleur for AVA-1; one product at a time"
+  },
+
+  "products": {
+    "mythos_os": {
+      "status": "PRODUCTION",
+      "current_stage": "Stage 4 in progress",
+      "schema": "mythos_core",
+      "active": true
+    },
+    "idauto": {
+      "status": "FOUNDATION",
+      "current_stage": "IDA-1 complete; IDA-2 next",
+      "schema": "idauto",
+      "active": false,
+      "runtime_enabled": false
+    },
+    "fixpert": {
+      "status": "PRODUCTION",
+      "note": "External system — not in this repository's runtime code",
+      "schema": "fixpert",
+      "active": false,
+      "runtime_enabled": false
+    },
+    "autovaleur": {
+      "status": "FOUNDATION",
+      "current_stage": "AVA-0 complete; AVA-1 blocked on IDA-2",
+      "schema": "autovaleur",
+      "active": false,
+      "runtime_enabled": false
+    },
+    "parts": {
+      "status": "PRODUCTION",
+      "note": "ssangyong.autos external — LEGAL-REVIEW-REQUIRED for general platform",
+      "schema": "parts",
+      "active": false,
+      "runtime_enabled": false
+    },
+    "automarket": {
+      "status": "CONCEPT",
+      "schema": "automarket",
+      "active": false,
+      "runtime_enabled": false
+    },
+    "fleet": {
+      "status": "CONCEPT",
+      "schema": "fleet",
+      "active": false,
+      "runtime_enabled": false
+    },
+    "assistance": {
+      "status": "CONCEPT",
+      "schema": "assistance",
+      "active": false,
+      "runtime_enabled": false
+    }
+  },
+
+  "access_scopes": {
+    "_note": "Canonical scope names. All products must use access_scope column (not visibility_scope).",
+    "public": {
+      "description": "Any caller within rate limits",
+      "audit_required": false,
+      "examples": ["plate_number", "colour", "make", "model", "year", "governorate"]
+    },
+    "professional": {
+      "description": "Verified subscriber organisations",
+      "audit_required": false,
+      "examples": ["technical_facts", "service_history_count", "repair_estimate"]
+    },
+    "mythos_private": {
+      "description": "Mythos Super Admin only",
+      "audit_required": true,
+      "examples": ["raw_captures", "exact_gps", "exact_timestamps", "deal_pipeline"]
+    },
+    "product_internal": {
+      "description": "Owning product API only",
+      "audit_required": false,
+      "examples": ["internal_processing_state", "queue_items"]
+    },
+    "organization_private": {
+      "description": "One organisation",
+      "audit_required": false,
+      "examples": ["fixpert_invoice", "customer_fiche"]
+    },
+    "consent_shared": {
+      "description": "Specific product, subject-consented",
+      "audit_required": false,
+      "examples": ["customer_pii_shared_between_fixpert_and_another_product"]
+    }
+  },
+
+  "integration": {
+    "_note": "All integrations disabled in MAE-0.",
+    "idauto_api": {
+      "enabled": false,
+      "base_url": "REPLACE_WITH_URL",
+      "version": "v1"
+    },
+    "fixpert_api": {
+      "enabled": false,
+      "base_url": "REPLACE_WITH_URL",
+      "version": "v1",
+      "legal_review_required": true
+    },
+    "parts_api": {
+      "enabled": false,
+      "base_url": "REPLACE_WITH_URL",
+      "version": "v1",
+      "legal_review_required": true
+    },
+    "automarket_api": {
+      "enabled": false,
+      "base_url": null,
+      "version": null
+    },
+    "ssangyong_autos": {
+      "enabled": false,
+      "note": "External commercial system. Not in this repository. LEGAL-REVIEW-REQUIRED.",
+      "legal_review_required": true
+    },
+    "event_bus": {
+      "enabled": false,
+      "note": "Event bus design only in MAE-0. Implementation in MAE-1.",
+      "provider": null
+    }
+  },
+
+  "shared_services": {
+    "rate_limiting": {
+      "enabled": false,
+      "strategy": "SHA-256(IP + UA salt)",
+      "note": "Unified implementation deferred to MAE-1. Tiers: anonymous / authenticated_public / professional / service_account.",
+      "tiers": {
+        "anonymous": {
+          "per_minute": null,
+          "per_hour": null
+        },
+        "authenticated_public": {
+          "per_minute": null,
+          "per_hour": null
+        },
+        "professional": {
+          "per_minute": null,
+          "per_hour": null
+        },
+        "service_account": {
+          "per_minute": null,
+          "per_hour": null
+        }
+      }
+    },
+    "audit_stream": {
+      "enabled": false,
+      "note": "Cross-product audit envelope defined in AUTOMOTIVE_INTEGRATION_CONTRACTS.md. Implementation in MAE-3.",
+      "common_envelope_fields": [
+        "event_id",
+        "event_name",
+        "producer",
+        "correlation_id",
+        "actor_ref",
+        "actor_role",
+        "target_product",
+        "target_table",
+        "target_id",
+        "action",
+        "access_scope",
+        "privacy_class",
+        "event_metadata",
+        "created_at"
+      ]
+    },
+    "identity": {
+      "provider": "mythos_core",
+      "jwt_authority": "REPLACE_WITH_URL",
+      "enabled": false
+    },
+    "object_storage": {
+      "enabled": false,
+      "provider": null
+    }
+  },
+
+  "architecture_decisions": {
+    "MAD_1": "Product-schema alignment: each product owns one PostgreSQL schema",
+    "MAD_2": "vehicle_id is exclusively minted and owned by ID Auto",
+    "MAD_3": "One writer per noun: only the owning product writes to its own tables",
+    "MAD_4": "No cross-schema FK constraints: referential integrity at application layer",
+    "MAD_5": "Unified access_scope with 6 scopes: public / professional / mythos_private / product_internal / organization_private / consent_shared",
+    "MAD_6": "MYTHOS_PRIVATE access is always audit-logged",
+    "MAD_7": "Provenance travels with data: source_id, source_type, trust_level, snapshot_at cross all boundaries",
+    "MAD_8": "Shared services defined once: rate limiting and audit envelope divergences resolved in MAE-1"
+  },
+
+  "vehicle_taxonomy": {
+    "_authority": "ID Auto is the sole taxonomy authority. No other product creates competing taxonomy.",
+    "_note": "Taxonomy data comes from ID Auto API — not from local config.",
+    "dimensions": ["make", "model", "variant", "fuel_type", "body_type", "category"],
+    "api_endpoint": null,
+    "activation_stage": "IDA-2"
+  },
+
+  "canonical_identifier": {
+    "_note": "Canonical IDs are opaque, stable, never reused. No PII encoded. No business meaning.",
+    "format": "BIGSERIAL for internal records; UUID v4 for cross-product correlation IDs",
+    "vehicle_id_owner": "idauto",
+    "merge_protocol": "merge event is immutable; alias table preserves absorbed record; consumers must handle vehicle_id alias resolution"
+  },
+
+  "legal_review_required": {
+    "_note": "All items OPEN in MAE-0. No item resolved by this documentation stage.",
+    "items": [
+      {"id": "R-L01", "description": "Legal basis for public plate lookup", "blocking_stage": "IDA-3"},
+      {"id": "R-L02", "description": "ANPR regulatory approval (INPDP)", "blocking_stage": "IDA-4"},
+      {"id": "R-L03", "description": "AutoValeur estimate disclaimer wording", "blocking_stage": "AVA-1"},
+      {"id": "R-L04", "description": "Deal Radar conflict-of-interest governance", "blocking_stage": "AVA-4"},
+      {"id": "R-L05", "description": "AutoMarket operating terms and platform liability", "blocking_stage": "AutoMarket"},
+      {"id": "R-L06", "description": "Inspection report liability wording", "blocking_stage": "AutoCheck"},
+      {"id": "R-L07", "description": "Data retention periods for all categories", "blocking_stage": "All"},
+      {"id": "R-L08", "description": "Cross-border data transfer and hosting obligations", "blocking_stage": "Production"},
+      {"id": "R-L09", "description": "Completed transaction price collection authorisation", "blocking_stage": "AVA-5"},
+      {"id": "R-L10", "description": "Used spare-parts product liability", "blocking_stage": "Parts platform"}
+    ]
+  },
+
+  "operating_rules": {
+    "one_major_stage_at_a_time": true,
+    "no_deploy_without_authorisation": true,
+    "no_commit_google_config_php": true,
+    "no_commit_acces_txt": true,
+    "no_commit_appdata": true,
+    "no_commit_documents": true,
+    "no_touch_production_uthinachess": true,
+    "no_restart_nginx_php": true,
+    "next_authorised_implementation_stage": "IDA-2"
+  },
+
+  "feature_flags": {
+    "_note": "All flags false in MAE-0. Activation requires stage completion and authorisation.",
+    "idauto_public_api": false,
+    "idauto_professional_api": false,
+    "idauto_smart_gate": false,
+    "autovaleur_public_valuation": false,
+    "autovaleur_professional_valuation": false,
+    "autovaleur_deal_radar": false,
+    "parts_catalogue": false,
+    "automarket_listings": false,
+    "fleet_pro": false,
+    "fixpert_assistance": false,
+    "ecosystem_audit_stream": false,
+    "unified_rate_limiting": false,
+    "control_plane_ui": false
+  }
+}

@@ -1,10 +1,52 @@
-# Mythos OS — Roadmap
+# Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-05 UTC (AVA-0 added)
+**Last updated:** 2026-08-05 UTC (MAE-0 added)
 
 ---
 
-## Completed Stages
+## Mythos Automotive Ecosystem Overview
+
+Mythos Automotive is the umbrella portfolio brand — "La chaîne automobile numérique". It groups five product lines: Mythos OS Core, ID Auto (FOUNDATION), Fixpert Atelier (external, PRODUCTION), Parts Network, and AutoValeur (FOUNDATION). Future products include AutoMarket Verified, Fleet Pro, and Fixpert Assistance.
+
+See `docs/AUTOMOTIVE_VISION.md` for the full product vision and `docs/AUTOMOTIVE_ROADMAP.md` for the complete dependency map and stage table.
+
+### Operating rule: One Major Implementation Stage at a Time
+
+Only one major implementation stage may be active at a time unless explicitly authorised. A major implementation stage means: building new runtime code, deploying new services, executing database migrations, or connecting live data sources.
+
+Documentation stages may run in parallel across product tracks. **IDA-2 is the next authorised implementation stage.**
+
+### Ecosystem Stage Plan (MAE-*)
+
+| Stage | Description | Status |
+|-------|-------------|--------|
+| MAE-0 | Ecosystem Master Foundation — vision, architecture, governance, roadmap, control-plane schema | ✓ Done (2026-08-05) |
+| MAE-1 | Shared Platform Spec — unified rate limiting, audit envelope, vehicle taxonomy API, canonical ID protocol | Not started (blocked on IDA-2) |
+| MAE-2 | Control Plane Alpha — product health dashboard, legal requirements tracker, KPI registry | Not started (blocked on MAE-1, IDA-3) |
+| MAE-3 | Ecosystem Audit Stream — cross-product event pipeline, dead-letter, anomaly detection | Not started (blocked on MAE-2) |
+| MAE-4 | Legal Requirements Resolution — ongoing parallel workstream (requires legal counsel) | Ongoing |
+
+### Dependency Map
+
+```
+Mythos OS (3D-3G)
+    └── [AUTH, BILLING, ROLES] ──► IDA-2 ──► IDA-3 ──► IDA-4
+                                       │
+                                       └──► AVA-1 ──► (IDA-4)──► AVA-2 ──► AVA-3 ──► AVA-4
+                                       │
+                                       └──► MAE-1 ──► MAE-2 ──► MAE-3
+
+AutoMarket: requires IDA-3 + AVA-1 + Legal clearance
+Fleet Pro:  requires IDA-2 + IDA-4 + Legal clearance
+```
+
+---
+
+## Mythos OS — Core Platform Stages
+
+---
+
+### Completed Stages
 
 | Stage | Description | Status |
 |-------|-------------|--------|
@@ -23,13 +65,13 @@
 
 ---
 
-## In Progress
+### In Progress
 
 *None. Stage 3D is next.*
 
 ---
 
-## Upcoming Stages (in dependency order)
+### Upcoming Stages (in dependency order)
 
 ### Stage 3D — Planning Runtime
 **Depends on:** None (can run any time)  
@@ -59,7 +101,7 @@
 
 ---
 
-## Future Stages (post-3G)
+### Future Stages (post-3G)
 
 ### Stage 4 — Shared Module Extraction
 Move generic modules out of app.js into `js/shared/`:
@@ -88,9 +130,12 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 
 ## Current Priority
 
-1. **Mythos OS:** Stage 3D (next) → 3E → 3F → 3G (runtime plugins)
-2. **ID Auto (parallel track):** IDA-2 — PostgreSQL Core, API and Manual Capture MVP
-3. **AutoValeur (parallel track):** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster)
+1. **Mythos OS:** Stage 3D (next) → 3E → 3F → 3G (runtime plugins) — Stage 3G is HIGH risk (30 routes, 19 storage keys); must have its own deployment window separate from IDA-2
+2. **ID Auto:** IDA-2 — PostgreSQL Core, API and Manual Capture MVP — NEXT AUTHORISED IMPLEMENTATION STAGE
+3. **AutoValeur:** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster)
+4. **Ecosystem (parallel — docs only):** MAE-0 complete; MAE-1 not started (blocked on IDA-2)
+
+**One-major-stage rule in force:** IDA-2 must not begin while Stage 3G is active. AVA-1 must not begin while IDA-2 is active.
 
 ---
 
