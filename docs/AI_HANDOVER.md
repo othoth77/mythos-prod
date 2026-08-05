@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage 4AB — Répertoire Contacts domain extraction
+**From:** Stage 4AC — Spectacle Calculator extraction
 **To:** Next AI session
 
 ---
@@ -10,16 +10,55 @@
 
 ```
 Branch:   main
-HEAD:     95d9453 (Stage 4AB implementation commit)
+HEAD:     dfe9cf7 (Stage 4AC implementation commit)
 ```
 
-**Stage 4AB is complete.** The Répertoire Contacts domain (1259 lines, `js/app.js` lines 745–2003) extracted to `js/shared/contacts.js`. Tests: 146/146. Full Stage 4 suite (4A–4AB, 28 files): 1693/1693, 0 failures. Stage 4 cannot close; active CRUD domains remain in `js/app.js` (see below).
+**Stage 4AC is complete.** Spectacle Calculator (52 lines, `js/app.js` lines 1318–1369) extracted to `js/shared/spectacle-calculator.js`. Tests: 24/24. Full Stage 4 suite (4A–4AC, 29 files): 1717/1717, 0 failures.
 
-Implementation commit: `95d9453` — `Stage 4AB — extract Répertoire Contacts domain to js/shared/contacts.js`
+Implementation commit: `dfe9cf7` — `Stage 4AC — extract Spectacle Calculator to js/shared/spectacle-calculator.js`
 Docs commit: (this update)
-Verified remote HEAD: `95d9453`
+Verified remote HEAD: `dfe9cf7`
+
+**Stage 4AB is also complete** (same session). The Répertoire Contacts domain (1259 lines, `js/app.js` lines 745–2003) extracted to `js/shared/contacts.js`. Implementation commit: `95d9453`.
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4AC — Spectacle Calculator Extraction
+
+**Objective:** Extract `initSpectacleCalculator` (52 lines, `js/app.js` lines 1318–1369) into `js/shared/spectacle-calculator.js`. Pure DOM function — subvention table lookup by actor count and distance.
+
+**Boundary:** Lines 1318–1369, from `// ══ CALCULATEUR SPECTACLE` section header through the blank line after the closing `}`. Line 1370 (`// ══ DOCUMENTATION`) is the first line not extracted.
+
+**Dependencies:** `document.getElementById`, `Option`, `parseInt`, `toLocaleString` — browser globals only. No STORE, no shared utilities, no external function calls.
+
+**Changed Files:**
+- `js/shared/spectacle-calculator.js` — NEW (56 lines with header)
+- `js/app.js` — removed 52 lines, replaced with 2-line ref comment; new total 2104 lines
+- `index.html` — added script tag after `contacts.js`, before `taches.js`
+- `tests/stage4ac-test.js` — NEW: 24 tests
+
+**Validation:** 24/24; full suite 1717/1717 (29 files). Implementation commit: `dfe9cf7`.
+
+### Remaining js/app.js responsibilities after Stage 4AC
+
+`js/app.js` is now **2104 lines**. Remaining coherent domains:
+
+| Domain | Approx lines | Notes |
+|--------|-------------|-------|
+| Backup/Export/Restore | ~275 lines (1043–1317) | `_getAllData`, `exportBackup`, `importBackup`, `createBackupVersion`, `exportVersionHistory`, `pushAllToServer`, `renderBackupDashboard`, `runDiskCleanup`, `_restoreVersion`, `_deleteVersion`, `_restoreServerBackup` |
+| Documentation | ~570 lines (1373–1937) | `renderDocumentation`, `openDocFolder`, `_renderDocHome`, `_renderDocFolder`, `openDocModal`, `closeDocModal`, `saveDoc`, `deleteDoc`, `docPrint`, `moveDoc`, `openBulkUploadModal`, `saveBulkDocs` and helpers |
+| Camera Modal | ~195 lines (1938–2130) | `openCameraModal`, `_startCamera`, `switchCamera`, `capturePhoto`, `cameraMobileCapture`, `saveCapturedPhoto`, `closeCameraModal` |
+| Invoice/OM helpers | ~195 lines (147–340) | `populateInvoiceList`, `populateOmList`, `editInvoice`, `deleteInvoice`, `editOm`, `deleteOm`, `cancelOM`, `addOmPerson`, etc. |
+| Demo data initialization | ~278 lines (343–620) | `initializeDemoData` — high risk, skip |
+| STORE + utilities | lines 18–140 | High risk, skip |
+| App initialization | lines 621–730 | `initApp`, `bootstrapStableApp`, `initNavScrollHint`, etc. — high risk, skip |
+| Logs + Sidebar + Sync | lines 830–1042 | `checkDailyBackup`, `renderLogs`, `toggleSidebar`, `_startBackgroundSync` |
+
+### Exact Next Scope
+
+**Stage 4AD:** Extract Backup/Export/Restore domain from `js/app.js` lines 1043–1317 (~275 lines) into `js/shared/backup.js`. Confirm exact boundary by reading the section headers. Functions: `_getAllData`, `exportBackup`, `importBackup`, `createBackupVersion`, `exportVersionHistory`, `pushAllToServer`, `renderBackupDashboard`, `runDiskCleanup`, `_restoreVersion`, `_deleteVersion`, `_restoreServerBackup`. Dependencies: `STORE`, `JSON`, `Date`, `Blob`, `URL`, `fetch`, `document`, `alert`, `confirm`. Must check if `_getAllData` is called from outside this block.
 
 ---
 
