@@ -55,9 +55,10 @@ Not performed. INF-CF-0 is documentation only.
 ### Branch and Remote Status
 
 - Branch: `docs/cloudflare-foundation`
-- INF-CF-0 implementation commit: `d11badf0dbed3571803161b4f2e53c6c99eef39c` (not the branch tip — see below)
-- Branch tip (current): `30b083cdade453e94c4bee423d76ed097b3052d8` (`docs(cloudflare): sync foundation with latest main`), three commits ahead of the implementation commit (`d11badf` → `2dfcc72` → `30b083c`)
-- Pushed and verified — local HEAD matches remote HEAD (`origin/docs/cloudflare-foundation`) at the branch tip above.
+- INF-CF-0 implementation commit: `d11badf0dbed3571803161b4f2e53c6c99eef39c` — this is the implementation commit, never the branch tip.
+- Commit history on this branch (oldest to newest, relative to `origin/main`): `d11badf` (establish edge security foundation) → `2dfcc72` (mark INF-CF-0 complete with commit hash) → `30b083c` (sync foundation with latest main) → `9a40206` (finalize merge readiness — Opus 5 audit corrections) → any later commits added after this line was written.
+- Do not treat any hash printed in this document as the current branch tip. Always verify with `git rev-parse origin/docs/cloudflare-foundation` before relying on a specific commit as "current".
+- Branch is documentation-only and kept synced with `origin/main` (not behind main at any point in this history).
 
 ---
 
