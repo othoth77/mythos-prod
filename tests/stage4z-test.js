@@ -22,10 +22,16 @@ console.log('\n2. Stage 4 extraction boundary completeness — functions gone fr
 });
 
 console.log('\n3. Surviving active functions still in app.js');
-['editInvoice','deleteInvoice','editOm','deleteOm','cancelOM',
+['editInvoice','deleteInvoice',
  'initApp','bootstrapStableApp','closeModalFromOutsideClick'].forEach(function(n){
   ok(app.indexOf('function '+n+'(')>=0,n+' active function preserved in app.js');
 });
+ok(app.indexOf('function cancelOM(')<0,'cancelOM removed from app.js (Stage 4AG)');
+ok(app.indexOf('function editOm(')<0,'editOm removed from app.js (Stage 4AG)');
+ok(app.indexOf('function deleteOm(')<0,'deleteOm removed from app.js (Stage 4AG)');
+var moSrc=fs.readFileSync(path.join(BASE,'js/shared/mission-orders.js'),'utf8');
+ok(moSrc.indexOf('function cancelOM(')>=0,'cancelOM canonical in mission-orders.js');
+ok(moSrc.indexOf('function addOmPerson(')>=0,'addOmPerson canonical in mission-orders.js');
 // exportBackup, importBackup, renderBackupDashboard moved to js/shared/backup.js in Stage 4AD
 var backup=fs.readFileSync(path.join(BASE,'js/shared/backup.js'),'utf8');
 ok(backup.indexOf('function exportBackup(')>=0,'exportBackup present in backup.js (Stage 4AD)');

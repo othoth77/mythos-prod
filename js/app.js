@@ -174,37 +174,7 @@ function populateInvoiceList() {
   container.innerHTML = html;
 }
 
-// ── OM LIST POPULATION ──
-function populateOmList() {
-  const oms = STORE.oms();
-  const container = document.getElementById('om-list');
-  if (!container) return;
-
-  if (oms.length === 0) {
-    container.innerHTML = '<p style="padding:20px; text-align:center; color:#999;">Aucun ordre de mission enregistré</p>';
-    return;
-  }
-
-  let html = '<table class="data-table" style="width:100%;"><thead><tr><th>Départ</th><th>Arrivée</th><th>Date</th><th>Heure</th><th>Personnes</th><th>Actions</th></tr></thead><tbody>';
-
-  oms.forEach(om => {
-    const countPersonnes = (om.personnes || []).length;
-    html += `<tr style="cursor:pointer;" onclick="editOm('${om.id}')">
-      <td>${escapeHtml(om.depart || '-')}</td>
-      <td>${escapeHtml(om.arrivee || '-')}</td>
-      <td>${formatDate(om.date)}</td>
-      <td>${om.heure || '-'}</td>
-      <td>${countPersonnes} ${countPersonnes === 1 ? 'personne' : 'personnes'}</td>
-      <td onclick="event.stopPropagation();">
-        <button class="btn btn-outline btn-sm" onclick="editOm('${om.id}')" title="Modifier">✏️</button>
-        <button class="btn btn-danger btn-sm" onclick="deleteOm('${om.id}')" title="Supprimer">✕</button>
-      </td>
-    </tr>`;
-  });
-
-  html += '</tbody></table>';
-  container.innerHTML = html;
-}
+// populateOmList → js/shared/mission-orders.js (renderOMList)
 
 // ── INVOICE FUNCTIONS ──
 function editInvoice(id) {
@@ -238,19 +208,7 @@ function removePersonRow(btn) {
   if (row) row.remove();
 }
 
-function addOmPerson() {
-  const personnesBody = document.getElementById('om-persons-body');
-  if (!personnesBody) return;
-
-  const rowCount = personnesBody.querySelectorAll('tr').length + 1;
-  const row = `<tr>
-    <td style="text-align:center;">${rowCount}</td>
-    <td><input type="text" placeholder="Nom et prénom" data-person-nom style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px;"></td>
-    <td style="text-align:center;"><input type="checkbox" data-person-sig></td>
-    <td><button class="btn btn-sm btn-outline" type="button" onclick="removePersonRow(this)">-</button></td>
-  </tr>`;
-  personnesBody.insertAdjacentHTML('beforeend', row);
-}
+// addOmPerson → js/shared/mission-orders.js
 
 function addLine() {
   alert('Fonctionnalité en développement');
@@ -279,64 +237,10 @@ function setOmTimeQuick(time) {
 function applyOmMissionType() {}
 
 
-// ── OM FUNCTIONS ──
-function editOm(id) {
-  const oms = STORE.oms();
-  const om = oms.find(o => o.id === id);
-  if (!om) return;
-
-  document.getElementById('om-edit-id').value = id;
-  document.getElementById('om-plaque').value = om.plaque || '';
-  document.getElementById('om-chauffeur').value = om.chauffeur || '';
-  document.getElementById('om-cin').value = om.cin || '';
-  document.getElementById('om-date').value = om.date || '';
-  document.getElementById('om-heure').value = om.heure || '';
-  document.getElementById('om-depart').value = om.depart || '';
-  document.getElementById('om-arrivee').value = om.arrivee || '';
-
-  // Load persons/passengers if edit mode
-  if (om.personnes && Array.isArray(om.personnes)) {
-    const personnesBody = document.getElementById('om-persons-body');
-    if (personnesBody) {
-      personnesBody.innerHTML = '';
-      om.personnes.forEach((p, idx) => {
-        const row = `<tr>
-          <td style="text-align:center;">${idx + 1}</td>
-          <td><input type="text" value="${escapeHtml(p.nom || '')}" data-person-nom style="width:100%;padding:4px;border:1px solid #ddd;border-radius:4px;"></td>
-          <td style="text-align:center;"><input type="checkbox" data-person-sig ${p.signature ? 'checked' : ''}></td>
-          <td><button class="btn btn-sm btn-outline" type="button" onclick="removePersonRow(this)">-</button></td>
-        </tr>`;
-        personnesBody.insertAdjacentHTML('beforeend', row);
-      });
-    }
-  }
-
-  navigateTo('oms');
-}
-
-function deleteOm(id) {
-  if (!confirm('Êtes-vous sûr?')) return;
-  const oms = STORE.oms().filter(o => o.id !== id);
-  STORE.saveOms(oms);
-  populateOmList();
-}
-
-function cancelOM() {
-  document.getElementById('om-edit-id').value = '';
-  document.getElementById('om-plaque').value = '230-8646';
-  document.getElementById('om-chauffeur').value = 'Othman Haddad';
-  document.getElementById('om-cin').value = '07119027';
-  document.getElementById('om-date').value = todayStr();
-  document.getElementById('om-heure').value = '';
-  document.getElementById('om-depart').value = '';
-  document.getElementById('om-arrivee').value = '';
-
-  // Clear persons table
-  const personnesBody = document.getElementById('om-persons-body');
-  if (personnesBody) personnesBody.innerHTML = '';
-
-  navigateTo('oms');
-}
+// ── OM FUNCTIONS → js/shared/mission-orders.js ──
+// editOm → js/shared/mission-orders.js
+// deleteOm → js/shared/mission-orders.js
+// cancelOM → js/shared/mission-orders.js
 
 // ── COMPATIBILITY WRAPPERS ──
 

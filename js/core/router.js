@@ -28,7 +28,7 @@ function showPage(page) {
       break;
     case 'oms':
       viewId = 'view-om-list';
-      populateOmList();
+      if (typeof renderOMList === 'function') renderOMList();
       break;
     case 'clients':
       viewId = 'view-clients';
