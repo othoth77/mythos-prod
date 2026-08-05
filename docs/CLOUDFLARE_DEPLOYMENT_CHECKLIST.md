@@ -14,7 +14,7 @@ All stages must be executed sequentially. Each stage must be validated, document
 
 ## Stage INF-CF-0: Architecture and Documentation
 
-**Status:** In progress (documentation phase)
+**Status:** Complete (documentation phase)
 
 ### Prerequisites
 - Approved Cloudflare architecture document.
@@ -42,10 +42,10 @@ All stages must be executed sequentially. Each stage must be validated, document
 - No secrets created, stored, or referenced in this stage.
 
 ### Completion Criteria
-- [ ] All files committed and pushed to `docs/cloudflare-foundation`.
-- [ ] Remote HEAD matches local commit.
-- [ ] Documentation is internally consistent and complete.
-- [ ] No real values committed.
+- [x] All files committed and pushed to `docs/cloudflare-foundation`.
+- [x] Remote HEAD matches local commit.
+- [x] Documentation is internally consistent and complete.
+- [x] No real values committed.
 
 ---
 
@@ -402,7 +402,7 @@ All stages must be executed sequentially. Each stage must be validated, document
 
 | Stage | Description | Status |
 |---|---|---|
-| INF-CF-0 | Architecture and documentation | In progress |
+| INF-CF-0 | Architecture and documentation | ✓ Done (2026-08-05) |
 | INF-CF-1 | Cloudflare account and domain inventory | Planned |
 | INF-CF-2 | DNS migration and verification | Planned |
 | INF-CF-3 | Remotely managed Tunnel in Coolify | Planned |
