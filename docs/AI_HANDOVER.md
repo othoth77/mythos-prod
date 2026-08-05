@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage IDA-0 — ID Auto Foundation
+**From:** Stage 4AG — Invoice and OM duplicate cleanup
 **To:** Next AI session
 
 ---
@@ -10,12 +10,111 @@
 
 ```
 Branch:   main
-HEAD:     7c75abd (Stage IDA-0 — feat(idauto): establish ID Auto project foundation)
+HEAD:     (see Stage 4AG handover commit below)
 ```
 
-**Stage IDA-0 is complete.** ID Auto Foundation established: 5 new files, 2 docs updated, separate product track added to ROADMAP.md.
+**Stage 4AG is complete.** 5 obsolete OM-side duplicates removed from js/app.js (1088 → 991 lines). 3 invoice-side symbols BLOCKED by stableLineCount collision — reserved for a dedicated stage. Haiku verification PASS. Full Stage 4 suite 33 files, all passing.
+
+**Stage IDA-0 is also complete** (same session). ID Auto Foundation established.
 
 **Stage 4AF is also complete** (prior session, same date).
+
+---
+
+## Stage 4AG — Invoice and OM Duplicate Cleanup
+
+**Objective:** Audit 8 candidate duplicate symbols in js/app.js and safely delete those confirmed obsolete without touching canonical shared module implementations.
+
+**Starting remote HEAD:** `d1d0b759f0d9992ad95781593c54fe8143b9feec`
+
+### Opus Audit Conclusion
+
+Opus inspected js/app.js, js/shared/invoices.js, js/shared/mission-orders.js, index.html, relevant tests. Critical findings:
+
+**SAFE TO DELETE (5 symbols):** All OM-side. `cancelOM` and `addOmPerson` are shadowed by mission-orders.js (last-wins). `editOm`, `deleteOm`, `populateOmList` are unreachable — no live HTML or JS caller references the lowercase-m variants; the live paths are `editOM`, `deleteOM`, `renderOMList`.
+
+**BLOCKED (3 symbols):** All invoice-side. `js/shared/invoices.js` throws `SyntaxError` at load time because `js/shared/mission-orders.js:28` declares `let stableLineCount` and `invoices.js:5` declares `var stableLineCount` — a `var` redeclaration of an existing `let` binding is illegal. The entire invoices.js script is silently discarded at runtime. Therefore `editInvoice`, `deleteInvoice`, `populateInvoiceList` in app.js are the live implementations and must not be deleted until the collision is fixed in a separate stage.
+
+**Production bug discovered:** `addLine()` in the browser currently resolves to a stub in app.js that alerts "Fonctionnalité en développement" — the full invoice line-item implementation in invoices.js is non-functional. This pre-existed Stage 4AG.
+
+### Deleted Symbols
+
+| Symbol | app.js lines (old) | Reason |
+|--------|------------------|----|
+| `populateOmList` | 177–208 | Unreachable; successor `renderOMList` in mission-orders.js |
+| `addOmPerson` | 241–254 | Shadowed by mission-orders.js:168 |
+| `editOm` | 282–316 | Unreachable; live path is `editOM` (uppercase) |
+| `deleteOm` | 317–323 | Unreachable; live path is `deleteOM` (uppercase) |
+| `cancelOM` | 324–340 | Shadowed by mission-orders.js:268 |
+
+### Retained Symbols (and reasons)
+
+| Symbol | Location | Reason kept |
+|--------|----------|-------------|
+| `editInvoice` | app.js:180 | BLOCKED: invoices.js fails to load (stableLineCount collision) |
+| `deleteInvoice` | app.js:196 | BLOCKED: same |
+| `populateInvoiceList` | app.js:148 | BLOCKED: same; transitively live via deleteInvoice |
+| `removePersonRow` | app.js:206 | stage4n-test.js asserts exactly one definition; callers pending separate audit |
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/app.js` | Removed 5 symbols (~97 lines); replaced with single reference comments; **1088 → 991 lines** |
+| `js/core/router.js` | Line 31: `populateOmList()` → `if (typeof renderOMList === 'function') renderOMList();` |
+| `tests/stage4ag-test.js` | NEW: 42 tests — structural ownership, OM behavioral sandbox tests, Stage 4Z regression |
+| `tests/stage4z-test.js` | Fixed test bug: removed editOm/deleteOm/cancelOM from "must remain" list; added positive absence assertions; **42 → 44 passing** |
+| `tests/stage4af-test.js` | Regression count check made format-agnostic |
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| `node -c js/app.js` | ✓ |
+| `node -c js/shared/invoices.js` | ✓ |
+| `node -c js/shared/mission-orders.js` | ✓ |
+| `tests/stage4ag-test.js` | ✓ 42/42 |
+| `tests/stage4z-test.js` | ✓ 44/44 |
+| `tests/stage4af-test.js` | ✓ 102/102 |
+| `tests/stage4l-test.js` | ✓ 59/59 |
+| `tests/stage4m-test.js` | ✓ 76/76 |
+| Full Stage 4 suite (33 files) | ✓ all passing (~1978 assertions) |
+| Haiku verification | ✓ PASS (all 9 checks) |
+
+### Inactive Legacy
+
+`js/app-fresh.js` — unreferenced dead file, not loaded by any `<script>` tag in index.html. Contains stale duplicates of `editInvoice`, `deleteInvoice`, `editOm`, `deleteOm` plus a conflicting `const MYTHOS_PRINT_LOGO_SRC`. Does not affect runtime. Candidate for a separate deletion stage.
+
+### Preserved Legacy Issue
+
+`stableLineCount` global collision (`let` in mission-orders.js vs `var` in invoices.js) renders the entire invoice shared module non-functional in the browser. Must be fixed before invoice duplicates in app.js can be removed. Requires a dedicated stage with a behavior-change review.
+
+### Implementation Commit
+
+```
+ebe42f9  Stage 4AG: remove obsolete Invoice and OM helper duplicates
+```
+
+### Remaining js/app.js responsibilities after Stage 4AG
+
+`js/app.js` is now **991 lines**. Remaining domains:
+
+| Domain | Status |
+|--------|--------|
+| `editInvoice`, `deleteInvoice`, `populateInvoiceList` | BLOCKED pending stableLineCount fix |
+| `removePersonRow` | Orphaned (callers deleted); needs caller audit before removal |
+| `js/app-fresh.js` dead file | Inactive; deferred deletion |
+| Invoice addLine stub (alerts "Fonctionnalité en développement") | Pre-existing production bug; blocked by same collision |
+| STORE + utilities | High risk, skip |
+| App initialization | High risk, skip |
+| Demo data initialization | High risk, skip |
+| Logs + Sidebar + Sync | Lower risk, future extraction |
+
+### Next Authorized Stage
+
+**IDA-1 — Product and Legal Specification** (ID Auto product track)
+
+Condition: may begin in the next session. Mythos OS Stage 4 continues in parallel when IDA-1 is not active.
 
 ---
 
