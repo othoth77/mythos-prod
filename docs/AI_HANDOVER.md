@@ -1,8 +1,59 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage ATN-0 — Atelier Network Foundation and Ecosystem Consistency Amendment
+**From:** Stage INF-CF-0 — Cloudflare Foundation
 **To:** Next AI session
+
+---
+
+## Stage INF-CF-0 — Cloudflare Foundation
+
+**Objective:** Document the approved Cloudflare edge security architecture, deployment checklist, environment variable template, and deploy directory, without deploying, connecting, or modifying any infrastructure.
+
+**Starting remote HEAD:** `fb1280f3ee54b511b919e7e77c3dcc7b7ff2b2aa` (origin/main)
+
+**Branch:** `docs/cloudflare-foundation`
+
+### Scope
+
+Documentation and safe examples only. No deployment, no DNS changes, no Cloudflare connectivity, no cloudflared installation, no PostgreSQL migrations, no runtime JS/PHP/HTML/CSS/database changes. No secrets, tokens, account IDs, tunnel credentials, certificates, API keys, R2 keys, or real production values committed.
+
+### Changed Files
+
+| File | Change |
+|---|---|
+| `docs/CLOUDFLARE_ARCHITECTURE.md` | NEW: approved edge security architecture |
+| `docs/CLOUDFLARE_DEPLOYMENT_CHECKLIST.md` | NEW: staged deployment checklist INF-CF-1 through INF-CF-7 |
+| `deploy/cloudflare/cloudflared.env.example` | NEW: environment variable template (empty placeholders only) |
+| `deploy/cloudflare/README.md` | NEW: deploy directory documentation |
+| `docs/ROADMAP.md` | Updated: Infrastructure and Cloudflare track added (INF-CF-0 through INF-CF-7) |
+| `docs/AI_HANDOVER.md` | Updated: this entry |
+
+### Validation
+
+- All created files verified valid UTF-8.
+- `cloudflared.env.example` contains empty placeholder values only; no real credentials.
+- Full diff searched for credential keywords; no token, secret, password, private_key, api_key, or tunnel credential values found.
+- `git diff --check` passes with no whitespace errors.
+- Runtime test suite not required (documentation only).
+- No deployment performed.
+
+### Known Risks
+
+None. Documentation stage — no infrastructure changed.
+
+### Deployment
+
+Not performed. INF-CF-0 is documentation only.
+
+### Exact Next Stage
+
+**INF-CF-1** — Cloudflare account and domain inventory. Requires access to a Cloudflare account with Super Administrator or Administrator permissions, the domain `mythosprod.xyz`, and current DNS provider access.
+
+### Branch and Remote Status
+
+- Branch: `docs/cloudflare-foundation`
+- Pushed and verified — local HEAD matches remote HEAD.
 
 ---
 
