@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage 4AG — Invoice and OM duplicate cleanup
+**From:** Stage IDA-1 — ID Auto Product Vision, Capture, Access and Data Governance Specification
 **To:** Next AI session
 
 ---
@@ -10,15 +10,168 @@
 
 ```
 Branch:   main
-HEAD:     012cc54  (docs: update AI_HANDOVER.md for Stage 4AG completion)
-Implementation commit: ebe42f9
+HEAD:     e9afc7e  (docs(idauto): align product vision and capture architecture)
+IDA-1 implementation commit: e9afc7e
+Stage 4AG implementation commit: ebe42f9
+Stage IDA-0 implementation commit: 7c75abd
+Stage 4AF implementation commit: 2dcbb99
 ```
 
-**Stage 4AG is complete.** 5 obsolete OM-side duplicates removed from js/app.js (1088 → 991 lines). 3 invoice-side symbols BLOCKED by stableLineCount collision — reserved for a dedicated stage. Haiku verification PASS. Full Stage 4 suite 33 files, all passing.
+**Stage IDA-1 is complete.** Product vision, three access scopes (PUBLIC / PROFESSIONAL / MYTHOS_PRIVATE), observation-first data model, Smart Gate spec, Fixpert Atelier boundaries, PostgreSQL selected as target DBMS, LEGAL-REVIEW-REQUIRED items catalogued. 9 specification files created or updated. No runtime files changed. JSON valid. Targeted regression 42/42 + 44/44.
 
-**Stage IDA-0 is also complete** (same session). ID Auto Foundation established.
+**Stage 4AG is complete** (same session). 5 obsolete OM-side duplicates removed from js/app.js (1088 → 991 lines). 3 invoice-side symbols BLOCKED by stableLineCount collision — reserved for a dedicated stage.
 
-**Stage 4AF is also complete** (prior session, same date).
+**Stage IDA-0 is complete** (same session). ID Auto Foundation established.
+
+**Stage 4AF is complete** (prior session, same date).
+
+---
+
+## Stage IDA-1 — Product Vision, Capture, Access and Data Governance Specification
+
+**Starting remote HEAD:** `4f56bd4455b1e25bdc21873f4dec4b04543027a0`
+
+**Objective:** Define the ID Auto product vision, data capture model, three access scopes, Fixpert integration boundaries, and governance constraints before any implementation begins.
+
+### Product Decisions
+
+| Decision | Value |
+|---|---|
+| Official product name | ID Auto |
+| Domain | idauto.tn |
+| Platform | Mythos ecosystem (integrated, not isolated) |
+| Target DBMS | PostgreSQL — **selected, not yet installed or deployed** |
+| Data strategy | Capture-first (observation-first), not API-search-first |
+| Plate format rules | UNVERIFIED DRAFTS until confirmed against official source |
+| PostgreSQL install stage | IDA-2 |
+
+### Logical Database Architecture
+
+```
+PostgreSQL cluster (target — not yet deployed)
+├── mythos_core schema — users, roles, permissions, global audit
+├── idauto schema     — vehicles, plates, observations, facts, evidence, ...
+└── fixpert schema    — clients, work orders, invoices, payments (Fixpert-owned)
+```
+
+### Three Access Scopes (replaces IDA-0 boolean)
+
+| Scope | Who | Notes |
+|---|---|---|
+| PUBLIC | Any caller within rate limits | Plate, colour, category, verified make/model/year, governorate |
+| PROFESSIONAL | Verified subscriber orgs | Technical data + own service events |
+| MYTHOS_PRIVATE | Mythos Super Admin only | Raw captures, exact location/time, OCR, camera, movements — all access audit-logged |
+
+**Never public (permanent):** exact observation time, exact location, original image, plate crop, movement history, contributor identity, OCR output, VIN, carte grise, owner identity/contact, Fixpert customer data.
+
+### Observation-First Invariant
+
+Every input (scan, upload, camera, manual) creates an `idauto_observations` record first. Vehicle fiches and facts are derived from observations. Observations are immutable. Facts are versioned — old values are never silently overwritten.
+
+### Scanner and Carte Grise Flows
+
+- Primary button: **Scanner un véhicule** → modes: plate scan, vehicle scan, carte grise scan, photo import
+- Carte grise: OCR Arabic + French fields → mandatory confirmation form → separate public technical facts from owner PII → owner PII never stored in idauto schema (routed to fixpert.clients with consent, or discarded)
+- Implementation stage: IDA-3
+
+### Fixpert Ownership Boundaries
+
+| Data | Owner | Schema |
+|---|---|---|
+| Vehicle fiche, plates, observations | ID Auto / Mythos | idauto |
+| Smart Gate events, movements | ID Auto / Mythos | idauto (MYTHOS_PRIVATE) |
+| Fixpert clients, work orders | Fixpert | fixpert |
+| Fixpert invoices, payments | Fixpert | fixpert |
+| Platform services | Mythos | mythos_core |
+
+**Mythos Super Admin has read access to all schemas for governance. Every super-admin access to Fixpert data is audit-logged.**
+
+### Fixpert Smart Gate
+
+- 5 cameras total at Fixpert — **only 1 (designated entrance/exit door camera) is in scope**
+- Smart Gate events are always MYTHOS_PRIVATE
+- Deduplication: configurable window prevents multiple events for same vehicle at door
+- **LEGAL-REVIEW-REQUIRED: ANPR regulatory approval (INPDP) before any camera connection**
+- Implementation stage: IDA-4
+
+### New Architecture Decisions
+
+| AD | Decision |
+|---|---|
+| AD-8 | Observation-first data model |
+| AD-9 | Three access scopes: PUBLIC / PROFESSIONAL / MYTHOS_PRIVATE |
+| AD-10 | Smart Gate events always MYTHOS_PRIVATE |
+| AD-1 (revised) | Logical schema separation (not physical isolation) |
+
+### Files Created
+
+| File | Description |
+|---|---|
+| `docs/IDAUTO_PRODUCT_SPEC.md` | Product vision, user groups, access matrix, data ownership, vehicle fiche lifecycle, contribution model, super-admin role, LEGAL-REVIEW-REQUIRED |
+| `docs/IDAUTO_CAPTURE_PIPELINE.md` | Scanner modes, observation-first flow, plate scan, carte grise OCR, confidence/evidence, conflict handling, review queue, media/location privacy |
+| `docs/IDAUTO_FIXPERT_INTEGRATION.md` | 5-camera context, Smart Gate flow, data ownership boundaries, Fixpert Atelier relationship, deployment prerequisites |
+
+### Files Updated
+
+| File | Change |
+|---|---|
+| `projects/idauto/README.md` | Aligned to Mythos ecosystem, observation-first, PostgreSQL target, Smart Gate context |
+| `projects/idauto/config/idauto.example.json` | v0.2.0-ida1-draft; added access_scopes, scanner_modes, capture_sources, observation_statuses, confidence_thresholds, public/professional/mythos_private field policies, media_processing, location_policy, review_queue, contributor_trust, carte_grise_scan, fixpert_smart_gate, retention_placeholders, expanded feature_flags |
+| `projects/idauto/database/schema.sql` | 22-table observation-first draft; added idauto_capture_sources, idauto_camera_sources, idauto_contributors, idauto_capture_sessions, idauto_observations, idauto_observation_locations, idauto_observation_media, idauto_vehicle_facts, idauto_fact_evidence, idauto_document_scans, idauto_vehicle_movements, idauto_review_queue; updated idauto_vehicles with fiche_status; PostgreSQL-compatible; not deployed |
+| `docs/IDAUTO_ARCHITECTURE.md` | 10 ADs, PostgreSQL target, logical schema separation, 3 access scopes, updated data flows |
+| `docs/IDAUTO_ROADMAP.md` | IDA-0 through IDA-6; strategic growth milestones; LEGAL-REVIEW-REQUIRED table |
+| `docs/ROADMAP.md` | IDA-1 done; IDA-2 as next; stableLineCount collision noted |
+
+### PostgreSQL Status
+
+**PostgreSQL is the selected target DBMS. It is NOT installed or deployed. The schema.sql is a draft specification. Implementation begins IDA-2.**
+
+### LEGAL-REVIEW-REQUIRED Status
+
+All items listed in `docs/IDAUTO_PRODUCT_SPEC.md` Section 12 remain OPEN. No real data collection begins from this commit. Summary of blocking items:
+
+- Public image contribution and plate lookup (IDA-3 gate)
+- Precise GPS collection and carte grise OCR (IDA-3 gate)
+- Contributor consent mechanism (IDA-3 gate)
+- ANPR regulatory approval (INPDP) — Smart Gate (IDA-4 gate)
+- Official data-source agreement (ATTT) — national enrichment (IDA-6 gate)
+- Data retention periods — all categories — open
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `python3 -m json.tool idauto.example.json` | ✓ VALID |
+| Schema: no duplicate table names | ✓ 22 tables, 0 duplicates |
+| Schema: no owner PII in vehicle/plate/fact tables | ✓ 0 violations |
+| Schema: parenthesis balance | ✓ 382 open = 382 close |
+| `git diff --check` | ✓ no whitespace errors |
+| `node tests/stage4ag-test.js` | ✓ 42/42 |
+| `node tests/stage4z-test.js` | ✓ 44/44 |
+| No runtime application file changed | ✓ confirmed |
+| All feature flags for real capture remain false | ✓ confirmed |
+
+### Implementation Commit
+
+```
+e9afc7e  docs(idauto): align product vision and capture architecture
+```
+
+Local HEAD == origin/main == `e9afc7e`.
+
+### Next Stage
+
+**IDA-2 — PostgreSQL Core, API and Manual Capture MVP**
+
+- Deploy PostgreSQL cluster with idauto schema
+- Core vehicle, plate, observation, fact and evidence APIs
+- Admin manual entry (private only, no public ingestion)
+- Review queue (admin UI)
+- Plate format validation
+- Audit logging and object storage wiring
+- Mythos OS auth + audit integration
+- Synthetic and pilot data only
+- 50+ automated tests
 
 ---
 
