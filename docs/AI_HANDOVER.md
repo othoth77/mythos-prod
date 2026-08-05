@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage AVA-0 — AutoValeur Foundation and Ecosystem Roadmap
+**From:** Stage MAE-0 — Mythos Automotive Ecosystem Master Foundation
 **To:** Next AI session
 
 ---
@@ -10,13 +10,16 @@
 
 ```
 Branch:   main
-HEAD:     58e0b07  (docs(autovaleur): establish product foundation and ecosystem roadmap)
+HEAD:     32fc890  (docs(automotive): establish Mythos Automotive ecosystem foundation)
+MAE-0 implementation commit: 32fc890
 AVA-0 implementation commit: 58e0b07
 IDA-1 implementation commit: e9afc7e
 Stage 4AG implementation commit: ebe42f9
 Stage IDA-0 implementation commit: 7c75abd
 Stage 4AF implementation commit: 2dcbb99
 ```
+
+**Stage MAE-0 is complete.** Mythos Automotive ecosystem master foundation established. 12 new files created, docs/ROADMAP.md updated. 18-table PostgreSQL control-plane schema drafted (not deployed, prefix `mythos_automotive_`). All feature flags false. No real data. JSON valid. SQL parens balanced (185/185). No PII columns. git diff --check exit 0. stage4ag 42/42. stage4z 44/44.
 
 **Stage AVA-0 is complete.** AutoValeur product foundation established. 6 files created (projects/autovaleur/README.md, config/autovaleur.example.json, database/schema.sql, docs/AUTOVALEUR_PRODUCT_SPEC.md, docs/AUTOVALEUR_ARCHITECTURE.md, docs/AUTOVALEUR_ROADMAP.md), docs/ROADMAP.md updated. 18-table PostgreSQL schema drafted (not deployed). All feature flags false. No real data. JSON valid. SQL parens balanced (217/217). No PII columns. git diff --check exit 0.
 
@@ -27,6 +30,113 @@ Stage 4AF implementation commit: 2dcbb99
 **Stage IDA-0 is complete** (same session). ID Auto Foundation established.
 
 **Stage 4AF is complete** (prior session, same date).
+
+---
+
+## Stage MAE-0 — Mythos Automotive Ecosystem Master Foundation
+
+**Starting remote HEAD:** `f3f2cde7b39f41f8cab8f53ffbcc999fe3f0c8e8` (AVA-0 handover)
+
+**Objective:** Establish the complete master documentation, governance, configuration, and draft control-plane schema for the Mythos Automotive umbrella portfolio brand.
+
+**Scope:** Documentation only. No runtime code. No PostgreSQL migration. No deployment. No live data.
+
+### Files Created
+
+| File | Description |
+|---|---|
+| `projects/automotive/README.md` | Umbrella brand, vehicle-centric chain diagram, portfolio table, data status |
+| `projects/automotive/config/automotive.example.json` | Ecosystem configuration: products, scopes, integration, shared services, MADs, feature flags, legal review items, operating rules |
+| `projects/automotive/database/control-plane-schema.sql` | 18-table control-plane schema (prefix `mythos_automotive_`): products, product_stages, stage_gates, architecture_decisions, integration_contracts, integration_activations, legal_requirements, risk_register, kpi_definitions, kpi_snapshots, feature_flags, access_scope_definitions, canonical_identifiers, environments, releases, incidents, backup_status, domain_events |
+| `docs/AUTOMOTIVE_VISION.md` | Official umbrella identity (Fr + Arabic), mission, vehicle-centric chain, 7 design principles, regulatory environment, what Mythos Automotive is NOT |
+| `docs/AUTOMOTIVE_PRODUCT_PORTFOLIO.md` | 5 active products + 3 future products; Smart Gate boundary; Deal Radar correction; AutoCheck wording rules; AutoMarket verification badges |
+| `docs/AUTOMOTIVE_ARCHITECTURE.md` | Full schema diagram; 8 MADs; shared platform services; infrastructure target; domain strategy; security baseline |
+| `docs/AUTOMOTIVE_INTEGRATION_CONTRACTS.md` | 13 permanent rules; 3 integration types; 14-row activation matrix; domain event catalogue (40 events); ID Auto/Fixpert/Parts contracts; rate-limit spec; audit envelope standard |
+| `docs/AUTOMOTIVE_DATA_GOVERNANCE.md` | Master ownership matrix (8 domains); canonical identifier spec (22-row registry); customer/PII boundaries; subject rights; vehicle privacy rules; 6 access scopes; retention policy; data quality; vehicle taxonomy authority |
+| `docs/AUTOMOTIVE_OPERATING_MODEL.md` | 6 responsibility areas; RACI matrix (15×6); 4 stage gates; one-major-stage rule; 9-status lifecycle; change management; incident model (P1-P4); backup programme; deployment rules; partner onboarding; legal review register |
+| `docs/AUTOMOTIVE_KPI_MODEL.md` | Portfolio KPIs; ID Auto KPIs; Fixpert KPIs; Parts KPIs; AutoValeur KPIs (incl. model accuracy KPI requirements: ≥50 matched pairs); AutoMarket KPIs; KPI governance; strategic milestones (Alpha → National scale) |
+| `docs/AUTOMOTIVE_RISK_REGISTER.md` | 48 risks in 6 categories: Legal (10), Data/Identity (6), Technical (9), Operational (7), Business (8), Privacy (5) — all OPEN |
+| `docs/AUTOMOTIVE_ROADMAP.md` | MAE-0 through MAE-4; IDA-2 through IDA-4; AVA-1 through AVA-6; FXP/PNW/AMK/FLT/AST stages; critical path to Alpha; dependency map |
+
+### Files Updated
+
+| File | Change |
+|---|---|
+| `docs/ROADMAP.md` | Added ecosystem umbrella section (MAE track, dependency map, one-major-stage rule, stage table); updated Current Priority item 4 |
+
+### Master Architecture Decisions
+
+| ID | Decision |
+|---|---|
+| MAD-1 | Product-schema alignment: each product owns one PostgreSQL schema |
+| MAD-2 | `vehicle_id` is exclusively minted and owned by ID Auto — no other product creates vehicle IDs |
+| MAD-3 | One writer per noun: only the owning product writes to its own tables |
+| MAD-4 | No cross-schema FK constraints: referential integrity at application layer |
+| MAD-5 | Unified `access_scope` with 6 scopes: `public / professional / mythos_private / product_internal / organization_private / consent_shared` |
+| MAD-6 | `mythos_private` access is always audit-logged, no exception |
+| MAD-7 | Provenance travels with data: `source_id`, `source_type`, `trust_level`, `snapshot_at` cross all boundaries |
+| MAD-8 | Shared services defined once: rate limiting and audit envelope divergences resolved in MAE-1 |
+
+### Key Findings from Opus Audit (incorporated)
+
+| Finding | Resolution |
+|---|---|
+| AutoValeur Deal Radar write conflict | Deal Radar submits ingestion request to ID Auto API — never writes to `idauto_` tables. Incorporated in AUTOMOTIVE_ARCHITECTURE.md and AUTOMOTIVE_INTEGRATION_CONTRACTS.md |
+| AVA-2 prerequisite error | AVA-2 requires IDA-4 (Fixpert integration), not IDA-2. Corrected in AUTOVALEUR_ROADMAP.md and AUTOMOTIVE_ROADMAP.md |
+| Scope column name divergence | Canonical column name is `access_scope` (not `visibility_scope`). Risk R-T03 tracked. Standardisation in IDA-2 |
+| ssangyong.autos classification | Confirmed external system with LEGAL-REVIEW-REQUIRED. Not in this repository's runtime |
+| Smart Gate boundary | Fixpert owns device and consent obligation; ID Auto owns the resulting observation |
+| Canonical vehicle_id gap | Vehicle_id merge/split protocol missing — Risk R-D01 (H/H). Protocol spec deferred to MAE-1 |
+| Rate limiting divergence | Documented as R-T04. Unified spec in AUTOMOTIVE_INTEGRATION_CONTRACTS.md. Implementation in MAE-1 |
+| Audit envelope divergence | Documented as R-T05. Common envelope spec in AUTOMOTIVE_INTEGRATION_CONTRACTS.md. Implementation in MAE-3 |
+
+### PostgreSQL Status
+
+All three PostgreSQL schemas (`idauto`, `autovaleur`, `mythos_automotive`) are draft specifications. None has been deployed. No migration scripts exist. PostgreSQL is not installed.
+
+### LEGAL-REVIEW-REQUIRED Status
+
+All 30+ LEGAL-REVIEW-REQUIRED items remain OPEN across IDA-*, AVA-*, and ecosystem. The 10 ecosystem-level legal items (R-L01 through R-L10) are documented in `docs/AUTOMOTIVE_RISK_REGISTER.md`. No item is resolved by this documentation stage.
+
+Critical blocking items:
+- R-L01 (IDA-3): Legal basis for plate lookup
+- R-L02 (IDA-4): ANPR approval (INPDP) for Smart Gate
+- R-L03 (AVA-1): AutoValeur estimate disclaimer wording
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `JSON.parse(automotive.example.json)` | ✓ VALID |
+| Control-plane SQL: 18 tables | ✓ 18 |
+| Control-plane SQL: paren balance | ✓ 185 open = 185 close |
+| Control-plane SQL: no PII columns | ✓ 0 violations |
+| `git diff --check` | ✓ exit 0, no whitespace errors |
+| `node tests/stage4ag-test.js` | ✓ 42/42 |
+| `node tests/stage4z-test.js` | ✓ 44/44 |
+| No runtime application file changed | ✓ confirmed |
+| No PostgreSQL migration executed | ✓ confirmed |
+
+### Implementation Commit
+
+```
+32fc890  docs(automotive): establish Mythos Automotive ecosystem foundation
+```
+
+Local HEAD == origin/main == `32fc890`.
+
+### Next Stage
+
+**IDA-2 — PostgreSQL Core, API and Manual Capture MVP** (next authorised implementation stage)
+
+Prerequisites before starting IDA-2:
+- Mythos OS Stage 3D-3F complete
+- Staging environment separate from production configured (R-T01)
+- `access_scope` column naming decision finalised (R-T03)
+- Canonical vehicle_id merge/split protocol documented (R-D01)
+- Legal basis for professional plate lookup (R-L01) — not required for admin-only phase but needed before public launch
+
+Do not begin IDA-2 concurrently with Mythos OS Stage 3G.
 
 ---
 
