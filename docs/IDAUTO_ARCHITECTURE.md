@@ -1,239 +1,347 @@
 # ID Auto — Architecture
 
-**Stage:** IDA-0 Foundation  
-**Last updated:** 2026-08-05  
-**Domain:** idauto.tn  
+**Stage:** IDA-1 Product Vision, Capture, Access and Data Governance Specification
+**Last updated:** 2026-08-05
+**Domain:** idauto.tn
+**Platform:** Mythos ecosystem
 **Repository:** othoth77/mythos-prod
 
 ---
 
 ## 1. Product Position
 
-ID Auto is a vehicle-plate lookup and professional subscription platform for Tunisia. It is a **separate product** from Mythos OS, sharing the same repository but operating entirely independent data stores and deployment surface. Mythos OS is the host platform from which shared services (auth, billing, audit, notifications, search) are consumed via defined integration contracts.
+ID Auto is a vehicle intelligence platform within the Mythos ecosystem. It is a **distinct product domain**, not an isolated platform. Mythos OS provides shared platform services (authentication, billing, audit, notifications, search, document storage) that ID Auto consumes through defined integration contracts.
+
+ID Auto data lives in a logically separate `idauto` schema in the target PostgreSQL cluster. Mythos OS data lives in `mythos_core`. Fixpert workshop data lives in `fixpert`. Cross-schema data exchange is only permitted through explicitly defined integration contracts; no ad-hoc cross-schema joins are permitted from application code.
+
+The previous IDA-0 framing of ID Auto as an "entirely independent platform" is superseded. ID Auto is integrated into the Mythos ecosystem at the service level, not at the data level.
 
 ---
 
-## 2. Founding Architecture Decisions
+## 2. Target Database Architecture
 
-### AD-1 — Strict storage namespace separation
+**Target DBMS: PostgreSQL** — selected as the target database system for ID Auto and the broader Mythos platform evolution.
 
-**Decision:** All ID Auto tables use the `idauto_` prefix. No cross-table joins or shared tables with Mythos OS `mp_*` tables are permitted at the data layer.
+**Status: NOT INSTALLED OR DEPLOYED.** PostgreSQL is not present in IDA-0 or IDA-1. Implementation begins in IDA-2. The `projects/idauto/database/schema.sql` file is a draft specification, not a deployed migration.
 
-**Why:** Mythos OS holds live production data for one paying client. ID Auto is a new product with its own lifecycle, deployment schedule, and compliance requirements. Mixing namespaces would create migration risk and compliance ambiguity.
+```
+PostgreSQL cluster (target — not yet deployed)
+├── mythos_core schema
+│   └── users, global roles, permissions, global audit, platform administration
+│
+├── idauto schema
+│   └── vehicles, plates, observations, facts, evidence, documents, captures,
+│       sources, review queue, organisations, user roles, service events,
+│       verifications, consent records, audit log, contributor records,
+│       camera sources, vehicle movements
+│
+└── fixpert schema
+    └── clients, workshop visits, work orders, interventions, parts, stock,
+        quotations, invoices, payments, workshop activity
+        (Fixpert-owned; referenced by idauto via work_orders.vehicle_id only)
+```
 
-**Enforcement:** Database schema (`database/schema.sql`) contains only `idauto_` tables. A future schema migration must never add an `idauto_` table to a database that contains `mp_*` tables without an explicit isolation review.
+---
+
+## 3. Founding Architecture Decisions
+
+### AD-1 — Logical schema separation, not physical isolation
+
+**Decision (revised from IDA-0):** All ID Auto tables use the `idauto` schema prefix in a PostgreSQL cluster. Fixpert tables use `fixpert`. Mythos platform tables use `mythos_core`. These schemas are logically separated; physical separation (separate databases or clusters) is an operational decision for IDA-2.
+
+**Why:** Mythos OS holds live production data for paying clients. ID Auto is a new product domain. Fixpert is a separate business domain. Mixing schemas would create migration risk and compliance ambiguity; physical isolation is a deployment concern, not a design constraint at this stage.
+
+**Constraint:** Application code must never perform cross-schema joins except through defined integration contracts.
 
 ---
 
 ### AD-2 — Privacy-by-design: public search never returns owner PII
 
-**Decision:** The public plate search endpoint returns only vehicle attributes (make, model, year, body type, fuel type, colour, plate status, governorate). Owner name, address, national ID, phone, insurance identity and any other personal information are never returned and are not stored in any table queryable by plate number.
+**Decision (unchanged from IDA-0):** The public plate search endpoint returns only vehicle attributes. Owner identity is never returned and is not stored in any table queryable by plate number.
 
-**Why:** Tunisian organic law 63-2004 on personal data protection, and reasonable expectation of privacy for vehicle owners, prohibit exposing owner identity through a public lookup service. This is also the product's core trust proposition.
+**Why:** Tunisian organic law 63-2004 on personal data protection, and reasonable expectation of privacy for vehicle owners, prohibit exposing owner identity through a public lookup service.
 
 **Enforcement:**
 - `idauto_vehicles` has no owner columns — absence is explicit with `-- [NO PII]` comments.
 - `idauto_plates` has no owner columns.
-- `config/idauto.example.json` explicitly lists `response_fields_never_public`.
-- The data model has no join path from plate number to owner PII without passing through a separately-gated consent/legal-basis check.
+- `idauto_vehicle_facts` has no owner columns.
+- Carte grise owner PII (name, CIN, address) is never stored in any `idauto_` table.
+- `config/idauto.example.json` `public_field_policy.never_public` lists all prohibited fields.
 
 ---
 
 ### AD-3 — Plate formats as configurable rules, not hardcode
 
-**Decision:** Tunisian plate format patterns are defined in `config/idauto.example.json` and seeded into `idauto_plate_formats`. No format regex is hardcoded in application logic.
+**Decision (unchanged from IDA-0):** Tunisian plate format patterns are defined in `config/idauto.example.json` and seeded into `idauto_plate_formats`. No format regex is hardcoded.
 
-**Why:** The Tunisian traffic authority introduces new series (government, economic zone, etc.) without advance notice. A configurable catalogue allows format additions without code deployment.
-
-**Enforcement:** `idauto_plate_formats.pattern` column holds the POSIX regex. Application code reads from the catalogue at startup.
+**Clarification (IDA-1):** Current plate format patterns in the configuration and database seed are **UNVERIFIED DRAFTS**. The `idauto_plate_formats.verified` column defaults to `FALSE`. Formats must be confirmed against an authoritative official source before being marked `verified = TRUE`. Do not present unverified format rules as official facts.
 
 ---
 
 ### AD-4 — Immutable audit log
 
-**Decision:** `idauto_audit_log` is append-only. Rows are never updated or deleted. Corrections are new rows. No raw PII is stored in any column of this table.
+**Decision (unchanged from IDA-0):** `idauto_audit_log` is append-only. Rows are never updated or deleted. Corrections are new rows. No raw PII is stored in any column of this table.
 
-**Why:** Regulatory compliance (PDPO, professional liability) requires a tamper-evident record of who looked up what and when. Immutability is the simplest enforcement.
-
-**Enforcement:** Application code path for audit events must use `INSERT` only. A database trigger can optionally enforce this at the DBMS level in IDA-1.
+**Extension (IDA-1):** Mythos Super Admin access to Fixpert data is also audit-logged in `idauto_audit_log` with `actor_type = 'admin'` and `target_type = 'fixpert.*'`.
 
 ---
 
 ### AD-5 — Hashed identifiers for IP and User-Agent
 
-**Decision:** `idauto_verifications` and `idauto_audit_log` store IP addresses and User-Agent strings as SHA-256 hashes, never as raw values.
-
-**Why:** Raw IP addresses are personal data under most privacy frameworks. Hashing allows rate-limiting and abuse detection (compare hashes) while meeting data-minimization obligations.
-
-**Enforcement:** The application layer must hash before writing. The schema enforces column type (`VARCHAR(64)`) but cannot enforce hashing at the DBMS level; this is an application-layer invariant.
+**Decision (unchanged from IDA-0):** `idauto_verifications`, `idauto_observations`, `idauto_audit_log` and related tables store IP addresses and User-Agent strings as SHA-256 hashes only.
 
 ---
 
 ### AD-6 — Professional service events are org-scoped by default
 
-**Decision:** `idauto_service_events.is_public` defaults to `FALSE`. A service event is visible only to the writing organization unless explicitly set public. Cross-organization reads require `is_public = TRUE` plus professional subscription tier.
-
-**Why:** A garage's service records for a vehicle may contain commercially sensitive or operationally private information. Default-private is the safer baseline.
+**Decision (unchanged from IDA-0):** `idauto_service_events.is_public` defaults to `FALSE`. A service event is visible only to the writing organisation unless explicitly set public.
 
 ---
 
 ### AD-7 — No real data ingestion in IDA-0 or IDA-1
 
-**Decision:** No real vehicle, plate, or person data is ingested, scraped, or imported until the legal basis and data-processing agreements defined in IDA-1 are signed and reviewed.
+**Decision (unchanged from IDA-0):** No real vehicle, plate, or person data is ingested, scraped, or imported until the legal basis and data-processing agreements defined in IDA-1 are reviewed.
 
-**Why:** Ingesting real data without a defined legal basis and PDPO-compliant data-processing agreement is a legal risk.
-
-**Enforcement:** `idauto_sources` has only a `TEST_ONLY` seed row in IDA-0. A production `source_id` row must not be inserted until IDA-2 with legal review complete.
+**Note (IDA-1):** IDA-1 itself does not complete the legal review. The legal items identified in `docs/IDAUTO_PRODUCT_SPEC.md` under LEGAL-REVIEW-REQUIRED remain open. Real data ingestion does not begin before IDA-2 with legal items resolved.
 
 ---
 
-## 3. Integration Contracts with Mythos OS Services
+### AD-8 — Observation-first data model
 
-ID Auto does not duplicate Mythos OS services. It consumes them through the following contracts. All integrations are **disabled** in IDA-0 and IDA-1; they activate in IDA-2 and IDA-3.
+**Decision (new in IDA-1):** Every data input (scan, upload, manual entry, Smart Gate detection) creates an `idauto_observations` record first. Vehicle fiches and facts are derived from observations, not created directly. Observations are immutable after creation.
 
-### 3.1 Authentication (`mythos_auth`)
+**Why:** A flat direct-insert model loses provenance information. The observation-first model makes every fact traceable to its source event, enables conflict detection, and supports the review queue without ambiguity.
+
+**Enforcement:** Application code must create an `idauto_observations` row before creating or updating vehicle facts. Facts reference their observation via `observation_id`.
+
+---
+
+### AD-9 — Three access scopes replace public/private boolean
+
+**Decision (new in IDA-1):** Data fields and tables carry a `visibility_scope` value: `public`, `professional`, or `mythos_private`. This replaces the IDA-0 design that used a boolean `is_public` flag.
+
+**Why:** The boolean model was insufficient to represent the Mythos Super Admin tier, which needs access to raw captures, exact locations, and movement events that professional subscribers must not see.
+
+**Enforcement:** API response builders must filter fields by the caller's scope. The `mythos_private` scope requires `MYTHOS_SUPER_ADMIN` role and generates an audit log entry on every access.
+
+---
+
+### AD-10 — Smart Gate is MYTHOS_PRIVATE by design
+
+**Decision (new in IDA-1):** All vehicle movement events from the Fixpert Smart Gate (entry/exit events, timestamps, direction, camera source, image references) are stored in `idauto_vehicle_movements` with `MYTHOS_PRIVATE` scope. They are never returned in public or professional API responses.
+
+**Why:** Individual vehicle movement tracking through a camera is sensitive even when the vehicle is not directly linked to an identifiable person. Aggregate spatial analytics are permitted if they cannot identify individuals.
+
+---
+
+## 4. Integration Contracts with Mythos OS Services
+
+All integrations are **disabled** in IDA-0 and IDA-1. They activate in IDA-2 and later.
+
+### 4.1 Authentication (`mythos_auth`)
 
 | Contract point | Detail |
 |---|---|
-| Consumer | ID Auto professional user login and session management |
+| Consumer | ID Auto professional user login, contributor account, admin login |
 | Provider | Mythos OS auth service |
-| Protocol | Token-based (JWT or opaque ref); exact protocol defined in IDA-1 |
+| Protocol | Token-based (JWT or opaque ref); protocol defined in IDA-1 spec, implemented IDA-2 |
 | ID Auto stores | `idauto_user_roles.mythos_user_id` — opaque reference only |
-| ID Auto does NOT store | Username, email, phone, password hash, biometric data |
-| Fallback | Not applicable until IDA-2 |
+| ID Auto does NOT store | Username, email, phone, password hash |
+| Activation | IDA-2 |
 
-### 3.2 Permissions (`mythos_permissions`)
+### 4.2 Permissions (`mythos_permissions`)
 
 | Contract point | Detail |
 |---|---|
-| Consumer | ID Auto feature gates (which tier can call which endpoint) |
+| Consumer | ID Auto feature gates (which scope can call which endpoint) |
 | Provider | Mythos OS permission service |
 | Protocol | Permission check call with `(user_id, resource, action)` |
-| ID Auto local | Subscription tier and `idauto_user_roles.role` provide coarse access control locally; Mythos OS fine-grained check on sensitive paths |
+| Activation | IDA-2 |
 
-### 3.3 Documents (`mythos_documents`)
+### 4.3 Documents (`mythos_documents`)
 
 | Contract point | Detail |
 |---|---|
-| Consumer | Professional subscribers attaching PDF inspection reports to service events |
-| Provider | Mythos OS document storage (`js/shared/documentation.js` backend) |
+| Consumer | Professional subscribers attaching documents to service events; Fixpert carte grise protected storage |
+| Provider | Mythos OS document storage |
 | Protocol | Document reference stored as `source_ref` in `idauto_service_events`; actual file stored by Mythos OS |
 | Privacy | Document must never contain owner PII visible to other orgs |
+| Activation | IDA-4 |
 
-### 3.4 Notifications (`mythos_notifications`)
+### 4.4 Notifications (`mythos_notifications`)
 
 | Contract point | Detail |
 |---|---|
-| Consumer | Subscription renewal reminders, new service-event alerts for fleet managers |
+| Consumer | Subscription renewal reminders, Smart Gate alerts, review queue alerts |
 | Provider | Mythos OS notification service |
-| Protocol | Event-push: `{type, recipient_ref, payload}` where `recipient_ref` is `mythos_user_id` |
+| Protocol | Event-push: `{type, recipient_ref, payload}` |
 | Activation | IDA-3 |
 
-### 3.5 Billing (`mythos_billing`)
+### 4.5 Billing (`mythos_billing`)
 
 | Contract point | Detail |
 |---|---|
 | Consumer | Professional subscription payment and renewal |
 | Provider | Mythos OS billing service |
-| Protocol | Subscription record keyed by `org_id`; payment events posted by billing, consumed by ID Auto to update `idauto_organizations.status` |
+| Protocol | Subscription record keyed by `org_id`; billing events update `idauto_organizations.status` |
 | Activation | IDA-3 |
 
-### 3.6 Search (`mythos_search`)
+### 4.6 Search (`mythos_search`)
 
 | Contract point | Detail |
 |---|---|
-| Consumer | Plate search indexed for Mythos OS search if deployed on the same host |
-| Provider | MythosSearch provider registration pattern (per AGENTS.md Stage 3 runtime pattern) |
-| Protocol | Register provider with `{name: 'idauto', search: fn}` at module load |
-| Privacy | Search index must never include owner PII |
+| Consumer | ID Auto plate and vehicle data indexed for MythosSearch |
+| Provider | MythosSearch provider registration pattern |
+| Protocol | Register provider with `{name: 'idauto', search: fn}` |
+| Privacy | Search index must never include owner PII or movement data |
 | Activation | IDA-4 |
 
-### 3.7 Audit (`mythos_audit`)
+### 4.7 Audit (`mythos_audit`)
 
 | Contract point | Detail |
 |---|---|
 | Consumer | ID Auto publishes high-level events to Mythos OS audit stream |
 | Provider | Mythos OS audit service |
-| Protocol | Event push; ID Auto also maintains its own `idauto_audit_log` as the authoritative record |
+| Protocol | Event push; `idauto_audit_log` is the authoritative local record |
 | Activation | IDA-2 |
 
 ---
 
-## 4. Data Flow — Public Plate Search
+## 5. Data Flow — Public Plate Search
 
 ```
 Caller (anonymous or authenticated)
   │
   ▼
-Rate-limit check
-  │  fail → 429; insert idauto_verifications(result_status='rate_limited')
+Rate-limit check (by IP hash)
+  │  fail → 429; INSERT idauto_verifications(result_status='rate_limited')
   │  pass ↓
 Format validation (idauto_plate_formats)
-  │  no match → 400; insert idauto_verifications(result_status='invalid_format')
+  │  no match → 400; INSERT idauto_verifications(result_status='invalid_format')
   │  match ↓
 Plate lookup (idauto_plates JOIN idauto_vehicles)
-  │  not found → 404; insert idauto_verifications(result_status='not_found')
+  │  not found → 404; INSERT idauto_verifications(result_status='not_found')
   │  found ↓
-Strip PII — response_fields_public filter applied
+Scope filter — apply public_field_policy
+  │  remove: never_public fields
+  │  remove: below-confidence fields
+  │  remove: unverified facts below public threshold
   │
   ▼
-Public JSON response {plate_number, format, governorate, status, make, model, year, …}
+Public JSON response
+  {plate_number, format_code, governorate, fiche_status, colour, body_type,
+   make (if verified), model (if verified), year (if trusted source), …}
   │
   ▼
-Insert idauto_verifications(result_status='found', vehicle_id, ip_hash, …)
-Insert idauto_audit_log(event_type='plate.lookup', …)
+INSERT idauto_verifications(result_status='found', vehicle_id, ip_hash, …)
+INSERT idauto_audit_log(event_type='plate.lookup', …)
 ```
 
-Owner PII is not in the data path. There is no join to any owner table because no owner table exists.
+Owner PII is not in the data path. No owner table exists. No join to owner data is possible.
 
 ---
 
-## 5. Data Flow — Professional Service Event Write
+## 6. Data Flow — Capture and Observation
 
 ```
-Professional user (authenticated, org verified)
+Input (scan / upload / Smart Gate / manual)
   │
   ▼
-Auth check → Mythos OS auth service
-  │  fail → 401
+Quality check
+  │  fail → error response with guidance
   │  pass ↓
-Permission check (org.status=active, user_role.status=active, tier.can_write_service_events=true)
-  │  fail → 403
-  │  pass ↓
-Consent check (idauto_consent_records for processing_purpose='service_event_write')
-  │  no valid consent → 403 with consent prompt
-  │  pass ↓
-Validate service event payload (vehicle_id or plate_number, event_type, event_date)
-  │  invalid → 422
-  │  pass ↓
-INSERT idauto_service_events
+CREATE idauto_observations (immutable)
   │
   ▼
-INSERT idauto_audit_log(event_type='service_event.create', actor_ref=user_id, org_id, …)
-Notify fleet manager if applicable (via mythos_notifications, IDA-3+)
+Processing pipeline
+(OCR / detection / extraction — IDA-3+)
+  │
+  ▼
+User confirmation (for public submissions)
+  │
+  ▼
+Vehicle matching
+  │  match → add observation to fiche, extract facts, compare
+  │  no match → create vehicle fiche, first observation
+  │
+  ▼
+Confidence check
+  │  above threshold → accept, update fiche
+  │  below threshold → INSERT idauto_review_queue
+  │
+  ▼
+INSERT idauto_audit_log
 ```
 
 ---
 
-## 6. Deployment Separation
+## 7. Data Flow — Fixpert Smart Gate
 
-In IDA-0 and IDA-1, there is no deployed ID Auto service. The schema and configuration live as specification documents in `projects/idauto/`. Deployment target and infrastructure are defined in IDA-1.
+```
+RTSP stream (single authorised entrance/exit camera)
+  │
+  ▼
+Vehicle event detected
+  │
+  ▼
+Frame capture → object storage (MYTHOS_PRIVATE)
+  │
+  ▼
+ANPR → plate candidate → normalise
+  │
+  ▼
+Colour + category detection
+  │
+  ▼
+Deduplication check (same vehicle near door?)
+  │  duplicate → discard
+  │  new event ↓
+Direction inference (entry / exit / unknown)
+  │
+  ▼
+CREATE idauto_observations(capture_method='smart_gate')
+CREATE idauto_vehicle_movements (MYTHOS_PRIVATE)
+  │
+  ▼
+Vehicle matching
+  │  match → link to existing fiche
+  │  no match → create preliminary fiche
+  │
+  ▼
+Optional: link to Fixpert work order
+  │
+  ▼
+INSERT idauto_audit_log
+```
 
-**Constraints (permanent):**
+Smart Gate movements are **never** published publicly or professionally.
+
+---
+
+## 8. Deployment Separation
+
+In IDA-0 and IDA-1, there is no deployed ID Auto service.
+
+**Permanent constraints:**
 - Do not touch `/var/www/uthinachess/0726/Prod/` — Mythos OS production
-- Do not restart nginx or PHP
-- Do not deploy ID Auto files to any server before IDA-2 with explicit authorization
-- Do not ingest real vehicle, plate, or person data before IDA-1 legal review
+- Do not restart nginx or PHP on the Mythos OS VPS
+- Do not deploy ID Auto files to any server before IDA-2 with explicit authorisation
+- Do not ingest real vehicle, plate, or person data before IDA-1 legal review is complete
+- Do not install PostgreSQL before IDA-2 with explicit authorisation
+- Do not connect any camera before IDA-4 with legal regulatory approval
 
 ---
 
-## 7. Technology Considerations (deferred to IDA-1)
+## 9. Technology Decisions — Status
 
-The following are not decided in IDA-0 and must be formally specified in IDA-1:
-
-- Target database management system (PostgreSQL, MySQL, MariaDB)
-- API framework (PHP, Node.js, or other — must integrate with existing PHP host if co-hosted)
-- Hosting model (same VPS as Mythos OS, separate VPS, or managed PaaS)
-- TLS certificate management for idauto.tn
-- CDN and DDoS protection for public rate-limited search endpoint
-- Backup and recovery strategy separate from Mythos OS backups
+| Decision | IDA-0 status | IDA-1 status |
+|---|---|---|
+| Target DBMS | Deferred | **PostgreSQL — selected** (not deployed) |
+| API framework | Deferred | Deferred to IDA-2 |
+| Hosting model | Deferred | Deferred to IDA-2 |
+| TLS for idauto.tn | Deferred | Deferred to IDA-2 |
+| CDN / DDoS protection | Deferred | Deferred to IDA-2 |
+| Backup / recovery | Deferred | Deferred to IDA-2 |
+| ANPR model | Deferred | Deferred to IDA-3 |
+| OCR engine | Deferred | Deferred to IDA-3 |
+| Object storage provider | Deferred | Deferred to IDA-2 |

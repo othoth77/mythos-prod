@@ -1,85 +1,98 @@
 # ID Auto — idauto.tn
 
-**Product:** ID Auto  
-**Domain:** idauto.tn  
-**Repository:** othoth77/mythos-prod (`projects/idauto/`)  
-**Stage:** IDA-0 Foundation (2026-08-05)  
-**Status:** Planning
+**Product:** ID Auto
+**Domain:** idauto.tn
+**Platform:** Mythos ecosystem
+**Repository:** othoth77/mythos-prod (`projects/idauto/`, `docs/IDAUTO_*.md`)
+**Current stage:** IDA-1 — Product Vision, Capture, Access and Data Governance Specification (2026-08-05)
 
 ---
 
-## Overview
+## Vision
 
-ID Auto is a vehicle-plate lookup and professional subscription platform for Tunisia. It provides:
+ID Auto is a progressively enriched vehicle intelligence platform for Tunisia. Its long-term objective is to build the most complete, privacy-respecting, and legally sound vehicle database covering vehicles across the Tunisian Republic — achieved through legal and traceable data-acquisition channels.
 
-- **Public plate search** — anyone can look up a Tunisian plate number and receive vehicle attributes (make, model, year, fuel type, category). Owner name, address, phone, national ID, insurance identity and all other personal information are never returned.
-- **Professional subscription layer** — verified organizations (mechanics, garages, insurers, fleet managers, judicial officers) gain access to service-event history and higher-rate API calls, subject to contractual legal basis and consent records.
+The product begins with manual and public capture opportunities, then expands to the Fixpert Smart Gate camera, professional partner networks, and authorised official sources.
+
+ID Auto is a product within the Mythos platform ecosystem. Mythos OS provides shared platform services (authentication, billing, audit, notifications, search, document storage).
 
 ---
 
-## Privacy Contract
-
-This is the founding, non-negotiable constraint of the product.
+## Privacy Contract (non-negotiable founding constraint)
 
 > **Public records must never expose owner name, address, phone number, national ID, insurance identity, or any other protected personal information.**
 
-The public search endpoint returns only:
-- Plate number (as queried)
-- Vehicle make, model, year, body type, fuel category, colour (where recorded in official public registries)
-- Plate validity status (active / suspended / cancelled)
-- Governorate of registration
+This is enforced at the schema level: `idauto_vehicles` and `idauto_plates` contain no owner columns. There is no join path from plate number to owner PII without passing through a separately-gated consent framework.
 
-It does not return, and the schema does not store in a queryable-by-plate path:
-- Owner full name
-- Owner address or locality beyond governorate
-- National ID number (CIN) or passport number
-- Insurance policy number or insurer identity
-- Phone or email of registered owner
-- Date of birth
+---
 
-Professional subscribers may annotate their own service events (service history recorded by the professional on vehicles they serviced) but may not retrieve third-party owner PII via the platform.
+## Three Access Scopes
+
+### PUBLIC
+Any caller within rate limits. Returns: plate number, colour, body type, make/model (verified), year/fuel (trusted source), confidence status, governorate.
+
+**Never public:** exact observation time, exact location, original image, plate crop, movement history, contributor identity, OCR output, VIN, carte grise, owner data, Fixpert customer data.
+
+### PROFESSIONAL
+Verified professional subscribers (garages, insurers, fleet managers). Access to approved technical data and their own service events. An organisation does not automatically see another organisation's private data.
+
+### MYTHOS_PRIVATE
+Mythos Super Admin only. Raw captures, exact timestamps, GPS, OCR, confidence scores, source identity, camera source, correction history, audit events. All access audit-logged.
+
+---
+
+## Observation-First Model
+
+Every capture (scan, upload, manual entry, camera detection) creates an **Observation** first. The system then:
+
+1. Searches for an existing vehicle (by plate, VIN, or evidence)
+2. If found: adds the observation, extracts new facts, records conflicts
+3. If not found: creates a new vehicle fiche with its first observation
+4. **Never silently overwrites an existing fact**
 
 ---
 
 ## Plate Format Rules
 
-Tunisian vehicle plate formats are defined as configurable rules in `config/idauto.example.json`. No format is hardcoded; the running configuration can be updated as the Tunisian traffic authority introduces new series without a code change.
+Plate formats are defined as configurable rules in `config/idauto.example.json`. No format is hardcoded.
 
-Current format families tracked:
+**Note: Current format patterns are UNVERIFIED DRAFTS.** They have not been confirmed against official Tunisian traffic authority sources.
 
-| Code | Name | Example | Notes |
-|------|------|---------|-------|
-| `TUN_STD` | Standard passenger | `123 TUN 4567` | Main series since 2002 |
-| `TUN_OLD` | Legacy passenger | `1234 TUN 56` | Pre-2002 series, still in circulation |
-| `TUN_GVT` | Government | `GN 123 456` | Ministries and public entities |
-| `TUN_DIP` | Diplomatic / CD | `CD 12 345` | Diplomatic corps |
-| `TUN_MIL` | Military | `ARN 123456` | Armed forces |
-| `TUN_TMP` | Temporary / transit | `TT 12345 A` | Short-term registration |
-| `TUN_ECO` | Economic zones / special | varies | Free-trade and industrial zones |
-
----
-
-## Separation from Mythos OS Storage
-
-ID Auto data lives in an entirely separate storage namespace:
-
-- Database prefix: `idauto_` (never shares tables with Mythos OS `mp_` prefix)
-- No cross-reads between Mythos OS STORE and ID Auto data at the data layer
-- Shared services (auth, permissions, billing, audit) are consumed via defined integration contracts — see `docs/IDAUTO_ARCHITECTURE.md`
+| Code | Family | Example | Status |
+|------|--------|---------|--------|
+| `TUN_STD` | Standard passenger (since 2002) | `123 TUN 4567` | Draft/unverified |
+| `TUN_OLD` | Legacy passenger (pre-2002) | `1234 TUN 56` | Draft/unverified |
+| `TUN_GVT` | Government | `GN 123 456` | Draft/unverified |
+| `TUN_DIP` | Diplomatic / CD | `CD 12 345` | Draft/unverified |
+| `TUN_MIL` | Military | `ARN 123456` | Draft/unverified |
+| `TUN_TMP` | Temporary / transit | `TT 12345 A` | Draft/unverified |
+| `TUN_ECO` | Economic / special zones | `ZE 1234 567` | Draft/unverified |
 
 ---
 
-## Scope Exclusions — IDA-0
+## Target Database Architecture
 
-The following are explicitly out of scope for this foundation stage:
+PostgreSQL is the **selected target DBMS**. It is not installed or deployed in IDA-0 or IDA-1.
 
-- Real vehicle data ingestion or scraping
-- Real plate data of any living person
-- Any UI or front-end code
-- Deployment to idauto.tn or any server
-- Payment processing or subscription billing
-- Integration with any external registry API
-- Any personal data exposure or processing
+Logical schemas in the target PostgreSQL cluster:
+
+- `mythos_core` — users, roles, permissions, global audit, platform admin
+- `idauto` — vehicles, plates, observations, facts, evidence, documents, captures, sources, review queue
+- `fixpert` — Fixpert clients, work orders, interventions, stock, quotations, invoices, payments
+
+Fixpert workshop operations, customers, invoices and accounting belong legally and operationally to Fixpert. ID Auto provides the shared vehicle identity layer.
+
+---
+
+## Fixpert Smart Gate
+
+Fixpert is the first professional pilot. The Smart Gate is an ANPR system using one designated entrance/exit camera at the Fixpert workshop.
+
+- **5 cameras total** at Fixpert premises — only **1** is in Smart Gate scope
+- The other 4 cameras are outside ID Auto scope
+- Smart Gate events are always MYTHOS_PRIVATE
+- **Legal regulatory approval required before activation** (LEGAL-REVIEW-REQUIRED)
+- Implementation: IDA-4
 
 ---
 
@@ -87,21 +100,42 @@ The following are explicitly out of scope for this foundation stage:
 
 ```
 projects/idauto/
-├── README.md                  ← this file
+├── README.md                        ← this file
 ├── config/
-│   └── idauto.example.json   ← configurable plate-format rules and feature flags
+│   └── idauto.example.json          ← configurable rules and feature flags (IDA-1 draft)
 └── database/
-    └── schema.sql            ← data contracts (no real data)
+    └── schema.sql                   ← draft schema specification (PostgreSQL, not deployed)
 
 docs/
-├── IDAUTO_ARCHITECTURE.md    ← integration contracts and architecture decisions
-└── IDAUTO_ROADMAP.md         ← ID Auto stage roadmap
+├── IDAUTO_PRODUCT_SPEC.md           ← product vision, access model, data ownership
+├── IDAUTO_CAPTURE_PIPELINE.md       ← scanner, observation flow, carte grise, review queue
+├── IDAUTO_FIXPERT_INTEGRATION.md    ← Smart Gate spec, Fixpert Atelier boundaries
+├── IDAUTO_ARCHITECTURE.md           ← architecture decisions, integration contracts
+└── IDAUTO_ROADMAP.md                ← ID Auto stage roadmap (IDA-0 through IDA-6)
 ```
+
+---
+
+## Scope Exclusions — IDA-1
+
+- No pipeline or API code
+- No PostgreSQL installation or deployment
+- No camera connection
+- No OCR or detection model integration
+- No real vehicle data
+- No public data collection of any kind
+- No real carte grise processing
+- All capture and Smart Gate feature flags remain `false`
 
 ---
 
 ## Next Stage
 
-**IDA-1 — Product and Legal Specification**
+**IDA-2 — PostgreSQL Core, API and Manual Capture MVP**
 
-Define the legal basis for each data category under Tunisian law (organic law 63-2004 on personal data protection and its successors), GDPR adequacy considerations for EU-facing professional users, the consent flow for professional subscribers, and the regulatory framework for accessing public vehicle registry data.
+- Target PostgreSQL cluster structure
+- Core vehicle, plate, observation, fact and evidence APIs
+- Private / admin manual entry only
+- Review queue
+- Synthetic and authorised pilot data only
+- No uncontrolled public ingestion

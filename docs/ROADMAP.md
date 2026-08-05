@@ -31,14 +31,6 @@
 
 ## Upcoming Stages (in dependency order)
 
-### Stage 3C — Notes Runtime
-**Soft dependency:** Stage 3B establishes the runtime plugin pattern; Stage 3C can proceed independently if the pattern is understood.  
-**Deliverable:** `js/plugins/notes.runtime.js`  
-**Replaces:** `js/plugins/notes.plugin.js`  
-**Test file:** `tests/stage3c-test.js`  
-**What it provides:** onBoot: validate `mp_rddocs_das`/`mp_rddocs_autres` localStorage. onReady: register MythosSearch provider.  
-**What stays in app.js/redaction.js:** All CRUD, rendering, template/entry logic.
-
 ### Stage 3D — Planning Runtime
 **Depends on:** None (can run any time)  
 **Deliverable:** `js/plugins/planning.runtime.js`  
@@ -78,6 +70,9 @@ Move generic modules out of app.js into `js/shared/`:
 5. `shared/calendar.js` — extract from app.js lines 8600–8841
 6. `shared/dashboard.js` — extract from app.js lines 700–975
 
+**Known blocked items (requires dedicated stage):**
+- `stableLineCount` collision: `mission-orders.js:28` (`let stableLineCount`) prevents `invoices.js` from loading. Fix requires removing the `let` declaration, then deleting `editInvoice`, `deleteInvoice`, `populateInvoiceList` from `app.js`.
+
 ### Stage 5 — Production Module Extraction
 Move production-specific domains out of app.js into `js/prod/`:
 1. `prod/clients.js`, `prod/collaborators.js` (simple CRUD)
@@ -93,38 +88,32 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 
 ## Current Priority
 
-1. **Immediate (Mythos OS):** Stage 4AG — Invoice/OM helper duplicates audit (`js/app.js`)
-2. **Parallel track (ID Auto):** IDA-1 — Product and legal specification (may begin after Stage 4AG)
+1. **Mythos OS:** Stage 3D (next) → 3E → 3F → 3G (runtime plugins)
+2. **ID Auto (parallel track):** IDA-2 — PostgreSQL Core, API and Manual Capture MVP
 
 ---
 
 ## ID Auto — Separate Product Track
 
-ID Auto (`idauto.tn`) is a vehicle-plate lookup and professional subscription platform for Tunisia. It shares this repository under `projects/idauto/` but maintains entirely separate storage, deployment, and lifecycle.
+ID Auto (`idauto.tn`) is a vehicle plate lookup and vehicle intelligence platform for Tunisia. It is a product within the Mythos ecosystem, sharing this repository under `projects/idauto/` and `docs/IDAUTO_*.md`.
 
 See `docs/IDAUTO_ROADMAP.md` for the full ID Auto stage plan.
 
 | Stage | Description | Status |
 |-------|-------------|--------|
 | IDA-0 | Foundation — schema, config, architecture, privacy contract | ✓ Done (2026-08-05) |
-| IDA-1 | Product and legal specification | Planned |
-| IDA-2 | MVP plate search API | Planned |
-| IDA-3 | Professional subscription portal | Planned |
-| IDA-4 | Service event tracking and fleet integration | Planned |
-| IDA-5 | Public launch and data enrichment | Future |
+| IDA-1 | Product vision, capture, access and data governance specification | ✓ Done (2026-08-05) |
+| IDA-2 | PostgreSQL Core, API and Manual Capture MVP | Planned |
+| IDA-3 | Public Smart Scanner and Carte Grise Workflow | Planned |
+| IDA-4 | Fixpert Smart Gate and Atelier Integration | Planned |
+| IDA-5 | Professional Partner Network | Planned |
+| IDA-6 | National Enrichment and Public/Professional Launch | Future |
 
-**Active priority:** Mythos OS Stage 4AG is the current priority. IDA-1 does not begin until Stage 4AG is complete or explicitly paused.
-
----
-
-## Acceptance Criteria — Stage 3C (Notes Runtime)
-
-- [ ] `js/plugins/notes.runtime.js` created
-- [ ] onBoot: validates `mp_rddocs_das` and `mp_rddocs_autres` localStorage (try/catch JSON.parse; reset to `"[]"` on corruption)
-- [ ] onReady: registers MythosSearch provider
-- [ ] `index.html` updated: `notes.plugin.js` → `notes.runtime.js`
-- [ ] `js/plugins/notes.plugin.js` deleted
-- [ ] All existing tests updated to load notes.runtime.js
-- [ ] `tests/stage3c-test.js`: ≥50 new tests, all pass
-- [ ] All regressions pass (stage2d, stage3a, stage3a5, stage3b)
-- [ ] 0 failures across full suite
+**Key decisions from IDA-1:**
+- ID Auto is a Mythos ecosystem product (integrated, not isolated)
+- PostgreSQL is the selected target DBMS (not yet installed)
+- Observation-first data model
+- Three access scopes: PUBLIC, PROFESSIONAL, MYTHOS_PRIVATE
+- Smart Gate events are always MYTHOS_PRIVATE
+- Plate format rules are unverified drafts pending official source confirmation
+- Fixpert workshop operations (clients, invoices, payments) belong to Fixpert; ID Auto provides the vehicle identity layer
