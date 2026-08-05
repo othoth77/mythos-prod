@@ -10,7 +10,7 @@
 
 ```
 Branch:   main
-HEAD:     (see IDA-0 commit below — updated after Stage 4AF)
+HEAD:     7c75abd (Stage IDA-0 — feat(idauto): establish ID Auto project foundation)
 ```
 
 **Stage IDA-0 is complete.** ID Auto Foundation established: 5 new files, 2 docs updated, separate product track added to ROADMAP.md.
@@ -71,9 +71,9 @@ HEAD:     (see IDA-0 commit below — updated after Stage 4AF)
 ### Implementation Commit
 
 ```
-feat(idauto): establish ID Auto project foundation
+7c75abd  feat(idauto): establish ID Auto project foundation (Stage IDA-0)
 ```
-*(commit hash recorded below after push)*
+Remote HEAD verified: `7c75abd`. Local HEAD == origin/main.
 
 ### Security Constraints (inherited, unchanged)
 
