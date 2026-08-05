@@ -1,6 +1,6 @@
 # Mythos OS — Roadmap
 
-**Last updated:** 2026-08-05 UTC
+**Last updated:** 2026-08-05 UTC (AVA-0 added)
 
 ---
 
@@ -90,6 +90,7 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 
 1. **Mythos OS:** Stage 3D (next) → 3E → 3F → 3G (runtime plugins)
 2. **ID Auto (parallel track):** IDA-2 — PostgreSQL Core, API and Manual Capture MVP
+3. **AutoValeur (parallel track):** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster)
 
 ---
 
@@ -117,3 +118,32 @@ See `docs/IDAUTO_ROADMAP.md` for the full ID Auto stage plan.
 - Smart Gate events are always MYTHOS_PRIVATE
 - Plate format rules are unverified drafts pending official source confirmation
 - Fixpert workshop operations (clients, invoices, payments) belong to Fixpert; ID Auto provides the vehicle identity layer
+
+---
+
+## AutoValeur — Separate Product Track
+
+AutoValeur is an independent vehicle valuation and Tunisian used-car market intelligence product inside the Mythos ecosystem. It is a product within the Mythos ecosystem, sharing this repository under `projects/autovaleur/` and `docs/AUTOVALEUR_*.md`.
+
+See `docs/AUTOVALEUR_ROADMAP.md` for the full AutoValeur stage plan.
+
+| Stage | Description | Status |
+|-------|-------------|--------|
+| AVA-0 | Foundation and Ecosystem Roadmap | ✓ Done (2026-08-05) |
+| AVA-1 | Public Calculator MVP | Planned |
+| AVA-2 | Professional Tier and Fixpert Integration | Planned |
+| AVA-3 | Market Data Foundation | Planned |
+| AVA-4 | Deal Radar MVP | Planned |
+| AVA-5 | Marketplace Integration and Completed Sales | Future |
+| AVA-6 | Model Maturity and Ecosystem Expansion | Future |
+
+**Key decisions from AVA-0:**
+- AutoValeur is a distinct product domain (not part of Fixpert or ID Auto)
+- Valuation results are always a range — never a single number
+- Valuation records are immutable snapshots (never overwritten)
+- Model version is mandatory on every result record
+- Asking price and completed sale price are always stored in separate fields
+- Deal Radar and acquisition pipeline are always MYTHOS_PRIVATE
+- No real market data ingested until AVA-3 (legal review required)
+- PostgreSQL target DBMS: 18-table `autovaleur` schema drafted (not deployed)
+- All feature flags: false in AVA-0

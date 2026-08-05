@@ -1,0 +1,391 @@
+{
+  "_note": "AutoValeur configuration draft — AVA-0 Foundation and Ecosystem Roadmap. All feature flags are false. No real data. Not deployed.",
+  "version": "0.1.0-ava0-draft",
+  "product": {
+    "name": "AutoValeur",
+    "tagline": "Estimation automobile et intelligence du marché tunisien",
+    "public_promise": "La vraie valeur de votre voiture",
+    "ecosystem": "mythos",
+    "stage": "AVA-0"
+  },
+
+  "database": {
+    "_note": "Target DBMS selected. NOT INSTALLED OR DEPLOYED in AVA-0.",
+    "target_dbms": "PostgreSQL",
+    "logical_schema": "autovaleur",
+    "implementation_stage": "AVA-1"
+  },
+
+  "access_scopes": {
+    "public": {
+      "description": "Any caller within rate limits. Receives estimated range, central value, quick-sale price, confidence score, comparable summary, factors, recommendations.",
+      "requires_auth": false,
+      "audit_required": false
+    },
+    "professional": {
+      "description": "Verified professional subscribers. Receives professional purchase/resale prices, repair estimates, margin analysis, bulk valuation, API access.",
+      "requires_auth": true,
+      "audit_required": false
+    },
+    "mythos_private": {
+      "description": "Mythos Super Admin only. Full raw inputs, deal alerts, deal pipeline, acquisition costs, model performance, all comparables.",
+      "requires_auth": true,
+      "audit_required": true,
+      "accessible_to": "MYTHOS_SUPER_ADMIN"
+    }
+  },
+
+  "product_versions": {
+    "public": {
+      "description": "Free public valuation tool",
+      "enabled": false,
+      "outputs": [
+        "estimated_market_range",
+        "central_market_value",
+        "quick_sale_price",
+        "confidence_score",
+        "comparable_summary",
+        "value_factors",
+        "recommendations"
+      ],
+      "never_exposed": [
+        "professional_purchase_price",
+        "professional_resale_price",
+        "net_margin",
+        "deal_alerts",
+        "deal_pipeline",
+        "idauto_private_observations",
+        "fixpert_private_records",
+        "completed_sale_prices",
+        "acquisition_strategy"
+      ]
+    },
+    "professional": {
+      "description": "Professional subscriber valuation and intelligence",
+      "enabled": false,
+      "outputs": [
+        "professional_purchase_price",
+        "professional_resale_price",
+        "repair_reconditioning_estimate",
+        "expected_gross_margin",
+        "expected_net_margin",
+        "expected_resale_period",
+        "bulk_valuation",
+        "valuation_reports",
+        "price_alerts"
+      ]
+    },
+    "intelligence": {
+      "description": "Mythos Super Admin internal decision support — MYTHOS_PRIVATE",
+      "enabled": false,
+      "access_scope": "mythos_private",
+      "outputs": [
+        "all_raw_market_inputs",
+        "full_price_change_history",
+        "actual_purchase_prices",
+        "completed_sale_prices",
+        "real_repair_parts_costs",
+        "predicted_vs_realised_margin",
+        "deal_alerts",
+        "deal_pipeline",
+        "regional_opportunity_analysis",
+        "model_performance_monitoring",
+        "acquisition_pipeline"
+      ],
+      "_note": "Must never be offered as a public vehicle-tracking or owner-profiling service."
+    }
+  },
+
+  "valuation_outputs": {
+    "_note": "Every valuation result returns a range and supporting metrics, never a single number.",
+    "fields": [
+      "estimated_market_range_min",
+      "estimated_market_range_max",
+      "central_market_value",
+      "quick_sale_price",
+      "professional_purchase_price",
+      "professional_resale_price",
+      "repair_reconditioning_cost",
+      "additional_expenses",
+      "potential_gross_margin",
+      "potential_net_margin",
+      "expected_resale_days",
+      "liquidity_score",
+      "opportunity_score",
+      "confidence_score",
+      "comparable_count",
+      "valuation_date",
+      "model_version"
+    ],
+    "currency": "TND",
+    "disclaimer": "All values are estimates. They are not guaranteed sale prices and do not constitute certified legal valuations."
+  },
+
+  "valuation_factors": {
+    "vehicle_identity": [
+      "make",
+      "model",
+      "variant",
+      "year",
+      "fuel_type",
+      "transmission",
+      "engine_displacement_cc",
+      "body_type",
+      "category"
+    ],
+    "vehicle_condition": [
+      "mileage_km",
+      "declared_condition",
+      "accident_history_declared",
+      "service_history",
+      "modification_declared",
+      "post_inspection_condition_grade"
+    ],
+    "market_inputs": [
+      "active_listing_prices",
+      "listing_age_days",
+      "time_to_sale_observed",
+      "completed_transaction_prices",
+      "regional_supply_count",
+      "regional_demand_signals",
+      "listing_refresh_frequency"
+    ],
+    "economic_inputs": [
+      "exchange_rate_eur_tnd",
+      "fuel_price_tnd",
+      "import_duty_applicable",
+      "seasonal_factor"
+    ]
+  },
+
+  "comparable_engine": {
+    "_note": "Comparable selection criteria. Not implemented in AVA-0.",
+    "selection_criteria": {
+      "make_model_match": "required",
+      "year_window_years": 2,
+      "fuel_type_match": "required",
+      "body_type_match": "preferred",
+      "mileage_window_percent": 30,
+      "region_scope": "national_first",
+      "min_comparables_for_high_confidence": 10,
+      "min_comparables_for_medium_confidence": 5,
+      "min_comparables_for_low_confidence": 3,
+      "min_comparables_for_display": 1
+    },
+    "quality_rules": {
+      "stale_listing_days": 60,
+      "stale_listing_reduction": "apply weight decay",
+      "duplicate_detection": "image_hash_and_plate",
+      "outlier_removal_method": "interquartile range",
+      "outlier_removal_threshold_iqr": 1.5
+    },
+    "initial_approach": "rule_based",
+    "ml_deferred": "until sufficient clean data"
+  },
+
+  "liquidity_score": {
+    "_note": "Liquidity score classes. Not calculated in AVA-0.",
+    "factors": [
+      "demand_index",
+      "average_time_to_sale_days",
+      "supply_ratio",
+      "price_stability",
+      "fuel_type_demand",
+      "body_type_demand",
+      "regional_preference"
+    ],
+    "classes": [
+      {"score_min": 80, "score_max": 100, "label": "Très liquide", "expected_days": "< 15"},
+      {"score_min": 60, "score_max": 79, "label": "Liquide", "expected_days": "15-30"},
+      {"score_min": 40, "score_max": 59, "label": "Modéré", "expected_days": "30-60"},
+      {"score_min": 20, "score_max": 39, "label": "Difficile", "expected_days": "60-120"},
+      {"score_min": 0, "score_max": 19, "label": "Très difficile", "expected_days": "> 120"}
+    ]
+  },
+
+  "opportunity_score": {
+    "_note": "Opportunity score for MYTHOS_PRIVATE Deal Radar. Not calculated in AVA-0.",
+    "dimensions": [
+      "asking_price_vs_market_percent",
+      "repair_cost_vs_margin_ratio",
+      "liquidity_score",
+      "confidence_score",
+      "time_on_market_days",
+      "comparable_availability",
+      "parts_availability",
+      "regional_demand"
+    ],
+    "classes": [
+      {"score_min": 80, "score_max": 100, "label": "Opportunité exceptionnelle"},
+      {"score_min": 60, "score_max": 79, "label": "Bonne opportunité"},
+      {"score_min": 40, "score_max": 59, "label": "Opportunité correcte"},
+      {"score_min": 20, "score_max": 39, "label": "Opportunité limitée"},
+      {"score_min": 0, "score_max": 19, "label": "Non recommandé"}
+    ]
+  },
+
+  "deal_radar": {
+    "_note": "Deal Radar is MYTHOS_PRIVATE. Not activated in AVA-0.",
+    "enabled": false,
+    "access_scope": "mythos_private",
+    "pipeline_states": [
+      "detected",
+      "normalised",
+      "duplicate_checked",
+      "idauto_matched",
+      "valued",
+      "repair_estimated",
+      "opportunity_scored",
+      "alerted",
+      "shortlisted",
+      "under_review",
+      "rejected"
+    ],
+    "constraints": [
+      "No automatic purchase",
+      "No automatic seller contact",
+      "No bypass of marketplace terms",
+      "Human review required before any shortlist action"
+    ]
+  },
+
+  "repair_estimate": {
+    "_note": "Repair and reconditioning cost pipeline. Not implemented in AVA-0.",
+    "enabled": false,
+    "contingency_reserve_percent": 15,
+    "labour_rate_source": "fixpert_atelier",
+    "parts_sources": ["ssangyong.autos"],
+    "parts_sources_future": ["general_spare_parts_platform"],
+    "legal_status": "LEGAL-REVIEW-REQUIRED"
+  },
+
+  "integrations": {
+    "idauto": {
+      "enabled": false,
+      "type": "read_only",
+      "activation_stage": "AVA-2",
+      "_note": "AutoValeur does not modify any idauto_ table"
+    },
+    "fixpert": {
+      "enabled": false,
+      "type": "read_only_reference",
+      "display_wording": "Estimation après inspection Fixpert",
+      "activation_stage": "AVA-2",
+      "_note": "Never 'Expertise légale certifiée'. No customer PII stored."
+    },
+    "ssangyong_autos": {
+      "enabled": false,
+      "type": "parts_price_query",
+      "legal_status": "LEGAL-REVIEW-REQUIRED",
+      "activation_stage": "AVA-2"
+    },
+    "marketplace": {
+      "enabled": false,
+      "type": "authorised_data_feed",
+      "legal_status": "LEGAL-REVIEW-REQUIRED",
+      "activation_stage": "AVA-5",
+      "_note": "Not scraping. Authorised API or feed only. No seller PII stored."
+    },
+    "mythos_core": {
+      "enabled": false,
+      "services": ["authentication", "roles_permissions", "audit_stream", "notifications", "billing"],
+      "activation_stage": "AVA-1"
+    }
+  },
+
+  "model_governance": {
+    "_note": "Model versioning rules. Not implemented in AVA-0.",
+    "version_increment_triggers": [
+      "Any change to comparable selection rules",
+      "Any change to weighting factors",
+      "Any change to depreciation curves",
+      "Any change to confidence calculation",
+      "Any change to liquidity or opportunity scoring"
+    ],
+    "evaluation_metrics": [
+      "mean_absolute_error_tnd",
+      "mean_absolute_percentage_error",
+      "hit_rate_in_range_percent",
+      "time_to_sale_accuracy",
+      "comparable_count_by_segment"
+    ],
+    "accuracy_monitoring": {
+      "enabled": false,
+      "method": "compare_valuation_to_completed_sale",
+      "requires": "completed_transaction_data"
+    }
+  },
+
+  "manipulation_fraud_resistance": {
+    "listing_deduplication": true,
+    "outlier_removal": true,
+    "source_trust_scoring": true,
+    "stale_listing_decay": true,
+    "asking_price_vs_completed_price_separation": true,
+    "professional_access_rate_limiting": true,
+    "deal_radar_human_review_required": true,
+    "audit_log_all_admin_access": true,
+    "model_version_mandatory_on_results": true,
+    "valuation_immutability": true,
+    "no_pii_in_public_outputs": true
+  },
+
+  "source_trust": {
+    "_note": "Trust levels for data sources. Not enforced in AVA-0.",
+    "levels": [
+      {"level": 5, "label": "verified_transaction", "description": "Confirmed completed sale with verified price"},
+      {"level": 4, "label": "verified_listing", "description": "Active listing from authorised source with manual verification"},
+      {"level": 3, "label": "authorised_feed", "description": "Data feed from contracted authorised partner"},
+      {"level": 2, "label": "public_listing", "description": "Public listing from known marketplace"},
+      {"level": 1, "label": "manual_entry", "description": "Manually entered by admin or professional user"}
+    ]
+  },
+
+  "legal_review_required": [
+    "Market listing ingestion from any external marketplace",
+    "Spare-parts data ingestion from any external platform",
+    "Any form of automated data collection",
+    "Deal Radar activation (listing source terms review)",
+    "Completed transaction price collection and display",
+    "Publication of valuation affecting financial decisions",
+    "Professional subscriber data retention and GDPR compliance",
+    "Fixpert repair data reuse for valuation purposes",
+    "ID Auto vehicle data reuse for valuation purposes",
+    "Image data from marketplace listings (copyright)",
+    "Seller identity and contact data (not to be stored)",
+    "Deal pipeline records and acquisition intelligence",
+    "Aggregate market statistics publication",
+    "Cross-border or diplomatic vehicle valuation",
+    "Any AI-driven valuation used in official documents or claims"
+  ],
+
+  "feature_flags": {
+    "_note": "All flags are false in AVA-0. No feature is active.",
+    "public_valuation": false,
+    "professional_valuation": false,
+    "idauto_lookup": false,
+    "fixpert_inspection_integration": false,
+    "repair_estimate": false,
+    "parts_price_lookup": false,
+    "marketplace_listing_ingestion": false,
+    "completed_sale_tracking": false,
+    "deal_radar": false,
+    "deal_pipeline": false,
+    "price_alerts": false,
+    "bulk_fleet_valuation": false,
+    "valuation_api": false,
+    "professional_reports": false,
+    "model_accuracy_monitoring": false,
+    "regional_opportunity_analysis": false
+  },
+
+  "retention_placeholders": {
+    "_note": "All retention periods to be determined in legal review.",
+    "valuation_records": null,
+    "market_listing_snapshots": null,
+    "repair_estimates": null,
+    "deal_pipeline_records": null,
+    "audit_events": null,
+    "professional_subscriber_data": null
+  }
+}
