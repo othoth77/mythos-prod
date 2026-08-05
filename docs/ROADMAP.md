@@ -63,23 +63,17 @@ Fleet Pro:  requires IDA-2 + ATN-1 + Legal clearance
 | 3A.5 | Runtime Services | ✓ Done |
 | 3B | Contacts Runtime | ✓ Done |
 | 3C | Notes Runtime | ✓ Done |
+| 3D | Planning Runtime — onBoot validation, MythosSearch + MythosCalendar providers | ✓ Done (2026-07-30) |
 
 ---
 
 ### In Progress
 
-*None. Stage 3D is next.*
+*None. Stage 3E is next.*
 
 ---
 
 ### Upcoming Stages (in dependency order)
-
-### Stage 3D — Planning Runtime
-**Depends on:** None (can run any time)  
-**Deliverable:** `js/plugins/planning.runtime.js`  
-**Replaces:** `js/plugins/planning.plugin.js`  
-**Test file:** `tests/stage3d-test.js`  
-**What it provides:** onBoot: validate `mp_rappels`/`mp_rappel_types`. onReady: register MythosCalendar + MythosSearch providers.
 
 ### Stage 3E — Calendar Runtime
 **Depends on:** 3B, 3C, 3D (wiring all providers)  
@@ -131,13 +125,13 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 
 ## Current Priority
 
-1. **Mythos OS:** Stage 3D (next) → 3E → 3F → 3G (runtime plugins) — Stage 3G is HIGH risk (30 routes, 19 storage keys); must have its own deployment window separate from IDA-2
-2. **ID Auto:** IDA-2 — PostgreSQL Core, API and Manual Capture MVP — NEXT AUTHORISED IMPLEMENTATION STAGE
-3. **Atelier Network:** ATN-1 — Workshop Registry + First Integration (after IDA-2; parallel with AVA-1)
-4. **AutoValeur:** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster; parallel with ATN-1)
+1. **Mythos OS:** Stage 3E (next) → 3F → 3G (runtime plugins) — Stage 3D complete; Stage 3G is HIGH risk (30 routes, 19 storage keys); must have its own deployment window separate from IDA-2
+2. **ID Auto:** IDA-2 — PostgreSQL Core, API and Manual Capture MVP — NEXT AUTHORISED IMPLEMENTATION STAGE (after Stage 3D–3F)
+3. **Atelier Network:** ATN-1 — Workshop Registry + First Integration (after IDA-2)
+4. **AutoValeur:** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster)
 5. **Ecosystem (parallel — docs only):** MAE-0 + ATN-0 complete; MAE-1 not started (blocked on IDA-2)
 
-**One-major-stage rule in force:** IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 may run in parallel after IDA-2 completes (both are non-overlapping implementation domains).
+**One-major-stage rule in force:** Only one major implementation stage may be active at a time unless the user gives explicit parallel authorisation. IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 cannot run in parallel without explicit user authorisation — they are sequential after IDA-2.
 
 ---
 

@@ -76,7 +76,9 @@ Public-facing applications remain publicly reachable but are protected by:
 
 - **SSL Flexible is prohibited.** All traffic between Cloudflare and the origin must be encrypted.
 - Direct HTTPS origins must use **Full (strict)** mode — Cloudflare validates the origin certificate against a trusted CA.
-- Self-signed or Cloudflare Origin CA certificates are acceptable only with Full (strict) and valid certificate pinning in the Tunnel configuration.
+- Origin certificates for Full (strict) must be issued by a publicly trusted CA or by Cloudflare Origin CA.
+- Tunnel routes using local HTTP between cloudflared and the application container do not require an origin TLS certificate (the Tunnel-to-Cloudflare leg is already encrypted).
+- Self-signed origin certificates require separate explicit approval and handling; they are not the approved default for direct HTTPS origins.
 
 ### 2.7 WAF and Rate Limiting
 
@@ -111,7 +113,7 @@ R2 constraints:
 ### 2.11 Domain Watch
 
 - The Domain Watch HTTP interface may pass through Cloudflare (WAF, rate limiting, TLS).
-- WHOIS checks run on the VPS (not in Cloudflare Workers) — WHOIS queries require outbound TCP from the VPS, which Cloudflare does not proxy.
+- WHOIS checks run on the VPS as an architectural choice for scheduling, retries, logging, persistence, and operational control.
 - Default Domain Watch schedule:
   - Normal domains: once every 24 hours.
   - Low-priority domains: once every 7 days.

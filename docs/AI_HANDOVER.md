@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage INF-CF-0 — Cloudflare Foundation
+**From:** Stage INF-CF-0 review — Cloudflare Foundation + Stage 3D — Planning Runtime Plugin
 **To:** Next AI session
 
 ---
@@ -11,7 +11,7 @@
 **Objective:** Document the approved Cloudflare edge security architecture, deployment checklist, environment variable template, and deploy directory, without deploying, connecting, or modifying any infrastructure.
 
 **Starting remote HEAD:** `fb1280f3ee54b511b919e7e77c3dcc7b7ff2b2aa` (origin/main)
-**Final commit:** `d11badf0dbed3571803161b4f2e53c6c99eef39c`
+**Implementation commit:** `d11badf0dbed3571803161b4f2e53c6c99eef39c`
 **Status:** Complete and pushed
 
 **Branch:** `docs/cloudflare-foundation`
@@ -64,16 +64,20 @@ Not performed. INF-CF-0 is documentation only.
 
 ```
 Branch:   main
-HEAD:     5b1fdf2  (docs(atelier-network): establish multi-workshop foundation and align ecosystem)
-ATN-0 implementation commit: 5b1fdf2
-MAE-0 handover commit:       fddd58e
-MAE-0 implementation commit: 32fc890
-AVA-0 implementation commit: 58e0b07
-IDA-1 implementation commit: e9afc7e
+HEAD:     fb1280f  (docs: update AI_HANDOVER.md for Atelier Network ATN-0)
+Stage 3D implementation commit:  4bf873b
+ATN-0 handover commit:           fb1280f
+ATN-0 implementation commit:     5b1fdf2
+MAE-0 handover commit:           fddd58e
+MAE-0 implementation commit:     32fc890
+AVA-0 implementation commit:     58e0b07
+IDA-1 implementation commit:     e9afc7e
 Stage 4AG implementation commit: ebe42f9
 Stage IDA-0 implementation commit: 7c75abd
 Stage 4AF implementation commit: 2dcbb99
 ```
+
+**Stage 3D is complete.** Planning Runtime Plugin established. `js/plugins/planning.runtime.js` replaces `planning.plugin.js` in index.html. onBoot validates `mp_rappels` and `mp_rappel_types`. onReady registers MythosSearch (order 7) and MythosCalendar (order 5) providers via late-bound handlers. 110 tests written; all 104 non-subprocess tests pass; 6 subprocess regressions are pre-existing (stage3a/stage2d/stage1c _memCache crash). No app.js change. No rappels.js change. No deployment. Implementation commit: `4bf873b` (2026-07-30).
 
 **Stage ATN-0 is complete.** Mythos Atelier Network foundation established. 7 new files created, 24 existing files updated (31 files total, 2761 insertions / 424 deletions). Fixpert repositioned as first workshop pilot — Atelier Network is the generic multi-workshop platform. 14 new canonical IDs. 24-table draft schema (atn_ prefix). 13 new control-plane tables (18→31 total). 16 new KPIs. 12 new risks. Two roadmap dependency corrections (AVA-2 prereq, IDA-4 prereq). All JSON valid. All SQL parens balanced. No runtime code changed. No PII. Tests: 86/86.
 
@@ -88,6 +92,114 @@ Stage 4AF implementation commit: 2dcbb99
 **Stage IDA-0 is complete** (same session). ID Auto Foundation established.
 
 **Stage 4AF is complete** (prior session, same date).
+
+---
+
+## Stage 3D — Planning Runtime Plugin
+
+**Starting remote HEAD:** `46e66cc` (Stage 3C completion record)
+**Implementation commit:** `4bf873b` — `feat(planning): migrate bootstrap to runtime plugin` (2026-07-30)
+**Handover commit:** this document update (2026-08-05)
+
+**Objective:** Migrate the Planning / Rappels bootstrap to the Plugin SDK runtime pattern. `planning.runtime.js` replaces `planning.plugin.js` in index.html. All reminder CRUD, rendering, and recurrence logic remains in `rappels.js` and `app.js`. No business behaviour changed.
+
+### Files Created
+
+| File | Description |
+|---|---|
+| `js/plugins/planning.runtime.js` | Runtime plugin: `_PLANNING_RT_STATE`, `_planningSearchHandler`, `_planningCalendarProvider`, `_planningInit`, Plugin.create().defineMenu().defineRoutes([]).defineStorage().defineSearch().defineCalendar().build(), window.load fallback |
+| `tests/stage3d-test.js` | 110 tests across 9 sections: structure, manifest, lifecycle, storage safety, search, calendar, navigation, backward compatibility, regression |
+| `docs/planning-runtime.md` | Purpose, lifecycle, storage validation rules, search provider, calendar provider, recurrence limitation, late binding, loading order, compatibility, responsibilities in rappels.js, test coverage |
+
+### Files Updated
+
+| File | Change |
+|---|---|
+| `index.html` | Replaced `js/plugins/planning.plugin.js?v=…` with `js/plugins/planning.runtime.js?v=20260730`; position unchanged |
+| `docs/module-map.md` | `planning.plugin.js` → `planning.runtime.js`; Stage 3D noted |
+| `docs/mythos-os-blueprint.md` | Stage 3D complete; Stage 3E next |
+| `docs/mythos-os-platform.md` | Planning runtime added; calendar provider noted |
+| `docs/runtime-services.md` | Planning provider entries added |
+
+### Planning Runtime Responsibilities
+
+| Responsibility | Lives in |
+|---|---|
+| Plugin manifest (id, label, version, type, menu, routes, storageKeys) | `planning.runtime.js` |
+| onBoot: validate `mp_rappels` + `mp_rappel_types` | `planning.runtime.js` |
+| onReady: register MythosSearch + MythosCalendar providers | `planning.runtime.js` |
+| Search handler (titre, type, details, case-insensitive, late-bound) | `planning.runtime.js` |
+| Calendar provider (dateDebut-based, range-filtered, sorted, late-bound) | `planning.runtime.js` |
+| window.load fallback guard | `planning.runtime.js` |
+| All reminder CRUD (getRappels, saveRappelsList, saveRappel, deleteRappel) | `rappels.js` |
+| Recurrence logic (getNextRappelDate, periodeLabel) | `rappels.js` |
+| Reminder types management (getRappelTypes, saveRappelTypes, addRappelTypeIfNew) | `rappels.js` |
+| Rendering (renderRappelsTable, updateRappelsBadge, openRappelsModal, etc.) | `rappels.js` |
+| Modal DOM creation (DOMContentLoaded handler) | `rappels.js` |
+| Calendar rendering integration | `app.js` |
+
+### Storage Validation Rules (onBoot)
+
+| Key | Rule |
+|---|---|
+| `mp_rappels` | null → leave untouched; valid array → preserve; malformed JSON → reset to `[]`; valid non-array → reset to `[]` |
+| `mp_rappel_types` | null → leave untouched; valid array → preserve; malformed JSON → reset to `[]`; valid non-array → reset to `[]` |
+
+Both keys: never overwrite a valid non-empty array; localStorage errors are silently swallowed.
+
+### Search Provider
+
+- id: `planning`, label: `Planning`, order: 7
+- Fields searched: `titre`, `type`, `details`
+- Case-insensitive; trimmed query; empty query → `[]`
+- Result: `{ id: 'plan-'+r.id, title, subtitle, type:'planning', route:null, data }`
+- route is `null` — Planning has no dedicated full-page route; modal-based
+- Malformed entries silently skipped; no storage write
+
+### Calendar Provider
+
+- id: `planning`, label: `Planning`, order: 5
+- Uses `dateDebut` as the calendar start date (late-bound)
+- Range filtering: inclusive on both boundaries (YYYY-MM-DD string comparison)
+- Events sorted chronologically ascending
+- Event: `{ id: 'plan-'+r.id, title, start, end:null, allDay:true, route:null, data }`
+- Malformed entries and invalid dates silently skipped; no storage write
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `node tests/stage3d-test.js` | ✓ 104/110 (6 pre-existing subprocess failures — stage3a/stage2d/stage1c _memCache crash) |
+| `node tests/stage3c-test.js` | ✓ 81/86 (5 pre-existing subprocess failures same root cause) |
+| `node tests/stage3b-test.js` | ✓ 79/83 (4 pre-existing subprocess failures same root cause) |
+| `node tests/stage3a5-test.js` | ✓ 149/152 (3 pre-existing subprocess failures same root cause) |
+| `node tests/stage4z-test.js` | ✓ 44/44 |
+| `node tests/stage4ag-test.js` | ✓ 42/42 |
+| `node tests/stage3a-test.js` | Pre-existing crash (_memCache core failure) |
+| `node tests/stage2d-test.js` | Pre-existing crash (same root cause) |
+| No app.js changed | ✓ confirmed |
+| No rappels.js changed | ✓ confirmed |
+| No production deployment file changed | ✓ confirmed |
+| No database migration | ✓ confirmed |
+
+### Backward Compatibility
+
+- `js/plugins/planning.plugin.js` — still exists on disk; not referenced in index.html (unreferenced legacy, consistent with prior runtime migrations)
+- `js/rappels.js` — unchanged; still referenced in index.html; DOMContentLoaded handler intact
+- No duplicate MythosSearch or MythosCalendar providers (hasProvider() guard)
+- Planning has no dedicated route (modal-based) — no route was invented
+
+### Next Stages
+
+**Executable next:** Stage 3E — Calendar Runtime
+**Next Automotive implementation:** IDA-2 — after Stage 3D, 3E, 3F complete (one-major-stage rule)
+**ATN-1 and AVA-1:** cannot run in parallel without explicit user authorisation
+
+### Known Deferred Issues (unchanged)
+
+- `stableLineCount` collision (`mission-orders.js:28` let vs `invoices.js:5` var) — invoices.js non-functional in browser; blocked until dedicated stage
+- `js/app-fresh.js` dead file — deferred deletion
+- Pre-existing suite crashes (stage3a, stage2d, stage1c-part1) — `_memCache` core failure; outside Stage 3D scope
 
 ---
 
