@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage 4AD — Backup/Export/Restore extraction
+**From:** Stage 4AE — Documentation domain extraction
 **To:** Next AI session
 
 ---
@@ -10,13 +10,16 @@
 
 ```
 Branch:   main
-HEAD:     809e8bf (Stage 4AD implementation commit)
+HEAD:     87079a4 (Stage 4AE implementation commit)
 ```
 
-**Stage 4AD is complete.** Backup/Export/Restore domain (274 lines, `js/app.js` lines 1043–1316) extracted to `js/shared/backup.js`. Tests: 71/71. Full Stage 4 suite (4A–4AD, 30 files): all Stage 4 tests passing, 0 failures.
+**Stage 4AE is complete.** Documentation domain (~568 lines, `js/app.js` lines 1050–1617 post-4AD) extracted to `js/shared/documentation.js`. Tests: 142/142. Full Stage 4 suite (4A–4AE, 31 files): all Stage 4 tests passing, 0 failures.
 
-Implementation commit: `809e8bf` — `Stage 4AD: Extract Backup/Export/Restore domain to js/shared/backup.js`
-Verified remote HEAD: `809e8bf`
+Implementation commit: `87079a4` — `Stage 4AE: Extract Documentation domain into js/shared/documentation.js`
+Verified remote HEAD: `87079a4`
+
+**Previous stage also complete (same session):**
+- Stage 4AD: Backup/Export/Restore domain (274 lines), commit `6363e34`
 
 **Previous stages also complete** (same session):
 - Stage 4AC: Spectacle Calculator, commit `dfe9cf7`
@@ -43,14 +46,13 @@ Verified remote HEAD: `809e8bf`
 
 **Validation:** 24/24; full suite 1717/1717 (29 files). Implementation commit: `dfe9cf7`.
 
-### Remaining js/app.js responsibilities after Stage 4AD
+### Remaining js/app.js responsibilities after Stage 4AE
 
-`js/app.js` is now **1833 lines**. Remaining coherent domains:
+`js/app.js` is now **1276 lines**. Remaining coherent domains:
 
-| Domain | Approx lines (post-4AD) | Notes |
+| Domain | Approx lines (post-4AE) | Notes |
 |--------|------------------------|-------|
-| Documentation | ~570 lines (~1047–1617) | `renderDocumentation`, `openDocFolder`, `_renderDocHome`, `_renderDocFolder`, `openDocModal`, `closeDocModal`, `saveDoc`, `deleteDoc`, `docPrint`, `moveDoc`, `openBulkUploadModal`, `saveBulkDocs` and helpers — **next extraction target** |
-| Camera Modal | ~195 lines (~1618–1812) | `openCameraModal`, `_startCamera`, `switchCamera`, `capturePhoto`, `cameraMobileCapture`, `saveCapturedPhoto`, `closeCameraModal` |
+| Camera Modal | ~195 lines (~1060–1255) | `openCameraModal`, `_startCamera`, `switchCamera`, `capturePhoto`, `cameraMobileCapture`, `saveCapturedPhoto`, `closeCameraModal` — **next extraction target (Stage 4AF)** |
 | Invoice/OM helpers | ~195 lines (147–340) | `populateInvoiceList`, `populateOmList`, `editInvoice`, `deleteInvoice`, `editOm`, `deleteOm`, `cancelOM`, `addOmPerson`, etc. |
 | Demo data initialization | ~278 lines (343–620) | `initializeDemoData` — high risk, skip |
 | STORE + utilities | lines 18–140 | High risk, skip |
@@ -59,7 +61,49 @@ Verified remote HEAD: `809e8bf`
 
 ### Exact Next Scope
 
-**Stage 4AE:** Extract Documentation domain from `js/app.js` (~570 lines, approximately lines 1047–1620 in post-4AD numbering). Confirm exact boundary by reading the `// ══ DOCUMENTATION` section header through the last function of the documentation domain. Functions include: `renderDocumentation`, `_renderDocHome`, `_renderDocFolder`, `openDocFolder`, `openDocModal`, `closeDocModal`, `saveDoc`, `deleteDoc`, `docPrint`, `moveDoc`, `openBulkUploadModal`, `saveBulkDocs` and associated helpers. Dependencies: `STORE`, `escapeHtml`, `document`, `alert`, `confirm`, `fetch`. Must check for callers outside the doc block before extracting.
+**Stage 4AF:** Extract Camera Modal domain from `js/app.js` (~195 lines, lines 1060–1255 approximately in post-4AE numbering). The section begins at `// ══════ CAMÉRA — Prise de photo directe`. Functions: `openCameraModal`, `_startCamera`, `switchCamera`, `capturePhoto`, `cameraMobileCapture`, `saveCapturedPhoto`, `closeCameraModal`. State vars: `_cameraStream`, `_cameraFacing`, `_capturedDataUrl`, `_cameraContext`.
+
+**Critical dependency (must preserve):** `saveCapturedPhoto` calls `_saveDocRecord`, `renderDocList`, `_docCurrentFolder` — all now in `js/shared/documentation.js`. Script tag for `camera.js` must come AFTER `documentation.js` in `index.html`.
+
+Dependencies: `STORE`, `document`, `navigator.mediaDevices`, `alert`, `confirm`, browser globals. No shared utilities needed.
+
+---
+
+## Stage 4AE — Documentation Domain Extraction
+
+**Objective:** Extract the complete Documentation domain (~568 lines, `js/app.js` lines 1050–1617 post-4AD) into `js/shared/documentation.js`. Covers folder navigation, document CRUD, preview helpers, upload, bulk upload, and the move-menu click listener.
+
+**Exact extraction boundary:** lines 1050–1617, from `// ══════ DOCUMENTATION` section header through the closing `}` of `saveBulkDocs`. Line 1618 (`// ══ CAMÉRA`) is the first line not extracted.
+
+### Architectural decisions
+
+- `_docCurrentFolder`, `DOC_FOLDERS`, `_bulkFiles` moved as module-level vars.
+- `document.addEventListener('click', ...)` (closes move-menus on outside click) moved into module — single `<script>` tag prevents double-registration.
+- `renderDocList(cat)` compat alias (`→ _renderDocFolder(cat)`) preserved verbatim.
+- `switchDocTab(cat)` compat alias (`→ openDocFolder(cat)`) preserved verbatim.
+- No dependency on `escapeHtml` changed — still resolved at call time from `utils.js`.
+- Camera Modal (`saveCapturedPhoto`) calls `_saveDocRecord`, `renderDocList`, `_docCurrentFolder` — `documentation.js` **must** load before `camera.js`.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/documentation.js` | NEW: 33 functions + 3 state vars, ~350 lines |
+| `js/app.js` | Removed 568 lines (1050–1617); replaced with 10-line reference comment; new total **1276 lines** |
+| `index.html` | Added `<script src="js/shared/documentation.js?v=20260805"></script>` after `backup.js`, before `taches.js` |
+| `tests/stage4ae-test.js` | NEW: 142 tests across 29 sections |
+| `tests/stage4z-test.js` | Updated Section 3: removed `renderDocumentation` from app.js check; added 3 assertions verifying it in `documentation.js`; now 42/42 |
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/documentation.js` | ✓ |
+| `tests/stage4ae-test.js` | ✓ 142/142 |
+| `tests/stage4z-test.js` | ✓ 42/42 |
+| All Stage 4 tests (4A–4AE, 31 files) | ✓ 0 failures |
+
+Implementation commit: `87079a4`. Remote HEAD verified `87079a4`.
 
 ---
 
