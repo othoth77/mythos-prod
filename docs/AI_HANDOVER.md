@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage 4AC — Spectacle Calculator extraction
+**From:** Stage 4AD — Backup/Export/Restore extraction
 **To:** Next AI session
 
 ---
@@ -10,16 +10,18 @@
 
 ```
 Branch:   main
-HEAD:     dfe9cf7 (Stage 4AC implementation commit)
+HEAD:     809e8bf (Stage 4AD implementation commit)
 ```
 
-**Stage 4AC is complete.** Spectacle Calculator (52 lines, `js/app.js` lines 1318–1369) extracted to `js/shared/spectacle-calculator.js`. Tests: 24/24. Full Stage 4 suite (4A–4AC, 29 files): 1717/1717, 0 failures.
+**Stage 4AD is complete.** Backup/Export/Restore domain (274 lines, `js/app.js` lines 1043–1316) extracted to `js/shared/backup.js`. Tests: 71/71. Full Stage 4 suite (4A–4AD, 30 files): all Stage 4 tests passing, 0 failures.
 
-Implementation commit: `dfe9cf7` — `Stage 4AC — extract Spectacle Calculator to js/shared/spectacle-calculator.js`
-Docs commit: (this update)
-Verified remote HEAD: `dfe9cf7`
+Implementation commit: `809e8bf` — `Stage 4AD: Extract Backup/Export/Restore domain to js/shared/backup.js`
+Verified remote HEAD: `809e8bf`
 
-**Stage 4AB is also complete** (same session). The Répertoire Contacts domain (1259 lines, `js/app.js` lines 745–2003) extracted to `js/shared/contacts.js`. Implementation commit: `95d9453`.
+**Previous stages also complete** (same session):
+- Stage 4AC: Spectacle Calculator, commit `dfe9cf7`
+- Stage 4AB: Répertoire Contacts domain (1259 lines), commit `95d9453`
+- Stage 4AA: Inscriptions/Appels domain, commit (see prior handover entries)
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
@@ -41,15 +43,14 @@ Verified remote HEAD: `dfe9cf7`
 
 **Validation:** 24/24; full suite 1717/1717 (29 files). Implementation commit: `dfe9cf7`.
 
-### Remaining js/app.js responsibilities after Stage 4AC
+### Remaining js/app.js responsibilities after Stage 4AD
 
-`js/app.js` is now **2104 lines**. Remaining coherent domains:
+`js/app.js` is now **1833 lines**. Remaining coherent domains:
 
-| Domain | Approx lines | Notes |
-|--------|-------------|-------|
-| Backup/Export/Restore | ~275 lines (1043–1317) | `_getAllData`, `exportBackup`, `importBackup`, `createBackupVersion`, `exportVersionHistory`, `pushAllToServer`, `renderBackupDashboard`, `runDiskCleanup`, `_restoreVersion`, `_deleteVersion`, `_restoreServerBackup` |
-| Documentation | ~570 lines (1373–1937) | `renderDocumentation`, `openDocFolder`, `_renderDocHome`, `_renderDocFolder`, `openDocModal`, `closeDocModal`, `saveDoc`, `deleteDoc`, `docPrint`, `moveDoc`, `openBulkUploadModal`, `saveBulkDocs` and helpers |
-| Camera Modal | ~195 lines (1938–2130) | `openCameraModal`, `_startCamera`, `switchCamera`, `capturePhoto`, `cameraMobileCapture`, `saveCapturedPhoto`, `closeCameraModal` |
+| Domain | Approx lines (post-4AD) | Notes |
+|--------|------------------------|-------|
+| Documentation | ~570 lines (~1047–1617) | `renderDocumentation`, `openDocFolder`, `_renderDocHome`, `_renderDocFolder`, `openDocModal`, `closeDocModal`, `saveDoc`, `deleteDoc`, `docPrint`, `moveDoc`, `openBulkUploadModal`, `saveBulkDocs` and helpers — **next extraction target** |
+| Camera Modal | ~195 lines (~1618–1812) | `openCameraModal`, `_startCamera`, `switchCamera`, `capturePhoto`, `cameraMobileCapture`, `saveCapturedPhoto`, `closeCameraModal` |
 | Invoice/OM helpers | ~195 lines (147–340) | `populateInvoiceList`, `populateOmList`, `editInvoice`, `deleteInvoice`, `editOm`, `deleteOm`, `cancelOM`, `addOmPerson`, etc. |
 | Demo data initialization | ~278 lines (343–620) | `initializeDemoData` — high risk, skip |
 | STORE + utilities | lines 18–140 | High risk, skip |
@@ -58,7 +59,44 @@ Verified remote HEAD: `dfe9cf7`
 
 ### Exact Next Scope
 
-**Stage 4AD:** Extract Backup/Export/Restore domain from `js/app.js` lines 1043–1317 (~275 lines) into `js/shared/backup.js`. Confirm exact boundary by reading the section headers. Functions: `_getAllData`, `exportBackup`, `importBackup`, `createBackupVersion`, `exportVersionHistory`, `pushAllToServer`, `renderBackupDashboard`, `runDiskCleanup`, `_restoreVersion`, `_deleteVersion`, `_restoreServerBackup`. Dependencies: `STORE`, `JSON`, `Date`, `Blob`, `URL`, `fetch`, `document`, `alert`, `confirm`. Must check if `_getAllData` is called from outside this block.
+**Stage 4AE:** Extract Documentation domain from `js/app.js` (~570 lines, approximately lines 1047–1620 in post-4AD numbering). Confirm exact boundary by reading the `// ══ DOCUMENTATION` section header through the last function of the documentation domain. Functions include: `renderDocumentation`, `_renderDocHome`, `_renderDocFolder`, `openDocFolder`, `openDocModal`, `closeDocModal`, `saveDoc`, `deleteDoc`, `docPrint`, `moveDoc`, `openBulkUploadModal`, `saveBulkDocs` and associated helpers. Dependencies: `STORE`, `escapeHtml`, `document`, `alert`, `confirm`, `fetch`. Must check for callers outside the doc block before extracting.
+
+---
+
+## Stage 4AD — Backup/Export/Restore Domain Extraction
+
+**Objective:** Extract Backup/Export/Restore domain (11 functions, 274 lines, `js/app.js` original lines 1043–1316) into `js/shared/backup.js`.
+
+**Exact extraction boundary:** lines 1043–1316, from `// ══════ SAUVEGARDE — fonctions manquantes` through the closing `}` of `_restoreServerBackup`. Line 1317 (`// ── Spectacle Calculator …`) was the first line not extracted.
+
+### Architectural decisions
+
+- `RESTORE_KEY_MAP` remains in `js/app.js` (defined at line 72, used by sync domain and other locations outside the backup block).
+- `_getAllData` confirmed internal-only: only called at original lines 1056 and 1101, both within the backup domain.
+- `todayStr()` and `escapeHtml()` are globals from `utils.js` — resolved at call time.
+- `LOGGER` usage in `exportBackup` is already guarded by `typeof LOGGER !== 'undefined'`.
+- Router caller: only `renderBackupDashboard()` called from `router.js` line 89.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/backup.js` | NEW: 11 functions, ~250 lines |
+| `js/app.js` | Removed 274 lines (1043–1316); replaced with 4-line reference comment; new total **1833 lines** |
+| `index.html` | Added `<script src="js/shared/backup.js?v=20260805"></script>` after `spectacle-calculator.js`, before `taches.js` |
+| `tests/stage4ad-test.js` | NEW: 71 tests across 21 sections |
+| `tests/stage4z-test.js` | Updated: 3 assertions moved from "in app.js" to "in backup.js"; net +3, now 40 passing |
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/backup.js` | ✓ |
+| `tests/stage4ad-test.js` | ✓ 71/71 |
+| `tests/stage4z-test.js` | ✓ 40/40 |
+| All Stage 4 tests (4A–4AD, 30 files) | ✓ 0 failures |
+
+Implementation commit: `809e8bf`. Remote HEAD verified `809e8bf`.
 
 ---
 
