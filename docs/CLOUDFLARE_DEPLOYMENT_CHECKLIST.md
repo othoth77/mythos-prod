@@ -106,14 +106,14 @@ All stages must be executed sequentially. Each stage must be validated, document
 - Verify all migrated records resolve correctly through Cloudflare.
 - Enable proxy (orange-cloud) for application hostnames.
 - Verify DNS-only (grey-cloud) records for infrastructure that must bypass Cloudflare.
-- Enable DNSSEC in Cloudflare (do not configure DS records at registrar yet — that is INF-CF-5).
+- Do not enable DNSSEC yet. DNSSEC activation (Cloudflare-side signing and DS-record publication at the registrar) is deferred entirely to INF-CF-5.
 - Monitor for DNS-related errors and user reports for at least 48 hours.
 
 ### Validation
 - All expected records resolve correctly.
 - TLSA/DANE records (if any) updated or removed before migration.
 - Email delivery (MX, SPF, DKIM, DMARC) confirmed functional.
-- No DNSSEC validation errors (DNSSEC not yet fully enabled — DS records deferred).
+- No DNSSEC validation errors (DNSSEC not enabled at this stage — fully deferred to INF-CF-5).
 - Existing application services remain reachable.
 
 ### Rollback
@@ -157,7 +157,7 @@ All stages must be executed sequentially. Each stage must be validated, document
   - `files.mythosprod.xyz` → file service or R2 (HTTP).
   - Default catch-all: HTTP 404.
 - Add the Tunnel token as an encrypted environment variable in Coolify.
-- Deploy a `cloudflared` container in Coolify using the official `cloudflare/cloudflared` image, running `cloudflared tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}`.
+- Deploy a `cloudflared` container in Coolify using the official `cloudflare/cloudflared` image pinned to a specific released version tag (not `latest`), running `cloudflared tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}`. Record the pinned version in the Coolify service configuration and update it deliberately, not automatically.
 - Verify the Tunnel connects and shows as Healthy in the Zero Trust dashboard.
 - Close all inbound ports on the VPS firewall that were previously used for public HTTP/HTTPS (ports 80, 443).
 - Confirm application services are reachable only through Cloudflare Tunnel hostnames.
@@ -170,11 +170,13 @@ All stages must be executed sequentially. Each stage must be validated, document
 - Application services function correctly through Tunnel.
 
 ### Rollback
-- Stop the cloudflared container in Coolify.
-- Reopen VPS firewall ports 80/443 if needed for fallback.
-- Revert DNS records to point directly to VPS IP (DNS-only, not proxied) if emergency direct access is required.
-- Delete the Tunnel from Cloudflare Zero Trust dashboard.
-- Rotate the Tunnel token.
+- First, verify access via the Coolify provider console or out-of-band administrative SSH (already permitted per the VPS default-deny firewall policy) — do not assume Tunnel loss means loss of all access.
+- Attempt to restart or re-create the Tunnel from the previously verified Zero Trust configuration before considering any origin exposure change.
+- Only if the Tunnel path is confirmed unrecoverable and emergency direct access is unavoidable: reopen VPS firewall ports 80/443 restricted to a pre-approved administrative IP allowlist, for a bounded time window — never as an open public listener.
+- Do not publish an unproxied (DNS-only) A/AAAA record for an application hostname — this discloses the origin IP and removes WAF/DDoS/rate-limiting protection. If emergency direct access is unavoidable, use a temporary non-production hostname, not the application's existing DNS name.
+- Delete the Tunnel from Cloudflare Zero Trust dashboard only after an alternative access path has been verified working.
+- Rotate the Tunnel token immediately if it may have been exposed.
+- Reverse all emergency changes (close the temporarily opened ports, remove any temporary DNS record) as soon as the Tunnel is restored, and confirm the origin IP is no longer publicly reachable.
 
 ### Secrets Handling
 - Tunnel token stored only in Coolify encrypted environment variables.
@@ -223,8 +225,9 @@ All stages must be executed sequentially. Each stage must be validated, document
 - Session duration enforcement works (test by waiting for session expiry).
 
 ### Rollback
-- Remove Access application from Cloudflare Zero Trust for the affected hostname.
-- Hostname falls back to direct Tunnel routing (application auth still required).
+- For public/non-administrative hostnames: removing the Access application is acceptable — the hostname falls back to direct Tunnel routing with application auth as the sole control.
+- For administrative hostnames (`coolify.mythosprod.xyz`, `admin.mythosprod.xyz`, `n8n.mythosprod.xyz`, and `watch.mythosprod.xyz` if classified private): do not remove Access without a compensating control in place first — either a Cloudflare WAF rule restricting the hostname to a known administrative IP range, or provider-console-only access as the interim path. Application auth alone is not an acceptable steady-state control for administrative hostnames.
+- Any Access removal on an administrative hostname must be time-bounded, logged, and re-enabled at the earliest opportunity.
 - No DNS or Tunnel changes needed.
 
 ### Secrets Handling
@@ -248,6 +251,7 @@ All stages must be executed sequentially. Each stage must be validated, document
 - INF-CF-4 complete.
 - TLS certificate on the origin (VPS) valid and trusted (Cloudflare Origin CA or public CA).
 - WAF and rate limiting rules documented and reviewed.
+- Confirm the required features (custom WAF rule count, rate-limiting rule count, DNSSEC availability) are included in the active Cloudflare plan before proceeding — feature availability and limits are not identical across plan tiers.
 
 ### Actions
 - Set TLS encryption mode to Full (strict) in Cloudflare SSL/TLS settings.
@@ -274,7 +278,7 @@ All stages must be executed sequentially. Each stage must be validated, document
 - No false positives from WAF rules blocking legitimate traffic (monitor for at least 48 hours).
 
 ### Rollback
-- TLS: revert to Full (not strict) temporarily if origin certificate validation fails.
+- TLS: do not revert to Full (not strict) or Flexible to work around an origin certificate validation failure — Full (strict) is mandatory per architecture policy (`docs/CLOUDFLARE_ARCHITECTURE.md` §2.6). If origin certificate validation fails, reissue or renew the origin certificate (Cloudflare Origin CA or public CA) and keep Full (strict) enforced; treat the origin certificate as the thing that is broken, not the TLS policy.
 - WAF: set rules to Log-only mode before disabling.
 - Rate limiting: disable rules; application-level rate limiting remains.
 - DNSSEC: remove DS records from registrar before disabling DNSSEC in Cloudflare.
@@ -328,7 +332,7 @@ All stages must be executed sequentially. Each stage must be validated, document
 - R2 access keys are not committed.
 
 ### Rollback
-- R2: delete buckets (after confirming external backup exists).
+- R2: delete buckets only after an independently verified restore from the external backup destination has been completed and validated — the mere existence of a backup artefact is not sufficient; the restore itself must be proven.
 - Backup pipeline: revert to previous backup configuration.
 - No data loss: external backup remains available throughout.
 
@@ -353,6 +357,7 @@ All stages must be executed sequentially. Each stage must be validated, document
 - INF-CF-6 complete.
 - All previous stages validated and stable.
 - Operational runbook drafted.
+- Confirm Cloudflare Logpush (or the chosen analytics export method) is available on the active Cloudflare plan — Logpush requires a paid plan tier; if unavailable, use the Cloudflare dashboard/GraphQL analytics API as the monitoring source instead.
 
 ### Actions
 - Configure Cloudflare Logpush or analytics to an external monitoring destination.
@@ -365,7 +370,7 @@ All stages must be executed sequentially. Each stage must be validated, document
   - Backup pipeline failures.
 - Execute a full rollback drill:
   - Stop the Tunnel.
-  - Disable Access for one hostname.
+  - Disable Access for one non-administrative hostname only (never `coolify.` or `admin.` during a drill) and confirm application auth still gates access; re-enable Access immediately after the check.
   - Switch WAF rules to Log-only.
   - Verify application services remain functional at each step.
   - Restore all services to the operational state.

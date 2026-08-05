@@ -220,9 +220,10 @@ Any hostname or path not explicitly configured in Cloudflare Tunnel ingress rule
 
 - Cloudflare dashboard analytics for traffic, threats, and Tunnel health.
 - Tunnel health: Coolify monitors the cloudflared container; alert on restart loops or disconnection.
-- WAF and rate limiting events: log to Cloudflare Logpush or analytics engine.
+- WAF and rate limiting events: log to Cloudflare Logpush (requires a paid plan tier that includes Logpush) or, if unavailable on the active plan, the Cloudflare dashboard/GraphQL analytics API.
 - Origin health: independent VPS monitoring (Coolify health checks, PostgreSQL connectivity).
 - Domain Watch: monitor job completion, failure rate, and notification delivery.
+- Cloudflare feature availability (Logpush, WAF custom rule counts, rate-limiting rule counts, Access seat counts, DNSSEC) varies by plan tier — verify against the active plan before relying on any of the above.
 
 ### 4.10 Secrets That Must Never Be Committed
 

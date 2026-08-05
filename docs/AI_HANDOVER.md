@@ -42,7 +42,7 @@ Documentation and safe examples only. No deployment, no DNS changes, no Cloudfla
 
 ### Known Risks
 
-None. Documentation stage — no infrastructure changed.
+None from this documentation stage itself — no infrastructure changed. Note for future implementation stages: `docs/CLOUDFLARE_DEPLOYMENT_CHECKLIST.md` rollback sections for INF-CF-3 through INF-CF-7 require careful execution (restricted, time-bounded fallbacks only — no unconditional port reopening, unproxied DNS, Access removal on administrative hostnames, TLS downgrade, or destructive delete before recovery is verified). Follow the rollback ordering exactly as documented; do not improvise a faster rollback under incident pressure.
 
 ### Deployment
 
@@ -55,16 +55,18 @@ Not performed. INF-CF-0 is documentation only.
 ### Branch and Remote Status
 
 - Branch: `docs/cloudflare-foundation`
-- Commit: `d11badf0dbed3571803161b4f2e53c6c99eef39c`
-- Pushed and verified — local HEAD matches remote HEAD (`origin/docs/cloudflare-foundation`).
+- INF-CF-0 implementation commit: `d11badf0dbed3571803161b4f2e53c6c99eef39c` (not the branch tip — see below)
+- Branch tip (current): `30b083cdade453e94c4bee423d76ed097b3052d8` (`docs(cloudflare): sync foundation with latest main`), three commits ahead of the implementation commit (`d11badf` → `2dfcc72` → `30b083c`)
+- Pushed and verified — local HEAD matches remote HEAD (`origin/docs/cloudflare-foundation`) at the branch tip above.
 
 ---
 
-## Repository State (verified 2026-08-05)
+## Repository State (verified 2026-08-06)
 
 ```
 Branch:   main
-HEAD:     fb1280f  (docs: update AI_HANDOVER.md for Atelier Network ATN-0)
+HEAD:     383683e  (docs: update AI_HANDOVER.md for Stage 3D)
+Stage 3D handover commit:        383683e
 Stage 3D implementation commit:  4bf873b
 ATN-0 handover commit:           fb1280f
 ATN-0 implementation commit:     5b1fdf2
@@ -76,6 +78,8 @@ Stage 4AG implementation commit: ebe42f9
 Stage IDA-0 implementation commit: 7c75abd
 Stage 4AF implementation commit: 2dcbb99
 ```
+
+Note: `docs/cloudflare-foundation` branches from and is synced with `origin/main` at `383683e`. The branch is not behind main and is three commits ahead (`d11badf`, `2dfcc72`, `30b083c`), documentation-only.
 
 **Stage 3D is complete.** Planning Runtime Plugin established. `js/plugins/planning.runtime.js` replaces `planning.plugin.js` in index.html. onBoot validates `mp_rappels` and `mp_rappel_types`. onReady registers MythosSearch (order 7) and MythosCalendar (order 5) providers via late-bound handlers. 110 tests written; all 104 non-subprocess tests pass; 6 subprocess regressions are pre-existing (stage3a/stage2d/stage1c _memCache crash). No app.js change. No rappels.js change. No deployment. Implementation commit: `4bf873b` (2026-07-30).
 

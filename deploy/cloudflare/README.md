@@ -23,7 +23,8 @@ The Tunnel token is injected as an encrypted environment variable in Coolify. It
 ## Credentials
 
 - **No real credentials in this repository.** All values in `cloudflared.env.example` are empty placeholders.
-- Real Tunnel tokens, Account IDs, API keys, R2 credentials, and origin certificates belong only in Coolify encrypted environment variables or an approved secret manager.
+- Real Tunnel tokens, API keys, R2 credentials, and origin certificates are authentication secrets and belong only in Coolify encrypted environment variables or an approved secret manager.
+- The Cloudflare Account ID is not itself an authentication secret, but it is still excluded from this repository per project policy and must be stored the same way (Coolify encrypted environment variables or an approved secret manager).
 - If any credential is ever committed, rotate it immediately.
 
 ## Deployment Status
@@ -39,7 +40,7 @@ The deployment stages are:
 
 When the Tunnel is deployed (INF-CF-3), Coolify will run a service configured approximately as:
 
-- **Image:** `cloudflare/cloudflared:latest`
+- **Image:** `cloudflare/cloudflared:<pinned-version>` — pin to a specific released version tag before real production use; do not run `latest` in production long-term. Update the pinned version deliberately, not automatically.
 - **Command:** `tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN}`
 - **Environment variables:** sourced from encrypted Coolify environment.
 - **Network:** Must be able to reach internal Coolify application services by hostname or container name.
