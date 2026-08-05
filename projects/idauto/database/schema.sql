@@ -13,15 +13,18 @@
 --
 -- LOGICAL SCHEMA SEPARATION
 -- -------------------------
--- Target PostgreSQL cluster contains three schemas:
---   mythos_core — users, roles, permissions, global audit, platform admin
---   idauto      — vehicles, plates, observations, facts, evidence, captures,
---                  sources, review queue, ID Auto activity
---   fixpert     — Fixpert clients, work orders, interventions, stock,
---                  quotations, invoices, payments, workshop activity
+-- Target PostgreSQL cluster contains schemas including:
+--   mythos_core     — users, roles, permissions, global audit, platform admin
+--   idauto          — vehicles, plates, observations, facts, evidence, captures,
+--                     sources, review queue, ID Auto activity
+--   atelier_network — workshop registry, inspections, repair estimates, AutoCheck reports
+--                     (created by atelier-network schema spec, NOT this file)
+--   fixpert         — Fixpert clients, work orders, interventions, stock,
+--                     quotations, invoices, payments, workshop activity
 --
--- Fixpert schema tables are documented here for reference only.
--- They are NOT created by this file. They belong to the Fixpert product domain.
+-- The atelier_network and fixpert schema tables are NOT created by this file.
+-- fixpert is an external system. atelier_network is governed by projects/atelier-network/.
+-- Fixpert is the first pilot workshop on the Atelier Network; each workshop org owns its own data.
 --
 -- PRIVACY CONTRACT
 -- ----------------

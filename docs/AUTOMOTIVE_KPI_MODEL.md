@@ -1,6 +1,6 @@
 # Mythos Automotive — KPI Model
 
-**Stage:** MAE-0 Ecosystem Master Foundation
+**Stage:** ATN-0 Atelier Network Foundation and Ecosystem Consistency Amendment (amends MAE-0)
 **Last updated:** 2026-08-05
 **Repository:** othoth77/mythos-prod
 
@@ -67,9 +67,55 @@
 
 ---
 
-## 3. Fixpert KPIs
+## 3. Atelier Network KPIs
 
-### 3.1 Workshop Operations
+**Note:** All ATN KPIs are design specifications. No values are measured in ATN-0. Activation from ATN-1 onwards.
+
+### 3.1 Network Scale
+
+| KPI | Formula | Source |
+|-----|---------|--------|
+| Active workshops on network | COUNT(atn_workshops WHERE status = 'ACTIVE') | Atelier Network |
+| Workshop organisations registered | COUNT(atn_workshop_organizations WHERE status = 'ACTIVE') | Atelier Network |
+| New workshop onboardings (monthly) | COUNT workshops reaching ACTIVE status this month | Atelier Network |
+| Active integration connectors | COUNT(atn_integration_connectors WHERE status = 'ACTIVE') by mode | Atelier Network |
+| Governorate coverage | Count of governorates with at least one ACTIVE workshop | Atelier Network |
+
+### 3.2 Inspection and AutoCheck Quality
+
+| KPI | Formula | Source |
+|-----|---------|--------|
+| AutoCheck reports issued (monthly) | COUNT(atn_inspections WHERE report_issued = true) this month | Atelier Network |
+| Accredited inspection providers | COUNT(atn_inspection_providers WHERE accreditation_status = 'ACCREDITED') | Atelier Network |
+| Inspection completion rate | Inspections reaching status COMPLETED / inspections started (monthly) | Atelier Network |
+| Overall rating distribution | COUNT per overall_rating (OK / ATTENTION / FAIL) on completed inspections | Atelier Network |
+| Average finding count per inspection | AVG(COUNT findings) per completed inspection | Atelier Network |
+| FAIL-rated finding resolution rate | Findings with severity FAIL that received a work order / total FAIL findings | Atelier Network |
+
+### 3.3 Appointment and Work Order Operations
+
+| KPI | Formula | Source |
+|-----|---------|--------|
+| Appointments volume (monthly) | COUNT(atn_appointments WHERE status != 'CANCELLED') this month | Atelier Network |
+| Appointment to inspection conversion | Inspections created with linked appointment / total confirmed appointments | Atelier Network |
+| Inspection to repair estimate conversion | Repair estimates issued / inspections completed (monthly) | Atelier Network |
+| Work orders closed (monthly) | COUNT(atn_work_orders WHERE status = 'CLOSED') this month | Atelier Network |
+
+### 3.4 Integration Health
+
+| KPI | Formula | Source |
+|-----|---------|--------|
+| EXTERNAL_CONNECTED sync success rate | Successful external record syncs / total attempted syncs (daily) | Atelier Network |
+| Repair estimate API availability | Uptime of ATN repair estimate endpoint (target: 99.5%) | Platform monitoring |
+| ATN → ID Auto vehicle_id resolution rate | vehicle_id resolved / total vehicle lookup requests | Atelier Network + ID Auto |
+
+---
+
+## 4. Fixpert KPIs (First Pilot)
+
+**Note:** These KPIs apply specifically to Fixpert as the first workshop pilot. They will be extended to other workshop organisations when they join the Atelier Network.
+
+### 4.1 Workshop Operations
 
 | KPI | Formula | Source |
 |-----|---------|--------|
@@ -84,7 +130,7 @@
 
 ---
 
-## 4. Parts Network KPIs
+## 5. Parts Network KPIs
 
 ### 4.1 Catalogue Quality
 
@@ -106,7 +152,7 @@
 
 ---
 
-## 5. AutoValeur KPIs
+## 6. AutoValeur KPIs
 
 ### 5.1 Valuation Volume and Quality
 
@@ -139,7 +185,7 @@
 
 ---
 
-## 6. AutoMarket KPIs (Future)
+## 7. AutoMarket KPIs (Future)
 
 ### 6.1 Listings and Sales
 
@@ -157,7 +203,7 @@
 
 ---
 
-## 7. KPI Governance Rules
+## 8. KPI Governance Rules
 
 ### 7.1 Data Requirements
 
@@ -179,15 +225,15 @@
 
 ---
 
-## 8. Strategic Milestones
+## 9. Strategic Milestones
 
 These are target milestones for portfolio tracking, not guaranteed forecasts.
 
-| Milestone | ID Auto fiches | Fixpert work orders/year | AutoValeur valuations/month | AutoMarket listings |
-|-----------|---------------|--------------------------|------------------------------|---------------------|
-| Alpha | 1,000 | 500 | 200 | 0 (not yet) |
-| Early growth | 10,000 | 2,000 | 2,000 | 100 |
-| Network scale | 100,000 | 5,000 | 20,000 | 1,000 |
-| National scale | 500,000+ | 10,000+ | 100,000+ | 10,000+ |
+| Milestone | ID Auto fiches | ATN workshops | ATN work orders/year | AutoValeur valuations/month | AutoMarket listings |
+|-----------|---------------|---------------|----------------------|------------------------------|---------------------|
+| Alpha | 1,000 | 1 (Fixpert) | 500 | 200 | 0 (not yet) |
+| Early growth | 10,000 | 3–5 | 2,000 | 2,000 | 100 |
+| Network scale | 100,000 | 20+ | 10,000 | 20,000 | 1,000 |
+| National scale | 500,000+ | 100+ | 50,000+ | 100,000+ | 10,000+ |
 
 Milestones are indicators, not commitments. Each depends on legal approvals, partner agreements, and data quality reaching specified thresholds.

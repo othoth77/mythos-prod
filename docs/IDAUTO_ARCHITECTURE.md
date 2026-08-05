@@ -12,7 +12,7 @@
 
 ID Auto is a vehicle intelligence platform within the Mythos ecosystem. It is a **distinct product domain**, not an isolated platform. Mythos OS provides shared platform services (authentication, billing, audit, notifications, search, document storage) that ID Auto consumes through defined integration contracts.
 
-ID Auto data lives in a logically separate `idauto` schema in the target PostgreSQL cluster. Mythos OS data lives in `mythos_core`. Fixpert workshop data lives in `fixpert`. Cross-schema data exchange is only permitted through explicitly defined integration contracts; no ad-hoc cross-schema joins are permitted from application code.
+ID Auto data lives in a logically separate `idauto` schema in the target PostgreSQL cluster. Mythos OS data lives in `mythos_core`. Atelier Network platform data lives in `atelier_network`. Fixpert workshop data lives in `fixpert` (external system, not created by this repository). Cross-schema data exchange is only permitted through explicitly defined integration contracts; no ad-hoc cross-schema joins are permitted from application code.
 
 The previous IDA-0 framing of ID Auto as an "entirely independent platform" is superseded. ID Auto is integrated into the Mythos ecosystem at the service level, not at the data level.
 
@@ -35,10 +35,14 @@ PostgreSQL cluster (target — not yet deployed)
 │       verifications, consent records, audit log, contributor records,
 │       camera sources, vehicle movements
 │
-└── fixpert schema
+├── atelier_network schema
+│   └── workshop registry, inspection providers, work orders, repair estimates,
+│       AutoCheck reports, Smart Gate device registry (DRAFT — not deployed)
+│
+└── fixpert schema (external — not created by this repository)
     └── clients, workshop visits, work orders, interventions, parts, stock,
         quotations, invoices, payments, workshop activity
-        (Fixpert-owned; referenced by idauto via work_orders.vehicle_id only)
+        (Fixpert-owned; first pilot of Atelier Network; referenced by idauto via vehicle_id only)
 ```
 
 ---
@@ -47,9 +51,9 @@ PostgreSQL cluster (target — not yet deployed)
 
 ### AD-1 — Logical schema separation, not physical isolation
 
-**Decision (revised from IDA-0):** All ID Auto tables use the `idauto` schema prefix in a PostgreSQL cluster. Fixpert tables use `fixpert`. Mythos platform tables use `mythos_core`. These schemas are logically separated; physical separation (separate databases or clusters) is an operational decision for IDA-2.
+**Decision (revised from IDA-0):** All ID Auto tables use the `idauto` schema in a PostgreSQL cluster. Atelier Network platform tables use `atelier_network`. Fixpert workshop tables use `fixpert` (external, not created here). Mythos platform tables use `mythos_core`. These schemas are logically separated; physical separation (separate databases or clusters) is an operational decision for IDA-2.
 
-**Why:** Mythos OS holds live production data for paying clients. ID Auto is a new product domain. Fixpert is a separate business domain. Mixing schemas would create migration risk and compliance ambiguity; physical isolation is a deployment concern, not a design constraint at this stage.
+**Why:** Mythos OS holds live production data for paying clients. ID Auto is a new product domain. Fixpert is a separate business domain and the first Atelier Network pilot. Mixing schemas would create migration risk and compliance ambiguity; physical isolation is a deployment concern, not a design constraint at this stage.
 
 **Constraint:** Application code must never perform cross-schema joins except through defined integration contracts.
 
@@ -275,7 +279,7 @@ INSERT idauto_audit_log
 
 ---
 
-## 7. Data Flow — Fixpert Smart Gate
+## 7. Data Flow — Smart Gate (Fixpert First Pilot; Generalises to Any Atelier Network Workshop)
 
 ```
 RTSP stream (single authorised entrance/exit camera)
@@ -308,7 +312,7 @@ Vehicle matching
   │  no match → create preliminary fiche
   │
   ▼
-Optional: link to Fixpert work order
+Optional: link to workshop work order (via Atelier Network atn_work_orders)
   │
   ▼
 INSERT idauto_audit_log

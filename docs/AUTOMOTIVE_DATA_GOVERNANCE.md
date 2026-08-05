@@ -1,6 +1,6 @@
 # Mythos Automotive — Data Governance
 
-**Stage:** MAE-0 Ecosystem Master Foundation
+**Stage:** ATN-0 Atelier Network Foundation and Ecosystem Consistency Amendment (amends MAE-0)
 **Last updated:** 2026-08-05
 **Repository:** othoth77/mythos-prod
 
@@ -29,7 +29,7 @@ The source-of-truth rule: each data entity has exactly one owner. All other prod
 | Domain and endpoint catalogue | Mythos Core |
 | Backup status registry | Mythos Core |
 
-Mythos Core must not become the owner of Fixpert invoices, marketplace transactions, spare-parts orders, AutoValeur estimates, or vehicle observations. It coordinates; it does not duplicate operational domains.
+Mythos Core must not become the owner of workshop invoices, marketplace transactions, spare-parts orders, AutoValeur estimates, or vehicle observations. It coordinates; it does not duplicate operational domains.
 
 ### 1.2 ID Auto
 
@@ -53,27 +53,45 @@ Mythos Core must not become the owner of Fixpert invoices, marketplace transacti
 | Review queue | ID Auto |
 | ID Auto audit log | ID Auto |
 
-### 1.3 Fixpert
+### 1.3 Atelier Network
+
+Atelier Network owns the multi-workshop **platform and registry** data. It does not own individual workshop customer records — those belong to each workshop organisation.
 
 | Data entity | Owner |
 |-------------|-------|
-| Customers (automotive clients) | Fixpert |
-| Customer PII (name, CIN, address, contact) | Fixpert |
-| Customer consent records | Fixpert |
-| Appointments | Fixpert |
-| Vehicle check-in records | Fixpert |
-| Inspections and diagnostics | Fixpert |
-| Work orders | Fixpert |
-| Interventions and labour records | Fixpert |
-| Workshop quotations | Fixpert |
-| Workshop invoices | Fixpert |
-| Payments | Fixpert |
-| Workshop employees and operational records | Fixpert |
-| Smart Gate camera device and consent obligation | Fixpert |
+| Workshop organisation registry | Atelier Network |
+| Workshop registry (sites, types, integration modes) | Atelier Network |
+| Workshop capability and accreditation records | Atelier Network |
+| Inspection provider registry | Atelier Network |
+| AutoCheck standard definition and versioning | Atelier Network |
+| Service catalogue (platform-level) | Atelier Network |
+| Integration connector registry | Atelier Network |
+| Smart Gate device registry (device identity and consent obligation assigned to each workshop) | Atelier Network |
+| Network membership and partner records | Atelier Network |
+| Platform-level audit events | Atelier Network |
 
-Note: The `fixpert` PostgreSQL schema is documented by reference in this repository. It is not created by this repository's migration scripts. Fixpert owns and manages its own schema.
+### 1.4 Each Workshop Organisation
 
-### 1.4 Parts Network
+Each participating workshop organisation owns its own customer-facing operational data. No other product or workshop may access it. Fixpert is the first workshop organisation and owns its data under its own `fixpert` schema (external system, not created by this repository).
+
+| Data entity | Owner |
+|-------------|-------|
+| Customers (workshop clients) | Each workshop organisation |
+| Customer PII (name, CIN, address, contact) | Each workshop organisation |
+| Customer consent records | Each workshop organisation |
+| Appointments (linked to workshop customer) | Each workshop organisation |
+| Vehicle check-in records | Each workshop organisation |
+| Inspections and diagnostics | Each workshop organisation |
+| Work orders | Each workshop organisation |
+| Interventions and labour records | Each workshop organisation |
+| Workshop quotations | Each workshop organisation |
+| Workshop invoices | Each workshop organisation |
+| Payments | Each workshop organisation |
+| Workshop staff and operational records | Each workshop organisation |
+
+Note: Fixpert's `fixpert` PostgreSQL schema is documented by reference in this repository. It is not created by this repository's migration scripts. Fixpert owns and manages its own schema. Future workshop organisations will each own their equivalent data within the Atelier Network operational schema.
+
+### 1.5 Parts Network
 
 | Data entity | Owner |
 |-------------|-------|
@@ -92,7 +110,7 @@ Note: The `fixpert` PostgreSQL schema is documented by reference in this reposit
 | Parts orders | Parts Network |
 | Fulfilment records | Parts Network |
 
-### 1.5 AutoValeur
+### 1.6 AutoValeur
 
 | Data entity | Owner |
 |-------------|-------|
@@ -114,7 +132,7 @@ Note: The `fixpert` PostgreSQL schema is documented by reference in this reposit
 | Source catalogue | AutoValeur |
 | AutoValeur audit events | AutoValeur |
 
-### 1.6 AutoMarket (future)
+### 1.7 AutoMarket (future)
 
 | Data entity | Owner |
 |-------------|-------|
@@ -125,7 +143,7 @@ Note: The `fixpert` PostgreSQL schema is documented by reference in this reposit
 | Completed transaction records | AutoMarket |
 | Listing performance data | AutoMarket |
 
-### 1.7 Fleet (future)
+### 1.8 Fleet (future)
 
 | Data entity | Owner |
 |-------------|-------|
@@ -134,7 +152,7 @@ Note: The `fixpert` PostgreSQL schema is documented by reference in this reposit
 | Operational assignments | Fleet |
 | Cost and maintenance dashboards | Fleet |
 
-### 1.8 Assistance (future)
+### 1.9 Assistance (future)
 
 | Data entity | Owner |
 |-------------|-------|
@@ -168,9 +186,21 @@ Note: The `fixpert` PostgreSQL schema is documented by reference in this reposit
 | `document_scan_id` | ID Auto | idauto | BIGSERIAL | |
 | `mythos_user_id` | Mythos Core | mythos_core | BIGSERIAL | Platform identity |
 | `organization_id` | Mythos Core | mythos_core | BIGSERIAL | |
-| `customer_ref` | Fixpert | fixpert | Fixpert-defined | Not in this repository |
-| `inspection_id` | Fixpert | fixpert | Fixpert-defined | |
-| `work_order_id` | Fixpert | fixpert | Fixpert-defined | |
+| `workshop_organization_id` | Atelier Network | atelier_network | BIGSERIAL | Multi-workshop org registry |
+| `workshop_id` | Atelier Network | atelier_network | BIGSERIAL | |
+| `workshop_site_id` | Atelier Network | atelier_network | BIGSERIAL | |
+| `workshop_capability_id` | Atelier Network | atelier_network | BIGSERIAL | |
+| `workshop_accreditation_id` | Atelier Network | atelier_network | BIGSERIAL | |
+| `technician_assignment_id` | Atelier Network | atelier_network | BIGSERIAL | |
+| `service_catalog_item_id` | Atelier Network | atelier_network | BIGSERIAL | |
+| `appointment_id` | Atelier Network | atelier_network | BIGSERIAL | No PII in platform table |
+| `inspection_id` | Atelier Network | atelier_network | BIGSERIAL | ATN inspection registry |
+| `inspection_provider_id` | Atelier Network | atelier_network | BIGSERIAL | Referenced by AutoValeur |
+| `work_order_id` | Atelier Network | atelier_network | BIGSERIAL | |
+| `intervention_id` | Atelier Network | atelier_network | BIGSERIAL | |
+| `repair_estimate_id` | Atelier Network | atelier_network | BIGSERIAL | Referenced by AutoValeur |
+| `external_workshop_record_id` | Atelier Network | atelier_network | BIGSERIAL | EXTERNAL_CONNECTED records |
+| `fixpert_customer_ref` | Fixpert | fixpert | Fixpert-defined | External system; not in this repository |
 | `part_id` | Parts Network | parts | Parts-defined | |
 | `supplier_id` | Parts Network | parts | Parts-defined | |
 | `valuation_id` | AutoValeur | autovaleur | BIGSERIAL | |
@@ -202,7 +232,7 @@ Mythos Automotive does not maintain a unified global customer database. Customer
 
 | Customer type | PII owner | Scope |
 |--------------|-----------|-------|
-| Fixpert workshop client | Fixpert | `fixpert.clients` — never in `idauto_` or `autovaleur_` |
+| Workshop client (any ATN workshop) | Each workshop organisation | e.g. `fixpert.clients` for Fixpert — never in `idauto_` or `autovaleur_` or `atelier_network` platform tables |
 | Marketplace seller | AutoMarket | AutoMarket listing table — never in ID Auto |
 | Marketplace buyer | AutoMarket | Only if explicitly consented |
 | Professional subscriber | Mythos Core | Organisation profile — not duplicated per product |
@@ -218,11 +248,11 @@ Cross-product PII sharing is permitted only:
 - With a recorded consent event
 - With a defined retention period for the shared copy
 
-Example: Carte grise owner PII extracted during OCR → shown to submitter for confirmation → if consented, routed to `fixpert.clients` → never stored in any `idauto_` column.
+Example: Carte grise owner PII extracted during OCR → shown to submitter for confirmation → if consented, routed to the workshop organisation's own customer table (e.g. `fixpert.clients` for Fixpert) → never stored in any `idauto_` or `atelier_network` platform column.
 
-### 3.3 opaque Customer References
+### 3.3 Opaque Cross-Product References
 
-When AutoValeur references a Fixpert customer in a repair estimate, it stores only `fixpert_inspection_ref` (a stable ID). Customer name, CIN, contact, or financial detail are never copied into `autovaleur_` tables.
+When AutoValeur references an inspection in a repair estimate, it stores only `inspection_provider_id` and `repair_estimate_id` (stable IDs from the Atelier Network). Customer name, CIN, contact, or financial detail are never copied into `autovaleur_` tables.
 
 ### 3.4 Subject Rights Workflows
 
@@ -289,7 +319,7 @@ A raw Smart Gate camera frame is `mythos_private` — ID Auto owns it; only the 
 | Valuation records | Long-term | Required for model accuracy feedback loop |
 | Market listing snapshots | Medium-term | Source data for model training |
 | Condition reports | Medium-term | Linked to valuation; follows valuation retention |
-| Customer PII (Fixpert) | Subject to consent and legal basis | LEGAL-REVIEW-REQUIRED |
+| Customer PII (workshop organisations) | Subject to consent and legal basis | LEGAL-REVIEW-REQUIRED |
 | Deal pipeline records | MYTHOS_PRIVATE | LEGAL-REVIEW-REQUIRED |
 | Document scans (carte grise image) | Short-term | LEGAL-REVIEW-REQUIRED |
 | OCR output | Short-term | Not permanently stored per IDA-1 spec |
@@ -304,7 +334,7 @@ A raw Smart Gate camera frame is `mythos_private` — ID Auto owns it; only the 
 | Product | Quality responsibility |
 |---------|----------------------|
 | ID Auto | Observation review, duplicate detection, confidence scoring, fact verification, plate format validation |
-| Fixpert | Customer data accuracy, inspection quality, work order completeness |
+| Atelier Network workshops (Fixpert first) | Customer data accuracy, inspection quality, work order completeness |
 | Parts Network | Fitment accuracy, catalogue completeness, price timeliness |
 | AutoValeur | Comparable quality, outlier removal, stale-listing decay, model accuracy monitoring |
 | AutoMarket | Listing accuracy, identity verification, completed sale price accuracy |

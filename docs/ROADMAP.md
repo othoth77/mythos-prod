@@ -1,12 +1,12 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-05 UTC (MAE-0 added)
+**Last updated:** 2026-08-05 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete)
 
 ---
 
 ## Mythos Automotive Ecosystem Overview
 
-Mythos Automotive is the umbrella portfolio brand — "La chaîne automobile numérique". It groups five product lines: Mythos OS Core, ID Auto (FOUNDATION), Fixpert Atelier (external, PRODUCTION), Parts Network, and AutoValeur (FOUNDATION). Future products include AutoMarket Verified, Fleet Pro, and Fixpert Assistance.
+Mythos Automotive is the umbrella portfolio brand — "La chaîne automobile numérique". It groups four core pillars: ID Auto (FOUNDATION), Atelier Network (FOUNDATION — first pilot: Fixpert), Parts Network, and AutoValeur (FOUNDATION). Mythos OS Core is the platform beneath. Future products include AutoMarket Verified, Fleet Pro, and Fixpert Assistance.
 
 See `docs/AUTOMOTIVE_VISION.md` for the full product vision and `docs/AUTOMOTIVE_ROADMAP.md` for the complete dependency map and stage table.
 
@@ -21,6 +21,7 @@ Documentation stages may run in parallel across product tracks. **IDA-2 is the n
 | Stage | Description | Status |
 |-------|-------------|--------|
 | MAE-0 | Ecosystem Master Foundation — vision, architecture, governance, roadmap, control-plane schema | ✓ Done (2026-08-05) |
+| ATN-0 | Atelier Network Foundation — multi-workshop platform spec, AutoCheck Standard, ecosystem consistency amendment | ✓ Done (2026-08-05) |
 | MAE-1 | Shared Platform Spec — unified rate limiting, audit envelope, vehicle taxonomy API, canonical ID protocol | Not started (blocked on IDA-2) |
 | MAE-2 | Control Plane Alpha — product health dashboard, legal requirements tracker, KPI registry | Not started (blocked on MAE-1, IDA-3) |
 | MAE-3 | Ecosystem Audit Stream — cross-product event pipeline, dead-letter, anomaly detection | Not started (blocked on MAE-2) |
@@ -30,14 +31,14 @@ Documentation stages may run in parallel across product tracks. **IDA-2 is the n
 
 ```
 Mythos OS (3D-3G)
-    └── [AUTH, BILLING, ROLES] ──► IDA-2 ──► IDA-3 ──► IDA-4
+    └── [AUTH, BILLING, ROLES] ──► IDA-2 ──► IDA-3 ──► IDA-4 (requires ATN-1)
                                        │
-                                       └──► AVA-1 ──► (IDA-4)──► AVA-2 ──► AVA-3 ──► AVA-4
+                                       └──► AVA-1 ──► ATN-1 ──► AVA-2 ──► AVA-3 ──► AVA-4
                                        │
                                        └──► MAE-1 ──► MAE-2 ──► MAE-3
 
-AutoMarket: requires IDA-3 + AVA-1 + Legal clearance
-Fleet Pro:  requires IDA-2 + IDA-4 + Legal clearance
+AutoMarket: requires IDA-3 + AVA-1 + ATN-1 + Legal clearance
+Fleet Pro:  requires IDA-2 + ATN-1 + Legal clearance
 ```
 
 ---
@@ -132,10 +133,11 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 
 1. **Mythos OS:** Stage 3D (next) → 3E → 3F → 3G (runtime plugins) — Stage 3G is HIGH risk (30 routes, 19 storage keys); must have its own deployment window separate from IDA-2
 2. **ID Auto:** IDA-2 — PostgreSQL Core, API and Manual Capture MVP — NEXT AUTHORISED IMPLEMENTATION STAGE
-3. **AutoValeur:** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster)
-4. **Ecosystem (parallel — docs only):** MAE-0 complete; MAE-1 not started (blocked on IDA-2)
+3. **Atelier Network:** ATN-1 — Workshop Registry + First Integration (after IDA-2; parallel with AVA-1)
+4. **AutoValeur:** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster; parallel with ATN-1)
+5. **Ecosystem (parallel — docs only):** MAE-0 + ATN-0 complete; MAE-1 not started (blocked on IDA-2)
 
-**One-major-stage rule in force:** IDA-2 must not begin while Stage 3G is active. AVA-1 must not begin while IDA-2 is active.
+**One-major-stage rule in force:** IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 may run in parallel after IDA-2 completes (both are non-overlapping implementation domains).
 
 ---
 
@@ -151,7 +153,7 @@ See `docs/IDAUTO_ROADMAP.md` for the full ID Auto stage plan.
 | IDA-1 | Product vision, capture, access and data governance specification | ✓ Done (2026-08-05) |
 | IDA-2 | PostgreSQL Core, API and Manual Capture MVP | Planned |
 | IDA-3 | Public Smart Scanner and Carte Grise Workflow | Planned |
-| IDA-4 | Fixpert Smart Gate and Atelier Integration | Planned |
+| IDA-4 | Fixpert Smart Gate and Atelier Integration (requires ATN-1) | Planned |
 | IDA-5 | Professional Partner Network | Planned |
 | IDA-6 | National Enrichment and Public/Professional Launch | Future |
 
@@ -162,7 +164,22 @@ See `docs/IDAUTO_ROADMAP.md` for the full ID Auto stage plan.
 - Three access scopes: PUBLIC, PROFESSIONAL, MYTHOS_PRIVATE
 - Smart Gate events are always MYTHOS_PRIVATE
 - Plate format rules are unverified drafts pending official source confirmation
-- Fixpert workshop operations (clients, invoices, payments) belong to Fixpert; ID Auto provides the vehicle identity layer
+- Workshop operations (clients, invoices, payments) belong to each workshop organisation; Fixpert is the first pilot on the Atelier Network; ID Auto provides the vehicle identity layer
+
+---
+
+## Atelier Network — Separate Product Track
+
+Atelier Network is the generic multi-workshop platform within the Mythos ecosystem. Fixpert is the first workshop pilot. See `docs/ATELIER_NETWORK_ROADMAP.md` for the full stage plan.
+
+| Stage | Description | Status |
+|-------|-------------|--------|
+| ATN-0 | Atelier Network Foundation — multi-workshop platform spec, AutoCheck Standard, ecosystem consistency amendment | ✓ Done (2026-08-05) |
+| ATN-1 | Workshop Registry + First Integration — workshop onboarding, Fixpert connector (EXTERNAL_CONNECTED) | Planned (after IDA-2) |
+| ATN-2 | AutoCheck Standard MVP — accreditation, reports, ID Auto vehicle linkage | Planned (after ATN-1) |
+| ATN-3 | Smart Gate Generalisation — multi-workshop Smart Gate registry (requires IDA-4) | Planned |
+| ATN-4 | Multi-Workshop Network — fleet and assistance prerequisites | Future |
+| ATN-5 | Network Maturity — analytics, API marketplace, partner tiers | Future |
 
 ---
 
@@ -176,7 +193,7 @@ See `docs/AUTOVALEUR_ROADMAP.md` for the full AutoValeur stage plan.
 |-------|-------------|--------|
 | AVA-0 | Foundation and Ecosystem Roadmap | ✓ Done (2026-08-05) |
 | AVA-1 | Public Calculator MVP | Planned |
-| AVA-2 | Professional Tier and Fixpert Integration | Planned |
+| AVA-2 | Professional Tier and Atelier Network Integration | Planned |
 | AVA-3 | Market Data Foundation | Planned |
 | AVA-4 | Deal Radar MVP | Planned |
 | AVA-5 | Marketplace Integration and Completed Sales | Future |

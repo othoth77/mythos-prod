@@ -1,0 +1,186 @@
+{
+  "_version": "0.1.0-atn0-draft",
+  "_stage": "ATN-0",
+  "_note": "Atelier Network configuration example only. Not deployed. All runtime flags disabled. Replace all placeholder values before use.",
+  "_legal": "LEGAL-REVIEW-REQUIRED items listed in docs/AUTOMOTIVE_RISK_REGISTER.md must be resolved before any production activation.",
+
+  "product": {
+    "key": "atelier_network",
+    "display_name": "Mythos Atelier Network",
+    "schema": "atelier_network",
+    "is_runtime_active": false,
+    "status": "FOUNDATION",
+    "current_stage": "ATN-0"
+  },
+
+  "roles": {
+    "_note": "Network and workshop roles. All roles are disabled in ATN-0. Activation requires explicit authorisation per workshop and per organisation.",
+    "NETWORK_SUPER_ADMIN": {
+      "scope": "network",
+      "description": "Full platform read/write access across all workshop organisations. Every action audit-logged.",
+      "enabled": false
+    },
+    "ORGANIZATION_OWNER": {
+      "scope": "organization",
+      "description": "Full access within one workshop organisation. Cannot access other organisations.",
+      "enabled": false
+    },
+    "WORKSHOP_MANAGER": {
+      "scope": "workshop",
+      "description": "Operational management of one workshop site — staff, appointments, work orders, reports.",
+      "enabled": false
+    },
+    "SERVICE_ADVISOR": {
+      "scope": "workshop",
+      "description": "Customer intake, appointment management, work order creation and follow-up.",
+      "enabled": false
+    },
+    "TECHNICIAN": {
+      "scope": "workshop",
+      "description": "Access to work orders and interventions assigned to them. Cannot access other technicians' work orders.",
+      "enabled": false
+    },
+    "INSPECTOR": {
+      "scope": "workshop",
+      "description": "Perform and record AutoCheck inspections. Read-only on work orders. Cannot manage appointments.",
+      "enabled": false
+    },
+    "CASHIER": {
+      "scope": "workshop",
+      "description": "Invoice and payment management within one workshop. Cannot access inspection or repair details.",
+      "enabled": false
+    },
+    "READ_ONLY_AUDITOR": {
+      "scope": "organization",
+      "description": "Read-only access across one organisation for audit purposes. No write, no delete.",
+      "enabled": false
+    },
+    "API_SERVICE_ACCOUNT": {
+      "scope": "organization",
+      "description": "Machine-to-machine credential for external integrations (EXTERNAL_CONNECTED mode).",
+      "enabled": false
+    }
+  },
+
+  "workshop_types": {
+    "_note": "Supported workshop types. Used in atn_workshops.workshop_type.",
+    "types": ["OWNED", "BRANCH", "FRANCHISE", "PARTNER", "AUTHORIZED_INSPECTION", "MOBILE_SERVICE"]
+  },
+
+  "integration_modes": {
+    "_note": "How a workshop connects to the Atelier Network platform.",
+    "modes": {
+      "NATIVE_MANAGED": "Workshop uses Atelier Network platform natively for all operations",
+      "EXTERNAL_CONNECTED": "Workshop keeps its own software; connects via Atelier Network API for data exchange",
+      "HYBRID": "Uses Atelier Network for some functions (e.g. inspection reporting), external for others (e.g. invoicing)"
+    },
+    "fixpert_mode": "TBD — to be confirmed in ATN-1. Fixpert is the first pilot and operates an external system predating this platform."
+  },
+
+  "autocheck": {
+    "_note": "AutoCheck is the provider-neutral inspection standard governed by Mythos Atelier Network.",
+    "standard_version": "0.1-draft",
+    "enabled": false,
+    "accreditation_required": true,
+    "report_wording_rules": {
+      "fixpert": "AutoCheck by Fixpert",
+      "other_partner": "AutoCheck — [Workshop Name]",
+      "prohibited": "Expertise légale certifiée"
+    }
+  },
+
+  "smart_gate": {
+    "_note": "Each participating workshop owns its Smart Gate device and consent/notice obligation. ID Auto owns the resulting vehicle observation. No Smart Gate devices connected in ATN-0.",
+    "enabled": false,
+    "id_auto_observation_owner": true,
+    "workshop_device_owner": true,
+    "consent_obligation_owner": "each_workshop"
+  },
+
+  "database": {
+    "schema": "atelier_network",
+    "cluster": "shared-postgresql",
+    "host": "REPLACE_WITH_HOST",
+    "port": 5432,
+    "ssl_required": true,
+    "status": "NOT_DEPLOYED",
+    "migration_authority": "atelier_network — when ATN-1 authorised"
+  },
+
+  "integration": {
+    "_note": "All integrations disabled in ATN-0.",
+    "idauto_api": {
+      "enabled": false,
+      "base_url": "REPLACE_WITH_URL",
+      "version": "v1",
+      "note": "Read vehicle_id for work order and inspection linkage"
+    },
+    "mythos_core_auth": {
+      "enabled": false,
+      "base_url": "REPLACE_WITH_URL",
+      "note": "Authentication and organisation roles"
+    },
+    "autovaleur_api": {
+      "enabled": false,
+      "base_url": null,
+      "note": "Inspection data consumed by AutoValeur for post-inspection valuation — activation in ATN-1"
+    },
+    "event_bus": {
+      "enabled": false,
+      "note": "Workshop domain events — design only in ATN-0. Implementation in ATN-1."
+    }
+  },
+
+  "access_scopes": {
+    "_note": "Canonical scope names. Same as ecosystem-level. Workshop operational data is organization_private.",
+    "public": {
+      "description": "Any caller within rate limits",
+      "examples": ["workshop_name", "workshop_location", "service_catalogue_items"]
+    },
+    "professional": {
+      "description": "Verified subscriber organisations",
+      "examples": ["inspection_summary", "service_history_count"]
+    },
+    "mythos_private": {
+      "description": "Mythos Network Super Admin only — audit-logged",
+      "examples": ["network_audit_events", "cross_org_reports"]
+    },
+    "product_internal": {
+      "description": "Atelier Network API only",
+      "examples": ["integration_connector_credentials", "queue_items"]
+    },
+    "organization_private": {
+      "description": "One workshop organisation — no cross-org access",
+      "examples": ["appointments", "work_orders", "invoices", "customer_pii"]
+    },
+    "consent_shared": {
+      "description": "Subject-consented cross-product sharing",
+      "examples": ["customer_pii_routed_to_id_auto_with_consent"]
+    }
+  },
+
+  "feature_flags": {
+    "_note": "All flags false in ATN-0. Activation requires stage completion and explicit authorisation.",
+    "atelier_network_api": false,
+    "workshop_registry": false,
+    "appointment_booking": false,
+    "inspection_api": false,
+    "autocheck_report": false,
+    "work_order_api": false,
+    "external_connected_mode": false,
+    "smart_gate_device_registry": false,
+    "network_audit_stream": false,
+    "organisation_onboarding": false
+  },
+
+  "operating_rules": {
+    "one_major_stage_at_a_time": true,
+    "no_deploy_without_authorisation": true,
+    "workshop_data_isolation": "Each workshop organisation cannot access another organisation's data",
+    "id_auto_vehicle_id_required": "All work orders and inspections must reference a vehicle_id from ID Auto",
+    "autocheck_accreditation_required": true,
+    "no_ingest_real_workshop_data": true,
+    "fixpert_is_first_pilot": true,
+    "next_authorised_stage": "ATN-1 (not yet authorised)"
+  }
+}

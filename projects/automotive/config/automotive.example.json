@@ -1,6 +1,6 @@
 {
-  "_version": "0.1.0-mae0-draft",
-  "_stage": "MAE-0",
+  "_version": "0.1.1-atn0-draft",
+  "_stage": "ATN-0",
   "_note": "Ecosystem configuration example only. Not deployed. All flags disabled. Replace all placeholder values before use.",
   "_legal": "LEGAL-REVIEW-REQUIRED items listed in docs/AUTOMOTIVE_RISK_REGISTER.md must be resolved before any production activation.",
 
@@ -22,13 +22,14 @@
     "schemas": [
       "mythos_core",
       "idauto",
-      "fixpert",
+      "atelier_network",
       "autovaleur",
       "parts",
       "automarket",
       "fleet",
       "assistance"
     ],
+    "_note_fixpert": "fixpert schema is an external system. It is not created by this repository's migrations. It is referenced in comments only.",
     "control_plane_schema": "mythos_automotive",
     "ssl_required": true,
     "migration_authority": "idauto for IDA-2; autovaleur for AVA-1; one product at a time"
@@ -48,9 +49,17 @@
       "active": false,
       "runtime_enabled": false
     },
+    "atelier_network": {
+      "status": "FOUNDATION",
+      "current_stage": "ATN-0 complete; ATN-1 next",
+      "schema": "atelier_network",
+      "active": false,
+      "runtime_enabled": false,
+      "note": "Multi-workshop platform. Fixpert is the first workshop pilot (EXTERNAL_CONNECTED, integration TBD)."
+    },
     "fixpert": {
       "status": "PRODUCTION",
-      "note": "External system — not in this repository's runtime code",
+      "note": "External system — first workshop pilot for Atelier Network. Not in this repository's runtime code. Integration mode to be confirmed in ATN-1.",
       "schema": "fixpert",
       "active": false,
       "runtime_enabled": false
@@ -130,10 +139,17 @@
       "base_url": "REPLACE_WITH_URL",
       "version": "v1"
     },
+    "atelier_network_api": {
+      "enabled": false,
+      "base_url": "REPLACE_WITH_URL",
+      "version": "v1",
+      "note": "Generic workshop network API. Repair estimate endpoint consumed by AutoValeur in AVA-2."
+    },
     "fixpert_api": {
       "enabled": false,
       "base_url": "REPLACE_WITH_URL",
       "version": "v1",
+      "note": "Fixpert external API — for EXTERNAL_CONNECTED integration in ATN-1. Replaces direct product integration.",
       "legal_review_required": true
     },
     "parts_api": {
@@ -273,6 +289,11 @@
     "idauto_public_api": false,
     "idauto_professional_api": false,
     "idauto_smart_gate": false,
+    "atelier_network_api": false,
+    "atelier_network_workshop_registry": false,
+    "atelier_network_inspection_api": false,
+    "atelier_network_autocheck_report": false,
+    "atelier_network_smart_gate_registry": false,
     "autovaleur_public_valuation": false,
     "autovaleur_professional_valuation": false,
     "autovaleur_deal_radar": false,

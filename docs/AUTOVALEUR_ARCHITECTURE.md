@@ -1,6 +1,6 @@
 # AutoValeur — Architecture
 
-**Stage:** AVA-0 Foundation and Ecosystem Roadmap
+**Stage:** AVA-0 Foundation and Ecosystem Roadmap (amended by ATN-0)
 **Last updated:** 2026-08-05
 **Platform:** Mythos ecosystem
 **Repository:** othoth77/mythos-prod
@@ -11,7 +11,7 @@
 
 AutoValeur is a vehicle valuation and market intelligence product within the Mythos ecosystem. It is a **distinct product domain** with its own PostgreSQL schema (`autovaleur`), its own lifecycle, and its own legal and commercial obligations.
 
-AutoValeur does not own vehicle identity data. It consumes vehicle identity from ID Auto. It does not own inspection and repair data. It consumes that from Fixpert. It does not own marketplace data. It consumes that from authorised external sources.
+AutoValeur does not own vehicle identity data. It consumes vehicle identity from ID Auto. It does not own inspection and repair data. It consumes that from the Atelier Network (first provider: Fixpert). It does not own marketplace data. It consumes that from authorised external sources.
 
 AutoValeur owns:
 - Valuation records (immutable snapshots)
@@ -40,7 +40,10 @@ PostgreSQL cluster (target — not yet deployed)
 ├── idauto schema
 │   └── vehicles, plates, observations, facts, evidence, captures, ...
 │
-├── fixpert schema
+├── atelier_network schema
+│   └── workshop registry, inspections, repair estimates, AutoCheck reports (DRAFT)
+│
+├── fixpert schema (external — not created by this repository)
 │   └── clients, work orders, interventions, invoices, payments, ...
 │
 └── autovaleur schema
@@ -95,13 +98,13 @@ PostgreSQL cluster (target — not yet deployed)
 
 ---
 
-### AD-A5 — No duplication of Fixpert customer PII or marketplace seller PII
+### AD-A5 — No duplication of workshop customer PII or marketplace seller PII
 
-**Decision:** AutoValeur stores only stable IDs and authorised references to Fixpert and marketplace data. Customer names, contacts, and financial records are never copied into the `autovaleur` schema.
+**Decision:** AutoValeur stores only stable IDs and authorised references to Atelier Network and marketplace data. Customer names, contacts, and financial records are never copied into the `autovaleur` schema.
 
-**Why:** Fixpert owns its customer and financial records. Marketplace platforms own their seller and transaction records. Cross-schema PII duplication creates compliance exposure.
+**Why:** Each workshop organisation owns its customer and financial records. Marketplace platforms own their seller and transaction records. Cross-schema PII duplication creates compliance exposure.
 
-**Enforcement:** `autovaleur_repair_estimates` stores `fixpert_inspection_ref` (stable ID). `autovaleur_transactions` stores `marketplace_listing_ref` (stable ID). No customer PII columns exist in any `autovaleur_` table.
+**Enforcement:** `autovaleur_repair_estimates` stores `inspection_provider_id` and `repair_estimate_id` (stable IDs from Atelier Network). `autovaleur_transactions` stores `marketplace_listing_ref` (stable ID). No customer PII columns exist in any `autovaleur_` table.
 
 ---
 
@@ -147,16 +150,17 @@ All integrations are **disabled** in AVA-0. They activate in AVA-1 and later.
 | Optional facts | vin (MYTHOS_PRIVATE scope), plate_number, verified technical attributes |
 | Activation | AVA-2 |
 
-### 4.2 Fixpert Atelier (`fixpert schema`)
+### 4.2 Atelier Network (`atelier_network schema`)
 
 | Contract point | Detail |
 |---|---|
-| Purpose | Inspection results and repair estimates for Level 2 valuation |
-| Protocol | Read-only reference via stable `fixpert_inspection_id` |
-| AutoValeur stores | `fixpert_inspection_ref`, repair line items (with authorisation), estimate totals |
+| Purpose | Inspection results and repair estimates for Level 2 valuation (any accredited provider) |
+| Protocol | Read-only reference via stable `inspection_provider_id` and `repair_estimate_id` |
+| AutoValeur stores | `inspection_provider_id` (stable), `repair_estimate_id` (stable), repair line items, estimate totals |
 | AutoValeur does NOT store | Customer name, CIN, contact, invoice amounts, payment records |
-| Display wording | "Estimation après inspection Fixpert" — not "Expertise légale certifiée" |
-| Activation | AVA-2 |
+| Display wording | "Estimation après inspection [Workshop Name]" — prohibited: "Expertise légale certifiée" |
+| First provider | Fixpert (EXTERNAL_CONNECTED mode — API contract to be specified in ATN-1) |
+| Activation | AVA-2 (after ATN-1) |
 
 ### 4.3 Spare-Parts Platforms (external)
 
@@ -246,18 +250,18 @@ Return public result
 Professional user (verified organisation)
   │
   ▼
-Fixpert inspection completed (fixpert schema)
-  │  → inspection ref returned
+AutoCheck inspection completed (Atelier Network — first provider: Fixpert)
+  │  → inspection_provider_id + repair_estimate_id returned
   │
   ▼
-AutoValeur reads repair list from authorised Fixpert endpoint
+AutoValeur reads repair estimate from Atelier Network endpoint
   │
   ▼
 Parts lookup (ssangyong.autos, future platforms)
   │  → price, availability, classification, date
   │
   ▼
-Labour calculation (Fixpert rate × hours)
+Labour calculation (workshop rate × hours, via Atelier Network)
   │
   ▼
 Contingency reserve applied (configurable %)

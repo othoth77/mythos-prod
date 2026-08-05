@@ -1,6 +1,6 @@
 # Mythos Automotive — Risk Register
 
-**Stage:** MAE-0 Ecosystem Master Foundation
+**Stage:** ATN-0 Atelier Network Foundation and Ecosystem Consistency Amendment (amends MAE-0)
 **Last updated:** 2026-08-05
 **Repository:** othoth77/mythos-prod
 
@@ -20,7 +20,7 @@
 | R-L03 | AutoValeur | Automated valuation estimates used in financial decisions without regulatory review | M | H | Clear disclaimer on every output; legal review of display wording before AVA-1 | AVA-1 | OPEN |
 | R-L04 | AutoValeur | Deal Radar creates conflict-of-interest risk: Mythos simultaneously values vehicles it may acquire | M | H | Document invariants (human review, no auto-purchase, no auto-contact); consider governance structure | AVA-4 | OPEN |
 | R-L05 | AutoMarket | Marketplace transactions subject to consumer protection law, seller liability, and potential platform liability | M | H | Legal review of marketplace operating terms before AutoMarket spec | AutoMarket | OPEN |
-| R-L06 | Fixpert | Inspection report wording implies legal certification liability without professional PI insurance | M | H | Use "AutoCheck by Fixpert / Inspecté par Fixpert" — not "expertise légale certifiée" | AutoCheck | OPEN |
+| R-L06 | Atelier Network | Inspection report wording may imply legal certification liability without professional PI insurance for any accredited AutoCheck provider | M | H | AUTOCHECK_STANDARD.md mandates provider-neutral branding rules; prohibited: "expertise légale certifiée"; required: "AutoCheck by [Workshop Name]"; R-L06 now applies to all accredited providers, not only Fixpert | ATN-1 | OPEN |
 | R-L07 | All | Data retention periods for all categories not yet defined by legal review | H | M | Legal review of each category; no data deleted or retained without documented policy | All | OPEN |
 | R-L08 | All | Cross-border data transfer or hosting outside Tunisia may create additional obligations | L | M | Review hosting model against applicable law before production deployment | Production | OPEN |
 | R-L09 | AutoMarket | Completed transaction price collection and publication may require specific legal authorisation | M | M | Legal review before AVA-5/AutoMarket | AVA-5 | OPEN |
@@ -52,7 +52,7 @@
 | R-T05 | Integration | Audit envelope shape is product-specific (two independent tables); ecosystem audit stream has no schema | M | M | Common envelope specified in AUTOMOTIVE_INTEGRATION_CONTRACTS.md; implementation in MAE-1 | IDA-2 | OPEN |
 | R-T06 | Architecture | Table naming in PostgreSQL schemas is redundant (e.g. `idauto.idauto_vehicles`) — carries MySQL-era prefix convention into PostgreSQL schema design | L | L | Decide naming convention before first migration; may rename prefix-inside-schema in IDA-2 | IDA-2 | OPEN |
 | R-T07 | Infrastructure | PostgreSQL installation authority doubly stated: ID Auto says "before IDA-2"; AVA-1 also lists PostgreSQL as prerequisite | M | M | One shared cluster provisioned in IDA-2; AVA-1 is a consumer, not a separate installer | IDA-2 | OPEN |
-| R-T08 | Roadmap | AVA-2 prerequisite incorrectly states "Fixpert Atelier IDA-2 inspection flow operational" — the Fixpert Atelier integration is IDA-4, not IDA-2 | H | M | Corrected in AUTOVALEUR_ROADMAP.md: AVA-2 prerequisite is IDA-4 | AVA-2 | OPEN |
+| R-T08 | Roadmap | AVA-2 prerequisite incorrectly stated "Fixpert Atelier IDA-2 inspection flow operational" — wrong product (Atelier Network, not Fixpert) and wrong dependency (ATN-1 repair estimate API, not Smart Gate IDA-4) | H | M | Corrected in ATN-0: AVA-2 prereq is now "ATN-1 complete (Atelier Network inspection API and repair estimate endpoint)"; corrected in AUTOVALEUR_ROADMAP.md, AUTOMOTIVE_ROADMAP.md, AUTOVALEUR_ARCHITECTURE.md | AVA-2 | RESOLVED (ATN-0) |
 | R-T09 | Architecture | No shared vehicle taxonomy API is defined; AutoValeur, AutoMarket, and Parts Network may each grow private lookup tables | M | M | ID Auto taxonomy API endpoint included in IDA-2 scope | IDA-2 | OPEN |
 
 ---
@@ -95,3 +95,23 @@
 | R-P03 | AutoValeur | Deal Radar secrecy creates audit risk if acquisition intent is inferred from API access patterns | L | M | No public or professional API endpoint for deal alerts; MYTHOS_PRIVATE only; access audited | AVA-4 | OPEN |
 | R-P04 | ID Auto | Carte grise OCR extracts owner PII in memory; must not persist to any idauto_ column | M | H | Architecture enforces: OCR → confirm → route to fixpert.clients or discard. `idauto_document_scans` has no PII columns | IDA-3 | OPEN |
 | R-P05 | All | Vehicle movement as surveillance product — Smart Gate data or observation timestamps used to track individuals | L | H | Movement data is MYTHOS_PRIVATE; vehicle movements are never a public product; Deal Radar acquisition strategy never exposed publicly | All | OPEN |
+| R-P06 | Atelier Network | Workshop customer PII from one workshop organisation accessible to another through shared Atelier Network platform tables | M | H | ATN platform tables never store customer PII; each workshop org owns its own customer table; no cross-org customer query permitted by platform APIs | ATN-1 | OPEN |
+
+---
+
+## 6. Atelier Network Risks (ATN-0)
+
+| ID | Domain | Description | L | I | Mitigation | Blocking stage | Status |
+|----|--------|-------------|---|---|-----------|----------------|--------|
+| R-ATN-L01 | ATN / Legal | Workshop data processing agreements (DPAs) not yet in place — each workshop organisation processing customer PII requires its own DPA under Tunisian law | H | H | DPA template required before ATN-1 onboards any real workshop; LEGAL-REVIEW-REQUIRED; no real customer data before DPA signed | ATN-1 | OPEN |
+| R-ATN-L02 | ATN / Legal | Smart Gate per-workshop ANPR approval — each participating workshop deploying a Smart Gate camera may require its own regulatory approval (INPDP), not just a platform-level approval | M | H | Per-workshop approval requirement to be clarified with legal counsel before any non-Fixpert workshop activates Smart Gate; R-L02 applies to each workshop individually | ATN-1 | OPEN |
+| R-ATN-L03 | ATN / Legal | AutoCheck accreditation governance lacks defined liability allocation — who is liable if an AutoCheck report by a third-party workshop is disputed? | M | H | Accreditation agreement template must define liability and PI insurance requirements; LEGAL-REVIEW-REQUIRED before ATN-2 accreditation of non-Fixpert providers | ATN-2 | OPEN |
+| R-ATN-D01 | ATN / Data | Multi-tenant data isolation breach — a bug in the Atelier Network API serves one workshop organisation's operational records to another organisation | M | H | Mandatory `workshop_organization_id` filter on every query path; row-level security design reviewed before ATN-1 build; automated isolation tests required | ATN-1 | OPEN |
+| R-ATN-D02 | ATN / Data | Global customer database anti-pattern — a future developer creates a shared `atn_customers` table violating the per-organisation PII ownership rule | M | H | Architecture decision AD-ATN-2 explicitly prohibits this; no `atn_customers` table in schema; reviewed in code review for every ATN schema change | ATN-1 | OPEN |
+| R-ATN-D03 | ATN / Data | EXTERNAL_CONNECTED sync data integrity — Fixpert external data sync introduces stale, partial, or malformed records into the Atelier Network platform | M | M | External connector validation layer required; failed records to dead-letter with observable review; connector health KPI tracked | ATN-1 | OPEN |
+| R-ATN-D04 | ATN / Data | ATN→ID Auto vehicle_id resolution failure — work orders and inspections reference a vehicle_id that ID Auto cannot resolve (e.g. vehicle not yet in ID Auto, or vehicle_id alias not propagated) | M | M | Graceful degradation: work order valid without vehicle_id until resolved; vehicle_id linkage is async and advisory in ATN-1 | ATN-1 | OPEN |
+| R-ATN-T01 | ATN / Technical | ATN schema is a draft (NOT DEPLOYED) — schema design decisions made in ATN-0 may need revision once database work begins in ATN-1; design drift between spec and implementation | M | M | Schema file carries DRAFT NOT DEPLOYED header; no migration scripts execute until ATN-1 authorised; schema review required before first migration | ATN-1 | OPEN |
+| R-ATN-T02 | ATN / Technical | Integration mode lock-in — selecting EXTERNAL_CONNECTED for Fixpert in ATN-1 without a clear upgrade path to HYBRID or NATIVE_MANAGED may create technical debt if Fixpert data model evolves | M | M | Integration mode documented as "TBD" until ATN-1 connector spec is finalised; mode transition path defined before any connector is activated | ATN-1 | OPEN |
+| R-ATN-O01 | ATN / Operational | Workshop onboarding without verification — a fraudulent or unqualified workshop claims to be an accredited AutoCheck provider | M | H | Accreditation process requires: professional licence verification, premises inspection, equipment check, DPA, and Mythos approval; no accreditation without completed checklist | ATN-1 | OPEN |
+| R-ATN-O02 | ATN / Operational | Network partner dispute — a workshop organisation disputes data in the Atelier Network platform (incorrect accreditation status, inspection history) | L | M | Dispute resolution process defined in partner agreement; data correction path via Mythos admin; audit trail preserved | ATN-2 | OPEN |
+| R-ATN-B01 | ATN / Business | Fixpert is both the first pilot and the model for all future workshops — if Fixpert-specific assumptions are baked into the platform, onboarding future workshops will require rework | H | M | ATN-0 corrects this explicitly: schema uses generic `atelier_network` prefix; no Fixpert-specific business rules in platform tables; Fixpert-specific integration in dedicated connector; reviewed at every ATN stage gate | ATN-1 | OPEN |

@@ -7,9 +7,13 @@
 
 ---
 
+> **ATN-0 Amendment Note (2026-08-05):** The Smart Gate architecture described in this document generalises to any participating workshop in the Atelier Network. Fixpert is the first pilot; IDA-4 scope is preserved exactly as specified here. Future workshops joining the Atelier Network will have equivalent Smart Gate integrations under the same ID Auto ownership rules: the participating workshop owns its physical camera device and its consent/notice obligation; ID Auto owns the resulting vehicle observation. One workshop cannot access another workshop's Smart Gate events. This document remains Fixpert-specific for IDA-4; generic ATN multi-workshop Smart Gate is governed by `docs/ATELIER_NETWORK_ARCHITECTURE.md`.
+
+---
+
 ## 1. Context
 
-Fixpert is the first professional pilot for the ID Auto platform. It operates as a professional subscriber with a direct camera integration (Smart Gate) for vehicle entry/exit detection at the workshop entrance.
+Fixpert is the first professional pilot for the ID Auto platform and for the Atelier Network. It operates as a professional subscriber with a direct camera integration (Smart Gate) for vehicle entry/exit detection at the workshop entrance.
 
 This document specifies the integration architecture, data ownership boundaries, and the Fixpert Atelier relationship. No live camera connection exists in IDA-1. This document is a specification only.
 

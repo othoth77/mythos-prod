@@ -1,6 +1,6 @@
 # AutoValeur — Product Specification
 
-**Stage:** AVA-0 Foundation and Ecosystem Roadmap
+**Stage:** AVA-0 Foundation and Ecosystem Roadmap (amended by ATN-0)
 **Last updated:** 2026-08-05
 **Platform:** Mythos ecosystem
 **Repository:** othoth77/mythos-prod
@@ -41,13 +41,13 @@ ID Auto
 ├── Observations and evidence
 └── Vehicle data confidence score
 
-Fixpert Atelier
-├── Customers and appointments
-├── Inspections and diagnostics
+Atelier Network (first provider: Fixpert)
+├── Workshop registry and inspection providers
+├── AutoCheck inspections and diagnostics
 ├── Work orders and interventions
-├── Labour estimates
-├── Quotations and invoices
-└── Payments
+├── Repair estimates and labour estimates
+├── AutoCheck reports (provider-neutral standard)
+└── Each workshop organisation's customers, quotations, invoices, payments (org-private)
 
 Spare-parts platforms
 ├── ssangyong.autos
@@ -82,12 +82,13 @@ AutoValeur
 |---|---|---|
 | Valuation records and model outputs | AutoValeur / Mythos | autovaleur |
 | Vehicle identity and evidence-backed facts | ID Auto / Mythos | idauto |
-| Customers, inspections, work orders, invoices, payments | Fixpert | fixpert |
+| Workshop registry, inspection providers, work orders, repair estimates | Atelier Network | atelier_network |
+| Customers, invoices, payments (per workshop org) | Each workshop organisation (Fixpert first) | fixpert / per-org |
 | Parts catalogues, sales, commercial records | ssangyong.autos / future platforms | external |
 | Listings, sellers, leads, transactions | Marketplace | external |
 | Global auth, roles, audit | Mythos OS | mythos_core |
 
-AutoValeur uses stable IDs to reference data owned by other systems. It does not duplicate or own data belonging to ID Auto, Fixpert, spare-parts platforms, or the marketplace. Integration is through defined contracts, not direct cross-schema writes.
+AutoValeur uses stable IDs to reference data owned by other systems. It does not duplicate or own data belonging to ID Auto, the Atelier Network, workshop organisations, spare-parts platforms, or the marketplace. Integration is through defined contracts, not direct cross-schema writes.
 
 ---
 
@@ -355,7 +356,7 @@ A resale-time range is shown when confidence allows. The range is an estimate, n
 ## 8. Repair and Reconditioning Cost Pipeline
 
 ```
-Fixpert Inspection
+AutoCheck Inspection (Atelier Network — first provider: Fixpert)
         ↓
 Required Interventions List
         ↓
@@ -363,7 +364,7 @@ Parts Compatibility Check
         ↓
 Parts Prices and Availability (ssangyong.autos, future platforms)
         ↓
-Fixpert Labour Estimate
+Workshop Labour Estimate (via Atelier Network repair_estimate_id)
         ↓
 Bodywork, Tyres and Consumables
         ↓
@@ -378,21 +379,21 @@ Each repair estimate line must record:
 
 | Field | Description |
 |---|---|
-| parts_source | ssangyong.autos, catalogue, Fixpert estimate |
+| parts_source | ssangyong.autos, catalogue, workshop estimate (Atelier Network) |
 | price_date | When the price was observed |
 | part_classification | Original / compatible alternative / used |
 | quantity | Number of units |
 | unit_price | Price per unit (TND) |
 | availability | In stock / days to order |
 | delivery_estimate_days | Estimated lead time |
-| labour_hours | Fixpert estimate |
+| labour_hours | Workshop estimate (via Atelier Network) |
 | labour_rate | Rate per hour (TND) |
 | uncertainty_flag | High / medium / low |
 | excluded_work | What is NOT included and why |
 
 ### 8.2 Ownership Boundary
 
-Fixpert invoices and payment records remain Fixpert-owned in the `fixpert` schema. AutoValeur stores only the valuation snapshot (the estimate total and line-item references). It does not own or duplicate Fixpert financial records.
+Workshop invoices and payment records remain the workshop organisation's own (e.g. in the `fixpert` schema for Fixpert). AutoValeur stores only the valuation snapshot (`inspection_provider_id`, `repair_estimate_id`, estimate total, and line-item references). It does not own or duplicate any workshop's financial records.
 
 ---
 
@@ -405,7 +406,7 @@ The Opportunity Score is a decision-support metric for professional and Mythos-p
 | Dimension | Weight (configurable) | Description |
 |---|---|---|
 | Price advantage | — | Listed price vs. estimated market value |
-| Technical condition | — | Fixpert inspection result |
+| Technical condition | — | AutoCheck inspection result (Atelier Network) |
 | Repair cost | — | Total reconditioning estimate |
 | Resale liquidity | — | Liquidity score class |
 | Parts availability | — | ssangyong.autos and other sources |
@@ -496,15 +497,17 @@ Human Review
 
 ---
 
-## 11. Fixpert Integration Levels
+## 11. Atelier Network Inspection Integration Levels
+
+AutoValeur integrates with any accredited Atelier Network workshop inspection provider. Fixpert is the first pilot. The integration levels apply generically.
 
 ### Level 1 — Indicative Valuation
 
-Uses market and user-provided data only. No Fixpert inspection required. Confidence is lower.
+Uses market and user-provided data only. No workshop inspection required. Confidence is lower.
 
 ### Level 2 — Post-Inspection Valuation
 
-After a Fixpert inspection:
+After an AutoCheck inspection (any accredited Atelier Network provider):
 
 - Verified mileage (odometer reading)
 - Diagnostic findings
@@ -515,11 +518,11 @@ After a Fixpert inspection:
 - Revised market valuation
 - Revised opportunity score
 
-Display wording: "Estimation après inspection Fixpert"
+Display wording: "Estimation après inspection [Workshop Name]" (e.g. "Estimation après inspection Fixpert" for Fixpert).
 
-Do NOT use: "Expertise légale certifiée" — unless legally and professionally authorised in a future stage.
+Do NOT use: "Expertise légale certifiée" — prohibited by AUTOCHECK_STANDARD.md. Not authorised at any stage without explicit legal and professional certification.
 
-Fixpert customer identity remains in the `fixpert` schema. AutoValeur references the authorised inspection report by stable ID only.
+Workshop customer identity remains in the workshop organisation's own schema (e.g. `fixpert` for Fixpert). AutoValeur references the authorised inspection report by `inspection_provider_id` and `repair_estimate_id` stable IDs only.
 
 ---
 

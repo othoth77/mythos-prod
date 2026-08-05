@@ -253,7 +253,7 @@
     "_note": "Repair and reconditioning cost pipeline. Not implemented in AVA-0.",
     "enabled": false,
     "contingency_reserve_percent": 15,
-    "labour_rate_source": "fixpert_atelier",
+    "labour_rate_source": "atelier_network_repair_estimate",
     "parts_sources": ["ssangyong.autos"],
     "parts_sources_future": ["general_spare_parts_platform"],
     "legal_status": "LEGAL-REVIEW-REQUIRED"
@@ -266,12 +266,14 @@
       "activation_stage": "AVA-2",
       "_note": "AutoValeur does not modify any idauto_ table"
     },
-    "fixpert": {
+    "atelier_network": {
       "enabled": false,
       "type": "read_only_reference",
-      "display_wording": "Estimation après inspection Fixpert",
+      "reads": ["inspection_provider_id", "repair_estimate_id", "repair_line_items", "estimate_totals"],
+      "display_wording": "Estimation après inspection [Workshop Name]",
+      "first_provider": "Fixpert (EXTERNAL_CONNECTED — ATN-1)",
       "activation_stage": "AVA-2",
-      "_note": "Never 'Expertise légale certifiée'. No customer PII stored."
+      "_note": "Never 'Expertise légale certifiée'. No workshop customer PII stored. References stable ATN IDs only."
     },
     "ssangyong_autos": {
       "enabled": false,
@@ -349,7 +351,7 @@
     "Completed transaction price collection and display",
     "Publication of valuation affecting financial decisions",
     "Professional subscriber data retention and GDPR compliance",
-    "Fixpert repair data reuse for valuation purposes",
+    "Atelier Network repair estimate data reuse for valuation purposes",
     "ID Auto vehicle data reuse for valuation purposes",
     "Image data from marketplace listings (copyright)",
     "Seller identity and contact data (not to be stored)",
@@ -364,7 +366,7 @@
     "public_valuation": false,
     "professional_valuation": false,
     "idauto_lookup": false,
-    "fixpert_inspection_integration": false,
+    "atelier_network_inspection_integration": false,
     "repair_estimate": false,
     "parts_price_lookup": false,
     "marketplace_listing_ingestion": false,

@@ -10,7 +10,8 @@
 --
 -- Ownership boundaries:
 --   - vehicle identity belongs to idauto schema (read-only from AutoValeur)
---   - client/customer data belongs to fixpert schema (read-only references)
+--   - workshop client/customer data belongs to each workshop organisation (fixpert schema for Fixpert pilot; read-only references)
+--   - inspection and repair estimate references use inspection_provider_id and repair_estimate_id from atelier_network schema
 --   - marketplace seller data belongs to external sources (not copied here)
 --   - AutoValeur owns: valuations, comparables, estimates, scores, deal pipeline, model versions, audit
 
@@ -235,7 +236,7 @@ CREATE TABLE autovaleur_condition_reports (
     id                      BIGSERIAL PRIMARY KEY,
     valuation_id            BIGINT      REFERENCES autovaleur_valuations(id),
     report_type             VARCHAR(50) NOT NULL DEFAULT 'user_declared',
-    -- report_type: user_declared / professional / post_fixpert_inspection
+    -- report_type: user_declared / professional / post_autocheck_inspection
     condition_grade         VARCHAR(50),
     -- condition_grade: excellent / good / fair / poor / salvage
     accident_history        BOOLEAN,
@@ -246,8 +247,8 @@ CREATE TABLE autovaleur_condition_reports (
     tyre_condition          VARCHAR(50),
     interior_condition      VARCHAR(50),
     mechanical_notes        TEXT,
-    fixpert_inspection_ref  VARCHAR(255),
-    -- reference to fixpert inspection ID — no fixpert PII stored here
+    inspection_provider_id  BIGINT,
+    -- stable reference to atelier_network.atn_inspection_providers.id — no workshop PII stored here
     created_at              TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -256,12 +257,14 @@ CREATE TABLE autovaleur_condition_reports (
 -- =============================================================================
 
 -- autovaleur_repair_estimates
--- Reconditioning cost estimates. References Fixpert inspections — does not duplicate Fixpert data.
+-- Reconditioning cost estimates. References Atelier Network inspections — does not duplicate workshop data.
 CREATE TABLE autovaleur_repair_estimates (
     id                      BIGSERIAL PRIMARY KEY,
     valuation_id            BIGINT      REFERENCES autovaleur_valuations(id),
-    fixpert_inspection_ref  VARCHAR(255),
-    -- stable reference to fixpert inspection — no customer PII
+    inspection_provider_id  BIGINT,
+    -- stable reference to atelier_network.atn_inspection_providers.id
+    repair_estimate_id      BIGINT,
+    -- stable reference to atelier_network.atn_repair_estimates.id — no customer PII
     labour_rate_tnd_hr      NUMERIC(8, 2),
     labour_hours_total      NUMERIC(8, 2),
     labour_total_tnd        NUMERIC(12, 2),

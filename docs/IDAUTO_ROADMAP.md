@@ -102,7 +102,7 @@
 ### IDA-4 — Fixpert Smart Gate and Atelier Integration
 
 **Status:** Planned
-**Depends on:** IDA-3; LEGAL-REVIEW-REQUIRED resolved for: ANPR regulatory approval, camera disclosure, video retention
+**Depends on:** IDA-3; ATN-1 complete (Atelier Network workshop registry and integration connector — Fixpert must be registered as an ATN workshop before formal Smart Gate integration); LEGAL-REVIEW-REQUIRED resolved for: ANPR regulatory approval, camera disclosure, video retention
 
 **Objective:** Activate the Fixpert Smart Gate on the single designated entrance/exit camera.
 
@@ -190,11 +190,14 @@ Mythos OS (existing, production)
     ├── Search (MythosSearch) ───────────────► ID Auto IDA-4+
     └── Audit service       ─────────────────► ID Auto IDA-2+
 
-Fixpert Atelier
-    └── work_orders.vehicle_id ──────────────► idauto.vehicles.id (IDA-4+)
+Atelier Network (ATN-0+)
+    └── atn_work_orders.vehicle_id ──────────► idauto.vehicles.id (ATN-1+)
+
+Fixpert (first workshop pilot, via Atelier Network)
+    └── work_orders.vehicle_id ──────────────► idauto.vehicles.id (IDA-4+, requires ATN-1)
 ```
 
-ID Auto does not modify Mythos OS `mp_*` tables. Fixpert business data stays in the `fixpert` schema. The dependency is service-consumption only via defined contracts.
+ID Auto does not modify Mythos OS `mp_*` tables. Fixpert business data stays in the `fixpert` schema. The Atelier Network registers workshops and work orders with `vehicle_id` references to ID Auto. The dependency is service-consumption only via defined contracts.
 
 ---
 

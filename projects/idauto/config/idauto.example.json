@@ -16,7 +16,8 @@
   "database": {
     "target_dbms": "PostgreSQL",
     "target_dbms_status": "selected — not yet installed or deployed",
-    "logical_schemas": ["mythos_core", "idauto", "fixpert"],
+    "logical_schemas": ["mythos_core", "idauto", "atelier_network", "fixpert"],
+    "_schema_note": "atelier_network schema is governed by projects/atelier-network/. fixpert is an external system — not created by this repository. Fixpert is first workshop pilot on Atelier Network.",
     "implementation_stage": "IDA-2"
   },
 
@@ -340,7 +341,8 @@
       "owner_address",
       "owner_dob"
     ],
-    "pii_routing": "fixpert_clients_with_consent_or_discard",
+    "pii_routing": "workshop_organisation_customers_with_consent_or_discard",
+    "pii_routing_note": "Carte grise owner PII routed to the workshop org's own customer table with explicit consent (e.g. fixpert.clients for Fixpert). Never stored in idauto_ or atelier_network platform tables.",
     "pii_never_stored_in_idauto": true,
     "technical_fields_public": [
       "plate_number",
@@ -357,13 +359,14 @@
     ]
   },
 
-  "fixpert_smart_gate": {
+  "smart_gate": {
+    "_note": "Smart Gate generalises to any participating Atelier Network workshop. Fixpert is the first pilot. IDA-4 scope is Fixpert-specific. Each workshop owns its own device and consent obligation; ID Auto owns the observation.",
     "enabled": false,
-    "available_from": "IDA-4",
-    "legal_status": "LEGAL-REVIEW-REQUIRED — ANPR regulatory approval (INPDP notification) required",
+    "available_from": "IDA-4 (Fixpert pilot); future workshops via Atelier Network ATN-1+",
+    "legal_status": "LEGAL-REVIEW-REQUIRED — per-workshop ANPR regulatory approval (INPDP notification) required",
     "camera_count_total": 5,
     "cameras_in_scope": 1,
-    "camera_scope_description": "Single designated entrance/exit door camera only",
+    "camera_scope_description": "Single designated entrance/exit door camera only (Fixpert pilot)",
     "cameras_out_of_scope": 4,
     "stream_type": "rtsp",
     "dedup_window_seconds": 60,
@@ -372,7 +375,7 @@
     "movement_visibility": "mythos_private",
     "publish_movements_publicly": false,
     "publish_movements_professionally": false,
-    "link_to_fixpert_atelier": true,
+    "link_to_atelier_network_work_order": true,
     "link_optional": true
   },
 
@@ -446,7 +449,7 @@
     "carte_grise_ocr":          false,
     "contributor_accounts":     false,
     "smart_gate_anpr":          false,
-    "fixpert_atelier_link":     false,
+    "atelier_network_work_order_link": false,
     "official_data_import":     false,
     "movement_tracking":        false,
     "aggregate_analytics":      false,

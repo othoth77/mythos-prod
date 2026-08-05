@@ -1,6 +1,6 @@
 # Mythos Automotive — Master Architecture
 
-**Stage:** MAE-0 Ecosystem Master Foundation
+**Stage:** ATN-0 Atelier Network Foundation and Ecosystem Consistency Amendment (amends MAE-0)
 **Last updated:** 2026-08-05
 **Repository:** othoth77/mythos-prod
 
@@ -17,10 +17,13 @@ Mythos Automotive Portfolio
 │   Platform services: auth, roles, audit, billing, notifications, search, documents
 │
 ├── ID Auto (idauto schema)
-│   Vehicle identity: fiches, plates, observations, facts, evidence, Smart Gate
+│   Vehicle identity: fiches, plates, observations, facts, evidence, Smart Gate observations
 │
-├── Fixpert Atelier (fixpert schema — external, integration only)
-│   Workshop: customers, appointments, inspections, work orders, invoices, payments
+├── Atelier Network (atelier_network schema)
+│   Multi-workshop platform: registry, capabilities, accreditations, inspections,
+│   work orders, AutoCheck standard, Smart Gate device registry
+│   Fixpert is the first workshop pilot (external system, integration mode TBD)
+│   Fixpert operational data is in its own external schema — not created by this repository
 │
 ├── Parts Network (parts schema — future)
 │   Commerce: parts catalogue, compatibility, suppliers, stock, orders, storefronts
@@ -83,10 +86,23 @@ Mythos Automotive Portfolio
 | Vehicle observation | ID Auto |
 | Vehicle fact | ID Auto |
 | Vehicle taxonomy (make/model/variant/fuel/body_type) | ID Auto |
-| Customer/client PII | Fixpert |
-| Appointment, inspection | Fixpert |
-| Work order, intervention | Fixpert |
-| Invoice, payment | Fixpert |
+| Smart Gate observation record | ID Auto |
+| Workshop organisation registry | Atelier Network |
+| Workshop registry (brands, sites) | Atelier Network |
+| Network memberships | Atelier Network |
+| Integration connectors | Atelier Network |
+| Workshop capabilities and accreditations | Atelier Network |
+| Service catalogue items | Atelier Network |
+| Technician registry and assignments | Atelier Network |
+| Inspection provider registry (AutoCheck accreditation) | Atelier Network |
+| Inspections and findings | Atelier Network |
+| Work orders and interventions | Atelier Network |
+| Repair estimates | Atelier Network |
+| Smart Gate device registry | Atelier Network |
+| Network audit events | Atelier Network |
+| Customer/client PII | Each workshop organisation (not Atelier Network platform) |
+| Appointments (customer-linked details) | Each workshop organisation |
+| Invoices, payments | Each workshop organisation |
 | Part, part_id, compatibility | Parts Network |
 | Parts stock, order | Parts Network |
 | Valuation, comparable | AutoValeur |

@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Mythos Automotive — Control Plane Schema (Draft)
--- Stage:   MAE-0 Ecosystem Master Foundation
+-- Stage:   MAE-0 / ATN-0 (13 tables added in ATN-0)
 -- Date:    2026-08-05
 -- Schema:  mythos_automotive (separate schema, not idauto / autovaleur / etc.)
 --
@@ -9,7 +9,7 @@
 -- No migration script exists yet. No table has been created.
 -- Provisioning requires explicit authorisation.
 --
--- Table count: 18 (all prefixed mythos_automotive_)
+-- Table count: 31 (18 original MAE-0 + 13 added in ATN-0; all prefixed mythos_automotive_)
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -359,6 +359,260 @@ CREATE TABLE mythos_automotive_domain_events (
 );
 
 -- =============================================================================
+-- ATN-0 ADDITIONS — 13 new tables (18 → 31 total)
+-- Added in Stage ATN-0: Atelier Network Foundation and Ecosystem Consistency Amendment
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- 19. Organisations
+--     Registry of platform-level organisations (links to Mythos Core entity).
+--     Tracks which products each organisation subscribes to.
+-- -----------------------------------------------------------------------------
+CREATE TABLE mythos_automotive_organizations (
+    org_id              BIGSERIAL PRIMARY KEY,
+    org_ref             BIGINT        NOT NULL,           -- mythos_core.organization_id — no FK
+    org_name            VARCHAR(256)  NOT NULL,
+    org_type            VARCHAR(64)   NOT NULL DEFAULT 'SUBSCRIBER',
+        -- SUBSCRIBER / PARTNER / PILOT / INTERNAL
+    status              VARCHAR(32)   NOT NULL DEFAULT 'ACTIVE',
+    onboarded_at        TIMESTAMPTZ,
+    notes               TEXT,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- -----------------------------------------------------------------------------
+-- 20. Organisation Product Entitlements
+--     Which products an organisation is entitled to access.
+-- -----------------------------------------------------------------------------
+CREATE TABLE mythos_automotive_organization_products (
+    entitlement_id      BIGSERIAL PRIMARY KEY,
+    org_id              BIGINT        NOT NULL,           -- ref: mythos_automotive_organizations
+    product_key         VARCHAR(64)   NOT NULL,           -- ref: mythos_automotive_products.product_key
+    access_tier         VARCHAR(32)   NOT NULL DEFAULT 'professional',
+    status              VARCHAR(32)   NOT NULL DEFAULT 'ACTIVE',
+    activated_at        TIMESTAMPTZ,
+    deactivated_at      TIMESTAMPTZ,
+    notes               TEXT,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- -----------------------------------------------------------------------------
+-- 21. Services
+--     Registry of Mythos Automotive platform services and endpoints.
+-- -----------------------------------------------------------------------------
+CREATE TABLE mythos_automotive_services (
+    service_id          BIGSERIAL PRIMARY KEY,
+    service_key         VARCHAR(128)  NOT NULL UNIQUE,    -- e.g. 'idauto.vehicle-lookup'
+    product_key         VARCHAR(64)   NOT NULL,
+    service_name        VARCHAR(256)  NOT NULL,
+    service_type        VARCHAR(32)   NOT NULL,           -- API / EVENT_PRODUCER / BATCH / INTEGRATION
+    access_scope        VARCHAR(32)   NOT NULL DEFAULT 'professional',
+    status              VARCHAR(32)   NOT NULL DEFAULT 'DESIGNED',
+        -- DESIGNED / SPECIFIED / ACTIVE / DEPRECATED
+    activation_stage    VARCHAR(32),
+    is_public           BOOLEAN       NOT NULL DEFAULT FALSE,
+    legal_review_required BOOLEAN     NOT NULL DEFAULT FALSE,
+    notes               TEXT,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- -----------------------------------------------------------------------------
+-- 22. Endpoints
+--     Registry of API endpoints per service.
+-- -----------------------------------------------------------------------------
+CREATE TABLE mythos_automotive_endpoints (
+    endpoint_id         BIGSERIAL PRIMARY KEY,
+    service_id          BIGINT        NOT NULL,           -- ref: mythos_automotive_services
+    method              VARCHAR(8)    NOT NULL,           -- GET / POST / PUT / DELETE
+    path                VARCHAR(512)  NOT NULL,
+    description         TEXT,
+    access_scope        VARCHAR(32)   NOT NULL DEFAULT 'professional',
+    rate_limited        BOOLEAN       NOT NULL DEFAULT TRUE,
+    audit_required      BOOLEAN       NOT NULL DEFAULT FALSE,
+    is_active           BOOLEAN       NOT NULL DEFAULT FALSE,
+    activation_stage    VARCHAR(32),
+    notes               TEXT,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- -----------------------------------------------------------------------------
+-- 23. Service Accounts
+--     Registry of machine-to-machine service accounts across the ecosystem.
+-- -----------------------------------------------------------------------------
+CREATE TABLE mythos_automotive_service_accounts (
+    account_id          BIGSERIAL PRIMARY KEY,
+    account_key         VARCHAR(128)  NOT NULL UNIQUE,
+    product_key         VARCHAR(64)   NOT NULL,
+    description         TEXT,
+    scopes              TEXT[],                           -- permitted access scopes
+    is_active           BOOLEAN       NOT NULL DEFAULT FALSE,
+    rotated_at          TIMESTAMPTZ,
+    rotation_due_at     DATE,
+    notes               TEXT,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- -----------------------------------------------------------------------------
+-- 24. Data Sources
+--     Registry of all external data sources across the ecosystem.
+-- -----------------------------------------------------------------------------
+CREATE TABLE mythos_automotive_data_sources (
+    source_id           BIGSERIAL PRIMARY KEY,
+    source_key          VARCHAR(128)  NOT NULL UNIQUE,
+    source_name         VARCHAR(256)  NOT NULL,
+    source_type         VARCHAR(64)   NOT NULL,
+        -- marketplace / parts_platform / official_registry / workshop / internal / other
+    product_key         VARCHAR(64),                      -- primary consumer
+    trust_level         SMALLINT      NOT NULL DEFAULT 1 CHECK (trust_level BETWEEN 1 AND 5),
+    legal_status        VARCHAR(64)   NOT NULL DEFAULT 'LEGAL-REVIEW-REQUIRED',
+        -- LEGAL-REVIEW-REQUIRED / APPROVED / ACTIVE / REVOKED
+    is_active           BOOLEAN       NOT NULL DEFAULT FALSE,
+    legal_review_date   DATE,
+    contract_ref        VARCHAR(256),
+    notes               TEXT,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- -----------------------------------------------------------------------------
+-- 25. Dependencies
+--     Registry of cross-product technical dependencies.
+-- -----------------------------------------------------------------------------
+CREATE TABLE mythos_automotive_dependencies (
+    dependency_id       BIGSERIAL PRIMARY KEY,
+    dependent_product   VARCHAR(64)   NOT NULL,           -- product that needs the dependency
+    required_product    VARCHAR(64)   NOT NULL,           -- product providing what is needed
+    dependency_type     VARCHAR(64)   NOT NULL,
+        -- POSTGRESQL_CLUSTER / API_ENDPOINT / EVENT / SCHEMA / LEGAL / AUTH
+    description         TEXT          NOT NULL,
+    required_stage      VARCHAR(32),                      -- stage at which dependency becomes active
+    status              VARCHAR(32)   NOT NULL DEFAULT 'PENDING',
+        -- PENDING / AVAILABLE / DEPRECATED
+    notes               TEXT,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- -----------------------------------------------------------------------------
+-- 26. Partner Onboarding
+--     Tracks onboarding status for external partner organisations.
+-- -----------------------------------------------------------------------------
+CREATE TABLE mythos_automotive_partner_onboarding (
+    onboarding_id       BIGSERIAL PRIMARY KEY,
+    org_id              BIGINT        NOT NULL,           -- ref: mythos_automotive_organizations
+    product_key         VARCHAR(64)   NOT NULL,
+    partner_type        VARCHAR(64)   NOT NULL,
+        -- WORKSHOP / PARTS_SUPPLIER / MARKETPLACE / INSPECTION_PROVIDER / DATA_SOURCE
+    status              VARCHAR(32)   NOT NULL DEFAULT 'PENDING',
+        -- PENDING / IN_PROGRESS / COMPLETED / REJECTED / SUSPENDED
+    legal_agreement_ref VARCHAR(256),
+    legal_review_completed BOOLEAN    NOT NULL DEFAULT FALSE,
+    technical_review_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    onboarded_at        TIMESTAMPTZ,
+    notes               TEXT,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- -----------------------------------------------------------------------------
+-- 27. Service Providers
+--     Registry of external service providers (workshops, inspectors, etc.)
+--     at the ecosystem governance level.
+-- -----------------------------------------------------------------------------
+CREATE TABLE mythos_automotive_service_providers (
+    provider_id         BIGSERIAL PRIMARY KEY,
+    org_id              BIGINT        NOT NULL,           -- ref: mythos_automotive_organizations
+    provider_type       VARCHAR(64)   NOT NULL,
+        -- WORKSHOP / INSPECTION_PROVIDER / PARTS_SUPPLIER / MARKETPLACE
+    provider_name       VARCHAR(256)  NOT NULL,
+    product_key         VARCHAR(64)   NOT NULL,           -- primary product governing this provider
+    status              VARCHAR(32)   NOT NULL DEFAULT 'PENDING',
+    legal_review_completed BOOLEAN    NOT NULL DEFAULT FALSE,
+    notes               TEXT,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- -----------------------------------------------------------------------------
+-- 28. Provider Sites
+--     Physical sites or locations for service providers.
+-- -----------------------------------------------------------------------------
+CREATE TABLE mythos_automotive_provider_sites (
+    site_id             BIGSERIAL PRIMARY KEY,
+    provider_id         BIGINT        NOT NULL,           -- ref: mythos_automotive_service_providers
+    site_name           VARCHAR(256)  NOT NULL,
+    governorate         VARCHAR(64),
+    is_primary_site     BOOLEAN       NOT NULL DEFAULT TRUE,
+    status              VARCHAR(32)   NOT NULL DEFAULT 'ACTIVE',
+    notes               TEXT,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- -----------------------------------------------------------------------------
+-- 29. Provider Capabilities
+--     Capabilities (service categories) per provider site.
+-- -----------------------------------------------------------------------------
+CREATE TABLE mythos_automotive_provider_capabilities (
+    capability_id       BIGSERIAL PRIMARY KEY,
+    provider_id         BIGINT        NOT NULL,           -- ref: mythos_automotive_service_providers
+    capability_type     VARCHAR(64)   NOT NULL,
+        -- AUTOCHECK_INSPECTION / SMART_GATE / ENGINE / BRAKES / HYBRID_EV / GENERAL_REPAIR / etc.
+    is_accredited       BOOLEAN       NOT NULL DEFAULT FALSE,
+    accreditation_ref   BIGINT,                           -- ref: mythos_automotive_provider_accreditations
+    notes               TEXT,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- -----------------------------------------------------------------------------
+-- 30. Provider Accreditations
+--     Formal accreditations held by service providers.
+-- -----------------------------------------------------------------------------
+CREATE TABLE mythos_automotive_provider_accreditations (
+    accreditation_id    BIGSERIAL PRIMARY KEY,
+    provider_id         BIGINT        NOT NULL,           -- ref: mythos_automotive_service_providers
+    accreditation_type  VARCHAR(64)   NOT NULL,
+        -- AUTOCHECK_PROVIDER / SMART_GATE_APPROVED / MANUFACTURER_CERTIFIED /
+        -- GOVERNMENT_INSPECTION / INSURANCE_APPROVED
+    issuing_body        VARCHAR(256),
+    certificate_ref     VARCHAR(256),
+    issued_at           DATE,
+    expires_at          DATE,
+    status              VARCHAR(32)   NOT NULL DEFAULT 'ACTIVE',
+        -- ACTIVE / EXPIRED / SUSPENDED / REVOKED
+    notes               TEXT,
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- -----------------------------------------------------------------------------
+-- 31. Audit Events (Control Plane)
+--     Ecosystem-level audit events across the control plane.
+--     Separate from product-level audit tables.
+-- -----------------------------------------------------------------------------
+CREATE TABLE mythos_automotive_audit_events (
+    audit_id            BIGSERIAL PRIMARY KEY,
+    event_id            UUID          NOT NULL,           -- cross-product correlation UUID v4
+    event_name          VARCHAR(256)  NOT NULL,
+    actor_ref           BIGINT,                           -- mythos_user_id — no FK
+    actor_role          VARCHAR(64),
+    product_key         VARCHAR(64),
+    target_table        VARCHAR(128),
+    target_id           BIGINT,
+    action              VARCHAR(32)   NOT NULL,           -- CREATE / READ / UPDATE / DELETE / AUDIT_WRITE
+    access_scope        VARCHAR(32)   NOT NULL,
+    privacy_class       VARCHAR(64),
+    event_metadata      JSONB,                            -- no PII
+    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- =============================================================================
 -- Seed: Access scope definitions (canonical — matches AUTOMOTIVE_ARCHITECTURE.md)
 -- =============================================================================
 INSERT INTO mythos_automotive_access_scope_definitions
@@ -395,7 +649,28 @@ VALUES
     ('event_id',         'per_product', 'per_product', 'UUID',      FALSE, TRUE,  'Cross-product correlation ID — UUID v4');
 
 -- =============================================================================
+-- Seed: Additional canonical identifiers (ATN-0 additions — Atelier Network)
+-- =============================================================================
+INSERT INTO mythos_automotive_canonical_identifiers
+    (id_key, owner_product, owner_schema, data_type, is_primary_key, is_cross_product, description)
+VALUES
+    ('workshop_organization_id', 'atelier_network', 'atelier_network', 'BIGSERIAL', TRUE,  FALSE, 'Workshop organisation — top level of multi-tenant hierarchy'),
+    ('workshop_id',              'atelier_network', 'atelier_network', 'BIGSERIAL', TRUE,  FALSE, 'Individual workshop brand or location'),
+    ('workshop_site_id',         'atelier_network', 'atelier_network', 'BIGSERIAL', TRUE,  FALSE, 'Physical site or branch (branch_id is alias when site_type = BRANCH)'),
+    ('workshop_capability_id',   'atelier_network', 'atelier_network', 'BIGSERIAL', TRUE,  FALSE, 'Workshop service capability record'),
+    ('workshop_accreditation_id','atelier_network', 'atelier_network', 'BIGSERIAL', TRUE,  FALSE, 'Workshop formal accreditation'),
+    ('technician_assignment_id', 'atelier_network', 'atelier_network', 'BIGSERIAL', TRUE,  FALSE, 'Technician-to-site assignment'),
+    ('service_catalog_item_id',  'atelier_network', 'atelier_network', 'BIGSERIAL', TRUE,  FALSE, 'Service catalogue item per workshop'),
+    ('appointment_id',           'atelier_network', 'atelier_network', 'BIGSERIAL', TRUE,  FALSE, 'Appointment booking'),
+    ('inspection_id',            'atelier_network', 'atelier_network', 'BIGSERIAL', TRUE,  FALSE, 'Inspection event'),
+    ('inspection_provider_id',   'atelier_network', 'atelier_network', 'BIGSERIAL', TRUE,  TRUE,  'Accredited AutoCheck provider — cross-product: AutoValeur reference'),
+    ('work_order_id',            'atelier_network', 'atelier_network', 'BIGSERIAL', TRUE,  FALSE, 'Work order'),
+    ('intervention_id',          'atelier_network', 'atelier_network', 'BIGSERIAL', TRUE,  FALSE, 'Repair/maintenance intervention'),
+    ('repair_estimate_id',       'atelier_network', 'atelier_network', 'BIGSERIAL', TRUE,  TRUE,  'Repair estimate — cross-product: AutoValeur reads this'),
+    ('external_workshop_record_id','atelier_network','atelier_network','BIGSERIAL', TRUE,  FALSE, 'Normalised record from EXTERNAL_CONNECTED workshop');
+
+-- =============================================================================
 -- End of control-plane-schema.sql
--- Table count: 18
+-- Table count: 31 (18 original MAE-0 + 13 added in ATN-0)
 -- Status: DRAFT — NOT DEPLOYED
 -- =============================================================================

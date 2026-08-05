@@ -1,6 +1,6 @@
 # Mythos Automotive — Vision
 
-**Stage:** MAE-0 Ecosystem Master Foundation
+**Stage:** ATN-0 Atelier Network Foundation and Ecosystem Consistency Amendment (amends MAE-0)
 **Last updated:** 2026-08-05
 **Repository:** othoth77/mythos-prod
 
@@ -46,18 +46,18 @@ AutoValeur — indicative market valuation
   ├── Quick-sale price
   └── Confidence score
         ↓
-AutoCheck / Fixpert — inspection
+Atelier Network — AutoCheck inspection (first provider: Fixpert)
   ├── Pre-purchase inspection
   ├── Mechanical and bodywork report
   ├── Diagnostic scan
   └── Risk and suitability assessment
         ↓
 Repair and reconditioning plan
-  ├── Fixpert work order
+  ├── Workshop work order (Atelier Network)
   ├── Parts Network sourcing
   └── Labour and parts estimate
         ↓
-Fixpert intervention
+Workshop intervention (Atelier Network — first workshop: Fixpert)
   ├── Authorised repairs
   ├── Parts consumed
   └── Quality check
@@ -138,7 +138,7 @@ Only one major implementation stage is active at a time unless explicitly author
 **Target segments:**
 - General public seeking vehicle valuations and verified listings
 - Professional vehicle traders and dealers
-- Independent workshops and repair garages (starting with Fixpert)
+- Independent workshops and repair garages (via Atelier Network — first pilot: Fixpert)
 - Insurance companies
 - Fleet management operators
 - Future: finance, assistance, and mobility partners

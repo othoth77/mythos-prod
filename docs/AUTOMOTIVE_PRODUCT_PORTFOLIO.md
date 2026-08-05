@@ -1,6 +1,6 @@
 # Mythos Automotive — Product Portfolio
 
-**Stage:** MAE-0 Ecosystem Master Foundation
+**Stage:** ATN-0 Atelier Network Foundation and Ecosystem Consistency Amendment (amends MAE-0)
 **Last updated:** 2026-08-05
 **Repository:** othoth77/mythos-prod
 
@@ -83,18 +83,74 @@ ID Auto is the canonical vehicle identity platform for Tunisia. It is the single
 
 ---
 
-## 4. Core Pillar B — Fixpert Atelier
+## 4. Core Pillar B — Atelier Network
 
-**Status:** PRODUCTION (external system, integration specified)
-**Domain:** Fixpert (existing business)
-**Owner:** Fixpert (external)
-**Repository coverage:** Integration contracts defined; `fixpert` schema documented in comments but not created by this repository
+**Status:** FOUNDATION (ATN-0 complete)
+**Product key:** `atelier_network`
+**Owner:** Mythos Prod
+**Repository path:** `projects/atelier-network/`, `docs/ATELIER_NETWORK_*.md`
 
 **Role:**
 
-Fixpert is the first professional partner and workshop pilot. It is the operational authority for vehicle repair, inspection, maintenance, and all customer-facing workshop workflow.
+Mythos Atelier Network is the generic multi-workshop platform. It provides the registry, inspection standard (AutoCheck), integration connectors, and operational API for vehicle repair workshops, inspection centres, and maintenance service providers — of any workshop type or digital maturity.
 
-**Owns:**
+**Fixpert is the first workshop pilot.** Fixpert is an existing external operational system predating the Atelier Network platform. It operates as an `EXTERNAL_CONNECTED` workshop (integration mode to be confirmed in ATN-1). Fixpert's existing source code is not in this repository.
+
+**Owns (platform and registry):**
+- Workshop organisation registry
+- Workshop registry (brands, sites)
+- Network membership records
+- Integration connectors (NATIVE_MANAGED / EXTERNAL_CONNECTED / HYBRID)
+- Workshop capabilities and accreditations
+- Service catalogue (generic metadata)
+- Inspector and technician registry
+- AutoCheck standard governance and accreditation
+- Inspection provider registry
+- Smart Gate device registry
+- Network-level audit events
+- Repair estimates (inspection output — consumed by AutoValeur)
+
+**Each workshop organisation owns (their data, organisation_private):**
+- Customer records and PII
+- Customer consent records
+- Appointment business data (customer-linked details)
+- Work order financial totals and invoices
+- Payment records
+
+**Does not own:**
+- Vehicle identity (references ID Auto vehicle_id — mandatory for all work orders and inspections)
+- Market valuations (AutoValeur consumes repair estimates from Atelier Network)
+- Parts catalogue (references Parts Network by snapshot)
+
+**Smart Gate boundary (generalised in ATN-0):**
+- Each participating workshop owns its physical Smart Gate device and the consent/notice obligation toward vehicles and their owners
+- ID Auto owns the resulting observation record produced by any Smart Gate device
+- All Smart Gate observations are MYTHOS_PRIVATE
+- IDA-4 scope: first Smart Gate pilot at Fixpert (one camera only)
+- Future Smart Gate at other workshops: governed by ATN-4 + per-workshop legal approval
+
+**Workshop Types:**
+`OWNED` / `BRANCH` / `FRANCHISE` / `PARTNER` / `AUTHORIZED_INSPECTION` / `MOBILE_SERVICE`
+
+**Integration Modes:**
+`NATIVE_MANAGED` / `EXTERNAL_CONNECTED` / `HYBRID`
+
+**Current stage:** ATN-0 complete. Next: ATN-1 — Core API, Workshop Registry and First Integration.
+
+---
+
+### 4.1 Fixpert — First Workshop Pilot
+
+**Status:** PRODUCTION (external system, integration mode to be confirmed in ATN-1)
+**Domain:** Fixpert (existing business)
+**Owner:** Fixpert (external)
+**Repository coverage:** No Fixpert runtime code in this repository. Integration contracts defined. `fixpert` schema documented in comments but not created by this repository.
+
+**Current role (relative to Atelier Network):**
+
+Fixpert is an existing production workshop system that will be the first `EXTERNAL_CONNECTED` pilot on the Atelier Network platform. Its existing operational data (customers, appointments, work orders, invoices) is in its own external system.
+
+**Fixpert owns (its own operational data):**
 - Customers (including owner PII routed from carte grise with consent)
 - Appointments and workshop reception
 - Inspections and diagnostic results
@@ -106,22 +162,10 @@ Fixpert is the first professional partner and workshop pilot. It is the operatio
 - Workshop employees and operational records
 - Customer consent records for PII handling
 
-**Does not own:**
-- Vehicle identity (consumes from ID Auto)
-- Market valuations (consumes from AutoValeur)
-- Parts catalogue (consumes from Parts Network; may reference)
-
-**Smart Gate boundary:**
-- Fixpert owns the physical camera device and the consent obligation toward vehicles and their owners
-- ID Auto owns the resulting observation record created from Smart Gate events
-- Smart Gate events are MYTHOS_PRIVATE
-
-**Mythos Super Admin access:**
-- Mythos Super Admin may read Fixpert operational data under governance rules
-- Every such access is audit-logged
-- Super Admin visibility does not change Fixpert's legal ownership of invoices, customers, or workshop records
-
-**Integration specification stage:** IDA-4 (Smart Gate), AVA-2 (inspection data for valuation)
+**Integration specification stages:**
+- IDA-4: Smart Gate camera integration (first pilot)
+- ATN-1: Fixpert as first EXTERNAL_CONNECTED workshop connector
+- AVA-2: Atelier Network repair estimate API consumed by AutoValeur (not Fixpert direct)
 
 ---
 
@@ -209,48 +253,37 @@ The Deal Radar pipeline may identify vehicles with no existing ID Auto fiche. In
 
 ## 7. Near-Term Planned Products
 
-### 7.1 AutoCheck by Fixpert
+### 7.1 AutoCheck Standard
 
-**Status:** CONCEPT
-**Domain:** TBD
-**Owner:** Mythos Prod + Fixpert
+**Status:** CONCEPT / DRAFT STANDARD
+**Governed by:** Mythos Atelier Network
+**Owner:** Mythos Prod (standard governance) + accredited provider (delivery)
 
 **Role:**
 
-AutoCheck is a pre-purchase inspection service and report standard, delivered by Fixpert and shared across the ecosystem.
+AutoCheck is the provider-neutral pre-purchase inspection protocol and condition report standard. It is governed by Mythos Atelier Network. Any accredited workshop may deliver an AutoCheck inspection and report under this standard.
 
-**Inspection sections:**
-- Identity and documents
-- Diagnostic scan (fault codes)
-- Engine condition
-- Gearbox condition
-- Braking system
-- Suspension and steering
-- Tyres
-- Battery (including EV/hybrid)
-- Electrical systems
-- Air conditioning
-- Bodywork and paint
-- Road test
-- Immediate repair requirements
-- Future repair timeline
-- Parts estimate
-- Labour estimate
-- Risk notes
+**Fixpert is the first accredited AutoCheck provider.**
+
+**Report branding:**
+- "AutoCheck by Fixpert" — when Fixpert delivers the inspection
+- "AutoCheck — [Workshop Name]" — when any other accredited provider delivers the inspection
+- "Inspecté par Fixpert" / "Inspecté par [Workshop Name]" — inspection badge wording
+- "Estimation après inspection [Workshop Name]" — for AutoValeur valuation updates
+- **Never:** "Expertise légale certifiée" (without future legal authorisation — R-L06 open)
+
+**17 inspection sections:**
+Identity and Documents, Diagnostic Scan, Engine, Gearbox, Brakes, Suspension and Steering, Tyres, Battery/EV, Electrical, Air Conditioning, Bodywork and Paint, Road Test, Immediate Repair Requirements, Future Repair Timeline, Parts Estimate, Labour Estimate, Risk Notes.
 
 **Report outputs consumed by:**
-- AutoValeur (post-inspection revised valuation)
+- AutoValeur (post-inspection revised valuation via Atelier Network repair estimate API)
 - AutoMarket Verified (inspection badge on listing)
 - Professional buyer (purchase decision)
 - Fleet operators (fleet condition assessment)
 
-**Display wording:**
-- "AutoCheck by Fixpert" — for the report product
-- "Inspecté par Fixpert" — for the inspection badge
-- "Estimation après inspection Fixpert" — for valuation updates
-- **Never:** "Expertise légale certifiée" (without future legal authorisation)
+**Full protocol:** See `docs/AUTOCHECK_STANDARD.md`
 
-**Specification stage:** Deferred to dedicated stage
+**Specification stage:** ATN-1 (accreditation registry + API); ATN-2 (first report issued)
 
 ---
 

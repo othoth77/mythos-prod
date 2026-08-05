@@ -1,6 +1,6 @@
 # Mythos Automotive — Operating Model
 
-**Stage:** MAE-0 Ecosystem Master Foundation
+**Stage:** ATN-0 Atelier Network Foundation and Ecosystem Consistency Amendment (amends MAE-0)
 **Last updated:** 2026-08-05
 **Repository:** othoth77/mythos-prod
 
@@ -53,13 +53,20 @@
 - Define pricing, subscription terms, and partner agreements
 - Manage product-specific billing configuration with Mythos billing service
 
-### 1.3 Fixpert
+### 1.3 Atelier Network Workshop Operators
+
+Each participating workshop organisation (Fixpert is the first pilot) is responsible for:
 
 **Workshop operations:**
 - Day-to-day workshop management, appointments, interventions
-- Inspection quality and technical accuracy
-- Its own customers, invoices, and accounting
-- Smart Gate camera device maintenance and access control
+- Inspection quality and technical accuracy within the AutoCheck Standard
+- Its own customers, invoices, and accounting — no other product may access these
+- Smart Gate camera device maintenance and consent obligation management (device ownership per workshop)
+
+**Atelier Network platform (Mythos):**
+- Workshop registry, accreditation, and network governance
+- AutoCheck Standard definition and accreditation process
+- Integration connector management (NATIVE_MANAGED, EXTERNAL_CONNECTED, HYBRID)
 
 ### 1.4 Parts Network Operator
 
@@ -100,8 +107,8 @@
 
 R = Responsible, A = Accountable, C = Consulted, I = Informed
 
-| Activity | Mythos Platform | Product Owner | Fixpert | Parts | Legal | Support |
-|----------|----------------|---------------|---------|-------|-------|---------|
+| Activity | Mythos Platform | Product Owner | Workshop Ops (ATN) | Parts | Legal | Support |
+|----------|----------------|---------------|---------------------|-------|-------|---------|
 | Product roadmap changes | C | A/R | I | I | C | I |
 | Architecture changes | A/R | C | I | I | C | I |
 | Data correction | I | R | R | R | C | R (triage) |
@@ -116,7 +123,7 @@ R = Responsible, A = Accountable, C = Consulted, I = Informed
 | Production releases | A/R | C | C | C | I | I |
 | Security reviews | A/R | C | C | C | C | I |
 | Backup/restore tests | A/R | I | I | I | I | I |
-| Partner onboarding | C | A/R | I | I | C | R |
+| Workshop onboarding (ATN) | C | A/R | R | I | C | R |
 
 ---
 

@@ -55,9 +55,9 @@ A verified organisation (garage, insurer, fleet manager, authorised field team) 
 - `government` — authorised public-sector entities
 - `other` — case-by-case review
 
-### 3.4 Fixpert Workshop
+### 3.4 Fixpert — First Workshop Pilot (Atelier Network)
 
-Fixpert is the first professional pilot. It operates as a professional subscriber with additional integration through the Smart Gate camera. Fixpert clients, work orders, invoices and workshop data belong to Fixpert; the vehicle identity layer is shared with ID Auto.
+Fixpert is the first professional workshop pilot on the Atelier Network. It operates as a professional subscriber with additional integration through the Smart Gate camera. Fixpert clients, work orders, invoices and workshop data belong to Fixpert; the vehicle identity layer is shared with ID Auto. Future workshops joining the Atelier Network will have the same relationship: each owns its own customer and operational data; ID Auto owns the vehicle identity layer.
 
 ### 3.5 Mythos Super Admin
 
@@ -109,7 +109,7 @@ Available to verified professional subscribers within their contractual scope.
 **Constraints:**
 - An organisation does not automatically see another organisation's private service events
 - `is_public = FALSE` service events are visible only to the writing organisation
-- Fixpert may see its own workshop and customer activity via the Fixpert integration
+- Each workshop organisation may see its own workshop and customer activity via its Atelier Network integration (Fixpert is the first)
 - No cross-organisation PII access via ID Auto queries
 
 ### 4.3 MYTHOS_PRIVATE
@@ -165,15 +165,15 @@ Available only to Mythos platform administrators under the super-admin policy. A
 |---|---|---|
 | Vehicle identity (idauto schema) | ID Auto / Mythos | Vehicle fiche, plates, observations, facts |
 | Platform infrastructure | Mythos | Auth, billing, audit, notifications, search |
-| Fixpert workshop operations | Fixpert | Clients, work orders, interventions, stock, invoices, payments |
+| Workshop operations (Atelier Network) | Each workshop organisation (Fixpert first) | Clients, work orders, interventions, stock, invoices, payments — each org owns its own |
 | ID Auto professional subscriptions | ID Auto | Org records, subscription tiers, service events |
 
 **Ownership rule:**
 - ID Auto vehicle intelligence belongs to the ID Auto platform.
-- Fixpert workshop operations, customers, invoices and accounting belong legally and operationally to Fixpert.
+- Workshop operations, customers, invoices and accounting belong legally and operationally to each workshop organisation (Fixpert for the Fixpert schema; future workshops in their own Atelier Network operational tables).
 - Mythos is the platform owner and has MYTHOS_SUPER_ADMIN visibility and administration over the complete ecosystem.
 - Every Mythos privileged access or change must be audit-logged.
-- Mythos visibility does not change Fixpert's ownership of its invoices, customers or workshop records.
+- Mythos visibility does not change each workshop organisation's ownership of its invoices, customers or workshop records.
 
 ---
 
@@ -190,14 +190,19 @@ PostgreSQL cluster
 │   vehicles, plates, observations, facts, evidence, documents, captures,
 │   sources, review queue, ID Auto activity
 │
-└── fixpert schema
+├── atelier_network schema
+│   Workshop registry, inspection providers, work orders, repair estimates,
+│   AutoCheck reports, Smart Gate device registry (DRAFT — not deployed)
+│
+└── fixpert schema (external — not created by this repository)
     Fixpert clients, workshop visits, work orders, interventions, parts,
     stock, quotations, Fixpert invoices, Fixpert payments, workshop activity
 ```
 
 **Cross-schema policy:**
-- `idauto` tables do not contain Fixpert customer or financial data.
+- `idauto` tables do not contain workshop customer or financial data.
 - `fixpert` tables do not duplicate vehicle identity data; they reference `idauto.vehicles`.
+- `atelier_network` tables do not store customer PII — each workshop organisation owns its own customer records.
 - `mythos_core` is the authority for user identity and global roles.
 - Cross-schema joins are permitted only through explicitly defined integration contracts.
 

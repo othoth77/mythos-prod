@@ -1,6 +1,6 @@
 # Mythos Automotive — Integration Contracts
 
-**Stage:** MAE-0 Ecosystem Master Foundation
+**Stage:** ATN-0 Atelier Network Foundation and Ecosystem Consistency Amendment (amends MAE-0)
 **Last updated:** 2026-08-05
 **Repository:** othoth77/mythos-prod
 
@@ -78,15 +78,17 @@ All integrations are **disabled** in MAE-0. Activation stages are as documented.
 | Consumer | Producer | Data | Direction | Activation |
 |----------|----------|------|-----------|-----------|
 | AutoValeur | ID Auto | vehicle_id + fact snapshot | Read | AVA-1 (with IDA-2) |
-| AutoValeur | Fixpert | inspection_ref, repair line items | Read | AVA-2 (after IDA-4) |
+| AutoValeur | Atelier Network | inspection_provider_id, repair_estimate_id, repair line items | Read | AVA-2 (after ATN-1) |
 | AutoValeur | Parts Network | parts price snapshot | Read | AVA-2 |
 | AutoValeur | Marketplace | listing snapshots, completed sale prices | Read | AVA-5 |
-| Fixpert | ID Auto | vehicle_id for work order linkage | Read | IDA-4 |
-| ID Auto | Fixpert | carte grise owner PII (consent-scoped) | Consent routing | IDA-3 |
+| Atelier Network | ID Auto | vehicle_id for work orders and inspections | Read | ATN-1 |
+| ID Auto | Atelier Network workshop | carte grise owner PII (consent-scoped to workshop org) | Consent routing | IDA-3 |
+| Atelier Network | Fixpert (first pilot) | EXTERNAL_CONNECTED: inspection results, work order summaries | External connector | ATN-1 |
 | AutoMarket | ID Auto | vehicle_id validation for listing | Read | AutoMarket spec stage |
 | AutoMarket | AutoValeur | valuation reference for listing | Read | AutoMarket spec stage |
+| AutoMarket | Atelier Network | AutoCheck report badge | Read | AutoMarket spec stage |
 | Fleet | ID Auto | vehicle_id + fact snapshot | Read | Fleet spec stage |
-| Fleet | Fixpert | maintenance records (authorised) | Read | Fleet spec stage |
+| Fleet | Atelier Network | maintenance and service history | Read | Fleet spec stage |
 | Fleet | AutoValeur | fleet valuation | Read | Fleet spec stage |
 | Mythos Core | All products | auth, roles, audit, billing | Platform | Ongoing |
 
@@ -112,19 +114,32 @@ Each event will require a formal specification including: event name, owner, pro
 | `vehicle.movement.detected` | ID Auto | MYTHOS_PRIVATE |
 | `review_queue.item.created` | ID Auto | PRODUCT_INTERNAL |
 
-### 4.2 Fixpert Events
+### 4.2 Atelier Network Events
+
+These events are produced by the Atelier Network platform on behalf of any participating workshop.
+Fixpert is the first provider producing these events.
 
 | Event | Owner | Privacy class |
 |-------|-------|---------------|
-| `appointment.created` | Fixpert | ORG_PRIVATE |
-| `vehicle.checked_in` | Fixpert | ORG_PRIVATE |
-| `inspection.completed` | Fixpert | ORG_PRIVATE |
-| `work_order.created` | Fixpert | ORG_PRIVATE |
-| `work_order.closed` | Fixpert | ORG_PRIVATE |
-| `repair.estimate.created` | Fixpert | ORG_PRIVATE |
-| `intervention.completed` | Fixpert | ORG_PRIVATE |
-| `invoice.issued` | Fixpert | ORG_PRIVATE |
-| `payment.recorded` | Fixpert | ORG_PRIVATE |
+| `workshop.registered` | Atelier Network | PROFESSIONAL |
+| `workshop.activated` | Atelier Network | PROFESSIONAL |
+| `workshop.suspended` | Atelier Network | MYTHOS_PRIVATE |
+| `workshop.site.created` | Atelier Network | PROFESSIONAL |
+| `inspection_provider.accredited` | Atelier Network | PROFESSIONAL |
+| `inspection_provider.revoked` | Atelier Network | PROFESSIONAL |
+| `smart_gate.device.registered` | Atelier Network | MYTHOS_PRIVATE |
+| `smart_gate.device.activated` | Atelier Network | MYTHOS_PRIVATE |
+| `appointment.created` | Atelier Network | ORG_PRIVATE |
+| `appointment.confirmed` | Atelier Network | ORG_PRIVATE |
+| `vehicle.checked_in` | Atelier Network | ORG_PRIVATE |
+| `inspection.started` | Atelier Network | ORG_PRIVATE |
+| `inspection.completed` | Atelier Network | ORG_PRIVATE |
+| `autocheck.report.issued` | Atelier Network | PROFESSIONAL |
+| `work_order.created` | Atelier Network | ORG_PRIVATE |
+| `work_order.closed` | Atelier Network | ORG_PRIVATE |
+| `repair.estimate.created` | Atelier Network | PROFESSIONAL |
+| `intervention.completed` | Atelier Network | ORG_PRIVATE |
+| `external_record.received` | Atelier Network | ORG_PRIVATE |
 
 ### 4.3 Parts Network Events
 
@@ -186,18 +201,19 @@ Active in: IDA-2 for admin; AVA-1 for AutoValeur; IDA-4 for Fixpert Smart Gate.
 
 ---
 
-## 6. Fixpert Integration Contract (Current)
+## 6. Atelier Network Integration Contract (ATN-0 corrected)
 
-Active in: IDA-4 (Smart Gate), AVA-2 (inspection → repair estimate).
+Active in: ATN-1 (workshop registry + inspection API), AVA-2 (repair estimate → AutoValeur).
 
 | Contract point | Detail |
 |---|---|
-| AutoValeur reads | Repair list, labour hours, parts list from authorised Fixpert endpoint |
-| AutoValeur stores | `fixpert_inspection_ref` (stable ID), repair line items, estimate totals |
-| AutoValeur does not store | Customer name, CIN, contact, invoice amounts, payment details |
-| Display wording | "Estimation après inspection Fixpert" — not "Expertise légale certifiée" |
-| Smart Gate | Fixpert owns device and consent obligation; ID Auto owns the resulting observation |
-| Customer PII routing | Carte grise owner PII → `fixpert.clients` with explicit consent — never to `idauto_` tables |
+| AutoValeur reads | Repair estimate from Atelier Network API: `inspection_provider_id`, `repair_estimate_id`, line items |
+| AutoValeur stores | `inspection_provider_id` (stable), `repair_estimate_id` (stable), estimate snapshot |
+| AutoValeur does not store | Customer name, CIN, contact, invoice amounts, payment details, workshop internal notes |
+| Display wording | "Estimation après inspection [Workshop Name]" — not "Expertise légale certifiée" |
+| Smart Gate (generalised) | Each participating workshop owns its device and consent obligation; ID Auto owns the observation |
+| Customer PII routing | Carte grise owner PII → workshop organisation's own customer table with explicit consent — never to `idauto_` or `atelier_network` platform tables |
+| Fixpert as first connector | EXTERNAL_CONNECTED mode; API contract to be specified in ATN-1 |
 
 ---
 

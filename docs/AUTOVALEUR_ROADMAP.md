@@ -12,7 +12,7 @@
 |-------|------|--------|
 | AVA-0 | Foundation and Ecosystem Roadmap | ✓ Done |
 | AVA-1 | Public Calculator MVP | Planned |
-| AVA-2 | Professional Tier and Fixpert Integration | Planned |
+| AVA-2 | Professional Tier and Atelier Network Integration | Planned |
 | AVA-3 | Market Data Foundation | Planned |
 | AVA-4 | Deal Radar MVP | Planned |
 | AVA-5 | Marketplace Integration and Completed Sales | Future |
@@ -87,17 +87,17 @@
 
 ---
 
-## AVA-2 — Professional Tier and Fixpert Integration
+## AVA-2 — Professional Tier and Atelier Network Integration
 
 **Prerequisites:**
 - AVA-1 complete
-- Fixpert Atelier IDA-2 inspection flow operational
-- Legal review: Fixpert data reuse for valuation, professional subscriber data handling
+- ATN-1 complete (Atelier Network inspection API and repair estimate endpoint available)
+- Legal review: Atelier Network repair data reuse for valuation, professional subscriber data handling
 
 **Scope:**
 - Professional subscriber authentication (Mythos OS roles)
 - Professional valuation outputs: professional purchase price, resale price, margin analysis, expected resale period
-- Fixpert inspection integration: read repair list from Fixpert, assemble reconditioning estimate
+- Atelier Network inspection integration: read repair estimate from ATN API (`inspection_provider_id`, `repair_estimate_id`), assemble reconditioning estimate
 - Parts price lookup: ssangyong.autos integration (authorised data feed)
 - Repair estimate tables deployed (autovaleur_repair_estimates, autovaleur_repair_estimate_lines, autovaleur_parts_quotes)
 - Post-inspection valuation with updated confidence score
@@ -209,7 +209,7 @@ Items that must be legally reviewed before the indicated stage can begin.
 | Completed transaction price collection and display | AVA-5 |
 | Deal Radar activation (listing source terms) | AVA-4 |
 | Spare-parts data ingestion from external platforms | AVA-2 |
-| Fixpert repair data reuse for valuation | AVA-2 |
+| Atelier Network repair estimate data reuse for valuation | AVA-2 |
 | ID Auto vehicle data reuse for valuation | AVA-1 |
 | Professional subscriber data retention and GDPR compliance | AVA-2 |
 | Publication of valuation affecting financial decisions | AVA-1 |
