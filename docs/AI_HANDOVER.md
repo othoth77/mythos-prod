@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage 4AE — Documentation domain extraction
+**From:** Stage 4AF — Camera Modal domain extraction
 **To:** Next AI session
 
 ---
@@ -10,21 +10,20 @@
 
 ```
 Branch:   main
-HEAD:     87079a4 (Stage 4AE implementation commit)
+HEAD:     2dcbb99 (Stage 4AF implementation commit)
 ```
 
-**Stage 4AE is complete.** Documentation domain (~568 lines, `js/app.js` lines 1050–1617 post-4AD) extracted to `js/shared/documentation.js`. Tests: 142/142. Full Stage 4 suite (4A–4AE, 31 files): all Stage 4 tests passing, 0 failures.
+**Stage 4AF is complete.** Camera Modal domain (~192 lines, `js/app.js` lines 1060–1251 post-4AE) extracted to `js/shared/camera.js`. Tests: 102/102. Full Stage 4 suite (4A–4AF, all test files): all passing, 0 failures.
 
-Implementation commit: `87079a4` — `Stage 4AE: Extract Documentation domain into js/shared/documentation.js`
-Verified remote HEAD: `87079a4`
+Implementation commit: `2dcbb99` — `Stage 4AF — Extract Camera Modal domain to js/shared/camera.js`
+Verified remote HEAD: `2dcbb99`
 
-**Previous stage also complete (same session):**
+**Previous stages also complete:**
+- Stage 4AE: Documentation domain (568 lines), commit `87079a4`
 - Stage 4AD: Backup/Export/Restore domain (274 lines), commit `6363e34`
-
-**Previous stages also complete** (same session):
 - Stage 4AC: Spectacle Calculator, commit `dfe9cf7`
-- Stage 4AB: Répertoire Contacts domain (1259 lines), commit `95d9453`
-- Stage 4AA: Inscriptions/Appels domain, commit (see prior handover entries)
+- Stage 4AB: Répertoire Contacts domain, commit `95d9453`
+- Stage 4AA: Inscriptions/Appels domain (see prior entries)
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
 
@@ -46,26 +45,63 @@ Verified remote HEAD: `87079a4`
 
 **Validation:** 24/24; full suite 1717/1717 (29 files). Implementation commit: `dfe9cf7`.
 
-### Remaining js/app.js responsibilities after Stage 4AE
+### Remaining js/app.js responsibilities after Stage 4AF
 
-`js/app.js` is now **1276 lines**. Remaining coherent domains:
+`js/app.js` is now **1088 lines**. Remaining coherent domains:
 
-| Domain | Approx lines (post-4AE) | Notes |
+| Domain | Approx lines (post-4AF) | Notes |
 |--------|------------------------|-------|
-| Camera Modal | ~195 lines (~1060–1255) | `openCameraModal`, `_startCamera`, `switchCamera`, `capturePhoto`, `cameraMobileCapture`, `saveCapturedPhoto`, `closeCameraModal` — **next extraction target (Stage 4AF)** |
-| Invoice/OM helpers | ~195 lines (147–340) | `populateInvoiceList`, `populateOmList`, `editInvoice`, `deleteInvoice`, `editOm`, `deleteOm`, `cancelOM`, `addOmPerson`, etc. |
-| Demo data initialization | ~278 lines (343–620) | `initializeDemoData` — high risk, skip |
+| Invoice/OM helpers | ~195 lines | `populateInvoiceList`, `populateOmList`, `editInvoice`, `deleteInvoice`, `editOm`, `deleteOm`, `cancelOM`, `addOmPerson`, etc. — **next audit target (Stage 4AG)** |
+| Demo data initialization | ~278 lines | `initializeDemoData` — high risk, skip |
 | STORE + utilities | lines 18–140 | High risk, skip |
-| App initialization | lines 621–730 | `initApp`, `bootstrapStableApp`, `initNavScrollHint`, etc. — high risk, skip |
-| Logs + Sidebar + Sync | lines 830–1042 | `checkDailyBackup`, `renderLogs`, `toggleSidebar`, `_startBackgroundSync` |
+| App initialization | ~110 lines | `initApp`, `bootstrapStableApp`, `initNavScrollHint`, etc. — high risk, skip |
+| Logs + Sidebar + Sync | ~210 lines | `checkDailyBackup`, `renderLogs`, `toggleSidebar`, `_startBackgroundSync` |
 
 ### Exact Next Scope
 
-**Stage 4AF:** Extract Camera Modal domain from `js/app.js` (~195 lines, lines 1060–1255 approximately in post-4AE numbering). The section begins at `// ══════ CAMÉRA — Prise de photo directe`. Functions: `openCameraModal`, `_startCamera`, `switchCamera`, `capturePhoto`, `cameraMobileCapture`, `saveCapturedPhoto`, `closeCameraModal`. State vars: `_cameraStream`, `_cameraFacing`, `_capturedDataUrl`, `_cameraContext`.
+**Stage 4AG:** Audit and remove remaining Invoice/OM helper duplicates from `js/app.js`. These helpers (`populateInvoiceList`, `populateOmList`, `editInvoice`, `deleteInvoice`, `editOm`, `deleteOm`, `cancelOM`, `addOmPerson`, etc.) were partially extracted in earlier stages; check for any remaining duplicates or stubs that should be removed. Do NOT begin this stage in the same session as Stage 4AF.
 
-**Critical dependency (must preserve):** `saveCapturedPhoto` calls `_saveDocRecord`, `renderDocList`, `_docCurrentFolder` — all now in `js/shared/documentation.js`. Script tag for `camera.js` must come AFTER `documentation.js` in `index.html`.
+---
 
-Dependencies: `STORE`, `document`, `navigator.mediaDevices`, `alert`, `confirm`, browser globals. No shared utilities needed.
+## Stage 4AF — Camera Modal Domain Extraction
+
+**Objective:** Extract Camera Modal domain (~192 lines, `js/app.js` lines 1060–1251 post-4AE) into `js/shared/camera.js`. Moves 4 state vars and 8 functions. Replaces extracted block with 4-line reference comment in `app.js` (1276 → 1088 lines). Inserts `camera.js` script tag between `documentation.js` and `taches.js` in `index.html`.
+
+**Exact extraction boundary:** lines 1060–1251 post-4AE, from `// ══════ CAMÉRA — Prise de photo directe` through closing `}` of `closeCameraModal`.
+
+### State vars moved
+
+`_cameraStream`, `_cameraFacing`, `_capturedDataUrl`, `_cameraContext`
+
+### Functions moved
+
+`openCameraModal`, `_startCamera`, `switchCamera`, `capturePhoto`, `retakePhoto`, `cameraMobileCapture`, `saveCapturedPhoto`, `closeCameraModal`
+
+### Critical dependency
+
+`saveCapturedPhoto` calls `_saveDocRecord`, `renderDocList`, `_docCurrentFolder`, `renderDocumentation` — all in `js/shared/documentation.js`. Script order invariant: `documentation.js` → `camera.js` → `taches.js`.
+
+All Camera callers are exclusively inline `onclick`/`onchange` handlers in `index.html` — no calls from other JS modules.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/camera.js` | NEW: 4 state vars + 8 functions, ~194 lines |
+| `js/app.js` | Removed ~192 lines; replaced with 4-line reference comment; new total **1088 lines** |
+| `index.html` | Added `<script src="js/shared/camera.js?v=20260805"></script>` after `documentation.js`, before `taches.js` |
+| `tests/stage4af-test.js` | NEW: 102 tests across 24 sections |
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/camera.js` | ✓ |
+| `tests/stage4af-test.js` | ✓ 102/102 |
+| `tests/stage4ae-test.js` | ✓ 142/142 |
+| `tests/stage4z-test.js` | ✓ 42/42 |
+
+Implementation commit: `2dcbb99`. Remote HEAD verified `2dcbb99`.
 
 ---
 
