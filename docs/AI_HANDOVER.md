@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage MAE-0 — Mythos Automotive Ecosystem Master Foundation
+**From:** Stage ATN-0 — Atelier Network Foundation and Ecosystem Consistency Amendment
 **To:** Next AI session
 
 ---
@@ -10,7 +10,9 @@
 
 ```
 Branch:   main
-HEAD:     32fc890  (docs(automotive): establish Mythos Automotive ecosystem foundation)
+HEAD:     5b1fdf2  (docs(atelier-network): establish multi-workshop foundation and align ecosystem)
+ATN-0 implementation commit: 5b1fdf2
+MAE-0 handover commit:       fddd58e
 MAE-0 implementation commit: 32fc890
 AVA-0 implementation commit: 58e0b07
 IDA-1 implementation commit: e9afc7e
@@ -18,6 +20,8 @@ Stage 4AG implementation commit: ebe42f9
 Stage IDA-0 implementation commit: 7c75abd
 Stage 4AF implementation commit: 2dcbb99
 ```
+
+**Stage ATN-0 is complete.** Mythos Atelier Network foundation established. 7 new files created, 24 existing files updated (31 files total, 2761 insertions / 424 deletions). Fixpert repositioned as first workshop pilot — Atelier Network is the generic multi-workshop platform. 14 new canonical IDs. 24-table draft schema (atn_ prefix). 13 new control-plane tables (18→31 total). 16 new KPIs. 12 new risks. Two roadmap dependency corrections (AVA-2 prereq, IDA-4 prereq). All JSON valid. All SQL parens balanced. No runtime code changed. No PII. Tests: 86/86.
 
 **Stage MAE-0 is complete.** Mythos Automotive ecosystem master foundation established. 12 new files created, docs/ROADMAP.md updated. 18-table PostgreSQL control-plane schema drafted (not deployed, prefix `mythos_automotive_`). All feature flags false. No real data. JSON valid. SQL parens balanced (185/185). No PII columns. git diff --check exit 0. stage4ag 42/42. stage4z 44/44.
 
@@ -30,6 +34,178 @@ Stage 4AF implementation commit: 2dcbb99
 **Stage IDA-0 is complete** (same session). ID Auto Foundation established.
 
 **Stage 4AF is complete** (prior session, same date).
+
+---
+
+## Stage ATN-0 — Atelier Network Foundation and Ecosystem Consistency Amendment
+
+**Starting remote HEAD:** `fddd58ee73ab8e54c327a478d76e282811255d8c` (MAE-0 handover)
+
+**Objective:** Introduce Mythos Atelier Network as the generic multi-workshop platform. Fixpert is the first pilot; it is not the canonical name for the entire workshop domain. Amend all existing ecosystem documentation to reflect this, correct two roadmap dependency errors, replace `fixpert_inspection_ref` with generic ATN canonical IDs, and establish the Atelier Network product foundation: spec, architecture, roadmap, AutoCheck Standard, schema draft, and config.
+
+**Scope:** Documentation and draft schema only. No runtime code. No PostgreSQL migration. No deployment. No live data. No modification of the external Fixpert system.
+
+### Files Created (7)
+
+| File | Description |
+|---|---|
+| `projects/atelier-network/README.md` | Multi-workshop platform overview, four product pillars, first pilot note, data status |
+| `projects/atelier-network/config/atelier-network.example.json` | v0.1.0-atn0-draft; all feature flags false; workshop types, integration modes, AutoCheck standard, Smart Gate, access scopes |
+| `projects/atelier-network/database/schema.sql` | 24-table draft schema (prefix `atn_`, logical schema `atelier_network`): workshop org registry, workshops, sites, capabilities, accreditations, technician assignments, service catalogue, inspection providers, AutoCheck reports, finding categories, findings, appointment types, appointments, work orders, interventions, repair estimates, estimate lines, external workshop records, integration connectors, sync events, Smart Gate device registry, consent events, platform audit events, network membership — DRAFT NOT DEPLOYED |
+| `docs/ATELIER_NETWORK_PRODUCT_SPEC.md` | 12 sections: product identity, multi-workshop platform charter, workshop types and integration modes, AutoCheck Standard governance, smart gate generalisation, service catalogue, appointment model, work order lifecycle, data ownership boundaries, canonical IDs, access and privacy model, legal review items |
+| `docs/ATELIER_NETWORK_ARCHITECTURE.md` | 7 ADs; 19 domain events; 14 new canonical IDs; multi-tenant hierarchy; integration mode contracts; Smart Gate generalisation; cross-product data flows |
+| `docs/ATELIER_NETWORK_ROADMAP.md` | ATN-0 through ATN-5 stage plan with deliverables and prerequisites |
+| `docs/AUTOCHECK_STANDARD.md` | Provider-neutral inspection protocol: AutoCheck by Fixpert (first); AutoCheck — [Workshop Name] for accredited partners; prohibited wording ("Expertise légale certifiée"); governance by Atelier Network; accreditation criteria; LEGAL-REVIEW-REQUIRED items |
+
+### Files Updated (24)
+
+**Automotive umbrella (7 files):**
+
+| File | Key changes |
+|---|---|
+| `docs/AUTOMOTIVE_ROADMAP.md` | MAE-0 → COMPLETE; ATN-0 through ATN-5 stages added; IDA-4 prereq adds ATN-1; AVA-2 prereq corrected (ATN-1, not IDA-4/Smart Gate) |
+| `docs/AUTOMOTIVE_PRODUCT_PORTFOLIO.md` | Four core pillars (not five); Fixpert repositioned as first Atelier Network pilot |
+| `docs/AUTOMOTIVE_ARCHITECTURE.md` | `atelier_network` schema added to diagram; Fixpert marked external; four-pillar architecture |
+| `projects/automotive/README.md` | Four pillars; Atelier Network positioning |
+| `projects/automotive/config/automotive.example.json` | ATN product block added; four-pillar product list |
+| `projects/automotive/database/control-plane-schema.sql` | 13 new control-plane tables (18→31 total); 14 new ATN canonical IDs in `mythos_automotive_canonical_identifiers` |
+| `docs/AUTOMOTIVE_INTEGRATION_CONTRACTS.md` | ATN integration contracts; Atelier Network as domain actor |
+
+**Automotive governance (4 files):**
+
+| File | Key changes |
+|---|---|
+| `docs/AUTOMOTIVE_DATA_GOVERNANCE.md` | Section 1.3 "Fixpert" → two sections: 1.3 "Atelier Network" (platform data) + 1.4 "Each Workshop Organisation" (per-org operational data); 14 ATN canonical IDs added to registry; `fixpert_inspection_ref` → `inspection_provider_id` + `repair_estimate_id`; PII ownership generalized; data quality section generalized |
+| `docs/AUTOMOTIVE_OPERATING_MODEL.md` | Section 1.3 "Fixpert" → "Atelier Network Workshop Operators"; RACI matrix column "Fixpert" → "Workshop Ops (ATN)" |
+| `docs/AUTOMOTIVE_KPI_MODEL.md` | New section 3 "Atelier Network KPIs" (16 KPIs across 4 subsections: network scale, inspection quality, appointment/work order ops, integration health); old Fixpert KPIs → section 4 "Fixpert KPIs (First Pilot)" |
+| `docs/AUTOMOTIVE_RISK_REGISTER.md` | R-L06 generalized to any AutoCheck provider; R-T08 resolved (AVA-2 dependency was wrong — now corrected); R-P06 (workshop customer PII cross-access) added; new section 6 with 12 ATN risks (R-ATN-L01 through R-ATN-B01) |
+
+**Automotive vision (1 file):**
+
+| File | Key changes |
+|---|---|
+| `docs/AUTOMOTIVE_VISION.md` | Vehicle chain diagram: "AutoCheck / Fixpert" → "Atelier Network — AutoCheck inspection (first provider: Fixpert)"; work order and intervention lines generalized |
+
+**ID Auto (4 files):**
+
+| File | Key changes |
+|---|---|
+| `docs/IDAUTO_PRODUCT_SPEC.md` | Section 3.4 title generalized; "Fixpert may see its own..." → "Each workshop organisation..."; ownership table generalized; schema diagram adds `atelier_network` block; fixpert marked external |
+| `docs/IDAUTO_ARCHITECTURE.md` | `atelier_network` schema added; section 7 title generalized ("Smart Gate — Fixpert First Pilot; Generalises to Any ATN Workshop"); optional work order link references ATN |
+| `docs/IDAUTO_FIXPERT_INTEGRATION.md` | ATN-0 amendment blockquote added (Smart Gate generalises; Fixpert is first pilot; IDA-4 scope preserved exactly) |
+| `docs/IDAUTO_ROADMAP.md` | IDA-4 prerequisites: ATN-1 added; cross-product dependency map: Atelier Network node added; Fixpert shown as "(IDA-4+, requires ATN-1)" |
+
+**AutoValeur (4 files):**
+
+| File | Key changes |
+|---|---|
+| `docs/AUTOVALEUR_PRODUCT_SPEC.md` | Section 2 diagram generalized; ownership table split (ATN platform + per-org); pipeline: "Fixpert Inspection" → "AutoCheck Inspection (Atelier Network)"; section 11 rewritten ("Atelier Network Inspection Integration Levels") |
+| `docs/AUTOVALEUR_ARCHITECTURE.md` | `atelier_network` schema added to diagram; AD-A5 generalized; section 4.2 integration contract updated with `inspection_provider_id` + `repair_estimate_id`; data flow generalized |
+| `docs/AUTOVALEUR_ROADMAP.md` | AVA-2 title and prerequisites corrected: "Atelier Network Integration" (not Fixpert); AVA-2 prereq: "ATN-1 complete (inspection API and repair estimate endpoint)" |
+| `projects/autovaleur/database/schema.sql` | `fixpert_inspection_ref` column → `inspection_provider_id BIGINT` + `repair_estimate_id BIGINT` in `autovaleur_condition_reports` and `autovaleur_repair_estimates` |
+
+**Config files (3 files):**
+
+| File | Key changes |
+|---|---|
+| `projects/autovaleur/config/autovaleur.example.json` | `integrations.fixpert` → `integrations.atelier_network`; feature flag `fixpert_inspection_integration` → `atelier_network_inspection_integration`; labour_rate_source generalized |
+| `projects/idauto/config/idauto.example.json` | `database.logical_schemas` adds "atelier_network"; `fixpert_smart_gate` → `smart_gate`; feature flag `fixpert_atelier_link` → `atelier_network_work_order_link` |
+| `projects/idauto/database/schema.sql` | Header comment: three schemas → four (including atelier_network); fixpert and atelier_network noted as not created by this file |
+
+**Master roadmap (1 file):**
+
+| File | Key changes |
+|---|---|
+| `docs/ROADMAP.md` | ATN-0 row added to Ecosystem Stage Plan; dependency map corrected (ATN-1 between IDA-2 and IDA-4; AVA-2 prereq corrected; Fleet/AutoMarket prereqs corrected); Atelier Network product track added (ATN-0 through ATN-5 table); Current Priority: ATN-1 added as item 3 |
+
+### Key Architecture Decisions (ATN-0)
+
+| AD | Decision |
+|---|---|
+| ATN-AD-1 | Atelier Network is the generic platform; Fixpert is the first workshop pilot — never the schema name for all workshops |
+| ATN-AD-2 | Multi-tenant hierarchy: `workshop_organization_id` → `workshop_id` → `workshop_site_id` → operational records |
+| ATN-AD-3 | `vehicle_id` exclusively minted and owned by ID Auto — Atelier Network references it, never creates it |
+| ATN-AD-4 | AutoCheck Standard is provider-neutral; "AutoCheck by Fixpert" for Fixpert delivery; "AutoCheck — [Workshop Name]" for any accredited partner |
+| ATN-AD-5 | Smart Gate generalises: each participating workshop owns its camera device and consent obligation; ID Auto owns the resulting vehicle observation |
+| ATN-AD-6 | Integration modes: NATIVE_MANAGED, EXTERNAL_CONNECTED, HYBRID. Fixpert integration mode to be confirmed in ATN-1 (expected: EXTERNAL_CONNECTED) |
+| ATN-AD-7 | `inspection_provider_id` + `repair_estimate_id` replace `fixpert_inspection_ref` everywhere in AutoValeur schema |
+
+### Roadmap Dependency Corrections
+
+| Item | Before (wrong) | After (correct) | Reason |
+|---|---|---|---|
+| AVA-2 prerequisite | "IDA-4 complete (Fixpert integration requires Smart Gate spec)" | "ATN-1 complete (Atelier Network inspection API and repair estimate endpoint available)" | Smart Gate camera data ≠ inspection/repair estimate data. AVA-2 needs repair estimates from ATN-1, not ANPR camera data from IDA-4 |
+| IDA-4 prerequisite | IDA-3 + Smart Gate legal approval | IDA-3 + ATN-1 + Smart Gate legal approval (R-L02) | Fixpert must be registered as an ATN workshop before formal Smart Gate integration can proceed |
+| R-T08 | OPEN — AVA-2 wrongly depends on IDA-4 | RESOLVED (ATN-0) — AVA-2 prereq corrected to ATN-1 | Resolved by the same correction |
+
+### 14 New Canonical IDs
+
+| Canonical ID | Owner |
+|---|---|
+| `workshop_organization_id` | Atelier Network |
+| `workshop_id` | Atelier Network |
+| `workshop_site_id` | Atelier Network |
+| `workshop_capability_id` | Atelier Network |
+| `workshop_accreditation_id` | Atelier Network |
+| `technician_assignment_id` | Atelier Network |
+| `service_catalog_item_id` | Atelier Network |
+| `appointment_id` | Atelier Network |
+| `inspection_id` | Atelier Network |
+| `inspection_provider_id` | Atelier Network |
+| `work_order_id` | Atelier Network |
+| `intervention_id` | Atelier Network |
+| `repair_estimate_id` | Atelier Network |
+| `external_workshop_record_id` | Atelier Network |
+
+### PostgreSQL Status
+
+The `atelier_network` schema (24 tables, `atn_` prefix) is a draft specification. Not deployed. No migration scripts exist. PostgreSQL is not installed. Implementation begins ATN-1.
+
+Control-plane schema: 31 tables total (18 original `mythos_automotive_*` + 13 new ATN platform tables). Not deployed.
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `JSON.parse(atelier-network.example.json)` | ✓ VALID |
+| `JSON.parse(automotive.example.json)` | ✓ VALID |
+| `JSON.parse(autovaleur.example.json)` | ✓ VALID |
+| `JSON.parse(idauto.example.json)` | ✓ VALID |
+| ATN schema SQL: paren balance | ✓ 193 open = 193 close |
+| Control-plane SQL: paren balance | ✓ 301 open = 301 close |
+| IDauto SQL: paren balance | ✓ 383 open = 383 close |
+| AutoValeur SQL: paren balance | ✓ 215 open = 215 close |
+| `node tests/stage4ag-test.js` | ✓ 42/42 |
+| `node tests/stage4z-test.js` | ✓ 44/44 |
+| No runtime application file changed | ✓ confirmed |
+| No PostgreSQL migration executed | ✓ confirmed |
+| No PII columns introduced in new schema | ✓ confirmed |
+
+### Implementation Commit
+
+```
+5b1fdf2  docs(atelier-network): establish multi-workshop foundation and align ecosystem
+31 files changed, 2761 insertions(+), 424 deletions(-)
+```
+
+Local HEAD == origin/main == `5b1fdf2`.
+
+### Next Stages
+
+**ATN-1 — Workshop Registry + First Integration** (after IDA-2; parallel with AVA-1)
+- Workshop onboarding flow
+- Fixpert connector (EXTERNAL_CONNECTED mode — integration mode to be confirmed)
+- Workshop registry API
+- AutoCheck accreditation prototype
+- Per-workshop DPA and ANPR approval prerequisites (R-ATN-L01, R-ATN-L02)
+
+**IDA-2 — PostgreSQL Core, API and Manual Capture MVP** (next authorised implementation stage)
+
+Prerequisites before starting ATN-1:
+- IDA-2 provisions PostgreSQL cluster
+- Per-workshop DPA template drafted (R-ATN-L01)
+- Fixpert integration mode confirmed (EXTERNAL_CONNECTED vs HYBRID)
+- Multi-tenant data isolation design reviewed (R-ATN-D01)
 
 ---
 
