@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage 4AA — Inscriptions/Appels workflow extraction
+**From:** Stage 4AB — Répertoire Contacts domain extraction
 **To:** Next AI session
 
 ---
@@ -10,16 +10,78 @@
 
 ```
 Branch:   main
-HEAD:     f92d80a (Stage 4AA commit)
+HEAD:     95d9453 (Stage 4AB implementation commit)
 ```
 
-**Stage 4AA is complete.** The Inscriptions/Appels CRUD workflow (~487 lines, `js/app.js` lines 731–1217) extracted to `js/shared/inscriptions.js`. Tests: 115/115. Full Stage 4 suite (4A–4AA, 27 files): 1547/1547, 0 failures. Stage 4 cannot close; active CRUD domains remain in `js/app.js` (see below).
+**Stage 4AB is complete.** The Répertoire Contacts domain (1259 lines, `js/app.js` lines 745–2003) extracted to `js/shared/contacts.js`. Tests: 146/146. Full Stage 4 suite (4A–4AB, 28 files): 1693/1693, 0 failures. Stage 4 cannot close; active CRUD domains remain in `js/app.js` (see below).
 
-Implementation commit: `f92d80a` — `Stage 4AA — extract Inscriptions/Appels workflow to js/shared/inscriptions.js`
-Docs commit: see handover update
-Verified remote HEAD: `f92d80a`
+Implementation commit: `95d9453` — `Stage 4AB — extract Répertoire Contacts domain to js/shared/contacts.js`
+Docs commit: (this update)
+Verified remote HEAD: `95d9453`
 
 > Note: `docs/AI_HANDOVER.md` was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file. The correct baseline entering Stage 4A was 1405 tests (not 893).
+
+---
+
+## Stage 4AB — Répertoire Contacts Domain Extraction
+
+**Objective:** Extract the complete Répertoire Contacts domain from `js/app.js` lines 745–2003 into `js/shared/contacts.js`. This is the phone/vCard/Google contact import pipeline, UCL numbering, CRUD, duplicate detection/merge, interaction history, tags, annuaire/directory view, and CSV export.
+
+**Exact extraction boundary:** lines 745–2003, from the `// ══ CONTACT MANAGEMENT` section header through the closing `}` of `updateRepertoireContactTags`. Line 2004 (`// Invoice list…moved to js/shared/invoices.js.`) is the first line NOT extracted. `printModal` (lines 2014–2021) confirmed dead to contacts callers — stays in `js/app.js`.
+
+### Architectural decisions
+
+- `_rcActiveTab` hoisted to module top (line 7 of contacts.js): was declared at original line 1394 but used at line 767 via var hoisting; explicit hoist makes ordering intent visible with no behavior change.
+- `document.addEventListener('DOMContentLoaded', ...)` at original line 911 (calls `setTimeout(_checkGoogleImportToken, 800)`) moved into contacts.js as-is — single `<script>` tag prevents double-registration.
+- `_rcFilterBatchId` remains a `var` global — router.js line 91 writes `_rcFilterBatchId = null` directly; `var` global resolution at call time preserves this without any setter export.
+- All 45 functions remain as `var`/function declarations on the global scope (non-module script), matching the 23 inline `onclick=`/`onchange=` HTML handlers and router.js callers.
+
+### Changed Files
+
+| File | Change |
+|------|--------|
+| `js/shared/contacts.js` | NEW: 1264 lines; 8 state vars (including hoisted `_rcActiveTab`), 45 functions, 1 DOMContentLoaded listener |
+| `js/app.js` | Removed 1259 lines (745–2003); replaced with 19-line reference comment block; new total 2153 lines |
+| `index.html` | Added `<script src="js/shared/contacts.js?v=20260805"></script>` after `inscriptions.js`, before `taches.js` |
+| `tests/stage4ab-test.js` | NEW: 146 tests across 11 sections |
+
+### Dependencies and Compatibility
+
+Resolved at call time:
+- `STORE.repertoireContacts()`, `STORE.saveRepertoireContacts()`, `STORE.repertoireImports()`, `STORE.saveRepertoireImports()` — STORE defined in `js/app.js` (unchanged)
+- `esc(str)` — defined in `js/utils.js` (loads before app.js)
+- `_markDeleted(obj)` — defined in `js/core/sync.js`
+- `syncFromServer()` — defined in `js/core/sync.js`
+- `showView(view)` — defined in `js/core/router.js`
+- `navigator.contacts`, `fetch`, `document`, `alert`, `confirm`, `URL`, `Blob`, `Date`, `Math` — browser globals
+
+Router (`js/core/router.js`) unchanged: line 91 (`_rcFilterBatchId = null; renderRepertoireContactsPage(); …`) and line 92 (`renderContactFiche()`) resolve globals at call time.
+
+### Validation
+
+| Suite | Result |
+|-------|--------|
+| Syntax: `js/app.js`, `js/shared/contacts.js` | ✓ |
+| `tests/stage4ab-test.js` | ✓ 146/146 |
+| `tests/stage4aa-test.js` | ✓ 115/115 |
+| `tests/stage4z-test.js` | ✓ 40/40 |
+| `tests/stage4c-test.js` | ✓ 32/32 |
+| `tests/stage1a-sync-bypass-regression-test.js` | ✓ 77/77 |
+| Full Stage 4 suite (4A–4AB, 28 files) | ✓ 1693/1693 |
+
+No Stage 4 suite failed and no regression was found.
+
+### Risks, Remaining Responsibilities, and Operations
+
+- `js/app.js` (2153 lines) still contains: Documents (~780 lines), Backup dashboard (~265 lines), Spectacle price calculator (~60 lines), Settings page (~70 lines), Invoice/OM helpers and `populateInvoiceList`/`populateOmList` (~175 lines), `printModal`, STORE object, shared utilities (`num`, `fmtMoney`, `escapeHtml`, `esc`, etc.), initialization (`initApp`, `bootstrapStableApp`), logs rendering, sidebar/mobile behavior, background sync, demo data initialization, `restoreBackup20260516Once`, `forceRestoreBackup20260516`.
+- Stage 4 cannot close while these coherent domains remain in `js/app.js`.
+- Deployment: not performed. Data migration: not performed.
+
+### Exact Next Scope
+
+**Stage 4AC:** Extract Documents domain from `js/app.js`. Read the file from line ~1100 onward to locate the Documents section header (approximately `// ══ Documents` or similar). This is the file upload, scanner, OCR, camera, and document management workflow. Extract into `js/shared/documents.js`. Confirm exact boundary before implementation.
+
+Alternatively, if Documents is complex/mixed with camera/permissions, consider first extracting **Spectacle calculator** (~60 lines, self-contained) or **Backup dashboard** (~265 lines) as a lower-risk next stage.
 
 ---
 
