@@ -1,16 +1,73 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage 3D — Planning Runtime Plugin
+**From:** Stage INF-CF-0 review — Cloudflare Foundation + Stage 3D — Planning Runtime Plugin
 **To:** Next AI session
 
 ---
 
-## Repository State (verified 2026-08-05)
+## Stage INF-CF-0 — Cloudflare Foundation
+
+**Objective:** Document the approved Cloudflare edge security architecture, deployment checklist, environment variable template, and deploy directory, without deploying, connecting, or modifying any infrastructure.
+
+**Starting remote HEAD:** `fb1280f3ee54b511b919e7e77c3dcc7b7ff2b2aa` (origin/main)
+**Implementation commit:** `d11badf0dbed3571803161b4f2e53c6c99eef39c`
+**Status:** Complete and pushed
+
+**Branch:** `docs/cloudflare-foundation`
+
+### Scope
+
+Documentation and safe examples only. No deployment, no DNS changes, no Cloudflare connectivity, no cloudflared installation, no PostgreSQL migrations, no runtime JS/PHP/HTML/CSS/database changes. No secrets, tokens, account IDs, tunnel credentials, certificates, API keys, R2 keys, or real production values committed.
+
+### Changed Files
+
+| File | Change |
+|---|---|
+| `docs/CLOUDFLARE_ARCHITECTURE.md` | NEW: approved edge security architecture |
+| `docs/CLOUDFLARE_DEPLOYMENT_CHECKLIST.md` | NEW: staged deployment checklist INF-CF-1 through INF-CF-7 |
+| `deploy/cloudflare/cloudflared.env.example` | NEW: environment variable template (empty placeholders only) |
+| `deploy/cloudflare/README.md` | NEW: deploy directory documentation |
+| `docs/ROADMAP.md` | Updated: Infrastructure and Cloudflare track added (INF-CF-0 through INF-CF-7) |
+| `docs/AI_HANDOVER.md` | Updated: this entry |
+
+### Validation
+
+- All created files verified valid UTF-8.
+- `cloudflared.env.example` contains empty placeholder values only; no real credentials.
+- Full diff searched for credential keywords; no token, secret, password, private_key, api_key, or tunnel credential values found.
+- `git diff --check` passes with no whitespace errors.
+- Runtime test suite not required (documentation only).
+- No deployment performed.
+
+### Known Risks
+
+None from this documentation stage itself — no infrastructure changed. Note for future implementation stages: `docs/CLOUDFLARE_DEPLOYMENT_CHECKLIST.md` rollback sections for INF-CF-3 through INF-CF-7 require careful execution (restricted, time-bounded fallbacks only — no unconditional port reopening, unproxied DNS, Access removal on administrative hostnames, TLS downgrade, or destructive delete before recovery is verified). Follow the rollback ordering exactly as documented; do not improvise a faster rollback under incident pressure.
+
+### Deployment
+
+Not performed. INF-CF-0 is documentation only.
+
+### Exact Next Stage
+
+**INF-CF-1** — Cloudflare account and domain inventory. Requires access to a Cloudflare account with Super Administrator or Administrator permissions, the domain `mythosprod.xyz`, and current DNS provider access.
+
+### Branch and Remote Status
+
+- Branch: `docs/cloudflare-foundation`
+- INF-CF-0 implementation commit: `d11badf0dbed3571803161b4f2e53c6c99eef39c` — this is the implementation commit, never the branch tip.
+- Commit history on this branch (oldest to newest, relative to `origin/main`): `d11badf` (establish edge security foundation) → `2dfcc72` (mark INF-CF-0 complete with commit hash) → `30b083c` (sync foundation with latest main) → `9a40206` (finalize merge readiness — Opus 5 audit corrections) → any later commits added after this line was written.
+- Do not treat any hash printed in this document as the current branch tip. Always verify with `git rev-parse origin/docs/cloudflare-foundation` before relying on a specific commit as "current".
+- Branch is documentation-only and kept synced with `origin/main` (not behind main at any point in this history).
+
+---
+
+## Repository State (verified 2026-08-06)
 
 ```
 Branch:   main
-HEAD:     fb1280f  (docs: update AI_HANDOVER.md for Atelier Network ATN-0)
+HEAD:     383683e  (docs: update AI_HANDOVER.md for Stage 3D)
+Stage 3D handover commit:        383683e
 Stage 3D implementation commit:  4bf873b
 ATN-0 handover commit:           fb1280f
 ATN-0 implementation commit:     5b1fdf2
@@ -22,6 +79,8 @@ Stage 4AG implementation commit: ebe42f9
 Stage IDA-0 implementation commit: 7c75abd
 Stage 4AF implementation commit: 2dcbb99
 ```
+
+Note: `docs/cloudflare-foundation` branches from and is synced with `origin/main` at `383683e`. The branch is not behind main and is three commits ahead (`d11badf`, `2dfcc72`, `30b083c`), documentation-only.
 
 **Stage 3D is complete.** Planning Runtime Plugin established. `js/plugins/planning.runtime.js` replaces `planning.plugin.js` in index.html. onBoot validates `mp_rappels` and `mp_rappel_types`. onReady registers MythosSearch (order 7) and MythosCalendar (order 5) providers via late-bound handlers. 110 tests written; all 104 non-subprocess tests pass; 6 subprocess regressions are pre-existing (stage3a/stage2d/stage1c _memCache crash). No app.js change. No rappels.js change. No deployment. Implementation commit: `4bf873b` (2026-07-30).
 

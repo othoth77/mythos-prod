@@ -1,6 +1,6 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-05 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete)
+**Last updated:** 2026-08-05 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added)
 
 ---
 
@@ -132,6 +132,27 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 5. **Ecosystem (parallel — docs only):** MAE-0 + ATN-0 complete; MAE-1 not started (blocked on IDA-2)
 
 **One-major-stage rule in force:** Only one major implementation stage may be active at a time unless the user gives explicit parallel authorisation. IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 cannot run in parallel without explicit user authorisation — they are sequential after IDA-2.
+
+---
+
+## Infrastructure and Cloudflare — Separate Track
+
+This track defines the Cloudflare edge security foundation for all Mythos-hosted services. All INF-CF stages are sequential; each must be validated, committed, and pushed before the next begins.
+
+**INF-CF stages do not change the currently authorised implementation-stage priority.** The next authorised implementation stage remains IDA-2. INF-CF-0 is documentation only.
+
+| Stage | Description | Status |
+|---|---|---|
+| INF-CF-0 | Cloudflare Foundation — architecture, deployment checklist, env template, deploy docs | ✓ Done (2026-08-05) |
+| INF-CF-1 | Cloudflare account and domain inventory | Planned |
+| INF-CF-2 | DNS migration and verification | Planned |
+| INF-CF-3 | Remotely managed Tunnel in Coolify | Planned |
+| INF-CF-4 | Cloudflare Access for private hostnames | Planned |
+| INF-CF-5 | TLS, WAF, rate limiting and DNSSEC hardening | Planned |
+| INF-CF-6 | R2 and external backup integration | Planned |
+| INF-CF-7 | Monitoring, rollback test, restore test and operational handover | Planned |
+
+See `docs/CLOUDFLARE_ARCHITECTURE.md` for the approved architecture and `docs/CLOUDFLARE_DEPLOYMENT_CHECKLIST.md` for per-stage prerequisites, actions, validation, rollback, secrets handling, and completion criteria.
 
 ---
 
