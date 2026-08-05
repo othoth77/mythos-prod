@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-05 UTC
-**From:** Stage 4AF — Camera Modal domain extraction
+**From:** Stage IDA-0 — ID Auto Foundation
 **To:** Next AI session
 
 ---
@@ -10,10 +10,91 @@
 
 ```
 Branch:   main
-HEAD:     2dcbb99 (Stage 4AF implementation commit)
+HEAD:     (see IDA-0 commit below — updated after Stage 4AF)
 ```
 
-**Stage 4AF is complete.** Camera Modal domain (~192 lines, `js/app.js` lines 1060–1251 post-4AE) extracted to `js/shared/camera.js`. Tests: 102/102. Full Stage 4 suite (4A–4AF, all test files): all passing, 0 failures.
+**Stage IDA-0 is complete.** ID Auto Foundation established: 5 new files, 2 docs updated, separate product track added to ROADMAP.md.
+
+**Stage 4AF is also complete** (prior session, same date).
+
+---
+
+## Stage IDA-0 — ID Auto Foundation
+
+**Objective:** Establish the ID Auto project foundation inside the Mythos OS repository. Define product identity, privacy contract, Tunisian plate format rules, data contracts, and integration contracts with Mythos OS shared services.
+
+### Files Created
+
+| File | Description |
+|------|-------------|
+| `projects/idauto/README.md` | Product identity, privacy contract, plate format catalogue, scope exclusions |
+| `projects/idauto/config/idauto.example.json` | Configurable plate-format rules (7 formats), governorate codes (24), public search config, professional tier definitions, feature flags |
+| `projects/idauto/database/schema.sql` | 11-table data contract: plate formats, governorates, vehicles, plates, sources, verifications, organizations, user roles, service events, consent/legal-basis, audit log |
+| `docs/IDAUTO_ARCHITECTURE.md` | 7 architecture decisions, 7 Mythos OS integration contracts, 2 data-flow diagrams, deployment constraints |
+| `docs/IDAUTO_ROADMAP.md` | IDA-0 through IDA-5 stage plan with deliverables and dependencies |
+
+### Files Updated
+
+| File | Change |
+|------|--------|
+| `docs/ROADMAP.md` | Added ID Auto as separate product track, updated current priority to Stage 4AG + IDA-1 |
+| `docs/AI_HANDOVER.md` | This update |
+
+### Architecture Decisions (summary)
+
+| ID | Decision |
+|----|----------|
+| AD-1 | `idauto_` prefix strict separation from Mythos OS `mp_*` tables |
+| AD-2 | Public search never returns owner PII; no owner columns in `idauto_vehicles` or `idauto_plates` |
+| AD-3 | Plate formats as configurable rules in `idauto_plate_formats`, not hardcoded |
+| AD-4 | `idauto_audit_log` is append-only; no row is ever updated or deleted |
+| AD-5 | IP and User-Agent stored as SHA-256 hashes only |
+| AD-6 | Service events default to `is_public=FALSE` (org-scoped) |
+| AD-7 | No real data ingestion until IDA-1 legal review is complete |
+
+### Validation
+
+| Check | Result |
+|-------|--------|
+| `projects/idauto/config/idauto.example.json` JSON syntax | ✓ valid |
+| `projects/idauto/database/schema.sql` table count | ✓ 11 tables |
+| `database/schema.sql` parenthesis balance | ✓ 209 open = 209 close |
+| INSERT targets | ✓ only seed tables (plate_formats, governorates, sources) |
+| All Stage 4 tests (stage4z, stage4ae, stage4af) | ✓ no regression |
+
+### Privacy Constraints (permanent)
+
+- Public search endpoint: returns only `plate_number`, `format_code`, `governorate_name`, `status`, `vehicle_make`, `model`, `year`, `body_type`, `fuel_type`, `colour`
+- Never returned: `owner_name`, `owner_address`, `owner_cin`, `owner_passport`, `owner_phone`, `insurance_policy_number`, `insurance_company`
+- Schema: `idauto_vehicles` and `idauto_plates` have no owner columns (enforced by schema + `-- [NO PII]` comments)
+
+### Implementation Commit
+
+```
+feat(idauto): establish ID Auto project foundation
+```
+*(commit hash recorded below after push)*
+
+### Security Constraints (inherited, unchanged)
+
+- Do NOT commit `google_config.php`, `ACCES.txt`, `appdata/`, `documents/`
+- Do NOT touch production at `/var/www/uthinachess/0726/Prod/`
+- Do NOT deploy ID Auto to any server before IDA-2 with explicit authorization
+
+### Next ID Auto Stage
+
+**IDA-1 — Product and Legal Specification**
+- Legal basis mapping per data category (Tunisian organic law 63-2004)
+- Data-processing agreement template for professional subscribers
+- Regulatory pathway for accessing public vehicle registry data
+- API specification (endpoint definitions, request/response schemas, rate-limit headers)
+- Hosting and infrastructure specification
+
+**Condition:** IDA-1 does not begin until Mythos OS Stage 4AG is complete or explicitly paused.
+
+---
+
+## Stage 4AF — Camera Modal Domain Extraction Camera Modal domain (~192 lines, `js/app.js` lines 1060–1251 post-4AE) extracted to `js/shared/camera.js`. Tests: 102/102. Full Stage 4 suite (4A–4AF, all test files): all passing, 0 failures.
 
 Implementation commit: `2dcbb99` — `Stage 4AF — Extract Camera Modal domain to js/shared/camera.js`
 Verified remote HEAD: `2dcbb99`

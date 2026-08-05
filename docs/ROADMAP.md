@@ -1,6 +1,6 @@
 # Mythos OS — Roadmap
 
-**Last updated:** 2026-07-31 05:00 UTC
+**Last updated:** 2026-08-05 UTC
 
 ---
 
@@ -93,8 +93,27 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 
 ## Current Priority
 
-1. **Immediate:** Stage 3C (Notes Runtime)
-2. **Next:** Stage 3D, 3E, 3F, 3G sequentially
+1. **Immediate (Mythos OS):** Stage 4AG — Invoice/OM helper duplicates audit (`js/app.js`)
+2. **Parallel track (ID Auto):** IDA-1 — Product and legal specification (may begin after Stage 4AG)
+
+---
+
+## ID Auto — Separate Product Track
+
+ID Auto (`idauto.tn`) is a vehicle-plate lookup and professional subscription platform for Tunisia. It shares this repository under `projects/idauto/` but maintains entirely separate storage, deployment, and lifecycle.
+
+See `docs/IDAUTO_ROADMAP.md` for the full ID Auto stage plan.
+
+| Stage | Description | Status |
+|-------|-------------|--------|
+| IDA-0 | Foundation — schema, config, architecture, privacy contract | ✓ Done (2026-08-05) |
+| IDA-1 | Product and legal specification | Planned |
+| IDA-2 | MVP plate search API | Planned |
+| IDA-3 | Professional subscription portal | Planned |
+| IDA-4 | Service event tracking and fleet integration | Planned |
+| IDA-5 | Public launch and data enrichment | Future |
+
+**Active priority:** Mythos OS Stage 4AG is the current priority. IDA-1 does not begin until Stage 4AG is complete or explicitly paused.
 
 ---
 

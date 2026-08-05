@@ -1,0 +1,233 @@
+{
+  "_comment": "ID Auto — example configuration. Copy to idauto.json and set real values. Never commit idauto.json.",
+  "_version": "0.1.0",
+  "_stage": "IDA-0 Foundation",
+
+  "product": {
+    "name": "ID Auto",
+    "domain": "idauto.tn",
+    "locale": "ar-TN",
+    "fallback_locale": "fr-TN",
+    "support_email": "support@idauto.tn"
+  },
+
+  "plate_formats": [
+    {
+      "code": "TUN_STD",
+      "name_fr": "Plaque standard (série courante)",
+      "name_ar": "لوحة قياسية",
+      "pattern": "^(\\d{1,3})\\s?TUN\\s?(\\d{1,4})$",
+      "example": "123 TUN 4567",
+      "introduced_year": 2002,
+      "active": true,
+      "captures": {
+        "left": "sequence_prefix",
+        "right": "sequence_suffix"
+      },
+      "notes": "Main passenger series. Left segment identifies batch; right segment is sequential within batch."
+    },
+    {
+      "code": "TUN_OLD",
+      "name_fr": "Plaque ancienne (avant 2002)",
+      "name_ar": "لوحة قديمة",
+      "pattern": "^(\\d{1,4})\\s?TUN\\s?(\\d{1,2})$",
+      "example": "1234 TUN 56",
+      "introduced_year": null,
+      "active": false,
+      "captures": {
+        "left": "sequence",
+        "right": "governorate_code_legacy"
+      },
+      "notes": "Pre-2002 series still in circulation. Right two digits indicate governorate in legacy mapping."
+    },
+    {
+      "code": "TUN_GVT",
+      "name_fr": "Véhicule gouvernemental",
+      "name_ar": "مركبة حكومية",
+      "pattern": "^GN\\s?(\\d{1,3})\\s?(\\d{1,3})$",
+      "example": "GN 123 456",
+      "introduced_year": null,
+      "active": true,
+      "captures": {
+        "group1": "ministry_code",
+        "group2": "vehicle_sequence"
+      },
+      "notes": "Ministries and public institutions."
+    },
+    {
+      "code": "TUN_DIP",
+      "name_fr": "Corps diplomatique",
+      "name_ar": "سلك دبلوماسي",
+      "pattern": "^CD\\s?(\\d{1,2})\\s?(\\d{1,3})$",
+      "example": "CD 12 345",
+      "introduced_year": null,
+      "active": true,
+      "captures": {
+        "group1": "mission_code",
+        "group2": "sequence"
+      },
+      "notes": "Diplomatic corps. Return vehicle category only; no mission identity in public response."
+    },
+    {
+      "code": "TUN_MIL",
+      "name_fr": "Forces armées",
+      "name_ar": "القوات المسلحة",
+      "pattern": "^ARN\\s?(\\d{1,6})$",
+      "example": "ARN 123456",
+      "introduced_year": null,
+      "active": true,
+      "captures": {
+        "group1": "internal_sequence"
+      },
+      "notes": "Military vehicles. Public lookup returns 'Véhicule militaire' only; no further attributes."
+    },
+    {
+      "code": "TUN_TMP",
+      "name_fr": "Immatriculation temporaire / transit",
+      "name_ar": "ترخيص مؤقت",
+      "pattern": "^TT\\s?(\\d{1,5})\\s?([A-Z])$",
+      "example": "TT 12345 A",
+      "introduced_year": null,
+      "active": true,
+      "captures": {
+        "group1": "sequence",
+        "group2": "suffix_letter"
+      },
+      "notes": "Short-term and transit registration. Validity window stored in plates.valid_until."
+    },
+    {
+      "code": "TUN_ECO",
+      "name_fr": "Zone économique / spéciale",
+      "name_ar": "منطقة اقتصادية",
+      "pattern": "^ZE\\s?(\\d{1,4})\\s?(\\d{1,3})$",
+      "example": "ZE 1234 567",
+      "introduced_year": null,
+      "active": true,
+      "captures": {
+        "group1": "zone_code",
+        "group2": "sequence"
+      },
+      "notes": "Free-trade and industrial zone vehicles."
+    }
+  ],
+
+  "governorate_codes": {
+    "01": "Tunis",
+    "02": "Ariana",
+    "03": "Ben Arous",
+    "04": "Manouba",
+    "11": "Bizerte",
+    "12": "Nabeul",
+    "13": "Zaghouan",
+    "21": "Béja",
+    "22": "Jendouba",
+    "23": "Kef",
+    "24": "Siliana",
+    "31": "Sousse",
+    "32": "Monastir",
+    "33": "Mahdia",
+    "34": "Sfax",
+    "41": "Kairouan",
+    "42": "Kasserine",
+    "43": "Sidi Bouzid",
+    "51": "Gabès",
+    "52": "Médenine",
+    "53": "Tataouine",
+    "61": "Gafsa",
+    "62": "Tozeur",
+    "63": "Kébili"
+  },
+
+  "public_search": {
+    "enabled": true,
+    "rate_limit": {
+      "anonymous_per_hour": 10,
+      "anonymous_per_day": 50,
+      "authenticated_per_hour": 100,
+      "professional_per_hour": 1000
+    },
+    "response_fields_public": [
+      "plate_number",
+      "format_code",
+      "governorate_name",
+      "status",
+      "vehicle_make",
+      "vehicle_model",
+      "vehicle_year",
+      "vehicle_body_type",
+      "vehicle_fuel_type",
+      "vehicle_colour"
+    ],
+    "response_fields_never_public": [
+      "owner_name",
+      "owner_address",
+      "owner_cin",
+      "owner_passport",
+      "owner_phone",
+      "owner_email",
+      "insurance_policy_number",
+      "insurance_company",
+      "legal_proceedings"
+    ]
+  },
+
+  "professional_subscription": {
+    "tiers": [
+      {
+        "code": "GARAGE",
+        "name_fr": "Garage / Atelier",
+        "api_rate_multiplier": 10,
+        "can_write_service_events": true,
+        "can_read_own_service_events": true,
+        "can_read_cross_org_service_events": false
+      },
+      {
+        "code": "INSURER",
+        "name_fr": "Compagnie d'assurance",
+        "api_rate_multiplier": 20,
+        "can_write_service_events": false,
+        "can_read_own_service_events": true,
+        "can_read_cross_org_service_events": false
+      },
+      {
+        "code": "FLEET",
+        "name_fr": "Gestionnaire de flotte",
+        "api_rate_multiplier": 50,
+        "can_write_service_events": false,
+        "can_read_own_service_events": true,
+        "can_read_cross_org_service_events": false
+      }
+    ]
+  },
+
+  "integrations": {
+    "mythos_auth": {
+      "enabled": false,
+      "endpoint": null,
+      "comment": "Enabled in IDA-2 when auth integration is implemented."
+    },
+    "mythos_billing": {
+      "enabled": false,
+      "endpoint": null,
+      "comment": "Enabled in IDA-3 when subscription billing is implemented."
+    },
+    "mythos_audit": {
+      "enabled": false,
+      "endpoint": null,
+      "comment": "Enabled in IDA-2. All plate lookups must be audit-logged."
+    },
+    "mythos_notifications": {
+      "enabled": false,
+      "endpoint": null,
+      "comment": "Enabled in IDA-3 for subscription renewal and alert events."
+    }
+  },
+
+  "feature_flags": {
+    "public_search": false,
+    "professional_api": false,
+    "service_event_write": false,
+    "bulk_lookup": false,
+    "webhook_alerts": false
+  }
+}
