@@ -23,8 +23,7 @@ console.log('\n2. Stage 4 extraction boundary completeness — functions gone fr
 
 console.log('\n3. Surviving active functions still in app.js');
 ['editInvoice','deleteInvoice','editOm','deleteOm','cancelOM',
- 'initApp','bootstrapStableApp','closeModalFromOutsideClick',
- 'renderDocumentation'].forEach(function(n){
+ 'initApp','bootstrapStableApp','closeModalFromOutsideClick'].forEach(function(n){
   ok(app.indexOf('function '+n+'(')>=0,n+' active function preserved in app.js');
 });
 // exportBackup, importBackup, renderBackupDashboard moved to js/shared/backup.js in Stage 4AD
@@ -32,6 +31,11 @@ var backup=fs.readFileSync(path.join(BASE,'js/shared/backup.js'),'utf8');
 ok(backup.indexOf('function exportBackup(')>=0,'exportBackup present in backup.js (Stage 4AD)');
 ok(backup.indexOf('function importBackup(')>=0,'importBackup present in backup.js (Stage 4AD)');
 ok(backup.indexOf('function renderBackupDashboard(')>=0,'renderBackupDashboard present in backup.js (Stage 4AD)');
+// renderDocumentation, saveDoc, deleteDoc etc. moved to js/shared/documentation.js in Stage 4AE
+var doc=fs.readFileSync(path.join(BASE,'js/shared/documentation.js'),'utf8');
+ok(doc.indexOf('function renderDocumentation(')>=0,'renderDocumentation present in documentation.js (Stage 4AE)');
+ok(doc.indexOf('function saveDoc(')>=0,'saveDoc present in documentation.js (Stage 4AE)');
+ok(doc.indexOf('function deleteDoc(')>=0,'deleteDoc present in documentation.js (Stage 4AE)');
 
 console.log('\n4. STORE definition preserved');
 ok(app.indexOf('const STORE = {')>=0,'STORE object defined in app.js');
