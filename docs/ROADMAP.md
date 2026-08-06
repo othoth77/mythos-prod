@@ -1,6 +1,6 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-06 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete)
+**Last updated:** 2026-08-06 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added)
 
 ---
 
@@ -130,8 +130,9 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 3. **Atelier Network:** ATN-1 — Workshop Registry + First Integration (after IDA-2)
 4. **AutoValeur:** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster)
 5. **Ecosystem (parallel — docs only):** MAE-0 + ATN-0 complete; MAE-1 not started (blocked on IDA-2)
+6. **Automation (docs only):** AUT-0 complete; INF-OVH-API-0 is the next Automation implementation stage — not started, does not change items 1–4 above
 
-**One-major-stage rule in force:** Only one major implementation stage may be active at a time unless the user gives explicit parallel authorisation. IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 cannot run in parallel without explicit user authorisation — they are sequential after IDA-2.
+**One-major-stage rule in force:** Only one major implementation stage may be active at a time unless the user gives explicit parallel authorisation. IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 cannot run in parallel without explicit user authorisation — they are sequential after IDA-2. The Automation track (INF-OVH-API-0 onward) is likewise sequential and does not run in parallel with any of the above without explicit user authorisation.
 
 ---
 
@@ -153,6 +154,29 @@ This track defines the Cloudflare edge security foundation for all Mythos-hosted
 | INF-CF-7 | Monitoring, rollback test, restore test and operational handover | Planned |
 
 See `docs/CLOUDFLARE_ARCHITECTURE.md` for the approved architecture and `docs/CLOUDFLARE_DEPLOYMENT_CHECKLIST.md` for per-stage prerequisites, actions, validation, rollback, secrets handling, and completion criteria. See `docs/CLOUDFLARE_DOMAIN_INVENTORY.md` and `docs/CLOUDFLARE_DNS_MIGRATION_MATRIX.md` for the INF-CF-1 public domain inventory of the 8 authorised Mythos-portfolio domains (`agribee.tn`, `darhijama.tn`, `fixpert.tn`, `idauto.tn`, `mythosprod.xyz`, `notrejour.tn`, `ssangyong.autos`, `uthinachess.tn`). See `docs/CLOUDFLARE_AUTHORITATIVE_EXPORT_INTAKE.md`, `docs/CLOUDFLARE_OWNER_APPROVAL_GATE.md`, and `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` for the INF-CF-2-PREP readiness package that must be satisfied, per domain, before INF-CF-2 may begin.
+
+---
+
+## Automation — Separate Product Track
+
+Mythos Automation & Operations (`mythos_automation`) is the shared platform capability behind **Mythos Control Center**, the operator-facing console for Mythos products, infrastructure, connectors, automation runs, approvals, incidents, backups, deployments, and service health. Governing principle: **Automation First** — every safe, repeatable and measurable operation should eventually be automated, automation must not remove governance, and high-risk actions remain automated in preparation and validation but require explicit human approval before execution.
+
+**The Automation track does not change the currently authorised implementation-stage priority.** Stage 3E remains the next Mythos OS runtime stage; IDA-2 remains the next authorised Automotive implementation stage; INF-CF-2 remains blocked and not started. AUT-0 is documentation only.
+
+| Stage | Description | Status |
+|---|---|---|
+| AUT-0 | Automation-First Master Foundation — principles, Mythos Control Center spec, architecture, governance, approval matrix, security/secrets policy, operations runbook, draft control-plane schema | ✓ Done (2026-08-06) |
+| INF-OVH-API-0 | OVH Read-Only Connector — list authorised domains, registrar metadata, DNS records, DNSSEC state, redacted snapshots; no writes | Planned — next Automation implementation stage |
+| INF-CF-AUTO-0 | Cloudflare Read-Only Connector — account/zone/settings inventory; no writes | Planned |
+| INF-DNS-AUTO-1 | DNS Snapshot, Comparison and Drift Detection — OVH vs public DNS vs Cloudflare, email/DNSSEC safety, migration/rollback plans | Planned |
+| INF-DNS-AUTO-2 | Approved DNS Operations — LEVEL_3 only, one domain at a time, explicit owner approval, automatic verify/rollback | Planned |
+| INF-DEPLOY-AUTO-0 | GitHub to Coolify Delivery Foundation | Planned |
+| INF-BACKUP-AUTO-0 | Automated Backup and Restore Verification | Planned |
+| INF-MONITOR-AUTO-0 | Infrastructure, DNS, SSL and Service Monitoring | Planned |
+| OPS-AUTO-0 | Business Workflow Automation | Planned |
+| OPS-AUTO-1 | Notifications, Relances and Scheduled Reports | Planned |
+
+See `docs/AUTOMATION_FIRST_PRINCIPLES.md`, `docs/MYTHOS_CONTROL_CENTER_PRODUCT_SPEC.md`, `docs/AUTOMATION_ARCHITECTURE.md`, `docs/AUTOMATION_GOVERNANCE.md`, `docs/AUTOMATION_APPROVAL_MATRIX.md`, `docs/AUTOMATION_SECURITY_AND_SECRETS.md`, `docs/AUTOMATION_OPERATIONS_RUNBOOK.md`, and `docs/AUTOMATION_ROADMAP.md` for the full AUT-0 foundation and the complete future stage sequence.
 
 ---
 

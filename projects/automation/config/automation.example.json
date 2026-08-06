@@ -1,0 +1,456 @@
+{
+  "_note": "Mythos Automation & Operations configuration draft — Stage AUT-0. All feature flags and live-connector flags are false. No real credentials, tokens, account IDs, emails, IPs, or production data. Not deployed.",
+  "version": "0.1.0-aut0-draft",
+  "product": {
+    "product_key": "mythos_automation",
+    "capability_name": "Mythos Automation & Operations",
+    "operator_product": "Mythos Control Center",
+    "group_principle": "Automation First",
+    "group_principle_statement": "Every safe, repeatable and measurable operation should eventually be automated. Automation must not remove governance. High-risk actions remain automated in preparation and validation, but require explicit human approval before execution.",
+    "stage": "AUT-0",
+    "ecosystem": "mythos"
+  },
+  "database": {
+    "_note": "Target DBMS selected. NOT INSTALLED OR DEPLOYED in AUT-0.",
+    "target_dbms": "PostgreSQL",
+    "logical_schema": "mythos_automation",
+    "implementation_stage": "INF-OVH-API-0 or later"
+  },
+  "automation_levels": [
+    {
+      "level": "LEVEL_1_READ_ONLY",
+      "description": "Discover, inspect, export, snapshot, compare, report. No external mutation.",
+      "may_self_promote": false
+    },
+    {
+      "level": "LEVEL_2_RECOMMEND",
+      "description": "Analyse, create plans, simulate, dry-run, calculate impact, generate rollback plans. No external mutation.",
+      "may_self_promote": false
+    },
+    {
+      "level": "LEVEL_3_APPROVAL_REQUIRED",
+      "description": "Prepare the action automatically, verify all gates automatically, require explicit authorised approval, execute only after approval, verify automatically, rollback automatically when the approved policy permits.",
+      "may_self_promote": false
+    },
+    {
+      "level": "LEVEL_4_FULL_AUTOMATIC",
+      "description": "Execute without per-run human approval. Permitted only for approved low-risk operations. Must have monitoring, audit, bounded retries and rollback or safe failure. Requires a previously approved policy.",
+      "may_self_promote": false
+    }
+  ],
+  "run_statuses": {
+    "non_terminal": [
+      "QUEUED",
+      "DISCOVERING",
+      "SNAPSHOTTING",
+      "ANALYSING",
+      "PLANNED",
+      "DRY_RUN_COMPLETE",
+      "BLOCKED",
+      "AWAITING_APPROVAL",
+      "APPROVED",
+      "APPLYING",
+      "VERIFYING",
+      "ROLLING_BACK"
+    ],
+    "terminal": [
+      "REJECTED",
+      "SUCCEEDED",
+      "FAILED",
+      "ROLLED_BACK",
+      "MANUAL_INTERVENTION_REQUIRED",
+      "CANCELLED"
+    ]
+  },
+  "lifecycle": [
+    "DISCOVER",
+    "SNAPSHOT",
+    "ANALYSE",
+    "PLAN",
+    "DRY_RUN",
+    "GATE_CHECK",
+    "APPROVAL",
+    "APPLY",
+    "VERIFY",
+    "ROLLBACK",
+    "AUDIT",
+    "NOTIFY",
+    "CLOSE"
+  ],
+  "trigger_types": [
+    "MANUAL",
+    "SCHEDULED",
+    "EVENT",
+    "API"
+  ],
+  "failure_classes": [
+    "TRANSIENT",
+    "RATE_LIMITED",
+    "AUTHENTICATION",
+    "AUTHORIZATION",
+    "VALIDATION",
+    "CONFLICT",
+    "EXTERNAL_PROVIDER",
+    "TIMEOUT",
+    "SECURITY",
+    "DATA_INTEGRITY",
+    "MANUAL_INTERVENTION"
+  ],
+  "approval_rules": {
+    "self_approval_allowed": false,
+    "separation_of_duties_required_for": [
+      "domain_nameserver_changes",
+      "dnssec_or_ds_record_changes",
+      "production_dns_record_deletion",
+      "production_database_destructive_migration",
+      "production_database_deletion",
+      "production_data_overwrite",
+      "deletion_of_backups",
+      "disabling_backups",
+      "secret_or_credential_exposure",
+      "privilege_escalation",
+      "changing_super_admin_access",
+      "production_firewall_or_network_access_changes",
+      "sending_or_transferring_money",
+      "issuing_refunds",
+      "contractual_acceptance",
+      "public_publication_of_sensitive_or_regulated_data",
+      "production_shutdown",
+      "irreversible_external_provider_actions"
+    ],
+    "expired_approval_reusable": false,
+    "rejected_run_can_execute": false,
+    "rollback_is_separate_audited_execution": true
+  },
+  "retry_defaults": {
+    "strategy": "exponential_backoff",
+    "initial_delay_seconds": 5,
+    "max_delay_seconds": 300,
+    "max_retries": 5,
+    "mutating_retries_require_idempotency": true,
+    "retryable_failure_classes": [
+      "TRANSIENT",
+      "RATE_LIMITED",
+      "TIMEOUT",
+      "EXTERNAL_PROVIDER"
+    ],
+    "non_retryable_failure_classes": [
+      "SECURITY",
+      "DATA_INTEGRITY",
+      "AUTHENTICATION",
+      "AUTHORIZATION",
+      "VALIDATION",
+      "MANUAL_INTERVENTION"
+    ],
+    "dead_letter_after_retry_exhaustion": true
+  },
+  "timeout_defaults": {
+    "level_1_read_only_seconds": 60,
+    "level_2_recommend_seconds": 120,
+    "level_3_approval_required_seconds": 300,
+    "level_4_full_automatic_seconds": 120,
+    "approval_wait_timeout_seconds": 86400
+  },
+  "notification_priorities": [
+    "INFO",
+    "WARNING",
+    "HIGH",
+    "CRITICAL"
+  ],
+  "notification_rules": {
+    "successful_routine_operations": "may_be_summarised",
+    "failures_requiring_action": "notify_immediately",
+    "repeated_identical_alerts": "must_be_deduplicated",
+    "alerts_must_link_to": [
+      "run_id",
+      "incident_id"
+    ],
+    "redact_secrets_and_personal_data": true
+  },
+  "connector_catalogue": {
+    "_note": "Placeholders only. enabled is false for every connector. No credentials, no account IDs.",
+    "infrastructure": [
+      {
+        "connector_id": "ovh_readonly",
+        "provider": "OVHcloud",
+        "capabilities": [
+          "domain.list",
+          "dns.read",
+          "dnssec.read"
+        ],
+        "permission": "READ_ONLY",
+        "enabled": false
+      },
+      {
+        "connector_id": "ovh_dns_operator",
+        "provider": "OVHcloud",
+        "capabilities": [
+          "dns.write"
+        ],
+        "permission": "WRITE_SCOPED",
+        "enabled": false
+      },
+      {
+        "connector_id": "cloudflare_readonly",
+        "provider": "Cloudflare",
+        "capabilities": [
+          "zone.list",
+          "dns.read",
+          "settings.read"
+        ],
+        "permission": "READ_ONLY",
+        "enabled": false
+      },
+      {
+        "connector_id": "cloudflare_dns_operator",
+        "provider": "Cloudflare",
+        "capabilities": [
+          "dns.write",
+          "proxy.toggle"
+        ],
+        "permission": "WRITE_SCOPED",
+        "enabled": false
+      },
+      {
+        "connector_id": "github_repository",
+        "provider": "GitHub",
+        "capabilities": [
+          "repo.read",
+          "pr.read",
+          "pr.write"
+        ],
+        "permission": "WRITE_SCOPED",
+        "enabled": false
+      },
+      {
+        "connector_id": "coolify_deployer",
+        "provider": "Coolify",
+        "capabilities": [
+          "deployment.trigger",
+          "service.read"
+        ],
+        "permission": "WRITE_SCOPED",
+        "enabled": false
+      },
+      {
+        "connector_id": "vps_host_agent",
+        "provider": "VPS / host agent",
+        "capabilities": [
+          "health.read",
+          "log.read"
+        ],
+        "permission": "READ_ONLY",
+        "enabled": false
+      },
+      {
+        "connector_id": "postgresql_readonly",
+        "provider": "PostgreSQL",
+        "capabilities": [
+          "query.read"
+        ],
+        "permission": "READ_ONLY",
+        "enabled": false
+      },
+      {
+        "connector_id": "object_storage_readonly",
+        "provider": "Object storage",
+        "capabilities": [
+          "object.list",
+          "object.read"
+        ],
+        "permission": "READ_ONLY",
+        "enabled": false
+      },
+      {
+        "connector_id": "backup_storage_readonly",
+        "provider": "Backup storage",
+        "capabilities": [
+          "backup.list",
+          "backup.verify"
+        ],
+        "permission": "READ_ONLY",
+        "enabled": false
+      },
+      {
+        "connector_id": "monitoring_provider",
+        "provider": "Monitoring provider",
+        "capabilities": [
+          "metrics.read",
+          "alert.read"
+        ],
+        "permission": "READ_ONLY",
+        "enabled": false
+      }
+    ],
+    "business_and_communication": [
+      {
+        "connector_id": "n8n_workflow",
+        "provider": "n8n",
+        "capabilities": [
+          "workflow.trigger"
+        ],
+        "permission": "WRITE_SCOPED",
+        "enabled": false
+      },
+      {
+        "connector_id": "email_sender",
+        "provider": "Email",
+        "capabilities": [
+          "email.send"
+        ],
+        "permission": "WRITE_SCOPED",
+        "enabled": false
+      },
+      {
+        "connector_id": "whatsapp_sender",
+        "provider": "WhatsApp",
+        "capabilities": [
+          "message.send"
+        ],
+        "permission": "WRITE_SCOPED",
+        "enabled": false
+      },
+      {
+        "connector_id": "sms_sender",
+        "provider": "SMS",
+        "capabilities": [
+          "message.send"
+        ],
+        "permission": "WRITE_SCOPED",
+        "enabled": false
+      },
+      {
+        "connector_id": "payment_provider",
+        "provider": "Payment provider",
+        "capabilities": [
+          "payment.read"
+        ],
+        "permission": "READ_ONLY",
+        "enabled": false
+      },
+      {
+        "connector_id": "document_storage",
+        "provider": "Document storage",
+        "capabilities": [
+          "document.read",
+          "document.write"
+        ],
+        "permission": "WRITE_SCOPED",
+        "enabled": false
+      },
+      {
+        "connector_id": "product_apis",
+        "provider": "Product APIs",
+        "capabilities": [
+          "api.read"
+        ],
+        "permission": "READ_ONLY",
+        "enabled": false
+      }
+    ],
+    "least_privilege_rule": "Read and write permissions must not be combined automatically. Each capability is granted as its own explicit, auditable row."
+  },
+  "observability": {
+    "structured_logs": true,
+    "metrics": true,
+    "traces": true,
+    "health_checks": true,
+    "tracked_signals": [
+      "run_timelines",
+      "provider_latency",
+      "provider_error_rate",
+      "retry_counts",
+      "dead_letter_count",
+      "approval_waiting_time",
+      "success_rate",
+      "rollback_rate",
+      "backup_status",
+      "restore_test_status",
+      "deployment_status",
+      "dns_drift_status",
+      "ssl_expiry_status",
+      "infrastructure_capacity_status"
+    ]
+  },
+  "audit_policy": {
+    "append_only": true,
+    "update_or_delete_permitted": false,
+    "approval_history_preserved": true,
+    "rollback_is_separate_audited_execution": true,
+    "no_pii_in_identifiers": true,
+    "no_secret_values_in_audit_records": true
+  },
+  "secrets_policy": {
+    "allowed_storage": [
+      "environment_variables_on_vps",
+      "coolify_secret_variables",
+      "approved_secret_manager",
+      "short_lived_tokens",
+      "service_accounts",
+      "secret_references_in_database"
+    ],
+    "forbidden_storage": [
+      "git_repository",
+      "documentation",
+      "config_example_values",
+      "ai_handover",
+      "logs",
+      "test_output",
+      "screenshots",
+      "database_plain_text_columns",
+      "browser_localstorage",
+      "client_side_javascript",
+      "commit_messages"
+    ],
+    "secret_record_fields": [
+      "secret_reference_id",
+      "provider",
+      "purpose",
+      "environment",
+      "owner",
+      "created_at",
+      "rotated_at",
+      "expires_at",
+      "rotation_policy",
+      "status"
+    ],
+    "never_store": [
+      "token_value",
+      "password",
+      "private_key",
+      "recovery_code",
+      "api_secret"
+    ]
+  },
+  "retention_placeholders": {
+    "_note": "All retention periods to be determined in a future stage.",
+    "run_records": null,
+    "audit_events": null,
+    "snapshots": null,
+    "notifications": null,
+    "dead_letters": null,
+    "incidents": null
+  },
+  "feature_flags": {
+    "_note": "All flags are false in AUT-0. No feature is active. No connector is live.",
+    "automation_engine_enabled": false,
+    "mythos_control_center_ui": false,
+    "level_1_read_only_runs": false,
+    "level_2_recommend_runs": false,
+    "level_3_approval_required_runs": false,
+    "level_4_full_automatic_runs": false,
+    "connector_ovh_readonly_live": false,
+    "connector_ovh_dns_operator_live": false,
+    "connector_cloudflare_readonly_live": false,
+    "connector_cloudflare_dns_operator_live": false,
+    "connector_github_repository_live": false,
+    "connector_coolify_deployer_live": false,
+    "connector_n8n_workflow_live": false,
+    "connector_email_sender_live": false,
+    "connector_whatsapp_sender_live": false,
+    "connector_sms_sender_live": false,
+    "scheduled_automations": false,
+    "auto_rollback": false,
+    "notifications_delivery": false
+  }
+}
