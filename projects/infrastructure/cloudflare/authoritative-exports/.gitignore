@@ -1,0 +1,9 @@
+# Mythos OS — local intake directory for raw registrar/DNS-provider exports.
+# Deny-by-default: ignore everything in this directory except this file
+# and README.md. Raw zone exports, registrar screenshots, CSV/JSON exports,
+# and any other authoritative-provider data must never be committed.
+# See README.md in this directory for the full data-handling policy.
+
+*
+!.gitignore
+!README.md

@@ -1,8 +1,48 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-06 UTC
-**From:** Stage INF-CF-1 — Cloudflare Account and Domain Inventory
+**From:** Stage INF-CF-2-PREP — Authoritative Export Intake and Owner Approval Gate
 **To:** Next AI session
+
+---
+
+## Stage INF-CF-2-PREP — Authoritative Export Intake and Owner Approval Gate
+
+**Objective:** Prepare the repository and the domain owner for INF-CF-2 by defining exactly what authoritative registrar/DNS-provider evidence must be collected, how it must be handled so raw exports never enter Git, and what owner approval must be recorded before any domain can proceed to INF-CF-2. This is a documentation, preparation, and safety-gate stage only — no DNS, registrar, or Cloudflare account action was performed.
+
+**Starting main HEAD:** `31c517f1917c33bb0ef34febf4c9b8b9c0c76183`
+**Branch:** `docs/cloudflare-zone-export-intake`
+**Implementation commit:** documented only after a real implementation commit exists — do not treat any hash elsewhere in this section as the final branch HEAD until the "Branch and Remote Status" subsection below is updated after that commit.
+
+### Authoritative Domain Scope
+
+Same eight domains as INF-CF-1, unchanged: `agribee.tn` (AgriBee), `darhijama.tn` (Dar Hijama), `fixpert.tn` (Fixpert), `idauto.tn` (ID Auto), `mythosprod.xyz` (Mythos OS / shared infrastructure), `notrejour.tn` (Notre Jour), `ssangyong.autos` (SsangYong Parts), `uthinachess.tn` (Uthina Chess).
+
+### Files Created
+
+| File | Description |
+|---|---|
+| `docs/CLOUDFLARE_AUTHORITATIVE_EXPORT_INTAKE.md` | NEW: what to collect from registrar/DNS-provider control panels (registrar info, full zone export, email configuration, web/infrastructure ownership, DNSSEC safety, redirects/certificates), data-handling policy, submission/validation procedure, and a per-domain checklist (13 items each, all unchecked) with special warnings for `mythosprod.xyz`, `idauto.tn`, `ssangyong.autos`, and `uthinachess.tn` |
+| `docs/CLOUDFLARE_OWNER_APPROVAL_GATE.md` | NEW: per-domain approval fields (business/technical owner, email-active state, criticality, downtime tolerance, maintenance window, rollback authority, and five separate approval values — DNSSEC/nameserver/proxy/Tunnel/Access), all eight domains starting `NOT_REQUESTED` |
+| `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` | NEW: 15 mandatory entry criteria INF-CF-2 must satisfy per domain before it may begin, plus domain-specific notes and the "migrate one at a time unless explicitly authorised otherwise" rule |
+| `projects/infrastructure/cloudflare/authoritative-exports/README.md` | NEW: local-intake-only directory documentation, data-handling rules, what is/isn't tracked |
+| `projects/infrastructure/cloudflare/authoritative-exports/.gitignore` | NEW: deny-by-default (`*` / `!.gitignore` / `!README.md`) so raw provider exports are never committed |
+| `projects/infrastructure/cloudflare/zone-review-template.json` | NEW: machine-readable review template, schema_version 1.0.0, status `AWAITING_AUTHORITATIVE_EXPORTS`, 8 domain objects, every field a safe placeholder (`UNKNOWN`/empty/`false`/`NOT_REQUESTED`/`NOT_STARTED`) |
+
+### Files Updated
+
+| File | Change |
+|---|---|
+| `docs/ROADMAP.md` | Corrected the stale top-line wording from "INF-CF-1 — domain inventory in progress" to "INF-CF-1 — domain inventory complete"; INF-CF-2 row expanded with its per-domain entry gate and a cross-reference to the new INF-CF-2-PREP documents; no new numbered infrastructure stage invented — INF-CF-2-PREP is recorded as a readiness package, not a deployed stage; all existing runtime/Automotive/ID Auto/Atelier Network/AutoValeur priorities preserved unchanged |
+| `docs/AI_HANDOVER.md` | This entry |
+
+### Safety Confirmation
+
+No registrar login. No DNS provider login. No Cloudflare account login, creation, or configuration. No DNS record changed. No nameserver changed. No DNSSEC operation performed. No Tunnel created. No cloudflared deployed. No Access/WAF/R2/Workers configuration touched. No runtime or database code changed. No credentials collected, requested, or stored (the intake document explicitly excludes account passwords, customer numbers, API keys, recovery codes, and payment information from collection). No raw DNS/registrar export committed — the `authoritative-exports/` directory is `.gitignore`d by default and only `README.md`/`.gitignore` are tracked. INF-CF-2 was not started and was not marked complete.
+
+### Exact Next Action Required From the Owner
+
+For each domain, in whatever order the owner chooses (one domain at a time, not all eight simultaneously): collect the authoritative registrar and DNS-provider exports per `docs/CLOUDFLARE_AUTHORITATIVE_EXPORT_INTAKE.md`, review them against the INF-CF-1 findings, and record explicit approval decisions in `docs/CLOUDFLARE_OWNER_APPROVAL_GATE.md`. **INF-CF-2 remains blocked for every domain** until `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` is satisfied for that domain — this cannot happen from AI-driven action alone; it requires the owner's own registrar/DNS-provider access and decision.
 
 ---
 
