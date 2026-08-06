@@ -1,8 +1,78 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-06 UTC
-**From:** Stage INF-CF-2-PREP — Authoritative Export Intake and Owner Approval Gate
+**From:** Stage AUT-0 — Mythos Automation-First Master Foundation
 **To:** Next AI session
+
+---
+
+## Stage AUT-0 — Mythos Automation-First Master Foundation
+
+**Objective:** Establish the Mythos ecosystem's group-wide Automation First principle, the Mythos Control Center operator product specification, the Mythos Automation & Operations platform architecture (automation levels, standard lifecycle, required execution fields, connector model, failure/retry/rollback rules, observability), governance, the permanent approval-boundary matrix, the permanent secrets policy, a forward-looking operations runbook, the future Automation stage sequence, and a 24-table draft (undeployed) PostgreSQL control-plane schema. Documentation, architecture, configuration, and draft SQL only.
+
+**Status:** COMPLETE AND PUSHED
+
+**Starting remote HEAD:** `3a6f1869b560282cdc5daf1a47da41c4293652ef`
+**Implementation commit:** `0d0a387327aeec5544c23c77b598d151ac772e1d`
+**Final handover commit:** this document update commits the handover for AUT-0. Do not treat any hash printed in this document as the current branch tip — always verify with `git rev-parse origin/main` before relying on a specific commit as "current".
+
+### Official Decisions Established
+
+- **Group principle — Automation First:** every safe, repeatable and measurable operation should eventually be automated; automation must not remove governance; high-risk actions remain automated in preparation and validation but require explicit human approval before execution.
+- **Mythos Control Center** — the operator-facing console for Mythos products, infrastructure, connectors, automation runs, approvals, incidents, backups, deployments, and service health. Specified in `docs/MYTHOS_CONTROL_CENTER_PRODUCT_SPEC.md` (21 modules listed; product spec only, no UI built).
+- **Mythos Automation & Operations** (`product_key: mythos_automation`) — the underlying platform capability: orchestrates workflows, connects providers, schedules, validates, requests approvals, executes approved actions, verifies, rolls back, audits, notifies, and exposes health to Mythos Control Center. Specified in `docs/AUTOMATION_ARCHITECTURE.md`.
+- **Four permanent automation levels:** `LEVEL_1_READ_ONLY`, `LEVEL_2_RECOMMEND`, `LEVEL_3_APPROVAL_REQUIRED`, `LEVEL_4_FULL_AUTOMATIC`. A workflow may never silently self-promote to a higher level — level changes require audited policy approval (`docs/AUTOMATION_GOVERNANCE.md` §4).
+- **Permanent LEVEL_3 approval boundaries (18 items)** — domain nameserver changes, DNSSEC/DS-record changes, production DNS record deletion, production database destructive migration/deletion, production data overwrite, backup deletion/disabling, secret/credential exposure, privilege escalation, Super Admin access changes, production firewall/network changes, money transfer, refunds, contractual acceptance, public publication of sensitive/regulated data, production shutdown, irreversible external-provider actions. Full list and routine LEVEL_4-eligible examples in `docs/AUTOMATION_APPROVAL_MATRIX.md`.
+- **Connector model** — infrastructure connectors (OVHcloud, Cloudflare, GitHub, Coolify, VPS/host agent, PostgreSQL, object storage, backup storage, monitoring) and business/communication connectors (n8n, email, WhatsApp, SMS, payment provider, document storage, product APIs); read/write permissions never combined automatically; example split (`ovh_readonly` vs `ovh_dns_operator`, `cloudflare_readonly` vs `cloudflare_dns_operator`, etc.) drafted in `projects/automation/config/automation.example.json`, all `enabled: false`.
+- **Secrets policy** — permanent: 5 allowed storage locations (VPS env vars, Coolify secret variables, approved secret manager, short-lived tokens, service accounts, secret references in DB), 10 forbidden locations (Git, docs, config examples, AI_HANDOVER, logs, test output, screenshots, DB plain-text columns, browser localStorage, client-side JS, commit messages); secret records store metadata only (`aut_secret_references`), never a value. Full policy in `docs/AUTOMATION_SECURITY_AND_SECRETS.md`.
+- **Standard lifecycle:** `DISCOVER → SNAPSHOT → ANALYSE → PLAN → DRY_RUN → GATE_CHECK → APPROVAL → APPLY → VERIFY → ROLLBACK (when required) → AUDIT → NOTIFY → CLOSE`, with 18 explicit run statuses (12 non-terminal, 6 terminal) defined in `docs/AUTOMATION_ARCHITECTURE.md` §3.
+
+### Files Created (11)
+
+| File | Description |
+|---|---|
+| `docs/AUTOMATION_FIRST_PRINCIPLES.md` | NEW: the Automation First principle, Mythos Control Center vs Mythos Automation & Operations distinction |
+| `docs/MYTHOS_CONTROL_CENTER_PRODUCT_SPEC.md` | NEW: operator product spec, users, 21 modules |
+| `docs/AUTOMATION_ARCHITECTURE.md` | NEW: automation levels, lifecycle, required execution fields, connector model, failure/retry/rollback, observability |
+| `docs/AUTOMATION_GOVERNANCE.md` | NEW: sequencing, one-major-stage rule as applied to Automation, architecture-rule inheritance, level-change governance |
+| `docs/AUTOMATION_APPROVAL_MATRIX.md` | NEW: permanent LEVEL_3 boundaries (18 items), routine LEVEL_4-eligible examples |
+| `docs/AUTOMATION_SECURITY_AND_SECRETS.md` | NEW: permanent Mythos secrets policy |
+| `docs/AUTOMATION_OPERATIONS_RUNBOOK.md` | NEW: forward-looking operator runbook (reading a run, responding to approvals/dead letters/rollback failures) |
+| `docs/AUTOMATION_ROADMAP.md` | NEW: AUT-0 through OPS-AUTO-1 stage sequence, permanent sequencing rules |
+| `projects/automation/README.md` | NEW: directory overview, status, next stage |
+| `projects/automation/config/automation.example.json` | NEW: draft config — all feature flags and connector `enabled` flags false, no secrets, no real domains/IPs/emails |
+| `projects/automation/database/control-plane-schema.sql` | NEW: 24-table draft PostgreSQL schema (`aut_` prefix, `mythos_automation` logical schema), DRAFT NOT DEPLOYED, no secret-value columns, no PII |
+
+### Files Updated (1)
+
+| File | Change |
+|---|---|
+| `docs/ROADMAP.md` | Added "Automation — Separate Product Track" section (AUT-0 through OPS-AUTO-1 table); updated top-line summary; added Current Priority item 6 (Automation, docs only) and one-major-stage-rule sentence covering the Automation track; all existing stage history (Mythos OS, ID Auto, Atelier Network, AutoValeur, Infrastructure/Cloudflare) preserved unchanged |
+
+### Validation
+
+- `python3 -m json.tool projects/automation/config/automation.example.json` — ✓ VALID.
+- SQL: exact table count matches header (24 = 24); paren balance 278 open = 278 close; no duplicate table names; no cross-schema foreign keys (all cross-schema refs are opaque columns with comments); no secret-value/password/token/private-key columns; no customer PII; append-only audit specified for `aut_audit_events`; approval history preserved in `aut_approvals`; rollback references present (`rollback_plan_reference`, `rollback_execution_reference`); idempotency present (`aut_idempotency_keys`, `idempotency_key` column); resource locks present (`aut_resource_locks`); `dry_run` present on `aut_runs`; automation levels present and explicit; UTC timestamps (`TIMESTAMPTZ`) throughout.
+- `git diff --check` — ✓ passes, no whitespace errors.
+- Full diff searched for credential/secret/IP/email/account_id patterns — clean (the only "deployed"/"operational" matches found were correct negation statements, e.g. "No database is deployed").
+- All 25 internal cross-references (`docs/*.md`, `projects/automation/*`) verified to resolve to existing files.
+- Confirmed: Mythos Control Center and Mythos Automation & Operations are documented as distinct (product vs platform capability); four automation levels consistent across all documents; permanent approval boundaries consistent between `docs/AUTOMATION_APPROVAL_MATRIX.md` and `projects/automation/config/automation.example.json`; INF-OVH-API-0 documented as read-only only; INF-CF-2 still described as blocked; Stage 3E still described as next Mythos OS runtime stage; no connector claimed operational; no secret claimed configured; no provider login claimed; no database claimed deployed.
+
+### Safety Confirmation
+
+No OVH connector implemented. No OVH or Cloudflare credentials requested or created. No login to OVH or Cloudflare. No DNS or nameserver change. No DNSSEC operation. INF-CF-2 not started. No service deployed. No database installed, migrated, or executed — `projects/automation/database/control-plane-schema.sql` is a draft specification only. No runtime JS/HTML/PHP/CSS changed. Stage 3E not started. IDA-2 not started. ATN-1 not started. AVA-1 not started. No credential or secret value stored anywhere in this stage's files.
+
+### INF-CF-2 Status
+
+Still blocked and not started — unchanged by this stage. See `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md`.
+
+### Next Mythos OS Runtime Stage
+
+**Stage 3E — Calendar Runtime** (unchanged by this stage).
+
+### Next Automation Implementation Stage
+
+**INF-OVH-API-0 — OVH Read-Only Connector** (not started by this stage; see `docs/AUTOMATION_ROADMAP.md` for full scope and the stages that follow it).
 
 ---
 
