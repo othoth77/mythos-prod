@@ -1,8 +1,91 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-05 UTC
-**From:** Stage INF-CF-0 review — Cloudflare Foundation + Stage 3D — Planning Runtime Plugin
+**Last updated:** 2026-08-06 UTC
+**From:** Stage INF-CF-1 — Cloudflare Account and Domain Inventory
 **To:** Next AI session
+
+---
+
+## Stage INF-CF-1 — Cloudflare Account and Domain Inventory
+
+**Objective:** Produce a read-only, public-source inventory of the eight authorised Mythos-portfolio domains (identity, authoritative DNS, DNSSEC state, DNS records, email posture, HTTP/HTTPS behaviour, known subdomains, proposed Cloudflare classification, risks) as a planning input for INF-CF-2. No DNS, registrar, or Cloudflare account changes were made.
+
+**Starting remote main HEAD:** `df569f880158428f04d10adc15aadaaec45ce2e7`
+**Branch:** `docs/cloudflare-domain-inventory`
+**Implementation commit:** recorded below once the first implementation commit is made — do not treat any hash in this section as final until the "Branch and Remote Status" subsection is updated after that commit.
+
+### Authoritative Domain Scope
+
+Exactly eight domains, no more, no fewer:
+
+1. `agribee.tn` — AgriBee
+2. `darhijama.tn` — Dar Hijama
+3. `fixpert.tn` — Fixpert
+4. `idauto.tn` — ID Auto
+5. `mythosprod.xyz` — Mythos OS / shared infrastructure
+6. `notrejour.tn` — Notre Jour
+7. `ssangyong.autos` — SsangYong Parts
+8. `uthinachess.tn` — Uthina Chess
+
+### Public Discovery Methodology
+
+Public RDAP (`.xyz`, `.autos` via CentralNic RDAP, reached via `rdap.org` and directly), public ATI WHOIS (`.tn`, raw port-43 protocol via `/dev/tcp`), public DNS resolution (Cloudflare `1.1.1.1` recursive resolver via `nslookup`, cross-verified with Cloudflare DNS-over-HTTPS JSON for CAA and TTL data), public HTTP/HTTPS status and redirect checks (`curl`), public TLS certificate inspection (`openssl s_client`), and public certificate-transparency lookups (`crt.sh`). No control panel, registrar account, or Cloudflare account was accessed at any point. No subdomain brute-forcing or DKIM selector enumeration was performed.
+
+### Limitations (see `docs/CLOUDFLARE_DOMAIN_INVENTORY.md` for full detail)
+
+- Public DNS queries do not reveal the complete private DNS zone; absence of a record here is not proof it doesn't exist.
+- Certificate-transparency (`crt.sh`) coverage is incomplete for six of the eight domains in this observation window due to rate-limiting (HTTP 502) after the first two queries succeeded.
+- DKIM is `UNKNOWN` for all eight domains — not evaluated, never reported as "disabled".
+- All WHOIS/RDAP registrant (owner) contact information has been redacted from every committed file.
+
+### Key Findings
+
+- All eight domains are registered through **OVH** and use OVH-operated authoritative nameservers — DNS provider is **VERIFIED**, not inferred, for all eight.
+- **`mythosprod.xyz` currently has no working web presence**: HTTP redirects to `https://darhijama.tn/` (a different domain on the same shared origin IP), and HTTPS fails with a certificate/SNI mismatch. This must be fixed at the origin before or during any Cloudflare migration.
+- **DNSSEC is already ENABLED (DS record present at the parent zone) on two domains: `mythosprod.xyz` and `ssangyong.autos`.** The other six are explicitly `unsigned` per ATI WHOIS. A future nameserver migration to Cloudflare for these two domains must coordinate DS-record replacement with the cutover — this is a real, not hypothetical, sequencing risk for INF-CF-2/INF-CF-5.
+- **`idauto.tn` has no working HTTPS at all** (connection refused on port 443, both apex and `www`) and resolves to a distinct origin IP (`213.186.33.5`) from the shared cluster IP (`51.68.226.211`) used by six of the other seven domains.
+- **`uthinachess.tn` hosts the live production Mythos OS application** and is flagged as requiring separate, explicit migration authorisation beyond the standard review applied to the rest of the portfolio.
+- `coolify.mythosprod.xyz` is already an active, public DNS record — the only one of the seven administrative hostnames proposed in `docs/CLOUDFLARE_ARCHITECTURE.md` §3 that currently resolves.
+- No domain in the portfolio publishes a DMARC record; no domain publishes a CAA record.
+- An unidentified 40-character verification-style TXT token exists on `ssangyong.autos` with no confirmed owner or purpose.
+
+### Files Created
+
+| File | Description |
+|---|---|
+| `docs/CLOUDFLARE_DOMAIN_INVENTORY.md` | NEW: full narrative/tabular inventory — identity, DNS, DNSSEC, records, email, HTTP/HTTPS, subdomains, classification, risks, unknowns, required confirmations, and readiness per domain, for all 8 domains |
+| `docs/CLOUDFLARE_DNS_MIGRATION_MATRIX.md` | NEW: flat, consolidated record-by-record migration-planning matrix across all 8 domains |
+| `projects/infrastructure/cloudflare/domain-inventory.json` | NEW: machine-readable inventory, schema_version 1.0.0, 8 domain objects, no secrets, no personal data |
+| `projects/infrastructure/cloudflare/README.md` | NEW: purpose, limitations, refresh procedure, INF-CF-1 prohibitions, INF-CF-2 prerequisites |
+
+### Files Updated
+
+| File | Change |
+|---|---|
+| `docs/ROADMAP.md` | INF-CF-1 status updated (marked complete only after validation passes); cross-reference to the new inventory docs added; INF-CF-2 remains Planned, not started |
+| `docs/AI_HANDOVER.md` | This entry |
+
+### Safety Confirmation
+
+- No DNS record changed. No nameserver changed. No Cloudflare account created, configured, or logged into. No registrar login performed. No Tunnel, Access, WAF, R2, or Workers configuration touched. No deployment performed. No runtime, database, or application code changed. No secrets, API tokens, or account IDs stored anywhere in this stage's files. No personal WHOIS/RDAP registrant data committed — all such data was redacted at collection time and never written to a tracked file.
+
+### Validation
+
+- `python -m json.tool projects/infrastructure/cloudflare/domain-inventory.json` — ✓ VALID (confirmed before and after the Opus-driven correction pass).
+- `git diff --check` — ✓ passes, no whitespace errors.
+- Full diff searched for credential/secret/personal-data keywords (password, secret, token, api_key, private_key, access_key, account_id, personal name/phone/address patterns) before commit — no matches beyond expected prose describing the absence of such data, and the one legitimate public verification-style TXT token on `ssangyong.autos` (not a secret; a public DNS record value).
+- Exactly eight domains confirmed present and consistent across `domain-inventory.json`, `docs/CLOUDFLARE_DOMAIN_INVENTORY.md`, and `docs/CLOUDFLARE_DNS_MIGRATION_MATRIX.md`.
+- One Opus 5 read-only audit performed: **PASS**, no blockers. Several non-blocking wording/consistency corrections were identified and applied directly by Sonnet (agribee.tn DMARC risk wording, CAA/`_dmarc` migration-action field for absent records, proposed-mode alignment for the six not-yet-created `mythosprod.xyz` administrative hostnames, proposed-mode alignment for the `ssangyong.autos` unidentified TXT token, a missing "Proposed mode" legend in the matrix, and the inventory's top-of-document status wording) before this stage is finalized.
+- One Haiku 4.5 read-only mechanical verification performed after the implementation commit was pushed: **PASS**, no blockers — git refs, exact 6-file scope, 8-domain count, JSON validity, formatting (UTF-8, trailing newlines, no conflict markers), security/privacy scan, and stage-consistency all confirmed clean.
+
+### Branch and Remote Status
+
+- Branch: `docs/cloudflare-domain-inventory`, created from `origin/main` at `df569f880158428f04d10adc15aadaaec45ce2e7`.
+- Do not treat any hash printed elsewhere in this document as the current branch tip. Always verify with `git rev-parse origin/docs/cloudflare-domain-inventory` before relying on a specific commit as "current".
+
+### Exact Next Stage
+
+**INF-CF-2** — DNS migration and verification. **Must not begin** until: (a) this INF-CF-1 inventory is reconciled against an authoritative zone export from the current provider's (OVH) control panel for each of the eight domains, and (b) the domain owner has reviewed and either resolved or explicitly accepted every risk listed in `docs/CLOUDFLARE_DOMAIN_INVENTORY.md` — in particular the broken web presence on `mythosprod.xyz`, the already-enabled DNSSEC on `mythosprod.xyz` and `ssangyong.autos`, the missing HTTPS on `idauto.tn`, and the separate authorisation required for the production domain `uthinachess.tn`.
 
 ---
 
