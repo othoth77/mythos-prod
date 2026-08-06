@@ -10,9 +10,16 @@
 
 **Objective:** Prepare the repository and the domain owner for INF-CF-2 by defining exactly what authoritative registrar/DNS-provider evidence must be collected, how it must be handled so raw exports never enter Git, and what owner approval must be recorded before any domain can proceed to INF-CF-2. This is a documentation, preparation, and safety-gate stage only — no DNS, registrar, or Cloudflare account action was performed.
 
+**Status:** COMPLETE AND MERGED
+
 **Starting main HEAD:** `31c517f1917c33bb0ef34febf4c9b8b9c0c76183`
 **Branch:** `docs/cloudflare-zone-export-intake`
-**Implementation commit:** documented only after a real implementation commit exists — do not treat any hash elsewhere in this section as the final branch HEAD until the "Branch and Remote Status" subsection below is updated after that commit.
+**Implementation commit:** `2fe9181228cc0eed1728472a9c563319e4a0c06f`
+**Pull Request:** #3
+**Merge commit:** `13a3017ef734ae4051b6e85e380e7e6ba3407319`
+**Verified remote main HEAD at stage completion:** `13a3017ef734ae4051b6e85e380e7e6ba3407319`
+**Files created:** 6
+**Files updated:** 2
 
 ### Authoritative Domain Scope
 
@@ -36,13 +43,22 @@ Same eight domains as INF-CF-1, unchanged: `agribee.tn` (AgriBee), `darhijama.tn
 | `docs/ROADMAP.md` | Corrected the stale top-line wording from "INF-CF-1 — domain inventory in progress" to "INF-CF-1 — domain inventory complete"; INF-CF-2 row expanded with its per-domain entry gate and a cross-reference to the new INF-CF-2-PREP documents; no new numbered infrastructure stage invented — INF-CF-2-PREP is recorded as a readiness package, not a deployed stage; all existing runtime/Automotive/ID Auto/Atelier Network/AutoValeur priorities preserved unchanged |
 | `docs/AI_HANDOVER.md` | This entry |
 
+### Validation Summary
+
+- **JSON:** valid, exactly 8 domains (`projects/infrastructure/cloudflare/zone-review-template.json`).
+- **Raw exports:** not committed — `authoritative-exports/` is `.gitignore`d by default; only `README.md`/`.gitignore` are tracked.
+- **DNS changes:** none.
+- **Nameserver changes:** none.
+- **Deployment:** none.
+- **INF-CF-2:** NOT STARTED and BLOCKED.
+
 ### Safety Confirmation
 
 No registrar login. No DNS provider login. No Cloudflare account login, creation, or configuration. No DNS record changed. No nameserver changed. No DNSSEC operation performed. No Tunnel created. No cloudflared deployed. No Access/WAF/R2/Workers configuration touched. No runtime or database code changed. No credentials collected, requested, or stored (the intake document explicitly excludes account passwords, customer numbers, API keys, recovery codes, and payment information from collection). No raw DNS/registrar export committed — the `authoritative-exports/` directory is `.gitignore`d by default and only `README.md`/`.gitignore` are tracked. INF-CF-2 was not started and was not marked complete.
 
 ### Exact Next Action Required From the Owner
 
-For each domain, in whatever order the owner chooses (one domain at a time, not all eight simultaneously): collect the authoritative registrar and DNS-provider exports per `docs/CLOUDFLARE_AUTHORITATIVE_EXPORT_INTAKE.md`, review them against the INF-CF-1 findings, and record explicit approval decisions in `docs/CLOUDFLARE_OWNER_APPROVAL_GATE.md`. **INF-CF-2 remains blocked for every domain** until `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` is satisfied for that domain — this cannot happen from AI-driven action alone; it requires the owner's own registrar/DNS-provider access and decision.
+Collect authoritative registrar and DNS-provider exports, **one domain at a time**, then record explicit approvals. For each domain, in whatever order the owner chooses: collect the authoritative registrar and DNS-provider exports per `docs/CLOUDFLARE_AUTHORITATIVE_EXPORT_INTAKE.md`, review them against the INF-CF-1 findings, and record explicit approval decisions in `docs/CLOUDFLARE_OWNER_APPROVAL_GATE.md`. **INF-CF-2 remains blocked for every domain** until `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` is satisfied for that domain — this cannot happen from AI-driven action alone; it requires the owner's own registrar/DNS-provider access and decision.
 
 ---
 

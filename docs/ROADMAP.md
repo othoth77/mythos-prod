@@ -1,6 +1,6 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-06 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate in progress)
+**Last updated:** 2026-08-06 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete)
 
 ---
 
