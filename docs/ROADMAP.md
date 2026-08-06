@@ -1,6 +1,6 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-06 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory in progress)
+**Last updated:** 2026-08-06 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate in progress)
 
 ---
 
@@ -145,14 +145,14 @@ This track defines the Cloudflare edge security foundation for all Mythos-hosted
 |---|---|---|
 | INF-CF-0 | Cloudflare Foundation — architecture, deployment checklist, env template, deploy docs | ✓ Done (2026-08-05) |
 | INF-CF-1 | Cloudflare account and domain inventory — public read-only inventory of the 8 authorised domains | ✓ Done (2026-08-06) |
-| INF-CF-2 | DNS migration and verification | Planned — not started; requires INF-CF-1 complete plus authoritative provider control-panel export and owner review |
+| INF-CF-2 | DNS migration and verification | Planned — not started. Entry gate (per domain): authoritative registrar/DNS-provider control-panel exports, owner review of the INF-CF-1 risk findings, domain-specific owner approval recorded in `docs/CLOUDFLARE_OWNER_APPROVAL_GATE.md`, full record-by-record comparison against the INF-CF-1 inventory, and DNSSEC/email verification. See `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` for the complete criteria. An INF-CF-2-PREP readiness package (authoritative export intake process, owner approval gate, entry criteria) has been prepared — this is preparation only, not a numbered infrastructure stage in its own right, and does not itself unblock INF-CF-2. |
 | INF-CF-3 | Remotely managed Tunnel in Coolify | Planned |
 | INF-CF-4 | Cloudflare Access for private hostnames | Planned |
 | INF-CF-5 | TLS, WAF, rate limiting and DNSSEC hardening | Planned |
 | INF-CF-6 | R2 and external backup integration | Planned |
 | INF-CF-7 | Monitoring, rollback test, restore test and operational handover | Planned |
 
-See `docs/CLOUDFLARE_ARCHITECTURE.md` for the approved architecture and `docs/CLOUDFLARE_DEPLOYMENT_CHECKLIST.md` for per-stage prerequisites, actions, validation, rollback, secrets handling, and completion criteria. See `docs/CLOUDFLARE_DOMAIN_INVENTORY.md` and `docs/CLOUDFLARE_DNS_MIGRATION_MATRIX.md` for the INF-CF-1 public domain inventory of the 8 authorised Mythos-portfolio domains (`agribee.tn`, `darhijama.tn`, `fixpert.tn`, `idauto.tn`, `mythosprod.xyz`, `notrejour.tn`, `ssangyong.autos`, `uthinachess.tn`).
+See `docs/CLOUDFLARE_ARCHITECTURE.md` for the approved architecture and `docs/CLOUDFLARE_DEPLOYMENT_CHECKLIST.md` for per-stage prerequisites, actions, validation, rollback, secrets handling, and completion criteria. See `docs/CLOUDFLARE_DOMAIN_INVENTORY.md` and `docs/CLOUDFLARE_DNS_MIGRATION_MATRIX.md` for the INF-CF-1 public domain inventory of the 8 authorised Mythos-portfolio domains (`agribee.tn`, `darhijama.tn`, `fixpert.tn`, `idauto.tn`, `mythosprod.xyz`, `notrejour.tn`, `ssangyong.autos`, `uthinachess.tn`). See `docs/CLOUDFLARE_AUTHORITATIVE_EXPORT_INTAKE.md`, `docs/CLOUDFLARE_OWNER_APPROVAL_GATE.md`, and `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` for the INF-CF-2-PREP readiness package that must be satisfied, per domain, before INF-CF-2 may begin.
 
 ---
 
