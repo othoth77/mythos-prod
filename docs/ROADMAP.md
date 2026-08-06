@@ -144,7 +144,7 @@ This track defines the Cloudflare edge security foundation for all Mythos-hosted
 | Stage | Description | Status |
 |---|---|---|
 | INF-CF-0 | Cloudflare Foundation — architecture, deployment checklist, env template, deploy docs | ✓ Done (2026-08-05) |
-| INF-CF-1 | Cloudflare account and domain inventory — public read-only inventory of the 8 authorised domains | In progress — pending Opus/Haiku validation and branch push verification |
+| INF-CF-1 | Cloudflare account and domain inventory — public read-only inventory of the 8 authorised domains | ✓ Done (2026-08-06) |
 | INF-CF-2 | DNS migration and verification | Planned — not started; requires INF-CF-1 complete plus authoritative provider control-panel export and owner review |
 | INF-CF-3 | Remotely managed Tunnel in Coolify | Planned |
 | INF-CF-4 | Cloudflare Access for private hostnames | Planned |

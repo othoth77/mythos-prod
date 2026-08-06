@@ -76,7 +76,7 @@ Public RDAP (`.xyz`, `.autos` via CentralNic RDAP, reached via `rdap.org` and di
 - Full diff searched for credential/secret/personal-data keywords (password, secret, token, api_key, private_key, access_key, account_id, personal name/phone/address patterns) before commit — no matches beyond expected prose describing the absence of such data, and the one legitimate public verification-style TXT token on `ssangyong.autos` (not a secret; a public DNS record value).
 - Exactly eight domains confirmed present and consistent across `domain-inventory.json`, `docs/CLOUDFLARE_DOMAIN_INVENTORY.md`, and `docs/CLOUDFLARE_DNS_MIGRATION_MATRIX.md`.
 - One Opus 5 read-only audit performed: **PASS**, no blockers. Several non-blocking wording/consistency corrections were identified and applied directly by Sonnet (agribee.tn DMARC risk wording, CAA/`_dmarc` migration-action field for absent records, proposed-mode alignment for the six not-yet-created `mythosprod.xyz` administrative hostnames, proposed-mode alignment for the `ssangyong.autos` unidentified TXT token, a missing "Proposed mode" legend in the matrix, and the inventory's top-of-document status wording) before this stage is finalized.
-- One Haiku 4.5 read-only mechanical verification to follow after this correction pass is pushed.
+- One Haiku 4.5 read-only mechanical verification performed after the implementation commit was pushed: **PASS**, no blockers — git refs, exact 6-file scope, 8-domain count, JSON validity, formatting (UTF-8, trailing newlines, no conflict markers), security/privacy scan, and stage-consistency all confirmed clean.
 
 ### Branch and Remote Status
 

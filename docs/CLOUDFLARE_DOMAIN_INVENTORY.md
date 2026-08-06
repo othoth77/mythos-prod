@@ -1,7 +1,7 @@
 # Mythos OS — Cloudflare Domain Inventory
 
 - **Stage:** INF-CF-1 — Cloudflare Account and Domain Inventory
-- **Status:** Discovery complete for all 8 domains; stage as a whole is marked done in `docs/ROADMAP.md` only after Opus and Haiku validation both pass and the branch is pushed and remotely verified
+- **Status:** Complete — discovery for all 8 domains finished; Opus 5 audit PASS; Haiku 4.5 mechanical verification PASS; branch pushed and remotely verified. Marked done in `docs/ROADMAP.md`.
 - **Observation timestamp (UTC):** 2026-08-06T00:02:54Z (single observation window; individual queries completed within the same session, all within a few minutes of this timestamp)
 - **Scope:** Public, non-invasive discovery of the eight domains authorised for this stage. No DNS, registrar, or Cloudflare account changes were made.
 - **Methodology:** Public RDAP (`.xyz`, `.autos` via CentralNic RDAP), public ATI WHOIS (`.tn`, raw port-43 protocol), public DNS resolution via the Cloudflare `1.1.1.1` recursive resolver (both classic `nslookup` and DNS-over-HTTPS JSON), public HTTP/HTTPS status and redirect checks, public TLS certificate inspection (`openssl s_client`), and public certificate-transparency lookups (`crt.sh`). No control panel, registrar account, or Cloudflare account was accessed. No brute-force subdomain enumeration was performed.
