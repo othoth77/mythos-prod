@@ -1,0 +1,1158 @@
+{
+  "schema_version": "1.0.0",
+  "stage": "INF-CF-1",
+  "generated_at_utc": "2026-08-06T00:02:54Z",
+  "source_limitations": [
+    "This inventory is built entirely from public DNS resolution (via public recursive resolvers 1.1.1.1 and Cloudflare DNS-over-HTTPS), public RDAP (.xyz, .autos) and public ATI WHOIS (.tn), public TLS certificate inspection, public HTTP/HTTPS HEAD-equivalent status checks, and certificate-transparency (crt.sh) queries performed on the observation date.",
+    "Public DNS queries do not reveal the complete private DNS zone. A provider or registrar control panel may contain additional records (internal-only hostnames, disabled/parked records, records with restrictive ACLs, or records not yet propagated) that are invisible to public resolvers.",
+    "Absence of a record from this inventory does not prove that record does not exist in the authoritative zone — it only means public resolvers did not return it at observation time.",
+    "Certificate-transparency (crt.sh) results are incomplete for six of the eight domains in this run — crt.sh returned HTTP 502 (rate-limited/unavailable) for darhijama.tn, fixpert.tn, idauto.tn, mythosprod.xyz, notrejour.tn, ssangyong.autos, and uthinachess.tn during this observation window after the first two successful queries (agribee.tn succeeded fully; fixpert.tn returned an unrelated 404 on a later retry). CT-sourced subdomain discovery should be re-run independently before INF-CF-2 for the domains that did not return usable data.",
+    "DKIM was not evaluated by selector enumeration (prohibited — brute-forcing subdomains/selectors is out of scope for this stage). Absence of a DKIM finding is recorded as UNKNOWN, never as 'DKIM disabled'.",
+    "Registrar and DNS-provider control panels must be compared manually against this inventory before INF-CF-2 begins. This document is a starting point for that comparison, not a substitute for it.",
+    "All WHOIS/RDAP registrant (owner) contact information has been redacted from this inventory per the data-handling requirement for this stage; only organisation-level/technical fields (registrar, nameservers, dates, DNSSEC state) are retained."
+  ],
+  "domains": [
+    {
+      "domain": "agribee.tn",
+      "project": "AgriBee",
+      "registry": "ATI (.tn ccTLD)",
+      "registrar": "OVH",
+      "registrar_confidence": "VERIFIED",
+      "nameservers": [
+        "ns1.tn.ovh.net",
+        "dns1.tn.ovh.net"
+      ],
+      "dns_provider": "OVH",
+      "dns_provider_confidence": "VERIFIED",
+      "dnssec_status": "DISABLED",
+      "web_status": "apex and www respond 200 on both HTTP and HTTPS; HTTP does not redirect to HTTPS",
+      "email_status": "SPF present (hardfail); DMARC absent; DKIM UNKNOWN (no selector documented)",
+      "records": [
+        {
+          "name": "agribee.tn",
+          "type": "NS",
+          "value_summary": "ns1.tn.ovh.net, dns1.tn.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        },
+        {
+          "name": "agribee.tn",
+          "type": "SOA",
+          "value_summary": "dns1.tn.ovh.net / tech.ovh.net, serial 2080395892",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": false
+        },
+        {
+          "name": "agribee.tn",
+          "type": "A",
+          "value_summary": "51.91.236.255",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NEEDS_CONFIRMATION",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "www.agribee.tn",
+          "type": "CNAME",
+          "value_summary": "agribee.tn.",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NEEDS_CONFIRMATION",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "agribee.tn",
+          "type": "MX",
+          "value_summary": "1 mx1.mail.ovh.net; 5 mx2.mail.ovh.net; 100 mx3.mail.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "RECREATE_EXACTLY",
+          "requires_confirmation": false
+        },
+        {
+          "name": "agribee.tn",
+          "type": "TXT",
+          "value_summary": "v=spf1 include:mx.ovh.com -all",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "RECREATE_EXACTLY",
+          "requires_confirmation": false
+        },
+        {
+          "name": "agribee.tn",
+          "type": "CAA",
+          "value_summary": "no CAA records present",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": false
+        },
+        {
+          "name": "_dmarc.agribee.tn",
+          "type": "TXT",
+          "value_summary": "absent (NXDOMAIN)",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": true
+        }
+      ],
+      "known_subdomains": [
+        {
+          "name": "www.agribee.tn",
+          "source": "PUBLIC DNS",
+          "note": "active, CNAME to apex, confirmed via CT (crt.sh) and DNS"
+        }
+      ],
+      "risks": [
+        "No DMARC record — spoofing/deliverability risk not mitigated by policy",
+        "HTTP does not redirect to HTTPS on apex/www — plaintext access remains available"
+      ],
+      "unknowns": [
+        "DKIM selector(s) not documented; not enumerated (brute-force prohibited)",
+        "Whether A 51.91.236.255 is the same physical host as the shared cluster IP 51.68.226.211 used by other domains, or a separate host"
+      ],
+      "readiness": "READY_FOR_CONTROL_PANEL_COMPARISON"
+    },
+    {
+      "domain": "darhijama.tn",
+      "project": "Dar Hijama",
+      "registry": "ATI (.tn ccTLD)",
+      "registrar": "OVH",
+      "registrar_confidence": "VERIFIED",
+      "nameservers": [
+        "ns1.tn.ovh.net",
+        "dns1.tn.ovh.net"
+      ],
+      "dns_provider": "OVH",
+      "dns_provider_confidence": "VERIFIED",
+      "dnssec_status": "DISABLED",
+      "web_status": "apex HTTP redirects to HTTPS apex (200); www HTTP/HTTPS both redirect to apex (www dropped)",
+      "email_status": "SPF present (hardfail); DMARC absent; DKIM UNKNOWN (no selector documented)",
+      "records": [
+        {
+          "name": "darhijama.tn",
+          "type": "NS",
+          "value_summary": "ns1.tn.ovh.net, dns1.tn.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        },
+        {
+          "name": "darhijama.tn",
+          "type": "SOA",
+          "value_summary": "dns1.tn.ovh.net / tech.ovh.net, serial 2081882914",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": false
+        },
+        {
+          "name": "darhijama.tn",
+          "type": "A",
+          "value_summary": "51.68.226.211 (shared cluster IP)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "PROXIED",
+          "migration_action": "PROXY_AFTER_VALIDATION",
+          "requires_confirmation": true
+        },
+        {
+          "name": "www.darhijama.tn",
+          "type": "A",
+          "value_summary": "51.68.226.211 (same as apex, not a CNAME)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "PROXIED",
+          "migration_action": "PROXY_AFTER_VALIDATION",
+          "requires_confirmation": true
+        },
+        {
+          "name": "darhijama.tn",
+          "type": "MX",
+          "value_summary": "1 mx1.mail.ovh.net; 5 mx2.mail.ovh.net; 100 mx3.mail.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "RECREATE_EXACTLY",
+          "requires_confirmation": false
+        },
+        {
+          "name": "darhijama.tn",
+          "type": "TXT",
+          "value_summary": "v=spf1 include:mx.ovh.com -all; \"1|www.darhijama.tn\" (OVH internal marker, purpose unconfirmed)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "darhijama.tn",
+          "type": "CAA",
+          "value_summary": "no CAA records present",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": false
+        },
+        {
+          "name": "_dmarc.darhijama.tn",
+          "type": "TXT",
+          "value_summary": "absent (NXDOMAIN)",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": true
+        }
+      ],
+      "known_subdomains": [
+        {
+          "name": "www.darhijama.tn",
+          "source": "PUBLIC DNS",
+          "note": "active, A record, redirects to apex over HTTPS"
+        }
+      ],
+      "risks": [
+        "No DMARC record",
+        "This domain's TLS certificate is currently served as the apparent DEFAULT vhost on the shared origin IP 51.68.226.211 — mythosprod.xyz HTTP requests were observed being redirected to https://darhijama.tn/. This must be resolved at the origin web server before any Cloudflare migration; otherwise Cloudflare would simply proxy the same misconfiguration."
+      ],
+      "unknowns": [
+        "DKIM selector(s) not documented",
+        "Purpose of TXT \"1|www.darhijama.tn\" marker — appears to be an OVH-generated redirection/hosting indicator, not independently confirmed"
+      ],
+      "readiness": "READY_FOR_CONTROL_PANEL_COMPARISON"
+    },
+    {
+      "domain": "fixpert.tn",
+      "project": "Fixpert",
+      "registry": "ATI (.tn ccTLD)",
+      "registrar": "OVH",
+      "registrar_confidence": "VERIFIED",
+      "nameservers": [
+        "ns1.tn.ovh.net",
+        "dns1.tn.ovh.net"
+      ],
+      "dns_provider": "OVH",
+      "dns_provider_confidence": "VERIFIED",
+      "dnssec_status": "DISABLED",
+      "web_status": "apex and www both redirect HTTP to HTTPS correctly; own matching TLS certificate",
+      "email_status": "SPF present (hardfail); DMARC absent; DKIM UNKNOWN (no selector documented)",
+      "records": [
+        {
+          "name": "fixpert.tn",
+          "type": "NS",
+          "value_summary": "ns1.tn.ovh.net, dns1.tn.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        },
+        {
+          "name": "fixpert.tn",
+          "type": "SOA",
+          "value_summary": "dns1.tn.ovh.net / tech.ovh.net, serial 2084168973",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": false
+        },
+        {
+          "name": "fixpert.tn",
+          "type": "A",
+          "value_summary": "51.68.226.211 (shared cluster IP)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "PROXIED",
+          "migration_action": "PROXY_AFTER_VALIDATION",
+          "requires_confirmation": true
+        },
+        {
+          "name": "www.fixpert.tn",
+          "type": "A",
+          "value_summary": "51.68.226.211 (same as apex, not a CNAME)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "PROXIED",
+          "migration_action": "PROXY_AFTER_VALIDATION",
+          "requires_confirmation": true
+        },
+        {
+          "name": "fixpert.tn",
+          "type": "MX",
+          "value_summary": "1 mx1.mail.ovh.net; 5 mx2.mail.ovh.net; 100 mx3.mail.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "RECREATE_EXACTLY",
+          "requires_confirmation": false
+        },
+        {
+          "name": "fixpert.tn",
+          "type": "TXT",
+          "value_summary": "v=spf1 include:mx.ovh.com -all; \"1|www.fixpert.tn\" (OVH internal marker, purpose unconfirmed)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "fixpert.tn",
+          "type": "CAA",
+          "value_summary": "no CAA records present",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": false
+        },
+        {
+          "name": "_dmarc.fixpert.tn",
+          "type": "TXT",
+          "value_summary": "absent (NXDOMAIN)",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": true
+        }
+      ],
+      "known_subdomains": [
+        {
+          "name": "www.fixpert.tn",
+          "source": "PUBLIC DNS",
+          "note": "active, A record, redirects HTTP to its own HTTPS"
+        }
+      ],
+      "risks": [
+        "No DMARC record",
+        "Repository documentation (docs/IDAUTO_FIXPERT_INTEGRATION.md, docs/AUTOMOTIVE_*) describes Fixpert as an external operational system and the first Atelier Network pilot workshop — DNS control for fixpert.tn must be reconciled with that operational relationship before any migration; do not assume Mythos OS operates the Fixpert application itself."
+      ],
+      "unknowns": [
+        "DKIM selector(s) not documented",
+        "Whether the Fixpert application server is the same physical host as the shared cluster IP or a distinct system reachable at the same IP via vhost"
+      ],
+      "readiness": "READY_FOR_CONTROL_PANEL_COMPARISON"
+    },
+    {
+      "domain": "idauto.tn",
+      "project": "ID Auto",
+      "registry": "ATI (.tn ccTLD)",
+      "registrar": "OVH",
+      "registrar_confidence": "VERIFIED",
+      "nameservers": [
+        "ns1.tn.ovh.net",
+        "dns1.tn.ovh.net"
+      ],
+      "dns_provider": "OVH",
+      "dns_provider_confidence": "VERIFIED",
+      "dnssec_status": "DISABLED",
+      "web_status": "apex HTTP 302-redirects to http://www.idauto.tn/ (stays on plaintext HTTP); www HTTP responds 200; HTTPS on both apex and www refuses TCP connection on port 443 (no HTTPS listener)",
+      "email_status": "SPF present (hardfail); DMARC absent; DKIM UNKNOWN (no selector documented)",
+      "records": [
+        {
+          "name": "idauto.tn",
+          "type": "NS",
+          "value_summary": "ns1.tn.ovh.net, dns1.tn.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        },
+        {
+          "name": "idauto.tn",
+          "type": "SOA",
+          "value_summary": "dns1.tn.ovh.net / tech.ovh.net, serial 2085924436",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": false
+        },
+        {
+          "name": "idauto.tn",
+          "type": "A",
+          "value_summary": "213.186.33.5 (distinct origin IP, not the shared 51.68.226.211 cluster)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NEEDS_CONFIRMATION",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "www.idauto.tn",
+          "type": "A",
+          "value_summary": "213.186.33.5 (same as apex, not a CNAME)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NEEDS_CONFIRMATION",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "idauto.tn",
+          "type": "MX",
+          "value_summary": "1 mx1.mail.ovh.net; 5 mx2.mail.ovh.net; 100 mx3.mail.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "RECREATE_EXACTLY",
+          "requires_confirmation": false
+        },
+        {
+          "name": "idauto.tn",
+          "type": "TXT",
+          "value_summary": "v=spf1 include:mx.ovh.com -all; \"1|www.idauto.tn\" (OVH internal marker, purpose unconfirmed)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "idauto.tn",
+          "type": "CAA",
+          "value_summary": "no CAA records present",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": false
+        },
+        {
+          "name": "_dmarc.idauto.tn",
+          "type": "TXT",
+          "value_summary": "absent (NXDOMAIN)",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "staging.idauto.tn",
+          "type": "A/CNAME",
+          "value_summary": "referenced in docs/AUTOMOTIVE_ARCHITECTURE.md as a planned staging host; does not currently resolve (NXDOMAIN)",
+          "ttl_when_available": null,
+          "source": "REPOSITORY",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NEEDS_CONFIRMATION",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        }
+      ],
+      "known_subdomains": [
+        {
+          "name": "www.idauto.tn",
+          "source": "PUBLIC DNS",
+          "note": "active on HTTP only; HTTPS refused"
+        },
+        {
+          "name": "staging.idauto.tn",
+          "source": "REPOSITORY",
+          "note": "documented in docs/AUTOMOTIVE_ARCHITECTURE.md as a planned prod/staging split; not currently resolving — treat as planned, not active"
+        }
+      ],
+      "risks": [
+        "No working HTTPS on apex or www (TCP connection refused on port 443) — the domain is currently plaintext-HTTP only. Migrating this to Cloudflare PROXIED before an origin HTTPS listener exists would leave Cloudflare unable to reach the origin over Full/Full(strict), and Flexible SSL is prohibited by docs/CLOUDFLARE_ARCHITECTURE.md — origin HTTPS must be fixed before or during Cloudflare cutover.",
+        "Distinct origin IP (213.186.33.5) from the shared cluster IP (51.68.226.211) used by six of the other seven domains — confirm this is the intended, current ID Auto origin and not a stale or unrelated host.",
+        "Domain was registered very recently relative to the observation date — records may still be in initial setup and could change before INF-CF-2.",
+        "No DMARC record."
+      ],
+      "unknowns": [
+        "DKIM selector(s) not documented",
+        "Whether 213.186.33.5 is an OVH-managed host intended for ID Auto's eventual PostgreSQL/API deployment (IDA-2) or a placeholder"
+      ],
+      "readiness": "NEEDS_DNS_REVIEW"
+    },
+    {
+      "domain": "mythosprod.xyz",
+      "project": "Mythos OS / shared infrastructure",
+      "registry": "CentralNic (.xyz gTLD)",
+      "registrar": "OVH sas",
+      "registrar_confidence": "VERIFIED",
+      "nameservers": [
+        "ns109.ovh.net",
+        "dns109.ovh.net"
+      ],
+      "dns_provider": "OVH",
+      "dns_provider_confidence": "VERIFIED",
+      "dnssec_status": "ENABLED",
+      "web_status": "apex and www HTTP both 301-redirect to https://darhijama.tn/ (wrong domain); apex and www HTTPS both fail TLS handshake (SEC_E_WRONG_PRINCIPAL / certificate does not match mythosprod.xyz) — no working web presence for this domain's own hostname at the observation time",
+      "email_status": "SPF present (hardfail); DMARC absent; DKIM UNKNOWN (no selector documented)",
+      "records": [
+        {
+          "name": "mythosprod.xyz",
+          "type": "NS",
+          "value_summary": "ns109.ovh.net, dns109.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        },
+        {
+          "name": "mythosprod.xyz",
+          "type": "SOA",
+          "value_summary": "dns109.ovh.net / tech.ovh.net, serial 2084664233",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": false
+        },
+        {
+          "name": "mythosprod.xyz",
+          "type": "A",
+          "value_summary": "51.68.226.211 (shared cluster IP)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "PROXIED",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "www.mythosprod.xyz",
+          "type": "A",
+          "value_summary": "51.68.226.211 (same as apex, not a CNAME)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "PROXIED",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "coolify.mythosprod.xyz",
+          "type": "A",
+          "value_summary": "51.68.226.211 (same shared IP) — active administrative hostname, already in production DNS use",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NEEDS_CONFIRMATION",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "mythosprod.xyz",
+          "type": "MX",
+          "value_summary": "1 mx1.mail.ovh.net; 5 mx2.mail.ovh.net; 100 mx3.mail.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "RECREATE_EXACTLY",
+          "requires_confirmation": false
+        },
+        {
+          "name": "mythosprod.xyz",
+          "type": "TXT",
+          "value_summary": "v=spf1 include:mx.ovh.com -all; \"1|www.mythosprod.xyz\" (OVH internal marker, purpose unconfirmed)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "mythosprod.xyz",
+          "type": "CAA",
+          "value_summary": "no CAA records present",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": false
+        },
+        {
+          "name": "mythosprod.xyz",
+          "type": "DS",
+          "value_summary": "keyTag 57275, algorithm 8, digestType 2 (present at parent per RDAP secureDNS) — DNSSEC currently signed by OVH",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "_dmarc.mythosprod.xyz",
+          "type": "TXT",
+          "value_summary": "absent (NXDOMAIN)",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "app.mythosprod.xyz",
+          "type": "A",
+          "value_summary": "does not currently resolve (NXDOMAIN) — proposed in docs/CLOUDFLARE_ARCHITECTURE.md, not yet created",
+          "ttl_when_available": null,
+          "source": "REPOSITORY",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NEEDS_CONFIRMATION",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        },
+        {
+          "name": "api.mythosprod.xyz",
+          "type": "A",
+          "value_summary": "does not currently resolve (NXDOMAIN) — proposed in docs/CLOUDFLARE_ARCHITECTURE.md, not yet created",
+          "ttl_when_available": null,
+          "source": "REPOSITORY",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NEEDS_CONFIRMATION",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        },
+        {
+          "name": "watch.mythosprod.xyz",
+          "type": "A",
+          "value_summary": "does not currently resolve (NXDOMAIN) — proposed in docs/CLOUDFLARE_ARCHITECTURE.md, not yet created",
+          "ttl_when_available": null,
+          "source": "REPOSITORY",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NEEDS_CONFIRMATION",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        },
+        {
+          "name": "n8n.mythosprod.xyz",
+          "type": "A",
+          "value_summary": "does not currently resolve (NXDOMAIN) — proposed in docs/CLOUDFLARE_ARCHITECTURE.md, not yet created",
+          "ttl_when_available": null,
+          "source": "REPOSITORY",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NEEDS_CONFIRMATION",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        },
+        {
+          "name": "admin.mythosprod.xyz",
+          "type": "A",
+          "value_summary": "does not currently resolve (NXDOMAIN) — proposed in docs/CLOUDFLARE_ARCHITECTURE.md, not yet created",
+          "ttl_when_available": null,
+          "source": "REPOSITORY",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NEEDS_CONFIRMATION",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        },
+        {
+          "name": "files.mythosprod.xyz",
+          "type": "A",
+          "value_summary": "does not currently resolve (NXDOMAIN) — proposed in docs/CLOUDFLARE_ARCHITECTURE.md, not yet created",
+          "ttl_when_available": null,
+          "source": "REPOSITORY",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NEEDS_CONFIRMATION",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        }
+      ],
+      "known_subdomains": [
+        {
+          "name": "coolify.mythosprod.xyz",
+          "source": "PUBLIC DNS",
+          "note": "ACTIVE — resolves to the shared cluster IP; this is the only one of the seven proposed administrative hostnames in docs/CLOUDFLARE_ARCHITECTURE.md section 3 that is already live in DNS"
+        },
+        {
+          "name": "app.mythosprod.xyz",
+          "source": "REPOSITORY",
+          "note": "proposed only, docs/CLOUDFLARE_ARCHITECTURE.md — NXDOMAIN"
+        },
+        {
+          "name": "api.mythosprod.xyz",
+          "source": "REPOSITORY",
+          "note": "proposed only — NXDOMAIN"
+        },
+        {
+          "name": "watch.mythosprod.xyz",
+          "source": "REPOSITORY",
+          "note": "proposed only — NXDOMAIN"
+        },
+        {
+          "name": "n8n.mythosprod.xyz",
+          "source": "REPOSITORY",
+          "note": "proposed only — NXDOMAIN"
+        },
+        {
+          "name": "admin.mythosprod.xyz",
+          "source": "REPOSITORY",
+          "note": "proposed only — NXDOMAIN"
+        },
+        {
+          "name": "files.mythosprod.xyz",
+          "source": "REPOSITORY",
+          "note": "proposed only — NXDOMAIN"
+        }
+      ],
+      "risks": [
+        "HIGHEST PRIORITY FINDING: mythosprod.xyz itself has no working web presence. HTTP requests to the apex and www redirect to https://darhijama.tn/, and HTTPS fails with a certificate/SNI mismatch (SEC_E_WRONG_PRINCIPAL). This must be diagnosed and fixed at the origin web server (Coolify/vhost routing on the shared IP) before or during any Cloudflare migration — Cloudflare proxying would not fix a broken origin, and Full (strict) mode requires a valid, matching origin certificate.",
+        "DNSSEC is currently ENABLED and signed by OVH (DS record present at the parent .xyz zone). A nameserver migration to Cloudflare must coordinate DS-record replacement with the cutover window; switching nameservers to Cloudflare while the old OVH DS record remains published at the registrar would break DNSSEC validation for this domain. This sequencing must be planned explicitly in INF-CF-2 and executed per the DNSSEC steps already defined for INF-CF-5, not attempted casually.",
+        "coolify.mythosprod.xyz is already an active, presumably administrative, production DNS record. It must be classified NEEDS_CONFIRMATION and protected by Cloudflare Access (INF-CF-4) before or immediately upon proxying — it must never be exposed to the public Internet without Access in place.",
+        "No DMARC record."
+      ],
+      "unknowns": [
+        "Root cause of the darhijama.tn redirect on mythosprod.xyz — likely a default/catch-all Apache or Nginx vhost on the shared origin, but not confirmed without provider/control-panel access",
+        "DKIM selector(s) not documented",
+        "Whether the six other proposed hostnames (app/api/watch/n8n/admin/files) are intended to be created before or during INF-CF-2/INF-CF-3, or later"
+      ],
+      "readiness": "NEEDS_DNS_REVIEW"
+    },
+    {
+      "domain": "notrejour.tn",
+      "project": "Notre Jour",
+      "registry": "ATI (.tn ccTLD)",
+      "registrar": "OVH",
+      "registrar_confidence": "VERIFIED",
+      "nameservers": [
+        "ns1.tn.ovh.net",
+        "dns1.tn.ovh.net"
+      ],
+      "dns_provider": "OVH",
+      "dns_provider_confidence": "VERIFIED",
+      "dnssec_status": "DISABLED",
+      "web_status": "apex and www both redirect HTTP to HTTPS correctly; own matching TLS certificate",
+      "email_status": "SPF present (hardfail); DMARC absent; DKIM UNKNOWN (no selector documented)",
+      "records": [
+        {
+          "name": "notrejour.tn",
+          "type": "NS",
+          "value_summary": "ns1.tn.ovh.net, dns1.tn.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        },
+        {
+          "name": "notrejour.tn",
+          "type": "SOA",
+          "value_summary": "dns1.tn.ovh.net / tech.ovh.net, serial 2084451926",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": false
+        },
+        {
+          "name": "notrejour.tn",
+          "type": "A",
+          "value_summary": "51.68.226.211 (shared cluster IP)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "PROXIED",
+          "migration_action": "PROXY_AFTER_VALIDATION",
+          "requires_confirmation": true
+        },
+        {
+          "name": "notrejour.tn",
+          "type": "AAAA",
+          "value_summary": "2001:41d0:367:338::1 — only domain in this portfolio with a public AAAA record",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "PROXIED",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "www.notrejour.tn",
+          "type": "A",
+          "value_summary": "51.68.226.211 (same as apex, not a CNAME)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "PROXIED",
+          "migration_action": "PROXY_AFTER_VALIDATION",
+          "requires_confirmation": true
+        },
+        {
+          "name": "notrejour.tn",
+          "type": "MX",
+          "value_summary": "1 mx1.mail.ovh.net; 5 mx2.mail.ovh.net; 100 mx3.mail.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "RECREATE_EXACTLY",
+          "requires_confirmation": false
+        },
+        {
+          "name": "notrejour.tn",
+          "type": "TXT",
+          "value_summary": "v=spf1 include:mx.ovh.com -all; \"1|www.notrejour.tn\" (OVH internal marker, purpose unconfirmed)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "notrejour.tn",
+          "type": "CAA",
+          "value_summary": "no CAA records present",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": false
+        },
+        {
+          "name": "_dmarc.notrejour.tn",
+          "type": "TXT",
+          "value_summary": "absent (NXDOMAIN)",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": true
+        }
+      ],
+      "known_subdomains": [
+        {
+          "name": "www.notrejour.tn",
+          "source": "PUBLIC DNS",
+          "note": "active, A record, redirects HTTP to its own HTTPS"
+        }
+      ],
+      "risks": [
+        "No DMARC record",
+        "This is the only domain in the portfolio publishing an AAAA (IPv6) record. If Cloudflare proxying is enabled, both the A and AAAA records must be migrated together and kept consistent (Cloudflare will proxy both if both are proxied) to avoid IPv4/IPv6 behavioural divergence.",
+        "Repository memory notes a prior PSR-4 casing bug (database/Database) affecting Windows-local vs Linux-VPS deployment for this project — not a DNS issue, but relevant context for anyone comparing this domain's control panel before migration."
+      ],
+      "unknowns": [
+        "DKIM selector(s) not documented",
+        "Whether the AAAA record's IPv6 host is the same physical origin as the shared IPv4 cluster or a separate path"
+      ],
+      "readiness": "READY_FOR_CONTROL_PANEL_COMPARISON"
+    },
+    {
+      "domain": "ssangyong.autos",
+      "project": "SsangYong Parts",
+      "registry": "CentralNic (.autos gTLD)",
+      "registrar": "OVH sas",
+      "registrar_confidence": "VERIFIED",
+      "nameservers": [
+        "ns109.ovh.net",
+        "dns109.ovh.net"
+      ],
+      "dns_provider": "OVH",
+      "dns_provider_confidence": "VERIFIED",
+      "dnssec_status": "ENABLED",
+      "web_status": "apex and www both redirect HTTP to HTTPS correctly; own matching TLS certificate",
+      "email_status": "SPF present (hardfail); DMARC absent; DKIM UNKNOWN (no selector documented)",
+      "records": [
+        {
+          "name": "ssangyong.autos",
+          "type": "NS",
+          "value_summary": "ns109.ovh.net, dns109.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        },
+        {
+          "name": "ssangyong.autos",
+          "type": "SOA",
+          "value_summary": "dns109.ovh.net / tech.ovh.net, serial 2083953307",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": false
+        },
+        {
+          "name": "ssangyong.autos",
+          "type": "A",
+          "value_summary": "51.68.226.211 (shared cluster IP)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "PROXIED",
+          "migration_action": "PROXY_AFTER_VALIDATION",
+          "requires_confirmation": true
+        },
+        {
+          "name": "www.ssangyong.autos",
+          "type": "A",
+          "value_summary": "51.68.226.211 (same as apex, not a CNAME)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "PROXIED",
+          "migration_action": "PROXY_AFTER_VALIDATION",
+          "requires_confirmation": true
+        },
+        {
+          "name": "ssangyong.autos",
+          "type": "MX",
+          "value_summary": "1 mx1.mail.ovh.net; 5 mx2.mail.ovh.net; 100 mx3.mail.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "RECREATE_EXACTLY",
+          "requires_confirmation": false
+        },
+        {
+          "name": "ssangyong.autos",
+          "type": "TXT",
+          "value_summary": "v=spf1 include:mx.ovh.com -all; \"1|www.ssangyong.autos\" (OVH internal marker); \"12372381081992d8ae412947bfae0c8c6f961ed6\" (unidentified 40-character verification-style token)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "ssangyong.autos",
+          "type": "CAA",
+          "value_summary": "no CAA records present",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": false
+        },
+        {
+          "name": "ssangyong.autos",
+          "type": "DS",
+          "value_summary": "keyTag 28532, algorithm 8, digestType 2 (present at parent per RDAP secureDNS) — DNSSEC currently signed by OVH",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "_dmarc.ssangyong.autos",
+          "type": "TXT",
+          "value_summary": "absent (NXDOMAIN)",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": true
+        }
+      ],
+      "known_subdomains": [
+        {
+          "name": "www.ssangyong.autos",
+          "source": "PUBLIC DNS",
+          "note": "active, A record, redirects HTTP to its own HTTPS"
+        }
+      ],
+      "risks": [
+        "DNSSEC is currently ENABLED and signed by OVH (DS record present at the parent .autos zone). Exactly the same DS-record/nameserver-cutover coordination risk documented for mythosprod.xyz applies here — do not switch nameservers to Cloudflare while the OVH DS record remains published at the registrar.",
+        "An unidentified 40-character TXT token is present at the apex with no documented purpose (possibly a third-party site-verification token, e.g. search console or a marketing/analytics tool). Its owner and purpose must be confirmed before deciding whether to recreate it during migration — do not discard it without confirmation, as removing an active third-party verification token could break that integration.",
+        "No DMARC record.",
+        "Repository documentation (docs/AUTOMOTIVE_*) classifies ssangyong.autos as an external system outside this repository's runtime — DNS control must be reconciled with that external-system boundary before migration."
+      ],
+      "unknowns": [
+        "DKIM selector(s) not documented",
+        "Purpose and owner of the unidentified TXT verification token"
+      ],
+      "readiness": "NEEDS_DNSSEC_REVIEW"
+    },
+    {
+      "domain": "uthinachess.tn",
+      "project": "Uthina Chess",
+      "registry": "ATI (.tn ccTLD)",
+      "registrar": "OVH",
+      "registrar_confidence": "VERIFIED",
+      "nameservers": [
+        "ns1.tn.ovh.net",
+        "dns1.tn.ovh.net"
+      ],
+      "dns_provider": "OVH",
+      "dns_provider_confidence": "VERIFIED",
+      "dnssec_status": "DISABLED",
+      "web_status": "apex and www both redirect HTTP to HTTPS correctly; own matching TLS certificate",
+      "email_status": "SPF present (softfail ~all, unlike the hardfail -all used by the other seven domains); DMARC absent; DKIM UNKNOWN (no selector documented)",
+      "records": [
+        {
+          "name": "uthinachess.tn",
+          "type": "NS",
+          "value_summary": "ns1.tn.ovh.net, dns1.tn.ovh.net",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": true
+        },
+        {
+          "name": "uthinachess.tn",
+          "type": "SOA",
+          "value_summary": "dns1.tn.ovh.net / tech.ovh.net, serial 2082607515",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "UNKNOWN",
+          "requires_confirmation": false
+        },
+        {
+          "name": "uthinachess.tn",
+          "type": "A",
+          "value_summary": "51.68.226.211 (shared cluster IP) — this is the production Mythos OS application per repository documentation",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "PROXIED",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "www.uthinachess.tn",
+          "type": "A",
+          "value_summary": "51.68.226.211 (same as apex, not a CNAME)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "PROXIED",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "uthinachess.tn",
+          "type": "MX",
+          "value_summary": "1 mx0.mail.ovh.net; 5 mx1.mail.ovh.net; 50 mx2.mail.ovh.net; 100 mx3.mail.ovh.net (four-record OVH mail plan, different from the three-record set used by the other seven domains)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "RECREATE_EXACTLY",
+          "requires_confirmation": false
+        },
+        {
+          "name": "uthinachess.tn",
+          "type": "TXT",
+          "value_summary": "v=spf1 include:mx.ovh.com ~all (softfail); \"1|www.uthinachess.tn\" (OVH internal marker, purpose unconfirmed)",
+          "ttl_when_available": 3600,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "DNS_ONLY",
+          "migration_action": "REVIEW_BEFORE_RECREATE",
+          "requires_confirmation": true
+        },
+        {
+          "name": "uthinachess.tn",
+          "type": "CAA",
+          "value_summary": "no CAA records present",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": false
+        },
+        {
+          "name": "_dmarc.uthinachess.tn",
+          "type": "TXT",
+          "value_summary": "absent (NXDOMAIN)",
+          "ttl_when_available": null,
+          "source": "PUBLIC DNS",
+          "observed_at_utc": "2026-08-06T00:02:54Z",
+          "proposed_cloudflare_mode": "NOT_APPLICABLE",
+          "migration_action": "NOT_APPLICABLE",
+          "requires_confirmation": true
+        }
+      ],
+      "known_subdomains": [
+        {
+          "name": "www.uthinachess.tn",
+          "source": "PUBLIC DNS",
+          "note": "active, A record, redirects HTTP to its own HTTPS"
+        }
+      ],
+      "risks": [
+        "This domain hosts the live PRODUCTION Mythos OS application referenced throughout this repository (production path /var/www/uthinachess/0726/Prod/). Any DNS or origin change here carries the highest blast radius of the eight domains — do not include this domain in any DNS or nameserver change until an explicit, separately authorised production-migration plan and rollback path exist, beyond the standard INF-CF-2 sequence used for lower-risk domains.",
+        "SPF uses softfail (~all) instead of the hardfail (-all) used by all seven other domains — inconsistent with the rest of the portfolio; confirm whether this is intentional before recreating during migration.",
+        "No DMARC record.",
+        "MX record set differs in shape (four records, distinct priority spacing) from the three-record set used elsewhere — likely a different OVH mail plan tier; must be reproduced exactly, not assumed identical to the other domains' MX pattern."
+      ],
+      "unknowns": [
+        "DKIM selector(s) not documented",
+        "Whether the softfail SPF policy is a deliberate choice tied to production mail flows"
+      ],
+      "readiness": "READY_FOR_CONTROL_PANEL_COMPARISON"
+    }
+  ]
+}

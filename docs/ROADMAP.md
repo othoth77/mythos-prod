@@ -1,6 +1,6 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-05 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added)
+**Last updated:** 2026-08-06 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory in progress)
 
 ---
 
@@ -144,15 +144,15 @@ This track defines the Cloudflare edge security foundation for all Mythos-hosted
 | Stage | Description | Status |
 |---|---|---|
 | INF-CF-0 | Cloudflare Foundation — architecture, deployment checklist, env template, deploy docs | ✓ Done (2026-08-05) |
-| INF-CF-1 | Cloudflare account and domain inventory | Planned |
-| INF-CF-2 | DNS migration and verification | Planned |
+| INF-CF-1 | Cloudflare account and domain inventory — public read-only inventory of the 8 authorised domains | In progress — pending Opus/Haiku validation and branch push verification |
+| INF-CF-2 | DNS migration and verification | Planned — not started; requires INF-CF-1 complete plus authoritative provider control-panel export and owner review |
 | INF-CF-3 | Remotely managed Tunnel in Coolify | Planned |
 | INF-CF-4 | Cloudflare Access for private hostnames | Planned |
 | INF-CF-5 | TLS, WAF, rate limiting and DNSSEC hardening | Planned |
 | INF-CF-6 | R2 and external backup integration | Planned |
 | INF-CF-7 | Monitoring, rollback test, restore test and operational handover | Planned |
 
-See `docs/CLOUDFLARE_ARCHITECTURE.md` for the approved architecture and `docs/CLOUDFLARE_DEPLOYMENT_CHECKLIST.md` for per-stage prerequisites, actions, validation, rollback, secrets handling, and completion criteria.
+See `docs/CLOUDFLARE_ARCHITECTURE.md` for the approved architecture and `docs/CLOUDFLARE_DEPLOYMENT_CHECKLIST.md` for per-stage prerequisites, actions, validation, rollback, secrets handling, and completion criteria. See `docs/CLOUDFLARE_DOMAIN_INVENTORY.md` and `docs/CLOUDFLARE_DNS_MIGRATION_MATRIX.md` for the INF-CF-1 public domain inventory of the 8 authorised Mythos-portfolio domains (`agribee.tn`, `darhijama.tn`, `fixpert.tn`, `idauto.tn`, `mythosprod.xyz`, `notrejour.tn`, `ssangyong.autos`, `uthinachess.tn`).
 
 ---
 
