@@ -19,6 +19,9 @@ Implements `docs/MYTHOS_USER_MEMORY_POLICY.md` §2-§4: classifies an interactio
 
 `docs/MYTHOS_USER_MEMORY_POLICY.md`.
 
+**Naming note:** this skill deliberately shares a name with the future MPI-2 *runtime* component of the same name. This skill is the agent-development-layer counterpart, not the runtime component. See `docs/SKILLS_ARCHITECTURE.md` §1.
+
 ## Source
 
 Classification: MYTHOS ORIGINAL — new in MPI-0. See `docs/SKILLS_SOURCES.md`.
+Version: 1.0.1 — see `docs/SKILLS_EVOLUTION.md`.

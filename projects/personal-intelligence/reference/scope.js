@@ -37,7 +37,11 @@ function recordVisibleToContext(record, ctx) {
   if (!record || !ctx) return false;
   if (!ctx.userId || !ctx.organisationId) return false; // no anonymous/incomplete context ever matches
   if (record.scope === 'session') {
-    return record.sessionId === ctx.sessionId && record.userId === ctx.userId;
+    // Both sessionIds must be present and equal — two records/contexts that
+    // both happen to lack a sessionId must never be treated as a match.
+    return !!record.sessionId && !!ctx.sessionId
+      && record.sessionId === ctx.sessionId
+      && record.userId === ctx.userId;
   }
   if (record.scope === 'user') {
     return record.userId === ctx.userId && record.organisationId === ctx.organisationId;
@@ -46,7 +50,12 @@ function recordVisibleToContext(record, ctx) {
     return record.organisationId === ctx.organisationId;
   }
   if (record.scope === 'domain') {
-    return record.domainId === ctx.domainId;
+    // Domain scope is intentionally domain-wide, not organisation-scoped —
+    // a domain default is meant to be shared by every organisation in that
+    // domain (see docs/MYTHOS_PERSONAL_INTELLIGENCE_ARCHITECTURE.md §3). It
+    // is NOT an organisation-private record, so this is not a tenant leak;
+    // it must still never match on two absent/undefined domainIds.
+    return !!record.domainId && !!ctx.domainId && record.domainId === ctx.domainId;
   }
   if (record.scope === 'global') {
     return true;

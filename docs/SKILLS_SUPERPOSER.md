@@ -46,4 +46,4 @@ The Skill Router (`docs/MYTHOS_CHATBOT_ARCHITECTURE.md` §5) narrows the candida
 
 ## 6. Status
 
-Draft architecture. `projects/personal-intelligence/reference/intent-router.js` includes an illustrative composition stub exercised by `tests/mpi-0-personal-intelligence-test.js` for the domain-routing test cases; it does not implement full multi-step plan composition, which remains an MPI-3 target.
+Draft architecture. `projects/personal-intelligence/reference/intent-router.js` implements language-family detection and single-domain resolution only (`normalizeIntent`, `resolveActiveDomain`), exercised by `tests/mpi-0-personal-intelligence-test.js`'s domain-routing and cross-domain test cases. It does **not** implement `compose()` or any multi-step `SkillPlan` construction — no composition code exists in this stage. Full plan composition remains an MPI-3 target.

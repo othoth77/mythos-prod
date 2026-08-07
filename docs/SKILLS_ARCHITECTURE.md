@@ -18,6 +18,8 @@ Capabilities used by **end-user chatbots inside Mythos products** — `education
 
 **`.claude/skills/` alone is not the runtime architecture for thousands of Mythos users.** Agent Skills help *build and operate* Mythos; runtime user intelligence must be represented in application-level data/contracts/services suitable for multi-user, multi-tenant execution — see `docs/MYTHOS_PERSONAL_INTELLIGENCE_ARCHITECTURE.md` and `projects/personal-intelligence/`. A runtime capability is never implemented solely as a `.claude/skills/` entry expecting a Claude Code session to execute it on behalf of an end user.
 
+**Every entry under `.claude/skills/` is an Agent Development Skill, without exception.** Several manifests are worded around a Mythos capability domain (e.g. `mythos-client-360`, `mythos-invoice-intelligence`, `mythos-document-intelligence`, `mythos-smart-data-entry`) — this describes what subject-matter judgement the skill brings to a Claude/Codex session while *building* that capability, not a claim that the skill is itself reachable from an end-user chatbot request. Two manifests, `mythos-context-assembler` and `mythos-personal-learning`, deliberately share a name with the future MPI-1/MPI-2 *runtime* components they exist to help design and build — the skill is the agent-development-layer counterpart, not the runtime component itself; see `docs/SKILLS_ROADMAP.md` §3 for the explicit note on both. `docs/SKILLS_SECURITY.md` §3 states the boundary rule this naming must never be read to weaken: no Agent Development Skill is directly reachable from an end-user request path.
+
 ---
 
 ## 2. Shared Skills vs. Per-User Configuration

@@ -19,6 +19,9 @@ Implements `docs/MYTHOS_CONTEXT_ARCHITECTURE.md` §2: classifies every candidate
 
 `docs/MYTHOS_CONTEXT_ARCHITECTURE.md`, `docs/MYTHOS_USER_MEMORY_POLICY.md` §5.
 
+**Naming note:** this skill deliberately shares a name with the future MPI-1 *runtime* component of the same name. This skill is the agent-development-layer design/implementation-guidance counterpart — it is not the runtime component itself, and is never directly reachable from an end-user request. See `docs/SKILLS_ARCHITECTURE.md` §1.
+
 ## Source
 
 Classification: MYTHOS ORIGINAL — new in MPI-0. See `docs/SKILLS_SOURCES.md`.
+Version: 1.0.1 — see `docs/SKILLS_EVOLUTION.md`.

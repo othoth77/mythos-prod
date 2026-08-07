@@ -76,30 +76,30 @@ Feedback-loop analytics (`docs/MYTHOS_USER_MEMORY_POLICY.md` §8) informing doma
 
 ## 3. Agent Development Skills Inventory
 
-The 18 `.claude/skills/` manifests created/preserved in MPI-0, each scoped to a distinct concern (no overlap):
+The 20 `.claude/skills/` manifests (18 from MPI-0, 2 added in MPI-0-FINALIZATION), each with a primary owning responsibility. Where two skills' natural scope could otherwise overlap, one is the explicit owner and the other explicitly delegates — see `docs/SKILLS_EVOLUTION.md` for the full overlap audit that produced this boundary set; it is not the case that no two skills ever touch a related concern, only that each concern now has exactly one owner:
 
-| Skill | Scope |
-|---|---|
-| `mythos-project-context` | Surfaces current repository/stage state before any task begins. |
-| `mythos-intent-architect` | Normalises natural-language (multilingual) requests into structured intent, for both dev and product contexts. |
-| `mythos-skill-router` | Ranks candidate capabilities using domain/role/org/permission context. |
-| `mythos-superposer` | Composes an ordered plan from ranked capabilities. |
-| `mythos-skill-guard` | Evaluates permission/automation-level decisions before execution. |
-| `mythos-repo-guardian` | Enforces AGENTS.md repository rules during any change. |
-| `mythos-safe-change` | Enforces the stage-execution/scope-control discipline for implementation work. |
-| `mythos-test-intelligence` | Selects and reasons about the right test scope for a change. |
-| `mythos-change-impact` | Maps a proposed change against product/schema boundaries before it's made. |
-| `mythos-doc-sync` | Keeps AI_HANDOVER.md/ROADMAP.md/CHANGELOG.md consistent with actual implementation. |
-| `mythos-migration` | Plans PostgreSQL migrations consistent with existing schema conventions. |
-| `mythos-error-doctor` | Diagnoses recurring, previously-documented repository failure patterns. |
-| `mythos-smart-data-entry` | Assists structured data entry consistent with Mythos product data shapes. |
-| `mythos-document-intelligence` | Assists document preparation/handling consistent with Mythos conventions. |
-| `mythos-invoice-intelligence` | Assists invoice/estimate handling across Mythos products. |
-| `mythos-client-360` | Composes a permission-respecting cross-product client view. |
-| `mythos-context-assembler` | (New MPI-0) Implements context selection/classification for personal intelligence. |
-| `mythos-personal-learning` | (New MPI-0) Implements the learning-pipeline classification/confidence model. |
-
-No redundant skill was created where functionality already belonged in an existing one.
+| Skill | Scope | Delegates to (where applicable) |
+|---|---|---|
+| `mythos-project-context` | Surfaces current repository/stage state before any task begins, including PROJECT_STATUS.md/DAILY_HISTORY.md/PROJECT_STATISTICS.md. | — |
+| `mythos-intent-architect` | Normalises natural-language (multilingual) requests into structured intent, for both dev and product contexts. | — |
+| `mythos-skill-router` | Ranks candidate capabilities using domain/role/org/permission context. | — |
+| `mythos-superposer` | Composes an ordered plan from ranked capabilities. | — |
+| `mythos-skill-guard` | Owns the permission/automation-level ALLOW/DENY/REQUIRE_APPROVAL/READ_ONLY/DRY_RUN_ONLY decision before execution. | — |
+| `mythos-repo-guardian` | Sole owner of git/worktree preflight and AGENTS.md rule enforcement. | (owner; `mythos-project-context` and `mythos-safe-change` defer to it for preflight) |
+| `mythos-safe-change` | Owns stage-execution lifecycle discipline (scope definition, commit/push discipline). | `mythos-repo-guardian` (preflight), `mythos-test-intelligence` (test-scope selection) |
+| `mythos-test-intelligence` | Sole owner of test-scope selection for a given change. | — |
+| `mythos-change-impact` | Owns pre-change MAD-1/3/4 product/schema-boundary checks. | `mythos-migration` (actual migration authoring once a schema change is approved) |
+| `mythos-doc-sync` | Keeps AI_HANDOVER.md/ROADMAP.md/CHANGELOG.md/PROJECT_STATE.md consistent with actual validated implementation, at stage completion. | `mythos-project-history` (daily ledger — different trigger, see below) |
+| `mythos-migration` | Owns PostgreSQL migration/schema-convention authoring. | — |
+| `mythos-error-doctor` | Diagnoses recurring, previously-documented repository failure patterns, including the named baseline-failing test suites. | — |
+| `mythos-smart-data-entry` | Assists structured data entry consistent with Mythos product data shapes. | — |
+| `mythos-document-intelligence` | Owns document-output formatting/preparation. | (owner; `mythos-invoice-intelligence` defers to it for document formatting) |
+| `mythos-invoice-intelligence` | Assists invoice/estimate handling across Mythos products. | `mythos-document-intelligence` (document formatting) |
+| `mythos-client-360` | Composes a permission-respecting cross-product client view. | — |
+| `mythos-context-assembler` | (New MPI-0, agent-development layer) Implements context selection/classification for personal intelligence design work — distinct from the identically-named MPI-1 runtime component it will guide the implementation of. | — |
+| `mythos-personal-learning` | (New MPI-0, agent-development layer) Implements the learning-pipeline classification/confidence model for design work — distinct from the identically-named MPI-2 runtime component. | — |
+| `mythos-skill-evolution` | (New MPI-0-FINALIZATION) Owns skill-registry consistency, duplication/staleness detection, and reviewed skill-change lifecycle. | — |
+| `mythos-project-history` | (New MPI-0-FINALIZATION) Owns the verified daily historical ledger — triggered per development day, not per stage completion like `mythos-doc-sync`. | — |
 
 ---
 

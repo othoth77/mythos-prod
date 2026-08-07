@@ -20,3 +20,4 @@ See `docs/MYTHOS_CHATBOT_ARCHITECTURE.md` §4 (teacher and workshop composition 
 ## Source
 
 Classification: MYTHOS ORIGINAL — see `docs/SKILLS_SOURCES.md`.
+Version: 1.0.1 — see `docs/SKILLS_EVOLUTION.md` (governing doc corrected: `docs/SKILLS_SUPERPOSER.md` previously claimed a composition stub existed in `intent-router.js`; it does not — that reference has been removed).

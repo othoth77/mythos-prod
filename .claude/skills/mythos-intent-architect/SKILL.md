@@ -18,6 +18,9 @@ description: Normalise natural, imperfect, short, non-technical requests — in 
 
 Reference implementation (illustrative, not production): `projects/personal-intelligence/reference/intent-router.js`.
 
+**Layer note:** this is the one skill in this repository that legitimately spans both the agent-development layer (helping build the repository) and the product-domain-intent layer (understanding what a Mythos end user is asking for) — see `docs/SKILLS_ARCHITECTURE.md` §1. It remains an Agent Development Skill; it is not itself reachable by an end-user request.
+
 ## Source
 
 Classification: MYTHOS ORIGINAL — see `docs/SKILLS_SOURCES.md`.
+Version: 1.0.1 — see `docs/SKILLS_EVOLUTION.md`.

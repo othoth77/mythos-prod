@@ -45,7 +45,7 @@ A learned or explicit user preference may change *how* a permitted action is pre
 
 ## 5. Data Classification
 
-Every resource a skill touches carries an implicit or explicit data classification (e.g. public, organisation-internal, personal, financial, regulated). Guard's decision considers this classification alongside automation level — a `LEVEL_1_READ_ONLY` capability touching a regulated data classification may still require `REQUIRE_APPROVAL` if organisation policy demands it, independent of the capability's own default level.
+Every resource a skill touches carries an implicit or explicit data classification (e.g. public, organisation-internal, personal, financial, regulated). Guard takes `dataClassification` as a direct input and never resolves a regulated/financial classification below `REQUIRE_APPROVAL`, independent of the underlying permission decision (see `projects/personal-intelligence/reference/guard.js`). Automation level is a separate, earlier check — it is validated upstream at `GATE_CHECK` (`docs/AUTOMATION_ARCHITECTURE.md` §3) before Guard is ever invoked, not re-evaluated inside Guard itself.
 
 ---
 

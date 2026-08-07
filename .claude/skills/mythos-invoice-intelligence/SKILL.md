@@ -13,6 +13,9 @@ Assists with invoice/estimate-shaped tasks across products, respecting:
 
 Never treats drafting an estimate as equivalent to committing or sending one.
 
+**Delegates document formatting to `mythos-document-intelligence`.** This skill owns invoice/estimate domain judgement (what belongs on the document, which capability contract applies); it does not own generic document layout/formatting — see `docs/SKILLS_EVOLUTION.md` §6.
+
 ## Source
 
 Classification: MYTHOS ORIGINAL — see `docs/SKILLS_SOURCES.md`.
+Version: 1.0.1 — see `docs/SKILLS_EVOLUTION.md`.
