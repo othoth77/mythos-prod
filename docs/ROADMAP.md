@@ -1,6 +1,6 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-06 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added)
+**Last updated:** 2026-08-06 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added; MPI-0 — Personal Intelligence Foundation added on `feat/mythos-personal-intelligence`, not yet merged)
 
 ---
 
@@ -131,8 +131,9 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 4. **AutoValeur:** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster)
 5. **Ecosystem (parallel — docs only):** MAE-0 + ATN-0 complete; MAE-1 not started (blocked on IDA-2)
 6. **Automation (docs only):** AUT-0 complete; INF-OVH-API-0 is the next Automation implementation stage — not started, does not change items 1–4 above
+7. **Personal Intelligence (docs/contracts/reference/tests only, on `feat/mythos-personal-intelligence`, not merged):** MPI-0 complete; MPI-1 is the next Personal Intelligence implementation stage — not started, does not change items 1–4 above
 
-**One-major-stage rule in force:** Only one major implementation stage may be active at a time unless the user gives explicit parallel authorisation. IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 cannot run in parallel without explicit user authorisation — they are sequential after IDA-2. The Automation track (INF-OVH-API-0 onward) is likewise sequential and does not run in parallel with any of the above without explicit user authorisation.
+**One-major-stage rule in force:** Only one major implementation stage may be active at a time unless the user gives explicit parallel authorisation. IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 cannot run in parallel without explicit user authorisation — they are sequential after IDA-2. The Automation track (INF-OVH-API-0 onward) and the Personal Intelligence track (MPI-1 onward) are likewise sequential and do not run in parallel with any of the above, or with each other, without explicit user authorisation.
 
 ---
 
@@ -177,6 +178,30 @@ Mythos Automation & Operations (`mythos_automation`) is the shared platform capa
 | OPS-AUTO-1 | Notifications, Relances and Scheduled Reports | Planned |
 
 See `docs/AUTOMATION_FIRST_PRINCIPLES.md`, `docs/MYTHOS_CONTROL_CENTER_PRODUCT_SPEC.md`, `docs/AUTOMATION_ARCHITECTURE.md`, `docs/AUTOMATION_GOVERNANCE.md`, `docs/AUTOMATION_APPROVAL_MATRIX.md`, `docs/AUTOMATION_SECURITY_AND_SECRETS.md`, `docs/AUTOMATION_OPERATIONS_RUNBOOK.md`, and `docs/AUTOMATION_ROADMAP.md` for the full AUT-0 foundation and the complete future stage sequence.
+
+---
+
+## Personal Intelligence — Separate Product Track
+
+Mythos Personal Intelligence & Skills Platform (`mythos_intelligence`) is the shared, per-user, per-organisation, per-profession AI personalisation architecture behind every Mythos chatbot instance. Strategic principle: **"Shared capabilities, isolated intelligence."** One shared platform — never a copied chatbot per customer — personalised through layered context (Global Intelligence → Domain → Organisation → User → Session), controlled memory/learning, and permission-gated skill execution.
+
+**Developed on branch `feat/mythos-personal-intelligence`, not yet merged to `main`.** The Personal Intelligence track does not change the currently authorised implementation-stage priority. Stage 3E remains the next Mythos OS runtime stage; IDA-2 remains the next authorised Automotive implementation stage; INF-CF-2 remains blocked; INF-OVH-API-0 remains the next Automation implementation stage. MPI-0 is documentation, contracts, an illustrative reference implementation, and tests only.
+
+| Stage | Description | Status |
+|---|---|---|
+| MPI-0 | Personal Intelligence Foundation — architecture, contracts, scope/precedence model, memory policy, agent skills, draft schema, reference implementation, tests | ✓ Done (2026-08-06, on `feat/mythos-personal-intelligence`) |
+| MPI-1 | Context Assembler + Context Compiler (runtime) | Planned |
+| MPI-2 | Personal Learning & Memory Engine (runtime, persistent) | Planned |
+| MPI-3 | Runtime Skill Router + Superposer | Planned |
+| MPI-4 | Personal Chatbot Runtime | Planned |
+| MPI-5 | Education Domain Pilot | Planned |
+| MPI-6 | Automotive Workshop Pilot | Planned |
+| MPI-7 | Organisation AI Admin | Planned |
+| MPI-8 | User AI Preferences & Memory Controls | Planned |
+| MPI-9 | Multi-model Provider Routing | Planned |
+| MPI-10 | Analytics, Feedback and Optimisation | Planned |
+
+See `docs/MYTHOS_PERSONAL_INTELLIGENCE_VISION.md` for the strategic direction, `docs/MYTHOS_PERSONAL_INTELLIGENCE_ARCHITECTURE.md` for the full contract set, `docs/MYTHOS_USER_MEMORY_POLICY.md`, `docs/MYTHOS_CONTEXT_ARCHITECTURE.md`, `docs/MYTHOS_DOMAIN_PACKS.md`, `docs/MYTHOS_AI_MULTI_TENANCY.md`, `docs/MYTHOS_CHATBOT_ARCHITECTURE.md`, `docs/SKILLS_ARCHITECTURE.md`, `docs/SKILLS_SUPERPOSER.md`, `docs/SKILLS_SECURITY.md`, `docs/SKILLS_SOURCES.md`, `docs/SKILLS_ROADMAP.md`, and `docs/MODEL_ROUTING_ARCHITECTURE.md` for the full MPI-0 foundation.
 
 ---
 
