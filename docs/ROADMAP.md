@@ -1,6 +1,6 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-05 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added)
+**Last updated:** 2026-08-07 UTC (MOU-0 — Mouain Education OS Foundation registered)
 
 ---
 
@@ -224,3 +224,55 @@ See `docs/AUTOVALEUR_ROADMAP.md` for the full AutoValeur stage plan.
 - No real market data ingested until AVA-3 (legal review required)
 - PostgreSQL target DBMS: 18-table `autovaleur` schema drafted (not deployed)
 - All feature flags: false in AVA-0
+
+---
+
+## Mouain — Future Strategic Project (Education)
+
+Mouain (مُعين) is an AI-powered Education OS — a separate product domain within the Mythos ecosystem. It is NOT a feature inside the existing Mythos Prod application.
+
+**Mouain implementation has NOT started.** No MOU stage beyond MOU-0 is authorised.
+
+See `docs/MOUAIN_VISION.md` for the full vision and `docs/MOUAIN_ROADMAP.md` for the complete stage plan and readiness gates.
+
+| Stage | Description | Status |
+|-------|-------------|--------|
+| MOU-0 | Foundation and Vision Registration | ✓ Done (2026-08-07) |
+| MOU-1 | Discovery Phase — teacher collaboration, workflow validation, MVP scope | Planned — NOT AUTHORISED |
+| MOU-2 | Architecture and Platform Setup — technology stack, data model, deployment | Planned — NOT AUTHORISED |
+| MOU-3 | Teacher OS MVP — curriculum-aware planning, AI assistance | Planned — NOT AUTHORISED |
+| MOU-4 | Skills and Agents MVP — modular skills, specialized agents | Planned — NOT AUTHORISED |
+| MOU-5 | Student and Parent Layers — classroom, assignments, parent portal | Planned — NOT AUTHORISED |
+| MOU-6 | Institution OS — school administration, B2B | Planned — NOT AUTHORISED |
+
+### Readiness Gates
+
+Mouain implementation (MOU-1 forward) is activated only when ALL gates are satisfied:
+
+| Gate | Description | Status |
+|------|-------------|--------|
+| GATE-1 | Mythos platform foundation sufficiently stable | Pending — Stage 3G not started |
+| GATE-2 | Reusable AI/Skill infrastructure prototype exists | Pending |
+| GATE-3 | Mouain identity and domain decisions confirmed | Partial — name established |
+| GATE-4 | Founding Pedagogical Council formed | Pending |
+| GATE-5 | First Tunisian curriculum scope selected | Pending |
+| GATE-6 | Discovery Phase complete with validated findings | Pending |
+| GATE-7 | MVP scope validated by Pedagogical Council | Pending |
+| GATE-8 | Privacy/data model reviewed | Pending |
+
+### Dependency Position
+
+Mouain is a separate product track. It does NOT:
+- Block any current Mythos OS stage (3E, 3F, 3G)
+- Block any Mythos Automotive stage (IDA-2, ATN-1, AVA-1)
+- Depend on Mythos OS production code
+
+Mouain implementation begins only when its readiness gates are satisfied AND no active major implementation stage is in progress in the Mythos ecosystem.
+
+### Current Priority (Unchanged)
+
+1. Mythos OS: Stage 3E → 3F → 3G
+2. ID Auto: IDA-2
+3. Atelier Network: ATN-1
+4. AutoValeur: AVA-1
+5. Mouain: MOU-0 complete — **MOU-1 NOT AUTHORISED**

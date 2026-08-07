@@ -1,8 +1,85 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-05 UTC
-**From:** Stage INF-CF-0 review — Cloudflare Foundation + Stage 3D — Planning Runtime Plugin
+**Last updated:** 2026-08-07 UTC
+**From:** Stage MOU-0 — Mouain Education OS Foundation Registration
 **To:** Next AI session
+
+---
+
+## Stage MOU-0 — Mouain Education OS Foundation Registration
+
+**Objective:** Register Mouain (مُعين) as a future strategic project in the Mythos ecosystem. Document vision, architecture, pedagogy, roadmap, and Founding Pedagogical Council charter. No implementation. No code. No deployment.
+
+**Starting remote HEAD:** `30b083cdade453e94c4bee423d76ed097b3052d8` (docs/cloudflare-foundation)
+**Status:** Complete and committed
+
+**Branch:** `docs/mouain-foundation`
+
+### Scope
+
+Documentation only. No runtime code, no PostgreSQL schema, no deployment, no data. Mouain is a separate Education OS product domain — not a Mythos OS feature and not part of Mythos Automotive.
+
+### Files Created
+
+| File | Description |
+|---|---|
+| `projects/mouain/README.md` | Project overview, positioning, core principle, product principle, architectural directions summary, repository layout |
+| `docs/MOUAIN_VISION.md` | Full vision: product identity, what IS/IS NOT, long-term ecosystem, core principle, target market, design principles, product versions, success criteria, non-goals |
+| `docs/MOUAIN_ARCHITECTURE.md` | 11 architectural directions (Teacher OS, Curriculum Engine, Teacher Memory, Skills, AI Agents, Student Intelligence, Classroom, Parent Layer, Institution OS, Learning Technology, Platform Direction); privacy/safety architecture; 6 provisional architecture decisions (MOU-AD-1 through MOU-AD-6); technology stack deferred |
+| `docs/MOUAIN_ROADMAP.md` | MOU-0 through MOU-6 stage plan; 8 readiness gates (GATE-1 through GATE-8); dependency-based activation (no arbitrary dates); explicit NOT AUTHORISED status for all stages beyond MOU-0 |
+| `docs/MOUAIN_PEDAGOGY.md` | Pedagogical philosophy, workflows (lesson planning, exercise design, assessment, correction, student monitoring), subject-specific considerations (Arabic, French, Mathematics, Sciences, Humanities, Islamic Education, PE), educational levels (Primary, Preparatory, Secondary), quality principles, non-goals |
+| `docs/MOUAIN_FOUNDING_PEDAGOGICAL_COUNCIL.md` | Council charter: identity (Arabic + English), role, non-role, composition criteria, working method, activation criteria (GATE-4), ethical framework, evolution path |
+
+### Files Updated
+
+| File | Change |
+|---|---|
+| `docs/ROADMAP.md` | Added Mouain section as future strategic project; MOU-0 through MOU-6 stage table; readiness gates table; dependency position note; priority unchanged |
+| `docs/AI_HANDOVER.md` | This entry added |
+
+### Key Decisions
+
+| Decision | Value |
+|---|---|
+| Product identity | Mouain — مُعين, Education OS |
+| Ecosystem position | Separate product domain (not Automotive, not Mythos OS) |
+| Stage prefix | MOU-N |
+| Implementation status | NOT STARTED — MOU-1 through MOU-6 are NOT AUTHORISED |
+| Activation model | Dependency-based readiness gates, not calendar dates |
+| Pedagogical authority | Educators (Founding Pedagogical Council) — not technologists |
+| Curriculum first target | Tunisia |
+| Privacy posture | Architectural requirement from day one |
+
+### 8 Readiness Gates
+
+| Gate | Description | Status |
+|---|---|---|
+| GATE-1 | Mythos platform foundation sufficiently stable | Pending |
+| GATE-2 | Reusable AI/Skill infrastructure prototype exists | Pending |
+| GATE-3 | Mouain identity and domain decisions confirmed | Partial |
+| GATE-4 | Founding Pedagogical Council formed | Pending |
+| GATE-5 | First Tunisian curriculum scope selected | Pending |
+| GATE-6 | Discovery Phase complete | Pending |
+| GATE-7 | MVP scope validated | Pending |
+| GATE-8 | Privacy/data model reviewed | Pending |
+
+### Validation
+
+- All created files verified valid UTF-8
+- `git diff --check` passes
+- No runtime code changed
+- No deployment performed
+- No real data
+
+### Known Risks
+
+None. Documentation-only stage — no infrastructure changed. Risk: premature implementation before readiness gates satisfied. Mitigation: explicit NOT AUTHORISED status on all stages beyond MOU-0.
+
+### Next Stage
+
+**MOU-1 — Discovery Phase** — NOT AUTHORISED. Requires GATE-1 through GATE-5 satisfied + explicit authorisation.
+
+The next authorised implementation stage in the Mythos ecosystem remains **IDA-2** (or Stage 3E if Mythos OS track is active).
 
 ---
 
