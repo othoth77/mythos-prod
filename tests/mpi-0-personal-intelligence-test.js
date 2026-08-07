@@ -240,6 +240,73 @@ console.log('\n13. PRECEDENCE — permission/policy always outranks preference')
     'Permission precedence is structurally higher than preference precedence');
 })();
 
+// ─────────────────────────────────────────────────────────────────────────
+console.log('\n14. SCOPE COVERAGE — session, domain, and global scopes (added post-Opus-review)');
+(function () {
+  // session scope: must require BOTH sessionIds present and equal — never
+  // match on two absent/undefined sessionIds.
+  var sessionRecord = { scope: 'session', sessionId: 's1', userId: 'u1', organisationId: 'orgX' };
+  ok(scope.recordVisibleToContext(sessionRecord, { userId: 'u1', organisationId: 'orgX', sessionId: 's1' }) === true,
+    'Session record visible when sessionId matches');
+  ok(scope.recordVisibleToContext(sessionRecord, { userId: 'u1', organisationId: 'orgX', sessionId: 's2' }) === false,
+    'Session record NOT visible when sessionId differs');
+  var noSessionRecord = { scope: 'session', userId: 'u1', organisationId: 'orgX' }; // sessionId absent
+  ok(scope.recordVisibleToContext(noSessionRecord, { userId: 'u1', organisationId: 'orgX' }) === false,
+    'Session record with absent sessionId does NOT match a context with absent sessionId (no guessing-by-omission)');
+
+  // domain scope: domain-wide by design (shared across organisations in that
+  // domain), but must still require both domainIds present and equal.
+  var domainRecord = { scope: 'domain', domainId: 'education', key: 'domain_default_grading_scale' };
+  ok(scope.recordVisibleToContext(domainRecord, { userId: 'u1', organisationId: 'orgX', domainId: 'education' }) === true,
+    'Domain-scoped record visible to any organisation in that domain (domain defaults are domain-wide, not org-private)');
+  ok(scope.recordVisibleToContext(domainRecord, { userId: 'u2', organisationId: 'orgY', domainId: 'education' }) === true,
+    'Domain-scoped record visible to a DIFFERENT organisation in the same domain (intentional, documented, not a tenant leak)');
+  ok(scope.recordVisibleToContext(domainRecord, { userId: 'u1', organisationId: 'orgX', domainId: 'automotive_workshop' }) === false,
+    'Domain-scoped record NOT visible to a different domain');
+  var noDomainRecord = { scope: 'domain', key: 'x' }; // domainId absent
+  ok(scope.recordVisibleToContext(noDomainRecord, { userId: 'u1', organisationId: 'orgX' }) === false,
+    'Domain-scoped record with absent domainId does NOT match a context with absent domainId (no guessing-by-omission)');
+
+  // global scope: visible everywhere once user/organisation context exists.
+  var globalRecord = { scope: 'global', key: 'mythos_wide_rule' };
+  ok(scope.recordVisibleToContext(globalRecord, { userId: 'u1', organisationId: 'orgX' }) === true,
+    'Global-scoped record is visible given any complete user/organisation context');
+})();
+
+// ─────────────────────────────────────────────────────────────────────────
+console.log('\n15. PERMISSION-GUESSING RESISTANCE — an absent/guessed identifier never grants access');
+(function () {
+  // docs/MYTHOS_AI_MULTI_TENANCY.md §2: "An identifier guessed, inferred, or
+  // hallucinated by a model must never grant access on its own."
+  var store = [
+    { scope: 'user', userId: 'teacherA', organisationId: 'orgX', key: 'private_pref' }
+  ];
+  ok(scope.filterByScope(store, {}).length === 0,
+    'An empty/incomplete context (no userId, no organisationId) matches NOTHING, even though records exist');
+  ok(scope.filterByScope(store, { userId: 'teacherA' }).length === 0,
+    'A context missing organisationId matches nothing, even with a correct userId guess');
+  ok(scope.filterByScope(store, { organisationId: 'orgX' }).length === 0,
+    'A context missing userId matches nothing, even with a correct organisationId guess');
+  ok(scope.filterByScope(store, { userId: 'teacherA', organisationId: 'orgX' }).length === 1,
+    'A complete, correct context still matches the real record (isolation is not overly strict either)');
+})();
+
+// ─────────────────────────────────────────────────────────────────────────
+console.log('\n16. GUARD — dataClassification and permanent-boundary id clarity (added post-Opus-review)');
+(function () {
+  var regulated = guard.evaluate({ permissionDecision: 'ALLOW', capabilityId: 'assessment.prepare', dataClassification: 'regulated' });
+  ok(regulated === 'REQUIRE_APPROVAL', 'A regulated data classification never resolves below REQUIRE_APPROVAL, even for an otherwise-ALLOW capability');
+
+  var financial = guard.evaluate({ permissionDecision: 'ALLOW', capabilityId: 'assessment.prepare', dataClassification: 'financial' });
+  ok(financial === 'REQUIRE_APPROVAL', 'A financial data classification never resolves below REQUIRE_APPROVAL');
+
+  var publicData = guard.evaluate({ permissionDecision: 'ALLOW', capabilityId: 'assessment.prepare', dataClassification: 'public' });
+  ok(publicData === 'ALLOW', 'A non-regulated data classification does not itself narrow an ALLOW decision');
+
+  ok(guard.PERMANENT_BOUNDARY_CAPABILITIES.indexOf('estimate.prepare') === -1,
+    'The domain-pack DRAFT-preparation capability (estimate.prepare) is correctly NOT itself a permanent boundary (drafting is not committing)');
+})();
+
 console.log('\nStage MPI-0: ' + pass + ' passed, ' + fail + ' failed');
 if (fail) process.exit(1);
 process.exit(0);
