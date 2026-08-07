@@ -1,0 +1,78 @@
+// =====================================================
+// Mythos Personal Intelligence — Guard Reference
+// projects/personal-intelligence/reference/guard.js
+//
+// Illustrative, dependency-free implementation of the Guard decision model
+// in docs/MYTHOS_PERSONAL_INTELLIGENCE_ARCHITECTURE.md §11 and
+// docs/SKILLS_SECURITY.md. Reuses the automation-level vocabulary from
+// docs/AUTOMATION_ARCHITECTURE.md §2.
+//
+// CRITICAL INVARIANT: a learned/explicit user preference may never move a
+// decision from a more restrictive outcome to a less restrictive one. This
+// module enforces that invariant structurally, not just by convention.
+//
+// STATUS: reference only. Not wired into the production application.
+// Exercised by tests/mpi-0-personal-intelligence-test.js.
+// =====================================================
+'use strict';
+
+var DECISIONS = ['DENY', 'REQUIRE_APPROVAL', 'DRY_RUN_ONLY', 'READ_ONLY', 'ALLOW'];
+// Ordered from most to least restrictive for comparison purposes.
+var RESTRICTIVENESS_RANK = { DENY: 0, REQUIRE_APPROVAL: 1, DRY_RUN_ONLY: 2, READ_ONLY: 3, ALLOW: 4 };
+
+var PERMANENT_BOUNDARY_CAPABILITIES = [
+  // Mirrors docs/AUTOMATION_APPROVAL_MATRIX.md §2 — illustrative subset relevant
+  // to personal-intelligence capabilities (e.g. financial mutation in workshop domain).
+  'estimate.commit', 'invoice.send', 'workorder.financial_mutate'
+];
+
+// -----------------------------------------------------------------------
+// evaluate({ permissionDecision, capabilityId, automationLevel,
+//            dataClassification, learnedPreferenceRequestsLevel })
+//   -> 'ALLOW' | 'DENY' | 'REQUIRE_APPROVAL' | 'READ_ONLY' | 'DRY_RUN_ONLY'
+//
+// permissionDecision: the decision already produced by the existing Mythos
+//   role/permission system for this user/organisation/action/resource — this
+//   function never re-derives or widens it, only narrows or passes it through.
+// -----------------------------------------------------------------------
+function evaluate(input) {
+  var base = input.permissionDecision;
+  if (DECISIONS.indexOf(base) === -1) {
+    throw new Error('[guard] invalid permissionDecision: ' + base);
+  }
+
+  var decision = base;
+
+  // Permanent-boundary capabilities are never less restrictive than
+  // REQUIRE_APPROVAL, regardless of anything else supplied.
+  if (PERMANENT_BOUNDARY_CAPABILITIES.indexOf(input.capabilityId) !== -1) {
+    decision = tightest(decision, 'REQUIRE_APPROVAL');
+  }
+
+  // A learned/explicit preference may only ever narrow the outcome further
+  // (e.g. request DRY_RUN_ONLY for personal caution) — it can never widen it.
+  if (input.learnedPreferenceRequestsLevel) {
+    var requested = input.learnedPreferenceRequestsLevel;
+    if (DECISIONS.indexOf(requested) !== -1) {
+      var narrowedOnly = restrictivenessOf(requested) <= restrictivenessOf(decision) ? requested : decision;
+      decision = tightest(decision, narrowedOnly);
+    }
+  }
+
+  return decision;
+}
+
+function restrictivenessOf(decision) {
+  return RESTRICTIVENESS_RANK[decision];
+}
+
+function tightest(a, b) {
+  return restrictivenessOf(a) <= restrictivenessOf(b) ? a : b;
+}
+
+module.exports = {
+  DECISIONS: DECISIONS,
+  PERMANENT_BOUNDARY_CAPABILITIES: PERMANENT_BOUNDARY_CAPABILITIES,
+  evaluate: evaluate,
+  restrictivenessOf: restrictivenessOf
+};
