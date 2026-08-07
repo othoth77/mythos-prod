@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-06T00:00:00Z",
-  "source_commit": "d0a4cbb464d78b56a546a0d60543e871c77579d5",
+  "generated_at": "2026-08-07T00:00:00Z",
+  "source_commit": "8632a99dfb94ff101811a8d0aa47ea5418c3cb19",
   "tracks": [
     "mythos-os",
     "mythos-automation-operations",
@@ -249,11 +249,11 @@
       "track": "mythos-personal-intelligence",
       "stage_id": "MPI-0",
       "title": "Personal Intelligence Foundation",
-      "status": "DONE_PENDING_MERGE",
+      "status": "DONE",
       "type": "FOUNDATION",
       "starting_head": "909ced531dab7095cc6511efd6e646ba4befa07c",
       "implementation_commit": "d0a4cbb",
-      "merge_commit": null,
+      "merge_commit": "8632a99dfb94ff101811a8d0aa47ea5418c3cb19",
       "handover_commit": "d0a4cbb",
       "completed_at": "2026-08-06",
       "tests": {
@@ -274,14 +274,19 @@
       "track": "mythos-personal-intelligence",
       "stage_id": "MPI-0-FINALIZATION",
       "title": "Comprehensive review, skills evolution, project intelligence ledger, PR #4 merge",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "type": "GOVERNANCE",
       "starting_head": "d0a4cbb464d78b56a546a0d60543e871c77579d5",
-      "implementation_commit": null,
-      "merge_commit": null,
+      "implementation_commit": "ca9d94484b57ccb4280ddf0ee376d35af9ff99fb",
+      "merge_commit": "8632a99dfb94ff101811a8d0aa47ea5418c3cb19",
       "handover_commit": null,
-      "completed_at": null,
-      "tests": {},
+      "completed_at": "2026-08-07",
+      "tests": {
+        "mpi0": "63/63",
+        "mpi0_finalization_governance": "36/36",
+        "stage4z": "44/44",
+        "stage3d": "104/110 (identical to base, 6 known baseline failures, 0 regressions)"
+      },
       "blockers": [],
       "next_stage": "MPI-1 (still not started after this stage)",
       "evidence_paths": [
@@ -336,10 +341,12 @@
     },
     {
       "number": 4,
-      "title": "Mythos Personal Intelligence & Skills Platform — MPI-0 Foundation",
+      "title": "Mythos Personal Intelligence & Skills Platform — MPI-0 Foundation + Finalization",
       "base": "main",
       "head": "feat/mythos-personal-intelligence",
-      "state": "OPEN_DRAFT_AS_OF_LEDGER_GENERATION"
+      "state": "MERGED",
+      "merge_commit": "8632a99dfb94ff101811a8d0aa47ea5418c3cb19",
+      "merged_at": "2026-08-07T20:26:18Z"
     }
   ],
   "tests": [

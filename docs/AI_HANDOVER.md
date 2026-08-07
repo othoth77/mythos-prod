@@ -1,8 +1,62 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-06 UTC
-**From:** Stage MPI-0 — Mythos Personal Intelligence & Skills Platform Foundation
+**Last updated:** 2026-08-07 UTC
+**From:** Stage MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry (MPI-0 merge)
 **To:** Next AI session
+
+---
+
+## Stage MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry
+
+**Objective:** Final review, evolve the Agent Skills, establish a permanent GitHub-based project history/statistics system, establish a portfolio registry distinguishing implemented product from owner strategic direction, and merge Stage MPI-0.
+
+**Status:** COMPLETE AND MERGED TO MAIN.
+
+**Original base (`main`) commit before MPI-0 work began:** `909ced531dab7095cc6511efd6e646ba4befa07c`
+**MPI-0 implementation commits (pre-finalization):** `bfc702a`, `a2d3bc6`, `cf3857f`, `92155b4`, `5b57a2d`, `f27f9a1`, `bf73237`, `d0a4cbb` (see the MPI-0 section below for the full record)
+**MPI-0-FINALIZATION commits (on top, same branch):** `1de5c14` docs(governance): add Mythos project history and portfolio intelligence · `30eed5f` feat(governance): add deterministic project ledger and statistics tooling · `9ffd5b1` feat(skills): add skill registry and evolution governance · `b5345f2` test(governance): validate history statistics and skill lifecycle · `ca9d944` docs(ai): finalise MPI-0 documentation and changelog
+**Pull Request:** #4, opened Draft, finalised and marked ready for review, merged with a standard merge commit (no squash, no rebase, no force-push)
+**Merge commit SHA:** `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`
+**`main` HEAD immediately after merge:** `8632a99dfb94ff101811a8d0aa47ea5418c3cb19` (fast-forwarded; verified `git rev-parse HEAD` == `git rev-parse origin/main`)
+
+### Models used (strict sequence, never parallel)
+
+- **Claude Opus 5** — one read-only strategic architecture/repository/skills audit. Verdict: PASS, no blockers, 9 Required items (all implemented by Sonnet), several Recommended items (mostly implemented).
+- **Claude Sonnet 5** — sole writer/implementer for all finalization work, commits, PR update, and merge.
+- **Claude Haiku 4.5** — one read-only final mechanical audit, run once after all finalization commits were pushed. Verdict: PASS, no blocker found (11/11 mechanical checks passed: ancestry, changed-file scope, no secrets, no PII/tenant leakage, skills-registry consistency, JSON validity, tests, doc links, no runtime work outside MPI-0, correct non-fabricated stage status, PR merge readiness).
+
+### What this stage added (on top of MPI-0)
+
+- **Project history:** `docs/PROJECT_HISTORY.md` (narrative), `docs/history/DAILY_HISTORY.md` + `docs/history/README.md` (evidence-backfilled daily ledger, one honestly-recorded `HISTORICAL_CONFLICT` for 2026-07-31)
+- **Portfolio registry:** `docs/MYTHOS_PORTFOLIO_REGISTRY.md` + `projects/meta/portfolio-registry.json` — 21 tracks, classified 12 REPOSITORY_VERIFIED / 5 OWNER_DIRECTION / 4 FUTURE_CONCEPT
+- **Machine-readable ledger & statistics:** `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json`, `docs/PROJECT_STATISTICS.md`, `docs/PROJECT_STATUS.md` — every statistic scoped, no fabricated global completion percentage
+- **Deterministic offline tool:** `scripts/project-intelligence.js` (Node built-ins only, no network, no auto-commit) — `validate`/`stats`/`history-check`/`ledger-check`/`summary`
+- **Skills evolution:** `docs/SKILLS_EVOLUTION.md`, `docs/SKILLS_VERSIONING_POLICY.md`, `projects/personal-intelligence/config/agent-skills-registry.json` (canonical registry, 20 skills, all MYTHOS_ORIGINAL) — resolved 5 overlapping-scope skill pairs via owner/delegator relationships, extended 11 skills, added 2 new skills (`mythos-skill-evolution`, `mythos-project-history`)
+- **Reference-implementation fixes:** `guard.js` (removed unused `automationLevel` param, simplified redundant double-narrow, clarified `dataClassification` handling), `scope.js` (closed absent/guessed-identifier scope-match loophole)
+- **Tests:** `tests/mpi-0-personal-intelligence-test.js` grew 47 → 63; new `tests/mpi-0-finalization-governance-test.js` (36 tests)
+- **Doc consistency:** `AGENTS.md` §24, updated `docs/SKILLS_ARCHITECTURE.md`/`SKILLS_ROADMAP.md`/`SKILLS_SOURCES.md`/`SKILLS_SECURITY.md`/`SKILLS_SUPERPOSER.md`/`MYTHOS_CHATBOT_ARCHITECTURE.md`, populated `docs/CHANGELOG.md` (previously tracked but empty)
+
+### Validation (all re-verified on `main` after merge)
+
+- `node tests/mpi-0-personal-intelligence-test.js` — 63/63 passed
+- `node tests/mpi-0-finalization-governance-test.js` — 36/36 passed
+- `node tests/stage4z-test.js` — 44/44 (regression, unaffected)
+- `node tests/stage3d-test.js` — 104/110 on both the base commit `909ced5` (isolated worktree) and the branch — identical 6 known baseline failures, **zero new regressions**
+- `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings (20 skills, 21 portfolio tracks, 14 ledger stages, 40 statistics entries, 9 history days)
+- JSON validity confirmed for all `projects/meta/*.json` and `agent-skills-registry.json`; `node --check` passed for all `.js` files; `git diff --check` clean
+- Secret/PII scan across all new/modified files — clean (only pre-existing legitimate public-infrastructure IP documentation in `docs/AI_HANDOVER.md`'s Cloudflare/RDAP research section, not a leak)
+
+### Safety Confirmation
+
+No production runtime (JS/HTML/PHP/CSS) changed. No database installed, migrated, or executed. No secrets, credentials, or real personal/organisation data. No cross-tenant leakage possible. Did not start Stage 3E, IDA-2, ATN-1, AVA-1, or INF-OVH-API-0. Did not begin MPI-1.
+
+### Exact Next Action
+
+1. **MPI-1 — Context Assembler + Context Compiler (runtime implementation)** is the next Personal Intelligence stage — **NOT STARTED.**
+2. **Stage 3E** remains the next Mythos OS runtime stage — **NOT STARTED.**
+3. **Owner-selected next major execution priority: INF-OVH-API-0 — OVHcloud Read-Only Connector** (replace manual domain/DNS inventory exports with a secure automated read-only collection) — **NOT STARTED.**
+4. Unchanged by this stage: IDA-2 remains the next authorised Automotive implementation stage; INF-CF-2 remains blocked pending owner approval; ATN-1/AVA-1 remain sequential after IDA-2.
+5. Respect the one-major-stage rule: do not begin more than one of the above without explicit owner authorisation.
 
 ---
 
@@ -10,7 +64,7 @@
 
 **Objective:** Establish the strategic architecture direction and application-level foundation for a shared, reusable, multi-user, multi-organisation, multi-profession AI personalisation platform — "one shared intelligence platform, personalised per user and organisation through layered context, memory, skills and permissions." Documentation, contracts, an illustrative reference implementation, draft (undeployed) schema, agent-development skill manifests, and tests only. No production runtime change.
 
-**Status:** COMPLETE, on a dedicated feature branch — **NOT MERGED TO MAIN**
+**Status:** COMPLETE. **UPDATE (2026-08-07):** merged to `main` via PR #4 together with MPI-0-FINALIZATION — see the MPI-0-FINALIZATION section above for the merge commit and final validation. The "NOT MERGED TO MAIN" status below reflects this stage's original state at time of writing and is preserved for historical accuracy.
 
 **Branch:** `feat/mythos-personal-intelligence` (created from `origin/main` at `909ced531dab7095cc6511efd6e646ba4befa07c`)
 **Starting remote HEAD:** `909ced531dab7095cc6511efd6e646ba4befa07c`

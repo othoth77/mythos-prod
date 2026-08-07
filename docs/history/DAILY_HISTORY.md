@@ -85,6 +85,21 @@
 - **End-of-day HEAD (`main`):** `909ced5` as of the AUT-0 handover; MPI-0-FINALIZATION work on `feat/mythos-personal-intelligence` continues same-day — see the finalisation stage's own `docs/AI_HANDOVER.md` entry for its exact final HEAD once pushed.
 - **Next recorded action:** MPI-0-FINALIZATION — skills evolution audit, project intelligence/history/statistics system, portfolio registry, PR #4 final review and merge decision.
 
+## 2026-08-07
+
+- **Commits:** 5 finalisation commits on `feat/mythos-personal-intelligence` (`1de5c14`, `30eed5f`, `9ffd5b1`, `b5345f2`, `ca9d944`), plus 1 merge commit on `main`.
+- **Stages active/completed on `main`:** MPI-0-FINALIZATION completed and merged; MPI-0 merged in the same PR.
+- **Pull Requests:** PR #4 ("Mythos Personal Intelligence & Skills Platform — MPI-0 Foundation + Finalization") — description updated with full finalisation summary, marked ready for review, **merged to `main` via a standard merge commit** (`8632a99dfb94ff101811a8d0aa47ea5418c3cb19`), no squash, no rebase, no force-push.
+- **Major files/modules added:** `docs/PROJECT_HISTORY.md`, `docs/history/`, `docs/MYTHOS_PORTFOLIO_REGISTRY.md`, `projects/meta/` (portfolio-registry.json, project-ledger.json, project-statistics.json), `docs/PROJECT_STATUS.md`, `docs/PROJECT_STATISTICS.md`, `scripts/project-intelligence.js`, `docs/SKILLS_EVOLUTION.md`, `docs/SKILLS_VERSIONING_POLICY.md`, `projects/personal-intelligence/config/agent-skills-registry.json`, `.claude/skills/mythos-skill-evolution/`, `.claude/skills/mythos-project-history/`, `tests/mpi-0-finalization-governance-test.js`.
+- **Architecture decisions:** resolved 5 previously-unacknowledged overlapping-scope Agent Skill pairs via explicit owner/delegator relationships rather than merge/deprecate; fixed two reference-implementation defects (`guard.js` unused-parameter/redundant-narrow, `scope.js` guessed-identifier scope-match loophole).
+- **Tests run:** `tests/mpi-0-personal-intelligence-test.js` grew 47 → 63, 63/63 passed; new `tests/mpi-0-finalization-governance-test.js` 36/36 passed; `tests/stage3d-test.js` re-verified 104/110 identical on base `909ced5` (isolated worktree) and branch — zero regressions; `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings.
+- **Known pre-existing failures:** same 6 `_memCache`-cascade suites as every prior stage, unchanged (see `.claude/skills/mythos-error-doctor/SKILL.md`).
+- **Security/safety changes:** none — governance/documentation/tooling only; no production runtime, database, or provider access.
+- **Doc changes:** `docs/ROADMAP.md`, `docs/AI_HANDOVER.md`, `docs/PROJECT_STATUS.md`, `docs/PROJECT_STATISTICS.md` (this entry included) updated post-merge to record MPI-0/MPI-0-FINALIZATION as complete and merged, per the permanent handover rule.
+- **Blockers:** none.
+- **End-of-day HEAD (`main`):** `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`.
+- **Next recorded action:** MPI-1 (Personal Intelligence runtime) — NOT STARTED. Stage 3E (Mythos OS runtime) — NOT STARTED. Owner-selected next major execution priority: INF-OVH-API-0 (OVHcloud read-only connector) — NOT STARTED.
+
 ---
 
 ## Corrections and Amendments

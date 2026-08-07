@@ -1,6 +1,6 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-06 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added; MPI-0 — Personal Intelligence Foundation added on `feat/mythos-personal-intelligence`, not yet merged)
+**Last updated:** 2026-08-07 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added; MPI-0 — Personal Intelligence Foundation, plus MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry, merged to `main` via PR #4, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`)
 
 ---
 
@@ -131,7 +131,7 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 4. **AutoValeur:** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster)
 5. **Ecosystem (parallel — docs only):** MAE-0 + ATN-0 complete; MAE-1 not started (blocked on IDA-2)
 6. **Automation (docs only):** AUT-0 complete; INF-OVH-API-0 is the next Automation implementation stage — not started, does not change items 1–4 above
-7. **Personal Intelligence (docs/contracts/reference/tests only, on `feat/mythos-personal-intelligence`, not merged):** MPI-0 complete; MPI-1 is the next Personal Intelligence implementation stage — not started, does not change items 1–4 above
+7. **Personal Intelligence (docs/contracts/reference/tests only, merged to `main` via PR #4):** MPI-0 and MPI-0-FINALIZATION complete; MPI-1 is the next Personal Intelligence implementation stage — NOT STARTED, does not change items 1–4 above
 
 **One-major-stage rule in force:** Only one major implementation stage may be active at a time unless the user gives explicit parallel authorisation. IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 cannot run in parallel without explicit user authorisation — they are sequential after IDA-2. The Automation track (INF-OVH-API-0 onward) and the Personal Intelligence track (MPI-1 onward) are likewise sequential and do not run in parallel with any of the above, or with each other, without explicit user authorisation.
 
@@ -185,12 +185,13 @@ See `docs/AUTOMATION_FIRST_PRINCIPLES.md`, `docs/MYTHOS_CONTROL_CENTER_PRODUCT_S
 
 Mythos Personal Intelligence & Skills Platform (`mythos_intelligence`) is the shared, per-user, per-organisation, per-profession AI personalisation architecture behind every Mythos chatbot instance. Strategic principle: **"Shared capabilities, isolated intelligence."** One shared platform — never a copied chatbot per customer — personalised through layered context (Global Intelligence → Domain → Organisation → User → Session), controlled memory/learning, and permission-gated skill execution.
 
-**Developed on branch `feat/mythos-personal-intelligence`, not yet merged to `main`.** The Personal Intelligence track does not change the currently authorised implementation-stage priority. Stage 3E remains the next Mythos OS runtime stage; IDA-2 remains the next authorised Automotive implementation stage; INF-CF-2 remains blocked; INF-OVH-API-0 remains the next Automation implementation stage. MPI-0 is documentation, contracts, an illustrative reference implementation, and tests only.
+**Developed on branch `feat/mythos-personal-intelligence`, merged to `main` via PR #4 (merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`, 2026-08-07).** The Personal Intelligence track does not change the currently authorised implementation-stage priority. Stage 3E remains the next Mythos OS runtime stage; IDA-2 remains the next authorised Automotive implementation stage; INF-CF-2 remains blocked; INF-OVH-API-0 remains the next Automation implementation stage — and is also the owner-selected next major execution priority overall, NOT STARTED. MPI-0 and MPI-0-FINALIZATION are documentation, contracts, an illustrative reference implementation, project-intelligence governance tooling, and tests only — no production runtime, no database deployed, no external provider access.
 
 | Stage | Description | Status |
 |---|---|---|
-| MPI-0 | Personal Intelligence Foundation — architecture, contracts, scope/precedence model, memory policy, agent skills, draft schema, reference implementation, tests | ✓ Done (2026-08-06, on `feat/mythos-personal-intelligence`) |
-| MPI-1 | Context Assembler + Context Compiler (runtime) | Planned |
+| MPI-0 | Personal Intelligence Foundation — architecture, contracts, scope/precedence model, memory policy, agent skills, draft schema, reference implementation, tests | ✓ Done and merged (2026-08-07, PR #4, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`) |
+| MPI-0-FINALIZATION | Skills evolution audit, project history/statistics/portfolio-registry governance, deterministic offline tooling | ✓ Done and merged (2026-08-07, PR #4, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`) |
+| MPI-1 | Context Assembler + Context Compiler (runtime) | Planned — NOT STARTED |
 | MPI-2 | Personal Learning & Memory Engine (runtime, persistent) | Planned |
 | MPI-3 | Runtime Skill Router + Superposer | Planned |
 | MPI-4 | Personal Chatbot Runtime | Planned |

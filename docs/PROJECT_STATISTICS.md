@@ -1,7 +1,7 @@
 # Mythos — Project Statistics
 
-**Stage:** MPI-0-FINALIZATION
-**Generated:** 2026-08-06
+**Stage:** MPI-0-FINALIZATION — COMPLETE AND MERGED
+**Generated:** 2026-08-06 · **Updated:** 2026-08-07 (post-merge)
 **Machine-readable counterpart:** `projects/meta/project-statistics.json`
 
 ---
@@ -18,19 +18,19 @@ This document also maintains the mandatory distinction from Phase 20: `architect
 
 | Statistic | Value | Source |
 |---|---|---|
-| Total commits on `main` (tracked history window) | 126 | `git log main --oneline \| wc -l` |
-| MPI-0 branch commits ahead of `main` (implementation only, pre-finalization) | 8 | `git log main..feat/mythos-personal-intelligence --oneline` |
-| Merged Pull Requests | 3 (#1, #2, #3) | `gh pr list --state merged` |
-| Open Pull Requests | 1 (#4, being finalised in this stage) | `gh pr list --state open` |
+| Total commits on `main` (tracked history window) | 140 | `git log main --oneline \| wc -l` |
+| MPI-0 branch commits ahead of `main` | 0 (fully merged) | `git log main..feat/mythos-personal-intelligence --oneline` |
+| Merged Pull Requests | 4 (#1, #2, #3, #4) | `gh pr list --state merged` |
+| Open Pull Requests | 0 | `gh pr list --state open` |
 
 ## 2. Stages
 
 | Statistic | Value | Source |
 |---|---|---|
 | Stages recorded in the project ledger | 14 | `projects/meta/project-ledger.json` |
-| Completed (`DONE`) | 12 | same |
-| Done, pending merge (`DONE_PENDING_MERGE` — MPI-0/PR #4) | 1 | same |
-| In progress (`IN_PROGRESS` — MPI-0-FINALIZATION) | 1 | same |
+| Completed (`DONE`) | 14 | same |
+| Done, pending merge (`DONE_PENDING_MERGE`) | 0 | same |
+| In progress (`IN_PROGRESS`) | 0 | same |
 | Blocked | 0 stages formally blocked; 2 **next** stages blocked (MAE-1 on IDA-2, INF-CF-2 on owner approval) | `docs/ROADMAP.md`, `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` |
 | Planned (named next-stage, not started) | 6 (Stage 3E, IDA-2, ATN-1, AVA-1, MPI-1, INF-OVH-API-0) | `docs/ROADMAP.md` |
 

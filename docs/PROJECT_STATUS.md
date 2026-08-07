@@ -1,17 +1,17 @@
 # Mythos — Project Status
 
-**Stage:** MPI-0-FINALIZATION
-**Generated:** 2026-08-06
+**Stage:** MPI-0-FINALIZATION — COMPLETE AND MERGED
+**Generated:** 2026-08-06 · **Updated:** 2026-08-07 (post-merge)
 **Purpose:** Quick "where are we now" snapshot. Full detail lives in `docs/AI_HANDOVER.md` (stage semantics), `docs/ROADMAP.md` (intentions), `docs/history/DAILY_HISTORY.md` (day-by-day), and `docs/PROJECT_STATISTICS.md` (numbers).
 
 ---
 
 ## Current Source of Truth
 
-- **Current `main` HEAD (before this finalisation stage merges):** `909ced531dab7095cc6511efd6e646ba4befa07c`
-- **Active PRs:** #4 — "Mythos Personal Intelligence & Skills Platform — MPI-0 Foundation" (`feat/mythos-personal-intelligence` → `main`), open/draft as of this document's generation; being finalised in this same stage.
-- **Current major active stage:** MPI-0-FINALIZATION (documentation/governance/tests only — no runtime stage active).
-- **Last completed stage on `main`:** AUT-0 — Mythos Automation-First Master Foundation.
+- **Current `main` HEAD:** `8632a99dfb94ff101811a8d0aa47ea5418c3cb19` (PR #4 merge commit)
+- **PRs:** #4 — "Mythos Personal Intelligence & Skills Platform — MPI-0 Foundation + Finalization" (`feat/mythos-personal-intelligence` → `main`), **MERGED** 2026-08-07 via standard merge commit.
+- **Current major active stage:** None. MPI-0 and MPI-0-FINALIZATION are both complete and merged; no runtime stage is active.
+- **Last completed stage on `main`:** MPI-0-FINALIZATION (merged), preceded by MPI-0 (same PR), preceded by AUT-0 — Mythos Automation-First Master Foundation.
 
 ---
 
@@ -22,7 +22,7 @@
 | Mythos OS Runtime | ACTIVE | Stage 3D — Planning Runtime | Stage 3E — Calendar Runtime | None — not started, awaiting authorisation |
 | Automation | FOUNDATION | AUT-0 | INF-OVH-API-0 — OVH Read-Only Connector | None — not started, awaiting authorisation |
 | Infrastructure / Cloudflare / OVH | FOUNDATION | INF-CF-2-PREP | INF-CF-2 — DNS migration and verification | **Blocked**: per-domain authoritative registrar/DNS-provider exports + owner approval required (`docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md`) |
-| Personal Intelligence | FOUNDATION | MPI-0 (pending merge via PR #4) | MPI-1 — Context Assembler + Context Compiler | None — not started, awaiting authorisation |
+| Personal Intelligence | FOUNDATION | MPI-0-FINALIZATION (merged via PR #4, 2026-08-07) | MPI-1 — Context Assembler + Context Compiler | None — not started, awaiting authorisation |
 | Mythos Automotive (umbrella) | FOUNDATION | MAE-0 | MAE-1 | **Blocked** on IDA-2 |
 | ID Auto | FOUNDATION | IDA-1 | IDA-2 — PostgreSQL Core, API and Manual Capture MVP | None — next authorised Automotive implementation stage |
 | Atelier Network | FOUNDATION | ATN-0 | ATN-1 | **Blocked** — after IDA-2 |

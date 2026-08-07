@@ -83,7 +83,8 @@ console.log('\n3. PROJECT LEDGER — validity');
   ok(new Set(keys).size === keys.length, 'No duplicate track/stage_id pairs in the ledger');
 
   var mpi0 = ledger.stages.find(function (s) { return s.stage_id === 'MPI-0'; });
-  ok(mpi0 && mpi0.status === 'DONE_PENDING_MERGE', 'MPI-0 is recorded as DONE_PENDING_MERGE, not falsely as fully merged, while PR #4 remains open');
+  ok(mpi0 && mpi0.status === 'DONE' && mpi0.merge_commit,
+    'MPI-0 is recorded as DONE with a merge_commit set, reflecting PR #4 having actually merged (not left stale at DONE_PENDING_MERGE)');
 })();
 
 // ─────────────────────────────────────────────────────────────────────────
