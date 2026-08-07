@@ -1,0 +1,52 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-08-07T00:00:00Z",
+  "source_commit": "b401a57431f490954bda31cf44987bfbba3f87b5",
+  "notes": "HIGH_RISK can never silently downgrade itself to STANDARD or FAST — a match against any HIGH_RISK criterion is final for that change set. Mythos Automation's existing LEVEL_3 approval boundaries (docs/AUTOMATION_APPROVAL_MATRIX.md) remain authoritative wherever this file and that matrix overlap; this file classifies developer-workflow risk, not automation-execution risk.",
+  "lanes": {
+    "FAST": {
+      "description": "Documentation-only or non-runtime metadata changes with no behavioural surface.",
+      "criteria": [
+        "docs/**/*.md",
+        "non-runtime example/config files with no secrets (e.g. *.example.json)",
+        "typo/wording fixes",
+        "projects/meta/*.json governance metadata (ledger, statistics, portfolio registry, current-context, known-baselines, test-impact-map)"
+      ],
+      "close_apply_allowed": true,
+      "test_strategy": "node scripts/project-intelligence.js validate; JSON/Markdown validation. No product test suite required unless the change touches test-impact-map-referenced paths."
+    },
+    "STANDARD": {
+      "description": "Isolated runtime module, adapter, or safe developer tooling change with a clear, contained blast radius.",
+      "criteria": [
+        "a single js/shared/*.js module and its direct callers",
+        "a new or extended Agent Development Skill under .claude/skills/",
+        "draft (undeployed) schema files under projects/*/database/",
+        "non-destructive integration code with no external network calls enabled by default"
+      ],
+      "close_apply_allowed": true,
+      "test_strategy": "targeted tests for the affected module plus its direct callers, per projects/meta/test-impact-map.json; full suite only if targeted tests reveal broader regression risk."
+    },
+    "HIGH_RISK": {
+      "description": "Any change with an irreversible, cross-tenant, credentialed, or production-facing blast radius.",
+      "criteria": [
+        "database migration or schema execution (not draft authoring)",
+        "authentication/authorization logic",
+        "production deployment of any kind",
+        "DNS or Cloudflare zone configuration",
+        "payments or financial mutation",
+        "secrets, credentials, or token handling",
+        "privilege/permission model changes",
+        "destructive operations (delete, force-push, history rewrite)",
+        "external irreversible actions (sending real communications, executing real financial transfers)"
+      ],
+      "close_apply_allowed": false,
+      "never_auto_downgrade": true,
+      "requires_owner_approval": true,
+      "references": [
+        "docs/AUTOMATION_APPROVAL_MATRIX.md (LEVEL_3 boundaries remain authoritative for automation-execution risk)",
+        "AGENTS.md §14-§17"
+      ],
+      "test_strategy": "full relevant regression suite plus explicit owner review before any close --apply is even considered; close --apply is refused by the Stage Runner for this lane (HIGH_RISK_POLICY_VIOLATION)."
+    }
+  }
+}

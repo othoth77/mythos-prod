@@ -11,7 +11,9 @@
     "id-auto",
     "atelier-network",
     "autovaleur",
-    "infrastructure-cloudflare"
+    "infrastructure-cloudflare",
+    "mythos-research-intelligence",
+    "mythos-devx"
   ],
   "stages": [
     {
@@ -294,6 +296,51 @@
         "docs/MYTHOS_PORTFOLIO_REGISTRY.md",
         "docs/history/DAILY_HISTORY.md",
         "projects/meta/"
+      ]
+    },
+    {
+      "track": "mythos-research-intelligence",
+      "stage_id": "RES-0",
+      "title": "Research Intelligence free-first foundation",
+      "status": "DONE_PENDING_MERGE",
+      "type": "DOCUMENTATION",
+      "starting_head": "909ced531dab7095cc6511efd6e646ba4befa07c",
+      "implementation_commit": "01c86a583cec43f4f257f3ea9930d83c1d159838",
+      "merge_commit": null,
+      "handover_commit": "f07e6f8aa8560469aad33d2b2ea7288c3119b065",
+      "completed_at": "2026-08-07",
+      "tests": {},
+      "blockers": [],
+      "next_stage": "RES-1 (NOT STARTED, NOT AUTHORISED)",
+      "evidence_paths": [
+        "docs/MYTHOS_RESEARCH_INTELLIGENCE_VISION.md",
+        "docs/MYTHOS_RESEARCH_INTELLIGENCE_ARCHITECTURE.md",
+        "docs/RESEARCH_ROADMAP.md",
+        "projects/research-intelligence/"
+      ]
+    },
+    {
+      "track": "mythos-devx",
+      "stage_id": "DEVX-0",
+      "title": "Development Acceleration MVP",
+      "status": "IN_PROGRESS",
+      "type": "GOVERNANCE",
+      "starting_head": "b401a57431f490954bda31cf44987bfbba3f87b5",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "DEVX-1 (NOT STARTED)",
+      "evidence_paths": [
+        "scripts/mythos-stage.js",
+        "projects/meta/current-context.json",
+        "projects/meta/known-baselines.json",
+        "projects/meta/test-impact-map.json",
+        "projects/meta/development-lanes.json",
+        "projects/meta/stage-templates.json",
+        "docs/DEVELOPMENT_ACCELERATION_ARCHITECTURE.md"
       ]
     }
   ],

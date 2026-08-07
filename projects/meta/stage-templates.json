@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-08-07T00:00:00Z",
+  "source_commit": "b401a57431f490954bda31cf44987bfbba3f87b5",
+  "notes": "Templates describe checks and artifact expectations by stage type — they are lookup tables, not scripts, and intentionally hold no repeated prompt text. The Stage Runner (scripts/mythos-stage.js) reads the matching template for a stage's 'type' field in projects/meta/project-ledger.json to assemble a Stage Context.",
+  "templates": {
+    "DOCUMENTATION_STAGE": {
+      "entry_checks": ["clean worktree", "local HEAD == origin/main (or declared base)", "no other major stage active"],
+      "risk_lane": "FAST",
+      "context_sources": ["docs/AI_HANDOVER.md", "docs/ROADMAP.md", "docs/PROJECT_STATUS.md"],
+      "skill_categories": ["orchestration", "governance"],
+      "expected_artifacts": ["new/updated docs/*.md"],
+      "test_strategy": "node scripts/project-intelligence.js validate; Markdown link check.",
+      "security_checks": ["secret scan", "PII scan"],
+      "documentation_updates": ["docs/AI_HANDOVER.md", "docs/ROADMAP.md status row"],
+      "closure_checks": ["git diff --check", "remote HEAD == local HEAD", "PR state matches stage policy"]
+    },
+    "RUNTIME_STAGE": {
+      "entry_checks": ["clean worktree", "local HEAD == origin/main", "dependencies satisfied", "no other major stage active"],
+      "risk_lane": "STANDARD",
+      "context_sources": ["docs/AI_HANDOVER.md", "docs/ROADMAP.md", "relevant tests/stageXX-test.js precedent"],
+      "skill_categories": ["orchestration", "quality", "governance"],
+      "expected_artifacts": ["js/shared/*.js or equivalent module", "targeted test file"],
+      "test_strategy": "targeted module tests + direct callers; tests/stage4z-test.js and tests/stage3d-test.js baseline comparison for js/**/index.html changes.",
+      "security_checks": ["secret scan", "no unrelated file changes (AGENTS.md §10 scope control)"],
+      "documentation_updates": ["docs/AI_HANDOVER.md", "docs/ROADMAP.md"],
+      "closure_checks": ["known-baseline comparison (projects/meta/known-baselines.json)", "git diff --check", "remote HEAD == local HEAD"]
+    },
+    "INFRASTRUCTURE_STAGE": {
+      "entry_checks": ["clean worktree", "local HEAD == origin/main", "owner approval gate satisfied where required", "no other major stage active"],
+      "risk_lane": "HIGH_RISK",
+      "context_sources": ["docs/CLOUDFLARE_ARCHITECTURE.md or equivalent", "docs/AUTOMATION_APPROVAL_MATRIX.md"],
+      "skill_categories": ["governance", "security"],
+      "expected_artifacts": ["docs/*.md architecture/runbook updates", "config templates (no live credentials)"],
+      "test_strategy": "documentation/config validation only unless stage explicitly authorises live provider verification.",
+      "security_checks": ["secret scan", "no live credentials committed", "no DNS/zone mutation without explicit owner approval"],
+      "documentation_updates": ["docs/AI_HANDOVER.md", "docs/ROADMAP.md", "relevant CLOUDFLARE_*/AUTOMATION_*.md"],
+      "closure_checks": ["HIGH_RISK lane forbids close --apply mutation; owner must review before merge"]
+    },
+    "CONNECTOR_STAGE": {
+      "entry_checks": ["clean worktree", "local HEAD == origin/main", "dependencies satisfied", "no other major stage active"],
+      "risk_lane": "STANDARD",
+      "context_sources": ["docs/AUTOMATION_ARCHITECTURE.md", "docs/AUTOMATION_SECURITY_AND_SECRETS.md", "docs/AUTOMATION_APPROVAL_MATRIX.md"],
+      "skill_categories": ["governance", "security", "quality"],
+      "expected_artifacts": ["read-only connector code with credentials sourced from an external secret store, never committed"],
+      "test_strategy": "targeted connector tests with mocked/sandboxed provider responses; no live external calls in the test suite.",
+      "security_checks": ["secret scan", "no credentials in config or code", "read-only enforced at the connector boundary", "LEVEL_3 approval boundary respected per docs/AUTOMATION_APPROVAL_MATRIX.md"],
+      "documentation_updates": ["docs/AI_HANDOVER.md", "docs/ROADMAP.md", "docs/AUTOMATION_ROADMAP.md"],
+      "closure_checks": ["git diff --check", "remote HEAD == local HEAD", "no live provider credentials present anywhere in the diff"]
+    },
+    "DATABASE_STAGE": {
+      "entry_checks": ["clean worktree", "local HEAD == origin/main", "mythos-change-impact boundary check passed", "no other major stage active"],
+      "risk_lane": "HIGH_RISK",
+      "context_sources": ["docs/AUTOMOTIVE_ARCHITECTURE.md (MAD-1..MAD-8)", "docs/MYTHOS_AI_MULTI_TENANCY.md"],
+      "skill_categories": ["governance", "data"],
+      "expected_artifacts": ["draft schema .sql (DRAFT NOT DEPLOYED unless stage explicitly authorises execution)"],
+      "test_strategy": "schema-shape validation (table count, balanced parens, no cross-schema FKs, no secret/PII columns); never execute a real migration inside a test.",
+      "security_checks": ["secret scan", "no PII columns", "one-writer-per-noun enforced (MAD-3)", "no cross-schema foreign keys (MAD-4)"],
+      "documentation_updates": ["docs/AI_HANDOVER.md", "docs/ROADMAP.md"],
+      "closure_checks": ["HIGH_RISK lane forbids close --apply mutation until owner explicitly authorises database execution"]
+    },
+    "SECURITY_STAGE": {
+      "entry_checks": ["clean worktree", "local HEAD == origin/main", "no other major stage active"],
+      "risk_lane": "HIGH_RISK",
+      "context_sources": ["AGENTS.md §14-§17", "docs/SKILLS_SECURITY.md", "docs/MYTHOS_AI_MULTI_TENANCY.md"],
+      "skill_categories": ["security", "governance"],
+      "expected_artifacts": ["security policy/doc updates", "isolated reference fixes with tests"],
+      "test_strategy": "full targeted security-relevant test suite; explicit isolation/permission-guessing-resistance tests where applicable.",
+      "security_checks": ["secret scan", "PII scan", "no privilege widening without explicit review"],
+      "documentation_updates": ["docs/AI_HANDOVER.md", "docs/ROADMAP.md", "relevant SKILLS_SECURITY.md/MYTHOS_AI_MULTI_TENANCY.md"],
+      "closure_checks": ["HIGH_RISK lane forbids close --apply mutation; owner review required before merge"]
+    },
+    "RESEARCH_STAGE": {
+      "entry_checks": ["clean worktree", "local HEAD == origin/main", "no other major stage active"],
+      "risk_lane": "FAST",
+      "context_sources": ["docs research-intelligence documents (free-first, provider-independent architecture)"],
+      "skill_categories": ["orchestration", "governance"],
+      "expected_artifacts": ["docs/*.md architecture/vision documents"],
+      "test_strategy": "node scripts/project-intelligence.js validate; Markdown link check. No provider account, no runtime code.",
+      "security_checks": ["secret scan", "no provider credentials of any kind"],
+      "documentation_updates": ["docs/AI_HANDOVER.md", "docs/ROADMAP.md"],
+      "closure_checks": ["git diff --check", "remote HEAD == local HEAD", "explicit confirmation the stage stayed documentation-only if that was its declared scope"]
+    }
+  }
+}
