@@ -82,11 +82,12 @@ user.context
   + diagnostic.summary
   + client.resolve
   + estimate.prepare
-  + guard
   + document.prepare
 ```
 
-**Only capabilities actually available in the runtime are ever composed.** A composition referencing an unimplemented capability contract (see `docs/MYTHOS_DOMAIN_PACKS.md`) fails closed at `GATE_CHECK`, not silently at execution time.
+`Guard` is not itself a composed step — it evaluates the plan above it, exactly once per step, before `EXECUTION` (see `docs/SKILLS_ARCHITECTURE.md` §5, `docs/SKILLS_SUPERPOSER.md` §2). Folding it into the `SkillPlan` itself would contradict that separation.
+
+**Only capabilities actually available in the runtime are ever composed.** A composition referencing an unimplemented capability contract (see `docs/MYTHOS_DOMAIN_PACKS.md`) fails closed — in the automation-lifecycle vocabulary (`docs/AUTOMATION_ARCHITECTURE.md` §3) this is the `GATE_CHECK` step; in this pipeline's own vocabulary (§1 above) it is the `GUARD` step evaluating an unavailable capability as `DENY`. The two vocabularies describe the same checkpoint from two different documents and are not two different checks.
 
 ---
 

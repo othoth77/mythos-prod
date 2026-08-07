@@ -29,7 +29,7 @@
 - **Multi-tenancy is application/data-layer enforced, never prompt-only.** Every persistent record is scoped (user/organisation/permission); a guessed identifier never grants access.
 - **Model routing is provider-neutral.** No personal/organisation intelligence is ever stored only in a provider-specific prompt file.
 
-### Files Created (23 tracked paths)
+### Files Created (40 new files across the paths below; table rows are grouped by area, not one row per file — see `git diff main...feat/mythos-personal-intelligence --stat` for the exact 40-added/2-modified count)
 
 | File | Description |
 |---|---|
