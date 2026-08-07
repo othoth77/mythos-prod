@@ -1,6 +1,6 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-06 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added)
+**Last updated:** 2026-08-07 UTC (RES-0 — Mythos Research Intelligence Foundation registered)
 
 ---
 
@@ -131,6 +131,7 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 4. **AutoValeur:** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster)
 5. **Ecosystem (parallel — docs only):** MAE-0 + ATN-0 complete; MAE-1 not started (blocked on IDA-2)
 6. **Automation (docs only):** AUT-0 complete; INF-OVH-API-0 is the next Automation implementation stage — not started, does not change items 1–4 above
+7. **Research Intelligence (docs only):** RES-0 complete — free-first, provider-independent research architecture; RES-1 NOT AUTHORISED (blocked by entry gate)
 
 **One-major-stage rule in force:** Only one major implementation stage may be active at a time unless the user gives explicit parallel authorisation. IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 cannot run in parallel without explicit user authorisation — they are sequential after IDA-2. The Automation track (INF-OVH-API-0 onward) is likewise sequential and does not run in parallel with any of the above without explicit user authorisation.
 
@@ -177,6 +178,62 @@ Mythos Automation & Operations (`mythos_automation`) is the shared platform capa
 | OPS-AUTO-1 | Notifications, Relances and Scheduled Reports | Planned |
 
 See `docs/AUTOMATION_FIRST_PRINCIPLES.md`, `docs/MYTHOS_CONTROL_CENTER_PRODUCT_SPEC.md`, `docs/AUTOMATION_ARCHITECTURE.md`, `docs/AUTOMATION_GOVERNANCE.md`, `docs/AUTOMATION_APPROVAL_MATRIX.md`, `docs/AUTOMATION_SECURITY_AND_SECRETS.md`, `docs/AUTOMATION_OPERATIONS_RUNBOOK.md`, and `docs/AUTOMATION_ROADMAP.md` for the full AUT-0 foundation and the complete future stage sequence.
+
+---
+
+## Research Intelligence — Platform Capability Track
+
+Mythos Research Intelligence is the free-first, provider-independent external research capability for the Mythos platform. It enables AI agents and users to retrieve fresh, citable external information safely — without coupling the platform to any single search provider.
+
+**Research Intelligence implementation has NOT started.** No RES stage beyond RES-0 is authorised.
+
+See `docs/MYTHOS_RESEARCH_INTELLIGENCE_VISION.md` for the full vision and `docs/RESEARCH_ROADMAP.md` for the complete stage plan and entry gates.
+
+| Stage | Description | Status |
+|-------|-------------|--------|
+| RES-0 | Free-First Research Intelligence Foundation — vision, architecture, provider strategy, security, trust model, roadmap, config templates | ✓ Done (2026-08-07) |
+| RES-1 | Research Gateway Core + Official Source Fetcher | Planned — NOT AUTHORISED |
+| RES-2 | Private SearXNG Deployment + Adapter | Planned — NOT AUTHORISED |
+| RES-3 | Source Trust + Citation + Research Cache | Planned — NOT AUTHORISED |
+| RES-4 | Optional Free-Quota Provider Adapters (Brave, Tavily) | Planned — NOT AUTHORISED |
+| RES-5 | Deep Research Orchestration + Optional Premium Provider | Planned — NOT AUTHORISED |
+| RES-6 | Research Monitoring, Analytics and Optimisation | Planned — NOT AUTHORISED |
+
+### RES-1 Entry Gate
+
+Research Intelligence runtime implementation (RES-1) is activated only when ALL gates are satisfied:
+
+| Gate | Description | Status |
+|------|-------------|--------|
+| MPI-0 merged | Personal Intelligence PR #4 merged to `main` | PENDING — PR #4 is OPEN / DRAFT |
+| Platform clean | Current `main` has no conflicting unmerged work | OK |
+| INF-OVH-API-0 | OVH Read-Only Connector complete OR owner re-prioritises | PENDING |
+| No active stage | No other major implementation stage in progress | Must verify at RES-1 time |
+| Owner authorisation | Explicit owner approval for RES-1 | PENDING |
+| VPS capacity | Resource check completed | Must verify at RES-1 time |
+| Security review | Security model reviewed | Must verify at RES-1 time |
+| Provider re-verify | Official provider docs re-verified (pricing, APIs, terms) | Must verify at RES-1 time |
+
+### Dependency Position
+
+Research Intelligence is a platform capability. It does NOT:
+- Block any current Mythos OS stage (3E, 3F, 3G)
+- Block any Mythos Automotive stage (IDA-2, ATN-1, AVA-1)
+- Depend on Mythos OS production code
+- Require any provider account or API key
+
+### Architecture
+
+Free-first provider order: cache → internal authoritative data → official sources → self-hosted SearXNG → free-quota APIs (Brave, Tavily) → optional premium (Perplexity). Research provider ≠ Reasoning model. `research.web` is the capability; providers are implementation details behind the Research Gateway.
+
+### Current Priority (Unchanged)
+
+1. Mythos OS: Stage 3E → 3F → 3G
+2. ID Auto: IDA-2
+3. Atelier Network: ATN-1
+4. AutoValeur: AVA-1
+5. Automation: INF-OVH-API-0 (next)
+6. Research Intelligence: RES-0 complete — **RES-1 NOT AUTHORISED**
 
 ---
 
