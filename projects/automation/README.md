@@ -2,8 +2,8 @@
 
 **Product key:** `mythos_automation`
 **Operator product:** Mythos Control Center
-**Stage:** AUT-0 — Automation-First Master Foundation
-**Status:** Documentation, architecture, configuration and draft schema only. Not deployed. Not connected to any external provider.
+**Stage:** INF-OVH-API-0 — OVH Read-Only Connector (reference implementation)
+**Status:** Documentation, architecture, configuration, draft schema, and one mocked/in-memory reference connector implementation. Not deployed. Not connected to any external provider — no live OVH credential exists anywhere in this repository or on the deployment host.
 
 ## What This Is
 
@@ -24,8 +24,10 @@ projects/automation/
 ├── README.md                          — this file
 ├── config/
 │   └── automation.example.json        — draft configuration (all flags false, no secrets)
-└── database/
-    └── control-plane-schema.sql       — draft PostgreSQL schema (24 tables, NOT DEPLOYED)
+├── database/
+│   └── control-plane-schema.sql       — draft PostgreSQL schema (24 tables, NOT DEPLOYED)
+└── reference/
+    └── ovh-readonly-connector.js      — INF-OVH-API-0 mocked reference implementation (LEVEL_1_READ_ONLY only, no live credential, no live network call)
 ```
 
 ## Related Documentation
@@ -41,17 +43,19 @@ projects/automation/
 | `docs/AUTOMATION_OPERATIONS_RUNBOOK.md` | How operators are expected to interact with runs, approvals and incidents once the platform exists |
 | `docs/AUTOMATION_ROADMAP.md` | The AUT-*/INF-*-AUTO-*/OPS-AUTO-* stage sequence |
 
-## Status of This Stage (AUT-0)
+## Status of This Stage (INF-OVH-API-0)
 
-- Documentation, architecture, configuration, and draft SQL only.
-- No OVH connector implemented. No OVH or Cloudflare credentials requested or created. No login to any provider performed.
-- No DNS or nameserver change. No DNSSEC operation.
-- No database installed, migrated, or executed. `database/control-plane-schema.sql` is a draft specification only.
+- `reference/ovh-readonly-connector.js` implements the LEVEL_1_READ_ONLY scope (list authorised domains, collect registrar metadata, collect authoritative DNS records, collect DNSSEC state, generate redacted structured snapshots) as a mocked, in-memory reference implementation — it never constructs a real OVH API client and never makes a live network call itself; a real client (built in a later stage, reading credentials only from an approved secret store per `docs/AUTOMATION_SECURITY_AND_SECRETS.md`) would be injected by the caller.
+- **Structurally read-only**: any injected client exposing a method whose name looks like a mutation (`create*`/`update*`/`set*`/`write*`/`delete*`/`remove*`/`patch*`/`put*`/`mutate*`/`apply*`) is rejected before any collection runs — this is enforced in code, not only by convention.
+- **Refuses to run unless explicitly enabled** (`config.enabled === true`) and refuses to run with an empty authorised-domain list.
+- Registrant (owner) contact fields are redacted before any snapshot record is produced; registrar, nameservers, dates, and DNSSEC state are retained, mirroring the INF-CF-1 redaction policy in `docs/CLOUDFLARE_DOMAIN_INVENTORY.md`.
+- No OVH or Cloudflare credentials requested, created, or stored anywhere. No login to any provider performed. No live network call made by this stage.
+- No DNS or nameserver change. No DNSSEC operation performed against a live domain.
+- No database installed, migrated, or executed. `database/control-plane-schema.sql` remains a draft specification only; this connector's snapshot-record shape matches its `aut_snapshots` table but nothing is written to any database.
 - No runtime JS/HTML/PHP/CSS changed.
-- No credential or secret value stored anywhere in this directory or its configuration.
 - INF-CF-2 remains blocked and not started (see `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md`).
 - Stage 3E remains the next Mythos OS runtime stage; IDA-2 remains the next authorised Automotive implementation stage.
 
 ## Next Stage
 
-**INF-OVH-API-0 — OVH Read-Only Connector** is the next Automation implementation stage (not started by this stage). See `docs/AUTOMATION_ROADMAP.md` for the full sequence and prerequisites.
+**INF-CF-AUTO-0 — Cloudflare Read-Only Connector** is the next Automation implementation stage (not started by this stage). See `docs/AUTOMATION_ROADMAP.md` for the full sequence and prerequisites.

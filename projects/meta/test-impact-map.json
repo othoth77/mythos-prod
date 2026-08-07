@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-07T00:00:00Z",
+  "generated_at": "2026-08-08T00:00:00Z",
   "source_commit": "b401a57431f490954bda31cf44987bfbba3f87b5",
   "notes": "Rules are checked in array order; the first matching path_prefix wins for a given changed file. A change set touching multiple prefixes accumulates the union of matched targeted_tests and takes the highest-risk matched lane. A changed file matching no rule falls back to the 'fallback' entry (full suite required, HIGH_RISK) rather than silently running nothing.",
   "rules": [
@@ -83,9 +83,10 @@
     {
       "path_prefix": "projects/automation/",
       "track": "mythos-automation-operations",
-      "targeted_tests": [],
-      "risk_lane": "STANDARD",
-      "notes": "Draft (undeployed) schema/config only as of this map's generation."
+      "targeted_tests": [
+        "node tests/inf-ovh-api-0-connector-test.js"
+      ],
+      "risk_lane": "STANDARD"
     },
     {
       "path_prefix": "projects/infrastructure/cloudflare/",
@@ -132,7 +133,9 @@
   ],
   "fallback": {
     "risk_lane": "HIGH_RISK",
-    "targeted_tests": ["FULL_SUITE_REQUIRED"],
+    "targeted_tests": [
+      "FULL_SUITE_REQUIRED"
+    ],
     "notes": "Unmatched/unknown path prefix. Per DEVX-0 policy, unknown or high-impact changes fall back to broader regression rather than assuming a narrow blast radius."
   }
 }
