@@ -1,8 +1,104 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-06 UTC
-**From:** Stage AUT-0 — Mythos Automation-First Master Foundation
+**From:** Stage MPI-0 — Mythos Personal Intelligence & Skills Platform Foundation
 **To:** Next AI session
+
+---
+
+## Stage MPI-0 — Mythos Personal Intelligence & Skills Platform Foundation
+
+**Objective:** Establish the strategic architecture direction and application-level foundation for a shared, reusable, multi-user, multi-organisation, multi-profession AI personalisation platform — "one shared intelligence platform, personalised per user and organisation through layered context, memory, skills and permissions." Documentation, contracts, an illustrative reference implementation, draft (undeployed) schema, agent-development skill manifests, and tests only. No production runtime change.
+
+**Status:** COMPLETE, on a dedicated feature branch — **NOT MERGED TO MAIN**
+
+**Branch:** `feat/mythos-personal-intelligence` (created from `origin/main` at `909ced531dab7095cc6511efd6e646ba4befa07c`)
+**Starting remote HEAD:** `909ced531dab7095cc6511efd6e646ba4befa07c`
+**Implementation commits:** recorded in the "Commits" table below once each is made — do not treat any hash in this section as a merged `main` commit; verify with `git log feat/mythos-personal-intelligence` before relying on any hash as current.
+
+### Official Decisions Established
+
+- **Product principle:** "Shared capabilities, isolated intelligence." Share code, domain skills, generic AI infrastructure, orchestration, model adapters. Isolate organisation data, user data, memory, permissions, business rules, personal preferences, private knowledge.
+- **Layer hierarchy (not flattened):** Global Mythos Intelligence → Domain Profile → Organisation Profile → User Profile → Session/Task → Intent Architect → Skill Router → Superposer → Guard/Permissions → Specialised Skills → Model/Agent/Tool → Validation → Learning Signals.
+- **User ≠ Role, permanently:** role/permissions answer "what is allowed"; User Intelligence answers "how this person prefers to work." AI learning may never grant permissions.
+- **Precedence order (9 levels):** system/security/legal → organisation policy → role/permissions → this-turn explicit instruction → explicit persistent user rule → verified organisation workflow → established user preference → domain default → generic default. A user preference never bypasses permissions or security.
+- **Learning scope defaults to `user`.** Promotion to `organisation`/`domain`/`global` requires explicit governance, never automatic. Confidence progresses `SESSION_OBSERVATION → CANDIDATE_PREFERENCE → ESTABLISHED_PREFERENCE`, with `EXPLICIT_USER_RULE` immediate and strongest.
+- **Context Assembler / Context Compiler:** context is classified `REQUIRED / USEFUL / IRRELEVANT / FORBIDDEN` before assembly; `FORBIDDEN` is excluded before relevance is ever considered. `loadAllUserMemory()` is a named anti-pattern.
+- **Two domain packs defined (capability contracts, no runtime):** `education` (10 capabilities) and `automotive_workshop` (12 capabilities, integrating with — not duplicating — existing ID Auto/Atelier Network).
+- **Two distinct skill kinds, never conflated:** Agent Development Skills (`.claude/skills/`, used by Claude/Codex to build/operate Mythos) vs. Runtime Mythos Capabilities (application-level, multi-tenant, used by end-user chatbots). `.claude/skills/` alone is explicitly documented as **not** the runtime architecture.
+- **Multi-tenancy is application/data-layer enforced, never prompt-only.** Every persistent record is scoped (user/organisation/permission); a guessed identifier never grants access.
+- **Model routing is provider-neutral.** No personal/organisation intelligence is ever stored only in a provider-specific prompt file.
+
+### Files Created (40 new files across the paths below; table rows are grouped by area, not one row per file — see `git diff main...feat/mythos-personal-intelligence --stat` for the exact 40-added/2-modified count)
+
+| File | Description |
+|---|---|
+| `docs/MYTHOS_PERSONAL_INTELLIGENCE_VISION.md` | NEW: strategic direction, teacher/workshop examples, product principle, commercial value |
+| `docs/MYTHOS_PERSONAL_INTELLIGENCE_ARCHITECTURE.md` | NEW: layer hierarchy, all profile contracts (Domain/Organisation/User/Session/Entity), precedence rules, learning scope/confidence, Guard model |
+| `docs/MYTHOS_USER_MEMORY_POLICY.md` | NEW: 7 memory types, learning pipeline, scope/confidence, write policy, forget/correct/override, feedback signals |
+| `docs/MYTHOS_CONTEXT_ARCHITECTURE.md` | NEW: Context Assembler classification/assembly, retrieval interface, entity resolution, Context Compiler, knowledge sources |
+| `docs/MYTHOS_DOMAIN_PACKS.md` | NEW: `education` and `automotive_workshop` domain pack capability contracts |
+| `docs/MYTHOS_AI_MULTI_TENANCY.md` | NEW: mandatory isolation requirements, enforcement points, required tests |
+| `docs/MYTHOS_CHATBOT_ARCHITECTURE.md` | NEW: end-to-end request pipeline, persona-vs-intelligence distinction, response architecture, Superposer examples |
+| `docs/SKILLS_ARCHITECTURE.md` | NEW: agent-development vs. runtime skill distinction, shared-skill model, layered overrides |
+| `docs/SKILLS_SUPERPOSER.md` | NEW: skill composition contract, runtime-availability fail-closed rule |
+| `docs/SKILLS_SECURITY.md` | NEW: hard security requirements, Guard evaluation, agent-dev/runtime boundary |
+| `docs/SKILLS_SOURCES.md` | NEW: upstream/wrapper/original classification for all 18 skills (all MYTHOS ORIGINAL — no suitable upstream identified) |
+| `docs/SKILLS_ROADMAP.md` | NEW: MPI-0 through MPI-10 stage sequence, 18-skill inventory |
+| `docs/MODEL_ROUTING_ARCHITECTURE.md` | NEW: provider-neutral capability classes, adapter contract |
+| `projects/personal-intelligence/README.md` | NEW: directory overview |
+| `projects/personal-intelligence/config/personal-intelligence.example.json` | NEW: draft config, all feature flags false, no secrets/PII |
+| `projects/personal-intelligence/database/control-plane-schema.sql` | NEW: 15-table draft PostgreSQL schema (`pi_` prefix, `mythos_intelligence` logical schema), DRAFT NOT DEPLOYED |
+| `projects/personal-intelligence/reference/scope.js` | NEW: precedence + isolation reference helpers |
+| `projects/personal-intelligence/reference/context-assembler.js` | NEW: classification/assembly + retrieval reference implementation |
+| `projects/personal-intelligence/reference/learning-engine.js` | NEW: observation→candidate→established→explicit-rule reference implementation |
+| `projects/personal-intelligence/reference/guard.js` | NEW: permission-decision reference implementation (never widens on learned preference) |
+| `projects/personal-intelligence/reference/intent-router.js` | NEW: illustrative multilingual (AR/Tunisian AR/FR/EN/mixed) intent + domain routing stub |
+| `.claude/skills/*/SKILL.md` (18 directories) | NEW: agent-development skill manifests — `mythos-project-context`, `mythos-intent-architect`, `mythos-skill-router`, `mythos-superposer`, `mythos-skill-guard`, `mythos-repo-guardian`, `mythos-safe-change`, `mythos-test-intelligence`, `mythos-change-impact`, `mythos-doc-sync`, `mythos-migration`, `mythos-error-doctor`, `mythos-smart-data-entry`, `mythos-document-intelligence`, `mythos-invoice-intelligence`, `mythos-client-360`, `mythos-context-assembler` (new), `mythos-personal-learning` (new) |
+| `tests/mpi-0-personal-intelligence-test.js` | NEW: 47 tests across 13 sections (user/org/role isolation, personalisation ×2, session, learning, permission, memory, context compression, intent ×5 languages, domain routing, cross-domain, precedence) |
+
+### Files Updated (1)
+
+| File | Change |
+|---|---|
+| `docs/ROADMAP.md` | Added "Personal Intelligence — Separate Product Track" section (MPI-0 through MPI-10 table, explicitly marked as developed on `feat/mythos-personal-intelligence`, not merged); updated top-line summary; added Current Priority item 7; extended one-major-stage-rule sentence to cover the Personal Intelligence track; all existing stage history preserved unchanged |
+
+### Validation
+
+- `python -m json.tool projects/personal-intelligence/config/personal-intelligence.example.json` — ✓ VALID.
+- SQL: 15/15 tables match header count; 170/170 parens balanced; no duplicate table names; no cross-schema foreign keys; no secret-value/PII columns; append-only audit specified for `pi_preference_audit`/`pi_guard_decisions`.
+- `node tests/mpi-0-personal-intelligence-test.js` — ✓ **47/47 passed** (one real bug found and fixed during validation: `resolveActiveDomain` was silently falling back to a user's only available domain even when an explicit hint named a domain the user was NOT authorised for; fixed to return `HINTED_DOMAIN_NOT_AUTHORIZED` instead of silently substituting).
+- `node tests/stage4z-test.js` — ✓ 44/44 (regression, unaffected).
+- `node tests/stage3d-test.js` — 104/110 (regression, unaffected; the 6 failures are the same pre-existing `_memCache`-cascade subprocess failures documented in every prior stage's handover, not caused by this stage).
+- `git diff --check` — ✓ passes, no whitespace errors.
+- Full diff/new-file scan for credential/secret/IP/email patterns — clean.
+- Confirmed: no runtime JS/HTML/PHP/CSS file changed; no database executed; no deployment; Global vs. Domain vs. Organisation vs. User intelligence kept distinct throughout; User ≠ Role enforced structurally in `guard.js` and tested; no future stage marked complete.
+
+### Safety Confirmation
+
+No production application file changed. No database installed, migrated, or executed — `projects/personal-intelligence/database/control-plane-schema.sql` is a draft specification only. No credential, secret, token, or real personal/organisation data anywhere in this stage's files. No cross-tenant leakage possible (no persistent store exists; isolation is tested against the in-memory reference only). Not merged to `main` — remains on `feat/mythos-personal-intelligence` pending review. Stage 3E, IDA-2, ATN-1, AVA-1, INF-OVH-API-0 not started.
+
+### Commits (on `feat/mythos-personal-intelligence`)
+
+See the branch's own `git log` for the authoritative, current list; the table below is a point-in-time record as of this handover commit, not guaranteed current beyond that moment.
+
+| SHA | Message |
+|---|---|
+| `bfc702a` | docs(ai): establish Mythos Personal Intelligence vision |
+| `a2d3bc6` | feat(ai): add domain organisation user and session context contracts |
+| `cf3857f` | feat(ai): add context assembler and personal intelligence foundation |
+| `92155b4` | feat(skills): extend intent router superposer for per-user context |
+| `5b57a2d` | feat(ai): add controlled personal learning foundation |
+| `f27f9a1` | test(ai): validate tenant isolation context and personalisation |
+| `bf73237` | docs(ai): add chatbot domain packs memory and rollout roadmap |
+| (this commit) | docs: update AI_HANDOVER.md for Mythos Personal Intelligence MPI-0 |
+
+### Exact Next Action
+
+1. Review the Draft PR (if repository access permitted one to be opened) from `feat/mythos-personal-intelligence` into `main`.
+2. **Do not merge without explicit review** — this stage intentionally stops short of merging per the task's own instruction.
+3. **MPI-1 — Context Assembler + Context Compiler (runtime implementation)** is the next Personal Intelligence stage — not started.
+4. Unchanged by this stage: **Stage 3E** remains the next Mythos OS runtime stage; **IDA-2** remains the next authorised Automotive implementation stage; **INF-CF-2** remains blocked; **INF-OVH-API-0** remains the next Automation implementation stage.
 
 ---
 
