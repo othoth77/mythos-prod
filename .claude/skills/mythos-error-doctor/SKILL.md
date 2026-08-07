@@ -22,7 +22,9 @@ As of Stage MPI-0-FINALIZATION, these six suites fail identically on `origin/mai
 
 `tests/stage3d-test.js` §9 runs all six as child processes and scores each as a single pass/fail — a failure inside any of the six surfaces as one of stage3d's own reported failures by design (see `tests/stage3d-test.js` lines ~727-759). A new stage introducing changes outside `js/`, `css/`, `.php`, or `index.html` that still shows exactly these six failures (104/110) is exhibiting `KNOWN_BASELINE_FAILURE`, not a regression — verify with a base-commit worktree comparison (`git worktree add`) rather than assuming, per `docs/AI_HANDOVER.md`'s MPI-0-FINALIZATION entry for the verification method.
 
+**This lookup list is now also machine-readable** at `projects/meta/known-baselines.json` (DEVX-0) — the two must stay in agreement; a new verified baseline is added to both, never to only one.
+
 ## Source
 
 Classification: MYTHOS ORIGINAL — see `docs/SKILLS_SOURCES.md`.
-Version: 1.1.0 — see `docs/SKILLS_EVOLUTION.md`.
+Version: 1.2.0 — see `docs/SKILLS_EVOLUTION.md`.

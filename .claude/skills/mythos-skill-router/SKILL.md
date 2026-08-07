@@ -19,10 +19,15 @@ Given a normalised intent (`mythos-intent-architect`) and an assembled context p
 
 Routing from keyword matching alone is explicitly insufficient and must never be the sole mechanism.
 
+## Development-skill selection (DEVX-0)
+
+This skill's ranking pattern (context in, ranked candidates out, never keyword-only) applies equally to selecting **Agent Development Skills** for a repository task: given a Stage Context from `node scripts/mythos-stage.js start <STAGE>` (which already carries `skills`, a filtered list by the stage's template's `skill_categories`), further rank by which skills the task's actual changed-file scope touches. This is the same mechanism applied to a different candidate set — it does not create a second routing algorithm.
+
 ## Governing documents
 
-`docs/MYTHOS_CHATBOT_ARCHITECTURE.md` §5.
+`docs/MYTHOS_CHATBOT_ARCHITECTURE.md` §5, `docs/DEVELOPMENT_WORKFLOW.md`.
 
 ## Source
 
 Classification: MYTHOS ORIGINAL — see `docs/SKILLS_SOURCES.md`.
+Version: 1.1.0 — see `docs/SKILLS_EVOLUTION.md`.
