@@ -1,6 +1,6 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-07 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added; MPI-0 — Personal Intelligence Foundation, plus MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry, merged to `main` via PR #4, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`)
+**Last updated:** 2026-08-07 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added; MPI-0 — Personal Intelligence Foundation, plus MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry, merged to `main` via PR #4, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`; RES-0 — Research Intelligence free-first foundation added, PR #5 open Draft; DEVX-0 — Development Acceleration MVP added)
 
 ---
 
@@ -132,8 +132,10 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 5. **Ecosystem (parallel — docs only):** MAE-0 + ATN-0 complete; MAE-1 not started (blocked on IDA-2)
 6. **Automation (docs only):** AUT-0 complete; INF-OVH-API-0 is the next Automation implementation stage — not started, does not change items 1–4 above
 7. **Personal Intelligence (docs/contracts/reference/tests only, merged to `main` via PR #4):** MPI-0 and MPI-0-FINALIZATION complete; MPI-1 is the next Personal Intelligence implementation stage — NOT STARTED, does not change items 1–4 above
+8. **Research Intelligence (docs only, PR #5 open Draft):** RES-0 complete; RES-1 is the next Research Intelligence implementation stage — NOT STARTED, NOT AUTHORISED, does not change items 1–4 above
+9. **Development Acceleration (developer tooling only):** DEVX-0 complete; DEVX-1 is the next Development Acceleration stage — NOT STARTED, does not change items 1–4 above
 
-**One-major-stage rule in force:** Only one major implementation stage may be active at a time unless the user gives explicit parallel authorisation. IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 cannot run in parallel without explicit user authorisation — they are sequential after IDA-2. The Automation track (INF-OVH-API-0 onward) and the Personal Intelligence track (MPI-1 onward) are likewise sequential and do not run in parallel with any of the above, or with each other, without explicit user authorisation.
+**One-major-stage rule in force:** Only one major implementation stage may be active at a time unless the user gives explicit parallel authorisation. IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 cannot run in parallel without explicit user authorisation — they are sequential after IDA-2. The Automation track (INF-OVH-API-0 onward), the Personal Intelligence track (MPI-1 onward), the Research Intelligence track (RES-1 onward), and the Development Acceleration track (DEVX-1 onward) are likewise sequential and do not run in parallel with any of the above, or with each other, without explicit user authorisation.
 
 ---
 
@@ -274,3 +276,33 @@ See `docs/AUTOVALEUR_ROADMAP.md` for the full AutoValeur stage plan.
 - No real market data ingested until AVA-3 (legal review required)
 - PostgreSQL target DBMS: 18-table `autovaleur` schema drafted (not deployed)
 - All feature flags: false in AVA-0
+
+---
+
+## Research Intelligence — Separate Product Track
+
+Mythos Research Intelligence is a free-first, provider-independent research-source layer. It is a documentation-only foundation as of RES-0 — no runtime, no deployment, no provider account.
+
+**Developed on branch `docs/research-intelligence-foundation`, PR #5 (Draft, not merged as of this entry).**
+
+| Stage | Description | Status |
+|---|---|---|
+| RES-0 | Research Intelligence free-first foundation — documentation only (Official Source Fetcher planned, SearXNG planned/NOT installed, Brave/Tavily/Perplexity noted as future optional providers) | ✓ Done, PR #5 open Draft |
+| RES-1 | First Research Intelligence runtime implementation | Planned — **NOT STARTED, NOT AUTHORISED** |
+
+---
+
+## Development Acceleration — Separate Product Track
+
+Mythos Development Acceleration (`projects/devx/`, `scripts/mythos-stage.js`) is developer tooling and repository orchestration only — it lets a future stage begin from a short owner instruction ("Start `<STAGE>` according to Mythos workflow") instead of a long prompt, by deriving execution context from GitHub/Git evidence. It implements no product runtime, touches no database, and performs no deployment.
+
+**Developed on branch `feat/devx-0-development-acceleration`.**
+
+| Stage | Description | Status |
+|---|---|---|
+| DEVX-0 | Development Acceleration MVP — current-context snapshot, known-baseline registry, test-impact map, development lanes, stage templates, Stage Runner CLI, short-command workflow contract | ✓ Done |
+| DEVX-1 | Dependency/Impact Graph + Automated PR Review | Future — NOT STARTED |
+| DEVX-2 | Verified Development Research Cache | Future — NOT STARTED |
+| DEVX-3 | Agent Orchestration Analytics | Future — NOT STARTED |
+
+See `docs/DEVELOPMENT_ACCELERATION_ARCHITECTURE.md` for the full design, `docs/DEVELOPMENT_WORKFLOW.md` for the short-command contract, `docs/DEVELOPMENT_TEST_INTELLIGENCE.md` for test-selection policy, and `docs/DEVELOPMENT_STAGE_TEMPLATES.md` for the stage-type templates.
