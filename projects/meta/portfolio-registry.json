@@ -1,0 +1,421 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-08-06T00:00:00Z",
+  "source_commit": "d0a4cbb464d78b56a546a0d60543e871c77579d5",
+  "methodology": "Classified by a read-only Opus 5 architecture review against actual repository file evidence (docs/*.md existence, projects/*/ existence, config feature-flag state), not from conversational recollection. evidence_status REPOSITORY_VERIFIED means the repository contains documentation and/or code for the track; it does NOT mean the track is production-deployed — see implementation_status for that distinction.",
+  "evidence_status_values": [
+    "REPOSITORY_VERIFIED",
+    "OWNER_DIRECTION",
+    "FUTURE_CONCEPT"
+  ],
+  "implementation_status_values": [
+    "ACTIVE",
+    "FOUNDATION",
+    "PLANNED",
+    "BLOCKED",
+    "CONCEPT",
+    "UNKNOWN"
+  ],
+  "tracks": [
+    {
+      "id": "mythos-os",
+      "name": "Mythos OS",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "ACTIVE",
+      "current_stage": "Stage 3D complete",
+      "next_stage": "Stage 3E — Calendar Runtime",
+      "repository_paths": [
+        "js/",
+        "index.html",
+        "docs/architecture.md",
+        "docs/mythos-os-blueprint.md"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [],
+      "notes": "Production chess-club management app. Includes the Production runtime module (js/plugins/production.runtime.js, Stage 3G complete) — that module is part of Mythos OS, not a separate 'Production/Creative/Events' vertical.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "mythos-automation-operations",
+      "name": "Mythos Automation & Operations",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": "mythos-os",
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "FOUNDATION",
+      "current_stage": "AUT-0 complete",
+      "next_stage": "INF-OVH-API-0",
+      "repository_paths": [
+        "docs/AUTOMATION_*.md",
+        "projects/automation/"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [],
+      "notes": "AUT-0 is documentation/architecture/config/draft-schema only. No connector enabled.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "mythos-control-center",
+      "name": "Mythos Control Center",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": "mythos-automation-operations",
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "CONCEPT",
+      "current_stage": null,
+      "next_stage": "No stage assigned yet",
+      "repository_paths": [
+        "docs/MYTHOS_CONTROL_CENTER_PRODUCT_SPEC.md"
+      ],
+      "domain_pack": null,
+      "dependencies": [
+        "mythos-automation-operations"
+      ],
+      "shared_platform_capabilities": [],
+      "notes": "Product specification only. No UI, no runtime code, no schema.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "mythos-personal-intelligence",
+      "name": "Mythos Personal Intelligence & Skills Platform",
+      "category": "PLATFORM_CORE",
+      "strategic_parent": "mythos-os",
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "FOUNDATION",
+      "current_stage": "MPI-0 complete (branch feat/mythos-personal-intelligence, PR #4)",
+      "next_stage": "MPI-1 — Context Assembler + Context Compiler",
+      "repository_paths": [
+        "docs/MYTHOS_PERSONAL_INTELLIGENCE_*.md",
+        "projects/personal-intelligence/",
+        ".claude/skills/"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [
+        "Guard/permission model shared with Automation"
+      ],
+      "notes": "Verify merge status of PR #4 before treating as merged to main.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "mythos-automotive",
+      "name": "Mythos Automotive (umbrella)",
+      "category": "AUTOMOTIVE",
+      "strategic_parent": "mythos-os",
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "FOUNDATION",
+      "current_stage": "MAE-0 complete",
+      "next_stage": "MAE-1 (blocked on IDA-2)",
+      "repository_paths": [
+        "docs/AUTOMOTIVE_*.md",
+        "projects/automotive/"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [],
+      "notes": "Umbrella brand and control-plane schema (31-table draft, undeployed).",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "id-auto",
+      "name": "ID Auto",
+      "category": "AUTOMOTIVE",
+      "strategic_parent": "mythos-automotive",
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "FOUNDATION",
+      "current_stage": "IDA-1 complete",
+      "next_stage": "IDA-2 — PostgreSQL Core, API and Manual Capture MVP",
+      "repository_paths": [
+        "docs/IDAUTO_*.md",
+        "projects/idauto/"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [],
+      "notes": "Next authorised Automotive implementation stage overall.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "atelier-network",
+      "name": "Atelier Network",
+      "category": "AUTOMOTIVE",
+      "strategic_parent": "mythos-automotive",
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "FOUNDATION",
+      "current_stage": "ATN-0 complete",
+      "next_stage": "ATN-1 (after IDA-2)",
+      "repository_paths": [
+        "docs/ATELIER_NETWORK_*.md",
+        "projects/atelier-network/"
+      ],
+      "domain_pack": null,
+      "dependencies": [
+        "id-auto"
+      ],
+      "shared_platform_capabilities": [],
+      "notes": "Generic multi-workshop platform; Fixpert is documented as the first pilot, not the product itself.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "fixpert",
+      "name": "Fixpert (workshop pilot)",
+      "category": "AUTOMOTIVE",
+      "strategic_parent": "atelier-network",
+      "evidence_status": "OWNER_DIRECTION",
+      "implementation_status": "UNKNOWN",
+      "current_stage": null,
+      "next_stage": null,
+      "repository_paths": [],
+      "domain_pack": "automotive_workshop",
+      "dependencies": [
+        "atelier-network",
+        "id-auto"
+      ],
+      "shared_platform_capabilities": [],
+      "notes": "No Fixpert runtime code in this repository — external operational system. First Atelier Network pilot by designation only.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "autocheck-standard",
+      "name": "AutoCheck Standard",
+      "category": "AUTOMOTIVE",
+      "strategic_parent": "atelier-network",
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "CONCEPT",
+      "current_stage": null,
+      "next_stage": null,
+      "repository_paths": [
+        "docs/AUTOCHECK_STANDARD.md"
+      ],
+      "domain_pack": null,
+      "dependencies": [
+        "atelier-network"
+      ],
+      "shared_platform_capabilities": [],
+      "notes": "Draft standard document only; zero implementation.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "parts-network",
+      "name": "Parts Network",
+      "category": "AUTOMOTIVE",
+      "strategic_parent": "mythos-automotive",
+      "evidence_status": "OWNER_DIRECTION",
+      "implementation_status": "CONCEPT",
+      "current_stage": null,
+      "next_stage": null,
+      "repository_paths": [],
+      "domain_pack": null,
+      "dependencies": [
+        "mythos-automotive"
+      ],
+      "shared_platform_capabilities": [],
+      "notes": "No runtime code in this repository.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "ssangyong-parts",
+      "name": "SsangYong Parts (ssangyong.autos)",
+      "category": "AUTOMOTIVE",
+      "strategic_parent": "parts-network",
+      "evidence_status": "OWNER_DIRECTION",
+      "implementation_status": "BLOCKED",
+      "current_stage": null,
+      "next_stage": null,
+      "repository_paths": [
+        "projects/infrastructure/cloudflare/domain-inventory.json"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [],
+      "notes": "External commercial system; source not in this repository; LEGAL-REVIEW-REQUIRED per docs/AUTOMOTIVE_PRODUCT_PORTFOLIO.md.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "autovaleur",
+      "name": "AutoValeur",
+      "category": "AUTOMOTIVE",
+      "strategic_parent": "mythos-automotive",
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "FOUNDATION",
+      "current_stage": "AVA-0 complete",
+      "next_stage": "AVA-1 — Public Calculator MVP",
+      "repository_paths": [
+        "docs/AUTOVALEUR_*.md",
+        "projects/autovaleur/"
+      ],
+      "domain_pack": null,
+      "dependencies": [
+        "id-auto"
+      ],
+      "shared_platform_capabilities": [],
+      "notes": null,
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "education-domain-pack",
+      "name": "Education Domain Pack",
+      "category": "EDUCATION",
+      "strategic_parent": "mythos-personal-intelligence",
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "CONCEPT",
+      "current_stage": null,
+      "next_stage": "MPI-5 — Education Domain Pilot",
+      "repository_paths": [
+        "docs/MYTHOS_DOMAIN_PACKS.md"
+      ],
+      "domain_pack": "education",
+      "dependencies": [
+        "mythos-personal-intelligence"
+      ],
+      "shared_platform_capabilities": [],
+      "notes": "10 capability contracts defined; explicitly 'no runtime support yet'. Branch-only until PR #4 merges.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "automotive-workshop-domain-pack",
+      "name": "Automotive Workshop Domain Pack",
+      "category": "AUTOMOTIVE",
+      "strategic_parent": "mythos-personal-intelligence",
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "CONCEPT",
+      "current_stage": null,
+      "next_stage": "MPI-6 — Automotive Workshop Pilot",
+      "repository_paths": [
+        "docs/MYTHOS_DOMAIN_PACKS.md"
+      ],
+      "domain_pack": "automotive_workshop",
+      "dependencies": [
+        "mythos-personal-intelligence",
+        "id-auto",
+        "atelier-network"
+      ],
+      "shared_platform_capabilities": [],
+      "notes": "12 capability contracts defined; integrates conceptually with ID Auto/Atelier Network, no runtime.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "production-creative-events",
+      "name": "Production / Creative / Events vertical",
+      "category": "PRODUCTION_CREATIVE_EVENTS",
+      "strategic_parent": null,
+      "evidence_status": "FUTURE_CONCEPT",
+      "implementation_status": "CONCEPT",
+      "current_stage": null,
+      "next_stage": null,
+      "repository_paths": [],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [],
+      "notes": "No dedicated product docs or domain pack in this repository. Not to be confused with the existing Mythos OS Production runtime module.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "business-administrative",
+      "name": "Business / Administrative / Digital Services",
+      "category": "BUSINESS_ADMIN",
+      "strategic_parent": null,
+      "evidence_status": "FUTURE_CONCEPT",
+      "implementation_status": "CONCEPT",
+      "current_stage": null,
+      "next_stage": null,
+      "repository_paths": [],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [],
+      "notes": "Only named as example domain ids ('accounting', 'administration') in docs/MYTHOS_DOMAIN_PACKS.md; no dedicated doc.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "infrastructure-cloudflare",
+      "name": "Infrastructure — Cloudflare Edge Security",
+      "category": "INFRASTRUCTURE",
+      "strategic_parent": null,
+      "evidence_status": "REPOSITORY_VERIFIED",
+      "implementation_status": "FOUNDATION",
+      "current_stage": "INF-CF-2-PREP complete",
+      "next_stage": "INF-CF-2 (blocked, entry criteria pending)",
+      "repository_paths": [
+        "docs/CLOUDFLARE_*.md",
+        "projects/infrastructure/cloudflare/"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [],
+      "notes": "8-domain inventory verified; no DNS/nameserver change performed.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "infrastructure-ovh-coolify-n8n-github",
+      "name": "Infrastructure — OVHcloud/Coolify/n8n/GitHub connectors",
+      "category": "INFRASTRUCTURE",
+      "strategic_parent": "mythos-automation-operations",
+      "evidence_status": "OWNER_DIRECTION",
+      "implementation_status": "PLANNED",
+      "current_stage": null,
+      "next_stage": "INF-OVH-API-0 — OVHcloud Read-Only Connector",
+      "repository_paths": [
+        "projects/automation/config/automation.example.json"
+      ],
+      "domain_pack": null,
+      "dependencies": [
+        "mythos-automation-operations"
+      ],
+      "shared_platform_capabilities": [],
+      "notes": "Named as planned connectors; all feature flags false; no connector enabled or implemented.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "mobility-logistics",
+      "name": "Mobility & Logistics",
+      "category": "FUTURE_VERTICAL",
+      "strategic_parent": null,
+      "evidence_status": "FUTURE_CONCEPT",
+      "implementation_status": "CONCEPT",
+      "current_stage": null,
+      "next_stage": null,
+      "repository_paths": [],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [],
+      "notes": "Appears only under docs/AUTOMOTIVE_PRODUCT_PORTFOLIO.md 'Long-Range Optional Extensions'; explicitly not an authorised implementation stage.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "agri-community",
+      "name": "Agri & Community",
+      "category": "FUTURE_VERTICAL",
+      "strategic_parent": null,
+      "evidence_status": "OWNER_DIRECTION",
+      "implementation_status": "CONCEPT",
+      "current_stage": null,
+      "next_stage": null,
+      "repository_paths": [
+        "projects/infrastructure/cloudflare/domain-inventory.json"
+      ],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [],
+      "notes": "agribee.tn is a genuinely owned/inventoried domain (project label 'AgriBee'), but zero product docs and zero code exist.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    },
+    {
+      "id": "health-wellness",
+      "name": "Health & Wellness",
+      "category": "FUTURE_VERTICAL",
+      "strategic_parent": null,
+      "evidence_status": "FUTURE_CONCEPT",
+      "implementation_status": "CONCEPT",
+      "current_stage": null,
+      "next_stage": null,
+      "repository_paths": [],
+      "domain_pack": null,
+      "dependencies": [],
+      "shared_platform_capabilities": [],
+      "notes": "Explicitly deferred in docs/MYTHOS_DOMAIN_PACKS.md: 'only if legally appropriate in a future stage; not defined here'.",
+      "last_verified_at": "2026-08-06T00:00:00Z"
+    }
+  ]
+}
