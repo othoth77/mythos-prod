@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "generated_at": "2026-08-07T00:00:00Z",
-  "source_commit": "8632a99dfb94ff101811a8d0aa47ea5418c3cb19",
+  "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a",
   "tracks": [
     "mythos-os",
     "mythos-automation-operations",
@@ -323,14 +323,18 @@
       "track": "mythos-devx",
       "stage_id": "DEVX-0",
       "title": "Development Acceleration MVP",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "type": "GOVERNANCE",
       "starting_head": "b401a57431f490954bda31cf44987bfbba3f87b5",
-      "implementation_commit": null,
-      "merge_commit": null,
+      "implementation_commit": "f81d18282c0b904fafb3780031e69d85a300bd71",
+      "merge_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a",
       "handover_commit": null,
-      "completed_at": null,
-      "tests": {},
+      "completed_at": "2026-08-07",
+      "tests": {
+        "devx0": "45/45",
+        "mpi0_finalization_governance": "36/36",
+        "mpi0": "63/63"
+      },
       "blockers": [],
       "next_stage": "DEVX-1 (NOT STARTED)",
       "evidence_paths": [
@@ -394,6 +398,24 @@
       "state": "MERGED",
       "merge_commit": "8632a99dfb94ff101811a8d0aa47ea5418c3cb19",
       "merged_at": "2026-08-07T20:26:18Z"
+    },
+    {
+      "number": 6,
+      "title": "feat(devx): Mythos Development Acceleration MVP",
+      "base": "main",
+      "head": "feat/devx-0-development-acceleration",
+      "state": "MERGED",
+      "merge_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a",
+      "merged_at": "2026-08-07T22:30:30Z"
+    },
+    {
+      "number": 5,
+      "title": "docs(research): Mythos Research Intelligence free-first foundation",
+      "base": "main",
+      "head": "docs/research-intelligence-foundation",
+      "state": "OPEN_DRAFT",
+      "merge_commit": null,
+      "merged_at": null
     }
   ],
   "tests": [

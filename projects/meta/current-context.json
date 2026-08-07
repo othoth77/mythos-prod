@@ -1,12 +1,10 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-07T22:15:28.505Z",
-  "source_commit": "b401a57431f490954bda31cf44987bfbba3f87b5",
-  "main_head": "b401a57431f490954bda31cf44987bfbba3f87b5",
-  "active_branch": "feat/devx-0-development-acceleration",
-  "active_stage": [
-    "DEVX-0"
-  ],
+  "generated_at": "2026-08-07T22:41:46.480Z",
+  "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a",
+  "main_head": "62da023de0ab78f9c8d3754c28b141861b99c85a",
+  "active_branch": "main",
+  "active_stage": [],
   "last_completed_stage": {
     "track": "mythos-personal-intelligence",
     "stage_id": "MPI-0-FINALIZATION",

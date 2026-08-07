@@ -18,21 +18,22 @@ This document also maintains the mandatory distinction from Phase 20: `architect
 
 | Statistic | Value | Source |
 |---|---|---|
-| Total commits on `main` (tracked history window) | 140 | `git log main --oneline \| wc -l` |
+| Total commits on `main` (tracked history window) | 147 | `git log main --oneline \| wc -l` |
 | MPI-0 branch commits ahead of `main` | 0 (fully merged) | `git log main..feat/mythos-personal-intelligence --oneline` |
-| Merged Pull Requests | 4 (#1, #2, #3, #4) | `gh pr list --state merged` |
-| Open Pull Requests | 0 | `gh pr list --state open` |
+| DEVX-0 branch commits ahead of `main` | 0 (fully merged) | `git log main..feat/devx-0-development-acceleration --oneline` |
+| Merged Pull Requests | 5 (#1, #2, #3, #4, #6) | `gh pr list --state merged` |
+| Open Pull Requests | 1 (#5, Draft, RES-0) | `gh pr list --state open` |
 
 ## 2. Stages
 
 | Statistic | Value | Source |
 |---|---|---|
-| Stages recorded in the project ledger | 14 | `projects/meta/project-ledger.json` |
-| Completed (`DONE`) | 14 | same |
-| Done, pending merge (`DONE_PENDING_MERGE`) | 0 | same |
+| Stages recorded in the project ledger | 16 | `projects/meta/project-ledger.json` |
+| Completed (`DONE`) | 15 | same |
+| Done, pending merge (`DONE_PENDING_MERGE`) | 1 (RES-0, PR #5 open Draft) | same |
 | In progress (`IN_PROGRESS`) | 0 | same |
 | Blocked | 0 stages formally blocked; 2 **next** stages blocked (MAE-1 on IDA-2, INF-CF-2 on owner approval) | `docs/ROADMAP.md`, `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` |
-| Planned (named next-stage, not started) | 6 (Stage 3E, IDA-2, ATN-1, AVA-1, MPI-1, INF-OVH-API-0) | `docs/ROADMAP.md` |
+| Planned (named next-stage, not started) | 8 (Stage 3E, IDA-2, ATN-1, AVA-1, MPI-1, INF-OVH-API-0, RES-1, DEVX-1) | `docs/ROADMAP.md` |
 
 **Personal Intelligence roadmap stage ratio:** 1/11 — completed MPI stages (MPI-0) ÷ total defined MPI stages (MPI-0 through MPI-10). **ROADMAP STAGE RATIO, NOT PRODUCT COMPLETION ESTIMATE.**
 

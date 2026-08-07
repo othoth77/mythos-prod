@@ -1,10 +1,63 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-07 UTC
-**From:** Stage MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry (MPI-0 merge)
+**From:** Stage DEVX-0 — Development Acceleration MVP (merged)
 **To:** Next AI session
 
 ---
+
+## Stage DEVX-0 — Development Acceleration MVP
+
+**Objective:** Let a future stage begin from a short owner instruction ("Start `<STAGE>` according to Mythos workflow") instead of a long prompt, by deriving execution context from GitHub/Git evidence rather than repeated rules. Developer tooling and repository orchestration only — no product runtime, no database, no deployment.
+
+**Status:** COMPLETE AND MERGED TO MAIN.
+
+**Starting `main` HEAD:** `b401a57431f490954bda31cf44987bfbba3f87b5`
+**Implementation commits (on `feat/devx-0-development-acceleration`):** `01558af` feat(devx): add context baseline and test intelligence · `3e49858` feat(devx): add Mythos stage runner and workflow lanes · `9f61fa9` feat(skills): integrate development acceleration context · `b28545e` test(devx): validate accelerated stage workflow · `f81d182` docs(devx): document development acceleration foundation
+**Pull Request:** #6, opened Draft, marked ready for review after all gates passed, merged with a standard merge commit (no squash, no rebase, no force-push)
+**Merge commit SHA:** `62da023de0ab78f9c8d3754c28b141861b99c85a`
+**`main` HEAD after merge:** `62da023de0ab78f9c8d3754c28b141861b99c85a` (fast-forwarded; verified `git rev-parse HEAD` == `git rev-parse origin/main`)
+
+### Also in this stage's order (adjacent, not part of DEVX-0 itself)
+
+- **GitHub CLI repaired** on the persistent VPS worktree (`/home/deploy/projects/mythos-prod`): `gh` v2.97.0 installed from GitHub's own official release tarball, SHA-256 checksum-verified, no sudo used, no third-party mirror. Authenticated via the official device-flow (owner approved in-band, no PAT ever pasted anywhere).
+- **PR #5 created** for the previously-pending `docs/research-intelligence-foundation` branch (RES-0). **Left OPEN and DRAFT, not merged.** RES-1 is explicitly not authorised.
+
+### What DEVX-0 added
+
+- `scripts/mythos-stage.js` — the Stage Runner CLI (`context`/`status`/`start`/`validate`/`close`), deterministic and offline-first, reuses `scripts/project-intelligence.js` rather than duplicating its checks
+- `projects/meta/current-context.json` (regenerated via `node scripts/mythos-stage.js context`), `projects/meta/known-baselines.json`, `projects/meta/test-impact-map.json`, `projects/meta/development-lanes.json`, `projects/meta/stage-templates.json`
+- `projects/devx/README.md`, `docs/DEVELOPMENT_ACCELERATION_ARCHITECTURE.md`, `docs/DEVELOPMENT_WORKFLOW.md`, `docs/DEVELOPMENT_TEST_INTELLIGENCE.md`, `docs/DEVELOPMENT_STAGE_TEMPLATES.md`
+- `tests/devx-0-development-acceleration-test.js` — 45 tests
+- Extended 7 existing Agent Development Skills (`mythos-project-context`, `mythos-test-intelligence`, `mythos-error-doctor`, `mythos-repo-guardian`, `mythos-doc-sync`, `mythos-skill-router`, `mythos-superposer`) to consume DEVX-0 metadata — **no new skill created**, every extension fit an existing responsibility
+- `projects/meta/project-ledger.json` — added RES-0 and DEVX-0 stage records using the existing schema
+
+### Bug found and fixed during this stage
+
+`projects/meta/project-ledger.json`'s `type` field (`DOCUMENTATION`/`FOUNDATION`/`RUNTIME`/`INFRASTRUCTURE`/`DATABASE`/`DEPLOYMENT`/`GOVERNANCE`) was being looked up directly as a `stage-templates.json` key against a distinct `*_STAGE`-suffixed vocabulary — every existing stage silently resolved to a null template and a HIGH_RISK-by-default risk lane. Fixed with an explicit `TYPE_TO_TEMPLATE` map; a regression test now asserts every stage type actually present in the ledger resolves to a real template.
+
+### Validation (all re-verified on `main` after merge)
+
+- `node tests/devx-0-development-acceleration-test.js` — 45/45 passed
+- `node tests/mpi-0-finalization-governance-test.js` — 36/36 passed (regression, unaffected)
+- `node tests/mpi-0-personal-intelligence-test.js` — 63/63 passed (regression, unaffected)
+- `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings (16 ledger stages, 20 skills, 21 portfolio tracks, 40 statistics entries, 10 history days)
+- JSON validity confirmed for all new `projects/meta/*.json` files and the updated `project-ledger.json`/`project-statistics.json`; `node --check` passed for `scripts/mythos-stage.js` and the new test file; `git diff --check` clean
+- Secret/token/PII scan across every changed file — clean
+- Stage 3D was **not** re-run — DEVX-0 touched no `js/`/`css/`/`.php`/`index.html` file, so re-running it was not justified per `docs/DEVELOPMENT_TEST_INTELLIGENCE.md`'s own policy
+
+### Safety Confirmation
+
+No production runtime (JS/HTML/PHP/CSS) changed. No database installed, migrated, or executed. No deployment of any kind (no OVH, no Cloudflare, no Coolify, no SearXNG install). No secrets, credentials, or tokens anywhere in the repository diff. Did not start INF-OVH-API-0, MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, or AVA-1.
+
+### Exact Next Action
+
+1. **DEVX-1 — Dependency/Impact Graph + Automated PR Review** is the next Development Acceleration stage — **NOT STARTED.**
+2. **RES-1 — first Research Intelligence runtime implementation** — **NOT STARTED, NOT AUTHORISED.** PR #5 remains open/Draft.
+3. **MPI-1** remains the next Personal Intelligence stage — **NOT STARTED.**
+4. **Stage 3E** remains the next Mythos OS runtime stage — **NOT STARTED.**
+5. **Owner-selected next major execution priority: INF-OVH-API-0 — OVHcloud Read-Only Connector** — **NOT STARTED.**
+6. Respect the one-major-stage rule: do not begin more than one of the above without explicit owner authorisation.
 
 ## Stage MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry
 

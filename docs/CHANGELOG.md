@@ -24,3 +24,15 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 - Deterministic offline history/statistics/registry validation tool (`scripts/project-intelligence.js`).
 - Reference-implementation fixes: `guard.js` permanent-boundary id documentation and `dataClassification` handling; `scope.js` identifier-guessing loophole (session/domain scope no longer matches on two absent ids).
 - Additional tests for scope isolation, registry consistency, and statistics-formula validation.
+
+### Added — DEVX-0 — Mythos Development Acceleration MVP
+
+- Stage Runner CLI (`scripts/mythos-stage.js`): `context`/`status`/`start`/`validate`/`close`, deterministic and offline-first, reuses `scripts/project-intelligence.js` rather than duplicating it.
+- Current-context snapshot (`projects/meta/current-context.json`), known-baseline registry (`projects/meta/known-baselines.json`), test-impact map (`projects/meta/test-impact-map.json`), development lanes FAST/STANDARD/HIGH_RISK (`projects/meta/development-lanes.json`), and 7 reusable stage templates (`projects/meta/stage-templates.json`).
+- Short-command workflow contract: `docs/DEVELOPMENT_WORKFLOW.md`, `docs/DEVELOPMENT_ACCELERATION_ARCHITECTURE.md`, `docs/DEVELOPMENT_TEST_INTELLIGENCE.md`, `docs/DEVELOPMENT_STAGE_TEMPLATES.md`.
+- 7 existing Agent Development Skills extended to consume the above — no new skill created.
+- 45-test suite (`tests/devx-0-development-acceleration-test.js`).
+
+### Added — RES-0 — Mythos Research Intelligence free-first foundation
+
+- Free-first, provider-independent research-source architecture (documentation only). PR #5 open Draft — RES-1 not authorised.
