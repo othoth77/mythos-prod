@@ -11,7 +11,8 @@
 **Objective:** Establish the free-first, provider-independent external research capability architecture for the Mythos platform. Document vision, architecture, provider strategy, security/privacy, source trust/citation model, roadmap, and config templates. No implementation. No deployment. No provider accounts.
 
 **Starting remote HEAD:** `909ced531dab7095cc6511efd6e646ba4befa07c` (origin/main — AUT-0 handover)
-**Status:** Complete and committed
+**Implementation commit:** `01c86a583cec43f4f257f3ea9930d83c1d159838`
+**Status:** Complete and pushed
 
 **Branch:** `docs/research-intelligence-foundation`
 
