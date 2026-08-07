@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-07T00:00:00Z",
+  "generated_at": "2026-08-08T00:00:00Z",
   "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a",
   "tracks": [
     "mythos-os",
@@ -345,6 +345,26 @@
         "projects/meta/development-lanes.json",
         "projects/meta/stage-templates.json",
         "docs/DEVELOPMENT_ACCELERATION_ARCHITECTURE.md"
+      ]
+    },
+    {
+      "track": "mythos-automation-operations",
+      "stage_id": "INF-OVH-API-0",
+      "title": "OVH Read-Only Connector",
+      "status": "IN_PROGRESS",
+      "type": "CONNECTOR",
+      "starting_head": "e2ca9dc42f8ed317f220b561cffa1d4229b9a1ad",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "INF-CF-AUTO-0 (NOT STARTED)",
+      "evidence_paths": [
+        "projects/automation/reference/ovh-readonly-connector.js",
+        "tests/inf-ovh-api-0-connector-test.js",
+        "docs/AUTOMATION_ROADMAP.md"
       ]
     }
   ],

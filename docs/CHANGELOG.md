@@ -36,3 +36,9 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 ### Added — RES-0 — Mythos Research Intelligence free-first foundation
 
 - Free-first, provider-independent research-source architecture (documentation only). PR #5 open Draft — RES-1 not authorised.
+
+### Added — INF-OVH-API-0 — OVH Read-Only Connector (reference implementation)
+
+- `projects/automation/reference/ovh-readonly-connector.js`: LEVEL_1_READ_ONLY connector orchestration (list authorised domains, collect registrar metadata, collect DNS records, collect DNSSEC state, redacted snapshots). Structurally read-only (rejects any injected client exposing a mutation-shaped method); refuses to run unless explicitly enabled. No live OVH credential exists anywhere; no live network call made; not deployed.
+- 26-test suite (`tests/inf-ovh-api-0-connector-test.js`), every provider response mocked.
+- `projects/meta/project-ledger.json` and `projects/meta/test-impact-map.json` updated accordingly.

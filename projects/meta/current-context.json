@@ -1,16 +1,18 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-07T22:41:46.480Z",
-  "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a",
-  "main_head": "62da023de0ab78f9c8d3754c28b141861b99c85a",
-  "active_branch": "main",
-  "active_stage": [],
+  "generated_at": "2026-08-07T23:38:59.004Z",
+  "source_commit": "e2ca9dc42f8ed317f220b561cffa1d4229b9a1ad",
+  "main_head": "e2ca9dc42f8ed317f220b561cffa1d4229b9a1ad",
+  "active_branch": "feat/inf-ovh-api-0-readonly-connector",
+  "active_stage": [
+    "INF-OVH-API-0"
+  ],
   "last_completed_stage": {
     "track": "mythos-personal-intelligence",
     "stage_id": "MPI-0-FINALIZATION",
     "completed_at": "2026-08-07"
   },
-  "next_owner_priority": "INF-OVH-API-0 — OVHcloud Read-Only Connector",
+  "next_owner_priority": "INF-OVH-API-0 — OVHcloud Read-Only Connector — IN PROGRESS / COMPLETE AS REFERENCE IMPLEMENTATION",
   "active_prs": [],
   "draft_prs": [
     {

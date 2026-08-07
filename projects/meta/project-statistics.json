@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-07T00:00:00Z",
-  "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a",
+  "generated_at": "2026-08-08T00:00:00Z",
+  "source_commit": "e2ca9dc42f8ed317f220b561cffa1d4229b9a1ad",
   "scoping_note": "Statistics here are ROADMAP STAGE RATIOS or raw repository counts only. None of them is a 'Mythos is X% complete' product-completion estimate. See docs/PROJECT_STATISTICS.md for the full scoping rules.",
   "statistics": [
     {
@@ -10,7 +10,7 @@
       "unit": "count",
       "scope": "repository (main branch, tracked history window)",
       "source": "git log main --oneline | wc -l",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -19,7 +19,7 @@
       "unit": "count",
       "scope": "feat/mythos-personal-intelligence (fully merged into main, PR #4)",
       "source": "git log main..feat/mythos-personal-intelligence --oneline | wc -l (0, branch fully merged)",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -28,7 +28,7 @@
       "unit": "count",
       "scope": "repository",
       "source": "gh pr list --state merged (PR #1, #2, #3, #4, #6)",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -37,16 +37,16 @@
       "unit": "count",
       "scope": "repository",
       "source": "gh pr list --state open (PR #5, Draft, RES-0)",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
       "name": "stages_defined_total",
-      "value": 16,
+      "value": 17,
       "unit": "count",
       "scope": "tracks recorded in projects/meta/project-ledger.json",
       "source": "projects/meta/project-ledger.json .stages length",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -55,16 +55,16 @@
       "unit": "count",
       "scope": "same as above",
       "source": "count of status == DONE in project-ledger.json",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
       "name": "stages_in_progress",
-      "value": 0,
+      "value": 1,
       "unit": "count",
       "scope": "same as above",
       "source": "count of status == IN_PROGRESS (MPI-0-FINALIZATION)",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -73,7 +73,7 @@
       "unit": "count",
       "scope": "same as above",
       "source": "count of status == DONE_PENDING_MERGE (MPI-0, PR #4)",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -82,7 +82,7 @@
       "unit": "ROADMAP STAGE RATIO — NOT PRODUCT COMPLETION ESTIMATE",
       "scope": "Personal Intelligence track only",
       "source": "docs/SKILLS_ROADMAP.md stage table",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a",
       "formula": "completed MPI stages (MPI-0 = 1) / total defined MPI stages (MPI-0..MPI-10 = 11)"
     },
@@ -92,7 +92,7 @@
       "unit": "ROADMAP STAGE RATIO — NOT PRODUCT COMPLETION ESTIMATE",
       "scope": "Automation track only",
       "source": "docs/AUTOMATION_ROADMAP.md stage table",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a",
       "formula": "completed Automation stages (AUT-0 = 1) / total defined Automation stages (AUT-0 + 9 INF/OPS-AUTO stages = 10)"
     },
@@ -102,7 +102,7 @@
       "unit": "count",
       "scope": ".claude/skills/",
       "source": "projects/personal-intelligence/config/agent-skills-registry.json .total_skills",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -111,7 +111,7 @@
       "unit": "count",
       "scope": ".claude/skills/",
       "source": "agent-skills-registry.json .classification_counts.UPSTREAM_ORIGINAL",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -120,7 +120,7 @@
       "unit": "count",
       "scope": ".claude/skills/",
       "source": "agent-skills-registry.json .classification_counts.MYTHOS_WRAPPER",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -129,7 +129,7 @@
       "unit": "count",
       "scope": ".claude/skills/",
       "source": "agent-skills-registry.json .classification_counts.MYTHOS_ORIGINAL",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -138,7 +138,7 @@
       "unit": "count",
       "scope": ".claude/skills/",
       "source": "agent-skills-registry.json (all status ACTIVE)",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -147,7 +147,7 @@
       "unit": "count",
       "scope": ".claude/skills/",
       "source": "agent-skills-registry.json (none deprecated)",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -156,7 +156,7 @@
       "unit": "count",
       "scope": "MPI-0-FINALIZATION skills audit",
       "source": "docs/SKILLS_EVOLUTION.md §3 rows marked EXTEND",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -165,7 +165,7 @@
       "unit": "count",
       "scope": "MPI-0-FINALIZATION",
       "source": "mythos-skill-evolution, mythos-project-history",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -174,7 +174,7 @@
       "unit": "count",
       "scope": "repository (all DRAFT, NOT DEPLOYED)",
       "source": "grep -c '^CREATE TABLE' per schema file",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -183,7 +183,7 @@
       "unit": "count",
       "scope": "projects/automotive/database/control-plane-schema.sql",
       "source": "grep -c '^CREATE TABLE'",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -192,7 +192,7 @@
       "unit": "count",
       "scope": "projects/atelier-network/database/schema.sql",
       "source": "grep -c '^CREATE TABLE'",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -201,7 +201,7 @@
       "unit": "count",
       "scope": "projects/autovaleur/database/schema.sql",
       "source": "grep -c '^CREATE TABLE'",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -210,7 +210,7 @@
       "unit": "count",
       "scope": "projects/idauto/database/schema.sql",
       "source": "grep -c '^CREATE TABLE'",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -219,7 +219,7 @@
       "unit": "count",
       "scope": "projects/automation/database/control-plane-schema.sql",
       "source": "grep -c '^CREATE TABLE'",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -228,7 +228,7 @@
       "unit": "count",
       "scope": "projects/personal-intelligence/database/control-plane-schema.sql",
       "source": "grep -c '^CREATE TABLE'",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -237,7 +237,7 @@
       "unit": "count",
       "scope": "repository",
       "source": "all 6 schemas are DRAFT / NOT DEPLOYED per file header",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -246,7 +246,7 @@
       "unit": "assertions passed/total",
       "scope": "tests/mpi-0-personal-intelligence-test.js",
       "source": "node tests/mpi-0-personal-intelligence-test.js",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -255,7 +255,7 @@
       "unit": "assertions passed/total",
       "scope": "tests/stage4z-test.js",
       "source": "node tests/stage4z-test.js",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -264,7 +264,7 @@
       "unit": "assertions passed/total, base commit 909ced531dab7095cc6511efd6e646ba4befa07c",
       "scope": "tests/stage3d-test.js",
       "source": "node tests/stage3d-test.js (run in isolated git worktree at base commit)",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -273,7 +273,7 @@
       "unit": "assertions passed/total, branch feat/mythos-personal-intelligence",
       "scope": "tests/stage3d-test.js",
       "source": "node tests/stage3d-test.js",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -282,7 +282,7 @@
       "unit": "count",
       "scope": "tests/stage3d-test.js §9 regression meta-runner",
       "source": "identical on base and branch — stage3c, stage3b, stage3a5 (partial), stage3a, stage2d, stage1c-part1 (subprocess errors)",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -291,7 +291,7 @@
       "unit": "count",
       "scope": "base-vs-branch comparison",
       "source": "104/110 identical set of failures on both base and branch",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -300,7 +300,7 @@
       "unit": "count",
       "scope": "projects/automation/config/automation.example.json .connector_catalogue",
       "source": "sum of infrastructure + business_and_communication connector entries",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -309,7 +309,7 @@
       "unit": "count",
       "scope": "same",
       "source": "no connector code exists",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -318,7 +318,7 @@
       "unit": "count",
       "scope": "same",
       "source": "every connector's enabled flag is false",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -327,7 +327,7 @@
       "unit": "count",
       "scope": "docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md",
       "source": "INF-CF-2 blocked pending per-domain owner approval",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -336,7 +336,7 @@
       "unit": "count",
       "scope": "projects/meta/portfolio-registry.json .tracks length",
       "source": null,
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -345,7 +345,7 @@
       "unit": "count",
       "scope": "same",
       "source": "count of evidence_status == REPOSITORY_VERIFIED",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -354,7 +354,7 @@
       "unit": "count",
       "scope": "same",
       "source": "count of evidence_status == OWNER_DIRECTION",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     },
     {
@@ -363,7 +363,7 @@
       "unit": "count",
       "scope": "same",
       "source": "count of evidence_status == FUTURE_CONCEPT",
-      "generated_at": "2026-08-07T00:00:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a"
     }
   ],

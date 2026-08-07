@@ -1,10 +1,60 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-07 UTC
-**From:** Stage DEVX-0 — Development Acceleration MVP (merged)
+**Last updated:** 2026-08-08 UTC
+**From:** Stage INF-OVH-API-0 — OVH Read-Only Connector (reference implementation, pending merge)
 **To:** Next AI session
 
 ---
+
+## Stage INF-OVH-API-0 — OVH Read-Only Connector
+
+**Objective:** Implement the LEVEL_1_READ_ONLY scope defined in `docs/AUTOMATION_ROADMAP.md` — list authorised domains, collect registrar metadata, collect authoritative DNS records, collect DNSSEC state, generate redacted structured snapshots. No writes.
+
+**Status:** COMPLETE as a mocked, in-memory reference implementation — no live OVH credential exists anywhere in this repository or on the deployment host, and no live network call has been made by this connector. This matches the pattern established by every other foundation stage in this repository (MPI-0, AUT-0, RES-0): architecture and reference code first, live connection only in a later, separately-authorised stage.
+
+**Started via:** Owner instruction "Start INF-OVH-API-0 according to Mythos workflow", resolved through the DEVX-0 Stage Runner (`node scripts/mythos-stage.js start INF-OVH-API-0`), which correctly classified this as risk lane **STANDARD** (per `projects/meta/stage-templates.json`'s `CONNECTOR_STAGE` template) and surfaced the relevant skills, files, and test strategy without the owner needing to restate any of it.
+
+**Branch:** `feat/inf-ovh-api-0-readonly-connector` (created from `origin/main` at `e2ca9dc42f8ed317f220b561cffa1d4229b9a1ad`)
+
+### What was built
+
+- `projects/automation/reference/ovh-readonly-connector.js` — reference implementation:
+  - `redactRegistrantFields(raw)` — strips registrant (owner) contact fields, retains registrar/nameservers/dates/DNSSEC state, mirroring the INF-CF-1 redaction policy in `docs/CLOUDFLARE_DOMAIN_INVENTORY.md`.
+  - `buildSnapshotRecord(input)` — builds a record matching the existing `aut_snapshots` table's exact column shape (`projects/automation/database/control-plane-schema.sql`); never embeds raw provider data, only an `artifact_reference`.
+  - `assertReadOnlyClient(client)` — **structural** read-only enforcement: rejects any injected client exposing a method whose name matches a mutation-shaped verb (`create*`/`update*`/`set*`/`write*`/`delete*`/`remove*`/`patch*`/`put*`/`mutate*`/`apply*`), checked against the client's own methods rather than a fixed allowlist.
+  - `collectForDomain(client, domain, opts)` / `runReadOnlyCollection(client, config)` — orchestration. Refuses to run unless `config.enabled === true` and unless `config.authorised_domains` is a non-empty array. Never constructs a real OVH API client itself — the caller injects one, with credentials sourced only from an approved secret store per `docs/AUTOMATION_SECURITY_AND_SECRETS.md` §2, never committed here.
+- `tests/inf-ovh-api-0-connector-test.js` — 26 tests, every provider response mocked, no live network call, no live credential required.
+
+### Bug found and fixed during this stage
+
+`runReadOnlyCollection`'s validation originally called `assertReadOnlyClient(client)` synchronously before entering any Promise chain — a rejecting client (one exposing a write method) caused a **synchronous throw that escaped the function entirely**, rather than becoming a rejected Promise a caller's `.catch()` would see. Fixed by wrapping all validation inside a `new Promise((resolve, reject) => {...})` executor with explicit try/catch around the synchronous check. Regression test added (§6b: "RUN GATE REJECTION IS ASYNC").
+
+### Existing project intelligence reused (not duplicated)
+
+- **Stage Runner** (`scripts/mythos-stage.js`) resolved the Stage Context: risk lane STANDARD, relevant skills (`mythos-skill-guard`, `mythos-repo-guardian`, `mythos-safe-change`, `mythos-test-intelligence`, `mythos-change-impact`, `mythos-doc-sync`, `mythos-error-doctor`, `mythos-skill-evolution`, `mythos-project-history`), relevant files, and blockers — before any implementation began.
+- **`projects/meta/known-baselines.json`** — Stage 3D baseline not applicable; this stage touched no `js/`/`css/`/`.php`/`index.html` file, so it was not re-run, per `docs/DEVELOPMENT_TEST_INTELLIGENCE.md`'s own policy.
+- **`projects/meta/test-impact-map.json`** — updated to point `projects/automation/` changes at `tests/inf-ovh-api-0-connector-test.js` (previously an empty targeted-tests list, since no runtime code existed there yet).
+- **`projects/meta/project-ledger.json`** — new `INF-OVH-API-0` stage record added (track `mythos-automation-operations`, type `CONNECTOR`) using the existing schema, matching the `TYPE_TO_TEMPLATE` mapping DEVX-0 established.
+- **`scripts/project-intelligence.js validate`** — re-run after every metadata change, 0 errors throughout.
+
+### Validation
+
+- `node tests/inf-ovh-api-0-connector-test.js` — **26/26 passed**
+- `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings
+- `git diff --check` — clean
+- Secret/credential scan of the connector module source — confirmed it never reads an environment variable and never references a credential-shaped field name (`applicationSecret`/`consumerKey`/`apiKey`/`password`) — credentials are strictly the injected client's concern, never this module's
+- No PII (registrant name/email/phone) appears in any returned snapshot record — confirmed by test
+
+### Safety Confirmation
+
+No live OVH credential created, requested, or stored anywhere — none exists on the deployment host (`env | grep -i ovh` confirmed empty prior to this stage). No live network call made. No DNS or nameserver change. No DNSSEC operation against a live domain. No database installed, migrated, or executed. No production runtime (JS/HTML/PHP/CSS) changed. Does not start INF-CF-AUTO-0, MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, or AVA-1.
+
+### Exact Next Action
+
+1. Complete validation, commit, push, and the PR workflow for this stage per its STANDARD risk lane (per `projects/meta/development-lanes.json`, `close --apply`-equivalent actions are permitted for this lane after gates pass).
+2. **INF-CF-AUTO-0 — Cloudflare Read-Only Connector** is the next Automation implementation stage — **NOT STARTED.**
+3. Unchanged by this stage: MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 all remain NOT STARTED.
+4. Respect the one-major-stage rule: do not begin another major stage without explicit owner authorisation.
 
 ## Stage DEVX-0 — Development Acceleration MVP
 

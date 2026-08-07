@@ -117,6 +117,25 @@
 
 ---
 
+## 2026-08-08
+
+- **Commits:** on `feat/inf-ovh-api-0-readonly-connector`, branched from `main` @ `e2ca9dc42f8ed317f220b561cffa1d4229b9a1ad` (pending merge as of this entry — see this stage's own `docs/AI_HANDOVER.md` entry for the final commit list once pushed).
+- **Stages active/completed:** INF-OVH-API-0 — OVH Read-Only Connector, started via owner instruction "Start INF-OVH-API-0 according to Mythos workflow", resolved through the DEVX-0 Stage Runner (`node scripts/mythos-stage.js start INF-OVH-API-0`) rather than the owner restating repository rules.
+- **Major files/modules added:** `projects/automation/reference/ovh-readonly-connector.js` (mocked, in-memory reference implementation — structurally read-only, refuses to run unless explicitly enabled, redacts registrant PII before any snapshot record is produced), `tests/inf-ovh-api-0-connector-test.js` (26 tests, every provider response mocked).
+- **Architecture decisions:** none new — this stage implements the LEVEL_1_READ_ONLY scope already defined in `docs/AUTOMATION_ROADMAP.md` and matches the aut_snapshots table shape already defined in `projects/automation/database/control-plane-schema.sql`.
+- **Bugs found and fixed:** `runReadOnlyCollection` originally let a synchronous validation throw escape the function instead of becoming a rejected Promise; fixed by wrapping validation inside a `new Promise` executor; regression test added.
+- **Tests run:** `tests/inf-ovh-api-0-connector-test.js` — new, 26/26 passed; `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings.
+- **Known pre-existing failures:** not applicable — this stage touched no `js/`/`css/`/`.php`/`index.html` file, so Stage 3D was not re-run (not justified per `docs/DEVELOPMENT_TEST_INTELLIGENCE.md`'s own policy).
+- **Bugs found (repository-wide):** none beyond the one above.
+- **Deployment/provider actions:** **none.** No OVH credential created, requested, or stored anywhere (confirmed empty on the deployment host before this stage began). No live network call made. No DNS or nameserver change.
+- **Security/safety changes:** the connector's `assertReadOnlyClient` structurally rejects any injected client exposing a mutation-shaped method, enforced in code rather than only by convention.
+- **Doc changes:** `docs/AUTOMATION_ROADMAP.md`, `projects/automation/README.md`, `docs/ROADMAP.md`, `docs/PROJECT_STATUS.md`, `docs/AI_HANDOVER.md`, `docs/CHANGELOG.md`, `docs/PROJECT_STATISTICS.md`, `docs/history/DAILY_HISTORY.md` (this entry), `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json`, `projects/meta/test-impact-map.json` — updated to record INF-OVH-API-0 as complete (reference implementation) pending its own PR/merge.
+- **Blockers:** none.
+- **End-of-day HEAD (`main`) as of this entry:** `e2ca9dc42f8ed317f220b561cffa1d4229b9a1ad` (INF-OVH-API-0's own merge, if authorised, will be recorded in a subsequent amendment to this same day's entry per the append-only rule).
+- **Next recorded action:** INF-CF-AUTO-0 (Cloudflare Read-Only Connector) — NOT STARTED. MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 — all NOT STARTED, unaffected by this stage.
+
+---
+
 ## Corrections and Amendments
 
 None recorded yet. Future corrections to a previously recorded day must be added here as a dated amendment (`## Amendment — <date> — corrects <original date> entry`), not by silently editing the original entry's facts.

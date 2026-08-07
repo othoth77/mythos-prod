@@ -1,16 +1,16 @@
 # Mythos — Project Status
 
-**Stage:** DEVX-0 — COMPLETE AND MERGED
-**Generated:** 2026-08-06 · **Updated:** 2026-08-07 (post-DEVX-0-merge)
+**Stage:** INF-OVH-API-0 — pending merge
+**Generated:** 2026-08-06 · **Updated:** 2026-08-08 (INF-OVH-API-0 in progress)
 **Purpose:** Quick "where are we now" snapshot. Full detail lives in `docs/AI_HANDOVER.md` (stage semantics), `docs/ROADMAP.md` (intentions), `docs/history/DAILY_HISTORY.md` (day-by-day), and `docs/PROJECT_STATISTICS.md` (numbers).
 
 ---
 
 ## Current Source of Truth
 
-- **Current `main` HEAD:** `62da023de0ab78f9c8d3754c28b141861b99c85a` (PR #6 merge commit)
-- **PRs:** #4 MERGED (MPI-0 + MPI-0-FINALIZATION), #6 MERGED (DEVX-0). #5 OPEN, DRAFT (RES-0, `docs/research-intelligence-foundation` → `main`) — **not merged, RES-1 not authorised.**
-- **Current major active stage:** None. MPI-0, MPI-0-FINALIZATION, and DEVX-0 are all complete and merged; no runtime stage is active.
+- **Current `main` HEAD (before INF-OVH-API-0 merges):** `e2ca9dc42f8ed317f220b561cffa1d4229b9a1ad`
+- **PRs:** #4 MERGED (MPI-0 + MPI-0-FINALIZATION), #6 MERGED (DEVX-0). #5 OPEN, DRAFT (RES-0, `docs/research-intelligence-foundation` → `main`) — **not merged, RES-1 not authorised.** INF-OVH-API-0 PR pending as of this document's generation.
+- **Current major active stage:** INF-OVH-API-0 — OVH Read-Only Connector (reference implementation), on `feat/inf-ovh-api-0-readonly-connector`.
 - **Last completed stage on `main`:** DEVX-0 — Development Acceleration MVP (merged via PR #6), preceded by MPI-0-FINALIZATION (PR #4), preceded by AUT-0 — Mythos Automation-First Master Foundation.
 
 ---
@@ -20,7 +20,7 @@
 | Track | Status | Last Completed Stage | Current / Next Stage | Blocker |
 |---|---|---|---|---|
 | Mythos OS Runtime | ACTIVE | Stage 3D — Planning Runtime | Stage 3E — Calendar Runtime | None — not started, awaiting authorisation |
-| Automation | FOUNDATION | AUT-0 | INF-OVH-API-0 — OVH Read-Only Connector | None — not started, awaiting authorisation |
+| Automation | FOUNDATION | AUT-0 (INF-OVH-API-0 pending merge) | INF-CF-AUTO-0 — Cloudflare Read-Only Connector | None — not started, awaiting authorisation |
 | Infrastructure / Cloudflare / OVH | FOUNDATION | INF-CF-2-PREP | INF-CF-2 — DNS migration and verification | **Blocked**: per-domain authoritative registrar/DNS-provider exports + owner approval required (`docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md`) |
 | Personal Intelligence | FOUNDATION | MPI-0-FINALIZATION (merged via PR #4, 2026-08-07) | MPI-1 — Context Assembler + Context Compiler | None — not started, awaiting authorisation |
 | Research Intelligence | FOUNDATION | RES-0 (PR #5 open Draft, not merged) | RES-1 — first runtime implementation | None recorded — **NOT STARTED, NOT AUTHORISED** |
@@ -30,7 +30,7 @@
 | Atelier Network | FOUNDATION | ATN-0 | ATN-1 | **Blocked** — after IDA-2 |
 | AutoValeur | FOUNDATION | AVA-0 | AVA-1 — Public Calculator MVP | Depends on IDA-2 providing the PostgreSQL cluster |
 
-**One-major-stage rule in force** (`docs/ROADMAP.md`): only one major implementation stage may be active across the whole repository at a time, unless explicitly authorised otherwise. As of this document, **no major implementation stage is active** — every track above is at a documentation/foundation boundary, each with its own next stage named but not started.
+**One-major-stage rule in force** (`docs/ROADMAP.md`): only one major implementation stage may be active across the whole repository at a time, unless explicitly authorised otherwise. As of this document, **INF-OVH-API-0 is the one active stage** (owner-authorised, per `docs/ROADMAP.md`'s Current Priority item 6) — every other track remains at its documentation/foundation boundary, each with its own next stage named but not started.
 
 ---
 
@@ -44,7 +44,7 @@ See `docs/MYTHOS_PORTFOLIO_REGISTRY.md` for the complete, evidence-classified li
 
 ## Owner-Selected Next Execution Priority
 
-**INF-OVH-API-0 — OVHcloud Read-Only Connector.** Recorded by explicit owner instruction as the next priority to *execute* once authorised, ahead of MPI-1 or Stage 3E, because the immediate operational objective is replacing the manual OVH/domain/DNS inventory workflow (already partially performed manually in INF-CF-1) with a secure, automated, read-only collection process. **This is a priority record only — INF-OVH-API-0 is not started by this document or by MPI-0-FINALIZATION.**
+**INF-OVH-API-0 — OVHcloud Read-Only Connector — IN PROGRESS / COMPLETE AS REFERENCE IMPLEMENTATION.** Owner-authorised via explicit "Start INF-OVH-API-0 according to Mythos workflow" instruction. Implemented as a mocked, in-memory reference implementation (no live OVH credential exists anywhere; no live network call made; not deployed) — matching the pattern established by every prior foundation stage in this repository. **No new owner-selected next execution priority has been recorded as of this document.** MPI-1, Stage 3E, RES-1, IDA-2, ATN-1, and AVA-1 remain not started and not newly prioritised by this stage.
 
 ---
 
