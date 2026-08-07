@@ -1,0 +1,64 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-08-07T22:15:28.505Z",
+  "source_commit": "b401a57431f490954bda31cf44987bfbba3f87b5",
+  "main_head": "b401a57431f490954bda31cf44987bfbba3f87b5",
+  "active_branch": "feat/devx-0-development-acceleration",
+  "active_stage": [
+    "DEVX-0"
+  ],
+  "last_completed_stage": {
+    "track": "mythos-personal-intelligence",
+    "stage_id": "MPI-0-FINALIZATION",
+    "completed_at": "2026-08-07"
+  },
+  "next_owner_priority": "INF-OVH-API-0 — OVHcloud Read-Only Connector",
+  "active_prs": [],
+  "draft_prs": [
+    {
+      "number": 5,
+      "title": "docs(research): Mythos Research Intelligence free-first foundation",
+      "head": "docs/research-intelligence-foundation"
+    }
+  ],
+  "known_blockers": [],
+  "known_baselines": [
+    "stage3d-known-failures"
+  ],
+  "relevant_tracks": [
+    "mythos-os",
+    "mythos-automation-operations",
+    "mythos-control-center",
+    "mythos-personal-intelligence",
+    "mythos-automotive",
+    "id-auto",
+    "atelier-network",
+    "autovaleur",
+    "infrastructure-cloudflare",
+    "mythos-research-intelligence",
+    "mythos-devx"
+  ],
+  "relevant_skills": [
+    "mythos-project-context",
+    "mythos-intent-architect",
+    "mythos-skill-router",
+    "mythos-superposer",
+    "mythos-skill-guard",
+    "mythos-repo-guardian",
+    "mythos-safe-change",
+    "mythos-test-intelligence",
+    "mythos-change-impact",
+    "mythos-doc-sync",
+    "mythos-migration",
+    "mythos-error-doctor",
+    "mythos-smart-data-entry",
+    "mythos-document-intelligence",
+    "mythos-invoice-intelligence",
+    "mythos-client-360",
+    "mythos-context-assembler",
+    "mythos-personal-learning",
+    "mythos-skill-evolution",
+    "mythos-project-history"
+  ],
+  "deployment_state": "production_deployed_tracks=[\"mythos-os\"]"
+}

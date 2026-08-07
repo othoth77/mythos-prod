@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-08-07T00:00:00Z",
+  "source_commit": "b401a57431f490954bda31cf44987bfbba3f87b5",
+  "notes": "Only independently verified baselines belong here. A new regression must NEVER become a baseline automatically — promoting or changing an entry requires a reviewed Git change to this file, never a runtime auto-write.",
+  "baselines": [
+    {
+      "baseline_id": "stage3d-known-failures",
+      "test_command": "node tests/stage3d-test.js",
+      "expected_pass": 104,
+      "expected_total": 110,
+      "known_failures": [
+        "stage3c (partial — subset of assertions fail)",
+        "stage3b (partial)",
+        "stage3a5 (partial)",
+        "stage3a (subprocess error)",
+        "stage2d (subprocess error)",
+        "stage1c-part1 (subprocess error)"
+      ],
+      "classification": "KNOWN_BASELINE_FAILURE",
+      "first_verified_commit": "909ced531dab7095cc6511efd6e646ba4befa07c",
+      "last_verified_commit": "8632a99dfb94ff101811a8d0aa47ea5418c3cb19",
+      "notes": "The _memCache core failure cascades into these six suites' subprocess-run assertions inside tests/stage3d-test.js §9. Verify a NEW failure count against this baseline via an isolated git worktree comparison against the base commit (git worktree add) before ever classifying it as KNOWN_BASELINE_FAILURE — never assume. See .claude/skills/mythos-error-doctor/SKILL.md for the authoritative lookup list this entry mirrors."
+    }
+  ]
+}
