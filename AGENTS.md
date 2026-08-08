@@ -392,3 +392,9 @@ Clearly label anything not directly verified.
 Use the smallest safe action that moves the current stage to a verified, persistent state.
 
 A stage is finished only when its scope is complete, required tests pass, documentation is updated, the commit is pushed, remote HEAD is verified, and the next stage is recorded.
+
+## 24. Agent Skills (`.claude/skills/`)
+
+This repository ships native Agent Skills under `.claude/skills/<name>/SKILL.md`. Every entry there is an **Agent Development Skill** — used by Claude/Codex while building and operating Mythos — never a **Runtime Mythos Capability** reachable from an end-user request. See `docs/SKILLS_ARCHITECTURE.md` for the full distinction, `docs/SKILLS_SOURCES.md` for source classification (upstream/wrapper/original), `docs/SKILLS_EVOLUTION.md` for the per-skill audit and overlap-resolution record, `docs/SKILLS_VERSIONING_POLICY.md` for version semantics, and `projects/personal-intelligence/config/agent-skills-registry.json` for the canonical machine-readable registry.
+
+Skill source must never silently rewrite itself. No end-user or product behaviour may directly edit `.claude/skills/`. A skill change is a reviewed repository change like any other — see `mythos-skill-evolution` for the controlled lifecycle this follows.

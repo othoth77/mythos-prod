@@ -1,0 +1,588 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-08-07T00:00:00Z",
+  "source_commit": "d0a4cbb464d78b56a546a0d60543e871c77579d5",
+  "total_skills": 20,
+  "classification_counts": {
+    "UPSTREAM_ORIGINAL": 0,
+    "MYTHOS_WRAPPER": 0,
+    "MYTHOS_ORIGINAL": 20
+  },
+  "skills": [
+    {
+      "skill_id": "mythos-project-context",
+      "path": ".claude/skills/mythos-project-context/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Surface repository/stage state at task start",
+      "category": "orchestration",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.2.0",
+      "last_reviewed_at": "2026-08-07T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-repo-guardian"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Extended in MPI-0-FINALIZATION to load PROJECT_STATUS/DAILY_HISTORY/PROJECT_STATISTICS."
+    },
+    {
+      "skill_id": "mythos-intent-architect",
+      "path": ".claude/skills/mythos-intent-architect/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Normalise multilingual natural-language requests into structured intent",
+      "category": "orchestration",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.0.1",
+      "last_reviewed_at": "2026-08-06T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Spans agent-development and product-domain-intent layers by design; remains agent-development-only in reachability."
+    },
+    {
+      "skill_id": "mythos-skill-router",
+      "path": ".claude/skills/mythos-skill-router/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Rank candidate capabilities using domain/role/org/permission context",
+      "category": "orchestration",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.1.0",
+      "last_reviewed_at": "2026-08-07T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [
+        "mythos-intent-architect"
+      ],
+      "related_skills": [
+        "mythos-superposer"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": null
+    },
+    {
+      "skill_id": "mythos-superposer",
+      "path": ".claude/skills/mythos-superposer/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Compose an ordered plan from ranked capabilities",
+      "category": "orchestration",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.1.0",
+      "last_reviewed_at": "2026-08-07T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [
+        "mythos-skill-router"
+      ],
+      "related_skills": [
+        "mythos-skill-guard"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Governing doc corrected: no composition code exists in intent-router.js."
+    },
+    {
+      "skill_id": "mythos-skill-guard",
+      "path": ".claude/skills/mythos-skill-guard/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Evaluate permission/automation-level decision before execution",
+      "category": "security",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.0.0",
+      "last_reviewed_at": "2026-08-06T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-superposer"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": null
+    },
+    {
+      "skill_id": "mythos-repo-guardian",
+      "path": ".claude/skills/mythos-repo-guardian/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Enforce AGENTS.md rules; sole owner of git/worktree preflight",
+      "category": "governance",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.2.0",
+      "last_reviewed_at": "2026-08-07T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-project-context",
+        "mythos-safe-change"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Declared sole preflight owner in MPI-0-FINALIZATION."
+    },
+    {
+      "skill_id": "mythos-safe-change",
+      "path": ".claude/skills/mythos-safe-change/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Enforce stage-execution lifecycle discipline",
+      "category": "governance",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.1.0",
+      "last_reviewed_at": "2026-08-06T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [
+        "mythos-repo-guardian",
+        "mythos-test-intelligence",
+        "mythos-doc-sync"
+      ],
+      "related_skills": [],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Delegation boundaries to repo-guardian and test-intelligence made explicit."
+    },
+    {
+      "skill_id": "mythos-test-intelligence",
+      "path": ".claude/skills/mythos-test-intelligence/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Select test scope for a change",
+      "category": "quality",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.1.0",
+      "last_reviewed_at": "2026-08-07T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-safe-change"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": null
+    },
+    {
+      "skill_id": "mythos-change-impact",
+      "path": ".claude/skills/mythos-change-impact/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Pre-change MAD-1/3/4 product/schema boundary check",
+      "category": "governance",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.0.1",
+      "last_reviewed_at": "2026-08-06T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-migration"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Cross-referenced mythos-migration for the shared MAD-4 concern."
+    },
+    {
+      "skill_id": "mythos-doc-sync",
+      "path": ".claude/skills/mythos-doc-sync/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Keep AI_HANDOVER/ROADMAP/CHANGELOG/PROJECT_STATE consistent with implementation",
+      "category": "governance",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.2.0",
+      "last_reviewed_at": "2026-08-07T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-project-history"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Scope extended to PROJECT_STATE.md; CHANGELOG.md populated; explicitly does not own daily history."
+    },
+    {
+      "skill_id": "mythos-migration",
+      "path": ".claude/skills/mythos-migration/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Plan PostgreSQL migrations per existing schema conventions",
+      "category": "data",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.0.0",
+      "last_reviewed_at": "2026-08-06T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-change-impact"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": null
+    },
+    {
+      "skill_id": "mythos-error-doctor",
+      "path": ".claude/skills/mythos-error-doctor/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Diagnose recurring documented failure patterns",
+      "category": "quality",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.2.0",
+      "last_reviewed_at": "2026-08-07T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Six known baseline-failing suites now encoded explicitly by name."
+    },
+    {
+      "skill_id": "mythos-smart-data-entry",
+      "path": ".claude/skills/mythos-smart-data-entry/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Assist structured data entry consistent with Mythos data shapes",
+      "category": "product-support",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.0.0",
+      "last_reviewed_at": "2026-08-06T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": null
+    },
+    {
+      "skill_id": "mythos-document-intelligence",
+      "path": ".claude/skills/mythos-document-intelligence/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Assist document preparation/formatting",
+      "category": "product-support",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.0.0",
+      "last_reviewed_at": "2026-08-06T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-invoice-intelligence"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": null
+    },
+    {
+      "skill_id": "mythos-invoice-intelligence",
+      "path": ".claude/skills/mythos-invoice-intelligence/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Assist invoice/estimate handling without conflating drafting and financial mutation",
+      "category": "product-support",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.0.1",
+      "last_reviewed_at": "2026-08-06T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [
+        "mythos-document-intelligence"
+      ],
+      "related_skills": [],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Now explicitly delegates document formatting to mythos-document-intelligence."
+    },
+    {
+      "skill_id": "mythos-client-360",
+      "path": ".claude/skills/mythos-client-360/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Compose permission-respecting cross-product client view",
+      "category": "product-support",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.0.0",
+      "last_reviewed_at": "2026-08-06T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": null
+    },
+    {
+      "skill_id": "mythos-context-assembler",
+      "path": ".claude/skills/mythos-context-assembler/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Context classification/assembly for personal-intelligence design work",
+      "category": "personal-intelligence",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.0.1",
+      "last_reviewed_at": "2026-08-06T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Distinguished from the identically-named MPI-1 runtime component."
+    },
+    {
+      "skill_id": "mythos-personal-learning",
+      "path": ".claude/skills/mythos-personal-learning/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Learning-pipeline classification/confidence model for design work",
+      "category": "personal-intelligence",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0",
+      "version": "1.0.1",
+      "last_reviewed_at": "2026-08-06T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "Distinguished from the identically-named MPI-2 runtime component."
+    },
+    {
+      "skill_id": "mythos-skill-evolution",
+      "path": ".claude/skills/mythos-skill-evolution/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Skill-registry consistency, duplication/staleness detection, reviewed skill lifecycle",
+      "category": "governance",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0-FINALIZATION",
+      "version": "1.0.0",
+      "last_reviewed_at": "2026-08-06T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-repo-guardian"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "New skill."
+    },
+    {
+      "skill_id": "mythos-project-history",
+      "path": ".claude/skills/mythos-project-history/SKILL.md",
+      "classification": "MYTHOS_ORIGINAL",
+      "purpose": "Maintain the verified daily historical ledger",
+      "category": "governance",
+      "status": "ACTIVE",
+      "introduced_stage": "MPI-0-FINALIZATION",
+      "version": "1.0.0",
+      "last_reviewed_at": "2026-08-06T00:00:00Z",
+      "source_reference": null,
+      "upstream_version": null,
+      "owner_scope": "agent-development",
+      "dependencies": [],
+      "related_skills": [
+        "mythos-doc-sync"
+      ],
+      "supersedes": null,
+      "security_level": "standard",
+      "allowed_context": [
+        "repository-development-session"
+      ],
+      "prohibited_context": [
+        "end-user-chatbot-request",
+        "unreviewed-self-modification"
+      ],
+      "runtime_skill": false,
+      "notes": "New skill."
+    }
+  ]
+}

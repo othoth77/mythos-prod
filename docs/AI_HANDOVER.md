@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-07 UTC
-**From:** Stage RES-0 — Mythos Research Intelligence Foundation
+**Last updated:** 2026-08-08 UTC
+**From:** Stage RES-0 — Mythos Research Intelligence Foundation (merged)
 **To:** Next AI session
 
 ---
@@ -12,7 +12,7 @@
 
 **Starting remote HEAD:** `909ced531dab7095cc6511efd6e646ba4befa07c` (origin/main — AUT-0 handover)
 **Implementation commit:** `01c86a583cec43f4f257f3ea9930d83c1d159838`
-**Status:** Complete and pushed
+**Status:** Complete and merged to `main`
 
 **Branch:** `docs/research-intelligence-foundation`
 
@@ -61,9 +61,9 @@ Documentation only. No runtime code, no database, no deployment, no SearXNG inst
 
 | # | Condition | Status |
 |---|-----------|--------|
-| 1 | MPI-0 PR #4 merged to main | PENDING — PR #4 OPEN / DRAFT |
+| 1 | MPI-0 PR #4 merged to main | ✓ SATISFIED — merged 2026-08-07, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19` |
 | 2 | Current main clean | OK |
-| 3 | INF-OVH-API-0 complete OR re-prioritised | PENDING |
+| 3 | INF-OVH-API-0 complete OR re-prioritised | ✓ SATISFIED — complete as reference implementation, merged 2026-08-08, merge commit `79fdb122edd2dc3246fc7781247265e3fab93adf` |
 | 4 | No active major implementation stage | Must verify |
 | 5 | Owner authorises RES-1 | PENDING |
 | 6 | VPS capacity checked | Must verify |
@@ -87,9 +87,265 @@ None. Documentation-only stage — no infrastructure changed. Risk: premature im
 
 ### Next Stage
 
-**RES-1 — Research Gateway Core + Official Source Fetcher** — NOT AUTHORISED. Requires all 8 RES-1 entry gate conditions satisfied + explicit owner authorisation.
+**RES-1 — Research Gateway Core + Official Source Fetcher** — NOT AUTHORISED. Requires all 8 RES-1 entry gate conditions satisfied + explicit owner authorisation. Conditions 1 and 3 are now satisfied (see updated table above); conditions 2, 4-8 must still be verified fresh at RES-1 start time, not assumed from this record.
 
-The next authorised implementation stage in the Mythos ecosystem remains **INF-OVH-API-0** (or IDA-2 / Stage 3E if those tracks are active).
+The next authorised implementation stage in the Mythos ecosystem is **INF-CF-AUTO-0** (Cloudflare Read-Only Connector) — not started as of this merge.
+
+---
+
+## Stage INF-OVH-API-0 — OVH Read-Only Connector
+
+**Objective:** Implement the LEVEL_1_READ_ONLY scope defined in `docs/AUTOMATION_ROADMAP.md` — list authorised domains, collect registrar metadata, collect authoritative DNS records, collect DNSSEC state, generate redacted structured snapshots. No writes.
+
+**Status:** COMPLETE AND MERGED TO MAIN as a mocked, in-memory reference implementation — no live OVH credential exists anywhere in this repository or on the deployment host, and no live network call has been made by this connector. This matches the pattern established by every other foundation stage in this repository (MPI-0, AUT-0, RES-0): architecture and reference code first, live connection only in a later, separately-authorised stage.
+
+**Started via:** Owner instruction "Start INF-OVH-API-0 according to Mythos workflow", resolved through the DEVX-0 Stage Runner (`node scripts/mythos-stage.js start INF-OVH-API-0`), which correctly classified this as risk lane **STANDARD** (per `projects/meta/stage-templates.json`'s `CONNECTOR_STAGE` template) and surfaced the relevant skills, files, and test strategy without the owner needing to restate any of it.
+
+**Branch:** `feat/inf-ovh-api-0-readonly-connector` (created from `origin/main` at `e2ca9dc42f8ed317f220b561cffa1d4229b9a1ad`)
+**Implementation commits:** `82497d8` feat(automation): add OVH read-only connector reference implementation · `d90ac35` docs(automation): record INF-OVH-API-0 reference implementation status
+**Pull Request:** #7, opened Draft, marked ready for review after all gates passed, merged with a standard merge commit (no squash, no rebase, no force-push)
+**Merge commit SHA:** `79fdb122edd2dc3246fc7781247265e3fab93adf`
+**`main` HEAD after merge:** `79fdb122edd2dc3246fc7781247265e3fab93adf` (fast-forwarded; verified `git rev-parse HEAD` == `git rev-parse origin/main`)
+
+### What was built
+
+- `projects/automation/reference/ovh-readonly-connector.js` — reference implementation:
+  - `redactRegistrantFields(raw)` — strips registrant (owner) contact fields, retains registrar/nameservers/dates/DNSSEC state, mirroring the INF-CF-1 redaction policy in `docs/CLOUDFLARE_DOMAIN_INVENTORY.md`.
+  - `buildSnapshotRecord(input)` — builds a record matching the existing `aut_snapshots` table's exact column shape (`projects/automation/database/control-plane-schema.sql`); never embeds raw provider data, only an `artifact_reference`.
+  - `assertReadOnlyClient(client)` — **structural** read-only enforcement: rejects any injected client exposing a method whose name matches a mutation-shaped verb (`create*`/`update*`/`set*`/`write*`/`delete*`/`remove*`/`patch*`/`put*`/`mutate*`/`apply*`), checked against the client's own methods rather than a fixed allowlist.
+  - `collectForDomain(client, domain, opts)` / `runReadOnlyCollection(client, config)` — orchestration. Refuses to run unless `config.enabled === true` and unless `config.authorised_domains` is a non-empty array. Never constructs a real OVH API client itself — the caller injects one, with credentials sourced only from an approved secret store per `docs/AUTOMATION_SECURITY_AND_SECRETS.md` §2, never committed here.
+- `tests/inf-ovh-api-0-connector-test.js` — 26 tests, every provider response mocked, no live network call, no live credential required.
+
+### Bug found and fixed during this stage
+
+`runReadOnlyCollection`'s validation originally called `assertReadOnlyClient(client)` synchronously before entering any Promise chain — a rejecting client (one exposing a write method) caused a **synchronous throw that escaped the function entirely**, rather than becoming a rejected Promise a caller's `.catch()` would see. Fixed by wrapping all validation inside a `new Promise((resolve, reject) => {...})` executor with explicit try/catch around the synchronous check. Regression test added (§6b: "RUN GATE REJECTION IS ASYNC").
+
+### Existing project intelligence reused (not duplicated)
+
+- **Stage Runner** (`scripts/mythos-stage.js`) resolved the Stage Context: risk lane STANDARD, relevant skills (`mythos-skill-guard`, `mythos-repo-guardian`, `mythos-safe-change`, `mythos-test-intelligence`, `mythos-change-impact`, `mythos-doc-sync`, `mythos-error-doctor`, `mythos-skill-evolution`, `mythos-project-history`), relevant files, and blockers — before any implementation began.
+- **`projects/meta/known-baselines.json`** — Stage 3D baseline not applicable; this stage touched no `js/`/`css/`/`.php`/`index.html` file, so it was not re-run, per `docs/DEVELOPMENT_TEST_INTELLIGENCE.md`'s own policy.
+- **`projects/meta/test-impact-map.json`** — updated to point `projects/automation/` changes at `tests/inf-ovh-api-0-connector-test.js` (previously an empty targeted-tests list, since no runtime code existed there yet).
+- **`projects/meta/project-ledger.json`** — new `INF-OVH-API-0` stage record added (track `mythos-automation-operations`, type `CONNECTOR`) using the existing schema, matching the `TYPE_TO_TEMPLATE` mapping DEVX-0 established.
+- **`scripts/project-intelligence.js validate`** — re-run after every metadata change, 0 errors throughout.
+
+### Validation
+
+- `node tests/inf-ovh-api-0-connector-test.js` — **26/26 passed**
+- `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings
+- `git diff --check` — clean
+- Secret/credential scan of the connector module source — confirmed it never reads an environment variable and never references a credential-shaped field name (`applicationSecret`/`consumerKey`/`apiKey`/`password`) — credentials are strictly the injected client's concern, never this module's
+- No PII (registrant name/email/phone) appears in any returned snapshot record — confirmed by test
+
+### Safety Confirmation
+
+No live OVH credential created, requested, or stored anywhere — none exists on the deployment host (`env | grep -i ovh` confirmed empty prior to this stage). No live network call made. No DNS or nameserver change. No DNSSEC operation against a live domain. No database installed, migrated, or executed. No production runtime (JS/HTML/PHP/CSS) changed. Does not start INF-CF-AUTO-0, MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, or AVA-1.
+
+### Exact Next Action
+
+1. **INF-CF-AUTO-0 — Cloudflare Read-Only Connector** is the next Automation implementation stage — **NOT STARTED.**
+2. Unchanged by this stage: MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 all remain NOT STARTED. RES-0 (PR #5) remains open, Draft, unmerged.
+3. Respect the one-major-stage rule: do not begin another major stage without explicit owner authorisation.
+
+## Stage DEVX-0 — Development Acceleration MVP
+
+**Objective:** Let a future stage begin from a short owner instruction ("Start `<STAGE>` according to Mythos workflow") instead of a long prompt, by deriving execution context from GitHub/Git evidence rather than repeated rules. Developer tooling and repository orchestration only — no product runtime, no database, no deployment.
+
+**Status:** COMPLETE AND MERGED TO MAIN.
+
+**Starting `main` HEAD:** `b401a57431f490954bda31cf44987bfbba3f87b5`
+**Implementation commits (on `feat/devx-0-development-acceleration`):** `01558af` feat(devx): add context baseline and test intelligence · `3e49858` feat(devx): add Mythos stage runner and workflow lanes · `9f61fa9` feat(skills): integrate development acceleration context · `b28545e` test(devx): validate accelerated stage workflow · `f81d182` docs(devx): document development acceleration foundation
+**Pull Request:** #6, opened Draft, marked ready for review after all gates passed, merged with a standard merge commit (no squash, no rebase, no force-push)
+**Merge commit SHA:** `62da023de0ab78f9c8d3754c28b141861b99c85a`
+**`main` HEAD after merge:** `62da023de0ab78f9c8d3754c28b141861b99c85a` (fast-forwarded; verified `git rev-parse HEAD` == `git rev-parse origin/main`)
+
+### Also in this stage's order (adjacent, not part of DEVX-0 itself)
+
+- **GitHub CLI repaired** on the persistent VPS worktree (`/home/deploy/projects/mythos-prod`): `gh` v2.97.0 installed from GitHub's own official release tarball, SHA-256 checksum-verified, no sudo used, no third-party mirror. Authenticated via the official device-flow (owner approved in-band, no PAT ever pasted anywhere).
+- **PR #5 created** for the previously-pending `docs/research-intelligence-foundation` branch (RES-0). **Left OPEN and DRAFT, not merged.** RES-1 is explicitly not authorised.
+
+### What DEVX-0 added
+
+- `scripts/mythos-stage.js` — the Stage Runner CLI (`context`/`status`/`start`/`validate`/`close`), deterministic and offline-first, reuses `scripts/project-intelligence.js` rather than duplicating its checks
+- `projects/meta/current-context.json` (regenerated via `node scripts/mythos-stage.js context`), `projects/meta/known-baselines.json`, `projects/meta/test-impact-map.json`, `projects/meta/development-lanes.json`, `projects/meta/stage-templates.json`
+- `projects/devx/README.md`, `docs/DEVELOPMENT_ACCELERATION_ARCHITECTURE.md`, `docs/DEVELOPMENT_WORKFLOW.md`, `docs/DEVELOPMENT_TEST_INTELLIGENCE.md`, `docs/DEVELOPMENT_STAGE_TEMPLATES.md`
+- `tests/devx-0-development-acceleration-test.js` — 45 tests
+- Extended 7 existing Agent Development Skills (`mythos-project-context`, `mythos-test-intelligence`, `mythos-error-doctor`, `mythos-repo-guardian`, `mythos-doc-sync`, `mythos-skill-router`, `mythos-superposer`) to consume DEVX-0 metadata — **no new skill created**, every extension fit an existing responsibility
+- `projects/meta/project-ledger.json` — added RES-0 and DEVX-0 stage records using the existing schema
+
+### Bug found and fixed during this stage
+
+`projects/meta/project-ledger.json`'s `type` field (`DOCUMENTATION`/`FOUNDATION`/`RUNTIME`/`INFRASTRUCTURE`/`DATABASE`/`DEPLOYMENT`/`GOVERNANCE`) was being looked up directly as a `stage-templates.json` key against a distinct `*_STAGE`-suffixed vocabulary — every existing stage silently resolved to a null template and a HIGH_RISK-by-default risk lane. Fixed with an explicit `TYPE_TO_TEMPLATE` map; a regression test now asserts every stage type actually present in the ledger resolves to a real template.
+
+### Validation (all re-verified on `main` after merge)
+
+- `node tests/devx-0-development-acceleration-test.js` — 45/45 passed
+- `node tests/mpi-0-finalization-governance-test.js` — 36/36 passed (regression, unaffected)
+- `node tests/mpi-0-personal-intelligence-test.js` — 63/63 passed (regression, unaffected)
+- `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings (16 ledger stages, 20 skills, 21 portfolio tracks, 40 statistics entries, 10 history days)
+- JSON validity confirmed for all new `projects/meta/*.json` files and the updated `project-ledger.json`/`project-statistics.json`; `node --check` passed for `scripts/mythos-stage.js` and the new test file; `git diff --check` clean
+- Secret/token/PII scan across every changed file — clean
+- Stage 3D was **not** re-run — DEVX-0 touched no `js/`/`css/`/`.php`/`index.html` file, so re-running it was not justified per `docs/DEVELOPMENT_TEST_INTELLIGENCE.md`'s own policy
+
+### Safety Confirmation
+
+No production runtime (JS/HTML/PHP/CSS) changed. No database installed, migrated, or executed. No deployment of any kind (no OVH, no Cloudflare, no Coolify, no SearXNG install). No secrets, credentials, or tokens anywhere in the repository diff. Did not start INF-OVH-API-0, MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, or AVA-1.
+
+### Exact Next Action
+
+1. **DEVX-1 — Dependency/Impact Graph + Automated PR Review** is the next Development Acceleration stage — **NOT STARTED.**
+2. **RES-1 — first Research Intelligence runtime implementation** — **NOT STARTED, NOT AUTHORISED.** PR #5 remains open/Draft.
+3. **MPI-1** remains the next Personal Intelligence stage — **NOT STARTED.**
+4. **Stage 3E** remains the next Mythos OS runtime stage — **NOT STARTED.**
+5. **Owner-selected next major execution priority: INF-OVH-API-0 — OVHcloud Read-Only Connector** — **NOT STARTED.**
+6. Respect the one-major-stage rule: do not begin more than one of the above without explicit owner authorisation.
+
+## Stage MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry
+
+**Objective:** Final review, evolve the Agent Skills, establish a permanent GitHub-based project history/statistics system, establish a portfolio registry distinguishing implemented product from owner strategic direction, and merge Stage MPI-0.
+
+**Status:** COMPLETE AND MERGED TO MAIN.
+
+**Original base (`main`) commit before MPI-0 work began:** `909ced531dab7095cc6511efd6e646ba4befa07c`
+**MPI-0 implementation commits (pre-finalization):** `bfc702a`, `a2d3bc6`, `cf3857f`, `92155b4`, `5b57a2d`, `f27f9a1`, `bf73237`, `d0a4cbb` (see the MPI-0 section below for the full record)
+**MPI-0-FINALIZATION commits (on top, same branch):** `1de5c14` docs(governance): add Mythos project history and portfolio intelligence · `30eed5f` feat(governance): add deterministic project ledger and statistics tooling · `9ffd5b1` feat(skills): add skill registry and evolution governance · `b5345f2` test(governance): validate history statistics and skill lifecycle · `ca9d944` docs(ai): finalise MPI-0 documentation and changelog
+**Pull Request:** #4, opened Draft, finalised and marked ready for review, merged with a standard merge commit (no squash, no rebase, no force-push)
+**Merge commit SHA:** `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`
+**`main` HEAD immediately after merge:** `8632a99dfb94ff101811a8d0aa47ea5418c3cb19` (fast-forwarded; verified `git rev-parse HEAD` == `git rev-parse origin/main`)
+
+### Models used (strict sequence, never parallel)
+
+- **Claude Opus 5** — one read-only strategic architecture/repository/skills audit. Verdict: PASS, no blockers, 9 Required items (all implemented by Sonnet), several Recommended items (mostly implemented).
+- **Claude Sonnet 5** — sole writer/implementer for all finalization work, commits, PR update, and merge.
+- **Claude Haiku 4.5** — one read-only final mechanical audit, run once after all finalization commits were pushed. Verdict: PASS, no blocker found (11/11 mechanical checks passed: ancestry, changed-file scope, no secrets, no PII/tenant leakage, skills-registry consistency, JSON validity, tests, doc links, no runtime work outside MPI-0, correct non-fabricated stage status, PR merge readiness).
+
+### What this stage added (on top of MPI-0)
+
+- **Project history:** `docs/PROJECT_HISTORY.md` (narrative), `docs/history/DAILY_HISTORY.md` + `docs/history/README.md` (evidence-backfilled daily ledger, one honestly-recorded `HISTORICAL_CONFLICT` for 2026-07-31)
+- **Portfolio registry:** `docs/MYTHOS_PORTFOLIO_REGISTRY.md` + `projects/meta/portfolio-registry.json` — 21 tracks, classified 12 REPOSITORY_VERIFIED / 5 OWNER_DIRECTION / 4 FUTURE_CONCEPT
+- **Machine-readable ledger & statistics:** `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json`, `docs/PROJECT_STATISTICS.md`, `docs/PROJECT_STATUS.md` — every statistic scoped, no fabricated global completion percentage
+- **Deterministic offline tool:** `scripts/project-intelligence.js` (Node built-ins only, no network, no auto-commit) — `validate`/`stats`/`history-check`/`ledger-check`/`summary`
+- **Skills evolution:** `docs/SKILLS_EVOLUTION.md`, `docs/SKILLS_VERSIONING_POLICY.md`, `projects/personal-intelligence/config/agent-skills-registry.json` (canonical registry, 20 skills, all MYTHOS_ORIGINAL) — resolved 5 overlapping-scope skill pairs via owner/delegator relationships, extended 11 skills, added 2 new skills (`mythos-skill-evolution`, `mythos-project-history`)
+- **Reference-implementation fixes:** `guard.js` (removed unused `automationLevel` param, simplified redundant double-narrow, clarified `dataClassification` handling), `scope.js` (closed absent/guessed-identifier scope-match loophole)
+- **Tests:** `tests/mpi-0-personal-intelligence-test.js` grew 47 → 63; new `tests/mpi-0-finalization-governance-test.js` (36 tests)
+- **Doc consistency:** `AGENTS.md` §24, updated `docs/SKILLS_ARCHITECTURE.md`/`SKILLS_ROADMAP.md`/`SKILLS_SOURCES.md`/`SKILLS_SECURITY.md`/`SKILLS_SUPERPOSER.md`/`MYTHOS_CHATBOT_ARCHITECTURE.md`, populated `docs/CHANGELOG.md` (previously tracked but empty)
+
+### Validation (all re-verified on `main` after merge)
+
+- `node tests/mpi-0-personal-intelligence-test.js` — 63/63 passed
+- `node tests/mpi-0-finalization-governance-test.js` — 36/36 passed
+- `node tests/stage4z-test.js` — 44/44 (regression, unaffected)
+- `node tests/stage3d-test.js` — 104/110 on both the base commit `909ced5` (isolated worktree) and the branch — identical 6 known baseline failures, **zero new regressions**
+- `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings (20 skills, 21 portfolio tracks, 14 ledger stages, 40 statistics entries, 9 history days)
+- JSON validity confirmed for all `projects/meta/*.json` and `agent-skills-registry.json`; `node --check` passed for all `.js` files; `git diff --check` clean
+- Secret/PII scan across all new/modified files — clean (only pre-existing legitimate public-infrastructure IP documentation in `docs/AI_HANDOVER.md`'s Cloudflare/RDAP research section, not a leak)
+
+### Safety Confirmation
+
+No production runtime (JS/HTML/PHP/CSS) changed. No database installed, migrated, or executed. No secrets, credentials, or real personal/organisation data. No cross-tenant leakage possible. Did not start Stage 3E, IDA-2, ATN-1, AVA-1, or INF-OVH-API-0. Did not begin MPI-1.
+
+### Exact Next Action
+
+1. **MPI-1 — Context Assembler + Context Compiler (runtime implementation)** is the next Personal Intelligence stage — **NOT STARTED.**
+2. **Stage 3E** remains the next Mythos OS runtime stage — **NOT STARTED.**
+3. **Owner-selected next major execution priority: INF-OVH-API-0 — OVHcloud Read-Only Connector** (replace manual domain/DNS inventory exports with a secure automated read-only collection) — **NOT STARTED.**
+4. Unchanged by this stage: IDA-2 remains the next authorised Automotive implementation stage; INF-CF-2 remains blocked pending owner approval; ATN-1/AVA-1 remain sequential after IDA-2.
+5. Respect the one-major-stage rule: do not begin more than one of the above without explicit owner authorisation.
+
+---
+
+## Stage MPI-0 — Mythos Personal Intelligence & Skills Platform Foundation
+
+**Objective:** Establish the strategic architecture direction and application-level foundation for a shared, reusable, multi-user, multi-organisation, multi-profession AI personalisation platform — "one shared intelligence platform, personalised per user and organisation through layered context, memory, skills and permissions." Documentation, contracts, an illustrative reference implementation, draft (undeployed) schema, agent-development skill manifests, and tests only. No production runtime change.
+
+**Status:** COMPLETE. **UPDATE (2026-08-07):** merged to `main` via PR #4 together with MPI-0-FINALIZATION — see the MPI-0-FINALIZATION section above for the merge commit and final validation. The "NOT MERGED TO MAIN" status below reflects this stage's original state at time of writing and is preserved for historical accuracy.
+
+**Branch:** `feat/mythos-personal-intelligence` (created from `origin/main` at `909ced531dab7095cc6511efd6e646ba4befa07c`)
+**Starting remote HEAD:** `909ced531dab7095cc6511efd6e646ba4befa07c`
+**Implementation commits:** recorded in the "Commits" table below once each is made — do not treat any hash in this section as a merged `main` commit; verify with `git log feat/mythos-personal-intelligence` before relying on any hash as current.
+
+### Official Decisions Established
+
+- **Product principle:** "Shared capabilities, isolated intelligence." Share code, domain skills, generic AI infrastructure, orchestration, model adapters. Isolate organisation data, user data, memory, permissions, business rules, personal preferences, private knowledge.
+- **Layer hierarchy (not flattened):** Global Mythos Intelligence → Domain Profile → Organisation Profile → User Profile → Session/Task → Intent Architect → Skill Router → Superposer → Guard/Permissions → Specialised Skills → Model/Agent/Tool → Validation → Learning Signals.
+- **User ≠ Role, permanently:** role/permissions answer "what is allowed"; User Intelligence answers "how this person prefers to work." AI learning may never grant permissions.
+- **Precedence order (9 levels):** system/security/legal → organisation policy → role/permissions → this-turn explicit instruction → explicit persistent user rule → verified organisation workflow → established user preference → domain default → generic default. A user preference never bypasses permissions or security.
+- **Learning scope defaults to `user`.** Promotion to `organisation`/`domain`/`global` requires explicit governance, never automatic. Confidence progresses `SESSION_OBSERVATION → CANDIDATE_PREFERENCE → ESTABLISHED_PREFERENCE`, with `EXPLICIT_USER_RULE` immediate and strongest.
+- **Context Assembler / Context Compiler:** context is classified `REQUIRED / USEFUL / IRRELEVANT / FORBIDDEN` before assembly; `FORBIDDEN` is excluded before relevance is ever considered. `loadAllUserMemory()` is a named anti-pattern.
+- **Two domain packs defined (capability contracts, no runtime):** `education` (10 capabilities) and `automotive_workshop` (12 capabilities, integrating with — not duplicating — existing ID Auto/Atelier Network).
+- **Two distinct skill kinds, never conflated:** Agent Development Skills (`.claude/skills/`, used by Claude/Codex to build/operate Mythos) vs. Runtime Mythos Capabilities (application-level, multi-tenant, used by end-user chatbots). `.claude/skills/` alone is explicitly documented as **not** the runtime architecture.
+- **Multi-tenancy is application/data-layer enforced, never prompt-only.** Every persistent record is scoped (user/organisation/permission); a guessed identifier never grants access.
+- **Model routing is provider-neutral.** No personal/organisation intelligence is ever stored only in a provider-specific prompt file.
+
+### Files Created (40 new files across the paths below; table rows are grouped by area, not one row per file — see `git diff main...feat/mythos-personal-intelligence --stat` for the exact 40-added/2-modified count)
+
+| File | Description |
+|---|---|
+| `docs/MYTHOS_PERSONAL_INTELLIGENCE_VISION.md` | NEW: strategic direction, teacher/workshop examples, product principle, commercial value |
+| `docs/MYTHOS_PERSONAL_INTELLIGENCE_ARCHITECTURE.md` | NEW: layer hierarchy, all profile contracts (Domain/Organisation/User/Session/Entity), precedence rules, learning scope/confidence, Guard model |
+| `docs/MYTHOS_USER_MEMORY_POLICY.md` | NEW: 7 memory types, learning pipeline, scope/confidence, write policy, forget/correct/override, feedback signals |
+| `docs/MYTHOS_CONTEXT_ARCHITECTURE.md` | NEW: Context Assembler classification/assembly, retrieval interface, entity resolution, Context Compiler, knowledge sources |
+| `docs/MYTHOS_DOMAIN_PACKS.md` | NEW: `education` and `automotive_workshop` domain pack capability contracts |
+| `docs/MYTHOS_AI_MULTI_TENANCY.md` | NEW: mandatory isolation requirements, enforcement points, required tests |
+| `docs/MYTHOS_CHATBOT_ARCHITECTURE.md` | NEW: end-to-end request pipeline, persona-vs-intelligence distinction, response architecture, Superposer examples |
+| `docs/SKILLS_ARCHITECTURE.md` | NEW: agent-development vs. runtime skill distinction, shared-skill model, layered overrides |
+| `docs/SKILLS_SUPERPOSER.md` | NEW: skill composition contract, runtime-availability fail-closed rule |
+| `docs/SKILLS_SECURITY.md` | NEW: hard security requirements, Guard evaluation, agent-dev/runtime boundary |
+| `docs/SKILLS_SOURCES.md` | NEW: upstream/wrapper/original classification for all 18 skills (all MYTHOS ORIGINAL — no suitable upstream identified) |
+| `docs/SKILLS_ROADMAP.md` | NEW: MPI-0 through MPI-10 stage sequence, 18-skill inventory |
+| `docs/MODEL_ROUTING_ARCHITECTURE.md` | NEW: provider-neutral capability classes, adapter contract |
+| `projects/personal-intelligence/README.md` | NEW: directory overview |
+| `projects/personal-intelligence/config/personal-intelligence.example.json` | NEW: draft config, all feature flags false, no secrets/PII |
+| `projects/personal-intelligence/database/control-plane-schema.sql` | NEW: 15-table draft PostgreSQL schema (`pi_` prefix, `mythos_intelligence` logical schema), DRAFT NOT DEPLOYED |
+| `projects/personal-intelligence/reference/scope.js` | NEW: precedence + isolation reference helpers |
+| `projects/personal-intelligence/reference/context-assembler.js` | NEW: classification/assembly + retrieval reference implementation |
+| `projects/personal-intelligence/reference/learning-engine.js` | NEW: observation→candidate→established→explicit-rule reference implementation |
+| `projects/personal-intelligence/reference/guard.js` | NEW: permission-decision reference implementation (never widens on learned preference) |
+| `projects/personal-intelligence/reference/intent-router.js` | NEW: illustrative multilingual (AR/Tunisian AR/FR/EN/mixed) intent + domain routing stub |
+| `.claude/skills/*/SKILL.md` (18 directories) | NEW: agent-development skill manifests — `mythos-project-context`, `mythos-intent-architect`, `mythos-skill-router`, `mythos-superposer`, `mythos-skill-guard`, `mythos-repo-guardian`, `mythos-safe-change`, `mythos-test-intelligence`, `mythos-change-impact`, `mythos-doc-sync`, `mythos-migration`, `mythos-error-doctor`, `mythos-smart-data-entry`, `mythos-document-intelligence`, `mythos-invoice-intelligence`, `mythos-client-360`, `mythos-context-assembler` (new), `mythos-personal-learning` (new) |
+| `tests/mpi-0-personal-intelligence-test.js` | NEW: 47 tests across 13 sections (user/org/role isolation, personalisation ×2, session, learning, permission, memory, context compression, intent ×5 languages, domain routing, cross-domain, precedence) |
+
+### Files Updated (1)
+
+| File | Change |
+|---|---|
+| `docs/ROADMAP.md` | Added "Personal Intelligence — Separate Product Track" section (MPI-0 through MPI-10 table, explicitly marked as developed on `feat/mythos-personal-intelligence`, not merged); updated top-line summary; added Current Priority item 7; extended one-major-stage-rule sentence to cover the Personal Intelligence track; all existing stage history preserved unchanged |
+
+### Validation
+
+- `python -m json.tool projects/personal-intelligence/config/personal-intelligence.example.json` — ✓ VALID.
+- SQL: 15/15 tables match header count; 170/170 parens balanced; no duplicate table names; no cross-schema foreign keys; no secret-value/PII columns; append-only audit specified for `pi_preference_audit`/`pi_guard_decisions`.
+- `node tests/mpi-0-personal-intelligence-test.js` — ✓ **47/47 passed** (one real bug found and fixed during validation: `resolveActiveDomain` was silently falling back to a user's only available domain even when an explicit hint named a domain the user was NOT authorised for; fixed to return `HINTED_DOMAIN_NOT_AUTHORIZED` instead of silently substituting).
+- `node tests/stage4z-test.js` — ✓ 44/44 (regression, unaffected).
+- `node tests/stage3d-test.js` — 104/110 (regression, unaffected; the 6 failures are the same pre-existing `_memCache`-cascade subprocess failures documented in every prior stage's handover, not caused by this stage).
+- `git diff --check` — ✓ passes, no whitespace errors.
+- Full diff/new-file scan for credential/secret/IP/email patterns — clean.
+- Confirmed: no runtime JS/HTML/PHP/CSS file changed; no database executed; no deployment; Global vs. Domain vs. Organisation vs. User intelligence kept distinct throughout; User ≠ Role enforced structurally in `guard.js` and tested; no future stage marked complete.
+
+### Safety Confirmation
+
+No production application file changed. No database installed, migrated, or executed — `projects/personal-intelligence/database/control-plane-schema.sql` is a draft specification only. No credential, secret, token, or real personal/organisation data anywhere in this stage's files. No cross-tenant leakage possible (no persistent store exists; isolation is tested against the in-memory reference only). Not merged to `main` — remains on `feat/mythos-personal-intelligence` pending review. Stage 3E, IDA-2, ATN-1, AVA-1, INF-OVH-API-0 not started.
+
+### Commits (on `feat/mythos-personal-intelligence`)
+
+See the branch's own `git log` for the authoritative, current list; the table below is a point-in-time record as of this handover commit, not guaranteed current beyond that moment.
+
+| SHA | Message |
+|---|---|
+| `bfc702a` | docs(ai): establish Mythos Personal Intelligence vision |
+| `a2d3bc6` | feat(ai): add domain organisation user and session context contracts |
+| `cf3857f` | feat(ai): add context assembler and personal intelligence foundation |
+| `92155b4` | feat(skills): extend intent router superposer for per-user context |
+| `5b57a2d` | feat(ai): add controlled personal learning foundation |
+| `f27f9a1` | test(ai): validate tenant isolation context and personalisation |
+| `bf73237` | docs(ai): add chatbot domain packs memory and rollout roadmap |
+| (this commit) | docs: update AI_HANDOVER.md for Mythos Personal Intelligence MPI-0 |
+
+### Exact Next Action
+
+1. Review the Draft PR (if repository access permitted one to be opened) from `feat/mythos-personal-intelligence` into `main`.
+2. **Do not merge without explicit review** — this stage intentionally stops short of merging per the task's own instruction.
+3. **MPI-1 — Context Assembler + Context Compiler (runtime implementation)** is the next Personal Intelligence stage — not started.
+4. Unchanged by this stage: **Stage 3E** remains the next Mythos OS runtime stage; **IDA-2** remains the next authorised Automotive implementation stage; **INF-CF-2** remains blocked; **INF-OVH-API-0** remains the next Automation implementation stage.
 
 ---
 

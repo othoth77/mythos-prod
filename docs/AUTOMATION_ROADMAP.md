@@ -1,8 +1,8 @@
 # Mythos Automation & Operations — Roadmap
 
-**Stage:** AUT-0 — Automation-First Master Foundation
-**Status:** Documentation only. No stage after AUT-0 has started.
-**Date:** 2026-08-06
+**Stage:** INF-OVH-API-0 — OVH Read-Only Connector (reference implementation)
+**Status:** INF-OVH-API-0 complete as a mocked, in-memory reference implementation only — no live OVH credential exists anywhere in this repository or on the deployment host, and no live network call has ever been made by this connector.
+**Date:** 2026-08-08 (originally 2026-08-06 for AUT-0)
 
 ---
 
@@ -13,7 +13,7 @@ This is the stage sequence for Mythos Automation & Operations (`mythos_automatio
 | Stage | Description | Status |
 |---|---|---|
 | AUT-0 | Automation-First Master Foundation — principles, Mythos Control Center spec, architecture, governance, approval matrix, security/secrets policy, operations runbook, draft control-plane schema | ✓ Current documentation stage |
-| INF-OVH-API-0 | OVH Read-Only Connector | Planned — next Automation implementation stage |
+| INF-OVH-API-0 | OVH Read-Only Connector | ✓ Done — mocked reference implementation + 26-test suite, on `feat/inf-ovh-api-0-readonly-connector`. **No live OVH credential exists; not deployed; not connected to a live provider.** |
 | INF-CF-AUTO-0 | Cloudflare Read-Only Connector | Planned |
 | INF-DNS-AUTO-1 | DNS Snapshot, Comparison and Drift Detection | Planned |
 | INF-DNS-AUTO-2 | Approved DNS Operations | Planned |
@@ -23,7 +23,7 @@ This is the stage sequence for Mythos Automation & Operations (`mythos_automatio
 | OPS-AUTO-0 | Business Workflow Automation | Planned |
 | OPS-AUTO-1 | Notifications, Relances and Scheduled Reports | Planned |
 
-**No stage beyond AUT-0 has started.** This roadmap records the intended sequence and each stage's scope; it does not authorise or begin any of them.
+**INF-OVH-API-0 is the first stage beyond AUT-0 to be implemented — as a reference implementation only, matching the pattern established by every other foundation stage in this repository (documentation, draft schema, mocked/in-memory reference code, tests with mocked provider responses; never a live external connection).** No stage from INF-CF-AUTO-0 onward has started. This roadmap records the intended sequence and each stage's scope; it does not authorise or begin any of the remaining ones.
 
 ---
 
@@ -100,7 +100,7 @@ Operator and customer-facing notification/report automation, built on the `aut_n
 ## 3. Permanent Sequencing Rules
 
 - **AUT-0 is documentation only.**
-- **INF-OVH-API-0 is the next Automation implementation stage** — it has not started.
+- **INF-OVH-API-0 is complete as a reference implementation** — read-only connector orchestration logic and tests only, no live OVH credential, no live network call, not deployed. **INF-CF-AUTO-0 is the next Automation implementation stage** — it has not started.
 - **INF-CF-2 remains blocked** until authoritative data and approvals exist, per `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md`. Nothing in the Automation track changes this.
 - **Stage 3E remains the next Mythos OS runtime stage.**
 - **IDA-2 remains the next authorised Automotive implementation stage.**
@@ -112,4 +112,4 @@ No stage in this document may be marked started by a later stage's documentation
 
 ## 4. Status
 
-Documentation only. No stage after AUT-0 has been started, implemented, or deployed.
+INF-OVH-API-0 is complete as a mocked reference implementation (`projects/automation/reference/ovh-readonly-connector.js`, `tests/inf-ovh-api-0-connector-test.js`) — structurally read-only (a client exposing any mutation-shaped method is rejected before any collection runs), refuses to run unless explicitly enabled, and redacts registrant PII before any snapshot record is produced. No live OVH credential has been created, requested, or stored anywhere. No live network call has been made. No stage from INF-CF-AUTO-0 onward has been started, implemented, or deployed.

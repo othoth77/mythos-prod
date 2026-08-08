@@ -1,0 +1,497 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-08-08T00:00:00Z",
+  "source_commit": "79fdb122edd2dc3246fc7781247265e3fab93adf",
+  "tracks": [
+    "mythos-os",
+    "mythos-automation-operations",
+    "mythos-control-center",
+    "mythos-personal-intelligence",
+    "mythos-automotive",
+    "id-auto",
+    "atelier-network",
+    "autovaleur",
+    "infrastructure-cloudflare",
+    "mythos-research-intelligence",
+    "mythos-devx"
+  ],
+  "stages": [
+    {
+      "track": "mythos-os",
+      "stage_id": "3D",
+      "title": "Planning Runtime",
+      "status": "DONE",
+      "type": "RUNTIME",
+      "starting_head": null,
+      "implementation_commit": "4bf873b",
+      "merge_commit": null,
+      "handover_commit": "383683e",
+      "completed_at": "2026-08-05",
+      "tests": {
+        "stage3d": "104/110 (6 pre-existing baseline failures)"
+      },
+      "blockers": [],
+      "next_stage": "3E",
+      "evidence_paths": [
+        "js/plugins/planning.runtime.js",
+        "tests/stage3d-test.js"
+      ]
+    },
+    {
+      "track": "mythos-os",
+      "stage_id": "4AG",
+      "title": "Invoice/OM helper duplicate removal",
+      "status": "DONE",
+      "type": "RUNTIME",
+      "starting_head": null,
+      "implementation_commit": "ebe42f9",
+      "merge_commit": null,
+      "handover_commit": "012cc54",
+      "completed_at": "2026-08-05",
+      "tests": {
+        "stage4ag": "42/42"
+      },
+      "blockers": [],
+      "next_stage": "4AH or later Stage-4 items",
+      "evidence_paths": [
+        "js/app.js"
+      ]
+    },
+    {
+      "track": "mythos-os",
+      "stage_id": "4Z",
+      "title": "Dead-code audit — remove renderEntityPage",
+      "status": "DONE",
+      "type": "RUNTIME",
+      "starting_head": null,
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": "2026-08-05",
+      "tests": {
+        "stage4z": "44/44"
+      },
+      "blockers": [],
+      "next_stage": "4AA",
+      "evidence_paths": [
+        "js/app.js"
+      ]
+    },
+    {
+      "track": "id-auto",
+      "stage_id": "IDA-0",
+      "title": "ID Auto project foundation",
+      "status": "DONE",
+      "type": "FOUNDATION",
+      "starting_head": null,
+      "implementation_commit": "7c75abd",
+      "merge_commit": null,
+      "handover_commit": "d1d0b75",
+      "completed_at": "2026-08-05",
+      "tests": {},
+      "blockers": [],
+      "next_stage": "IDA-1",
+      "evidence_paths": [
+        "projects/idauto/"
+      ]
+    },
+    {
+      "track": "id-auto",
+      "stage_id": "IDA-1",
+      "title": "Product vision, capture, access, governance spec",
+      "status": "DONE",
+      "type": "FOUNDATION",
+      "starting_head": null,
+      "implementation_commit": "e9afc7e",
+      "merge_commit": null,
+      "handover_commit": "bd6ec7e",
+      "completed_at": "2026-08-05",
+      "tests": {},
+      "blockers": [],
+      "next_stage": "IDA-2",
+      "evidence_paths": [
+        "docs/IDAUTO_*.md"
+      ]
+    },
+    {
+      "track": "mythos-automotive",
+      "stage_id": "MAE-0",
+      "title": "Mythos Automotive ecosystem master foundation",
+      "status": "DONE",
+      "type": "FOUNDATION",
+      "starting_head": null,
+      "implementation_commit": "32fc890",
+      "merge_commit": null,
+      "handover_commit": "fddd58e",
+      "completed_at": "2026-08-05",
+      "tests": {},
+      "blockers": [],
+      "next_stage": "MAE-1 (blocked on IDA-2)",
+      "evidence_paths": [
+        "docs/AUTOMOTIVE_*.md",
+        "projects/automotive/"
+      ]
+    },
+    {
+      "track": "atelier-network",
+      "stage_id": "ATN-0",
+      "title": "Atelier Network foundation",
+      "status": "DONE",
+      "type": "FOUNDATION",
+      "starting_head": null,
+      "implementation_commit": "5b1fdf2",
+      "merge_commit": null,
+      "handover_commit": "fb1280f",
+      "completed_at": "2026-08-05",
+      "tests": {},
+      "blockers": [],
+      "next_stage": "ATN-1 (after IDA-2)",
+      "evidence_paths": [
+        "docs/ATELIER_NETWORK_*.md",
+        "projects/atelier-network/"
+      ]
+    },
+    {
+      "track": "autovaleur",
+      "stage_id": "AVA-0",
+      "title": "AutoValeur product foundation",
+      "status": "DONE",
+      "type": "FOUNDATION",
+      "starting_head": null,
+      "implementation_commit": "58e0b07",
+      "merge_commit": null,
+      "handover_commit": "f3f2cde",
+      "completed_at": "2026-08-05",
+      "tests": {},
+      "blockers": [],
+      "next_stage": "AVA-1",
+      "evidence_paths": [
+        "docs/AUTOVALEUR_*.md",
+        "projects/autovaleur/"
+      ]
+    },
+    {
+      "track": "infrastructure-cloudflare",
+      "stage_id": "INF-CF-0",
+      "title": "Cloudflare Foundation",
+      "status": "DONE",
+      "type": "FOUNDATION",
+      "starting_head": "fb1280f3ee54b511b919e7e77c3dcc7b7ff2b2aa",
+      "implementation_commit": "d11badf",
+      "merge_commit": "df569f8",
+      "handover_commit": null,
+      "completed_at": "2026-08-05",
+      "tests": {},
+      "blockers": [],
+      "next_stage": "INF-CF-1",
+      "evidence_paths": [
+        "docs/CLOUDFLARE_ARCHITECTURE.md"
+      ]
+    },
+    {
+      "track": "infrastructure-cloudflare",
+      "stage_id": "INF-CF-1",
+      "title": "Cloudflare account and domain inventory (8 domains)",
+      "status": "DONE",
+      "type": "FOUNDATION",
+      "starting_head": "df569f880158428f04d10adc15aadaaec45ce2e7",
+      "implementation_commit": "20581f4",
+      "merge_commit": "31c517f",
+      "handover_commit": "bc82fd8",
+      "completed_at": "2026-08-06",
+      "tests": {
+        "count": "8 domains verified"
+      },
+      "blockers": [],
+      "next_stage": "INF-CF-2-PREP",
+      "evidence_paths": [
+        "docs/CLOUDFLARE_DOMAIN_INVENTORY.md",
+        "projects/infrastructure/cloudflare/domain-inventory.json"
+      ]
+    },
+    {
+      "track": "infrastructure-cloudflare",
+      "stage_id": "INF-CF-2-PREP",
+      "title": "Authoritative export intake and owner approval gate",
+      "status": "DONE",
+      "type": "GOVERNANCE",
+      "starting_head": "31c517f1917c33bb0ef34febf4c9b8b9c0c76183",
+      "implementation_commit": "2fe9181",
+      "merge_commit": "13a3017",
+      "handover_commit": "3a6f186",
+      "completed_at": "2026-08-06",
+      "tests": {},
+      "blockers": [],
+      "next_stage": "INF-CF-2 (blocked — entry criteria pending)",
+      "evidence_paths": [
+        "docs/CLOUDFLARE_AUTHORITATIVE_EXPORT_INTAKE.md",
+        "docs/CLOUDFLARE_OWNER_APPROVAL_GATE.md"
+      ]
+    },
+    {
+      "track": "mythos-automation-operations",
+      "stage_id": "AUT-0",
+      "title": "Mythos Automation-First Master Foundation",
+      "status": "DONE",
+      "type": "FOUNDATION",
+      "starting_head": "3a6f1869b560282cdc5daf1a47da41c4293652ef",
+      "implementation_commit": "0d0a387",
+      "merge_commit": null,
+      "handover_commit": "909ced5",
+      "completed_at": "2026-08-06",
+      "tests": {},
+      "blockers": [],
+      "next_stage": "INF-OVH-API-0",
+      "evidence_paths": [
+        "docs/AUTOMATION_*.md",
+        "projects/automation/"
+      ]
+    },
+    {
+      "track": "mythos-personal-intelligence",
+      "stage_id": "MPI-0",
+      "title": "Personal Intelligence Foundation",
+      "status": "DONE",
+      "type": "FOUNDATION",
+      "starting_head": "909ced531dab7095cc6511efd6e646ba4befa07c",
+      "implementation_commit": "d0a4cbb",
+      "merge_commit": "8632a99dfb94ff101811a8d0aa47ea5418c3cb19",
+      "handover_commit": "d0a4cbb",
+      "completed_at": "2026-08-06",
+      "tests": {
+        "mpi0": "47/47 at initial push; 63/63 after MPI-0-FINALIZATION additions",
+        "stage4z": "44/44",
+        "stage3d": "104/110 (identical to base, 6 known baseline failures)"
+      },
+      "blockers": [],
+      "next_stage": "MPI-1",
+      "evidence_paths": [
+        "docs/MYTHOS_PERSONAL_INTELLIGENCE_VISION.md",
+        "projects/personal-intelligence/",
+        ".claude/skills/",
+        "tests/mpi-0-personal-intelligence-test.js"
+      ]
+    },
+    {
+      "track": "mythos-personal-intelligence",
+      "stage_id": "MPI-0-FINALIZATION",
+      "title": "Comprehensive review, skills evolution, project intelligence ledger, PR #4 merge",
+      "status": "DONE",
+      "type": "GOVERNANCE",
+      "starting_head": "d0a4cbb464d78b56a546a0d60543e871c77579d5",
+      "implementation_commit": "ca9d94484b57ccb4280ddf0ee376d35af9ff99fb",
+      "merge_commit": "8632a99dfb94ff101811a8d0aa47ea5418c3cb19",
+      "handover_commit": null,
+      "completed_at": "2026-08-07",
+      "tests": {
+        "mpi0": "63/63",
+        "mpi0_finalization_governance": "36/36",
+        "stage4z": "44/44",
+        "stage3d": "104/110 (identical to base, 6 known baseline failures, 0 regressions)"
+      },
+      "blockers": [],
+      "next_stage": "MPI-1 (still not started after this stage)",
+      "evidence_paths": [
+        "docs/SKILLS_EVOLUTION.md",
+        "docs/MYTHOS_PORTFOLIO_REGISTRY.md",
+        "docs/history/DAILY_HISTORY.md",
+        "projects/meta/"
+      ]
+    },
+    {
+      "track": "mythos-research-intelligence",
+      "stage_id": "RES-0",
+      "title": "Research Intelligence free-first foundation",
+      "status": "DONE_PENDING_MERGE",
+      "type": "DOCUMENTATION",
+      "starting_head": "909ced531dab7095cc6511efd6e646ba4befa07c",
+      "implementation_commit": "01c86a583cec43f4f257f3ea9930d83c1d159838",
+      "merge_commit": null,
+      "handover_commit": "f07e6f8aa8560469aad33d2b2ea7288c3119b065",
+      "completed_at": "2026-08-07",
+      "tests": {},
+      "blockers": [],
+      "next_stage": "RES-1 (NOT STARTED, NOT AUTHORISED)",
+      "evidence_paths": [
+        "docs/MYTHOS_RESEARCH_INTELLIGENCE_VISION.md",
+        "docs/MYTHOS_RESEARCH_INTELLIGENCE_ARCHITECTURE.md",
+        "docs/RESEARCH_ROADMAP.md",
+        "projects/research-intelligence/"
+      ]
+    },
+    {
+      "track": "mythos-devx",
+      "stage_id": "DEVX-0",
+      "title": "Development Acceleration MVP",
+      "status": "DONE",
+      "type": "GOVERNANCE",
+      "starting_head": "b401a57431f490954bda31cf44987bfbba3f87b5",
+      "implementation_commit": "f81d18282c0b904fafb3780031e69d85a300bd71",
+      "merge_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a",
+      "handover_commit": null,
+      "completed_at": "2026-08-07",
+      "tests": {
+        "devx0": "45/45",
+        "mpi0_finalization_governance": "36/36",
+        "mpi0": "63/63"
+      },
+      "blockers": [],
+      "next_stage": "DEVX-1 (NOT STARTED)",
+      "evidence_paths": [
+        "scripts/mythos-stage.js",
+        "projects/meta/current-context.json",
+        "projects/meta/known-baselines.json",
+        "projects/meta/test-impact-map.json",
+        "projects/meta/development-lanes.json",
+        "projects/meta/stage-templates.json",
+        "docs/DEVELOPMENT_ACCELERATION_ARCHITECTURE.md"
+      ]
+    },
+    {
+      "track": "mythos-automation-operations",
+      "stage_id": "INF-OVH-API-0",
+      "title": "OVH Read-Only Connector",
+      "status": "DONE",
+      "type": "CONNECTOR",
+      "starting_head": "e2ca9dc42f8ed317f220b561cffa1d4229b9a1ad",
+      "implementation_commit": "d90ac35722c088e9fbfd5ba07f775d708c52fd4e",
+      "merge_commit": "79fdb122edd2dc3246fc7781247265e3fab93adf",
+      "handover_commit": null,
+      "completed_at": "2026-08-08",
+      "tests": {
+        "inf_ovh_api_0_connector": "26/26",
+        "devx0": "45/45",
+        "mpi0_finalization_governance": "36/36",
+        "mpi0": "63/63"
+      },
+      "blockers": [],
+      "next_stage": "INF-CF-AUTO-0 (NOT STARTED)",
+      "evidence_paths": [
+        "projects/automation/reference/ovh-readonly-connector.js",
+        "tests/inf-ovh-api-0-connector-test.js",
+        "docs/AUTOMATION_ROADMAP.md"
+      ]
+    }
+  ],
+  "commits": [
+    {
+      "sha": "909ced531dab7095cc6511efd6e646ba4befa07c",
+      "message": "docs: update AI_HANDOVER.md for Automation AUT-0",
+      "date": "2026-08-06",
+      "branch": "main"
+    },
+    {
+      "sha": "0d0a387327aeec5544c23c77b598d151ac772e1d",
+      "message": "docs(automation): establish Mythos automation-first foundation",
+      "date": "2026-08-06",
+      "branch": "main"
+    },
+    {
+      "sha": "d0a4cbb464d78b56a546a0d60543e871c77579d5",
+      "message": "docs: update AI_HANDOVER.md for Mythos Personal Intelligence MPI-0",
+      "date": "2026-08-06",
+      "branch": "feat/mythos-personal-intelligence"
+    }
+  ],
+  "pull_requests": [
+    {
+      "number": 1,
+      "title": "docs(cloudflare): establish edge security foundation",
+      "base": "main",
+      "head": "docs/cloudflare-foundation",
+      "state": "MERGED"
+    },
+    {
+      "number": 2,
+      "title": "docs(cloudflare): inventory Mythos domain portfolio",
+      "base": "main",
+      "head": "docs/cloudflare-domain-inventory",
+      "state": "MERGED"
+    },
+    {
+      "number": 3,
+      "title": "docs(cloudflare): prepare authoritative DNS export intake",
+      "base": "main",
+      "head": "docs/cloudflare-zone-export-intake",
+      "state": "MERGED"
+    },
+    {
+      "number": 4,
+      "title": "Mythos Personal Intelligence & Skills Platform — MPI-0 Foundation + Finalization",
+      "base": "main",
+      "head": "feat/mythos-personal-intelligence",
+      "state": "MERGED",
+      "merge_commit": "8632a99dfb94ff101811a8d0aa47ea5418c3cb19",
+      "merged_at": "2026-08-07T20:26:18Z"
+    },
+    {
+      "number": 6,
+      "title": "feat(devx): Mythos Development Acceleration MVP",
+      "base": "main",
+      "head": "feat/devx-0-development-acceleration",
+      "state": "MERGED",
+      "merge_commit": "62da023de0ab78f9c8d3754c28b141861b99c85a",
+      "merged_at": "2026-08-07T22:30:30Z"
+    },
+    {
+      "number": 5,
+      "title": "docs(research): Mythos Research Intelligence free-first foundation",
+      "base": "main",
+      "head": "docs/research-intelligence-foundation",
+      "state": "OPEN_DRAFT",
+      "merge_commit": null,
+      "merged_at": null
+    },
+    {
+      "number": 7,
+      "title": "feat(automation): INF-OVH-API-0 OVH Read-Only Connector (reference implementation)",
+      "base": "main",
+      "head": "feat/inf-ovh-api-0-readonly-connector",
+      "state": "MERGED",
+      "merge_commit": "79fdb122edd2dc3246fc7781247265e3fab93adf",
+      "merged_at": "2026-08-07T23:54:57Z"
+    }
+  ],
+  "tests": [
+    {
+      "suite": "tests/mpi-0-personal-intelligence-test.js",
+      "result": "63/63",
+      "as_of": "2026-08-06T00:00:00Z"
+    },
+    {
+      "suite": "tests/stage4z-test.js",
+      "result": "44/44",
+      "as_of": "2026-08-06T00:00:00Z"
+    },
+    {
+      "suite": "tests/stage3d-test.js",
+      "result": "104/110",
+      "known_baseline_failures": [
+        "stage3c",
+        "stage3b",
+        "stage3a5",
+        "stage3a",
+        "stage2d",
+        "stage1c-part1"
+      ],
+      "as_of": "2026-08-06T00:00:00Z"
+    }
+  ],
+  "skills": "see projects/personal-intelligence/config/agent-skills-registry.json for the full skills ledger",
+  "known_issues": [
+    {
+      "id": "memcache-core-failure",
+      "description": "_memCache core failure cascades into stage3a/stage2d/stage1c-part1 subprocess errors and partial failures in stage3c/stage3b/stage3a5",
+      "status": "KNOWN_BASELINE_FAILURE",
+      "verified_identical_on_base_and_branch": true
+    },
+    {
+      "id": "2026-07-31-history-conflict",
+      "description": "docs/PROJECT_STATE.md and docs/worklogs/* imply more 2026-07-31 activity than the 2 commits visible on main for that date",
+      "status": "HISTORICAL_CONFLICT",
+      "see": "docs/history/DAILY_HISTORY.md#2026-07-31"
+    }
+  ],
+  "portfolio": "see projects/meta/portfolio-registry.json for the full portfolio ledger",
+  "daily_activity": "see docs/history/DAILY_HISTORY.md for the full daily ledger"
+}

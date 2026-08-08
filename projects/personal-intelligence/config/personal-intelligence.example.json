@@ -1,0 +1,222 @@
+{
+  "_note": "Mythos Personal Intelligence & Skills Platform configuration draft — Stage MPI-0. All feature flags are false. No real users, organisations, credentials, or personal data. Not deployed.",
+  "version": "0.1.0-mpi0-draft",
+  "product": {
+    "product_key": "mythos_intelligence",
+    "name": "Mythos Personal Intelligence & Skills Platform",
+    "stage": "MPI-0",
+    "principle": "Shared capabilities, isolated intelligence.",
+    "ecosystem": "mythos"
+  },
+  "database": {
+    "_note": "Target DBMS selected. NOT INSTALLED OR DEPLOYED in MPI-0.",
+    "target_dbms": "PostgreSQL",
+    "logical_schema": "mythos_intelligence",
+    "implementation_stage": "MPI-1 or later"
+  },
+  "layer_hierarchy": [
+    "global_intelligence",
+    "domain_profile",
+    "organisation_profile",
+    "user_profile",
+    "session_context",
+    "intent_architect",
+    "skill_router",
+    "superposer",
+    "guard_permissions",
+    "specialised_skills",
+    "model_agent_tool",
+    "validation",
+    "learning_signals"
+  ],
+  "domains": [
+    {
+      "domain_id": "education",
+      "capabilities": [
+        "teacher.context",
+        "lesson.prepare",
+        "exercise.generate",
+        "assessment.prepare",
+        "answer_key.generate",
+        "content.adapt_difficulty",
+        "student_group.context",
+        "curriculum.context",
+        "document.prepare",
+        "schedule.context"
+      ],
+      "runtime_available": false
+    },
+    {
+      "domain_id": "automotive_workshop",
+      "capabilities": [
+        "workshop.context",
+        "vehicle.lookup",
+        "vehicle.checkin",
+        "client.resolve",
+        "diagnostic.summary",
+        "estimate.prepare",
+        "workorder.manage",
+        "parts.lookup",
+        "maintenance.history",
+        "invoice.prepare",
+        "appointment.manage",
+        "customer.followup"
+      ],
+      "runtime_available": false
+    }
+  ],
+  "context_classification": [
+    "REQUIRED",
+    "USEFUL",
+    "IRRELEVANT",
+    "FORBIDDEN"
+  ],
+  "memory_types": [
+    "WORKING_PREFERENCE",
+    "WORKFLOW",
+    "DOMAIN_CONTEXT",
+    "ORG_KNOWLEDGE",
+    "TASK_HISTORY",
+    "DECISION",
+    "EPHEMERAL_SESSION"
+  ],
+  "learning": {
+    "pipeline": [
+      "INTERACTION",
+      "OBSERVATION",
+      "CLASSIFICATION",
+      "CANDIDATE_PATTERN",
+      "CONFIDENCE",
+      "CONFLICT_CHECK",
+      "PERSIST_OR_DISCARD",
+      "AUDIT"
+    ],
+    "status_progression": [
+      "SESSION_OBSERVATION",
+      "CANDIDATE_PREFERENCE",
+      "ESTABLISHED_PREFERENCE",
+      "EXPLICIT_USER_RULE"
+    ],
+    "confidence_levels": [
+      "LOW",
+      "MEDIUM",
+      "HIGH",
+      "EXPLICIT"
+    ],
+    "default_scope": "user",
+    "scopes": [
+      "session",
+      "user",
+      "organisation",
+      "domain",
+      "global"
+    ],
+    "scope_promotion_requires_governance": true
+  },
+  "precedence": [
+    "system_security_legal_constraints",
+    "current_authorised_organisation_policy",
+    "current_role_permissions",
+    "current_explicit_user_instruction",
+    "explicit_persistent_user_rule",
+    "verified_organisation_workflow",
+    "established_user_preference",
+    "domain_default",
+    "generic_mythos_default"
+  ],
+  "guard_decisions": [
+    "ALLOW",
+    "DENY",
+    "REQUIRE_APPROVAL",
+    "READ_ONLY",
+    "DRY_RUN_ONLY"
+  ],
+  "chatbot_pipeline": [
+    "MESSAGE",
+    "AUTHENTICATED_USER",
+    "ORGANISATION",
+    "ROLE_PERMISSIONS",
+    "DOMAIN",
+    "USER_INTELLIGENCE",
+    "RELEVANT_MEMORY",
+    "CURRENT_SESSION",
+    "INTENT_NORMALIZATION",
+    "SKILL_ROUTER",
+    "SUPERPOSER",
+    "GUARD",
+    "EXECUTION",
+    "RESPONSE",
+    "LEARNING_SIGNAL"
+  ],
+  "response_architecture": [
+    "UNDERSTANDING",
+    "PLANNING",
+    "EXECUTION",
+    "RESPONSE_GENERATION",
+    "LEARNING"
+  ],
+  "model_capability_classes": [
+    "FAST",
+    "REASONING",
+    "CODING",
+    "DOCUMENT",
+    "VISION",
+    "RESEARCH",
+    "STRUCTURED_EXTRACTION"
+  ],
+  "supported_intent_languages": [
+    "ar",
+    "ar-TN",
+    "fr",
+    "en",
+    "ar-fr-mixed"
+  ],
+  "privacy_policy": {
+    "data_minimisation": true,
+    "prefer_references_over_raw_content": true,
+    "no_raw_pii_in_prompts_unnecessarily": true,
+    "application_layer_enforces_isolation": true,
+    "prompt_only_isolation_forbidden": true,
+    "secrets_policy_reference": "docs/AUTOMATION_SECURITY_AND_SECRETS.md"
+  },
+  "multi_tenancy": {
+    "user_scope_required": true,
+    "organisation_scope_required": true,
+    "permission_scope_required": true,
+    "cross_tenant_leak_forbidden": true,
+    "identifier_guessing_grants_no_access": true
+  },
+  "feedback_event_types": [
+    "accepted_result",
+    "edited_result",
+    "rejected_result",
+    "repeated_action",
+    "explicit_preference",
+    "explicit_correction",
+    "workflow_completion"
+  ],
+  "feature_flags": {
+    "_note": "All flags are false in MPI-0. No feature is active. No runtime chatbot exists.",
+    "personal_chatbot_runtime": false,
+    "context_assembler_live": false,
+    "context_compiler_live": false,
+    "personal_learning_engine_live": false,
+    "skill_router_live": false,
+    "superposer_live": false,
+    "education_domain_pack_live": false,
+    "automotive_workshop_domain_pack_live": false,
+    "organisation_ai_admin_ui": false,
+    "user_ai_preferences_ui": false,
+    "multi_model_provider_routing": false,
+    "knowledge_source_connectors": false
+  },
+  "retention_placeholders": {
+    "_note": "All retention periods to be determined in a future stage.",
+    "memory_records": null,
+    "learned_preferences": null,
+    "session_context": null,
+    "guard_decisions": null,
+    "context_packages": null,
+    "feedback_events": null
+  }
+}

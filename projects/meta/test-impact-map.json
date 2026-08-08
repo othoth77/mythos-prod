@@ -1,0 +1,141 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2026-08-08T00:00:00Z",
+  "source_commit": "b401a57431f490954bda31cf44987bfbba3f87b5",
+  "notes": "Rules are checked in array order; the first matching path_prefix wins for a given changed file. A change set touching multiple prefixes accumulates the union of matched targeted_tests and takes the highest-risk matched lane. A changed file matching no rule falls back to the 'fallback' entry (full suite required, HIGH_RISK) rather than silently running nothing.",
+  "rules": [
+    {
+      "path_prefix": "projects/meta/",
+      "track": "project-intelligence",
+      "targeted_tests": [
+        "node scripts/project-intelligence.js validate",
+        "node tests/mpi-0-finalization-governance-test.js"
+      ],
+      "risk_lane": "FAST"
+    },
+    {
+      "path_prefix": ".claude/skills/",
+      "track": "agent-skills",
+      "targeted_tests": [
+        "node scripts/project-intelligence.js validate"
+      ],
+      "risk_lane": "FAST"
+    },
+    {
+      "path_prefix": "docs/",
+      "track": "documentation",
+      "targeted_tests": [],
+      "risk_lane": "FAST",
+      "notes": "Doc-only changes require no product test run beyond JSON/Markdown validation already covered by validate."
+    },
+    {
+      "path_prefix": "scripts/",
+      "track": "developer-tooling",
+      "targeted_tests": [
+        "node scripts/project-intelligence.js validate",
+        "node tests/devx-0-development-acceleration-test.js"
+      ],
+      "risk_lane": "STANDARD"
+    },
+    {
+      "path_prefix": "tests/",
+      "track": "developer-tooling",
+      "targeted_tests": [],
+      "risk_lane": "STANDARD",
+      "notes": "Run the specific test file changed; no separate rule needed beyond that."
+    },
+    {
+      "path_prefix": "projects/personal-intelligence/",
+      "track": "mythos-personal-intelligence",
+      "targeted_tests": [
+        "node tests/mpi-0-personal-intelligence-test.js"
+      ],
+      "risk_lane": "STANDARD"
+    },
+    {
+      "path_prefix": "projects/automotive/",
+      "track": "mythos-automotive",
+      "targeted_tests": [],
+      "risk_lane": "STANDARD",
+      "notes": "Draft (undeployed) schema only as of this map's generation — no runtime tests exist yet."
+    },
+    {
+      "path_prefix": "projects/idauto/",
+      "track": "id-auto",
+      "targeted_tests": [],
+      "risk_lane": "STANDARD",
+      "notes": "Draft (undeployed) schema only as of this map's generation."
+    },
+    {
+      "path_prefix": "projects/atelier-network/",
+      "track": "atelier-network",
+      "targeted_tests": [],
+      "risk_lane": "STANDARD",
+      "notes": "Draft (undeployed) schema only as of this map's generation."
+    },
+    {
+      "path_prefix": "projects/autovaleur/",
+      "track": "autovaleur",
+      "targeted_tests": [],
+      "risk_lane": "STANDARD",
+      "notes": "Draft (undeployed) schema only as of this map's generation."
+    },
+    {
+      "path_prefix": "projects/automation/",
+      "track": "mythos-automation-operations",
+      "targeted_tests": [
+        "node tests/inf-ovh-api-0-connector-test.js"
+      ],
+      "risk_lane": "STANDARD"
+    },
+    {
+      "path_prefix": "projects/infrastructure/cloudflare/",
+      "track": "infrastructure-cloudflare",
+      "targeted_tests": [],
+      "risk_lane": "HIGH_RISK",
+      "notes": "DNS/edge security. HIGH_RISK per projects/meta/development-lanes.json regardless of file size."
+    },
+    {
+      "path_prefix": "deploy/",
+      "track": "infrastructure-cloudflare",
+      "targeted_tests": [],
+      "risk_lane": "HIGH_RISK",
+      "notes": "Deployment configuration. HIGH_RISK per projects/meta/development-lanes.json."
+    },
+    {
+      "path_prefix": "js/",
+      "track": "mythos-os",
+      "targeted_tests": [
+        "node tests/stage4z-test.js",
+        "node tests/stage3d-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "baseline_id": "stage3d-known-failures"
+    },
+    {
+      "path_prefix": "css/",
+      "track": "mythos-os",
+      "targeted_tests": [
+        "node tests/stage4z-test.js"
+      ],
+      "risk_lane": "STANDARD"
+    },
+    {
+      "path_prefix": "index.html",
+      "track": "mythos-os",
+      "targeted_tests": [
+        "node tests/stage4z-test.js",
+        "node tests/stage3d-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "baseline_id": "stage3d-known-failures"
+    }
+  ],
+  "fallback": {
+    "risk_lane": "HIGH_RISK",
+    "targeted_tests": [
+      "FULL_SUITE_REQUIRED"
+    ],
+    "notes": "Unmatched/unknown path prefix. Per DEVX-0 policy, unknown or high-impact changes fall back to broader regression rather than assuming a narrow blast radius."
+  }
+}
