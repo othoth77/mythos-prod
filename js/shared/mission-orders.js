@@ -25,7 +25,6 @@ const OM_MISSION_TEXTS = {
   aller_simple: 'Assurer le transport du groupe jusqu\u2019\u00e0 leur lieu de visite professionnelle, avec bagages et d\u00e9cors.'
 };
 
-let stableLineCount = 0;
 var stableOmPersonCount = 0;
 
 

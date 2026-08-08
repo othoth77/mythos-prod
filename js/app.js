@@ -176,30 +176,7 @@ function populateInvoiceList() {
 
 // populateOmList → js/shared/mission-orders.js (renderOMList)
 
-// ── INVOICE FUNCTIONS ──
-function editInvoice(id) {
-  const invoices = STORE.invoices();
-  const inv = invoices.find(i => i.id === id);
-  if (!inv) return;
-
-  document.getElementById('edit-id').value = id;
-  document.getElementById('f-type').value = inv.type || 'tva';
-  document.getElementById('f-date').value = inv.date || '';
-  document.getElementById('f-client-name').value = inv.clientName || '';
-  document.getElementById('f-client-addr').value = inv.clientAddr || '';
-  document.getElementById('f-client-mf').value = inv.clientMf || '';
-  document.getElementById('f-addStamp').checked = inv.addStamp !== false;
-
-  navigateTo('new');
-}
-
-function deleteInvoice(id) {
-  if (!confirm('Êtes-vous sûr?')) return;
-  const invoices = STORE.invoices().filter(i => i.id !== id);
-  STORE.saveInvoices(invoices);
-  populateInvoiceList();
-}
-
+// editInvoice, deleteInvoice → js/shared/invoices.js
 // ── DEVIS FUNCTIONS ──
 // Devis CRUD, form, and preview moved to js/shared/devis.js.
 // RDV CRUD and form workflow moved to js/shared/rdvs.js.
