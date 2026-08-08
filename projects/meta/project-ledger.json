@@ -373,6 +373,26 @@
         "tests/inf-ovh-api-0-connector-test.js",
         "docs/AUTOMATION_ROADMAP.md"
       ]
+    },
+    {
+      "track": "mythos-automation-operations",
+      "stage_id": "INF-CF-AUTO-0",
+      "title": "Cloudflare Read-Only Connector",
+      "status": "IN_PROGRESS",
+      "type": "CONNECTOR",
+      "starting_head": "0cf443819879a2356e853be9ef047c0dcf8fd179",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "INF-DNS-AUTO-1 (NOT STARTED)",
+      "evidence_paths": [
+        "projects/automation/reference/cloudflare-readonly-connector.js",
+        "tests/inf-cf-auto-0-connector-test.js",
+        "docs/AUTOMATION_ROADMAP.md"
+      ]
     }
   ],
   "commits": [

@@ -84,7 +84,8 @@
       "path_prefix": "projects/automation/",
       "track": "mythos-automation-operations",
       "targeted_tests": [
-        "node tests/inf-ovh-api-0-connector-test.js"
+        "node tests/inf-ovh-api-0-connector-test.js",
+        "node tests/inf-cf-auto-0-connector-test.js"
       ],
       "risk_lane": "STANDARD"
     },
