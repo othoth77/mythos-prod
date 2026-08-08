@@ -140,8 +140,20 @@
 - **Tests run post-merge:** `tests/inf-ovh-api-0-connector-test.js` — 26/26 passed; `tests/devx-0-development-acceleration-test.js` — 45/45 passed (regression, unaffected); `tests/mpi-0-finalization-governance-test.js` — 36/36 passed (regression, unaffected); `tests/mpi-0-personal-intelligence-test.js` — 63/63 passed (regression, unaffected); `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings, re-verified on `main` after merge.
 - **Doc changes:** `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`, `docs/PROJECT_STATUS.md`, `docs/PROJECT_STATISTICS.md`, `docs/history/DAILY_HISTORY.md` (this entry), `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json` — updated post-merge to record INF-OVH-API-0 as complete and merged, per the permanent handover rule.
 - **Blockers:** none.
-- **End-of-day HEAD (`main`):** `79fdb122edd2dc3246fc7781247265e3fab93adf`.
-- **Next recorded action:** INF-CF-AUTO-0 (Cloudflare Read-Only Connector) — NOT STARTED. MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 — all NOT STARTED, unaffected by this stage. RES-0 (PR #5) remains open, Draft, unmerged.
+- **End-of-day HEAD (`main`) as of the INF-OVH-API-0 merge:** `79fdb122edd2dc3246fc7781247265e3fab93adf`. **Superseded later the same day by the RES-0 merge — see below; this entry is extended, not replaced, per the append-only rule.**
+
+### Later the same day — RES-0 (PR #5) refreshed against main, conflicts resolved, marked ready, and merged
+
+- **Refresh:** `docs/research-intelligence-foundation` (originally branched from `main` @ `909ced5`, before MPI-0/MPI-0-FINALIZATION/DEVX-0/INF-OVH-API-0 existed) merged current `main` in via commit `ccd22016c8e3cd61dce37d8d7aa6b34581714e2b`. Two legitimate documentation conflicts resolved: `docs/AI_HANDOVER.md` (RES-0's own top section reintegrated above the accumulated stage history, header updated to reflect the merge as the latest event) and `docs/ROADMAP.md` (RES-0's detailed "Research Intelligence — Platform Capability Track" section reintegrated; a redundant stub section of the same name — added by a later stage before RES-0 merged — was removed to avoid duplication; two now-stale RES-1 entry-gate statuses corrected: MPI-0 PR #4 and INF-OVH-API-0 had both since completed).
+- **Pull Requests:** PR #5 ("docs(research): Mythos Research Intelligence free-first foundation") — description updated to record the refresh, marked ready for review, **merged to `main` via a standard merge commit** (`38741453570517fb106cfff1f2662c26b18b5c0d`), no squash, no rebase, no force-push.
+- **Stages completed on `main`:** RES-0 — Mythos Research Intelligence Foundation — DONE. **All four open PRs from this session (#4, #5, #6, #7) are now merged; no PR remains open.**
+- **Tests run post-merge:** `tests/inf-ovh-api-0-connector-test.js` — 26/26 passed (regression, unaffected); `tests/devx-0-development-acceleration-test.js` — 45/45 passed (regression, unaffected); `tests/mpi-0-finalization-governance-test.js` — 36/36 passed (regression, unaffected); `tests/mpi-0-personal-intelligence-test.js` — 63/63 passed (regression, unaffected); `python -m json.tool` on both RES-0 config templates — valid; `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings, re-verified on `main` after merge.
+- **Known pre-existing failures:** not applicable — this stage touched no `js/`/`css/`/`.php`/`index.html` file.
+- **Security/safety changes:** none — documentation-only stage; secret/credential scan across all RES-0-specific files confirmed clean both before and after the refresh.
+- **Doc changes:** `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`, `docs/PROJECT_STATUS.md`, `docs/PROJECT_STATISTICS.md`, `docs/history/DAILY_HISTORY.md` (this entry), `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json` — updated post-merge to record RES-0 as complete and merged, per the permanent handover rule.
+- **Blockers:** none.
+- **End-of-day HEAD (`main`):** `38741453570517fb106cfff1f2662c26b18b5c0d`.
+- **Next recorded action:** INF-CF-AUTO-0 (Cloudflare Read-Only Connector) — NOT STARTED. MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 — all NOT STARTED, unaffected by this stage.
 
 ---
 

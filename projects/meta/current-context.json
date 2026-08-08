@@ -1,24 +1,18 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-08T00:09:28.372Z",
-  "source_commit": "79fdb122edd2dc3246fc7781247265e3fab93adf",
-  "main_head": "79fdb122edd2dc3246fc7781247265e3fab93adf",
+  "generated_at": "2026-08-08T01:21:08.926Z",
+  "source_commit": "38741453570517fb106cfff1f2662c26b18b5c0d",
+  "main_head": "38741453570517fb106cfff1f2662c26b18b5c0d",
   "active_branch": "main",
   "active_stage": [],
   "last_completed_stage": {
-    "track": "mythos-automation-operations",
-    "stage_id": "INF-OVH-API-0",
+    "track": "mythos-research-intelligence",
+    "stage_id": "RES-0",
     "completed_at": "2026-08-08"
   },
-  "next_owner_priority": "INF-OVH-API-0 — OVHcloud Read-Only Connector — COMPLETE AND MERGED",
+  "next_owner_priority": null,
   "active_prs": [],
-  "draft_prs": [
-    {
-      "number": 5,
-      "title": "docs(research): Mythos Research Intelligence free-first foundation",
-      "head": "docs/research-intelligence-foundation"
-    }
-  ],
+  "draft_prs": [],
   "known_blockers": [],
   "known_baselines": [
     "stage3d-known-failures"

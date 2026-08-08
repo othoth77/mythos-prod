@@ -21,16 +21,16 @@ This document also maintains the mandatory distinction from Phase 20: `architect
 | Total commits on `main` (tracked history window) | 147 | `git log main --oneline \| wc -l` |
 | MPI-0 branch commits ahead of `main` | 0 (fully merged) | `git log main..feat/mythos-personal-intelligence --oneline` |
 | DEVX-0 branch commits ahead of `main` | 0 (fully merged) | `git log main..feat/devx-0-development-acceleration --oneline` |
-| Merged Pull Requests | 6 (#1, #2, #3, #4, #6, #7) | `gh pr list --state merged` |
-| Open Pull Requests | 1 (#5, Draft, RES-0) | `gh pr list --state open` |
+| Merged Pull Requests | 7 (#1, #2, #3, #4, #5, #6, #7) | `gh pr list --state merged` |
+| Open Pull Requests | 0 | `gh pr list --state open` |
 
 ## 2. Stages
 
 | Statistic | Value | Source |
 |---|---|---|
 | Stages recorded in the project ledger | 17 | `projects/meta/project-ledger.json` |
-| Completed (`DONE`) | 16 | same |
-| Done, pending merge (`DONE_PENDING_MERGE`) | 1 (RES-0, PR #5 open Draft) | same |
+| Completed (`DONE`) | 17 | same |
+| Done, pending merge (`DONE_PENDING_MERGE`) | 0 | same |
 | In progress (`IN_PROGRESS`) | 0 | same |
 | Blocked | 0 stages formally blocked; 2 **next** stages blocked (MAE-1 on IDA-2, INF-CF-2 on owner approval) | `docs/ROADMAP.md`, `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` |
 | Planned (named next-stage, not started) | 8 (Stage 3E, IDA-2, ATN-1, AVA-1, MPI-1, INF-OVH-API-0, RES-1, DEVX-1) | `docs/ROADMAP.md` |

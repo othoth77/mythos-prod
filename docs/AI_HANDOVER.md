@@ -15,6 +15,10 @@
 **Status:** Complete and merged to `main`
 
 **Branch:** `docs/research-intelligence-foundation`
+**Refresh commit (resolving conflicts against current `main`):** `ccd22016c8e3cd61dce37d8d7aa6b34581714e2b` — merged `main` in, resolved two documentation conflicts in `docs/AI_HANDOVER.md` and `docs/ROADMAP.md`, corrected two now-stale RES-1 entry-gate statuses (MPI-0 and INF-OVH-API-0 had both since completed), removed a redundant duplicate Research Intelligence stub section that had been added to `docs/ROADMAP.md` by a later stage before this PR was finalised.
+**Pull Request:** #5, opened Draft, refreshed and finalised for merge, merged with a standard merge commit (no squash, no rebase, no force-push)
+**Merge commit SHA:** `38741453570517fb106cfff1f2662c26b18b5c0d`
+**`main` HEAD after merge:** `38741453570517fb106cfff1f2662c26b18b5c0d` (fast-forwarded; verified `git rev-parse HEAD` == `git rev-parse origin/main`)
 
 ### Scope
 
