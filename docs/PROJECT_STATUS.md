@@ -1,16 +1,16 @@
 # Mythos — Project Status
 
-**Stage:** INF-CF-AUTO-0 — COMPLETE AND MERGED
-**Generated:** 2026-08-06 · **Updated:** 2026-08-08 (post-INF-CF-AUTO-0-merge)
+**Stage:** RUNTIME-DUPLICATE-CLEANUP-0 — IN PROGRESS (branch pushed, PR pending)
+**Generated:** 2026-08-06 · **Updated:** 2026-08-08 (RUNTIME-DUPLICATE-CLEANUP-0 in progress)
 **Purpose:** Quick "where are we now" snapshot. Full detail lives in `docs/AI_HANDOVER.md` (stage semantics), `docs/ROADMAP.md` (intentions), `docs/history/DAILY_HISTORY.md` (day-by-day), and `docs/PROJECT_STATISTICS.md` (numbers).
 
 ---
 
 ## Current Source of Truth
 
-- **Current `main` HEAD:** `82fd2f97165495fb112bbdff828a1ce4a6884334` (PR #8 merge commit)
-- **PRs:** #4, #5, #6, #7, #8 all MERGED. **No open PRs.**
-- **Current major active stage:** None. MPI-0, MPI-0-FINALIZATION, DEVX-0, INF-OVH-API-0, RES-0, and INF-CF-AUTO-0 are all complete and merged; no runtime stage is active.
+- **Current `main` HEAD:** `c2134e574b5a7e05ac3acbf41ae262cb2cad6b08` (unchanged until RUNTIME-DUPLICATE-CLEANUP-0 merges)
+- **PRs:** #4, #5, #6, #7, #8 all MERGED. RUNTIME-DUPLICATE-CLEANUP-0's PR not yet opened.
+- **Current major active stage:** RUNTIME-DUPLICATE-CLEANUP-0 — Canonical Runtime Function Ownership + Stage 4Z Repair. Branch `fix/runtime-duplicate-function-ownership`, 3 implementation commits, all targeted/regression/governance tests green, Stage 3D matches known baseline exactly (104/110). Fixes a real production bug: `js/shared/invoices.js` never actually loaded due to a `stableLineCount` redeclaration collision with `mission-orders.js`.
 - **Last completed stage on `main`:** INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation, merged via PR #8), preceded by RES-0 (PR #5), preceded by INF-OVH-API-0 (PR #7).
 
 ---

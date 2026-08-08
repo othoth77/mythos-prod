@@ -108,7 +108,7 @@ Move generic modules out of app.js into `js/shared/`:
 6. `shared/dashboard.js` — extract from app.js lines 700–975
 
 **Known blocked items (requires dedicated stage):**
-- `stableLineCount` collision: `mission-orders.js:28` (`let stableLineCount`) prevents `invoices.js` from loading. Fix requires removing the `let` declaration, then deleting `editInvoice`, `deleteInvoice`, `populateInvoiceList` from `app.js`.
+- ~~`stableLineCount` collision: `mission-orders.js:28` (`let stableLineCount`) prevents `invoices.js` from loading.~~ **RESOLVED in RUNTIME-DUPLICATE-CLEANUP-0** (2026-08-08): removed the stray, unused `let stableLineCount = 0;` from `mission-orders.js:28`; `invoices.js` now loads correctly. `editInvoice`/`deleteInvoice` removed from `app.js`, canonical in `invoices.js`. `populateInvoiceList` intentionally left in `app.js` -- not named in this stage's scope, and its only caller (the already-dead `navigateTo('invoices')` path in `js/core/router.js`) is unreachable from the live UI; touching `router.js` was not authorized for this stage.
 
 ### Stage 5 — Production Module Extraction
 Move production-specific domains out of app.js into `js/prod/`:

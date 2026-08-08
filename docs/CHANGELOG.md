@@ -48,3 +48,12 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 - `projects/automation/reference/cloudflare-readonly-connector.js`: LEVEL_1_READ_ONLY connector orchestration (account and zone inventory, current settings inventory). Structurally read-only; refuses to run unless explicitly enabled; redacts account-owner-identifying fields. No live Cloudflare credential exists anywhere; no live network call made; not deployed.
 - 26-test suite (`tests/inf-cf-auto-0-connector-test.js`), every provider response mocked.
 - Known, deliberately deferred cleanup item: `buildSnapshotRecord`/`assertReadOnlyClient` duplicate their `ovh-readonly-connector.js` counterparts — extraction into a shared module was explicitly deferred, not performed.
+
+### Fixed — RUNTIME-DUPLICATE-CLEANUP-0 — Canonical runtime function ownership
+
+- Fixed a real production bug: a stray, unused `let stableLineCount = 0;` in `js/shared/mission-orders.js` collided with `js/shared/invoices.js`'s genuinely-used `var stableLineCount`, throwing a SyntaxError that silently discarded the entire `invoices.js` script at runtime. Invoice editing was silently running on a stale, degraded `js/app.js` fallback (missing TVA/timbre/status/payment-mode/line restoration; "add line" was a dead stub).
+- Removed the dead `stableLineCount` declaration from `mission-orders.js`; `invoices.js` now loads and its `editInvoice`/`deleteInvoice` are the sole, canonical implementation.
+- Removed the now-superseded `editInvoice`/`deleteInvoice` duplicates from `js/app.js`.
+- Confirmed `addOmPerson`/`cancelOM` mission-order ownership was already correctly canonical in `mission-orders.js` (Stage 4AG) — no change needed there.
+- Corrected `tests/stage4z-test.js` and `tests/stage4ag-test.js`, which had hard-coded the pre-fix "blocked" state as a required assertion.
+- Added `tests/runtime-duplicate-cleanup-0-test.js` (24 tests), including a same-shared-global-scope load test — the only kind of check that actually catches this class of cross-file redeclaration collision.
