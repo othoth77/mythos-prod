@@ -22,16 +22,24 @@ console.log('\n2. Stage 4 extraction boundary completeness — functions gone fr
 });
 
 console.log('\n3. Surviving active functions still in app.js');
-['editInvoice','deleteInvoice',
- 'initApp','bootstrapStableApp','closeModalFromOutsideClick'].forEach(function(n){
+['initApp','bootstrapStableApp','closeModalFromOutsideClick'].forEach(function(n){
   ok(app.indexOf('function '+n+'(')>=0,n+' active function preserved in app.js');
 });
 ok(app.indexOf('function cancelOM(')<0,'cancelOM removed from app.js (Stage 4AG)');
 ok(app.indexOf('function editOm(')<0,'editOm removed from app.js (Stage 4AG)');
 ok(app.indexOf('function deleteOm(')<0,'deleteOm removed from app.js (Stage 4AG)');
+ok(app.indexOf('function addOmPerson(')<0,'addOmPerson absent from app.js');
 var moSrc=fs.readFileSync(path.join(BASE,'js/shared/mission-orders.js'),'utf8');
 ok(moSrc.indexOf('function cancelOM(')>=0,'cancelOM canonical in mission-orders.js');
 ok(moSrc.indexOf('function addOmPerson(')>=0,'addOmPerson canonical in mission-orders.js');
+
+console.log('\n3b. Runtime duplicate cleanup (RUNTIME-DUPLICATE-CLEANUP-0): invoice ownership');
+ok(app.indexOf('function editInvoice(')<0,'editInvoice removed from app.js (RUNTIME-DUPLICATE-CLEANUP-0)');
+ok(app.indexOf('function deleteInvoice(')<0,'deleteInvoice removed from app.js (RUNTIME-DUPLICATE-CLEANUP-0)');
+var invSrc=fs.readFileSync(path.join(BASE,'js/shared/invoices.js'),'utf8');
+ok(invSrc.indexOf('function editInvoice(')>=0,'editInvoice canonical in invoices.js');
+ok(invSrc.indexOf('function deleteInvoice(')>=0,'deleteInvoice canonical in invoices.js');
+ok(moSrc.indexOf('let stableLineCount')<0,'stale stableLineCount declaration removed from mission-orders.js');
 // exportBackup, importBackup, renderBackupDashboard moved to js/shared/backup.js in Stage 4AD
 var backup=fs.readFileSync(path.join(BASE,'js/shared/backup.js'),'utf8');
 ok(backup.indexOf('function exportBackup(')>=0,'exportBackup present in backup.js (Stage 4AD)');

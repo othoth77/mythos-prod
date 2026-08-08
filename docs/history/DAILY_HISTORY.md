@@ -171,6 +171,24 @@
 - **End-of-day HEAD (`main`):** `82fd2f97165495fb112bbdff828a1ce4a6884334`.
 - **Next recorded action:** INF-DNS-AUTO-1 (DNS Snapshot, Comparison and Drift Detection) — NOT STARTED. MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 — all NOT STARTED, unaffected by this stage. The `ovh-readonly-connector.js`/`cloudflare-readonly-connector.js` duplicate-function cleanup remains an explicitly deferred, not-yet-authorised item.
 
+### Later the same day — RUNTIME-DUPLICATE-CLEANUP-0 implemented (PR pending)
+
+- **Stage:** RUNTIME-DUPLICATE-CLEANUP-0 — Canonical Runtime Function Ownership + Stage 4Z Repair, started via owner instruction with full pre-authorization through branch/PR/merge gated on all tests passing.
+- **Major files/modules changed:** `js/shared/mission-orders.js` (removed dead `let stableLineCount = 0;`), `js/app.js` (removed `editInvoice`/`deleteInvoice`, now canonical only in `js/shared/invoices.js`), `tests/stage4z-test.js` and `tests/stage4ag-test.js` (corrected outdated assertions), `tests/runtime-duplicate-cleanup-0-test.js` (new, 24 tests).
+- **Real bug found and fixed:** a fresh audit against current `main` (the owner's supplied historical audit was explicitly required to be re-verified, not trusted) found that `js/shared/invoices.js` had never actually loaded in the browser — a stray, unused `let stableLineCount` in `mission-orders.js` collided with `invoices.js`'s genuinely-used `var stableLineCount`, throwing a `SyntaxError` that silently discarded the entire `invoices.js` script at runtime (classic scripts, no `defer`, shared global scope). This meant invoice editing was silently running on a degraded legacy fallback in `app.js` (no TVA/timbre/status/payment-mode/line restoration on edit; "add line" was a dead stub) since before this session began. Confirmed empirically both directions (reproduced the exact SyntaxError against the pre-fix file, confirmed a clean shared-context load after the fix).
+- **Architecture decisions:** none new — corrects an existing architecture assumption (Stage 4Z/4AG's "editInvoice/deleteInvoice remain in app.js, BLOCKED" note) that was accurate when written but had become stale.
+- **Mission-order ownership (`addOmPerson`/`cancelOM`):** re-audited and confirmed ALREADY_RESOLVED since Stage 4AG — no code change needed; added an explicit regression test.
+- **Pull Requests:** not yet opened as of this entry.
+- **Stages completed on `main`:** none yet — RUNTIME-DUPLICATE-CLEANUP-0 is IN_PROGRESS on branch `fix/runtime-duplicate-function-ownership`, not yet merged.
+- **Tests run:** `tests/runtime-duplicate-cleanup-0-test.js` — 24/24 passed; `tests/stage4z-test.js` — 48/48 passed; `tests/stage4ag-test.js` — 44/44 passed; `tests/stage4m-test.js` — 76/76 passed (regression, unaffected); `tests/stage4l-test.js` — 59/59 passed (regression, unaffected); `tests/stage3d-test.js` — 104/110, exact match to the known baseline (same six known failures, no new regression); `tests/devx-0-development-acceleration-test.js` — 45/45 passed (regression, unaffected); `tests/mpi-0-finalization-governance-test.js` — 36/36 passed (regression, unaffected); `tests/mpi-0-personal-intelligence-test.js` — 63/63 passed (regression, unaffected); `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings.
+- **Known pre-existing failures:** the same six Stage 3D known-baseline failures (`stage3c`, `stage3b`, `stage3a5` partial; `stage3a`, `stage2d`, `stage1c-part1` subprocess error) — unchanged, verified identical to `projects/meta/known-baselines.json`.
+- **Security/safety changes:** none. No DB, no deployment, no provider operations, no live credential touched. Secret/PII scan of the full diff — clean.
+- **Doc changes:** `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`, `docs/CHANGELOG.md`, `docs/PROJECT_STATUS.md`, `docs/PROJECT_STATISTICS.md`, `docs/history/DAILY_HISTORY.md` (this entry), `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json` — updated pre-merge to record progress; will be updated again post-merge per the permanent handover rule.
+- **Blockers:** none as of this entry — pending PR creation and final merge-gate evaluation.
+- **End-of-day HEAD (`main`) as of this entry:** unchanged, still `82fd2f97165495fb112bbdff828a1ce4a6884334` — RUNTIME-DUPLICATE-CLEANUP-0 has not merged yet.
+- **Next recorded action:** open the PR, evaluate all merge gates, and — only if every gate is green — merge via a standard merge commit. Does not start INF-DNS-AUTO-1, RES-1, MPI-1, Stage 3E, IDA-2, ATN-1, or AVA-1. The Cloudflare/OVH `buildSnapshotRecord`/`assertReadOnlyClient` shared-connector-helper deduplication remains a separate, still-deferred, not-yet-authorised item.
+
+
 ---
 
 ## Corrections and Amendments

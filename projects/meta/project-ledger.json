@@ -399,6 +399,39 @@
         "tests/inf-cf-auto-0-connector-test.js",
         "docs/AUTOMATION_ROADMAP.md"
       ]
+    },
+    {
+      "track": "mythos-os",
+      "stage_id": "RUNTIME-DUPLICATE-CLEANUP-0",
+      "title": "Runtime Duplicate Function Ownership + Stage 4Z Repair",
+      "status": "IN_PROGRESS",
+      "type": "RUNTIME",
+      "starting_head": "c2134e574b5a7e05ac3acbf41ae262cb2cad6b08",
+      "implementation_commit": "f89fb8c",
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {
+        "runtime_duplicate_cleanup_0": "24/24",
+        "stage4z": "48/48",
+        "stage4ag": "44/44",
+        "stage4m": "76/76",
+        "stage4l": "59/59",
+        "stage3d": "104/110 (matches known baseline)",
+        "devx0": "45/45",
+        "mpi0_finalization_governance": "36/36",
+        "mpi0": "63/63"
+      },
+      "blockers": [],
+      "next_stage": null,
+      "evidence_paths": [
+        "js/shared/invoices.js",
+        "js/shared/mission-orders.js",
+        "js/app.js",
+        "tests/stage4z-test.js",
+        "tests/stage4ag-test.js",
+        "tests/runtime-duplicate-cleanup-0-test.js"
+      ]
     }
   ],
   "commits": [

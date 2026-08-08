@@ -42,12 +42,12 @@
     },
     {
       "name": "stages_defined_total",
-      "value": 18,
+      "value": 19,
       "unit": "count",
       "scope": "tracks recorded in projects/meta/project-ledger.json",
       "source": "projects/meta/project-ledger.json .stages length",
-      "generated_at": "2026-08-08T00:00:00Z",
-      "source_commit": "82fd2f97165495fb112bbdff828a1ce4a6884334"
+      "generated_at": "2026-08-08T09:30:00Z",
+      "source_commit": "f89fb8c"
     },
     {
       "name": "stages_completed",
@@ -60,12 +60,12 @@
     },
     {
       "name": "stages_in_progress",
-      "value": 0,
+      "value": 1,
       "unit": "count",
       "scope": "same as above",
       "source": "count of status == IN_PROGRESS (MPI-0-FINALIZATION)",
-      "generated_at": "2026-08-08T00:00:00Z",
-      "source_commit": "82fd2f97165495fb112bbdff828a1ce4a6884334"
+      "generated_at": "2026-08-08T09:30:00Z",
+      "source_commit": "f89fb8c"
     },
     {
       "name": "stages_done_pending_merge",
@@ -251,12 +251,12 @@
     },
     {
       "name": "stage4z_test_suite_result",
-      "value": "44/44",
+      "value": "48/48",
       "unit": "assertions passed/total",
       "scope": "tests/stage4z-test.js",
       "source": "node tests/stage4z-test.js",
-      "generated_at": "2026-08-08T00:00:00Z",
-      "source_commit": "82fd2f97165495fb112bbdff828a1ce4a6884334"
+      "generated_at": "2026-08-08T09:30:00Z",
+      "source_commit": "f89fb8c"
     },
     {
       "name": "stage3d_test_suite_result_base",

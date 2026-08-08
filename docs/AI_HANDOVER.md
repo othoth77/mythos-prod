@@ -1,8 +1,62 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-08 UTC
-**From:** Stage INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation, merged)
+**From:** Stage RUNTIME-DUPLICATE-CLEANUP-0 — Canonical Runtime Function Ownership + Stage 4Z Repair (in progress)
 **To:** Next AI session
+
+---
+
+## Stage RUNTIME-DUPLICATE-CLEANUP-0 — Canonical Runtime Function Ownership + Stage 4Z Repair
+
+**Objective:** Resolve the deferred duplicate-function cleanup for `editInvoice`, `deleteInvoice`, `addOmPerson`, `cancelOM` (referenced as deferred in the INF-CF-AUTO-0 and INF-OVH-API-0 entries above), and correct the now-outdated Stage 4Z/4AG test assertions that required the pre-fix state.
+
+**Status:** IN PROGRESS — implementation complete, targeted and full regression suites green, PR not yet opened (this entry will be updated again post-merge per the permanent handover rule).
+
+**Started via:** Owner instruction with full pre-authorization for this stage's branch, PR, and — gated on every listed test/validation gate passing — merge.
+
+**Branch:** `fix/runtime-duplicate-function-ownership` (created from `main` at `c2134e574b5a7e05ac3acbf41ae262cb2cad6b08`)
+**Implementation commits:** `671234c` test(runtime): define canonical duplicate-function ownership · `a141371` refactor(runtime): remove stale duplicate invoice handlers · `f89fb8c` test(stage4z): enforce canonical extracted-function ownership
+
+### Fresh audit against current main (the historical audit was outdated)
+
+The owner's instruction supplied a historical audit and explicitly required it to be re-verified, not trusted. Re-auditing against current `main` found:
+
+- **Mission orders (`addOmPerson`, `cancelOM`):** the historical audit was correct that this is **ALREADY RESOLVED**. Zero definitions in `app.js` (only ownership comments); both canonical in `mission-orders.js` since Stage 4AG. No code change needed — added an explicit regression test to lock this in, since Stage 4Z previously only asserted `cancelOM`'s absence from `app.js`, not `addOmPerson`'s.
+- **Invoices (`editInvoice`, `deleteInvoice`):** the historical audit's *conclusion* (canonical owner should be `invoices.js`) was correct, but its *premise* was stale. `docs/ROADMAP.md`'s "Known blocked items" note and `tests/stage4ag-test.js` already documented the real blocker: a stray, unused `let stableLineCount = 0;` in `mission-orders.js:28` (dead — never referenced again in that file) collides with `invoices.js`'s genuinely-used `var stableLineCount`. Because `app.js` → `mission-orders.js` → `invoices.js` load as classic `<script>` tags with no `defer`, sharing one global lexical scope, this collision throws a `SyntaxError` that silently discards the *entire* `invoices.js` script at runtime — confirmed empirically both ways (reproduced the exact `SyntaxError: Identifier 'stableLineCount' has already been declared` against the pre-fix file content, and confirmed clean shared-context load after the fix). This meant `app.js`'s legacy `editInvoice`/`deleteInvoice` were not stale duplicates sitting alongside a working canonical version — they were **the only implementation actually running in production**, silently degraded (no TVA/timbre/status/payment-mode/line restoration on edit; "add line" was a dead `alert('Fonctionnalité en développement')` stub). Cross-checked against the live `index.html` form DOM (`f-num-year`, `f-tva`, `f-timbre-amount`, `f-status`, `f-payment-mode`, `lines-body`) confirmed these fields exist only because `invoices.js`'s implementation expects them — `app.js`'s version never touched them.
+
+### What was fixed
+
+- Removed the dead `let stableLineCount = 0;` from `js/shared/mission-orders.js` (zero behavior impact there — the binding was never read after declaration).
+- Removed `editInvoice`/`deleteInvoice` from `js/app.js`, replaced with an ownership comment matching the file's existing convention (`// editInvoice, deleteInvoice → js/shared/invoices.js`). All existing `onclick="editInvoice(...)"`/`"deleteInvoice(...)"` call sites (`dashboard.js`, `clients.js`, `natures.js`, `invoices.js`'s own generated markup) are unaffected — they resolve the global name at click time, and now resolve to the richer, DOM-correct implementation.
+- `populateInvoiceList` intentionally **left in `app.js`** — not one of the four functions named in this stage's scope, and its only caller (the legacy `navigateTo('invoices')` path in `js/core/router.js`) is already unreachable from the live UI. Modifying `js/core/router.js` was outside this stage's authorized scope; removing `populateInvoiceList` without also fixing its caller would have been a real, avoidable regression.
+- Corrected `tests/stage4z-test.js` (section 3 previously required `editInvoice`/`deleteInvoice` to remain in `app.js`; now asserts the opposite, correct condition, plus an explicit `addOmPerson`-absent check) and `tests/stage4ag-test.js` (sections 3 and 12 previously hard-coded the "BLOCKED pending stableLineCount fix" state).
+- Added `tests/runtime-duplicate-cleanup-0-test.js` (24 tests) — including a same-shared-global-scope `vm` load test for `mission-orders.js` + `invoices.js` together, since that is the only kind of check that actually catches this class of cross-file redeclaration collision; static string-presence checks (what the rest of the suite uses) cannot.
+
+### Validation
+
+- `node tests/runtime-duplicate-cleanup-0-test.js` — **24/24 passed**
+- `node tests/stage4z-test.js` — **48/48 passed**
+- `node tests/stage4ag-test.js` — **44/44 passed**
+- `node tests/stage4m-test.js` (invoice extraction, Stage 4M) — **76/76 passed** (regression, unaffected)
+- `node tests/stage4l-test.js` (mission-order extraction, Stage 4L) — **59/59 passed** (regression, unaffected)
+- `node tests/stage3d-test.js` — **104/110**, exact match to `projects/meta/known-baselines.json`'s `stage3d-known-failures` baseline: same six known failures (`stage3c`, `stage3b`, `stage3a5` partial; `stage3a`, `stage2d`, `stage1c-part1` subprocess error), same failure types, no new regression, none silently mutated
+- `node tests/devx-0-development-acceleration-test.js` — **45/45 passed** (regression, unaffected)
+- `node tests/mpi-0-finalization-governance-test.js` — **36/36 passed** (regression, unaffected)
+- `node tests/mpi-0-personal-intelligence-test.js` — **63/63 passed** (regression, unaffected)
+- `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings
+- `git diff --check` — clean
+- Secret/credential/PII scan of the full diff — clean (no matches for password/secret/api-key/token/private-key/PII patterns)
+- Scope check: only `js/app.js`, `js/shared/mission-orders.js`, `tests/stage4z-test.js`, `tests/stage4ag-test.js`, `tests/runtime-duplicate-cleanup-0-test.js` (new), and `projects/meta/project-ledger.json` changed — matches the authorized scope exactly, no unrelated file touched
+
+### Safety Confirmation
+
+No DB / no deployment / no provider operations. No live credential of any kind touched. No feature added, no visual redesign, no schema change. The Cloudflare/OVH `buildSnapshotRecord`/`assertReadOnlyClient` shared-connector-helper deduplication (referenced above under INF-CF-AUTO-0) remains **NOT STARTED** — this stage did not touch `projects/automation/`.
+
+### Exact Next Action
+
+1. This entry will be updated with PR number, merge commit, and final `main` HEAD once merged.
+2. Does not start INF-DNS-AUTO-1, RES-1, MPI-1, Stage 3E, IDA-2, ATN-1, or AVA-1.
+3. Respect the one-major-stage rule: do not begin another major stage without explicit owner authorisation.
 
 ---
 

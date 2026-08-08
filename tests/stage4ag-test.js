@@ -88,10 +88,15 @@ console.log('\n2. Structural: canonical OM functions in mission-orders.js');
   ok(moSrc.indexOf('function ' + n + '(') >= 0, n + ' canonical in mission-orders.js');
 });
 
-// ── 3. Structural: blocked invoice functions remain in app.js ─────────────────
-console.log('\n3. Structural: blocked invoice functions remain in app.js (BLOCKED pending stableLineCount fix)');
-['editInvoice','deleteInvoice','populateInvoiceList'].forEach(function(n) {
-  ok(app.indexOf('function ' + n + '(') >= 0, n + ' still in app.js (BLOCKED)');
+// ── 3. Structural: invoice ownership resolved (RUNTIME-DUPLICATE-CLEANUP-0) ───
+console.log('\n3. Structural: invoice functions removed from app.js, canonical in invoices.js (stableLineCount fix landed)');
+['editInvoice','deleteInvoice'].forEach(function(n) {
+  ok(app.indexOf('function ' + n + '(') < 0, n + ' removed from app.js (RUNTIME-DUPLICATE-CLEANUP-0)');
+});
+ok(app.indexOf('function populateInvoiceList(') >= 0, 'populateInvoiceList still in app.js (out of scope for RUNTIME-DUPLICATE-CLEANUP-0)');
+var invSrc = fs.readFileSync(path.join(BASE, 'js/shared/invoices.js'), 'utf8');
+['editInvoice','deleteInvoice'].forEach(function(n) {
+  ok(invSrc.indexOf('function ' + n + '(') >= 0, n + ' canonical in invoices.js');
 });
 
 // ── 4. Structural: removePersonRow still in app.js ────────────────────────────
@@ -169,8 +174,8 @@ ok(s11._els['om-list'].innerHTML.indexOf('Nombre de personnes : 2') >= 0, 'rende
 
 // ── 12. Stage 4Z regression ───────────────────────────────────────────────────
 console.log('\n12. Stage 4Z regression');
-ok(app.indexOf('function editInvoice(') >= 0, 'editInvoice still present in app.js (BLOCKED)');
-ok(app.indexOf('function deleteInvoice(') >= 0, 'deleteInvoice still present in app.js (BLOCKED)');
+ok(app.indexOf('function editInvoice(') < 0, 'editInvoice absent from app.js (RUNTIME-DUPLICATE-CLEANUP-0)');
+ok(app.indexOf('function deleteInvoice(') < 0, 'deleteInvoice absent from app.js (RUNTIME-DUPLICATE-CLEANUP-0)');
 ok(app.indexOf('function cancelOM(') < 0, 'cancelOM absent from app.js');
 ok(app.indexOf('function editOm(') < 0, 'editOm absent from app.js');
 ok(app.indexOf('function deleteOm(') < 0, 'deleteOm absent from app.js');

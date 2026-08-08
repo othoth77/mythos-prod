@@ -1,18 +1,20 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-08T08:09:02.375Z",
-  "source_commit": "82fd2f97165495fb112bbdff828a1ce4a6884334",
-  "main_head": "82fd2f97165495fb112bbdff828a1ce4a6884334",
-  "active_branch": "main",
-  "active_stage": [],
+  "generated_at": "2026-08-08T09:40:42.168Z",
+  "source_commit": "f89fb8c0f901b5bd3c395a054f9355b0dc95d690",
+  "main_head": "c2134e574b5a7e05ac3acbf41ae262cb2cad6b08",
+  "active_branch": "fix/runtime-duplicate-function-ownership",
+  "active_stage": [
+    "RUNTIME-DUPLICATE-CLEANUP-0"
+  ],
   "last_completed_stage": {
     "track": "mythos-research-intelligence",
     "stage_id": "RES-0",
     "completed_at": "2026-08-08"
   },
   "next_owner_priority": null,
-  "active_prs": [],
-  "draft_prs": [],
+  "active_prs": "GH_UNAVAILABLE",
+  "draft_prs": "GH_UNAVAILABLE",
   "known_blockers": [],
   "known_baselines": [
     "stage3d-known-failures"
