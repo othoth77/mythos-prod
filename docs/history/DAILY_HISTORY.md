@@ -197,8 +197,23 @@
 - **Security/safety changes:** none.
 - **Doc changes:** `docs/AI_HANDOVER.md`, `docs/PROJECT_STATUS.md`, `docs/PROJECT_STATISTICS.md`, `docs/history/DAILY_HISTORY.md` (this entry), `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json`, `projects/meta/current-context.json` — updated post-merge to record RUNTIME-DUPLICATE-CLEANUP-0 as complete and merged, per the permanent handover rule.
 - **Blockers:** none.
-- **End-of-day HEAD (`main`):** `9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549`.
-- **Next recorded action:** INF-DNS-AUTO-1 (DNS Snapshot, Comparison and Drift Detection) — NOT STARTED. MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 — all NOT STARTED, unaffected by this stage. The `ovh-readonly-connector.js`/`cloudflare-readonly-connector.js` duplicate-function cleanup remains an explicitly deferred, not-yet-authorised item.
+- **End-of-day HEAD (`main`) as of the RUNTIME-DUPLICATE-CLEANUP-0 post-merge docs commit:** `39a3a6fc57167054e98f5d6d3971db821abf6b7d`. **Superseded later the same day by AUT-CONNECTOR-SHARED-HELPERS-0 — see below; this entry is extended, not replaced, per the append-only rule.**
+
+### Later the same day — AUT-CONNECTOR-SHARED-HELPERS-0 implemented end-to-end while owner was away, reviewed, marked ready, and merged
+
+- **Stage:** AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup, executed under a standing owner authorisation to complete the stage end-to-end (implement, test, commit, push, PR, merge, post-merge handover) without pausing for a second merge approval, provided every required gate passed.
+- **Out-of-scope request declined mid-stage:** an unrelated Teachable/course-audio-capture instruction, unrelated to this Mythos stage, was declined again and ignored per explicit owner instruction to continue Mythos-only.
+- **Major files/modules added:** `projects/automation/reference/connector-readonly-helpers.js` — small (two-function), provider-neutral shared module owning mutation-method detection (`assertReadOnlyClient`) and snapshot-record construction (`buildSnapshotRecord`), resolving the duplication previously deferred in the INF-OVH-API-0 and INF-CF-AUTO-0 entries above. Both `ovh-readonly-connector.js` and `cloudflare-readonly-connector.js` now delegate to it with their own error prefix; public exports unchanged. `tests/aut-connector-shared-helpers-0-test.js` (40 tests) added.
+- **Architecture decisions:** provider-specific redaction (`redactRegistrantFields` / `redactOwnerFields`) and collection orchestration deliberately NOT generalised — this stage resolved only the genuinely shared safety/snapshot logic, per explicit scope.
+- **Pull Requests:** this stage's PR ("refactor(automation): share read-only connector helpers") — marked ready for review, **merged to `main` via a standard merge commit**, no squash, no rebase, no force-push.
+- **Stages completed on `main`:** AUT-CONNECTOR-SHARED-HELPERS-0 — DONE.
+- **Tests run post-merge:** `tests/aut-connector-shared-helpers-0-test.js` — 40/40 passed; `tests/inf-ovh-api-0-connector-test.js` — 26/26 passed (unchanged from before the refactor); `tests/inf-cf-auto-0-connector-test.js` — 26/26 passed (unchanged from before the refactor); `tests/devx-0-development-acceleration-test.js` — 45/45 passed (regression, unaffected); `tests/mpi-0-finalization-governance-test.js` — 36/36 passed (regression, unaffected); `tests/mpi-0-personal-intelligence-test.js` — 63/63 passed (regression, unaffected); `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings, re-verified on `main` after merge.
+- **Known pre-existing failures:** not applicable — this stage touched no `js/`/`css/`/`.php`/`index.html` file, so Stage 3D was not re-run.
+- **Security/safety changes:** none — no live OVH/Cloudflare credential of any kind touched (none exists on the deployment host); no live network call; no DNS/zone/DNSSEC mutation.
+- **Doc changes:** `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`, `docs/PROJECT_STATUS.md`, `docs/PROJECT_STATISTICS.md`, `docs/CHANGELOG.md`, `docs/history/DAILY_HISTORY.md` (this entry), `projects/automation/README.md`, `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json` — updated post-merge to record AUT-CONNECTOR-SHARED-HELPERS-0 as complete and merged, per the permanent handover rule. The "deferred" shared-connector-helper cleanup statements in the INF-OVH-API-0/INF-CF-AUTO-0 handover entries above remain unedited historical records; current status (this entry, the README, and the new top AI_HANDOVER.md section) records the item as resolved.
+- **Blockers:** none.
+- **End-of-day HEAD (`main`):** to be finalised at post-merge commit — see the final report for this stage.
+- **Next recorded action:** INF-DNS-AUTO-1 (DNS Snapshot, Comparison and Drift Detection) — NOT STARTED, unaffected by this cleanup stage. MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 — all NOT STARTED.
 
 
 ---

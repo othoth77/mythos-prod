@@ -18,13 +18,6 @@
 // whatever client it is given, and structurally refuses to call anything
 // that looks like a mutation.
 //
-// KNOWN DUPLICATION (deliberately deferred, not fixed in this stage):
-// buildSnapshotRecord() and assertReadOnlyClient() below are structurally
-// identical to their counterparts in ovh-readonly-connector.js. Extracting
-// a shared helper module was considered and explicitly deferred by owner
-// instruction for this stage — do not perform that refactor here. See
-// docs/AI_HANDOVER.md's INF-CF-AUTO-0 entry for the deferred-work record.
-//
 // Redaction: Cloudflare account/zone inventory data is organisational and
 // technical (zone name, status, plan, nameservers, security settings), not
 // individual WHOIS-style registrant data — but an account object can carry
@@ -36,11 +29,18 @@
 // (projects/automation/database/control-plane-schema.sql) — draft schema,
 // NOT DEPLOYED. This module produces plain JS objects in that shape; it
 // does not itself write to any database.
+//
+// Mutation-method detection and snapshot-record construction are shared,
+// provider-neutral logic — owned by ./connector-readonly-helpers.js (Stage
+// AUT-CONNECTOR-SHARED-HELPERS-0, resolving the duplication previously
+// noted here). This module delegates to it and keeps only what is
+// genuinely Cloudflare-specific: owner-field redaction, zone collection
+// orchestration, and resource naming.
 // =====================================================
 
-var OWNER_FIELD_PATTERN = /^(owner|account_owner|contact)[_a-z]*/i;
+var sharedHelpers = require('./connector-readonly-helpers.js');
 
-var MUTATING_METHOD_PATTERN = /^(create|update|set|write|delete|remove|patch|put|mutate|apply)/i;
+var OWNER_FIELD_PATTERN = /^(owner|account_owner|contact)[_a-z]*/i;
 
 /**
  * @typedef {Object} CloudflareReadOnlyClient
@@ -53,22 +53,11 @@ var MUTATING_METHOD_PATTERN = /^(create|update|set|write|delete|remove|patch|put
  */
 
 /**
- * Structural read-only enforcement: throws if the supplied client exposes
- * any function whose name matches a mutation-shaped verb. Checked against
- * the client's own enumerable methods, not a fixed allowlist, so a client
- * that grew an unexpected write method fails closed rather than silently
- * being trusted.
+ * Delegates to the shared structural read-only enforcement helper with
+ * this provider's error prefix. Not an independent implementation.
  */
 function assertReadOnlyClient(client) {
-  if (!client || typeof client !== 'object') {
-    throw new Error('CLOUDFLARE_CONNECTOR: a client object is required');
-  }
-  var offending = Object.keys(client).filter(function (key) {
-    return typeof client[key] === 'function' && MUTATING_METHOD_PATTERN.test(key);
-  });
-  if (offending.length) {
-    throw new Error('CLOUDFLARE_CONNECTOR: read-only violation — client exposes mutation-shaped method(s): ' + offending.join(', '));
-  }
+  return sharedHelpers.assertReadOnlyClient(client, { errorPrefix: 'CLOUDFLARE_CONNECTOR' });
 }
 
 /**
@@ -90,30 +79,13 @@ function redactOwnerFields(rawRecord) {
 }
 
 /**
- * Builds a snapshot record matching aut_snapshots' column shape. The raw
- * provider data is never embedded directly — callers pass an
- * artifactReference (a URI/hash reference) exactly as the schema column
- * comment requires; storage of the artifact itself is out of scope for
- * this reference implementation.
+ * Delegates to the shared snapshot-record builder with this provider's
+ * error prefix. Not an independent implementation — the returned shape,
+ * required-field validation, and is_redacted default all come from
+ * ./connector-readonly-helpers.js.
  */
 function buildSnapshotRecord(input) {
-  var required = ['snapshotId', 'connectorId', 'resourceType', 'resourceExternalId', 'resourceExternalSource', 'artifactReference', 'observedAt'];
-  required.forEach(function (field) {
-    if (!input || input[field] === undefined || input[field] === null) {
-      throw new Error('CLOUDFLARE_CONNECTOR: buildSnapshotRecord missing required field: ' + field);
-    }
-  });
-  return {
-    snapshot_id: input.snapshotId,
-    run_id: input.runId || null,
-    connector_id: input.connectorId,
-    resource_type: input.resourceType,
-    resource_external_id: input.resourceExternalId,
-    resource_external_source: input.resourceExternalSource,
-    artifact_reference: input.artifactReference,
-    is_redacted: true,
-    observed_at: input.observedAt
-  };
+  return sharedHelpers.buildSnapshotRecord(input, { errorPrefix: 'CLOUDFLARE_CONNECTOR' });
 }
 
 /**

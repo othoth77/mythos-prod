@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "generated_at": "2026-08-08T00:00:00Z",
-  "source_commit": "82fd2f97165495fb112bbdff828a1ce4a6884334",
+  "source_commit": "39a3a6fc57167054e98f5d6d3971db821abf6b7d",
   "scoping_note": "Statistics here are ROADMAP STAGE RATIOS or raw repository counts only. None of them is a 'Mythos is X% complete' product-completion estimate. See docs/PROJECT_STATISTICS.md for the full scoping rules.",
   "statistics": [
     {
@@ -42,16 +42,16 @@
     },
     {
       "name": "stages_defined_total",
-      "value": 19,
+      "value": 20,
       "unit": "count",
       "scope": "tracks recorded in projects/meta/project-ledger.json",
       "source": "projects/meta/project-ledger.json .stages length",
-      "generated_at": "2026-08-08T09:30:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "f89fb8c"
     },
     {
       "name": "stages_completed",
-      "value": 18,
+      "value": 19,
       "unit": "count",
       "scope": "same as above",
       "source": "count of status == DONE in project-ledger.json",
@@ -60,11 +60,11 @@
     },
     {
       "name": "stages_in_progress",
-      "value": 0,
+      "value": 1,
       "unit": "count",
       "scope": "same as above",
       "source": "count of status == IN_PROGRESS (MPI-0-FINALIZATION)",
-      "generated_at": "2026-08-08T09:30:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549"
     },
     {
@@ -255,7 +255,7 @@
       "unit": "assertions passed/total",
       "scope": "tests/stage4z-test.js",
       "source": "node tests/stage4z-test.js",
-      "generated_at": "2026-08-08T09:30:00Z",
+      "generated_at": "2026-08-08T00:00:00Z",
       "source_commit": "f89fb8c"
     },
     {

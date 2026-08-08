@@ -1,10 +1,70 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-08 UTC
-**From:** Stage RUNTIME-DUPLICATE-CLEANUP-0 — Canonical Runtime Function Ownership + Stage 4Z Repair (merged)
+**From:** Stage AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup (pending merge)
 **To:** Next AI session
 
 ---
+
+## Stage AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup
+
+**Objective:** Extract shared, provider-neutral safety/snapshot helpers from the OVH and Cloudflare read-only connector reference implementations, eliminate duplicated business/safety logic, and preserve all existing connector behavior and tests. Resolves the deferred cleanup item recorded in both `INF-OVH-API-0` and `INF-CF-AUTO-0`'s handover entries above.
+
+**Status:** COMPLETE — code-quality/foundation refactor only. No live OVH/Cloudflare credential, no live network call, no DB, no deployment.
+
+**Started via:** Owner instruction "Execute this stage end-to-end while I am away", resolved through the DEVX-0 Stage Runner (`node scripts/mythos-stage.js start AUT-CONNECTOR-SHARED-HELPERS-0`), which classified this as risk lane **STANDARD** (RUNTIME type → `RUNTIME_STAGE` template) and surfaced the relevant skills, files, and test strategy.
+
+**Branch:** `refactor/automation-connector-shared-helpers` (created from `origin/main` at `39a3a6fc57167054e98f5d6d3971db821abf6b7d`)
+
+### What was built
+
+- `projects/automation/reference/connector-readonly-helpers.js` — new, deliberately small (two functions, ~35 lines of logic) shared module owning only:
+  - **A. Mutation-method detection / fail-closed client validation** (`assertReadOnlyClient(client, opts)`), pattern-based (`MUTATING_METHOD_PATTERN`), not an allowlist — a never-before-seen mutation-shaped method name is still caught.
+  - **B. Snapshot record construction** matching the `aut_snapshots` table shape exactly (`buildSnapshotRecord(input, opts)`).
+  - Both accept an `opts.errorPrefix` so each provider's error messages keep their own identity (`OVH_CONNECTOR:` / `CLOUDFLARE_CONNECTOR:`).
+- `projects/automation/reference/ovh-readonly-connector.js` and `cloudflare-readonly-connector.js` — both now `require('./connector-readonly-helpers.js')` and delegate `assertReadOnlyClient`/`buildSnapshotRecord` to it. Neither file carries a second behavioral implementation. **Public `module.exports` contracts unchanged** for both.
+- `tests/aut-connector-shared-helpers-0-test.js` — 40 tests covering the shared contract, delegation (verified by inspecting function bodies, not just export presence), compatibility exports, fail-closed behaviour against both known and never-before-seen mutation-shaped method names, snapshot shape/redaction invariants, and absence of any network/credential dependency in the shared module.
+
+### What was deliberately NOT touched (per explicit scope)
+
+- **Redaction stays provider-specific.** OVH keeps `redactRegistrantFields`; Cloudflare keeps `redactOwnerFields`. Neither was combined into a generic redactor — this stage is not permission to redesign privacy policy.
+- Domain vs. zone collection orchestration, resource types/naming, `authorised_domains` vs. `authorised_zones` config shape, and run orchestration (`collectForDomain`/`collectForZone`, `runReadOnlyCollection`) all remain fully provider-specific and untouched beyond the two delegated function bodies.
+- No retry framework, caching, drift detection, scheduler, provider SDK, live authentication, or artifact storage implementation was added — those are separate, out-of-scope concerns per the order.
+
+### Design guard
+
+The shared module is smaller and easier to reason about than the ~60 combined duplicated lines it replaced, with a two-function API. No large generic framework was introduced. `ABSTRACTION_OVERREACH` was not triggered.
+
+### Existing project intelligence reused (not duplicated)
+
+- **Stage Runner** resolved the Stage Context before any implementation began.
+- **`projects/meta/test-impact-map.json`** — updated so `projects/automation/` changes now also select the new shared-helper test.
+- **`projects/meta/project-ledger.json`** — new `AUT-CONNECTOR-SHARED-HELPERS-0` stage record added (track `mythos-automation-operations`, type `RUNTIME`).
+- **`scripts/project-intelligence.js validate`** — re-run after every metadata change, 0 errors throughout.
+- Stage 3D was **not** re-run — this stage touched no `js/`/`css/`/`.php`/`index.html` file, so re-running it was not justified per `docs/DEVELOPMENT_TEST_INTELLIGENCE.md`'s own policy.
+
+### Validation
+
+- `node tests/aut-connector-shared-helpers-0-test.js` — **40/40 passed**
+- `node tests/inf-ovh-api-0-connector-test.js` — **26/26 passed** (unchanged from before the refactor)
+- `node tests/inf-cf-auto-0-connector-test.js` — **26/26 passed** (unchanged from before the refactor)
+- `node tests/devx-0-development-acceleration-test.js` — 45/45 passed (regression, unaffected)
+- `node tests/mpi-0-finalization-governance-test.js` — 36/36 passed (regression, unaffected)
+- `node tests/mpi-0-personal-intelligence-test.js` — 63/63 passed (regression, unaffected)
+- `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings
+- `git diff --check` — clean; no real `<<<<<<<`/`>>>>>>>` conflict markers (only this repository's usual `// =====` comment-banner style, which superficially matches a `=======` grep but is not a merge artifact)
+- Secret/token scan across every changed file — clean
+
+### Safety Confirmation
+
+No live OVH/Cloudflare credential of any kind touched — none exists anywhere on the deployment host, confirmed before this stage began. No live network call. No DNS/zone/nameserver/DNSSEC mutation. No database installed, migrated, or executed. No production runtime (JS/HTML/PHP/CSS) changed — only `projects/automation/reference/` and `tests/`. Does not start INF-DNS-AUTO-1, RES-1, MPI-1, Stage 3E, IDA-2, ATN-1, or AVA-1. No unrelated "Course Intelligence"/Teachable work performed.
+
+### Exact Next Action
+
+1. **INF-DNS-AUTO-1 — DNS Snapshot, Comparison and Drift Detection** remains the next Automation implementation stage — **NOT STARTED**, unaffected by this cleanup.
+2. Unchanged by this stage: MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 all remain NOT STARTED.
+3. The shared-connector-helper deduplication item referenced as deferred in the INF-OVH-API-0 and INF-CF-AUTO-0 entries above is **now resolved** — those entries remain historical records of what was true when they were written and are not rewritten.
+4. Respect the one-major-stage rule: do not begin another major stage without explicit owner authorisation.
 
 ## Stage RUNTIME-DUPLICATE-CLEANUP-0 — Canonical Runtime Function Ownership + Stage 4Z Repair
 
