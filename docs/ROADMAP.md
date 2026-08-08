@@ -1,6 +1,6 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-08 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added; MPI-0 — Personal Intelligence Foundation, plus MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry, merged to `main` via PR #4, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`; RES-0 — Research Intelligence free-first foundation added, PR #5 open Draft; DEVX-0 — Development Acceleration MVP added, merged to `main` via PR #6; INF-OVH-API-0 — OVH Read-Only Connector (reference implementation) added, merged to `main` via PR #7, merge commit `79fdb122edd2dc3246fc7781247265e3fab93adf`)
+**Last updated:** 2026-08-08 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added; MPI-0 — Personal Intelligence Foundation, plus MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry, merged to `main` via PR #4, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`; RES-0 — Research Intelligence free-first foundation added, merged to `main` via PR #5; DEVX-0 — Development Acceleration MVP added, merged to `main` via PR #6; INF-OVH-API-0 — OVH Read-Only Connector (reference implementation) added, merged to `main` via PR #7, merge commit `79fdb122edd2dc3246fc7781247265e3fab93adf`)
 
 ---
 
@@ -132,7 +132,7 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 5. **Ecosystem (parallel — docs only):** MAE-0 + ATN-0 complete; MAE-1 not started (blocked on IDA-2)
 6. **Automation:** AUT-0 complete; INF-OVH-API-0 complete as a mocked reference implementation (no live credential, not deployed, not connected to a live provider); INF-CF-AUTO-0 is the next Automation implementation stage — not started, does not change items 1–4 above
 7. **Personal Intelligence (docs/contracts/reference/tests only, merged to `main` via PR #4):** MPI-0 and MPI-0-FINALIZATION complete; MPI-1 is the next Personal Intelligence implementation stage — NOT STARTED, does not change items 1–4 above
-8. **Research Intelligence (docs only, PR #5 open Draft):** RES-0 complete; RES-1 is the next Research Intelligence implementation stage — NOT STARTED, NOT AUTHORISED, does not change items 1–4 above
+8. **Research Intelligence (docs only, merged to `main` via PR #5):** RES-0 complete; RES-1 is the next Research Intelligence implementation stage — NOT STARTED, NOT AUTHORISED, does not change items 1–4 above
 9. **Development Acceleration (developer tooling only):** DEVX-0 complete; DEVX-1 is the next Development Acceleration stage — NOT STARTED, does not change items 1–4 above
 
 **One-major-stage rule in force:** Only one major implementation stage may be active at a time unless the user gives explicit parallel authorisation. IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 cannot run in parallel without explicit user authorisation — they are sequential after IDA-2. The Automation track (INF-OVH-API-0 onward), the Personal Intelligence track (MPI-1 onward), the Research Intelligence track (RES-1 onward), and the Development Acceleration track (DEVX-1 onward) are likewise sequential and do not run in parallel with any of the above, or with each other, without explicit user authorisation.
@@ -180,6 +180,53 @@ Mythos Automation & Operations (`mythos_automation`) is the shared platform capa
 | OPS-AUTO-1 | Notifications, Relances and Scheduled Reports | Planned |
 
 See `docs/AUTOMATION_FIRST_PRINCIPLES.md`, `docs/MYTHOS_CONTROL_CENTER_PRODUCT_SPEC.md`, `docs/AUTOMATION_ARCHITECTURE.md`, `docs/AUTOMATION_GOVERNANCE.md`, `docs/AUTOMATION_APPROVAL_MATRIX.md`, `docs/AUTOMATION_SECURITY_AND_SECRETS.md`, `docs/AUTOMATION_OPERATIONS_RUNBOOK.md`, and `docs/AUTOMATION_ROADMAP.md` for the full AUT-0 foundation and the complete future stage sequence.
+
+---
+
+## Research Intelligence — Platform Capability Track
+
+Mythos Research Intelligence is the free-first, provider-independent external research capability for the Mythos platform. It enables AI agents and users to retrieve fresh, citable external information safely — without coupling the platform to any single search provider.
+
+**Research Intelligence implementation has NOT started.** No RES stage beyond RES-0 is authorised. Two RES-1 entry-gate conditions are now satisfied (see table below); the remaining conditions must still be verified fresh at RES-1 start time, not assumed from this record.
+
+See `docs/MYTHOS_RESEARCH_INTELLIGENCE_VISION.md` for the full vision and `docs/RESEARCH_ROADMAP.md` for the complete stage plan and entry gates.
+
+| Stage | Description | Status |
+|-------|-------------|--------|
+| RES-0 | Free-First Research Intelligence Foundation — vision, architecture, provider strategy, security, trust model, roadmap, config templates | ✓ Done and merged (2026-08-08, PR #5) |
+| RES-1 | Research Gateway Core + Official Source Fetcher | Planned — NOT AUTHORISED |
+| RES-2 | Private SearXNG Deployment + Adapter | Planned — NOT AUTHORISED |
+| RES-3 | Source Trust + Citation + Research Cache | Planned — NOT AUTHORISED |
+| RES-4 | Optional Free-Quota Provider Adapters (Brave, Tavily) | Planned — NOT AUTHORISED |
+| RES-5 | Deep Research Orchestration + Optional Premium Provider | Planned — NOT AUTHORISED |
+| RES-6 | Research Monitoring, Analytics and Optimisation | Planned — NOT AUTHORISED |
+
+### RES-1 Entry Gate
+
+Research Intelligence runtime implementation (RES-1) is activated only when ALL gates are satisfied:
+
+| Gate | Description | Status |
+|------|-------------|--------|
+| MPI-0 merged | Personal Intelligence PR #4 merged to `main` | ✓ SATISFIED — merged 2026-08-07, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19` |
+| Platform clean | Current `main` has no conflicting unmerged work | OK |
+| INF-OVH-API-0 | OVH Read-Only Connector complete OR owner re-prioritises | ✓ SATISFIED — complete as reference implementation, merged 2026-08-08, merge commit `79fdb122edd2dc3246fc7781247265e3fab93adf` |
+| No active stage | No other major implementation stage in progress | Must verify at RES-1 time |
+| Owner authorisation | Explicit owner approval for RES-1 | PENDING |
+| VPS capacity | Resource check completed | Must verify at RES-1 time |
+| Security review | Security model reviewed | Must verify at RES-1 time |
+| Provider re-verify | Official provider docs re-verified (pricing, APIs, terms) | Must verify at RES-1 time |
+
+### Dependency Position
+
+Research Intelligence is a platform capability. It does NOT:
+- Block any current Mythos OS stage (3E, 3F, 3G)
+- Block any Mythos Automotive stage (IDA-2, ATN-1, AVA-1)
+- Depend on Mythos OS production code
+- Require any provider account or API key
+
+### Architecture
+
+Free-first provider order: cache → internal authoritative data → official sources → self-hosted SearXNG → free-quota APIs (Brave, Tavily) → optional premium (Perplexity). Research provider ≠ Reasoning model. `research.web` is the capability; providers are implementation details behind the Research Gateway.
 
 ---
 
@@ -276,19 +323,6 @@ See `docs/AUTOVALEUR_ROADMAP.md` for the full AutoValeur stage plan.
 - No real market data ingested until AVA-3 (legal review required)
 - PostgreSQL target DBMS: 18-table `autovaleur` schema drafted (not deployed)
 - All feature flags: false in AVA-0
-
----
-
-## Research Intelligence — Separate Product Track
-
-Mythos Research Intelligence is a free-first, provider-independent research-source layer. It is a documentation-only foundation as of RES-0 — no runtime, no deployment, no provider account.
-
-**Developed on branch `docs/research-intelligence-foundation`, PR #5 (Draft, not merged as of this entry).**
-
-| Stage | Description | Status |
-|---|---|---|
-| RES-0 | Research Intelligence free-first foundation — documentation only (Official Source Fetcher planned, SearXNG planned/NOT installed, Brave/Tavily/Perplexity noted as future optional providers) | ✓ Done, PR #5 open Draft |
-| RES-1 | First Research Intelligence runtime implementation | Planned — **NOT STARTED, NOT AUTHORISED** |
 
 ---
 

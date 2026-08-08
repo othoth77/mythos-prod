@@ -1,8 +1,95 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-08 UTC
-**From:** Stage INF-OVH-API-0 — OVH Read-Only Connector (reference implementation, merged)
+**From:** Stage RES-0 — Mythos Research Intelligence Foundation (merged)
 **To:** Next AI session
+
+---
+
+## Stage RES-0 — Mythos Research Intelligence Foundation
+
+**Objective:** Establish the free-first, provider-independent external research capability architecture for the Mythos platform. Document vision, architecture, provider strategy, security/privacy, source trust/citation model, roadmap, and config templates. No implementation. No deployment. No provider accounts.
+
+**Starting remote HEAD:** `909ced531dab7095cc6511efd6e646ba4befa07c` (origin/main — AUT-0 handover)
+**Implementation commit:** `01c86a583cec43f4f257f3ea9930d83c1d159838`
+**Status:** Complete and merged to `main`
+
+**Branch:** `docs/research-intelligence-foundation`
+
+### Scope
+
+Documentation only. No runtime code, no database, no deployment, no SearXNG installation, no provider API keys, no Coolify changes, no OVH access, no Cloudflare changes. Research Intelligence is a platform capability — not a product and not a Mythos OS feature.
+
+### Files Created
+
+| File | Description |
+|---|---|
+| `projects/research-intelligence/README.md` | Project overview, architecture summary, provider tiers, relationship to MPI and Automation, repository layout |
+| `docs/MYTHOS_RESEARCH_INTELLIGENCE_VISION.md` | Full vision: free-first principle, provider independence, model independence, MPI integration, capability model, success criteria, non-goals |
+| `docs/MYTHOS_RESEARCH_INTELLIGENCE_ARCHITECTURE.md` | 15 conceptual components (ResearchGateway, SourceStrategy, ProviderRouter, OfficialSourceFetcher, SearXNGAdapter, BraveAdapter, TavilyAdapter, PerplexityAdapter, SourceTrustScorer, FreshnessEvaluator, ContentExtractor, CitationNormalizer, ResearchCache, RedactionGuard, ResearchAudit, ResearchBudgetGuard); 8 provisional architecture decisions (RES-AD-1 through RES-AD-8) |
+| `docs/RESEARCH_PROVIDER_STRATEGY.md` | 6-tier provider strategy (TIER 0-4); SearXNG, Brave, Tavily, Perplexity analysis with official documentation references; pricing labelled CURRENT_REFERENCE_ONLY / SUBJECT_TO_CHANGE; provider decision matrix |
+| `docs/RESEARCH_SECURITY_AND_PRIVACY.md` | Context minimisation rules, redaction examples, SSRF protection specification (blocked destinations, schemes, fetch constraints), credential security, cache privacy, audit privacy, 5 security architecture decisions (RES-SEC-1 through RES-SEC-5) |
+| `docs/RESEARCH_SOURCE_TRUST_AND_CITATIONS.md` | 5 trust classes (AUTHORITATIVE, HIGH, MEDIUM, COMMUNITY, UNKNOWN), trust scoring model, 4 freshness classes (STATIC, SLOW_CHANGING, CURRENT, HIGH_FRESHNESS), citation format and deduplication, source type classification |
+| `docs/RESEARCH_ROADMAP.md` | RES-0 through RES-6 stage plan; RES-1 entry gate (8 conditions); RES-2 additional gate (10 conditions); dependency map; explicit NOT AUTHORISED status |
+| `projects/research-intelligence/config/research.example.json` | Config template: product_key, modes, providers, security, cache, source_trust, freshness, citation, budget, audit, integration, feature_flags — all `false` / `NOT_DEPLOYED` |
+| `projects/research-intelligence/config/providers.example.json` | 6-provider registry: mythos_internal, official_source_fetcher, searxng, brave_search, tavily, perplexity — all PLANNED/UNVERIFIED/OPTIONAL; pricing references labelled SUBJECT_TO_CHANGE |
+
+### Files Updated
+
+| File | Change |
+|---|---|
+| `docs/ROADMAP.md` | Added Research Intelligence section as platform capability track; RES-0 through RES-6 stage table; RES-1 entry gate table; dependency position, architecture summary, priority update |
+| `docs/AI_HANDOVER.md` | This entry added |
+
+### Key Decisions
+
+| Decision | Value |
+|---|---|
+| Product key | `mythos_research` |
+| Stage prefix | RES-N |
+| Architecture pattern | Provider-neutral Research Gateway behind `research.web` capability |
+| Provider order | cache → internal → official sources → SearXNG → Brave/Tavily → Perplexity |
+| Free-first | Enforced by Research Budget Guard |
+| Provider independence | No hard dependency on Perplexity, Brave, or any single search API |
+| Model independence | Research retrieval ≠ reasoning/generation |
+| MPI integration | Personal Intelligence owns *what* and *for whom*; Research Intelligence owns *how* |
+| SearXNG | Target: self-hosted, private, internal Mythos service — NOT DEPLOYED |
+| Security | SSRF protection mandatory; context minimisation before any external call |
+| Cache privacy | Cache keys exclude user identity; sensitive research defaults to NO_CACHE |
+
+### RES-1 Entry Gate (8 conditions)
+
+| # | Condition | Status |
+|---|-----------|--------|
+| 1 | MPI-0 PR #4 merged to main | ✓ SATISFIED — merged 2026-08-07, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19` |
+| 2 | Current main clean | OK |
+| 3 | INF-OVH-API-0 complete OR re-prioritised | ✓ SATISFIED — complete as reference implementation, merged 2026-08-08, merge commit `79fdb122edd2dc3246fc7781247265e3fab93adf` |
+| 4 | No active major implementation stage | Must verify |
+| 5 | Owner authorises RES-1 | PENDING |
+| 6 | VPS capacity checked | Must verify |
+| 7 | Security model reviewed | Must verify |
+| 8 | Provider docs re-verified | Must verify |
+
+### Validation
+
+- `research.example.json`: ✓ VALID JSON
+- `providers.example.json`: ✓ VALID JSON
+- Secret scan: ✓ NO real credentials, API keys, tokens, or passwords
+- `git diff --check`: ✓ no whitespace errors
+- No runtime code changed: ✓ confirmed
+- No deployment: ✓ confirmed
+- No SearXNG installed: ✓ confirmed
+- No provider accounts: ✓ confirmed
+
+### Known Risks
+
+None. Documentation-only stage — no infrastructure changed. Risk: premature implementation before entry gate satisfied. Mitigation: explicit NOT AUTHORISED status on all stages beyond RES-0; 8-condition entry gate; provider pricing labelled SUBJECT_TO_CHANGE.
+
+### Next Stage
+
+**RES-1 — Research Gateway Core + Official Source Fetcher** — NOT AUTHORISED. Requires all 8 RES-1 entry gate conditions satisfied + explicit owner authorisation. Conditions 1 and 3 are now satisfied (see updated table above); conditions 2, 4-8 must still be verified fresh at RES-1 start time, not assumed from this record.
+
+The next authorised implementation stage in the Mythos ecosystem is **INF-CF-AUTO-0** (Cloudflare Read-Only Connector) — not started as of this merge.
 
 ---
 
