@@ -1,7 +1,7 @@
 # Mythos Automation & Operations — Roadmap
 
-**Stage:** INF-OVH-API-0 — OVH Read-Only Connector (reference implementation)
-**Status:** INF-OVH-API-0 complete as a mocked, in-memory reference implementation only — no live OVH credential exists anywhere in this repository or on the deployment host, and no live network call has ever been made by this connector.
+**Stage:** INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation)
+**Status:** INF-OVH-API-0 and INF-CF-AUTO-0 both complete as mocked, in-memory reference implementations only — no live OVH or Cloudflare credential exists anywhere in this repository or on the deployment host, and no live network call has ever been made by either connector.
 **Date:** 2026-08-08 (originally 2026-08-06 for AUT-0)
 
 ---
@@ -14,7 +14,7 @@ This is the stage sequence for Mythos Automation & Operations (`mythos_automatio
 |---|---|---|
 | AUT-0 | Automation-First Master Foundation — principles, Mythos Control Center spec, architecture, governance, approval matrix, security/secrets policy, operations runbook, draft control-plane schema | ✓ Current documentation stage |
 | INF-OVH-API-0 | OVH Read-Only Connector | ✓ Done — mocked reference implementation + 26-test suite, on `feat/inf-ovh-api-0-readonly-connector`. **No live OVH credential exists; not deployed; not connected to a live provider.** |
-| INF-CF-AUTO-0 | Cloudflare Read-Only Connector | Planned |
+| INF-CF-AUTO-0 | Cloudflare Read-Only Connector | ✓ Done — mocked reference implementation + 26-test suite, on `feat/inf-cf-auto-0-readonly-connector`. **No live Cloudflare credential exists; not deployed; not connected to a live provider.** |
 | INF-DNS-AUTO-1 | DNS Snapshot, Comparison and Drift Detection | Planned |
 | INF-DNS-AUTO-2 | Approved DNS Operations | Planned |
 | INF-DEPLOY-AUTO-0 | GitHub to Coolify Delivery Foundation | Planned |
@@ -46,13 +46,15 @@ Documentation, architecture, configuration, and draft SQL only. Establishes the 
 
 This is the natural successor to the manual process defined in `docs/CLOUDFLARE_AUTHORITATIVE_EXPORT_INTAKE.md` — it automates the *collection* of authoritative evidence, not any decision or write action.
 
-### INF-CF-AUTO-0 — Cloudflare Read-Only Connector
+### INF-CF-AUTO-0 — Cloudflare Read-Only Connector — COMPLETE (reference implementation)
 
 `LEVEL_1_READ_ONLY` only. Scope:
 
 - account and zone inventory,
 - current settings inventory,
 - **no writes.**
+
+Implemented as `projects/automation/reference/cloudflare-readonly-connector.js` — structurally read-only (rejects any injected client exposing a mutation-shaped method), refuses to run unless explicitly enabled, and redacts account-owner-identifying fields before any snapshot record is produced. No live Cloudflare credential exists anywhere; no live network call made. Mirrors `ovh-readonly-connector.js`'s structure with its own (deliberately duplicated, not shared) `buildSnapshotRecord`/`assertReadOnlyClient` — extracting a shared helper module was considered and explicitly deferred, not performed in this stage.
 
 ### INF-DNS-AUTO-1 — DNS Snapshot, Comparison and Drift Detection
 
@@ -100,7 +102,7 @@ Operator and customer-facing notification/report automation, built on the `aut_n
 ## 3. Permanent Sequencing Rules
 
 - **AUT-0 is documentation only.**
-- **INF-OVH-API-0 is complete as a reference implementation** — read-only connector orchestration logic and tests only, no live OVH credential, no live network call, not deployed. **INF-CF-AUTO-0 is the next Automation implementation stage** — it has not started.
+- **INF-OVH-API-0 and INF-CF-AUTO-0 are both complete as reference implementations** — read-only connector orchestration logic and tests only, no live OVH or Cloudflare credential, no live network call, not deployed. **INF-DNS-AUTO-1 is the next Automation implementation stage** — it has not started.
 - **INF-CF-2 remains blocked** until authoritative data and approvals exist, per `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md`. Nothing in the Automation track changes this.
 - **Stage 3E remains the next Mythos OS runtime stage.**
 - **IDA-2 remains the next authorised Automotive implementation stage.**
@@ -112,4 +114,4 @@ No stage in this document may be marked started by a later stage's documentation
 
 ## 4. Status
 
-INF-OVH-API-0 is complete as a mocked reference implementation (`projects/automation/reference/ovh-readonly-connector.js`, `tests/inf-ovh-api-0-connector-test.js`) — structurally read-only (a client exposing any mutation-shaped method is rejected before any collection runs), refuses to run unless explicitly enabled, and redacts registrant PII before any snapshot record is produced. No live OVH credential has been created, requested, or stored anywhere. No live network call has been made. No stage from INF-CF-AUTO-0 onward has been started, implemented, or deployed.
+INF-OVH-API-0 and INF-CF-AUTO-0 are both complete as mocked reference implementations (`projects/automation/reference/ovh-readonly-connector.js` + `tests/inf-ovh-api-0-connector-test.js`; `projects/automation/reference/cloudflare-readonly-connector.js` + `tests/inf-cf-auto-0-connector-test.js`) — both structurally read-only (a client exposing any mutation-shaped method is rejected before any collection runs), both refuse to run unless explicitly enabled, and both redact identifying PII before any snapshot record is produced. No live OVH or Cloudflare credential has been created, requested, or stored anywhere. No live network call has been made. No stage from INF-DNS-AUTO-1 onward has been started, implemented, or deployed.

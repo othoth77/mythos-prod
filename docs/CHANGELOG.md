@@ -42,3 +42,9 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 - `projects/automation/reference/ovh-readonly-connector.js`: LEVEL_1_READ_ONLY connector orchestration (list authorised domains, collect registrar metadata, collect DNS records, collect DNSSEC state, redacted snapshots). Structurally read-only (rejects any injected client exposing a mutation-shaped method); refuses to run unless explicitly enabled. No live OVH credential exists anywhere; no live network call made; not deployed.
 - 26-test suite (`tests/inf-ovh-api-0-connector-test.js`), every provider response mocked.
 - `projects/meta/project-ledger.json` and `projects/meta/test-impact-map.json` updated accordingly.
+
+### Added — INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation)
+
+- `projects/automation/reference/cloudflare-readonly-connector.js`: LEVEL_1_READ_ONLY connector orchestration (account and zone inventory, current settings inventory). Structurally read-only; refuses to run unless explicitly enabled; redacts account-owner-identifying fields. No live Cloudflare credential exists anywhere; no live network call made; not deployed.
+- 26-test suite (`tests/inf-cf-auto-0-connector-test.js`), every provider response mocked.
+- Known, deliberately deferred cleanup item: `buildSnapshotRecord`/`assertReadOnlyClient` duplicate their `ovh-readonly-connector.js` counterparts — extraction into a shared module was explicitly deferred, not performed.

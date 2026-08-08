@@ -1,6 +1,6 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-08 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added; MPI-0 — Personal Intelligence Foundation, plus MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry, merged to `main` via PR #4, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`; RES-0 — Research Intelligence free-first foundation added, merged to `main` via PR #5; DEVX-0 — Development Acceleration MVP added, merged to `main` via PR #6; INF-OVH-API-0 — OVH Read-Only Connector (reference implementation) added, merged to `main` via PR #7, merge commit `79fdb122edd2dc3246fc7781247265e3fab93adf`)
+**Last updated:** 2026-08-08 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added; MPI-0 — Personal Intelligence Foundation, plus MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry, merged to `main` via PR #4, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`; RES-0 — Research Intelligence free-first foundation added, merged to `main` via PR #5; DEVX-0 — Development Acceleration MVP added, merged to `main` via PR #6; INF-OVH-API-0 — OVH Read-Only Connector (reference implementation) added, merged to `main` via PR #7; RES-0 finalised and merged via PR #5; INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation) added)
 
 ---
 
@@ -130,7 +130,7 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 3. **Atelier Network:** ATN-1 — Workshop Registry + First Integration (after IDA-2)
 4. **AutoValeur:** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster)
 5. **Ecosystem (parallel — docs only):** MAE-0 + ATN-0 complete; MAE-1 not started (blocked on IDA-2)
-6. **Automation:** AUT-0 complete; INF-OVH-API-0 complete as a mocked reference implementation (no live credential, not deployed, not connected to a live provider); INF-CF-AUTO-0 is the next Automation implementation stage — not started, does not change items 1–4 above
+6. **Automation:** AUT-0 complete; INF-OVH-API-0 and INF-CF-AUTO-0 both complete as mocked reference implementations (no live credential, not deployed, not connected to a live provider); INF-DNS-AUTO-1 is the next Automation implementation stage — not started, does not change items 1–4 above
 7. **Personal Intelligence (docs/contracts/reference/tests only, merged to `main` via PR #4):** MPI-0 and MPI-0-FINALIZATION complete; MPI-1 is the next Personal Intelligence implementation stage — NOT STARTED, does not change items 1–4 above
 8. **Research Intelligence (docs only, merged to `main` via PR #5):** RES-0 complete; RES-1 is the next Research Intelligence implementation stage — NOT STARTED, NOT AUTHORISED, does not change items 1–4 above
 9. **Development Acceleration (developer tooling only):** DEVX-0 complete; DEVX-1 is the next Development Acceleration stage — NOT STARTED, does not change items 1–4 above
@@ -170,7 +170,7 @@ Mythos Automation & Operations (`mythos_automation`) is the shared platform capa
 |---|---|---|
 | AUT-0 | Automation-First Master Foundation — principles, Mythos Control Center spec, architecture, governance, approval matrix, security/secrets policy, operations runbook, draft control-plane schema | ✓ Done (2026-08-06) |
 | INF-OVH-API-0 | OVH Read-Only Connector — list authorised domains, registrar metadata, DNS records, DNSSEC state, redacted snapshots; no writes | ✓ Done (reference implementation only — no live credential, not deployed) |
-| INF-CF-AUTO-0 | Cloudflare Read-Only Connector — account/zone/settings inventory; no writes | Planned |
+| INF-CF-AUTO-0 | Cloudflare Read-Only Connector — account/zone/settings inventory; no writes | ✓ Done (reference implementation only — no live credential, not deployed) |
 | INF-DNS-AUTO-1 | DNS Snapshot, Comparison and Drift Detection — OVH vs public DNS vs Cloudflare, email/DNSSEC safety, migration/rollback plans | Planned |
 | INF-DNS-AUTO-2 | Approved DNS Operations — LEVEL_3 only, one domain at a time, explicit owner approval, automatic verify/rollback | Planned |
 | INF-DEPLOY-AUTO-0 | GitHub to Coolify Delivery Foundation | Planned |
@@ -234,7 +234,7 @@ Free-first provider order: cache → internal authoritative data → official so
 
 Mythos Personal Intelligence & Skills Platform (`mythos_intelligence`) is the shared, per-user, per-organisation, per-profession AI personalisation architecture behind every Mythos chatbot instance. Strategic principle: **"Shared capabilities, isolated intelligence."** One shared platform — never a copied chatbot per customer — personalised through layered context (Global Intelligence → Domain → Organisation → User → Session), controlled memory/learning, and permission-gated skill execution.
 
-**Developed on branch `feat/mythos-personal-intelligence`, merged to `main` via PR #4 (merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`, 2026-08-07).** The Personal Intelligence track does not change the currently authorised implementation-stage priority. Stage 3E remains the next Mythos OS runtime stage; IDA-2 remains the next authorised Automotive implementation stage; INF-CF-2 remains blocked; INF-OVH-API-0 is complete as a reference implementation (no live credential, not deployed) and INF-CF-AUTO-0 is now the next Automation implementation stage, NOT STARTED. MPI-0 and MPI-0-FINALIZATION are documentation, contracts, an illustrative reference implementation, project-intelligence governance tooling, and tests only — no production runtime, no database deployed, no external provider access.
+**Developed on branch `feat/mythos-personal-intelligence`, merged to `main` via PR #4 (merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`, 2026-08-07).** The Personal Intelligence track does not change the currently authorised implementation-stage priority. Stage 3E remains the next Mythos OS runtime stage; IDA-2 remains the next authorised Automotive implementation stage; INF-CF-2 remains blocked; INF-OVH-API-0 and INF-CF-AUTO-0 are both complete as reference implementations (no live credential, not deployed) and INF-DNS-AUTO-1 is now the next Automation implementation stage, NOT STARTED. MPI-0 and MPI-0-FINALIZATION are documentation, contracts, an illustrative reference implementation, project-intelligence governance tooling, and tests only — no production runtime, no database deployed, no external provider access.
 
 | Stage | Description | Status |
 |---|---|---|

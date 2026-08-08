@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "generated_at": "2026-08-08T00:00:00Z",
-  "source_commit": "38741453570517fb106cfff1f2662c26b18b5c0d",
+  "source_commit": "0cf443819879a2356e853be9ef047c0dcf8fd179",
   "scoping_note": "Statistics here are ROADMAP STAGE RATIOS or raw repository counts only. None of them is a 'Mythos is X% complete' product-completion estimate. See docs/PROJECT_STATISTICS.md for the full scoping rules.",
   "statistics": [
     {
@@ -42,7 +42,7 @@
     },
     {
       "name": "stages_defined_total",
-      "value": 17,
+      "value": 18,
       "unit": "count",
       "scope": "tracks recorded in projects/meta/project-ledger.json",
       "source": "projects/meta/project-ledger.json .stages length",
@@ -60,7 +60,7 @@
     },
     {
       "name": "stages_in_progress",
-      "value": 0,
+      "value": 1,
       "unit": "count",
       "scope": "same as above",
       "source": "count of status == IN_PROGRESS (MPI-0-FINALIZATION)",

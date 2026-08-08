@@ -1,10 +1,12 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-08T01:21:08.926Z",
-  "source_commit": "38741453570517fb106cfff1f2662c26b18b5c0d",
-  "main_head": "38741453570517fb106cfff1f2662c26b18b5c0d",
-  "active_branch": "main",
-  "active_stage": [],
+  "generated_at": "2026-08-08T01:52:32.262Z",
+  "source_commit": "0cf443819879a2356e853be9ef047c0dcf8fd179",
+  "main_head": "0cf443819879a2356e853be9ef047c0dcf8fd179",
+  "active_branch": "feat/inf-cf-auto-0-readonly-connector",
+  "active_stage": [
+    "INF-CF-AUTO-0"
+  ],
   "last_completed_stage": {
     "track": "mythos-research-intelligence",
     "stage_id": "RES-0",
