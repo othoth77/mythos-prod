@@ -57,3 +57,9 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 - Confirmed `addOmPerson`/`cancelOM` mission-order ownership was already correctly canonical in `mission-orders.js` (Stage 4AG) — no change needed there.
 - Corrected `tests/stage4z-test.js` and `tests/stage4ag-test.js`, which had hard-coded the pre-fix "blocked" state as a required assertion.
 - Added `tests/runtime-duplicate-cleanup-0-test.js` (24 tests), including a same-shared-global-scope load test — the only kind of check that actually catches this class of cross-file redeclaration collision.
+
+### Changed — AUT-CONNECTOR-SHARED-HELPERS-0 — Shared read-only connector foundation cleanup
+
+- Extracted `projects/automation/reference/connector-readonly-helpers.js` — a small, provider-neutral module owning mutation-method detection (`assertReadOnlyClient`) and snapshot-record construction (`buildSnapshotRecord`), resolving the deferred duplication between `ovh-readonly-connector.js` and `cloudflare-readonly-connector.js` noted in their respective stage entries.
+- Both connectors now delegate to the shared module with their own error prefix; public `module.exports` contracts unchanged. Provider-specific redaction (`redactRegistrantFields` / `redactOwnerFields`) and collection orchestration intentionally remain separate, not generalised.
+- Added `tests/aut-connector-shared-helpers-0-test.js` (40 tests). OVH and Cloudflare connector suites unchanged at 26/26 each.

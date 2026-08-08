@@ -2,8 +2,8 @@
 
 **Product key:** `mythos_automation`
 **Operator product:** Mythos Control Center
-**Stage:** INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation)
-**Status:** Documentation, architecture, configuration, draft schema, and two mocked/in-memory reference connector implementations. Not deployed. Not connected to any external provider — no live OVH or Cloudflare credential exists anywhere in this repository or on the deployment host.
+**Stage:** AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup
+**Status:** Documentation, architecture, configuration, draft schema, and two mocked/in-memory reference connector implementations sharing a common safety/snapshot helper module. Not deployed. Not connected to any external provider — no live OVH or Cloudflare credential exists anywhere in this repository or on the deployment host.
 
 ## What This Is
 
@@ -25,10 +25,11 @@ projects/automation/
 ├── config/
 │   └── automation.example.json        — draft configuration (all flags false, no secrets)
 ├── database/
-│   └── control-plane-schema.sql       — draft PostgreSQL schema (24 tables, NOT DEPLOYED)
+│   └── control-plane-schema.sql            — draft PostgreSQL schema (24 tables, NOT DEPLOYED)
 └── reference/
-    ├── ovh-readonly-connector.js         — INF-OVH-API-0 mocked reference implementation (LEVEL_1_READ_ONLY only, no live credential, no live network call)
-    └── cloudflare-readonly-connector.js  — INF-CF-AUTO-0 mocked reference implementation (LEVEL_1_READ_ONLY only, no live credential, no live network call)
+    ├── connector-readonly-helpers.js       — shared, provider-neutral mutation-detection + snapshot-record helpers (AUT-CONNECTOR-SHARED-HELPERS-0)
+    ├── ovh-readonly-connector.js           — INF-OVH-API-0 mocked reference implementation, delegates safety/snapshot logic to connector-readonly-helpers.js
+    └── cloudflare-readonly-connector.js    — INF-CF-AUTO-0 mocked reference implementation, delegates safety/snapshot logic to connector-readonly-helpers.js
 ```
 
 ## Related Documentation
@@ -50,7 +51,7 @@ projects/automation/
 - **Structurally read-only**: any injected client exposing a method whose name looks like a mutation is rejected before any collection runs — this is enforced in code, not only by convention (same pattern as `ovh-readonly-connector.js`).
 - **Refuses to run unless explicitly enabled** (`config.enabled === true`) and refuses to run with an empty authorised-zone list.
 - Account-owner-identifying fields (owner email, owner name, contact fields) are redacted before any snapshot record is produced; plan, status, and creation date are retained.
-- **Known deferred cleanup (not performed in this stage):** `buildSnapshotRecord`/`assertReadOnlyClient` are structurally identical to their counterparts in `ovh-readonly-connector.js`. Extracting a shared helper module was considered and explicitly deferred by owner instruction — see `docs/AI_HANDOVER.md`'s INF-CF-AUTO-0 entry.
+- **Shared connector helper cleanup — RESOLVED (AUT-CONNECTOR-SHARED-HELPERS-0).** `buildSnapshotRecord`/`assertReadOnlyClient` are no longer duplicated — both connectors delegate to `reference/connector-readonly-helpers.js`. This was previously deferred (see `docs/AI_HANDOVER.md`'s INF-CF-AUTO-0 entry for that historical record); it is now complete.
 - No OVH or Cloudflare credentials requested, created, or stored anywhere. No login to any provider performed. No live network call made by this stage.
 - No DNS or nameserver change. No zone setting changed on a live domain.
 - No database installed, migrated, or executed. `database/control-plane-schema.sql` remains a draft specification only.
@@ -60,4 +61,4 @@ projects/automation/
 
 ## Next Stage
 
-**INF-DNS-AUTO-1 — DNS Snapshot, Comparison and Drift Detection** is the next Automation implementation stage (not started by this stage). See `docs/AUTOMATION_ROADMAP.md` for the full sequence and prerequisites.
+**INF-DNS-AUTO-1 — DNS Snapshot, Comparison and Drift Detection** remains the next Automation implementation stage — unaffected by this cleanup stage, still NOT STARTED. See `docs/AUTOMATION_ROADMAP.md` for the full sequence and prerequisites.

@@ -1,18 +1,20 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-08T09:56:54.396Z",
-  "source_commit": "9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549",
-  "main_head": "9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549",
-  "active_branch": "main",
-  "active_stage": [],
+  "generated_at": "2026-08-08T16:19:39.091Z",
+  "source_commit": "9ec6e6ba54f271d2103ec4b6ef4752fd7367bb78",
+  "main_head": "39a3a6fc57167054e98f5d6d3971db821abf6b7d",
+  "active_branch": "refactor/automation-connector-shared-helpers",
+  "active_stage": [
+    "AUT-CONNECTOR-SHARED-HELPERS-0"
+  ],
   "last_completed_stage": {
     "track": "mythos-research-intelligence",
     "stage_id": "RES-0",
     "completed_at": "2026-08-08"
   },
   "next_owner_priority": null,
-  "active_prs": "GH_UNAVAILABLE",
-  "draft_prs": "GH_UNAVAILABLE",
+  "active_prs": [],
+  "draft_prs": [],
   "known_blockers": [],
   "known_baselines": [
     "stage3d-known-failures"
