@@ -2,8 +2,8 @@
 
 **Product key:** `mythos_automation`
 **Operator product:** Mythos Control Center
-**Stage:** INF-OVH-API-0 — OVH Read-Only Connector (reference implementation)
-**Status:** Documentation, architecture, configuration, draft schema, and one mocked/in-memory reference connector implementation. Not deployed. Not connected to any external provider — no live OVH credential exists anywhere in this repository or on the deployment host.
+**Stage:** INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation)
+**Status:** Documentation, architecture, configuration, draft schema, and two mocked/in-memory reference connector implementations. Not deployed. Not connected to any external provider — no live OVH or Cloudflare credential exists anywhere in this repository or on the deployment host.
 
 ## What This Is
 
@@ -27,7 +27,8 @@ projects/automation/
 ├── database/
 │   └── control-plane-schema.sql       — draft PostgreSQL schema (24 tables, NOT DEPLOYED)
 └── reference/
-    └── ovh-readonly-connector.js      — INF-OVH-API-0 mocked reference implementation (LEVEL_1_READ_ONLY only, no live credential, no live network call)
+    ├── ovh-readonly-connector.js         — INF-OVH-API-0 mocked reference implementation (LEVEL_1_READ_ONLY only, no live credential, no live network call)
+    └── cloudflare-readonly-connector.js  — INF-CF-AUTO-0 mocked reference implementation (LEVEL_1_READ_ONLY only, no live credential, no live network call)
 ```
 
 ## Related Documentation
@@ -43,19 +44,20 @@ projects/automation/
 | `docs/AUTOMATION_OPERATIONS_RUNBOOK.md` | How operators are expected to interact with runs, approvals and incidents once the platform exists |
 | `docs/AUTOMATION_ROADMAP.md` | The AUT-*/INF-*-AUTO-*/OPS-AUTO-* stage sequence |
 
-## Status of This Stage (INF-OVH-API-0)
+## Status of This Stage (INF-CF-AUTO-0)
 
-- `reference/ovh-readonly-connector.js` implements the LEVEL_1_READ_ONLY scope (list authorised domains, collect registrar metadata, collect authoritative DNS records, collect DNSSEC state, generate redacted structured snapshots) as a mocked, in-memory reference implementation — it never constructs a real OVH API client and never makes a live network call itself; a real client (built in a later stage, reading credentials only from an approved secret store per `docs/AUTOMATION_SECURITY_AND_SECRETS.md`) would be injected by the caller.
-- **Structurally read-only**: any injected client exposing a method whose name looks like a mutation (`create*`/`update*`/`set*`/`write*`/`delete*`/`remove*`/`patch*`/`put*`/`mutate*`/`apply*`) is rejected before any collection runs — this is enforced in code, not only by convention.
-- **Refuses to run unless explicitly enabled** (`config.enabled === true`) and refuses to run with an empty authorised-domain list.
-- Registrant (owner) contact fields are redacted before any snapshot record is produced; registrar, nameservers, dates, and DNSSEC state are retained, mirroring the INF-CF-1 redaction policy in `docs/CLOUDFLARE_DOMAIN_INVENTORY.md`.
+- `reference/cloudflare-readonly-connector.js` implements the LEVEL_1_READ_ONLY scope (account and zone inventory, current settings inventory) as a mocked, in-memory reference implementation — it never constructs a real Cloudflare API client and never makes a live network call itself; a real client (built in a later stage, reading credentials only from an approved secret store per `docs/AUTOMATION_SECURITY_AND_SECRETS.md`) would be injected by the caller.
+- **Structurally read-only**: any injected client exposing a method whose name looks like a mutation is rejected before any collection runs — this is enforced in code, not only by convention (same pattern as `ovh-readonly-connector.js`).
+- **Refuses to run unless explicitly enabled** (`config.enabled === true`) and refuses to run with an empty authorised-zone list.
+- Account-owner-identifying fields (owner email, owner name, contact fields) are redacted before any snapshot record is produced; plan, status, and creation date are retained.
+- **Known deferred cleanup (not performed in this stage):** `buildSnapshotRecord`/`assertReadOnlyClient` are structurally identical to their counterparts in `ovh-readonly-connector.js`. Extracting a shared helper module was considered and explicitly deferred by owner instruction — see `docs/AI_HANDOVER.md`'s INF-CF-AUTO-0 entry.
 - No OVH or Cloudflare credentials requested, created, or stored anywhere. No login to any provider performed. No live network call made by this stage.
-- No DNS or nameserver change. No DNSSEC operation performed against a live domain.
-- No database installed, migrated, or executed. `database/control-plane-schema.sql` remains a draft specification only; this connector's snapshot-record shape matches its `aut_snapshots` table but nothing is written to any database.
+- No DNS or nameserver change. No zone setting changed on a live domain.
+- No database installed, migrated, or executed. `database/control-plane-schema.sql` remains a draft specification only.
 - No runtime JS/HTML/PHP/CSS changed.
 - INF-CF-2 remains blocked and not started (see `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md`).
 - Stage 3E remains the next Mythos OS runtime stage; IDA-2 remains the next authorised Automotive implementation stage.
 
 ## Next Stage
 
-**INF-CF-AUTO-0 — Cloudflare Read-Only Connector** is the next Automation implementation stage (not started by this stage). See `docs/AUTOMATION_ROADMAP.md` for the full sequence and prerequisites.
+**INF-DNS-AUTO-1 — DNS Snapshot, Comparison and Drift Detection** is the next Automation implementation stage (not started by this stage). See `docs/AUTOMATION_ROADMAP.md` for the full sequence and prerequisites.

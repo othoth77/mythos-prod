@@ -1,10 +1,61 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-08 UTC
-**From:** Stage RES-0 — Mythos Research Intelligence Foundation (merged)
+**From:** Stage INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation, pending merge)
 **To:** Next AI session
 
 ---
+
+## Stage INF-CF-AUTO-0 — Cloudflare Read-Only Connector
+
+**Objective:** Implement the LEVEL_1_READ_ONLY scope defined in `docs/AUTOMATION_ROADMAP.md` — account and zone inventory, current settings inventory. No writes.
+
+**Status:** COMPLETE as a mocked, in-memory reference implementation — no live Cloudflare credential exists anywhere in this repository or on the deployment host, and no live network call has been made by this connector. This matches the pattern established by INF-OVH-API-0, MPI-0, AUT-0, and RES-0: architecture and reference code first, live connection only in a later, separately-authorised stage.
+
+**Started via:** Owner instruction "Start INF-CF-AUTO-0 according to Mythos workflow", resolved through the DEVX-0 Stage Runner (`node scripts/mythos-stage.js start INF-CF-AUTO-0`), which correctly classified this as risk lane **STANDARD** (per `projects/meta/stage-templates.json`'s `CONNECTOR_STAGE` template) and surfaced the relevant skills, files, and test strategy without the owner needing to restate any of it.
+
+**Branch:** `feat/inf-cf-auto-0-readonly-connector` (created from `origin/main` at `0cf443819879a2356e853be9ef047c0dcf8fd179`)
+
+### What was built
+
+- `projects/automation/reference/cloudflare-readonly-connector.js` — reference implementation mirroring `ovh-readonly-connector.js`'s structure:
+  - `redactOwnerFields(raw)` — strips account-owner-identifying fields (owner email, owner name, contact fields), retains plan/status/creation date.
+  - `buildSnapshotRecord(input)` — builds a record matching the existing `aut_snapshots` table's exact column shape; never embeds raw provider data, only an `artifact_reference`.
+  - `assertReadOnlyClient(client)` — structural read-only enforcement, same mutation-verb pattern as the OVH connector.
+  - `collectForZone(client, zoneId, opts)` / `runReadOnlyCollection(client, config)` — orchestration. Refuses to run unless `config.enabled === true` and `config.authorised_zones` is a non-empty array. Never constructs a real Cloudflare API client itself.
+- `tests/inf-cf-auto-0-connector-test.js` — 26 tests, every provider response mocked, no live network call, no live credential required.
+
+### Known deferred cleanup — deliberately NOT performed in this stage
+
+`buildSnapshotRecord` and `assertReadOnlyClient` in `cloudflare-readonly-connector.js` are structurally identical to their counterparts in `ovh-readonly-connector.js`. Extracting a shared helper module (e.g. `projects/automation/reference/snapshot-helpers.js`) was considered, but the owner explicitly instructed this stage not to perform that refactor ("Do not start... the deferred duplicate-function cleanup"). This duplication is a known, recorded, intentionally-deferred item for a future stage — not an oversight.
+
+### Existing project intelligence reused (not duplicated)
+
+- **Stage Runner** (`scripts/mythos-stage.js`) resolved the Stage Context: risk lane STANDARD, relevant skills, relevant files, and blockers — before any implementation began.
+- **`projects/meta/known-baselines.json`** — Stage 3D baseline not applicable; this stage touched no `js/`/`css/`/`.php`/`index.html` file, so it was not re-run.
+- **`projects/meta/test-impact-map.json`** — updated so `projects/automation/` changes now select both `tests/inf-ovh-api-0-connector-test.js` and `tests/inf-cf-auto-0-connector-test.js`.
+- **`projects/meta/project-ledger.json`** — new `INF-CF-AUTO-0` stage record added (track `mythos-automation-operations`, type `CONNECTOR`).
+- **`scripts/project-intelligence.js validate`** — re-run after every metadata change, 0 errors throughout.
+
+### Validation
+
+- `node tests/inf-cf-auto-0-connector-test.js` — **26/26 passed**
+- `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings
+- `git diff --check` — clean
+- Secret/credential scan of the connector module source — confirmed it never reads an environment variable and never references a credential-shaped field name — credentials are strictly the injected client's concern, never this module's
+- No PII (account owner name/email/phone) appears in any returned snapshot record — confirmed by test
+- Confirmed no Cloudflare credential exists anywhere on the deployment host (`env | grep -i cloudflare` returned empty prior to this stage)
+
+### Safety Confirmation
+
+No live Cloudflare credential created, requested, or stored anywhere. No live network call made. No DNS or zone-setting change against a live domain. No database installed, migrated, or executed. No production runtime (JS/HTML/PHP/CSS) changed. Does not start INF-DNS-AUTO-1, RES-1, MPI-1, Stage 3E, IDA-2, ATN-1, or AVA-1. Does not perform the deferred duplicate-function cleanup.
+
+### Exact Next Action
+
+1. Complete validation, commit, push, and the PR workflow for this stage per its STANDARD risk lane.
+2. **INF-DNS-AUTO-1 — DNS Snapshot, Comparison and Drift Detection** is the next Automation implementation stage — **NOT STARTED.**
+3. Unchanged by this stage: MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 all remain NOT STARTED. The `ovh-readonly-connector.js`/`cloudflare-readonly-connector.js` duplicate-function cleanup remains an explicitly deferred, not-yet-authorised item.
+4. Respect the one-major-stage rule: do not begin another major stage without explicit owner authorisation.
 
 ## Stage RES-0 — Mythos Research Intelligence Foundation
 
