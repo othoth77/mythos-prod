@@ -131,8 +131,17 @@
 - **Security/safety changes:** the connector's `assertReadOnlyClient` structurally rejects any injected client exposing a mutation-shaped method, enforced in code rather than only by convention.
 - **Doc changes:** `docs/AUTOMATION_ROADMAP.md`, `projects/automation/README.md`, `docs/ROADMAP.md`, `docs/PROJECT_STATUS.md`, `docs/AI_HANDOVER.md`, `docs/CHANGELOG.md`, `docs/PROJECT_STATISTICS.md`, `docs/history/DAILY_HISTORY.md` (this entry), `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json`, `projects/meta/test-impact-map.json` — updated to record INF-OVH-API-0 as complete (reference implementation) pending its own PR/merge.
 - **Blockers:** none.
-- **End-of-day HEAD (`main`) as of this entry:** `e2ca9dc42f8ed317f220b561cffa1d4229b9a1ad` (INF-OVH-API-0's own merge, if authorised, will be recorded in a subsequent amendment to this same day's entry per the append-only rule).
-- **Next recorded action:** INF-CF-AUTO-0 (Cloudflare Read-Only Connector) — NOT STARTED. MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 — all NOT STARTED, unaffected by this stage.
+- **End-of-day HEAD (`main`) as of implementation:** `e2ca9dc42f8ed317f220b561cffa1d4229b9a1ad`. **Superseded later the same day by the INF-OVH-API-0 merge — see below; this entry is extended, not replaced, per the append-only rule.**
+
+### Later the same day — INF-OVH-API-0 (PR #7) reviewed, marked ready, and merged
+
+- **Pull Requests:** PR #7 ("feat(automation): INF-OVH-API-0 OVH Read-Only Connector (reference implementation)") — description finalised, marked ready for review, **merged to `main` via a standard merge commit** (`79fdb122edd2dc3246fc7781247265e3fab93adf`), no squash, no rebase, no force-push. RES-0's PR #5 remained open, Draft, unmerged throughout — untouched by this stage.
+- **Stages completed on `main`:** INF-OVH-API-0 — OVH Read-Only Connector (reference implementation) — DONE.
+- **Tests run post-merge:** `tests/inf-ovh-api-0-connector-test.js` — 26/26 passed; `tests/devx-0-development-acceleration-test.js` — 45/45 passed (regression, unaffected); `tests/mpi-0-finalization-governance-test.js` — 36/36 passed (regression, unaffected); `tests/mpi-0-personal-intelligence-test.js` — 63/63 passed (regression, unaffected); `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings, re-verified on `main` after merge.
+- **Doc changes:** `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`, `docs/PROJECT_STATUS.md`, `docs/PROJECT_STATISTICS.md`, `docs/history/DAILY_HISTORY.md` (this entry), `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json` — updated post-merge to record INF-OVH-API-0 as complete and merged, per the permanent handover rule.
+- **Blockers:** none.
+- **End-of-day HEAD (`main`):** `79fdb122edd2dc3246fc7781247265e3fab93adf`.
+- **Next recorded action:** INF-CF-AUTO-0 (Cloudflare Read-Only Connector) — NOT STARTED. MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 — all NOT STARTED, unaffected by this stage. RES-0 (PR #5) remains open, Draft, unmerged.
 
 ---
 
