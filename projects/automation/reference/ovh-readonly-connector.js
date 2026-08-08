@@ -29,11 +29,17 @@
 // (projects/automation/database/control-plane-schema.sql) — draft schema,
 // NOT DEPLOYED. This module produces plain JS objects in that shape; it
 // does not itself write to any database.
+//
+// Mutation-method detection and snapshot-record construction are shared,
+// provider-neutral logic — owned by ./connector-readonly-helpers.js (Stage
+// AUT-CONNECTOR-SHARED-HELPERS-0). This module delegates to it and keeps
+// only what is genuinely OVH-specific: registrant redaction, domain
+// collection orchestration, and resource naming.
 // =====================================================
 
-var REGISTRANT_FIELD_PATTERN = /^registrant/i;
+var sharedHelpers = require('./connector-readonly-helpers.js');
 
-var MUTATING_METHOD_PATTERN = /^(create|update|set|write|delete|remove|patch|put|mutate|apply)/i;
+var REGISTRANT_FIELD_PATTERN = /^registrant/i;
 
 /**
  * @typedef {Object} OvhReadOnlyClient
@@ -47,22 +53,11 @@ var MUTATING_METHOD_PATTERN = /^(create|update|set|write|delete|remove|patch|put
  */
 
 /**
- * Structural read-only enforcement: throws if the supplied client exposes
- * any function whose name matches a mutation-shaped verb. This is checked
- * against the client's own enumerable methods, not against a fixed
- * allowlist, so a client that grew an unexpected write method fails closed
- * rather than silently being trusted.
+ * Delegates to the shared structural read-only enforcement helper with
+ * this provider's error prefix. Not an independent implementation.
  */
 function assertReadOnlyClient(client) {
-  if (!client || typeof client !== 'object') {
-    throw new Error('OVH_CONNECTOR: a client object is required');
-  }
-  var offending = Object.keys(client).filter(function (key) {
-    return typeof client[key] === 'function' && MUTATING_METHOD_PATTERN.test(key);
-  });
-  if (offending.length) {
-    throw new Error('OVH_CONNECTOR: read-only violation — client exposes mutation-shaped method(s): ' + offending.join(', '));
-  }
+  return sharedHelpers.assertReadOnlyClient(client, { errorPrefix: 'OVH_CONNECTOR' });
 }
 
 /**
@@ -85,30 +80,13 @@ function redactRegistrantFields(rawRecord) {
 }
 
 /**
- * Builds a snapshot record matching aut_snapshots' column shape. The raw
- * provider data is never embedded directly — callers pass an
- * artifactReference (a URI/hash reference) exactly as the schema column
- * comment requires; storage of the artifact itself is out of scope for
- * this reference implementation.
+ * Delegates to the shared snapshot-record builder with this provider's
+ * error prefix. Not an independent implementation — the returned shape,
+ * required-field validation, and is_redacted default all come from
+ * ./connector-readonly-helpers.js.
  */
 function buildSnapshotRecord(input) {
-  var required = ['snapshotId', 'connectorId', 'resourceType', 'resourceExternalId', 'resourceExternalSource', 'artifactReference', 'observedAt'];
-  required.forEach(function (field) {
-    if (!input || input[field] === undefined || input[field] === null) {
-      throw new Error('OVH_CONNECTOR: buildSnapshotRecord missing required field: ' + field);
-    }
-  });
-  return {
-    snapshot_id: input.snapshotId,
-    run_id: input.runId || null,
-    connector_id: input.connectorId,
-    resource_type: input.resourceType,
-    resource_external_id: input.resourceExternalId,
-    resource_external_source: input.resourceExternalSource,
-    artifact_reference: input.artifactReference,
-    is_redacted: true,
-    observed_at: input.observedAt
-  };
+  return sharedHelpers.buildSnapshotRecord(input, { errorPrefix: 'OVH_CONNECTOR' });
 }
 
 /**

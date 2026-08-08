@@ -432,6 +432,27 @@
         "tests/stage4ag-test.js",
         "tests/runtime-duplicate-cleanup-0-test.js"
       ]
+    },
+    {
+      "track": "mythos-automation-operations",
+      "stage_id": "AUT-CONNECTOR-SHARED-HELPERS-0",
+      "title": "Shared Read-Only Connector Foundation Cleanup",
+      "status": "IN_PROGRESS",
+      "type": "RUNTIME",
+      "starting_head": "39a3a6fc57167054e98f5d6d3971db821abf6b7d",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "INF-DNS-AUTO-1 (unaffected, still NOT STARTED)",
+      "evidence_paths": [
+        "projects/automation/reference/connector-readonly-helpers.js",
+        "projects/automation/reference/ovh-readonly-connector.js",
+        "projects/automation/reference/cloudflare-readonly-connector.js",
+        "tests/aut-connector-shared-helpers-0-test.js"
+      ]
     }
   ],
   "commits": [
