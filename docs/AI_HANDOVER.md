@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-08 UTC
-**From:** Stage AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup (pending merge)
+**From:** Stage AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup (merged)
 **To:** Next AI session
 
 ---
@@ -10,11 +10,15 @@
 
 **Objective:** Extract shared, provider-neutral safety/snapshot helpers from the OVH and Cloudflare read-only connector reference implementations, eliminate duplicated business/safety logic, and preserve all existing connector behavior and tests. Resolves the deferred cleanup item recorded in both `INF-OVH-API-0` and `INF-CF-AUTO-0`'s handover entries above.
 
-**Status:** COMPLETE — code-quality/foundation refactor only. No live OVH/Cloudflare credential, no live network call, no DB, no deployment.
+**Status:** COMPLETE AND MERGED TO MAIN — code-quality/foundation refactor only. No live OVH/Cloudflare credential, no live network call, no DB, no deployment.
 
 **Started via:** Owner instruction "Execute this stage end-to-end while I am away", resolved through the DEVX-0 Stage Runner (`node scripts/mythos-stage.js start AUT-CONNECTOR-SHARED-HELPERS-0`), which classified this as risk lane **STANDARD** (RUNTIME type → `RUNTIME_STAGE` template) and surfaced the relevant skills, files, and test strategy.
 
 **Branch:** `refactor/automation-connector-shared-helpers` (created from `origin/main` at `39a3a6fc57167054e98f5d6d3971db821abf6b7d`)
+**Implementation commits:** `a191d06` refactor(automation): extract read-only connector helpers · `9ec6e6b` test(automation): define shared connector helper contract · `6a609be` docs: record shared connector helper cleanup
+**Pull Request:** #10, opened Draft, marked ready for review after all gates passed, merged with a standard merge commit (no squash, no rebase, no force-push) — no pause for a second merge approval, per standing owner authorisation, since every gate was green
+**Merge commit SHA:** `bf95988bc9eb72f37e6c4fa8e8b474a69c4e22a3`
+**`main` HEAD after merge:** `bf95988bc9eb72f37e6c4fa8e8b474a69c4e22a3` (fast-forwarded; verified `git rev-parse HEAD` == `git rev-parse origin/main`)
 
 ### What was built
 
