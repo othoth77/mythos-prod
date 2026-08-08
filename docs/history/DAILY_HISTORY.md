@@ -152,8 +152,24 @@
 - **Security/safety changes:** none — documentation-only stage; secret/credential scan across all RES-0-specific files confirmed clean both before and after the refresh.
 - **Doc changes:** `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`, `docs/PROJECT_STATUS.md`, `docs/PROJECT_STATISTICS.md`, `docs/history/DAILY_HISTORY.md` (this entry), `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json` — updated post-merge to record RES-0 as complete and merged, per the permanent handover rule.
 - **Blockers:** none.
-- **End-of-day HEAD (`main`):** `38741453570517fb106cfff1f2662c26b18b5c0d`.
-- **Next recorded action:** INF-CF-AUTO-0 (Cloudflare Read-Only Connector) — NOT STARTED. MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 — all NOT STARTED, unaffected by this stage.
+- **End-of-day HEAD (`main`) as of the RES-0 merge:** `38741453570517fb106cfff1f2662c26b18b5c0d`. **Superseded later the same day by the INF-CF-AUTO-0 merge — see below; this entry is extended, not replaced, per the append-only rule.**
+
+### Later the same day — INF-CF-AUTO-0 (PR #8) implemented, reviewed, marked ready, and merged
+
+- **Stage:** INF-CF-AUTO-0 — Cloudflare Read-Only Connector, started via owner instruction "Start INF-CF-AUTO-0 according to Mythos workflow", resolved through the DEVX-0 Stage Runner (`node scripts/mythos-stage.js start INF-CF-AUTO-0`).
+- **Major files/modules added:** `projects/automation/reference/cloudflare-readonly-connector.js` (mocked, in-memory reference implementation mirroring `ovh-readonly-connector.js`'s structure — structurally read-only, refuses to run unless explicitly enabled, redacts account-owner-identifying fields), `tests/inf-cf-auto-0-connector-test.js` (26 tests, every provider response mocked).
+- **Architecture decisions:** none new — this stage implements the LEVEL_1_READ_ONLY scope already defined in `docs/AUTOMATION_ROADMAP.md`.
+- **Known deferred cleanup — explicitly not performed:** `buildSnapshotRecord`/`assertReadOnlyClient` duplicate their `ovh-readonly-connector.js` counterparts by design; extracting a shared helper module was considered and explicitly deferred by owner instruction for this stage.
+- **Out-of-scope request declined:** an unrelated request to automate audio capture from a paywalled third-party Teachable course (via a stored session and virtual audio sink routing) was declined as outside this Mythos stage and as a copyright/ToS circumvention pattern; no such tooling was built or run.
+- **Pull Requests:** PR #8 ("feat(automation): INF-CF-AUTO-0 Cloudflare Read-Only Connector (reference implementation)") — marked ready for review, **merged to `main` via a standard merge commit** (`82fd2f97165495fb112bbdff828a1ce4a6884334`), no squash, no rebase, no force-push.
+- **Stages completed on `main`:** INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation) — DONE.
+- **Tests run post-merge:** `tests/inf-cf-auto-0-connector-test.js` — 26/26 passed; `tests/inf-ovh-api-0-connector-test.js` — 26/26 passed (regression, unaffected); `tests/devx-0-development-acceleration-test.js` — 45/45 passed (regression, unaffected); `tests/mpi-0-finalization-governance-test.js` — 36/36 passed (regression, unaffected); `tests/mpi-0-personal-intelligence-test.js` — 63/63 passed (regression, unaffected); `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings, re-verified on `main` after merge.
+- **Known pre-existing failures:** not applicable — this stage touched no `js/`/`css/`/`.php`/`index.html` file.
+- **Security/safety changes:** none — no live Cloudflare credential created, requested, or stored anywhere (confirmed empty on the deployment host before this stage began); no live network call made.
+- **Doc changes:** `docs/AI_HANDOVER.md`, `docs/AUTOMATION_ROADMAP.md`, `docs/ROADMAP.md`, `docs/PROJECT_STATUS.md`, `docs/PROJECT_STATISTICS.md`, `docs/history/DAILY_HISTORY.md` (this entry), `projects/automation/README.md`, `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json` — updated post-merge to record INF-CF-AUTO-0 as complete and merged, per the permanent handover rule.
+- **Blockers:** none.
+- **End-of-day HEAD (`main`):** `82fd2f97165495fb112bbdff828a1ce4a6884334`.
+- **Next recorded action:** INF-DNS-AUTO-1 (DNS Snapshot, Comparison and Drift Detection) — NOT STARTED. MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 — all NOT STARTED, unaffected by this stage. The `ovh-readonly-connector.js`/`cloudflare-readonly-connector.js` duplicate-function cleanup remains an explicitly deferred, not-yet-authorised item.
 
 ---
 

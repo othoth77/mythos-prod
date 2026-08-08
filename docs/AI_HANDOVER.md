@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-08 UTC
-**From:** Stage INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation, pending merge)
+**From:** Stage INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation, merged)
 **To:** Next AI session
 
 ---
@@ -10,11 +10,15 @@
 
 **Objective:** Implement the LEVEL_1_READ_ONLY scope defined in `docs/AUTOMATION_ROADMAP.md` — account and zone inventory, current settings inventory. No writes.
 
-**Status:** COMPLETE as a mocked, in-memory reference implementation — no live Cloudflare credential exists anywhere in this repository or on the deployment host, and no live network call has been made by this connector. This matches the pattern established by INF-OVH-API-0, MPI-0, AUT-0, and RES-0: architecture and reference code first, live connection only in a later, separately-authorised stage.
+**Status:** COMPLETE AND MERGED TO MAIN as a mocked, in-memory reference implementation — no live Cloudflare credential exists anywhere in this repository or on the deployment host, and no live network call has been made by this connector. This matches the pattern established by INF-OVH-API-0, MPI-0, AUT-0, and RES-0: architecture and reference code first, live connection only in a later, separately-authorised stage.
 
 **Started via:** Owner instruction "Start INF-CF-AUTO-0 according to Mythos workflow", resolved through the DEVX-0 Stage Runner (`node scripts/mythos-stage.js start INF-CF-AUTO-0`), which correctly classified this as risk lane **STANDARD** (per `projects/meta/stage-templates.json`'s `CONNECTOR_STAGE` template) and surfaced the relevant skills, files, and test strategy without the owner needing to restate any of it.
 
 **Branch:** `feat/inf-cf-auto-0-readonly-connector` (created from `origin/main` at `0cf443819879a2356e853be9ef047c0dcf8fd179`)
+**Implementation commits:** `c0b37de` feat(automation): add Cloudflare read-only connector reference implementation · `14fc62c` docs(automation): record INF-CF-AUTO-0 reference implementation status
+**Pull Request:** #8, opened Draft, marked ready for review after all gates passed, merged with a standard merge commit (no squash, no rebase, no force-push)
+**Merge commit SHA:** `82fd2f97165495fb112bbdff828a1ce4a6884334`
+**`main` HEAD after merge:** `82fd2f97165495fb112bbdff828a1ce4a6884334` (fast-forwarded; verified `git rev-parse HEAD` == `git rev-parse origin/main`)
 
 ### What was built
 
@@ -52,9 +56,8 @@ No live Cloudflare credential created, requested, or stored anywhere. No live ne
 
 ### Exact Next Action
 
-1. Complete validation, commit, push, and the PR workflow for this stage per its STANDARD risk lane.
-2. **INF-DNS-AUTO-1 — DNS Snapshot, Comparison and Drift Detection** is the next Automation implementation stage — **NOT STARTED.**
-3. Unchanged by this stage: MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 all remain NOT STARTED. The `ovh-readonly-connector.js`/`cloudflare-readonly-connector.js` duplicate-function cleanup remains an explicitly deferred, not-yet-authorised item.
+1. **INF-DNS-AUTO-1 — DNS Snapshot, Comparison and Drift Detection** is the next Automation implementation stage — **NOT STARTED.**
+2. Unchanged by this stage: MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 all remain NOT STARTED. The `ovh-readonly-connector.js`/`cloudflare-readonly-connector.js` duplicate-function cleanup remains an explicitly deferred, not-yet-authorised item.
 4. Respect the one-major-stage rule: do not begin another major stage without explicit owner authorisation.
 
 ## Stage RES-0 — Mythos Research Intelligence Foundation

@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0.0",
   "generated_at": "2026-08-08T00:00:00Z",
-  "source_commit": "38741453570517fb106cfff1f2662c26b18b5c0d",
+  "source_commit": "82fd2f97165495fb112bbdff828a1ce4a6884334",
   "tracks": [
     "mythos-os",
     "mythos-automation-operations",
@@ -378,14 +378,20 @@
       "track": "mythos-automation-operations",
       "stage_id": "INF-CF-AUTO-0",
       "title": "Cloudflare Read-Only Connector",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "type": "CONNECTOR",
       "starting_head": "0cf443819879a2356e853be9ef047c0dcf8fd179",
-      "implementation_commit": null,
-      "merge_commit": null,
+      "implementation_commit": "14fc62cb0953369703a28e022bfa7c981f543941",
+      "merge_commit": "82fd2f97165495fb112bbdff828a1ce4a6884334",
       "handover_commit": null,
-      "completed_at": null,
-      "tests": {},
+      "completed_at": "2026-08-08",
+      "tests": {
+        "inf_cf_auto_0_connector": "26/26",
+        "inf_ovh_api_0_connector": "26/26",
+        "devx0": "45/45",
+        "mpi0_finalization_governance": "36/36",
+        "mpi0": "63/63"
+      },
       "blockers": [],
       "next_stage": "INF-DNS-AUTO-1 (NOT STARTED)",
       "evidence_paths": [
@@ -472,6 +478,15 @@
       "state": "MERGED",
       "merge_commit": "79fdb122edd2dc3246fc7781247265e3fab93adf",
       "merged_at": "2026-08-07T23:54:57Z"
+    },
+    {
+      "number": 8,
+      "title": "feat(automation): INF-CF-AUTO-0 Cloudflare Read-Only Connector (reference implementation)",
+      "base": "main",
+      "head": "feat/inf-cf-auto-0-readonly-connector",
+      "state": "MERGED",
+      "merge_commit": "82fd2f97165495fb112bbdff828a1ce4a6884334",
+      "merged_at": "2026-08-08T07:54:19Z"
     }
   ],
   "tests": [
