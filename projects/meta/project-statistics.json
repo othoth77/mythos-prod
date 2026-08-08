@@ -60,12 +60,12 @@
     },
     {
       "name": "stages_in_progress",
-      "value": 1,
+      "value": 0,
       "unit": "count",
       "scope": "same as above",
       "source": "count of status == IN_PROGRESS (MPI-0-FINALIZATION)",
       "generated_at": "2026-08-08T09:30:00Z",
-      "source_commit": "f89fb8c"
+      "source_commit": "9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549"
     },
     {
       "name": "stages_done_pending_merge",

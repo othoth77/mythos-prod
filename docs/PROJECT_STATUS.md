@@ -1,17 +1,17 @@
 # Mythos — Project Status
 
-**Stage:** RUNTIME-DUPLICATE-CLEANUP-0 — IN PROGRESS (branch pushed, PR pending)
-**Generated:** 2026-08-06 · **Updated:** 2026-08-08 (RUNTIME-DUPLICATE-CLEANUP-0 in progress)
+**Stage:** RUNTIME-DUPLICATE-CLEANUP-0 — COMPLETE AND MERGED
+**Generated:** 2026-08-06 · **Updated:** 2026-08-08 (post-RUNTIME-DUPLICATE-CLEANUP-0-merge)
 **Purpose:** Quick "where are we now" snapshot. Full detail lives in `docs/AI_HANDOVER.md` (stage semantics), `docs/ROADMAP.md` (intentions), `docs/history/DAILY_HISTORY.md` (day-by-day), and `docs/PROJECT_STATISTICS.md` (numbers).
 
 ---
 
 ## Current Source of Truth
 
-- **Current `main` HEAD:** `c2134e574b5a7e05ac3acbf41ae262cb2cad6b08` (unchanged until RUNTIME-DUPLICATE-CLEANUP-0 merges)
-- **PRs:** #4, #5, #6, #7, #8 all MERGED. RUNTIME-DUPLICATE-CLEANUP-0's PR not yet opened.
-- **Current major active stage:** RUNTIME-DUPLICATE-CLEANUP-0 — Canonical Runtime Function Ownership + Stage 4Z Repair. Branch `fix/runtime-duplicate-function-ownership`, 3 implementation commits, all targeted/regression/governance tests green, Stage 3D matches known baseline exactly (104/110). Fixes a real production bug: `js/shared/invoices.js` never actually loaded due to a `stableLineCount` redeclaration collision with `mission-orders.js`.
-- **Last completed stage on `main`:** INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation, merged via PR #8), preceded by RES-0 (PR #5), preceded by INF-OVH-API-0 (PR #7).
+- **Current `main` HEAD:** `9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549` (PR #9 merge commit)
+- **PRs:** #4, #5, #6, #7, #8, #9 all MERGED. **No open PRs.**
+- **Current major active stage:** None. MPI-0, MPI-0-FINALIZATION, DEVX-0, INF-OVH-API-0, RES-0, INF-CF-AUTO-0, and RUNTIME-DUPLICATE-CLEANUP-0 are all complete and merged; no runtime stage is active.
+- **Last completed stage on `main`:** RUNTIME-DUPLICATE-CLEANUP-0 — Canonical Runtime Function Ownership + Stage 4Z Repair (merged via PR #9) — fixed a real production bug where `js/shared/invoices.js` never actually loaded due to a `stableLineCount` redeclaration collision with `mission-orders.js`; `editInvoice`/`deleteInvoice` are now canonically owned by `invoices.js`. Preceded by INF-CF-AUTO-0 (PR #8), preceded by RES-0 (PR #5).
 
 ---
 

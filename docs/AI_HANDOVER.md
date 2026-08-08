@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-08 UTC
-**From:** Stage RUNTIME-DUPLICATE-CLEANUP-0 — Canonical Runtime Function Ownership + Stage 4Z Repair (in progress)
+**From:** Stage RUNTIME-DUPLICATE-CLEANUP-0 — Canonical Runtime Function Ownership + Stage 4Z Repair (merged)
 **To:** Next AI session
 
 ---
@@ -10,7 +10,7 @@
 
 **Objective:** Resolve the deferred duplicate-function cleanup for `editInvoice`, `deleteInvoice`, `addOmPerson`, `cancelOM` (referenced as deferred in the INF-CF-AUTO-0 and INF-OVH-API-0 entries above), and correct the now-outdated Stage 4Z/4AG test assertions that required the pre-fix state.
 
-**Status:** IN PROGRESS — implementation complete, targeted and full regression suites green, PR not yet opened (this entry will be updated again post-merge per the permanent handover rule).
+**Status:** COMPLETE AND MERGED TO MAIN. **Pull Request:** #9, opened not-draft, merged with a standard merge commit (no squash, no rebase, no force-push). **Merge commit SHA:** `9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549`. **`main` HEAD after merge:** `9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549` (fast-forwarded; verified `git rev-parse HEAD` == `git rev-parse origin/main`). Post-merge: re-ran `tests/runtime-duplicate-cleanup-0-test.js` (24/24), `tests/stage4z-test.js` (48/48), `tests/stage4ag-test.js` (44/44), and `node scripts/project-intelligence.js validate` (0 errors, 0 warnings) directly on `main` — all confirmed green.
 
 **Started via:** Owner instruction with full pre-authorization for this stage's branch, PR, and — gated on every listed test/validation gate passing — merge.
 
@@ -54,8 +54,8 @@ No DB / no deployment / no provider operations. No live credential of any kind t
 
 ### Exact Next Action
 
-1. This entry will be updated with PR number, merge commit, and final `main` HEAD once merged.
-2. Does not start INF-DNS-AUTO-1, RES-1, MPI-1, Stage 3E, IDA-2, ATN-1, or AVA-1.
+1. **INF-DNS-AUTO-1 — DNS Snapshot, Comparison and Drift Detection** is the next Automation implementation stage — **NOT STARTED.**
+2. Unchanged by this stage: MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 all remain NOT STARTED. The Cloudflare/OVH `buildSnapshotRecord`/`assertReadOnlyClient` shared-connector-helper deduplication remains a separate, still-deferred, not-yet-authorised item — this stage did not touch `projects/automation/`.
 3. Respect the one-major-stage rule: do not begin another major stage without explicit owner authorisation.
 
 ---

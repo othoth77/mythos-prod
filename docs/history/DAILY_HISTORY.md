@@ -184,9 +184,21 @@
 - **Known pre-existing failures:** the same six Stage 3D known-baseline failures (`stage3c`, `stage3b`, `stage3a5` partial; `stage3a`, `stage2d`, `stage1c-part1` subprocess error) — unchanged, verified identical to `projects/meta/known-baselines.json`.
 - **Security/safety changes:** none. No DB, no deployment, no provider operations, no live credential touched. Secret/PII scan of the full diff — clean.
 - **Doc changes:** `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`, `docs/CHANGELOG.md`, `docs/PROJECT_STATUS.md`, `docs/PROJECT_STATISTICS.md`, `docs/history/DAILY_HISTORY.md` (this entry), `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json` — updated pre-merge to record progress; will be updated again post-merge per the permanent handover rule.
-- **Blockers:** none as of this entry — pending PR creation and final merge-gate evaluation.
+- **Blockers:** none.
 - **End-of-day HEAD (`main`) as of this entry:** unchanged, still `82fd2f97165495fb112bbdff828a1ce4a6884334` — RUNTIME-DUPLICATE-CLEANUP-0 has not merged yet.
 - **Next recorded action:** open the PR, evaluate all merge gates, and — only if every gate is green — merge via a standard merge commit. Does not start INF-DNS-AUTO-1, RES-1, MPI-1, Stage 3E, IDA-2, ATN-1, or AVA-1. The Cloudflare/OVH `buildSnapshotRecord`/`assertReadOnlyClient` shared-connector-helper deduplication remains a separate, still-deferred, not-yet-authorised item.
+
+### Later the same day — RUNTIME-DUPLICATE-CLEANUP-0 (PR #9) reviewed, all gates green, merged
+
+- **Pull Requests:** PR #9 ("refactor(runtime): remove stale duplicate function ownership") — all merge gates evaluated green (mergeable/clean, worktree clean, `main` unchanged since branch, targeted+regression+governance tests passing, Stage 3D exact baseline match, `project-intelligence validate` 0/0, secret/PII scan clean, scope matched exactly) — **merged to `main` via a standard merge commit** (`9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549`), no squash, no rebase, no force-push.
+- **Stages completed on `main`:** RUNTIME-DUPLICATE-CLEANUP-0 — Canonical Runtime Function Ownership + Stage 4Z Repair — DONE.
+- **Tests run post-merge (on `main` directly):** `tests/runtime-duplicate-cleanup-0-test.js` — 24/24 passed; `tests/stage4z-test.js` — 48/48 passed; `tests/stage4ag-test.js` — 44/44 passed; `node scripts/project-intelligence.js validate` — 0 errors, 0 warnings, re-verified on `main` after merge.
+- **Known pre-existing failures:** unchanged — the same six Stage 3D known-baseline failures, not re-caused by this stage.
+- **Security/safety changes:** none.
+- **Doc changes:** `docs/AI_HANDOVER.md`, `docs/PROJECT_STATUS.md`, `docs/PROJECT_STATISTICS.md`, `docs/history/DAILY_HISTORY.md` (this entry), `projects/meta/project-ledger.json`, `projects/meta/project-statistics.json`, `projects/meta/current-context.json` — updated post-merge to record RUNTIME-DUPLICATE-CLEANUP-0 as complete and merged, per the permanent handover rule.
+- **Blockers:** none.
+- **End-of-day HEAD (`main`):** `9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549`.
+- **Next recorded action:** INF-DNS-AUTO-1 (DNS Snapshot, Comparison and Drift Detection) — NOT STARTED. MPI-1, RES-1, Stage 3E, IDA-2, ATN-1, AVA-1 — all NOT STARTED, unaffected by this stage. The `ovh-readonly-connector.js`/`cloudflare-readonly-connector.js` duplicate-function cleanup remains an explicitly deferred, not-yet-authorised item.
 
 
 ---

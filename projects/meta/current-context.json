@@ -1,12 +1,10 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-08T09:40:42.168Z",
-  "source_commit": "f89fb8c0f901b5bd3c395a054f9355b0dc95d690",
-  "main_head": "c2134e574b5a7e05ac3acbf41ae262cb2cad6b08",
-  "active_branch": "fix/runtime-duplicate-function-ownership",
-  "active_stage": [
-    "RUNTIME-DUPLICATE-CLEANUP-0"
-  ],
+  "generated_at": "2026-08-08T09:56:54.396Z",
+  "source_commit": "9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549",
+  "main_head": "9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549",
+  "active_branch": "main",
+  "active_stage": [],
   "last_completed_stage": {
     "track": "mythos-research-intelligence",
     "stage_id": "RES-0",

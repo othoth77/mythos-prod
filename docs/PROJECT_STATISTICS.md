@@ -1,7 +1,7 @@
 # Mythos — Project Statistics
 
-**Stage:** RUNTIME-DUPLICATE-CLEANUP-0 — IN PROGRESS
-**Generated:** 2026-08-06 · **Updated:** 2026-08-08 (RUNTIME-DUPLICATE-CLEANUP-0 in progress)
+**Stage:** RUNTIME-DUPLICATE-CLEANUP-0 — COMPLETE AND MERGED
+**Generated:** 2026-08-06 · **Updated:** 2026-08-08 (post-merge)
 **Machine-readable counterpart:** `projects/meta/project-statistics.json`
 
 ---
@@ -29,9 +29,9 @@ This document also maintains the mandatory distinction from Phase 20: `architect
 | Statistic | Value | Source |
 |---|---|---|
 | Stages recorded in the project ledger | 19 | `projects/meta/project-ledger.json` |
-| Completed (`DONE`) | 18 | same |
+| Completed (`DONE`) | 19 | same |
 | Done, pending merge (`DONE_PENDING_MERGE`) | 0 | same |
-| In progress (`IN_PROGRESS`) | 1 (RUNTIME-DUPLICATE-CLEANUP-0) | same |
+| In progress (`IN_PROGRESS`) | 0 | same |
 | Blocked | 0 stages formally blocked; 2 **next** stages blocked (MAE-1 on IDA-2, INF-CF-2 on owner approval) | `docs/ROADMAP.md`, `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` |
 | Planned (named next-stage, not started) | 8 (Stage 3E, IDA-2, ATN-1, AVA-1, MPI-1, INF-OVH-API-0, RES-1, DEVX-1) | `docs/ROADMAP.md` |
 

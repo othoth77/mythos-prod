@@ -404,13 +404,13 @@
       "track": "mythos-os",
       "stage_id": "RUNTIME-DUPLICATE-CLEANUP-0",
       "title": "Runtime Duplicate Function Ownership + Stage 4Z Repair",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "type": "RUNTIME",
       "starting_head": "c2134e574b5a7e05ac3acbf41ae262cb2cad6b08",
       "implementation_commit": "f89fb8c",
-      "merge_commit": null,
+      "merge_commit": "9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549",
       "handover_commit": null,
-      "completed_at": null,
+      "completed_at": "2026-08-08",
       "tests": {
         "runtime_duplicate_cleanup_0": "24/24",
         "stage4z": "48/48",
@@ -423,7 +423,7 @@
         "mpi0": "63/63"
       },
       "blockers": [],
-      "next_stage": null,
+      "next_stage": "INF-DNS-AUTO-1 (NOT STARTED)",
       "evidence_paths": [
         "js/shared/invoices.js",
         "js/shared/mission-orders.js",
@@ -520,6 +520,15 @@
       "state": "MERGED",
       "merge_commit": "82fd2f97165495fb112bbdff828a1ce4a6884334",
       "merged_at": "2026-08-08T07:54:19Z"
+    },
+    {
+      "number": 9,
+      "title": "refactor(runtime): remove stale duplicate function ownership",
+      "base": "main",
+      "head": "fix/runtime-duplicate-function-ownership",
+      "state": "MERGED",
+      "merge_commit": "9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549",
+      "merged_at": "2026-08-08T09:46:35Z"
     }
   ],
   "tests": [
