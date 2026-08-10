@@ -6,6 +6,28 @@
 
 ---
 
+## SAFETY REVIEW — VPS Memory Plan Correction (2026-08-10)
+
+**Type:** Read-only final safety review of the memory budget plan below, performed before any implementation. No Docker memory limit, restart policy, `maxmemory`/eviction config, or container was changed. No Mythos implementation stage was started or advanced.
+
+**No subagents used** — all data collected directly over SSH by the primary session.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `daaaeb305a62cc027b54826e87242f93150bf40a` before this review began (matches the SHA specified in the task).
+
+**Correction made:** the memory plan's §7 originally claimed per-container limits make host-wide OOM "structurally impossible." **This was incorrect and has been corrected in place** (see `docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md` §7 inline note and new §11). Per-container limits reduce single-container risk; they do not bound the *sum* of limits against physical capacity. Recalculated: against a 2.0GB global safety reserve (kernel/systemd/nginx/SSH 200MB + Docker/containerd overhead 500MB + host MariaDB/PHP-FPM 300MB + filesystem cache floor 300MB + burst buffer 700MB), the **preferred aggregate capped maximum is ≈5.65GB** (no swap reliance) and the **hard danger threshold is ≈7.65GB** (swap-backed). Scenario A's proposed sum (8832MB) exceeds both — by ~3.0GB against the preferred ceiling and ~1.0GB against the hard threshold. This is a real, quantified residual risk (smaller than the pre-cap n8n-style single-service failure, but not zero) that should be addressed by trimming the aggregate in a future revision, not by retiring Dar Hijama Stack B (which remains explicitly out of scope).
+
+**Redis finding:** all 6 Dar Hijama Redis instances directly re-verified via `redis-cli CONFIG GET` (authenticated using each container's own password env var, never printed) — all have `maxmemory=0` and `maxmemory-policy=noeviction`. The proposed 64MB Docker `mem_limit` is unchanged and still safe on its own, but it is currently the *only* protection layer, and it fails ungracefully (SIGKILL) rather than gracefully (Redis-level eviction/rejection). Role-specific recommendation recorded (cache: `allkeys-lru`; session: keep `noeviction` pending app-level TTL review; queue: keep `noeviction`, correctness-critical) — **not applied**.
+
+**`i4mv37ig6xavokv0kpy5517d` identified:** a Coolify-managed **preview/staging deployment of the "Notre Jour" project** (`coolify.projectName=notrejour`, `APP_ENV=local`, SQLite, sync queue), reachable only via Coolify's auto-generated sslip.io URL. The real `notrejour.tn` production domain is served by a separate, host-native PHP-FPM deployment (`/var/www/notrejour/public`), confirmed via nginx config — entirely independent of this container. **Not production-critical.** Risk downgraded from MEDIUM to LOW; its 320MB proposed cap stands, now with full justification.
+
+**Step 1 authorization call: SAFE TO AUTHORIZE.** Step 1 (both stacks' Redis ×6 + `coolify-redis` + `coolify-sentinel`) sums to only 576MB of proposed limits against ~43MB current real usage — the aggregate-ceiling concern above is driven by MySQL ×2 and Coolify core (Steps 5–6), not Step 1. Later steps should be re-evaluated against a trimmed aggregate before authorization, separate from Step 1.
+
+**Full detail:** [`docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md`](audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md) §11.
+
+**Exact next recommended action:** authorize a separately-scoped implementation task for Step 1 only (both stacks' Redis, `coolify-redis`, `coolify-sentinel`), verify with `docker stats` and live HTTP checks after, then commission a follow-up revision of the plan that trims the aggregate proposed limits (primarily MySQL and Coolify core) toward the ≈5.65GB preferred ceiling before Steps 5–6 are authorized. **No Mythos implementation stage is queued or was advanced by this review.**
+
+---
+
 ## PLAN — VPS Memory Budget & Container Limit Plan (2026-08-10)
 
 **Type:** Read-only planning stage. No Docker memory limit, restart policy, or configuration was applied. No Mythos implementation stage was started or advanced.
