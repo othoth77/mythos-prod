@@ -6,6 +6,27 @@
 
 ---
 
+## DISCOVERY — Coolify Resource-Limit Mechanism Investigation (2026-08-10)
+
+**Type:** Read-only investigation to resolve the persistent-configuration blocker from the prior Step 1 implementation, without applying any limit. No Mythos implementation stage was started or advanced.
+
+**No subagents used** — all Coolify source-code reading was via `docker exec coolify cat/grep` (read-only, inside Coolify's own container); two narrowly-scoped read-only Postgres `SELECT`s (identifier columns only, no secrets) against `coolify-db`. No Coolify DB write, no file write outside this repo's two docs.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `aab1fff9307cbcdef68b581ac4af172938f42ea9` before this investigation began (matches the SHA specified in the task).
+
+**Findings, confirmed directly from Coolify 4.1.2's own PHP source (not guessed):**
+- **Stack B Redis ×3**: the `limits_memory` field (API/DB/UI) is a real field but is **never applied** for `build_pack=dockercompose` applications — confirmed by reading `ApplicationDeploymentJob::deploy_docker_compose_buildpack()` (zero resource-limit references) versus `generate_compose_file()` (where `limits_memory` actually gets injected, but only for Coolify-generated single-service buildpacks). **UNSUPPORTED** via that route. **However**, a working alternative exists: `docker_compose_raw` (the literal compose YAML Coolify deploys verbatim for this build_pack) is editable via the UI's Application → Configuration/General raw-compose editor (`app/Livewire/Project/Application/General.php`) — editing the 3 redis service blocks there and redeploying would work, because it edits the actual deployed source. **MANUAL_UI_ACTION_REQUIRED.** Exact path: `https://panel.mythosprod.xyz/project/nae2pn7zo9rq948iwoypjftc/environment/k5emgirp95bhkrhums6ozjxs/application/gi0p3mbss6geqhunih23fy6f/` (identifiers obtained via read-only SQL). Caveat: a full redeploy recreates *all* of Stack B's services at once, a materially larger blast radius than Stack A's `--no-deps` single-service control — should be its own explicitly-authorized stage.
+- **`coolify-redis`**: persistent source confirmed as `/data/coolify/source/docker-compose.prod.yml` (Coolify's own infra stack, unrelated to the Application/`limits_memory` model). **PERSISTENT_METHOD_CONFIRMED, execution BLOCKED** — the file is root-only (`Permission denied` to `deploy`, no sudo available or used), and whether a manual edit would survive Coolify's next self-upgrade (which fetches and runs an external `upgrade.sh`) is unconfirmed without fetching that external script (not attempted).
+- **`coolify-sentinel`**: confirmed via `app/Actions/Server/StartSentinel.php` (read in full) — created by a hardcoded `docker run` shell command with **no memory/CPU flags and no configurable resource field anywhere in Coolify's settings model**. **UNSUPPORTED** — no persistent mechanism exists in this Coolify version; a manual `docker update` would be wiped on the next Sentinel restart/recreate.
+
+**Safety**: all 23 containers, Stack A's 3 Redis caps (64MB/16MB unchanged), n8n (3GB unchanged), `darhijama.tn` (200), Coolify panel (302) reconfirmed identical before and after. Zero OOM events.
+
+**Full detail:** [`docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md`](audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md) §13.
+
+**Exact next recommended action:** for Stack B, scope and get explicit authorization for a separate stage using the raw-compose-editor path (with its own phased/verification plan given the larger blast radius); for `coolify-redis`, get an explicit decision from the user on granting temporary root access (or doing it themselves) since the mechanism is known but inaccessible to this account; `coolify-sentinel` has no available path in this Coolify version and should be deprioritized (its real footprint is only ~8.5-9MB). **No Mythos implementation stage is queued or was advanced by this investigation.**
+
+---
+
 ## IMPLEMENTATION — VPS Memory Caps Step 1 (2026-08-10) — PARTIAL
 
 **Type:** Production implementation (first mutating stage of the VPS memory-cap work; everything before this was read-only planning/audit). No Mythos implementation stage was started or advanced.

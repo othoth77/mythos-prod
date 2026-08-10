@@ -371,6 +371,98 @@ This was prepared before Phase 1 began and was not executed.
 4. Once Phases 4–6 have a confirmed persistent mechanism, re-run this same phased, verify-after-each-step process for them.
 5. Steps 2–6 of the original plan's implementation sequence (app/queue/web/scheduler containers, both MySQL, Coolify core) remain unauthorized and untouched, per scope.
 
+## 13. Coolify Resource-Limit Mechanism Discovery (2026-08-10) — Read-Only
+
+**No subagents used. Read-only only. No production mutation, no Coolify DB write.** Dar Hijama Stack A was not touched (its 3 Redis caps remained 64MB/16MB throughout, reconfirmed at the end — see §13.6).
+
+Investigated directly by reading Coolify 4.1.2's own PHP source code from inside the `coolify` container (`docker exec coolify sh -c 'cat/grep ...'`, read-only filesystem access as the container's own `www-data` user — no host file was written, no `docker exec` command mutated anything), plus two narrowly-scoped, non-sensitive, read-only SQL `SELECT`s against `coolify-db` (identifier columns only — `id`, `uuid`, `name`, `build_pack`, `environment_id`, `project_id` — no environment variables, no secrets/tokens/passwords tables were queried).
+
+### 13.1 Target 1-3: Stack B `redis-cache` / `redis-session` / `redis-queue` — **UNSUPPORTED** (for the `limits_memory` mechanism), but a working alternative exists — **MANUAL_UI_ACTION_REQUIRED**
+
+**Confirmed, not guessed, via source code (file:line references below):**
+
+- Coolify's `Application` model has `limits_memory`, `limits_memory_reservation`, `limits_cpus`, etc. (confirmed columns on the `applications` Postgres table, and confirmed `PATCH /api/v1/applications/{uuid}` accepts them — `app/Http/Controllers/Api/ApplicationsController.php:2367` `$allowedFields` array).
+- **However**, these fields are only ever injected into a generated compose file inside `ApplicationDeploymentJob::generate_compose_file()` (`app/Jobs/ApplicationDeploymentJob.php:3091`, injection at lines 3151-3154: `'mem_limit' => $this->application->limits_memory, ...`). This function builds a **single-service** compose block keyed by `$this->container_name` — it is the path used for Coolify-generated deployments (Dockerfile/Nixpacks/static buildpacks), where Coolify builds one image and runs one container.
+- For `build_pack = 'dockercompose'` (confirmed via read-only SQL: `applications.id=3` has `build_pack='dockercompose'`), deployment instead goes through `ApplicationDeploymentJob::deploy_docker_compose_buildpack()` (line 607). This function was read in full (lines 607-900): it base64-decodes `$this->application->docker_compose_raw` (the literal, user-authored compose YAML) and writes it to disk verbatim, then runs a plain `docker compose ... up -d`. **It contains zero references to `limits_memory`, `mem_limit`, or any resource field.**
+- **Conclusion**: for `dockercompose`-buildpack applications, `limits_memory` (and its API field / DB column / UI form) is read and stored, but **is never applied at deploy time** — setting it via the API would be a **silent no-op**, not a working mechanism. This is also not per-service even in the applications where it *does* work — it is exactly one value applied to exactly one Coolify-generated service. Confirming this in code prevented what would otherwise have been a plausible-looking but non-functional API call.
+
+**However, a genuinely working, persistent path exists**: `app/Livewire/Project/Application/General.php` (lines 326, 375, 427, 503, 517) binds a `dockerComposeRaw` UI property directly to `$application->docker_compose_raw` — **the exact field `deploy_docker_compose_buildpack()` deploys verbatim**. Coolify's Application "Configuration" page includes a raw Docker Compose editor for `dockercompose`-buildpack apps. Adding `mem_limit: 64m` / `mem_reservation: 16m` to the three redis service blocks there, saving, and redeploying **would** take effect, because it edits the actual source the deploy job writes to disk — unlike the no-op `limits_memory` field.
+
+**Exact UI path** (identifiers obtained via read-only SQL `SELECT id, uuid, name, build_pack, environment_id FROM applications WHERE id=3` and equivalent for `environments`/`projects` — no data beyond these identifier columns was read):
+```
+https://panel.mythosprod.xyz/project/nae2pn7zo9rq948iwoypjftc/environment/k5emgirp95bhkrhums6ozjxs/application/gi0p3mbss6geqhunih23fy6f/
+```
+(Project "darhijama" → Environment "production" → Application "dar-hijama" [this is Stack B / Coolify application id 3] → Configuration/General tab → Docker Compose raw content editor.)
+
+**Future mutation procedure (not executed):**
+1. Navigate to the URL above.
+2. Locate the raw Docker Compose editor section (populated from `docker_compose_raw`).
+3. Add `mem_limit: 64m` and `mem_reservation: 16m` to the `redis-cache`, `redis-session`, `redis-queue` service blocks only — same values already applied to Stack A, same scope restriction (do not touch `app`/`web`/`queue`/`scheduler`/`mysql` blocks).
+4. Save.
+5. Trigger a redeploy (Coolify UI "Redeploy" button, or API `POST /api/v1/applications/gi0p3mbss6geqhunih23fy6f/start`).
+6. Verify via the same phased process used for Stack A: `docker inspect` for exact `Memory`/`MemoryReservation` bytes, `RestartCount=0`, `OOMKilled=false`, Redis `PING`, and confirm no other Stack B service (`app`/`web`/`queue`/`scheduler`/`mysql`) was affected — a full Coolify redeploy recreates *all* of the application's containers at once (unlike the `--no-deps` single-service control we had for Stack A's manual compose), so this step carries more blast radius and should be scheduled as its own reviewed, explicitly-authorized stage, not assumed safe merely because the compose edit itself is scoped to 3 services.
+
+**Rollback procedure (not executed, documented for the future stage):** in the same raw compose editor, remove the three `mem_limit`/`mem_reservation` lines (or restore from Coolify's own deployment history / "Rollback" tab, which Coolify tracks natively for compose content changes), save, redeploy.
+
+**Classification: MANUAL_UI_ACTION_REQUIRED** (the automatic/API `limits_memory` route is UNSUPPORTED for this build_pack; the raw-compose-editor route is supported but requires a human in the UI, or a separate authorized API call to `PATCH .../envs`-adjacent endpoints was not found for `docker_compose_raw` itself in the `update_by_uuid` `$allowedFields` list — **`docker_compose_raw` is notably absent from `update_by_uuid`'s allowed fields**, meaning the API does **not** support editing it either; only the UI form (`General.php`) can set it, confirmed by its absence from the API controller's field allowlist).
+
+### 13.2 Target 4: `coolify-redis` — **PERSISTENT_METHOD_CONFIRMED (location), execution BLOCKED (no root)**
+
+- **Authoritative persistent source**: `/data/coolify/source/docker-compose.yml` + `/data/coolify/source/docker-compose.prod.yml` (confirmed via `docker inspect coolify-redis` compose labels: `com.docker.compose.project=source`). This is Coolify's own self-hosted infrastructure stack (distinct entirely from the `Application`/`limits_memory` model above — `coolify-redis` is platform infrastructure, not a user-manageable Coolify "resource").
+- **Access check**: `ls`/`cat` on `/data/coolify/source/` returns `Permission denied` for the `deploy` account (confirmed, unchanged from the prior Step 1 investigation). `sudo -n true` confirmed **no passwordless sudo** — none was used or requested, per this project's standing no-privilege-escalation rule.
+- **Upgrade-safety check**: Coolify's self-update path (`app/Actions/Server/UpdateCoolify.php:123-124`) downloads a fresh `upgrade.sh` from Coolify's CDN and executes it on every self-upgrade. That external script's exact content (whether it re-fetches `docker-compose.prod.yml` and would overwrite a manual edit, or preserves a documented custom-override file) **was not fetched or inspected** — doing so would require an external network request to Coolify's CDN, which this read-only, VPS-internal investigation did not attempt. This is recorded as **unconfirmed**, not assumed either way.
+- **Conclusion**: the mechanism (edit the `redis:` service block in `docker-compose.prod.yml`, then `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps redis` from `/data/coolify/source`) is the same *kind* of solution that worked for Stack A, and is almost certainly correct — but is currently **blocked on two independent unknowns**: (a) no root/sudo access to read or write the file, and (b) unconfirmed whether a manual edit survives Coolify's next self-upgrade.
+
+**Future mutation procedure (not executed, requires root — not used in this session):**
+```bash
+# Requires root/sudo, NOT available or used in this investigation:
+cp -p /data/coolify/source/docker-compose.prod.yml /data/coolify/source/docker-compose.prod.yml.bak-$(date +%Y%m%d)
+# edit the `redis:` service block to add: mem_limit: 96m / mem_reservation: 24m
+cd /data/coolify/source && docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --no-deps redis
+```
+**Rollback**: restore the `.bak` file and re-run the same `up -d --no-deps redis` command.
+
+### 13.3 Target 5: `coolify-sentinel` — **UNSUPPORTED**
+
+- **Authoritative creation source, confirmed via source code**: `app/Actions/Server/StartSentinel.php`, in full. It is **not** managed by docker-compose at all (confirmed absence of any compose labels on the running container, consistent with this). It is created by Coolify's PHP backend constructing and executing a raw shell command over SSH to the server (`instant_remote_process`):
+  ```
+  docker run -d -e TOKEN=... -e DEBUG=... -e PUSH_ENDPOINT=... ... --name coolify-sentinel \
+    -v /var/run/docker.sock:/var/run/docker.sock -v /data/coolify/sentinel:/app/db --pid host \
+    --health-cmd "..." --add-host=host.docker.internal:host-gateway --label coolify.managed=true \
+    coollabsio/sentinel:<version>
+  ```
+  preceded by `docker rm -f coolify-sentinel || true`.
+- **This hardcoded command contains no `--memory` or `--memory-reservation` flag, and the `StartSentinel` action exposes no parameter for one.** No `ServerSetting` field, UI form, or API endpoint controls Sentinel's resource limits — confirmed by reading the full action and cross-checking `ServerSetting`/`InstanceSettings` models for anything resource-limit-shaped related to Sentinel (only metrics history/refresh-rate/push-interval/debug settings exist).
+- **Any manually-applied `docker update coolify-sentinel --memory=...` would be silently discarded** the next time Coolify restarts Sentinel (a user-triggered "Restart Sentinel" action, or an automatic recreation after a Coolify version upgrade) — the action always does `docker rm -f` + a fresh `docker run` from this exact hardcoded command, with no memory flags, every time.
+- **Conclusion**: there is no supported persistent mechanism — Coolify 4.1.2 simply does not offer one for this specific container. Given its small real footprint (8.5-9MB observed, per the original audit and this session's re-check), this is a low-priority gap rather than an active risk.
+
+### 13.4 API/UI Summary
+
+| Target | Endpoint/path | Method | Per-service? | Verdict |
+|---|---|---|---|---|
+| Stack B Redis ×3 (via `limits_memory`) | `PATCH /api/v1/applications/{uuid}` | PATCH | No (whole-app) and also a no-op for `dockercompose` build_pack | UNSUPPORTED |
+| Stack B Redis ×3 (via raw compose edit) | UI only — `docker_compose_raw` is absent from the API's `update_by_uuid` allowed-fields list | UI form save + redeploy | Yes (edit exactly the 3 service blocks in the YAML) | MANUAL_UI_ACTION_REQUIRED |
+| `coolify-redis` | none (platform infra, not an "Application"/"Database" resource) | host file edit | N/A (single service) | PERSISTENT_METHOD_CONFIRMED, execution BLOCKED (no root) |
+| `coolify-sentinel` | none found anywhere in the codebase | N/A | N/A | UNSUPPORTED |
+
+No mutation endpoint was invoked for any target. No Coolify DB row was written.
+
+### 13.5 Whether remaining Step 1 can now be authorized
+
+**Not yet, for any of the 5 remaining targets**, but the picture is now much clearer than "BLOCKED_UNKNOWN":
+- Stack B Redis ×3: a real, working mechanism now exists (raw compose edit + redeploy) — but redeploying a Coolify `dockercompose` application recreates *all* of its services at once, not just the 3 redis containers, which is a materially different blast radius than Stack A's `--no-deps` single-service control. This should be scoped and authorized as its own explicit stage, with its own phased verification plan (analogous to, but not identical to, Phases 1-3 already completed for Stack A), rather than folded into "the same Step 1."
+- `coolify-redis`: mechanism confirmed, but requires root access this project does not grant to the working account; needs an explicit decision from the user on whether to grant temporary sudo, do it manually themselves, or accept this container stays uncapped.
+- `coolify-sentinel`: no mechanism exists in this Coolify version; would require either a Coolify feature request/upgrade, or an unsupported manual `docker update` that would not survive a Sentinel restart (not recommended as a "final implementation" per the original Step 1 task's own explicit rule).
+
+### 13.6 Safety Re-Verification
+
+Performed before and after this investigation:
+- All 23 containers present, identical container-ID/name fingerprint before and after (`docker ps -a` hash unchanged).
+- Stack A's three Redis caps unchanged: `Memory=67108864`, `MemoryReservation=16777216`, `RestartCount=0` on all three.
+- `n8n-n8n-1`: `Memory=3221225472` (unchanged), `RestartCount=0`.
+- `darhijama.tn` → HTTP 200. Coolify panel → HTTP 302 (expected unauthenticated redirect).
+- `journalctl -k --since` covering the investigation window: **zero** OOM matches.
+
 ## Validation
 
 - `git diff --check`: to be run before commit (see final response).
@@ -378,4 +470,5 @@ This was prepared before Phase 1 began and was not executed.
 - No credentials, secrets, or IPs were introduced. MySQL was queried using the container's own `$MYSQL_ROOT_PASSWORD` env var referenced symbolically inside `docker exec`; the six Redis instances were queried/authenticated the same way using `$REDIS_{CACHE,QUEUE,SESSION}_PASSWORD`; Coolify's Postgres was queried read-only using `$POSTGRES_USER`/`$POSTGRES_PASSWORD` — no password value was ever echoed to output or written to any file.
 - Production mutation in this session: **limited to exactly the authorized Step 1 scope** — `mem_limit`/`mem_reservation` set on `dar-hijama-production-redis-cache-1`, `-redis-session-1`, `-redis-queue-1` only, via their own persistent compose file. No restart policy, no Redis `maxmemory`/eviction/persistence/password/ACL/database change, no other container, no DNS/nginx/firewall change. Everything else (including the prior plan/safety-review stages) remained read-only.
 - Container IDs before/after the Step 1 implementation were compared: the three capped Redis containers show new IDs (expected — `docker compose up` recreates a container when its resource config changes) with `RestartCount=0` and `OOMKilled=false` each; all 20 other containers are unchanged, including the two Dar Hijama queue containers' own pre-existing hourly self-recycling (`--max-time=3600`, unrelated to this change).
-- No subagents were used at any point across the original plan, the safety review, or this implementation.
+- The 2026-08-10 Coolify mechanism-discovery investigation (§13) performed **zero mutations**: all Coolify source-code reads were via `docker exec coolify cat/grep` (read-only filesystem access inside Coolify's own container, nothing on the host was written), and the two Postgres queries against `coolify-db` were narrowly-scoped read-only `SELECT`s of non-sensitive identifier columns (`id`, `uuid`, `name`, `build_pack`, `environment_id`, `project_id`) — no environment-variable, secret, or credential table was queried, and no `UPDATE`/`INSERT`/`DELETE` was executed. Container-fingerprint and health checks before/after this investigation are identical to before it began (§13.6).
+- No subagents were used at any point across the original plan, the safety review, the Step 1 implementation, or this mechanism-discovery investigation.
