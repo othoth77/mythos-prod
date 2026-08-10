@@ -6,6 +6,30 @@
 
 ---
 
+## IMPLEMENTATION — `coolify-redis` Memory Cap (2026-08-10)
+
+**Type:** Production implementation (mutation). Executed the read-only-confirmed mechanism from the entry below: `mem_limit=96m` / `mem_reservation=24m` applied to `coolify-redis` only, via a new `docker-compose.custom.yml` override — a genuinely upgrade-safe, Coolify-supported mechanism (unlike editing the vendor compose files directly, which is overwritten on every self-update).
+
+**No subagents used.** `sudo -n` for system/Docker/root, `sudo -u deploy -H bash -lc '...'` for all Git operations.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `bfe0ec395cafaac2a162ffa031598741b1e2e23d` before this stage began (matches the SHA specified in the task).
+
+**24th container resolved:** `jellyfin` (`jellyfin/jellyfin:latest`), user-confirmed as an intentional, authorized, unrelated personal media-server deployment (localhost-only, `127.0.0.1:8096`, own `2GiB` limit). Not touched at any point. Recorded as an expected additional VPS service, unrelated to Mythos/Coolify/Dar Hijama.
+
+**Pre-mutation memory/swap gate:** available RAM 2.9Gi (above the 1.5GiB stop threshold), swap in/out low and non-sustained (`vmstat` si/so mostly 0 across 5 samples) — did not block the mutation, per the pre-authorized rule. No `swapoff`/swap-clear/reboot/swappiness change was made.
+
+**Result: PASS.** `coolify-redis` recreated (`a97937581d8f...` → `b55ea2d64445...`), `running`/`healthy`, `RestartCount=0`, `OOMKilled=false`, `Memory=100663296` (96MB), `MemoryReservation=25165824` (24MB), `redis-cli ping` → `PONG`. `coolify`, `coolify-db`, `coolify-realtime` container IDs identical to baseline — confirmed not recreated. Stack A's 3 Redis caps unchanged (64MB/16MB). All protected domains unchanged (`darhijama.tn`/`uthinachess.tn`/`notrejour.tn` 200, `n8n.ssangyong.autos` 200, Coolify panel 302). Zero new OOM events. Vendor compose files and `upgrade.sh` checksums identical before/after — confirmed untouched; `docker-compose.custom.yml` confirmed present post-mutation and confirmed still referenced by `upgrade.sh`'s existing `-f` inclusion logic, so this cap will survive a future Coolify self-update. **No rollback needed.**
+
+**Self-caught issue (remediated within this stage, before any commit):** the initial backup-creation step wrote a full `docker inspect coolify-redis` JSON dump to `/home/deploy/backups/coolify-redis-memcap-20260810/`, which included the live `REDIS_PASSWORD` value via `.Config.Env`, into a then-world-readable file/directory. Caught immediately: file deleted, backup directory locked to `700 root:root`, replaced with a redacted JSON (`.Config.Env`/`.NetworkSettings` stripped), re-verified with a `password|secret|token` grep (zero matches). No secret was ever committed to Git or exposed outside this root-only VPS path.
+
+**Backup:** `/home/deploy/backups/coolify-redis-memcap-20260810/` (root-only, checksums + before/after summaries + absence marker + applied file copy, no secrets).
+
+**Full detail:** [`docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md`](audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md) §14.
+
+**Exact next recommended action:** Step 1 now has 4 of 6 Redis-class targets capped (Stack A ×3 + `coolify-redis`). Remaining: Stack B's 3 Redis containers (needs its own authorized stage using the raw-compose-editor UI path, larger blast radius — a full-application redeploy) and `coolify-sentinel` (no supported mechanism exists in this Coolify version — deprioritized). **No Mythos implementation stage is queued or was advanced by this stage.**
+
+---
+
 ## DISCOVERY — `coolify-redis` Final Read-Only Confirmation (2026-08-10)
 
 **Type:** Read-only follow-up investigation, resolving the single remaining unknown from the prior Coolify discovery below (§13.2's "unconfirmed" upgrade-persistence question for `coolify-redis`). No Mythos implementation stage was started or advanced. No mutation performed.

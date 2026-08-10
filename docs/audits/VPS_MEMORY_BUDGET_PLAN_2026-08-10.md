@@ -556,6 +556,92 @@ cd /data/coolify/source && sudo -n docker compose --env-file /data/coolify/sourc
 
 **Files changed by this sub-investigation:** none. No file was edited on the VPS; only `docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md` (this section) and `docs/AI_HANDOVER.md` changed, both in this Git repository.
 
+## 14. `coolify-redis` Memory Cap — Implementation (2026-08-10)
+
+**Type:** Production implementation (mutation). Executed the mechanism confirmed read-only in §13.7. `mem_limit=96m` / `mem_reservation=24m` applied to `coolify-redis` only, via the Coolify-supported `docker-compose.custom.yml` override.
+
+**No subagents used.** `sudo -n` for all system/Docker/root operations, `sudo -u deploy -H bash -lc '...'` for all Git operations.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `bfe0ec395cafaac2a162ffa031598741b1e2e23d` before this stage began (matches the SHA specified in the task).
+
+### 14.1 24th container — resolved before mutation
+
+`jellyfin` (`jellyfin/jellyfin:latest`, created `2026-08-10T12:38:31Z`) is the 24th container, distinct from all 23 previously-documented Mythos/Coolify/Dar Hijama containers. **User-confirmed as an intentional, authorized, unrelated deployment** — the user's personal media server, not part of the Mythos stack. Recorded here as an expected additional VPS service:
+
+| Field | Value |
+|---|---|
+| Container | `jellyfin` |
+| Image | `jellyfin/jellyfin:latest` |
+| Memory limit | `2GiB` (pre-existing, set by whoever deployed it — not touched by this stage) |
+| Network binding | `127.0.0.1:8096` (localhost-only, no public exposure) |
+| Authorized | YES (user-confirmed) |
+| Relationship to Mythos | None — unrelated to Mythos/Coolify/Dar Hijama |
+
+Not modified, restarted, removed, or reconfigured at any point in this stage, per explicit instruction.
+
+### 14.2 Pre-mutation memory/swap check
+
+```
+free -h (before):           total 7.6Gi / used 4.6Gi / free 151Mi / available 2.9Gi
+                             Swap: total 2.0Gi / used 2.0Gi / free 4.0Ki
+vmstat 1 5 si/so (KB/s):     8/26, 20/0, 4/0, 0/0, 0/0  — low, not sustained
+```
+Available RAM (2.9Gi) was above the 1.5GiB stop threshold; swap in/out activity was low and not sustained (dropped to 0/0 across 4 of 5 samples). Per the explicit pre-authorized rule ("high allocated swap alone is not a blocker if available RAM remains healthy, no sustained active swap-in/swap-out, no new OOM events"), this did not block the mutation. Recorded, not remediated — no `swapoff`, swap clear, reboot, or swappiness change was performed or considered.
+
+### 14.3 Baselines (pre-mutation)
+
+- `coolify-redis`: ID `a97937581d8f...`, `running`/`healthy`, `RestartCount=0`, `OOMKilled=false`, `Memory=0`, `MemoryReservation=0` (uncapped), `docker exec ... redis-cli -a "$REDIS_PASSWORD" ping` → `PONG` (password read from the container's own env var, never printed).
+- Unrelated Coolify containers (for later ID comparison): `coolify` `f86e890512ee...`, `coolify-db` `48e4d7fb36b8...`, `coolify-realtime` `e2edfc0a6093...`.
+- Stack A Redis ×3: `Memory=67108864`/`MemoryReservation=16777216`/`RestartCount=0` on all three (unchanged from prior stages).
+- Protected domains: `panel.mythosprod.xyz` 302, `darhijama.tn` 200, `uthinachess.tn` 200, `notrejour.tn` 200, `n8n.ssangyong.autos` 200.
+- `docker-compose.custom.yml`: confirmed **absent** before mutation.
+
+### 14.4 Backup
+
+Created `/home/deploy/backups/coolify-redis-memcap-20260810/` (root-owned, `chmod 700`, files `chmod 600`/`644` as appropriate, no secrets):
+- `vendor-checksums-before.sha256` / `vendor-checksums-after.sha256` — SHA-256 of `docker-compose.yml`, `docker-compose.prod.yml`, `upgrade.sh`, identical before and after (see §14.6).
+- `custom-yml-absent-marker.txt` — explicit timestamped marker that `docker-compose.custom.yml` did not exist before this stage.
+- `coolify-redis-summary-before.txt` / `coolify-redis-summary-after.txt` — plain-text `docker inspect --format` summaries (ID/state/health/restart count/OOM/memory fields only).
+- `docker-compose.custom.yml.applied` — copy of the exact file created.
+
+**Self-caught and remediated secret exposure:** the first backup attempt captured full `docker inspect coolify-redis` JSON output, which includes `.Config.Env` — this contained the live `REDIS_PASSWORD` value in plaintext, written to a file under a then-world-readable directory. This was caught immediately (before any commit or further exposure), the file was deleted, the backup directory was locked to `700 root:root`, and a redacted JSON (with `.Config.Env` and `.NetworkSettings` stripped via a `python3 -c` filter) was written in its place. Verified via `grep -iE "password|secret|token"` on the redacted file: zero matches. No secret was committed to Git or exposed outside this root-only VPS backup directory at any point.
+
+### 14.5 Implementation
+
+Created `/data/coolify/source/docker-compose.custom.yml` (root-owned, `chmod 600`):
+```yaml
+services:
+  redis:
+    mem_limit: 96m
+    mem_reservation: 24m
+```
+
+Validated via `docker compose --env-file .../.env -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.custom.yml config --no-interpolate` before applying: confirmed `mem_limit: 96m` / `mem_reservation: 24m` resolved correctly on `redis`, and that `image` (`redis:7-alpine`), `command` (unchanged, shown un-interpolated as `${REDIS_PASSWORD}`), `volumes` (`coolify-redis:/data`), `healthcheck`, `restart: always`, and `networks` were all identical to baseline. Confirmed no `mem_limit`/`mem_reservation`/any resource field appeared on `coolify`, `postgres`, or `soketi` — the custom file affected `redis` only.
+
+Applied:
+```bash
+docker compose --env-file /data/coolify/source/.env \
+  -f /data/coolify/source/docker-compose.yml \
+  -f /data/coolify/source/docker-compose.prod.yml \
+  -f /data/coolify/source/docker-compose.custom.yml \
+  up -d --no-deps redis
+```
+Result: `Container coolify-redis Recreate → Recreated → Starting → Started`.
+
+### 14.6 Post-mutation verification
+
+- `coolify-redis`: new ID `b55ea2d64445...` (recreation expected — resource config changed), `running`/`healthy`, `RestartCount=0`, `OOMKilled=false`, `Memory=100663296` (= 96MB exactly), `MemoryReservation=25165824` (= 24MB exactly). `redis-cli ping` → `PONG`. `docker stats`: `5.082MiB / 96MiB`, `0.68%` CPU — normal. `docker logs --tail 30`: only the standard Redis `vm.overcommit_memory` startup advisory (present on every Redis container regardless of Docker memory limits, unrelated to this change) — no errors.
+- Unrelated Coolify containers: `coolify` `f86e890512ee...`, `coolify-db` `48e4d7fb36b8...`, `coolify-realtime` `e2edfc0a6093...` — **all three IDs identical to baseline**, `RestartCount=0` — confirmed not recreated.
+- `jellyfin`: ID `04ef7f2cb78f...`, `running`, `RestartCount=0` — confirmed untouched.
+- Stack A Redis ×3: `Memory=67108864`/`MemoryReservation=16777216`/`RestartCount=0` on all three — unchanged.
+- Protected domains post-mutation: `panel.mythosprod.xyz` 302, `darhijama.tn` 200, `uthinachess.tn` 200, `notrejour.tn` 200, `n8n.ssangyong.autos` 200.
+- Host: `free -h` after — `total 7.6Gi / used 4.3Gi / free 459Mi / available 3.2Gi`, `Swap: total 2.0Gi / used 2.0Gi / free 8.7Mi`. `journalctl -k --since "-10 minutes"`: zero OOM matches.
+- Upgrade-persistence re-confirmation: `docker-compose.custom.yml` still present post-mutation; `sha256sum` of `docker-compose.yml`/`docker-compose.prod.yml`/`upgrade.sh` **identical before and after** (vendor files untouched); `grep` re-confirmed `upgrade.sh` lines 76-78/278-280 still reference and would include `docker-compose.custom.yml` on a future upgrade.
+
+**Rollback status: NOT NEEDED.** All validation passed; no rollback was executed. Rollback procedure remains documented in §13.7 if ever required: remove `docker-compose.custom.yml`, re-run `up -d --no-deps redis` without the `-f docker-compose.custom.yml` flag.
+
+**Result:** `coolify-redis` is now the 4th Redis instance capped in this project (after Stack A's three), using a genuinely upgrade-safe, Coolify-supported override mechanism. Remaining Step 1 targets: Stack B's three Redis containers (`MANUAL_UI_ACTION_REQUIRED`, unchanged from §13.1) and `coolify-sentinel` (`UNSUPPORTED`, unchanged from §13.3) — both still require separate, explicitly-authorized stages before any further Step 1 progress.
+
 ## Validation
 
 - `git diff --check`: to be run before commit (see final response).
