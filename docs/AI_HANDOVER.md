@@ -33,6 +33,8 @@
 
 **Exact next recommended action (P1, highest priority, not yet executed):** Add explicit memory caps to all currently-uncapped containers (starting with both MySQL instances) to prevent a repeat OOM-style incident from a different service than n8n, and obtain a human decision inside the Coolify UI on whether to stop/archive Coolify Application #3 (the stale-traffic Dar Hijama stack). See the full report's "Recommended Actions" section for the complete P0–P3 list. **No Mythos implementation stage is queued or was advanced by this audit.**
 
+**Audit commit:** `0c73b48bf08d9b2d0605e20e51360bacc1fbd376` — pushed directly to `main` (docs-only bookkeeping commit, matching this repo's established pattern for audit/stage-record entries; no PR/merge step used, consistent with prior `docs:` commits in this file's own history). Remote HEAD confirmed at this SHA immediately after push via `git fetch origin && git rev-parse origin/main`.
+
 ---
 
 ## Stage AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup
