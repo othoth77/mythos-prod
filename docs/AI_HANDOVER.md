@@ -6,6 +6,26 @@
 
 ---
 
+## PLAN — VPS Memory Budget & Container Limit Plan (2026-08-10)
+
+**Type:** Read-only planning stage. No Docker memory limit, restart policy, or configuration was applied. No Mythos implementation stage was started or advanced.
+
+**No subagents used** — all data collected directly over SSH by the primary session, per standing project policy (see [[project-mythos-workflow]] memory / `AGENTS.md`).
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `eaa4c90f10a953e8a38c733988cf4995b587e37c` before this plan began (matches the exact SHA specified in the task).
+
+**Full plan:** [`docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md`](audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md)
+
+**Summary:** Designed per-container `mem_limit`/`mem_reservation` recommendations for all 22 currently-uncapped containers (n8n's existing 3GB cap left unchanged). Proposed sum of all limits ≈8.63GB — intentionally exceeds physical RAM (7.6GB) as standard, explained container-hosting overcommit (real observed usage is only ≈2.9GB); the plan explicitly discusses the zero-overcommit alternative and why it would require MySQL internal tuning (not applied) rather than unsafely tight Docker caps. Highest-risk items: both MySQL containers (HIGH, needs a config review before final sizing) and the Coolify core container (HIGH, apply last). Recommended implementation order: Redis/sentinel → scheduler/web → app/queue → coolify-realtime/coolify-db → both MySQL → Coolify core.
+
+**Correction to the prior health audit:** the "~400-500MB host-native PHP/Horizon" risk item in `docs/audits/VPS_SERVICE_HEALTH_AUDIT_2026-08-10.md` §12 was partly a misattribution. Direct `/proc/<pid>/cgroup` inspection shows the Horizon processes run *inside* the `coolify` container (Coolify's own internal job queue), not host-native. True host-native app-layer footprint is only MariaDB (129MB, `mariadb.service`) + PHP-FPM serving `uthinachess.tn` directly (117MB, `php8.5-fpm.service`) ≈ 246MB. See plan §2 for full detail.
+
+**Dar Hijama Scenario A/B:** Scenario A (both stacks running, current state) → sum of limits 8832MB. Scenario B (Stack B / Coolify app #3 retired, **not authorized**, pending the Coolify-UI decision the original audit already called for) → sum drops to 6848MB, falling *below* physical RAM and eliminating overcommit entirely, plus frees ~570MB real usage and ~700MB disk. No retirement action was taken or authorized.
+
+**Exact next recommended action:** Get explicit authorization for a separate, scoped implementation task to apply the Step 1 (LOW risk) caps first — both stacks' Redis containers, `coolify-redis`, `coolify-sentinel` — verify with `docker stats` and live HTTP checks after each, then proceed through the remaining steps in `docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md` §10. MySQL config review (buffer pool sizing, `max_connections`, `performance_schema`) should be scoped as its own reviewed task before MySQL caps are finalized. **No Mythos implementation stage is queued or was advanced by this plan.**
+
+---
+
 ## AUDIT — VPS Service Health Audit (2026-08-10)
 
 **Type:** Read-only infrastructure audit, not a Mythos implementation stage. No stage was started or advanced by this entry.
