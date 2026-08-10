@@ -6,6 +6,35 @@
 
 ---
 
+## AUDIT — VPS Service Health Audit (2026-08-10)
+
+**Type:** Read-only infrastructure audit, not a Mythos implementation stage. No stage was started or advanced by this entry.
+
+**Process note:** Initial data collection was performed via a delegated general-purpose subagent, which Mythos OS project policy prohibits without explicit authorization (not given here). All load-bearing findings were subsequently re-verified directly over SSH by the primary session, with no subagent involved — see the report's §14 "Direct Re-Verification" for the full independent-verification results. **Future audits/sessions on this project must not use subagents unless the user explicitly authorizes it.**
+
+**Direct verification result:** PASS. All load-bearing findings independently reconfirmed (host health, container count/IDs, docker stats, n8n memory cap + all 7 remediation env guards + swap persistence, n8n workflow publish status, Dar Hijama routing/classification, public port exposure, git diff scope, `git diff --check`, secret scan). One correction applied: the queue-container restart-count observation was upgraded from an open inference to a confirmed benign root cause (hourly self-recycling via the queue worker's `--max-time=3600` flag + `unless-stopped` restart policy — unrelated to the OOM incident and not caused by either audit pass). No other finding required correction.
+
+**Scope:** Full read-only host/Docker/network/service-inventory health audit of the persistent VPS (`/home/deploy/projects/mythos-prod`) following the recent n8n OOM incident. Covered host health, Docker global health, per-service ownership, the Dar Hijama duplicate-stack question, network exposure, Coolify, n8n post-incident remediation verification, live service checks, storage, security observations, and OOM residual-risk classification.
+
+**Timestamp:** 2026-08-10 (audit session)
+
+**Repository baseline:** local HEAD `6e58ad40ce41be208d6e611f498f3e035df16126`, observed `origin/main` HEAD `6e58ad40ce41be208d6e611f498f3e035df16126` (in sync, working tree clean before and after this audit — audit added only the two documentation files referenced below).
+
+**Full report:** [`docs/audits/VPS_SERVICE_HEALTH_AUDIT_2026-08-10.md`](audits/VPS_SERVICE_HEALTH_AUDIT_2026-08-10.md)
+
+**VPS health classification:** `HEALTHY_WITH_WARNINGS` — OOM incident fully resolved (no OOM messages this boot, swap ~unused, 4.7GiB available), all 23 containers healthy, all n8n remediation guards (3GB Docker cap, 2GB Node heap, concurrency limit 2, execution pruning, vacuum-on-startup, workflow autodeactivation, persistent 2GB swap) verified live and correct, n8n at 310MB/3GB with 0 published/active workflows (SSANGYONG scraper + Auto Restart confirmed inactive). Residual risk is structural: 22 of 23 containers have no memory cap (including two ~430-440MB uncapped MySQL instances), and a Coolify-managed duplicate Dar Hijama stack (`gi0p3...`, application #3) is fully running but receiving zero live traffic — nginx routes `darhijama.tn` exclusively to the separately-deployed `dar-hijama-production-*` stack. The duplicate stack is classified `POSSIBLY_STALE`, not concluded safe to remove; a Coolify-UI decision is needed, not container-level inference.
+
+**Test/health-check results:** All 4 checked live domains (uthinachess.tn, n8n.ssangyong.autos, darhijama.tn, Coolify panel) returned 200/302 with valid TLS (45+ days to expiry on all). No unexpected public port exposure found. No secrets printed.
+
+**Blockers encountered (informational, not stopping conditions):**
+- n8n backup file `/opt/n8n/backups/n8n-before-vacuum-20260810.sqlite` could not be verified (root-only directory, no sudo available/attempted) — presence/size UNKNOWN, but confirmed untouched.
+- SSH login history (`journalctl -u ssh` / `/var/log/auth.log`) unreadable by the `deploy` account without sudo — not attempted, per no-privilege-escalation constraint. SSH login/auth-failure counts UNKNOWN.
+- Per-directory `/var/lib/docker` size breakdown unavailable (root-only, 0700) — `docker system df -v` used as substitute.
+
+**Exact next recommended action (P1, highest priority, not yet executed):** Add explicit memory caps to all currently-uncapped containers (starting with both MySQL instances) to prevent a repeat OOM-style incident from a different service than n8n, and obtain a human decision inside the Coolify UI on whether to stop/archive Coolify Application #3 (the stale-traffic Dar Hijama stack). See the full report's "Recommended Actions" section for the complete P0–P3 list. **No Mythos implementation stage is queued or was advanced by this audit.**
+
+---
+
 ## Stage AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup
 
 **Objective:** Extract shared, provider-neutral safety/snapshot helpers from the OVH and Cloudflare read-only connector reference implementations, eliminate duplicated business/safety logic, and preserve all existing connector behavior and tests. Resolves the deferred cleanup item recorded in both `INF-OVH-API-0` and `INF-CF-AUTO-0`'s handover entries above.
