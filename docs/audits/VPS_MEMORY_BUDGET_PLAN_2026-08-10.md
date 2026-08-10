@@ -299,11 +299,83 @@ Both Dar Hijama stacks remain treated as running for all figures in this plan an
 
 **Later steps are a different judgment call**: Step 5 (both MySQL, 1536MB combined) and Step 6 (Coolify core, 640MB) are exactly the items that push the cumulative aggregate past the preferred ceiling — those should be re-evaluated against a trimmed aggregate figure in a future revision before being authorized, rather than approved as a package with Step 1.
 
+## 12. Step 1 Implementation (2026-08-10) — PARTIAL: Dar Hijama Stack A done, Coolify-managed items blocked
+
+**No subagents used.** All mutations below were performed directly over `ssh mythos` by the primary session, following the phased sequence and stop conditions from the approved plan.
+
+### 12.1 Outcome summary
+
+| Target | Result |
+|---|---|
+| Dar Hijama Stack A: `redis-cache`, `redis-session`, `redis-queue` | **DONE** — 64MB/16MB applied persistently via the stack's own compose file |
+| Dar Hijama Stack B (`gi0p3...`): `redis-cache`, `redis-session`, `redis-queue` | **BLOCKED** — see §12.4 |
+| `coolify-redis` | **BLOCKED** — see §12.4 |
+| `coolify-sentinel` | **BLOCKED** — see §12.4 |
+
+### 12.2 Persistent configuration source used (Stack A)
+
+- **Compose files**: `/home/deploy/deployments/darhijama-v1.0.1/docker-compose.production.yml` (top-level, `include:`s the file below) + `/home/deploy/deployments/darhijama-v1.0.1/docker-compose.staging.yml` (actual service definitions — this is the file edited) + `/home/deploy/deployments/darhijama-v1.0.1/ops-production/docker-compose.host.yml` (host port override, not touched).
+- **Invocation** (confirmed from the stack's own `ops-production/ROLLBACK.md`): `docker compose --env-file .env.production -f docker-compose.production.yml -f ops-production/docker-compose.host.yml <cmd>`, run from `/home/deploy/deployments/darhijama-v1.0.1`.
+- **Backup taken before any edit**: `/home/deploy/backups/darhijama-memcaps-step1-20260810/` containing `docker-compose.staging.yml.orig`, `docker-compose.production.yml.orig`, `docker-compose.host.yml.orig` — verified via `sha256sum` match against the live files before editing began.
+- **Change applied**: added `mem_limit: 64m` and `mem_reservation: 16m` to exactly the `redis-cache`, `redis-session`, and `redis-queue` service blocks in `docker-compose.staging.yml`. No other service block was touched (`app`, `web`, `queue`, `scheduler`, `mysql`, `backup` are unmodified — confirmed by diffing against the backup).
+
+### 12.3 Phases executed (Stack A)
+
+| Phase | Action | Command | Result |
+|---|---|---|---|
+| 1 | `redis-cache` | `docker compose ... up -d --no-deps redis-cache` | Recreated. `Memory=67108864` (64MB exact), `MemoryReservation=16777216` (16MB exact), `Health=healthy`, `RestartCount=0`, `OOMKilled=false`. RDB reloaded (3 keys). PING → PONG. `darhijama.tn` → HTTP 200 (0.136s). |
+| 2 | `redis-session` | `docker compose ... up -d --no-deps redis-session` | Same result: 64MB/16MB exact, healthy, PONG, `darhijama.tn` → 200 (0.121s). |
+| 3 | `redis-queue` | `docker compose ... up -d --no-deps redis-queue` | Same result: 64MB/16MB exact, healthy, PONG. Confirmed the live queue worker (`dar-hijama-production-queue-1`, a dependent of `redis-queue` but explicitly out of scope and *not* recreated — `--no-deps` used precisely to prevent this) continued processing its heartbeat job normally through and after the `redis-queue` recreation, with no new errors in its logs. `darhijama.tn` → 200 (0.109s). |
+
+No phase showed `OOMKilled`, a Redis error, an abnormal restart, an HTTP failure, or unexpected memory pressure — all three phases proceeded per the approved sequence with no rollback needed.
+
+### 12.4 Blocker — Stack B Redis, `coolify-redis`, `coolify-sentinel` (Phases 4–6)
+
+Per the plan's explicit stop condition ("If a safe persistent Coolify-native memory-limit method cannot be identified, STOP at that point and report blocker" / "Do not use temporary `docker update` as the final implementation" / "Do NOT continue past the first real blocker"), the following was investigated **read-only, nothing was written**:
+
+1. **Stack B's live compose source** (`/artifacts/da5j1i55i59zfw62g9qh2r38/docker-compose.staging.yml`, per its container labels) **does not exist on the host filesystem** accessible to the `deploy` account — confirmed via `ls`. This path is internal to Coolify's own deployment tooling (almost certainly generated fresh inside/via the `coolify` container on every deploy). Editing it, even if reachable via `docker exec coolify`, would match exactly the plan's own warning: "DO NOT blindly edit generated files under `/artifacts` if Coolify will overwrite them" — any edit would very likely be silently discarded on the next Coolify deploy/redeploy/webhook trigger.
+2. **Coolify's own infrastructure compose source** (`/data/coolify/source/docker-compose.yml` + `docker-compose.prod.yml`, which does define `coolify-redis` and would be the correct persistent location for it) **exists on the host but is not readable by the `deploy` account** (`Permission denied` on `ls`/`cat`). `sudo -n true` confirmed **no passwordless sudo is available** to `deploy`, and no sudo was used or requested, per the no-privilege-escalation constraint already established in this project ([[project-mythos-workflow]] memory). This is a genuine access blocker, not a design gap.
+3. **`coolify-sentinel` has no `docker-compose` labels at all** (confirmed via `docker inspect`) — it is not managed by any compose project found. No persistent recreation source was located for it within accessible paths.
+4. **Investigated Coolify's own database as a possible persistent, Coolify-native mechanism** (read-only: `\d applications` and `\dt` against `coolify-db` via `psql`, authenticated with the container's own `$POSTGRES_USER`/`$POSTGRES_PASSWORD` env vars, values never printed; **no `SELECT`, `UPDATE`, or `INSERT` was executed against actual data, only schema inspection**). Confirmed the `applications` table does have `limits_memory` / `limits_memory_reservation` / `limits_cpus` columns — Coolify's real, documented mechanism for setting resource limits. **However**, this column applies at **whole-application granularity**: Stack B (`coolify.applicationId=3`, `coolify.type=application`) is a single multi-service Docker-Compose-based "Application" resource in Coolify's model, meaning one `limits_memory` value would apply uniformly to *all* of its services (`app`, `web`, `queue`, `scheduler`, `mysql`, and the three redis instances) if set this way — not just the three Redis containers this stage is scoped to. Using it as-is would either put a 64MB cap on the stack's MySQL/app/web containers too (immediately breaking them — MySQL alone already uses ~450MB) or require a value large enough for MySQL that would defeat the purpose of a tight Redis-specific cap. **This is exactly the "would require guessing" scenario the plan's stop condition anticipated** — Coolify may support a more granular per-service override through its UI (Application → Advanced settings, or a raw Docker Compose override field), but confirming that requires Coolify UI/API access this session does not have, and guessing at an UPDATE against production application configuration state without confirming the correct mechanism was judged too risky to attempt.
+
+**Conclusion**: Phases 4–6 are blocked by a combination of (a) confirmed-ephemeral generated state for Stack B, (b) a confirmed-inaccessible-without-sudo persistent file for `coolify-redis`, (c) no located persistent source at all for `coolify-sentinel`, and (d) a Coolify-native DB mechanism that exists but operates at the wrong granularity for this stage's per-service scope. **No mutation was attempted or performed against Stack B, `coolify-redis`, `coolify-sentinel`, or Coolify's database.**
+
+### 12.5 Pre/Post Host State
+
+```
+                  BEFORE                          AFTER
+Mem used          2.9Gi                           2.9Gi
+Mem available     4.6Gi                            4.7Gi
+Swap used         60Ki                             52Ki
+```
+
+No measurable host-level change — expected, given the three capped containers were already using only ~3.6MB each (well under their new 64MB caps) before this change; the caps are a ceiling, not a reservation that consumes memory up front. Kernel OOM check (`journalctl -k --since '1 hour ago' | grep -i oom`) returned **zero matches** — no new host OOM events during or after implementation.
+
+### 12.6 Rollback status
+
+**Not needed — no phase failed.** Documented here for completeness per the plan's requirement to record the rollback procedure before every mutation:
+
+```bash
+# To revert Stack A redis-cache/-session/-queue to uncapped (if ever needed):
+cd /home/deploy/deployments/darhijama-v1.0.1
+cp /home/deploy/backups/darhijama-memcaps-step1-20260810/docker-compose.staging.yml.orig docker-compose.staging.yml
+docker compose --env-file .env.production -f docker-compose.production.yml -f ops-production/docker-compose.host.yml up -d --no-deps redis-cache redis-session redis-queue
+```
+This was prepared before Phase 1 began and was not executed.
+
+### 12.7 Next recommended stage
+
+1. Obtain Coolify UI or API access (not available this session) to determine whether Coolify supports a per-service resource-limit override for Docker-Compose-based "Application" resources; if yes, use it to apply the same 64MB/16MB caps to Stack B's three Redis containers.
+2. Separately, obtain either sudo/root access or an explicitly-authorized alternate path to edit `/data/coolify/source/docker-compose.prod.yml` (or Coolify's own supported upgrade-safe customization mechanism, if one exists) for `coolify-redis`.
+3. Identify how `coolify-sentinel` is created/recreated (likely Coolify's own installer/upgrade script) before attempting any persistent limit on it.
+4. Once Phases 4–6 have a confirmed persistent mechanism, re-run this same phased, verify-after-each-step process for them.
+5. Steps 2–6 of the original plan's implementation sequence (app/queue/web/scheduler containers, both MySQL, Coolify core) remain unauthorized and untouched, per scope.
+
 ## Validation
 
 - `git diff --check`: to be run before commit (see final response).
-- Only `docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md` and `docs/AI_HANDOVER.md` are intended to change.
-- No credentials, secrets, or IPs were introduced. MySQL was queried using the container's own `$MYSQL_ROOT_PASSWORD` env var referenced symbolically inside `docker exec`; the six Redis instances were queried the same way using `$REDIS_{CACHE,QUEUE,SESSION}_PASSWORD` — no password value was ever echoed to output or written to any file.
-- No production mutation: no `mem_limit`, restart policy, compose file, `maxmemory`/eviction policy, or running container was changed by this plan or by the 2026-08-10 safety review.
-- Container IDs before/after this planning session (and before/after the safety review) were compared and are identical except for the two Dar Hijama queue containers' own hourly self-recycling (`--max-time=3600`, confirmed benign and pre-existing in the prior audit).
-- No subagents were used at any point across the original plan or this safety review.
+- Only `docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md` and `docs/AI_HANDOVER.md` are intended to change in this repository. Outside this repository, exactly three files changed on the VPS as authorized: `/home/deploy/deployments/darhijama-v1.0.1/docker-compose.staging.yml` (edited, backed up first) — no other file was modified.
+- No credentials, secrets, or IPs were introduced. MySQL was queried using the container's own `$MYSQL_ROOT_PASSWORD` env var referenced symbolically inside `docker exec`; the six Redis instances were queried/authenticated the same way using `$REDIS_{CACHE,QUEUE,SESSION}_PASSWORD`; Coolify's Postgres was queried read-only using `$POSTGRES_USER`/`$POSTGRES_PASSWORD` — no password value was ever echoed to output or written to any file.
+- Production mutation in this session: **limited to exactly the authorized Step 1 scope** — `mem_limit`/`mem_reservation` set on `dar-hijama-production-redis-cache-1`, `-redis-session-1`, `-redis-queue-1` only, via their own persistent compose file. No restart policy, no Redis `maxmemory`/eviction/persistence/password/ACL/database change, no other container, no DNS/nginx/firewall change. Everything else (including the prior plan/safety-review stages) remained read-only.
+- Container IDs before/after the Step 1 implementation were compared: the three capped Redis containers show new IDs (expected — `docker compose up` recreates a container when its resource config changes) with `RestartCount=0` and `OOMKilled=false` each; all 20 other containers are unchanged, including the two Dar Hijama queue containers' own pre-existing hourly self-recycling (`--max-time=3600`, unrelated to this change).
+- No subagents were used at any point across the original plan, the safety review, or this implementation.

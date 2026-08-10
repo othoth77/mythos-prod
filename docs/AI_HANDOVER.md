@@ -6,6 +6,26 @@
 
 ---
 
+## IMPLEMENTATION — VPS Memory Caps Step 1 (2026-08-10) — PARTIAL
+
+**Type:** Production implementation (first mutating stage of the VPS memory-cap work; everything before this was read-only planning/audit). No Mythos implementation stage was started or advanced.
+
+**No subagents used** — every command, including all mutations, ran directly over SSH from the primary session.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `11f302a1fa1a569f2547d5c5ebbed86e1ab26157` before this stage began (matches the SHA specified in the task).
+
+**Result: PARTIAL.** Dar Hijama Stack A's three Redis containers (`redis-cache`, `redis-session`, `redis-queue`) were successfully capped at `mem_limit=64m` / `mem_reservation=16m`, applied persistently via the stack's own compose file (`/home/deploy/deployments/darhijama-v1.0.1/docker-compose.staging.yml`, backed up to `/home/deploy/backups/darhijama-memcaps-step1-20260810/` before editing), recreated one at a time with full health/PING/live-site verification after each, no rollback needed. Dar Hijama Stack B's three Redis containers, `coolify-redis`, and `coolify-sentinel` are **blocked** — full investigation recorded in `docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md` §12.4: Stack B's compose source is Coolify-generated ephemeral state under `/artifacts/...` (not host-accessible, would be overwritten on next Coolify deploy); `coolify-redis`'s persistent source (`/data/coolify/source/`) exists but is permission-denied to `deploy` without sudo (none available/used); `coolify-sentinel` has no located compose/management source at all; Coolify's own DB-backed resource-limit mechanism (`applications.limits_memory`, confirmed to exist via read-only schema inspection) operates at whole-application granularity and would incorrectly cap Stack B's MySQL/app/web too if used as-is.
+
+**Containers modified:** `dar-hijama-production-redis-cache-1`, `dar-hijama-production-redis-session-1`, `dar-hijama-production-redis-queue-1` — each recreated (new container ID, `RestartCount=0`, `OOMKilled=false`, `Memory=67108864`, `MemoryReservation=16777216` confirmed via `docker inspect`). No other container was touched — verified by re-inspecting `n8n-n8n-1` (still `Memory=3221225472`, unchanged), both MySQL containers, both app/web/queue/scheduler tiers, `coolify`, `coolify-db`, `coolify-realtime`, and the Notre Jour preview container (all still `Memory=0`, unchanged).
+
+**Health checks (before/after, all pass):** `darhijama.tn` 200 throughout every phase; `n8n.ssangyong.autos` 200; `uthinachess.tn` 200; `notrejour.tn` 200; Coolify panel 302 (expected unauthenticated redirect); zero kernel OOM messages (`journalctl -k`) during or after implementation; host RAM/swap essentially unchanged (2.9Gi used / 4.7Gi available / ~52-60KiB swap, before and after — expected, since the three containers were already using ~3.6MB each, far under their new 64MB caps).
+
+**Full detail:** [`docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md`](audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md) §12.
+
+**Exact next recommended action:** obtain Coolify UI/API access to check for a per-service resource-limit override (the DB-backed `limits_memory` mechanism confirmed to exist is whole-application-scoped, not usable as-is for Redis-only limits on Stack B); separately obtain an authorized path to `/data/coolify/source/` for `coolify-redis`; identify `coolify-sentinel`'s management mechanism. Once any of those are resolved, resume the phased Step 1 process for the remaining 5 containers. **No Mythos implementation stage is queued or was advanced by this stage.**
+
+---
+
 ## SAFETY REVIEW — VPS Memory Plan Correction (2026-08-10)
 
 **Type:** Read-only final safety review of the memory budget plan below, performed before any implementation. No Docker memory limit, restart policy, `maxmemory`/eviction config, or container was changed. No Mythos implementation stage was started or advanced.
