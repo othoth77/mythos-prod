@@ -463,6 +463,99 @@ Performed before and after this investigation:
 - `darhijama.tn` → HTTP 200. Coolify panel → HTTP 302 (expected unauthenticated redirect).
 - `journalctl -k --since` covering the investigation window: **zero** OOM matches.
 
+### 13.7 `coolify-redis` — Final Read-Only Confirmation (2026-08-10, root access via `sudo -n`)
+
+**Session context:** this follow-up investigation ran with `sudo -n` (passwordless root) available for system/Docker inspection and `sudo -u deploy -H bash -lc '...'` for all Git operations — resolving the root-access gap recorded in §13.2. Still fully read-only: no file was edited, no command mutated Docker or Coolify state.
+
+**`docker-compose.yml` `redis` service (base file, read via `sudo -n cat`):**
+```yaml
+redis:
+    image: redis:7-alpine
+    container_name: coolify-redis
+    restart: always
+    networks:
+        - coolify
+```
+
+**`docker-compose.prod.yml` `redis` service (override file, read via `sudo -n cat`):**
+```yaml
+redis:
+    command: redis-server --save 20 1 --loglevel warning --requirepass ${REDIS_PASSWORD}
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD}"
+    volumes:
+      - coolify-redis:/data
+    healthcheck:
+      test: redis-cli ping
+      interval: 5s
+      retries: 10
+      timeout: 2s
+```
+No `mem_limit`/`mem_reservation`/`deploy.resources` field is present anywhere in either file for `redis` (or any other service) — confirms the container is currently fully uncapped, as expected. `coolify-redis` currently shows `Memory=0`, `MemoryReservation=0` via `docker inspect` (re-confirmed live in this session).
+
+**Upgrade-persistence question — now resolved (previously "unconfirmed" in §13.2):**
+
+Read `/data/coolify/source/upgrade.sh` directly (an already-installed local file — no external CDN fetch performed, consistent with the read-only/no-external-script constraint):
+
+- Lines 59-62: on every self-upgrade, the script unconditionally downloads and **overwrites** both `docker-compose.yml` and `docker-compose.prod.yml` from Coolify's CDN:
+  ```bash
+  curl -fsSL -L $CDN/docker-compose.yml -o /data/coolify/source/docker-compose.yml
+  curl -fsSL -L $CDN/docker-compose.prod.yml -o /data/coolify/source/docker-compose.prod.yml
+  ```
+  **A manual edit to either file is unconditionally destroyed on the next Coolify self-update.** This resolves the prior "unconfirmed" status to **CONFIRMED OVERWRITTEN**.
+- Lines 76-78 and 278-280 (image-extraction step and the actual upgrade deploy step) both check for an optional `docker-compose.custom.yml` and, if present, append it to the compose file list:
+  ```bash
+  if [ -f /data/coolify/source/docker-compose.custom.yml ]; then
+      log "Using custom docker-compose.yml"
+      COMPOSE_FILES="$COMPOSE_FILES -f /data/coolify/source/docker-compose.custom.yml"
+  fi
+  ```
+  **`upgrade.sh` never downloads, writes, or otherwise touches `docker-compose.custom.yml` anywhere in the script** — it only tests for its existence. This is a genuine, Coolify-supported override mechanism that survives self-upgrades.
+- Confirmed via `sudo -n test -f`: `docker-compose.custom.yml` and `docker-compose.postgres-upgrade.yml` **do not currently exist** on this host — the override point exists but is unused.
+- The actual upgrade deploy step (lines 256-286) stops/removes **all four** Coolify infra containers (`coolify`, `coolify-db`, `coolify-redis`, `coolify-realtime`) together, then brings the whole stack back up via a helper container running `docker compose ... up -d --remove-orphans --wait`. This is the *upgrade* flow only — irrelevant to a targeted single-service limit change, which would use a direct `docker compose ... up -d --no-deps redis` from the host instead (see below), not this helper-container path.
+
+**Answers to the four specific questions posed:**
+| Question | Answer |
+|---|---|
+| Does a manual change to `docker-compose.prod.yml` survive a normal Coolify self-update? | **NO — CONFIRMED OVERWRITTEN** (unconditional `curl -o` on every upgrade) |
+| Is `docker-compose.prod.yml` regenerated/downloaded/overwritten? | **YES**, every upgrade, unconditionally, no diff/merge check |
+| Does Coolify provide a supported override/custom compose mechanism? | **YES** — `docker-compose.custom.yml`, auto-included via `-f` if present, never touched by `upgrade.sh` |
+| Is there a safer persistent method than editing the vendor-managed compose file? | **YES** — create `docker-compose.custom.yml` with only the `redis:` service's resource-limit fields, instead of editing `docker-compose.prod.yml` in place |
+
+**Future mutation procedure (not executed) — revised and now preferred over the §13.2 draft:**
+```bash
+# Requires root (sudo -n), NOT executed in this investigation:
+sudo -n tee /data/coolify/source/docker-compose.custom.yml > /dev/null <<'EOF'
+services:
+  redis:
+    mem_limit: 96m
+    mem_reservation: 24m
+EOF
+cd /data/coolify/source && sudo -n docker compose --env-file /data/coolify/source/.env \
+  -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.custom.yml \
+  up -d --no-deps redis
+```
+**Rollback procedure (not executed):**
+```bash
+sudo -n rm /data/coolify/source/docker-compose.custom.yml
+cd /data/coolify/source && sudo -n docker compose --env-file /data/coolify/source/.env \
+  -f docker-compose.yml -f docker-compose.prod.yml \
+  up -d --no-deps redis
+```
+**Expected blast radius:** `--no-deps redis` targets exactly one service; `docker compose up` only recreates a container whose effective config changed, so only `coolify-redis` is expected to be stopped/recreated — `coolify`, `coolify-db`, and `coolify-realtime` are not listed as targets and are not dependents of `redis` (dependency direction is `coolify → redis`, not `redis → coolify`), so they should not be touched. This is a smaller, single-service blast radius, analogous to the Stack A Redis pattern already executed successfully — **not** the whole-stack blast radius of the `upgrade.sh` flow. Not verified by an actual dry run in this read-only session.
+**Safe to authorize:** the mechanism is now understood well enough to be **SAFE TO AUTHORIZE as its own explicitly-approved mutation stage** (with backup of the pre-existing `docker-compose.custom.yml` state — currently "does not exist" — and full pre/post `docker inspect` + `redis-cli PING` + all-four-infra-container health verification, per the project's standing pattern), but was **not executed** in this investigation per its explicit read-only scope.
+
+**Live safety re-verification (this session, root-enabled):**
+- `coolify-redis`: `State=running`, `Restarting=false`, `OOMKilled=false`, `RestartCount=0`, `Memory=0`/`MemoryReservation=0` (unchanged/uncapped, as expected).
+- Stack A's three Redis containers: `Memory=67108864`/`MemoryReservation=16777216`/`RestartCount=0`/`OOMKilled=false` — all three unchanged.
+- `n8n-n8n-1`: `State=running`, `Memory=3221225472`, `RestartCount=0` — unchanged.
+- `darhijama.tn` → 200, `uthinachess.tn` → 200, `notrejour.tn` → 200, Coolify panel (`panel.mythosprod.xyz`) → 302 (expected unauthenticated redirect).
+- `journalctl -k --since "-2 hours"`: zero OOM matches.
+- Container count observed as 24 (vs. 23 in prior audits) — noted but not investigated further; out of scope for this task, recorded here for a future session to check.
+- `/data/coolify/source/.env` exists but was **not read** — the shell attempted a `cat` and it was blocked by the local permission classifier (consistent with this file holding `DB_PASSWORD`/`REDIS_PASSWORD`/etc.); not needed for this investigation's conclusions, and not retried.
+
+**Files changed by this sub-investigation:** none. No file was edited on the VPS; only `docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md` (this section) and `docs/AI_HANDOVER.md` changed, both in this Git repository.
+
 ## Validation
 
 - `git diff --check`: to be run before commit (see final response).

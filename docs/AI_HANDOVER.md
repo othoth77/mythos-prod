@@ -6,6 +6,28 @@
 
 ---
 
+## DISCOVERY — `coolify-redis` Final Read-Only Confirmation (2026-08-10)
+
+**Type:** Read-only follow-up investigation, resolving the single remaining unknown from the prior Coolify discovery below (§13.2's "unconfirmed" upgrade-persistence question for `coolify-redis`). No Mythos implementation stage was started or advanced. No mutation performed.
+
+**No subagents used.** Ran with `sudo -n` (passwordless root, newly available this session) for read-only system/Docker inspection, and `sudo -u deploy -H bash -lc '...'` for all Git operations, per the session's new execution-identity rule.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `6f799b7137c93324820b030ecb3539523fbe2658` before this investigation began (matches the SHA specified in the task; this is the commit that recorded the prior discovery below).
+
+**Findings:**
+- Read `/data/coolify/source/docker-compose.yml` and `docker-compose.prod.yml` directly (root access, `sudo -n cat`) — confirmed the exact `redis` service definition (`redis:7-alpine`, `--requirepass`, `coolify-redis` named volume, healthcheck) and confirmed no resource-limit field exists anywhere in either file today.
+- Read the already-installed local `/data/coolify/source/upgrade.sh` (no external CDN fetch performed) — **resolves the previously-unconfirmed upgrade-persistence question**: the script unconditionally `curl -o`-overwrites both `docker-compose.yml` and `docker-compose.prod.yml` from Coolify's CDN on every self-upgrade, so a manual edit to either is **CONFIRMED OVERWRITTEN** on next upgrade. However, the same script also checks for an optional `docker-compose.custom.yml` and appends it via `-f` if present — and **never touches that file itself**. This is a genuine, Coolify-supported, upgrade-safe override mechanism. It does not currently exist on this host.
+- Revised future mutation procedure: create `docker-compose.custom.yml` with only the `redis:` service's `mem_limit`/`mem_reservation`, then `docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.custom.yml up -d --no-deps redis` — expected to recreate only `coolify-redis` (single-service blast radius, same pattern as Stack A). Rollback: delete the custom file and re-run the same `up -d --no-deps redis` without it. **Not executed** — read-only investigation only.
+- `coolify-redis` classification is now **PERSISTENT_METHOD_CONFIRMED, SAFE TO AUTHORIZE as its own stage** (mechanism fully understood, root access now available) — still requires a separate explicit authorization to execute, per this investigation's read-only scope.
+
+**Safety**: `coolify-redis` running/healthy/uncapped as before, Stack A's 3 Redis caps unchanged (64MB/16MB), n8n unchanged (3GB), `darhijama.tn`/`uthinachess.tn`/`notrejour.tn` all 200, Coolify panel 302, zero OOM events. Container count observed as 24 (vs. 23 in prior audits) — flagged, not investigated (out of scope).
+
+**Full detail:** [`docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md`](audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md) §13.7.
+
+**Exact next recommended action:** get explicit authorization for a separate, scoped implementation stage to create `docker-compose.custom.yml` and apply the 96MB/24MB cap to `coolify-redis` via `--no-deps redis`, with the same phased verification pattern used for Stack A. Stack B and `coolify-sentinel` classifications are unchanged from the entry below. **No Mythos implementation stage is queued or was advanced by this investigation.**
+
+---
+
 ## DISCOVERY — Coolify Resource-Limit Mechanism Investigation (2026-08-10)
 
 **Type:** Read-only investigation to resolve the persistent-configuration blocker from the prior Step 1 implementation, without applying any limit. No Mythos implementation stage was started or advanced.
