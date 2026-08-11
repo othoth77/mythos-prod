@@ -6,6 +6,58 @@
 
 ---
 
+## PLAN — IDA-2 Phase B Slice Plan (2026-08-10)
+
+**Type:** Read-only planning. No implementation, no production mutation, no PostgreSQL provisioned, no code written. This entry is the deliverable — a slice plan ready for owner review and per-slice authorization, not an authorization itself.
+
+**No subagents used.** `sudo -n` for read-only VPS memory/disk inspection only. `sudo -u deploy -H bash -lc '...'` for all Git operations.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `5850f6b2569f122d19e74056e8db02e5556d09f6` (the MPI-0 staleness sweep commit) before this plan began.
+
+### Why Phase B needs slicing
+
+`docs/IDAUTO_ROADMAP.md`'s IDA-2 Phase B scope is one paragraph covering 9 distinct deliverables (PostgreSQL cluster, core API, admin manual entry, review queue UI, audit logging, object storage wiring, Mythos OS auth integration, Mythos OS audit integration, rate limiting) plus remaining tests toward 50+. Per `AGENTS.md` §7 ("smallest coherent change") and this project's own precedent (Stage 4's 33 sub-stages, IDA-2 Phase A's own decision to defer Phase B rather than do it all at once), this cannot be one implementation stage.
+
+### Grounding: current VPS state (read-only, checked this session)
+
+- `free -h`: `7.6Gi total / 4.6Gi used / 529Mi free / 3.0Gi available`; **`Swap: 2.0Gi total / 2.0Gi used / 6.5Mi free`** — swap is essentially full right now, consistent with every check earlier this session. Not actively thrashing, but zero headroom left in swap.
+- Disk: `72G total / 44G used / 28G available (62%)` — adequate for a new Postgres data directory plus backups, not a blocker, but backup retention should be sized against this.
+- `docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md`'s authoritative sizing model: preferred aggregate memory ceiling ≈**5.65GB** (no swap reliance), hard danger threshold ≈**7.65GB** (swap-backed). The comparable existing relational database (Dar Hijama's MySQL, live production) is capped at **768MB** (~1.7× its ~454MB real usage). A new PostgreSQL instance holding only synthetic/pilot data (no live production traffic, per Phase B's own exclusions) should be sized well below that — a conservative **256–384MB** starting cap is proportionate, with headroom to revise once real IDA-2 usage is observed, matching the same "start conservative, monitor, revise" discipline already applied to every other capped service this session.
+- **Lesson carried forward from this session's Redis/coolify-redis work:** every other capped service on this VPS had its memory cap retrofitted after the fact. IDA-2B should not repeat that — the PostgreSQL container must be created **with** its memory cap from the first `docker run`/compose `up`, never uncapped even temporarily.
+
+### One-major-stage rule application
+
+Only one of the slices below may be the active major implementation stage at a time, per `docs/ROADMAP.md`'s standing rule. None is authorized by this plan. `IDA-2B` (PostgreSQL provisioning) in particular should get its **own explicit deployment window**, separate from every other slice — same treatment this project already gives Stage 3G-class HIGH-risk stages — because it is the only slice in this set that is genuinely hard to reverse (a new persistent production service, not just application code).
+
+### The slices
+
+| Slice | Deliverable | Depends on | Risk | Reversibility |
+|---|---|---|---|---|
+| **IDA-2B** | PostgreSQL provisioning: install/deploy the target instance **with a memory cap from creation** (256–384MB starting point, re-verify live VPS headroom immediately before provisioning — the numbers above are this-session-current, not guaranteed current at execution time), apply `schema.sql` as the initial migration, load only the existing seed data (plate formats, governorates, capture sources, the Fixpert pilot org placeholder — all already in the schema file, no real data). Establish and **test** a backup/restore procedure before any further slice begins (per `AGENTS.md` §16 — "a backup is valid only after restoration is tested"). No API, no network exposure beyond `localhost`/internal Docker network. | IDA-2 Phase A (done) | **HIGH** — new persistent production infrastructure, the only slice here that isn't just application code | Hardest to reverse of any slice — deprovisioning a database after real data exists is a real operation, not a revert |
+| **IDA-2C** | Core API, **read-only** endpoints only (vehicle/plate/observation/fact/evidence lookups against the seed data), with a minimal placeholder access gate (e.g. a static admin-only token check) — not yet the full Mythos OS auth integration, but never fully open. No mutation path exists yet. | IDA-2B | MEDIUM — first live code talking to the new database, but read-only | Straightforward — no data written, easy to redeploy/roll back |
+| **IDA-2D** | Core API, **write** endpoints (manual-entry backend: create/update vehicle, plate, observation, fact, evidence records) **plus audit logging wired to `idauto_audit_log` in the same slice** — a live mutation path must never exist without its audit trail, even behind the placeholder gate from IDA-2C. | IDA-2C | HIGH — first slice that writes real (synthetic/pilot) data | Data written is synthetic/pilot only per Phase B's own exclusion; still requires care since `idauto_observations` rows are documented as immutable-after-creation by schema design |
+| **IDA-2E** | Mythos OS auth integration — replaces IDA-2C's placeholder gate with the real Mythos OS auth check on every endpoint (read and write). | IDA-2D | MEDIUM — security-critical but well-scoped (swapping one gate for another, not new surface area) | Moderate — a regression here is a lockout/access-control bug, not data loss |
+| **IDA-2F** | Object storage wiring — original image references (`idauto_observation_media.object_key`) for any media captured during manual entry. | IDA-2B (schema) + IDA-2D (write API) | LOW-MEDIUM — new external dependency (object storage), but no new database risk | Straightforward — object storage keys are just references; can be disabled without touching the DB |
+| **IDA-2G** | Admin manual entry UI — the actual form/screen an admin uses to drive IDA-2D's write API. | IDA-2D, IDA-2E (should not ship a UI capable of writing data before real auth is in place) | LOW — UI work, no new backend risk if IDA-2D/E already validated | Easy — UI-only |
+| **IDA-2H** | Review queue UI — admin screen for `idauto_review_queue` triage. | IDA-2D, IDA-2E | LOW — same class as IDA-2G, can genuinely run in parallel with it once both dependencies are met | Easy — UI-only |
+| **IDA-2I** | Rate limiting backed by `idauto_verifications`. | IDA-2E | LOW — lowest urgency of all slices, since Phase B has no public-facing endpoint yet (`no public capture` is an explicit Phase B exclusion); the real forcing function for this is IDA-3's public surface, not Phase B itself. Could legitimately be deferred into IDA-3's own scoping rather than kept in Phase B, if the owner prefers a smaller Phase B. | Trivial |
+
+**Remaining tests toward 50+ are not a separate slice.** Each slice above adds its own test file (following the `tests/ida-2a-schema-and-plate-validation-test.js` naming convention, e.g. `tests/ida-2b-...`), the same way every slice in the earlier Stage 4A–4AG sequence carried its own tests rather than deferring them to a final catch-up stage. 44 tests already exist from Phase A; the 50+ target is cumulative across IDA-2B onward.
+
+### Suggested authorization order
+
+`IDA-2B → IDA-2C → IDA-2D → IDA-2E → { IDA-2F, IDA-2G, IDA-2H in any order/parallel once their dependencies are met } → IDA-2I`. `IDA-2G`/`IDA-2H` (the two UIs) are the only pair that could reasonably run in parallel without violating the one-major-stage rule's intent, since they touch disjoint surface area once their shared dependency (`IDA-2E`) is done — but that itself would need explicit parallel authorization, not assumed.
+
+### What this plan does not do
+
+Does not authorize IDA-2B or any other slice. Does not provision PostgreSQL. Does not write API, UI, or auth code. Does not re-verify VPS memory headroom at execution time (the numbers above are this-session-current only — `IDA-2B` itself must re-check before provisioning). Does not decide whether `IDA-2I` stays in Phase B or moves to IDA-3 — flagged as an open question for the owner.
+
+### Exact next stage
+
+None authorized. If the owner wants to proceed, `IDA-2B` is the logical first candidate — but per the risk/reversibility table above, it's also the one slice in this plan that most warrants a deliberate, separate go/no-go decision rather than a default "next in sequence" approval.
+
+---
+
 ## CORRECTION — MPI-0 Staleness Sweep (2026-08-10)
 
 **Type:** Docs-only correction. No feature work, no IDA-2 Phase B, no production/infrastructure mutation, no code file touched.
