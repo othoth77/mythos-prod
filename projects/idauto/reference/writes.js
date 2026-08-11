@@ -232,11 +232,24 @@ async function createFact(vehicleInternalRef, body, identity) {
         e1.code = '23503';
         throw e1;
       }
+      var observationId = null;
+      if (body.observation_id != null) {
+        var observation = await client.query(
+          'SELECT id FROM idauto_observations WHERE id = $1 AND vehicle_id = $2',
+          [body.observation_id, v.rows[0].id]
+        );
+        if (observation.rows.length === 0) {
+          var e2 = new Error('observation_id not found for vehicle');
+          e2.code = '23503';
+          throw e2;
+        }
+        observationId = observation.rows[0].id;
+      }
       var accessScope = ALLOWED_ACCESS_SCOPE.indexOf(body.access_scope) !== -1 ? body.access_scope : 'public';
       var factResult = await client.query(
-        'INSERT INTO idauto_vehicle_facts (vehicle_id, fact_key, fact_value, confidence_score, verification_status, access_scope) ' +
-        "VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, fact_key, fact_value, confidence_score, verification_status, access_scope",
-        [v.rows[0].id, body.fact_key, body.fact_value,
+        'INSERT INTO idauto_vehicle_facts (vehicle_id, observation_id, fact_key, fact_value, confidence_score, verification_status, access_scope) ' +
+        "VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, observation_id, fact_key, fact_value, confidence_score, verification_status, access_scope",
+        [v.rows[0].id, observationId, body.fact_key, body.fact_value,
           typeof body.confidence_score === 'number' ? body.confidence_score : 0.5,
           body.verification_status || 'unverified', accessScope]
       );

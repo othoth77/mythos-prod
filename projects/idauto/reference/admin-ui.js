@@ -52,6 +52,7 @@
       if (!value(form, 'fact_key') || !value(form, 'fact_value')) throw new Error('Fact key and value must be entered together.');
       fact = await jsonPost('/api/vehicles/' + encodeURIComponent(vehicle.internal_ref) + '/facts', token, compact({
         fact_key: value(form, 'fact_key'), fact_value: value(form, 'fact_value'),
+        observation_id: observation.id,
         confidence_score: optionalNumber(form, 'confidence_score'), access_scope: value(form, 'access_scope'),
         evidence_type: value(form, 'evidence_type')
       }));

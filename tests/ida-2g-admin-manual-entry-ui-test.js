@@ -76,6 +76,7 @@ function fakeForm(seed) {
   ok(created.plate && created.plate.plate_number === 'UI ' + seed, 'UI links an optional plate to the created vehicle');
   ok(created.observation && created.observation.capture_method === 'manual_admin', 'UI creates an observation with API-fixed manual_admin capture method');
   ok(created.fact && created.fact.fact.access_scope === 'mythos_private', 'UI can write a private fact through the audited API');
+  ok(String(created.fact.fact.observation_id) === String(created.observation.id), 'UI fact retains observation-first provenance through observation_id');
 
   var audit = await db.query(
     'SELECT event_type, actor_ref FROM idauto_audit_log WHERE actor_ref = $1 AND target_ref = ANY($2::text[]) ORDER BY event_type',
