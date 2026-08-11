@@ -96,12 +96,18 @@
           status.textContent = 'Saving decision…';
           try {
             await decide(id, decision, token());
+            if (activeId !== id) {
+              await refresh();
+              return;
+            }
+            activeId = null;
             status.className = 'success';
             status.textContent = 'Observation ' + id + ' ' + (decision === 'accept' ? 'accepted.' : 'rejected.');
             detail.className = 'empty';
             detail.textContent = 'Decision saved. Select another observation.';
             await refresh();
           } catch (err) {
+            if (activeId !== id) return;
             status.className = 'error';
             status.textContent = err.message;
             actions.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
@@ -111,6 +117,7 @@
       });
       detail.appendChild(actions);
     } catch (err) {
+      if (activeId !== id) return;
       detail.className = 'error';
       detail.textContent = err.message;
     }

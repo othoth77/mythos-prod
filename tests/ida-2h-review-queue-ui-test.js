@@ -131,7 +131,36 @@ async function auditCount(targetRef, eventType) {
   ok(repeat.status === 200 && repeat.body.status === 'accepted', 'Repeated identical decision is a safe idempotent success');
   ok(await auditCount(pendingReview.observation.id, 'observation.review.accept') === 1, 'Repeated decision creates no duplicate audit row');
 
-  console.log('\n6. INVALID TARGETS — fail without phantom audits');
+  console.log('\n6. CONCURRENT DECISIONS — row lock gives one deterministic real mutation');
+  var concurrentAccept = await createFixture('pending_review', 'concurrent-accept-' + seed);
+  var acceptPair = await Promise.all([
+    authed('POST', '/api/review/observations/' + concurrentAccept.observation.id + '/decision', { decision: 'accept' }),
+    authed('POST', '/api/review/observations/' + concurrentAccept.observation.id + '/decision', { decision: 'accept' })
+  ]);
+  ok(acceptPair.every(function (result) { return result.status === 200 && result.body.status === 'accepted'; }), 'Concurrent accept/accept returns two idempotent successes');
+  ok(await auditCount(concurrentAccept.observation.id, 'observation.review.accept') === 1, 'Concurrent accept/accept creates exactly one real audit mutation');
+
+  var concurrentReject = await createFixture('pending_confirmation', 'concurrent-reject-' + seed);
+  var rejectPair = await Promise.all([
+    authed('POST', '/api/review/observations/' + concurrentReject.observation.id + '/decision', { decision: 'reject' }),
+    authed('POST', '/api/review/observations/' + concurrentReject.observation.id + '/decision', { decision: 'reject' })
+  ]);
+  ok(rejectPair.every(function (result) { return result.status === 200 && result.body.status === 'rejected'; }), 'Concurrent reject/reject returns two idempotent successes');
+  ok(await auditCount(concurrentReject.observation.id, 'observation.review.reject') === 1, 'Concurrent reject/reject creates exactly one real audit mutation');
+
+  var concurrentOpposed = await createFixture('pending_review', 'concurrent-opposed-' + seed);
+  var opposedPair = await Promise.all([
+    authed('POST', '/api/review/observations/' + concurrentOpposed.observation.id + '/decision', { decision: 'accept' }),
+    authed('POST', '/api/review/observations/' + concurrentOpposed.observation.id + '/decision', { decision: 'reject' })
+  ]);
+  var opposedStatuses = opposedPair.map(function (result) { return result.status; }).sort();
+  ok(opposedStatuses[0] === 200 && opposedStatuses[1] === 409, 'Concurrent accept/reject produces one success and one conflict');
+  var opposedAudits = await db.query("SELECT event_type FROM idauto_audit_log WHERE target_ref = $1 AND event_type IN ('observation.review.accept','observation.review.reject')", [String(concurrentOpposed.observation.id)]);
+  ok(opposedAudits.rows.length === 1, 'Concurrent accept/reject creates exactly one audit mutation');
+  var opposedFinal = await authed('GET', '/api/observations/' + concurrentOpposed.observation.id);
+  ok(opposedFinal.body.status === (opposedAudits.rows[0].event_type === 'observation.review.accept' ? 'accepted' : 'rejected'), 'Concurrent accept/reject final state matches its sole audit event');
+
+  console.log('\n7. INVALID TARGETS — fail without phantom audits');
   var beforeAll = await db.query("SELECT count(*) FROM idauto_audit_log WHERE event_type LIKE 'observation.review.%'");
   var invalidDecision = await authed('POST', '/api/review/observations/' + notPending.observation.id + '/decision', { decision: 'accept' });
   var nonexistentId = '999999999999';
@@ -149,6 +178,8 @@ async function auditCount(targetRef, eventType) {
 
   var source = fs.readFileSync(path.join(BASE, 'projects/idauto/reference/api.js'), 'utf8');
   ok(source.indexOf('object_key') !== -1 && detail.raw.indexOf('object_key') === -1, 'Storage references remain internal even though media support exists');
+  var uiSource = fs.readFileSync(path.join(BASE, 'projects/idauto/reference/review-ui.js'), 'utf8');
+  ok((uiSource.match(/activeId !== id/g) || []).length >= 3 && uiSource.indexOf('activeId = null') !== -1, 'Review UI guards stale detail success, failure, and decision responses before changing active detail');
 
   await new Promise(function (resolve) { server.close(resolve); });
   await db.closePool();
