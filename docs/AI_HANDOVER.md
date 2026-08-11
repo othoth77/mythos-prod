@@ -6,6 +6,62 @@
 
 ---
 
+## CHECKPOINT — CHECKPOINT-RECOVERY-0 (2026-08-10)
+
+**Type:** Read-only recovery checkpoint after the VPS/OOM hardening work. No production mutation. No Mythos implementation stage started or advanced. **Does NOT implement RUNTIME-COLLISION-GUARD-0.**
+
+**No subagents used.** `sudo -n` for system/Docker/root inspection, `sudo -u deploy -H bash -lc '...'` for all Git operations.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `c25c96d5776c539a2e1d69c690e9141dc2a9587a` before this checkpoint began (matches the SHA specified in the task). Branch `main`, worktree clean, `git fetch origin` succeeded, local `HEAD` == `origin/main` exactly.
+
+### A. VPS/OOM hardening state (reconciled, all confirmed live)
+
+- **Swap:** 2GB `/swapfile`, persistent via `/etc/fstab`, active (`swapon --show`).
+- **n8n:** `mem_limit=3GiB` (`3221225472` bytes, confirmed live), `NODE_OPTIONS=--max-old-space-size=2048`, `N8N_CONCURRENCY_PRODUCTION_LIMIT=2`, `EXECUTIONS_DATA_PRUNE=true` (max age 168h, max count 1000), `DB_SQLITE_VACUUM_ON_STARTUP=true`, `N8N_WORKFLOW_AUTODEACTIVATION_ENABLED=true` — all per `docs/audits/VPS_SERVICE_HEALTH_AUDIT_2026-08-10.md` §8, re-confirmed live this session (`RestartCount=0`, container running). 3 workflows total, all `active=false` (scraper + Auto Restart confirmed inactive, per that audit — not independently re-verified this session, cited as prior evidence). Backup file `/opt/n8n/backups/n8n-before-vacuum-20260810.sqlite`: presence/size still **UNKNOWN** (root-only directory, not investigated this session — carried forward unchanged from the original audit, out of this checkpoint's scope).
+- **Dar Hijama Stack A Redis ×3:** `Memory=67108864` (64MB) / `MemoryReservation=16777216` (16MB), `RestartCount=0` on all three — confirmed live.
+- **`coolify-redis`:** `Memory=100663296` (96MB) / `MemoryReservation=25165824` (24MB), `RestartCount=0`, `OOMKilled=false` — confirmed live, persistent via `/data/coolify/source/docker-compose.custom.yml` (upgrade-safe, per §14 above).
+- **Jellyfin:** confirmed authorized, unrelated personal media-server (`jellyfin/jellyfin:latest`), `127.0.0.1:8096` (localhost-only), `Memory=2147483648` (2GiB), `RestartCount=0`, running — untouched.
+- **`coolify-sentinel`:** no supported persistent limit mechanism exists in this Coolify version (confirmed via source read, §13.3) — intentionally deferred, not a blocker (real footprint ~8.5-9MB).
+- **Stack B Redis ×3:** not capped. Mechanism known (raw-compose UI editor), requires a full Stack B application redeploy (larger blast radius) — deferred, needs its own authorized stage.
+- **MySQL ×2:** untouched — requires a separate MySQL configuration review (buffer pool, `max_connections`, `performance_schema`) before any limit is applied.
+- **Other app/web/queue/scheduler/Coolify-core containers:** no limits applied — unchanged from the original plan's later, higher-risk steps (not part of Step 1).
+
+**Redis-class target count corrected: 4/8**, not 4/6 (Stack A ×3 + Stack B ×3 + `coolify-redis` + `coolify-sentinel` = 8 total; Stack A ×3 + `coolify-redis` = 4 done).
+
+### B. Claude execution environment (recorded, operational only)
+
+Claude Desktop runs as `ubuntu` with passwordless `sudo -n` for system/Docker/root inspection and mutation. The canonical Mythos repository remains owned and managed through the `deploy` identity — all Git/GitHub operations use `sudo -u deploy -H bash -lc 'cd /home/deploy/projects/mythos-prod && <command>'`. `/home/ubuntu/mythos-prod` is confirmed to be only a symlink to the canonical `deploy` worktree (`lrwxrwxrwx ... -> /home/deploy/projects/mythos-prod`), not a separate repository. `deploy` SSH/GitHub credentials have not been copied to `ubuntu`; `ubuntu` has not been added to the `docker` group; repository ownership has not been changed.
+
+### C. Notification system (recorded, operational convenience only, not a stage dependency)
+
+ntfy topic `mythos-othman-7k92x-finish` — phone audio notification and Claude Stop/Notification hooks reported working by the user. Not independently re-tested in this checkpoint (out of scope — no hook-firing action was taken).
+
+### D. Mythos development-position reconciliation — **BLOCKED: documented sequence contradicted by GitHub**
+
+Per this task's own instruction ("If GitHub contradicts the expected sequence, use GitHub as source of truth and document the correction"), the following was found and independently verified via `git log` / `git merge-base --is-ancestor` against the current `origin/main` history (not guessed, not inferred from docs alone):
+
+- **`RUNTIME-COLLISION-GUARD-0` does not exist anywhere in this repository** — confirmed via a targeted `grep -rn "RUNTIME-COLLISION-GUARD"` across `docs/`, `scripts/`, and tracked file types (`.md`/`.js`/`.json`): zero matches. It is not a real stage in `docs/ROADMAP.md`, `docs/AI_HANDOVER.md`, `docs/PROJECT_STATUS.md`, `projects/meta/current-context.json`, or the stage-runner scripts. It cannot be confirmed as the next Mythos stage.
+- **Stage 3E (Calendar Runtime), Stage 3F (Dashboard Runtime), and Stage 3G (Production Runtime) are already complete and merged to `main`** — this directly contradicts `docs/ROADMAP.md` (which still lists all three under "Upcoming Stages," states *"In Progress: None. Stage 3E is next"*), `docs/PROJECT_STATUS.md` (`Mythos OS Runtime` row: `Last Completed Stage: Stage 3D` / `Current/Next Stage: Stage 3E`), and every entry in `docs/AI_HANDOVER.md`/`docs/history/DAILY_HISTORY.md` going back through this project's entire recorded history, all of which state "Stage 3E ... NOT STARTED."
+  - Evidence: commit `0194937` ("Stage 3E: calendar.plugin.js replaced by calendar.runtime.js", author Othman Haddad, 2026-07-30) adds `js/plugins/calendar.runtime.js` and `tests/stage3e-test.js` (749 lines) — confirmed an ancestor of `origin/main` HEAD, and confirmed an ancestor of `bf95988bc9eb72f37e6c4fa8e8b474a69c4e22a3` (the exact commit `docs/PROJECT_STATUS.md`/`current-context.json` themselves cite as "current main HEAD").
+  - Commit `d10081e` ("Stage 3F: dashboard.runtime.js...", same date) — same ancestry confirmation.
+  - Commit `e2f1953` ("production.runtime.js replaces production.plugin.js... 125/125 tests pass", 2026-07-30) adds `tests/stage3g-test.js` (896 lines) — same ancestry confirmation.
+  - `js/plugins/calendar.runtime.js`, `js/plugins/dashboard.runtime.js`, `js/plugins/production.runtime.js` all exist in the current working tree.
+  - Test-pass counts (83/83, 91/91, 125/125) are **as stated in the commit messages, not independently re-executed by this checkpoint** — labeled accordingly, per the requirement to clearly mark anything not directly verified.
+- **Substantial further work beyond Stage 3G also exists and is undocumented in the "current position" narrative**: 33 `tests/stage4*-test.js` files exist, ranging through at least "Stage 4AG" and "Stage 4Z" (commit `f89fb8c "test(stage4z): enforce canonical extracted-function ownership"`, `ebe42f9 "Stage 4AG: remove obsolete Invoice and OM helper duplicates"`), and the most recent Mythos-OS-runtime-track stage recorded in `docs/history/DAILY_HISTORY.md` itself — `RUNTIME-DUPLICATE-CLEANUP-0` (merged via PR #9, commit `9f5813d51e0bfd2dfffc0a3c958ddfef7efd9549`) — explicitly references and repairs "Stage 4Z" and "Stage 4AG" as **already-existing prior work**, an internal inconsistency within the docs' own narrative (the same document set that elsewhere still calls Stage 3E "next").
+- **Root cause not determined by this checkpoint** (would require deeper investigation than a read-only checkpoint's scope permits): most plausibly, the Stage 3D→4AG+ runtime-migration/extraction work was committed directly to `main` by the project owner (all these commits are authored by `Othman Haddad`, not through the branch/PR/merge-commit pattern used for later-tracked stages like AUT-CONNECTOR-SHARED-HELPERS-0) without ever updating `docs/ROADMAP.md`/`docs/PROJECT_STATUS.md`/`docs/AI_HANDOVER.md`/`docs/history/DAILY_HISTORY.md` to reflect it — and every subsequent AI-assisted session then correctly followed `AGENTS.md`'s instruction to trust those status docs rather than independently re-deriving stage state from the full file tree, so the stale "Stage 3E is next" claim was carried forward unchallenged across the entire documented session history.
+
+**This checkpoint does NOT correct `docs/ROADMAP.md`, `docs/PROJECT_STATUS.md`, `docs/history/DAILY_HISTORY.md`, or `projects/meta/current-context.json`.** Rewriting those accurately requires reconstructing the true current stage-completion boundary (exactly which of the ~33+ Stage 4 sub-stages are complete, which if any remain, and reconciling this against `docs/ROADMAP.md`'s formal stage definitions) — that is itself a substantial investigation, explicitly out of scope for a read-only checkpoint under "NO MAJOR IMPLEMENTATION." Flagging it here, prominently, in the document every future session is instructed to read first, is this checkpoint's safest and most correct action.
+
+**Next Mythos implementation stage: NOT CONFIRMED.** Neither `RUNTIME-COLLISION-GUARD-0` (does not exist) nor "Stage 3E" (already done) can be asserted as next. **Recommended next action is a dedicated reconciliation session** (read-only) to (1) determine the true last-completed Stage 4 sub-stage from `git log` against `docs/ROADMAP.md`'s stage definitions, (2) correct `docs/ROADMAP.md`/`docs/PROJECT_STATUS.md`/`docs/history/DAILY_HISTORY.md`/`projects/meta/current-context.json` accordingly, and (3) only then have the owner authorize whatever the actual next stage turns out to be. The one-major-stage rule and no-subagents policy remain in force and were not violated by this checkpoint (no Mythos implementation stage was started or advanced).
+
+### E. Live safety snapshot (this session)
+
+`free -h`: `7.6Gi total / 4.6Gi used / 381Mi free / 3.0Gi available`; `Swap: 2.0Gi total / 1.9Gi used / 105Mi free` (`swapon --show` confirms `/swapfile`, 2G, active). 24 containers present (23 Mythos/Coolify/Dar Hijama + Jellyfin, reconciled and explained in §14.1 above), all `Up`/`healthy` except `n8n-n8n-1` and the Notre Jour preview container (both running without a defined healthcheck, as before — not a fault). Zero kernel OOM matches in the last 24h. Protected services: `darhijama.tn` 200, `uthinachess.tn` 200, `notrejour.tn` 200, `n8n.ssangyong.autos` 200, Coolify panel 302. Stack A Redis ×3 still 64MB/16MB, `coolify-redis` still 96MB/24MB, n8n still 3GB, Jellyfin still untouched (`RestartCount=0`) — all reconfirmed live, matching §A above exactly.
+
+**Full detail:** [`docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md`](audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md) (VPS hardening history); this entry is the first record of the Mythos-development-position discrepancy — no prior audit doc covers it.
+
+---
+
 ## IMPLEMENTATION — `coolify-redis` Memory Cap (2026-08-10)
 
 **Type:** Production implementation (mutation). Executed the read-only-confirmed mechanism from the entry below: `mem_limit=96m` / `mem_reservation=24m` applied to `coolify-redis` only, via a new `docker-compose.custom.yml` override — a genuinely upgrade-safe, Coolify-supported mechanism (unlike editing the vendor compose files directly, which is overwritten on every self-update).
