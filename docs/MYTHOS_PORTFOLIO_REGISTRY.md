@@ -29,7 +29,7 @@ A single place for any future session (human or AI) to understand the whole Myth
 | Track | Evidence | Status | Current | Next |
 |---|---|---|---|---|
 | Mythos OS | REPOSITORY_VERIFIED | FOUNDATION | Stage 4AG + RUNTIME-DUPLICATE-CLEANUP-0 complete (corrected 2026-08-10, `MYTHOS-STAGE-RECONCILIATION-0` — this row originally said "Stage 3D complete / Stage 3E next," stale since Stage 3E through 4AG had already been complete since 2026-07-30/2026-08-05) | None currently authorised |
-| Mythos Automation & Operations | REPOSITORY_VERIFIED | FOUNDATION | AUT-0 complete | INF-OVH-API-0 |
+| Mythos Automation & Operations | REPOSITORY_VERIFIED | FOUNDATION | INF-OVH-API-0, INF-CF-AUTO-0, AUT-CONNECTOR-SHARED-HELPERS-0 complete (corrected 2026-08-10 — this row originally said "AUT-0 complete / Next: INF-OVH-API-0," stale since INF-OVH-API-0 completed 2026-08-07) | INF-DNS-AUTO-1 |
 | Mythos Control Center | REPOSITORY_VERIFIED | CONCEPT | — | Not yet assigned a stage |
 | Mythos Personal Intelligence & Skills Platform | REPOSITORY_VERIFIED (branch) | FOUNDATION | MPI-0 complete (PR #4) | MPI-1 |
 
@@ -71,7 +71,7 @@ A single place for any future session (human or AI) to understand the whole Myth
 | Track | Evidence | Status | Current | Next |
 |---|---|---|---|---|
 | Cloudflare Edge Security | REPOSITORY_VERIFIED | FOUNDATION | INF-CF-2-PREP complete | INF-CF-2 (blocked) |
-| OVHcloud / Coolify / n8n / GitHub connectors | **OWNER_DIRECTION** | PLANNED | — | INF-OVH-API-0 |
+| OVHcloud / Coolify / n8n / GitHub connectors | **OWNER_DIRECTION** | PLANNED | INF-OVH-API-0 complete (reference implementation, no live credential, not deployed — corrected 2026-08-10) | Live connector deployment not yet scheduled |
 
 ## 10. Future Portfolio Directions (owner-direction / future-concept only)
 

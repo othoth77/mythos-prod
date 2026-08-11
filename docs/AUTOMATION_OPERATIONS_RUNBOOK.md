@@ -71,7 +71,7 @@ Once `INF-MONITOR-AUTO-0` exists (`docs/AUTOMATION_ROADMAP.md`), Mythos Control 
 
 ## 7. What This Runbook Does Not Cover
 
-- It does not describe how to configure a connector, approval policy, or schedule — that is implementation-stage-specific documentation, to be written when `INF-OVH-API-0` or later stages actually exist.
+- It does not describe how to configure a connector, approval policy, or schedule — that is implementation-stage-specific documentation, to be written once a stage delivers a live-deployable connector. `INF-OVH-API-0` and `INF-CF-AUTO-0` exist as mocked reference implementations only (no live credential, not deployed, not connected to a live provider — corrected 2026-08-10, this line previously implied they didn't exist yet) — live-configuration documentation still doesn't exist because no connector is live-deployable yet, not because the stages haven't happened.
 - It does not grant any operator any capability today — every action described here assumes a fully implemented platform that does not yet exist.
 - It does not authorise any operator to bypass the approval matrix under any circumstance, including incident pressure — see `docs/AUTOMATION_APPROVAL_MATRIX.md` and the Cloudflare rollback-safety precedent it generalises.
 

@@ -18,7 +18,7 @@ The Automation track is a **separate product track**, exactly like Mythos OS run
 
 - Only one major implementation stage may be active at a time across the whole repository, unless the user gives explicit parallel authorisation.
 - **AUT-0 is documentation only** — it does not count as, and does not authorise, a major implementation stage.
-- **INF-OVH-API-0 is the next Automation implementation stage** once explicitly authorised — it is not started by AUT-0.
+- **INF-OVH-API-0 and INF-CF-AUTO-0 are both complete** (reference implementations only — no live credential, not deployed), and **AUT-CONNECTOR-SHARED-HELPERS-0** (shared connector-helper cleanup) is also complete. **INF-DNS-AUTO-1 is the next Automation implementation stage** once explicitly authorised. *(Corrected 2026-08-10: this line originally named INF-OVH-API-0 as "the next Automation implementation stage," stale since it completed 2026-08-07 via PR #7 — see `docs/AUTOMATION_ROADMAP.md`.)*
 - The Automation track does not change the currently authorised implementation-stage priority. As of AUT-0:
   - **Mythos OS Runtime** is complete through Stage 4AG + RUNTIME-DUPLICATE-CLEANUP-0 (corrected 2026-08-10, `MYTHOS-STAGE-RECONCILIATION-0` — this line originally said "Stage 3E remains the next Mythos OS runtime stage," stale since Stage 3E had already been complete since 2026-07-30; see `docs/ROADMAP.md`). No further Mythos OS Runtime stage is currently authorised.
   - **IDA-2** is IN PROGRESS — Phase A (schema + plate validation, no live database) complete 2026-08-10; Phase B not started, requires separate authorization.

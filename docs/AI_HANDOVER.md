@@ -6,6 +6,57 @@
 
 ---
 
+## CORRECTION — INF-OVH-API-0 Staleness Sweep (2026-08-10)
+
+**Type:** Docs-only correction. No feature work, no IDA-2 Phase B, no production/infrastructure mutation, no code file touched.
+
+**No subagents used.** `sudo -u deploy -H bash -lc '...'` for all Git operations.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `ca0722732fac1334e6f7c8bc1fadbc4b10f7b284` (the Stage 3E staleness sweep commit) before this stage began.
+
+### Objective
+
+That prior entry's own "Exact next stage" section named this exact gap: `INF-OVH-API-0` shown as "(next)"/not-started in `docs/RESEARCH_ROADMAP.md`, `docs/PROJECT_STATISTICS.md`, and `docs/MYTHOS_PORTFOLIO_REGISTRY.md`, when it actually completed 2026-08-07 via PR #7, with `INF-DNS-AUTO-1` the real next Automation stage. This stage fixes that, again via a fresh repo-wide sweep rather than only the 3 files already named.
+
+### Verification before editing
+
+- `gh pr view 7`: `MERGED`, `mergedAt: 2026-08-07T23:54:57Z`, merge commit `79fdb12`.
+- `git log --oneline --all | grep -i INF-DNS-AUTO-1`: zero matches — confirmed genuinely not started anywhere.
+
+### Classification (14 files matched "INF-OVH-API-0"; 6 lines across 5 files corrected)
+
+**Corrected — genuinely stale current-state claims:**
+- `docs/AUTOMATION_GOVERNANCE.md` — "INF-OVH-API-0 is the next Automation implementation stage... not started by AUT-0."
+- `docs/MYTHOS_PORTFOLIO_REGISTRY.md` — two rows: the Automation & Operations track summary (`Current: AUT-0 complete` / `Next: INF-OVH-API-0`), and the Infrastructure/OWNER_DIRECTION "OVHcloud/Coolify/n8n/GitHub connectors" row (`Next: INF-OVH-API-0`) — corrected to show it complete (reference implementation, no live credential) with live connector deployment still unscheduled.
+- `docs/RESEARCH_ROADMAP.md` — 3 spots: the RES-1 entry-gate condition-3 row ("PENDING — INF-OVH-API-0 is next" → "OK — completed"), a second entry-gate summary table with the same "PENDING" status, and item 5 of the "Relationship to Current Mythos Priorities" list ("Automation: INF-OVH-API-0 (next)" → "INF-DNS-AUTO-1 (next)"). Left condition 1 of the same entry-gate table (MPI-0 PR merge status, also independently stale) untouched — different, unrelated staleness, out of this stage's INF-OVH-API-0-only scope.
+- `docs/AUTOMATION_OPERATIONS_RUNBOOK.md` — "to be written when INF-OVH-API-0... actually exist[s]" implied the stage hadn't happened; clarified that it exists as a reference implementation, and live-configuration docs still don't exist because no connector is live-deployable yet, not because the stage is unstarted.
+- `docs/PROJECT_STATISTICS.md` — "Planned, not started" list included `INF-OVH-API-0`; replaced with `INF-DNS-AUTO-1` (the actual next not-started Automation stage), count stayed at 6.
+
+Each correction follows the established pattern: states the corrected fact, then an inline note on what the line originally said and why, rather than a silent rewrite.
+
+**Deliberately left alone:**
+- `docs/PROJECT_STATUS.md`, `docs/AUTOMATION_ROADMAP.md` (already correct — both already say INF-OVH-API-0/INF-CF-AUTO-0 complete, INF-DNS-AUTO-1 next), `docs/ROADMAP.md` (already correct).
+- `docs/PROJECT_HISTORY.md` — narrative history, past-tense ("was recorded as the next Automation implementation stage"), same class as its Stage 3E sentence last time. Not edited.
+- `docs/DEVELOPMENT_WORKFLOW.md` — `> "Start INF-OVH-API-0 according to Mythos workflow."`, an illustrative example, same class as its Stage 3E example last time. Not edited.
+- `docs/DEVELOPMENT_STAGE_TEMPLATES.md` — lists `INF-OVH-API-0` as the *example* stage for the `CONNECTOR_STAGE` template type (alongside `IDA-2` for `DATABASE_STAGE`, `Stage 3D/3E` for `RUNTIME_STAGE`) — categorization, not a status claim. Not edited.
+- `docs/CHANGELOG.md` — a changelog entry recording the connector's addition — inherently historical, already correctly documents completion. Not edited.
+- `docs/AUTOMATION_ARCHITECTURE.md`, `docs/AUTOMATION_GOVERNANCE.md`'s other two mentions, `docs/MYTHOS_CONTROL_CENTER_PRODUCT_SPEC.md` — describe the architecture/governance/product-spec's own scope or a genuinely-still-future capability ("once INF-DNS-AUTO-1 exists"), not current-status claims about INF-OVH-API-0 itself. Not edited.
+- `docs/history/DAILY_HISTORY.md`, deep historical sections of `docs/AI_HANDOVER.md` itself (its own past dated entries) — already-correct historical record of what was true at each entry's own time; per both files' established append-only handling in this project, not edited.
+
+### Validation
+
+- `git diff --name-only` confirmed docs-only (5 files, all under `docs/`) — no code file touched.
+- `node tests/ida-2a-schema-and-plate-validation-test.js`: **44/44 passed** (sanity re-run; no code changed, no regression expected, verified rather than assumed).
+- `git diff --check`: clean.
+- Secret scan of the diff: clean.
+- No production/infrastructure mutation — no `sudo -n` system command was run.
+
+### Exact next stage
+
+Unchanged: `IDA-2 Phase B` and `INF-DNS-AUTO-1` remain the two real, not-yet-authorized next candidates (ID Auto and Automation tracks respectively). No further known staleness sweep is queued — if another is found, it should follow this same pattern: fresh repo-wide grep, classify every match, fix only genuine current-state claims, leave historical/illustrative/definitional text alone.
+
+---
+
 ## CORRECTION — Stage 3E Staleness Sweep (2026-08-10)
 
 **Type:** Docs-only correction. No feature work, no IDA-2 Phase B, no production/infrastructure mutation, no code file touched.

@@ -40,7 +40,7 @@ Runtime Research implementation (RES-1) must NOT start until ALL of the followin
 |---|-----------|---------------|
 | 1 | MPI-0 PR #4 (`feat/mythos-personal-intelligence`) has been merged to `main` | PENDING — PR #4 is OPEN / DRAFT |
 | 2 | Current GitHub `main` is clean (no unmerged conflicting work) | OK |
-| 3 | INF-OVH-API-0 has been completed OR owner explicitly re-prioritises | PENDING — INF-OVH-API-0 is next |
+| 3 | INF-OVH-API-0 has been completed OR owner explicitly re-prioritises | OK — INF-OVH-API-0 completed 2026-08-07 (PR #7, reference implementation) — corrected 2026-08-10, was stale |
 | 4 | No other major implementation stage is active | Must verify at RES-1 time |
 | 5 | Owner explicitly authorises RES-1 | PENDING |
 | 6 | VPS/Coolify capacity has been checked | Must verify at RES-1 time |
@@ -250,7 +250,7 @@ RES-1 Entry Gate
 |------|--------|
 | RES-0 Foundation | ✓ Complete (docs only) |
 | MPI-0 PR #4 | PENDING MERGE (Draft PR) |
-| INF-OVH-API-0 | PENDING — next Automation stage |
+| INF-OVH-API-0 | ✓ Complete (2026-08-07, PR #7, reference implementation) — corrected 2026-08-10, was stale |
 | RES-1 Entry Gate | ◇ NOT SATISFIED |
 | RES-1 | ◇ NOT AUTHORISED |
 | RES-2 through RES-6 | ◇ NOT AUTHORISED |
@@ -267,7 +267,7 @@ Research Intelligence is a platform capability that does not alter the current p
 2. ID Auto: IDA-2 (Phase A complete 2026-08-10; Phase B not started)
 3. Atelier Network: ATN-1
 4. AutoValeur: AVA-1
-5. Automation: INF-OVH-API-0 (next)
+5. Automation: INF-DNS-AUTO-1 (next; INF-OVH-API-0 and INF-CF-AUTO-0 complete — corrected 2026-08-10, was stale)
 6. Research Intelligence: RES-0 complete — **RES-1 NOT AUTHORISED**
 
 Research Intelligence implementation is deferred until its entry gate is satisfied and no other major implementation stage is active.
