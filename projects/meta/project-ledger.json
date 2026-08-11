@@ -139,14 +139,17 @@
       "track": "id-auto",
       "stage_id": "IDA-2H",
       "title": "Review queue UI",
-      "status": "PLANNED",
+      "status": "DONE",
       "type": "RUNTIME",
-      "starting_head": null,
-      "implementation_commit": null,
+      "starting_head": "a6827dcaea6beee64314fe2635bd64e7d0feaf07",
+      "implementation_commit": "a431a01a44df57801cbf9dab3af29a1dd854b89f",
       "merge_commit": null,
       "handover_commit": null,
-      "completed_at": null,
-      "tests": {},
+      "completed_at": "2026-08-11",
+      "tests": {
+        "ida-2h": "29/29 twice",
+        "ida-2g/2a/2c/2d/2f regressions": "153/153"
+      },
       "blockers": [],
       "next_stage": "IDA-2I (NOT STARTED)",
       "evidence_paths": [

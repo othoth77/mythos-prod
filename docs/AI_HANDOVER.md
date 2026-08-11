@@ -1,8 +1,38 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-11 UTC
-**From:** Stage IDA-2G — Admin Manual Entry UI (implemented and pushed)
+**From:** Stage IDA-2H — Review Queue UI (implemented and pushed)
 **To:** Next AI session
+
+---
+
+## IMPLEMENTATION — IDA-2H: Review Queue UI (2026-08-11)
+
+**Status:** Implemented, validated, committed, pushed, and verified on `origin/main`. Implementation commit: `a431a01a44df57801cbf9dab3af29a1dd854b89f`.
+
+**Metadata blockers resolved before implementation:** Starting remote HEAD was `4d4612527bc665a56f22835b67ca191be38a94c7`. Stage Runner first returned `UNKNOWN_STAGE`; the minimal IDA-2H ledger registration was validated and pushed as `242dcef04cc51b5ec3cee044a2ceae9a1afdf1a3`. The next preflight correctly found `DEPENDENCY_UNSATISFIED` because the already-pushed IDA-2G stage was still marked `PLANNED`; its ledger record was reconciled solely from verified Git/handover evidence and pushed as `a6827dcaea6beee64314fe2635bd64e7d0feaf07`. From that clean baseline, IDA-2H returned `eligible: true`, STANDARD risk, and no blockers.
+
+**Objective:** Add the private admin review queue for `pending_review` and `pending_confirmation` observations, safe detail views, and explicit audited Accept/Reject decisions. No real auth, public ingestion, rate limiting, IDA-3 work, schema change, deployment, or unrelated production mutation was included.
+
+**Changed implementation files:**
+- `projects/idauto/reference/review.html` — private admin review page with explicit loading, empty, error, detail, Accept, and Reject states.
+- `projects/idauto/reference/review-ui.js` — same-origin queue/detail/decision client; token remains in page memory only; actions disable while a decision is in flight.
+- `projects/idauto/reference/admin.css` — bounded responsive styles for the review page, preserving the IDA-2G visual surface.
+- `projects/idauto/reference/api.js` — protected queue/detail routes, review assets under `/admin/review`, and one minimal decision route. Detail SQL excludes `mythos_private` facts/media and never selects `object_key` or raw storage paths.
+- `projects/idauto/reference/writes.js` — transaction-locked observation review mutation using the existing `withAudit()` boundary. Actual status changes and their audit rows commit or roll back together; repeated identical decisions are verified no-ops with no duplicate audit, while reversed/non-pending decisions fail with 409.
+- `tests/ida-2h-review-queue-ui-test.js` — live per-run-unique review UI/API suite.
+
+**Security and compatibility guarantees:** Every review API remains behind the existing IDA-2E-PRE identity stub. Audit `actor_ref` is the resolved identity and never the bearer token. Tokens are not written to localStorage, sessionStorage, cookies, audit data, source, or response content. The review shell preserves the existing same-origin CSP, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`. Private facts and media remain query-filtered; media responses contain allowed metadata only, with no object-storage key/path. Existing IDA-2C/2D/2F/2G routes and response behavior remain compatible.
+
+**Validation:** Syntax checks passed for `api.js`, `writes.js`, `review-ui.js`, and the new test. The targeted IDA-2H suite passed **29/29 twice consecutively** against the persistent synthetic database. Its coverage proves queue filtering, safe details, unauthorized blocking, Accept and Reject with atomic audit rows, identity attribution, repeated-decision idempotency, private fact/media exclusion, no raw storage reference, and invalid/nonexistent/non-pending targets producing no phantom audit rows. Final required regressions passed: IDA-2G **16/16**, IDA-2A **44/44**, IDA-2C **24/24**, IDA-2D **38/38**, IDA-2F **31/31** — **182/182** assertions in the final combined run. Metadata validation passed 0 errors/0 warnings plus governance **36/36** and DEVX **45/45**. No repository-wide suite was required: Stage Runner close classified the six implementation files as STANDARD risk with no blockers, and no shared `js/`, root `index.html`, schema, deployment, or high-risk path changed.
+
+**Self-caught issues/fixes:** No implementation defect was found after the first targeted run. Two pre-implementation metadata blockers were surfaced and resolved separately as described above; implementation did not begin until eligibility was clean. The new suite used timestamp-plus-random per-run fixtures from its first version and passed twice against the persistent database.
+
+**Production safety/state:** Preflight showed the expected 25 containers, healthy `idauto-postgres` with `RestartCount=0` and unchanged 384MiB/96MiB caps, 2.9GiB available RAM, 215MiB free swap, and 31GiB disk. No application deployment or data migration occurred; live database/media writes were synthetic test fixtures only. Jellyfin and unrelated services were untouched.
+
+**Unresolved risks:** Full IDA-2E real Mythos auth remains blocked as previously documented; the review UI uses the explicit identity stub. IDA-2I rate limiting remains unimplemented and may still be better aligned with IDA-3 public ingestion, as previously noted. The review queue currently derives from the two observation pending statuses; it does not add broader fact/document/contributor review workflows.
+
+**Exact next stage:** IDA-2I — rate limiting (not started; requires separate authorization and scope confirmation).
 
 ---
 

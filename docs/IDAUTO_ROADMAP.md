@@ -124,10 +124,12 @@ Requested scope was "real Mythos OS auth/identity integration," replacing the pl
 - **Session note, not a code change**: this stage's test run first failed with `EACCES` when executed as the `ubuntu` shell user against the `deploy`-owned, `750`-permission media directory — a real filesystem permission boundary, not a code bug. Re-run correctly via `sudo -u deploy` thereafter (matching how every Git operation in this project already runs) resolved it. Recorded here since it's a genuine operational gotcha for whoever runs these tests next: DB-only test suites (IDA-2C/2D) don't hit this, since Postgres access isn't gated by Unix file permissions — but any test touching the local filesystem storage must run as `deploy`.
 - Full implementation record and safety verification: see `docs/AI_HANDOVER.md`'s IDA-2F entry.
 
+**Phase B UI slices completed:**
+- `IDA-2G` — Admin manual entry UI — **✓ COMPLETE (2026-08-11)**. See `docs/AI_HANDOVER.md` for the implementation and validation record.
+- `IDA-2H` — Review queue UI — **✓ COMPLETE (2026-08-11)**. See `docs/AI_HANDOVER.md` for the implementation and validation record.
+
 **Remaining Phase B slices — not started, each requires separate explicit authorization:**
 - `IDA-2E` full (real Mythos OS auth service integration) — **BLOCKED**, see above; would require a separate, much larger stage to first build a real Mythos identity service, which is out of ID Auto's own scope
-- `IDA-2G` — Admin manual entry UI
-- `IDA-2H` — Review queue UI
 - `IDA-2I` — Rate limiting backed by `idauto_verifications` (lowest urgency — no public endpoint exists yet in Phase B; may be better scoped into IDA-3 instead, per the slice plan's open question)
 - Remaining automated tests toward the 50+ total (44 delivered in Phase A + correction; each slice above adds its own tests, not a separate catch-up stage)
 
