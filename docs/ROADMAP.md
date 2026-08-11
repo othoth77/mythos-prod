@@ -64,51 +64,50 @@ Fleet Pro:  requires IDA-2 + ATN-1 + Legal clearance
 | 3B | Contacts Runtime | ✓ Done |
 | 3C | Notes Runtime | ✓ Done |
 | 3D | Planning Runtime — onBoot validation, MythosSearch + MythosCalendar providers | ✓ Done (2026-07-30) |
+| 3E | Calendar Runtime — `js/plugins/calendar.runtime.js` | ✓ Done (2026-07-30, commit `0194937`) |
+| 3F | Dashboard Runtime — `js/plugins/dashboard.runtime.js` | ✓ Done (2026-07-30, commit `d10081e`) |
+| 3G | Production Runtime — `js/plugins/production.runtime.js` (30 routes, 19 storage keys) | ✓ Done (2026-07-30, commit `e2f1953`, 125/125 tests per commit message) |
+| 3H | Runtime architecture consolidation | ✓ Done (2026-07-30, commit `511805a`) |
+| 4A–4AG | Shared Module Extraction — 33 sub-stages moving domains out of `js/app.js` into `js/shared/`/`js/core/` (storage, sync, router, calendar/dashboard rendering, tasks/notes/contacts/clients/collaborateurs/fournisseurs/representations/contracts/mission-orders/invoices/RDVs/devis/bank+cash entries/purchases/expenses/financial reports/accounting/modal helpers/statistics/camera/documentation/backup-export-restore/spectacle calculator/inscriptions-appels/invoice+OM duplicate cleanup) | ✓ Done (2026-08-01 to 2026-08-05, commits `09b808e`..`ebe42f9`; full per-stage detail in `docs/AI_HANDOVER.md`) |
+| RUNTIME-DUPLICATE-CLEANUP-0 | Canonical Runtime Function Ownership + Stage 4Z repair — resolved the `stableLineCount` collision, removed `editInvoice`/`deleteInvoice` duplicates from `app.js` | ✓ Done (2026-08-08, merged PR #9, commit `9f5813d5`) |
+
+> **Correction (MYTHOS-STAGE-RECONCILIATION-0, 2026-08-10):** this table, the "In Progress"/"Upcoming Stages" sections below, and the "Current Priority" section had stated "Stage 3E is next" since this document's creation. That was stale from the start — Stages 3E through 4AG plus RUNTIME-DUPLICATE-CLEANUP-0 were already committed to `main` (2026-07-30 through 2026-08-08) without this document ever being updated to reflect it, even though `docs/AI_HANDOVER.md` independently and correctly recorded each of these stages in full at the time. See the CHECKPOINT-RECOVERY-0 and MYTHOS-STAGE-RECONCILIATION-0 entries in `docs/AI_HANDOVER.md` for the full evidence trail (git commit ancestry, file-tree verification). This correction updates only the stage-position claim; it does not re-litigate or re-verify the underlying implementation work itself.
 
 ---
 
 ### In Progress
 
-*None. Stage 3E is next.*
+*None. Mythos OS Runtime is complete through Stage 4AG + RUNTIME-DUPLICATE-CLEANUP-0 (see table above). No further Mythos OS Runtime stage is currently authorized or in progress.*
 
 ---
 
-### Upcoming Stages (in dependency order)
+### Remaining Known Open Items (Mythos OS Runtime, not currently scheduled)
 
-### Stage 3E — Calendar Runtime
-**Depends on:** 3B, 3C, 3D (wiring all providers)  
-**Deliverable:** `js/plugins/calendar.runtime.js`  
-**Replaces:** `js/plugins/calendar.plugin.js`  
-**Test file:** `tests/stage3e-test.js`
-
-### Stage 3F — Dashboard Runtime
-**Depends on:** 3B–3E (consumes all providers)  
-**Deliverable:** `js/plugins/dashboard.runtime.js`  
-**Replaces:** `js/plugins/dashboard.plugin.js`  
-**Test file:** `tests/stage3f-test.js`
-
-### Stage 3G — Production Runtime
-**Depends on:** 3B–3F (all services established)  
-**Deliverable:** `js/plugins/production.runtime.js`  
-**Replaces:** `js/plugins/production.plugin.js`  
-**Test file:** `tests/stage3g-test.js`  
-**Risk:** HIGH — production plugin has 30 routes and 19 storage keys.
+Per `docs/AI_HANDOVER.md`'s Stage 4AG entry, these were explicitly deferred rather than resolved — none are authorized as a "next stage":
+- `js/app-fresh.js` — unreferenced dead file (confirmed still present), candidate for a separate deletion stage.
+- `removePersonRow` in `app.js` — orphaned (its callers were deleted in Stage 4AG); needs a caller audit before removal.
+- Invoice `addLine()` UI stub bug (alerts "Fonctionnalité en développement") — pre-existing, not yet fixed.
+- "Logs + Sidebar + Sync" (~210 lines of `app.js`) — lower-risk, unextracted.
+- `STORE` + utilities, app initialization, demo data initialization — explicitly marked high-risk, deliberately not attempted.
 
 ---
 
-### Future Stages (post-3G)
+### Future Stages (originally planned post-3G, largely superseded by the actual 4A–4AG execution above)
 
-### Stage 4 — Shared Module Extraction
-Move generic modules out of app.js into `js/shared/`:
-1. `shared/tasks.js` — rename from taches.js
-2. `shared/planning.js` — rename from rappels.js
-3. `shared/notes.js` — rename from redaction.js
-4. `shared/contacts.js` — extract from app.js lines 3071–4413
-5. `shared/calendar.js` — extract from app.js lines 8600–8841
-6. `shared/dashboard.js` — extract from app.js lines 700–975
+### Stage 5 — Production Module Extraction
+Move production-specific domains out of app.js into `js/prod/`:
+1. `prod/clients.js`, `prod/collaborators.js` (simple CRUD)
+2. `prod/equipment.js` (vehicles)
+3. `prod/mission-orders.js`
+4. `prod/invoices.js`
+5. `prod/accounting.js` (largest, extract last)
 
-**Known blocked items (requires dedicated stage):**
-- ~~`stableLineCount` collision: `mission-orders.js:28` (`let stableLineCount`) prevents `invoices.js` from loading.~~ **RESOLVED in RUNTIME-DUPLICATE-CLEANUP-0** (2026-08-08): removed the stray, unused `let stableLineCount = 0;` from `mission-orders.js:28`; `invoices.js` now loads correctly. `editInvoice`/`deleteInvoice` removed from `app.js`, canonical in `invoices.js`. `populateInvoiceList` intentionally left in `app.js` -- not named in this stage's scope, and its only caller (the already-dead `navigateTo('invoices')` path in `js/core/router.js`) is unreachable from the live UI; touching `router.js` was not authorized for this stage.
+**Note:** most of these domains were, in practice, already extracted as part of the actual 4A–4AG sequence above (e.g. `js/shared/clients.js`, `js/shared/collaborateurs.js`, `js/shared/mission-orders.js`, `js/shared/invoices.js`, `js/shared/contracts.js` all exist). Whether a distinct "Stage 5" is still meaningful, or whether the remaining open items above are better scoped as their own small stages, has not been decided — not evaluated as part of this reconciliation (would require re-deriving actual `js/app.js` remaining line count/content, out of scope here).
+
+### Stage 6 — Directory Reorganisation
+Rename files to match target hierarchy. Update all `<script src>` tags.
+
+---
 
 ### Stage 5 — Production Module Extraction
 Move production-specific domains out of app.js into `js/prod/`:
@@ -125,8 +124,8 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 
 ## Current Priority
 
-1. **Mythos OS:** Stage 3E (next) → 3F → 3G (runtime plugins) — Stage 3D complete; Stage 3G is HIGH risk (30 routes, 19 storage keys); must have its own deployment window separate from IDA-2
-2. **ID Auto:** IDA-2 — PostgreSQL Core, API and Manual Capture MVP — NEXT AUTHORISED IMPLEMENTATION STAGE (after Stage 3D–3F)
+1. **Mythos OS:** Complete through Stage 4AG + RUNTIME-DUPLICATE-CLEANUP-0 (corrected 2026-08-10, see note above) — no further Mythos OS Runtime stage is currently authorized; remaining known open items are listed above and are not scheduled.
+2. **ID Auto:** IDA-2 — PostgreSQL Core, API and Manual Capture MVP — NEXT AUTHORISED IMPLEMENTATION STAGE
 3. **Atelier Network:** ATN-1 — Workshop Registry + First Integration (after IDA-2)
 4. **AutoValeur:** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster)
 5. **Ecosystem (parallel — docs only):** MAE-0 + ATN-0 complete; MAE-1 not started (blocked on IDA-2)
@@ -164,7 +163,7 @@ See `docs/CLOUDFLARE_ARCHITECTURE.md` for the approved architecture and `docs/CL
 
 Mythos Automation & Operations (`mythos_automation`) is the shared platform capability behind **Mythos Control Center**, the operator-facing console for Mythos products, infrastructure, connectors, automation runs, approvals, incidents, backups, deployments, and service health. Governing principle: **Automation First** — every safe, repeatable and measurable operation should eventually be automated, automation must not remove governance, and high-risk actions remain automated in preparation and validation but require explicit human approval before execution.
 
-**The Automation track does not change the currently authorised implementation-stage priority.** Stage 3E remains the next Mythos OS runtime stage; IDA-2 remains the next authorised Automotive implementation stage; INF-CF-2 remains blocked and not started. AUT-0 is documentation only.
+**The Automation track does not change the currently authorised implementation-stage priority.** *(Historical note, as originally written: this line said "Stage 3E remains the next Mythos OS runtime stage" — corrected 2026-08-10 by MYTHOS-STAGE-RECONCILIATION-0; Mythos OS Runtime was in fact already complete through Stage 4AG by the time this Automation-track entry was written. See the correction note under "Mythos OS — Core Platform Stages" above.)* IDA-2 remains the next authorised Automotive implementation stage; INF-CF-2 remains blocked and not started. AUT-0 is documentation only.
 
 | Stage | Description | Status |
 |---|---|---|
@@ -234,7 +233,7 @@ Free-first provider order: cache → internal authoritative data → official so
 
 Mythos Personal Intelligence & Skills Platform (`mythos_intelligence`) is the shared, per-user, per-organisation, per-profession AI personalisation architecture behind every Mythos chatbot instance. Strategic principle: **"Shared capabilities, isolated intelligence."** One shared platform — never a copied chatbot per customer — personalised through layered context (Global Intelligence → Domain → Organisation → User → Session), controlled memory/learning, and permission-gated skill execution.
 
-**Developed on branch `feat/mythos-personal-intelligence`, merged to `main` via PR #4 (merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`, 2026-08-07).** The Personal Intelligence track does not change the currently authorised implementation-stage priority. Stage 3E remains the next Mythos OS runtime stage; IDA-2 remains the next authorised Automotive implementation stage; INF-CF-2 remains blocked; INF-OVH-API-0 and INF-CF-AUTO-0 are both complete as reference implementations (no live credential, not deployed) and INF-DNS-AUTO-1 is now the next Automation implementation stage, NOT STARTED. MPI-0 and MPI-0-FINALIZATION are documentation, contracts, an illustrative reference implementation, project-intelligence governance tooling, and tests only — no production runtime, no database deployed, no external provider access.
+**Developed on branch `feat/mythos-personal-intelligence`, merged to `main` via PR #4 (merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`, 2026-08-07).** The Personal Intelligence track does not change the currently authorised implementation-stage priority. *(Historical note, as originally written: this line said "Stage 3E remains the next Mythos OS runtime stage" — corrected 2026-08-10 by MYTHOS-STAGE-RECONCILIATION-0; Mythos OS Runtime was in fact already complete through Stage 4AG by 2026-08-07. See the correction note under "Mythos OS — Core Platform Stages" above.)* IDA-2 remains the next authorised Automotive implementation stage; INF-CF-2 remains blocked; INF-OVH-API-0 and INF-CF-AUTO-0 are both complete as reference implementations (no live credential, not deployed) and INF-DNS-AUTO-1 is now the next Automation implementation stage, NOT STARTED. MPI-0 and MPI-0-FINALIZATION are documentation, contracts, an illustrative reference implementation, project-intelligence governance tooling, and tests only — no production runtime, no database deployed, no external provider access.
 
 | Stage | Description | Status |
 |---|---|---|

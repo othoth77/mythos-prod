@@ -220,4 +220,16 @@
 
 ## Corrections and Amendments
 
-None recorded yet. Future corrections to a previously recorded day must be added here as a dated amendment (`## Amendment — <date> — corrects <original date> entry`), not by silently editing the original entry's facts.
+## Amendment — 2026-08-10 — corrects every prior entry's "Stage 3E ... NOT STARTED" claim (2026-07-29 through 2026-08-08 entries)
+
+**What was wrong:** every entry above in this file, from the earliest through the AUT-CONNECTOR-SHARED-HELPERS-0 entry (end-of-day HEAD `bf95988b...`), states that "Stage 3E" (and by extension 3F/3G) is "NOT STARTED." This was **stale from the very first entry that made the claim** — not a regression introduced later.
+
+**What was actually true (reconstructed from Git history, MYTHOS-STAGE-RECONCILIATION-0, 2026-08-10):** Stage 3E (Calendar Runtime), Stage 3F (Dashboard Runtime), Stage 3G (Production Runtime), Stage 3H (runtime architecture consolidation), and a further 33-sub-stage extraction sequence (Stage 4A through Stage 4AG) were all committed directly to `main` between **2026-07-29 and 2026-08-05** — commit range `5646f48`..`ebe42f9`, all independently confirmed as ancestors of current `origin/main` via `git merge-base --is-ancestor`. `RUNTIME-DUPLICATE-CLEANUP-0` (merged 2026-08-08, PR #9, commit `9f5813d5`) subsequently resolved Stage 4AG's one explicitly-deferred blocked item (the `stableLineCount` collision blocking `editInvoice`/`deleteInvoice` extraction).
+
+**Why this file never caught it:** `docs/AI_HANDOVER.md` independently and correctly recorded each of these stages in full detail at the time (see its Stage 4AG, Stage 4AF, etc. sections) — the gap was specifically in this file (`DAILY_HISTORY.md`) and in `docs/ROADMAP.md`/`docs/PROJECT_STATUS.md`'s top-level "current stage" summaries, which were never updated to match. `docs/AI_HANDOVER.md` itself records an explicit contemporaneous admission of a related gap: *"docs/AI_HANDOVER.md was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file."* Each subsequent daily entry in this file then carried the same stale "Stage 3E NOT STARTED" sentence forward as unchanged boilerplate, across entries for unrelated tracks (INF-OVH-API-0, RES-0, MPI-0, INF-CF-AUTO-0, RUNTIME-DUPLICATE-CLEANUP-0, AUT-CONNECTOR-SHARED-HELPERS-0), without anyone cross-checking it against the actual file tree or commit log.
+
+**Per this file's own append-only policy, no entry above has been edited.** Read every "Stage 3E ... NOT STARTED" statement in the entries above as **the belief recorded at the time, now known to have been incorrect from the outset** — not as an accurate historical record of Mythos OS Runtime's actual state on those dates.
+
+**Corrected current state (as of 2026-08-10):** Mythos OS Runtime is complete through Stage 4AG + RUNTIME-DUPLICATE-CLEANUP-0. No further Mythos OS Runtime stage is currently authorized. See `docs/ROADMAP.md` (corrected same day) and `docs/AI_HANDOVER.md`'s MYTHOS-STAGE-RECONCILIATION-0 entry for the full evidence trail and remaining known open items.
+
+None further recorded. Future corrections to a previously recorded day must be added here as a dated amendment (`## Amendment — <date> — corrects <original date> entry`), not by silently editing the original entry's facts.

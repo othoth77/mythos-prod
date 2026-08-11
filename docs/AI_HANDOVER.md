@@ -6,6 +6,64 @@
 
 ---
 
+## RECONCILIATION — MYTHOS-STAGE-RECONCILIATION-0 (2026-08-10)
+
+**Type:** Read-only investigation followed by a targeted documentation correction. No Mythos implementation stage started or advanced. No production mutation. No new feature implementation.
+
+**No subagents used.** `sudo -u deploy -H bash -lc '...'` for all Git operations (this stage touched no system/Docker/root state).
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `9c3b5ea29c79038ad48774362fb578b1cb6fa164` before this stage began (matches the SHA specified in the task).
+
+### Objective
+
+CHECKPOINT-RECOVERY-0 (previous entry below) found that `docs/ROADMAP.md`/`docs/PROJECT_STATUS.md`/`docs/history/DAILY_HISTORY.md` claimed "Stage 3E is next," contradicted by Git evidence that Stage 3E was already merged. This stage reconstructed the true stage boundary and corrected the documentation.
+
+### Evidence (git log / merge-base, not inferred from docs)
+
+Single targeted query (`git log --diff-filter=A --name-only -- 'tests/stage*-test.js'`) reconstructed the full creation-commit list for every stage test file in one pass — 48 stage test files total, `tests/stage1b-test.js` (earliest, `5646f48`, 2026-07-29) through `tests/stage4ag-test.js` (latest numbered, `ebe42f9`, 2026-08-05). Ancestry spot-checked at the chain boundaries (`5646f48`, `251f3cb`, `9a06d52`, `c39d2bc`, `511805a`, `ebe42f9`, `9f5813d`) via `git merge-base --is-ancestor <sha> origin/main` — **all confirmed ancestors**, and the commit range between them is a single-author (`Othman Haddad`), non-merge-commit, strictly sequential chain (no branch interleaving), so the full range is treated as confirmed.
+
+| Stage(s) | Commit(s) | Date | Ancestor of `origin/main`? | Status |
+|---|---|---|---|---|
+| 1B, 1C-P1, 2A–2D | `5646f48`..`cde6818` | 2026-07-29/30 | YES | COMPLETE (already correctly listed in `docs/ROADMAP.md`'s "Completed Stages" table) |
+| 3A, 3A.5, 3B, 3C, 3D | `89c9961`..`4bf873b` | 2026-07-30 | YES | COMPLETE (already correctly listed) |
+| **3E — Calendar Runtime** | `0194937` | 2026-07-30 | YES | **COMPLETE** — was listed as "next"/"NOT STARTED" everywhere; corrected this stage |
+| **3F — Dashboard Runtime** | `d10081e` | 2026-07-30 | YES | **COMPLETE** — same correction |
+| **3G — Production Runtime** | `e2f1953` | 2026-07-30 | YES | **COMPLETE** — same correction; commit message states 125/125 tests (not independently re-executed by this stage) |
+| 3H — runtime architecture consolidation | `511805a` | 2026-07-30 | YES | COMPLETE — not previously named in `docs/ROADMAP.md` at all; added |
+| 4A–4AG (33 sub-stages) | `09b808e`..`ebe42f9` | 2026-08-01 to 2026-08-05 | YES | COMPLETE — each individually documented in `docs/AI_HANDOVER.md`'s deep history (e.g. the Stage 4AG section, line ~1694), but never reflected in `docs/ROADMAP.md`'s top-level tables or `docs/PROJECT_STATUS.md` |
+| RUNTIME-DUPLICATE-CLEANUP-0 | merge `9f5813d5` (PR #9) | 2026-08-08 | YES | COMPLETE — resolves Stage 4AG's one explicitly-deferred blocked item (`stableLineCount` collision; `editInvoice`/`deleteInvoice` now canonical only in `js/shared/invoices.js`, confirmed absent from `js/app.js` this session) |
+| `RUNTIME-COLLISION-GUARD-0` | — | — | N/A | **Confirmed not to exist anywhere in this repository** (per CHECKPOINT-RECOVERY-0's search, re-confirmed) |
+
+**Root cause (now confirmed, not just hypothesized):** `docs/AI_HANDOVER.md` itself records, inside its own Stage 4AF section: *"docs/AI_HANDOVER.md was stale — last edited for Stage 3C (893 tests). Stages 3D–3H were committed between then and Stage 4A without updating this file."* Stage 4A onward **was** then documented in `docs/AI_HANDOVER.md` (each stage has its own full section), but `docs/ROADMAP.md`'s "Completed Stages" table, "In Progress"/"Upcoming Stages" sections, and `docs/PROJECT_STATUS.md`'s Platform Tracks table were never updated to match — and every later dated entry in `docs/AI_HANDOVER.md`/`docs/history/DAILY_HISTORY.md` (for unrelated tracks: INF-OVH-API-0, RES-0, MPI-0, INF-CF-AUTO-0, RUNTIME-DUPLICATE-CLEANUP-0, AUT-CONNECTOR-SHARED-HELPERS-0) carried forward the same stale "Stage 3E ... NOT STARTED" boilerplate sentence unchanged. Independently confirmed a third way: `docs/ROADMAP.md`'s own "Stage 4" section already referenced RUNTIME-DUPLICATE-CLEANUP-0's 2026-08-08 fix, while its "In Progress" section 30 lines above still said "Stage 3E is next" — an internal self-contradiction within the same document, present before this session touched it.
+
+### Step 3 answers
+
+1. **Latest fully completed Mythos Runtime stage:** RUNTIME-DUPLICATE-CLEANUP-0 (2026-08-08), building on Stage 4AG (2026-08-05) — the true current boundary.
+2. **Incomplete Stage 4 items:** yes — per Stage 4AG's own documented "remaining responsibilities" table, still open: `js/app-fresh.js` (dead file, confirmed still present this session), `removePersonRow` (orphaned, needs caller audit), invoice `addLine()` UI stub bug (confirmed not fixed), "Logs + Sidebar + Sync" (~210 lines, unextracted). None of these have ever been authorized as a scheduled next stage.
+3. **Is RUNTIME-DUPLICATE-CLEANUP-0 later than the numbered Stage 4 work?** Yes — confirmed via the commit-date-ordered log; it merged after Stage 4AG and after most other tracks' foundation stages (IDA-0, MAE-0, ATN-0, AVA-0, INF-CF-0, AUT-0, MPI-0, RES-0, DEVX-0, INF-OVH-API-0, INF-CF-AUTO-0), though before AUT-CONNECTOR-SHARED-HELPERS-0.
+4. **Real implementation work remaining after it:** the four deferred items in #2 above; no formally scheduled "next Mythos OS Runtime stage" exists in any authoritative doc.
+5. **Which documented future stages are real and not started:** `INF-DEPLOY-AUTO-0` (real, `docs/ROADMAP.md` "Planned"), `IDA-2` (real, next authorized Automotive stage per `docs/PROJECT_STATUS.md`, unaffected by this correction), `INF-DNS-AUTO-1` (real, next Automation stage, "Planned"/NOT STARTED). No others discovered beyond what was already correctly documented for those tracks.
+
+### Documentation corrected (facts only, no history rewritten)
+
+- **`docs/ROADMAP.md`:** "Completed Stages" table extended with 3E/3F/3G/3H and a summary row for 4A–4AG + RUNTIME-DUPLICATE-CLEANUP-0 (with commit SHAs); "In Progress"/"Upcoming Stages" sections corrected; new "Remaining Known Open Items" section added (the 4 deferred items above); "Current Priority" item 1 corrected; two other boilerplate "Stage 3E remains next" sentences (under the Automation and Personal Intelligence track sections) annotated in place as historical-note corrections rather than silently rewritten, since they're timestamped statements attached to specific historical stage completions.
+- **`docs/PROJECT_STATUS.md`:** Mythos OS Runtime row in the Platform Tracks table corrected; the "Owner-Selected Next Execution Priority" paragraph's stale "Stage 3E" mention corrected with an inline note.
+- **`docs/history/DAILY_HISTORY.md`:** **no existing entry edited** (append-only policy respected) — a new dated amendment added under "Corrections and Amendments" explaining the systemic staleness across every prior entry and pointing to the corrected current state.
+- **`projects/meta/current-context.json`:** left unmodified — its schema doesn't track a per-track "next stage" claim, so it contained nothing factually wrong about Mythos OS Runtime to correct. (Noted separately, not corrected here as out of this stage's evidence scope: its `last_completed_stage.stage_id` says `RES-0` despite `main_head` already citing `bf95988...`, which is AUT-CONNECTOR-SHARED-HELPERS-0's later merge commit — a minor, unrelated staleness worth a future look.)
+
+### Validation
+
+- `git diff --check`: clean.
+- Secret scan of the diff: clean (no credential/token/password values; only doc prose).
+- `current-context.json` unmodified — JSON validity reconfirmed unchanged (`node -e "JSON.parse(require('fs').readFileSync('projects/meta/current-context.json'))"`).
+- No test suite run — this stage corrects documentation only; it does not assert new test results, and the commit-message-cited test counts (83/83, 91/91, 125/125, etc.) are explicitly labeled as cited-not-re-executed throughout, per the requirement to mark anything not directly verified.
+
+### Next recommended action
+
+No Mythos implementation stage is authorized by this reconciliation. The true next candidates, in the order the corrected `docs/ROADMAP.md` now presents them: `IDA-2` (next authorized Automotive stage) or `INF-DNS-AUTO-1` (next Automation stage) — both unaffected by this correction, both still require explicit owner authorization before starting, per the one-major-stage rule. Any of the four deferred Mythos OS Runtime items (`js/app-fresh.js` cleanup, `removePersonRow` audit, invoice `addLine()` bug fix, Logs/Sidebar/Sync extraction) would need to be freshly scoped and authorized as their own stage — none is currently queued.
+
+---
+
 ## CHECKPOINT — CHECKPOINT-RECOVERY-0 (2026-08-10)
 
 **Type:** Read-only recovery checkpoint after the VPS/OOM hardening work. No production mutation. No Mythos implementation stage started or advanced. **Does NOT implement RUNTIME-COLLISION-GUARD-0.**

@@ -19,7 +19,7 @@
 
 | Track | Status | Last Completed Stage | Current / Next Stage | Blocker |
 |---|---|---|---|---|
-| Mythos OS Runtime | ACTIVE | Stage 3D — Planning Runtime | Stage 3E — Calendar Runtime | None — not started, awaiting authorisation |
+| Mythos OS Runtime | FOUNDATION | Stage 4AG + RUNTIME-DUPLICATE-CLEANUP-0 (corrected 2026-08-10 — see below; Stages 3E/3F/3G/3H and 4A–4AG were already complete as of 2026-07-30/2026-08-05, this table incorrectly said "Stage 3E next" until this correction) | None currently authorised | None — no stage currently authorised; remaining known open items (`js/app-fresh.js` dead file, `removePersonRow` caller audit, invoice `addLine()` stub bug, Logs/Sidebar/Sync extraction) are deferred, not scheduled — see `docs/ROADMAP.md` |
 | Automation | FOUNDATION | AUT-CONNECTOR-SHARED-HELPERS-0 (merged via PR #10, 2026-08-08 — code-quality cleanup, no behaviour change) | INF-DNS-AUTO-1 — DNS Snapshot, Comparison and Drift Detection | None — not started, awaiting authorisation |
 | Infrastructure / Cloudflare / OVH | FOUNDATION | INF-CF-2-PREP | INF-CF-2 — DNS migration and verification | **Blocked**: per-domain authoritative registrar/DNS-provider exports + owner approval required (`docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md`) |
 | Personal Intelligence | FOUNDATION | MPI-0-FINALIZATION (merged via PR #4, 2026-08-07) | MPI-1 — Context Assembler + Context Compiler | None — not started, awaiting authorisation |
@@ -44,7 +44,7 @@ See `docs/MYTHOS_PORTFOLIO_REGISTRY.md` for the complete, evidence-classified li
 
 ## Owner-Selected Next Execution Priority
 
-**INF-OVH-API-0 — OVHcloud Read-Only Connector — COMPLETE AND MERGED** (PR #7). **RES-0 — Mythos Research Intelligence Foundation — COMPLETE AND MERGED** (PR #5). **INF-CF-AUTO-0 — Cloudflare Read-Only Connector — COMPLETE AND MERGED** (PR #8, reference implementation only, no live Cloudflare credential). **AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup — COMPLETE AND MERGED** (PR #10), code-quality only, no behaviour change. **No new owner-selected next execution priority has been recorded as of this document.** MPI-1, Stage 3E, RES-1, INF-DNS-AUTO-1, IDA-2, ATN-1, and AVA-1 all remain not started and not newly prioritised by these stages.
+**INF-OVH-API-0 — OVHcloud Read-Only Connector — COMPLETE AND MERGED** (PR #7). **RES-0 — Mythos Research Intelligence Foundation — COMPLETE AND MERGED** (PR #5). **INF-CF-AUTO-0 — Cloudflare Read-Only Connector — COMPLETE AND MERGED** (PR #8, reference implementation only, no live Cloudflare credential). **AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup — COMPLETE AND MERGED** (PR #10), code-quality only, no behaviour change. **No new owner-selected next execution priority has been recorded as of this document.** MPI-1, RES-1, INF-DNS-AUTO-1, IDA-2, ATN-1, and AVA-1 all remain not started and not newly prioritised by these stages. *(Correction, MYTHOS-STAGE-RECONCILIATION-0, 2026-08-10: this sentence previously also listed "Stage 3E" as not started — Mythos OS Runtime was in fact already complete through Stage 4AG as of 2026-08-05, before this document's "Updated" date. See the Mythos OS Runtime row above and `docs/AI_HANDOVER.md` for the full evidence trail.)*
 
 ---
 
