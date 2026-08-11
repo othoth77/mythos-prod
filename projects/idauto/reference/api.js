@@ -36,6 +36,8 @@
 
 var http = require('http');
 var url = require('url');
+var fs = require('fs');
+var path = require('path');
 var db = require('./db.js');
 var writes = require('./writes.js');
 var identity = require('./identity.js');
@@ -62,6 +64,32 @@ function sendJson(res, status, body) {
 
 function notFound(res) {
   sendJson(res, 404, { error: 'not found' });
+}
+
+var ADMIN_ASSETS = {
+  '/admin': { file: 'admin.html', contentType: 'text/html; charset=utf-8' },
+  '/admin/': { file: 'admin.html', contentType: 'text/html; charset=utf-8' },
+  '/admin/admin-ui.js': { file: 'admin-ui.js', contentType: 'application/javascript; charset=utf-8' },
+  '/admin/admin.css': { file: 'admin.css', contentType: 'text/css; charset=utf-8' }
+};
+
+// The admin shell contains no data or credentials. API calls made by the
+// page still pass through requireAuth() below; the bearer token is held only
+// in page memory and is never written to browser storage.
+function serveAdminAsset(req, res, pathname) {
+  var asset = ADMIN_ASSETS[pathname];
+  if (!asset || req.method !== 'GET') return false;
+  fs.readFile(path.join(__dirname, asset.file), function (err, content) {
+    if (err) return sendJson(res, 500, { error: 'admin UI unavailable' });
+    res.writeHead(200, {
+      'Content-Type': asset.contentType,
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"
+    });
+    res.end(content);
+  });
+  return true;
 }
 
 // GET /api/vehicles/:internal_ref
@@ -286,6 +314,7 @@ function createServer() {
     var parsed = url.parse(req.url);
     var pathname = parsed.pathname;
 
+    if (serveAdminAsset(req, res, pathname)) return;
     if (!requireAuth(req, res)) return;
 
     var matchedPath = ROUTES.filter(function (r) { return r.pattern.test(pathname); });
