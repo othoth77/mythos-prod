@@ -6,6 +6,40 @@
 
 ---
 
+## IMPLEMENTATION — IDA-2 Phase A (2026-08-10)
+
+**Type:** Production implementation (repository/code only — no production infrastructure mutation). First Mythos implementation stage advanced since MYTHOS-STAGE-RECONCILIATION-0 cleared IDA-2 as the next authorized Automotive stage.
+
+**No subagents used.** `sudo -u deploy -H bash -lc '...'` for all Git operations. This stage touched no system/Docker/root state — no `sudo -n` system command was needed.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `5191476e259af7ae300b4edf4bbecf4df6f025bb` before this stage began.
+
+### Scope decision
+
+`docs/IDAUTO_ROADMAP.md`'s full IDA-2 scope ("PostgreSQL Core, API and Manual Capture MVP") is large: PostgreSQL cluster deployment + core API (5 endpoint groups) + 2 admin UIs + plate validation + audit logging + object storage wiring + Mythos OS auth/audit integration + rate limiting + 50+ tests. Per `AGENTS.md` §7 ("smallest coherent change") and this project's own precedent (Stage 4's 33 sub-stages rather than one commit), this was scoped down before implementation. The user confirmed the phasing explicitly: **schema + code first, no live PostgreSQL cluster provisioned in this pass** — deferring the production-infrastructure decision (a new persistent VPS service, with backup/memory-budget implications on a host already tight on RAM/swap per this session's earlier VPS work) to a separately-authorized IDA-2 Phase B.
+
+### What was built (IDA-2 Phase A)
+
+- **`projects/idauto/database/schema.sql`** — header/footer updated from "IDA-1 Draft Specification, not yet deployed" to "IDA-2 Phase A, migration-ready, not yet applied to any database." Content otherwise unchanged; re-verified structurally before the status change (22 `CREATE TABLE` statements, all `idauto_`-prefixed, 387 open = 387 close parentheses, no owner-PII field defined as an actual column on any table). **Still not applied to any database** — Phase B remains required to provision PostgreSQL and run this migration.
+- **`projects/idauto/reference/plate-validator.js`** — new. Pure, offline module: `normalizePlate()`, `matchPlateFormat()`, `isValidPlate()`, `loadFormats()`. Loads the 7 draft plate-format patterns from `projects/idauto/config/idauto.example.json` at runtime rather than hardcoding them (per IDA-0's AD-3 architecture decision). No database driver, network call, or environment-variable read anywhere in the module (verified by the test suite itself, not just by inspection).
+- **`tests/ida-2a-schema-and-plate-validation-test.js`** — new, 36/36 passing. Covers: schema structural integrity, config structural sanity, `normalizePlate()` edge cases (whitespace, case, non-string/null/undefined input), every active format's own documented example matching correctly, the one inactive format (`TUN_OLD`) never matching, malformed/garbage input rejection, and the module's offline/no-dependency property.
+- **`docs/IDAUTO_ROADMAP.md`, `docs/ROADMAP.md`, `docs/PROJECT_STATUS.md`** — IDA-2's status corrected from "Planned"/"NEXT AUTHORISED IMPLEMENTATION STAGE" to "IN PROGRESS — Phase A complete, Phase B not started," with Phase A/B scope broken out explicitly. Dependency-chain statements elsewhere in `docs/ROADMAP.md` (e.g. "ATN-1 blocked... after IDA-2," "AVA-1 depends on IDA-2 providing the PostgreSQL cluster") were **not** changed — they remain accurate, since Phase B (the actual deployment those stages depend on) has not happened.
+
+### Validation
+
+- `node -c` syntax check: both new JS files clean.
+- `node tests/ida-2a-schema-and-plate-validation-test.js`: **36/36 passed.**
+- Regression check: `grep -rl "idauto" tests/` confirmed no other existing test file references `projects/idauto/` — this is a net-new, isolated addition with zero shared-code dependency, so no other suite was run (per `AGENTS.md` §8: full/adjacent suites only when shared core behavior changes).
+- `git diff --check`: clean.
+- Secret scan of the diff: clean — no credential/token/password values anywhere in the new code or doc changes.
+- No production/infrastructure mutation of any kind in this stage — confirmed by scope (no `sudo -n` command was run).
+
+### Exact next stage
+
+**IDA-2 Phase B** (PostgreSQL cluster provisioning + core API + admin UIs + auth/audit integration + rate limiting + remaining tests toward 50+) — requires its own explicit, separately-scoped authorization given its production-infrastructure footprint (new persistent database service on a memory-constrained VPS) and its much larger blast radius than this Phase A. Not started, not implied by this entry.
+
+---
+
 ## RECONCILIATION — MYTHOS-STAGE-RECONCILIATION-0 (2026-08-10)
 
 **Type:** Read-only investigation followed by a targeted documentation correction. No Mythos implementation stage started or advanced. No production mutation. No new feature implementation.

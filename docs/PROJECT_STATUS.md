@@ -26,7 +26,7 @@
 | Research Intelligence | FOUNDATION | RES-0 (merged via PR #5, 2026-08-08) | RES-1 — first runtime implementation | None recorded — **NOT STARTED, NOT AUTHORISED** |
 | Development Acceleration | FOUNDATION | DEVX-0 (merged via PR #6, 2026-08-07) | DEVX-1 — Dependency/Impact Graph + Automated PR Review | None — not started, awaiting authorisation |
 | Mythos Automotive (umbrella) | FOUNDATION | MAE-0 | MAE-1 | **Blocked** on IDA-2 |
-| ID Auto | FOUNDATION | IDA-1 | IDA-2 — PostgreSQL Core, API and Manual Capture MVP | None — next authorised Automotive implementation stage |
+| ID Auto | ACTIVE | IDA-2 Phase A (2026-08-10) | IDA-2 Phase B — PostgreSQL deployment, API, UIs, auth/audit integration | None for Phase B — requires separate explicit authorization (production infrastructure change) |
 | Atelier Network | FOUNDATION | ATN-0 | ATN-1 | **Blocked** — after IDA-2 |
 | AutoValeur | FOUNDATION | AVA-0 | AVA-1 — Public Calculator MVP | Depends on IDA-2 providing the PostgreSQL cluster |
 
@@ -44,7 +44,7 @@ See `docs/MYTHOS_PORTFOLIO_REGISTRY.md` for the complete, evidence-classified li
 
 ## Owner-Selected Next Execution Priority
 
-**INF-OVH-API-0 — OVHcloud Read-Only Connector — COMPLETE AND MERGED** (PR #7). **RES-0 — Mythos Research Intelligence Foundation — COMPLETE AND MERGED** (PR #5). **INF-CF-AUTO-0 — Cloudflare Read-Only Connector — COMPLETE AND MERGED** (PR #8, reference implementation only, no live Cloudflare credential). **AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup — COMPLETE AND MERGED** (PR #10), code-quality only, no behaviour change. **No new owner-selected next execution priority has been recorded as of this document.** MPI-1, RES-1, INF-DNS-AUTO-1, IDA-2, ATN-1, and AVA-1 all remain not started and not newly prioritised by these stages. *(Correction, MYTHOS-STAGE-RECONCILIATION-0, 2026-08-10: this sentence previously also listed "Stage 3E" as not started — Mythos OS Runtime was in fact already complete through Stage 4AG as of 2026-08-05, before this document's "Updated" date. See the Mythos OS Runtime row above and `docs/AI_HANDOVER.md` for the full evidence trail.)*
+**INF-OVH-API-0 — OVHcloud Read-Only Connector — COMPLETE AND MERGED** (PR #7). **RES-0 — Mythos Research Intelligence Foundation — COMPLETE AND MERGED** (PR #5). **INF-CF-AUTO-0 — Cloudflare Read-Only Connector — COMPLETE AND MERGED** (PR #8, reference implementation only, no live Cloudflare credential). **AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup — COMPLETE AND MERGED** (PR #10), code-quality only, no behaviour change. **No new owner-selected next execution priority has been recorded as of this document.** MPI-1, RES-1, INF-DNS-AUTO-1, ATN-1, and AVA-1 all remain not started and not newly prioritised by these stages. **IDA-2 Phase A** (schema finalization + plate validation, no live database) was completed 2026-08-10 — see the ID Auto row above and `docs/AI_HANDOVER.md`; **IDA-2 Phase B** remains not started. *(Correction, MYTHOS-STAGE-RECONCILIATION-0, 2026-08-10: this sentence previously also listed "Stage 3E" as not started — Mythos OS Runtime was in fact already complete through Stage 4AG as of 2026-08-05, before this document's "Updated" date. See the Mythos OS Runtime row above and `docs/AI_HANDOVER.md` for the full evidence trail.)*
 
 ---
 

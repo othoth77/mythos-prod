@@ -14,7 +14,7 @@ See `docs/AUTOMOTIVE_VISION.md` for the full product vision and `docs/AUTOMOTIVE
 
 Only one major implementation stage may be active at a time unless explicitly authorised. A major implementation stage means: building new runtime code, deploying new services, executing database migrations, or connecting live data sources.
 
-Documentation stages may run in parallel across product tracks. **IDA-2 is the next authorised implementation stage.**
+Documentation stages may run in parallel across product tracks. **IDA-2 is IN PROGRESS** (Phase A — schema + plate validation, no live database — complete 2026-08-10; Phase B — PostgreSQL deployment + API — not started, requires separate authorization; see `docs/IDAUTO_ROADMAP.md`).
 
 ### Ecosystem Stage Plan (MAE-*)
 
@@ -125,7 +125,7 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 ## Current Priority
 
 1. **Mythos OS:** Complete through Stage 4AG + RUNTIME-DUPLICATE-CLEANUP-0 (corrected 2026-08-10, see note above) — no further Mythos OS Runtime stage is currently authorized; remaining known open items are listed above and are not scheduled.
-2. **ID Auto:** IDA-2 — PostgreSQL Core, API and Manual Capture MVP — NEXT AUTHORISED IMPLEMENTATION STAGE
+2. **ID Auto:** IDA-2 — PostgreSQL Core, API and Manual Capture MVP — IN PROGRESS: Phase A (schema + plate validation) complete 2026-08-10, no live database yet; Phase B (PostgreSQL deployment, API, UIs, auth/audit integration) requires separate explicit authorization
 3. **Atelier Network:** ATN-1 — Workshop Registry + First Integration (after IDA-2)
 4. **AutoValeur:** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster)
 5. **Ecosystem (parallel — docs only):** MAE-0 + ATN-0 complete; MAE-1 not started (blocked on IDA-2)
@@ -264,7 +264,7 @@ See `docs/IDAUTO_ROADMAP.md` for the full ID Auto stage plan.
 |-------|-------------|--------|
 | IDA-0 | Foundation — schema, config, architecture, privacy contract | ✓ Done (2026-08-05) |
 | IDA-1 | Product vision, capture, access and data governance specification | ✓ Done (2026-08-05) |
-| IDA-2 | PostgreSQL Core, API and Manual Capture MVP | Planned |
+| IDA-2 | PostgreSQL Core, API and Manual Capture MVP | IN PROGRESS — Phase A complete 2026-08-10 (schema + plate validation, no live database); Phase B not started |
 | IDA-3 | Public Smart Scanner and Carte Grise Workflow | Planned |
 | IDA-4 | Fixpert Smart Gate and Atelier Integration (requires ATN-1) | Planned |
 | IDA-5 | Professional Partner Network | Planned |

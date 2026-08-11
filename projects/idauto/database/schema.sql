@@ -1,15 +1,19 @@
 -- =============================================================================
--- ID Auto — Database Schema (Draft Specification)
--- Stage IDA-1 | 2026-08-05
+-- ID Auto — Database Schema (IDA-2 Phase A — Migration-Ready)
+-- Originally drafted Stage IDA-1 (2026-08-05); finalized as the IDA-2 Phase A
+-- migration source 2026-08-10. Structurally re-verified (22 tables, all
+-- idauto_-prefixed, parenthesis-balanced) before this status change; content
+-- unchanged from the IDA-1 draft.
 -- Domain: idauto.tn
 -- Platform: Mythos ecosystem
 -- =============================================================================
 --
 -- TARGET DBMS: PostgreSQL
 -- PostgreSQL is the selected target database management system.
--- It is NOT yet installed or deployed. This file is a draft specification.
--- No migration runs against any production database in IDA-0 or IDA-1.
--- Implementation begins in IDA-2.
+-- This file is now migration-ready but has NOT been applied to any database.
+-- Provisioning the actual PostgreSQL cluster and running this migration is
+-- deferred to a separate, explicitly-authorized IDA-2 Phase B (production
+-- infrastructure change) — see docs/IDAUTO_ROADMAP.md.
 --
 -- LOGICAL SCHEMA SEPARATION
 -- -------------------------
@@ -988,6 +992,6 @@ VALUES
 -- =============================================================================
 
 -- =============================================================================
--- END OF SCHEMA — IDA-1 Draft Specification
--- PostgreSQL target DBMS — NOT YET INSTALLED OR DEPLOYED
+-- END OF SCHEMA — IDA-2 Phase A, migration-ready
+-- PostgreSQL target DBMS — NOT YET INSTALLED OR DEPLOYED (IDA-2 Phase B)
 -- =============================================================================

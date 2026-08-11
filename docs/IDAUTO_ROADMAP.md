@@ -55,8 +55,27 @@
 
 ### IDA-2 — PostgreSQL Core, API and Manual Capture MVP
 
-**Status:** Planned
+**Status:** IN PROGRESS — Phase A complete (2026-08-10), Phase B not started
 **Depends on:** IDA-1 complete
+
+**Phase A — Schema finalization + plate format validation (complete, no live database):**
+- `projects/idauto/database/schema.sql` promoted from "IDA-1 draft" to "IDA-2 Phase A, migration-ready" — content unchanged, re-verified structurally (22 tables, all `idauto_`-prefixed, parentheses balanced, no owner-PII column defined on any table). Still **not applied to any database.**
+- `projects/idauto/reference/plate-validator.js` — new, pure/offline plate format normalization + matching against the 7 draft formats in `idauto.example.json` (config-driven, not hardcoded, per IDA-0 AD-3).
+- `tests/ida-2a-schema-and-plate-validation-test.js` — new, 36/36 passing.
+- Implementation commit: see `docs/AI_HANDOVER.md`'s IDA-2 Phase A entry.
+
+**Phase B — deferred, requires separate explicit authorization (production infrastructure change):**
+- Provision the actual target PostgreSQL cluster and apply `schema.sql` against it
+- Core API: vehicle, plate, observation, fact and evidence endpoints
+- Admin manual entry (private, no public ingestion)
+- Review queue UI (admin)
+- Audit logging (wired to the live `idauto_audit_log` table)
+- Object storage wiring (original image references)
+- Mythos OS auth integration
+- Mythos OS audit integration
+- Rate limiting backed by `idauto_verifications`
+- Synthetic and authorised pilot data only
+- Remaining automated tests toward the 50+ total (36 delivered in Phase A)
 
 **Objective:** Deploy the PostgreSQL database, implement the core API, and enable admin manual entry for the first test vehicles.
 
