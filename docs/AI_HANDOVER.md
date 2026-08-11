@@ -6,6 +6,73 @@
 
 ---
 
+## FINAL-SESSION-HANDOVER-2026-08-11
+
+**Type:** Read-only continuation checkpoint. No feature implemented, no production mutated. Verified `origin/main` HEAD and a clean worktree before writing this entry, per standard preflight (`mythos-repo-guardian`).
+
+**Read this entry first, then the detailed per-stage entries below it (each has its own full implementation record, exact commands, and evidence) for anything this summary doesn't cover in enough depth.**
+
+### Exact current remote HEAD
+
+`ec79c44576349992546e56bd35c56d68fc45e070` — confirmed matching local `HEAD` via `git fetch origin && git rev-parse HEAD && git rev-parse origin/main` immediately before this entry was written.
+
+### IDA-2A → IDA-2F completion state
+
+| Stage | Status | Summary |
+|---|---|---|
+| IDA-2 Phase A | ✓ Done (+ corrected same day) | Schema finalized (`schema.sql`, migration-ready, not yet applied at the time), `plate-validator.js`. `IDA-2A-CORRECTION-0` resolved tracked risk R-T03 (`visibility_scope`→`access_scope`), reconciled stale docs, added safe caching. |
+| IDA-2B | ✓ Done | Provisioned `idauto-postgres` (PostgreSQL 15-alpine), memory-capped from first start, schema applied, backup **and tested restore** completed before declaring PASS. |
+| IDA-2C | ✓ Done | Read-only API (`api.js`, GET-only at the time): vehicles, plates, observations, facts, evidence. Placeholder admin gate. `mythos_private`-scope reads excluded (no audit-on-read path). |
+| IDA-2D | ✓ Done | Write API + atomic audit logging (`writes.js`'s `withAudit()`): every mutation and its audit row commit or roll back together, proven in both failure directions by test. |
+| IDA-2E | **BLOCKED** | Requested "real Mythos OS auth/identity integration" — researched and confirmed no such service exists anywhere in this codebase (see below). No code written for it. |
+| IDA-2E-PRE | ✓ Done | Minimal, honestly-labeled identity stub (`identity.js`) resolving the IDA-2E blocker's audit-attribution requirement without pretending to be real auth. User-selected option after the blocker was reported. |
+| IDA-2F | ✓ Done | Object storage wiring (`storage.js`, local content-addressed filesystem — no cloud service exists either), `POST`/`GET /api/observations/:id/media`. Two self-caught bugs fixed pre-commit (see "Unresolved risks" below for the pattern, not the specific fixed bugs). |
+
+### Full IDA-2E blocker + IDA-2E-PRE status (do not re-attempt full IDA-2E without new information)
+
+Full `IDA-2E` (`docs/IDAUTO_ARCHITECTURE.md` §4.1's `mythos_auth` contract — JWT/opaque-ref tokens from a real Mythos OS auth service) is **blocked**, confirmed by direct code search, not assumption: `js/auth.js` is a single shared client-side password with zero per-user identity; `google_auth.php`/`google_callback.php` is a one-off contacts-import OAuth flow, not login; zero PHP files anywhere use `$_SESSION`/JWT; `MYTHOS_SUPER_ADMIN` is referenced across multiple architecture docs with no implementation anywhere. Building a real service would be a new platform-wide capability, not an ID Auto slice — unblocking this requires that service to exist somewhere in the ecosystem first, which is out of scope for continuing IDA-2 work. **`IDA-2E-PRE`** (a small `IDAUTO_ADMIN_IDENTITIES` token→identity map, `identity.js`) resolves the narrower "audit records need a real identity, not a raw token" requirement in the meantime and is complete/in place — do not confuse it with full `IDA-2E` in future planning.
+
+### Live infrastructure: locations and safety constraints
+
+- **PostgreSQL**: container `idauto-postgres` (`postgres:15-alpine`), deployed at `/home/deploy/deployments/idauto-postgres/` (`docker-compose.yml` + `600`-permission `.env`, password never committed). **`mem_limit=384m` / `mem_reservation=96m`, set from first start — never uncapped.** Bound to `127.0.0.1:5432` only. Backup at `/home/deploy/backups/idauto-postgres-20260810/` (`700 root:root`), restore-tested.
+- **Media storage**: `/home/deploy/deployments/idauto-media/` (`750 deploy:deploy`), content-addressed local filesystem, ~112K of synthetic test data as of this entry.
+- **VPS-wide constraint, still true**: swap runs chronically near-full (currently `1.8Gi`/`2.0Gi` used, `185Mi` free) but has not thrashed at any point this session; available RAM has stayed ≥2.9Gi throughout. Before any further mutation: re-check `free -h`/`swapon --show`/`docker ps -a` fresh — do not trust these numbers as still current.
+- **Execution identity is not optional, and differs by what you're touching**: `sudo -n` (passwordless root) for system/Docker/filesystem operations; **all Git operations and any test that touches `idauto-media` must run as `sudo -u deploy -H bash -lc '...'`** — this session's shell is `ubuntu`, not in the `deploy` group, and a filesystem-touching test run as `ubuntu` will fail with `EACCES` (this happened once this session; DB-only tests don't hit it, since TCP isn't gated by Unix file permissions the way local storage is).
+
+### Current test results (all re-run fresh immediately before this entry, not carried over from memory)
+
+`tests/ida-2a-schema-and-plate-validation-test.js`: **44/44** (offline). `tests/ida-2c-readonly-api-test.js`: **24/24** (live). `tests/ida-2d-write-api-and-audit-test.js`: **38/38** (live). `tests/ida-2f-object-storage-test.js`: **31/31** (live). **137/137 total.** All four live/offline suites use fresh per-run identity tokens and (for IDA-2D/2F) timestamp-seeded synthetic content — safe to re-run repeatedly against the persistent database (this was NOT true of the first draft of either IDA-2D's or IDA-2F's test suite; see "Unresolved risks" below).
+
+### Remaining Phase B slices
+
+- `IDA-2G` — Admin manual entry UI. Not started.
+- `IDA-2H` — Review queue UI. Not started. Per the original slice plan, `IDA-2G`/`IDA-2H` could run in parallel once authorized (disjoint surface area) — that would still need explicit parallel authorization, not assumed.
+- `IDA-2I` — Rate limiting backed by `idauto_verifications`. Not started. Lowest urgency — no public-facing endpoint exists yet in Phase B (admin-only, gated). Open question carried since the original slice plan: might be better scoped into `IDA-3` (which is where public capture actually begins) instead of staying in Phase B.
+
+### Exact recommended next stage
+
+No stage is authorized by this entry. If continuing IDA-2 Phase B, `IDA-2G` or `IDA-2H` are the next logical candidates (their dependencies — read, write, and now media endpoints — are all in place); `IDA-2I` can wait. None of the three should be started without the owner's explicit authorization for that specific slice, per this project's one-major-stage-rule and stage-by-stage authorization discipline (every slice this session followed that pattern; do not skip it because a run of slices completed smoothly).
+
+### Important unresolved risks / blockers (carry these forward, do not silently rediscover them)
+
+1. **Full `IDA-2E` remains blocked** — see above. Do not attempt it again without confirming a real Mythos OS identity service now exists somewhere.
+2. **Test-writing pattern to watch for**: two separate self-caught bugs this session (IDA-2D, then IDA-2F) were the *same* root cause — a test asserting an absolute count ("exactly N rows for this key") against content whose hash/value was a static seed, which broke on the second run against the persistent database. Both were caught by routinely re-running suites twice before committing, not by first-pass code review. **Any new test in this codebase asserting an absolute count tied to inserted data must use per-run-unique content or a relative/delta count**, or repeat this exact class of bug.
+3. **`mythos_private` reads remain restricted** on both `GET .../facts` and `GET .../media` — writes to that scope are audited (safe), reads are not (no audit-on-read mechanism exists). Do not relax this without building audit-on-read first; it was deliberately preserved, not overlooked, across IDA-2D/E-PRE/F.
+4. **Container count is 25, not the 23 documented in the oldest audits** — `jellyfin` (a user-confirmed, authorized, unrelated personal media server) and `idauto-postgres` account for the difference. If a future session sees a container count that doesn't match 25 exactly, treat it as worth investigating, following the same STOP-and-classify discipline used earlier this session for the original 24-container discrepancy — don't assume it's fine, and don't assume it's a problem either.
+5. **VPS memory-budget work from earlier this session remains partially complete** — Stack B Redis ×3 and `coolify-sentinel` are still uncapped (see `docs/audits/VPS_MEMORY_BUDGET_PLAN_2026-08-10.md`); unrelated to ID Auto but still an open item on this same VPS.
+
+### Required execution identities
+
+- **`sudo -n`** — passwordless root, for system/Docker/filesystem read and write operations (container inspection, live safety checks, creating deployment directories).
+- **`sudo -u deploy -H bash -lc '...'`** — required for **all** Git/GitHub operations without exception, and for any test or command that reads/writes under `/home/deploy/` paths owned by `deploy` with restrictive permissions (notably `idauto-media/` and the `idauto-postgres` `.env`). This session's own shell user (`ubuntu`) has neither Git credentials configured for this repo nor filesystem group membership for `deploy`-owned paths.
+- **No subagents** — every stage this session, without exception, was performed directly. Continue that pattern unless explicitly told otherwise.
+
+### Before acting on anything above
+
+**The next model must read GitHub (`git fetch origin`, confirm HEAD) and this file (`docs/AI_HANDOVER.md`, starting from this entry) in full, and be aware of the installed Mythos Skills (`.claude/skills/`), before taking any action.** Do not act on a summary of a summary, do not assume the state described here is still current without re-verifying it live, and do not skip the per-stage detailed entries below this one if a specific implementation detail matters for the next task.
+
+---
+
 ## IMPLEMENTATION — IDA-2F: Object Storage Wiring (2026-08-11)
 
 **Type:** Production implementation (application code, local filesystem + live database — synthetic/pilot data only). Fifth implementation slice of IDA-2 Phase B. Preserves the identity stub, existing API behavior, write atomicity, and audit guarantees unchanged. No UI, no rate limiting, no real Mythos auth.
