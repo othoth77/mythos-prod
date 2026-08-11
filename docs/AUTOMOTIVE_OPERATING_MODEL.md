@@ -190,8 +190,8 @@ Required before production deployment (PILOT/BETA → PRODUCTION):
 Documentation stages (MAE-0, IDA-1, AVA-0, etc.) may prepare multiple product tracks in parallel without violating this rule. Preparation does not mean implementation.
 
 **Current application of this rule:**
-- IDA-2 is the next authorised implementation stage
-- AVA-1 depends on IDA-2 completing the shared PostgreSQL cluster
+- IDA-2 is IN PROGRESS — Phase A (schema + plate validation, no live database) complete 2026-08-10; Phase B not started, requires separate authorization
+- AVA-1 depends on IDA-2 Phase B completing the shared PostgreSQL cluster
 - Mythos OS Stage 3D → 3G (extraction) continues as its own track but HIGH risk (Stage 3G: 30 routes, 19 storage keys) — it must not be destabilised while new products are being integrated
 
 ---

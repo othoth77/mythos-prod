@@ -31,9 +31,9 @@ This document also maintains the mandatory distinction from Phase 20: `architect
 | Stages recorded in the project ledger | 20 | `projects/meta/project-ledger.json` |
 | Completed (`DONE`) | 20 | same |
 | Done, pending merge (`DONE_PENDING_MERGE`) | 0 | same |
-| In progress (`IN_PROGRESS`) | 0 | same |
-| Blocked | 0 stages formally blocked; 2 **next** stages blocked (MAE-1 on IDA-2, INF-CF-2 on owner approval) | `docs/ROADMAP.md`, `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` |
-| Planned (named next-stage, not started) | 8 (Stage 3E, IDA-2, ATN-1, AVA-1, MPI-1, INF-OVH-API-0, RES-1, DEVX-1) | `docs/ROADMAP.md` |
+| In progress (`IN_PROGRESS`) | 1 (IDA-2 — Phase A complete 2026-08-10, Phase B not started) | `docs/IDAUTO_ROADMAP.md` |
+| Blocked | 0 stages formally blocked; 2 **next** stages blocked (MAE-1 on IDA-2 Phase B, INF-CF-2 on owner approval) | `docs/ROADMAP.md`, `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` |
+| Planned (named next-stage, not started) | 7 (Stage 3E, ATN-1, AVA-1, MPI-1, INF-OVH-API-0, RES-1, DEVX-1) | `docs/ROADMAP.md` |
 
 **Personal Intelligence roadmap stage ratio:** 1/11 — completed MPI stages (MPI-0) ÷ total defined MPI stages (MPI-0 through MPI-10). **ROADMAP STAGE RATIO, NOT PRODUCT COMPLETION ESTIMATE.**
 

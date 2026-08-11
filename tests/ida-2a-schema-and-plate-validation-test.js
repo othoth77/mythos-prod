@@ -8,9 +8,12 @@
 //      (projects/idauto/database/schema.sql) — no live PostgreSQL is
 //      installed or contacted; this is static/textual validation only,
 //      matching the pattern already used for IDA-0's schema checks.
+//      Includes R-T03 regression lock-in (access_scope, not
+//      visibility_scope), added IDA-2A-CORRECTION-0.
 //   2. projects/idauto/reference/plate-validator.js behaviour against the
 //      7 UNVERIFIED-DRAFT format patterns in
-//      projects/idauto/config/idauto.example.json.
+//      projects/idauto/config/idauto.example.json, including the
+//      loadFormats() cache added IDA-2A-CORRECTION-0.
 //
 // Run with: node tests/ida-2a-schema-and-plate-validation-test.js
 // =====================================================
@@ -55,6 +58,20 @@ console.log('\n1. SCHEMA — structural integrity (static text validation, no li
   ok(columnDefPii.length === 0, 'No owner-PII field is ever defined as an actual table column (' + (columnDefPii.join(', ') || 'none found') + ')');
 
   ok(sql.indexOf('idauto_audit_log') !== -1 && sql.indexOf('append-only') !== -1, 'Audit log table present and documented as append-only');
+
+  // R-T03 regression lock-in (IDA-2A-CORRECTION-0): the scope column must
+  // be named access_scope everywhere it is actually used as a column,
+  // index target, or CHECK constraint — matching AutoValeur's canonical
+  // naming (docs/AUTOMOTIVE_ARCHITECTURE.md). The old name may still
+  // legitimately appear in prose explaining the historical rename (e.g.
+  // this file's own header), so this checks structural SQL usage only,
+  // not "the substring never appears anywhere in the file".
+  var visibilityScopeAsSql = sql.match(/^\s*visibility_scope\s+VARCHAR/m)
+    || sql.match(/\bvisibility_scope\s+IN\s*\(/)
+    || sql.match(/\(\s*visibility_scope\s*\)/);
+  ok(!visibilityScopeAsSql, 'R-T03: visibility_scope is never used as a column definition, CHECK constraint, or index target (fully renamed structurally)');
+  var accessScopeColumns = sql.match(/^\s*access_scope\s+VARCHAR/gm) || [];
+  ok(accessScopeColumns.length === 2, 'R-T03: access_scope is defined as an actual column on exactly 2 tables (idauto_observation_media, idauto_vehicle_facts) — found ' + accessScopeColumns.length);
 })();
 
 console.log('\n2. CONFIG — plate_formats section loads and is structurally sane');
@@ -118,6 +135,32 @@ console.log('\n7. plate-validator.js — no database/network dependency (offline
   var forbidden = [/require\(['"]pg['"]\)/, /require\(['"]http/, /fetch\(/, /\.query\(/, /process\.env\./];
   var clean = forbidden.every(function (re) { return !re.test(src); });
   ok(clean, 'Module never imports a database driver, performs network I/O, or reads environment variables — pure, offline, testable in isolation');
+})();
+
+console.log('\n8. plate-validator.loadFormats — caching behaviour (IDA-2A-CORRECTION-0)');
+(function () {
+  validator.clearFormatCache();
+  var first = validator.loadFormats();
+  var second = validator.loadFormats();
+  ok(first === second, 'Two loadFormats() calls for the same (default) path return the identical cached array reference, not a fresh read each time');
+
+  var firstPattern = first[0].pattern;
+  var secondPattern = second[0].pattern;
+  ok(firstPattern === secondPattern, 'Cached entries carry the same compiled RegExp instances across calls (no needless recompilation)');
+
+  validator.clearFormatCache();
+  var third = validator.loadFormats();
+  ok(third !== first, 'clearFormatCache() forces the next loadFormats() call to re-read and re-parse from disk (new array reference)');
+  ok(third.length === first.length && third[0].code === first[0].code, 'Re-loaded data is still correct after a cache clear (same 7 formats, same content)');
+
+  // matchPlateFormat()/isValidPlate() single-argument form (the path a
+  // future per-request API caller would use) must benefit from the same
+  // cache, not bypass it.
+  validator.clearFormatCache();
+  ok(validator.isValidPlate('123 TUN 4567') === true, 'isValidPlate() single-argument form still works correctly after a cache clear');
+  var cachedAfterCall = validator.loadFormats();
+  var cachedAfterCall2 = validator.loadFormats();
+  ok(cachedAfterCall === cachedAfterCall2, 'After a single-argument matchPlateFormat()/isValidPlate() call populates the cache, subsequent loadFormats() calls hit the same cached array');
 })();
 
 console.log('\nStage IDA-2 Phase A (schema + plate validation): ' + pass + ' passed, ' + fail + ' failed');

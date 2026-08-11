@@ -6,6 +6,43 @@
 
 ---
 
+## CORRECTION — IDA-2A-CORRECTION-0 (2026-08-10)
+
+**Type:** Repository/documentation correction following a read-only audit of IDA-2 Phase A. No production/infrastructure mutation. No IDA-2 Phase B work. No Mythos implementation stage other than IDA-2 Phase A itself was advanced.
+
+**No subagents used.** `sudo -u deploy -H bash -lc '...'` for all Git operations. No `sudo -n` system command was needed.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `92a8f77e8bcc72aa41c59e6eb1597ec59d7a459b` (the IDA-2 Phase A commit) before this stage began.
+
+### Scope: exactly the 3 confirmed audit findings, nothing else
+
+The prior read-only audit of IDA-2 Phase A reported 3 findings via structured review. This stage fixes exactly those 3 — no broader IDA-2A rework, no IDA-2 Phase B.
+
+**1. R-T03 resolved (architecture, the most significant finding):** the schema had been marked "migration-ready" while still using `visibility_scope`, diverging from AutoValeur's canonical `access_scope` naming — a tracked, OPEN, severity-H/M risk explicitly scoped to "update ID Auto schema in IDA-2." Renamed `visibility_scope` → `access_scope` on both affected tables (`idauto_observation_media`, `idauto_vehicle_facts`) in `projects/idauto/database/schema.sql`, plus the two docs that documented the old name as current architecture (`docs/IDAUTO_ARCHITECTURE.md` AD-9, `docs/IDAUTO_PRODUCT_SPEC.md`'s fact-object field table). `docs/AUTOMOTIVE_RISK_REGISTER.md`'s R-T03 row updated from `OPEN` to `RESOLVED (IDA-2A-CORRECTION-0, 2026-08-10)`, with the caveat spelled out: resolved at the schema-source level, not yet applied to any live database (that verification remains Phase B). `docs/AUTOMOTIVE_ROADMAP.md`'s IDA-2 scope checklist item for this rename marked done with the same caveat.
+
+**2. Stale IDA-2 status docs reconciled:** 5 files still said "IDA-2 is the next authorised implementation stage" / listed it as not-started, after Phase A had already shipped — the same class of staleness `MYTHOS-STAGE-RECONCILIATION-0` fixed for Stage 3E, reintroduced here in miniature. Corrected in `docs/AUTOMOTIVE_ROADMAP.md` (3 occurrences: the "Current state" summary, the stage table's `NEXT` cell, and the execution-order list), `docs/AUTOMOTIVE_OPERATING_MODEL.md`, `docs/AUTOMATION_GOVERNANCE.md`, `docs/AUTOMATION_ROADMAP.md`, and `docs/PROJECT_STATISTICS.md` (moved IDA-2 from the "Planned, not started" count into "In progress," 8→7 and 0→1 respectively). Deliberately **not** touched: adjacent "Stage 3E remains next" mentions sitting in the same bullet lists in `docs/AUTOMATION_GOVERNANCE.md`/`docs/AUTOMATION_ROADMAP.md` — also stale, but a pre-existing gap from `MYTHOS-STAGE-RECONCILIATION-0` that never propagated to these two files, and out of this stage's explicit scope (IDA-2 status only).
+
+**3. Safe caching added:** `projects/idauto/reference/plate-validator.js`'s `loadFormats()` now caches the parsed-config + compiled-regex array per config path in a module-level cache, so the single-argument `matchPlateFormat(raw)`/`isValidPlate(raw)` forms (the ones a future Phase B API handler would naturally reach for) no longer re-read and re-parse the JSON config and recompile 7 regexes on every call. Added `clearFormatCache()` for tests and for the rare case the underlying config file changes during a long-running process. Cached `RegExp` objects carry no `g` flag, so they have no mutable `lastIndex` state and are safe to share across concurrent callers.
+
+### Tests
+
+`tests/ida-2a-schema-and-plate-validation-test.js` extended from 36 to 44 tests: 2 new R-T03 regression-lock-in assertions (§1) and 6 new caching-behavior assertions (§8, new section). **Self-caught issue during this stage:** the first version of the R-T03 lock-in test asserted the literal string `visibility_scope` never appears anywhere in `schema.sql` — but the corrected file's own header comment legitimately needs to *say* "renamed from visibility_scope" to explain the correction, so that naive assertion immediately self-failed (43/44) the moment the explanatory header was added. Caught immediately by re-running the suite before committing (not shipped broken); the test was corrected to check structural SQL usage only (column definitions, `CHECK` constraints, index targets) rather than blanket substring absence — the same pattern already used for the file's owner-PII column check. Final result: **44/44 passing**, independently re-run after every subsequent edit.
+
+### Validation
+
+- `node -c` syntax check: `plate-validator.js` and the test file both clean.
+- `node tests/ida-2a-schema-and-plate-validation-test.js`: **44/44 passed** (re-run fresh immediately before commit).
+- Repo-wide `grep` confirmed every remaining `visibility_scope` mention is explanatory prose about the historical rename (schema header, `IDAUTO_ARCHITECTURE.md`, `IDAUTO_PRODUCT_SPEC.md`, `AUTOMOTIVE_ROADMAP.md`, `AUTOMOTIVE_RISK_REGISTER.md`) — none is a live column/constraint/index reference.
+- `git diff --check`: clean.
+- Secret scan of the diff: clean.
+- No production/infrastructure mutation of any kind — confirmed by scope (no `sudo -n` command was run, no database contacted).
+
+### Exact next stage
+
+Unchanged from the IDA-2 Phase A entry below: **IDA-2 Phase B** (PostgreSQL cluster provisioning, core API, admin UIs, Mythos OS auth/audit integration, rate limiting, remaining tests toward 50+) remains a separate, not-yet-authorized, production-infrastructure stage. Also newly visible from this correction, not yet actioned: the "Stage 3E remains next" staleness still present in `docs/AUTOMATION_GOVERNANCE.md`/`docs/AUTOMATION_ROADMAP.md` would need its own small follow-up reconciliation, out of scope here.
+
+---
+
 ## IMPLEMENTATION — IDA-2 Phase A (2026-08-10)
 
 **Type:** Production implementation (repository/code only — no production infrastructure mutation). First Mythos implementation stage advanced since MYTHOS-STAGE-RECONCILIATION-0 cleared IDA-2 as the next authorized Automotive stage.

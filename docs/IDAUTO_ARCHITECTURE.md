@@ -122,7 +122,7 @@ PostgreSQL cluster (target — not yet deployed)
 
 ### AD-9 — Three access scopes replace public/private boolean
 
-**Decision (new in IDA-1):** Data fields and tables carry a `visibility_scope` value: `public`, `professional`, or `mythos_private`. This replaces the IDA-0 design that used a boolean `is_public` flag.
+**Decision (new in IDA-1):** Data fields and tables carry an `access_scope` value: `public`, `professional`, or `mythos_private`. This replaces the IDA-0 design that used a boolean `is_public` flag. *(Corrected 2026-08-10, IDA-2A-CORRECTION-0: this decision was originally recorded and implemented in `schema.sql` as `visibility_scope` — renamed to `access_scope` to resolve R-T03, the tracked cross-product naming divergence with AutoValeur; see `docs/AUTOMOTIVE_ARCHITECTURE.md`'s canonical naming decision and `docs/AUTOMOTIVE_RISK_REGISTER.md`.)*
 
 **Why:** The boolean model was insufficient to represent the Mythos Super Admin tier, which needs access to raw captures, exact locations, and movement events that professional subscribers must not see.
 

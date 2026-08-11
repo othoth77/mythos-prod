@@ -256,7 +256,7 @@ Every fact attached to a vehicle fiche must contain:
 | `observation_ref` | The observation or evidence that established this fact |
 | `confidence_score` | 0.0–1.0 confidence in the fact value |
 | `verification_status` | `unverified`, `pending_review`, `verified`, `conflict`, `rejected` |
-| `visibility_scope` | `public`, `professional`, `mythos_private` |
+| `access_scope` (renamed from `visibility_scope` 2026-08-10, IDA-2A-CORRECTION-0, R-T03) | `public`, `professional`, `mythos_private` |
 | `first_seen_at` | Timestamp of first observation of this value |
 | `last_seen_at` | Timestamp of most recent observation confirming this value |
 | `validated_by` | Mythos user ID of validator, when applicable |

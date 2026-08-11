@@ -2,8 +2,12 @@
 -- ID Auto — Database Schema (IDA-2 Phase A — Migration-Ready)
 -- Originally drafted Stage IDA-1 (2026-08-05); finalized as the IDA-2 Phase A
 -- migration source 2026-08-10. Structurally re-verified (22 tables, all
--- idauto_-prefixed, parenthesis-balanced) before this status change; content
--- unchanged from the IDA-1 draft.
+-- idauto_-prefixed, parenthesis-balanced) before this status change.
+-- Corrected same day (IDA-2A-CORRECTION-0): the scope column, originally
+-- visibility_scope, is renamed to access_scope on idauto_observation_media
+-- and idauto_vehicle_facts, resolving tracked risk R-T03 (naming
+-- divergence with AutoValeur's access_scope — see
+-- docs/AUTOMOTIVE_RISK_REGISTER.md). No other content changed.
 -- Domain: idauto.tn
 -- Platform: Mythos ecosystem
 -- =============================================================================
@@ -48,7 +52,7 @@
 --
 -- ACCESS SCOPES
 -- -------------
--- Facts and media references carry a visibility_scope:
+-- Facts and media references carry an access_scope:
 --   public          — any caller within rate limits
 --   professional    — verified professional subscriber
 --   mythos_private  — Mythos super admin only (all access audit-logged)
@@ -401,7 +405,7 @@ CREATE TABLE idauto_observation_media (
     height_px       INTEGER,
     file_size_bytes INTEGER,
     image_hash      VARCHAR(64),                     -- SHA-256 for duplicate detection
-    visibility_scope VARCHAR(20) NOT NULL DEFAULT 'mythos_private',
+    access_scope VARCHAR(20) NOT NULL DEFAULT 'mythos_private',
         -- mythos_private | professional | public (public not used for media in current design)
     blurred         BOOLEAN      NOT NULL DEFAULT FALSE,
     retention_status VARCHAR(20) NOT NULL DEFAULT 'active',
@@ -416,7 +420,7 @@ CREATE TABLE idauto_observation_media (
         )
     ),
     CONSTRAINT chk_media_scope CHECK (
-        visibility_scope IN ('mythos_private','professional','public')
+        access_scope IN ('mythos_private','professional','public')
     ),
     CONSTRAINT chk_media_retention CHECK (
         retention_status IN ('active','pending_deletion','deleted','legal_hold')
@@ -428,7 +432,7 @@ COMMENT ON TABLE idauto_observation_media IS
 
 CREATE INDEX idx_idauto_media_obs       ON idauto_observation_media (observation_id);
 CREATE INDEX idx_idauto_media_hash      ON idauto_observation_media (image_hash) WHERE image_hash IS NOT NULL;
-CREATE INDEX idx_idauto_media_scope     ON idauto_observation_media (visibility_scope);
+CREATE INDEX idx_idauto_media_scope     ON idauto_observation_media (access_scope);
 
 
 -- -----------------------------------------------------------------------------
@@ -452,7 +456,7 @@ CREATE TABLE idauto_vehicle_facts (
         -- 0.0–1.0
     verification_status VARCHAR(20) NOT NULL DEFAULT 'unverified',
         -- unverified | pending_review | verified | conflict | rejected
-    visibility_scope VARCHAR(20) NOT NULL DEFAULT 'public',
+    access_scope VARCHAR(20) NOT NULL DEFAULT 'public',
         -- public | professional | mythos_private
     is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
         -- FALSE when superseded by a newer fact for the same key
@@ -467,7 +471,7 @@ CREATE TABLE idauto_vehicle_facts (
         verification_status IN ('unverified','pending_review','verified','conflict','rejected')
     ),
     CONSTRAINT chk_fact_scope CHECK (
-        visibility_scope IN ('public','professional','mythos_private')
+        access_scope IN ('public','professional','mythos_private')
     )
 );
 

@@ -105,7 +105,7 @@ Operator and customer-facing notification/report automation, built on the `aut_n
 - **INF-OVH-API-0 and INF-CF-AUTO-0 are both complete as reference implementations** — read-only connector orchestration logic and tests only, no live OVH or Cloudflare credential, no live network call, not deployed. **INF-DNS-AUTO-1 is the next Automation implementation stage** — it has not started.
 - **INF-CF-2 remains blocked** until authoritative data and approvals exist, per `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md`. Nothing in the Automation track changes this.
 - **Stage 3E remains the next Mythos OS runtime stage.**
-- **IDA-2 remains the next authorised Automotive implementation stage.**
+- **IDA-2 is IN PROGRESS** — Phase A (schema + plate validation, no live database) complete 2026-08-10; Phase B not started, requires separate authorization.
 - **Only one major implementation stage at a time**, unless explicitly authorised otherwise (`docs/ROADMAP.md` "One-major-stage rule").
 
 No stage in this document may be marked started by a later stage's documentation alone — each stage records its own start and completion in `docs/AI_HANDOVER.md` when it actually begins.

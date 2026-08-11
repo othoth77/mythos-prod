@@ -15,9 +15,9 @@ Only one major implementation stage is active at a time unless explicitly author
 Documentation stages (MAE-0, ATN-0, IDA-1, AVA-0, etc.) may run in parallel across product tracks. Preparation is not implementation.
 
 **Current state (ATN-0 complete):**
-- IDA-2 is the next authorised implementation stage
-- AVA-1 waits for IDA-2's shared PostgreSQL cluster
-- ATN-1 runs in parallel with IDA-3 and AVA-1 (all documentation — not concurrent with IDA-2 implementation)
+- IDA-2 is IN PROGRESS — Phase A (schema + plate validation, no live database) complete 2026-08-10; Phase B (PostgreSQL cluster, API) not started, requires separate authorization
+- AVA-1 waits for IDA-2 Phase B's shared PostgreSQL cluster
+- ATN-1 runs in parallel with IDA-3 and AVA-1 (all documentation — not concurrent with IDA-2 Phase B implementation)
 - Mythos OS Stage 3D–3G continues as its own track and must not be destabilised
 
 ### 1.2 Stage Naming Convention
@@ -243,7 +243,7 @@ Documents created: `IDAUTO_PRODUCT_SPEC.md`, database schema draft.
 - ID Auto schema migrations executed
 - Vehicle lookup API: public tier (plate → basic vehicle facts) and professional tier
 - Vehicle taxonomy API endpoint
-- `access_scope` column standardised (rename `visibility_scope` in ID Auto tables)
+- `access_scope` column standardised (renamed from `visibility_scope` in ID Auto tables — ✓ done at the schema-source level 2026-08-10, IDA-2A-CORRECTION-0; not yet applied to a live database, pending IDA-2 Phase B)
 - Merge/split vehicle_id protocol (resolves R-D01, R-D05)
 - First integration: AutoValeur can read vehicle facts via API
 
@@ -400,7 +400,7 @@ Both are CONCEPT stages.
 | IDA-1 | ID Auto | COMPLETE | — |
 | AVA-0 | AutoValeur | COMPLETE | — |
 | ATN-0 | Atelier Network | COMPLETE | — |
-| **IDA-2** | **ID Auto** | **NEXT** | **Mythos OS 3D-3F** |
+| **IDA-2** | **ID Auto** | **IN PROGRESS (Phase A complete, Phase B not started)** | **Mythos OS 3D-3F** |
 | AVA-1 | AutoValeur | NOT STARTED | IDA-2 |
 | ATN-1 | Atelier Network | NOT STARTED | IDA-2, R-ATN-01 |
 | MAE-1 | Ecosystem | NOT STARTED | IDA-2 |
@@ -429,7 +429,7 @@ Both are CONCEPT stages.
 
 Documentation stages permitted in parallel:
 - `3D → 3E → 3F → 3G` — Mythos OS runtimes (next active)
-- `IDA-2` — next authorised implementation stage (after 3F or parallel if not concurrent with 3G)
+- `IDA-2` — IN PROGRESS (Phase A complete 2026-08-10; Phase B not started, requires separate authorization; after 3F or parallel if not concurrent with 3G)
 - `ATN-1` and `AVA-1` — begin after IDA-2; may run in parallel with each other and with IDA-3
 
 Strict sequencing rules:
