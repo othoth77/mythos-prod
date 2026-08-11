@@ -1,19 +1,21 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-08T16:41:12.802Z",
-  "source_commit": "bf95988bc9eb72f37e6c4fa8e8b474a69c4e22a3",
-  "main_head": "bf95988bc9eb72f37e6c4fa8e8b474a69c4e22a3",
+  "generated_at": "2026-08-11T22:53:39.604Z",
+  "source_commit": "c3e9f452a3be4432e8f609d88f9fdf74a7e3ee4f",
+  "main_head": "c3e9f452a3be4432e8f609d88f9fdf74a7e3ee4f",
   "active_branch": "main",
   "active_stage": [],
   "last_completed_stage": {
-    "track": "mythos-research-intelligence",
-    "stage_id": "RES-0",
-    "completed_at": "2026-08-08"
+    "track": "id-auto",
+    "stage_id": "IDA-2B",
+    "completed_at": "2026-08-11"
   },
   "next_owner_priority": null,
-  "active_prs": [],
-  "draft_prs": [],
-  "known_blockers": [],
+  "active_prs": "GH_UNAVAILABLE",
+  "draft_prs": "GH_UNAVAILABLE",
+  "known_blockers": [
+    "IDA-2E: No real Mythos OS identity/auth service exists to integrate with"
+  ],
   "known_baselines": [
     "stage3d-known-failures"
   ],
