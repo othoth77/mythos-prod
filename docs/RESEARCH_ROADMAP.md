@@ -38,7 +38,7 @@ Runtime Research implementation (RES-1) must NOT start until ALL of the followin
 
 | # | Condition | Current Status |
 |---|-----------|---------------|
-| 1 | MPI-0 PR #4 (`feat/mythos-personal-intelligence`) has been merged to `main` | PENDING — PR #4 is OPEN / DRAFT |
+| 1 | MPI-0 PR #4 (`feat/mythos-personal-intelligence`) has been merged to `main` | OK — PR #4 merged 2026-08-07 (commit `8632a99`, together with MPI-0-FINALIZATION) — corrected 2026-08-10, was stale |
 | 2 | Current GitHub `main` is clean (no unmerged conflicting work) | OK |
 | 3 | INF-OVH-API-0 has been completed OR owner explicitly re-prioritises | OK — INF-OVH-API-0 completed 2026-08-07 (PR #7, reference implementation) — corrected 2026-08-10, was stale |
 | 4 | No other major implementation stage is active | Must verify at RES-1 time |
@@ -249,7 +249,7 @@ RES-1 Entry Gate
 | Item | Status |
 |------|--------|
 | RES-0 Foundation | ✓ Complete (docs only) |
-| MPI-0 PR #4 | PENDING MERGE (Draft PR) |
+| MPI-0 PR #4 | ✓ Merged (2026-08-07, commit `8632a99`) — corrected 2026-08-10, was stale |
 | INF-OVH-API-0 | ✓ Complete (2026-08-07, PR #7, reference implementation) — corrected 2026-08-10, was stale |
 | RES-1 Entry Gate | ◇ NOT SATISFIED |
 | RES-1 | ◇ NOT AUTHORISED |

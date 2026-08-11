@@ -6,6 +6,56 @@
 
 ---
 
+## CORRECTION — MPI-0 Staleness Sweep (2026-08-10)
+
+**Type:** Docs-only correction. No feature work, no IDA-2 Phase B, no production/infrastructure mutation, no code file touched.
+
+**No subagents used.** `sudo -u deploy -H bash -lc '...'` for all Git operations.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `2288dde9af4202c22a7b075bd2b71142d9e3b424` (the INF-OVH-API-0 staleness sweep commit) before this stage began.
+
+### Objective
+
+A targeted sweep for MPI-0 current-state staleness — the same "stage completed, doc never caught up" pattern already found for Stage 3E and INF-OVH-API-0. MPI-0 was developed on a Draft PR and several docs correctly described it that way *at the time they were written* — but PR #4 merged 2026-08-07 (together with MPI-0-FINALIZATION), and some of those docs never got updated to match.
+
+### Verification before editing
+
+- `gh pr view 4`: `MERGED`, `mergedAt: 2026-08-07T20:26:18Z`, merge commit `8632a99`.
+- `git log --oneline --all | grep -i MPI-1`: zero matches — confirmed MPI-1 genuinely not started.
+- `docs/PROJECT_STATUS.md`'s Personal Intelligence row (already correct, unedited): `MPI-0-FINALIZATION (merged via PR #4, 2026-08-07)` complete, `MPI-1` next, not started.
+
+### Classification (27 files matched "MPI-0"; 8 lines across 3 files corrected)
+
+**Corrected — genuinely stale current-state claims:**
+- `docs/RESEARCH_ROADMAP.md` — 2 spots: the RES-1 entry-gate condition-1 row ("PENDING — PR #4 is OPEN / DRAFT" → "OK — merged"), and a second entry-gate summary table with the same "PENDING MERGE (Draft PR)" status.
+- `docs/MYTHOS_RESEARCH_INTELLIGENCE_VISION.md` — "**MPI-0 is currently a Draft PR (#4...).**" — present-tense assertion, factually wrong since the merge.
+- `docs/SKILLS_ROADMAP.md` — the most stale file found: 5 separate spots all repeating the same "MPI-0 is the current stage, nothing after it has started" framing — the document header (`**Stage:**`/`**Status:**`), the stage-sequence table's `✓ Current documentation stage` cell, a bolded "No stage beyond MPI-0 has started" line, the `### MPI-0 ... (current)` section header, and the closing `## 4. Status` section. All corrected to: MPI-0 **and** MPI-0-FINALIZATION complete and merged (PR #4, 2026-08-07, commit `8632a99`); MPI-1 is the next Personal Intelligence stage, not started.
+
+Each correction states the corrected fact plus an inline note on what the line originally said and why, rather than a silent rewrite.
+
+**Deliberately left alone — historical, self-already-corrected, or not a status claim:**
+- `docs/ROADMAP.md`, `docs/MYTHOS_PORTFOLIO_REGISTRY.md`, `docs/PROJECT_STATISTICS.md` — already correct (say "Done and merged" / "MPI-0 complete (PR #4)" / count MPI-0 as the one completed roadmap stage respectively).
+- `docs/PROJECT_HISTORY.md` — "...opened as Draft PR #4, deliberately not merged pending final review" — narrative history, past tense, describing the act of opening the PR in draft state at that point in the story, not asserting it's still draft now. Same class as its Stage 3E/INF-OVH-API-0 sentences from the prior two sweeps. Not edited.
+- `docs/history/DAILY_HISTORY.md` — "Branch work (**not yet on `main` as of this entry**)... PR #4 opened as Draft" — explicitly time-scoped ("as of this entry"), correctly preserved per the file's own append-only policy. Not edited.
+- `docs/AI_HANDOVER.md`'s own deep historical section (line ~877) — **already self-corrected** at the time it was written: *"UPDATE (2026-08-07): merged to `main` via PR #4... The 'NOT MERGED TO MAIN' status below reflects this stage's original state at time of writing and is preserved for historical accuracy."* A second historical line (~928) describes what a past `docs/ROADMAP.md` edit did ("added... explicitly marked as... not merged") — a historical record of a past action, not a live status claim. Neither edited.
+- `docs/MYTHOS_PERSONAL_INTELLIGENCE_VISION.md` — describes MPI-0's *nature* ("documentation, contracts, reference implementation... not a deployed runtime") — still true regardless of merge status; merging didn't change what MPI-0 *is*. Not a stale status claim. Not edited.
+- `docs/CHANGELOG.md` — changelog entries recording MPI-0/MPI-0-FINALIZATION's addition — inherently historical, already correctly documents completion. Not edited.
+- The remaining ~15 files matched (architecture/vision/skills docs: `MYTHOS_PERSONAL_INTELLIGENCE_ARCHITECTURE.md`, `MYTHOS_AI_MULTI_TENANCY.md`, `SKILLS_SUPERPOSER.md`, `MYTHOS_USER_MEMORY_POLICY.md`, `MODEL_ROUTING_ARCHITECTURE.md`, `SKILLS_SECURITY.md`, `MYTHOS_DOMAIN_PACKS.md`, `MYTHOS_CONTEXT_ARCHITECTURE.md`, `MYTHOS_CHATBOT_ARCHITECTURE.md`, `DEVELOPMENT_ACCELERATION_ARCHITECTURE.md`, `SKILLS_EVOLUTION.md`, `SKILLS_SOURCES.md`, `SKILLS_VERSIONING_POLICY.md`, `SKILLS_ARCHITECTURE.md`, `docs/history/README.md`) — checked via targeted grep for status-implying language (`current`/`in progress`/`not started`/`next stage`/`pending`/`draft` near "MPI-0"); none matched. These reference MPI-0 only as the foundation stage that established a concept (architecture decision, skill origin, etc.), not as a current-status claim. Not edited.
+
+### Validation
+
+- `git diff --name-only` confirmed docs-only (3 files, all under `docs/`) — no code file touched.
+- `node tests/ida-2a-schema-and-plate-validation-test.js`: **44/44 passed** (sanity re-run; no code changed).
+- `git diff --check`: clean.
+- Secret scan of the diff: clean.
+- No production/infrastructure mutation — no `sudo -n` system command was run.
+
+### Exact next stage
+
+Unchanged: `IDA-2 Phase B`, `INF-DNS-AUTO-1`, and now confirmed `MPI-1` remain the real, not-yet-authorized next candidates for their respective tracks (ID Auto, Automation, Personal Intelligence). No further known staleness sweep is queued from this session's work — the pattern (fresh repo-wide grep, verify via `gh`/`git log` first, classify every match, fix only genuine current-state claims, leave historical/illustrative/definitional text alone) is now demonstrated three times (Stage 3E, INF-OVH-API-0, MPI-0) and can be reapplied to any other stage name if further staleness is suspected.
+
+---
+
 ## CORRECTION — INF-OVH-API-0 Staleness Sweep (2026-08-10)
 
 **Type:** Docs-only correction. No feature work, no IDA-2 Phase B, no production/infrastructure mutation, no code file touched.

@@ -145,7 +145,7 @@ Evidence package returned to Personal Intelligence
 
 Personal Intelligence owns the *what* and *for whom*. Research Intelligence owns the *how* of retrieval.
 
-**MPI-0 is currently a Draft PR (#4, `feat/mythos-personal-intelligence`).** This Research foundation is designed for future integration with that layer but does not depend on MPI-0 being merged.
+**MPI-0 (and MPI-0-FINALIZATION) merged to `main` via PR #4 on 2026-08-07** (commit `8632a99` — corrected 2026-08-10; this line previously said "MPI-0 is currently a Draft PR," stale since the merge). This Research foundation is designed for future integration with that layer but does not depend on MPI-0 being merged.
 
 ---
 

@@ -1,8 +1,8 @@
 # Mythos Personal Intelligence — Skills and Rollout Roadmap
 
 **Stage:** MPI-0 — Personal Intelligence Foundation
-**Status:** Documentation only. No stage after MPI-0 has started.
-**Date:** 2026-08-06
+**Status:** MPI-0 and MPI-0-FINALIZATION complete and merged to `main` via PR #4 (2026-08-07, commit `8632a99`). No stage after MPI-0-FINALIZATION has started — MPI-1 remains the next Personal Intelligence stage, not started. *(Corrected 2026-08-10: this line originally said "Documentation only. No stage after MPI-0 has started," stale since PR #4 merged 2026-08-07.)*
+**Date:** 2026-08-06 (original), status corrected 2026-08-10
 
 ---
 
@@ -10,7 +10,7 @@
 
 | Stage | Description | Status |
 |---|---|---|
-| MPI-0 | Personal Intelligence Foundation — architecture, contracts, scope model, context model, memory policy, user/org/domain separation, agent skills, reference implementation, tests | ✓ Current documentation stage |
+| MPI-0 | Personal Intelligence Foundation — architecture, contracts, scope model, context model, memory policy, user/org/domain separation, agent skills, reference implementation, tests | ✓ Done and merged (2026-08-07, PR #4, commit `8632a99`) — corrected 2026-08-10, previously said "Current documentation stage" |
 | MPI-1 | Context Assembler + Context Compiler (runtime implementation) | Planned |
 | MPI-2 | Personal Learning & Memory Engine (runtime implementation, persistent) | Planned |
 | MPI-3 | Runtime Skill Router + Superposer | Planned |
@@ -22,13 +22,13 @@
 | MPI-9 | Multi-model Provider Routing | Planned |
 | MPI-10 | Analytics, Feedback and Optimisation | Planned |
 
-**No stage beyond MPI-0 has started.** Marking a stage complete before it is actually implemented and validated is prohibited — this roadmap records intended sequence and scope only.
+**MPI-0 and MPI-0-FINALIZATION are complete and merged (PR #4, 2026-08-07); no stage beyond MPI-0-FINALIZATION has started** (corrected 2026-08-10, was stale). Marking a stage complete before it is actually implemented and validated is prohibited — this roadmap records intended sequence and scope only.
 
 ---
 
 ## 2. Stage Detail
 
-### MPI-0 — Personal Intelligence Foundation (current)
+### MPI-0 — Personal Intelligence Foundation (complete, merged PR #4 2026-08-07 — corrected 2026-08-10, previously marked "current")
 
 Architecture (`docs/MYTHOS_PERSONAL_INTELLIGENCE_ARCHITECTURE.md`), scope/precedence model, context model (`docs/MYTHOS_CONTEXT_ARCHITECTURE.md`), memory policy (`docs/MYTHOS_USER_MEMORY_POLICY.md`), multi-tenancy requirements (`docs/MYTHOS_AI_MULTI_TENANCY.md`), chatbot pipeline (`docs/MYTHOS_CHATBOT_ARCHITECTURE.md`), skills architecture/security/sources (`docs/SKILLS_ARCHITECTURE.md`, `docs/SKILLS_SECURITY.md`, `docs/SKILLS_SOURCES.md`), model routing (`docs/MODEL_ROUTING_ARCHITECTURE.md`), an illustrative in-memory reference implementation (`projects/personal-intelligence/reference/`), a draft undeployed schema (`projects/personal-intelligence/database/control-plane-schema.sql`), 18 agent-development skill manifests (`.claude/skills/`), and test fixtures (`tests/mpi-0-personal-intelligence-test.js`).
 
@@ -105,4 +105,4 @@ The 20 `.claude/skills/` manifests (18 from MPI-0, 2 added in MPI-0-FINALIZATION
 
 ## 4. Status
 
-Documentation only. No stage after MPI-0 has been implemented or deployed.
+MPI-0 and MPI-0-FINALIZATION are documentation, contracts, an illustrative reference implementation, and tests only — merged to `main` (PR #4, 2026-08-07), but not a deployed runtime. No stage after MPI-0-FINALIZATION has been implemented or deployed. *(Corrected 2026-08-10: this line originally said "Documentation only. No stage after MPI-0 has been implemented or deployed," stale since the merge.)*
