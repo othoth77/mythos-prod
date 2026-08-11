@@ -55,7 +55,7 @@
 
 ### IDA-2 — PostgreSQL Core, API and Manual Capture MVP
 
-**Status:** IN PROGRESS — Phase A complete and corrected (2026-08-10); Phase B slices **IDA-2B (PostgreSQL provisioning)** and **IDA-2C (read-only API)** complete (2026-08-11); remaining Phase B slices (IDA-2D onward: write API + audit, real auth, object storage, UIs, rate limiting) not started
+**Status:** IN PROGRESS — Phase A complete and corrected (2026-08-10); Phase B slices **IDA-2B (PostgreSQL provisioning)**, **IDA-2C (read-only API)**, and **IDA-2D (write API + atomic audit logging)** complete (2026-08-11); remaining Phase B slices (IDA-2E onward: real auth, object storage, UIs, rate limiting) not started
 **Depends on:** IDA-1 complete
 
 **Phase A — Schema finalization + plate format validation (complete, no live database):**
@@ -91,8 +91,19 @@
 - `tests/ida-2c-readonly-api-test.js` — **24/24 passing**, run live against `idauto-postgres` (not mocked, unlike the Phase A suite) via a server started on an ephemeral port for the test run only; no persistent listening process was left running on the VPS.
 - Full implementation record, safety verification, and exact env-var contract: see `docs/AI_HANDOVER.md`'s IDA-2C entry.
 
+**IDA-2D — Write API + Atomic Audit Logging — ✓ COMPLETE (2026-08-11):**
+- `projects/idauto/reference/api-read.js` renamed to `api.js` (`git mv`, history preserved) — no longer accurately called "read-only" once write routes existed. IDA-2C's read routes are unchanged; the placeholder admin gate is unchanged and still guards every route, read or write.
+- `projects/idauto/reference/writes.js` — new. One shared `withAudit(auditMeta, work)` helper: `BEGIN` → caller's data statement(s) on a shared client → one `INSERT INTO idauto_audit_log` → `COMMIT`, or a single `ROLLBACK` if any part fails. Every write endpoint funnels through this — there is exactly one place transaction atomicity is implemented, not one per endpoint.
+- New routes: `POST /api/vehicles`, `POST /api/plates`, `POST /api/observations` (capture_method hardcoded to `manual_admin` — not caller-controlled, since this endpoint *is* the "Admin manual entry" deliverable, not a general ingestion path), `POST /api/vehicles/:internal_ref/facts` (optionally creates its evidence row in the same transaction).
+- **Actor identity**: no real user identity exists yet (that's `IDA-2E`) — every audit row uses a fixed, non-secret placeholder label (`actor_ref = 'ida-2d-placeholder-admin-gate'`), never the bearer token itself.
+- **`mythos_private` writes now allowed** (a deliberate change from IDA-2C's read-side restriction): since AD-9 requires audit-logging on `mythos_private` access and every write here now gets one, a fact can be created with `access_scope: 'mythos_private'`. **Reads remain restricted** — `GET .../facts` still excludes it, since no audit-on-*read* path exists yet. Verified by test that a mythos_private fact is written+audited but still invisible via GET.
+- `db.js` gained `getClientForTransaction()` (a dedicated connection for `BEGIN`/`COMMIT`/`ROLLBACK`), additive to the existing pool-level `query()`.
+- Safe error mapping: Postgres `unique_violation`→409, `foreign_key_violation`/`check_violation`/`invalid_text_representation`→400, everything else→generic 500 — the raw driver error message is never echoed to a caller.
+- `tests/ida-2d-write-api-and-audit-test.js` — new, **30/30 passing**, live against `idauto-postgres`. Proves atomicity in **both directions**: (1) a data-insert failure (nonexistent vehicle FK, duplicate plate) leaves the audit-log row count unchanged — no phantom audit records for failed attempts; (2) a direct unit-level test deliberately makes the *audit* insert itself fail (an invalid `actor_type`, violating `idauto_audit_log`'s own `CHECK` constraint) after the data insert already ran, and confirms the data insert was rolled back too — not reachable through any HTTP input, since `actor_type` is never caller-controlled, so tested directly against the shared transaction helper.
+- `tests/ida-2c-readonly-api-test.js` updated only mechanically for the rename (require path) plus one assertion's wording corrected to no longer claim the file is "read-only" (it verifies the narrower, still-true claim that `api.js` has no *inline* write SQL — all mutation SQL lives in `writes.js`) — all 24 original assertions unchanged and still passing.
+- Full implementation record, exact synthetic records created, and safety verification: see `docs/AI_HANDOVER.md`'s IDA-2D entry.
+
 **Remaining Phase B slices — not started, each requires separate explicit authorization:**
-- `IDA-2D` — Core API write endpoints + audit logging (land together)
 - `IDA-2E` — Mythos OS auth integration (replaces the placeholder gate)
 - `IDA-2F` — Object storage wiring (original image references)
 - `IDA-2G` — Admin manual entry UI

@@ -6,6 +6,67 @@
 
 ---
 
+## IMPLEMENTATION — IDA-2D: Write API + Atomic Audit Logging (2026-08-11)
+
+**Type:** Production implementation (application code + live database writes — synthetic/pilot data only, no production infrastructure mutation). Third slice of IDA-2 Phase B. Scoped exactly to IDA-2D: write endpoints + audit logging together, placeholder gate preserved, no real Mythos auth, no UI/object storage/rate limiting.
+
+**No subagents used.** `sudo -n` only for read-only VPS safety checks. `sudo -u deploy -H bash -lc '...'` for all Git operations.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `211b569bb097ef19afe810128f343d6dc9b21e52` (the IDA-2C commit) before this stage began.
+
+### Pre-mutation safety check
+
+`free -h`: `3.2Gi available`; `Swap: 1.9Gi used / 76Mi free`, not thrashing. 25 containers present, all healthy, matching IDA-2C's known-good baseline exactly. `idauto-postgres` healthy. Zero kernel OOM matches in the last 6 hours. Cleared to proceed.
+
+### Design decision: `api-read.js` → `api.js`
+
+IDA-2C's file was named, documented, and tested around being read-only. Adding write routes into it would make its own name and header comment false. Rather than run two separate HTTP servers (operationally awkward, splits the one placeholder auth gate across two processes) or silently let the filename lie, renamed it via `git mv` (history preserved) to `api.js`, with an updated header explaining both what IDA-2C established and what IDA-2D added. All of IDA-2C's read routes and behavior are unchanged.
+
+### What was built
+
+- **`projects/idauto/reference/writes.js`** — new. The single shared `withAudit(auditMeta, work)` transaction helper every write endpoint uses: acquire a dedicated client (`db.getClientForTransaction()`), `BEGIN`, run `work(client)` (the caller's own data insert(s), e.g. a fact + its evidence row together), `INSERT INTO idauto_audit_log` on the **same client**, `COMMIT` — or `ROLLBACK` and re-throw on any failure at any step. This is the only place transaction atomicity is implemented in this module; no endpoint handler opens its own `BEGIN`.
+- **`projects/idauto/reference/db.js`** — added `getClientForTransaction()` (a dedicated pooled connection for multi-statement transactions), additive to the existing pool-level `query()` from IDA-2C.
+- **New routes in `api.js`**: `POST /api/vehicles`, `POST /api/plates`, `POST /api/observations`, `POST /api/vehicles/:internal_ref/facts`. A 64KB JSON body-size cap, basic required-field validation before any DB call, and safe Postgres-error-code mapping (`23505`→409 conflict, `23503`/`23514`/`22P02`→400, everything else→generic 500 — the raw driver message is never echoed to a caller).
+- **`capture_method` hardcoded to `'manual_admin'`** on `POST /api/observations` — not accepted from the request body at all. This endpoint *is* the "Admin manual entry" deliverable specifically; it must not become a general ingestion path for `smart_gate`/`public_upload`/other capture types that carry different trust/legal-basis requirements per the schema's own comments.
+- **Actor identity**: `IDA-2E` (real Mythos OS auth) doesn't exist yet, so there's no real user identity to attach to an audit record. Every audit row from this stage uses a fixed, non-secret placeholder (`actor_ref = writes.PLACEHOLDER_ACTOR_REF = 'ida-2d-placeholder-admin-gate'`) — never the bearer token itself, which must never appear in a database row.
+- **`mythos_private` policy resolved for writes, deliberately left alone for reads**: IDA-2C excluded all `mythos_private`-scope data from GET responses specifically because no audit-writing path existed yet, and AD-9 requires that scope to be audit-logged on every access. IDA-2D provides exactly that for writes — so `POST .../facts` now accepts `access_scope: 'mythos_private'` and audits it. **Reads are intentionally unchanged**: `GET .../facts` still filters it out, because audit-on-*read* is a different, unbuilt mechanism — writing a private fact is now safe/audited; *reading* one still isn't. Verified by test (§9 below): a mythos_private fact created in this stage is confirmed written and audited, then confirmed still invisible via the unchanged GET endpoint.
+- **Placeholder admin gate preserved unchanged** — `requireAuth()` in `api.js` was not touched; it still guards every route (read and write) exactly as IDA-2C left it.
+
+### Atomicity — proven, not just implemented
+
+Two independent test angles, both live against `idauto-postgres`:
+1. **Data-fails direction** (naturally reachable via API input): a duplicate plate number (`23505`) and a nonexistent vehicle foreign key (`23503`) each correctly return an error status, and in both cases `idauto_audit_log`'s row count is confirmed unchanged before/after — no phantom audit record for a failed attempt.
+2. **Audit-fails direction** (not reachable via any HTTP input, since `actor_type` is always `'admin'`, never caller-controlled): a direct unit-level test opens a real transaction on `db.getClientForTransaction()`, inserts a probe vehicle, then deliberately inserts an audit row with an invalid `actor_type` (violating `idauto_audit_log`'s own `chk_audit_actor` CHECK constraint), confirms the insert throws, `ROLLBACK`s, and then queries `idauto_vehicles` directly to confirm the probe vehicle **does not exist** — proving the whole transaction rolled back together, not just the audit step failing silently after the data half had already committed.
+
+### Synthetic/pilot data created (all intentional, per this stage's scope)
+
+Via each live test run (the suite ran multiple times this session — once during development, once after the plate-uniqueness fix below, twice more to confirm re-run safety): one vehicle per run (`IDA2D-...` generated internal_ref, make `IDA2D-Test-Make`), one plate per run (`TUN_STD`-pattern, freshly generated per run — see the self-caught bug below), one observation (`manual_admin`, linked to both), two facts (`colour`=`blue`, `access_scope=public`; `vin`=`IDA2DTESTVIN0001`, `access_scope=mythos_private`) with one evidence row, plus corresponding `idauto_audit_log` rows for each successful write. Each run's atomicity-probe vehicle insert (`IDA2D-ATOMICITY-PROBE-...`) was attempted and correctly rolled back — none exist in the database. All of this is exactly the kind of synthetic/pilot data this stage's scope permits; none of it was cleaned up afterward, since it's legitimate test fixture data for future slices to build on (matching how IDA-2C's own synthetic vehicle was left in place for this stage to use).
+
+### Tests
+
+- **`tests/ida-2d-write-api-and-audit-test.js`** — new, **30/30 passing**, live against `idauto-postgres` via a server on an ephemeral port (closed at the end of the run — no persistent listening process left on the VPS). Covers: placeholder gate preserved on write routes, every new endpoint's success path plus its audit row, the read-back-after-write regression, duplicate/foreign-key error mapping with the atomicity check, the `mythos_private` write-allowed-but-read-still-excluded distinction, input validation, the direct atomicity unit test, and a source-scan confirming `withAudit()`'s audit insert always appears before its `COMMIT` in source order.
+  - **Self-caught bug, fixed before commit:** the first version hardcoded the test plate number (`'111 TUN 1111'`). It passed on first run, but a routine second run against the same persistent database (re-verifying before commit, not just trusting one green run) failed 2/30 — the plate collided with itself from the prior run, since `idauto_plates` correctly enforces one active plate number. Unlike the vehicle (which already used a timestamp-based unique `internal_ref` per run), the plate number wasn't unique per run. Fixed by generating a fresh, `TUN_STD`-pattern-valid plate number per run (`TEST_PLATE`, derived from `Date.now()`); confirmed by running the suite twice in succession afterward, both **30/30**.
+- **`tests/ida-2c-readonly-api-test.js`** — re-run unchanged in substance: **24/24 still passing**. Updated only mechanically (require path following the rename) plus one assertion's wording, since it can no longer honestly claim "this API is read-only" — narrowed to the still-true claim that `api.js` itself contains no *inline* SQL write verb (all mutation SQL lives in `writes.js`).
+- **`tests/ida-2a-schema-and-plate-validation-test.js`** — re-run as a broader regression check: **44/44 still passing**, unaffected.
+
+### Validation
+
+- `node -c` syntax check: all four touched/new JS files clean.
+- All three test suites above passed, run fresh in this session.
+- Post-test process check: no lingering `node` listening process.
+- Post-mutation VPS safety: 25 containers unchanged, `idauto-postgres` unchanged (`RestartCount=0`, same memory cap), **Jellyfin untouched**, all protected domains 200, RAM `3.1Gi available`, swap materially unchanged, zero new OOM events.
+- `git diff --check`: clean.
+- Secret scan of the diff: clean — no database password, no admin token (real or test), anywhere in any committed file.
+- Scope confirmed: `git status` shows exactly the rename plus `db.js`/`writes.js`/both test files — no UI, object-storage, rate-limiting, or real-auth code anywhere in this diff.
+
+### Result: PASS
+
+### Exact next stage
+
+`IDA-2E` — Mythos OS auth integration, replacing the placeholder gate with real identity (which would also let a future slice reconsider the `mythos_private` read restriction, since real auth is a prerequisite for deciding who's allowed to see it). Not started, not implied by this entry, requires its own explicit authorization.
+
+---
+
 ## IMPLEMENTATION — IDA-2C: Read-Only ID Auto API (2026-08-11)
 
 **Type:** Production implementation (application code, live database reads only — no production infrastructure mutation, no write path). Second slice of IDA-2 Phase B. Scoped exactly to IDA-2C: no write endpoints, no audit-writing path, no real Mythos auth, no UI, object storage, or rate limiting.

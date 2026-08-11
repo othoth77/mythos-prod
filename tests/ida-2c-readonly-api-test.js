@@ -22,7 +22,7 @@ var BASE = path.join(__dirname, '..');
 var pass = 0, fail = 0;
 function ok(v, l) { if (v) { pass++; console.log('  PASS ' + l); } else { fail++; console.log('  FAIL ' + l); } }
 
-var api = require(path.join(BASE, 'projects', 'idauto', 'reference', 'api-read.js'));
+var api = require(path.join(BASE, 'projects', 'idauto', 'reference', 'api.js'));
 var db = require(path.join(BASE, 'projects', 'idauto', 'reference', 'db.js'));
 
 var TOKEN = process.env.IDAUTO_ADMIN_PLACEHOLDER_TOKEN;
@@ -126,12 +126,18 @@ function authed(requestPath, method) {
   var unknownRoute = await authed('/api/something-that-does-not-exist');
   ok(unknownRoute.status === 404, 'Unknown path -> 404');
 
-  console.log('\n8. api-read.js source — no write SQL anywhere');
+  console.log('\n8. api.js source — the read routes tested above still contain no inline write SQL');
+  // NOTE (IDA-2D): api-read.js was renamed to api.js and gained write
+  // routes in IDA-2D — this API is no longer read-only overall. This
+  // check now verifies a narrower, still-true claim: api.js itself has no
+  // SQL write verb written inline — all writes are delegated to
+  // writes.js's parameterized, audited functions (see
+  // tests/ida-2d-write-api-and-audit-test.js for write-path coverage).
   var fs = require('fs');
-  var src = fs.readFileSync(path.join(BASE, 'projects', 'idauto', 'reference', 'api-read.js'), 'utf8');
+  var src = fs.readFileSync(path.join(BASE, 'projects', 'idauto', 'reference', 'api.js'), 'utf8');
   var writeVerbs = [/INSERT\s+INTO/i, /UPDATE\s+idauto_/i, /DELETE\s+FROM/i, /DROP\s+/i, /ALTER\s+TABLE/i, /TRUNCATE/i];
   var clean = writeVerbs.every(function (re) { return !re.test(src); });
-  ok(clean, 'No SQL write verb appears anywhere in api-read.js source — every query() call is a SELECT');
+  ok(clean, 'No SQL write verb appears inline in api.js source — all mutation SQL lives in writes.js');
 
   await new Promise(function (resolve) { server.close(resolve); });
   await db.closePool();

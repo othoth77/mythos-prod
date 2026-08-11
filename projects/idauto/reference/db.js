@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================
-// MYTHOS — ID Auto Stage IDA-2C — database connection
+// MYTHOS — ID Auto — database connection
 // projects/idauto/reference/db.js
 //
 // Thin wrapper around node-postgres (`pg`), the repository's first real
@@ -9,9 +9,10 @@
 // no credential value is ever logged, thrown in an error message, or
 // returned to a caller.
 //
-// Scope (IDA-2C): read-only. This module itself does not enforce that —
-// callers (projects/idauto/reference/api-read.js) are responsible for only
-// issuing SELECT statements. A later slice (IDA-2D) adds write support.
+// IDA-2C added query() (pool-level, used for reads). IDA-2D added
+// getClientForTransaction() (a dedicated connection, used for writes that
+// must run a data insert and its audit-log insert atomically in one
+// transaction — see projects/idauto/reference/writes.js).
 // =====================================================
 
 var Pool = require('pg').Pool;
@@ -53,6 +54,14 @@ function query(text, params) {
   return getPool().query(text, params || []);
 }
 
+// Returns a dedicated client (not a pool-level query) so a caller can run
+// BEGIN/COMMIT/ROLLBACK around more than one statement. The caller owns
+// the client's lifecycle and MUST call client.release() in a finally
+// block — see writes.js's withAudit(), the only caller of this function.
+function getClientForTransaction() {
+  return getPool().connect();
+}
+
 async function closePool() {
   if (pool) {
     await pool.end();
@@ -62,5 +71,6 @@ async function closePool() {
 
 module.exports = {
   query: query,
+  getClientForTransaction: getClientForTransaction,
   closePool: closePool
 };
