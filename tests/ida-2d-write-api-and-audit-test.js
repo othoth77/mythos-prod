@@ -4,23 +4,28 @@
 // tests/ida-2d-write-api-and-audit-test.js
 //
 // Live, not offline — same pattern as tests/ida-2c-readonly-api-test.js.
-// Requires IDAUTO_DB_HOST/PORT/USER/PASSWORD/NAME and
-// IDAUTO_ADMIN_PLACEHOLDER_TOKEN set in the environment.
+// Requires IDAUTO_DB_HOST/PORT/USER/PASSWORD/NAME in the environment. The
+// admin identity token (IDA-2E-PRE) is generated fresh by this test
+// itself and set into process.env.IDAUTO_ADMIN_IDENTITIES before api.js
+// is required.
 //
 // Run with: env IDAUTO_DB_HOST=... ... node tests/ida-2d-write-api-and-audit-test.js
 // =====================================================
 
 var http = require('http');
 var path = require('path');
+var crypto = require('crypto');
 var BASE = path.join(__dirname, '..');
 var pass = 0, fail = 0;
 function ok(v, l) { if (v) { pass++; console.log('  PASS ' + l); } else { fail++; console.log('  FAIL ' + l); } }
 
+var TOKEN = crypto.randomBytes(24).toString('hex');
+var TEST_IDENTITY = 'admin:ida-2d-test-run';
+process.env.IDAUTO_ADMIN_IDENTITIES = JSON.stringify({ [TOKEN]: TEST_IDENTITY });
+
 var api = require(path.join(BASE, 'projects', 'idauto', 'reference', 'api.js'));
 var db = require(path.join(BASE, 'projects', 'idauto', 'reference', 'db.js'));
-var writes = require(path.join(BASE, 'projects', 'idauto', 'reference', 'writes.js'));
 
-var TOKEN = process.env.IDAUTO_ADMIN_PLACEHOLDER_TOKEN;
 var server, port;
 
 // Generated fresh per run (matches the TUN_STD pattern ^(\d{1,3})\s?TUN\s?(\d{1,4})$)
@@ -70,13 +75,11 @@ async function vehicleCount(internalRef) {
 }
 
 (async function main() {
-  if (!TOKEN) { console.log('SKIPPED: IDAUTO_ADMIN_PLACEHOLDER_TOKEN not set.'); process.exit(1); }
-
   server = api.createServer();
   await new Promise(function (resolve) { server.listen(0, '127.0.0.1', resolve); });
   port = server.address().port;
 
-  console.log('\n1. PLACEHOLDER GATE — preserved on write routes');
+  console.log('\n1. ADMIN IDENTITY GATE — preserved on write routes (IDA-2E-PRE)');
   var noAuth = await request('POST', '/api/vehicles', {}, { make: 'ShouldBeRejected' });
   ok(noAuth.status === 401, 'POST /api/vehicles with no auth -> 401 (gate still enforced on writes)');
   var wrongAuth = await request('POST', '/api/vehicles', { 'Authorization': 'Bearer wrong' }, { make: 'ShouldBeRejected' });
@@ -91,7 +94,8 @@ async function vehicleCount(internalRef) {
   ok(afterCount === beforeCount + 1, 'Exactly one new audit_log row appeared (was ' + beforeCount + ', now ' + afterCount + ')');
   var audit1 = await latestAudit();
   ok(audit1.event_type === 'vehicle.create' && audit1.actor_type === 'admin' && audit1.target_ref === vehicleResp.body.internal_ref, 'Audit row matches: event_type=vehicle.create, actor_type=admin, target_ref=the new internal_ref');
-  ok(audit1.actor_ref === writes.PLACEHOLDER_ACTOR_REF, 'Audit actor_ref is the fixed placeholder label, never the bearer token itself');
+  ok(audit1.actor_ref === TEST_IDENTITY, 'Audit actor_ref is the real resolved identity string (' + TEST_IDENTITY + '), never the bearer token itself');
+  ok(audit1.actor_ref !== TOKEN, 'Audit actor_ref is definitely not the raw bearer token');
 
   var newVehicleRef = vehicleResp.body.internal_ref;
 
@@ -146,7 +150,37 @@ async function vehicleCount(internalRef) {
   var factKeys = factsAfter.body.facts.map(function (f) { return f.fact_key; });
   ok(factKeys.indexOf('vin') === -1 && factKeys.indexOf('colour') !== -1, 'facts list still shows "colour" (public) but not "vin" (mythos_private) — IDA-2C\'s read-side restriction is unchanged by this stage');
 
-  console.log('\n10. INPUT VALIDATION — missing required fields rejected before any DB write');
+  console.log('\n10. MULTIPLE DISTINCT IDENTITIES — the whole point of IDA-2E-PRE');
+  var identityModule = require(path.join(BASE, 'projects', 'idauto', 'reference', 'identity.js'));
+  var secondToken = require('crypto').randomBytes(24).toString('hex');
+  var secondIdentity = 'admin:ida-2d-second-identity';
+  var currentIdentities = JSON.parse(process.env.IDAUTO_ADMIN_IDENTITIES);
+  currentIdentities[secondToken] = secondIdentity;
+  process.env.IDAUTO_ADMIN_IDENTITIES = JSON.stringify(currentIdentities);
+  identityModule.clearIdentityCache();
+  var secondVehicleResp = await request('POST', '/api/vehicles', { 'Authorization': 'Bearer ' + secondToken }, { make: 'IDA2D-Second-Identity-Vehicle' });
+  ok(secondVehicleResp.status === 201, 'A second, distinct admin token also authenticates successfully -> 201');
+  var auditSecond = await latestAudit();
+  ok(auditSecond.actor_ref === secondIdentity, 'The audit row for this write is attributed to the SECOND identity (' + secondIdentity + '), not the first (' + TEST_IDENTITY + ') — proves this is a real per-token identity map, not just a relabeled single shared secret');
+  ok(auditSecond.actor_ref !== TEST_IDENTITY, 'Confirms the two identities produce genuinely different audit attribution');
+
+  console.log('\n11. WITHOUT AN IDENTITY, withAudit() fails closed (defense in depth, not reachable via HTTP since requireAuth already blocks it)');
+  var writesModule = require(path.join(BASE, 'projects', 'idauto', 'reference', 'writes.js'));
+  var beforeNoIdentity = await auditCount();
+  var noIdentityThrew = false;
+  try {
+    await writesModule.createVehicle({ make: 'ShouldNeverPersist' }, null);
+  } catch (e) {
+    noIdentityThrew = true;
+    ok(e.httpStatus === 401, 'withAudit() throws with httpStatus 401 when identity is falsy');
+  }
+  ok(noIdentityThrew, 'Calling a write function with no identity throws rather than silently writing an unattributed audit row');
+  var afterNoIdentity = await auditCount();
+  ok(afterNoIdentity === beforeNoIdentity, 'No audit_log row (and, by construction, no data row — the transaction never opened) was created for the no-identity attempt');
+  var ghostCount = await db.query("SELECT count(*) FROM idauto_vehicles WHERE make = 'ShouldNeverPersist'");
+  ok(parseInt(ghostCount.rows[0].count, 10) === 0, 'The vehicle insert itself never happened either — withAudit() checks identity BEFORE opening a transaction at all');
+
+  console.log('\n12. INPUT VALIDATION — missing required fields rejected before any DB write');
   var missingPlate = await authed('/api/plates', 'POST', { format_code: 'TUN_STD' });
   ok(missingPlate.status === 400, 'POST /api/plates without plate_number -> 400');
   var missingObs = await authed('/api/observations', 'POST', {});
@@ -154,7 +188,7 @@ async function vehicleCount(internalRef) {
   var missingFact = await authed('/api/vehicles/' + newVehicleRef + '/facts', 'POST', { fact_key: 'colour' });
   ok(missingFact.status === 400, 'POST .../facts without fact_value -> 400');
 
-  console.log('\n11. ATOMICITY, direct unit test — audit-insert failure rolls back the paired data insert');
+  console.log('\n13. ATOMICITY, direct unit test — audit-insert failure rolls back the paired data insert');
   // Exercises the real withAudit() helper that every endpoint above uses,
   // this time forcing the audit insert itself to fail (invalid actor_type,
   // violating idauto_audit_log's own CHECK constraint) after the data
@@ -188,7 +222,7 @@ async function vehicleCount(internalRef) {
   var probeCount = await vehicleCount(probeRef);
   ok(probeCount === 0, 'After ROLLBACK, the vehicle insert that ran BEFORE the failing audit insert does NOT exist — proves the transaction is genuinely atomic, not just the audit step failing silently after the data was already committed');
 
-  console.log('\n12. writes.js source — no COMMIT without a preceding audit insert in withAudit()');
+  console.log('\n14. writes.js source — no COMMIT without a preceding audit insert in withAudit()');
   var fs = require('fs');
   var writesSrc = fs.readFileSync(path.join(BASE, 'projects', 'idauto', 'reference', 'writes.js'), 'utf8');
   var withAuditBody = writesSrc.slice(writesSrc.indexOf('async function withAudit'), writesSrc.indexOf('function genInternalRef'));

@@ -6,6 +6,74 @@
 
 ---
 
+## IMPLEMENTATION — IDA-2E-PRE: Minimal Mythos Identity Stub (2026-08-11)
+
+**Type:** Production implementation (application code, live database — synthetic/pilot data only). Resolves the `IDA-2E` blocker below by scoping and implementing a much smaller, honestly-labeled stage instead. No production infrastructure mutation. No UI, object storage, or rate limiting.
+
+**No subagents used.** `sudo -n` only for read-only VPS safety checks. `sudo -u deploy -H bash -lc '...'` for all Git operations.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `6a8125fbe6aedf17403710140c0e80157e49c912` (the IDA-2D commit) before this stage began. No commit landed between the blocker finding and this implementation — the blocker and its resolution are one continuous session.
+
+### What this is not
+
+This is **not** the `mythos_auth` integration contract in `docs/IDAUTO_ARCHITECTURE.md` §4.1 (JWT/opaque-ref tokens issued by a real Mythos OS auth service). That service does not exist anywhere in this codebase — confirmed by direct research (see the `IDA-2E` blocker entry immediately below) before any code was written for this stage. Full `IDA-2E` remains blocked. What follows is a deliberately minimal, clearly-labeled stopgap, scoped by explicit user choice after the blocker was reported (of three options offered, the user chose: *"Scope a minimal Mythos identity stub as its own stage first... just enough to give audit records a real identity"*).
+
+### What was built
+
+- **`projects/idauto/reference/identity.js`** — new. Parses `IDAUTO_ADMIN_IDENTITIES` (a JSON object, `{ "<bearer token>": "<stable identity string>", ... }`) once per process. `resolveIdentity(token)` returns the mapped identity string or `null`. No login flow, no session, no JWT, no user table — tokens remain static, operator-provisioned secrets, not user-chosen credentials. The module's own header comment states plainly what it is and is not, so a future session doesn't mistake this for the real integration.
+- **`api.js`'s `requireAuth()`** — rewritten to resolve a real identity per request (`req.mythosIdentity = identity.resolveIdentity(token)`) instead of a boolean comparison against one shared `IDAUTO_ADMIN_PLACEHOLDER_TOKEN`. Every route (read and write) is still gated exactly as before — only the mechanism changed, not the enforcement point.
+- **`writes.js`'s `withAudit()`** — now takes `identity` as a parameter (threaded through from `api.js`'s route handlers, which pass `req.mythosIdentity`) and writes it as `actor_ref`, replacing the old hardcoded `PLACEHOLDER_ACTOR_REF` constant (removed). **Fails closed**: if `identity` is falsy, `withAudit()` throws (`httpStatus: 401`) *before* calling `db.getClientForTransaction()` at all — there is no code path that opens a transaction, let alone writes data, without an attributable audit actor. (In the live HTTP path this is unreachable, since `requireAuth()` already blocks any request without a resolved identity — verified directly against the exported `writes.createVehicle()` function, bypassing the HTTP layer, to prove the guarantee holds at the module level too, not only via the route gate.)
+- **`.env.example`** updated: `IDAUTO_ADMIN_PLACEHOLDER_TOKEN` replaced with `IDAUTO_ADMIN_IDENTITIES`, documented as explicitly not the real auth contract.
+- **Read/write behavior and atomic audit guarantees preserved unchanged**, per explicit instruction: no route was added, removed, or had its data/response shape changed. `mythos_private` reads remain restricted (IDA-2C's `GET .../facts` filter is untouched) — this stage did not attempt to satisfy the "full authorization + audit-on-read" bar the task set for relaxing that restriction, so it correctly stays as-is.
+
+### Tests
+
+- **`tests/ida-2d-write-api-and-audit-test.js`** — extended from 30 to **38 passing**. Two new sections prove the actual point of this stage: (1) two distinct admin tokens produce two distinct `actor_ref` values in the audit log — proving this is a real per-token map, not a relabeled single shared secret; (2) calling `writes.createVehicle()` directly with no identity throws `401` before any transaction opens, and neither an audit row nor the underlying data row exists afterward. The existing 30 assertions were updated only to source the test token from a self-generated `IDAUTO_ADMIN_IDENTITIES` map (previously a raw env var) and to check `actor_ref` against the real test identity string instead of the removed `PLACEHOLDER_ACTOR_REF` constant — no assertion's *meaning* changed.
+- **`tests/ida-2c-readonly-api-test.js`** — **24/24 still passing**, updated the same mechanical way (self-generated identity map instead of a raw placeholder token env var).
+- **`tests/ida-2a-schema-and-plate-validation-test.js`** — **44/44**, unaffected (offline, no code touched).
+- Both live suites re-run twice in succession to confirm idempotency against the persistent database (a discipline adopted after IDA-2D's own self-caught hardcoded-plate-number bug) — clean both times.
+
+### Validation
+
+- `node -c` syntax check: all four touched/new JS files clean.
+- All three test suites passed, run fresh in this session, live suites run twice each.
+- Post-test process check: no lingering `node` listening process.
+- Post-mutation VPS safety: 25 containers unchanged, `idauto-postgres` unchanged (`RestartCount=0`, same memory cap), **Jellyfin untouched**, all protected domains 200, RAM `3.1Gi available`, swap materially unchanged, zero new OOM events.
+- `git diff --check`: clean.
+- Secret scan of the diff: clean.
+- Scope confirmed: no UI, object-storage, or rate-limiting code anywhere in this diff; `mythos_private` read restriction confirmed unchanged by test (§9 in the IDA-2D suite).
+
+### Result: PASS (for IDA-2E-PRE — full IDA-2E remains BLOCKED, see below)
+
+### Exact next stage
+
+Unchanged in substance from before: `IDA-2F` (object storage), `IDA-2G`/`IDA-2H` (UIs), `IDA-2I` (rate limiting) remain the real not-yet-authorized Phase B candidates. Full `IDA-2E` (real Mythos OS auth service integration) stays blocked until such a service exists anywhere in this ecosystem — building one is its own, much larger, separately-scoped undertaking, not an ID Auto slice.
+
+---
+
+## BLOCKER — IDA-2E: No Real Mythos OS Auth Service Exists (2026-08-11)
+
+**Type:** Read-only research. No code written, no file touched, nothing committed for this entry on its own (the finding and its resolution — `IDA-2E-PRE` above — landed in the same session, one commit).
+
+**Task as given:** *"Replace the placeholder ID Auto admin gate with real Mythos OS auth/identity integration... Audit records must use the authenticated Mythos identity, never the raw token."*
+
+**What was researched before writing any code:**
+- `js/auth.js` (429 lines) — the main "Uthina Chess" app's only authentication mechanism: a single shared password, SHA-256-hashed and hardcoded in client-side JS (`AUTH.HASH`), compared entirely in the browser against `localStorage`. No server-side validation found anywhere. No user table. No per-user identity of any kind — every person who knows the one password is the same undifferentiated actor.
+- `google_auth.php` / `google_callback.php` — a one-off Google OAuth flow scoped to `contacts.readonly` only, used to import Google Contacts into the app. Not a login/identity system; no session or identity is ever derived from or tied to it.
+- `api.php` and every other `.php` file in the repository — `grep`'d for `session_start`, `$_SESSION`, `JWT`: zero matches anywhere.
+- `docs/IDAUTO_ARCHITECTURE.md` §4.1 (the actual `mythos_auth` integration contract): `Protocol: Token-based (JWT or opaque ref); protocol defined in IDA-1 spec, implemented IDA-2` — but IDA-1's own deliverables (`docs/IDAUTO_PRODUCT_SPEC.md`, `docs/MYTHOS_PERSONAL_INTELLIGENCE_VISION.md`) never actually defined a concrete protocol; this is a forward reference to something that was never specified.
+- `MYTHOS_SUPER_ADMIN` — referenced as a required role across `IDAUTO_ARCHITECTURE.md`, `AUTOMOTIVE_ARCHITECTURE.md`, `AUTOVALEUR_ARCHITECTURE.md`, `idauto.example.json`, `autovaleur.example.json` — has no concrete definition or implementation anywhere in the repository.
+
+**Conclusion:** there is no real Mythos OS auth **service** anywhere in this codebase to integrate with. The task's two requirements — real identity integration, and audit records carrying a real authenticated identity rather than a raw token — both depend on a per-user identity existing somewhere, and none does. Building an actual multi-user Mythos OS identity/auth service would be a new platform-wide capability, materially larger than everything else in Phase B combined, and explicitly outside this slice's stated bounds (*"No UI, object storage, or rate limiting"* signals a narrow integration slice, not a ground-up build).
+
+**No code was written, no file was touched, nothing was committed for full `IDA-2E`.** Reported to the user as a real blocker per this project's standing "stop at the first real blocker" discipline, with the exact evidence above rather than a vague "auth isn't ready" claim.
+
+**User's decision** (offered three options: keep the placeholder and document the gap; scope a minimal identity stub as its own stage first; or clarify a narrower interpretation): **scope a minimal Mythos identity stub as its own stage first** — implemented immediately after as `IDA-2E-PRE`, see the entry above.
+
+**Full `IDA-2E` (real Mythos OS auth service integration) remains BLOCKED.** Unblocking it requires a real Mythos OS identity service to exist somewhere in this ecosystem first — that is its own, separately-scoped, much larger undertaking, not a next step ID Auto itself can take.
+
+---
+
 ## IMPLEMENTATION — IDA-2D: Write API + Atomic Audit Logging (2026-08-11)
 
 **Type:** Production implementation (application code + live database writes — synthetic/pilot data only, no production infrastructure mutation). Third slice of IDA-2 Phase B. Scoped exactly to IDA-2D: write endpoints + audit logging together, placeholder gate preserved, no real Mythos auth, no UI/object storage/rate limiting.

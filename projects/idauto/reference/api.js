@@ -13,29 +13,36 @@
 // creates its idauto_audit_log row in the same transaction, atomically.
 // Reads are UNCHANGED from IDA-2C, including the mythos_private exclusion
 // — writes are now audited (satisfying AD-9), but reads still are not, so
-// GET responses still exclude that scope. The placeholder admin gate
-// (IDAUTO_ADMIN_PLACEHOLDER_TOKEN) is preserved unchanged and still guards
-// every route, read or write — IDA-2E replaces it with real Mythos OS auth.
+// GET responses still exclude that scope.
+//
+// IDA-2E-PRE replaced the single undifferentiated placeholder token with
+// projects/idauto/reference/identity.js's minimal admin-identity map —
+// see that file's header for exactly what this is and is not. Full IDA-2E
+// (real Mythos OS auth service integration per docs/IDAUTO_ARCHITECTURE.md
+// §4.1) remains blocked: no such service exists anywhere in this
+// codebase. requireAuth() now resolves a real identity string per request
+// (req.mythosIdentity) instead of a boolean match against one shared
+// token, and every write handler passes it through to writes.js so audit
+// records carry the authenticated identity, never the raw bearer token.
 // =====================================================
 
 var http = require('http');
 var url = require('url');
 var db = require('./db.js');
 var writes = require('./writes.js');
+var identity = require('./identity.js');
 
 function requireAuth(req, res) {
   var header = req.headers['authorization'] || '';
-  var expected = process.env.IDAUTO_ADMIN_PLACEHOLDER_TOKEN;
-  if (!expected) {
-    res.writeHead(500, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'server misconfigured: IDAUTO_ADMIN_PLACEHOLDER_TOKEN not set' }));
-    return false;
-  }
-  if (header !== 'Bearer ' + expected) {
+  var match = /^Bearer (.+)$/.exec(header);
+  var token = match ? match[1] : null;
+  var resolved = identity.resolveIdentity(token);
+  if (!resolved) {
     res.writeHead(401, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'unauthorized — placeholder admin token required (IDA-2E will replace this with real Mythos OS auth)' }));
+    res.end(JSON.stringify({ error: 'unauthorized — a recognized admin identity token is required' }));
     return false;
   }
+  req.mythosIdentity = resolved;
   return true;
 }
 
@@ -157,7 +164,7 @@ function readJsonBody(req) {
 // POST /api/vehicles
 async function postVehicle(req, res) {
   var body = await readJsonBody(req);
-  var record = await writes.createVehicle(body);
+  var record = await writes.createVehicle(body, req.mythosIdentity);
   sendJson(res, 201, record);
 }
 
@@ -167,7 +174,7 @@ async function postPlate(req, res) {
   if (!body.plate_number || !body.format_code) {
     return sendJson(res, 400, { error: 'plate_number and format_code are required' });
   }
-  var record = await writes.createPlate(body);
+  var record = await writes.createPlate(body, req.mythosIdentity);
   sendJson(res, 201, record);
 }
 
@@ -177,7 +184,7 @@ async function postObservation(req, res) {
   if (!body.vehicle_internal_ref) {
     return sendJson(res, 400, { error: 'vehicle_internal_ref is required' });
   }
-  var record = await writes.createObservation(body);
+  var record = await writes.createObservation(body, req.mythosIdentity);
   sendJson(res, 201, record);
 }
 
@@ -187,7 +194,7 @@ async function postFact(req, res, internalRef) {
   if (!body.fact_key || typeof body.fact_value === 'undefined') {
     return sendJson(res, 400, { error: 'fact_key and fact_value are required' });
   }
-  var record = await writes.createFact(internalRef, body);
+  var record = await writes.createFact(internalRef, body, req.mythosIdentity);
   sendJson(res, 201, record);
 }
 

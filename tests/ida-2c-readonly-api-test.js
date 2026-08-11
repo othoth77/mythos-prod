@@ -8,8 +8,12 @@
 // idauto-postgres), because IDA-2C's whole purpose is to prove the API
 // works against the live database, not a mock of it. Requires:
 //   IDAUTO_DB_HOST, IDAUTO_DB_PORT, IDAUTO_DB_USER, IDAUTO_DB_PASSWORD,
-//   IDAUTO_DB_NAME, IDAUTO_ADMIN_PLACEHOLDER_TOKEN
-// set in the environment before running (never hardcoded here). Starts
+//   IDAUTO_DB_NAME
+// set in the environment before running (never hardcoded here). The admin
+// identity token (IDA-2E-PRE, projects/idauto/reference/identity.js) is
+// generated fresh by this test itself and set into
+// process.env.IDAUTO_ADMIN_IDENTITIES before api.js is required, so no
+// external identity configuration is needed to run this suite. Starts
 // the server on an ephemeral port for the duration of this test process
 // only — no persistent listening service is left running by this suite.
 //
@@ -18,14 +22,18 @@
 
 var http = require('http');
 var path = require('path');
+var crypto = require('crypto');
 var BASE = path.join(__dirname, '..');
 var pass = 0, fail = 0;
 function ok(v, l) { if (v) { pass++; console.log('  PASS ' + l); } else { fail++; console.log('  FAIL ' + l); } }
 
+var TOKEN = crypto.randomBytes(24).toString('hex');
+var TEST_IDENTITY = 'admin:ida-2c-test-run';
+process.env.IDAUTO_ADMIN_IDENTITIES = JSON.stringify({ [TOKEN]: TEST_IDENTITY });
+
 var api = require(path.join(BASE, 'projects', 'idauto', 'reference', 'api.js'));
 var db = require(path.join(BASE, 'projects', 'idauto', 'reference', 'db.js'));
 
-var TOKEN = process.env.IDAUTO_ADMIN_PLACEHOLDER_TOKEN;
 var server;
 var port;
 
@@ -56,18 +64,13 @@ function authed(requestPath, method) {
 }
 
 (async function main() {
-  if (!TOKEN) {
-    console.log('SKIPPED: IDAUTO_ADMIN_PLACEHOLDER_TOKEN not set in environment — cannot run live test.');
-    process.exit(1);
-  }
-
   server = api.createServer();
   await new Promise(function (resolve) {
     server.listen(0, '127.0.0.1', resolve);
   });
   port = server.address().port;
 
-  console.log('\n1. AUTH GATE — placeholder admin token');
+  console.log('\n1. AUTH GATE — minimal admin identity stub (IDA-2E-PRE)');
   var noAuth = await request('GET', '/health');
   ok(noAuth.status === 401, 'GET /health with no Authorization header -> 401');
 

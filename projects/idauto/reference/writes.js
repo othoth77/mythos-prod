@@ -1,6 +1,6 @@
 'use strict';
 // =====================================================
-// MYTHOS — ID Auto Stage IDA-2D — write endpoints + atomic audit logging
+// MYTHOS — ID Auto — write endpoints + atomic audit logging
 // projects/idauto/reference/writes.js
 //
 // Every mutation in this module goes through withAudit(): one BEGIN, the
@@ -9,10 +9,15 @@
 // There is exactly one place transaction atomicity is implemented; no
 // endpoint handler below opens its own BEGIN/COMMIT.
 //
-// Actor identity: the placeholder admin gate (api.js) has no real user
-// identity to attach to an audit record yet — that's IDA-2E. Every audit
-// row from this module uses actor_type='admin', actor_ref=PLACEHOLDER_ACTOR_REF
-// (a fixed, non-secret label, never the gate's bearer token itself).
+// Actor identity (IDA-2D: hardcoded placeholder; IDA-2E-PRE: real,
+// caller-supplied identity string): every create*() function below takes
+// an `identity` parameter — the resolved value from
+// projects/idauto/reference/identity.js, never the raw bearer token.
+// withAudit() fails closed if identity is missing/empty: it will not
+// write an audit row (or its paired data row) with no attributable
+// actor. See identity.js's header for what this identity mechanism is
+// and is not — it is not the real Mythos OS auth service integration
+// described in docs/IDAUTO_ARCHITECTURE.md §4.1, which remains blocked.
 //
 // Scope restrictions carried over/extended from IDA-2C:
 //   - capture_method on observations is restricted to 'manual_admin' only
@@ -29,8 +34,6 @@
 var db = require('./db.js');
 var crypto = require('crypto');
 
-var PLACEHOLDER_ACTOR_REF = 'ida-2d-placeholder-admin-gate';
-
 // Maps a Postgres error to a safe {status, error} pair — never echoes the
 // driver's raw message (it can include table/column/value fragments).
 function mapDbError(err) {
@@ -42,11 +45,17 @@ function mapDbError(err) {
 }
 
 // Runs `work(client)` inside BEGIN/COMMIT, then writes one audit row
-// describing it, all on the same client/transaction. `work` must return
-// { record, auditTargetRef }. Rolls back and re-throws on any failure —
-// including a failure in the audit insert itself, which also undoes
-// whatever `work` did.
-async function withAudit(auditMeta, work) {
+// describing it (attributed to `identity`), all on the same
+// client/transaction. `work` must return { record, auditTargetRef }.
+// Rolls back and re-throws on any failure — including a failure in the
+// audit insert itself, which also undoes whatever `work` did. Fails
+// closed (throws before opening a transaction at all) if `identity` is
+// falsy — there is no code path that writes data without an attributable
+// audit actor.
+async function withAudit(auditMeta, identity, work) {
+  if (!identity) {
+    throw Object.assign(new Error('no authenticated identity — refusing to write without an attributable audit actor'), { httpStatus: 401 });
+  }
   var client = await db.getClientForTransaction();
   try {
     await client.query('BEGIN');
@@ -57,7 +66,7 @@ async function withAudit(auditMeta, work) {
       [
         auditMeta.event_type,
         'admin',
-        PLACEHOLDER_ACTOR_REF,
+        identity,
         auditMeta.target_type,
         String(outcome.auditTargetRef),
         auditMeta.change_summary,
@@ -79,10 +88,11 @@ function genInternalRef() {
 }
 
 // POST /api/vehicles
-async function createVehicle(body) {
+async function createVehicle(body, identity) {
   var internalRef = genInternalRef();
   return withAudit(
     { event_type: 'vehicle.create', target_type: 'idauto_vehicles', change_summary: 'Manual admin vehicle entry' },
+    identity,
     async function (client) {
       var result = await client.query(
         'INSERT INTO idauto_vehicles (internal_ref, make, model, variant, year, body_type, fuel_type, colour, seats, gross_weight_kg, engine_cc, category_code, fiche_status) ' +
@@ -98,9 +108,10 @@ async function createVehicle(body) {
 }
 
 // POST /api/plates
-async function createPlate(body) {
+async function createPlate(body, identity) {
   return withAudit(
     { event_type: 'plate.create', target_type: 'idauto_plates', change_summary: 'Manual admin plate entry' },
+    identity,
     async function (client) {
       var vehicleId = null;
       if (body.vehicle_internal_ref) {
@@ -134,9 +145,10 @@ var ALLOWED_OBSERVATION_STATUS = ['received', 'processing', 'pending_confirmatio
 // capture_method is hardcoded to 'manual_admin' — not caller-controlled —
 // this endpoint IS the manual-admin-entry path, not a general ingestion
 // route for other capture types (smart_gate, public_upload, etc.).
-async function createObservation(body) {
+async function createObservation(body, identity) {
   return withAudit(
     { event_type: 'observation.create', target_type: 'idauto_observations', change_summary: 'Manual admin observation entry' },
+    identity,
     async function (client) {
       var v = await client.query('SELECT id FROM idauto_vehicles WHERE internal_ref = $1', [body.vehicle_internal_ref]);
       if (v.rows.length === 0) {
@@ -168,9 +180,10 @@ var ALLOWED_EVIDENCE_TYPE = ['user_confirmation', 'cross_source_match', 'vin_dec
 // POST /api/vehicles/:internal_ref/facts
 // Optionally creates one idauto_fact_evidence row in the same transaction
 // if evidence_type is supplied — one audit record covers both.
-async function createFact(vehicleInternalRef, body) {
+async function createFact(vehicleInternalRef, body, identity) {
   return withAudit(
     { event_type: 'fact.create', target_type: 'idauto_vehicle_facts', change_summary: 'Manual admin fact entry for ' + vehicleInternalRef },
+    identity,
     async function (client) {
       var v = await client.query('SELECT id FROM idauto_vehicles WHERE internal_ref = $1', [vehicleInternalRef]);
       if (v.rows.length === 0) {
@@ -207,6 +220,5 @@ module.exports = {
   createObservation: createObservation,
   createFact: createFact,
   withAudit: withAudit,
-  mapDbError: mapDbError,
-  PLACEHOLDER_ACTOR_REF: PLACEHOLDER_ACTOR_REF
+  mapDbError: mapDbError
 };
