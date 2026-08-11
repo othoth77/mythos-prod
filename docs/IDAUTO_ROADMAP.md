@@ -55,7 +55,7 @@
 
 ### IDA-2 — PostgreSQL Core, API and Manual Capture MVP
 
-**Status:** IN PROGRESS — Phase A complete and corrected (2026-08-10), Phase B not started
+**Status:** IN PROGRESS — Phase A complete and corrected (2026-08-10); Phase B slice **IDA-2B (PostgreSQL provisioning) complete (2026-08-11)**; remaining Phase B slices (IDA-2C onward: API, UIs, auth/audit, object storage, rate limiting) not started
 **Depends on:** IDA-1 complete
 
 **Phase A — Schema finalization + plate format validation (complete, no live database):**
@@ -70,18 +70,26 @@
 - **Safe caching added:** `plate-validator.js`'s `loadFormats()` now caches compiled formats per config path (`clearFormatCache()` for tests/rare reload), so the single-argument `matchPlateFormat(raw)`/`isValidPlate(raw)` forms no longer re-read and re-parse the config + recompile 7 regexes on every call.
 - 8 new tests added (2 R-T03 regression lock-in, 6 caching-behavior) — total 44/44 passing.
 
-**Phase B — deferred, requires separate explicit authorization (production infrastructure change):**
-- Provision the actual target PostgreSQL cluster and apply `schema.sql` against it
-- Core API: vehicle, plate, observation, fact and evidence endpoints
-- Admin manual entry (private, no public ingestion)
-- Review queue UI (admin)
-- Audit logging (wired to the live `idauto_audit_log` table)
-- Object storage wiring (original image references)
-- Mythos OS auth integration
-- Mythos OS audit integration
-- Rate limiting backed by `idauto_verifications`
-- Synthetic and authorised pilot data only
-- Remaining automated tests toward the 50+ total (44 delivered in Phase A + correction)
+**Phase B slice plan (2026-08-10, planning only):** the full Phase B scope was too large for one stage — sliced into `IDA-2B` through `IDA-2I`, each requiring its own explicit authorization; see `docs/AI_HANDOVER.md`'s "PLAN — IDA-2 Phase B Slice Plan" entry for the full breakdown, dependency order, and risk/reversibility table.
+
+**IDA-2B — PostgreSQL Provisioning — ✓ COMPLETE (2026-08-11):**
+- `postgres:15-alpine` deployed at `/home/deploy/deployments/idauto-postgres/` (dedicated `docker-compose.yml`, own `idauto` bridge network), container `idauto-postgres`.
+- **Memory-capped from first start** (never uncapped, even briefly): `mem_limit=384m`, `mem_reservation=96m` — confirmed live at exactly 402653184/100663296 bytes.
+- Bound to `127.0.0.1:5432` only — no public network exposure.
+- `schema.sql` applied cleanly (0 errors): 22 tables, all `idauto_`-prefixed; `access_scope` (not `visibility_scope`) confirmed live on both affected tables; zero owner-PII columns confirmed live.
+- Seed data only, matching the schema file exactly: 7 plate formats, 24 governorates, 7 capture sources, 1 organization (Fixpert pilot placeholder). No synthetic test-vehicle/observation data loaded yet — deferred to whichever later slice first needs it.
+- Backup created (`pg_dump --format=custom`, stored outside the container at `/home/deploy/backups/idauto-postgres-20260810/`, root-only directory, 600 file) and **restore tested** end-to-end into an isolated throwaway container (table count, seed row counts, and the `access_scope` column all verified identical after restore) — satisfies `AGENTS.md` §16 ("a backup is valid only after restoration is tested") before this slice was declared complete.
+- Full implementation record, exact redeploy/rollback procedure, and safety verification: see `docs/AI_HANDOVER.md`'s IDA-2B entry.
+
+**Remaining Phase B slices — not started, each requires separate explicit authorization:**
+- `IDA-2C` — Core API, read-only endpoints, placeholder access gate
+- `IDA-2D` — Core API write endpoints + audit logging (land together)
+- `IDA-2E` — Mythos OS auth integration (replaces the placeholder gate)
+- `IDA-2F` — Object storage wiring (original image references)
+- `IDA-2G` — Admin manual entry UI
+- `IDA-2H` — Review queue UI
+- `IDA-2I` — Rate limiting backed by `idauto_verifications` (lowest urgency — no public endpoint exists yet in Phase B; may be better scoped into IDA-3 instead, per the slice plan's open question)
+- Remaining automated tests toward the 50+ total (44 delivered in Phase A + correction; each slice above adds its own tests, not a separate catch-up stage)
 
 **Objective:** Deploy the PostgreSQL database, implement the core API, and enable admin manual entry for the first test vehicles.
 

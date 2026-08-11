@@ -6,6 +6,67 @@
 
 ---
 
+## IMPLEMENTATION — IDA-2B: PostgreSQL Provisioning (2026-08-11)
+
+**Type:** Production implementation (infrastructure mutation — explicitly authorized by the user: "You are explicitly authorized to provision the PostgreSQL instance on the VPS"). First slice of IDA-2 Phase B. Scoped exactly to the IDA-2B slice from the prior plan entry — no API, UI, auth, object storage, or rate-limiting work; Jellyfin and all unrelated services untouched.
+
+**No subagents used.** `sudo -n` for all system/Docker provisioning and inspection. `sudo -u deploy -H bash -lc '...'` for all Git operations.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `7caf7a6b54b01a3201bd00fe615e5b296e26fa45` (the Phase B slice plan commit) before this stage began.
+
+### Pre-mutation safety check (per explicit instruction, before touching anything)
+
+`free -h`: `7.6Gi total / 4.6Gi used / 445Mi free / 2.9Gi available`; `Swap: 2.0Gi total / 1.9Gi used / 74Mi free`. `vmstat 1 5`: si/so low and non-sustained (mostly 0 across samples) — not thrashing. Disk: `28G available / 72G total (62% used)`. 24 containers present, all healthy, matching the prior session's known-good baseline exactly. Zero kernel OOM matches in the last 6 hours. Available RAM (2.9Gi) was above this project's established 1.5GiB stop threshold — cleared to proceed.
+
+### What was built
+
+- **`/home/deploy/deployments/idauto-postgres/`** — new deployment directory (`750 deploy:deploy`), containing `docker-compose.yml` and a `600`-permission `.env` (generated via `openssl rand`, 32-char password, never printed to any output, log, or doc).
+- **Container `idauto-postgres`** (`postgres:15-alpine` — matching `coolify-db`'s existing version on this VPS, no new Postgres major version introduced): `mem_limit=384m`, `mem_reservation=96m` **set in the compose file before the first `docker compose up`** — the container was never uncapped, even momentarily, unlike every other service capped earlier this session (which were all retrofitted after the fact). Confirmed live via `docker inspect`: `Memory=402653184` (384MB exactly), `MemoryReservation=100663296` (96MB exactly).
+- **Network:** dedicated `idauto` bridge network (for future slices' containers to join) plus `127.0.0.1:5432:5432` port publish — confirmed via `docker port`, no `0.0.0.0` exposure anywhere.
+- **Data volume:** named Docker volume `idauto-postgres-data` (not a bind-mount) — standard, matches `coolify-db`'s own volume pattern.
+- **Schema applied:** `projects/idauto/database/schema.sql` piped into `psql` inside the container — **0 errors**, full apply log checked for the string "error" (case-insensitive), none found. Verified live via `information_schema.tables`: exactly 22 tables, all `idauto_`-prefixed. Verified `access_scope` (not `visibility_scope`) present on both `idauto_observation_media` and `idauto_vehicle_facts` — the IDA-2A-CORRECTION-0 fix confirmed to have carried through into the actual live database, not just the source file. Verified zero owner-PII columns (`owner_name`, `owner_address`, `owner_cin`, `owner_passport`, `owner_phone`, `insurance_policy_number`, `insurance_company`) exist anywhere in the live schema.
+- **Seed data:** exactly what `schema.sql`'s own `INSERT` statements define — 7 plate formats, 24 governorates, 7 capture sources, 1 organization (the Fixpert pilot placeholder, `is_fixpert_pilot=TRUE`, no real data). No additional synthetic test data (vehicles/plates/observations) was loaded — none was required for this slice, and none exists in `schema.sql` beyond the reference-table seeds; a future slice that needs synthetic vehicle/observation rows for testing should add its own.
+
+### Backup + restore (tested before declaring PASS, per `AGENTS.md` §16)
+
+- **Backup:** `pg_dump -U idauto -d idauto --format=custom` inside the container, copied out via `docker cp`, stored at `/home/deploy/backups/idauto-postgres-20260810/idauto-backup.dump` — **outside the container**, directory `700 root:root`, file `600 deploy:deploy`. 110,930 bytes.
+- **Restore test:** a throwaway, isolated `postgres:15-alpine` container (`idauto-postgres-restore-test`, own bridge network, 256MB memory cap, disposable credentials never reused) — never connected to the production `idauto-postgres` container or its network. Backup file copied in, `pg_restore --no-owner` run, exit code 0. **Verified identical to source:** 22 tables, seed row counts (7/24/7/1) exact match, `access_scope` column present on both expected tables. Temp container and its data destroyed immediately after (`docker rm -f`) — the restore test never touched or was reachable from the live instance.
+
+### Post-mutation safety re-verification
+
+- Container count: 25 (24 prior + `idauto-postgres`) — confirmed exactly, no other container added or removed.
+- **Jellyfin: untouched** — same container ID (`04ef7f2cb78f...`), `RestartCount=0`, still `running`. Not modified, restarted, or reconfigured, per explicit instruction.
+- Stack A Redis ×3 (`64MB`/`16MB`) and `coolify-redis` (`96MB`/`24MB`): unchanged, confirmed via `docker inspect`.
+- Protected domains: `darhijama.tn` 200, `uthinachess.tn` 200, `notrejour.tn` 200, `n8n.ssangyong.autos` 200, Coolify panel 302 — all unchanged.
+- `free -h` after: `2.9Gi available`, `Swap: 1.9Gi used / 72Mi free` — materially unchanged from the pre-mutation baseline (idauto-postgres itself is using only a small fraction of its 384MB cap at this point — seed data only, no live traffic).
+- Zero new kernel OOM events.
+
+### Rollback procedure (not executed — not needed, full PASS)
+
+```bash
+cd /home/deploy/deployments/idauto-postgres
+sudo docker compose down          # stops and removes the container; the named volume idauto-postgres-data persists unless -v is also passed
+# to fully remove including data:
+sudo docker compose down -v
+sudo docker network rm idauto     # only if no other slice has joined it yet
+```
+Redeploy procedure (if ever needed): `cd /home/deploy/deployments/idauto-postgres && sudo docker compose up -d`, then re-apply `schema.sql` if the volume was removed, or restore from `/home/deploy/backups/idauto-postgres-20260810/idauto-backup.dump` via `pg_restore` if recovering from data loss.
+
+### Validation
+
+- `git diff --check`: clean.
+- Secret scan of the diff: clean — the generated Postgres password was never printed to any command output, log file, or document; the `.env` file itself is untracked by Git (not committed) and `600`-permission.
+- Files changed in this repository: `docs/IDAUTO_ROADMAP.md`, `docs/AI_HANDOVER.md` only — no application/schema file changed (the schema was applied as-is from the already-committed `projects/idauto/database/schema.sql`).
+- No unrelated service touched — confirmed by the container-count and Jellyfin/Stack-A/coolify-redis checks above.
+
+### Result: PASS
+
+### Exact next stage
+
+`IDA-2C` — Core API, read-only endpoints only, with a minimal placeholder access gate — per the slice plan's suggested authorization order. Not started, not implied by this entry, requires its own explicit authorization.
+
+---
+
 ## PLAN — IDA-2 Phase B Slice Plan (2026-08-10)
 
 **Type:** Read-only planning. No implementation, no production mutation, no PostgreSQL provisioned, no code written. This entry is the deliverable — a slice plan ready for owner review and per-slice authorization, not an authorization itself.
