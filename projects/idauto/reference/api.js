@@ -66,6 +66,14 @@ function notFound(res) {
   sendJson(res, 404, { error: 'not found' });
 }
 
+function decodePathSegment(segment) {
+  try {
+    return decodeURIComponent(segment);
+  } catch (err) {
+    throw Object.assign(new Error('invalid URL encoding'), { httpStatus: 400 });
+  }
+}
+
 var ADMIN_ASSETS = {
   '/admin': { file: 'admin.html', contentType: 'text/html; charset=utf-8' },
   '/admin/': { file: 'admin.html', contentType: 'text/html; charset=utf-8' },
@@ -346,19 +354,19 @@ async function postReviewDecision(req, res, observationId) {
 var ROUTES = [
   { method: 'GET', pattern: /^\/health$/, handler: function (req, res) { return getHealth(res); } },
   { method: 'GET', pattern: /^\/api\/review\/observations$/, handler: function (req, res) { return getReviewObservations(res); } },
-  { method: 'GET', pattern: /^\/api\/review\/observations\/([^/]+)$/, handler: function (req, res, m) { return getReviewObservation(res, decodeURIComponent(m[1])); } },
-  { method: 'POST', pattern: /^\/api\/review\/observations\/([^/]+)\/decision$/, handler: function (req, res, m) { return postReviewDecision(req, res, decodeURIComponent(m[1])); } },
-  { method: 'GET', pattern: /^\/api\/vehicles\/([^/]+)\/facts$/, handler: function (req, res, m) { return getFactsForVehicle(res, decodeURIComponent(m[1])); } },
-  { method: 'POST', pattern: /^\/api\/vehicles\/([^/]+)\/facts$/, handler: function (req, res, m) { return postFact(req, res, decodeURIComponent(m[1])); } },
-  { method: 'GET', pattern: /^\/api\/vehicles\/([^/]+)$/, handler: function (req, res, m) { return getVehicle(res, decodeURIComponent(m[1])); } },
+  { method: 'GET', pattern: /^\/api\/review\/observations\/([^/]+)$/, handler: function (req, res, m) { return getReviewObservation(res, decodePathSegment(m[1])); } },
+  { method: 'POST', pattern: /^\/api\/review\/observations\/([^/]+)\/decision$/, handler: function (req, res, m) { return postReviewDecision(req, res, decodePathSegment(m[1])); } },
+  { method: 'GET', pattern: /^\/api\/vehicles\/([^/]+)\/facts$/, handler: function (req, res, m) { return getFactsForVehicle(res, decodePathSegment(m[1])); } },
+  { method: 'POST', pattern: /^\/api\/vehicles\/([^/]+)\/facts$/, handler: function (req, res, m) { return postFact(req, res, decodePathSegment(m[1])); } },
+  { method: 'GET', pattern: /^\/api\/vehicles\/([^/]+)$/, handler: function (req, res, m) { return getVehicle(res, decodePathSegment(m[1])); } },
   { method: 'POST', pattern: /^\/api\/vehicles$/, handler: function (req, res) { return postVehicle(req, res); } },
-  { method: 'GET', pattern: /^\/api\/plates\/([^/]+)$/, handler: function (req, res, m) { return getPlate(res, decodeURIComponent(m[1])); } },
+  { method: 'GET', pattern: /^\/api\/plates\/([^/]+)$/, handler: function (req, res, m) { return getPlate(res, decodePathSegment(m[1])); } },
   { method: 'POST', pattern: /^\/api\/plates$/, handler: function (req, res) { return postPlate(req, res); } },
-  { method: 'GET', pattern: /^\/api\/observations\/([^/]+)\/media$/, handler: function (req, res, m) { return getObservationMedia(res, decodeURIComponent(m[1])); } },
-  { method: 'POST', pattern: /^\/api\/observations\/([^/]+)\/media$/, handler: function (req, res, m) { return postObservationMedia(req, res, decodeURIComponent(m[1])); } },
-  { method: 'GET', pattern: /^\/api\/observations\/([^/]+)$/, handler: function (req, res, m) { return getObservation(res, decodeURIComponent(m[1])); } },
+  { method: 'GET', pattern: /^\/api\/observations\/([^/]+)\/media$/, handler: function (req, res, m) { return getObservationMedia(res, decodePathSegment(m[1])); } },
+  { method: 'POST', pattern: /^\/api\/observations\/([^/]+)\/media$/, handler: function (req, res, m) { return postObservationMedia(req, res, decodePathSegment(m[1])); } },
+  { method: 'GET', pattern: /^\/api\/observations\/([^/]+)$/, handler: function (req, res, m) { return getObservation(res, decodePathSegment(m[1])); } },
   { method: 'POST', pattern: /^\/api\/observations$/, handler: function (req, res) { return postObservation(req, res); } },
-  { method: 'GET', pattern: /^\/api\/facts\/([^/]+)\/evidence$/, handler: function (req, res, m) { return getEvidenceForFact(res, decodeURIComponent(m[1])); } }
+  { method: 'GET', pattern: /^\/api\/facts\/([^/]+)\/evidence$/, handler: function (req, res, m) { return getEvidenceForFact(res, decodePathSegment(m[1])); } }
 ];
 
 function createServer() {
@@ -381,7 +389,7 @@ function createServer() {
 
     var route = matchedMethod[0];
     var m = pathname.match(route.pattern);
-    Promise.resolve(route.handler(req, res, m)).catch(function (err) {
+    Promise.resolve().then(function () { return route.handler(req, res, m); }).catch(function (err) {
       if (err.httpStatus) return sendJson(res, err.httpStatus, { error: err.message });
       // Never include the raw driver error message in the response — it
       // can echo back query fragments or connection detail. mapDbError()

@@ -128,6 +128,10 @@ function authed(requestPath, method) {
   console.log('\n7. UNKNOWN ROUTES -> 404');
   var unknownRoute = await authed('/api/something-that-does-not-exist');
   ok(unknownRoute.status === 404, 'Unknown path -> 404');
+  var malformedPath = await authed('/api/vehicles/%E0%A4%A');
+  ok(malformedPath.status === 400, 'Malformed percent-encoded path segment -> 400 (never escapes the route error boundary)');
+  var healthAfterMalformedPath = await authed('/health');
+  ok(healthAfterMalformedPath.status === 200, 'Server remains responsive after a malformed encoded path');
 
   console.log('\n8. api.js source — the read routes tested above still contain no inline write SQL');
   // NOTE (IDA-2D): api-read.js was renamed to api.js and gained write
