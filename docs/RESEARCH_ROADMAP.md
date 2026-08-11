@@ -263,8 +263,8 @@ RES-1 Entry Gate
 
 Research Intelligence is a platform capability that does not alter the current priority order:
 
-1. Mythos OS: Stage 3E → 3F → 3G
-2. ID Auto: IDA-2
+1. Mythos OS: complete through Stage 4AG + RUNTIME-DUPLICATE-CLEANUP-0 (corrected 2026-08-10, `MYTHOS-STAGE-RECONCILIATION-0` — this line originally read "Stage 3E → 3F → 3G," stale since all three were already complete since 2026-07-30); no further Mythos OS Runtime stage currently authorised
+2. ID Auto: IDA-2 (Phase A complete 2026-08-10; Phase B not started)
 3. Atelier Network: ATN-1
 4. AutoValeur: AVA-1
 5. Automation: INF-OVH-API-0 (next)

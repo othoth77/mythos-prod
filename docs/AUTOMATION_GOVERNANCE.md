@@ -20,7 +20,7 @@ The Automation track is a **separate product track**, exactly like Mythos OS run
 - **AUT-0 is documentation only** — it does not count as, and does not authorise, a major implementation stage.
 - **INF-OVH-API-0 is the next Automation implementation stage** once explicitly authorised — it is not started by AUT-0.
 - The Automation track does not change the currently authorised implementation-stage priority. As of AUT-0:
-  - **Stage 3E** remains the next Mythos OS runtime stage.
+  - **Mythos OS Runtime** is complete through Stage 4AG + RUNTIME-DUPLICATE-CLEANUP-0 (corrected 2026-08-10, `MYTHOS-STAGE-RECONCILIATION-0` — this line originally said "Stage 3E remains the next Mythos OS runtime stage," stale since Stage 3E had already been complete since 2026-07-30; see `docs/ROADMAP.md`). No further Mythos OS Runtime stage is currently authorised.
   - **IDA-2** is IN PROGRESS — Phase A (schema + plate validation, no live database) complete 2026-08-10; Phase B not started, requires separate authorization.
   - **INF-CF-2** remains blocked and not started, pending the entry criteria in `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md`.
   - **ATN-1** and **AVA-1** remain sequential after IDA-2, not started.

@@ -6,6 +6,51 @@
 
 ---
 
+## CORRECTION — Stage 3E Staleness Sweep (2026-08-10)
+
+**Type:** Docs-only correction. No feature work, no IDA-2 Phase B, no production/infrastructure mutation, no code file touched.
+
+**No subagents used.** `sudo -u deploy -H bash -lc '...'` for all Git operations.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `2a814bfeff49373469ca44946e289ecf150ddb4b` (the IDA-2A-CORRECTION-0 commit) before this stage began.
+
+### Objective
+
+`IDA-2A-CORRECTION-0`'s own entry above flagged two files it deliberately left untouched: "the 'Stage 3E remains next' staleness still present in `docs/AUTOMATION_GOVERNANCE.md`/`docs/AUTOMATION_ROADMAP.md` would need its own small follow-up reconciliation." This stage does that follow-up — and, rather than fixing only those two known files, ran a fresh repository-wide sweep (`grep -rln "Stage 3E" docs/`) to find every remaining mention and classify each one before touching anything.
+
+### Classification (13 files matched "Stage 3E"; 5 corrected, 8 left alone)
+
+**Corrected — genuinely stale current-state claims:**
+- `docs/AUTOMATION_GOVERNANCE.md` — "**Stage 3E** remains the next Mythos OS runtime stage."
+- `docs/AUTOMATION_ROADMAP.md` — "**Stage 3E remains the next Mythos OS runtime stage.**"
+- `docs/RESEARCH_ROADMAP.md` — "1. Mythos OS: Stage 3E → 3F → 3G" (in a "Relationship to Current Mythos Priorities" numbered list). Also clarified the adjacent "ID Auto: IDA-2" line on the same list to "IDA-2 (Phase A complete 2026-08-10; Phase B not started)" while already rewriting that block — did **not** touch item 5's separate, unrelated "Automation: INF-OVH-API-0 (next)" staleness (INF-OVH-API-0 is also actually complete), out of this stage's Stage-3E-only scope.
+- `docs/MYTHOS_PORTFOLIO_REGISTRY.md` — summary table row: `Status: ACTIVE` / `Current: Stage 3D complete` / `Next: Stage 3E — Calendar Runtime`.
+- `docs/PROJECT_STATISTICS.md` — "Planned (named next-stage, not started)" count included `Stage 3E`; removed, count corrected 7→6. Left `INF-OVH-API-0` in the same list untouched (same unrelated, out-of-scope staleness as above).
+
+Each correction follows the same pattern as `MYTHOS-STAGE-RECONCILIATION-0`: states the corrected current fact, then an inline note naming what the line originally said and why it was wrong, rather than silently rewriting history.
+
+**Deliberately left alone — not stale, or historical record:**
+- `docs/history/DAILY_HISTORY.md`, `docs/AI_HANDOVER.md`, `docs/ROADMAP.md` — already correctly reconciled by `MYTHOS-STAGE-RECONCILIATION-0` (the append-only amendment, the historical entries themselves, and the corrected "Completed Stages" table respectively).
+- `docs/PROJECT_STATUS.md` — already correctly reconciled by `MYTHOS-STAGE-RECONCILIATION-0`.
+- `docs/PROJECT_HISTORY.md` — "By the end of this era, Mythos OS reached Stage 3D... with Stage 3E... **recorded as next**" — explicitly a narrative history document (own header: "High-level chronological story... synthesises [Git/AI_HANDOVER.md/ROADMAP.md/PRs] into a narrative"), phrased in past tense describing what was recorded at the time, not a live current-state assertion. Not edited.
+- `docs/DEVELOPMENT_WORKFLOW.md` — `> "Start Stage 3E according to Mythos workflow."` — an illustrative example of the short-command syntax, not a claim about current stage status. Not edited.
+- `docs/runtime-services.md`, `docs/module-map.md` — technical architecture/module-map documentation describing what Stage 3E actually built (`calendar.runtime.js`, its aggregation-provider role) — confirms Stage 3E happened, not a "next stage" claim. Not edited.
+- `docs/AUTOMATION_GOVERNANCE.md`'s own §85 (separate from the corrected line above) — "This stage (AUT-0) has not started any implementation... has not begun... Stage 3E..." — describes AUT-0's own historical boundary (AUT-0 truly never touched Stage 3E), true regardless of Stage 3E's actual status elsewhere. Not edited.
+
+### Validation
+
+- `git diff --name-only` confirmed docs-only (5 files, all under `docs/`) — no code file touched.
+- `node tests/ida-2a-schema-and-plate-validation-test.js`: **44/44 passed** (sanity re-run; this stage changed no code, so no regression was expected, but re-run anyway rather than assumed).
+- `git diff --check`: clean.
+- Secret scan of the diff: clean.
+- No production/infrastructure mutation — no `sudo -n` system command was run.
+
+### Exact next stage
+
+Unchanged: **IDA-2 Phase B** remains the next real production-infrastructure candidate for the ID Auto track, still not authorized. Two further, smaller staleness items surfaced but intentionally **not** fixed in this stage (out of its Stage-3E-only scope): `INF-OVH-API-0` is listed as "(next)"/not-started in `docs/RESEARCH_ROADMAP.md` and `docs/PROJECT_STATISTICS.md`, and `docs/MYTHOS_PORTFOLIO_REGISTRY.md`'s Automation row similarly shows it as "Next" — all three should actually say `INF-OVH-API-0` is complete (per `docs/AI_HANDOVER.md`'s own PR #7 record) and `INF-DNS-AUTO-1` is the real next Automation stage. Worth its own small follow-up, same pattern as this one.
+
+---
+
 ## CORRECTION — IDA-2A-CORRECTION-0 (2026-08-10)
 
 **Type:** Repository/documentation correction following a read-only audit of IDA-2 Phase A. No production/infrastructure mutation. No IDA-2 Phase B work. No Mythos implementation stage other than IDA-2 Phase A itself was advanced.

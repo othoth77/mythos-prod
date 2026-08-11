@@ -28,7 +28,7 @@ A single place for any future session (human or AI) to understand the whole Myth
 
 | Track | Evidence | Status | Current | Next |
 |---|---|---|---|---|
-| Mythos OS | REPOSITORY_VERIFIED | ACTIVE | Stage 3D complete | Stage 3E — Calendar Runtime |
+| Mythos OS | REPOSITORY_VERIFIED | FOUNDATION | Stage 4AG + RUNTIME-DUPLICATE-CLEANUP-0 complete (corrected 2026-08-10, `MYTHOS-STAGE-RECONCILIATION-0` — this row originally said "Stage 3D complete / Stage 3E next," stale since Stage 3E through 4AG had already been complete since 2026-07-30/2026-08-05) | None currently authorised |
 | Mythos Automation & Operations | REPOSITORY_VERIFIED | FOUNDATION | AUT-0 complete | INF-OVH-API-0 |
 | Mythos Control Center | REPOSITORY_VERIFIED | CONCEPT | — | Not yet assigned a stage |
 | Mythos Personal Intelligence & Skills Platform | REPOSITORY_VERIFIED (branch) | FOUNDATION | MPI-0 complete (PR #4) | MPI-1 |
