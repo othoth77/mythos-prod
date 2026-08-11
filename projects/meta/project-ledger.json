@@ -158,6 +158,27 @@
       ]
     },
     {
+      "track": "id-auto",
+      "stage_id": "IDA-2-PHASE-B-DEEP-AUDIT-0",
+      "title": "Phase B deep audit",
+      "status": "PLANNED",
+      "type": "GOVERNANCE",
+      "starting_head": null,
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "IDA-2I (NOT STARTED)",
+      "evidence_paths": [
+        "docs/IDAUTO_ROADMAP.md",
+        "docs/IDAUTO_ARCHITECTURE.md",
+        "projects/idauto/reference/",
+        "tests/ida-*.js"
+      ]
+    },
+    {
       "track": "mythos-automotive",
       "stage_id": "MAE-0",
       "title": "Mythos Automotive ecosystem master foundation",
