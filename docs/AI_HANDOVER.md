@@ -6,6 +6,20 @@
 
 ---
 
+## BLOCKER RESOLUTION — IDA-2-PHASE-B-DEEP-AUDIT-0 Stage Runner Metadata (2026-08-11)
+
+**Status:** Resolved, validated, committed, pushed, and verified on `origin/main`. Metadata commit and verified remote HEAD: `89be7fbd7f2e439df7a63ea8862ec4c4c1ce3085`. Governance-only metadata change; the deep audit was not started, IDA-2I was not implemented, ID Auto runtime code was not modified, and production was not mutated.
+
+**Blocker cause:** Stage Runner could not resolve `IDA-2-PHASE-B-DEEP-AUDIT-0` because the canonical `projects/meta/project-ledger.json` had no record for that stage.
+
+**Exact metadata fix:** Added one `id-auto` ledger entry for `IDA-2-PHASE-B-DEEP-AUDIT-0` titled `Phase B deep audit`, with status `PLANNED`, type `GOVERNANCE`, null implementation/merge/handover commits and completion date, empty tests and blockers, `IDA-2I (NOT STARTED)` as the non-self-referential post-audit next stage, and evidence limited to `docs/IDAUTO_ROADMAP.md`, `docs/IDAUTO_ARCHITECTURE.md`, `projects/idauto/reference/`, and `tests/ida-*.js`. No existing stage metadata changed.
+
+**Validation:** `node scripts/project-intelligence.js validate` passed with 0 errors/0 warnings; governance passed 36/36; DEVX passed 45/45 under the required `deploy` execution context; the new stage resolved the `GOVERNANCE` template; all 23/23 registered stages validated; `git diff --check` passed; and, from the clean pushed commit, `node scripts/mythos-stage.js start IDA-2-PHASE-B-DEEP-AUDIT-0 --dry-run` returned `eligible: true`, FAST risk, and no blockers.
+
+**Exact next stage:** Execute `IDA-2-PHASE-B-DEEP-AUDIT-0` (audit/governance only unless its evidence separately authorizes a narrow fix).
+
+---
+
 ## IMPLEMENTATION — IDA-2H: Review Queue UI (2026-08-11)
 
 **Status:** Implemented, validated, committed, pushed, and verified on `origin/main`. Implementation commit: `a431a01a44df57801cbf9dab3af29a1dd854b89f`.
