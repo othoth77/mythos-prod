@@ -117,14 +117,17 @@
       "track": "id-auto",
       "stage_id": "IDA-2G",
       "title": "Admin manual entry UI",
-      "status": "PLANNED",
+      "status": "DONE",
       "type": "RUNTIME",
-      "starting_head": null,
-      "implementation_commit": null,
+      "starting_head": "53bc247c91a549abf4bdc6dd3bd5dde802c29aad",
+      "implementation_commit": "b84915316d74de9c0a28f541e75028527a0bda12",
       "merge_commit": null,
-      "handover_commit": null,
-      "completed_at": null,
-      "tests": {},
+      "handover_commit": "4d4612527bc665a56f22835b67ca191be38a94c7",
+      "completed_at": "2026-08-11",
+      "tests": {
+        "ida-2g": "16/16 twice",
+        "ida-2a/2c/2d/2f regressions": "137/137"
+      },
       "blockers": [],
       "next_stage": "IDA-2H (NOT STARTED)",
       "evidence_paths": [
