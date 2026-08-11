@@ -114,6 +114,25 @@
       ]
     },
     {
+      "track": "id-auto",
+      "stage_id": "IDA-2G",
+      "title": "Admin manual entry UI",
+      "status": "PLANNED",
+      "type": "RUNTIME",
+      "starting_head": null,
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "IDA-2G implementation",
+      "evidence_paths": [
+        "projects/idauto/reference/",
+        "tests/ida-2g-admin-manual-entry-ui-test.js"
+      ]
+    },
+    {
       "track": "mythos-automotive",
       "stage_id": "MAE-0",
       "title": "Mythos Automotive ecosystem master foundation",
