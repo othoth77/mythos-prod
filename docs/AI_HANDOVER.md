@@ -6,6 +6,20 @@
 
 ---
 
+## BLOCKER RESOLUTION — IDA-2G Stage Runner Metadata (2026-08-11)
+
+**Status:** Resolved and pushed. Metadata-only developer-tooling change; no IDA-2G UI was implemented and production was not mutated.
+
+**Blocker cause:** `node scripts/mythos-stage.js start IDA-2G --dry-run` returned `UNKNOWN_STAGE` because `scripts/mythos-stage.js` resolves stages exclusively from `projects/meta/project-ledger.json`, where `IDA-2G` had no entry.
+
+**Exact metadata fix:** Added one `id-auto` ledger entry for `IDA-2G` with title `Admin manual entry UI`, status `PLANNED`, type `RUNTIME`, no blockers, the existing ID Auto reference/test evidence paths, and `IDA-2H (NOT STARTED)` as its next stage. No other stage metadata changed. The initial registration commit (`e5e993b75c48070fc02330dfc19dff5dee3c93a9`) used a self-referential `next_stage` value that the dependency inference correctly rejected; follow-up commit `99725f02622eb0308d3a5baa26301350a130f578` removed that self-dependency and is the validated metadata state.
+
+**Validation:** `node scripts/project-intelligence.js validate` passed with 0 errors/0 warnings; `tests/mpi-0-finalization-governance-test.js` passed 36/36; `tests/devx-0-development-acceleration-test.js` passed 45/45; all 21/21 registered stages passed `mythos-stage.js validate`; and the required `node scripts/mythos-stage.js start IDA-2G --dry-run` returned `eligible: true`, `risk_lane: STANDARD`, and no blockers from clean commit `99725f02622eb0308d3a5baa26301350a130f578` on `origin/main`.
+
+**Next stage:** IDA-2G implementation.
+
+---
+
 ## FINAL-SESSION-HANDOVER-2026-08-11
 
 **Type:** Read-only continuation checkpoint. No feature implemented, no production mutated. Verified `origin/main` HEAD and a clean worktree before writing this entry, per standard preflight (`mythos-repo-guardian`).
