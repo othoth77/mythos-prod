@@ -70,7 +70,10 @@ var ADMIN_ASSETS = {
   '/admin': { file: 'admin.html', contentType: 'text/html; charset=utf-8' },
   '/admin/': { file: 'admin.html', contentType: 'text/html; charset=utf-8' },
   '/admin/admin-ui.js': { file: 'admin-ui.js', contentType: 'application/javascript; charset=utf-8' },
-  '/admin/admin.css': { file: 'admin.css', contentType: 'text/css; charset=utf-8' }
+  '/admin/admin.css': { file: 'admin.css', contentType: 'text/css; charset=utf-8' },
+  '/admin/review': { file: 'review.html', contentType: 'text/html; charset=utf-8' },
+  '/admin/review/': { file: 'review.html', contentType: 'text/html; charset=utf-8' },
+  '/admin/review-ui.js': { file: 'review-ui.js', contentType: 'application/javascript; charset=utf-8' }
 };
 
 // The admin shell contains no data or credentials. API calls made by the
@@ -188,6 +191,45 @@ async function getObservationMedia(res, id) {
   sendJson(res, 200, { observation_id: parseInt(id, 10), media: result.rows });
 }
 
+// GET /api/review/observations — queue view derived from the observation
+// statuses already defined by the schema. Only the two pending states enter
+// this queue; no private capture fields or storage object keys are selected.
+async function getReviewObservations(res) {
+  var result = await db.query(
+    "SELECT o.id, o.capture_method, o.status, v.internal_ref AS vehicle_internal_ref, v.make, v.model, " +
+    "p.plate_number FROM idauto_observations o " +
+    "LEFT JOIN idauto_vehicles v ON v.id = o.vehicle_id LEFT JOIN idauto_plates p ON p.id = o.plate_id " +
+    "WHERE o.status IN ('pending_review','pending_confirmation') ORDER BY o.id ASC"
+  );
+  sendJson(res, 200, { observations: result.rows });
+}
+
+// GET /api/review/observations/:id — admin-safe detail. Facts and media are
+// filtered at query level exactly like the existing IDA-2C/2F read routes.
+async function getReviewObservation(res, id) {
+  if (!/^\d+$/.test(id)) return notFound(res);
+  var observation = await db.query(
+    'SELECT o.id, o.capture_method, o.status, v.internal_ref AS vehicle_internal_ref, v.make, v.model, v.variant, v.year, ' +
+    'v.body_type, v.fuel_type, v.colour, p.plate_number, p.format_code ' +
+    'FROM idauto_observations o LEFT JOIN idauto_vehicles v ON v.id = o.vehicle_id ' +
+    'LEFT JOIN idauto_plates p ON p.id = o.plate_id WHERE o.id = $1',
+    [id]
+  );
+  if (observation.rows.length === 0) return notFound(res);
+  var item = observation.rows[0];
+  var facts = item.vehicle_internal_ref ? await db.query(
+    'SELECT fact_key, fact_value, confidence_score, verification_status, access_scope FROM idauto_vehicle_facts f ' +
+    'JOIN idauto_vehicles v ON v.id = f.vehicle_id WHERE v.internal_ref = $1 AND f.access_scope != $2 ORDER BY fact_key',
+    [item.vehicle_internal_ref, 'mythos_private']
+  ) : { rows: [] };
+  var media = await db.query(
+    'SELECT id, media_type, mime_type, file_size_bytes, access_scope, blurred, retention_status, created_at ' +
+    'FROM idauto_observation_media WHERE observation_id = $1 AND access_scope != $2 ORDER BY created_at',
+    [id, 'mythos_private']
+  );
+  sendJson(res, 200, { observation: item, facts: facts.rows, media: media.rows });
+}
+
 // Reads and JSON-parses the request body, capped at 64KB (this API's
 // JSON-bodied routes take small admin-entry payloads only; file/image
 // uploads use readBinaryBody() below instead, with its own larger cap).
@@ -294,8 +336,18 @@ async function postFact(req, res, internalRef) {
   sendJson(res, 201, record);
 }
 
+async function postReviewDecision(req, res, observationId) {
+  if (!/^\d+$/.test(observationId)) return notFound(res);
+  var body = await readJsonBody(req);
+  var record = await writes.reviewObservation(observationId, body.decision, req.mythosIdentity);
+  sendJson(res, 200, record);
+}
+
 var ROUTES = [
   { method: 'GET', pattern: /^\/health$/, handler: function (req, res) { return getHealth(res); } },
+  { method: 'GET', pattern: /^\/api\/review\/observations$/, handler: function (req, res) { return getReviewObservations(res); } },
+  { method: 'GET', pattern: /^\/api\/review\/observations\/([^/]+)$/, handler: function (req, res, m) { return getReviewObservation(res, decodeURIComponent(m[1])); } },
+  { method: 'POST', pattern: /^\/api\/review\/observations\/([^/]+)\/decision$/, handler: function (req, res, m) { return postReviewDecision(req, res, decodeURIComponent(m[1])); } },
   { method: 'GET', pattern: /^\/api\/vehicles\/([^/]+)\/facts$/, handler: function (req, res, m) { return getFactsForVehicle(res, decodeURIComponent(m[1])); } },
   { method: 'POST', pattern: /^\/api\/vehicles\/([^/]+)\/facts$/, handler: function (req, res, m) { return postFact(req, res, decodeURIComponent(m[1])); } },
   { method: 'GET', pattern: /^\/api\/vehicles\/([^/]+)$/, handler: function (req, res, m) { return getVehicle(res, decodeURIComponent(m[1])); } },

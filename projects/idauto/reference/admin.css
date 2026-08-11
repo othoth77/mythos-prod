@@ -22,3 +22,14 @@ button:disabled { opacity: .55; cursor: wait; }
 .error { color: #ff9c9c; }
 code { color: #a9ddff; }
 @media (max-width: 520px) { main { margin: 24px auto; } section { padding: 16px; } }
+.review-auth { display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: end; }
+.review-auth .hint { grid-column: 1 / -1; margin: 0; }
+.review-layout { display: grid; grid-template-columns: minmax(260px, .8fr) minmax(320px, 1.2fr); gap: 18px; margin-top: 18px; }
+.queue-item { display: grid; width: 100%; gap: 5px; margin: 0 0 10px; text-align: left; background: #142640; color: #e8eef9; }
+.queue-item span, .detail-copy { color: #aebdd2; }
+.detail-field { display: grid; grid-template-columns: 120px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid #2a3d5d; }
+.review-actions { display: flex; gap: 12px; margin-top: 20px; }
+.review-actions .accept { background: #72d7c5; }
+.review-actions .reject { background: #ff9c9c; color: #3a0909; }
+.empty { color: #9aabc4; }
+@media (max-width: 700px) { .review-layout { grid-template-columns: 1fr; } .review-auth { grid-template-columns: 1fr; } }

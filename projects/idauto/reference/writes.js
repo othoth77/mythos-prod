@@ -49,7 +49,9 @@ function mapDbError(err) {
 // describing it (attributed to `identity`), all on the same
 // client/transaction. `work` must return { record, auditTargetRef }.
 // Rolls back and re-throws on any failure — including a failure in the
-// audit insert itself, which also undoes whatever `work` did. Fails
+// audit insert itself, which also undoes whatever `work` did. A work result
+// may set skipAudit only for a transaction-locked, verified no-op (IDA-2H's
+// repeated identical review decision); actual mutations never use it. Fails
 // closed (throws before opening a transaction at all) if `identity` is
 // falsy — there is no code path that writes data without an attributable
 // audit actor.
@@ -61,19 +63,21 @@ async function withAudit(auditMeta, identity, work) {
   try {
     await client.query('BEGIN');
     var outcome = await work(client);
-    await client.query(
-      'INSERT INTO idauto_audit_log (event_type, actor_type, actor_ref, target_type, target_ref, change_summary, new_value_json) ' +
-      'VALUES ($1, $2, $3, $4, $5, $6, $7)',
-      [
-        auditMeta.event_type,
-        'admin',
-        identity,
-        auditMeta.target_type,
-        String(outcome.auditTargetRef),
-        auditMeta.change_summary,
-        JSON.stringify(outcome.record)
-      ]
-    );
+    if (!outcome.skipAudit) {
+      await client.query(
+        'INSERT INTO idauto_audit_log (event_type, actor_type, actor_ref, target_type, target_ref, change_summary, new_value_json) ' +
+        'VALUES ($1, $2, $3, $4, $5, $6, $7)',
+        [
+          auditMeta.event_type,
+          'admin',
+          identity,
+          auditMeta.target_type,
+          String(outcome.auditTargetRef),
+          auditMeta.change_summary,
+          JSON.stringify(outcome.record)
+        ]
+      );
+    }
     await client.query('COMMIT');
     return outcome.record;
   } catch (err) {
@@ -171,6 +175,42 @@ async function createObservation(body, identity) {
       );
       var row = result.rows[0];
       return { record: row, auditTargetRef: row.id };
+    }
+  );
+}
+
+// POST /api/review/observations/:id/decision (IDA-2H)
+// Observation status is the schema's sole documented mutability exception.
+// The row lock makes concurrent decisions deterministic. Repeating the same
+// decision is a no-op (and therefore creates no duplicate audit event); trying
+// to reverse a completed decision fails closed with 409.
+async function reviewObservation(observationId, decision, identity) {
+  var targetStatus = decision === 'accept' ? 'accepted' : decision === 'reject' ? 'rejected' : null;
+  if (!targetStatus) {
+    throw Object.assign(new Error('decision must be accept or reject'), { httpStatus: 400 });
+  }
+  return withAudit(
+    { event_type: 'observation.review.' + decision, target_type: 'idauto_observations', change_summary: 'Admin review decision: ' + targetStatus },
+    identity,
+    async function (client) {
+      var current = await client.query(
+        'SELECT id, vehicle_id, plate_id, capture_method, status FROM idauto_observations WHERE id = $1 FOR UPDATE',
+        [observationId]
+      );
+      if (current.rows.length === 0) {
+        throw Object.assign(new Error('observation not found'), { httpStatus: 404 });
+      }
+      if (current.rows[0].status === targetStatus) {
+        return { record: current.rows[0], auditTargetRef: current.rows[0].id, skipAudit: true };
+      }
+      if (['pending_review', 'pending_confirmation'].indexOf(current.rows[0].status) === -1) {
+        throw Object.assign(new Error('observation is no longer pending review'), { httpStatus: 409 });
+      }
+      var updated = await client.query(
+        'UPDATE idauto_observations SET status = $1 WHERE id = $2 RETURNING id, vehicle_id, plate_id, capture_method, status',
+        [targetStatus, observationId]
+      );
+      return { record: updated.rows[0], auditTargetRef: updated.rows[0].id };
     }
   );
 }
@@ -278,6 +318,7 @@ module.exports = {
   createVehicle: createVehicle,
   createPlate: createPlate,
   createObservation: createObservation,
+  reviewObservation: reviewObservation,
   createFact: createFact,
   createObservationMedia: createObservationMedia,
   withAudit: withAudit,
