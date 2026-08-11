@@ -1,8 +1,37 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-08 UTC
-**From:** Stage AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup (merged)
+**Last updated:** 2026-08-11 UTC
+**From:** Stage IDA-2G — Admin Manual Entry UI (implemented and pushed)
 **To:** Next AI session
+
+---
+
+## IMPLEMENTATION — IDA-2G: Admin Manual Entry UI (2026-08-11)
+
+**Status:** Implemented, validated, committed, pushed, and verified on `origin/main`. Implementation commit: `b84915316d74de9c0a28f541e75028527a0bda12`.
+
+**Objective:** Add the private admin-facing manual-entry screen that drives the existing IDA-2C/2D/2F APIs. No real Mythos auth, review queue, rate limiting, deployment, schema change, or production configuration change was included.
+
+**Preflight:** Git operations ran as `deploy`. Clean `main` matched `origin/main` at starting commit `53bc247c91a549abf4bdc6dd3bd5dde802c29aad`. Live VPS safety remained within the recorded envelope: 25 containers, `idauto-postgres` healthy with `RestartCount=0` and unchanged 384MiB/96MiB limits, 2.9GiB available RAM, 201MiB free swap, and 31GiB free disk. `node scripts/mythos-stage.js start IDA-2G --dry-run` returned `eligible: true`, STANDARD risk, and no blockers.
+
+**Changed files:**
+- `projects/idauto/reference/admin.html` — manual-entry form for vehicle, optional plate, observation, optional fact/evidence, and optional observation image.
+- `projects/idauto/reference/admin-ui.js` — sequential same-origin client for the existing audited APIs; bearer token stays in page memory and is never persisted.
+- `projects/idauto/reference/admin.css` — responsive standalone admin styling.
+- `projects/idauto/reference/api.js` — serves the data-free admin shell/assets at `/admin` with no-store, nosniff, and restrictive CSP headers; all `/api/*` routes remain behind the existing identity gate.
+- `tests/ida-2g-admin-manual-entry-ui-test.js` — live UI/API workflow coverage.
+
+**Compatibility and guarantees:** The identity stub is unchanged. UI writes call the existing IDA-2D/2F endpoints, so `withAudit()` remains the sole database transaction/audit boundary. The live targeted test confirms four UI-triggered mutations produce four audit rows attributed to the resolved identity, never the bearer token. A written `mythos_private` fact remains excluded from the existing read API. Existing API response shapes and behavior are unchanged; no review-queue or rate-limit path was added.
+
+**Validation:** Syntax checks passed for `api.js`, `admin-ui.js`, and the new test. Targeted IDA-2G suite passed 16/16 twice consecutively against the live synthetic database. Required regressions passed: IDA-2A 44/44, IDA-2C 24/24, IDA-2D 38/38, IDA-2F 31/31 — 153/153 assertions in the final combined run. The repository-wide suite was not rerun because the change is isolated to `projects/idauto/reference/` and its targeted test, does not modify shared `js/`, `css/`, root `index.html`, schema, or shared core behavior, and the Stage Runner close assessment returned STANDARD risk with no blockers.
+
+**Stage Runner closure:** Changed-file scope exactly matched the five files above; risk lane STANDARD; no blockers. Implementation commit and remote HEAD matched at `b84915316d74de9c0a28f541e75028527a0bda12` before this handover update.
+
+**Deployment and migration:** Not deployed. No database migration or production data migration. Live writes were synthetic test records only.
+
+**Known risks / deferred work:** Full IDA-2E real Mythos auth remains blocked exactly as previously documented. The page currently relies on the existing operator-provisioned identity token stub. IDA-2H review queue UI and IDA-2I rate limiting remain unimplemented and out of this stage.
+
+**Next stage:** IDA-2H — Review queue UI (not started; requires separate authorization).
 
 ---
 
