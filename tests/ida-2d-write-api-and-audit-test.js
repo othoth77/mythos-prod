@@ -187,6 +187,8 @@ async function vehicleCount(internalRef) {
   ok(missingObs.status === 400, 'POST /api/observations without vehicle_internal_ref -> 400');
   var missingFact = await authed('/api/vehicles/' + newVehicleRef + '/facts', 'POST', { fact_key: 'colour' });
   ok(missingFact.status === 400, 'POST .../facts without fact_value -> 400');
+  var oversizedJson = await authed('/api/vehicles', 'POST', { padding: 'x'.repeat(65536) });
+  ok(oversizedJson.status === 413, 'JSON body over 64KB -> 413 without resetting the client connection');
 
   console.log('\n13. ATOMICITY, direct unit test — audit-insert failure rolls back the paired data insert');
   // Exercises the real withAudit() helper that every endpoint above uses,

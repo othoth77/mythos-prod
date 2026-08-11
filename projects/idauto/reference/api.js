@@ -245,16 +245,18 @@ function readJsonBody(req) {
   return new Promise(function (resolve, reject) {
     var chunks = [];
     var size = 0;
+    var tooLarge = false;
     req.on('data', function (chunk) {
       size += chunk.length;
       if (size > 65536) {
-        reject(Object.assign(new Error('payload too large'), { httpStatus: 413 }));
-        req.destroy();
+        tooLarge = true;
+        chunks = [];
         return;
       }
-      chunks.push(chunk);
+      if (!tooLarge) chunks.push(chunk);
     });
     req.on('end', function () {
+      if (tooLarge) return reject(Object.assign(new Error('payload too large'), { httpStatus: 413 }));
       var raw = Buffer.concat(chunks).toString('utf8');
       if (!raw) return resolve({});
       try {
@@ -274,16 +276,20 @@ function readBinaryBody(req) {
   return new Promise(function (resolve, reject) {
     var chunks = [];
     var size = 0;
+    var tooLarge = false;
     req.on('data', function (chunk) {
       size += chunk.length;
       if (size > storage.MAX_UPLOAD_BYTES) {
-        reject(Object.assign(new Error('payload too large — max ' + (storage.MAX_UPLOAD_BYTES / 1024 / 1024) + 'MB'), { httpStatus: 413 }));
-        req.destroy();
+        tooLarge = true;
+        chunks = [];
         return;
       }
-      chunks.push(chunk);
+      if (!tooLarge) chunks.push(chunk);
     });
-    req.on('end', function () { resolve(Buffer.concat(chunks)); });
+    req.on('end', function () {
+      if (tooLarge) return reject(Object.assign(new Error('payload too large — max ' + (storage.MAX_UPLOAD_BYTES / 1024 / 1024) + 'MB'), { httpStatus: 413 }));
+      resolve(Buffer.concat(chunks));
+    });
     req.on('error', reject);
   });
 }

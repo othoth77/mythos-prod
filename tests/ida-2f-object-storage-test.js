@@ -144,6 +144,8 @@ function fakePng(seed) {
   console.log('\n8. EMPTY body -> 400');
   var emptyBody = await authed('/api/observations/' + obsId + '/media', 'POST', { 'Content-Type': 'image/png' }, Buffer.alloc(0));
   ok(emptyBody.status === 400, 'Empty file body -> 400');
+  var oversizedBody = await authed('/api/observations/' + obsId + '/media', 'POST', { 'Content-Type': 'image/png' }, Buffer.alloc(storage.MAX_UPLOAD_BYTES + 1));
+  ok(oversizedBody.status === 413, 'Binary body over 20MB -> 413 without resetting the client connection');
 
   console.log('\n9. Nonexistent observation -> 404, file never touches disk (existence checked BEFORE storage.store() runs)');
   var beforeGhostCount = await auditCount();
