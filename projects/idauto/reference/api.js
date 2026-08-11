@@ -24,6 +24,14 @@
 // (req.mythosIdentity) instead of a boolean match against one shared
 // token, and every write handler passes it through to writes.js so audit
 // records carry the authenticated identity, never the raw bearer token.
+//
+// IDA-2F added object-storage wiring: POST/GET /api/observations/:id/media,
+// backed by projects/idauto/reference/storage.js (local, content-addressed
+// filesystem storage — not a cloud service; see that file's header for
+// why). The write goes through writes.js's withAudit() exactly like every
+// other mutation. The read (like every other GET in this file) still
+// excludes mythos_private-scope rows — unchanged policy, not relaxed by
+// adding a new resource type.
 // =====================================================
 
 var http = require('http');
@@ -31,6 +39,7 @@ var url = require('url');
 var db = require('./db.js');
 var writes = require('./writes.js');
 var identity = require('./identity.js');
+var storage = require('./storage.js');
 
 function requireAuth(req, res) {
   var header = req.headers['authorization'] || '';
@@ -132,9 +141,28 @@ async function getHealth(res) {
   sendJson(res, 200, { status: 'ok' });
 }
 
-// Reads and JSON-parses the request body, capped at 64KB (this API takes
-// small admin-entry payloads only — not file/image uploads, which remain
-// out of scope, see IDA-2F object storage wiring).
+// GET /api/observations/:id/media
+// Metadata only — object_key is a local storage reference, never a
+// fetchable URL, and this endpoint never streams file bytes (no UI, no
+// image-serving path exists in this stage). Excludes mythos_private-scope
+// rows, same policy as every other read in this file (default access_scope
+// on this table is 'mythos_private' per schema.sql, so most rows are
+// excluded unless a caller explicitly chose a wider scope on write).
+async function getObservationMedia(res, id) {
+  if (!/^\d+$/.test(id)) return notFound(res);
+  var obs = await db.query('SELECT id FROM idauto_observations WHERE id = $1', [id]);
+  if (obs.rows.length === 0) return notFound(res);
+  var result = await db.query(
+    'SELECT id, media_type, mime_type, file_size_bytes, image_hash, access_scope, blurred, retention_status, created_at ' +
+    'FROM idauto_observation_media WHERE observation_id = $1 AND access_scope != $2 ORDER BY created_at',
+    [id, 'mythos_private']
+  );
+  sendJson(res, 200, { observation_id: parseInt(id, 10), media: result.rows });
+}
+
+// Reads and JSON-parses the request body, capped at 64KB (this API's
+// JSON-bodied routes take small admin-entry payloads only; file/image
+// uploads use readBinaryBody() below instead, with its own larger cap).
 function readJsonBody(req) {
   return new Promise(function (resolve, reject) {
     var chunks = [];
@@ -159,6 +187,46 @@ function readJsonBody(req) {
     });
     req.on('error', reject);
   });
+}
+
+// Reads a raw binary body, capped at storage.MAX_UPLOAD_BYTES (distinct
+// cap from readJsonBody's 64KB — this endpoint carries file bytes, not a
+// small admin-entry payload).
+function readBinaryBody(req) {
+  return new Promise(function (resolve, reject) {
+    var chunks = [];
+    var size = 0;
+    req.on('data', function (chunk) {
+      size += chunk.length;
+      if (size > storage.MAX_UPLOAD_BYTES) {
+        reject(Object.assign(new Error('payload too large — max ' + (storage.MAX_UPLOAD_BYTES / 1024 / 1024) + 'MB'), { httpStatus: 413 }));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', function () { resolve(Buffer.concat(chunks)); });
+    req.on('error', reject);
+  });
+}
+
+// POST /api/observations/:id/media
+// Body is the raw file content. Content-Type header is the mime type.
+// Optional X-Idauto-Media-Type / X-Idauto-Access-Scope headers (both
+// validated + defaulted in writes.js) — kept out of the body since the
+// body IS the file, not JSON, matching this being a binary-upload
+// endpoint rather than a JSON one like every other write route.
+async function postObservationMedia(req, res, observationId) {
+  if (!/^\d+$/.test(observationId)) return notFound(res);
+  var buffer = await readBinaryBody(req);
+  var mimeType = (req.headers['content-type'] || '').split(';')[0].trim();
+  var body = {
+    media_type: req.headers['x-idauto-media-type'],
+    access_scope: req.headers['x-idauto-access-scope'],
+    blurred: req.headers['x-idauto-blurred'] === 'true'
+  };
+  var record = await writes.createObservationMedia(observationId, buffer, mimeType, body, req.mythosIdentity);
+  sendJson(res, 201, record);
 }
 
 // POST /api/vehicles
@@ -206,6 +274,8 @@ var ROUTES = [
   { method: 'POST', pattern: /^\/api\/vehicles$/, handler: function (req, res) { return postVehicle(req, res); } },
   { method: 'GET', pattern: /^\/api\/plates\/([^/]+)$/, handler: function (req, res, m) { return getPlate(res, decodeURIComponent(m[1])); } },
   { method: 'POST', pattern: /^\/api\/plates$/, handler: function (req, res) { return postPlate(req, res); } },
+  { method: 'GET', pattern: /^\/api\/observations\/([^/]+)\/media$/, handler: function (req, res, m) { return getObservationMedia(res, decodeURIComponent(m[1])); } },
+  { method: 'POST', pattern: /^\/api\/observations\/([^/]+)\/media$/, handler: function (req, res, m) { return postObservationMedia(req, res, decodeURIComponent(m[1])); } },
   { method: 'GET', pattern: /^\/api\/observations\/([^/]+)$/, handler: function (req, res, m) { return getObservation(res, decodeURIComponent(m[1])); } },
   { method: 'POST', pattern: /^\/api\/observations$/, handler: function (req, res) { return postObservation(req, res); } },
   { method: 'GET', pattern: /^\/api\/facts\/([^/]+)\/evidence$/, handler: function (req, res, m) { return getEvidenceForFact(res, decodeURIComponent(m[1])); } }

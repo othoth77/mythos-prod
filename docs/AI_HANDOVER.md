@@ -6,6 +6,63 @@
 
 ---
 
+## IMPLEMENTATION — IDA-2F: Object Storage Wiring (2026-08-11)
+
+**Type:** Production implementation (application code, local filesystem + live database — synthetic/pilot data only). Fifth implementation slice of IDA-2 Phase B. Preserves the identity stub, existing API behavior, write atomicity, and audit guarantees unchanged. No UI, no rate limiting, no real Mythos auth.
+
+**No subagents used.** `sudo -n` for read-only VPS safety checks and creating the media storage directory. `sudo -u deploy -H bash -lc '...'` for all Git operations and all test execution (see the filesystem-permission note below — this stage's tests specifically required it, unlike IDA-2C/2D's DB-only tests).
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `fafcf604bf1980e824e78469393f1e7b702cdc03` (the IDA-2E-PRE / IDA-2E-blocker commit) before this stage began.
+
+### Research before writing code
+
+Same discipline as IDA-2C's DB-driver decision and IDA-2E's auth research: checked whether a real object storage service exists anywhere before assuming one needed to be invented. Found none (no S3/MinIO/R2 configured anywhere on this VPS or referenced as live infrastructure — Cloudflare R2 appears only as a *planned, not-started* future integration, `INF-CF-6`). Also found `upload.php` — the main Mythos OS app's own, already-existing, host-native file-storage mechanism (saves to `/documents/{cat}/` with type/size validation). This is not a blocker like IDA-2E: local filesystem storage is the established pattern for *this specific deployment*, so IDA-2F follows it rather than inventing a fictitious cloud integration.
+
+### What was built
+
+- **`projects/idauto/reference/storage.js`** — new. Content-addressed local filesystem storage: `store(buffer, mimeType)` validates mime type (`image/jpeg`, `image/png`, `image/webp`, `image/heic` — matching `idauto.example.json`'s documented `allowed_mime_types`) and size (20MB cap, matching the same config's `max_upload_size_mb`), then writes to `IDAUTO_MEDIA_STORAGE_PATH/<sha256[0:2]>/<sha256[2:4]>/<sha256>` — a new directory, `/home/deploy/deployments/idauto-media/` (`750 deploy:deploy`), created this session, kept separate from both this repository and `upload.php`'s own storage. Re-storing identical bytes is a no-op (the file already exists at that path) — genuine deduplication at the file level.
+- **New routes in `api.js`**: `POST /api/observations/:id/media` (raw binary body via a new `readBinaryBody()`, distinct 20MB cap from the existing JSON routes' 64KB one; `Content-Type` header is the mime type; optional `X-Idauto-Media-Type`/`X-Idauto-Access-Scope`/`X-Idauto-Blurred` headers carry the small amount of metadata that isn't the file itself), `GET /api/observations/:id/media` (metadata only — `object_key` is a storage reference, never a fetchable URL or streamed file; no image-serving path exists in this stage, consistent with "No UI").
+- **`writes.js` gained `createObservationMedia()`**, going through the existing `withAudit()` unchanged — same real-identity `actor_ref`, same fail-closed-without-identity guarantee established in IDA-2E-PRE. Existing `withAudit()`, `mapDbError()`, and every other write function are untouched.
+- **Read policy unchanged**: `GET .../media` excludes `mythos_private`-scope rows, the same policy IDA-2C established and IDA-2D preserved for facts — this stage extended the *pattern* to a new resource type, it did not relax it. (The schema's own default `access_scope` for `idauto_observation_media` is `mythos_private`, so most uploads are excluded from reads unless a caller explicitly widens scope on write — exactly mirroring facts.)
+
+### A genuinely new atomicity problem, worked through explicitly
+
+Every prior write in this module (IDA-2D, IDA-2E-PRE) has its entire mutation inside one Postgres transaction. Object storage breaks that: a filesystem write cannot participate in a database transaction. Two things were done about this, deliberately, not accidentally:
+1. **Order of operations**: the observation-existence check runs *before* `storage.store()` is ever called. A request for a nonexistent observation never touches disk at all — confirmed by test (`fs.existsSync()` on the would-be path returns `false` after a 404).
+2. **Cleanup, done safely**: if the atomic DB+audit insert fails *after* a successful disk write, `writes.js`'s catch block queries `idauto_observation_media` for any *other* row still referencing the same `object_key` before deciding whether to delete the file. **This check was added after catching a real bug in my own first draft**: because storage is content-addressed, two different observations uploading identical bytes get the same key — an unconditional "delete on failure" would have risked deleting a file a different, already-committed row still needs. Caught and fixed during implementation, before any test was written against it — the shipped code was never wrong in a committed state.
+3. Both directions proven by test: an unreferenced orphan (created via a direct, HTTP-unreachable call to `createObservationMedia()` with no identity — same pattern as IDA-2D's atomicity unit test) gets cleaned up; a file already referenced by two earlier successful uploads survives a subsequent failed attempt with the same content.
+
+### Self-caught test bug (second occurrence of this exact class, now a recognized pattern)
+
+The first version of this stage's test used a static content seed for one of its fixtures, which passed on the first run but broke (`found 6` instead of `found 2`) on a routine re-run against the persistent database — identical root cause to IDA-2D's hardcoded-plate-number bug: an absolute row-count assertion tied to content whose hash never changes across runs. Fixed the same way (`Date.now()`-seeded content); confirmed idempotent across 3 consecutive runs afterward. Both self-caught bugs in this project now share one lesson, worth stating plainly for future stages: **any test assertion of the form "exactly N rows/matches for value X" is unsafe against a persistent database unless X is unique per run.**
+
+### A real, non-code blocker hit and resolved during this stage
+
+The first test run failed with `EACCES` — not a logic bug, a Unix permission boundary. The media storage directory is `deploy:deploy`, `750`; this session's shell runs as `ubuntu`, which is not in the `deploy` group. `IDAUTO_DB_HOST`-style Postgres tests (IDA-2C/2D) never hit this, because TCP access to `127.0.0.1:5432` isn't gated by Unix file permissions the way a local filesystem write is. Resolved by running the test (and, for consistency, the full regression suite) via `sudo -u deploy -H bash -lc '...'` — the same execution identity already used for every Git operation in this project, just not previously needed for `node` test invocations before this stage introduced real filesystem writes.
+
+### Tests
+
+- **`tests/ida-2f-object-storage-test.js`** — new, **31/31 passing**, live against `idauto-postgres` and the real local filesystem (`/home/deploy/deployments/idauto-media/`). Covers: the identity gate preserved on media routes; a successful upload creating a file, a DB row, and an audit row together; the file's on-disk content verified byte-for-byte against what was uploaded; the default-`mythos_private` read exclusion; content-addressed deduplication (same bytes → same key → one file, two independent DB rows); invalid mime type / empty body / oversized file rejection; the nonexistent-observation 404-before-any-disk-write guarantee; both atomicity directions described above; 405 on unsupported methods; and a source-scan confirming `storage.js` never imports a database driver, network library, or cloud SDK.
+- **`tests/ida-2a/2c/2d`** — re-run fresh, unaffected: **44/44**, **24/24**, **38/38**.
+
+### Validation
+
+- `node -c` syntax check: all four touched/new JS files clean.
+- All four test suites passed, run fresh in this session as `deploy`; the new IDA-2F suite specifically re-run 3 times consecutively to confirm idempotency after the fix.
+- Post-test process check: no lingering `node` listening process.
+- Post-mutation VPS safety: 25 containers unchanged, `idauto-postgres` unchanged (`RestartCount=0`, same memory cap), **Jellyfin untouched**, all protected domains 200, RAM `3.2Gi available`, swap materially unchanged, disk `31G available` (`/home/deploy/deployments/idauto-media/` uses 112K of synthetic test data — negligible), zero new OOM events.
+- `git diff --check`: clean.
+- Secret scan of the diff: clean.
+- Scope confirmed: no UI, rate-limiting, or real-auth code anywhere in this diff; the `mythos_private` read restriction confirmed unchanged by test.
+
+### Result: PASS
+
+### Exact next stage
+
+`IDA-2G`/`IDA-2H` (admin manual-entry UI, review-queue UI — could run in parallel per the original slice plan, since both now have everything they'd call: read, write, and media endpoints) and `IDA-2I` (rate limiting) remain the real not-yet-authorized Phase B candidates. Full `IDA-2E` (real Mythos OS auth service integration) stays blocked, unchanged from the prior entry.
+
+---
+
 ## IMPLEMENTATION — IDA-2E-PRE: Minimal Mythos Identity Stub (2026-08-11)
 
 **Type:** Production implementation (application code, live database — synthetic/pilot data only). Resolves the `IDA-2E` blocker below by scoping and implementing a much smaller, honestly-labeled stage instead. No production infrastructure mutation. No UI, object storage, or rate limiting.

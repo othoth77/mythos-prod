@@ -33,6 +33,7 @@
 
 var db = require('./db.js');
 var crypto = require('crypto');
+var storage = require('./storage.js');
 
 // Maps a Postgres error to a safe {status, error} pair — never echoes the
 // driver's raw message (it can include table/column/value fragments).
@@ -214,11 +215,71 @@ async function createFact(vehicleInternalRef, body, identity) {
   );
 }
 
+var ALLOWED_MEDIA_TYPE = ['original_image', 'plate_crop', 'vehicle_crop', 'processed_derivative', 'carte_grise_original', 'carte_grise_derivative'];
+
+// POST /api/observations/:id/media (IDA-2F)
+// The one write in this module where the transaction boundary doesn't
+// cover everything: storage.store() writes to the local filesystem
+// BEFORE any database statement runs, because a filesystem write cannot
+// participate in a Postgres transaction. If the observation doesn't
+// exist, we find out and fail *before* touching disk. If the atomic
+// DB+audit insert (withAudit) fails for any other reason after the file
+// was already written, the catch block below removes the file — but
+// only after confirming no OTHER idauto_observation_media row already
+// references the same content-addressed object_key (storage is
+// content-addressed: two different observations uploading identical
+// bytes get the same key, so a naive unconditional delete could remove
+// a file a different, already-committed row still needs).
+async function createObservationMedia(observationId, buffer, mimeType, body, identity) {
+  var checkClient = await db.getClientForTransaction();
+  var observationExists;
+  try {
+    var check = await checkClient.query('SELECT id FROM idauto_observations WHERE id = $1', [observationId]);
+    observationExists = check.rows.length > 0;
+  } finally {
+    checkClient.release();
+  }
+  if (!observationExists) {
+    throw Object.assign(new Error('observation not found'), { httpStatus: 404 });
+  }
+
+  var stored = storage.store(buffer, mimeType); // throws (httpStatus set) before any disk write on invalid input
+
+  var mediaType = ALLOWED_MEDIA_TYPE.indexOf(body.media_type) !== -1 ? body.media_type : 'original_image';
+  var accessScope = ALLOWED_ACCESS_SCOPE.indexOf(body.access_scope) !== -1 ? body.access_scope : 'mythos_private';
+
+  try {
+    return await withAudit(
+      { event_type: 'observation_media.create', target_type: 'idauto_observation_media', change_summary: 'Manual admin media attachment for observation ' + observationId },
+      identity,
+      async function (client) {
+        var result = await client.query(
+          'INSERT INTO idauto_observation_media (observation_id, media_type, object_key, mime_type, file_size_bytes, image_hash, access_scope, blurred, retention_status) ' +
+          "VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'active') RETURNING id, observation_id, media_type, object_key, mime_type, file_size_bytes, image_hash, access_scope, blurred, retention_status",
+          [observationId, mediaType, stored.object_key, mimeType, stored.file_size_bytes, stored.image_hash, accessScope, body.blurred === true]
+        );
+        var row = result.rows[0];
+        return { record: row, auditTargetRef: row.id };
+      }
+    );
+  } catch (err) {
+    var stillReferenced = await db.query(
+      'SELECT 1 FROM idauto_observation_media WHERE object_key = $1 LIMIT 1',
+      [stored.object_key]
+    );
+    if (stillReferenced.rows.length === 0) {
+      storage.removeUnconditionally(stored.image_hash);
+    }
+    throw err;
+  }
+}
+
 module.exports = {
   createVehicle: createVehicle,
   createPlate: createPlate,
   createObservation: createObservation,
   createFact: createFact,
+  createObservationMedia: createObservationMedia,
   withAudit: withAudit,
   mapDbError: mapDbError
 };
