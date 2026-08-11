@@ -19,3 +19,8 @@ data/restore-*.js
 # OS artefacts
 .DS_Store
 Thumbs.db
+
+# Node dependencies — NEVER commit (introduced IDA-2C, projects/idauto/package.json)
+node_modules/
+.env
+!.env.example

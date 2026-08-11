@@ -1,0 +1,9 @@
+{
+  "name": "@mythos/idauto",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ID Auto — vehicle plate lookup and vehicle intelligence platform. IDA-2C: read-only API against the live idauto-postgres database.",
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

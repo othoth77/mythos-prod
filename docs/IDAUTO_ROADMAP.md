@@ -55,7 +55,7 @@
 
 ### IDA-2 — PostgreSQL Core, API and Manual Capture MVP
 
-**Status:** IN PROGRESS — Phase A complete and corrected (2026-08-10); Phase B slice **IDA-2B (PostgreSQL provisioning) complete (2026-08-11)**; remaining Phase B slices (IDA-2C onward: API, UIs, auth/audit, object storage, rate limiting) not started
+**Status:** IN PROGRESS — Phase A complete and corrected (2026-08-10); Phase B slices **IDA-2B (PostgreSQL provisioning)** and **IDA-2C (read-only API)** complete (2026-08-11); remaining Phase B slices (IDA-2D onward: write API + audit, real auth, object storage, UIs, rate limiting) not started
 **Depends on:** IDA-1 complete
 
 **Phase A — Schema finalization + plate format validation (complete, no live database):**
@@ -81,8 +81,17 @@
 - Backup created (`pg_dump --format=custom`, stored outside the container at `/home/deploy/backups/idauto-postgres-20260810/`, root-only directory, 600 file) and **restore tested** end-to-end into an isolated throwaway container (table count, seed row counts, and the `access_scope` column all verified identical after restore) — satisfies `AGENTS.md` §16 ("a backup is valid only after restoration is tested") before this slice was declared complete.
 - Full implementation record, exact redeploy/rollback procedure, and safety verification: see `docs/AI_HANDOVER.md`'s IDA-2B entry.
 
+**IDA-2C — Read-only API — ✓ COMPLETE (2026-08-11):**
+- `projects/idauto/package.json` + `pg` (node-postgres) — this repository's first real runtime dependency; `node_modules/`/`.env` gitignored, `package-lock.json` committed.
+- `projects/idauto/reference/db.js` — thin `pg.Pool` wrapper, all connection parameters from environment variables, parameterized queries only (no raw-SQL escape hatch in the module).
+- `projects/idauto/reference/api-read.js` — GET-only HTTP server (Node's built-in `http`, no Express): `/health`, `/api/vehicles/:internal_ref`, `/api/vehicles/:internal_ref/facts`, `/api/plates/:plate_number`, `/api/observations/:id`, `/api/facts/:fact_id/evidence`. Every non-GET request on a matched route returns 405; unmatched routes return 404.
+- **Placeholder admin gate**: static bearer token (`IDAUTO_ADMIN_PLACEHOLDER_TOKEN`) required on every route including `/health` — explicitly not real auth, replaced by `IDA-2E`.
+- **`mythos_private`-scope enforcement**: because no audit-writing path exists yet (that's `IDA-2D`), and the schema's own AD-9 rule requires `mythos_private` access to be audit-logged, this API deliberately excludes all `mythos_private`-scope data — `idauto_vehicle_facts` rows are filtered by `access_scope != 'mythos_private'` at the query level, and `idauto_observations` responses omit every field documented as always-`MYTHOS_PRIVATE` (`capture_time`, `plate_candidate`, `ocr_confidence`, `ip_hash`, `camera_source_id`, `contributor_id`, `capture_session_id`). Verified by test, not just by inspection — the private VIN fact's value never appears anywhere in a response.
+- `projects/idauto/database/seed-synthetic-test-data.sql` — one synthetic vehicle/plate/observation/two-facts/evidence row, explicitly marked TEST/SYNTHETIC, applied to the live `idauto-postgres` database (IDA-2B's own entry noted this was deliberately deferred to whichever slice first needed it — this is that slice).
+- `tests/ida-2c-readonly-api-test.js` — **24/24 passing**, run live against `idauto-postgres` (not mocked, unlike the Phase A suite) via a server started on an ephemeral port for the test run only; no persistent listening process was left running on the VPS.
+- Full implementation record, safety verification, and exact env-var contract: see `docs/AI_HANDOVER.md`'s IDA-2C entry.
+
 **Remaining Phase B slices — not started, each requires separate explicit authorization:**
-- `IDA-2C` — Core API, read-only endpoints, placeholder access gate
 - `IDA-2D` — Core API write endpoints + audit logging (land together)
 - `IDA-2E` — Mythos OS auth integration (replaces the placeholder gate)
 - `IDA-2F` — Object storage wiring (original image references)

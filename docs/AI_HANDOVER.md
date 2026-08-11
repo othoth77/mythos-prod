@@ -6,6 +6,52 @@
 
 ---
 
+## IMPLEMENTATION — IDA-2C: Read-Only ID Auto API (2026-08-11)
+
+**Type:** Production implementation (application code, live database reads only — no production infrastructure mutation, no write path). Second slice of IDA-2 Phase B. Scoped exactly to IDA-2C: no write endpoints, no audit-writing path, no real Mythos auth, no UI, object storage, or rate limiting.
+
+**No subagents used.** `sudo -n` for read-only VPS checks and applying the synthetic seed to the live database. `sudo -u deploy -H bash -lc '...'` for all Git operations.
+
+**Repository baseline verified:** `origin/main` HEAD confirmed as `ffc0759e767f35e171ac6b29bf83b1f10db1355d` (the IDA-2B commit) before this stage began.
+
+### A genuine architectural first, resolved by asking rather than guessing
+
+Every existing "reference implementation" in this repo (`projects/automation/`, `projects/personal-intelligence/`) is deliberately mocked and dependency-free — none of them ever makes a live connection to anything. IDA-2C is the first code in this repository meant to actually query a live service. There was no precedent to follow for how to connect to it (Node has no dependency-management setup anywhere in this repo; PHP lacks the `pgsql` extension). Rather than guess at a decision with real long-term consequences, this was put to the user directly: **Node.js + the `pg` npm package**, the recommended option, was chosen. This is now the repository's first real runtime dependency.
+
+### What was built
+
+- **`projects/idauto/package.json`** — `pg ^8.13.1`. `npm install` run inside `projects/idauto/`; `.gitignore` updated with `node_modules/` and `.env` (with `!.env.example` to still allow the template) — this repo had no such entries before, since no real dependency had ever existed to ignore.
+- **`projects/idauto/reference/db.js`** — thin `pg.Pool` wrapper. All 5 connection parameters (`IDAUTO_DB_HOST/PORT/USER/PASSWORD/NAME`) come from environment variables, checked and thrown on if any is missing; no credential value is ever logged or included in an error message. `query(text, params)` is the only path in the module — every call site in `api-read.js` uses parameter placeholders (`$1`, `$2`, ...), never string concatenation.
+- **`projects/idauto/reference/api-read.js`** — GET-only HTTP server, Node's built-in `http` (no Express — avoids a second new dependency for a 6-route API). Routes: `/health`, `/api/vehicles/:internal_ref`, `/api/vehicles/:internal_ref/facts`, `/api/plates/:plate_number`, `/api/observations/:id`, `/api/facts/:fact_id/evidence`. Any other HTTP method on a matched route path returns `405`; any unmatched path returns `404`.
+- **Placeholder admin gate**: a static `Authorization: Bearer <IDAUTO_ADMIN_PLACEHOLDER_TOKEN>` check runs before every route, including `/health` — nothing is reachable unauthenticated. Explicitly documented in-code and here as **not** real auth; `IDA-2E` replaces it.
+- **`mythos_private` enforcement, not just documentation**: the schema's own AD-9 rule requires `mythos_private`-scope access to be audit-logged on every access. `IDA-2D` (audit logging) hasn't happened yet, so this API cannot legally expose that scope without violating the policy this codebase already committed to. Enforced two ways: `idauto_vehicle_facts` queries filter `access_scope != 'mythos_private'` in SQL (not just in application code after the fact), and `idauto_observations` responses only ever select `id, vehicle_id, plate_id, capture_method, status` — omitting every field `schema.sql`'s own comments mark as always-`MYTHOS_PRIVATE` (`capture_time`, `plate_candidate`, `ocr_confidence`, `ip_hash`) or as contributor/session identity (`camera_source_id`, `contributor_id`, `capture_session_id`).
+- **`projects/idauto/.env.example`** — safe-to-commit template (`IDAUTO_DB_*`, `IDAUTO_API_PORT`, `IDAUTO_ADMIN_PLACEHOLDER_TOKEN`, all blank/placeholder values). The real `.env` is not committed and does not exist in this repository — the actual database credential lives only in `/home/deploy/deployments/idauto-postgres/.env` (IDA-2B), and the placeholder admin token is operator-supplied whenever the API is actually run.
+- **`projects/idauto/database/seed-synthetic-test-data.sql`** — new. IDA-2B's own record explicitly noted no vehicle/plate/observation test data existed yet and deferred it to "whichever slice first needs it" — this is that slice. One vehicle, one plate, one observation, **two** facts (one `public`, one deliberately `mythos_private` — to prove the filter actually excludes something, not just that nothing existed to exclude), one evidence row. Every value is explicitly TEST/SYNTHETIC-labeled. Applied to the live `idauto-postgres` database (0 errors, 6 inserts).
+- **`tests/ida-2c-readonly-api-test.js`** — new, **24/24 passing**. Unlike the Phase A suite, this one is deliberately *not* offline — it starts the real server (ephemeral port, closed at the end of the run) and makes real HTTP requests against the real live database. Covers: auth gate (missing/wrong/correct token), every endpoint against the synthetic fixture data, the private-VIN-never-appears-in-raw-response check, 405 on every write verb (POST/PUT/DELETE) against a real route, 404 on unknown routes and malformed IDs, and a static source-scan confirming no SQL write verb (`INSERT`/`UPDATE`/`DELETE`/`DROP`/`ALTER`/`TRUNCATE`) appears anywhere in `api-read.js`.
+
+### Credential handling
+
+The live database password (from IDA-2B's `.env`) was read once via `sudo -n grep ... | cut -d= -f2- > /tmp/.pgpass_extract` (a `600`-permission temp file, never `cat`'d or otherwise printed to any command output), exported into the test run's environment, and the temp file deleted immediately after the test run. The placeholder admin token used during testing was freshly generated per run (`openssl rand -hex 8`), never reused, never committed. Neither value appears anywhere in this repository, any log, or this document.
+
+### Validation
+
+- `node -c` syntax check: all three new JS files (`db.js`, `api-read.js`, the test file) clean.
+- `node tests/ida-2c-readonly-api-test.js` (live, against `idauto-postgres`): **24/24 passed**.
+- Regression check: `node tests/ida-2a-schema-and-plate-validation-test.js`: still **44/44 passed**, unaffected.
+- Post-test process check: `ss -tlnp | grep node` — no lingering listening process; the test's server was closed and the DB pool ended before the test process exited.
+- Post-mutation VPS safety: 25 containers unchanged, `idauto-postgres` unchanged (`RestartCount=0`, same memory cap), **Jellyfin untouched** (same container ID, `RestartCount=0`), all protected domains 200, RAM `3.1Gi available`, swap materially unchanged, zero new OOM events.
+- `git diff --check`: clean.
+- Secret scan of the diff: clean — no database password, no admin token (real or test), no connection string with embedded credentials, anywhere in any committed file.
+- Scope confirmed: `git status` shows only the files listed above plus `.gitignore`; no write endpoint, audit-logging code, auth-integration code, UI code, object-storage code, or rate-limiting code exists anywhere in this diff.
+
+### Result: PASS
+
+### Exact next stage
+
+`IDA-2D` — Core API write endpoints (manual-entry backend) **plus audit logging landing in the same slice** (per the Phase B slice plan: a live mutation path must never exist without its audit trail) — per the slice plan's suggested authorization order. Not started, not implied by this entry, requires its own explicit authorization. `IDA-2D` will also need to decide whether/how to relax the `mythos_private` exclusion this slice introduced, once audit logging exists to make that safe.
+
+---
+
 ## IMPLEMENTATION — IDA-2B: PostgreSQL Provisioning (2026-08-11)
 
 **Type:** Production implementation (infrastructure mutation — explicitly authorized by the user: "You are explicitly authorized to provision the PostgreSQL instance on the VPS"). First slice of IDA-2 Phase B. Scoped exactly to the IDA-2B slice from the prior plan entry — no API, UI, auth, object storage, or rate-limiting work; Jellyfin and all unrelated services untouched.
