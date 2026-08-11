@@ -133,6 +133,25 @@
       ]
     },
     {
+      "track": "id-auto",
+      "stage_id": "IDA-2H",
+      "title": "Review queue UI",
+      "status": "PLANNED",
+      "type": "RUNTIME",
+      "starting_head": null,
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "IDA-2I (NOT STARTED)",
+      "evidence_paths": [
+        "projects/idauto/reference/",
+        "tests/ida-2h-review-queue-ui-test.js"
+      ]
+    },
+    {
       "track": "mythos-automotive",
       "stage_id": "MAE-0",
       "title": "Mythos Automotive ecosystem master foundation",
