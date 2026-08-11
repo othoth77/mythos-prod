@@ -55,17 +55,17 @@
 
 ### IDA-2 — PostgreSQL Core, API and Manual Capture MVP
 
-**Status:** IN PROGRESS — Phase A complete and corrected (2026-08-10); Phase B slices **IDA-2B (PostgreSQL provisioning)**, **IDA-2C (read-only API)**, **IDA-2D (write API + atomic audit logging)**, **IDA-2E-PRE (minimal Mythos identity stub)**, and **IDA-2F (object storage wiring)** complete (2026-08-11); **full `IDA-2E` (real Mythos OS auth service integration) is BLOCKED** — no such service exists anywhere in this codebase, see below; remaining Phase B slices (UIs, rate limiting) not started
+**Status:** PHASE B ENGINEERING COMPLETE WITH EXPLICIT EXCEPTIONS (2026-08-11 deep audit) — IDA-2A through IDA-2H are implemented and audited; the PostgreSQL database and local media directory are live, while the reference API/admin UIs are not deployed or publicly reachable. Full `IDA-2E` real Mythos auth remains BLOCKED. `IDA-2I` enforcement is deferred to IDA-3 before any public lookup or community-capture endpoint is exposed; `idauto_verifications` remains verification history, not a transport-rate-limit store.
 **Depends on:** IDA-1 complete
 
 **Phase A — Schema finalization + plate format validation (complete, no live database):**
-- `projects/idauto/database/schema.sql` promoted from "IDA-1 draft" to "IDA-2 Phase A, migration-ready" — re-verified structurally (22 tables, all `idauto_`-prefixed, parentheses balanced, no owner-PII column defined on any table). Still **not applied to any database.**
+- `projects/idauto/database/schema.sql` promoted from "IDA-1 draft" to "IDA-2 Phase A, migration-ready" — re-verified structurally (22 tables, all `idauto_`-prefixed, parentheses balanced, no owner-PII column defined on any table). It was not applied during Phase A; IDA-2B subsequently applied and verified it on the live `idauto-postgres` instance.
 - `projects/idauto/reference/plate-validator.js` — new, pure/offline plate format normalization + matching against the 7 draft formats in `idauto.example.json` (config-driven, not hardcoded, per IDA-0 AD-3). Format loading is cached per config path (added in the correction below) — safe for repeated per-lookup calls in a future Phase B API handler.
 - `tests/ida-2a-schema-and-plate-validation-test.js` — new, 44/44 passing (36 original + 8 added by the correction below).
 - Implementation commit: see `docs/AI_HANDOVER.md`'s IDA-2 Phase A entry.
 
 **Correction — IDA-2A-CORRECTION-0 (same day, 2026-08-10)**, following a read-only audit of Phase A:
-- **R-T03 resolved:** the scope column was `visibility_scope`, diverging from AutoValeur's canonical `access_scope` naming (tracked risk, severity H/M). Renamed to `access_scope` in `schema.sql` (2 tables: `idauto_observation_media`, `idauto_vehicle_facts`), `docs/IDAUTO_ARCHITECTURE.md`, and `docs/IDAUTO_PRODUCT_SPEC.md`. Not yet applied to a live database — naming is now consistent at the source level; live-migration verification remains Phase B. See `docs/AUTOMOTIVE_RISK_REGISTER.md` R-T03 (now RESOLVED).
+- **R-T03 resolved:** the scope column was `visibility_scope`, diverging from AutoValeur's canonical `access_scope` naming (tracked risk, severity H/M). Renamed to `access_scope` in `schema.sql` (2 tables: `idauto_observation_media`, `idauto_vehicle_facts`), `docs/IDAUTO_ARCHITECTURE.md`, and `docs/IDAUTO_PRODUCT_SPEC.md`. The correction was source-only at that time; IDA-2B later verified `access_scope` on both live tables. See `docs/AUTOMOTIVE_RISK_REGISTER.md` R-T03 (now RESOLVED).
 - **Stale status docs reconciled:** `docs/AUTOMOTIVE_ROADMAP.md`, `docs/AUTOMOTIVE_OPERATING_MODEL.md`, `docs/AUTOMATION_GOVERNANCE.md`, `docs/AUTOMATION_ROADMAP.md`, `docs/PROJECT_STATISTICS.md` all still said "IDA-2 is the next authorised implementation stage" after Phase A shipped — corrected to reflect Phase A complete / Phase B pending.
 - **Safe caching added:** `plate-validator.js`'s `loadFormats()` now caches compiled formats per config path (`clearFormatCache()` for tests/rare reload), so the single-argument `matchPlateFormat(raw)`/`isValidPlate(raw)` forms no longer re-read and re-parse the config + recompile 7 regexes on every call.
 - 8 new tests added (2 R-T03 regression lock-in, 6 caching-behavior) — total 44/44 passing.
@@ -128,10 +128,11 @@ Requested scope was "real Mythos OS auth/identity integration," replacing the pl
 - `IDA-2G` — Admin manual entry UI — **✓ COMPLETE (2026-08-11)**. See `docs/AI_HANDOVER.md` for the implementation and validation record.
 - `IDA-2H` — Review queue UI — **✓ COMPLETE (2026-08-11)**. See `docs/AI_HANDOVER.md` for the implementation and validation record.
 
-**Remaining Phase B slices — not started, each requires separate explicit authorization:**
+**Phase B exceptions carried forward after deep audit:**
 - `IDA-2E` full (real Mythos OS auth service integration) — **BLOCKED**, see above; would require a separate, much larger stage to first build a real Mythos identity service, which is out of ID Auto's own scope
-- `IDA-2I` — Rate limiting backed by `idauto_verifications` (lowest urgency — no public endpoint exists yet in Phase B; may be better scoped into IDA-3 instead, per the slice plan's open question)
-- Remaining automated tests toward the 50+ total (44 delivered in Phase A + correction; each slice above adds its own tests, not a separate catch-up stage)
+- `IDA-2I` — **DEFERRED TO IDA-3**. Current routes are operator-token/admin-only and the reference server is not deployed. Rate-limit design and enforcement must land before IDA-3 exposes public plate lookup or community capture, keyed from the actual caller/contributor/IP and target semantics defined there. Do not overload `idauto_verifications` as a transport-throttling counter store.
+- Persistent live-test fixtures currently accumulate by design. At audit time the database remained small (about 9.6 MiB), so this is not a present correctness/performance threat; define fixture lifecycle cleanup before volume makes backups or tests operationally material.
+- PostgreSQL backup exists and was restore-tested, but the separate local media directory has no documented external backup. Add media backup/restore coverage before treating any non-disposable media as durable.
 
 **Objective:** Deploy the PostgreSQL database, implement the core API, and enable admin manual entry for the first test vehicles.
 

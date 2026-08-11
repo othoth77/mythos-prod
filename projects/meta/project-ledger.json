@@ -115,6 +115,174 @@
     },
     {
       "track": "id-auto",
+      "stage_id": "IDA-2A",
+      "title": "Schema finalization and plate validation",
+      "status": "DONE",
+      "type": "DATABASE",
+      "starting_head": "5191476e259af7ae300b4edf4bbecf4df6f025bb",
+      "implementation_commit": "92a8f77e8bcc72aa41c59e6eb1597ec59d7a459b",
+      "merge_commit": null,
+      "handover_commit": "92a8f77e8bcc72aa41c59e6eb1597ec59d7a459b",
+      "completed_at": "2026-08-10",
+      "tests": {
+        "ida-2a": "36/36"
+      },
+      "blockers": [],
+      "next_stage": "IDA-2A-CORRECTION-0",
+      "evidence_paths": [
+        "projects/idauto/database/schema.sql",
+        "projects/idauto/reference/plate-validator.js",
+        "tests/ida-2a-schema-and-plate-validation-test.js"
+      ]
+    },
+    {
+      "track": "id-auto",
+      "stage_id": "IDA-2A-CORRECTION-0",
+      "title": "Phase A scope naming and cache correction",
+      "status": "DONE",
+      "type": "GOVERNANCE",
+      "starting_head": "92a8f77e8bcc72aa41c59e6eb1597ec59d7a459b",
+      "implementation_commit": "2a814bfeff49373469ca44946e289ecf150ddb4b",
+      "merge_commit": null,
+      "handover_commit": "2a814bfeff49373469ca44946e289ecf150ddb4b",
+      "completed_at": "2026-08-10",
+      "tests": {
+        "ida-2a": "44/44"
+      },
+      "blockers": [],
+      "next_stage": "IDA-2B",
+      "evidence_paths": [
+        "projects/idauto/database/schema.sql",
+        "projects/idauto/reference/plate-validator.js",
+        "tests/ida-2a-schema-and-plate-validation-test.js"
+      ]
+    },
+    {
+      "track": "id-auto",
+      "stage_id": "IDA-2B",
+      "title": "PostgreSQL provisioning",
+      "status": "DONE",
+      "type": "INFRASTRUCTURE",
+      "starting_head": "7caf7a6b54b01a3201bd00fe615e5b296e26fa45",
+      "implementation_commit": "ffc0759e767f35e171ac6b29bf83b1f10db1355d",
+      "merge_commit": null,
+      "handover_commit": "ffc0759e767f35e171ac6b29bf83b1f10db1355d",
+      "completed_at": "2026-08-11",
+      "tests": {},
+      "blockers": [],
+      "next_stage": "IDA-2C",
+      "evidence_paths": [
+        "projects/idauto/database/schema.sql",
+        "docs/IDAUTO_ROADMAP.md"
+      ]
+    },
+    {
+      "track": "id-auto",
+      "stage_id": "IDA-2C",
+      "title": "Read-only API",
+      "status": "DONE",
+      "type": "RUNTIME",
+      "starting_head": "ffc0759e767f35e171ac6b29bf83b1f10db1355d",
+      "implementation_commit": "211b569bb097ef19afe810128f343d6dc9b21e52",
+      "merge_commit": null,
+      "handover_commit": "211b569bb097ef19afe810128f343d6dc9b21e52",
+      "completed_at": "2026-08-11",
+      "tests": {
+        "ida-2c": "24/24"
+      },
+      "blockers": [],
+      "next_stage": "IDA-2D",
+      "evidence_paths": [
+        "projects/idauto/reference/",
+        "tests/ida-2c-readonly-api-test.js"
+      ]
+    },
+    {
+      "track": "id-auto",
+      "stage_id": "IDA-2D",
+      "title": "Write API and atomic audit logging",
+      "status": "DONE",
+      "type": "RUNTIME",
+      "starting_head": "211b569bb097ef19afe810128f343d6dc9b21e52",
+      "implementation_commit": "6a8125fbe6aedf17403710140c0e80157e49c912",
+      "merge_commit": null,
+      "handover_commit": "6a8125fbe6aedf17403710140c0e80157e49c912",
+      "completed_at": "2026-08-11",
+      "tests": {
+        "ida-2d": "30/30"
+      },
+      "blockers": [],
+      "next_stage": "IDA-2E-PRE",
+      "evidence_paths": [
+        "projects/idauto/reference/",
+        "tests/ida-2d-write-api-and-audit-test.js"
+      ]
+    },
+    {
+      "track": "id-auto",
+      "stage_id": "IDA-2E",
+      "title": "Real Mythos OS auth integration",
+      "status": "BLOCKED",
+      "type": "RUNTIME",
+      "starting_head": "6a8125fbe6aedf17403710140c0e80157e49c912",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [
+        "No real Mythos OS identity/auth service exists to integrate with"
+      ],
+      "next_stage": "Mythos identity service prerequisite (BLOCKED)",
+      "evidence_paths": [
+        "docs/IDAUTO_ARCHITECTURE.md",
+        "docs/AI_HANDOVER.md"
+      ]
+    },
+    {
+      "track": "id-auto",
+      "stage_id": "IDA-2E-PRE",
+      "title": "Minimal Mythos identity stub",
+      "status": "DONE",
+      "type": "RUNTIME",
+      "starting_head": "6a8125fbe6aedf17403710140c0e80157e49c912",
+      "implementation_commit": "fafcf604bf1980e824e78469393f1e7b702cdc03",
+      "merge_commit": null,
+      "handover_commit": "fafcf604bf1980e824e78469393f1e7b702cdc03",
+      "completed_at": "2026-08-11",
+      "tests": {
+        "ida-2c/2d": "24/24, 38/38"
+      },
+      "blockers": [],
+      "next_stage": "IDA-2F",
+      "evidence_paths": [
+        "projects/idauto/reference/identity.js",
+        "tests/ida-2d-write-api-and-audit-test.js"
+      ]
+    },
+    {
+      "track": "id-auto",
+      "stage_id": "IDA-2F",
+      "title": "Object storage wiring",
+      "status": "DONE",
+      "type": "RUNTIME",
+      "starting_head": "fafcf604bf1980e824e78469393f1e7b702cdc03",
+      "implementation_commit": "ec79c44576349992546e56bd35c56d68fc45e070",
+      "merge_commit": null,
+      "handover_commit": "ec79c44576349992546e56bd35c56d68fc45e070",
+      "completed_at": "2026-08-11",
+      "tests": {
+        "ida-2f": "31/31"
+      },
+      "blockers": [],
+      "next_stage": "IDA-2G",
+      "evidence_paths": [
+        "projects/idauto/reference/storage.js",
+        "tests/ida-2f-object-storage-test.js"
+      ]
+    },
+    {
+      "track": "id-auto",
       "stage_id": "IDA-2G",
       "title": "Admin manual entry UI",
       "status": "DONE",
@@ -129,7 +297,7 @@
         "ida-2a/2c/2d/2f regressions": "137/137"
       },
       "blockers": [],
-      "next_stage": "IDA-2H (NOT STARTED)",
+      "next_stage": "IDA-2H",
       "evidence_paths": [
         "projects/idauto/reference/",
         "tests/ida-2g-admin-manual-entry-ui-test.js"
@@ -151,7 +319,7 @@
         "ida-2g/2a/2c/2d/2f regressions": "153/153"
       },
       "blockers": [],
-      "next_stage": "IDA-2I (NOT STARTED)",
+      "next_stage": "IDA-2-PHASE-B-DEEP-AUDIT-0",
       "evidence_paths": [
         "projects/idauto/reference/",
         "tests/ida-2h-review-queue-ui-test.js"
@@ -161,16 +329,19 @@
       "track": "id-auto",
       "stage_id": "IDA-2-PHASE-B-DEEP-AUDIT-0",
       "title": "Phase B deep audit",
-      "status": "PLANNED",
+      "status": "DONE",
       "type": "GOVERNANCE",
-      "starting_head": null,
-      "implementation_commit": null,
+      "starting_head": "30c47d5bde98a6f6bfc57bb7c4525e37d5833ffe",
+      "implementation_commit": "cc4f987",
       "merge_commit": null,
       "handover_commit": null,
-      "completed_at": null,
-      "tests": {},
+      "completed_at": "2026-08-11",
+      "tests": {
+        "ida-2a/2c/2d/2f/2g/2h": "44/44, 26/26, 39/39, 32/32, 16/16, 37/37",
+        "governance/devx": "36/36, 45/45"
+      },
       "blockers": [],
-      "next_stage": "IDA-2I (NOT STARTED)",
+      "next_stage": "IDA-3 rate-limit design gate (NOT STARTED)",
       "evidence_paths": [
         "docs/IDAUTO_ROADMAP.md",
         "docs/IDAUTO_ARCHITECTURE.md",

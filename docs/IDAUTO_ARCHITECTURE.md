@@ -1,7 +1,7 @@
 # ID Auto — Architecture
 
 **Stage:** IDA-1 Product Vision, Capture, Access and Data Governance Specification
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-11 (IDA-2 Phase B deep audit)
 **Domain:** idauto.tn
 **Platform:** Mythos ecosystem
 **Repository:** othoth77/mythos-prod
@@ -22,10 +22,10 @@ The previous IDA-0 framing of ID Auto as an "entirely independent platform" is s
 
 **Target DBMS: PostgreSQL** — selected as the target database system for ID Auto and the broader Mythos platform evolution.
 
-**Status: NOT INSTALLED OR DEPLOYED.** PostgreSQL is not present in IDA-0 or IDA-1. Implementation begins in IDA-2. The `projects/idauto/database/schema.sql` file is a draft specification, not a deployed migration.
+**Current status:** PostgreSQL is live in the private, loopback-bound `idauto-postgres` container and the 22-table source schema has been applied and verified. Local content-addressed media storage is live at `/home/deploy/deployments/idauto-media`. The repository's API and admin UIs remain reference implementations only: no ID Auto API/UI service, container, systemd unit, public listener, or public endpoint is deployed.
 
 ```
-PostgreSQL cluster (target — not yet deployed)
+PostgreSQL cluster (`idauto-postgres` live; other schemas remain target contracts)
 ├── mythos_core schema
 │   └── users, global roles, permissions, global audit, platform administration
 │
@@ -324,7 +324,7 @@ Smart Gate movements are **never** published publicly or professionally.
 
 ## 8. Deployment Separation
 
-In IDA-0 and IDA-1, there is no deployed ID Auto service.
+IDA-2B deployed the private PostgreSQL service and IDA-2F created the local media directory. The API and admin UIs remain undeployed reference implementations; there is no public ID Auto service.
 
 **Permanent constraints:**
 - Do not touch `/var/www/uthinachess/0726/Prod/` — Mythos OS production

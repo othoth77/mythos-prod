@@ -996,6 +996,6 @@ VALUES
 -- =============================================================================
 
 -- =============================================================================
--- END OF SCHEMA — IDA-2 Phase A, migration-ready
--- PostgreSQL target DBMS — NOT YET INSTALLED OR DEPLOYED (IDA-2 Phase B)
+-- END OF SCHEMA — IDA-2 Phase A source, applied and live-verified in IDA-2B
+-- PostgreSQL runtime: private idauto-postgres service; API/UI remain undeployed reference implementations
 -- =============================================================================

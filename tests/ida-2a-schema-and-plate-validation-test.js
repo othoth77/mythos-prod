@@ -42,8 +42,8 @@ console.log('\n1. SCHEMA — structural integrity (static text validation, no li
     'Every table is idauto_-prefixed (schema isolation, no cross-schema table names)');
 
   ok(sql.indexOf('IDA-2 Phase A') !== -1, 'Header reflects current IDA-2 Phase A status');
-  ok(sql.indexOf('NOT YET INSTALLED OR DEPLOYED') !== -1,
-    'Footer still explicitly states the schema has not been applied to any database (Phase B not yet authorized)');
+  ok(sql.indexOf('applied and live-verified in IDA-2B') !== -1 && sql.indexOf('NOT YET INSTALLED OR DEPLOYED') === -1,
+    'Footer records the schema as applied and live-verified in IDA-2B');
 
   // Privacy contract: no owner-PII column name appears on any table this
   // migration creates, per IDA-0/IDA-1's documented privacy contract.
