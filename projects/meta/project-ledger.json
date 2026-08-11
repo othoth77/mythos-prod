@@ -126,7 +126,7 @@
       "completed_at": null,
       "tests": {},
       "blockers": [],
-      "next_stage": "IDA-2G implementation",
+      "next_stage": "IDA-2H (NOT STARTED)",
       "evidence_paths": [
         "projects/idauto/reference/",
         "tests/ida-2g-admin-manual-entry-ui-test.js"
