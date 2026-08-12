@@ -36,8 +36,10 @@ console.log('\n1. SCHEMA — structural integrity (static text validation, no li
   var close = (sql.match(/\)/g) || []).length;
   ok(open === close, 'Parenthesis count balanced (' + open + ' open = ' + close + ' close)');
 
+  // 22 from IDA-2 Phase A, plus idauto_submissions and
+  // idauto_rate_limit_counters added by the IDA-3A ingestion schema.
   var createTables = sql.match(/^CREATE TABLE (\w+)/gm) || [];
-  ok(createTables.length === 22, 'Exactly 22 CREATE TABLE statements (found ' + createTables.length + ')');
+  ok(createTables.length === 24, 'Exactly 24 CREATE TABLE statements (found ' + createTables.length + ')');
   ok(createTables.every(function (l) { return /^CREATE TABLE idauto_/.test(l); }),
     'Every table is idauto_-prefixed (schema isolation, no cross-schema table names)');
 
