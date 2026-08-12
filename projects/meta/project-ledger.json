@@ -980,6 +980,27 @@
       ]
     },
     {
+      "track": "id-auto",
+      "stage_id": "IDA-3F",
+      "title": "Off-host backup — move ID Auto backup safety outside the VPS failure domain",
+      "status": "BLOCKED",
+      "type": "INFRASTRUCTURE",
+      "starting_head": "26dd92a6d43c1ca85eb5f089f4a67552e89106d1",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [
+        "NO_OFFHOST_DESTINATION_EXISTS: discovery found no usable off-host target already configured. No rclone, restic, borg, aws, s3cmd, mc, gsutil, az, swift or openstack binary is installed and no config for any exists; only generic rsync is present. All three configured SSH hosts resolve to github.com (the notrejour key is a GitHub deploy key), so there is no second server. No NFS/CIFS/sshfs mount and no second disk - only /dev/sda1 plus snap loop devices. Coolify reports s3_storages=0 and scheduled_database_backups=0. Cloudflare R2 is approved in CLOUDFLARE_ARCHITECTURE.md but explicitly not created, and is gated behind INF-CF-6. Provisioning a destination requires owner authorisation, so the stage stopped before selecting one."
+      ],
+      "next_stage": "IDA-3G (consent and legal gate, NOT STARTED, separate authorisation)",
+      "evidence_paths": [
+        "docs/IDA3_INGESTION_ARCHITECTURE.md",
+        "docs/IDAUTO_STORAGE_RUNBOOK.md"
+      ]
+    },
+    {
       "track": "mythos-devx",
       "stage_id": "MYTHOS-MULTI-AGENT-ORCHESTRATOR-0",
       "title": "Mythos multi-agent orchestrator — provider-neutral Claude/Codex delegation runtime",
