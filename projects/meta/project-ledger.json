@@ -808,6 +808,28 @@
         "docs/MYTHOS_IDENTITY_ARCHITECTURE.md",
         "docs/IDAUTO_STORAGE_RUNBOOK.md"
       ]
+    },
+    {
+      "track": "mythos-devx",
+      "stage_id": "MYTHOS-MULTI-AGENT-ORCHESTRATOR-0",
+      "title": "Mythos multi-agent orchestrator — provider-neutral Claude/Codex delegation runtime",
+      "status": "PLANNED",
+      "type": "GOVERNANCE",
+      "starting_head": "8a6f2833f0c8684933762076ea5b6261abdd71b1",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "IDA-3A (NOT STARTED)",
+      "evidence_paths": [
+        "projects/mythos-orchestrator/README.md",
+        "scripts/mythos-orchestrate.js",
+        "docs/MYTHOS_ORCHESTRATOR_ARCHITECTURE.md",
+        "docs/MYTHOS_ORCHESTRATOR_RUNBOOK.md",
+        "tests/mythos-orchestrator-0-test.js"
+      ]
     }
   ],
   "commits": [
