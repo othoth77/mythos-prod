@@ -1,8 +1,72 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** IDA-3F (off-host backup tooling merged; stage **BLOCKED / DEFERRED** by owner decision)
+**From:** MPI-1 (Context Assembler + Context Compiler runtime — offline, provider-neutral)
 **To:** Next AI session
+
+---
+
+## IMPLEMENTATION — MPI-1 CONTEXT RUNTIME (2026-08-12) — COMPLETE
+
+**Type:** Runtime module, fully offline. **No database, no network, no external provider, no model call, no credentials, no persistence, no auth, no deployment, no schema change, Jellyfin untouched.**
+
+**Starting HEAD:** `126ce46335fee291c8639c1637ae5d7b53886cdf`
+**Metadata commit:** `25a182dbbb30f8f5b4ab6e2892485553c3ce4713`
+**Codex implementation commit:** `29728b98418acc54c465dd2ff9be4451538105d7`
+**Merge:** `29728b98418acc54c465dd2ff9be4451538105d7` — **true fast-forward**, single parent
+
+Selected because IDA-3F is deferred and the whole IDA-3 chain below it is gated; MPI-1 was the one stage with a settled binding contract and no blocked dependency. §8 of `MYTHOS_CONTEXT_ARCHITECTURE.md` recorded that no context compiler existed — that was the gap.
+
+### The separation this stage created
+
+MPI-0's `assembleContext()` returned a ContextPackage directly, conflating two roles. MPI-1 splits them:
+
+```
+ASSEMBLER  select · classify · permission-filter · resolve  ->  AssemblyResult
+COMPILER   AssemblyResult + generic options                 ->  ContextPackage
+```
+
+`assemble()` returns `type: 'AssemblyResult'` — deliberately **not** a package. The compiler is the only thing that produces a `ContextPackage`.
+
+**MPI-0 compatibility was a hard constraint and is intact:** `classify`, `retrieveRelevantMemory` and `assembleContext` keep their exact signatures and behaviour; the change to `context-assembler.js` is purely additive. MPI-0 still passes **63/63** unchanged.
+
+### Permission ordering is structural, not conventional
+
+§2 requires that FORBIDDEN items are excluded *before* relevance ranking can matter. The implementation enforces this by construction: the permission decision is evaluated and the item **returned early before `classify()` is ever called**, so a denied item is never classified, never ranked, and cannot be resurrected by relevance. A denied entry records only `{ reference, reason }` — **never a payload** — so the exclusion stays auditable while the protected content is absent.
+
+### ContextPackage
+
+Exactly the nine §5 fields — `intent · requiredFacts · relevantPreferences · organisationRules · domainInstructions · permissions · selectedSkills · entities · outputRequirements` — plus an underscore-prefixed `_diagnostics`, following the existing `_stats` convention. `validatePackage()` rejects a missing field, an unexpected non-underscore field, a wrong array type, any provider-shaped key (`messages`, `system`, `role`, `content`, `max_tokens`, `stop_sequences`, `candidates`, `parts`, `choices`, `completion`) and any credential-shaped key, **recursively**. `compile()` validates before returning and throws rather than emitting an incomplete package.
+
+**Provider neutrality is asserted structurally**, not by spelling: the suite requires the package's own non-underscore keys to equal `PACKAGE_FIELDS` exactly, and no provider-shaped key to appear anywhere in the serialised output.
+
+### Budget and trimming
+
+`approxBudget` is a **generic character budget**, documented as such in `_diagnostics.approxBudgetUnit`. No vendor tokenizer, no model-specific token limit, no provider default anywhere. Trimming is deterministic and **drops USEFUL before REQUIRED**, recording each drop with its reason, source reference and classification. If the budget still cannot be met once USEFUL items are exhausted, further trimming is recorded and `_diagnostics.budgetOverflow` is set — it degrades visibly rather than silently.
+
+### Entity resolution
+
+Scope filtering happens **first** — `organisationScope` plus `permissionScope` — so resolution is lazy and scoped per §4, never a bulk preload.
+
+**A name match never resolves an entity.** Even a *unique* name match returns `POSSIBLE_MATCH` with `entity: null` and all candidates attached; only a strong identifier (`id`/`externalId`) or a unique alias resolves. Multiple strong identifiers yield `CONFLICTING_IDENTITIES` with every candidate and no silent pick. Resolved candidates are projected to safe fields only.
+
+### Memory selection
+
+Deduplicates semantically (`key` + serialised value). Where two entries share a key but differ in value, **both are kept and the pair is recorded as a conflict** rather than one being chosen silently. Ordering is deterministic: classification rank, then session-context priority, then provenance reference as a stable tiebreak. Provenance survives compilation, defaulting to a stable `source:index` reference when the caller supplies none.
+
+### Verification
+
+`mpi-1-context-runtime` **50/50** · `mpi-0-personal-intelligence` **63/63** · `mpi-0-finalization-governance` 36/36 · DEVX-0 45/45 · DEVX-1 92/92 · orchestrator 156/156 · project-intelligence 0 errors · ledger-check 43 stages · `git diff --check` clean. **All re-run against the post-merge tree.** The suite runs under `env -i` with no database, network, credential or environment variable.
+
+Reviewed independently rather than accepted on the exit code: the assembler's permission-before-classify ordering, the resolver's refusal to merge on name, the compiler's recursive validation and its trimming order were each read and confirmed in source.
+
+### Noted, not blocking
+
+`exclusions.OUT_OF_SCOPE` is declared but never incremented — scope exclusion currently lands in the permission path. Harmless, worth tidying when MPI-2 touches this code. The new files are somewhat denser than `context-assembler.js` (longest lines 201/161/285 characters), though far from the minification that required a reformat in IDA-3F; the critical logic reads clearly.
+
+### Next stage
+
+**`MPI-2` — Personal Learning & Memory Engine (runtime, persistent).** Requires its own authorisation, and unlike MPI-1 it introduces persistence, so it needs a storage decision first. IDA-3F remains **BLOCKED / DEFERRED**; IDA-3G/3H/3I stay gated behind it.
 
 ---
 
