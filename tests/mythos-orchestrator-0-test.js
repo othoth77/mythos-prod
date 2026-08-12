@@ -8,11 +8,13 @@
 // through a stub swapped into runner.PROVIDERS, and Git behaviour is
 // exercised against throwaway repositories created per test.
 //
-// Fixtures deliberately live under ~/.cache rather than /tmp: the task
-// contract forbids a /tmp working directory outright, so a /tmp fixture
-// could not be used to exercise the runner at all. They are still
-// disposable and are removed at the end of the run. Test 16 separately
-// proves the PRODUCTION task store never defaults to /tmp.
+// Fixtures cannot live under /tmp: the task contract forbids a /tmp working
+// directory outright, so a /tmp fixture could not exercise the runner at all.
+// The fixture root is therefore probed for writability, because this suite
+// must also run inside a delegated worker sandbox, where only the workspace
+// (and any explicitly added directory) is writable — ~/.cache is not. They
+// are disposable and removed at the end of the run. Test 16 separately proves
+// the PRODUCTION task store never defaults to /tmp.
 //
 // Run with: node tests/mythos-orchestrator-0-test.js
 // =====================================================
@@ -40,8 +42,29 @@ function ok(v, l) { if (v) { pass++; console.log('  PASS ' + l); } else { fail++
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
-var FIXTURE_BASE = path.join(os.homedir(), '.cache');
-fs.mkdirSync(FIXTURE_BASE, { recursive: true });
+// First writable candidate wins. `.test-fixtures/` inside the repository is
+// the sandbox-friendly fallback: a delegated worker can always write to its
+// own workspace, even when the home directory is read-only.
+function pickFixtureBase() {
+  var candidates = [
+    process.env.MYTHOS_TEST_FIXTURE_ROOT,
+    path.join(os.homedir(), '.cache'),
+    path.join(BASE, '.test-fixtures')
+  ].filter(Boolean);
+
+  for (var i = 0; i < candidates.length; i++) {
+    try {
+      fs.mkdirSync(candidates[i], { recursive: true });
+      var probe = path.join(candidates[i], '.write-probe-' + process.pid);
+      fs.writeFileSync(probe, 'x');
+      fs.unlinkSync(probe);
+      return candidates[i];
+    } catch (e) { /* not writable here — try the next candidate */ }
+  }
+  throw new Error('NO_WRITABLE_FIXTURE_ROOT: tried ' + candidates.join(', '));
+}
+
+var FIXTURE_BASE = pickFixtureBase();
 var TMP_ROOT = fs.mkdtempSync(path.join(FIXTURE_BASE, 'mythos-orch-test-'));
 var CLEANUP = [TMP_ROOT];
 

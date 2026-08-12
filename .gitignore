@@ -24,3 +24,6 @@ Thumbs.db
 node_modules/
 .env
 !.env.example
+
+# Orchestrator test fixtures (sandbox-writable fallback root)
+.test-fixtures/
