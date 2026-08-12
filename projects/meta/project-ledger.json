@@ -785,18 +785,26 @@
       "track": "id-auto",
       "stage_id": "IDA-3-DESIGN-GATE",
       "title": "IDA-3 public/community ingestion — architecture and safety design gate",
-      "status": "PLANNED",
+      "status": "DONE",
       "type": "DOCUMENTATION",
       "starting_head": "c6aef86071358d67583a60b9a63bfa2898fc15c5",
-      "implementation_commit": null,
+      "implementation_commit": "2bb6175a56ca7e782797af48bf81ea4e4e33ae90",
       "merge_commit": null,
       "handover_commit": null,
-      "completed_at": null,
-      "tests": {},
+      "completed_at": "2026-08-12",
+      "tests": {
+        "project-intelligence": "0 errors/0 warnings",
+        "mpi-0-finalization-governance": "36/36",
+        "devx-0": "45/45",
+        "devx-1-idauto-test-impact": "92/92",
+        "mythos-identity-core-0-contract": "124/124",
+        "idauto-storage-ops": "72/72"
+      },
       "blockers": [],
       "next_stage": "IDA-3A (NOT STARTED)",
       "evidence_paths": [
-        "docs/IDAUTO_ARCHITECTURE.md",
+        "docs/IDA3_INGESTION_ARCHITECTURE.md",
+        "projects/idauto/database/schema.sql",
         "docs/MYTHOS_IDENTITY_ARCHITECTURE.md",
         "docs/IDAUTO_STORAGE_RUNBOOK.md"
       ]

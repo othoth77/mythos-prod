@@ -1,8 +1,67 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** IDAUTO-STORAGE-OPS implementation (complete and pushed)
+**From:** IDA-3-DESIGN-GATE (complete and pushed)
 **To:** Next AI session
+
+---
+
+## DESIGN GATE — IDA-3-DESIGN-GATE (2026-08-12) — COMPLETE
+
+**Type:** Architecture decision. **Design only — no endpoint implemented, nothing exposed publicly, no SQL executed, no schema changed, nothing deployed, no scraping/OCR/AI vision added, no subagents.**
+
+**Baseline:** `c6aef86071358d67583a60b9a63bfa2898fc15c5` — `main`, clean, HEAD == origin/main, Git as `deploy`.
+**Metadata registration commit:** `59a740eff3cb00df0c4be4780d96571378c9321c`
+**Design commit:** `2bb6175a56ca7e782797af48bf81ea4e4e33ae90`
+**Binding document:** [`docs/IDA3_INGESTION_ARCHITECTURE.md`](IDA3_INGESTION_ARCHITECTURE.md)
+
+### Central finding — most of IDA-3 already exists
+
+Verified against the live schema: `idauto_observations.status` already carries **all nine** lifecycle states (`received · processing · pending_confirmation · pending_review · accepted · rejected · duplicate · conflict · blocked`); `idauto_contributors` already has `trust_score`, submission counters, and `blocked`/`blocked_reason`; `idauto_capture_sources` already **seeds** `PUBLIC_UPLOAD` (trust 1) and `CONTRIBUTOR_UPLOAD` (trust 2) with `requires_consent` and `LEGAL-REVIEW-REQUIRED`; `idauto_vehicle_facts` already carries `source_id`, `observation_id`, `confidence_score`, `verification_status`, `access_scope`, and `is_active` supersession.
+
+**IDA-3 is therefore wiring and enforcement, not modelling.** Net new schema is **2 tables + 1 nullable column**; everything else was classified DEFERRED or REJECTED with reasons.
+
+### Decisions
+
+| Gate | Decision |
+|---|---|
+| IDENTITY_READY | **YES (contract) / NO (runtime)** — contract ratified, `mythos_core` undeployed, real auth BLOCKED |
+| STORAGE_READY | **YES** — audited CLEAN, backup/restore tooling restore-tested |
+| OFFHOST_REQUIRED_BEFORE_PUBLIC | **YES** — before any real evidence (IDA-3F), not before the admin-only pilot |
+| RATE_LIMIT_STAGE | **BEFORE_ENDPOINT** — IDA-3C, honouring the binding roadmap decision |
+| REAL_AUTH_REQUIRED_FOR_PRIVATE_PILOT | **NO** — admin-only behind the existing operator token |
+| REAL_AUTH_REQUIRED_FOR_PUBLIC | **YES** — for authenticated tiers; anonymous tier needs none |
+| PUBLIC_ENDPOINT_READY_TO_IMPLEMENT | **NO** |
+| FIRECRAWL_STAGE | **LATER** — separate `IDA-4-WEB-INGESTION` |
+
+**Notable architectural calls:** no new observation status and no new `access_scope` (existing nine and three suffice) · anonymous submitters get **no** canonical user ID and no contributor row (`actor_ref` stays NULL; accountability via the submission envelope's `ip_hash`, not an invented identity) · dedup may collapse **bytes, never claims** — independent reporters of the same event stay separate as corroboration · **no image decoding in v1**, EXIF stripped before hashing, HEIC not accepted publicly, originals default to `mythos_private` · audit stays inside the data transaction (staged transaction, not a saga).
+
+**Rejected alternatives:** overloading `idauto_verifications` as a throttle store (it is a lookup log, and the roadmap already forbids it) · reusing the Dar Hijama/Coolify Redis instances (cross-product coupling, and those are the uncapped-memory risk flagged in the memory audit) · a reputation engine (the existing `trust_score` counters suffice) · a pseudo-user record for anonymous submitters · a saga for submission atomicity · per-fact `submitted_by` (redundant) · new access scopes · GPS collection in v1.
+
+### Implementation slices (9)
+
+`IDA-3A` schema (2 tables + 1 column, only slice touching the live DB) → `IDA-3B` pure ingestion service → `IDA-3C` rate limiting → `IDA-3D` private admin-only route → `IDA-3E` admin review → `IDA-3F` **off-host backup** → `IDA-3G` consent + legal gate → `IDA-3H` authenticated pilot (needs real auth) → `IDA-3I` public gate. Each needs its own explicit authorisation.
+
+### Validation
+
+Impact analysis confirmed this is docs-only (FAST lane, `usedFallback: false`, **no ID Auto suites selected**), so the live regression suites were correctly not run. project-intelligence 0 errors/0 warnings · governance 36/36 · DEVX-0 45/45 · DEVX-1 92/92 · identity-core 124/124 · storage-ops 72/72 · `git diff --check` clean · secret scan clean · all 5 internal doc links resolve · Stage Runner `validate` resolved the DOCUMENTATION template.
+
+### Blockers to public ingestion (all must clear)
+
+1. IDA-3A–3C not implemented.
+2. Off-host backup absent — both backup sets still live on the same host as the data.
+3. **`LEGAL-REVIEW-REQUIRED` on `PUBLIC_UPLOAD`** — needs qualified human legal review. The design makes **no legal determination**; it flags where one is required, consistent with the marker already in the schema.
+4. Real Mythos auth (IDA-2E) BLOCKED — gates authenticated tiers only.
+
+### Production state
+
+25 containers unchanged. `idauto-postgres` healthy, `RestartCount=0`. Jellyfin untouched. 0 OOM. Swap remains ~1.6 GiB stale (no active paging; the uncapped MySQL containers already flagged in the memory audit). No live media, DB row, container, or configuration touched by this stage.
+
+### Next stage
+
+**`IDA-3A` — ingestion schema only.** Two tables (`idauto_submissions`, `idauto_rate_limit_counters`) plus a nullable `idauto_observation_media.derived_from_media_id`, applied to the live database with a fresh verified `pg_dump` taken immediately beforehand, following the IDA-2B pattern. Changes no runtime behaviour; unblocks 3B and 3C. **Do not implement any endpoint, expose anything publicly, or begin web ingestion.**
+
+---
 
 ---
 

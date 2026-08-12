@@ -156,8 +156,8 @@ Requested scope was "real Mythos OS auth/identity integration," replacing the pl
 
 ### IDA-3 — Public Smart Scanner and Carte Grise Workflow
 
-**Status:** Planned
-**Depends on:** IDA-2 API deployed; LEGAL-REVIEW-REQUIRED items resolved for: public image contribution, precise GPS collection, public plate lookup, carte grise OCR, contributor consent
+**Status:** DESIGN GATE COMPLETE (2026-08-12) - architecture decided, implementation not started. Binding design: docs/IDA3_INGESTION_ARCHITECTURE.md. Sliced into IDA-3A..IDA-3I; next authorised stage is IDA-3A (ingestion schema only). PUBLIC_ENDPOINT_READY_TO_IMPLEMENT = NO.
+**Depends on:** IDA-2 API deployed; LEGAL-REVIEW-REQUIRED items resolved for: public image contribution, precise GPS collection, public plate lookup, carte grise OCR, contributor consent. Additionally per the design gate: off-host backup (IDA-3F) before any real evidence, rate limiting (IDA-3C, resolving the deferred IDA-2I question) before any reachable endpoint, and real Mythos auth for authenticated tiers (IDA-2E, still BLOCKED).
 
 **Objective:** Open the public capture surface — Scanner button, plate/vehicle scan, carte grise OCR — with full privacy controls and the review queue.
 
