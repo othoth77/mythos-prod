@@ -305,7 +305,7 @@ async function submit(payload, context) {
       observation = obs.rows[0];
       for (var f = 0; f < v.facts.length; f++) {
         await client.query(
-          "INSERT INTO idauto_vehicle_facts (vehicle_id, observation_id, fact_key, fact_value, fact_value_normalized, source_id, confidence_score, verification_status, access_scope) VALUES ($1,$2,$3,$4,$5,$6,$7,'pending_review','public')",
+          "INSERT INTO idauto_vehicle_facts (vehicle_id, observation_id, fact_key, fact_value, fact_value_normalized, source_id, confidence_score, verification_status, access_scope) VALUES ($1,$2,$3,$4,$5,$6,$7,'pending_review','mythos_private')",
           [vehicleId, observation.id, v.facts[f].key, String(v.facts[f].value), String(v.facts[f].value).toLowerCase(), sourceId, v.rule.confidence]
         );
         counts.facts++;

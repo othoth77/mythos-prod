@@ -239,6 +239,55 @@ async function getReviewObservation(res, id) {
   sendJson(res, 200, { observation: item, facts: facts.rows, media: media.rows });
 }
 
+// GET /api/review/submissions — IDA-3 ingestion review queue with provenance.
+async function getReviewSubmissions(res) {
+  var result = await db.query(
+    "SELECT s.id AS submission_id, s.actor_type, cs.code AS capture_source_code, s.received_at, " +
+    "o.id AS observation_id, o.status AS observation_status, p.plate_number, " +
+    "count(DISTINCT f.id)::int AS fact_count, count(DISTINCT m.id)::int AS media_count " +
+    "FROM idauto_submissions s JOIN idauto_observations o ON o.id = s.observation_id " +
+    "JOIN idauto_capture_sources cs ON cs.id = s.capture_source_id " +
+    "LEFT JOIN idauto_plates p ON p.id = o.plate_id LEFT JOIN idauto_vehicle_facts f ON f.observation_id = o.id " +
+    "LEFT JOIN idauto_observation_media m ON m.observation_id = o.id " +
+    "WHERE o.status IN ('pending_review','pending_confirmation') " +
+    "GROUP BY s.id, s.actor_type, cs.code, s.received_at, o.id, o.status, p.plate_number ORDER BY s.id ASC"
+  );
+  sendJson(res, 200, { submissions: result.rows });
+}
+
+// GET /api/review/submissions/:id — private reviewer detail. Deliberately
+// includes mythos_private fact and media metadata, but never storage paths.
+async function getReviewSubmission(res, id) {
+  if (!/^\d+$/.test(id)) return notFound(res);
+  var submission = await db.query(
+    'SELECT s.id AS submission_id, s.actor_type, cs.code AS capture_source_code, s.received_at, ' +
+    'o.id AS observation_id, o.status AS observation_status, o.capture_method, p.plate_number, p.format_code, ' +
+    'v.internal_ref AS vehicle_internal_ref, v.make, v.model, v.variant, v.year, v.body_type, v.fuel_type, v.colour ' +
+    'FROM idauto_submissions s JOIN idauto_observations o ON o.id = s.observation_id ' +
+    'JOIN idauto_capture_sources cs ON cs.id = s.capture_source_id LEFT JOIN idauto_plates p ON p.id = o.plate_id ' +
+    'LEFT JOIN idauto_vehicles v ON v.id = o.vehicle_id WHERE s.id = $1',
+    [id]
+  );
+  if (submission.rows.length === 0) return notFound(res);
+  var item = submission.rows[0];
+  var facts = await db.query(
+    'SELECT id, fact_key, fact_value, confidence_score, verification_status, access_scope ' +
+    'FROM idauto_vehicle_facts WHERE observation_id = $1 ORDER BY id ASC',
+    [item.observation_id]
+  );
+  var media = await db.query(
+    'SELECT id, media_type, mime_type, file_size_bytes, image_hash, access_scope, blurred, retention_status, created_at ' +
+    'FROM idauto_observation_media WHERE observation_id = $1 ORDER BY id ASC',
+    [item.observation_id]
+  );
+  sendJson(res, 200, {
+    submission: { id: item.submission_id, actor_type: item.actor_type, capture_source_code: item.capture_source_code, received_at: item.received_at },
+    observation: { id: item.observation_id, status: item.observation_status, capture_method: item.capture_method, plate_number: item.plate_number, format_code: item.format_code, vehicle_internal_ref: item.vehicle_internal_ref, make: item.make, model: item.model, variant: item.variant, year: item.year, body_type: item.body_type, fuel_type: item.fuel_type, colour: item.colour },
+    facts: facts.rows,
+    media: media.rows
+  });
+}
+
 // Reads and JSON-parses the request body, capped at 64KB (this API's
 // JSON-bodied routes take small admin-entry payloads only; file/image
 // uploads use readBinaryBody() below instead, with its own larger cap).
@@ -466,11 +515,21 @@ async function postReviewDecision(req, res, observationId) {
   sendJson(res, 200, record);
 }
 
+async function postFactReviewDecision(req, res, factId) {
+  if (!/^\d+$/.test(factId)) return notFound(res);
+  var body = await readJsonBody(req);
+  var record = await writes.reviewFact(factId, body.decision, req.mythosIdentity);
+  sendJson(res, 200, record);
+}
+
 var ROUTES = [
   { method: 'GET', pattern: /^\/health$/, handler: function (req, res) { return getHealth(res); } },
   { method: 'GET', pattern: /^\/api\/review\/observations$/, handler: function (req, res) { return getReviewObservations(res); } },
   { method: 'GET', pattern: /^\/api\/review\/observations\/([^/]+)$/, handler: function (req, res, m) { return getReviewObservation(res, decodePathSegment(m[1])); } },
   { method: 'POST', pattern: /^\/api\/review\/observations\/([^/]+)\/decision$/, handler: function (req, res, m) { return postReviewDecision(req, res, decodePathSegment(m[1])); } },
+  { method: 'GET', pattern: /^\/api\/review\/submissions$/, handler: function (req, res) { return getReviewSubmissions(res); } },
+  { method: 'GET', pattern: /^\/api\/review\/submissions\/([^/]+)$/, handler: function (req, res, m) { return getReviewSubmission(res, decodePathSegment(m[1])); } },
+  { method: 'POST', pattern: /^\/api\/review\/facts\/([^/]+)\/decision$/, handler: function (req, res, m) { return postFactReviewDecision(req, res, decodePathSegment(m[1])); } },
   { method: 'GET', pattern: /^\/api\/vehicles\/([^/]+)\/facts$/, handler: function (req, res, m) { return getFactsForVehicle(res, decodePathSegment(m[1])); } },
   { method: 'POST', pattern: /^\/api\/vehicles\/([^/]+)\/facts$/, handler: function (req, res, m) { return postFact(req, res, decodePathSegment(m[1])); } },
   { method: 'GET', pattern: /^\/api\/vehicles\/([^/]+)$/, handler: function (req, res, m) { return getVehicle(res, decodePathSegment(m[1])); } },

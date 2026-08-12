@@ -215,6 +215,42 @@ async function reviewObservation(observationId, decision, identity) {
   );
 }
 
+// POST /api/review/facts/:id/decision (IDA-3E)
+// Fact review is independent from observation review. Acceptance is the only
+// transition that widens an ingested community fact to public visibility.
+async function reviewFact(factId, decision, identity) {
+  var targetStatus = decision === 'accept' ? 'verified' : decision === 'reject' ? 'rejected' : null;
+  if (!targetStatus) {
+    throw Object.assign(new Error('decision must be accept or reject'), { httpStatus: 400 });
+  }
+  return withAudit(
+    { event_type: 'fact.review.' + decision, target_type: 'idauto_vehicle_facts', change_summary: 'Admin review decision: ' + targetStatus },
+    identity,
+    async function (client) {
+      var current = await client.query(
+        'SELECT id, observation_id, fact_key, fact_value, confidence_score, verification_status, access_scope FROM idauto_vehicle_facts WHERE id = $1 FOR UPDATE',
+        [factId]
+      );
+      if (current.rows.length === 0) {
+        throw Object.assign(new Error('fact not found'), { httpStatus: 404 });
+      }
+      if (current.rows[0].verification_status === targetStatus) {
+        return { record: current.rows[0], auditTargetRef: current.rows[0].id, skipAudit: true };
+      }
+      if (['pending_review', 'unverified'].indexOf(current.rows[0].verification_status) === -1) {
+        throw Object.assign(new Error('fact is no longer pending review'), { httpStatus: 409 });
+      }
+      var updated = await client.query(
+        decision === 'accept'
+          ? "UPDATE idauto_vehicle_facts SET verification_status = 'verified', access_scope = 'public' WHERE id = $1 RETURNING id, observation_id, fact_key, fact_value, confidence_score, verification_status, access_scope"
+          : "UPDATE idauto_vehicle_facts SET verification_status = 'rejected' WHERE id = $1 RETURNING id, observation_id, fact_key, fact_value, confidence_score, verification_status, access_scope",
+        [factId]
+      );
+      return { record: updated.rows[0], auditTargetRef: updated.rows[0].id };
+    }
+  );
+}
+
 var ALLOWED_ACCESS_SCOPE = ['public', 'professional', 'mythos_private'];
 var ALLOWED_EVIDENCE_TYPE = ['user_confirmation', 'cross_source_match', 'vin_decode', 'document_scan', 'professional_assertion', 'automated_check', 'admin_validation'];
 
@@ -332,6 +368,7 @@ module.exports = {
   createPlate: createPlate,
   createObservation: createObservation,
   reviewObservation: reviewObservation,
+  reviewFact: reviewFact,
   createFact: createFact,
   createObservationMedia: createObservationMedia,
   withAudit: withAudit,
