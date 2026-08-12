@@ -1,8 +1,69 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** IDA-3A (ingestion schema applied to the live database; first stage delegated through the orchestrator)
+**From:** IDA-3B (pure ingestion service; no route, no schema change)
 **To:** Next AI session
+
+---
+
+## IMPLEMENTATION — IDA-3B PURE INGESTION SERVICE (2026-08-12) — COMPLETE
+
+**Type:** Runtime module. **No route, no exposure, no schema change, no deployment, no DNS, no auth, no rate limiting, no Docker change, Jellyfin untouched, no history rewrite, no force-push.**
+
+**Baseline:** `7edab6d713539af83a391bf278b1d4544d1816f7`
+**Metadata commit:** `84ee376f912572028dc717643f4ffe6868579076` (stage registration, pushed separately)
+**Codex implementation commit:** `1170bb09bcd02452268b7b0e784abdcfa26d4855`
+**Merge commit:** `2337109a93ad70605e325778c92bc3d467739c91`
+
+### What shipped
+
+Two new files, no existing file modified: `projects/idauto/reference/ingestion.js` (330 lines) and `tests/ida-3b-ingestion-service-test.js`. The service exports `submit()`, `validate()`, `actorMapping()` and its constants. It requires no `http`/`https`/`express`/`net`, registers no route, opens no listener and never reads `process.argv` — asserted statically by the suite, and re-verified independently.
+
+It implements the §13 staged transaction exactly: validate with no writes → commit the submission envelope in its own transaction → store media on the filesystem → **one** transaction carrying observation + facts + media + **exactly one** audit row → update the submission with its final status and `observation_id`.
+
+Actor and source mapping is entirely server-derived: anonymous → `PUBLIC_UPLOAD`/`pending_review` with `actor_ref` and `contributor_id` left NULL and no contributor row created; contributor → `CONTRIBUTOR_UPLOAD`; professional → `PROFESSIONAL_SCAN`; admin → `MANUAL_ADMIN`/`accepted`; system → `MANUAL_ADMIN`/`pending_review`. No auto-accept for any non-admin class. Only the nine existing observation statuses and the seven existing `capture_method` values are used — community submissions map to `plate_scan`/`vehicle_scan`, since a new value would have required a schema change.
+
+### Codex refused the first task — and was right
+
+The first envelope (`ida-3b-service-0001`) instructed the service to **silently ignore** client-supplied `actor_ref`, `capture_source_id`, `trust_level` and similar. Codex returned `blocked / scope_violation`, wrote nothing, and cited §12: those fields are server-derived and a client-supplied value is a **400, never silently ignored** (§8, audit spoofing and privilege escalation). That is correct and the task envelope was wrong — silently dropping a spoofed privilege field hides an attack instead of surfacing it.
+
+The envelope was corrected and re-dispatched as `ida-3b-service-0002`. The delivered service now **rejects** any payload carrying `capture_source_id`, `contributor_id`, `actor_ref`, `trust_level`, `confidence`, `status` or `trust_score`, reporting every offending field and writing nothing at all. Seven separate tests cover this, one per field.
+
+**This is the delegation boundary working as intended.** A worker that stops on a contradiction between its task and the binding design is more valuable than one that silently picks an interpretation. The instruction to stop rather than guess is what produced it, and it should stay in every envelope.
+
+### The worker sandbox cannot reach the database — measured, not assumed
+
+Probed before writing the task: reading `/home/deploy/deployments/idauto-postgres/.env` **OK**, listing the media directory **OK**, TCP to `127.0.0.1:5432` **FAILED: EPERM**. The Codex sandbox permits filesystem reads but blocks sockets — the same property that makes the orchestrator, not the worker, push delivered branches.
+
+So the suite was built with two modes: the default runs everything against the live database and fails **loudly** with a `FATAL` naming every missing variable when the environment is absent (never silently skipping, per `IDAUTO_TEST_RUNBOOK.md` §5), while `IDA3B_STATIC_ONLY=1` runs the 30 database-free cases Codex could actually verify. Claude then ran the full 60-case suite. Both modes were re-run independently.
+
+`pg` lives in the gitignored `projects/idauto/node_modules`, so a linked worktree cannot resolve it; the live suite needs `NODE_PATH=/home/deploy/projects/mythos-prod/projects/idauto/node_modules` when run from anywhere but the canonical worktree.
+
+### Verification
+
+`ida-3b-ingestion-service` **60/60** live (30/30 static-only) · `ida-2a` 44/44 · `ida-2c` 26/26 · `ida-2d` 39/39 · `ida-2f` 32/32 · `ida-2g` 17/17 · `ida-2h` 37/37 · `identity-core` 124/124 · orchestrator 156/156 · governance 36/36 · DEVX-0 45/45 · DEVX-1 92/92 · project-intelligence 0 errors. **All re-run against the post-merge tree.**
+
+Confirmed on the live database after the run: still **24** tables (IDA-3B changed no schema); `ip_hash` set on submission rows only, with **zero** observations linked from a submission carrying one; **12** ingestion audit rows and **zero** of them carrying `ip_hash`; all 4 ingestion-created media rows `mythos_private`; every stored `ip_hash` a 64-character hex digest with no dotted or colonned value anywhere; observation statuses and media scopes still drawn only from the pre-existing vocabularies. Media integrity audited **CLEAN**, all eight defect classes at zero.
+
+The verifier flagged `no_secret_in_diff: assigned-secret` and blocked delivery. Investigated rather than waived: the three matches are `var ADMIN_TOKEN = unique('token')` and siblings, where `unique()` returns `prefix + Date.now() + crypto.randomBytes(6)` — per-run generated values, no literal credential anywhere, and the suite's environment check tests variable *names* and never echoes a value. A heuristic false positive of the same kind as the known `hunter2@db.internal` fixtures.
+
+### A stale test that IDA-3A left failing on main — found and fixed
+
+`ida-2a` asserted "exactly 22 `CREATE TABLE` statements"; IDA-3A legitimately made it 24, so `main` carried a failing test. It was missed because **IDA-3A's regressions ran in the canonical worktree before the fast-forward merge**, when `schema.sql` still held 22 tables — the 44/44 recorded for that stage was true when measured and false the moment the merge landed. Corrected in `8ded0a58a0be7ac6e5069f26bc27d81b269725ba`.
+
+**Process correction, worth keeping:** regressions for a stage that changes tracked files must be run against the **post-merge** tree. This stage's suites were re-run after merging for exactly that reason.
+
+### Forward risk recorded for IDA-3E / IDA-3I (not a defect here)
+
+Ingestion writes facts with `access_scope='public'` and `verification_status='pending_review'`. Both values are pre-existing (43 facts already use `public`) so no new scope was introduced, and nothing is exposed today — there is no public route and `api.js` is an undeployed reference implementation. But `api.js` filters facts by `access_scope != 'mythos_private'` **only** and does not filter on `verification_status`, so once a public route exists an unreviewed community claim would be served alongside verified ones, distinguishable only by the returned `verification_status` field. **IDA-3I must gate public reads on review state, or ingestion must write facts at a narrower scope.** Deliberately not changed here: altering `api.js` was outside this stage's scope.
+
+### Production state
+
+No schema change, nothing deployed, no container recreated, no DNS, no auth, no Docker group, no firewall rule. Jellyfin untouched. `idauto-postgres` healthy. The live database gained ordinary synthetic test fixtures (16 submissions, 165 observations, 92 media rows), which `IDAUTO_TEST_RUNBOOK.md` sanctions for the live suites; no pre-existing row was modified or deleted.
+
+### Next stage
+
+**`IDA-3C` — rate-limit enforcement**, against the `idauto_rate_limit_counters` table created in IDA-3A. It must land **before** any reachable endpoint (`RATE_LIMIT_STAGE = BEFORE_ENDPOINT`). Requires its own explicit authorisation. `PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` remains **NO**.
 
 ---
 
