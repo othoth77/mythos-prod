@@ -489,6 +489,22 @@ console.log('\n21. VERIFIER — remote state must be confirmed');
   ok(!ver.verified, 'A push-required task never verifies without a real remote branch');
   ok(ver.failures.some(function (f) { return f.indexOf('remote_branch_exists') === 0; }),
     'The verifier requires the branch to exist on origin, not merely locally');
+
+  // Pushing is an orchestrator action: worker sandboxes are local-only, and
+  // mutating shared remote state is a level 2 responsibility.
+  var noCommit = orchestrator.pushDeliveredBranch(task, baseResult({ implementation_commit: null }));
+  ok(noCommit.pushed === false && noCommit.error === 'NO_VERIFIABLE_COMMIT_TO_PUSH',
+    'The orchestrator refuses to push when there is no verifiable commit');
+  var fakeCommit = orchestrator.pushDeliveredBranch(task, baseResult({ implementation_commit: 'f'.repeat(40) }));
+  ok(fakeCommit.pushed === false, 'The orchestrator refuses to push a fabricated commit');
+
+  var orchSrc = fs.readFileSync(path.join(ORCH, 'orchestrator.js'), 'utf8');
+  ok(orchSrc.indexOf('--force') === -1 && orchSrc.indexOf('force-with-lease') === -1,
+    'The delivery push never force-pushes');
+
+  var template = fs.readFileSync(path.join(ORCH, 'templates', 'codex-task.md'), 'utf8');
+  ok(/no network access/i.test(template), 'The worker prompt states that the sandbox has no network access');
+  ok(/orchestrator pushes/i.test(template), 'The worker prompt tells the worker not to push');
 })();
 
 console.log('\n22. NOTIFICATIONS — failure is non-fatal');

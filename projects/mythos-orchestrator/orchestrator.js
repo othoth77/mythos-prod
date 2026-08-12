@@ -78,6 +78,37 @@ function buildTask(input) {
 }
 
 // ---------------------------------------------------------------------------
+// Delivery push — an orchestrator action, never a worker action.
+//
+// Worker sandboxes are local-only, so a worker cannot push even if asked to.
+// That constraint happens to match the safety model: pushing mutates shared
+// remote state, which is a level 2 (Claude-controlled) action. The worker
+// commits locally; the orchestrator verifies that commit is really on the
+// branch, pushes, and records the remote head it actually observed.
+// ---------------------------------------------------------------------------
+function pushDeliveredBranch(task, result) {
+  var cwd = task.working_directory;
+  var commit = result.implementation_commit;
+
+  if (!commit || !gitlib.commitExists(cwd, commit)) {
+    return { pushed: false, error: 'NO_VERIFIABLE_COMMIT_TO_PUSH' };
+  }
+  // Refuse to push a branch whose tip does not contain the worker's commit.
+  var localHead = gitlib.git(['rev-parse', 'refs/heads/' + task.branch], cwd);
+  if (!localHead.ok) return { pushed: false, error: 'LOCAL_BRANCH_MISSING' };
+  if (!gitlib.isAncestor(cwd, commit, localHead.out)) {
+    return { pushed: false, error: 'COMMIT_NOT_ON_BRANCH' };
+  }
+
+  // No force, no lease override, no history rewrite.
+  var push = gitlib.git(['push', 'origin', task.branch], cwd, { timeout: 180000, captureStderr: true });
+  if (!push.ok) return { pushed: false, error: 'PUSH_FAILED' };
+
+  var remote = gitlib.remoteBranchHead(cwd, task.branch);
+  return { pushed: true, remote_head: remote };
+}
+
+// ---------------------------------------------------------------------------
 // delegate — the Claude → Codex → Claude loop
 // ---------------------------------------------------------------------------
 function delegate(task, opts) {
@@ -115,6 +146,21 @@ function delegate(task, opts) {
   // Verification runs only when the provider actually claimed completion.
   // Anything else is already a non-success and needs no Git evidence.
   if (run.status === 'completed' && run.result) {
+    // Deliver the branch before verifying, so verification observes the real
+    // remote state rather than a claim about it.
+    if (task.delivery.push_required && !opts.dryRun) {
+      var pushed = pushDeliveredBranch(task, run.result);
+      outcome.delivery_push = pushed;
+      if (pushed.pushed) {
+        run.result.remote_head = pushed.remote_head;
+      } else {
+        outcome.status = 'verification_failed';
+        outcome.blockers = outcome.blockers.concat(['DELIVERY_PUSH_FAILED: ' + pushed.error]);
+        outcome.result = run.result;
+        return outcome;
+      }
+    }
+
     var ver = verifier.verify(task, run.result, { skipFetch: opts.skipFetch });
     outcome.verification = ver;
     outcome.verified = ver.verified;
@@ -214,6 +260,7 @@ function doctor() {
 module.exports = {
   buildTask: buildTask,
   delegate: delegate,
+  pushDeliveredBranch: pushDeliveredBranch,
   status: status,
   list: list,
   inspect: inspect,

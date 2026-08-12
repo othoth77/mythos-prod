@@ -62,15 +62,24 @@ test as passed without having executed it.
 ## Delivery
 
 - Commit required: **{{COMMIT_REQUIRED}}**
-- Push required: **{{PUSH_REQUIRED}}**
+- Push required: **{{PUSH_REQUIRED}}** — performed by the orchestrator, not by you
 - Handover entry required: **{{HANDOVER_REQUIRED}}**
 
-All Git operations must run as the `deploy` user, from `{{WORKING_DIRECTORY}}`.
-If you are already running as `deploy`, run them directly.
+All Git operations run as the `deploy` user, from `{{WORKING_DIRECTORY}}`.
 
-If a push is required, push to `origin {{BRANCH}}` and then verify the remote
-head with `git ls-remote --heads origin {{BRANCH}}`, reporting the SHA you
-actually observed.
+### You have no network access
+
+Your sandbox is local-only. **Do not run any network command** — no
+`git fetch`, no `git pull`, no `git push`, no `git ls-remote`, no package
+installs. They will fail, and failing on them wastes the whole run.
+
+The orchestrator has already fetched the remote and verified that this worktree
+sits exactly at the baseline commit above. Treat the local repository state as
+authoritative and verify the baseline with `git rev-parse HEAD` only.
+
+Commit locally when the task requires it. The orchestrator pushes the branch
+afterwards, once it has verified your commit, and records the resulting remote
+head itself. Report `remote_head` as `null` — never guess it.
 
 ## Result contract
 
