@@ -701,19 +701,30 @@
       "track": "mythos-os",
       "stage_id": "MYTHOS-IDENTITY-CORE-0",
       "title": "Mythos Identity Core — contract freeze and minimum model",
-      "status": "PLANNED",
+      "status": "DONE",
       "type": "FOUNDATION",
       "starting_head": "1772028789da9f677cdae66c452cc16311d8c0ea",
-      "implementation_commit": null,
+      "implementation_commit": "0e627d434547f069b0db5708586bf9fbb8fb177b",
       "merge_commit": null,
       "handover_commit": null,
-      "completed_at": null,
-      "tests": {},
+      "completed_at": "2026-08-11",
+      "tests": {
+        "mythos-identity-core-0-contract": "124/124",
+        "project-intelligence": "0 errors/0 warnings",
+        "mpi-0-finalization-governance": "36/36",
+        "devx-0-development-acceleration": "45/45",
+        "mpi-0-personal-intelligence": "63/63",
+        "idauto-regression": "195/195 (2A 44, 2C 26, 2D 39, 2F 32, 2G 17, 2H 37)"
+      },
       "blockers": [],
       "next_stage": "IDAUTO-STORAGE-OPS (NOT STARTED)",
       "evidence_paths": [
         "docs/MYTHOS_IDENTITY_ARCHITECTURE.md",
-        "docs/MYTHOS_STRATEGIC_EXECUTION_REVIEW_2026-08-11.md"
+        "docs/MYTHOS_STRATEGIC_EXECUTION_REVIEW_2026-08-11.md",
+        "projects/mythos-core/database/identity-schema.sql",
+        "projects/mythos-core/reference/identity-contract.js",
+        "projects/idauto/reference/IDENTITY_ADAPTER.md",
+        "tests/mythos-identity-core-0-contract-test.js"
       ]
     }
   ],

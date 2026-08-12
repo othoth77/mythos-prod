@@ -384,6 +384,35 @@ Strictly sequential. Do not batch. Stop at the first real blocker.
 
 ---
 
+## 8.4 Implementation Status — COMPLETE (2026-08-11)
+
+Implemented by stage `MYTHOS-IDENTITY-CORE-0`, commit `0e627d434547f069b0db5708586bf9fbb8fb177b` (metadata registration `2f9053b897e5aa48cc6cbcc10e6afc32efe67657`).
+
+| Item | Result |
+|---|---|
+| Contract suite | **124/124** — recorded **108 passed / 16 failed** before alignment, the 16 being exactly the expected draft mismatches at exactly the line numbers cited in §8.1 |
+| ID Auto regression | **195/195** (2A 44 · 2C 26 · 2D 39 · 2F 32 · 2G 17 · 2H 37) |
+| Governance · DEVX · MPI-0 | 36/36 · 45/45 · 63/63 |
+| Project intelligence | 0 errors / 0 warnings |
+| Stage Runner close | risk lane STANDARD, no blockers, no fallback |
+| Files changed | 9 (plus 1 metadata registration commit) |
+| SQL executed | **none** |
+| Live schema / data changed | **none** — `projects/idauto/database/schema.sql` and `projects/idauto/reference/identity.js` verified byte-identical to baseline via `git diff --quiet` |
+| `document_id` / `media_id` | unchanged (`BIGSERIAL`) — carve-out held |
+| `idauto_organizations.id` | unchanged (`SERIAL`); the deferred additive `mythos_org_ref` was **not** added |
+
+### Deviations recorded
+
+**1. One file beyond the §8.1 list.** §8.1 enumerated 11 files but omitted the thin resolution library that §4 (BOUNDARY_DECISION) explicitly requires — "a contract plus a thin resolution library". `projects/mythos-core/reference/identity-contract.js` was therefore added. This implements a decision already made in §4; it does not make a new one.
+
+**2. Byte-identity expressed as structural invariants.** §8.2 items 7–8 asked for pinned byte-identity assertions inside the permanent suite. A pinned content hash would raise a **false failure** the moment the already-specified additive `mythos_org_ref` migration (§6.6) legitimately lands, so the permanent suite asserts the underlying structural invariants instead (live identity column types, untouched `SERIAL` primary key, absence of auth logic in `identity.js`). The stage-scoped "this diff touched nothing" guarantee was verified separately with `git diff --quiet <baseline> -- <path>` and is recorded in the table above and in `docs/AI_HANDOVER.md` — the correct home for a stage-scoped claim.
+
+### Operational finding (not a defect)
+
+The six live ID Auto suites require operator-provisioned environment variables — `IDAUTO_DB_HOST`, `IDAUTO_DB_PORT`, `IDAUTO_DB_USER`, `IDAUTO_DB_PASSWORD`, `IDAUTO_DB_NAME`, and `IDAUTO_MEDIA_STORAGE_PATH`. Run without them they do not skip; they emit confusing assertion failures and a `FATAL` that superficially resemble regressions. Both were observed and correctly diagnosed as environmental during this stage before any conclusion was drawn. Worth documenting in an ID Auto runbook so a future session does not mistake them for a real regression.
+
+---
+
 ## 9. What This Unblocks
 
 | Blocked item | Effect |

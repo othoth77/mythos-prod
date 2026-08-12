@@ -1,8 +1,82 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-11 UTC
-**From:** MYTHOS-IDENTITY-CORE-0 architecture decision (complete and pushed)
+**From:** MYTHOS-IDENTITY-CORE-0 implementation (complete and pushed)
 **To:** Next AI session
+
+---
+
+## IMPLEMENTATION — MYTHOS-IDENTITY-CORE-0 (2026-08-11) — COMPLETE
+
+**Type:** Contract freeze and draft schema. **No SQL executed, no database provisioned or migrated, no live schema or data changed, nothing deployed, no subagents.**
+
+**Baseline:** `1772028789da9f677cdae66c452cc16311d8c0ea` — `main`, clean worktree, HEAD == origin/main, all Git as `deploy`.
+**Metadata registration commit:** `2f9053b897e5aa48cc6cbcc10e6afc32efe67657`
+**Implementation commit:** `0e627d434547f069b0db5708586bf9fbb8fb177b`
+**Binding decision:** [`docs/MYTHOS_IDENTITY_ARCHITECTURE.md`](MYTHOS_IDENTITY_ARCHITECTURE.md) — not redesigned during implementation.
+
+### Stage Runner
+
+First dry-run returned `UNKNOWN_STAGE`; the ledger entry was registered as its own validated commit (only this stage — no unrelated future stage added, no existing metadata changed, `next_stage` non-self-referential). The next dry-run returned `DIRTY_WORKTREE` until that commit was pushed, then `eligible: true`, risk lane FAST, no blockers. Close assessment: risk lane **STANDARD**, no blockers, no fallback, and the newly-added `projects/mythos-core/` impact-map rule resolved correctly.
+
+### Files changed (9 + 1 metadata)
+
+**New** — `projects/mythos-core/database/identity-schema.sql` (DRAFT, NOT DEPLOYED: `mythos_users`, `mythos_organizations`, `mythos_memberships`, actor convention); `projects/mythos-core/reference/identity-contract.js` (thin shared module — `crypto` only, no server, no I/O, no state); `projects/idauto/reference/IDENTITY_ADAPTER.md`; `tests/mythos-identity-core-0-contract-test.js`.
+
+**Aligned (undeployed drafts only, 14 precise lines)** — automotive canonical registry `mythos_user_id`/`organization_id` `BIGSERIAL`→`VARCHAR(64)` plus 7 identity ref columns; atelier-network 3 columns; autovaleur 2 columns; personal-intelligence **comments only** (it already conformed).
+
+**Metadata** — `projects/meta/project-ledger.json` (registration, then DONE), `projects/meta/test-impact-map.json` (one new `projects/mythos-core/` rule; existing rules untouched).
+
+### Contract test — written first, failed first
+
+Recorded **108 passed / 16 failed** before alignment. The 16 failures were exactly the expected draft mismatches, and the line numbers they reported — automotive 64, 118, 120, 218, 288, 373, 603; atelier 42, 236, 590; autovaleur 149, 431 — matched the decision's cited locations exactly, independently confirming them. Final: **124 passed / 0 failed**.
+
+### Validation (all verified from actual output, not documentation)
+
+| Suite | Result |
+|---|---|
+| `mythos-identity-core-0-contract` | **124/124** |
+| `project-intelligence validate` | 0 errors / 0 warnings |
+| `mpi-0-finalization-governance` | **36/36** |
+| `devx-0-development-acceleration` | **45/45** |
+| `mpi-0-personal-intelligence` | **63/63** |
+| IDA-2A · 2C · 2D · 2F · 2G · 2H | 44 · 26 · 39 · 32 · 17 · 37 = **195/195** |
+| `git diff --check`, syntax checks | PASS |
+| Secret scan | clean |
+
+**Environmental finding — important for the next session.** The six live ID Auto suites require `IDAUTO_DB_HOST`, `IDAUTO_DB_PORT`, `IDAUTO_DB_USER`, `IDAUTO_DB_PASSWORD`, `IDAUTO_DB_NAME` and `IDAUTO_MEDIA_STORAGE_PATH`. Run without them they do **not** skip — they emit assertion failures and a `FATAL` that look like regressions. This was observed (IDA-2C, then IDA-2F/2H) and diagnosed as environmental before any conclusion was drawn; with the full environment all six pass. Values were sourced from the container without ever being printed. Recommend an ID Auto runbook entry.
+
+### Guarantees held
+
+- `projects/idauto/database/schema.sql` and `projects/idauto/reference/identity.js` **byte-identical to baseline** (`git diff --quiet`). identity.js behaviour unchanged; the adapter is specification-only.
+- `document_id` / `media_id` remain `BIGSERIAL` — storage carve-out held.
+- `idauto_organizations.id` remains `SERIAL`; deferred additive `mythos_org_ref` **not** added.
+- Domain identifiers, `event_id UUID`, and local `workshop_organization_id` / `contract_id` / `idauto_vehicle_id` refs untouched.
+- No stray identity reference left as `BIGINT`/`BIGSERIAL` anywhere (verified by sweep).
+- No auth, credential, session, or authorisation logic introduced — enforced by contract-test assertions.
+
+### Deviations recorded (both documented in the decision §8.4)
+
+1. **One file beyond the §8.1 list**: the thin resolution library. §8.1 omitted it, but §4 (BOUNDARY_DECISION) explicitly requires "a contract plus a thin resolution library" — this implements an existing decision rather than making a new one.
+2. **Byte-identity as structural invariants**: §8.2 items 7–8 asked for pinned hashes in the permanent suite; a pinned hash would false-fail once the already-specified additive `mythos_org_ref` migration lands, so the suite asserts structural invariants and the stage-scoped guarantee was verified via `git diff --quiet` and recorded here.
+
+### Production state
+
+25 containers, unchanged. `idauto-postgres` running/healthy, `RestartCount=0`, memory cap unchanged. **Jellyfin untouched.** Live writes were synthetic test fixtures only, from suites that already own that data. No deployment, no migration, no container created, no service changed.
+
+### Deferred (unchanged)
+
+Authentication service, credentials, provider/`identities` table, sessions, permission engine — all remain out of scope by decision §7. Additive `mythos_org_ref` on `idauto_organizations` (§6.6). Retirement of `idauto_user_roles`/`idauto_organizations` as sources of truth once `mythos_core` is deployed. The P0 `test-impact-map.json` gap for `projects/idauto/` (still no targeted tests registered — the ID Auto suites must be run explicitly) remains open and is **not** fixed by this stage.
+
+### Blockers
+
+None encountered. `IDA-2E` is now **re-scopable**: it was blocked on the absence of an identity contract, which now exists and is implemented as a draft contract; its remaining half depends on the deferred authentication stage.
+
+### Exact next recommended stage
+
+`IDAUTO-STORAGE-OPS` — close the ID Auto media backup/restore gap (decision §9 of the strategic review; required before IDA-3 stores non-disposable media). Alternatively `DEVX-1` to close the `test-impact-map` P0 gap, which is cheap and improves test safety for every subsequent ID Auto stage. **Do not** begin IDA-3, MPI-1, or any authentication work without separate authorisation.
+
+---
 
 ---
 
