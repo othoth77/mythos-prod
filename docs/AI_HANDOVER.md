@@ -1,8 +1,95 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-11 UTC
-**From:** MYTHOS-IDENTITY-CORE-0 implementation (complete and pushed)
+**Last updated:** 2026-08-12 UTC
+**From:** DEVX-1 implementation (complete and pushed)
 **To:** Next AI session
+
+---
+
+## IMPLEMENTATION — DEVX-1 (2026-08-12) — COMPLETE
+
+**Type:** Developer-safety tooling. **No product feature work, no runtime file changed, no schema, no credential, no deployment config, nothing deployed, no subagents.**
+
+**Baseline:** `385273b6aa64db9d648d1adfa3eabea20ca221c5` — `main`, clean, HEAD == origin/main, Git as `deploy`.
+**Metadata registration commit:** `15cd86205bbcefffdbad3e5099d3b32725b16da9`
+**Implementation commit:** `babce558dc329937100742e31a215edcf8c4f7a3`
+
+### Problem closed
+
+`projects/meta/test-impact-map.json` had a rule for `projects/idauto/` that **matched but selected zero tests**. Because it matched, the fallback never fired either — so every ID Auto change silently selected **no** regression suite at all. That was the recorded P0 gap.
+
+### Mappings added — derived from the real require graph, not a wildcard
+
+Verified graph: `api.js → db.js, identity.js, storage.js, writes.js`; `writes.js → db.js, storage.js`; `db.js`/`storage.js`/`identity.js`/`admin-ui.js`/`review-ui.js`/`plate-validator.js` are leaves.
+
+| Changed path | Selects |
+|---|---|
+| `reference/api.js`, `db.js`, `storage.js`, `writes.js` | IDA-2C, 2D, 2F, 2G, 2H |
+| `reference/identity.js` | the same five **+ identity-core contract** |
+| `reference/admin-ui.js`, `admin.css`, `admin.html` | **IDA-2G only** |
+| `reference/review-ui.js`, `review.html` | **IDA-2H only** |
+| `reference/plate-validator.js` | **IDA-2A only** |
+| `database/` | all six **+ identity-core contract** |
+| `reference/IDENTITY_ADAPTER.md` | none (specification document) |
+| `projects/idauto/` (general) | all six — conservative default for anything unlisted |
+
+`storage.js` fanning out to all five API-loading suites is dependency-justified, not laziness: `api.js` requires it, and it was confirmed empirically — IDA-2H fails a media-metadata assertion when storage is misconfigured. Conversely `admin-ui.js`/`review-ui.js`/`plate-validator.js` are genuinely isolated and map to exactly one suite each.
+
+`projects/mythos-core/reference/identity-contract.js` deliberately does **not** select ID Auto suites: no ID Auto module imports it today (`identity.js` is unchanged). Revisit when the adapter actually lands.
+
+### Ordering constraint — important for future edits
+
+`matchRule()` in `scripts/mythos-stage.js` is **first-match-wins over the rules array**, not longest-prefix. All 13 specific `projects/idauto/...` rules are therefore placed **above** the general `projects/idauto/` rule (indices 8–20 vs 21). A more specific rule appended *below* it would be unreachable dead config. `tests/devx-1-idauto-test-impact-test.js` asserts both the ordering and that no specific rule is shadowed.
+
+### Verified with the real Stage Runner
+
+`deriveTestSelection()` (the runner's own exported function, not a mirror) was exercised against representative paths — every case returned `usedFallback: false`:
+
+| Scenario | Selected |
+|---|---|
+| `api.js` | 2C, 2D, 2F, 2G, 2H |
+| `storage.js` | 2C, 2D, 2F, 2G, 2H |
+| `admin-ui.js` | 2G only |
+| `review-ui.js` | 2H only |
+| `identity.js` | 2C, 2D, 2F, 2G, 2H + identity-core |
+| `database/schema.sql` | all six + identity-core |
+| `plate-validator.js` | 2A only |
+| `js/app.js` (unrelated) | no ID Auto suite |
+
+### Runbook
+
+**`docs/IDAUTO_TEST_RUNBOOK.md`** — the six required variables; the `POSTGRES_*` → `IDAUTO_DB_*` naming mismatch (the deployment `.env` defines `POSTGRES_USER`/`PASSWORD`/`DB`, the runtime reads `IDAUTO_DB_USER`/`PASSWORD`/`NAME`, and nothing maps them); which suites touch the DB (2C/2D/2F/2G/2H) and the media filesystem (2F/2H); why media tests must run as `deploy` (the directory is `drwxr-x---  deploy deploy`); the exact command sequence; the failure signatures that look like regressions but are not; a triage order that starts with IDA-2A because it needs **no** environment; persistent-synthetic-data behaviour; cleanup expectations; and credential-handling rules. No credential value appears anywhere — the test asserts this and self-checks that its own leak detector catches a planted leak.
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `devx-1-idauto-test-impact` (new) | **90/90** |
+| `devx-0-development-acceleration` | 45/45 |
+| `mpi-0-finalization-governance` | 36/36 |
+| `mythos-identity-core-0-contract` | 124/124 |
+| `project-intelligence validate` | 0 errors / 0 warnings |
+| ID Auto regression, run via the documented procedure | **195/195** (2A 44 · 2C 26 · 2D 39 · 2F 32 · 2G 17 · 2H 37) |
+| `git diff --check`, JSON validity, syntax | PASS |
+| Secret scan | clean |
+
+The 195/195 run used the runbook's command sequence verbatim, which is what proves the runbook is accurate rather than merely plausible.
+
+Two defects were found and fixed **in the new test itself** during the run: a path parser that rejected commands carrying arguments (`node scripts/project-intelligence.js validate`), and a leak-detector regex whose `\s*` spanned newlines and so flagged the runbook's own `grep '^POSTGRES_PASSWORD='` line. Both were real false positives, fixed properly rather than by weakening the assertions.
+
+### Files changed
+
+3: `projects/meta/test-impact-map.json` (modified), `docs/IDAUTO_TEST_RUNBOOK.md` (new), `tests/devx-1-idauto-test-impact-test.js` (new). Plus the separate metadata registration commit. **Zero runtime files** — verified.
+
+### Production state
+
+25 containers unchanged. `idauto-postgres` healthy, `RestartCount=0`. **Jellyfin untouched.** Live DB/media writes were synthetic fixtures from the suites that already own that data. No credential, DB config, deployment env, or file ownership changed.
+
+### Next stage
+
+**`IDAUTO-STORAGE-OPS`** — close the ID Auto media backup/restore gap (strategic review §9; required before IDA-3 stores non-disposable media). ID Auto changes now select their regression suites automatically, so that stage inherits real test safety.
+
+---
 
 ---
 
