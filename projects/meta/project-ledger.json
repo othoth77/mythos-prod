@@ -810,6 +810,25 @@
       ]
     },
     {
+      "track": "id-auto",
+      "stage_id": "IDA-3A",
+      "title": "Ingestion schema foundation — submission envelope, rate-limit counters, media derivation link",
+      "status": "IN_PROGRESS",
+      "type": "DATABASE",
+      "starting_head": "bd707f984509a3145359710458de9a35d34c6c60",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "IDA-3B (pure ingestion service, NOT STARTED, separate authorisation)",
+      "evidence_paths": [
+        "projects/idauto/database/schema.sql",
+        "docs/IDA3_INGESTION_ARCHITECTURE.md"
+      ]
+    },
+    {
       "track": "mythos-devx",
       "stage_id": "MYTHOS-MULTI-AGENT-ORCHESTRATOR-0",
       "title": "Mythos multi-agent orchestrator — provider-neutral Claude/Codex delegation runtime",
