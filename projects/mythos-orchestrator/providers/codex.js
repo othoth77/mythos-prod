@@ -64,6 +64,16 @@ function buildArgs(task, paths, opts) {
 
   args.push('--cd', task.working_directory);
   args.push('--sandbox', opts.sandbox || sandboxForTask(task));
+
+  // A linked worktree keeps its HEAD, index, FETCH_HEAD, objects and refs in
+  // the MAIN repository's Git directory. With only the worktree writable, the
+  // sandbox denies `git fetch`/`git commit` and the worker correctly stops
+  // with approval_required. Granting write to the shared Git directory is
+  // what any commit from a linked worktree inherently requires; the branch,
+  // baseline and diff-scope checks remain the guard against misuse.
+  (opts.addDirs || []).forEach(function (dir) {
+    if (dir) args.push('--add-dir', dir);
+  });
   args.push('--output-schema', paths.resultSchema);
   args.push('--output-last-message', paths.result);
   args.push('--color', 'never');

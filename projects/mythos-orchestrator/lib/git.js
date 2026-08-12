@@ -40,6 +40,27 @@ function head(cwd) { var r = git(['rev-parse', 'HEAD'], cwd); return r.ok ? r.ou
 
 function currentBranch(cwd) { var r = git(['rev-parse', '--abbrev-ref', 'HEAD'], cwd); return r.ok ? r.out : null; }
 
+// Absolute path of the repository's shared Git directory.
+//
+// For a LINKED worktree this is the main repository's .git, not something
+// inside the worktree: linked worktrees keep their HEAD/index/FETCH_HEAD
+// under <main>/.git/worktrees/<name>/, and all objects and refs in
+// <main>/.git. A sandboxed worker whose writable root is only the worktree
+// therefore cannot fetch or commit until this directory is also writable.
+function commonDir(cwd) {
+  var r = git(['rev-parse', '--git-common-dir'], cwd);
+  if (!r.ok || !r.out) return null;
+  return path.resolve(cwd, r.out);
+}
+
+// True when the repository's Git directory lives outside the working
+// directory, i.e. this is a linked worktree rather than a standalone clone.
+function gitDirIsExternal(cwd) {
+  var common = commonDir(cwd);
+  if (!common) return false;
+  return path.resolve(common).indexOf(path.resolve(cwd) + path.sep) !== 0;
+}
+
 function isDirty(cwd) {
   var r = git(['status', '--porcelain'], cwd);
   if (!r.ok) return true; // unknown state is treated as unsafe
@@ -165,6 +186,8 @@ module.exports = {
   isRepo: isRepo,
   head: head,
   currentBranch: currentBranch,
+  commonDir: commonDir,
+  gitDirIsExternal: gitDirIsExternal,
   isDirty: isDirty,
   fetch: fetch,
   remoteBranchHead: remoteBranchHead,

@@ -122,6 +122,22 @@ Any failure blocks dispatch. Nothing is force-unlocked, reset or overwritten.
 
 Branch naming for delegated work: `agent/<stage-lowercase>/<task-id-short>`.
 
+### Sandbox scope for linked worktrees
+
+A linked worktree keeps its `HEAD`, index, `FETCH_HEAD`, objects and refs in
+the **main** repository's Git directory, not inside the worktree. A worker
+sandboxed to the worktree alone therefore cannot `git fetch` or `git commit` at
+all — the first end-to-end run failed exactly this way, and correctly reported
+`blocked` / `approval_required` rather than pretending to succeed.
+
+The runner now grants that shared Git directory via `codex exec --add-dir`,
+**only** when the task's delivery actually requires committing or pushing. This
+is the access any commit from a linked worktree inherently needs; it is not a
+sandbox escape hatch. `danger-full-access` and
+`--dangerously-bypass-approvals-and-sandbox` are never used, and the branch,
+baseline, diff-scope and prohibited-path checks remain the guard against a
+worker touching anything outside its task.
+
 If `main` advances while a worker runs, the worker still finishes on its own
 branch; reconciliation is a Claude decision afterwards, never an automatic
 merge. The orchestrator never force-pushes and never rewrites history.

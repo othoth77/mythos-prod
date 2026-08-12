@@ -410,6 +410,15 @@ console.log('\n17. CONCURRENCY — two writers cannot share a worktree');
   }), { skipFetch: true });
   ok(!pre2.ok && pre2.blockers.some(function (b) { return b.indexOf('DIRTY_WORKTREE') === 0; }),
     'An in-progress worktree owned by another task is never entered');
+
+  // A linked worktree keeps its Git directory in the main repository, which
+  // a sandboxed worker must be granted before it can fetch or commit.
+  ok(orchestrator.git.gitDirIsExternal(wt2) === true,
+    'A linked worktree is detected as keeping its Git directory outside itself');
+  ok(orchestrator.git.gitDirIsExternal(repo.dir) === false,
+    'A primary worktree is not misreported as linked');
+  ok(String(orchestrator.git.commonDir(wt2)).indexOf(path.resolve(repo.dir)) === 0,
+    'The shared Git directory of a linked worktree resolves into the main repository');
 })();
 
 console.log('\n18. GIT — baseline mismatch stops the task');
@@ -572,6 +581,21 @@ console.log('\n28. SAFETY GATES — level 2 is Claude-controlled');
     'A task understating its execution level is rejected (declared level must match the router)');
   ok(codexProvider.sandboxForTask(baseTask()) === 'workspace-write',
     'A level 2 task runs in workspace-write, never danger-full-access');
+
+  // Committing from a linked worktree requires the shared Git directory to
+  // be writable; without it the sandbox denies every commit and the worker
+  // correctly stops with approval_required.
+  var stubPaths = { result: '/state/result.json', resultSchema: '/orch/result.schema.json' };
+  var args = codexProvider.buildArgs(baseTask(), stubPaths, { addDirs: ['/home/deploy/projects/mythos-prod/.git'] });
+  ok(args.indexOf('--add-dir') !== -1 &&
+    args[args.indexOf('--add-dir') + 1] === '/home/deploy/projects/mythos-prod/.git',
+    'A linked-worktree task grants the worker the shared Git directory');
+  ok(args.join(' ').indexOf('danger-full-access') === -1, 'The adapter never requests danger-full-access');
+  ok(args.join(' ').indexOf('--dangerously-bypass-approvals-and-sandbox') === -1,
+    'The adapter never bypasses approvals or the sandbox');
+
+  var noExtra = codexProvider.buildArgs(baseTask(), stubPaths, {});
+  ok(noExtra.indexOf('--add-dir') === -1, 'No extra directory is granted when none is required');
 })();
 
 console.log('\n29. SAFETY GATES — level 3 never auto-executes');

@@ -202,6 +202,17 @@ function execute(task, opts) {
     };
   }
 
+  // A task that must commit from a linked worktree also needs write access
+  // to the shared Git directory, which lives outside the worktree. Granted
+  // only when the delivery actually requires writing to Git.
+  var runOpts = Object.assign({}, opts);
+  if (task.delivery.commit_required || task.delivery.push_required) {
+    if (gitlib.gitDirIsExternal(task.working_directory)) {
+      var common = gitlib.commonDir(task.working_directory);
+      if (common) runOpts.addDirs = (runOpts.addDirs || []).concat([common]);
+    }
+  }
+
   store.ensureTaskDir(task.task_id);
   var paths = taskPaths(task);
 
@@ -233,7 +244,7 @@ function execute(task, opts) {
       dispatched: false,
       status: 'dry-run',
       result: null,
-      execution: { command: provider.buildArgs(task, paths, opts).join(' ') },
+      execution: { command: provider.buildArgs(task, paths, runOpts).join(' ') },
       blockers: [],
       warnings: warnings.concat(['DRY_RUN: provider not launched'])
     };
@@ -242,7 +253,7 @@ function execute(task, opts) {
   var notifyStart = notify('task_started', task.stage, task.task_id);
   if (!notifyStart.sent) warnings.push(notifyStart.warning);
 
-  var execution = provider.run(task, paths, opts);
+  var execution = provider.run(task, paths, runOpts);
 
   // ---- Result capture. Exit code alone never decides the outcome. ----
   var raw = null, parsed = null, parseError = null;
