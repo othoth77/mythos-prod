@@ -13,6 +13,7 @@
 'use strict';
 
 var scope = require('./scope');
+var entityResolver = require('./entity-resolver');
 
 // -----------------------------------------------------------------------
 // classify(item, task) -> 'REQUIRED' | 'USEFUL' | 'IRRELEVANT' | 'FORBIDDEN'
@@ -99,8 +100,55 @@ function assembleContext(input) {
   };
 }
 
+// Runtime assembler. Unlike assembleContext, this returns a normalised
+// AssemblyResult for the provider-neutral compiler rather than a package.
+function assemble(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new TypeError('Assembler input must be an object');
+  if (input.permissions !== undefined && (!input.permissions || typeof input.permissions !== 'object' || Array.isArray(input.permissions))) throw new TypeError('permissions must be an object');
+  var task = input.task || {};
+  var sources = ['globalRules', 'domainContext', 'organisationContext', 'sessionContext', 'userPreferences', 'memory'];
+  var sourceNames = { globalRules: 'global', domainContext: 'domain', organisationContext: 'organisation', sessionContext: 'session', userPreferences: 'user', memory: 'memory' };
+  var exclusions = { FORBIDDEN: 0, IRRELEVANT: 0, DUPLICATE: 0, OUT_OF_SCOPE: 0 };
+  var deniedReferences = [];
+  var candidates = [];
+  sources.forEach(function (sourceKey) {
+    var records = input[sourceKey] || [];
+    if (!Array.isArray(records)) throw new TypeError(sourceKey + ' must be an array');
+    records.forEach(function (record, index) {
+      if (!record || typeof record !== 'object' || Array.isArray(record) || !record.key) throw new TypeError('Malformed entry in ' + sourceKey);
+      var item = Object.assign({}, record, { source: sourceNames[sourceKey] });
+      item.provenance = Object.assign({}, record.provenance || {}, { source: sourceNames[sourceKey], reference: (record.provenance && record.provenance.reference) || sourceKey + ':' + index });
+      var permissionAllowed = !record.private && !record.forbidden && record.permissionDecision !== 'DENY' &&
+        (!record.permissionScope || !input.permissions || !Array.isArray(input.permissions.allowedScopes) || input.permissions.allowedScopes.indexOf(record.permissionScope) !== -1);
+      if (!permissionAllowed) { exclusions.FORBIDDEN++; deniedReferences.push({ reference: item.provenance.reference, reason: 'permission_or_privacy' }); return; }
+      item.classification = classify(item, task);
+      item.provenance.classification = item.classification;
+      candidates.push(item);
+    });
+  });
+  var relevant = candidates.filter(function (item) { if (item.classification === 'IRRELEVANT') { exclusions.IRRELEVANT++; return false; } return true; });
+  relevant.sort(function (a, b) {
+    var rank = { REQUIRED: 0, USEFUL: 1 };
+    var sessionA = a.source === 'session' ? -1 : 0, sessionB = b.source === 'session' ? -1 : 0;
+    return (rank[a.classification] - rank[b.classification]) || (sessionA - sessionB) || a.provenance.reference.localeCompare(b.provenance.reference);
+  });
+  var seen = {}, items = [], conflicts = [], byKey = {};
+  relevant.forEach(function (item) {
+    var semantic = item.key + '|' + JSON.stringify(item.value);
+    if (seen[semantic]) { exclusions.DUPLICATE++; return; }
+    seen[semantic] = true;
+    if (byKey[item.key] && JSON.stringify(byKey[item.key].value) !== JSON.stringify(item.value)) conflicts.push({ key: item.key, items: [byKey[item.key], item] });
+    else byKey[item.key] = item;
+    items.push(item);
+  });
+  var retrievalRequest = { userId: input.userId || null, organisationId: input.organisationId || null, domainId: input.domainId || null, task: task, limit: input.memoryLimit === undefined ? null : input.memoryLimit };
+  var entities = entityResolver.resolveAll(input.entityReferences || [], input.entityCandidates || []);
+  return { type: 'AssemblyResult', intent: task.capabilityId || null, items: items, retrieval: { request: retrievalRequest, count: items.filter(function (i) { return i.source === 'memory'; }).length }, entities: entities, conflicts: conflicts, exclusions: { counts: exclusions, denied: deniedReferences }, permissions: input.permissions || null, selectedSkills: input.selectedSkills || (task.capabilityId ? [task.capabilityId] : []), outputRequirements: input.outputRequirements === undefined ? null : input.outputRequirements };
+}
+
 module.exports = {
   classify: classify,
   retrieveRelevantMemory: retrieveRelevantMemory,
-  assembleContext: assembleContext
+  assembleContext: assembleContext,
+  assemble: assemble
 };
