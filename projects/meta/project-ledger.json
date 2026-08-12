@@ -696,6 +696,25 @@
         "projects/automation/reference/cloudflare-readonly-connector.js",
         "tests/aut-connector-shared-helpers-0-test.js"
       ]
+    },
+    {
+      "track": "mythos-os",
+      "stage_id": "MYTHOS-IDENTITY-CORE-0",
+      "title": "Mythos Identity Core — contract freeze and minimum model",
+      "status": "PLANNED",
+      "type": "FOUNDATION",
+      "starting_head": "1772028789da9f677cdae66c452cc16311d8c0ea",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "IDAUTO-STORAGE-OPS (NOT STARTED)",
+      "evidence_paths": [
+        "docs/MYTHOS_IDENTITY_ARCHITECTURE.md",
+        "docs/MYTHOS_STRATEGIC_EXECUTION_REVIEW_2026-08-11.md"
+      ]
     }
   ],
   "commits": [
