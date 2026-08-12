@@ -986,11 +986,24 @@
       "status": "BLOCKED",
       "type": "INFRASTRUCTURE",
       "starting_head": "26dd92a6d43c1ca85eb5f089f4a67552e89106d1",
-      "implementation_commit": null,
-      "merge_commit": null,
+      "implementation_commit": "7b0d27f421d022ed183183776d7ce76c35b4bbd5",
+      "merge_commit": "7b0d27f421d022ed183183776d7ce76c35b4bbd5",
       "handover_commit": null,
       "completed_at": null,
-      "tests": {},
+      "partial": "Tooling delivered and merged (true fast-forward). The stage remains BLOCKED because no off-host copy exists: owner selected Cloudflare R2 but no bucket or token has been provisioned, so no transfer, no remote verification and no restore drill have been performed.",
+      "tests": {
+        "ida-3f-offhost-backup": "30/30 offline (includes the AWS published SigV4 test vector)",
+        "idauto-storage-ops": "72/72",
+        "ida-2f-object-storage": "32/32",
+        "ida-2h-review-queue-ui": "37/37",
+        "ida-3e-review-queue": "48/48",
+        "ida-3d-private-ingest-route": "73/73",
+        "ida-3c-rate-limit": "63/63",
+        "ida-3b-ingestion-service": "67/67",
+        "media-integrity-audit": "CLEAN",
+        "local-smoke": "stage/verify-local/retention exercised against real backup artifacts as root; dry-run created 0 files; capture-order violation correctly refused; --destructive refused with exit 3",
+        "note": "all re-run against the post-merge tree"
+      },
       "blockers": [
         "NO_OFFHOST_DESTINATION_EXISTS: discovery found no usable off-host target already configured. No rclone, restic, borg, aws, s3cmd, mc, gsutil, az, swift or openstack binary is installed and no config for any exists; only generic rsync is present. All three configured SSH hosts resolve to github.com (the notrejour key is a GitHub deploy key), so there is no second server. No NFS/CIFS/sshfs mount and no second disk - only /dev/sda1 plus snap loop devices. Coolify reports s3_storages=0 and scheduled_database_backups=0. Cloudflare R2 is approved in CLOUDFLARE_ARCHITECTURE.md but explicitly not created, and is gated behind INF-CF-6. Provisioning a destination requires owner authorisation, so the stage stopped before selecting one."
       ],

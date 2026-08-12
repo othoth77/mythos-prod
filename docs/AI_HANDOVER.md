@@ -1,8 +1,87 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** IDA-3E-BACKFILL (owner-authorised legacy fact remediation; visibility invariant now holds for all rows)
+**From:** IDA-3F (off-host backup tooling merged; stage BLOCKED — no destination provisioned)
 **To:** Next AI session
+
+---
+
+## IMPLEMENTATION — IDA-3F OFF-HOST BACKUP (2026-08-12) — TOOLING MERGED, STAGE BLOCKED
+
+**Type:** Infrastructure tooling. **No off-host copy exists yet. No deployment, no DNS, no reverse proxy, no firewall, no Docker or Coolify change, no scheduled job, Jellyfin untouched, no backup deleted.**
+
+**Starting HEAD:** `26dd92a6d43c1ca85eb5f089f4a67552e89106d1`
+**Metadata commit:** `034ea795ecbe46e723acacee34fbd04adfc1c295` (registered BLOCKED after discovery)
+**Codex implementation:** `d63679df9a1163a656962d02f5805619d0285f9f` → reformatted in `7b0d27f421d022ed183183776d7ce76c35b4bbd5`
+**Merge:** `7b0d27f421d022ed183183776d7ce76c35b4bbd5` — **true fast-forward**, single parent
+
+### THE STAGE IS NOT COMPLETE — no off-host destination exists
+
+Discovery ran before any implementation, as the authorisation required, and found **no usable off-host target already configured**:
+
+| Checked | Result |
+|---|---|
+| rclone · restic · borg · aws · s3cmd · mc · gsutil · az · swift · openstack | **none installed** |
+| their configs (`rclone.conf`, `.aws/credentials`, `.s3cfg`, restic/borg repos) | **none exist** |
+| second host via SSH | **none** — all three configured SSH hosts resolve to `github.com`; the `notrejour` key is a GitHub deploy key |
+| NFS / CIFS / sshfs mounts | **none** |
+| additional disks | **none** — only `/dev/sda1` plus snap loop devices |
+| Coolify | `s3_storages=0`, `scheduled_database_backups=0` |
+| Cloudflare R2 | approved in `CLOUDFLARE_ARCHITECTURE.md` but **not created**; gated behind INF-CF-6 |
+| `INF-CF-AUTO-0` connector | **read-only public-data inventory** (RDAP/WHOIS/DNS/TLS); its README forbids storing tokens or account ids, so **no Cloudflare credential exists on this host** |
+
+The owner selected **Cloudflare R2** as the destination. It still has to be provisioned: **a bucket and a least-privilege API token, created by the owner.** Until then there is no transfer, no remote verification and no restore drill, so §11's gate is **not** closed and `PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` stays **NO**.
+
+Writing backups to another directory on this VPS was deliberately **not** done: it would satisfy nothing (the risk is host or disk loss) while making the gate look closed.
+
+### What was delivered
+
+Three new files, nothing modified:
+
+- `projects/idauto/ops/offhost-backup.js` — provider-neutral core. Commands `stage · manifest · verify-local · push · verify-remote · list · retention · restore-verify`, every one accepting `--dry-run`, and media-ops.js's exit-code discipline (0 clean · 1 usage/env · 2 anomaly · 3 refused). No vendor name appears in its logic.
+- `projects/idauto/ops/adapters/s3-compatible.js` — SigV4 over HTTPS using only node's built-in `crypto` and `https`. **No dependency was added** (only `pg` is installed and no AWS SDK exists). Config is read from a user-local `~/.config/mythos/idauto-offhost.env` at mode 600 — never the repository, never a command-line argument. Non-HTTPS endpoints are refused outright.
+- `tests/ida-3f-offhost-backup-test.js` — **30/30, fully offline**: no database, no network, no credential, no environment variable, running the core against an in-memory fake adapter.
+
+**Retention is report-only by construction.** The 7 daily / 4 weekly / 3 monthly selector reports keep/drop and has no deletion path; `--destructive` is refused outright with exit 3. Deletion was not authorised and is not implemented.
+
+### Verified beyond the fake adapter
+
+The offline suite proves the signing is correct without a network: **test 29 reproduces AWS's published SigV4 vector exactly** (canonical-request hash and signature both matched), and test 30 refuses a non-HTTPS endpoint.
+
+The core was then smoke-tested against **real backup artifacts**, which the fake cannot exercise. That found two things worth recording:
+
+1. **The tool correctly refused an incoherent pair.** Staging a 20:07 database dump with a 10:07 media backup was rejected with `capture order must be database-before-media` — the runbook's rule, enforced rather than documented.
+2. **DB backups are `700 root:root`** by the IDA-2B convention, so the tool must run as **root** to read them; as `deploy` it fails closed with a clean exit 1.
+
+With a properly ordered pair (database 20:36:34, media 20:36:42) the full local path ran clean: dry-run created **0 files**, the real stage produced 71 files with **70 verified objects**, `verify-local` exited 0, and the manifest recorded database dump SHA-256, media manifest SHA-256, 68 objects, 68 distinct object keys and 153 database media rows — with **no credential of any kind**. Its consistency claim is deliberately honest: `"separately captured; not a transactional filesystem snapshot"`.
+
+Retention over 120 synthetic daily sets kept 11 and dropped 109 — seven consecutive dailies plus week and month boundaries back to June — and pruned nothing.
+
+### Test results
+
+`ida-3f-offhost-backup` **30/30 offline** · `idauto-storage-ops` 72/72 · `ida-2f` 32/32 · `ida-2h` 37/37 · `ida-3e` 48/48 · `ida-3d` 73/73 · `ida-3c` 63/63 · `ida-3b` 67/67 · governance 36/36 · DEVX-0 45/45 · DEVX-1 92/92 · project-intelligence 0 errors · `git diff --check` clean · media audit **CLEAN**. All re-run against the post-merge tree. The DEVX impact-selected set for `projects/idauto/ops/` is `idauto-storage-ops`, `ida-2f` and `ida-2h`; all three ran.
+
+No credential, endpoint, bucket or account id is committed, and no `idauto-offhost` config file is tracked.
+
+### A quality intervention worth repeating
+
+The first delivery was functionally correct but effectively minified — 12,488 bytes across 54 lines, with a single 2,000-character line containing the SigV4 implementation. It was sent back for a mechanical reformat rather than accepted: this is the disaster-recovery path, read under pressure when the host is gone, and it signs credentialed requests, so it must stay line-reviewable. It is now 494 / 216 / 408 lines with no line beyond 120 characters, and the suite still passes 30/30 with the AWS vector exact.
+
+### Backups on disk
+
+Nine sets retained, 2.5 MB total. **Nothing was deleted** — deleting backups was not authorised. Two sets were added by the drill: `idauto-postgres-ida3f-smoke-20260812T203633Z` and `idauto-media-backup-2026-08-12T20-36-42-492Z` (the latter a genuine verified `CONSISTENT` media backup). Staged copies were removed from `/tmp` so no backup data lingers there.
+
+### To finish IDA-3F
+
+1. Owner creates an R2 bucket (`mythos-backups` per `CLOUDFLARE_DEPLOYMENT_CHECKLIST.md`) and a least-privilege API token, ideally with object-lock/versioning so the source host cannot delete both copies — §11's non-negotiable.
+2. Token placed in `~/.config/mythos/idauto-offhost.env`, mode 600, never committed.
+3. Claude runs `push`, `verify-remote`, then a `restore-verify` drill into an isolated destination, and records set ids, timestamps and checksums.
+
+**`restore-verify` restores from the remote and therefore requires the adapter** — it is the one command the local drill could not exercise.
+
+### Next stage
+
+`IDA-3F` must be finished before `IDA-3G` (consent and legal gate). Remaining public blockers: **off-host backup (this stage)**, legal/consent review, and real auth.
 
 ---
 
