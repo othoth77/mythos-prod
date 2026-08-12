@@ -7,6 +7,7 @@ var db = null;
 var storage = require('./storage.js');
 var identity = require('./identity.js');
 var plateValidator = require('./plate-validator.js');
+var rateLimit = require('./rate-limit.js');
 
 var ACTORS = {
   anonymous: { source: 'PUBLIC_UPLOAD', status: 'pending_review', confidence: 0.30, identified: false },
@@ -16,8 +17,9 @@ var ACTORS = {
   system: { source: 'MANUAL_ADMIN', status: 'pending_review', confidence: 0.70, identified: true }
 };
 var FORBIDDEN_PAYLOAD_FIELDS = [
-  'capture_source_id', 'contributor_id', 'actor_ref', 'trust_level',
-  'confidence', 'status', 'trust_score'
+  'capture_source_id', 'contributor_id', 'actor_ref', 'actor_type', 'trust_level',
+  'confidence', 'status', 'trust_score', 'bucket_key', 'ip_hash', 'window', 'limit',
+  'rate_limit', 'rate_limit_override'
 ];
 var FACT_KEYS = [
   'colour', 'make', 'model', 'variant', 'year', 'body_type', 'fuel_type',
@@ -255,6 +257,20 @@ async function submit(payload, context) {
   if (existing) {
     if (existing.status === 'pending') existing = await waitForSubmission(v.idempotency_key);
     return publicResult(existing, true);
+  }
+  var limitResult = await rateLimit.enforce(database(), {
+    actor_type: v.actor_type, actor_ref: v.actor_ref, ip_hash: v.ip_hash,
+    trust_score: context.trust_score, org: context.org,
+    media_bytes: v.media.reduce(function (sum, item) { return sum + item.buffer.length; }, 0),
+    idempotency_key: v.idempotency_key
+  });
+  if (!limitResult.allowed) {
+    if (limitResult.state === rateLimit.states.limited) {
+      return { ok: false, rejected: true, replay: false, state: 'limited', tier: limitResult.tier,
+        retry_at: limitResult.retry_at, error: { code: 'RATE_LIMITED', fields: [], message: 'submission rate limit exceeded' } };
+    }
+    return { ok: false, rejected: true, replay: false, state: limitResult.state,
+      error: { code: limitResult.state === 'invalid' ? 'INVALID_RATE_LIMIT_IDENTITY' : 'RATE_LIMIT_STORAGE_ERROR', fields: [], message: 'submission rate limit could not be satisfied' } };
   }
   var sourceResult = await database().query('SELECT id FROM idauto_capture_sources WHERE code = $1 AND active = TRUE', [v.rule.source]);
   if (!sourceResult.rows[0]) return rejection('CAPTURE_SOURCE_UNAVAILABLE', ['capture_source'], 'server capture source is unavailable');
