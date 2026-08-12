@@ -105,7 +105,13 @@ function request(method, requestPath, headers, body) {
 }
 function ingestRequest(token, key, submission, images) {
   var boundary = unique('boundary'), body = multipart(boundary, submission, images || []);
-  return request('POST', '/api/ingest/observations', token ? { Authorization: 'Bearer ' + token, 'Idempotency-Key': key, 'Content-Type': 'multipart/form-data; boundary=' + boundary } : { 'Idempotency-Key': key, 'Content-Type': 'multipart/form-data; boundary=' + boundary }, body);
+  var headers = { 'Content-Type': 'multipart/form-data; boundary=' + boundary };
+  if (token) headers.Authorization = 'Bearer ' + token;
+  // Omit the header entirely rather than sending an undefined value. Node
+  // rejects `undefined` as a header value and aborts the whole run, which
+  // would stop the missing-key case below from ever reaching the route.
+  if (key !== undefined && key !== null) headers['Idempotency-Key'] = key;
+  return request('POST', '/api/ingest/observations', headers, body);
 }
 function minimalPng() { return Buffer.from([137,80,78,71,13,10,26,10, 0,0,0,0, 73,69,78,68, 174,66,96,130]); }
 async function scalar(sql, params) { var result = await db.query(sql, params || []); return Number(result.rows[0].count); }
