@@ -868,6 +868,27 @@
       ]
     },
     {
+      "track": "id-auto",
+      "stage_id": "IDA-3C",
+      "title": "Rate-limit enforcement — PostgreSQL-backed fixed-window counters for ingestion",
+      "status": "BLOCKED",
+      "type": "RUNTIME",
+      "starting_head": "6aecda0c80bbe90a2afe9f52f74f16b93b02ed78",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [
+        "DESIGN_AMBIGUITY_1: whether a rate-limited request creates an idauto_submissions row is contradictory in the binding design. Section 7 says submissions.status='rejected'; section 14 says partial data None; section 13 orders the rate-limit check before the submission insert, leaving no row to mark. Owner decision required.",
+        "DESIGN_AMBIGUITY_2: whether an idempotent replay consumes rate-limit quota is never stated. Section 13 orders rate-limit strictly before the idempotency anchor, implying replays consume quota; section 14 states retries are always safe because Idempotency-Key is required, which is false if they do. Owner decision required."
+      ],
+      "next_stage": "IDA-3D (private admin-only route, NOT STARTED, separate authorisation)",
+      "evidence_paths": [
+        "docs/IDA3_INGESTION_ARCHITECTURE.md"
+      ]
+    },
+    {
       "track": "mythos-devx",
       "stage_id": "MYTHOS-MULTI-AGENT-ORCHESTRATOR-0",
       "title": "Mythos multi-agent orchestrator — provider-neutral Claude/Codex delegation runtime",
