@@ -708,23 +708,26 @@ console.log('\n32. PROHIBITED OPERATIONS — no Docker group mutation');
 
 console.log('\n33. LOGGING — credentials never reach disk');
 (function () {
+  // Labels name the KIND, never the value: test output is itself written to
+  // task logs, and printing secret-shaped strings there defeats the purpose
+  // (and trips any log scanner looking for exactly these patterns).
   var secrets = [
-    'ghp_' + 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8',
-    'postgres://app:hunter2@db.internal:5432/mythos',
-    'AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
-    'https://ntfy.sh/mythos-secret-topic-name'
+    { kind: 'a provider token', value: 'ghp_' + 'A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8' },
+    { kind: 'a credentialed connection string', value: 'postgres://app:hunter2@db.internal:5432/mythos' },
+    { kind: 'an assigned cloud secret', value: 'AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY' },
+    { kind: 'an ntfy capability URL', value: 'https://ntfy.sh/mythos-secret-topic-name' }
   ];
   secrets.forEach(function (s) {
-    var out = redact.redact('log line containing ' + s + ' end');
-    ok(out.indexOf(s) === -1, 'redact() masks ' + s.slice(0, 18) + '…');
+    var out = redact.redact('log line containing ' + s.value + ' end');
+    ok(out.indexOf(s.value) === -1, 'redact() masks ' + s.kind);
   });
 
   store.ensureTaskDir('orch-redact-00001');
-  store.writeText('orch-redact-00001', 'stdout.log', 'token=' + secrets[0] + '\n');
+  store.writeText('orch-redact-00001', 'stdout.log', 'token=' + secrets[0].value + '\n');
   var written = fs.readFileSync(store.taskFile('orch-redact-00001', 'stdout.log'), 'utf8');
   ok(written.indexOf('ghp_A1b2') === -1, 'Text written through the store is redacted on disk');
 
-  store.writeJSON('orch-redact-00001', 'status.json', { summary: 'connect via ' + secrets[1] });
+  store.writeJSON('orch-redact-00001', 'status.json', { summary: 'connect via ' + secrets[1].value });
   var json = fs.readFileSync(store.taskFile('orch-redact-00001', 'status.json'), 'utf8');
   ok(json.indexOf('hunter2') === -1, 'JSON written through the store is deep-redacted');
 

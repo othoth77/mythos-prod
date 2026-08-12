@@ -258,6 +258,9 @@ function execute(task, opts) {
   // ---- Result capture. Exit code alone never decides the outcome. ----
   var raw = null, parsed = null, parseError = null;
   if (fs.existsSync(paths.result)) {
+    // The provider writes this file itself (codex exec --output-last-message),
+    // so it arrives with the provider's umask rather than the store's 600.
+    try { fs.chmodSync(paths.result, 0o600); } catch (e) { /* best effort */ }
     raw = fs.readFileSync(paths.result, 'utf8');
     try { parsed = JSON.parse(raw); } catch (e) { parseError = e.message; }
   }
