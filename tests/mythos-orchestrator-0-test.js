@@ -476,6 +476,13 @@ console.log('\n19. VERIFIER — a fabricated commit SHA is rejected');
 
   var shortSha = verifier.verify(task, baseResult({ branch: 'work', baseline: repo.head, implementation_commit: 'abc123' }), { skipFetch: true });
   ok(!shortSha.verified, 'A malformed (non-40-character) SHA is rejected');
+
+  // A passing check must not carry failure text, or the report reads as
+  // though it failed.
+  ok(ver.checks.filter(function (c) { return c.passed; }).every(function (c) { return c.detail === ''; }),
+    'Passing checks carry no failure detail');
+  ok(ver.checks.filter(function (c) { return !c.passed; }).length === ver.failures.length,
+    'Every failed check is reflected exactly once in failures');
 })();
 
 console.log('\n20. VERIFIER — a failing test prevents completion');

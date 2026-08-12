@@ -61,8 +61,11 @@ function verify(task, result, opts) {
   var failures = [];
   var warnings = [];
 
+  // `detail` explains a FAILURE. Attaching it to a passing check produces a
+  // report that reads as though the check failed ("no commit reported" next
+  // to passed:true), so it is dropped unless the check actually failed.
   function check(name, passed, detail) {
-    checks.push({ name: name, passed: !!passed, detail: detail || '' });
+    checks.push({ name: name, passed: !!passed, detail: passed ? '' : (detail || '') });
     if (!passed) failures.push(name + (detail ? ': ' + detail : ''));
     return !!passed;
   }

@@ -153,6 +153,15 @@ function delegate(task, opts) {
       outcome.delivery_push = pushed;
       if (pushed.pushed) {
         run.result.remote_head = pushed.remote_head;
+        // Persist the post-push result. The stored file is what a later
+        // `verify <task.json> <result.json>` reads, and the runbook documents
+        // exactly that recovery step — leaving the worker's `remote_head:
+        // null` on disk would make a genuinely delivered task fail re-checks.
+        try {
+          store.writeJSON(task.task_id, task.result_path, run.result);
+        } catch (e) {
+          outcome.warnings = outcome.warnings.concat(['RESULT_PERSIST_FAILED: ' + e.message]);
+        }
       } else {
         outcome.status = 'verification_failed';
         outcome.blockers = outcome.blockers.concat(['DELIVERY_PUSH_FAILED: ' + pushed.error]);
