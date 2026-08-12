@@ -1,8 +1,71 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** IDA-3C (PostgreSQL-backed ingestion rate limiting; no route, no schema change)
+**From:** IDA-3D (private admin-only ingestion route — first HTTP surface, not publicly routed)
 **To:** Next AI session
+
+---
+
+## IMPLEMENTATION — IDA-3D PRIVATE ADMIN-ONLY INGESTION ROUTE (2026-08-12) — COMPLETE
+
+**Type:** Runtime module. **First HTTP surface of IDA-3, private and admin-only. Nothing deployed, no schema change, no DNS, no reverse proxy, no firewall, no Docker change, no new port, Jellyfin untouched, no history rewrite, no force-push.**
+
+**Starting HEAD:** `beb20ef32a53e4439c2ce7f8114de5902ff03976`
+**Metadata commit:** `5798efb6681e31c42f0b55a6bfe1085a71731aeb`
+**Codex implementation commit:** `4ed7b05fbcb00f3a8aa73516f66994de35c089ec`
+**Merge:** `5de4017a83a5adc5774a154fce7af71d0178ec60` — **true fast-forward**, single parent, no merge commit (main had not moved)
+
+### What shipped
+
+One route added to the existing table in `api.js`, plus `tests/ida-3d-private-ingest-route-test.js`. No other file touched — `ingestion.js`, `rate-limit.js`, `writes.js`, `storage.js`, `db.js` and `identity.js` are all unchanged.
+
+```
+POST /api/ingest/observations
+```
+
+Unversioned, exactly as §12 specifies for the internal/private-pilot slice. It is a **thin adapter**: it parses the request, calls `ingestion.submit()`, and maps the result to a status code. It reimplements no ingestion policy, no rate limiting, no actor mapping, no idempotency, no transaction, storage or audit logic.
+
+**Access control** uses the existing `requireAuth` gate — the same one every current write route uses — which runs *globally before route matching*, so the handler cannot execute without a resolved identity. No JWT, session, cookie, OAuth or new auth store was introduced.
+
+**Actor mapping is entirely server-derived:** `actor_type` is hardcoded `'admin'`, the idempotency key comes from the required `Idempotency-Key` **header** (never the body), and the capture source comes from ingestion's existing `MANUAL_ADMIN` mapping. Admin rate-limit exemption happens inside IDA-3C's policy; **no route-level bypass and no counter logic exist in `api.js`**.
+
+**Response mapping** is §12's table exactly: `201` accepted · `200` idempotent replay · `202` duplicate · `400` validation · `401` credential · `413` too large · `415` MIME · `422` plate format · `429` rate limited with `Retry-After` (whole seconds, floored at 1) · `500` opaque server fault carrying no stack, SQL, driver text, path or token.
+
+**Transport** is `multipart/form-data` with one JSON `submission` part plus 0–N `image` parts, per §12. This was **derived, not chosen**: IDA-3B's `submit()` consumes the envelope and its media in one atomic call, and §12 explicitly rejects JSON-with-base64, so a raw-body upload cannot carry both. The reader is minimal and bounded by the existing `storage.MAX_UPLOAD_BYTES`; it deliberately enforces **no** count, size, MIME or magic-byte policy, because `ingestion.js` already does and forking that would split policy.
+
+### Codex refused the first task — correctly, again
+
+The first envelope said to pass `req.mythosIdentity` as `actor_ref`. Codex returned `blocked / scope_violation`, wrote nothing, and explained that `requireAuth` sets `req.mythosIdentity` to the **already-resolved** identity (`usr_*`) while `ingestion.resolveActor()` calls `identity.resolveIdentity()` on `actor_ref`, which expects a **token** — so the mandated wiring would resolve twice, miss the token map, and always return `INVALID_ACTOR_REF`.
+
+The diagnosis was exactly right and the envelope was wrong. Its *conclusion* — that scope had to expand — was not: the established IDA-3B contract is that `context.actor_ref` **is the token** (its own suite calls `context('admin', ADMIN_TOKEN, key)`), so passing the raw bearer token fixes it inside the authorised two files. The corrected task delivered on the second run.
+
+**Because the token now flows into the ingestion context, it was verified end to end:** ingestion resolves it and persists only the `usr_*` identity. The suite asserts the token appears in **no** submission row, **no** audit row and **no** response.
+
+### A defect only running could find
+
+The delivered suite exercised the missing-`Idempotency-Key` path by sending the header with an `undefined` value. Node rejects that and aborted the entire run at the first live case. Fixed in `5de4017` by omitting the header instead — which is what the case meant to express.
+
+This is the predictable cost of the sandbox boundary: **probed in the worker sandbox, TCP connect to `127.0.0.1:5432` returns `EPERM` and `http.createServer().listen(0,'127.0.0.1')` also returns `EPERM`.** Codex can verify the socket-free subset (45 cases here) but cannot execute a single HTTP or database case. Expect to find runtime defects like this one when integrating any route work, and budget for it.
+
+### Verification
+
+`ida-3d-private-ingest-route` **73/73** live (45/45 static-only) · `ida-3c` 63/63 · `ida-3b` 67/67 · `ida-2a` 44/44 · `ida-2c` 26/26 · `ida-2d` 39/39 · `ida-2f` 32/32 · `ida-2g` 17/17 · `ida-2h` 37/37 · `identity-core` 124/124 · orchestrator 156/156 · governance 36/36 · DEVX-0 45/45 · DEVX-1 92/92 · project-intelligence 0 errors · `git diff --check` clean · media audit **CLEAN**. **Every suite re-run against the post-merge tree.** The DEVX impact-selected set for `projects/idauto/reference/api.js` is `ida-2c`/`2d`/`2f`/`2g`/`2h`; all five ran, plus 3B, 3C, 2A and identity-core.
+
+Confirmed on the live database: still **24** tables, no DDL. `bad_ip_hash=0` — every stored `ip_hash` is a 64-hex digest with no dotted or colonned value. **100** ingestion and rate-limit audit rows, **zero** carrying `ip_hash`. Counters show `negative=0`, and the suite asserts an admin submission writes **no counter rows at all**. All 126 pre-IDA-3A observations are present and `capture_sources` is still exactly 7 — nothing pre-existing modified or deleted.
+
+Confirmed on the host: `api.js` still contains exactly **one** `.listen(` and still binds `127.0.0.1` only; the stage diff contains no nginx, Caddy, proxy, DNS, firewall, Docker, Compose, Coolify or unit-file change; and the ID Auto API remains **undeployed** — no container, no listener. The verifier's `no_secret_in_diff: assigned-secret` flag was investigated, not waived: the single match is `var TOKEN = 'ida3d-token-' + crypto.randomBytes(18)...`, a per-run generated test value, not a literal credential.
+
+### Deployment status
+
+**Nothing was deployed and nothing became reachable.** The route exists in an undeployed reference implementation that binds loopback only. Making it reachable would require a deployment or reverse-proxy change, which is **not authorised** and was not performed. Even if the service were running, the route fails closed without a valid admin token.
+
+### Forward risk carried forward unchanged
+
+`api.js` filters facts by `access_scope != 'mythos_private'` but **not** by `verification_status`. IDA-3D added no read path and did not alter public-read semantics, so the risk is unchanged in kind: once a public route exists, an unreviewed `public` community fact would be served alongside verified ones. **IDA-3E / IDA-3I must gate public reads on review state, or ingestion must write facts at a narrower scope.**
+
+### Next stage
+
+**`IDA-3E` — admin review queue for ingested submissions.** Requires its own explicit authorisation. `PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` remains **NO**: off-host backup (§11), legal/consent review and real auth are all still outstanding, and the fact-visibility gate above should be settled there or at 3I.
 
 ---
 
