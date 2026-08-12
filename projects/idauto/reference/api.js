@@ -42,6 +42,7 @@ var db = require('./db.js');
 var writes = require('./writes.js');
 var identity = require('./identity.js');
 var storage = require('./storage.js');
+var ingestion = require('./ingestion.js');
 
 function requireAuth(req, res) {
   var header = req.headers['authorization'] || '';
@@ -294,6 +295,114 @@ function readBinaryBody(req) {
   });
 }
 
+function multipartBoundary(contentType) {
+  if (typeof contentType !== 'string' || !/^multipart\/form-data(?:\s*;|$)/i.test(contentType)) {
+    throw Object.assign(new Error('multipart/form-data is required'), { httpStatus: 400 });
+  }
+  var match = /(?:^|;)\s*boundary=(?:"([^"]+)"|([^;\s]+))/i.exec(contentType);
+  var boundary = match && (match[1] || match[2]);
+  if (!boundary || boundary.length > 70 || /[\x00-\x20\x7f()<>@,;:\\"\/[\]?={}]/.test(boundary)) {
+    throw Object.assign(new Error('invalid multipart boundary'), { httpStatus: 400 });
+  }
+  return boundary;
+}
+
+function parseMultipartBuffer(buffer, contentType) {
+  var boundary = multipartBoundary(contentType);
+  if (!Buffer.isBuffer(buffer)) throw Object.assign(new Error('invalid multipart body'), { httpStatus: 400 });
+  if (buffer.length > storage.MAX_UPLOAD_BYTES) throw Object.assign(new Error('payload too large'), { httpStatus: 413 });
+  var marker = Buffer.from('--' + boundary);
+  var delimiter = Buffer.from('\r\n--' + boundary);
+  if (!buffer.slice(0, marker.length).equals(marker)) throw Object.assign(new Error('malformed multipart body'), { httpStatus: 400 });
+  var parts = [];
+  var position = marker.length;
+  while (true) {
+    if (buffer.slice(position, position + 2).toString() === '--') {
+      if (position + 2 !== buffer.length && buffer.slice(position + 2, position + 4).toString() !== '\r\n') throw Object.assign(new Error('malformed multipart body'), { httpStatus: 400 });
+      break;
+    }
+    if (buffer.slice(position, position + 2).toString() !== '\r\n') throw Object.assign(new Error('malformed multipart body'), { httpStatus: 400 });
+    position += 2;
+    var headerEnd = buffer.indexOf(Buffer.from('\r\n\r\n'), position);
+    if (headerEnd === -1) throw Object.assign(new Error('malformed multipart body'), { httpStatus: 400 });
+    var headerText = buffer.slice(position, headerEnd).toString('latin1');
+    var next = buffer.indexOf(delimiter, headerEnd + 4);
+    if (next === -1) throw Object.assign(new Error('malformed multipart body'), { httpStatus: 400 });
+    var disposition = /(?:^|\r\n)Content-Disposition:\s*form-data\s*;[^\r\n]*\bname="([^"]+)"/i.exec(headerText);
+    if (!disposition) throw Object.assign(new Error('malformed multipart part'), { httpStatus: 400 });
+    var type = /(?:^|\r\n)Content-Type:\s*([^\r\n;]+)/i.exec(headerText);
+    parts.push({ name: disposition[1], content_type: type ? type[1].trim() : '', buffer: buffer.slice(headerEnd + 4, next) });
+    position = next + delimiter.length;
+  }
+  var submissions = parts.filter(function (part) { return part.name === 'submission'; });
+  if (submissions.length !== 1) throw Object.assign(new Error('exactly one submission part is required'), { httpStatus: 400 });
+  var submission;
+  try { submission = JSON.parse(submissions[0].buffer.toString('utf8')); }
+  catch (_) { throw Object.assign(new Error('invalid submission JSON'), { httpStatus: 400 }); }
+  return {
+    submission: submission,
+    media: parts.filter(function (part) { return part.name === 'image'; }).map(function (part) {
+      return { mime_type: part.content_type, buffer: part.buffer };
+    })
+  };
+}
+
+function readMultipartBody(req) {
+  var contentType = req.headers['content-type'] || '';
+  multipartBoundary(contentType);
+  return new Promise(function (resolve, reject) {
+    var chunks = [], size = 0, tooLarge = false;
+    req.on('data', function (chunk) {
+      size += chunk.length;
+      if (size > storage.MAX_UPLOAD_BYTES) { tooLarge = true; chunks = []; return; }
+      if (!tooLarge) chunks.push(chunk);
+    });
+    req.on('end', function () {
+      if (tooLarge) return reject(Object.assign(new Error('payload too large'), { httpStatus: 413 }));
+      try { resolve(parseMultipartBuffer(Buffer.concat(chunks), contentType)); } catch (error) { reject(error); }
+    });
+    req.on('error', reject);
+  });
+}
+
+function ingestHttpStatus(result) {
+  if (result && result.replay === true) return 200;
+  if (result && result.status === 'duplicate') return 202;
+  if (result && result.ok === true) return 201;
+  var code = result && result.error && result.error.code;
+  if (code === 'INVALID_PLATE') return 422;
+  if (['INVALID_MEDIA_SIZE', 'SUBMISSION_TOO_LARGE', 'TOO_MANY_IMAGES'].indexOf(code) !== -1) return 413;
+  if (['INVALID_MEDIA', 'INVALID_MEDIA_MAGIC', 'MALFORMED_MEDIA'].indexOf(code) !== -1) return 415;
+  if (code === 'RATE_LIMITED') return 429;
+  if (['CAPTURE_SOURCE_UNAVAILABLE', 'INGESTION_FAILED', 'IDA_FACT_LINK', 'RATE_LIMIT_STORAGE_ERROR'].indexOf(code) !== -1) return 500;
+  return 400;
+}
+
+function retryAfterSeconds(retryAt, now) {
+  var milliseconds = new Date(retryAt).getTime() - (now === undefined ? Date.now() : new Date(now).getTime());
+  if (!isFinite(milliseconds)) return 1;
+  return Math.max(1, Math.ceil(milliseconds / 1000));
+}
+
+async function postIngestObservation(req, res) {
+  var idempotencyKey = req.headers['idempotency-key'];
+  if (typeof idempotencyKey !== 'string' || !idempotencyKey) return sendJson(res, 400, { error: 'Idempotency-Key header is required' });
+  var match = /^Bearer (.+)$/.exec(req.headers['authorization'] || '');
+  var parsed = await readMultipartBody(req);
+  var payload = parsed.submission;
+  if (payload && typeof payload === 'object' && !Array.isArray(payload) && !Object.prototype.hasOwnProperty.call(payload, 'media')) {
+    payload = Object.assign({}, payload, { media: parsed.media });
+  }
+  var result = await ingestion.submit(payload, { actor_type: 'admin', actor_ref: match[1], idempotency_key: idempotencyKey });
+  var status = ingestHttpStatus(result);
+  if (status === 500) return sendJson(res, 500, { error: 'ingestion failed' });
+  if (status === 429) {
+    res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': String(retryAfterSeconds(result.retry_at)) });
+    return res.end(JSON.stringify(result));
+  }
+  sendJson(res, status, result);
+}
+
 // POST /api/observations/:id/media
 // Body is the raw file content. Content-Type header is the mime type.
 // Optional X-Idauto-Media-Type / X-Idauto-Access-Scope headers (both
@@ -369,6 +478,7 @@ var ROUTES = [
   { method: 'GET', pattern: /^\/api\/plates\/([^/]+)$/, handler: function (req, res, m) { return getPlate(res, decodePathSegment(m[1])); } },
   { method: 'POST', pattern: /^\/api\/plates$/, handler: function (req, res) { return postPlate(req, res); } },
   { method: 'GET', pattern: /^\/api\/observations\/([^/]+)\/media$/, handler: function (req, res, m) { return getObservationMedia(res, decodePathSegment(m[1])); } },
+  { method: 'POST', pattern: /^\/api\/ingest\/observations$/, handler: function (req, res) { return postIngestObservation(req, res); } },
   { method: 'POST', pattern: /^\/api\/observations\/([^/]+)\/media$/, handler: function (req, res, m) { return postObservationMedia(req, res, decodePathSegment(m[1])); } },
   { method: 'GET', pattern: /^\/api\/observations\/([^/]+)$/, handler: function (req, res, m) { return getObservation(res, decodePathSegment(m[1])); } },
   { method: 'POST', pattern: /^\/api\/observations$/, handler: function (req, res) { return postObservation(req, res); } },
@@ -414,4 +524,9 @@ if (require.main === module) {
   });
 }
 
-module.exports = { createServer: createServer };
+module.exports = {
+  createServer: createServer,
+  parseMultipartBuffer: parseMultipartBuffer,
+  ingestHttpStatus: ingestHttpStatus,
+  retryAfterSeconds: retryAfterSeconds
+};
