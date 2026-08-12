@@ -1,8 +1,65 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-11 UTC
-**From:** MYTHOS-STRATEGIC-EXECUTION-REVIEW-2026-08-11 (complete and pushed)
+**From:** MYTHOS-IDENTITY-CORE-0 architecture decision (complete and pushed)
 **To:** Next AI session
+
+---
+
+## ARCHITECTURE DECISION — MYTHOS-IDENTITY-CORE-0 (2026-08-11)
+
+**Type:** Canonical architecture decision. **Decision only — no identity code written, no schema executed, no live database mutated, no deployment, no subagents.** The implementation stage has **not** started.
+
+**Baseline:** `a220e9585f6a08f29abbb99084edb5125838042e` — `main`, clean worktree, HEAD == origin/main, all Git as `deploy`.
+
+**Decision commit:** `814d9be92ff253227efd828cf8950aa566ce3f78`
+**Binding document:** [`docs/MYTHOS_IDENTITY_ARCHITECTURE.md`](MYTHOS_IDENTITY_ARCHITECTURE.md)
+
+### Decisions made
+
+**IDENTIFIER** — canonical platform identifier is a **prefixed UUIDv7 rendered as text in `VARCHAR(64)`**: `usr_<uuidv7>`, `org_<uuidv7>`, `svc_<name>`, with format `CHECK` regexes enforced in `mythos_core` only. **Rejected:** `BIGSERIAL`/`BIGINT`, native `uuid` type, bare unprefixed UUID.
+
+Chosen because it requires **zero migration of the only live system** (ID Auto is already `VARCHAR(64)` on `mythos_user_id`, `actor_ref`, and its append-only audit log); it ratifies Personal Intelligence's existing, more mature opaque-reference design (`*_ref` + `*_ref_source` pointing at `mythos_os_core`); sequential integers would leak contributor count and permit enumeration once IDA-3 exposes `idauto_contributors` publicly; a string ID absorbs future federation (`google_auth.php` already exists) without a second migration; no central allocator is needed across separate schemas with no cross-schema FKs; UUIDv7 preserves index locality; and the prefix is free (native `uuid` was already precluded by live-column compatibility) while making bare `actor_ref` strings legible across five products.
+
+**MODEL** — three tables plus one convention: `mythos_users`, `mythos_organizations`, `mythos_memberships`, and an `actor_ref` format convention (not a table). **Deferred with stated reasons:** `identities`/provider (the load-bearing invariant is the ID format and resolver interface, both frozen; a credential table cannot be designed well with zero real auth requirements), sessions (no login flow exists anywhere), permission engine (a role comparison satisfies every known requirement).
+
+**BOUNDARY** — **shared internal module** (contract + thin resolution library). Not a service (zero deployed consumers; ID Auto's own API is still undeployed), not a shared server component (no shared server runtime exists). Promotion path to a service recorded with three explicit preconditions.
+
+**ROLES** — platform scope `mythos_super_admin` (or `NULL`); org scope `owner | admin | member | readonly`, copied **verbatim** from the live `idauto_user_roles` CHECK constraint. `actor_type` vocabulary (`system | contributor | professional_user | admin | anonymous`) adopted **verbatim** from the live `idauto_audit_log` constraint. Reusing deployed, already-constrained vocabularies costs nothing and avoids inventing a second one.
+
+**MIGRATION** — **no live migration required now.** `IDAUTO_ADMIN_IDENTITIES` keeps its mechanism; only its values become canonical `usr_` IDs, and `identity.js` is re-specified as an adapter (**behaviour unchanged in this stage**). `idauto_user_roles` and `idauto_contributors` need **no column change** and hold **0 rows**. `idauto_audit_log.actor_ref` needs no column change; its 358 rows are synthetic fixtures and **no historical audit rewrite is permitted**. Six **undeployed draft** locations align `BIGINT`/`BIGSERIAL` → `VARCHAR(64)`. One future **additive** live change is deferred: `mythos_org_ref VARCHAR(64)` on `idauto_organizations` (its `SERIAL` PK has real dependent FKs and must **not** be retyped).
+
+**Carve-out:** registry entries `document_id` and `media_id` (lines 647–648) are declared under `mythos_core` but are **storage**, not identity. They **remain `BIGSERIAL`**; a future storage stage owns that decision. The contract test must fail if they were swept into the identity change.
+
+### Evidence corrections recorded
+
+Two claims in the strategic review were overstated and are corrected in the decision document: `atn_network_memberships` models **organisation→network** membership, not user→org (Atelier's user reference is `atn_technicians.mythos_user_ref`); and **Personal Intelligence does not duplicate identity** — it is explicitly designed as a consuming projection with an authoritative-source discipline. The divergence is real; the duplication was overstated for those two tracks. Neither correction changes the decision — PI's design is the pattern being ratified.
+
+### Validation
+
+| Gate | Result |
+|---|---|
+| `git diff --check` | PASS (exit 0) |
+| `node scripts/project-intelligence.js validate` | PASS — 0 errors, 0 warnings |
+| `node tests/mpi-0-finalization-governance-test.js` | PASS — **36/36** |
+| `node tests/devx-0-development-acceleration-test.js` | PASS — **45/45** |
+| Secret scan (new document) | PASS — no matches |
+| Files changed outside `docs/` | **0** (verified against `projects/`, `js/`, `index.html`, `tests/`, `scripts/`) |
+| All 13 cited schema line numbers | Verified exact against the files |
+
+**Production state:** 25 containers, unchanged. `idauto-postgres` running/healthy, `RestartCount=0`. **Jellyfin untouched.** No deployment, no migration, no data mutation, no live schema change.
+
+### Blockers
+
+`IDA-2E` — now **re-scopable**: it was blocked on "no identity contract to integrate with," and that contract now exists. Its audit-identity half is satisfied; the remaining half depends on the deferred authentication stage. `INF-CF-2` (entry criteria) and `RES-1` (not authorised) unchanged.
+
+### Exact next action
+
+Run **`PROMPT_HAIKU_PRECHECK`** (strategic review §17.3), then **`PROMPT_SONNET_IMPLEMENTATION`** (§17.2) executing the implementation specification in `MYTHOS_IDENTITY_ARCHITECTURE.md` §8 — which supersedes the review's generic prompt scope with an exact 11-file list, 13 verified line numbers, a 12-point contract test, and a 10-step ordered sequence. **Step 1 is registering the `MYTHOS-IDENTITY-CORE-0` ledger entry as its own validated commit** — Stage Runner will return `UNKNOWN_STAGE` until then. Then **`PROMPT_HAIKU_POSTCHECK`** (§17.4).
+
+**Do not implement authentication, sessions, or permissions.** Do not execute any SQL. Do not modify `identity.js` behaviour or the live ID Auto schema.
+
+---
 
 ---
 
