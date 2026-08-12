@@ -1,8 +1,37 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** IDA-3F (off-host backup tooling merged; stage BLOCKED — no destination provisioned)
+**From:** IDA-3F (off-host backup tooling merged; stage **BLOCKED / DEFERRED** by owner decision)
 **To:** Next AI session
+
+---
+
+## OWNER DECISION — IDA-3F DEFERRED (2026-08-12)
+
+**Status: `BLOCKED / DEFERRED`.** The owner has intentionally postponed Cloudflare R2 provisioning and the completion of IDA-3F, because R2 activation requires billing/payment setup.
+
+This is a **scheduling decision, not a technical blocker**. The tooling is merged and verified offline (30/30 including AWS's published SigV4 vector), and the local verified backups are intact. Nothing is waiting on engineering.
+
+**Do not, without a new explicit authorisation:** create an R2 bucket · create API credentials · activate billing · configure `~/.config/mythos/idauto-offhost.env` · run a remote push · run remote restore verification · schedule backups · start IDA-3G.
+
+**Everything from the stage is preserved:** `projects/idauto/ops/offhost-backup.js`, `projects/idauto/ops/adapters/s3-compatible.js` and `tests/ida-3f-offhost-backup-test.js` remain on `main`, and all **nine** backup sets under `/home/deploy/backups/` (2.5 MB) are untouched — including the verified `CONSISTENT` pair captured during the local drill.
+
+### To resume IDA-3F
+
+1. Activate Cloudflare R2
+2. Create private bucket: `mythos-backups`
+3. Create least-privilege R2 credentials
+4. Store credentials locally in `~/.config/mythos/idauto-offhost.env`, mode 600
+5. Run off-host push
+6. Verify remote checksums
+7. Perform isolated restore drill
+8. **Close IDA-3F only after all verification succeeds**
+
+### Risk accepted while deferred
+
+All ID Auto backups still live on the same host as the data they protect, so **host or disk loss remains unmitigated**. That is acceptable only while the data is synthetic. §11 requires off-host backup **before the first stage that accepts real, non-admin evidence**, so IDA-3F must close before IDA-3H (authenticated pilot) or IDA-3I (public gate) — not merely before "public launch" in the abstract.
+
+`PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` remains **NO**. Remaining public blockers: **off-host backup (deferred)**, legal/consent review (IDA-3G), and real auth (IDA-2E).
 
 ---
 

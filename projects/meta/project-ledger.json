@@ -991,6 +991,34 @@
       "handover_commit": null,
       "completed_at": null,
       "partial": "Tooling delivered and merged (true fast-forward). The stage remains BLOCKED because no off-host copy exists: owner selected Cloudflare R2 but no bucket or token has been provisioned, so no transfer, no remote verification and no restore drill have been performed.",
+      "deferred": true,
+      "deferral": {
+        "decided_at": "2026-08-12",
+        "decided_by": "owner",
+        "reason": "Cloudflare R2 activation requires billing/payment setup, which the owner has chosen to postpone. This is a scheduling decision, not a technical blocker: the tooling is merged and verified offline, and the local backups remain intact.",
+        "status": "BLOCKED / DEFERRED",
+        "explicitly_not_done": [
+          "no R2 bucket created",
+          "no API credentials created",
+          "no billing activated",
+          "no ~/.config/mythos/idauto-offhost.env configured",
+          "no remote push",
+          "no remote restore verification",
+          "no scheduled backups",
+          "IDA-3G not started"
+        ],
+        "resume_steps": [
+          "1. Activate Cloudflare R2",
+          "2. Create private bucket: mythos-backups",
+          "3. Create least-privilege R2 credentials",
+          "4. Store credentials locally in ~/.config/mythos/idauto-offhost.env mode 600",
+          "5. Run off-host push",
+          "6. Verify remote checksums",
+          "7. Perform isolated restore drill",
+          "8. Close IDA-3F only after all verification succeeds"
+        ],
+        "risk_while_deferred": "All ID Auto backups remain on the same host as the data they protect, so host or disk loss remains unmitigated. Acceptable only while the data is synthetic; section 11 requires off-host backup before the first stage that accepts real non-admin evidence."
+      },
       "tests": {
         "ida-3f-offhost-backup": "30/30 offline (includes the AWS published SigV4 test vector)",
         "idauto-storage-ops": "72/72",
