@@ -758,19 +758,27 @@
       "track": "id-auto",
       "stage_id": "IDAUTO-STORAGE-OPS",
       "title": "ID Auto media backup, restore, integrity and recovery operations",
-      "status": "PLANNED",
+      "status": "DONE",
       "type": "INFRASTRUCTURE",
       "starting_head": "817661c886fd4791b8e52efead9648b71253fbe6",
-      "implementation_commit": null,
+      "implementation_commit": "a43a35a0464daf2936fbf9ca4baf9b3f001a0076",
       "merge_commit": null,
       "handover_commit": null,
-      "completed_at": null,
-      "tests": {},
+      "completed_at": "2026-08-12",
+      "tests": {
+        "idauto-storage-ops": "72/72",
+        "idauto-regression": "195/195 (2A 44, 2C 26, 2D 39, 2F 32, 2G 17, 2H 37)",
+        "devx-1-idauto-test-impact": "90/90",
+        "devx-0": "45/45",
+        "mpi-0-finalization-governance": "36/36",
+        "project-intelligence": "0 errors/0 warnings"
+      },
       "blockers": [],
       "next_stage": "IDA-3-DESIGN-GATE (NOT STARTED)",
       "evidence_paths": [
-        "docs/IDAUTO_TEST_RUNBOOK.md",
-        "projects/idauto/reference/storage.js"
+        "projects/idauto/ops/media-ops.js",
+        "docs/IDAUTO_STORAGE_RUNBOOK.md",
+        "tests/idauto-storage-ops-test.js"
       ]
     }
   ],

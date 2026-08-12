@@ -1,8 +1,108 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** DEVX-1 implementation (complete and pushed)
+**From:** IDAUTO-STORAGE-OPS implementation (complete and pushed)
 **To:** Next AI session
+
+---
+
+## IMPLEMENTATION — IDAUTO-STORAGE-OPS (2026-08-12) — COMPLETE
+
+**Type:** Operational resilience for the existing media store. **No IDA-3 work, no cloud migration, no schema change, no runtime API change, no auth, no public endpoint, nothing deployed, no subagents.**
+
+**Baseline:** `817661c886fd4791b8e52efead9648b71253fbe6` — `main`, clean, HEAD == origin/main, Git as `deploy`.
+**Metadata registration commit:** `252f150afdd3f14a7da8f97d3d38e444a5f25de9`
+**Implementation commit:** `a43a35a0464daf2936fbf9ca4baf9b3f001a0076`
+
+### Live media audit (before any tooling was written)
+
+| Measure | Value |
+|---|---|
+| Media objects on disk | **35** (1,004 bytes) |
+| `idauto_observation_media` rows | **68** |
+| Distinct `object_key` | **35** |
+| Shared objects | **15** — one object referenced by **16** rows, another by 6 |
+| Missing objects (row → no file) | **0** |
+| Orphans (file → no row) | **0** |
+| Hash mismatches / bad paths / zero-byte / size mismatches | **0** |
+| Object permissions | uniformly `640 deploy:deploy` |
+
+**All content is synthetic.** Objects are 23–30 bytes of ASCII text carrying `image/jpeg` / `image/png` MIME types — fixtures written by the IDA-2F/2H suites, not real images. They were nonetheless treated as valuable and fully backed up, per the "if you cannot prove it disposable, treat it as valuable" rule.
+
+### Consistency strategy — derived, not assumed
+
+`writes.js` calls `storage.store()` **before** the DB row commits, and its failure path deletes an object **only if no row references it**. Therefore a committed row's object is always already on disk and cannot vanish underneath a copy. The tool exports **DB metadata first** (`REPEATABLE READ READ ONLY`), then copies media. The reverse order would be unsafe — a row committing mid-copy could reference a file created after its directory was walked. The source is fingerprinted before *and* after the copy; if it changed, the manifest says `DEGRADED` rather than claiming consistency.
+
+### Backup created
+
+- **Path:** `/home/deploy/backups/idauto-media-backup-2026-08-12T10-07-59-066Z/`
+- **Permissions:** `700` directory, `600` files, `deploy:deploy`
+- **Contents:** 35 objects (1,004 bytes), 68 metadata rows, `manifest.json`, `checksums.sha256`, `metadata/observation-media.json`
+- **Consistency:** `CONSISTENT` — `source_changed_during_backup: false`, identical before/after fingerprints
+- **Verification:** `verify-backup` → **PASS**, 35/35 objects, 0 problems
+- **Credential scan:** manifest, checksums and metadata export all clean (metadata carries only object-reference columns)
+
+### Restore test (isolated — live store never touched)
+
+Destination `/home/deploy/restore-test/idauto-media-20260812`:
+
+- Dry-run reported 35 would-create and **created no directory at all**
+- Real restore: 35 created, 35 verified back, exit 0
+- **All 35 files byte-identical and path-identical to live source** (independent `sha256sum` comparison)
+- Nested `aa/bb/<hash>` layout preserved; restored files `640`
+- Re-run skipped all 35 as identical — idempotent, no duplication
+- After corrupting one restored file, restore **refused with exit 3** and did **not** overwrite it
+- Restoring from a tampered backup was refused; nothing was written
+- Refused the live media store, a path nested inside it, and `/home/deploy` — all exit 3
+
+### Integrity findings
+
+Final audit after all regression runs: **CLEAN** (0 critical). Two benign observations recorded in the runbook §12, both deliberately **not** fixed:
+
+1. **16 empty directories** in the live store — `removeUnconditionally()` unlinks files without pruning parents. Fixing this would introduce a race: pruning in the delete path can remove a directory between `mkdir` and `writeFileSync` in a concurrent `store()`. Content-addressed stores conventionally leave directories in place. Backups intentionally do not reproduce empty directories.
+2. **Directory mode drift** — subdirectories are a mix of `755`/`775` (both `deploy:deploy`). The store root is `750` so nothing outside `deploy` can traverse; object files are consistently `640`. Cosmetic.
+
+### No live mutation — proof
+
+Every object present at backup time was re-checked afterwards: **0 missing, 0 altered**. The store grew 35→38 objects and 68→73 rows purely because the IDA-2F/2H regression suites append their own synthetic fixtures — expected and documented. `media-ops.js` has **no delete command at all** and issues no data-modifying SQL (both asserted by the suite).
+
+### Tests
+
+| Suite | Result |
+|---|---|
+| `idauto-storage-ops` (new) | **72/72** |
+| ID Auto regression (selected by DEVX-1, no fallback) | **195/195** (2A 44 · 2C 26 · 2D 39 · 2F 32 · 2G 17 · 2H 37) |
+| `devx-1-idauto-test-impact` | **92/92** (grew from 90 — it auto-validated the new `projects/idauto/ops/` rule and its ordering) |
+| `devx-0` · governance · project-intelligence | 45/45 · 36/36 · 0 errors/0 warnings |
+| `git diff --check`, JS syntax, JSON validity, secret scan | PASS |
+
+DEVX-1 selected the six ID Auto suites automatically with `usedFallback: false` — the mapping added in the previous stage did its job on its first real use.
+
+### Files changed
+
+4: `projects/idauto/ops/media-ops.js` (new), `docs/IDAUTO_STORAGE_RUNBOOK.md` (new), `tests/idauto-storage-ops-test.js` (new), `projects/meta/test-impact-map.json` (one new `projects/idauto/ops/` rule). **No backup data was committed to git.** No runtime file, schema, or credential changed.
+
+### Production state
+
+25 containers unchanged. `idauto-postgres` healthy, `RestartCount=0`. **Jellyfin untouched.** No container created. No credential, DB config, deployment env, or ownership changed.
+
+**Noted, not a blocker:** swap sat at 1.6 GiB/2 GiB during this stage, but `vmstat` showed `si/so = 0` — stale pages, no active paging, 5.5 GiB RAM available, 0 OOM events. The top swap holders are the two uncapped MySQL containers already flagged as the main residual risk in `VPS_MEMORY_BUDGET_PLAN_2026-08-10.md`.
+
+### Retention recommendation (for IDA-3)
+
+Today's media is disposable synthetic fixtures. Once IDA-3 accepts community capture it becomes non-disposable, possibly legally relevant evidence. Recommended then: **daily** backups plus one before any schema/storage/deployment change; PostgreSQL dump taken immediately after each media backup and the pair recorded; retention 7 daily / 4 weekly / 3 monthly, pruned only after verifying a newer backup; `verify-backup` on every generation and a monthly restore drill.
+
+**Largest remaining gap: both backup sets live on the same host as the data they protect.** That covers accidental deletion and corruption but **not** host or disk loss. Off-host copies should be resolved before IDA-3 stores real evidence.
+
+### Deferred
+
+Automated backup scheduling (deliberately not scheduled — no approved scheduling mechanism exists for it, and an unattended job touching production storage warrants its own authorised change). Orphan cleanup (no delete command exists by design). Off-host backup replication. Empty-directory pruning (rejected on race-safety grounds).
+
+### Next stage
+
+**`IDA-3-DESIGN-GATE`** — design-only prerequisites for public/community capture (`MYTHOS_STRATEGIC_EXECUTION_REVIEW_2026-08-11.md` §8). Media durability and the identity contract are both now in place. **Do not implement a public endpoint.**
+
+---
 
 ---
 

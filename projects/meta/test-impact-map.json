@@ -211,6 +211,17 @@
       "notes": "Schema underpins every DB-backed suite. The identity-core contract suite asserts live ID Auto identity column types and the untouched SERIAL primary key."
     },
     {
+      "path_prefix": "projects/idauto/ops/",
+      "track": "id-auto",
+      "targeted_tests": [
+        "node tests/idauto-storage-ops-test.js",
+        "node tests/ida-2f-object-storage-test.js",
+        "node tests/ida-2h-review-queue-ui-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "Operator tooling over the media store. Selects its own suite plus the two suites that exercise storage (IDA-2F, and IDA-2H via api.js -> storage.js). Must stay ABOVE the general projects/idauto/ rule."
+    },
+    {
       "path_prefix": "projects/idauto/",
       "track": "mythos-idauto",
       "targeted_tests": [
