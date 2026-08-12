@@ -535,6 +535,26 @@
       ]
     },
     {
+      "track": "mythos-personal-intelligence",
+      "stage_id": "MPI-1",
+      "title": "Context Assembler + Context Compiler runtime — provider-neutral ContextPackage",
+      "status": "IN_PROGRESS",
+      "type": "RUNTIME",
+      "starting_head": "126ce46335fee291c8639c1637ae5d7b53886cdf",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "MPI-2 (Personal Learning & Memory Engine, runtime persistent, NOT STARTED, separate authorisation)",
+      "evidence_paths": [
+        "projects/personal-intelligence/reference/context-assembler.js",
+        "projects/personal-intelligence/reference/context-compiler.js",
+        "docs/MYTHOS_CONTEXT_ARCHITECTURE.md"
+      ]
+    },
+    {
       "track": "mythos-research-intelligence",
       "stage_id": "RES-0",
       "title": "Research Intelligence free-first foundation",
