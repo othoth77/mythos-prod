@@ -964,8 +964,9 @@
         "note": "all re-run against the post-merge tree; merge was a true fast-forward"
       },
       "blockers": [],
-      "open_items": [
-        "LEGACY_FACT_BACKFILL: 8 submission-linked facts created before the gate landed (18:11-19:29 UTC, gate at 19:54) remain pending_review + public. They are synthetic fixtures from earlier IDA-3B/3C/3D runs and nothing is exposed today, but the invariant holds only for rows created after the fix unless they are backfilled. A backfill is an UPDATE on live rows, i.e. a data mutation beyond ordinary fixture writes, so it awaits owner authorisation."
+      "open_items": [],
+      "resolutions": [
+        "LEGACY_FACT_BACKFILL (resolved 2026-08-12, owner-authorised): the 8 submission-linked facts created before the gate (18:11-19:29 UTC, gate at 19:54) were pending_review + public. A scoped single-statement UPDATE inside a guarded transaction set access_scope=mythos_private for submission-linked facts whose verification_status is not verified. Exactly 8 rows changed; verification_status untouched; the 55 unrelated unverified+public admin facts and all 3 verified+public facts were left intact by the EXISTS join. Pre-remediation backup idauto-pre-ida3e-backfill.dump, pg_restore verified, sha256 692b5653. Candidate count is now 0 and no submission-linked fact is unreviewed-and-public."
       ],
       "decisions": [
         "OWNER_DECISION_C (2026-08-12): community facts ingest as mythos_private; accept sets verification_status=verified AND access_scope=public; reject sets rejected and leaves the scope private. Non-admin read queries are unchanged. Recorded in IDA3_INGESTION_ARCHITECTURE.md section 14.2.",

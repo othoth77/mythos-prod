@@ -1,8 +1,65 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** IDA-3E (admin review queue; the unreviewed-fact visibility risk is closed)
+**From:** IDA-3E-BACKFILL (owner-authorised legacy fact remediation; visibility invariant now holds for all rows)
 **To:** Next AI session
+
+---
+
+## REMEDIATION — IDA-3E LEGACY FACT BACKFILL (2026-08-12) — COMPLETE
+
+**Type:** Narrowly scoped **Level-3 live-data remediation**, explicitly owner-authorised. **No schema change, no code change, no deployment, no DNS, no proxy, no firewall, no Docker or Coolify change, Jellyfin untouched, nothing deleted.**
+
+**Starting HEAD:** `0dcac9823c36f15e04b9982f8be877c45d79d046`
+
+### Why
+
+IDA-3E closed the unreviewed-fact visibility risk for every row created after its gate, but eight submission-linked facts written *before* the gate remained `pending_review + public`. The mechanism was already correct; only the historical rows were not. This remediation brings them into line so the invariant holds for **all** rows, not just new ones.
+
+### Safety gate
+
+`/home/deploy/backups/idauto-postgres-20260812-ida3e-backfill/idauto-pre-ida3e-backfill.dump` — `pg_dump --format=custom`, 189,655 bytes, directory `700 root:root`, file `600`.
+`pg_restore --list` exit 0, **281** TOC entries, all **24** tables present.
+SHA-256 `692b56538423bda5ed9255db0cdb2c3149ea623746b85fb7f06a0c840fd5d8d5`.
+
+Candidate evidence was gathered as aggregates only — count, status and scope distributions, and timestamp range — never fact values. The count was **exactly 8**, all `pending_review + public`, spanning 18:11:29–19:29:36 UTC, entirely before the 19:54:07 gate commit.
+
+### The change
+
+One statement, inside a transaction, guarded:
+
+```sql
+UPDATE idauto_vehicle_facts f
+   SET access_scope = 'mythos_private'
+ WHERE f.access_scope = 'public'
+   AND f.verification_status <> 'verified'
+   AND EXISTS (SELECT 1 FROM idauto_observations o
+                 JOIN idauto_submissions s ON s.observation_id = o.id
+                WHERE o.id = f.observation_id)
+```
+
+`verification_status` was **not** touched. The `EXISTS` join — not timestamps — is what scoped the change: it is why **55 unrelated `unverified + public` admin facts were left untouched**, which a naive `verification_status <> 'verified' AND access_scope = 'public'` predicate would have wrongly swept up. A `DO` block aborted the transaction unless exactly 8 rows changed, all landed `mythos_private`, and none were `verified`. `RETURNING` surfaced only ids, observation ids, status and scope.
+
+### Verification
+
+| Control | Before | After |
+|---|---|---|
+| facts total | 147 | **147** |
+| verified facts | 3 | **3** |
+| verified + public | 3 | **3** |
+| observations | 275 | **275** |
+| submissions | 91 | **91** |
+| audit rows | 992 | **992** |
+| media rows | 146 | **146** |
+| idauto tables | 24 | **24** |
+
+Fact matrix moved exactly as intended and nowhere else: `pending_review + public` **8 → 0**, `pending_review + mythos_private` **2 → 10**; `rejected + mythos_private` 2, `unverified + mythos_private` 77, `unverified + public` 55 and `verified + public` 3 all unchanged.
+
+Candidate count is now **0**. Every submission-linked fact is `pending_review`/`rejected` → `mythos_private` or `verified` → `public`. No observation, submission, audit or media row changed; nothing was deleted. Media integrity **CLEAN** and byte-identical (66 objects, 1864 bytes, 146 rows, 26 shared). `idauto-postgres` healthy, `RestartCount=0`. Jellyfin untouched.
+
+### Next stage
+
+**`IDA-3F` — off-host backup (§11)**, not started and requiring its own authorisation. `PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` remains **NO**.
 
 ---
 
@@ -55,11 +112,9 @@ The delivered suite ingested community facts against freshly generated plate num
 
 This is now a standing pattern worth planning for: **the worker sandbox returns `EPERM` for both `connect` and `listen`**, so Codex verified 30 socket-free cases and could execute no live case at all. Every route-or-database stage so far (3D and 3E) has surfaced exactly one runtime defect at integration time. Budget for it.
 
-### OPEN ITEM — legacy rows are not backfilled (owner decision required)
+### RESOLVED — legacy rows backfilled (owner-authorised, 2026-08-12)
 
-Eight submission-linked facts created **before** the gate landed remain `pending_review + public`. Their timestamps (18:11–19:29 UTC) all precede the fix commit (19:54 UTC), and every fact created after it obeys the new rule, so the mechanism is correct — these are synthetic fixtures from earlier IDA-3B/3C/3D runs.
-
-Nothing is exposed today (there is no public read surface), but **the invariant holds only for rows created after the fix unless these are backfilled**. A backfill is an `UPDATE` on existing live rows — a data mutation beyond ordinary fixture writes — so it was **not** performed and awaits explicit authorisation. The remediation is a single scoped statement setting `access_scope='mythos_private'` for submission-linked facts whose `verification_status` is not `verified`.
+Eight submission-linked facts created **before** the gate landed were `pending_review + public`. Their timestamps (18:11–19:29 UTC) all preceded the fix commit (19:54 UTC), and every fact created after it obeyed the new rule, so the mechanism was correct and these were synthetic fixtures from earlier IDA-3B/3C/3D runs. They were left in place pending authorisation, which the owner then granted as a narrowly scoped Level-3 remediation. **See the dedicated entry below for the full record.**
 
 ### Noted, not changed
 
