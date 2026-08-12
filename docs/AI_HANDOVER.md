@@ -1,8 +1,73 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** IDA-3D (private admin-only ingestion route — first HTTP surface, not publicly routed)
+**From:** IDA-3E (admin review queue; the unreviewed-fact visibility risk is closed)
 **To:** Next AI session
+
+---
+
+## IMPLEMENTATION — IDA-3E ADMIN REVIEW QUEUE (2026-08-12) — COMPLETE
+
+**Type:** Runtime module. **No schema change, no public route, nothing deployed, no DNS, no reverse proxy, no firewall, no Docker or Coolify change, Jellyfin untouched, no history rewrite, no force-push.**
+
+**Starting HEAD:** `14ece4939d13423ba0fa8edf35f1f1153a989f06`
+**Metadata + decision commit:** `516b7cd1b0cc8b3e07262ad16b19016123af6dfb`
+**Codex implementation commit:** `974ffa8bcc01448102e10d5508183e58467f5a46`
+**Merge:** `a76cc2f48a212bc3f73e25e50fe5ebfb9888247d` — **true fast-forward**, single parent
+
+### The forward risk carried since IDA-3B is closed
+
+Under owner decision **§14.2**, community facts now ingest as `mythos_private`, acceptance sets `verification_status='verified'` **and** promotes `access_scope='public'`, and rejection sets `'rejected'` while leaving the scope private. **Non-admin read queries are unchanged**, exactly as §6 requires — a claim is safe because of what the row *is*, not because a query remembered to exclude it. The whole enforcement is one word in `ingestion.js`: `'public'` → `'mythos_private'`.
+
+Proven live, not merely inspected:
+
+| Case | Result |
+|---|---|
+| Ingest a community fact, read `GET /api/vehicles/:ref/facts` | **absent** while `pending_review` |
+| Accept it, read again | **present** — `verified` + `public` |
+| Ingest another, reject it, read again | **absent** — `rejected`, scope still private |
+
+### What shipped
+
+`writes.js` gains `reviewFact(factId, decision, identity)` beside `reviewObservation`, following that primitive exactly — `withAudit`, `SELECT … FOR UPDATE`, same error style. Accept → `verified` + `public`; reject → `rejected` with scope untouched; unknown decision → 400; missing → 404. Repeating the same decision is a **no-op with `skipAudit`**, so no phantom audit row. The opposite decision on a finalised fact is **409, fail closed** — reopening is undefined by the architecture and was not invented. A `conflict` fact is not a reviewable starting state here and yields 409; its `is_active` supersession remains an explicit admin decision for a later stage.
+
+`api.js` gains exactly three private admin routes behind the existing `requireAuth` gate:
+
+```
+GET  /api/review/submissions          queue with provenance and fact/media counts
+GET  /api/review/submissions/:id      detail
+POST /api/review/facts/:id/decision   accept | reject
+```
+
+There is deliberately **no submission-level decision route**: the submission row's own status already means "accepted for processing", and reusing it for review state would conflate two lifecycles. Observation decisions continue to use the existing IDA-2H route and `writes.reviewObservation` — not duplicated, not re-routed.
+
+Per §6 the detail route **includes `mythos_private` facts and media metadata**, because a reviewer cannot judge evidence they cannot see. This is why IDA-3E has its own surface: the IDA-2H detail route filters `mythos_private` out and its suite asserts that, so rather than change a tested security-relevant behaviour of a completed stage, IDA-3E added its own view and left IDA-2H untouched. IDA-2H remains 37/37.
+
+### Verification
+
+`ida-3e-review-queue` **48/48** live (30/30 static-only) · `ida-3d` 73/73 · `ida-3c` 63/63 · `ida-3b` 67/67 · `ida-2h` 37/37 · `ida-2a` 44/44 · `ida-2c` 26/26 · `ida-2d` 39/39 · `ida-2f` 32/32 · `ida-2g` 17/17 · `identity-core` 124/124 · orchestrator 156/156 · governance 36/36 · DEVX-0 45/45 · DEVX-1 92/92 · project-intelligence 0 errors · `git diff --check` clean · media audit **CLEAN** (66 objects, 146 rows, 26 shared, all eight defect classes zero). **Every suite re-run against the post-merge tree.**
+
+Confirmed on the live database: still **24** tables, no DDL. Facts created after the gate landed are `pending_review + mythos_private`, `rejected + mythos_private`, or `verified + public` — never unreviewed-and-public. All 126 pre-IDA-3A observations present, `capture_sources` still 7, and rejected submissions, observations and facts all **retained** with their links intact. Review deletes nothing and rewrites no content-addressed key.
+
+### Two runtime defects the sandbox could not catch
+
+The delivered suite ingested community facts against freshly generated plate numbers that no vehicle owned. Ingestion refuses that by design (`IDA_FACT_LINK` — a fact requires an existing vehicle-linked plate), so the first live case failed and the run aborted. Fixed in `a76cc2f` by seeding a vehicle and plate per fixture, exactly as the IDA-3B suite does.
+
+This is now a standing pattern worth planning for: **the worker sandbox returns `EPERM` for both `connect` and `listen`**, so Codex verified 30 socket-free cases and could execute no live case at all. Every route-or-database stage so far (3D and 3E) has surfaced exactly one runtime defect at integration time. Budget for it.
+
+### OPEN ITEM — legacy rows are not backfilled (owner decision required)
+
+Eight submission-linked facts created **before** the gate landed remain `pending_review + public`. Their timestamps (18:11–19:29 UTC) all precede the fix commit (19:54 UTC), and every fact created after it obeys the new rule, so the mechanism is correct — these are synthetic fixtures from earlier IDA-3B/3C/3D runs.
+
+Nothing is exposed today (there is no public read surface), but **the invariant holds only for rows created after the fix unless these are backfilled**. A backfill is an `UPDATE` on existing live rows — a data mutation beyond ordinary fixture writes — so it was **not** performed and awaits explicit authorisation. The remediation is a single scoped statement setting `access_scope='mythos_private'` for submission-linked facts whose `verification_status` is not `verified`.
+
+### Noted, not changed
+
+`object_key` and `image_hash` are the **same value** by construction (content-addressed storage), and the pre-existing `getObservationMedia` route already returns `image_hash`. Excluding one while exposing the other is a distinction without a difference. IDA-3E's detail route mirrors the established convention rather than diverging from it; revisiting this would change completed IDA-2C/2F behaviour and belongs to whichever stage introduces public media serving.
+
+### Next stage
+
+**`IDA-3F` — off-host backup (§11).** `PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` remains **NO**: off-host backup, legal/consent review (IDA-3G) and real auth are all still outstanding. The fact-visibility blocker that gated public exposure is now resolved.
 
 ---
 

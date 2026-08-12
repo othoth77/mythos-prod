@@ -941,15 +941,32 @@
       "track": "id-auto",
       "stage_id": "IDA-3E",
       "title": "Admin review queue for ingested submissions — closes the unreviewed-fact visibility risk",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "type": "RUNTIME",
       "starting_head": "14ece4939d13423ba0fa8edf35f1f1153a989f06",
-      "implementation_commit": null,
-      "merge_commit": null,
+      "implementation_commit": "974ffa8bcc01448102e10d5508183e58467f5a46",
+      "merge_commit": "a76cc2f48a212bc3f73e25e50fe5ebfb9888247d",
       "handover_commit": null,
-      "completed_at": null,
-      "tests": {},
+      "completed_at": "2026-08-12",
+      "tests": {
+        "ida-3e-review-queue": "48/48 live (30/30 static-only)",
+        "ida-3d-private-ingest-route": "73/73",
+        "ida-3c-rate-limit": "63/63",
+        "ida-3b-ingestion-service": "67/67",
+        "ida-2h-review-queue-ui": "37/37",
+        "ida-2a-schema-and-plate-validation": "44/44",
+        "ida-2c-readonly-api": "26/26",
+        "ida-2d-write-api-and-audit": "39/39",
+        "ida-2f-object-storage": "32/32",
+        "ida-2g-admin-manual-entry-ui": "17/17",
+        "mythos-identity-core-0-contract": "124/124",
+        "media-integrity-audit": "CLEAN",
+        "note": "all re-run against the post-merge tree; merge was a true fast-forward"
+      },
       "blockers": [],
+      "open_items": [
+        "LEGACY_FACT_BACKFILL: 8 submission-linked facts created before the gate landed (18:11-19:29 UTC, gate at 19:54) remain pending_review + public. They are synthetic fixtures from earlier IDA-3B/3C/3D runs and nothing is exposed today, but the invariant holds only for rows created after the fix unless they are backfilled. A backfill is an UPDATE on live rows, i.e. a data mutation beyond ordinary fixture writes, so it awaits owner authorisation."
+      ],
       "decisions": [
         "OWNER_DECISION_C (2026-08-12): community facts ingest as mythos_private; accept sets verification_status=verified AND access_scope=public; reject sets rejected and leaves the scope private. Non-admin read queries are unchanged. Recorded in IDA3_INGESTION_ARCHITECTURE.md section 14.2.",
         "ADMIN_VISIBILITY (2026-08-12): section 6 requires reviewers to see mythos_private evidence, but the IDA-2H review-detail route filters it out and its suite asserts that. IDA-3E adds its own review surface showing full provenance and leaves IDA-2H untouched, reusing writes.reviewObservation for observation decisions."
