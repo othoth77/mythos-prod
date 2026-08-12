@@ -780,6 +780,26 @@
         "docs/IDAUTO_STORAGE_RUNBOOK.md",
         "tests/idauto-storage-ops-test.js"
       ]
+    },
+    {
+      "track": "id-auto",
+      "stage_id": "IDA-3-DESIGN-GATE",
+      "title": "IDA-3 public/community ingestion — architecture and safety design gate",
+      "status": "PLANNED",
+      "type": "DOCUMENTATION",
+      "starting_head": "c6aef86071358d67583a60b9a63bfa2898fc15c5",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "IDA-3A (NOT STARTED)",
+      "evidence_paths": [
+        "docs/IDAUTO_ARCHITECTURE.md",
+        "docs/MYTHOS_IDENTITY_ARCHITECTURE.md",
+        "docs/IDAUTO_STORAGE_RUNBOOK.md"
+      ]
     }
   ],
   "commits": [
