@@ -1,8 +1,91 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-11 UTC
-**From:** Stage IDA-2-PHASE-B-DEEP-AUDIT-0 (complete and pushed)
+**From:** MYTHOS-STRATEGIC-EXECUTION-REVIEW-2026-08-11 (complete and pushed)
 **To:** Next AI session
+
+---
+
+## STRATEGIC REVIEW — MYTHOS_STRATEGIC_EXECUTION_REVIEW_2026-08-11
+
+**Type:** Portfolio architecture and execution review. Analysis and planning only. **No major runtime stage was implemented, no deployment, no production mutation, no public endpoint, no Identity implementation, no IDA-3 implementation, no subagents.**
+
+**Baseline:** `c3e9f452a3be4432e8f609d88f9fdf74a7e3ee4f` — branch `main`, clean worktree, local HEAD == `origin/main`, all Git operations as `deploy`.
+
+**Full review:** [`docs/MYTHOS_STRATEGIC_EXECUTION_REVIEW_2026-08-11.md`](MYTHOS_STRATEGIC_EXECUTION_REVIEW_2026-08-11.md)
+
+**Strategic review commit:** `f2335109e41358ada0d5b773a8e5ab3c92946c3f`
+**Handover commit:** recorded below after push.
+
+### Critical bottleneck (verified, not inferred)
+
+Mythos is not blocked on effort, quality, or tooling — it is blocked on **one missing contract: platform identity**.
+
+- **Five tracks independently built parallel org/user/role/session tables**: `idauto_organizations`/`idauto_user_roles`; `pi_organisations`/`pi_users`/`pi_sessions`/`pi_user_domain_access`; `atn_workshop_organizations`/`atn_network_memberships`; `mythos_automotive_organizations`; AutoValeur references. **Every one references a `mythos_core` schema that does not exist anywhere in the repository.**
+- **A committed cross-product contract violation already exists.** The Automotive canonical identifier registry (`projects/automotive/database/control-plane-schema.sql`) formally declares `mythos_user_id` and `organization_id` as `BIGSERIAL`, cross-product, "Platform identity". Atelier Network and Automotive conform (`BIGINT`). **ID Auto — the only track with a live deployed schema — implements `VARCHAR(64)`.** Verified directly against live `idauto-postgres`: `idauto_contributors.mythos_user_id`, `idauto_user_roles.mythos_user_id`, `idauto_audit_log.actor_ref` are all `character varying(64)`.
+- **`IDA-2E` is the only BLOCKED stage across all 31 registered stages**, blocker: "No real Mythos OS identity/auth service exists to integrate with."
+- **The migration window is open now and closes at IDA-3.** Live row counts: `idauto_contributors` **0**, `idauto_user_roles` **0**, `idauto_organizations` **1**. No real identity data exists anywhere in Mythos, so the contract can be settled today at near-zero cost. After IDA-3 public/community capture, contributors become real accounts with trust scores and immutable audit attribution, and the same decision becomes a live migration plus an append-only audit-history problem.
+
+### Chosen next stage
+
+**`NEXT_STAGE = MYTHOS-IDENTITY-CORE-0` — design and contract freeze ONLY. Not an auth-service build.**
+
+Scope: canonical identity type decision; minimum viable user/organisation/membership/role/actor model; canonical-registry correction; alignment of the four **undeployed** draft schemas; adapter interface spec for `identity.js`; contract-consistency tests.
+
+Explicit non-scope: no auth service, login, sessions, tokens, or permission engine; no live migration; no deployment; no change to any running service; no IDA-3; no MPI-1; no change to `identity.js` live behaviour.
+
+Risk lane: **STANDARD** (draft/undeployed schema authoring), not HIGH_RISK. Production impact: **none**.
+
+**Ledger status:** `MYTHOS-IDENTITY-CORE-0` is **NOT yet registered**. Canonical metadata is proposed in the review §14 but was deliberately **not registered** by this review. The implementing session must register it as its own validated commit before Stage Runner will resolve it.
+
+### Model assignments
+
+| Role | Model | Work |
+|---|---|---|
+| **ARCHITECT** | **OPUS** | Resolve `VARCHAR(64)` vs `BIGSERIAL`; decide minimum model, module-vs-service, role vocabulary, migration path. Two defensible answers exist with real migration consequences — this is the decision that needs Opus. |
+| **IMPLEMENTER** | **SONNET** | Contract doc, draft schema, registry correction, draft-schema alignment, adapter spec, tests, ledger + handover. |
+| **VERIFIER** | **HAIKU** | Post-check: expected files, tests, docs, ledger, no unexpected scope, no stale labels, no secret exposure, production unchanged. |
+| **SUPPORT** | **HAIKU** | Pre-check inventory before Sonnet starts (identity references, type-conflict table, ledger↔handover consistency, test-impact-map gaps) to cut Sonnet's discovery cost. |
+
+Four ready-to-run prompts (`PROMPT_OPUS_REVIEW`, `PROMPT_SONNET_IMPLEMENTATION`, `PROMPT_HAIKU_PRECHECK`, `PROMPT_HAIKU_POSTCHECK`) are in the review §17.
+
+### Recommended sequence (BALANCED roadmap)
+
+1. `MYTHOS-IDENTITY-CORE-0` (design/contract) → 2. `IDAUTO-STORAGE-OPS` → 3. `MPI-1` vertical slice → 4. `IDAUTO-DEPLOY-0` (private, HIGH_RISK, owner approval) → 5. `IDA-3-DESIGN-GATE` (design only).
+
+### Governance correction applied (the one authorised factual fix)
+
+`projects/meta/current-context.json` was **regenerated** via its own generator (`node scripts/mythos-stage.js context`), not hand-edited. It was ~20 commits stale (`main_head` `bf95988` vs actual `c3e9f45`) and — the material defect — reported **`known_blockers: []`** while `IDA-2E` was BLOCKED in the ledger, hiding the ecosystem's only blocker from every downstream planning consumer. It now correctly reports `["IDA-2E: No real Mythos OS identity/auth service exists to integrate with"]`.
+
+**Observation, deliberately NOT changed:** `last_completed_stage` resolves to `IDA-2B` because several stages share completion date `2026-08-11` and the generator breaks ties arbitrarily — a minor generator imprecision, not a data error. Recorded for `DEVX-1`.
+
+**Deliberately NOT changed (assigned, not silently fixed):** `projects/meta/test-impact-map.json` still declares `projects/idauto/` as *"Draft (undeployed) schema only"* with `targeted_tests: []`, despite **195 live assertions across 6 ID Auto suites**. An ID Auto change would currently run **zero** targeted tests. This is a **P0 test-safety hole**, but changing it alters Stage Runner behaviour (a policy decision), so it requires its own authorised stage. The Sonnet prompt compensates by naming the ID Auto suites explicitly.
+
+### Validation results
+
+| Gate | Result |
+|---|---|
+| `git diff --check` | PASS (exit 0) |
+| `node scripts/project-intelligence.js validate` | PASS — 0 errors, 0 warnings (20 skills, 21 tracks, 31 stages) |
+| `node tests/mpi-0-finalization-governance-test.js` | PASS — **36/36** |
+| `node tests/devx-0-development-acceleration-test.js` | PASS — **45/45** |
+| `mythos-stage.js validate` (all registered) | PASS — **31/31** |
+| Secret scan (both changed files) | PASS — no matches |
+| Runtime/production change | **NONE** |
+
+### Production state at review close
+
+25 containers running. `idauto-postgres` running/healthy, `RestartCount=0`, memory cap unchanged (402653184 = 384 MiB). **Jellyfin untouched** (running, `RestartCount=0`, unchanged start time). ID Auto API/UI remain **undeployed** — no container, no systemd unit, no port-3001 listener. No deployment, no migration, no data mutation of any kind.
+
+### Blockers
+
+- `IDA-2E` — BLOCKED (the subject of the chosen next stage).
+- `INF-CF-2` — blocked on entry criteria (unchanged).
+- `RES-1` — not authorised (unchanged).
+
+### Exact next action
+
+Run `PROMPT_OPUS_REVIEW` (review §17.1) to obtain and record the canonical identity-type decision. Then register the `MYTHOS-IDENTITY-CORE-0` ledger entry as its own validated commit, then run `PROMPT_HAIKU_PRECHECK`, then `PROMPT_SONNET_IMPLEMENTATION`, then `PROMPT_HAIKU_POSTCHECK`. **Do not begin implementation before the Opus contract decision is recorded** — the decision is the stage's actual content.
 
 ---
 
