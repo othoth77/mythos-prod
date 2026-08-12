@@ -392,6 +392,22 @@ A saga was rejected: it needs compensating actions, and step 3 is already idempo
 
 Retries are always safe because `Idempotency-Key` is required.
 
+### 14.1 Owner decisions — IDA-3C rate-limit semantics (decided 2026-08-12)
+
+Implementing IDA-3C surfaced two questions this document did not settle. Both were escalated to the owner rather than guessed, and both are now **binding**. The original section text above is left unchanged so the record of what was ambiguous survives.
+
+**Decision A — a rate-limited request writes an audit event and nothing else.** No `idauto_submissions` row, no observation, no fact, no media row.
+
+This resolves a three-way conflict: §7 said `submissions.status='rejected'` (implying a row), §14 says `Partial data: None` (implying no rows), and §13 runs the rate-limit check at step 1, *before* the submission is inserted at step 2, leaving no row to mark. The decision follows §14 and §13, because writing a durable row for every rejected request is itself a denial-of-service amplification vector — an attacker would force unbounded table growth precisely by exceeding the limit, defeating the control. Forensics are preserved without it: the counter row's `bucket_key` is the SHA-256 of the actor or `ip_hash` dimension, so the abusive bucket remains identifiable, and §15 already sources "rate-limit hits" from `idauto_rate_limit_counters` plus audit events rather than from submissions.
+
+Where §7 says `submissions.status='rejected'`, read it as describing a submission rejected *after* its envelope exists, not the rate-limited case.
+
+**Decision B — idempotency is resolved before the rate-limit check; a replay consumes no quota.** A request whose `idempotency_key` is already present returns the original result and is never counted or rejected.
+
+This document never stated the order. §13 lists rate-limiting at step 1 and the submission anchor at step 2, which would consume quota on replays; but §14 states that retries are always safe because `Idempotency-Key` is required, and instructs clients to retry after `Retry-After`. Those cannot both hold: an anonymous submitter limited to 3/minute would exhaust its entire allowance retrying a single timed-out submission. The decision makes §14's guarantee true. The cost is one indexed lookup on a `UNIQUE` column ahead of the limiter; a caller replaying a valid key can fetch a cached result without being limited, which is bounded work that creates nothing.
+
+Consequently the enforced order is: **validate → server-derived actor and source identity → idempotency resolution → rate-limit decision → permitted submission flow.**
+
 ---
 
 ## 15. Observability
