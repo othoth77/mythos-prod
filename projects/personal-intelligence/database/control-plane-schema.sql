@@ -24,6 +24,15 @@
 --   - No raw personal-data column. Every user/organisation-facing identifier
 --     is an opaque reference (user_ref, organisation_ref, actor_ref), never a
 --     name, email, or phone number — see docs/MYTHOS_AI_MULTI_TENANCY.md §6.
+--   - CANONICAL IDENTITY CONTRACT (MYTHOS-IDENTITY-CORE-0): the VARCHAR(64)
+--     opaque-reference discipline already used throughout this schema is the
+--     ratified platform standard — see docs/MYTHOS_IDENTITY_ARCHITECTURE.md.
+--     Values sourced from Mythos identity core take the canonical prefixed
+--     form usr_<uuidv7> / org_<uuidv7>. The *_ref + *_ref_source pairing is
+--     retained deliberately: it records WHICH system a reference came from,
+--     which is what makes later federation possible. pi_user_domain_access
+--     .role_ref remains a POINTER to the authoritative role record — this
+--     schema must never duplicate role/authorisation logic locally.
 --   - organization_id and domain_id are present on every row that is
 --     organisation- or domain-scoped, enforcing the isolation rules in
 --     docs/MYTHOS_AI_MULTI_TENANCY.md at the schema level, not only in the

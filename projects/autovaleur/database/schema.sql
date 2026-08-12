@@ -146,7 +146,7 @@ CREATE TABLE autovaleur_valuations (
     -- caller / requester
     requester_type              VARCHAR(50) NOT NULL,
     -- requester_type: public / professional / mythos_admin
-    requester_ref               BIGINT,
+    requester_ref               VARCHAR(64),
     -- reference to mythos_core user or org, NULL for anonymous public
     -- id auto reference
     idauto_vehicle_id           BIGINT,
@@ -428,7 +428,7 @@ CREATE TABLE autovaleur_transactions (
 CREATE TABLE autovaleur_audit_events (
     id              BIGSERIAL PRIMARY KEY,
     event_type      VARCHAR(100)    NOT NULL,
-    actor_ref       BIGINT,
+    actor_ref       VARCHAR(64),
     -- reference to mythos_core user — NULL for anonymous/system
     actor_role      VARCHAR(100),
     target_table    VARCHAR(100),

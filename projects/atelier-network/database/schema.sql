@@ -39,7 +39,7 @@
 -- -----------------------------------------------------------------------------
 CREATE TABLE atn_workshop_organizations (
     workshop_organization_id    BIGSERIAL PRIMARY KEY,
-    organization_ref            BIGINT          NOT NULL,   -- mythos_core.organization_id — no FK across schemas
+    organization_ref            VARCHAR(64)     NOT NULL,   -- mythos_core.organization_id — no FK across schemas
     org_name                    VARCHAR(256)    NOT NULL,
     legal_entity_name           VARCHAR(256),
     country                     CHAR(2)         NOT NULL DEFAULT 'TN',
@@ -233,7 +233,7 @@ CREATE TABLE atn_service_catalog_items (
 CREATE TABLE atn_technicians (
     technician_id               BIGSERIAL PRIMARY KEY,
     workshop_organization_id    BIGINT          NOT NULL,   -- ref: atn_workshop_organizations
-    mythos_user_ref             BIGINT,                     -- mythos_core.mythos_user_id — no FK
+    mythos_user_ref             VARCHAR(64),                -- mythos_core.mythos_user_id — no FK
     display_name                VARCHAR(128)    NOT NULL,   -- no full PII stored here
     specialisations             TEXT[],                     -- capability categories
     is_autocheck_certified      BOOLEAN         NOT NULL DEFAULT FALSE,
@@ -587,7 +587,7 @@ CREATE TABLE atn_audit_events (
     audit_event_id              BIGSERIAL PRIMARY KEY,
     event_id                    UUID            NOT NULL,   -- cross-product correlation UUID v4
     event_name                  VARCHAR(256)    NOT NULL,
-    actor_ref                   BIGINT,                     -- mythos_core.mythos_user_id — no FK
+    actor_ref                   VARCHAR(64),                -- mythos_core.mythos_user_id — no FK
     actor_role                  VARCHAR(64),
     workshop_organization_id    BIGINT,                     -- ref: atn_workshop_organizations (if org-scoped)
     target_table                VARCHAR(128),

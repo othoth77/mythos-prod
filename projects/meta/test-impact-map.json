@@ -45,6 +45,15 @@
       "notes": "Run the specific test file changed; no separate rule needed beyond that."
     },
     {
+      "path_prefix": "projects/mythos-core/",
+      "track": "mythos-os",
+      "targeted_tests": [
+        "node tests/mythos-identity-core-0-contract-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "Draft (undeployed) identity-core contract and schema. The contract suite is static-only and never connects to a database."
+    },
+    {
       "path_prefix": "projects/personal-intelligence/",
       "track": "mythos-personal-intelligence",
       "targeted_tests": [

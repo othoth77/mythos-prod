@@ -61,7 +61,7 @@ CREATE TABLE mythos_automotive_stage_gates (
     checklist_item      VARCHAR(512)  NOT NULL,
     status              VARCHAR(32)   NOT NULL DEFAULT 'PENDING',  -- PENDING / PASS / FAIL / WAIVED
     checked_at          TIMESTAMPTZ,
-    checked_by_ref      BIGINT,                           -- mythos_user_id — no FK across schemas
+    checked_by_ref      VARCHAR(64),                      -- mythos_user_id — no FK across schemas
     notes               TEXT,
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW()
@@ -115,9 +115,9 @@ CREATE TABLE mythos_automotive_integration_activations (
     activation_id       BIGSERIAL PRIMARY KEY,
     contract_id         BIGINT        NOT NULL,           -- ref: mythos_automotive_integration_contracts
     activated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    activated_by_ref    BIGINT,                           -- mythos_user_id
+    activated_by_ref    VARCHAR(64),                      -- mythos_user_id
     deactivated_at      TIMESTAMPTZ,
-    deactivated_by_ref  BIGINT,
+    deactivated_by_ref  VARCHAR(64),
     authorisation_ref   VARCHAR(256),                     -- reference to authorisation record
     notes               TEXT
 );
@@ -215,7 +215,7 @@ CREATE TABLE mythos_automotive_feature_flags (
     enabled             BOOLEAN       NOT NULL DEFAULT FALSE,
     enabled_for_scopes  TEXT[],                           -- access scopes in which flag is active
     enabled_at          TIMESTAMPTZ,
-    enabled_by_ref      BIGINT,                           -- mythos_user_id
+    enabled_by_ref      VARCHAR(64),                      -- mythos_user_id
     activation_stage    VARCHAR(32),
     legal_review_required BOOLEAN     NOT NULL DEFAULT FALSE,
     notes               TEXT,
@@ -285,7 +285,7 @@ CREATE TABLE mythos_automotive_releases (
     commit_sha          VARCHAR(64),
     environment_key     VARCHAR(64)   NOT NULL,
     released_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    released_by_ref     BIGINT,                           -- mythos_user_id
+    released_by_ref     VARCHAR(64),                      -- mythos_user_id
     release_notes       TEXT,
     rollback_sha        VARCHAR(64),
     status              VARCHAR(32)   NOT NULL DEFAULT 'ACTIVE',  -- ACTIVE / ROLLED_BACK / SUPERSEDED
@@ -370,7 +370,7 @@ CREATE TABLE mythos_automotive_domain_events (
 -- -----------------------------------------------------------------------------
 CREATE TABLE mythos_automotive_organizations (
     org_id              BIGSERIAL PRIMARY KEY,
-    org_ref             BIGINT        NOT NULL,           -- mythos_core.organization_id — no FK
+    org_ref             VARCHAR(64)   NOT NULL,           -- mythos_core.organization_id — no FK
     org_name            VARCHAR(256)  NOT NULL,
     org_type            VARCHAR(64)   NOT NULL DEFAULT 'SUBSCRIBER',
         -- SUBSCRIBER / PARTNER / PILOT / INTERNAL
@@ -600,7 +600,7 @@ CREATE TABLE mythos_automotive_audit_events (
     audit_id            BIGSERIAL PRIMARY KEY,
     event_id            UUID          NOT NULL,           -- cross-product correlation UUID v4
     event_name          VARCHAR(256)  NOT NULL,
-    actor_ref           BIGINT,                           -- mythos_user_id — no FK
+    actor_ref           VARCHAR(64),                      -- mythos_user_id — no FK
     actor_role          VARCHAR(64),
     product_key         VARCHAR(64),
     target_table        VARCHAR(128),
@@ -636,8 +636,8 @@ VALUES
     ('observation_id',   'idauto',      'idauto',      'BIGSERIAL', TRUE,  FALSE, 'Immutable observation'),
     ('fact_id',          'idauto',      'idauto',      'BIGSERIAL', TRUE,  FALSE, 'Versioned vehicle fact'),
     ('document_scan_id', 'idauto',      'idauto',      'BIGSERIAL', TRUE,  FALSE, 'Carte grise scan — no PII stored'),
-    ('mythos_user_id',   'mythos_core', 'mythos_core', 'BIGSERIAL', TRUE,  TRUE,  'Platform identity'),
-    ('organization_id',  'mythos_core', 'mythos_core', 'BIGSERIAL', TRUE,  TRUE,  'Subscriber organisation'),
+    ('mythos_user_id',   'mythos_core', 'mythos_core', 'VARCHAR(64)', TRUE,  TRUE,  'Platform identity'),
+    ('organization_id',  'mythos_core', 'mythos_core', 'VARCHAR(64)', TRUE,  TRUE,  'Subscriber organisation'),
     ('valuation_id',     'autovaleur',  'autovaleur',  'BIGSERIAL', TRUE,  FALSE, 'Immutable valuation record'),
     ('listing_id',       'automarket',  'automarket',  'BIGSERIAL', TRUE,  FALSE, 'Future — AutoMarket listing'),
     ('offer_id',         'automarket',  'automarket',  'BIGSERIAL', TRUE,  FALSE, 'Future — AutoMarket offer'),
