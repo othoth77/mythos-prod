@@ -839,6 +839,25 @@
       ]
     },
     {
+      "track": "id-auto",
+      "stage_id": "IDA-3B",
+      "title": "Pure ingestion service — submission envelope logic, staged transaction, no route",
+      "status": "IN_PROGRESS",
+      "type": "RUNTIME",
+      "starting_head": "7edab6d713539af83a391bf278b1d4544d1816f7",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "IDA-3C (rate-limit enforcement, NOT STARTED, separate authorisation)",
+      "evidence_paths": [
+        "projects/idauto/reference/ingestion.js",
+        "docs/IDA3_INGESTION_ARCHITECTURE.md"
+      ]
+    },
+    {
       "track": "mythos-devx",
       "stage_id": "MYTHOS-MULTI-AGENT-ORCHESTRATOR-0",
       "title": "Mythos multi-agent orchestrator — provider-neutral Claude/Codex delegation runtime",
