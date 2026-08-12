@@ -1,8 +1,81 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** MYTHOS-MULTI-AGENT-ORCHESTRATOR-0 (merged to main; notification topic rotated; daily workflow ready)
+**From:** IDA-3A (ingestion schema applied to the live database; first stage delegated through the orchestrator)
 **To:** Next AI session
+
+---
+
+## IMPLEMENTATION — IDA-3A INGESTION SCHEMA FOUNDATION (2026-08-12) — COMPLETE
+
+**Type:** Live PostgreSQL schema migration, additive only. **Owner-authorised.** No deployment, no DNS, no endpoint, no service, no auth, no Docker change, Jellyfin untouched, no history rewrite, no force-push.
+
+**Starting HEAD:** `bd707f984509a3145359710458de9a35d34c6c60`
+**Metadata commit:** `33229fb6f6a651a129d4def9e9a0069653eae062` (stage registration, pushed separately)
+**Implementation commit:** `66d4f705913a75d710daf00f6028ab57ddb754b5` (authored by Codex, fast-forwarded to `main`)
+
+### What shipped
+
+Exactly the scope fixed by `IDA3_INGESTION_ARCHITECTURE.md` — two tables and one nullable column, nothing else:
+
+| Object | Shape |
+|---|---|
+| `idauto_submissions` | `id` BIGSERIAL PK · `idempotency_key` VARCHAR(64) NOT NULL UNIQUE · `actor_ref` VARCHAR(64) NULL · `actor_type` NOT NULL CHECK(5 canonical values) · `capture_source_id` → `capture_sources(id)` · `ip_hash` VARCHAR(64) NULL · `received_at` TIMESTAMPTZ NOT NULL DEFAULT now() · `status` NOT NULL DEFAULT `'pending'` CHECK(`pending`/`accepted`/`rejected`/`duplicate`) · `observation_id` → `observations(id)`; three `idx_idauto_submissions_*` indexes |
+| `idauto_rate_limit_counters` | `bucket_key` VARCHAR(64) · `window_start` TIMESTAMPTZ · `count` INTEGER NOT NULL DEFAULT 0 · PK `(bucket_key, window_start)` |
+| `idauto_observation_media.derived_from_media_id` | BIGINT **NULL**, no default, no backfill, self-reference to `idauto_observation_media(id)` |
+
+The four submission statuses are **derived from the binding design, not invented** — `rejected` (§6, §7), `duplicate` (§3), `accepted`/`pending` (§15 and the §13 staged transaction, which inserts the submission before any observation exists).
+
+### The delegation boundary — why Codex did not run the SQL
+
+**The orchestrator cannot apply a live migration, by design.** `runner.js` refuses production mutation through three independent gates (`APPROVAL_REQUIRED` from the router, `LEVEL_3_NOT_AUTOMATIC`, and `PRODUCTION_MUTATION_FORBIDDEN`), there is no override flag anywhere in the runtime, and orchestrator test 29 enforces it. `AGENTS.md` §25.3 states the rule directly: level 3 never executes automatically under any routing decision or override.
+
+The work was therefore split so the owner's authorisation is honoured without weakening the safety architecture:
+
+- **Codex (level 2, delegated, no database access):** authored `schema.sql`, the migration and the static tests. Task `ida-3a-schema-0001`, `MIGRATION_IMPLEMENTATION`, routed `CODEX` level 2, `allow_production_mutation: false`. It never opened a connection, and the suite it wrote is provably offline.
+- **Claude (level 3, owner-authorised):** reviewed the SQL, took and verified the backup, rehearsed the migration, applied it to `idauto-postgres`, and verified the result.
+
+This is the correct division whenever a stage touches live data. Delegating the authorship is safe and useful; delegating the apply is not available and should not be engineered around.
+
+### Safety gate — backup taken and proven restorable
+
+`/home/deploy/backups/idauto-postgres-20260812-ida3a/idauto-pre-ida3a.dump` — `pg_dump --format=custom`, 141,506 bytes, directory `700 root:root`, file `600`, per the IDA-2B pattern.
+SHA-256 `a43ec4bf631fc887a5cc64d69933ed9dba83125be454e4040802970b92fbf62f`. `pg_restore --list` exit 0, 264 TOC entries, all 22 tables present, no credential in the archive.
+
+It was then **proven restorable rather than assumed**: restored into a throwaway `idauto_rehearsal` database, which reproduced the live counts exactly (126/73/518/88). The migration was applied there **twice** — first run clean, second run emitting only `already exists, skipping` notices and still committing — proving idempotency before a single statement touched live data. The rehearsal database was dropped afterwards.
+
+### Live apply — before and after
+
+Applied with `ON_ERROR_STOP=1`; all six statements committed in one transaction.
+
+| | observations | media | audit | facts | vehicles | plates | fact_evidence | capture_sources | tables |
+|---|---|---|---|---|---|---|---|---|---|
+| Before | 126 | 73 | 518 | 88 | 145 | 35 | 37 | 7 | 22 |
+| After | 126 | 73 | 518 | 88 | 145 | 35 | 37 | 7 | **24** |
+
+**The migration changed zero rows.** Audit rows unchanged at 518, observations unchanged, and all 73 existing media rows kept `derived_from_media_id IS NULL`. Both new tables are empty.
+
+Counts later read 135/78/554 because the IDA-2D and IDA-2F suites write fixtures to the live database by design (`IDAUTO_TEST_RUNBOOK.md` — persistent-DB reruns accumulate fixtures). That delta is test activity, not migration effect; `idauto_submissions` and `idauto_rate_limit_counters` both remained at 0 rows throughout, since nothing yet writes to them.
+
+**Invariants verified on the live database after apply:** all four foreign keys on the new objects are `NO ACTION` (`confdeltype='a'`), and the entire `public` schema still contains **zero** `ON DELETE CASCADE`/`SET NULL` constraints. The nine observation statuses and the three `access_scope` values are byte-for-byte unchanged. No pseudo-user table, no raw-IP column, no Redis dependency, no rewrite of any media object key.
+
+**Media integrity: CLEAN before and after, identically** — 38 objects / 1088 bytes / 73 rows / 38 distinct keys / 16 shared / max 17 references, with all eight defect classes at zero.
+
+### Tests
+
+`ida-3a-ingestion-schema` 47/47 (re-run by Claude under `env -i`, proving no database, network or environment dependency) · DEVX impact-selected regressions for `projects/idauto/database/`: `ida-2a` 44/44 · `ida-2c` 26/26 · `ida-2d` 39/39 · `ida-2f` 32/32 · `ida-2g` 17/17 · `ida-2h` 37/37 · `mythos-identity-core-0-contract` 124/124. All executed against the live database after the migration.
+
+### Known divergence (cosmetic, recorded deliberately)
+
+`schema.sql` declares `derived_from_media_id` as the third column of `idauto_observation_media`, whereas `ALTER TABLE ADD COLUMN` appends it last on the live database. A fresh install and the migrated database therefore differ in **column order only** — types, nullability, defaults and constraints are identical. Verified that nothing in the repository depends on ordinal position (no `ordinal_position`, `attnum` or positional column access anywhere in `tests/` or `projects/idauto/`). Left as-is: correcting it would mean either rewriting live column order (destructive, and forbidden here) or reordering source for cosmetics.
+
+### Production state
+
+One additive schema migration to `idauto-postgres`, authorised by the owner. Nothing deployed, no container recreated, no DNS record, no auth setting, no Docker group, no firewall rule. Jellyfin untouched. `idauto-postgres` healthy throughout.
+
+### Next stage
+
+**`IDA-3B` — pure ingestion service.** Requires its own explicit authorisation. It is a pure module with no route and no exposure; `IDA-3C` (rate-limit enforcement) must land before any reachable endpoint, and `PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` remains **NO** pending off-host backup, legal/consent review and real auth.
 
 ---
 
