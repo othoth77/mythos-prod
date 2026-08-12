@@ -817,7 +817,7 @@
       "type": "GOVERNANCE",
       "starting_head": "8a6f2833f0c8684933762076ea5b6261abdd71b1",
       "implementation_commit": "4402b624bf831f8018dd11d772d274d13822ab64",
-      "merge_commit": null,
+      "merge_commit": "78d290cc99b42aea6c35b5083271824f7b80ccd1",
       "handover_commit": null,
       "completed_at": "2026-08-12",
       "tests": {
@@ -827,7 +827,8 @@
         "devx-0": "45/45",
         "devx-1-idauto-test-impact": "92/92",
         "mythos-identity-core-0-contract": "124/124",
-        "e2e-claude-codex-claude": "verified (18/18 checks, task e2e-roundtrip-0006)"
+        "e2e-claude-codex-claude": "verified (18/18 checks, task e2e-roundtrip-0006)",
+        "post-merge-e2e": "verified (18/18 checks, task post-merge-e2e-0001, commit 383c6de)"
       },
       "blockers": [],
       "next_stage": "IDA-3A (NOT STARTED)",

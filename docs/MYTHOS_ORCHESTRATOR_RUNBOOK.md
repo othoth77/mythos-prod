@@ -186,12 +186,34 @@ full environment dumps · any credential. Everything written to disk passes
 through `lib/redact.js`, and a task containing a credential pattern is refused
 before dispatch.
 
-The notification topic is a capability secret. It lives only in
-`~/.config/mythos-orchestrator/notify.env` (mode 600) and must never be
-committed, printed or pasted into a task.
+The notification topic is a capability secret — possessing it is enough to
+publish to it. It lives only in `~/.config/mythos-orchestrator/notify.env`
+(mode 600, one file per user) and must never be committed, printed or pasted
+into a task.
 
-To rotate it, edit that file. No repository change is required — which is the
-point of keeping it out of Git.
+To rotate it, edit that file. Nothing in the repository changes — which is the
+point of keeping it out of Git. Every notification wrapper on this host reads
+that config rather than hard-coding a topic, so a rotation is a single edit per
+user.
+
+### Topic rotation, 2026-08-12
+
+An earlier topic was written into a handover entry and therefore reached
+committed Git history. It has been **revoked** and replaced with a freshly
+generated 256-bit random topic.
+
+- **Git history was NOT rewritten.** Rewriting shared history is forbidden
+  (AGENTS.md §17), and it would not have helped: anything already pushed must
+  be assumed captured. Revocation, not erasure, is the correct remedy for a
+  leaked capability.
+- The **old topic is obsolete** — publishing to it reaches nobody who matters,
+  and nothing on this host references it any more.
+- The **current topic is local-only**: user-local config, mode 600, absent from
+  the repository, from Git history, and from every runtime log.
+
+Neither value appears in this document, and neither should ever be written into
+one. If a topic is ever exposed again, rotate rather than attempting to scrub
+history.
 
 ---
 

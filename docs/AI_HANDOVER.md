@@ -1,8 +1,86 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** MYTHOS-MULTI-AGENT-ORCHESTRATOR-0 (complete and pushed on its branch; not merged)
+**From:** MYTHOS-MULTI-AGENT-ORCHESTRATOR-0 (merged to main; notification topic rotated; daily workflow ready)
 **To:** Next AI session
+
+---
+
+## INTEGRATION — MYTHOS-MULTI-AGENT-ORCHESTRATOR-0 MERGED TO MAIN (2026-08-12) — COMPLETE
+
+**Type:** Integration, notification-credential rotation and post-merge verification. **No production change, no deployment, no DNS, no database, no schema, no auth, no Docker change, Jellyfin untouched, no history rewrite, no force-push, no subagents.**
+
+**Previous main HEAD:** `8a6f2833f0c8684933762076ea5b6261abdd71b1`
+**Orchestrator branch HEAD:** `78d290cc99b42aea6c35b5083271824f7b80ccd1` (`infra/mythos-multi-agent-orchestrator-0`)
+**Merged main HEAD:** `78d290cc99b42aea6c35b5083271824f7b80ccd1`
+
+### Merge
+
+Fast-forward only (`git merge --ff-only`), 8 commits, 25 files, **no merge commit** — the resulting commit has a single parent, so `main` is a strict superset of the previous history. Pushed and confirmed: local `HEAD` == `origin/main`.
+
+The canonical worktree `/home/deploy/projects/mythos-prod` is on `main`, clean. All temporary worker worktrees have been removed; the evidence branches remain on origin:
+
+| Branch | Head | Role |
+|---|---|---|
+| `infra/mythos-multi-agent-orchestrator-0` | `78d290c` | implementation (now identical to main) |
+| `agent/…/e2e-01` | `709d900` | pre-merge round-trip evidence |
+| `agent/…/e2e-02` | `94705b2` | pre-merge round-trip evidence |
+| `agent/…/post-merge-01` | `383c6de` | **post-merge acceptance evidence** |
+
+### Notification topic rotation
+
+The previous topic had been written into a handover entry and therefore reached committed Git history. It is now **revoked** and replaced with a freshly generated 256-bit random topic.
+
+- **Git history was NOT rewritten.** Rewriting shared history is forbidden (AGENTS.md §17) and would not help — anything already pushed must be assumed captured. Revocation, not erasure, is the correct remedy for a leaked capability.
+- The **current topic is local-only**: `~/.config/mythos-orchestrator/notify.env`, mode 600, one file per user (`ubuntu` and `deploy`), owned correctly.
+- Every notification wrapper on this host now **reads that config instead of hard-coding a topic** — `~/.local/bin/codex-ntfy-notify`, `~/.claude/ntfy-alert.sh` and `~/codex-alert.sh` were rewritten, with timestamped 600-mode backups kept under `~/.config/mythos-orchestrator/backups/`. Future rotation is a single edit per user.
+- Verified absent from the tracked tree, from **all** Git history, from every runtime log, and from the working tree. It appears only in the two config files.
+- No topic value appears in this document, in the runbook, or in any commit. Neither should ever be written into one.
+
+One live notification was sent on the new topic and recorded `outcome=sent`. Repository state was unaffected by it, as designed.
+
+### Post-merge validation
+
+orchestrator 156/156 · project-intelligence 0 errors/0 warnings · governance 36/36 · DEVX-0 45/45 · DEVX-1 92/92 · identity-core 124/124 · `git diff --check` clean · 12 JS files syntax-checked · `notify.sh` syntax-checked · all touched JSON parsed · secret scan over the 8 merged commits clean (the only credential-shaped strings are the synthetic `hunter2@db.internal` fixtures inside the redaction tests).
+
+**Impact-analysis deviation, stated explicitly:** the analyser reports `HIGH_RISK / usedFallback: true` for the merged change set. The sole unmatched path is **`.gitignore`**, whose entire change is three additive lines adding one ignore pattern (`.test-fixtures/`). That has no runtime surface and cannot affect any test outcome, so the ID Auto live-database suites were **not** run — they were not selected by any mapped path, they require `pg` from the gitignored `projects/idauto/node_modules`, and running them would touch live data for no signal. This is a mapping gap, not a risk signal; see the recommended follow-up below.
+
+### Post-merge end-to-end acceptance — PASSED
+
+Task `post-merge-e2e-0001`, run from **merged main**, baseline `78d290c`, branch `agent/mythos-multi-agent-orchestrator-0/post-merge-01`:
+
+```text
+Claude → task.json → Codex → result.json → Git commit → orchestrator push → verification → Claude
+```
+
+Codex created exactly one file (`projects/mythos-orchestrator/fixtures/post-merge-roundtrip.md`), ran the orchestrator suite (156/156) and committed `383c6defe0652e689dcb36eece0fc520339b4ae9`. The orchestrator pushed it and verified **18/18 checks, 0 failures**, exit code 0. Independently confirmed against Git: commit on branch, remote head matches, diff scope exactly one file. Completion notification fired on the new topic. Task artefacts are all mode 600 and contain no secret.
+
+### Daily workflow — ready
+
+The user's normal interaction is now:
+
+```text
+Open Claude Code
+Say: Continue Mythos.
+```
+
+`AGENTS.md` §25 (on `main`) defines the behaviour: read GitHub + handover + ledger, identify the next authorised stage, classify and route the work, keep architecture/design/review/verification with Claude, delegate implementation/test/refactor work to Codex, collect the structured result automatically, verify it independently against Git, ask the owner only for level 3 approval, and report one consolidated outcome. **Codex does not need to be opened manually.**
+
+### Production state
+
+Nothing deployed. No container, DNS record, database, schema, auth setting, Docker group or firewall rule touched. Jellyfin untouched. No history rewritten, no force-push, no backup deleted.
+
+### Recommended follow-ups (not blockers)
+
+1. **Impact-map gap:** `.gitignore` has no rule in `projects/meta/test-impact-map.json`, so any change to it forces `FULL_SUITE_REQUIRED`. A `FAST` rule would be accurate — deliberately not added during merge verification, to avoid silencing a risk signal in the same change it would have silenced.
+2. **Two Claude CLI installs:** `2.1.227` for `ubuntu` (`~/.local/bin/claude`) versus `2.1.226` for `deploy` (`/usr/local/bin/claude`). Harmless today; worth reconciling.
+3. **Pre-existing file ownership:** 39 repository files are owned by `ubuntu` rather than `deploy`, from earlier sessions. Not introduced here, and all orchestrator files are correctly `deploy`-owned.
+
+### Next stage
+
+**`IDA-3A` — ingestion schema only.** Two tables (`idauto_submissions`, `idauto_rate_limit_counters`) plus a nullable `idauto_observation_media.derived_from_media_id`, applied to the live database with a fresh verified `pg_dump` taken immediately beforehand, following the IDA-2B pattern.
+
+It is now delegatable in principle, but it **touches the live database**, so it stays owner-authorised and is **not** automatically dispatchable: the router classifies live-schema work at level 3 and the runner refuses to dispatch it without explicit authorisation.
 
 ---
 
