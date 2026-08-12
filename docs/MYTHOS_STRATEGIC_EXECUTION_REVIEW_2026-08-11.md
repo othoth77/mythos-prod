@@ -496,6 +496,8 @@ Settle the contract cheaply now, then resume product work at full speed without 
 
 ### `NEXT_STAGE = MYTHOS-IDENTITY-CORE-0`
 
+> **STATUS UPDATE (2026-08-11):** the architecture decision for this stage has since been made and recorded in [`MYTHOS_IDENTITY_ARCHITECTURE.md`](MYTHOS_IDENTITY_ARCHITECTURE.md) — canonical identifier, minimum model, boundary, roles, migration strategy, non-scope, and the full Sonnet implementation specification. That document is the binding contract; this section remains the reasoning that selected the stage.
+
 **Design and contract-freeze only. No runtime implementation.**
 
 **Why now.** It is the only `BLOCKED` stage in the ledger (`IDA-2E`). Five tracks have already encoded conflicting guesses at the same missing contract. A committed cross-product contract violation already exists between the canonical registry (`BIGSERIAL`) and the only live implementation (`VARCHAR(64)`). And the migration window is verifiably open — 0 contributors, 0 user-role grants — but closes the moment IDA-3 admits real users.
