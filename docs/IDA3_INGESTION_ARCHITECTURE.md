@@ -408,6 +408,24 @@ This document never stated the order. §13 lists rate-limiting at step 1 and the
 
 Consequently the enforced order is: **validate → server-derived actor and source identity → idempotency resolution → rate-limit decision → permitted submission flow.**
 
+### 14.2 Owner decision — community fact visibility (decided 2026-08-12, IDA-3E)
+
+This document defined scopes per data type (§9) and stated that reviewers see everything while non-admin responses keep excluding `mythos_private` exactly as `api.js` does today (§6). It never stated a visibility rule for community **attribute facts** by verification state. IDA-3B consequently wrote ingested facts as `access_scope='public'` with `verification_status='pending_review'`, and since `api.js` filters non-admin reads on scope alone, such a claim would have been servable before any review. That gap was recorded as a forward risk through IDA-3B, 3C and 3D and is now closed by owner decision.
+
+**Binding rule — unreviewed community claims are never publicly servable.**
+
+| Stage | `verification_status` | `access_scope` | Visible to non-admin reads |
+|---|---|---|---|
+| Ingested, awaiting review | `pending_review` | **`mythos_private`** | **No** |
+| Accepted by a reviewer | `verified` | **`public`** | Yes |
+| Rejected by a reviewer | `rejected` | `mythos_private` (unchanged) | **No** |
+
+Ingestion therefore writes community facts as `mythos_private`, and **acceptance is the single act that makes a claim eligible for public serving** — still behind the IDA-3G legal gate and the IDA-3I public gate, neither of which this decision advances.
+
+The mechanism is deliberately the **existing** scope filter, not a new one: `api.js` non-admin read queries are **unchanged**, exactly as §6 requires. No new status, no new scope, no schema change, and no read-query change. A claim is safe because of what the row *is*, not because a query remembered to exclude it.
+
+**Consequence for admin review visibility.** §6 requires that reviewers see everything including `mythos_private`, because review requires the raw evidence. The IDA-2H review-detail route predates this document and does the opposite — it filters `access_scope != 'mythos_private'`, and its suite asserts that a private fact value never appears in the detail response. Rather than change a tested security-relevant behaviour of a completed stage, IDA-3E adds its **own** admin review surface for IDA-3 submissions which shows full provenance including `mythos_private` evidence, and leaves the IDA-2H routes and assertions untouched. Observation decisions continue to reuse `writes.reviewObservation()`; fact-level decisions extend the same primitive family in `writes.js` rather than introducing a second review architecture, as §6 requires them to be separately reviewable.
+
 ---
 
 ## 15. Observability

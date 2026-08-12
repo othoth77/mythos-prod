@@ -938,6 +938,30 @@
       ]
     },
     {
+      "track": "id-auto",
+      "stage_id": "IDA-3E",
+      "title": "Admin review queue for ingested submissions — closes the unreviewed-fact visibility risk",
+      "status": "IN_PROGRESS",
+      "type": "RUNTIME",
+      "starting_head": "14ece4939d13423ba0fa8edf35f1f1153a989f06",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "decisions": [
+        "OWNER_DECISION_C (2026-08-12): community facts ingest as mythos_private; accept sets verification_status=verified AND access_scope=public; reject sets rejected and leaves the scope private. Non-admin read queries are unchanged. Recorded in IDA3_INGESTION_ARCHITECTURE.md section 14.2.",
+        "ADMIN_VISIBILITY (2026-08-12): section 6 requires reviewers to see mythos_private evidence, but the IDA-2H review-detail route filters it out and its suite asserts that. IDA-3E adds its own review surface showing full provenance and leaves IDA-2H untouched, reusing writes.reviewObservation for observation decisions."
+      ],
+      "next_stage": "IDA-3F (off-host backup, NOT STARTED, separate authorisation)",
+      "evidence_paths": [
+        "projects/idauto/reference/api.js",
+        "projects/idauto/reference/writes.js",
+        "docs/IDA3_INGESTION_ARCHITECTURE.md"
+      ]
+    },
+    {
       "track": "mythos-devx",
       "stage_id": "MYTHOS-MULTI-AGENT-ORCHESTRATOR-0",
       "title": "Mythos multi-agent orchestrator — provider-neutral Claude/Codex delegation runtime",
