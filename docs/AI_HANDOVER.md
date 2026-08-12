@@ -1,8 +1,78 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** IDA-3B (pure ingestion service; no route, no schema change)
+**From:** IDA-3C (PostgreSQL-backed ingestion rate limiting; no route, no schema change)
 **To:** Next AI session
+
+---
+
+## IMPLEMENTATION — IDA-3C RATE-LIMIT ENFORCEMENT (2026-08-12) — COMPLETE
+
+**Type:** Runtime module. **No route, no exposure, no schema change, no deployment, no DNS, no auth, no Docker change, Jellyfin untouched, no history rewrite, no force-push.**
+
+**Starting HEAD:** `6aecda0c80bbe90a2afe9f52f74f16b93b02ed78`
+**Metadata commit:** `f486976f772efb7421a5086c935fe6ea1945ac82` (registration, initially BLOCKED)
+**Decision commit:** `e2a0ea724435317821648d3ac2b05b3af462ebb0` (owner decisions, §14.1)
+**Fixture commit:** `6c0228aa9711adcf694f6a27fac3dc2054d362cd` (IDA-3B anonymous fixtures)
+**Codex implementation commit:** `b872c9d569df85fbc8f4b130c93780b5c87f9146`
+**Merge commit:** `3f51b64b03feb61b3ed80b826ef2bd650272145e`
+
+### The stage stopped before implementing, and that was the right call
+
+Two questions IDA-3C depends on were **not** settled by the binding design, so nothing was built until the owner ruled. Both rulings are now recorded as **§14.1 of `IDA3_INGESTION_ARCHITECTURE.md`**, with the original §7/§13/§14 text left intact so the record of what was ambiguous survives.
+
+- **Decision A — a rate-limited request writes an audit event and nothing else.** §7 implied a `submissions` row, §14 said `Partial data: None`, and §13 checks the limit before the submission exists. Resolved toward §14/§13: writing a durable row per rejected request is a denial-of-service amplification vector, since an attacker would force unbounded table growth precisely by exceeding the limit. Forensics survive — the counter's `bucket_key` is a SHA-256 of the actor or IP dimension, and §15 already sources rate-limit hits from the counters.
+- **Decision B — idempotency resolves *before* the limiter; a replay consumes no quota.** The order was never stated. §13 implied replays would be counted; §14 promises retries are always safe. Both cannot hold, since an anonymous submitter at 3/minute would exhaust its allowance retrying one timed-out submission.
+
+**Enforced order:** validate → server-derived actor/source identity → idempotency resolution → rate limit → permitted submission flow.
+
+The policy itself needed no invention and none was made: §7's thresholds and dual buckets, `sha256(dimension:identifier)` keys, 60s/24h windows, and §10's byte quotas are all binding.
+
+### What shipped
+
+`projects/idauto/reference/rate-limit.js` (new), `tests/ida-3c-rate-limit-test.js` (new), and **one** integration point in `ingestion.js`. No other file touched.
+
+Limits exactly per §7/§10: anonymous 3/min·30/day on `ip_hash`; contributor 10/200; verified contributor 20/500 at `trust_score >= 60`; professional and system 60/5000 keyed on actor + org; **admin exempt with no counter read or write at all**. Media byte quota 50 MB anonymous / 250 MB authenticated on a distinct daily bucket, with an INTEGER-overflow guard. An identified non-admin request touches four buckets (actor-minute, actor-day, ip-minute, ip-day); anonymous touches two. A request is allowed only if **every** applicable bucket is within its limit.
+
+**Atomicity.** One statement per bucket, all inside a single transaction:
+
+```sql
+INSERT INTO idauto_rate_limit_counters (bucket_key, window_start, count)
+VALUES ($1,$2,$3)
+ON CONFLICT (bucket_key, window_start)
+DO UPDATE SET count = idauto_rate_limit_counters.count + EXCLUDED.count
+RETURNING count
+```
+
+Increment first, then compare the returned value — deliberate, and matching §7's "rate-limit rejections are counted". There is no SELECT-then-UPDATE anywhere; the suite asserts its absence statically. Counters are increment-only and can never go negative. A database error returns `storage_error` with `allowed: false` — **fails closed**, never falling through to allowed. Four internal states: `allowed`, `limited`, `invalid`, `storage_error`, with `retry_at` derived from the window end. No HTTP mapping, no route, no listener.
+
+Client input is never trusted for bucket identity: `bucket_key`, `ip_hash`, `window`, `limit`, `rate_limit`, `rate_limit_override` and `actor_type` joined the rejected-field list, preserving the IDA-3B rule that spoofing surfaces as a validation error rather than being silently ignored.
+
+### A behaviour change worth knowing: anonymous now requires an address
+
+Enabling the limiter broke four IDA-3B cases that submitted anonymously with **no** `raw_ip`. An anonymous submitter is accountable only through its hashed IP (§5), and the limiter buckets anonymous traffic on exactly that value — so a request carrying no address cannot be throttled and is now refused rather than silently exempted.
+
+**Failing closed there is the correct security property**: otherwise omitting an address would bypass rate limiting entirely. The fixtures were at fault, not the limiter, so each anonymous fixture now carries its own synthetic address (`6c0228a`). That commit landed **before** the merge and was verified harmless without the limiter present (IDA-3B 60/60 on it), so `main` was never left with a failing suite.
+
+### Verification
+
+`ida-3c-rate-limit` **63/63** live (37/37 static-only) · `ida-3b` **67/67** · `ida-2a` 44/44 · `ida-2c` 26/26 · `ida-2d` 39/39 · `ida-2f` 32/32 · `ida-2g` 17/17 · `ida-2h` 37/37 · `identity-core` 124/124 · orchestrator 156/156 · governance 36/36 · DEVX-0 45/45 · DEVX-1 92/92 · project-intelligence 0 errors · media audit **CLEAN**. **Every suite re-run against the post-merge tree**, per the IDA-3B process correction.
+
+Confirmed directly on the live database: still **24** tables and the counters table still carries exactly its three original columns and **one** index (its primary key) — no DDL, no added index. Synthetic runs produced **60 counter rows**, counts 1–20, **none negative**; **every** `bucket_key` is 64-hex with **zero** containing a dot or colon, so no raw IP reached the table; **26** `ingestion.rate_limited` audit rows, **zero** carrying `ip_hash`. All 126 pre-IDA-3A observations are still present and `capture_sources` is still exactly 7 — nothing pre-existing was modified or deleted; the rest is ordinary fixture growth sanctioned by `IDAUTO_TEST_RUNBOOK.md`.
+
+The verifier again flagged `no_secret_in_diff: assigned-secret`. Investigated, not waived: the matches are `var ADMIN_TOKEN = unique('token')` and a sibling, where `unique()` returns `prefix + Date.now() + crypto.randomBytes(6)`. Generated per run, no literal credential in the diff — the same heuristic false positive seen in IDA-3B.
+
+### Forward risk carried forward unchanged (NOT fixed here, by instruction)
+
+`api.js` filters facts by `access_scope != 'mythos_private'` but **not** by `verification_status`, so once a public route exists an unreviewed `public` community fact would be served alongside verified ones. Nothing is exposed today. **IDA-3E / IDA-3I must gate public reads on review state, or ingestion must write facts at a narrower scope.**
+
+### Production state
+
+No schema change, nothing deployed, no container recreated, no DNS, no auth, no Docker group, no firewall rule. Jellyfin untouched. `idauto-postgres` healthy. `PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` remains **NO**.
+
+### Next stage
+
+**`IDA-3D` — private admin-only ingestion route**, behind the existing operator token and not publicly routed. Requires its own explicit authorisation. It is the first slice to introduce an HTTP surface, so it must map the limiter's four internal states onto responses (`limited` → `429` with `Retry-After` from `retry_at`) without re-deriving policy. Off-host backup (§11), legal/consent review and real auth all remain outstanding before anything public.
 
 ---
 
