@@ -1,8 +1,94 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** IDA-3-DESIGN-GATE (complete and pushed)
+**From:** MYTHOS-MULTI-AGENT-ORCHESTRATOR-0 (complete and pushed on its branch; not merged)
 **To:** Next AI session
+
+---
+
+## IMPLEMENTATION — MYTHOS-MULTI-AGENT-ORCHESTRATOR-0 (2026-08-12) — COMPLETE (branch, not merged)
+
+**Type:** Developer tooling. **No production change, no deployment, no DNS, no database, no schema, no auth, no Docker change, Jellyfin untouched, no subagents.**
+
+**Baseline:** `8a6f2833f0c8684933762076ea5b6261abdd71b1` — `main`, clean, HEAD == origin/main, Git as `deploy`.
+**Working branch:** `infra/mythos-multi-agent-orchestrator-0` (**not merged to main**)
+**Working worktree:** `/home/deploy/projects/worktrees/mythos-multi-agent-orchestrator-0`
+**Metadata registration commit:** `7d3e7b9bebe1374dadbd0d66a2bc0f58bc29658b`
+**Implementation commits:** `a4073ae` (runtime) → `74052da` → `3bc333e` → `60ac23b` → `95591bf` → `4402b62`
+**Documents:** [`docs/MYTHOS_ORCHESTRATOR_ARCHITECTURE.md`](MYTHOS_ORCHESTRATOR_ARCHITECTURE.md) · [`docs/MYTHOS_ORCHESTRATOR_RUNBOOK.md`](MYTHOS_ORCHESTRATOR_RUNBOOK.md)
+
+### What this delivers
+
+Claude can now delegate implementation work to Codex, receive a structured result automatically, verify it against Git, and continue — without the user copying anything between tools. The user says `Continue Mythos.` and receives one consolidated report.
+
+Claude remains the orchestrator and stays accountable: delegation transfers execution, never judgement or verification.
+
+### Verified tool contract (read from the installed CLIs, not assumed)
+
+| Item | Value |
+|---|---|
+| Claude CLI | `2.1.227` as `ubuntu` (`~/.local/bin/claude`); `2.1.226` as `deploy` (`/usr/local/bin/claude`) — two installs, worth reconciling later |
+| Codex CLI | `codex-cli 0.147.0`, `/usr/local/bin/codex`, model `gpt-5.6-sol` |
+| Programmatic invocation | `codex exec --cd <dir> --sandbox workspace-write --output-schema <schema> --output-last-message <file> --color never -` (prompt on stdin) |
+| Structured output | `--output-schema` verified to emit exactly the contracted JSON |
+| Exit semantics | exit 0 means the CLI ran, **not** that the task succeeded — the result file is authoritative |
+| Codex auth | `deploy` has its own authenticated `~/.codex`, so workers run as the correct Git user |
+
+### Architecture
+
+Provider-neutral. Vendor logic lives only in `providers/`; the contracts, router, runner and verifier never name a vendor. Adding Gemini/DeepSeek/local models means one adapter plus one enum value.
+
+The `claude` adapter deliberately spawns nothing — judgement work stays in the orchestrating session, since a detached second Claude would make the orchestrator unaccountable for its own decisions (and AGENTS.md §9 forbids unauthorised subagents).
+
+**Routing** is a deterministic table that fails closed: unknown or unroutable classes escalate to `USER_APPROVAL_REQUIRED`.
+
+**Safety levels** 1/2/3 are enforced in three independent places (router escalates, `validateTask` refuses, `execute` never dispatches), so no single mistake lets level 3 through.
+
+**Verification** re-derives every claim from Git: commit existence, baseline ancestry, remote head, diff scope, test evidence, prohibited paths and a secret scan over the real diff.
+
+### Three defects the end-to-end test found (all fixed)
+
+The E2E was not ceremonial — it exposed real problems, and the safety machinery reported every one honestly rather than falsely succeeding:
+
+1. **Linked-worktree Git access.** A linked worktree keeps HEAD, index, objects and refs in the *main* repository's `.git`. A worker sandboxed to the worktree alone could not fetch or commit. Fixed by granting that directory via `--add-dir`, only when delivery requires a Git write.
+2. **Workers have no network.** `git fetch` failed inside the sandbox while succeeding for the same user outside it. Rather than widening the sandbox, the delivery model changed: **the worker commits, the orchestrator pushes.** This matches the safety model (pushing mutates shared remote state — a level 2 action) and keeps SSH credentials out of the sandbox entirely.
+3. **The test suite could not run inside a sandbox.** Fixtures were created under `~/.cache`, which is read-only there. The fixture root is now probed for writability with a repository-local fallback.
+
+Also fixed: `notify.sh` was committed non-executable (silently disabling all notifications); verification detail text was attached to *passing* checks, making a passing report read as a failure; the persisted `result.json` kept the worker's `remote_head: null` after the orchestrator pushed, breaking the documented re-verify step; `result.json` arrived world-readable.
+
+### End-to-end acceptance test — PASSED
+
+Task `e2e-roundtrip-0006`, baseline `95591bf`, branch `agent/mythos-multi-agent-orchestrator-0/e2e-02`:
+
+```text
+Claude → task.json → Codex → result.json → Git commit → orchestrator push → verification → Claude
+```
+
+Codex created exactly one file (`projects/mythos-orchestrator/fixtures/e2e-roundtrip.md`), ran the orchestrator suite (156/156), and committed `94705b2e27afb3d021f1b809fd1d8f96fb360b21`. The orchestrator pushed it and verified **18/18 checks, 0 failures**, exit code 0. Re-verifying from the persisted files also passes.
+
+Earlier attempts are retained as evidence of correct failure handling: `0001` blocked (sandbox Git access), `0002` blocked (no network), `0003` blocked with tests failing and **no commit made**, `0005` failed (worker emitted a premature result — non-deterministic worker behaviour, reported as `failed`, never as success).
+
+### Validation
+
+orchestrator 156/156 · project-intelligence 0 errors/0 warnings · governance 36/36 · DEVX-0 45/45 · DEVX-1 92/92 · identity-core 124/124 · `git diff --check` clean · secret scan clean (real notification topic absent from Git and runtime state).
+
+`idauto-storage-ops` was **not run in this worktree**: it needs `pg` from `projects/idauto/node_modules`, which is gitignored and exists only in the main worktree. Confirmed passing 72/72 there at identical file content. It is not in this change's impact set.
+
+### Security
+
+Task envelopes carry no credentials, and a task containing a credential pattern is refused before dispatch. Everything persisted passes through `lib/redact.js`. Runtime state is `deploy`-owned, mode 600/700, at `/home/deploy/mythos-orchestrator/`, outside Git and outside `/tmp`. The ntfy topic is treated as a capability secret and lives only in `~/.config/mythos-orchestrator/notify.env` (mode 600).
+
+**Outstanding security item (pre-existing, not introduced here):** the real ntfy topic is committed in this file at the CHECKPOINT-RECOVERY-0 entry (introduced by `9c3b5ea`) and is therefore in Git history. Remediation requires rotating the topic — a level 3 action needing owner authorisation. Not actioned; history was not rewritten.
+
+### Production state
+
+Nothing deployed, no container touched, no DNS, no database, no schema, no auth, no Docker group change, Jellyfin untouched. `main` never moved during this stage.
+
+### Next stage
+
+**`IDA-3A` — ingestion schema only**, unchanged by this work (two tables plus a nullable column, applied to the live database with a fresh verified `pg_dump` beforehand). It is now a candidate for delegation, but it touches the live database, so it remains owner-authorised and is **not** automatically dispatchable.
+
+**Merge decision for this branch is owner's:** `main` is unchanged at `8a6f283`, so the branch fast-forwards cleanly, but no automatic merge was performed.
 
 ---
 
