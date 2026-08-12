@@ -35,7 +35,7 @@ The previous topic had been written into a handover entry and therefore reached 
 - The **current topic is local-only**: `~/.config/mythos-orchestrator/notify.env`, mode 600, one file per user (`ubuntu` and `deploy`), owned correctly.
 - Every notification wrapper on this host now **reads that config instead of hard-coding a topic** — `~/.local/bin/codex-ntfy-notify`, `~/.claude/ntfy-alert.sh` and `~/codex-alert.sh` were rewritten, with timestamped 600-mode backups kept under `~/.config/mythos-orchestrator/backups/`. Future rotation is a single edit per user.
 - Verified absent from the tracked tree, from **all** Git history, from every runtime log, and from the working tree. It appears only in the two config files.
-- No topic value appears in this document, in the runbook, or in any commit. Neither should ever be written into one.
+- **The new topic** appears in no document, in the runbook, or in any commit, and never should. **The old topic** is a different case: it is in Git history permanently and that history was not rewritten. Its last occurrence in the *current* tree (the CHECKPOINT-RECOVERY-0 entry below) was redacted on 2026-08-12; the historic commits still contain it, which is accepted because the topic is revoked.
 
 One live notification was sent on the new topic and recorded `outcome=sent`. Repository state was unaffected by it, as designed.
 
@@ -70,8 +70,25 @@ Say: Continue Mythos.
 
 Nothing deployed. No container, DNS record, database, schema, auth setting, Docker group or firewall rule touched. Jellyfin untouched. No history rewritten, no force-push, no backup deleted.
 
+### Independent re-verification (2026-08-12, later session)
+
+A separate session re-verified this entry from scratch rather than trusting it. Everything above was confirmed against Git and by re-execution; two corrections were required.
+
+**Confirmed:** `infra/mythos-multi-agent-orchestrator-0` (`78d290c`) is an ancestor of `main` — the fast-forward is real and `main` has no merge commit. `main` == `origin/main` == `6472dcc`, canonical worktree clean. All suites re-run from merged `main` and matching the counts recorded above: orchestrator 156/156 · governance 36/36 · DEVX-0 45/45 · DEVX-1 92/92 · identity-core 124/124 · project-intelligence 0 errors/0 warnings · `git diff --check` clean · 24 tracked JSON files parsed · 8 orchestrator JS files syntax-checked · shell scripts `bash -n` clean · secret scan over the 9-commit merged range clean. The rotation is genuine: the pre-rotation topic is present in all three timestamped wrapper backups and absent from the current config; the new topic is 43 url-safe characters (~256 bits), absent from the tracked tree, from all Git history by pickaxe across every ref, from all commit messages, from every runtime artefact and log, and present only in the two mode-600 user-local config files. All three wrappers read the config and hardcode nothing.
+
+**Correction 1 — the "no topic value in this document" claim was wrong when written.** The *old* topic literal was still in this file at the CHECKPOINT-RECOVERY-0 entry. It has now been redacted from the current tree and the claim above rewritten to distinguish the new topic (nowhere) from the old (permanently in history, revoked, history not rewritten).
+
+**Correction 2 — notification sending is currently rate-limited, not working.** A fresh round trip's `task_started` and `task_completed` events both recorded `outcome=send-failed-nonfatal`. The cause is external: ntfy.sh returns **HTTP 429** to this host, having served 16 successful sends earlier today on the free tier. Configuration, topic and egress are all correct (`https://ntfy.sh/` returns 200; the topic resolves from config). `notify.sh` behaved exactly as designed — it swallowed the failure, exited 0, logged the outcome truthfully and left repository state untouched. This is a transient external quota condition that clears on its own, but **notification delivery was not observed working on the new topic in this session**, and that acceptance criterion is therefore recorded as unmet rather than assumed.
+
+### Final acceptance end-to-end — PASSED (from `6472dcc`)
+
+Task `final-e2e-0001`, baseline `6472dcc` (current merged `main`), branch `agent/mythos-multi-agent-orchestrator-0/final-01`, provider `codex-cli 0.147.0`, duration 74 s, exit code 0.
+
+Codex created exactly one file (`projects/mythos-orchestrator/fixtures/final-acceptance-roundtrip.md`), ran the orchestrator suite (156 passed, 0 failed) and committed `1338135fdef92d26801d36c3a79779389f175c56`; the orchestrator pushed it. Verified independently against Git rather than from the result file: remote branch head equals the claimed SHA, baseline `6472dcc` is an ancestor, `git diff --name-status` against `main` shows exactly one added file, and `origin/main` did not move. Every task artefact is mode 600 and `deploy`-owned, and neither the current nor the revoked topic appears in any of them.
+
 ### Recommended follow-ups (not blockers)
 
+0. **Notification quota:** ntfy.sh free-tier rate limiting (HTTP 429) is currently suppressing delivery. Re-run `projects/mythos-orchestrator/notify.sh` once the quota resets to confirm delivery on the new topic, or move to a self-hosted/authenticated ntfy instance if notification reliability matters operationally.
 1. **Impact-map gap:** `.gitignore` has no rule in `projects/meta/test-impact-map.json`, so any change to it forces `FULL_SUITE_REQUIRED`. A `FAST` rule would be accurate — deliberately not added during merge verification, to avoid silencing a risk signal in the same change it would have silenced.
 2. **Two Claude CLI installs:** `2.1.227` for `ubuntu` (`~/.local/bin/claude`) versus `2.1.226` for `deploy` (`/usr/local/bin/claude`). Harmless today; worth reconciling.
 3. **Pre-existing file ownership:** 39 repository files are owned by `ubuntu` rather than `deploy`, from earlier sessions. Not introduced here, and all orchestrator files are correctly `deploy`-owned.
@@ -1458,7 +1475,9 @@ Claude Desktop runs as `ubuntu` with passwordless `sudo -n` for system/Docker/ro
 
 ### C. Notification system (recorded, operational convenience only, not a stage dependency)
 
-ntfy topic `mythos-othman-7k92x-finish` — phone audio notification and Claude Stop/Notification hooks reported working by the user. Not independently re-tested in this checkpoint (out of scope — no hook-firing action was taken).
+ntfy topic `<redacted — revoked 2026-08-12>` — phone audio notification and Claude Stop/Notification hooks reported working by the user. Not independently re-tested in this checkpoint (out of scope — no hook-firing action was taken).
+
+> **Redaction note (2026-08-12).** This entry originally recorded the literal topic. That topic is **revoked**; the value remains in Git history, which was deliberately **not** rewritten (AGENTS.md §17 — anything already pushed must be assumed captured, so revocation rather than erasure is the remedy). The value is removed from the current tree so the working documentation carries no capability string. The current topic is user-local only and appears in no file in this repository.
 
 ### D. Mythos development-position reconciliation — **BLOCKED: documented sequence contradicted by GitHub**
 
