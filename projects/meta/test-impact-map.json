@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "generated_at": "2026-08-08T00:00:00Z",
   "source_commit": "b401a57431f490954bda31cf44987bfbba3f87b5",
-  "notes": "Rules are checked in array order; the first matching path_prefix wins for a given changed file. A change set touching multiple prefixes accumulates the union of matched targeted_tests and takes the highest-risk matched lane. A changed file matching no rule falls back to the 'fallback' entry (full suite required, HIGH_RISK) rather than silently running nothing.",
+  "notes": "Rules are checked in array order; the first matching path_prefix wins for a given changed file. A change set touching multiple prefixes accumulates the union of matched targeted_tests and takes the highest-risk matched lane. A changed file matching no rule falls back to the 'fallback' entry (full suite required, HIGH_RISK) rather than silently running nothing. DEVX-1: ID Auto rules are dependency-derived from the reference require graph (api.js -> db/identity/storage/writes; writes.js -> db/storage) and from each suite own imports. Matching is FIRST-MATCH-WINS in array order, so the specific projects/idauto/reference/*.js rules must remain ABOVE the general projects/idauto/ rule.",
   "rules": [
     {
       "path_prefix": "projects/meta/",
@@ -69,11 +69,160 @@
       "notes": "Draft (undeployed) schema only as of this map's generation — no runtime tests exist yet."
     },
     {
-      "path_prefix": "projects/idauto/",
-      "track": "id-auto",
+      "path_prefix": "projects/idauto/reference/IDENTITY_ADAPTER.md",
+      "track": "mythos-idauto",
       "targeted_tests": [],
+      "risk_lane": "FAST",
+      "notes": "Specification document only; no runtime module imports it."
+    },
+    {
+      "path_prefix": "projects/idauto/reference/plate-validator.js",
+      "track": "mythos-idauto",
+      "targeted_tests": [
+        "node tests/ida-2a-schema-and-plate-validation-test.js"
+      ],
       "risk_lane": "STANDARD",
-      "notes": "Draft (undeployed) schema only as of this map's generation."
+      "notes": "Leaf module. Verified: no other reference module requires it, so only IDA-2A exercises it."
+    },
+    {
+      "path_prefix": "projects/idauto/reference/admin-ui.js",
+      "track": "mythos-idauto",
+      "targeted_tests": [
+        "node tests/ida-2g-admin-manual-entry-ui-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "Leaf UI module loaded only by IDA-2G."
+    },
+    {
+      "path_prefix": "projects/idauto/reference/admin.css",
+      "track": "mythos-idauto",
+      "targeted_tests": [
+        "node tests/ida-2g-admin-manual-entry-ui-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "Read directly by the IDA-2G suite."
+    },
+    {
+      "path_prefix": "projects/idauto/reference/admin.html",
+      "track": "mythos-idauto",
+      "targeted_tests": [
+        "node tests/ida-2g-admin-manual-entry-ui-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "Admin UI page paired with admin-ui.js."
+    },
+    {
+      "path_prefix": "projects/idauto/reference/review-ui.js",
+      "track": "mythos-idauto",
+      "targeted_tests": [
+        "node tests/ida-2h-review-queue-ui-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "Leaf UI module loaded only by IDA-2H."
+    },
+    {
+      "path_prefix": "projects/idauto/reference/review.html",
+      "track": "mythos-idauto",
+      "targeted_tests": [
+        "node tests/ida-2h-review-queue-ui-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "Review UI page paired with review-ui.js."
+    },
+    {
+      "path_prefix": "projects/idauto/reference/identity.js",
+      "track": "mythos-idauto",
+      "targeted_tests": [
+        "node tests/ida-2c-readonly-api-test.js",
+        "node tests/ida-2d-write-api-and-audit-test.js",
+        "node tests/ida-2f-object-storage-test.js",
+        "node tests/ida-2g-admin-manual-entry-ui-test.js",
+        "node tests/ida-2h-review-queue-ui-test.js",
+        "node tests/mythos-identity-core-0-contract-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "api.js requires identity.js, so every api-loading suite is affected. The identity-core contract suite asserts identity.js introduces no auth logic."
+    },
+    {
+      "path_prefix": "projects/idauto/reference/storage.js",
+      "track": "mythos-idauto",
+      "targeted_tests": [
+        "node tests/ida-2c-readonly-api-test.js",
+        "node tests/ida-2d-write-api-and-audit-test.js",
+        "node tests/ida-2f-object-storage-test.js",
+        "node tests/ida-2g-admin-manual-entry-ui-test.js",
+        "node tests/ida-2h-review-queue-ui-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "api.js and writes.js both require storage.js. Confirmed empirically: IDA-2H fails a media-metadata assertion when storage is misconfigured."
+    },
+    {
+      "path_prefix": "projects/idauto/reference/writes.js",
+      "track": "mythos-idauto",
+      "targeted_tests": [
+        "node tests/ida-2c-readonly-api-test.js",
+        "node tests/ida-2d-write-api-and-audit-test.js",
+        "node tests/ida-2f-object-storage-test.js",
+        "node tests/ida-2g-admin-manual-entry-ui-test.js",
+        "node tests/ida-2h-review-queue-ui-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "api.js requires writes.js, so every api-loading suite is affected."
+    },
+    {
+      "path_prefix": "projects/idauto/reference/db.js",
+      "track": "mythos-idauto",
+      "targeted_tests": [
+        "node tests/ida-2c-readonly-api-test.js",
+        "node tests/ida-2d-write-api-and-audit-test.js",
+        "node tests/ida-2f-object-storage-test.js",
+        "node tests/ida-2g-admin-manual-entry-ui-test.js",
+        "node tests/ida-2h-review-queue-ui-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "api.js and writes.js both require db.js; every api-loading suite is affected."
+    },
+    {
+      "path_prefix": "projects/idauto/reference/api.js",
+      "track": "mythos-idauto",
+      "targeted_tests": [
+        "node tests/ida-2c-readonly-api-test.js",
+        "node tests/ida-2d-write-api-and-audit-test.js",
+        "node tests/ida-2f-object-storage-test.js",
+        "node tests/ida-2g-admin-manual-entry-ui-test.js",
+        "node tests/ida-2h-review-queue-ui-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "Shared API boundary loaded by IDA-2C/2D/2F/2G/2H. IDA-2A does not load it."
+    },
+    {
+      "path_prefix": "projects/idauto/database/",
+      "track": "mythos-idauto",
+      "targeted_tests": [
+        "node tests/ida-2a-schema-and-plate-validation-test.js",
+        "node tests/ida-2c-readonly-api-test.js",
+        "node tests/ida-2d-write-api-and-audit-test.js",
+        "node tests/ida-2f-object-storage-test.js",
+        "node tests/ida-2g-admin-manual-entry-ui-test.js",
+        "node tests/ida-2h-review-queue-ui-test.js",
+        "node tests/mythos-identity-core-0-contract-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "Schema underpins every DB-backed suite. The identity-core contract suite asserts live ID Auto identity column types and the untouched SERIAL primary key."
+    },
+    {
+      "path_prefix": "projects/idauto/",
+      "track": "mythos-idauto",
+      "targeted_tests": [
+        "node tests/ida-2a-schema-and-plate-validation-test.js",
+        "node tests/ida-2c-readonly-api-test.js",
+        "node tests/ida-2d-write-api-and-audit-test.js",
+        "node tests/ida-2f-object-storage-test.js",
+        "node tests/ida-2g-admin-manual-entry-ui-test.js",
+        "node tests/ida-2h-review-queue-ui-test.js"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "Conservative default for any ID Auto file without a more specific rule above. Rules are first-match-wins in array order, so every specific rule MUST stay above this one."
     },
     {
       "path_prefix": "projects/atelier-network/",
