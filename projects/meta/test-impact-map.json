@@ -14,6 +14,16 @@
       "risk_lane": "FAST"
     },
     {
+      "path_prefix": "AGENTS.md",
+      "track": "governance",
+      "targeted_tests": [
+        "node scripts/project-intelligence.js validate",
+        "node tests/mpi-0-finalization-governance-test.js"
+      ],
+      "risk_lane": "FAST",
+      "notes": "Root governance document. Markdown with no runtime surface, directly analogous to the docs/ rule; previously fell through to the HIGH_RISK fallback."
+    },
+    {
       "path_prefix": ".claude/skills/",
       "track": "agent-skills",
       "targeted_tests": [
@@ -27,6 +37,16 @@
       "targeted_tests": [],
       "risk_lane": "FAST",
       "notes": "Doc-only changes require no product test run beyond JSON/Markdown validation already covered by validate."
+    },
+    {
+      "path_prefix": "scripts/mythos-orchestrate.js",
+      "track": "developer-tooling",
+      "targeted_tests": [
+        "node tests/mythos-orchestrator-0-test.js",
+        "node scripts/project-intelligence.js validate"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "Orchestrator CLI boundary. Listed ahead of the generic scripts/ rule because the first matching prefix wins."
     },
     {
       "path_prefix": "scripts/",
@@ -67,6 +87,16 @@
       "targeted_tests": [],
       "risk_lane": "STANDARD",
       "notes": "Draft (undeployed) schema only as of this map's generation — no runtime tests exist yet."
+    },
+    {
+      "path_prefix": "projects/mythos-orchestrator/",
+      "track": "developer-tooling",
+      "targeted_tests": [
+        "node tests/mythos-orchestrator-0-test.js",
+        "node scripts/project-intelligence.js validate"
+      ],
+      "risk_lane": "STANDARD",
+      "notes": "Provider-neutral delegation runtime. Isolated developer tooling with no production surface: it never deploys, mutates DNS, or touches a live database."
     },
     {
       "path_prefix": "projects/idauto/reference/IDENTITY_ADAPTER.md",

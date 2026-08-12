@@ -1,0 +1,171 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mythos Orchestrator Task",
+  "description": "Provider-neutral unit of delegated work. Contains no credentials, tokens, or secrets of any kind.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "project",
+    "stage",
+    "created_at",
+    "requested_by",
+    "assigned_provider",
+    "repository",
+    "working_directory",
+    "branch",
+    "baseline_commit",
+    "objective",
+    "instructions",
+    "constraints",
+    "required_tests",
+    "delivery",
+    "timeout_seconds",
+    "risk_class",
+    "execution_level",
+    "allow_production_mutation",
+    "result_path"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.0.0"]
+    },
+    "task_id": {
+      "description": "Stable, filesystem-safe identifier. Deliberately excludes '/', '.' and whitespace so it can never traverse out of the task directory.",
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9-]{6,62}[a-z0-9]$"
+    },
+    "project": {
+      "type": "string",
+      "enum": ["mythos-prod"]
+    },
+    "stage": {
+      "description": "Stage id as registered in projects/meta/project-ledger.json.",
+      "type": "string",
+      "pattern": "^[A-Z0-9][A-Z0-9-]{1,63}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 20
+    },
+    "requested_by": {
+      "type": "string",
+      "enum": ["claude", "user"]
+    },
+    "assigned_provider": {
+      "type": "string",
+      "enum": ["codex", "claude"]
+    },
+    "repository": {
+      "type": "string",
+      "enum": ["othoth77/mythos-prod"]
+    },
+    "working_directory": {
+      "description": "Absolute path to the persistent worktree the provider may write in. Never /tmp.",
+      "type": "string",
+      "pattern": "^/(?!tmp/)[^\\0]+$"
+    },
+    "branch": {
+      "description": "Branch the provider must commit on. Never 'main'.",
+      "type": "string",
+      "pattern": "^(?!main$)(?!master$)[A-Za-z0-9][A-Za-z0-9._/-]{2,120}$"
+    },
+    "baseline_commit": {
+      "description": "Commit the working tree must be at before the provider starts.",
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "objective": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 2000
+    },
+    "instructions": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 20000
+    },
+    "constraints": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 500 }
+    },
+    "required_tests": {
+      "description": "Commands the provider must run and report. Empty means the task legitimately has no test surface, which the verifier treats as evidence-free and therefore never 'completed' unless delivery.tests_required is false.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "command"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+          "command": { "type": "string", "minLength": 1, "maxLength": 500 }
+        }
+      }
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit_required", "push_required", "handover_required", "tests_required"],
+      "properties": {
+        "commit_required": { "type": "boolean" },
+        "push_required": { "type": "boolean" },
+        "handover_required": { "type": "boolean" },
+        "tests_required": { "type": "boolean" }
+      }
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "minimum": 60,
+      "maximum": 21600
+    },
+    "risk_class": {
+      "description": "Work class used by router.js. Drives provider assignment and the execution level.",
+      "type": "string",
+      "enum": [
+        "ARCHITECTURE",
+        "DESIGN",
+        "SECURITY_REVIEW",
+        "FINAL_REVIEW",
+        "PORTFOLIO_DECISION",
+        "AMBIGUOUS_REQUIREMENTS",
+        "CROSS_PROJECT_DECISION",
+        "CODE_IMPLEMENTATION",
+        "REFACTOR",
+        "TEST_IMPLEMENTATION",
+        "BUG_FIX",
+        "STATIC_ANALYSIS",
+        "MIGRATION_IMPLEMENTATION",
+        "CLI_TOOLING",
+        "REPETITIVE_CODE_CHANGES",
+        "HIGH_RISK_INFRA",
+        "PRODUCTION_DEPLOYMENT",
+        "AUTH",
+        "DNS_MUTATION",
+        "DESTRUCTIVE_DB",
+        "SECRET_ROTATION"
+      ]
+    },
+    "execution_level": {
+      "description": "1 = may run automatically. 2 = Claude-controlled after plan review. 3 = never automatic; requires explicit user authorisation.",
+      "type": "integer",
+      "enum": [1, 2, 3]
+    },
+    "allow_production_mutation": {
+      "description": "Always false for automatically executable tasks. A true value additionally requires execution_level 3 and explicit user authorisation.",
+      "type": "boolean"
+    },
+    "result_path": {
+      "description": "Filename only, resolved inside the task directory by the runner. Path separators are rejected so a task can never redirect its result elsewhere.",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{2,63}$"
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 2000
+    }
+  }
+}

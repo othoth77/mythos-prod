@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mythos Orchestrator Result",
+  "description": "Structured completion report a provider must emit. This file is ALSO handed to `codex exec --output-schema`, so it is deliberately restricted to the structured-output subset: every property is required, additionalProperties is false everywhere, nullability is expressed as a type union, and no `pattern`/`minLength` keywords are used. Stricter semantic checks (SHA shape, commit existence, test evidence) belong to verifier.js, never to this file.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "task_id",
+    "provider",
+    "status",
+    "blocked_reason",
+    "baseline",
+    "branch",
+    "implementation_commit",
+    "handover_commit",
+    "remote_head",
+    "tests",
+    "files_changed",
+    "blockers",
+    "warnings",
+    "next_stage",
+    "summary"
+  ],
+  "properties": {
+    "task_id": {
+      "type": "string",
+      "description": "Must equal the task_id of the task that was dispatched."
+    },
+    "provider": {
+      "type": "string",
+      "enum": ["codex", "claude"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["completed", "blocked", "failed", "cancelled"],
+      "description": "Report 'completed' only when every required test actually ran and passed and every required delivery step was performed. Missing or uncertain evidence is never 'completed'."
+    },
+    "blocked_reason": {
+      "type": ["string", "null"],
+      "enum": [
+        "approval_required",
+        "baseline_mismatch",
+        "branch_collision",
+        "dirty_worktree",
+        "missing_prerequisite",
+        "test_failure",
+        "timeout",
+        "scope_violation",
+        "other",
+        null
+      ],
+      "description": "Required whenever status is 'blocked'; null otherwise. Use 'approval_required' when a needed shell command could not be approved non-interactively."
+    },
+    "baseline": {
+      "type": "string",
+      "description": "The commit the work actually started from."
+    },
+    "branch": {
+      "type": "string"
+    },
+    "implementation_commit": {
+      "type": ["string", "null"],
+      "description": "Full 40-character SHA of the implementation commit, or null if nothing was committed."
+    },
+    "handover_commit": {
+      "type": ["string", "null"]
+    },
+    "remote_head": {
+      "type": ["string", "null"],
+      "description": "Branch head on origin after pushing, or null if nothing was pushed."
+    },
+    "tests": {
+      "type": "array",
+      "description": "One entry per required test. Never claim a test passed without having run it.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "command", "passed", "output_summary"],
+        "properties": {
+          "name": { "type": "string" },
+          "command": { "type": "string" },
+          "passed": { "type": "boolean" },
+          "output_summary": {
+            "type": "string",
+            "description": "Short factual result, e.g. '45/45 passed'. Never paste environment variables or credentials."
+          }
+        }
+      }
+    },
+    "files_changed": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Repository-relative paths actually changed."
+    },
+    "blockers": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "next_stage": {
+      "type": ["string", "null"]
+    },
+    "summary": {
+      "type": "string",
+      "description": "Two or three factual sentences. No secrets, no tokens, no environment dumps."
+    }
+  }
+}

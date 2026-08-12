@@ -398,3 +398,74 @@ A stage is finished only when its scope is complete, required tests pass, docume
 This repository ships native Agent Skills under `.claude/skills/<name>/SKILL.md`. Every entry there is an **Agent Development Skill** — used by Claude/Codex while building and operating Mythos — never a **Runtime Mythos Capability** reachable from an end-user request. See `docs/SKILLS_ARCHITECTURE.md` for the full distinction, `docs/SKILLS_SOURCES.md` for source classification (upstream/wrapper/original), `docs/SKILLS_EVOLUTION.md` for the per-skill audit and overlap-resolution record, `docs/SKILLS_VERSIONING_POLICY.md` for version semantics, and `projects/personal-intelligence/config/agent-skills-registry.json` for the canonical machine-readable registry.
 
 Skill source must never silently rewrite itself. No end-user or product behaviour may directly edit `.claude/skills/`. A skill change is a reviewed repository change like any other — see `mythos-skill-evolution` for the controlled lifecycle this follows.
+
+## 25. Multi-agent orchestration (`projects/mythos-orchestrator/`)
+
+Mythos supports delegating implementation work to a worker provider (today
+Codex) while Claude remains the orchestrator. See
+`docs/MYTHOS_ORCHESTRATOR_ARCHITECTURE.md` for the model and
+`docs/MYTHOS_ORCHESTRATOR_RUNBOOK.md` for operation.
+
+### 25.1 Claude — orchestrator responsibilities
+
+When the owner says `Continue Mythos`, or requests a Mythos implementation task:
+
+1. Read GitHub state and `docs/AI_HANDOVER.md`. Never rely on a stale summary.
+2. Identify the current or next authorised stage and inspect its blockers.
+3. Classify the work and route it (`node scripts/mythos-orchestrate.js route`).
+4. Decide: handle it directly, delegate it, or stop and ask the owner.
+5. If delegating: build the task, create an isolated worktree and branch, run
+   `node scripts/mythos-orchestrate.js delegate`, and wait for the structured
+   result. Do not ask the owner to copy results between tools.
+6. Verify the result independently against Git before accepting it.
+7. Update the handover if the stage completes, and report one consolidated
+   outcome.
+
+Claude keeps architecture, design, security review, final review, portfolio and
+cross-project decisions, and anything ambiguous. Claude delegates bulk
+implementation, refactors, test writing, bug fixes, static analysis and
+repetitive changes.
+
+Do not delegate blindly. Claude remains accountable for the orchestration
+decision, for verification, and for the final report. A delegated result that
+Git does not corroborate is never reported as complete. Only one major stage
+runs at a time unless the owner explicitly authorises parallel work, and Claude
+never silently starts an unrelated major stage.
+
+### 25.2 Codex — delegated worker responsibilities
+
+A delegated Codex job must:
+
+- Treat GitHub as the source of truth.
+- Work only within the assigned task, worktree, branch and baseline. Confirm
+  the baseline before starting; report `blocked` / `baseline_mismatch` if it
+  does not match.
+- Never broaden scope, and never touch `main` or `master`.
+- Run every required test and report its real result. Never report an unrun
+  test as passed.
+- Commit and push only when the task requires it, then report the SHA actually
+  observed on the remote.
+- Emit a structured result conforming to
+  `projects/mythos-orchestrator/schemas/result.schema.json`. Never invent a
+  commit SHA.
+- Never modify orchestrator control files
+  (`projects/mythos-orchestrator/`, `scripts/mythos-orchestrate.js`) unless the
+  task's objective explicitly says so.
+- Never start another agent or delegate onward.
+- Never deploy, mutate DNS, run destructive SQL, rotate secrets, change Docker
+  membership, or touch Jellyfin. Production mutation requires explicit task
+  authorisation that the runner will not grant automatically.
+- Stop and report `blocked` / `approval_required` rather than bypassing an
+  approval prompt.
+
+### 25.3 Safety boundary
+
+Execution levels 1 (auto), 2 (Claude-controlled) and 3 (owner approval) are
+defined in `router.js` and enforced by `runner.js`. Level 3 — production
+deployment, DNS, firewall, destructive database operations, data or backup
+deletion, credential rotation, authentication configuration, repository
+permissions, Docker membership, Jellyfin, stopping unrelated services — never
+executes automatically under any routing decision or override.
+
+Task envelopes never carry credentials. Runtime state lives under
+`/home/deploy/mythos-orchestrator/`, never in `/tmp` and never in Git.
