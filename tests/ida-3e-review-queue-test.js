@@ -130,6 +130,33 @@ async function ingest(plate, value, withMedia) {
     req.on('error', reject); req.write(payload); req.end();
   });
 }
+// Ingestion refuses a fact whose plate is not already linked to a vehicle
+// (IDA_FACT_LINK), so every community fixture needs its own seeded vehicle and
+// plate, exactly as the IDA-3B suite does. Retries on the rare plate collision
+// rather than failing the run.
+async function seedPlate() {
+  for (var attempt = 0; attempt < 10; attempt++) {
+    var plateNumber = (100 + Math.floor(Math.random() * 900)) + ' TUN ' + (1000 + Math.floor(Math.random() * 8000));
+    var existing = await db.query('SELECT 1 FROM idauto_plates WHERE plate_number = $1', [plateNumber]);
+    if (existing.rows.length) continue;
+    var client = await db.getClientForTransaction();
+    try {
+      await client.query('BEGIN');
+      var vehicle = await client.query(
+        "INSERT INTO idauto_vehicles (internal_ref, make, fiche_status) VALUES ($1,'IDA3E synthetic','initial') RETURNING id",
+        [unique('IDA3E')]
+      );
+      await client.query(
+        'INSERT INTO idauto_plates (plate_number, plate_raw, format_code, vehicle_id) VALUES ($1,$1,$2,$3)',
+        [plateNumber, 'TUN_STD', vehicle.rows[0].id]
+      );
+      await client.query('COMMIT');
+    } catch (error) { await client.query('ROLLBACK'); throw error; } finally { client.release(); }
+    return plateNumber;
+  }
+  throw new Error('could not seed a unique synthetic plate after 10 attempts');
+}
+
 async function auditCount(id, decision) { var r = await db.query('SELECT count(*) FROM idauto_audit_log WHERE target_type=$1 AND target_ref=$2 AND event_type=$3', ['idauto_vehicle_facts', String(id), 'fact.review.' + decision]); return Number(r.rows[0].count); }
 
 async function liveCases() {
@@ -143,7 +170,7 @@ async function liveCases() {
   ok(unauthQueue.status === 401 && unauthDetail.status === 401 && unauthDecision.status === 401, 'all three review routes require admin authentication');
 
   var base = Date.now();
-  var first = await ingest((base % 800 + 100) + ' TUN ' + (base % 8000 + 1000), 'ida3e-blue-' + base, true);
+  var first = await ingest(await seedPlate(), 'ida3e-blue-' + base, true);
   ok(first.status === 201 && first.body.ok, 'community-shaped fact ingests through the IDA-3D HTTP route');
   var firstFact = (await db.query('SELECT id,verification_status,access_scope FROM idauto_vehicle_facts WHERE observation_id=$1', [first.body.observation_id])).rows[0];
   var firstVehicle = (await db.query('SELECT v.internal_ref FROM idauto_vehicles v JOIN idauto_observations o ON o.vehicle_id=v.id WHERE o.id=$1', [first.body.observation_id])).rows[0].internal_ref;
@@ -170,7 +197,7 @@ async function liveCases() {
   ok(visible.raw.indexOf('ida3e-blue-' + base) !== -1, 'accepted community fact becomes visible');
 
   var secondBase = base + 1;
-  var second = await ingest((secondBase % 800 + 100) + ' TUN ' + (secondBase % 8000 + 1000), 'ida3e-red-' + base, false);
+  var second = await ingest(await seedPlate(), 'ida3e-red-' + base, false);
   var secondFact = (await db.query('SELECT id FROM idauto_vehicle_facts WHERE observation_id=$1', [second.body.observation_id])).rows[0];
   var secondVehicle = (await db.query('SELECT v.internal_ref FROM idauto_vehicles v JOIN idauto_observations o ON o.vehicle_id=v.id WHERE o.id=$1', [second.body.observation_id])).rows[0].internal_ref;
   var reject = await request('POST', '/api/review/facts/' + secondFact.id + '/decision', TOKEN, { decision: 'reject' });
