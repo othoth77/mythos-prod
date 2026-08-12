@@ -366,6 +366,51 @@ CREATE INDEX idx_idauto_obs_camera     ON idauto_observations (camera_source_id)
 
 
 -- -----------------------------------------------------------------------------
+-- 9A. SUBMISSIONS — ingestion envelopes and idempotency anchors
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE idauto_submissions (
+    id              BIGSERIAL    PRIMARY KEY,
+    idempotency_key VARCHAR(64)  NOT NULL UNIQUE,
+    actor_ref       VARCHAR(64),                     -- NULL for anonymous; never invent an identifier
+    actor_type      VARCHAR(20)  NOT NULL,
+    capture_source_id INTEGER    REFERENCES idauto_capture_sources(id),
+    ip_hash         VARCHAR(64),                     -- hash only, never a raw IP address
+    received_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    status          VARCHAR(20)  NOT NULL DEFAULT 'pending',
+    observation_id  BIGINT       REFERENCES idauto_observations(id),
+    CONSTRAINT chk_submission_actor CHECK (
+        actor_type IN ('system','contributor','professional_user','admin','anonymous')
+    ),
+    CONSTRAINT chk_submission_status CHECK (
+        status IN ('pending','accepted','rejected','duplicate')
+    )
+);
+
+COMMENT ON TABLE idauto_submissions IS
+    'Ingestion submission envelopes. Durable idempotency anchors, including rejected and duplicate submissions.';
+
+CREATE INDEX idx_idauto_submissions_ip_hash        ON idauto_submissions (ip_hash);
+CREATE INDEX idx_idauto_submissions_status         ON idauto_submissions (status);
+CREATE INDEX idx_idauto_submissions_observation_id ON idauto_submissions (observation_id);
+
+
+-- -----------------------------------------------------------------------------
+-- 9B. RATE LIMIT COUNTERS — durable fixed-window ingestion counters
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE idauto_rate_limit_counters (
+    bucket_key      VARCHAR(64)  NOT NULL,           -- sha256(dimension || ':' || identifier)
+    window_start    TIMESTAMPTZ  NOT NULL,
+    count           INTEGER      NOT NULL DEFAULT 0,
+    PRIMARY KEY (bucket_key, window_start)
+);
+
+COMMENT ON TABLE idauto_rate_limit_counters IS
+    'Durable fixed-window ingestion rate-limit counters.';
+
+
+-- -----------------------------------------------------------------------------
 -- 10. OBSERVATION LOCATION — exact location (always MYTHOS_PRIVATE)
 -- -----------------------------------------------------------------------------
 -- Stored separately to enforce access scope at the schema level.
@@ -396,6 +441,7 @@ COMMENT ON TABLE idauto_observation_locations IS
 CREATE TABLE idauto_observation_media (
     id              BIGSERIAL    PRIMARY KEY,
     observation_id  BIGINT       NOT NULL REFERENCES idauto_observations(id),
+    derived_from_media_id BIGINT REFERENCES idauto_observation_media(id),
     media_type      VARCHAR(20)  NOT NULL,
         -- original_image | plate_crop | vehicle_crop | processed_derivative |
         -- carte_grise_original | carte_grise_derivative
