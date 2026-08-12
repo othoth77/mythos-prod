@@ -26,7 +26,16 @@ var ingestion = require(path.join(BASE, 'projects', 'idauto', 'reference', 'inge
 var ingestionPath = path.join(BASE, 'projects', 'idauto', 'reference', 'ingestion.js');
 var validPlateCounter = Date.now() % 800 + 100;
 function plate(offset) { return ((validPlateCounter + (offset || 0)) % 900 + 100) + ' TUN ' + ((Date.now() + (offset || 0)) % 8000 + 1000); }
-function context(actor, token, key) { return { actor_type: actor, actor_ref: token, idempotency_key: key || unique('idem') }; }
+// An anonymous submitter is accountable only through its hashed IP (design §5),
+// and IDA-3C rate-limits anonymous traffic on exactly that bucket — an anonymous
+// request carrying no address cannot be throttled and is refused. Give every
+// anonymous fixture its own synthetic address so each case is attributable and
+// no case inherits another's allowance.
+function context(actor, token, key) {
+  var built = { actor_type: actor, actor_ref: token, idempotency_key: key || unique('idem') };
+  if (actor === 'anonymous') built.raw_ip = 'synthetic-test-address-' + unique('ip');
+  return built;
+}
 function minimalPng() {
   return Buffer.from([137,80,78,71,13,10,26,10, 0,0,0,0, 73,69,78,68, 174,66,96,130]);
 }
