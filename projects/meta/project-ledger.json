@@ -726,6 +726,25 @@
         "projects/idauto/reference/IDENTITY_ADAPTER.md",
         "tests/mythos-identity-core-0-contract-test.js"
       ]
+    },
+    {
+      "track": "mythos-devx",
+      "stage_id": "DEVX-1",
+      "title": "ID Auto test-impact mapping and live-test runbook hardening",
+      "status": "PLANNED",
+      "type": "GOVERNANCE",
+      "starting_head": "385273b6aa64db9d648d1adfa3eabea20ca221c5",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "IDAUTO-STORAGE-OPS (NOT STARTED)",
+      "evidence_paths": [
+        "projects/meta/test-impact-map.json",
+        "docs/AI_HANDOVER.md"
+      ]
     }
   ],
   "commits": [
