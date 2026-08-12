@@ -125,14 +125,14 @@ Rename files to match target hierarchy. Update all `<script src>` tags.
 ## Current Priority
 
 1. **Mythos OS:** Complete through Stage 4AG + RUNTIME-DUPLICATE-CLEANUP-0 (corrected 2026-08-10, see note above) — no further Mythos OS Runtime stage is currently authorized; remaining known open items are listed above and are not scheduled.
-2. **ID Auto:** IDA-2 — PostgreSQL Core, API and Manual Capture MVP — IN PROGRESS: Phase A (schema + plate validation) complete 2026-08-10, no live database yet; Phase B (PostgreSQL deployment, API, UIs, auth/audit integration) requires separate explicit authorization
+2. **ID Auto:** IDA-2 complete except IDA-2E (real auth, BLOCKED — no Mythos identity service exists to integrate with). IDA-3 design gate and IDA-3A–IDA-3E are complete: ingestion schema, pure ingestion service, PostgreSQL rate limiting, private admin-only ingest route, and admin review with the community-fact visibility gate. **IDA-3F (off-host backup) is BLOCKED / DEFERRED by owner decision** pending Cloudflare R2 billing, and IDA-3G/3H/3I are gated behind it. `PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` = NO
 3. **Atelier Network:** ATN-1 — Workshop Registry + First Integration (after IDA-2)
 4. **AutoValeur:** AVA-1 — Public Calculator MVP (after IDA-2 provides PostgreSQL cluster)
 5. **Ecosystem (parallel — docs only):** MAE-0 + ATN-0 complete; MAE-1 not started (blocked on IDA-2)
 6. **Automation:** AUT-0 complete; INF-OVH-API-0 and INF-CF-AUTO-0 both complete as mocked reference implementations (no live credential, not deployed, not connected to a live provider); AUT-CONNECTOR-SHARED-HELPERS-0 (code-quality cleanup, no behaviour change) complete; INF-DNS-AUTO-1 is the next Automation implementation stage — not started, does not change items 1–4 above
-7. **Personal Intelligence (docs/contracts/reference/tests only, merged to `main` via PR #4):** MPI-0 and MPI-0-FINALIZATION complete; MPI-1 is the next Personal Intelligence implementation stage — NOT STARTED, does not change items 1–4 above
+7. **Personal Intelligence:** MPI-0, MPI-0-FINALIZATION and MPI-1 complete. MPI-1 delivered the Context Assembler + Context Compiler runtime (offline, provider-neutral, non-persistent); MPI-2 (Personal Learning & Memory Engine, runtime persistent) is the next Personal Intelligence stage — NOT STARTED, does not change items 1–4 above
 8. **Research Intelligence (docs only, merged to `main` via PR #5):** RES-0 complete; RES-1 is the next Research Intelligence implementation stage — NOT STARTED, NOT AUTHORISED, does not change items 1–4 above
-9. **Development Acceleration (developer tooling only):** DEVX-0 complete; DEVX-1 is the next Development Acceleration stage — NOT STARTED, does not change items 1–4 above
+9. **Development Acceleration (developer tooling only):** DEVX-0 and DEVX-1 complete; DEVX-2 (Verified Development Research Cache) is the next Development Acceleration stage — NOT STARTED and not yet specified beyond a title, does not change items 1–4 above
 
 **One-major-stage rule in force:** Only one major implementation stage may be active at a time unless the user gives explicit parallel authorisation. IDA-2 must not begin while Stage 3G is active. ATN-1 and AVA-1 cannot run in parallel without explicit user authorisation — they are sequential after IDA-2. The Automation track (INF-OVH-API-0 onward), the Personal Intelligence track (MPI-1 onward), the Research Intelligence track (RES-1 onward), and the Development Acceleration track (DEVX-1 onward) are likewise sequential and do not run in parallel with any of the above, or with each other, without explicit user authorisation.
 
@@ -239,7 +239,7 @@ Mythos Personal Intelligence & Skills Platform (`mythos_intelligence`) is the sh
 |---|---|---|
 | MPI-0 | Personal Intelligence Foundation — architecture, contracts, scope/precedence model, memory policy, agent skills, draft schema, reference implementation, tests | ✓ Done and merged (2026-08-07, PR #4, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`) |
 | MPI-0-FINALIZATION | Skills evolution audit, project history/statistics/portfolio-registry governance, deterministic offline tooling | ✓ Done and merged (2026-08-07, PR #4, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`) |
-| MPI-1 | Context Assembler + Context Compiler (runtime) | Planned — NOT STARTED |
+| MPI-1 | Context Assembler + Context Compiler (runtime) | ✓ Done (2026-08-12) |
 | MPI-2 | Personal Learning & Memory Engine (runtime, persistent) | Planned |
 | MPI-3 | Runtime Skill Router + Superposer | Planned |
 | MPI-4 | Personal Chatbot Runtime | Planned |
@@ -334,7 +334,7 @@ Mythos Development Acceleration (`projects/devx/`, `scripts/mythos-stage.js`) is
 | Stage | Description | Status |
 |---|---|---|
 | DEVX-0 | Development Acceleration MVP — current-context snapshot, known-baseline registry, test-impact map, development lanes, stage templates, Stage Runner CLI, short-command workflow contract | ✓ Done |
-| DEVX-1 | Dependency/Impact Graph + Automated PR Review | Future — NOT STARTED |
+| DEVX-1 | Dependency/Impact Graph + Automated PR Review | ✓ Done (2026-08-12) |
 | DEVX-2 | Verified Development Research Cache | Future — NOT STARTED |
 | DEVX-3 | Agent Orchestration Analytics | Future — NOT STARTED |
 

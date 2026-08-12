@@ -1,20 +1,21 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-08-11T22:53:39.604Z",
-  "source_commit": "c3e9f452a3be4432e8f609d88f9fdf74a7e3ee4f",
-  "main_head": "c3e9f452a3be4432e8f609d88f9fdf74a7e3ee4f",
+  "generated_at": "2026-08-12T23:06:07.794Z",
+  "source_commit": "a693125c96c8ac6b083764dfec02f8763ab5107c",
+  "main_head": "25a182dbbb30f8f5b4ab6e2892485553c3ce4713",
   "active_branch": "main",
   "active_stage": [],
   "last_completed_stage": {
-    "track": "id-auto",
-    "stage_id": "IDA-2B",
-    "completed_at": "2026-08-11"
+    "track": "mythos-personal-intelligence",
+    "stage_id": "MPI-1",
+    "completed_at": "2026-08-12"
   },
   "next_owner_priority": null,
-  "active_prs": "GH_UNAVAILABLE",
-  "draft_prs": "GH_UNAVAILABLE",
+  "active_prs": [],
+  "draft_prs": [],
   "known_blockers": [
-    "IDA-2E: No real Mythos OS identity/auth service exists to integrate with"
+    "IDA-2E: No real Mythos OS identity/auth service exists to integrate with",
+    "IDA-3F: NO_OFFHOST_DESTINATION_EXISTS: discovery found no usable off-host target already configured. No rclone, restic, borg, aws, s3cmd, mc, gsutil, az, swift or openstack binary is installed and no config for any exists; only generic rsync is present. All three configured SSH hosts resolve to github.com (the notrejour key is a GitHub deploy key), so there is no second server. No NFS/CIFS/sshfs mount and no second disk - only /dev/sda1 plus snap loop devices. Coolify reports s3_storages=0 and scheduled_database_backups=0. Cloudflare R2 is approved in CLOUDFLARE_ARCHITECTURE.md but explicitly not created, and is gated behind INF-CF-6. Provisioning a destination requires owner authorisation, so the stage stopped before selecting one."
   ],
   "known_baselines": [
     "stage3d-known-failures"
