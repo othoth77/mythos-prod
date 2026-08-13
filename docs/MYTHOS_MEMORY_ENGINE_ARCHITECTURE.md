@@ -151,7 +151,7 @@ Memory rows carry a `state`: `active` · `superseded` · `disputed` · `tombston
 ### 6.2 Rules
 
 - Contradictory facts are **never silently overwritten**. Both rows persist; a `pi_memory_conflicts` row links them, and both move to `disputed` until resolved.
-- Resolution is explicit — by a user instruction, or by a binding precedence rule via `scope.resolveByPrecedence` (session → user → organisation → domain → global). The loser becomes `superseded` with `superseded_at` and a `supersedes_memory_id` pointer. Nothing is deleted.
+- Resolution is explicit — by a user instruction, or by a binding precedence rule via `scope.resolveByPrecedence` (session → user → organisation → domain → global). The loser's `state` becomes `superseded` and its `superseded_at` is set. **The pointer direction is `winner.supersedes_memory_id = loser.memory_record_id`**: the surviving, newer record points at the record it supersedes, never the reverse. The loser holds no pointer to the winner. The column name describes the action of the row that carries it toward the row it references, matching the explicit `pi_learned_preferences` precedent, where "a correction inserts a new row referencing `supersedes_preference_id`". Nothing is deleted.
 - **Repeated low-quality duplicates must not inflate confidence.** Reinforcement only counts when the new observation is *independent*: a different `source_reference`, or the same source at a materially later `observed_at`. Re-importing the same contacts file twice, or the same sentence appearing five times in one transcript, counts **once**. Without this rule, confidence measures verbosity rather than truth.
 
 ---

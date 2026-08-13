@@ -132,10 +132,19 @@ async function integrationChecks(container, database) {
     provenance: { memoryProvenanceId: 'PRV_2B_C' + S, provider: 'mythos', sourceType: 'observation', sourceReference: 'hash://c' + S }
   });
   await lifecycles.supersedeMemory(client, ids.memA, ids.memB);
-  const loser = (await client.read('SELECT state, superseded_at FROM pi_memory_records WHERE memory_record_id=$1', [ids.memA])).rows[0];
-  const winner = (await client.read('SELECT supersedes_memory_id FROM pi_memory_records WHERE memory_record_id=$1', [ids.memB])).rows[0];
+  // Ratified direction (owner ruling 2026-08-13, MEMORY_ENGINE §6.2):
+  //     winner.supersedes_memory_id = loser.memory_record_id
+  // Both halves are asserted: the winner must point at the loser, AND the loser
+  // must NOT point back. Testing only the first half would still pass if the
+  // implementation wrote the pointer in both directions.
+  const loser = (await client.read(
+    'SELECT state, superseded_at, supersedes_memory_id FROM pi_memory_records WHERE memory_record_id=$1', [ids.memA])).rows[0];
+  const winner = (await client.read(
+    'SELECT state, supersedes_memory_id FROM pi_memory_records WHERE memory_record_id=$1', [ids.memB])).rows[0];
   ok(loser.state === 'superseded' && loser.superseded_at !== null, '19 supersession marks loser superseded with timestamp');
-  ok(winner.supersedes_memory_id === ids.memA, '20 supersession points winner at loser');
+  ok(winner.supersedes_memory_id === ids.memA, '20 winner.supersedes_memory_id == loser.memory_record_id');
+  ok(loser.supersedes_memory_id === null, '20b loser does NOT point back at the winner');
+  ok(winner.state !== 'superseded', '20c winner is not itself marked superseded');
 
   // 8 retrieval honours includeStates default
   const active = await client.withTransaction(async function (exec) {
@@ -261,7 +270,7 @@ async function integrationChecks(container, database) {
   const container = process.env.MPI_SCRATCH_CONTAINER;
   const database = process.env.MPI_SCRATCH_DB;
   if (!container || !database) {
-    skipped = 25;
+    skipped = 27;
     console.log('\nMPI-2B INTEGRATION: SKIPPED (set MPI_SCRATCH_CONTAINER and MPI_SCRATCH_DB)');
   } else {
     try { await integrationChecks(container, database); }

@@ -141,12 +141,13 @@ function memoryRepository(exec) {
       return r.rows[0] || null;
     },
 
-    // §6.2. NOTE ON DIRECTION: the winner (the new row) carries
-    // supersedes_memory_id pointing at the loser, matching the explicit
-    // pi_learned_preferences precedent ("a correction inserts a new row
-    // referencing supersedes_preference_id"). §6.2's prose is loosely worded and
-    // reads as if the loser carries the pointer, which would invert the meaning
-    // of the column name. Flagged for owner confirmation; not silently changed.
+    // §6.2. POINTER DIRECTION IS RATIFIED (owner ruling, 2026-08-13):
+    //     winner.supersedes_memory_id = loser.memory_record_id
+    // The surviving, newer record points at the record it supersedes. The loser
+    // holds no pointer to the winner; it only gets state='superseded' and
+    // superseded_at. The column name describes the action of the row carrying it
+    // toward the row it references, matching the pi_learned_preferences
+    // precedent. Do not invert this without a new ruling — §6.2 is authoritative.
     async supersede(loserId, winnerId) {
       await exec.query(
         `UPDATE pi_memory_records

@@ -46,9 +46,17 @@ Atomic and required: **memory creation + provenance** (§5 — a memory committe
 
 All seven MPI-2A columns are handled (`state`, `supersedes_memory_id`, `superseded_at`, `observed_at`, `valid_from`, `valid_to`, `evidence_count`). No field was invented.
 
-### Open question raised, not silently decided
+### Supersession direction — RESOLVED by owner ruling (2026-08-13)
 
-`MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` §6.2 reads *"The loser becomes `superseded` with `superseded_at` and a `supersedes_memory_id` pointer"* — which would make the loser point at the winner and invert the column's name. The implementation follows the explicit `pi_learned_preferences` precedent instead (*"a correction inserts a new row referencing `supersedes_preference_id`"*): **the winner carries the pointer at the loser.** Flagged in code and here for owner confirmation; §6.2's wording should be tightened either way.
+The ambiguity raised here has been ruled on and is now closed:
+
+```
+winner.supersedes_memory_id = loser.memory_record_id
+```
+
+The surviving, newer record points at the record it supersedes. **The loser does not point to the winner** — it receives only `state='superseded'` and `superseded_at`. Rationale: the column name describes the action of the row that carries it toward the row it references; it matches the explicit `pi_learned_preferences` precedent; and it gives the current record the direct pointer to what it replaced.
+
+`MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` §6.2 has been reworded to state this exactly, and the implementation comment in `repositories.js` now records it as ratified rather than open. The implementation already behaved this way, so **no persistence logic changed**. Regression cases 20 and 20b in `tests/mpi-2b-persistence-test.js` assert both halves — that the winner points at the loser, and that the loser's pointer stays `NULL`.
 
 ### Tests
 
