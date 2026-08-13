@@ -1,8 +1,58 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** PHASE 2 BACKUP & DATA PROTECTION — **OFF-HOST BACKUP: BLOCKED (no authorized destination exists)**
+**From:** SUPABASE / POSTGRESQL MIGRATION DESIGN — **DESIGN ONLY; recommendation is DO NOT adopt Supabase**
 **To:** Next AI session
+
+---
+
+## STAGE — SUPABASE / POSTGRESQL MIGRATION DESIGN (2026-08-13) — DESIGN ONLY
+
+**Nothing installed, created, configured or migrated.** No Supabase, no `mythos_intelligence`, no `pi_` table, no PostgreSQL or MySQL change, no data moved, no user, no credential, no env change, no PC contact, `VPS_TRANSFER` untouched. Production database modifications: **0**.
+
+Deliverable: **`docs/MYTHOS_SUPABASE_MIGRATION_DESIGN.md`**.
+
+### The design already existed — this does not restate it
+
+`mythos_intelligence` and the `pi_*` namespace are **already specified**: 15 ratified tables in `projects/personal-intelligence/database/control-plane-schema.sql`, a 5-table unapplied delta in `memory-engine-schema.sql`, and the storage/boundary/retrieval/backup decisions in `docs/MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` plus four sibling documents. Restating a 20-table schema in a new document would create two sources of truth for it. The new document **references** them and adds only what they do not cover: Supabase fit and migration staging.
+
+**No new `pi_` table is proposed.** Proposing more before D1/D2 are answered would prejudge the decisions those gates exist to protect. Existing `pi_` data: **none**. Planned migration data into `pi_*`: **none** — it is new application data by construction.
+
+### §1 — Inventory, completed with the detail that was missing
+
+Both instances are `postgres:15-alpine` **15.18**, one `public` schema each, and — newly captured — **`plpgsql` 1.0 is the only installed extension in either**. `pgcrypto`, `uuid-ossp`, `pg_stat_statements`, `pg_trgm`, `citext`, `unaccent`, `btree_gin` are available but not installed. Login roles: `idauto`, `coolify`. `idauto` 24 tables / 2,551 rows / 11 MB; `coolify` 66 tables / 24 MB (row count volatile — `sessions` churns). No other PostgreSQL instance exists.
+
+### §4 — Supabase compatibility: the finding that decides it
+
+**Eight Supabase-required extensions are not merely uninstalled, they are unavailable in the running image:** `pgjwt`, `pg_graphql`, `pgsodium`, `supabase_vault`, `vector`, `pg_net`, `pg_cron`, `pgaudit`. Adopting Supabase therefore means **replacing the PostgreSQL image with `supabase/postgres`** — a production database migration with downtime, not a configuration change. PostgreSQL 15.18 is version-compatible with Supabase's 15.x line, so the *data* would move cleanly; the *platform* does not bolt on.
+
+**Second hard constraint: disk.** Self-hosted Supabase is ~10 containers. The VPS has **4.6 GB free at 94%**, with Docker images already at 17.27 GB. There is not room today.
+
+**Recommendation: do not adopt Supabase as a platform.** Assessed honestly, most of it duplicates what Mythos has or has deliberately rejected — PostgREST's table-level auto-API would bypass the capability contracts and `pi_guard_decisions`; `pgvector` is explicitly forbidden at v1; Realtime and Edge Functions have no current requirement; Storage is needed only for *backups*, which is provider-neutral.
+
+**One capability is a genuine gap: authentication.** IDA-2E is BLOCKED precisely because "no Mythos identity service exists". That is worth solving — but on its own merits, against GoTrue standalone, Keycloak, Authentik or Zitadel, rather than by importing nine other services and an image replacement. **RLS needs no Supabase at all** — it is plain PostgreSQL.
+
+If Supabase is nonetheless chosen, **Supabase Cloud is the wrong shape**: it moves `idauto` personal data to a third party while no backup, no restore test and no data-processing decision exist. Self-hosting is the only variant compatible with current governance, and it is disk-blocked.
+
+### §5 — Staged plan A–F
+
+Stages **A (schema into a throwaway container), B (synthetic fixtures) and C (integration against scratch)** touch nothing but a disposable instance and are the productive work available today. **Stage D (production `CREATE SCHEMA mythos_intelligence`) must not run until the backup gate closes.** Rollback for D is `DROP SCHEMA … CASCADE`, safe *only* because the ratified design forbids cross-schema foreign keys. Stage F rollback depends on a verified off-host dump that does not yet exist.
+
+### §7 — Backup gate, binding
+
+| | Condition | Status |
+|---|---|---|
+| **A** | Off-host backup exists | **BLOCKED** |
+| **B** | SHA-256 verification passes | PASS locally; unproven across a transfer |
+| **C** | Restore-from-**off-host** test passes | **BLOCKED** |
+| **D** | PC-DECOMMISSION-GATE closed | **OPEN** |
+| **E** | Final VPS project inventory reconciled | **PASS** |
+
+Two of five. A and C are one input away (account, bucket, scoped key); D needs the `pc-audit.ps1` output. Stage D would create the first durable personal-data store this platform has ever had — doing that before a restore-from-off-host test has ever succeeded would be the riskiest step in the programme.
+
+### Validation
+
+Design document scanned for secrets and connection strings: **0 hits**. All six cross-referenced files verified to exist. Markdown tables well-formed. Targeted tests: stage1a **77/77**, mpi-1 **50/50**, mpi-0 **63/63**, mpi-0-finalization-governance **36/36** — all PASS.
 
 ---
 
