@@ -1,8 +1,120 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** PHASE 2 — POSTGRESQL BACKUP / RESTORE — **PARTIAL: backup + restore PASS locally, off-host BLOCKED**
+**From:** VPS BASELINE CLOSURE — **baseline PASS; off-host BLOCKED; PC reconciliation incomplete**
 **To:** Next AI session
+
+---
+
+## STAGE — CLOSE VPS BASELINE BEFORE SUPABASE (2026-08-13) — PARTIAL
+
+Verification stage. **No database was modified, no MySQL touched, no Git history rewritten, no Supabase work started, no PC contact.** The only write was this handover.
+
+### §8 — Explicitly verified absent, intentionally
+
+| Check | Result |
+|---|---|
+| Supabase containers / images / volumes / networks | **0 / 0 / 0 / 0** |
+| Supabase env-var *names* across running containers | **0** |
+| `mythos_intelligence` database / schema (both instances) | **0 / 0 — ABSENT** |
+| `pi_` tables (both instances) | **0** |
+
+**SUPABASE: NOT INSTALLED / NOT CONFIGURED.** The single repository match for "supabase" is this handover's own prose recording the finding — not configuration.
+
+### §1 — Backup baseline: PASS
+
+`/home/deploy/backups/phase2-pgdump-20260813T174143Z/` — `idauto.dump` (199,620 B), `coolify.dump` (1,605,408 B), `SHA256SUMS.txt`. Both re-verified `OK` this stage.
+
+| Check | Result |
+|---|---|
+| `idauto` production | 24 tables / 2,551 rows — **UNCHANGED** |
+| `coolify` production | 66 tables / 16 rows — **UNCHANGED** |
+| Scratch containers remaining | **0** |
+| Scratch databases in either instance | **0** |
+
+### §2 — OFF-HOST BACKUP: **BLOCKED**
+
+`rclone`, `restic`, `borg`, `duplicity`, `aws`, `s3cmd`, `b2`, `gsutil`, `age` — **all absent** (only `gpg`). No `~/.config/rclone/rclone.conf`, no `~/.config/mythos/idauto-offhost.env`. Filesystems: `/dev/sda1` and `/dev/sda13` only. The repo-side tooling *is* ready: `projects/idauto/ops/offhost-backup.js` and `adapters/s3-compatible.js` both present.
+
+**Missing, exactly:** (1) an object-storage account, (2) a bucket, (3) a scoped API key, (4) permission to install one client (`rclone`, ~50 MB). Nothing was created — no account, no bucket, no key, no upload.
+
+### §3 — DARHIJAMA MYSQL BACKUP: **PENDING** (readiness recorded, no dump taken)
+
+Destination is not authorized, so per §3 no `mysqldump` ran. The database was not modified.
+
+| Property | Value |
+|---|---|
+| Container / image | `dar-hijama-production-mysql-1` · `mysql:8.4` · running, `RestartCount=0` |
+| Database | `darhijama_prod` — 39 tables, 1.48 MB |
+| Storage engines | **InnoDB ×39** — `--single-transaction` gives a consistent snapshot with no locking |
+| `mysqldump` in container | present at `/usr/bin/mysqldump` |
+| Restore baseline | `role_has_permissions` 52 · `permissions` 27 · `audit_logs` 21 · `migrations` 20 · `roles` 4 |
+| Approx. total rows | **~132** |
+| Volume | `dar-hijama-production_staging-mysql` |
+
+**Correction to the Phase 2 emphasis.** I described this as the customer-facing datastore, which it is — but it currently holds roughly **132 rows, almost entirely framework scaffolding** (roles, permissions, migrations). The application is deployed but barely used. It still needs a backup; the urgency is lower than Phase 2 implied.
+
+Two things to note for whoever configures this: the *production* container's volume is named `…_staging-mysql`, which looks like a Coolify naming artifact but is worth confirming; and the staging instance holds a same-sized `dar_hijama_production` database.
+
+### §4/§5/§6 — Transfer material and project validation: PASS
+
+No new transfer was performed — the PC material was fully placed and reconciled in earlier stages. This stage re-verified it.
+
+`VPS_TRANSFER`: **2,241 files / 159,035,008 bytes / 2,241 of 2,241 SHA-256 OK.** The withheld material is still there and nowhere else: **18/18** sensitive files, **7/7** NotreJour design files.
+
+Forbidden categories confirmed absent from every placed project — real `.env` **0**, `client_secret*.json` **0**, SSH private keys **0**, n8n credential DBs **0**, `mythos_data.json` **0**, `appdata` **0**, `node_modules`/`vendor` **0**, `build`/`dist`/`cache` **0**, RIB/CIN literals **0**.
+
+All 14 migrated projects: tracked-file counts intact, **working trees clean**, repositories **PRIVATE**, remote HEADs **VERIFIED** (1,387 tracked files). Pre-existing repositories unchanged — `mythos-prod` `4be0ec8` main, `darhijama` `0aea926` `release/darhijama-1.0.3`, `mythos/notrejour` `e8fbf52` main. **No uncommitted work anywhere in `projects/`** — nothing was reset, checked out, stashed or blind-committed.
+
+### §7 — PC INVENTORY RECONCILIATION
+
+Reconstructed from the source-side consolidation manifest — **1,564 distinct files** analysed on the PC (3,109 instances):
+
+| State | Files | Detail |
+|---|---|---|
+| **TRANSFERRED** | **959** | `CONSOLIDATE` + `COPIED_VERIFIED` → arrived as the package's `Mythos/` tree, 100% hash-verified, now placed |
+| **TRANSFERRED** (already in target) | **217** | `ALREADY_IN_TARGET` — already inside `Desktop\site`, shipped in the other package directories |
+| **NOT TRANSFERRED — INTENTIONAL** | **65** | `EXCLUDED_SENSITIVE` at source: 53 live business/runtime data · 4 mythos-prod auth digests · 3 gitignored review documents · 2 client-PII exports · 2 OAuth client secrets · 1 SsangYong credential literal |
+| **NOT TRANSFERRED — INTENTIONAL** (Git canonical) | **322** | `CANONICAL_IN_GIT` — left in four PC working copies **⚠ see below** |
+| **UNRESOLVED** | **1** | `C:\Users\Othman\PythonApp\mythos_data.json` (3,627 B) conflicts with the `Desktop\site` copy; both kept on PC. A personal-data snapshot — **must not** be transferred |
+| **Total** | **1,564** | reconciles exactly |
+
+#### ⚠ The 322 "canonical in Git" files are the sharpest remaining risk
+
+They were left on the PC on the assumption that Git already holds them. That assumption has **never been verified**:
+
+| PC working copy | Files | Remote status |
+|---|---|---|
+| `C:\Users\Othman\Desktop\2607 bureau` (mythos-os) | 225 | `othoth77/mythos-os` — private, populated, 427 KB, last push **2026-07-29** |
+| `C:\Users\Othman\mythos-prod` | 68 | `othoth77/mythos-prod` — current |
+| `C:\Users\Othman\mythos-prod-stage3b` | 21 | **No such repository. No remote branch named `stage3b`** among the 24 on `mythos-prod` |
+| `C:\Users\Othman\mythos-prod-work` | 8 | **No such repository. No remote branch named `work`** |
+
+**Nobody has checked whether these four working copies are clean and pushed.** If any holds uncommitted or unpushed commits, that work exists **only on the PC** — and the 29 files under `mythos-prod-stage3b` / `mythos-prod-work` have no corresponding remote at all. This must be resolved before decommission, and it can only be resolved on the PC.
+
+**MISSING: none identified** — every file the manifest accounts for has a known state.
+
+**A full PC inventory still does not exist.** The consolidation covered `C:\Users\Othman\Desktop\site` plus referenced paths, not the whole machine. Prerequisite #9 ("no unique development material exists only on PC") therefore **cannot be asserted**, only assumed — and assuming it is exactly the mistake a decommission gate exists to prevent.
+
+### PC decommission gate
+
+| # | Condition | Status |
+|---|---|---|
+| 1 | Project source protected on GitHub | **PASS** |
+| 2 | PostgreSQL backup exists | **PASS (local)** |
+| 3 | Backup exists off-host | **BLOCKED** |
+| 4 | SHA-256 verified | **PASS** |
+| 5 | Restore test PASS | **PASS (local)** |
+| 6 | Sensitive files have an approved destination | **PENDING** |
+| 7 | VPS_TRANSFER holds no unique unprotected material | **PENDING** |
+| 8 | Final PC inventory reconciled | **PARTIAL** — package fully reconciled; whole-machine inventory absent |
+| 9 | No unique material only on PC | **UNVERIFIED** — 4 Git working copies + 65 sensitive + 1 conflict |
+
+`PC_DECOMMISSION: BLOCKED`
+
+### Next stage
+
+Complete the PC → VPS reconciliation (verify the four PC working copies are clean and pushed; produce a whole-machine inventory), then the PC-DECOMMISSION-GATE, then Supabase/PostgreSQL migration. **Supabase work does not start until both gates close.**
 
 ---
 
