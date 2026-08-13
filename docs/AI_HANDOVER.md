@@ -1,12 +1,46 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** PHASE 1 — OFF-HOST PROJECT PROTECTION (11 of 14 protected; **3 blocked on a visibility decision**)
+**From:** PHASE 1 — OFF-HOST PROJECT PROTECTION — **COMPLETE, 14 of 14 protected**
 **To:** Next AI session
 
 ---
 
-## STAGE — PHASE 1: OFF-HOST PROJECT PROTECTION (2026-08-13) — PARTIAL
+## STAGE — PHASE 1: OFF-HOST PROJECT PROTECTION — COMPLETION (2026-08-13) — COMPLETE
+
+The three projects blocked earlier in this stage are now protected. **The entire non-Git project corpus — 1,373 files / 129,175,505 bytes — has an independent off-host copy.**
+
+**Owner decision received:** switch the three empty public placeholders to private and reuse them; use the `uthina-chess` spelling.
+
+| Action | Result |
+|---|---|
+| `othoth77/uthinachess` → private, then **renamed** `uthina-chess` | PRIVATE, GitHub redirects the old name |
+| `othoth77/ssangyong` → private, reused | PRIVATE |
+| `othoth77/fixpert` → private, reused | PRIVATE |
+
+No duplicate repository was created, nothing was overwritten, no push was forced — each received a single initial commit onto an empty `main`. The push script refuses to run against any repository not reporting `PRIVATE`.
+
+| Repository | Commit = verified remote HEAD | Files | Bytes |
+|---|---|---|---|
+| `othoth77/uthina-chess` | `c8c33eaeda42364be516a08d7014d2a4c3d259f3` | 221 | 102,652,256 |
+| `othoth77/ssangyong` | `e347e765e524e0452104cab29addf2967bd9a8bf` | 196 | 11,431,685 |
+| `othoth77/fixpert` | `a2ccf8348cbcf5e626cf22d8d16b3a0a02020bc4` | 13 | 97,216 |
+
+### Final Phase 1 totals
+
+**14 repositories · 1,387 tracked files · 129,179,836 bytes** (1,373 project files + 14 `.gitignore`). Re-verified across all 14 in one pass: **ALL PRIVATE · ALL REMOTE-VERIFIED · ALL WORKING TREES CLEAN · 0 SECRET LEAKS**, with working-tree file counts matching the index in every project.
+
+Account-wide, only three repositories remain public: `mythos-prod`, `darhijama` and `telegram-bot`. Every repository created or reused by this migration is private.
+
+### Effect on the PC decommission gate
+
+Prerequisite **#2 (GitHub remote verified)** is now **MET for all 17 project directories**. #3–#5 (off-host backup exists, SHA-256 verified, restore test) are materially advanced for the project tier — Git is content-addressed and every remote HEAD was confirmed — but remain formally open until Phase 2 covers the database tier and a restore test is actually executed. #6–#9 are unchanged.
+
+**Disk: 4.6 GB free (94%).** Phase 2 must budget against this.
+
+---
+
+## STAGE — PHASE 1: OFF-HOST PROJECT PROTECTION (2026-08-13) — first pass, 11 of 14
 
 Full per-project detail: **`docs/OFFHOST_PROJECT_REGISTRY.md`**.
 
