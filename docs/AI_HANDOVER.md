@@ -1,8 +1,66 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** MPI-2 DESIGN GATE — **F1, F2, F3, F4, F7 resolved in design and scratch-validated; proposal NOT applied**
+**From:** MPI-2B — **first MPI persistence layer implemented and validated against scratch PostgreSQL; 36/36 tests pass; nothing production-wired**
 **To:** Next AI session
+
+---
+
+## MPI-2B — PERSISTENCE DESIGN / SCRATCH IMPLEMENTATION (2026-08-13)
+
+**Status: PASS — 36 passed, 0 failed, 0 skipped.** First MPI persistence layer exists. It is **scratch-only**: not wired into any application, never pointed at a production database.
+
+**Production databases modified 0 · production data copied 0 · containers/volumes/networks 26/20/9 identical before and after, 0 unhealthy · scratch container `mythos-mpi2b-scratch-pg` removed, scratch resources remaining 0.** No Supabase, no production `mythos_intelligence`, `.invalid` fixtures only.
+
+### Files added (new code only; no existing application code modified)
+
+| File | Role |
+|---|---|
+| `projects/personal-intelligence/persistence/client.js` | connection/transaction/query contract, SQLSTATE→kind mapping, retry policy |
+| `projects/personal-intelligence/persistence/repositories.js` | 10 repositories, one per aggregate |
+| `projects/personal-intelligence/persistence/lifecycles.js` | the §4 transaction boundaries A–J |
+| `projects/personal-intelligence/persistence/testing/psql-driver.js` | **test-only** driver adapter |
+| `tests/mpi-2b-persistence-test.js` | 36-case suite (11 offline contract + 25 integration) |
+
+### No driver dependency — deliberate
+
+The repository has **no root `package.json` and no `node_modules`**; the MPI track is dependency-free. Adding `pg` would contradict "smallest abstraction compatible with the existing architecture", so `client.js` takes an **injected driver** whose contract is exactly the node-postgres shape — `driver.query({text, values}) -> {rows}` — meaning a real `pg` Pool drops in unchanged when a driver is adopted. **Adopting a real driver remains an open task for the production path.**
+
+Because the scratch container runs `--network none`, no TCP driver could reach it. The test driver instead drives a persistent `psql` session over stdin, so every statement still executes against **real PostgreSQL with real constraints** — nothing stubbed, nothing faked. Its `$n`→literal encoder is strict, test-harness-only, and documented as never for production.
+
+### Repositories, and the tables deliberately without one
+
+Implemented: organisations · users · memory · provenance · tombstones · conflicts · preferences · preferenceAudit · guardDecisions · events.
+
+Without a repository, each with a stated reason in `repositories.js`: `pi_capability_runtime_status` (no runtime exists), `pi_knowledge_sources` (no connector), `pi_context_packages` (MPI-1's compiler is not persistence-backed), `pi_entity_references` (blocked on **D2**), `pi_feedback_events` (nothing emits signals), and the domain/capability/access registries (migration-seeded, not an application lifecycle). Each becomes a repository when the lifecycle that writes it exists.
+
+### Transaction boundaries (§4 A–J)
+
+Atomic and required: **memory creation + provenance** (§5 — a memory committed without provenance is permanently unattributable, and provenance is immutable so it cannot be backfilled); **supersession** (a partial commit leaves two active contradictory memories or a superseded row nothing supersedes); **tombstoning** (a tombstone without the state change lets retrieval keep returning deleted memory); **reinforcement** (the independence check reads provenance and the increment writes memory — without one transaction two concurrent imports of the same artefact could both see "no matching source" and both increment, the exact double-count §6.2 forbids); **conflict creation** (a conflict whose subjects are still `active` is invisible to state-filtered retrieval); **preference change + audit** (the audit table is append-only, so a missing audit row can never be corrected afterwards). **Guard decisions are deliberately standalone** — a rolled-back action must not erase the record that a decision was made.
+
+### F1 / F4 / F7 in the layer — belt and braces, database authoritative
+
+- **F1** — `createClient` throws if `schema === 'public'`; `search_path` is set explicitly per unit of work. Verified live: `current_schema() = mythos_intelligence`.
+- **F4** — `canonicalPair()` normalises before insert and rejects `a === b`. A deliberately reversed pair was stored canonically; the mirrored duplicate was then rejected **by the database**.
+- **F7** — the append-only repositories expose **no update or delete method at all**: the strongest guarantee application code never rewrites history is that no code path exists to try. Verified that raw SQL bypassing the repositories is still refused by the triggers, including a regulated `REQUIRE_APPROVAL` guard decision that could not be flipped to `ALLOW`.
+
+All seven MPI-2A columns are handled (`state`, `supersedes_memory_id`, `superseded_at`, `observed_at`, `valid_from`, `valid_to`, `evidence_count`). No field was invented.
+
+### Open question raised, not silently decided
+
+`MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` §6.2 reads *"The loser becomes `superseded` with `superseded_at` and a `supersedes_memory_id` pointer"* — which would make the loser point at the winner and invert the column's name. The implementation follows the explicit `pi_learned_preferences` precedent instead (*"a correction inserts a new row referencing `supersedes_preference_id`"*): **the winner carries the pointer at the loser.** Flagged in code and here for owner confirmation; §6.2's wording should be tightened either way.
+
+### Tests
+
+**Created:** `tests/mpi-2b-persistence-test.js` — 36 cases. **Executed:** 36 passed, 0 failed. Regression: MPI-0 63, MPI-0-governance 36, MPI-1 50, DEVX-1 92 — all pass, unchanged.
+
+**Uncovered:** concurrency/serialisation-failure retry (single-session harness cannot produce a real conflict); real `pg` driver behaviour (pooling, timeouts, disconnects); migration runner and idempotent re-apply; the maintenance-role bypass path under a non-superuser login; performance/index-usage. All require either a real driver or a multi-connection harness.
+
+### Gates unchanged
+
+Off-host backup **BLOCKED** · PC-DECOMMISSION-GATE **OPEN** · Real data ingestion **BLOCKED** · Supabase **NOT STARTED** · Production migration **NOT STARTED**. MPI-2A still blocked on **D1, D2, D3**; D5 gates real data.
+
+**Next stage:** MPI DATA-LAYER VALIDATION / APPLICATION INTEGRATION.
 
 ---
 
