@@ -1,8 +1,107 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** PHASE 1 — OFF-HOST PROJECT PROTECTION — **COMPLETE, 14 of 14 protected**
+**From:** PHASE 2 — POSTGRESQL BACKUP / RESTORE — **PARTIAL: backup + restore PASS locally, off-host BLOCKED**
 **To:** Next AI session
+
+---
+
+## STAGE — PHASE 2: POSTGRESQL BACKUP / RESTORE (2026-08-13) — PARTIAL
+
+### Supabase: **NOT FOUND** — conclusively
+
+No container, image, volume, network, or environment-variable *name* references Supabase anywhere on this VPS; no Supabase-suggestive PostgreSQL roles (`anon`, `authenticated`, `service_role`) exist; the repository has **0** references. The only string matches on disk are an unrelated Vercel plugin document and a file-listing CSV. **Nothing was installed or created.** This stage applies to the PostgreSQL architecture that actually exists.
+
+### Database inventory
+
+**PostgreSQL — 2 instances, both 15.18**
+
+| Container | Database | Size | Schemas | Tables | Rows | Volume | Application | Live | Role |
+|---|---|---|---|---|---|---|---|---|---|
+| `idauto-postgres` | `idauto` | 11 MB | 1 (`public`) | 24 | 2,551 | `idauto-postgres-data` | ID Auto | **yes** | production |
+| `coolify-db` | `coolify` | 24 MB | 1 (`public`) | 66 | 16 | `coolify-db` | Coolify control plane | **yes** | production |
+
+Both also carry a default 7.5 MB `postgres` maintenance database (no application data). Role names were read without touching passwords; no credential or connection string was printed.
+
+**§8 — `mythos_intelligence`: ABSENT.** Not a database on either instance, not a schema, and **0 `pi_` tables** anywhere. This confirms the MPI-2 design gate: the schema was designed but never applied. It therefore needs **no backup today**, but the moment MPI-2A applies that schema it becomes a *separate* backup target — it will **not** be inside the `idauto` dump.
+
+**§9 — `coolify-db`: REQUIRED for deployment reconstruction.** 66 tables holding the Coolify control plane — applications, servers, destinations, environment configuration. Without it the deployment topology must be rebuilt by hand. **Include it.** Coolify was not modified and not restarted; the restore test never touched its instance.
+
+**Redis — 6 containers, all transient.** `coolify-redis`, three `dar-hijama-production-redis-{queue,session,cache}`, two staging equivalents. Cache, session and queue roles only. **No backup created**, per §3.
+
+### NEW FINDING — two MySQL 8.4 instances hold live application data
+
+Not mentioned in the order and outside its PostgreSQL scope, so **no MySQL dump was taken**, but they must not stay invisible:
+
+| Container | Database | Tables | Data | Role |
+|---|---|---|---|---|
+| `dar-hijama-production-mysql-1` | `darhijama_prod` | 39 | 1.5 MB | **PRODUCTION** |
+| `mysql-gi0p3mbss6geqhunih23fy6f-…` | `dar_hijama_production` | 39 | 1.5 MB | staging |
+
+`darhijama_prod` is the live datastore of the deployed NotreJour/Dar Hijama application — the customer-facing system. It has **no backup of any kind**. Its logical backup is a one-line `mysqldump --single-transaction`, trivially small, and it belongs in the same design. **Added to the blocker list; awaiting authorisation to include it.**
+
+### Backup design
+
+| Database | Format | Actual dump size | Frequency | Retention | Restore | Verification |
+|---|---|---|---|---|---|---|
+| `idauto` | `pg_dump --format=custom` | **199,620 B** | daily | 7d · 4w · 12m | `pg_restore -d <scratch>` | table + row counts vs baseline |
+| `coolify` | `pg_dump --format=custom` | **1,605,408 B** | daily | 7d · 4w · 12m | `pg_restore -d <scratch>` | table count vs baseline |
+| `mythos_intelligence` | — | n/a | **when created** | — | — | separate target, not in `idauto` |
+| `darhijama_prod` (MySQL) | `mysqldump --single-transaction` | ~1.5 MB est. | daily | 7d · 4w · 12m | `mysql <scratch>` | table + row counts |
+| Redis ×6 | none | — | — | — | — | transient by design |
+
+No PostgreSQL data directory is copied as a backup mechanism.
+
+### What actually ran — and what did not
+
+**Created:** `/home/deploy/backups/phase2-pgdump-20260813T174143Z/` — `idauto.dump`, `coolify.dump`, `SHA256SUMS.txt`.
+
+| Step | Result |
+|---|---|
+| 1. Logical backup | **PASS** — 1,805,028 bytes total |
+| 2. SHA-256 | **PASS** — recorded in `SHA256SUMS.txt` |
+| 3. Encrypt | **NOT PERFORMED** — §5 forbids creating or exposing a passphrase. Method recorded only |
+| 4. Upload off-host | **BLOCKED** — no destination exists |
+| 5. Download | **BLOCKED** |
+| 6. Verify SHA-256 after transfer | **PASS in the local equivalent** — both dumps re-verified `OK` inside the isolated container after `docker cp` |
+| 7. Decrypt | **BLOCKED** |
+| 8. Restore into scratch | **PASS** |
+| 9. Verify | **PASS** |
+| 10. Destroy scratch | **PASS** |
+
+**Restore test — PASS.** Rather than create a scratch database inside either production instance, a throwaway `postgres:15-alpine` container was started with `--network none` and trust auth (no published port, no credential created), both dumps restored into it, then the container was destroyed. Coolify's instance was never touched.
+
+| Check | Restored | Expected | Result |
+|---|---|---|---|
+| `idauto` tables | 24 | 24 | **PASS** |
+| `idauto` rows (audit_log/observations/vehicles/submissions) | 1089/308/268/117 | 1089/308/268/117 | **PASS** |
+| `coolify` tables | 66 | 66 | **PASS** |
+| `restore_test_idauto` indexes / constraints | 253 / 223 | restored | **PASS** |
+| `restore_test_coolify` indexes / constraints | 397 / 275 | restored | **PASS** |
+
+**Production verified untouched afterwards:** `idauto` 24 tables / 2,551 rows, `coolify` 66 tables / 16 rows — identical to the pre-backup baseline. **0** scratch databases leaked into either instance, both containers `running` with `RestartCount=0`.
+
+### The dumps are NOT a backup
+
+They sit on `/dev/sda1` — the same disk as the databases. They survive nothing. Their value is that the **backup and restore procedure is now proven**; only the transfer step is unproven.
+
+### §4 — Backup destination: NOT CONFIGURED
+
+Re-verified this stage. `rclone`, `restic`, `borg`, `duplicity`, `aws`, `s3cmd`, `b2`, `gsutil`, `age`: **all absent** (only `gpg`). No `~/.config/rclone`, no `~/.config/mythos`. Single filesystem — `/`, `/boot`, `/boot/efi` on `sda` and nothing else. Per §4 the stage stopped after design: no bucket, no billing, no credentials.
+
+**Minimum authorisation required to finish:** one object-storage account (Backblaze B2 or Cloudflare R2 — 1.8 MB of dumps fits either free tier with ~5,000× headroom), a bucket, a scoped API key, and permission to install one client (`rclone`, ~50 MB). Nothing else. The existing `projects/idauto/ops/adapters/s3-compatible.js` works against either.
+
+### §5 — Encryption
+
+**Method: client-side `gpg --symmetric --cipher-algo AES256` before upload.** `gpg` is installed. No passphrase was created, generated, printed, stored, committed, or written here. The passphrase belongs in the owner's password manager and must never live beside the backup, on this VPS, or in Git.
+
+### Disk
+
+**4.5 GB free (94%).** Dumps consumed 1.8 MB; the scratch container's layer was reclaimed on destroy. Disk was never a blocker at this scale.
+
+### Next stage
+
+**SENSITIVE DATA BACKUP + FINAL PC INVENTORY.** `PC_DECOMMISSION: BLOCKED` — see the gate below.
 
 ---
 
