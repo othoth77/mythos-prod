@@ -1,8 +1,101 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** BACKUP + RESTORE VALIDATION — **BLOCKED: no independent backup destination exists**
+**From:** PHASE 1 — OFF-HOST PROJECT PROTECTION (11 of 14 protected; **3 blocked on a visibility decision**)
 **To:** Next AI session
+
+---
+
+## STAGE — PHASE 1: OFF-HOST PROJECT PROTECTION (2026-08-13) — PARTIAL
+
+Full per-project detail: **`docs/OFFHOST_PROJECT_REGISTRY.md`**.
+
+**Projects protected:** 11 of 14
+**Files protected:** 946 project files (957 tracked, incl. 11 generated `.gitignore`)
+**Bytes protected:** 14,995,358 (14,998,679 tracked)
+**Repositories created:** 11 — **all PRIVATE**
+**Repositories reused:** 0
+**Security:** **PASS** — 0 findings
+**PC:** UNTOUCHED · **VPS_TRANSFER:** PRESERVED (2,241 files / 159,035,008 bytes)
+
+### Commits and verified remote HEADs
+
+Every repository was created `--private`, pushed once, then verified by reading
+`repos/othoth77/<repo>/git/ref/heads/main` back from the GitHub API. All 11 match.
+
+| Repository | Commit = verified remote HEAD | Files | Bytes |
+|---|---|---|---|
+| `othoth77/knowledgevault-kms` | `25a2956198fa7e95c87d4a608cf973b54b7dd1ab` | 753 | 4,337,768 |
+| `othoth77/mythos-prod-unversioned-snapshot` | `e147657693c587615d85b344b5d92dbd59bd0cae` | 127 | 1,136,364 |
+| `othoth77/darhijama-site` | `9b2e810f9f4f9cfda871c0f275173d466b51d3a5` | 22 | 493,191 |
+| `othoth77/karhmana` | `cf0aea87c072d0695dd79cd27f4618798e614564` | 16 | 525,892 |
+| `othoth77/nettoyage-photo-vps` | `5a1fcd09a40ad9858e95f81bbab1ae54bdb22829` | 11 | 93,683 |
+| `othoth77/mythos-app` | `ecf563f809ff0081c7064a61da391a45f10dda8c` | 8 | 110,028 |
+| `othoth77/agribee` | `144355874c801046bdad71a3fe5160c85e20c58c` | 7 | 1,225,790 |
+| `othoth77/chatrange` | `f949d48e476a3312881e754b2a3b1ec04fedbff8` | 4 | 6,460,074 |
+| `othoth77/festival` | `853c4e568934282bfcbb1e8b85828c071aa19489` | 4 | 79,320 |
+| `othoth77/oudhna-service` | `d043c9f33d872d541a1a1c8b883c65b3f25a46b6` | 3 | 66,269 |
+| `othoth77/classepro` | `a76e4efaea5f857c6ea084c94fdf776a596e32b7` | 2 | 470,300 |
+
+### BLOCKED — 3 projects, 427 files, 114,180,147 bytes
+
+`uthina-chess` (220), `ssangyong` (195) and `fixpert` (12) could not be pushed. Empty **PUBLIC** placeholder repositories already hold their names — `othoth77/uthinachess`, `othoth77/ssangyong`, `othoth77/fixpert`, all 0 KB, created 2026-07-29, never used. Pushing into them would publish the content, which this stage forbids; creating differently named private repositories would duplicate the project, which it also forbids. Changing an existing repository's visibility is an account-settings change requiring explicit authorisation, so it was not done.
+
+**Recommended:** flip all three to private, then push. They are empty, so nothing is exposed by the change and it moves in the safer direction. Also decide `uthina-chess` vs `uthinachess` — same project, two spellings.
+
+This is why byte coverage is only 12% while project coverage is 79%: `uthina-chess` alone carries 102 MB of image assets.
+
+### Verification note worth keeping
+
+A naive `git ls-files | stat` **undercounts bytes**, because Git quotes non-ASCII
+paths and several of these projects hold Arabic filenames (`فرص_حجامة_*.html`,
+`مهرجانات_تونس_*.html`, `فرص_نحل_*.html`, `فرص_أوذنة_*.html`). The first pass
+reported `oudhna-service` at 276 bytes — the `.gitignore` alone. Re-measured with
+`git ls-files -z`, working tree and index match **exactly** in all 11 projects,
+with `git status` clean. Use `-z` for any future accounting here.
+
+### Security
+
+Every one of the 14 candidate projects was re-scanned before creation: private
+keys, AWS/GitHub/Anthropic/Slack/Stripe tokens, `GOCSPX-`, `client_secret`, the
+company RIB, CIN literals and `DEFAULT_CLIENTS` — **0 hits**. No real `.env`, no
+`google_config.php`, no `client_secret*.json`, no SSH keys, no `.pem/.key/.p12`,
+no database files, no `node_modules`/`vendor`. The single `.env.example`
+(`ssangyong/site/autocare-shop-tn`) holds placeholders only. After pushing, the
+tracked file list of all 11 repositories was re-scanned: **clean**.
+
+The 18 withheld sensitive files were **not** uploaded and remain only in
+VPS_TRANSFER.
+
+### Tests
+
+No newly protected project has a runnable suite — none has `node_modules` or
+`vendor`, and no dependency install was performed. Reported as not-run, never as
+passing. `mythos-prod` targeted tests are unchanged from `efe0f779`: stage1a
+77/77, mpi-1 50/50, mpi-0 63/63, orchestrator 156/156; `core-test.js` fails on
+the pre-existing `_memCache` baseline.
+
+### NotreJour — documented only
+
+No new NotreJour repository was created; neither `darhijama` nor `notrejour` was
+archived, deleted, merged, overwritten or pushed to. `darhijama` remains
+`0aea9267` on `release/darhijama-1.0.3`, `notrejour` remains `e8fbf52c` locally
+with its remote 15 commits ahead. See the registry for the full relationship.
+
+### Visibility finding — worth a deliberate decision
+
+`othoth77/mythos-prod` and `othoth77/darhijama` are **PUBLIC**. No credentials are
+in either, but `mythos-prod` now carries detailed migration and infrastructure
+documentation, and `darhijama` is a deployed Laravel application. This is an
+inherited default, not a decision anyone recorded.
+
+### Next stage
+
+**DATABASE + SENSITIVE DATA BACKUP DESIGN** — the encrypted Phase 2 tier for
+`idauto` (11 MB), `coolify-db`, the 18 sensitive files and the remaining
+VPS_TRANSFER-only material. Phase 1 unblocked PC-decommission prerequisite #2 for
+11 projects; #3–#5 still require Phase 2, and #7 still requires resolving the
+VPS_TRANSFER-only files.
 
 ---
 
