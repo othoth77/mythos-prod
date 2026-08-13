@@ -1,8 +1,123 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** MYTHOS INTELLIGENCE STAGE A — SCHEMA PREPARATION — **schema validated against throwaway PostgreSQL; 4 structural defects found**
+**From:** MYTHOS INTELLIGENCE STAGE B — SYNTHETIC FIXTURES / APPLICATION INTEGRATION — **no MPI persistence layer exists yet; F1–F4 are not current integration blockers; new finding F7 (append-only unenforced)**
 **To:** Next AI session
+
+---
+
+## STAGE B — SYNTHETIC FIXTURES / APPLICATION INTEGRATION (2026-08-13) — VALIDATION ONLY, THROWAWAY POSTGRES
+
+**Status: PASS.** All 20 tables populated and exercised on an isolated PostgreSQL 15.18. The headline result is an *integration* one, and it changes how F1–F4 should be prioritised.
+
+**Production databases modified: 0.** Containers 26→26, volumes 20→20, networks 9→9, all diffs identical, 0 unhealthy. Scratch container `mythos-stage-b-scratch-pg` (`--network none`, tmpfs `PGDATA`, no volume, no published port) removed; scratch containers remaining **0**, scratch volumes remaining **0**. No Supabase, no production `mythos_intelligence`, no production `pi_*` table, no production data copied, no real name/CIN/RIB/phone/email/client record used.
+
+### The decisive finding: there is no MPI persistence layer to integrate with
+
+Searched the whole repository (excluding `node_modules`) for consumers of the 20 `pi_*` tables. **Executable references: zero.** The only two hits are a prose comment in `projects/personal-intelligence/reference/intent-router.js:40` and a design-decision string in `projects/meta/project-ledger.json:592`.
+
+- **No PostgreSQL client**: `pg` is not a dependency and is not installed. The repository's only `new Pool(`/`require('pg')` is `projects/idauto/reference/db.js`, which belongs to a different product and a different schema.
+- **No query layer, no ORM, no migration runner**: the 7 modules in `projects/personal-intelligence/reference/` contain **no** `SELECT`/`INSERT`/`UPDATE`/`DELETE`/`.query(`/`Pool`/`Client`/`knex`/`sequelize`/`prisma`. Their only `require`s are `./scope` and `./entity-resolver`.
+- **They are pure functions over injected arrays.** `context-assembler.js` receives memory as `opts.memoryStore` / `input.memory` — caller-supplied, never fetched. Nothing bootstraps, migrates, or connects.
+
+**Transaction boundaries: none exist in application code**, because no code writes. Transaction behaviour was therefore validated at the database level only (B13: rollback left 0 rows).
+
+### §6 — `public.pi_*` or `mythos_intelligence.pi_*`? Answered from configuration, not documentation
+
+`projects/personal-intelligence/config/personal-intelligence.example.json` is the only configuration evidence:
+
+```json
+"database": { "target_dbms": "PostgreSQL", "logical_schema": "mythos_intelligence",
+              "implementation_stage": "MPI-1 or later" }
+```
+
+The expectation is **`mythos_intelligence.pi_*`**. But **no code reads this field** — there is no connection string, no `search_path` setting, and no consumer. So:
+
+**Is F1 an immediate integration blocker? No — because there is nothing to block yet.** It is a hard *apply-time* blocker for MPI-2A: applied as-is the files silently create all 20 tables in `public`, contradicting the only configuration that states intent. Reproduced again this stage (`mythos_intelligence` schema count = 0, 20 tables in `public`).
+
+### §7 — F3: does application code expect the §21 additive columns? No
+
+Searched `reference/*.js` for all 7 columns plus the retrieval flag: `state`, `supersedes_memory_id`, `superseded_at`, `observed_at`, `valid_from`, `valid_to`, `evidence_count`, `includeStates` — **0 hits each**. No column was created.
+
+`learning-engine.js` does use a `status` field and a `SUPERSEDED` value, but that is `pi_learned_preferences.status`, which **already exists** in MPI-0; its 6-value vocabulary matches the schema comment exactly. It is not the missing `pi_memory_records.state`.
+
+**F3 is therefore NOT a current application-integration blocker.** It becomes one the moment MPI-2B/2E is built, because the §10 retrieval contract's `includeStates` default of `['active']` cannot be implemented against a table with no `state` column.
+
+### §8 — F4: does the application canonicalise `(a,b)` / `(b,a)`? No — and it cannot
+
+The application's only conflict logic is `context-assembler.js:140`, which is **key-based and in-memory**:
+
+```js
+if (byKey[item.key] && JSON.stringify(byKey[item.key].value) !== JSON.stringify(item.value))
+  conflicts.push({ key: item.key, items: [byKey[item.key], item] });
+```
+
+It compares by `item.key`, never produces a `(memory_record_id_a, memory_record_id_b)` pair, and never writes `pi_memory_conflicts`. So there is **no canonicalisation anywhere** — not in the index, not in the application. F4 is unmitigated, and the first component to write `pi_memory_conflicts` will hit it. The index was not changed.
+
+### NEW FINDING — F7: append-only tables are entirely unenforced
+
+`control-plane-schema.sql` states `pi_preference_audit` and `pi_guard_decisions` "are append-only by specification: no UPDATE or DELETE path is defined for them in this or any future stage without a separate, explicit governance amendment."
+
+There is **no database enforcement of this at all** — no trigger, no rule, no revoked privilege, no `REVOKE`/`GRANT` in either file. Demonstrated on scratch (all rolled back):
+
+- `UPDATE pi_preference_audit SET new_status='TAMPERED'` → **1 row rewritten**
+- `DELETE FROM pi_preference_audit` → **table emptied**
+- `UPDATE pi_guard_decisions SET decision='ALLOW'` on the `regulated` / `REQUIRE_APPROVAL` row → **flipped to ALLOW**
+- `DELETE FROM pi_guard_decisions` → **all rows removed**
+
+The guard case is the serious one: an audit record of a permission decision over *regulated* data was silently rewritten from `REQUIRE_APPROVAL` to `ALLOW`. An audit trail that exists for non-repudiation currently provides none at the storage layer. Like F2, this is a specification-versus-schema gap, not a PostgreSQL failure.
+
+### §9 — Test matrix
+
+| # | Test | Expected | Actual | Result |
+|---|---|---|---|---|
+| T1 | Schema load, both files as-is | 20 tables, 20 `pi_*` | 20 / 20, `mythos_intelligence` absent | PASS (F1 reproduced) |
+| T2 | Synthetic insert, all 20 tables | every table populated | 20/20 populated, 27 rows, single COMMIT | PASS |
+| B1 | UNIQUE external id | reject | rejected | PASS |
+| B2 | NOT NULL | reject | rejected | PASS |
+| B3 | `chk_pi_conflict_distinct` (a=b) | reject | rejected | PASS |
+| B4 | `chk_pi_event_window` (to<from) | reject | rejected | PASS |
+| B5 | tag uniqueness | reject | rejected | PASS |
+| B6 | invalid reference (no FK) | accepted | accepted | **F2 confirmed** |
+| B7 | mirrored conflict pair | accepted | accepted, 2 rows for 1 contradiction | **F4 confirmed** |
+| B8 | append-only `pi_preference_audit` | reject UPDATE/DELETE | both succeeded | **F7 (new)** |
+| B9 | append-only `pi_guard_decisions` | reject UPDATE/DELETE | both succeeded; REQUIRE_APPROVAL→ALLOW | **F7 (new)** |
+| B10 | valid UPDATE | succeed | succeeded | PASS |
+| B11 | memory lifecycle / supersession | succeed | supersession chain correct | PASS |
+| B12 | valid DELETE (tags) | succeed | succeeded | PASS |
+| B13 | transaction rollback | 0 rows left | 0 rows left | PASS |
+| B14 | unconstrained vocabulary | accepted | garbage accepted | **F6 confirmed** |
+| B15 | tombstone one-per-record | reject second | rejected | PASS |
+| — | Application query paths | — | **none exist** — no consumer, no client, no ORM | N/A by design |
+
+Coverage A–H all exercised: A org/user relationships, B memory records, C evidence (`pi_memory_provenance`, `pi_learned_preferences.evidence_count`, `pi_feedback_events`), D events, E conflicts, F audit/control-plane, G timestamps/windows, H status/decision fields.
+
+Incidental observation: the schema has **nowhere to put an email address** — no column accepts one — which is direct evidence the MPI-0 no-raw-PII rule holds structurally, not just by convention.
+
+### Targeted tests
+
+149 passed, 0 failed — `mpi-0-personal-intelligence-test.js` 63 · `mpi-0-finalization-governance-test.js` 36 · `mpi-1-context-runtime-test.js` 50. No application code changed; full suite not rerun. No dependency was installed (`pg` deliberately not added).
+
+### Findings status after Stage B
+
+| | Finding | Apply-time blocker (MPI-2A) | Current integration blocker |
+|---|---|---|---|
+| F1 | no `CREATE SCHEMA` | **YES** | no — no consumer exists |
+| F2 | no FKs, incl. intra-schema | design decision required | no |
+| F3 | additive columns are comments | **YES** | no — 0 code references |
+| F4 | mirrored conflict pairs | correctness bug | no — app never writes pairs |
+| F6 | vocabularies unconstrained | minor | no |
+| F7 | append-only unenforced | **integrity gap** | no |
+
+None was resolved or guessed at; the schema files remain unmodified.
+
+### Gates — unchanged
+
+Off-host backup **BLOCKED** · PC-DECOMMISSION-GATE **OPEN** · Supabase **NOT STARTED** · Production migration **NOT STARTED** · MPI-2A still blocked on D1/D2/D3.
+
+### Next stage
+
+**STAGE C — APPLICATION INTEGRATION VALIDATION / MIGRATION READINESS.** Stage C cannot validate a persistence layer that does not exist; its first task is deciding whether MPI-2B builds one, and F1/F3 must be fixed in the schema files before any apply.
 
 ---
 
