@@ -1,8 +1,56 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** MPI-2C — **integration boundary proven end-to-end on scratch; adapter contains a real dual-effect hazard; nothing activated**
+**From:** MPI-2A PREPARATION — **migration runner built and scratch-validated (23/23); NEVER executed against production; migration remains BLOCKED on the backup gate**
 **To:** Next AI session
+
+---
+
+## MPI-2A — MIGRATION PREPARATION / PRODUCTION READINESS (2026-08-13) — PREPARED, NOT EXECUTED
+
+**Status: PASS — 23/23 runner cases, 0 failed.** The runner exists and is scratch-validated. **It has never been pointed at a production database**, and the backup gate forbids doing so today. Full design: `docs/MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` §20.
+
+**Production modified 0 · production data copied 0 · containers/volumes/networks 26/20/9 identical before and after, 0 unhealthy · scratch container removed, 0 scratch resources remaining.** No credential created, no environment variable changed, no production `mythos_intelligence`, no production `pi_*` table.
+
+### Correction to the order's premise
+
+**There is no "MPI-1 schema".** MPI-1 is the context runtime — pure JavaScript, no SQL. The three inputs are MPI-0 control-plane, the **MPI-2** memory-engine delta, and the MPI-2A remediation proposal. Order is fixed by file evidence, not stage numbers: 001/002 emit unqualified DDL needing `search_path`; 003 is schema-qualified and references what they create.
+
+### Files added
+
+| File | Role |
+|---|---|
+| `projects/personal-intelligence/persistence/migrate.js` | runner: inputs, preflight, apply, catalog assertions |
+| `tests/mpi-2a-migration-runner-test.js` | 23 cases (8 offline + 15 integration) |
+
+No existing migration mechanism was displaced — the repository had none; `MYTHOS_SUPABASE_MIGRATION_DESIGN.md` documents plain `psql -f`, which this wraps.
+
+### Two things scratch validation caught that review would not have
+
+1. **A wrong assertion of mine.** I asserted 55 indexes as 54, carried over from the MPI-2 design gate, which had no version table. Its primary key adds one. The test failed, and the constant was corrected — not the outcome.
+2. **A real bug in the test driver.** `SHOW` cannot appear inside a CTE, so the driver's row-wrapping produced invalid SQL. Fixed in both places: the runner now uses `SELECT current_setting(...)` (better SQL, identical under a real `pg` driver) and the driver no longer wraps `SHOW`.
+
+### Design decisions worth carrying forward
+
+- **Version state lives in `mythos_intelligence.schema_migrations`**, so `pg_dump --schema=mythos_intelligence` captures schema and version together — a restore that loses its version is a restore nobody can reason about. Not `pi_`-prefixed, so "exactly 20 `pi_*` tables" stays exact.
+- **Transactional DDL rollback is proven, not assumed** — test 21 forces a failure between inputs and confirms zero surviving tables and no schema.
+- **Two preflight checks are honestly not machine-verifiable** — free disk and off-host backup status cannot be established from inside PostgreSQL. They are operator-asserted and flagged as such, and the runner refuses without them rather than pretending to have checked.
+- **`DROP ... CASCADE` is never automatic recovery.** On this schema it would destroy the append-only audit rows that exist so history cannot be destroyed.
+- **No in-memory fallback on activation failure.** A silent fallback would accept writes that are lost and bypass the F7 audit trail entirely. The pure modules stay independently usable, which is what makes refusing to fall back affordable.
+
+### Data classification (design only, no real data)
+
+idauto personal/client data and Mythos business data **never migrate into MPI** — product schemas own them; MPI holds opaque `EntityReference`s, never copies. DarHijama is out of scope (separate MySQL stack). OAuth/secrets are **never stored in any form**. CIN/RIB/client records are PROTECTED and gated behind **D1**.
+
+### Tests
+
+MPI-0 **63** · MPI-0-governance **36** · MPI-1 **50** · MPI-2B **38** · MPI-2C **26** · MPI-2A runner **23** · DEVX-1 **92** — **328 passed, 0 failed.**
+
+### Gates — unchanged, and now enforced in code
+
+Off-host backup **BLOCKED** · PC-DECOMMISSION-GATE **OPEN** · Real data ingestion **BLOCKED** · Supabase **NOT STARTED** · Production migration **NOT STARTED**. The runner encodes the backup gate as a refusal condition, so migrating without asserting it aborts rather than merely being discouraged. MPI-2A also remains blocked on **D1, D2, D3**.
+
+**Next stage:** OFF-HOST BACKUP + PC-DECOMMISSION GATE CLOSURE. Nothing further in the MPI track can proceed to production until both are closed.
 
 ---
 

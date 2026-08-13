@@ -53,7 +53,9 @@ function isControl(text) {
   return /^\s*(BEGIN|COMMIT|ROLLBACK|SET|RESET|START\s+TRANSACTION)\b/i.test(text);
 }
 function returnsRows(text) {
-  return /^\s*(SELECT|WITH|SHOW)\b/i.test(text) || /\bRETURNING\b/i.test(text);
+  // SHOW is deliberately excluded: it cannot appear inside a CTE, so wrapping
+  // it would produce invalid SQL. Use SELECT current_setting(...) instead.
+  return /^\s*(SELECT|WITH)\b/i.test(text) || /\bRETURNING\b/i.test(text);
 }
 
 function createPsqlDriver(opts) {

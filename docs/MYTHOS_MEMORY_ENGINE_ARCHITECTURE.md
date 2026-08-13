@@ -512,3 +512,93 @@ A future real connection must obtain host/port/database/credentials/pool setting
 ### 19.7 Status
 
 Boundary **proven, not activated**. 26 end-to-end cases pass against scratch PostgreSQL, plus 38 MPI-2B and 149 MPI-0/MPI-1 assertions. No production wiring, no production database, no environment variable changed.
+
+---
+
+## 20. MPI-2A migration preparation / production readiness (2026-08-13) — PREPARED, NOT EXECUTED
+
+The runner exists and is scratch-validated. **It has never been pointed at a production database, and the backup gate in §20.8 forbids doing so today.**
+
+### 20.1 Inputs — and a naming correction
+
+There is **no "MPI-1 schema"**. MPI-1 is the context runtime: pure JavaScript, no SQL. The three inputs are:
+
+| Version | File | Stage | Depends on | Provides |
+|---|---|---|---|---|
+| `001-mpi-0-control-plane` | `control-plane-schema.sql` | MPI-0 | — | 15 tables |
+| `002-mpi-2-memory-engine` | `memory-engine-schema.sql` | **MPI-2** delta | 001 | 5 tables, 12 indexes, 2 CHECKs |
+| `003-mpi-2a-remediation` | `mpi-2a-remediation-proposal.sql` | MPI-2A | 002 | 33 FKs, 7 columns, 6 CHECKs, 3 indexes, 8 triggers, 3 roles |
+
+Order is fixed by file evidence, not stage numbers: 001 and 002 emit **unqualified** DDL and depend on `search_path`; 003 is schema-qualified and references objects the first two create. Each input is sha256-tracked so a recorded version whose file later changed is detected as drift.
+
+**Expected result:** schema `mythos_intelligence` containing exactly **20 `pi_*` tables**, **0 in `public`**, 33 FKs, 8 CHECKs, **55 indexes**, 8 triggers, 3 `NOLOGIN` roles, plus one non-`pi_` table, `schema_migrations`.
+
+### 20.2 Runner
+
+`projects/personal-intelligence/persistence/migrate.js`. The repository had **no** migration runner — `MYTHOS_SUPABASE_MIGRATION_DESIGN.md` documents plain `psql -f`, and `projects/idauto/database/migrations/` is a bare `.sql` with no runner. This wraps that documented approach with preflight, versioning and assertions; it does not introduce a competing mechanism. It is driver-agnostic like `client.js`, so scratch and production exercise the same code path.
+
+Version state lives in `mythos_intelligence.schema_migrations` so `pg_dump --schema=mythos_intelligence` (§2.2's backup unit) captures schema and version **together** — a restore that loses its version is a restore nobody can reason about. It is deliberately not `pi_`-prefixed, keeping the "exactly 20 `pi_*`" assertion exact.
+
+### 20.3 Idempotency and refusal
+
+Inputs 001 and 002 are **not idempotent** — zero `IF NOT EXISTS`/`DROP`/`CREATE OR REPLACE` guards; re-apply fails with `relation "pi_domains" already exists`. They fail **closed**: Stage A confirmed no partial mutation. The runner therefore never retries and never repairs — it refuses up front on any of: unexpected `pi_*` tables, conflicting objects in the target schema, unexpected ownership, version state inconsistent with the files on disk, identity mismatch, backup gate not asserted, or PostgreSQL below the documented major version.
+
+**`DROP ... CASCADE` is never issued as automatic recovery.** On this schema it would destroy the append-only audit rows that exist precisely so history cannot be destroyed. Recovery is an explicit, separately reviewed human act.
+
+### 20.4 Preflight — and the two checks that are honestly not machine-verifiable
+
+Machine-verified from the catalog: PostgreSQL version · database identity · **server identity via `pg_control_system().system_identifier`** (survives renames; not something a misconfigured host fakes by accident) · not-a-replica · target schema absent · `pi_*` count anywhere · `pi_*` in `public` · installed extensions · active vs. max connections · database size · migration version consistency.
+
+**Operator-asserted, and flagged as such rather than pretended:** free disk space and off-host backup status cannot be established from inside PostgreSQL. The runner demands explicit assertions (`diskOk`, `backupGateClosed`, `applicationReady`) and refuses without them. Ambiguity is treated as failure, never as permission — a missing `--system-identifier` fails the check rather than defaulting to "probably right".
+
+### 20.5 Configuration contract (documented only — no credential created, no value written)
+
+| Setting | Source | Notes |
+|---|---|---|
+| host / port / database | env (`MPI_PG_HOST`, `MPI_PG_PORT`, `MPI_PG_DATABASE`) | no default; absent = refuse to start |
+| user | env (`MPI_PG_USER`) | `mythos_intelligence_app` for the application; the owner role only for migrations |
+| password | **secret reference only** — env injected by Coolify at runtime | never in the repository, never in `personal-intelligence.example.json`, never logged |
+| schema / `search_path` | `mythos_intelligence`, fixed | `client.js` refuses `public` at construction and sets `search_path` per unit of work |
+| pool size / connection timeout / statement timeout | env, explicit | no unbounded statement timeout in production |
+| SSL mode | env | required if the database is ever reached over a network rather than a local socket |
+
+`config/personal-intelligence.example.json` currently supplies **only** `logical_schema`; it has no connection fields and no code reads it. That gap is stated here, not filled — filling it means creating configuration that only matters once activation is authorised.
+
+### 20.6 Activation plan (designed, NOT activated)
+
+Flag `MPI_PERSISTENCE_ENABLED`, default **false**. On startup with the flag true: construct the client → run a connection test → run `assertSchema()` → initialise repositories. **Any failure aborts startup of the MPI feature.**
+
+**There is deliberately no fallback to the in-memory store.** A silent fallback after a production persistence failure would accept writes that are then lost, and — worse for this schema — would bypass the F7 append-only audit trail entirely. Failing loudly is the correct behaviour. The pure reference modules remain usable independently, exactly as MPI-0/MPI-1 use them today; that independence is what makes refusing to fall back affordable.
+
+### 20.7 Data migration classes (design only — no real data in this stage)
+
+| Class | Source → transform → destination | Validation | Rollback |
+|---|---|---|---|
+| **A. schema** | 3 SQL inputs → none → `mythos_intelligence` | `assertSchema()` | transaction rollback (proven); post-commit → reviewed `DROP SCHEMA`, gated |
+| **B. synthetic validation** | generated `.invalid` fixtures → none → scratch only | existing suites | discard the container |
+| **C. non-sensitive development data** | hand-authored non-personal records → direct insert → dev database | FK/CHECK/trigger enforcement | delete by `import_batch_ref` |
+| **D. real personal/business data** | **BLOCKED** | — | tombstone + `import_batch_ref` reversal |
+
+Explicit classification: **idauto personal/client data — never migrates into MPI** (separate schema, separate owner, no cross-schema FK; MPI may hold an opaque `EntityReference`, never a copy). **Mythos business data — never migrates into MPI** (product-schema owned). **DarHijama data — out of scope entirely** (separate MySQL stack). **OAuth tokens and secrets — never stored in any form**, rejected at capture; credentials belong to `aut_secret_references`. **CIN / RIB / client records — PROTECTED**; reference-only, and subject to **D1** before any contact-shaped data exists at all.
+
+### 20.8 Backup gate — hard precondition, not weakened
+
+Production migration stays **BLOCKED** until *all* of: (A) an off-host backup exists · (B) SHA-256 verification passes · (C) restore-from-off-host is tested · (D) the PC-Decommission Gate is closed · (E) the final VPS inventory is reconciled. The runner encodes this as a refusal condition, so migrating without asserting it is not merely discouraged — it aborts.
+
+### 20.9 Dry-run plan (non-mutating)
+
+`preflight()` alone is already a complete non-mutating dry-run: it performs only catalog reads and one `pg_control_system()` call, writes nothing, and reports every check with expected vs. actual. It validates identity, schema state, version compatibility, connections and capacity signals.
+
+A fuller rehearsal — apply inside a transaction, assert, then `ROLLBACK` — is **safe on this schema and evidenced, not assumed**: test 21 forces a failure between inputs and confirms zero surviving objects, because PostgreSQL has transactional DDL. That rehearsal is nonetheless proposed only against a **clone**, never production, because it briefly takes DDL locks and creates cluster-wide roles that a rollback does not always unwind cleanly.
+
+### 20.10 Rollback
+
+**Schema** — *before commit*: automatic, proven by test 21. *Partial*: cannot occur inside one transaction; if the connection dies mid-apply, PostgreSQL rolls back on its own, and the runner then refuses to re-run until state is reconciled. *Post-commit validation failure*: `DROP SCHEMA mythos_intelligence CASCADE` is the only complete reversal and is safe **only** because nothing outside the schema references it (no cross-schema FKs) — it is explicitly gated behind human review and is never issued by the runner.
+
+**Application** — activation failure or repository failure disables the MPI feature and leaves the pure modules running; no fallback write path exists. Incompatible runtime: revert the flag to false; the schema can remain in place harmlessly because nothing else references it.
+
+**Data** — future ingestion failure reverses by `import_batch_ref` via tombstones, never by row deletion.
+
+### 20.11 Status
+
+Runner **prepared and scratch-validated, never executed against production**: 23/23 runner cases pass, including a proven transactional-DDL rollback and five distinct refusal paths. Production migration remains **BLOCKED** on §20.8.
