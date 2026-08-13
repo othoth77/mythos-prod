@@ -565,6 +565,26 @@
       ]
     },
     {
+      "track": "mythos-personal-intelligence",
+      "stage_id": "MPI-2-DESIGN-GATE",
+      "title": "Personal Learning & Memory Engine — design and storage decision gate",
+      "status": "IN_PROGRESS",
+      "type": "DOCUMENTATION",
+      "starting_head": "ea4b61f783cda6257c1a337bef7020c38656bf87",
+      "implementation_commit": null,
+      "merge_commit": null,
+      "handover_commit": null,
+      "completed_at": null,
+      "tests": {},
+      "blockers": [],
+      "next_stage": "MPI-2A (persistence schema) — NOT STARTED, requires owner decisions from this gate",
+      "evidence_paths": [
+        "docs/MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md",
+        "projects/personal-intelligence/database/memory-engine-schema.sql",
+        "docs/MYTHOS_USER_MEMORY_POLICY.md"
+      ]
+    },
+    {
       "track": "mythos-research-intelligence",
       "stage_id": "RES-0",
       "title": "Research Intelligence free-first foundation",
