@@ -568,20 +568,31 @@
       "track": "mythos-personal-intelligence",
       "stage_id": "MPI-2-DESIGN-GATE",
       "title": "Personal Learning & Memory Engine — design and storage decision gate",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "type": "DOCUMENTATION",
       "starting_head": "ea4b61f783cda6257c1a337bef7020c38656bf87",
       "implementation_commit": null,
       "merge_commit": null,
       "handover_commit": null,
-      "completed_at": null,
-      "tests": {},
+      "completed_at": "2026-08-12",
+      "tests": {
+        "design-gate": "documentation only — no runtime, no schema applied",
+        "draft-schema-check": "parens balanced 82/82, 5 CREATE TABLE, no ALTER/DROP/INSERT, no secret columns",
+        "live-verification": "mythos_intelligence schema absent, 0 pi_ tables, idauto unchanged at 24"
+      },
       "blockers": [],
-      "next_stage": "MPI-2A (persistence schema) — NOT STARTED, requires owner decisions from this gate",
+      "next_stage": "MPI-2A (persistence schema) — BLOCKED on D1, D2, D3",
       "evidence_paths": [
         "docs/MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md",
         "projects/personal-intelligence/database/memory-engine-schema.sql",
         "docs/MYTHOS_USER_MEMORY_POLICY.md"
+      ],
+      "decisions_required": [
+        "D1: may mythos_intelligence store raw third-party personal data (name/email/phone) for contacts? control-plane-schema.sql currently forbids it outright, and Google Contacts import is impossible without it.",
+        "D2: may MPI originate entities (people, projects) rather than only referencing product-owned ones? pi_entity_references is specified as never duplicating product-owned entities.",
+        "D3: where does memory content physically live, given content is stored by reference with no embedded content? This determines the backup topology.",
+        "D4: may a disputed fact be auto-resolved by scope precedence, or only by explicit human instruction?",
+        "D5: where do MPI backups go, given IDA-3F is deferred and MPI has no backup of any kind today?"
       ]
     },
     {

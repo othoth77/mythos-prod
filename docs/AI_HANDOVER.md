@@ -1,8 +1,71 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-12 UTC
-**From:** MPI-1 (Context Assembler + Context Compiler runtime — offline, provider-neutral)
+**From:** MPI-2-DESIGN-GATE (memory engine design + storage decision; **5 owner decisions open**)
 **To:** Next AI session
+
+---
+
+## DESIGN GATE — MPI-2 PERSONAL LEARNING & MEMORY ENGINE (2026-08-12) — COMPLETE, DECISIONS OPEN
+
+**Type:** Design and storage decision gate. **Design only.** No schema applied, no database or schema created, no row written, no migration, no persistent runtime, no `pgvector`, no personal data imported, nothing deployed. Verified live afterwards: `mythos_intelligence` schema **absent**, **0** `pi_` tables anywhere, ID Auto unchanged at 24 tables.
+
+**Starting HEAD:** `ea4b61f783cda6257c1a337bef7020c38656bf87`
+**Metadata commit:** `2468511e0d55ed7f5a5c9c0eb944ef9a031a73e5`
+
+### The finding that shaped everything
+
+**Most of this decision was already made in MPI-0, and two new requirements contradict it.** `control-plane-schema.sql` is a ratified 15-table draft in `mythos_intelligence` that already defines `pi_memory_records`, `pi_learned_preferences`, `pi_preference_audit`, `pi_entity_references` and `pi_knowledge_sources`, and already fixes the storage boundary, identity discipline, supersession rule and audit model. MPI-2 is mostly **extension**, not fresh design.
+
+Two requirements collide with rules that schema states in writing:
+
+| MPI-0 ratified rule | MPI-2 requirement | Result |
+|---|---|---|
+| "**No raw personal-data column** … never a name, email, or phone number" | Google Contacts import keyed on **email / phone**, plus durable memory of *people* | **D1** |
+| `pi_entity_references` "points at real entities owned by product schemas, **never duplicates them**" | Durable memory of people, projects and relationships **no product schema owns** | **D2** |
+
+These were **not** resolved unilaterally. Both change what personal data the platform durably holds about people who never consented to it, so they are the owner's call. Consequently the draft schema contains **no person, contact, project or relationship table** — drafting them would have prejudged the decision.
+
+### Decided in this gate
+
+**Storage — separate logical schema `mythos_intelligence`, confirming MPI-0.** Not a separate database: the isolation that matters (no cross-schema FKs, independent migrations, ownership, grants and selectable backup) comes from the schema boundary, while a separate database would add a second pool, backup target and restore procedure against a failure mode the schema boundary already contains. SQLite was rejected for weak concurrent-writer behaviour; filesystem/JSON for having no integrity or relational model at all — and conflict detection, supersession and relational provenance are the engine's entire value.
+
+**Vector search — DEFERRED, decided.** `pgvector` is not required for v1 and must not be installed. `MYTHOS_CONTEXT_ARCHITECTURE.md` §3 already guarantees a semantic ranking strategy can replace the current one without changing any caller's contract. Relational + native full-text search is sufficient at v1 volumes and is **deterministic**, which matters because determinism is testable and embedding similarity is not. Embeddings also imply an external model provider, which this gate forbids.
+
+**Retrieval contract for MPI-1** — a strict superset of the §3 interface, so MPI-1's caller contract does not change. `limit` is **required with no "all" value**, `includeStates` defaults to `['active']`, permission filtering precedes ranking, ordering is deterministic (confidence → `observed_at` → scope precedence → stable id), and conflicts are returned **alongside** items rather than collapsed into a winner. `loadAllUserMemory()` stays an anti-pattern.
+
+**Confidence integrity** — reinforcement counts only an **independent** observation (different `source_reference`, or the same source at a materially later `observed_at`). Re-importing the same contacts file twice counts once. Without this, confidence measures verbosity rather than truth.
+
+**Sensitive data** — credentials, tokens and payment data are **DENY: never stored in any form**, not summarised, not hashed, rejected at capture before normalization with only the *kind* recorded in `pi_guard_decisions`. Identity documents, health and intimate data are PROTECTED, reference-only, excluded from default retrieval. MPI-2 consumes permission decisions and implements no authentication.
+
+### The backup finding — IDA-3F does **not** cover MPI
+
+Stated plainly because assuming otherwise is the easy mistake: the ID Auto backups dump the **`idauto` database**; `mythos_intelligence` is a different schema and is **not in them**. The IDA-3F tooling is provider-neutral and would work, but it is configured and verified for ID Auto artefacts only — and it is **BLOCKED / DEFERRED** with no destination.
+
+**MPI therefore has no backup of any kind today, not even same-host.** Since MPI-2 will hold real, non-regenerable personal data about the owner *and third parties*, the recommendation is **`MPI_REAL_MEMORY_INGESTION_ENABLED = NO`** until MPI has its own verified, restore-tested, off-host backup. Schema, repository, capture and retrieval can all be built and tested on synthetic fixtures meanwhile — the pattern IDA-3A–3E followed. This needs neither resuming IDA-3F nor Cloudflare R2; it needs **D5**.
+
+### Deliverables
+
+- `docs/MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` — storage decision, boundary, memory model, lifecycle, provenance, conflicts, entity resolution, privacy, temporal model, retrieval contract, backup gate, 5 owner decisions, vector decision, 8 slices, import compatibility, test strategy.
+- `projects/personal-intelligence/database/memory-engine-schema.sql` — **DRAFT DELTA, NOT APPLIED**: 5 new tables (`pi_memory_provenance`, `pi_memory_conflicts`, `pi_memory_tombstones`, `pi_memory_tags`, `pi_memory_events`) plus additive columns stated as intent. Parens balanced 82/82, no `ALTER`/`DROP`/`INSERT`, no secret column.
+
+### Owner decisions required before MPI-2A
+
+| # | Decision |
+|---|---|
+| **D1** | May `mythos_intelligence` store raw third-party personal data (name/email/phone) for contacts? Options: dedicated `user_private` encrypted table with reversible imports · hashed identifiers only (matching works, human-readable directory lost) · contacts excluded from MPI entirely. |
+| **D2** | May MPI *originate* entities (people, projects), or only reference product-owned ones? |
+| **D3** | Where does memory *content* live, given MPI-0 mandates by-reference storage? Determines the backup topology. |
+| **D4** | May a `disputed` fact auto-resolve by scope precedence, or only by explicit human instruction? |
+| **D5** | Where do MPI backups go, given IDA-3F is deferred and MPI has none? |
+
+### Proposed slices
+
+`MPI-2A` schema (**blocked on D1/D2/D3**) → `2B` repository → `2C` capture + sensitive-data gate → `2D` dedup/conflict/supersession → `2E` MPI-1 retrieval adapter → `2F` lifecycle/tombstone/import reversal → `2G` backup + real-data gate (**needs D5**) → `2H` enable real ingestion (**only after 2G**, first real personal data). Importers and the chatbot are deliberately excluded — importers belong after 2H because they are what brings real third-party data in.
+
+### Next stage
+
+**`MPI-2A` — persistence schema. BLOCKED on owner decisions D1, D2 and D3.** IDA-3F remains BLOCKED / DEFERRED; IDA-3G/3H/3I stay gated behind it.
 
 ---
 
