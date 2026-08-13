@@ -79,6 +79,19 @@ Insert / update / delete / unique / CHECK / FK behaviour all exercised. Enforced
 
 Off-host backup: **BLOCKED**. PC-DECOMMISSION-GATE: **OPEN**. Supabase: **NOT INSTALLED / NOT CONFIGURED**. Production `mythos_intelligence`: **NOT CREATED**. Production migration: **NOT STARTED**. MPI-2A remains blocked on owner decisions **D1, D2, D3**.
 
+### Git — Stage A closure
+
+| | |
+|---|---|
+| Stage A commit | `775ffa1186bd5f9eb6f4e235cafd3fefaaa9f440` |
+| Remote HEAD | `775ffa1186bd5f9eb6f4e235cafd3fefaaa9f440` on `origin/main` — **verified**, `809b266..775ffa1` |
+| Working tree | clean |
+| Changed files | `docs/AI_HANDOVER.md` only; no application code, no schema file altered |
+
+Stage A is **CLOSED**: validated, committed, pushed, and remote-verified. The schema files themselves were **not** modified — F1–F4 are recorded as findings for MPI-2A to resolve, not silently corrected.
+
+Operational note for the next session: the interactive session user (`ubuntu`) holds **no** GitHub credential — no private key, no `gh`, no token, empty ssh-agent. Only the `deploy` account (uid 1001) can push. Expect to need an explicit owner authorisation for `sudo -u deploy git … push` to close any future stage.
+
 ### Next stage
 
 **STAGE B — SYNTHETIC FIXTURES / APPLICATION INTEGRATION.** F1–F4 should be resolved in the schema files before MPI-2A applies anything anywhere: F1 and F3 are apply-time blockers, F4 is a correctness bug in conflict detection, F2 is a deliberate-looking rule that appears to have over-reached into the schema's interior and deserves an explicit owner decision either way.
