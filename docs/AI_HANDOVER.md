@@ -1,8 +1,78 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** VPS PROJECT MIGRATION — COMPLETION PASS (all 2,241 files classified and reconciled)
+**From:** BACKUP + RESTORE VALIDATION — **BLOCKED: no independent backup destination exists**
 **To:** Next AI session
+
+---
+
+## STAGE — BACKUP + RESTORE VALIDATION (2026-08-13) — BLOCKED AT STEP 2
+
+**Starting HEAD:** `470ce2aa570a8a153812ee68a8f7a93a7ca8fd9a`
+**Backup destination:** **NONE AVAILABLE**
+**Backup ID / files backed up / bytes:** — (no backup created)
+**Restore test:** **NOT RUN** — nothing to restore
+
+**No backup was created and no restore was run.** Per the stage's own rule, an improvised destination is worse than none, so the stage stopped after inventory.
+
+### Why blocked — three independent confirmations
+
+**1. There is only one filesystem.** Every candidate path resolves to the same device:
+
+| Path | Device |
+|---|---|
+| `/home/deploy/projects` | `/dev/sda1` → `/` |
+| `/home/deploy/backups` | `/dev/sda1` → `/` |
+| `/home/ubuntu/incoming` (VPS_TRANSFER) | `/dev/sda1` → `/` |
+| `/var/lib/docker`, `/data` | `/dev/sda1` → `/` |
+
+`lsblk` shows a single 75 G `sda` (`sda1` root, `sda13` boot, `sda15` EFI) plus snap loopbacks. No second disk, no network mount, no external volume. A copy anywhere on this host survives neither disk failure nor VPS loss — precisely the failure modes a backup exists for.
+
+**2. No off-host tooling and no configured destination.** `rclone`, `restic`, `borg`, `duplicity`, `aws`, `s3cmd`, `b2`, `gsutil` are all **not installed** (only `rsync`). No rclone/restic/borg config exists for either account. `~/.config/mythos/` — the path `projects/idauto/ops/offhost-backup.js` expects — **does not exist**.
+
+**3. A standing owner decision forbids creating one.** IDA-3F (off-host backup) is `BLOCKED / DEFERRED` pending Cloudflare R2 billing, and this handover already records the explicit instruction: *do not, without a new authorisation, create an R2 bucket, create API credentials, activate billing, configure `~/.config/mythos/idauto-offhost.env`, run a remote push, run remote restore verification, or schedule backups.* Provisioning a destination here would override that decision unilaterally.
+
+**Disk was not the blocker.** The in-scope backup would need ~305 MB, ~610 MB peak with the restore-test copy, against **5,358 MB free**. Sufficient — the blocker is destination independence alone.
+
+### Inventory (complete)
+
+18 project directories, 3 Git repositories, ~305 MB in scope (5,169 files, excluding `node_modules`/`vendor`/build/cache/logs).
+
+| Git repository | Branch | HEAD | Tree | `fsck` | On remote? |
+|---|---|---|---|---|---|
+| `mythos-prod` | main | `470ce2aa` | clean | CLEAN | **YES** |
+| `darhijama` | `release/darhijama-1.0.3` | `0aea9267` | clean | CLEAN | **YES** |
+| `mythos/notrejour` | main | `e8fbf52c` | clean | CLEAN | **behind 15** |
+
+VPS_TRANSFER: **2,241 files / 159,035,008 bytes / 2,241/2,241 SHA-256 PASS** — re-verified this stage, untouched.
+
+Existing `/home/deploy/backups/`: 9 sets, 556 KB, all ID Auto/darhijama database and media artefacts, **all on the root filesystem** — not an independent backup, and they do not cover the migrated projects at all.
+
+### The real exposure — 1,373 files with no copy anywhere
+
+The three Git repositories are effectively replicated off-host through GitHub: `mythos-prod` and `darhijama` both have their exact local HEAD present on their remote. **Everything else does not exist anywhere but this disk:**
+
+`knowledgevault-kms` (752), `uthina-chess` (220), `ssangyong` (195), `_snapshots` (126), `darhijama-site` (21), `karhmana` (15), `fixpert` (12), `nettoyage-photo-vps` (10), `mythos-app` (7), `agribee` (6), `chatrange` (3), `festival` (3), `oudhna-service` (2), `classepro` (1) — **14 directories, 1,373 files, no Git, no remote, no backup.** Their only other copy is the PC, which is why the PC must not be decommissioned.
+
+### CORRECTION — `othoth77/notrejour` is NOT dormant
+
+The previous stage marked `mythos/notrejour` `CANDIDATE_FOR_ARCHIVE` on the reasoning that it had 4 commits against darhijama's 9. **That comparison used a stale local checkout and the conclusion was wrong.** A read-only `git fetch` this stage shows the remote is **15 commits ahead** (`e8fbf52c` → `52e7b2fd`), carrying two merged pull requests (repository cleanup, removal of a temporary Pint workflow), Pint formatting, a phpunit configuration fix, and documentation updates. `othoth77/notrejour` is an **actively maintained repository**; the local checkout is simply 15 behind, 0 ahead, clean.
+
+The marker file has been replaced with `mythos/STATUS_notrejour.md`, which records the correction. The checkout was **not pulled, merged, committed or reset** — bringing it current is a separate decision.
+
+The migration finding is unaffected: the transfer's `notre-jour` copy still matched darhijama **550/550** with zero differences. That was always a statement about the transferred files, not about which repository is retired. **Two live repositories share the package `notrejour/notre-jour`; whether that is intentional is an owner question.**
+
+### Tests
+
+Not re-run — this stage created no code change. Last verified at `470ce2aa`: stage1a 77/77, mpi-1 50/50, mpi-0 63/63, orchestrator 156/156. `core-test.js` fails on the pre-existing `_memCache` baseline.
+
+### Disk free
+
+**5.4 GB free, 93% used.** Unchanged by this stage.
+
+### Next stage
+
+**FINAL MIGRATION AUDIT → PC DECOMMISSION GATE — blocked.** The decommission gate cannot pass: 1,373 files exist only on this disk and on the PC, and no restore has ever been tested. Unblocking needs one owner decision — where backups go. Options that need no new billing: push the 14 non-Git projects to GitHub repositories (they contain no secrets — verified), or provide any genuinely separate host or volume. Resuming IDA-3F/R2 remains an alternative but is the one currently blocked on payment setup.
 
 ---
 
