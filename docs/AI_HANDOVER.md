@@ -1,8 +1,37 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** MYTHOS INTELLIGENCE STAGE B — SYNTHETIC FIXTURES / APPLICATION INTEGRATION — **no MPI persistence layer exists yet; F1–F4 are not current integration blockers; new finding F7 (append-only unenforced)**
+**From:** MPI-2 DESIGN GATE — **F1, F2, F3, F4, F7 resolved in design and scratch-validated; proposal NOT applied**
 **To:** Next AI session
+
+---
+
+## MPI-2 DESIGN GATE — F1/F2/F3/F4/F7 RESOLUTION (2026-08-13) — DESIGN + SCRATCH VALIDATION ONLY
+
+**Status: PASS.** All five findings resolved in design and validated against a throwaway PostgreSQL 15.18. **Nothing applied to production.** Production databases modified **0**; containers/volumes/networks **26/20/9 identical before and after**, 0 unhealthy; scratch container `mythos-mpi2-gate-scratch-pg` removed, scratch containers/volumes remaining **0**. No Supabase, no production `mythos_intelligence`, no production `pi_*` table, no real data, `.invalid` fixtures only.
+
+Full reasoning and evidence: **`docs/MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` §18** (the authoritative MPI-2 document — extended, not duplicated).
+Executable proposal: **`projects/personal-intelligence/database/mpi-2a-remediation-proposal.sql`** — **PROPOSAL, NOT APPLIED**.
+
+The two ratified schema files are **unmodified**. The remediation is a third delta applied strictly after them: `control-plane-schema.sql → memory-engine-schema.sql → mpi-2a-remediation-proposal.sql`.
+
+| Finding | Decision |
+|---|---|
+| **F1** schema boundary | **`mythos_intelligence.pi_*`**. §2.2 defines the backup unit as `pg_dump --schema=mythos_intelligence`, unimplementable from `public`. Tables stay unqualified; the migration sets `search_path` and asserts 0 `pi_*` in `public`. |
+| **F2** foreign keys | **33 intra-schema FKs required.** The no-FK rule is scoped to *cross-schema* links only. **No FK on any immutable table** — an audit row must outlive its subject, so `CASCADE` and `RESTRICT` are both wrong. |
+| **F3** additive columns | All **7 are MPI-2A** (`state`, `supersedes_memory_id`, `superseded_at`, `observed_at`, `valid_from`, `valid_to`, `evidence_count`) + 3 CHECKs + partial index on `state='active'`. `includeStates` cannot be implemented without `state`. |
+| **F4** conflict pairs | **`CHECK (a < b)`** — canonical ordering at storage. Rejected `LEAST/GREATEST` (arbitrary stored order) and application-only normalisation (Stage B proved the app does not canonicalise). Existing index unmodified. |
+| **F7** audit integrity | **Two independent layers** — `REVOKE` from the app role **plus** `BEFORE UPDATE OR DELETE` row triggers that bind the owner too, **plus** a separate `BEFORE TRUNCATE` statement trigger. Immutable set: `pi_preference_audit`, `pi_guard_decisions`, `pi_memory_tombstones`, `pi_memory_provenance`. **`pi_learned_preferences` deliberately excluded** — the memory policy states no preference record is ever immutable. |
+
+Scratch result: 20 tables in `mythos_intelligence` / **0 in `public`**, 33 FKs, **0 FKs on the immutable set**, all 7 columns, 8 CHECKs, 54 indexes, 8 triggers on 4 tables. All 11 negative tests passed — invalid FK rejected; mirrored pair rejected (1 row, not 2); audit UPDATE/DELETE/TRUNCATE rejected; a `REQUIRE_APPROVAL` guard decision could **not** be flipped to `ALLOW`; the maintenance path works only with **both** the GUC and role membership (either alone fails); and a preference was updated and deleted **while its audit row survived** — the direct proof that omitting that FK is correct.
+
+Scratch validation also caught a gap in the first draft of the proposal: the maintenance role had been granted nothing, so the legitimate path would have failed on privileges. Corrected and re-validated from a clean rebuild.
+
+**Not built:** no persistence layer, no repository, no migration runner, no application code. §18.7 documents the interfaces a future layer must consume (schema name, repository boundaries, transaction boundaries, identity model, and the memory/conflict/audit/guard lifecycles).
+
+**Gates unchanged:** Off-host backup **BLOCKED** · PC-DECOMMISSION-GATE **OPEN** · Supabase **NOT STARTED** · Production migration **NOT STARTED**. MPI-2A remains blocked on **D1, D2, D3**; D5 gates real data.
+
+**Next stage:** MPI PERSISTENCE DESIGN / IMPLEMENTATION — only after the owner ratifies §18 and answers D1/D2/D3.
 
 ---
 

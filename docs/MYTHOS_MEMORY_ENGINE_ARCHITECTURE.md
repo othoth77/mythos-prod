@@ -334,3 +334,111 @@ exact fact insert · duplicate fact (no double-count) · conflicting fact preser
 ## 17. Status
 
 **Design complete; blocked on owner decisions D1, D2, D3 (and D5 before any real data).** Nothing was implemented, applied, provisioned or deployed. `MPI_REAL_MEMORY_INGESTION_ENABLED` remains **NO**.
+
+---
+
+## 18. MPI-2 remediation gate — F1, F2, F3, F4, F7 (2026-08-13)
+
+Stage A and Stage B validated the §2/§3 design against a throwaway PostgreSQL 15.18 and found five defects. They are **omissions in the SQL files, not flaws in this architecture** — every decision below is derived from a statement already in this document or in `MYTHOS_USER_MEMORY_POLICY.md`, not invented at remediation time.
+
+The two ratified schema files remain **unmodified and authoritative for table definitions**. The remediation is a third delta file, applied strictly after them:
+
+```
+control-plane-schema.sql (15 tables) → memory-engine-schema.sql (5 tables) → mpi-2a-remediation-proposal.sql
+```
+
+`projects/personal-intelligence/database/mpi-2a-remediation-proposal.sql` is a **PROPOSAL, NOT APPLIED**, validated only in scratch.
+
+### 18.1 F1 — schema boundary. Decision: **`mythos_intelligence.pi_*`**
+
+Not a preference — §2.2 makes it structural. The MPI backup unit is defined as `pg_dump --schema=mythos_intelligence`, which is unimplementable if the tables are in `public`; §2.2 also defines per-schema independently versioned migrations, and `config/personal-intelligence.example.json` sets `logical_schema`. Applied as-is the files put all 20 tables in `public`, contradicting all three.
+
+The 20 `CREATE TABLE` statements stay **unqualified**. The migration issues `SET search_path TO mythos_intelligence` and then asserts 0 `pi_*` tables in `public`. Qualifying 20 tables inline would edit the ratified files and hard-code placement into the schema definition instead of the migration.
+
+### 18.2 F2 — foreign keys. Decision: **intra-schema FKs required; cross-schema and audit FKs intentionally absent**
+
+The no-FK rule in §2.1/§2.3 is scoped to **cross-schema** links ("no foreign key … crosses into `idauto`"). It says nothing about two `mythos_intelligence` tables, and §2.2's schema-scoped dump/restore makes intra-schema FKs restore as one consistent unit. **33 FKs** are specified; every referenced column was already `UNIQUE`, so no new uniqueness was introduced.
+
+Intentionally absent, and these are the load-bearing decisions:
+
+| Absent FK | Why |
+|---|---|
+| every `*_ref`, `entity_external_id`, `connector_id`, `project_ref`, `content_reference` | cross-schema or external by construction (§2.3) |
+| `pi_preference_audit.preference_id` → `pi_learned_preferences` | an audit row must **outlive its subject**. `CASCADE` would let erasing a preference erase its own audit trail; `RESTRICT` would block the erasure the memory policy requires. Both wrong → no FK. |
+| `pi_guard_decisions.user_id` / `organisation_id` | a permission decision must stay provable after the user record is erased |
+| `pi_memory_tombstones.memory_record_id` | a tombstone is evidence of deletion and must survive a hard purge of what it describes |
+| `pi_memory_provenance.memory_record_id` | immutable under F7; any referential action is a write |
+
+The rule that falls out: **nothing in the immutable set takes a foreign key, because a referential action is a write, and these tables do not accept writes.**
+
+### 18.3 F3 — additive columns. All **MPI-2A**
+
+§21 of the memory-engine file stated seven columns as comments with **0 executable `ALTER`**. They are required by the §6.1 state model and the §10 retrieval contract, whose `includeStates` default of `['active']` cannot be implemented without `state`.
+
+| Table | Column | Type | Null/default | Index | Consumer | Slice |
+|---|---|---|---|---|---|---|
+| `pi_memory_records` | `state` | `VARCHAR(16)` | NOT NULL `'active'` | partial + plain | §10 `includeStates` | 2A |
+| | `supersedes_memory_id` | `VARCHAR(64)` | NULL | yes | §6.2 supersession | 2A |
+| | `superseded_at` | `TIMESTAMPTZ` | NULL | — | §6.2 | 2A |
+| | `observed_at` | `TIMESTAMPTZ` | NULL | in partial idx | §10 ordering | 2A |
+| | `valid_from` / `valid_to` | `TIMESTAMPTZ` | NULL | — | temporal validity | 2A |
+| | `evidence_count` | `INTEGER` | NOT NULL `1` | — | §6.2 reinforcement | 2A |
+
+Plus `chk_pi_memory_state` (the four §6.1 states; `possible_match` excluded — it is an entity-resolution outcome, §6.1), `chk_pi_memory_window`, `chk_pi_memory_evidence_positive`, and `idx_pi_memory_active` — a partial index on `state='active'` ordered per §10.
+
+### 18.4 F4 — conflict pairs. Decision: **canonical ordering at storage, `CHECK (a < b)`**
+
+`idx_pi_conflict_pair` alone accepts both `(A,B)` and `(B,A)`, storing one contradiction twice. Alternatives weighed: a `LEAST/GREATEST` expression index dedupes but leaves the stored order arbitrary, forcing every later query to re-derive the canonical form; generated columns duplicate data; application-only normalisation was excluded because Stage B proved the application does not canonicalise and the database must not depend on it. §10 makes determinism binding, so **one canonical stored form** wins. With `a < b` enforced, the existing index becomes sufficient and **is not modified**.
+
+### 18.5 F7 — audit integrity. Decision: **two independent layers, plus a narrow maintenance path**
+
+Stage B demonstrated that an audit record of a *regulated* `REQUIRE_APPROVAL` guard decision could be silently rewritten to `ALLOW`. Privilege alone is insufficient — a table owner bypasses `REVOKE` silently, which is how this went unnoticed.
+
+| Table | INSERT | UPDATE | DELETE | TRUNCATE | Basis |
+|---|---|---|---|---|---|
+| `pi_preference_audit` | yes | forbidden | forbidden | forbidden | file header + "never updated or deleted after insert" |
+| `pi_guard_decisions` | yes | forbidden | forbidden | forbidden | same |
+| `pi_memory_tombstones` | yes | forbidden | forbidden | forbidden | "never updated or deleted after insert" |
+| `pi_memory_provenance` | yes | forbidden | forbidden | forbidden | §5 "Provenance is **immutable**" |
+| `pi_learned_preferences` | yes | **allowed** | **allowed** | — | **deliberately excluded** |
+
+`pi_learned_preferences` is excluded because `MYTHOS_USER_MEMORY_POLICY.md` states *"No learned personal preference record is ever immutable."* Locking it would break correction and erasure. **The subject stays mutable; its audit does not.**
+
+Mechanism: (1) `REVOKE UPDATE, DELETE, TRUNCATE` from the application role; (2) a `BEFORE UPDATE OR DELETE` row trigger that raises for **every** role including the owner, plus a separate `BEFORE TRUNCATE` statement trigger — row triggers never fire for `TRUNCATE`, so without it `TRUNCATE pi_guard_decisions` would empty the trail silently. The one legitimate path requires **both** the `mythos_intelligence.maintenance` GUC **and** membership of `mythos_intelligence_maint`; either alone fails. The three roles are `NOLOGIN` privilege boundaries carrying no password — they are not credentials.
+
+### 18.6 Scratch validation — all negative cases pass
+
+Isolated PostgreSQL 15.18, `--network none`, tmpfs, no volume, no published port, `.invalid` fixtures. Result: 20 tables in `mythos_intelligence` / **0 in `public`**, 33 FKs, 0 FKs on the immutable set, all 7 columns present, 8 CHECK constraints, 54 indexes, 8 triggers on 4 tables.
+
+| # | Test | Expected | Actual |
+|---|---|---|---|
+| N1 | invalid FK | rejected | rejected (`fk_pi_memory_user`) |
+| N2 | mirrored pair `(B,A)` | rejected | rejected; 1 conflict row, not 2 |
+| N3 | UPDATE audit / flip guard to `ALLOW` | rejected | rejected; still `REQUIRE_APPROVAL` |
+| N4 | DELETE audit, and TRUNCATE | rejected | both rejected |
+| N5 | valid INSERT | accepted | accepted |
+| N6a | app role UPDATE | rejected | permission denied (privilege layer) |
+| N6b | maint role, no GUC | rejected | trigger raised |
+| N6c | maint role + GUC | **accepted** | accepted — maintenance path works |
+| N6d | GUC without role membership | rejected | permission denied |
+| N7 | preference UPDATE/DELETE | accepted | accepted, **and its audit row survived** |
+| N8 | invalid `decision` value | rejected | rejected |
+
+N6a–N6d together prove the two layers are **independently necessary**. N7 is the direct evidence for §18.2: deleting a preference destroyed nothing of its audit trail.
+
+### 18.7 Interfaces the future persistence layer must consume (§8 — not built)
+
+Stage B established there is **no MPI persistence layer**: zero executable `pi_*` references, no `pg` dependency, no query layer, no ORM, no migration runner. None was built here. The contract it must satisfy:
+
+- **Schema/database name** — `mythos_intelligence` in the existing PostgreSQL instance; `search_path` set per connection, never assumed to be `public`.
+- **Repository boundaries** — one repository per aggregate: domains/capabilities · organisations/users/access · sessions · memory (records, tags, events, provenance) · preferences · conflicts · audit (write-only) · entity references · knowledge sources. No repository writes another's tables.
+- **Transaction boundaries** — one transaction per lifecycle step in §4. Capture→persist is atomic with its provenance row. Conflict detection writes both `disputed` state changes and the conflict row in one transaction. An MPI transaction never spans another schema (§2.2).
+- **Identity model** — opaque `VARCHAR(64)` refs, `usr_<uuidv7>` / `org_<uuidv7>`; `*_ref` + `*_ref_source` retained; `role_ref` stays a pointer, never duplicated authorisation logic.
+- **Memory lifecycle** — §4 order is binding; permission gate before relevance; sensitive-data gate before persistence; capture never writes an established preference; deletion is a tombstone.
+- **Conflict lifecycle** — the writer **must** canonicalise pair order before insert (`a < b` is now enforced, so an uncanonicalised write is a hard error, not silent duplication). Both rows go `disputed`; resolution is explicit; D4 governs whether precedence may auto-resolve.
+- **Audit lifecycle** — append-only, INSERT only, no update path in any repository. Audit rows must be written even when the subject write fails, and must survive the subject's erasure.
+- **Guard-decision lifecycle** — MPI **consumes** decisions and records them; it implements no authentication, session, JWT or permission persistence beyond the audit row (§9).
+
+### 18.8 Status of this gate
+
+F1–F4 and F7 are **designed and scratch-validated, not applied**. MPI-2A remains blocked on **D1, D2, D3** independently of these findings; D5 gates real data. Nothing in this section was applied to any production database.
