@@ -1,8 +1,71 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** VPS BASELINE CLOSURE — **baseline PASS; off-host BLOCKED; PC reconciliation incomplete**
+**From:** PHASE 2 BACKUP & DATA PROTECTION — **OFF-HOST BACKUP: BLOCKED (no authorized destination exists)**
 **To:** Next AI session
+
+---
+
+## STAGE — PHASE 2 BACKUP & DATA PROTECTION (2026-08-13) — BLOCKED
+
+Inspection stage. **No account, bucket, API key, billing, upload, install or configuration.** No production database modified, no MySQL touched, no Supabase work, no PC contact, `VPS_TRANSFER` untouched. The only write was this handover.
+
+### §1 — OFF-HOST BACKUP: **BLOCKED**
+
+Exhaustive inspection of every place an already-authorized destination could live:
+
+| Checked | Result |
+|---|---|
+| **Coolify `s3_storages` table** | **0 rows** — capability present, nothing configured |
+| **Coolify `scheduled_database_backups`** | **0 rows** |
+| `scheduled_volume_backups` | table exists, unused |
+| Clients: `rclone` `restic` `borg` `duplicity` `aws` `s3cmd` `b2` `gsutil` `age` | **all NOT INSTALLED** (only `gpg`) |
+| `~/.config/rclone/rclone.conf`, `~/.aws/{credentials,config}`, `~/.b2_account_info`, `~/.restic` | **absent** |
+| `~/.config/mythos/idauto-offhost.env` | **absent** |
+| `/root/.aws`, `/etc/rclone.conf`, `/etc/mythos` | **absent** |
+| Env-var *names* matching `AWS_*` `S3_*` `R2_*` `B2_*` `OVH_*` `CLOUDFLARE*` `MINIO*` across all running containers | **none** |
+| `~/.ovh.conf` (VPS is OVH-hosted) | **absent** |
+
+**New evidence this stage:** Coolify already ships the exact mechanism — an S3 destination registry and a scheduled-backup scheduler — and **both are empty**. So the platform-native path needs no new tooling at all; it needs one destination registered.
+
+**Missing, exactly, and nothing more:** (1) an object-storage account, (2) a bucket, (3) a scoped API key (id + secret + endpoint + region), (4) authorization to register it. With those, Coolify can schedule and run the PostgreSQL backups natively — no `rclone` install required, though the repo's own `projects/idauto/ops/offhost-backup.js` + `adapters/s3-compatible.js` remain a working alternative.
+
+### §2 — PostgreSQL: evidence intact
+
+`/home/deploy/backups/phase2-pgdump-20260813T174143Z/` — `idauto.dump` 199,620 B, `coolify.dump` 1,605,408 B, both **SHA-256 re-verified OK** this stage.
+
+| Database | Tables | Rows | State |
+|---|---|---|---|
+| `idauto` | 24 / 24 | 2,551 / 2,551 | **UNCHANGED**, running, `restarts=0` |
+| `coolify` | 66 / 66 | 21 (was 16) | schema unchanged, running, `restarts=0` |
+
+**0** restore-test containers, **0** scratch databases in either instance. Restore test remains **PASS** from the earlier run.
+
+**On the coolify row drift — expected, not a defect.** The +5 rows are `sessions` (web session records, 25 inserts) and one `activity_log` entry: Coolify is a live control plane writing to itself. A dump is a point-in-time snapshot; a live database moving forward afterwards is normal.
+
+**Correction to my earlier baseline guidance:** I recorded `coolify` = 16 rows as a restore-verification baseline. That was wrong to state as an invariant — `sessions` churns continuously. For `coolify`, verify **schema and table count (66)**; row counts are only meaningful against the dump's own timestamp. For `idauto`, row counts *are* stable (2,551) and remain a valid check.
+
+### §3 — DARHIJAMA MYSQL: **BLOCKED / PENDING**
+
+No authorized destination exists, so per §3 **no `mysqldump` was run** and the database was not modified.
+
+Readiness re-confirmed read-only: `mysql:8.4`, running, `restarts=0`, `darhijama_prod` **39 tables, all InnoDB, 1.48 MB**, `mysqldump` present at `/usr/bin/mysqldump`. All-InnoDB means `--single-transaction` yields a consistent snapshot without locking the live application.
+
+### §4 / §5 — Untouched
+
+`VPS_TRANSFER`: **2,241 files / 159,035,008 bytes / 2,241 of 2,241 SHA-256 OK.** Not touched, nothing deleted, no sensitive material moved.
+
+Supabase containers/volumes/networks **0/0/0**. `mythos_intelligence` database **0**, schema **0**, `pi_` tables **0** on both instances. Nothing installed or created.
+
+### Blockers
+
+1. **No authorized off-host destination** — the single blocker for the data-protection gate. Everything else is ready and waiting on it.
+2. **`darhijama_prod` MySQL has no backup** — gated behind (1).
+3. PC-decommission gate remains **OPEN** — G1/G2/G9 need PC-side data that is unreachable from this session.
+
+### Next stage
+
+**Authorize one object-storage destination**, then: register it in Coolify (or configure the repo tooling), run the first off-host push of `idauto` + `coolify` + `darhijama_prod`, verify SHA-256 after round-trip, and run a restore test from the *downloaded* copy. Supabase/PostgreSQL migration design starts only after that and the PC gate close.
 
 ---
 
