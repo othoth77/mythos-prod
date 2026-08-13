@@ -1,8 +1,113 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** VPS PROJECT PLACEMENT (1,226 files placed into 12 projects; **975 deferred pending owner decision**)
+**From:** VPS PROJECT MIGRATION — COMPLETION PASS (all 2,241 files classified and reconciled)
 **To:** Next AI session
+
+---
+
+## STAGE — VPS PROJECT MIGRATION — COMPLETION PASS (2026-08-13) — COMPLETE
+
+**Starting HEAD:** `09d5fe189c4402c6ce4c0f64b606ffdf58a3396d`
+**Remote HEAD before this stage:** `09d5fe189c4402c6ce4c0f64b606ffdf58a3396d` — **VERIFIED** (`git push` succeeded, `git fetch` + `git ls-remote` both confirm). The push blocker in the previous stage was this session's permission layer, not GitHub; authentication as `deploy` was always sound.
+
+### Final accounting — all 2,241 files, mutually exclusive, reconciles exactly
+
+| Disposition | Files |
+|---|---|
+| Placed — stage 1 (`assets/logos/` → mythos-prod) | 4 |
+| Placed — stage 2 (12 projects) | 1,226 |
+| **Placed — this stage** | **146** |
+| **Total placed** | **1,376** |
+| B — byte-identical, already at destination | 28 |
+| C — conflict, existing VPS version preserved | 8 |
+| C — duplicate of canonical Git content (`notre-jour` ⊂ darhijama) | 550 |
+| F — obsolete snapshot (`notre-jour-github`) | 245 |
+| **E — sensitive, excluded from placement** | **18** |
+| G — unmapped, preserved in VPS_TRANSFER | 16 |
+| **Total** | **2,241** ✓ |
+
+### Placed this stage — 146 files, all SHA-256 verified
+
+| Transfer path | Destination | Files |
+|---|---|---|
+| `darhijama/` | `/home/deploy/projects/darhijama-site/` *(new)* | 21 |
+| `Mythos/MythosProd-unversioned/` minus 18 sensitive | `/home/deploy/projects/_snapshots/mythos-prod-unversioned/` *(new, non-Git)* | 125 |
+
+**146/146 verified**, 0 missing, 0 unexpected. Whole-tree census 2,601 → 2,747 files, **0 pre-existing files changed or removed** (the single delta was this repository's own `docs/AI_HANDOVER.md`, edited and committed by this session). Transfer source re-verified after placement: **2,241/2,241 PASS, 159,035,008 bytes, unaltered.**
+
+### NotreJour canonical repository — RESOLVED BY EVIDENCE
+
+**`/home/deploy/projects/darhijama` (`git@github.com:othoth77/darhijama.git`) is the canonical NotreJour application.**
+
+| Evidence | Result |
+|---|---|
+| `composer.json` name — both repos | `notrejour/notre-jour` — *the same Laravel package* |
+| `APP_NAME` in darhijama `.env.example` | `"Notre Jour"` |
+| darhijama history | 9 commits, release branches 1.0.0–1.0.3, last 2026-07-29 |
+| `mythos/notrejour` history (`othoth77/notrejour`) | 4 commits, main only, last 2026-07-23 |
+| Transfer `notre-jour` (550) vs darhijama | **550 identical, 0 different, 0 unique** (case + EOL normalised) |
+| Transfer `notre-jour` (550) vs `mythos/notrejour` | 113 identical, 96 different, 341 only-in-transfer |
+| darhijama ships `notrejour.tn.nginx.conf` | deployment config for the NotreJour domain |
+
+**Nothing was integrated into darhijama, because there was nothing to integrate.** The four apparent conflicts (`docs/DEPRECATIONS.md`, three `ops/probes/*.ps1`) are **pure CRLF/LF artifacts** — byte deltas of 5, 29, 29 and 35 match the line counts exactly, and darhijama's `.gitattributes` mandates `*.ps1 text eol=crlf`, making the repo version normative. The one apparently-new file, `Modules/Landing/Tests/Feature/LandingProductionCompletionTest.php`, already exists at `Modules/Landing/tests/Feature/` (lowercase) with **identical SHA-256 `20c13fdf…`** — a Windows case-insensitivity artifact. Likewise the nine "missing" migrations exist under `Database/Migrations/` (capital M) and are identical modulo line endings.
+
+`mythos/notrejour` is **preserved untouched** (HEAD `e8fbf52c`, clean) and marked `CANDIDATE_FOR_ARCHIVE.md` in its parent directory. It is a second, distinct GitHub repository — whether it is retired is the owner's call, not an inference to act on.
+
+### darhijama brand assets — RESOLVED, they are NOT part of the Laravel repo
+
+The 21 files are a standalone Arabic RTL landing site (`hijama-tunisia.tn`, WhatsApp booking) plus brand assets and two research documents — structurally identical to `agribee` (`index.html` + `assets/` + `recherche/`), already placed as its own project. The Laravel darhijama repo references **none** of the asset filenames (0 hits across 5 patterns) and ships **0** images in `public/`. Placed as **`darhijama-site`** to avoid a name collision with the Laravel repo; rename freely if you prefer another name.
+
+### MythosProd-unversioned — 143 classified, 125 placed, 18 excluded
+
+Every file was hashed with `git hash-object` against mythos-prod's **entire** object database (all branches, all history, raw and EOL-normalised): **0 byte-identical, 143 unique.** This is genuinely non-regenerable content, so it was preserved in a clearly identified non-Git snapshot directory with a `README.md` explaining its status.
+
+**18 files were withheld — they contain live business and personal data:**
+
+| Category | Files |
+|---|---|
+| Company bank account (RIB) embedded in invoice/OM templates | 16 |
+| Named individual's national ID (CIN) | 2 |
+| Embedded client records (`DEFAULT_CLIENTS`, `"clients": [...]`) | 11 |
+| **Distinct files (union)** | **18** |
+
+Chief among them, `FMY/mythos-prod-sauvegarde.json` (2.8 MB) is a **live Mythos Prod data backup** — 4 clients, 5 collaborateurs with CIN, invoices, missions, rdvs, company tax ID. None of this content exists anywhere in the mythos-prod repository, so placing it would have introduced new sensitive data into the persistent structure. All 18 remain **only** in the verified transfer package and are listed in `_snapshots/README.md`. No secret value was printed at any point.
+
+### Unmapped — 16 files preserved in VPS_TRANSFER (class G)
+
+7 unique NotreJour design/spec files (`notrejour_blueprint/docs/`, `Contenu/landing.txt`, `Prompts/PROMPT_MAITRE.txt`, `Technique/architecture.txt`, 2 mockup PNGs) — owner is clearly NotreJour but the destination depends on the same decision as the Notrejour tree, so per the class-G rule they were not guessed at. Plus 9 loose files: `Mythos/CLAUDE.md` and `Mythos/AGENTS.md` (both **byte-identical to committed blobs** in mythos-prod history — nothing lost), `Mythos/DEEPSEEK.md`, `Mythos/os/*.bat`, `_MYTHOS_CONSOLIDATION/_MANIFEST.{md,json}`, and 3 VPS-tooling/root files with no established project.
+
+### Security — PASS
+
+Re-scanned before placement. `google_config.php` absent, real `.env` absent, no SSH keys, no PEM blocks, no OAuth/API/Stripe/Slack tokens, no credential database. The `ssangyong.autos/n8n/` subtree holds 20 workflow exports whose 51 `"credentials"` blocks carry **`id` references only**. **The 1,226 files placed in the previous stage were re-scanned for RIB/CIN/client-record patterns and are clean** — the sensitive material is confined to the 18 withheld files.
+
+### Tests
+
+| Suite | Result |
+|---|---|
+| `tests/stage1a-sync-bypass-regression-test.js` | **77/77 PASS** |
+| `tests/mpi-1-context-runtime-test.js` | **50/50 PASS** |
+| `tests/mpi-0-personal-intelligence-test.js` | **63/63 PASS** |
+| `tests/mythos-orchestrator-0-test.js` | **156/156 PASS** |
+| `tests/core-test.js` | FAIL — pre-existing `_memCache` baseline, unrelated |
+
+**No newly placed project has a runnable suite:** `uthina-chess`, `ssangyong`, `knowledgevault-kms`, `darhijama-site`, `agribee` and `fixpert` all lack `node_modules`/`vendor`. 16 test files exist but cannot execute without a dependency install, which was not performed. Reported as not-run, not as passing.
+
+### Git
+
+Only `mythos-prod` received a commit. **`darhijama` and `mythos/notrejour` were read-only throughout** — both verified clean, HEADs unmoved (`0aea9267` / `e8fbf52c`), no commit, no reset, no history rewrite. Marker files were written *outside* both repositories so neither working tree was dirtied.
+
+### Disk
+
+`/` — free space and `VPS_TRANSFER` retention recorded in the final report of this stage.
+
+### Next stage
+
+**BACKUP + RESTORE VALIDATION → PC DECOMMISSION GATE.**
+
+Before VPS_TRANSFER may be deleted, note that **829 files exist only there**: the 18 sensitive (deliberately), 7 unique NotreJour design files, part of the 245-file `notre-jour-github` snapshot, and several loose files. The 12 projects placed in stage 2 plus `darhijama-site` and `_snapshots/` are under **no Git remote and no backup**. Deleting the transfer before backups are verified would make those the only copies.
+
+Open owner decisions: (1) is `othoth77/notrejour` retired in favour of `othoth77/darhijama`? (2) where may company financial/personal data (the 18 files) live? (3) should the new projects get Git remotes?
 
 ---
 
