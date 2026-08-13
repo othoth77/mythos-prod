@@ -1,8 +1,177 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-12 UTC
-**From:** MPI-2-DESIGN-GATE (memory engine design + storage decision; **5 owner decisions open**)
+**Last updated:** 2026-08-13 UTC
+**From:** VPS PROJECT PLACEMENT (1,226 files placed into 12 projects; **975 deferred pending owner decision**)
 **To:** Next AI session
+
+---
+
+## STAGE — VPS PROJECT PLACEMENT (2026-08-13) — PARTIAL, 975 FILES DEFERRED
+
+**Starting HEAD:** `25fdd88bad71451b60a132a4ffc6d100fdc3f173`
+**Remote HEAD:** **VERIFIED** — `git fetch origin` succeeded for the first time in this migration. The blocker in the preceding two stages was account-scoped: this session runs as `ubuntu`, which holds no GitHub key; `deploy` does. Placement and all Git work ran through an authorised `deploy` shell (`sudo -n -u deploy`, NOPASSWD already configured for `ubuntu`). No permission was bypassed and no ACL was modified — `ubuntu` read the transfer, `deploy` wrote the destinations, via `tar` pipe.
+
+### Full accounting — all 2,241 files classified, mutually exclusive
+
+| Disposition | Files |
+|---|---|
+| **Placed this stage** (12 projects) | **1,226** |
+| Placed prior stage (`assets/logos/` → mythos-prod) | 4 |
+| **B — byte-identical, already at destination** | 28 |
+| **C — conflict, existing VPS version preserved, NOT overwritten** | 8 |
+| **E — deferred, uncertain mapping, owner decision required** | **975** |
+| **Total** | **2,241** |
+
+### Placed — 1,226 files, 127,546,597 bytes, all SHA-256 verified
+
+| Transfer path | Destination under `/home/deploy/projects/` | Files |
+|---|---|---|
+| `Mythos/KnowledgeVaultKMS` | `knowledgevault-kms` *(new)* | 752 |
+| `Uthina Chess` | `uthina-chess` *(new)* | 220 |
+| `ssangyong.autos` | `ssangyong` *(existing, was empty)* | 195 |
+| `karhmana` | `karhmana` *(new)* | 15 |
+| `Fixpert` | `fixpert` *(new)* | 12 |
+| `Mythos/nettoyage-photo-vps` | `nettoyage-photo-vps` *(new)* | 10 |
+| `Mythos/MythosApp` | `mythos-app` *(new)* | 7 |
+| `agribee` | `agribee` *(new)* | 6 |
+| `chatrange` | `chatrange` *(new)* | 3 |
+| `Mythos/Festival` | `festival` *(new)* | 3 |
+| `oudhna service` | `oudhna-service` *(new)* | 2 |
+| `classepro` | `classepro` *(new)* | 1 |
+
+**Naming:** destinations follow the existing structure's convention (lowercase, hyphenated) — `Uthina Chess` → `uthina-chess`, `oudhna service` → `oudhna-service`, `Mythos/KnowledgeVaultKMS` → `knowledgevault-kms`. No project was merged into another. `ssangyong.autos` went into the pre-existing **empty** `ssangyong/` placeholder rather than creating a second directory for the same project, per the "no duplicate project names" rule. All renames are cosmetic and reversible with `mv`; flag any you disagree with.
+
+**Verification:** every placed file's SHA-256 was recomputed at its destination and compared to the transfer manifest — **1,226/1,226 match, 0 mismatched, 0 missing, 0 unexpected.** A before/after hash census of the entire `/home/deploy/projects` tree went **1,375 → 2,601 files with 0 pre-existing files changed or removed and exactly 1,226 added.** The transfer source was re-verified after placement: **2,241/2,241 PASS, 2,241 files, 159,035,008 bytes — unaltered.**
+
+### Deferred — 975 files, class E, NOT placed
+
+Left in `VPS_TRANSFER` per the conflict rule rather than guessed at:
+
+| Transfer path | Files | Why deferred |
+|---|---|---|
+| `Notrejour/` | 802 | **548 of these are byte-identical to files already inside `/home/deploy/projects/darhijama`** — a live Git repo (`othoth77/darhijama`, branch `release/darhijama-1.0.3`, HEAD `0aea9267`) that carries `notrejour.tn.nginx.conf`, i.e. the darhijama repo *is* the NotreJour application. A further overlap exists with `/home/deploy/projects/mythos/notrejour`, a second Laravel checkout. Three candidate homes; placing it anywhere would duplicate a Git-backed app or pollute a release branch. |
+| `Mythos/MythosProd-unversioned/` | 143 | Explicitly "unversioned" historical snapshots of this application (`FMY`, `laragon`, `deploy`, `mythos-web`). An archive, not a project — needs an archive-vs-discard decision. |
+| `darhijama/` | 21 | Brand assets (logos, icons, charter) + two Arabic research HTML files. The existing `darhijama` is a Laravel **Git repo on a release branch**; dropping 21 untracked asset files into its working tree is not a placement decision I should make unilaterally. |
+| `Mythos/` loose (`AGENTS.md`, `CLAUDE.md`, `DEEPSEEK.md`) | 3 | Agent-instruction files that would collide with mythos-prod's own `AGENTS.md`/`CLAUDE.md`. |
+| Root loose (`novnc_adresse.txt`, `SKILL_MOTION (2).md`, `Ouvrir_noVNC_Securise.bat`) | 3 | VPS tooling / unrelated skill doc; no project. |
+| `_MYTHOS_CONSOLIDATION/` | 2 | Migration metadata (`_MANIFEST.md`/`.json`) — belongs with migration records, not a project. |
+| `Mythos/os/` | 1 | A single Windows `.bat` search script. |
+
+### Security — PASS, 0 findings, 0 excluded at placement time
+
+Re-scanned before placement, scoped to the placement set. `google_config.php`: **absent**. Real `.env` (non-`.example`): **absent**. SSH keys, PEM blocks, `client_secret*.json`, AWS/GitHub/Anthropic/Slack/Stripe tokens, `GOCSPX-`: **absent**. No `_LOCAL_SENSITIVE`, no `appdata`, no live database. The `ssangyong.autos/n8n/` subtree was inspected specifically for a credential store — it holds 20 workflow-export JSON/MD files; its 51 `"credentials"` blocks contain **`id` references only**, no secret values. The one `AIza`-pattern hit remains a confirmed false positive inside a 3.29 MB base64 data URI. Source-side, `_MANIFEST.md` records **65 sensitive files excluded before packaging**.
+
+### Git
+
+Only `mythos-prod` was touched. `darhijama` and `mythos/notrejour` were **read-only** throughout — not committed, not reset, not checked out, working trees untouched.
+
+| Suite | Result |
+|---|---|
+| `tests/stage1a-sync-bypass-regression-test.js` | **77/77 PASS** |
+| `tests/mpi-1-context-runtime-test.js` | **50/50 PASS** |
+| `tests/mpi-0-personal-intelligence-test.js` | **63/63 PASS** |
+| `tests/mythos-orchestrator-0-test.js` | **156/156 PASS** |
+| Asset-reference resolution | **5/5 resolve** |
+| `tests/core-test.js` | FAIL — pre-existing `_memCache` baseline, reproduced from a pristine `git archive HEAD`; unrelated to this stage |
+
+Full suite not run: this stage added four binary assets and documentation to the repository and changed no application code.
+
+### Disk
+
+`/` — **6.3 G available, 92% used**. Placement consumed 127.5 MB. `VPS_TRANSFER` (159 MB) is retained as the verified safety copy and must not be deleted until the 975 deferred files are resolved and a backup is verified.
+
+### Next stage
+
+**FULL PROJECT VALIDATION → BACKUP/RESTORE → PC DECOMMISSION GATE.**
+
+Two owner decisions gate it:
+
+1. **Notrejour / darhijama relationship (802 + 21 files)** — is `darhijama` the canonical NotreJour repo, is `mythos/notrejour` obsolete, and where do the 21 brand assets belong?
+2. **`MythosProd-unversioned` (143 files)** — archive, or discard as superseded?
+
+**The PC must not be decommissioned yet:** 975 files remain unplaced, the 11 newly created projects are not under Git or any backup, and no backup of `mythos_intelligence` or the new project directories exists.
+
+---
+
+## STAGE — VPS TRANSFER — INTEGRATION (2026-08-13) — PARTIAL, BLOCKED
+
+**Type:** Migration receive/integrate. **No commit, no push, no deploy.** GitHub unchanged.
+
+**Starting HEAD:** `25fdd88bad71451b60a132a4ffc6d100fdc3f173`
+**Final HEAD:** `25fdd88bad71451b60a132a4ffc6d100fdc3f173` (unchanged — integration left in working tree, uncommitted)
+**Remote HEAD:** `25fdd88bad71451b60a132a4ffc6d100fdc3f173` — **CACHED, NOT VERIFIED.** `git fetch origin` fails with `Permission denied (publickey)`: this session runs as `ubuntu`, which holds no GitHub-authorised key (repository is owned by `deploy`). No remote read was possible at any point in this stage.
+
+### Transfer verification (independently re-run on the VPS)
+
+Source `/home/ubuntu/incoming/VPS_TRANSFER`, checksums `/home/ubuntu/incoming/VPS_TRANSFER_SHA256SUMS.txt`.
+
+| Check | Result |
+|---|---|
+| File count | **2,241** — matches expected |
+| Total bytes | **159,035,008** — matches expected |
+| SHA-256 | **2,241 / 2,241 PASS**, 0 FAILED, 0 missing |
+| Files in tree absent from manifest | **0** |
+| Files in manifest absent from tree | **0** |
+| Duplicate manifest paths | **0** |
+
+Transport archive `/home/ubuntu/incoming/VPS_TRANSFER.tar` (164,145,152 bytes) deleted **after** the above passed. `VPS_TRANSFER/` preserved and re-counted post-deletion: 2,241 files / 159,035,008 bytes intact.
+
+### Security scan — PASS, 0 findings
+
+Filename sweep (`.env`, `client_secret*`, `*credential*`, `*secret*`, `id_rsa*`, `*.pem/.key/.p12/.kdbx`, `*token*`, `*password*`, `*.db/.sqlite/.sql`, `*RIB*`, `*CIN*`) returned 29 candidates, **all cleared**: knowledge-base article titles, `.env.*.example` templates, and schema DDL. Content sweep for PEM private-key blocks, AWS `AKIA`, Google `AIza`, GitHub `ghp_`/`github_pat_`, `sk-`/`sk-ant-`, Slack `xox*`, `GOCSPX-`, JWTs, `"client_secret"` and Stripe live keys returned **one** hit — `Uthina Chess/certificat_uthina_chess_editable.html` — investigated and **cleared as a false positive**: the match sits inside a 3.29 MB single-line base64 data URI (14 non-base64 characters on the whole line). Every `.env.*.example` high-risk key is EMPTY or a literal placeholder; the one populated `DATABASE_URL` points at `localhost` with a placeholder password token. No secret value was printed at any point.
+
+Source-side exclusion is corroborated by `_MYTHOS_CONSOLIDATION/_MANIFEST.md`: **65 sensitive files excluded before packaging** (53 live business/runtime data, 4 mythos-prod auth digests, 3 gitignored review documents, 2 client-PII business exports, 2 OAuth client secrets, 1 SsangYong credential literal). No `_LOCAL_SENSITIVE` or `appdata` directory exists in the package.
+
+### Comparison against the persistent worktree
+
+Only one transferred subtree maps onto this repository: `Mythos/www/` (40 files) → repo root. It is an **older snapshot** of the same application.
+
+| Class | Count | Disposition |
+|---|---|---|
+| **A** — new file | **4** | **INTEGRATED** |
+| **B** — identical existing file | **28** | No action |
+| **C** — different existing file | **8** | **NOT overwritten** — VPS version preserved, conflict recorded below |
+| **D** — project not represented in this repository | **2,201** | **BLOCKED — not integrated** |
+| **E** — sensitive/unexpected | **0** | — |
+
+**A — integrated (4 files, 4,196,262 bytes), all into `assets/logos/`:** `logo-kacem.png`, `logo-sdt.png`, `logo.png`, `logomythos.png`. These are not arbitrary additions — `js/app.js:5-7`, `js/app-fresh.js:5-6` and `js/shared/devis.js:6` already reference all four, and none existed in the worktree. Asset-reference resolution went from **1 of 5 resolving to 5 of 5**. Copied with `cp -n -p`; post-copy SHA-256 of all four matches source exactly. Not gitignored, therefore commit-eligible, currently **untracked**.
+
+**C — 8 conflicts, existing VPS version preserved in every case:** `api.php`, `index.html`, `js/app.js`, `js/taches.js`, `js/utils.js`, `manifest.json`, `assets/icons/icon-192.png`, `assets/icons/icon-512.png`. The transfer copies are the older PC snapshot; the worktree is ahead. **No overwrite was attempted.**
+
+**D — 2,201 files across 11 top-level projects with no representation here:** `Fixpert` (12), `Notrejour` (802), `Uthina Chess` (220), `agribee` (6), `chatrange` (3), `classepro` (1), `darhijama` (21), `karhmana` (15), `oudhna service` (2), `ssangyong.autos` (195), `_MYTHOS_CONSOLIDATION` (2), plus `Mythos/` subprojects `KnowledgeVaultKMS` (752), `MythosProd-unversioned` (143), `nettoyage-photo-vps` (10), `MythosApp` (7), `Festival` (3), `os` (1), and 3 loose root files. Content-level SHA-256 comparison shows **94** transferred files already exist byte-identically inside this repository under different paths (28 of them in `Mythos/www`, the rest duplicated inside `Uthina Chess/Prod` and `MythosProd-unversioned`, which are re-brandings/snapshots of this same application).
+
+### Why D is blocked — two independent blockers
+
+**BLOCKER 1 — writing them here would violate the stage's own constraint.** These are *separate applications*, not Mythos OS modules. Copying 2,201 files of Notrejour, Uthina Chess, agribee, darhijama, ssangyong.autos et al. into `/home/deploy/projects/mythos-prod` merges unrelated applications into one Git repository — forbidden by this order ("preserve project boundaries", "do NOT merge unrelated applications") and by `AGENTS.md` §10. The correct destination is a **sibling directory per project** under `/home/deploy/projects/`.
+
+**BLOCKER 2 — filesystem permission.** `/home/deploy/projects` grants this session's user (`ubuntu`) ACL `user:ubuntu:--x` — traverse only, **no write**. `mythos-prod` alone grants `user:ubuntu:rwx`. Creating sibling project directories is therefore impossible without either a write grant on `/home/deploy/projects` or running as `deploy`. Verified by direct write test.
+
+### Tests
+
+| Suite | Result |
+|---|---|
+| `tests/stage1a-sync-bypass-regression-test.js` | **77/77 PASS** |
+| Asset-reference resolution (direct validation of this change) | **5/5 resolve, 0 missing** (was 1/5 before) |
+| `tests/core-test.js` | **FAIL — pre-existing, not caused by this stage.** `ReferenceError: _memCache is not defined`. Reproduced identically from a pristine `git archive HEAD` extract containing none of the integrated files. This is the documented `_memCache` baseline cascade (`docs/DEVELOPMENT_TEST_INTELLIGENCE.md`, `docs/PROJECT_STATISTICS.md`, `.claude/skills/mythos-error-doctor/`). |
+
+Full suite not run: this stage added four binary image assets and changed no JavaScript, PHP, CSS or HTML, so no suite's subject code was touched. `docs/DEVELOPMENT_TEST_INTELLIGENCE.md` does not justify a full run here.
+
+### Integrity
+
+Every file in the worktree was SHA-256 hashed before and after integration: **401 → 405 files, 0 changed, 0 removed, 4 added.** `git status --short` shows exactly four untracked PNGs and nothing else. Branch `main`, HEAD unmoved, no reset, no checkout, no stash, no commit, no push. 46 local and remote branch refs unchanged.
+
+### Disk space
+
+`/` 72 G total — **6.8 G available, 91% used** (was 5.1 G / 93%; the 164 MB transport-archive deletion returned ~1.7 G together with unrelated reclaim). Integration consumed 4.2 MB. Retaining `/home/ubuntu/incoming/VPS_TRANSFER` costs 159 MB until the D projects are placed.
+
+### Next stage
+
+**PROJECT VALIDATION → BACKUP/RESTORE → PC DECOMMISSION GATE**, blocked pending two owner decisions:
+
+1. **Destination for the 2,201 D files** — confirm sibling-directory-per-project under `/home/deploy/projects/`, plus a write grant (`setfacl -m u:ubuntu:rwx /home/deploy/projects`) or a `deploy`-owned session.
+2. **Whether the 4 integrated logos should be committed**, and whether the 8 class-C conflicts warrant any per-file review before the PC is decommissioned.
+
+**The PC must not be decommissioned yet** — 2,201 files remain unplaced on the VPS, and remote HEAD has never been verified from this session.
 
 ---
 
