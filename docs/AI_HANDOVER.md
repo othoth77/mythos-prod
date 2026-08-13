@@ -1,8 +1,87 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** SUPABASE / POSTGRESQL MIGRATION DESIGN — **DESIGN ONLY; recommendation is DO NOT adopt Supabase**
+**From:** MYTHOS INTELLIGENCE STAGE A — SCHEMA PREPARATION — **schema validated against throwaway PostgreSQL; 4 structural defects found**
 **To:** Next AI session
+
+---
+
+## STAGE A — MYTHOS INTELLIGENCE SCHEMA PREPARATION (2026-08-13) — VALIDATION ONLY, THROWAWAY POSTGRES
+
+**Status: PASS with 4 structural findings.** The 20-table design applies cleanly to a real PostgreSQL 15.18. Four defects were found that would bite at MPI-2A apply time; none is a design flaw, all are omissions in the SQL files.
+
+**Nothing installed, created, configured or migrated in production.** No Supabase, no production `mythos_intelligence`, no production `pi_` table, no PostgreSQL/MySQL change, no data copied, no credential created outside the scratch container, no env change, no PC contact, `VPS_TRANSFER` untouched. Production databases modified: **0**. Production containers changed: **0**. Production volumes modified: **0**.
+
+### Scratch environment (authorised, isolated, removed)
+
+| Item | Value |
+|---|---|
+| Container | `mythos-stage-a-scratch-pg` (removed) |
+| Image | `postgres:15-alpine` — already present locally, no pull |
+| Server version | **PostgreSQL 15.18** — exact match to production/target |
+| Network | `--network none` — no IP address, zero connectivity |
+| Storage | `tmpfs` at `/var/lib/postgresql/data`, `PGDATA` a subdir — **no named or anonymous volume created** |
+| Published ports | none; host `5432` never touched |
+| Auth | `POSTGRES_HOST_AUTH_METHOD=trust`, unreachable by construction — no credential created |
+
+Docker was reached via `sudo docker` under explicit owner authorisation for this stage only. Docker group membership was **not** changed; `usermod` was **not** run; no PostgreSQL was installed on the host.
+
+Census before → after: containers **26 → 26** (identical names and images; only the uptime string advanced), volumes **20 → 20** (identical), networks **9 → 9** (identical). Scratch containers remaining: **0**. Scratch volumes remaining: **0**. The 6 dangling volumes present afterwards were all verified present in the baseline. `idauto-postgres` and `coolify-db` were never connected to and remain healthy.
+
+### Migration order — established from file evidence, not guessed
+
+1. `projects/personal-intelligence/database/control-plane-schema.sql` — MPI-0, 15 tables, no dependencies.
+2. `projects/personal-intelligence/database/memory-engine-schema.sql` — MPI-2 delta, 5 tables. Its own header states it is "a DELTA on that file, not a replacement", numbers its tables 16–20, and its columns reference `pi_memory_records` / `pi_users` / `pi_organisations` from file 1.
+
+Both applied with `ON_ERROR_STOP=1`, exit 0, zero errors.
+
+### Structural validation (read-only, `pg_catalog`)
+
+| Property | Expected | Actual | Result |
+|---|---|---|---|
+| Total tables | 20 | 20 | PASS |
+| `pi_*` tables | 20 | 20 (non-`pi_`: 0) | PASS |
+| PRIMARY KEY | 20 | 20 | PASS |
+| UNIQUE constraints | — | 19 | PASS |
+| CHECK constraints | 2 | 2 | PASS |
+| Explicit indexes | 12 | 12 | PASS |
+| FOREIGN KEY | 0 by design | 0 | see F2 |
+| Functions | 0 | 0 | PASS |
+| Triggers | 0 | 0 | PASS |
+| Extensions | none required | `plpgsql` 1.0 only; **`pgvector` absent as the MPI-2 gate requires** | PASS |
+| Idempotency | — | **NOT idempotent**, fails closed | see F5 |
+
+19 UNIQUE (not 20) is correct: `pi_user_domain_access` and `pi_capability_runtime_status` define no external-id column. 51 total indexes = 12 explicit + 20 PK + 19 UNIQUE. All 12 explicit indexes belong to the 5 memory-engine tables — **the 15 control-plane tables carry no non-implicit index at all**.
+
+### Findings — all confirmed against a live server
+
+**F1 — No executable `CREATE SCHEMA mythos_intelligence`.** Both files declare `Schema: mythos_intelligence` in a header comment only. Applied faithfully, all 20 tables land in **`public`** and the schema does not exist (`information_schema.schemata` count = 0). A second run with a harness-supplied `CREATE SCHEMA` + `search_path` placed all 20 tables and all 12 indexes correctly in `mythos_intelligence`. **The fix is one line**; the design is sound. Without it, MPI-2A silently provisions into `public`, colliding with whatever else owns that schema.
+
+**F2 — No foreign keys anywhere, including *intra*-schema links.** The no-cross-schema-FK rule is deliberate and correct. But it has been applied to *same-schema* parent/child links too: `pi_users.organisation_id → pi_organisations.organisation_id`, `pi_memory_records.user_id → pi_users.user_id`, and every `pi_memory_*.memory_record_id` are plain `VARCHAR(64)` with a comment. Demonstrated live: a memory row referencing `usr_DOES_NOT_EXIST.invalid` **inserted successfully**, and deleting the parent user left **2 orphaned memory rows** with no error. Referential integrity for the schema's own interior is currently application-layer only.
+
+**F3 — Memory-engine additive columns are comments, not `ALTER TABLE`.** §21 documents 7 columns on `pi_memory_records` (`state`, `supersedes_memory_id`, `superseded_at`, `observed_at`, `valid_from`, `valid_to`, `evidence_count`). Confirmed two independent ways: **statically**, both files contain **0 executable `ALTER` statements** — the token `ALTER` occurs exactly once in the repository pair, inside a comment that itself reads "No ALTER is executed by this file", and all 21 lines of the §21 block are comment-prefixed; **dynamically**, after applying both files **none of the 7 columns exists**. The retrieval contract in `MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` §10 depends on `state` (`includeStates` defaults to `['active']`) and the tombstone model depends on it too — so MPI-2B/2E cannot be built on the schema as written.
+
+**F4 — `idx_pi_conflict_pair` does not dedupe mirrored pairs.** It is `CREATE UNIQUE INDEX … (memory_record_id_a, memory_record_id_b)`. Demonstrated live: inserting `(mem_a, mem_b)` and then `(mem_b, mem_a)` **both succeeded**, storing one contradiction twice. `chk_pi_conflict_distinct` correctly blocks `a = b`, but nothing normalises pair order. A conflict-detection table that can hold each conflict twice will double-count contradictions. Fix is either an ordering CHECK (`a < b`) or a unique index on `LEAST/GREATEST`.
+
+**F5 — Not idempotent.** Zero `IF NOT EXISTS` / `DROP` / `CREATE OR REPLACE` guards across both files. Re-application fails immediately (`relation "pi_domains" already exists`) — but **fails closed**: table count stayed 20, no partial mutation. Safe, not re-runnable.
+
+**F6 (minor) — Enumerated vocabularies are unconstrained text.** `automation_level_requested`, `decision`, `scope`, `status`, `memory_type`, `confidence` etc. document their permitted values in comments with no CHECK. Live: `pi_guard_decisions` accepted `automation_level_requested='NOT_A_REAL_LEVEL'`, `decision='TOTALLY_INVALID_DECISION'`. For an append-only audit table of permission decisions, an unvalidated `decision` column is worth reconsidering.
+
+### Synthetic fixtures — 12 cases, all `.invalid`, zero production data
+
+Insert / update / delete / unique / CHECK / FK behaviour all exercised. Enforced as intended: unique external ids (T2), `chk_pi_conflict_distinct` (T3), `chk_pi_event_window` both directions (T4/T5), `idx_pi_tag_unique` (T8), tombstone one-per-record (T9), UPDATE (T10). Confirmed the findings above: orphan insert (T6→F2), mirrored pair (T7→F4), parent delete orphaning children (T11→F2), garbage vocabulary accepted (T12→F6). No real name, email, CIN, RIB, invoice or credential was used or copied.
+
+### Targeted tests — 241 passed, 0 failed
+
+`mpi-0-personal-intelligence-test.js` 63 · `mpi-0-finalization-governance-test.js` 36 · `mpi-1-context-runtime-test.js` 50 · `devx-1-idauto-test-impact-test.js` 92. Full suite not rerun: no application code changed in this stage.
+
+### Gates — unchanged
+
+Off-host backup: **BLOCKED**. PC-DECOMMISSION-GATE: **OPEN**. Supabase: **NOT INSTALLED / NOT CONFIGURED**. Production `mythos_intelligence`: **NOT CREATED**. Production migration: **NOT STARTED**. MPI-2A remains blocked on owner decisions **D1, D2, D3**.
+
+### Next stage
+
+**STAGE B — SYNTHETIC FIXTURES / APPLICATION INTEGRATION.** F1–F4 should be resolved in the schema files before MPI-2A applies anything anywhere: F1 and F3 are apply-time blockers, F4 is a correctness bug in conflict detection, F2 is a deliberate-looking rule that appears to have over-reached into the schema's interior and deserves an explicit owner decision either way.
 
 ---
 
