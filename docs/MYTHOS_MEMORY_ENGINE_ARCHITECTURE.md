@@ -442,3 +442,73 @@ Stage B established there is **no MPI persistence layer**: zero executable `pi_*
 ### 18.8 Status of this gate
 
 F1–F4 and F7 are **designed and scratch-validated, not applied**. MPI-2A remains blocked on **D1, D2, D3** independently of these findings; D5 gates real data. Nothing in this section was applied to any production database.
+
+---
+
+## 19. Application integration boundary (MPI-2C, 2026-08-13) — validated, not activated
+
+Audited against the actual repository, then proven end-to-end on scratch PostgreSQL. **Nothing is wired into a running application.**
+
+### 19.1 Where the boundary actually is
+
+The legacy application (`index.html`, `js/app.js`, and the `js/*.js` modules) **does not reference `projects/personal-intelligence/` at all**. The only consumers are `tests/`. There is therefore no existing entry point to "connect to" — the integration boundary is new surface, not a modification of a live path. That is what makes this stage safe and what makes activation a separate, deliberate decision.
+
+### 19.2 Chosen structure
+
+```
+pure domain logic (reference/*.js — UNCHANGED)
+        ↓
+persistence adapter (persistence/adapters.js — translation + transaction)
+        ↓
+repositories (persistence/repositories.js)
+        ↓
+PostgreSQL (mythos_intelligence)
+```
+
+The reference modules are **not** rewritten to be persistent. They are pure, deterministic, and already covered by 149 MPI-0/MPI-1 assertions; making them database-aware would destroy determinism and couple domain rules to storage. Every impedance mismatch is absorbed in the adapter.
+
+### 19.3 The hazard the adapter exists to contain
+
+`learning-engine.observe(existingPreferences, observation)` has **two** effects, not one:
+
+1. it **returns** a new or updated preference record, and
+2. it **mutates in place** a *different* record inside the array it was passed, setting `existing.status = 'SUPERSEDED'` (or incrementing `evidenceCount`).
+
+Verified empirically before the adapter was written. **An adapter that persisted only the return value would leave the superseded record still active in the database** — two live preferences for the same key, the exact state the memory policy forbids. `persistObservation()` therefore snapshots the input array, diffs it after the pure call, and persists both effects plus their audit rows in one transaction. Proven by MPI-2C cases 16–19.
+
+This is the general lesson for every future seam: **a pure module's return value is not necessarily its whole effect.**
+
+### 19.4 Operation → repository map
+
+| Operation | Current source | Repository | Transaction | Returns | Error behaviour |
+|---|---|---|---|---|---|
+| create memory | new | `memory` + `provenance` | **required** (atomic pair) | `{memory, provenance}` | `FOREIGN_KEY` if user/org absent |
+| retrieve memory | `context-assembler.retrieveRelevantMemory` (injected array) | `memory.retrieve` via `loadMemoryStore` | single read | hydrated array | throws if `limit` missing |
+| update memory | none | `memory.setState` | trivial | `{state}` | `CHECK` on invalid state |
+| supersede memory | none | `memory.supersede` | **required** (two rows) | `{memory_record_id, supersedes_memory_id}` | — |
+| tombstone memory | none | `tombstones` + `memory` | **required** | `{tombstone, state}` | `UNIQUE` on second tombstone |
+| add evidence | `learning-engine` thresholds | `memory.reinforce` | **required** (read-then-write) | `{reinforced, evidenceCount}` | no-op when not independent |
+| add provenance | new | `provenance` | with its memory | `{memory_provenance_id}` | `APPEND_ONLY` on any update |
+| create conflict | `context-assembler` (key-based, in-memory) | `conflicts` + `memory` ×2 | **required** | conflict row | `UNIQUE` on mirrored pair |
+| resolve conflict | none (D4 governs auto-resolution) | `conflicts.resolve` + `memory.supersede` | **required** | `{resolution_state}` | — |
+| update learned preference | `learning-engine.observe` | `preferences` + `preferenceAudit` | **required** | `{domainResult, persisted, supersededInPlace}` | see §19.3 |
+| record preference audit | `learning-engine` status transitions | `preferenceAudit` | with its subject | `{preference_audit_id}` | `APPEND_ONLY` |
+| record guard decision | `guard.evaluate` | `guardDecisions` | **standalone** | `{decision, persisted}` | `APPEND_ONLY`; `CHECK` on bad value |
+
+Supersession follows the ratified direction throughout: `winner.supersedes_memory_id = loser`, loser `NULL`. `learning-engine` independently uses the same direction for `supersedesPreferenceId`, so domain and storage agree without translation.
+
+### 19.5 Governance ordering
+
+`guard.evaluate()` is pure and returns one of `DENY · REQUIRE_APPROVAL · DRY_RUN_ONLY · READ_ONLY · ALLOW`. The decision is persisted **before** the protected action runs, and **never inside the caller's transaction**. Both choices are deliberate: persisting afterwards would lose the record exactly when it matters most (the action crashed), and enlisting it in the caller's transaction would let a rolled-back action erase the evidence that a decision was taken. Proven by case 23 — a rollback discarded both the preference and its audit row, while a separately committed guard decision was unaffected.
+
+Verified live: `evaluate()` narrowed a requested `ALLOW` to `REQUIRE_APPROVAL` for `regulated` data, that narrowed value was what got persisted, and a later attempt to flip it back to `ALLOW` was refused by the F7 trigger.
+
+### 19.6 Configuration — what exists and what is still missing
+
+`config/personal-intelligence.example.json` supplies **only** `target_dbms`, `logical_schema: "mythos_intelligence"`, and `implementation_stage`. It contains **no host, port, database, user, password or pool settings**, and no code reads it. `client.js` honours the schema contract structurally — it refuses `schema: 'public'` at construction and sets `search_path` explicitly per unit of work — so `logical_schema = mythos_intelligence` is respected consistently.
+
+A future real connection must obtain host/port/database/credentials/pool settings from **environment injection at the composition root**, never from this file and never committed. No credential was created, and no connection string exists anywhere in the repository. Defining that env contract is MPI-2A/production-readiness work, not this stage.
+
+### 19.7 Status
+
+Boundary **proven, not activated**. 26 end-to-end cases pass against scratch PostgreSQL, plus 38 MPI-2B and 149 MPI-0/MPI-1 assertions. No production wiring, no production database, no environment variable changed.

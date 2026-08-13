@@ -1,8 +1,58 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-13 UTC
-**From:** MPI-2B — **first MPI persistence layer implemented and validated against scratch PostgreSQL; 36/36 tests pass; nothing production-wired**
+**From:** MPI-2C — **integration boundary proven end-to-end on scratch; adapter contains a real dual-effect hazard; nothing activated**
 **To:** Next AI session
+
+---
+
+## MPI-2C — DATA-LAYER VALIDATION / APPLICATION INTEGRATION (2026-08-13) — SCRATCH / DESIGN ONLY
+
+**Status: PASS — 26/26 end-to-end, 0 failed.** The boundary is **proven, not activated**. Full detail: `docs/MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` §19 (authoritative doc extended, not duplicated).
+
+**Production databases modified 0 · production data copied 0 · containers/volumes/networks 26/20/9 identical before and after, 0 unhealthy · scratch container removed, 0 scratch resources remaining.** No production wiring, no production database, no environment variable changed, `.invalid` fixtures only.
+
+### The audit's headline
+
+The legacy application (`index.html`, `js/app.js`, `js/*.js`) **does not reference `projects/personal-intelligence/` at all** — the only consumers are `tests/`. So there is no live path to modify; the integration boundary is entirely new surface. That is what makes this stage safe and activation a separate, deliberate decision.
+
+### Chosen structure
+
+```
+pure domain logic (reference/*.js — UNCHANGED)
+      ↓  persistence adapter (persistence/adapters.js — new)
+      ↓  repositories → PostgreSQL (mythos_intelligence)
+```
+
+The reference modules were **not** rewritten to be persistent: they are pure, deterministic and already covered by 149 MPI-0/MPI-1 assertions. Three seams only — `persistObservation`, `persistGuardDecision`, `loadMemoryStore`.
+
+### The finding that justified the adapter
+
+`learning-engine.observe()` has **two** effects, not one: it returns a record **and mutates a *different* record in place** (`existing.status = 'SUPERSEDED'`). Verified empirically before writing any adapter code. **Persisting only the return value would leave the superseded preference still active** — two live preferences for the same key, which the memory policy forbids. The adapter snapshots the input array, diffs it after the pure call, and persists both effects plus audit in one transaction (cases 16–19 prove it).
+
+General lesson for every future seam: **a pure module's return value is not necessarily its whole effect.**
+
+### Governance ordering (verified live)
+
+`guard.evaluate()` narrowed a requested `ALLOW` to `REQUIRE_APPROVAL` for `regulated` data; the narrowed value is what persisted; a later attempt to flip it back to `ALLOW` was refused by the F7 trigger. The decision is persisted **before** the protected action and **never inside the caller's transaction** — otherwise a rolled-back action would erase the evidence that a decision was taken. Case 23 confirms: a rollback discarded the preference *and* its append-only audit row, leaving no partial write.
+
+### Configuration gap (stated, not filled)
+
+`personal-intelligence.example.json` has `logical_schema: "mythos_intelligence"` but **no host, port, database, user, password or pool settings**, and no code reads it. `client.js` honours the schema contract structurally (refuses `public`, sets `search_path` explicitly). A real connection must take host/port/database/credentials/pool from **environment injection at the composition root** — never this file, never committed. **No credential was created; no connection string exists in the repository.** Defining that env contract is MPI-2A/production-readiness work.
+
+### Tests
+
+**Added:** `tests/mpi-2c-integration-boundary-test.js` (26 cases — 4 offline + 22 end-to-end), covering the order's full 20-step lifecycle. **Added:** `projects/personal-intelligence/persistence/adapters.js`.
+
+All relevant suites: MPI-0 **63** · MPI-0-governance **36** · MPI-1 **50** · MPI-2B persistence **38** · MPI-2C boundary **26** — **213 passed, 0 failed.**
+
+**Still uncovered** (unchanged from MPI-2B): concurrency/serialisation retry, real `pg` driver behaviour, migration runner idempotency, maintenance-role bypass under a non-superuser login, performance.
+
+### Gates unchanged
+
+Off-host backup **BLOCKED** · PC-DECOMMISSION-GATE **OPEN** · Real data ingestion **BLOCKED** · Supabase **NOT STARTED** · Production migration **NOT STARTED**. MPI-2A blocked on **D1, D2, D3**; D5 gates real data.
+
+**Next stage:** MPI-2A MIGRATION PREPARATION / PRODUCTION READINESS — **only after the backup and PC gates are closed.**
 
 ---
 
