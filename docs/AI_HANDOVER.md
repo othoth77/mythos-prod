@@ -1,8 +1,48 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** MPI-2G — **backup/restore gate executed and PASSED under explicit owner authorisation. First verified MPI backup exists off-host on the dedicated R2 bucket `mythos-mpi-backups`: C1 == C2 on fresh download, isolated restore validated (F8/F9 included), production untouched, zero real MPI data.**
+**From:** D3 CONTENT STORE — **ratified decision D3 (content in object storage, `content_reference` only in PostgreSQL) is now implemented as a scratch module with the backup-pair contract defined. Not wired into any application; zero real content objects; production untouched.**
 **To:** Next AI session
+
+---
+
+## D3 CONTENT STORE IMPLEMENTATION (2026-08-14) — PASS
+
+**Owner authorisation received this session** (explicit, scope-bound: implement D3 only — no 2H, no ingestion, no persistence activation, no real content into R2). Follows the MPI-2H readiness review (below), which stopped correctly because D3 was ratified but unimplemented.
+
+### What was built — two new files, nothing existing modified
+
+**`projects/personal-intelligence/persistence/content-store.js`** — the D3 content store:
+
+| Contract item | Implementation |
+|---|---|
+| Deterministic reference | Content-addressed: `content_reference = mpi-content://sha256/<64-hex>` derived from the bytes alone (85 chars — fits the ratified `VARCHAR(256)`); object key `content/sha256/<64-hex>` |
+| Interface | `putContent(bytes)` → `{contentReference, sha256, size, deduplicated}` (write-once; HEAD-verified before the reference is returned) · `getContent(ref)` (bytes re-hashed, must equal the digest in the name) · `headContent(ref)` (existence + integrity metadata) |
+| Adapter | The **existing** provider-neutral S3 contract from `projects/idauto/ops/adapters/s3-compatible.js`, injected — no new transport, offline-testable, exactly the offhost-backup pattern |
+| Destination (D5) | Dedicated MPI bucket only: `createFromConfig()` refuses `mythos-offhost-backups` by name and any non-`mythos-mpi-backups` bucket; content prefix `content/` is disjoint from the backup prefix `mythos-intelligence/` |
+| Deduplication | A property of the addressing scheme: identical bytes → identical key; an existing verified object returns `deduplicated: true` with **no second upload** |
+| Deletion | **Not provided.** Ratified lifecycle reverses by tombstone/`import_batch_ref`, never deletion (§20.7); erasure is **F14, future, separately governed** — mirrors the report-only retention stance |
+| D1/D2 | Untouched: the store handles opaque bytes and mints references; no entity model, no PII fields, no schema change |
+
+**Backup pairing (§11.2), now defined explicitly:** the MPI backup unit is the pair *(schema dump per MPI-2G, content objects under `content/sha256/`)*. Consistency rule: content objects are **write-once immutable**, and a content object must be durable (put resolved + HEAD-verified) **before** any row referencing it commits. Under that ordering any dump references only objects already durable, so the store is always a superset of the dump's references and the pair restores consistently. `verifyConsistency(client, store)` — schema-driven (catalog-discovered `content_reference` columns), read-only, reports `missing`/`malformed` — is the restore-validation check for the pair.
+
+**`tests/mpi-d3-content-store-test.js`** — offline suite (in-memory adapter + recording fake client; no network, no R2, no database): **27/27**. Covers deterministic references, byte-identity round trip, SHA-256 integrity (corrupted object and mismatched metadata both refused), missing object, deduplication, provider-failure propagation (fail closed; failed put mints no reference), D5 bucket guards with value-free messages (planted secret asserted absent), no deletion operation exposed, no SQL INSERT/UPDATE/DELETE in the module, and database↔store consistency (consistent pair · dangling reference detected · malformed reference never dereferenced).
+
+### Validation
+
+Targeted suite 27/27 first. Then the **full MPI regression once on fresh scratch PG 15.19** (`--network none`, tmpfs, per-suite fresh databases; 2B/2C schema pre-applied via `migrate.apply` per their headers): **356/356**, plus D3 27/27 and offhost tooling 35/35 → **418 passed, 0 failed**.
+
+### Production safety
+
+MPI rows **0** (unchanged) · real MPI data touched **0** · R2 content objects created **0** (bucket still holds exactly the one verified MPI-2G backup object) · no persistence activation (no `MPI_*` env var in any container) · no Coolify/Supabase/application change · census 26 identical · credentials tracked **0**.
+
+### What D3 still leaves open (deliberately, for later authorised stages)
+
+Content-store **backup execution** for real objects (the pair exists on paper and in `verifyConsistency`; MPI-2G-style round-trip of the `content/` prefix becomes meaningful only once real content exists, i.e. 2H+) · encryption-at-rest for content (§11.2 "RECOMMENDED; at minimum documented" — still only documented) · F14 erasure design · the 2H ingestion specification and entry point (still the blockers recorded in the readiness review).
+
+### Next stage
+
+**MPI-2H INGESTION SPECIFICATION** (design document: allowed sources/fields, D1/D2 boundaries, dry-run path, final real-data gate, implemented ingestion flag) — separate owner authorisation required.
 
 ---
 
