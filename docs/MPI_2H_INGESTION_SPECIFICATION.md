@@ -123,7 +123,7 @@ All of the following, each independently true, none inferable from another:
 
 ## 25. Backup-before-ingestion requirement
 
-Ratified by §11.2 and MPI-2G's standing caution: before the first real item, a **fresh** MPI-2G-pattern backup (dump → C1 → upload → fresh download → C2 → C1==C2 → isolated restore) must exist and be recorded. Freshness tolerance is the owner's (**OPEN — O-2H-6**); absent a decision, "same session as ingestion" is the only safe reading. The prior verified backup is never overwritten or deleted (backups are additive).
+Ratified by §11.2 and MPI-2G's standing caution: before the first real item, a **fresh** MPI-2G-pattern backup (dump → C1 → upload → fresh download → C2 → C1==C2 → isolated restore) must exist and be recorded. Freshness tolerance is **decided — O-2H-6(a), ratified 2026-08-14 (§32): same session as, and immediately before, each real batch.** The prior verified backup is never overwritten or deleted (backups are additive).
 
 ## 26. Post-ingestion backup verification
 
@@ -146,7 +146,7 @@ Two distinct flags, both strict-`'true'`, both default-off, per §20.6 and the a
 | `MPI_PERSISTENCE_ENABLED` | activate the persistence layer (driver → connect → `assertSchema` → healthy, no fallback) | **implemented** (`persistence/activation.js`) |
 | `MPI_REAL_MEMORY_INGESTION_ENABLED` | additionally permit class-D (real) writes through the ingestion path | **documentation-only today — must be implemented in the 2H implementation stage** with the same strict-flag discipline, fail-closed default |
 
-Composition root requirements (§19.6, §20.5): env-injected connection contract (`MPI_PG_*`, statement timeout mandatory), real `pg` driver injection, `mythos_intelligence_app` role for the application, no config-file credentials, no mock/scratch fallback in production, guard decisions wired before protected actions, content store bound via `createFromConfig` to the dedicated bucket. **Where the composition root lives (which process/service hosts ingestion) is OPEN — O-2H-2.**
+Composition root requirements (§19.6, §20.5): env-injected connection contract (`MPI_PG_*`, statement timeout mandatory), real `pg` driver injection, `mythos_intelligence_app` role for the application, no config-file credentials, no mock/scratch fallback in production, guard decisions wired before protected actions, content store bound via `createFromConfig` to the dedicated bucket. **Hosting is decided — O-2H-2(a), ratified 2026-08-14 (§32): an operator-run CLI batch on the VPS, on-demand per owner order. The CLI is not yet built.**
 
 ## 30. STOP conditions
 
