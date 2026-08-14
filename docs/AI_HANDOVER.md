@@ -1,8 +1,45 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** ACTIVATION READINESS — **implemented and proven. 356 MPI assertions pass, 0 fail. `applicationReady` is now truthfully assertable — the last code blocker before MPI-2A authorisation is closed.**
+**From:** MPI-2A APPLY — **executed against production under explicit owner authorisation. Schema `mythos_intelligence` is live on the `idauto` database: 16/16 schema assertions pass, full MPI regression 356/356, production data untouched, zero real MPI data.**
 **To:** Next AI session
+
+---
+
+## MPI-2A APPLY (2026-08-14) — PASS — PRODUCTION VERIFIED
+
+**Owner authorisation received this session** (explicit, scope-bound: MPI-2A application only). Checkpoint verified before work: HEAD = origin/main = `dd659abd0aad7cfde849e68a316114cbd98ccb9a`, tree clean, `ls-remote` confirmed against GitHub.
+
+### Target resolution (the ambiguity check the authorisation demanded)
+
+The authoritative design (`MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` §1 Option C — CHOSEN, §2.1 "Separate database? **No** — separate logical schema") designates **the existing PostgreSQL instance**, which the census confirms is unique for products: `idauto-postgres` (the only other PostgreSQL is `coolify-db`, the deployment control plane, expressly excluded). Instance databases: `idauto`, `postgres` — one candidate. Target pinned and machine-verified by the runner: **database `idauto`, system_identifier `7672725859313111074`, PostgreSQL 15.18** (exactly the documented target version in `migrate.js`).
+
+### Execution — existing machinery only, nothing improvised
+
+Composition root per §20.5/§20.6: `activation.loadActivationConfig` (full env contract incl. statement timeout 120000ms) → `buildDriver` with the vendored `pg` module → real `pg.Pool` over `127.0.0.1:5432` → `createClient` → `migrate.preflight` → `migrate.apply` → `migrate.assertSchema` → `checkHealth`. The credential was read from the container environment directly into the driver config — never on a command line, in a file, in Git, or in output.
+
+| Step | Result |
+|---|---|
+| Read-only preflight | **16/16 PASS** — identity (db + system identifier), PG 150018, not a replica, schema absent, 0 `pi_*` anywhere, `plpgsql` only, 0 versions recorded; F10 gates asserted truthfully (backup gate CLOSED per `OFF_HOST_BACKUP_GATE.md`, PC gate CLOSED, inventory reconciled — gate G MET 2026-08-14; disk 4.5G free for schema-only DDL; `applicationReady` truthful since activation readiness PASS) |
+| Apply (one transaction) | `001-mpi-0-control-plane` · `002-mpi-2-memory-engine` · `003-mpi-2a-remediation` — all **applied**, sha256-recorded in `mythos_intelligence.schema_migrations` |
+| Schema assertions | **16/16 PASS** — 20 `pi_*` tables in target, 0 in `public`, 33 FKs, 0 FKs on immutable tables, 7 MPI-2A columns, 8 CHECKs, **57 indexes**, **F8** `idx_pi_provenance_observation` UNIQUE + NULLS NOT DISTINCT ✔, **F9** `idx_pi_preference_audit_subject (preference_id)` ✔, 8 append-only triggers, `chk_pi_conflict_canonical_order`, 3 NOLOGIN roles, 3 versions recorded, 0 unexpected tables |
+| Health | `checkHealth` connectivity=true, ok=**true** — the target is alive AND ready |
+
+### Evidence of non-impact
+
+`idauto` `public` schema **24 tables / 2,551 rows before and after** — byte-for-byte the recorded baseline. Docker census **26/20/0-unhealthy identical**. The only change anywhere: new schema `mythos_intelligence` (21 tables: 20 `pi_*` + `schema_migrations`) plus the three guarded NOLOGIN roles. **No real MPI data** (all `pi_*` data tables 0 rows), no third-party PII, no Google Contacts, no Supabase change, no Coolify change, no deployment, no credential tracked.
+
+### Full MPI regression — 356 passed, 0 failed, 0 skipped
+
+Fresh scratch PostgreSQL 15.19 (`--network none`, tmpfs, no published port), per-suite fresh databases, removed after (0 scratch resources remain): MPI-0 63 · gov 36 · MPI-1 50 · 2A 23 · 2B 38 · 2C 26 · 2D 18 · 2E 54 · 2F 16 · observability 17 · activation 15. Baseline before this stage at the same HEAD: 356/356 (activation stage).
+
+### Gate change
+
+**MPI-2A GATE: CLOSED.** The schema is production-verified. Still **NOT** authorised/done: real MPI data ingestion (`MPI_REAL_MEMORY_INGESTION_ENABLED` stays NO), MPI-2G (dedicated MPI R2 bucket per D5 + backup/restore verification — the next blocker before any real data), 2H ingestion, application activation in production (no production env vars were created; `MPI_PERSISTENCE_ENABLED` is set nowhere). D4 remains open, non-blocking.
+
+### Next stage
+
+**MPI-2G preparation** (dedicated MPI R2 bucket + backup/restore verification) — requires a separate owner instruction, since it creates the bucket and credential D5 mandates.
 
 ---
 
