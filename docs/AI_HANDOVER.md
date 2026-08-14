@@ -1,8 +1,62 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** MPI DEEP FORENSIC AUDIT — **four new findings (F11–F14), two HIGH. F11 would silently void every atomicity guarantee at production activation.**
+**From:** MPI CRITICAL FINDINGS DEEP REMEDIATION — **F11 and F13 both PROVEN against real PostgreSQL. Fixes designed, not implemented.**
 **To:** Next AI session
+
+---
+
+## MPI CRITICAL FINDINGS DEEP REMEDIATION — F11 / F13 (2026-08-14)
+
+**Status: both CONDITIONAL** — proven, remedies designed, nothing implemented. Full analysis: **`docs/MPI_CRITICAL_FINDINGS.md`** (new).
+
+**Production DB modified 0 · not contacted · containers/volumes/networks 26/20/9 identical, 0 restarts, all healthy · scratch PostgreSQL 15.19 (`--network none`, tmpfs, no published port) removed, 0 remaining.** No implementation, SQL, or test file changed — documentation only.
+
+### F11 — upgraded from STATIC to PROVEN
+
+Two independent lines of evidence:
+
+**1. `pg` 8.23.0 is already vendored** at `projects/idauto/node_modules/pg`, so no installation was needed. Its `pg-pool/index.js` `query()` calls `this.connect()` then `client.release()` **per call**, and its own README states: *"unless you need to run a transaction (which requires a single client for multiple queries)"*. **The contract in `client.js` is wrong by the driver's own documentation.**
+
+**2. Proven against real PostgreSQL.** A pool-shaped driver over three real `psql` sessions, round-robined per `query()` — modelling pg-pool's affinity while PostgreSQL semantics stay genuine. Observed: `BEGIN`→**A**, `SET search_path`→**B**, `INSERT`→**C**, `COMMIT`→**A**. A write inside a transaction that then failed and rolled back **survived: 1 row, correct 0**. The identical code over the single-session driver correctly left **0 rows**.
+
+**The same code, the same database, opposite outcomes — decided purely by driver shape.** That control is what makes it conclusive, and it is exactly why three prior stages passed.
+
+**Remedy A selected** of five: a two-method contract (`query()` plus `acquire()` returning a connection), with `withTransaction` acquiring once and releasing in a `finally`. **No repository, lifecycle, or adapter changes** — they only ever see `exec.query()`. Blast radius is `client.js` plus the contract. Option E ("document that Pool is forbidden") was rejected: an invariant living only in prose is the failure mode this audit keeps finding.
+
+**Limitation:** not verified against a real `pg.Pool` over TCP — `--network none` blocks it, and publishing a port would weaken isolation for no added certainty given the library source. Labelled honestly rather than overclaimed.
+
+### F13 — the consequence is worse than first recorded
+
+Thresholds are CANDIDATE at 2, ESTABLISHED at 4. Simulating four real requests, each reloading state from the database:
+
+| Request | loaded | domain computed | persisted |
+|---|---|---|---|
+| 1–4 | 1 | 2 | **1** |
+
+**`ESTABLISHED_PREFERENCE` is unreachable at any volume of observations**, and `confidence` stays `LOW` in storage forever. Field matrix proven: `updateStatus()` writes only `status` and `updated_at`; **no repository method ever writes `evidence_count`, `last_observed_at` or `first_observed_at`** — the timestamps keep `DEFAULT NOW()` permanently.
+
+**A second defect follows:** the row persists `status = CANDIDATE_PREFERENCE` beside `confidence = LOW`, because one is written and the other is not — an **internally inconsistent row** claiming a promotion its own confidence contradicts.
+
+**Minimal fix:** repository + adapter only. **No schema change, no new field** — every column already exists, and `memory.reinforce()` already does this correctly; the preference path simply never gained the equivalent.
+
+### Regression blind spots
+
+Both survived for the same structural reason: **tests asserted returned values, and used the one driver shape that hides the defect.** No preference test asserts `evidence_count`, `last_observed_at` or `confidence`; MPI-2B case 26 passes only because that path supplies an explicit status; all transaction tests construct `createPsqlDriver`; and `Pool`, `retry`, `concurren*` have **0 occurrences** across every MPI test.
+
+F13 is the same class of error MPI-2C's boundary audit caught one level up — there the adapter correctly captured an in-place mutation of a *different* row; here it discards the subject's *own*.
+
+### Tests
+
+F11 3/3, F13 6/6 (scratch). Existing suites not re-run — no implementation file changed.
+
+### Gates — unchanged
+
+F8, F9, F10, F14, observability **unchanged**. PC-DECOMMISSION-GATE **CLOSED** · OFF-HOST-BACKUP-GATE **BLOCKED** (R2 deferred) · Production migration **BLOCKED** · Real-data ingestion **BLOCKED** · Supabase **NOT STARTED** · D1/D2/D3/D5 **OPEN**.
+
+### Next stage
+
+**F11/F13 IMPLEMENTATION AFTER EXPLICIT RATIFICATION.** Neither needs an architecture decision; both need ratification. **F11 should land before any production simulation is treated as evidence** — a simulation over a real Pool would appear to succeed while providing no atomicity at all.
 
 ---
 
