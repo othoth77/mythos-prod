@@ -1,8 +1,54 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** MPI F10 FAIL-CLOSED GATE REMEDIATION — **FIXED. Gate now refuses before any database contact, proven by connection spy. 308 tests pass, 0 fail.**
+**From:** MPI F8/F9 DEEP REMEDIATION DESIGN — **both READY FOR RATIFICATION. Measured, not asserted. Nothing implemented.**
 **To:** Next AI session
+
+---
+
+## MPI F8/F9 DEEP REMEDIATION DESIGN (2026-08-14) — DESIGN + SCRATCH ONLY
+
+**Status: both READY FOR RATIFICATION.** Full evidence: `docs/MPI_CRITICAL_FINDINGS.md` § F8/F9 deep validation.
+
+**Nothing implemented. No schema modified, no migration created, no application file changed — documentation only.** Production untouched; census 26/20/9 identical, 0 restarts, all healthy. Scratch PostgreSQL 15.19 (`--network none`, tmpfs, no published port) removed, 0 remaining.
+
+### F8 — candidate E re-proved, and a gap that survives it
+
+`UNIQUE NULLS NOT DISTINCT (memory_record_id, source_reference, observed_at)` boundary proven 8/8 on 15.19: rejects the repeated request (same tuple, and same tuple with NULL `observed_at` — which the default `NULLS DISTINCT` would let through), **accepts the later observation** §6.2 requires. `SELECT … FOR UPDATE` proven by recorded event ordering, not sleeps: B acquires the lock only after A commits, then re-reads and declines.
+
+**Alternatives measured, not assumed:** advisory lock correct but application-managed namespace · SERIALIZABLE correct but returned `40001`, imposing retry on every write path · **atomic data-modifying CTE returned `0A000` — PostgreSQL does not support that formulation at all** · constraint-only re-rejected. **E stands.**
+
+**Two things worth carrying forward.** First, **the race is non-deterministic** — it did not fire in the 2-way case this run but did in the 3-way. An intermittent corruption is worse than a consistent one, because testing will not reliably surface it. Second, **case J**: a reinforcement supplied *without* provenance still increments `evidence_count` and writes no provenance row, so **the index cannot protect that path**. The smallest enforcement point is the lifecycle, not the database — no constraint can require a row in another table without a deferred FK, which F2 excludes.
+
+### F9 — measured at scale
+
+Scale sweep 1 → 500,000 rows. The planner escalates to a **parallel** sequential scan at 500k, discarding 499,974 rows to return 25, at **8,883 buffers**. With `(preference_id)`: Bitmap Index Scan, **28 buffers** — **317× fewer** — index **4 MB against a 69 MB table (5.9%)**.
+
+Rejected with evidence: the two-column variant produces an **identical plan at 22 MB (5.4× larger)** because a bitmap scan does not preserve order; the reversed order is unusable; a **covering index is impossible** because the query is `SELECT *`; no partial index applies. Below ~1,000 rows a sequential scan is correct and an index would be pointless.
+
+### Migration impact — the finding that shapes sequencing
+
+**`CREATE INDEX CONCURRENTLY` cannot run inside a transaction block** (proven: hard error), so it is **incompatible with the runner's single-transaction model**. Plain `CREATE INDEX` works inside the transaction and rolls back cleanly, taking a **ShareLock** that blocks writes during the build.
+
+This only matters for a retrofit. **At MPI-2A the schema is created fresh and empty**, so both indexes build on zero rows and the lock is momentary. **Recommendation: build both in the initial migration**, which sidesteps the conflict entirely.
+
+**Existing data compatibility:** no conflict at MPI-2A (empty schema). A preflight duplicate scan is **mandatory for any later retrofit**, because duplicates provably can exist — the baseline race creates them.
+
+### Incidental confirmation
+
+The F7 append-only trigger blocked my own test scaffolding from `DELETE`-ing the audit table between scale steps. Correct behaviour, and a practical note: benchmarking append-only tables needs fresh databases or the maintenance path.
+
+### Tests
+
+No implementation changed, so no suite was re-run. Baseline remains MPI-0 63 · governance 36 · MPI-1 50 · MPI-2B 38 · MPI-2C 26 · MPI-2A 23 · MPI-2D 18 · MPI-2E 54 = **308**.
+
+### Gates
+
+PC-DECOMMISSION-GATE **CLOSED** · OFF-HOST-BACKUP-GATE **BLOCKED** · F10 **FIXED** · F14 **UNCHANGED** · Observability **UNCHANGED** · Production migration **BLOCKED** · D1/D2/D3/D5 **OPEN**.
+
+### Next stage
+
+**OWNER RATIFICATION → IMPLEMENT F8/F9.** Both add objects to ratified schema; neither changes an architectural rule — they make existing ratified rules enforceable.
 
 ---
 

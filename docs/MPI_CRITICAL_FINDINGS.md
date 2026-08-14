@@ -335,3 +335,159 @@ Three existing call sites now supply the two new gates. **These are conformance 
 ## Architecture impact
 
 **MINOR ARCHITECTURE CHANGE** — extends the runner's operator-assertion contract. No schema change, no lifecycle change, no new dependency.
+
+
+---
+
+# F8 / F9 — Deep remediation validation (2026-08-14)
+
+**Design + scratch validation only. Nothing implemented, no schema modified, no migration created.**
+Scratch: PostgreSQL **15.19**, `--network none`, tmpfs, no volume, no published port; removed, 0 remaining. Default isolation confirmed **read committed**.
+
+## F8.1 — Invariant table
+
+| Invariant (architecture) | Current enforcement | Required | DB constraint possible? | App enforcement needed? | Concurrency-sensitive? |
+|---|---|---|---|---|---|
+| Every durable memory row has provenance (§5) | lifecycle only | lifecycle or DB | not without a deferred FK | yes | no |
+| Reinforcement counts only *independent* observations (§6.2) | application only | app + DB backstop | **partly** — exact-duplicate tuple only | yes | **YES** |
+| A different `source_reference` is independent (§6.2) | application | application | no | yes | no |
+| Same source at a **materially later** `observed_at` is independent (§6.2) | application | application — "materially" is not expressible in SQL | **no** | yes | no |
+| Exact re-import counts once (§6.2) | application | app + DB backstop | **yes** | yes | **YES** |
+| `evidence_count >= 1` | — | DB | yes (exists) | no | no |
+| Provenance immutable (§5) | DB triggers (F7) | DB | yes (exists) | no | no |
+
+The decisive line is the fourth: **"materially later" is a judgement, not a predicate.** No constraint can express it, which is why a uniqueness-only remedy cannot be complete.
+
+## F8.4 — Constraint boundary, proven on 15.19 (8/8)
+
+`UNIQUE NULLS NOT DISTINCT (memory_record_id, source_reference, observed_at)`:
+
+| Case | Result |
+|---|---|
+| A same memory + source + `observed_at` (2nd) | **REJECTED** |
+| B same memory + source + **NULL** `observed_at` (2nd) | **REJECTED** — this is what `NULLS NOT DISTINCT` buys; default `NULLS DISTINCT` would accept it |
+| C same memory + source + **later** `observed_at` | **ACCEPTED** — the ratified §6.2 rule is preserved |
+| D same memory, different source, same time | ACCEPTED |
+| E same memory, different source, NULL time | ACCEPTED |
+| F different memory, same source + time | ACCEPTED |
+
+The boundary matches the intended idempotency boundary exactly: it rejects the *repeated request* and permits the *later observation*.
+
+## F8.3 — `SELECT … FOR UPDATE` semantics, by event ordering
+
+Proven with a recorded event timeline, not sleeps:
+
+```
+A:lock → A:update → A:commit → B:lock-acquired → B:decided-independent=false → B:commit-noop
+```
+
+B acquired the lock **only after A committed**, then re-read provenance and correctly declined. Rollback case:
+
+```
+A:rollback → B:lock-acquired → B:decided-independent=true → B:commit
+```
+
+B waited, inherited no partial state, and reinforced correctly. Both confirm the lock must be taken **before** the provenance read — that ordering is the whole mechanism.
+
+## F8.2 — Concurrency matrix
+
+| Case | Baseline | Candidate E |
+|---|---|---|
+| G two concurrent identical | evidence 2, provenance 1 *(race did not fire this run)* | **2 / 1 correct** |
+| I three concurrent identical | **evidence 3, provenance 2 — race reproduced** (correct 2 / 1) | **2 / 1 correct** |
+| H+N two concurrent *later* observations | 4 / 3 | **4 / 3 correct — both legitimately counted** |
+| K rollback while holding lock | — | correct |
+| L exception under lock | — | no partial state inherited |
+| M rollback then retry | — | increment applied **exactly once** |
+| J reinforcement **without provenance** | — | **increments with NO provenance row** |
+
+**The race is non-deterministic.** It did not fire in the 2-way case on this run but did in the 3-way case, and fired in the 2-way case in earlier stages. An intermittent corruption is *worse* than a consistent one — it will not show up reliably in testing, which is an argument for a structural fix rather than one that depends on application timing.
+
+## F8.5 — Provenance requirement
+
+`lifecycles.reinforceMemory()` is the only caller of `memory.reinforce()`, and it inserts provenance only `if (outcome.reinforced && input.provenance)`. **Case J proves the consequence: a reinforcement supplied without provenance increments `evidence_count` and writes no provenance row — so the unique index cannot protect it.** The index guards the tuple; nothing guards its absence.
+
+Smallest enforcement point: **the lifecycle** (`reinforceMemory` should require `input.provenance`). Not the database — there is no constraint that can require a row in another table to appear in the same transaction without a deferred FK, which F2 deliberately excludes for provenance.
+
+## F8.6 — Alternatives, measured (correct `evidence_count` after 2 concurrent identical = 2)
+
+| | Mechanism | Measured | Correct? | Retry | Notes |
+|---|---|---|---|---|---|
+| A | UNIQUE only | — | partial | none | stops the duplicate tuple, not the decision; and alone it narrowed §6.2 (previously disproven) |
+| B | `FOR UPDATE` only | 2 | yes | none | correct, but relies on every future caller ordering the lock right |
+| C | advisory xact lock | **2, no errors** | yes | none | works, but the lock namespace is application-managed — `hashtext` collisions across unrelated lock uses are silent |
+| D | SERIALIZABLE | **2, one `40001`** | yes | **required** | correct, but imposes retry on every write path to fix one read-modify-write |
+| E | **`FOR UPDATE` + UNIQUE NULLS NOT DISTINCT** | **2 / 1, all cases** | **yes** | none | lock serialises the decision; index is a backstop that cannot be forgotten |
+| F | atomic data-modifying CTE | **`0A000` feature not supported** | **no** | — | PostgreSQL rejects referencing a modifying CTE that way; any working reformulation degenerates into E without the lock |
+
+**Re-proved rather than assumed:** the constraint-only approach (A) remains rejected — F8.4 case C shows the constraint permits later observations, but A alone leaves the *decision* racy, and the earlier narrower variant actively broke §6.2.
+
+**Selected: E**, unchanged, now with the residual gap (case J) explicitly identified.
+
+---
+
+## F9.1 — The actual query
+
+```sql
+SELECT * FROM pi_preference_audit WHERE preference_id = $1 ORDER BY preference_audit_pk
+```
+
+No `LIMIT`, no `JOIN`, `SELECT *`. **`SELECT *` rules out a covering index** — an index-only scan is impossible when every column is projected.
+
+## F9.2 / F9.4 — Plan matrix and scale sweep
+
+| Rows | Plan | Buffers | Rows discarded |
+|---|---|---|---|
+| 1 | Seq Scan | 1 | 1 |
+| 10 | Seq Scan | 1 | 10 |
+| 1,000 | Seq Scan | 18 | 999 |
+| 50,000 | Seq Scan | 863 | 49,997 |
+| 500,000 | **Parallel** Seq Scan, 2 workers | **8,883** | 499,974 → returns 25 |
+
+The planner escalates to a parallel scan at 500k; it never chooses an index that does not exist. Below ~1,000 rows a sequential scan is *correct* and an index would be pointless.
+
+At 500,000 rows:
+
+| Candidate | Plan | Buffers | Index size |
+|---|---|---|---|
+| baseline | Parallel Seq Scan | **8,883** | — |
+| **`(preference_id)`** | Bitmap Index Scan | **28** | **4,056 kB** |
+| `(preference_id, preference_audit_pk)` | **identical plan** | 28 | **22 MB** |
+| `(preference_audit_pk, preference_id)` | Parallel Seq Scan — unused | — | wrong leading column |
+
+**317× fewer buffers.** The two-column variant is **5.4× larger for an identical plan**: a bitmap scan does not preserve order, so the trailing column removes no `Sort`.
+
+## F9.3 — Write cost
+
+Index 4 MB against a 69 MB table — **≈5.9%**. The table is append-only and insert-only, so there are no HOT-update or index-bloat concerns from updates; only insert overhead of one additional B-tree entry per audit row. No partial index is appropriate: every row is a legitimate lookup target.
+
+## F9.5 — Decision
+
+**Selected:** `CREATE INDEX ON pi_preference_audit (preference_id)`.
+**Rejected:** the two-column variant (5.4× size, zero benefit), the reversed order (unusable), a covering index (impossible under `SELECT *`), and a partial index (no selective predicate exists).
+
+---
+
+## F8 + F9 — Migration impact
+
+| Question | Answer |
+|---|---|
+| Exact SQL | F8: `CREATE UNIQUE INDEX … (memory_record_id, source_reference, observed_at) NULLS NOT DISTINCT` · F9: `CREATE INDEX … (preference_id)` |
+| Transactional? | **Yes** — proven: plain `CREATE INDEX` inside `BEGIN` creates the index and a `ROLLBACK` removes it cleanly (1 → 0) |
+| `CONCURRENTLY`? | **Cannot be used** — proven: `ERROR: CREATE INDEX CONCURRENTLY cannot run inside a transaction block`. It is **incompatible with the runner's single-transaction model** |
+| Lock taken | plain `CREATE INDEX` holds a **ShareLock** — blocks writes, permits reads, for the duration of the build |
+| Existing data conflict | **None at MPI-2A**: the schema is created fresh and empty, so both indexes build on zero rows and the ShareLock is held momentarily |
+| Preflight data scan | **Not required for a fresh install; mandatory for any later retrofit** — duplicates provably can exist today (the baseline race creates them). Scan: `GROUP BY memory_record_id, source_reference, observed_at HAVING count(*) > 1` |
+| Rollback | transaction rollback (proven); post-commit, `DROP INDEX` is safe and non-destructive |
+| Risk | **Low, if applied as part of the initial MPI-2A migration.** Materially higher as a later retrofit against populated tables, where the `CONCURRENTLY`/transaction conflict becomes real |
+
+**Recommendation: build both indexes in the initial migration, on the empty schema.** That sidesteps the `CONCURRENTLY` conflict entirely — it only matters when retrofitting a populated table, which is not the situation MPI-2A is in.
+
+## Owner decision required
+
+Both add objects to the ratified schema and therefore need explicit ratification:
+
+1. **F8** — `UNIQUE NULLS NOT DISTINCT (memory_record_id, source_reference, observed_at)` on `pi_memory_provenance`, plus `SELECT … FOR UPDATE` ordering in `memory.reinforce()`, plus making provenance **mandatory** for reinforcement (the case-J gap).
+2. **F9** — `(preference_id)` on `pi_preference_audit`.
+
+Neither changes an architectural rule; both make an existing ratified rule enforceable.
