@@ -1,8 +1,26 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** D3 CONTENT STORE — **ratified decision D3 (content in object storage, `content_reference` only in PostgreSQL) is now implemented as a scratch module with the backup-pair contract defined. Not wired into any application; zero real content objects; production untouched.**
+**From:** MPI-2H SPECIFICATION — **the authoritative real-data ingestion specification now exists (`docs/MPI_2H_INGESTION_SPECIFICATION.md`). Nothing implemented, nothing activated, zero real data. Six owner decisions (O-2H-1…6) are named; four block first real ingestion.**
 **To:** Next AI session
+
+---
+
+## MPI-2H INGESTION SPECIFICATION (2026-08-14) — PASS (SPECIFICATION ONLY)
+
+**Owner authorisation received this session** (explicit, scope-bound: specification only — no implementation, no activation, no ingestion, no production change).
+
+**New authoritative document: `docs/MPI_2H_INGESTION_SPECIFICATION.md`** — 31 sections covering purpose, sources, allowed/prohibited fields, the third-party PII boundary, D1/D2/D3/D5 enforcement, provenance/`observed_at`/`source_reference`, the four-layer idempotency model (F8 · reinforcement independence · content addressing · `import_batch_ref`), F8/F9, lifecycle/tombstones, the F14 erasure boundary, append-only audit, observability, transactions/retries/rollback, the synthetic dry-run procedure, the five-condition final real-data gate, backup-before/after + restore + pair-consistency verification, production safety checks, the two-flag activation contract (`MPI_PERSISTENCE_ENABLED` implemented; `MPI_REAL_MEMORY_INGESTION_ENABLED` to be implemented in the 2H implementation stage), and explicit STOP conditions.
+
+**Derivation discipline:** every requirement cites its ratified source (architecture §3–§9/§11/§12.1/§19/§20, memory policy, F14 forensic record, D3 module, MPI-2G evidence). Nothing undetermined was decided: **six OPEN owner decisions are named** — O-2H-1 initial real source(s) **[blocking]** · O-2H-2 trigger/frequency/hosting **[blocking]** · O-2H-3 retention (defaults keep-everything) · O-2H-4 content encryption-at-rest **[blocking unless explicitly waived for a non-sensitive initial source]** · O-2H-5 F14 erasure design (non-blocking for owner-only data, blocking before any broader user base) · O-2H-6 backup freshness tolerance **[blocking; absent = same-session]**. D4 unchanged, non-blocking.
+
+**Validation:** consistency cross-checks pass (D3 reference scheme matches `content-store.js`; F8 index name in `migrate.js` and ratified SQL incl. `NULLS NOT DISTINCT`; persistence flag in `activation.js`; ingestion flag confirmed absent from code exactly as the spec states; supersession direction matches). Relevant tests: D3 27/27 · 2F offline 6/6 (DB cases skipped honestly, no scratch container — docs-only stage). Full regression not rerun: no code changed; 418/418 stands at the previous commit's HEAD.
+
+**Production safety:** real data touched 0 · production modified 0 · R2 content objects created 0 · no flags set anywhere · credentials tracked 0.
+
+### Next stage
+
+**MPI-2H IMPLEMENTATION** (ingestion flag + entry point + 2H test suite, per the specification) — separate owner authorisation. **Real ingestion additionally requires O-2H-1/2/4/6 decided and the §24 five-condition gate.**
 
 ---
 
