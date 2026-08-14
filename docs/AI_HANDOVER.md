@@ -1,8 +1,59 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** MPI CRITICAL FINDINGS DEEP REMEDIATION — **F11 and F13 both PROVEN against real PostgreSQL. Fixes designed, not implemented.**
+**From:** MPI F11/F13 IMPLEMENTATION — **both FIXED and regression-verified. 254 tests pass, 0 fail. No schema change required.**
 **To:** Next AI session
+
+---
+
+## MPI F11/F13 IMPLEMENTATION (2026-08-14)
+
+**Status: both FIXED.** Detail: `docs/MPI_CRITICAL_FINDINGS.md` § Implementation.
+
+**Production UNTOUCHED — not contacted · containers/volumes/networks 26/20/9 identical, 0 restarts, all healthy · scratch PostgreSQL 15.19 (`--network none`, tmpfs, no published port) removed, 0 remaining.** **0 SQL files changed** — no schema change was required.
+
+### F11 — before / after
+
+| Before | After |
+|---|---|
+| `BEGIN`, statements and `COMMIT` each a separate `driver.query()` call | `acquire()` once; all of them on that one connection; `release()` in `finally` |
+| query-only driver silently assumed session-affine | **refused** for transactions, with an explicit F11 message |
+| a `pg.Pool` would have split the transaction | a Pool is **adapted** via `connect()` → dedicated client → `release()` |
+| `read()` issued `SET search_path` and the read separately | `read()` acquires one connection for both |
+
+`read()` carried the same defect and was fixed with it — otherwise the `search_path` would apply to a different connection than the read. The psql test driver gained `acquire()`, so **no repository, lifecycle, or adapter signature changed**; they only ever see `exec.query()`.
+
+### F13 — before / after
+
+| Before | After |
+|---|---|
+| `updateStatus()` wrote only `status` + `updated_at` | new `reinforce()` writes `status`, `confidence`, `evidence_count`, `last_observed_at` |
+| `create()` never wrote either timestamp | `create()` writes `first_observed_at` and `last_observed_at` |
+| adapter discarded the domain mutation for existing preferences | adapter passes the full domain result to `reinforce()` |
+
+`observe()` returns the very object it mutated, so the adapter already held every value — the fix stops discarding them rather than recomputing. **Threshold logic was deliberately not duplicated in the repository**: the domain stays authoritative, and duplicating it would create two places to disagree about when a preference is established.
+
+### Evidence
+
+**MPI-2D 18/18** — including *every statement on ONE connection (was 3)*, *rollback after multiple writes leaves nothing*, `evidence_count` 1→2→3→4 **persisted across reloads**, `last_observed_at` moving, and **promotion to `ESTABLISHED_PREFERENCE` surviving reload** at the domain's own threshold (asserted against `learning.ESTABLISHED_THRESHOLD`, never hard-coded).
+
+**F11 adversarial 7/7** — exception during `COMMIT` propagates and still releases · exception during `ROLLBACK` does not swallow the original error and still releases · nested `withTransaction` opens a **separate** transaction (2 × `BEGIN`) and releases both. Nested calls are independent transactions, **not savepoints** — recorded, not changed, since the architecture does not specify savepoint semantics.
+
+### Regression — 254 passed, 0 failed
+
+MPI-0 63 · MPI-0-governance 36 · MPI-1 50 · MPI-2B 38 · MPI-2C 26 · MPI-2A runner 23 · MPI-2D 18. **No existing suite needed modification and no assertion was weakened.**
+
+### Encountered but left unchanged
+
+**F8** surfaced during testing exactly as expected — provenance with a fresh id and identical `(source_reference, observed_at)` is still insertable. Left untouched per the order. F9, F10, F14 and observability likewise.
+
+### Gates
+
+PC-DECOMMISSION-GATE **CLOSED** · OFF-HOST-BACKUP-GATE **BLOCKED** (R2 deferred) · Production migration **BLOCKED** · Real-data ingestion **BLOCKED** · Supabase **NOT STARTED** · D1/D2/D3/D5 **OPEN**.
+
+### Next stage
+
+**MPI F8/F9/F10 REMEDIATION OR OWNER RATIFICATION.** F8 and F9 need schema additions and therefore owner ratification; F10 is a runner-contract change needing none.
 
 ---
 

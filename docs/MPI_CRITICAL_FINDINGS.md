@@ -1,9 +1,9 @@
 # MPI Critical Findings — F11 and F13
 
 **Date:** 2026-08-14 · **Checkpoint:** `ffe284823be06daa9f355ab153e3ff5717726edf`
-**Scope:** investigation and scratch validation only. **No implementation, SQL, or test file was modified.** Nothing applied to production.
+**Scope:** investigation, then implementation (2026-08-14, second pass). Nothing applied to production.
 
-**Both findings are now PROVEN, not inferred.** F11 was previously STATIC ONLY; it is now demonstrated end-to-end against real PostgreSQL with a control.
+**Both findings are now PROVEN and FIXED.** F11 was previously STATIC ONLY; it was demonstrated end-to-end against real PostgreSQL with a control, and is now remediated. See **§ Implementation** at the end of this document for what changed and the verifying evidence.
 
 **Scratch:** PostgreSQL **15.19**, `mythos-critical-scratch-pg`, `--network none`, tmpfs, no volume, no published port, no production credentials. Removed; 0 remain. Production census 26/20/9 identical, 0 restarts, all healthy.
 
@@ -11,7 +11,7 @@
 
 # F11 — Transaction driver integrity
 
-**Severity: HIGH · Status: CONDITIONAL (proven; fix designed, not implemented)**
+**Severity: HIGH · Status: FIXED (2026-08-14) — see § Implementation**
 
 ## F11.1 — The actual required contract
 
@@ -105,7 +105,7 @@ Not verified against a real `pg.Pool` over TCP: the scratch container runs `--ne
 
 # F13 — Preference reinforcement is never persisted
 
-**Severity: HIGH · Status: CONDITIONAL (proven; fix designed, not implemented)**
+**Severity: HIGH · Status: FIXED (2026-08-14) — see § Implementation**
 
 ## F13.1 — What the architecture requires
 
@@ -207,3 +207,57 @@ The MPI-2C boundary audit found that *"a pure module's return value is not neces
 | F8, F9, F10, F14, observability | **unchanged this stage** | as previously recorded |
 
 Neither fix requires an architecture decision; both require explicit ratification before implementation.
+
+
+---
+
+# Implementation (2026-08-14)
+
+Remedy **A** for F11 and the repository+adapter fix for F13 were implemented. **No schema change was required or made — 0 SQL files touched.**
+
+## F11 — what changed
+
+`client.js` gained `acquire()` and now runs a transaction on **one** connection:
+
+| Before | After |
+|---|---|
+| `query('BEGIN')` → `query(...)` → `query('COMMIT')`, each a separate driver call | `acquire()` once; `BEGIN`, `SET search_path`, the work, `COMMIT`/`ROLLBACK` all via that connection; `release()` in `finally` |
+| a query-only driver was silently assumed session-affine | a query-only driver is **refused** for transactions with an explicit F11 message |
+| a `pg.Pool` would have split the transaction | a Pool is **adapted** through `connect()` → dedicated client → `release()` |
+| `read()` issued `SET search_path` and the read as two separate calls | `read()` also acquires one connection for both |
+
+`read()` had the same defect and is fixed with it — the `search_path` would otherwise have applied to a different connection than the read.
+
+The psql test driver gained `acquire()` returning a facade over its single session, so **no repository, lifecycle, or adapter signature changed**; they only ever see `exec.query()`.
+
+## F13 — what changed
+
+| Before | After |
+|---|---|
+| `updateStatus()` wrote only `status` + `updated_at` | new `reinforce()` writes `status`, `confidence`, `evidence_count`, `last_observed_at` |
+| `create()` never wrote either timestamp | `create()` writes `first_observed_at` and `last_observed_at` |
+| adapter routed an existing preference to `updateStatus()`, discarding the mutation | adapter routes it to `reinforce()` with the full domain result |
+
+`observe()` returns the very object it mutated, so the adapter already held every value — the fix stops discarding them rather than recomputing them. **The threshold logic was deliberately not duplicated in the repository**: the domain remains authoritative, and duplicating it would create two places to disagree about when a preference is established. `updateStatus()` is retained for explicit governance-driven transitions.
+
+A redundant write was also removed: when the mutated record *is* the returned one, only `reinforce()` writes it — the audit row is still emitted.
+
+## Verifying evidence — 25 cases, 0 failures
+
+**F11 (`tests/mpi-2d-f11-f13-test.js`)** — query-only driver refused · Pool-shaped driver adapted, `BEGIN…COMMIT` on one client · released once on success · error propagates with mapped kind · released once on failure · successful transaction commits · **every statement on ONE connection (was 3)** · **rollback after multiple writes leaves nothing** · acquired == released across both paths · connection reuse across sequential transactions · single-session driver still compatible.
+
+**F11 adversarial** — exception during `COMMIT` propagates and still releases, with `ROLLBACK` attempted on the same connection · exception during `ROLLBACK` does not swallow the original error and still releases · nested `withTransaction` opens a **separate** transaction (2 × `BEGIN`) and releases both.
+
+> Nested calls are independent transactions, **not savepoints**. Recorded, not changed — savepoint semantics are not specified by the architecture.
+
+**F13** — reinforcement 1: `evidence_count` 1→2 **persisted** · `last_observed_at` moved T1→T2 · reinforcement 2 after reload: 2→3 · reinforcement 3 after reload: 3→4 · **promotion to `ESTABLISHED_PREFERENCE` survives reload** at the domain's own threshold of 4 · `confidence` now `HIGH`, no longer stuck at `LOW` · exactly one audit row per reinforcement.
+
+Promotion is asserted against `learning.ESTABLISHED_THRESHOLD`, never a hard-coded state.
+
+## Regression — 254 passed, 0 failed
+
+MPI-0 63 · MPI-0-governance 36 · MPI-1 50 · MPI-2B 38 · MPI-2C 26 · MPI-2A runner 23 · MPI-2D 18. **No suite required modification**, and no assertion was weakened.
+
+## Still open
+
+F8 was encountered during testing and **left unchanged** as instructed: provenance with a fresh id and identical `(source_reference, observed_at)` remains insertable. F9, F10, F14 and observability are untouched.

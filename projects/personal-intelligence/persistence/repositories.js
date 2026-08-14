@@ -305,20 +305,50 @@ function conflictRepository(exec) {
 function preferenceRepository(exec) {
   return {
     async create(p) {
+      // F13: first/last_observed_at are written explicitly. Relying on their
+      // DEFAULT NOW() loses the domain's own observation time, and nothing
+      // afterwards would ever move them.
       const r = await exec.query(
         `INSERT INTO pi_learned_preferences
            (preference_id, user_id, organisation_id, domain_id, scope, status,
             preference_key, preference_value_summary, source, evidence_count, confidence,
-            supersedes_preference_id)
+            supersedes_preference_id, first_observed_at, last_observed_at)
          VALUES ($1,$2,$3,$4,COALESCE($5,'user'),COALESCE($6,'CANDIDATE_PREFERENCE'),
-                 $7,$8,$9,COALESCE($10,1),COALESCE($11,'LOW'),$12)
-         RETURNING preference_id, status`,
+                 $7,$8,$9,COALESCE($10,1),COALESCE($11,'LOW'),$12,
+                 COALESCE($13,NOW()),COALESCE($14,NOW()))
+         RETURNING preference_id, status, evidence_count, confidence`,
         [p.preferenceId, p.userId, p.organisationId, p.domainId || null, p.scope || null,
          p.status || null, p.preferenceKey, p.preferenceValueSummary, p.source,
          p.evidenceCount === undefined ? null : p.evidenceCount, p.confidence || null,
-         p.supersedesPreferenceId || null]);
+         p.supersedesPreferenceId || null, p.firstObservedAt || null, p.lastObservedAt || null]);
       return r.rows[0];
     },
+
+    // F13 — the full reinforcement write.
+    // MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md §4 rule 5: "Reinforcement ...
+    // increments evidence_count and moves last_observed_at on the existing row."
+    // The domain (learning-engine.observe) has already computed every value —
+    // including the promotion thresholds — so this persists that decision rather
+    // than re-deriving it. Duplicating the threshold logic here would give the
+    // system two places to disagree about when a preference is established.
+    async reinforce(p) {
+      const r = await exec.query(
+        `UPDATE pi_learned_preferences
+            SET status           = COALESCE($2, status),
+                confidence       = COALESCE($3, confidence),
+                evidence_count   = COALESCE($4, evidence_count),
+                last_observed_at = COALESCE($5, NOW()),
+                updated_at       = NOW()
+          WHERE preference_id = $1
+        RETURNING preference_id, status, confidence, evidence_count, last_observed_at`,
+        [p.preferenceId, p.status || null, p.confidence || null,
+         p.evidenceCount === undefined ? null : p.evidenceCount,
+         p.lastObservedAt || null]);
+      return r.rows[0] || null;
+    },
+
+    // Explicit status transition only (e.g. a governance-driven supersession).
+    // Not a reinforcement path — use reinforce() for observation-driven change.
     async updateStatus(id, status) {
       const r = await exec.query(
         `UPDATE pi_learned_preferences SET status = $2, updated_at = NOW()

@@ -12,9 +12,12 @@
 //
 // NO DRIVER DEPENDENCY. This repository has no package.json and no node_modules
 // by design, so this module takes an injected driver rather than requiring one.
-// The driver contract is deliberately the node-postgres shape:
-//     driver.query({ text, values }) -> Promise<{ rows: Array }>
-// so a real `pg` Pool/Client satisfies it unchanged when a driver is adopted.
+// The driver contract:
+//     driver.query({ text, values })   -> Promise<{ rows: Array }>   single statement
+//     driver.acquire()                 -> Promise<{ query, release }> transaction-bound
+// A node-postgres Pool is adapted automatically through its connect(); a
+// query-only driver is REFUSED for transactions rather than assumed to be
+// session-affine. See F11 in docs/MPI_CRITICAL_FINDINGS.md.
 // =====================================================
 'use strict';
 
@@ -94,6 +97,8 @@ function createClient(config) {
   const maxAttempts = typeof cfg.maxAttempts === 'number' ? cfg.maxAttempts : 3;
   const driver = cfg.driver;
 
+  // Single statement, no transaction. Safe on a pool: one statement, one
+  // checkout. Never use this for BEGIN/COMMIT — see acquire() below.
   async function query(text, values) {
     try {
       return await driver.query({ text: text, values: values || [] });
@@ -102,45 +107,122 @@ function createClient(config) {
     }
   }
 
-  async function setSchema() {
-    // Explicit, per unit of work. Identifier is validated, not interpolated
-    // blindly: schema names never come from user input in this layer.
+  // ---------------------------------------------------------------------------
+  // F11 — CONNECTION AFFINITY.
+  //
+  // A transaction must run EVERY statement on ONE physical connection. A
+  // node-postgres Pool assigns a different connection to each `pool.query()`
+  // call — `pg-pool/index.js` does connect() → query() → client.release() per
+  // call, and pg's own README states a transaction "requires a single client
+  // for multiple queries". Issuing BEGIN, the work and COMMIT through query()
+  // therefore spreads them across connections: the writes autocommit and
+  // ROLLBACK becomes a silent no-op.
+  //
+  // Proven against real PostgreSQL — docs/MPI_CRITICAL_FINDINGS.md F11.
+  //
+  // A driver must expose acquire() -> { query, release }. A node-postgres Pool
+  // is adapted automatically via connect(). Anything else is refused rather
+  // than silently assumed to be session-affine.
+  // ---------------------------------------------------------------------------
+  async function acquire() {
+    if (typeof driver.acquire === 'function') {
+      const conn = await driver.acquire();
+      if (!conn || typeof conn.query !== 'function') {
+        throw new Error('createClient: driver.acquire() must return { query, release }');
+      }
+      return conn;
+    }
+    if (typeof driver.connect === 'function') {
+      const c = await driver.connect();
+      if (c && typeof c.query === 'function') {
+        return {
+          query: function (q) { return c.query(q); },
+          release: function () { if (typeof c.release === 'function') c.release(); }
+        };
+      }
+    }
+    throw new Error(
+      'createClient: a transaction requires driver.acquire() -> { query, release } ' +
+      '(a node-postgres Pool is adapted via connect()). Passing a query-only driver ' +
+      'would split BEGIN/COMMIT across connections — see F11.');
+  }
+
+  async function runOn(conn, text, values) {
+    try {
+      return await conn.query({ text: text, values: values || [] });
+    } catch (err) {
+      throw wrap(err);
+    }
+  }
+
+  function releaseOnce(conn) {
+    let done = false;
+    return function () {
+      if (done) return;
+      done = true;
+      try { if (typeof conn.release === 'function') conn.release(); } catch (_) { /* already gone */ }
+    };
+  }
+
+  function assertSchemaIdentifier() {
+    // Identifier is validated, not interpolated blindly: schema names never
+    // come from user input in this layer.
     if (!/^[a-z_][a-z0-9_]*$/.test(schema)) throw new Error('invalid schema identifier');
+  }
+
+  async function setSchema() {
+    assertSchemaIdentifier();
     await query('SET search_path TO ' + schema);
   }
 
-  // Every multi-statement lifecycle step in §18.7 runs through here. The whole
-  // transaction is retried on a transient failure — retrying one statement
-  // inside an aborted transaction cannot work.
+  // Every multi-statement lifecycle step in §18.7 runs through here, on ONE
+  // acquired connection. The whole transaction is retried on a transient
+  // failure — retrying one statement inside an aborted transaction cannot work
+  // — and each attempt acquires its own connection.
   async function withTransaction(fn) {
     let lastError = null;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const conn = await acquire();
+      const release = releaseOnce(conn);
       try {
-        await query('BEGIN');
-        await setSchema();
-        const result = await fn({ query: query });
-        await query('COMMIT');
+        await runOn(conn, 'BEGIN');
+        assertSchemaIdentifier();
+        await runOn(conn, 'SET search_path TO ' + schema);
+        const result = await fn({ query: function (t, v) { return runOn(conn, t, v); } });
+        await runOn(conn, 'COMMIT');
         return result;
       } catch (err) {
         const wrapped = wrap(err);
-        try { await query('ROLLBACK'); } catch (_) { /* connection already gone */ }
+        // ROLLBACK on the SAME connection that holds the transaction.
+        try { await runOn(conn, 'ROLLBACK'); } catch (_) { /* connection already gone */ }
         if (wrapped.kind !== KIND.TRANSIENT || attempt === maxAttempts) throw wrapped;
         lastError = wrapped;
+      } finally {
+        release();
       }
     }
     throw lastError;
   }
 
-  // Read path: no transaction, but the schema is still set explicitly.
+  // Read path: no transaction, but `SET search_path` and the read must still
+  // share one connection or the search_path would apply to a different one.
   async function read(text, values) {
-    await setSchema();
-    return query(text, values);
+    const conn = await acquire();
+    const release = releaseOnce(conn);
+    try {
+      assertSchemaIdentifier();
+      await runOn(conn, 'SET search_path TO ' + schema);
+      return await runOn(conn, text, values);
+    } finally {
+      release();
+    }
   }
 
   return {
     schema: schema,
     query: query,
     read: read,
+    acquire: acquire,
     withTransaction: withTransaction,
     setSchema: setSchema
   };

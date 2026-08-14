@@ -85,7 +85,7 @@ function createPsqlDriver(opts) {
 
   let ready = send('\\set VERBOSITY verbose');
 
-  return {
+  const api = {
     async query(q) {
       await ready;
       const text = inline(q.text, q.values);
@@ -111,11 +111,19 @@ function createPsqlDriver(opts) {
         return { rows: [] };
       }
     },
+    // Single persistent psql session: it IS the connection, so acquire()
+    // returns a facade over it with a no-op release. Concurrent transactions
+    // therefore require SEPARATE driver instances — which is how the
+    // concurrency proofs construct them.
+    async acquire() {
+      return { query: function (q) { return api.query(q); }, release: function () {} };
+    },
     async end() {
       child.stdin.end();
       return new Promise(function (resolve) { child.on('close', resolve); });
     }
   };
+  return api;
 }
 
 module.exports = { createPsqlDriver: createPsqlDriver, encodeLiteral: encodeLiteral, inline: inline };

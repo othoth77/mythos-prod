@@ -73,7 +73,13 @@ async function persistObservation(client, input) {
 
     // (a) the in-place mutations observe() applied to OTHER records
     for (const id of mutated) {
-      await repos.preferences.updateStatus(id, after[id].status);
+      // When the mutated record IS the returned one (a reinforcement mutates
+      // and returns the same object), reinforce() below writes it in full —
+      // a status-only update here would be a redundant write. The audit row is
+      // still emitted, because the transition genuinely happened.
+      if (id !== result.preferenceId) {
+        await repos.preferences.updateStatus(id, after[id].status);
+      }
       await repos.preferenceAudit.insert({
         preferenceAuditId: input.auditIdFor(id),
         preferenceId: id,
@@ -91,7 +97,18 @@ async function persistObservation(client, input) {
     const isExisting = Object.prototype.hasOwnProperty.call(before, result.preferenceId);
     let persisted;
     if (isExisting) {
-      persisted = await repos.preferences.updateStatus(result.preferenceId, result.status);
+      // F13: observe() returns the SAME object it mutated, so `result` already
+      // carries the incremented evidenceCount, the moved lastObservedAt and any
+      // promotion the domain applied. Persist all of it. Previously this called
+      // updateStatus(), which wrote only `status` — silently discarding the
+      // evidence count and timestamp, so promotion could never survive a reload.
+      persisted = await repos.preferences.reinforce({
+        preferenceId: result.preferenceId,
+        status: result.status,
+        confidence: result.confidence,
+        evidenceCount: result.evidenceCount,
+        lastObservedAt: result.lastObservedAt
+      });
     } else {
       persisted = await repos.preferences.create({
         preferenceId: result.preferenceId,
@@ -105,6 +122,9 @@ async function persistObservation(client, input) {
         source: result.source,
         evidenceCount: result.evidenceCount,
         confidence: result.confidence,
+        // F13: carry the domain's observation timestamps into storage.
+        firstObservedAt: result.firstObservedAt,
+        lastObservedAt: result.lastObservedAt,
         // Same ratified direction as memory: the NEW record points at the one
         // it supersedes. §6.2 / owner ruling 2026-08-13.
         supersedesPreferenceId: result.supersedesPreferenceId
