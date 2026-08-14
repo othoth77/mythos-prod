@@ -1,8 +1,45 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** OFF-HOST S3 ADAPTER FIX — **both R2-blocking defects fixed and proven live against the real bucket. Backup execution NOT started.**
+**From:** OFF-HOST BACKUP EXECUTION — **PASS 3/3. All three production databases dumped, uploaded to R2, C1==C2 verified, and restore-tested in isolation. First verified off-host backups exist.**
 **To:** Next AI session
+
+---
+
+## OFF-HOST BACKUP EXECUTION (2026-08-14) — PASS
+
+**Batch:** `20260814T161856Z` · **Destination:** R2 `mythos-offhost-backups` (bucket-scoped credential; config outside Git at mode 0600)
+
+**For the first time in this project's history, verified off-host backups of all three production databases exist.** The full C1 → upload → fresh download → C2 → isolated-restore chain passed for every database.
+
+### Evidence table
+
+| Database | Format | Size | C1 = C2 (SHA-256) | R2 object | Restore test |
+|---|---|---|---|---|---|
+| `idauto` (PG 15.18) | `pg_dump -Fc` in-container | 199,620 B | `badc4f82f36fc2aa8c75150bbbb16f943d71991e669477b1dcb1ba5f51197c80` | `idauto/20260814T161856Z/idauto-20260814T161856Z.dump` | **PASS** — `--exit-on-error` exit 0; **24 tables / 2,551 rows, source-identical** |
+| `coolify` (PG 15.19) | `pg_dump -Fc` in-container | 1,488,149 B | `6aab736f9cf0e19afdc7058f6e943c439b47a11792a752c1044e052ec2f78c10` | `coolify-db/20260814T161856Z/coolify-20260814T161856Z.dump` | **PASS** — exit 0; **66 tables**, 65 PKs |
+| `darhijama_prod` (MySQL 8.4.11) | `mysqldump --single-transaction --routines --triggers --events` in-container | 64,224 B | `32e65059f46b2af8400f73c582cab90aea64137be2b642218b97321d6285e9f1` | `darhijama-prod/20260814T161856Z/darhijama_prod-20260814T161856Z.sql` | **PASS** — exit 0; **39 tables**, largest table row-count source-identical (56=56), routines/triggers 0/0 matching source |
+| — | — | — | — | — | — |
+
+Every dump was created by the utility **inside its own container** (client==server version), uploaded and downloaded through the production S3 adapter's default transport, and restored from the **downloaded** copy into isolated scratch containers (`--network none`, tmpfs, no volume, no port), then destroyed. Remote sha256 metadata on each object also matches C1.
+
+### One defect found and fixed mid-stage (authorised deviation)
+
+The first real upload failed with **HTTP 411 `MissingContentLength`**: Node uses chunked transfer-encoding without an explicit `Content-Length`, which R2 tolerated for the tiny connectivity object but rejects at dump size. This was the previous stage's transport fix being incomplete, and was completed under that stage's authority as its own commit (`254592b`): `transportOptions()` now takes the body length and sets `content-length` in the default transport only (not a signed header — signature undisturbed; mock contract unchanged). Pinned by test 35; IDA-3F **35/35**. **Consequence: the stage-start checkpoint `eba1690` advanced to `254592b` before the docs commit.**
+
+Also learned, recorded for the future runbook: `mysql:8.4`'s entrypoint starts a **temporary** init server first — a restore begun after the first successful `mysqladmin ping` can be killed mid-flight when the entrypoint swaps to the final server. Wait for the *second* "ready for connections" (port 3306) line.
+
+### Safety results
+
+Production DBs modified **0** (post-run: idauto 24/2551, darhijama 39 — identical; all healthy, 0 restarts) · census 26/20/9 identical · temporary restore containers/volumes **0** · local dumps **removed** after off-host verification (0 remain) · credentials in Git **0** (verified by direct value comparison) · R2 holds exactly the **3** verified objects — **not deleted, they are the backups**.
+
+### Gate consequence
+
+Backup-gate conditions **B, C, D, E are now MET** (backup created; C1 recorded; C1==C2 on fresh download; restore-from-download proven). Combined with the live destination (A) and the owner-declared PC gate closure (F), **the OFF-HOST-BACKUP-GATE is effectively satisfied except G (final VPS inventory reconciliation)** — the runbook's `docs/OFF_HOST_BACKUP_GATE.md` §6 table should be updated at next touch. Not yet done: Coolify configuration, backup scheduling, retention automation — all explicitly out of this stage's scope.
+
+### Next stage
+
+**BACKUP SCHEDULING + GATE CLOSURE REVIEW** (separate instruction), then MPI F8/F9 ratification/implementation. MPI production migration remains blocked until the runner's three gates can be truthfully asserted.
 
 ---
 
