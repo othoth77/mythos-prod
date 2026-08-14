@@ -481,6 +481,30 @@ T('33 injected mock transport contract unchanged', async function() {
   assert(Buffer.isBuffer(seen[0].b));
 });
 
+T('35 default transport sets Content-Length (chunked encoding is rejected by R2)', function() {
+  var o = s3.transportOptions({
+    method: 'PUT',
+    url: 'https://account.r2.cloudflarestorage.com/bucket-x/a.bin',
+    headers: {
+      h: 'v'
+    }
+  }, 199620);
+  assert.equal(o.headers['content-length'], 199620);
+  assert.equal(o.headers.h, 'v');
+  // zero-length bodies still declare their length explicitly
+  assert.equal(s3.transportOptions({
+    method: 'DELETE',
+    url: 'https://account.r2.cloudflarestorage.com/bucket-x/a.bin',
+    headers: {}
+  }, 0).headers['content-length'], 0);
+  // and the signing-time header set is untouched when no length is given
+  assert(!('content-length' in s3.transportOptions({
+    method: 'GET',
+    url: 'https://account.r2.cloudflarestorage.com/bucket-x/a.bin',
+    headers: {}
+  }).headers));
+});
+
 T('34 DELETE SigV4 vector pinned', function() {
   var r = s3.sign({
     method: 'DELETE',

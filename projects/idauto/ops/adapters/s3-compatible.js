@@ -112,15 +112,26 @@ function loadConfig(file) {
 // options shape https.request() actually consumes. Node's request options
 // have no `url` key — passing {url} silently connects to localhost:443, which
 // is exactly the defect this function exists to prevent. Exported for tests.
-function transportOptions(o) {
+function transportOptions(o, bodyLength) {
   var u = new URL(o.url);
   if (u.protocol !== 'https:') throw new Error('non-HTTPS endpoint refused');
+  var headers = o.headers;
+  if (typeof bodyLength === 'number') {
+    // Without an explicit Content-Length Node switches to chunked
+    // transfer-encoding, which S3-compatible providers reject for object
+    // writes (R2 answers 411 MissingContentLength once the body exceeds
+    // what the edge will buffer). Content-Length is not a signed header,
+    // so adding it after sign() does not disturb the signature.
+    headers = Object.assign({}, o.headers, {
+      'content-length': bodyLength
+    });
+  }
   return {
     hostname: u.hostname,
     port: u.port ? Number(u.port) : 443,
     path: u.pathname + u.search,
     method: o.method,
-    headers: o.headers,
+    headers: headers,
     // A backup transport that can hang forever fails open; a bounded wait
     // fails closed into the existing 'provider unavailable' path.
     timeout: 60000
@@ -135,7 +146,7 @@ function create(config, requestImpl) {
   if (base.protocol !== 'https:') throw new Error('non-HTTPS endpoint refused');
   requestImpl = requestImpl || function(o, b) {
     return new Promise(function(resolve, reject) {
-      var r = https.request(transportOptions(o), function(res) {
+      var r = https.request(transportOptions(o, b ? b.length : 0), function(res) {
         var a = [];
         res.on('data', function(x) {
           a.push(x);
