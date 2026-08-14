@@ -1,8 +1,66 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** GATE CLOSURE ATTEMPT — **both gates remain OPEN/BLOCKED. Off-host destination still absent; PC is unreachable from the VPS. Read-only PC audit script delivered so the gate is closeable by the owner.**
+**From:** OFF-HOST BACKUP PREPARATION — **runbook READY; destination still ABSENT; no backup taken. PC gate owner-declared CLOSED.**
 **To:** Next AI session
+
+---
+
+## OFF-HOST BACKUP PREPARATION (2026-08-14) — DESIGN / READ-ONLY ONLY
+
+**Status: runbook READY, execution BLOCKED.** Deliverable: **`docs/OFF_HOST_BACKUP_GATE.md`** (new; no such file previously existed).
+
+**Production DB modified 0 · production data copied 0 · production backups 0 · no dump taken · no bucket, credential or tooling created · no destination registered.** All source inspection was read-only.
+
+### The finding that shaped this stage: the tooling already exists
+
+The repository **already contains a working, provider-neutral, S3-compatible off-host backup implementation** — `projects/idauto/ops/offhost-backup.js` plus `projects/idauto/ops/adapters/s3-compatible.js`, covered by `tests/ida-3f-offhost-backup-test.js`. It is **R2-ready as written**: AWS SigV4 signing, HTTPS-only endpoints enforced, config-file mode `0600` enforced, injectable transport so it tests offline.
+
+**No new tooling is needed and none should be installed** — not `rclone`, `aws`, or `s3cmd`. A second mechanism would mean two backup paths sharing one set of guarantees.
+
+**The one real gap:** that tooling backs up *file artefacts with a manifest*. Database dumps are files it **carries**, not files it produces. The dump step is an addition in front of the existing pipeline, not a replacement — recorded as §4.D of the runbook.
+
+### Sources — verified read-only, and one detail that would have bitten
+
+| # | Container | Database | Engine | Tables | Size |
+|---|---|---|---|---|---|
+| 1 | `idauto-postgres` | `idauto` | PostgreSQL **15.18** | 24 | 11 MB |
+| 2 | `coolify-db` | `coolify` | PostgreSQL **15.19** | 66 | 24 MB |
+| 3 | `dar-hijama-production-mysql-1` | `darhijama_prod` | MySQL **8.4.11** | 39 | — |
+
+The two PostgreSQL servers are on **different minor versions**. A `pg_dump` client older than its server refuses to run, so no single external client can safely serve both. The runbook therefore requires `pg_dump` to run **inside each source container**, which matches client to server and removes any need for a network path to the database. Container credentials stay in container environment variables — never on a command line.
+
+### The four artefacts the gate depends on keeping separate
+
+**C1** source checksum · **O** uploaded object · **C2** checksum of a *freshly downloaded* copy · **R** restored database. **C1 == C2 is the round-trip proof**; **R is never byte-comparable** and is validated structurally against the table/row counts above.
+
+Two traps written into the runbook explicitly: **do not use ETag as the checksum** (for multipart uploads it is a hash-of-hashes, not a content hash), and **do not re-hash the local original** and call it a round trip — that proves only that the disk still works.
+
+### Validation performed
+
+- `tests/ida-3f-offhost-backup-test.js` — **30 passed, 0 failed**, including an **AWS-published SigV4 test vector**, so the signing is correct against a known-good reference and works with R2 unchanged.
+- 8 runbook claims checked **against the adapter source** rather than trusted from reading: config path, mode-0600 enforcement, non-HTTPS refusal, the five required config keys, SigV4, injectable transport, and the exported `push`/`verifyRemote`/`restoreVerify`/`retention`/`redact` surface. **All 8 verified.**
+
+No check requiring the absent destination was executed.
+
+### R2 contract — documented, not created
+
+Config lives at `~/.config/mythos/idauto-offhost.env`, mode `0600`, keys `ENDPOINT` / `REGION=auto` / `BUCKET` / `ACCESS_KEY_ID` / `SECRET_ACCESS_KEY`, with a **bucket-scoped** credential. **The owner writes this file directly.** No secret value appears in Git, this handover, logs, shell history, test output, or any report — and none was seen this session.
+
+### Gate status
+
+| Gate | Status |
+|---|---|
+| A — authorised destination exists | **BLOCKED** (0 `s3_storages`, no config file) |
+| B–E — backup, C1, C1==C2, restore-from-download | NOT STARTED (blocked by A) |
+| F — PC-DECOMMISSION-GATE | **CLOSED** — owner-declared 2026-08-14 |
+| G — final VPS inventory reconciled | pending the PC audit report |
+
+**Production migration remains BLOCKED**, enforced in code: `migrate.js` refuses to run without an explicit `backupGateClosed` assertion.
+
+### Next blocker — one owner action
+
+Create the R2 bucket and a bucket-scoped credential, then write `~/.config/mythos/idauto-offhost.env` with mode `0600`. Nothing else is missing: tooling, runbook, validation procedure and isolation requirements are all in place and tested offline.
 
 ---
 
