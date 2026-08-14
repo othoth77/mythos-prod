@@ -179,15 +179,17 @@ Restore is `pg_restore` / `mysql <` **into the scratch database only**. It is ne
 
 | Gate | Condition | Status |
 |---|---|---|
-| **A** | Authorised off-host destination exists | **BLOCKED** — 0 `s3_storages`, no config file |
-| **B** | Backup created | NOT STARTED — blocked by A |
-| **C** | SHA-256 verified (C1) | NOT STARTED |
-| **D** | Fresh download verified (C1 == C2) | NOT STARTED |
-| **E** | Restore-from-download succeeds | NOT STARTED |
+| **A** | Authorised off-host destination exists | **MET** 2026-08-14 — R2 `mythos-offhost-backups`, bucket-scoped credential, connectivity round-trip PASS |
+| **B** | Backup created | **MET** 2026-08-14 — batch `20260814T161856Z`: `idauto` + `coolify` (`pg_dump -Fc` in-container) + `darhijama_prod` (`mysqldump --single-transaction`) |
+| **C** | SHA-256 verified (C1) | **MET** — C1 recorded for all three at dump time |
+| **D** | Fresh download verified (C1 == C2) | **MET** — 3/3 byte-identical on fresh download from R2 |
+| **E** | Restore-from-download succeeds | **MET** — 3/3 isolated restore tests: idauto 24 tables/2,551 rows source-identical; coolify 66 tables; darhijama 39 tables, largest-table rows source-identical |
 | **F** | PC-DECOMMISSION-GATE closed | **CLOSED** — owner-declared, 2026-08-14 |
-| **G** | Final VPS inventory reconciled | Pending the PC audit report |
+| **G** | Final VPS inventory reconciled | **MET** 2026-08-14 — full reconciliation PASS: Git clean at verified HEAD, R2 3/3 by metadata, 0 temp resources, census identical to pre-backup baseline, all DBs healthy and source-identical, 0 credentials in repo |
 
-**Production migration remains BLOCKED until A–E and G are closed.** `projects/personal-intelligence/persistence/migrate.js` enforces this in code: it refuses to run without an explicit `backupGateClosed` assertion, so this is not merely documented convention.
+**GATE STATUS: CLOSED (2026-08-14).** All seven conditions are met; evidence lives in `docs/AI_HANDOVER.md` (batch `20260814T161856Z`). The `migrate.js` runner may now be given `backupGateClosed: true` **truthfully** — the assertion remains per-run and operator-made, and becomes false again the moment backups stop being current or restore-verified.
+
+**Standing caution:** this gate closure reflects one verified batch. It is not a schedule — recurring backups, retention automation and Coolify integration are separate, not-yet-authorised work, and the gate should be treated as stale if the newest verified backup ages beyond the owner's tolerance.
 
 ---
 

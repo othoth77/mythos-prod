@@ -1,8 +1,40 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** OFF-HOST BACKUP EXECUTION — **PASS 3/3. All three production databases dumped, uploaded to R2, C1==C2 verified, and restore-tested in isolation. First verified off-host backups exist.**
+**From:** FINAL VPS INVENTORY RECONCILIATION — **PASS. OFF-HOST-BACKUP-GATE is CLOSED. All seven conditions met.**
 **To:** Next AI session
+
+---
+
+## FINAL VPS INVENTORY RECONCILIATION (2026-08-14) — PASS · GATE CLOSED
+
+**The OFF-HOST-BACKUP-GATE is CLOSED.** Condition G — the last open one — was met by this reconciliation; A–F were met by the R2 provisioning, the batch-`20260814T161856Z` execution, and the owner's PC-gate declaration. The gate table in `docs/OFF_HOST_BACKUP_GATE.md` §6 is updated with per-condition evidence.
+
+### Reconciliation results (all read-only)
+
+| Check | Result |
+|---|---|
+| Git | HEAD `a5e46223ebd0ef96636d946ee8667b4a3b7c0c5c` == origin/main, worktree clean, 0 staged, 0 untracked |
+| R2 backups | **3/3 verified by signed HEAD metadata** — sizes and sha256 metadata match recorded C1 for all three; bucket holds exactly 3 objects, nothing was re-downloaded |
+| Temp backup files | 0 (`/var/backups/mythos` empty, verify dir removed, no `/tmp` artefacts) |
+| Temp restore containers / volumes | 0 / 0 |
+| Docker census | containers/volumes **identical to the pre-backup baseline**, networks 9, 0 unhealthy, 26 running |
+| Production DBs | all healthy, 0 restarts; idauto **24 tables / 2,551 rows** (pre-backup baseline identical), coolify 66 tables, darhijama_prod 39 tables |
+| Coolify stack | coolify, coolify-db, coolify-redis, coolify-realtime, coolify-sentinel — all healthy |
+| Credentials | 0 tracked, 0 in any project file (verified by direct value comparison, tracked **and** untracked); config outside repo, owner `ubuntu`, mode `0600` |
+| Code changes from backup execution | the two commits contain exactly the authorised adapter completion (`254592b`) and documentation (`a5e4622`) — no application code beyond that, no schema, no data |
+
+### What gate closure means — and does not mean
+
+`migrate.js` may now be given `backupGateClosed: true` **truthfully**. The assertion stays per-run and operator-made: it becomes false again the moment backups stop being current or restore-verified. **One verified batch is not a schedule** — recurring backups, retention automation and Coolify integration remain separate, not-yet-authorised work.
+
+### MPI runner gate status after this closure
+
+`backupGateClosed` ✔ truthful · `pcGateClosed` ✔ owner-declared · `inventoryReconciled` ✔ this reconciliation. **The three external gates of `migrate.js` can all be truthfully asserted for the first time.** MPI production migration remains blocked on its own prerequisites: F8/F9 ratification, D1/D2/D3/D5, activation and observability decisions.
+
+### Next stage
+
+Owner's choice: **BACKUP SCHEDULING** (recurring off-host backups, retention, Coolify) or **MPI F8/F9 RATIFICATION → IMPLEMENTATION**. Neither may start without a separate instruction.
 
 ---
 
