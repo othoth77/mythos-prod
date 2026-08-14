@@ -1,8 +1,51 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** FINAL VPS INVENTORY RECONCILIATION — **PASS. OFF-HOST-BACKUP-GATE is CLOSED. All seven conditions met.**
+**From:** MPI F8/F9 RATIFICATION REVIEW — **PASS (ready to implement on ratified designs). Read-only; nothing changed. Migration remains BLOCKED on 4 exact items.**
 **To:** Next AI session
+
+---
+
+## MPI F8/F9 RATIFICATION REVIEW (2026-08-14) — READ-ONLY · PASS
+
+Read-only evidence review of F8/F9 and their surrounding decisions. **No code, schema, test, or gate was modified.** Verified against the repository, not session memory.
+
+### F8/F9 evidence state (verified at HEAD `1afd374`)
+
+| | F8 — concurrent reinforcement integrity | F9 — preference-audit read index |
+|---|---|---|
+| Authoritative source | `MPI_CRITICAL_FINDINGS.md` § F8/F9 deep validation; §6.2 of `MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` | same document set |
+| Design | **PROVEN** — candidate E (FOR UPDATE before provenance read + `UNIQUE NULLS NOT DISTINCT (memory_record_id, source_reference, observed_at)` + mandatory provenance); 8/8 boundary, 7/7 race matrix, alternatives measured; earlier constraint-only fix disproven and withdrawn | **PROVEN** — `(preference_id)`; 317× buffer reduction at 500k rows; two-column and covering variants rejected with evidence |
+| Implementation | **ABSENT — verified**: no `FOR UPDATE` in `repositories.js`, no provenance unique index in any schema input, provenance still optional in `lifecycles.reinforceMemory()` (line 73 `if (outcome.reinforced && input.provenance)`) | **ABSENT — verified**: no `preference_audit` index in any schema input |
+| Git history | design/validation commits only (`68f7d24`, `631421f`); implementation commits exist only for F10/F11/F13 | same |
+| Migration impact | assessed: transactional `CREATE INDEX` proven; `CONCURRENTLY` incompatible with the runner's single transaction; **build on the empty schema at MPI-2A** — retrofit needs a duplicate-scan preflight | same |
+
+**Verdict: both READY FOR IMPLEMENTATION** — designs ratifiable as-is, exact DDL specified, nothing pre-implemented that could drift.
+
+### D-decisions and observability (verified)
+
+D1 (third-party PII), D2 (MPI-originated entities), D3 (content location), D5 (MPI backup destination): **all OPEN** — no answer recorded anywhere in `docs/`; `MPI_REAL_MEMORY_INGESTION_ENABLED` remains **NO**. §18.8: MPI-2A apply is blocked on **D1/D2/D3 independently of F8/F9**; D5 gates real data. **Note:** the off-host gate closure covers the three *existing production* databases — MPI's own backup destination (D5) is a separate, still-open decision. F14 (erasure asymmetry) also remains an open owner decision intersecting D1. Observability: **still FAIL** — 0 logging statements across all four persistence files; minimum contract defined in `MPI_FINDINGS_REMEDIATION.md`, nothing built.
+
+### Gate logic (verified from code)
+
+`migrate.js` enforces exactly three external gates — `backupGateClosed`, `pcGateClosed`, `inventoryReconciled` — **all three now truthfully assertable** after the backup-gate closure. There is **no F8/F9, D1–D5, or observability gate in the runner**; those prerequisites live in the readiness documents' ordering, not in code. No document conflict found on this: the runner's gates were always specified as the three external operational facts.
+
+### Test evidence quality
+
+8 MPI suites; all five `mpi-2*` integration suites execute against real PostgreSQL via the psql driver (nothing schema-level is mock-only). Known mock-only residue, already documented: real `pg.Pool` over TCP (F11 proven with pool-shaped driver + pg source; TCP blocked by `--network none` isolation) and the retry path (`40001` never induced). Baseline: 308 MPI assertions passing as of their last runs.
+
+### What blocks MPI migration authorization TODAY — exactly four items
+
+1. **F8/F9 implementation + validation** (ratified designs → schema addendum + repository/lifecycle changes + tests; note `assertSchema` index count 55→57 and input-checksum tracking must follow).
+2. **D1/D2/D3 answers** — block MPI-2A apply independently of F8/F9 (D5 before any real data; F14 rides with D1).
+3. **Observability minimum contract** — audit-write failure visibility above all.
+4. **Activation readiness** — real driver adoption (`pg` is not an MPI dependency), env configuration contract, so `applicationReady` can be truthfully asserted.
+
+Dependency graph: **F8/F9 implement → scratch-validate (runner + suites) → D1/D2/D3 → observability → activation readiness → migration readiness review → authorization.**
+
+### Next stage
+
+**MPI F8/F9 IMPLEMENTATION** (separate instruction) — or owner answers to D1/D2/D3/D5, which can proceed in parallel.
 
 ---
 
