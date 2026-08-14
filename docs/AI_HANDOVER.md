@@ -1,8 +1,46 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** MPI FINDINGS REMEDIATION DESIGN — **F8/F9/F10 all CONDITIONAL; the previous audit's F8 fix was WRONG and is withdrawn. Nothing applied.**
+**From:** MPI DEEP FORENSIC AUDIT — **four new findings (F11–F14), two HIGH. F11 would silently void every atomicity guarantee at production activation.**
 **To:** Next AI session
+
+---
+
+## MPI DEEP REPOSITORY FORENSIC AUDIT (2026-08-14) — READ-ONLY + SCRATCH
+
+**Status: CONDITIONAL.** Full analysis: **`docs/MPI_FORENSIC_AUDIT.md`** (new).
+
+**Production DB modified 0 · data copied 0 · containers/volumes/networks 26/20/9 identical, 0 restarts, all healthy · scratch PostgreSQL 15.19 (`--network none`, tmpfs, no published port) removed, 0 remaining.** No SQL, application, or test file modified — documentation only.
+
+### Four new findings, two HIGH
+
+**F11 (HIGH, static) — `withTransaction` is unsafe under the documented Pool contract.** It issues `BEGIN`, the statements, and `COMMIT` as **separate `driver.query()` calls**, while `client.js` documents that "a real `pg` **Pool**/Client satisfies it unchanged." A Pool checks out a *different connection per call*: `BEGIN` on one, writes on another in autocommit, `COMMIT` on a third with no open transaction. **Every write would commit individually and `ROLLBACK` would become a no-op — silently.** Every atomicity guarantee in MPI-2B/2C was proven under the psql driver, which is a single session and therefore the one shape where this cannot appear. `Pool` occurs in **0** MPI tests. **Do not adopt a Pool until this is fixed.**
+
+**F13 (HIGH, scratch verified) — preference reinforcement discards evidence and timestamps.** §4 rule 5 says reinforcement "increments `evidence_count` and moves `last_observed_at` on the existing row". Proven: the domain object incremented to 2 while the database row **stayed at 1**, and `last_observed_at` never moved. Cause: `persistObservation()` routes an existing preference to `updateStatus()`, which writes only `status` and `updated_at`; no repository method ever writes `evidence_count`, `first_observed_at` or `last_observed_at`. Consequence: promotion thresholds are evaluated against an in-memory count that is rebuilt from the database as 1 on the next request, so **promotion can never persist**. The learning pipeline is inert in storage terms — and every existing test passes.
+
+**F12 (MEDIUM, static) — `pi_memory_tags` has no writer.** §18.7 assigns tags to the memory repository; the persistence layer contains zero references to the table. Dead: reachable by migration, unreachable by application.
+
+**F14 (MEDIUM, scratch verified, OWNER DECISION) — asymmetric erasure.** `pi_memory_records` is `ON DELETE RESTRICT` from `pi_users` while seven other children `CASCADE`. Proven: deleting a user holding one memory row raises `FOREIGN_KEY_VIOLATION`. So a user with any memory can never be deleted; and if memory were cleared first, deletion would silently cascade away preferences, sessions, conflicts, events, context packages and feedback. The architecture states no erasure policy, so the FK actions have quietly made that decision instead. Intersects **D1**.
+
+### Other material observations
+
+**71 of 222 columns** are never referenced by the persistence layer — most legitimately (`*_pk` surrogates, the six tables that intentionally have no repository). **Invariants existing only in prose:** independent observation (F8), preference reinforcement (F13), supersession direction, and "every memory row gets provenance" — the last enforced by the lifecycle wrapper but not by `memory.create()`, which any caller may use directly. **Mutations with no audit at all:** `memory.setState()` (no memory-state audit table exists) and `conflicts.resolve()`.
+
+**Idempotency:** every write with a caller-supplied external id is idempotent by unique constraint; the single non-idempotent write is provenance with a fresh id — exactly the F8 gap, which independently confirms the request-vs-later-observation distinction candidate E depends on. **SQL safety: no UNKNOWN fragments** — all values parameterised, the only identifier interpolation is regex-validated.
+
+**Test quality:** 11 bare `catch (_)` assertions pass on *any* error (the migration-runner suite has 4 and zero typed assertions); concurrency, retry and Pool semantics have **0 coverage** — which is how F11 survived three prior stages.
+
+### Prior findings after forensics
+
+F8 unchanged (candidate E stands, independently corroborated) · F9 unchanged, and the guard-decisions withdrawal is **reinforced** — that table has no reader at all · F10 unchanged · Observability reinforced: F13 is exactly the silent failure the missing logging would hide.
+
+### Gates
+
+PC-DECOMMISSION-GATE **CLOSED** · OFF-HOST-BACKUP-GATE **BLOCKED** (R2 deferred) · Production migration **BLOCKED** · Real-data ingestion **BLOCKED** · Supabase **NOT STARTED** · D1/D2/D3/D5 **OPEN**.
+
+### Next stage
+
+**MPI FULL PRODUCTION SIMULATION.** Open owner decisions now include **F14 erasure policy** alongside F8/F9 index ratification, the observability surface, and D1/D2/D3/D5.
 
 ---
 
