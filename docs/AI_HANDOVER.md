@@ -1,8 +1,31 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** O-2H OWNER DECISION RECORD — **the four blocking decisions are formalised below with their doc-defined choices. All four remain OPEN. Nothing was chosen on the owner's behalf; no code changed; zero real data.**
+**From:** O-2H DECISIONS RATIFIED — **all four blocking decisions are CLOSED (verbatim record in `MPI_2H_INGESTION_SPECIFICATION.md` §32). Real ingestion remains blocked on: the operator CLI composition root (not yet built, separately authorised) and the §24 execution-time gate. No code changed; zero real data.**
 **To:** Next AI session
+
+---
+
+## O-2H DECISIONS RATIFIED (owner, 2026-08-14) — ALL FOUR CLOSED
+
+Recorded verbatim in **`docs/MPI_2H_INGESTION_SPECIFICATION.md` §32** (authoritative location; §31 statuses updated; §2 and the preamble amended to match):
+
+| # | Owner decision (verbatim) |
+|---|---|
+| **O-2H-1** | "explicit_instruction + note, entered by me via the operator CLI; first-party data only." |
+| **O-2H-2** | "(a) operator-run CLI batch on the VPS, on-demand per owner order." |
+| **O-2H-4** | "(b) provider-side R2 at-rest encryption with documented acceptance." |
+| **O-2H-6** | "(a) same-session backup." |
+
+**Contradiction check — none found:** `explicit_instruction`+`note` ⊂ the §5 mythos vocabulary ✔ · the CLI surface in O-2H-1 is exactly the O-2H-2(a) hosting choice ✔ · O-2H-4(b) is a doc-defined option and its §32 acceptance note satisfies §11.2's "at minimum documented" ✔ (the (c) waiver was not used, so no non-sensitivity declaration was needed) · O-2H-6(a) is the documented default reading of §25 ✔ · "first-party data only" matches the §18 F14 boundary ✔. O-2H-3/O-2H-5/D4 remain OPEN, non-blocking for owner-only first-party data.
+
+**Gates now unlocked:** implementation of the **operator CLI composition root** (spec §29 contract: env-injected `MPI_PG_*`, real driver, `mythos_intelligence_app` role, no fallback, guard-before-action, content store via `createFromConfig`, both flags read at invocation) — this is the single remaining implementation stage before the §24 gate can even be evaluated.
+
+**Remaining blockers before MPI-2H real-data execution:**
+1. **Operator CLI does not exist** — requires its own implementation authorisation.
+2. **§24 execution-time gate**, evaluated per batch: dry run green at the executing HEAD · **fresh same-session backup** (O-2H-6a: full round-trip incl. isolated restore, immediately before the batch) · production activation health (`activate()` → ready) · **the separate, explicit, scope-bound owner order naming the batch** (§24(5) — no standing instruction substitutes).
+
+No code changed this stage · real MPI data 0 · real content objects 0 · production modified 0.
 
 ---
 

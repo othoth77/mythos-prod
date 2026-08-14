@@ -3,7 +3,7 @@
 **Status:** SPECIFICATION — ratified structure, **not implemented, not activated**
 **Date:** 2026-08-14 · **Authority:** derived exclusively from `MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` (§3–§9, §11, §12.1, §14, §15, §19, §20), `MYTHOS_USER_MEMORY_POLICY.md`, `MPI_FORENSIC_AUDIT.md` (F14), the D3 content store (`persistence/content-store.js`), and the MPI-2G evidence in `docs/AI_HANDOVER.md`. Nothing in this document invents a product requirement; every point either cites its source or is marked **OPEN** with the owner decision it awaits.
 
-Real ingestion remains **BLOCKED** until every OPEN item in §31 is decided and the final gate in §24 is passed. This document existing changes nothing at runtime.
+Real ingestion remains **BLOCKED** until the final gate in §24 is passed. The four blocking owner decisions were ratified 2026-08-14 (§32); the operator CLI they mandate is not yet built. This document existing changes nothing at runtime.
 
 ---
 
@@ -13,7 +13,7 @@ MPI-2H is the first stage in which **real first-party personal data** may enter 
 
 ## 2. Authoritative data sources
 
-No authoritative real data source is ratified anywhere in the repository. The architecture's provenance vocabulary (§5) admits `provider = mythos` with `source_type ∈ {observation, explicit_instruction, feedback, note}` as the only provider that does not imply an external import. **The initial real source selection is OPEN — decision O-2H-1 (§31).** Until O-2H-1 is decided, no real-data source exists and ingestion cannot begin.
+The architecture's provenance vocabulary (§5) admits `provider = mythos` with `source_type ∈ {observation, explicit_instruction, feedback, note}` as the only provider that does not imply an external import. **The initial real source is decided — O-2H-1, ratified 2026-08-14 (§32): `explicit_instruction` + `note`, entered by the owner via the operator CLI, first-party data only.** The CLI itself is future, separately-authorised implementation work; until it exists, ingestion cannot begin.
 
 ## 3. Allowed source types
 
@@ -154,16 +154,27 @@ Immediate stop, no improvisation: any §31 blocking decision undecided · dry ru
 
 ## 31. OPEN owner decisions (exact, blocking status marked)
 
-| # | Decision required | Blocking for first real ingestion? |
+| # | Decision required | Blocking for first real ingestion? | Status |
+|---|---|---|---|
+| **O-2H-1** | **Initial real data source(s) and surface**: which first-party data, entered where, by whom (owner-operated entry per §2–§3 vocabulary). | **YES** | **CLOSED — see §32** |
+| **O-2H-2** | **Ingestion trigger, frequency, and hosting**: which process hosts the composition root; manual batch vs. scheduled; operator procedure. | **YES** | **CLOSED — see §32** |
+| **O-2H-3** | **Retention/rotation policy** for MPI backups and ingested data (nothing is deleted until decided). | NO (defaults to keep-everything) | OPEN |
+| **O-2H-4** | **Encryption at rest for content objects** (§11.2 "RECOMMENDED; at minimum documented" — client-side encryption named as the stronger option). | **YES** for sensitive content classes | **CLOSED — see §32** |
+| **O-2H-5** | **F14 erasure design** under the D1 posture (user deletion vs. cascade asymmetry). | NO for owner-only first-party data (boundary in §18), YES before any broader user base | OPEN |
+| **O-2H-6** | **Backup freshness tolerance** before ingestion (§25). | **YES** | **CLOSED — see §32** |
+| **D4** | Automatic `disputed` resolution (pre-existing, §12). | NO (non-blocking, unchanged) | OPEN |
+
+## 32. Ratified O-2H decisions (owner, 2026-08-14)
+
+Recorded exactly as provided, without reinterpretation or expansion:
+
+| # | Owner decision (verbatim) | Consequence |
 |---|---|---|
-| **O-2H-1** | **Initial real data source(s) and surface**: which first-party data, entered where, by whom (owner-operated entry per §2–§3 vocabulary). | **YES** |
-| **O-2H-2** | **Ingestion trigger, frequency, and hosting**: which process hosts the composition root; manual batch vs. scheduled; operator procedure. | **YES** |
-| **O-2H-3** | **Retention/rotation policy** for MPI backups and ingested data (nothing is deleted until decided). | NO (defaults to keep-everything) |
-| **O-2H-4** | **Encryption at rest for content objects** (§11.2 "RECOMMENDED; at minimum documented" — currently documented only; client-side encryption named as the stronger option). | **YES** for sensitive content classes; owner may accept documented-only for the initial source if that source is non-sensitive |
-| **O-2H-5** | **F14 erasure design** under the D1 posture (user deletion vs. cascade asymmetry). | NO for owner-only first-party data (boundary in §18), YES before any broader user base |
-| **O-2H-6** | **Backup freshness tolerance** before ingestion (§25). | **YES** (absent a decision: same-session) |
-| **D4** | Automatic `disputed` resolution (pre-existing, §12). | NO (non-blocking, unchanged) |
+| **O-2H-1** | "explicit_instruction + note, entered by me via the operator CLI; first-party data only." | Initial source types are `explicit_instruction` and `note` (provider `mythos`); `observation` and `feedback` are **not** authorised for the initial source. Entry surface is the operator CLI (to be built — §29/O-2H-2). Owner's own first-party data only, consistent with the F14 boundary (§18). |
+| **O-2H-2** | "(a) operator-run CLI batch on the VPS, on-demand per owner order." | The composition root is an operator-run CLI on the VPS satisfying every §29 requirement. No deployed service, no Coolify change, no scheduling — each batch runs on an explicit owner order, matching §24(5). Scheduled ingestion would be a new, separately-authorised decision. |
+| **O-2H-4** | "(b) provider-side R2 at-rest encryption with documented acceptance." | Content objects rely on Cloudflare R2's provider-side encryption at rest. **Documented acceptance:** the owner accepts the residual risk that content confidentiality against the storage provider and against any holder of the bucket credential rests on the provider's controls and the credential's secrecy, not on client-side cryptography. Client-side encryption (option a) remains available as a future, separately-authorised upgrade; this acceptance does **not** extend beyond the O-2H-1 source without re-decision. |
+| **O-2H-6** | "(a) same-session backup." | The §25 backup round-trip (dump → C1 → upload → fresh download → C2 → C1==C2 → isolated restore) must be executed **in the same session as, and immediately before, each real batch**. A backup from any earlier session makes the `backupVerified` gate assertion untruthful. |
 
 ---
 
-**Consequence:** MPI-2H implementation (the flag, the ingestion entry point, the 2H test suite) may be authorised next, but **real ingestion cannot begin** until O-2H-1, O-2H-2, O-2H-4 (or its explicit waiver for a non-sensitive initial source), O-2H-6 and the §24 gate are satisfied.
+**Consequence (updated 2026-08-14):** all four blocking decisions are CLOSED. Real ingestion still requires: the operator CLI composition root (implementation stage, separately authorised), and at execution time the full §24 gate — including the fresh same-session backup (§25/O-2H-6) and the separate, explicit, scope-bound owner order for the specific batch (§24(5)). O-2H-3, O-2H-5 and D4 remain OPEN and non-blocking for owner-only first-party data.
