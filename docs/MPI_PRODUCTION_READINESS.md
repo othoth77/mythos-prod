@@ -74,7 +74,7 @@ So a future operator can satisfy the runner while gates F and G are open. The ba
 | **L** | Performance | **CONDITIONAL** | SCRATCH VERIFIED | retrieval hot path correctly indexed; **F9** on two audit tables |
 | **M** | Concurrency | **FAIL** | SCRATCH VERIFIED | **F8** reproduced |
 | **N** | Activation | **PASS** | DESIGN VERIFIED | flag default false; no in-memory fallback; startup aborts on failure |
-| **O** | Real-data migration | **BLOCKED** | — | D1/D2/D3 unanswered, D5 undecided |
+| **O** | Real-data migration | **BLOCKED** | — | D1/D2/D3/D5 ratified 2026-08-14 (see gate matrix); still blocked on MPI-2G — dedicated MPI bucket, backup + restore test — before ingestion |
 | **P** | Final gates | **BLOCKED** | — | see matrix below |
 
 ---
@@ -141,10 +141,10 @@ Confirmed: production migration **cannot** begin while the backup gate is blocke
 | MPI-2A (schema) | **CONDITIONAL** | 23/23 runner, scratch | F10; F8/F9 are schema-level |
 | MPI-2B (persistence) | **PASS** | 38/38 scratch | — |
 | MPI-2C (boundary) | **PASS** | 26/26 scratch | — |
-| D1 third-party personal data | **OPEN** | — | owner decision |
-| D2 MPI-originated entities | **OPEN** | — | owner decision |
-| D3 memory content location | **OPEN** | — | owner decision |
-| D5 MPI backup destination | **OPEN** | — | owner decision |
+| D1 third-party personal data | **DECIDED (c)** — contacts out of MPI entirely | owner ratification 2026-08-14, §12.1 of the memory-engine architecture | — |
+| D2 MPI-originated entities | **DECIDED NO** — pointer-only, no MPI-owned personal entity class | same | — |
+| D3 memory content location | **DECIDED (3)** — object storage; `content_reference` only | same | implementation pending |
+| D5 MPI backup destination | **DECIDED** — dedicated R2 MPI bucket, never `mythos-offhost-backups` | same | bucket not yet provisioned; gates 2G/2H |
 | Production migration | **BLOCKED** | enforced in code | backup gate + F8/F9/F10 |
 | Real-data ingestion | **BLOCKED** | flag NO | D1/D2/D3/D5 |
 | Supabase | **NOT STARTED** | — | recommended against |
@@ -155,6 +155,6 @@ Confirmed: production migration **cannot** begin while the backup gate is blocke
 
 1. **Owner ratifies fixes for F8, F9, F10** — one schema constraint, two indexes, two preflight checks. All small; none should be applied without ratification, because F8 and F9 change the ratified schema.
 2. **Provision R2** and execute the backup gate end to end.
-3. **Answer D1/D2/D3/D5.**
+3. ~~**Answer D1/D2/D3/D5.**~~ **DONE 2026-08-14** — D2 NO · D1 (c) · D3 (3) object storage · D5 dedicated R2 MPI bucket (implementation pending). D4 remains open.
 4. **Decide observability (K)** — what a production persistence layer must log and expose.
 5. Only then: migration readiness review, then migration.

@@ -273,6 +273,17 @@ MPI-2 will eventually hold **real personal data about the owner and about third 
 | **D4** | **Is `disputed` resolvable automatically by scope precedence, or only by explicit human instruction?** | The memory policy defines precedence but does not say whether it may auto-resolve a contradiction. Auto-resolution is convenient and occasionally wrong in a way the user never sees. |
 | **D5** | **Where do MPI backups go, given IDA-3F is deferred?** | MPI has no backup today. Options: extend the IDA-3F tooling to MPI with a local-only backup now and off-host later; wait for the R2 decision; or provision a separate destination. Real-data ingestion stays disabled until this is answered. |
 
+### 12.1 Ratified decisions (owner, 2026-08-14)
+
+| # | Decision | Consequence |
+|---|---|---|
+| **D2** | **NO** — MPI must not become owner of personal entities. It stays pointer-oriented; no MPI-owned `personal` entity class is created. | `pi_entity_references` remains a pointer registry exactly as specified ("never duplicates them"). Contact modelling is thereby foreclosed, consistent with D1. |
+| **D1** | **(c)** — third-party contacts stay **out of MPI entirely**. No third-party names, emails, or phone numbers are imported into or stored in `mythos_intelligence`. | The MPI-0 no-raw-PII rule stands unqualified. The Google Contacts importer (§15) is **excluded permanently**, and the §3.1/§8.1 conflict rows are resolved in favour of MPI-0. The MPI-2A table set is **unchanged** — no contacts/person table will ever be added for this purpose. **F14 follows this privacy posture**: the erasure policy is to be designed under the no-third-party-PII position (its FK remediation remains open, separately). |
+| **D3** | **(3)** — memory content lives in **object storage**. PostgreSQL stores `content_reference` only, never embedded content. | The §11 backup topology is the database + object store as a **consistent pair**. No same-schema content table will be added. |
+| **D5** | **Dedicated Cloudflare R2 MPI bucket.** MPI backup/content storage must use its **own** bucket — `mythos-offhost-backups` is exclusively for `idauto`, `coolify` and `darhijama_prod` and is **not** reused. | Destination decided; **implementation pending** (bucket creation, scoped credential and MPI-2G verification are future, separately authorised work). Real-data ingestion remains disabled until 2G passes. |
+
+D4 (automatic `disputed` resolution) remains **open**.
+
 ---
 
 ## 13. Vector search — **DEFERRED, decided**
@@ -300,7 +311,7 @@ Each requires its own authorisation. Boundaries are drawn so every slice is inde
 | **MPI-2G** | Backup, restore test, and the real-data gate | 2A, **D5** | Backups only |
 | **MPI-2H** | *(only after 2G passes)* Enable real-memory ingestion | 2G | **YES — first real personal data** |
 
-**Recommended first slice: MPI-2A**, and it is blocked until D1, D2 and D3 are answered — all three change the table set.
+**Recommended first slice: MPI-2A.** Its D1/D2/D3 dependency is **satisfied as of 2026-08-14** (§12.1) — and with D1 = (c) and D2 = NO, the answers change **nothing** in the table set, while D3 = (3) confirms no content table. MPI-2A still requires its own explicit apply authorisation and the runner's external gates.
 
 Deliberately **not** slices here: importers (ChatGPT, Claude, Gemini, DeepSeek, NotebookLM, Google Contacts) and the chatbot runtime. Importers belong after 2H because they are the thing that brings real third-party data; the chatbot is MPI-4.
 
@@ -333,7 +344,7 @@ exact fact insert · duplicate fact (no double-count) · conflicting fact preser
 
 ## 17. Status
 
-**Design complete; blocked on owner decisions D1, D2, D3 (and D5 before any real data).** Nothing was implemented, applied, provisioned or deployed. `MPI_REAL_MEMORY_INGESTION_ENABLED` remains **NO**.
+**Design complete. D1/D2/D3/D5 were ratified by the owner on 2026-08-14 — see §12.1** (D4 remains open). Nothing has been applied or deployed to production; the MPI object-storage bucket (D3/D5) is not yet provisioned. `MPI_REAL_MEMORY_INGESTION_ENABLED` remains **NO** until MPI-2G passes.
 
 ---
 
@@ -441,7 +452,7 @@ Stage B established there is **no MPI persistence layer**: zero executable `pi_*
 
 ### 18.8 Status of this gate
 
-F1–F4 and F7 are **designed and scratch-validated, not applied**. MPI-2A remains blocked on **D1, D2, D3** independently of these findings; D5 gates real data. Nothing in this section was applied to any production database.
+F1–F4 and F7 are **designed and scratch-validated, not applied**. At the time of this gate, MPI-2A was additionally blocked on **D1, D2, D3**; those were ratified on 2026-08-14 (§12.1), with F8/F9 implemented the same day. D5's destination is decided, implementation pending. Nothing in this section was applied to any production database.
 
 ---
 

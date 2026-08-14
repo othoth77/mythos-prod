@@ -1,8 +1,33 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** D1/D2/D3 RATIFICATION REVIEW — **read-only. All three remain OPEN, nothing pre-encoded. One premise change: R2 is no longer deferred, which reshapes the D3/D5 option space without deciding it.**
+**From:** D1/D2/D3/D5 DECISION RECORDING — **all four ratified by the owner and recorded. MPI-2A's decision dependency is satisfied; D4 remains open. Docs only.**
 **To:** Next AI session
+
+---
+
+## D1/D2/D3/D5 DECISION RECORDING (2026-08-14) — DOCS ONLY
+
+**Owner decisions, recorded verbatim in `MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` §12.1** (the authoritative location) and reflected in the `MPI_PRODUCTION_READINESS.md` gate matrix:
+
+| # | Decision | Immediate consequence |
+|---|---|---|
+| **D2** | **NO** — MPI never owns personal entities; pointer-oriented only | `pi_entity_references` stays exactly as specified; contact modelling foreclosed |
+| **D1** | **(c)** — third-party contacts stay **out of MPI entirely**; no third-party names/emails/phones ever stored | MPI-0's no-raw-PII rule stands unqualified; Google Contacts importer permanently excluded; **MPI-2A table set unchanged**; **F14 follows this posture** (its FK remediation stays open, separately) |
+| **D3** | **(3)** — memory content lives in **object storage**; PostgreSQL holds `content_reference` only | §11 backup topology = database + object store as a consistent pair; no content table will be added |
+| **D5** | **Dedicated Cloudflare R2 MPI bucket** — `mythos-offhost-backups` remains exclusively for idauto/coolify/darhijama_prod | destination **decided, implementation pending**: no bucket created, no R2 configured for MPI, nothing provisioned this stage; gates 2G→2H |
+
+**Rationale as supported by the review:** D2=NO and D1=(c) are mutually consistent (each forecloses what the other would have enabled) and mean the ratified 20-table schema is **final for MPI-2A** — no additions, no removals. D3=(3)+D5 land on the option whose "R2 is deferred" caveat the review had already noted as obsolete, with the review's scope-separation requirement honoured by mandating a dedicated bucket.
+
+### Gate changes
+
+**MPI-2A's D1/D2/D3 dependency is SATISFIED.** Remaining before migration authorization: **observability minimum contract** · **activation readiness** · MPI-2A's own explicit apply authorisation (plus the runner's three external gates, all currently truthfully assertable). **D4 remains open** (automatic `disputed` resolution) — it does not block 2A. Real-data ingestion remains **NO** until MPI-2G (backup on the dedicated MPI bucket, restore-tested) passes.
+
+**Verified this stage:** no code changed (docs only — 3 files), no production data touched, no real MPI data, no bucket or credential created, no credential tracked. All authoritative "blocked on D1/D2/D3" statements updated; historical dated audit entries left as history.
+
+### Next stage
+
+**OBSERVABILITY MINIMUM CONTRACT** (separate instruction).
 
 ---
 
