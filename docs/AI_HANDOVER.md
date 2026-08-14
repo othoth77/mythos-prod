@@ -1,8 +1,48 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** OFF-HOST BACKUP PREPARATION — **runbook READY; destination still ABSENT; no backup taken. PC gate owner-declared CLOSED.**
+**From:** MPI PRODUCTION READINESS DEEP AUDIT — **CONDITIONAL. Three new defects found (F8 concurrency, F9 audit indexes, F10 unenforced gates). No production change.**
 **To:** Next AI session
+
+---
+
+## MPI PRODUCTION READINESS DEEP AUDIT (2026-08-14) — AUDIT / VALIDATION ONLY
+
+**Status: CONDITIONAL.** Full matrix: **`docs/MPI_PRODUCTION_READINESS.md`** (new).
+
+**Production DB modified 0 · data copied 0 · containers/volumes/networks 26/20/9 identical, 0 restarts, all healthy · scratch PostgreSQL 15.19 (`--network none`, tmpfs, no published port) removed, 0 remaining.** Application code and ratified SQL **unchanged** — this stage modified documentation only.
+
+### Three new defects, all found by testing rather than reading
+
+**F8 — concurrent reinforcement double-counts evidence (SCRATCH VERIFIED).** §6.2 requires that only *independent* observations raise confidence. `lifecycles.js` wraps the read-then-write in a transaction and its comment claims that contains the race. **It does not, under READ COMMITTED.** Two concurrent sessions both read the provenance set before either wrote, both concluded the same observation was independent, and committed: `evidence_count` reached **3 instead of 2**, with **2 provenance rows for one source**. The row lock serialised the writes but did not invalidate the decision each session had already made. Fix identified — `UNIQUE (memory_record_id, source_reference)` on `pi_memory_provenance` — **not implemented**, because it changes ratified schema.
+
+**F9 — audit-table reads are unindexed (SCRATCH VERIFIED).** At 20,000 rows with fresh `ANALYZE`, both real repository queries are **Seq Scans**: `pi_preference_audit WHERE preference_id` and `pi_guard_decisions WHERE user_id`. These are **append-only tables that only grow**, so the cost rises monotonically. Causally linked to F2: the immutable tables deliberately have no FKs, and an FK is normally what prompts an index on the referencing column — F2 is still right, this is its unbudgeted second-order cost.
+
+**F10 — the runner enforces one of three closure gates (DESIGN VERIFIED).** The backup runbook §6 defines gates **F** (PC) and **G** (inventory) alongside the backup gate, but `migrate.js preflight()` asserts only `diskOk`, `backupGateClosed`, `applicationReady`. The backup gate *is* genuinely enforced (verified: `backupGateClosed=false` refuses), but an operator could satisfy the runner with F and G open. A gate enforced only in prose is one that eventually gets skipped.
+
+### What passed, and at what evidence level
+
+Distinguished throughout, because they are not equivalent: **DESIGN VERIFIED** · **SCRATCH VERIFIED** · **PRODUCTION VERIFIED — nothing is production verified.**
+
+Architecture, schema, persistence layer, application boundary, security, data classification, rollback and activation all **PASS**. Schema↔design reconciliation found **no** undocumented executable object, no missing documented object, no naming drift, no wrong FK action, no role privilege drift — 17 of 18 requirements MATCH, the exception being the three gaps above. All values are `$n`-parameterised; the only SQL interpolations are module constants plus a regex-validated schema identifier. All 9 lifecycle operations are transactional. The immutable repositories expose **no** mutator method. The legacy application references persistence **nowhere**.
+
+**Observability (K) is a FAIL, and it is a gap rather than a regression:** the persistence layer has no logging, metrics, or health endpoint. It was never in scope, but production readiness cannot be claimed without it.
+
+**Concurrency assessed honestly:** of five scenarios, one FAILS (F8), two pass by construction (conflict insertion, tombstoning), and two are **NOT TESTED** and recorded as such — serialization-failure retry, and concurrent supersession (two winners could both point at one loser; no constraint prevents it).
+
+### Tests
+
+MPI-2A runner **23/23** re-run as audit evidence. Six additional constraint proofs run this stage — evidence floor, inverted validity window, invalid memory state, invalid preference status, invalid FK, plus the F8 race — **all behaved as designed** (the race reproducing is the designed outcome of that probe). Earlier suites not re-run: MPI-0 63, governance 36, MPI-1 50, MPI-2B 38, MPI-2C 26 remain valid, as the audited code is unchanged.
+
+Two errors in my own probes were caught and corrected mid-audit rather than reported as results: a constraint case that updated a non-existent row (so the CHECK never fired), and `EXPLAIN` returning empty because the test driver does not row-wrap it. The corrected runs are what is recorded.
+
+### Gates
+
+PC-DECOMMISSION-GATE **CLOSED** (owner-declared) · OFF-HOST-BACKUP-GATE **BLOCKED** (R2 deferred) · MPI-2A **CONDITIONAL** · MPI-2B/2C **PASS** · D1/D2/D3/D5 **OPEN** · Production migration **BLOCKED** · Real-data ingestion **BLOCKED** · Supabase **NOT STARTED**.
+
+### Next stage
+
+**OFF-HOST BACKUP EXECUTION after R2 provisioning.** Before production, in order: owner ratifies F8/F9/F10 fixes (one constraint, two indexes, two preflight checks — all small, none applied without ratification since F8/F9 touch ratified schema) · provision R2 and run the backup gate · answer D1/D2/D3/D5 · decide observability.
 
 ---
 
