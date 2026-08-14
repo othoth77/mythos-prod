@@ -1,8 +1,46 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** OBSERVABILITY MINIMUM CONTRACT — **implemented exactly as documented. 341 MPI assertions pass, 0 fail. Audit-write failure is no longer silent.**
+**From:** ACTIVATION READINESS — **implemented and proven. 356 MPI assertions pass, 0 fail. `applicationReady` is now truthfully assertable — the last code blocker before MPI-2A authorisation is closed.**
 **To:** Next AI session
+
+---
+
+## ACTIVATION READINESS (2026-08-14) — PASS
+
+The gap matrix (read-only phase) found the §20.5/§20.6 activation contract entirely unimplemented: no env reading anywhere, no driver loading, `applicationReady` operator-asserted only, and `pg` confirmed **present in the worktree but gitignored** — not an MPI dependency. Implemented exactly the documented minimum: **new `persistence/activation.js` + `tests/mpi-activation-test.js`.** No existing file changed.
+
+### Contract → implementation
+
+| §20.5/§20.6 requirement | Implementation |
+|---|---|
+| `MPI_PERSISTENCE_ENABLED`, default **false** | strict flag: only the exact string `'true'` enables — `TRUE`/`1`/`yes` stay disabled (same discipline as the F10 gates) |
+| env contract, fail-closed | `loadActivationConfig(env)`: `MPI_PG_HOST/PORT/DATABASE/USER/PASSWORD/STATEMENT_TIMEOUT_MS` **required, no defaults**; port/pool/timeouts validated as positive integers; SSL `'true'/'false'` only; refusals name **variables, never values** |
+| "no unbounded statement timeout in production" | `MPI_PG_STATEMENT_TIMEOUT_MS` is **required**, enforced by test |
+| password never logged | handed to the driver only; proven absent from every refusal message |
+| real driver adoption | `buildDriver(config, pg)` builds a real `pg.Pool` from an **injected** pg module (composition root does `require('pg')`); a missing module is a **refusal, never a silent mock**; the Pool satisfies `client.js` via `connect()` — the F11-safe path |
+| §20.6 startup sequence | `activate()`: flag → config → driver → client → connection test → `assertSchema` → ready; **any failure aborts**, `ACTIVATION_CONNECTION_FAILED` / `ACTIVATION_NOT_READY`, both stating "No fallback exists by design" |
+| readiness ≠ liveness | `isAlive` (connectivity only) vs `isReady` (full `checkHealth`); proven distinct on an unmigrated database — **alive but NOT ready** |
+
+`applicationReady` for `migrate.js` remains an operator assertion — `activate()` succeeding is what now makes that assertion **truthful**.
+
+### Evidence
+
+**Activation suite 15/15** (11 offline + 4 real PostgreSQL). Highlights: a **real `pg.Pool` was built from the vendored module** with the contract config (skips honestly on checkouts without it) · a live-but-unmigrated target is ALIVE but NOT READY and activation **aborts fail-closed** · the planted secret value appears in no refusal message.
+
+**Complete MPI regression — 356 passed, 0 failed** across eleven suites (MPI-0 63 · gov 36 · MPI-1 50 · 2A 23 · 2B 38 · 2C 26 · 2D 18 · 2E 54 · 2F 16 · observability 17 · activation 15). Production untouched (census 26/20 identical, all healthy) · no real MPI data · credentials not tracked (verified by value; the test "password" is an `.invalid` fixture).
+
+### Readiness consequence
+
+**All four migration blockers from the ratification review are now closed:** F8/F9 ✔ · D1/D2/D3 ✔ · observability ✔ · activation readiness ✔. What remains before production MPI:
+
+1. **MPI-2A apply authorisation** — an explicit owner order; every technical prerequisite is met and the runner's gates are all truthfully assertable.
+2. **MPI-2G** — dedicated MPI R2 bucket (D5) + backup/restore verification, before any real data.
+3. **2H real-data ingestion** — after 2G. D4 still open, non-blocking.
+
+### Next stage
+
+**MPI-2A APPLY AUTHORISATION** (owner order) or **MPI-2G preparation** — either requires a separate instruction.
 
 ---
 
