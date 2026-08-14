@@ -1,8 +1,45 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** MPI-2H SPECIFICATION — **the authoritative real-data ingestion specification now exists (`docs/MPI_2H_INGESTION_SPECIFICATION.md`). Nothing implemented, nothing activated, zero real data. Six owner decisions (O-2H-1…6) are named; four block first real ingestion.**
+**From:** MPI-2H IMPLEMENTATION (CLOSED PORTION) — **the specification's decision-independent boundary is implemented: strict ingestion flag, validated ingestion contract, D1/D2/D3/D5 enforcement, F8 idempotent replay, tombstone batch reversal, fail-closed REAL-class gates. No source, no trigger, no activation, zero real data. O-2H-1/2/4/6 still block real ingestion.**
 **To:** Next AI session
+
+---
+
+## MPI-2H IMPLEMENTATION — CLOSED PORTION (2026-08-14) — PASS
+
+**Owner authorisation received this session** (explicit, scope-bound: implement only what the ratified decisions fully determine; STOP rather than guess on any OPEN decision).
+
+### Gap analysis result
+
+Everything below the boundary already existed (lifecycles atomic pairs, repositories, guard decisions, D3 store, activation, observability). What was missing and is **closed** by the spec: the ingestion flag, the validated entry contract, and batch reversal. What remains OPEN was **not** implemented: no data source (O-2H-1), no trigger/scheduler/hosting (O-2H-2), no retention beyond keep-everything default (O-2H-3), no encryption decision (O-2H-4), no erasure design (O-2H-5), no freshness check (O-2H-6 — represented only as a truthful operator assertion, mirroring `migrate.js` gates).
+
+### New module: `persistence/ingestion.js` (nothing existing modified)
+
+| Closed requirement (spec §) | Implementation |
+|---|---|
+| Flag (§29) | `MPI_REAL_MEMORY_INGESTION_ENABLED`, strict `'true'` only, default off, env injected by caller — module never reads `process.env` |
+| Classes | `SYNTHETIC / OPERATOR_TEST / REAL`; prohibited third-party data is refused by validation, not classified |
+| Validation (§3–§6, §11–§13) | structural whitelists (unknown fields refused — the D2 structural half: no field can express an MPI-owned entity); provider `mythos` only; source types the ratified four; `contacts` refused by name (D1); summary ≤512; `source_reference` + `import_batch_ref` mandatory; content XOR reference; D3 scheme validated |
+| Sensitive gate (§8.2 arch) | repo-precedent patterns only (offhost `redact()` shapes + context-compiler field names — no new detection policy); rejection **before any write** except the standalone guard-decision audit row (DENY, kind only, value-free) |
+| D3 ordering (§9) | `putContent` (HEAD-verified) **before** the referencing transaction; DB receives the reference only |
+| F8 (§14–§15) | `KIND.UNIQUE` from the provenance triple → `{alreadyIngested: true}` — replay is idempotent, the index is never weakened |
+| REAL gates (§24) | flag AND `realDataAuthorised === true` AND `backupVerified === true` (per-batch, operator-asserted, truth not verifiable in code — stated as such); refusal before any write |
+| Reversal (§17/§22) | `reverseBatch(importBatchRef)` — tombstone via the existing atomic lifecycle, never DELETE; idempotent |
+
+### Tests: `tests/mpi-2h-ingestion-test.js` — 35/35
+
+27 offline (flag strictness · every validation refusal incl. D1 contacts, external providers, D2 unknown-field, lifecycle-owned columns · sensitive shapes with value-free messages and exactly one audit write · REAL-gate refusals with **zero** database writes · write-content-before-row ordering · F8 replay) + 8 scratch-database cases (end-to-end atomic pair · provenance row · DB holds D3 reference never content · real F8 replay · `verifyConsistency` green · tombstone reversal, idempotent). DB cases skip honestly without a scratch container.
+
+**Full regression on fresh scratch PG 15.19: 356 + 2H 35 + D3 27 + tooling 35 = 453 passed, 0 failed.**
+
+### Production safety
+
+Real MPI rows **0** · real content objects **0** (content-store cases ran on in-memory adapters) · persistence disabled everywhere (no `MPI_*` env var) · production data unchanged · credentials tracked 0 · `mythos-offhost-backups` untouched.
+
+### Next stage
+
+**Owner decisions O-2H-1 (source), O-2H-2 (trigger/hosting), O-2H-4 (encryption or explicit waiver), O-2H-6 (backup freshness)** — after which the composition root can be built and the §24 five-condition gate evaluated for first real ingestion. D4 unchanged, non-blocking.
 
 ---
 
