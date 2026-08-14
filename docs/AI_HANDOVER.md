@@ -1,8 +1,50 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** O-2H DECISIONS RATIFIED — **all four blocking decisions are CLOSED (verbatim record in `MPI_2H_INGESTION_SPECIFICATION.md` §32). Real ingestion remains blocked on: the operator CLI composition root (not yet built, separately authorised) and the §24 execution-time gate. No code changed; zero real data.**
+**From:** MPI-2H OPERATOR CLI — **the O-2H-2(a) composition root exists (`projects/personal-intelligence/cli/mpi-ingest-cli.js`). Every REAL gate is argument-bound to the specific batch; no standing authorisation can exist. Nothing executed against production; zero real data. The only remaining requirement before a first real batch is the §24(5) per-batch owner order plus its same-session backup.**
 **To:** Next AI session
+
+---
+
+## MPI-2H OPERATOR CLI (2026-08-14) — PASS (BUILT, NEVER EXECUTED AGAINST PRODUCTION)
+
+**Owner authorisation received this session** (explicit, scope-bound: build the §29 CLI composition root; no real ingestion, no production activation, no real content objects).
+
+### What was built — composition root only, no second persistence path
+
+**`projects/personal-intelligence/cli/mpi-ingest-cli.js`** wires existing machinery exclusively: `activation.activate` (real `pg` driver, env contract, no fallback) → `content-store.createFromConfig` (D3/D5 bucket guards) → `ingestion.createIngestion` (validation, D1/D2, F8 replay, fail-closed gates). Added on top, per the ratified decisions:
+
+| Requirement | Implementation |
+|---|---|
+| O-2H-1 initial source | CLI-level restriction to `explicit_instruction` + `note` — `observation`/`feedback` are refused even though module-valid |
+| §24(5) no standing authorisation | REAL gates are **per-invocation arguments bound to the batch ref**: `--real-order <ref>` must equal the batch's `import_batch_ref`; `--backup-evidence <file>` must name `for_batch == <ref>` with C1==C2 and `restore_result: PASS`; `--assert-first-party-only` is the per-batch D1 attestation. A previous batch's order/evidence cannot satisfy a new ref; re-running the same ref is F8-idempotent |
+| O-2H-6(a) same-session backup | evidence binding above — evidence generated for any other batch is refused as stale/reused |
+| Batch scope | one invocation = one batch: mixed `import_batch_ref` or mixed classes refuse |
+| Dry-run | pure validation: no env contract, no activation, no connection, no objects, no writes |
+| Fail-closed | every missing gate refuses **before** activation; disabled activation is a refusal, never a fallback; refusal messages are rule-named and value-free |
+| No scheduling | none — on-demand argv only (O-2H-2a); source asserted free of scheduling primitives by test |
+| Post-batch verification | `verifyConsistency` + readiness check after every non-dry batch; REAL batches print the §26 post-batch-backup obligation |
+
+### Tests
+
+**CLI suite `tests/mpi-2h-cli-test.js`: 24/24** (offline via the deps seam; production path asserted structurally — real modules, no mock fallback). Covers: valid dry run (with proof of zero activation) · missing/wrong-scope owner order · missing/stale/reused/C1≠C2/restore-failed backup evidence · missing first-party attestation · flag off · disabled activation · D1 contacts · D2 entity attempt · O-2H-1 source restriction · missing provenance (scope underivable) · D3 content flow (object stored, DB got reference) · F8 replay · credential-value-free output · one-batch scope · unknown command · no-scheduling assertion.
+
+**Full regression on fresh scratch PG 15.19: 356 + 2H 35 + CLI 24 + D3 27 + tooling 35 = 477 passed, 0 failed.**
+
+### Production safety
+
+CLI never executed against production (built and tested via injection only) · real MPI rows 0 · real content objects 0 (bucket unchanged: exactly the one MPI-2G backup object) · no `MPI_*` env var anywhere · census 26 identical · no Coolify/Supabase change · credentials tracked 0.
+
+### Remaining before the first real batch (all per-batch, §24)
+
+1. Fresh **same-session** backup round-trip (dump → C1 → upload → download → C2 → C1==C2 → isolated restore) recorded as evidence JSON naming the batch.
+2. Dry run green at the executing HEAD.
+3. The owner's **separate, explicit, scope-bound order naming the batch ref** — supplied to the CLI as `--real-order`; nothing recorded to date constitutes it.
+4. Invocation env carrying `MPI_PERSISTENCE_ENABLED=true` + the `MPI_PG_*` contract + `MPI_REAL_MEMORY_INGESTION_ENABLED=true` for that process only.
+
+### Next stage
+
+**First real batch execution** — owner-initiated, per the above. Or any of the open non-blocking decisions (O-2H-3 retention, O-2H-5/F14 erasure design, D4).
 
 ---
 
