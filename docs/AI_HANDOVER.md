@@ -1,8 +1,53 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** MPI-2A APPLY — **executed against production under explicit owner authorisation. Schema `mythos_intelligence` is live on the `idauto` database: 16/16 schema assertions pass, full MPI regression 356/356, production data untouched, zero real MPI data.**
+**From:** MPI-2G — **backup/restore gate executed and PASSED under explicit owner authorisation. First verified MPI backup exists off-host on the dedicated R2 bucket `mythos-mpi-backups`: C1 == C2 on fresh download, isolated restore validated (F8/F9 included), production untouched, zero real MPI data.**
 **To:** Next AI session
+
+---
+
+## MPI-2G BACKUP/RESTORE GATE (2026-08-14) — PASS
+
+**Owner authorisation received this session** (explicit, scope-bound: MPI-2G only — no 2H, no ingestion, no persistence enablement). Checkpoint verified before work: HEAD = origin/main = `509ce737932fc9184803a8f1f01520e8c1c1dc17`, tree clean.
+
+**D5 is now implemented:** the dedicated MPI bucket `mythos-mpi-backups` exists (endpoint account `771b5c57…f`, default jurisdiction) with a bucket-scoped Object Read & Write credential at `/home/ubuntu/.config/mythos/mpi-offhost.env`, mode 0600, outside Git. `mythos-offhost-backups` was never touched.
+
+### Credential provisioning defects found (owner-side, fixed by owner)
+
+Recorded for future provisioning runs — the structure checks that caught them printed no values:
+1. **First file: values swapped** — `ACCESS_KEY_ID` held the 64-hex secret and `SECRET_ACCESS_KEY` the 32-hex key id → R2 `400 InvalidArgument`. (R2 issues a 32-hex Access Key ID and 64-hex Secret.)
+2. **Second pair: valid signature, wrong token** — R2 `403 AccessDenied` (signature accepted, authorisation refused): the pair on the VPS did not belong to the token verified in the dashboard. Distinguishing rule: wrong secret ⇒ `SignatureDoesNotMatch`; unknown key ⇒ `InvalidAccessKeyId`; recognised-but-unauthorised ⇒ `AccessDenied`.
+
+### Execution — existing machinery only
+
+Transport: the production S3 adapter (`projects/idauto/ops/adapters/s3-compatible.js`) with `loadConfig()` pointed at the MPI env file; bucket identity asserted `mythos-mpi-backups` before any request. Connectivity round-trip **PASS**: upload `mpi-backup-connectivity-test.txt` → list → download → SHA-256 identical → delete (204) → verified absent → bucket empty.
+
+| Step | Result |
+|---|---|
+| Source re-verify (§C) | `idauto`, system_identifier `7672725859313111074`, PG 15.18; `mythos_intelligence` 21 tables, **0 `pi_*` rows** |
+| Dump | `pg_dump -Fc -n mythos_intelligence` **in-container** → 105,995 B, custom v1.14, TOC 232 entries, `pg_restore --list` clean |
+| **C1** | `542bdc9a8f7b20bc44082fa22f2eeb6f0f4a642d7bfc2fe881b641ac17cdd32a` |
+| Upload | key `mythos-intelligence/20260814T222036Z/mythos_intelligence-20260814T222036Z.dump`, HEAD-verified size + sha256 metadata |
+| Fresh download | separate directory (`/var/backups/mythos-verify/`), **C2 identical — `sha256sum -c` OK** |
+| **C1 == C2** | **PASS** |
+| Isolated restore | `postgres:15-alpine` scratch (`--network none`, tmpfs, 0 ports, 0 volumes); cluster roles pre-created (`idauto` owner + 3 NOLOGIN `mythos_intelligence_{owner,app,maint}` — cluster-level, correctly outside a schema dump); `pg_restore --exit-on-error` from the **downloaded** copy, exit 0 |
+| Restore validation | schema present · **21 tables (20 `pi_*`)** · 57 indexes · 33 FKs · 8 named CHECKs (incl. `chk_pi_conflict_canonical_order`) · 8 append-only triggers · **F8** `idx_pi_provenance_observation` UNIQUE + NULLS NOT DISTINCT byte-identical to production · **F9** `idx_pi_preference_audit_subject (preference_id)` identical · `schema_migrations` **3/3 rows with sha256 values identical to production** · **0 `pi_*` rows** |
+
+### Tests
+
+**Authoritative tooling suite `ida-3f-offhost-backup-test.js`: 35/35.** **Full MPI regression: 356 passed, 0 failed** on a fresh scratch PG 15.19 (`--network none`, tmpfs, per-suite fresh databases): MPI-0 63 · gov 36 · MPI-1 50 · 2A 23 · 2B 38 · 2C 26 · 2D 18 · 2E 54 · 2F 16 · observability 17 · activation 15. Harness note (mirror of the observability stage's): 2B/2C **require** the ratified schema pre-applied and abort on an empty database (`relation "pi_domains" does not exist`) — first batch run gave them empty databases; re-run correctly after applying migrations via the project's own `migrate.apply`. The aborts were harness errors, not code defects.
+
+### Safety results
+
+Production modified **0** (`idauto.public` 24 tables / 2,551 rows before and after; `pi_*` rows 0 before and after; census 26 containers, names+images identical; the only mid-window restarts were the two queue workers' **designed hourly recycle** — restart count 27 over ~27 h, occurring during R2 credential troubleshooting when nothing touched Docker). No Coolify/Supabase/application change. `MPI_*` env vars present in **0** containers — `MPI_REAL_MEMORY_INGESTION_ENABLED` remains **NO**, `MPI_PERSISTENCE_ENABLED` set nowhere. Credentials in Git/output **0**. Temporary resources after cleanup **0** (scratch containers, volumes, local dumps, staging dirs all removed). Bucket contains **exactly 1 object** — the verified backup (not deleted; it *is* the backup).
+
+### Gate change
+
+**MPI-2G GATE: CLOSED.** The D5 dependency chain (2A ✔, D5 ✔) is complete and the backup is restore-proven. Standing caution as with the idauto gate: this reflects **one** verified backup; the gate goes stale if the newest verified MPI backup ages beyond owner tolerance. Recurring MPI backups/retention are separate, not-yet-authorised work.
+
+### Next stage
+
+**MPI-2H (first real personal data ingestion)** — requires its own explicit owner authorisation. Still NOT done/authorised: real ingestion (`MPI_REAL_MEMORY_INGESTION_ENABLED` = NO), production activation env vars, D4 (open, non-blocking).
 
 ---
 
