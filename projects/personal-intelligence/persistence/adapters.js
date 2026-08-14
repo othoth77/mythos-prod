@@ -41,6 +41,21 @@ const learningEngine = require(path.join(REF, 'learning-engine'));
 const guard = require(path.join(REF, 'guard'));
 const { createRepositories } = require('./repositories');
 
+// Observability: audit inserts in this module run through the same
+// append-only failure guard as lifecycles — see docs/MPI_FINDINGS_REMEDIATION.md.
+async function appendOnlyGuard(client, table, ids, fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    client.emit('append_only_write_failed', Object.assign({
+      table: table,
+      kind: (e && e.kind) || 'UNKNOWN',
+      sqlstate: (e && e.sqlstate) || null
+    }, ids || {}));
+    throw e;
+  }
+}
+
 // Snapshot the fields observe() is known to mutate, so the mutation can be
 // detected rather than assumed.
 function snapshot(preferences) {
@@ -80,7 +95,8 @@ async function persistObservation(client, input) {
       if (id !== result.preferenceId) {
         await repos.preferences.updateStatus(id, after[id].status);
       }
-      await repos.preferenceAudit.insert({
+      await appendOnlyGuard(client, 'pi_preference_audit', { preferenceId: id }, function () {
+      return repos.preferenceAudit.insert({
         preferenceAuditId: input.auditIdFor(id),
         preferenceId: id,
         actorRef: input.actorRef,
@@ -89,6 +105,7 @@ async function persistObservation(client, input) {
         previousStatus: before[id].status,
         newStatus: after[id].status,
         reasonSummary: input.reasonSummary || null
+      });
       });
     }
 
@@ -129,7 +146,8 @@ async function persistObservation(client, input) {
         // it supersedes. §6.2 / owner ruling 2026-08-13.
         supersedesPreferenceId: result.supersedesPreferenceId
       });
-      await repos.preferenceAudit.insert({
+      await appendOnlyGuard(client, 'pi_preference_audit', { preferenceId: result.preferenceId }, function () {
+      return repos.preferenceAudit.insert({
         preferenceAuditId: input.auditIdFor(result.preferenceId),
         preferenceId: result.preferenceId,
         actorRef: input.actorRef,
@@ -138,6 +156,7 @@ async function persistObservation(client, input) {
         previousStatus: null,
         newStatus: result.status,
         reasonSummary: input.reasonSummary || null
+      });
       });
     }
     return { domainResult: result, persisted: persisted, supersededInPlace: mutated };

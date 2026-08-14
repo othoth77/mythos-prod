@@ -1,8 +1,45 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** D1/D2/D3/D5 DECISION RECORDING — **all four ratified by the owner and recorded. MPI-2A's decision dependency is satisfied; D4 remains open. Docs only.**
+**From:** OBSERVABILITY MINIMUM CONTRACT — **implemented exactly as documented. 341 MPI assertions pass, 0 fail. Audit-write failure is no longer silent.**
 **To:** Next AI session
+
+---
+
+## OBSERVABILITY MINIMUM CONTRACT (2026-08-14) — PASS
+
+The four "missing" rows of the contract in `MPI_FINDINGS_REMEDIATION.md` are implemented — and only those. No metrics backend, no tracing, no log shipping, no framework: **a small injected logger plus `checkHealth()`, exactly as the contract prescribes.**
+
+### Contract → implementation
+
+| Contract item | Implementation |
+|---|---|
+| transaction failure visibility | `client.js`: injected `logger.event(name, fields)` (silent no-op default); `withTransaction` emits `transaction_failed` {kind, sqlstate, attempt, maxAttempts, willRetry} and `transaction_retries_exhausted` |
+| **append-only audit write failure visibility (highest priority)** | `appendOnlyGuard()` wraps **every** append-only insert site — provenance ×2, tombstone, preference-audit ×3 (lifecycles + both adapter sites), guard-decision — emitting `append_only_write_failed` {table, kind, sqlstate, opaque id} and **rethrowing unchanged** |
+| persistence initialisation result | `health.js checkHealth(client)` → {ok, connectivity, schema: assertSchema result} — the §20.6 startup probe |
+| health / readiness signal | same, plus a `persistence_health` event |
+
+**Protections, enforced in code and proven by test:** logging never alters outcomes (`emit()` swallows logger exceptions — a *throwing* logger leaves the result byte-identical); malformed loggers are refused at construction; fields are a whitelist of table/kind/sqlstate/attempt/opaque ids — **never** summaries, content, PII, credentials or SQL text.
+
+### Files changed
+
+`client.js` (+logger, +events, `emit` exposed) · `lifecycles.js` (guard at 4 sites) · `adapters.js` (guard at 2 audit sites) · **new** `health.js` · **new** `tests/mpi-observability-test.js` (named deliberately outside the `mpi-2g` ordinal — slice 2G is the backup gate).
+
+### Evidence
+
+**Observability suite 17/17** (8 offline + 9 real PostgreSQL). The decisive cases: a forced duplicate-audit-id made the audit insert fail inside `changePreferenceStatus` — the event surfaced with table/kind/opaque-id context, the transaction still rolled back (preference status unchanged), and a **sensitive payload planted in every summary field appeared in zero logged events**. `checkHealth` reports ok on a migrated target, and reports (never throws) on unreachable and unmigrated targets.
+
+**Complete MPI regression — 341 passed, 0 failed:** MPI-0 63 · gov 36 · MPI-1 50 · 2A 23 · 2B 38 · 2C 26 · 2D 18 · 2E 54 · 2F 16 · observability 17. (One harness note: the first 2F run in the batch failed because the batch script pre-created the schema for a suite that migrates for itself — the runner **correctly refused** the non-empty target; re-run clean, 16/16. Recorded because the refusal is the designed behaviour.)
+
+Production untouched (census 26/20 identical, all healthy) · no real MPI data · credentials not tracked (verified by value).
+
+### Readiness consequence
+
+**Observability (K) moves from FAIL to implemented-at-minimum.** Remaining MPI blockers: **activation readiness** (real driver adoption + env contract) · MPI-2A's own apply authorisation · MPI-2G (dedicated MPI R2 bucket + backup/restore) before any real data. D4 still open, non-blocking.
+
+### Next stage
+
+**ACTIVATION READINESS** (separate instruction).
 
 ---
 

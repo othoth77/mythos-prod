@@ -97,6 +97,24 @@ function createClient(config) {
   const maxAttempts = typeof cfg.maxAttempts === 'number' ? cfg.maxAttempts : 3;
   const driver = cfg.driver;
 
+  // ---------------------------------------------------------------------------
+  // OBSERVABILITY MINIMUM CONTRACT (docs/MPI_FINDINGS_REMEDIATION.md):
+  // a small INJECTED logger, defaulting to silence. One method:
+  //     logger.event(name, fields)   — structured, machine-readable
+  // Rules enforced here, not left to callers:
+  //   - logging never alters success/failure behaviour (emit() swallows
+  //     logger exceptions);
+  //   - fields are a flat whitelist assembled at the call site — never raw
+  //     memory content, summaries, third-party PII, credentials or SQL text.
+  // ---------------------------------------------------------------------------
+  if (cfg.logger !== undefined && (cfg.logger === null || typeof cfg.logger.event !== 'function')) {
+    throw new Error('createClient: logger must expose .event(name, fields) — omit it for silence');
+  }
+  const logger = cfg.logger || { event: function () {} };
+  function emit(name, fields) {
+    try { logger.event(name, fields); } catch (_) { /* observability must never change outcomes */ }
+  }
+
   // Single statement, no transaction. Safe on a pool: one statement, one
   // checkout. Never use this for BEGIN/COMMIT — see acquire() below.
   async function query(text, values) {
@@ -195,7 +213,18 @@ function createClient(config) {
         const wrapped = wrap(err);
         // ROLLBACK on the SAME connection that holds the transaction.
         try { await runOn(conn, 'ROLLBACK'); } catch (_) { /* connection already gone */ }
-        if (wrapped.kind !== KIND.TRANSIENT || attempt === maxAttempts) throw wrapped;
+        const willRetry = wrapped.kind === KIND.TRANSIENT && attempt < maxAttempts;
+        emit('transaction_failed', {
+          kind: wrapped.kind,
+          sqlstate: wrapped.sqlstate || null,
+          attempt: attempt,
+          maxAttempts: maxAttempts,
+          willRetry: willRetry
+        });
+        if (!willRetry) {
+          if (wrapped.kind === KIND.TRANSIENT) emit('transaction_retries_exhausted', { attempts: attempt });
+          throw wrapped;
+        }
         lastError = wrapped;
       } finally {
         release();
@@ -224,7 +253,10 @@ function createClient(config) {
     read: read,
     acquire: acquire,
     withTransaction: withTransaction,
-    setSchema: setSchema
+    setSchema: setSchema,
+    // Observability surface. emit() is exception-safe; lifecycles use it for
+    // append-only write-failure visibility. Whitelisted flat fields only.
+    emit: emit
   };
 }
 

@@ -12,6 +12,27 @@
 
 const { createRepositories } = require('./repositories');
 
+// ---------------------------------------------------------------------------
+// OBSERVABILITY (docs/MPI_FINDINGS_REMEDIATION.md, highest-priority item):
+// a failed APPEND-ONLY write must never pass silently. Every audit/provenance/
+// tombstone/guard insert below runs through this guard: on failure it emits a
+// structured event and RETHROWS unchanged, so transaction semantics are
+// untouched — the failure stays a failure, it just stops being invisible.
+// Fields are a whitelist of the table name, the error kind and opaque ids;
+// never summaries, content, PII or SQL text.
+async function appendOnlyGuard(client, table, ids, fn) {
+  try {
+    return await fn();
+  } catch (e) {
+    client.emit('append_only_write_failed', Object.assign({
+      table: table,
+      kind: (e && e.kind) || 'UNKNOWN',
+      sqlstate: (e && e.sqlstate) || null
+    }, ids || {}));
+    throw e;
+  }
+}
+
 // A + F — MEMORY CREATION WITH PROVENANCE. ATOMIC, REQUIRED.
 // §5: "Every durable memory row gets a provenance row." A memory that committed
 // without its provenance would be permanently unattributable, and provenance is
@@ -21,8 +42,11 @@ async function createMemoryWithProvenance(client, input) {
   return client.withTransaction(async function (exec) {
     const repos = createRepositories(exec);
     const memory = await repos.memory.create(input.memory);
-    const provenance = await repos.provenance.insert(
-      Object.assign({}, input.provenance, { memoryRecordId: input.memory.memoryRecordId }));
+    const provenance = await appendOnlyGuard(client, 'pi_memory_provenance',
+      { memoryRecordId: input.memory.memoryRecordId }, function () {
+        return repos.provenance.insert(
+          Object.assign({}, input.provenance, { memoryRecordId: input.memory.memoryRecordId }));
+      });
     return { memory: memory, provenance: provenance };
   });
 }
@@ -54,7 +78,10 @@ async function supersedeMemory(client, loserId, winnerId) {
 async function tombstoneMemory(client, input) {
   return client.withTransaction(async function (exec) {
     const repos = createRepositories(exec);
-    const tombstone = await repos.tombstones.insert(input.tombstone);
+    const tombstone = await appendOnlyGuard(client, 'pi_memory_tombstones',
+      { memoryRecordId: input.tombstone.memoryRecordId }, function () {
+        return repos.tombstones.insert(input.tombstone);
+      });
     const state = await repos.memory.setState(input.tombstone.memoryRecordId, 'tombstoned');
     return { tombstone: tombstone, state: state };
   });
@@ -80,8 +107,11 @@ async function reinforceMemory(client, input) {
     const repos = createRepositories(exec);
     const outcome = await repos.memory.reinforce(input.memoryRecordId, input.observation);
     if (outcome.reinforced) {
-      await repos.provenance.insert(
-        Object.assign({}, input.provenance, { memoryRecordId: input.memoryRecordId }));
+      await appendOnlyGuard(client, 'pi_memory_provenance',
+        { memoryRecordId: input.memoryRecordId }, function () {
+          return repos.provenance.insert(
+            Object.assign({}, input.provenance, { memoryRecordId: input.memoryRecordId }));
+        });
     }
     return outcome;
   });
@@ -127,7 +157,9 @@ async function changePreferenceStatus(client, input) {
   return client.withTransaction(async function (exec) {
     const repos = createRepositories(exec);
     const updated = await repos.preferences.updateStatus(input.preferenceId, input.newStatus);
-    const audit = await repos.preferenceAudit.insert({
+    const audit = await appendOnlyGuard(client, 'pi_preference_audit',
+      { preferenceId: input.preferenceId, preferenceAuditId: input.preferenceAuditId }, function () {
+      return repos.preferenceAudit.insert({
       preferenceAuditId: input.preferenceAuditId,
       preferenceId: input.preferenceId,
       actorRef: input.actorRef,
@@ -136,6 +168,7 @@ async function changePreferenceStatus(client, input) {
       previousStatus: input.previousStatus,
       newStatus: input.newStatus,
       reasonSummary: input.reasonSummary
+    });
     });
     return { preference: updated, audit: audit };
   });
@@ -148,7 +181,10 @@ async function changePreferenceStatus(client, input) {
 // record that a decision was made.
 async function recordGuardDecision(client, decision) {
   return client.withTransaction(async function (exec) {
-    return createRepositories(exec).guardDecisions.insert(decision);
+    return appendOnlyGuard(client, 'pi_guard_decisions',
+      { guardDecisionId: decision.guardDecisionId }, function () {
+        return createRepositories(exec).guardDecisions.insert(decision);
+      });
   });
 }
 
