@@ -1,8 +1,39 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** MPI F8/F9 IMPLEMENTATION — **both IMPLEMENTED exactly as ratified. 324 MPI assertions pass, 0 fail. Concurrency race now counts ONCE, proven live.**
+**From:** D1/D2/D3 RATIFICATION REVIEW — **read-only. All three remain OPEN, nothing pre-encoded. One premise change: R2 is no longer deferred, which reshapes the D3/D5 option space without deciding it.**
 **To:** Next AI session
+
+---
+
+## D1/D2/D3 RATIFICATION REVIEW (2026-08-14) — READ-ONLY
+
+Authoritative source: `MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` §12 (decision table), §14 (slice dependencies), §17. Nothing was implemented or chosen; this entry records the decision boundary as written, verified against implementation.
+
+### Verified: no decision is pre-encoded
+
+No person/contact table exists in any schema input (D1/D2 held); no content table exists — only `content_reference` columns (D3 held); `pi_entity_references` has deliberately no repository (D2 held, reason stated in `repositories.js`); `MPI_REAL_MEMORY_INGESTION_ENABLED` remains **NO**. All code/SQL references to D1–D3 are boundary-marking comments, not behaviour.
+
+### The decisions, as authoritatively defined
+
+- **D1** — may `mythos_intelligence` store raw third-party PII (names, emails, phones) for contacts? Options **(a)** dedicated `user_private` encrypted-at-rest table with import-batch reversibility · **(b)** hashed identifiers only (reversible matching, no human-readable directory — heavily degrades usefulness) · **(c)** contacts stay out of MPI entirely. A privacy-posture decision about people who never consented; **F14's erasure policy rides with it**.
+- **D2** — may MPI *originate* entities rather than only reference product-owned ones? Binary as written: either MPI becomes owner of a `personal` entity class, or contacts cannot be modelled. `pi_entity_references` currently says "never duplicates them".
+- **D3** — where does memory *content* live, given `content_reference` is mandated with no embedded content? Options: same-schema content table (one backup unit) · existing content-addressed filesystem store (proven tooling + dedup, but a second backup target that must stay pair-consistent) · object storage. **Determines the §11 backup topology.**
+- **D5** — where do MPI backups go? Gates **MPI-2G**, and therefore **2H (first real data)**. While ingestion stays NO, every synthetic-fixture stage remains fully workable.
+
+### Premise change the owner should know before deciding
+
+D3's object-storage option and D5's "wait for the R2 decision" were both written when **R2 was deferred. It no longer is** — a bucket-scoped, connectivity-proven, restore-tested R2 destination now exists and the off-host gate is closed. This does not decide D3 or D5; it removes the stated caveat from one option in each. (If R2 were chosen for MPI content or backups, scope separation from `mythos-offhost-backups` would need its own decision — the current credential is deliberately bucket-scoped.)
+
+**Minor naming note, no document conflict:** the slice plan's "MPI-2F" (lifecycle slice, §14) and the test file `mpi-2f-f8-f9-test.js` (suite ordinal) coincidentally share a name. Recorded to prevent future confusion.
+
+### Consequence
+
+**MPI-2A (schema apply) remains blocked on D1+D2+D3 — all three change the table set.** Migration authorization remains BLOCKED on: D1/D2/D3 answers · observability minimum contract · activation readiness.
+
+### Next stage
+
+Owner answers to D1/D2/D3 (and D5 whenever 2G approaches) — or, in parallel, **observability minimum contract** / **activation readiness** implementation orders.
 
 ---
 
