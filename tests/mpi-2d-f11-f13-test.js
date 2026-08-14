@@ -164,7 +164,8 @@ async function dbChecks(container, database) {
   console.log('\nMPI-2D F13 — preference reinforcement persists');
   const sysid = (await sc.query('SELECT system_identifier::text AS s FROM pg_control_system()', [])).rows[0].s;
   await migrate.apply(sc, { expectedDatabase: database, expectedSystemIdentifier: sysid,
-    diskOk: true, backupGateClosed: true, applicationReady: true, allowExistingSchema: true, skipPreflight: true });
+    diskOk: true, backupGateClosed: true, pcGateClosed: true, inventoryReconciled: true,
+    applicationReady: true, allowExistingSchema: true, skipPreflight: true });
   await sc.withTransaction(async function (e) {
     await e.query("INSERT INTO pi_domains (domain_id,display_name) VALUES ('D2D.invalid','d')");
     await e.query("INSERT INTO pi_organisations (organisation_id,organisation_ref,organisation_ref_source,domain_id) VALUES ('O2D.invalid','r','s','D2D.invalid')");

@@ -261,3 +261,77 @@ MPI-0 63 · MPI-0-governance 36 · MPI-1 50 · MPI-2B 38 · MPI-2C 26 · MPI-2A 
 ## Still open
 
 F8 was encountered during testing and **left unchanged** as instructed: provenance with a fresh id and identical `(source_reference, observed_at)` remains insertable. F9, F10, F14 and observability are untouched.
+
+
+---
+
+# F10 — Fail-closed external gate enforcement (implemented 2026-08-14)
+
+**Severity: MEDIUM · Status: FIXED**
+
+## Previous weakness
+
+Two defects, both proven before the fix:
+
+1. **The backup gate was evaluated after fifteen catalog queries.** `preflight()` ran `server_version`, `current_database`, `pg_control_system()`, recovery state, schema and `pi_*` counts, extensions, connection counts, database size and migration-version state *before* reaching `add('backup_gate_closed', …)`. The runner therefore "failed closed" only **after** already connecting to and reading the target database.
+2. **`skipPreflight: true` bypassed the gate entirely** in `apply()` — the guard was inside `if (!pre.ok && !o.skipPreflight)`.
+
+And, as previously recorded, `pcGateClosed` and `inventoryReconciled` did not exist at all.
+
+## Final contract
+
+Three **external** gates — facts about the world, not about the database:
+
+```
+backupGateClosed · pcGateClosed · inventoryReconciled
+```
+
+Each must be **strict boolean `true`**. Truthiness is not used. Rejected: `false`, `undefined`, `null`, `'true'`, `'false'`, `'TRUE'`, `'yes'`, `'1'`, `''`, `1`, `0`, `{}`, `[]`.
+
+Deliberately **not** environment variables — one set once persists silently into later runs — and deliberately **not** database state: the database cannot know whether an off-host backup exists or a PC was audited. They are runtime arguments, asserted by an operator, marked `operatorAsserted` in the report.
+
+```
+external owner evidence  →  migration runner preflight  →  migration permitted / refused
+```
+
+**One authoritative decision per gate.** The late duplicate `backup_gate_closed` check was removed, so the runner cannot hold two interpretations of the same fact — asserted by test 28.
+
+## Fail-closed semantics
+
+`checkExternalGates()` is evaluated **first** in `preflight()`, before any `client.query()`, returning `refusedBeforeConnection: true`. `assertExternalGates()` is called **unconditionally at the top of `apply()`**, deliberately outside the `skipPreflight` escape hatch — skipping preflight must never skip the gates.
+
+## Pre-connection proof
+
+A connection spy counting `connect`, `query` and migration attempts was run against **all 21 refusal cases**. Every one:
+
+```
+connect=0   query=0   migration=0
+```
+
+This is the point of the exercise: refusing *after* touching the target database is not failing closed.
+
+## Test matrix — 54 cases, 0 failures
+
+| Group | Result |
+|---|---|
+| Gate matrix (22 cases: all-true, each-false, all-false, undefined ×3, null ×3, `'true'`, `1`, `''`, `{}`, `[]`, `'false'`, `'yes'`, `'TRUE'`, `0`, `'1'`, no options) | all as specified |
+| Pre-connection proof (21 refusal cases) | `connect=0 query=0 migration=0` on every one |
+| Refusal messages | starts `MIGRATION REFUSED:` · names the failed gate · states nothing was touched |
+| Secret safety | a mistakenly-supplied connection string is **not echoed** — reported as `string (length N)` only |
+| Single decision | `backup_gate_closed` appears exactly once; PC and inventory are first-class; all three `operatorAsserted` |
+| Positive path (scratch) | preflight succeeds → connection permitted → migration applies → schema assertions run |
+
+## Production implications
+
+Production migration cannot begin unless an operator explicitly asserts all three gates, and the runner now proves it never contacts the target database when they are not asserted. **Two of the three are currently false in reality:** off-host backup is BLOCKED (no R2 destination) and inventory reconciliation is pending the PC audit report. The PC gate is owner-declared CLOSED.
+
+## Consequential test updates
+
+Three existing call sites now supply the two new gates. **These are conformance to a stricter contract, not weakened assertions** — no assertion was removed or relaxed:
+
+- `tests/mpi-2a-migration-runner-test.js` — the `GOOD()` helper and two preflight cases
+- `tests/mpi-2d-f11-f13-test.js` — its single `apply()` call
+
+## Architecture impact
+
+**MINOR ARCHITECTURE CHANGE** — extends the runner's operator-assertion contract. No schema change, no lifecycle change, no new dependency.

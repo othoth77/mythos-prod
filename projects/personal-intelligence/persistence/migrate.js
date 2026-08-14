@@ -87,14 +87,74 @@ CREATE TABLE IF NOT EXISTS ${TARGET_SCHEMA}.${VERSION_TABLE} (
 // cannot be destroyed. Recovery is an explicit, separately reviewed human act.
 // ---------------------------------------------------------------------------
 const REFUSAL_CONDITIONS = [
+  'backupGateClosed / pcGateClosed / inventoryReconciled not all explicit boolean true',
   'target already contains unexpected pi_* tables',
   'mythos_intelligence already contains conflicting objects',
   'schema ownership is unexpected',
   'migration version state is inconsistent with the files on disk',
   'database or server identity does not match the explicitly confirmed target',
-  'backup gate not asserted closed by the operator',
   'PostgreSQL major version below the documented target'
 ];
+
+// ---------------------------------------------------------------------------
+// F10 — EXTERNAL GATE CONTRACT.
+//
+// These three facts are external and operational: they are true about the
+// world, not about the database. They are therefore asserted explicitly at
+// call time and are deliberately NOT read from the environment (an env var set
+// once persists silently into later runs) and NOT stored in the database (the
+// database cannot know whether an off-host backup exists or a PC was audited).
+//
+// Every gate must be a STRICT boolean true. Truthiness is not used, so
+// 'true', 1, 'yes', {}, [] and '' are all refusals — a gate satisfied by a
+// stray truthy value is not a gate.
+//
+// Evaluated BEFORE any connection is made: see preflight() and apply().
+// ---------------------------------------------------------------------------
+const EXTERNAL_GATES = ['backupGateClosed', 'pcGateClosed', 'inventoryReconciled'];
+
+// The checks[] array is snake_case throughout; keep the emitted names in that
+// convention rather than leaking the JS option spelling into the report.
+const GATE_CHECK_NAME = {
+  backupGateClosed: 'backup_gate_closed',
+  pcGateClosed: 'pc_gate_closed',
+  inventoryReconciled: 'inventory_reconciled'
+};
+
+// Renders what was supplied WITHOUT echoing its content. If an operator ever
+// passes a token or connection string by mistake, this must not print it.
+function describeGateValue(v) {
+  if (v === undefined) return 'undefined';
+  if (v === null) return 'null';
+  if (typeof v === 'boolean') return String(v);
+  if (typeof v === 'number') return 'number';
+  if (typeof v === 'string') return 'string (length ' + v.length + ')';
+  if (Array.isArray(v)) return 'array';
+  return typeof v;
+}
+
+function checkExternalGates(opts) {
+  const o = opts || {};
+  const gates = EXTERNAL_GATES.map(function (name) {
+    return { gate: name, asserted: o[name] === true, supplied: describeGateValue(o[name]) };
+  });
+  return { ok: gates.every(function (g) { return g.asserted; }), gates: gates };
+}
+
+// The single authoritative refusal. Throws before any I/O.
+function assertExternalGates(opts) {
+  const result = checkExternalGates(opts);
+  if (result.ok) return result;
+  const failed = result.gates.filter(function (g) { return !g.asserted; });
+  const err = new Error(
+    'MIGRATION REFUSED:\n' + failed.map(function (g) {
+      return '  ' + g.gate + ' must be explicit boolean true (received: ' + g.supplied + ')';
+    }).join('\n') +
+    '\n  No connection was opened and no statement was executed.');
+  err.code = 'EXTERNAL_GATE_REFUSED';
+  err.gates = result.gates;
+  throw err;
+}
 
 function sha256OfMigration(m) {
   const crypto = require('crypto');
@@ -127,10 +187,23 @@ async function preflight(client, opts) {
     return r.rows && r.rows[0] ? r.rows[0] : null;
   };
 
+  // --- F10: EXTERNAL GATES FIRST. Nothing below this point runs, and no
+  //     connection is opened, unless all three are explicit boolean true.
+  //     Previously the backup gate was evaluated AFTER fifteen catalog
+  //     queries, so the runner "failed closed" only after already touching
+  //     the target database.
+  const gateResult = checkExternalGates(o);
+  gateResult.gates.forEach(function (g) {
+    add(GATE_CHECK_NAME[g.gate], 'explicit boolean true', g.supplied, g.asserted, true);
+  });
+  if (!gateResult.ok) {
+    return { ok: false, checks: checks, refusedBeforeConnection: true, gates: gateResult.gates };
+  }
+
   // --- identity: refuse if the operator has not named the target explicitly
   if (!o.expectedDatabase) {
     add('expected_database_supplied', 'explicit --database', 'missing', false);
-    return { ok: false, checks: checks };
+    return { ok: false, checks: checks, refusedBeforeConnection: true };
   }
 
   const ver = await one("SELECT current_setting('server_version_num') AS server_version_num");
@@ -200,9 +273,10 @@ async function preflight(client, opts) {
   add('migration_version_state', 'consistent with files on disk', versionDetail, versionStateOk);
 
   // --- operator-asserted preconditions (NOT machine-verifiable from SQL)
+  // NOTE: backupGateClosed is NOT re-checked here. It is decided once, above,
+  // with pcGateClosed and inventoryReconciled — one authoritative decision per
+  // gate, so the runner cannot hold two interpretations of the same fact.
   add('free_disk_space', 'operator-asserted --disk-ok', o.diskOk ? 'asserted' : 'NOT asserted', o.diskOk === true, true);
-  add('backup_gate_closed', 'operator-asserted --backup-gate-closed (see §9)',
-      o.backupGateClosed ? 'asserted' : 'NOT asserted', o.backupGateClosed === true, true);
   add('application_compatibility', 'adapter present and MPI-2C validated',
       o.applicationReady ? 'asserted' : 'NOT asserted', o.applicationReady === true, true);
 
@@ -219,6 +293,9 @@ async function preflight(client, opts) {
 // ---------------------------------------------------------------------------
 async function apply(client, opts) {
   const o = opts || {};
+  // F10: unconditional and FIRST. Deliberately outside the skipPreflight
+  // escape hatch — skipping preflight must never skip the external gates.
+  assertExternalGates(o);
   const pre = await preflight(client, o);
   if (!pre.ok && !o.skipPreflight) {
     const failed = pre.checks.filter(function (c) { return !c.ok; }).map(function (c) { return c.name; });
@@ -315,6 +392,10 @@ module.exports = {
   TARGET_SCHEMA: TARGET_SCHEMA,
   VERSION_TABLE: VERSION_TABLE,
   REFUSAL_CONDITIONS: REFUSAL_CONDITIONS,
+  EXTERNAL_GATES: EXTERNAL_GATES,
+  GATE_CHECK_NAME: GATE_CHECK_NAME,
+  checkExternalGates: checkExternalGates,
+  assertExternalGates: assertExternalGates,
   preflight: preflight,
   apply: apply,
   assertSchema: assertSchema,

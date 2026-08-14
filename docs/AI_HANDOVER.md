@@ -1,8 +1,63 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** MPI F11/F13 IMPLEMENTATION — **both FIXED and regression-verified. 254 tests pass, 0 fail. No schema change required.**
+**From:** MPI F10 FAIL-CLOSED GATE REMEDIATION — **FIXED. Gate now refuses before any database contact, proven by connection spy. 308 tests pass, 0 fail.**
 **To:** Next AI session
+
+---
+
+## MPI F10 FAIL-CLOSED GATE REMEDIATION (2026-08-14)
+
+**Status: FIXED.** Detail: `docs/MPI_CRITICAL_FINDINGS.md` § F10.
+
+**Production UNTOUCHED — not contacted · containers/volumes/networks 26/20/9 identical, 0 restarts, all healthy · scratch PostgreSQL 15.19 (`--network none`, tmpfs, no published port) removed, 0 remaining.** **0 schema changes.** F8, F9, F14 and observability untouched.
+
+### Two defects found on inspection, beyond the known one
+
+Reading the implementation rather than the documentation turned up more than the missing gates:
+
+1. **The backup gate was evaluated after fifteen catalog queries** — `preflight()` read `server_version`, `current_database`, `pg_control_system()`, recovery state, schema/`pi_*` counts, extensions, connections, size and version state *before* checking it. The runner "failed closed" only **after** already connecting to and reading the target database.
+2. **`skipPreflight: true` bypassed the gate entirely** in `apply()`.
+
+### Final contract
+
+`backupGateClosed` · `pcGateClosed` · `inventoryReconciled` — each **strict boolean `true`**. No truthiness: `'true'`, `'TRUE'`, `'yes'`, `'1'`, `1`, `0`, `''`, `{}`, `[]`, `null`, `undefined` all **refuse**. Not environment variables (one set once persists silently into later runs) and not database state (the database cannot know whether an off-host backup exists). Runtime arguments, operator-asserted.
+
+Gates are evaluated **first** in `preflight()` and **unconditionally at the top of `apply()`** — deliberately outside the `skipPreflight` escape hatch, because skipping preflight must never skip the gates. The late duplicate `backup_gate_closed` check was removed: **one authoritative decision per gate**.
+
+### Pre-connection proof — the point of the exercise
+
+A connection spy counting connect/query/migration attempts ran against **all 21 refusal cases**. Every one: **`connect=0 query=0 migration=0`**. Refusing *after* touching the target database is not failing closed.
+
+Refusal messages are deterministic (`MIGRATION REFUSED:` + the specific gate + "No connection was opened"), and a mistakenly-supplied connection string is **not echoed** — reported as `string (length N)`, so a misplaced credential cannot leak into logs.
+
+### Tests — actual results, not assumed
+
+| Suite | Expected | Actual |
+|---|---|---|
+| MPI-0 | 63 | **63 passed, 0 failed** |
+| MPI-0-governance | 36 | **36 passed, 0 failed** |
+| MPI-1 | 50 | **50 passed, 0 failed** |
+| MPI-2B | 38 | **38 passed, 0 failed** |
+| MPI-2C | 26 | **26 passed, 0 failed** |
+| MPI-2A runner | 23 | **23 passed, 0 failed** |
+| MPI-2D | 18 | **18 passed, 0 failed** |
+| **MPI-2E F10 (new)** | — | **54 passed, 0 failed** |
+| **Total** | | **308 passed, 0 failed** |
+
+Three existing call sites now supply the two new gates (`GOOD()` and two preflight cases in MPI-2A; one `apply()` in MPI-2D). **Conformance to a stricter contract, not weakened assertions** — nothing was removed or relaxed.
+
+### Production implication
+
+Migration cannot begin unless an operator asserts all three gates, and the runner now proves it never contacts the target database otherwise. **Two are currently false in reality:** off-host backup BLOCKED (no R2 destination), inventory reconciliation pending the PC audit report. PC gate is owner-declared CLOSED.
+
+### Gates
+
+PC-DECOMMISSION-GATE **CLOSED** · OFF-HOST-BACKUP-GATE **BLOCKED** · Production migration **BLOCKED** · Real-data ingestion **BLOCKED** · Supabase **NOT STARTED** · D1/D2/D3/D5 **OPEN**.
+
+### Next stage
+
+**F8/F9 OWNER RATIFICATION OR REMEDIATION DESIGN.** Both add to ratified schema (one unique index, one plain index) and therefore need explicit ratification before implementation. F14 and observability also remain open.
 
 ---
 

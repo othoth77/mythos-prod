@@ -69,8 +69,10 @@ function dropRoles(container, db) {
 }
 
 const GOOD = function (db) {
+  // F10: all three external gates must be explicit boolean true.
   return { expectedDatabase: db, expectedSystemIdentifier: null, diskOk: true,
-           backupGateClosed: true, applicationReady: true };
+           backupGateClosed: true, pcGateClosed: true, inventoryReconciled: true,
+           applicationReady: true };
 };
 
 async function integrationChecks(container) {
@@ -114,10 +116,10 @@ async function integrationChecks(container) {
   ok(threwWrongDb, '15 apply() aborts rather than migrating the wrong database');
 
   // --- C. missing operator assertions
-  const noGate = await migrate.preflight(h.client, { expectedDatabase: 'mig_wrongdb', expectedSystemIdentifier: sysid, diskOk: true, applicationReady: true });
+  const noGate = await migrate.preflight(h.client, { expectedDatabase: 'mig_wrongdb', expectedSystemIdentifier: sysid, diskOk: true, pcGateClosed: true, inventoryReconciled: true, applicationReady: true });
   ok(noGate.ok === false && noGate.checks.some(function (c) { return c.name === 'backup_gate_closed' && !c.ok; }),
      '16 refuses when the backup gate is not asserted closed');
-  const noId = await migrate.preflight(h.client, { expectedDatabase: 'mig_wrongdb', diskOk: true, backupGateClosed: true, applicationReady: true });
+  const noId = await migrate.preflight(h.client, { expectedDatabase: 'mig_wrongdb', diskOk: true, backupGateClosed: true, pcGateClosed: true, inventoryReconciled: true, applicationReady: true });
   ok(noId.ok === false && noId.checks.some(function (c) { return c.name === 'server_identity' && !c.ok; }),
      '17 refuses when server identity is ambiguous (fails closed)');
   const noDb = await migrate.preflight(h.client, {});
