@@ -1,8 +1,58 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** MPI PRODUCTION READINESS DEEP AUDIT — **CONDITIONAL. Three new defects found (F8 concurrency, F9 audit indexes, F10 unenforced gates). No production change.**
+**From:** MPI FINDINGS REMEDIATION DESIGN — **F8/F9/F10 all CONDITIONAL; the previous audit's F8 fix was WRONG and is withdrawn. Nothing applied.**
 **To:** Next AI session
+
+---
+
+## MPI FINDINGS REMEDIATION DESIGN / DEEP VALIDATION (2026-08-14) — DESIGN + SCRATCH ONLY
+
+**Status: all three CONDITIONAL** — designed and proven, awaiting ratification. Full analysis: **`docs/MPI_FINDINGS_REMEDIATION.md`** (new).
+
+**Production DB modified 0 · data copied 0 · containers/volumes/networks 26/20/9 identical, 0 restarts, all healthy · scratch PostgreSQL 15.19 (`--network none`, tmpfs, no published port, 2 concurrent sessions) removed, 0 remaining.** **No ratified SQL and no application implementation changed** — documentation only.
+
+### The headline: the previous audit's F8 fix was wrong
+
+`MPI_PRODUCTION_READINESS.md` proposed `UNIQUE (memory_record_id, source_reference)` for F8. Tested in scratch, that constraint **rejects the ratified same-source-at-a-materially-later-`observed_at` reinforcement** that §6.2 explicitly permits — it would have silently narrowed a ratified architecture rule through an index. **Withdrawn.**
+
+The proven remedy is **candidate E**: `SELECT … FOR UPDATE` on the memory row *before* reading provenance, **plus** `UNIQUE NULLS NOT DISTINCT (memory_record_id, source_reference, observed_at)` as a structural backstop. `NULLS NOT DISTINCT` is required because `observed_at` is nullable — under the default, two NULL-timestamped duplicates would both be accepted. Verified working on PostgreSQL 15.19.
+
+**7/7 scratch cases:** baseline race reproduced (evidence 3, provenance 3) · A fixes it (2/2) · C alone stops the race **but wrongly blocks the legitimate case** · E fixes the race, preserves the legitimate case, and counts an exact re-import once.
+
+**A residual gap the fix does not close:** `reinforceMemory()` inserts provenance only when the caller supplies it, so a reinforcement without provenance still increments unguarded. The repository should require provenance, or the index cannot protect it.
+
+### F9 — half of it was also wrong
+
+The real query is `preferenceAudit.listForPreference()`. With 50,000 rows: **Seq Scan discarding 49,990 rows** to return 10; with an index, a Bitmap Index Scan touching 10 heap blocks. Column-order tested: `(preference_id, preference_audit_pk)` produces an **identical plan** while costing 2008 kB — a bitmap scan does not preserve order, so the trailing column removes no Sort. **`(preference_id)` alone is selected.**
+
+**Withdrawn:** the `pi_guard_decisions WHERE user_id` half. `guardDecisions` exposes **`insert` only** — no read query exists anywhere. I had measured a query I wrote for the EXPLAIN, not one the system performs. That is speculative optimisation, which the audit rules forbid.
+
+### F10 — contract proven, 14/14
+
+Gates are plain runtime arguments compared `=== true`. Confirmed in scratch that the runner checks the backup gate and refuses when open, but has **no** `pcGateClosed` and **no** `inventoryReconciled`. Selected mechanism: explicit runtime arguments as operator assertions (matching the existing pattern, so one gate model not two) — rejected env vars (persist unnoticed into later runs) and database state (these gates are facts *outside* the database). Proven that `undefined`, `null`, `'true'` and `1` all **REFUSE**: missing evidence is never read as TRUE.
+
+### Observability
+
+Structured output already exists (`preflight`, `assertSchema`, `apply`, SQLSTATE→kind mapping, persisted version+checksum). What is genuinely missing: **all logging** — zero `console.*`, no logger, no events. Highest priority within that: **a failed append-only audit write is currently invisible**, and that is precisely the write whose absence must never pass silently. Also missing: persistence-init result, transaction-failure visibility, health/readiness signal. Minimum contract defined; deliberately no metrics backend, tracing or log shipping proposed. **Nothing built.**
+
+### Architecture impact
+
+**NO CHANGE:** F8 lock ordering · **MINOR:** F8 require-provenance contract, F10 two extra gates · **REQUIRES OWNER DECISION:** F8 unique index, F9 index (both add to ratified schema), observability surface. **Nothing in the owner-decision class was implemented.**
+
+### Tests
+
+Scratch: F8 7/7, F10 14/14, F9 EXPLAIN ANALYZE before/after. Existing suites not re-run — no implementation file changed, so MPI-0 63, governance 36, MPI-1 50, MPI-2B 38, MPI-2C 26, MPI-2A 23 remain valid.
+
+Two harness bugs of mine were caught and fixed mid-stage rather than reported as results: comparing timestamps as strings (`Z` vs `+00:00` never matched, which made candidate A look like a failure), and creating a unique index over data a previous scenario had already duplicated.
+
+### Gates
+
+PC-DECOMMISSION-GATE **CLOSED** · OFF-HOST-BACKUP-GATE **BLOCKED** (R2 deferred) · Production migration **BLOCKED** · Real-data ingestion **BLOCKED** · Supabase **NOT STARTED** · D1/D2/D3/D5 **OPEN**.
+
+### Next stage
+
+**IMPLEMENT RATIFIED F8/F9/F10 REMEDIATIONS** — only after the owner ratifies the two schema index additions and the observability surface.
 
 ---
 
