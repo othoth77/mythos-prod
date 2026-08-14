@@ -1,8 +1,47 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** MPI F8/F9 DEEP REMEDIATION DESIGN — **both READY FOR RATIFICATION. Measured, not asserted. Nothing implemented.**
+**From:** OFF-HOST S3 ADAPTER FIX — **both R2-blocking defects fixed and proven live against the real bucket. Backup execution NOT started.**
 **To:** Next AI session
+
+---
+
+## OFF-HOST S3 ADAPTER FIX (2026-08-14) — TRANSPORT + DELETE
+
+**Status: FIXED, live-verified.** Scope strictly the two defects found during the R2 connectivity test. No database backup was run, no Coolify change, no schedule, no production database touched.
+
+### Context: R2 destination is LIVE and connectivity-proven
+
+Cloudflare R2 bucket `mythos-offhost-backups` (endpoint account `771b5c57…f`, region `auto`, bucket-scoped Object Read & Write credential) is provisioned. Credentials live **only** in `/home/ubuntu/.config/mythos/idauto-offhost.env`, mode `0600`, outside the repository — the operator supplied them via their own terminal; they were delivered in AWS-CLI key names and renamed in place to the loader's convention (`ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`, `ENDPOINT`, `REGION`, `BUCKET`) without any value being read or printed. Verified by direct in-memory comparison: **neither credential value appears in any tracked file.**
+
+The initial connectivity test (scratch harness) passed 10/10: upload → list → download → **SHA-256 round-trip identical** → delete (204) → bucket empty. It also exposed the two adapter defects fixed here.
+
+### Defect 1 — default transport never worked
+
+`s3-compatible.js` passed `{url}` to `https.request()`, whose options have **no `url` key** — Node ignored it and connected to `localhost:443` (proven: `ERR_TLS_CERT_ALTNAME_INVALID` from the local proxy). The IDA-3F suite passed 30/30 because every test injects a mock `requestImpl`; the real network path had never been exercised. **Fix:** new exported `transportOptions()` translates `{method, url, headers}` into `{hostname, port, path, method, headers}` plus a 60 s timeout that fails closed into the existing `provider unavailable` path. The injected-transport contract is unchanged, so all existing mocks remain valid.
+
+### Defect 2 — no DELETE operation
+
+`capabilities()` declared `delete: false`; only put/get/head/list existed, making verification round-trips impossible. **Fix:** `del()` added, `capabilities().delete` now true. **The append-only design stance is preserved where it actually lives:** core `retention()` remains report-only and never calls `del()` ("Deletion requires separate authorisation" — unchanged), and the header now records that true append-only enforcement belongs to the provider-side credential scope, not to the absence of a client method.
+
+### Evidence
+
+- **SigV4 `sign()` byte-untouched** — AWS published vector (test 29) still pins it; a new deterministic **DELETE vector is pinned** (test 34, fake creds, fixed date).
+- **IDA-3F: 34 passed, 0 failed** (30 existing + 4 new: transport URL handling, DELETE signing/204, mock-contract compatibility, DELETE vector).
+- **Live round-trip through the fixed adapter's own default transport** — no harness: put (200, sha metadata) → list → head (sha256 metadata verified) → get (**byte-identical**) → del (**204**) → **bucket empty**. 6/6.
+- Relevant full suites: **mythos-orchestrator-0 156/156** (leak detector), **devx-1 92/92**. Production census 26/20/9, 0 restarts, all healthy.
+
+### Consequence
+
+**The off-host tooling can now genuinely reach R2.** The remaining gap to closing the OFF-HOST-BACKUP-GATE is execution: dump the three production databases (§ runbook `docs/OFF_HOST_BACKUP_GATE.md`), C1 → upload → fresh download → C2 → C1==C2 → isolated restore test → gate closure. **Not started — awaiting separate instruction.**
+
+### Gates
+
+OFF-HOST-BACKUP-GATE **still BLOCKED** (destination now ready; backups not yet taken) · PC gate **CLOSED** · MPI F8/F9 **ready for ratification** · production migration **BLOCKED**.
+
+### Next stage
+
+**OFF-HOST BACKUP EXECUTION** (separate instruction required), then gate closure, then MPI F8/F9 ratification/implementation.
 
 ---
 

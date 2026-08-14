@@ -394,6 +394,108 @@ T('30 non-HTTPS endpoint refused', function() {
   }, /non-HTTPS/);
 });
 
+// The default transport previously passed {url} straight to https.request(),
+// whose options have no `url` key — Node ignored it and connected to
+// localhost:443. transportOptions() is the fix, exported so this stays pinned.
+T('31 real transport translates url into https.request options', function() {
+  var o = s3.transportOptions({
+    method: 'PUT',
+    url: 'https://account.r2.cloudflarestorage.com/bucket-x/a/b.txt?x=1',
+    headers: {
+      h: 'v'
+    }
+  });
+  assert.equal(o.hostname, 'account.r2.cloudflarestorage.com');
+  assert.equal(o.port, 443);
+  assert.equal(o.path, '/bucket-x/a/b.txt?x=1');
+  assert.equal(o.method, 'PUT');
+  assert.equal(o.headers.h, 'v');
+  assert(!('url' in o));
+  assert(o.timeout > 0);
+  assert.equal(s3.transportOptions({
+    method: 'GET',
+    url: 'https://example.invalid:8443/x',
+    headers: {}
+  }).port, 8443);
+  assert.throws(function() {
+    s3.transportOptions({
+      method: 'GET',
+      url: 'http://example.invalid/x',
+      headers: {}
+    });
+  }, /non-HTTPS/);
+});
+
+T('32 DELETE is exposed, signed, and accepts 204', async function() {
+  var seen = [];
+  var c = s3.create({
+    ENDPOINT: 'https://example.invalid',
+    REGION: 'auto',
+    BUCKET: 'bucket-x',
+    ACCESS_KEY_ID: 'AKIDEXAMPLE',
+    SECRET_ACCESS_KEY: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'
+  }, function(o, b) {
+    seen.push(o);
+    return Promise.resolve({
+      status: 204,
+      headers: {},
+      body: Buffer.alloc(0)
+    });
+  });
+  assert.equal(c.capabilities().delete, true);
+  var r = await c.del('probe.txt');
+  assert.equal(r.response, 204);
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].method, 'DELETE');
+  assert.equal(new URL(seen[0].url).pathname, '/bucket-x/probe.txt');
+  assert(/^AWS4-HMAC-SHA256 Credential=AKIDEXAMPLE\//.test(seen[0].headers.authorization));
+  assert(seen[0].headers['x-amz-date']);
+  assert(seen[0].headers['x-amz-content-sha256']);
+});
+
+T('33 injected mock transport contract unchanged', async function() {
+  var seen = [];
+  var c = s3.create({
+    ENDPOINT: 'https://example.invalid',
+    REGION: 'auto',
+    BUCKET: 'bucket-x',
+    ACCESS_KEY_ID: 'x',
+    SECRET_ACCESS_KEY: 'y'
+  }, function(o, b) {
+    seen.push({
+      o: o,
+      b: b
+    });
+    return Promise.resolve({
+      status: 200,
+      headers: {},
+      body: Buffer.from('ok')
+    });
+  });
+  await c.get('k.txt');
+  // The injected-transport contract is still {method, url, headers} + body —
+  // only the DEFAULT implementation changed. Existing mocks stay valid.
+  assert.equal(typeof seen[0].o.url, 'string');
+  assert.equal(seen[0].o.method, 'GET');
+  assert(seen[0].o.headers.authorization);
+  assert(Buffer.isBuffer(seen[0].b));
+});
+
+T('34 DELETE SigV4 vector pinned', function() {
+  var r = s3.sign({
+    method: 'DELETE',
+    url: 'https://account.r2.cloudflarestorage.com/bucket-x/probe.txt',
+    headers: {},
+    amzDate: '20260101T000000Z',
+    payloadHash: sha(''),
+    region: 'auto',
+    accessKey: 'AKIDEXAMPLE',
+    secret: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY'
+  });
+  assert.equal(sha(r.canonicalRequest), '18d30544c6d2dd8f89bb3038012af35aa1cf98d2f0cc8d7f84fa80ce9ab3baa5');
+  assert.equal(r.signature, 'dcadccb303f56a10d94ac7e1d8a1ed4ef3f58fd37894bb99f9042dd30b81b2b4');
+});
+
 (async function() {
   try {
     for (var i = 0; i < tasks.length; i++) await tasks[i]();

@@ -4,7 +4,11 @@
 // User-local config (placeholders): ENDPOINT=https://example.invalid,
 // REGION=auto, BUCKET=placeholder, ACCESS_KEY_ID=placeholder,
 // SECRET_ACCESS_KEY=placeholder. Append-only or pull-based destinations are
-// strongly preferred so a compromised source cannot delete both copies.
+// strongly preferred so a compromised source cannot delete both copies —
+// retention in offhost-backup.js therefore stays report-only and never calls
+// del(); del() exists for verification round-trips and explicitly authorised
+// maintenance, and true append-only enforcement belongs to the credential
+// scope at the provider, not to the absence of a client method.
 var fs = require('fs');
 
 var path = require('path');
@@ -104,6 +108,25 @@ function loadConfig(file) {
   return out;
 }
 
+// Translates the adapter's {method, url, headers} request object into the
+// options shape https.request() actually consumes. Node's request options
+// have no `url` key — passing {url} silently connects to localhost:443, which
+// is exactly the defect this function exists to prevent. Exported for tests.
+function transportOptions(o) {
+  var u = new URL(o.url);
+  if (u.protocol !== 'https:') throw new Error('non-HTTPS endpoint refused');
+  return {
+    hostname: u.hostname,
+    port: u.port ? Number(u.port) : 443,
+    path: u.pathname + u.search,
+    method: o.method,
+    headers: o.headers,
+    // A backup transport that can hang forever fails open; a bounded wait
+    // fails closed into the existing 'provider unavailable' path.
+    timeout: 60000
+  };
+}
+
 function create(config, requestImpl) {
   // Injecting the transport lets the provider adapter and core suite run
   // offline while production still defaults to Node's HTTPS implementation.
@@ -112,7 +135,7 @@ function create(config, requestImpl) {
   if (base.protocol !== 'https:') throw new Error('non-HTTPS endpoint refused');
   requestImpl = requestImpl || function(o, b) {
     return new Promise(function(resolve, reject) {
-      var r = https.request(o, function(res) {
+      var r = https.request(transportOptions(o), function(res) {
         var a = [];
         res.on('data', function(x) {
           a.push(x);
@@ -124,6 +147,10 @@ function create(config, requestImpl) {
             body: Buffer.concat(a)
           });
         });
+      });
+      r.on('timeout', function() {
+        r.destroy();
+        reject(new Error('provider unavailable'));
       });
       r.on('error', function() {
         reject(new Error('provider unavailable'));
@@ -194,13 +221,22 @@ function create(config, requestImpl) {
       var r = await req('GET', '?list-type=2&prefix=' + enc(prefix || ''));
       return r.body;
     },
+    del: async function(k) {
+      // S3 DELETE answers 204 (also for an already-absent key); req() accepts
+      // any 2xx. Used by verification round-trips and explicitly authorised
+      // maintenance only — core retention never calls this (report-only).
+      var r = await req('DELETE', k);
+      return {
+        response: r.status
+      };
+    },
     capabilities: function() {
       return {
         put: true,
         get: true,
         head: true,
         list: true,
-        delete: false,
+        delete: true,
         https_only: true
       };
     }
@@ -212,5 +248,6 @@ module.exports = {
   loadConfig: loadConfig,
   sign: sign,
   signingKey: signingKey,
+  transportOptions: transportOptions,
   DEFAULT_CONFIG: DEFAULT_CONFIG
 };
