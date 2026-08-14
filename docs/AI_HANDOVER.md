@@ -1,8 +1,64 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-13 UTC
-**From:** MPI-2A PREPARATION — **migration runner built and scratch-validated (23/23); NEVER executed against production; migration remains BLOCKED on the backup gate**
+**Last updated:** 2026-08-14 UTC
+**From:** GATE CLOSURE ATTEMPT — **both gates remain OPEN/BLOCKED. Off-host destination still absent; PC is unreachable from the VPS. Read-only PC audit script delivered so the gate is closeable by the owner.**
 **To:** Next AI session
+
+---
+
+## GATE CLOSURE ATTEMPT — OFF-HOST BACKUP + PC-DECOMMISSION (2026-08-14)
+
+**Status: NEITHER GATE CLOSED.** Both blockers are external to this session and cannot be resolved from the VPS. **Production databases modified: 0** (read-only `SELECT count(*)` only). **PC files deleted: 0** — the PC was never contacted.
+
+### Off-host backup — BLOCKED (single authorised check performed, not to be repeated)
+
+| Evidence | Result |
+|---|---|
+| Coolify `s3_storages` | **0** rows (0 usable) |
+| Coolify `scheduled_database_backups` | **0** (0 enabled) |
+| `scheduled_database_backup_executions` | **0** |
+| `scheduled_volume_backups` | **0** |
+| Object-storage tooling (`rclone`, `aws`, `s3cmd`, `restic`, `borg`, `mc`, `b2`, `gsutil`, `az`) | **none installed** |
+| Backup credentials (`rclone.conf`, `~/.aws/credentials`, `~/.s3cfg`, `/etc/restic`) | **none present** |
+| Destination endpoints in the repository | **none** |
+
+**No authorised off-host destination exists.** Per the standing rule, no account, bucket, API key, billing arrangement or credential was created. **§2 did not execute** — there is nowhere to upload to, so the dump → SHA-256 → upload → download → verify → restore-test cycle has no destination and was not attempted. This audit is now settled; it should not be repeated until the owner provisions a destination.
+
+### PC-Decommission Gate — OPEN, and the reason is concrete
+
+**The audit could not run.** Three findings:
+
+1. **`pc-audit.ps1` never existed.** Not on the VPS, and not anywhere in Git history (`git log --all --diff-filter=A`). The premise that one was already prepared is incorrect.
+2. **The VPS cannot reach the PC.** No VNC/RDP client is installed, there is no reverse tunnel, and no PC host entry exists.
+3. **The noVNC listener is pointed the wrong way for this purpose.** `127.0.0.1:6080` (websockify) serves *the VPS's own desktop* — it is a route **in to** the VPS, not **out to** the PC. Direction matters, and mistaking it would produce a confident audit of the wrong machine.
+
+**Delivered instead:** `scripts/pc-audit.ps1` — the "or equivalent read-only mechanism" the order permits. The owner runs it on the PC; it emits a JSON report to transfer back for reconciliation.
+
+It is **strictly read-only** and verified so: the only git verbs it invokes are `status`, `rev-parse`, `rev-list`, `for-each-ref`, `branch`, `log`, `ls-files`, `remote`. It never pulls, pushes, fetches, commits, resets, checks out, stashes or cleans, deletes nothing, and its single write is the report file.
+
+It covers what the gate actually needs:
+
+- **All four working copies** — branch, HEAD, upstream, ahead/behind, modified and untracked files with SHA-256, and every commit **not present on any remote**, which is the evidence that decides PC-UNIQUE vs CANONICAL-IN-GITHUB.
+- **A path discrepancy handled by probing, not guessing.** This handover records three of the copies at `C:\Users\Othman\…`; the audit order specifies `Desktop\…`. The script probes **both** candidates per target and reports which exists. Guessing would have silently audited the wrong directory, or declared a real working copy absent.
+- **A whole-PC sweep** — every `.git` on every fixed drive, loose development files outside any repository, and all copies of `mythos_data.json`. Without this, prerequisite #9 ("no unique development material exists only on PC") can only be *assumed*, and assuming it is exactly what a decommission gate exists to prevent.
+- **`ahead`/`behind` computed without fetching**, so the value reflects the clone's last known remote state. Recorded honestly in the report rather than made accurate by a mutating `fetch`.
+
+### Reconciliation status — unchanged, and unchangeable from here
+
+The 1,564-file manifest still stands as previously recorded: **959 + 217 TRANSFERRED · 65 NOT TRANSFERRED — INTENTIONAL (sensitive, stays on PC) · 322 assumed CANONICAL_IN_GIT · 1 UNRESOLVED (`mythos_data.json`, personal-data snapshot, must not be transferred) · MISSING: none.**
+
+The **322 files remain the sharpest open risk**, exactly as before: they were left on the PC on the assumption Git already holds them, and that assumption is still unverified. **29 of them** sit under `mythos-prod-stage3b` and `mythos-prod-work`, for which **no remote repository and no corresponding remote branch exist at all**. Until the audit runs, those 29 must be treated as **UNRESOLVED — PC UNIQUE**. Nothing was pushed to change that, and nothing should be.
+
+### Gate decision
+
+**PC-DECOMMISSION-GATE = OPEN.** Of the seven closure conditions, four cannot be evaluated without the PC report: working copies verified · no unexplained unique work · whole-PC inventory complete · all material in a final state. Sensitive exclusions are documented, and no PC file was deleted.
+
+### Next blocker — precisely two things, both owner actions
+
+1. **Provision an authorised off-host destination** (or state that one will not exist, which would require re-planning the backup gate rather than waiting on it).
+2. **Run `scripts/pc-audit.ps1` on the PC** and return `pc-audit-report.json`. Reconciliation and the gate decision can then be completed from the report alone, with no further PC access.
+
+Until both are done, **MPI-2A production migration stays blocked** — and the migration runner enforces this in code, not merely in prose.
 
 ---
 
