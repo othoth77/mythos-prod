@@ -1,8 +1,50 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** MPI-2H IMPLEMENTATION (CLOSED PORTION) — **the specification's decision-independent boundary is implemented: strict ingestion flag, validated ingestion contract, D1/D2/D3/D5 enforcement, F8 idempotent replay, tombstone batch reversal, fail-closed REAL-class gates. No source, no trigger, no activation, zero real data. O-2H-1/2/4/6 still block real ingestion.**
+**From:** O-2H OWNER DECISION RECORD — **the four blocking decisions are formalised below with their doc-defined choices. All four remain OPEN. Nothing was chosen on the owner's behalf; no code changed; zero real data.**
 **To:** Next AI session
+
+---
+
+## O-2H OWNER DECISION RECORD (2026-08-14) — ALL FOUR OPEN
+
+Formalised from `docs/MPI_2H_INGESTION_SPECIFICATION.md` §31 and its cited sources. Each entry states the exact question and only the choices the authoritative documents themselves define or structurally permit. **No option is selected here.** Real ingestion remains blocked until the owner answers O-2H-1, O-2H-2, O-2H-4 (or grants its defined waiver), and O-2H-6 — and then issues the separate §24(5) scope-bound ingestion order.
+
+### O-2H-1 — Initial real data source and surface — **OPEN**
+
+**Exact question:** Which first-party data enters MPI first, entered where, and by whom?
+
+**Doc-defined constraints and choices:** The provenance vocabulary (architecture §5) admits only `provider = mythos` for non-import ingestion, with `source_type ∈ {explicit_instruction, observation, feedback, note}` — the owner selects **which subset** of those four constitutes the initial source. External providers are importer territory (post-2H, §14); `contacts` is permanently excluded (D1 = c). The documents define no entry surface — the owner must **name** one (owner-operated entry is the only class consistent with spec §2); naming a surface that does not yet exist makes building it part of the O-2H-2 hosting decision. The F14 boundary (spec §18) additionally limits the initial source to **the owner's own first-party data**.
+
+### O-2H-2 — Ingestion trigger, frequency, and hosting — **OPEN**
+
+**Exact question:** Which process hosts the composition root, what triggers ingestion, and how often?
+
+**Doc-defined constraints and choices:** The composition-root contract is fixed (spec §29: env-injected `MPI_PG_*`, real `pg` driver, `mythos_intelligence_app` role, no config-file credentials, no fallback, guard-before-action, content store via `createFromConfig`). The legacy application has no MPI entry point (§19.1) and is not a candidate without new surface. The structurally available choices:
+- **(a) Operator-run batch on the VPS** (a CLI composition root; env injected at invocation; no Coolify change; the pattern every executed MPI stage has used).
+- **(b) A deployed service with Coolify-injected environment** (§20.5 names Coolify as the runtime env injector) — requires its own deployment authorisation and touches Coolify, which every 2H instruction so far has forbidden without explicit order.
+Frequency: **on-demand per owner order** is the only mode consistent with the §24(5) per-batch authorisation; any **scheduled/recurring** mode is separately-authorised automation work (the OFF_HOST gate records recurring jobs as "separate, not-yet-authorised work" — same discipline).
+
+### O-2H-4 — Content encryption at rest — **OPEN**
+
+**Exact question:** How is memory-content encryption at rest handled for objects in `mythos-mpi-backups/content/`?
+
+**Doc-defined choices** (architecture §11.2: "**RECOMMENDED**; at minimum documented. … Client-side encryption is the stronger option given the content store may leave the host."):
+- **(a) Client-side encryption** before `putContent` — the stronger option named by the docs; requires a key-management design (new, separately-scoped work; note: deterministic content addressing and dedup semantics must be re-examined under encryption).
+- **(b) Provider-side encryption at rest with documented acceptance** — the "at minimum documented" path (R2 encrypts objects at rest; the residual risk being accepted must be recorded).
+- **(c) Explicit waiver for the initial source** — spec §31 permits documented-only **only if** the owner declares the O-2H-1 source non-sensitive; the waiver does not extend to any later, sensitive source.
+
+### O-2H-6 — Backup freshness tolerance — **OPEN**
+
+**Exact question:** How fresh must the verified MPI backup be at the moment real ingestion begins?
+
+**Doc-defined choices** (spec §25; MPI-2G standing caution: the gate "goes stale if the newest verified backup ages beyond the owner's tolerance"):
+- **(a) Same-session** — the backup round-trip (dump → C1 → upload → download → C2 → C1==C2 → isolated restore) is executed in the same session as, and immediately before, the real batch. This is the documented default reading absent a decision.
+- **(b) A stated maximum age** — the owner names the tolerance (a duration); a backup older than it makes the `backupVerified` gate assertion untruthful and stops ingestion.
+
+**Non-blocking, unchanged:** O-2H-3 (retention — keep-everything default stands) · O-2H-5 (F14 erasure design — bounded per spec §18) · D4.
+
+**Consistency:** cross-checked against `MPI_2H_INGESTION_SPECIFICATION.md` (§2–§3, §24–§25, §29, §31), `MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md` (§5, §11.2, §14, §19.1, §20.5), and the MPI-2G/OFF_HOST gate records. No code changed this stage; no test run required beyond consistency checks (previous 453/453 stands at commit `e2a2a3f`).
 
 ---
 
