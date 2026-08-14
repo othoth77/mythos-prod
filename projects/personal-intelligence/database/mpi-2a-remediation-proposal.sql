@@ -338,6 +338,34 @@ ALTER TABLE mythos_intelligence.pi_learned_preferences
   CHECK (status IN ('SESSION_OBSERVATION','CANDIDATE_PREFERENCE','ESTABLISHED_PREFERENCE',
                     'EXPLICIT_USER_RULE','SUPERSEDED','DISCARDED'));
 
+-- -----------------------------------------------------------------------------
+-- F8 — CONCURRENT REINFORCEMENT INTEGRITY (ratified 2026-08-14).
+-- Structural backstop for the §6.2 independence rule: an exact repeat of the
+-- same observation (same memory, same source, same observed_at — including
+-- NULL observed_at, hence NULLS NOT DISTINCT, PostgreSQL 15+) cannot create a
+-- second provenance row, so a concurrent duplicate loses at commit and its
+-- evidence_count increment rolls back with it. A same-source observation at a
+-- MATERIALLY LATER observed_at remains insertable — that distinction is the
+-- ratified boundary, proven in docs/MPI_FINDINGS_REMEDIATION.md and
+-- docs/MPI_CRITICAL_FINDINGS.md. The lock ordering half of F8 lives in
+-- repositories.js memory.reinforce() (SELECT ... FOR UPDATE before the
+-- provenance read); this index is the half the application cannot forget.
+-- -----------------------------------------------------------------------------
+CREATE UNIQUE INDEX idx_pi_provenance_observation
+  ON mythos_intelligence.pi_memory_provenance
+     (memory_record_id, source_reference, observed_at) NULLS NOT DISTINCT;
+
+-- -----------------------------------------------------------------------------
+-- F9 — AUDIT SUBJECT LOOKUP (ratified 2026-08-14).
+-- pi_preference_audit is append-only and only grows; its single real read path
+-- (listForPreference, WHERE preference_id) was a sequential scan discarding
+-- 49,990 of 50,000 rows. Measured at 500k rows: 8,883 buffers -> 28. The
+-- two-column, reversed-order, covering and partial variants were rejected with
+-- evidence — see docs/MPI_CRITICAL_FINDINGS.md § F9.
+-- -----------------------------------------------------------------------------
+CREATE INDEX idx_pi_preference_audit_subject
+  ON mythos_intelligence.pi_preference_audit (preference_id);
+
 -- =============================================================================
 -- END OF PROPOSAL. Nothing here has been applied to any production database.
 -- MPI-2A remains blocked on owner decisions D1, D2 and D3.

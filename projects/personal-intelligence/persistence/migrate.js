@@ -52,8 +52,8 @@ const MIGRATIONS = [
     file: 'mpi-2a-remediation-proposal.sql',
     stage: 'MPI-2A',
     dependsOn: ['002-mpi-2-memory-engine'],
-    provides: { tables: 0, indexes: 3, checks: 6, foreignKeys: 33, triggers: 8, roles: 3 },
-    note: 'Resolves F1/F2/F3/F4/F7. Schema-qualified, so it must run AFTER 001+002.'
+    provides: { tables: 0, indexes: 5, checks: 6, foreignKeys: 33, triggers: 8, roles: 3 },
+    note: 'Resolves F1/F2/F3/F4/F7, plus the ratified F8/F9 indexes. Schema-qualified, so it must run AFTER 001+002.'
   }
 ];
 
@@ -364,11 +364,21 @@ async function assertSchema(client) {
        AND column_name IN ('state','supersedes_memory_id','superseded_at','observed_at','valid_from','valid_to','evidence_count')`));
   add('check_constraints', 8, await scalar(
     `SELECT count(*)::int FROM pg_constraint c JOIN pg_namespace n ON n.oid=c.connamespace WHERE n.nspname='${TARGET_SCHEMA}' AND c.contype='c'`));
-  // 55 = the 54 counted at the MPI-2 design gate (12 explicit + 20 PK + 19 UNIQUE
-  // + 3 remediation) PLUS the primary-key index on schema_migrations, which the
-  // design gate did not have. Scratch validation caught this off-by-one.
-  add('indexes', 55, await scalar(
+  // 57 = the 54 counted at the MPI-2 design gate (12 explicit + 20 PK + 19 UNIQUE
+  // + 3 remediation) PLUS the primary-key index on schema_migrations PLUS the
+  // two ratified F8/F9 indexes (idx_pi_provenance_observation,
+  // idx_pi_preference_audit_subject) added 2026-08-14.
+  add('indexes', 57, await scalar(
     `SELECT count(*)::int FROM pg_indexes WHERE schemaname='${TARGET_SCHEMA}'`));
+  // F8: the provenance observation backstop must exist AND be unique AND treat
+  // NULLs as equal — indexdef is asserted, not just the name.
+  add('f8_provenance_unique_index', 1, await scalar(
+    `SELECT count(*)::int FROM pg_indexes WHERE schemaname='${TARGET_SCHEMA}'
+       AND indexname='idx_pi_provenance_observation'
+       AND indexdef LIKE 'CREATE UNIQUE INDEX %' AND indexdef LIKE '%NULLS NOT DISTINCT%'`));
+  add('f9_preference_audit_index', 1, await scalar(
+    `SELECT count(*)::int FROM pg_indexes WHERE schemaname='${TARGET_SCHEMA}'
+       AND indexname='idx_pi_preference_audit_subject' AND indexdef LIKE '%(preference_id)%'`));
   add('append_only_triggers', 8, await scalar(
     `SELECT count(*)::int FROM pg_trigger tg JOIN pg_class c ON c.oid=tg.tgrelid JOIN pg_namespace n ON n.oid=c.relnamespace
       WHERE NOT tg.tgisinternal AND n.nspname='${TARGET_SCHEMA}'`));

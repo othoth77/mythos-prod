@@ -67,10 +67,19 @@ async function tombstoneMemory(client, input) {
 // "no matching source" and both increment — the precise double-count the rule
 // forbids. Recorded provenance and the increment must agree.
 async function reinforceMemory(client, input) {
+  // F8 (ratified 2026-08-14): provenance is MANDATORY for a reinforcement.
+  // Previously it was optional, so a caller could increment evidence_count
+  // while writing no provenance row — a path the unique index
+  // idx_pi_provenance_observation cannot protect, because the index guards
+  // the tuple, not its absence. Refused before the transaction opens.
+  if (!input.provenance) {
+    throw new Error('reinforceMemory: provenance is required — a reinforcement without ' +
+      'provenance would raise evidence_count with no attributable observation (F8)');
+  }
   return client.withTransaction(async function (exec) {
     const repos = createRepositories(exec);
     const outcome = await repos.memory.reinforce(input.memoryRecordId, input.observation);
-    if (outcome.reinforced && input.provenance) {
+    if (outcome.reinforced) {
       await repos.provenance.insert(
         Object.assign({}, input.provenance, { memoryRecordId: input.memoryRecordId }));
     }

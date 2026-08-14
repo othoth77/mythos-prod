@@ -166,6 +166,17 @@ function memoryRepository(exec) {
     // rather than truth. Independence is decided from existing provenance, so
     // this reads pi_memory_provenance but never writes it.
     async reinforce(id, observation) {
+      // F8 (ratified 2026-08-14): lock the memory row BEFORE reading
+      // provenance. Under READ COMMITTED, two concurrent reinforcements could
+      // otherwise both read the same provenance set, both judge the
+      // observation independent, and both increment — proven in
+      // docs/MPI_CRITICAL_FINDINGS.md. The lock serialises the DECISION, not
+      // just the writes; taking it after the read would be too late. The
+      // unique index idx_pi_provenance_observation is the structural backstop
+      // for any path that skips this ordering.
+      await exec.query(
+        'SELECT evidence_count FROM pi_memory_records WHERE memory_record_id = $1 FOR UPDATE',
+        [id]);
       const existing = await exec.query(
         'SELECT source_reference, observed_at FROM pi_memory_provenance WHERE memory_record_id = $1',
         [id]);

@@ -1,8 +1,48 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-14 UTC
-**From:** MPI F8/F9 RATIFICATION REVIEW — **PASS (ready to implement on ratified designs). Read-only; nothing changed. Migration remains BLOCKED on 4 exact items.**
+**From:** MPI F8/F9 IMPLEMENTATION — **both IMPLEMENTED exactly as ratified. 324 MPI assertions pass, 0 fail. Concurrency race now counts ONCE, proven live.**
 **To:** Next AI session
+
+---
+
+## MPI F8/F9 IMPLEMENTATION (2026-08-14) — PASS
+
+Both ratified designs implemented **without reinterpretation**. D1/D2/D3/D5, observability, and migration remain untouched.
+
+### Files changed (exactly these)
+
+| File | Change |
+|---|---|
+| `projects/personal-intelligence/database/mpi-2a-remediation-proposal.sql` | + `idx_pi_provenance_observation` (UNIQUE NULLS NOT DISTINCT on `memory_record_id, source_reference, observed_at`) · + `idx_pi_preference_audit_subject` (`preference_id` only) |
+| `persistence/repositories.js` | `memory.reinforce()`: `SELECT … FOR UPDATE` on the memory row **before** the provenance read — serialises the decision, not just the writes |
+| `persistence/lifecycles.js` | `reinforceMemory()`: provenance now **mandatory**, refused before the transaction opens (closes the case-J gap the index cannot cover) |
+| `persistence/migrate.js` | `assertSchema` indexes 55 → **57**, plus named catalog checks `f8_provenance_unique_index` (asserts UNIQUE + NULLS NOT DISTINCT in the indexdef) and `f9_preference_audit_index`; 003 entry metadata updated |
+| `tests/mpi-2b-persistence-test.js` | duplicate-reinforcement case now supplies the provenance it *would* record (mandatory-provenance conformance; assertion unchanged) |
+| `tests/mpi-2f-f8-f9-test.js` | **new** — 16-case suite |
+
+None of the rejected alternatives (SERIALIZABLE, advisory locks, atomic-CTE, two-column/reversed/covering/partial indexes) was introduced; test 3 asserts the two-column variant is absent.
+
+### Evidence (scratch PostgreSQL 15.19, `--network none`, tmpfs, removed after)
+
+**MPI-2F 16/16**, highlights: assertSchema passes at 57 with the named F8/F9 checks · exact duplicate rejected · **same source at a materially later `observed_at` still counts** (the ratified boundary) · **raw duplicate tuple rejected by the index even when the application is bypassed** · NULL `observed_at` duplicates rejected (`NULLS NOT DISTINCT` working) · **two and three concurrent identical reinforcements each count ONCE** across separate real sessions (ec 1→2, prov=1; then ec 2→3, prov=2) · reinforcement without provenance refused **before any database contact**.
+
+**Full MPI regression — 324 passed, 0 failed:** MPI-0 63 · governance 36 · MPI-1 50 · MPI-2A 23 · MPI-2B 38 · MPI-2C 26 · MPI-2D 18 · MPI-2E 54 · MPI-2F 16. Production untouched (census 26/20 identical, all DBs healthy); no dumps staged; credentials not tracked (verified by value).
+
+### Note for the next migration-input consumer
+
+The 003 input file's **sha256 changed** (F8/F9 indexes added). Nothing anywhere has recorded checksums against it — `schema_migrations` exists only in discarded scratch databases — so there is no drift to reconcile. Any future scratch database created before this commit would correctly refuse under the runner's checksum-consistency check.
+
+### Remaining migration blockers (was 4, now 3)
+
+1. ~~F8/F9 implementation~~ **DONE**
+2. **D1/D2/D3 answers** (D5 before real data; F14 rides with D1)
+3. **Observability minimum contract**
+4. **Activation readiness** (real driver adoption, env contract)
+
+### Next stage
+
+**D1/D2/D3/D5 owner decisions** or **observability minimum contract** (separate instruction either way).
 
 ---
 

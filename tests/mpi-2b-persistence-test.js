@@ -111,9 +111,13 @@ async function integrationChecks(container, database) {
   ok(created.memory.state === 'active' && created.memory.evidence_count === 1, '14 memory creation defaults state=active, evidence_count=1');
   ok(created.provenance && created.provenance.memory_provenance_id === 'PRV_2B_A' + S, '15 provenance insertion (atomic with memory)');
 
-  // 5 evidence: duplicate source must NOT inflate confidence (§6.2)
+  // 5 evidence: duplicate source must NOT inflate confidence (§6.2).
+  // F8 made provenance mandatory for every reinforcement attempt, so the
+  // duplicate case now carries the provenance it WOULD record; it is not
+  // inserted, because reinforced === false.
   const dup = await lifecycles.reinforceMemory(client, {
-    memoryRecordId: ids.memA, observation: { sourceReference: 'hash://a' + S, materiallyLater: false } });
+    memoryRecordId: ids.memA, observation: { sourceReference: 'hash://a' + S, materiallyLater: false },
+    provenance: { memoryProvenanceId: 'PRV_2B_DUP' + S, provider: 'mythos', sourceType: 'observation', sourceReference: 'hash://a' + S } });
   ok(dup.reinforced === false, '16 reinforcement rejected for duplicate source (no confidence inflation)');
   const indep = await lifecycles.reinforceMemory(client, {
     memoryRecordId: ids.memA, observation: { sourceReference: 'hash://b' + S, materiallyLater: false },
