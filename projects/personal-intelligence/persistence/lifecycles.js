@@ -51,6 +51,33 @@ async function createMemoryWithProvenance(client, input) {
   });
 }
 
+// A2 — MEMORY + PROVENANCE + RECORD-ANCHORED EVENT (O-EV-1a, spec §34).
+// ATOMIC, REQUIRED. The event is anchored to the memory record created in the
+// SAME transaction — memory_record_id is derived, never caller-supplied — so a
+// standalone event cannot exist, and batch ref / provenance / F8 idempotency /
+// F14 tombstone semantics all inherit through the parent. A failure of any of
+// the three inserts rolls back all of them.
+async function createMemoryWithProvenanceAndEvent(client, input) {
+  return client.withTransaction(async function (exec) {
+    const repos = createRepositories(exec);
+    const memory = await repos.memory.create(input.memory);
+    const provenance = await appendOnlyGuard(client, 'pi_memory_provenance',
+      { memoryRecordId: input.memory.memoryRecordId }, function () {
+        return repos.provenance.insert(
+          Object.assign({}, input.provenance, { memoryRecordId: input.memory.memoryRecordId }));
+      });
+    // The event inherits its subject from the parent record — anchor, user and
+    // organisation are all derived, never caller-supplied (§34).
+    const event = await repos.events.create(
+      Object.assign({}, input.event, {
+        memoryRecordId: input.memory.memoryRecordId,
+        userId: input.memory.userId,
+        organisationId: input.memory.organisationId
+      }));
+    return { memory: memory, provenance: provenance, event: event };
+  });
+}
+
 // B — MEMORY UPDATE (state only). ATOMIC, TRIVIALLY.
 // Single statement; a transaction adds nothing but is used for search_path
 // consistency, which is the F1 guard.
@@ -190,6 +217,7 @@ async function recordGuardDecision(client, decision) {
 
 module.exports = {
   createMemoryWithProvenance: createMemoryWithProvenance,
+  createMemoryWithProvenanceAndEvent: createMemoryWithProvenanceAndEvent,
   setMemoryState: setMemoryState,
   supersedeMemory: supersedeMemory,
   tombstoneMemory: tombstoneMemory,

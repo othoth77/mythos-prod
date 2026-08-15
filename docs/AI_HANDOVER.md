@@ -1,8 +1,39 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** O-EV-1 RATIFIED — **record-anchored events (option a), verbatim in spec §34. Real events must anchor to a parent memory record; batch ref/provenance/F8/F14 all inherit through the parent; no standalone real events; no schema change. Implementation is future, separately-authorised work. Documentation-only; zero production impact.**
+**From:** EVENTS INGESTION IMPLEMENTED — **the §34 record-anchored event path is live in code: one atomic transaction writes memory + provenance + event, with anchor/user/org all derived from the parent. Events suite 23/23; full regression green. No schema change, no real events, production untouched. An owner-curated milestone batch is now possible under a fresh §24(5) order.**
 **To:** Next AI session
+
+---
+
+## EVENTS INGESTION IMPLEMENTATION (2026-08-15) — PASS (§34, O-EV-1a)
+
+**Owner authorisation received this session** (bounded implementation stage only; no real data, no batch).
+
+### Changes — three files touched, one added
+
+| File | Change |
+|---|---|
+| `persistence/lifecycles.js` | **new** `createMemoryWithProvenanceAndEvent` (lifecycle A2): ONE transaction inserts memory + guarded provenance + event; the event's `memory_record_id`, `user_id`, `organisation_id` are **derived from the parent record, never caller-supplied**. No existing function modified |
+| `persistence/ingestion.js` | optional `event` on an item: field whitelist (`memoryRecordId` deliberately absent — standalone events structurally impossible), ratified `event_type` whitelist `DECISION/GOAL/ROUTINE/PROJECT_STATE/MILESTONE` enforced in code (§34 — column has no DB CHECK), `occurred_at` required and parseable, summary ≤512, event content XOR reference with D3 scheme validation, sensitive-shape detection extended to event summary/content, event content through `putContent` **before** the transaction, F8 replay semantics unchanged (a UNIQUE anywhere in the trio rolls back all three → `alreadyIngested`) |
+| `cli/mpi-ingest-cli.js` | dry-run reports `(+event <TYPE>, record-anchored)`; validation flows through the module, so the paired structure is accepted end-to-end with zero gate changes |
+| `tests/mpi-2h-events-test.js` | **new** suite — see below |
+
+### Tests
+
+**Events suite 23/23** (16 offline + 7 scratch-DB): valid pairing · caller-supplied anchor refused · invalid event type · missing/unparseable `occurred_at` · missing ids · content XOR reference · foreign D3 scheme refused · standalone impossible · sensitive kinds in event fields · D3 ordering (content before tx) · exactly three inserts in one tx · REAL gates unchanged · replay never half-lands · CLI dry-run shows the anchor · end-to-end trio on real PG · anchored row verified · event content by reference · **replay leaves event count at 1 (F8 via parent)** · `verifyConsistency` auto-discovers the events column · **reversal tombstones the parent while the event remains anchored to it (F14 via parent)** · **a failed trio leaves no orphan memory row** (event-level UNIQUE rolled back the whole transaction).
+
+One defect found and fixed mid-stage: the first DB run failed NOT_NULL on `pi_memory_events.user_id` — the lifecycle now derives user/org from the parent (the §34-correct semantics), rather than requiring them as event inputs.
+
+**Full regression: 356 + 2H 35 + events 23 + CLI 24 + D3 27 + tooling 35 = 500 passed, 0 failed** (fresh scratch PG 15.19, per-suite fresh databases).
+
+### Production safety
+
+Production untouched (memory=28, events=0 before and after — verified read-only) · no real events · no R2 objects (content-store cases on in-memory adapters) · no schema change · no Coolify/Supabase change · scratch cleaned to zero.
+
+### Next stage
+
+**An owner-curated milestone/event batch is now mechanically possible**: proposal → owner review → fresh §24(5) order + same-session backup → the proven sequence. Or: O-2H-3 retention · MPI-3+ work. Nothing proceeds without a separate instruction.
 
 ---
 

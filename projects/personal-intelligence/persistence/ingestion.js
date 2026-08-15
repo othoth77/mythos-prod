@@ -71,12 +71,21 @@ function refusal(code) {
 // Structural whitelists (spec §4). Unknown fields are refused, which is also
 // the structural half of D2: the contract has no field in which an MPI-owned
 // person/organisation/project could be expressed.
-const ITEM_FIELDS = ['class', 'memory', 'provenance', 'content'];
+const ITEM_FIELDS = ['class', 'memory', 'provenance', 'content', 'event'];
 const MEMORY_FIELDS = ['memoryRecordId', 'userId', 'organisationId', 'domainId', 'memoryType',
   'scope', 'contentSummary', 'contentReference', 'isRedacted', 'sessionId', 'expiresAt',
   'observedAt', 'validFrom', 'validTo'];
 const PROVENANCE_FIELDS = ['memoryProvenanceId', 'provider', 'sourceType', 'sourceReference',
   'importBatchRef', 'observedAt', 'confidence', 'actorRef', 'actorType'];
+
+// Record-anchored events (O-EV-1a, spec §34). memoryRecordId is deliberately
+// ABSENT from the whitelist: the anchor is derived from the item's own memory
+// record inside one transaction, so a standalone real event is structurally
+// impossible. The event_type whitelist is the ratified vocabulary, enforced
+// here because the column carries no DB CHECK (§34).
+const EVENT_FIELDS = ['memoryEventId', 'eventType', 'eventSummary', 'occurredAt',
+  'projectRef', 'domainId', 'validFrom', 'validTo', 'content', 'contentReference'];
+const EVENT_TYPES = ['DECISION', 'GOAL', 'ROUTINE', 'PROJECT_STATE', 'MILESTONE'];
 
 function assertOnlyFields(obj, allowed, where) {
   const extra = Object.keys(obj).filter(function (k) { return allowed.indexOf(k) === -1; });
@@ -124,6 +133,29 @@ function validateItem(item) {
     }
   }
 
+  // Record-anchored event (§34): validated only as a pairing with THIS item's
+  // memory record; there is no way to express an event without one.
+  if (item.event !== undefined) {
+    if (!item.event || typeof item.event !== 'object') throw refusal('INGESTION_EVENT_INVALID');
+    assertOnlyFields(item.event, EVENT_FIELDS, 'event');
+    const ev = item.event;
+    if (typeof ev.memoryEventId !== 'string' || !ev.memoryEventId.length) throw refusal('INGESTION_EVENT_ID_REQUIRED');
+    if (EVENT_TYPES.indexOf(ev.eventType) === -1) throw refusal('INGESTION_EVENT_TYPE_INVALID');
+    if (typeof ev.eventSummary !== 'string' || !ev.eventSummary.length) throw refusal('INGESTION_EVENT_SUMMARY_REQUIRED');
+    if (ev.eventSummary.length > 512) throw refusal('INGESTION_EVENT_SUMMARY_TOO_LONG');
+    if (typeof ev.occurredAt !== 'string' || isNaN(Date.parse(ev.occurredAt))) throw refusal('INGESTION_EVENT_OCCURRED_AT_REQUIRED');
+    if (ev.content !== undefined && ev.contentReference !== undefined) {
+      throw refusal('INGESTION_EVENT_CONTENT_AND_REFERENCE_EXCLUSIVE');
+    }
+    if (ev.contentReference !== undefined) {
+      try {
+        contentStoreModule.parseContentReference(ev.contentReference);
+      } catch (e) {
+        throw refusal('INGESTION_EVENT_CONTENT_REFERENCE_INVALID: ' + e.message);
+      }
+    }
+  }
+
   // Lifecycle-owned columns are not ingestion inputs (§4 of the spec:
   // allowed fields only; state/supersession/evidence are managed by
   // lifecycles.js, never asserted by a source).
@@ -137,6 +169,12 @@ function classifySensitive(item) {
   if (sensitiveShape(item.provenance.sourceReference)) return 'credential_shape_in_source_reference';
   if (item.content !== undefined && sensitiveShape(Buffer.from(item.content).toString())) {
     return 'credential_shape_in_content';
+  }
+  if (item.event !== undefined) {
+    if (sensitiveShape(item.event.eventSummary)) return 'credential_shape_in_event_summary';
+    if (item.event.content !== undefined && sensitiveShape(Buffer.from(item.event.content).toString())) {
+      return 'credential_shape_in_event_content';
+    }
   }
   return null;
 }
@@ -189,18 +227,37 @@ function createIngestion(opts) {
 
     // D3 ordering rule (spec §9): content becomes durable — put resolved and
     // HEAD-verified inside putContent — BEFORE the referencing row commits.
+    // Applies identically to memory content and event content.
     const memory = Object.assign({}, item.memory);
     if (item.content !== undefined) {
       const stored = await contentStore.putContent(item.content);
       memory.contentReference = stored.contentReference;
     }
+    let event = null;
+    if (item.event !== undefined) {
+      event = Object.assign({}, item.event);
+      if (event.content !== undefined) {
+        const storedEv = await contentStore.putContent(event.content);
+        event.contentReference = storedEv.contentReference;
+        delete event.content;
+      }
+    }
 
     try {
-      const created = await lifecycles.createMemoryWithProvenance(client, {
-        memory: memory,
-        provenance: item.provenance
-      });
-      return { ingested: true, memory: created.memory, provenance: created.provenance };
+      // §34: an item carrying an event writes memory + provenance + event in
+      // ONE transaction via the record-anchored lifecycle; the anchor is the
+      // item's own record. A UNIQUE rollback aborts all three together, so a
+      // replay duplicates neither the record nor its event.
+      const created = event
+        ? await lifecycles.createMemoryWithProvenanceAndEvent(client, {
+            memory: memory, provenance: item.provenance, event: event
+          })
+        : await lifecycles.createMemoryWithProvenance(client, {
+            memory: memory, provenance: item.provenance
+          });
+      const out = { ingested: true, memory: created.memory, provenance: created.provenance };
+      if (created.event) out.event = created.event;
+      return out;
     } catch (e) {
       // F8 (spec §14/§15): a UNIQUE violation on the provenance triple is the
       // idempotent-replay signal — already ingested, not an error, and the
@@ -257,5 +314,6 @@ module.exports = {
   REAL_INGESTION_FLAG: REAL_INGESTION_FLAG,
   INGESTION_CLASSES: INGESTION_CLASSES,
   ALLOWED_PROVIDER: ALLOWED_PROVIDER,
-  ALLOWED_SOURCE_TYPES: ALLOWED_SOURCE_TYPES
+  ALLOWED_SOURCE_TYPES: ALLOWED_SOURCE_TYPES,
+  EVENT_TYPES: EVENT_TYPES
 };

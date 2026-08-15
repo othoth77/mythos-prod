@@ -141,8 +141,10 @@ async function run(argv, deps) {
     const items = readItemsFile(argValue(argv, 'items') || refuseMissing('items'));
     const result = validateBatch(items);
     out('DRY-RUN batch=' + result.scope.importBatchRef + ' class=' + result.scope.itemClass);
-    result.verdicts.forEach(function (v) {
-      out('  item[' + v.index + '] ' + (v.ok ? 'OK' : 'REFUSED ' + v.refusal));
+    result.verdicts.forEach(function (v, idx) {
+      const ev = items[idx] && items[idx].event;
+      out('  item[' + v.index + '] ' + (v.ok ? 'OK' : 'REFUSED ' + v.refusal) +
+        (v.ok && ev ? ' (+event ' + ev.eventType + ', record-anchored)' : ''));
     });
     out('DRY-RUN ' + (result.ok ? 'PASS' : 'FAIL') + ' (no connection, no writes, no objects)');
     return { ok: result.ok, dryRun: true, scope: result.scope };
