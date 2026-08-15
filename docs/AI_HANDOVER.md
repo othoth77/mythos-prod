@@ -45,8 +45,8 @@ The contract authorises **no** production action — a live DNS, OVH or Cloudfla
 
 | Field | Value |
 |---|---|
-| COMMIT | `PENDING_COMMIT` |
-| REMOTE HEAD | `PENDING_PUSH` |
+| COMMIT | `6839d4ff21754729ab4e829abf7a24db3b3bd8c3` |
+| REMOTE HEAD | `6839d4ff21754729ab4e829abf7a24db3b3bd8c3` (`origin/main`, verified after `git fetch`) |
 | WORKING TREE | clean |
 | TARGETED TESTS | DNS 85/85 · shared helpers 40/40 · OVH 26/26 · Cloudflare 26/26 · DEVX-1 92/92 — 0 failed |
 | FULL REGRESSION | 81 suites executed / 4711 passed / 43 failed (all pre-existing legacy `stage3*`, byte-identical at clean HEAD) / 0 skipped / 13 env-blocked |
