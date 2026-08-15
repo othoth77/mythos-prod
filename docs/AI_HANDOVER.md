@@ -1,8 +1,16 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** M4-2 COMPLETE — **the offline operator runtime exists end to end: request → owner identity bridge (fail-closed) → R3 → ContextPackage → M4-1 adapter → offline mock → deterministic response. Live read-only check over the real 36-memory corpus all-PASS. No egress surface exists structurally. Runtime suite 23/23; regression 603/603; production writes 0.**
+**From:** O-4-2 RATIFIED — **operator-run CLI on the VPS, on-demand (runtime spec §4, verbatim, with the full surface gap analysis preserved as open alternatives). Live-verified at ratification: 0 listeners, 0 daemons, on-demand only. Implementation phases follow in this same stage.**
 **To:** Next AI session
+
+---
+
+## O-4-2 RATIFICATION — OPERATOR-RUN CLI, ON-DEMAND (owner, 2026-08-15) — DOCUMENTATION PHASE
+
+**Verbatim record + gap analysis: `docs/MPI_4_RUNTIME_SPECIFICATION.md` §4.** Five surfaces analysed (A operator CLI — documented pattern AND implemented · B standalone service — possible, undocumented, not promoted · C Coolify service — implied, unspecified, needs its own authorisation · D legacy-app integration — contra-indicated, blocked on O-4-3 · E none other defined). The conservative option A is ratified; every alternative preserved.
+
+**Contradiction check — none found:** aligns with O-2H-2(a) (the identical hosting philosophy for ingestion), O-4-1 DEFER (nothing about egress changes; offline mock remains hard-wired), O-4-3 (identity universe unchanged), M4-2 as built (the CLI already embodies the decision), and the live census (0 node listeners, 0 running MPI processes at ratification). Explicit non-authorizations recorded (no Coolify, no provider, no public API, no daemon/scheduler, no multi-user identity).
 
 ---
 
