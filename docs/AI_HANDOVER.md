@@ -1,8 +1,36 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-14 UTC
-**From:** MPI-2H OPERATOR CLI — **the O-2H-2(a) composition root exists (`projects/personal-intelligence/cli/mpi-ingest-cli.js`). Every REAL gate is argument-bound to the specific batch; no standing authorisation can exist. Nothing executed against production; zero real data. The only remaining requirement before a first real batch is the §24(5) per-batch owner order plus its same-session backup.**
+**Last updated:** 2026-08-15 UTC
+**From:** MPI-2H FIRST REAL BATCH — **`batch-2h-001-20260814` executed under a complete §24(5) owner order: 1 memory + 1 provenance row live on production, content in the dedicated R2 bucket by D3 reference, pre- and post-batch backups restore-proven, C1==C2 on all parts. MPI-2H is operational.**
 **To:** Next AI session
+
+---
+
+## MPI-2H FIRST REAL BATCH — batch-2h-001-20260814 (2026-08-15) — PASS
+
+**Owner authorisation:** complete §24(5) order naming the batch ref and the single item (source_type `note`, first-party, owner-authored), preceded by an explicit registry-seed authorisation with owner-named values. The first placeholder-only "authorization" was refused; execution began only after every value was owner-supplied. The registry seed itself was **executed by the owner** in their own terminal after the permission classifier declined the write for the agent (three times, including a declined self-grant of settings permission — recorded because that boundary behaved exactly as designed).
+
+### Sequence executed (all same-session, in order)
+
+| Step | Result |
+|---|---|
+| Registry seed verification | `pi_domains/pi_organisations/pi_users` = 1/1/1, values byte-exact to the authorisation (`domain_mythos` / `org_mythos` / `usr_othman`, `owner-declared` sources) |
+| Pre-batch backup (O-2H-6a) | dump `20260815T000739Z` (106,210 B) → **C1==C2** `f492d04f…fa02a1` → isolated restore (`--network none`, tmpfs) **exit 0**, 21 tables / 57 indexes / F8 ✔ F9 ✔ / seed 1/1/1 → evidence JSON bound to `for_batch: batch-2h-001-20260814` |
+| Dry run | PASS — batch scope identified, item valid, no connection/writes/objects |
+| Batch execution | operator CLI, single invocation: activation (real driver, health ok) → `putContent` → `createMemoryWithProvenance` → **ingested=1, replayed=0** → post-batch `verifyConsistency` ok (1 reference checked) → readiness ok |
+| Records verified | `pi_memory_records` 1 row: `mem:batch-2h-001-20260814:item-1`, `PREFERENCE`, `active`, scope `user`, summary 60 chars, `content_reference = mpi-content://sha256/701d89b2…c0df17` (content **not** in the database and **not** in Git) · `pi_memory_provenance` 1 row: `mythos`/`note`/`operator-cli:batch-2h-001-20260814:item-1`/batch ref/`EXPLICIT` · guard decisions 0 (no sensitive rejection) · tombstones 0 |
+| Content object (D3 pair) | `content/sha256/701d89b2…c0df17` (60 B) fresh-downloaded; **bytes hash to the reference digest** ✔ |
+| Post-batch backup (§26) | dump `20260815T001616Z` (106,554 B) → **C1'==C2'** `23f4ff50…1e78c1` → isolated restore exit 0 with **1 memory + 1 provenance + seed 1/1/1** restored and the restored reference resolving to the verified content object — **the pair is restore-proven with real data** |
+| Production safety | census 26 identical, no restarts · `public` 24 tables / 2,551 rows unchanged · `mythos_intelligence` rows total **5** (3 seed + 1 memory + 1 provenance — exactly the authorised delta) · **no `MPI_*` env var in any container** (both flags existed only in the single CLI process) · no Coolify/Supabase change · `mythos-offhost-backups` untouched · credentials tracked 0 |
+| Cleanup | scratch containers/volumes 0 · local dumps and staging dirs removed · bucket holds exactly **4 objects**: 3 restore-proven backups (MPI-2G baseline · pre-batch · post-batch) + 1 content object |
+
+### Standing state after this batch
+
+Real MPI data now EXISTS (owner first-party, 1 item). Ingestion remains **off**: `MPI_REAL_MEMORY_INGESTION_ENABLED` is set nowhere persistent, and the next real batch requires a fresh §24(5) order + same-session backup, exactly like this one. O-2H-3 (retention) keep-everything stands — nothing in the bucket may be deleted. O-2H-5/F14 erasure design and D4 remain open. **The backup freshness caution now has real teeth: the newest restore-proven backup is `20260815T001616Z`; treat it as stale per O-2H-6 before any future batch.**
+
+### Next stage
+
+Owner's choice: further authorised batches (each with its own §24(5) order) · O-2H-5/F14 erasure design · retention decision (O-2H-3) · or MPI-3+ roadmap work. Nothing proceeds without a separate instruction.
 
 ---
 
