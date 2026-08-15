@@ -1,8 +1,35 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** MPI-3 STAGE R2 COMPLETE — **the read-only operator retrieval CLI exists and performed the first real retrieval over the production corpus: 36/36 memories returned deterministically with provenance, 8/8 milestone events on the timeline, tombstone request refused (O-R1b), one item hydrated byte-exact through D3. Zero writes. CLI suite 13/13; regression 539/539.**
+**From:** MPI-3 STAGE R3 COMPLETE — **the UNCHANGED reference context-assembler now runs on the real §10 adapter (`persistence/context-runtime.js`): user request → permission-filtered retrieval → deterministic recency ranking → relevant memories/assembled context. R3 suite 20/20; regression 559/559; read-only production check all-PASS. Zero writes; production untouched.**
 **To:** Next AI session
+
+---
+
+## MPI-3 STAGE R3 — ASSEMBLER ON THE REAL ADAPTER (2026-08-15) — PASS
+
+**Owner authorisation:** Stage R3 only — integrate, don't redesign; no second retrieval path; STOP on any contract conflict (none found).
+
+### What was built
+
+**`persistence/context-runtime.js`** (new; issues **no SQL of its own** — every database access is the R1 adapter's SELECTs; structurally hydration-free and write-free, test-asserted):
+- `retrieveRelevantMemory(client, q, {task, sessionId})` — the §19.4 SEAM-3 pattern completed: R1 adapter (permission filtering in WHERE **before** ranking · O-R1(b) refusal · bounded deterministic order) → the **unchanged** field mapping (loadMemoryStore's, extended with provenance/tags/reference) → the **unchanged** `assembler.retrieveRelevantMemory` (its existing scope gate, capability filter, and documented most-recent-first ranking). Node's stable sort preserves the adapter's deterministic order on timestamp ties, so the composed pipeline is deterministic end to end. Returns `{items, conflicts, diagnostics}` with layered retrieval+assembler diagnostics.
+- `assembleContext(client, q, input)` — the same load path feeding the assembler's unchanged `assemble()` (memory rows as key/value records; its classification rules apply exactly as written).
+- **No new ranking algorithm**; intent/entities are echoed in diagnostics, never silently consumed (the assembler's defined relevance input is `task`, passed through verbatim; memory rows carry no capability linkage, so a task filter admits them — the assembler's existing behaviour, preserved and test-documented).
+
+### Tests
+
+**R3 suite 20/20** (14 offline + 6 scratch-DB): integration + mapping · provenance preserved (reference + full records) · layered diagnostics · determinism incl. **timestamp-tie stability** · limit/permissions/O-R1(b) refusals inherited and proven pre-connection · scope filter shown landing in SQL WHERE · empty-result honesty · intent/entities echo-equivalence · task passthrough · D3 reference-only records · structural read-only assertion · end-to-end on real PG: tombstone invisible through the whole pipeline, recency ranking, cross-run determinism, confidence floor, temporal filter (with an in-range tombstoned row staying invisible), provenance on real rows.
+
+**Full regression once: 559 passed / 0 failed** (19 suites: 539 prior + R3 20).
+
+### Read-only production integration check (single authorised run, owner scope, limit 10)
+
+RETURNED 10/10 candidates · **DETERMINISM PASS** (identical order across two runs) · **SCOPE_SAFE PASS** (every item usr_othman/org_mythos) · **PROVENANCE PASS** (every item ≥1 record; doc-pointer references intact) · **NO_CONTENT PASS** (references only; nothing hydrated) · CONFLICTS 0 · layered diagnostics emitted · **TOMBSTONE_REFUSAL PASS** (O-R1(b) holds through the composition). Production identical after (36/8/36 rows, 0 tombstones, bucket 45 objects); zero writes.
+
+### Next stage
+
+MPI-3 core is complete (R1 adapter · R2 operator CLI · R3 assembler integration). Remaining, each separately authorised: **R4 conditional FTS** (only on §13's demonstrated-relevance-limit trigger) · further §24(5) batches · D4 (sole open decision, non-blocking) · MPI-4+ runtime work.
 
 ---
 
