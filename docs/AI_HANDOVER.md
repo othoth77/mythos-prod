@@ -1,8 +1,34 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** BATCH-2H-002 EXECUTED — **18 ratified-decision memories ingested under a complete §24(5) order (roadmap order-2). Production now holds 19 memories + 19 provenance rows; 19 content objects in the dedicated bucket; pre- and post-batch backups restore-proven with a full pair check (every restored reference resolves). Zero scope deviations.**
+**From:** BATCH-2H-003 EXECUTED — **9 owner working-preference memories ingested under a complete §24(5) order (roadmap order-1). Production: 28 memories + 28 provenance + 3 seed = 59 rows; 28 content objects + 7 restore-proven backups in the dedicated bucket; pair check 28/28. Zero scope deviations.**
 **To:** Next AI session
+
+---
+
+## MPI-2H BATCH-2H-003 (2026-08-15) — PASS
+
+**Owner authorisation:** complete §24(5) order approving verbatim the 9-item working-preferences proposal (Type-A `PREFERENCE`, `explicit_instruction`, `EXPLICIT`; every item anchored to an explicit owner statement — session orders or CLAUDE.md — with the qualifying quotation recorded at review; opaque `owner-orders:2026-08:*` source references for session-derived items, accepted at authorisation). Scope frozen by file hash `8b23fb35…ef6012`, executed file byte-identical.
+
+### Sequence (same-session)
+
+| Step | Result |
+|---|---|
+| Scope | 9 items · one batch ref · all field assertions pass · 9 unique ids |
+| Pre-batch backup | `20260815T014458Z` (109,575 B) → **C1==C2** `25469eb1…f497c2` → isolated restore exit 0 (memory=19, prov=19) → evidence bound `for_batch: batch-2h-003` |
+| Dry run | PASS 9/9 |
+| Execution | **ingested=9, replayed=0**, `verifyConsistency` ok — **28 references checked** |
+| Records | memory 28 total (9 batch-003) · provenance 28 (9 with batch ref) · guard 0 · tombstones 0 |
+| Post-batch pair (§26–§27) | `20260815T014609Z` (111,153 B) → **C1'==C2'** `3247aeec…b88bcb` → isolated restore exit 0 with **28+28+seed** → **pair check 28/28 restored references resolve to bucket objects** |
+| Safety | census 26 · `public` 24 / 2,551 unchanged · `mythos_intelligence` total **59 rows** (exact authorised delta) · no persistent `MPI_*` env vars · no Coolify/Supabase change · offhost bucket untouched · credentials 0 · scratch 0 · bucket final: **35 objects** = 28 content + 7 restore-proven backups |
+
+### Standing state
+
+The memory corpus now holds all three initial layers: 1 seed preference (001) · 18 constitution decisions (002) · 9 working preferences (003). Newest restore-proven backup `20260815T014609Z` — stale for any future batch (O-2H-6a). OPEN: O-2H-3 retention (now 35 objects) · D4 · events-ingestion extension before milestones.
+
+### Next stage
+
+Owner's choice: events-ingestion extension · retention decision · further batches · MPI-3+ work. Nothing proceeds without a separate instruction.
 
 ---
 
