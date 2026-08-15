@@ -1,8 +1,14 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** O-4-3 COMPLETE — **ratified (spec §5) and verified: the bridge was NOT rewritten; one hardening added (strict scope-object whitelist — metadata riding alongside identity is refused whole). Runtime suite 41/41; regression 621/621; live checks: owner pair accepted, wrong/mismatched identity exit 3, registry untouched. All three MPI-4 hosting-track decisions (O-4-1/2/3) now CLOSED.**
+**From:** O-4-1 DECISION-READY RECORD — **runtime spec §2.1: the exact 15-item egress inventory from the actual implementation (notable finding: content_reference strings and diagnostics would leave under the current package shape — strip candidates), the full sub-decision register, and five policy options with consequences. O-4-1 REMAINS DEFER — nothing was chosen, no provider contacted, zero egress. Stage was preceded by a baseline stop: an unpushed parallel-session commit (509b4f7, ntfy topic) was owner-confirmed and pushed before proceeding.**
 **To:** Next AI session
+
+---
+
+## O-4-1 DECISION-READY RECORD (2026-08-15) — ANALYSIS ONLY, DEFER STANDS
+
+**Record: `docs/MPI_4_RUNTIME_SPECIFICATION.md` §2.1.** Baseline gate worked as designed: the stage stopped on an unexpected local commit (`509b4f7`, another session's ntfy documentation, unpushed); the owner confirmed "push and proceed"; baseline restored, then the analysis ran. Key facts now formalized: **what would actually leave** (memory summaries, item keys, provenance references, permissions object, content-reference strings, diagnostics — with ids/references treated as linkable pseudonyms, not harmless opacity), **what cannot leave by construction** (content bodies, user/org ids), the A1–A5 + per-memory-class sub-decision register (all OWNER), the F14-C/retention interaction (provider-retained prompts are copies erasure cannot reach), and five policy options incl. the conservative recommendation (Option 1, continue offline). No web research was needed: the record asserts no provider facts; verification belongs to selection time under A1/A2. Implementation performed: **none** — M4-1/M4-2 untouched.
 
 ---
 

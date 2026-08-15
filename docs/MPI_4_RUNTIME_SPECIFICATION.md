@@ -31,7 +31,45 @@ Recorded exactly as provided, without reinterpretation or expansion:
 - D3 content remains local and must never be exported implicitly.
 - This decision does NOT authorize any external data transfer.
 
-**This is a current-state DEFER decision, not a permanent prohibition.** The full O-4-1 option analysis (A external provider · B self-hosted · C provider-selectable · D defer, with the A1–A5 sub-decisions) remains the historical/open alternative record — see the O-4-1 review in `docs/AI_HANDOVER.md` (2026-08-15). Revisiting O-4-1 is a new owner decision that must resolve, at minimum: provider+jurisdiction (A1), retention/training floor (A2), memory-class egress eligibility (A3), external identity handling (A4), and context budget (A5).
+**This is a current-state DEFER decision, not a permanent prohibition.** The full O-4-1 option analysis (A external provider · B self-hosted · C provider-selectable · D defer, with the A1–A5 sub-decisions) remains the historical/open alternative record — see the O-4-1 review in `docs/AI_HANDOVER.md` (2026-08-15). Revisiting O-4-1 is a new owner decision that must resolve, at minimum: provider+jurisdiction (A1), retention/training floor (A2), memory-class egress eligibility (A3), external identity handling (A4), and context budget (A5). **§2.1 below is the decision-ready record for that revisit.**
+
+### 2.1 Decision-ready record (2026-08-15) — analysis only; O-4-1 remains DEFER
+
+**Egress inventory — derived from the ACTUAL implementation** (runtime item mapping + compiler package shape + M4-1 CompletionRequest), stating what would leave the VPS if a real provider were enabled today, unmodified:
+
+| # | Data | Leaves VPS | Implemented today | Required for a provider | Policy decision required |
+|---|---|---|---|---|---|
+| 1 | User request (message) | YES | yes (CompletionRequest.userMessage) | yes | no (it is the point) |
+| 2 | Memory summaries (`content_summary`) | **YES** — item `value`s | yes | for memory-informed answers, yes | **YES — the core A3 decision** |
+| 3 | Required facts | YES (same items) | yes | yes | A3 |
+| 4 | Relevant preferences | YES when classified `user`-source | yes | optional | A3 |
+| 5 | Milestone info (PROJECT_STATE summaries) | YES if retrieved | yes | optional | A3 |
+| 6 | Provenance references (opaque `source_reference`) | **YES** — per item + in `_diagnostics.trimmed` | yes | no | **YES** (strip vs. keep) |
+| 7 | `user_id` | **NO** — not a package field | n/a | no | A4 confirms it stays out |
+| 8 | `organisation_id` | **NO** — not a package field | n/a | no | A4 |
+| 9 | Domain/project info | only if explicitly supplied (narrowing echoes into diagnostics flags, values not in package items) | partial | no | minor |
+| 10 | Intent | YES (`pkg.intent` = capability id) | yes | useful | no |
+| 11 | Entities | YES (`pkg.entities`) | yes (empty today) | optional | A3-adjacent |
+| 12 | Permissions object | **YES** (`pkg.permissions`) | yes | no | **YES** (strip candidate) |
+| 13 | `content_reference` strings | **YES — finding: the runtime item mapping includes `contentReference`**, so the sha256 URIs would leave (they reveal content hashes, not content) | yes | **no** | **YES — strip-before-egress is the obvious candidate, but that is an owner call** |
+| 14 | Content bodies (D3) | **NO — by construction** (no hydration into packages exists) | n/a | no | any change = new decision |
+| 15 | Diagnostics (`_diagnostics`: exclusions, conflicts, trim reasons w/ source references) | **YES** (inside the package) | yes | no | **YES** (strip candidate) |
+
+Caveat honoured: opaque memory ids (`mem:batch-2h-002:item-01` as item keys) and provenance references are **pseudonymous, linkable identifiers**, not anonymity — they leave under the current shape (rows 3/6) and their handling is part of A4/A3.
+
+**Sub-decision register (all OWNER decisions; none made here):** A1 provider+jurisdiction · A2 retention/training/logging floor (incl. abuse/safety retention, support access, provider-side + transport encryption — verify from official provider documentation at selection time, never from marketing) · A3 memory-class eligibility per class: PROTECTED (§8.1 — standing rule: forbidden until explicitly decided), `user_private`, DECISION, PREFERENCE, PROJECT_STATE/MILESTONE · A4 identity/pseudonym handling (ids stay out; item keys/references substituted or not) · A5 context budget (`approxBudget`/`maxItems` values). **F14 interaction:** a provider that retains prompts holds copies that tombstone-suppression can never reach — A2 is therefore load-bearing for the erasure policy's meaning, and must be decided with F14-C explicitly in view. **D1** unaffected (no third-party PII exists) · **D2** unaffected (pointers only) · **D3** protective (bodies stay home; row 13 is reference-string leakage only) · **D5** unaffected (storage-side).
+
+**Policy options for the eventual revisit (proposal only — nothing here is authoritative):**
+
+| Option | Consequence |
+|---|---|
+| **1. No external provider (continue offline)** | Status quo; zero egress; runtime remains a deterministic context inspector; zero new secrets/infrastructure/governance |
+| **2. External provider only under explicit contractual guarantees** | Requires A1+A2 resolved against **current official provider documentation** (no guarantee may be assumed); one owner-created key; rows 1–5,10 leave; rows 6,12,13,15 should be decided (strip candidates); F14 caveat applies to whatever the provider retains |
+| **3. External provider, selected memory classes only** | Option 2 plus A3 per-class allowlist enforced by the compiler's existing category/scope filters; smallest useful egress surface |
+| **4. External provider with redaction/pseudonymization** | Option 3 plus an egress-sanitization step (strip references/ids/diagnostics, substitute item keys) — **new implementation stage**; the M4-1 boundary is the natural enforcement point |
+| **5. Self-hosted model** | Zero egress with real capability; undocumented territory (new serving architecture, unassessed VPS resources); its own design stage |
+
+No provider was contacted, no account or key exists, no data left the VPS, and no provider facts were asserted (which is why no web research was performed — this record makes no claims requiring verification; verification belongs to the selection moment under A1/A2).
 
 **Consequences:** M4-2 and all further runtime work build exclusively against the offline mock. Zero-egress is an enforced property (structural tests), not a convention. The runtime carries no provider-selection surface until O-4-1 is re-decided.
 
