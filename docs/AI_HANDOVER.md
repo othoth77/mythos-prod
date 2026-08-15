@@ -1,9 +1,67 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** O-4-4 RATIFIED + IMPLEMENTED (COMPLETE, with one part explicitly not executed) — **the interim linking rule is removed. `runtime/relevance-router.js` decides memory→capability linkage from typed columns against a declared capability profile (whitelist of one, fail-closed), the UNCHANGED assembler classifies it, permission still precedes relevance, lexical overlap can never link (only tie-break), REQUIRED is gated by `state=active` + confidence ≥ HIGH (disputed can never be REQUIRED — D4 stays open), ranking follows the §7 precedence ladder, and a memory record can never declare its own relevance. Router suite 65/65; runtime 41/41; regression 721/721 across 23 suites (documented 656 baseline reproduced exactly + 65 new). Real egress: 0 — no live provider request; free ledger unchanged at 1/50. Production corpus verification NOT EXECUTED: the operator-injected `MPI_PG_*` env is absent from this session and this stage will not manufacture a credential.**
+**From:** INF-DNS-AUTO-1 — DNS SNAPSHOT, COMPARISON AND DRIFT DETECTION (COMPLETE) — **the Automation track's next stage, executed as a reference implementation exactly like its two predecessors. `projects/automation/reference/dns-comparison-engine.js` compares OVH / public DNS / Cloudflare record sets, analyses email and DNSSEC safety, and generates migration + rollback plans whose every step is `LEVEL_3_APPROVAL_REQUIRED` and never self-approvable; a `GATE_CHECK` rejects any plan that claims a level inconsistent with the approval matrix. Suite 85/85 (mutation-checked, 15/15 mutations caught). Full regression once: 81 suites executed, 4711 passed, 43 failed — all 43 in the 8 legacy `stage3*` browser suites and proven byte-identical at clean HEAD (pre-existing, unrelated). No live OVH/Cloudflare credential, no network call, no DNS record/zone/nameserver touched, nothing deployed. It does NOT unblock INF-CF-2 — `entry_gate_open` is structurally always false.**
+**Previously:** O-4-4 RATIFIED + IMPLEMENTED (COMPLETE, with one part explicitly not executed) — **the interim linking rule is removed. `runtime/relevance-router.js` decides memory→capability linkage from typed columns against a declared capability profile (whitelist of one, fail-closed), the UNCHANGED assembler classifies it, permission still precedes relevance, lexical overlap can never link (only tie-break), REQUIRED is gated by `state=active` + confidence ≥ HIGH (disputed can never be REQUIRED — D4 stays open), ranking follows the §7 precedence ladder, and a memory record can never declare its own relevance. Router suite 65/65; runtime 41/41; regression 721/721 across 23 suites (documented 656 baseline reproduced exactly + 65 new). Real egress: 0 — no live provider request; free ledger unchanged at 1/50. Production corpus verification NOT EXECUTED: the operator-injected `MPI_PG_*` env is absent from this session and this stage will not manufacture a credential.**
 **Previously:** O-4-1 AMENDED + IMPLEMENTED + PHASE 11 EXECUTED (COMPLETE) — **limited free egress ratified (spec §2.2): OpenRouter, exactly `nvidia/nemotron-3-ultra-550b-a55b:free` (selected after fresh catalog verification: 16 :free models, 0 DeepSeek — the DeepSeek order correctly stopped). Free-only structural (pinned constant, allow_fallbacks:false, max_price 0/0, response-model verification), minimal egress serializer (summaries+intent+message only — keys/references/permissions/diagnostics stripped), honest ESTIMATED-LOCAL counter (50/day UTC), quota-gate-before-activation. Suites 35+41+21; regression 656/656. PHASE 11 (the ONE real request) executed 2026-08-15: `ok=true`, ratified model verified, ledger 1/50, production safety check clean (36/8/36/0/0 rows, zero writes). Real egress: 1.**
 **To:** Next AI session
+
+---
+
+## INF-DNS-AUTO-1 — DNS COMPARISON, SAFETY ANALYSIS AND PLAN GENERATION (2026-08-15) — COMPLETE, PUSHED
+
+### Why this stage
+
+O-4-4 closed the MPI-4 track, and **every remaining Personal Intelligence item is an owner decision, not a ratified stage** (corpus verification, multi-user bridge, D4, a `SkillPlan` composer). Stage selection was therefore derived from the repository, not assumed: Mythos OS Runtime — "no further stage is currently authorized"; ID Auto — IDA-2E BLOCKED, IDA-3F BLOCKED/DEFERRED by standing owner decision with 3G/3H/3I gated behind it; ATN-1 / AVA-1 / MAE-1 — blocked on IDA-2; RES-1 — "NOT STARTED, **NOT AUTHORISED**"; DEVX-2 — "not yet specified beyond a title". **`docs/AUTOMATION_ROADMAP.md` §3 and `docs/ROADMAP.md` "Current Priority" item 6 both name INF-DNS-AUTO-1 as "the next Automation implementation stage — it has not started"**, with a defined scope and no blocking gate. `git log --all | grep -i INF-DNS-AUTO-1` returned zero matches, confirming it genuinely had not started.
+
+### Contract recovered (not invented)
+
+`LEVEL_1_READ_ONLY` / `LEVEL_2_RECOMMEND`; scope = OVH vs public DNS vs Cloudflare comparison · email safety · DNSSEC safety · migration and rollback plan generation; *"this is where the record-by-record comparison required by `CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` criterion 8 becomes automatable — **the comparison itself, not the resulting migration**."* Governing constraints came from `AUTOMATION_ARCHITECTURE.md` §2/§3/§5/§6 (levels, lifecycle, connector model, rollback), `AUTOMATION_APPROVAL_MATRIX.md` §2 items 1–3 + §4 ("a `GATE_CHECK` step must reject a mismatch"), `CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` (all 15 criteria), `CLOUDFLARE_DNS_MIGRATION_MATRIX.md` (mode/action legends), and `CLOUDFLARE_DEPLOYMENT_CHECKLIST.md` INF-CF-5/6 (DS sequencing, prohibited rollbacks).
+
+### Built
+
+| Piece | Content |
+|---|---|
+| `projects/automation/reference/dns-comparison-engine.js` (new) | **Comparison** with formatting-vs-drift normalisation; `NOT_COMPARABLE` for NS/SOA (a provider-assigned difference during migration is not drift — a fabricated alarm is not a finding); `SOURCE_ABSENT` so an unbuilt Cloudflare zone never reads as "every record is missing"; mail-record discrepancies escalate to `CRITICAL` · **Email safety**: MX/SPF/DKIM/DMARC, multiple-SPF detection, `DKIM_UNVERIFIED` reported as UNKNOWN rather than "absent", and `MAIL_RECORD_PROXY_UNSAFE` when a mail record is classified `PROXIED` · **DNSSEC safety**: `UNKNOWN` is `HIGH` and never defaults to disabled; DS sequencing demanded whenever enabled + nameserver change planned; enabled-with-no-DS flagged as inconsistent · **Plan generation**: DS removal **before** cutover, DS re-publication **after**; every step `LEVEL_3_APPROVAL_REQUIRED`, `requires_approval: true`, `allow_self_approval: false`, permanent-boundary kinds declared; unconfirmed records produce `BLOCKED` steps naming their gate · **Rollback**: never `is_automatic_eligible`, names the concrete restore value or is honestly `restorable: false`, and refuses prohibited kinds (TLS downgrade, unproxying an administrative hostname, Access removal, port reopening) · **`GATE_CHECK`** rejecting self-authorisation, level mismatch, missing approval, self-approval, undeclared boundary, unknown step kind · **Entry criteria**: 8 and 9 computed; everything owner-dependent permanently `REQUIRES_OWNER_ACTION`; `entry_gate_open` structurally always `false` · `require`s **nothing** but the shared connector helper |
+| `projects/meta/test-impact-map.json` | new suite wired into the `projects/automation/` rule and into `projects/infrastructure/cloudflare/` (the engine consumes `domain-inventory.json`, so a change there must now select it) |
+
+**Deliberately NOT built:** any execution, scheduling or approval · any live provider client · `SkillPlan`-style multi-stage orchestration · any change to a DNS record, zone or nameserver · any deployment · any modification to the two existing connectors or the shared helper.
+
+### Tests
+
+**`tests/inf-dns-auto-1-comparison-test.js` — 85/85.** Eleven sections: normalisation (formatting is not drift) · comparison (real drift found; expected NS/SOA difference not invented; single-source honesty) · email safety (healthy vs broken; UNKNOWN-vs-absent; proxied-mail `CRITICAL`) · DNSSEC (criteria 5 and 6; unsupplied state defaults to UNKNOWN, never DISABLED) · plan generation (ordering, levels, blocked steps, determinism) · **`GATE_CHECK` negative cases — a nameserver step forged to `LEVEL_4` is rejected, as are self-approval, dropped approval, denied boundary, self-authorisation and unknown step kinds** · rollback (inverse order, restorability honesty, prohibited kinds) · entry criteria (gate reported closed even when every computable criterion passes) · **real INF-CF-1 data** (the committed 8-domain inventory: agribee.tn reproduces MX-present/SPF-hardfail/DMARC-absent, ssangyong.autos is DNSSEC-enabled so DS sequencing is demanded) · run orchestration (fail-closed, read-only, terminates before APPROVAL, byte-identical repeat) · schema shape and structural boundaries.
+
+**Anti-green-test check (mutation, all reverted): 15 mutations applied, 15 caught.** One assertion was found genuinely vacuous during this check — emptying `OWNER_ACTION_CRITERIA` made an `.every()` trivially true — and was rewritten to name criteria 2/11/12/13 explicitly; re-mutation then produced 2 failures. Recorded because it is exactly the failure mode the order forbids.
+
+**Full regression once: 81 suites executed, 4711 passed, 43 failed, 0 skipped; 13 suites env-blocked.** MPI subset 24 suites / 845 passed / 0 failed (fresh scratch PostgreSQL 15.19, `--network none`, tmpfs, per-suite fresh databases; 2B/2C schema pre-applied). Automation track all green: shared helpers 40 · OVH 26 · Cloudflare 26 · **DNS 85** · DEVX-0 45 · DEVX-1 92.
+
+**The 43 failures are pre-existing and unrelated — proven, not assumed.** All are in the eight legacy `stage3*` browser-runtime suites (`js/app.js` track, untouched by this stage). A clean `git worktree` at `45e6b55` produced **byte-identical** counts for all eight (149/152, 79/83, 81/86, 104/110, 76/83, 83/91, 116/125, 85/86). The 13 env-blocked suites are likewise pre-existing and identical at clean HEAD: 9 ID Auto suites requiring live `IDAUTO_DB_*` + media path, and 4 legacy browser suites failing on `_memCache is not defined` / `document.addEventListener is not a function` — the documented legacy DOM-harness pattern, not a novel failure. **Harness note for whoever runs this next:** the MPI database suites require a *fresh* database each; running the full suite twice against the same scratch container makes the second pass report false failures. The first pass here did exactly that and was discarded; the reported numbers come from a single run against freshly created databases.
+
+### Production verification (the only actions this stage authorises)
+
+The contract authorises **no** production action — a live DNS, OVH or Cloudflare call would violate it. Verified read-only instead: **0** OVH/Cloudflare credentials anywhere on the host or in the repo · all **18** catalogue connectors still `enabled: false` · the engine has **0** network/filesystem/database/environment capability (structural test) · **0** DNS records, zones or nameservers created, changed or deleted · no file under `projects/infrastructure/` or `deploy/` modified · container census **26** unchanged · scratch container and temporary harness files removed (0 remain) · no Coolify, Supabase, R2 or PostgreSQL production change.
+
+### Stage record (observed values only)
+
+| Field | Value |
+|---|---|
+| COMMIT | `PENDING_COMMIT` |
+| REMOTE HEAD | `PENDING_PUSH` |
+| WORKING TREE | clean |
+| TARGETED TESTS | DNS 85/85 · shared helpers 40/40 · OVH 26/26 · Cloudflare 26/26 · DEVX-1 92/92 — 0 failed |
+| FULL REGRESSION | 81 suites executed / 4711 passed / 43 failed (all pre-existing legacy `stage3*`, byte-identical at clean HEAD) / 0 skipped / 13 env-blocked |
+| REAL EGRESS | 0 |
+| LIVE PROVIDER REQUESTS | 0 (OpenRouter free ledger unchanged at 1/50 — untouched by this stage) |
+| DNS CHANGES | 0 |
+| CREDENTIALS CREATED | 0 |
+| POSTGRES WRITES | 0 (production); scratch only, removed |
+| R2 WRITES | 0 |
+| COOLIFY MODIFIED | no |
+| SUPABASE MODIFIED | no |
+
+### Next stage
+
+**INF-DNS-AUTO-2 — Approved DNS Operations** is the next Automation stage and has not started. It **requires its own explicit authorisation**: it is `LEVEL_3_APPROVAL_REQUIRED` only, one domain at a time, and it is the first Automation stage that would actually execute a DNS operation. Introducing it still does not unblock INF-CF-2, whose per-domain entry criteria remain the owner's. Every other track is unchanged: MPI awaits owner decisions; IDA-2E/IDA-3F remain blocked; ATN-1/AVA-1/MAE-1 remain gated on IDA-2; RES-1 remains unauthorised; DEVX-2 remains unspecified. Nothing proceeds without a separate owner order.
 
 ---
 

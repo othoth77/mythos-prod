@@ -285,14 +285,17 @@
       "targeted_tests": [
         "node tests/aut-connector-shared-helpers-0-test.js",
         "node tests/inf-ovh-api-0-connector-test.js",
-        "node tests/inf-cf-auto-0-connector-test.js"
+        "node tests/inf-cf-auto-0-connector-test.js",
+        "node tests/inf-dns-auto-1-comparison-test.js"
       ],
       "risk_lane": "STANDARD"
     },
     {
       "path_prefix": "projects/infrastructure/cloudflare/",
       "track": "infrastructure-cloudflare",
-      "targeted_tests": [],
+      "targeted_tests": [
+        "node tests/inf-dns-auto-1-comparison-test.js"
+      ],
       "risk_lane": "HIGH_RISK",
       "notes": "DNS/edge security. HIGH_RISK per projects/meta/development-lanes.json regardless of file size."
     },

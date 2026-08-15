@@ -15,7 +15,7 @@ This is the stage sequence for Mythos Automation & Operations (`mythos_automatio
 | AUT-0 | Automation-First Master Foundation — principles, Mythos Control Center spec, architecture, governance, approval matrix, security/secrets policy, operations runbook, draft control-plane schema | ✓ Current documentation stage |
 | INF-OVH-API-0 | OVH Read-Only Connector | ✓ Done — mocked reference implementation + 26-test suite, on `feat/inf-ovh-api-0-readonly-connector`. **No live OVH credential exists; not deployed; not connected to a live provider.** |
 | INF-CF-AUTO-0 | Cloudflare Read-Only Connector | ✓ Done — mocked reference implementation + 26-test suite, on `feat/inf-cf-auto-0-readonly-connector`. **No live Cloudflare credential exists; not deployed; not connected to a live provider.** |
-| INF-DNS-AUTO-1 | DNS Snapshot, Comparison and Drift Detection | Planned |
+| INF-DNS-AUTO-1 | DNS Snapshot, Comparison and Drift Detection | ✓ Done (2026-08-15) — mocked reference implementation + 85-test suite (`projects/automation/reference/dns-comparison-engine.js`, `tests/inf-dns-auto-1-comparison-test.js`). **No live OVH or Cloudflare credential exists; no network call; not deployed; no DNS record, zone or nameserver touched.** Comparison and analysis only — this stage does not perform, schedule or pre-authorise migration, and does not unblock INF-CF-2. |
 | INF-DNS-AUTO-2 | Approved DNS Operations | Planned |
 | INF-DEPLOY-AUTO-0 | GitHub to Coolify Delivery Foundation | Planned |
 | INF-BACKUP-AUTO-0 | Automated Backup and Restore Verification | Planned |
@@ -67,6 +67,17 @@ Implemented as `projects/automation/reference/cloudflare-readonly-connector.js` 
 
 This is where the record-by-record comparison required by `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md` criterion 8 becomes automatable — the comparison itself, not the resulting migration.
 
+**Implemented (2026-08-15) as `projects/automation/reference/dns-comparison-engine.js`** — same posture as the two connectors above: in-memory, offline, injected inputs, no live credential, no network call, not deployed. What it does:
+
+- **Comparison** across OVH / public DNS / Cloudflare with normalisation (trailing dot, case, whitespace are formatting, not drift), `MATCH` / `VALUE_MISMATCH` / `MISSING_IN_SOURCE` verdicts, `NOT_COMPARABLE` for NS/SOA (a provider-assigned difference is not drift), and `SOURCE_ABSENT` for a source that was never supplied — an unbuilt Cloudflare zone never reads as "every record is missing".
+- **Email safety**: MX / SPF (absent, multiple, soft/hardfail) / DKIM (`UNKNOWN` is reported as unknown, never as absent) / DMARC, plus a `CRITICAL` finding when a mail-bearing record is classified `PROXIED` — mail records must stay `DNS_ONLY`.
+- **DNSSEC safety**: criterion 5 (state verified; `UNKNOWN` is `HIGH`, never defaulted to disabled) and criterion 6 (DS sequencing required whenever DNSSEC is enabled and a nameserver change is planned).
+- **Migration and rollback plan generation** (`LEVEL_2_RECOMMEND`): DS removal is sequenced **before** the nameserver cutover and DS re-publication **after** it, per `docs/CLOUDFLARE_DEPLOYMENT_CHECKLIST.md`. Every step declares `LEVEL_3_APPROVAL_REQUIRED`, `allow_self_approval: false`, and — for nameserver / DNSSEC-DS / record-deletion steps — `is_permanent_boundary: true` (`docs/AUTOMATION_APPROVAL_MATRIX.md` §2 items 1–3). Rollback is never `is_automatic_eligible`, names the concrete pre-migration value it restores to (or is honestly marked unrestorable), and refuses to emit a prohibited step kind (TLS downgrade, unproxying an administrative hostname, Access removal, unconditional port reopening).
+- **`GATE_CHECK`** that rejects any plan claiming to authorise its own execution, any step whose automation level is inconsistent with the approval matrix, and any unrecognised step kind (fail closed).
+- **Entry-criteria reporting** for criteria 8 and 9 only. Every criterion requiring owner action, authoritative-provider evidence, or an origin-side fix is permanently `REQUIRES_OWNER_ACTION`, and `entry_gate_open` is structurally always `false` — **software cannot open the INF-CF-2 gate.**
+
+**Not in this stage:** any execution, scheduling, or approval; any live provider client; any change to a DNS record, zone, or nameserver; any deployment. Those belong to INF-DNS-AUTO-2 and to INF-CF-2's own entry criteria.
+
 ### INF-DNS-AUTO-2 — Approved DNS Operations
 
 `LEVEL_3_APPROVAL_REQUIRED` only. Scope:
@@ -102,7 +113,7 @@ Operator and customer-facing notification/report automation, built on the `aut_n
 ## 3. Permanent Sequencing Rules
 
 - **AUT-0 is documentation only.**
-- **INF-OVH-API-0 and INF-CF-AUTO-0 are both complete as reference implementations** — read-only connector orchestration logic and tests only, no live OVH or Cloudflare credential, no live network call, not deployed. **INF-DNS-AUTO-1 is the next Automation implementation stage** — it has not started.
+- **INF-OVH-API-0, INF-CF-AUTO-0 and INF-DNS-AUTO-1 are all complete as reference implementations** — read-only connector orchestration, comparison/analysis/plan-generation logic and tests only, no live OVH or Cloudflare credential, no live network call, not deployed. **INF-DNS-AUTO-2 is the next Automation implementation stage** — it has not started, and it requires its own authorisation because it is the first Automation stage that would execute a `LEVEL_3_APPROVAL_REQUIRED` DNS operation.
 - **INF-CF-2 remains blocked** until authoritative data and approvals exist, per `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md`. Nothing in the Automation track changes this.
 - **Mythos OS Runtime is complete through Stage 4AG + RUNTIME-DUPLICATE-CLEANUP-0** (corrected 2026-08-10, `MYTHOS-STAGE-RECONCILIATION-0` — this line originally said "Stage 3E remains the next Mythos OS runtime stage," stale since Stage 3E had already been complete since 2026-07-30; see `docs/ROADMAP.md`). No further Mythos OS Runtime stage is currently authorised.
 - **IDA-2 is IN PROGRESS** — Phase A (schema + plate validation, no live database) complete 2026-08-10; Phase B not started, requires separate authorization.
@@ -114,4 +125,4 @@ No stage in this document may be marked started by a later stage's documentation
 
 ## 4. Status
 
-INF-OVH-API-0 and INF-CF-AUTO-0 are both complete as mocked reference implementations (`projects/automation/reference/ovh-readonly-connector.js` + `tests/inf-ovh-api-0-connector-test.js`; `projects/automation/reference/cloudflare-readonly-connector.js` + `tests/inf-cf-auto-0-connector-test.js`) — both structurally read-only (a client exposing any mutation-shaped method is rejected before any collection runs), both refuse to run unless explicitly enabled, and both redact identifying PII before any snapshot record is produced. No live OVH or Cloudflare credential has been created, requested, or stored anywhere. No live network call has been made. No stage from INF-DNS-AUTO-1 onward has been started, implemented, or deployed.
+INF-OVH-API-0 and INF-CF-AUTO-0 are both complete as mocked reference implementations (`projects/automation/reference/ovh-readonly-connector.js` + `tests/inf-ovh-api-0-connector-test.js`; `projects/automation/reference/cloudflare-readonly-connector.js` + `tests/inf-cf-auto-0-connector-test.js`) — both structurally read-only (a client exposing any mutation-shaped method is rejected before any collection runs), both refuse to run unless explicitly enabled, and both redact identifying PII before any snapshot record is produced. **INF-DNS-AUTO-1 is likewise complete as a reference implementation** (`projects/automation/reference/dns-comparison-engine.js` + `tests/inf-dns-auto-1-comparison-test.js`, 85 tests) — it consumes data it is given, holds any injected client to the same structural read-only rule, and `require`s nothing but the shared connector helper, so it has no filesystem, network, database or credential capability at all. No live OVH or Cloudflare credential has been created, requested, or stored anywhere. No live network call has been made. **No DNS record, zone, or nameserver has been created, changed, or deleted.** No stage from INF-DNS-AUTO-2 onward has been started, implemented, or deployed.
