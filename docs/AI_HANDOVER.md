@@ -1,8 +1,40 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** O-4-1 RATIFIED AS DEFER — **verbatim record in the new `docs/MPI_4_RUNTIME_SPECIFICATION.md` §2: no personal memory leaves the VPS; the offline mock remains the only active provider; every real-provider sub-decision (A1–A5) stays OPEN; PROTECTED-memory egress forbidden until decided. Not a permanent prohibition — a current-state DEFER. M4-2 authorised to proceed offline-only.**
+**From:** M4-2 COMPLETE — **the offline operator runtime exists end to end: request → owner identity bridge (fail-closed) → R3 → ContextPackage → M4-1 adapter → offline mock → deterministic response. Live read-only check over the real 36-memory corpus all-PASS. No egress surface exists structurally. Runtime suite 23/23; regression 603/603; production writes 0.**
 **To:** Next AI session
+
+---
+
+## MPI-4 M4-2 — OFFLINE RUNTIME COMPOSITION (2026-08-15) — PASS
+
+**Owner authorisation:** the 12-phase O-4-1+M4-2 order. Phase 1 (O-4-1 DEFER ratification, spec §2) was committed separately (`3c48499`). This entry records phases 2–12.
+
+### What was built — composition only, all existing components, nothing bypassed
+
+| Piece | Content |
+|---|---|
+| `runtime/identity-bridge.js` | The minimum explicit owner-declared bridge: a whitelist of exactly the owner-ratified scope (`usr_othman`/`org_mythos`). Fail-closed; identity must arrive as explicit input; the module has **no capability** to read env/filesystem/network/session/IP/hostname. Extending it is owner decision O-4-3. The legacy app's shared-password session is not consulted and is not claimed to be an identity system. |
+| `runtime/mpi-runtime.js` | The smallest provider-neutral runtime: bridge → R3 (`context-runtime`, the real §10 path — permission-before-ranking, O-R1(b), bounded, deterministic) → unchanged `assembler.assemble` → unchanged `compiler.compile` (bounded, trim-with-reasons) → M4-1 adapter → injected provider. No second retrieval path, no SQL, no hydration, no writes. **Interim O-4-4 linking rule disclosed in every response**: ranked memories link as USEFUL to the operator-declared task pending the real skill/intent router — a documented composition choice, not a relevance judgment. |
+| `cli/mpi-runtime-cli.js` | Operator-run local entry point (Phase 10), analogous to the existing CLIs: not deployed, not a service, not scheduled, ingestion off, **the offline mock hard-wired — no flag, argument, or env var can select another provider**. |
+
+### Tests
+
+**Runtime suite `tests/mpi-4-runtime-test.js`: 23/23**, covering all 22 ordered areas: bridge (valid owner scope · missing user/org · undeclared scope refused · single-mapping assertion) · empty request refused · deterministic mock response, repeated-identical-request byte-equality · package validation + trim-reason diagnostics · disclosed linking rule · bounded context (limit required; maxItems trims) · O-R1(b) through the runtime · permission filtering end-to-end · D3 (reference present, no content body anywhere in a response) · empty-memory determinism · provider failure fail-closed · disputed-only-on-request with conflicts surfaced unresolved · provenance requirement default · **no-egress structural proofs** (no network/DNS/process capability, no credential env reads, no endpoint config, no provider-selection surface, no ingestion/SQL-write/content-store linkage across every runtime module and the CLI). Two always-true placeholder assertions in the draft suite were removed before the first run — no test was ever reported green without executing.
+
+**Full regression once: 603 passed / 0 failed** (21 suites: 580 prior + M4-2 23).
+
+### Read-only production verification (Phase 9, owner scope, offline mock only)
+
+Two identical runs over the real corpus (limit 12, maxItems 8): context constructed — 12 retrieved of 36, trimmed to **facts=8** with four recorded `maxItems` trim reasons (opaque source references only) · **responses byte-identical across runs** · scope safe (owner only; `usr_someone` refused `IDENTITY_SCOPE_NOT_DECLARED`, exit 3) · permissions respected (`requireProvenance: true`, states `['active']`) · conflicts 0, surfaced not resolved · **no content body anywhere in any output** (counts + hash only) · **production writes 0** (36/8/36 rows, 0 tombstones, 0 guard rows, bucket 45 objects, no `MPI_*` env var in any container — all verified after).
+
+### Safety totals for the stage
+
+Data egressed **0** · personal memory exported **0** · Postgres writes **0** · R2 writes **0** · Coolify **0** · Supabase **0** · ingestion **OFF** · no credentials, keys, or provider modules exist anywhere in the runtime surface.
+
+### Next stage
+
+MPI-4 offline runtime is complete. Open decisions: **O-4-1 sub-decisions A1–A5** (before any real provider) · **O-4-2** (deployed-runtime hosting) · **O-4-3** (general identity bridge) · **O-4-4** (memory→capability router) · D4. Nothing proceeds without a separate owner order.
 
 ---
 
