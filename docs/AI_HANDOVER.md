@@ -59,8 +59,8 @@ Read-only only; the contract authorises no production action while the gates are
 | Field | Value |
 |---|---|
 | STATUS | PARTIAL — implementation and tests complete; **owner action required** for any real operation |
-| COMMIT | `PENDING_COMMIT` |
-| REMOTE HEAD | `PENDING_PUSH` |
+| COMMIT | `6b49c29636941ea266fec9718dab4e8304b61da7` |
+| REMOTE HEAD | `6b49c29636941ea266fec9718dab4e8304b61da7` (`origin/main`, verified after `git fetch`) |
 | WORKING TREE | clean |
 | APPROVAL | **NONE** — 0 of 40 gate fields are `APPROVED_FOR_MIGRATION`; none simulated or written |
 | DNS OPERATIONS | 0 |
