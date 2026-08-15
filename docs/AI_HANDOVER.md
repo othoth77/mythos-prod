@@ -1,8 +1,34 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** MPI-3 STAGE R3 COMPLETE — **the UNCHANGED reference context-assembler now runs on the real §10 adapter (`persistence/context-runtime.js`): user request → permission-filtered retrieval → deterministic recency ranking → relevant memories/assembled context. R3 suite 20/20; regression 559/559; read-only production check all-PASS. Zero writes; production untouched.**
+**From:** MPI-4 M4-1 COMPLETE — **the provider-neutral adapter contract and a deterministic OFFLINE mock provider exist (`runtime/provider-adapter.js`, `runtime/mock-provider.js`). The full offline chain runs: request → R3 → AssemblyResult → ContextPackage → adapter → mock. Zero network/database/R2 capability in the runtime modules, structurally asserted. M4-1 suite 21/21; regression 580/580. No provider selected (O-4-1 untouched); nothing deployed.**
 **To:** Next AI session
+
+---
+
+## MPI-4 M4-1 — PROVIDER ADAPTER CONTRACT + OFFLINE MOCK (2026-08-15) — PASS
+
+**Owner authorisation:** M4-1 only — the one MPI-4 piece buildable before O-4-1/2/3. No provider selected, no identity bridge, no deployment, no production check, no egress of any kind.
+
+### What was built — new `projects/personal-intelligence/runtime/` (two modules)
+
+**`provider-adapter.js`** — the boundary MODEL_ROUTING/§5 define, as contract + normalisation: re-validates every ContextPackage via the compiler's `validatePackage` **before anything reaches a provider** (provider-specific fields and credential/sensitive-named fields are refused there — a leaky package cannot cross); builds the provider-neutral CompletionRequest; **conflicts pass through unresolved and are surfaced as `unresolvedConflicts`** (D4 untouched — no automatic resolution exists on this path); provider failure and malformed responses are fail-closed (`ok:false`, never a fabricated completion). Performs no I/O of any kind itself.
+
+**`mock-provider.js`** — deterministic, non-generative, fully offline: the response is a pure function of the request (shape counts + canonical SHA-256), requiring only `crypto`; failure injection exists solely for the failure tests. Nothing it returns can be mistaken for model output.
+
+### Tests — `tests/mpi-4-provider-adapter-test.js`: 21/21
+
+The full offline chain exercised with the real R3/assembler/compiler modules over a fake client (the memory→capability linking is performed **by the test as a labelled stand-in for the unbuilt skill/intent router** — an honest gap, not hidden): chain determinism (byte-identical output twice; different input differs) · provenance into the package · permission filtering through assembly+compilation · O-R1(b) and identity/limit refusals fire before any package exists · compiler `maxItems` bounding with recorded trim reasons · empty-context determinism · **conflicting values both travel, `unresolvedConflicts=1`, nothing resolved** · adapter contract refusals (invalid provider, malformed package, sensitive-named field, provider-specific field, empty message) · provider failure + malformed response fail-closed · **structural isolation: no network/process, no PostgreSQL linkage or SQL, no content-store/R2 linkage in either runtime module**.
+
+**Full regression once: 580 passed / 0 failed** (20 suites: 559 prior + M4-1 21).
+
+### Safety
+
+Production untouched (memory=36, events=8; bucket 45 objects — verified) · Postgres writes 0 · R2 writes 0 · Coolify/Supabase 0 · no env vars, no secrets, no provider SDKs installed.
+
+### Next stage
+
+**O-4-1 (LLM provider + memory egress — the heavy decision) · O-4-2 (surface/hosting) · O-4-3 (identity bridge)** — then M4-2 (runtime composition, read-only, ingestion off). Also open: capability-linking policy for memory items (router work, surfaced by the M4-1 tests). D4 unchanged, non-blocking.
 
 ---
 
