@@ -1,8 +1,38 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** MEMORY INGESTION PLANNING — **read-only inventory complete; proposed roadmap at `docs/MPI_MEMORY_INGESTION_ROADMAP.md` (PROPOSED — authorises nothing). Best next batch: 5–10 owner-typed working preferences. Two technical gaps named (events ingestion, knowledge-source registry). Zero data touched.**
+**From:** BATCH-2H-002 EXECUTED — **18 ratified-decision memories ingested under a complete §24(5) order (roadmap order-2). Production now holds 19 memories + 19 provenance rows; 19 content objects in the dedicated bucket; pre- and post-batch backups restore-proven with a full pair check (every restored reference resolves). Zero scope deviations.**
 **To:** Next AI session
+
+---
+
+## MPI-2H BATCH-2H-002 (2026-08-15) — PASS
+
+**Owner authorisation:** complete §24(5) order approving **verbatim** the 18-item proposal built from the ingestion roadmap (order-2: ratified decisions as Type-F `DECISION` memories, `explicit_instruction`, `EXPLICIT` confidence, doc-pointer `source_reference`s). Scope frozen by file hash `d82faddc…f7540` — the executed file was byte-identical to the reviewed one.
+
+### Sequence (all same-session)
+
+| Step | Result |
+|---|---|
+| Scope verification | 18 items · one batch ref · all field assertions pass · 18 unique record ids |
+| Pre-batch backup | dump `20260815T013232Z` (106,554 B) → **C1==C2** `0707a053…7b46dd` → isolated restore exit 0 (21 tables, memory=1, seed intact) → evidence bound `for_batch: batch-2h-002` |
+| Dry run | PASS (18/18, no side effects) |
+| Gates | D1 (no PII fields exist, contacts refused by validation) · D2 (`pi_entity_references` = 0, structural whitelist) · D3 (content via store) · D5 (bucket asserted) · F14 policy in force · activation health inside the CLI |
+| Execution | one CLI invocation: **ingested=18, replayed=0**, `verifyConsistency` ok — **19 references checked** (18 new + batch-001) |
+| Records | memory 19 total (18 batch-002) · provenance 19 (18 with `import_batch_ref=batch-2h-002`) · all `active` · types `DECISION`+`PREFERENCE` · guard 0 · tombstones 0 · 19 content references |
+| Post-batch pair backup (§26–§27) | dump `20260815T013413Z` (109,575 B) → **C1'==C2'** `9ba838f7…8a4a700` → isolated restore exit 0 with **19 memory + 19 provenance + seed** → **pair check: all 19 restored references resolve to bucket objects** |
+| Production safety | census 26 identical · `public` 24 / 2,551 unchanged · `mythos_intelligence` total **41 rows** (3 seed + 19 + 19 — exactly the authorised delta) · no persistent `MPI_*` env var · no Coolify/Supabase change · offhost bucket untouched · credentials 0 |
+| Cleanup | scratch containers/volumes 0 · local dumps/staging removed · bucket final: **24 objects** = 19 content + 5 restore-proven backups (MPI-2G · 001-pre · 001-post · 002-pre · 002-post) |
+
+**Memory content note:** the 18 decision texts live in MPI (rows ≤512-char summaries + R2 content objects); they are distillations of decisions whose authoritative sources remain the cited docs — no document was copied, Git remains the source of truth (item 18 itself records that rule).
+
+### Standing state
+
+Newest restore-proven backup: `20260815T013413Z` — **stale for any future batch per O-2H-6a** (same-session required). Next batch requires a fresh §24(5) order. OPEN: O-2H-3 retention (keep-everything, now covering 24 objects) · D4 · roadmap order-1 (owner-typed working preferences — items must be owner-authored) · events-ingestion extension before any milestone batch.
+
+### Next stage
+
+Owner's choice: batch-2h-003 (working preferences, owner-supplied) · events-ingestion extension · retention decision · MPI-3+ work. Nothing proceeds without a separate instruction.
 
 ---
 
