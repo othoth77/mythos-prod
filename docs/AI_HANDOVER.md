@@ -1,8 +1,53 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** MPI-2H FIRST REAL BATCH — **`batch-2h-001-20260814` executed under a complete §24(5) owner order: 1 memory + 1 provenance row live on production, content in the dedicated R2 bucket by D3 reference, pre- and post-batch backups restore-proven, C1==C2 on all parts. MPI-2H is operational.**
+**From:** F14 ERASURE DESIGN REVIEW — **read-only review complete now that real data exists. Tombstone lifecycle is sufficient as suppression for the current owner-only item; true erasure is not yet mechanically possible and needs one structured owner decision (F14-A…D below). No code change required by any authoritative source at this stage; production untouched.**
 **To:** Next AI session
+
+---
+
+## F14 ERASURE DESIGN REVIEW (2026-08-15) — READ-ONLY, PASS (DOCUMENTATION-ONLY)
+
+**Scope:** determine what F14 requires now that `batch-2h-001-20260814` put real first-party data in production. Sources: `MPI_FORENSIC_AUDIT.md` F14, architecture §12.1 (D1 note) + §20.10, spec §18/§22/§31, memory policy §7, live schema, `lifecycles.js`, `content-store.js`, `ingestion.js`. Nothing was modified, deleted, or ingested.
+
+### 1. What F14 currently requires — verified against the live production schema (byte-exact with the forensic audit)
+
+| Object | Current erasure reality |
+|---|---|
+| Memory records | Deletion = tombstone + `state='tombstoned'` (§4.4, atomic, proven). The row **retains** `content_summary` and `content_reference` — tombstoning is retrieval suppression, not content removal. `pi_memory_records → pi_users` is **RESTRICT**: a user holding any memory cannot be deleted. |
+| Provenance | Immutable (F7 append-only), FK to memory intentionally absent — designed to outlive its subject. No erasure path exists or is permitted without governance amendment. |
+| Audit (preference audit, guard decisions) | Append-only by ratified spec: "no UPDATE or DELETE path … without a separate, explicit governance amendment." Correct per F2 — audit must survive erasure. |
+| Tombstones | Evidence of deletion; FK intentionally absent so they survive any future hard purge. |
+| Object-store content | **No delete operation exists** (`content-store.js`, verified; D3 test 22 pins it). The real content object for item-1 cannot currently be erased by any MPI code path. |
+| Children of `pi_users` | **7 CASCADE** (sessions, learned_preferences, memory_conflicts, memory_events, context_packages, feedback_events, user_domain_access) — if memory were cleared first, user deletion would silently cascade-erase all of these. Live-verified. |
+| Organisations / domains | RESTRICT everywhere (no cascade risk); `pi_learned_preferences`/`pi_memory_records`/`pi_sessions → pi_domains` are SET NULL. |
+
+### 2. Tombstone sufficiency for the current data
+
+**Sufficient as suppression** for owner-only first-party data: "forget this memory" is honourable today (tombstone + retrieval exclusion + reversal-by-batch, all proven with real machinery). **Insufficient as erasure**: summary stays in the row, content object stays in R2, provenance stays forever, and the data also persists in all three restore-proven backups. This is exactly the limitation spec §18 required to be recorded at activation — now recorded with real data in existence.
+
+### 3–4. What remains OPEN · implementation required?
+
+**No implementation is required now.** Every source marks F14 "Owner decision: YES · Implementation: deferred", and no document mandates a correction at this stage. What is required is **one structured owner decision** (the F14 policy), broken into its actual parts:
+
+| # | Decision | Constraint already fixed by ratified docs |
+|---|---|---|
+| **F14-A** | What an erasure request **means**: (a) suppression only (today's tombstone), (b) content erasure — delete the R2 object + redact `content_summary` — with tombstone/audit retained, or (c) hard row purge | (c) collides with F7 append-only, tombstone-survival, and provenance immutability — parts of it are **already forbidden** without a governance amendment |
+| **F14-B** | User-record deletion semantics: forbid user deletion entirely (erasure = per-memory + account disable), or define an ordered procedure — which requires **changing the RESTRICT/CASCADE FK actions**, i.e. a schema migration with its own authorisation | The asymmetry is the audit's core finding; any FK change is Level-3-class work |
+| **F14-C** | **Erasure vs. backups**: every backup is restore-proven and keep-everything (O-2H-3); erased data persists in them. Policy must say whether erasure reaches backups (rotation-based aging out vs. explicit exception to "never delete a backup") | "Never delete or replace a production backup without explicit authorisation" (AGENTS §16) |
+| **F14-D** | Audit-trail retention period — memory policy §7 presupposes "the audit trail's own retention policy", which **does not exist** | Interacts with O-2H-3 |
+
+### 5–7. Consequences
+
+**O-2H-3 remains non-blocking** (keep-everything stands — and it is now load-bearing for F14-C). **D4 remains non-blocking** (conflict resolution, orthogonal). **Before another owner-only real batch:** nothing from F14 — the §18 boundary holds; per-batch §24(5) + same-session backup remain the only gates. **Before any broader user base:** F14-A…D become **BLOCKING** (spec §31). **Before honouring any erasure request:** F14-A at minimum; F14-C if the request must reach backups.
+
+### Verification evidence
+
+Live FK dump matches `MPI_FORENSIC_AUDIT.md` exactly · no delete method in content-store, no `DELETE FROM` in ingestion (both re-verified in source) · offline suites re-run green: D3 27/27 · 2H offline 27/27 · 2F offline 6/6. Production modified 0 · real data touched 0 · R2 objects deleted 0.
+
+### Next stage
+
+**F14-A…D owner decision** (a decision record, same pattern as O-2H) — or further authorised batches, or O-2H-3 retention. Nothing proceeds without a separate instruction.
 
 ---
 
