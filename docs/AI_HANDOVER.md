@@ -52,6 +52,32 @@ Once 1–3 exist, the stage is executable by the same pattern already proven thr
 
 No implementation. No tests added. **No code changed — the full regression was deliberately not re-run**, per `AGENTS.md` §8 (a previous result may be reused when tested code, base commit, tests and environment are unchanged); the 82-suite / 4808-passed result recorded at `14f952b` stands. Automation-track suites re-run as a cheap sanity check and still green: DNS-AUTO-2 97 · DNS-AUTO-1 85 · Cloudflare 26 · OVH 26 · shared helpers 40 · DEVX-1 92 — 0 failed. **Deployments 0 · provider calls 0 · credentials created 0 · Coolify unmodified · Supabase unmodified · R2 writes 0 · Postgres writes 0 · DNS changes 0.** INF-DNS-AUTO-2 was not touched and remains PARTIAL — OWNER ACTION REQUIRED.
 
+### Stage record (observed values only)
+
+| Field | Value |
+|---|---|
+| STATUS | **BLOCKED — CONTRACT DOES NOT EXIST; OWNER DECISION REQUIRED** (not "partial": there was nothing legitimate to implement) |
+| CONTRACT | absent — one scope-deferring sentence, no automation level, no release policy, no connector contract |
+| IMPLEMENTATION | none — 0 code, config or test files created or modified |
+| APPROVAL | not reached (no contract to approve against); none fabricated or self-granted |
+| PRODUCTION OPERATIONS | 0 · deployments 0 · provider calls 0 |
+| ROLLBACK | not applicable — nothing was executed |
+| TARGETS CHANGED | none |
+| TARGETS UNCHANGED | Coolify, Supabase, R2, PostgreSQL, DNS, all applications, all connectors, the DNS approval gate, MPI/OpenRouter |
+| TARGETED TESTS | no new tests (nothing implemented); automation track re-run as sanity: 97 · 85 · 26 · 26 · 40 · 92 — 0 failed |
+| FULL REGRESSION | deliberately not re-run — no code changed; the 82-suite / 4808-passed / 43-pre-existing-failed result at `14f952b` stands (`AGENTS.md` §8) |
+| PRODUCTION VERIFICATION | read-only; nothing to verify |
+| REAL EGRESS | 0 |
+| CREDENTIALS CREATED | 0 |
+| POSTGRES WRITES | 0 |
+| R2 WRITES | 0 |
+| DNS CHANGES | 0 |
+| COOLIFY MODIFIED | no |
+| SUPABASE MODIFIED | no |
+| COMMIT | `473129ff1b917f430c469697b67e7f4fcf920a03` |
+| REMOTE HEAD | `473129ff1b917f430c469697b67e7f4fcf920a03` (`origin/main`, verified after `git fetch`) |
+| WORKING TREE | clean |
+
 ### Next stage
 
 **None is executable without an owner decision.** INF-DEPLOY-AUTO-0 needs the three items above. INF-BACKUP-AUTO-0 and INF-MONITOR-AUTO-0 carry the same one-line, scope-deferred treatment and would stop at the same gate. OPS-AUTO-0 is explicitly "scope to be defined in that stage's own planning". Outside Automation: MPI awaits owner decisions; IDA-2E and IDA-3F remain blocked; ATN-1/AVA-1/MAE-1 gated on IDA-2; RES-1 explicitly "NOT AUTHORISED"; DEVX-2 "not yet specified beyond a title".
