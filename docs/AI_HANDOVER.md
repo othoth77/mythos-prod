@@ -1,8 +1,16 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** O-4-2 COMPLETE — **hosting ratified (spec §4) and implemented: the operator runtime CLI is hardened (strict argument whitelist — provider/endpoint/credential arguments refused, not ignored) with full operator visibility (memories used + provenance references, hydration status). Runtime suite 31/31; regression 611/611; live production check + hosting boundary all-PASS. Zero writes, zero egress.**
+**From:** O-4-3 RATIFIED — **explicit owner-declared single-identity bridge (runtime spec §5, verbatim): usr_othman/org_mythos is the sole mapping, operator-controlled, fail-closed, zero inference capability; multi-user is explicitly a future separate decision. The existing bridge already implements this exactly — verification and added tests follow in this stage.**
 **To:** Next AI session
+
+---
+
+## O-4-3 RATIFICATION — SINGLE-IDENTITY BRIDGE (owner, 2026-08-15) — DOCUMENTATION PHASE
+
+**Verbatim record: `docs/MPI_4_RUNTIME_SPECIFICATION.md` §5** (decision + identity semantics + preserved multi-user future alternative). Phase-1 findings: the runtime receives identity solely as explicit CLI arguments; MPI requires the registry pair; the whitelist-of-one mapping already exists in `runtime/identity-bridge.js`; the mapped identity is **operator identity** (not application/tenant identity); domain/project are explicit-only; permissions remain explicit request input, never identity-derived; **the bridge has zero inference capability in code** (the only grep match for env/hostname/IP patterns is a comment). No ambiguity requiring further decisions was found.
+
+**Contradiction check — none found:** consistent with the M4-2 bridge as built (whitelist-of-one, fail-closed), O-4-2 (operator-run surface), O-2H registry seed (the pair exists as the only rows), D2 (opaque identifiers), and the multi-tenancy doc (opaque references, no PII). Registry untouched: users=1, orgs=1, domains=1 verified read-only at ratification.
 
 ---
 

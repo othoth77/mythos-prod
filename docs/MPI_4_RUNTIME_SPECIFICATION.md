@@ -41,7 +41,7 @@ Recorded exactly as provided, without reinterpretation or expansion:
 |---|---|---|
 | O-4-1 | Provider / data egress | **DEFER ratified (§2)** — sub-decisions A1–A5 OPEN |
 | O-4-2 | Runtime surface & hosting | **RATIFIED (§4)** — operator-run CLI on the VPS, on-demand; any *deployed* runtime is a NEW decision |
-| O-4-3 | General identity bridge (beyond the owner scope) | OPEN — only the explicit owner-declared scope (`usr_othman`/`org_mythos`) resolves; no application-session mapping exists or is implied |
+| O-4-3 | Identity bridge for the current runtime | **RATIFIED (§5)** — explicit owner-declared single-identity bridge; a future multi-user bridge is a separate owner decision + implementation stage |
 | O-4-4 | Memory→capability linking policy (skill/intent router) | OPEN — the operator runtime's interim linking rule is a documented composition choice (see `runtime/mpi-runtime.js` header), not a relevance judgment |
 | D4 | Automatic `disputed` resolution | OPEN, non-blocking — the runtime surfaces conflicts and never resolves them |
 
@@ -68,3 +68,18 @@ Distinction honoured: (1) documented architecture = A's pattern + C's env-inject
 ### 4.3 Boundaries and relationships
 
 **Operational boundary:** the runtime exists only for the duration of an operator invocation on the VPS shell; no listener, no port, no process survives the invocation (live-verified at ratification: 0 node listeners, 0 running MPI CLI processes). **Security boundary:** identity is a fail-closed explicit-input whitelist of one owner scope; the provider is hard-wired offline; the MPI read credential exists only in the invocation's process environment; the composition is structurally write-free and egress-free (test-asserted). **O-4-1:** fully respected — this decision changes nothing about egress and cannot be read as provider authorization. **O-4-3:** untouched — one owner scope remains the entire identity universe. **O-4-4:** untouched — the interim linking rule stands, disclosed per response. **Deployment implications:** none now; choosing B/C/D later is a new owner decision with its own authorization (and, for C, explicit Coolify authorization).
+
+## 5. Ratified O-4-3 — explicit owner-declared single-identity bridge (owner, 2026-08-15)
+
+### 5.1 The decision (verbatim)
+
+- Current runtime identity maps explicitly to: `user_id = usr_othman`, `organisation_id = org_mythos`.
+- The mapping is explicit and operator-controlled. · No automatic identity inference is permitted. · No arbitrary user can select another MPI user. · No organisation switching is permitted. · No multi-user identity system is introduced. · No legacy application authentication changes are made. · Missing or invalid identity fails closed. · Domain/project scope remains optional unless explicitly supplied and validated. · This decision applies only to the current operator-run runtime. · It is NOT a general multi-user architecture. · A future multi-user bridge requires a separate owner decision and implementation stage.
+
+### 5.2 Identity semantics and boundaries
+
+The mapped identity is **operator identity** (the owner acting on their own MPI scope) — not application identity and not tenant identity; the legacy application's shared-password session is not an identity source and is never consulted. **Permissions are not derived from identity**: the §10 `permissions` object remains explicit request input, filtered before ranking on the unchanged R3 path — operator identity is never a policy bypass. **Domain/project** narrowing is explicit-only, validated by the R1 filters; absent input stays absent — no defaults are inferred from identity. **Prohibited inference sources, permanently for this runtime:** IP, hostname, browser, filesystem user, email, display name, shared-password session, arbitrary environment variables — the bridge implementation (`runtime/identity-bridge.js`) has no code capability to read any of them, and the test suite asserts refusal of metadata-bearing identity objects.
+
+### 5.3 Open/future alternatives (preserved, not designed)
+
+A general multi-user bridge (application sessions → per-user MPI scopes, organisation membership, role-derived permissions per `MYTHOS_AI_MULTI_TENANCY.md`) remains **OPEN future work** requiring: an application identity system that does not exist today (§19.1 / auth.js findings), owner-authorized registry rows per user (the O-2H seed pattern), and its own decision + implementation stage. Nothing in §5.1 constrains or pre-designs it.
