@@ -1,10 +1,84 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** INF-DNS-AUTO-1 — DNS SNAPSHOT, COMPARISON AND DRIFT DETECTION (COMPLETE) — **the Automation track's next stage, executed as a reference implementation exactly like its two predecessors. `projects/automation/reference/dns-comparison-engine.js` compares OVH / public DNS / Cloudflare record sets, analyses email and DNSSEC safety, and generates migration + rollback plans whose every step is `LEVEL_3_APPROVAL_REQUIRED` and never self-approvable; a `GATE_CHECK` rejects any plan that claims a level inconsistent with the approval matrix. Suite 85/85 (mutation-checked, 15/15 mutations caught). Full regression once: 81 suites executed, 4711 passed, 43 failed — all 43 in the 8 legacy `stage3*` browser suites and proven byte-identical at clean HEAD (pre-existing, unrelated). No live OVH/Cloudflare credential, no network call, no DNS record/zone/nameserver touched, nothing deployed. It does NOT unblock INF-CF-2 — `entry_gate_open` is structurally always false.**
+**From:** INF-DNS-AUTO-2 — APPROVED DNS OPERATIONS — **IMPLEMENTED AND FULLY TESTED; NO DNS OPERATION PERFORMED. PARTIAL — OWNER ACTION REQUIRED.** The guarded execution path exists (`projects/automation/reference/dns-operations-executor.js`): owner approval enforced per domain AND per action from the committed approval-gate table, approval records validated against `aut_approvals`/`aut_approval_policies` (no self-approval, no expired reuse, no cross-run reuse, distinct approvers), write-connector least privilege with scope-escape refusal, one domain at a time, drift-invalidates-plan preconditions, a dry run that builds the identical envelope through the identical function, mandatory verification, automatic approved-only rollback, and `CRITICAL` incident on rollback failure. Suite 97/97 with **25/25 mutation-tested guards**. Full regression once: 82 suites, 4808 passed, 43 failed — all 43 pre-existing legacy `stage3*`, byte-identical to the baseline. **Real DNS operations: 0.** Preflight found **five independent blockers, each sufficient alone**: 0 of 40 owner approval fields are `APPROVED_FOR_MIGRATION`; both DNS write connectors are `enabled: false`; every LEVEL_3 feature flag is false; no OVH/Cloudflare credential exists; no populated secret store exists. No approval was simulated, fabricated, or written.
+**Previously:** INF-DNS-AUTO-1 — DNS SNAPSHOT, COMPARISON AND DRIFT DETECTION (COMPLETE) — **the Automation track's next stage, executed as a reference implementation exactly like its two predecessors. `projects/automation/reference/dns-comparison-engine.js` compares OVH / public DNS / Cloudflare record sets, analyses email and DNSSEC safety, and generates migration + rollback plans whose every step is `LEVEL_3_APPROVAL_REQUIRED` and never self-approvable; a `GATE_CHECK` rejects any plan that claims a level inconsistent with the approval matrix. Suite 85/85 (mutation-checked, 15/15 mutations caught). Full regression once: 81 suites executed, 4711 passed, 43 failed — all 43 in the 8 legacy `stage3*` browser suites and proven byte-identical at clean HEAD (pre-existing, unrelated). No live OVH/Cloudflare credential, no network call, no DNS record/zone/nameserver touched, nothing deployed. It does NOT unblock INF-CF-2 — `entry_gate_open` is structurally always false.**
 **Previously:** O-4-4 RATIFIED + IMPLEMENTED (COMPLETE, with one part explicitly not executed) — **the interim linking rule is removed. `runtime/relevance-router.js` decides memory→capability linkage from typed columns against a declared capability profile (whitelist of one, fail-closed), the UNCHANGED assembler classifies it, permission still precedes relevance, lexical overlap can never link (only tie-break), REQUIRED is gated by `state=active` + confidence ≥ HIGH (disputed can never be REQUIRED — D4 stays open), ranking follows the §7 precedence ladder, and a memory record can never declare its own relevance. Router suite 65/65; runtime 41/41; regression 721/721 across 23 suites (documented 656 baseline reproduced exactly + 65 new). Real egress: 0 — no live provider request; free ledger unchanged at 1/50. Production corpus verification NOT EXECUTED: the operator-injected `MPI_PG_*` env is absent from this session and this stage will not manufacture a credential.**
 **Previously:** O-4-1 AMENDED + IMPLEMENTED + PHASE 11 EXECUTED (COMPLETE) — **limited free egress ratified (spec §2.2): OpenRouter, exactly `nvidia/nemotron-3-ultra-550b-a55b:free` (selected after fresh catalog verification: 16 :free models, 0 DeepSeek — the DeepSeek order correctly stopped). Free-only structural (pinned constant, allow_fallbacks:false, max_price 0/0, response-model verification), minimal egress serializer (summaries+intent+message only — keys/references/permissions/diagnostics stripped), honest ESTIMATED-LOCAL counter (50/day UTC), quota-gate-before-activation. Suites 35+41+21; regression 656/656. PHASE 11 (the ONE real request) executed 2026-08-15: `ok=true`, ratified model verified, ledger 1/50, production safety check clean (36/8/36/0/0 rows, zero writes). Real egress: 1.**
 **To:** Next AI session
+
+---
+
+## INF-DNS-AUTO-2 — APPROVED DNS OPERATIONS (2026-08-15) — PARTIAL: IMPLEMENTED + TESTED, **OWNER ACTION REQUIRED**
+
+### Contract recovered (verbatim, not invented)
+
+`docs/AUTOMATION_ROADMAP.md` §"INF-DNS-AUTO-2": ***`LEVEL_3_APPROVAL_REQUIRED` only. Scope: one domain at a time, explicit owner approval (per `docs/CLOUDFLARE_OWNER_APPROVAL_GATE.md`), automatic verification and rollback.*** Plus: *"This stage is where INF-CF-2 itself becomes executable — but only after its own entry criteria are separately satisfied. Introducing INF-DNS-AUTO-2 does not itself unblock INF-CF-2."* Governing rules from `CLOUDFLARE_OWNER_APPROVAL_GATE.md` (six-value vocabulary, per-domain **and** per-action independence, and item 5: changing a gate value *"is not a task an automated stage may perform on its own judgement"*), `AUTOMATION_APPROVAL_MATRIX.md` §2 items 1–3, `automation.example.json` §`approval_rules`, `AUTOMATION_ARCHITECTURE.md` §3/§5/§6, `AUTOMATION_SECURITY_AND_SECRETS.md` §4, and the `aut_*` draft schema.
+
+### THE OUTCOME THAT MATTERS: NO DNS OPERATION WAS PERFORMED
+
+The production preflight was executed read-only and found **five independent blockers, each sufficient on its own**:
+
+| # | Condition | Observed | Verdict |
+|---|---|---|---|
+| 1 | Owner approval gate | 8 domains × 5 action fields = **40 fields, all `NOT_REQUESTED`**; `APPROVED_FOR_MIGRATION` count = **0** | BLOCKED |
+| 2 | DNS write connectors | `ovh_dns_operator` `enabled:false` · `cloudflare_dns_operator` `enabled:false` | BLOCKED |
+| 3 | LEVEL_3 feature flags | `level_3_approval_required_runs`, `connector_ovh_dns_operator_live`, `connector_cloudflare_dns_operator_live`, `auto_rollback`, `automation_engine_enabled` — **all false** | BLOCKED |
+| 4 | Provider credential | **0** OVH/Cloudflare credential files exist on the host or in the repo | BLOCKED |
+| 5 | Secret store | **0** populated secret-reference stores | BLOCKED |
+
+**No approval was simulated, fabricated, inferred, or written.** The owner's execution order was explicitly *not* treated as a provider-specific approval token — the contract defines approval as a recorded value in the gate table, and this session did not touch that table. No connector was enabled, no feature flag was flipped, and no credential was created.
+
+**Exact owner action required to unblock (all five, in this order):** (1) complete the per-domain intake in `docs/CLOUDFLARE_AUTHORITATIVE_EXPORT_INTAKE.md` and satisfy the INF-CF-2 entry criteria for one chosen domain; (2) record a real owner decision of `APPROVED_FOR_MIGRATION` in the specific action field(s) of `docs/CLOUDFLARE_OWNER_APPROVAL_GATE.md` for that one domain; (3) enable the relevant DNS write connector in the automation config; (4) set the corresponding LEVEL_3 feature flags; (5) provision a provider credential in an approved secret store and reference it by `secret_reference_id`. Each is an owner decision, not an engineering task.
+
+### Built
+
+| Piece | Content |
+|---|---|
+| `projects/automation/reference/dns-operations-executor.js` (new) | **Owner gate**: parses the committed approval table as the authority; only `APPROVED_FOR_MIGRATION` executes, `APPROVED_FOR_PREPARATION` explicitly does not, `DEFERRED` blocks like `NOT_REQUESTED`, an out-of-vocabulary value is refused rather than coerced, and a domain absent from the gate is refused rather than treated as unrestricted. Approval is per action — a nameserver approval never grants DNSSEC. **Read-only by construction: no code path writes the gate.** · **Approval record/policy**: `APPROVE` only, no self-approval flag, requester ≠ approver, no expired reuse, bound to its own run (not a bearer token), policy must cover LEVEL_3, be enabled, declare `is_permanent_boundary`, forbid self-approval and carry a recognised separation-of-duties key; `required_approval_count` needs **distinct** approvers · **Connector**: catalogue-declared write connectors only (a mock can never reach the write path), enabled + live flag + global LEVEL_3 flag, provider match, capability grant, credential **by reference only** (a connector carrying an actual key is refused), and least privilege enforced structurally — an injected client exposing any undeclared method is a scope escape · **Scope**: one domain at a time with anchored suffix matching (a lookalike such as `example.invalid.attacker.test` is refused), one step per operation, blocked steps refused, INF-DNS-AUTO-1 `GATE_CHECK` re-run first · **Preconditions**: drift against the plan's snapshot refuses rather than reconciles · **Dry run**: same envelope, same function, zero mutations · **Verify/rollback**: verification mandatory; on failure only the approved rollback step runs, as a separate audited execution; a failed rollback raises a `CRITICAL` incident · **Audit/idempotency**: append-only events, no PII, no secrets, deterministic run-scoped idempotency keys, resource lock keys |
+| `projects/meta/test-impact-map.json` | new suite wired into the `projects/automation/` and `projects/infrastructure/cloudflare/` rules |
+
+**Deliberately NOT built or changed:** the approval gate table · connector enablement · feature flags · any credential · the INF-DNS-AUTO-1 engine (reused, not rewritten) · the two existing connectors · any provider client · INF-DNS-AUTO-3 or any later stage.
+
+### Tests
+
+**`tests/inf-dns-auto-2-operations-test.js` — 97/97.** Twelve sections covering every gate the order enumerated: the real repository state (40/40 `NOT_REQUESTED`, parsed from the committed document) · an **accept path** that genuinely succeeds, so every refusal below means something · owner approval per domain and per action, including `APPROVED_FOR_PREPARATION`/`DEFERRED`/`REJECTED`/`PENDING` all refused · approval record and policy (self-approval, requester≡approver, expiry, cross-run reuse, insufficient level, undeclared boundary, disabled policy, insufficient and self-generated approver counts) · connector boundary (disabled, not-live, LEVEL_3 off, read-connector-cannot-mutate, uncatalogued mock, provider mismatch, ungranted capability, missing credential reference, credential value present, scope escape) · scope (domain mismatch, multi-domain, subdomain in scope, **lookalike host refused**) · preconditions (drift refuses and mutates nothing) · rollback (unrestorable, missing step, no plan, automatic rollback on verify failure using only the approved step, `CRITICAL` incident on rollback failure) · idempotency/locks/audit/secret hygiene · INF-DNS-AUTO-1 safety properties preserved (DS sequencing, rollback sequencing, email and DNSSEC rules) · structural boundaries · and a final section proving that **against the real committed config and gate, even a dry run refuses**.
+
+**Mutation testing: 25 mutations applied to the approval and security guards, 25 caught** (owner gate, execution-value substitution, unknown-domain permissiveness, self-approval, requester≡approver, expiry, run binding, approver count, permanent boundary, automation level, connector disabled/not-live/uncatalogued, LEVEL_3 flag, provider, capability, credential reference, scope escape, single-domain, drift, blocked step, gate check, rollback restorability, missing rollback, secret guard). One genuine implementation defect was found *by* this process and fixed: the single-domain check used substring matching, which would have accepted a lookalike host such as `example.invalid.attacker.test`; it is now an anchored suffix check with its own test.
+
+**Targeted:** DNS-AUTO-2 97 · DNS-AUTO-1 85 · Cloudflare 26 · OVH 26 · shared helpers 40 · DEVX-1 92 · DEVX-0 45 — **0 failed**.
+
+**Full regression once: 82 suites executed, 4808 passed, 43 failed, 0 skipped, 13 env-blocked** (fresh scratch PostgreSQL 15.19, `--network none`, 0 published ports, tmpfs, per-suite fresh databases, removed afterwards — 0 scratch resources remain). The 43 failures are the same eight legacy `stage3*` browser suites with **byte-identical per-suite counts** to the clean-HEAD baseline established last stage (3/4/5/6/7/8/9/1). Delta versus the previous regression is exactly +1 suite and +97 passes — this stage's own suite. No new failure was introduced.
+
+### Production verification
+
+Read-only only; the contract authorises no production action while the gates are shut. **DNS records changed: 0 · zones changed: 0 · nameservers changed: 0 · DNSSEC/DS changed: 0 · external provider requests: 0 · credentials created: 0 · connectors enabled: 0 · feature flags changed: 0 · approval-gate values changed: 0.** Container census 26 unchanged; no Coolify, Supabase, R2, PostgreSQL, OpenRouter or MPI change (OpenRouter ledger untouched at 1/50); no file under `projects/infrastructure/` or `deploy/` modified.
+
+### Stage record (observed values only)
+
+| Field | Value |
+|---|---|
+| STATUS | PARTIAL — implementation and tests complete; **owner action required** for any real operation |
+| COMMIT | `PENDING_COMMIT` |
+| REMOTE HEAD | `PENDING_PUSH` |
+| WORKING TREE | clean |
+| APPROVAL | **NONE** — 0 of 40 gate fields are `APPROVED_FOR_MIGRATION`; none simulated or written |
+| DNS OPERATIONS | 0 |
+| DNS RECORDS CHANGED | 0 |
+| ROLLBACK | not invoked (no operation ran); rollback path implemented and tested |
+| TARGETED TESTS | 97 + 85 + 26 + 26 + 40 + 92 + 45 — 0 failed |
+| FULL REGRESSION | 82 suites / 4808 passed / 43 failed (pre-existing legacy, byte-identical to baseline) / 0 skipped / 13 env-blocked |
+| REAL DNS EGRESS | 0 |
+| EXTERNAL PROVIDER REQUESTS | 0 |
+| POSTGRES WRITES | 0 (production); scratch only, removed |
+| R2 WRITES | 0 |
+| COOLIFY MODIFIED | no |
+| SUPABASE MODIFIED | no |
+| CREDENTIALS CREATED | 0 |
+
+### Next stage
+
+**INF-DEPLOY-AUTO-0 — GitHub to Coolify Delivery Foundation** is the next Automation stage and has not started; its scope is explicitly "to be defined in that stage's own planning" and production deployment requires a separately approved release policy. **INF-DNS-AUTO-2 itself remains open operationally** — it will become executable only when the owner completes the five-step unblock above, and even then INF-CF-2's own per-domain entry criteria apply separately. Nothing proceeds without a separate owner order.
 
 ---
 
