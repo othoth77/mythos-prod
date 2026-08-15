@@ -18,6 +18,8 @@
 const activation = require('../persistence/activation');
 const { createRuntime } = require('../runtime/mpi-runtime');
 const { createMockProvider } = require('../runtime/mock-provider');
+const openrouter = require('../runtime/openrouter-provider');
+const ledgerModule = require('../runtime/usage-ledger');
 
 function refusal(code) {
   const e = new Error(code);
@@ -48,19 +50,71 @@ function listArg(argv, name) {
   return v === null ? undefined : v.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
 }
 
+// statusBlock(out, live, ledger) — the O-4-1 usage indicator. The count is
+// an ESTIMATED LOCAL COUNT and is always labelled as such (spec §2.2:
+// OpenRouter exposes no exact free-remaining counter).
+function statusBlock(out, statusWord, ledgerStatus) {
+  out('PROVIDER_STATUS');
+  out('  Provider: OpenRouter');
+  out('  Model: ' + openrouter.SELECTED_MODEL);
+  out('  Status: ' + statusWord);
+  out('  Estimated local usage: ' + ledgerStatus.usedEstimated + ' / ' + ledgerStatus.limit);
+  out('  Estimated remaining: ' + ledgerStatus.remainingEstimated);
+  out('  Reset: ' + ledgerStatus.reset);
+  out('  Note: ' + ledgerStatus.counterNote);
+}
+
 async function run(argv, deps) {
   const d = deps || {};
   const env = d.env || process.env;
   const out = d.out || function (line) { process.stdout.write(line + '\n'); };
-  if (argv[0] !== 'ask') throw refusal('RUNTIME_CLI_UNKNOWN_COMMAND');
+  const cmd = argv[0];
+  if (cmd !== 'ask' && cmd !== 'ask-live' && cmd !== 'status') throw refusal('RUNTIME_CLI_UNKNOWN_COMMAND');
   assertKnownArgs(argv.slice(1));
+
+  const ledger = d.ledger || ledgerModule.createLedger();
+
+  if (cmd === 'status') {
+    // Read-only: no request, no activation, no key required.
+    statusBlock(out, 'FREE', ledger.status(openrouter.PROVIDER_NAME, openrouter.SELECTED_MODEL));
+    return { ok: true, status: ledger.status(openrouter.PROVIDER_NAME, openrouter.SELECTED_MODEL) };
+  }
+
+  // Quota gate FIRST: at the free ceiling ask-live refuses before activation,
+  // before any database connection, before any send.
+  if (cmd === 'ask-live') {
+    ledger.assertQuota(openrouter.PROVIDER_NAME, openrouter.SELECTED_MODEL);
+  }
 
   const activate = d.activate || activation.activate;
   const activated = await activate({ env: env, pg: d.pg || require('../../idauto/node_modules/pg') });
   if (!activated.enabled) throw refusal('RUNTIME_CLI_PERSISTENCE_DISABLED (MPI_PERSISTENCE_ENABLED is not true)');
 
-  // O-4-1 DEFER: the offline mock is the ONLY provider this root can build.
-  const runtime = createRuntime({ client: activated.client, provider: createMockProvider() });
+  // Provider selection is COMMAND-shaped, never argument-shaped:
+  //   ask      -> offline mock (zero egress, unchanged M4-2 behaviour)
+  //   ask-live -> the O-4-1-ratified OpenRouter free provider, wrapped in the
+  //               counting ledger; the ONLY egress path.
+  let provider;
+  if (cmd === 'ask-live') {
+    const inner = d.liveProvider || openrouter.createOpenRouterProvider();
+    provider = {
+      name: inner.name,
+      complete: async function (request) {
+        ledger.recordSent(inner.name, openrouter.SELECTED_MODEL);
+        try {
+          const r = await inner.complete(request);
+          ledger.recordResult(inner.name, openrouter.SELECTED_MODEL, true, r.meta && r.meta.requestId);
+          return r;
+        } catch (e) {
+          ledger.recordResult(inner.name, openrouter.SELECTED_MODEL, false);
+          throw e;
+        }
+      }
+    };
+  } else {
+    provider = createMockProvider();
+  }
+  const runtime = createRuntime({ client: activated.client, provider: provider });
 
   const request = {
     scope: {
@@ -94,6 +148,18 @@ async function run(argv, deps) {
   used.forEach(function (m) { out('  ' + m.id + ' <- ' + m.reference); });
   out('HYDRATION none (this runtime has no content-hydration path)');
   out('DIAGNOSTICS ' + JSON.stringify(result.diagnostics));
+  if (cmd === 'ask-live') {
+    const st = ledger.status(openrouter.PROVIDER_NAME, openrouter.SELECTED_MODEL);
+    let word = 'FREE';
+    if (!result.response.ok) {
+      const msg = result.response.message || result.response.kind || '';
+      if (/FREE_MODEL_UNAVAILABLE/.test(msg)) word = 'FREE MODEL UNAVAILABLE';
+      else if (/FREE_RATE_LIMITED/.test(msg)) word = 'FREE RATE LIMITED';
+      else word = 'PROVIDER FAILURE';
+    }
+    if (st.remainingEstimated === 0) word = 'FREE LIMIT REACHED';
+    statusBlock(out, word, st);
+  }
   return { ok: true, result: result };
 }
 

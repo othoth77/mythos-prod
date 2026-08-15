@@ -71,6 +71,18 @@ Caveat honoured: opaque memory ids (`mem:batch-2h-002:item-01` as item keys) and
 
 No provider was contacted, no account or key exists, no data left the VPS, and no provider facts were asserted (which is why no web research was performed — this record makes no claims requiring verification; verification belongs to the selection moment under A1/A2).
 
+### 2.2 O-4-1 AMENDED — RATIFIED: LIMITED FREE EXTERNAL EGRESS (owner, 2026-08-15)
+
+The §2 DEFER record above is **preserved as history**; it governed until this amendment. The owner's execution order (2026-08-15) authorizes a bounded implementation. A first order named DeepSeek `:free` and **correctly stopped** when fresh verification found zero DeepSeek `:free` models in the official catalog; the follow-up order authorizes one currently available free model selected after fresh verification.
+
+**Ratified decision:**
+- **OpenRouter is the only external gateway.** Only the exact selected model is permitted: **`nvidia/nemotron-3-ultra-550b-a55b:free`** (selected 2026-08-15 from the fresh official catalog: 16 `:free` models, 0 DeepSeek; strongest generally-capable text→text chat model — flagship-class general model, 1M context, $0 prompt/$0 completion; specialized models excluded by documented purpose).
+- No paid model. · No automatic fallback (`provider.allow_fallbacks: false` + `provider.max_price {prompt: 0, completion: 0}` + response-model verification). · No automatic provider switching. · **No credits may be added** (the free ceiling stays 50/day by design). · No `:nitro`/`:floor`/routing shortcuts. · Runtime remains operator-run on the VPS (O-4-2 unchanged). · Identity remains `usr_othman`/`org_mythos` (O-4-3 unchanged). · **Only the existing ContextPackage crosses the provider boundary** — and the egress serializer sends the *minimal* subset (intent + item summaries + user message); item keys, provenance references, permissions object, content-reference strings and diagnostics are **stripped before egress** per the §2.1 strip candidates. · No raw PostgreSQL rows. · No R2 content bodies. · No credentials. · No ingestion. · No Coolify/Supabase changes.
+
+**Quota and counter (verified from official documentation, 2026-08-15):** free-model limits are **50 requests/day** (accounts under $10 credits) and **20 requests/minute**, resetting on the **UTC day**; `GET /api/v1/key` exposes credit/limit information but **no exact free-requests-remaining counter** — therefore the runtime's displayed count is an **ESTIMATED LOCAL COUNT, labelled as such**, from a metadata-only local ledger (date, counts, model, success/failure — never prompts, packages, memory, responses, or keys). Failure behaviour: `FREE_LIMIT_REACHED` (local ceiling) · `FREE_RATE_LIMITED` (provider 429) · `FREE_MODEL_UNAVAILABLE` (model gone) · `FREE_MODEL_POLICY_VIOLATION` (response reports a different model) — never a silent substitution, never a paid retry. **Availability dependency:** `:free` variants churn; if the selected slug disappears the runtime refuses, and re-selection is a new owner order.
+
+**Secret:** the OpenRouter API key lives only in the owner-created `/home/ubuntu/.config/mythos/openrouter.env` (mode 0600, `OPENROUTER_API_KEY=`), per the established credential-file convention — never in Git, logs, diagnostics, MPI, or R2.
+
 **Consequences:** M4-2 and all further runtime work build exclusively against the offline mock. Zero-egress is an enforced property (structural tests), not a convention. The runtime carries no provider-selection surface until O-4-1 is re-decided.
 
 ## 3. Open decisions in the MPI-4 track

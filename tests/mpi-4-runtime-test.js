@@ -134,10 +134,12 @@ const baseReq = { scope: OWNER, message: 'what governs memory? .invalid', limit:
     .join('\n').replace(/\/\/[^\n]*\n/g, '\n');
   ok(!/require\(['"](https?|net|tls|dns|dgram|child_process)['"]\)/.test(files) &&
      !/fetch\(|XMLHttpRequest|WebSocket|axios|undici/.test(files),
-    '21 no HTTP/HTTPS/DNS/network capability in any runtime module or the CLI');
+    '21 the offline composition (runtime, bridge, adapter, mock, CLI) has no direct network capability — ' +
+    'the ONLY network-capable module is the O-4-1-ratified openrouter-provider, tested separately');
   ok(!/process\.env\.[A-Z_]*(KEY|TOKEN|SECRET)/.test(files) && /createMockProvider\(\)/.test(files) &&
      !/--provider|providerName|PROVIDER_URL|baseURL/.test(files),
-    '22 no credential env read, no endpoint config, no provider-selection surface — the CLI hard-wires the offline mock');
+    '22 no credential env read, no endpoint arg, no argument-shaped provider selection — providers are ' +
+    'command-shaped (ask=mock, ask-live=ratified OpenRouter free), never argv-chosen');
   ok(!/require\([^)]*(ingestion|content-store|s3-compatible)/.test(files) &&
      !/\b(INSERT INTO|UPDATE [a-z_]+ SET|DELETE FROM)\b/i.test(files) && !/putContent|getContent|hydrate/.test(files),
     '23 no ingestion path, no SQL writes, no content-store/R2 linkage anywhere in the runtime surface');

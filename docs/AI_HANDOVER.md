@@ -1,8 +1,34 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** O-4-1 DECISION-READY RECORD — **runtime spec §2.1: the exact 15-item egress inventory from the actual implementation (notable finding: content_reference strings and diagnostics would leave under the current package shape — strip candidates), the full sub-decision register, and five policy options with consequences. O-4-1 REMAINS DEFER — nothing was chosen, no provider contacted, zero egress. Stage was preceded by a baseline stop: an unpushed parallel-session commit (509b4f7, ntfy topic) was owner-confirmed and pushed before proceeding.**
+**From:** O-4-1 AMENDED + IMPLEMENTED (OFFLINE-COMPLETE) — **limited free egress ratified (spec §2.2): OpenRouter, exactly `nvidia/nemotron-3-ultra-550b-a55b:free` (selected after fresh catalog verification: 16 :free models, 0 DeepSeek — the DeepSeek order correctly stopped). Free-only structural (pinned constant, allow_fallbacks:false, max_price 0/0, response-model verification), minimal egress serializer (summaries+intent+message only — keys/references/permissions/diagnostics stripped), honest ESTIMATED-LOCAL counter (50/day UTC), quota-gate-before-activation. Suites 35+41+21; regression 656/656. REAL PROVIDER TEST PENDING: the owner key file does not exist yet. Zero egress so far.**
 **To:** Next AI session
+
+---
+
+## O-4-1 EXECUTION — OPENROUTER FREE, OFFLINE-COMPLETE (2026-08-15) — REAL TEST PENDING KEY
+
+**Owner orders:** first order (DeepSeek `:free`) **stopped correctly at its own gate** — fresh official catalog held 0 DeepSeek `:free` models (413 total, 16 free; verified twice by direct catalog query). Follow-up order authorized one currently available free model after fresh verification. **Selected: `nvidia/nemotron-3-ultra-550b-a55b:free`** (strongest generally-capable text→text chat model; specialized models excluded by documented purpose; $0/$0 confirmed). Ratification: spec §2.2, DEFER history preserved.
+
+### Built (all behind the existing M4-1 contract — no second abstraction)
+
+| Piece | Content |
+|---|---|
+| `runtime/openrouter-provider.js` | model is a **constant** (no parameter/env can change it) · `provider.allow_fallbacks:false` + `max_price {0,0}` on every request (documented fields, verified) · response-model verification → `FREE_MODEL_POLICY_VIOLATION` · 404→`FREE_MODEL_UNAVAILABLE`, 429→`FREE_RATE_LIMITED`, 401/403→`OPENROUTER_KEY_REJECTED` (value-free) · **no retry loop exists** · **minimal egress serializer**: intent + item summaries + user message ONLY — item keys, provenance references, permissions, content-reference strings, diagnostics all stripped (§2.1 candidates, ratified §2.2) · key from owner 0600 file, Authorization header only · transport injectable (all tests offline) |
+| `runtime/usage-ledger.js` | metadata-only local ledger (0600): date/counts/model/success/failure/request-id — never prompts/packages/memory/responses/keys · **ESTIMATED_LOCAL labelled** (API exposes no exact free-remaining counter — verified) · 50/day, UTC-day reset (documented) · `assertQuota` fail-closed · remaining clamped [0,50] |
+| `cli/mpi-runtime-cli.js` | provider selection is **command-shaped, never argv-shaped**: `ask`=offline mock (unchanged) · `ask-live`=ratified OpenRouter free wrapped in the counting ledger · `status`=counter without request/activation · **quota gate BEFORE activation** (a suite case caught activation-before-quota; fixed) · UI block labels the estimate honestly, never shows the key |
+
+### Tests
+
+**OpenRouter suite 35/35** (free-only structure · request pinning + anti-fallback fields · egress minimization proven on the actual wire bytes (summaries cross; keys/references/sha256 pointers/permissions/diagnostics do NOT; key only in header) · key handling (missing/world-readable/rejected, value-free) · failure semantics incl. policy-violation on foreign model · ledger honesty (initial/success/failure/ceiling/never-negative/UTC rollover/metadata-only) · CLI integration incl. ceiling-refusal-before-activation · no Coolify/Supabase/DB/R2 linkage). **Runtime 41/41 · adapter 21/21** (structural claims updated honestly for the new authorized egress module). **Full regression once: 656 passed / 0 failed** (22 suites).
+
+### Status
+
+**Real egress so far: 0** — the only external traffic was two unauthenticated public catalog queries and one docs fetch. **Phase 11 (the ONE real request) is PENDING**: `/home/ubuntu/.config/mythos/openrouter.env` does not exist; the owner must create it (mode 0600, `OPENROUTER_API_KEY=…`). Production untouched (36/8/36 rows, 45 objects). Coolify/Supabase 0; ingestion OFF.
+
+### Next stage
+
+Owner creates the key file → resume at Phase 11: one real request (minimal context, no protected memory, no content bodies) → production safety check → final documentation.
 
 ---
 
