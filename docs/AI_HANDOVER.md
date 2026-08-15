@@ -68,8 +68,8 @@ INF-DEPLOY-AUTO-0 remains open operationally pending the four items above. **INF
 | Field | Value |
 |---|---|
 | STATUS | staging identity established; **no deployment — blocked on operator action** |
-| IMPLEMENTATION COMMIT | `PENDING_COMMIT` |
-| REMOTE HEAD | `PENDING_PUSH` |
+| IMPLEMENTATION COMMIT | `6a8fa1a9fd48a895d4e2dcd9624a7bd3ef0ee07c` |
+| REMOTE HEAD | `6a8fa1a9fd48a895d4e2dcd9624a7bd3ef0ee07c` (`origin/main`, verified after `git fetch`) |
 | WORKING TREE | clean |
 | TARGETED TESTS | 106 + 97 + 85 + 26 + 26 + 40 + 92 — 0 failed |
 | MUTATION CHECKS | 8/8 caught (new adapter) |
