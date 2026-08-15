@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** O-4-1 AMENDED + IMPLEMENTED (OFFLINE-COMPLETE) — **limited free egress ratified (spec §2.2): OpenRouter, exactly `nvidia/nemotron-3-ultra-550b-a55b:free` (selected after fresh catalog verification: 16 :free models, 0 DeepSeek — the DeepSeek order correctly stopped). Free-only structural (pinned constant, allow_fallbacks:false, max_price 0/0, response-model verification), minimal egress serializer (summaries+intent+message only — keys/references/permissions/diagnostics stripped), honest ESTIMATED-LOCAL counter (50/day UTC), quota-gate-before-activation. Suites 35+41+21; regression 656/656. REAL PROVIDER TEST PENDING: the owner key file does not exist yet. Zero egress so far.**
+**From:** O-4-1 AMENDED + IMPLEMENTED + PHASE 11 EXECUTED (COMPLETE) — **limited free egress ratified (spec §2.2): OpenRouter, exactly `nvidia/nemotron-3-ultra-550b-a55b:free` (selected after fresh catalog verification: 16 :free models, 0 DeepSeek — the DeepSeek order correctly stopped). Free-only structural (pinned constant, allow_fallbacks:false, max_price 0/0, response-model verification), minimal egress serializer (summaries+intent+message only — keys/references/permissions/diagnostics stripped), honest ESTIMATED-LOCAL counter (50/day UTC), quota-gate-before-activation. Suites 35+41+21; regression 656/656. PHASE 11 (the ONE real request) executed 2026-08-15: `ok=true`, ratified model verified, ledger 1/50, production safety check clean (36/8/36/0/0 rows, zero writes). Real egress: 1.**
 **To:** Next AI session
 
 ---
@@ -24,11 +24,11 @@
 
 ### Status
 
-**Real egress so far: 0** — the only external traffic was two unauthenticated public catalog queries and one docs fetch. **Phase 11 (the ONE real request) is PENDING**: `/home/ubuntu/.config/mythos/openrouter.env` does not exist; the owner must create it (mode 0600, `OPENROUTER_API_KEY=…`). Production untouched (36/8/36 rows, 45 objects). Coolify/Supabase 0; ingestion OFF.
+**Real egress: 1 — Phase 11 EXECUTED (2026-08-15), COMPLETE.** Owner created the key file (`/home/ubuntu/.config/mythos/openrouter.env`, mode 0600). The single authorized `ask-live` request ran under `usr_othman`/`org_mythos`, `--limit 1`, minimal acknowledgment-only message (no protected memory, no content bodies, no second provider request, no retry). Result: `ok=true`; response model verified against the pinned slug `nvidia/nemotron-3-ultra-550b-a55b:free` (no `FREE_MODEL_POLICY_VIOLATION`); 1 memory referenced by id+reference only (`mem:batch-2h-001-20260814:item-1`), no content body in any output; ledger recorded 1/50 estimated-local usage (UTC day). **Production safety check (read-only, before/after identical):** `pi_memory_records` 36 · `pi_memory_provenance` 36 · `pi_memory_events` 8 · `pi_memory_tombstones` 0 · `pi_guard_decisions` 0 — zero writes from the live request. The six-variable `MPI_PG_*` env contract (`HOST`/`PORT`/`DATABASE`/`USER`/`PASSWORD`/`STATEMENT_TIMEOUT_MS`) was verified present by name only (values never read/echoed) before activation; `MPI_PERSISTENCE_ENABLED=true`. Coolify/Supabase 0; ingestion OFF (`MPI_REAL_MEMORY_INGESTION_ENABLED` unset).
 
 ### Next stage
 
-Owner creates the key file → resume at Phase 11: one real request (minimal context, no protected memory, no content bodies) → production safety check → final documentation.
+O-4-1 A1–A5 real-provider track is now CLOSED: DEFER lifted, exactly one real request executed and verified, no further live calls authorized by this stage. Remaining, all optional/future: O-4-4 (relevance router) · multi-user bridge (new decision + stage) · D4.
 
 ---
 
