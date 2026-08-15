@@ -1,11 +1,60 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** INF-DNS-AUTO-2 — APPROVED DNS OPERATIONS — **IMPLEMENTED AND FULLY TESTED; NO DNS OPERATION PERFORMED. PARTIAL — OWNER ACTION REQUIRED.** The guarded execution path exists (`projects/automation/reference/dns-operations-executor.js`): owner approval enforced per domain AND per action from the committed approval-gate table, approval records validated against `aut_approvals`/`aut_approval_policies` (no self-approval, no expired reuse, no cross-run reuse, distinct approvers), write-connector least privilege with scope-escape refusal, one domain at a time, drift-invalidates-plan preconditions, a dry run that builds the identical envelope through the identical function, mandatory verification, automatic approved-only rollback, and `CRITICAL` incident on rollback failure. Suite 97/97 with **25/25 mutation-tested guards**. Full regression once: 82 suites, 4808 passed, 43 failed — all 43 pre-existing legacy `stage3*`, byte-identical to the baseline. **Real DNS operations: 0.** Preflight found **five independent blockers, each sufficient alone**: 0 of 40 owner approval fields are `APPROVED_FOR_MIGRATION`; both DNS write connectors are `enabled: false`; every LEVEL_3 feature flag is false; no OVH/Cloudflare credential exists; no populated secret store exists. No approval was simulated, fabricated, or written.
+**From:** INF-DEPLOY-AUTO-0 — **CONTRACT RECOVERY ONLY. STOPPED BEFORE IMPLEMENTATION: THE STAGE HAS NO AUTHORITATIVE CONTRACT.** Its complete authoritative text is one sentence whose scope is explicitly deferred ("scope to be defined in that stage's own planning"), it designates no automation level, the release policy its own constraint depends on does not exist anywhere in the repository, its two connectors are `enabled:false` placeholders with no capability contract, and `MYTHOS_PORTFOLIO_REGISTRY.md` classifies the whole Coolify/GitHub connector track as **OWNER_DIRECTION**. Nothing was implemented, no code file was created or modified, no test was added, no deployment occurred. Defining the scope, authoring the release policy, and deciding the connector split are **owner decisions**. Read-only record only.
+**Previously:** INF-DNS-AUTO-2 — APPROVED DNS OPERATIONS — **IMPLEMENTED AND FULLY TESTED; NO DNS OPERATION PERFORMED. PARTIAL — OWNER ACTION REQUIRED.** The guarded execution path exists (`projects/automation/reference/dns-operations-executor.js`): owner approval enforced per domain AND per action from the committed approval-gate table, approval records validated against `aut_approvals`/`aut_approval_policies` (no self-approval, no expired reuse, no cross-run reuse, distinct approvers), write-connector least privilege with scope-escape refusal, one domain at a time, drift-invalidates-plan preconditions, a dry run that builds the identical envelope through the identical function, mandatory verification, automatic approved-only rollback, and `CRITICAL` incident on rollback failure. Suite 97/97 with **25/25 mutation-tested guards**. Full regression once: 82 suites, 4808 passed, 43 failed — all 43 pre-existing legacy `stage3*`, byte-identical to the baseline. **Real DNS operations: 0.** Preflight found **five independent blockers, each sufficient alone**: 0 of 40 owner approval fields are `APPROVED_FOR_MIGRATION`; both DNS write connectors are `enabled: false`; every LEVEL_3 feature flag is false; no OVH/Cloudflare credential exists; no populated secret store exists. No approval was simulated, fabricated, or written.
 **Previously:** INF-DNS-AUTO-1 — DNS SNAPSHOT, COMPARISON AND DRIFT DETECTION (COMPLETE) — **the Automation track's next stage, executed as a reference implementation exactly like its two predecessors. `projects/automation/reference/dns-comparison-engine.js` compares OVH / public DNS / Cloudflare record sets, analyses email and DNSSEC safety, and generates migration + rollback plans whose every step is `LEVEL_3_APPROVAL_REQUIRED` and never self-approvable; a `GATE_CHECK` rejects any plan that claims a level inconsistent with the approval matrix. Suite 85/85 (mutation-checked, 15/15 mutations caught). Full regression once: 81 suites executed, 4711 passed, 43 failed — all 43 in the 8 legacy `stage3*` browser suites and proven byte-identical at clean HEAD (pre-existing, unrelated). No live OVH/Cloudflare credential, no network call, no DNS record/zone/nameserver touched, nothing deployed. It does NOT unblock INF-CF-2 — `entry_gate_open` is structurally always false.**
 **Previously:** O-4-4 RATIFIED + IMPLEMENTED (COMPLETE, with one part explicitly not executed) — **the interim linking rule is removed. `runtime/relevance-router.js` decides memory→capability linkage from typed columns against a declared capability profile (whitelist of one, fail-closed), the UNCHANGED assembler classifies it, permission still precedes relevance, lexical overlap can never link (only tie-break), REQUIRED is gated by `state=active` + confidence ≥ HIGH (disputed can never be REQUIRED — D4 stays open), ranking follows the §7 precedence ladder, and a memory record can never declare its own relevance. Router suite 65/65; runtime 41/41; regression 721/721 across 23 suites (documented 656 baseline reproduced exactly + 65 new). Real egress: 0 — no live provider request; free ledger unchanged at 1/50. Production corpus verification NOT EXECUTED: the operator-injected `MPI_PG_*` env is absent from this session and this stage will not manufacture a credential.**
 **Previously:** O-4-1 AMENDED + IMPLEMENTED + PHASE 11 EXECUTED (COMPLETE) — **limited free egress ratified (spec §2.2): OpenRouter, exactly `nvidia/nemotron-3-ultra-550b-a55b:free` (selected after fresh catalog verification: 16 :free models, 0 DeepSeek — the DeepSeek order correctly stopped). Free-only structural (pinned constant, allow_fallbacks:false, max_price 0/0, response-model verification), minimal egress serializer (summaries+intent+message only — keys/references/permissions/diagnostics stripped), honest ESTIMATED-LOCAL counter (50/day UTC), quota-gate-before-activation. Suites 35+41+21; regression 656/656. PHASE 11 (the ONE real request) executed 2026-08-15: `ok=true`, ratified model verified, ledger 1/50, production safety check clean (36/8/36/0/0 rows, zero writes). Real egress: 1.**
 **To:** Next AI session
+
+---
+
+## INF-DEPLOY-AUTO-0 — CONTRACT RECOVERY (2026-08-15) — **READ-ONLY. STOPPED BEFORE IMPLEMENTATION: NO CONTRACT EXISTS.**
+
+**Nothing was implemented. No code file was created or modified. The stage has not started.**
+
+An execution order authorised INF-DEPLOY-AUTO-0 end to end, with the standing condition that if the stage "has no authoritative contract, is only a title, or requires an owner decision before its contract can be defined", execution must stop before implementation and the missing decision be reported rather than invented. **That condition is met.** This record exists so the next session does not repeat the recovery.
+
+### What the repository actually says
+
+The complete authoritative text for this stage is one sentence in `docs/AUTOMATION_ROADMAP.md` §"INF-DEPLOY-AUTO-0 — GitHub to Coolify Delivery Foundation":
+
+> *"Deployment pipeline foundation — **scope to be defined in that stage's own planning**, subject to the same approval-matrix constraints (production deployment requires a separately approved release policy, per `docs/AUTOMATION_APPROVAL_MATRIX.md` §3)."*
+
+That is a title, a deferral, and a constraint. It is not a contract.
+
+### Evidence (targeted search, five independent confirmations)
+
+| # | Check | Finding |
+|---|---|---|
+| 1 | Every reference in the repository | 4 documents. `AUTOMATION_ROADMAP.md` (the sentence above + a "Planned" table row), `ROADMAP.md` ("Planned"), `MYTHOS_CONTROL_CENTER_PRODUCT_SPEC.md` (Deployments = "**Future surface**"), and this handover quoting the same sentence. No fifth source. |
+| 2 | Scope definition | **Absent.** No inputs, outputs, entry criteria, completion criteria, operations, or state model. No automation level is designated — every executable predecessor designated one (INF-DNS-AUTO-1 `LEVEL_1`/`LEVEL_2`; INF-DNS-AUTO-2 `LEVEL_3`). |
+| 3 | The release policy the constraint depends on | **Does not exist.** The only three files containing "release policy" are the approval matrix stating the requirement, the roadmap citing it, and this handover. Production deployment is therefore blocked by its own precondition before scope is even discussed. |
+| 4 | Connector contract | `coolify_deployer` (`deployment.trigger`, `service.read`) and `github_repository` (`repo.read`, `pr.read`, `pr.write`) exist **only** as `enabled: false` catalogue placeholders plus one illustrative sentence in `AUTOMATION_ARCHITECTURE.md` §5. No capability contract, no operation semantics, no rollback model, no environment model. |
+| 5 | Portfolio classification | `MYTHOS_PORTFOLIO_REGISTRY.md`: *"OVHcloud / Coolify / n8n / GitHub connectors — **OWNER_DIRECTION** — PLANNED — Live connector deployment not yet scheduled."* The registry itself classifies this work as awaiting owner direction. |
+
+`git log --all | grep -i INF-DEPLOY-AUTO` returns **0 commits** — genuinely not started, consistent with every status line.
+
+### Why this is a stop and not a blocker to work around
+
+Writing the scope would mean inventing the stage: choosing its automation level, its trigger model, which repository and which Coolify application it targets, what "delivery" means (build? image? webhook? promotion?), its environment boundaries, its verification and rollback semantics, and its approval policy. Each of those is a design decision with production consequences, and `AGENTS.md` §6 is explicit that deployment is a separate task performed only "when explicitly requested or required by the **approved stage plan**". No approved stage plan exists. The three preceding Automation stages were executable precisely because their scope bullets were already written down; this one's are not.
+
+### Exact owner decision required (nothing else is blocking)
+
+1. **Define the INF-DEPLOY-AUTO-0 scope** in `docs/AUTOMATION_ROADMAP.md`, to the same specificity as its predecessors: automation level, trigger model, target repository/application/environment, what a "delivery" operation is, verification and rollback semantics, and prohibited operations.
+2. **Author and approve the release policy** required by `docs/AUTOMATION_APPROVAL_MATRIX.md` §3 — production deployment is not `LEVEL_4`-eligible without it, and staging-only scope should be stated explicitly if that is the intent.
+3. **Decide the connector split** for `github_repository` and `coolify_deployer` (capabilities, permission ceiling, approval policy reference) per `AUTOMATION_ARCHITECTURE.md` §5.
+
+Once 1–3 exist, the stage is executable by the same pattern already proven three times, and no further owner input is needed for the implementation itself.
+
+### State
+
+No implementation. No tests added. **No code changed — the full regression was deliberately not re-run**, per `AGENTS.md` §8 (a previous result may be reused when tested code, base commit, tests and environment are unchanged); the 82-suite / 4808-passed result recorded at `14f952b` stands. Automation-track suites re-run as a cheap sanity check and still green: DNS-AUTO-2 97 · DNS-AUTO-1 85 · Cloudflare 26 · OVH 26 · shared helpers 40 · DEVX-1 92 — 0 failed. **Deployments 0 · provider calls 0 · credentials created 0 · Coolify unmodified · Supabase unmodified · R2 writes 0 · Postgres writes 0 · DNS changes 0.** INF-DNS-AUTO-2 was not touched and remains PARTIAL — OWNER ACTION REQUIRED.
+
+### Next stage
+
+**None is executable without an owner decision.** INF-DEPLOY-AUTO-0 needs the three items above. INF-BACKUP-AUTO-0 and INF-MONITOR-AUTO-0 carry the same one-line, scope-deferred treatment and would stop at the same gate. OPS-AUTO-0 is explicitly "scope to be defined in that stage's own planning". Outside Automation: MPI awaits owner decisions; IDA-2E and IDA-3F remain blocked; ATN-1/AVA-1/MAE-1 gated on IDA-2; RES-1 explicitly "NOT AUTHORISED"; DEVX-2 "not yet specified beyond a title".
 
 ---
 
