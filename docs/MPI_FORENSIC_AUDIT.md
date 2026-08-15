@@ -96,6 +96,8 @@ Both halves are uncomfortable for a privacy-facing system. A user with any memor
 
 Nothing in the architecture states an erasure policy, so this is not drift — it is an **unmade decision** that the FK actions have quietly made on its behalf. It intersects **D1**.
 
+**RESOLVED (owner, 2026-08-15):** F14-A/B/C/D ratified, all as zero-change options — erasure = tombstone suppression, user deletion forbidden permanently (RESTRICT is the intended guard; the CASCADE paths are unreachable by policy), erasure stops at the live system, audit retention indefinite. Verbatim record and consequences: `docs/MPI_2H_INGESTION_SPECIFICATION.md` §33. No FK migration performed or required.
+
 ---
 
 ## Data model map

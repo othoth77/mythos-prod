@@ -1,8 +1,29 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** F14 ERASURE DESIGN REVIEW — **read-only review complete now that real data exists. Tombstone lifecycle is sufficient as suppression for the current owner-only item; true erasure is not yet mechanically possible and needs one structured owner decision (F14-A…D below). No code change required by any authoritative source at this stage; production untouched.**
+**From:** F14 RATIFIED — **all four erasure decisions closed by the owner as their zero-change options (verbatim record: `MPI_2H_INGESTION_SPECIFICATION.md` §33). Erasure = tombstone suppression; user deletion forbidden permanently; erasure stops at the live system; audit retention indefinite. No code, schema, or production change; nothing deleted.**
 **To:** Next AI session
+
+---
+
+## F14 RATIFICATION (owner, 2026-08-15) — CLOSED, DOCUMENTATION-ONLY
+
+**Decisions recorded verbatim in `docs/MPI_2H_INGESTION_SPECIFICATION.md` §33** (authoritative location; §18 and the §31 O-2H-5 row updated to match; the F14 finding in `MPI_FORENSIC_AUDIT.md` annotated RESOLVED with a pointer — the finding text itself is preserved).
+
+| # | Decision |
+|---|---|
+| F14-A | (a) Suppression — erasure = tombstone; row remains, invisible to retrieval |
+| F14-B | (a) User deletion forbidden permanently — RESTRICT is the intended guard; CASCADE paths unreachable by policy; per-user shutdown = `memory_enabled=false` + lifecycle tombstoning |
+| F14-C | (a) Erasure stops at the live system — backups untouched by normal erasure |
+| F14-D | (a) Indefinite audit retention |
+
+**Contradiction check — none found:** all four are the options the review classified "fully compatible, zero changes" — no governance amendment needed (A(c)/D(b) territory untouched), no FK migration (B(b) not chosen), no backup deletion (AGENTS §16 intact), O-2H-3 keep-everything unchanged and consistent with F14-C, D3/content-store no-delete stance now intended rather than deferred, memory policy §7 satisfied (forget = tombstone, audit retained indefinitely by explicit choice). Existing real memory, R2 objects, and backups: untouched, 0 deletions.
+
+**Consequence:** the erasure question is answered for the current single-user posture; an erasure request is honourable today via the proven tombstone lifecycle. Remaining OPEN: **O-2H-3** retention (non-blocking; keep-everything stands) · **D4** (non-blocking). MPI-2H standing gates for further batches unchanged (per-batch §24(5) + same-session backup).
+
+### Next stage
+
+Owner's choice: further authorised batches · O-2H-3 retention decision · or MPI-3+ roadmap work. Nothing proceeds without a separate instruction.
 
 ---
 

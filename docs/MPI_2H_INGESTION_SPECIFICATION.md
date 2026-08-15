@@ -87,7 +87,7 @@ Ratified (§4, §20.10): deletion is a **tombstone**, never row removal; ingesti
 
 ## 18. F14 erasure boundary
 
-F14 (`MPI_FORENSIC_AUDIT.md`) is an **unmade owner decision**: `pi_users` deletion is RESTRICTed by memory rows while 7 children CASCADE; no erasure policy is stated. **2H must not resolve this silently.** Boundary for this stage: real ingestion may proceed for the **owner's own first-party data only** (O-2H-1) under the tombstone lifecycle; **no user-record deletion path is implemented or executed**; a real erasure request cannot yet be honoured mechanically and this limitation must be recorded at activation. F14 design remains **OPEN — decision O-2H-5**, to be designed under the D1 no-third-party-PII posture (§12.1).
+F14 (`MPI_FORENSIC_AUDIT.md`) was an unmade owner decision: `pi_users` deletion is RESTRICTed by memory rows while 7 children CASCADE; no erasure policy was stated. **Decided — F14-A/B/C/D ratified 2026-08-15, all as their zero-change options (§33):** erasure = tombstone suppression; user deletion forbidden permanently (the RESTRICT FK is now the *intended* guard, and the 7 CASCADE paths are unreachable because no user row is ever deleted); erasure stops at the live system; audit retention indefinite. An erasure request is therefore mechanically honourable today through the existing tombstone lifecycle, and its recorded limits (summary and content object persist; backups unaffected) are now **policy**, not gaps.
 
 ## 19. Append-only audit requirements
 
@@ -160,7 +160,7 @@ Immediate stop, no improvisation: any §31 blocking decision undecided · dry ru
 | **O-2H-2** | **Ingestion trigger, frequency, and hosting**: which process hosts the composition root; manual batch vs. scheduled; operator procedure. | **YES** | **CLOSED — see §32** |
 | **O-2H-3** | **Retention/rotation policy** for MPI backups and ingested data (nothing is deleted until decided). | NO (defaults to keep-everything) | OPEN |
 | **O-2H-4** | **Encryption at rest for content objects** (§11.2 "RECOMMENDED; at minimum documented" — client-side encryption named as the stronger option). | **YES** for sensitive content classes | **CLOSED — see §32** |
-| **O-2H-5** | **F14 erasure design** under the D1 posture (user deletion vs. cascade asymmetry). | NO for owner-only first-party data (boundary in §18), YES before any broader user base | OPEN |
+| **O-2H-5** | **F14 erasure design** under the D1 posture (user deletion vs. cascade asymmetry). | was: YES before any broader user base | **CLOSED — see §33** |
 | **O-2H-6** | **Backup freshness tolerance** before ingestion (§25). | **YES** | **CLOSED — see §32** |
 | **D4** | Automatic `disputed` resolution (pre-existing, §12). | NO (non-blocking, unchanged) | OPEN |
 
@@ -177,4 +177,17 @@ Recorded exactly as provided, without reinterpretation or expansion:
 
 ---
 
-**Consequence (updated 2026-08-14):** all four blocking decisions are CLOSED. Real ingestion still requires: the operator CLI composition root (implementation stage, separately authorised), and at execution time the full §24 gate — including the fresh same-session backup (§25/O-2H-6) and the separate, explicit, scope-bound owner order for the specific batch (§24(5)). O-2H-3, O-2H-5 and D4 remain OPEN and non-blocking for owner-only first-party data.
+**Consequence (updated 2026-08-14):** all four blocking decisions are CLOSED. Real ingestion still requires: the operator CLI composition root (implementation stage, separately authorised), and at execution time the full §24 gate — including the fresh same-session backup (§25/O-2H-6) and the separate, explicit, scope-bound owner order for the specific batch (§24(5)). O-2H-3 and D4 remain OPEN and non-blocking. *(O-2H-5/F14 was subsequently closed — §33.)*
+
+## 33. Ratified F14 erasure policy (owner, 2026-08-15)
+
+Recorded exactly as provided, without reinterpretation or expansion. All four choices are the zero-change options — no schema migration, no governance amendment, no code change required or performed.
+
+| # | Owner decision (verbatim) | Consequence |
+|---|---|---|
+| **F14-A** | "(a) Suppression. Erasing a memory means tombstoning it; the row remains and the memory becomes invisible to retrieval." | The existing atomic tombstone lifecycle IS the erasure mechanism. `content_summary`, `content_reference`, provenance and audit rows persist by policy. The R2 content object persists; the content store's absence of a delete operation is now the **intended** posture, not a deferral. |
+| **F14-B** | "(a) User deletion forbidden permanently. Do not delete MPI users; memory can be disabled/tombstoned according to the lifecycle." | No user-record deletion path will be built. The `pi_memory_records → pi_users` RESTRICT FK is the intended permanent guard; the 7 CASCADE child paths are unreachable (no `DELETE FROM pi_users` is ever authorised) and the audited asymmetry is thereby resolved **by policy rather than by migration**. Per-user shutdown = `memory_enabled = false` + tombstoning per the lifecycle. |
+| **F14-C** | "(a) Erasure stops at the live system. Production backup objects are not deleted as part of normal erasure." | Backups remain additive and keep-everything (O-2H-3 default); an erased memory persists in restore-proven backups. Any future backup-object deletion remains a separate, explicitly-authorised act (AGENTS §16), outside normal erasure. |
+| **F14-D** | "(a) Indefinite audit retention. No audit purge period is established at this stage." | Append-only tables retain forever; the memory policy §7 retention clause is satisfied by an explicit "indefinite" rather than an undefined gap. Establishing a period later requires a governance amendment first. |
+
+**Standing consequences:** an erasure request is honourable today (tombstone; proven with real machinery in `batch-2h-001-20260814` reversal testing). The broader-user-base condition formerly attached to O-2H-5 is lifted **for F14 specifically** — other broader-user-base requirements (D1 posture, per-batch gates, activation contract) are unaffected. Revisiting any of A–D is a new owner decision; A(c)-style hard purge and D(b)-style audit purge additionally require governance amendments before they can even be designed.
