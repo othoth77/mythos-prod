@@ -1,8 +1,18 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** F14 RATIFIED — **all four erasure decisions closed by the owner as their zero-change options (verbatim record: `MPI_2H_INGESTION_SPECIFICATION.md` §33). Erasure = tombstone suppression; user deletion forbidden permanently; erasure stops at the live system; audit retention indefinite. No code, schema, or production change; nothing deleted.**
+**From:** MEMORY INGESTION PLANNING — **read-only inventory complete; proposed roadmap at `docs/MPI_MEMORY_INGESTION_ROADMAP.md` (PROPOSED — authorises nothing). Best next batch: 5–10 owner-typed working preferences. Two technical gaps named (events ingestion, knowledge-source registry). Zero data touched.**
 **To:** Next AI session
+
+---
+
+## MEMORY INGESTION PLANNING (2026-08-15) — READ-ONLY, PASS
+
+Seven knowledge surfaces inventoried (docs 104 files · handover 161 stage sections · daily history ledger · 323 commits · config registries · `data/` fixtures · production databases). Full classification and proposed order: **`docs/MPI_MEMORY_INGESTION_ROADMAP.md`**. Highlights: the only sources ingestible under current O-2H-1 are **owner-typed notes/instructions** — working preferences (order 1) and re-entered ratified decisions with doc-pointer `source_reference`s (order 2). Curated milestones are **blocked on a technical gap** (`pi_memory_events` has no ingestion path in the CLI/module — separately-authorisable extension). Excluded by principle: doc copies (Git owns them; policy §6), structured/product data (D2 pointers only), production databases (§20.7 "never migrates into MPI"), bulk history derivation (importer-class, post-2H, would need an O-2H-1 revision). No ingestion, no records, no objects, no production change. Every future batch still needs its own §24(5) order + same-session backup.
+
+### Next stage
+
+Owner's choice: authorise **batch-2h-002** (owner-typed preferences, items owner-supplied) · authorise the events-ingestion extension · or other roadmap work. Nothing proceeds without a separate instruction.
 
 ---
 
