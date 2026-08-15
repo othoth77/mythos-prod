@@ -30,10 +30,18 @@ readonly EVENT="${1:-orchestrator_error}"
 readonly STAGE="${2:-unknown}"
 readonly DETAIL="${3:-}"
 
-readonly STATE_DIR="${MYTHOS_ORCHESTRATOR_HOME:-/home/deploy/mythos-orchestrator}/logs"
+# The primary log lives in the shared orchestrator state dir, which may be
+# owned by another user on a multi-user host. A log line must never be lost
+# to a permission error, so fall back to the invoking user's own state dir
+# when the primary path is not writable.
+_state_dir="${MYTHOS_ORCHESTRATOR_HOME:-/home/deploy/mythos-orchestrator}/logs"
+mkdir -p "$_state_dir" 2>/dev/null || true
+if [[ ! -w "$_state_dir" || ( -e "${_state_dir}/notify.log" && ! -w "${_state_dir}/notify.log" ) ]]; then
+  _state_dir="${XDG_STATE_HOME:-${HOME}/.local/state}/mythos-orchestrator"
+  mkdir -p "$_state_dir" 2>/dev/null || true
+fi
+readonly STATE_DIR="$_state_dir"
 readonly LOG_FILE="${STATE_DIR}/notify.log"
-
-mkdir -p "$STATE_DIR" 2>/dev/null || true
 
 log_line() {
   # Records only the event and outcome — never the URL or the payload body.
