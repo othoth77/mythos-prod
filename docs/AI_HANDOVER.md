@@ -1,8 +1,35 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** EVENTS INGESTION IMPLEMENTED — **the §34 record-anchored event path is live in code: one atomic transaction writes memory + provenance + event, with anchor/user/org all derived from the parent. Events suite 23/23; full regression green. No schema change, no real events, production untouched. An owner-curated milestone batch is now possible under a fresh §24(5) order.**
+**From:** BATCH-2H-004 EXECUTED — **the first real MILESTONE events exist: 8 owner-approved milestone pairs (PROJECT_STATE record + MILESTONE event each) ingested under a complete §24(5) order. Production: 36 memories + 36 provenance + 8 events + 3 seed = 83 rows; bucket 45 objects; pair check 36/36. Zero scope deviations.**
 **To:** Next AI session
+
+---
+
+## MPI-2H BATCH-2H-004 — FIRST MILESTONE EVENTS (2026-08-15) — PASS
+
+**Owner authorisation:** complete §24(5) order approving the 8 proposed milestone pairs with one explicit modification — parent `memoryType = PROJECT_STATE` (applied openly before freezing; nothing else changed). Dates preserved at **date precision exactly as documented** (5× 2026-08-14, 3× 2026-08-15); no intraday timestamps invented. Scope frozen by hash `e0d4a843…80fbfe`.
+
+### Sequence (same-session)
+
+| Step | Result |
+|---|---|
+| Scope | 8 pairs · all assertions pass (PROJECT_STATE / MILESTONE / note / EXPLICIT / batch ref) · 8+8 unique ids |
+| Pre-batch backup | `20260815T021121Z` (111,153 B) → **C1==C2** `82923012…4a5f8d` → isolated restore exit 0 (28/28/0 + seed) → evidence bound to the batch |
+| Dry run | PASS 8/8, each reported `(+event MILESTONE, record-anchored)` |
+| Execution | **ingested=8, replayed=0**, `verifyConsistency` ok — **36 references checked** |
+| Verification | memory 36 (8 new) · provenance 36 (8 with batch ref) · events **8** · **8/8 anchored pairs** (`MILESTONE` event ↔ `PROJECT_STATE` parent) · event_types = {MILESTONE} only · dates exactly {2026-08-14, 2026-08-15} · guard 0 · tombstones 0 |
+| Post-batch pair (§26–§27) | `20260815T021242Z` (112,874 B) → **C1'==C2'** `56babae0…431cbc` → isolated restore exit 0 with **36+36+8** and **8/8 restored pairs intact** → **pair check: all 36 restored content references resolve to bucket objects** |
+| Tests | targeted suites green (events 16 offline · 2H 27 · CLI 24 · D3 27) · **full regression once: 500/500** |
+| Safety | census 26 · `public` 24 / 2,551 unchanged · `mythos_intelligence` total **83 rows** (exact authorised delta: +8 memory, +8 provenance, +8 events) · no persistent `MPI_*` env vars · no Coolify/Supabase change · `mythos-offhost-backups` untouched (no credential held; bucket identity asserted per request) · credentials 0 · scratch 0 · bucket final: **45 objects** = 36 content + 9 restore-proven backups |
+
+### Standing state
+
+The memory corpus now spans all four planned layers: seed preference · 18-decision constitution · 9 working preferences · **8 project milestones with timeline events**. The ingestion roadmap's proposed batches are complete. Newest restore-proven backup `20260815T021242Z` — stale for any future batch (O-2H-6a). OPEN: **O-2H-3 retention** (45 objects under keep-everything — the natural next decision) · D4. Every future batch: fresh §24(5) order + same-session backup.
+
+### Next stage
+
+Owner's choice: O-2H-3 retention decision · further batches · MPI-3+ (retrieval/context runtime adoption) · other roadmap work. Nothing proceeds without a separate instruction.
 
 ---
 
