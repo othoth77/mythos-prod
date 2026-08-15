@@ -1,8 +1,22 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** BATCH-2H-003 EXECUTED — **9 owner working-preference memories ingested under a complete §24(5) order (roadmap order-1). Production: 28 memories + 28 provenance + 3 seed = 59 rows; 28 content objects + 7 restore-proven backups in the dedicated bucket; pair check 28/28. Zero scope deviations.**
+**From:** O-EV-1 RATIFIED — **record-anchored events (option a), verbatim in spec §34. Real events must anchor to a parent memory record; batch ref/provenance/F8/F14 all inherit through the parent; no standalone real events; no schema change. Implementation is future, separately-authorised work. Documentation-only; zero production impact.**
 **To:** Next AI session
+
+---
+
+## O-EV-1 RATIFICATION (owner, 2026-08-15) — CLOSED, DOCUMENTATION-ONLY
+
+Follows the events/milestones gap analysis (below): `pi_memory_events` is live and ratified but had no compliant real-ingestion path (no `import_batch_ref`, no provenance linkage, no tombstone). **Owner ratified option (a) — record-anchored events; verbatim record: `docs/MPI_2H_INGESTION_SPECIFICATION.md` §34.**
+
+**Contradiction check — none found:** zero schema change (consistent with the analysis's option-a classification) · §11/§14/§17 satisfied by inheritance through the parent record · F14-A/B semantics extend naturally (erasure = parent tombstone; no event-specific deletion path needed) · event-type vocabulary enforcement assigned to ingestion code, matching the existing pattern (memory_type is also code/policy-enforced, no DB CHECK) · O-2H-1 sources unchanged · Git-derived bulk events remain excluded · O-2H-3 and D4 remain OPEN, non-blocking.
+
+**Now unlocked (separately authorisable):** the events-ingestion implementation stage — ingestion-module + CLI event support (record+event pair per item, event-type whitelist `DECISION/GOAL/ROUTINE/PROJECT_STATE/MILESTONE`, `occurred_at` required, D3 content path, §14 idempotency via the parent) + tests + regression. After it lands and passes: an owner-curated milestone batch under a fresh §24(5) order.
+
+### Next stage
+
+Owner's choice: authorise the events-ingestion implementation · O-2H-3 retention · further record batches · MPI-3+ work. Nothing proceeds without a separate instruction.
 
 ---
 

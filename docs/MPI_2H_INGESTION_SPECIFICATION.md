@@ -191,3 +191,16 @@ Recorded exactly as provided, without reinterpretation or expansion. All four ch
 | **F14-D** | "(a) Indefinite audit retention. No audit purge period is established at this stage." | Append-only tables retain forever; the memory policy §7 retention clause is satisfied by an explicit "indefinite" rather than an undefined gap. Establishing a period later requires a governance amendment first. |
 
 **Standing consequences:** an erasure request is honourable today (tombstone; proven with real machinery in `batch-2h-001-20260814` reversal testing). The broader-user-base condition formerly attached to O-2H-5 is lifted **for F14 specifically** — other broader-user-base requirements (D1 posture, per-batch gates, activation contract) are unaffected. Revisiting any of A–D is a new owner decision; A(c)-style hard purge and D(b)-style audit purge additionally require governance amendments before they can even be designed.
+
+## 34. Ratified O-EV-1 — record-anchored events (owner, 2026-08-15)
+
+Context: `pi_memory_events` is ratified (event types `DECISION / GOAL / ROUTINE / PROJECT_STATE / MILESTONE`) but carries no `import_batch_ref`, no provenance linkage, and no tombstone path — so §11/§14/§17 were unsatisfiable for standalone events. The owner ratified option (a), recorded exactly as provided:
+
+- Every real event must be anchored to a corresponding `pi_memory_records` row; **`memory_record_id` is mandatory for real event ingestion**.
+- The parent memory record carries the `import_batch_ref`; **provenance and F8 idempotency are inherited through the parent memory record**.
+- **Event erasure follows the parent memory's F14 tombstone lifecycle.**
+- **No standalone real event ingestion is permitted.**
+- **No schema migration is authorized or required** for this decision.
+- The `event_type` whitelist is enforced **by the ingestion code** using the ratified vocabulary: `DECISION, GOAL, ROUTINE, PROJECT_STATE, MILESTONE` (the column has no DB CHECK; code-side enforcement is the ratified mechanism).
+
+**Consequences:** the §11/§14/§17 requirements are satisfied for events by inheritance — batch reversal tombstones the parent record (closing the event's standing per F14-A semantics), replays dedup on the parent's provenance triple, and every real event is reachable from an audited, provenance-tracked record. Implementation (ingestion-module + CLI event support + tests) is **future, separately-authorised work**; until it lands, no event batch can run. Sources for event batches remain O-2H-1 (`explicit_instruction`/`note`, owner-authored); Git/doc-derived bulk events remain excluded.
