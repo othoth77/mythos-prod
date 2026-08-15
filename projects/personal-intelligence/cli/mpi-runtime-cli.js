@@ -143,6 +143,17 @@ async function run(argv, deps) {
   // response — ids and provenance references only, never summaries or
   // content bodies (those stay behind the already-authorized local read
   // paths, e.g. mpi-retrieve-cli with explicit --hydrate).
+  // O-4-4 operator visibility: the routing verdict per retrieved memory —
+  // id, provenance reference, class and reason only, never a summary.
+  const routing = result.diagnostics.router;
+  if (routing) {
+    out('ROUTING ' + routing.capabilityId + ' candidates=' + routing.counts.candidates +
+      ' required=' + routing.counts.required + ' useful=' + routing.counts.useful +
+      ' irrelevant=' + routing.counts.irrelevant);
+    (result.diagnostics.routing || []).forEach(function (d) {
+      out('  ' + d.id + ' ' + d.classification + ' (' + d.reason + ')');
+    });
+  }
   const used = result.diagnostics.memoriesUsed || [];
   out('MEMORIES_USED ' + used.length);
   used.forEach(function (m) { out('  ' + m.id + ' <- ' + m.reference); });

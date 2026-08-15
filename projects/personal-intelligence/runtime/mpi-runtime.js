@@ -18,19 +18,20 @@
 // permitted provider is the offline mock; this module has no provider
 // selection surface, no endpoint configuration, and no credential handling.
 //
-// INTERIM LINKING RULE (documented composition choice, owner decision
-// O-4-4 pending): the skill/intent router that would classify memories
-// against capabilities does not exist. Until it does, the ranked memories
-// returned by R3 are linked to the operator-declared task as USEFUL — a
-// stand-in that makes the assembler's classification and the compiler's
-// USEFUL-first trimming operate as designed. This is NOT a relevance
-// judgment and is replaced wholesale when O-4-4 is decided.
+// O-4-4 RELEVANCE ROUTER (ratified — MPI_4_RUNTIME_SPECIFICATION.md §6):
+// the interim linking rule ("every ranked memory is USEFUL", a documented
+// composition choice, never a relevance judgment) is REMOVED. Linkage is now
+// decided per memory by `runtime/relevance-router.js` from typed columns
+// against a declared capability profile, and the UNCHANGED assembler
+// classifies that linkage exactly as it always has. The router adds no
+// retrieval, no store, no egress and no permission.
 //
 // READ-ONLY: this module issues no SQL, hydrates no content, writes nothing.
 // =====================================================
 'use strict';
 
 const bridge = require('./identity-bridge');
+const router = require('./relevance-router');
 const contextRuntime = require('../persistence/context-runtime');
 const assembler = require('../reference/context-assembler');
 const compiler = require('../reference/context-compiler');
@@ -80,21 +81,19 @@ function createRuntime(opts) {
 
     const ranked = await contextRuntime.retrieveRelevantMemory(client, q, { task: task });
 
-    // Interim O-4-4 linking rule (see header): ranked memories -> USEFUL for
-    // the declared task. Reference and scope travel with each item.
-    const memory = ranked.items.map(function (m) {
-      return {
-        key: m.memoryRecordId,
-        value: m.contentSummary,
-        relatedCapabilities: [task.capabilityId],
-        permissionScope: m.scope,
-        contentReference: m.contentReference,
-        provenance: { reference: m.provenance.reference }
-      };
+    // O-4-4: real memory->capability linking. The router refuses an
+    // undeclared capability before anything is assembled, and only ever
+    // narrows the already permission-filtered R3 result.
+    const routed = router.route({
+      task: task,
+      items: ranked.items,
+      message: request.message,
+      domainId: request.domainId,
+      tags: request.tags
     });
     const assembly = assembler.assemble({
       task: task,
-      memory: memory,
+      memory: routed.items,
       permissions: q.permissions
     });
     const compileOptions = {};
@@ -109,12 +108,17 @@ function createRuntime(opts) {
         retrieval: ranked.diagnostics,
         conflicts: ranked.conflicts,
         package: pkg._diagnostics,
+        router: routed.diagnostics,
+        routing: routed.decisions,
         // Operator visibility: ids + opaque provenance references only —
-        // never summaries or content bodies.
-        memoriesUsed: ranked.items.map(function (m) {
-          return { id: m.memoryRecordId, reference: m.provenance.reference };
-        }),
-        linkingRule: 'interim O-4-4: ranked memories linked USEFUL to task ' + task.capabilityId
+        // never summaries or content bodies. "Used" now means what the router
+        // actually linked; an IRRELEVANT memory was retrieved, not used.
+        memoriesUsed: routed.decisions
+          .filter(function (d) { return d.classification !== 'IRRELEVANT'; })
+          .map(function (d) {
+            return { id: d.id, reference: d.reference, classification: d.classification };
+          }),
+        linkingRule: routed.diagnostics.policy
       }
     };
   }

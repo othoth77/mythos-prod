@@ -1,8 +1,53 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** O-4-1 AMENDED + IMPLEMENTED + PHASE 11 EXECUTED (COMPLETE) — **limited free egress ratified (spec §2.2): OpenRouter, exactly `nvidia/nemotron-3-ultra-550b-a55b:free` (selected after fresh catalog verification: 16 :free models, 0 DeepSeek — the DeepSeek order correctly stopped). Free-only structural (pinned constant, allow_fallbacks:false, max_price 0/0, response-model verification), minimal egress serializer (summaries+intent+message only — keys/references/permissions/diagnostics stripped), honest ESTIMATED-LOCAL counter (50/day UTC), quota-gate-before-activation. Suites 35+41+21; regression 656/656. PHASE 11 (the ONE real request) executed 2026-08-15: `ok=true`, ratified model verified, ledger 1/50, production safety check clean (36/8/36/0/0 rows, zero writes). Real egress: 1.**
+**From:** O-4-4 RATIFIED + IMPLEMENTED (COMPLETE, with one part explicitly not executed) — **the interim linking rule is removed. `runtime/relevance-router.js` decides memory→capability linkage from typed columns against a declared capability profile (whitelist of one, fail-closed), the UNCHANGED assembler classifies it, permission still precedes relevance, lexical overlap can never link (only tie-break), REQUIRED is gated by `state=active` + confidence ≥ HIGH (disputed can never be REQUIRED — D4 stays open), ranking follows the §7 precedence ladder, and a memory record can never declare its own relevance. Router suite 65/65; runtime 41/41; regression 721/721 across 23 suites (documented 656 baseline reproduced exactly + 65 new). Real egress: 0 — no live provider request; free ledger unchanged at 1/50. Production corpus verification NOT EXECUTED: the operator-injected `MPI_PG_*` env is absent from this session and this stage will not manufacture a credential.**
+**Previously:** O-4-1 AMENDED + IMPLEMENTED + PHASE 11 EXECUTED (COMPLETE) — **limited free egress ratified (spec §2.2): OpenRouter, exactly `nvidia/nemotron-3-ultra-550b-a55b:free` (selected after fresh catalog verification: 16 :free models, 0 DeepSeek — the DeepSeek order correctly stopped). Free-only structural (pinned constant, allow_fallbacks:false, max_price 0/0, response-model verification), minimal egress serializer (summaries+intent+message only — keys/references/permissions/diagnostics stripped), honest ESTIMATED-LOCAL counter (50/day UTC), quota-gate-before-activation. Suites 35+41+21; regression 656/656. PHASE 11 (the ONE real request) executed 2026-08-15: `ok=true`, ratified model verified, ledger 1/50, production safety check clean (36/8/36/0/0 rows, zero writes). Real egress: 1.**
 **To:** Next AI session
+
+---
+
+## O-4-4 — REAL RELEVANCE ROUTER (2026-08-15) — RATIFIED, IMPLEMENTED, PUSHED
+
+**Owner order:** execute the complete O-4-4 stage end to end. **Contract recovered from the repository, not invented:** the decision register (`MPI_4_RUNTIME_SPECIFICATION.md` §3) defined O-4-4 as the *memory→capability linking policy (skill/intent router)*, with the M4-2 interim rule ("every ranked memory is USEFUL") explicitly labelled a composition choice rather than a relevance judgment. The governing rules came from the strongest sources already present: `MYTHOS_CONTEXT_ARCHITECTURE.md` §2 (the four classes; permission before relevance), `MYTHOS_CHATBOT_ARCHITECTURE.md` §5/§6 (keyword matching alone insufficient; never assert with false confidence), `SKILLS_SUPERPOSER.md` §3 (unavailable capability fails closed, never substituted), `MYTHOS_PERSONAL_INTELLIGENCE_ARCHITECTURE.md` §7 (the precedence ladder), `MYTHOS_USER_MEMORY_POLICY.md` §1/§3/§4 (memory types, scope non-promotion, confidence ladder). **Ratification recorded verbatim: spec §6.**
+
+### Built
+
+| Piece | Content |
+|---|---|
+| `runtime/relevance-router.js` (new) | **`CAPABILITY_PROFILES` = whitelist of one** (`operator.context_review` — the only capability with a runtime implementation; every domain-pack capability is documented as unimplemented). Undeclared capability → `ROUTER_CAPABILITY_NOT_AVAILABLE`, never substituted, never degraded to blanket-USEFUL · **linkage requires a typed signal** (profile memory type, admissible scope, no foreign declared domain); **lexical overlap is a tie-breaker only and can never link** · **REQUIRED gate**: `state=active` + confidence ≥ `HIGH`, else **demoted to USEFUL with a stated reason** (so `disputed` can never be REQUIRED — D4 untouched) · **§7 precedence ranking** (org policy 2 · explicit user rule 5 · org workflow 6 · established preference 7 · domain default 8 · generic 9) then confidence, overlap, retrieval order, id — deterministic · **`ROUTER_ITEM_LINKAGE_SMUGGLED`**: a memory row carrying its own `requiredForCapability`/`relatedCapabilities`/`forbidden`/`permissionDecision`/`classification`/`private` is refused whole · **requires NOTHING** — a second retrieval path, a write, a hydration or an egress path is structurally impossible, not merely absent |
+| `runtime/mpi-runtime.js` | interim rule deleted; the router sits between R3 and the **unchanged** assembler. `linkingRule` now discloses the real policy; `router`/`routing` diagnostics added; **`memoriesUsed` now means *linked*** — a retrieved-but-irrelevant memory is honestly reported as unused |
+| `cli/mpi-runtime-cli.js` | `ROUTING <capability> candidates/required/useful/irrelevant` block plus per-memory `id CLASS (reason)` — ids and provenance references only, never a summary |
+
+**Deliberately NOT built** (would exceed the contract): multi-capability `SkillPlan` composition · any read of `pi_domain_capabilities`/`pi_capability_runtime_status` (that would be a new SQL path outside R1) · automatic conflict resolution · any egress, identity, hosting, schema, Coolify or Supabase change.
+
+### Tests
+
+**`tests/mpi-4-relevance-router-test.js` — 65/65**, covering every case the order enumerated: capability gate incl. through the full runtime · relevant selected / irrelevant rejected with reasons · **a perfect keyword match with no structural signal is still rejected, and a zero-overlap typed memory is still selected** · precedence ordering and rank-value pinning · determinism (byte-identical verdict) vs. non-constancy · confidence floor and demotion · scope inadmissibility · permission filtering end-to-end incl. empty `allowedScopes` · identity refusals still fire · **four smuggling refusals + instruction-shaped summary text changes nothing** · malformed/null/coerced-input refusals · domain mismatch, match-signal, and absence-infers-nothing · provenance/reference/scope verbatim · **disputed demoted, conflicts surfaced** · bounding drops USEFUL before REQUIRED · empty and all-irrelevant honesty · disclosure · structural provider/egress/write/second-path/second-store assertions · exactly one memory `SELECT` and zero non-`SELECT` statements · **assembler proven unchanged** · CLI routing block, no-leak, and fail-closed `--task`. **Runtime 41/41** (the two interim-rule assertions replaced by real-router assertions). **Adapter 21/21 · OpenRouter 35/35** unchanged.
+
+**Anti-green-test check (mutation, all reverted):** disabling the type gate → 7 failures · smuggling guard → 4 · capability gate → 3 · confidence floor → 1 · scope gate → 1 · domain gate → 1 · precedence ranking → 1. No assertion is vacuously true.
+
+**Full regression once: 721 passed / 0 failed / 0 skipped** across 23 suites, on a fresh scratch PostgreSQL **15.19** (`--network none`, tmpfs, per-suite fresh databases; 2B/2C schema pre-applied via the project's own `migrate.apply`). The documented 656/22 baseline was reproduced **exactly** (21 MPI suites 621 + offhost tooling 35) and the new router suite adds 65. Scratch container and temporary harness file removed — 0 scratch resources remain.
+
+### Production verification — PARTIAL, and explicitly so
+
+**Executed (read-only, credential-free):** runtime entry point fails closed without persistence · unavailable capability and undeclared identity both refuse at the CLI · ingestion flag unset · **0 node listeners · 0 running MPI processes · container census 26 · 0 MPI cron entries · 0 MPI systemd units · 0 containers carrying any `MPI_*` variable** · no Coolify change · no Supabase change · no schema change · zero writes (the stage never opened a production connection).
+
+**NOT executed: routing against the real 36-memory corpus.** That requires the operator-injected six-variable `MPI_PG_*` contract, which is **absent from this session's environment**. Per the order this stage did not create a credential file, did not read a password out of any container, and did not invent an alternative access path — so the corpus check is reported as not executed rather than assumed. It is a read-only, zero-egress check the owner can run in one invocation:
+
+```
+MPI_PERSISTENCE_ENABLED=true MPI_PG_HOST=... MPI_PG_PORT=... MPI_PG_DATABASE=... \
+MPI_PG_USER=... MPI_PG_PASSWORD=... MPI_PG_STATEMENT_TIMEOUT_MS=... \
+node projects/personal-intelligence/cli/mpi-runtime-cli.js ask \
+  --user usr_othman --organisation org_mythos --limit 10 --max-items 6 \
+  --message "which decisions govern memory retention?"
+```
+
+Expected: a `ROUTING operator.context_review candidates=N required=R useful=U irrelevant=I` block with a per-memory reason, `MEMORIES_USED` ≤ candidates, no summary in any line, offline mock response, zero writes.
+
+### Next stage
+
+O-4-4 is closed. Remaining, all optional/future: the corpus verification above (owner-run, read-only) · multi-user identity bridge (new decision + stage) · D4 automatic `disputed` resolution (still open by design) · a real `SkillPlan` composer (would need capabilities that have no runtime implementation). Nothing proceeds without a separate owner order.
 
 ---
 
@@ -99,7 +144,7 @@ MPI-4 under the current decision set is **complete**: offline runtime, ratified 
 | Piece | Content |
 |---|---|
 | `runtime/identity-bridge.js` | The minimum explicit owner-declared bridge: a whitelist of exactly the owner-ratified scope (`usr_othman`/`org_mythos`). Fail-closed; identity must arrive as explicit input; the module has **no capability** to read env/filesystem/network/session/IP/hostname. Extending it is owner decision O-4-3. The legacy app's shared-password session is not consulted and is not claimed to be an identity system. |
-| `runtime/mpi-runtime.js` | The smallest provider-neutral runtime: bridge → R3 (`context-runtime`, the real §10 path — permission-before-ranking, O-R1(b), bounded, deterministic) → unchanged `assembler.assemble` → unchanged `compiler.compile` (bounded, trim-with-reasons) → M4-1 adapter → injected provider. No second retrieval path, no SQL, no hydration, no writes. **Interim O-4-4 linking rule disclosed in every response**: ranked memories link as USEFUL to the operator-declared task pending the real skill/intent router — a documented composition choice, not a relevance judgment. |
+| `runtime/mpi-runtime.js` | The smallest provider-neutral runtime: bridge → R3 (`context-runtime`, the real §10 path — permission-before-ranking, O-R1(b), bounded, deterministic) → unchanged `assembler.assemble` → unchanged `compiler.compile` (bounded, trim-with-reasons) → M4-1 adapter → injected provider. No second retrieval path, no SQL, no hydration, no writes. **Interim O-4-4 linking rule disclosed in every response**: ranked memories link as USEFUL to the operator-declared task pending the real skill/intent router — a documented composition choice, not a relevance judgment. *(SUPERSEDED 2026-08-15 by the ratified O-4-4 relevance router — spec §6; the disclosure property is preserved, the interim rule is gone.)* |
 | `cli/mpi-runtime-cli.js` | Operator-run local entry point (Phase 10), analogous to the existing CLIs: not deployed, not a service, not scheduled, ingestion off, **the offline mock hard-wired — no flag, argument, or env var can select another provider**. |
 
 ### Tests

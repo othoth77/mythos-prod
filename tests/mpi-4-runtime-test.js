@@ -84,11 +84,12 @@ const baseReq = { scope: OWNER, message: 'what governs memory? .invalid', limit:
     '7 normal request -> deterministic mock response through the full chain');
   const r2 = await rt([row('m1'), row('m2')]).ask(baseReq);
   ok(r1.response.text === r2.response.text, '8 repeated identical request, byte-identical result');
-  ok(/facts=2/.test(r1.response.text), '9 both memories entered the package (interim USEFUL linking; memory source maps to requiredFacts)');
+  ok(/facts=2/.test(r1.response.text), '9 both memories entered the package (O-4-4 linked them REQUIRED; memory source maps to requiredFacts)');
   ok(r1.diagnostics.package && Array.isArray(r1.diagnostics.package.trimmed),
     '10 package diagnostics travel (trim reasons surface)');
-  ok(/interim O-4-4/.test(r1.diagnostics.linkingRule),
-    '11 the interim linking rule is disclosed in every response, never silent');
+  ok(/O-4-4 relevance router/.test(r1.diagnostics.linkingRule) && !/interim/.test(r1.diagnostics.linkingRule) &&
+     r1.diagnostics.router.counts.candidates === 2,
+    '11 the interim linking rule is GONE — the real O-4-4 routing policy and its verdict are disclosed in every response');
 
   await expectRefusal(function () { return rt([]).ask({ scope: OWNER, message: 'x', limit: undefined }); },
     /LIMIT_REQUIRED/, '12 bounded context: limit required, no exhaustive load exists');

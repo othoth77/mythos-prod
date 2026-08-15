@@ -92,7 +92,7 @@ The §2 DEFER record above is **preserved as history**; it governed until this a
 | O-4-1 | Provider / data egress | **DEFER ratified (§2)** — sub-decisions A1–A5 OPEN |
 | O-4-2 | Runtime surface & hosting | **RATIFIED (§4)** — operator-run CLI on the VPS, on-demand; any *deployed* runtime is a NEW decision |
 | O-4-3 | Identity bridge for the current runtime | **RATIFIED (§5)** — explicit owner-declared single-identity bridge; a future multi-user bridge is a separate owner decision + implementation stage |
-| O-4-4 | Memory→capability linking policy (skill/intent router) | OPEN — the operator runtime's interim linking rule is a documented composition choice (see `runtime/mpi-runtime.js` header), not a relevance judgment |
+| O-4-4 | Memory→capability linking policy (skill/intent router) | **RATIFIED + IMPLEMENTED (§6)** — the interim linking rule is removed; `runtime/relevance-router.js` decides linkage from typed columns against a declared capability profile, and the unchanged assembler classifies it |
 | D4 | Automatic `disputed` resolution | OPEN, non-blocking — the runtime surfaces conflicts and never resolves them |
 
 ## 4. Ratified O-4-2 — operator-run CLI on the VPS, on-demand (owner, 2026-08-15)
@@ -117,7 +117,7 @@ Distinction honoured: (1) documented architecture = A's pattern + C's env-inject
 
 ### 4.3 Boundaries and relationships
 
-**Operational boundary:** the runtime exists only for the duration of an operator invocation on the VPS shell; no listener, no port, no process survives the invocation (live-verified at ratification: 0 node listeners, 0 running MPI CLI processes). **Security boundary:** identity is a fail-closed explicit-input whitelist of one owner scope; the provider is hard-wired offline; the MPI read credential exists only in the invocation's process environment; the composition is structurally write-free and egress-free (test-asserted). **O-4-1:** fully respected — this decision changes nothing about egress and cannot be read as provider authorization. **O-4-3:** untouched — one owner scope remains the entire identity universe. **O-4-4:** untouched — the interim linking rule stands, disclosed per response. **Deployment implications:** none now; choosing B/C/D later is a new owner decision with its own authorization (and, for C, explicit Coolify authorization).
+**Operational boundary:** the runtime exists only for the duration of an operator invocation on the VPS shell; no listener, no port, no process survives the invocation (live-verified at ratification: 0 node listeners, 0 running MPI CLI processes). **Security boundary:** identity is a fail-closed explicit-input whitelist of one owner scope; the provider is hard-wired offline; the MPI read credential exists only in the invocation's process environment; the composition is structurally write-free and egress-free (test-asserted). **O-4-1:** fully respected — this decision changes nothing about egress and cannot be read as provider authorization. **O-4-3:** untouched — one owner scope remains the entire identity universe. **O-4-4:** at the time of this §4 ratification the interim linking rule still stood; it was replaced by the ratified relevance router in §6 (the disclosure-per-response property is preserved, now describing a real judgment). **Deployment implications:** none now; choosing B/C/D later is a new owner decision with its own authorization (and, for C, explicit Coolify authorization).
 
 ## 5. Ratified O-4-3 — explicit owner-declared single-identity bridge (owner, 2026-08-15)
 
@@ -133,3 +133,29 @@ The mapped identity is **operator identity** (the owner acting on their own MPI 
 ### 5.3 Open/future alternatives (preserved, not designed)
 
 A general multi-user bridge (application sessions → per-user MPI scopes, organisation membership, role-derived permissions per `MYTHOS_AI_MULTI_TENANCY.md`) remains **OPEN future work** requiring: an application identity system that does not exist today (§19.1 / auth.js findings), owner-authorized registry rows per user (the O-2H seed pattern), and its own decision + implementation stage. Nothing in §5.1 constrains or pre-designs it.
+
+## 6. Ratified O-4-4 — real relevance router (owner order, 2026-08-15)
+
+The M4-2 **interim linking rule** ("every ranked memory is linked USEFUL to the declared task" — a documented composition choice, explicitly *not* a relevance judgment) is **removed**. Memory→capability linking is now a real, explicit, testable policy implemented in `runtime/relevance-router.js`.
+
+### 6.1 The decision
+
+- **The router links; the assembler classifies.** The router produces the linkage fields (`requiredForCapability` / `relatedCapabilities`) that `reference/context-assembler.js` `classify()` has always consumed and that nothing ever produced for a real memory row. The assembler is **unchanged** and remains the sole classifier — no second relevance mechanism exists.
+- **Permission before relevance, always** (`MYTHOS_CONTEXT_ARCHITECTURE.md` §2). The router runs on R3's already permission-filtered result, only ever *narrows* it, and has no code capability to read, set or relax a permission decision. Relevance can never re-admit an excluded scope.
+- **Capability availability fails closed** (`SKILLS_SUPERPOSER.md` §3). `CAPABILITY_PROFILES` is a whitelist of **one** — `operator.context_review`, the only capability with a runtime implementation; every domain-pack capability is documented as unimplemented. An undeclared capability is refused (`ROUTER_CAPABILITY_NOT_AVAILABLE`), never substituted and never degraded back to blanket-USEFUL. Extending the whitelist is a reviewed code change, never a runtime affordance.
+- **Keyword matching alone is structurally insufficient** (`MYTHOS_CHATBOT_ARCHITECTURE.md` §5). Linkage requires a *typed* signal (memory type declared by the capability profile, within an admissible scope, not from a foreign declared domain). Lexical overlap between the request and a memory summary is computed **only** as an ordering tie-breaker between items already linked — it can never make a memory relevant.
+- **Never assert with false confidence** (§6 of the same document). A REQUIRED-eligible type is REQUIRED only when `state = active` **and** provenance confidence ≥ `HIGH`; otherwise it is **demoted to USEFUL with a stated reason**, never discarded and never asserted. A `disputed` memory can therefore never be REQUIRED — **D4 remains open; the router surfaces conflicts and resolves none**.
+- **Ranking derives from the documented precedence ladder** (`MYTHOS_PERSONAL_INTELLIGENCE_ARCHITECTURE.md` §7), restricted to the rungs memory can occupy: organisation policy (2) · explicit persistent user rule (5) · verified organisation workflow (6) · established user preference (7) · domain default (8) · generic default (9). Rungs 1, 3 and 4 are deliberately absent — they are not memory records. Full order: classification → precedence → confidence → lexical overlap → retrieval order → memory id. **Deterministic**: identical input yields a byte-identical verdict.
+- **A memory record may never declare its own relevance.** A record arriving with `requiredForCapability`, `relatedCapabilities`, `forbidden`, `permissionDecision`, `classification` or `private` pre-set is refused whole (`ROUTER_ITEM_LINKAGE_SMUGGLED`). Classification reads **typed columns only** — instruction-shaped text inside `content_summary` changes nothing.
+- **Provenance and references travel verbatim.** The router copies `permissionScope`, `contentReference` and the provenance reference; it rewrites, relaxes and synthesises none of them. An unprovenanced record is refused rather than routed.
+- **Structurally incapable of anything else.** `relevance-router.js` `require`s **nothing** — no persistence, no provider, no `fs`, no network, no environment. A second retrieval path, a second memory store, a write, a hydration or an egress path is therefore impossible in this module rather than merely absent from it.
+
+### 6.2 Boundaries and relationships
+
+**O-4-1 (§2.2):** untouched — the ratified OpenRouter free-only provider remains the sole egress path with its pinned model, `allow_fallbacks:false`, `max_price {0,0}` and minimal serializer (intent + item summaries + user message). O-4-4 adds **no** egress: the router's verdict lives in local diagnostics only, and no live provider request was made by this stage. **O-4-2:** untouched — operator-run CLI, no listener, no daemon, no schedule. **O-4-3:** untouched — the router runs downstream of the identity bridge, never receives identity, and has no code capability to name or derive one. **D4:** untouched and still open.
+
+**Operator visibility:** the routing verdict is disclosed in every response and printed by the CLI as a `ROUTING` block — per memory: id, provenance reference, classification and reason. Never a summary, never a content body. `MEMORIES_USED` now means what was actually *linked*; a retrieved-but-irrelevant memory is honestly reported as unused.
+
+### 6.3 What this decision does NOT authorize
+
+Multi-capability composition (`SkillPlan`) · a second retrieval · reading `pi_domain_capabilities` / `pi_capability_runtime_status` from the runtime (that would be a new SQL path outside R1) · any domain-pack capability becoming runtime-available · automatic conflict resolution (D4) · any change to the egress surface, identity universe, hosting posture, schema, Coolify or Supabase.
