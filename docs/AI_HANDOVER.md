@@ -1,8 +1,42 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** MPI-3 STAGE R1 COMPLETE — **the §10 retrieval adapter exists (`persistence/retrieval.js`) with O-R1(b) tombstone invisibility enforced in code, event/timeline retrieval, and explicit-only D3 hydration. R1 suite 26/26; full regression 526/526. Read-only by construction; production untouched. Next: R2 (read-only operator retrieval CLI).**
+**From:** MPI-3 STAGE R2 COMPLETE — **the read-only operator retrieval CLI exists and performed the first real retrieval over the production corpus: 36/36 memories returned deterministically with provenance, 8/8 milestone events on the timeline, tombstone request refused (O-R1b), one item hydrated byte-exact through D3. Zero writes. CLI suite 13/13; regression 539/539.**
 **To:** Next AI session
+
+---
+
+## MPI-3 STAGE R2 — OPERATOR RETRIEVAL CLI + FIRST REAL RETRIEVAL (2026-08-15) — PASS
+
+**Owner authorisation:** Stage R2 only — build the read-only CLI, test offline, regression once, then ONE read-only production retrieval with owner scope.
+
+### What was built
+
+**`cli/mpi-retrieve-cli.js`** — read-only composition root: activation (real driver, env contract, no fallback) → §10 adapter → formatted output; explicit-only D3 hydration of exactly one already-returned item via `--hydrate` + `--content-config`. Full §10 argv surface (scope, domain/project, intent/entities, timeRange, tags, minConfidence, includeStates, requireProvenance, allowed scopes, bounded limit). **Structurally read-only, asserted by test:** no SQL writes, no ingestion linkage, no `putContent`; the only write is stdout. `intent`/`entities` are accepted and **echoed as explicitly non-ranking inputs** (the consuming ranking strategy is Stage R3) — stated in output so echo is never mistaken for ranking.
+
+### Tests
+
+**CLI suite 13/13** (offline via deps seam: composition + formatting · adapter refusals surface (limit, O-R1b tombstoned, unknown command) · disabled activation refuses rather than falls back · full §10 argv translation · intent/entities echo-only · hydration of returned items only · nothing hydrates without `--hydrate` · structural read-only assertion · events command). **Full regression once: 539 passed / 0 failed** (18 suites: 526 prior + R2 CLI 13).
+
+### The first real retrieval (single authorised run, owner scope)
+
+| Evidence | Result |
+|---|---|
+| Corpus | 36 memory rows total (verified) — **returned 36/36** under `usr_othman`/`org_mythos`, limit 50, `requireProvenance` default |
+| Ordering | deterministic — full order byte-identical across two consecutive runs (36 items); all items conf_rank 4 (EXPLICIT) → tiebreak by stable id, batches 001→002→003→004 |
+| Provenance | present on **every** returned item (prov=1 each) |
+| Conflicts | 0, returned separately (`CONFLICTS 0`) — consistent with 0 disputed rows |
+| Diagnostics | emitted: returned/limit/states/filters/ordering/conflictsFound |
+| Events | **8/8 milestones** returned on the timeline, `occurred_at DESC`, each anchored to its parent; `tombstonedParentsExcluded: true` |
+| Tombstone (O-R1b) | `--include-states active,tombstoned` **REFUSED** (`RETRIEVAL_TOMBSTONED_INVISIBLE`, exit 3, before any connection) |
+| D3 hydration | exactly one item (`mem:batch-2h-001-20260814:item-1`) hydrated on explicit request: **60 bytes, byte-exact**; no other content fetched |
+| Writes | **0** — production identical after (36/8/36 rows, 0 tombstones, bucket 45 objects) |
+
+Operational note: the first wrapper run was truncated by an output pipe (`head` SIGPIPE) after pass 2; passes 3–4 were re-run cleanly. All four passes' evidence above is from actual executed output.
+
+### Next stage
+
+**MPI-3 Stage R3** — the context-assembler consuming the §10 adapter (real ranking with intent/entities) — separately authorised. R4 (native FTS) remains conditional on §13's trigger. D4 remains the sole open decision, non-blocking.
 
 ---
 
