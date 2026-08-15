@@ -287,7 +287,8 @@
         "node tests/inf-ovh-api-0-connector-test.js",
         "node tests/inf-cf-auto-0-connector-test.js",
         "node tests/inf-dns-auto-1-comparison-test.js",
-        "node tests/inf-dns-auto-2-operations-test.js"
+        "node tests/inf-dns-auto-2-operations-test.js",
+        "node tests/inf-deploy-auto-0-staging-test.js"
       ],
       "risk_lane": "STANDARD"
     },

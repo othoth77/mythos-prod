@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** INF-DEPLOY-AUTO-0 — **CONTRACT RECOVERY ONLY. STOPPED BEFORE IMPLEMENTATION: THE STAGE HAS NO AUTHORITATIVE CONTRACT.** Its complete authoritative text is one sentence whose scope is explicitly deferred ("scope to be defined in that stage's own planning"), it designates no automation level, the release policy its own constraint depends on does not exist anywhere in the repository, its two connectors are `enabled:false` placeholders with no capability contract, and `MYTHOS_PORTFOLIO_REGISTRY.md` classifies the whole Coolify/GitHub connector track as **OWNER_DIRECTION**. Nothing was implemented, no code file was created or modified, no test was added, no deployment occurred. Defining the scope, authoring the release policy, and deciding the connector split are **owner decisions**. Read-only record only.
+**From:** INF-DEPLOY-AUTO-0 — GITHUB → COOLIFY STAGING DELIVERY — **CONTRACT RATIFIED (O-DEPLOY-1/2/3), IMPLEMENTED AND TESTED; NO DEPLOYMENT EXECUTED. PARTIAL — OWNER ACTION REQUIRED.** The staging executor exists with production **structurally unreachable**: the environment key is a constant, no override/promotion parameter exists, a connector carrying any production capability is refused, and the target must prove itself staging through TWO agreeing sources. Suite 90/90 with **26/26 mutation-tested guards**; full regression once: 83 suites, 4898 passed, 43 pre-existing legacy failures. **Deployments: 0.** Decisive finding: **no Coolify resource on this host declares `environmentName=staging`** — the application running `mythos-staging-*` images is labelled `production` by Coolify itself, so an image tag is not evidence of environment and the target cannot be proven. Six independent blockers; no connector enabled, no flag flipped, no credential created.
 **Previously:** INF-DNS-AUTO-2 — APPROVED DNS OPERATIONS — **IMPLEMENTED AND FULLY TESTED; NO DNS OPERATION PERFORMED. PARTIAL — OWNER ACTION REQUIRED.** The guarded execution path exists (`projects/automation/reference/dns-operations-executor.js`): owner approval enforced per domain AND per action from the committed approval-gate table, approval records validated against `aut_approvals`/`aut_approval_policies` (no self-approval, no expired reuse, no cross-run reuse, distinct approvers), write-connector least privilege with scope-escape refusal, one domain at a time, drift-invalidates-plan preconditions, a dry run that builds the identical envelope through the identical function, mandatory verification, automatic approved-only rollback, and `CRITICAL` incident on rollback failure. Suite 97/97 with **25/25 mutation-tested guards**. Full regression once: 82 suites, 4808 passed, 43 failed — all 43 pre-existing legacy `stage3*`, byte-identical to the baseline. **Real DNS operations: 0.** Preflight found **five independent blockers, each sufficient alone**: 0 of 40 owner approval fields are `APPROVED_FOR_MIGRATION`; both DNS write connectors are `enabled: false`; every LEVEL_3 feature flag is false; no OVH/Cloudflare credential exists; no populated secret store exists. No approval was simulated, fabricated, or written.
 **Previously:** INF-DNS-AUTO-1 — DNS SNAPSHOT, COMPARISON AND DRIFT DETECTION (COMPLETE) — **the Automation track's next stage, executed as a reference implementation exactly like its two predecessors. `projects/automation/reference/dns-comparison-engine.js` compares OVH / public DNS / Cloudflare record sets, analyses email and DNSSEC safety, and generates migration + rollback plans whose every step is `LEVEL_3_APPROVAL_REQUIRED` and never self-approvable; a `GATE_CHECK` rejects any plan that claims a level inconsistent with the approval matrix. Suite 85/85 (mutation-checked, 15/15 mutations caught). Full regression once: 81 suites executed, 4711 passed, 43 failed — all 43 in the 8 legacy `stage3*` browser suites and proven byte-identical at clean HEAD (pre-existing, unrelated). No live OVH/Cloudflare credential, no network call, no DNS record/zone/nameserver touched, nothing deployed. It does NOT unblock INF-CF-2 — `entry_gate_open` is structurally always false.**
 **Previously:** O-4-4 RATIFIED + IMPLEMENTED (COMPLETE, with one part explicitly not executed) — **the interim linking rule is removed. `runtime/relevance-router.js` decides memory→capability linkage from typed columns against a declared capability profile (whitelist of one, fail-closed), the UNCHANGED assembler classifies it, permission still precedes relevance, lexical overlap can never link (only tie-break), REQUIRED is gated by `state=active` + confidence ≥ HIGH (disputed can never be REQUIRED — D4 stays open), ranking follows the §7 precedence ladder, and a memory record can never declare its own relevance. Router suite 65/65; runtime 41/41; regression 721/721 across 23 suites (documented 656 baseline reproduced exactly + 65 new). Real egress: 0 — no live provider request; free ledger unchanged at 1/50. Production corpus verification NOT EXECUTED: the operator-injected `MPI_PG_*` env is absent from this session and this stage will not manufacture a credential.**
@@ -10,7 +10,99 @@
 
 ---
 
-## INF-DEPLOY-AUTO-0 — CONTRACT RECOVERY (2026-08-15) — **READ-ONLY. STOPPED BEFORE IMPLEMENTATION: NO CONTRACT EXISTS.**
+## INF-DEPLOY-AUTO-0 — GITHUB → COOLIFY STAGING DELIVERY (2026-08-15) — CONTRACT RATIFIED, IMPLEMENTED, TESTED · **NO DEPLOYMENT EXECUTED**
+
+### Owner decisions ratified (recorded verbatim in `docs/AUTOMATION_ROADMAP.md` §INF-DEPLOY-AUTO-0)
+
+- **O-DEPLOY-1 — SCOPE.** Staging only: the existing Mythos repository, the Mythos staging environment, the existing Coolify staging deployment. A controlled, auditable, repeatable GitHub → Coolify **staging** pipeline. No production deployment, DNS, infrastructure mutation, automatic promotion, credentials or secrets; no unrelated repositories or applications. Must provide plan, preflight, approval boundary, staging-only execution, verification, rollback, audit, fail-closed behaviour.
+- **O-DEPLOY-2 — RELEASE POLICY.** The staging-only interpretation is ratified and **no production release policy is authorised**. The production release policy remains OPEN. Any attempt to target production must refuse before mutation. This is a foundation/staging stage, not a production release stage.
+- **O-DEPLOY-3 — CONNECTOR SPLIT.** `github_repository`: source-control read/commit/branch/remote only, existing identity, no new SSH keys, no force push, no history rewrite. `coolify_deployer`: staging deployment only, existing Coolify installation, explicit application/environment scope, no production capability, no credential creation, credentials by reference, **fail closed if the target cannot be proven to be staging**.
+
+The contract that was missing on the previous attempt is now formalised — automation level, inputs, outputs, entry criteria, staging-target proof, approval rules, rollback, verification, audit, prohibited operations and completion criteria are all written down in the roadmap.
+
+### THE FINDING THAT DECIDED THE OUTCOME
+
+**No Coolify resource on this host declares `environmentName=staging`.** Every Coolify-managed resource reports `environmentName=production`:
+
+| Coolify appId | environmentName | project | image |
+|---|---|---|---|
+| 3 | **production** | darhijama | `mythos-staging-web:local` |
+| 3 | **production** | darhijama | `mythos-staging-app:local` |
+| 1 | **production** | notrejour | `i4mv37ig…` |
+
+The application running images tagged `mythos-staging-*` is labelled **production** by Coolify itself, in a project that also has a separate non-Coolify production stack (`dar-hijama-production-*`, images `mythos-darhijama-production-*:v1.0.1`). **An image tag is not evidence of environment** — it is set by whoever built the image. Deploying to application 3 because its images say "staging" would have meant deploying to a resource the platform declares production, which O-DEPLOY-1/2 forbid absolutely.
+
+This is why the contract requires a **two-source proof**: a declared `aut_environments` record (`environment_key='staging'`, `is_production=false`, `enabled=true`) **and** the platform's own reported environment, which must agree. Disagreement is a refusal, never a resolution. The guard is not hypothetical — it fires on this host's real state, and a test asserts exactly that.
+
+### Staging preflight — six independent blockers, each sufficient alone
+
+| # | Condition | Observed | Verdict |
+|---|---|---|---|
+| 1 | Declared staging environment record | none — `aut_environments` is an undeployed draft schema; no live automation database exists | BLOCKED |
+| 2 | Platform reports `staging` | **0 resources**; all report `production` | BLOCKED |
+| 3 | `coolify_deployer` enabled | `false` | BLOCKED |
+| 4 | Staging-scoped capability | catalogue grants `[deployment.trigger, service.read]`; contract requires `deployment.trigger.staging` | BLOCKED |
+| 5 | LEVEL_3 / connector live flags | `level_3_approval_required_runs=false`, `connector_coolify_deployer_live=false` | BLOCKED |
+| 6 | Coolify credential reference | 0 | BLOCKED |
+
+No connector was enabled, no flag flipped, no credential created, no capability added, no environment record fabricated. **No deployment was performed.**
+
+### Built
+
+`projects/automation/reference/staging-deployment-executor.js` — production is **structurally unreachable**: `ENVIRONMENT_KEY` is a constant with no parameter, config or environment path that can change it; `environmentKeyOverride`, `targetEnvironment` and `promoteTo` do not exist and are refused on sight (O-DEPLOY-2: no promotion mechanism); a connector carrying **any** production-shaped capability is refused; the environment must prove itself twice. Also: repository allowlist of one, safe-ref validation refusing path traversal / command injection / option injection, forbidden git operations (force push, history rewrite), no arbitrary command or script, no environment-variable smuggling, connector least privilege with scope-escape refusal, credential **by reference only**, approval that is non-self, non-expired and run-bound, a rollback revision required **at plan time**, mandatory verification, automatic rollback on verification failure, `CRITICAL` incident on rollback failure, deterministic idempotency and lock keys, and append-only audit events. The module `require`s only `crypto` — no network, filesystem, database, child-process or environment capability exists in it.
+
+### Tests
+
+**`tests/inf-deploy-auto-0-staging-test.js` — 90/90**, twelve sections: staging-as-constant and refusal of every promotion/override parameter · the two-source proof including **the exact host condition** (staging-tagged images on a production-labelled app) · declared environment record (`is_production` checked independently of `environment_key`, and required to be exactly `false`) · source scope (repository allowlist, forbidden git operations, path traversal, command injection, option injection) · no arbitrary execution, no env smuggling · connector boundary (disabled, not-live, LEVEL_3 off, wrong connector, **any production capability**, missing credential reference, credential value present, scope escape) · approval boundary · plan/rollback/determinism · dry-run vs execution with byte-identical envelopes, successful deploy, automatic rollback, `CRITICAL` rollback failure · secret hygiene and audit · **against the real committed config and the real host state** · structural boundaries.
+
+**Mutation testing: 26 applied to the staging/production and security guards, 26 caught.** One real security defect was found by that process and fixed: the production detector used prefix/suffix matching and **missed `deployment.trigger.production`** — a dot-separated production capability would have passed. It is now tokenised on non-alphanumeric boundaries.
+
+**Targeted:** deploy 90 · DNS-AUTO-2 97 · DNS-AUTO-1 85 · Cloudflare 26 · OVH 26 · shared helpers 40 · DEVX-1 92 · DEVX-0 45 — 0 failed.
+
+**Full regression once: 83 suites executed, 4898 passed, 43 failed, 0 skipped, 13 env-blocked** (fresh scratch PostgreSQL 15.19, `--network none`, 0 published ports, tmpfs, per-suite fresh databases, removed afterwards). Delta versus the previous run is exactly +1 suite / +90 passes — this stage's own suite. The 43 failures are the same eight legacy `stage3*` browser suites with per-suite counts byte-identical to the established clean-HEAD baseline.
+
+### Production and infrastructure verification
+
+**Deployments 0 · production deployments 0 · provider calls 0 · DNS changes 0 · credentials created 0 · connectors enabled 0 · feature flags changed 0 · environment records created 0.** Container census 26 unchanged, no container started, stopped, rebuilt or redeployed. No Coolify, Supabase, R2, PostgreSQL, OpenRouter or MPI change. INF-DNS-AUTO-2 untouched and still PARTIAL — OWNER ACTION REQUIRED.
+
+### Operator action required before any staging deployment
+
+1. Create a real **staging** environment in Coolify (or relabel the intended application) so the platform reports `environmentName=staging` — today no such environment exists, and the `mythos-staging-*` images run on a **production-labelled** application.
+2. Declare the matching `aut_environments` record (`environment_key='staging'`, `is_production=false`, `enabled=true`) and bind the target application to it.
+3. Grant `coolify_deployer` the staging-scoped capability `deployment.trigger.staging`, enable the connector, and set `connector_coolify_deployer_live` + `level_3_approval_required_runs`.
+4. Provision a Coolify credential in an approved secret store and reference it by `secret_reference_id`.
+
+Until 1 and 2 hold, **the executor refuses by design** — and given a `mythos-staging`-tagged application currently labelled production, that refusal is the correct behaviour, not an obstacle.
+
+### Stage record (observed values only)
+
+| Field | Value |
+|---|---|
+| STATUS | **PARTIAL — OWNER ACTION REQUIRED** (contract ratified, implementation and tests complete; no deployment possible) |
+| COMMIT | `PENDING_COMMIT` |
+| REMOTE HEAD | `PENDING_PUSH` |
+| WORKING TREE | clean |
+| APPROVAL | contract ratified by O-DEPLOY-1/2/3; **no deployment approval exercised** — no deployment was reachable |
+| PRODUCTION OPERATIONS | 0 |
+| STAGING DEPLOYMENTS | 0 |
+| ROLLBACK | not invoked; path implemented and tested |
+| TARGETED TESTS | 90 + 97 + 85 + 26 + 26 + 40 + 92 + 45 — 0 failed |
+| FULL REGRESSION | 83 suites / 4898 passed / 43 failed (pre-existing legacy) / 0 skipped / 13 env-blocked |
+| REAL EGRESS | 0 |
+| CREDENTIALS CREATED | 0 |
+| POSTGRES WRITES | 0 (production); scratch only, removed |
+| R2 WRITES | 0 |
+| DNS CHANGES | 0 |
+| COOLIFY MODIFIED | no |
+| SUPABASE MODIFIED | no |
+
+### Next stage
+
+**INF-BACKUP-AUTO-0 — Automated Backup and Restore Verification** is next in sequence and has not started. Note it carries the same one-line, scope-deferred treatment INF-DEPLOY-AUTO-0 had before O-DEPLOY-1/2/3, so it will need its own owner decisions before it is executable. INF-DEPLOY-AUTO-0 itself remains open operationally until the four operator actions above are complete. Nothing proceeds without a separate owner order.
+
+---
+
+## INF-DEPLOY-AUTO-0 — CONTRACT RECOVERY (2026-08-15) — **READ-ONLY. STOPPED BEFORE IMPLEMENTATION: NO CONTRACT EXISTS.** *(SUPERSEDED by the record above — O-DEPLOY-1/2/3 closed exactly the three gaps this record identified.)*
 
 **Nothing was implemented. No code file was created or modified. The stage has not started.**
 

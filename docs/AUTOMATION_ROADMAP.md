@@ -103,15 +103,52 @@ This stage is where INF-CF-2 itself becomes executable — but only after its ow
 
 ### INF-DEPLOY-AUTO-0 — GitHub to Coolify Delivery Foundation
 
-Deployment pipeline foundation — scope to be defined in that stage's own planning, subject to the same approval-matrix constraints (production deployment requires a separately approved release policy, per `docs/AUTOMATION_APPROVAL_MATRIX.md` §3).
+Deployment pipeline foundation — subject to the approval-matrix constraints (production deployment requires a separately approved release policy, per `docs/AUTOMATION_APPROVAL_MATRIX.md` §3).
 
-**Status (contract recovery, 2026-08-15): NOT EXECUTABLE — this section is the stage's entire authoritative text, and it defers its own scope.** An execution order for this stage was attempted and correctly stopped before implementation rather than inventing it. Three owner decisions are required before any implementation can begin:
+*(History: this section previously deferred its own scope, and a 2026-08-15 contract-recovery attempt correctly stopped before implementation rather than inventing it. The three owner decisions below close that gap. The prior "NOT EXECUTABLE" note is superseded by §"Owner decisions" — the deferral text is retained above only as the stage's original framing.)*
 
-1. **Define the scope here**, to the specificity its predecessors already have: automation level (`LEVEL_1`…`LEVEL_4`), trigger model, target repository / Coolify application / environment, what a "delivery" operation actually is, verification and rollback semantics, and prohibited operations.
-2. **Author and approve the release policy** that `docs/AUTOMATION_APPROVAL_MATRIX.md` §3 requires — production deployment is not `LEVEL_4`-eligible without it. No such policy exists anywhere in this repository today. If the intent is staging-only, state that explicitly instead.
-3. **Decide the connector split** for `github_repository` and `coolify_deployer` (capabilities, permission ceiling, approval-policy reference) per §5 of `docs/AUTOMATION_ARCHITECTURE.md`. Both are `enabled: false` placeholders today with no capability contract, and `docs/MYTHOS_PORTFOLIO_REGISTRY.md` classifies the Coolify/GitHub connector track as `OWNER_DIRECTION` — "live connector deployment not yet scheduled".
+#### Owner decisions (ratified 2026-08-15)
 
-Nothing in this stage has been started, implemented, or deployed. The same treatment applies to `INF-BACKUP-AUTO-0`, `INF-MONITOR-AUTO-0` and `OPS-AUTO-0` below, whose scopes are likewise one line and undefined.
+**O-DEPLOY-1 — SCOPE.** INF-DEPLOY-AUTO-0 is the deployment-pipeline foundation for **STAGING ONLY**.
+
+- GitHub repository: **the existing Mythos repository only**.
+- Deployment target: **the Mythos staging environment only**.
+- Deployment platform: **the existing Coolify staging deployment only**.
+- Purpose: a controlled, auditable, repeatable GitHub → Coolify **staging** pipeline.
+- No production deployment · no production DNS · no production infrastructure mutation · no automatic production promotion · no production credentials · no production secrets · no deployment to unrelated repositories or applications.
+
+The stage must provide: deployment plan · preflight validation · approval boundary · deployment execution against staging only · deployment verification · rollback mechanism · audit record · fail-closed behaviour.
+
+**O-DEPLOY-2 — RELEASE POLICY.** The staging-only interpretation is ratified. **No production release policy is authorised by this decision.** Therefore: the stage must not deploy production; no production promotion mechanism may be created; no production approval workflow may be implied; the production release policy remains **OPEN** for a future owner decision; and any attempt to target production must **refuse before mutation**. This is a foundation/staging stage, not a production release stage.
+
+**O-DEPLOY-3 — CONNECTOR SPLIT.**
+
+| Connector | Ratified scope |
+|---|---|
+| `github_repository` | source-control read / commit / branch / remote operations only · existing authorised GitHub identity · **no new SSH keys · no force push · no history rewrite** |
+| `coolify_deployer` | **staging deployment operations only** · existing Coolify installation · staging target only · explicit application/environment scope · **no production deployment capability in this stage** · no credential creation · credentials **by reference only** · **fail closed if the target cannot be proven to be staging** |
+
+No production deployment capability is enabled. No generic "deploy anywhere" connector is created. No connector permission is broadened.
+
+#### Formal contract
+
+| Element | Definition |
+|---|---|
+| **Automation level** | `LEVEL_3_APPROVAL_REQUIRED` for the deployment operation itself; plan/preflight/dry-run are `LEVEL_2_RECOMMEND`. Never `LEVEL_4` — no approved release policy exists (O-DEPLOY-2). |
+| **Inputs** | a deployment request (repository, git ref, target application id, environment id) · a declared `aut_environments` record · the platform-reported environment for that application · connector catalogue + feature flags · an approval record and its policy · a rollback reference (the currently-deployed revision) |
+| **Outputs** | a deterministic deployment plan · a preflight result · a secret-free operation envelope · a verification result · a rollback record when verification fails · append-only audit events |
+| **Entry criteria** | a declared staging environment record (`environment_key='staging'`, `is_production=false`, `enabled=true`) **whose environment is corroborated by the platform's own metadata** · `coolify_deployer` enabled with a staging-scoped capability and a credential reference · the LEVEL_3 feature flags on · a valid non-self approval · a rollback target captured |
+| **Staging target proof** | **Two independent sources must agree**: the declared environment record AND the platform-reported environment name. Disagreement is a refusal, never a resolution. **An image tag, container name, or any other string is explicitly NOT evidence of environment** — this rule exists because the running Coolify application whose images are tagged `mythos-staging-*` is labelled `environmentName=production` by Coolify itself. |
+| **Approval rules** | one approval per deployment run, `APPROVE` only, never self-approved, requester ≠ approver, not expired, bound to its own run, policy enabled and covering `LEVEL_3_APPROVAL_REQUIRED` |
+| **Rollback** | redeploy the captured previous revision through the same connector; a rollback that cannot name the revision it restores to is refused at plan time; rollback is a separate audited execution; a failed rollback raises a `CRITICAL` incident |
+| **Verification** | mandatory and immediate after apply; failure triggers the defined rollback automatically |
+| **Audit** | append-only `aut_audit_events` records, opaque actor references, no PII, no secret values |
+| **Prohibited operations** | any production target · any environment other than the declared staging one · any repository other than the Mythos repository · force push · history rewrite · credential creation · arbitrary command execution · path traversal in refs or paths · environment-variable smuggling · enabling a connector · promoting staging to production |
+| **Completion criteria** | executor implemented and fail-closed · every boundary proven by test including mutation checks on the staging/production guard · targeted suites green · full regression once · **a staging deployment executed only if every entry criterion is provably satisfied**; if it is not, the stage completes as implementation + tests with the exact blocker recorded |
+
+#### Implementation status (2026-08-15)
+
+Implemented as `projects/automation/reference/staging-deployment-executor.js` + `tests/inf-deploy-auto-0-staging-test.js`. **No deployment has been executed**, because the staging target cannot be proven: **no Coolify resource on this host declares `environmentName=staging`** — every Coolify-managed resource declares `production`, including application id 3 (`project=darhijama`), which is the one running `mythos-staging-web:local` / `mythos-staging-app:local` images. Under this contract that contradiction is a refusal, not a judgement call. Additional independent blockers: `coolify_deployer` is `enabled:false`, `connector_coolify_deployer_live` is false, no staging-scoped deployment capability is declared in the catalogue, and no Coolify credential reference exists. See `docs/AI_HANDOVER.md` for the operator action required.
 
 ### INF-BACKUP-AUTO-0 — Automated Backup and Restore Verification
 
