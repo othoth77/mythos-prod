@@ -1,8 +1,39 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** O-2H-3 RATIFIED — **keep-everything retention, verbatim in spec §35. Nothing rotates, nothing auto-deletes, no retention job; no existing object may be deleted. With this, O-2H-1…6, F14, and O-EV-1 are ALL CLOSED — D4 is the sole remaining open MPI decision (non-blocking). Documentation-only; zero production impact.**
+**From:** MPI-3 STAGE R1 COMPLETE — **the §10 retrieval adapter exists (`persistence/retrieval.js`) with O-R1(b) tombstone invisibility enforced in code, event/timeline retrieval, and explicit-only D3 hydration. R1 suite 26/26; full regression 526/526. Read-only by construction; production untouched. Next: R2 (read-only operator retrieval CLI).**
 **To:** Next AI session
+
+---
+
+## MPI-3 STAGE R1 — §10 RETRIEVAL ADAPTER (2026-08-15) — PASS
+
+**Owner decisions this stage:** **O-R1 ratified as (b)** — tombstoned memories are invisible to retrieval even on explicit request; the adapter **refuses** `includeStates` containing `tombstoned` (F14-A preserved). Stage R1 implementation authorised and delivered.
+
+### What was built
+
+**`persistence/retrieval.js`** (new; **every statement a SELECT — read-only by construction, asserted by grep and test**):
+- `retrieveMemory(client, q)` → `{items, conflicts, diagnostics}` implementing §10 in full: required scope + required bounded limit (`loadAllUserMemory` inexpressible) · **required permissions object with scope filtering in WHERE, strictly before ranking** · `includeStates` default `['active']` (superseded/disputed only on explicit request; tombstoned refused per O-R1b) · deterministic ordering `confidence_rank DESC → observed_at DESC NULLS LAST → scope precedence (policy §3, most specific first) → id` · `requireProvenance` default true with confidence derived from the provenance join (§5) · `minConfidence` floor · domain narrowing · **projectRef narrowing through record-anchored events** (the only ratified carrier of project linkage — no schema change) · `timeRange` as observed-at containment OR validity-window overlap (§9) · tag filtering + tag hydration · conflicts returned alongside, never collapsed · factual diagnostics.
+- `retrieveEvents(client, q)` — timeline retrieval with ratified event-type whitelist validation, domain/project/timeRange narrowing, and **unconditional exclusion of events whose parent record is tombstoned** (F14 through the O-EV-1a anchor).
+- `hydrateContent(store, row)` — **the only content path, explicit-only**; retrieval never fetches bodies (D3).
+
+**`persistence/repositories.js`** — read-side additions only: `provenance.listForMemories`, `conflicts.listForMemories`, and the previously missing **tags repository** (`listForMemories`; tag writes remain future work). No existing method modified.
+
+Vector/embeddings/FTS: **absent, as ordered** (§13 deferral stands).
+
+### Tests
+
+**R1 suite `tests/mpi-3-retrieval-test.js`: 26/26** (8 offline refusals proven to fire before any connection + 18 scratch-DB cases over a fixture matrix: default active-only retrieval · O-R1(b) refusal · **permission-before-ranking proven by a limit-slot test** · exact deterministic order pinned and reproducibility re-queried · provenance requirement both ways · confidence floor · validity-window overlap · domain/project/tag narrowing · disputed-on-request with conflicts alongside · event retrieval incl. tombstoned-parent disappearance · explicit byte-identical D3 hydration with proof nothing hydrates implicitly). One test-expectation error found and fixed mid-stage (ordering fixture had defaulted confidence; the adapter was correct).
+
+**Full regression once: 526 passed / 0 failed** across 17 suites (356 core + 2H 35 + events 23 + **R1 26** + CLI 24 + D3 27 + tooling 35).
+
+### Production safety
+
+Production read-only and untouched (memory=36, events=8, provenance=36; bucket 45 objects — verified before and after) · no ingestion · no R2 objects · no schema change · no Coolify/Supabase change · scratch cleaned to 0.
+
+### Next stage
+
+**MPI-3 Stage R2** — read-only operator retrieval CLI (activation → §10 adapter → output; first real retrieval over the 36 memories), separately authorised. Then R3 (assembler on the real store), R4 conditional FTS per §13's trigger. D4 remains the sole open decision, non-blocking.
 
 ---
 

@@ -220,6 +220,14 @@ function provenanceRepository(exec) {
       const r = await exec.query(
         'SELECT * FROM pi_memory_provenance WHERE memory_record_id = $1 ORDER BY memory_provenance_pk', [id]);
       return r.rows;
+    },
+
+    // Read-side batch load for the §10 adapter — one query for a bounded id
+    // set, never an unbounded scan.
+    async listForMemories(ids) {
+      const r = await exec.query(
+        'SELECT * FROM pi_memory_provenance WHERE memory_record_id = ANY($1) ORDER BY memory_record_id, memory_provenance_pk', [ids]);
+      return r.rows;
     }
   };
 }
@@ -305,6 +313,28 @@ function conflictRepository(exec) {
         [id, resolution.resolutionState, resolution.resolvedByRef || null,
          resolution.resolutionSummary || null]);
       return r.rows[0] || null;
+    },
+
+    // §10 read side: conflicts touching any of a bounded id set, returned
+    // alongside items and never collapsed into one winner.
+    async listForMemories(ids) {
+      const r = await exec.query(
+        'SELECT * FROM pi_memory_conflicts WHERE memory_record_id_a = ANY($1) OR memory_record_id_b = ANY($1) ORDER BY memory_conflict_pk', [ids]);
+      return r.rows;
+    }
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tags — read side for the §10 adapter (tag writes are future, separately
+// authorised ingestion work; nothing here mutates).
+// ---------------------------------------------------------------------------
+function tagRepository(exec) {
+  return {
+    async listForMemories(ids) {
+      const r = await exec.query(
+        'SELECT memory_record_id, tag_key FROM pi_memory_tags WHERE memory_record_id = ANY($1) ORDER BY memory_record_id, tag_key', [ids]);
+      return r.rows;
     }
   };
 }
@@ -409,7 +439,8 @@ function createRepositories(exec) {
     preferences: preferenceRepository(exec),
     preferenceAudit: preferenceAuditRepository(exec),
     guardDecisions: guardDecisionRepository(exec),
-    events: eventRepository(exec)
+    events: eventRepository(exec),
+    tags: tagRepository(exec)
   };
 }
 
