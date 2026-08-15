@@ -45,6 +45,27 @@ node projects/personal-intelligence/cli/mpi-runtime-cli.js ask \
 
 Expected: a `ROUTING operator.context_review candidates=N required=R useful=U irrelevant=I` block with a per-memory reason, `MEMORIES_USED` ≤ candidates, no summary in any line, offline mock response, zero writes.
 
+### Stage record (observed values only)
+
+| Field | Value |
+|---|---|
+| COMMIT | `517cd86ac9285775a9ab6224fa8c00f110ace958` |
+| REMOTE HEAD | `517cd86ac9285775a9ab6224fa8c00f110ace958` (`origin/main`, verified after `git fetch`) |
+| WORKING TREE | clean |
+| TARGETED TESTS | router 65/65 · runtime 41/41 · adapter 21/21 · OpenRouter 35/35 — 0 failed |
+| FULL REGRESSION | 721 passed / 0 failed / 0 skipped, 23 suites, run once (scratch PG 15.19, removed after) |
+| PRODUCTION VERIFICATION | PARTIAL — boundary checks executed read-only and clean; corpus routing NOT executed (no operator-injected `MPI_PG_*`) |
+| REAL EGRESS | 0 |
+| PROVIDER | none contacted (offline mock only) |
+| MODEL | none used; ratified slug `nvidia/nemotron-3-ultra-550b-a55b:free` untouched |
+| FREE QUOTA | 1/50 estimated-local — unchanged by this stage |
+| DATA EGRESSED | none |
+| PERSONAL MEMORY EXPORTED | none |
+| POSTGRES WRITES | 0 (no production connection was opened) |
+| R2 WRITES | 0 |
+| COOLIFY MODIFIED | no |
+| SUPABASE MODIFIED | no |
+
 ### Next stage
 
 O-4-4 is closed. Remaining, all optional/future: the corpus verification above (owner-run, read-only) · multi-user identity bridge (new decision + stage) · D4 automatic `disputed` resolution (still open by design) · a real `SkillPlan` composer (would need capabilities that have no runtime implementation). Nothing proceeds without a separate owner order.
