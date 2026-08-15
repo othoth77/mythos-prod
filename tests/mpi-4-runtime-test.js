@@ -142,6 +142,44 @@ const baseReq = { scope: OWNER, message: 'what governs memory? .invalid', limit:
      !/\b(INSERT INTO|UPDATE [a-z_]+ SET|DELETE FROM)\b/i.test(files) && !/putContent|getContent|hydrate/.test(files),
     '23 no ingestion path, no SQL writes, no content-store/R2 linkage anywhere in the runtime surface');
 
+  console.log('\nO-4-2 — hosting boundary and CLI hardening');
+
+  const cli = require(path.join(BASE, 'projects/personal-intelligence/cli/mpi-runtime-cli.js'));
+  function cliDeps(rows) {
+    const client = fakeClient(rows);
+    const lines = [];
+    return { lines: lines, out: function (l) { lines.push(l); },
+      activate: async function () { return { enabled: true, client: client }; } };
+  }
+  const cliBase = ['ask', '--user', 'usr_othman', '--organisation', 'org_mythos', '--limit', '5', '--message', 'q .invalid'];
+
+  await expectRefusal(function () { return cli.run(cliBase.concat(['--provider', 'openai']), cliDeps([])); },
+    /UNKNOWN_ARGUMENT/, '24 provider cannot be supplied — unknown argument refused, not ignored');
+  await expectRefusal(function () { return cli.run(cliBase.concat(['--provider-url', 'https://x.invalid']), cliDeps([])); },
+    /UNKNOWN_ARGUMENT/, '25 provider URL cannot be supplied');
+  await expectRefusal(function () { return cli.run(cliBase.concat(['--api-key', 'k.invalid']), cliDeps([])); },
+    /UNKNOWN_ARGUMENT/, '26 provider credential cannot be supplied — O-4-1 DEFER not bypassable via argv');
+  await expectRefusal(function () { return cli.run(['ask', '--organisation', 'org_mythos', '--limit', '5', '--message', 'q'], cliDeps([])); },
+    /IDENTITY_USER_REQUIRED/, '27 CLI without explicit identity refuses (nothing inferred)');
+
+  const dOk = cliDeps([row('m1')]);
+  const rOk = await cli.run(cliBase, dOk);
+  ok(rOk.ok === true &&
+     dOk.lines.some(function (l) { return /^MEMORIES_USED 1$/.test(l); }) &&
+     dOk.lines.some(function (l) { return /m1 <- src_m1/.test(l); }) &&
+     dOk.lines.some(function (l) { return /^HYDRATION none/.test(l); }),
+    '28 operator output: memories used with provenance references, hydration status — no summaries, no content');
+
+  const cliSrc = fs.readFileSync(path.join(BASE, 'projects/personal-intelligence/cli/mpi-runtime-cli.js'), 'utf8')
+    .replace(/\/\/[^\n]*\n/g, '\n');
+  const runtimeSrc = fs.readFileSync(path.join(R, 'mpi-runtime.js'), 'utf8').replace(/\/\/[^\n]*\n/g, '\n');
+  ok(!/\.listen\(|createServer|http2|express|fastify/.test(cliSrc + runtimeSrc),
+    '29 no listening port / server surface exists — non-daemon by construction');
+  ok(!/coolify|supabase/i.test(cliSrc + runtimeSrc),
+    '30 no Coolify or Supabase dependency exists in the runtime surface');
+  ok(!/setInterval|cron|systemd|schedule/i.test(cliSrc + runtimeSrc),
+    '31 no scheduling primitive exists — on-demand only');
+
   console.log('\nM4-2 runtime: ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed === 0 ? 0 : 1);
 })().catch(function (e) {

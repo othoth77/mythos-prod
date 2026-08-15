@@ -1,8 +1,28 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** O-4-2 RATIFIED — **operator-run CLI on the VPS, on-demand (runtime spec §4, verbatim, with the full surface gap analysis preserved as open alternatives). Live-verified at ratification: 0 listeners, 0 daemons, on-demand only. Implementation phases follow in this same stage.**
+**From:** O-4-2 COMPLETE — **hosting ratified (spec §4) and implemented: the operator runtime CLI is hardened (strict argument whitelist — provider/endpoint/credential arguments refused, not ignored) with full operator visibility (memories used + provenance references, hydration status). Runtime suite 31/31; regression 611/611; live production check + hosting boundary all-PASS. Zero writes, zero egress.**
 **To:** Next AI session
+
+---
+
+## O-4-2 IMPLEMENTATION — CLI HARDENING + VERIFICATION (2026-08-15) — PASS
+
+Follows the O-4-2 ratification (spec §4, committed `cde3fcf`). Phase 4 verification confirmed the M4-2 CLI already satisfied the decision in substance — it was **not rewritten**; only the two genuine gaps were closed:
+
+| Change | Content |
+|---|---|
+| `cli/mpi-runtime-cli.js` | **Strict argument whitelist**: any unknown `--flag` is a refusal (`RUNTIME_CLI_UNKNOWN_ARGUMENT`), so `--provider`, `--provider-url`, `--api-key` are rejected rather than silently ignored — O-4-1 DEFER is not bypassable via argv. **Operator visibility (Phase 6)**: `MEMORIES_USED` lists ids + opaque provenance references (never summaries or content), plus an explicit `HYDRATION none` status — content stays behind the already-authorized `mpi-retrieve-cli --hydrate` path. |
+| `runtime/mpi-runtime.js` | diagnostics now carry `memoriesUsed` (id + reference pairs only) |
+| `tests/mpi-4-runtime-test.js` | +8 O-4-2 cases (24–31): provider/URL/credential argv refusals · no-inference identity refusal at CLI level · operator-output shape · structural no-listener/no-server · no Coolify/Supabase dependency · no scheduling primitive |
+
+### Evidence
+
+**Runtime suite 31/31** · **full regression once: 611 passed / 0 failed** (21 suites). **Production verification (owner scope, limit 10, maxItems 6, offline mock):** context from the real corpus with 10 memories listed by id + provenance reference, trimmed package facts=6, conflicts 0 surfaced-not-resolved, deterministic response, `--provider real` refused **exit 3**. **Hosting boundary live-verified post-run:** 0 node listeners · 0 running MPI processes · census 26 unchanged · no mpi cron entries · no mpi systemd units. Production rows/bucket unchanged (36/8/0 tombstones · 45 objects); Postgres writes 0 · R2 writes 0 · egress 0 · Coolify 0 · Supabase 0 · ingestion OFF.
+
+### Next stage
+
+MPI-4 under the current decision set is **complete**: offline runtime, ratified hosting, hardened surface. Remaining owner decisions, all optional: O-4-1 A1–A5 (real provider) · O-4-3 (broader identity) · O-4-4 (relevance router) · D4. Nothing proceeds without a separate order.
 
 ---
 

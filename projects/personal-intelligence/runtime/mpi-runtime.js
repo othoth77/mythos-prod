@@ -109,6 +109,11 @@ function createRuntime(opts) {
         retrieval: ranked.diagnostics,
         conflicts: ranked.conflicts,
         package: pkg._diagnostics,
+        // Operator visibility: ids + opaque provenance references only —
+        // never summaries or content bodies.
+        memoriesUsed: ranked.items.map(function (m) {
+          return { id: m.memoryRecordId, reference: m.provenance.reference };
+        }),
         linkingRule: 'interim O-4-4: ranked memories linked USEFUL to task ' + task.capabilityId
       }
     };

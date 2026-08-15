@@ -24,6 +24,21 @@ function refusal(code) {
   e.refused = true;
   return e;
 }
+
+// O-4-2 hardening: STRICT argument whitelist. Any unknown --flag is a
+// refusal, not a silent no-op — so a provider, endpoint, or key can never
+// be smuggled in as an ignored argument. Extending this list is a code
+// change reviewed like any other, never a runtime affordance.
+const KNOWN_ARGS = ['user', 'organisation', 'limit', 'message', 'task', 'domain',
+  'tags', 'min-confidence', 'max-items', 'approx-budget'];
+function assertKnownArgs(argv) {
+  argv.forEach(function (a) {
+    if (/^--/.test(a) && KNOWN_ARGS.indexOf(a.slice(2)) === -1) {
+      throw refusal('RUNTIME_CLI_UNKNOWN_ARGUMENT: ' + a + ' (strict whitelist; no provider/endpoint/credential argument exists)');
+    }
+  });
+}
+
 function argValue(argv, name) {
   const i = argv.indexOf('--' + name);
   return i < 0 ? null : argv[i + 1];
@@ -38,6 +53,7 @@ async function run(argv, deps) {
   const env = d.env || process.env;
   const out = d.out || function (line) { process.stdout.write(line + '\n'); };
   if (argv[0] !== 'ask') throw refusal('RUNTIME_CLI_UNKNOWN_COMMAND');
+  assertKnownArgs(argv.slice(1));
 
   const activate = d.activate || activation.activate;
   const activated = await activate({ env: env, pg: d.pg || require('../../idauto/node_modules/pg') });
@@ -69,6 +85,14 @@ async function run(argv, deps) {
   } else {
     out('FAILURE kind=' + result.response.kind);
   }
+  // Operator visibility (O-4-2 Phase 6): WHICH memories informed the
+  // response — ids and provenance references only, never summaries or
+  // content bodies (those stay behind the already-authorized local read
+  // paths, e.g. mpi-retrieve-cli with explicit --hydrate).
+  const used = result.diagnostics.memoriesUsed || [];
+  out('MEMORIES_USED ' + used.length);
+  used.forEach(function (m) { out('  ' + m.id + ' <- ' + m.reference); });
+  out('HYDRATION none (this runtime has no content-hydration path)');
   out('DIAGNOSTICS ' + JSON.stringify(result.diagnostics));
   return { ok: true, result: result };
 }
