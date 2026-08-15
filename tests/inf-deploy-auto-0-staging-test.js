@@ -397,6 +397,86 @@ await (async function () {
     '84 the observed host condition (staging-tagged images on a production-labelled Coolify app) refuses');
 })();
 
+console.log('\n11b. COOLIFY ENVIRONMENT REGISTRY — the real committed record');
+(function () {
+  var REG = JSON.parse(fs.readFileSync(
+    path.join(BASE, 'projects', 'infrastructure', 'coolify', 'environments.json'), 'utf8'));
+
+  var resolved = exec.environmentFromRegistry(REG, 'darhijama');
+  ok(resolved.environment.environment_key === 'staging' &&
+     resolved.environment.is_production === false &&
+     resolved.environment.environment_id === 'nuzp80tn6vtmymwnm2tc4d6i',
+    '91 the committed registry resolves darhijama to the real staging environment uuid');
+  ok(resolved.environment.environment_id === REG.authorised_staging_environment_id,
+    '92 the resolved environment is the one the registry authorises');
+  // The decisive current fact: a declared environment is not a deployment target.
+  ok(resolved.target === null && resolved.deployable === false && resolved.application_count_observed === 0,
+    '93 darhijama/staging is authorised but EMPTY — 0 applications, so no deployment target exists and none is invented');
+
+  throwsWith(function () { exec.environmentFromRegistry(REG, 'notrejour'); },
+    /NO_STAGING_ENVIRONMENT_DECLARED/, '94 a project with no staging environment is refused, never falling back to its production one');
+  ok(REG.environments.filter(function (e) { return e.is_production === true; }).length === 2 &&
+     REG.environments.filter(function (e) { return e.is_production === true; })
+       .every(function (e) { return e.enabled === false; }),
+    '95 every production entry in the registry is recorded is_production=true AND enabled=false — excluded on two independent grounds');
+  REG.environments.filter(function (e) { return e.is_production === true; }).forEach(function (e) {
+    throwsWith(function () { exec.assertStagingEnvironment(e); },
+      /ENVIRONMENT_NOT_STAGING|ENVIRONMENT_FLAGGED_PRODUCTION/,
+      '96 the registry\'s production entry "' + e.display_name + '" is refused by the staging gate');
+  });
+
+  // A tampered registry cannot manufacture a staging target.
+  var forged = JSON.parse(JSON.stringify(REG));
+  forged.environments.filter(function (e) { return e.environment_key === 'production'; })[0].environment_key = 'staging';
+  forged.environments.filter(function (e) { return e.environment_key === 'staging' && e.is_production === true; })
+    .forEach(function (e) { e.coolify_project_name = 'darhijama'; });
+  throwsWith(function () { exec.environmentFromRegistry(forged, 'darhijama'); },
+    /AMBIGUOUS_STAGING_ENVIRONMENT/,
+    '97 relabelling a production entry as staging produces ambiguity and is refused, not resolved by picking one');
+
+  var relabelled = JSON.parse(JSON.stringify(REG));
+  relabelled.environments = [Object.assign({}, relabelled.environments[1],
+    { environment_key: 'staging', coolify_project_name: 'darhijama' })];
+  relabelled.authorised_staging_environment_id = relabelled.environments[0].environment_id;
+  throwsWith(function () { exec.environmentFromRegistry(relabelled, 'darhijama'); },
+    /ENVIRONMENT_FLAGGED_PRODUCTION/,
+    '98 a production environment relabelled staging is still refused — is_production is checked independently of the key');
+
+  var mismatched = JSON.parse(JSON.stringify(REG));
+  mismatched.authorised_staging_environment_id = 'some-other-uuid';
+  throwsWith(function () { exec.environmentFromRegistry(mismatched, 'darhijama'); },
+    /REGISTRY_AUTHORISATION_MISMATCH/, '99 a registry whose authorised id disagrees with its own entry is refused');
+  throwsWith(function () { exec.environmentFromRegistry({}, 'darhijama'); },
+    /ENVIRONMENT_REGISTRY_REQUIRED/, '100 a malformed registry document is refused');
+  throwsWith(function () { exec.environmentFromRegistry(REG, ''); },
+    /REGISTRY_PROJECT_REQUIRED/, '101 a registry lookup without a project is refused');
+
+  var bound = JSON.parse(JSON.stringify(REG));
+  bound.environments.filter(function (e) { return e.environment_key === 'staging'; })[0].bound_application_id = 'app-uuid-1';
+  var withTarget = exec.environmentFromRegistry(bound, 'darhijama');
+  ok(withTarget.deployable === true && withTarget.target.application_id === 'app-uuid-1' &&
+     withTarget.target.environment_id === 'nuzp80tn6vtmymwnm2tc4d6i',
+    '102 once an application is bound, the adapter yields a target bound to the same staging environment');
+  var badBound = JSON.parse(JSON.stringify(REG));
+  badBound.environments.filter(function (e) { return e.environment_key === 'staging'; })[0].bound_application_id = '';
+  throwsWith(function () { exec.environmentFromRegistry(badBound, 'darhijama'); },
+    /BOUND_APPLICATION_INVALID/, '103 an empty bound application id is refused rather than treated as unbound');
+
+  // Assert on KEYS, not prose: the file legitimately contains sentences saying
+  // it holds no token or password, and a blob regex would match those.
+  var keys = [];
+  (function walk(v) {
+    if (!v || typeof v !== 'object') return;
+    Object.keys(v).forEach(function (k) { keys.push(k); walk(v[k]); });
+  })(REG);
+  var credentialKeys = keys.filter(function (k) {
+    return /^(api[_-]?key|api[_-]?token|token|password|secret|private[_-]?key|credential|connection_string)$/i.test(k);
+  });
+  ok(credentialKeys.length === 0 && keys.length > 20,
+    '104 no key anywhere in the committed registry is credential-shaped (' + keys.length + ' keys checked)');
+  ok(exec.assertNoSecrets(REG) === true, '105 the registry passes the secret-hygiene guard');
+})();
+
 console.log('\n12. STRUCTURAL BOUNDARIES');
 (function () {
   var src = fs.readFileSync(EXEC_PATH, 'utf8');

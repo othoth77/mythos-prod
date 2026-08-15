@@ -383,6 +383,70 @@ function dryRun(request) {
   });
 }
 
+// -----------------------------------------------------------------------
+// environmentFromRegistry(registryDoc, projectName)
+//
+// Adapter for the committed non-secret environment registry
+// (projects/infrastructure/coolify/environments.json), mirroring the DNS
+// engine's `publicDnsRecordsFromInventory`. Takes the PARSED document — this
+// module never touches the filesystem.
+//
+// Returns { environment, target } where `target` is null whenever no
+// application is bound. A registry entry can therefore declare an authorised
+// staging ENVIRONMENT without thereby declaring a deployment TARGET: the two
+// are separate facts, and an empty environment yields no target rather than a
+// guessed one.
+// -----------------------------------------------------------------------
+function environmentFromRegistry(registryDoc, projectName) {
+  if (!registryDoc || !Array.isArray(registryDoc.environments)) {
+    throw refuse('ENVIRONMENT_REGISTRY_REQUIRED', 'a registry document with an environments array is required');
+  }
+  var project = String(projectName || '').trim().toLowerCase();
+  if (!project) throw refuse('REGISTRY_PROJECT_REQUIRED');
+  var matches = registryDoc.environments.filter(function (e) {
+    return String(e.coolify_project_name || '').toLowerCase() === project &&
+      e.environment_key === ENVIRONMENT_KEY;
+  });
+  if (!matches.length) {
+    throw refuse('NO_STAGING_ENVIRONMENT_DECLARED', 'project "' + project + '" declares no ' + ENVIRONMENT_KEY + ' environment');
+  }
+  if (matches.length > 1) {
+    // Ambiguity is refused rather than resolved by picking one.
+    throw refuse('AMBIGUOUS_STAGING_ENVIRONMENT', matches.length + ' staging entries for project "' + project + '"');
+  }
+  var entry = matches[0];
+  // The registry is data, not authority: it is validated by the same gate any
+  // caller-supplied record passes through.
+  var environment = {
+    environment_id: entry.environment_id,
+    environment_key: entry.environment_key,
+    display_name: entry.display_name,
+    risk_class: entry.risk_class,
+    is_production: entry.is_production,
+    enabled: entry.enabled
+  };
+  assertStagingEnvironment(environment);
+  if (registryDoc.authorised_staging_environment_id !== undefined &&
+      registryDoc.authorised_staging_environment_id !== entry.environment_id) {
+    throw refuse('REGISTRY_AUTHORISATION_MISMATCH',
+      'the registry authorises ' + String(registryDoc.authorised_staging_environment_id) +
+      ' but project "' + project + '" resolves to ' + entry.environment_id);
+  }
+  var target = null;
+  if (entry.bound_application_id !== null && entry.bound_application_id !== undefined) {
+    if (typeof entry.bound_application_id !== 'string' || !entry.bound_application_id.trim()) {
+      throw refuse('BOUND_APPLICATION_INVALID', JSON.stringify(entry.bound_application_id));
+    }
+    target = { application_id: entry.bound_application_id, environment_id: entry.environment_id };
+  }
+  return {
+    environment: environment,
+    target: target,
+    application_count_observed: entry.application_count_observed === undefined ? null : entry.application_count_observed,
+    deployable: target !== null
+  };
+}
+
 function buildAuditEvent(input) {
   var required = ['auditEventId', 'eventType', 'runId', 'actorRef', 'actorType', 'eventSummary', 'occurredAt'];
   required.forEach(function (f) {
@@ -486,6 +550,7 @@ module.exports = {
   assertDeployConnector: assertDeployConnector,
   assertApproval: assertApproval,
   buildDeploymentPlan: buildDeploymentPlan,
+  environmentFromRegistry: environmentFromRegistry,
   buildAuditEvent: buildAuditEvent,
   preflight: preflight,
   dryRun: dryRun,

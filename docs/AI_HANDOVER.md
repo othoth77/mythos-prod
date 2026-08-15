@@ -1,12 +1,85 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** INF-DEPLOY-AUTO-0 — GITHUB → COOLIFY STAGING DELIVERY — **CONTRACT RATIFIED (O-DEPLOY-1/2/3), IMPLEMENTED AND TESTED; NO DEPLOYMENT EXECUTED. PARTIAL — OWNER ACTION REQUIRED.** The staging executor exists with production **structurally unreachable**: the environment key is a constant, no override/promotion parameter exists, a connector carrying any production capability is refused, and the target must prove itself staging through TWO agreeing sources. Suite 90/90 with **26/26 mutation-tested guards**; full regression once: 83 suites, 4898 passed, 43 pre-existing legacy failures. **Deployments: 0.** Decisive finding: **no Coolify resource on this host declares `environmentName=staging`** — the application running `mythos-staging-*` images is labelled `production` by Coolify itself, so an image tag is not evidence of environment and the target cannot be proven. Six independent blockers; no connector enabled, no flag flipped, no credential created.
+**From:** INF-DEPLOY-AUTO-0 — **STAGING ENVIRONMENT IDENTITY ESTABLISHED; NO DEPLOYMENT — BLOCKED ON OPERATOR ACTION.** The operator created a real independent Coolify Environment `darhijama/staging` (uuid `nuzp80tn6vtmymwnm2tc4d6i`), independently verified read-only from Coolify's own control plane: **0 applications** in staging, 1 in `darhijama/production`, 1 in `notrejour/production`. This resolves the prior contradiction — the `mythos-staging-*` images were on a production-labelled app (`gi0p3mbss6geqhunih23fy6f`, now `exited:unhealthy`; host census 26 → 18). Added the non-secret identity registry `projects/infrastructure/coolify/environments.json` (mirrors the undeployed `aut_environments` shape, `domain-inventory.json` precedent) plus one additive pure adapter `environmentFromRegistry`; **no existing guard changed**. Suite 106/106, 8/8 adapter mutations caught, full regression once: 83 suites / 4914 passed / 43 pre-existing legacy failures. **Deployments 0 · Coolify resources created/modified 0 · credentials 0 · connectors enabled 0 · flags changed 0.** **A deployment ENVIRONMENT now exists; a deployment TARGET does not** — staging holds 0 applications. Remaining blockers are all operator actions: create the staging application, grant `deployment.trigger.staging` + enable the connector, set the LEVEL_3 flags (the global one also gates INF-DNS-AUTO-2), and provision a Coolify credential by reference.
 **Previously:** INF-DNS-AUTO-2 — APPROVED DNS OPERATIONS — **IMPLEMENTED AND FULLY TESTED; NO DNS OPERATION PERFORMED. PARTIAL — OWNER ACTION REQUIRED.** The guarded execution path exists (`projects/automation/reference/dns-operations-executor.js`): owner approval enforced per domain AND per action from the committed approval-gate table, approval records validated against `aut_approvals`/`aut_approval_policies` (no self-approval, no expired reuse, no cross-run reuse, distinct approvers), write-connector least privilege with scope-escape refusal, one domain at a time, drift-invalidates-plan preconditions, a dry run that builds the identical envelope through the identical function, mandatory verification, automatic approved-only rollback, and `CRITICAL` incident on rollback failure. Suite 97/97 with **25/25 mutation-tested guards**. Full regression once: 82 suites, 4808 passed, 43 failed — all 43 pre-existing legacy `stage3*`, byte-identical to the baseline. **Real DNS operations: 0.** Preflight found **five independent blockers, each sufficient alone**: 0 of 40 owner approval fields are `APPROVED_FOR_MIGRATION`; both DNS write connectors are `enabled: false`; every LEVEL_3 feature flag is false; no OVH/Cloudflare credential exists; no populated secret store exists. No approval was simulated, fabricated, or written.
 **Previously:** INF-DNS-AUTO-1 — DNS SNAPSHOT, COMPARISON AND DRIFT DETECTION (COMPLETE) — **the Automation track's next stage, executed as a reference implementation exactly like its two predecessors. `projects/automation/reference/dns-comparison-engine.js` compares OVH / public DNS / Cloudflare record sets, analyses email and DNSSEC safety, and generates migration + rollback plans whose every step is `LEVEL_3_APPROVAL_REQUIRED` and never self-approvable; a `GATE_CHECK` rejects any plan that claims a level inconsistent with the approval matrix. Suite 85/85 (mutation-checked, 15/15 mutations caught). Full regression once: 81 suites executed, 4711 passed, 43 failed — all 43 in the 8 legacy `stage3*` browser suites and proven byte-identical at clean HEAD (pre-existing, unrelated). No live OVH/Cloudflare credential, no network call, no DNS record/zone/nameserver touched, nothing deployed. It does NOT unblock INF-CF-2 — `entry_gate_open` is structurally always false.**
 **Previously:** O-4-4 RATIFIED + IMPLEMENTED (COMPLETE, with one part explicitly not executed) — **the interim linking rule is removed. `runtime/relevance-router.js` decides memory→capability linkage from typed columns against a declared capability profile (whitelist of one, fail-closed), the UNCHANGED assembler classifies it, permission still precedes relevance, lexical overlap can never link (only tie-break), REQUIRED is gated by `state=active` + confidence ≥ HIGH (disputed can never be REQUIRED — D4 stays open), ranking follows the §7 precedence ladder, and a memory record can never declare its own relevance. Router suite 65/65; runtime 41/41; regression 721/721 across 23 suites (documented 656 baseline reproduced exactly + 65 new). Real egress: 0 — no live provider request; free ledger unchanged at 1/50. Production corpus verification NOT EXECUTED: the operator-injected `MPI_PG_*` env is absent from this session and this stage will not manufacture a credential.**
 **Previously:** O-4-1 AMENDED + IMPLEMENTED + PHASE 11 EXECUTED (COMPLETE) — **limited free egress ratified (spec §2.2): OpenRouter, exactly `nvidia/nemotron-3-ultra-550b-a55b:free` (selected after fresh catalog verification: 16 :free models, 0 DeepSeek — the DeepSeek order correctly stopped). Free-only structural (pinned constant, allow_fallbacks:false, max_price 0/0, response-model verification), minimal egress serializer (summaries+intent+message only — keys/references/permissions/diagnostics stripped), honest ESTIMATED-LOCAL counter (50/day UTC), quota-gate-before-activation. Suites 35+41+21; regression 656/656. PHASE 11 (the ONE real request) executed 2026-08-15: `ok=true`, ratified model verified, ledger 1/50, production safety check clean (36/8/36/0/0 rows, zero writes). Real egress: 1.**
 **To:** Next AI session
+
+---
+
+## INF-DEPLOY-AUTO-0 — STAGING ENVIRONMENT IDENTITY ESTABLISHED (2026-08-15) — **NO DEPLOYMENT; BLOCKED ON OPERATOR ACTION**
+
+Continuation of the stage below from the operator's verified checkpoint. **No deployment was performed, no Coolify resource was created or modified, no credential was created or read, no connector was enabled, no feature flag was changed.**
+
+### Verified Coolify state (read-only, from Coolify's own control plane)
+
+The operator's report was independently confirmed by a read-only `SELECT` of identity columns from the Coolify control-plane database — no write, no deployment API call, no credential value read or printed:
+
+| Coolify project | Environment | Environment UUID | Applications | Services |
+|---|---|---|---|---|
+| darhijama | **staging** | `nuzp80tn6vtmymwnm2tc4d6i` | **0** | 0 |
+| darhijama | production | `k5emgirp95bhkrhums6ozjxs` | 1 | 0 |
+| notrejour | production | `arptsw78hy91n1qe4z6z84ku` | 1 | 0 |
+
+**`darhijama/staging` is a real, independent Coolify Environment — not a relabelled production environment.** This resolves the contradiction recorded in the stage below, where the application running `mythos-staging-*:local` images was labelled `environmentName=production`. That application is `gi0p3mbss6geqhunih23fy6f` ("dar-hijama"), still in the **production** environment, now observed `exited:unhealthy`; its eight containers are gone, which is why the host census moved **26 → 18**. Coolify v4.3.2. Production resources were not touched.
+
+**The decisive new fact: the staging environment contains ZERO applications.** A deployment *environment* now exists; a deployment *target* does not. Creating an application inside it is an operator action explicitly outside this order's scope.
+
+### Changes made (non-secret identity records only)
+
+| File | Content |
+|---|---|
+| `projects/infrastructure/coolify/environments.json` (new) | The repository's declaration of environment identity, mirroring the `aut_environments` column shape (that schema is a **draft, undeployed** — there is no live automation database to hold a row), following the `projects/infrastructure/cloudflare/domain-inventory.json` precedent. Declares `darhijama/staging` as the authorised target (`is_production:false`, `enabled:true`, `bound_application_id:null`) and records both production environments **for exclusion only** (`is_production:true`, `enabled:false` — refused on two independent grounds). Contains no credential-shaped key. |
+| `projects/infrastructure/coolify/README.md` (new) | Directory convention, observation method, and an explicit statement that the file authorises nothing. |
+| `runtime` `staging-deployment-executor.js` | One additive pure function, `environmentFromRegistry(registryDoc, projectName)` — the registry analogue of the DNS engine's `publicDnsRecordsFromInventory`. Takes the parsed document (never touches the filesystem), validates the resolved record through the **unchanged** `assertStagingEnvironment` gate, refuses ambiguity rather than picking an entry, cross-checks the registry's own `authorised_staging_environment_id`, and **returns `target: null` when no application is bound** so an empty environment yields no target rather than a guessed one. No existing guard was modified. |
+
+### Tests
+
+**Suite 106/106** (90 prior + 16 new registry cases): the committed registry resolves to the real staging UUID · the resolved entry matches the registry's authorised id · **the authorised environment is empty, so `deployable:false` and no target is invented** · a project with no staging environment is refused rather than falling back to its production one · every production entry is refused by the staging gate · **a production entry relabelled `staging` is still refused** (`is_production` checked independently) · relabelling produces ambiguity and is refused, not resolved · authorisation mismatch, malformed document, missing project and invalid bound-application all refused · no credential-shaped key anywhere in the registry.
+
+**Mutation checks on the new adapter: 8 applied, 8 caught** (staging gate removed, ambiguity resolved by picking first, authorised-id cross-check removed, environment-key filter dropped, silent fallback on missing staging, target invented for an empty environment, invalid bound application accepted, malformed document accepted).
+
+**Targeted:** deploy 106 · DNS-AUTO-2 97 · DNS-AUTO-1 85 · Cloudflare 26 · OVH 26 · shared helpers 40 · DEVX-1 92 · `project-intelligence validate` 0 errors — 0 failed.
+
+**Full regression once: 83 suites, 4914 passed, 43 failed, 0 skipped, 13 env-blocked** (fresh scratch PostgreSQL 15.19, `--network none`, 0 published ports, removed afterwards). Delta versus the previous run is exactly **+16 passes** — the new registry tests. The 43 failures are the same eight legacy `stage3*` browser suites, per-suite identical to the established baseline.
+
+### Operations performed
+
+**Deployments 0 · production operations 0 · Coolify resources created 0 · Coolify resources modified 0 · provider/deployment API calls 0 · DNS changes 0 · credentials created 0 · credentials read 0 · connectors enabled 0 · feature flags changed 0 · capabilities granted 0.** `automation.example.json` is byte-unchanged. Supabase, R2, production PostgreSQL, MPI and the DNS approval gate untouched. INF-DNS-AUTO-2 remains PARTIAL — OWNER ACTION REQUIRED.
+
+### EXACT REMAINING BLOCKER — all four are operator actions
+
+1. **No deployment target exists.** `darhijama/staging` holds 0 applications. An application must be created inside that environment and then bound in the registry (`bound_application_id`). Creating a Coolify resource is explicitly outside this order's scope, so this stage did not do it.
+2. **Connector not enabled and capability not granted.** `coolify_deployer` is `enabled:false` and the catalogue grants `[deployment.trigger, service.read]`; the contract requires the staging-scoped `deployment.trigger.staging`. An environment-agnostic capability is deliberately insufficient.
+3. **LEVEL_3 authorization absent.** `connector_coolify_deployer_live` and `level_3_approval_required_runs` are both `false`. Note the second is a **global** gate that also governs INF-DNS-AUTO-2's DNS operator path, which is deliberately shut — flipping it is a cross-stage decision, not a local one.
+4. **No Coolify credential.** No API credential exists in an approved secret store, and none was fabricated. The connector requires a real `secret_reference_id`; the value is never handled by this repository.
+
+Items 2–4 are exactly the credential / connector-enablement / LEVEL_3 authorization boundary this order names as a stop condition. Item 1 is a Coolify resource creation the order forbids. **Stopped here.**
+
+### Next stage
+
+INF-DEPLOY-AUTO-0 remains open operationally pending the four items above. **INF-BACKUP-AUTO-0** is next in sequence and has not started; its scope is one deferred line, exactly as this stage's was before O-DEPLOY-1/2/3, so it will need its own owner decisions first.
+
+### Stage record (observed values only)
+
+| Field | Value |
+|---|---|
+| STATUS | staging identity established; **no deployment — blocked on operator action** |
+| IMPLEMENTATION COMMIT | `PENDING_COMMIT` |
+| REMOTE HEAD | `PENDING_PUSH` |
+| WORKING TREE | clean |
+| TARGETED TESTS | 106 + 97 + 85 + 26 + 26 + 40 + 92 — 0 failed |
+| MUTATION CHECKS | 8/8 caught (new adapter) |
+| FULL REGRESSION | 83 suites / 4914 passed / 43 failed (pre-existing legacy) / 0 skipped / 13 env-blocked |
+| PRODUCTION OPERATIONS | 0 |
+| DEPLOYMENTS | 0 |
+| DNS CHANGES | 0 |
+| CREDENTIALS CREATED | 0 |
+| COOLIFY MODIFIED | no |
+| SUPABASE MODIFIED | no |
 
 ---
 

@@ -148,7 +148,13 @@ No production deployment capability is enabled. No generic "deploy anywhere" con
 
 #### Implementation status (2026-08-15)
 
-Implemented as `projects/automation/reference/staging-deployment-executor.js` + `tests/inf-deploy-auto-0-staging-test.js`. **No deployment has been executed**, because the staging target cannot be proven: **no Coolify resource on this host declares `environmentName=staging`** — every Coolify-managed resource declares `production`, including application id 3 (`project=darhijama`), which is the one running `mythos-staging-web:local` / `mythos-staging-app:local` images. Under this contract that contradiction is a refusal, not a judgement call. Additional independent blockers: `coolify_deployer` is `enabled:false`, `connector_coolify_deployer_live` is false, no staging-scoped deployment capability is declared in the catalogue, and no Coolify credential reference exists. See `docs/AI_HANDOVER.md` for the operator action required.
+Implemented as `projects/automation/reference/staging-deployment-executor.js` + `tests/inf-deploy-auto-0-staging-test.js`. **No deployment has been executed.**
+
+*Initial state (2026-08-15):* the staging target could not be proven — no Coolify resource declared `environmentName=staging`, and the application running `mythos-staging-*:local` images was labelled `production`. Under this contract that contradiction is a refusal, not a judgement call.
+
+*Updated state (2026-08-15, operator checkpoint):* the operator created a **real, independent** Coolify Environment `darhijama/staging` (uuid `nuzp80tn6vtmymwnm2tc4d6i`) rather than relabelling the production one — verified read-only from Coolify's own control plane. Its identity is now declared in the non-secret registry `projects/infrastructure/coolify/environments.json`, which mirrors the `aut_environments` column shape (that schema being an undeployed draft) and follows the `domain-inventory.json` precedent; `environmentFromRegistry()` resolves it through the unchanged staging gate.
+
+**Deployment remains blocked on four operator actions:** (1) `darhijama/staging` contains **0 applications**, so no deployment target exists and creating a Coolify resource is outside this stage's scope; (2) `coolify_deployer` is `enabled:false` and the catalogue grants only the environment-agnostic `deployment.trigger`, not the required `deployment.trigger.staging`; (3) `connector_coolify_deployer_live` and `level_3_approval_required_runs` are both false — the latter is a global gate that also governs INF-DNS-AUTO-2; (4) no Coolify credential exists in an approved secret store, and none was fabricated. See `docs/AI_HANDOVER.md` for the full record.
 
 ### INF-BACKUP-AUTO-0 — Automated Backup and Restore Verification
 

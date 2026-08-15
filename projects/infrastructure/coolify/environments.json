@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0.0",
+  "stage": "INF-DEPLOY-AUTO-0",
+  "generated_at_utc": "2026-08-15T00:00:00Z",
+  "purpose": "Non-secret Coolify environment identity registry. Mirrors the aut_environments column shape from projects/automation/database/control-plane-schema.sql, which is a DRAFT, UNDEPLOYED schema — no live automation database exists, so this committed file is the repository's declaration of environment identity, following the projects/infrastructure/cloudflare/domain-inventory.json precedent.",
+  "contains_no_secrets": "Environment and application UUIDs are opaque Coolify resource identifiers, matching aut_environments.environment_id ('stable opaque external id'). They are not credentials and grant no access on their own. No API token, password, or connection string appears in this file.",
+  "observation_method": "Read-only SELECT of identity columns (project name, environment name, environment uuid, application uuid/name/status and per-environment resource counts) from the Coolify control-plane database. No write, no deployment API call, no credential value read or printed.",
+  "coolify_version": "4.3.2",
+  "environments": [
+    {
+      "environment_id": "nuzp80tn6vtmymwnm2tc4d6i",
+      "environment_key": "staging",
+      "display_name": "darhijama / staging",
+      "coolify_project_name": "darhijama",
+      "coolify_environment_name": "staging",
+      "risk_class": "STANDARD",
+      "is_production": false,
+      "enabled": true,
+      "application_count_observed": 0,
+      "bound_application_id": null,
+      "notes": "The authorised Mythos STAGING target under O-DEPLOY-1. Created by the operator as a real, independent Coolify Environment — NOT a relabelled production environment. It currently contains ZERO applications, so no deployment target exists yet; creating one is an operator action explicitly outside this stage's scope. `bound_application_id` stays null until an application exists inside this environment and is bound here."
+    },
+    {
+      "environment_id": "k5emgirp95bhkrhums6ozjxs",
+      "environment_key": "production",
+      "display_name": "darhijama / production",
+      "coolify_project_name": "darhijama",
+      "coolify_environment_name": "production",
+      "risk_class": "CRITICAL",
+      "is_production": true,
+      "enabled": false,
+      "application_count_observed": 1,
+      "bound_application_id": null,
+      "notes": "Recorded for identification and exclusion ONLY. is_production=true and enabled=false, so the INF-DEPLOY-AUTO-0 executor refuses it at assertStagingEnvironment on two independent grounds. Contains application gi0p3mbss6geqhunih23fy6f ('dar-hijama'), observed status exited:unhealthy — this is the application that previously ran mythos-staging-*:local images under a production label, the contradiction recorded in the prior stage. It is never a deployment target for this stage."
+    },
+    {
+      "environment_id": "arptsw78hy91n1qe4z6z84ku",
+      "environment_key": "production",
+      "display_name": "notrejour / production",
+      "coolify_project_name": "notrejour",
+      "coolify_environment_name": "production",
+      "risk_class": "CRITICAL",
+      "is_production": true,
+      "enabled": false,
+      "application_count_observed": 1,
+      "bound_application_id": null,
+      "notes": "Unrelated project, recorded for completeness and exclusion only. Out of scope for INF-DEPLOY-AUTO-0 under O-DEPLOY-1 (no deployment to unrelated applications). Never a deployment target."
+    }
+  ],
+  "authorised_staging_environment_id": "nuzp80tn6vtmymwnm2tc4d6i",
+  "prohibited": [
+    "This file declares identity only. It grants no permission, enables no connector, and authorises no deployment.",
+    "A production entry may never be used as a deployment target: the executor's assertStagingEnvironment refuses any record whose environment_key is not 'staging' or whose is_production is not exactly false.",
+    "Editing is_production or environment_key to make a production environment look like staging does not work — the executor additionally requires the platform's own reported environment to agree (two-source proof)."
+  ]
+}
