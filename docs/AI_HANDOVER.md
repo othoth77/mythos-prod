@@ -79,8 +79,8 @@ Until 1 and 2 hold, **the executor refuses by design** — and given a `mythos-s
 | Field | Value |
 |---|---|
 | STATUS | **PARTIAL — OWNER ACTION REQUIRED** (contract ratified, implementation and tests complete; no deployment possible) |
-| COMMIT | `PENDING_COMMIT` |
-| REMOTE HEAD | `PENDING_PUSH` |
+| COMMIT | `a482939e9da9287863062d932db8464fddb249d3` |
+| REMOTE HEAD | `a482939e9da9287863062d932db8464fddb249d3` (`origin/main`, verified after `git fetch`) |
 | WORKING TREE | clean |
 | APPROVAL | contract ratified by O-DEPLOY-1/2/3; **no deployment approval exercised** — no deployment was reachable |
 | PRODUCTION OPERATIONS | 0 |
