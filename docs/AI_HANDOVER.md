@@ -1,8 +1,18 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** MPI-4 M4-1 COMPLETE — **the provider-neutral adapter contract and a deterministic OFFLINE mock provider exist (`runtime/provider-adapter.js`, `runtime/mock-provider.js`). The full offline chain runs: request → R3 → AssemblyResult → ContextPackage → adapter → mock. Zero network/database/R2 capability in the runtime modules, structurally asserted. M4-1 suite 21/21; regression 580/580. No provider selected (O-4-1 untouched); nothing deployed.**
+**From:** O-4-1 RATIFIED AS DEFER — **verbatim record in the new `docs/MPI_4_RUNTIME_SPECIFICATION.md` §2: no personal memory leaves the VPS; the offline mock remains the only active provider; every real-provider sub-decision (A1–A5) stays OPEN; PROTECTED-memory egress forbidden until decided. Not a permanent prohibition — a current-state DEFER. M4-2 authorised to proceed offline-only.**
 **To:** Next AI session
+
+---
+
+## O-4-1 RATIFICATION — DEFER (owner, 2026-08-15) — DOCUMENTATION STAGE
+
+**Verbatim record: `docs/MPI_4_RUNTIME_SPECIFICATION.md` §2** (new authoritative MPI-4 decision ledger; also carries the M4 stage map and the open O-4-2/3/4 decisions). The full O-4-1 option analysis below (this handover, same date) is preserved intact as the historical/open-alternatives record; nothing was deleted.
+
+**Contradiction check — none found:** DEFER is the zero-change option — consistent with the M4-1 boundary (no provider exists to disable), the no-egress structural tests already in place, D3 (content local by construction), §8.1 PROTECTED default-exclusion (now explicitly frozen until decided), and every prior gate that excluded external AI providers. No credential exists to revoke; no endpoint exists to remove.
+
+Production untouched · data exported 0 · no code changed in this phase.
 
 ---
 
