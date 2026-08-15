@@ -177,7 +177,7 @@ Recorded exactly as provided, without reinterpretation or expansion:
 
 ---
 
-**Consequence (updated 2026-08-14):** all four blocking decisions are CLOSED. Real ingestion still requires: the operator CLI composition root (implementation stage, separately authorised), and at execution time the full §24 gate — including the fresh same-session backup (§25/O-2H-6) and the separate, explicit, scope-bound owner order for the specific batch (§24(5)). O-2H-3 and D4 remain OPEN and non-blocking. *(O-2H-5/F14 was subsequently closed — §33.)*
+**Consequence (updated 2026-08-14):** all four blocking decisions are CLOSED. Real ingestion still requires: the operator CLI composition root (implementation stage, separately authorised), and at execution time the full §24 gate — including the fresh same-session backup (§25/O-2H-6) and the separate, explicit, scope-bound owner order for the specific batch (§24(5)). O-2H-3 and D4 remain OPEN and non-blocking. *(Subsequently closed: O-2H-5/F14 — §33; O-2H-3 — §35. D4 alone remains open.)*
 
 ## 33. Ratified F14 erasure policy (owner, 2026-08-15)
 
