@@ -72,6 +72,7 @@ This amendment was first committed as `b884273c40d265a8216a117c440d3a9f03be656a`
 | Field | Value |
 |---|---|
 | STATUS | **staging application created and bound; NOT deployable — blocked on operator action; no deployment** |
+| IMPLEMENTATION COMMIT | `9a58b605a36152a6945012e6e6a2c4ee238d788c` (recovery re-commit of the never-pushed `b884273…`; see Recovery record) |
 | OWNER DECISION | O-DEPLOY-1 amendment: Dar Hijama target, `othoth77/notre-jour` |
 | STAGING RESOURCE | `mythos-dar-hijama-staging` · uuid `dmgranxzp3ftkfumwqe4mihy` · `darhijama/staging` (`nuzp80tn6vtmymwnm2tc4d6i`) |
 | STAGING SOURCE | `othoth77/notre-jour` @ `release/darhijama-1.0.3` · `/docker-compose.staging.yml` · auto-deploy manual-only |
