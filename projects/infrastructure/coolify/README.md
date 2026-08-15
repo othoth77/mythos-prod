@@ -23,12 +23,12 @@ A read-only `SELECT` of identity columns from the Coolify control-plane database
 
 It records identity. It does not enable a connector, set a feature flag, grant a capability, or approve a deployment. The `staging-deployment-executor.js` gates are unchanged and still apply in full — in particular the **two-source proof**: the declared record here must be corroborated by the platform's own reported environment at deployment time, and any disagreement is a refusal. Editing `environment_key` or `is_production` here cannot make a production environment deployable.
 
-## Current state (INF-DEPLOY-AUTO-0)
+## Current state (INF-DEPLOY-AUTO-0, updated 2026-08-15 — O-DEPLOY-1 amendment)
 
 | Project | Environment | `is_production` | Applications | Deployment target? |
 |---|---|---|---|---|
-| darhijama | **staging** | `false` | **0** | authorised environment, but **no application exists in it yet** |
-| darhijama | production | `true` | 1 | never — excluded on two grounds |
+| darhijama | **staging** | `false` | **1** — `mythos-dar-hijama-staging` (`dmgranxzp3ftkfumwqe4mihy`) | bound, **not deployable** — no independent staging database credential exists yet |
+| darhijama | production | `true` | 1 (`dar-hijama`, immutable from this stage) | never — excluded on two grounds |
 | notrejour | production | `true` | 1 | never — unrelated project, out of scope |
 
-The staging environment is real and independent (it is not a relabelled production environment), but it is **empty**. Creating an application inside it is an operator action outside this stage's scope, so no deployment target exists yet and `bound_application_id` remains `null`.
+Under the amended O-DEPLOY-1, this deployment track is the **Dar Hijama application**: repository `othoth77/notre-jour`, production branch `release/darhijama-1.0.3`. The staging application `mythos-dar-hijama-staging` was created inside `darhijama/staging` per the owner order (branch `release/darhijama-1.0.3` — the only committed ref carrying `/docker-compose.staging.yml`; `main` fails closed — auto-deploy manual-only, **never deployed**). Its database is the compose-provisioned project-scoped `mysql` service (`mythos_staging`); `dar-hijama-production-mysql-1` and production credentials are forbidden in staging, and every required staging secret is unset (`${VAR:?}`), so the stack fails closed until independent staging secrets are provisioned by reference.

@@ -16,9 +16,16 @@
       "risk_class": "STANDARD",
       "is_production": false,
       "enabled": true,
-      "application_count_observed": 0,
-      "bound_application_id": null,
-      "notes": "The authorised Mythos STAGING target under O-DEPLOY-1. Created by the operator as a real, independent Coolify Environment — NOT a relabelled production environment. It currently contains ZERO applications, so no deployment target exists yet; creating one is an operator action explicitly outside this stage's scope. `bound_application_id` stays null until an application exists inside this environment and is bound here."
+      "application_count_observed": 1,
+      "bound_application_id": "dmgranxzp3ftkfumwqe4mihy",
+      "bound_application_name": "mythos-dar-hijama-staging",
+      "staging_database": {
+        "database_reference": "docker-compose.staging.yml service mysql — database mythos_staging, project-scoped named volume, no published host port",
+        "is_production": false,
+        "secret_reference_id": null,
+        "notes": "The staging database is DEFINED by the repository's committed compose file (its own mysql:8.4 service inside the staging stack) but its independent staging credentials are NOT yet provisioned: every required secret is declared ${VAR:?} and is unset, so the stack fails closed. secret_reference_id stays null until an operator generates independent staging secrets — production credentials are forbidden here and dar-hijama-production-mysql-1 is never a staging database."
+      },
+      "notes": "The authorised DAR HIJAMA staging target under the amended O-DEPLOY-1 (2026-08-15). Application mythos-dar-hijama-staging (uuid dmgranxzp3ftkfumwqe4mihy) was created inside this environment per the owner order: repository othoth77/notre-jour, branch release/darhijama-1.0.3 (the only committed ref carrying the staging deployment contract — main lacks /docker-compose.staging.yml and fails closed, observed in Coolify), build pack dockercompose, compose /docker-compose.staging.yml, auto-deploy set to manual-only, NEVER deployed. Deployable remains false until an independent staging database credential is provisioned by reference."
     },
     {
       "environment_id": "k5emgirp95bhkrhums6ozjxs",
@@ -48,6 +55,25 @@
     }
   ],
   "authorised_staging_environment_id": "nuzp80tn6vtmymwnm2tc4d6i",
+  "authorised_repository": "othoth77/notre-jour",
+  "production_source": {
+    "coolify_application_name": "dar-hijama",
+    "coolify_application_id": "gi0p3mbss6geqhunih23fy6f",
+    "repository": "othoth77/notre-jour",
+    "branch": "release/darhijama-1.0.3",
+    "build_pack": "dockercompose",
+    "notes": "Recorded for identification and protection ONLY. The production resource is immutable from this stage."
+  },
+  "staging_source": {
+    "coolify_application_name": "mythos-dar-hijama-staging",
+    "coolify_application_id": "dmgranxzp3ftkfumwqe4mihy",
+    "repository": "othoth77/notre-jour",
+    "branch": "release/darhijama-1.0.3",
+    "build_pack": "dockercompose",
+    "docker_compose_location": "/docker-compose.staging.yml",
+    "auto_deploy": false,
+    "notes": "Branch derivation: the repository's committed deployment contract (ops/staging/coolify-provision.sh) defaults STAGING_GIT_BRANCH to main, but main does not contain /docker-compose.staging.yml (Coolify refused it fail-closed). release/darhijama-1.0.3 is the only committed ref carrying the staging contract and is production's exact source reference — no branch name was invented. Actual staging deployments pin immutable commit SHAs via the repository's Staging deployment workflow."
+  },
   "prohibited": [
     "This file declares identity only. It grants no permission, enables no connector, and authorises no deployment.",
     "A production entry may never be used as a deployment target: the executor's assertStagingEnvironment refuses any record whose environment_key is not 'staging' or whose is_production is not exactly false.",

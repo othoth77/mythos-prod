@@ -52,6 +52,13 @@ function stagingEnv(over) {
 function platform(over) {
   return Object.assign({ application_id: APP, environment_name: 'staging' }, over || {});
 }
+function stagingDb(over) {
+  return Object.assign({
+    database_reference: 'compose service mysql (mythos_staging)',
+    is_production: false,
+    secret_reference_id: 'secretref-staging-db-1'
+  }, over || {});
+}
 function approvalRecord(over) {
   return Object.assign({
     approval_id: 'apr-d1', run_id: RUN, decision: 'APPROVE', decided_by_ref: 'owner-ref-A',
@@ -97,6 +104,7 @@ function baseRequest(over) {
     target: { application_id: APP, environment_id: ENV_ID },
     environment: stagingEnv(), platformReported: platform(),
     connector: { connector_id: 'coolify_deployer', secret_reference_id: 'secref-coolify-1' },
+    database: stagingDb(),
     connectorCatalogue: enabledCatalogue(), featureFlags: liveFlags(),
     allowedClientMethods: ['triggerStagingDeployment', 'readDeployedRevision'],
     client: mockClient(state),
@@ -409,9 +417,13 @@ console.log('\n11b. COOLIFY ENVIRONMENT REGISTRY — the real committed record')
     '91 the committed registry resolves darhijama to the real staging environment uuid');
   ok(resolved.environment.environment_id === REG.authorised_staging_environment_id,
     '92 the resolved environment is the one the registry authorises');
-  // The decisive current fact: a declared environment is not a deployment target.
-  ok(resolved.target === null && resolved.deployable === false && resolved.application_count_observed === 0,
-    '93 darhijama/staging is authorised but EMPTY — 0 applications, so no deployment target exists and none is invented');
+  // The decisive current fact (updated under the O-DEPLOY-1 amendment): a
+  // staging application now EXISTS and is bound, but the environment is still
+  // NOT deployable — no independent staging database credential is provisioned.
+  ok(resolved.target !== null && resolved.target.application_id === 'dmgranxzp3ftkfumwqe4mihy' &&
+     resolved.application_count_observed === 1 &&
+     resolved.database_ready === false && resolved.deployable === false,
+    '93 darhijama/staging is bound to mythos-dar-hijama-staging but deployable stays FALSE — the staging database credential is not provisioned, so the target fails closed');
 
   throwsWith(function () { exec.environmentFromRegistry(REG, 'notrejour'); },
     /NO_STAGING_ENVIRONMENT_DECLARED/, '94 a project with no staging environment is refused, never falling back to its production one');
@@ -452,11 +464,13 @@ console.log('\n11b. COOLIFY ENVIRONMENT REGISTRY — the real committed record')
     /REGISTRY_PROJECT_REQUIRED/, '101 a registry lookup without a project is refused');
 
   var bound = JSON.parse(JSON.stringify(REG));
-  bound.environments.filter(function (e) { return e.environment_key === 'staging'; })[0].bound_application_id = 'app-uuid-1';
+  var boundEntry = bound.environments.filter(function (e) { return e.environment_key === 'staging'; })[0];
+  boundEntry.bound_application_id = 'app-uuid-1';
+  boundEntry.staging_database = stagingDb();
   var withTarget = exec.environmentFromRegistry(bound, 'darhijama');
   ok(withTarget.deployable === true && withTarget.target.application_id === 'app-uuid-1' &&
      withTarget.target.environment_id === 'nuzp80tn6vtmymwnm2tc4d6i',
-    '102 once an application is bound, the adapter yields a target bound to the same staging environment');
+    '102 once an application is bound AND an independent staging database is declared, the adapter yields a deployable staging target');
   var badBound = JSON.parse(JSON.stringify(REG));
   badBound.environments.filter(function (e) { return e.environment_key === 'staging'; })[0].bound_application_id = '';
   throwsWith(function () { exec.environmentFromRegistry(badBound, 'darhijama'); },
@@ -477,6 +491,88 @@ console.log('\n11b. COOLIFY ENVIRONMENT REGISTRY — the real committed record')
   ok(exec.assertNoSecrets(REG) === true, '105 the registry passes the secret-hygiene guard');
 })();
 
+console.log('\n11c. O-DEPLOY-1 AMENDMENT — DAR HIJAMA TRACK + DATABASE ISOLATION');
+await (async function () {
+  // 1. The Dar Hijama repository is accepted.
+  ok(exec.assertSourceScope({ repository: 'othoth77/notre-jour', ref: 'release/darhijama-1.0.3', operation: 'read' })
+       .repository === 'othoth77/notre-jour',
+    '106 the Dar Hijama repository othoth77/notre-jour with the release ref is accepted');
+  // 2. The Mythos repository is rejected for this deployment track.
+  throwsWith(function () { exec.assertSourceScope({ repository: 'othoth77/mythos-prod', ref: 'main' }); },
+    /REPOSITORY_NOT_AUTHORISED/,
+    '107 the Mythos OS repository is NOT a deployment source for the Dar Hijama track and is refused');
+  // 3. The production resource is rejected as a staging target.
+  var REG = JSON.parse(fs.readFileSync(
+    path.join(BASE, 'projects', 'infrastructure', 'coolify', 'environments.json'), 'utf8'));
+  var prodEntry = REG.environments.filter(function (e) {
+    return e.coolify_project_name === 'darhijama' && e.is_production === true; })[0];
+  throwsWith(function () {
+    exec.assertTargetIsStaging({
+      target: { application_id: 'gi0p3mbss6geqhunih23fy6f', environment_id: prodEntry.environment_id },
+      environment: prodEntry,
+      platformReported: { application_id: 'gi0p3mbss6geqhunih23fy6f', environment_name: 'production' }
+    });
+  }, /ENVIRONMENT_NOT_STAGING|ENVIRONMENT_FLAGGED_PRODUCTION/,
+    '108 the real production resource dar-hijama is refused as a staging target');
+  // 4. The staging environment is accepted.
+  var stagingEntry = REG.environments.filter(function (e) { return e.environment_key === 'staging'; })[0];
+  ok(exec.assertStagingEnvironment(stagingEntry).environment_id === 'nuzp80tn6vtmymwnm2tc4d6i',
+    '109 the real darhijama/staging environment passes the staging gate');
+  // 5. The production environment is rejected (platform-reported side too).
+  await rejects(exec.dryRun(baseRequest({ platformReported: platform({ environment_name: 'production' }) })),
+    /PLATFORM_REPORTS_PRODUCTION/, '110 a platform-reported production environment refuses the run');
+  // 6. A production database reference is rejected.
+  throwsWith(function () { exec.assertStagingDatabase(stagingDb({ database_reference: 'dar-hijama-production-mysql-1' })); },
+    /PRODUCTION_DATABASE_REFUSED/,
+    '111 the production database dar-hijama-production-mysql-1 is refused as a staging database');
+  throwsWith(function () { exec.assertStagingDatabase(stagingDb({ is_production: true })); },
+    /DATABASE_FLAGGED_PRODUCTION/, '112 a database flagged is_production=true is refused independently of its name');
+  // 7. Production credential inheritance is rejected.
+  throwsWith(function () { exec.assertStagingDatabase(stagingDb({ secret_reference_id: 'secretref-production-mysql' })); },
+    /PRODUCTION_CREDENTIAL_INHERITANCE_REFUSED/,
+    '113 a production-scoped credential reference can never be attached to staging');
+  throwsWith(function () { exec.assertStagingDatabase(stagingDb({ password: 'hunter2' })); },
+    /CREDENTIAL_VALUE_PRESENT/, '114 a raw credential value on the database record is refused — values are never handled');
+  // 8. An unknown staging source is rejected.
+  throwsWith(function () { exec.assertSourceScope({ repository: undefined, ref: 'main' }); },
+    /REPOSITORY_NOT_AUTHORISED/, '115 an unknown/undeclared source repository is refused');
+  throwsWith(function () { exec.assertSourceScope({ repository: 'othoth77/notre-jour', ref: undefined }); },
+    /GIT_REF_INVALID/, '116 an unknown source ref is refused rather than defaulted');
+  // 9. A missing staging database is rejected BEFORE any deployment.
+  await rejects(exec.dryRun(baseRequest({ database: undefined })),
+    /STAGING_DATABASE_REQUIRED/,
+    '117 a deployment with no declared staging database is refused before it can ever connect anywhere');
+  throwsWith(function () { exec.assertStagingDatabase(stagingDb({ secret_reference_id: null })); },
+    /DATABASE_CREDENTIAL_REFERENCE_MISSING/,
+    '118 a staging database without its own independent credential reference is not deployable');
+  // 10. Production promotion is rejected.
+  await rejects(exec.dryRun(baseRequest({ promoteTo: 'production' })),
+    /PRODUCTION_PROMOTION_FORBIDDEN/, '119 production promotion remains refused under the amendment');
+  // Registry-level database isolation: a forged production-shaped staging
+  // database is a HARD refusal, not a quiet not-ready.
+  var forgedDb = JSON.parse(JSON.stringify(REG));
+  forgedDb.environments.filter(function (e) { return e.environment_key === 'staging'; })[0]
+    .staging_database = stagingDb({ database_reference: 'dar-hijama-production-mysql-1' });
+  throwsWith(function () { exec.environmentFromRegistry(forgedDb, 'darhijama'); },
+    /PRODUCTION_DATABASE_REFUSED/,
+    '120 a registry declaring a production database for staging is refused outright by the adapter');
+  var inheritDb = JSON.parse(JSON.stringify(REG));
+  inheritDb.environments.filter(function (e) { return e.environment_key === 'staging'; })[0]
+    .staging_database = stagingDb({ secret_reference_id: 'secretref-production-mysql' });
+  throwsWith(function () { exec.environmentFromRegistry(inheritDb, 'darhijama'); },
+    /PRODUCTION_CREDENTIAL_INHERITANCE_REFUSED/,
+    '121 a registry inheriting a production credential reference for staging is refused outright');
+  // The committed registry binds staging to the real created application and
+  // records the authorised Dar Hijama source on both sides.
+  ok(REG.authorised_repository === 'othoth77/notre-jour' &&
+     REG.staging_source && REG.staging_source.coolify_application_id === 'dmgranxzp3ftkfumwqe4mihy' &&
+     REG.staging_source.repository === 'othoth77/notre-jour' &&
+     REG.production_source && REG.production_source.branch === 'release/darhijama-1.0.3',
+    '122 the committed registry records the Dar Hijama repository, the created staging application and the protected production source');
+  ok(exec.assertNoSecrets(REG) === true,
+    '123 the updated registry still passes the secret-hygiene guard');
+})();
+
 console.log('\n12. STRUCTURAL BOUNDARIES');
 (function () {
   var src = fs.readFileSync(EXEC_PATH, 'utf8');
@@ -492,8 +588,8 @@ console.log('\n12. STRUCTURAL BOUNDARIES');
     '88 the executor performs no network call and embeds no endpoint');
   ok(!/\b(INSERT INTO|UPDATE [a-z_]+ SET|DELETE FROM|writeFileSync)/i.test(body),
     '89 the executor performs no database or filesystem write');
-  ok(exec.AUTHORISED_REPOSITORY === 'othoth77/mythos-prod',
-    '90 exactly one repository is authorised (O-DEPLOY-1)');
+  ok(exec.AUTHORISED_REPOSITORY === 'othoth77/notre-jour',
+    '90 exactly one repository is authorised — the Dar Hijama repository (O-DEPLOY-1 amendment)');
 })();
 
 console.log('\nStage INF-DEPLOY-AUTO-0 staging deployment: ' + pass + ' passed, ' + fail + ' failed');

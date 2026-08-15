@@ -39,8 +39,14 @@ var PLAN_LEVEL = 'LEVEL_2_RECOMMEND';
 // O-DEPLOY-1: staging only. A CONSTANT — not a parameter, not configurable.
 var ENVIRONMENT_KEY = 'staging';
 
-// O-DEPLOY-1: the existing Mythos repository only.
-var AUTHORISED_REPOSITORY = 'othoth77/mythos-prod';
+// O-DEPLOY-1 (amended 2026-08-15): this deployment track is the DAR HIJAMA
+// application. The authorised source repository is othoth77/notre-jour —
+// production branch release/darhijama-1.0.3, staging per the repository's
+// committed deployment contract (ops/staging/coolify-provision.sh). The
+// Mythos OS repository (othoth77/mythos-prod) keeps its identity but is NOT
+// a deployment source for this track and is refused here like any other
+// unauthorised repository.
+var AUTHORISED_REPOSITORY = 'othoth77/notre-jour';
 
 // O-DEPLOY-3: the only connector permitted to deploy, and the only capability
 // it may use. `deployment.trigger` alone is environment-agnostic and is
@@ -195,6 +201,46 @@ function assertSourceScope(input) {
 }
 
 // -----------------------------------------------------------------------
+// assertStagingDatabase(database) — O-DEPLOY-1 amendment, database isolation.
+//
+// The staging application MUST NOT use the production database
+// (dar-hijama-production-mysql-1) and MUST NOT inherit production database
+// credentials. A deployment with NO declared staging database is refused —
+// staging fails closed rather than ever falling back to production. The
+// declared record carries a non-secret database reference and a credential
+// REFERENCE only; a production-shaped reference on either field is refused.
+// -----------------------------------------------------------------------
+function assertStagingDatabase(database) {
+  if (!database || typeof database !== 'object') {
+    throw refuse('STAGING_DATABASE_REQUIRED',
+      'no separate staging database is declared; deployment is refused before it can ever connect anywhere (fail closed — production is never a fallback)');
+  }
+  var ref = database.database_reference;
+  if (typeof ref !== 'string' || !ref.trim()) {
+    throw refuse('STAGING_DATABASE_REFERENCE_REQUIRED', 'a staging database record must name its database reference');
+  }
+  if (looksProduction(ref)) {
+    throw refuse('PRODUCTION_DATABASE_REFUSED',
+      'staging may never reference a production database; got "' + ref + '"');
+  }
+  if (database.is_production !== false) {
+    throw refuse('DATABASE_FLAGGED_PRODUCTION',
+      'is_production must be exactly false; got ' + JSON.stringify(database.is_production));
+  }
+  assertNoSecrets(database, 'database');
+  var cred = database.secret_reference_id;
+  if (typeof cred !== 'string' || !cred.trim()) {
+    throw refuse('DATABASE_CREDENTIAL_REFERENCE_MISSING',
+      'staging database credentials must exist as an independent staging secret, referenced by id; none is declared');
+  }
+  if (looksProduction(cred)) {
+    throw refuse('PRODUCTION_CREDENTIAL_INHERITANCE_REFUSED',
+      'a production-scoped credential reference may never be attached to staging; got "' + cred + '"');
+  }
+  return { database_reference: ref, secret_reference_id: cred };
+}
+
+// -----------------------------------------------------------------------
 // assertDeployConnector({ connector, client, catalogue, featureFlags })
 // O-DEPLOY-3, Coolify side. Least privilege, staging-scoped, by reference.
 // -----------------------------------------------------------------------
@@ -337,6 +383,9 @@ function preflight(request) {
   var targetProof = assertTargetIsStaging({
     target: request.target, environment: request.environment, platformReported: request.platformReported
   });
+  // O-DEPLOY-1 amendment: no staging deployment without a proven-separate
+  // staging database. Refuses before the connector is even considered.
+  var database = assertStagingDatabase(request.database);
   var connector = assertDeployConnector({
     connector: request.connector, client: request.client,
     catalogue: request.connectorCatalogue, featureFlags: request.featureFlags,
@@ -356,6 +405,8 @@ function preflight(request) {
     application_id: targetProof.application_id,
     connector_id: connector.connector_id,
     secret_reference_id: request.connector.secret_reference_id,
+    database_reference: database.database_reference,
+    database_secret_reference_id: database.secret_reference_id,
     repository: plan.repository,
     ref: plan.ref,
     operation: 'staging_deploy',
@@ -439,11 +490,31 @@ function environmentFromRegistry(registryDoc, projectName) {
     }
     target = { application_id: entry.bound_application_id, environment_id: entry.environment_id };
   }
+  // O-DEPLOY-1 amendment: a declared staging database is part of the
+  // deployable question. A production-shaped declaration is a hard refusal;
+  // a merely-incomplete one (no independent staging credential provisioned
+  // yet) leaves the environment resolvable but NOT deployable — fail closed.
+  var stagingDatabase = entry.staging_database === undefined ? null : entry.staging_database;
+  var databaseReady = false;
+  if (stagingDatabase !== null) {
+    try {
+      assertStagingDatabase(stagingDatabase);
+      databaseReady = true;
+    } catch (e) {
+      if (e && (e.code === 'PRODUCTION_DATABASE_REFUSED' || e.code === 'DATABASE_FLAGGED_PRODUCTION' ||
+                e.code === 'PRODUCTION_CREDENTIAL_INHERITANCE_REFUSED' || e.code === 'CREDENTIAL_VALUE_PRESENT')) {
+        throw e;
+      }
+      databaseReady = false;
+    }
+  }
   return {
     environment: environment,
     target: target,
     application_count_observed: entry.application_count_observed === undefined ? null : entry.application_count_observed,
-    deployable: target !== null
+    staging_database: stagingDatabase,
+    database_ready: databaseReady,
+    deployable: target !== null && databaseReady
   };
 }
 
@@ -547,6 +618,7 @@ module.exports = {
   assertStagingEnvironment: assertStagingEnvironment,
   assertTargetIsStaging: assertTargetIsStaging,
   assertSourceScope: assertSourceScope,
+  assertStagingDatabase: assertStagingDatabase,
   assertDeployConnector: assertDeployConnector,
   assertApproval: assertApproval,
   buildDeploymentPlan: buildDeploymentPlan,

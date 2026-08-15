@@ -111,11 +111,28 @@ Deployment pipeline foundation — subject to the approval-matrix constraints (p
 
 **O-DEPLOY-1 — SCOPE.** INF-DEPLOY-AUTO-0 is the deployment-pipeline foundation for **STAGING ONLY**.
 
-- GitHub repository: **the existing Mythos repository only**.
+- GitHub repository: **the existing Mythos repository only**. *(Superseded on this point by the O-DEPLOY-1 amendment below — the repository line was too narrow; every other element of this decision stands.)*
 - Deployment target: **the Mythos staging environment only**.
 - Deployment platform: **the existing Coolify staging deployment only**.
 - Purpose: a controlled, auditable, repeatable GitHub → Coolify **staging** pipeline.
 - No production deployment · no production DNS · no production infrastructure mutation · no automatic production promotion · no production credentials · no production secrets · no deployment to unrelated repositories or applications.
+
+**O-DEPLOY-1 — AMENDMENT (ratified 2026-08-15): DAR HIJAMA IS THE DEPLOYMENT TARGET.** The original scope line "GitHub repository: the existing Mythos repository only" was incorrect/too narrow: it conflicted with the actual Dar Hijama deployment already running in Coolify (project `darhijama`, environment `production`, application `dar-hijama`, repository `othoth77/notre-jour`, branch `release/darhijama-1.0.3`, build pack dockercompose). The owner ratifies:
+
+1. **O-DEPLOY-1 is specifically the deployment foundation for the DAR HIJAMA application.**
+2. Authorised repository for this deployment track: **`othoth77/notre-jour`**. The Mythos OS repository remains `othoth77/mythos-prod`; its identity is unchanged and it is **not** the deployment source for Dar Hijama. This amendment is not permission to deploy Mythos OS itself.
+3. Production source: branch **`release/darhijama-1.0.3`** on `othoth77/notre-jour` (the existing production application `dar-hijama`).
+4. Staging source: the **same repository** `othoth77/notre-jour`, using the source reference already defined by the repository's committed deployment contract — `ops/staging/coolify-provision.sh` (committed on the deployed release line) defines the staging application as `mythos-dar-hijama-staging`, compose file `/docker-compose.staging.yml`, environment `staging`, branch default **`main`** (`STAGING_GIT_BRANCH:-main`), auto-deploy disabled, `instant_deploy: false`. No branch name was invented; deployments themselves pin immutable commit SHAs via the repository's `Staging deployment` workflow.
+5. Staging is a **separate Coolify Environment** (`darhijama/staging`, uuid `nuzp80tn6vtmymwnm2tc4d6i`) and a **separate Coolify Application/Resource** with a staging-specific identity — never a rename or reuse of production.
+6. The production resource `dar-hijama` is **immutable from this stage**.
+7. The staging database must be **separate**: the repository's `docker-compose.staging.yml` provisions its own project-scoped `mysql:8.4` service (database `mythos_staging`, no published port, named volume). Staging **must not** use `dar-hijama-production-mysql-1`.
+8. **Production database credentials are forbidden in staging.** No production-to-staging secret clone; every staging secret is generated independently (`.env.staging.example` is the non-secret reference); required secrets are declared `${VAR:?}` so the stack fails closed while any is unset.
+9. Production deployment remains forbidden (O-DEPLOY-2 unchanged).
+10. DNS changes remain forbidden.
+11. Production promotion remains forbidden.
+12. Staging deployment remains behind the existing deployment approval/security gates (LEVEL_3, connector enablement, credential-by-reference — O-DEPLOY-3 unchanged).
+13. No credential values are stored in Git.
+14. Credentials are referenced only through the approved mechanism (`secret_reference_id`; values never handled by this repository).
 
 The stage must provide: deployment plan · preflight validation · approval boundary · deployment execution against staging only · deployment verification · rollback mechanism · audit record · fail-closed behaviour.
 
@@ -143,7 +160,7 @@ No production deployment capability is enabled. No generic "deploy anywhere" con
 | **Rollback** | redeploy the captured previous revision through the same connector; a rollback that cannot name the revision it restores to is refused at plan time; rollback is a separate audited execution; a failed rollback raises a `CRITICAL` incident |
 | **Verification** | mandatory and immediate after apply; failure triggers the defined rollback automatically |
 | **Audit** | append-only `aut_audit_events` records, opaque actor references, no PII, no secret values |
-| **Prohibited operations** | any production target · any environment other than the declared staging one · any repository other than the Mythos repository · force push · history rewrite · credential creation · arbitrary command execution · path traversal in refs or paths · environment-variable smuggling · enabling a connector · promoting staging to production |
+| **Prohibited operations** | any production target · any environment other than the declared staging one · any repository other than the authorised Dar Hijama repository `othoth77/notre-jour` (per the O-DEPLOY-1 amendment; previously "the Mythos repository") · any use of `dar-hijama-production-mysql-1` or production database credentials in staging · force push · history rewrite · credential creation · arbitrary command execution · path traversal in refs or paths · environment-variable smuggling · enabling a connector · promoting staging to production |
 | **Completion criteria** | executor implemented and fail-closed · every boundary proven by test including mutation checks on the staging/production guard · targeted suites green · full regression once · **a staging deployment executed only if every entry criterion is provably satisfied**; if it is not, the stage completes as implementation + tests with the exact blocker recorded |
 
 #### Implementation status (2026-08-15)
@@ -155,6 +172,8 @@ Implemented as `projects/automation/reference/staging-deployment-executor.js` + 
 *Updated state (2026-08-15, operator checkpoint):* the operator created a **real, independent** Coolify Environment `darhijama/staging` (uuid `nuzp80tn6vtmymwnm2tc4d6i`) rather than relabelling the production one — verified read-only from Coolify's own control plane. Its identity is now declared in the non-secret registry `projects/infrastructure/coolify/environments.json`, which mirrors the `aut_environments` column shape (that schema being an undeployed draft) and follows the `domain-inventory.json` precedent; `environmentFromRegistry()` resolves it through the unchanged staging gate.
 
 **Deployment remains blocked on four operator actions:** (1) `darhijama/staging` contains **0 applications**, so no deployment target exists and creating a Coolify resource is outside this stage's scope; (2) `coolify_deployer` is `enabled:false` and the catalogue grants only the environment-agnostic `deployment.trigger`, not the required `deployment.trigger.staging`; (3) `connector_coolify_deployer_live` and `level_3_approval_required_runs` are both false — the latter is a global gate that also governs INF-DNS-AUTO-2; (4) no Coolify credential exists in an approved secret store, and none was fabricated. See `docs/AI_HANDOVER.md` for the full record.
+
+*Updated state (2026-08-15, O-DEPLOY-1 amendment executed):* the deployment track is now formally the **Dar Hijama application** (`othoth77/notre-jour`; production branch `release/darhijama-1.0.3`; the Mythos repository's identity is unchanged and it is refused as a source for this track). The staging application **`mythos-dar-hijama-staging`** (uuid `dmgranxzp3ftkfumwqe4mihy`) was created via the authenticated Coolify UI inside `darhijama/staging` — a separate resource from production, branch `release/darhijama-1.0.3` (the only committed ref carrying `/docker-compose.staging.yml`; the committed provisioning default `main` was refused fail-closed by Coolify: compose file not found), build pack dockercompose, auto-deploy **manual-only**, **never deployed**. Blocker (1) above is resolved; the registry binds the application (`bound_application_id`). Database isolation is enforced in code: the executor's new `assertStagingDatabase` gate refuses `dar-hijama-production-mysql-1`, refuses production credential inheritance, and refuses deployment while no independent staging database credential exists — the compose-defined stack database (`mythos_staging` on the project-scoped `mysql` service) currently has **no provisioned secrets** (`${VAR:?}` unset, fails closed), which joins blockers (2)–(4) as the remaining operator actions. Suite 124/124 with 9/9 boundary mutations caught. **No deployment executed; production untouched; no credential created or read.**
 
 ### INF-BACKUP-AUTO-0 — Automated Backup and Restore Verification
 
