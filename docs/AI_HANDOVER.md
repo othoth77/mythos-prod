@@ -1,8 +1,24 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** O-4-3 RATIFIED — **explicit owner-declared single-identity bridge (runtime spec §5, verbatim): usr_othman/org_mythos is the sole mapping, operator-controlled, fail-closed, zero inference capability; multi-user is explicitly a future separate decision. The existing bridge already implements this exactly — verification and added tests follow in this stage.**
+**From:** O-4-3 COMPLETE — **ratified (spec §5) and verified: the bridge was NOT rewritten; one hardening added (strict scope-object whitelist — metadata riding alongside identity is refused whole). Runtime suite 41/41; regression 621/621; live checks: owner pair accepted, wrong/mismatched identity exit 3, registry untouched. All three MPI-4 hosting-track decisions (O-4-1/2/3) now CLOSED.**
 **To:** Next AI session
+
+---
+
+## O-4-3 IMPLEMENTATION — BRIDGE VERIFICATION + HARDENING (2026-08-15) — PASS
+
+Follows the §5 ratification (committed `8c6e12d`). Phase-4 verdict: the existing bridge already implemented the ratified behaviour — **not rewritten**. One genuine gap closed: `resolveScope` now enforces a **strict scope-object whitelist** (`userId`/`organisationId` only) — an identity object carrying hostname/IP/session/email metadata is refused whole (`IDENTITY_SCOPE_UNKNOWN_FIELDS`), so untrusted metadata can never ride alongside, let alone substitute for, explicit identity.
+
+### Evidence
+
+**Runtime suite 41/41** (+10 O-4-3 cases: mismatched pair · empty org · metadata-only object · metadata-alongside-valid-pair · email-as-identity · **env vars cannot supply identity** (argv-explicit only, proven through the CLI) · explicit domain passes through the existing contract while omitted domain stays absent (no identity-derived defaults) · **operator identity is not a policy bypass** (empty `allowedScopes` excludes all memory) · structural zero-capability assertion on the bridge source). **Full regression once: 621 passed / 0 failed** (21 suites).
+
+**Production verification (read-only):** owner pair accepted (6 memories by id+reference, deterministic mock response) · `usr_wrong` **exit 3** · mismatched `usr_othman`/`org_wrong` **exit 3** · registry untouched (users=1, orgs=1) · corpus unchanged (36/45 objects) · writes 0 · egress 0.
+
+### MPI-4 decision track status
+
+**O-4-1 DEFER ✔ · O-4-2 operator CLI ✔ · O-4-3 single-identity bridge ✔** — the runtime's governance is complete for the current single-owner posture. Remaining, all optional/future: O-4-1 A1–A5 (real provider) · O-4-4 (relevance router) · multi-user bridge (new decision + stage) · D4.
 
 ---
 

@@ -180,6 +180,44 @@ const baseReq = { scope: OWNER, message: 'what governs memory? .invalid', limit:
   ok(!/setInterval|cron|systemd|schedule/i.test(cliSrc + runtimeSrc),
     '31 no scheduling primitive exists — on-demand only');
 
+  console.log('\nO-4-3 — identity bridge ratified behaviour');
+
+  await expectRefusal(function () { return Promise.resolve(resolveScope({ userId: 'usr_othman', organisationId: 'org_other.invalid' })); },
+    /IDENTITY_SCOPE_NOT_DECLARED/, '32 mismatched user/organisation pair refused');
+  await expectRefusal(function () { return Promise.resolve(resolveScope({ userId: 'usr_othman', organisationId: '' })); },
+    /IDENTITY_ORGANISATION_REQUIRED/, '33 empty organisation refused');
+  await expectRefusal(function () { return Promise.resolve(resolveScope({ hostname: 'vps.invalid', ip: '10.0.0.1', session: 's.invalid' })); },
+    /IDENTITY_USER_REQUIRED|IDENTITY_SCOPE_UNKNOWN_FIELDS/, '34 metadata-only identity object refused — hostname/IP/session are not identity sources');
+  await expectRefusal(function () { return Promise.resolve(resolveScope({ userId: 'usr_othman', organisationId: 'org_mythos', hostname: 'vps.invalid' })); },
+    /IDENTITY_SCOPE_UNKNOWN_FIELDS/, '35 metadata riding alongside a valid pair refused whole (strict scope object)');
+  await expectRefusal(function () { return Promise.resolve(resolveScope({ userId: 'usr_othman', organisationId: 'org_mythos', email: 'x@y.invalid' })); },
+    /IDENTITY_SCOPE_UNKNOWN_FIELDS/, '36 email is not an identity source');
+
+  // Environment variables can never supply identity: env carries identity-ish
+  // values, argv carries none -> the CLI refuses at the bridge.
+  const dEnv = cliDeps([]);
+  dEnv.env = { MPI_PERSISTENCE_ENABLED: 'true', MPI_IDENTITY: 'usr_othman', USER_ID: 'usr_othman' };
+  await expectRefusal(function () {
+    return cli.run(['ask', '--organisation', 'org_mythos', '--limit', '5', '--message', 'q'], dEnv);
+  }, /IDENTITY_USER_REQUIRED/, '37 environment variables cannot supply identity — argv-explicit only');
+
+  const dDom = cliDeps([row('m1', { domain_id: 'dom_x.invalid' })]);
+  const rDom = await cli.run(cliBase.concat(['--domain', 'dom_x.invalid']), dDom);
+  ok(rDom.ok === true && dDom.lines.some(function (l) { return /"domainId":true/.test(l); }),
+    '38 explicit domain passes through the existing retrieval contract (validated filter, no inference)');
+  const dNoDom = cliDeps([row('m1')]);
+  await cli.run(cliBase, dNoDom);
+  ok(dNoDom.lines.some(function (l) { return /"domainId":false/.test(l); }),
+    '39 omitted domain stays absent — no default invented from identity');
+
+  const rNoPerm = await rt([row('m1'), row('m2')]).ask(Object.assign({}, baseReq, { permissions: { allowedScopes: [] } }));
+  ok(/facts=0/.test(rNoPerm.response.text),
+    '40 operator identity grants nothing: empty allowedScopes excludes all memory — identity is not a policy bypass');
+
+  const bridgeSrc = fs.readFileSync(path.join(R, 'identity-bridge.js'), 'utf8').replace(/\/\/[^\n]*\n/g, '\n');
+  ok(!/process\.env|require\(['"](os|fs|net|http|child_process)['"]\)|hostname\(|INSERT INTO/.test(bridgeSrc),
+    '41 bridge has zero inference/creation capability — no env, os, fs, network, or SQL access exists');
+
   console.log('\nM4-2 runtime: ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed === 0 ? 0 : 1);
 })().catch(function (e) {

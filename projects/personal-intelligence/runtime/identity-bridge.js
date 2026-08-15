@@ -32,9 +32,18 @@ function refusal(code) {
 }
 
 // resolveScope(input) -> { userId, organisationId } | throws refusal.
+// O-4-3 hardening: the scope object is STRICT — only userId/organisationId
+// may appear. A scope carrying runtime metadata (hostname, ip, session,
+// email, anything) is refused whole, so untrusted metadata can never ride
+// alongside — let alone substitute for — the explicit identity.
+const SCOPE_FIELDS = ['userId', 'organisationId'];
 function resolveScope(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) {
     throw refusal('IDENTITY_SCOPE_REQUIRED');
+  }
+  const extra = Object.keys(input).filter(function (k) { return SCOPE_FIELDS.indexOf(k) === -1; });
+  if (extra.length) {
+    throw refusal('IDENTITY_SCOPE_UNKNOWN_FIELDS: ' + extra.join(',') + ' (identity is explicit userId/organisationId only; metadata is never an identity source)');
   }
   if (typeof input.userId !== 'string' || !input.userId.length) {
     throw refusal('IDENTITY_USER_REQUIRED');
