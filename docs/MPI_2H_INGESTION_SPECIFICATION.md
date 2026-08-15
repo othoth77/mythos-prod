@@ -127,7 +127,7 @@ Ratified by §11.2 and MPI-2G's standing caution: before the first real item, a 
 
 ## 26. Post-ingestion backup verification
 
-Immediately after a real batch: verify DB health + inserted rows + provenance + audit (§28), then produce a **new** backup of the **pair** — schema dump *and* the `content/sha256/` prefix — with C1==C2 on both parts. The pre-ingestion backup object(s) remain in place; rotation/retention is **OPEN — O-2H-3** and until decided nothing is deleted.
+Immediately after a real batch: verify DB health + inserted rows + provenance + audit (§28), then produce a **new** backup of the **pair** — schema dump *and* the `content/sha256/` prefix — with C1==C2 on both parts. The pre-ingestion backup object(s) remain in place; retention is **decided — O-2H-3(a) keep-everything, ratified 2026-08-15 (§35): nothing is deleted.**
 
 ## 27. Restore verification
 
@@ -158,7 +158,7 @@ Immediate stop, no improvisation: any §31 blocking decision undecided · dry ru
 |---|---|---|---|
 | **O-2H-1** | **Initial real data source(s) and surface**: which first-party data, entered where, by whom (owner-operated entry per §2–§3 vocabulary). | **YES** | **CLOSED — see §32** |
 | **O-2H-2** | **Ingestion trigger, frequency, and hosting**: which process hosts the composition root; manual batch vs. scheduled; operator procedure. | **YES** | **CLOSED — see §32** |
-| **O-2H-3** | **Retention/rotation policy** for MPI backups and ingested data (nothing is deleted until decided). | NO (defaults to keep-everything) | OPEN |
+| **O-2H-3** | **Retention/rotation policy** for MPI backups and ingested data (nothing is deleted until decided). | was: NO (defaulted to keep-everything) | **CLOSED — see §35** |
 | **O-2H-4** | **Encryption at rest for content objects** (§11.2 "RECOMMENDED; at minimum documented" — client-side encryption named as the stronger option). | **YES** for sensitive content classes | **CLOSED — see §32** |
 | **O-2H-5** | **F14 erasure design** under the D1 posture (user deletion vs. cascade asymmetry). | was: YES before any broader user base | **CLOSED — see §33** |
 | **O-2H-6** | **Backup freshness tolerance** before ingestion (§25). | **YES** | **CLOSED — see §32** |
@@ -203,4 +203,19 @@ Context: `pi_memory_events` is ratified (event types `DECISION / GOAL / ROUTINE 
 - **No schema migration is authorized or required** for this decision.
 - The `event_type` whitelist is enforced **by the ingestion code** using the ratified vocabulary: `DECISION, GOAL, ROUTINE, PROJECT_STATE, MILESTONE` (the column has no DB CHECK; code-side enforcement is the ratified mechanism).
 
-**Consequences:** the §11/§14/§17 requirements are satisfied for events by inheritance — batch reversal tombstones the parent record (closing the event's standing per F14-A semantics), replays dedup on the parent's provenance triple, and every real event is reachable from an audited, provenance-tracked record. Implementation (ingestion-module + CLI event support + tests) is **future, separately-authorised work**; until it lands, no event batch can run. Sources for event batches remain O-2H-1 (`explicit_instruction`/`note`, owner-authored); Git/doc-derived bulk events remain excluded.
+**Consequences:** the §11/§14/§17 requirements are satisfied for events by inheritance — batch reversal tombstones the parent record (closing the event's standing per F14-A semantics), replays dedup on the parent's provenance triple, and every real event is reachable from an audited, provenance-tracked record. Implementation (ingestion-module + CLI event support + tests) is **future, separately-authorised work**; until it lands, no event batch can run. Sources for event batches remain O-2H-1 (`explicit_instruction`/`note`, owner-authored); Git/doc-derived bulk events remain excluded. *(Implemented and first exercised by `batch-2h-004` on 2026-08-15 — see `docs/AI_HANDOVER.md`.)*
+
+## 35. Ratified O-2H-3 — keep-everything retention (owner, 2026-08-15)
+
+Recorded exactly as provided, without reinterpretation or expansion:
+
+- Keep all MPI memory rows indefinitely.
+- Keep all tombstones indefinitely.
+- Keep all provenance records indefinitely.
+- Keep audit records indefinitely, consistent with F14-D.
+- Keep all R2 content objects indefinitely while referenced.
+- Keep all restore-proven MPI backup objects indefinitely.
+- **No automatic rotation. No automatic deletion. No retention job. No destructive retention process.**
+- This ratification does **not** authorize deletion of any existing object; no existing MPI row, R2 content object, or backup object may be deleted.
+
+**Consequences:** the keep-everything default is now the ratified policy, aligned with F14-A (rows permanent by suppression-only erasure), F14-D (audit indefinite), the D3 pairing rule (referenced content permanent), and AGENTS §16 (any backup deletion is a separate, explicitly-authorised per-object act — nothing here grants one). The report-only rotation classification in `offhost-backup.js` remains available as unexecuted tooling; adopting it, or any per-memory-type retention rule (memory policy §1's undefined clause), is a **new owner decision**. With this, every O-2H decision (1–6) and F14 and O-EV-1 are CLOSED; **D4 is the sole remaining open MPI decision**, non-blocking.

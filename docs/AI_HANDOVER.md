@@ -1,8 +1,24 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-15 UTC
-**From:** BATCH-2H-004 EXECUTED — **the first real MILESTONE events exist: 8 owner-approved milestone pairs (PROJECT_STATE record + MILESTONE event each) ingested under a complete §24(5) order. Production: 36 memories + 36 provenance + 8 events + 3 seed = 83 rows; bucket 45 objects; pair check 36/36. Zero scope deviations.**
+**From:** O-2H-3 RATIFIED — **keep-everything retention, verbatim in spec §35. Nothing rotates, nothing auto-deletes, no retention job; no existing object may be deleted. With this, O-2H-1…6, F14, and O-EV-1 are ALL CLOSED — D4 is the sole remaining open MPI decision (non-blocking). Documentation-only; zero production impact.**
 **To:** Next AI session
+
+---
+
+## O-2H-3 RATIFICATION (owner, 2026-08-15) — CLOSED, DOCUMENTATION-ONLY
+
+**Verbatim record: `docs/MPI_2H_INGESTION_SPECIFICATION.md` §35** (statuses updated in §26 and the §31 table; a cross-reference noting §34's implementation by batch-2h-004 added while touching the file).
+
+Keep-everything, ratified in full: memory rows, tombstones, provenance, audit (per F14-D), referenced content objects, and all restore-proven backup objects are kept indefinitely. **No automatic rotation, no automatic deletion, no retention job, no destructive retention process.** The ratification authorizes **no** deletion of any existing object.
+
+**Contradiction check — none found:** aligns exactly with F14-A (suppression-only), F14-D (indefinite audit), the D3 pairing rule (referenced content permanent), AGENTS §16 (backup deletion only ever per-object, explicitly authorised — nothing granted here), and the report-only stance of `offhost-backup.js` retention() (remains unexecuted tooling; adopting it would be a new decision). Every retention-related current-state marker now reads CLOSED/keep-everything.
+
+**Decision landscape after this stage:** O-2H-1…6 ✔ · F14-A…D ✔ · O-EV-1 ✔ · **D4 open (automatic `disputed` resolution) — the sole remaining MPI decision, non-blocking.**
+
+### Next stage
+
+Owner's choice: further §24(5) batches · D4 · MPI-3+ (retrieval/context runtime adoption). Nothing proceeds without a separate instruction.
 
 ---
 
