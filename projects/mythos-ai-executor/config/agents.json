@@ -2,7 +2,7 @@
   "claude-code": {
     "provider": "claude-code",
     "capabilities": ["coding", "debugging", "repo_modification", "repo_inspection", "testing", "review", "documentation", "analysis", "planning", "summarization", "research"],
-    "task_types": ["coding", "testing", "integration", "review", "documentation", "analysis", "planning", "research", "reporting", "inspection", "design", "generic"],
+    "task_types": ["coding", "testing", "integration", "review", "validation", "documentation", "analysis", "planning", "research", "reporting", "inspection", "design", "generic"],
     "model": null,
     "execution_authority": true,
     "risk_level": "high",

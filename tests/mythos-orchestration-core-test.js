@@ -389,6 +389,21 @@ var agents = require(path.join(EXEC, 'core', 'agent-registry'));
     '2C agents: unavailable agents excluded from selection');
   ok(agents.getCapabilities('claude-code').indexOf('coding') !== -1,
     '2C agents: getCapabilities works');
+
+  // Config completeness: every task type the planner can emit (except
+  // marketing, which has no real agent yet by design) must be routable
+  // by at least one CONFIGURED agent — found live when a planner
+  // 'validation' task had no provider.
+  var plannerTypes = require(path.join(EXEC, 'core', 'planner')).TASK_TYPES;
+  var configAgents = JSON.parse(fs.readFileSync(
+    path.join(EXEC, 'config', 'agents.json'), 'utf8'));
+  var coveredTypes = {};
+  Object.keys(configAgents).forEach(function (n) {
+    (configAgents[n].task_types || []).forEach(function (tt) { coveredTypes[tt] = true; });
+  });
+  plannerTypes.filter(function (t) { return t !== 'marketing'; }).forEach(function (t) {
+    ok(coveredTypes[t] === true, '2C agents: planner task type "' + t + '" routable by config');
+  });
 })();
 
 // ===========================================================================
