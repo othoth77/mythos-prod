@@ -26,6 +26,108 @@
 
 ---
 
+## MYTHOS CORE WIRING (2026-08-16) — **PASS; PRODUCTION ENTRY POINT LIVE BEHIND A DEFAULT-OFF FLAG; FOUR LIFECYCLE DEFECTS FOUND BY INDEPENDENT REVIEW AND FIXED**
+
+**Stage:** MYTHOS CORE WIRING · **Status: PASS**
+
+**Implementation.** `projects/mythos-ai-executor/core/core-wiring.js` is THE
+real production call site for `orchestrator.executorBridge` — the gap the first
+mission verified (bridge had zero non-test call sites). Two entry points:
+authenticated `POST /goals` (+ `GET /goals`, `GET /goals/<id>`,
+`/advance`, `/cancel`, `/report`) reusing the existing bearer-auth,
+loopback-bound HTTP security model, and CLI `mythos-ai-executor goal
+<submit|run|status|report|cancel|list>`. Goal intake is DATA: bounded field
+whitelist (provider / working_directory / execution_profile / policy_classes
+injection refused **and named**), only named committed `MISSION_KINDS` (no
+arbitrary task specs over the wire), slug-checked project, bounded parallelism,
+secret-shape refusal. Goal/mission/task/correlation/project ids, context,
+policy, quota state, retry state, cancellation, report and memory all flow
+through the existing core — **no orchestration state is duplicated**.
+
+**MYTHOS_CORE_ENABLED defaults FALSE and off means inert** — the core module is
+lazy-required inside the handlers, so with the flag off nothing core-related
+loads, `/goals` answers 503 (401 first if unauthenticated), the CLI verb
+refuses, and Phase 1 is unchanged. The committed systemd unit never sets it
+true (pinned by test). The live proof used a temporary drop-in that was
+**removed afterwards; the deployed service is back to flag OFF**.
+
+**Independent reviews (Fable 5 quota NOT spent).** Via the existing OmniRoute
+gateway, no credential invented: architecture review by **Gemini 3.6 Flash**,
+adversarial review by **Gemini 3.6 Flash and GPT-4o**; a second architecture
+reviewer (Qwen3.8-Max) returned an empty upstream response — recorded, not
+hidden. Both adversarial reviewers returned **bypass_possible = false** across
+all eight attack classes (destructive, deploy-without-approval, unbudgeted
+spend, fallback authority, approval replay, tool escape, flag defeat, Goal API
+as a command channel), each citing the blocking code. Full record:
+`docs/MYTHOS_CORE_WIRING_REVIEW.md`.
+
+**Four real defects found and fixed** (each verified against the repository and
+reproduced by a failing test before the fix; no speculative changes):
+`64c8e4c` — (1) **cancellation race**: executor tasks were registered only in
+the bridge promise's `.then()`, so cancelling mid-flight orphaned the in-flight
+task (defeating this stage's own purpose) — now registered synchronously before
+the run, with a store-re-read union at cancel time; (2) **self-signal**: a
+recorded pid equal to this process would SIGTERM the orchestrator itself — now
+never signalled; (3) **supersession**: each attempt creates a new executor task
+and the previous one stayed non-terminal (WAITING_FOR_QUOTA), so the Phase 1
+daemon would resume it behind the core — prior tasks are now retired and the
+supersession recorded. `00026a5` — (4) **daemon/core race**: the daemon
+dispatched bridge-created tasks; tasks with `requested_by='orchestration-core'`
+are now skipped by daemon recovery/dispatch/retry/quota-resume (with the core
+off no such task exists, so Phase 1 is unchanged).
+
+**Providers used:** Claude/Fable 5 (implementation, integration, fixes, the
+live mission's agent work); Gemini 3.6 Flash + GPT-4o via OmniRoute
+(independent + adversarial review). `gemini-advisor` still reports
+**UNCONFIGURED** as a Mythos agent — no `gemini.env`, none invented.
+
+**Tests:** wiring **81/81** (new `tests/mythos-core-wiring-test.js`), core
+**248/248**, Phase 1 **120/120**. Full sweep once: **102 suites, 79 pass, 23
+nonzero — byte-identical to the documented baseline (12 legacy + 11
+env-blocked), zero new failures.**
+
+**Production-safe mission (real, through `POST /goals` on the deployed
+service):** goal `g-mswd0vw9-1a9c03` → mission `m-mswd0vwc-de2489` →
+inspect/analyze/report **3/3 COMPLETED** on real Claude through the bridge →
+validation passed each → report `rp-mswd51vn-64372c` → memory updated → events
+(`GOAL_CREATED`, `MISSION_PLANNED`, `MISSION_STARTED`, `TASK_STARTED`×3,
+`VALIDATION_PASSED`×3, `TASK_COMPLETED`×3, `MISSION_COMPLETED`,
+`MEMORY_UPDATED`). **Zero orphaned executor tasks afterwards.** Its finding: the
+policy engine has no cumulative daily spend ledger (per-request threshold only)
+— recommended, not implemented.
+
+**Policy negative test (production path):** destructive goal → **HTTP 400**,
+`GOAL_REJECTED: PLAN_POLICY_DENIED … DESTRUCTIVE → deny`; DEPLOY-class work
+parks `WAITING_FOR_APPROVAL` with the runner never called (suite-proven).
+**Quota semantics preserved:** 429 → WAITING_FOR_QUOTA in both layers, session
+kept, state survives restart, resume completes — never 429 → FAILED (mock-tested,
+no quota burned).
+
+**Backward compatibility:** with the flag OFF on the live service, `POST /tasks`
+→ daemon → real Claude → **COMPLETED** (task `t-20260816221610-wsbk2v`), health
+and all Phase 1 routes unchanged.
+
+**Final commit:** (this handover commit) · **Remote HEAD:** verified equal after
+push via the persistent relay · **MYTHOS_CORE_ENABLED default: false** ·
+**Production changes:** additive only — new routes/CLI verb behind the default-off
+flag, daemon skips core-owned tasks; service restarted (same unit, no unit change
+committed) · **SSANGYONG legacy: UNTOUCHED** · **n8n: untouched** (no workflow
+added or modified; the core owns orchestration state, n8n remains an adapter).
+
+**Residual risks:** (a) no cumulative daily spend ledger — per-request threshold
+only (the mission's own finding); (b) enabling the core in production is a
+manual drop-in today, deliberately not committed; (c) core repair attempts
+create fresh executor tasks rather than resuming the prior session, so Phase 1
+same-session resume does not carry across core attempts (supersession keeps this
+safe but costs context); (d) the second architecture reviewer was unavailable,
+so architecture review rests on one model plus this session's verification.
+
+**Next stage:** owner decision — either the cumulative spend ledger (safety) or
+committing an owner-approved way to enable the core by default; both are their
+own stages. No Phase 3 features were started.
+
+---
+
 ## MYTHOS ORCHESTRATION CORE — FIRST REAL MISSION (2026-08-16) — **PASS; FIVE LIVE DEFECTS FOUND, FIXED, TESTED, DELIVERED; PRODUCTION CHANGES NONE; SSANGYONG UNTOUCHED**
 
 **Result:** PASS. Goal `g-mswafej0-b549a2` → mission `m-mswafej5-6ebaf0` (7-task
