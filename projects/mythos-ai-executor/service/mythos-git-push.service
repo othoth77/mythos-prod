@@ -1,0 +1,27 @@
+# Mythos — GitHub delivery relay (stage MYTHOS-GIT-DELIVERY-0).
+#
+# SYSTEM unit running as `deploy`, the user that legitimately owns the
+# on-disk GitHub machine credential. It exists because the executor daemon
+# (ubuntu, NoNewPrivileges=true — load-bearing, never weakened) has no
+# GitHub identity of its own: after a reboot, session SSH agents are empty
+# and report pushes fail. The executor keeps committing; this unit delivers.
+#
+# ExecStart points at a ROOT-OWNED copy in /usr/local/bin, deliberately not
+# at the repo checkout: the checkout is writable by `ubuntu`, and code that
+# runs as `deploy` must not be editable by a less-privileged user. Changing
+# the relay's behavior therefore requires root, like any deployment change.
+
+[Unit]
+Description=Mythos GitHub delivery relay (fast-forward push of committed work)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+ExecStart=/usr/local/bin/mythos-git-push
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/deploy/projects/mythos-prod

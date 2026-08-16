@@ -1,0 +1,15 @@
+# Mythos — GitHub delivery relay timer (stage MYTHOS-GIT-DELIVERY-0).
+# Every 5 minutes plus shortly after boot — the window in which committed
+# work can sit undelivered is bounded even across reboots, which is the
+# residual this closes.
+
+[Unit]
+Description=Run the Mythos GitHub delivery relay periodically
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target
