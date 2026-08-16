@@ -228,24 +228,49 @@ function verifyGit(task, report) {
 }
 
 // On this host the GitHub key lives only in an SSH agent created by
-// interactive sessions (~/.ssh/agent/<socket>), never as a key file. The
-// systemd daemon has no SSH_AUTH_SOCK, so pushes discover the newest live
-// agent socket at call time. Residual risk (documented in the handover): a
-// reboot severs push authority until a session recreates the agent or the
-// owner provisions a dedicated deploy key.
-function sshEnv() {
+// interactive sessions (~/.ssh/agent/<socket>), never on disk. The systemd
+// user manager exports SSH_AUTH_SOCK=/run/user/<uid>/gcr/ssh — a GNOME
+// keyring agent holding NO identities — so a socket cannot be trusted for
+// being set; it must be PROBED. `ssh-add -l` exits 0 only when the agent
+// holds at least one identity. Candidates: the preset socket first, then
+// every socket under ~/.ssh/agent newest-first. If none holds a key the
+// environment is returned unchanged and the push fails honestly.
+// Residual risk (documented in the handover): a reboot severs push
+// authority until a session recreates the agent or the owner provisions a
+// dedicated deploy key.
+function agentHasKeys(sock) {
+  try {
+    cp.execFileSync('ssh-add', ['-l'], {
+      env: Object.assign({}, process.env, { SSH_AUTH_SOCK: sock }),
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 5000
+    });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function sshEnv(probe) {
+  probe = probe || agentHasKeys;
   var env = Object.assign({}, process.env);
-  if (!env.SSH_AUTH_SOCK) {
-    var agentDir = path.join(env.HOME || '/home/ubuntu', '.ssh', 'agent');
-    try {
-      var socks = fs.readdirSync(agentDir)
-        .map(function (f) { return path.join(agentDir, f); })
-        .filter(function (p) {
-          try { return fs.statSync(p).isSocket(); } catch (e) { return false; }
-        })
-        .sort(function (a, b) { return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs; });
-      if (socks.length) env.SSH_AUTH_SOCK = socks[0];
-    } catch (e) { /* no agent directory — push will fail honestly */ }
+  var candidates = [];
+  if (env.SSH_AUTH_SOCK) candidates.push(env.SSH_AUTH_SOCK);
+  var agentDir = path.join(env.HOME || '/home/ubuntu', '.ssh', 'agent');
+  try {
+    fs.readdirSync(agentDir)
+      .map(function (f) { return path.join(agentDir, f); })
+      .filter(function (p) {
+        try { return fs.statSync(p).isSocket(); } catch (e) { return false; }
+      })
+      .sort(function (a, b) { return fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs; })
+      .forEach(function (p) { if (candidates.indexOf(p) === -1) candidates.push(p); });
+  } catch (e) { /* no agent directory */ }
+  for (var i = 0; i < candidates.length; i++) {
+    if (probe(candidates[i])) {
+      env.SSH_AUTH_SOCK = candidates[i];
+      return env;
+    }
   }
   return env;
 }

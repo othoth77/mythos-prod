@@ -477,12 +477,28 @@ chain = chain.then(function () {
     var savedHome = process.env.HOME;
     var savedSock = process.env.SSH_AUTH_SOCK;
     process.env.HOME = fakeHome;
+
+    function keyedOnly(target) { return function (sock) { return sock === target; }; }
+
+    // No preset: discovery finds the agent-dir socket when it has keys.
     delete process.env.SSH_AUTH_SOCK;
-    var env = executor.sshEnv();
-    ok(env.SSH_AUTH_SOCK === sockPath, 'ssh: daemon discovers live agent socket');
+    var env = executor.sshEnv(keyedOnly(sockPath));
+    ok(env.SSH_AUTH_SOCK === sockPath, 'ssh: daemon discovers live keyed agent socket');
+
+    // A preset socket WITH keys wins over discovery.
     process.env.SSH_AUTH_SOCK = 'preset-socket';
-    var env2 = executor.sshEnv();
-    ok(env2.SSH_AUTH_SOCK === 'preset-socket', 'ssh: explicit SSH_AUTH_SOCK wins over discovery');
+    var env2 = executor.sshEnv(keyedOnly('preset-socket'));
+    ok(env2.SSH_AUTH_SOCK === 'preset-socket', 'ssh: keyed preset socket wins');
+
+    // A preset socket WITHOUT keys (the gcr trap) falls through to the
+    // discovered keyed socket instead of being trusted blindly.
+    var env3 = executor.sshEnv(keyedOnly(sockPath));
+    ok(env3.SSH_AUTH_SOCK === sockPath, 'ssh: keyless preset (gcr) is not trusted — keyed socket found');
+
+    // No keyed socket anywhere: environment unchanged, failure stays honest.
+    var env4 = executor.sshEnv(function () { return false; });
+    ok(env4.SSH_AUTH_SOCK === 'preset-socket', 'ssh: no keyed agent → env unchanged');
+
     process.env.HOME = savedHome;
     if (savedSock === undefined) delete process.env.SSH_AUTH_SOCK;
     else process.env.SSH_AUTH_SOCK = savedSock;
