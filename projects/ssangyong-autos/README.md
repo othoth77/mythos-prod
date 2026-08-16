@@ -4,6 +4,7 @@
 **Domain:** ssangyong.autos
 **Repository:** othoth77/mythos-prod (`projects/ssangyong-autos/`)
 **Current stage:** SYA-API-1 — read-only catalog API over the live PostgreSQL catalog (2026-08-16)
+**Consumption architecture:** migration plan §22 **option 3 ratified 2026-08-16** — new storefront consumes the catalog natively; legacy site untouched, retired later
 **Authoritative state record:** `docs/AI_HANDOVER.md`
 
 ---
@@ -46,20 +47,31 @@ asserts that it stays that way.
 
 ---
 
-## The open architectural decision (owner)
+## The architectural decision — RATIFIED 2026-08-16: §22 option 3
 
-How the catalog reaches a shopfront is **not decided**. The migration plan §22
-lists three options and says so explicitly — *"options, not decisions … decide
-post-migration"*:
+The migration plan §22 listed three ways the catalog could reach a shopfront and
+declined to choose between them — *"options, not decisions … decide
+post-migration"*. **The owner has now decided. Option 3 is ratified:**
 
-1. The legacy website reads this API directly.
-2. A scheduled Postgres → MariaDB export, with Postgres as source of truth.
-3. A new storefront consumes the catalog natively; the legacy site is retired later.
+> **3. New storefront consumes Mythos natively; legacy site retired later.**
 
-SYA-API-1 deliberately builds only what **all three** need: a correct, read-only
-layer over the live catalog. It does not choose between them, and it couples to
-neither site. Choosing — and any public exposure that follows — is an owner
-decision and its own stage.
+Options 1 (the legacy website reads this API directly) and 2 (a scheduled
+Postgres → MariaDB export) are **rejected**, and with them everything they would
+have required: the legacy MariaDB site is *not* unfrozen, *not* edited, and *not*
+written to. §21's freeze therefore stands unchanged and permanently for this
+workstream, rather than being a temporary state awaiting this decision.
+
+What the ratification settles:
+
+| Question | Answer |
+|---|---|
+| Source of truth | PostgreSQL `ssangyong_autos`. No replica, no export, no second copy. |
+| Consumer | A new storefront in this repository, consuming `reference/api.js` natively. |
+| Legacy `/var/www/ssangyong.autos` | Untouched. Retired later, on its own owner order — retirement is **not** part of this workstream. |
+| Public API exposure | **Not required by this option.** The storefront and API are the same process on the same host, so the API stays loopback-only until a deployment stage says otherwise. |
+
+SYA-API-1 had deliberately built only what all three options shared. That bet
+held: nothing built there needs revisiting under option 3.
 
 ---
 
@@ -127,5 +139,8 @@ asserts are the Stage 5 Phase 3 baseline — if they fail, the data changed.
 - Part categories as a table — `database/schema.sql` §6 explains why the Sheets
   `categories` tab is a crawl frontier rather than application data, and that a
   browse tree should be added when a storefront actually needs one.
-- Public exposure, TLS, rate limiting, caching — all belong to whichever §22
-  option the owner chooses.
+- Public exposure, TLS, rate limiting, caching — a deployment stage under
+  ratified option 3, on its own owner order. Option 3 does not require exposing
+  the API itself, only whatever serves the storefront.
+- Retirement of the legacy `/var/www/ssangyong.autos` site — explicitly *"later"*
+  in the ratified option, and its own owner order. Not this workstream.
