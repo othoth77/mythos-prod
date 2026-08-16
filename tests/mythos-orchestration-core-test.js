@@ -596,9 +596,259 @@ var dag = require(path.join(EXEC, 'core', 'dag'));
 })();
 
 // ===========================================================================
+// PHASE 2H — policy engine
+// ===========================================================================
+
+var policyEngine = require(path.join(EXEC, 'core', 'policy-engine'));
+
+(function () {
+  var engine = policyEngine.createEngine();
+  ok(engine.checkPolicy({ action_class: 'READ' }).decision === 'allow', '2H policy: READ auto-allowed');
+  ok(engine.checkPolicy({ action_class: 'GIT' }).decision === 'allow', '2H policy: GIT allowed');
+  ok(engine.checkPolicy({ action_class: 'DEPLOY' }).decision === 'require_approval', '2H policy: DEPLOY needs approval');
+  ok(engine.checkPolicy({ action_class: 'ROOT' }).decision === 'deny', '2H policy: ROOT denied');
+  ok(engine.checkPolicy({ action_class: 'DESTRUCTIVE' }).decision === 'deny', '2H policy: DESTRUCTIVE denied');
+  ok(engine.checkPolicy({ action_class: 'TELEPATHY' }).decision === 'deny', '2H policy: unknown class → deny');
+
+  // The hard floor beats hostile configuration.
+  var hostile = policyEngine.createEngine({
+    policy_id: 'hostile-v1',
+    classes: { READ: 'allow', PROJECT_WRITE: 'allow', GIT: 'allow', SERVICE: 'allow',
+      DEPLOY: 'allow', ROOT: 'allow', EXTERNAL_API: 'allow', DESTRUCTIVE: 'allow' },
+    money_spend: { enabled: true, daily_limit_usd: 100000 }
+  });
+  var rootCheck = hostile.checkPolicy({ action_class: 'ROOT' });
+  ok(rootCheck.decision === 'deny' && /HARD FLOOR/.test(rootCheck.reason),
+    '2H policy: config cannot loosen ROOT — hard floor wins and says so');
+  ok(hostile.checkPolicy({ action_class: 'DESTRUCTIVE' }).decision === 'deny',
+    '2H policy: config cannot loosen DESTRUCTIVE');
+
+  // Money: disabled → deny; configured → threshold behavior. Limits come
+  // from configuration only, never hard-coded.
+  ok(engine.checkPolicy({ action_class: 'MONEY_SPEND', amount_usd: 1 }).decision === 'deny',
+    '2H policy: spending disabled by default');
+  var budget = policyEngine.createEngine({
+    policy_id: 'budget-v1',
+    classes: { READ: 'allow', PROJECT_WRITE: 'allow', GIT: 'allow', SERVICE: 'require_approval',
+      DEPLOY: 'require_approval', ROOT: 'deny', EXTERNAL_API: 'allow', DESTRUCTIVE: 'deny' },
+    money_spend: { enabled: true, daily_limit_usd: 5 }
+  });
+  ok(budget.checkPolicy({ action_class: 'MONEY_SPEND', amount_usd: 5 }).decision === 'allow',
+    '2H policy: within configured limit → allow');
+  ok(budget.checkPolicy({ action_class: 'MONEY_SPEND', amount_usd: 5.01 }).decision === 'require_approval',
+    '2H policy: above configured limit → approval, not silent spend');
+  ok(budget.checkPolicy({ action_class: 'MONEY_SPEND' }).decision === 'deny',
+    '2H policy: undeclared amount → deny');
+
+  // Aggregation: deny > approval > allow.
+  ok(engine.checkClasses(['READ', 'SERVICE']).decision === 'require_approval',
+    '2H policy: aggregate escalates to approval');
+  ok(engine.checkClasses(['READ', 'SERVICE', 'ROOT']).decision === 'deny',
+    '2H policy: aggregate deny wins over approval');
+  ok(/Policy .* decided/.test(engine.explainPolicyDecision({ action_class: 'DEPLOY' })),
+    '2H policy: decisions are explainable');
+
+  // No bypass surface: frozen, no mutators, config path is committed file.
+  ok(Object.isFrozen(engine) && engine.setPolicy === undefined && engine.allow === undefined,
+    '2H policy: engine exposes no mutation API');
+
+  // Approval lifecycle: a state, not a prompt.
+  var approval = policyEngine.requestApproval('tk-aaaaaa-0001', 'DEPLOY', 'deploy to staging');
+  ok(approval.status === 'PENDING', '2H approvals: request creates PENDING record');
+  ok(policyEngine.pendingApprovals('tk-aaaaaa-0001').length === 1, '2H approvals: pending queryable');
+  throws(function () { policyEngine.decideApproval(approval.id, true, ''); },
+    /NEEDS_DECIDER/, '2H approvals: decision requires a recorded human identity');
+  var granted = policyEngine.decideApproval(approval.id, true, 'othman');
+  ok(granted.status === 'GRANTED' && granted.decided_by === 'othman' && granted.decided_at,
+    '2H approvals: grant recorded with decider and time');
+  throws(function () { policyEngine.decideApproval(approval.id, false, 'othman'); },
+    /ALREADY_DECIDED/, '2H approvals: no re-deciding');
+})();
+
+// ===========================================================================
+// PHASE 2G — parallel execution + worktree isolation
+// ===========================================================================
+
+var scheduler = require(path.join(EXEC, 'core', 'scheduler'));
+var worktrees = require(path.join(EXEC, 'core', 'worktrees'));
+
+function buildMission(goalText, specTasks, hints) {
+  var goal = domain.createGoal({ text: goalText, project: 'core-test' });
+  store.create(goal);
+  var plan = planner.planFromSpec(goal, { title: goalText, tasks: specTasks });
+  if (!plan.valid) throw new Error('test mission invalid: ' + plan.errors.join('; '));
+  var persisted = planner.persistPlan(plan);
+  store.transition('mission', persisted.mission.id, 'VALIDATED');
+  if (hints && hints.max_parallel) {
+    var m = store.load('mission', persisted.mission.id);
+    m.max_parallel_agents = hints.max_parallel;
+    store.save(m);
+  }
+  return persisted;
+}
+
+var chain2 = Promise.resolve();
+
+// --- Bounded parallelism over independent tasks ------------------------------
+chain2 = chain2.then(function () {
+  var spec = ['w1', 'w2', 'w3', 'w4'].map(function (k) {
+    return { key: k, title: 'independent ' + k, task_type: 'analysis', depends_on: [] };
+  });
+  var m = buildMission('four independent analyses', spec, { max_parallel: 2 });
+  var concurrent = 0, peak = 0;
+  return scheduler.runMission(m.mission.id, {
+    runner: function () {
+      concurrent += 1; peak = Math.max(peak, concurrent);
+      return new Promise(function (resolve) {
+        setTimeout(function () { concurrent -= 1; resolve({ status: 'COMPLETED', result: { ok: 1 } }); }, 25);
+      });
+    }
+  }).then(function (mission) {
+    ok(mission.status === 'COMPLETED', '2G parallel: mission completes');
+    ok(peak === 2, '2G parallel: concurrency bounded at max_parallel=2 (peak ' + peak + ')');
+    ok(mission.metadata.peak_concurrency === 2, '2G parallel: peak recorded on the mission');
+    var states = m.tasks.map(function (t) { return store.load('task', t.id).status; });
+    ok(states.every(function (s) { return s === 'COMPLETED'; }), '2G parallel: all tasks completed');
+  });
+});
+
+// --- True overlap of independent tasks; dependent task waits ------------------
+chain2 = chain2.then(function () {
+  var spec = [
+    { key: 'api', title: 'api branch', task_type: 'analysis', depends_on: [] },
+    { key: 'db', title: 'db branch', task_type: 'analysis', depends_on: [] },
+    { key: 'integrate', title: 'merge', task_type: 'validation', depends_on: ['api', 'db'] }
+  ];
+  var m = buildMission('branch and merge', spec, { max_parallel: 4 });
+  var events = [];
+  return scheduler.runMission(m.mission.id, {
+    runner: function (task) {
+      events.push({ key: task.metadata.plan_key, at: 'start', t: Date.now() });
+      return new Promise(function (resolve) {
+        setTimeout(function () {
+          events.push({ key: task.metadata.plan_key, at: 'end', t: Date.now() });
+          resolve({ status: 'COMPLETED' });
+        }, 20);
+      });
+    }
+  }).then(function (mission) {
+    ok(mission.status === 'COMPLETED', '2G overlap: mission completes');
+    var apiStart = events.filter(function (e) { return e.key === 'api' && e.at === 'start'; })[0];
+    var dbEnd = events.filter(function (e) { return e.key === 'db' && e.at === 'end'; })[0];
+    var apiEnd = events.filter(function (e) { return e.key === 'api' && e.at === 'end'; })[0];
+    var integrateStart = events.filter(function (e) { return e.key === 'integrate' && e.at === 'start'; })[0];
+    ok(apiStart.t < dbEnd.t, '2G overlap: independent branches ran concurrently');
+    ok(integrateStart.t >= apiEnd.t && integrateStart.t >= dbEnd.t,
+      '2G overlap: dependent merge waited for BOTH branches');
+  });
+});
+
+// --- Isolated worktrees for parallel coding tasks ------------------------------
+chain2 = chain2.then(function () {
+  var repo = makeRepo('parallel-repo');
+  var spec = [
+    { key: 'code-a', title: 'feature A', task_type: 'coding', depends_on: [] },
+    { key: 'code-b', title: 'feature B', task_type: 'coding', depends_on: [] }
+  ];
+  var m = buildMission('parallel coding', spec, { max_parallel: 2 });
+  var seenDirs = {};
+  return scheduler.runMission(m.mission.id, {
+    repo_path: repo,
+    runner: function (task, ctx) {
+      seenDirs[task.metadata.plan_key] = ctx.worktree.dir;
+      // Each agent writes and commits in ITS OWN tree.
+      fs.writeFileSync(path.join(ctx.worktree.dir, task.metadata.plan_key + '.txt'), 'work\n');
+      cp.execFileSync('git', ['add', '.'], { cwd: ctx.worktree.dir });
+      cp.execFileSync('git', ['commit', '-q', '-m', task.metadata.plan_key], { cwd: ctx.worktree.dir });
+      return Promise.resolve({ status: 'COMPLETED' });
+    }
+  }).then(function (mission) {
+    ok(mission.status === 'COMPLETED', '2G worktrees: mission completes');
+    ok(seenDirs['code-a'] && seenDirs['code-b'] && seenDirs['code-a'] !== seenDirs['code-b'],
+      '2G worktrees: two coding agents never share a working tree');
+    var branches = cp.execFileSync('git', ['branch', '--list', 'mythos/*'], { cwd: repo, encoding: 'utf8' });
+    ok(branches.split('\n').filter(Boolean).length === 2,
+      '2G worktrees: each task committed on its own branch');
+    ok(!fs.existsSync(path.join(repo, 'code-a.txt')),
+      '2G worktrees: the main checkout is untouched');
+    // Dirty worktree removal refused without force.
+    var taskA = m.tasks.filter(function (t) { return t.metadata.plan_key === 'code-a'; })[0];
+    fs.writeFileSync(path.join(seenDirs['code-a'], 'uncommitted.txt'), 'precious\n');
+    var refused = worktrees.remove(repo, m.mission.id, taskA.id);
+    ok(refused.removed === false && /refusing to destroy/.test(refused.reason),
+      '2G worktrees: dirty tree never destroyed without force');
+  });
+});
+
+// --- Failure isolation: one branch fails, independent work finishes ------------
+chain2 = chain2.then(function () {
+  var spec = [
+    { key: 'doomed-root', title: 'will fail', task_type: 'analysis', depends_on: [] },
+    { key: 'dependent', title: 'depends on failure', task_type: 'analysis', depends_on: ['doomed-root'] },
+    { key: 'independent', title: 'unrelated', task_type: 'analysis', depends_on: [] }
+  ];
+  var m = buildMission('failure isolation', spec);
+  return scheduler.runMission(m.mission.id, {
+    runner: function (task) {
+      if (task.metadata.plan_key === 'doomed-root') {
+        return Promise.resolve({ status: 'FAILED', error: 'deterministic failure' });
+      }
+      return Promise.resolve({ status: 'COMPLETED' });
+    }
+  }).then(function (mission) {
+    ok(mission.status === 'FAILED', '2G failure: mission reports failure');
+    var byKey = {};
+    m.tasks.forEach(function (t) { byKey[t.metadata.plan_key] = store.load('task', t.id); });
+    ok(byKey['independent'].status === 'COMPLETED', '2G failure: independent branch finished');
+    ok(byKey['dependent'].status === 'WAITING_FOR_DEPENDENCY',
+      '2G failure: dependent task remains blocked, never run');
+    ok(mission.metadata.doomed.some(function (d) { return d.id === byKey['dependent'].id; }),
+      '2G failure: doomed task recorded on the mission');
+  });
+});
+
+// --- Policy denial cancels the task; approval parks and resumes -----------------
+chain2 = chain2.then(function () {
+  var spec = [
+    { key: 'nuke', title: 'destroy database', task_type: 'generic',
+      policy_classes: ['DESTRUCTIVE'], depends_on: [] }
+  ];
+  var m = buildMission('destructive request', spec);
+  return scheduler.runMission(m.mission.id, {
+    runner: function () { throw new Error('runner must never be called for denied tasks'); }
+  }).then(function (mission) {
+    var task = store.load('task', m.tasks[0].id);
+    ok(task.status === 'CANCELLED' && /HARD FLOOR|deny/.test(task.metadata.policy_denied),
+      '2G policy: DESTRUCTIVE task cancelled before any execution');
+    ok(mission.status === 'FAILED', '2G policy: mission honestly fails');
+  });
+}).then(function () {
+  var spec = [
+    { key: 'svc', title: 'reload service', task_type: 'generic',
+      policy_classes: ['SERVICE'], depends_on: [] }
+  ];
+  var m = buildMission('service change needs approval', spec);
+  var ran = { count: 0 };
+  var runner = function () { ran.count += 1; return Promise.resolve({ status: 'COMPLETED' }); };
+  return scheduler.runMission(m.mission.id, { runner: runner }).then(function (mission) {
+    var task = store.load('task', m.tasks[0].id);
+    ok(mission.status === 'WAITING' && task.status === 'WAITING_FOR_APPROVAL' && ran.count === 0,
+      '2G approval: task parks in WAITING_FOR_APPROVAL without executing');
+    var pending = policyEngine.pendingApprovals(task.id);
+    ok(pending.length === 1, '2G approval: approval record created once');
+    scheduler.applyApproval(pending[0].id, 'othman');
+    ok(store.load('task', task.id).status === 'READY', '2G approval: grant releases the task');
+    return scheduler.runMission(m.mission.id, { runner: runner });
+  }).then(function (mission) {
+    ok(mission.status === 'COMPLETED' && ran.count === 1,
+      '2G approval: approved task ran exactly once — no repeated prompting');
+  });
+});
+
+// ===========================================================================
 // Summary
 // ===========================================================================
-Promise.resolve().then(function () {
+chain2.then(function () {
   fs.rmSync(FIXTURES, { recursive: true, force: true });
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
   if (failures.length) {

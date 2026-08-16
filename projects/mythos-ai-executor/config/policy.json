@@ -1,0 +1,20 @@
+{
+  "policy_id": "mythos-default-v1",
+  "description": "Default Mythos orchestration policy. ROOT and DESTRUCTIVE are hard-floored to deny in code — no configuration value can loosen them. Money spending is disabled until the owner configures a limit; no personal spending limit is hard-coded.",
+  "classes": {
+    "READ": "allow",
+    "PROJECT_WRITE": "allow",
+    "GIT": "allow",
+    "SERVICE": "require_approval",
+    "DEPLOY": "require_approval",
+    "ROOT": "deny",
+    "EXTERNAL_API": "require_approval",
+    "DESTRUCTIVE": "deny"
+  },
+  "money_spend": {
+    "enabled": false,
+    "daily_limit_usd": 0,
+    "note": "Set enabled:true and a positive daily_limit_usd to allow policy-gated spending up to the limit; above-limit requests require approval; disabled means deny."
+  },
+  "project_overrides": {}
+}
