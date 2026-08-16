@@ -112,8 +112,21 @@ function buildRunner(opts) {
           ? task.metadata.budget_usd : undefined
       });
     });
+    // Repair feedback channel: a repairing agent must SEE what was
+    // rejected, or the repair loop converges only by luck. (Found live in
+    // the first real mission: three blind retries, all rejected.)
+    var repairNotes = null;
+    var freshTask = store.load('task', task.id);
+    if (freshTask.metadata && Array.isArray(freshTask.metadata.validation_rejections) &&
+        freshTask.metadata.validation_rejections.length) {
+      repairNotes = '## REPAIR REQUIRED (attempt ' + (freshTask.attempt || 1) + ')\n' +
+        'Your previous attempt was REJECTED by independent validation/review. ' +
+        'Fix every finding below in this attempt:\n' +
+        freshTask.metadata.validation_rejections.map(function (r) { return '- ' + r; }).join('\n');
+    }
     var runCtx = Object.assign({}, ctx, {
-      agent: agentName, context: assembled, tool_grants: grants, tools: tools
+      agent: agentName, context: assembled, tool_grants: grants, tools: tools,
+      repair_notes: repairNotes
     });
     return Promise.resolve(opts.agent_runner(agentName, store.load('task', task.id), runCtx))
       .then(function (result) {
@@ -259,7 +272,8 @@ function executorBridge(executorModule, profileByType) {
     var created = executorModule.createTask({
       project: 'mythos-prod',
       stage: 'CORE-' + (task.metadata.plan_key || task.id),
-      instruction: task.instruction + '\n\n' + context.renderContext(ctx.context),
+      instruction: task.instruction + '\n\n' + context.renderContext(ctx.context) +
+        (ctx.repair_notes ? '\n\n' + ctx.repair_notes : ''),
       provider: provider,
       execution_profile: agentDef && agentDef.execution_authority
         ? (profileByType[task.task_type] || 'repo-read') : undefined,

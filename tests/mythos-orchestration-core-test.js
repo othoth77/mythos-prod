@@ -1336,15 +1336,22 @@ chain2 = chain2.then(function () {
     }
   });
   var attempts = 0;
+  var repairNotesSeen = null;
   return orchestrator.advanceMission(submitted.mission.id, {
-    agent_runner: function (agentName, task) {
+    agent_runner: function (agentName, task, ctx) {
       attempts += 1;
       if (attempts === 1) {
         return Promise.resolve({ status: 'completed' }); // missing summary → schema reject
       }
+      repairNotesSeen = ctx.repair_notes;
       return Promise.resolve({ status: 'completed', summary: 'repaired analysis, all fields present' });
     },
     review: false
+  }).then(function (mission) {
+    ok(typeof repairNotesSeen === 'string' && /REPAIR REQUIRED/.test(repairNotesSeen) &&
+       /summary/.test(repairNotesSeen),
+      'L accept: the repairing agent SEES the rejection findings (feedback channel)');
+    return mission;
   }).then(function (mission) {
     var task = store.load('task', submitted.tasks[0].id);
     ok(attempts === 2 && task.status === 'COMPLETED' && task.attempt === 2,
