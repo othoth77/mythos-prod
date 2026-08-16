@@ -1,0 +1,9 @@
+{
+  "router_id": "mythos-router-v1",
+  "description": "Provider routing + fallback policy. Fallback NEVER changes security authority: an execution-authority task can only fall back to another execution-authority agent, and by default it does not fall back at all — it waits for quota (WAITING_FOR_QUOTA), which is always correct. Advisory task types listed below may fall back between advisory agents.",
+  "fallback": {
+    "enabled": true,
+    "allowed_task_types": ["research", "review", "analysis", "planning"],
+    "never_for_execution_authority": true
+  }
+}

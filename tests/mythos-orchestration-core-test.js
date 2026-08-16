@@ -846,6 +846,231 @@ chain2 = chain2.then(function () {
 });
 
 // ===========================================================================
+// PHASE 2I — validation + adversarial review
+// ===========================================================================
+
+var validation = require(path.join(EXEC, 'core', 'validation'));
+
+(function () {
+  var task = domain.createTask({ title: 'validated work', project: 'core-test', policy_classes: ['READ', 'GIT'] });
+  var good = { status: 'completed', summary: 'did the thing', actions_used: ['READ'] };
+  ok(validation.validate(task, good).pass, '2I validate: sound result passes');
+  ok(!validation.validate(task, { status: 'completed' }).pass, '2I validate: missing summary rejected');
+  ok(!validation.validate(task, { status: 'victory', summary: 'x' }).pass, '2I validate: invalid status rejected');
+
+  var leaky = { status: 'completed', summary: 'here is sk-ant-abcdefghijklmnopqrstu12345 for you' };
+  var sec = validation.validate(task, leaky);
+  ok(!sec.pass && sec.rejections.some(function (r) { return /security/.test(r); }),
+    '2I validate: secret shapes rejected by security validator');
+
+  var overreach = { status: 'completed', summary: 'x', actions_used: ['DEPLOY'] };
+  var pol = validation.validate(task, overreach);
+  ok(!pol.pass && pol.rejections.some(function (r) { return /never granted/.test(r); }),
+    '2I validate: undeclared action class rejected by policy validator');
+
+  var needy = domain.createTask({
+    title: 'needy', project: 'core-test',
+    metadata: { required_fields: ['commit'], required_tests: ['unit-suite'] }
+  });
+  var incomplete = validation.validate(needy, { status: 'completed', summary: 'x' }, {
+    test_runner: function () { return { pass: true }; }
+  });
+  ok(!incomplete.pass && incomplete.rejections.some(function (r) { return /required field missing: commit/.test(r); }),
+    '2I validate: completeness enforces required fields');
+  var failingTests = validation.validate(needy, { status: 'completed', summary: 'x', commit: 'abc' }, {
+    test_runner: function () { return { pass: false, detail: '3 assertions failed' }; }
+  });
+  ok(!failingTests.pass && failingTests.rejections.some(function (r) { return /required test failed/.test(r); }),
+    '2I validate: failing required tests reject');
+
+  var repo = makeRepo('validate-repo');
+  var head = cp.execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+  ok(validation.validate(task, { status: 'completed', summary: 'x', commit: head }, { repo_path: repo }).pass,
+    '2I validate: real commit verifies');
+  var fake = validation.validate(task, {
+    status: 'completed', summary: 'x', commit: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef'
+  }, { repo_path: repo });
+  ok(!fake.pass && fake.rejections.some(function (r) { return /does not exist/.test(r); }),
+    '2I validate: invented commit rejected');
+})();
+
+(function () {
+  // Adversarial review: reviewer must differ from author.
+  agents.registerAgent('mock-reviewer', {
+    provider: 'mock-rev', capabilities: ['review', 'analysis'], task_types: ['review'],
+    execution_authority: false, risk_level: 'low', cost: { tier: 'free' }
+  });
+  agents.registerProbe('mock-rev', function () { return true; });
+
+  var task = domain.createTask({ title: 'authored work', project: 'core-test', agent_id: 'mock-reviewer' });
+  var review = validation.adversarialReview(task, { status: 'completed', summary: 'x' }, {
+    review_fn: function (reviewer) {
+      return { verdict: 'pass', findings: [], _reviewer: reviewer };
+    }
+  });
+  ok(review.performed && review.reviewer !== 'mock-reviewer',
+    '2I review: the author never reviews itself');
+
+  var reject = validation.adversarialReview(
+    domain.createTask({ title: 'buggy work', project: 'core-test', agent_id: 'claude-code' }),
+    { status: 'completed', summary: 'looks done' },
+    { review_fn: function () { return { verdict: 'reject', findings: ['edge case: empty input crashes'] }; } });
+  ok(reject.verdict === 'reject' && reject.findings.length === 1,
+    '2I review: adversarial findings reject a "completed" result');
+
+  // Repair loop: reject → RETRYING with findings → repaired → COMPLETED.
+  var t = domain.createTask({ title: 'repairable', project: 'core-test', max_attempts: 3 });
+  store.create(t);
+  store.transition('task', t.id, 'READY');
+  store.transition('task', t.id, 'RUNNING', { attempt: 1 });
+  store.transition('task', t.id, 'VALIDATING');
+  var afterReject = validation.validateAndSettle(t.id, { status: 'completed' }, { review: false });
+  ok(afterReject.status === 'RETRYING' &&
+     afterReject.metadata.validation_rejections.some(function (r) { return /summary/.test(r); }),
+    '2I settle: rejection → RETRYING with findings recorded for the repairing agent');
+  store.transition('task', t.id, 'RUNNING', { attempt: 2 });
+  store.transition('task', t.id, 'VALIDATING');
+  var afterRepair = validation.validateAndSettle(t.id,
+    { status: 'completed', summary: 'repaired properly' }, { review: false });
+  ok(afterRepair.status === 'COMPLETED', '2I settle: repaired result passes and completes');
+
+  // Attempt budget: rejection with no attempts left → FAILED.
+  var doomed = domain.createTask({ title: 'unfixable', project: 'core-test', max_attempts: 1 });
+  store.create(doomed);
+  store.transition('task', doomed.id, 'READY');
+  store.transition('task', doomed.id, 'RUNNING', { attempt: 1 });
+  store.transition('task', doomed.id, 'VALIDATING');
+  ok(validation.validateAndSettle(doomed.id, { status: 'completed' }, { review: false }).status === 'FAILED',
+    '2I settle: attempt budget exhausted → FAILED, never an infinite repair loop');
+  throws(function () { validation.validateAndSettle(doomed.id, {}, {}); }, /NOT_VALIDATING/,
+    '2I settle: only VALIDATING tasks settle');
+})();
+
+// ===========================================================================
+// PHASE 2J — multi-provider routing + fallback
+// ===========================================================================
+
+var router = require(path.join(EXEC, 'core', 'provider-router'));
+var reputation = require(path.join(EXEC, 'core', 'reputation'));
+
+(function () {
+  // Two available advisory research agents for fallback exercises.
+  agents.registerAgent('adv-a', {
+    provider: 'adv1', capabilities: ['research', 'review'], task_types: ['research', 'review'],
+    execution_authority: false, risk_level: 'low', cost: { tier: 'free' }
+  });
+  agents.registerAgent('adv-b', {
+    provider: 'adv2', capabilities: ['research', 'review'], task_types: ['research', 'review'],
+    execution_authority: false, risk_level: 'low', cost: { tier: 'metered' }
+  });
+  agents.registerProbe('adv1', function () { return true; });
+  agents.registerProbe('adv2', function () { return true; });
+
+  var coding = domain.createTask({ title: 'implement feature', project: 'core-test', task_type: 'coding', capabilities_required: ['coding'] });
+  var routed = router.route(coding, { fresh: true });
+  ok(routed.action === 'route' && routed.authority === true,
+    '2J route: coding routes to an execution-authority agent');
+
+  // Quota exhaustion on an execution task: WAIT — never a downgrade, never failure.
+  var quotaState = {};
+  quotaState[routed.agent] = { exhausted: true, resume_after: '2099-01-01T00:00:00Z' };
+  var waiting = router.route(coding, { quota_state: quotaState, fresh: true });
+  ok(waiting.action === 'wait_for_quota' && /never fall back/.test(waiting.reason),
+    '2J route: execution task under quota waits — authority never silently changes');
+
+  // Advisory fallback within the same (non-)authority, policy-permitted.
+  var research = domain.createTask({ title: 'market research', project: 'core-test', task_type: 'research', capabilities_required: ['research'] });
+  var primary = router.route(research, { fresh: true });
+  ok(primary.action === 'route' && primary.agent === 'adv-a',
+    '2J route: research routes to the preferred advisory agent');
+  var qs = { 'adv-a': { exhausted: true } };
+  var fb = router.route(research, { quota_state: qs, fresh: true });
+  ok(fb.action === 'fallback' && fb.agent === 'adv-b' && fb.from === 'adv-a' && fb.authority === false,
+    '2J route: quota-exhausted advisory task falls back to a SAME-authority alternate');
+  ok(store.readEvents().some(function (e) {
+    return e.event_type === 'PROVIDER_FALLBACK' && e.detail.to === 'adv-b';
+  }), '2J route: fallback is evented with from/to');
+
+  // Fallback failure: everyone exhausted → wait, task preserved.
+  var allOut = { 'adv-a': { exhausted: true }, 'adv-b': { exhausted: true } };
+  var stuck = router.route(research, { quota_state: allOut, fresh: true });
+  ok(stuck.action === 'wait_for_quota' && /no same-authority fallback/.test(stuck.reason),
+    '2J route: fallback exhaustion degrades to waiting, never to failure');
+
+  // Resume: quota restored → same primary again.
+  var resumed = router.route(research, { quota_state: {}, fresh: true });
+  ok(resumed.action === 'route' && resumed.agent === 'adv-a', '2J route: resume returns to the primary');
+
+  // No suitable provider at all.
+  var weird = domain.createTask({ title: 'quantum embroidery', project: 'core-test', task_type: 'research', capabilities_required: ['quantum_embroidery'] });
+  var none = router.route(weird, { fresh: true });
+  ok(none.action === 'no_provider', '2J route: impossible capability → structured no_provider');
+  ok(store.readEvents().some(function (e) { return e.event_type === 'PROVIDER_UNAVAILABLE'; }),
+    '2J route: unavailability is evented');
+
+  // Reputation: only sufficient evidence reorders; never one result.
+  reputation.recordOutcome('adv-b', 'research', true);
+  var one = reputation.stats('adv-b', 'research');
+  ok(one.rate === null && one.sufficient === false,
+    '2J reputation: a single outcome yields NO rate — unknown is not invented');
+  var after1 = router.route(research, { fresh: true });
+  ok(after1.agent === 'adv-a', '2J reputation: one good result does not flip priority');
+  for (var i = 0; i < 5; i++) {
+    reputation.recordOutcome('adv-b', 'research', true);
+    reputation.recordOutcome('adv-a', 'research', i === 0); // 1 success, 4 failures
+  }
+  reputation.recordOutcome('adv-a', 'research', false);
+  var informed = router.route(research, { fresh: true });
+  ok(informed.agent === 'adv-b',
+    '2J reputation: sufficient historical evidence reorders candidates');
+})();
+
+// ===========================================================================
+// PHASE 2K — event engine
+// ===========================================================================
+
+var events = require(path.join(EXEC, 'core', 'events'));
+
+(function () {
+  events.resetSubscribersForTests();
+  var seen = [];
+  var wild = [];
+  var un = events.subscribe('TASK_COMPLETED', function (e) { seen.push(e); });
+  events.subscribe('*', function (e) { wild.push(e.event_type); });
+  events.subscribe('TASK_FAILED', function () { throw new Error('bad subscriber'); });
+
+  var before = events.replay().length;
+  var emitted = events.emit('TASK_COMPLETED', { subject_id: 'tk-aaaaaa-0002', detail: { note: 'done' } });
+  ok(emitted.event_type === 'TASK_COMPLETED' && seen.length === 1 && wild.indexOf('TASK_COMPLETED') !== -1,
+    '2K events: emit reaches typed and wildcard subscribers');
+  ok(events.replay().length === before + 1, '2K events: emission is durable');
+
+  // A throwing subscriber cannot break emit or durability.
+  var failEvent = events.emit('TASK_FAILED', { subject_id: 'tk-aaaaaa-0002' });
+  ok(failEvent.event_type === 'TASK_FAILED', '2K events: throwing subscriber never breaks emit');
+  ok(events.replay().some(function (e) {
+    return e.detail && e.detail.subscriber_error && e.detail.for_event === 'TASK_FAILED';
+  }), '2K events: subscriber failure recorded, not hidden');
+
+  throws(function () { events.emit('NOT_A_TYPE', {}); }, /UNKNOWN_EVENT_TYPE/,
+    '2K events: type enum enforced at emit');
+  throws(function () { events.subscribe('NOT_A_TYPE', function () {}); }, /UNKNOWN_EVENT_TYPE/,
+    '2K events: type enum enforced at subscribe');
+
+  un();
+  events.emit('TASK_COMPLETED', { subject_id: 'tk-aaaaaa-0003' });
+  ok(seen.length === 1, '2K events: unsubscribe works');
+
+  // n8n stays an adapter: forwarding is injectable and fire-and-forget.
+  var forwarded = [];
+  events.emit('COMMIT_CREATED', { subject_id: 'tk-aaaaaa-0003', detail: { commit: 'abc123' } },
+    { forwarder: function (e) { forwarded.push(e.event_type); } });
+  ok(forwarded.join(',') === 'COMMIT_CREATED', '2K events: webhook forwarder receives the event');
+  var sinceAll = events.replay('2099-01-01T00:00:00Z');
+  ok(sinceAll.length === 0, '2K events: replay respects the since filter');
+})();
+
+// ===========================================================================
 // Summary
 // ===========================================================================
 chain2.then(function () {
