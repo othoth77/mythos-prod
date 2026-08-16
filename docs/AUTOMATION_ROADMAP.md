@@ -17,13 +17,13 @@ This is the stage sequence for Mythos Automation & Operations (`mythos_automatio
 | INF-CF-AUTO-0 | Cloudflare Read-Only Connector | ✓ Done — mocked reference implementation + 26-test suite, on `feat/inf-cf-auto-0-readonly-connector`. **No live Cloudflare credential exists; not deployed; not connected to a live provider.** |
 | INF-DNS-AUTO-1 | DNS Snapshot, Comparison and Drift Detection | ✓ Done (2026-08-15) — mocked reference implementation + 85-test suite (`projects/automation/reference/dns-comparison-engine.js`, `tests/inf-dns-auto-1-comparison-test.js`). **No live OVH or Cloudflare credential exists; no network call; not deployed; no DNS record, zone or nameserver touched.** Comparison and analysis only — this stage does not perform, schedule or pre-authorise migration, and does not unblock INF-CF-2. |
 | INF-DNS-AUTO-2 | Approved DNS Operations | ◐ Implemented and tested (2026-08-15) — `projects/automation/reference/dns-operations-executor.js` + 97-test suite. **NO DNS OPERATION HAS BEEN PERFORMED.** Execution is blocked by five independent conditions, each sufficient alone: 0 of 40 owner approval fields are `APPROVED_FOR_MIGRATION`; both DNS write connectors are `enabled: false`; every LEVEL_3 feature flag is false; no OVH/Cloudflare credential exists; no populated secret store exists. The stage is **operationally gated shut pending owner action**. |
-| INF-DEPLOY-AUTO-0 | GitHub to Coolify Delivery Foundation | Planned — **not executable yet: no contract exists.** Scope is explicitly deferred below, no automation level is designated, the release policy its constraint depends on does not exist, and its connectors are disabled placeholders with no capability contract. Defining these is an **owner decision** (contract-recovery record: `docs/AI_HANDOVER.md`, 2026-08-15). |
-| INF-BACKUP-AUTO-0 | Automated Backup and Restore Verification | Planned — **not executable yet: no contract exists.** Contract gate recovered 2026-08-16: scope is one sketching sentence, no automation level is designated, no backup approval policy exists, the connector catalogue holds only the `READ_ONLY` `backup_storage_readonly` (`backup.list`/`backup.verify` — no create/restore/retention capability anywhere), the draft `aut_*` schema has zero backup tables, and `docs/OFF_HOST_BACKUP_GATE.md` §6 records the subject matter as "not-yet-authorised". Requires owner decisions **O-BACKUP-1..4** (record: `docs/AI_HANDOVER.md`, 2026-08-16). |
+| INF-DEPLOY-AUTO-0 | GitHub to Coolify Delivery Foundation | ◐ Contract ratified 2026-08-15 by owner decisions **O-DEPLOY-1/2/3** and the O-DEPLOY-1 amendment (Dar Hijama target); implemented and tested (`projects/automation/reference/staging-deployment-executor.js` + 124-test suite, 9/9 boundary mutations caught). **No deployment executed.** The staging application `mythos-dar-hijama-staging` exists but fails closed; the four remaining blockers are operator actions (independent staging secrets, connector capability + enablement, LEVEL_3 flags, Coolify credential by reference). *(This row previously read "Planned — not executable yet: no contract exists", correct when written on 2026-08-15 and superseded the same day.)* |
+| INF-BACKUP-AUTO-0 | Automated Backup and Restore Verification | ◐ Contract ratified 2026-08-16 by owner decisions **O-BACKUP-1..4**; implemented and tested (`projects/automation/reference/backup-operations-orchestrator.js` + 188-test suite, 34/34 mutations caught). **No backup created, no object uploaded, no restore performed.** The orchestrator wraps the existing `projects/idauto/ops/offhost-backup.js` and creates no parallel mechanism. Blocked from running by four independent conditions, each sufficient alone: the LEVEL_2 external-mutation ambiguity is fail-closed pending owner clarification; `backup_storage_readonly` is `enabled:false`; `level_2_recommend_runs` is false; and no credential exists in an approved secret store. |
 | INF-MONITOR-AUTO-0 | Infrastructure, DNS, SSL and Service Monitoring | Planned |
 | OPS-AUTO-0 | Business Workflow Automation | Planned |
 | OPS-AUTO-1 | Notifications, Relances and Scheduled Reports | Planned |
 
-**INF-OVH-API-0 is the first stage beyond AUT-0 to be implemented — as a reference implementation only, matching the pattern established by every other foundation stage in this repository (documentation, draft schema, mocked/in-memory reference code, tests with mocked provider responses; never a live external connection).** No stage from INF-CF-AUTO-0 onward has started. This roadmap records the intended sequence and each stage's scope; it does not authorise or begin any of the remaining ones.
+**Every implemented stage in this track is a reference implementation — documentation, draft schema, in-memory/offline reference code, tests with mocked provider responses; never a live external connection.** As of 2026-08-16 the implemented stages are INF-OVH-API-0, INF-CF-AUTO-0, INF-DNS-AUTO-1, INF-DNS-AUTO-2, INF-DEPLOY-AUTO-0 and INF-BACKUP-AUTO-0 — and none of them has performed its real-world operation: no DNS change, no deployment, no backup, no restore. *(This paragraph previously read "No stage from INF-CF-AUTO-0 onward has started", true on 2026-08-08 and stale from 2026-08-15.)* **INF-MONITOR-AUTO-0 onward have not started.** This roadmap records the intended sequence and each stage's scope; it does not authorise or begin any stage that has not received its own owner decisions.
 
 ---
 
@@ -179,6 +179,95 @@ Implemented as `projects/automation/reference/staging-deployment-executor.js` + 
 
 Backup generation and restore-test automation — restore tests in isolated environments are `LEVEL_4`-eligible per the approval matrix; production restore and backup deletion remain `LEVEL_3` permanent boundaries.
 
+#### Owner decisions (ratified 2026-08-16) — recorded verbatim
+
+**O-BACKUP-1 — SCOPE.**
+
+> The backup automation must extend, wrap, or schedule the existing:
+> `projects/idauto/ops/offhost-backup.js`
+>
+> Do NOT create a parallel backup mechanism.
+>
+> Scope:
+> - automated backup execution
+> - backup integrity verification
+> - isolated restore testing
+> - reporting of backup/restore evidence
+> - retention management only if explicitly covered by the approved policy
+> - no production restore
+> - no destructive backup deletion
+> - no overwrite of production data
+> - no disabling of production backups
+>
+> A backup operation and a restore-test operation must have separate validation and verification paths.
+>
+> Production data must never be overwritten by an automated restore test.
+
+**O-BACKUP-2 — AUTOMATION LEVEL + APPROVAL POLICY.**
+
+> Backup creation: **LEVEL_2** — approved automation with bounded scope.
+> Backup verification: **LEVEL_2**.
+> Isolated restore test: **LEVEL_2**, but only against an isolated/non-production target.
+>
+> Permanent/destructive operations remain LEVEL_3 and are NOT authorised by this stage:
+> - deleting backups
+> - disabling backups
+> - overwriting production data
+> - restoring over production
+> - destroying backup history
+>
+> No operation may self-authorise.
+> No approval may be inferred from user text.
+> LEVEL_3 operations remain fail-closed.
+
+**O-BACKUP-3 — CONNECTOR.**
+
+> Keep `backup_storage_readonly` unchanged for read-only verification.
+>
+> Do NOT broaden `backup_storage_readonly`.
+>
+> For this stage, no write-capable backup connector is authorised unless the repository already contains an explicitly approved connector contract supporting the exact required operation.
+>
+> Therefore:
+> - backup read/list/verify may use the existing read-only connector
+> - backup creation must use the existing authorised offhost-backup mechanism only if its existing contract permits it
+> - restore testing must use an isolated target
+> - no production restore capability
+> - no delete capability
+> - no destructive capability
+>
+> No new connector permission may be invented.
+
+**O-BACKUP-4 — STATE MODEL.**
+
+> Use documentation/evidence recording first.
+>
+> Do NOT add `aut_*` database tables unless implementation proves that persistent state is strictly required by the recovered contract.
+>
+> The initial state model must record:
+> - backup identity/reference
+> - source scope
+> - creation result
+> - verification result
+> - restore-test result
+> - isolated target identity
+> - timestamps
+> - retention decision where applicable
+> - failure state
+> - rollback/cleanup result
+>
+> Secrets and credential values must never be recorded.
+
+**DATABASE WRITES.**
+
+> Production PostgreSQL writes are NOT authorised by this owner decision.
+>
+> If persistent state later proves necessary, stop at that boundary and record the additional owner decision required rather than inventing a schema.
+
+#### Contract-gate history (superseded by the owner decisions above)
+
+*(The record below was written on 2026-08-16 before O-BACKUP-1..4 existed. O-BACKUP-1..4 close gaps 2, 3, 4 and 5, and supply the missing scope. It is retained as the stage's original framing; see "Implementation status" for what remains open.)*
+
 **CONTRACT GATE (recovered 2026-08-16) — NOT EXECUTABLE. The sentence above is the complete authoritative text for this stage; it is a title, a capability sketch and two constraints, not a contract.** A contract-recovery pass stopped here before implementation rather than inventing scope, exactly as the 2026-08-15 pass correctly did for INF-DEPLOY-AUTO-0. Six independent confirmations:
 
 1. **Only 4 documents reference the stage**, all "Planned" / "Future surface"; `git log --all` shows **0 commits**.
@@ -197,6 +286,28 @@ Backup generation and restore-test automation — restore tests in isolated envi
 - **O-BACKUP-3 — CONNECTOR DECISION.** Whether `backup_storage_readonly` stays read-only with the stage operating through existing local tooling, or a new write/restore-capable connector is authorised — and if so its exact capability list, permission ceiling, credential-reference mechanism and approval-policy reference (`docs/AUTOMATION_ARCHITECTURE.md` §5). **No connector permission may be broadened without this decision.**
 - **O-BACKUP-4 — STATE MODEL.** Authorise the `aut_*` draft-schema addition for backup runs, integrity checks and restore-test results, or ratify documentation-only evidence recording as the current gate uses.
 
+#### Implementation status (2026-08-16) — IMPLEMENTED AND TESTED; **NO BACKUP CREATED, NO RESTORE PERFORMED**
+
+Implemented as `projects/automation/reference/backup-operations-orchestrator.js` + `tests/inf-backup-auto-0-backup-test.js` (188 tests, 34/34 mutations caught).
+
+**The module owns no backup logic.** It `require`s `projects/idauto/ops/offhost-backup.js` and delegates every manifest, checksum, upload, remote-verification, restore-verification and retention operation to it — O-BACKUP-1's reuse contract, enforced in code (`GATE_CHECK` refuses any plan whose `reuses_module` is not that path, and refuses any plan declaring `creates_parallel_mechanism`) and proven by test (the orchestrator `require`s no `fs`, no `http`/`https`, no `child_process`, and reimplements no checksum or manifest logic). Everything it adds is a gate in front of that tooling.
+
+What it enforces:
+
+- **Operation allowlist with three independent layers** — the thirteen named permanent boundaries are refused by name, any destructive *shape* (`delete`/`destroy`/`disable`/`purge`/`prune`/`overwrite`/`truncate`/`drop`/`erase`/`wipe`) is refused even when unlisted, and any operation naming production is refused. Only `backup_create`, `backup_verify`, `restore_test` and `retention_report` exist.
+- **No self-authorisation** — the level is looked up from a constant table and never read from the request; a request declaring `automation_level`, `level`, `approved`, `authorised` or `self_approve` is refused outright rather than ignored. A policy field that would let approval be inferred from prose is refused rather than parsed.
+- **Isolated-target proof for restore tests: two independent sources must agree** — the declared record (`is_production:false` AND `is_isolated:true`) *and* runtime isolation facts (`network:'none'`, zero published ports, `ephemeral:true`, tmpfs/none volume), mirroring `docs/OFF_HOST_BACKUP_GATE.md` §5. A declaration alone is not proof; unknown published ports are never read as zero; disagreement is a refusal. Restore paths resolving to or beneath any of nine forbidden roots — including the live media directory, `/home/deploy`, and the repository — are refused, as are traversal, relative paths, null bytes and production-named paths. **Production data can never be overwritten by a restore test.**
+- **Connector stays read-only (O-BACKUP-3)** — exact-set capability check against `{backup.list, backup.verify}`, so any added capability is refused as a broadening; `permission` must remain `READ_ONLY`; a mutation-shaped client method (`put`/`delete`/`write`/`upload`/…) is refused, and any undeclared method is a scope escape. The stage additionally **refuses to run while the global LEVEL_3 flag is open**, since it holds no LEVEL_3 capability.
+- **Separate validation and verification paths (O-BACKUP-1)** — the backup path verifies `BACKUP_INTEGRITY` (`verifyRemote`: completion marker then per-object checksum, never ETag); the restore path verifies `RESTORE_STRUCTURAL` and proves isolation *first*, before the backup is read. The two step sets and verification kinds are structurally distinct, not one relabelled.
+- **Retention is report-only** and refused entirely unless the approved policy explicitly covers it; the `deleted === 0` invariant is asserted against an injectable retention function so it is a live guard rather than a dead assertion.
+- **Evidence recording only (O-BACKUP-4)** — every enumerated field, `persisted_to_database:false`, and any request carrying `persist`, `table`, `connectionString`, `dsn` or similar is refused at the boundary with the owner decision that would be required. No `aut_*` table was added and no schema was invented.
+
+**THE ONE REMAINING AMBIGUITY — recorded, not resolved.** O-BACKUP-2 assigns **LEVEL_2** to backup creation and to isolated restore testing. The repository's committed definition of that level (`projects/automation/config/automation.example.json` §`automation_levels`) is *"Analyse, create plans, simulate, dry-run, calculate impact, generate rollback plans. **No external mutation.**"* Backup creation writes objects to off-host storage and a restore test writes files to its target — both external mutations, which that definition excludes. The owner's gloss ("approved automation with bounded scope") and the committed definition do not agree. Per the standing instruction to stop at exactly such an ambiguity rather than invent a solution, this is encoded as a fail-closed constant `LEVEL_2_MAY_MUTATE_EXTERNALLY = false`: every gate, plan, dry-run and evidence path is fully implemented and tested, and the single act of external mutation refuses with `LEVEL_2_MUTATION_NOT_RESOLVED`. **Resolving it is an owner decision** — either amend the level taxonomy, or designate these operations at a level whose committed definition permits mutation.
+
+**Independently of that ambiguity, no operation could run today anyway:** `backup_storage_readonly` is `enabled:false` in the committed catalogue, `level_2_recommend_runs` is `false`, and no credential exists in an approved secret store. The suite asserts these committed facts directly — against the real catalogue entry the gate refuses with `CONNECTOR_DISABLED`.
+
+**Backups created 0 · objects uploaded 0 · restores performed 0 · production operations 0 · credentials created or read 0 · connectors enabled 0 · feature flags changed 0 · database writes 0 · existing backups touched 0.**
+
 ### INF-MONITOR-AUTO-0 — Infrastructure, DNS, SSL and Service Monitoring
 
 Health-check and drift-detection automation feeding Mythos Control Center's Infrastructure Health module.
@@ -214,7 +325,7 @@ Operator and customer-facing notification/report automation, built on the `aut_n
 ## 3. Permanent Sequencing Rules
 
 - **AUT-0 is documentation only.**
-- **INF-OVH-API-0, INF-CF-AUTO-0 and INF-DNS-AUTO-1 are all complete as reference implementations** — read-only connector orchestration, comparison/analysis/plan-generation logic and tests only, no live OVH or Cloudflare credential, no live network call, not deployed. **INF-DNS-AUTO-2 is implemented and tested but operationally gated shut**: its executor exists and every gate is proven by test, yet no DNS operation can run while 0 of 40 owner approval fields are `APPROVED_FOR_MIGRATION`, both DNS write connectors are disabled, every LEVEL_3 feature flag is false, and no provider credential exists. Unblocking it is an **owner action**, not an engineering task. **INF-DEPLOY-AUTO-0's contract was subsequently ratified** by owner decisions O-DEPLOY-1/2/3 and the O-DEPLOY-1 amendment (2026-08-15), and the stage is **implemented and tested but has performed no deployment** — its four remaining blockers are all operator actions (independent staging secrets, connector capability + enablement, LEVEL_3 flags, Coolify credential by reference). *(The line that previously stood here — "INF-DEPLOY-AUTO-0 is the next Automation stage in sequence but is NOT currently executable" — was correct when written on 2026-08-15 and was superseded the same day by O-DEPLOY-1/2/3.)* **INF-BACKUP-AUTO-0 is now the next Automation stage in sequence and is NOT currently executable** — contract recovery on 2026-08-16 established that it has no authoritative contract (scope is one sketching sentence, no designated automation level, no backup approval policy, no connector capable of backup creation or restore, no state model, and its subject matter is recorded as "not-yet-authorised" in `docs/OFF_HOST_BACKUP_GATE.md` §6). It requires owner decisions **O-BACKUP-1..4**; no stage in this track can proceed past it until an owner defines them. See its section above.
+- **INF-OVH-API-0, INF-CF-AUTO-0 and INF-DNS-AUTO-1 are all complete as reference implementations** — read-only connector orchestration, comparison/analysis/plan-generation logic and tests only, no live OVH or Cloudflare credential, no live network call, not deployed. **INF-DNS-AUTO-2 is implemented and tested but operationally gated shut**: its executor exists and every gate is proven by test, yet no DNS operation can run while 0 of 40 owner approval fields are `APPROVED_FOR_MIGRATION`, both DNS write connectors are disabled, every LEVEL_3 feature flag is false, and no provider credential exists. Unblocking it is an **owner action**, not an engineering task. **INF-DEPLOY-AUTO-0's contract was subsequently ratified** by owner decisions O-DEPLOY-1/2/3 and the O-DEPLOY-1 amendment (2026-08-15), and the stage is **implemented and tested but has performed no deployment** — its four remaining blockers are all operator actions (independent staging secrets, connector capability + enablement, LEVEL_3 flags, Coolify credential by reference). *(The line that previously stood here — "INF-DEPLOY-AUTO-0 is the next Automation stage in sequence but is NOT currently executable" — was correct when written on 2026-08-15 and was superseded the same day by O-DEPLOY-1/2/3.)* **INF-BACKUP-AUTO-0's contract was ratified on 2026-08-16** by owner decisions O-BACKUP-1..4, and the stage is **implemented and tested but has created no backup and performed no restore**. Its orchestrator wraps the existing off-host tooling rather than replacing it, and it is gated shut by four independent conditions: the LEVEL_2 external-mutation ambiguity (fail-closed, pending owner clarification), a disabled connector, a false LEVEL_2 feature flag, and no credential in an approved secret store. *(The line that previously stood here recorded the 2026-08-16 contract gate; O-BACKUP-1..4 superseded it the same day.)* **INF-MONITOR-AUTO-0 is now the next Automation stage in sequence and is NOT currently executable** — it carries the identical one-line, scope-deferred treatment INF-DEPLOY-AUTO-0 and INF-BACKUP-AUTO-0 each had before their owner decisions, and would stop at the same contract gate.
 - **INF-CF-2 remains blocked** until authoritative data and approvals exist, per `docs/CLOUDFLARE_INF_CF2_ENTRY_CRITERIA.md`. Nothing in the Automation track changes this.
 - **Mythos OS Runtime is complete through Stage 4AG + RUNTIME-DUPLICATE-CLEANUP-0** (corrected 2026-08-10, `MYTHOS-STAGE-RECONCILIATION-0` — this line originally said "Stage 3E remains the next Mythos OS runtime stage," stale since Stage 3E had already been complete since 2026-07-30; see `docs/ROADMAP.md`). No further Mythos OS Runtime stage is currently authorised.
 - **IDA-2 is IN PROGRESS** — Phase A (schema + plate validation, no live database) complete 2026-08-10; Phase B not started, requires separate authorization.
@@ -226,4 +337,4 @@ No stage in this document may be marked started by a later stage's documentation
 
 ## 4. Status
 
-INF-OVH-API-0 and INF-CF-AUTO-0 are both complete as mocked reference implementations (`projects/automation/reference/ovh-readonly-connector.js` + `tests/inf-ovh-api-0-connector-test.js`; `projects/automation/reference/cloudflare-readonly-connector.js` + `tests/inf-cf-auto-0-connector-test.js`) — both structurally read-only (a client exposing any mutation-shaped method is rejected before any collection runs), both refuse to run unless explicitly enabled, and both redact identifying PII before any snapshot record is produced. **INF-DNS-AUTO-1 is likewise complete as a reference implementation** (`projects/automation/reference/dns-comparison-engine.js` + `tests/inf-dns-auto-1-comparison-test.js`, 85 tests) — it consumes data it is given, holds any injected client to the same structural read-only rule, and `require`s nothing but the shared connector helper, so it has no filesystem, network, database or credential capability at all. **INF-DNS-AUTO-2 is implemented and fully tested** (`projects/automation/reference/dns-operations-executor.js` + `tests/inf-dns-auto-2-operations-test.js`, 97 tests, 25/25 mutation-tested guards) **and has performed no operation.** No live OVH or Cloudflare credential has been created, requested, or stored anywhere. No live network call has been made. **No DNS record, zone, or nameserver has been created, changed, or deleted.** **INF-DEPLOY-AUTO-0 is implemented and tested** (`projects/automation/reference/staging-deployment-executor.js` + `tests/inf-deploy-auto-0-staging-test.js`, 124 tests, 9/9 boundary mutations caught) **and has performed no deployment** — its staging application exists but fails closed, and its four remaining blockers are operator actions. *(This paragraph previously read "No stage from INF-DEPLOY-AUTO-0 onward has been started, implemented, or deployed" — correct before 2026-08-15, stale thereafter.)* **No stage from INF-BACKUP-AUTO-0 onward has been started, implemented, or deployed**, and INF-BACKUP-AUTO-0 is blocked at its contract gate pending owner decisions O-BACKUP-1..4 (2026-08-16).
+INF-OVH-API-0 and INF-CF-AUTO-0 are both complete as mocked reference implementations (`projects/automation/reference/ovh-readonly-connector.js` + `tests/inf-ovh-api-0-connector-test.js`; `projects/automation/reference/cloudflare-readonly-connector.js` + `tests/inf-cf-auto-0-connector-test.js`) — both structurally read-only (a client exposing any mutation-shaped method is rejected before any collection runs), both refuse to run unless explicitly enabled, and both redact identifying PII before any snapshot record is produced. **INF-DNS-AUTO-1 is likewise complete as a reference implementation** (`projects/automation/reference/dns-comparison-engine.js` + `tests/inf-dns-auto-1-comparison-test.js`, 85 tests) — it consumes data it is given, holds any injected client to the same structural read-only rule, and `require`s nothing but the shared connector helper, so it has no filesystem, network, database or credential capability at all. **INF-DNS-AUTO-2 is implemented and fully tested** (`projects/automation/reference/dns-operations-executor.js` + `tests/inf-dns-auto-2-operations-test.js`, 97 tests, 25/25 mutation-tested guards) **and has performed no operation.** No live OVH or Cloudflare credential has been created, requested, or stored anywhere. No live network call has been made. **No DNS record, zone, or nameserver has been created, changed, or deleted.** **INF-DEPLOY-AUTO-0 is implemented and tested** (`projects/automation/reference/staging-deployment-executor.js` + `tests/inf-deploy-auto-0-staging-test.js`, 124 tests, 9/9 boundary mutations caught) **and has performed no deployment** — its staging application exists but fails closed, and its four remaining blockers are operator actions. *(This paragraph previously read "No stage from INF-DEPLOY-AUTO-0 onward has been started, implemented, or deployed" — correct before 2026-08-15, stale thereafter.)* **INF-BACKUP-AUTO-0 is implemented and tested** (`projects/automation/reference/backup-operations-orchestrator.js` + `tests/inf-backup-auto-0-backup-test.js`, 188 tests, 34/34 mutations caught) **and has created no backup, uploaded no object and performed no restore** — it wraps the existing `projects/idauto/ops/offhost-backup.js` and is gated shut on four independent conditions. **No stage from INF-MONITOR-AUTO-0 onward has been started, implemented, or deployed.**

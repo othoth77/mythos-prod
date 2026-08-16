@@ -246,10 +246,11 @@
       "targeted_tests": [
         "node tests/idauto-storage-ops-test.js",
         "node tests/ida-2f-object-storage-test.js",
-        "node tests/ida-2h-review-queue-ui-test.js"
+        "node tests/ida-2h-review-queue-ui-test.js",
+        "node tests/inf-backup-auto-0-backup-test.js"
       ],
       "risk_lane": "STANDARD",
-      "notes": "Operator tooling over the media store. Selects its own suite plus the two suites that exercise storage (IDA-2F, and IDA-2H via api.js -> storage.js). Must stay ABOVE the general projects/idauto/ rule."
+      "notes": "Operator tooling over the media store. Selects its own suite plus the two suites that exercise storage (IDA-2F, and IDA-2H via api.js -> storage.js). Must stay ABOVE the general projects/idauto/ rule. INF-BACKUP-AUTO-0's orchestrator requires offhost-backup.js directly (O-BACKUP-1 reuse contract), so a change here can break it — that dependency edge is why its suite is selected from this rule too."
     },
     {
       "path_prefix": "projects/idauto/",
@@ -288,7 +289,8 @@
         "node tests/inf-cf-auto-0-connector-test.js",
         "node tests/inf-dns-auto-1-comparison-test.js",
         "node tests/inf-dns-auto-2-operations-test.js",
-        "node tests/inf-deploy-auto-0-staging-test.js"
+        "node tests/inf-deploy-auto-0-staging-test.js",
+        "node tests/inf-backup-auto-0-backup-test.js"
       ],
       "risk_lane": "STANDARD"
     },
