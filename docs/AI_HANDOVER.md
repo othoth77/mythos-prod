@@ -47,7 +47,9 @@ Where the delivered MPI-3/MPI-4 content differs from the original 2026-08-07 roa
 | Field | Value |
 |---|---|
 | STATUS | complete — documentation/state synchronization only |
-| COMMIT | recorded in the follow-up docs commit, per the repository's no-self-referential-hash convention |
+| COMMIT | `9b209467b631b439b16f4f3b8a21a8dc0e7a05c7` — pushed; `git ls-remote origin main` verified `9b20946…` before this follow-up record |
+| REMOTE HEAD AT VERIFICATION | `9b209467b631b439b16f4f3b8a21a8dc0e7a05c7` == local HEAD == origin/main |
+| VALIDATE (post-change) | `project-intelligence validate` — 0 errors, 0 warnings |
 | PRODUCTION DB MODIFIED | 0 (never connected) |
 | R2 OPERATIONS | 0 |
 | SUPABASE / COOLIFY / DNS | 0 / 0 / 0 |
