@@ -541,10 +541,21 @@ function summaries() {
       status: st.status, effective: state.effectiveStatus(st),
       created_at: task.created_at, updated_at: st.updated_at,
       retry_count: st.retry_count, quota_state: st.quota_state,
-      claude_session_id: st.claude_session_id, next_action: st.next_action
+      claude_session_id: st.claude_session_id, next_action: st.next_action,
+      core_owned: task.requested_by === CORE_OWNER
     };
   });
 }
+
+// Tasks created by the orchestration core are driven BY the core: it
+// dispatches, validates, retries and cancels them. The daemon must not
+// also pick them up, or both would race for the same task (whoever wins
+// the RUNNING transition makes the other fail) and a quota-parked task
+// could be resumed behind the core's back. With the core disabled no such
+// task exists, so Phase 1 behaviour is unchanged.
+var CORE_OWNER = 'orchestration-core';
+
+function daemonOwned(s) { return !s.core_owned; }
 
 // One scheduler step. At most one task runs at a time; recovery precedes
 // resumption precedes fresh starts. Returns what it did so tests (and the
@@ -555,7 +566,8 @@ function tick(now) {
   var actions = [];
 
   // 1. Convert interrupted RUNNING tasks (dead pid) into immediate retries.
-  all.forEach(function (s) {
+  // Core-owned tasks are skipped: the core owns their recovery.
+  all.filter(daemonOwned).forEach(function (s) {
     if (s.effective === 'INTERRUPTED') {
       state.transition(s.task_id, 'WAITING_RETRY', {
         pid: null, retry_at: new Date(now).toISOString(),
@@ -567,7 +579,7 @@ function tick(now) {
     }
   });
 
-  var refreshed = summaries();
+  var refreshed = summaries().filter(daemonOwned);
   var running = refreshed.filter(function (s) { return s.status === 'RUNNING'; });
   if (running.length) return Promise.resolve(actions.concat([{ action: 'busy', task_id: running[0].task_id }]));
 

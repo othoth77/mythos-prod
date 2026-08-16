@@ -324,6 +324,50 @@ chain = chain.then(function () {
 });
 
 // ===========================================================================
+// 6c. DAEMON / CORE OWNERSHIP — no double dispatch, no resume behind the core
+// ===========================================================================
+chain = chain.then(function () {
+  var executor = require(path.join(EXEC, 'executor'));
+  var execState = require(path.join(EXEC, 'lib', 'state'));
+
+  // A core-owned task (as the bridge creates it) must be invisible to the
+  // Phase 1 daemon scheduler; an ordinary task must still be picked up.
+  process.env.MYTHOS_MOCK_SCRIPT = JSON.stringify([{ kind: 'success', summary: 'ownership probe' }]);
+  require(path.join(EXEC, 'providers', 'mock')).reset();
+
+  var coreOwned = executor.createTask({
+    project: 'executor-selftest', stage: 'CORE-OWNED', instruction: 'core drives this',
+    provider: 'mock', report_to_git: false, requested_by: 'orchestration-core'
+  });
+  return executor.tick().then(function (actions) {
+    var touched = actions.some(function (a) { return a.task_id === coreOwned.task_id; });
+    ok(!touched, 'ownership: the daemon never dispatches a core-owned task');
+    ok(execState.readStatus(coreOwned.task_id).status === 'QUEUED',
+      'ownership: the core-owned task is left QUEUED for the core');
+
+    var normal = executor.createTask({
+      project: 'executor-selftest', stage: 'DAEMON-OWNED', instruction: 'daemon drives this',
+      provider: 'mock', report_to_git: false
+    });
+    return executor.tick().then(function (acts2) {
+      ok(acts2.some(function (a) { return a.task_id === normal.task_id && a.action === 'start'; }),
+        'ownership: ordinary Phase 1 tasks are still dispatched (behaviour unchanged)');
+      // Park the core-owned task on quota and prove the daemon leaves it alone.
+      execState.transition(coreOwned.task_id, 'RUNNING', { pid: null });
+      execState.transition(coreOwned.task_id, 'WAITING_FOR_QUOTA', {
+        quota_state: { waits: 1, detected_at: new Date().toISOString(),
+          reset_at: null, resume_after: new Date(Date.now() - 1000).toISOString() }
+      });
+      return executor.tick();
+    }).then(function (acts3) {
+      ok(!acts3.some(function (a) { return a.task_id === coreOwned.task_id; }),
+        'ownership: the daemon never resumes a core-owned quota-parked task behind the core');
+      execState.transition(coreOwned.task_id, 'CANCELLED', { next_action: 'test cleanup' });
+    });
+  });
+});
+
+// ===========================================================================
 // 7. POLICY BOUNDARY through the production path
 // ===========================================================================
 chain = chain.then(function () {
