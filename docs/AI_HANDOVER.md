@@ -25,6 +25,42 @@
 
 ---
 
+## MYTHOS MYTHOS-ORCH-CORE (Phase 2) — AI ORCHESTRATION CORE (2026-08-16, IN PROGRESS)
+
+Owner-ordered Phase 2 master implementation: evolve the Phase 1 executor into the
+Mythos Orchestration Core per `docs/MYTHOS_AI_ORCHESTRATOR_MASTER_VISION.md`,
+incrementally (NOT a rewrite; Phase 1 behavior preserved — its suite must stay
+green at every sub-stage). New code under `projects/mythos-ai-executor/core/`;
+orchestration runtime state under `/home/ubuntu/mythos-ai-executor/orchestration/`
+(never /tmp, never Git). Suite: `tests/mythos-orchestration-core-test.js`
+(offline, mock providers, zero real quota). Delivery via the persistent relay
+(`mythos-git-push.timer`); remote verified with
+`git ls-remote https://github.com/othoth77/mythos-prod.git`.
+
+**Sub-stage ledger (single source of continuation truth for this phase):**
+
+| Stage | What | Status | Commit | Core suite | Phase 1 suite |
+|---|---|---|---|---|---|
+| 2A | Domain model (Goal/Mission/Task/…, extended task states, compat adapter to Phase 1 states, correlation ids) + persistent entity store (atomic, redacted, duplicate-refusing, transition-enforced) + durable event stream + restart recovery | **COMPLETE** | (this commit) | 38/38 | 118/118 (unchanged code) |
+| 2B | Project memory + context engine | pending | — | — | — |
+| 2C | Agent registry | pending | — | — | — |
+| 2D | Tool registry | pending | — | — | — |
+| 2E | Mission planner | pending | — | — | — |
+| 2F | Task DAG | pending | — | — | — |
+| 2G | Parallel execution + worktree isolation | pending | — | — | — |
+| 2H | Policy engine | pending | — | — | — |
+| 2I | Validation + adversarial review | pending | — | — | — |
+| 2J | Multi-provider routing + fallback (Gemini architectural, no invented credentials) | pending | — | — | — |
+| 2K | Event engine (n8n stays adapter) | pending | — | — | — |
+| 2L | Controlled self-improvement | pending | — | — | — |
+| 2M | Full integration + §34 acceptance A–S + full suite once | pending | — | — | — |
+
+Known risks while in progress: none to production — all Phase 2 code is new,
+loaded by nothing in the deployed daemon until 2M wires it in explicitly.
+Next: continue at the first non-COMPLETE row above.
+
+---
+
 ## MYTHOS MYTHOS-GIT-DELIVERY-0 — PERSISTENT GITHUB WRITE AUTHORITY + MASTER VISION DELIVERED (2026-08-16)
 
 ### Objective
