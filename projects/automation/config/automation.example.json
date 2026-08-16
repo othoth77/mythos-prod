@@ -1,5 +1,5 @@
 {
-  "_note": "Mythos Automation & Operations configuration draft — Stage AUT-0. All feature flags and live-connector flags are false. No real credentials, tokens, account IDs, emails, IPs, or production data. Not deployed.",
+  "_note": "Mythos Automation & Operations configuration draft — Stage AUT-0. All feature flags and live-connector flags are false EXCEPT those ratified by owner decision O-BACKUP-6 (2026-08-16): backup_storage_readonly is enabled (READ_ONLY, capabilities unchanged, credential by reference secref-r2-backup only), and level_2_recommend_runs / level_4_full_automatic_runs are true for the INF-BACKUP-AUTO-0 operations they gate. level_3_approval_required_runs remains false. No real credentials, tokens, account IDs, emails, IPs, or production data. Not deployed.",
   "version": "0.1.0-aut0-draft",
   "product": {
     "product_key": "mythos_automation",
@@ -269,7 +269,8 @@
           "backup.verify"
         ],
         "permission": "READ_ONLY",
-        "enabled": false
+        "secret_reference_id": "secref-r2-backup",
+        "enabled": true
       },
       {
         "connector_id": "monitoring_provider",
@@ -436,9 +437,9 @@
     "automation_engine_enabled": false,
     "mythos_control_center_ui": false,
     "level_1_read_only_runs": false,
-    "level_2_recommend_runs": false,
+    "level_2_recommend_runs": true,
     "level_3_approval_required_runs": false,
-    "level_4_full_automatic_runs": false,
+    "level_4_full_automatic_runs": true,
     "connector_ovh_readonly_live": false,
     "connector_ovh_dns_operator_live": false,
     "connector_cloudflare_readonly_live": false,

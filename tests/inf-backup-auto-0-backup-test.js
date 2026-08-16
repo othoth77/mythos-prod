@@ -602,21 +602,30 @@ ok(!orch.looksProduction('reproduction-study'), '167 "reproduction" does not tok
 // =======================================================================
 console.log('\n19. Committed repository facts (not fixtures)');
 // =======================================================================
+// O-BACKUP-6 (ratified 2026-08-16) enabled the connector, added the credential
+// reference, and turned on the LEVEL_2/LEVEL_4 flags — these assertions pin
+// the RATIFIED state exactly, so any drift in either direction is caught.
 var committed = committedBackupConnector();
 ok(committed && committed.permission === 'READ_ONLY',
-  '168 the COMMITTED backup connector is READ_ONLY');
-ok(committed.enabled === false, '169 the COMMITTED backup connector is disabled — nothing can run today');
+  '168 the COMMITTED backup connector is READ_ONLY — O-BACKUP-6 kept the permission');
+ok(committed.enabled === true, '169 the COMMITTED backup connector is enabled (O-BACKUP-6)');
 ok(committed.capabilities.join(',') === 'backup.list,backup.verify',
-  '170 the COMMITTED capabilities are exactly backup.list + backup.verify');
-throwsWith(function () {
-  orch.assertReadOnlyConnector({ connector: connector(), catalogue: [committed], featureFlags: flags(), client: readOnlyClient() });
-}, /CONNECTOR_DISABLED/, '171 against the REAL committed catalogue the gate refuses — the stage is blocked today');
-ok(AUT_CONFIG.feature_flags.level_2_recommend_runs === false,
-  '172 the committed level_2_recommend_runs flag is false');
+  '170 the COMMITTED capabilities are exactly backup.list + backup.verify — O-BACKUP-6 broadened nothing');
+ok(committed.secret_reference_id === 'secref-r2-backup',
+  '170a the COMMITTED entry carries the ratified credential REFERENCE — a name, never a value');
+ok(!/key|token|password|AKIA|cloudflarestorage/i.test(JSON.stringify(committed).replace(/secret_reference_id/i, '')),
+  '170b no credential value or endpoint appears in the committed entry');
+ok(orch.assertReadOnlyConnector({
+  connector: { connector_id: 'backup_storage_readonly', secret_reference_id: committed.secret_reference_id },
+  catalogue: [committed], featureFlags: AUT_CONFIG.feature_flags, client: readOnlyClient()
+}).connector_id === 'backup_storage_readonly',
+  '171 against the REAL committed catalogue AND the REAL committed flags the read gate now passes (O-BACKUP-6)');
+ok(AUT_CONFIG.feature_flags.level_2_recommend_runs === true,
+  '172 the committed level_2_recommend_runs flag is true (O-BACKUP-6)');
 ok(AUT_CONFIG.feature_flags.level_3_approval_required_runs === false,
-  '173 the committed LEVEL_3 flag is false and this stage never asks for it');
-ok(AUT_CONFIG.feature_flags.level_4_full_automatic_runs === false,
-  '173a the committed LEVEL_4 flag is false — no unattended run can execute today');
+  '173 the committed LEVEL_3 flag REMAINS false — O-BACKUP-6 point 7, and this stage never asks for it');
+ok(AUT_CONFIG.feature_flags.level_4_full_automatic_runs === true,
+  '173a the committed LEVEL_4 flag is true (O-BACKUP-6) — the mutation gates beyond it still stand');
 // The committed O-BACKUP-5 policy file: present, level-correct, self-approval
 // forbidden, permanent boundaries withheld, and secret-free.
 var POLICY_FILE = JSON.parse(fs.readFileSync(path.join(BASE, 'projects', 'automation', 'config', 'inf-backup-auto-0-approval-policy.json'), 'utf8'));
