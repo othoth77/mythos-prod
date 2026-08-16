@@ -105,6 +105,19 @@ function get(p) { return request('GET', p); }
   ok(uniqueUsed.length >= 20, 'The UI drives ' + uniqueUsed.length + ' distinct elements (sanity: the scan found them)');
   ok(absent.length === 0, 'Every getElementById target exists in shop.html' + (absent.length ? ' — missing: ' + absent.join(', ') : ''));
 
+  // Regression guard for a real bug found by headless-browser review: the UI
+  // hides views with the `hidden` property, but an author rule setting
+  // `display` (.layout is grid, .paging is flex) beats the UA's
+  // `[hidden] { display: none }`, leaving the catalogue and paging on screen
+  // underneath a product page. The DOM harness in section 4 cannot catch this
+  // — it sees the property set correctly and has no CSS cascade — so the
+  // stylesheet is asserted directly instead.
+  var cssSrc = fs.readFileSync(path.join(REF, 'shop.css'), 'utf8');
+  ok(/\[hidden\]\s*\{[^}]*display:\s*none\s*!important/.test(cssSrc),
+     'shop.css forces [hidden] { display: none !important } so a display-setting class cannot defeat hiding a view');
+  var displayClasses = (cssSrc.match(/^\.([\w-]+)[^{]*\{[^}]*display:/gm) || []).length;
+  ok(displayClasses >= 2, 'Sanity: the stylesheet does set display on classes (' + displayClasses + '), so that guard is load-bearing');
+
   ok(!/ on[a-z]+\s*=\s*"/.test(html), 'shop.html contains no inline event handler attribute (required by the CSP)');
   ok(!/<script(?![^>]*\bsrc=)/.test(html), 'shop.html contains no inline <script> block (required by the CSP)');
   ok(/<html lang="fr">/.test(html), 'The document declares lang="fr" — the storefront is French');

@@ -18,6 +18,15 @@
 
 * { box-sizing: border-box; }
 
+/* The UI hides views by setting the `hidden` property. An author rule that
+   sets `display` — `.layout { display: grid }`, `.paging { display: flex }` —
+   beats the user-agent's `[hidden] { display: none }` outright, because author
+   styles always win over UA styles. Without this rule the catalogue view and
+   the paging control stay on screen underneath a product page. Found by
+   headless-browser review; the DOM harness in the test suite cannot see it,
+   because the property is set correctly and only CSS overrides the effect. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -45,12 +54,25 @@ a { color: var(--accent); }
 .brand-mark { font-size: 20px; font-weight: 700; letter-spacing: .02em; }
 .brand-sub { font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .08em; }
 
-.search { display: flex; flex: 1 1 320px; gap: 8px; max-width: 560px; }
+/* min-width:0 here is load-bearing, and it must be on the FORM, not just the
+   input. `.search` is a flex item of `.site-header` with `min-width: auto`,
+   which resolves to its content-based minimum. Being itself a row flex
+   container, that minimum is driven by its children — and the text input
+   carries the UA's default intrinsic width (`size=20`, ~257px at this font).
+   The form was therefore floored at 257 + 8 gap + 119 button = 384px and
+   refused to shrink, identical at 360px and 390px viewports, pushing the
+   submit button past the edge (scrollWidth 408 vs 390). Measured in a
+   headless browser, not inferred. The min-width:0 on the input below is the
+   complementary inner-level guard; on its own it does nothing for this, since
+   it governs the input inside the form rather than the form inside the
+   header. */
+.search { display: flex; flex: 1 1 240px; min-width: 0; gap: 8px; max-width: 560px; }
 .search input {
-  flex: 1; padding: 9px 12px;
+  flex: 1; min-width: 0; padding: 9px 12px;
   border: 1px solid var(--line); border-radius: var(--radius);
   font: inherit; background: var(--surface);
 }
+.search button { white-space: nowrap; }
 .search input:focus-visible, select:focus-visible, button:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 1px;
 }
@@ -86,7 +108,15 @@ button:disabled { opacity: .45; cursor: default; }
 }
 .hint { font-size: 12px; color: var(--ink-soft); margin: 10px 0 2px; }
 
-.facet { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow-y: auto; }
+/* 42 brands, so this list always scrolls. Left unlabelled it reads as a
+   9-item list that happens to end at BSG — the count in the heading and the
+   ruled edge are what tell the visitor there is more below. */
+.facet {
+  list-style: none; margin: 0; padding: 0;
+  max-height: 340px; overflow-y: auto;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.facet-count { color: var(--ink-soft); font-weight: 400; }
 .facet li { margin: 0; }
 .facet button {
   display: flex; justify-content: space-between; gap: 8px; width: 100%;

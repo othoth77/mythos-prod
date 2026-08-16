@@ -34,6 +34,7 @@
     motorization: document.getElementById('filter-motorization'),
     vehicleHint: document.getElementById('vehicle-hint'),
     brands: document.getElementById('filter-brands'),
+    brandsCount: document.getElementById('brands-count'),
     reset: document.getElementById('filter-reset'),
     title: document.getElementById('results-title'),
     count: document.getElementById('results-count'),
@@ -184,6 +185,9 @@
 
   function renderBrands(state) {
     clear(el.brands);
+    // The list scrolls, so say how many there are — otherwise it reads as a
+    // short list that simply ends.
+    el.brandsCount.textContent = '(' + facets.brands.length + ')';
     facets.brands.forEach(function (b) {
       var li = node('li');
       var button = node('button');
