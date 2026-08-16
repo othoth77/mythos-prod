@@ -26,6 +26,97 @@
 
 ---
 
+## MYTHOS CUMULATIVE BUDGET LEDGER (2026-08-16) — **PASS; CUMULATIVE SPEND ENFORCED, ATOMIC UNDER REAL CONCURRENCY, NO REAL MONEY**
+
+**Stage:** MYTHOS CUMULATIVE BUDGET LEDGER · **Status: PASS**
+
+**Budget model.** `projects/mythos-ai-executor/core/budget.js` + committed
+`config/budgets.json`: per **project × period** ledgers (scope `DAY`
+implemented, `PROJECT` period key supported; `MISSION`/`REQUEST` modelled, not
+enforced) carrying currency, timezone, limit, reserved, spent, remaining and
+per-entry status. **A project absent from config has NO budget** — authority is
+granted explicitly, never by default. Shipped: `mythos-prod` **0**,
+`budget-sandbox` **10 USD/day** (no payment method; only mock tools reachable).
+Daily periods are computed with `Intl` in an explicit IANA timezone — proven at
+local midnight, across Paris/Tokyo for one instant, and through a DST
+spring-forward — never the server's implicit local time.
+
+**Atomicity.** Every mutation runs under an `O_EXCL` lock; stale locks are
+broken **only when the holder is provably dead** (age decides only when the pid
+is unreadable), so a slow live holder is never robbed mid-write. **12 real
+concurrent OS processes** against one 10 USD budget: exactly **10 allowed, 2
+denied**, `reserved + spent ≤ limit` throughout.
+
+**Reservation / settlement.** Reserve-then-settle: money is held before the
+spending action, settled at the **actual** amount reported by the runner, or
+released if execution failed. Idempotent via stable ids — duplicate settlement
+counts once, duplicate release is a no-op, a settled spend is never un-spent, a
+released hold never settles. Unknown cost is never zero (amount must be finite
+with basis `known|estimated`; `known` requires an actual figure). A previous
+attempt's leaked hold is released **before** the policy gate, so a crash cannot
+strand budget; a task's own hold is excluded when granting its own tools.
+
+**Policy integration.** Extends the EXISTING engine (no second policy system):
+`MONEY_SPEND` evaluates the per-request threshold **and** cumulative remaining,
+and **the stricter boundary wins** (a per-request-legal $5 is denied when $3
+remains). An unusable ledger **fails closed** — structured refusal, task
+cancelled, mission not crashed. Budget and provider quota remain separate
+concepts.
+
+**Parallel / restart tests.** Overlapping reservations cannot both see the same
+remaining ($7 + $7 against $10 → one allow, one deny); a fresh process recovers
+identical spent/reserved/remaining and an unsettled hold still holds — restart
+creates no free budget.
+
+**Independent reviews (no Fable 5 quota).** Gemini 3.6 Flash, GPT-4o and
+DeepSeek Chat via OmniRoute, read-only; DeepSeek reported
+`overspend_possible: false`. **Five findings verified and fixed** (`7828213`):
+live-holder lock race (CRITICAL), leaked reservation after a crashed attempt,
+unevidenced `estimated→known` basis upgrade, ledger exceptions reaching mission
+control flow, and thin approval records (now carrying requested/limit/spent/
+reserved/remaining/period/mission/task/agent). **Two rejected with evidence:**
+replaying a *released* reservation id stays denied by design (a retry takes a
+new attempt id; reviving a closed hold would be a bypass), and wall-clock
+dependence is inherent to any time-based period. Full record:
+`docs/MYTHOS_BUDGET_LEDGER.md`.
+
+**Tests:** budget **80/80** (new suite, all 23 required categories), core
+**248/248**, wiring **81/81**, Phase 1 **120/120**. Full sweep once: **103
+suites, 80 pass, 23 nonzero — byte-identical to the documented baseline, zero
+new failures.**
+
+**Live safe proof (sandbox namespace, mocks only):** A requests $6 → allow
+(remaining $4); B requests $6 → **deny**; settle A at actual $5 → spent $5,
+remaining $5; a new $5 → allow; a $6 → **deny**. Read-only surfaces verified on
+the deployed service: `GET /budget/<project>` (401 unauthenticated, authed
+returns limit/spent/remaining/period/timezone), `/budget/<project>/history`, and
+CLI `budget status|history`. **There is deliberately no mutation verb or route
+— limits change only by a reviewed commit.**
+
+**Final commit:** (this handover commit) · **Remote HEAD:** verified equal after
+push via the persistent relay · **Core default: `MYTHOS_CORE_ENABLED=false`**
+(unchanged; live `/goals` returns 503) · **Real money: NONE** (no payment
+method, no external paid call; every spending surface is a mock) ·
+**SSANGYONG: UNTOUCHED** · **n8n: untouched.**
+
+**Process note, recorded honestly:** one commit message was mangled by shell
+backtick substitution and I amended the already-pushed commit — which rewrites
+shared history and `AGENTS.md` §17 forbids. Caught immediately; recovered by
+verifying the trees were identical and resetting local back to the pushed
+commit `59dea62`. **No force-push, no history rewritten on the remote, nothing
+lost** — only a slightly abbreviated line in that commit's message, whose full
+content is in `docs/MYTHOS_BUDGET_LEDGER.md`. Commit messages are now written
+via a file, not an inline shell string.
+
+**Residual risks:** `MISSION`/`REQUEST` scopes modelled but unenforced; cost is
+runner-declared (no provider billing API, so `known` means "the runner reported
+a figure"); lock waiting is bounded at 5 s so pathological contention fails
+closed rather than queueing; the ledger measures money only.
+
+**Next stage:** owner decision. No further architectural feature was started.
+
+---
+
 ## MYTHOS CORE WIRING (2026-08-16) — **PASS; PRODUCTION ENTRY POINT LIVE BEHIND A DEFAULT-OFF FLAG; FOUR LIFECYCLE DEFECTS FOUND BY INDEPENDENT REVIEW AND FIXED**
 
 **Stage:** MYTHOS CORE WIRING · **Status: PASS**
