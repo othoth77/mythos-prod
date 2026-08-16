@@ -43,7 +43,8 @@ var TYPE_DEFAULTS = {
 };
 
 var SPEC_TASK_FIELDS = ['key', 'title', 'task_type', 'instruction',
-  'capabilities_required', 'policy_classes', 'depends_on', 'max_attempts'];
+  'capabilities_required', 'policy_classes', 'depends_on', 'max_attempts',
+  'budget_usd'];
 
 // --- Template planning ------------------------------------------------------
 
@@ -135,7 +136,8 @@ function buildPlan(goal, spec) {
       capabilities_required: raw.capabilities_required || defaults.capabilities,
       policy_classes: policyClasses,
       depends_on: raw.depends_on || [],
-      max_attempts: raw.max_attempts === undefined ? 3 : raw.max_attempts
+      max_attempts: raw.max_attempts === undefined ? 3 : raw.max_attempts,
+      budget_usd: typeof raw.budget_usd === 'number' ? raw.budget_usd : null
     };
   });
 
@@ -164,7 +166,10 @@ function validatePlan(plan, policyCheck) {
   if (typeof policyCheck === 'function') {
     plan.tasks.forEach(function (t) {
       t.policy_classes.forEach(function (pc) {
-        var decision = policyCheck({ action_class: pc, task_type: t.task_type });
+        var decision = policyCheck({
+          action_class: pc, task_type: t.task_type,
+          amount_usd: typeof t.budget_usd === 'number' ? t.budget_usd : undefined
+        });
         if (!decision || decision.decision === 'deny') {
           errors.push('PLAN_POLICY_DENIED: task "' + t.key + '" needs ' + pc +
             (decision && decision.reason ? ' — ' + decision.reason : ''));
@@ -217,7 +222,9 @@ function persistPlan(plan) {
       policy_classes: t.policy_classes,
       max_attempts: t.max_attempts,
       status: t.depends_on.length ? 'WAITING_FOR_DEPENDENCY' : 'QUEUED',
-      metadata: { plan_key: t.key }
+      metadata: t.budget_usd === null
+        ? { plan_key: t.key }
+        : { plan_key: t.key, budget_usd: t.budget_usd }
     });
     idByKey[t.key] = entity.id;
     return { spec: t, entity: entity };

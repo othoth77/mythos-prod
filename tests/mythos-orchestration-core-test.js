@@ -1071,6 +1071,394 @@ var events = require(path.join(EXEC, 'core', 'events'));
 })();
 
 // ===========================================================================
+// PHASE 2L — controlled self-improvement (+ §34 TEST S)
+// ===========================================================================
+
+var selfImprove = require(path.join(EXEC, 'core', 'self-improve'));
+var orchestrator = require(path.join(EXEC, 'core', 'orchestrator'));
+
+(function () {
+  ok(selfImprove.isProtectedPath('projects/mythos-ai-executor/core/policy-engine.js'),
+    '2L guard: policy engine is protected');
+  ok(selfImprove.isProtectedPath('some/dir/credentials.json') &&
+     selfImprove.isProtectedPath('app/.env.production') &&
+     selfImprove.isProtectedPath('home/.ssh/config'),
+    '2L guard: credential-shaped paths are protected by pattern');
+  ok(!selfImprove.isProtectedPath('projects/mythos-ai-executor/core/dag.js'),
+    '2L guard: ordinary core code is improvable');
+
+  throws(function () {
+    selfImprove.buildSelfImprovementMission('weaken the policy', {
+      repo_path: '/anywhere', scope_paths: ['projects/mythos-ai-executor/config/policy.json']
+    });
+  }, /SELF_PROTECTION/, '2L guard: mission scoped at the safeguard surface refused at build time');
+  throws(function () {
+    selfImprove.buildSelfImprovementMission('touch secrets', {
+      repo_path: '/anywhere', scope_paths: ['ops/credentials/github.env']
+    });
+  }, /SELF_PROTECTION/, '2L guard: credential-path scope refused');
+  throws(function () {
+    selfImprove.buildSelfImprovementMission('no scope', { repo_path: '/anywhere' });
+  }, /NEEDS_SCOPE/, '2L guard: undeclared scope refused');
+})();
+
+chain2 = chain2.then(function () {
+  // TEST S — a real controlled self-improvement cycle on a throwaway
+  // repo: isolated worktree, small safe change, tests, review, a
+  // reviewable commit on its own branch, main checkout untouched.
+  var repo = makeRepo('self-repo');
+  var mainHeadBefore = cp.execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+  var setup = selfImprove.buildSelfImprovementMission(
+    'Add docs/NOTES.md explaining the fixture repo.', {
+      repo_path: repo, scope_paths: ['docs/NOTES.md'], project: 'mythos-self-test'
+    });
+  ok(setup.mission.status === 'PLANNED' && setup.tasks.length === 4,
+    'S self: mission planned with implement→test→review→report shape');
+  store.transition('mission', setup.mission.id, 'VALIDATED');
+
+  var implementCommit = null;
+  var safety = null;
+  return orchestrator.advanceMission(setup.mission.id, {
+    repo_path: repo,
+    agent_runner: function (agentName, task, ctx) {
+      if (task.task_type === 'coding') {
+        fs.mkdirSync(path.join(ctx.worktree.dir, 'docs'), { recursive: true });
+        fs.writeFileSync(path.join(ctx.worktree.dir, 'docs', 'NOTES.md'), '# Notes\nFixture repo.\n');
+        cp.execFileSync('git', ['add', '.'], { cwd: ctx.worktree.dir });
+        cp.execFileSync('git', ['commit', '-q', '-m', 'docs: add NOTES.md'], { cwd: ctx.worktree.dir });
+        implementCommit = cp.execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ctx.worktree.dir, encoding: 'utf8' }).trim();
+        safety = selfImprove.checkWorktreeSafety(ctx.worktree.dir, ctx.worktree.base);
+        var t = store.load('task', task.id);
+        t.metadata.worktree_dir = ctx.worktree.dir;
+        store.save(t);
+        return { status: 'completed', summary: 'NOTES.md added in isolated worktree', commit: implementCommit };
+      }
+      return { status: 'completed', summary: task.task_type + ' pass: 1/1' };
+    },
+    review_fn: function (reviewer, task, result) {
+      return { verdict: 'pass', findings: [] };
+    }
+  }).then(function (mission) {
+    ok(mission.status === 'COMPLETED', 'S self: controlled self-improvement mission completed');
+    ok(safety && safety.safe === true && safety.changed.indexOf('docs/NOTES.md') !== -1,
+      'S self: real diff verified inside declared scope');
+    var mainHeadAfter = cp.execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).trim();
+    ok(mainHeadAfter === mainHeadBefore, 'S self: live checkout NEVER modified — commit is reviewable, not merged');
+    var branches = cp.execFileSync('git', ['branch', '--list', 'mythos/*'], { cwd: repo, encoding: 'utf8' });
+    ok(/mythos\//.test(branches), 'S self: change lives on an isolated mythos/ branch');
+    ok(cp.execFileSync('git', ['log', '--oneline', '--all'], { cwd: repo, encoding: 'utf8' }).indexOf('NOTES.md') !== -1,
+      'S self: reviewable commit exists');
+
+    // The post-hoc diff guard catches a protected-path edit regardless of
+    // declared scope.
+    var wtDir = path.join(FIXTURES, 'sneaky-wt');
+    cp.execFileSync('git', ['worktree', 'add', '-b', 'sneaky', wtDir], { cwd: repo });
+    fs.mkdirSync(path.join(wtDir, 'projects', 'mythos-ai-executor', 'config'), { recursive: true });
+    fs.writeFileSync(path.join(wtDir, 'projects', 'mythos-ai-executor', 'config', 'policy.json'), '{}');
+    cp.execFileSync('git', ['add', '.'], { cwd: wtDir });
+    cp.execFileSync('git', ['commit', '-q', '-m', 'sneaky policy edit'], { cwd: wtDir });
+    var sneaky = selfImprove.checkWorktreeSafety(wtDir, 'HEAD~1');
+    ok(sneaky.safe === false && sneaky.violations.length === 1,
+      'S self: undeclared protected-path modification detected in the REAL diff');
+  });
+});
+
+// ===========================================================================
+// PHASE 2M — §34 acceptance: integrated goal→…→next-decision (TESTS A–R)
+// ===========================================================================
+
+chain2 = chain2.then(function () {
+  var repo = makeRepo('accept-repo');
+  var timeline = [];
+  var grantsSeen = {};
+
+  // TEST A/B/C: goal → mission → DAG.
+  var submitted = orchestrator.submitGoal('Build the acceptance feature across two components.', {
+    project: 'core-accept',
+    spec: {
+      title: 'Acceptance mission',
+      tasks: [
+        { key: 'code-x', title: 'Implement X', task_type: 'coding', capabilities_required: ['coding'], depends_on: [] },
+        { key: 'code-y', title: 'Implement Y', task_type: 'coding', capabilities_required: ['coding'], depends_on: [] },
+        { key: 'integrate', title: 'Integrate X+Y', task_type: 'integration', capabilities_required: ['coding'], depends_on: ['code-x', 'code-y'] },
+        { key: 'summarize', title: 'Summarize', task_type: 'reporting', capabilities_required: ['repo_inspection'], depends_on: ['integrate'] }
+      ]
+    }
+  });
+  ok(!submitted.rejected && submitted.goal.status === 'ACTIVE',
+    'A accept: goal created and activated');
+  ok(events.replay().some(function (e) { return e.event_type === 'GOAL_CREATED' && e.subject_id === submitted.goal.id; }),
+    'A accept: GOAL_CREATED evented');
+  ok(submitted.mission.status === 'VALIDATED' && submitted.mission.task_ids.length === 4,
+    'B accept: goal became a validated mission');
+  var graph = dag.assess(submitted.tasks);
+  ok(graph.valid && graph.ready.length === 2,
+    'C accept: mission is a valid DAG with two independent roots');
+
+  return orchestrator.advanceMission(submitted.mission.id, {
+    repo_path: repo,
+    max_parallel: 2,
+    agent_runner: function (agentName, task, ctx) {
+      timeline.push({ key: task.metadata.plan_key, at: 'start', t: Date.now() });
+      grantsSeen[task.metadata.plan_key] = ctx.tool_grants;
+      var work;
+      if (task.task_type === 'coding' || task.task_type === 'integration') {
+        fs.writeFileSync(path.join(ctx.worktree.dir, task.metadata.plan_key + '.js'), '// ' + task.title + '\n');
+        cp.execFileSync('git', ['add', '.'], { cwd: ctx.worktree.dir });
+        cp.execFileSync('git', ['commit', '-q', '-m', task.metadata.plan_key], { cwd: ctx.worktree.dir });
+        var sha = cp.execFileSync('git', ['rev-parse', 'HEAD'], { cwd: ctx.worktree.dir, encoding: 'utf8' }).trim();
+        var t = store.load('task', task.id);
+        t.metadata.worktree_dir = ctx.worktree.dir;
+        store.save(t);
+        work = { status: 'completed', summary: task.title + ' done', commit: sha };
+      } else {
+        // The reporting task exercises tool grants (TEST D).
+        var toolResult = ctx.tools.invoke('git.read', { repo_path: repo }, ctx.tool_grants);
+        work = { status: 'completed', summary: 'summary over ' + (toolResult.ok ? toolResult.result.branch : 'n/a') };
+      }
+      return new Promise(function (resolve) {
+        setTimeout(function () {
+          timeline.push({ key: task.metadata.plan_key, at: 'end', t: Date.now() });
+          resolve(work);
+        }, 15);
+      });
+    },
+    review_fn: function () { return { verdict: 'pass', findings: [] }; }
+  }).then(function (mission) {
+    ok(mission.status === 'COMPLETED', '2M accept: integrated mission completed');
+    var tasksNow = mission.task_ids.map(function (id) { return store.load('task', id); });
+    ok(tasksNow.every(function (t) { return t.agent_id; }),
+      'D accept: every task was routed to a selected agent');
+    ok(grantsSeen['summarize'] && grantsSeen['summarize'].indexOf('git.read') !== -1,
+      'D accept: least-privilege tool grant reached the agent and worked');
+    ok(mission.metadata.peak_concurrency >= 2, 'E accept: independent tasks ran in parallel');
+    var xEnd = timeline.filter(function (e) { return e.key === 'code-x' && e.at === 'end'; })[0];
+    var yEnd = timeline.filter(function (e) { return e.key === 'code-y' && e.at === 'end'; })[0];
+    var intStart = timeline.filter(function (e) { return e.key === 'integrate' && e.at === 'start'; })[0];
+    ok(intStart.t >= xEnd.t && intStart.t >= yEnd.t, 'F accept: dependent task waited for both parents');
+    ok(events.replay().filter(function (e) { return e.event_type === 'COMMIT_CREATED'; }).length >= 3,
+      'N accept: commits created and evented');
+
+    // TEST P: memory closed the loop.
+    var recalled = memory.recall('core-accept', 'acceptance mission');
+    ok(recalled.length >= 1 && recalled[0].entry.category === 'completed_work',
+      'P accept: mission outcome stored in provider-independent memory');
+    // TEST Q: decision + report events emitted.
+    ok(events.replay().some(function (e) {
+      return e.event_type === 'DECISION_MADE' && e.detail && e.detail.mission_status === 'COMPLETED';
+    }), 'Q accept: next-decision event emitted with the report reference');
+    ok(store.load('goal', submitted.goal.id).status === 'COMPLETED',
+      '2M accept: goal closed from the mission outcome');
+
+    // TEST R: restart — a fresh process sees the whole finished state.
+    var script =
+      'var s = require(' + JSON.stringify(path.join(EXEC, 'core', 'store')) + ');' +
+      'var m = s.load("mission", ' + JSON.stringify(mission.id) + ');' +
+      'console.log(JSON.stringify({st: m.status, n: m.task_ids.length, ev: s.readEvents().length > 20, rep: !!m.metadata.report_id}));';
+    var out = JSON.parse(cp.execFileSync(process.execPath, ['-e', script], {
+      encoding: 'utf8', env: Object.assign({}, process.env)
+    }).trim());
+    ok(out.st === 'COMPLETED' && out.n === 4 && out.ev && out.rep,
+      'R accept: restart loses nothing — mission, tasks, report, events all recovered');
+  });
+});
+
+// --- TESTS G/H/I/J: quota → waiting → fallback → resume -------------------------
+chain2 = chain2.then(function () {
+  var submitted = orchestrator.submitGoal('Research market pricing.', {
+    project: 'core-accept',
+    spec: {
+      title: 'Quota exercise',
+      tasks: [{ key: 'research', title: 'Research pricing', task_type: 'research',
+        capabilities_required: ['research'], policy_classes: ['READ'], depends_on: [] }]
+    }
+  });
+  var taskId = submitted.tasks[0].id;
+  var runnerCalls = [];
+  function runnerFactory() {
+    return function (agentName, task) {
+      runnerCalls.push(agentName);
+      return Promise.resolve({ status: 'completed', summary: 'research done by ' + agentName });
+    };
+  }
+  // Round 1: every research provider quota-exhausted → WAITING_FOR_QUOTA.
+  return orchestrator.advanceMission(submitted.mission.id, {
+    agent_runner: runnerFactory(),
+    quota_state: { 'adv-a': { exhausted: true }, 'adv-b': { exhausted: true } },
+    review: false
+  }).then(function (mission) {
+    var task = store.load('task', taskId);
+    ok(task.status === 'WAITING_FOR_QUOTA' && runnerCalls.length === 0,
+      'G/H accept: quota exhaustion parks the task in WAITING_FOR_QUOTA without execution');
+    ok(mission.status === 'WAITING', 'H accept: mission waits, does not fail');
+
+    // Round 2: the reputation-preferred primary (adv-b) is still
+    // exhausted → policy-permitted SAME-authority fallback to adv-a.
+    orchestrator.resumeQuota(submitted.mission.id);
+    return orchestrator.advanceMission(submitted.mission.id, {
+      agent_runner: runnerFactory(),
+      quota_state: { 'adv-b': { exhausted: true } },
+      review: false
+    });
+  }).then(function (mission) {
+    var task = store.load('task', taskId);
+    ok(mission.status === 'COMPLETED' && task.status === 'COMPLETED',
+      'J accept: task resumed and completed');
+    ok(task.agent_id === 'adv-a' && task.metadata.fallback_from === 'adv-b',
+      'I accept: fallback provider selected under policy, provenance recorded');
+    ok(events.replay().some(function (e) { return e.event_type === 'TASK_RESUMED' && e.subject_id === taskId; }),
+      'J accept: resume evented');
+  });
+});
+
+// --- TESTS K/L/M: validation rejects → agent repairs → passes --------------------
+chain2 = chain2.then(function () {
+  var submitted = orchestrator.submitGoal('Produce a correct analysis.', {
+    project: 'core-accept',
+    spec: {
+      title: 'Repair exercise',
+      tasks: [{ key: 'analyze', title: 'Analyze data', task_type: 'analysis',
+        capabilities_required: ['analysis'], depends_on: [], max_attempts: 3 }]
+    }
+  });
+  var attempts = 0;
+  return orchestrator.advanceMission(submitted.mission.id, {
+    agent_runner: function (agentName, task) {
+      attempts += 1;
+      if (attempts === 1) {
+        return Promise.resolve({ status: 'completed' }); // missing summary → schema reject
+      }
+      return Promise.resolve({ status: 'completed', summary: 'repaired analysis, all fields present' });
+    },
+    review: false
+  }).then(function (mission) {
+    var task = store.load('task', submitted.tasks[0].id);
+    ok(attempts === 2 && task.status === 'COMPLETED' && task.attempt === 2,
+      'K/L/M accept: validation rejected the wrong result, the agent repaired it, validation passed');
+    var evs = events.replay();
+    ok(evs.some(function (e) { return e.event_type === 'VALIDATION_FAILED' && e.subject_id === task.id; }) &&
+       evs.some(function (e) { return e.event_type === 'VALIDATION_PASSED' && e.subject_id === task.id; }),
+      'K/M accept: both validation verdicts evented');
+    ok(mission.status === 'COMPLETED', 'M accept: repaired mission completes');
+  });
+});
+
+// --- TEST O: persistent GitHub delivery mechanism exists and is active ------------
+chain2 = chain2.then(function () {
+  ok(fs.existsSync('/etc/systemd/system/mythos-git-push.service'),
+    'O accept: persistent delivery relay unit exists');
+  var timerState = 'unknown';
+  try {
+    timerState = cp.execFileSync('systemctl', ['is-active', 'mythos-git-push.timer'],
+      { encoding: 'utf8' }).trim();
+  } catch (e) {
+    timerState = (e.stdout || '').trim() || 'inactive';
+  }
+  ok(timerState === 'active', 'O accept: delivery relay timer is active (' + timerState + ')');
+});
+
+// ===========================================================================
+// §18 — campaign mission integration test (mocks only, no money, no publishing)
+// ===========================================================================
+
+chain2 = chain2.then(function () {
+  agents.registerAgent('mock-marketer', {
+    provider: 'mock-mkt',
+    capabilities: ['marketing_campaign', 'image_generation', 'image_validation', 'analysis', 'research'],
+    task_types: ['marketing', 'analysis', 'generic', 'research', 'reporting'],
+    execution_authority: false, risk_level: 'medium', cost: { tier: 'metered' }
+  });
+  agents.registerProbe('mock-mkt', function () { return true; });
+
+  var campaignPolicy = policyEngine.createEngine({
+    policy_id: 'campaign-test-v1',
+    classes: { READ: 'allow', PROJECT_WRITE: 'allow', GIT: 'allow', SERVICE: 'require_approval',
+      DEPLOY: 'require_approval', ROOT: 'deny', EXTERNAL_API: 'allow', DESTRUCTIVE: 'deny' },
+    money_spend: { enabled: true, daily_limit_usd: 5 }
+  });
+
+  var submitted = orchestrator.submitGoal(
+    'Prepare a professional advertising campaign for the flagship product with a $5/day budget for one day.', {
+      project: 'core-campaign',
+      policy: campaignPolicy,
+      spec: {
+        title: 'Ad campaign ($5/day, 1 day, sandbox)',
+        tasks: [
+          { key: 'product', title: 'Read product data', task_type: 'analysis', capabilities_required: ['analysis'], depends_on: [] },
+          { key: 'brand', title: 'Retrieve brand context', task_type: 'analysis', capabilities_required: ['analysis'], depends_on: ['product'] },
+          { key: 'image', title: 'Generate campaign visual', task_type: 'generic', capabilities_required: ['image_generation'], policy_classes: ['EXTERNAL_API'], depends_on: ['brand'] },
+          { key: 'check-image', title: 'Validate visual', task_type: 'generic', capabilities_required: ['image_validation'], policy_classes: ['READ'], depends_on: ['image'] },
+          { key: 'copy', title: 'Write advertising copy', task_type: 'analysis', capabilities_required: ['analysis'], depends_on: ['brand'] },
+          { key: 'campaign', title: 'Create campaign (sandbox)', task_type: 'marketing', capabilities_required: ['marketing_campaign'], policy_classes: ['EXTERNAL_API', 'MONEY_SPEND'], budget_usd: 5, depends_on: ['check-image', 'copy'] },
+          { key: 'report', title: 'Report campaign', task_type: 'reporting', capabilities_required: ['analysis'], depends_on: ['campaign'] }
+        ]
+      }
+    });
+  ok(!submitted.rejected, '§18 campaign: plan valid under the configured budget policy');
+
+  var campaignResult = null;
+  return orchestrator.advanceMission(submitted.mission.id, {
+    policy: campaignPolicy,
+    agent_runner: function (agentName, task, ctx) {
+      switch (task.metadata.plan_key) {
+        case 'image': {
+          var img = ctx.tools.invoke('image.generate', { prompt: 'flagship product hero shot' }, ctx.tool_grants);
+          return Promise.resolve({ status: 'completed', summary: 'visual ' + img.result.image_ref, image_ref: img.result.image_ref });
+        }
+        case 'check-image': {
+          var val = ctx.tools.invoke('image.validate', { image_ref: 'mock://image/x' }, ctx.tool_grants);
+          return Promise.resolve({ status: 'completed', summary: 'visual valid: ' + val.result.valid });
+        }
+        case 'campaign': {
+          var c = ctx.tools.invoke('meta.create_campaign',
+            { daily_budget_usd: 5, duration_days: 1, copy: 'Great product.' }, ctx.tool_grants);
+          campaignResult = c;
+          return Promise.resolve({
+            status: c.ok ? 'completed' : 'failed',
+            summary: c.ok ? 'sandbox campaign ' + c.result.campaign_id : c.error
+          });
+        }
+        default:
+          return Promise.resolve({ status: 'completed', summary: task.title + ' done (mock)' });
+      }
+    },
+    review_fn: function () { return { verdict: 'pass', findings: [] }; }
+  }).then(function (mission) {
+    ok(mission.status === 'COMPLETED', '§18 campaign: mission completed end to end');
+    ok(campaignResult && campaignResult.ok && campaignResult.mocked === true &&
+       campaignResult.result.sandbox === true && campaignResult.result.published === false,
+      '§18 campaign: campaign tool ran SANDBOXED — nothing published, nothing spent');
+    ok(!!campaignResult && !!campaignResult.result && campaignResult.result.daily_budget_usd === 5,
+      '§18 campaign: $5/day budget carried through policy into the tool call');
+    ok(memory.recall('core-campaign', 'ad campaign sandbox').length >= 1,
+      '§18 campaign: outcome recorded in project memory');
+
+    // Over-budget variant: $6 > limit → the spend gate demands approval,
+    // so the campaign task parks instead of spending.
+    var over = orchestrator.submitGoal('Same campaign at $6/day.', {
+      project: 'core-campaign',
+      policy: campaignPolicy,
+      spec: {
+        title: 'Over-budget campaign',
+        tasks: [{ key: 'campaign', title: 'Create over-budget campaign', task_type: 'marketing',
+          capabilities_required: ['marketing_campaign'], policy_classes: ['EXTERNAL_API', 'MONEY_SPEND'],
+          budget_usd: 6, depends_on: [] }]
+      }
+    });
+    ok(!over.rejected, '§18 campaign: over-budget plan is plannable (approval is a runtime gate)');
+    return orchestrator.advanceMission(over.mission.id, {
+      policy: campaignPolicy,
+      agent_runner: function () { throw new Error('must not execute an unapproved spend'); },
+      review: false
+    }).then(function (m2) {
+      var t2 = store.load('task', over.tasks[0].id);
+      ok(m2.status === 'WAITING' && t2.status === 'WAITING_FOR_APPROVAL',
+        '§18 campaign: over-budget spend parked for approval — never silently spent');
+    });
+  });
+});
+
+// ===========================================================================
 // Summary
 // ===========================================================================
 chain2.then(function () {

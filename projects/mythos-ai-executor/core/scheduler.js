@@ -80,9 +80,13 @@ function runMission(missionId, opts) {
   }
 
   function dispatch(task) {
-    // Policy gate — aggregate over the task's declared classes.
+    // Policy gate — aggregate over the task's declared classes. A
+    // declared budget travels into MONEY_SPEND checks; no declared
+    // budget means the spend gate sees no amount and denies.
     var gate = policy.checkClasses(task.policy_classes, {
-      task_type: task.task_type, project: task.project
+      task_type: task.task_type, project: task.project,
+      amount_usd: task.metadata && typeof task.metadata.budget_usd === 'number'
+        ? task.metadata.budget_usd : undefined
     });
     if (gate.decision === 'deny') {
       store.transition('task', task.id, 'CANCELLED', {
@@ -187,6 +191,31 @@ function runMission(missionId, opts) {
   }
 
   function step() {
+    // Integration hooks (Phase 2M): settle VALIDATING tasks through the
+    // injected validator, then re-dispatch repairs (RETRYING → READY).
+    if (typeof opts.validator === 'function') {
+      loadMissionTasks(mission).forEach(function (t) {
+        if (t.status === 'VALIDATING' && !active[t.id]) {
+          try {
+            opts.validator(t);
+          } catch (e) {
+            store.transition('task', t.id, 'FAILED', {
+              metadata: Object.assign({}, t.metadata, { validator_error: String(e.message).slice(0, 300) })
+            });
+          }
+        }
+      });
+    }
+    loadMissionTasks(mission).forEach(function (t) {
+      if (t.status === 'RETRYING' && !active[t.id]) {
+        var budget = t.max_attempts === undefined ? 3 : t.max_attempts;
+        if ((t.attempt || 0) < budget) store.transition('task', t.id, 'READY');
+        else store.transition('task', t.id, 'FAILED', {
+          metadata: Object.assign({}, t.metadata, { retry_budget_exhausted: true })
+        });
+      }
+    });
+
     var tasks = loadMissionTasks(mission);
     var assessment = dag.assess(tasks);
     if (!assessment.valid) {
