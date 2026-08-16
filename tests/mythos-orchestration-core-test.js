@@ -464,6 +464,138 @@ var tools = require(path.join(EXEC, 'core', 'tool-registry'));
 })();
 
 // ===========================================================================
+// PHASE 2E — mission planner
+// ===========================================================================
+
+var planner = require(path.join(EXEC, 'core', 'planner'));
+var dag = require(path.join(EXEC, 'core', 'dag'));
+
+(function () {
+  var goal = domain.createGoal({ text: 'Improve SSANGYONG.AUTOS product search.', project: 'sya' });
+  store.create(goal);
+
+  var plan = planner.planMission(goal);
+  ok(plan.valid && plan.tasks.length === 7, '2E planner: template plan is structured and valid');
+  ok(plan.order && plan.order[0] === 'inspect' && plan.order[plan.order.length - 1] === 'report',
+    '2E planner: topological order inspect→…→report');
+  ok(plan.tasks.every(function (t) { return t.policy_classes.length > 0; }),
+    '2E planner: every task carries policy classes');
+
+  var parallel = planner.planMission(goal, { components: ['api', 'db'] });
+  var keys = parallel.tasks.map(function (t) { return t.key; });
+  ok(keys.indexOf('implement-api') !== -1 && keys.indexOf('implement-db') !== -1 &&
+     keys.indexOf('integrate') !== -1, '2E planner: components fork parallel branches with integration');
+
+  // LLM-supplied specs are validated, never trusted.
+  var badSpec = planner.planFromSpec(goal, {
+    title: 'sneaky plan',
+    tasks: [
+      { key: 'a', title: 'ok task', task_type: 'analysis', depends_on: [] },
+      { key: 'b', title: 'weird', task_type: 'rm_rf_everything', depends_on: ['a'] },
+      { key: 'c', title: 'sneaky', task_type: 'coding', depends_on: ['ghost'], shell_command: 'rm -rf /' },
+      { key: 'a', title: 'dup', task_type: 'analysis', depends_on: [] }
+    ]
+  });
+  ok(!badSpec.valid, '2E planner: malicious/malformed spec is invalid');
+  ok(badSpec.errors.some(function (e) { return /UNKNOWN_TASK_TYPE/.test(e); }),
+    '2E planner: unknown task type refused');
+  ok(badSpec.errors.some(function (e) { return /UNKNOWN_FIELD.*shell_command/.test(e); }),
+    '2E planner: extra fields (generated instructions) refused');
+  ok(badSpec.errors.some(function (e) { return /UNKNOWN_DEPENDENCY/.test(e); }),
+    '2E planner: missing dependency refused');
+  ok(badSpec.errors.some(function (e) { return /DUPLICATE_TASK/.test(e); }),
+    '2E planner: duplicate keys refused');
+  throws(function () { planner.persistPlan(badSpec); }, /PLAN_INVALID/,
+    '2E planner: invalid plan cannot persist');
+
+  // Policy validation gate.
+  var denyMoney = function (req) {
+    return { decision: req.action_class === 'MONEY_SPEND' ? 'deny' : 'allow', reason: 'no budget configured' };
+  };
+  var marketing = planner.planFromSpec(goal, {
+    title: 'campaign', tasks: [{ key: 'ad', title: 'Publish ad', task_type: 'marketing', depends_on: [] }]
+  });
+  var vetted = planner.validatePlan(marketing, denyMoney);
+  ok(!vetted.valid && vetted.errors.some(function (e) { return /POLICY_DENIED.*MONEY_SPEND/.test(e); }),
+    '2E planner: policy validation rejects unbudgeted spend before anything runs');
+
+  ok(/MISSION:/.test(planner.explainPlan(plan)) && /⇐ after inspect/.test(planner.explainPlan(plan)),
+    '2E planner: plan is inspectable before execution');
+
+  // Persistence: mission + tasks with resolved dependency ids and states.
+  var persisted = planner.persistPlan(plan);
+  ok(persisted.mission.task_ids.length === 7, '2E planner: mission persisted with task ids');
+  var first = persisted.tasks[0];
+  var second = persisted.tasks[1];
+  ok(first.status === 'QUEUED' && second.status === 'WAITING_FOR_DEPENDENCY' &&
+     second.depends_on[0] === first.id,
+    '2E planner: initial states and resolved dependency ids correct');
+  var reloaded = store.load('mission', persisted.mission.id);
+  ok(reloaded && reloaded.plan_explanation.indexOf('MISSION:') === 0,
+    '2E planner: persisted mission carries its explanation');
+})();
+
+// ===========================================================================
+// PHASE 2F — task DAG
+// ===========================================================================
+
+(function () {
+  function t(id, status, deps) { return { id: id, status: status, depends_on: deps || [] }; }
+
+  // Linear chain.
+  var linear = [t('a', 'COMPLETED'), t('b', 'WAITING_FOR_DEPENDENCY', ['a']), t('c', 'WAITING_FOR_DEPENDENCY', ['b'])];
+  var a1 = dag.assess(linear);
+  ok(a1.valid && a1.ready.join(',') === 'b' && a1.waiting_dependency.join(',') === 'c',
+    '2F dag: linear graph unlocks exactly the next task');
+
+  // Branch + merge; independent branches ready in parallel.
+  var branch = [
+    t('api', 'QUEUED'), t('db', 'QUEUED'),
+    t('integration', 'WAITING_FOR_DEPENDENCY', ['api', 'db']),
+    t('tests', 'WAITING_FOR_DEPENDENCY', ['integration'])
+  ];
+  var a2 = dag.assess(branch);
+  ok(a2.ready.sort().join(',') === 'api,db', '2F dag: independent branches ready in parallel');
+  ok(a2.waiting_dependency.sort().join(',') === 'integration,tests',
+    '2F dag: merge point waits for both branches');
+
+  // Merge unlocks only when ALL parents complete.
+  branch[0].status = 'COMPLETED';
+  ok(dag.assess(branch).ready.indexOf('integration') === -1,
+    '2F dag: merge stays blocked while one parent is open');
+  branch[1].status = 'COMPLETED';
+  ok(dag.assess(branch).ready.join(',') === 'integration',
+    '2F dag: merge unlocks when all parents complete');
+
+  // Cycle detection.
+  var cyclic = dag.validateGraph([t('x', 'QUEUED', ['z']), t('y', 'QUEUED', ['x']), t('z', 'QUEUED', ['y'])]);
+  ok(!cyclic.valid && /CYCLE_DETECTED/.test(cyclic.errors[0]), '2F dag: cycles detected');
+  var selfDep = dag.validateGraph([t('x', 'QUEUED', ['x'])]);
+  ok(!selfDep.valid && /SELF_DEPENDENCY/.test(selfDep.errors[0]), '2F dag: self-dependency detected');
+  var missing = dag.validateGraph([t('x', 'QUEUED', ['nope'])]);
+  ok(!missing.valid && /UNKNOWN_DEPENDENCY/.test(missing.errors[0]), '2F dag: missing dependency detected');
+
+  // Failure propagation: FAILED ancestor dooms all descendants, transitively.
+  var failed = [
+    t('root', 'FAILED'), t('mid', 'WAITING_FOR_DEPENDENCY', ['root']),
+    t('leaf', 'WAITING_FOR_DEPENDENCY', ['mid']), t('free', 'QUEUED')
+  ];
+  var a3 = dag.assess(failed);
+  ok(a3.doomed.map(function (d) { return d.id; }).sort().join(',') === 'leaf,mid',
+    '2F dag: failure propagates transitively');
+  ok(a3.doomed.every(function (d) { return d.blocked_by.indexOf('root') !== -1; }),
+    '2F dag: doomed tasks name the blocking ancestor');
+  ok(a3.ready.join(',') === 'free', '2F dag: unrelated tasks unaffected by the failure');
+  ok(!a3.all_terminal, '2F dag: mission with doomed tasks is not terminal-complete');
+
+  // Restart recovery is recomputation over persisted statuses (purity).
+  var persistedStates = JSON.parse(JSON.stringify(branch));
+  var recovered = dag.assess(persistedStates);
+  ok(recovered.ready.join(',') === 'integration',
+    '2F dag: assessment over persisted statuses IS restart recovery');
+})();
+
+// ===========================================================================
 // Summary
 // ===========================================================================
 Promise.resolve().then(function () {
