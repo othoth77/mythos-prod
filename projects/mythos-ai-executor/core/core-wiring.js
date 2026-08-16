@@ -203,14 +203,27 @@ function registerExecutorTask(coreTaskId, executorTaskId) {
 // Cancels every executor task spawned by a core task that is not already
 // terminal. Cooperative: uses the Phase 1 state machine, never SIGKILL.
 function cancelExecutorTasksFor(coreTask) {
-  var ids = (coreTask.metadata && coreTask.metadata.executor_task_ids) || [];
+  // Union of both records, and re-read from the store so an id registered
+  // after this task object was loaded is not missed: cancellation must
+  // never depend on the caller's snapshot being fresh.
+  var fresh = store.load('task', coreTask.id) || coreTask;
+  var ids = ((fresh.metadata && fresh.metadata.executor_task_ids) || [])
+    .concat((coreTask.metadata && coreTask.metadata.executor_task_ids) || [])
+    .concat(fresh.executor_task_id ? [fresh.executor_task_id] : [])
+    .concat(coreTask.executor_task_id ? [coreTask.executor_task_id] : [])
+    .filter(function (id, i, arr) { return id && arr.indexOf(id) === i; });
   var cancelled = [];
   ids.forEach(function (id) {
     try {
       var st = state.readStatus(id);
       if (!st) return;
       if (['COMPLETED', 'FAILED', 'CANCELLED'].indexOf(st.status) !== -1) return;
-      if (st.status === 'RUNNING' && st.pid && state.processAlive(st.pid)) {
+      // Never signal ourselves. A recorded pid equal to this process (or
+      // its parent) means the record is bogus — signalling it would kill
+      // the orchestrator/daemon instead of a worker. Cancel the task
+      // record anyway; only the signal is skipped.
+      var selfish = st.pid === process.pid || st.pid === process.ppid;
+      if (st.status === 'RUNNING' && st.pid && !selfish && state.processAlive(st.pid)) {
         try { process.kill(st.pid, 'SIGTERM'); } catch (e) { /* raced its exit */ }
       }
       state.transition(id, 'CANCELLED', {
@@ -228,6 +241,20 @@ function cancelExecutorTasksFor(coreTask) {
 function buildProductionRunner() {
   var bridge = orchestrator.executorBridge(executor);
   return function productionAgentRunner(agentName, task, ctx) {
+    // Supersession: every new attempt creates a NEW executor task, so any
+    // executor task from a previous attempt of THIS core task is obsolete.
+    // Left alone it stays non-terminal (e.g. WAITING_FOR_QUOTA after a
+    // quota pause) and the Phase 1 daemon would eventually resume it —
+    // duplicating work and burning quota. Retire them first.
+    var superseded = cancelExecutorTasksFor(store.load('task', task.id) || task);
+    if (superseded.length) {
+      var st = store.load('task', task.id);
+      if (st) {
+        st.metadata.superseded_executor_tasks =
+          (st.metadata.superseded_executor_tasks || []).concat(superseded);
+        store.save(st);
+      }
+    }
     var before = state.listTasks();
     return Promise.resolve(bridge(agentName, task, ctx)).then(function (result) {
       // The bridge records executor_task_id on the task; mirror it into

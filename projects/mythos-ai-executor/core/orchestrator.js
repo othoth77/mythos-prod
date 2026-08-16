@@ -283,6 +283,11 @@ function executorBridge(executorModule, profileByType) {
     });
     var t = store.load('task', task.id);
     t.executor_task_id = created.task_id;
+    // Registered SYNCHRONOUSLY, before the run starts: a cancellation that
+    // arrives mid-flight must be able to find and stop this executor task.
+    // (Deferring this to the run promise's .then() orphaned in-flight tasks
+    // — found by independent architecture review, regression-tested.)
+    t.metadata.executor_task_ids = (t.metadata.executor_task_ids || []).concat([created.task_id]);
     if (ctx.worktree) t.metadata.worktree_dir = ctx.worktree.dir;
     store.save(t);
     return executorModule.runTask(created.task_id).then(function (execStatus) {

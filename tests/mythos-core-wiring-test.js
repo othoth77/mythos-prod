@@ -225,6 +225,18 @@ chain = chain.then(function () {
     ok(mission.status === 'COMPLETED', 'quota: resumeMission completed the mission after the window reopened');
     ok((mission.metadata.last_resume_released || []).length >= 1,
       'quota: resume released the parked task through the core');
+    // Supersession: the pre-resume executor task must not be left
+    // WAITING_FOR_QUOTA for the Phase 1 daemon to resume behind us.
+    var execState2 = require(path.join(EXEC, 'lib', 'state'));
+    var lingering = execState2.listTasks().filter(function (id) {
+      var s = execState2.readStatus(id);
+      return s && s.status === 'WAITING_FOR_QUOTA';
+    });
+    ok(lingering.length === 0,
+      'quota: superseded executor tasks are retired on resume (no duplicate daemon resume)');
+    var done = mission.task_ids.map(function (id) { return store.load('task', id); })[0];
+    ok((done.metadata.superseded_executor_tasks || []).length >= 1,
+      'quota: supersession is recorded on the core task');
   });
 });
 
@@ -266,6 +278,48 @@ chain = chain.then(function () {
     });
     ok(revivable.length === 0,
       'lifecycle: no non-terminal executor tasks remain for the daemon to resurrect');
+  });
+});
+
+// ===========================================================================
+// 6b. LIFECYCLE RACE — cancel WHILE the bridge task is still RUNNING
+// (found by the independent architecture reviewer, gemini-3.6-flash:
+// registration used to happen only in the bridge promise's .then(), so a
+// cancel arriving mid-flight saw an empty id list and orphaned the
+// executor task — the very resurrection bug this stage must prevent.)
+// ===========================================================================
+chain = chain.then(function () {
+  var core = require(path.join(EXEC, 'core', 'core-wiring'));
+  var store = require(path.join(EXEC, 'core', 'store'));
+  var execState = require(path.join(EXEC, 'lib', 'state'));
+
+  // 'hang' never resolves: the bridge promise stays pending, so the task
+  // is genuinely RUNNING when cancellation arrives.
+  process.env.MYTHOS_MOCK_SCRIPT = JSON.stringify([{ kind: 'hang' }]);
+  require(path.join(EXEC, 'providers', 'mock')).reset();
+
+  var g = core.submitGoal({ text: 'Cancellation race probe while a task is running.',
+    project: 'mythos-prod', requested_by: 'wiring-test' });
+
+  var advancing = core.advanceMission(g.mission_id, { review: false });
+  // Give the scheduler time to dispatch and the bridge to create its
+  // executor task, but not to finish (it never will).
+  return new Promise(function (r) { setTimeout(r, 600); }).then(function () {
+    var first = store.load('task', g.mission_id ? store.load('mission', g.mission_id).task_ids[0] : null);
+    ok(first.status === 'RUNNING', 'race: the core task is genuinely RUNNING mid-flight');
+    var ids = (first.metadata.executor_task_ids || []).concat(
+      first.executor_task_id ? [first.executor_task_id] : []);
+    ok(ids.length >= 1, 'race: the executor task is discoverable DURING the run (not only after)');
+
+    var result = core.cancelMission(g.mission_id, 'race probe');
+    ok(result.executor_tasks_cancelled.length >= 1,
+      'race: cancelling mid-flight CANCELS the in-flight executor task');
+    var orphans = execState.listTasks().filter(function (id) {
+      var st = execState.readStatus(id);
+      return st && ['RUNNING', 'WAITING_RETRY', 'QUEUED', 'WAITING_FOR_QUOTA'].indexOf(st.status) !== -1;
+    });
+    ok(orphans.length === 0, 'race: no orphaned executor task survives the cancellation');
+    advancing.catch(function () { /* the hung mission is abandoned by design */ });
   });
 });
 
