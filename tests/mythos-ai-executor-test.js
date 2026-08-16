@@ -464,6 +464,33 @@ chain = chain.then(function () {
 });
 
 // ---------------------------------------------------------------------------
+// 19b. SSH agent discovery for daemon-context pushes
+// ---------------------------------------------------------------------------
+chain = chain.then(function () {
+  var net = require('net');
+  var fakeHome = path.join(FIXTURES, 'agent-home');
+  var agentDir = path.join(fakeHome, '.ssh', 'agent');
+  fs.mkdirSync(agentDir, { recursive: true });
+  var sockPath = path.join(agentDir, 's.test.agent.abc');
+  var srv = net.createServer();
+  return new Promise(function (resolve) { srv.listen(sockPath, resolve); }).then(function () {
+    var savedHome = process.env.HOME;
+    var savedSock = process.env.SSH_AUTH_SOCK;
+    process.env.HOME = fakeHome;
+    delete process.env.SSH_AUTH_SOCK;
+    var env = executor.sshEnv();
+    ok(env.SSH_AUTH_SOCK === sockPath, 'ssh: daemon discovers live agent socket');
+    process.env.SSH_AUTH_SOCK = 'preset-socket';
+    var env2 = executor.sshEnv();
+    ok(env2.SSH_AUTH_SOCK === 'preset-socket', 'ssh: explicit SSH_AUTH_SOCK wins over discovery');
+    process.env.HOME = savedHome;
+    if (savedSock === undefined) delete process.env.SSH_AUTH_SOCK;
+    else process.env.SSH_AUTH_SOCK = savedSock;
+    srv.close();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 20. Daemon lock refuses a second daemon
 // ---------------------------------------------------------------------------
 chain = chain.then(function () {
