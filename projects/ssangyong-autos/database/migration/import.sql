@@ -1,12 +1,17 @@
 -- =============================================================================
--- SSANGYONG.AUTOS Stage 4 — data import (DRY-RUN ARTIFACT)
+-- SSANGYONG.AUTOS Stage 4 — data import (generated in Stage 4, executed in
+-- Stage 5 Phase 3)
 --
--- STATUS: DRY-RUN — NOT EXECUTED — NOT DEPLOYED.
+-- STATUS: EXECUTED AND COMMITTED 2026-08-16 (Stage 5 Phase 3,
+-- owner-authorised). Run verbatim (byte-identical to the committed file,
+-- verified by git hash-object against HEAD) inside its own BEGIN…COMMIT
+-- transaction, as the dedicated non-superuser role ssangyong_autos_owner,
+-- against database ssangyong_autos (PG 15.18) — never against idauto.
+-- All row counts landed exactly as generated (see below); all 5 sequences
+-- were realigned by setval(); migration/validation.sql reports 18/18 pass.
 -- Generated deterministically by generate_import.py from the validated
 -- Stage 2 dataset (migration/input/). No database connection was used to
--- produce this file. Executing it is Stage 5 work and requires explicit
--- owner authorisation plus prior creation of the ssangyong_autos schema
--- from projects/ssangyong-autos/database/schema.sql.
+-- produce this file.
 --
 -- Row counts: products 346 · vehicle_models 17 · vehicle_motorizations 63
 --             · compatibility 782 · images 311
@@ -14,7 +19,9 @@
 -- sequences are realigned with setval() at the end of the transaction.
 -- =============================================================================
 BEGIN;
--- SET LOCAL search_path TO ssangyong_autos;  -- enable in Stage 5 once the schema exists
+-- SET LOCAL search_path TO ssangyong_autos;  -- never uncommented: at execution
+--   the search_path was supplied as a connection option (already pinned
+--   per-database in Stage 5 Phase 2), so the committed bytes ran verbatim
 
 INSERT INTO sya_vehicle_models (id, source, brand_car, model_name, generation_code, model_url, year_from, year_to, collected_at) VALUES
   (1, 'autopart.tn', 'SSANGYONG', 'ACTYON I', NULL, 'https://autopart.tn/auto/ssangyong-175/actyon-i-5619.html', 2005, NULL, '2026-07-17T01:26:02.424Z'::timestamptz),

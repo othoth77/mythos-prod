@@ -1,9 +1,16 @@
 # SSANGYONG.AUTOS — Stage 4 migration artifacts
 
-**STATUS: DRY-RUN — NOT EXECUTED — NOT DEPLOYED.**
-No database connection was used to produce anything in this directory. No
-table exists. No row has been inserted anywhere. Executing `import.sql` is
-Stage 5 work and requires explicit owner authorisation.
+**STATUS: EXECUTED AND VALIDATED — DEPLOYED 2026-08-16 (Stage 5 Phase 3, owner-authorised).**
+The artifacts in this directory were produced offline in Stage 4 (no
+database connection) and executed verbatim in Stage 5 Phase 3 — each file
+verified byte-identical to the committed HEAD by `git hash-object` before
+execution — as the dedicated non-superuser role `ssangyong_autos_owner`
+against database `ssangyong_autos` (PG 15.18), never against `idauto`.
+`import.sql` committed inside its own transaction; `validation.sql`
+reported **18/18 checks `pass = true`**. The catalog is live: 346 products
+· 17 vehicle_models · 63 vehicle_motorizations · 782 compatibility · 311
+images (1519 rows). Authoritative record: `docs/AI_HANDOVER.md`, Stage 5
+Phase 3 entry.
 
 ## Contents
 
@@ -21,10 +28,16 @@ Stage 5 work and requires explicit owner authorisation.
 - Constraint simulation: 0 duplicate identities, 0 CHECK violations, 0 invalid JSON, 0 invalid timestamps, 0 invalid prices, all VARCHAR length limits respected.
 - The 17 date-coerced motorisation labels in the `motorizations` tab were repaired by the same URL-slug rule validated in Stage 2, and compat labels were cross-checked against the repaired tab labels (0 mismatches).
 - SQL grammar: both files parse with libpg_query (pglast) — `import.sql` = 12 statements (2 transaction, 5 INSERT, 5 setval SELECT), `validation.sql` = 1 SELECT.
-- **PostgreSQL execution: NOT PERFORMED.** Parse-level validation only; no server was reachable or contacted.
+- **PostgreSQL execution: not part of the Stage 4 dry-run** — parse-level validation only; no server was reachable or contacted at that stage. Execution happened later, in Stage 5 Phase 3 (see STATUS above), and confirmed every prediction in this section.
 
-## Stage 5 order of operations (requires explicit authorisation)
+## Stage 5 execution record (performed 2026-08-16, owner-authorised)
 
-1. Create schema + tables from `../schema.sql` (uncomment `CREATE SCHEMA`, set search_path).
-2. Run `import.sql` inside its transaction.
-3. Run `validation.sql`; abort/rollback unless every check passes.
+1. Schema `ssangyong_autos` and role `ssangyong_autos_owner` were provisioned
+   in Phase 2 (dedicated database, not `idauto`), so `CREATE SCHEMA` was never
+   uncommented and `search_path` was supplied as a connection option — the
+   committed bytes of `../schema.sql` ran verbatim (`--single-transaction`,
+   5 tables + 8 indexes, 0 objects in `public`).
+2. `import.sql` ran inside its transaction and committed: all counts matched
+   the Stage 2/4 baseline exactly; sequences realigned.
+3. `validation.sql` ran read-only: 18/18 checks `pass = true`; the armed
+   rollback did not fire.

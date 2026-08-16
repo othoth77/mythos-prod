@@ -1,7 +1,11 @@
 -- =============================================================================
 -- SSANGYONG.AUTOS Stage 4 — post-import validation (READ-ONLY)
--- STATUS: DRY-RUN ARTIFACT — NOT EXECUTED — NOT DEPLOYED.
--- Every query must return the expected value; any deviation aborts Stage 5.
+-- STATUS: EXECUTED 2026-08-16 (Stage 5 Phase 3) — ALL 18 CHECKS PASS.
+-- Run verbatim (byte-identical to the committed file) as
+-- ssangyong_autos_owner against database ssangyong_autos after import.sql
+-- committed: every row reported pass = true, so the armed rollback did not
+-- fire. Every query must return the expected value; any deviation would
+-- have aborted Stage 5.
 -- =============================================================================
 SELECT 'products'            AS check, count(*) = 346 AS pass FROM sya_products
 UNION ALL SELECT 'vehicle_models',       count(*) = 17  FROM sya_vehicle_models

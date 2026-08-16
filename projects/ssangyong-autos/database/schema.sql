@@ -1,14 +1,20 @@
 -- =============================================================================
--- SsangYong Parts (SSANGYONG.AUTOS) — Catalog Schema (Draft)
--- Stage:   SSANGYONG.AUTOS Stage 3 — schema design only
--- Date:    2026-08-16
+-- SsangYong Parts (SSANGYONG.AUTOS) — Catalog Schema (Deployed)
+-- Stage:   designed in SSANGYONG.AUTOS Stage 3; deployed in Stage 5 Phase 3
+-- Date:    2026-08-16 (designed and deployed)
 -- Schema:  ssangyong_autos (separate logical schema; not idauto / autovaleur /
 --          mythos_automotive / mythos_automation — no cross-schema FKs)
 --
--- STATUS: DRAFT — NOT DEPLOYED. NOT EXECUTED.
--- No table has been created. No row has been inserted. No migration script
--- exists yet. Provisioning requires explicit owner authorisation in a future
--- stage. Google Sheets, PostgreSQL, n8n and the scraper are unchanged.
+-- STATUS: DEPLOYED — EXECUTED 2026-08-16 (Stage 5 Phase 3, owner-authorised).
+-- Executed verbatim (byte-identical to the committed file, verified by
+-- git hash-object against HEAD) with psql --single-transaction, as the
+-- dedicated non-superuser role ssangyong_autos_owner, against database
+-- ssangyong_autos (PG 15.18, 127.0.0.1:5432) — never against idauto.
+-- Result: 5 tables + 8 explicit indexes (13 statements, matching Stage 3's
+-- parse-level prediction); every object lives in schema ssangyong_autos
+-- (created in Stage 5 Phase 2), 0 objects in public. Validated by
+-- migration/validation.sql: 18/18 checks pass. Google Sheets, n8n and the
+-- scraper are unchanged. See docs/AI_HANDOVER.md (Stage 5 Phase 3 record).
 --
 -- Table count: 5 (all prefixed sya_) + 1 documented deferred proposal
 --   sya_products
@@ -31,7 +37,9 @@
 --     host is PG 15.18).
 -- =============================================================================
 
--- CREATE SCHEMA ssangyong_autos;  -- deferred; all tables below live in it
+-- CREATE SCHEMA ssangyong_autos;  -- never uncommented: the schema was created
+--   in Stage 5 Phase 2 (owned by ssangyong_autos_owner); at deployment the
+--   search_path was supplied as a connection option, not a file edit
 
 -- -----------------------------------------------------------------------------
 -- 1. sya_products — one row per canonical product (expected 346)
