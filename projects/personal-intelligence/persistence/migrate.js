@@ -2,8 +2,14 @@
 // Mythos Personal Intelligence — MPI-2A Migration Runner
 // projects/personal-intelligence/persistence/migrate.js
 //
-// STATUS: PREPARATION ONLY. This runner has never been executed against any
-// production database. It is validated against throwaway scratch containers.
+// STATUS: PRODUCTION-APPLIED. Executed once against the production target —
+// database `idauto` on `idauto-postgres` (PostgreSQL 15.18, system identifier
+// machine-verified) — on 2026-08-14 under explicit, scope-bound owner
+// authorisation; all three migrations applied in one transaction and
+// sha256-recorded in `mythos_intelligence.schema_migrations`. See
+// docs/AI_HANDOVER.md "MPI-2A APPLY (2026-08-14) — PASS — PRODUCTION
+// VERIFIED". Still validated against throwaway scratch containers; any re-run
+// remains gated by the full preflight and the external gates below.
 //
 // WHY THIS EXISTS RATHER THAN A REUSED MECHANISM: the repository has no
 // migration runner. `docs/MYTHOS_SUPABASE_MIGRATION_DESIGN.md` documents plain

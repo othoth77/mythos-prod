@@ -6,9 +6,12 @@
 // mythos_intelligence schema. Implements the interface specified in
 // docs/MYTHOS_MEMORY_ENGINE_ARCHITECTURE.md §18.7.
 //
-// STATUS: scratch implementation (MPI-2B). Validated only against a throwaway
-// PostgreSQL 15.18 container. Not wired into any production application and not
-// pointed at any production database.
+// STATUS: PRODUCTION-USED (built in MPI-2B). Validated against throwaway
+// PostgreSQL scratch containers, and since 2026-08-14/15 exercised against the
+// production `mythos_intelligence` schema on `idauto-postgres` by the guarded
+// MPI-2H ingestion batches and the MPI-3 read-only retrieval path — always
+// operator-run per invocation with an injected driver; this module still holds
+// no connection details or credentials of its own.
 //
 // NO DRIVER DEPENDENCY. This repository has no package.json and no node_modules
 // by design, so this module takes an injected driver rather than requiring one.
