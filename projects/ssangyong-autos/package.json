@@ -1,0 +1,9 @@
+{
+  "name": "@mythos/ssangyong-autos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SsangYong Parts (SSANGYONG.AUTOS) — SYA-API-1: read-only catalog API over the live ssangyong_autos PostgreSQL database deployed in Stage 5 Phase 3.",
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}
