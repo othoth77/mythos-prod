@@ -65,6 +65,8 @@
 
 var http = require('http');
 var url = require('url');
+var fs = require('fs');
+var path = require('path');
 var db = require('./db.js');
 
 // Bounds on the only client-controlled sizing parameter. 200 keeps the
@@ -383,6 +385,54 @@ async function getProduct(res, productUid) {
 }
 
 // ---------------------------------------------------------------------------
+// Storefront assets (SYA-SHOP-1)
+//
+// Serving the storefront from this same process is what migration-plan §22
+// option 3 — ratified 2026-08-16, "new storefront consumes Mythos natively" —
+// makes possible: the page and its data share an origin, so the API needs no
+// public exposure and no CORS of its own. Same static-asset-map convention as
+// projects/idauto/reference/api.js.
+//
+// The catalogue pages carry no credential and no user input of any kind. The
+// CSP below is default-deny with one deliberate exception: product photography
+// is hosted on autopart.tn, the catalog's source site, and `image_url` values
+// are constrained at the schema level to `^https://`.
+// ---------------------------------------------------------------------------
+
+var SHOP_ASSETS = {
+  '/': { file: 'shop.html', contentType: 'text/html; charset=utf-8' },
+  '/index.html': { file: 'shop.html', contentType: 'text/html; charset=utf-8' },
+  '/shop.css': { file: 'shop.css', contentType: 'text/css; charset=utf-8' },
+  '/shop-ui.js': { file: 'shop-ui.js', contentType: 'application/javascript; charset=utf-8' }
+};
+
+var SHOP_CSP = "default-src 'self'; script-src 'self'; style-src 'self'; " +
+               "img-src 'self' https://autopart.tn; connect-src 'self'; " +
+               "base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
+function serveShopAsset(req, res, pathname) {
+  var asset = SHOP_ASSETS[pathname];
+  if (!asset) return false;
+  if (req.method !== 'GET') {
+    res.writeHead(405, { 'Content-Type': 'application/json; charset=utf-8', 'Allow': 'GET' });
+    res.end(JSON.stringify({ error: 'method not allowed' }));
+    return true;
+  }
+  fs.readFile(path.join(__dirname, asset.file), function (err, content) {
+    if (err) return sendJson(res, 500, { error: 'storefront unavailable' });
+    res.writeHead(200, {
+      'Content-Type': asset.contentType,
+      'Cache-Control': 'no-cache',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'same-origin',
+      'Content-Security-Policy': SHOP_CSP
+    });
+    res.end(content);
+  });
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Routing
 // ---------------------------------------------------------------------------
 
@@ -399,6 +449,8 @@ function createServer() {
   return http.createServer(function (req, res) {
     var parsed = url.parse(req.url, true);
     var pathname = parsed.pathname;
+
+    if (serveShopAsset(req, res, pathname)) return;
 
     var matchedPath = ROUTES.filter(function (r) { return r.pattern.test(pathname); });
     if (matchedPath.length === 0) return notFound(res);
@@ -427,12 +479,14 @@ function createServer() {
 if (require.main === module) {
   var port = parseInt(process.env.SSANGYONG_API_PORT || '3011', 10);
   createServer().listen(port, '127.0.0.1', function () {
-    console.log('SSANGYONG.AUTOS catalog API listening on 127.0.0.1:' + port);
+    console.log('SSANGYONG.AUTOS catalog API + storefront listening on http://127.0.0.1:' + port);
   });
 }
 
 module.exports = {
   createServer: createServer,
   DEFAULT_LIMIT: DEFAULT_LIMIT,
-  MAX_LIMIT: MAX_LIMIT
+  MAX_LIMIT: MAX_LIMIT,
+  SHOP_ASSETS: SHOP_ASSETS,
+  SHOP_CSP: SHOP_CSP
 };

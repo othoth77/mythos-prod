@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SsangYong Parts — Catalogue pièces détachées</title>
+  <link rel="stylesheet" href="/shop.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/">
+      <span class="brand-mark">SsangYong</span>
+      <span class="brand-sub">Pièces détachées</span>
+    </a>
+    <form class="search" id="search-form" role="search">
+      <label class="visually-hidden" for="search-input">Rechercher une pièce</label>
+      <input id="search-input" type="search" name="q" placeholder="Référence, désignation, numéro OE…" autocomplete="off">
+      <button type="submit">Rechercher</button>
+    </form>
+  </header>
+
+  <!-- Catalogue view -->
+  <main id="view-catalogue" class="layout" hidden>
+    <aside class="filters">
+      <section class="filter-block">
+        <h2>Votre véhicule</h2>
+        <label for="filter-model">Modèle</label>
+        <select id="filter-model">
+          <option value="">Tous les modèles</option>
+        </select>
+        <label for="filter-motorization">Motorisation</label>
+        <select id="filter-motorization" disabled>
+          <option value="">Toutes les motorisations</option>
+        </select>
+        <p class="hint" id="vehicle-hint">Choisissez un modèle pour filtrer par motorisation.</p>
+      </section>
+
+      <section class="filter-block">
+        <h2>Marque de la pièce</h2>
+        <ul class="facet" id="filter-brands"></ul>
+      </section>
+
+      <button type="button" class="reset" id="filter-reset" hidden>Effacer les filtres</button>
+    </aside>
+
+    <section class="results">
+      <div class="results-head">
+        <h1 id="results-title">Catalogue</h1>
+        <p id="results-count" class="results-count" aria-live="polite"></p>
+      </div>
+      <ul class="grid" id="product-grid"></ul>
+      <nav class="paging" id="paging" hidden>
+        <button type="button" id="page-prev">Précédent</button>
+        <span id="page-status"></span>
+        <button type="button" id="page-next">Suivant</button>
+      </nav>
+    </section>
+  </main>
+
+  <!-- Product detail view -->
+  <main id="view-product" class="product" hidden>
+    <p class="crumbs"><a href="/" id="back-link">← Retour au catalogue</a></p>
+    <div class="product-body">
+      <div class="gallery">
+        <img id="product-image" alt="">
+        <ul class="thumbs" id="product-thumbs"></ul>
+      </div>
+      <div class="product-info">
+        <p class="product-brand" id="product-brand"></p>
+        <h1 id="product-title"></h1>
+        <p class="product-ref">Référence <strong id="product-ref"></strong></p>
+        <p class="price"><span id="product-price"></span></p>
+        <p class="availability" id="product-availability"></p>
+
+        <section>
+          <h2>Caractéristiques</h2>
+          <dl class="specs" id="product-specs"></dl>
+        </section>
+
+        <section>
+          <h2>Compatibilité véhicule</h2>
+          <table class="fitment">
+            <thead>
+              <tr><th scope="col">Modèle</th><th scope="col">Motorisation</th><th scope="col">Années</th></tr>
+            </thead>
+            <tbody id="product-fitment"></tbody>
+          </table>
+        </section>
+
+        <p class="source">Source : <span id="product-source"></span> · dernière vérification <span id="product-checked"></span></p>
+      </div>
+    </div>
+  </main>
+
+  <p class="state" id="state-message" role="status"></p>
+
+  <footer class="site-footer">
+    <p>Catalogue SsangYong Parts — <span id="footer-counts"></span></p>
+    <p class="footer-note">Consultation seule. La commande n’est pas encore disponible en ligne.</p>
+  </footer>
+
+  <script src="/shop-ui.js"></script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 **Product:** SsangYong Parts
 **Domain:** ssangyong.autos
 **Repository:** othoth77/mythos-prod (`projects/ssangyong-autos/`)
-**Current stage:** SYA-API-1 — read-only catalog API over the live PostgreSQL catalog (2026-08-16)
+**Current stage:** SYA-SHOP-1 — storefront consuming the catalog API natively (2026-08-16)
 **Consumption architecture:** migration plan §22 **option 3 ratified 2026-08-16** — new storefront consumes the catalog natively; legacy site untouched, retired later
 **Authoritative state record:** `docs/AI_HANDOVER.md`
 
@@ -18,6 +18,7 @@
 | Live catalog | **1519 rows** — 346 products · 17 vehicle models · 63 motorizations · 782 compatibility · 311 images |
 | `reference/db.js` | Read-only `pg` pool over the live database |
 | `reference/api.js` | GET-only HTTP catalog API (SYA-API-1) |
+| `reference/shop.html` · `shop.css` · `shop-ui.js` | Storefront (SYA-SHOP-1), served by the same process |
 | Public exposure | **None.** Loopback-only, not deployed, no nginx block, no service unit |
 
 The database is `ssangyong_autos` on PostgreSQL 15.18 at `127.0.0.1:5432`, owned by
@@ -123,12 +124,61 @@ credentials live at `/home/deploy/deployments/ssangyong-autos-postgres/.env`
 ### Test it
 
 ```bash
-env SSANGYONG_DB_HOST=... ... node tests/sya-api-1-readonly-catalog-api-test.js
+env SSANGYONG_DB_HOST=... ... node tests/sya-api-1-readonly-catalog-api-test.js   # 60 checks
+env SSANGYONG_DB_HOST=... ... node tests/sya-shop-1-storefront-test.js            # 39 checks
 ```
 
-Not offline: it runs real HTTP requests against the real catalog, because
-proving the API works against the live database is the point. The row counts it
-asserts are the Stage 5 Phase 3 baseline — if they fail, the data changed.
+Neither suite is offline: both run real HTTP requests against the real catalog,
+because proving this works against the live database is the point. The row
+counts they assert are the Stage 5 Phase 3 baseline — if they fail, the data
+changed.
+
+---
+
+## The storefront (SYA-SHOP-1)
+
+The consumer ratified option 3 calls for. Served by the same process as the API
+at `/`, so page and data share an origin and the API needs no public exposure of
+its own. Same no-build-step, no-framework convention as
+`projects/idauto/reference/admin.html` — plain HTML, one stylesheet, one script.
+
+| Route | Serves |
+|---|---|
+| `GET /` · `GET /index.html` | `shop.html` — the storefront shell |
+| `GET /shop.css` | Stylesheet |
+| `GET /shop-ui.js` | The UI |
+
+**Browse model is vehicle-first**, because that is what the catalog actually
+holds: pick a SsangYong model, then its motorization, then filter by part brand
+or search by reference / designation / OE number. There is no category tree —
+`database/schema.sql` §6 explains why the scraped `categories` tab is a crawl
+frontier rather than application data, so building a browse tree on it would
+have meant inventing one.
+
+State lives in the query string (`?p` / `?model` / `?motor` / `?brand` / `?q` /
+`?page`), so a filtered catalogue and a product page are both linkable and the
+back button behaves.
+
+Two constraints worth keeping if you extend it:
+
+- **Never assign `innerHTML` with catalog data.** Every title, criterion and
+  spec label came from a scraped third-party site. The UI builds nodes and sets
+  `textContent`; a test asserts `innerHTML` appears nowhere, so a crafted
+  product title cannot become markup.
+- **Format prices from the decimal string, never `parseFloat`.** `money()`
+  splits on the decimal point so the displayed value is byte-identical to the
+  `NUMERIC(8,2)` the database holds. A test pins this against live data.
+
+The page sends a default-deny CSP with exactly one remote origin —
+`https://autopart.tn`, where the product photography lives. A test proves from
+live data that this origin is both necessary and sufficient, so a future scrape
+introducing a second image host fails loudly instead of silently showing broken
+images.
+
+**Ordering is not implemented and is not an oversight.** There is no order,
+customer or payment table in the schema, and adding one would be inventing
+architecture rather than consuming the catalog. The footer says so plainly:
+*"Consultation seule. La commande n'est pas encore disponible en ligne."*
 
 ---
 
