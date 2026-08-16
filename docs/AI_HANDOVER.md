@@ -63,7 +63,8 @@ The SSANGYONG.AUTOS Stage 3/4 records below landed from a parallel session while
 |---|---|
 | STATUS | **O-BACKUP-5 implemented and fully tested; operationally gated shut on the three remaining owner/operator blockers** |
 | CONTRACT | O-BACKUP-1..4 + **O-BACKUP-5** (verbatim in `docs/AUTOMATION_ROADMAP.md`) |
-| COMMIT | recorded in the follow-up docs commit, per the no-self-referential-hash convention |
+| COMMIT | `ccc6a1d5902da4a30a08b46bdda5c306be5a061e` — pushed; `git ls-remote origin main` verified `ccc6a1d…` before this follow-up record |
+| REMOTE HEAD AT VERIFICATION | `ccc6a1d5902da4a30a08b46bdda5c306be5a061e` == local HEAD == origin/main |
 | TARGETED TESTS | backup **243** · IDA-3F 35 · storage-ops 72 · deploy 124 · DNS 97+85 · CF/OVH 26+26 · helpers 40 · DEVX 92+45 — 0 failed; `validate` 0 errors |
 | MUTATION CHECKS | **8/8 caught** (1 initial survivor investigated; weak test fixed, guard intact) |
 | BACKUPS / RESTORES / UPLOADS | 0 / 0 / 0 |
