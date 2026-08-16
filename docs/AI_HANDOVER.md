@@ -26,6 +26,57 @@
 
 ---
 
+## MYTHOS ORCHESTRATION CORE — FIRST REAL MISSION (2026-08-16) — **PASS; FIVE LIVE DEFECTS FOUND, FIXED, TESTED, DELIVERED; PRODUCTION CHANGES NONE; SSANGYONG UNTOUCHED**
+
+**Result:** PASS. Goal `g-mswafej0-b549a2` → mission `m-mswafej5-6ebaf0` (7-task
+linear DAG) ran through the REAL integrated core — submitGoal → planner →
+policy → context → router → scheduler → executorBridge → Phase 1 executor →
+real headless Claude AND real OmniRoute/gpt-4o-mini (genuine multi-provider:
+the router chose the advisory agent for 3 analysis tasks on risk/cost; Gemini
+stayed honestly UNCONFIGURED) → six-validator validation + CROSS-PROVIDER
+adversarial review (gpt-4o-mini reviewing Claude; rejected bad results, passed
+the fixed ones) → report entity `rp-mswbwra2-6cdda4` → memory (decision
+`me-mswbxrlt-e9daee`) → GitHub. All 7 tasks COMPLETED; goal COMPLETED.
+Full narrative + evidence: `docs/MYTHOS_FIRST_MISSION_REPORT.md`.
+
+**Agent:** claude-code (inspect/recommend/validate-rec/report) +
+omniroute-advisory=gpt-4o-mini (compare/gaps/rank). **Tools:** least privilege
+proven — grant exactly `git.read`; `database.destroy` refused TOOL_NOT_GRANTED.
+**Policy:** READ-only mission; §15 negative tests live: DESTRUCTIVE goal
+refused at the plan gate (recorded verbatim), DEPLOY parked WAITING_FOR_APPROVAL
+(evented, runner never called). **Restart (§17):** fresh process recovered
+WAITING_FOR_APPROVAL/WAITING/1-approval intact. **Quota:** a REAL 429
+session-limit hit mid-mission; after the pattern fix the episode resolved
+exactly as designed (no quota was burned deliberately to test).
+
+**Five live-found integration defects — each fixed, tested, committed:**
+`4f17bcd` (quota pattern "hit your session limit" was FATAL→ now quota;
+failed-status results could settle COMPLETED → now always reject to repair;
+openai-compat needed stream:false for OmniRoute SSE), `5827a8f` (repair loop
+was BLIND — rejections now injected into the next attempt's prompt),
+`195ae06` (planner task type `validation` had no routable agent → config +
+completeness invariant test). Suites after fixes: **Phase 1 120/120, core
+248/248**, remote HEAD verified after every push.
+
+**Mission's own verified deliverable:** the highest-value gap is that NO
+production entry point invokes `core/` (executorBridge has zero non-test call
+sites); staged wiring recommended (spec → CLI verb → opt-in POST /goals →
+flag-gated daemon wiring, default off), real-quota metrics and restarts as
+separate owner stages.
+
+**Operational notes:** Phase 1 daemon was paused for the mission window and
+restarted (active, healthy); an interrupted bridge task resurrected by daemon
+recovery after mission completion was cancelled via the API (~35s quota) —
+recorded as the bridge-lifecycle residual. Advisory credential reference
+provisioned at `~/.config/mythos-ai-executor/advisory.env` (0600) from the
+EXISTING OmniRoute internal key — no new credential created, no value printed.
+
+**Production changes: NONE · SSANGYONG legacy: UNTOUCHED · force-push: none.**
+Next: owner decision on the staged core wiring (the mission's recommendation);
+Gemini credential provisioning remains optional and separate.
+
+---
+
 ## MYTHOS MYTHOS-ORCH-CORE (Phase 2) — AI ORCHESTRATION CORE (2026-08-16) — **COMPLETE: 234/234 CORE, 118/118 PHASE 1, FULL SWEEP 0 NEW FAILURES, NOTHING DEPLOYED CHANGED**
 
 Owner-ordered Phase 2 master implementation: evolve the Phase 1 executor into the
