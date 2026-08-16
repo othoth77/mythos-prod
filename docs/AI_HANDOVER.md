@@ -42,7 +42,7 @@ orchestration runtime state under `/home/ubuntu/mythos-ai-executor/orchestration
 | Stage | What | Status | Commit | Core suite | Phase 1 suite |
 |---|---|---|---|---|---|
 | 2A | Domain model (Goal/Mission/Task/…, extended task states, compat adapter to Phase 1 states, correlation ids) + persistent entity store (atomic, redacted, duplicate-refusing, transition-enforced) + durable event stream + restart recovery | **COMPLETE** | (this commit) | 38/38 | 118/118 (unchanged code) |
-| 2B | Project memory + context engine | pending | — | — | — |
+| 2B | Project memory (12 categories, secret-REFUSING, supersede-not-erase, lexical recall with category weights and relevance floor, strict project isolation) + context engine (repo state + memory + prior tasks, relevance/source/timestamp/confidence per item, hard char budget, no repo dumps) | **COMPLETE** | (this commit) | 56/56 | unchanged |
 | 2C | Agent registry | pending | — | — | — |
 | 2D | Tool registry | pending | — | — | — |
 | 2E | Mission planner | pending | — | — | — |

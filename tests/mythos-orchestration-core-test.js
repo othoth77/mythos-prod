@@ -170,6 +170,147 @@ function throws(fn, re, name) {
 })();
 
 // ===========================================================================
+// PHASE 2B — project memory + context engine
+// ===========================================================================
+
+var memory = require(path.join(EXEC, 'core', 'memory'));
+var context = require(path.join(EXEC, 'core', 'context'));
+
+function makeRepo(name) {
+  var dir = path.join(FIXTURES, name);
+  fs.mkdirSync(dir, { recursive: true });
+  cp.execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });
+  cp.execFileSync('git', ['config', 'user.email', 't@t'], { cwd: dir });
+  cp.execFileSync('git', ['config', 'user.name', 't'], { cwd: dir });
+  fs.writeFileSync(path.join(dir, 'README.md'), name + '\n');
+  cp.execFileSync('git', ['add', '.'], { cwd: dir });
+  cp.execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: dir });
+  return dir;
+}
+
+// --- Memory basics -----------------------------------------------------------
+(function () {
+  var e = memory.remember({
+    project: 'sya', category: 'constraint', title: 'Legacy site frozen',
+    content: 'Never modify /var/www/ssangyong.autos; ratified §22 option 3.',
+    source: 'docs/AI_HANDOVER.md', confidence: 1.0, tags: ['legacy', 'freeze']
+  });
+  ok(e.id.indexOf('me-') === 0 && e.status === 'ACTIVE', '2B memory: entry recorded');
+  throws(function () {
+    memory.remember({ project: 'sya', category: 'gossip', title: 'x', content: 'y' });
+  }, /UNKNOWN_MEMORY_CATEGORY/, '2B memory: unknown category refused');
+  throws(function () {
+    memory.remember({
+      project: 'sya', category: 'decision', title: 'creds',
+      content: 'API_KEY=sk-ant-abcdefghijklmnopqrstu12345'
+    });
+  }, /MEMORY_REFUSES_SECRETS/, '2B memory: secrets refused, not silently redacted');
+
+  memory.remember({
+    project: 'sya', category: 'architecture', title: 'Catalog search uses ILIKE',
+    content: 'Product search endpoint /api/products?q= uses ILIKE with no index; fine at 346 products.',
+    source: 'projects/ssangyong-autos/reference/api.js', confidence: 0.9, tags: ['search', 'api']
+  });
+  memory.remember({
+    project: 'sya', category: 'completed_work', title: 'Storefront implemented',
+    content: 'shop.html consumes catalog natively; no innerHTML; prices exact NUMERIC strings.',
+    source: 'docs/AI_HANDOVER.md', confidence: 0.9, tags: ['storefront']
+  });
+  memory.remember({
+    project: 'darhijama', category: 'architecture', title: 'Search in Laravel app',
+    content: 'Dar Hijama search is a Laravel scout feature, unrelated to SsangYong.',
+    source: 'x', confidence: 0.9, tags: ['search']
+  });
+
+  var hits = memory.recall('sya', 'improve product search API');
+  ok(hits.length >= 1 && hits[0].entry.title === 'Catalog search uses ILIKE',
+    '2B memory: most relevant entry ranks first');
+  ok(hits.every(function (h) { return h.entry.project === 'sya'; }),
+    '2B memory: project isolation — no cross-project entries');
+  var none = memory.recall('sya', 'quantum blockchain kubernetes');
+  ok(none.length === 0, '2B memory: irrelevant query returns nothing, not noise');
+})();
+
+// --- Supersede ----------------------------------------------------------------
+(function () {
+  var old = memory.remember({
+    project: 'sya', category: 'known_issue', title: 'Search button clipped on mobile',
+    content: 'min-width bug at 360px.', confidence: 0.9, tags: ['search', 'mobile']
+  });
+  var next = memory.supersede(old.id, {
+    category: 'completed_work', title: 'Mobile search clipping fixed',
+    content: 'Fixed with min-width:0 on .search in 1bcba2c; measured 360/390 clean.',
+    confidence: 1.0, tags: ['search', 'mobile']
+  });
+  var reloaded = store.load('memory_entry', old.id);
+  ok(reloaded.status === 'SUPERSEDED' && reloaded.metadata.superseded_by === next.id,
+    '2B memory: supersede links and retires the old entry');
+  var hits = memory.recall('sya', 'mobile search clipping');
+  ok(hits.every(function (h) { return h.entry.id !== old.id; }),
+    '2B memory: superseded entries never recalled');
+})();
+
+// --- Restart recovery -----------------------------------------------------------
+(function () {
+  var script =
+    'var m = require(' + JSON.stringify(path.join(EXEC, 'core', 'memory')) + ');' +
+    'var hits = m.recall("sya", "product search api");' +
+    'console.log(JSON.stringify({n: hits.length, first: hits[0] ? hits[0].entry.title : null}));';
+  var out = JSON.parse(cp.execFileSync(process.execPath, ['-e', script], {
+    encoding: 'utf8', env: Object.assign({}, process.env)
+  }).trim());
+  ok(out.n >= 1 && out.first === 'Catalog search uses ILIKE',
+    '2B memory: recall survives process restart');
+})();
+
+// --- Context engine ---------------------------------------------------------------
+(function () {
+  throws(function () { context.assembleContext({}); }, /CONTEXT_REQUIRES_PROJECT/,
+    '2B context: project is mandatory');
+
+  var repo = makeRepo('ctx-repo');
+  // A completed prior core task for relatedness.
+  var prior = domain.createTask({
+    title: 'Tune product search ranking', project: 'sya',
+    status: 'QUEUED', instruction: 'search ranking experiment'
+  });
+  store.create(prior);
+  ['READY', 'RUNNING', 'VALIDATING', 'COMPLETED'].reduce(function (_, s) {
+    return store.transition('task', prior.id, s);
+  }, null);
+
+  var ctx = context.assembleContext({
+    project: 'sya', instruction: 'Modify the SSANGYONG catalog search API',
+    repo_path: repo
+  });
+  var kinds = ctx.items.map(function (i) { return i.kind; });
+  ok(kinds[0] === 'repository_state', '2B context: live repo state always included first');
+  ok(kinds.some(function (k) { return k === 'memory:architecture'; }),
+    '2B context: relevant memory included');
+  ok(kinds.some(function (k) { return k === 'prior_task'; }),
+    '2B context: related prior task included');
+  ok(!ctx.items.some(function (i) { return /Laravel/.test(i.content); }),
+    '2B context: other projects excluded');
+  ok(!ctx.items.some(function (i) { return /Photo non disponible|storefront/i.test(i.kind); }),
+    '2B context: unrelated categories not force-included');
+  ok(ctx.items.every(function (i) {
+    return i.relevance !== undefined && i.source && i.timestamp && i.confidence !== undefined;
+  }), '2B context: every item carries relevance/source/timestamp/confidence');
+
+  // Budget enforcement: a tiny budget admits strictly fewer items.
+  var tiny = context.assembleContext({
+    project: 'sya', instruction: 'Modify the SSANGYONG catalog search API',
+    repo_path: repo, max_chars: 120
+  });
+  ok(tiny.items.length < ctx.items.length && tiny.total_chars <= 120,
+    '2B context: hard character budget enforced');
+
+  var rendered = context.renderContext(ctx);
+  ok(rendered.indexOf('repository_state') !== -1 && rendered.indexOf('relevance') !== -1,
+    '2B context: renderable for prompt injection');
+})();
+
+// ===========================================================================
 // Summary
 // ===========================================================================
 Promise.resolve().then(function () {
