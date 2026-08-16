@@ -119,18 +119,26 @@ function withLock(file, fn) {
       break;
     } catch (e) {
       if (e.code !== 'EEXIST') throw e;
-      // Break a stale lock: holder gone, or older than the stale window.
+      // Break a stale lock ONLY when its holder is provably gone. A live
+      // holder's lock is never broken on age alone: a slow or suspended
+      // holder would otherwise have its lock stolen while it is still
+      // mutating, letting two writers in at once (independent review,
+      // CRITICAL/race). Age only decides the case where the holder pid
+      // cannot be determined at all.
       var stale = false;
       try {
         var st = fs.statSync(lock);
         var holder = parseInt(fs.readFileSync(lock, 'utf8'), 10);
-        var alive = false;
-        if (holder && holder !== process.pid) {
-          try { process.kill(holder, 0); alive = true; } catch (k) { alive = (k.code === 'EPERM'); }
+        if (!holder) {
+          // Unreadable/incomplete lock file: fall back to age.
+          stale = (Date.now() - st.mtimeMs > LOCK_STALE_MS);
         } else if (holder === process.pid) {
-          alive = true; // our own lock: never self-break inside one process
+          stale = false; // our own lock: never self-break inside one process
+        } else {
+          var alive;
+          try { process.kill(holder, 0); alive = true; } catch (k) { alive = (k.code === 'EPERM'); }
+          stale = !alive;
         }
-        stale = (!alive) || (Date.now() - st.mtimeMs > LOCK_STALE_MS);
       } catch (e2) {
         stale = true; // lock vanished between calls
       }
@@ -289,6 +297,9 @@ function reserve(req) {
   }
 
   var file = ledgerFile(project, scope, periodKey);
+  // A ledger that cannot be locked or read must DENY, never throw into
+  // the caller's control flow: spending fails closed (independent review).
+  try {
   return withLock(file, function () {
     var ledger = readLedgerRaw(file) || emptyLedger(project, scope, periodKey, budget);
     // Config may have changed since the period started; the committed
@@ -351,6 +362,11 @@ function reserve(req) {
       budget: Object.assign({ project: project, period_key: periodKey }, after),
       reason: 'reserved ' + req.amount + ' ' + after.currency + '; remaining ' + after.remaining };
   });
+  } catch (e) {
+    emitBudgetEvent('BUDGET_DENIED', { project: project, amount: req.amount,
+      task_id: req.task_id, reason: 'ledger unavailable' });
+    return { decision: 'deny', reason: 'ledger unavailable: ' + String(e.message).slice(0, 160) };
+  }
 }
 
 // Settles a reservation into spent. Idempotent: settling twice counts once.
@@ -363,6 +379,7 @@ function settle(req) {
   var budget = projectBudget(req.project, req.config);
   var periodKey = req.period_key || periodKeyFor(scope, budget.timezone, req.at);
   var file = ledgerFile(req.project, scope, periodKey);
+  try {
   return withLock(file, function () {
     var ledger = readLedgerRaw(file);
     if (!ledger || !ledger.entries[req.reservation_id]) {
@@ -392,7 +409,13 @@ function settle(req) {
     entry.settled_amount = actual;
     entry.settled_at = new Date().toISOString();
     if (req.external_reference) entry.external_reference = String(req.external_reference).slice(0, 200);
-    if (req.cost_basis && COST_BASIS.indexOf(req.cost_basis) !== -1) entry.cost_basis = req.cost_basis;
+    // A cost basis may only be upgraded to 'known' when an actual figure
+    // was supplied with the settlement — otherwise an estimate could be
+    // relabelled as certain with no evidence (independent review).
+    if (req.cost_basis && COST_BASIS.indexOf(req.cost_basis) !== -1) {
+      var upgradingToKnown = req.cost_basis === 'known' && entry.cost_basis !== 'known';
+      if (!upgradingToKnown || typeof req.actual_amount === 'number') entry.cost_basis = req.cost_basis;
+    }
     writeLedger(file, ledger);
     var after = totals(ledger);
     emitBudgetEvent('BUDGET_SETTLED', {
@@ -403,6 +426,9 @@ function settle(req) {
     return { ok: true, settled_amount: actual, capped: capped,
       budget: Object.assign({ project: req.project, period_key: periodKey }, after) };
   });
+  } catch (e) {
+    return { ok: false, reason: 'ledger unavailable: ' + String(e.message).slice(0, 160) };
+  }
 }
 
 // Releases an unsettled reservation (execution failed / task cancelled).
@@ -413,6 +439,7 @@ function release(req) {
   var budget = projectBudget(req.project, req.config);
   var periodKey = req.period_key || periodKeyFor(scope, budget.timezone, req.at);
   var file = ledgerFile(req.project, scope, periodKey);
+  try {
   return withLock(file, function () {
     var ledger = readLedgerRaw(file);
     if (!ledger || !ledger.entries[req.reservation_id]) {
@@ -437,6 +464,9 @@ function release(req) {
     });
     return { ok: true, budget: Object.assign({ project: req.project, period_key: periodKey }, after) };
   });
+  } catch (e) {
+    return { ok: false, reason: 'ledger unavailable: ' + String(e.message).slice(0, 160) };
+  }
 }
 
 // Read-only affordability check (no reservation). Used by the policy

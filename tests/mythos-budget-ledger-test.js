@@ -469,6 +469,148 @@ chain = chain.then(function () {
   });
 });
 
+// ------------------------------ independent-review findings (regression tests)
+chain = chain.then(function () {
+  // FINDING (CRITICAL/race, deepseek + gpt-4o): a LIVE holder's lock must
+  // never be broken on age alone.
+  var CFG7 = JSON.parse(JSON.stringify(CFG));
+  CFG7.projects.locked = { currency: 'USD', timezone: 'Europe/Paris', daily_limit: 10 };
+  var lockFile = budget.ledgerFile('locked', 'DAY', budget.periodKeyFor('DAY', 'Europe/Paris')) + '.lock';
+  fs.mkdirSync(path.dirname(lockFile), { recursive: true });
+  // A lock held by a LIVE process (this one's parent is alive by
+  // definition) and deliberately aged well beyond the stale window.
+  fs.writeFileSync(lockFile, String(process.ppid));
+  var old = Date.now() - 3600 * 1000;
+  fs.utimesSync(lockFile, new Date(old), new Date(old));
+  var start = Date.now();
+  var blocked = budget.reserve(R({ project: 'locked', amount: 1, reservation_id: 'lock-probe', config: CFG7 }));
+  var waited = Date.now() - start;
+  ok(blocked.decision === 'deny' && /BUDGET_LOCK_TIMEOUT|ledger unavailable/.test(String(blocked.reason || '')),
+    'review/race: a live holder\'s stale-aged lock is NOT stolen — the request fails closed instead');
+  ok(waited >= 1000, 'review/race: the waiter genuinely waited on the live lock (' + waited + 'ms)');
+  ok(budget.status('locked', { config: CFG7 }).reserved === 0,
+    'review/race: the blocked request reserved nothing');
+  fs.unlinkSync(lockFile);
+
+  // A lock whose holder is genuinely gone IS broken.
+  fs.writeFileSync(lockFile, '999999983');
+  var afterDead = budget.reserve(R({ project: 'locked', amount: 1, reservation_id: 'lock-probe-2', config: CFG7 }));
+  ok(afterDead.decision === 'allow',
+    'review/race: a dead holder\'s lock is broken so the ledger never deadlocks');
+
+  // FINDING (HIGH/idempotency, deepseek): no unevidenced upgrade to 'known'.
+  budget.reserve(R({ project: 'locked', amount: 2, reservation_id: 'basis-probe', config: CFG7 }));
+  budget.settle({ project: 'locked', reservation_id: 'basis-probe', cost_basis: 'known', config: CFG7 });
+  var basisHist = budget.history('locked', { config: CFG7 }).filter(function (e) { return e.id === 'basis-probe'; })[0];
+  ok(basisHist.cost_basis === 'estimated',
+    'review/basis: settling without an actual figure cannot relabel an estimate as known');
+  budget.reserve(R({ project: 'locked', amount: 2, reservation_id: 'basis-probe-2', config: CFG7 }));
+  budget.settle({ project: 'locked', reservation_id: 'basis-probe-2', cost_basis: 'known',
+    actual_amount: 2, config: CFG7 });
+  var basisHist2 = budget.history('locked', { config: CFG7 }).filter(function (e) { return e.id === 'basis-probe-2'; })[0];
+  ok(basisHist2.cost_basis === 'known',
+    'review/basis: an actual figure DOES justify the known basis');
+});
+
+chain = chain.then(function () {
+  // FINDING (gemini): a reservation leaked by a crashed attempt must not
+  // shrink the budget forever — the next attempt supersedes it.
+  var scheduler = require(path.join(EXEC, 'core', 'scheduler'));
+  var planner = require(path.join(EXEC, 'core', 'planner'));
+  var CFG8 = JSON.parse(JSON.stringify(CFG));
+  CFG8.projects.leak = { currency: 'USD', timezone: 'Europe/Paris', daily_limit: 10 };
+  var ledgerShim = {
+    check: function (r) { return budget.check(Object.assign({ config: CFG8 }, r)); },
+    reserve: function (r) { return budget.reserve(Object.assign({ config: CFG8 }, r)); },
+    settle: function (r) { return budget.settle(Object.assign({ config: CFG8 }, r)); },
+    release: function (r) { return budget.release(Object.assign({ config: CFG8 }, r)); },
+    reservationIdFor: budget.reservationIdFor
+  };
+  var engine = policyEngine.createEngine({
+    policy_id: 'leak-v1',
+    classes: { READ: 'allow', PROJECT_WRITE: 'allow', GIT: 'allow', SERVICE: 'require_approval',
+      DEPLOY: 'require_approval', ROOT: 'deny', EXTERNAL_API: 'allow', DESTRUCTIVE: 'deny' },
+    money_spend: { enabled: true, daily_limit_usd: 10 }
+  }, { ledger: ledgerShim });
+
+  var goal = domain.createGoal({ text: 'leak probe', project: 'leak' });
+  store.create(goal);
+  var plan = planner.planFromSpec(goal, {
+    title: 'leak', tasks: [{ key: 'spend', title: 'spend 6', task_type: 'marketing',
+      capabilities_required: ['marketing_campaign'], policy_classes: ['MONEY_SPEND'],
+      budget_usd: 6, max_attempts: 3, depends_on: [] }]
+  });
+  var p = planner.persistPlan(plan);
+  store.transition('mission', p.mission.id, 'VALIDATED');
+
+  // Simulate a crashed attempt: reserve under the id attempt 1 would use,
+  // then leave it RESERVED (no settle, no release).
+  var leakedId = budget.reservationIdFor(p.tasks[0].id, 1, 'spend');
+  budget.reserve({ project: 'leak', amount: 6, reservation_id: leakedId,
+    cost_basis: 'estimated', config: CFG8 });
+  var t0 = store.load('task', p.tasks[0].id);
+  t0.metadata.budget_reservation_id = leakedId;
+  t0.attempt = 1;
+  store.save(t0);
+  ok(budget.status('leak', { config: CFG8 }).reserved === 6,
+    'review/leak: a crashed attempt leaves its reservation held');
+
+  return scheduler.runMission(p.mission.id, {
+    policy: engine, review: false,
+    runner: function () {
+      return Promise.resolve({ status: 'COMPLETED',
+        result: { status: 'completed', summary: 'retry after crash', actual_cost_usd: 6 } });
+    }
+  }).then(function (m) {
+    var st = budget.status('leak', { config: CFG8 });
+    ok(m.status === 'COMPLETED',
+      'review/leak: the retry succeeds instead of being denied by its own leaked hold');
+    ok(st.spent === 6 && st.reserved === 0,
+      'review/leak: exactly one spend is counted (' + st.spent + ' spent, ' + st.reserved + ' held)');
+  });
+});
+
+chain = chain.then(function () {
+  // FINDING (MEDIUM/policy, gpt-4o): an unusable ledger must fail closed
+  // at the scheduler, not crash the mission.
+  var scheduler = require(path.join(EXEC, 'core', 'scheduler'));
+  var planner = require(path.join(EXEC, 'core', 'planner'));
+  var brokenLedger = {
+    check: function () { return { affordable: false, budget: { limit: 0, spent: 0, reserved: 0, remaining: 0 }, reason: 'ledger down' }; },
+    reserve: function () { throw new Error('ledger config missing'); },
+    settle: function () { throw new Error('ledger config missing'); },
+    release: function () { throw new Error('ledger config missing'); },
+    reservationIdFor: budget.reservationIdFor
+  };
+  var engine = policyEngine.createEngine({
+    policy_id: 'broken-v1',
+    classes: { READ: 'allow', PROJECT_WRITE: 'allow', GIT: 'allow', SERVICE: 'require_approval',
+      DEPLOY: 'require_approval', ROOT: 'deny', EXTERNAL_API: 'allow', DESTRUCTIVE: 'deny' },
+    money_spend: { enabled: true, daily_limit_usd: 10 }
+  }, { ledger: brokenLedger });
+  var goal = domain.createGoal({ text: 'broken ledger probe', project: 'broken' });
+  store.create(goal);
+  var plan = planner.planFromSpec(goal, {
+    title: 'broken', tasks: [{ key: 'spend', title: 'spend', task_type: 'marketing',
+      capabilities_required: ['marketing_campaign'], policy_classes: ['MONEY_SPEND'],
+      budget_usd: 1, depends_on: [] }]
+  });
+  var p = planner.persistPlan(plan);
+  store.transition('mission', p.mission.id, 'VALIDATED');
+  var ran = 0;
+  return scheduler.runMission(p.mission.id, {
+    policy: engine, review: false,
+    runner: function () { ran += 1; return Promise.resolve({ status: 'COMPLETED' }); }
+  }).then(function (m) {
+    var t = store.load('task', p.tasks[0].id);
+    ok(ran === 0 && t.status === 'CANCELLED',
+      'review/policy: a throwing ledger fails closed (no execution, no crash)');
+    ok(/ledger unavailable|CUMULATIVE BUDGET|ledger down/.test(
+      String(t.metadata.policy_denied || '')),
+      'review/policy: the refusal reason names the ledger problem');
+  });
+});
+
 // ------------------------------------------------------------ CLI (read-only)
 chain = chain.then(function () {
   var bin = path.join(EXEC, 'bin', 'mythos-ai-executor');

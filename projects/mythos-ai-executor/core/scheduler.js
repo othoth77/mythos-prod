@@ -80,6 +80,31 @@ function runMission(missionId, opts) {
   }
 
   function dispatch(task) {
+    // Release any budget hold left by a previous attempt of THIS task
+    // BEFORE the policy gate runs: a crash between reserve and settle
+    // would otherwise leave the task blocked by its own leaked hold for
+    // the rest of the period (independent review). Releasing is safe —
+    // a settled reservation refuses release by design.
+    if ((task.policy_classes || []).indexOf('MONEY_SPEND') !== -1) {
+      var priorHold = task.metadata && task.metadata.budget_reservation_id;
+      var nextRid = ((policy && policy.ledger) || require('./budget'))
+        .reservationIdFor(task.id, (task.attempt || 0) + 1, 'spend');
+      if (priorHold && priorHold !== nextRid) {
+        try {
+          ((policy && policy.ledger) || require('./budget')).release({
+            project: task.project, reservation_id: priorHold,
+            reason: 'superseded by attempt ' + ((task.attempt || 0) + 1)
+          });
+          var cleaned = store.load('task', task.id);
+          cleaned.metadata.superseded_budget_reservations =
+            (cleaned.metadata.superseded_budget_reservations || []).concat([priorHold]);
+          delete cleaned.metadata.budget_reservation_id;
+          store.save(cleaned);
+          task = store.load('task', task.id);
+        } catch (e) { /* already terminal or ledger down — the gate decides */ }
+      }
+    }
+
     // Policy gate — aggregate over the task's declared classes. A
     // declared budget travels into MONEY_SPEND checks; no declared
     // budget means the spend gate sees no amount and denies.
@@ -145,19 +170,36 @@ function runMission(missionId, opts) {
       var amount = task.metadata && typeof task.metadata.budget_usd === 'number'
         ? task.metadata.budget_usd : null;
       var rid = ledger.reservationIdFor(task.id, (task.attempt || 0) + 1, 'spend');
-      var held = ledger.reserve({
-        project: task.project, amount: amount === null ? NaN : amount,
-        reservation_id: rid,
-        cost_basis: (task.metadata && task.metadata.cost_basis) || 'estimated',
-        provider: null, agent: task.agent_id || null,
-        mission_id: mission.id, task_id: task.id,
-        allow_approval: gate.decision === 'require_approval'
-      });
+      var held;
+      try {
+        held = ledger.reserve({
+          project: task.project, amount: amount === null ? NaN : amount,
+          reservation_id: rid,
+          cost_basis: (task.metadata && task.metadata.cost_basis) || 'estimated',
+          provider: null, agent: task.agent_id || null,
+          mission_id: mission.id, task_id: task.id,
+          allow_approval: gate.decision === 'require_approval'
+        });
+      } catch (e) {
+        // An unusable ledger (missing/corrupt config, lock timeout) must
+        // never crash a mission into an undefined state — it fails closed.
+        held = { decision: 'deny', reason: 'budget ledger unavailable: ' + String(e.message).slice(0, 160) };
+      }
       if (held.decision !== 'allow') {
         var toState = held.decision === 'require_approval' ? 'WAITING_FOR_APPROVAL' : 'CANCELLED';
         if (toState === 'WAITING_FOR_APPROVAL') {
           if (!policyEngine.pendingApprovals(task.id).length) {
-            policyEngine.requestApproval(task.id, 'MONEY_SPEND', held.reason, task.project);
+            // The approver must see the full picture, not just a sentence
+            // (Phase order §10; independent review): requested amount,
+            // spent, reserved, remaining, limit, mission, task, agent.
+            var b = held.budget || {};
+            var detail = held.reason +
+              ' [requested ' + amount + ' ' + (b.currency || '') +
+              ' · limit ' + b.limit + ' · spent ' + b.spent + ' · reserved ' + b.reserved +
+              ' · remaining ' + b.remaining + ' · period ' + b.period_key +
+              ' · mission ' + mission.id + ' · task ' + task.id +
+              ' · agent ' + (task.agent_id || 'unassigned') + ']';
+            policyEngine.requestApproval(task.id, 'MONEY_SPEND', detail, task.project);
           }
           store.transition('task', task.id, 'WAITING_FOR_APPROVAL', {
             metadata: Object.assign({}, task.metadata, {
