@@ -43,8 +43,8 @@ orchestration runtime state under `/home/ubuntu/mythos-ai-executor/orchestration
 |---|---|---|---|---|---|
 | 2A | Domain model (Goal/Mission/Task/…, extended task states, compat adapter to Phase 1 states, correlation ids) + persistent entity store (atomic, redacted, duplicate-refusing, transition-enforced) + durable event stream + restart recovery | **COMPLETE** | (this commit) | 38/38 | 118/118 (unchanged code) |
 | 2B | Project memory (12 categories, secret-REFUSING, supersede-not-erase, lexical recall with category weights and relevance floor, strict project isolation) + context engine (repo state + memory + prior tasks, relevance/source/timestamp/confidence per item, hard char budget, no repo dumps) | **COMPLETE** | (this commit) | 56/56 | unchanged |
-| 2C | Agent registry | pending | — | — | — |
-| 2D | Tool registry | pending | — | — | — |
+| 2C | Agent registry: capability-advertising agents (claude-code, omniroute-advisory, gemini-advisor UNCONFIGURED — no invented credentials), injectable availability probes (crash→unavailable, never selection crash), capability/task-type selection with hard authority filters (advisory can never be promoted), exclusion for author≠reviewer, risk/cost ranking (falsy-zero rank bug found by test and fixed) | **COMPLETE** | (this commit) | 83/83 | 118/118 |
+| 2D | Tool registry: namespace.action tools with schemas validated at registration, policy-class + risk metadata, least-privilege grants through a policy callback, grant+schema-checked invocation, declarative-only tools refuse execution, sandbox-only mock adapters (campaign tool spends/publishes nothing), DESTRUCTIVE deny-proof tool `database.destroy` with no adapter ever | **COMPLETE** | (same commit) | ↑ | ↑ |
 | 2E | Mission planner | pending | — | — | — |
 | 2F | Task DAG | pending | — | — | — |
 | 2G | Parallel execution + worktree isolation | pending | — | — | — |

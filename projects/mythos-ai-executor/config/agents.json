@@ -1,0 +1,36 @@
+{
+  "claude-code": {
+    "provider": "claude-code",
+    "capabilities": ["coding", "debugging", "repo_modification", "testing", "review", "documentation"],
+    "task_types": ["coding", "testing", "integration", "review", "documentation", "generic"],
+    "model": null,
+    "execution_authority": true,
+    "risk_level": "high",
+    "cost": { "tier": "subscription" },
+    "latency": { "class": "slow" },
+    "enabled": true
+  },
+  "omniroute-advisory": {
+    "provider": "openai-compat",
+    "capabilities": ["analysis", "review", "planning", "summarization", "second_opinion", "research"],
+    "task_types": ["research", "review", "analysis", "planning"],
+    "model": null,
+    "execution_authority": false,
+    "risk_level": "low",
+    "cost": { "tier": "metered" },
+    "latency": { "class": "fast" },
+    "enabled": true
+  },
+  "gemini-advisor": {
+    "provider": "gemini",
+    "capabilities": ["research", "review", "analysis", "summarization"],
+    "task_types": ["research", "review", "analysis"],
+    "model": "gemini-2.5-pro",
+    "execution_authority": false,
+    "risk_level": "low",
+    "cost": { "tier": "unknown" },
+    "latency": { "class": "fast" },
+    "enabled": true,
+    "note": "Registered architecturally. Reports unavailable until ~/.config/mythos-ai-executor/gemini.env provides MYTHOS_GEMINI_API_KEY — a Gemini Plus subscription is NOT an API credential and none is invented."
+  }
+}

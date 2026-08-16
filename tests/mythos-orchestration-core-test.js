@@ -311,6 +311,159 @@ function makeRepo(name) {
 })();
 
 // ===========================================================================
+// PHASE 2C — agent registry
+// ===========================================================================
+
+var agents = require(path.join(EXEC, 'core', 'agent-registry'));
+
+(function () {
+  agents.resetForTests();
+  // Inject probes so the suite never shells out or touches the network.
+  agents.registerProbe('claude-code', function () { return true; });
+  agents.registerProbe('openai-compat', function () { return false; });
+  agents.registerProbe('gemini', function () { return false; });
+
+  var all = agents.discoverAgents();
+  var names = all.map(function (a) { return a.name; });
+  ok(names.indexOf('claude-code') !== -1 && names.indexOf('gemini-advisor') !== -1 &&
+     names.indexOf('omniroute-advisory') !== -1, '2C agents: config agents discovered');
+  var gemini = all.filter(function (a) { return a.name === 'gemini-advisor'; })[0];
+  ok(gemini.available === false && gemini.execution_authority === false,
+    '2C agents: Gemini registered but UNAVAILABLE without a real credential (never invented)');
+
+  throws(function () { agents.registerAgent('Bad Name!', {}); },
+    /INVALID_AGENT_NAME/, '2C agents: bad name refused');
+  throws(function () {
+    agents.registerAgent('half-agent', { provider: 'x', capabilities: ['a'], task_types: [], risk_level: 'low' });
+  }, /AGENT_MISSING_FIELD/, '2C agents: missing execution_authority refused');
+  throws(function () {
+    agents.registerAgent('vague-agent', {
+      provider: 'x', capabilities: ['a'], task_types: [], risk_level: 'low', execution_authority: 'yes'
+    });
+  }, /MUST_BE_BOOLEAN/, '2C agents: string authority refused');
+
+  // Capability-driven selection: coding with execution authority.
+  var coding = agents.selectCandidates({
+    capabilities: ['coding'], task_type: 'coding', require_execution_authority: true
+  }, { fresh: true });
+  ok(coding.length === 1 && coding[0].name === 'claude-code',
+    '2C agents: capability match finds the execution agent');
+
+  // Claude is NOT hard-coded: a second execution agent competes on merit.
+  agents.registerAgent('mock-coder', {
+    provider: 'mock-exec', capabilities: ['coding', 'testing'], task_types: ['coding'],
+    execution_authority: true, risk_level: 'low', cost: { tier: 'free' }
+  });
+  agents.registerProbe('mock-exec', function () { return true; });
+  var two = agents.selectCandidates({
+    capabilities: ['coding'], task_type: 'coding', require_execution_authority: true
+  }, { fresh: true });
+  ok(two.length === 2 && two[0].name === 'mock-coder',
+    '2C agents: nothing hard-codes Claude — lower-risk available agent ranks first');
+
+  // Advisory selection can never be promoted to execution authority.
+  var advisors = agents.selectCandidates({
+    capabilities: ['review'], forbid_execution_authority: true
+  }, { fresh: true, include_unavailable: true });
+  ok(advisors.every(function (c) { return c.definition.execution_authority === false; }),
+    '2C agents: forbid_execution_authority is a hard filter');
+
+  // Exclusion supports "reviewer must differ from author".
+  var excluded = agents.selectCandidates({
+    capabilities: ['coding'], require_execution_authority: true, exclude: ['claude-code']
+  }, { fresh: true });
+  ok(excluded.every(function (c) { return c.name !== 'claude-code'; }),
+    '2C agents: exclusion honoured');
+
+  // A crashing probe degrades to unavailable, never crashes selection.
+  agents.registerAgent('flaky-agent', {
+    provider: 'flaky', capabilities: ['research'], task_types: ['research'],
+    execution_authority: false, risk_level: 'low'
+  });
+  agents.registerProbe('flaky', function () { throw new Error('probe exploded'); });
+  var flaky = agents.healthCheck('flaky-agent', { fresh: true });
+  ok(flaky.available === false && /probe_error/.test(flaky.detail),
+    '2C agents: provider failure → unavailable, not a crash');
+  var research = agents.selectCandidates({ capabilities: ['research'] }, { fresh: true });
+  ok(research.every(function (c) { return c.name !== 'flaky-agent'; }),
+    '2C agents: unavailable agents excluded from selection');
+  ok(agents.getCapabilities('claude-code').indexOf('coding') !== -1,
+    '2C agents: getCapabilities works');
+})();
+
+// ===========================================================================
+// PHASE 2D — tool registry
+// ===========================================================================
+
+var tools = require(path.join(EXEC, 'core', 'tool-registry'));
+
+(function () {
+  tools.resetForTests();
+  var all = tools.discoverTools();
+  var names = all.map(function (t) { return t.name; });
+  ok(names.indexOf('git.read') !== -1 && names.indexOf('meta.create_campaign') !== -1,
+    '2D tools: config tools discovered');
+
+  throws(function () { tools.registerTool('NotDotted', { version: '1', capabilities: [], policy_class: 'READ', risk: 'low', provider: 'mock' }); },
+    /INVALID_TOOL_NAME/, '2D tools: name must be namespace.action');
+  throws(function () { tools.registerTool('x.y', { version: '1', capabilities: [], policy_class: 'MAGIC', risk: 'low', provider: 'mock' }); },
+    /UNKNOWN_POLICY_CLASS/, '2D tools: unknown policy class refused');
+  throws(function () { tools.registerTool('x.y', { version: '1', capabilities: [], policy_class: 'READ', risk: 'volcanic', provider: 'mock' }); },
+    /UNKNOWN_RISK/, '2D tools: unknown risk refused');
+  throws(function () {
+    tools.registerTool('x.y', {
+      version: '1', capabilities: [], policy_class: 'READ', risk: 'low', provider: 'mock',
+      input_schema: { type: 'object', patternProperties: {} }
+    });
+  }, /TOOL_SCHEMA_UNSUPPORTED/, '2D tools: unsupported schema keyword caught at registration');
+
+  // Least-privilege grants through a policy check.
+  var allowReadOnly = function (req) {
+    return { decision: req.action_class === 'READ' ? 'allow' : 'deny' };
+  };
+  var grants = tools.grantTools(['repo_inspection', 'research'], allowReadOnly);
+  ok(grants.indexOf('git.read') !== -1 && grants.indexOf('web.search') === -1,
+    '2D tools: policy filters grants — EXTERNAL_API denied means web.search not granted');
+  ok(grants.indexOf('meta.create_campaign') === -1,
+    '2D tools: capabilities not required are never granted');
+  throws(function () { tools.grantTools(['x'], null); }, /GRANT_REQUIRES_POLICY/,
+    '2D tools: grants impossible without a policy function');
+
+  // Invocation: grant-checked, schema-checked.
+  var repo = makeRepo('tool-repo');
+  var denied = tools.invoke('git.read', { repo_path: repo }, []);
+  ok(denied.ok === false && /NOT_GRANTED/.test(denied.error),
+    '2D tools: ungranted invocation refused');
+  var result = tools.invoke('git.read', { repo_path: repo }, ['git.read']);
+  ok(result.ok === true && result.result.branch === 'main' && /^[0-9a-f]{40}$/.test(result.result.head),
+    '2D tools: granted git.read returns real repo facts');
+  var badInput = tools.invoke('git.read', { nonsense: true }, ['git.read']);
+  ok(badInput.ok === false && /INPUT_INVALID/.test(badInput.error),
+    '2D tools: input schema enforced');
+  var noAdapter = tools.invoke('database.query', {}, ['database.query']);
+  ok(noAdapter.ok === false && /NO_ADAPTER/.test(noAdapter.error),
+    '2D tools: declarative-only tool cannot execute');
+  var ghost = tools.invoke('ghost.tool', {}, ['ghost.tool']);
+  ok(ghost.ok === false && /NO_SUCH_TOOL/.test(ghost.error),
+    '2D tools: unknown tool handled');
+
+  tools.registerTool('broken.tool', {
+    version: '1', capabilities: ['x'], policy_class: 'READ', risk: 'low',
+    provider: 'mock', available: false
+  });
+  var unavailable = tools.invoke('broken.tool', {}, ['broken.tool']);
+  ok(unavailable.ok === false && /UNAVAILABLE/.test(unavailable.error),
+    '2D tools: unavailable tool refused');
+
+  // The campaign tool is mock/sandbox by construction — no spend path.
+  var campaign = tools.invoke('meta.create_campaign',
+    { daily_budget_usd: 5, duration_days: 1 }, ['meta.create_campaign']);
+  ok(campaign.ok === true && campaign.mocked === true &&
+     campaign.result.sandbox === true && campaign.result.published === false,
+    '2D tools: campaign tool is sandbox-only, publishes nothing, spends nothing');
+})();
+
+// ===========================================================================
 // Summary
 // ===========================================================================
 Promise.resolve().then(function () {
