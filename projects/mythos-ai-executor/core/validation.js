@@ -41,6 +41,14 @@ function schemaValidator(task, result) {
     if (['completed', 'failed', 'blocked'].indexOf(result.status) === -1) {
       problems.push('invalid result status: ' + String(result.status).slice(0, 30));
     }
+    // A result that REPORTS failure is a valid shape but never a settled
+    // success: it must reject into the repair loop, not become COMPLETED.
+    // (Found live: an executor-run failure surfaced as a schema-valid
+    // "failed" result and only the adversarial reviewer stopped it.)
+    if (result.status === 'failed') {
+      problems.push('result reports failure — cannot settle as COMPLETED: ' +
+        String(result.summary || '').slice(0, 160));
+    }
   }
   return { name: 'schema', pass: problems.length === 0, problems: problems };
 }

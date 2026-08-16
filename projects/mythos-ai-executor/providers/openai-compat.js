@@ -73,6 +73,10 @@ function run(task, prompt, _sessionId, _mode, opts) {
     var endpoint = url.parse(baseUrl.replace(/\/$/, '') + '/chat/completions');
     var payload = JSON.stringify({
       model: task.model || 'gpt-4o-mini',
+      // OmniRoute streams SSE chunks unless told otherwise; this client
+      // parses one JSON body, so streaming must be explicitly off.
+      // (Verified against OmniRoute 3.8.49 during the first real mission.)
+      stream: false,
       messages: [
         { role: 'system', content: 'You are an advisory reviewer for Mythos OS. You analyse and report; you cannot execute anything. End with a fenced json block containing {"mythos_report": true, "status": "completed", "summary": "..."}.' },
         { role: 'user', content: prompt }

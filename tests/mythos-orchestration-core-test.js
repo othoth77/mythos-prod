@@ -934,6 +934,20 @@ var validation = require(path.join(EXEC, 'core', 'validation'));
     { status: 'completed', summary: 'repaired properly' }, { review: false });
   ok(afterRepair.status === 'COMPLETED', '2I settle: repaired result passes and completes');
 
+  // A result that REPORTS failure never settles as COMPLETED (found live
+  // in the first real mission: an executor failure surfaced as a
+  // schema-valid "failed" result).
+  var honest = domain.createTask({ title: 'honest failure', project: 'core-test', max_attempts: 3 });
+  store.create(honest);
+  store.transition('task', honest.id, 'READY');
+  store.transition('task', honest.id, 'RUNNING', { attempt: 1 });
+  store.transition('task', honest.id, 'VALIDATING');
+  var settledFail = validation.validateAndSettle(honest.id,
+    { status: 'failed', summary: 'executor task x → FAILED' }, { review: false });
+  ok(settledFail.status === 'RETRYING' &&
+     settledFail.metadata.validation_rejections.some(function (r) { return /reports failure/.test(r); }),
+    '2I settle: a failure-reporting result rejects into repair, never COMPLETED');
+
   // Attempt budget: rejection with no attempts left → FAILED.
   var doomed = domain.createTask({ title: 'unfixable', project: 'core-test', max_attempts: 1 });
   store.create(doomed);

@@ -112,6 +112,12 @@ function eventsOf(taskId) {
 (function () {
   ok(quota.classifyFailure('Claude AI usage limit reached|1935689600') === 'quota', 'quota: pipe-epoch message classified');
   ok(quota.classifyFailure('5-hour limit reached ∙ resets 3am') === 'quota', 'quota: 5-hour message classified');
+  // Live-observed shape (api_error_status 429) from the first real
+  // orchestration mission — was misclassified fatal before the fix.
+  ok(quota.classifyFailure("You've hit your session limit · resets 9:20pm (UTC)") === 'quota',
+    'quota: live 429 session-limit message classified');
+  ok(quota.parseResetTime("You've hit your session limit · resets 9:20pm (UTC)", Date.parse('2026-08-16T20:00:00Z')) !== null,
+    'quota: live session-limit reset time parsed');
   ok(quota.classifyFailure('API Error: 529 overloaded_error') === 'transient', 'quota: overloaded is transient');
   ok(quota.classifyFailure('ECONNRESET while fetching') === 'transient', 'quota: network error is transient');
   ok(quota.classifyFailure('Credit balance is too low') === 'blocked', 'quota: billing is blocked');

@@ -26,7 +26,9 @@
 //   "Session limit reached ∙ resets 7pm"
 var QUOTA_PATTERNS = [
   /usage limit reached/i,
-  /hit your usage limit/i,
+  // "You've hit your session limit · resets 9:20pm (UTC)" — observed live
+  // (api_error_status 429) during the first real orchestration mission.
+  /hit your (?:usage|session) limit/i,
   /\b(?:5-hour|session|weekly|monthly) limit reached/i,
   /out of extra usage/i,
   /usage.{0,20}quota.{0,20}exhaust/i,
