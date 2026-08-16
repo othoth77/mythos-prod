@@ -167,6 +167,21 @@ switch (cmd) {
     }
     break;
   }
+  case 'budget': {
+    // READ-ONLY by design. There is deliberately no mutation verb:
+    // limits are changed only by a reviewed commit to config/budgets.json.
+    var budget = require(path.join(BASE, 'core', 'budget'));
+    var bsub = process.argv[3];
+    var bproj = process.argv[4] || 'mythos-prod';
+    if (bsub === 'status') {
+      printJSON(budget.status(bproj, {}));
+    } else if (bsub === 'history') {
+      printJSON({ project: bproj, entries: budget.history(bproj, {}) });
+    } else {
+      die('usage: mythos-ai-executor budget <status|history> [project]  (read-only; limits change only in config/budgets.json)', 1);
+    }
+    break;
+  }
   default:
-    die('usage: mythos-ai-executor <enqueue|run|resume|status|report|list|health|serve|tick|goal>', 1);
+    die('usage: mythos-ai-executor <enqueue|run|resume|status|report|list|health|serve|tick|goal|budget>', 1);
 }

@@ -48,8 +48,11 @@ function loadConfig(injected) {
 // Creates an immutable policy engine over a config. Object.freeze is a
 // guard against casual mutation; the real protection is that nothing
 // here writes the config back and no setter exists.
-function createEngine(injectedConfig) {
+function createEngine(injectedConfig, opts) {
   var config = loadConfig(injectedConfig);
+  // The cumulative spend ledger. Injectable for tests; defaults to the
+  // real one so production always gets cumulative enforcement.
+  var ledger = opts && opts.ledger !== undefined ? opts.ledger : require('./budget');
 
   function classDecision(actionClass, project) {
     var floored = HARD_FLOOR[actionClass];
@@ -83,12 +86,43 @@ function createEngine(injectedConfig) {
         return { decision: 'deny', class: actionClass, policy_id: config.policy_id,
           reason: 'spend requests must declare a non-negative amount_usd' };
       }
-      if (amount <= money.daily_limit_usd) {
-        return { decision: 'allow', class: actionClass, policy_id: config.policy_id,
-          reason: 'within configured daily limit (' + amount + ' <= ' + money.daily_limit_usd + ' USD/day)' };
+      // Per-request threshold first…
+      var perRequest = amount <= money.daily_limit_usd
+        ? { decision: 'allow', class: actionClass, policy_id: config.policy_id,
+          reason: 'within configured per-request limit (' + amount + ' <= ' + money.daily_limit_usd + ' USD)' }
+        : { decision: 'require_approval', class: actionClass, policy_id: config.policy_id,
+          reason: 'amount ' + amount + ' USD exceeds configured per-request limit ' + money.daily_limit_usd + ' USD' };
+
+      // …then the CUMULATIVE ledger. The stricter boundary always wins: a
+      // request that passes the per-request threshold must still fit the
+      // remaining budget for the period (the gap the first production
+      // mission found). No ledger configured ⇒ per-request only, and the
+      // ledger's own default is "no budget" so that cannot open spending.
+      if (!ledger || !request.project) return perRequest;
+      var cumulative;
+      try {
+        cumulative = ledger.check({ project: request.project, amount: amount,
+          at: request.at, task_id: request.task_id,
+          exclude_reservation_id: request.exclude_reservation_id });
+      } catch (e) {
+        return { decision: 'deny', class: actionClass, policy_id: config.policy_id,
+          reason: 'budget ledger unavailable: ' + String(e.message).slice(0, 120) + ' — spending fails closed' };
       }
-      return { decision: 'require_approval', class: actionClass, policy_id: config.policy_id,
-        reason: 'amount ' + amount + ' USD exceeds configured daily limit ' + money.daily_limit_usd + ' USD' };
+      if (cumulative.affordable) {
+        return { decision: perRequest.decision, class: actionClass, policy_id: config.policy_id,
+          reason: perRequest.reason + '; cumulative ' + cumulative.reason +
+            ' (remaining ' + cumulative.budget.remaining + ' ' + cumulative.budget.currency +
+            ' of ' + cumulative.budget.limit + ', period ' + cumulative.budget.period_key + ')',
+          budget: cumulative.budget };
+      }
+      // Cumulative failure is at least as strict as the per-request result.
+      var cumulativeDecision = money.approval_on_budget_exceeded ? 'require_approval' : 'deny';
+      if (perRequest.decision === 'require_approval' && cumulativeDecision === 'deny') cumulativeDecision = 'deny';
+      return { decision: cumulativeDecision, class: actionClass, policy_id: config.policy_id,
+        reason: 'CUMULATIVE BUDGET: ' + cumulative.reason +
+          ' (limit ' + cumulative.budget.limit + ', reserved ' + cumulative.budget.reserved +
+          ', spent ' + cumulative.budget.spent + ', period ' + cumulative.budget.period_key + ')',
+        budget: cumulative.budget };
     }
 
     var cd = classDecision(actionClass, request.project);
@@ -121,7 +155,8 @@ function createEngine(injectedConfig) {
     policy_id: config.policy_id,
     checkPolicy: checkPolicy,
     checkClasses: checkClasses,
-    explainPolicyDecision: explainPolicyDecision
+    explainPolicyDecision: explainPolicyDecision,
+    ledger: ledger
   });
 }
 

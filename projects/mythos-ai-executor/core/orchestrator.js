@@ -103,20 +103,25 @@ function buildRunner(opts) {
       instruction: task.instruction,
       repo_path: (ctx.worktree && ctx.worktree.dir) || opts.repo_path
     });
+    // Re-read the task: the scheduler has just written this attempt's
+    // budget reservation and any prior validation findings onto it.
+    var freshTask = store.load('task', task.id) || task;
     var grants = tools.grantTools(task.capabilities_required, function (req) {
       return engine.checkPolicy({
         action_class: req.action_class, tool: req.tool, project: task.project,
         // A declared task budget travels into MONEY_SPEND checks; no
         // budget declared means the spend gate sees no amount and denies.
         amount_usd: task.metadata && typeof task.metadata.budget_usd === 'number'
-          ? task.metadata.budget_usd : undefined
+          ? task.metadata.budget_usd : undefined,
+        // The scheduler already reserved this task's spend before
+        // dispatch; its own hold must not block granting its own tools.
+        exclude_reservation_id: freshTask.metadata && freshTask.metadata.budget_reservation_id
       });
     });
     // Repair feedback channel: a repairing agent must SEE what was
     // rejected, or the repair loop converges only by luck. (Found live in
     // the first real mission: three blind retries, all rejected.)
     var repairNotes = null;
-    var freshTask = store.load('task', task.id);
     if (freshTask.metadata && Array.isArray(freshTask.metadata.validation_rejections) &&
         freshTask.metadata.validation_rejections.length) {
       repairNotes = '## REPAIR REQUIRED (attempt ' + (freshTask.attempt || 1) + ')\n' +

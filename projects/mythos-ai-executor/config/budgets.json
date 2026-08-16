@@ -1,0 +1,23 @@
+{
+  "config_id": "mythos-budgets-v1",
+  "description": "Cumulative spend limits per project. A project absent from this file has NO budget, which means every spend request for it is denied — budget is granted explicitly, never by default. Amounts are in the stated currency; the daily period is computed in the stated IANA timezone, never the server's implicit local time.",
+  "defaults": {
+    "currency": "USD",
+    "timezone": "Europe/Paris",
+    "daily_limit": 0
+  },
+  "projects": {
+    "mythos-prod": {
+      "currency": "USD",
+      "timezone": "Europe/Paris",
+      "daily_limit": 0,
+      "note": "Zero by owner default: the orchestration project performs no paid external actions. Raising this is an owner decision recorded in Git."
+    },
+    "budget-sandbox": {
+      "currency": "USD",
+      "timezone": "Europe/Paris",
+      "daily_limit": 10,
+      "note": "Sandbox namespace for controlled budget proofs. No real payment method is ever attached to it; the only tools reachable under MONEY_SPEND are mock/sandbox tools."
+    }
+  }
+}

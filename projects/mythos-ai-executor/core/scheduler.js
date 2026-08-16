@@ -136,7 +136,52 @@ function runMission(missionId, opts) {
       return null; // never two writers in one tree, whatever the flags say
     }
 
-    store.transition('task', task.id, 'RUNNING', { attempt: (task.attempt || 0) + 1 });
+    // Cumulative budget: RESERVE before execution so two parallel tasks
+    // can never both spend the same remaining balance. Settled on
+    // success, released on failure (see settle() below).
+    var reservation = null;
+    if ((task.policy_classes || []).indexOf('MONEY_SPEND') !== -1) {
+      var ledger = (policy && policy.ledger) || require('./budget');
+      var amount = task.metadata && typeof task.metadata.budget_usd === 'number'
+        ? task.metadata.budget_usd : null;
+      var rid = ledger.reservationIdFor(task.id, (task.attempt || 0) + 1, 'spend');
+      var held = ledger.reserve({
+        project: task.project, amount: amount === null ? NaN : amount,
+        reservation_id: rid,
+        cost_basis: (task.metadata && task.metadata.cost_basis) || 'estimated',
+        provider: null, agent: task.agent_id || null,
+        mission_id: mission.id, task_id: task.id,
+        allow_approval: gate.decision === 'require_approval'
+      });
+      if (held.decision !== 'allow') {
+        var toState = held.decision === 'require_approval' ? 'WAITING_FOR_APPROVAL' : 'CANCELLED';
+        if (toState === 'WAITING_FOR_APPROVAL') {
+          if (!policyEngine.pendingApprovals(task.id).length) {
+            policyEngine.requestApproval(task.id, 'MONEY_SPEND', held.reason, task.project);
+          }
+          store.transition('task', task.id, 'WAITING_FOR_APPROVAL', {
+            metadata: Object.assign({}, task.metadata, {
+              approval_reason: held.reason, budget_snapshot: held.budget || null })
+          });
+        } else {
+          store.transition('task', task.id, 'CANCELLED', {
+            metadata: Object.assign({}, task.metadata, {
+              policy_denied: held.reason, budget_snapshot: held.budget || null })
+          });
+          store.appendEventLine({ event_type: 'POLICY_DENIED', subject_id: task.id,
+            project: task.project, detail: { reason: held.reason, class: 'MONEY_SPEND' } });
+        }
+        return null;
+      }
+      reservation = { id: rid, amount: amount, project: task.project, ledger: ledger };
+    }
+
+    store.transition('task', task.id, 'RUNNING', Object.assign(
+      { attempt: (task.attempt || 0) + 1 },
+      reservation ? { metadata: Object.assign({}, task.metadata, {
+        budget_reservation_id: reservation.id,
+        budget_snapshot: null
+      }) } : {}));
     if (typeof opts.on_dispatch === 'function') opts.on_dispatch(task, ctx);
     activeDirs[task.id] = workDir;
     var p = Promise.resolve().then(function () {
@@ -157,6 +202,39 @@ function runMission(missionId, opts) {
     var task = store.load('task', result.task_id);
     var outcome = result.outcome;
     var to = outcome.status;
+
+    // Settle or release the budget reservation this attempt held. Success
+    // settles the ACTUAL amount when the runner reports one (falling back
+    // to the reserved amount); anything else releases the hold so the
+    // money is not silently consumed by work that did not happen.
+    var rid = task.metadata && task.metadata.budget_reservation_id;
+    if (rid) {
+      var ledger = (policy && policy.ledger) || require('./budget');
+      var settledOk = ['COMPLETED', 'VALIDATING'].indexOf(to) !== -1;
+      try {
+        var res = settledOk
+          ? ledger.settle({
+            project: task.project, reservation_id: rid,
+            actual_amount: outcome.result && typeof outcome.result.actual_cost_usd === 'number'
+              ? outcome.result.actual_cost_usd : undefined,
+            cost_basis: outcome.result && outcome.result.actual_cost_usd !== undefined ? 'known' : undefined,
+            external_reference: outcome.result && outcome.result.external_reference
+          })
+          : ledger.release({ project: task.project, reservation_id: rid,
+            reason: 'task ended ' + to });
+        var t2 = store.load('task', result.task_id);
+        t2.metadata.budget_settlement = {
+          settled: settledOk, ok: res.ok !== false,
+          amount: res.settled_amount === undefined ? null : res.settled_amount,
+          capped: !!res.capped, budget: res.budget || null
+        };
+        store.save(t2);
+        task = store.load('task', result.task_id);
+      } catch (e) {
+        store.appendEventLine({ event_type: 'BUDGET_DENIED', subject_id: task.id,
+          project: task.project, detail: { settlement_error: String(e.message).slice(0, 200) } });
+      }
+    }
     var allowed = ['COMPLETED', 'FAILED', 'WAITING_FOR_QUOTA', 'RETRYING', 'VALIDATING'];
     if (allowed.indexOf(to) === -1) to = 'FAILED';
     store.transition('task', task.id, to, {

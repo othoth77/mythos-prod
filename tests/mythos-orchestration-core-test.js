@@ -1406,12 +1406,29 @@ chain2 = chain2.then(function () {
   });
   agents.registerProbe('mock-mkt', function () { return true; });
 
+  // Spending now needs BOTH a per-request policy allowance AND a
+  // configured cumulative budget (core/budget.js). The sandbox ledger
+  // below grants the campaign project $5/day for this test; without it
+  // the ledger correctly refuses, since an unbudgeted project may never
+  // spend.
+  var budgetLedger = require(path.join(EXEC, 'core', 'budget'));
+  var CAMPAIGN_BUDGETS = {
+    defaults: { currency: 'USD', timezone: 'Europe/Paris', daily_limit: 0 },
+    projects: { 'core-campaign': { currency: 'USD', timezone: 'Europe/Paris', daily_limit: 5 } }
+  };
+  var campaignLedger = {
+    check: function (r) { return budgetLedger.check(Object.assign({ config: CAMPAIGN_BUDGETS }, r)); },
+    reserve: function (r) { return budgetLedger.reserve(Object.assign({ config: CAMPAIGN_BUDGETS }, r)); },
+    settle: function (r) { return budgetLedger.settle(Object.assign({ config: CAMPAIGN_BUDGETS }, r)); },
+    release: function (r) { return budgetLedger.release(Object.assign({ config: CAMPAIGN_BUDGETS }, r)); },
+    reservationIdFor: budgetLedger.reservationIdFor
+  };
   var campaignPolicy = policyEngine.createEngine({
     policy_id: 'campaign-test-v1',
     classes: { READ: 'allow', PROJECT_WRITE: 'allow', GIT: 'allow', SERVICE: 'require_approval',
       DEPLOY: 'require_approval', ROOT: 'deny', EXTERNAL_API: 'allow', DESTRUCTIVE: 'deny' },
     money_spend: { enabled: true, daily_limit_usd: 5 }
-  });
+  }, { ledger: campaignLedger });
 
   var submitted = orchestrator.submitGoal(
     'Prepare a professional advertising campaign for the flagship product with a $5/day budget for one day.', {
@@ -1481,16 +1498,16 @@ chain2 = chain2.then(function () {
           budget_usd: 6, depends_on: [] }]
       }
     });
-    ok(!over.rejected, '§18 campaign: over-budget plan is plannable (approval is a runtime gate)');
-    return orchestrator.advanceMission(over.mission.id, {
-      policy: campaignPolicy,
-      agent_runner: function () { throw new Error('must not execute an unapproved spend'); },
-      review: false
-    }).then(function (m2) {
-      var t2 = store.load('task', over.tasks[0].id);
-      ok(m2.status === 'WAITING' && t2.status === 'WAITING_FOR_APPROVAL',
-        '§18 campaign: over-budget spend parked for approval — never silently spent');
-    });
+    // The first campaign consumed the whole $5/day budget, so the
+    // cumulative ledger now refuses the $6 follow-up at the PLAN gate —
+    // stricter than the old per-request-only behaviour, which would have
+    // planned it and only parked it at dispatch.
+    ok(over.rejected === true && /CUMULATIVE BUDGET|exceeds remaining/.test(over.errors.join(' ')),
+      '§18 campaign: over-budget follow-up REFUSED at the plan gate by the cumulative ledger');
+    var afterBudget = budgetLedger.status('core-campaign', { config: CAMPAIGN_BUDGETS });
+    ok(afterBudget.spent === 5 && afterBudget.remaining === 0,
+      '§18 campaign: the refused follow-up spent nothing (cumulative total unchanged)');
+    return null;
   });
 });
 

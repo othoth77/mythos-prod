@@ -243,6 +243,21 @@ function handler(req, res, token) {
     return send(res, 404, { error: 'not found' });
   }
 
+  // Read-only budget inspection. No mutation route exists: limits change
+  // only through a reviewed commit to config/budgets.json.
+  if (req.method === 'GET' && /^\/budget(\/|$)/.test(url)) {
+    var budget = require('./core/budget');
+    var bm = /^\/budget\/([a-z0-9][a-z0-9-]{1,63})(\/history)?$/.exec(url);
+    if (!bm) return send(res, 404, { error: 'usage: GET /budget/<project>[/history]' });
+    try {
+      return bm[2]
+        ? send(res, 200, { project: bm[1], entries: budget.history(bm[1], {}) })
+        : send(res, 200, budget.status(bm[1], {}));
+    } catch (e) {
+      return send(res, 400, { error: redact.redact(e.message) });
+    }
+  }
+
   if (req.method === 'POST' && url === '/events/n8n-error') {
     return readBody(req).then(function (body) {
       var entry = { ts: new Date().toISOString(), source: 'n8n', detail: redact.redact(body.slice(0, 2000)) };
