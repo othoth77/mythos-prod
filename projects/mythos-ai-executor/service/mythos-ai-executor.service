@@ -1,0 +1,25 @@
+# Mythos AI Executor — systemd USER service (rootless by design, mission §23).
+# Installed to ~/.config/systemd/user/ by deploy/install.sh for the `ubuntu`
+# user (the user that owns the Claude Code CLI login). Linger is enabled so
+# the service survives SSH disconnect and reboot without an open session.
+#
+# NoNewPrivileges is load-bearing: no child of the executor — including any
+# command an AI provider runs — can ever escalate via sudo/setuid. This
+# enforces the "no root for Claude" rule at the kernel, not just in policy.
+
+[Unit]
+Description=Mythos AI Executor (queue daemon + internal HTTP API)
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/node %h/../deploy/projects/mythos-prod/projects/mythos-ai-executor/bin/mythos-ai-executor serve
+WorkingDirectory=%h
+EnvironmentFile=%h/.config/mythos-ai-executor/executor.env
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Restart=on-failure
+RestartSec=10
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

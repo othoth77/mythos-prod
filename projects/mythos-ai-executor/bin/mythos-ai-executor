@@ -1,0 +1,92 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// Mythos AI Executor — CLI
+// projects/mythos-ai-executor/bin/mythos-ai-executor
+//
+//   mythos-ai-executor enqueue <payload.json | '-'>   create + queue a task
+//   mythos-ai-executor run <task-id>                  execute one task now
+//   mythos-ai-executor resume <task-id>               resume a paused task
+//   mythos-ai-executor status <task-id>               status + checkpoint
+//   mythos-ai-executor report <task-id>               rendered report
+//   mythos-ai-executor list [STATUS]                  queue summary
+//   mythos-ai-executor health                         component health
+//   mythos-ai-executor serve                          daemon + HTTP API (systemd entry)
+//   mythos-ai-executor tick                           one scheduler step (debugging)
+// =====================================================
+
+var fs = require('fs');
+var path = require('path');
+
+var BASE = path.join(__dirname, '..');
+var executor = require(path.join(BASE, 'executor'));
+var state = require(path.join(BASE, 'lib', 'state'));
+
+var cmd = process.argv[2];
+var arg = process.argv[3];
+
+function die(msg, code) {
+  console.error(msg);
+  process.exit(code === undefined ? 1 : code);
+}
+
+function printJSON(obj) { console.log(JSON.stringify(obj, null, 2)); }
+
+switch (cmd) {
+  case 'enqueue': {
+    if (!arg) die('usage: mythos-ai-executor enqueue <payload.json | ->');
+    var raw = arg === '-' ? fs.readFileSync(0, 'utf8') : fs.readFileSync(arg, 'utf8');
+    try {
+      var task = executor.createTask(JSON.parse(raw));
+      printJSON({ task_id: task.task_id, status: 'QUEUED' });
+    } catch (e) { die('ENQUEUE_REFUSED: ' + e.message, 2); }
+    break;
+  }
+  case 'run':
+  case 'resume': {
+    if (!arg) die('usage: mythos-ai-executor ' + cmd + ' <task-id>');
+    executor.runTask(arg).then(function (status) {
+      printJSON(status);
+      process.exit(['COMPLETED'].indexOf(status.status) !== -1 ? 0 : 3);
+    }).catch(function (e) { die(cmd.toUpperCase() + '_ERROR: ' + e.message, 4); });
+    break;
+  }
+  case 'status': {
+    if (!arg) die('usage: mythos-ai-executor status <task-id>');
+    var st = state.readStatus(arg);
+    if (!st) die('no such task', 1);
+    printJSON({ status: st, effective: state.effectiveStatus(st), checkpoint: state.readJSON(arg, 'checkpoint.json') });
+    break;
+  }
+  case 'report': {
+    if (!arg) die('usage: mythos-ai-executor report <task-id>');
+    var md = state.readText(arg, 'report.md');
+    if (!md) die('no report yet', 1);
+    console.log(md);
+    break;
+  }
+  case 'list': {
+    var list = executor.summaries();
+    if (arg) list = list.filter(function (s) { return s.status === arg; });
+    printJSON(list);
+    break;
+  }
+  case 'health': {
+    executor.health().then(function (h) {
+      printJSON(h);
+      process.exit(h.ok ? 0 : 3);
+    });
+    break;
+  }
+  case 'serve': {
+    require(path.join(BASE, 'server')).start();
+    executor.daemon();
+    break;
+  }
+  case 'tick': {
+    executor.tick().then(printJSON).catch(function (e) { die('TICK_ERROR: ' + e.message, 4); });
+    break;
+  }
+  default:
+    die('usage: mythos-ai-executor <enqueue|run|resume|status|report|list|health|serve|tick>', 1);
+}

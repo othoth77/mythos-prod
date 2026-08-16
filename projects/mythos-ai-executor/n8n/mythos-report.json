@@ -1,0 +1,59 @@
+{
+  "id": "MythosReport0001",
+  "name": "MYTHOS — Report",
+  "active": true,
+  "settings": { "executionOrder": "v1", "errorWorkflow": "MythosFailure001" },
+  "nodes": [
+    {
+      "id": "wh-report",
+      "name": "Report Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "mythos-report",
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "mythos/report",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" }
+      }
+    },
+    {
+      "id": "http-report",
+      "name": "Fetch Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "parameters": {
+        "method": "GET",
+        "url": "=http://172.18.0.1:8130/tasks/{{ $json.query.task_id }}/report",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true } } }
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" }
+      }
+    },
+    {
+      "id": "respond-report",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [440, 0],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Report Webhook": { "main": [[{ "node": "Fetch Report", "type": "main", "index": 0 }]] },
+    "Fetch Report": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  }
+}

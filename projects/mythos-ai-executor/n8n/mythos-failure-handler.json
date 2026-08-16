@@ -1,0 +1,39 @@
+{
+  "id": "MythosFailure001",
+  "name": "MYTHOS — Failure Handler",
+  "active": true,
+  "settings": { "executionOrder": "v1" },
+  "nodes": [
+    {
+      "id": "err-trigger",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0],
+      "parameters": {}
+    },
+    {
+      "id": "http-errsink",
+      "name": "Log To Executor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.18.0.1:8130/events/n8n-error",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ workflow: $json.workflow ? $json.workflow.name : null, execution_id: $json.execution ? $json.execution.id : null, last_node: $json.execution ? $json.execution.lastNodeExecuted : null, message: $json.execution && $json.execution.error ? $json.execution.error.message : null }) }}",
+        "options": { "response": { "response": { "neverError": true } } }
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" }
+      }
+    }
+  ],
+  "connections": {
+    "Error Trigger": { "main": [[{ "node": "Log To Executor", "type": "main", "index": 0 }]] }
+  }
+}

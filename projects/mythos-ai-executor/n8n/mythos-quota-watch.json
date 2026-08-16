@@ -1,0 +1,67 @@
+{
+  "id": "MythosQuotaW0001",
+  "name": "MYTHOS — Quota Watch",
+  "active": true,
+  "settings": { "executionOrder": "v1", "errorWorkflow": "MythosFailure001" },
+  "nodes": [
+    {
+      "id": "sched-quota",
+      "name": "Every 10 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": {
+        "rule": { "interval": [{ "field": "minutes", "minutesInterval": 10 }] }
+      }
+    },
+    {
+      "id": "http-due",
+      "name": "List Due Quota Tasks",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "parameters": {
+        "method": "GET",
+        "url": "http://172.18.0.1:8130/tasks?status=WAITING_FOR_QUOTA&due=1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" }
+      }
+    },
+    {
+      "id": "code-split",
+      "name": "One Item Per Task",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "parameters": {
+        "jsCode": "return ($input.first().json.tasks || []).map(t => ({ json: t }));"
+      }
+    },
+    {
+      "id": "http-resume",
+      "name": "Resume Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://172.18.0.1:8130/tasks/{{ $json.task_id }}/resume",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true } } }
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" }
+      }
+    }
+  ],
+  "connections": {
+    "Every 10 Minutes": { "main": [[{ "node": "List Due Quota Tasks", "type": "main", "index": 0 }]] },
+    "List Due Quota Tasks": { "main": [[{ "node": "One Item Per Task", "type": "main", "index": 0 }]] },
+    "One Item Per Task": { "main": [[{ "node": "Resume Task", "type": "main", "index": 0 }]] }
+  }
+}

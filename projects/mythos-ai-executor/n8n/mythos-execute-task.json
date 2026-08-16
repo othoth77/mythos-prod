@@ -1,0 +1,59 @@
+{
+  "id": "MythosExecute001",
+  "name": "MYTHOS — Execute Task",
+  "active": true,
+  "settings": { "executionOrder": "v1", "errorWorkflow": "MythosFailure001" },
+  "nodes": [
+    {
+      "id": "wh-execute",
+      "name": "Execute Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "mythos-execute-task",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mythos/execute",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" }
+      }
+    },
+    {
+      "id": "http-dispatch",
+      "name": "Dispatch Run",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://172.18.0.1:8130/tasks/{{ $json.body.task_id }}/resume",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true } } }
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" }
+      }
+    },
+    {
+      "id": "respond-dispatch",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [440, 0],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Execute Webhook": { "main": [[{ "node": "Dispatch Run", "type": "main", "index": 0 }]] },
+    "Dispatch Run": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  }
+}

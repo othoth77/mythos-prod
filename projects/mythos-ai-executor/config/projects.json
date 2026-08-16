@@ -1,0 +1,12 @@
+{
+  "mythos-prod": {
+    "repository": "git@github.com:othoth77/mythos-prod.git",
+    "path": "/home/deploy/projects/mythos-prod",
+    "default_branch": "main"
+  },
+  "executor-selftest": {
+    "repository": null,
+    "path": "/home/ubuntu/mythos-ai-executor/selftest",
+    "default_branch": null
+  }
+}

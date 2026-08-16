@@ -1,0 +1,112 @@
+{
+  "id": "MythosIntake0001",
+  "name": "MYTHOS — Task Intake",
+  "active": true,
+  "settings": { "executionOrder": "v1", "errorWorkflow": "MythosFailure001" },
+  "nodes": [
+    {
+      "id": "wh-intake",
+      "name": "Task Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "mythos-task-intake",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mythos/task",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" }
+      }
+    },
+    {
+      "id": "code-validate",
+      "name": "Validate Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "parameters": {
+        "jsCode": "const b = $input.first().json.body || {};\nconst errors = [];\nif (typeof b.project !== 'string' || !b.project) errors.push('project (string) is required');\nif (typeof b.instruction !== 'string' || !b.instruction.trim()) errors.push('instruction (string) is required');\n// The intake layer NEVER forwards working_directory or provider-internal\n// fields: the executor derives paths from its own project registry, so a\n// webhook caller can never point execution at an arbitrary directory.\nconst allowed = ['project','stage','instruction','mode','priority','provider','model','fallback_model','execution_profile','branch','required_tests','constraints','expected_delivery','report_to_git','timeout_seconds','max_retries','max_turns','requested_by'];\nconst payload = {};\nfor (const k of allowed) if (b[k] !== undefined) payload[k] = b[k];\nif (!payload.requested_by) payload.requested_by = 'n8n-webhook';\nreturn [{ json: { valid: errors.length === 0, errors, payload } }];"
+      }
+    },
+    {
+      "id": "if-valid",
+      "name": "Valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": true,
+              "operator": { "type": "boolean", "operation": "true", "singleValue": true }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "http-create",
+      "name": "Create Task",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, -100],
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.18.0.1:8130/tasks",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true } } }
+      },
+      "credentials": {
+        "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" }
+      }
+    },
+    {
+      "id": "respond-created",
+      "name": "Respond Created",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [880, -100],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "respond-invalid",
+      "name": "Respond Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, 120],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ error: 'invalid task payload', details: $json.errors }) }}",
+        "options": { "responseCode": 400 }
+      }
+    }
+  ],
+  "connections": {
+    "Task Webhook": { "main": [[{ "node": "Validate Payload", "type": "main", "index": 0 }]] },
+    "Validate Payload": { "main": [[{ "node": "Valid?", "type": "main", "index": 0 }]] },
+    "Valid?": {
+      "main": [
+        [{ "node": "Create Task", "type": "main", "index": 0 }],
+        [{ "node": "Respond Invalid", "type": "main", "index": 0 }]
+      ]
+    },
+    "Create Task": { "main": [[{ "node": "Respond Created", "type": "main", "index": 0 }]] }
+  }
+}

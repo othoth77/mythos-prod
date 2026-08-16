@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Mythos AI Executor Task",
+  "description": "Persistent unit of autonomous work. Carries no credentials of any kind; the instruction is data, never a command channel for provider or path selection.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "project",
+    "stage",
+    "instruction",
+    "priority",
+    "created_at",
+    "requested_by",
+    "mode",
+    "provider",
+    "expected_delivery",
+    "timeout_seconds",
+    "max_retries"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "enum": ["1.0.0"] },
+    "task_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9-]{6,62}[a-z0-9]$"
+    },
+    "project": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "stage": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "instruction": { "type": "string", "minLength": 1, "maxLength": 20000 },
+    "priority": { "type": "string", "enum": ["low", "normal", "high"] },
+    "created_at": { "type": "string", "minLength": 20, "maxLength": 40 },
+    "requested_by": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "mode": { "type": "string", "enum": ["autonomous", "advisory", "dry_run"] },
+    "provider": { "type": "string", "enum": ["claude-code", "openai-compat", "mock"] },
+    "model": { "type": ["string", "null"], "maxLength": 100 },
+    "fallback_model": { "type": ["string", "null"], "maxLength": 100 },
+    "execution_profile": { "type": ["string", "null"], "enum": ["repo-read", "repo-write", "autonomous", "deploy", null] },
+    "working_directory": { "type": ["string", "null"], "maxLength": 300, "pattern": "^/(?!tmp/)" },
+    "repository": { "type": ["string", "null"], "maxLength": 300 },
+    "branch": { "type": ["string", "null"], "maxLength": 100 },
+    "required_tests": { "type": "array", "items": { "type": "string", "maxLength": 300 } },
+    "constraints": { "type": "array", "items": { "type": "string", "maxLength": 1000 } },
+    "expected_delivery": { "type": "string", "enum": ["report", "commit", "none"] },
+    "report_to_git": { "type": "boolean" },
+    "timeout_seconds": { "type": "integer", "minimum": 30, "maximum": 21600 },
+    "max_retries": { "type": "integer", "minimum": 0, "maximum": 5 },
+    "max_turns": { "type": ["integer", "null"], "minimum": 1, "maximum": 500 }
+  }
+}
