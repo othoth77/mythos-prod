@@ -165,6 +165,84 @@ function handler(req, res, token) {
     return send(res, 200, { task_id: m[1], status: 'CANCELLED' });
   }
 
+  // --- Orchestration Core goal surface (Core Wiring stage) -----------------
+  // Gated by MYTHOS_CORE_ENABLED (default false). The core module is
+  // lazy-required INSIDE these handlers, so with the flag off nothing
+  // core-related is even loaded and the Phase 1 surface is unchanged.
+  if (url === '/goals' || /^\/goals\//.test(url)) {
+    var core;
+    try {
+      core = require('./core/core-wiring');
+    } catch (e) {
+      return send(res, 500, { error: 'core unavailable: ' + redact.redact(e.message) });
+    }
+    if (!core.coreEnabled()) {
+      return send(res, 503, {
+        error: 'core disabled',
+        detail: 'MYTHOS_CORE_ENABLED is not true; the orchestration core is off by default'
+      });
+    }
+
+    if (req.method === 'POST' && url === '/goals') {
+      return readBody(req).then(function (body) {
+        var payload = JSON.parse(body || '{}');
+        var created = core.submitGoal(payload);
+        send(res, 201, created);
+      }).catch(function (err) {
+        var code = err.code === 'GOAL_INVALID' || err.code === 'GOAL_REJECTED' ? 400 : 500;
+        send(res, code, { error: redact.redact(err.message) });
+      });
+    }
+
+    if (req.method === 'GET' && url === '/goals') {
+      return send(res, 200, { goals: core.listGoals(25), mission_kinds: Object.keys(core.MISSION_KINDS) });
+    }
+
+    var gm;
+    if ((gm = /^\/goals\/(g-[a-z0-9-]{8,40})$/.exec(url)) && req.method === 'GET') {
+      var st = core.goalStatus(gm[1]);
+      return st ? send(res, 200, st) : send(res, 404, { error: 'no such goal' });
+    }
+
+    if ((gm = /^\/goals\/(g-[a-z0-9-]{8,40})\/advance$/.exec(url)) && req.method === 'POST') {
+      var status = core.goalStatus(gm[1]);
+      if (!status) return send(res, 404, { error: 'no such goal' });
+      if (!status.missions.length) return send(res, 409, { error: 'goal has no mission' });
+      var missionId = status.missions[0].id;
+      // Fire-and-accept: the mission continues after this response; its
+      // state is durable, so the caller polls GET /goals/<id>.
+      core.advanceMission(missionId).catch(function (err) {
+        try {
+          require('./core/store').appendEventLine({
+            event_type: 'MISSION_FAILED', subject_id: missionId,
+            detail: { advance_error: redact.redact(String(err && err.message)) }
+          });
+        } catch (e) { /* never let telemetry break the response */ }
+      });
+      return send(res, 202, { goal_id: gm[1], mission_id: missionId, accepted: true });
+    }
+
+    if ((gm = /^\/goals\/(g-[a-z0-9-]{8,40})\/cancel$/.exec(url)) && req.method === 'POST') {
+      var cstatus = core.goalStatus(gm[1]);
+      if (!cstatus) return send(res, 404, { error: 'no such goal' });
+      if (!cstatus.missions.length) return send(res, 409, { error: 'goal has no mission' });
+      try {
+        return send(res, 200, core.cancelMission(cstatus.missions[0].id, 'cancelled via API'));
+      } catch (err) {
+        return send(res, 409, { error: redact.redact(err.message) });
+      }
+    }
+
+    if ((gm = /^\/goals\/(g-[a-z0-9-]{8,40})\/report$/.exec(url)) && req.method === 'GET') {
+      var rstatus = core.goalStatus(gm[1]);
+      if (!rstatus || !rstatus.missions.length) return send(res, 404, { error: 'no such goal' });
+      var rep = core.missionReport(rstatus.missions[0].id);
+      return rep && rep.report ? send(res, 200, rep) : send(res, 404, { error: 'no report yet' });
+    }
+
+    return send(res, 404, { error: 'not found' });
+  }
+
   if (req.method === 'POST' && url === '/events/n8n-error') {
     return readBody(req).then(function (body) {
       var entry = { ts: new Date().toISOString(), source: 'n8n', detail: redact.redact(body.slice(0, 2000)) };

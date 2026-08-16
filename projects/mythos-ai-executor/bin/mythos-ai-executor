@@ -13,6 +13,14 @@
 //   mythos-ai-executor health                         component health
 //   mythos-ai-executor serve                          daemon + HTTP API (systemd entry)
 //   mythos-ai-executor tick                           one scheduler step (debugging)
+//
+// Orchestration Core (Core Wiring stage; requires MYTHOS_CORE_ENABLED=true):
+//   mythos-ai-executor goal submit <text> [--kind K] [--project P]
+//   mythos-ai-executor goal run <goal-id>             advance to a terminal/waiting state
+//   mythos-ai-executor goal status <goal-id>
+//   mythos-ai-executor goal report <goal-id>
+//   mythos-ai-executor goal cancel <goal-id>
+//   mythos-ai-executor goal list
 // =====================================================
 
 var fs = require('fs');
@@ -87,6 +95,78 @@ switch (cmd) {
     executor.tick().then(printJSON).catch(function (e) { die('TICK_ERROR: ' + e.message, 4); });
     break;
   }
+  case 'goal': {
+    // Lazy-required so the Phase 1 CLI paths never load the core.
+    var core = require(path.join(BASE, 'core', 'core-wiring'));
+    var sub = process.argv[3];
+    var rest = process.argv.slice(4);
+    function flag(name, fallback) {
+      var i = rest.indexOf('--' + name);
+      return i !== -1 && rest[i + 1] ? rest[i + 1] : fallback;
+    }
+    if (!core.coreEnabled() && ['submit', 'run', 'cancel'].indexOf(sub) !== -1) {
+      die('CORE_DISABLED: set MYTHOS_CORE_ENABLED=true to use the orchestration core (default off)', 5);
+    }
+    switch (sub) {
+      case 'submit': {
+        var text = rest.filter(function (a, i) {
+          return a.indexOf('--') !== 0 && (i === 0 || rest[i - 1].indexOf('--') !== 0);
+        }).join(' ').trim();
+        if (!text) die('usage: mythos-ai-executor goal submit <text> [--kind K] [--project P]');
+        try {
+          printJSON(core.submitGoal({
+            text: text,
+            mission_kind: flag('kind', 'repo-analysis'),
+            project: flag('project', 'mythos-prod'),
+            requested_by: 'cli'
+          }));
+        } catch (e) { die('GOAL_REFUSED: ' + e.message, 2); }
+        break;
+      }
+      case 'run': {
+        if (!rest[0]) die('usage: mythos-ai-executor goal run <goal-id>');
+        var st = core.goalStatus(rest[0]);
+        if (!st) die('no such goal', 1);
+        if (!st.missions.length) die('goal has no mission', 1);
+        core.advanceMission(st.missions[0].id).then(function (mission) {
+          printJSON({ mission_id: mission.id, status: mission.status,
+            report_id: mission.metadata.report_id || null });
+          process.exit(mission.status === 'COMPLETED' ? 0 : 3);
+        }).catch(function (e) { die('RUN_ERROR: ' + e.message, 4); });
+        break;
+      }
+      case 'status': {
+        if (!rest[0]) die('usage: mythos-ai-executor goal status <goal-id>');
+        var gs = core.goalStatus(rest[0]);
+        if (!gs) die('no such goal', 1);
+        printJSON(gs);
+        break;
+      }
+      case 'report': {
+        if (!rest[0]) die('usage: mythos-ai-executor goal report <goal-id>');
+        var rs = core.goalStatus(rest[0]);
+        if (!rs || !rs.missions.length) die('no such goal', 1);
+        var rep = core.missionReport(rs.missions[0].id);
+        if (!rep || !rep.report) die('no report yet', 1);
+        printJSON(rep);
+        break;
+      }
+      case 'cancel': {
+        if (!rest[0]) die('usage: mythos-ai-executor goal cancel <goal-id>');
+        var cs = core.goalStatus(rest[0]);
+        if (!cs || !cs.missions.length) die('no such goal', 1);
+        printJSON(core.cancelMission(cs.missions[0].id, 'cancelled via CLI'));
+        break;
+      }
+      case 'list':
+        printJSON({ core_enabled: core.coreEnabled(), goals: core.listGoals(25),
+          mission_kinds: Object.keys(core.MISSION_KINDS) });
+        break;
+      default:
+        die('usage: mythos-ai-executor goal <submit|run|status|report|cancel|list>', 1);
+    }
+    break;
+  }
   default:
-    die('usage: mythos-ai-executor <enqueue|run|resume|status|report|list|health|serve|tick>', 1);
+    die('usage: mythos-ai-executor <enqueue|run|resume|status|report|list|health|serve|tick|goal>', 1);
 }
