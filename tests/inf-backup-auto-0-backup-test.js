@@ -13,6 +13,7 @@
 // =====================================================
 
 var fs = require('fs');
+var os = require('os');
 var path = require('path');
 var crypto = require('crypto');
 var BASE = path.join(__dirname, '..');
@@ -61,15 +62,31 @@ function connector(over) {
   return Object.assign({ connector_id: 'backup_storage_readonly', secret_reference_id: 'secref-r2-backup' }, over || {});
 }
 function flags(over) {
-  return Object.assign({ level_2_recommend_runs: true, level_3_approval_required_runs: false }, over || {});
+  return Object.assign({
+    level_2_recommend_runs: true, level_3_approval_required_runs: false,
+    level_4_full_automatic_runs: true
+  }, over || {});
 }
 function policy(over) {
   return Object.assign({
     policy_key: 'pol-backup-l2', enabled: true,
     minimum_automation_level_covered: 'LEVEL_2_RECOMMEND',
     is_permanent_boundary: false, allow_self_approval: false,
-    covers_operations: ['backup_create', 'backup_verify', 'restore_test', 'retention_report'],
+    covers_operations: ['backup_verify', 'retention_report'],
     covers_retention: true
+  }, over || {});
+}
+// The LEVEL_4 policy fixture mirrors the committed
+// inf-backup-auto-0-approval-policy.json record ratified by O-BACKUP-5.
+function policyL4(over) {
+  return Object.assign({
+    policy_key: 'pol-backup-l4', enabled: true,
+    minimum_automation_level_covered: 'LEVEL_4_FULL_AUTOMATIC',
+    is_permanent_boundary: false, allow_self_approval: false,
+    covers_operations: ['backup_create', 'restore_test'],
+    covers_retention: false,
+    has_monitoring: true, has_audit: true, bounded_retries: 1,
+    rollback_or_safe_failure: true, approved_by_decision: 'O-BACKUP-5'
   }, over || {});
 }
 function isolatedTarget(over) {
@@ -105,6 +122,50 @@ function memoryAdapter(objects) {
     }
   };
 }
+// The write surface for backup_create: exactly {put, head, get}, storing into
+// an in-memory map — never a real provider, never a real network call.
+function writeMemoryAdapter(store) {
+  function h(b) { return crypto.createHash('sha256').update(b).digest('hex'); }
+  return {
+    put: function (k, b) { store[k] = Buffer.from(b); return Promise.resolve({}); },
+    head: function (k) {
+      var b = store[k];
+      return Promise.resolve(b ? { size: b.length, sha256: h(b) } : null);
+    },
+    get: function (k) {
+      var b = store[k];
+      return b ? Promise.resolve(b) : Promise.reject(new Error('missing ' + k));
+    }
+  };
+}
+// A real staged directory built by the EXISTING tooling (offhost.stage), in a
+// throwaway temp dir — the same offline fixture pattern the IDA-3F suite uses.
+// Local fixture files only; removed at the end of the run.
+var FIXTURE_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'inf-backup-auto-0-'));
+function stagedFixtureDir(name) {
+  var db = path.join(FIXTURE_ROOT, name, 'db');
+  var media = path.join(FIXTURE_ROOT, name, 'media');
+  var dest = path.join(FIXTURE_ROOT, name, 'stage');
+  var body = Buffer.from('media-bytes');
+  var key = crypto.createHash('sha256').update(body).digest('hex');
+  var rel = 'media/' + key.slice(0, 2) + '/' + key.slice(2, 4) + '/' + key;
+  fs.mkdirSync(path.dirname(path.join(media, rel)), { recursive: true });
+  fs.writeFileSync(path.join(media, rel), body);
+  fs.writeFileSync(path.join(media, 'checksums.sha256'), key + '  ' + rel + '\n');
+  fs.mkdirSync(db, { recursive: true });
+  fs.writeFileSync(path.join(db, 'idauto.dump'), Buffer.from('database dump'));
+  fs.writeFileSync(path.join(media, 'manifest.json'), JSON.stringify({
+    created_at_utc: '2026-08-16T00:00:02.000Z',
+    consistency: { state: 'CONSISTENT' },
+    database: { row_count: 3, distinct_object_keys: 1 }
+  }));
+  offhost.stage({
+    dbDir: db, mediaDir: media, dest: dest,
+    databaseCapturedAt: '2026-08-16T00:00:01.000Z',
+    host: 'offline-test', now: '2026-08-16T00:00:03.000Z'
+  });
+  return dest;
+}
 function completeBackupSet() {
   function h(b) { return crypto.createHash('sha256').update(b).digest('hex'); }
   var payload = Buffer.from('dump-bytes');
@@ -126,9 +187,12 @@ function completeBackupSet() {
 console.log('\n1. Operation authorisation and the permanent LEVEL_3 boundaries (O-BACKUP-2)');
 // =======================================================================
 ok(orch.AUTHORISED_OPERATIONS.length === 4, '1 exactly four operations are authorised');
-['backup_create', 'backup_verify', 'restore_test', 'retention_report'].forEach(function (op, i) {
-  ok(orch.OPERATION_LEVELS[op] === 'LEVEL_2_RECOMMEND', (2 + i) + ' ' + op + ' is LEVEL_2');
-});
+// The O-BACKUP-5 designation, pinned per operation: the two MUTATING
+// operations are LEVEL_4, the two read-only operations stay LEVEL_2.
+ok(orch.OPERATION_LEVELS.backup_create === 'LEVEL_4_FULL_AUTOMATIC', '2 backup_create is LEVEL_4 (O-BACKUP-5)');
+ok(orch.OPERATION_LEVELS.backup_verify === 'LEVEL_2_RECOMMEND', '3 backup_verify stays LEVEL_2');
+ok(orch.OPERATION_LEVELS.restore_test === 'LEVEL_4_FULL_AUTOMATIC', '4 restore_test is LEVEL_4 (O-BACKUP-5)');
+ok(orch.OPERATION_LEVELS.retention_report === 'LEVEL_2_RECOMMEND', '5 retention_report stays LEVEL_2');
 // Asserted against the EXACT refusal code, not a permissive alternation: the
 // named-boundary list must bite on its own. A looser regex would let the
 // destructive-shape check silently cover for the name list being deleted —
@@ -181,6 +245,21 @@ throwsWith(function () { orch.assertPolicy({ policy: policy({ minimum_automation
   /POLICY_LEVEL_MISMATCH/, '31 a LEVEL_3 policy does not cover a LEVEL_2 operation');
 throwsWith(function () { orch.assertPolicy({ policy: policy({ covers_operations: ['backup_verify'] }), operation: 'restore_test', level: 'LEVEL_2_RECOMMEND' }); },
   /POLICY_DOES_NOT_COVER_OPERATION/, '32 a policy not covering the operation is refused');
+// LEVEL_4 policies (O-BACKUP-5): the committed LEVEL_4 definition's structural
+// requirements are enforced on the record, never inferred from prose.
+ok(orch.assertPolicy({ policy: policyL4(), operation: 'backup_create', level: 'LEVEL_4_FULL_AUTOMATIC' }).policy_key === 'pol-backup-l4',
+  '32a a complete LEVEL_4 policy is accepted');
+throwsWith(function () { orch.assertPolicy({ policy: policy(), operation: 'backup_create', level: 'LEVEL_4_FULL_AUTOMATIC' }); },
+  /POLICY_LEVEL_MISMATCH/, '32b a LEVEL_2 policy can never cover a LEVEL_4 operation');
+['has_monitoring', 'has_audit', 'rollback_or_safe_failure'].forEach(function (f, i) {
+  var p = policyL4(); delete p[f];
+  throwsWith(function () { orch.assertPolicy({ policy: p, operation: 'backup_create', level: 'LEVEL_4_FULL_AUTOMATIC' }); },
+    /LEVEL_4_POLICY_INCOMPLETE/, '32' + 'cde'[i] + ' a LEVEL_4 policy missing "' + f + '" is refused');
+});
+throwsWith(function () { orch.assertPolicy({ policy: policyL4({ bounded_retries: Infinity }), operation: 'backup_create', level: 'LEVEL_4_FULL_AUTOMATIC' }); },
+  /LEVEL_4_POLICY_INCOMPLETE/, '32f unbounded retries are refused — LEVEL_4 requires BOUNDED retries');
+throwsWith(function () { orch.assertPolicy({ policy: policyL4({ approved_by_decision: '' }), operation: 'backup_create', level: 'LEVEL_4_FULL_AUTOMATIC' }); },
+  /LEVEL_4_POLICY_INCOMPLETE/, '32g a LEVEL_4 policy must name the owner decision that approved it');
 
 // =======================================================================
 console.log('\n4. Connector stays read-only and is never broadened (O-BACKUP-3)');
@@ -207,6 +286,14 @@ throwsWith(function () { orch.assertReadOnlyConnector({ connector: connector(), 
   /LEVEL_2_RUNS_DISABLED/, '44 the LEVEL_2 feature flag must be on');
 throwsWith(function () { orch.assertReadOnlyConnector({ connector: connector(), catalogue: catalogue(), featureFlags: flags({ level_3_approval_required_runs: true }), client: readOnlyClient() }); },
   /LEVEL_3_FLAG_NOT_PERMITTED/, '45 this stage refuses to run with the global LEVEL_3 gate open');
+// The level-aware flag gate, pinned AT THE CONNECTOR LAYER in isolation —
+// the mutation gate downstream emits the same refusal code, so these two
+// assertions exist to prove this layer bites on the RIGHT flag by itself
+// (a wrong-flag mutant here survived the first mutation pass otherwise).
+throwsWith(function () { orch.assertReadOnlyConnector({ connector: connector(), catalogue: catalogue(), featureFlags: flags({ level_2_recommend_runs: true, level_4_full_automatic_runs: false }), client: readOnlyClient(), level: 'LEVEL_4_FULL_AUTOMATIC' }); },
+  /LEVEL_4_RUNS_DISABLED/, '45a a LEVEL_4 operation is gated by the LEVEL_4 flag at the connector layer itself');
+ok(orch.assertReadOnlyConnector({ connector: connector(), catalogue: catalogue(), featureFlags: flags({ level_2_recommend_runs: false, level_4_full_automatic_runs: true }), client: readOnlyClient(), level: 'LEVEL_4_FULL_AUTOMATIC' }).connector_id === 'backup_storage_readonly',
+  '45b a LEVEL_4 operation is gated by the LEVEL_4 flag ONLY — never by the LEVEL_2 flag');
 throwsWith(function () { orch.assertReadOnlyConnector({ connector: connector({ secret_reference_id: undefined }), catalogue: catalogue(), featureFlags: flags(), client: readOnlyClient() }); },
   /CREDENTIAL_REFERENCE_MISSING/, '46 a credential reference is mandatory');
 throwsWith(function () { orch.assertReadOnlyConnector({ connector: connector({ secret_access_key: 'AKIAREAL' }), catalogue: catalogue(), featureFlags: flags(), client: readOnlyClient() }); },
@@ -328,8 +415,10 @@ ok(orch.gateCheck(createPlan).entry_gate_open === false, '104 the entry gate is 
 ok(createPlan.authorises_execution === false, '105 a plan never claims to authorise execution');
 throwsWith(function () { orch.gateCheck(Object.assign({}, createPlan, { authorises_execution: true })); },
   /PLAN_CLAIMS_SELF_AUTHORISATION/, '106 a self-authorising plan is refused');
-throwsWith(function () { orch.gateCheck(Object.assign({}, createPlan, { automation_level: 'LEVEL_4_FULL_AUTOMATIC' })); },
-  /PLAN_LEVEL_INCONSISTENT/, '107 a plan claiming LEVEL_4 is refused');
+throwsWith(function () { orch.gateCheck(Object.assign({}, orch.buildBackupPlan({ operation: 'backup_verify' }), { automation_level: 'LEVEL_4_FULL_AUTOMATIC' })); },
+  /PLAN_LEVEL_INCONSISTENT/, '107 a plan claiming a level inconsistent with the ratified table is refused');
+throwsWith(function () { orch.gateCheck(Object.assign({}, createPlan, { automation_level: 'LEVEL_2_RECOMMEND' })); },
+  /PLAN_LEVEL_INCONSISTENT/, '107a a create plan demoting itself to LEVEL_2 is refused too');
 throwsWith(function () { orch.gateCheck(Object.assign({}, createPlan, { steps: [{ step_id: 'x', kind: 'rm_rf', performs_external_mutation: false }] })); },
   /UNRECOGNISED_STEP_KIND/, '108 an unrecognised step kind is refused (fail closed)');
 throwsWith(function () { orch.gateCheck(Object.assign({}, createPlan, { steps: [{ step_id: 'x', kind: 'verify_local' }] })); },
@@ -410,14 +499,28 @@ ok(orch.planRetention({ policy: policy(), sets: sets, retentionFn: offhost.reten
   '140c the injected default is the existing report-only tooling');
 
 // =======================================================================
-console.log('\n14. The LEVEL_2 mutation ambiguity is fail-closed');
+console.log('\n14. The mutation gate — LEVEL_2 never mutates; LEVEL_4 needs flag + policy (O-BACKUP-5)');
 // =======================================================================
 ok(orch.LEVEL_2_MAY_MUTATE_EXTERNALLY === false,
-  '141 external mutation is disabled pending the owner clarification');
+  '141 LEVEL_2 external mutation is PERMANENTLY ruled out (O-BACKUP-5, ratified)');
+throwsWith(function () { orch.assertMutationPermitted({ operation: 'backup_verify', featureFlags: flags(), policy: policy() }); },
+  /LEVEL_2_MUTATION_NOT_PERMITTED/, '142 a LEVEL_2 operation may never mutate, whatever else is true');
 throwsWith(function () { orch.assertMutationPermitted('backup_create'); },
-  /LEVEL_2_MUTATION_NOT_RESOLVED/, '142 a mutating operation is refused fail-closed');
-await rejects(orch.executeBackupOperation(request({ operation: 'backup_create', policy: policy() })),
-  /LEVEL_2_MUTATION_NOT_RESOLVED/, '143 backup creation refuses rather than writing');
+  /LEVEL_4_RUNS_DISABLED/, '142a the pre-O-BACKUP-5 bare-string call still fails closed (no flags, no policy)');
+throwsWith(function () { orch.assertMutationPermitted({ operation: 'backup_create', featureFlags: flags({ level_4_full_automatic_runs: false }), policy: policyL4() }); },
+  /LEVEL_4_RUNS_DISABLED/, '142b a LEVEL_4 operation refuses while the LEVEL_4 flag is off');
+throwsWith(function () { orch.assertMutationPermitted({ operation: 'backup_create', featureFlags: flags({ level_3_approval_required_runs: true }), policy: policyL4() }); },
+  /LEVEL_3_FLAG_NOT_PERMITTED/, '142c mutation refuses while the global LEVEL_3 gate is open');
+throwsWith(function () { orch.assertMutationPermitted({ operation: 'backup_create', featureFlags: flags() }); },
+  /APPROVAL_POLICY_REQUIRED/, '142d mutation without the approved policy is refused');
+throwsWith(function () { orch.assertMutationPermitted({ operation: 'backup_create', featureFlags: flags(), policy: policy() }); },
+  /POLICY_LEVEL_MISMATCH/, '142e a LEVEL_2 policy cannot authorise a LEVEL_4 mutation');
+throwsWith(function () { orch.assertMutationPermitted({ operation: 'restore_test', featureFlags: flags(), policy: policyL4({ covers_operations: ['backup_create'] }) }); },
+  /POLICY_DOES_NOT_COVER_OPERATION/, '142f the policy must cover the EXACT operation');
+ok(orch.assertMutationPermitted({ operation: 'restore_test', featureFlags: flags(), policy: policyL4() }) === true,
+  '142g under the full ratified conditions the gate opens — a pure check with no side effect');
+await rejects(orch.executeBackupOperation(request({ operation: 'backup_create', policy: policyL4(), featureFlags: flags({ level_4_full_automatic_runs: false }), backupAdapter: writeMemoryAdapter({}), stageDir: '/tmp/never-read' })),
+  /LEVEL_4_RUNS_DISABLED/, '143 backup creation refuses rather than writing while the LEVEL_4 flag is off');
 
 // =======================================================================
 console.log('\n15. Read-only operations work end to end through the existing tooling');
@@ -449,19 +552,25 @@ ok(exec.mutations_performed === 0 && exec.result.ok === true,
 // =======================================================================
 console.log('\n16. Dry run and the restore path');
 // =======================================================================
-var dry = await orch.dryRun(request({ operation: 'restore_test', target: isolatedTarget(), client: adapter }));
+var dry = await orch.dryRun(request({ operation: 'restore_test', policy: policyL4(), target: isolatedTarget(), client: adapter }));
 ok(dry.mode === 'DRY_RUN' && dry.mutations_performed === 0 && dry.terminated_before === 'APPLY',
   '150 a dry run terminates before APPLY and mutates nothing');
 ok(dry.envelope.isolated_target_id === 'scratch-restore-01',
   '151 the dry run envelope names the proven-isolated target');
-var dryRestore = await orch.runIsolatedRestoreTest(request({ operation: 'restore_test', target: isolatedTarget(), client: adapter, dryRun: true }));
+var dryRestore = await orch.runIsolatedRestoreTest(request({ operation: 'restore_test', policy: policyL4(), target: isolatedTarget(), client: adapter, dryRun: true }));
 ok(dryRestore.mode === 'DRY_RUN' && dryRestore.mutations_performed === 0,
   '152 the restore dry run performs no restore');
-await rejects(orch.runIsolatedRestoreTest(request({ operation: 'restore_test', target: isolatedTarget({ restore_path: '/home/deploy' }), client: adapter })),
+await rejects(orch.runIsolatedRestoreTest(request({ operation: 'restore_test', policy: policyL4(), target: isolatedTarget({ restore_path: '/home/deploy' }), client: adapter })),
   /RESTORE_PATH_FORBIDDEN/, '153 a real restore to a forbidden path refuses before any read');
+// No fully-green REAL restore is ever constructed in this suite — the suite's
+// standing promise is "no restore performed". The gate-open condition is
+// proven side-effect-free by 142g; the underlying restore operation itself is
+// covered by the IDA-3F suite that owns the tooling.
+await rejects(orch.runIsolatedRestoreTest(request({ operation: 'restore_test', policy: policyL4(), featureFlags: flags({ level_4_full_automatic_runs: false }), target: isolatedTarget(), client: adapter })),
+  /LEVEL_4_RUNS_DISABLED/, '154 a real restore refuses fail-closed while the LEVEL_4 flag is off');
 await rejects(orch.runIsolatedRestoreTest(request({ operation: 'restore_test', target: isolatedTarget(), client: adapter })),
-  /LEVEL_2_MUTATION_NOT_RESOLVED/, '154 a real restore refuses fail-closed on the open ambiguity');
-throwsWith(function () { orch.preflight(request({ operation: 'restore_test', client: adapter })); },
+  /POLICY_LEVEL_MISMATCH/, '154a a real restore under only the LEVEL_2 policy refuses before any write');
+throwsWith(function () { orch.preflight(request({ operation: 'restore_test', policy: policyL4(), client: adapter })); },
   /ISOLATED_TARGET_REQUIRED/, '155 a restore test without a target is refused');
 
 // =======================================================================
@@ -506,6 +615,28 @@ ok(AUT_CONFIG.feature_flags.level_2_recommend_runs === false,
   '172 the committed level_2_recommend_runs flag is false');
 ok(AUT_CONFIG.feature_flags.level_3_approval_required_runs === false,
   '173 the committed LEVEL_3 flag is false and this stage never asks for it');
+ok(AUT_CONFIG.feature_flags.level_4_full_automatic_runs === false,
+  '173a the committed LEVEL_4 flag is false — no unattended run can execute today');
+// The committed O-BACKUP-5 policy file: present, level-correct, self-approval
+// forbidden, permanent boundaries withheld, and secret-free.
+var POLICY_FILE = JSON.parse(fs.readFileSync(path.join(BASE, 'projects', 'automation', 'config', 'inf-backup-auto-0-approval-policy.json'), 'utf8'));
+ok(POLICY_FILE.approved_by_decision === 'O-BACKUP-5' && POLICY_FILE.policies.length === 2,
+  '173b the committed policy file records exactly the two O-BACKUP-5 policies');
+var committedL2 = POLICY_FILE.policies.filter(function (p) { return p.minimum_automation_level_covered === 'LEVEL_2_RECOMMEND'; })[0];
+var committedL4 = POLICY_FILE.policies.filter(function (p) { return p.minimum_automation_level_covered === 'LEVEL_4_FULL_AUTOMATIC'; })[0];
+ok(committedL2 && committedL2.covers_operations.join(',') === 'backup_verify,retention_report' && committedL2.covers_retention === true,
+  '173c the committed LEVEL_2 policy covers exactly the read-only operations');
+ok(committedL4 && committedL4.covers_operations.join(',') === 'backup_create,restore_test',
+  '173d the committed LEVEL_4 policy covers exactly the mutating operations');
+ok(POLICY_FILE.policies.every(function (p) { return p.allow_self_approval === false && p.is_permanent_boundary === false; }),
+  '173e no committed policy permits self-approval or claims a permanent boundary');
+ok(Array.isArray(committedL4.withheld_permanent_boundaries) && committedL4.withheld_permanent_boundaries.length === 5,
+  '173f the five withheld permanent boundaries are recorded on the LEVEL_4 policy');
+ok(orch.assertNoSecrets(POLICY_FILE) === true, '173g the committed policy file carries no secret-shaped key');
+ok(orch.assertPolicy({ policy: committedL4, operation: 'backup_create', level: 'LEVEL_4_FULL_AUTOMATIC' }).policy_key === 'inf-backup-auto-0-mutate',
+  '173h the committed LEVEL_4 policy record passes the gate exactly as committed');
+ok(orch.assertPolicy({ policy: committedL2, operation: 'backup_verify', level: 'LEVEL_2_RECOMMEND' }).policy_key === 'inf-backup-auto-0-read',
+  '173i the committed LEVEL_2 policy record passes the gate exactly as committed');
 ok(!COMMITTED_CATALOGUE.some(function (c) {
   return (c.capabilities || []).some(function (cap) { return /backup\.(create|delete|restore|write)/.test(cap); });
 }), '174 no backup create/delete/restore capability exists anywhere in the committed catalogue');
@@ -521,6 +652,81 @@ ok(/\[REDACTED\]/.test(offhost.redact('secret=abc123')), '177 offhost-backup.red
 var unsafeRestore = await offhost.restoreVerify(PREFIX, '/home/deploy', adapter, {});
 ok(unsafeRestore.refused === true,
   '178 the underlying tool independently refuses an unsafe restore path');
+
+// =======================================================================
+console.log('\n21. The write-adapter boundary and the wired backup_create path (O-BACKUP-5)');
+// =======================================================================
+ok(orch.assertBackupWriteAdapter(writeMemoryAdapter({})).methods.sort().join(',') === 'get,head,put',
+  '179 the minimal {put, head, get} write adapter is accepted');
+['del', 'delete', 'remove', 'destroy', 'purge', 'prune', 'wipe'].forEach(function (m, i) {
+  var a = writeMemoryAdapter({}); a[m] = function () {};
+  throwsWith(function () { orch.assertBackupWriteAdapter(a); },
+    /DELETE_CAPABLE_ADAPTER_REFUSED/, (180 + i) + ' a write adapter exposing "' + m + '" is refused — deletion stays out of reach');
+});
+var listEscape = writeMemoryAdapter({}); listEscape.list = function () {};
+throwsWith(function () { orch.assertBackupWriteAdapter(listEscape); },
+  /ADAPTER_SCOPE_ESCAPE/, '187 an undeclared method is a scope escape even when harmless-looking');
+throwsWith(function () { orch.assertBackupWriteAdapter({ put: function () {}, head: function () {} }); },
+  /ADAPTER_METHOD_MISSING/, '188 an adapter missing a required method is refused');
+throwsWith(function () { orch.assertBackupWriteAdapter(undefined); },
+  /BACKUP_ADAPTER_REQUIRED/, '189 a missing adapter is refused');
+// Stage-path sanity: local staging may never write into the repository,
+// system config, or the filesystem root.
+['/home/deploy/projects/mythos-prod/stage', '/etc/stage', '/var/lib/stage', '/'].forEach(function (p, i) {
+  throwsWith(function () { orch.assertLocalStagePath(p, 'stageDir'); },
+    /STAGE_PATH_FORBIDDEN/, (190 + i) + ' staging under "' + p + '" is refused');
+});
+throwsWith(function () { orch.assertLocalStagePath('relative/stage', 'stageDir'); },
+  /STAGE_PATH_NOT_ABSOLUTE/, '194 a relative staging path is refused');
+throwsWith(function () { orch.assertLocalStagePath('/tmp/a/../b', 'stageDir'); },
+  /STAGE_PATH_TRAVERSAL/, '195 traversal in a staging path is refused');
+
+// The wired path, end to end and fully offline: a REAL staged directory built
+// by the EXISTING tooling, pushed through offhost.push into an in-memory
+// store, then re-verified through offhost.verifyRemote — under the exact
+// ratified conditions (LEVEL_4 designation + flag + committed-shape policy).
+var STAGE_DIR = stagedFixtureDir('create-green');
+var STORE = {};
+var createResult = await orch.executeBackupOperation(request({
+  operation: 'backup_create', policy: policyL4(),
+  backupAdapter: writeMemoryAdapter(STORE), stageDir: STAGE_DIR, prefix: PREFIX + '-create'
+}));
+ok(createResult.result.ok === true, '196 the wired backup_create path completes and re-verifies remotely');
+ok(createResult.result.verification_kind === 'BACKUP_INTEGRITY',
+  '197 the create path verifies BACKUP_INTEGRITY — the backup path, not the restore path');
+ok(createResult.result.uploaded_objects === 3 && createResult.mutations_performed === 5,
+  '198 mutations are counted exactly: 3 objects + manifest + COMPLETE marker');
+ok(Object.keys(STORE).some(function (k) { return /\/COMPLETE$/.test(k); }),
+  '199 the COMPLETE marker exists in the store — written last by the existing tooling');
+ok(Object.keys(STORE).length === 5, '200 exactly five objects were written, nothing else');
+var reverify = await offhost.verifyRemote(PREFIX + '-create', writeMemoryAdapter(STORE));
+ok(reverify.ok === true, '201 the pushed set independently re-verifies through offhost.verifyRemote');
+// The same request against a tampered stage refuses before any upload.
+var STORE2 = {};
+var tamperDir = stagedFixtureDir('create-tampered');
+fs.writeFileSync(path.join(tamperDir, 'database', 'idauto.dump'), Buffer.from('tampered'));
+var tamperedCreate = await orch.executeBackupOperation(request({
+  operation: 'backup_create', policy: policyL4(),
+  backupAdapter: writeMemoryAdapter(STORE2), stageDir: tamperDir, prefix: PREFIX + '-t'
+}));
+ok(tamperedCreate.ok === false && tamperedCreate.phase === 'verify_local' && Object.keys(STORE2).length === 0,
+  '202 a tampered stage fails verify_local and NOTHING is uploaded');
+await rejects(orch.executeBackupOperation(request({
+  operation: 'backup_create', policy: policyL4(),
+  backupAdapter: memoryAdapter({}), stageDir: STAGE_DIR, prefix: PREFIX + '-x'
+})), /ADAPTER_SCOPE_ESCAPE|ADAPTER_METHOD_MISSING/, '203 the read-only adapter cannot be used for the write path');
+await rejects(orch.executeBackupOperation(request({
+  operation: 'backup_create', policy: policyL4(),
+  backupAdapter: writeMemoryAdapter({}), stageDir: '/home/deploy/projects/mythos-prod', prefix: PREFIX + '-y'
+})), /STAGE_PATH_FORBIDDEN/, '204 a stage directory inside the repository is refused');
+await rejects(orch.executeBackupOperation(request({
+  operation: 'backup_create', policy: policyL4(),
+  backupAdapter: writeMemoryAdapter({}), stageDir: STAGE_DIR, prefix: '../../etc'
+})), /BACKUP_PREFIX_UNSAFE/, '205 a traversing prefix is refused on the create path too');
+
+// Cleanup of local fixtures — the suite leaves nothing behind.
+fs.rmSync(FIXTURE_ROOT, { recursive: true, force: true });
+ok(!fs.existsSync(FIXTURE_ROOT), '206 all local fixture files are removed');
 
 console.log('\nStage INF-BACKUP-AUTO-0 backup operations: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail === 0 ? 0 : 1);

@@ -7,8 +7,12 @@
 // Contract: docs/AUTOMATION_ROADMAP.md §"INF-BACKUP-AUTO-0", ratified by owner
 // decisions O-BACKUP-1 (scope — wrap the existing tooling, never parallel it),
 // O-BACKUP-2 (automation levels and the permanent LEVEL_3 boundaries this
-// stage does NOT receive), O-BACKUP-3 (the connector stays read-only), and
-// O-BACKUP-4 (evidence recording, no `aut_*` tables, no database writes).
+// stage does NOT receive), O-BACKUP-3 (the connector stays read-only),
+// O-BACKUP-4 (evidence recording, no `aut_*` tables, no database writes), and
+// O-BACKUP-5 (2026-08-16: backup_create and restore_test designated
+// LEVEL_4_FULL_AUTOMATIC under the approved policy in
+// projects/automation/config/inf-backup-auto-0-approval-policy.json; LEVEL_2
+// external mutation permanently ruled out; permanent boundaries withheld).
 //
 // THIS MODULE OWNS NO BACKUP LOGIC.
 // Manifest construction, checksums, staging, upload, remote verification,
@@ -37,18 +41,27 @@ var crypto = require('crypto');
 var offhost = require('../../idauto/ops/offhost-backup.js');
 
 // -----------------------------------------------------------------------
-// Levels (O-BACKUP-2). Declared as constants, never taken from a request —
-// "No operation may self-authorise."
+// Levels (O-BACKUP-2, amended by O-BACKUP-5, ratified 2026-08-16).
+// Declared as constants, never taken from a request — "No operation may
+// self-authorise."
+//
+// O-BACKUP-5 resolved the LEVEL_2 external-mutation contradiction by
+// designating the two MUTATING operations LEVEL_4_FULL_AUTOMATIC — the level
+// the approval matrix (docs/AUTOMATION_APPROVAL_MATRIX.md §3) already listed
+// them as eligible for — under an approved policy covering all four
+// operations. The two read-only operations remain LEVEL_2_RECOMMEND, whose
+// committed "no external mutation" definition they genuinely satisfy.
 // -----------------------------------------------------------------------
 var OPERATION_LEVELS = {
-  backup_create: 'LEVEL_2_RECOMMEND',
+  backup_create: 'LEVEL_4_FULL_AUTOMATIC',
   backup_verify: 'LEVEL_2_RECOMMEND',
-  restore_test: 'LEVEL_2_RECOMMEND',
+  restore_test: 'LEVEL_4_FULL_AUTOMATIC',
   retention_report: 'LEVEL_2_RECOMMEND'
 };
 var AUTHORISED_OPERATIONS = Object.keys(OPERATION_LEVELS);
 var LEVEL_2 = 'LEVEL_2_RECOMMEND';
 var LEVEL_3 = 'LEVEL_3_APPROVAL_REQUIRED';
+var LEVEL_4 = 'LEVEL_4_FULL_AUTOMATIC';
 
 // O-BACKUP-2: permanent boundaries this stage does NOT receive. Refused by
 // name before anything else looks at the request.
@@ -89,30 +102,32 @@ var PRODUCTION_DATA_STORES = [
 ];
 
 // -----------------------------------------------------------------------
-// THE ONE OPEN CONTRACT AMBIGUITY — encoded as a fail-closed guard rather
-// than resolved by invention.
+// THE LEVEL_2 NO-MUTATION RULE — now a PERMANENT ratified invariant.
 //
-// O-BACKUP-2 assigns LEVEL_2 to backup creation and to isolated restore
-// testing. The repository's committed definition of that level
-// (projects/automation/config/automation.example.json §automation_levels) is:
+// This constant began life as the fail-closed encoding of an open
+// contradiction (O-BACKUP-2 assigned LEVEL_2 to two mutating operations,
+// while the committed definition of LEVEL_2_RECOMMEND is "no external
+// mutation"). O-BACKUP-5 (ratified 2026-08-16) resolved it the other way
+// round: the mutating operations moved UP to LEVEL_4_FULL_AUTOMATIC, and the
+// owner ruled verbatim that "No LEVEL_2 external mutation is permitted."
 //
-//   LEVEL_2_RECOMMEND — "Analyse, create plans, simulate, dry-run, calculate
-//   impact, generate rollback plans. NO EXTERNAL MUTATION."
-//
-// Backup creation writes objects to off-host storage, and a restore test
-// writes files to its target. Both are external mutations, which the
-// committed definition of LEVEL_2 excludes. The owner's gloss ("approved
-// automation with bounded scope") and the committed definition do not agree,
-// and the owner's order requires stopping at exactly such an ambiguity rather
-// than inventing a solution.
-//
-// So this constant is false: every gate, plan and evidence path below is
-// fully implemented and tested, and the single act of external mutation is
-// refused pending the clarification recorded in docs/AI_HANDOVER.md. Setting
-// it to true is an owner decision, not a code change an agent may make on its
-// own judgement.
+// So this stays false FOREVER: it is no longer a pending question but the
+// committed taxonomy's own rule, ratified twice. External mutation is instead
+// gated by assertMutationPermitted below — LEVEL_4 designation + the
+// LEVEL_4 feature flag + the approved LEVEL_4 policy, all three.
 // -----------------------------------------------------------------------
 var LEVEL_2_MAY_MUTATE_EXTERNALLY = false;
+
+// Adapter surface for the one mutating delegation path (offhost.push /
+// offhost.verifyRemote). `put` is required by push and is NOT a broadening of
+// the read-only connector: the write path belongs to the existing offhost
+// tooling (O-BACKUP-3: "backup creation must use the existing authorised
+// offhost-backup mechanism"), never to `backup_storage_readonly`, whose
+// exact-set {backup.list, backup.verify} check is untouched. What the adapter
+// may NEVER expose is any deletion or destruction capability — the permanent
+// boundaries stay structurally out of reach even on the write path.
+var PERMITTED_WRITE_ADAPTER_METHODS = ['put', 'head', 'get', 'describe'];
+var DESTRUCTIVE_METHOD_PATTERN = /^(del|delete|remove|destroy|purge|prune|truncate|drop|erase|wipe|disable)/i;
 
 function refuse(code, detail) {
   var e = new Error('BACKUP_ORCHESTRATOR: ' + code + (detail ? ' — ' + detail : ''));
@@ -353,7 +368,15 @@ function assertReadOnlyConnector(input) {
     }
   });
   if (declared.enabled !== true) throw refuse('CONNECTOR_DISABLED', READ_CONNECTOR_ID);
-  if (flags.level_2_recommend_runs !== true) {
+  // Level-aware run gate (O-BACKUP-5): an operation runs only while the
+  // feature flag for ITS designated level is on. The read-only operations are
+  // LEVEL_2 runs; the mutating operations are LEVEL_4 runs. When no level is
+  // supplied the strict read-path default (LEVEL_2) applies.
+  if (input.level === LEVEL_4) {
+    if (flags.level_4_full_automatic_runs !== true) {
+      throw refuse('LEVEL_4_RUNS_DISABLED', 'level_4_full_automatic_runs is not true');
+    }
+  } else if (flags.level_2_recommend_runs !== true) {
     throw refuse('LEVEL_2_RUNS_DISABLED', 'level_2_recommend_runs is not true');
   }
   // A LEVEL_3 flag must never be required, requested, or enabled by this stage.
@@ -403,9 +426,28 @@ function assertPolicy(input) {
   if (p.minimum_automation_level_covered === LEVEL_3) {
     throw refuse('LEVEL_3_POLICY_NOT_AUTHORISED', 'O-BACKUP-2 authorises no LEVEL_3 operation in this stage');
   }
+  if (p.minimum_automation_level_covered === LEVEL_4) {
+    // The committed definition of LEVEL_4 (automation.example.json
+    // §automation_levels, AUTOMATION_ARCHITECTURE.md §2): "Must have
+    // monitoring, audit, bounded retries and rollback or safe failure.
+    // Requires a previously approved policy." These are structural
+    // requirements of the policy record, not prose to be inferred.
+    if (p.has_monitoring !== true) throw refuse('LEVEL_4_POLICY_INCOMPLETE', 'has_monitoring must be exactly true');
+    if (p.has_audit !== true) throw refuse('LEVEL_4_POLICY_INCOMPLETE', 'has_audit must be exactly true');
+    if (typeof p.bounded_retries !== 'number' || !isFinite(p.bounded_retries) || p.bounded_retries < 0) {
+      throw refuse('LEVEL_4_POLICY_INCOMPLETE', 'bounded_retries must be a finite non-negative number');
+    }
+    if (p.rollback_or_safe_failure !== true) {
+      throw refuse('LEVEL_4_POLICY_INCOMPLETE', 'rollback_or_safe_failure must be exactly true');
+    }
+    if (typeof p.approved_by_decision !== 'string' || !p.approved_by_decision.trim()) {
+      throw refuse('LEVEL_4_POLICY_INCOMPLETE',
+        'a LEVEL_4 policy must name the owner decision that previously approved it');
+    }
+  }
   if (p.is_permanent_boundary === true) {
     throw refuse('PERMANENT_BOUNDARY_POLICY_REFUSED',
-      'a permanent-boundary policy can never authorise a LEVEL_2 backup operation');
+      'a permanent-boundary policy can never authorise a backup operation in this stage');
   }
   if (p.allow_self_approval !== false) {
     throw refuse('SELF_APPROVAL_PERMITTED_BY_POLICY', String(p.policy_key));
@@ -425,21 +467,96 @@ function assertPolicy(input) {
 }
 
 // -----------------------------------------------------------------------
-// assertMutationPermitted(operation)
+// assertMutationPermitted({ operation, featureFlags, policy })
 //
-// The fail-closed encoding of the one open contract ambiguity documented at
-// the head of this file. Every gate above runs first and independently; this
-// is the last thing checked before an external mutation would occur, so a
-// clarification that flips it cannot weaken any other guard.
+// The LAST gate before any external mutation, per O-BACKUP-5. Every other
+// gate runs first and independently, so nothing here can weaken them. Three
+// things must all hold, each fail-closed:
+//   1. the operation's DESIGNATED level is LEVEL_4_FULL_AUTOMATIC — a
+//      LEVEL_2 operation may never mutate (permanent, ratified O-BACKUP-5);
+//   2. the LEVEL_4 feature flag is on (and the LEVEL_3 gate is not open —
+//      this stage holds no LEVEL_3 capability);
+//   3. the previously approved LEVEL_4 policy covers this exact operation,
+//      with the structural requirements the committed LEVEL_4 definition
+//      demands (monitoring, audit, bounded retries, rollback/safe failure).
+// A bare-string call (the pre-O-BACKUP-5 signature) still fails closed: it
+// carries no flags and no policy, so gate 2 refuses it.
 // -----------------------------------------------------------------------
-function assertMutationPermitted(operation) {
-  if (LEVEL_2_MAY_MUTATE_EXTERNALLY !== true) {
-    throw refuse('LEVEL_2_MUTATION_NOT_RESOLVED',
-      'operation "' + operation + '" would perform an external mutation, but the committed definition of ' +
-      LEVEL_2 + ' is "no external mutation" while O-BACKUP-2 assigns this operation to LEVEL_2. ' +
-      'This contradiction is an open owner clarification, not an engineering choice; refusing fail-closed.');
+function assertMutationPermitted(input) {
+  if (typeof input === 'string') input = { operation: input };
+  input = input || {};
+  var op = input.operation;
+  if (typeof op !== 'string' || AUTHORISED_OPERATIONS.indexOf(op) === -1) {
+    throw refuse('OPERATION_NOT_AUTHORISED', 'mutation gate: "' + String(op) + '"');
   }
+  var level = OPERATION_LEVELS[op];
+  if (level === LEVEL_2 || LEVEL_2_MAY_MUTATE_EXTERNALLY !== false) {
+    throw refuse('LEVEL_2_MUTATION_NOT_PERMITTED',
+      'operation "' + op + '" is ' + level + ' and LEVEL_2 external mutation is permanently ruled out (O-BACKUP-5)');
+  }
+  if (level !== LEVEL_4) {
+    throw refuse('MUTATION_LEVEL_NOT_AUTHORISED',
+      'operation "' + op + '" is designated ' + level + ', which holds no mutation capability in this stage');
+  }
+  var flags = input.featureFlags || {};
+  if (flags.level_3_approval_required_runs === true) {
+    throw refuse('LEVEL_3_FLAG_NOT_PERMITTED',
+      'this stage holds no LEVEL_3 capability and must not mutate while the global LEVEL_3 gate is open');
+  }
+  if (flags.level_4_full_automatic_runs !== true) {
+    throw refuse('LEVEL_4_RUNS_DISABLED',
+      'operation "' + op + '" is LEVEL_4 and level_4_full_automatic_runs is not true');
+  }
+  assertPolicy({ policy: input.policy, operation: op, level: LEVEL_4 });
   return true;
+}
+
+// -----------------------------------------------------------------------
+// assertBackupWriteAdapter(adapter) — the write surface for the ONE
+// mutating delegation (offhost.push → offhost.verifyRemote). Exact-set:
+// {put, head, get} required, `describe` tolerated, anything else refused —
+// and any deletion-shaped method refused by name FIRST, so the permanent
+// boundaries (backup deletion, history destruction) remain structurally
+// unreachable even on the write path. The raw S3 adapter (which exposes
+// `del` for separately-authorised maintenance) is therefore refused here:
+// a composition root must hand this stage a wrapper without it.
+// -----------------------------------------------------------------------
+function assertBackupWriteAdapter(adapter) {
+  if (!adapter || typeof adapter !== 'object') throw refuse('BACKUP_ADAPTER_REQUIRED');
+  var methods = Object.keys(adapter).filter(function (k) { return typeof adapter[k] === 'function'; });
+  methods.forEach(function (m) {
+    if (DESTRUCTIVE_METHOD_PATTERN.test(m)) {
+      throw refuse('DELETE_CAPABLE_ADAPTER_REFUSED',
+        'adapter exposes deletion-shaped method "' + m + '"; the permanent boundaries stay out of reach on the write path');
+    }
+    if (PERMITTED_WRITE_ADAPTER_METHODS.indexOf(m) === -1) {
+      throw refuse('ADAPTER_SCOPE_ESCAPE', 'adapter exposes undeclared method "' + m + '"');
+    }
+  });
+  ['put', 'head', 'get'].forEach(function (m) {
+    if (typeof adapter[m] !== 'function') {
+      throw refuse('ADAPTER_METHOD_MISSING', '"' + m + '" is required by offhost-backup push/verifyRemote');
+    }
+  });
+  return { methods: methods };
+}
+
+// Local write locations for staging must be sane and may never point into
+// the repository or system configuration. (Restore paths have their own,
+// stricter list — this guards the backup path's local staging only.)
+function assertLocalStagePath(p, label) {
+  if (typeof p !== 'string' || !p.trim()) throw refuse('STAGE_PATH_REQUIRED', label);
+  if (p.indexOf('\0') !== -1) throw refuse('STAGE_PATH_INVALID', label + ': null byte');
+  if (p.charAt(0) !== '/') throw refuse('STAGE_PATH_NOT_ABSOLUTE', label + ': ' + p);
+  if (p.split('/').indexOf('..') !== -1) throw refuse('STAGE_PATH_TRAVERSAL', label + ': ' + p);
+  var norm = p.replace(/\/+$/, '') || '/';
+  ['/home/deploy/projects', '/etc', '/var/lib'].forEach(function (root) {
+    if (norm === root || norm.indexOf(root + '/') === 0) {
+      throw refuse('STAGE_PATH_FORBIDDEN', label + ' resolves under "' + root + '"');
+    }
+  });
+  if (norm === '/') throw refuse('STAGE_PATH_FORBIDDEN', label + ' is the filesystem root');
+  return norm;
 }
 
 // -----------------------------------------------------------------------
@@ -602,7 +719,8 @@ async function runIsolatedRestoreTest(input) {
   var target = assertIsolatedTarget(input.target);
   var connector = assertReadOnlyConnector({
     connector: input.connector, catalogue: input.connectorCatalogue,
-    featureFlags: input.featureFlags, client: input.client
+    featureFlags: input.featureFlags, client: input.client,
+    level: OPERATION_LEVELS.restore_test
   });
   if (typeof input.prefix !== 'string' || !input.prefix.trim()) throw refuse('BACKUP_PREFIX_REQUIRED');
 
@@ -617,7 +735,7 @@ async function runIsolatedRestoreTest(input) {
       ok: probe.ok === true, problems: (probe.problems || []).map(offhost.redact)
     };
   }
-  assertMutationPermitted('restore_test');
+  assertMutationPermitted({ operation: 'restore_test', featureFlags: input.featureFlags, policy: input.policy });
   var result = await offhost.restoreVerify(input.prefix, target.restore_path, input.client, {});
   return {
     verification_kind: 'RESTORE_STRUCTURAL', mode: 'APPLY',
@@ -731,7 +849,7 @@ function preflight(request) {
   var policy = assertPolicy({ policy: request.policy, operation: authorised.operation, level: authorised.level });
   var connector = assertReadOnlyConnector({
     connector: request.connector, catalogue: request.connectorCatalogue,
-    featureFlags: request.featureFlags, client: request.client
+    featureFlags: request.featureFlags, client: request.client, level: authorised.level
   });
   var target = authorised.operation === 'restore_test' ? assertIsolatedTarget(request.target) : null;
 
@@ -795,10 +913,70 @@ async function executeBackupOperation(request) {
       result: await runIsolatedRestoreTest(request), envelope: prepared.envelope
     };
   }
-  // backup_create — the only remaining operation, and one that writes.
-  assertMutationPermitted(op);
-  throw refuse('UNREACHABLE_MUTATION_PATH',
-    'backup creation is gated by assertMutationPermitted and cannot proceed while the LEVEL_2 ambiguity is open');
+  // backup_create — the one operation that writes off-host, LEVEL_4 per
+  // O-BACKUP-5, wired 2026-08-16 once that decision existed. DELEGATION
+  // ONLY (O-BACKUP-1): staging, local verification, upload and remote
+  // verification are all the existing offhost tooling's — this arm adds the
+  // mutation gate, the write-adapter boundary and path sanity, nothing else.
+  assertMutationPermitted({ operation: op, featureFlags: request.featureFlags, policy: request.policy });
+  assertBackupWriteAdapter(request.backupAdapter);
+  var adapter = request.backupAdapter;
+  if (typeof request.prefix !== 'string' || !request.prefix.trim()) throw refuse('BACKUP_PREFIX_REQUIRED');
+  if (!offhost.safeRel(request.prefix.replace(/\/+$/, ''))) throw refuse('BACKUP_PREFIX_UNSAFE', request.prefix);
+
+  var stageDir, local;
+  if (request.stageOptions !== undefined) {
+    // Stage fresh through offhost.stage (plan step bkp-001). The destination
+    // is a local write and is path-guarded; offhost.stage itself refuses an
+    // existing destination and builds manifest + checksums.
+    var so = request.stageOptions || {};
+    stageDir = assertLocalStagePath(so.dest, 'stageOptions.dest');
+    local = offhost.stage({
+      dbDir: so.dbDir, mediaDir: so.mediaDir, dest: stageDir,
+      databaseCapturedAt: so.databaseCapturedAt, mediaCapturedAt: so.mediaCapturedAt,
+      host: so.host
+    });
+  } else {
+    // Consume a directory the operator already staged with the same tooling.
+    stageDir = assertLocalStagePath(request.stageDir, 'stageDir');
+    local = offhost.verifyLocal(stageDir);
+  }
+  if (!local || local.ok !== true) {
+    return {
+      mode: 'APPLY', operation: op, ok: false, phase: 'verify_local',
+      problems: ((local && local.problems) || ['stage unavailable']).map(offhost.redact),
+      mutations_performed: 0, envelope: prepared.envelope
+    };
+  }
+
+  var pushed = await offhost.push(stageDir, adapter, { prefix: request.prefix });
+  if (pushed.ok !== true) {
+    // A failed or partial push is reported honestly and never retried here
+    // (bounded retries are the runbook's §4M decision, not this gate's), and
+    // never "cleaned up" — deletion is a permanent boundary this stage lacks.
+    return {
+      mode: 'APPLY', operation: op, ok: false, phase: 'push_offhost',
+      partial: pushed.partial === true,
+      problems: (pushed.problems || []).map(offhost.redact),
+      envelope: prepared.envelope
+    };
+  }
+
+  var remote = await offhost.verifyRemote(request.prefix, adapter);
+  return {
+    mode: 'APPLY', operation: op,
+    result: {
+      verification_kind: 'BACKUP_INTEGRITY',
+      ok: remote.ok === true,
+      prefix: pushed.prefix,
+      uploaded_objects: pushed.uploaded,
+      object_count: remote.manifest && Array.isArray(remote.manifest.objects) ? remote.manifest.objects.length : 0,
+      problems: (remote.problems || []).map(offhost.redact)
+    },
+    // objects + manifest.json + COMPLETE marker — reported, never estimated.
+    mutations_performed: pushed.uploaded + 2,
+    envelope: prepared.envelope
+  };
 }
 
 module.exports = {
@@ -810,6 +988,9 @@ module.exports = {
   PRODUCTION_DATA_STORES: PRODUCTION_DATA_STORES,
   FORBIDDEN_RESTORE_ROOTS: FORBIDDEN_RESTORE_ROOTS,
   LEVEL_2_MAY_MUTATE_EXTERNALLY: LEVEL_2_MAY_MUTATE_EXTERNALLY,
+  PERMITTED_WRITE_ADAPTER_METHODS: PERMITTED_WRITE_ADAPTER_METHODS,
+  assertBackupWriteAdapter: assertBackupWriteAdapter,
+  assertLocalStagePath: assertLocalStagePath,
   looksProduction: looksProduction,
   assertNoSecrets: assertNoSecrets,
   assertOperationAuthorised: assertOperationAuthorised,

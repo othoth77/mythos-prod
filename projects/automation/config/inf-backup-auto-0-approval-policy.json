@@ -1,0 +1,41 @@
+{
+  "_note": "INF-BACKUP-AUTO-0 approval policies, ratified verbatim by owner decision O-BACKUP-5 (2026-08-16) — see docs/AUTOMATION_ROADMAP.md §INF-BACKUP-AUTO-0. NON-SECRET: this file holds policy metadata only; no credential value may ever appear here (docs/AUTOMATION_SECURITY_AND_SECRETS.md §3). These records do not enable anything by themselves — every run additionally requires the connector to be enabled, the level's feature flag to be on, and a credential supplied by reference only.",
+  "schema": "inf-backup-auto-0-approval-policy/1.0.0",
+  "approved_by_decision": "O-BACKUP-5",
+  "approved_on_utc": "2026-08-16",
+  "policies": [
+    {
+      "policy_key": "inf-backup-auto-0-read",
+      "enabled": true,
+      "minimum_automation_level_covered": "LEVEL_2_RECOMMEND",
+      "covers_operations": ["backup_verify", "retention_report"],
+      "covers_retention": true,
+      "is_permanent_boundary": false,
+      "allow_self_approval": false,
+      "approved_by_decision": "O-BACKUP-5",
+      "note": "Read-only operations. backup_verify re-verifies a stored set (completion marker, then per-object checksum — never ETag); retention_report is report-only and deletes nothing."
+    },
+    {
+      "policy_key": "inf-backup-auto-0-mutate",
+      "enabled": true,
+      "minimum_automation_level_covered": "LEVEL_4_FULL_AUTOMATIC",
+      "covers_operations": ["backup_create", "restore_test"],
+      "covers_retention": false,
+      "is_permanent_boundary": false,
+      "allow_self_approval": false,
+      "approved_by_decision": "O-BACKUP-5",
+      "has_monitoring": true,
+      "has_audit": true,
+      "bounded_retries": 1,
+      "rollback_or_safe_failure": true,
+      "note": "The LEVEL_4 structural requirements (automation.example.json §automation_levels) are met by the implemented mechanisms: monitoring = O-BACKUP-4 evidence records + mandatory verification steps; audit = secret-free operation envelopes with deterministic idempotency and audit ids; bounded retries = at most one push retry per OFF_HOST_BACKUP_GATE.md §4M, never automatic in the orchestrator; rollback/safe failure = COMPLETE-marker-written-last (an aborted upload is never advertised as restorable) and wholesale discard of the ephemeral restore target.",
+      "withheld_permanent_boundaries": [
+        "overwriting production data",
+        "restoring over production",
+        "deleting backups",
+        "disabling backups",
+        "destroying backup history"
+      ]
+    }
+  ]
+}
