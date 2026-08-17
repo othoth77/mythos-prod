@@ -76,17 +76,50 @@ function securityValidator(task, result) {
   };
 }
 
+// Agents sometimes fill a "commit" field with a placeholder string —
+// "null", "none", "N/A" — instead of omitting it. That is an ABSENT
+// commit, not an invented one; treating it as a fabricated hash failed
+// analysis tasks that never produce commits at all (observed live: an
+// AF research task blocked a campaign on `commit: "null"`).
+var PLACEHOLDER_COMMIT = /^(null|none|n\/a|na|undefined|nil|-|tbd|pending)$/i;
+var SHA_SHAPE = /^[0-9a-f]{7,40}$/i;
+
+function normalizeCommitClaim(raw) {
+  if (raw === undefined || raw === null) return { present: false, value: null, malformed: false };
+  var v = String(raw).trim();
+  if (!v || PLACEHOLDER_COMMIT.test(v)) return { present: false, value: null, malformed: false };
+  if (!SHA_SHAPE.test(v)) return { present: true, value: v, malformed: true };
+  return { present: true, value: v, malformed: false };
+}
+
+function commitRequired(task) {
+  return task.task_type === 'coding' ||
+    (task.metadata && task.metadata.commit_required === true);
+}
+
 function gitValidator(task, result, opts) {
   var problems = [];
   var repo = (opts && opts.worktree_dir) || (opts && opts.repo_path) || null;
+  var claim = normalizeCommitClaim(result && result.commit);
+  if (claim.malformed) {
+    // A garbled hash is only a failure where a commit was actually due.
+    if (commitRequired(task)) {
+      problems.push('commit claim is not a valid hash: ' + String(claim.value).slice(0, 40));
+    }
+    return { name: 'git', pass: problems.length === 0, problems: problems };
+  }
+  if (!claim.present) {
+    if (commitRequired(task)) {
+      problems.push('this task must produce a commit but the result claims none');
+    }
+    return { name: 'git', pass: problems.length === 0, problems: problems };
+  }
   if (result && result.commit) {
     if (!repo || !gitlib.isRepo(repo)) {
       problems.push('result claims commit ' + String(result.commit).slice(0, 12) + ' but no repository is in scope');
     } else if (!gitlib.commitExists(repo, result.commit)) {
       problems.push('claimed commit does not exist: ' + String(result.commit).slice(0, 12));
     }
-  } else if (task.task_type === 'coding' && task.metadata && task.metadata.commit_required) {
-    problems.push('coding task required a commit but the result claims none');
   }
   return { name: 'git', pass: problems.length === 0, problems: problems };
 }

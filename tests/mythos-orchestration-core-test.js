@@ -907,6 +907,27 @@ var validation = require(path.join(EXEC, 'core', 'validation'));
   }, { repo_path: repo });
   ok(!fake.pass && fake.rejections.some(function (r) { return /does not exist/.test(r); }),
     '2I validate: invented commit rejected');
+
+  // PLACEHOLDER commits: an agent writing the string "null"/"none"/"N/A"
+  // means it produced NO commit, not a fabricated one. Failing an analysis
+  // task for that blocked a live campaign, so it is treated as absent —
+  // while a task that genuinely owes a commit still fails.
+  var analysisTask = domain.createTask({ title: 'analysis', project: 'core-test', task_type: 'analysis' });
+  ['null', 'none', 'N/A', '', '  ', 'TBD'].forEach(function (ph) {
+    ok(validation.validate(analysisTask, { status: 'completed', summary: 'x', commit: ph },
+      { repo_path: repo }).pass,
+      '2I validate: placeholder commit "' + ph + '" is absent, not invented, on a non-coding task');
+  });
+  var codingTask = domain.createTask({ title: 'coding', project: 'core-test', task_type: 'coding' });
+  ok(!validation.validate(codingTask, { status: 'completed', summary: 'x', commit: 'null' },
+    { repo_path: repo }).pass,
+    '2I validate: a coding task claiming "null" still fails — it owed a commit');
+  ok(!validation.validate(codingTask, { status: 'completed', summary: 'x', commit: 'not-a-sha!' },
+    { repo_path: repo }).pass,
+    '2I validate: a malformed hash on a coding task still fails');
+  ok(!validation.validate(codingTask, { status: 'completed', summary: 'x' },
+    { repo_path: repo }).pass,
+    '2I validate: a coding task with no commit at all still fails');
 })();
 
 (function () {
