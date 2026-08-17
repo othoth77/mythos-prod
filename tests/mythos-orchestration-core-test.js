@@ -847,6 +847,83 @@ chain2 = chain2.then(function () {
   });
 });
 
+// --- opts.isolate_worktrees === false: an explicit opt-out still leaves a
+//     REAL repo_path as a shared writable surface, never a free-for-all.
+//     Untested until now — the isolate_worktrees:false branch (scheduler.js)
+//     sets workDir to opts.repo_path directly (no worktree created), and
+//     relies on the SAME occupancy guard as the no-repo case. Prove it holds
+//     with actual concurrent git operations against the one real checkout,
+//     not just a synthetic marker string. ------------------------------------
+chain2 = chain2.then(function () {
+  var repo = makeRepo('shared-no-isolation');
+  var spec = [
+    { key: 'code-p', title: 'feature P', task_type: 'coding', depends_on: [] },
+    { key: 'code-q', title: 'feature Q', task_type: 'coding', depends_on: [] }
+  ];
+  var m = buildMission('shared surface, isolation opted out', spec, { max_parallel: 2 });
+  var concurrent = 0, peak = 0;
+  return scheduler.runMission(m.mission.id, {
+    repo_path: repo,
+    isolate_worktrees: false,
+    runner: function (task) {
+      concurrent += 1; peak = Math.max(peak, concurrent);
+      return new Promise(function (resolve) {
+        setTimeout(function () {
+          // Real writes against the ONE shared checkout — if the guard ever
+          // let two of these run at once, this is where it would corrupt.
+          fs.writeFileSync(path.join(repo, task.metadata.plan_key + '.txt'), 'work\n');
+          cp.execFileSync('git', ['add', '.'], { cwd: repo });
+          cp.execFileSync('git', ['commit', '-q', '-m', task.metadata.plan_key], { cwd: repo });
+          concurrent -= 1;
+          resolve({ status: 'COMPLETED' });
+        }, 15);
+      });
+    }
+  }).then(function (mission) {
+    ok(mission.status === 'COMPLETED', '2G no-isolation: mission completes');
+    ok(peak === 1, '2G no-isolation: opted-out write tasks never overlap on the real repo (peak ' + peak + ')');
+    ok(fs.existsSync(path.join(repo, 'code-p.txt')) && fs.existsSync(path.join(repo, 'code-q.txt')),
+      '2G no-isolation: both writers landed, neither clobbered the other');
+    var log = cp.execFileSync('git', ['log', '--oneline'], { cwd: repo, encoding: 'utf8' });
+    ok(log.trim().split('\n').length === 3, '2G no-isolation: both commits recorded (plus init)');
+  });
+});
+
+// --- Same real repo_path, isolation opted out, TWO DIFFERENT missions racing
+//     it concurrently: the cross-mission occupancy guard must cover the
+//     real-repo shared-surface branch, not just the no-repo synthetic one. --
+chain2 = chain2.then(function () {
+  var repo = makeRepo('shared-no-isolation-cross-mission');
+  var specA = [{ key: 'code-r', title: 'mission A task', task_type: 'coding', depends_on: [] }];
+  var specB = [{ key: 'code-s', title: 'mission B task', task_type: 'coding', depends_on: [] }];
+  var mA = buildMission('cross-mission real repo A', specA);
+  var mB = buildMission('cross-mission real repo B', specB);
+  var concurrent = 0, peak = 0;
+  var sharedRunner = function (task) {
+    concurrent += 1; peak = Math.max(peak, concurrent);
+    return new Promise(function (resolve) {
+      setTimeout(function () {
+        fs.writeFileSync(path.join(repo, task.metadata.plan_key + '.txt'), 'work\n');
+        cp.execFileSync('git', ['add', '.'], { cwd: repo });
+        cp.execFileSync('git', ['commit', '-q', '-m', task.metadata.plan_key], { cwd: repo });
+        concurrent -= 1;
+        resolve({ status: 'COMPLETED' });
+      }, 15);
+    });
+  };
+  return Promise.all([
+    scheduler.runMission(mA.mission.id, { repo_path: repo, isolate_worktrees: false, runner: sharedRunner }),
+    scheduler.runMission(mB.mission.id, { repo_path: repo, isolate_worktrees: false, runner: sharedRunner })
+  ]).then(function (results) {
+    ok(results[0].status === 'COMPLETED' && results[1].status === 'COMPLETED',
+      '2G no-isolation cross-mission: both missions complete');
+    ok(peak === 1,
+      '2G no-isolation cross-mission: two missions sharing one real repo never overlap (peak ' + peak + ')');
+    ok(fs.existsSync(path.join(repo, 'code-r.txt')) && fs.existsSync(path.join(repo, 'code-s.txt')),
+      '2G no-isolation cross-mission: both writers landed, neither clobbered the other');
+  });
+});
+
 // --- Failure isolation: one branch fails, independent work finishes ------------
 chain2 = chain2.then(function () {
   var spec = [
