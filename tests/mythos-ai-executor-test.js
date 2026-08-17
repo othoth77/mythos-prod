@@ -155,6 +155,17 @@ function eventsOf(taskId) {
   var args = policy.claudeArgsForProfile('repo-read').join(' ');
   ok(args.indexOf('Bash(sudo:*)') !== -1 && args.indexOf('--disallowedTools') !== -1, 'policy: repo-read disallows sudo');
   ok(args.indexOf('Write') === -1 || /disallowedTools[^-]*Write/.test(args), 'policy: repo-read does not allow Write');
+  // repo-test: a testing task must be able to RUN tests, but nothing more.
+  // Under repo-read it could only report "NOT RUN" (observed live), and
+  // repo-write would hand a test runner needless write authority.
+  var test = policy.claudeArgsForProfile('repo-test').join(' ');
+  ok(/Bash\(node:\*\)/.test(test), 'policy: repo-test can execute node');
+  ok(/Write/.test(test) && /Bash\(git commit/.test(test) && /Bash\(git push/.test(test),
+    'policy: repo-test denies writing, committing and pushing');
+  ok(/Bash\(sudo:\*\)/.test(test), 'policy: repo-test still denies sudo');
+  ok(policy.PROFILES['repo-test'].commandClasses.join(',') === 'READ',
+    'policy: repo-test claims only the READ class');
+
   var auto = policy.claudeArgsForProfile('autonomous').join(' ');
   ok(auto.indexOf('bypassPermissions') !== -1 && auto.indexOf('Bash(sudo:*)') !== -1,
     'policy: autonomous bypasses prompts but still disallows sudo');

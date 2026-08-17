@@ -37,7 +37,7 @@
     "provider": { "type": "string", "enum": ["claude-code", "openai-compat", "mock"] },
     "model": { "type": ["string", "null"], "maxLength": 100 },
     "fallback_model": { "type": ["string", "null"], "maxLength": 100 },
-    "execution_profile": { "type": ["string", "null"], "enum": ["repo-read", "repo-write", "autonomous", "deploy", null] },
+    "execution_profile": { "type": ["string", "null"], "enum": ["repo-read", "repo-write", "repo-test", "autonomous", "deploy", null] },
     "working_directory": { "type": ["string", "null"], "maxLength": 300, "pattern": "^/(?!tmp/)" },
     "repository": { "type": ["string", "null"], "maxLength": 300 },
     "branch": { "type": ["string", "null"], "maxLength": 100 },

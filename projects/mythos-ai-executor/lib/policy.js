@@ -57,6 +57,27 @@ var PROFILES = {
     enabled: true
   },
 
+  // TEST EXECUTION: read the repository and RUN its test suites, nothing
+  // more. A dedicated profile exists because 'repo-read' cannot execute
+  // node at all — a test task under it can only report "NOT RUN", which
+  // the acceptance gate then rightly refuses — while 'repo-write' would
+  // hand a test runner needless write authority. Least privilege for the
+  // one thing a testing task must do.
+  'repo-test': {
+    commandClasses: ['READ'],
+    permissionMode: null,
+    allowedTools: [
+      'Read', 'Grep', 'Glob',
+      'Bash(node:*)', 'Bash(npm test:*)', 'Bash(npm run test:*)',
+      'Bash(git status:*)', 'Bash(git log:*)', 'Bash(git diff:*)', 'Bash(git rev-parse:*)',
+      'Bash(ls:*)', 'Bash(rg:*)', 'Bash(wc:*)', 'Bash(cat:*)'
+    ],
+    disallowedTools: ['Bash(sudo:*)', 'Write', 'Edit', 'NotebookEdit',
+      'Bash(git commit:*)', 'Bash(git push:*)'],
+    extraArgs: [],
+    enabled: true
+  },
+
   // Full autonomous execution inside the worktree: the permission system is
   // bypassed, so the ONLY remaining guard is the disallow list — sudo stays
   // blocked, which keeps SERVICE/DEPLOY/ROOT classes out of reach. This is

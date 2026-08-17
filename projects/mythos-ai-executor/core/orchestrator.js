@@ -270,7 +270,12 @@ function finalizeMission(mission, opts) {
 // through TASK_STATE_COMPAT; an executor COMPLETED comes back as a
 // result for core VALIDATION — never trusted directly.
 function executorBridge(executorModule, profileByType) {
-  profileByType = profileByType || { coding: 'repo-write', integration: 'repo-write' };
+  // A testing task must be able to RUN tests; under 'repo-read' it can
+  // only report NOT RUN, which acceptance refuses (observed live on the
+  // AF mission). 'repo-test' grants execution without write authority.
+  profileByType = profileByType ||
+    { coding: 'repo-write', integration: 'repo-write', documentation: 'repo-write',
+      testing: 'repo-test', validation: 'repo-test' };
   return function (agentName, task, ctx) {
     var agentDef = agents.getAgent(agentName);
     var provider = agentDef ? agentDef.provider : 'claude-code';
