@@ -452,16 +452,38 @@ function acceptMission(campaignId, opts) {
 
 // --- Memory and roadmap closure ------------------------------------------------------
 
+// Agent-produced strings are UNTRUSTED input to long-term memory: they
+// could otherwise carry instruction-shaped text that steers a later
+// mission (memory poisoning, raised by independent review). They are
+// flattened to a single line, hard-capped, and stripped of the markup an
+// injected instruction would rely on.
+function sanitizeAgentText(value, max) {
+  return String(value === undefined || value === null ? '' : value)
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/[`*_#>|]/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, max || 200);
+}
+
 function recordMissionOutcome(campaignId, accepted) {
   var c = loadCampaign(campaignId);
   var cm = c.current_mission;
   if (!cm) return null;
-  var summary = (accepted ? 'COMPLETED' : 'NOT ACCEPTED') + ': ' + cm.title +
-    ' (capability ' + cm.capability_key + ', mission ' + cm.mission_id + ')' +
-    (cm.commit ? ', commit ' + String(cm.commit).slice(0, 12) : '') +
-    (cm.tests ? ', tests: ' + [].concat(cm.tests).slice(0, 3).join(' | ') : '') +
-    (cm.acceptance_problems && cm.acceptance_problems.length
-      ? ', problems: ' + cm.acceptance_problems.join('; ') : '');
+  // Only the structural facts are trusted (title and capability come from
+  // the committed roadmap; the commit is verified against Git). Everything
+  // the agent wrote is sanitised and labelled as agent-reported.
+  var safeCommit = /^[0-9a-f]{7,40}$/.test(String(cm.commit || '')) ? String(cm.commit).slice(0, 12) : null;
+  var safeTests = [].concat(cm.tests || []).slice(0, 3)
+    .map(function (t) { return sanitizeAgentText(t, 120); }).filter(Boolean);
+  var safeProblems = [].concat(cm.acceptance_problems || []).slice(0, 3)
+    .map(function (t) { return sanitizeAgentText(t, 160); }).filter(Boolean);
+  var summary = (accepted ? 'COMPLETED' : 'NOT ACCEPTED') + ': ' +
+    sanitizeAgentText(cm.title, 150) +
+    ' (capability ' + sanitizeAgentText(cm.capability_key, 20) + ', mission ' + cm.mission_id + ')' +
+    (safeCommit ? ', commit ' + safeCommit : '') +
+    (safeTests.length ? ', agent-reported tests: ' + safeTests.join(' | ') : '') +
+    (safeProblems.length ? ', problems: ' + safeProblems.join('; ') : '');
   var entry = null;
   try {
     entry = memory.remember({
@@ -470,7 +492,9 @@ function recordMissionOutcome(campaignId, accepted) {
       title: 'Campaign mission: ' + cm.title.slice(0, 150),
       content: summary.slice(0, 4000),
       source: 'campaign:' + c.campaign_id + '/mission:' + cm.mission_id,
-      confidence: 1.0,
+      // Structural facts are certain; the agent-reported parts are not
+      // independently verified, so the entry is not stored as ground truth.
+      confidence: 0.8,
       tags: ['campaign', 'autonomous', cm.capability_key]
     });
   } catch (e) { /* memory refusal must not lose the mission outcome */ }
@@ -532,6 +556,7 @@ module.exports = {
   startMission: startMission,
   acceptMission: acceptMission,
   recordMissionOutcome: recordMissionOutcome,
+  sanitizeAgentText: sanitizeAgentText,
   finishMission: finishMission,
   note: note
 };

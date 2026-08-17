@@ -66,9 +66,28 @@ var SELF_PROTECTED_PATHS = [
 var SELF_PROTECTED_PATTERNS = [/credential/i, /secret/i, /\.env(\.|$)/i, /\.ssh\//i, /sudoers/i];
 
 function isProtectedPath(p) {
-  var norm = String(p).replace(/^\.\//, '');
-  return SELF_PROTECTED_PATHS.some(function (sp) { return norm.indexOf(sp) !== -1; }) ||
-    SELF_PROTECTED_PATTERNS.some(function (re) { return re.test(norm); });
+  // NORMALISE FIRST. A substring match on a raw path is evadable with
+  // non-normalised forms such as
+  //   projects/mythos-ai-executor/core/../core/policy-engine.js
+  //   ./projects/./mythos-ai-executor/core/policy-engine.js
+  // which do not literally contain the protected string. Both resolve to
+  // a protected file, so both must be refused (independent review).
+  var raw = String(p).replace(/\\/g, '/');
+  var norm;
+  try {
+    norm = require('path').posix.normalize(raw);
+  } catch (e) {
+    norm = raw;
+  }
+  norm = norm.replace(/^\.\//, '');
+  // Compare BOTH the normalised and the raw form: normalisation closes the
+  // evasion, and the raw check keeps catching absolute or prefixed paths.
+  var candidates = [norm, raw];
+  return SELF_PROTECTED_PATHS.some(function (sp) {
+    return candidates.some(function (c) { return c.indexOf(sp) !== -1; });
+  }) || SELF_PROTECTED_PATTERNS.some(function (re) {
+    return candidates.some(function (c) { return re.test(c); });
+  });
 }
 
 // Builds a self-improvement mission. Scope paths are mandatory and

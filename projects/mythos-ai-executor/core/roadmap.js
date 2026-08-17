@@ -101,6 +101,9 @@ function readRoadmapState(repoPath) {
 
 function writeRoadmapState(repoPath, state) {
   var file = path.join(repoPath, ROADMAP_STATE_REL);
+  // The config directory may not exist yet in a fresh checkout or worktree;
+  // recording progress must not fail for that reason.
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   state.updated_at = new Date().toISOString();
   fs.writeFileSync(file, JSON.stringify(state, null, 2) + '\n', 'utf8');
   return file;
