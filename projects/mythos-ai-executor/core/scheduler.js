@@ -204,7 +204,30 @@ function runMission(missionId, opts) {
     if (isWriteTask) {
       if (opts.repo_path) {
         if (opts.isolate_worktrees !== false) {
-          var wt = worktrees.create(opts.repo_path, mission.id, task.id);
+          // worktrees.create() throws synchronously (NOT_A_REPO,
+          // WORKTREE_CONFLICT) — left uncaught, that throw would escape
+          // dispatch() into step()'s dispatch loop and crash the whole
+          // runMission() promise chain synchronously, dooming every task
+          // in the mission over one task's isolation failure. That
+          // directly contradicts this scheduler's own failure-isolation
+          // guarantee (one branch failing dooms only its descendants).
+          // Fail just this task instead, the same way a policy denial
+          // already does, and let the rest of the mission proceed.
+          try {
+            var wt = worktrees.create(opts.repo_path, mission.id, task.id);
+          } catch (e) {
+            store.transition('task', task.id, 'CANCELLED', {
+              metadata: Object.assign({}, task.metadata, {
+                worktree_create_failed: String(e && e.message).slice(0, 200)
+              })
+            });
+            store.appendEventLine({
+              event_type: 'TASK_FAILED', subject_id: task.id,
+              project: task.project,
+              detail: { reason: 'worktree_create_failed', error: String(e && e.message).slice(0, 200) }
+            });
+            return null;
+          }
           ctx.worktree = wt;
           workDir = wt.dir;
         }

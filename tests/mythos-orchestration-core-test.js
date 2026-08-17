@@ -874,6 +874,40 @@ chain2 = chain2.then(function () {
   });
 });
 
+// --- A worktree-creation failure (bad repo_path) cancels only that task; it
+//     must never crash the scheduler's dispatch loop or escape runMission()
+//     as an uncaught synchronous throw. Sibling independent work still
+//     finishes — the same failure-isolation guarantee as a task failure. ---
+chain2 = chain2.then(function () {
+  var notARepo = path.join(FIXTURES, 'not-a-repo');
+  fs.mkdirSync(notARepo, { recursive: true }); // deliberately never `git init`
+  var spec = [
+    { key: 'bad-worktree', title: 'coding onto a non-repo', task_type: 'coding', depends_on: [] },
+    { key: 'independent', title: 'unrelated analysis', task_type: 'analysis', depends_on: [] }
+  ];
+  var m = buildMission('worktree create failure isolation', spec);
+  return scheduler.runMission(m.mission.id, {
+    repo_path: notARepo,
+    runner: function (task) {
+      if (task.metadata.plan_key === 'bad-worktree') {
+        throw new Error('runner must never be called: worktree creation should fail first');
+      }
+      return Promise.resolve({ status: 'COMPLETED' });
+    }
+  }).then(function (mission) {
+    ok(mission.status === 'FAILED', '2G worktree-fail: runMission resolves (never throws) and mission honestly fails');
+    var byKey = {};
+    m.tasks.forEach(function (t) { byKey[t.metadata.plan_key] = store.load('task', t.id); });
+    ok(byKey['bad-worktree'].status === 'CANCELLED' &&
+      /NOT_A_REPO/.test(byKey['bad-worktree'].metadata.worktree_create_failed),
+      '2G worktree-fail: the failing task is cancelled with the worktree error recorded');
+    ok(byKey['independent'].status === 'COMPLETED',
+      '2G worktree-fail: an unrelated independent task still completes');
+  }, function (err) {
+    ok(false, '2G worktree-fail: runMission must never reject/throw on a worktree create error (' + err + ')');
+  });
+});
+
 // --- Policy denial cancels the task; approval parks and resumes -----------------
 chain2 = chain2.then(function () {
   var spec = [
