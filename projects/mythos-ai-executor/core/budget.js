@@ -905,10 +905,23 @@ function reserveScoped(req) {
 }
 
 // Settles across every scope the reservation was taken in.
+// True only when this reservation really was taken at MISSION scope.
+// A project with mission_limit 0 never reserves there, so settling or
+// releasing that scope would report a phantom failure.
+function hasMissionEntry(project, missionId, reservationId) {
+  if (!missionId) return false;
+  try {
+    var ledger = readLedgerRaw(ledgerFile(project, 'MISSION', String(missionId)));
+    return !!(ledger && ledger.entries[reservationId]);
+  } catch (e) {
+    return false;
+  }
+}
+
 function settleScoped(req) {
   req = req || {};
   var out = settle(req);
-  if (req.mission_id) {
+  if (hasMissionEntry(req.project, req.mission_id, req.reservation_id)) {
     var m = settle(Object.assign({}, req, { scope: 'MISSION', period_key: String(req.mission_id) }));
     if (m && m.ok) out.mission_budget = m.budget;
     else {
@@ -927,7 +940,7 @@ function settleScoped(req) {
 function releaseScoped(req) {
   req = req || {};
   var out = release(req);
-  if (req.mission_id) {
+  if (hasMissionEntry(req.project, req.mission_id, req.reservation_id)) {
     var m = release(Object.assign({}, req, { scope: 'MISSION', period_key: String(req.mission_id) }));
     if (m && m.ok) out.mission_budget = m.budget;
   }
@@ -971,6 +984,7 @@ module.exports = {
   reserve: reserve,
   settle: settle,
   release: release,
+  hasMissionEntry: hasMissionEntry,
   reserveScoped: reserveScoped,
   settleScoped: settleScoped,
   releaseScoped: releaseScoped,

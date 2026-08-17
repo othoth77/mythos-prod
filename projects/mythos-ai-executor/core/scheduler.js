@@ -92,7 +92,16 @@ function runMission(missionId, opts) {
           });
         }
       }
-    } catch (e) { /* a sweep failure must never block a mission */ }
+    } catch (e) {
+      // A sweep failure must never block a mission — but it must never be
+      // invisible either, or budget could stay held with no explanation.
+      try {
+        store.appendEventLine({
+          event_type: 'RESERVATION_EXPIRED', subject_id: missionId, project: mission.project,
+          detail: { sweep_failed: String(e.message).slice(0, 200) }
+        });
+      } catch (e2) { /* nothing further to do */ }
+    }
   }
 
   function occupiedDirs() {

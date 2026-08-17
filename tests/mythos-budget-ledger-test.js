@@ -827,10 +827,16 @@ function H(over) {
   // FIXED (gpt-4o CRITICAL, re-scoped): a per-scope settlement failure is
   // reported rather than silently swallowed. It cannot overspend — the
   // unsettled scope keeps its hold.
+  // A mission id with no reservation at that scope is a clean no-op — NOT
+  // a phantom failure. (The first version of this fix reported a failure
+  // for every project that does not use mission scope; a later independent
+  // review caught it, so the scope is now only touched when an entry
+  // exists. A genuine failure on an EXISTING mission entry is still
+  // surfaced via mission_settle_failed.)
   var partial = budget.settleScoped({ project: 'finrev', reservation_id: 'fin-roll',
     mission_id: 'm-does-not-exist', actual_amount: 9, config: FCFG });
-  ok(partial.ok === true && /NO_SUCH_RESERVATION/.test(String(partial.mission_settle_failed)),
-    'review/settle: a mission-scope settlement failure is surfaced, not swallowed');
+  ok(partial.ok === true && partial.mission_settle_failed === undefined,
+    'review/settle: a mission scope that was never reserved is skipped, not reported as failed');
   ok(budget.status('finrev', { config: FCFG }).spent === 9,
     'review/settle: the day scope still settled correctly');
 

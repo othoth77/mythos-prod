@@ -410,6 +410,57 @@ chain = chain.then(function () {
   ok(!mutated, 'cli: there is no manual recovery/mutation verb — recovery is automatic only');
 });
 
+// ------------------------- independent review findings (fixes + rejections)
+chain = chain.then(function () {
+  // FIXED (gemini): a project with mission_limit 0 never takes a MISSION
+  // reservation, so settling/releasing that scope reported a phantom
+  // failure. The scope is now only touched when an entry really exists.
+  var NOMISSION = JSON.parse(JSON.stringify(CFG));
+  NOMISSION.projects.nomission = { currency: 'USD', timezone: 'Europe/Paris',
+    daily_limit: 10, request_limit: 10, mission_limit: 0 };
+  var r = budget.reserveScoped({ project: 'nomission', amount: 3, reservation_id: 'nm-1',
+    mission_id: 'm-nomission', cost_basis: 'estimated', config: NOMISSION });
+  ok(r.decision === 'allow' && r.scopes_enforced.indexOf('MISSION') === -1,
+    'review/mission-scope: with mission_limit 0 only REQUEST+PROJECT_DAY are enforced');
+  var st = budget.settleScoped({ project: 'nomission', reservation_id: 'nm-1',
+    mission_id: 'm-nomission', actual_amount: 3, config: NOMISSION });
+  ok(st.ok === true && st.mission_settle_failed === undefined,
+    'review/mission-scope: settling reports NO phantom mission failure');
+  var evs = store.readEvents().slice(-12);
+  ok(!evs.some(function (e) {
+    return e.event_type === 'BUDGET_DENIED' && /settlement failed at MISSION/.test(String(e.detail.reason));
+  }), 'review/mission-scope: no misleading MISSION failure event is emitted');
+  ok(budget.status('nomission', { config: NOMISSION }).spent === 3,
+    'review/mission-scope: the day scope settled correctly');
+
+  // A project that DOES use mission scope still settles both.
+  var r2 = budget.reserveScoped(L({ amount: 2, reservation_id: 'nm-2', mission_id: 'm-real' }));
+  ok(r2.scopes_enforced.indexOf('MISSION') !== -1, 'review/mission-scope: mission scope still enforced when configured');
+  var st2 = budget.settleScoped({ project: 'lease', reservation_id: 'nm-2',
+    mission_id: 'm-real', actual_amount: 2, config: CFG });
+  ok(st2.ok === true && st2.mission_budget && st2.mission_settle_failed === undefined,
+    'review/mission-scope: a real mission reservation settles at both scopes');
+
+  // REJECTED (gpt-4o CRITICAL): "a recycled pid could steal a live lease".
+  // Start-ticks are compared, so a recycled pid reads as the ORIGINAL
+  // holder being gone — never as a live holder being dead.
+  ok(budget.holderStatus(os.hostname() + ':' + process.pid + ':999') === 'dead' &&
+     budget.holderStatus(budget.holderId()) === 'alive',
+    'review/rejected: start-ticks make pid reuse detectable; a live holder still reads alive');
+
+  // REJECTED (gpt-4o MEDIUM): "a heartbeat could repeat if the write fails
+  // silently" — writes throw, and heartbeat returns ok:false.
+  var src = fs.readFileSync(path.join(EXEC, 'core', 'budget.js'), 'utf8');
+  ok(/function writeLedger[\s\S]*?fs\.renameSync/.test(src) &&
+     /catch \(e\) \{\s*return \{ ok: false, reason: 'ledger unavailable/.test(src),
+    'review/rejected: ledger writes throw and are surfaced as ok:false — never silent');
+
+  // REJECTED (deepseek MEDIUM): the liveness check and the recovery happen
+  // inside the SAME lock, so no pid can be reused between them.
+  ok(/return withLock\(file, function \(\) \{[\s\S]*?recoverable\(entry, nowMs\)/.test(src),
+    'review/rejected: liveness is evaluated inside the recovery lock, closing the claimed window');
+});
+
 // ============================================================================
 chain.then(function () {
   fs.rmSync(FIXTURES, { recursive: true, force: true });
