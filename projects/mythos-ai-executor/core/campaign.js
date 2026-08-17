@@ -438,7 +438,30 @@ function acceptMission(campaignId, opts) {
 
   var testTask = tasks.filter(function (t) { return t.metadata.plan_key === 'test'; })[0];
   var tests = testTask && testTask.result && testTask.result.tests;
-  if (!tests || !tests.length) problems.push('no test results reported');
+  if (!tests || !tests.length) {
+    problems.push('no test results reported');
+  } else {
+    // REPORTING a test is not RUNNING it. A live campaign was accepted on
+    // "tests: NOT RUN (blocked …)" — honest of the agent, but exactly the
+    // false completion the acceptance gate exists to prevent. Every
+    // reported test must show it actually ran, and none may report failure.
+    var notRun = [].concat(tests).filter(function (t) {
+      return /\bnot run\b|\bnot executed\b|\bskipped\b|\bpending\b|\bblocked\b|\bcould not run\b|\bunable to run\b|\bn\/a\b/i
+        .test(String(t));
+    });
+    if (notRun.length) {
+      problems.push('tests were reported but NOT RUN: ' +
+        notRun.map(function (t) { return String(t).slice(0, 120); }).join(' | '));
+    }
+    var failing = [].concat(tests).filter(function (t) {
+      return /\bfail(ed|ing|ures?)?\b|\berror\b/i.test(String(t)) &&
+        !/0 fail|no fail|0 error/i.test(String(t));
+    });
+    if (failing.length) {
+      problems.push('reported tests did not pass: ' +
+        failing.map(function (t) { return String(t).slice(0, 120); }).join(' | '));
+    }
+  }
 
   var reviewTask = tasks.filter(function (t) { return t.metadata.plan_key === 'review'; })[0];
   if (!reviewTask || reviewTask.status !== 'COMPLETED') problems.push('independent review did not complete');

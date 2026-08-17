@@ -799,6 +799,59 @@ chain = chain.then(function () {
 });
 
 // ===========================================================================
+// ACCEPTANCE: reporting a test is not running it
+// (found by the second real campaign, which was accepted on
+// "tests: NOT RUN (blocked …)" — honest of the agent, and exactly the
+// false completion this gate exists to prevent)
+// ===========================================================================
+chain = chain.then(function () {
+  useMockAgents();
+  function runWith(testReport, name) {
+    var repo = makeVisionRepo('testgate-' + name, [
+      { key: 'T', title: 'Test Gate Thing', status: 'PARTIAL (Phase 2)' }
+    ]);
+    var c = campaign.createCampaign({ objective: 'Improve the test gate thing.', repo_path: repo });
+    return runner.runCampaign(c.campaign_id, {
+      repo_path: repo, max_steps: 6, review: false,
+      agent_runner: function (agentName, task, ctx) {
+        if (task.task_type === 'coding') {
+          fs.writeFileSync(path.join(ctx.worktree.dir, 'g.js'), '// g\n');
+          cp.execFileSync('git', ['add', '.'], { cwd: ctx.worktree.dir });
+          cp.execFileSync('git', ['commit', '-q', '-m', 'g'], { cwd: ctx.worktree.dir });
+          var sha = cp.execFileSync('git', ['rev-parse', 'HEAD'],
+            { cwd: ctx.worktree.dir, encoding: 'utf8' }).trim();
+          var t = store.load('task', task.id);
+          t.metadata.worktree_dir = ctx.worktree.dir;
+          store.save(t);
+          return Promise.resolve({ status: 'completed', summary: 'done', commit: sha });
+        }
+        if (task.task_type === 'testing') {
+          return Promise.resolve({ status: 'completed', summary: 'tests', tests: [testReport] });
+        }
+        return Promise.resolve({ status: 'completed', summary: 'done' });
+      }
+    }).then(function () { return runner.campaignStatus(c.campaign_id); });
+  }
+
+  return runWith('suite/x-test.js: NOT RUN (blocked — no credential access)', 'notrun')
+    .then(function (st) {
+      ok(st.completed_missions.length === 0,
+        'acceptance: a mission reporting NOT RUN tests is never accepted');
+      var why = st.blocked_missions.concat(st.approval_required)
+        .map(function (x) { return String(x.reason || ''); }).join(' ');
+      ok(/NOT RUN/i.test(why), 'acceptance: the refusal names the un-run tests');
+      return runWith('suite/x-test.js: 3 failed, 5 passed', 'failing');
+    }).then(function (st) {
+      ok(st.completed_missions.length === 0,
+        'acceptance: a mission reporting FAILING tests is never accepted');
+      return runWith('suite/x-test.js: 8 passed, 0 failed', 'passing');
+    }).then(function (st) {
+      ok(st.completed_missions.length === 1,
+        'acceptance: a mission whose tests genuinely ran and passed IS accepted');
+    });
+});
+
+// ===========================================================================
 // 15. BLOCKED MISSION
 // ===========================================================================
 chain = chain.then(function () {
