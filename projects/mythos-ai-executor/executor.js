@@ -67,7 +67,14 @@ function createTask(input) {
   var projectCfg = PROJECTS[project];
   if (!projectCfg) throw new Error('UNKNOWN_PROJECT: "' + project.slice(0, 60) + '" is not registered in config/projects.json');
 
-  var provider = input.provider || 'claude-code';
+  var mode = input.mode || 'autonomous';
+  // Minimal binary provider router (docs/MODEL_ROUTING_ARCHITECTURE.md §4,
+  // vision capability M): a caller that pins `provider` explicitly always
+  // wins; otherwise the task's mode decides between the two providers this
+  // executor actually has — advisory reasoning never gets execution
+  // authority, everything else runs through the execution provider. Full
+  // capability-class/health/quota/cost routing remains Phase 4.
+  var provider = input.provider || (mode === 'advisory' ? 'openai-compat' : 'claude-code');
   var providerImpl = PROVIDERS[provider];
   if (!providerImpl) throw new Error('UNKNOWN_PROVIDER: ' + String(provider).slice(0, 40));
 
@@ -83,7 +90,7 @@ function createTask(input) {
     priority: input.priority || 'normal',
     created_at: new Date().toISOString(),
     requested_by: input.requested_by || 'n8n',
-    mode: input.mode || 'autonomous',
+    mode: mode,
     provider: provider,
     model: input.model || null,
     fallback_model: input.fallback_model || null,

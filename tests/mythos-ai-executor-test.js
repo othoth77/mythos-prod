@@ -237,6 +237,27 @@ function eventsOf(taskId) {
   ok(adv.working_directory === null && adv.execution_profile === null,
     'create: advisory provider gets no working directory and no profile');
   state.transition(adv.task_id, 'CANCELLED', {});
+
+  // Minimal binary provider router (docs/MODEL_ROUTING_ARCHITECTURE.md §4):
+  // no explicit provider → routed by mode alone.
+  var routedAdvisory = executor.createTask({ project: 'executor-selftest', instruction: 'advisory review, no provider pinned', mode: 'advisory' });
+  ok(routedAdvisory.provider === 'openai-compat', 'route: advisory mode defaults to openai-compat');
+  ok(routedAdvisory.working_directory === null && routedAdvisory.execution_profile === null,
+    'route: mode-routed advisory task still gets no execution surface');
+  state.transition(routedAdvisory.task_id, 'CANCELLED', {});
+
+  var routedAutonomous = executor.createTask({ project: 'executor-selftest', instruction: 'do the work, no provider pinned' });
+  ok(routedAutonomous.provider === 'claude-code', 'route: default (autonomous) mode defaults to claude-code');
+  state.transition(routedAutonomous.task_id, 'CANCELLED', {});
+
+  var routedDryRun = executor.createTask({ project: 'executor-selftest', instruction: 'dry run, no provider pinned', mode: 'dry_run' });
+  ok(routedDryRun.provider === 'claude-code', 'route: dry_run mode also defaults to claude-code (execution-shaped, not advisory)');
+  state.transition(routedDryRun.task_id, 'CANCELLED', {});
+
+  // Explicit provider always wins over mode-based routing.
+  var pinned = executor.createTask({ project: 'executor-selftest', instruction: 'x', mode: 'advisory', provider: 'mock' });
+  ok(pinned.provider === 'mock', 'route: explicit provider overrides mode-based default');
+  state.transition(pinned.task_id, 'CANCELLED', {});
 })();
 
 // ---------------------------------------------------------------------------
