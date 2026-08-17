@@ -109,10 +109,31 @@ function ensureTaskDir(taskId) {
 
 // Atomic write: the rename is the commit point. A reader either sees the
 // previous complete file or the new complete file, never a torn one.
+//
+// A crash or reboot right after renameSync() is not enough on its own: on
+// most filesystems (ext4 included) neither the tmp file's data nor the
+// rename itself is guaranteed durable until fsynced. Without this, a
+// power loss immediately after a status transition could revert
+// status.json/checkpoint.json to their pre-transition content on reboot
+// even though the daemon already acted on the transition — silently
+// breaking the "survives reboots" half of durable execution. fsync the
+// file before the rename and the containing directory after it so the
+// commit point is actually on disk, not just visible to this process.
 function writeAtomic(full, data) {
+  var dir = path.dirname(full);
   var tmp = full + '.tmp-' + process.pid;
-  fs.writeFileSync(tmp, data, { encoding: 'utf8', mode: 0o600 });
+  var fd = fs.openSync(tmp, 'w', 0o600);
+  try {
+    fs.writeSync(fd, data, 0, 'utf8');
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
   fs.renameSync(tmp, full);
+  try {
+    var dirFd = fs.openSync(dir, 'r');
+    try { fs.fsyncSync(dirFd); } finally { fs.closeSync(dirFd); }
+  } catch (e) { /* directory fsync unsupported on this filesystem: best effort */ }
 }
 
 function writeJSON(taskId, name, value) {

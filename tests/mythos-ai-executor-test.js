@@ -557,6 +557,30 @@ chain = chain.then(function () {
 });
 
 // ---------------------------------------------------------------------------
+// 21b. Durable writes: state files are fsynced before the commit-point
+// rename, so a reboot right after a transition cannot revert it (mission §E,
+// "survive process restarts, reboots, quota pauses, and session loss").
+// ---------------------------------------------------------------------------
+(function () {
+  var t = mkTask({ stage: 'FSYNC' });
+  var fsyncedFds = [];
+  var origFsyncSync = fs.fsyncSync;
+  fs.fsyncSync = function (fd) { fsyncedFds.push(fd); return origFsyncSync.call(fs, fd); };
+  try {
+    state.writeJSON(t.task_id, 'status.json', state.readStatus(t.task_id));
+  } finally {
+    fs.fsyncSync = origFsyncSync;
+  }
+  ok(fsyncedFds.length >= 2, 'durable-write: both the file and its directory are fsynced before commit');
+
+  var dir = state.taskDir(t.task_id);
+  var leftoverTmp = fs.readdirSync(dir).filter(function (f) { return f.indexOf('.tmp-') !== -1; });
+  ok(leftoverTmp.length === 0, 'durable-write: no leftover tmp file after a durable write');
+
+  state.transition(t.task_id, 'CANCELLED', {});
+})();
+
+// ---------------------------------------------------------------------------
 // 22. HTTP API: auth, intake, status, resume
 // ---------------------------------------------------------------------------
 chain = chain.then(function () {
