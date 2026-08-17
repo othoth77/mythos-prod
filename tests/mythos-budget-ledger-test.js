@@ -395,6 +395,9 @@ chain = chain.then(function () {
     reserve: function (req) { return budget.reserve(Object.assign({ config: CFG6 }, req)); },
     settle: function (req) { return budget.settle(Object.assign({ config: CFG6 }, req)); },
     release: function (req) { return budget.release(Object.assign({ config: CFG6 }, req)); },
+    reserveScoped: function (req) { return budget.reserveScoped(Object.assign({ config: CFG6 }, req)); },
+    settleScoped: function (req) { return budget.settleScoped(Object.assign({ config: CFG6 }, req)); },
+    releaseScoped: function (req) { return budget.releaseScoped(Object.assign({ config: CFG6 }, req)); },
     reservationIdFor: budget.reservationIdFor
   };
   var engine = policyEngine.createEngine({
@@ -524,6 +527,9 @@ chain = chain.then(function () {
     reserve: function (r) { return budget.reserve(Object.assign({ config: CFG8 }, r)); },
     settle: function (r) { return budget.settle(Object.assign({ config: CFG8 }, r)); },
     release: function (r) { return budget.release(Object.assign({ config: CFG8 }, r)); },
+    reserveScoped: function (r) { return budget.reserveScoped(Object.assign({ config: CFG8 }, r)); },
+    settleScoped: function (r) { return budget.settleScoped(Object.assign({ config: CFG8 }, r)); },
+    releaseScoped: function (r) { return budget.releaseScoped(Object.assign({ config: CFG8 }, r)); },
     reservationIdFor: budget.reservationIdFor
   };
   var engine = policyEngine.createEngine({
@@ -580,6 +586,9 @@ chain = chain.then(function () {
     reserve: function () { throw new Error('ledger config missing'); },
     settle: function () { throw new Error('ledger config missing'); },
     release: function () { throw new Error('ledger config missing'); },
+    reserveScoped: function () { throw new Error('ledger config missing'); },
+    settleScoped: function () { throw new Error('ledger config missing'); },
+    releaseScoped: function () { throw new Error('ledger config missing'); },
     reservationIdFor: budget.reservationIdFor
   };
   var engine = policyEngine.createEngine({
@@ -610,6 +619,188 @@ chain = chain.then(function () {
       'review/policy: the refusal reason names the ledger problem');
   });
 });
+
+// ================= PHASE 2 FINALIZATION: REQUEST + MISSION SCOPES =============
+// Hierarchy: REQUEST → MISSION → PROJECT/DAY → POLICY. Every boundary must
+// be passed; no lower scope may widen a higher one.
+// ============================================================================
+
+var HCFG = {
+  defaults: { currency: 'USD', timezone: 'Europe/Paris', daily_limit: 0, request_limit: 0, mission_limit: 0 },
+  projects: {
+    // request 5 < mission 8 < day 10, so each boundary is observable alone.
+    hier: { currency: 'USD', timezone: 'Europe/Paris', daily_limit: 10, request_limit: 5, mission_limit: 8 },
+    reqonly: { currency: 'USD', timezone: 'Europe/Paris', daily_limit: 100, request_limit: 5, mission_limit: 0 },
+    missiononly: { currency: 'USD', timezone: 'Europe/Paris', daily_limit: 100, request_limit: 0, mission_limit: 10 },
+    parallelm: { currency: 'USD', timezone: 'Europe/Paris', daily_limit: 100, request_limit: 5, mission_limit: 10 }
+  }
+};
+function H(over) {
+  return Object.assign({ project: 'hier', cost_basis: 'estimated', config: HCFG }, over);
+}
+
+// --------------------------------------------------------- 3. REQUEST scope
+(function () {
+  var over = budget.reserveScoped(H({ amount: 6, reservation_id: 'req-over', mission_id: 'm-req-1' }));
+  ok(over.decision === 'deny' && over.scope_denied === 'REQUEST' && /per-request maximum of 5/.test(over.reason),
+    'REQUEST scope: a single request above request_limit is denied');
+  ok(budget.status('hier', { config: HCFG }).reserved === 0,
+    'REQUEST scope: a denied request holds nothing at any scope');
+
+  var okReq = budget.reserveScoped(H({ amount: 5, reservation_id: 'req-ok', mission_id: 'm-req-1' }));
+  ok(okReq.decision === 'allow' && okReq.scopes_enforced.join('+') === 'REQUEST+PROJECT_DAY+MISSION',
+    'REQUEST scope: exactly at the limit passes, and all three scopes are enforced');
+
+  // A retried request reusing its id gains NO extra authority.
+  var replay = budget.reserveScoped(H({ amount: 5, reservation_id: 'req-ok', mission_id: 'm-req-1' }));
+  ok(replay.decision === 'allow' && replay.idempotent_replay === true &&
+     budget.status('hier', { config: HCFG }).reserved === 5,
+    'REQUEST scope: retrying the same request id creates no additional budget authority');
+
+  budget.settleScoped({ project: 'hier', reservation_id: 'req-ok', mission_id: 'm-req-1', config: HCFG });
+  budget.settleScoped({ project: 'hier', reservation_id: 'req-ok', mission_id: 'm-req-1', config: HCFG });
+  ok(budget.status('hier', { config: HCFG }).spent === 5,
+    'REQUEST scope: duplicate settlement across scopes still counts once');
+  ok(budget.missionStatus('hier', 'm-req-1', { config: HCFG }).spent === 5,
+    'REQUEST scope: the mission ledger records the same single spend');
+
+  var approval = budget.reserveScoped(H({ amount: 6, reservation_id: 'req-appr',
+    mission_id: 'm-req-1', allow_approval: true }));
+  ok(approval.decision === 'require_approval' && approval.scope_denied === 'REQUEST',
+    'REQUEST scope: over-limit with approval permitted parks instead of denying');
+})();
+
+// --------------------------------------------------------- 4. MISSION scope
+(function () {
+  var m = 'm-mission-1';
+  var a = budget.reserveScoped(H({ project: 'missiononly', amount: 6, reservation_id: 'mis-a', mission_id: m }));
+  var b = budget.reserveScoped(H({ project: 'missiononly', amount: 6, reservation_id: 'mis-b', mission_id: m }));
+  ok(a.decision === 'allow' && b.decision === 'deny' && b.scope_denied === 'MISSION',
+    'MISSION scope: $6 + $6 against a $10 mission — the second is denied by the MISSION boundary');
+  ok(/MISSION scope/.test(b.reason), 'MISSION scope: the refusal names the mission boundary');
+
+  // The project/day ledger must NOT retain the rolled-back hold.
+  var day = budget.status('missiononly', { config: HCFG });
+  ok(day.reserved === 6,
+    'MISSION scope: a mission-refused request is rolled back out of the project ledger');
+  ok(budget.missionStatus('missiononly', m, { config: HCFG }).remaining === 4,
+    'MISSION scope: the mission ledger tracks its own remaining');
+
+  // A DIFFERENT mission has its own budget — mission scope is per mission.
+  var other = budget.reserveScoped(H({ project: 'missiononly', amount: 6,
+    reservation_id: 'mis-c', mission_id: 'm-mission-2' }));
+  ok(other.decision === 'allow',
+    'MISSION scope: a different mission has its own independent allowance');
+
+  // A mission may declare a SMALLER limit, never a larger one.
+  var tight = budget.reserveScoped(H({ project: 'missiononly', amount: 6,
+    reservation_id: 'mis-tight', mission_id: 'm-mission-3', mission_limit: 3 }));
+  ok(tight.decision === 'deny' && tight.scope_denied === 'MISSION',
+    'MISSION scope: a mission-declared smaller limit is honoured');
+  var greedy = budget.missionLimitFor(
+    budget.projectBudget('missiononly', HCFG), { mission_limit: 999 });
+  ok(greedy === 10, 'MISSION scope: a mission cannot widen its own limit beyond the project config');
+
+  // Provider/agent/retry/worktree independence: the mission boundary holds
+  // regardless of who asks.
+  ['claude-code', 'gemini-advisor', 'omniroute-advisory'].forEach(function (agent, i) {
+    var r = budget.reserveScoped(H({ project: 'missiononly', amount: 5,
+      reservation_id: 'mis-switch-' + i, mission_id: m, agent: agent, provider: agent }));
+    ok(r.decision === 'deny',
+      'MISSION scope: agent "' + agent + '" cannot exceed the same mission budget');
+  });
+})();
+
+// ------------------------------------------------------- 5. hierarchy order
+(function () {
+  // Project remaining 10, mission remaining 5, request 6 → DENY (spec §5).
+  var m = 'm-hier-a';
+  budget.reserveScoped(H({ project: 'parallelm', amount: 5, reservation_id: 'h-seed', mission_id: m }));
+  budget.settleScoped({ project: 'parallelm', reservation_id: 'h-seed', mission_id: m, config: HCFG });
+  var ms = budget.missionStatus('parallelm', m, { config: HCFG });
+  ok(ms.remaining === 5, 'hierarchy: mission remaining is 5 after a $5 settle');
+  var deny1 = budget.reserveScoped(H({ project: 'parallelm', amount: 6, reservation_id: 'h-1', mission_id: m }));
+  ok(deny1.decision === 'deny' && deny1.scope_denied === 'REQUEST',
+    'hierarchy: request_limit (5) is checked BEFORE mission/project — strictest first');
+
+  // Project 100, mission 10 (remaining 5), request limit 5, request 5 → allowed
+  // by REQUEST but must fit the mission too.
+  var okReq = budget.reserveScoped(H({ project: 'parallelm', amount: 5, reservation_id: 'h-2', mission_id: m }));
+  ok(okReq.decision === 'allow', 'hierarchy: a request fitting every scope is allowed');
+  var deny2 = budget.reserveScoped(H({ project: 'parallelm', amount: 5, reservation_id: 'h-3', mission_id: m }));
+  ok(deny2.decision === 'deny' && deny2.scope_denied === 'MISSION',
+    'hierarchy: within REQUEST and PROJECT but over MISSION → denied by MISSION');
+  ok(budget.status('parallelm', { config: HCFG }).spent === 5,
+    'hierarchy: no lower scope widened a higher one');
+})();
+
+// ------------------------------------------- 6. parallel mission (10+ racers)
+(function () {
+  var cfgFile = path.join(FIXTURES, 'hier-config.json');
+  var CFGP = JSON.parse(JSON.stringify(HCFG));
+  CFGP.projects.raceM = { currency: 'USD', timezone: 'Europe/Paris',
+    daily_limit: 100, request_limit: 5, mission_limit: 10 };
+  fs.writeFileSync(cfgFile, JSON.stringify(CFGP));
+  var worker = path.join(FIXTURES, 'hier-worker.js');
+  fs.writeFileSync(worker,
+    'var b = require(' + JSON.stringify(path.join(EXEC, 'core', 'budget')) + ');\n' +
+    'var cfg = JSON.parse(require("fs").readFileSync(' + JSON.stringify(cfgFile) + ', "utf8"));\n' +
+    'var out = b.reserveScoped({ project: "raceM", amount: 2, reservation_id: process.argv[2],\n' +
+    '  mission_id: "m-race", cost_basis: "estimated", config: cfg });\n' +
+    'console.log(JSON.stringify({ decision: out.decision, scope: out.scope_denied || null }));\n');
+
+  var allowed = 0, denied = 0;
+  for (var i = 0; i < 12; i++) {
+    var c = cp.spawnSync(process.execPath, [worker, 'racem-' + i], { encoding: 'utf8', env: process.env });
+    try {
+      var r = JSON.parse(String(c.stdout).trim());
+      if (r.decision === 'allow') allowed++; else denied++;
+    } catch (e) { denied++; }
+  }
+  var mst = budget.missionStatus('raceM', 'm-race', { config: CFGP });
+  var pst = budget.status('raceM', { config: CFGP });
+  ok(allowed === 5 && denied === 7,
+    'parallel mission: 12 concurrent $2 requests against a $10 mission → exactly 5 allowed (' +
+    allowed + '/' + denied + ')');
+  ok(mst.reserved + mst.spent <= mst.limit && mst.reserved === 10,
+    'parallel mission: mission reserved + settled <= $10');
+  ok(pst.reserved + pst.spent <= pst.limit,
+    'parallel mission: project daily reserved + settled <= configured limit');
+})();
+
+// ----------------------------------------- 7-9. restart / provider / retry
+(function () {
+  var m = 'm-restart';
+  budget.reserveScoped(H({ project: 'missiononly', amount: 4, reservation_id: 'rs-hold', mission_id: m }));
+  var script =
+    'var b = require(' + JSON.stringify(path.join(EXEC, 'core', 'budget')) + ');' +
+    'var cfg = JSON.parse(' + JSON.stringify(JSON.stringify(HCFG)) + ');' +
+    'console.log(JSON.stringify({ mission: b.missionStatus("missiononly", "' + m + '", { config: cfg }),' +
+    ' day: b.status("missiononly", { config: cfg }) }));';
+  var after = JSON.parse(cp.execFileSync(process.execPath, ['-e', script],
+    { encoding: 'utf8', env: process.env }).trim());
+  ok(after.mission.reserved === 4 && after.mission.remaining === 6,
+    'restart: mission reservations survive a process restart');
+  ok(after.day.reserved >= 4, 'restart: the project hold survives too — no free budget');
+
+  // Settling after the "restart" counts once, at both scopes.
+  budget.settleScoped({ project: 'missiononly', reservation_id: 'rs-hold', mission_id: m,
+    actual_amount: 4, config: HCFG });
+  budget.settleScoped({ project: 'missiononly', reservation_id: 'rs-hold', mission_id: m,
+    actual_amount: 4, config: HCFG });
+  ok(budget.missionStatus('missiononly', m, { config: HCFG }).spent === 4,
+    'restart: duplicate settlement after restart still counts once');
+
+  // Retry with a NEW attempt id faces the same mission remaining.
+  var retry = budget.reserveScoped(H({ project: 'missiononly', amount: 5,
+    reservation_id: 'rs-hold-attempt2', mission_id: m }));
+  ok(retry.decision === 'allow',
+    'retry: a new attempt may use the mission budget that remains');
+  var retry2 = budget.reserveScoped(H({ project: 'missiononly', amount: 5,
+    reservation_id: 'rs-hold-attempt3', mission_id: m }));
+  ok(retry2.decision === 'deny' && retry2.scope_denied === 'MISSION',
+    'retry: retries cannot reset the mission budget');
+})();
 
 // ------------------------------------------------------------ CLI (read-only)
 chain = chain.then(function () {

@@ -11,10 +11,16 @@
 //
 // Feature flag, load-bearing:
 //
-//   MYTHOS_CORE_ENABLED  default FALSE.
-//     false → every core entry point refuses; Phase 1 behaviour is
-//             byte-identical (nothing here runs, no state is written).
-//     true  → goals may be submitted and advanced through the core.
+//   MYTHOS_CORE_ENABLED  default TRUE (Phase 2 finalization).
+//     unset / true → the core is the normal orchestration path.
+//     false        → EMERGENCY ROLLBACK: every core entry point refuses
+//                    and Phase 1 behaviour is byte-identical (nothing
+//                    here runs, no orchestration state is written).
+//
+// The rollback needs no code change: the service reads
+// ~/.config/mythos-ai-executor/executor.env as an EnvironmentFile, so
+// adding MYTHOS_CORE_ENABLED=false there and restarting restores the
+// Phase 1 path immediately. See docs/MYTHOS_ORCHESTRATION_CORE.md.
 //
 // This module ADDS a path; it changes no Phase 1 behaviour and owns no
 // orchestration state of its own — state lives in core/store.js, exactly
@@ -44,8 +50,13 @@ var REPO_PATH = process.env.MYTHOS_CORE_REPO_PATH || '/home/deploy/projects/myth
 
 // --- Feature flag --------------------------------------------------------------
 
+// Default-on, but explicitly overridable: only the exact string "false"
+// (case-insensitive, trimmed) disables the core, so a typo can never
+// silently switch production onto the rollback path.
 function coreEnabled() {
-  return String(process.env.MYTHOS_CORE_ENABLED || 'false').toLowerCase() === 'true';
+  var raw = process.env.MYTHOS_CORE_ENABLED;
+  if (raw === undefined || raw === null || String(raw).trim() === '') return true;
+  return String(raw).trim().toLowerCase() !== 'false';
 }
 
 function assertEnabled() {

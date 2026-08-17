@@ -91,8 +91,9 @@ function runMission(missionId, opts) {
         .reservationIdFor(task.id, (task.attempt || 0) + 1, 'spend');
       if (priorHold && priorHold !== nextRid) {
         try {
-          ((policy && policy.ledger) || require('./budget')).release({
+          (function (L) { return L.releaseScoped || L.release; })((policy && policy.ledger) || require('./budget')).call(null, {
             project: task.project, reservation_id: priorHold,
+            mission_id: mission.id,
             reason: 'superseded by attempt ' + ((task.attempt || 0) + 1)
           });
           var cleaned = store.load('task', task.id);
@@ -172,9 +173,11 @@ function runMission(missionId, opts) {
       var rid = ledger.reservationIdFor(task.id, (task.attempt || 0) + 1, 'spend');
       var held;
       try {
-        held = ledger.reserve({
+        held = (ledger.reserveScoped || ledger.reserve).call(ledger, {
           project: task.project, amount: amount === null ? NaN : amount,
           reservation_id: rid,
+          mission_limit: typeof mission.metadata.mission_budget_usd === 'number'
+            ? mission.metadata.mission_budget_usd : undefined,
           cost_basis: (task.metadata && task.metadata.cost_basis) || 'estimated',
           provider: null, agent: task.agent_id || null,
           mission_id: mission.id, task_id: task.id,
@@ -216,6 +219,12 @@ function runMission(missionId, opts) {
         return null;
       }
       reservation = { id: rid, amount: amount, project: task.project, ledger: ledger };
+      var scopesNote = (held.scopes_enforced || []).join('+');
+      var stTask = store.load('task', task.id);
+      stTask.metadata.budget_scopes_enforced = scopesNote;
+      if (held.mission_budget) stTask.metadata.mission_budget_snapshot = held.mission_budget;
+      store.save(stTask);
+      task = store.load('task', task.id);
     }
 
     store.transition('task', task.id, 'RUNNING', Object.assign(
@@ -255,15 +264,15 @@ function runMission(missionId, opts) {
       var settledOk = ['COMPLETED', 'VALIDATING'].indexOf(to) !== -1;
       try {
         var res = settledOk
-          ? ledger.settle({
-            project: task.project, reservation_id: rid,
+          ? (ledger.settleScoped || ledger.settle).call(ledger, {
+            project: task.project, reservation_id: rid, mission_id: task.mission_id,
             actual_amount: outcome.result && typeof outcome.result.actual_cost_usd === 'number'
               ? outcome.result.actual_cost_usd : undefined,
             cost_basis: outcome.result && outcome.result.actual_cost_usd !== undefined ? 'known' : undefined,
             external_reference: outcome.result && outcome.result.external_reference
           })
-          : ledger.release({ project: task.project, reservation_id: rid,
-            reason: 'task ended ' + to });
+          : (ledger.releaseScoped || ledger.release).call(ledger, { project: task.project, reservation_id: rid,
+            mission_id: task.mission_id, reason: 'task ended ' + to });
         var t2 = store.load('task', result.task_id);
         t2.metadata.budget_settlement = {
           settled: settledOk, ok: res.ok !== false,

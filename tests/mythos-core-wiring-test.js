@@ -50,29 +50,40 @@ function throws(fn, re, name) {
 // 1. FEATURE FLAG — default OFF, and OFF means truly inert
 // ===========================================================================
 (function () {
+  // Phase 2 finalization: the core is the DEFAULT path, with an explicit
+  // emergency rollback that needs no code change.
   delete process.env.MYTHOS_CORE_ENABLED;
   var core = require(path.join(EXEC, 'core', 'core-wiring'));
-  ok(core.coreEnabled() === false, 'flag: default is OFF when unset');
-  throws(function () { core.assertEnabled(); }, /CORE_DISABLED/, 'flag: assertEnabled refuses when off');
-  throws(function () { core.submitGoal({ text: 'anything at all here' }); },
-    /CORE_DISABLED/, 'flag: submitGoal refuses when off');
-  throws(function () { core.cancelMission('m-aaaaaa-0001'); }, /CORE_DISABLED/,
-    'flag: cancelMission refuses when off');
+  ok(core.coreEnabled() === true, 'flag: default is ON when unset (core is the normal path)');
+  ok(core.validateGoalPayload({ text: 'Analyze the repository please' }).valid,
+    'flag: goals are accepted with no feature flag set at all');
 
-  ['false', 'FALSE', '0', 'no', 'yes', 'True '].forEach(function (v) {
+  // Only the exact string "false" rolls back — a typo can never silently
+  // put production on the legacy path.
+  var cases = { 'false': false, 'FALSE': false, ' false ': false, 'true': true,
+    'TRUE': true, '': true, 'no': true, '0': true, 'yes': true };
+  Object.keys(cases).forEach(function (v) {
     process.env.MYTHOS_CORE_ENABLED = v;
-    var expected = v.toLowerCase().trim() === 'true' && v === 'true';
-    ok(core.coreEnabled() === (String(v).toLowerCase() === 'true'),
-      'flag: "' + v + '" → ' + (String(v).toLowerCase() === 'true'));
+    ok(core.coreEnabled() === cases[v],
+      'flag: "' + v + '" → ' + (cases[v] ? 'ENABLED' : 'ROLLBACK'));
   });
-  process.env.MYTHOS_CORE_ENABLED = 'true';
-  ok(core.coreEnabled() === true, 'flag: "true" enables');
+
+  // Rollback is total: every entry point refuses.
+  process.env.MYTHOS_CORE_ENABLED = 'false';
+  throws(function () { core.assertEnabled(); }, /CORE_DISABLED/, 'rollback: assertEnabled refuses');
+  throws(function () { core.submitGoal({ text: 'anything at all here' }); },
+    /CORE_DISABLED/, 'rollback: submitGoal refuses');
+  throws(function () { core.cancelMission('m-aaaaaa-0001'); }, /CORE_DISABLED/,
+    'rollback: cancelMission refuses');
   delete process.env.MYTHOS_CORE_ENABLED;
 
-  // The committed default in the shipped service unit must be off (or absent).
+  // The rollback switch must live in configuration the operator can edit
+  // without touching application code: the unit reads an EnvironmentFile.
   var unit = fs.readFileSync(path.join(EXEC, 'service', 'mythos-ai-executor.service'), 'utf8');
-  var enabledLine = /MYTHOS_CORE_ENABLED\s*=\s*true/i.test(unit);
-  ok(!enabledLine, 'flag: shipped systemd unit never sets MYTHOS_CORE_ENABLED=true');
+  ok(/EnvironmentFile=/.test(unit),
+    'rollback: the service reads an EnvironmentFile, so the switch needs no code change');
+  ok(!/MYTHOS_CORE_ENABLED\s*=\s*false/i.test(unit),
+    'flag: the shipped unit does not pin the rollback value');
 })();
 
 // ===========================================================================
@@ -451,13 +462,13 @@ chain = chain.then(function () {
   }).then(function (res) {
     ok(res.code === 401, 'api: wrong token → 401');
 
-    // Flag OFF ⇒ 503 even with a valid token.
-    delete process.env.MYTHOS_CORE_ENABLED;
+    // Rolled back ⇒ 503 even with a valid token.
+    process.env.MYTHOS_CORE_ENABLED = 'false';
     return req('POST', '/goals', { text: 'Analyze the repository for improvements' }, TOKEN);
   }).then(function (res) {
     ok(res.code === 503 && /core disabled/.test(res.body.error),
-      'api: flag OFF → 503 core disabled even when authenticated');
-    process.env.MYTHOS_CORE_ENABLED = 'true';
+      'api: rollback → 503 core disabled even when authenticated');
+    delete process.env.MYTHOS_CORE_ENABLED;   // back to the default-on path
     return req('POST', '/goals', { text: 'x' }, TOKEN);
   }).then(function (res) {
     ok(res.code === 400, 'api: invalid payload → 400');
@@ -492,12 +503,12 @@ chain = chain.then(function () {
 });
 
 // ===========================================================================
-// 9. PHASE 1 BACKWARD COMPATIBILITY with the flag OFF
+// 9. EMERGENCY ROLLBACK — Phase 1 path with MYTHOS_CORE_ENABLED=false
 // ===========================================================================
 chain = chain.then(function () {
   var server = require(path.join(EXEC, 'server'));
   var executor = require(path.join(EXEC, 'executor'));
-  delete process.env.MYTHOS_CORE_ENABLED;
+  process.env.MYTHOS_CORE_ENABLED = 'false';   // explicit rollback
   process.env.MYTHOS_EXECUTOR_TOKEN = 'wiring-test-token-0123456789';
   process.env.MYTHOS_MOCK_SCRIPT = JSON.stringify([{ kind: 'success', summary: 'phase 1 still fine' }]);
   require(path.join(EXEC, 'providers', 'mock')).reset();
@@ -542,9 +553,12 @@ chain = chain.then(function () {
     ok(res.code === 200 || res.code === 503, 'compat: /health unchanged and unauthenticated');
     return req('GET', '/goals');
   }).then(function (res) {
-    ok(res.code === 503, 'compat: goal surface stays closed while the flag is off');
+    ok(res.code === 503, 'rollback: the goal surface is closed while rolled back');
     servers.forEach(function (s) { s.close(); });
     delete process.env.MYTHOS_EXECUTOR_TOKEN;
+    delete process.env.MYTHOS_CORE_ENABLED;   // restore the default-on state
+    ok(require(path.join(EXEC, 'core', 'core-wiring')).coreEnabled() === true,
+      'rollback: removing the override restores the core immediately');
   });
 });
 
@@ -553,18 +567,19 @@ chain = chain.then(function () {
 // ===========================================================================
 chain = chain.then(function () {
   var bin = path.join(EXEC, 'bin', 'mythos-ai-executor');
-  var envOff = Object.assign({}, process.env);
-  delete envOff.MYTHOS_CORE_ENABLED;
+  var envOff = Object.assign({}, process.env, { MYTHOS_CORE_ENABLED: 'false' });
   var out = '';
   try {
     cp.execFileSync(process.execPath, [bin, 'goal', 'submit', 'Analyze something safely'],
       { encoding: 'utf8', env: envOff, stdio: ['ignore', 'pipe', 'pipe'] });
-    ok(false, 'cli: goal submit should refuse with the flag off');
+    ok(false, 'cli: goal submit should refuse when rolled back');
   } catch (e) {
     ok(/CORE_DISABLED/.test(String(e.stderr || e.stdout || e.message)),
-      'cli: goal submit refuses with the flag off');
+      'cli: goal submit refuses when rolled back');
   }
-  var envOn = Object.assign({}, process.env, { MYTHOS_CORE_ENABLED: 'true' });
+  // Default-on: no flag needed at all.
+  var envOn = Object.assign({}, process.env);
+  delete envOn.MYTHOS_CORE_ENABLED;
   out = cp.execFileSync(process.execPath, [bin, 'goal', 'list'], { encoding: 'utf8', env: envOn });
   var listed = JSON.parse(out);
   ok(listed.core_enabled === true && Array.isArray(listed.goals) &&

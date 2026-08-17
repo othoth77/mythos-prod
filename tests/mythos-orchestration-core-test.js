@@ -1421,6 +1421,9 @@ chain2 = chain2.then(function () {
     reserve: function (r) { return budgetLedger.reserve(Object.assign({ config: CAMPAIGN_BUDGETS }, r)); },
     settle: function (r) { return budgetLedger.settle(Object.assign({ config: CAMPAIGN_BUDGETS }, r)); },
     release: function (r) { return budgetLedger.release(Object.assign({ config: CAMPAIGN_BUDGETS }, r)); },
+    reserveScoped: function (r) { return budgetLedger.reserveScoped(Object.assign({ config: CAMPAIGN_BUDGETS }, r)); },
+    settleScoped: function (r) { return budgetLedger.settleScoped(Object.assign({ config: CAMPAIGN_BUDGETS }, r)); },
+    releaseScoped: function (r) { return budgetLedger.releaseScoped(Object.assign({ config: CAMPAIGN_BUDGETS }, r)); },
     reservationIdFor: budgetLedger.reservationIdFor
   };
   var campaignPolicy = policyEngine.createEngine({

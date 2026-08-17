@@ -67,7 +67,13 @@ function projectBudget(project, injectedConfig) {
     currency: (p && p.currency) || defaults.currency || 'USD',
     timezone: (p && p.timezone) || defaults.timezone || 'UTC',
     daily_limit: p && typeof p.daily_limit === 'number' ? p.daily_limit
-      : (typeof defaults.daily_limit === 'number' ? defaults.daily_limit : 0)
+      : (typeof defaults.daily_limit === 'number' ? defaults.daily_limit : 0),
+    // REQUEST scope: the maximum a SINGLE spend request may be.
+    request_limit: p && typeof p.request_limit === 'number' ? p.request_limit
+      : (typeof defaults.request_limit === 'number' ? defaults.request_limit : 0),
+    // MISSION scope: the maximum cumulative spend of ONE mission.
+    mission_limit: p && typeof p.mission_limit === 'number' ? p.mission_limit
+      : (typeof defaults.mission_limit === 'number' ? defaults.mission_limit : 0)
   };
 }
 
@@ -86,6 +92,9 @@ function periodKeyFor(scope, timezone, atMs) {
     return parts; // en-CA yields YYYY-MM-DD
   }
   if (scope === 'PROJECT') return 'all-time';
+  // MISSION ledgers are keyed by the mission id itself: one mission is one
+  // period, independent of clock time, provider, agent, retry or process.
+  if (scope === 'MISSION') throw new Error('MISSION_SCOPE_NEEDS_EXPLICIT_PERIOD_KEY (the mission id)');
   throw new Error('UNSUPPORTED_BUDGET_SCOPE: ' + String(scope));
 }
 
@@ -165,7 +174,7 @@ function withLock(file, fn) {
 
 // --- Ledger read/write ---------------------------------------------------------------
 
-function emptyLedger(project, scope, periodKey, budget) {
+function emptyLedger(project, scope, periodKey, budget, limitOverride) {
   return {
     ledger_version: '1.0.0',
     project: project,
@@ -173,7 +182,7 @@ function emptyLedger(project, scope, periodKey, budget) {
     period_key: periodKey,
     timezone: budget.timezone,
     currency: budget.currency,
-    limit: budget.daily_limit,
+    limit: typeof limitOverride === 'number' ? limitOverride : budget.daily_limit,
     entries: {},
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -272,6 +281,9 @@ function reserve(req) {
   var scope = req.scope || 'DAY';
   var budget = projectBudget(project, req.config);
   var periodKey = req.period_key || periodKeyFor(scope, budget.timezone, req.at);
+  // A MISSION ledger carries the mission's own limit, not the daily one.
+  var effectiveLimit = typeof req.__limit_override === 'number'
+    ? req.__limit_override : budget.daily_limit;
 
   if (!req.reservation_id || !SAFE.test(String(req.reservation_id))) {
     return { decision: 'deny', reason: 'reservation_id (stable, safe slug) is required for idempotency' };
@@ -284,11 +296,11 @@ function reserve(req) {
   if (COST_BASIS.indexOf(req.cost_basis) === -1) {
     return { decision: 'deny', reason: 'cost_basis must be one of ' + COST_BASIS.join('|') + ' (unknown cost is not spendable)' };
   }
-  if (!budget.configured || !(budget.daily_limit > 0)) {
+  if (!budget.configured || !(effectiveLimit > 0)) {
     var denyNoBudget = {
       decision: 'deny',
       reason: 'project "' + String(project).slice(0, 40) + '" has no configured spending budget (limit ' +
-        budget.daily_limit + ' ' + budget.currency + ')',
+        effectiveLimit + ' ' + budget.currency + ')',
       budget: status(project, { scope: scope, at: req.at, config: req.config })
     };
     emitBudgetEvent('BUDGET_DENIED', { project: project, amount: req.amount, task_id: req.task_id,
@@ -301,10 +313,10 @@ function reserve(req) {
   // the caller's control flow: spending fails closed (independent review).
   try {
   return withLock(file, function () {
-    var ledger = readLedgerRaw(file) || emptyLedger(project, scope, periodKey, budget);
+    var ledger = readLedgerRaw(file) || emptyLedger(project, scope, periodKey, budget, effectiveLimit);
     // Config may have changed since the period started; the committed
     // config is authoritative for the limit.
-    ledger.limit = budget.daily_limit;
+    ledger.limit = effectiveLimit;
     ledger.currency = budget.currency;
     ledger.timezone = budget.timezone;
 
@@ -508,6 +520,129 @@ function check(req) {
 
 // Deterministic reservation id for a task attempt: stable across retries
 // of the SAME attempt (idempotent) but distinct per attempt.
+// --- Scope hierarchy: REQUEST → MISSION → PROJECT/DAY --------------------------
+//
+// A spend must pass EVERY applicable boundary. Enforcement order is
+// cheapest-and-strictest first:
+//
+//   1. REQUEST  — a pure comparison against request_limit (no state).
+//   2. PROJECT/DAY — reserve in the day ledger (atomic).
+//   3. MISSION  — reserve in the mission ledger (atomic). If this fails the
+//      project hold taken in step 2 is released immediately, so a rejected
+//      request leaves no trace and cannot strand budget.
+//
+// No lower scope can widen a higher one: each holds its own ledger and the
+// first refusal wins.
+
+function missionLimitFor(budget, opts) {
+  // A mission may declare a SMALLER limit than the project default; it can
+  // never grant itself a larger one (a lower scope never widens a higher).
+  var configured = budget.mission_limit;
+  var declared = opts && typeof opts.mission_limit === 'number' ? opts.mission_limit : null;
+  if (declared === null) return configured;
+  return Math.min(declared, configured > 0 ? configured : declared);
+}
+
+// Reserves across every applicable scope. Same contract as reserve(), plus
+// `mission_id` (enables MISSION scope) and optional `mission_limit`.
+function reserveScoped(req) {
+  req = req || {};
+  var budget = projectBudget(req.project, req.config);
+
+  // 1. REQUEST scope — a single request may never exceed request_limit.
+  if (typeof req.amount === 'number' && isFinite(req.amount) && budget.request_limit > 0 &&
+      req.amount > budget.request_limit) {
+    var overRequest = {
+      decision: req.allow_approval ? 'require_approval' : 'deny',
+      scope_denied: 'REQUEST',
+      reason: 'REQUEST scope: ' + req.amount + ' ' + budget.currency +
+        ' exceeds the per-request maximum of ' + budget.request_limit,
+      budget: status(req.project, { scope: 'DAY', at: req.at, config: req.config })
+    };
+    emitBudgetEvent(overRequest.decision === 'deny' ? 'BUDGET_DENIED' : 'BUDGET_APPROVAL_REQUIRED', {
+      project: req.project, amount: req.amount, scope: 'REQUEST',
+      request_limit: budget.request_limit, task_id: req.task_id, mission_id: req.mission_id
+    });
+    return overRequest;
+  }
+
+  // 2. PROJECT/DAY scope.
+  var day = reserve(req);
+  if (day.decision !== 'allow') {
+    day.scope_denied = day.scope_denied || 'PROJECT_DAY';
+    return day;
+  }
+
+  // 3. MISSION scope (only when a mission id and a mission limit exist).
+  var missionLimit = missionLimitFor(budget, req);
+  if (!req.mission_id || !(missionLimit > 0)) {
+    day.scopes_enforced = ['REQUEST', 'PROJECT_DAY'];
+    return day;
+  }
+  var missionHold;
+  try {
+    missionHold = reserve(Object.assign({}, req, {
+      scope: 'MISSION',
+      period_key: String(req.mission_id),
+      __limit_override: missionLimit
+    }));
+  } catch (e) {
+    missionHold = { decision: 'deny', reason: 'mission ledger unavailable: ' + String(e.message).slice(0, 140) };
+  }
+  if (missionHold.decision !== 'allow') {
+    // Roll the project hold back: a refused request must leave nothing behind.
+    try {
+      release({ project: req.project, reservation_id: req.reservation_id,
+        reason: 'rolled back: MISSION scope refused', config: req.config, at: req.at });
+    } catch (e) { /* best effort; the hold would expire with the period anyway */ }
+    missionHold.scope_denied = 'MISSION';
+    missionHold.reason = 'MISSION scope: ' + missionHold.reason;
+    return missionHold;
+  }
+  day.scopes_enforced = ['REQUEST', 'PROJECT_DAY', 'MISSION'];
+  day.mission_budget = missionHold.budget;
+  return day;
+}
+
+// Settles across every scope the reservation was taken in.
+function settleScoped(req) {
+  req = req || {};
+  var out = settle(req);
+  if (req.mission_id) {
+    var m = settle(Object.assign({}, req, { scope: 'MISSION', period_key: String(req.mission_id) }));
+    if (m && m.ok) out.mission_budget = m.budget;
+  }
+  return out;
+}
+
+// Releases across every scope.
+function releaseScoped(req) {
+  req = req || {};
+  var out = release(req);
+  if (req.mission_id) {
+    var m = release(Object.assign({}, req, { scope: 'MISSION', period_key: String(req.mission_id) }));
+    if (m && m.ok) out.mission_budget = m.budget;
+  }
+  return out;
+}
+
+// Read model for a mission's own ledger.
+function missionStatus(project, missionId, opts) {
+  opts = opts || {};
+  var budget = projectBudget(project, opts.config);
+  var limit = missionLimitFor(budget, opts);
+  var file = ledgerFile(project, 'MISSION', String(missionId));
+  var ledger = readLedgerRaw(file) ||
+    emptyLedger(project, 'MISSION', String(missionId), budget, limit);
+  var t = totals(ledger);
+  return {
+    project: project, scope: 'MISSION', mission_id: String(missionId),
+    currency: t.currency, limit: limit, reserved: t.reserved, spent: t.spent,
+    remaining: Math.round((limit - t.reserved - t.spent) * 100) / 100,
+    entry_count: Object.keys(ledger.entries).length
+  };
+}
+
 function reservationIdFor(taskId, attempt, label) {
   return 'rsv-' + String(taskId).replace(/[^A-Za-z0-9]/g, '') + '-' + (attempt || 1) +
     (label ? '-' + String(label).replace(/[^A-Za-z0-9]/g, '').slice(0, 20) : '');
@@ -528,6 +663,11 @@ module.exports = {
   reserve: reserve,
   settle: settle,
   release: release,
+  reserveScoped: reserveScoped,
+  settleScoped: settleScoped,
+  releaseScoped: releaseScoped,
+  missionStatus: missionStatus,
+  missionLimitFor: missionLimitFor,
   reservationIdFor: reservationIdFor,
   withLock: withLock
 };

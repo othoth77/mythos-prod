@@ -1,23 +1,36 @@
 {
   "config_id": "mythos-budgets-v1",
   "description": "Cumulative spend limits per project. A project absent from this file has NO budget, which means every spend request for it is denied — budget is granted explicitly, never by default. Amounts are in the stated currency; the daily period is computed in the stated IANA timezone, never the server's implicit local time.",
+  "hierarchy": [
+    "REQUEST — a single spend request may never exceed request_limit",
+    "MISSION — cumulative spend of one mission may never exceed mission_limit",
+    "PROJECT/DAY — cumulative spend of the project in its period may never exceed daily_limit",
+    "POLICY — the policy engine's own per-request threshold and class rules",
+    "A request must pass EVERY applicable boundary; the strictest wins and no lower scope can widen a higher one."
+  ],
   "defaults": {
     "currency": "USD",
     "timezone": "Europe/Paris",
-    "daily_limit": 0
+    "daily_limit": 0,
+    "request_limit": 0,
+    "mission_limit": 0
   },
   "projects": {
     "mythos-prod": {
       "currency": "USD",
       "timezone": "Europe/Paris",
       "daily_limit": 0,
-      "note": "Zero by owner default: the orchestration project performs no paid external actions. Raising this is an owner decision recorded in Git."
+      "request_limit": 0,
+      "mission_limit": 0,
+      "note": "Zero by owner default: the orchestration project performs no paid external actions. Raising any of these is an owner decision recorded in Git."
     },
     "budget-sandbox": {
       "currency": "USD",
       "timezone": "Europe/Paris",
       "daily_limit": 10,
-      "note": "Sandbox namespace for controlled budget proofs. No real payment method is ever attached to it; the only tools reachable under MONEY_SPEND are mock/sandbox tools."
+      "request_limit": 5,
+      "mission_limit": 8,
+      "note": "Sandbox namespace for controlled budget proofs. No real payment method is ever attached to it; the only tools reachable under MONEY_SPEND are mock/sandbox tools. The three limits deliberately differ so the hierarchy is observable: a single request is capped at 5, one mission at 8, the project day at 10."
     }
   }
 }
