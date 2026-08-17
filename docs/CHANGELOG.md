@@ -6,6 +6,25 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Added — MCC-1 — MYTHOS AI COMMAND CENTER
+
+- New application `projects/command-center/` — a permanent, searchable command library for Mythos OS, Claude, Codex and AI agents, serving `ordre.mythosprod.xyz`. Architecture in `docs/MYTHOS_COMMAND_CENTER_ARCHITECTURE.md`.
+- Reuses the repository's existing API precedent rather than introducing a stack: node `http` + `pg`, no framework, no build step, vanilla front end, plain `node tests/<stage>-test.js`. New runtime dependency: `pg` only.
+- Database `mythos_command_center`, schema `mcc`, role `mythos_command_center_owner`, in the existing `idauto-postgres` container — the verified host convention of one server, one database per product, own owner role. No cross-product query and no cross-schema foreign key; `search_path` pinned to `mcc`.
+- 13 tables: commands, categories, projects, tags, command_tags, command_relations, command_versions, favorites, usage_events, notes, templates, workflows, workflow_commands. Version history and usage events are append-only.
+- **No `DELETE` route exists anywhere.** Archiving is a reversible status change (`ACTIVE` / `ARCHIVED` / `DRAFT`) and archived commands remain searchable.
+- **The application never executes a stored command** — no `child_process`, `exec`, `spawn`, `eval` or `Function` in any runtime file, asserted at source level by the test suite.
+- Two-severity credential gate on every write: recognised key formats are refused with HTTP 422 and no override; ambiguous `password = …` assignments are warned and allowed. Findings never echo the matched text.
+- Reads public, writes token-gated (SHA-256 digests compared with `timingSafeEqual`); `server.js` refuses to start without `MCC_ADMIN_TOKENS`.
+- Search: generated weighted `tsvector` plus a generated accent-folded `search_text` column, so a French query without accents finds accented content and vice versa.
+- V1 interface: dashboard (most used / favourites / recently used / recently added / recommended / categories / quick actions), search with seven filters, command detail, editor, notes, favourites, statistics with today/week/month/all-time leaderboards, JSON export, dark and light themes, and keyboard shortcuts (`/`, `c`, `f`, `n`, `Esc`).
+- English and French complete; Arabic architecture-ready (per-locale `dir`, fallback chain, `name_ar` columns, logical CSS properties) and deliberately not shipped half-translated.
+- Seeded with 24 commands, 26 categories, 6 projects, 35 relations, 3 workflows and 3 notes, each derived from in-repository canon with a checkable `source` field. The owner's original chat-session command texts are **not** in this repository and these are reconstructions to be replaced verbatim when supplied.
+- `tests/mcc-1-command-center-test.js` — **502 assertions, 0 failures**, against a real database. The suite refuses to run unless the connected database name ends in `_test`.
+- Deployed under user-scope systemd on `deploy`, behind a new nginx vhost, verified end-to-end through nginx and in a real browser. Neighbouring services unaffected by the reload.
+- **Not complete:** `ordre.mythosprod.xyz` has no DNS record, so no TLS certificate exists and the public URL is unreachable. Creating the A record is an owner-approval action (AGENTS.md §25.3) and no OVH credential is configured on this host.
+- V2–V6 (templates and workflow stepping, advanced analytics, AI recommendation, n8n integration, AI-generated commands) are documented and architecture-ready, not built.
+
 ### Added — MYTHOS-REPO-MIGRATION-GATE — Future Repository Migration Directive
 
 - Owner directive recorded for a **future** complete repository migration `othoth77/mythos-prod` → `othoth77/mythos-os` (`docs/MYTHOS_REPOSITORY_MIGRATION.md`). **No migration performed; not authorised.**

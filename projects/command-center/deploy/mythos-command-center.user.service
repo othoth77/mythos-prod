@@ -1,0 +1,94 @@
+# MYTHOS AI COMMAND CENTER — user-level systemd unit (MCC-1)
+#
+# THIS IS THE UNIT ACTUALLY DEPLOYED. Installed at
+# ~/.config/systemd/user/mythos-command-center.service and run by the
+# `deploy` user's own systemd manager, made durable across logout and reboot
+# by `loginctl enable-linger deploy`.
+#
+# Why user scope: it matches the existing precedent on this host
+# (ssangyong-storefront.service), and `deploy` cannot write
+# /etc/systemd/system — its sudo grant is exactly three commands
+# (`nginx -t`, `systemctl reload nginx`, `certbot`). A user unit achieves
+# the same durable supervision — auto-restart, boot start, journald logging
+# — without working around that deliberate operator policy.
+#
+# Serves BOTH the web application and its JSON API from one process on
+# loopback: page and data share an origin, so the API needs no public
+# exposure of its own and the front end needs no CORS.
+#
+# Hardening note: IPAddressAllow/Deny require cgroup delegation that user
+# scope does not grant, so they are omitted here rather than silently
+# ineffective. The binding is the real control: server.js listens on
+# 127.0.0.1 only, never 0.0.0.0.
+#
+# ProtectKernelTunables, ProtectKernelModules, ProtectClock and
+# RestrictNamespaces are likewise absent, and that is not an oversight:
+# each makes systemd drop capabilities from the bounding set, which an
+# unprivileged user manager on this host may not do. With any of them
+# present the service never spawns —
+#     Failed to drop capabilities: Operation not permitted
+#     Failed at step CAPABILITIES spawning /usr/bin/node
+#     status=218/CAPABILITIES
+# — observed directly and bisected during MCC-1 deployment. A directive
+# that prevents the service from starting protects nothing.
+#
+# MemoryDenyWriteExecute is absent for a different and equally hard reason:
+# V8 is a JIT. It maps memory writable and then executable to emit baseline
+# code, so MDWE makes node die at the first hot function with
+#     # Fatal error ... Check failed: 12 == (*__errno_location ())
+#     v8::internal::baseline::BaselineCompiler::Build
+# — a crash that appears only under load, not at startup, which makes it
+# especially worth writing down. MDWE is simply incompatible with running
+# node; it is not a trade-off that can be tuned.
+#
+# NOTE for whoever maintains ssangyong-storefront.service: that unit still
+# carries ProtectKernelTunables and ProtectClock and is therefore inactive
+# on this host for the same reason. That is a separate workstream and was
+# deliberately left untouched by MCC-1; it is recorded here and in
+# docs/AI_HANDOVER.md so it is not lost.
+
+[Unit]
+Description=MYTHOS AI COMMAND CENTER — command library for Mythos OS, Claude, Codex and AI agents
+Documentation=https://github.com/othoth77/mythos-prod
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/deploy/projects/mythos-prod/projects/command-center
+
+# Credentials live outside the git worktree, mode 0600, never echoed.
+# Contains MCC_DB_* and MCC_ADMIN_TOKENS. server.js refuses to start if
+# MCC_ADMIN_TOKENS is absent, so a misconfigured deploy fails loudly
+# instead of exposing an open write surface on a public domain.
+EnvironmentFile=/home/deploy/deployments/mythos-command-center/.env
+
+ExecStart=/usr/bin/node /home/deploy/projects/mythos-prod/projects/command-center/reference/server.js
+
+Restart=on-failure
+RestartSec=5s
+
+# --- Hardening -------------------------------------------------------------
+# This process reads and writes exactly one PostgreSQL database and reads
+# its own static assets. It writes nothing to the filesystem at all, so the
+# sandbox is locked to match: ReadWritePaths is deliberately empty.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectControlGroups=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @obsolete
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mythos-command-center
+
+[Install]
+WantedBy=default.target

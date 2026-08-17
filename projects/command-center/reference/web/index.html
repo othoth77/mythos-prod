@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<!--
+  MYTHOS AI COMMAND CENTER
+  projects/command-center/reference/web/index.html
+
+  Deliberately minimal. Every view is rendered by app.js into #view; this
+  file provides only the shell that never changes — header, search, sidebar
+  and the containers for dialogs and toasts.
+
+  No inline <script> and no inline style anywhere: the Content-Security-
+  Policy served by api.js is script-src 'self', which blocks both. That is
+  the point — a command body stored in the database can never become
+  executable script in this page.
+-->
+<html lang="en" dir="ltr" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex, nofollow">
+  <title>MYTHOS AI COMMAND CENTER</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="brand">
+      <span class="brand-mark" id="brand-mark">MYTHOS AI COMMAND CENTER</span>
+      <span class="brand-sub" id="brand-sub"></span>
+    </div>
+
+    <!-- FIND COMMAND is the first-priority action (§28), so it owns the
+         centre of the header and the / shortcut. -->
+    <div class="header-search">
+      <span class="search-icon" aria-hidden="true">⌕</span>
+      <label class="visually-hidden" for="search-input">Search</label>
+      <input type="text" id="search-input" autocomplete="off" spellcheck="false">
+      <span class="search-kbd"><kbd>/</kbd></span>
+    </div>
+
+    <div class="header-actions">
+      <label class="visually-hidden" for="locale-select">Language</label>
+      <select id="locale-select" class="btn btn-sm"></select>
+      <button type="button" class="btn btn-sm btn-icon" id="theme-toggle" title="Theme">◐</button>
+      <button type="button" class="btn btn-sm" id="auth-button">Read-only</button>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <nav class="sidebar" id="sidebar" aria-label="Sections"></nav>
+    <main class="main" id="view" tabindex="-1">
+      <div class="loading">…</div>
+    </main>
+  </div>
+
+  <div id="dialog-root"></div>
+  <div class="toast-stack" id="toast-root" aria-live="polite"></div>
+
+  <script src="/i18n.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

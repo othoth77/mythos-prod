@@ -1,0 +1,9 @@
+{
+  "name": "@mythos/command-center",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MYTHOS AI COMMAND CENTER (MCC-1) — searchable command library for Mythos OS, Claude, Codex and AI agents. Serves ordre.mythosprod.xyz.",
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}
