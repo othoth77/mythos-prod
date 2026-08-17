@@ -175,13 +175,10 @@
 
   // ── Copy, with the destructive gate (§14) ─────────────────────────────
 
-  function writeClipboard(text) {
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      return navigator.clipboard.writeText(text);
-    }
-    // Fallback for non-secure contexts (plain http before the certificate
-    // exists). Without it, copying — the app's second-priority action —
-    // would silently do nothing.
+  // The legacy path. Still the only one that works in a non-secure context,
+  // and — see writeClipboard — the safety net when the modern API exists but
+  // refuses.
+  function writeClipboardLegacy(text) {
     return new Promise(function (resolve, reject) {
       var area = document.createElement('textarea');
       area.value = text;
@@ -191,13 +188,33 @@
       document.body.appendChild(area);
       area.select();
       try {
-        document.execCommand('copy') ? resolve() : reject(new Error('copy failed'));
+        document.execCommand('copy') ? resolve() : reject(new Error('copy command rejected'));
       } catch (e) {
         reject(e);
       } finally {
         document.body.removeChild(area);
       }
     });
+  }
+
+  // Copying is this application's second-priority action, so it has to work
+  // in more than the happy case.
+  //
+  // `navigator.clipboard.writeText` can be PRESENT AND STILL REJECT:
+  // NotAllowedError when the clipboard-write permission is denied, and when
+  // the document does not have focus. Falling back only on `!navigator.
+  // clipboard` therefore misses the failure that actually happens in
+  // practice — observed directly during MCC-1 verification, where the write
+  // rejected with NotAllowedError and the copy silently failed while the
+  // legacy path worked fine. So the rejection is caught and retried through
+  // execCommand before giving up.
+  function writeClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).catch(function () {
+        return writeClipboardLegacy(text);
+      });
+    }
+    return writeClipboardLegacy(text);
   }
 
   // Records the copy, then updates the counter in place. The usage endpoint

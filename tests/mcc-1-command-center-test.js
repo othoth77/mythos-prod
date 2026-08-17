@@ -234,6 +234,20 @@ async function testSourceLevelGuarantees() {
   ok(/insertAdjacentHTML/.test(frontend) === false, 'the front end never uses insertAdjacentHTML');
   ok(/document\.write/.test(frontend) === false, 'the front end never uses document.write');
 
+  // Copy must survive `navigator.clipboard.writeText` REJECTING, not just
+  // being absent — NotAllowedError (permission denied, or an unfocused
+  // document) is the failure that actually occurs, and without a fallback
+  // on the rejection path the copy silently does nothing.
+  var clipboardBlock = /function writeClipboard\(text\) \{[\s\S]*?\n  \}/.exec(frontend);
+  ok(clipboardBlock !== null, 'writeClipboard is defined in the front end');
+  if (clipboardBlock) {
+    ok(/\.catch\(/.test(clipboardBlock[0]),
+       'writeClipboard falls back when the modern clipboard API rejects, not only when it is absent');
+    ok(/writeClipboardLegacy/.test(clipboardBlock[0]),
+       'the rejection path routes to the legacy execCommand implementation');
+  }
+  ok(/document\.execCommand\('copy'\)/.test(frontend), 'a legacy copy path exists for non-secure contexts');
+
   // There must be no DELETE route for a command (§11, §31).
   ok(api.ROUTES.every(function (route) {
     return !(route.method === 'DELETE' && /commands/.test(String(route.pattern)));

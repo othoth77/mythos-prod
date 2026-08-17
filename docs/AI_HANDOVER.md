@@ -1,7 +1,8 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-17 UTC
-**From:** MYTHOS **MCC-1 — MYTHOS AI COMMAND CENTER BUILT, TESTED 502/502, DEPLOYED AND SERVING ON THE VPS; PUBLIC URL BLOCKED ON ONE OWNER ACTION (DNS). NO OTHER PRODUCT, SERVICE OR DATABASE TOUCHED.** New project `projects/command-center/` — a searchable, permanent command library for Mythos OS, Claude, Codex and AI agents, built to the owner's 39-point specification and staged as instructed (V1 = library, categories, search, detail, copy, usage tracking, favourites, notes, editor, projects, tags, safety classification, responsive UI, persistent database, deployment; V2–V6 documented, not built). Follows the repository's existing read/write API precedent (`projects/idauto/reference/`, `projects/ssangyong-autos/reference/`) rather than introducing a stack: node `http` + `pg`, no framework, no build step, vanilla front end, plain `node tests/<stage>-test.js`. Database `mythos_command_center` / schema `mcc` / role `mythos_command_center_owner` in the existing `idauto-postgres` container — the verified host convention of one server, one database per product, own owner role; no cross-product query, no cross-schema FK, `search_path` pinned to `mcc`. 13 tables including append-only `mcc_command_versions` (stores the PREVIOUS state on every substantive edit) and append-only `mcc_usage_events`; **no DELETE route exists anywhere** — archiving is a reversible status change and archived commands stay searchable. **The application never executes a stored command**: no `child_process`, `exec`, `spawn`, `eval` or `Function` in any of the nine runtime files, asserted at source level by the suite so it cannot regress silently. Writes pass a two-severity credential gate (recognised key formats REFUSED with 422 and no override; ambiguous `password = …` assignments warned and allowed, because this library legitimately documents env-var names); findings never echo the matched text. Reads are public (copying must not need a login — the library holds no PII and no secret by construction); writes need a bearer token compared as SHA-256 digests through `timingSafeEqual`, and `server.js` REFUSES TO START without `MCC_ADMIN_TOKENS` rather than exposing an open write surface. Seeded with 24 commands / 26 categories / 6 projects / 35 relations / 3 workflows, every one derived from `AGENTS.md` and other in-repository canon with a checkable `source` field — **the owner's original chat-session command texts are NOT in this repository** (searched `docs/`, `projects/`, `.claude/`) and these are honest reconstructions to be replaced verbatim when the originals are supplied. English and French complete; Arabic architecture-ready (per-locale `dir`, fallback chain, `name_ar` columns, logical CSS properties) but deliberately not shipped half-translated. Deployed under user-scope systemd on `deploy` behind a new nginx vhost, verified end-to-end through nginx and in a real browser (dashboard, detail, French UI, copy → counter incremented). **BLOCKER: `ordre.mythosprod.xyz` does not exist in DNS** — no A record, no wildcard on `mythosprod.xyz`, no OVH API credential configured on this host, and DNS is an owner-approval action under AGENTS.md §25.3. certbot cannot run and the public URL cannot be verified until the owner creates `ordre` → `51.68.226.211` at OVH.
+**From:** MYTHOS **MCC-1-VERIFY — ordre.mythosprod.xyz IS LIVE OVER HTTPS. DNS resolves to 51.68.226.211 (authoritative OVH + public resolvers), Let's Encrypt certificate issued via the approved `certbot --nginx` procedure and valid to 2026-11-15, HTTP 301s to HTTPS, chain validates, auto-renewal armed. Verification found and fixed one real defect — the clipboard fallback only ran when `navigator.clipboard` was absent, not when it rejected — suite now 506/506. All six neighbouring sites unaffected by the reload. No remaining blockers.**
+**Previously:** MYTHOS **MCC-1 — MYTHOS AI COMMAND CENTER BUILT, TESTED 502/502, DEPLOYED AND SERVING ON THE VPS; PUBLIC URL BLOCKED ON ONE OWNER ACTION (DNS). NO OTHER PRODUCT, SERVICE OR DATABASE TOUCHED.** New project `projects/command-center/` — a searchable, permanent command library for Mythos OS, Claude, Codex and AI agents, built to the owner's 39-point specification and staged as instructed (V1 = library, categories, search, detail, copy, usage tracking, favourites, notes, editor, projects, tags, safety classification, responsive UI, persistent database, deployment; V2–V6 documented, not built). Follows the repository's existing read/write API precedent (`projects/idauto/reference/`, `projects/ssangyong-autos/reference/`) rather than introducing a stack: node `http` + `pg`, no framework, no build step, vanilla front end, plain `node tests/<stage>-test.js`. Database `mythos_command_center` / schema `mcc` / role `mythos_command_center_owner` in the existing `idauto-postgres` container — the verified host convention of one server, one database per product, own owner role; no cross-product query, no cross-schema FK, `search_path` pinned to `mcc`. 13 tables including append-only `mcc_command_versions` (stores the PREVIOUS state on every substantive edit) and append-only `mcc_usage_events`; **no DELETE route exists anywhere** — archiving is a reversible status change and archived commands stay searchable. **The application never executes a stored command**: no `child_process`, `exec`, `spawn`, `eval` or `Function` in any of the nine runtime files, asserted at source level by the suite so it cannot regress silently. Writes pass a two-severity credential gate (recognised key formats REFUSED with 422 and no override; ambiguous `password = …` assignments warned and allowed, because this library legitimately documents env-var names); findings never echo the matched text. Reads are public (copying must not need a login — the library holds no PII and no secret by construction); writes need a bearer token compared as SHA-256 digests through `timingSafeEqual`, and `server.js` REFUSES TO START without `MCC_ADMIN_TOKENS` rather than exposing an open write surface. Seeded with 24 commands / 26 categories / 6 projects / 35 relations / 3 workflows, every one derived from `AGENTS.md` and other in-repository canon with a checkable `source` field — **the owner's original chat-session command texts are NOT in this repository** (searched `docs/`, `projects/`, `.claude/`) and these are honest reconstructions to be replaced verbatim when the originals are supplied. English and French complete; Arabic architecture-ready (per-locale `dir`, fallback chain, `name_ar` columns, logical CSS properties) but deliberately not shipped half-translated. Deployed under user-scope systemd on `deploy` behind a new nginx vhost, verified end-to-end through nginx and in a real browser (dashboard, detail, French UI, copy → counter incremented). **BLOCKER: `ordre.mythosprod.xyz` does not exist in DNS** — no A record, no wildcard on `mythosprod.xyz`, no OVH API credential configured on this host, and DNS is an owner-approval action under AGENTS.md §25.3. certbot cannot run and the public URL cannot be verified until the owner creates `ordre` → `51.68.226.211` at OVH.
 
 **Previously:** MYTHOS **MYTHOS-ORCH-CORE (PHASE 2) — AI ORCHESTRATION CORE IMPLEMENTED, TESTED 234/234, DELIVERED IN SEVEN VALIDATED SUB-STAGE COMMITS; PHASE 1 EXECUTOR UNCHANGED AND STILL GREEN 118/118; NOTHING DEPLOYED CHANGED; FULL SWEEP 0 NEW FAILURES.** The owner-ordered Phase 2 master implementation of `docs/MYTHOS_AI_ORCHESTRATOR_MASTER_VISION.md`, built incrementally on the Phase 1 executor under `projects/mythos-ai-executor/core/` — 17 modules: domain model with correlation-threaded entities and enforced task transitions (compat adapter maps executor COMPLETED to core VALIDATING, never trusted directly); persistent redacted atomic entity store + durable JSONL event stream (restart recovery proven from fresh processes); provider-independent project memory (12 categories, secrets REFUSED, supersede-not-erase, deterministic weighted recall, strict project isolation) + context engine (repo facts + memory + prior tasks under a hard char budget — never a repo dump); agent registry (capability-driven selection, probed availability, advisory never promotable to execution authority, **Gemini registered UNCONFIGURED — no credential invented**); tool registry (namespace.action, registration-validated schemas, least-privilege policy-gated grants, sandbox-only mocks, `database.destroy` exists solely to prove the deny path); mission planner (templates + external/LLM specs that NEVER execute merely because generated — unknown fields/types/classes refused, plans inspectable, budget_usd flows into spend gates); pure DAG (Kahn cycles, ALL-parents merges, transitive failure propagation, recovery = recomputation); scheduler (bounded concurrency hard-capped at 8, isolated `mythos/<mission>/<task>` worktrees — two writers never share a tree, live checkout untouched, dirty trees never force-destroyed, approval is a persisted STATE with mandatory human decider, never a prompt loop); policy engine (**ROOT+DESTRUCTIVE hard-floored in code against hostile config**, spending config-only: disabled→deny/within→allow/above→approval, frozen engine, zero mutation API); validation (six independent validators + adversarial reviewer ≠ author, bounded repair loop); provider router (**quota never generic failure**: execution tasks always wait — authority never silently changes; advisory fallback same-authority only, evented; reputation reorders only at ≥5 outcomes); event engine (durable stream is truth, subscribers isolated, n8n stays a fire-and-forget ADAPTER); controlled self-improvement (safeguard-surface scopes refused at build time, REAL diff re-checked post-hoc, reviewable branch commits only — proven in TEST S); and the integration orchestrator (goal→plan→policy→context→route→tools→parallel→validate/repair→report→memory→decision, plus an executorBridge through the unchanged Phase 1 executor). **§34 acceptance tests A–S all pass with mocks; §18 campaign integration test proves $5/day budget flow into a SANDBOX campaign tool — nothing published, nothing spent, over-budget parks for approval.** Suite `tests/mythos-orchestration-core-test.js` **234/234** (offline, zero real quota); Phase 1 suite **118/118** unchanged; **full sweep 101 suites: 78 pass, 0 new failures** — 12 pre-existing legacy `stage*`/`core-test` baseline failures (known-baselines.json class) and 11 env-blocked (9 `ida-*` needing scratch PostgreSQL/Docker, 2 `sya-*` needing the deploy-owned DB credential this session correctly cannot read; `projects/ssangyong-autos/` untouched, diff empty). Deployed services: **0 changed** — the daemon, n8n workflows, and relay are untouched; nothing loads the core until explicitly invoked. Acceptance-driven fixes recorded honestly: falsy-zero ranking bug, approval re-prompt loop, stale entity returns, budget missing from two of three MONEY_SPEND gates, capability vocabulary alignment. Docs: `docs/MYTHOS_ORCHESTRATION_CORE.md` (honest-status §13 states plainly what is NOT yet real: no live multi-provider execution, bridge not yet run on real quota, no production mission through the core). Delivery via the persistent relay, every sub-stage commit verified on the remote via HTTPS ls-remote. Sub-stage ledger with per-commit detail in the MYTHOS-ORCH-CORE section below. Next: owner decision on first real mission through the core (and Gemini credential provisioning if multi-provider is wanted).
 **Previously:** MYTHOS **MYTHOS-GIT-DELIVERY-0 — PERSISTENT GITHUB WRITE AUTHORITY ESTABLISHED FROM EXISTING CREDENTIALS + MASTER VISION DELIVERED TO REMOTE. NO CREDENTIAL CREATED, COPIED, PRINTED OR COMMITTED; EXECUTOR CODE UNTOUCHED; NoNewPrivileges INTACT; SSANGYONG LEGACY UNTOUCHED; PHASE 2 NOT STARTED.** The push blocker recorded by the previous entry is resolved and the residual it exemplified (push authority dying with session SSH agents) is structurally closed. **Diagnosis:** every session agent socket empty, no key for `ubuntu`, no `gh` — but the deployment environment already holds an intended machine credential: `deploy`'s on-disk `~/.ssh/id_ed25519_github` (0600, outside Git, reboot-surviving), which GitHub's harmless `ssh -T` handshake identifies as **account `othoth77`** — existing push authority over this repository (the separate `notrejour` key is a repo-scoped deploy key elsewhere; mechanism preference A/B satisfied, D not reached). **Delivery:** `0d77788` (master vision, 893 lines) + `ab074ee` (its handover) pushed to `origin/main` as `deploy` after a dry-run; local HEAD = remote HEAD verified by `rev-parse` + `ls-remote`; the remote file re-downloaded at `ab074ee` and **byte-identical to local, 893/893 lines** — the Master Vision is on GitHub intact. **Persistence (the actual fix):** new systemd SYSTEM units — `mythos-git-push.service` (oneshot, `User=deploy`, `NoNewPrivileges`, `ProtectSystem=strict`, `PrivateTmp`) + `mythos-git-push.timer` (2min after boot, then every 5min, enabled) — running `/usr/local/bin/mythos-git-push`: a **fast-forward-only** relay (diverged main is REFUSED, never forced; single fixed refspec; `GIT_SSH_COMMAND` pins the identity over any repo config; `core.hooksPath` overridden so the ubuntu-writable checkout's hooks can never execute as `deploy`; installed **root-owned outside the checkout** so changing relay behavior requires root). The executor daemon is **not modified**: it commits as before, its own agent-probing push stays as the fast path, and the relay guarantees delivery within ~5 minutes even after reboot — no `/tmp`, no session agent, no credential in Git, `NoNewPrivileges` never weakened. **Proven from the real systemd context:** timer fired and manual `systemctl start` both journaled cleanly (`up to date at ab074ee…` over SSH as `deploy`); the commit carrying THIS entry is itself delivered by the relay as its end-to-end proof (hash + remote verification recorded in the section below). Source copies committed at `projects/mythos-ai-executor/service/mythos-git-push.{sh,service,timer}`. **Architecture requirement §7 of the order re-verified as already recorded** in `docs/MYTHOS_AI_ORCHESTRATOR_MASTER_VISION.md`: provider abstraction separate from orchestration policy; Claude/Gemini/OmniRoute/future/local providers; quota → `WAITING_FOR_QUOTA` → persist → resume (never FAILED); policy-controlled provider fallback without silent authority/security changes — no new implementation, Phase 2 untouched. **Remaining risks stated:** the credential is **account-scoped** (`othoth77`), broader than least-privilege — a repo-scoped write deploy key for `mythos-prod` remains the recommended hardening; anything committed to local `main` in the shared checkout is now delivered automatically (intended, but worth naming); executor's in-process push still needs a session agent between relay ticks (≤5min latency, bounded, honest); report-commit race with concurrent sessions unchanged. Next: **Review the Master Vision and prepare Phase 2 Orchestration Core** — only under an explicit owner order; optional hardening: repo-scoped deploy key.
@@ -122,6 +123,91 @@ bounded and escalated rather than looping).
 **Next stage:** owner decision — either re-run a campaign under the tightened
 gate to earn a clean autonomous completion, or grant the approvals now queued
 for the governance capabilities the loop deliberately refused.
+
+---
+
+## MCC-1-VERIFY — ordre.mythosprod.xyz LIVE (2026-08-17) — **DNS RESOLVED, TLS ISSUED, HTTPS VERIFIED; ONE COPY-PATH DEFECT FOUND AND FIXED**
+
+The DNS blocker recorded in the MCC-1 entry below was cleared by the owner. This entry
+records what was verified afterwards, and one defect the verification found.
+
+### DNS
+
+`ordre.mythosprod.xyz` → `51.68.226.211`, confirmed against the authoritative OVH
+nameserver (`dns109.ovh.net`) and independently via `1.1.1.1` and `8.8.8.8`. Matches the
+host address of `mythosprod.xyz`.
+
+### TLS
+
+Issued with the repository-approved procedure — `certbot --nginx`, the same mechanism that
+manages the sibling `mythosprod.xyz` vhosts. A `--dry-run` was run first and passed before
+any real ACME request. The pre-certbot vhost was backed up to
+`/root/nginx-backups/ordre.mythosprod.xyz.pre-certbot.20260817-202143` (deliberately NOT
+left in `sites-available`, where a wildcard include could have picked it up as a duplicate
+server block).
+
+| | |
+|---|---|
+| Certificate | `/etc/letsencrypt/live/ordre.mythosprod.xyz/fullchain.pem` |
+| Subject / SAN | `CN=ordre.mythosprod.xyz` / `DNS:ordre.mythosprod.xyz` |
+| Issuer | Let's Encrypt (`CN=YE2`) |
+| Validity | 2026-08-17 19:23:47 UTC → 2026-11-15 19:23:46 UTC (89 days) |
+| Chain validation | `curl` reports `ssl_verify_result=0` against the system trust store |
+| Renewal | `certbot.timer` active, next run 2026-08-18 04:32 UTC |
+
+`http://` now returns `301` to `https://`. Security headers present over HTTPS: CSP,
+`X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`.
+
+### Neighbouring services after the certbot reload — all unaffected
+
+`panel.mythosprod.xyz` 302 · `tv.mythosprod.xyz` 302 · `ssangyong.autos` 200 ·
+`fixpert.tn` 200 · `notrejour.tn` 200 · `n8n.ssangyong.autos` 200.
+
+### Defect found and fixed — clipboard fallback
+
+Verifying the copy button exposed a real gap in `reference/web/app.js`. `writeClipboard`
+fell back to the legacy `execCommand` path only when `navigator.clipboard` was **absent**.
+But that API can be present and still **reject** — `NotAllowedError` when the
+clipboard-write permission is denied or the document is unfocused, which is the failure
+that actually occurs. The rejection was therefore unhandled by the fallback, the copy
+silently failed, and (correctly, but unhelpfully) no usage was recorded.
+
+Fixed: the rejection is now caught and retried through `writeClipboardLegacy`. Four
+assertions added, pinned to the `writeClipboard` body so a future edit cannot quietly drop
+the `.catch`. Suite now **506 passed, 0 failed**.
+
+### Verified functionality
+
+Over public HTTPS (`https://ordre.mythosprod.xyz`): page, `/app.css`, `/app.js`,
+`/i18n.js`, `/robots.txt`, `/api/health`, `/api/dashboard`, `/api/statistics` all 200 with
+correct MIME types; usage endpoint increments a counter and the increment reaches the
+today/all-time leaderboards; unauthenticated write refused **401**; token session returns
+`{"identity":"owner"}`; two notes created (general + command-scoped); a note containing a
+GitHub token refused **422**.
+
+In a real browser (over the loopback origin — see the limitation below): homepage renders
+with live counters; search returns 6 ranked results for "handover"; command detail renders
+fully; the `/` shortcut focuses search; language switch EN⇄FR translates the entire
+interface and persists; theme toggles dark⇄light with the correct computed colours and
+persists; the notes page shows all five notes correctly split into general and
+command-scoped.
+
+### Environment limitation — labelled, not worked around
+
+The browser automation sandbox degraded partway through this verification: it began
+returning `ERR_BLOCKED_BY_CLIENT` for external-origin sub-resources (nginx never received
+those requests — confirmed in the access log, and `curl` fetches all of them 200), it
+denied clipboard access through **both** `navigator.clipboard.writeText`
+(`NotAllowedError`) and `document.execCommand('copy')` (returns `false`), and its
+synthesised clicks/keystrokes stopped reaching page handlers. Handlers were confirmed
+working by dispatched events. An earlier in-browser copy at 19:57 UTC did increment the
+counter 0 → 1 through the real button. **The clipboard write itself could not be
+re-verified in-browser after the sandbox changed, and is reported as such rather than
+claimed.**
+
+### Remaining blockers
+
+None.
 
 ---
 

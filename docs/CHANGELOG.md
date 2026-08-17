@@ -6,6 +6,13 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Fixed — MCC-1-VERIFY — ordre.mythosprod.xyz live, clipboard fallback corrected
+
+- `ordre.mythosprod.xyz` is live over HTTPS. DNS resolves to `51.68.226.211` (confirmed authoritatively at OVH and via public resolvers); Let's Encrypt certificate issued with the approved `certbot --nginx` procedure after a passing dry run, valid to 2026-11-15, chain validates, `certbot.timer` armed for renewal; HTTP redirects to HTTPS.
+- **Fixed:** `writeClipboard` in `projects/command-center/reference/web/app.js` fell back to the legacy `execCommand` path only when `navigator.clipboard` was absent. That API can be present and still reject (`NotAllowedError` on denied permission or an unfocused document), in which case the copy silently failed and no usage was recorded. The rejection is now caught and retried through the legacy path. Four assertions added; suite **506 passed, 0 failed**.
+- Verified over public HTTPS: all static assets and API endpoints 200 with correct MIME types, usage counter increments and reaches the leaderboards, unauthenticated write refused 401, token session valid, notes created, credential-bearing note refused 422.
+- Six neighbouring sites confirmed unaffected by the nginx reload.
+
 ### Added — MCC-1 — MYTHOS AI COMMAND CENTER
 
 - New application `projects/command-center/` — a permanent, searchable command library for Mythos OS, Claude, Codex and AI agents, serving `ordre.mythosprod.xyz`. Architecture in `docs/MYTHOS_COMMAND_CENTER_ARCHITECTURE.md`.
