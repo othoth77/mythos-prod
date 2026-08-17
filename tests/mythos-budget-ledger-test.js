@@ -802,6 +802,79 @@ function H(over) {
     'retry: retries cannot reset the mission budget');
 })();
 
+// ============ finalization review findings (fixes + documented rejections) ===
+(function () {
+  var FCFG = JSON.parse(JSON.stringify(HCFG));
+  FCFG.projects.finrev = { currency: 'USD', timezone: 'Europe/Paris',
+    daily_limit: 20, request_limit: 10, mission_limit: 10 };
+
+  // FIXED (gpt-4o MEDIUM): a scope rollback is auditable — the release
+  // event carries its reason instead of looking like a normal release.
+  var before = store.readEvents().length;
+  var rolled = budget.reserveScoped({ project: 'finrev', amount: 9, reservation_id: 'fin-roll',
+    mission_id: 'm-fin-1', cost_basis: 'estimated', config: FCFG });
+  var rolled2 = budget.reserveScoped({ project: 'finrev', amount: 9, reservation_id: 'fin-roll-2',
+    mission_id: 'm-fin-1', cost_basis: 'estimated', config: FCFG });
+  ok(rolled.decision === 'allow' && rolled2.decision === 'deny' && rolled2.scope_denied === 'MISSION',
+    'finrev: the MISSION scope refuses the second $9 against a $10 mission');
+  var evs = store.readEvents().slice(before);
+  ok(evs.some(function (e) {
+    return e.event_type === 'BUDGET_RELEASED' && /rolled back/.test(String(e.detail.reason));
+  }), 'review/audit: the rolled-back project hold emits a RELEASE naming the rollback');
+  ok(budget.status('finrev', { config: FCFG }).reserved === 9,
+    'review/audit: only the accepted hold remains after the rollback');
+
+  // FIXED (gpt-4o CRITICAL, re-scoped): a per-scope settlement failure is
+  // reported rather than silently swallowed. It cannot overspend — the
+  // unsettled scope keeps its hold.
+  var partial = budget.settleScoped({ project: 'finrev', reservation_id: 'fin-roll',
+    mission_id: 'm-does-not-exist', actual_amount: 9, config: FCFG });
+  ok(partial.ok === true && /NO_SUCH_RESERVATION/.test(String(partial.mission_settle_failed)),
+    'review/settle: a mission-scope settlement failure is surfaced, not swallowed');
+  ok(budget.status('finrev', { config: FCFG }).spent === 9,
+    'review/settle: the day scope still settled correctly');
+
+  // FIXED (deepseek HIGH/restart, as observability): long-held reservations
+  // are visible rather than silently shrinking the budget.
+  var st = budget.status('finrev', { config: FCFG });
+  ok(st.stale_reservations === 0, 'review/stale: fresh holds are not reported as stale');
+  var file = budget.ledgerFile('finrev', 'DAY', budget.periodKeyFor('DAY', 'Europe/Paris'));
+  var raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+  raw.entries['fin-leaked'] = { status: 'RESERVED', amount: 1, cost_basis: 'estimated',
+    reserved_at: new Date(Date.now() - 7 * 3600 * 1000).toISOString() };
+  fs.writeFileSync(file, JSON.stringify(raw));
+  var st2 = budget.status('finrev', { config: FCFG });
+  ok(st2.stale_reservations === 1 && st2.stale_reservation_ids[0] === 'fin-leaked',
+    'review/stale: a hold older than the threshold is reported to the operator');
+  ok(st2.remaining === st.remaining - 1,
+    'review/stale: a stale hold still reduces remaining (never auto-released)');
+
+  // REJECTED (deepseek CRITICAL): "a permission error signalling the holder
+  // could break a live lock" — EPERM is treated as ALIVE, so it cannot.
+  var src = fs.readFileSync(path.join(EXEC, 'core', 'budget.js'), 'utf8');
+  ok(/alive = \(k\.code === 'EPERM'\)/.test(src),
+    'review/rejected: EPERM when signalling the lock holder means ALIVE, so the lock is never broken');
+
+  // REJECTED (deepseek MEDIUM): "provider labels could split the ledger" —
+  // totals aggregate every entry regardless of provider label.
+  var CFGP2 = JSON.parse(JSON.stringify(FCFG));
+  CFGP2.projects.labels = { currency: 'USD', timezone: 'Europe/Paris',
+    daily_limit: 4, request_limit: 4, mission_limit: 4 };
+  budget.reserveScoped({ project: 'labels', amount: 2, reservation_id: 'lab-1',
+    provider: 'claude-code', agent: 'a', cost_basis: 'estimated', config: CFGP2 });
+  budget.reserveScoped({ project: 'labels', amount: 2, reservation_id: 'lab-2',
+    provider: 'totally-different-provider', agent: 'b', cost_basis: 'estimated', config: CFGP2 });
+  var third = budget.reserveScoped({ project: 'labels', amount: 2, reservation_id: 'lab-3',
+    provider: 'yet-another', agent: 'c', cost_basis: 'estimated', config: CFGP2 });
+  ok(third.decision === 'deny',
+    'review/rejected: differing provider labels aggregate into ONE ledger — no split, no bypass');
+
+  // REJECTED (gpt-4o HIGH/restart): persisting unreleased holds across a
+  // restart is the REQUIRED conservative behaviour, not a defect.
+  ok(budget.status('finrev', { config: FCFG }).reserved > 0,
+    'review/rejected: holds surviving restart is the spec-required behaviour (no free budget)');
+})();
+
 // ------------------------------------------------------------ CLI (read-only)
 chain = chain.then(function () {
   var bin = path.join(EXEC, 'bin', 'mythos-ai-executor');

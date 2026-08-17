@@ -47,6 +47,9 @@ var COST_BASIS = ['known', 'estimated'];   // 'unknown' is deliberately NOT spen
 var ENTRY_STATES = ['RESERVED', 'SETTLED', 'RELEASED'];
 
 var LOCK_STALE_MS = 30000;
+// A reservation held this long without settling or releasing is reported
+// as stale (observability only — never auto-released).
+var STALE_RESERVATION_MS = 6 * 60 * 60 * 1000;
 var LOCK_WAIT_MS = 5000;
 
 // --- Configuration -------------------------------------------------------------
@@ -232,11 +235,23 @@ function status(project, opts) {
   var file = ledgerFile(project, scope, periodKey);
   var ledger = readLedgerRaw(file) || emptyLedger(project, scope, periodKey, budget);
   var t = totals(ledger);
+  var nowMs = Date.now();
+  var stale = Object.keys(ledger.entries).filter(function (id) {
+    var e = ledger.entries[id];
+    return e.status === 'RESERVED' &&
+      (nowMs - Date.parse(e.reserved_at)) > STALE_RESERVATION_MS;
+  });
   return {
     project: project, scope: scope, period_key: periodKey, timezone: ledger.timezone,
     currency: t.currency, limit: t.limit, reserved: t.reserved, spent: t.spent,
     remaining: t.remaining, configured: budget.configured,
-    entry_count: Object.keys(ledger.entries).length
+    entry_count: Object.keys(ledger.entries).length,
+    // Holds older than the threshold are almost certainly leaked by a
+    // crashed attempt. They are NOT auto-released (that would risk
+    // freeing money a live task still intends to spend); they are made
+    // visible so an operator can see why remaining is low.
+    stale_reservations: stale.length,
+    stale_reservation_ids: stale.slice(0, 10)
   };
 }
 
@@ -472,7 +487,8 @@ function release(req) {
     var after = totals(ledger);
     emitBudgetEvent('BUDGET_RELEASED', {
       project: req.project, period_key: periodKey, reservation_id: req.reservation_id,
-      amount: entry.amount, remaining: after.remaining, task_id: entry.task_id
+      amount: entry.amount, remaining: after.remaining, task_id: entry.task_id,
+      scope: scope, reason: entry.release_reason
     });
     return { ok: true, budget: Object.assign({ project: req.project, period_key: periodKey }, after) };
   });
@@ -611,6 +627,14 @@ function settleScoped(req) {
   if (req.mission_id) {
     var m = settle(Object.assign({}, req, { scope: 'MISSION', period_key: String(req.mission_id) }));
     if (m && m.ok) out.mission_budget = m.budget;
+    else {
+      // Cannot overspend — the mission ledger simply keeps its hold — but
+      // the inconsistency is surfaced instead of silently swallowed.
+      out.mission_settle_failed = (m && m.reason) || 'unknown';
+      emitBudgetEvent('BUDGET_DENIED', { project: req.project, mission_id: req.mission_id,
+        reservation_id: req.reservation_id, scope: 'MISSION',
+        reason: 'settlement failed at MISSION scope: ' + out.mission_settle_failed });
+    }
   }
   return out;
 }
@@ -669,5 +693,6 @@ module.exports = {
   missionStatus: missionStatus,
   missionLimitFor: missionLimitFor,
   reservationIdFor: reservationIdFor,
+  STALE_RESERVATION_MS: STALE_RESERVATION_MS,
   withLock: withLock
 };
