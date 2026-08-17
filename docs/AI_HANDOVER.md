@@ -29,6 +29,133 @@
 
 ---
 
+## MYTHOS-DESIGN-RECOVERY-0 (2026-08-17) — **ALL PRIOR DESIGN WORK RECOVERED AND DOCUMENTED. NO NEW DESIGN IMPLEMENTATION WAS PERFORMED DURING DESIGN RECOVERY.**
+
+**Stage:** Design Recovery / Master Design Audit — recovery, audit and
+documentation only.
+**Status: PASS.** Five canonical documents created; nothing designed, changed or
+deployed.
+
+**Objective.** Recover all previous Mythos design work from GitHub, the VPS,
+prior sessions, prototypes, source and abandoned work *before* any new design
+begins, so nothing is lost.
+
+### Repositories inspected
+
+`othoth77/mythos-prod` (canonical, `fcd899b` at audit start); two stale local
+clones (`/home/ubuntu/mythos-prod`, `/home/ubuntu/mythos-prod-push`, both
+`3be0e0d`, **69 commits behind**); four autonomous-loop worktrees; and the **14
+private off-host repositories** recorded in `docs/OFFHOST_PROJECT_REGISTRY.md`
+(1,387 files / 129,179,836 bytes). **The 14 were NOT contacted** — no credential
+for them exists on this host; their contents are reported from the committed
+registry, not re-verified. 24 branches, 0 tags.
+
+### Projects discovered
+
+The eight-domain ecosystem list **understates the portfolio by at least twelve
+projects**. Newly surfaced: **KnowledgeVault KMS (752 files — the largest body of
+work outside `mythos-prod`)**, Karhmana, Chatrange, ClassePro, Oudhna Service,
+Festival, Nettoyage Photo VPS, Mythos App, plus tracked Atelier Network,
+AutoValeur, Personal Intelligence and Research Intelligence.
+
+### Major design work recovered
+
+- **Uthina Chess brand kit — the portfolio's only charter that is demonstrably
+  implemented.** `CHARTE_GRAPHIQUE.md` (VPS-only) specifies nine colours, three
+  font stacks and a page hierarchy; `/var/www/uthinachess/.../uthina-theme.css`
+  declares all nine as `--uc-*` plus the exact font stacks.
+- **Dar Hijama charter + 15-file vector suite** — house-and-cup concept,
+  green/turquoise palette, **clear-space and minimum-size rules (the only ones in
+  the portfolio)**, and a solved bilingual problem: Arabic vectorised so
+  `دار حجامة` renders without the font. **Not implemented.**
+- **Mythos OS token system** — 252 custom properties, dark `#0e0e0e`/`#161616`/
+  `#1d1d1d` with gold `#c9a84c`, six semantic colours each paired with a
+  12 %-alpha `-dim`. **Only two commits in history (`d1a9d19`, `09d5fe1`) have
+  ever touched `css/` or `assets/`** — the visual layer is unrevised since import.
+- **Mouain — 1,787 lines unmerged.** Vision, architecture, pedagogy, founding
+  council and roadmap on `docs/mouain-foundation` @ `8e50293`. **Invisible from
+  `main`** (`git grep -i mouain HEAD` returns nothing).
+
+### Major historical decisions recovered
+
+11 CONFIRMED (D-001…D-011), including the Mythos dark/gold system, the Uthina
+identity and page hierarchy, Dar Hijama's clear-space rules and vectorised-Arabic
+fix and asset-format ladder, the SsangYong catalog-API storefront, and
+headless-browser visual verification as a design-QA method (proven once, never
+generalised). Full register in `docs/MYTHOS_DESIGN_DECISIONS.md`.
+
+### Conflicts
+
+- **C-001 (most significant).** Dar Hijama's charter specifies green `#16A34A`/
+  turquoise `#14B8A6`; its live site uses cream plus **`#c9a84c` — the Mythos OS
+  gold**. **Zero charter colours appear in the deployed page.** This is also the
+  strongest surviving evidence that a Mythos-level palette was being applied
+  across projects.
+- **C-002** `darhijama.tn` served two ways (static vhost disabled 2026-07-29;
+  proxied app live) — the brand assets live with the superseded copy.
+- **C-003** Two golds: Mythos `#c9a84c` vs Uthina `#D9A441`. No document
+  connects them.
+- **C-004** Four implemented palettes, two colour schemes, four radius scales,
+  three naming conventions, **zero shared files** — never arbitrated.
+
+### Missing information
+
+No Mythos master brand specification · no shared design system · **no apex
+`mythosprod.xyz` vhost** (only `panel`, `tv`, `ordre` subdomains) · no site for
+`agribee.tn`, `idauto.tn`, `mouain.tn` · **no SVG and no font tracked anywhere in
+`mythos-prod`** · no responsive, motion, accessibility or performance standard for
+any project. Seven items are recorded as UNKNOWN rather than reconstructed —
+including the rationale for the Mythos gold and the rejected Dar Hijama "pistes"
+(every asset is named `piste1`; **no piste 2 survives anywhere**).
+
+### VPS-only artifacts (exact persistent paths preserved)
+
+`/home/ubuntu/incoming/VPS_TRANSFER` — **2,241 files / 159,035,008 bytes**, 829
+of which exist only there. Holds both written charters, the only vector suite,
+NotreJour's 7 deferred design files, and `_MYTHOS_CONSOLIDATION/_MANIFEST.json`.
+Live web roots under `/var/www/` are untracked. **Nothing was deleted, modified,
+moved or renamed.**
+
+`VPS_TRANSFER/SKILL_MOTION (2).md` is recorded explicitly as **NOT Mythos design
+work** — a generic third-party motion skill — so it is not mistaken for a
+recovered motion system.
+
+### Validation
+
+| Item | Result |
+| --- | --- |
+| Tests | **None run — documentation-only change (`AGENTS.md` §8)**, as instructed. Validated instead: markdown fences balanced 5/5; secret scan clean (no credential assignment, PEM block, or `.env` reference); every counted figure re-measured |
+| Corrections before commit | Two claims fixed against measurement: `docs/` file count 119 → **125**; stale clone 54 → **69** commits behind |
+| Files changed | The five design documents only, +1,241/−0 |
+| Source / CSS / logos / assets / deployments | **0 modified** |
+| Services | **0 touched.** The live MCC-1 service was not restarted or interfered with; no checkout/reset/stash/branch-switch was performed |
+| Design artifacts deleted | **0** |
+
+**Commit `661c1ab`** (`docs: recover and establish Mythos design baseline`),
+delivered via the persistent relay after direct SSH push failed on the documented
+agent residual. **Remote HEAD verified `661c1ab`** by fresh anonymous
+`ls-remote`. This handover on top.
+
+### Working tree state
+
+Untracked remaining: **`projects/ssangyong-autos/deploy/`**. Also present during
+the stage and deliberately not staged: `projects/mythos-ai-executor/config/roadmap-state.json`,
+modified by the concurrently running autonomous loop.
+
+**SSangYong deployment drift remains UNRESOLVED.** The repo copy is not what
+runs: **101 lines diverge** from `/etc/nginx/sites-enabled/ssangyong.autos`, and
+the installed copy carries an `ssl_certificate_key` path the repo copy lacks.
+Committing it as-is would record configuration that looks authoritative and is
+not. Which copy is authoritative remains an owner decision.
+
+**Next stage: Design Discussion / Master Visual Identity.** Blocked on owner
+decision **O-001 — brand independence vs Mythos consistency**; the design
+roadmap's Stage 1 is explicitly not authorised. Only two things can proceed
+without an owner decision: Stage 2.5 (recover the untracked charters and vector
+suite into Git) and O-006 (merge Mouain).
+
+**No new design implementation was performed during Design Recovery.**
+
 ## UNTRACKED-PATH AUDIT + LOOP DOC PRESERVATION (2026-08-17) — **PRESERVATION ALREADY SATISFIED BY A CONCURRENT SESSION; ONE UNRESOLVED DRIFT RECORDED, NOTHING DEPLOYED, NO SERVICE TOUCHED**
 
 **Stage:** owner-ordered read-only audit of the working tree's untracked paths,
