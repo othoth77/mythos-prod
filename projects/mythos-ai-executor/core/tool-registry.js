@@ -99,8 +99,19 @@ function grantTools(required, policyCheck) {
   return grants.sort();
 }
 
-// Grant-checked, schema-checked invocation.
-function invoke(name, input, grants) {
+// A tool "mutates" when its policy class is anything but READ (vision §12).
+// This is the single source of truth for what dry run must intercept.
+function isMutating(name) {
+  var def = registry[name];
+  return !!def && def.policy_class !== 'READ';
+}
+
+// Grant-checked, schema-checked invocation. `options.dryRun` (vision §V) makes
+// this a first-class execution mode for ANY mutating tool: input is still
+// grant- and schema-checked, but the adapter never runs, so there is no real
+// side effect regardless of provider. READ tools are unaffected — they have
+// no side effect to withhold.
+function invoke(name, input, grants, options) {
   var def = registry[name];
   if (!def) return { ok: false, error: 'NO_SUCH_TOOL: ' + String(name).slice(0, 60) };
   if (!Array.isArray(grants) || grants.indexOf(name) === -1) {
@@ -114,6 +125,16 @@ function invoke(name, input, grants) {
     if (!check.valid) {
       return { ok: false, error: 'TOOL_INPUT_INVALID: ' + check.errors.join('; ') };
     }
+  }
+  var dryRun = !!(options && options.dryRun);
+  if (dryRun && isMutating(name)) {
+    return {
+      ok: true,
+      dry_run: true,
+      result: null,
+      would_execute: { tool: name, input: input || {}, policy_class: def.policy_class, risk: def.risk },
+      mocked: def.provider === 'mock'
+    };
   }
   var adapter = adapters[name];
   if (!adapter) return { ok: false, error: 'TOOL_HAS_NO_ADAPTER: ' + name + ' is declarative-only' };
@@ -184,5 +205,6 @@ module.exports = {
   getTool: getTool,
   discoverTools: discoverTools,
   grantTools: grantTools,
-  invoke: invoke
+  invoke: invoke,
+  isMutating: isMutating
 };

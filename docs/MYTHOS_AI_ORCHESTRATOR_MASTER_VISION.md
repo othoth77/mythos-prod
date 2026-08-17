@@ -365,12 +365,20 @@ Stronger isolation for agent execution (filesystem/network scoping beyond
 tool permissions). Today: rootless daemon, `NoNewPrivileges=true`, no sudo in
 any profile, loopback-only services.
 
-### V. Dry Run — convention IMPLEMENTED per-track; runtime feature PLANNED (Phase 5)
+### V. Dry Run — convention IMPLEMENTED per-track; tool-registry level IMPLEMENTED; task/mission-level runtime PLANNED (Phase 5)
 
 The repository's migration/automation stages already practice dry-run-first
 (e.g. the SSANGYONG migration pipeline generated and validated SQL without a
-database connection). The future runtime offers dry run as a first-class
-execution mode for any mutating task.
+database connection). At the tool-registry level (`core/tool-registry.js`),
+`invoke(name, input, grants, { dryRun: true })` is now a first-class mode for
+ANY mutating tool: any tool whose `policy_class` is not `READ` is
+grant-checked and schema-checked exactly as normal, then short-circuited
+before its adapter runs, returning `{ dry_run: true, would_execute, result:
+null }` — no side effect, regardless of provider. READ tools are unaffected.
+Still PLANNED: wiring `mode: "dry_run"` from a task/mission down into every
+tool call the task makes (today a caller must opt in per-invocation), and a
+policy-engine-level guarantee that a dry-run task can never reach a real
+adapter.
 
 ### W. Independent Validator — PLANNED (Phase 3); see §13
 

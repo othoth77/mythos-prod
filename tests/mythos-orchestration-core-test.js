@@ -476,6 +476,34 @@ var tools = require(path.join(EXEC, 'core', 'tool-registry'));
   ok(campaign.ok === true && campaign.mocked === true &&
      campaign.result.sandbox === true && campaign.result.published === false,
     '2D tools: campaign tool is sandbox-only, publishes nothing, spends nothing');
+
+  // Dry run (vision §V): a first-class execution mode for ANY mutating tool,
+  // not a per-adapter convention. Mutating = non-READ policy class.
+  ok(tools.isMutating('meta.create_campaign') === true && tools.isMutating('git.read') === false,
+    '2D tools: isMutating derives from policy_class — READ is not mutating, MONEY_SPEND is');
+
+  var dryCampaign = tools.invoke('meta.create_campaign',
+    { daily_budget_usd: 5, duration_days: 1 }, ['meta.create_campaign'], { dryRun: true });
+  ok(dryCampaign.ok === true && dryCampaign.dry_run === true && dryCampaign.result === null &&
+     dryCampaign.would_execute.tool === 'meta.create_campaign' &&
+     dryCampaign.would_execute.input.daily_budget_usd === 5,
+    '2D tools: dry run on a mutating tool short-circuits the adapter — no spend, no side effect');
+
+  var dryBadInput = tools.invoke('meta.create_campaign', { nonsense: true }, ['meta.create_campaign'], { dryRun: true });
+  ok(dryBadInput.ok === false && /INPUT_INVALID/.test(dryBadInput.error),
+    '2D tools: dry run still enforces the input schema before short-circuiting');
+
+  var dryUngranted = tools.invoke('meta.create_campaign', { daily_budget_usd: 5, duration_days: 1 }, [], { dryRun: true });
+  ok(dryUngranted.ok === false && /NOT_GRANTED/.test(dryUngranted.error),
+    '2D tools: dry run does not bypass the grant check');
+
+  var dryRead = tools.invoke('git.read', { repo_path: repo }, ['git.read'], { dryRun: true });
+  ok(dryRead.ok === true && dryRead.dry_run === undefined && dryRead.result.branch === 'main',
+    '2D tools: dry run leaves READ tools unaffected — nothing to withhold');
+
+  var noAdapterDry = tools.invoke('github.commit', {}, ['github.commit'], { dryRun: true });
+  ok(noAdapterDry.ok === true && noAdapterDry.dry_run === true,
+    '2D tools: dry run on a declarative-only mutating tool (GIT class, no adapter) reports the plan without needing one');
 })();
 
 // ===========================================================================
