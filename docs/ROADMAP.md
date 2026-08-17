@@ -254,6 +254,24 @@ See `docs/MYTHOS_PERSONAL_INTELLIGENCE_VISION.md` for the strategic direction, `
 
 ---
 
+## Repository Migration — Future Gate (`mythos-prod` → `mythos-os`)
+
+**Source of truth today and until this gate closes: `othoth77/mythos-prod`, branch `main`.** See `AGENTS.md` §2.1.
+
+An owner directive (2026-08-17) records a **future** formal migration to `othoth77/mythos-os` — a complete repository migration, never a file-level copy or selective cherry-pick — to be performed when development and architecture are sufficiently complete.
+
+| Stage | Description | Status |
+|---|---|---|
+| MYTHOS-REPO-MIGRATION-GATE | Owner directive recorded; preservation list reconciled against reality; read-only coupling audit | ✓ Done (2026-08-17) — **no migration performed** |
+| MYTHOS-REPO-MIGRATION-PLAN | Freeze commit, ratified check set, path/URL remediation plan, cutover and rollback procedure | Not started — **NOT AUTHORISED** |
+| MYTHOS-REPO-MIGRATION-EXECUTE | Execute, verify independently from a clean clone, cut over source-of-truth identity | Not started — **NOT AUTHORISED**, blocked on the plan and on owner approval |
+
+`REPO_MIGRATION: BLOCKED — NOT AUTHORISED`. The blocking precondition is that `othoth77/mythos-os` is **not** verified empty/decommissioned/ready — evidence indicates it is a populated private repository holding a stale 2026-07-29 working copy, and no credential for it exists on this host. Resolving it is an owner action.
+
+Full directive, verified facts, preservation table, 10-condition gate, and coupling audit: `docs/MYTHOS_REPOSITORY_MIGRATION.md`.
+
+---
+
 ## Mythos AI Operating Layer — Umbrella Specification Track
 
 The **Mythos AI Operating Layer** (MAOL) is the product-facing intelligence layer inside Mythos OS — the substrate consulted by user conversations, background workflows, scheduled jobs, document pipelines, and product code alike. Strategic principle, inherited unchanged from the Personal Intelligence track: **"Shared capabilities, isolated intelligence."**

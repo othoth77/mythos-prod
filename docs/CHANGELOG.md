@@ -6,6 +6,15 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Added — MYTHOS-REPO-MIGRATION-GATE — Future Repository Migration Directive
+
+- Owner directive recorded for a **future** complete repository migration `othoth77/mythos-prod` → `othoth77/mythos-os` (`docs/MYTHOS_REPOSITORY_MIGRATION.md`). **No migration performed; not authorised.**
+- Repository identity stated as a rule for the first time (`AGENTS.md` §2.1): `othoth77/mythos-prod`, branch `main`, is the sole source of truth until the migration gate closes. This closes the gap that allowed the repository's identity to be questioned in a prior session.
+- Preservation list reconciled against the repository: two corrections recorded — `.ai/` does not exist (the AI collaboration infrastructure is `AGENTS.md`, `CLAUDE.md`, `.claude/skills/` with 20 skills, and `.opencode/`), and no CI/CD exists (`.github/` is absent; 105 test suites are run manually).
+- Read-only coupling audit: 60 tracked files reference `mythos-prod`; absolute host paths inventoried; live host state that will not migrate with Git identified (push relay, executor service, n8n workflows, credentials, deployed databases).
+- Two constraints recorded: history is testimony, not configuration (no bulk rewrite of historical records), and the repository's anonymous-`ls-remote` verification procedure breaks if the target is private and must be replaced before cutover.
+- Ten-condition gate registered with honest status — one condition (target verified empty/decommissioned/ready) is **NOT SATISFIED and blocking**.
+
 ### Added — MAOL-0 — Mythos AI Operating Layer Master Specification
 
 - Umbrella specification for the product-facing AI layer inside Mythos OS (`docs/MYTHOS_AI_OPERATING_LAYER.md`), covering all 20 agreed components: vision, AI Gateway, n8n integration layer, event-driven architecture, AI Brain, four-tier memory, eight specialised agents, agent governance, AI skills library, context engine, knowledge vault, document intelligence, AI workflow builder, human approval layer, audit and trace, digital twin, continuous improvement loop, external connectors, security architecture, enterprise readiness, marketplace, and a six-phase roadmap.

@@ -19,6 +19,20 @@ Primary objectives:
 
 GitHub is the only source of truth for committed project work.
 
+### 2.1 Repository identity
+
+The source-of-truth repository is:
+
+```text
+othoth77/mythos-prod   ·   branch main
+```
+
+This is the Mythos OS repository. Do not treat any other repository as the source of truth, push to one, read canon from one, or reconfigure services toward one.
+
+A future formal migration to `othoth77/mythos-os` is recorded as an owner directive in `docs/MYTHOS_REPOSITORY_MIGRATION.md`. It is **NOT AUTHORISED** and **NOT STARTED**. Until that gate is closed by explicit owner approval and independent validation, `othoth77/mythos-prod` remains the sole source of truth. `othoth77/mythos-os` is a separate, private, populated repository holding a stale 2026-07-29 working copy — it is not a mirror of this one and must not be used to verify this repository's commits.
+
+Verify repository identity with `git remote -v` before drawing conclusions about where work was delivered.
+
 Before starting any task:
 
 1. Fetch the remote state.

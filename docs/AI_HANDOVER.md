@@ -26,6 +26,62 @@
 
 ---
 
+## MYTHOS-REPO-MIGRATION-GATE (2026-08-17) — **OWNER DIRECTIVE RECORDED; NO MIGRATION PERFORMED, NOT AUTHORISED**
+
+### Stage
+
+MYTHOS-REPO-MIGRATION-GATE — documentation and read-only audit only.
+
+### Objective
+
+Record the owner directive for a **future** formal repository migration `othoth77/mythos-prod` → `othoth77/mythos-os`, close the rule gap that allowed the repository's identity to be questioned, and produce the read-only coupling audit a future migration plan will need. **Explicitly not to migrate anything.**
+
+### Trigger — a real failure worth recording
+
+A session was instructed that `othoth77/mythos-os` was the intended repository and that delivered commits should be verified there. **The premise was incorrect.** It was caught only because this repository recorded the facts. Root cause: **the identity of the source-of-truth repository was nowhere stated as a rule** — it was inferable only from `git remote -v` and one line in a PC-inventory table at `docs/AI_HANDOVER.md:4245`. That gap is now closed in `AGENTS.md` §2.1.
+
+### Verified facts (direct, anonymous HTTPS)
+
+| | |
+|---|---|
+| `othoth77/mythos-prod` | `api.github.com/repos/…` → **HTTP 200** (public). Remote `main` = `8c34c5d`. 417 commits, 544 tracked files, 111 `docs/*.md`, 105 test suites, 20 local branches, 65 MB `.git`. **Source of truth.** |
+| `othoth77/mythos-os` | `api.github.com/repos/…` → **HTTP 404 anonymous**; `git ls-remote` prompts for credentials. **Absent OR private — an unauthenticated 404 cannot distinguish, and no credential for it exists on this host.** This repository's own record (`docs/AI_HANDOVER.md:4245`) describes it as *"private, populated, 427 KB, last push 2026-07-29"*, matching PC working copy `C:\Users\Othman\Desktop\2607 bureau` (225 files). |
+| Why a file-level copy would break | The MAOL spec cross-references 23 canonical documents; **23 of 23 were first committed after 2026-07-29** — the target's last push. A selective copy would dangle its entire dependency graph. This confirms the owner's "complete migration, not a file-level copy" requirement. |
+
+### Two corrections to the preservation list (recorded so a future migration does not chase paths that do not exist)
+
+- **`.ai/` does not exist.** The AI collaboration infrastructure is `AGENTS.md`, `CLAUDE.md`, `.claude/skills/` (**20 skills**), `.opencode/`.
+- **No CI/CD exists.** `.github/` is absent — no workflow, pipeline, or runner. Tests (105 suites) are run manually. A migration must not assume CI will catch breakage.
+
+### Coupling audit produced (read-only)
+
+**60** tracked files mention `mythos-prod`; absolute host paths appear in tracked files (`/var/www` 19, `/home/deploy/projects/mythos-prod` 14, `/home/ubuntu/mythos-ai-executor` 9, `/srv/mythos` 1). Live host state that will **not** migrate with Git: the root-owned push relay (hardcodes `REPO=/home/deploy/projects/mythos-prod`, `BRANCH=main`, pinned SSH identity), the executor user service and its runtime state, n8n workflows, credentials, deployed databases. Full detail in `docs/MYTHOS_REPOSITORY_MIGRATION.md` §4.
+
+Two findings worth flagging: (a) **history is testimony, not configuration** — a bulk `mythos-prod` → `mythos-os` rewrite across handover records would falsify the project's own record and is forbidden; (b) `mythos-prod` is **publicly readable**, and this repository's standard remote-HEAD verification depends on anonymous `git ls-remote` — if the target is private, that verification procedure breaks and must be replaced **before** cutover.
+
+### Gate status
+
+`REPO_MIGRATION: BLOCKED — NOT AUTHORISED`. Of the owner's 10 preconditions: 1 is PARTIAL (the §4 audit), **1 is NOT SATISFIED and blocking** (condition 5 — the target is not verified empty/decommissioned/ready; evidence says it is populated and private), and the rest are NOT STARTED. Resolving condition 5 **cannot be done from this host** — no credential for `mythos-os` exists here.
+
+### Implementation
+
+**No migration performed. No target repository contacted with write intent. No configuration, service, unit, credential, workflow, or database touched. Nothing deployed.** No commit was rewritten, reset, or force-pushed. The concurrent session's in-flight work (`core/campaign.js`, `core/campaign-runner.js`, `core/roadmap.js`, `tests/mythos-autonomous-campaign-test.js`, modified `self-improve.js` and `bin/mythos-ai-executor`) was left untouched, as was the pre-existing untracked `projects/ssangyong-autos/deploy/`.
+
+### Record
+
+| | |
+|---|---|
+| Base | `8c34c5d`, branch `main`, remote HEAD verified identical before starting |
+| Commit | this entry, with `docs/MYTHOS_REPOSITORY_MIGRATION.md`, `AGENTS.md`, `docs/ROADMAP.md`, `docs/CHANGELOG.md` |
+| Tests | **None run — documentation-only change (`AGENTS.md` §8).** Validated instead: markdown fences balanced; existence of every path named in the preservation table verified individually; repository reachability verified by direct HTTP status; counts measured, not estimated |
+| Files changed | `docs/MYTHOS_REPOSITORY_MIGRATION.md` (new); `AGENTS.md` (new §2.1 repository identity); `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`, `docs/CHANGELOG.md` |
+
+### Next stage
+
+**Not the migration.** In order: (1) owner determines what `othoth77/mythos-os` actually contains and whether it is to be emptied, decommissioned, or preserved — the blocking precondition, resolvable only by the owner; (2) owner declares development and architecture "sufficiently complete"; (3) ratify the required check set (`docs/MYTHOS_REPOSITORY_MIGRATION.md` §5); (4) write the migration plan as its own stage; (5) execute only under explicit authorisation. Unrelated and unblocked: owner review of `docs/MYTHOS_AI_OPERATING_LAYER.md`, and MAOL-1 gated on O-MAOL-1/2/3.
+
+---
+
 ## MAOL-0 — MYTHOS AI OPERATING LAYER MASTER SPECIFICATION (2026-08-17) — **SPECIFICATION ONLY; NO RUNTIME BEHAVIOUR CHANGED**
 
 ### Stage
