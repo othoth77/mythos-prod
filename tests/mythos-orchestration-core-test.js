@@ -308,6 +308,47 @@ function makeRepo(name) {
   var rendered = context.renderContext(ctx);
   ok(rendered.indexOf('repository_state') !== -1 && rendered.indexOf('relevance') !== -1,
     '2B context: renderable for prompt injection');
+
+  // No ledger file: behaviour is unchanged, no meta: items appear.
+  ok(!ctx.items.some(function (i) { return i.kind.indexOf('meta:') === 0; }),
+    '2B context: no portfolio ledger file, no meta items');
+})();
+
+// --- Context engine: portfolio ledger (projects/meta/current-context.json) ---
+(function () {
+  var repo = makeRepo('ctx-repo-ledger');
+  var metaDir = path.join(repo, 'projects', 'meta');
+  fs.mkdirSync(metaDir, { recursive: true });
+  fs.writeFileSync(path.join(metaDir, 'current-context.json'), JSON.stringify({
+    generated_at: '2026-08-01T00:00:00.000Z',
+    next_owner_priority: 'Ship the Context Engine',
+    known_blockers: ['blocker one', 'blocker two', 'blocker three', 'blocker four']
+  }));
+
+  var ctx = context.assembleContext({
+    project: 'ledgerproj', instruction: 'unrelated instruction with no term overlap',
+    repo_path: repo
+  });
+  var kinds = ctx.items.map(function (i) { return i.kind; });
+  ok(kinds[0] === 'repository_state',
+    '2B context ledger: repository_state still outranks the portfolio ledger');
+  ok(kinds.indexOf('meta:next_priority') !== -1,
+    '2B context ledger: next owner priority surfaced');
+  ok(ctx.items.filter(function (i) { return i.kind === 'meta:known_blocker'; }).length === 3,
+    '2B context ledger: known blockers capped at 3, not dumped in full');
+  ok(ctx.items.every(function (i) {
+    return i.relevance !== undefined && i.source && i.timestamp && i.confidence !== undefined;
+  }), '2B context ledger: ledger items carry the same relevance/source/timestamp/confidence shape');
+
+  // Malformed ledger file: fails soft, never throws.
+  fs.writeFileSync(path.join(metaDir, 'current-context.json'), '{not valid json');
+  var broken;
+  var threw = false;
+  try {
+    broken = context.assembleContext({ project: 'ledgerproj', instruction: 'x', repo_path: repo });
+  } catch (e) { threw = true; }
+  ok(!threw && broken && !broken.items.some(function (i) { return i.kind.indexOf('meta:') === 0; }),
+    '2B context ledger: malformed ledger fails soft, no meta items, no throw');
 })();
 
 // ===========================================================================
