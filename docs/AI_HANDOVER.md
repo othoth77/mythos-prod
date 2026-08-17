@@ -26,6 +26,99 @@
 
 ---
 
+## MYTHOS PHASE 2 FINALIZATION (2026-08-17) — **PASS; CORE IS THE DEFAULT PATH, REQUEST+MISSION SCOPES ENFORCED, ROLLBACK PROVEN**
+
+**Stage:** MYTHOS PHASE 2 FINALIZATION · **Status: PASS**
+
+**Core default: `true`.** `MYTHOS_CORE_ENABLED` now defaults to enabled — a
+production goal needs **no feature flag** (verified live: no flag in the env
+file, no systemd drop-in, `GET /goals` → 200). The flag is not removed: only
+the exact string `false` (trimmed, case-insensitive) rolls back, so a typo can
+never silently drop production onto the legacy path.
+
+**Rollback.** Documented, tested, immediately reversible, and needs **no code
+change**: the unit already reads `~/.config/mythos-ai-executor/executor.env` as
+an `EnvironmentFile`, so appending `MYTHOS_CORE_ENABLED=false` + restart
+restores Phase 1. **Proven on the deployed service:** rolled back → `/goals`
+503 **and a real Phase 1 task ran to COMPLETED**; restored → `/goals` 200 and a
+core goal was created again. Final state is default-on with no override present.
+
+**Request scope.** `request_limit` caps any single spend (sandbox: 5). A retried
+request id grants no extra authority; duplicate settlement counts once across
+both scopes; over-limit parks for approval when approval is permitted.
+
+**Mission scope.** Each mission has its own ledger keyed by mission id, so it is
+independent of provider, agent, task, retry, worktree and process. $6 + $6
+against a $10 mission → the second is denied by MISSION; a different mission has
+its own allowance; a mission may declare a **smaller** limit but never widen the
+project's.
+
+**Budget hierarchy.** REQUEST → MISSION → PROJECT/DAY → POLICY, checked
+strictest-first, every boundary must pass, and **no lower scope may widen a
+higher one**. A MISSION refusal **rolls back** the project/day hold taken
+moments earlier (with a reason-carrying release event), so a refused request
+leaves nothing behind.
+
+**Provider switch / retry / restart.** Three different agents cannot exceed the
+same mission budget (labels aggregate into one ledger — proven); retries face
+the same remaining and cannot reset any scope; a fresh process recovers mission
+and project holds intact (restart never creates free budget), and duplicate
+settlement after restart still counts once.
+
+**Parallel.** 12 concurrent OS processes × $2 against a $10 **mission** →
+exactly 5 allowed; mission and project invariants (`reserved + spent ≤ limit`)
+both held. (The earlier project-scope race — 12 × $1 against $10 → exactly 10 —
+still passes.)
+
+**Independent reviews (no Fable 5 quota).** Gemini 3.6 Flash, GPT-4o, DeepSeek
+Chat via OmniRoute, read-only. **Three genuine findings fixed** (`41adefa`):
+rollback releases now carry their reason for the audit trail; a per-scope
+settlement failure is surfaced instead of swallowed; reservations held >6h are
+reported as `stale_reservations` (deliberately never auto-released — freeing
+money a live task intends to spend is the dangerous direction). **Five rejected
+with evidence, each now pinned by a regression test:** EPERM when signalling a
+lock holder means ALIVE (no live-lock break); provider labels cannot split the
+ledger; persisting holds across restart is the spec-required conservative
+behaviour; repeated approval requests are the documented human escape hatch, not
+a code bypass; and the unspecified "concurrent write" claim is disproven
+empirically by the 12-process test.
+
+**Tests:** budget **121/121**, wiring **86/86**, core **248/248**, Phase 1
+**120/120**. Full sweep once: **103 suites, 80 pass, 23 nonzero — diffed
+byte-identical to the documented baseline, zero new failures.**
+
+**Production proof (default-on, no flag):** goal `g-msxjw8qr-c2e38b` → mission
+`m-msxjw8qt-4805d5` → inspect/analyze/report **3/3 COMPLETED** on real Claude
+through the bridge → report `rp-msxk0e5a-fd198c` → memory → events. Its own
+finding was that `docs/MYTHOS_ORCHESTRATION_CORE.md` §13 had gone **stale in the
+direction of understating capability** (it still claimed no cumulative ledger
+existed) — corrected in this commit, with the genuinely-still-missing items
+restated.
+
+**Negative test (default-on path):** destructive goal → **HTTP 400**,
+`GOAL_REJECTED: PLAN_POLICY_DENIED … DESTRUCTIVE → deny`. Nothing executed.
+Default-on granted **no** new authority: READ per policy, PROJECT_WRITE
+policy-controlled, DEPLOY approval-controlled, DESTRUCTIVE denied, MONEY
+budget+policy controlled.
+
+**Final commit:** (this handover commit) · **Remote HEAD:** verified equal after
+push via the persistent relay · **Real money: NONE** (every project's committed
+budget is 0 except the mock-only sandbox; no payment method, no paid external
+call) · **SSANGYONG: UNTOUCHED** · **n8n: UNCHANGED** (no workflow added or
+modified; the core remains the orchestration source of truth).
+
+**Residual risks:** Gemini still has no direct Mythos execution path
+(UNCONFIGURED; reachable only as an OmniRoute-served model) and `claude-code`
+remains the only agent with repository execution authority; cost is
+runner-declared, not verified billing; `PROJECT` all-time scope and non-USD
+currencies are modelled but unexercised; stale holds are reported but never
+auto-released, so a crashed attempt can shrink a mission's budget until its next
+attempt supersedes it; lock waiting is bounded at 5 s and fails closed.
+
+**Next stage:** owner decision. No Phase 3 feature was implemented.
+
+---
+
 ## MYTHOS CUMULATIVE BUDGET LEDGER (2026-08-16) — **PASS; CUMULATIVE SPEND ENFORCED, ATOMIC UNDER REAL CONCURRENCY, NO REAL MONEY**
 
 **Stage:** MYTHOS CUMULATIVE BUDGET LEDGER · **Status: PASS**

@@ -161,10 +161,34 @@ nothing loads the core until it is explicitly invoked.
 
 ## 13. Honest status
 
-Implemented and tested with mocks: everything above. NOT yet true, stated
-plainly: no real multi-provider execution exists (Gemini unconfigured, OmniRoute
-advisory-only), the executorBridge has not run a real-quota mission end to end,
-reputation has no production history, cumulative daily spend ledgers are not
-implemented (per-request threshold only), and no production mission has run
-through the core. Enabling any of these requires its own stage and, where spending
-or deployment is involved, an owner decision.
+*Corrected 2026-08-17 (Phase 2 finalization). The previous text understated
+current capability — a production audit mission found the staleness itself and
+recommended this correction.*
+
+**Now true, with evidence:**
+
+- **The core is the default execution path.** `MYTHOS_CORE_ENABLED` defaults
+  **true**; only the exact string `false` rolls back to Phase 1, via the
+  service's `EnvironmentFile` — no code change. Both directions are tested and
+  were exercised on the deployed service.
+- **The executorBridge has run real-quota missions end to end**, including one
+  that hit a real 429 and resumed (see `docs/MYTHOS_FIRST_MISSION_REPORT.md`),
+  and production goals now run through `POST /goals` with no feature flag.
+- **Cumulative spend ledgers exist and are enforced** across
+  REQUEST → MISSION → PROJECT/DAY → POLICY, atomically under real concurrency
+  (`core/budget.js`, `docs/MYTHOS_BUDGET_LEDGER.md`).
+- **Real multi-provider execution happens** for advisory work: the router has
+  selected OmniRoute-served models (gpt-4o-mini) for live analysis tasks, and
+  independent review runs on Gemini 3.6 Flash / GPT-4o / DeepSeek.
+
+**Still NOT true, stated plainly:** Gemini has no *direct* Mythos execution path
+(`gemini-advisor` reports UNCONFIGURED; no credential invented — it is reachable
+only as a model served through OmniRoute); `claude-code` remains the only agent
+with repository execution authority; reputation has little production history;
+cost is runner-declared, so `known` means "the runner reported a figure", not
+independently verified billing; `MISSION`/`REQUEST` budget scopes are enforced
+but `PROJECT` all-time and monetary currencies beyond a single unit are not
+exercised; and no mission has performed a real paid external action, because
+every project's committed budget is 0 except the mock-only sandbox. Enabling any
+of these requires its own stage and, where spending or deployment is involved, an
+owner decision.

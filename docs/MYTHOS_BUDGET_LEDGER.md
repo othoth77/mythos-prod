@@ -18,6 +18,29 @@ REQUEST → policy (per-request threshold)
         → SETTLE actual  |  RELEASE on failure
 ```
 
+## Scope hierarchy (Phase 2 finalization)
+
+```text
+REQUEST      a single spend may never exceed request_limit
+   ↓
+MISSION      one mission's cumulative spend may never exceed mission_limit
+   ↓
+PROJECT/DAY  the project's cumulative spend in its period ≤ daily_limit
+   ↓
+POLICY       the policy engine's own class rules and per-request threshold
+```
+
+A request must pass **every** applicable boundary, checked strictest-first, and
+**no lower scope may widen a higher one** — a mission may declare a *smaller*
+limit than its project's configuration but never a larger one. If the MISSION
+scope refuses after the project/day hold was taken, that hold is **rolled back**
+immediately (with a reason-carrying release event), so a refused request leaves
+nothing behind. Mission ledgers are keyed by mission id, which makes them
+independent of provider, agent, task, retry, worktree and process.
+
+Sandbox limits deliberately differ (request 5 < mission 8 < day 10) so each
+boundary is observable on its own.
+
 ## Model
 
 | Field | Meaning |
