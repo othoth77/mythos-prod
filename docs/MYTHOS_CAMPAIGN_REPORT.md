@@ -120,10 +120,23 @@ checkout, and that perfectly passing tests are **refused** when they ran
 outside the mission worktree. The production fix is what makes the existing
 loop test pass — the mock was not loosened to accommodate it.
 
-Pre-existing and unrelated: `tests/core-test.js` fails on
-`_memCache is not defined` (last touched 2026-07-29, three weeks before this
-campaign, by an unrelated stage), and the `ida-*` / `mcc-1` suites are
-env-blocked without their databases.
+Pre-existing and unrelated failures, none caused by this work — **no failing
+suite references any module changed here** (`core/scheduler.js`,
+`core/campaign.js`, `core/campaign-runner.js`, `core/self-improve.js`),
+checked mechanically:
+
+- `tests/core-test.js` — `_memCache is not defined`, last touched 2026-07-29,
+  three weeks before this campaign, by an unrelated stage.
+- The legacy `stage1c-part1`, `stage2d`, `stage3a`, `stage3a5`, `stage3b`,
+  `stage3c`, `stage3d`, `stage3e` suites — the documented
+  `KNOWN_BASELINE_FAILURE` set in `projects/meta/known-baselines.json`.
+- `ida-*`, `mcc-1` and `sya-*` — env-blocked without their databases.
+
+A caution for future sweeps: pass/fail must be read from the **exit code**,
+not by grepping output for "0 failed". Several legacy suites print neither
+phrase and were wrongly counted as failures by a text-matching sweep, and
+`mythos-orchestrator-0-test.js` needs well over 90 seconds — it passes when
+given time and only looked broken under a short timeout.
 
 ## Safety constraints
 
