@@ -29,6 +29,56 @@
 
 ---
 
+## MYTHOS-PROVIDER-HEALTH-N-0 (2026-08-17) — **PARTIAL: OPERATIONAL REACHABILITY NOW FEEDS PROVIDER SELECTION; FULL PHASE-4 ROUTING BY HEALTH/QUOTA/COST/QUALITY STILL PLANNED**
+
+**Stage:** CORE-implement — capability N (Provider Health) from
+`docs/MYTHOS_AI_ORCHESTRATOR_MASTER_VISION.md`.
+**Status: PASS.** Smallest coherent change; no policy, budget, validation, events,
+redaction, credentials, service unit, Git configuration or campaign-manager file touched.
+
+**Gap closed:** the executor's `GET /health` (`executor.js` `health()`) already probed
+real reachability for n8n and OmniRoute, but the result was consumed nowhere — the Phase 2
+`core/agent-registry.js` provider probes for `openai-compat` only checked credential-file
+presence, never whether OmniRoute was actually reachable. Two disconnected health systems,
+as recorded by the prior inspection task.
+
+**What changed:** new `core/provider-health.js` — a small in-memory, fail-open snapshot
+(`record`/`isReachable`/`status`, 5-minute TTL) that duplicates no probing logic of its
+own; it only records what `executor.js health()` already observes and serves it to
+selection. `core/agent-registry.js`'s default probe for `openai-compat` now requires
+credential presence **and** `provider-health.isReachable('omniroute')`. `executor.js
+health()` now calls `provider-health.record('n8n', …)` / `record('omniroute', …)` with
+each real probe result. Unknown/never-probed dependencies read reachable (fail-open) so a
+fresh process is never wrongly excluded before its first health tick.
+
+**Not done (explicitly deferred, Phase 4 per the vision doc):** ranking by health quality
+(vs. binary reachable/unreachable), health-based fallback triggering in
+`core/provider-router.js`, and a Gemini operational dependency (nothing probes Gemini
+reachability today, so none was invented).
+
+**Tests:** `tests/mythos-orchestration-core-test.js` — added Phase 2N section (fail-open
+default, exclusion on observed-down, recovery, `selectCandidates` propagation) — **264/264
+passed** (was 260/260 before this stage's 4 new assertions). `tests/mythos-ai-executor-test.js`
+— added assertions that `/health` feeds real n8n/OmniRoute reachability into
+`provider-health` — **127/127 passed** (was 125/125). `tests/mythos-core-wiring-test.js`
+re-run as an adjacent-surface check (requires `executor.js` and the core together) —
+**86/86 passed**, no regression. Full suite not rerun: three small, additive edits plus one
+new leaf module, no shared behavior changed beyond the stated scope (`AGENTS.md` §8).
+
+**Files changed:** `projects/mythos-ai-executor/core/provider-health.js` (new),
+`projects/mythos-ai-executor/core/agent-registry.js`, `projects/mythos-ai-executor/executor.js`,
+`tests/mythos-orchestration-core-test.js`, `tests/mythos-ai-executor-test.js`.
+
+**Deployment:** none — no service restarted, no config changed, no production behavior
+affected until the (default-on) core path next runs `agent-registry` selection for
+`openai-compat`.
+
+**Next stage:** Phase 4 health-aware routing (rank by degraded vs. down, not just
+available vs. unavailable; feed health into `provider-router.js` fallback alongside
+quota), or the next roadmap capability in sequence.
+
+---
+
 ## MYTHOS-DESIGN-RECOVERY-0 (2026-08-17) — **ALL PRIOR DESIGN WORK RECOVERED AND DOCUMENTED. NO NEW DESIGN IMPLEMENTATION WAS PERFORMED DURING DESIGN RECOVERY.**
 
 **Stage:** Design Recovery / Master Design Audit — recovery, audit and

@@ -588,6 +588,16 @@ chain = chain.then(function () {
   }).then(function (res) {
     ok(res.code === 200 || res.code === 503, 'http: /health needs no auth');
     ok(res.body.checks && res.body.checks.queue !== undefined, 'http: health reports queue counts');
+    // Capability N — provider health: the real reachability this /health
+    // call just probed must reach core/agent-registry's selection, not
+    // stay siloed inside the operational endpoint.
+    var providerHealth = require(path.join(EXEC, 'core', 'provider-health'));
+    var omniStatus = providerHealth.status('omniroute');
+    ok(omniStatus.known === true && omniStatus.ok === res.body.checks.omniroute.ok,
+      'http: /health feeds observed OmniRoute reachability into provider-health');
+    var n8nStatus = providerHealth.status('n8n');
+    ok(n8nStatus.known === true && n8nStatus.ok === res.body.checks.n8n.ok,
+      'http: /health feeds observed n8n reachability into provider-health');
     return req('POST', '/tasks', { project: 'executor-selftest', instruction: 'via http', provider: 'mock', report_to_git: false }, null);
   }).then(function (res) {
     ok(res.code === 401, 'http: intake without token refused');

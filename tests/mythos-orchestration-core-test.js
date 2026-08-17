@@ -1076,6 +1076,60 @@ var reputation = require(path.join(EXEC, 'core', 'reputation'));
 })();
 
 // ===========================================================================
+// PHASE 2N — provider health (capability N: connects the executor's real
+// operational reachability probes to agent selection, not just credential
+// presence)
+// ===========================================================================
+
+var providerHealth = require(path.join(EXEC, 'core', 'provider-health'));
+
+(function () {
+  providerHealth.resetForTests();
+
+  ok(providerHealth.isReachable('never-probed-dep') === true,
+    '2N provider health: an unprobed dependency reads reachable (fail-open)');
+  ok(providerHealth.status('never-probed-dep').known === false,
+    '2N provider health: an unprobed dependency is honestly reported unknown');
+
+  // The real integration point: agent-registry's default probe for a
+  // provider consults provider-health for its operational dependency, in
+  // addition to credential presence (proved here through an injected
+  // provider so the test stays offline and deterministic).
+  // A capability unused by any other test in this file, so this agent
+  // can never be picked up by an unrelated capability-based selection
+  // later in the (module-level, shared-registry) suite.
+  agents.registerAgent('health-gated-agent', {
+    provider: 'health-gated', capabilities: ['provider_health_probe_demo'],
+    task_types: ['provider_health_probe_demo'],
+    execution_authority: false, risk_level: 'low'
+  });
+  agents.registerProbe('health-gated', function () {
+    return providerHealth.isReachable('demo-dependency');
+  });
+
+  var beforeAnyProbe = agents.healthCheck('health-gated-agent', { fresh: true });
+  ok(beforeAnyProbe.available === true,
+    '2N provider health: selection stays fail-open before the first real probe');
+
+  providerHealth.record('demo-dependency', false);
+  var whileDown = agents.healthCheck('health-gated-agent', { fresh: true });
+  ok(whileDown.available === false,
+    '2N provider health: an observed-down dependency excludes the agent from selection');
+  var stillExcluded = agents.selectCandidates({ capabilities: ['provider_health_probe_demo'] }, { fresh: true });
+  ok(stillExcluded.every(function (c) { return c.name !== 'health-gated-agent'; }),
+    '2N provider health: the exclusion reaches selectCandidates, not just healthCheck');
+
+  providerHealth.record('demo-dependency', true);
+  var recovered = agents.healthCheck('health-gated-agent', { fresh: true });
+  ok(recovered.available === true,
+    '2N provider health: recovery is reflected immediately, no stale exclusion');
+
+  var status = providerHealth.status('demo-dependency');
+  ok(status.known === true && status.ok === true,
+    '2N provider health: status() reports a fresh, known result after recording');
+})();
+
+// ===========================================================================
 // PHASE 2K — event engine
 // ===========================================================================
 

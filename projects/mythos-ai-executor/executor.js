@@ -31,6 +31,11 @@ var schema = require('../mythos-orchestrator/lib/schema');
 var redact = require('../mythos-orchestrator/lib/redact');
 var gitlib = require('../mythos-orchestrator/lib/git');
 
+// Feeds this file's own /health reachability probes into core/agent-registry
+// selection (capability N — provider health). A leaf module with no
+// back-reference to executor.js, so this stays a one-way dependency.
+var providerHealth = require('./core/provider-health');
+
 var TASK_SCHEMA = JSON.parse(fs.readFileSync(path.join(__dirname, 'schemas', 'task.schema.json'), 'utf8'));
 var PROMPT_TEMPLATE = fs.readFileSync(path.join(__dirname, 'templates', 'task-prompt.md'), 'utf8');
 var PROJECTS = JSON.parse(fs.readFileSync(path.join(__dirname, 'config', 'projects.json'), 'utf8'));
@@ -652,6 +657,12 @@ function health() {
     httpProbe('http://127.0.0.1:5678/healthz'),
     httpProbe('http://127.0.0.1:20128/')
   ]).then(function (probes) {
+    // Record the real reachability this call just observed so provider
+    // selection (core/agent-registry.js) reflects it, not only credential
+    // presence — this is the only place that performs these probes.
+    providerHealth.record('n8n', probes[0].ok);
+    providerHealth.record('omniroute', probes[1].ok);
+
     var checks = {
       store_writable: storeOk,
       claude_cli: healthCache.claude,

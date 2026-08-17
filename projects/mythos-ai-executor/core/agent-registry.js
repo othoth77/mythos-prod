@@ -18,6 +18,8 @@
 var fs = require('fs');
 var path = require('path');
 
+var providerHealth = require('./provider-health');
+
 var AGENTS_CONFIG = JSON.parse(
   fs.readFileSync(path.join(__dirname, '..', 'config', 'agents.json'), 'utf8'));
 
@@ -63,12 +65,21 @@ function loadDefaults() {
 
 // --- Default probes (production paths; tests inject their own) ---------------
 
+// Provider -> operational dependency name recorded by whoever performs
+// the real reachability probe (executor.js health() for OmniRoute today).
+// Credential presence alone is necessary but not sufficient: a provider
+// whose backend is observed down must not be selected just because a
+// key file exists.
+var OPERATIONAL_DEPENDENCY = { 'openai-compat': 'omniroute' };
+
 function defaultProbe(def) {
   if (def.provider === 'claude-code') {
     return require('../providers/claude-code').available();
   }
   if (def.provider === 'openai-compat') {
-    return require('../providers/openai-compat').available({});
+    var dep = OPERATIONAL_DEPENDENCY[def.provider];
+    return require('../providers/openai-compat').available({}) &&
+      (!dep || providerHealth.isReachable(dep));
   }
   if (def.provider === 'gemini') {
     return require('../providers/gemini').available({});
