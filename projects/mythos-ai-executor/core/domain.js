@@ -106,7 +106,14 @@ var EVENT_TYPES = [
   'BUDGET_DENIED', 'BUDGET_APPROVAL_REQUIRED', 'BUDGET_PERIOD_RESET',
   // Reservation lease lifecycle (crash recovery; see core/budget.js)
   'RESERVATION_CREATED', 'RESERVATION_HEARTBEAT', 'RESERVATION_EXPIRED',
-  'RESERVATION_RECOVERED', 'RESERVATION_RELEASED', 'RESERVATION_SETTLED'
+  'RESERVATION_RECOVERED', 'RESERVATION_RELEASED', 'RESERVATION_SETTLED',
+  // Campaign continuation requested through the n8n bridge. Recorded so the
+  // durable stream shows WHO asked a campaign to continue and from which
+  // state — an automation layer that can wake the loop must be auditable.
+  'CAMPAIGN_CONTINUE_REQUESTED', 'CAMPAIGN_CONTINUE_FAILED',
+  // A recorded human decision on an approval. GRANTED already existed;
+  // a DENIAL is just as much a decision and must be just as auditable.
+  'APPROVAL_DENIED'
 ];
 
 // Policy classes (§12 of the Phase 2 order). DESTRUCTIVE and ROOT exist so

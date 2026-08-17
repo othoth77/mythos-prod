@@ -150,6 +150,15 @@ function candidates(repoPath) {
       selectable = false;
       reasons.push('conceptual only — needs a human design decision before implementation');
     }
+    // An owner who denied a capability's approval must not have the loop
+    // hand them the same request every cycle. OWNER_DENIED is a persisted
+    // human decision: it makes the capability unselectable until a human
+    // records a different status, and it is deliberately NOT a claim that
+    // the capability is implemented or impossible.
+    if (c.effective_status === 'OWNER_DENIED') {
+      selectable = false;
+      reasons.push('the owner denied this capability\'s approval request — only a human may re-open it');
+    }
     // Score = readiness, minus a penalty for late delivery phases. An
     // unphased capability sits between: it is neither promised early nor
     // deferred late.
@@ -200,7 +209,8 @@ function selectNext(repoPath, opts) {
 // IMPLEMENTED without a commit to point at — the roadmap cannot be
 // marked done by assertion.
 function recordProgress(repoPath, key, status, evidence) {
-  if (STATUSES.indexOf(status) === -1 && ['IN_PROGRESS', 'VALIDATED'].indexOf(status) === -1) {
+  if (STATUSES.indexOf(status) === -1 &&
+      ['IN_PROGRESS', 'VALIDATED', 'OWNER_DENIED'].indexOf(status) === -1) {
     throw new Error('ROADMAP_UNKNOWN_STATUS: ' + String(status).slice(0, 40));
   }
   if (['IMPLEMENTED', 'VALIDATED'].indexOf(status) !== -1) {

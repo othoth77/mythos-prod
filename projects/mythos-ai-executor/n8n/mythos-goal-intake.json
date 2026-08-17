@@ -1,0 +1,69 @@
+{
+  "id": "MythosGoalIn001",
+  "name": "MYTHOS — Goal Intake (Campaign)",
+  "active": false,
+  "settings": { "executionOrder": "v1", "errorWorkflow": "MythosFailure001" },
+  "nodes": [
+    {
+      "id": "wh-goal",
+      "name": "Goal Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "mythos-goal-intake",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "mythos/goal",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "credentials": { "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" } }
+    },
+    {
+      "id": "code-shape",
+      "name": "Take Objective Only",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [220, 0],
+      "parameters": {
+        "jsCode": "// Only the objective text and an optional project name cross this\n// boundary. Provider, execution profile, permission mode, repository path\n// and capability are NOT forwarded — they are configuration and policy,\n// decided inside Mythos Core. Forwarding the raw webhook body would make\n// this workflow an authority-granting surface.\nconst b = $input.first().json.body || {};\nreturn [{ json: {\n  objective: String(b.objective || '').slice(0, 2000),\n  project: b.project ? String(b.project).slice(0, 64) : undefined,\n  requested_by: 'n8n-goal-intake'\n} }];"
+      }
+    },
+    {
+      "id": "http-submit",
+      "name": "Submit To Mythos Core",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.18.0.1:8130/campaigns",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true } } }
+      },
+      "credentials": { "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" } }
+    },
+    {
+      "id": "respond-goal",
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [660, 0],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Goal Webhook": { "main": [[{ "node": "Take Objective Only", "type": "main", "index": 0 }]] },
+    "Take Objective Only": { "main": [[{ "node": "Submit To Mythos Core", "type": "main", "index": 0 }]] },
+    "Submit To Mythos Core": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  }
+}

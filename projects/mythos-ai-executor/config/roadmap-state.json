@@ -86,7 +86,17 @@
         "recorded_by": "autonomous campaign"
       },
       "recorded_at": "2026-08-17T23:08:47.586Z"
+    },
+    "V": {
+      "status": "OWNER_DENIED",
+      "evidence": {
+        "denied_by": "othman-haddad (owner)",
+        "note": "Denied 2026-08-17 via MVP session: diff is benign (adds dry-run interception, grants no authority) but modifies caged tool-registry.js. Branch preserved unmerged; a human may re-open capability V.",
+        "reason": "governance violation detected in the real diff: GOVERNANCE VIOLATION in the real diff: projects/mythos-ai-executor/core/tool-registry.js",
+        "branch_preserved": true
+      },
+      "recorded_at": "2026-08-17T23:54:46.712Z"
     }
   },
-  "updated_at": "2026-08-17T23:08:47.586Z"
+  "updated_at": "2026-08-17T23:54:46.712Z"
 }

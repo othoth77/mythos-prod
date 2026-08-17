@@ -17,6 +17,15 @@
 //   POST /tasks/<id>/resume         force a resume attempt now
 //   POST /tasks/<id>/cancel         cooperative cancel (SIGTERM if running)
 //   POST /events/n8n-error          n8n failure-handler sink (logged, notified)
+//   POST /campaigns                 submit a goal (returns the LIVE campaign
+//                                   for the project if one exists — a second
+//                                   campaign is never created alongside it)
+//   GET  /campaigns                 list campaign summaries
+//   GET  /campaigns/<id>            state, missions, current tasks, worktrees
+//   POST /campaigns/<id>/continue   single-flight continuation; refuses
+//                                   WAITING_FOR_APPROVAL and BLOCKED
+//   GET  /campaigns/<id>/report     completed/blocked/approval-required view
+//   GET  /events?since=&limit=      cursor event feed for the n8n bridge
 //
 // The task instruction arrives as DATA. Nothing in the payload can select
 // the mock provider, enable a disabled profile, or point the executor at
@@ -241,6 +250,114 @@ function handler(req, res, token) {
     }
 
     return send(res, 404, { error: 'not found' });
+  }
+
+  // --- Campaign surface (n8n MVP bridge) -----------------------------------
+  // The long-running half of the API: submit a goal, observe, continue.
+  // Same gate as /goals — the core module is lazy-required inside, so with
+  // MYTHOS_CORE_ENABLED off nothing here loads. Every decision lives in
+  // core/campaign-service.js; these handlers only translate HTTP to it, so
+  // n8n cannot become a second policy engine by calling them differently.
+  if (url === '/campaigns' || /^\/campaigns\//.test(url)) {
+    var svc, cw;
+    try {
+      svc = require('./core/campaign-service');
+      cw = require('./core/core-wiring');
+    } catch (e) {
+      return send(res, 500, { error: 'core unavailable: ' + redact.redact(e.message) });
+    }
+    if (!cw.coreEnabled()) {
+      return send(res, 503, { error: 'core disabled', detail: 'MYTHOS_CORE_ENABLED is not true' });
+    }
+
+    if (req.method === 'POST' && url === '/campaigns') {
+      return readBody(req).then(function (body) {
+        var payload = JSON.parse(body || '{}');
+        // Only objective/project/requested_by are read. Provider, profile,
+        // permission mode, repo path and capability are NOT accepted from
+        // the caller — they are configuration and policy, not input.
+        var out = svc.submitGoal({
+          objective: payload.objective,
+          project: payload.project,
+          requested_by: payload.requested_by || 'n8n'
+        });
+        send(res, out.created ? 201 : 200, out);
+      }).catch(function (err) {
+        send(res, 400, { error: redact.redact(err.message) });
+      });
+    }
+
+    if (req.method === 'GET' && url === '/campaigns') {
+      var camp = require('./core/campaign');
+      return send(res, 200, {
+        campaigns: camp.listCampaigns().slice(0, 25).map(function (c) {
+          return {
+            campaign_id: c.campaign_id, project: c.project, state: c.state,
+            objective: String(c.objective || '').slice(0, 160),
+            completed: (c.completed_missions || []).length,
+            updated_at: c.updated_at
+          };
+        })
+      });
+    }
+
+    var cm2;
+    if ((cm2 = /^\/campaigns\/(c-[a-z0-9-]{8,40})$/.exec(url)) && req.method === 'GET') {
+      var d = svc.describe(cm2[1]);
+      return d ? send(res, 200, d) : send(res, 404, { error: 'no such campaign' });
+    }
+
+    if ((cm2 = /^\/campaigns\/(c-[a-z0-9-]{8,40})\/continue$/.exec(url)) && req.method === 'POST') {
+      return readBody(req).then(function (body) {
+        var payload = {};
+        try { payload = JSON.parse(body || '{}'); } catch (e) { payload = {}; }
+        var out = svc.continueCampaign(cm2[1], {
+          max_steps: payload.max_steps,
+          requested_by: payload.requested_by || 'n8n'
+        });
+        // The promise is the in-process handle; it must never be serialised
+        // into the response body.
+        var promise = out.promise;
+        delete out.promise;
+        if (promise) {
+          promise.catch(function () { /* recorded as an event by the service */ });
+        }
+        if (out.accepted) return send(res, 202, out);
+        var code = out.code === 'NOT_FOUND' ? 404
+          : out.code === 'ALREADY_RUNNING' ? 409
+            : out.code === 'NEEDS_HUMAN' ? 409 : 409;
+        send(res, code, out);
+      }).catch(function (err) {
+        send(res, 500, { error: redact.redact(err.message) });
+      });
+    }
+
+    if ((cm2 = /^\/campaigns\/(c-[a-z0-9-]{8,40})\/report$/.exec(url)) && req.method === 'GET') {
+      var rep = svc.describe(cm2[1]);
+      if (!rep) return send(res, 404, { error: 'no such campaign' });
+      return send(res, 200, {
+        campaign_id: rep.campaign_id, state: rep.state,
+        needs_human: rep.needs_human, running: rep.running,
+        completed_missions: rep.completed_missions,
+        blocked_missions: rep.blocked_missions,
+        approval_required: rep.approval_required,
+        current_mission: rep.current_mission
+      });
+    }
+
+    return send(res, 404, { error: 'not found' });
+  }
+
+  // Cursor-based event feed for the n8n bridge. Read-only.
+  if (req.method === 'GET' && url === '/events') {
+    var esvc;
+    try {
+      esvc = require('./core/campaign-service');
+    } catch (e) {
+      return send(res, 500, { error: 'core unavailable' });
+    }
+    // after_seq is the lossless cursor; since= is only for a first poll.
+    return send(res, 200, esvc.eventsSince(query.since || null, query.limit, query.after_seq));
   }
 
   // Read-only budget inspection. No mutation route exists: limits change

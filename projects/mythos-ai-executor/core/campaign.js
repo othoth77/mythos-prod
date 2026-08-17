@@ -46,7 +46,14 @@ var CAMPAIGN_STATES = ['PLANNING', 'READY', 'RUNNING', 'WAITING_FOR_QUOTA',
 
 var CAMPAIGN_TRANSITIONS = {
   PLANNING: ['READY', 'BLOCKED', 'WAITING_FOR_APPROVAL', 'PAUSED'],
-  READY: ['RUNNING', 'PAUSED', 'BLOCKED', 'COMPLETED'],
+  // READY → WAITING_FOR_APPROVAL is legal because the CHEAPEST refusal
+  // happens before any work: the pre-flight governance gate can reject a
+  // proposed capability at selection time, with zero agent invocations.
+  // Without this the safest path threw ILLEGAL_CAMPAIGN_TRANSITION, and a
+  // campaign that had just returned to READY could not be parked again.
+  // Moving INTO an approval gate is never a bypass — it is strictly more
+  // conservative than staying READY.
+  READY: ['RUNNING', 'PAUSED', 'BLOCKED', 'COMPLETED', 'WAITING_FOR_APPROVAL'],
   RUNNING: ['REVIEWING', 'REPAIRING', 'WAITING_FOR_QUOTA', 'WAITING_FOR_APPROVAL',
     'BLOCKED', 'READY', 'COMPLETED', 'PAUSED'],
   REVIEWING: ['REPAIRING', 'READY', 'BLOCKED', 'WAITING_FOR_APPROVAL', 'COMPLETED', 'PAUSED'],
@@ -302,6 +309,147 @@ function requireApproval(campaignId, proposal, reason) {
 
 // Builds the development mission DAG for a proposal: parallel inspection
 // and analysis, then implementation, tests, independent review, report.
+// Parks a campaign for owner approval with a COMPLETE, decidable record.
+// Three separate sites in the runner used to append their own ad-hoc entry
+// carrying neither capability_key nor approval_id — so the owner saw
+// "APPROVAL: undefined :: ..." and resolveApproval had nothing to match on
+// or to decide against. Every park now goes through here and creates a real
+// policyEngine approval entity, which is what makes the decision auditable.
+function parkForApproval(campaignId, info) {
+  info = info || {};
+  var c = loadCampaign(campaignId);
+  if (!c) throw new Error('NO_SUCH_CAMPAIGN: ' + campaignId);
+  var reason = String(info.reason || 'approval required').slice(0, 600);
+  var approval = policyEngine.requestApproval(
+    c.campaign_id, info.action_class || 'GOVERNANCE',
+    'campaign ' + c.campaign_id + ': ' + reason, c.project);
+  c = loadCampaign(campaignId);
+  c.approval_required = (c.approval_required || []).concat([{
+    mission_id: info.mission_id || null,
+    capability_key: info.capability_key || null,
+    objective: String(info.objective || '').slice(0, 400),
+    reason: reason,
+    approval_id: approval.id,
+    requested_at: new Date().toISOString()
+  }]);
+  saveCampaign(c);
+  if (c.state !== 'WAITING_FOR_APPROVAL') {
+    transition(campaignId, 'WAITING_FOR_APPROVAL', {});
+  }
+  return approval;
+}
+
+// Records a HUMAN decision on an outstanding approval and lets the campaign
+// move again. Without this, WAITING_FOR_APPROVAL was a one-way door: the loop
+// could enter it but the owner had no supported way out except hand-editing
+// persisted JSON, which is exactly the kind of untracked state surgery the
+// approval mechanism exists to prevent.
+//
+// This does NOT weaken the gate. It cannot be called by the autonomous loop
+// (nothing in the loop invokes it), it demands a human identity exactly as
+// policyEngine.decideApproval does, and DENY — the conservative direction —
+// grants nothing. A denied capability is recorded OWNER_DENIED in the roadmap
+// so the loop stops proposing it, and its branch is left untouched and
+// unmerged for the owner to inspect or discard.
+function resolveApproval(campaignId, decision) {
+  coreWiring.assertEnabled();
+  decision = decision || {};
+  var c = loadCampaign(campaignId);
+  if (!c) throw new Error('NO_SUCH_CAMPAIGN: ' + campaignId);
+  if (!decision.decided_by || typeof decision.decided_by !== 'string') {
+    throw new Error('APPROVAL_NEEDS_DECIDER: a human identity must be recorded');
+  }
+  if (typeof decision.granted !== 'boolean') {
+    throw new Error('APPROVAL_NEEDS_EXPLICIT_DECISION: granted must be true or false');
+  }
+
+  var pending = c.approval_required || [];
+  var idx = -1;
+  for (var i = 0; i < pending.length; i++) {
+    if ((decision.approval_id && pending[i].approval_id === decision.approval_id) ||
+        (decision.capability_key && pending[i].capability_key === decision.capability_key) ||
+        (decision.mission_id && pending[i].mission_id === decision.mission_id)) {
+      idx = i; break;
+    }
+  }
+  // Entries parked before parkForApproval existed carry no capability_key.
+  // Fall back to the blocked-mission record, which does — otherwise the only
+  // way to answer a legacy approval would be to hand-edit the campaign file.
+  if (idx !== -1 && !pending[idx].capability_key && pending[idx].mission_id) {
+    var bm = (c.blocked_missions || []).filter(function (b) {
+      return b.mission_id === pending[idx].mission_id;
+    })[0];
+    if (bm && bm.capability_key) pending[idx].capability_key = bm.capability_key;
+  }
+  if (idx === -1) throw new Error('NO_MATCHING_APPROVAL on campaign ' + campaignId);
+  var entry = pending[idx];
+
+  // The durable approval record is the source of truth; the campaign entry
+  // is a view of it. Decide the record first so a crash between the two
+  // leaves the authoritative answer written, not lost.
+  if (entry.approval_id) {
+    try {
+      policyEngine.decideApproval(entry.approval_id, decision.granted, decision.decided_by);
+    } catch (e) {
+      // ALREADY_DECIDED is benign here (a retried call); anything else is real.
+      if (!/APPROVAL_ALREADY_DECIDED/.test(String(e.message))) throw e;
+    }
+  }
+
+  c = loadCampaign(campaignId);
+  c.approval_required = (c.approval_required || []).filter(function (a, j) { return j !== idx; });
+  c.approval_decisions = (c.approval_decisions || []).concat([{
+    capability_key: entry.capability_key || null,
+    approval_id: entry.approval_id,
+    granted: decision.granted,
+    decided_by: decision.decided_by,
+    note: String(decision.note || '').slice(0, 500),
+    reason: entry.reason,
+    decided_at: new Date().toISOString()
+  }]);
+
+  if (!decision.granted) {
+    // Deny: the mission's work stays on its branch, unmerged. Clear it as the
+    // current mission so the loop selects something else next cycle.
+    c.blocked_missions = (c.blocked_missions || []).filter(function (b) {
+      return b.capability_key !== entry.capability_key;
+    });
+    if (c.current_mission && c.current_mission.capability_key === entry.capability_key) {
+      c.current_mission = null;
+    }
+    if (entry.capability_key) {
+      try {
+        roadmap.recordProgress(c.repo_path, entry.capability_key, 'OWNER_DENIED', {
+          denied_by: decision.decided_by,
+          note: String(decision.note || '').slice(0, 300),
+          reason: entry.reason,
+          branch_preserved: true
+        });
+      } catch (e) { /* roadmap unwritable must not lose the decision */ }
+    }
+  }
+
+  saveCampaign(c);
+  var remaining = (c.approval_required || []).length;
+  if (remaining === 0 && c.state === 'WAITING_FOR_APPROVAL') {
+    transition(campaignId, 'READY', {});
+  }
+  store.appendEventLine({
+    event_type: decision.granted ? 'APPROVAL_GRANTED' : 'APPROVAL_DENIED',
+    subject_id: campaignId, project: c.project,
+    detail: {
+      approval_id: entry.approval_id, capability_key: entry.capability_key,
+      decided_by: decision.decided_by, remaining_approvals: remaining
+    }
+  });
+  return {
+    campaign_id: campaignId, approval_id: entry.approval_id,
+    capability_key: entry.capability_key, granted: decision.granted,
+    decided_by: decision.decided_by, remaining_approvals: remaining,
+    state: loadCampaign(campaignId).state
+  };
+}
+
 function buildMissionSpec(proposal, opts) {
   var guard = ' HARD LIMITS: work only inside your assigned worktree; never modify policy, budget, ' +
     'validation, events, redaction, credentials, service units, Git configuration or the campaign ' +
@@ -590,6 +738,8 @@ module.exports = {
   proposeNextMission: proposeNextMission,
   governanceGate: governanceGate,
   requireApproval: requireApproval,
+  parkForApproval: parkForApproval,
+  resolveApproval: resolveApproval,
   buildMissionSpec: buildMissionSpec,
   startMission: startMission,
   acceptMission: acceptMission,

@@ -1,0 +1,162 @@
+{
+  "id": "MythosCampAuto1",
+  "name": "MYTHOS — Campaign Autopilot",
+  "active": false,
+  "settings": { "executionOrder": "v1", "errorWorkflow": "MythosFailure001" },
+  "nodes": [
+    {
+      "id": "sched-autopilot",
+      "name": "Every 10 Minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0],
+      "parameters": { "rule": { "interval": [{ "field": "minutes", "minutesInterval": 10 }] } }
+    },
+    {
+      "id": "http-list",
+      "name": "List Campaigns",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 0],
+      "parameters": {
+        "method": "GET",
+        "url": "http://172.18.0.1:8130/campaigns",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "response": { "response": { "fullResponse": false, "neverError": true } } }
+      },
+      "credentials": { "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" } }
+    },
+    {
+      "id": "code-pick",
+      "name": "Pick Live Campaign",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 0],
+      "parameters": {
+        "jsCode": "// Pick the newest campaign that is not terminal. This node does NOT\n// decide whether the campaign may continue — Mythos Core decides that and\n// this workflow only asks. Terminal states are skipped so the autopilot\n// does not poke a finished campaign every ten minutes.\nconst TERMINAL = ['COMPLETED'];\nconst list = ($input.first().json.campaigns || [])\n  .filter(c => !TERMINAL.includes(c.state));\nif (!list.length) return [];\nreturn [{ json: { campaign_id: list[0].campaign_id, state: list[0].state } }];"
+      }
+    },
+    {
+      "id": "http-describe",
+      "name": "Describe Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 0],
+      "parameters": {
+        "method": "GET",
+        "url": "=http://172.18.0.1:8130/campaigns/{{ $json.campaign_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": { "response": { "response": { "fullResponse": false, "neverError": true } } }
+      },
+      "credentials": { "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" } }
+    },
+    {
+      "id": "code-decide",
+      "name": "Read Core's Decision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 0],
+      "parameters": {
+        "jsCode": "// IMPORTANT: this is not a policy decision, it is a READ of one Core\n// already made. `continuable` and `needs_human` are computed inside\n// core/campaign-service.js; n8n only routes on them. If this node ever\n// starts deciding for itself, the bridge has become a second policy\n// engine — which the MVP order forbids.\nconst c = $input.first().json;\nlet action = 'idle';\nif (c.needs_human) action = 'needs_human';\nelse if (c.continuable) action = 'continue';\nreturn [{ json: {\n  action,\n  campaign_id: c.campaign_id,\n  state: c.state,\n  running: c.running,\n  approval_required: c.approval_required || [],\n  blocked_missions: c.blocked_missions || []\n} }];"
+      }
+    },
+    {
+      "id": "switch-action",
+      "name": "Route On Action",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [1100, 0],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "version": 2 },
+                "combinator": "and",
+                "conditions": [{
+                  "operator": { "type": "string", "operation": "equals" },
+                  "leftValue": "={{ $json.action }}",
+                  "rightValue": "continue"
+                }]
+              },
+              "outputKey": "continue"
+            },
+            {
+              "conditions": {
+                "options": { "caseSensitive": true, "version": 2 },
+                "combinator": "and",
+                "conditions": [{
+                  "operator": { "type": "string", "operation": "equals" },
+                  "leftValue": "={{ $json.action }}",
+                  "rightValue": "needs_human"
+                }]
+              },
+              "outputKey": "needs_human"
+            }
+          ]
+        },
+        "options": { "fallbackOutput": "extra", "renameFallbackOutput": "idle" }
+      }
+    },
+    {
+      "id": "http-continue",
+      "name": "Continue Campaign",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, -120],
+      "parameters": {
+        "method": "POST",
+        "url": "=http://172.18.0.1:8130/campaigns/{{ $json.campaign_id }}/continue",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ max_steps: 2, requested_by: 'n8n-autopilot' }) }}",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true } } }
+      },
+      "credentials": { "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" } }
+    },
+    {
+      "id": "http-needs-human",
+      "name": "Record Needs-Human",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 60],
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.18.0.1:8130/events/n8n-error",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ kind: 'campaign_needs_human', campaign_id: $json.campaign_id, state: $json.state, approval_required: $json.approval_required, blocked_missions: $json.blocked_missions }) }}",
+        "options": { "response": { "response": { "fullResponse": true, "neverError": true } } }
+      },
+      "credentials": { "httpHeaderAuth": { "id": "MythosExecTok001", "name": "MYTHOS Executor Token" } }
+    },
+    {
+      "id": "noop-idle",
+      "name": "Idle (Running Or Complete)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1340, 220],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Every 10 Minutes": { "main": [[{ "node": "List Campaigns", "type": "main", "index": 0 }]] },
+    "List Campaigns": { "main": [[{ "node": "Pick Live Campaign", "type": "main", "index": 0 }]] },
+    "Pick Live Campaign": { "main": [[{ "node": "Describe Campaign", "type": "main", "index": 0 }]] },
+    "Describe Campaign": { "main": [[{ "node": "Read Core's Decision", "type": "main", "index": 0 }]] },
+    "Read Core's Decision": { "main": [[{ "node": "Route On Action", "type": "main", "index": 0 }]] },
+    "Route On Action": {
+      "main": [
+        [{ "node": "Continue Campaign", "type": "main", "index": 0 }],
+        [{ "node": "Record Needs-Human", "type": "main", "index": 0 }],
+        [{ "node": "Idle (Running Or Complete)", "type": "main", "index": 0 }]
+      ]
+    }
+  }
+}

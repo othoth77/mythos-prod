@@ -138,13 +138,10 @@ function settleMission(campaignId, mission, opts) {
     var reasons = approvalParked.map(function (t) {
       return (t.metadata.plan_key || t.id) + ': ' + (t.metadata.approval_reason || 'approval required');
     });
-    var cc = campaign.loadCampaign(campaignId);
-    cc.approval_required = (cc.approval_required || []).concat([{
-      mission_id: cm.mission_id, objective: cm.objective,
-      reason: reasons.join(' | '), requested_at: new Date().toISOString()
-    }]);
-    campaign.saveCampaign(cc);
-    campaign.transition(campaignId, 'WAITING_FOR_APPROVAL', {});
+    campaign.parkForApproval(campaignId, {
+      mission_id: cm.mission_id, capability_key: cm.capability_key,
+      objective: cm.objective, reason: reasons.join(' | '), action_class: 'POLICY'
+    });
     return { state: 'WAITING_FOR_APPROVAL', action: 'approval_required', detail: reasons.join(' | ') };
   }
 
@@ -166,14 +163,13 @@ function settleMission(campaignId, mission, opts) {
     });
     if (governanceViolation) {
       // Never repair a governance breach automatically — stop and escalate.
+      var gKey = cm.capability_key, gObjective = cm.objective, gMission = cm.mission_id;
       campaign.finishMission(campaignId, false, verdict.problems.join('; '));
-      campaign.transition(campaignId, 'WAITING_FOR_APPROVAL', {});
-      var cg = campaign.loadCampaign(campaignId);
-      cg.approval_required = (cg.approval_required || []).concat([{
-        mission_id: cm.mission_id, reason: 'governance violation detected in the real diff: ' +
-          verdict.problems.join('; '), requested_at: new Date().toISOString()
-      }]);
-      campaign.saveCampaign(cg);
+      campaign.parkForApproval(campaignId, {
+        mission_id: gMission, capability_key: gKey, objective: gObjective,
+        reason: 'governance violation detected in the real diff: ' + verdict.problems.join('; '),
+        action_class: 'GOVERNANCE'
+      });
       return { state: 'WAITING_FOR_APPROVAL', action: 'governance_violation',
         detail: verdict.problems.join('; ') };
     }
@@ -228,16 +224,14 @@ function repairOrEscalate(campaignId, problems, opts, detailOverride) {
   }
 
   if (cycles > (c.max_repair_cycles || campaign.MAX_REPAIR_CYCLES)) {
+    var rKey = cm.capability_key, rObjective = cm.objective, rMission = cm.mission_id;
     campaign.finishMission(campaignId, false,
       'repair budget exhausted after ' + (cycles - 1) + ' cycles: ' + problems);
-    campaign.transition(campaignId, 'WAITING_FOR_APPROVAL', {});
-    var ce = campaign.loadCampaign(campaignId);
-    ce.approval_required = (ce.approval_required || []).concat([{
-      mission_id: cm.mission_id,
+    campaign.parkForApproval(campaignId, {
+      mission_id: rMission, capability_key: rKey, objective: rObjective,
       reason: 'repair budget exhausted after ' + (cycles - 1) + ' cycles: ' + problems,
-      requested_at: new Date().toISOString()
-    }]);
-    campaign.saveCampaign(ce);
+      action_class: 'POLICY'
+    });
     return { state: 'WAITING_FOR_APPROVAL', action: 'repair_exhausted',
       detail: problems, repair_cycles: cycles - 1, failure_kind: kind };
   }

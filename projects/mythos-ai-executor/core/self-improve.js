@@ -63,6 +63,10 @@ var SELF_PROTECTED_PATHS = [
   // the half that CALLS them. Leaving the caller editable would let the loop
   // route around the gate without touching the gate.
   'projects/mythos-ai-executor/core/campaign-runner.js',
+  // The n8n-facing service decides whether a continuation may proceed and
+  // is what refuses WAITING_FOR_APPROVAL/BLOCKED. Editing it is editing the
+  // approval boundary from the outside.
+  'projects/mythos-ai-executor/core/campaign-service.js',
   // Acceptance-evidence and mission-selection integrity.
   'projects/mythos-ai-executor/core/roadmap.js',
   // Emergency rollback + the feature flag that arms it
