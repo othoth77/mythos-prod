@@ -84,7 +84,17 @@ function useMockAgents() {
       'reporting', 'documentation', 'validation', 'design', 'integration', 'generic'],
     execution_authority: true, risk_level: 'low', cost: { tier: 'free' }
   });
+  // A SECOND agent, so an independent reviewer exists: validation refuses
+  // to let an author review its own work, so a single-agent registry would
+  // leave the review channel unavailable.
+  agents.registerAgent('mock-reviewer', {
+    provider: 'mock-rev',
+    capabilities: ['review', 'analysis', 'summarization'],
+    task_types: ['review', 'analysis', 'reporting'],
+    execution_authority: false, risk_level: 'low', cost: { tier: 'free' }
+  });
   agents.registerProbe('mock', function () { return true; });
+  agents.registerProbe('mock-rev', function () { return true; });
   agents.registerProbe('claude-code', function () { return false; });
   agents.registerProbe('openai-compat', function () { return false; });
   agents.registerProbe('gemini', function () { return false; });
@@ -420,6 +430,52 @@ chain = chain.then(function () {
     ok(spec.acceptance_criteria.length >= 4 && spec.objective.indexOf('Z.') !== -1,
       'loop: mission proposals carry objective + acceptance criteria');
     return c;
+  });
+});
+
+// ===========================================================================
+// REVIEW CHANNEL: the reviewer is never pointed at itself
+// (found live: a valid adversarial review was graded against an
+// implementation contract, rejected, and burned the repair budget)
+// ===========================================================================
+chain = chain.then(function () {
+  useMockAgents();
+  var repo = makeVisionRepo('reviewer-repo', [
+    { key: 'W', title: 'Reviewed Thing', status: 'PARTIAL (Phase 2)' }
+  ]);
+  var c = campaign.createCampaign({ objective: 'Improve the reviewed thing.', repo_path: repo });
+  var reviewedKeys = [];
+  return runner.runCampaign(c.campaign_id, {
+    repo_path: repo, max_steps: 6,
+    review_fn: function (reviewer, task) {
+      reviewedKeys.push(task.metadata.plan_key);
+      return { verdict: 'pass', findings: [] };
+    },
+    agent_runner: function (agentName, task, ctx) {
+      if (task.task_type === 'coding') {
+        fs.writeFileSync(path.join(ctx.worktree.dir, 'w.js'), '// w\n');
+        cp.execFileSync('git', ['add', '.'], { cwd: ctx.worktree.dir });
+        cp.execFileSync('git', ['commit', '-q', '-m', 'w'], { cwd: ctx.worktree.dir });
+        var sha = cp.execFileSync('git', ['rev-parse', 'HEAD'],
+          { cwd: ctx.worktree.dir, encoding: 'utf8' }).trim();
+        var t = store.load('task', task.id);
+        t.metadata.worktree_dir = ctx.worktree.dir;
+        store.save(t);
+        return Promise.resolve({ status: 'completed', summary: 'done', commit: sha });
+      }
+      if (task.task_type === 'testing') {
+        return Promise.resolve({ status: 'completed', summary: 'tests', tests: ['suite: 1/1'] });
+      }
+      return Promise.resolve({ status: 'completed', summary: 'done' });
+    }
+  }).then(function () {
+    ok(reviewedKeys.indexOf('review') === -1,
+      'review channel: the mission\'s own review task is never adversarially re-reviewed');
+    ok(reviewedKeys.indexOf('implement') !== -1 || reviewedKeys.indexOf('report') !== -1,
+      'review channel: deliverable tasks ARE reviewed');
+    var st = runner.campaignStatus(c.campaign_id);
+    ok(st.completed_missions.length === 1,
+      'review channel: the mission completes instead of burning its repair budget on the reviewer');
   });
 });
 

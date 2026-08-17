@@ -86,9 +86,22 @@ function advanceCampaign(campaignId, opts) {
   if (['RUNNING', 'REPAIRING', 'REVIEWING'].indexOf(c.state) === -1) {
     campaign.transition(campaignId, 'RUNNING', {});
   }
+  // The adversarial reviewer judges DELIVERABLES. It must never be pointed
+  // at the mission's own 'review' task: that task IS the adversarial
+  // review, and grading a reviewer's findings against an implementation
+  // contract is a category error — observed live, where a valid review was
+  // rejected for "tests pending" and burned the whole repair budget.
+  var reviewFn = opts.review_fn ? function (reviewer, task, result) {
+    if (task.metadata && task.metadata.plan_key === 'review') {
+      return { verdict: 'pass',
+        findings: ['this task IS the adversarial review; it is not re-reviewed'] };
+    }
+    return opts.review_fn(reviewer, task, result);
+  } : undefined;
+
   return orchestrator.advanceMission(cm.mission_id, {
     agent_runner: opts.agent_runner || coreWiring.buildProductionRunner(),
-    review_fn: opts.review_fn,
+    review_fn: reviewFn,
     review: opts.review,
     test_runner: opts.test_runner,
     policy: opts.policy,
