@@ -819,6 +819,34 @@ chain2 = chain2.then(function () {
   });
 });
 
+// --- The occupancy guard is process-global, not per-mission: TWO
+//     DIFFERENT missions running concurrently and sharing the same
+//     unisolated surface (no repo_path) must still never overlap. A
+//     per-mission-scoped guard would miss this entirely, since each
+//     runMission() call would track its own tasks in isolation from the
+//     other mission's. ---------------------------------------------------
+chain2 = chain2.then(function () {
+  var specA = [{ key: 'code-a1', title: 'mission A task', task_type: 'coding', depends_on: [] }];
+  var specB = [{ key: 'code-b1', title: 'mission B task', task_type: 'coding', depends_on: [] }];
+  var mA = buildMission('cross-mission surface A', specA);
+  var mB = buildMission('cross-mission surface B', specB);
+  var concurrent = 0, peak = 0;
+  var sharedRunner = function () {
+    concurrent += 1; peak = Math.max(peak, concurrent);
+    return new Promise(function (resolve) {
+      setTimeout(function () { concurrent -= 1; resolve({ status: 'COMPLETED' }); }, 30);
+    });
+  };
+  return Promise.all([
+    scheduler.runMission(mA.mission.id, { runner: sharedRunner }),
+    scheduler.runMission(mB.mission.id, { runner: sharedRunner })
+  ]).then(function (results) {
+    ok(results[0].status === 'COMPLETED' && results[1].status === 'COMPLETED',
+      '2G cross-mission: both missions complete');
+    ok(peak === 1, '2G cross-mission: two concurrent missions never overlap on the shared no-repo surface (peak ' + peak + ')');
+  });
+});
+
 // --- Failure isolation: one branch fails, independent work finishes ------------
 chain2 = chain2.then(function () {
   var spec = [

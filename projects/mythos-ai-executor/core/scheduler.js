@@ -12,7 +12,10 @@
 //     refuse) through the central policy engine
 //   * isolated git worktrees for every write-capable task when a repo is
 //     involved; two concurrent tasks can never share a writable tree —
-//     write tasks without isolation are serialized as a hard rule
+//     write tasks without isolation are serialized as a hard rule. This
+//     occupancy guard is process-global, not per-mission: two DIFFERENT
+//     missions running concurrently in this process can never collide
+//     on the same unisolated surface either
 //   * failure isolation: one branch failing dooms only its descendants;
 //     independent branches finish
 //
@@ -28,6 +31,21 @@ var policyEngine = require('./policy-engine');
 
 var WRITE_TASK_TYPES = ['coding', 'integration', 'documentation'];
 var HARD_MAX_PARALLEL = 8;
+var MAX_OCCUPANCY_POLLS = 200; // bounded poll-retry for cross-mission surface contention
+var OCCUPANCY_POLL_MS = 25;    // ~5s worst case before falling back to a defensive stall
+
+// Occupancy registry for write-capable working surfaces (worktree dir,
+// shared repo dir, or the synthetic no-repo marker). Module-level and
+// shared across every runMission() call in this process — occupancy
+// scoped to a single mission's closure would let two DIFFERENT missions
+// dispatch onto the same unisolated surface at once, which is exactly
+// the collision this capability exists to prevent. Keyed by
+// "<missionId>::<taskId>" so concurrent missions never clash on the key
+// space itself.
+var globalActiveDirs = {};
+function occupiedWorkDirs() {
+  return Object.keys(globalActiveDirs).map(function (k) { return globalActiveDirs[k]; });
+}
 
 function loadMissionTasks(mission) {
   return mission.task_ids.map(function (id) { return store.load('task', id); });
@@ -72,9 +90,9 @@ function runMission(missionId, opts) {
   );
 
   var active = {};        // taskId → Promise
-  var activeDirs = {};    // taskId → working dir occupied
   var heartbeats = {};    // taskId → interval handle for its budget lease
   var peak = { concurrent: 0 };
+  var occupancyPolls = 0; // bounds retries when blocked by another mission's occupancy
 
   // Startup lease sweep: budget held by a crashed holder is recovered
   // before this mission plans around "remaining". No second scheduler and
@@ -102,10 +120,6 @@ function runMission(missionId, opts) {
         });
       } catch (e2) { /* nothing further to do */ }
     }
-  }
-
-  function occupiedDirs() {
-    return Object.keys(activeDirs).map(function (k) { return activeDirs[k]; });
   }
 
   function dispatch(task) {
@@ -178,7 +192,12 @@ function runMission(missionId, opts) {
     // dispatched with no repo_path at all still targets exactly one
     // implicit surface (the runner's own cwd/default) — that surface gets
     // the same mandatory occupancy tracking as a real shared dir, so it
-    // can never be handed to two agents at once.
+    // can never be handed to two agents at once. This occupancy check is
+    // read from globalActiveDirs (module scope, not this closure's), so
+    // the guard holds across every concurrently running mission in the
+    // process — two DIFFERENT missions sharing an unisolated repo_path or
+    // the no-repo marker can never collide either, not just two tasks
+    // inside the same mission.
     var ctx = { mission: mission, policy_decision: gate };
     var isWriteTask = WRITE_TASK_TYPES.indexOf(task.task_type) !== -1;
     var workDir = opts.repo_path || null;
@@ -193,8 +212,8 @@ function runMission(missionId, opts) {
         workDir = 'UNISOLATED_WRITE_SURFACE';
       }
     }
-    if (isWriteTask && occupiedDirs().indexOf(workDir) !== -1) {
-      return null; // never two writers in one tree, whatever the flags say
+    if (isWriteTask && occupiedWorkDirs().indexOf(workDir) !== -1) {
+      return null; // never two writers in one tree, whatever the flags say — across every mission, not just this one
     }
 
     // Cumulative budget: RESERVE before execution so two parallel tasks
@@ -269,7 +288,11 @@ function runMission(missionId, opts) {
         budget_snapshot: null
       }) } : {}));
     if (typeof opts.on_dispatch === 'function') opts.on_dispatch(task, ctx);
-    activeDirs[task.id] = workDir;
+    // Recorded for every dispatched task (not just write tasks): any
+    // occupant of a shared dir — reader or writer — must still block a
+    // later write dispatch onto that same surface, matching the prior
+    // per-mission behavior this replaces.
+    globalActiveDirs[missionId + '::' + task.id] = workDir;
     // Keep the reservation's lease alive for as long as this task really
     // runs, so a slow-but-healthy task is never recovered from under it.
     if (reservation && typeof reservation.ledger.heartbeat === 'function') {
@@ -305,7 +328,7 @@ function runMission(missionId, opts) {
 
   function settle(result) {
     delete active[result.task_id];
-    delete activeDirs[result.task_id];
+    delete globalActiveDirs[missionId + '::' + result.task_id];
     if (heartbeats[result.task_id]) {
       clearInterval(heartbeats[result.task_id]);
       delete heartbeats[result.task_id];
@@ -459,6 +482,20 @@ function runMission(missionId, opts) {
           .filter(function (t) { return t.status === 'FAILED'; })
           .map(function (t) { return t.id; });
         return Promise.resolve(finishMission(finalAssessment));
+      }
+      // A task left in READY here was attempted and refused only by the
+      // occupancy guard (policy denial and approval-required both move a
+      // task OUT of READY before returning null) — i.e. another mission
+      // is holding the shared surface right now. That surface frees up
+      // asynchronously as the other mission's task settles, so this is a
+      // transient conflict, not a real stall: poll briefly instead of
+      // giving up, bounded so a genuine deadlock still resolves to WAITING.
+      var stillReady = loadMissionTasks(mission).filter(function (t) { return t.status === 'READY'; });
+      if (stillReady.length && occupancyPolls < MAX_OCCUPANCY_POLLS) {
+        occupancyPolls += 1;
+        return new Promise(function (resolve) {
+          setTimeout(function () { resolve(step()); }, OCCUPANCY_POLL_MS);
+        });
       }
       // Defensive: open, undoomed, but nothing dispatchable — stall out
       // as WAITING rather than spinning forever.
