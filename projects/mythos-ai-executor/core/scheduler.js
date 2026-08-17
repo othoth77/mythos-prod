@@ -29,6 +29,36 @@ var policyEngine = require('./policy-engine');
 var WRITE_TASK_TYPES = ['coding', 'integration', 'documentation'];
 var HARD_MAX_PARALLEL = 8;
 
+// A downstream task must see its predecessors' work. Only write-capable
+// types get a NEW worktree; every task after them (test, review, report)
+// used to fall back to opts.repo_path — the LIVE MAIN CHECKOUT. That made
+// the acceptance evidence unsound in the worst possible way: the test task
+// ran main's already-green baseline and reported PASS while the mission's
+// actual change sat unexecuted on its branch, and the adversarial reviewer
+// read code the mission had never touched. Found auditing capability M,
+// whose implement task measured 130/130 in its worktree while the test task
+// reported main's 125/125 for the same mission.
+//
+// Walk the dependency edges and reuse the nearest upstream worktree. No new
+// concurrency surface: a dependent task cannot start until its predecessor
+// is terminal, so the tree is never shared by two live writers.
+function inheritedWorktreeDir(task) {
+  var seen = {};
+  var queue = (task.depends_on || []).slice();
+  while (queue.length) {
+    var id = queue.shift();
+    if (seen[id]) continue;
+    seen[id] = true;
+    var up = null;
+    try { up = store.load('task', id); } catch (e) { continue; }
+    if (!up) continue;
+    var dir = up.metadata && up.metadata.worktree_dir;
+    if (dir && require('fs').existsSync(dir)) return dir;
+    queue = queue.concat(up.depends_on || []);
+  }
+  return null;
+}
+
 function loadMissionTasks(mission) {
   return mission.task_ids.map(function (id) { return store.load('task', id); });
 }
@@ -185,10 +215,31 @@ function runMission(missionId, opts) {
       } else if (occupiedDirs().indexOf(workDir) !== -1) {
         return null; // shared tree already occupied → wait for next round
       }
+    } else if (opts.repo_path && opts.isolate_worktrees !== false) {
+      // Read-only successors (test / review / report) inherit the tree their
+      // predecessor actually wrote in, instead of silently validating main.
+      var upstreamDir = inheritedWorktreeDir(task);
+      if (upstreamDir) {
+        ctx.worktree = { dir: upstreamDir, inherited: true };
+        workDir = upstreamDir;
+      }
     }
     if (workDir && occupiedDirs().indexOf(workDir) !== -1 &&
         WRITE_TASK_TYPES.indexOf(task.task_type) !== -1) {
       return null; // never two writers in one tree, whatever the flags say
+    }
+
+    // The scheduler DECIDES the tree, so the scheduler records it. Leaving
+    // this to the orchestrator meant the fact only existed on the executor
+    // path, and the acceptance gate's "did the tests run on this code?"
+    // check had nothing to read on any other runner.
+    if (ctx.worktree) {
+      var wtTask = store.load('task', task.id);
+      if (!wtTask.metadata.worktree_dir) {
+        wtTask.metadata.worktree_dir = ctx.worktree.dir;
+        store.save(wtTask);
+        task = wtTask;
+      }
     }
 
     // Cumulative budget: RESERVE before execution so two parallel tasks

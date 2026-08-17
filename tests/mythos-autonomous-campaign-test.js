@@ -226,6 +226,32 @@ function useMockAgents() {
   ok(!selfImprove.isProtectedPath('projects/mythos-ai-executor/core/dag.js') &&
      !selfImprove.isProtectedPath('docs/SOMETHING.md'),
     'governance: ordinary modules and docs remain improvable');
+
+  // GAP CLOSED (found auditing the autonomous E/N missions, which legitimately
+  // edited lib/state.js and core/agent-registry.js while both were outside the
+  // cage). Each of these decides a boundary the mission order calls immutable,
+  // and each was previously reachable by an unapproved self-improvement:
+  //   lib/policy.js         every tool grant, the sudo bans, deploy disabled
+  //   tool-registry.js      tool authority
+  //   lib/state.js          Phase 1 status/checkpoint audit integrity
+  //   campaign-runner.js    the caller of governanceGate/acceptMission
+  //   roadmap.js            acceptance-evidence + mission selection
+  //   agent-registry.js     which providers may hold execution authority
+  //   provider-router.js    fallback authority
+  ['projects/mythos-ai-executor/lib/policy.js',
+    'projects/mythos-ai-executor/core/tool-registry.js',
+    'projects/mythos-ai-executor/lib/state.js',
+    'projects/mythos-ai-executor/core/campaign-runner.js',
+    'projects/mythos-ai-executor/core/roadmap.js',
+    'projects/mythos-ai-executor/core/agent-registry.js',
+    'projects/mythos-ai-executor/core/provider-router.js'].forEach(function (p) {
+    ok(selfImprove.isProtectedPath(p),
+      'governance gap closed: ' + p.split('/').slice(-2).join('/') + ' is caged');
+    ok(selfImprove.isProtectedPath('/home/deploy/projects/mythos-prod/' + p) &&
+       selfImprove.isProtectedPath(p.replace('/core/', '/core/../core/')
+                                    .replace('/lib/', '/lib/../lib/')),
+      'governance gap closed: non-normalised form of ' + p.split('/').pop() + ' too');
+  });
 })();
 
 // ===========================================================================
@@ -394,6 +420,20 @@ chain = chain.then(function () {
          return seen.worktrees[k].indexOf(repo) !== 0 && /worktrees/.test(seen.worktrees[k]);
        }),
       'loop: implementation ran in an isolated worktree outside the main checkout');
+    // The test task must validate THE MISSION'S CODE, not the main checkout.
+    // Before the worktree-inheritance fix, only write-capable types got a
+    // tree and every successor silently fell back to opts.repo_path — so the
+    // testing agent ran main's already-green suite and the reviewer read
+    // unchanged code, while the branch went unexercised. Observed live on
+    // capability M: implement measured 130/130 in its worktree, the test task
+    // reported main's 125/125 for the same mission.
+    ok(seen.worktrees.test && seen.worktrees.test === seen.worktrees.implement,
+      'loop: the test task ran in the IMPLEMENTATION worktree, not the main checkout');
+    ok(seen.worktrees.review === seen.worktrees.implement,
+      'loop: the adversarial reviewer read the mission worktree, not the main checkout');
+    ok(Object.keys(seen.worktrees).every(function (k) { return seen.worktrees[k] !== repo; }),
+      'loop: no mission task was handed the live main checkout as its working dir');
+
     var branchList = cp.execFileSync('git', ['branch', '--list', 'mythos/*'],
       { cwd: repo, encoding: 'utf8' });
     ok(/mythos\//.test(branchList), 'loop: each task worked on its own mythos/ branch');
@@ -806,7 +846,7 @@ chain = chain.then(function () {
 // ===========================================================================
 chain = chain.then(function () {
   useMockAgents();
-  function runWith(testReport, name) {
+  function runWith(testReport, name, hijackTree) {
     var repo = makeVisionRepo('testgate-' + name, [
       { key: 'T', title: 'Test Gate Thing', status: 'PARTIAL (Phase 2)' }
     ]);
@@ -826,6 +866,14 @@ chain = chain.then(function () {
           return Promise.resolve({ status: 'completed', summary: 'done', commit: sha });
         }
         if (task.task_type === 'testing') {
+          if (hijackTree) {
+            // Reproduce the pre-fix behaviour exactly: the testing agent ran
+            // in the LIVE MAIN CHECKOUT, so its green result described main,
+            // not the mission branch.
+            var tt = store.load('task', task.id);
+            tt.metadata.worktree_dir = repo;
+            store.save(tt);
+          }
           return Promise.resolve({ status: 'completed', summary: 'tests', tests: [testReport] });
         }
         return Promise.resolve({ status: 'completed', summary: 'done' });
@@ -848,6 +896,15 @@ chain = chain.then(function () {
     }).then(function (st) {
       ok(st.completed_missions.length === 1,
         'acceptance: a mission whose tests genuinely ran and passed IS accepted');
+      // Passing tests from the WRONG TREE are not evidence about this change.
+      return runWith('suite/x-test.js: 8 passed, 0 failed', 'foreigntree', true);
+    }).then(function (st) {
+      ok(st.completed_missions.length === 0,
+        'acceptance: perfectly passing tests are REFUSED when they ran outside the mission worktree');
+      var why = st.blocked_missions.concat(st.approval_required)
+        .map(function (x) { return String(x.reason || ''); }).join(' ');
+      ok(/DIFFERENT tree/i.test(why),
+        'acceptance: the refusal says the tests ran in a different tree');
     });
 });
 

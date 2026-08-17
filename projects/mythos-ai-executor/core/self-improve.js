@@ -40,6 +40,12 @@ var SELF_PROTECTED_PATHS = [
   // Policy + approval authority
   'projects/mythos-ai-executor/core/policy-engine.js',
   'projects/mythos-ai-executor/config/policy.json',
+  // The execution-profile catalogue IS policy authority: it is where every
+  // tool grant, the permanent Bash(sudo:*) bans and the disabled 'deploy'
+  // profile actually live. Protecting only policy-engine.js left the grants
+  // themselves autonomously editable (found auditing capability N/E).
+  'projects/mythos-ai-executor/lib/policy.js',
+  'projects/mythos-ai-executor/core/tool-registry.js',
   // Budget enforcement and its ledger
   'projects/mythos-ai-executor/core/budget.js',
   'projects/mythos-ai-executor/config/budgets.json',
@@ -47,15 +53,28 @@ var SELF_PROTECTED_PATHS = [
   'projects/mythos-ai-executor/core/validation.js',
   'projects/mythos-ai-executor/core/events.js',
   'projects/mythos-ai-executor/core/store.js',
+  // Phase 1's durable task state is the same integrity surface as store.js:
+  // status/checkpoint transitions are the audit record the daemon acts on.
+  'projects/mythos-ai-executor/lib/state.js',
   // The governance guard itself and the autonomous campaign manager
   'projects/mythos-ai-executor/core/self-improve.js',
   'projects/mythos-ai-executor/core/campaign.js',
+  // campaign.js holds governanceGate and acceptMission; campaign-runner.js is
+  // the half that CALLS them. Leaving the caller editable would let the loop
+  // route around the gate without touching the gate.
+  'projects/mythos-ai-executor/core/campaign-runner.js',
+  // Acceptance-evidence and mission-selection integrity.
+  'projects/mythos-ai-executor/core/roadmap.js',
   // Emergency rollback + the feature flag that arms it
   'projects/mythos-ai-executor/core/core-wiring.js',
   'projects/mythos-ai-executor/service/',
-  // Provider authority routing
+  // Provider authority routing — the configs AND the code that enforces
+  // them. Only claude-code may hold repository execution authority; that
+  // separation is decided in these two modules, not just in the JSON.
   'projects/mythos-ai-executor/config/router.json',
   'projects/mythos-ai-executor/config/agents.json',
+  'projects/mythos-ai-executor/core/agent-registry.js',
+  'projects/mythos-ai-executor/core/provider-router.js',
   // Secret redaction and Git delivery security
   'projects/mythos-orchestrator/lib/redact.js',
   'mythos-git-push',

@@ -461,6 +461,21 @@ function acceptMission(campaignId, opts) {
       problems.push('reported tests did not pass: ' +
         failing.map(function (t) { return String(t).slice(0, 120); }).join(' | '));
     }
+    // RUNNING a test is not running it ON THE MISSION'S CODE. Tests that
+    // executed in a different tree than the implementation are evidence
+    // about that other tree — and when it is the main checkout, they are
+    // guaranteed green and guaranteed meaningless. Observed live: capability
+    // M's test task reported main's 125/125 while its own branch was 130/130.
+    if (worktreeDir) {
+      var testDir = testTask && testTask.metadata && testTask.metadata.worktree_dir;
+      if (!testDir) {
+        problems.push('tests did not run in the mission worktree (no tree recorded) — ' +
+          'evidence cannot be attributed to this change');
+      } else if (path.resolve(testDir) !== path.resolve(worktreeDir)) {
+        problems.push('tests ran in a DIFFERENT tree than the implementation (' +
+          String(testDir).slice(-60) + ' vs ' + String(worktreeDir).slice(-60) + ')');
+      }
+    }
   }
 
   var reviewTask = tasks.filter(function (t) { return t.metadata.plan_key === 'review'; })[0];

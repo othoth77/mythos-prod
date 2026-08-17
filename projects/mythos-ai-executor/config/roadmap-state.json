@@ -12,7 +12,68 @@
         "note": "Autonomously implemented on branch mythos/m-msxnck4k-c73a6c and reviewed, but the reported tests were NOT RUN. Downgraded from IMPLEMENTED when the acceptance gate was tightened; needs a real test run before it may be recorded implemented."
       },
       "recorded_at": "2026-08-17T20:52:08.344Z"
+    },
+    "AF": {
+      "status": "IMPLEMENTED",
+      "evidence": {
+        "commit": "f433746af4db0b3a70e78d4a8b3e565e7fc410d2",
+        "tests": [
+          "tests/mythos-dr-gap-report-test.js: 19/19 (new suite)",
+          "tests/mythos-ai-executor-test.js: 125/125",
+          "tests/mythos-orchestration-core-test.js: 257/257"
+        ],
+        "mission_id": "m-msxr3282-cb6324",
+        "campaign_id": "c-msxnck3a-00282b",
+        "recorded_by": "autonomous campaign",
+        "verification": "Re-run independently in the mission worktree at the recorded commit (owner session, 2026-08-17). Supersedes the figures first recorded here, which the test task had measured in the MAIN CHECKOUT rather than the mission branch — the wrong-tree defect fixed in scheduler.js (worktree inheritance) and guarded in campaign.js acceptMission."
+      },
+      "recorded_at": "2026-08-17T21:55:40.577Z"
+    },
+    "E": {
+      "status": "IMPLEMENTED",
+      "evidence": {
+        "commit": "bccfcbbe001643563516f437b35ffc02a7ab4887",
+        "tests": [
+          "tests/mythos-ai-executor-test.js: 127/127 (+2 fsync durability)",
+          "tests/mythos-orchestration-core-test.js: 257/257"
+        ],
+        "mission_id": "m-msxrvyy1-34c260",
+        "campaign_id": "c-msxnck3a-00282b",
+        "recorded_by": "autonomous campaign",
+        "verification": "Re-run independently in the mission worktree at the recorded commit (owner session, 2026-08-17). Supersedes the figures first recorded here, which the test task had measured in the MAIN CHECKOUT rather than the mission branch — the wrong-tree defect fixed in scheduler.js (worktree inheritance) and guarded in campaign.js acceptMission."
+      },
+      "recorded_at": "2026-08-17T22:08:08.407Z"
+    },
+    "M": {
+      "status": "IMPLEMENTED",
+      "evidence": {
+        "commit": "f773494 (implementation f3e058052cfe2d771969899d88d1e3f3e5d7c666)",
+        "tests": [
+          "tests/mythos-ai-executor-test.js: 130/130 (+5 provider-router)",
+          "tests/mythos-orchestration-core-test.js: 257/257"
+        ],
+        "mission_id": "m-msxsbzza-ffeb1e",
+        "campaign_id": "c-msxnck3a-00282b",
+        "recorded_by": "autonomous campaign",
+        "verification": "Re-run independently in the mission worktree at the recorded commit (owner session, 2026-08-17). Supersedes the figures first recorded here, which the test task had measured in the MAIN CHECKOUT rather than the mission branch — the wrong-tree defect fixed in scheduler.js (worktree inheritance) and guarded in campaign.js acceptMission."
+      },
+      "recorded_at": "2026-08-17T22:19:58.884Z"
+    },
+    "N": {
+      "status": "IMPLEMENTED",
+      "evidence": {
+        "commit": "beef9969a51e1114f2106e2d3df6ff83b0aca73e",
+        "tests": [
+          "tests/mythos-orchestration-core-test.js: 264/264 (+7 provider health)",
+          "tests/mythos-ai-executor-test.js: 127/127"
+        ],
+        "mission_id": "m-msxsr86o-721696",
+        "campaign_id": "c-msxnck3a-00282b",
+        "recorded_by": "autonomous campaign",
+        "verification": "Re-run independently in the mission worktree at the recorded commit (owner session, 2026-08-17). Supersedes the figures first recorded here, which the test task had measured in the MAIN CHECKOUT rather than the mission branch — the wrong-tree defect fixed in scheduler.js (worktree inheritance) and guarded in campaign.js acceptMission."
+      },
+      "recorded_at": "2026-08-17T22:37:05.288Z"
     }
   },
-  "updated_at": "2026-08-17T20:52:08.349Z"
+  "updated_at": "2026-08-17T22:37:05.288Z"
 }
