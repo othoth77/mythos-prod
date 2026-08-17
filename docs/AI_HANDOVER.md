@@ -28,6 +28,103 @@
 
 ---
 
+## MYTHOS AUTONOMOUS DEVELOPMENT LOOP (2026-08-17) — **PASS WITH ONE HONEST CAVEAT; THE LOOP RAN ITSELF, CHOSE ITS OWN WORK, AND FOUND TWO DEFECTS NO TEST CAUGHT**
+
+**Stage:** MYTHOS AUTONOMOUS DEVELOPMENT LOOP (first self-developing version)
+**Status: PASS** on the loop and its safety proofs; **one caveat recorded below**
+on the single accepted mission.
+
+**What was built.** Three modules, on top of everything already proven:
+`core/roadmap.js` (reads the committed Master Vision as the authoritative
+roadmap — 32 capabilities parsed from the real document — scores what remains by
+readiness minus the delivery phase the document itself names, and refuses to
+record progress without `{commit, tests}` evidence); `core/campaign.js` (durable
+campaign with 10 states and an enforced transition table, a 10-kind failure
+taxonomy where nothing collapses into a generic FAILED, and the governance
+cage); `core/campaign-runner.js` (the resumable loop: select → start → execute →
+settle → bounded repair → evidence-based acceptance → Memory → roadmap → next
+mission). CLI: `mythos-ai-executor campaign <start|advance|run|resume|status|
+roadmap|list>`.
+
+**Governance cage — three independent barriers**, proven against the REAL
+repository: (1) governance capabilities are never selected (8 of the real
+roadmap's 32 are excluded: AC, AD, O, P, S, T, U, Z); (2) a mission scoped at a
+protected path **or** whose objective proposes weakening a boundary is parked
+`WAITING_FOR_APPROVAL` — a live probe asking Mythos to remove the DESTRUCTIVE
+restriction produced **zero agent invocations**; (3) a governance edit hidden in
+the **real diff** fails acceptance and escalates, never auto-repairs.
+`core/campaign.js` is itself on the protected list.
+
+**THE FIRST REAL CAMPAIGN FOUND A DEFECT NO TEST CAUGHT.** It selected
+capability R itself, ran inspect (Claude) and research (OmniRoute) in parallel,
+implemented in an isolated worktree — then burned its repair budget and
+escalated to a human. Cause: the adversarial reviewer was being pointed at the
+mission's own `review` task, grading a reviewer's findings against an
+implementation contract. No unit test caught it because the mock reviewer always
+passed. Fixed (`6d86e0b`); the suite gained a second mock agent because
+validation refuses to let an author review its own work, so a single-agent
+registry had silently disabled the review channel. **The loop stopping and
+asking for a human under a real fault is the behaviour working, not failing.**
+
+**THE SECOND REAL CAMPAIGN COMPLETED A MISSION AUTONOMOUSLY — WITH A CAVEAT.**
+Campaign `c-msxnck3a-00282b`: capability R selected by the system, implemented,
+2 repair cycles, cross-provider adversarial review **passed**, real commit
+`6811c49` (a genuine test for the occupancy-exhaustion fallback) on branch
+`mythos/m-msxnck4k-c73a6c` — **never on main** — memory written, roadmap updated,
+and the loop then selected AF (Disaster Recovery) by itself. **The caveat:** it
+was accepted on a test report reading *"NOT RUN (blocked — no DB credential
+access in worktree sandbox)"*. The agent was honest; the gate was not strict
+enough — checking that tests were *reported* is not checking that they *ran*.
+Fixed in `b54b4f6`: acceptance now rejects not-run/skipped/blocked/pending
+reports and any reporting failures. **Under the gate as it now stands, that
+mission would NOT have been accepted**, so its roadmap entry was downgraded from
+IMPLEMENTED to IN_PROGRESS with the reason recorded. Criterion T is therefore met
+in mechanism (a full autonomous cycle ran end to end and produced a reviewed
+commit) but **not yet under the final gate** — the next campaign must re-earn it
+with tests that actually run.
+
+**Independent reviews (no Fable 5 quota):** Gemini 3.6 Flash, GPT-4o, DeepSeek
+Chat via OmniRoute, read-only, hunting runaway loops, self-modification,
+policy/budget bypass, repeated missions, infinite repair, Git corruption,
+context/memory poisoning and provider escalation. GPT-4o: cage not escapable, no
+runaway. DeepSeek: cage escapable — **investigated and partly upheld**. Fixed
+(`5af5d71`): the traversal DeepSeek described was already blocked, but
+**non-normalised path forms** (`core/../core/policy-engine.js`) genuinely evaded
+the substring check — paths are normalised before matching now; and Gemini's
+**memory-poisoning** finding was real — agent text entered long-term memory at
+confidence 1.0 where it could steer later missions, so it is now flattened,
+stripped of instruction markup, hard-capped, labelled agent-reported and stored
+at 0.8, with commits recorded only when they match a real SHA shape. Rejected
+with regression tests: "repair could loop forever if misclassified" (the cap
+counts attempts, which no classification can extend) and "a completed capability
+could be redone" (excluded within a campaign and, with evidence, across all
+future ones).
+
+**Tests:** autonomous campaign **118/118** (all 17 required categories), lease
+72/72, budget 121/121, core 248/248, wiring 86/86, Phase 1 120/120.
+
+**Real money: NONE.** Development missions spend provider quota, not money;
+every project's committed budget is 0 except the mock-only sandbox. **No
+governance self-modification occurred. SSANGYONG: UNTOUCHED. n8n: UNCHANGED.**
+Core default remains true with the tested rollback intact. The Phase 1 daemon was
+paused for the campaign windows and restarted afterwards.
+
+**Remaining risks:** the accepted R mission needs a real test run before its
+roadmap entry may return to IMPLEMENTED; governance detection is deliberately
+broad keyword+path matching, so a benign capability whose *title* contains a
+governance word is excluded; the loop produces a reviewable branch commit and
+never auto-merges to main; selection does not model dependencies between
+capabilities, so a chosen item may still need another first — the mission reports
+that rather than guessing; and the review channel's calibration lives in the
+caller's `review_fn`, so a harsh reviewer can still consume repair budget (now
+bounded and escalated rather than looping).
+
+**Next stage:** owner decision — either re-run a campaign under the tightened
+gate to earn a clean autonomous completion, or grant the approvals now queued
+for the governance capabilities the loop deliberately refused.
+
+---
+
 ## MCC-1 — MYTHOS AI COMMAND CENTER (2026-08-17) — **BUILT, TESTED 502/502, DEPLOYED AND SERVING; PUBLIC URL BLOCKED ON DNS (OWNER ACTION)**
 
 **Objective.** Build the owner-specified MYTHOS AI COMMAND CENTER — a permanent, searchable
