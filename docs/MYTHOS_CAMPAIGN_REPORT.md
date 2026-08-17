@@ -130,11 +130,17 @@ checked mechanically:
 - The legacy `stage1c-part1`, `stage2d`, `stage3a`, `stage3a5`, `stage3b`,
   `stage3c` and `stage3d` suites — the documented `KNOWN_BASELINE_FAILURE`
   set in `projects/meta/known-baselines.json`.
-- `stage3e` also fails, and is **not** in that file. It is still not caused by
-  this work: it fails identically when run at `7560f68`, the commit before
-  these changes. It is an undocumented pre-existing failure, and either the
-  suite or the baseline file should be reconciled — out of scope here, but it
-  should not keep passing unnoticed as "expected".
+- `stage3e`, `stage3f`, `stage3g` and `stage3h` also fail and are **not** in
+  that file. They are still not caused by this work: all four fail identically
+  when run at `7560f68`, the commit before these changes. They are
+  undocumented pre-existing failures, and either the suites or the baseline
+  file should be reconciled — out of scope here, but four failures sitting
+  outside the recorded baseline is how a real regression eventually hides.
+- `sya-api-1-readonly-catalog-api` and `sya-shop-1-storefront` — env-blocked
+  on the deploy-owned database credential this session correctly cannot read.
+
+Of the 26 suites an output-matching sweep flagged, **13 actually pass** when
+judged by exit code; every `stage4*` suite is in that group.
 - `ida-*`, `mcc-1` and `sya-*` — env-blocked without their databases.
 
 A caution for future sweeps: pass/fail must be read from the **exit code**,
