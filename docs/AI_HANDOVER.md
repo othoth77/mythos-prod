@@ -26,6 +26,93 @@
 
 ---
 
+## MYTHOS RESERVATION RECOVERY / LEASE SYSTEM (2026-08-17) — **PASS; CRASHED HOLDERS RECOVER AUTOMATICALLY, LIVE HOLDERS ARE NEVER STOLEN FROM**
+
+**Stage:** RESERVATION RECOVERY / LEASE SYSTEM · **Status: PASS**
+
+Closes the last recorded hardening risk: *"stale reservations after a process
+crash can temporarily reduce available budget until another attempt supersedes
+them."* The Budget Ledger was **extended, not redesigned**.
+
+**Lease model.** Every reservation now carries `created_at`, `updated_at`,
+`lease_expires_at`, `holder_id`, `attempt_id` alongside scope / mission / task /
+project / amount / currency / status. The lease is **persisted** — no
+memory-only timers. States: `ACTIVE` and `EXPIRED` derived from the persisted
+clock, `RELEASED` / `SETTLED` / `RECOVERED` persisted as facts.
+
+**Holder identity** is `host:pid:process-start-ticks`, which makes it immune to
+PID reuse. Liveness returns alive / dead / **unknown**, and only *dead* permits
+recovery; *unknown* (another host) waits out a much longer grace, so uncertainty
+always resolves to "do not recover".
+
+**A real gap found by testing: zombies.** A SIGKILLed child that its parent has
+not reaped still appears in `/proc` and still answers `kill(pid,0)`, so a naive
+liveness check would hold its budget hostage. The `Z` state is now read from
+`/proc/<pid>/stat` and treated as gone.
+
+**Heartbeat.** Idempotent, persisted, holder-checked, and it explicitly never
+moves money — repeated beats create no duplicate reservation and cannot raise a
+limit. A healthy long-running task is therefore never recovered from underneath.
+
+**Crash recovery** is deterministic and needs no manual step: a sweep recovers
+every reservation whose lease expired **and** whose holder is provably gone,
+returning the budget. Proven with a genuinely `SIGKILL`ed holder process whose
+reservation was then recovered **by a separate process**, after which the freed
+budget was usable exactly once.
+
+**Idempotency.** Double recovery recovers nothing; a heartbeat after recovery is
+rejected; settling a recovered reservation is **refused** (the hold was already
+returned, so settling would spend money the ledger re-offered); releasing one is
+a safe no-op. **8 racing recoverers recovered an entry exactly once.**
+
+**Scheduler integration** rides the existing lifecycle — a startup sweep before
+a mission plans around "remaining", and a heartbeat interval per running spend
+task. No second scheduler, and no manual recovery verb exists.
+
+**Policy remains the authority:** recovery only makes budget *available* again;
+DESTRUCTIVE stays denied and the cumulative limit still refuses an over-budget
+request afterwards (both asserted).
+
+**Independent reviews (no Fable 5 quota):** Gemini 3.6 Flash, GPT-4o, DeepSeek
+Chat via OmniRoute, read-only. DeepSeek reported `lease_stealing_possible:
+false`, `overspend_possible: false`. **Two genuine findings fixed** (`315ddde`):
+Gemini traced a real defect where a project with `mission_limit 0` never takes a
+MISSION reservation yet settle/release attempted that scope anyway, emitting a
+phantom failure flag and a misleading event on every ordinary settlement; and
+the startup sweep swallowed its own errors, which are now recorded. **Four
+rejected with evidence, each pinned by a regression test** (recycled-pid lease
+stealing, silent heartbeat writes, a pid-reuse window between check and
+recovery — both happen inside one lock — and unverifiable-holder hangs, which
+are deliberate fail-safe behaviour bounded by the one-hour grace).
+
+**Tests:** lease **72/72** (new suite, all 15 required categories), budget
+**121/121**, core **248/248**, wiring **86/86**, Phase 1 **120/120**. Full sweep
+once: **104 suites, 81 pass, 23 nonzero — diffed byte-identical to the
+documented baseline, zero new failures.**
+
+**Live safe proof (sandbox, mocks only):** reserve $4 → remaining $1 → simulated
+crash (holder gone, lease expired → `EXPIRED`/`dead`) → recover → remaining $5 →
+reserve $4 again → allowed. Final: limit 10, spent 5, reserved 4 — **the crashed
+reservation did not double count.** The deployed read-only surface shows the
+lease states (`SETTLED`/`RELEASED`/`RECOVERED`) via
+`GET /budget/<project>/reservations` and `budget reservations`.
+
+**Final commit:** (this handover commit) · **Remote HEAD:** verified equal after
+push via the persistent relay · **Real money: NONE** · **SSANGYONG: UNTOUCHED**
+· **n8n: UNCHANGED** · Core default remains **true** with the tested rollback
+intact.
+
+**Remaining risks:** an *unverifiable* holder (another host) still holds budget
+for up to an hour before recovery — deliberate fail-safe, and single-host today;
+recovery frees budget but does not resume the crashed work itself (the mission's
+own retry does that); `MISSION`/`REQUEST` scopes are enforced while `PROJECT`
+all-time remains modelled-only; cost is still runner-declared, not verified
+billing.
+
+**Next stage:** owner decision. No Phase 3 feature was started.
+
+---
+
 ## MYTHOS PHASE 2 FINALIZATION (2026-08-17) — **PASS; CORE IS THE DEFAULT PATH, REQUEST+MISSION SCOPES ENFORCED, ROLLBACK PROVEN**
 
 **Stage:** MYTHOS PHASE 2 FINALIZATION · **Status: PASS**

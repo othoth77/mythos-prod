@@ -41,6 +41,47 @@ independent of provider, agent, task, retry, worktree and process.
 Sandbox limits deliberately differ (request 5 < mission 8 < day 10) so each
 boundary is observable on its own.
 
+## Reservation leases and crash recovery
+
+Every reservation is held under a **lease**: a persisted expiry plus the
+identity of the holder. This closes the last hardening risk — budget held by a
+crashed process used to stay held until some later attempt happened to
+supersede it.
+
+| Field | Meaning |
+|---|---|
+| `holder_id` | `host:pid:process-start-ticks` — start-ticks make it immune to PID reuse |
+| `lease_expires_at` | Persisted expiry (never a memory-only timer) |
+| `attempt_id`, `created_at`, `updated_at`, `heartbeats` | Provenance of the hold |
+
+**Lease states.** `ACTIVE` and `EXPIRED` are derived from the persisted clock;
+`RELEASED`, `SETTLED` and `RECOVERED` are persisted facts.
+
+**Heartbeat.** A long-running task renews its own lease in place: idempotent,
+persisted, holder-checked, and it explicitly never moves money — so a healthy
+slow task is never recovered from underneath.
+
+**Recovery** happens only when the lease has expired **and** the holder is
+provably gone:
+
+| Holder probe | Result |
+|---|---|
+| alive | never recovered — a live holder is never stolen from |
+| **zombie** (exited, unreaped) | treated as gone — `/proc` still lists it and `kill(pid,0)` still succeeds, so a naive check would hold its budget hostage |
+| pid reused (start-ticks differ) | original holder is gone → recoverable |
+| unknown (another host) | fail-safe: not recovered until a much longer grace elapses |
+
+Recovery is atomic under the ledger lock and idempotent: a second sweep
+recovers nothing, a heartbeat afterwards is rejected, settling a recovered
+reservation is **refused** (the hold was already returned, so settling would
+spend money the ledger re-offered), and releasing one is a safe no-op. Eight
+racing recoverers recover an entry exactly once.
+
+**Scheduler integration** rides the existing lifecycle — a sweep at mission
+start and a heartbeat interval per running spend task. There is no second
+scheduler and no manual recovery verb; `budget reservations` and
+`GET /budget/<project>/reservations` are read-only views.
+
 ## Model
 
 | Field | Meaning |
