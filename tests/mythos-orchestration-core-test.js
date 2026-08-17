@@ -924,6 +924,50 @@ chain2 = chain2.then(function () {
   });
 });
 
+// --- Genuine occupancy contention (not a transient race) must NOT hang or
+//     silently give one mission the surface anyway: after MAX_OCCUPANCY_POLLS
+//     (200 * 25ms ~= 5s) the blocked mission gives up and parks WAITING with
+//     metadata.stalled, its task left READY (not cancelled) so a later retry
+//     can still complete it once the surface frees. Untested until now — the
+//     poll-and-retry path (scheduler.js "stillReady" branch) only had cover
+//     for the case where the surface frees quickly; the defensive exhaustion
+//     fallback itself was never exercised. Deliberately real wall-clock time:
+//     the bound is a hardcoded module constant, not test-injectable, and
+//     mission A's release is gated on mission B's poll loop actually
+//     exhausting (not a fixed delay), so there is no timing race. ----------
+chain2 = chain2.then(function () {
+  var specA = [{ key: 'hold', title: 'mission A holds the surface', task_type: 'coding', depends_on: [] }];
+  var specB = [{ key: 'wait', title: 'mission B contends for it', task_type: 'coding', depends_on: [] }];
+  var mA = buildMission('occupancy exhaustion A', specA);
+  var mB = buildMission('occupancy exhaustion B', specB);
+  var releaseA;
+  var heldUntilReleased = new Promise(function (resolve) { releaseA = resolve; });
+  var pA = scheduler.runMission(mA.mission.id, {
+    runner: function () { return heldUntilReleased.then(function () { return { status: 'COMPLETED' }; }); }
+  });
+  var bRan = false;
+  var pB = scheduler.runMission(mB.mission.id, {
+    runner: function () { bRan = true; return Promise.resolve({ status: 'COMPLETED' }); }
+  });
+  return pB.then(function (missionB) {
+    ok(missionB.status === 'WAITING' && missionB.metadata.stalled === true && bRan === false,
+      '2G occupancy exhaustion: genuinely stuck contention parks WAITING(stalled), never hangs or double-runs');
+    var taskB = store.load('task', mB.tasks[0].id);
+    ok(taskB.status === 'READY',
+      '2G occupancy exhaustion: the parked task stays READY, not cancelled or failed');
+    releaseA();
+    return pA;
+  }).then(function (missionA) {
+    ok(missionA.status === 'COMPLETED', '2G occupancy exhaustion: the holding mission completes normally');
+    return scheduler.runMission(mB.mission.id, {
+      runner: function () { bRan = true; return Promise.resolve({ status: 'COMPLETED' }); }
+    });
+  }).then(function (missionB2) {
+    ok(missionB2.status === 'COMPLETED' && bRan === true,
+      '2G occupancy exhaustion: once the surface frees, the parked mission resumes and completes');
+  });
+});
+
 // --- Failure isolation: one branch fails, independent work finishes ------------
 chain2 = chain2.then(function () {
   var spec = [
