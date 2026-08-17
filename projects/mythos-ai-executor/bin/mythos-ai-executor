@@ -167,6 +167,62 @@ switch (cmd) {
     }
     break;
   }
+  case 'campaign': {
+    var campaign = require(path.join(BASE, 'core', 'campaign'));
+    var runner = require(path.join(BASE, 'core', 'campaign-runner'));
+    var csub = process.argv[3];
+    var crest = process.argv.slice(4);
+    switch (csub) {
+      case 'start': {
+        var objective = crest.join(' ').trim();
+        if (!objective) die('usage: mythos-ai-executor campaign start <objective>');
+        try { printJSON(campaign.createCampaign({ objective: objective, requested_by: 'cli' })); }
+        catch (e) { die('CAMPAIGN_REFUSED: ' + e.message, 2); }
+        break;
+      }
+      case 'advance':
+      case 'run': {
+        if (!crest[0]) die('usage: mythos-ai-executor campaign ' + csub + ' <campaign-id>');
+        var fn = csub === 'run' ? runner.runCampaign : runner.advanceCampaign;
+        fn(crest[0], {}).then(function (out) { printJSON(out); process.exit(0); })
+          .catch(function (e) { die('CAMPAIGN_ERROR: ' + e.message, 4); });
+        break;
+      }
+      case 'resume': {
+        if (!crest[0]) die('usage: mythos-ai-executor campaign resume <campaign-id>');
+        runner.resumeCampaign(crest[0], {}).then(function (out) { printJSON(out); process.exit(0); })
+          .catch(function (e) { die('CAMPAIGN_ERROR: ' + e.message, 4); });
+        break;
+      }
+      case 'status': {
+        if (!crest[0]) die('usage: mythos-ai-executor campaign status <campaign-id>');
+        var cs = runner.campaignStatus(crest[0]);
+        if (!cs) die('no such campaign', 1);
+        printJSON(cs);
+        break;
+      }
+      case 'roadmap': {
+        var rm = require(path.join(BASE, 'core', 'roadmap'));
+        var repo = crest[0] || require(path.join(BASE, 'core', 'core-wiring')).REPO_PATH;
+        var sel = rm.selectNext(repo, {});
+        printJSON({ next: sel.selected ? sel.selected.key + '. ' + sel.selected.title : null,
+          reason: sel.reason, candidates: rm.candidates(repo).slice(0, 8).map(function (c) {
+            return { key: c.key, title: c.title, status: c.effective_status,
+              score: c.score, selectable: c.selectable, blocked: c.blocked_reasons }; }) });
+        break;
+      }
+      case 'list':
+        printJSON(campaign.listCampaigns().map(function (c) {
+          return { campaign_id: c.campaign_id, state: c.state,
+            objective: String(c.objective).slice(0, 90),
+            completed: (c.completed_missions || []).length,
+            blocked: (c.blocked_missions || []).length }; }));
+        break;
+      default:
+        die('usage: mythos-ai-executor campaign <start|advance|run|resume|status|roadmap|list>', 1);
+    }
+    break;
+  }
   case 'budget': {
     // READ-ONLY by design. There is deliberately no mutation verb:
     // limits are changed only by a reviewed commit to config/budgets.json.
@@ -188,5 +244,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('usage: mythos-ai-executor <enqueue|run|resume|status|report|list|health|serve|tick|goal|budget>', 1);
+    die('usage: mythos-ai-executor <enqueue|run|resume|status|report|list|health|serve|tick|goal|budget|campaign>', 1);
 }

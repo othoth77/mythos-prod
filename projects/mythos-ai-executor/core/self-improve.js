@@ -30,16 +30,35 @@ var planner = require('./planner');
 // The safeguard surface. Substring match on repository-relative paths;
 // deliberately broad — false positives are acceptable, false negatives
 // are not.
+// THE governance surface. Autonomous self-development may never touch
+// these, whatever a mission declares or an agent proposes: policy
+// authority, budget enforcement, approval, secret handling, Git delivery
+// security, audit/event integrity, destructive-operation limits and the
+// emergency rollback all live here. Changing any of them is a human
+// decision (WAITING_FOR_APPROVAL), never self-authorised.
 var SELF_PROTECTED_PATHS = [
+  // Policy + approval authority
   'projects/mythos-ai-executor/core/policy-engine.js',
+  'projects/mythos-ai-executor/config/policy.json',
+  // Budget enforcement and its ledger
+  'projects/mythos-ai-executor/core/budget.js',
+  'projects/mythos-ai-executor/config/budgets.json',
+  // Validation and audit/event integrity
   'projects/mythos-ai-executor/core/validation.js',
   'projects/mythos-ai-executor/core/events.js',
-  'projects/mythos-ai-executor/core/self-improve.js',
   'projects/mythos-ai-executor/core/store.js',
-  'projects/mythos-ai-executor/config/policy.json',
-  'projects/mythos-ai-executor/config/router.json',
+  // The governance guard itself and the autonomous campaign manager
+  'projects/mythos-ai-executor/core/self-improve.js',
+  'projects/mythos-ai-executor/core/campaign.js',
+  // Emergency rollback + the feature flag that arms it
+  'projects/mythos-ai-executor/core/core-wiring.js',
   'projects/mythos-ai-executor/service/',
+  // Provider authority routing
+  'projects/mythos-ai-executor/config/router.json',
+  'projects/mythos-ai-executor/config/agents.json',
+  // Secret redaction and Git delivery security
   'projects/mythos-orchestrator/lib/redact.js',
+  'mythos-git-push',
   '.github/',
   '.git/'
 ];
