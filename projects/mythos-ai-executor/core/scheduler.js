@@ -174,20 +174,26 @@ function runMission(missionId, opts) {
 
     // Isolation: write-capable tasks get their own worktree when a repo
     // is in play; otherwise a shared writable dir is a serialization
-    // constraint, never a shared concurrent surface.
+    // constraint, never a shared concurrent surface. A write-capable task
+    // dispatched with no repo_path at all still targets exactly one
+    // implicit surface (the runner's own cwd/default) — that surface gets
+    // the same mandatory occupancy tracking as a real shared dir, so it
+    // can never be handed to two agents at once.
     var ctx = { mission: mission, policy_decision: gate };
+    var isWriteTask = WRITE_TASK_TYPES.indexOf(task.task_type) !== -1;
     var workDir = opts.repo_path || null;
-    if (WRITE_TASK_TYPES.indexOf(task.task_type) !== -1 && opts.repo_path) {
-      if (opts.isolate_worktrees !== false) {
-        var wt = worktrees.create(opts.repo_path, mission.id, task.id);
-        ctx.worktree = wt;
-        workDir = wt.dir;
-      } else if (occupiedDirs().indexOf(workDir) !== -1) {
-        return null; // shared tree already occupied → wait for next round
+    if (isWriteTask) {
+      if (opts.repo_path) {
+        if (opts.isolate_worktrees !== false) {
+          var wt = worktrees.create(opts.repo_path, mission.id, task.id);
+          ctx.worktree = wt;
+          workDir = wt.dir;
+        }
+      } else {
+        workDir = 'UNISOLATED_WRITE_SURFACE';
       }
     }
-    if (workDir && occupiedDirs().indexOf(workDir) !== -1 &&
-        WRITE_TASK_TYPES.indexOf(task.task_type) !== -1) {
+    if (isWriteTask && occupiedDirs().indexOf(workDir) !== -1) {
       return null; // never two writers in one tree, whatever the flags say
     }
 

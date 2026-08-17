@@ -795,6 +795,30 @@ chain2 = chain2.then(function () {
   });
 });
 
+// --- Write tasks with no repo_path still never overlap on the implicit
+//     shared surface (mandatory isolation, not opt-in) ---------------------
+chain2 = chain2.then(function () {
+  var spec = [
+    { key: 'code-x', title: 'feature X', task_type: 'coding', depends_on: [] },
+    { key: 'code-y', title: 'feature Y', task_type: 'coding', depends_on: [] }
+  ];
+  var m = buildMission('no-repo parallel coding', spec, { max_parallel: 2 });
+  var concurrent = 0, peak = 0;
+  return scheduler.runMission(m.mission.id, {
+    // No repo_path at all: there is no worktree to isolate into, but the
+    // implicit shared surface must still never host two writers at once.
+    runner: function () {
+      concurrent += 1; peak = Math.max(peak, concurrent);
+      return new Promise(function (resolve) {
+        setTimeout(function () { concurrent -= 1; resolve({ status: 'COMPLETED' }); }, 20);
+      });
+    }
+  }).then(function (mission) {
+    ok(mission.status === 'COMPLETED', '2G no-repo: mission completes');
+    ok(peak === 1, '2G no-repo: write tasks never overlap without a repo_path (peak ' + peak + ')');
+  });
+});
+
 // --- Failure isolation: one branch fails, independent work finishes ------------
 chain2 = chain2.then(function () {
   var spec = [
