@@ -1,7 +1,8 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-17 UTC
-**From:** MYTHOS **MYTHOS-AUTONOMOUS-CAMPAIGN-CONTINUE — CAMPAIGN `c-msxnck3a-00282b` RESUMED FROM ITS PERSISTED CHECKPOINT; FIVE MISSIONS COMPLETED AUTONOMOUSLY WITH INDEPENDENTLY RE-VERIFIED TESTS, AND TWO REAL GOVERNANCE HOLES FOUND AND CLOSED.** The existing campaign was continued — not recreated, no completed task re-run, no state discarded, no BLOCKED/WAITING_FOR_APPROVAL state bypassed. It had stopped only because the previous driver's `max_steps` budget ran out: `campaignStatus` READY with no `current_mission` means "will select next", **not** "finished". Missions **AF** (disaster-recovery gap report, `f433746`), **E** (durable execution — fsync before the commit-point rename, `bccfcbb`), **M** (minimal binary model/provider router, `f3e0580`+`f773494`), **N** (provider health feeds provider selection, `beef996`) and **H** (context engine surfaces the portfolio ledger, `2ad7a10`) were each selected by the loop itself from the roadmap and accepted at **zero repair cycles**. **Every claim was re-run independently in each mission's own worktree at its recorded commit, and each agent's self-report was exact:** AF 19/19 (new suite)+125/125+257/257; E 127/127 (+2 fsync); M 130/130 (+5 router); N 264/264 (+7 health)+127/127; H 263/263 (+6). Branch isolation verified — all five commits are 1–2 commits ahead of `main` and **none is an ancestor of `main`**; nothing auto-merged, merging stays an owner decision. **Two defects the suites did not catch, both in the evidence/governance layer, fixed in `0f39e22`:** (1) **the acceptance gate was reading tests from the WRONG TREE.** `scheduler.js` gave an isolated worktree only to write-capable task types, so `test`/`review`/`report` fell back to `opts.repo_path` — the LIVE MAIN CHECKOUT. The testing agent ran main's already-green suite and reported PASS while the mission's change sat unexecuted on its branch, and the adversarial reviewer read code the mission had never touched. Capability M exposed it: 130/130 measured in its worktree vs the recorded 125/125 from main. Successors now inherit the nearest upstream worktree via `depends_on`, the scheduler records the tree it assigns (it is the component that decides it), and `acceptMission` refuses a mission whose tests ran in a different tree or in none. **Proven live on mission H**, where implement/test/review/report all ran in one tree and the test task reported the same commit and the same 263/263 as the implementation. (2) **the governance cage did not cover the files that grant authority** — `lib/policy.js`, where every tool grant, the permanent `Bash(sudo:*)` bans and the disabled `deploy` profile live, was outside `SELF_PROTECTED_PATHS`, as were `tool-registry.js`, `lib/state.js`, `campaign-runner.js` (the caller of `governanceGate`/`acceptMission`), `roadmap.js`, `agent-registry.js` and `provider-router.js`; only the provider *configs* were caged, never the code enforcing them. All seven added; protection parks a mission for owner approval rather than freezing the file, so breadth is free. Found because missions E and N legitimately edited two of them while both sat outside the cage — both edits were hardening, which is precisely why the gap would otherwise have gone unnoticed. Roadmap entries for AF/E/M/N now carry the independently verified figures and state where the first ones came from; **capability R remains IN_PROGRESS** (accepted under the old gate on tests that never ran). Suite `tests/mythos-autonomous-campaign-test.js` **137/137** (was 118); the production fix is what makes the existing loop test pass — the mock was not loosened. Unchanged: orchestration-core 257/257, ai-executor 125/125, core-wiring 86/86, budget-ledger 121/121, reservation-lease 72/72. Phase 1 daemon restarted after the resume window and `active`. Delivered through the persistent relay, remote HEAD verified. SSANGYONG untouched (no commit references those paths; this session has no Docker access, so the three frozen workflows could not have been altered); no force-push, no history rewrite, no real spend or external action. Full record: `docs/MYTHOS_CAMPAIGN_REPORT.md`. Next: owner review/merge decision on the five mission branches; the campaign remains READY and resumable from the same checkpoint. Phase 3 NOT started.**
+**From:** MYTHOS **MYTHOS-N8N-STRATEGY-0 — n8n INSTANCE STRATEGY RECORDED AS A PERMANENT ARCHITECTURAL DECISION. DOCUMENTATION ONLY: NO APPLICATION CODE, NO n8n RUNTIME CONFIGURATION, NO WORKFLOW, NO SERVICE RESTART, NO DNS, NO SSANGYONG CHANGE.** The owner decision was recorded in a new permanent decision record, `docs/MYTHOS_N8N_STRATEGY.md`, modelled on the repository-migration gate (`docs/MYTHOS_REPOSITORY_MIGRATION.md`) because it has the same shape: a binding rule now, plus a future target that is explicitly **not authorised and not started**. **Binding now:** the MYTHOS MVP uses the existing installation `https://n8n.ssangyong.autos/`; **no second n8n instance is created during the MVP**; existing SSANGYONG workflows stay untouched and isolated; MYTHOS workflows are added only as an additive `MYTHOS — <Name>` workflow group inside that installation; n8n stays an automation/event adapter with **Mythos Core as the authoritative orchestration/state/policy layer**; GitHub (`othoth77/mythos-prod` · `main`) remains the source of truth, so a workflow living only inside n8n is not delivered work; `/var/www/ssangyong.autos` and the SSANGYONG workflows are out of scope. **Recorded but gated:** after the first MYTHOS AI Operating Layer MVP is proven stable, the automation layer *may* split to `n8n.ssangyong.autos` → SSANGYONG and `n8n.mythosprod.xyz` → MYTHOS. §4 of the new document names what is forbidden until that gate closes (second instance/stack, creating or configuring `n8n.mythosprod.xyz`, migrating MYTHOS workflows off the shared host, touching any SSANGYONG workflow or `/var/www/ssangyong.autos`, changing shared instance configuration for MYTHOS's benefit); §5 names the four conditions that must all hold before separation is even eligible for owner consideration. **Rationale recorded:** reuse verified infrastructure for the MVP, avoid duplicate n8n infrastructure and its doubled credential/upgrade/backup surface, preserve SSANGYONG isolation by not touching it rather than by adding a host, and defer physical separation until the MVP's real workflow set, credential set and load profile are known — separation is cheap later and expensive to undo early. **Two cross-references added** so the decision is reachable from where the question arises: `docs/MYTHOS_AI_OPERATING_LAYER.md` §2.2 (which fixes n8n's *role*; the new document fixes *which installation*) and the Phase 0 inventory row in `docs/MYTHOS_AI_EXECUTOR_ARCHITECTURE.md` §2. **Honesty note carried into the record:** two further MYTHOS workflow definitions (`MYTHOS — Campaign Autopilot`, `MYTHOS — Goal Intake (Campaign)`) exist **uncommitted** in the working tree and are named in §3 as *not delivered*, so the next session does not read the committed set of five as a silent contradiction. Baseline verified before and after: local HEAD, `origin/main` and the true remote all `2075841` at start. Nothing was deployed, restarted, imported or activated.
+**Previously:** MYTHOS **MYTHOS-AUTONOMOUS-CAMPAIGN-CONTINUE — CAMPAIGN `c-msxnck3a-00282b` RESUMED FROM ITS PERSISTED CHECKPOINT; FIVE MISSIONS COMPLETED AUTONOMOUSLY WITH INDEPENDENTLY RE-VERIFIED TESTS, AND TWO REAL GOVERNANCE HOLES FOUND AND CLOSED.** The existing campaign was continued — not recreated, no completed task re-run, no state discarded, no BLOCKED/WAITING_FOR_APPROVAL state bypassed. It had stopped only because the previous driver's `max_steps` budget ran out: `campaignStatus` READY with no `current_mission` means "will select next", **not** "finished". Missions **AF** (disaster-recovery gap report, `f433746`), **E** (durable execution — fsync before the commit-point rename, `bccfcbb`), **M** (minimal binary model/provider router, `f3e0580`+`f773494`), **N** (provider health feeds provider selection, `beef996`) and **H** (context engine surfaces the portfolio ledger, `2ad7a10`) were each selected by the loop itself from the roadmap and accepted at **zero repair cycles**. **Every claim was re-run independently in each mission's own worktree at its recorded commit, and each agent's self-report was exact:** AF 19/19 (new suite)+125/125+257/257; E 127/127 (+2 fsync); M 130/130 (+5 router); N 264/264 (+7 health)+127/127; H 263/263 (+6). Branch isolation verified — all five commits are 1–2 commits ahead of `main` and **none is an ancestor of `main`**; nothing auto-merged, merging stays an owner decision. **Two defects the suites did not catch, both in the evidence/governance layer, fixed in `0f39e22`:** (1) **the acceptance gate was reading tests from the WRONG TREE.** `scheduler.js` gave an isolated worktree only to write-capable task types, so `test`/`review`/`report` fell back to `opts.repo_path` — the LIVE MAIN CHECKOUT. The testing agent ran main's already-green suite and reported PASS while the mission's change sat unexecuted on its branch, and the adversarial reviewer read code the mission had never touched. Capability M exposed it: 130/130 measured in its worktree vs the recorded 125/125 from main. Successors now inherit the nearest upstream worktree via `depends_on`, the scheduler records the tree it assigns (it is the component that decides it), and `acceptMission` refuses a mission whose tests ran in a different tree or in none. **Proven live on mission H**, where implement/test/review/report all ran in one tree and the test task reported the same commit and the same 263/263 as the implementation. (2) **the governance cage did not cover the files that grant authority** — `lib/policy.js`, where every tool grant, the permanent `Bash(sudo:*)` bans and the disabled `deploy` profile live, was outside `SELF_PROTECTED_PATHS`, as were `tool-registry.js`, `lib/state.js`, `campaign-runner.js` (the caller of `governanceGate`/`acceptMission`), `roadmap.js`, `agent-registry.js` and `provider-router.js`; only the provider *configs* were caged, never the code enforcing them. All seven added; protection parks a mission for owner approval rather than freezing the file, so breadth is free. Found because missions E and N legitimately edited two of them while both sat outside the cage — both edits were hardening, which is precisely why the gap would otherwise have gone unnoticed. Roadmap entries for AF/E/M/N now carry the independently verified figures and state where the first ones came from; **capability R remains IN_PROGRESS** (accepted under the old gate on tests that never ran). Suite `tests/mythos-autonomous-campaign-test.js` **137/137** (was 118); the production fix is what makes the existing loop test pass — the mock was not loosened. Unchanged: orchestration-core 257/257, ai-executor 125/125, core-wiring 86/86, budget-ledger 121/121, reservation-lease 72/72. Phase 1 daemon restarted after the resume window and `active`. Delivered through the persistent relay, remote HEAD verified. SSANGYONG untouched (no commit references those paths; this session has no Docker access, so the three frozen workflows could not have been altered); no force-push, no history rewrite, no real spend or external action. Full record: `docs/MYTHOS_CAMPAIGN_REPORT.md`. Next: owner review/merge decision on the five mission branches; the campaign remains READY and resumable from the same checkpoint. Phase 3 NOT started.**
 **Previously:** MYTHOS **MCC-1-VERIFY — ordre.mythosprod.xyz IS LIVE OVER HTTPS. DNS resolves to 51.68.226.211 (authoritative OVH + public resolvers), Let's Encrypt certificate issued via the approved `certbot --nginx` procedure and valid to 2026-11-15, HTTP 301s to HTTPS, chain validates, auto-renewal armed. Verification found and fixed one real defect — the clipboard fallback only ran when `navigator.clipboard` was absent, not when it rejected — suite now 506/506. All six neighbouring sites unaffected by the reload. No remaining blockers.**
 **Previously:** MYTHOS **MCC-1 — MYTHOS AI COMMAND CENTER BUILT, TESTED 502/502, DEPLOYED AND SERVING ON THE VPS; PUBLIC URL BLOCKED ON ONE OWNER ACTION (DNS). NO OTHER PRODUCT, SERVICE OR DATABASE TOUCHED.** New project `projects/command-center/` — a searchable, permanent command library for Mythos OS, Claude, Codex and AI agents, built to the owner's 39-point specification and staged as instructed (V1 = library, categories, search, detail, copy, usage tracking, favourites, notes, editor, projects, tags, safety classification, responsive UI, persistent database, deployment; V2–V6 documented, not built). Follows the repository's existing read/write API precedent (`projects/idauto/reference/`, `projects/ssangyong-autos/reference/`) rather than introducing a stack: node `http` + `pg`, no framework, no build step, vanilla front end, plain `node tests/<stage>-test.js`. Database `mythos_command_center` / schema `mcc` / role `mythos_command_center_owner` in the existing `idauto-postgres` container — the verified host convention of one server, one database per product, own owner role; no cross-product query, no cross-schema FK, `search_path` pinned to `mcc`. 13 tables including append-only `mcc_command_versions` (stores the PREVIOUS state on every substantive edit) and append-only `mcc_usage_events`; **no DELETE route exists anywhere** — archiving is a reversible status change and archived commands stay searchable. **The application never executes a stored command**: no `child_process`, `exec`, `spawn`, `eval` or `Function` in any of the nine runtime files, asserted at source level by the suite so it cannot regress silently. Writes pass a two-severity credential gate (recognised key formats REFUSED with 422 and no override; ambiguous `password = …` assignments warned and allowed, because this library legitimately documents env-var names); findings never echo the matched text. Reads are public (copying must not need a login — the library holds no PII and no secret by construction); writes need a bearer token compared as SHA-256 digests through `timingSafeEqual`, and `server.js` REFUSES TO START without `MCC_ADMIN_TOKENS` rather than exposing an open write surface. Seeded with 24 commands / 26 categories / 6 projects / 35 relations / 3 workflows, every one derived from `AGENTS.md` and other in-repository canon with a checkable `source` field — **the owner's original chat-session command texts are NOT in this repository** (searched `docs/`, `projects/`, `.claude/`) and these are honest reconstructions to be replaced verbatim when the originals are supplied. English and French complete; Arabic architecture-ready (per-locale `dir`, fallback chain, `name_ar` columns, logical CSS properties) but deliberately not shipped half-translated. Deployed under user-scope systemd on `deploy` behind a new nginx vhost, verified end-to-end through nginx and in a real browser (dashboard, detail, French UI, copy → counter incremented). **BLOCKER: `ordre.mythosprod.xyz` does not exist in DNS** — no A record, no wildcard on `mythosprod.xyz`, no OVH API credential configured on this host, and DNS is an owner-approval action under AGENTS.md §25.3. certbot cannot run and the public URL cannot be verified until the owner creates `ordre` → `51.68.226.211` at OVH.
 
@@ -27,6 +28,116 @@
 **Previously:** INF-DNS-AUTO-2 — APPROVED DNS OPERATIONS — **IMPLEMENTED AND FULLY TESTED; NO DNS OPERATION PERFORMED. PARTIAL — OWNER ACTION REQUIRED.** The guarded execution path exists (`projects/automation/reference/dns-operations-executor.js`): owner approval enforced per domain AND per action from the committed approval-gate table, approval records validated against `aut_approvals`/`aut_approval_policies` (no self-approval, no expired reuse, no cross-run reuse, distinct approvers), write-connector least privilege with scope-escape refusal, one domain at a time, drift-invalidates-plan preconditions, a dry run that builds the identical envelope through the identical function, mandatory verification, automatic approved-only rollback, and `CRITICAL` incident on rollback failure. Suite 97/97 with **25/25 mutation-tested guards**. Full regression once: 82 suites, 4808 passed, 43 failed — all 43 pre-existing legacy `stage3*`, byte-identical to the baseline. **Real DNS operations: 0.** Preflight found **five independent blockers, each sufficient alone**: 0 of 40 owner approval fields are `APPROVED_FOR_MIGRATION`; both DNS write connectors are `enabled: false`; every LEVEL_3 feature flag is false; no OVH/Cloudflare credential exists; no populated secret store exists. No approval was simulated, fabricated, or written.
 **Previously:** INF-DNS-AUTO-1 — DNS SNAPSHOT, COMPARISON AND DRIFT DETECTION (COMPLETE) — **the Automation track's next stage, executed as a reference implementation exactly like its two predecessors. `projects/automation/reference/dns-comparison-engine.js` compares OVH / public DNS / Cloudflare record sets, analyses email and DNSSEC safety, and generates migration + rollback plans whose every step is `LEVEL_3_APPROVAL_REQUIRED` and never self-approvable; a `GATE_CHECK` rejects any plan that claims a level inconsistent with the approval matrix. Suite 85/85 (mutation-checked, 15/15 mutations caught). Full regression once: 81 suites executed, 4711 passed, 43 failed — all 43 in the 8 legacy `stage3*` browser suites and proven byte-identical at clean HEAD (pre-existing, unrelated). No live OVH/Cloudflare credential, no network call, no DNS record/zone/nameserver touched, nothing deployed. It does NOT unblock INF-CF-2 — `entry_gate_open` is structurally always false.**
 **To:** Next AI session
+
+---
+
+## MYTHOS-N8N-STRATEGY-0 (2026-08-17) — **n8n INSTANCE STRATEGY RECORDED AS A PERMANENT ARCHITECTURAL DECISION; DOCUMENTATION ONLY, NO RUNTIME / n8n / SSANGYONG CHANGE**
+
+**Stage:** MYTHOS-N8N-STRATEGY-0 — owner decision recorded. Documentation only.
+**Status: COMPLETE.** One new permanent decision record, two cross-references,
+this handover entry. No application code, no n8n runtime configuration, no
+workflow import or activation, no service restart, no DNS change, no SSANGYONG
+change.
+
+**Objective.** Record the owner's n8n strategy permanently in the repository so
+that "which n8n installation does MYTHOS use, and when may a second one exist?"
+has a single authoritative answer instead of being re-decided per session.
+
+### The decision (binding now)
+
+1. The MYTHOS MVP uses the existing installation `https://n8n.ssangyong.autos/`.
+2. **No second n8n instance is created during the MVP.**
+3. Existing SSANGYONG workflows remain untouched and isolated.
+4. MYTHOS workflows are added as a separate, additive `MYTHOS — <Name>` workflow
+   group inside that installation.
+5. n8n is an automation / event adapter only — **Mythos Core remains the
+   authoritative orchestration, state and policy layer.**
+6. GitHub (`othoth77/mythos-prod` · `main`) remains the source of truth; a
+   workflow existing only inside n8n is not delivered work.
+7. `/var/www/ssangyong.autos` and the existing SSANGYONG workflows are out of
+   scope of this decision and are not modified because of it.
+
+### Recorded but NOT authorised, NOT started
+
+After the first MYTHOS AI Operating Layer MVP is proven stable, the automation
+layer *may* separate into `n8n.ssangyong.autos` → SSANGYONG and
+`n8n.mythosprod.xyz` → MYTHOS. Until an explicit owner approval closes that
+gate, creating a second instance or provisioning `n8n.mythosprod.xyz` is
+forbidden. The document is deliberately shaped like
+`docs/MYTHOS_REPOSITORY_MIGRATION.md`, which records the analogous
+repository-migration gate.
+
+### Rationale recorded
+
+Reuse verified infrastructure for the MVP; avoid duplicate n8n infrastructure
+and its doubled credential, upgrade, backup and failure surface; preserve
+SSANGYONG isolation by *not touching it* rather than by adding a host; and defer
+physical separation until the MVP's real workflow set, credential set and load
+profile are known — separation is cheap later and expensive to undo early.
+Standing up a second instance is also a deployment + DNS + TLS change, i.e.
+`LEVEL_3_APPROVAL_REQUIRED` class work under
+`docs/AUTOMATION_APPROVAL_MATRIX.md`.
+
+### Changed files
+
+| File | Change |
+|---|---|
+| `docs/MYTHOS_N8N_STRATEGY.md` | **New.** The permanent decision record: binding rules (§0.1), the gated future target (§0.2), rationale (§1), what the MYTHOS workflow group means concretely (§2), current state from repository evidence (§3), what is forbidden until the gate closes (§4), conditions for reopening it (§5). |
+| `docs/MYTHOS_AI_OPERATING_LAYER.md` | §2.2 — one added subsection pointing at the new record. §2.2 continues to fix n8n's *role*; the new document fixes *which installation*. |
+| `docs/MYTHOS_AI_EXECUTOR_ARCHITECTURE.md` | §2 Phase 0 inventory row for n8n now cites the ratified instance strategy. |
+| `docs/AI_HANDOVER.md` | This entry. |
+
+### Honesty notes carried into the record
+
+- The live host was **not** contacted by this stage. §3 of the new document is
+  labelled as sourced from the committed Phase 0 inventory and the committed
+  tree, not re-verified against the running instance.
+- Two further MYTHOS workflow definitions (`MYTHOS — Campaign Autopilot`,
+  `MYTHOS — Goal Intake (Campaign)`) exist **uncommitted** in the working tree.
+  §3 names them as *not delivered* so the committed set of five does not read as
+  a silent contradiction next session. They were **not** staged or committed by
+  this stage, and neither were the unrelated working-tree modifications to
+  `projects/mythos-ai-executor/{server.js,core/domain.js,core/self-improve.js}`,
+  `projects/mythos-ai-executor/core/campaign-service.js`,
+  `projects/ssangyong-autos/deploy/` or `tests/mythos-n8n-bridge-test.js`.
+
+### Validation
+
+Documentation-only change; no code path touched, so no test suite applies
+(AGENTS.md §8 — cheapest reliable validation). Verified instead: the three
+edited/created Markdown files parse as intended (headings, tables and fenced
+blocks checked), `git diff --check` clean, and the staged file list contains
+**only** the four documentation files above.
+
+**Full suite:** not rerun — no executable file changed by this stage. The last
+full-suite state is the one recorded by MYTHOS-AUTONOMOUS-CAMPAIGN-CONTINUE and
+is unaffected.
+
+### Baseline, commit and remote
+
+**Baseline:** local HEAD == `origin/main` == true remote HEAD == `2075841`,
+verified by `git rev-parse` plus `git ls-remote` against
+`github.com/othoth77/mythos-prod` before any edit.
+
+**Commit:** recorded in the follow-up record commit immediately below this
+stage's own commit (the repository's existing convention — the hash of a commit
+cannot be written inside itself, and amending a commit is forbidden by
+AGENTS.md §17).
+
+**Remote HEAD:** verified equal to local HEAD after push; no force-push, no
+amend, fast-forward only via the persistent `mythos-git-push` relay.
+
+### Deployment / migration
+
+None. Nothing deployed, nothing migrated, no n8n workflow imported, activated,
+edited or deactivated, no service started or restarted, no DNS record created
+or changed, no SSANGYONG asset touched.
+
+### Next stage
+
+Unchanged by this stage — the MYTHOS AI Operating Layer MVP continues on the
+existing n8n installation under the rules above. Optional and gated: nothing in
+this decision authorises any n8n infrastructure work.
 
 ---
 

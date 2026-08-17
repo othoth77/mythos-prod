@@ -23,7 +23,7 @@ ChatGPT → n8n "MYTHOS — Task Intake" (authenticated webhook)
 
 | Found on host | Decision |
 |---|---|
-| n8n 2.29.9 in Docker (`/opt/n8n`, SQLite, loopback:5678, public via nginx `n8n.ssangyong.autos`, 3 SSANGYONG workflows) | Reuse it. Additive MYTHOS-namespace workflows; existing workflows untouched. |
+| n8n 2.29.9 in Docker (`/opt/n8n`, SQLite, loopback:5678, public via nginx `n8n.ssangyong.autos`, 3 SSANGYONG workflows) | Reuse it. Additive MYTHOS-namespace workflows; existing workflows untouched. Ratified permanently as the MVP instance strategy in `docs/MYTHOS_N8N_STRATEGY.md` (no second instance during the MVP; `n8n.mythosprod.xyz` recorded but not authorised). |
 | OmniRoute 3.8.49 in Docker, healthy, `127.0.0.1:20128`, not publicly exposed | **Already installed — no installation performed.** Used as the optional OpenAI-compatible gateway for advisory models. Not exposed further. |
 | `projects/mythos-orchestrator/` with proven `lib/{redact,schema,git}` and a file-based task store convention | Reuse the libs by `require`; follow the same runtime-state convention. **No second redaction/verification implementation, no Postgres schema added** (AGENTS.md §10: no schema changes unless required — file store satisfies every persistence requirement). |
 | Claude Code 2.1.233 for user `ubuntu` (`--print`, `--output-format json`, `--session-id`, `--resume`, `--permission-mode`, tool allow/deny) | Headless execution as `ubuntu` via a systemd **user** service with linger; the daemon shares the CLI's credentials without touching them. |

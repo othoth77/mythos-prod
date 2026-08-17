@@ -348,6 +348,14 @@ chain; the product-side event workflows of §2.3 do not exist yet.
 **Note:** importing a workflow into n8n deactivates it — reactivation is an
 explicit step, never assumed.
 
+#### Which n8n installation — and when a second one may exist
+
+The MVP runs on the **existing** installation `n8n.ssangyong.autos`; no second
+n8n instance is created during the MVP, and the eventual split to
+`n8n.mythosprod.xyz` is recorded but **not authorised and not started**. The
+binding rules, the rationale, and the conditions for reopening that gate are in
+`docs/MYTHOS_N8N_STRATEGY.md`.
+
 #### Status
 
 **IMPLEMENTED** (builder chain) / **PLANNED** (product event workflows).
