@@ -66,6 +66,17 @@ Git confirms it**, real test results were reported, the independent review
 completed, and the real diff touches no protected path. An agent saying "done"
 is not enough — a fabricated commit hash is refused.
 
+Evidence must also be **about this change**. Tests that ran somewhere other
+than the mission's worktree describe a different tree, and when that tree is
+the main checkout they are green by construction and say nothing at all. So
+the gate additionally refuses a mission whose tests ran in a different tree
+than its implementation, or in no recorded tree. This is not hypothetical:
+until `0f39e22`, only write-capable task types received a worktree and every
+successor — test, review, report — fell back to the live main checkout, so the
+testing agent ran main's already-passing suite and the adversarial reviewer
+read code the mission had never touched. Successors now inherit their
+predecessor's worktree by walking `depends_on`.
+
 ## Failure handling
 
 Ten kinds, none collapsing into a generic FAILED: `TRANSIENT` retries,

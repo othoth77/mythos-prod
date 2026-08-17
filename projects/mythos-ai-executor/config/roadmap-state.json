@@ -73,7 +73,20 @@
         "verification": "Re-run independently in the mission worktree at the recorded commit (owner session, 2026-08-17). Supersedes the figures first recorded here, which the test task had measured in the MAIN CHECKOUT rather than the mission branch — the wrong-tree defect fixed in scheduler.js (worktree inheritance) and guarded in campaign.js acceptMission."
       },
       "recorded_at": "2026-08-17T22:37:05.288Z"
+    },
+    "H": {
+      "status": "IMPLEMENTED",
+      "evidence": {
+        "commit": "2ad7a103775e546b72ea8cc6b79996c4631365d5",
+        "tests": [
+          "tests/mythos-orchestration-core-test.js: 263 passed, 0 failed"
+        ],
+        "mission_id": "m-msxu28zj-87213f",
+        "campaign_id": "c-msxnck3a-00282b",
+        "recorded_by": "autonomous campaign"
+      },
+      "recorded_at": "2026-08-17T23:08:47.586Z"
     }
   },
-  "updated_at": "2026-08-17T22:37:05.288Z"
+  "updated_at": "2026-08-17T23:08:47.586Z"
 }
