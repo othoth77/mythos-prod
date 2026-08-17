@@ -21,6 +21,8 @@
 //   mythos-ai-executor goal report <goal-id>
 //   mythos-ai-executor goal cancel <goal-id>
 //   mythos-ai-executor goal list
+//
+//   mythos-ai-executor dr-report                     AF: runtime-state gap report (read-only)
 // =====================================================
 
 var fs = require('fs');
@@ -243,6 +245,13 @@ switch (cmd) {
     }
     break;
   }
+  case 'dr-report': {
+    // READ-ONLY by design — see core/dr-gap-report.js. Reports the runtime
+    // queue/memory/state gap; never backs anything up or moves anything.
+    var drReport = require(path.join(BASE, 'core', 'dr-gap-report'));
+    printJSON(drReport.buildReport());
+    break;
+  }
   default:
-    die('usage: mythos-ai-executor <enqueue|run|resume|status|report|list|health|serve|tick|goal|budget|campaign>', 1);
+    die('usage: mythos-ai-executor <enqueue|run|resume|status|report|list|health|serve|tick|goal|budget|campaign|dr-report>', 1);
 }
