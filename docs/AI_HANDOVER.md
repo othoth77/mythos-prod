@@ -29,6 +29,108 @@
 
 ---
 
+## UNTRACKED-PATH AUDIT + LOOP DOC PRESERVATION (2026-08-17) — **PRESERVATION ALREADY SATISFIED BY A CONCURRENT SESSION; ONE UNRESOLVED DRIFT RECORDED, NOTHING DEPLOYED, NO SERVICE TOUCHED**
+
+**Stage:** owner-ordered read-only audit of the working tree's untracked paths,
+followed by preservation of the autonomous-loop stage record.
+**Status: PASS**, with one finding deliberately left unresolved for the owner.
+
+**Objective.** Determine what the untracked paths in the live checkout were,
+whether they belonged in GitHub, and preserve `docs/MYTHOS_AUTONOMOUS_LOOP.md`
+if canonical — without modifying deployment files, application code, Command
+Center, or any running service.
+
+### The preservation was already done — by another session, not this one
+
+`docs/MYTHOS_AUTONOMOUS_LOOP.md` (127 lines, 6,485 bytes) is tracked and on the
+remote. It was committed by a **concurrent session** at 20:51:38 as part of
+`b54b4f6`, and its handover stage record was added by that same workstream in
+`8079319`. By the time the preservation order was executed there was nothing
+left to stage: the working copy is byte-identical to the committed blob
+(`2251afd65901c715ee8640b8c78e3de112fe020c` on both sides), so **no commit was
+created for the preservation itself** — an empty commit would have recorded work
+that did not happen. Recorded plainly rather than claimed as this session's
+delivery.
+
+| Check | Result |
+| --- | --- |
+| Tracked at HEAD | yes |
+| Added by | `b54b4f6` (2026-08-17 20:51:38) |
+| Working copy vs HEAD | byte-identical, blob `2251afd6` |
+| Present in `origin/main` tree | yes (`git cat-file -e origin/main:docs/MYTHOS_AUTONOMOUS_LOOP.md`) |
+| Remote HEAD at time of record | `b0fc35f597a2b32acbef9d2cc6196780879d928c` |
+| Documents code tracked at HEAD | `core/{campaign,campaign-runner,roadmap}.js`, `tests/mythos-autonomous-campaign-test.js` — all four verified present |
+| Secrets | none — content re-read in full; no credential, token, key or environment value |
+
+### Audit result for the other paths
+
+- `projects/command-center/` + `tests/mcc-1-command-center-test.js` — audited as
+  **canonical, secret-free** (credentials taken from `process.env`;
+  `reference/secrets.js` is a secret-*detection* module, not a store;
+  `node_modules/` correctly excluded by `.gitignore:24`). Committed independently
+  by the MCC-1 workstream in `dae9f35`. No action taken here.
+- `projects/mythos-ai-executor/config/roadmap-state.json` — appeared mid-audit,
+  committed in `8079319`. Not independently audited.
+
+### UNRESOLVED — SSangYong deployment drift
+
+`projects/ssangyong-autos/deploy/` **remains untracked** and is the only
+untracked path left in the working tree. It is **not** secret-bearing: all three
+files externalise credentials through
+`EnvironmentFile=/home/deploy/deployments/ssangyong-autos-storefront/.env`,
+outside the repository. Content is safe to track.
+
+**The blocker is drift, not secrets.** The repository copy is not what is
+running:
+
+| Repo file | Installed counterpart | Divergence |
+| --- | --- | --- |
+| `deploy/nginx-ssangyong-storefront.conf` (72 lines) | `/etc/nginx/sites-enabled/ssangyong.autos` (48 lines) | **101 changed lines**; the installed copy carries an `ssl_certificate_key` path the repo copy does not |
+| `command-center/deploy/nginx-ordre.mythosprod.xyz.conf` (55 lines) | `/etc/nginx/sites-enabled/ordre.mythosprod.xyz` (52 lines) | 3 changed lines (committed in this state) |
+
+Committing the SSangYong files as-is would record configuration that looks
+authoritative but is not what serves traffic. **Which copy is authoritative is an
+owner decision and is deliberately left open.** No deploy file was modified,
+staged, or committed.
+
+**Correction to an earlier record.** The MCC-1 entry below states that
+`projects/ssangyong-autos/deploy/` was "another session's work in progress."
+Direct inspection shows otherwise: its three files date from 2026-08-16
+17:10–17:29 and have not changed since. It is dormant pre-existing work, not
+in-flight work.
+
+### Also recorded
+
+- **MCC-1 runs from the live checkout.** `reference/server.js` is a
+  systemd-parented service (user `deploy`) listening on `127.0.0.1:3021`,
+  executing directly out of `projects/command-center/` in this working tree. Any
+  future `checkout`, `reset`, `stash`, or branch switch touching that path
+  changes code under a running service. The repo's unit names
+  `EnvironmentFile=/home/deploy/deployments/mythos-command-center/.env`, which
+  **does not exist** — so the installed unit differs from the committed one, the
+  same drift class as the nginx configs above.
+- **Concurrent-session hazard is real, not theoretical.** Three Claude sessions
+  shared this checkout during the audit and HEAD advanced four times mid-task
+  (`6d86e0b` → `dae9f35` → `b54b4f6` → `8079319` → `b0fc35f`). The autonomous
+  loop was running throughout and stayed correctly isolated in
+  `mythos/m-*` worktrees, never touching `main` directly.
+
+### Validation
+
+| Item | Result |
+| --- | --- |
+| Tests | **None run — documentation-only change (`AGENTS.md` §8).** Validated instead: file re-read in full; blob identity compared; remote tree membership confirmed; every path named verified to exist; drift measured with `diff`, not estimated |
+| Files changed | `docs/AI_HANDOVER.md` only |
+| Application code / Command Center / SSangYong files | **0 modified** |
+| Services | **0 restarted, 0 stopped, 0 signalled.** The running MCC-1 service was not touched |
+| Secrets printed or committed | **0** — process inspection excluded `/proc/*/environ`; `.env` files checked for existence only |
+
+**Next stage: MYTHOS DESIGN RECOVERY.** Carried forward unresolved: the
+SSangYong deployment drift above (owner decision on which copy is authoritative);
+the repository-migration gate's blocking precondition (what `othoth77/mythos-os`
+actually contains); and owner review of `docs/MYTHOS_AI_OPERATING_LAYER.md`,
+with MAOL-1 gated on O-MAOL-1/2/3.
+
 ## MYTHOS AUTONOMOUS DEVELOPMENT LOOP (2026-08-17) — **PASS WITH ONE HONEST CAVEAT; THE LOOP RAN ITSELF, CHOSE ITS OWN WORK, AND FOUND TWO DEFECTS NO TEST CAUGHT**
 
 **Stage:** MYTHOS AUTONOMOUS DEVELOPMENT LOOP (first self-developing version)
