@@ -254,6 +254,30 @@ See `docs/MYTHOS_PERSONAL_INTELLIGENCE_VISION.md` for the strategic direction, `
 
 ---
 
+## Mythos AI Operating Layer — Umbrella Specification Track
+
+The **Mythos AI Operating Layer** (MAOL) is the product-facing intelligence layer inside Mythos OS — the substrate consulted by user conversations, background workflows, scheduled jobs, document pipelines, and product code alike. Strategic principle, inherited unchanged from the Personal Intelligence track: **"Shared capabilities, isolated intelligence."**
+
+**MAOL is an umbrella, not a competing track.** It composes the Personal Intelligence (MPI-\*), Automation (AUT-\*/INF-\*), Orchestrator (Phase 1–8) and Research Intelligence (RES-\*) tracks and names the owning canonical document for every component. It does **not** renumber, supersede, or reprioritise any of them.
+
+**Naming note:** MAOL is distinct from the **Mythos AI Orchestrator** (`docs/MYTHOS_AI_ORCHESTRATOR_MASTER_VISION.md`, `docs/MYTHOS_ORCHESTRATION_CORE.md`), despite the similar names. The Orchestrator serves *builders* — development missions against this repository and its infrastructure. MAOL serves *products and end users*, and reuses the Orchestrator as one of its execution substrates. See `docs/MYTHOS_AI_OPERATING_LAYER.md` §0.3.
+
+| Stage | Description | Status |
+|---|---|---|
+| MAOL-0 | Master specification — all 20 components, traceability matrix, 27 preserved agreements, 10 open owner decisions | ✓ Done (2026-08-17) — **specification only, no runtime behaviour changed** |
+| MAOL-1 | Foundation and AI Gateway — provider-independent gateway, capability classes, adapters, health/quota/fallback, budget integration, audit skeleton, API skeleton | Planned — **NOT AUTHORISED**; entry-gated on O-MAOL-1/2/3 |
+| MAOL-2 | Memory + Knowledge — four memory tiers product-side, Context Engine at product breadth, Knowledge Vault, Document Intelligence | Planned (blocked on MAOL-1, and on D3/D5 storage implementation) |
+| MAOL-3 | Agents — registry, the eight specialised agents, governance, skills library, human approval inbox | Planned (blocked on MAOL-2) |
+| MAOL-4 | Automation with n8n — product event bus, business event catalogue, n8n product workflows, business connectors, AI Workflow Builder | Planned (blocked on MAOL-3) |
+| MAOL-5 | Digital Twin — company/project/operations/resource/user projection, knowledge-graph relationships | Conceptual (blocked on MAOL-4) |
+| MAOL-6 | Controlled self-improvement — feedback loop, evaluation, proposal → review → approval → staged application, agent reputation | Conceptual (blocked on MAOL-5) |
+
+**MAOL-0 does not change the currently authorised implementation priority above.** No MAOL phase beyond 0 may start without an explicit owner order, and the one-major-implementation-stage-at-a-time rule continues to bind this track exactly as it binds every other.
+
+Ten open owner decisions (O-MAOL-1..10) are recorded in `docs/MYTHOS_AI_OPERATING_LAYER.md` §C — none was made or implied by MAOL-0. Twenty-seven prior agreements the specification explicitly preserves (including the ratified vector-search deferral, MPI decisions D1–D5, and the 18 permanent `LEVEL_3` boundaries) are recorded in §B of the same document.
+
+---
+
 ## ID Auto — Separate Product Track
 
 ID Auto (`idauto.tn`) is a vehicle plate lookup and vehicle intelligence platform for Tunisia. It is a product within the Mythos ecosystem, sharing this repository under `projects/idauto/` and `docs/IDAUTO_*.md`.

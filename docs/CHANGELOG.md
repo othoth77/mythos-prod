@@ -6,6 +6,17 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Added — MAOL-0 — Mythos AI Operating Layer Master Specification
+
+- Umbrella specification for the product-facing AI layer inside Mythos OS (`docs/MYTHOS_AI_OPERATING_LAYER.md`), covering all 20 agreed components: vision, AI Gateway, n8n integration layer, event-driven architecture, AI Brain, four-tier memory, eight specialised agents, agent governance, AI skills library, context engine, knowledge vault, document intelligence, AI workflow builder, human approval layer, audit and trace, digital twin, continuous improvement loop, external connectors, security architecture, enterprise readiness, marketplace, and a six-phase roadmap.
+- Traceability matrix (§A) naming the owning canonical document and verified status (IMPLEMENTED/DESIGNED/PLANNED/CONCEPTUAL) for every component — the specification composes 23 existing documents rather than replacing any of them.
+- Preserved-agreements register (§B): 27 prior decisions the specification explicitly does not override, including the ratified vector-search deferral, MPI owner decisions D1–D5, the 18 permanent `LEVEL_3` approval boundaries, the `.claude/skills/` Agent-Development-Skill boundary, and data-layer tenant isolation.
+- Open-decision register (§C): 10 owner decisions (O-MAOL-1..10) recorded rather than resolved.
+- Resolution of the naming collision with the existing Mythos AI Orchestrator: the Operating Layer serves products and end users; the Orchestrator serves builders; the former reuses the latter as an execution substrate, and neither is renamed or deprecated.
+- Roadmap track registration (`docs/ROADMAP.md`) with stages MAOL-0..MAOL-6 and their entry gates.
+
+Specification only — no runtime behaviour changed, nothing deployed, no owner decision made.
+
 ### Added — MPI-0 — Mythos Personal Intelligence & Skills Platform Foundation
 
 - Strategic architecture direction: shared, per-user/per-organisation/per-profession AI personalisation platform (`docs/MYTHOS_PERSONAL_INTELLIGENCE_VISION.md`).

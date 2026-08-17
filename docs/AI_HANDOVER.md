@@ -26,6 +26,59 @@
 
 ---
 
+## MAOL-0 — MYTHOS AI OPERATING LAYER MASTER SPECIFICATION (2026-08-17) — **SPECIFICATION ONLY; NO RUNTIME BEHAVIOUR CHANGED**
+
+### Stage
+
+MAOL-0 — Phase 0 of the Mythos AI Operating Layer roadmap. Specification only.
+
+### Objective
+
+Record, in one authoritative place, the complete agreed specification for the **Mythos AI Operating Layer** — the product-facing intelligence layer inside Mythos OS — covering all 20 agreed components, without overwriting any canonical document and without losing any previous agreement.
+
+### Document
+
+`docs/MYTHOS_AI_OPERATING_LAYER.md` — **new file, 1891 lines.** No prior version existed (verified before creation: `operating layer`, `AI Operating`, `Knowledge Vault`, `Digital Twin`, `AI Gateway` returned no prior definition anywhere in `docs/` or `AGENTS.md`).
+
+### Naming collision — resolved, not ignored
+
+The owner's term "Mythos AI Operating Layer (previously Mythos AI Orchestration Layer)" collides with the **existing** `docs/MYTHOS_AI_ORCHESTRATOR_MASTER_VISION.md`, which describes a different artefact. §0.3 of the new document resolves this explicitly: the **Orchestrator** serves *builders* (this repository, its missions, its infrastructure); the **Operating Layer** serves *products and end users*. The Operating Layer **reuses the Orchestrator as an execution substrate**; the Orchestrator is not renamed, deprecated, or absorbed. Both documents remain authoritative on their own subject.
+
+### Composition, not replacement
+
+The specification composes 23 existing canonical documents and names the owning document for every one of its components (§A traceability matrix). Where it conflicts with a canonical document, **the canonical document wins and the new document is the one to correct** (§0.2). Status vocabulary is reused unchanged from `MYTHOS_AI_ORCHESTRATOR_MASTER_VISION.md` §0.
+
+### No agreement lost — §B records 27 preserved agreements
+
+Explicitly preserved and **not** overridden, including: the ratified **vector-search deferral** (§13 of the memory engine — the new §4.6 specifies the interface but is marked PLANNED-DEFERRED and states plainly that it is not authorisation to install `pgvector`); MPI ratified decisions **D1(c)/D2/D3/D5** and the still-open **D4**; the **18 permanent `LEVEL_3` boundaries** (floor, not ceiling); the `.claude/skills/` Agent-Development-Skill boundary (`AGENTS.md` §24); tenant isolation enforced at the data layer, never by prompt; "AI learning must never grant permissions"; default learned scope `user`; provider independence; "n8n never becomes the orchestration state store"; `ROOT`/`DESTRUCTIVE` hard-floor; advisory agents never promotable to execution authority; **Gemini registered UNCONFIGURED, no credential invented**; the safeguard surface refused at build time; one-writer-per-noun; SSANGYONG frozen; the one-major-stage rule; and the 18 permanent design principles.
+
+§C records **10 open owner decisions (O-MAOL-1..10)** rather than resolving them. No owner decision was made, assumed, or implied by this stage.
+
+### Implementation
+
+**No runtime behaviour changed.** No code, test, service, n8n workflow, database, credential, connector, feature flag, systemd unit, nginx, or firewall rule was touched. Nothing was deployed. No provider was contacted. The deployed executor and orchestration core were not modified. SSANGYONG remained frozen. The concurrently active session's in-flight work (`docs/MYTHOS_BUDGET_LEDGER.md`, core lease work) was not touched, and the pre-existing untracked `projects/ssangyong-autos/deploy/` was preserved.
+
+### Record
+
+| | |
+|---|---|
+| Base | `315ddde`, branch `main`. Shared checkout — a concurrent session committed `315ddde` and further handover records during this stage; no file was contended. |
+| Specification commit | `0124868` |
+| Registration commit | this entry, on top |
+| Remote HEAD | delivered by the `mythos-git-push.timer` relay (verified `active`/`enabled`, ~5min cadence, fast-forward only). Session SSH push authority is unavailable as usual — see blocker note. |
+| Tests | **None run — documentation-only change (`AGENTS.md` §8).** Validated instead: 1891 lines; **76 code fences, balanced**; 0 trailing-whitespace lines; 0 tabs; all 20 required sections present in order; **all 23 referenced `docs/*.md` paths resolve**; all 11 referenced core modules resolve; secret-shape scan clean; `git diff --check` clean; only intended files staged. |
+| Files changed | `docs/MYTHOS_AI_OPERATING_LAYER.md` (new); `docs/AI_HANDOVER.md`, `docs/ROADMAP.md`, `docs/CHANGELOG.md` (registration). |
+
+### Blocker (exact, honest)
+
+Direct `git push` from this session fails with `git@github.com: Permission denied (publickey)` — the long-recorded residual that push authority lives only in session-created SSH agents (`~/.ssh/agent/…` reports "The agent has no identities"; no key readable by `ubuntu`; no `gh` CLI). **This is not a delivery blocker any more:** the `mythos-git-push` systemd timer installed by MYTHOS-GIT-DELIVERY-0 (root-owned, runs as `deploy`, fast-forward only) delivers local `main` within ~5 minutes and was confirmed `active` + `enabled` during this stage. Delivery must still be confirmed by comparing `git rev-parse HEAD` with `git ls-remote origin refs/heads/main`.
+
+### Next stage
+
+**Owner review of `docs/MYTHOS_AI_OPERATING_LAYER.md`, then MAOL Phase 1 (Foundation and AI Gateway) — which must not start without an explicit owner order**, and which is entry-gated on decisions **O-MAOL-1** (contracted providers and data-processing terms), **O-MAOL-2** (per-tenant AI budget model), and **O-MAOL-3** (data residency / external-model eligibility by classification). MAOL does not change the currently authorised implementation priority in `docs/ROADMAP.md`, and the one-major-stage rule continues to apply.
+
+---
+
 ## MYTHOS RESERVATION RECOVERY / LEASE SYSTEM (2026-08-17) — **PASS; CRASHED HOLDERS RECOVER AUTOMATICALLY, LIVE HOLDERS ARE NEVER STOLEN FROM**
 
 **Stage:** RESERVATION RECOVERY / LEASE SYSTEM · **Status: PASS**
