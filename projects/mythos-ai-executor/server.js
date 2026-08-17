@@ -247,12 +247,19 @@ function handler(req, res, token) {
   // only through a reviewed commit to config/budgets.json.
   if (req.method === 'GET' && /^\/budget(\/|$)/.test(url)) {
     var budget = require('./core/budget');
-    var bm = /^\/budget\/([a-z0-9][a-z0-9-]{1,63})(\/history)?$/.exec(url);
-    if (!bm) return send(res, 404, { error: 'usage: GET /budget/<project>[/history]' });
+    var bm = /^\/budget\/([a-z0-9][a-z0-9-]{1,63})(\/history|\/reservations)?$/.exec(url);
+    if (!bm) return send(res, 404, { error: 'usage: GET /budget/<project>[/history|/reservations]' });
     try {
-      return bm[2]
-        ? send(res, 200, { project: bm[1], entries: budget.history(bm[1], {}) })
-        : send(res, 200, budget.status(bm[1], {}));
+      if (bm[2] === '/history') {
+        return send(res, 200, { project: bm[1], entries: budget.history(bm[1], {}) });
+      }
+      if (bm[2] === '/reservations') {
+        var all = budget.reservations(bm[1], {});
+        var byState = {};
+        all.forEach(function (r) { byState[r.lease_state] = (byState[r.lease_state] || 0) + 1; });
+        return send(res, 200, { project: bm[1], summary: byState, reservations: all });
+      }
+      return send(res, 200, budget.status(bm[1], {}));
     } catch (e) {
       return send(res, 400, { error: redact.redact(e.message) });
     }

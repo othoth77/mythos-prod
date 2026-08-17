@@ -50,6 +50,16 @@ var LOCK_STALE_MS = 30000;
 // A reservation held this long without settling or releasing is reported
 // as stale (observability only — never auto-released).
 var STALE_RESERVATION_MS = 6 * 60 * 60 * 1000;
+
+// --- Reservation leases -------------------------------------------------------
+// A reservation is held under a LEASE: a persisted expiry plus the identity
+// of the holder. A crashed holder's lease expires and the budget is
+// recovered deterministically, with no memory-only timers and no manual
+// step. A LIVE holder is never stolen from — recovery is fail-safe.
+var LEASE_MS = 15 * 60 * 1000;              // default lease granted on reserve
+var LEASE_GRACE_MS = 2 * 60 * 1000;         // slack past expiry before recovery
+var UNVERIFIABLE_HOLDER_GRACE_MS = 60 * 60 * 1000; // holder we cannot probe (other host)
+var LEASE_STATES = ['ACTIVE', 'EXPIRED', 'RELEASED', 'SETTLED', 'RECOVERED'];
 var LOCK_WAIT_MS = 5000;
 
 // --- Configuration -------------------------------------------------------------
@@ -173,6 +183,86 @@ function withLock(file, fn) {
     if (fd !== null) { try { fs.closeSync(fd); } catch (e) { /* ignore */ } }
     try { fs.unlinkSync(lock); } catch (e) { /* already released */ }
   }
+}
+
+// Holder identity: host + pid + the process's own start time. The start
+// time makes the identity immune to PID reuse — a new process that happens
+// to get the dead holder's pid does not look like the dead holder.
+// Reads /proc/<pid>/stat once: the fields after the final ')' start at
+// field 3 (state), so index 0 is state and index 19 is starttime (22).
+function procStat(pid) {
+  try {
+    var stat = fs.readFileSync('/proc/' + pid + '/stat', 'utf8');
+    var after = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
+    return { state: after[0] || null, starttime: after[19] || null };
+  } catch (e) {
+    return null;
+  }
+}
+
+function processStartTicks(pid) {
+  var st = procStat(pid);
+  return st ? st.starttime : null;
+}
+
+function holderId() {
+  return [require('os').hostname(), process.pid, processStartTicks(process.pid) || '0'].join(':');
+}
+
+// Returns 'alive' | 'dead' | 'unknown'. 'unknown' means we cannot prove
+// either way (e.g. another host) and callers must treat it as alive until
+// a much longer grace period has passed.
+function holderStatus(id) {
+  if (!id || typeof id !== 'string') return 'unknown';
+  var parts = id.split(':');
+  var host = parts[0], pid = parseInt(parts[1], 10), ticks = parts[2];
+  if (host !== require('os').hostname()) return 'unknown';
+  if (!pid) return 'unknown';
+  var alive;
+  try { process.kill(pid, 0); alive = true; } catch (e) { alive = (e.code === 'EPERM'); }
+  if (!alive) return 'dead';
+  var st = procStat(pid);
+  // A ZOMBIE has exited but has not been reaped by its parent. /proc still
+  // lists it and kill(pid,0) still succeeds, so a naive liveness check
+  // would keep its budget hostage until the parent happens to reap it.
+  // It has stopped executing, so for lease purposes it is dead.
+  if (st && st.state === 'Z') return 'dead';
+  // The pid exists — but is it the SAME process that took the lease?
+  var current = st ? st.starttime : null;
+  if (ticks && ticks !== '0' && current && current !== ticks) return 'dead'; // pid reused
+  return 'alive';
+}
+
+// Derived lease state for one entry. EXPIRED is derived from the clock;
+// RECOVERED/SETTLED/RELEASED are persisted terminal facts.
+function leaseState(entry, nowMs) {
+  if (!entry) return null;
+  if (entry.status === 'SETTLED') return 'SETTLED';
+  if (entry.status === 'RELEASED') return 'RELEASED';
+  if (entry.status === 'RECOVERED') return 'RECOVERED';
+  var expires = entry.lease_expires_at ? Date.parse(entry.lease_expires_at) : null;
+  if (expires && (nowMs === undefined ? Date.now() : nowMs) > expires) return 'EXPIRED';
+  return 'ACTIVE';
+}
+
+// A reservation may be recovered only when its lease has expired AND its
+// holder is provably gone (or unverifiable for a long grace). Uncertainty
+// always resolves to "do not recover".
+function recoverable(entry, nowMs) {
+  nowMs = nowMs === undefined ? Date.now() : nowMs;
+  if (!entry || entry.status !== 'RESERVED') return { ok: false, reason: 'not an active reservation' };
+  var expires = entry.lease_expires_at ? Date.parse(entry.lease_expires_at) : null;
+  if (!expires) return { ok: false, reason: 'no lease recorded (legacy entry) — left untouched' };
+  if (nowMs <= expires + LEASE_GRACE_MS) return { ok: false, reason: 'lease still valid (within grace)' };
+  var status = holderStatus(entry.holder_id);
+  if (status === 'alive') return { ok: false, reason: 'holder is still alive — never steal a live reservation' };
+  if (status === 'unknown') {
+    if (nowMs <= expires + UNVERIFIABLE_HOLDER_GRACE_MS) {
+      return { ok: false, reason: 'holder liveness unverifiable — waiting out the long grace (fail safe)' };
+    }
+    return { ok: true, reason: 'holder unverifiable and long grace elapsed' };
+  }
+  return { ok: true, reason: 'holder is gone and the lease expired' };
 }
 
 // --- Ledger read/write ---------------------------------------------------------------
@@ -371,12 +461,24 @@ function reserve(req) {
         budget: Object.assign({ project: project, period_key: periodKey }, t) };
     }
 
+    var nowIso = new Date().toISOString();
+    var leaseMs = typeof req.lease_ms === 'number' && req.lease_ms > 0 ? req.lease_ms : LEASE_MS;
     ledger.entries[req.reservation_id] = {
       status: 'RESERVED', amount: Math.round(req.amount * 100) / 100,
       cost_basis: req.cost_basis,
       provider: req.provider || null, agent: req.agent || null, tool: req.tool || null,
       mission_id: req.mission_id || null, task_id: req.task_id || null,
-      reserved_at: new Date().toISOString()
+      project_id: project, currency: budget.currency, scope: scope,
+      attempt_id: req.attempt_id || null,
+      reserved_at: nowIso,
+      created_at: nowIso,
+      updated_at: nowIso,
+      // The lease is PERSISTED, never a memory-only timer: any process can
+      // read it and decide recovery deterministically.
+      holder_id: req.holder_id || holderId(),
+      lease_ms: leaseMs,
+      lease_expires_at: new Date(Date.now() + leaseMs).toISOString(),
+      heartbeats: 0
     };
     writeLedger(file, ledger);
     var after = totals(ledger);
@@ -384,6 +486,13 @@ function reserve(req) {
       project: project, period_key: periodKey, reservation_id: req.reservation_id,
       amount: req.amount, remaining: after.remaining, task_id: req.task_id || null,
       mission_id: req.mission_id || null, provider: req.provider || null
+    });
+    emitBudgetEvent('RESERVATION_CREATED', {
+      project: project, period_key: periodKey, scope: scope,
+      reservation_id: req.reservation_id, amount: req.amount,
+      currency: after.currency, task_id: req.task_id || null, mission_id: req.mission_id || null,
+      attempt_id: req.attempt_id || null,
+      lease_expires_at: ledger.entries[req.reservation_id].lease_expires_at
     });
     return { decision: 'allow', reservation_id: req.reservation_id,
       budget: Object.assign({ project: project, period_key: periodKey }, after),
@@ -420,6 +529,15 @@ function settle(req) {
     if (entry.status === 'RELEASED') {
       return { ok: false, reason: 'RESERVATION_RELEASED: cannot settle a released reservation' };
     }
+    if (entry.status === 'RECOVERED') {
+      // Settling after recovery is handled SAFELY: the hold was already
+      // returned to the budget, so re-settling it would spend money the
+      // ledger has re-offered to someone else. Refused, not silently
+      // applied; the caller must take a fresh reservation.
+      return { ok: false, reason: 'RESERVATION_RECOVERED: the lease expired and was recovered — ' +
+        'take a new reservation instead of settling a recovered one',
+        lease_state: 'RECOVERED' };
+    }
     var actual = typeof req.actual_amount === 'number' && isFinite(req.actual_amount) && req.actual_amount >= 0
       ? Math.round(req.actual_amount * 100) / 100 : entry.amount;
     // Cap an over-settlement at what the budget can still absorb, and say so.
@@ -445,6 +563,11 @@ function settle(req) {
     }
     writeLedger(file, ledger);
     var after = totals(ledger);
+    emitBudgetEvent('RESERVATION_SETTLED', {
+      project: req.project, period_key: periodKey, scope: scope,
+      reservation_id: req.reservation_id, amount: entry.amount, settled_amount: actual,
+      currency: after.currency, task_id: entry.task_id, mission_id: entry.mission_id
+    });
     emitBudgetEvent('BUDGET_SETTLED', {
       project: req.project, period_key: periodKey, reservation_id: req.reservation_id,
       settled: actual, capped: capped, spent: after.spent, remaining: after.remaining,
@@ -480,11 +603,22 @@ function release(req) {
     if (entry.status === 'SETTLED') {
       return { ok: false, reason: 'ALREADY_SETTLED: a settled spend is never released' };
     }
+    if (entry.status === 'RECOVERED') {
+      // Releasing after recovery is a no-op: the budget is already free.
+      return { ok: true, idempotent_replay: true, lease_state: 'RECOVERED',
+        reason: 'already recovered — the hold was returned when the lease expired',
+        budget: Object.assign({ project: req.project, period_key: periodKey }, totals(ledger)) };
+    }
     entry.status = 'RELEASED';
     entry.released_at = new Date().toISOString();
     entry.release_reason = String(req.reason || 'unspecified').slice(0, 200);
     writeLedger(file, ledger);
     var after = totals(ledger);
+    emitBudgetEvent('RESERVATION_RELEASED', {
+      project: req.project, period_key: periodKey, scope: scope,
+      reservation_id: req.reservation_id, amount: entry.amount,
+      currency: after.currency, task_id: entry.task_id, reason: entry.release_reason
+    });
     emitBudgetEvent('BUDGET_RELEASED', {
       project: req.project, period_key: periodKey, reservation_id: req.reservation_id,
       amount: entry.amount, remaining: after.remaining, task_id: entry.task_id,
@@ -536,6 +670,156 @@ function check(req) {
 
 // Deterministic reservation id for a task attempt: stable across retries
 // of the SAME attempt (idempotent) but distinct per attempt.
+// --- Lease heartbeat and recovery ------------------------------------------------
+
+// Renews the lease on a live reservation. Idempotent, persisted, and it
+// NEVER changes the amount — a heartbeat can only move the expiry forward,
+// so it can neither create budget nor duplicate a reservation.
+function heartbeat(req) {
+  req = req || {};
+  var scope = req.scope || 'DAY';
+  var budget = projectBudget(req.project, req.config);
+  var periodKey = req.period_key ||
+    (scope === 'MISSION' ? String(req.mission_id) : periodKeyFor(scope, budget.timezone, req.at));
+  var file = ledgerFile(req.project, scope, periodKey);
+  try {
+    return withLock(file, function () {
+      var ledger = readLedgerRaw(file);
+      var entry = ledger && ledger.entries[req.reservation_id];
+      if (!entry) return { ok: false, reason: 'NO_SUCH_RESERVATION: ' + String(req.reservation_id).slice(0, 60) };
+      if (entry.status !== 'RESERVED') {
+        // Rejected after recovery/settlement/release: a terminal
+        // reservation can never be revived by a heartbeat.
+        return { ok: false, reason: 'NOT_ACTIVE: reservation is ' + entry.status +
+          ' — a heartbeat cannot revive it', lease_state: leaseState(entry) };
+      }
+      if (req.holder_id && entry.holder_id && req.holder_id !== entry.holder_id) {
+        return { ok: false, reason: 'NOT_THE_HOLDER: this process does not hold the lease' };
+      }
+      var leaseMs = typeof req.lease_ms === 'number' && req.lease_ms > 0 ? req.lease_ms
+        : (entry.lease_ms || LEASE_MS);
+      var amountBefore = entry.amount;
+      entry.lease_expires_at = new Date(Date.now() + leaseMs).toISOString();
+      entry.updated_at = new Date().toISOString();
+      entry.heartbeats = (entry.heartbeats || 0) + 1;
+      entry.amount = amountBefore;   // explicit: a heartbeat never moves money
+      writeLedger(file, ledger);
+      emitBudgetEvent('RESERVATION_HEARTBEAT', {
+        project: req.project, period_key: periodKey, scope: scope,
+        reservation_id: req.reservation_id, amount: entry.amount,
+        heartbeats: entry.heartbeats, lease_expires_at: entry.lease_expires_at,
+        task_id: entry.task_id, mission_id: entry.mission_id
+      });
+      return { ok: true, lease_expires_at: entry.lease_expires_at,
+        heartbeats: entry.heartbeats, lease_state: 'ACTIVE' };
+    });
+  } catch (e) {
+    return { ok: false, reason: 'ledger unavailable: ' + String(e.message).slice(0, 160) };
+  }
+}
+
+// Sweeps one ledger and recovers every reservation whose lease expired AND
+// whose holder is provably gone. Atomic, idempotent (an already RECOVERED
+// entry is skipped), and fail-safe (uncertainty leaves the hold in place).
+function recoverExpired(project, opts) {
+  opts = opts || {};
+  var scope = opts.scope || 'DAY';
+  var budget = projectBudget(project, opts.config);
+  var periodKey = opts.period_key ||
+    (scope === 'MISSION' ? String(opts.mission_id) : periodKeyFor(scope, budget.timezone, opts.at));
+  var file = ledgerFile(project, scope, periodKey);
+  if (!fs.existsSync(file)) return { recovered: [], skipped: [], scanned: 0 };
+  var nowMs = opts.at || Date.now();
+  try {
+    return withLock(file, function () {
+      var ledger = readLedgerRaw(file);
+      if (!ledger) return { recovered: [], skipped: [], scanned: 0 };
+      var recovered = [], skipped = [];
+      Object.keys(ledger.entries).forEach(function (id) {
+        var entry = ledger.entries[id];
+        if (entry.status !== 'RESERVED') return;
+        var verdict = recoverable(entry, nowMs);
+        if (!verdict.ok) {
+          if (leaseState(entry, nowMs) === 'EXPIRED') skipped.push({ id: id, reason: verdict.reason });
+          return;
+        }
+        entry.status = 'RECOVERED';
+        entry.recovered_at = new Date().toISOString();
+        entry.updated_at = entry.recovered_at;
+        entry.recovery_reason = verdict.reason;
+        recovered.push({ id: id, amount: entry.amount, holder_id: entry.holder_id,
+          task_id: entry.task_id, mission_id: entry.mission_id });
+      });
+      if (recovered.length) writeLedger(file, ledger);
+      var after = totals(ledger);
+      recovered.forEach(function (r) {
+        emitBudgetEvent('RESERVATION_EXPIRED', {
+          project: project, period_key: periodKey, scope: scope,
+          reservation_id: r.id, amount: r.amount, task_id: r.task_id, mission_id: r.mission_id
+        });
+        emitBudgetEvent('RESERVATION_RECOVERED', {
+          project: project, period_key: periodKey, scope: scope,
+          reservation_id: r.id, amount: r.amount, currency: after.currency,
+          remaining_after: after.remaining, task_id: r.task_id, mission_id: r.mission_id
+        });
+      });
+      return { recovered: recovered, skipped: skipped,
+        scanned: Object.keys(ledger.entries).length, budget: after };
+    });
+  } catch (e) {
+    return { recovered: [], skipped: [], scanned: 0,
+      error: 'ledger unavailable: ' + String(e.message).slice(0, 160) };
+  }
+}
+
+// Startup sweep across every ledger the store holds. Called by the
+// scheduler at mission start — no second scheduler, no daemon of its own.
+function recoverAll(opts) {
+  opts = opts || {};
+  var root = budgetsRoot();
+  if (!fs.existsSync(root)) return { ledgers: 0, recovered: [] };
+  var recovered = [];
+  var ledgers = 0;
+  fs.readdirSync(root).filter(function (f) { return /\.json$/.test(f); }).forEach(function (f) {
+    var parts = f.replace(/\.json$/, '').split('__');
+    if (parts.length !== 3) return;
+    ledgers += 1;
+    var out = recoverExpired(parts[0], { scope: parts[1], period_key: parts[2],
+      at: opts.at, config: opts.config });
+    out.recovered.forEach(function (r) {
+      recovered.push(Object.assign({ project: parts[0], scope: parts[1], period_key: parts[2] }, r));
+    });
+  });
+  return { ledgers: ledgers, recovered: recovered };
+}
+
+// Read model: every reservation with its derived lease state.
+function reservations(project, opts) {
+  opts = opts || {};
+  var scope = opts.scope || 'DAY';
+  var budget = projectBudget(project, opts.config);
+  var periodKey = opts.period_key ||
+    (scope === 'MISSION' ? String(opts.mission_id) : periodKeyFor(scope, budget.timezone, opts.at));
+  var ledger = readLedgerRaw(ledgerFile(project, scope, periodKey));
+  if (!ledger) return [];
+  var nowMs = opts.at || Date.now();
+  return Object.keys(ledger.entries).map(function (id) {
+    var e = ledger.entries[id];
+    return {
+      reservation_id: id, scope: e.scope || scope, project_id: e.project_id || project,
+      mission_id: e.mission_id || null, task_id: e.task_id || null,
+      attempt_id: e.attempt_id || null, holder_id: e.holder_id || null,
+      amount: e.amount, currency: e.currency || ledger.currency,
+      status: e.status, lease_state: leaseState(e, nowMs),
+      holder_status: e.holder_id ? holderStatus(e.holder_id) : null,
+      created_at: e.created_at || e.reserved_at, updated_at: e.updated_at || null,
+      lease_expires_at: e.lease_expires_at || null, heartbeats: e.heartbeats || 0,
+      settled_amount: e.settled_amount === undefined ? null : e.settled_amount,
+      recovered_at: e.recovered_at || null, released_at: e.released_at || null
+    };
+  }).sort(function (a, b) { return String(a.created_at).localeCompare(String(b.created_at)); });
+}
+
 // --- Scope hierarchy: REQUEST → MISSION → PROJECT/DAY --------------------------
 //
 // A spend must pass EVERY applicable boundary. Enforcement order is
@@ -694,5 +978,17 @@ module.exports = {
   missionLimitFor: missionLimitFor,
   reservationIdFor: reservationIdFor,
   STALE_RESERVATION_MS: STALE_RESERVATION_MS,
+  LEASE_MS: LEASE_MS,
+  LEASE_GRACE_MS: LEASE_GRACE_MS,
+  UNVERIFIABLE_HOLDER_GRACE_MS: UNVERIFIABLE_HOLDER_GRACE_MS,
+  LEASE_STATES: LEASE_STATES,
+  holderId: holderId,
+  holderStatus: holderStatus,
+  leaseState: leaseState,
+  recoverable: recoverable,
+  heartbeat: heartbeat,
+  recoverExpired: recoverExpired,
+  recoverAll: recoverAll,
+  reservations: reservations,
   withLock: withLock
 };

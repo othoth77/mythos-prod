@@ -177,8 +177,13 @@ switch (cmd) {
       printJSON(budget.status(bproj, {}));
     } else if (bsub === 'history') {
       printJSON({ project: bproj, entries: budget.history(bproj, {}) });
+    } else if (bsub === 'reservations') {
+      var all = budget.reservations(bproj, {});
+      var byState = { ACTIVE: 0, EXPIRED: 0, RECOVERED: 0, SETTLED: 0, RELEASED: 0 };
+      all.forEach(function (r) { byState[r.lease_state] = (byState[r.lease_state] || 0) + 1; });
+      printJSON({ project: bproj, summary: byState, reservations: all });
     } else {
-      die('usage: mythos-ai-executor budget <status|history> [project]  (read-only; limits change only in config/budgets.json)', 1);
+      die('usage: mythos-ai-executor budget <status|history|reservations> [project]  (read-only; limits change only in config/budgets.json)', 1);
     }
     break;
   }

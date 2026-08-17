@@ -73,7 +73,27 @@ function runMission(missionId, opts) {
 
   var active = {};        // taskId → Promise
   var activeDirs = {};    // taskId → working dir occupied
+  var heartbeats = {};    // taskId → interval handle for its budget lease
   var peak = { concurrent: 0 };
+
+  // Startup lease sweep: budget held by a crashed holder is recovered
+  // before this mission plans around "remaining". No second scheduler and
+  // no daemon of its own — recovery rides the existing lifecycle.
+  if (opts.recover_leases !== false) {
+    try {
+      var ledgerForSweep = (policy && policy.ledger) || require('./budget');
+      if (typeof ledgerForSweep.recoverAll === 'function') {
+        var swept = ledgerForSweep.recoverAll({});
+        if (swept.recovered.length) {
+          store.appendEventLine({
+            event_type: 'RESERVATION_RECOVERED', subject_id: missionId,
+            project: mission.project,
+            detail: { swept_at_startup: swept.recovered.length, ledgers: swept.ledgers }
+          });
+        }
+      }
+    } catch (e) { /* a sweep failure must never block a mission */ }
+  }
 
   function occupiedDirs() {
     return Object.keys(activeDirs).map(function (k) { return activeDirs[k]; });
@@ -235,6 +255,27 @@ function runMission(missionId, opts) {
       }) } : {}));
     if (typeof opts.on_dispatch === 'function') opts.on_dispatch(task, ctx);
     activeDirs[task.id] = workDir;
+    // Keep the reservation's lease alive for as long as this task really
+    // runs, so a slow-but-healthy task is never recovered from under it.
+    if (reservation && typeof reservation.ledger.heartbeat === 'function') {
+      var beatMs = opts.heartbeat_ms ||
+        Math.max(30000, Math.floor((reservation.ledger.LEASE_MS || 900000) / 3));
+      heartbeats[task.id] = setInterval(function () {
+        try {
+          reservation.ledger.heartbeat({
+            project: reservation.project, reservation_id: reservation.id,
+            mission_id: mission.id
+          });
+          if (mission.id) {
+            reservation.ledger.heartbeat({
+              project: reservation.project, reservation_id: reservation.id,
+              scope: 'MISSION', period_key: mission.id
+            });
+          }
+        } catch (e) { /* a missed beat only shortens the lease */ }
+      }, beatMs);
+      if (heartbeats[task.id].unref) heartbeats[task.id].unref();
+    }
     var p = Promise.resolve().then(function () {
       return opts.runner(store.load('task', task.id), ctx);
     }).then(function (outcome) {
@@ -250,6 +291,10 @@ function runMission(missionId, opts) {
   function settle(result) {
     delete active[result.task_id];
     delete activeDirs[result.task_id];
+    if (heartbeats[result.task_id]) {
+      clearInterval(heartbeats[result.task_id]);
+      delete heartbeats[result.task_id];
+    }
     var task = store.load('task', result.task_id);
     var outcome = result.outcome;
     var to = outcome.status;
