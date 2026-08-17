@@ -128,8 +128,13 @@ checked mechanically:
 - `tests/core-test.js` — `_memCache is not defined`, last touched 2026-07-29,
   three weeks before this campaign, by an unrelated stage.
 - The legacy `stage1c-part1`, `stage2d`, `stage3a`, `stage3a5`, `stage3b`,
-  `stage3c`, `stage3d`, `stage3e` suites — the documented
-  `KNOWN_BASELINE_FAILURE` set in `projects/meta/known-baselines.json`.
+  `stage3c` and `stage3d` suites — the documented `KNOWN_BASELINE_FAILURE`
+  set in `projects/meta/known-baselines.json`.
+- `stage3e` also fails, and is **not** in that file. It is still not caused by
+  this work: it fails identically when run at `7560f68`, the commit before
+  these changes. It is an undocumented pre-existing failure, and either the
+  suite or the baseline file should be reconciled — out of scope here, but it
+  should not keep passing unnoticed as "expected".
 - `ida-*`, `mcc-1` and `sya-*` — env-blocked without their databases.
 
 A caution for future sweeps: pass/fail must be read from the **exit code**,
