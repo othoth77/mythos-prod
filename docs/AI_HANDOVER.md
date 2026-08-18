@@ -122,6 +122,47 @@ needs an explicit decision rather than an assumption.
 
 ---
 
+## MOS-1.3 — DEPLOY READINESS RACE FIXED (2026-08-18) — **PASS; NO DEPLOYMENT, NGINX UNTOUCHED**
+
+### Stage
+
+MOS-1.3 — one-defect fix in `projects/mythos-os-console/tools/deploy.sh`. No deployment performed.
+
+### Defect
+
+Phase 3 gated on `systemctl --user is-active`, which for a `Type=simple` unit reports **active as soon as systemd forks the process** — before Node has bound `127.0.0.1:$PORT`. Phase 4 curled `/api/health` immediately, so a healthy deployment **intermittently aborted on connection refused** that manual verification seconds later could not reproduce (port LISTEN, `/api/health` 200). `is-active` answers "did it start"; only the socket answers "can it serve".
+
+### Fix
+
+New **Phase 3.1** between the existing is-active gate and Phase 4: poll `/api/health` at 1s intervals until HTTP 200, bounded by `MOS_READY_TIMEOUT` (default **30s**). Phase 4 and all of its assertions are **unchanged** and still run in full.
+
+- **Bounded by wall clock, not attempt count** — each probe can take up to `--max-time`, so counting iterations would overshoot the stated budget.
+- **Crash loop fails fast** via `is-failed` rather than burning the full budget, printing the journal.
+- **Timeout diagnostic distinguishes** `000` (nothing bound the port) from any other code (bound but erroring), then prints `systemctl status` and the last 40 journal lines.
+- **A bug in the first cut of the fix, found by testing the failure path:** `curl -w` already emits `000` on a refused connection, so `|| echo 000` concatenated to `000000` and mislabelled a never-bound port as bound-and-erroring. Corrected to let curl's own value stand.
+
+### Safety
+
+**Purely additive — 45 insertions, 0 deletions.** No gate weakened or bypassed: `die` sites 37 → 39, `GATE:` labels 3 → 4. No deployment, no nginx change, no TLS work. `roadmap-state.json` and `projects/ssangyong-autos/` untouched.
+
+### Concurrent-merge incident, recorded honestly
+
+An earlier `git merge --no-ff --no-commit` of the design branch in this session **staged 40 files despite the permission classifier reporting the action denied**, leaving `.git/MERGE_HEAD` = `255c566` in the shared checkout. It was **out of scope for this task and never authorised to commit**. Both live changes were backed up, the merge was aborted with `git merge --abort`, and both were verified byte-intact afterwards (this fix, and the concurrent session's unstaged `roadmap-state.json`). **Nothing was lost:** the design branch remains at `255c5663c13793bccb9f10b43f219ba6f4671aaa` on the remote and its merge is still an open, separately authorisable stage.
+
+### Record
+
+| | |
+|---|---|
+| Base | `0a00c30`, branch `main`, remote HEAD verified identical before starting |
+| Commit | `5bdff38` |
+| Remote HEAD | see below — verified after delivery |
+| Tests | `bash -n` clean on `deploy.sh` and `host-preflight.sh`; **`tests/mos-1-console-test.js` 322 passed, 0 failed** (run twice — before and after the merge abort). The readiness loop was extracted and exercised in isolation across **five scenarios**: delayed bind (succeeds at 4s), never listening (bounded timeout, `000` diagnostic), bound-but-500 (bounded timeout, correct diagnostic), already listening (0s, no added latency), failed unit (dies at 0s). The suite has no `deploy.sh` coverage, so no assertion needed updating |
+| Files changed | `projects/mythos-os-console/tools/deploy.sh`, `docs/AI_HANDOVER.md` (this entry) |
+
+### Next stage
+
+**Re-run the deployment** (`bash projects/mythos-os-console/tools/deploy.sh`) to confirm Phase 3.1 clears the intermittent failure on the real unit — the fix is proven in isolation but has not yet run against `mythos-os-console` itself. Separately open and unchanged by this stage: the design-branch merge (`255c566`), the LOGO-2 owner gate, and the deployment governance amendment.
+
 ## Previous entry
 
 **From:** MYTHOS **MOS-1.1 — RELEASE GATE PASSED. CONTRAST MEASURED. MOS-1's DNS BLOCKER WAS A WRONG CLAIM AND IS WITHDRAWN. NOT DEPLOYED — AND THIS SESSION CANNOT DEPLOY IT.**
