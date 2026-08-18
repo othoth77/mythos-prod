@@ -168,7 +168,7 @@
     "redact_secrets_and_personal_data": true
   },
   "connector_catalogue": {
-    "_note": "Placeholders only. enabled is false for every connector. No credentials, no account IDs.",
+    "_note": "Placeholders only. enabled is false for every connector except backup_storage_readonly (O-BACKUP-6). No credentials, no account IDs. risk_level and cost_class are additive Tool Registry (roadmap capability K, docs/MYTHOS_AI_ORCHESTRATOR_MASTER_VISION.md §7) fields layered onto this precursor catalogue by projects/automation/reference/tool-registry-catalogue.js: risk_level is mechanically derived from permission (READ_ONLY->LOW, WRITE_SCOPED->HIGH, never hand-tuned) and cost_class is UNMEASURED_NO_LIVE_CALLS for every connector because no live network call has ever been made by any connector in this repository. Per-capability input/output schemas live in that module, not duplicated here, since a capability's shape does not depend on which connector exposes it.",
     "infrastructure": [
       {
         "connector_id": "ovh_readonly",
@@ -179,6 +179,8 @@
           "dnssec.read"
         ],
         "permission": "READ_ONLY",
+        "risk_level": "LOW",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -188,6 +190,8 @@
           "dns.write"
         ],
         "permission": "WRITE_SCOPED",
+        "risk_level": "HIGH",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -199,6 +203,8 @@
           "settings.read"
         ],
         "permission": "READ_ONLY",
+        "risk_level": "LOW",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -209,6 +215,8 @@
           "proxy.toggle"
         ],
         "permission": "WRITE_SCOPED",
+        "risk_level": "HIGH",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -220,6 +228,8 @@
           "pr.write"
         ],
         "permission": "WRITE_SCOPED",
+        "risk_level": "HIGH",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -230,6 +240,8 @@
           "service.read"
         ],
         "permission": "WRITE_SCOPED",
+        "risk_level": "HIGH",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -240,6 +252,8 @@
           "log.read"
         ],
         "permission": "READ_ONLY",
+        "risk_level": "LOW",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -249,6 +263,8 @@
           "query.read"
         ],
         "permission": "READ_ONLY",
+        "risk_level": "LOW",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -259,6 +275,8 @@
           "object.read"
         ],
         "permission": "READ_ONLY",
+        "risk_level": "LOW",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -269,6 +287,8 @@
           "backup.verify"
         ],
         "permission": "READ_ONLY",
+        "risk_level": "LOW",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "secret_reference_id": "secref-r2-backup",
         "enabled": true
       },
@@ -280,6 +300,8 @@
           "alert.read"
         ],
         "permission": "READ_ONLY",
+        "risk_level": "LOW",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       }
     ],
@@ -291,6 +313,8 @@
           "workflow.trigger"
         ],
         "permission": "WRITE_SCOPED",
+        "risk_level": "HIGH",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -300,6 +324,8 @@
           "email.send"
         ],
         "permission": "WRITE_SCOPED",
+        "risk_level": "HIGH",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -309,6 +335,8 @@
           "message.send"
         ],
         "permission": "WRITE_SCOPED",
+        "risk_level": "HIGH",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -318,6 +346,8 @@
           "message.send"
         ],
         "permission": "WRITE_SCOPED",
+        "risk_level": "HIGH",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -327,6 +357,8 @@
           "payment.read"
         ],
         "permission": "READ_ONLY",
+        "risk_level": "LOW",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -337,6 +369,8 @@
           "document.write"
         ],
         "permission": "WRITE_SCOPED",
+        "risk_level": "HIGH",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       },
       {
@@ -346,6 +380,8 @@
           "api.read"
         ],
         "permission": "READ_ONLY",
+        "risk_level": "LOW",
+        "cost_class": "UNMEASURED_NO_LIVE_CALLS",
         "enabled": false
       }
     ],

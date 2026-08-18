@@ -302,7 +302,11 @@ exists, capability metadata does not.
 Catalog of tools with schemas, permissions, cost, and risk level. Precursor:
 the automation track's connector catalogue (capability-scoped, least-privilege,
 e.g. `backup_storage_readonly`) — the same philosophy, per-track rather than
-runtime-wide.
+runtime-wide. The precursor now also carries `risk_level` and `cost_class` per
+connector plus a per-capability schema map
+(`projects/automation/reference/tool-registry-catalogue.js`), closing the
+field gap to this section for the automation track specifically. The
+runtime-wide registry (`core/tool-registry.js`) remains untouched and PLANNED.
 
 ### L. MCP Tool Layer — PLANNED (Phase 2+); see §8
 

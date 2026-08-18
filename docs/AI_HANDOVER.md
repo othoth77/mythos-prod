@@ -38,6 +38,44 @@
 
 ---
 
+## MYTHOS-CORE-K-0 (2026-08-18) — **ROADMAP CAPABILITY K (TOOL REGISTRY) AUTOMATION-TRACK PRECURSOR ENRICHED WITH SCHEMA/COST/RISK; RUNTIME-WIDE core/tool-registry.js UNTOUCHED**
+
+Implemented the smallest coherent step toward roadmap capability K (Tool
+Registry, `docs/MYTHOS_AI_ORCHESTRATOR_MASTER_VISION.md` §7), which that
+document already names the automation track's connector catalogue as the
+per-track precursor for. `core/tool-registry.js` is a caged/protected path
+(governance-verify.js) and two earlier missions were denied for touching it
+(Agent Registry, Dry Run) — this stage deliberately stays off that file and
+off `config/agents.json`, extending only the existing per-track catalogue
+instead. Added `risk_level` (mechanically derived from `permission`:
+`READ_ONLY`→`LOW`, `WRITE_SCOPED`→`HIGH`, never hand-set) and `cost_class`
+(`UNMEASURED_NO_LIVE_CALLS` for every connector — true today, since no
+connector has ever made a live call) to all 17 entries in
+`projects/automation/config/automation.example.json`'s `connector_catalogue`
+— additive only, `enabled`/`permission`/`capabilities` byte-unchanged for
+every connector including `backup_storage_readonly`. New
+`projects/automation/reference/tool-registry-catalogue.js` composes that
+JSON with a 27-entry per-capability input/output schema map into a
+Tool-Registry-shaped view (`loadCatalogue()`), validates required fields
+(`validateToolCatalogueEntry`) and structural least privilege
+(`assertLeastPrivilege`: risk/permission consistency, no mutation-shaped
+capability on a READ_ONLY connector) — read-only over the catalogue, never
+enables/grants/broadens anything. New suite
+`tests/aut-tool-registry-k-catalogue-test.js`: **32/32 passed**, including a
+regression guard that `backup_storage_readonly`'s governance-critical fields
+are unchanged and two adversarial checks (never-seen mutation-shaped
+capability name rejected by pattern; hand-tuned risk/permission drift
+rejected). Re-ran the five existing automation suites this JSON feeds:
+INF-BACKUP-AUTO-0 245/245, INF-DNS-AUTO-2 97/97, INF-DEPLOY-AUTO-0 124/124,
+INF-CF-AUTO-0 26/26, INF-OVH-API-0 26/26 — all unchanged. Also updated
+`docs/AUTOMATION_ARCHITECTURE.md` §5 and
+`docs/MYTHOS_AI_ORCHESTRATOR_MASTER_VISION.md` §K/§7 to record the field
+gap closed for this track; K's runtime-wide status stays **PLANNED**. No
+connector enabled, no capability granted, no permission changed, no
+credential touched, no deploy, no production data.
+
+---
+
 ## MYTHOS-UNATTENDED-0 (2026-08-18) — **UNATTENDED OPERATION POLICY IMPLEMENTED AND TESTED; DELIVERY CORRECTLY BLOCKED PENDING OWNER APPROVAL**
 
 **Stage:** MYTHOS-UNATTENDED-0 — the campaign-flow half of unattended MVP operation.

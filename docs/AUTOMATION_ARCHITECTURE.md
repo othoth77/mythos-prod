@@ -127,6 +127,10 @@ n8n, email, WhatsApp, SMS, payment provider, document storage, product APIs.
 - **Least privilege is documented and enforced structurally.** Read and write permissions are never combined automatically — each capability (`aut_connector_capabilities`) is its own row with its own grant, its own automation-level ceiling, and its own approval-policy reference.
 - Example future connector split (illustrative, none enabled today): `ovh_readonly`, `ovh_dns_operator`, `cloudflare_readonly`, `cloudflare_dns_operator`, `github_repository`, `coolify_deployer`. A read connector and a write connector for the same provider are always distinct connector definitions, never one connector with both permissions.
 
+### Tool Registry precursor (roadmap capability K)
+
+`docs/MYTHOS_AI_ORCHESTRATOR_MASTER_VISION.md` §7 names this connector catalogue as the implemented precedent for the future runtime-wide Tool Registry (capability K, still PLANNED). Each connector entry now also carries `risk_level` (mechanically derived from `permission` — `READ_ONLY`→`LOW`, `WRITE_SCOPED`→`HIGH` — never hand-set) and `cost_class` (`UNMEASURED_NO_LIVE_CALLS` for every connector today, since none has ever made a live call). Per-capability input/output schemas live in `projects/automation/reference/tool-registry-catalogue.js` rather than duplicated per connector, since a capability's shape does not depend on which connector exposes it. That module composes the JSON catalogue with the schema map into a Tool-Registry-shaped view and fails closed on any entry missing a field or violating the risk/permission mapping — it never enables a connector, grants a capability, or changes a permission.
+
 ---
 
 ## 6. Failure, Retry and Rollback
