@@ -1,9 +1,9 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **IDAUTO-STANDALONE-MIGRATION — ID AUTO EXTRACTED AND VALIDATED; PUBLICATION BLOCKED ON REPOSITORY CREATION; NOTHING REMOVED FROM THIS REPOSITORY**
+**From:** MYTHOS **IDAUTO-STANDALONE-MIGRATION — `othoth77/idauto` PUBLISHED AND CLEAN-CLONE VERIFIED (601/601); IT IS NOW CANONICAL. NOTHING REMOVED FROM THIS REPOSITORY YET — CLEANUP IS A SEPARATE DRAFT PR.**
 
-**Stage:** `IDAUTO-STANDALONE-MIGRATION` · **Status:** standalone repository built and validated; **publication BLOCKED**; source cleanup **PREPARED, NOT EXECUTED**
+**Stage:** `IDAUTO-STANDALONE-MIGRATION` · **Status:** **PUBLISHED and CLEAN-CLONE VERIFIED**; source cleanup **prepared as a separate draft PR, NOT MERGED**
 **Branch:** `claude/idauto-standalone-migration-ejyl27` · **Baseline:** `5e2011b` (`main`)
 **Type:** extraction + documentation. **No production change. Nothing deployed, no DNS, no database mutation, no service touched, and no ID Auto file removed from this repository.**
 
@@ -47,21 +47,33 @@ Separately, the hardcoded `/home/deploy` entries in the restore-refusal lists we
 `/home/deploy` is still refused — on every host — and the tests prove it through the CLI
 rather than by inspecting a constant.
 
-### PUBLICATION IS BLOCKED — owner action required
+### PUBLISHED AND CLEAN-CLONE VERIFIED
 
-`othoth77/idauto` **does not exist**, and this session cannot create it:
-`POST /user/repos` returns `403 Resource not accessible by integration`. Repository creation
-requires an account-administration permission the integration does not hold.
+The owner created `othoth77/idauto`; the audited tree was pushed verbatim as its initial
+commit and then verified from a **clean clone**, deliberately not from the working tree it
+was built in.
 
-**Owner action:** create an **empty** `othoth77/idauto` — no README, no `.gitignore`, no
-licence, so the migrated tree is authoritative — and grant the session access to it. Nothing
-else is outstanding; the content is finished and validated.
+`main` = `bdfec2ce247f479155e920fd8156e8c94d5a6d49`, tree `26b93fb8`, 91 files.
 
-Because the working environment is ephemeral, the complete validated tree is staged on this
-branch at `migration-staging/idauto-standalone/` so the work is not lost. It is a snapshot,
-not a source tree, and it is deleted in the same change that adds the pointer document.
+Fresh clone into an empty directory → `npm install` from the published lockfile → a **newly
+created** PostgreSQL 16 database and role → schema + IDA-3A migration + synthetic seed →
+all 13 suites live: **601 assertions, 0 failures**, every per-suite count matching the
+pre-publication audit exactly. Commit and tree hashes matched; all 91 files byte-identical;
+45/45 origin pairs present; 0 `projects/idauto` and 0 `mythos-prod` references in code;
+0 external imports beyond Node built-ins and `pg`; no secrets; 0 owner-PII columns on any
+vehicle, plate, observation, fact, evidence or movement table.
 
-### Nothing was removed from this repository — deliberately
+**`othoth77/idauto` is now canonical.** Status record: that repository's PR #1 (draft).
+
+Publication had been blocked for about five hours by `POST /user/repos` →
+`403 Resource not accessible by integration`, an account-administration permission this
+integration does not hold. Cleared by the owner creating the empty repository; nothing about
+the migration itself had to change.
+
+`migration-staging/idauto-standalone/` on this branch has now served its purpose — it existed
+only so the validated tree would survive an ephemeral environment. The cleanup PR deletes it.
+
+### Nothing removed from this repository by *this* branch — deliberately
 
 `projects/idauto/`, `docs/IDAUTO_*.md` and `tests/ida-*.js` are untouched and remain
 authoritative. Removing them before the standalone repository is published would leave the
@@ -117,8 +129,11 @@ or schema in this repository was modified.**
 
 ### Next
 
-Owner creates `othoth77/idauto` → push the staged tree → open the standalone PR as a draft →
-independent verification from a clean clone → **only then** the separate cleanup PR here.
+Done: repository created → tree pushed at `bdfec2c` → clean clone verified 601/601 →
+standalone draft PR opened. **Now:** the separate cleanup PR in this repository, prepared as
+a draft and not merged automatically. It must update `projects/meta/test-impact-map.json`
+and `tests/devx-1-idauto-test-impact-test.js` in the same commit as the removals, or DEVX-1
+breaks.
 
 ---
 
