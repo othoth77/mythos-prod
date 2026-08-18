@@ -392,6 +392,51 @@ needs an explicit decision rather than an assumption.
 
 ---
 
+## MOS-3C + FINAL ACCEPTANCE — AI OPERATING LAYER v1 COMPLETE (2026-08-18) — **PASS; ALL THIRTEEN PROOFS GREEN; NOT DEPLOYED**
+
+### Stage
+
+MOS-3C — proof suite and security audit, closing AI Operating Layer v1 (MOS-3A dispatcher → MOS-3B mission control → MOS-3C proofs). Division of labour recorded honestly: the Haiku test agent delivered the `wait-file` mock kind, the console C1–C4 dispatcher-API coverage and the P10 invalid-input pins — but **not** the concurrency ladder; the orchestrator wrote P2–P9 and P12 itself before acceptance rather than accepting "proven through existing mechanisms" as a substitute for proofs.
+
+### The thirteen required proofs — all green
+
+| # | Requirement | Proof |
+|---|---|---|
+| 1 | Existing suites green | 419 / 158 / 257 (console 401→419, executor 125→158, core unchanged) |
+| 2 | One mission starts | P2 — dispatched, RUNNING on disk |
+| 3 | Two concurrent | P3 — both RUNNING simultaneously on disk |
+| 4 | Five concurrent | P4 — five RUNNING; `dispatcherStatus running=5` |
+| 5 | Sixth becomes QUEUED | P5 — `{dispatched:false,queued:true}`, stays QUEUED, `dispatch_deferred` evented |
+| 6 | Completing one frees a slot | P6 — release → COMPLETED |
+| 7 | Queued mission starts automatically | P7 — the drain started it, **no manual dispatch**; queued back to 0 |
+| 8 | Provider failure isolates | P8 — one FAILED while four stayed RUNNING; then all released → COMPLETED; running back to 0 |
+| 9 | Cancellation works | P9a queued-cancel survives an explicit drain; P9b running-cancel holds even after the provider settles (illegal `CANCELLED→COMPLETED` refused; mock self-pid SIGTERM hazard neutralised with a documented scoped no-op handler); P9c terminal-cancel refuses |
+| 10 | Invalid provider/model rejected | P10 + existing createTask pins |
+| 11 | No credentials in API responses | C1/C2 token sweeps on the new surfaces + C4 source-level field-allowlist audit (no pid/session/path/token fields) + all pre-existing sweeps |
+| 12 | Results correctly associated | P12 — every report carries exactly its own task's release marker; explicit cross-association check |
+| 13 | MOS-2/2.1 intact | Full console suite green; zero pre-existing assertions changed in this stage |
+
+The `wait-file` mock kind (test-only provider, unreachable in production) is what makes these **observed on-disk behaviour**: tasks stay genuinely RUNNING until the test releases or fails them by creating a file.
+
+### FINAL ACCEPTANCE — AI Operating Layer v1
+
+**Accepted.** Architecture coherent (the dispatcher composes the untouched Phase-1 executor; no duplicate execution entity, no second task system, `/resume` and `tick()` byte-untouched); backend, dispatcher, queue, drain proven (MOS-3A + P2–P8); frontend browser-verified end to end incl. a real click-through dispatch and a proven no-reload poll repaint (MOS-3B); failures isolated (P8); cancellation safe (P9); results visible and correctly associated (MOS-3B UI + P12); provider abstraction pre-existing and verified, not rebuilt; `provider=auto` deliberately left to a future phase per mandate item J; evaluation-ready chain (mission → execution_id → report.json) documented, no evaluator built per item K.
+
+**Honest limits, stated plainly:** the DEPLOYED console (8140) and executor (8130) both predate this work — the operator restarts already on record are what makes any of it reachable in production (`systemctl --user restart mythos-ai-executor` as `ubuntu`, deliberately not done mid-campaign while the concurrent autonomous session runs missions through it; plus the deploy-owned console restart from MOS-1.6/1.7). Until then the new start path degrades honestly: missions queue and the old tick starts them serially.
+
+### Record
+
+| | |
+|---|---|
+| Commits this phase | `b5d3fb6`+`460d931` (3A) · `d0074ad`+`6fcbdb7` (3B) · `08dd93c` + this entry (3C) |
+| Remote HEAD | verified after relay delivery |
+| Working tree | clean except the two documented concurrent-session items (`roadmap-state.json`, untracked `projects/ssangyong-autos/deploy/`) |
+| Deployment | **Not performed** |
+
+### Next stage
+
+Operator restarts of the two deployed services, then the console's Mission Control is live against the capacity-gated dispatcher. Future phases per mandate: `provider=auto` routing; the evaluator over the existing mission→executions→results chain. Unrelated and unchanged: LOGO governance items, the deployment governance amendment.
+
 ## MOS-3B — MISSION CONTROL: LIFECYCLE VIEW, CAPACITY STRIP, GUARDED POLLING (2026-08-18) — **PASS; BROWSER-VERIFIED END TO END; NOT DEPLOYED**
 
 ### Stage
