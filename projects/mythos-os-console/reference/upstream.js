@@ -123,6 +123,78 @@ function get(pathname, opts) {
   });
 }
 
+/* POST one JSON body to the executor. Same auth, same timeout, same
+   error shapes as get() -- the only difference is the verb and that a
+   body is sent. This is a server-to-server call over an already
+   bearer-token-authenticated channel; it has nothing to do with, and
+   does not relax, server.js's guarantee that the CONSOLE (what the
+   browser talks to) never reads a request body except through the one
+   narrow relay route that exists for exactly this purpose. */
+function post(pathname, payload) {
+  var target = url.parse(DEFAULT_TARGET + pathname);
+  var token = loadToken();
+  if (!token) {
+    return Promise.reject(fail('upstream_unauthorized',
+      'No control-plane token is provisioned for this console (MOS_EXECUTOR_TOKEN / MOS_EXECUTOR_TOKEN_FILE).'));
+  }
+  var body = JSON.stringify(payload || {});
+  var headers = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
+    'Content-Length': Buffer.byteLength(body),
+    Authorization: 'Bearer ' + token
+  };
+
+  return new Promise(function (resolve, reject) {
+    var req = http.request({
+      protocol: target.protocol,
+      hostname: target.hostname,
+      port: target.port,
+      path: target.path,
+      method: 'POST',
+      headers: headers,
+      timeout: TIMEOUT_MS
+    }, function (res) {
+      var size = 0;
+      var chunks = [];
+      res.on('data', function (d) {
+        size += d.length;
+        if (size > MAX_BODY) { req.destroy(); reject(fail('upstream_too_large', 'Response exceeded 4 MB.')); return; }
+        chunks.push(d);
+      });
+      res.on('end', function () {
+        var text = Buffer.concat(chunks).toString('utf8');
+        var out;
+        try { out = JSON.parse(text || '{}'); }
+        catch (e) { reject(fail('upstream_bad_json', 'Control plane returned a non-JSON body.')); return; }
+
+        if (res.statusCode === 401 || res.statusCode === 403) {
+          reject(fail('upstream_unauthorized', 'The control plane refused the console token.'));
+          return;
+        }
+        if (res.statusCode >= 400) {
+          var err = fail('upstream_error', 'Control plane responded ' + res.statusCode + ' for ' + pathname + '.');
+          err.status = res.statusCode;
+          err.detail = out && out.error;
+          reject(err);
+          return;
+        }
+        resolve(out);
+      });
+    });
+
+    req.on('timeout', function () {
+      req.destroy();
+      reject(fail('upstream_unreachable', 'Control plane did not respond within ' + TIMEOUT_MS + ' ms.'));
+    });
+    req.on('error', function () {
+      reject(fail('upstream_unreachable', 'Control plane at ' + DEFAULT_TARGET + ' is not answering.'));
+    });
+    req.write(body);
+    req.end();
+  });
+}
+
 function readConfig(name) {
   var file = path.join(CONFIG_DIR, name);
   return new Promise(function (resolve, reject) {
@@ -214,6 +286,7 @@ function health() {
 
 module.exports = {
   get: get,
+  post: post,
   health: health,
   readConfig: readConfig,
   agentsView: agentsView,

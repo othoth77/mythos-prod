@@ -218,14 +218,125 @@ var API = {
   }
 };
 
+// The ONE deliberate exception to "GET/HEAD only", named here so it is
+// never confused with an accident. MOS-2 adds a single narrow relay: the
+// browser sends {title, instruction, provider, model?} and nothing else;
+// this file fixes every other field (project, execution_profile, mode,
+// working_directory) server-side and forwards to the executor's own,
+// unmodified, already-safe /tasks and /tasks/<id>/resume endpoints. The
+// browser never talks to a provider, never sees a credential, and cannot
+// widen scope beyond what is hard-coded below.
+var WRITE_ROUTES = { '/api/missions/start': true };
+
+// --- MOS-2: the one write relay --------------------------------------
+
+var START_MISSION_MAX_BODY = 32 * 1024;
+var REAL_PROVIDERS = ['claude-code', 'openai-compat']; // the real, currently
+  // runnable enum -- excludes 'mock' (test-only, unreachable in production)
+  // and excludes 'gemini' (registered in the agent registry but genuinely
+  // unconfigured -- no credential exists -- and not in the Phase 1 provider
+  // enum at all). Never invent a name beyond what actually runs.
+var START_MISSION_FIELDS = ['title', 'instruction', 'provider', 'model'];
+
+function readBoundedBody(req, maxBytes) {
+  return new Promise(function (resolve, reject) {
+    var chunks = [];
+    var size = 0;
+    req.on('data', function (d) {
+      size += d.length;
+      if (size > maxBytes) { reject(new Error('BODY_TOO_LARGE')); req.destroy(); return; }
+      chunks.push(d);
+    });
+    req.on('end', function () { resolve(Buffer.concat(chunks).toString('utf8')); });
+    req.on('error', reject);
+  });
+}
+
+function badRequest(res, detail) {
+  sendJSON(res, 400, { ok: false, error: 'bad_request', detail: detail });
+}
+
+// Everything not in this function is fixed here, server-side, and never
+// read from the request: project ('mythos-prod' -- the only project this
+// console operates on), execution_profile ('repo-read' -- Write/Edit/
+// NotebookEdit structurally disallowed by lib/policy.js regardless of what
+// the instruction says), requested_by (identifies the console, distinct
+// from 'orchestration-core' so this task is never mistaken for one the
+// Phase 2 core owns and drives itself), mode (the executor's own existing
+// default). The browser supplies only title/instruction/provider/model.
+function handleStartMission(req, res) {
+  readBoundedBody(req, START_MISSION_MAX_BODY).then(function (raw) {
+    var payload;
+    try { payload = JSON.parse(raw || '{}'); }
+    catch (e) { return badRequest(res, 'body is not valid JSON'); }
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return badRequest(res, 'body must be a JSON object');
+    }
+    var unexpected = Object.keys(payload).filter(function (k) { return START_MISSION_FIELDS.indexOf(k) === -1; });
+    if (unexpected.length) return badRequest(res, 'unexpected field: ' + unexpected[0].slice(0, 40));
+
+    var title = payload.title;
+    if (typeof title !== 'string' || !title.trim() || title.length > 200) {
+      return badRequest(res, 'title (string, 1-200 chars) is required');
+    }
+    var instruction = payload.instruction;
+    if (typeof instruction !== 'string' || !instruction.trim() || instruction.length > 20000) {
+      return badRequest(res, 'instruction (string, 1-20000 chars) is required');
+    }
+    var provider = payload.provider;
+    if (REAL_PROVIDERS.indexOf(provider) === -1) {
+      return badRequest(res, 'provider must be one of: ' + REAL_PROVIDERS.join(', '));
+    }
+    var model = payload.model;
+    if (model !== undefined && model !== null && (typeof model !== 'string' || model.length > 100)) {
+      return badRequest(res, 'model must be a string of at most 100 characters');
+    }
+
+    return upstream.post('/tasks', {
+      project: 'mythos-prod',
+      stage: title.trim().slice(0, 200),
+      instruction: instruction,
+      provider: provider,
+      model: model || null,
+      requested_by: 'mos-console',
+      execution_profile: 'repo-read',
+      expected_delivery: 'report'
+    }).then(function (created) {
+      var taskId = created && created.task_id;
+      if (!taskId) return problem(res, { code: 'upstream_error', message: 'executor did not return a task id' });
+      // Fire the explicit start now, independent of the daemon's own
+      // 15-second tick and its own one-at-a-time policy for automatic
+      // pickups -- this is what makes two missions genuinely concurrent:
+      // runTask() itself has no cross-task lock, only the tick loop's own
+      // background policy does, and an explicit /resume bypasses it.
+      return upstream.post('/tasks/' + taskId + '/resume', {})
+        .then(function () { ok(res, { task_id: taskId, status: 'RUNNING', provider: provider, model: model || null }); })
+        .catch(function () {
+          // Created but the explicit start call failed (e.g. a race with
+          // the daemon's own tick). The task is still safely QUEUED and
+          // will run on the next tick or a later manual resume -- this is
+          // not a failure to report as one.
+          ok(res, { task_id: taskId, status: 'QUEUED', provider: provider, model: model || null,
+            note: 'created; the explicit start call did not confirm, but the task is queued and will run' });
+        });
+    }).catch(function (e) { problem(res, e); });
+  }).catch(function (e) {
+    if (e && e.message === 'BODY_TOO_LARGE') return badRequest(res, 'request body too large');
+    problem(res, { code: 'internal_error', message: 'internal error' });
+  });
+}
+
 function handler(req, res) {
-  if (req.method !== 'GET' && req.method !== 'HEAD') {
-    // Refused before routing. This console has no write surface, and
-    // the refusal is the surface's definition rather than a gap in it.
+  var isWriteRoute = req.method === 'POST' && Object.prototype.hasOwnProperty.call(WRITE_ROUTES, String(req.url || '').split('?')[0]);
+  if (req.method !== 'GET' && req.method !== 'HEAD' && !isWriteRoute) {
+    // Refused before routing. Every path but the one named above has no
+    // write surface, and the refusal is the surface's definition rather
+    // than a gap in it.
     head(res, 405, 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ ok: false, error: 'read_only', detail: 'This console is read-only; only GET and HEAD are served.' }));
+    res.end(JSON.stringify({ ok: false, error: 'read_only', detail: 'This console is read-only except for POST /api/missions/start.' }));
     return;
   }
+  if (isWriteRoute) return handleStartMission(req, res);
 
   var split = String(req.url || '/').split('?');
   var pathname = split[0];

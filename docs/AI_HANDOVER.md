@@ -483,6 +483,67 @@ needs an explicit decision rather than an assumption.
 
 ---
 
+## MOS-2 — MISSION QUEUE / MODEL SELECTION / START EXECUTION (2026-08-18) — **PASS; FIRST REAL AI OPERATING LAYER CAPABILITY; NOT DEPLOYED**
+
+### Stage
+
+MOS-2 — turns the Command Center from a read-only dashboard into the first operational surface for starting real AI-executed missions on real providers, in genuine parallel. Reuses the existing executor, provider registry and control-plane contracts; builds no parallel architecture.
+
+### Architecture audit performed first — no file modified during that pass
+
+Read `core/domain.js`, `core/orchestrator.js`, `core/core-wiring.js`, `core/provider-router.js`, `core/scheduler.js`, both `server.js` files, `executor.js`, both real provider modules, `upstream.js`, `app.js`, `config/agents.json`, `config/router.json`, `config/projects.json`, `lib/policy.js`, `lib/state.js`.
+
+**The decisive finding: this system has two execution architectures, and only one honours a caller's model choice.** Phase 2's goal/campaign intake explicitly, three times over, refuses a caller-selected provider — `core-wiring.js`'s own comment: *"Provider… NOT accepted from the caller — configuration and policy, not input"*; `campaign-service.js` allowlists only `objective/project/requested_by`; and `orchestrator.buildRunner` calls `provider-router.route()` **unconditionally** on every dispatch, overwriting any pre-set `agent_id`. This is deliberate, three-times-reinforced governance — **not touched by this stage.** Phase 1's `task.schema.json`, by contrast, has always had `provider` as a required, real, caller-set enum (`claude-code` / `openai-compat` / `mock`) plus an optional `model` string — the only place in the system a human's model choice is actually honoured rather than silently re-routed. **Decision: build on Phase 1.**
+
+**Real parallelism, no new lock.** `executor.js`'s `tick()` serialises itself to one task at a time as its *own* background-loop policy ("At most one task runs at a time") — but `runTask()`, which `POST /tasks/<id>/resume` calls directly, has **no cross-task lock at all**. Starting two missions calls `runTask()` twice, independently. Proven live (see Verification).
+
+**Execution identity already existed.** `runTask()` already stamps `execution_id`, `provider`, `model`, `started_at`, `ended_at`, `status` onto the task record on every attempt — no parallel Execution entity was added.
+
+**Real models only.** `server.js`'s `REAL_PROVIDERS = ['claude-code', 'openai-compat']` mirrors the actual enum — excludes `mock` (test-only) and `gemini` (registered in `agents.json` but genuinely unconfigured, no credential exists, and not in the Phase 1 enum at all). The client select offers exactly these two.
+
+### The one governance change, made once, narrowly
+
+`server.js`'s own header says *"THE READ-ONLY PROPERTY IS STRUCTURAL, NOT POLICY"*; `app.js`'s own header says *"adding one is a governance change, not a feature."* This stage's whole purpose is exactly that change: **one** new route, `POST /api/missions/start`, in a one-entry named allowlist checked before the method gate. The browser sends `{title, instruction, provider, model?}` and nothing else; `project` (`mythos-prod`), `execution_profile` (`repo-read` — `Write`/`Edit`/`NotebookEdit` structurally disallowed regardless of instruction content), `requested_by` (`mos-console`, distinct from `orchestration-core` so nothing is ever mistaken for a core-owned task) are fixed server-side and never read from the request. The relay makes exactly two calls to the executor's own, **unmodified** `/tasks` and `/tasks/<id>/resume` — no new executor-side code exists. The browser never addresses a provider or the executor directly, and never sees the bearer token.
+
+**Safety boundaries respected, not bypassed:** budget reservation and `WAITING_FOR_APPROVAL` are Phase-2-core concepts that don't exist for standalone Phase 1 tasks — nothing to bypass. Quota exhaustion is caught by the executor's own existing `lib/quota.js` classification, unchanged. `repo-read` is the same profile Phase 1 has always enforced, not invented for this stage.
+
+### Files
+
+| File | Change |
+|---|---|
+| `executor.js` | +1 line — `model` added to `summaries()` (already stored, not previously surfaced) |
+| `upstream.js` | +`post()` — mirrors `get()` exactly, server-to-executor only |
+| `server.js` | +`WRITE_ROUTES` (one named entry) +`handleStartMission()` — validates, rejects any unexpected field, fixes every safety-relevant field server-side, relays create+resume |
+| `app.js` | +`postJSON()` +`startMissionSection()` (title, instruction, real two-entry provider select, optional model, Start button, inline feedback — no `alert()`/`confirm()`/`innerHTML`) +"Missions — Pending" section in the Command Center; readonly notice text updated to honestly name the one exception |
+| `console.css` | +form styles, `var(--mythos-*)` tokens only, zero literal colour |
+| `tests/mos-1-console-test.js` | stub extended to stand in for `POST /tasks`/`resume`; two existing assertions **narrowed** (not deleted) to name the one exception, matching the MOS-1.1 script-tag precedent; extensive new coverage (below) |
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `node --check` | Clean on all 5 touched JS files |
+| `tests/mos-1-console-test.js` | **374 passed, 0 failed** (344 → 374) |
+| `tests/mythos-ai-executor-test.js` | **125/125** (full suite — `executor.js` changed) |
+| `tests/mythos-orchestration-core-test.js` | **257/257** (full suite — shared core behaviour) |
+| Live smoke test | Stub executor + the real `server.js`, wired exactly as production (`MOS_EXECUTOR_URL` pointed at the stub). A valid start reached the stub with **exactly** the fixed payload and correct bearer token, in order (create then resume); an invalid provider, an extra field, and a missing field were all rejected **before ever reaching the stub** (confirmed via the stub's own call log — zero calls for the seven rejected requests); every other write attempt still 405; `GET /` still 200 |
+| Test-suite coverage | Seven distinct invalid requests (bad provider incl. `mock` and `gemini`, unexpected field, missing title, missing instruction, empty title, empty body) all rejected 400, asserted to never reach the stub; the two real calls asserted field-by-field against what the stub actually received |
+
+### Record
+
+| | |
+|---|---|
+| Base | `1752f12`, branch `main`, fast-forwarded once more mid-stage (docs/design mandate commits, zero overlap) |
+| Commit | `158efe6` |
+| Remote HEAD | see below — verified after delivery |
+| Deployment | **Not performed** — not requested by this stage |
+
+### Next stage
+
+Operator can now start a real mission from the Command Center and watch it run to completion via the existing Missions view — the first genuinely operational (not read-only) capability the console has ever had. Natural follow-ons, none started here: surfacing `execution_id`/`ended_at`/result on the pending-mission rows once a mission completes; a "cancel" action (the executor already has `/tasks/<id>/cancel`, same relay shape); widening `execution_profile` beyond `repo-read` (an explicit, separate owner decision, not implied by this stage). Unrelated and unchanged: the login gate, the deployment privilege boundary (MOS-1.6/1.7), the design-branch/LOGO governance items.
+
+---
+
 ## MOS-1.8 — TEMPORARY INTERNAL LOGIN GATE (2026-08-18) — **PASS; NOT THE FINAL AUTH ARCHITECTURE; NOT DEPLOYED**
 
 ### Stage
