@@ -1,7 +1,98 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **FULL AUTONOMOUS MANDATE, THIRD PASS — ALL FIVE CONTINUATION ITEMS COMPLETE (DECISION SWEEP, 1I PROTOTYPES, CONSOLIDATION, READINESS AUDIT, MIGRATION PLANS). STOPPING HERE: THE AUDIT ITSELF IS THE EVIDENCE THAT EVERY REMAINING PHASE IS GENUINELY BLOCKED, NOT A CHOICE TO STOP EARLY. NO APPLICATION, CSS OR ASSET FILE CHANGED ACROSS ANY OF THIS PASS.**
+**From:** MYTHOS **FULL AUTONOMOUS MANDATE, FOURTH PASS — FONT FILES SOURCED AND SELF-HOSTED (READINESS AUDIT §2.2 ITEM 1), GRID-2 MEASURED AGAINST REAL METRICS (AUTO-4). NO APPLICATION, CSS OR BUILD FILE CHANGED. NO LEVEL-3 / DEPLOYMENT OPERATION ATTEMPTED — THE DEPLOY-USER PRIVILEGE BOUNDARY REMAINS UNTOUCHED, PER EXPLICIT INSTRUCTION.**
+
+**Owner instruction this pass, verbatim in intent:** continue the full
+autonomous mandate on design, documentation, code, tests, migration planning
+and prototypes — explicitly excluding production deployment, DNS, firewall,
+credential/authentication changes, destructive operations, or any Level-3
+infrastructure operation. Where deployment is the blocker: prepare, validate,
+commit, push, document the exact blocker, and continue independent work
+without bypassing the privilege boundary or attempting `sudo` escalation.
+That instruction is followed exactly below — no infrastructure access was
+attempted, requested or needed for this pass.
+
+**What this pass did.** The readiness audit's own sequencing
+(`docs/design/IMPLEMENTATION_READINESS_AUDIT.md` §5) named font files as
+prerequisite 1 of 5 — "has no dependency on anything else, could start
+immediately if authorised." That authorisation arrived this pass.
+
+- **Real, self-hosted OFL font files now exist** at `assets/brand/fonts/` —
+  Archivo (wdth 125%/wght 600), IBM Plex Sans (400/500/600), IBM Plex Sans
+  Arabic (400/500/600), IBM Plex Mono (400): the weight instances the
+  already-approved type scale (`TYPOGRAPHY.md` §2) actually uses, read off
+  that table rather than newly chosen. Each family carries its OFL.txt
+  licence and a `SOURCES.tsv` recording the exact upstream URL. Sourced from
+  Google Fonts' hosted builds (`fonts.gstatic.com`), downloaded once and
+  vendored — not loaded from a CDN at runtime. 320 KB total, 8 files.
+  `assets/brand/fonts/fonts.css` declares them, standalone and unwired — the
+  same pattern `tokens.css` already established. **Not referenced by any
+  HTML, project or build step.**
+- **AUTO-4** (`docs/MYTHOS_DESIGN_DECISIONS.md` §0.5): with real font files
+  available for the first time, **GRID-2** — the 68ch-vs-65-characters
+  conflict `GRID_AND_SPACING.md` §4.3 could not previously measure — was
+  measured against IBM Plex Sans's real `hmtx`/`cmap` data via `fontTools`.
+  Finding: `68ch` (the CSS `ch` unit is the advance of digit `0`, 0.6em in
+  this font) renders as **~91–92 average English characters, not 65** — not
+  a close approximation, a materially different number. **≈48ch** would
+  reproduce the 65-character intent. This is recorded as a measurement plus
+  a **PROPOSED, not decided** recommendation, not an applied change —
+  `GRID_AND_SPACING.md` §4.3 already states both figures are approved and
+  neither is overridden by a derivation alone; changing `68ch` is a separate
+  spec decision, same as TYPE-3/SPACE-1/A11Y-1 under AUTO-3.
+- Cross-references updated for consistency in `TYPOGRAPHY.md`,
+  `GRID_AND_SPACING.md`, `DESIGN_TOKENS.md`,
+  `IMPLEMENTATION_READINESS_AUDIT.md`. **Not swept:** `README.md`,
+  `COMPONENT_SYSTEM.md`, `RESPONSIVE_ACCESSIBILITY_MOTION.md`,
+  `PUBLIC_ECOSYSTEM_ARCHITECTURE.md` and `MYTHOS_DESIGN_SYSTEM.md` still say
+  GRID-2 is "narrowed, not closed" — still true at a coarse level, not
+  updated with the AUTO-4 measurement in this pass. Named here rather than
+  left silently inconsistent.
+
+**What remains, per the readiness audit's own sequencing (§5):**
+
+1. **GRID-2 sign-off** — accept, reject or amend the ≈48ch recommendation.
+   No dependency on anything else.
+2. **C-006 execution** (§2.1) — needs a live-application verification loop
+   (§2.5) first; **AUTO-2** already found this session cannot run one against
+   `css/main.css`, and this pass did not change that.
+3. **Component library, real framework** (§2.3) — most efficiently follows
+   §2.1 and §2.2 (now partially closed), so it is built against final values.
+4. **MIG-1 – MIG-4** (§2.4) — follows all of the above; still not actioned.
+5. **Deployment** — unchanged blocker: the `deploy`-user privilege boundary
+   `docs/AI_HANDOVER.md` (prior pass, below) documents. **Not attempted, not
+   bypassed, this pass.**
+
+**Repository state:** commit `cf6df61` on
+`claude/mythos-deployment-auth-0d1wvz`, pushed and verified against remote
+HEAD. PR #23 opened (draft) against `main`, subscribed for CI/review
+follow-up. Not yet merged.
+
+**Stage:** mandate item 9 — font files sourced, GRID-2 measured (AUTO-4)
+**Status:** Implemented, committed, pushed. PR open, not merged.
+**Commit:** `cf6df61996398bd854afff1ffeb01f0ce1abf0e9`
+**Remote HEAD:** `cf6df61996398bd854afff1ffeb01f0ce1abf0e9` (branch
+`claude/mythos-deployment-auth-0d1wvz`, matches local after push)
+**Tests:** No application test suite applies — no application, CSS or build
+file changed. Validated directly: all 8 `.woff2` files confirmed valid Web
+Open Font Format v2 (`file(1)`); `fonts.css` brace-balance checked (8/8);
+OFL-1.1 licence text confirmed for all 4 families; `.gitignore` confirmed not
+excluding the new paths; `fontTools` measurement is deterministic and
+reproducible against the committed files.
+**Changed files:** `assets/brand/fonts/**` (new), `assets/brand/fonts/
+fonts.css` (new), `docs/design/TYPOGRAPHY.md`, `docs/design/
+GRID_AND_SPACING.md`, `docs/design/DESIGN_TOKENS.md`, `docs/design/
+IMPLEMENTATION_READINESS_AUDIT.md`, `docs/MYTHOS_DESIGN_DECISIONS.md`.
+**Deployment:** Not attempted. Blocker unchanged and undisturbed — see prior
+pass below for the full evidence trail (MOS-1.6/1.7).
+**Next stage:** GRID-2 sign-off, or continuing with items 2–4 of the
+sequencing above as authorised.
+**Blocker:** None for this stage. Deployment (item 5) remains blocked on the
+documented `deploy`-user privilege boundary — explicitly out of scope for
+this pass by instruction, not a capability gap discovered mid-task.
+
+---
 
 **Items 6–8 of the mandate's continuation are done**, completing all five named
 items. `docs/design/MYTHOS_DESIGN_SYSTEM.md` (topic-ordered consolidation of
