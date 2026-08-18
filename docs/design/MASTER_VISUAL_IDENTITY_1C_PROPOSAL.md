@@ -2,9 +2,24 @@
 
 **Stage:** MYTHOS-DESIGN-1C — master visual identity
 **Date:** 2026-08-18 UTC
-**Status:** **PROPOSAL. Not approved, not implemented, not a design system.**
+**Revision:** 2 — refined 2026-08-18 after owner review of revision 1.
+**Status:** **PROPOSAL. NOT APPROVED, not implemented, not a design system.**
 Nothing here has been applied. No code, CSS, asset, logo or website was modified
-to produce it.
+to produce it, and **no logo was redrawn, recreated or recoloured.**
+
+**What the owner review confirmed as the direction to refine around:** a
+**dark-first** MYTHOS identity; **Constant + Movement** as the central visual
+concept; the **35° gesture** derived from the historical M; **no arbitrary
+five-colour system** for the five units; **independent visual identities** for
+public projects; **measurable** accessibility; a **simplified token philosophy**;
+**proper Arabic typography**. Everything else below remains a proposal.
+
+**Design criterion, restated by the owner and applied throughout this revision:**
+*do not optimise the identity merely to match existing Mythos OS code.* The
+objective is the best coherent MYTHOS identity, judged on brand evidence,
+accessibility measurement, professional system principles and future
+scalability. Existing implementation inconsistencies may be corrected later.
+**This changes one recommendation — see §3.4.**
 
 **Built on:** the recovered historical logo · the **owner-approved** 1A brand
 architecture (decisions A-001–A-008) · the implemented Mythos OS tokens · the
@@ -22,6 +37,24 @@ decorative — they mark what you may rely on.
 | **RECOVERED** | Measured or read from a file in this repository or from recovered charter evidence. Fact |
 | **PROPOSED** | My professional recommendation. Reasoned, but a decision you have not yet taken |
 | **OPEN DECISION** | Deliberately left to you. Never resolved here by inference |
+
+### 0.1 Nothing in the review list has become a decision
+
+The owner named seven items to keep as proposals. They are listed here so no
+later reader can mistake a well-argued section for a settled one.
+
+| Item | Where | Status after this revision |
+|---|---|---|
+| Gold system | §3.4 | **PROPOSED — OPEN (GOLD-1).** Recommendation *changed* this revision, still not a decision |
+| Playfair Display removal | §4.2 | **PROPOSED — OPEN (TYPE-1)** |
+| Final typography | §4.3 | **PROPOSED.** Faces, scale and weights all remain open |
+| Semantic colour corrections | §3.3 | **PROPOSED — OPEN (SEM-1)** |
+| Exact radius values | §6 | **PROPOSED.** The *argument* (low radius, from the mark) is the proposal; the numbers are illustrative |
+| Exact transition durations | §10 | **PROPOSED.** The *count* (five, replacing eight ad-hoc) matters more than the millisecond values |
+| Exact breakpoint system | §5 | **PROPOSED.** The *principle* (content behaviour, not devices) is the proposal; the pixel values are illustrative |
+
+Where a section states a number, read it as *"a value of this kind, at roughly
+this size"* unless it is labelled RECOVERED — in which case it is a measurement.
 
 **Binding constraints respected throughout.** Per **A-007** the recovered
 historical logo is the authoritative historical source and was **not** redrawn,
@@ -59,6 +92,36 @@ This gives Mythos something most technology brands lack — a signature that is
 *structural* rather than *decorative*, that survives being rendered in one
 colour on a fax, and that a developer can implement as a variable. It also
 resists the generic: it is derived from your own mark, so nobody else has it.
+
+### 1.1 The spine — every subsystem serves one side or the other
+
+**PROPOSED.** Constant + Movement is not a slogan attached to the identity; it
+is the rule that decides each subsystem's behaviour. Refined this revision so
+the concept is checkable rather than evocative: for any new component, ask which
+column it belongs to. If it belongs to both, it is doing too much.
+
+| Subsystem | **CONSTANT** — structure, calm, repetition | **MOVEMENT** — direction, emphasis, the one gesture |
+|---|---|---|
+| **Logo** | The upright Y·T·H·O·S, the lockup architecture, clear space | The slanted M — the origin of the entire idea |
+| **Colour** | The warm ink ramp; the dark ground that never shifts | The gold — the only saturated thing on the page |
+| **Typography** | Plex text at a fixed scale; the 65-character measure | Archivo Expanded display, used sparingly and large |
+| **Grid** | The 8-point rhythm; the 12-column field | The 35° cut that breaks one edge, once |
+| **Shape** | Square corners, 2 px radius, hairline borders | The diagonal edge; the leading rule on a chart |
+| **Icons** | Square terminals, orthogonal geometry | Diagonals snapped to 35° |
+| **Imagery** | Full-bleed rectangles meeting the ground | One masked image per page |
+| **Motion** | Everything fades, at one duration | One element per view travels the 35° vector |
+| **Interface** | Surfaces, hairlines, density, the calm field | Focus, the primary action, the active state |
+
+Two rules make the system legible rather than busy:
+
+1. **Movement is scarce.** One gesture per view. Scarcity is what makes it read
+   as intent rather than as styling.
+2. **Movement is always gold or always geometric, never both at once.** A gold
+   diagonal that also animates is three ideas competing; pick one.
+
+**Why this beats a conventional "brand pillars" approach:** it is falsifiable.
+A reviewer can look at any screen and count the gestures. A design system whose
+central idea cannot be checked is a mood board with a token file attached.
 
 ---
 
@@ -198,12 +261,51 @@ shape or label carries the same information.
 | **B — Continuity** | `#c9a84c` (current UI gold) | The implemented value becomes the master; the historical gradient stays a historical artifact | Zero migration. The master brand's gold is then a value with **no recorded rationale** (U-001) |
 | **C — Two-tier** | `#D9A441` identity · `#c9a84c` interface | Explicit domains: identity/print/signage vs product UI | Two values to govern; risk of drift if the boundary is not policed |
 
-**PROPOSED recommendation, for your decision:** **Route B**, with the historical
-gold retained as a *documented* heritage reference. Reasoning: the two values
-are 0.13 : 1 apart in contrast and near-indistinguishable side by side at
-identity sizes; Route A therefore buys almost no visible gain while creating a
-real migration; and C's boundary is the kind of rule that erodes quietly. But
-**this is your call**, and nothing below depends on which route you take.
+**PROPOSED recommendation — CHANGED in this revision.**
+
+Revision 1 recommended **Route B** (continuity), and the reasoning leaned on
+migration cost: 252 token occurrences already carry `#c9a84c`. The owner has
+since stated the criterion plainly — *do not optimise the identity merely to
+match existing Mythos OS code; implementation inconsistencies may be corrected
+later.* That removes the main argument I had used, so the recommendation is
+restated rather than quietly left standing.
+
+**On brand merit alone, the recommendation is now Route A — `#D9A441`, the
+historical logo's own gold.**
+
+The reasoning, in order of weight:
+
+1. **It gives the master gold a recorded rationale.** The single most damning
+   finding in the recovery audit is **U-001**: the defining colour of the
+   product UI is a value whose meaning *is nowhere recorded*. A master brand
+   whose primary colour cannot be explained is a liability that compounds — every
+   future designer inherits an arbitrary constant. Route A ends that permanently:
+   the gold is the gold in the mark. That is a sentence you can say to a client,
+   a partner, or a new hire.
+2. **It resolves a conflict instead of preserving it.** Conflict **C-003** — two
+   unexplained golds — dissolves the moment the master value comes from the
+   logo. Route B leaves C-003 open forever by ratifying the value that has no
+   provenance.
+3. **The measured cost of choosing it is close to zero.** `#c9a84c` and
+   `#D9A441` differ by **0.13 : 1** in contrast on ink (8.45 vs 8.58) and are
+   near-indistinguishable side by side. What changes is not how it looks; what
+   changes is whether the brand can explain itself.
+4. **Cross-portfolio coherence comes free.** `#D9A441` is also Uthina Chess's
+   Imperial Gold — recovered evidence, already implemented and live. Route A
+   turns an unexplained coincidence into a documented relationship.
+
+**What Route A costs, stated honestly:** Mythos OS's implemented tokens then
+differ from the master until migrated. That is a real migration, and it is
+exactly the kind of correction the owner has said may happen later. It is also
+a *token-level* change — one value, one search — not a redesign.
+
+**Route C (two-tier)** remains available and is the pragmatic middle, but the
+boundary between "identity gold" and "interface gold" is the kind of rule that
+erodes without anyone deciding to erode it. I would not recommend governing two
+golds unless a concrete need appears.
+
+**This remains GOLD-1 and remains OPEN.** Nothing else in this proposal depends
+on which route you take.
 
 Whichever route wins, the ground-specific companion is required, not optional:
 `gold-deep #8C651C` (**4.75 : 1** on paper) for gold text and icons on light
@@ -389,6 +491,45 @@ absence of a rule is how brands get into trouble:
 
 ---
 
+## 8b. Design-token philosophy
+
+**PROPOSED — philosophy only. No token file was written; that is Stage 1E.**
+
+The owner named a *simplified* token philosophy as something to keep, so the
+proposal states the philosophy and deliberately stops short of the inventory.
+
+**Three tiers, and nothing may skip a tier.**
+
+```
+GLOBAL      raw values, named for what they are        gold-500, ink-850, space-6
+   ↓        (a component may never reference these)
+SEMANTIC    named for what they mean                   text-primary, ground, accent,
+   ↓        (this is the layer designers argue about)   border-subtle, focus-ring
+COMPONENT   named for where they act                   button-bg, card-border
+```
+
+Five rules, chosen because each one prevents a specific failure this repository
+already demonstrates:
+
+1. **No hardcoded visual values in components.** The recovered codebase has
+   twelve radius values and eight durations precisely because nothing forced a
+   scale (**RECOVERED**).
+2. **Components consume semantic tokens, never global ones.** A button asking
+   for `gold-500` locks the brand's colour into the button; a button asking for
+   `accent` survives GOLD-1 being decided either way. This is what makes an
+   *open* decision safe to leave open.
+3. **Every token has exactly one reason to change.** If two things must always
+   move together they are one token; if they may diverge they were always two.
+4. **Theme is a token remap, never a component fork.** Dark and light differ by
+   the values behind the same semantic names — no `.dark-button`.
+5. **The set stays small enough to hold in your head.** A semantic layer of
+   roughly 40–60 tokens is a system; 300 is a dictionary nobody reads.
+
+**The test:** deciding GOLD-1 should change **one global value** and nothing
+else. If it would require touching components, the token architecture is wrong.
+
+---
+
 ## 9. UI language
 
 **PROPOSED**, extending what Mythos OS already does well:
@@ -517,6 +658,61 @@ Units therefore differ by exactly four things:
 Everything else — mark, gold, type, grid, spacing, radius, icons, motion,
 accessibility — is identical and non-negotiable.
 
+### 13.1 How each unit actually differs — the six expressions
+
+**PROPOSED.** If units share the mark, the gold, the type and the grid, the
+question a reviewer will rightly ask is: *then what makes Mythos Logistique feel
+different from Mythos Digital?* The answer is that differentiation moves from
+**colour** to **structure, subject and density** — which is both more durable
+and harder to counterfeit than a hue.
+
+| | Descriptor | Subject of imagery | Density | Dominant component | Reads as |
+|---|---|---|---|---|---|
+| **MYTHOS** | *(none — the master)* | The group, its people, its scale | Comfortable | Editorial section, full-bleed image | Authority. The parent |
+| **Mythos OS** | `OS` | Screens, data, systems in use | **Compact** | Table, panel, command surface | Precision. The instrument |
+| **Mythos Prod** | `PROD` | Production, sets, crews, machines at work | Comfortable, **image-led** | Full-bleed media, project card | Craft. The maker |
+| **Mythos Services** | `SERVICES` | People, workshops, hands, delivery | Comfortable | Service card, process step | Reliability. The promise |
+| **Mythos Digital** | `DIGITAL` | Interfaces, motion, built work | Comfortable | Case study, before/after | Capability. The proof |
+| **Mythos Logistique** | `LOGISTIQUE` | Vehicles, routes, warehouses, movement | **Compact** | Table, status chip, timeline | Certainty. The operation |
+
+Two units run **compact** density (OS, Logistique) because both are operational
+and data-dense; the other four run comfortable. That single variable does more
+perceptual work than five accent colours would, and it is *derived from what the
+unit actually does* rather than assigned arbitrarily.
+
+The 35° gesture appears in all six, but on different objects: a section divider
+for the master, a chart's leading bar in OS, an image mask in Prod, a timeline
+head in Logistique. **Same gesture, different carrier** — this is what a family
+resemblance looks like when it is designed rather than painted on.
+
+### 13.2 A public project carrying Mythos DNA without the Mythos skin
+
+**PROPOSED — the clearest way to explain A-004 and A-006 to anyone.**
+
+Take the strongest recovered example, **Uthina Chess** — the one project in the
+portfolio whose written charter is demonstrably implemented (**RECOVERED**):
+nine official colours led by Imperial Gold `#D9A441`, Cinzel/Trajan display,
+Noto Kufi Arabic, a documented Hero → Details → Registration hierarchy.
+
+| Stays entirely the project's own | Inherited from Mythos, invisibly |
+|---|---|
+| Imperial Gold and the nine-colour palette | The accessibility floor — contrast measured, not assumed |
+| Cinzel / Trajan / Noto Kufi Arabic | Focus behaviour and keyboard operability |
+| The chess-and-Roman visual world | Responsive breakpoints defined by content |
+| Its own logo and favicon | The spacing rhythm and component principles |
+| Its tone, imagery and page hierarchy | Performance budget and QA process |
+| Its customer relationship | Governance: how a change gets reviewed |
+
+**The test of whether this is working:** a visitor to `uthinachess.tn` should
+never be told what to feel about Mythos — and a developer moving between
+`uthinachess.tn` and `fixpert.tn` should find the same focus ring behaviour, the
+same spacing logic and the same accessibility floor.
+
+**Mythos DNA is a floor, not a look.** That distinction is the whole of A-006,
+and it is why a project can be visually independent and still unmistakably well
+made. The only visible Mythos presence is a discreet footer endorsement — and
+even its form is **O-A6**, still open.
+
 **Governed extension path:** if a real business need for unit accents appears
 (for example two units sharing a screen and needing to be told apart at a
 glance), they are introduced as a governed extension — one accent per unit drawn
@@ -534,7 +730,7 @@ what would keep an extension from becoming a re-skin.
 
 | Ref | Question | State |
 |---|---|---|
-| **GOLD-1** | Historical logo gold vs Mythos OS UI gold | **OPEN.** §3.4 measures the routes and recommends one. It does not decide |
+| **GOLD-1** | Historical logo gold vs Mythos OS UI gold | **OPEN.** §3.4 measures the routes. Recommendation **changed this revision** to Route A on brand merit, after the owner removed migration cost as a criterion. It does not decide |
 | **O-A1** | Classification of Mythos Command Center | **OPEN.** Untouched. Note only that its indigo `#4f46e5` is outside the palette above, so its placement has a visual consequence |
 | **O-A3** | May a public project use a Mythos-level colour? | **OPEN.** Untouched |
 | **LOGO-1** | Does a vector master exist outside Git? | **OPEN.** Pending task, blocked on environment access |
@@ -554,7 +750,16 @@ what would keep an extension from becoming a re-skin.
   recreated.
 - **Not a decision on GOLD-1, O-A1 or O-A3.**
 
+**1C remains NON-APPROVED after this revision.** Nothing above was converted
+into a decision, and the seven review items listed in §0.1 all remain proposals.
+
 **Suggested sequence if you approve the direction:** settle GOLD-1, TYPE-1 and
 SEM-1 → **1D** writes `COLOR_SYSTEM.md` and `TYPOGRAPHY.md` → **1E** the token
 architecture and grid → **1F** the component system. O-A1 should be settled
 before 1H, because the hub's information architecture depends on it.
+
+**One sequencing note worth acting on early:** §8b's second rule — components
+consume semantic tokens, never global ones — means the token architecture can be
+built **before** GOLD-1 is settled. Deciding the gold then changes one value.
+That removes GOLD-1 from the critical path of 1E, so an open decision need not
+hold up the work.
