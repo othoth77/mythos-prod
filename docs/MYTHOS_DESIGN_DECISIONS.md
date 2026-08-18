@@ -84,7 +84,7 @@ different thing.
 | **Decision** | Public projects do **not** automatically inherit the Mythos visual skin. Their own logo, palette, imagery, personality and customer-facing identity remain independent **unless explicitly approved later** |
 | **Status** | **OWNER-APPROVED** — 2026-08-18 |
 | **Affects** | `BRAND_ARCHITECTURE.md` §5.1 (independent column), §5.3 |
-| **Notes** | The "unless explicitly approved later" clause is what keeps **O-A3** open: a project *may* one day use a Mythos-level colour, but only by explicit approval, never by drift or inference |
+| **Notes** | The "unless explicitly approved later" clause was what kept **O-A3** open. **Its rule now exists: A-021** (2026-08-18) — a Mythos-level colour is permitted only as a controlled ecosystem accent, never replacing the project's primary colour, and never automatically |
 
 ### A-007 — The recovered historical logo is the authoritative historical source
 
@@ -214,6 +214,54 @@ different thing.
 | **Consequence for identity** | **No new Mythos unit logo is created.** Command Center is not an endorsed unit, so **A-003** does not apply to it: it takes no `MYTHOS / <descriptor>` lockup of its own. It is branded as what it is — a product surface of Mythos OS |
 | **Consequence for the hub** | The `mythosprod.xyz` information architecture must place Command Center **under Mythos OS**, not beside the five units. Relevant to Stage 1H |
 | **Not actioned** | Command Center currently carries its own unrelated palette (light `#f6f7f9` / indigo `#4f46e5`), recorded at recovery as a third divergent Mythos-level visual language. Now that it is a Mythos OS product rather than an independent entity, that palette is **out of system**. Tracked as **MIG-4** (§3.1). **No code, CSS, asset, deployment or branding was changed** — this approval is classification only |
+
+### A-021 — Mythos colour usage policy for public projects
+
+| Field | Value |
+|---|---|
+| **Decision** | A public project may use a MYTHOS-level colour **only as a controlled ecosystem accent** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Resolves** | **O-A3** |
+| **Completes** | The "unless explicitly approved later" clause inside **A-006** now has its rule |
+
+**The eight rules, as approved:**
+
+1. The project's own brand palette remains **primary**.
+2. The project's logo and visual identity remain **independent**.
+3. MYTHOS colours **never replace** the project's primary brand colour.
+4. **Mythos Gold may appear in limited ecosystem contexts only** — Mythos
+   endorsement, footer, shared legal/ownership areas, the Mythos hub or project
+   directory, and cross-product navigation.
+5. A project may use a MYTHOS colour **inside its own UI only when there is a
+   documented functional or architectural reason**.
+6. Such usage stays **secondary** and must not visually turn the project into a
+   MYTHOS-branded product.
+7. **A project does not receive MYTHOS colours automatically.**
+8. Any exception affecting the project's **primary identity requires explicit
+   owner approval**.
+
+**Worked examples, as approved:**
+
+| Project | Primary identity | Mythos Gold |
+|---|---|---|
+| **Dar Hijama** | Green remains primary | May exist as a limited ecosystem accent. **Does not replace the green** |
+| **Uthina Chess** | Its existing identity remains primary | MYTHOS colours do not become its primary palette |
+| **Notre Jour** | Its own identity remains primary | MYTHOS DNA remains structural, not a forced visual skin |
+
+**Which gold rule 4 refers to:** Mythos Gold is `#D9A441` (**A-013**), with
+`#805C19` where contrast on light grounds requires it (`COLOR_SYSTEM.md` §3).
+
+**Consequence recorded, NOT actioned — the policy does not retroactively bless
+the live Dar Hijama site.** The recovery audit found that
+`/var/www/darhijama.tn/index.html` uses cream tones plus **`#c9a84c`** and that
+**not one of its six charter colours appears** (**C-001**). Measured against
+this policy that is not a limited ecosystem accent — it reads as a Mythos-level
+colour occupying the primary role, which rules 1, 3 and 6 forbid; and `#c9a84c`
+is in any case the superseded interface gold, not the approved Mythos Gold.
+**Nothing was changed.** Dar Hijama was not touched, and the underlying question
+of which artifact is authoritative remains **C-001** / **O-002**, both still
+open. This approval sets the rule going forward; it does not adjudicate the
+existing deviation.
 
 ---
 
@@ -421,7 +469,7 @@ by inference.**
 | ID | Decision needed | Blocking? | Notes |
 |---|---|---|---|
 | ~~**O-A1**~~ | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | — | **RESOLVED 2026-08-18 by A-020** — a product of **Mythos OS**, not a sixth unit. `MYTHOS → Mythos OS → Mythos Command Center → ordre.mythosprod.xyz`. No unit logo is created |
-| **O-A3** | **Whether and under what conditions a public project may use a Mythos-level colour in its own visual identity** | Yes, for any project-level design work | The owner's scoping, which is broader than the earlier draft framing of O-A3. Governs the exception clause in **A-006**. Related evidence: **C-001** (Dar Hijama's live site uses `#c9a84c` while its charter specifies green) and **O-002**, both of which remain open on their own terms |
+| ~~**O-A3**~~ | Whether and under what conditions a public project may use a Mythos-level colour | — | **RESOLVED 2026-08-18 by A-021** — permitted **only as a controlled ecosystem accent**, never replacing the project's primary colour, never automatic. **C-001** and **O-002** remain open: the policy is forward-looking and does not adjudicate the existing Dar Hijama deviation |
 | ~~**GOLD-1**~~ | Which gold is the master? | — | **RESOLVED 2026-08-18 by A-013** — Mythos Gold `#D9A441`, with `#805C19` for gold text on light grounds |
 | **LOGO-2** | Whether the Stage 1B vector reconstruction is adopted as the master, once **LOGO-1** is settled | Yes, for 1C | The 1B masters are **PROPOSED**, never approved (**A-007**). Adoption is a separate decision from the architecture approved on 2026-08-18 |
 | **O-004b** | Whether and when Mythos Services, Digital and Logistique become operating brands | No | **A-002** fixes the roster; the evidence gap for these three is unchanged |
@@ -464,7 +512,7 @@ moment of this approval:**
 | Ref | Question | State |
 |---|---|---|
 | ~~**O-A1**~~ | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | **RESOLVED 2026-08-18 by A-020** — a product of Mythos OS. The palette consequence it carried is now tracked as **MIG-4**, not actioned |
-| **O-A3** | Whether, and under what conditions, a public project may use a Mythos-level colour in its own identity | **OPEN.** The exception clause inside **A-006**; unaffected by the 1C approval |
+| ~~**O-A3**~~ | Whether, and under what conditions, a public project may use a Mythos-level colour | **RESOLVED 2026-08-18 by A-021** — controlled ecosystem accent only. Completes the exception clause inside **A-006** |
 | **LOGO-1** | Does an original vector or layered master source exist outside Git? | Yes, for LOGO-2 | **STILL OPEN — searched 2026-08-18, result C (only vector derivative found), scope PARTIAL.** Exhaustive over Git history (438 commits, 36 branches — **exactly 14 vector blobs have ever existed, all of them the Stage 1B reconstruction**) and over this container's entire filesystem. **Three of four priority locations were unreachable** (the VPS filesystem does not exist in a cloud session) and **the fourth — the off-host snapshot repositories — was blocked by session permission policy, not by lack of account access.** No original, no master, nothing new discovered; equally, **no true negative established.** Full record: `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md` |
 | **LOGO-2** | Adoption of the Stage 1B vector reconstruction as the master | **OPEN.** Depends on LOGO-1. **The 1C approval does not adopt it** — the approved specification is deliberately independent of which logo master is eventually chosen |
 

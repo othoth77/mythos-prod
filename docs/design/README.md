@@ -14,10 +14,19 @@ are recorded and **not actioned** — `MIG-1` the gold, `MIG-2` the Playfair
 declarations, `MIG-3` the semantic and control-border tokens, `MIG-4` the
 Mythos Command Center palette.
 
-**Architecture placements settled so far:** the three tiers and the five-unit
-roster (**A-001**–**A-006**), and **Mythos Command Center as a product of
-Mythos OS rather than a sixth unit** (**A-020**, resolving **O-A1**) —
-`MYTHOS → Mythos OS → Mythos Command Center → ordre.mythosprod.xyz`.
+**Architecture decisions settled so far:** the three tiers and the five-unit
+roster (**A-001**–**A-006**); **Mythos Command Center as a product of Mythos OS
+rather than a sixth unit** (**A-020**, resolving **O-A1**) —
+`MYTHOS → Mythos OS → Mythos Command Center → ordre.mythosprod.xyz`; and the
+**Mythos colour usage policy for public projects** (**A-021**, resolving
+**O-A3**) — a Mythos-level colour is permitted **only as a controlled ecosystem
+accent**, never replacing a project's primary colour and never automatically.
+
+**Still open:** **LOGO-1** (does a vector master exist outside Git — searched,
+result C, blocked on off-host access) and **LOGO-2** (adoption of the Stage 1B
+reconstruction, dependent on LOGO-1). Also open from the recovery era:
+**C-001** / **O-002**, the Dar Hijama charter-versus-live-site conflict, which
+**A-021 does not adjudicate**.
 
 ## Reading order
 
@@ -27,7 +36,7 @@ Start with the evidence, then the structure, then the mark.
 |---|---|---|
 | 0 | `../MYTHOS_DESIGN_RECOVERY.md` | What design work already existed, with evidence. **Read before anything else** |
 | 0 | `../design-recovery/MYTHOS_ORIGINAL_LOGO_RECOVERY.md` | The canonical record of the original Mythos logo |
-| 1 | `BRAND_ARCHITECTURE.md` | **OWNER-APPROVED.** The three tiers — master brand, endorsed units, independent projects — what each inherits, and where Mythos Command Center sits (§4.4) |
+| 1 | `BRAND_ARCHITECTURE.md` | **OWNER-APPROVED.** The three tiers — master brand, endorsed units, independent projects — what each inherits, where Mythos Command Center sits (§4.4), and when a project may use a Mythos colour (§5.5) |
 | 2 | `MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md` | **OWNER-APPROVED.** The visual system: Constant + Movement, the 35° gesture, colour, type, spacing, shape, components, motion, responsive and accessibility |
 | 3 | `COLOR_SYSTEM.md` | **Derived, canonical.** Mythos Gold `#D9A441`, the ink and paper ramps, semantics verified on four surfaces, focus and non-text boundaries |
 | 4 | `TYPOGRAPHY.md` | **Derived, canonical.** Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono, the scale, and the six binding Arabic rules |
