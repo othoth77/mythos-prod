@@ -476,7 +476,91 @@ console.log('\n12. UNATTENDED POLICY: DENY + RECORD + CONTINUE, NEVER ASK');
 })();
 
 // ===========================================================================
-console.log('\n13. CLEANUP');
+console.log('\n13. UNATTENDED MULTI-MISSION: A GATE FIRES AND THE LOOP KEEPS GOING');
+// ===========================================================================
+// The point of the whole stage: a governance gate must not stop an overnight
+// run. The gate still fires, the approval entity is still created, the answer
+// is decided immediately and restrictively, and the campaign carries on to
+// other work — with no human reachable and none asked.
+(function () {
+  process.env.MYTHOS_UNATTENDED = 'true';
+  process.env.MYTHOS_CORE_ENABLED = 'true';
+  process.env.MYTHOS_EXECUTOR_HOME = path.join(TMP, 'runtime');
+
+  var campaign = require(path.join(EXEC, 'core', 'campaign.js'));
+  var unattended = require(path.join(EXEC, 'core', 'unattended.js'));
+  ok(unattended.enabled() === true, 'unattended-run: the mode is on for this scenario');
+
+  var repo = path.join(TMP, 'unattended-repo');
+  fs.mkdirSync(path.join(repo, 'docs'), { recursive: true });
+  fs.writeFileSync(path.join(repo, 'docs', 'MYTHOS_AI_ORCHESTRATOR_MASTER_VISION.md'),
+    '# Vision\n\n## 3. Components\n\n' +
+    '### A. Adapter Improvement — PARTIAL (Phase 2)\n\nA safe capability.\n\n' +
+    '### B. Second Safe Thing — PLANNED (Phase 2)\n\nAnother safe capability.\n\n' +
+    '### P. Policy Hardening — PLANNED (Phase 2)\n\nChange the policy engine approval rules.\n');
+  git(repo, ['init', '-q', '-b', 'main']);
+  git(repo, ['config', 'user.email', 't@t']);
+  git(repo, ['config', 'user.name', 'Test']);
+  git(repo, ['add', '.']);
+  git(repo, ['commit', '-q', '-m', 'init']);
+
+  var c = campaign.createCampaign({
+    objective: 'Develop the remaining capabilities overnight without asking anyone.',
+    repo_path: repo, project: 'gov-unattended'
+  });
+
+  // Drive the governance path directly: this is what the runner calls when a
+  // real diff touches the cage.
+  var before = campaign.loadCampaign(c.campaign_id).state;
+  campaign.parkForApproval(c.campaign_id, {
+    mission_id: 'm-unattended-1', capability_key: 'P',
+    objective: 'Change the policy engine approval rules',
+    reason: 'governance violation detected in the real diff: core/policy-engine.js',
+    action_class: 'GOVERNANCE'
+  });
+  var after = campaign.loadCampaign(c.campaign_id);
+
+  ok(after.state !== 'WAITING_FOR_APPROVAL',
+    'unattended-run: a governance gate does NOT park the campaign for a human (state=' +
+      after.state + ')');
+  ok((after.approval_required || []).length === 0,
+    'unattended-run: no approval is left outstanding for someone to answer');
+  ok((after.approval_decisions || []).length >= 1,
+    'unattended-run: the decision was RECORDED, not skipped');
+
+  var decision = (after.approval_decisions || [])[0] || {};
+  ok(decision.granted === false, 'unattended-run: the automatic answer is a DENIAL');
+  ok(/unattended|automatic/i.test(String(decision.decided_by)),
+    'unattended-run: the decider is marked automatic, never impersonating a human');
+  ok(String(decision.decided_by) !== 'othman-haddad (owner)',
+    'unattended-run: an automatic denial never claims to be the owner');
+
+  // The capability is written off as AUTO_DENIED — distinct from OWNER_DENIED,
+  // so a machine refusal is never mistaken for a human verdict.
+  var rmap = require(path.join(EXEC, 'core', 'roadmap.js'));
+  var capP = rmap.candidates(repo).filter(function (x) { return x.key === 'P'; })[0];
+  ok(capP && capP.selectable === false,
+    'unattended-run: the denied capability is no longer selectable');
+  ok(capP && capP.effective_status === 'AUTO_DENIED',
+    'unattended-run: recorded AUTO_DENIED, distinct from an owner verdict');
+
+  // …and other work is still available, which is what "continue" means.
+  var stillOpen = rmap.candidates(repo).filter(function (x) { return x.selectable; });
+  ok(stillOpen.length >= 1,
+    'unattended-run: safe capabilities remain selectable — the loop continues (' +
+      stillOpen.map(function (x) { return x.key; }).join(',') + ')');
+  ok(before === 'PLANNING' || before === 'READY', 'unattended-run: started from a normal state');
+
+  // No pending approval anywhere means nothing is waiting on a human.
+  var policyEngine = require(path.join(EXEC, 'core', 'policy-engine.js'));
+  ok(policyEngine.pendingApprovals(c.campaign_id).length === 0,
+    'unattended-run: zero pending approvals — nothing is waiting on a human');
+
+  delete process.env.MYTHOS_UNATTENDED;
+})();
+
+// ===========================================================================
+console.log('\n14. CLEANUP');
 // ===========================================================================
 (function () {
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* best effort */ }
