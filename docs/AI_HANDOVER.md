@@ -1,7 +1,78 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **FULL AUTONOMOUS MANDATE, FIRST PASS — PR #11 MERGED TO MAIN; LOGO-2 RESOLVED (AUTO-1); LOGO-1 NARROWED; C-006 CANONICAL SYSTEM DECIDED (AUTO-2) WITH EXECUTION DELIBERATELY DEFERRED AFTER A NEAR-MISS ON THE REAL MYTHOS OS STYLESHEET. NO CODE, CSS OR APPLICATION FILE ENDS THIS STAGE CHANGED — ONLY DOCUMENTATION.**
+**From:** MYTHOS **FULL AUTONOMOUS MANDATE, SECOND PASS — DECISION SWEEP COMPLETE (AUTO-3, 18 ITEMS), TOKEN ARTIFACT GENERATED. NO APPLICATION, CSS OR BUILD FILE CHANGED — ONE NEW, STANDALONE, UNWIRED SPECIFICATION FILE.**
+
+**Item 4 of the mandate's five-item continuation** ("complete the remaining
+decision sweep") is done. Full reasoning and every value:
+`docs/MYTHOS_DESIGN_DECISIONS.md` §0.5, **AUTO-3**.
+
+**Six items already had a complete recommendation and were formally adopted
+unchanged:** MOTION-1, LINK-1, SHAPE-1, GOLD-3, TYPE-3, SPACE-1.
+
+**Twelve were newly reasoned through, each with computation or explicit
+argument, not assertion:** **GOLD-2** — light-theme hover/active **darken** from
+`gold-800`, never lighten, because lightening immediately fails AA (`paper-100`
+on `gold-700` = 3.94) while darkening only ever raises contrast (verified 8.71,
+7.02). **SURF-1** — the light elevation ramp was extended and shadows defined by
+**measuring** the lightness step the already-approved `paper-100`→`paper-200`
+transition encodes, then extending that same step rather than inventing a new
+one. **TOKEN-1** — authorised; the blocker was permission, not a technical
+question. **TOKEN-2** — `--mythos-*` prefix adopted, matching C-006's real
+precedent. **MOTION-2** — the 35° motion vector does **not** mirror in RTL,
+direct application of A-012's own reasoning for the mark's slant. **MOTION-3** —
+the shape-cut and motion-vector share **one** per-view budget, preserving the
+rarity the system is built on. **A11Y-1** — primary/secondary buttons
+distinguished by `border-style` under `forced-colors` (survives it; colour does
+not) — flagged explicitly as a genuine judgement call, not a derivation.
+**A11Y-2** — the `disabled`/`aria-disabled` attribute **is** the non-colour,
+screen-reader-detectable channel. **SEQ-1** — sequential (6-step) and diverging
+(7-step) data scales generated in HLS, monotonic lightness, every step ≥ 3:1 on
+ink. **GRID-1** — 1440 is the 1280 container at its own margins, not a second
+width; `2xl` inherits `xl`'s capped state and has none of its own. **GRID-3** —
+off-scale spacing steps given an explicit role (optical correction, or
+legitimate-but-unbanded); button padding confirmed as 10/16 inside a 1px
+border. **ECO-1/2/3** — Command Center DNS stays flat (brand hierarchy is UI,
+never URL); `panel.`/`tv.` classified internal infrastructure, no branding;
+the twelve extra projects classified internal tooling — none has any public
+serving surface, live or planned.
+
+**GRID-2 is narrowed, not closed:** 65 characters is the design intent, 68ch an
+approximation pending real font metrics that don't exist yet. **C-001, O-002**
+and the recovery-era evidence questions (**O-003/004/006/007, C-004, U-001**)
+are untouched — real-world conflicts and unresolved facts a decision sweep
+cannot derive.
+
+**`assets/brand/tokens/tokens.css` generated** — the first machine-readable
+artifact for the canonical 1C/1E system, now that TOKEN-1 is authorised. **New,
+standalone, referenced by no application, HTML file or build step.** One real
+error was caught and fixed before landing: the reduced-motion block first wrote
+all durations to `0ms`, which contradicts the approved rule (*"every duration
+resolves to `motion-micro`"*, not zero) — corrected before commit.
+
+**Documentation propagated, not duplicated.** `COLOR_SYSTEM.md`,
+`GRID_AND_SPACING.md`, `DESIGN_TOKENS.md`, `COMPONENT_SYSTEM.md`,
+`RESPONSIVE_ACCESSIBILITY_MOTION.md`, `PUBLIC_ECOSYSTEM_ARCHITECTURE.md` and the
+design `README.md` each got a pointer update to the register rather than a full
+rewrite — the register stays the single authoritative record. Two stale
+statuses caught in passing and corrected: `COLOR_SYSTEM.md` §8 still listed
+O-A1/O-A3 as open long after A-020/A-021 resolved them; `GRID_AND_SPACING.md` §9
+still listed C-005 as open long after A-022 resolved it.
+
+**Every AUTO-3 row is reversible at zero cost** — nothing touches a live file,
+and a genuine owner review can accept, amend or reverse any single item without
+affecting the others. Committed via branch + PR (`claude/decision-sweep-auto3`,
+PR #18), merged to `main` at `392e97e`, remote verified equal.
+
+**Next, under the same mandate:** item 5 (1I Design Prototypes), then
+consolidation, the implementation-readiness audit, and migration plans.
+**Deployment-dependent phases remain blocked** — MOS-1.6/1.7 (merged into `main`
+this stage's window) independently confirm a real, deliberately-configured
+`deploy`-user privilege boundary from a session **with** host access, refused
+two different ways. Not attempted again; not this session's decision to
+escalate around.
+
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, FIRST PASS — PR #11 MERGED TO MAIN; LOGO-2 RESOLVED (AUTO-1); LOGO-1 NARROWED; C-006 CANONICAL SYSTEM DECIDED (AUTO-2) WITH EXECUTION DELIBERATELY DEFERRED AFTER A NEAR-MISS ON THE REAL MYTHOS OS STYLESHEET. NO CODE, CSS OR APPLICATION FILE ENDS THIS STAGE CHANGED — ONLY DOCUMENTATION.**
 
 **Authority for everything in this entry.** The owner instructed a "FULL
 AUTONOMOUS MYTHOS OS EXECUTION MANDATE... previously authorized," which this
