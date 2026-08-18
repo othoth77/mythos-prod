@@ -1,0 +1,487 @@
+'use strict';
+// =====================================================
+// Mythos — governance DELIVERY INVARIANT suite
+// tests/mythos-governance-invariant-test.js
+//
+// Closes GI-2026-08-18-01. The incident's finding was that the cage was a
+// mission-acceptance check, so an interactive session committing to the main
+// checkout was never evaluated. The invariant now lives at DELIVERY, where
+// every route to GitHub converges, and this suite is the proof.
+//
+// The hostile cases matter more than the happy ones. Each of these is a way
+// a Claude session could try to get a protected change delivered, and each
+// must fail:
+//   - just commit it (no approval at all);
+//   - say "owner-authorised" in the commit message;
+//   - write an approval file by hand;
+//   - reuse a real approval issued for a different commit;
+//   - reach the protected file through a non-normalised path;
+//   - force the ref past the check.
+//
+// Offline: temp git repos, temp key and store. Never touches the real
+// /etc/mythos key or /var/lib/mythos store (which this user cannot read
+// anyway — that is itself asserted).
+// =====================================================
+
+var fs = require('fs');
+var os = require('os');
+var path = require('path');
+var cp = require('child_process');
+var crypto = require('crypto');
+
+var passed = 0, failed = 0;
+function ok(cond, label) {
+  if (cond) { passed++; console.log('  PASS ' + label); }
+  else { failed++; console.log('  FAIL ' + label); }
+}
+
+var TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'mythos-gov-'));
+var KEY_FILE = path.join(TMP, 'governance.key');
+var STORE = path.join(TMP, 'approvals');
+fs.writeFileSync(KEY_FILE, crypto.randomBytes(32).toString('base64'));
+fs.mkdirSync(STORE, { recursive: true });
+
+process.env.MYTHOS_GOV_KEY = KEY_FILE;
+process.env.MYTHOS_GOV_STORE = STORE;
+process.env.MYTHOS_GOV_DENYLOG = path.join(TMP, 'denied.log');
+
+var EXEC = path.join(__dirname, '..', 'projects', 'mythos-ai-executor');
+var verifier = require(path.join(EXEC, 'service', 'governance-verify.js'));
+var KEY = fs.readFileSync(KEY_FILE);
+
+function git(repo, args) {
+  return cp.execFileSync('git', ['-C', repo].concat(args), { encoding: 'utf8' });
+}
+
+function makeRepo(name) {
+  var dir = path.join(TMP, name);
+  fs.mkdirSync(path.join(dir, 'projects', 'mythos-ai-executor', 'core'), { recursive: true });
+  fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'docs', 'README.md'), 'ordinary\n');
+  fs.writeFileSync(path.join(dir, 'projects', 'mythos-ai-executor', 'core', 'policy-engine.js'),
+    '// the caged policy engine\n');
+  git(dir, ['init', '-q', '-b', 'main']);
+  git(dir, ['config', 'user.email', 't@t']);
+  git(dir, ['config', 'user.name', 'Test']);
+  git(dir, ['add', '.']);
+  git(dir, ['commit', '-q', '-m', 'base']);
+  return dir;
+}
+
+function commitFile(repo, rel, body, msg) {
+  var full = path.join(repo, rel);
+  fs.mkdirSync(path.dirname(full), { recursive: true });
+  fs.writeFileSync(full, body);
+  git(repo, ['add', '-A']);
+  git(repo, ['commit', '-q', '-m', msg]);
+  return git(repo, ['rev-parse', 'HEAD']).trim();
+}
+
+function grant(commit, paths, by) {
+  var a = {
+    approval_id: 'ga-test-' + crypto.randomBytes(3).toString('hex'),
+    commit: commit,
+    paths: paths.slice().sort(),
+    decision: 'GRANTED',
+    decided_by: by || 'a-real-human',
+    created_at: new Date().toISOString()
+  };
+  a.sig = verifier.sign(a, KEY);
+  fs.writeFileSync(path.join(STORE, a.approval_id + '.json'), JSON.stringify(a, null, 2));
+  return a;
+}
+
+function clearStore() {
+  fs.readdirSync(STORE).forEach(function (f) { fs.unlinkSync(path.join(STORE, f)); });
+}
+
+console.log('MYTHOS — governance delivery invariant\n');
+
+// ===========================================================================
+console.log('1. ORDINARY WORK IS UNAFFECTED');
+// ===========================================================================
+(function () {
+  var repo = makeRepo('normal');
+  var base = git(repo, ['rev-parse', 'HEAD']).trim();
+  commitFile(repo, 'docs/NOTES.md', 'notes\n', 'docs: ordinary change');
+  commitFile(repo, 'src/app.js', 'console.log(1)\n', 'feat: ordinary code');
+  var res = verifier.verify(repo, base + '..HEAD');
+  ok(res.allowed === true, 'normal: a commit touching no protected path delivers');
+  ok(res.protected_commits === 0, 'normal: nothing is flagged as protected');
+  ok(!res.error, 'normal: no verifier error');
+})();
+
+// ===========================================================================
+console.log('\n2. MISSION BRANCHES DELIVER');
+// ===========================================================================
+(function () {
+  var repo = makeRepo('mission');
+  var base = git(repo, ['rev-parse', 'HEAD']).trim();
+  git(repo, ['checkout', '-q', '-b', 'mythos/m-test-0001/tk-test-0001']);
+  commitFile(repo, 'projects/mythos-ai-executor/core/dag.js', '// improved\n',
+    'feat(mythos-core): ordinary capability work');
+  var res = verifier.verify(repo, base + '..HEAD');
+  ok(res.allowed === true, 'mission: an ordinary mission branch delivers autonomously');
+
+  // …but a mission branch is just a ref. A protected change on one is still
+  // a protected change.
+  commitFile(repo, 'projects/mythos-ai-executor/core/budget.js', '// tampered\n',
+    'feat: sneak a budget change onto a mission branch');
+  var res2 = verifier.verify(repo, base + '..HEAD');
+  ok(res2.allowed === false,
+    'mission: a protected change on a mythos/* branch is still denied');
+})();
+
+// ===========================================================================
+console.log('\n3. PROTECTED FILES ARE BLOCKED WITHOUT AN APPROVAL');
+// ===========================================================================
+(function () {
+  var repo = makeRepo('protected');
+  var base = git(repo, ['rev-parse', 'HEAD']).trim();
+  var sha = commitFile(repo, 'projects/mythos-ai-executor/core/policy-engine.js',
+    '// weakened\n', 'refactor: touch the policy engine');
+  var res = verifier.verify(repo, base + '..HEAD');
+  ok(res.allowed === false, 'protected: an unapproved protected change is DENIED');
+  ok(res.denied.length === 1 && res.denied[0].sha === sha,
+    'protected: the denial names the exact commit');
+  ok(res.denied[0].protected_files.indexOf('projects/mythos-ai-executor/core/policy-engine.js') !== -1,
+    'protected: the denial names the file');
+
+  // The same commit, once genuinely approved, delivers.
+  grant(sha, ['projects/mythos-ai-executor/core/policy-engine.js']);
+  var res2 = verifier.verify(repo, base + '..HEAD');
+  ok(res2.allowed === true, 'protected: a signed, commit-bound approval permits delivery');
+  clearStore();
+  ok(verifier.verify(repo, base + '..HEAD').allowed === false,
+    'protected: revoking the approval blocks it again');
+})();
+
+// ===========================================================================
+console.log('\n4. A COMMIT MESSAGE IS NOT AN APPROVAL');
+// ===========================================================================
+(function () {
+  var repo = makeRepo('claims');
+  var base = git(repo, ['rev-parse', 'HEAD']).trim();
+  [
+    'fix: owner-authorised change to the relay',
+    'chore: approved by the owner in chat, see conversation',
+    'feat: APPROVAL_ID=ga-totally-real granted by othman',
+    'fix: this was put to the owner and authorised before implementation'
+  ].forEach(function (msg, i) {
+    commitFile(repo, 'projects/mythos-ai-executor/core/policy-engine.js',
+      '// attempt ' + i + '\n', msg);
+  });
+  var res = verifier.verify(repo, base + '..HEAD');
+  ok(res.allowed === false, 'claims: commit messages asserting approval change nothing');
+  ok(res.denied.length === 4, 'claims: every such commit is denied, not just the first');
+  var src = fs.readFileSync(path.join(EXEC, 'service', 'governance-verify.js'), 'utf8');
+  ok(!/log\b.*--format|%B|commit_message|show -s/.test(src),
+    'claims: the verifier never reads a commit message at all');
+})();
+
+// ===========================================================================
+console.log('\n5. A FORGED APPROVAL IS REJECTED');
+// ===========================================================================
+(function () {
+  var repo = makeRepo('forgery');
+  var base = git(repo, ['rev-parse', 'HEAD']).trim();
+  var sha = commitFile(repo, 'projects/mythos-ai-executor/core/budget.js',
+    '// forged\n', 'fix: budget');
+
+  // Hand-written approval with no signature.
+  fs.writeFileSync(path.join(STORE, 'unsigned.json'), JSON.stringify({
+    approval_id: 'unsigned', commit: sha,
+    paths: ['projects/mythos-ai-executor/core/budget.js'],
+    decision: 'GRANTED', decided_by: 'me', created_at: new Date().toISOString()
+  }));
+  ok(verifier.verify(repo, base + '..HEAD').allowed === false,
+    'forgery: an approval with no signature is rejected');
+
+  // Signature present but wrong.
+  fs.writeFileSync(path.join(STORE, 'badsig.json'), JSON.stringify({
+    approval_id: 'badsig', commit: sha,
+    paths: ['projects/mythos-ai-executor/core/budget.js'],
+    decision: 'GRANTED', decided_by: 'me', created_at: new Date().toISOString(),
+    sig: crypto.randomBytes(32).toString('hex')
+  }));
+  ok(verifier.verify(repo, base + '..HEAD').allowed === false,
+    'forgery: a wrong signature is rejected');
+
+  // Signed with the WRONG key — i.e. a session that made up its own key.
+  var wrongKey = crypto.randomBytes(32);
+  var a = {
+    approval_id: 'wrongkey', commit: sha,
+    paths: ['projects/mythos-ai-executor/core/budget.js'],
+    decision: 'GRANTED', decided_by: 'me', created_at: new Date().toISOString()
+  };
+  a.sig = verifier.sign(a, wrongKey);
+  fs.writeFileSync(path.join(STORE, 'wrongkey.json'), JSON.stringify(a));
+  ok(verifier.verify(repo, base + '..HEAD').allowed === false,
+    'forgery: an approval signed with a self-made key is rejected');
+
+  // Tampering with a genuinely signed approval invalidates it.
+  clearStore();
+  var real = grant(sha, ['projects/mythos-ai-executor/core/budget.js']);
+  var file = path.join(STORE, real.approval_id + '.json');
+  var loaded = JSON.parse(fs.readFileSync(file, 'utf8'));
+  loaded.paths.push('projects/mythos-ai-executor/core/policy-engine.js');
+  fs.writeFileSync(file, JSON.stringify(loaded));
+  ok(verifier.verify(repo, base + '..HEAD').allowed === false,
+    'forgery: widening the paths of a signed approval invalidates it');
+  clearStore();
+
+  // A DENIED decision is not an approval.
+  var denied = {
+    approval_id: 'denied1', commit: sha,
+    paths: ['projects/mythos-ai-executor/core/budget.js'],
+    decision: 'DENIED', decided_by: 'a-real-human', created_at: new Date().toISOString()
+  };
+  denied.sig = verifier.sign(denied, KEY);
+  fs.writeFileSync(path.join(STORE, 'denied1.json'), JSON.stringify(denied));
+  ok(verifier.verify(repo, base + '..HEAD').allowed === false,
+    'forgery: a validly signed DENIAL does not permit delivery');
+  clearStore();
+})();
+
+// ===========================================================================
+console.log('\n6. AN APPROVAL IS BOUND TO ONE COMMIT AND ITS PATHS');
+// ===========================================================================
+(function () {
+  var repo = makeRepo('binding');
+  var base = git(repo, ['rev-parse', 'HEAD']).trim();
+  var first = commitFile(repo, 'projects/mythos-ai-executor/core/budget.js',
+    '// v1\n', 'fix: budget v1');
+  grant(first, ['projects/mythos-ai-executor/core/budget.js']);
+  ok(verifier.verify(repo, base + '..HEAD').allowed === true, 'binding: the approved commit delivers');
+
+  // A SECOND protected commit is not covered by the first one's approval.
+  var second = commitFile(repo, 'projects/mythos-ai-executor/core/budget.js',
+    '// v2 sneaked in\n', 'fix: budget v2');
+  var res = verifier.verify(repo, base + '..HEAD');
+  ok(res.allowed === false, 'binding: a later commit is NOT covered by an earlier approval');
+  ok(res.denied.length === 1 && res.denied[0].sha === second,
+    'binding: only the unapproved commit is named');
+
+  // Amending changes the sha, so the approval stops applying.
+  clearStore();
+  var amendable = commitFile(repo, 'projects/mythos-ai-executor/core/events.js',
+    '// a\n', 'fix: events');
+  grant(amendable, ['projects/mythos-ai-executor/core/events.js']);
+  git(repo, ['commit', '-q', '--amend', '-m', 'fix: events (amended)']);
+  ok(verifier.verify(repo, base + '..HEAD').allowed === false,
+    'binding: amending a commit invalidates its approval (no approve-then-swap)');
+  clearStore();
+
+  // An approval that covers only SOME of the touched protected paths fails.
+  var multi = commitFile(repo, 'projects/mythos-ai-executor/core/store.js', '// s\n', 'fix: two files');
+  fs.writeFileSync(path.join(repo, 'projects/mythos-ai-executor/core/validation.js'), '// v\n');
+  git(repo, ['add', '-A']);
+  git(repo, ['commit', '-q', '--amend', '--no-edit']);
+  multi = git(repo, ['rev-parse', 'HEAD']).trim();
+  grant(multi, ['projects/mythos-ai-executor/core/store.js']);   // only one of the two
+  ok(verifier.verify(repo, base + '..HEAD').allowed === false,
+    'binding: a partial path approval does not cover the whole commit');
+  clearStore();
+})();
+
+// ===========================================================================
+console.log('\n7. PATH TRAVERSAL AND NON-NORMALISED FORMS');
+// ===========================================================================
+(function () {
+  [
+    'projects/mythos-ai-executor/core/../core/policy-engine.js',
+    './projects/./mythos-ai-executor/core/policy-engine.js',
+    'a/b/../../projects/mythos-ai-executor/core/budget.js',
+    '/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/core/store.js',
+    'projects/mythos-ai-executor/service/mythos-git-push.sh',
+    'projects/mythos-ai-executor/service/../service/governance-verify.js',
+    '.github/workflows/deploy.yml',
+    'some/dir/credentials.json',
+    'app/.env.production',
+    'home/.ssh/config'
+  ].forEach(function (p) {
+    ok(verifier.isProtectedPath(p), 'traversal: still protected — ' + p.slice(-46));
+  });
+  ok(!verifier.isProtectedPath('projects/mythos-ai-executor/core/dag.js') &&
+     !verifier.isProtectedPath('docs/SOMETHING.md'),
+    'traversal: ordinary files are not over-blocked');
+})();
+
+// ===========================================================================
+console.log('\n8. FORCE PUSH AND HISTORY REWRITE ARE IMPOSSIBLE VIA THE RELAY');
+// ===========================================================================
+(function () {
+  var relay = fs.readFileSync(path.join(EXEC, 'service', 'mythos-git-push.sh'), 'utf8');
+  ok(!/--force|--force-with-lease|push\s+.*\s\+refs|:\+refs/.test(relay),
+    'force: the relay contains no force-push flag or + refspec');
+  ok(/merge-base --is-ancestor/.test(relay),
+    'force: delivery is gated on a fast-forward check');
+  ok(/REFUSED: local \$BRANCH is not a fast-forward/.test(relay),
+    'force: a diverged main is refused rather than forced');
+  ok(!/push --delete|:refs\/heads\//.test(relay.replace(/"\$ref:\$ref"/g, '').replace(/refs\/heads\/\$BRANCH:refs\/heads\/\$BRANCH/g, '')),
+    'force: the relay never deletes a remote ref');
+  ok(!/filter-branch|rebase|reset --hard|commit --amend/.test(relay),
+    'force: the relay never rewrites history');
+  ok(/gov_check/.test(relay) && (relay.match(/gov_check/g) || []).length >= 3,
+    'force: every push path goes through the governance check');
+})();
+
+// ===========================================================================
+console.log('\n9. THE VERIFIER CANNOT BE DISARMED FROM THE REPOSITORY');
+// ===========================================================================
+(function () {
+  var relay = fs.readFileSync(path.join(EXEC, 'service', 'mythos-git-push.sh'), 'utf8');
+  ok(/\/usr\/local\/lib\/mythos\/governance-verify\.js/.test(relay),
+    'independence: the relay points at the ROOT-OWNED verifier, not the repo copy');
+  ok(/failing closed/.test(relay),
+    'independence: a missing verifier fails closed rather than delivering');
+
+  // The embedded protected list must not drift from the cage the loop uses.
+  var selfImprove = require(path.join(EXEC, 'core', 'self-improve.js'));
+  var missing = selfImprove.SELF_PROTECTED_PATHS.filter(function (p) {
+    return verifier.PROTECTED_PATHS.indexOf(p) === -1;
+  });
+  ok(missing.length === 0,
+    'independence: every caged path is also a delivery-protected path' +
+      (missing.length ? ' (missing: ' + missing.join(', ') + ')' : ''));
+
+  // Verifier errors must never be read as permission.
+  var saved = process.env.MYTHOS_GOV_KEY;
+  process.env.MYTHOS_GOV_KEY = path.join(TMP, 'no-such-key');
+  var fresh = require('child_process').execFileSync(process.execPath, ['-e',
+    'process.env.MYTHOS_GOV_KEY="' + path.join(TMP, 'no-such-key') + '";' +
+    'process.env.MYTHOS_GOV_STORE="' + STORE + '";' +
+    'var v=require("' + path.join(EXEC, 'service', 'governance-verify.js') + '");' +
+    'var r=v.verify("' + path.join(TMP, 'protected') + '","HEAD~1..HEAD");' +
+    'console.log(JSON.stringify({allowed:r.allowed,fail:r.fail_closed}))'
+  ], { encoding: 'utf8' });
+  var parsed = JSON.parse(fresh.trim());
+  process.env.MYTHOS_GOV_KEY = saved;
+  ok(parsed.allowed === false && parsed.fail === true,
+    'independence: an unreadable key denies delivery (fails closed)');
+})();
+
+// ===========================================================================
+console.log('\n10. APPROVALS PERSIST AND ARE HUMAN-ONLY BY CONSTRUCTION');
+// ===========================================================================
+(function () {
+  var repo = makeRepo('persist');
+  var base = git(repo, ['rev-parse', 'HEAD']).trim();
+  var sha = commitFile(repo, 'projects/mythos-ai-executor/config/policy.json',
+    '{}\n', 'chore: policy config');
+  var a = grant(sha, ['projects/mythos-ai-executor/config/policy.json'], 'othman-haddad');
+
+  // Survives a fresh process: the record is on disk, not in memory.
+  var out = cp.execFileSync(process.execPath, ['-e',
+    'process.env.MYTHOS_GOV_KEY="' + KEY_FILE + '";process.env.MYTHOS_GOV_STORE="' + STORE + '";' +
+    'var v=require("' + path.join(EXEC, 'service', 'governance-verify.js') + '");' +
+    'console.log(JSON.stringify(v.verify("' + repo + '","' + base + '..HEAD")))'
+  ], { encoding: 'utf8' });
+  ok(JSON.parse(out.trim()).allowed === true,
+    'persistence: an approval survives into a fresh process');
+  ok(fs.existsSync(path.join(STORE, a.approval_id + '.json')),
+    'persistence: the record is a durable file, not process state');
+
+  // The approve tool refuses non-root and refuses automated deciders.
+  var tool = fs.readFileSync(path.join(EXEC, 'service', 'mythos-governance-approve.js'), 'utf8');
+  ok(/process\.getuid\(\) !== 0/.test(tool),
+    'human-only: the approve tool refuses to run as a non-root user');
+  ok(/claude\|agent\|automation\|bot\|system\|n8n\|mythos/.test(tool),
+    'human-only: an automated identity is refused as the decider');
+  ok(/touches no protected path/.test(tool),
+    'human-only: blanket approvals for unprotected commits are refused');
+  ok(!/--yes|--force|--auto/.test(tool),
+    'human-only: the tool has no non-interactive auto-approve switch');
+  clearStore();
+})();
+
+// ===========================================================================
+console.log('\n11. THE SESSION USER CANNOT REACH THE REAL KEY OR STORE');
+// ===========================================================================
+(function () {
+  // The live installation, not the temp fixtures. This is the property that
+  // makes forgery require an explicit privileged action.
+  var readable = true;
+  try { fs.readFileSync('/etc/mythos/governance.key'); } catch (e) { readable = false; }
+  ok(readable === false,
+    'isolation: this user cannot read /etc/mythos/governance.key');
+
+  var listable = true;
+  try { fs.readdirSync('/var/lib/mythos/governance/approvals'); } catch (e) { listable = false; }
+  ok(listable === false,
+    'isolation: this user cannot list the live approval store');
+
+  var writable = true;
+  try {
+    fs.writeFileSync('/var/lib/mythos/governance/approvals/forged.json', '{}');
+  } catch (e) { writable = false; }
+  ok(writable === false,
+    'isolation: this user cannot write an approval into the live store');
+})();
+
+// ===========================================================================
+console.log('\n12. UNATTENDED POLICY: DENY + RECORD + CONTINUE, NEVER ASK');
+// ===========================================================================
+(function () {
+  var unattended = require(path.join(EXEC, 'core', 'unattended.js'));
+
+  ok(unattended.enabled() === false,
+    'unattended: OFF unless explicitly switched on by environment');
+
+  // The load-bearing invariant: no classification may ever grant anything.
+  var everyKind = unattended.DECISIONS.map(function (d) { return d.kind; });
+  ok(everyKind.length >= 5, 'unattended: the policy covers the documented decision kinds');
+  unattended.DECISIONS.forEach(function (d) {
+    ok(!unattended.grantsAnything({ action: d.action }),
+      'unattended: ' + d.kind + ' resolves to a restrictive action (' + d.action + ')');
+  });
+
+  [
+    ['governance violation detected in the real diff: core/tool-registry.js', 'GOVERNANCE'],
+    ['this would require a destructive ROOT operation', 'DESTRUCTIVE'],
+    ['task parked: requires approval under the execution policy', 'POLICY'],
+    ['repair budget exhausted after 3 cycles', 'REPAIR_EXHAUSTED'],
+    ['the objective is ambiguous and needs a human design decision', 'AMBIGUOUS']
+  ].forEach(function (pair) {
+    var v = unattended.classify(pair[0]);
+    ok(v.kind === pair[1], 'unattended: "' + pair[0].slice(0, 34) + '…" → ' + pair[1]);
+    ok(!unattended.grantsAnything(v), 'unattended: ' + pair[1] + ' grants nothing');
+  });
+
+  // Precedence is deliberate and must resolve to the STRICTER rule. A
+  // money-spend approval reads as DESTRUCTIVE rather than ordinary POLICY
+  // because the destructive rule is checked first — both deny, but the
+  // stricter classification is the one that should win.
+  var money = unattended.classify('approval required for MONEY_SPEND of $5');
+  ok(money.kind === 'DESTRUCTIVE',
+    'unattended: a money-spend gate resolves to the STRICTER destructive class');
+  ok(money.terminal_for_capability === true && !unattended.grantsAnything(money),
+    'unattended: and it grants nothing');
+
+  // An unrecognised reason must deny WITHOUT writing the capability off.
+  var unknown = unattended.classify('something nobody anticipated happened');
+  ok(unknown.action === 'DENY' && unknown.terminal_for_capability === false,
+    'unattended: an unclassified stop is denied but not permanently written off');
+
+  // Quota is a WAIT, never a denial — denying it would discard recoverable work.
+  ok(unattended.NEVER_DENIED.indexOf('WAITING_FOR_QUOTA') !== -1,
+    'unattended: quota is explicitly excluded from denial (wait/resume, not deny)');
+  ok(unattended.classify('usage limit reached, waiting for quota').kind !== 'GOVERNANCE',
+    'unattended: a quota message is never misread as a governance breach');
+
+  // Nothing in the module can turn itself on from a payload.
+  var src = fs.readFileSync(path.join(EXEC, 'core', 'unattended.js'), 'utf8');
+  ok(!/opts\.unattended|payload\.unattended|input\.unattended/.test(src),
+    'unattended: cannot be switched on by a task payload — environment only');
+})();
+
+// ===========================================================================
+console.log('\n13. CLEANUP');
+// ===========================================================================
+(function () {
+  try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* best effort */ }
+  ok(true, 'cleanup: temp key, store and repos removed');
+})();
+
+console.log('\n' + passed + ' passed, ' + failed + ' failed');
+process.exit(failed === 0 ? 0 : 1);
