@@ -392,6 +392,60 @@ needs an explicit decision rather than an assumption.
 
 ---
 
+## MOS-2.1 VISUAL REGRESSION — LOGO SIZING HARDENED (2026-08-18) — **FIXED THE SYMPTOM; ROOT CAUSE IS OPERATIONAL, NOT CODE — SERVICE RESTART STILL REQUIRED**
+
+### Stage
+
+Owner-reported: `https://os.mythosprod.xyz/#/missions` showed "an enormous MYTHOS PROD logo occupying almost the entire content area, while the Missions content/list is not visible." Read-only audit performed first, no file modified during that pass.
+
+### Root cause — confirmed directly against production, not theorized
+
+```text
+GET https://os.mythosprod.xyz/login-gate.css   -> 404
+GET https://os.mythosprod.xyz/login-gate.js    -> 404
+POST https://os.mythosprod.xyz/api/missions/start
+    -> {"error":"read_only","detail":"This console is read-only; only GET and HEAD are served."}
+```
+
+That error text is the **pre-MOS-2** wording verbatim (MOS-2 changed it; MOS-2.1 changed it again). **The live `mythos-os-console` process has not been restarted since before MOS-2 shipped.** Its in-memory `STATIC`/`API` route tables predate the two files MOS-1.8's login-gate markup depends on — but `serveStatic()` reads `index.html` itself **fresh from disk on every request**, unaffected by the stale route table, so the *current* gate markup (referencing `/login-gate.css` and `/login-gate.js`) is served by a process that cannot serve either file.
+
+**Reproduced locally**, then verified in a real browser against the real, already-running executor (127.0.0.1:8130, 186 real production tasks): with `login-gate.css` disabled, the previously-unconstrained `<img src="/assets/logomythos.png">` (no `width`/`height`, relying entirely on that one stylesheet) falls back to its **natural resolution — 1672×941** — exactly "an enormous logo occupying almost the entire content area." Because `login-gate.js` is also 404ing on production, the unlock handler never attaches either — the gate could not have been dismissed by *any* password, so "Missions content not visible" was also exactly correct, for the same reason.
+
+**This is primarily an operational staleness issue.** Restarting the service is outside what this session can do — the same privilege boundary recorded in MOS-1.6/1.7 (this session's identity has no path, via `sudo` or the machine-transport bus, to the `deploy`-owned systemd context). No code change substitutes for that restart, and none was attempted.
+
+### The fix
+
+`width`/`height` HTML attributes on **both** existing `<img>` tags (the gate's and the sidebar's), sized to the image's true 1672:941 ratio (`160×90`, 0.05% off — visually exact). Standard, CSP-compliant sizing (HTML attributes are not governed by `style-src`, and the existing "no inline style attribute" test assertion does not match them): gives the browser an intrinsic size for when CSS is unavailable for *any* reason, while CSS continues to fully override it the instant it *is* present.
+
+**Because `index.html` is read fresh from disk regardless of the stale route table, this fix takes effect on the very next page load with no restart required** — it eliminates the visual symptom immediately. It does **not**, by itself, make the gate dismissible or restore MOS-2/2.1's routes on the live site — those still need the restart above.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Diff | **2 lines, 1 file** (`index.html`) — nothing else touched |
+| `tests/mos-1-console-test.js` | 400/400, unchanged |
+| `tests/mythos-ai-executor-test.js` | 125/125 |
+| `tests/mythos-orchestration-core-test.js` | 257/257 |
+| `visual-verify.js` | Still unavailable (playwright absent, matching the README) |
+| Live browser, with the fix, CSS disabled | Gate logo bounded at **160×90** (was 1672×941) |
+| Live browser, with the fix, CSS active, real data | Sidebar logo **160×80**, undistorted; `#/`, `#/campaigns`, `#/missions` all render correctly — KPI grids, 186 real rows, the MOS-2 start form, MOS-2.1's execution cards, all present, zero regression |
+
+### Record
+
+| | |
+|---|---|
+| Base | `2897f5b`, branch `main` |
+| Commit | `22c4b43` |
+| Remote HEAD | see below — verified after delivery |
+| Deployment | **Not performed** — and this fix alone does not restore full production functionality (see next stage) |
+
+### Next stage
+
+**The service restart is the actual, complete fix and remains an owner/operator action** — `systemctl --user restart mythos-os-console` as `deploy`. Once restarted: `login-gate.css`/`.js` will serve, the gate will be dismissible, and MOS-2/MOS-2.1's routes (`/api/missions/start`, `/api/missions/<id>`, `/api/missions/<id>/report`, `/api/missions/<id>/cancel`) will all become reachable on production for the first time since they were written. Until then, this commit only prevents the specific "enormous logo" visual failure — the gate itself remains stuck on production. Unrelated and unchanged: the login gate's own logic, `deploy.sh`, nginx, `roadmap-state.json`.
+
+---
+
 ## MOS-2.1 — MISSION EXECUTION LIFECYCLE DASHBOARD (2026-08-18) — **PASS; FULL PENDING→RUNNING→COMPLETED/FAILED/CANCELLED VIEW; NOT DEPLOYED**
 
 ### Stage
