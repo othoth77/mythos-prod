@@ -1,7 +1,98 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **IDAUTO-STANDALONE-MIGRATION — `othoth77/idauto` PUBLISHED AND CLEAN-CLONE VERIFIED (601/601); IT IS NOW CANONICAL. THE STAGING SNAPSHOT IS REMOVED; THE SOURCE CANNOT FOLLOW IT — MYTHOS IMPORTS IT.**
+**From:** MYTHOS **IDA-DECOUPLE-1 — MPI NOW OWNS ITS `pg` DEPENDENCY. THE THREE COMPOSITION ROOTS NO LONGER REACH INTO ID AUTO'S `node_modules`. FIVE PREVIOUSLY ABORTING MPI SUITES NOW PASS.**
+
+**Stage:** `IDA-DECOUPLE-1` · **Status:** **COMPLETE** · **Commit:** `6e2dfaa`
+**Branch:** `claude/idauto-source-cleanup-post-publication` · **Baseline:** `72a8d73`
+**Type:** dependency-ownership fix. **No production change. Nothing deployed, no database mutation, no service touched, and no ID Auto file modified.**
+
+### The defect
+
+`projects/personal-intelligence/` had **no `package.json`**. Its three CLI composition roots
+therefore resolved the PostgreSQL driver out of another project's installed dependency
+directory:
+
+```js
+require('../../idauto/node_modules/pg')
+```
+
+This is a dependency-ownership defect, not a code-sharing one — D5 in
+`docs/ID_AUTO_DEPENDENCY_BOUNDARY.md`. MPI needs `pg`; ID Auto merely happened to have it
+installed. `node_modules/` is gitignored, so the coupling **already broke on any checkout
+that had not run `npm install` inside `projects/idauto`**. Measured on this container before
+the fix: five MPI suites aborted with `Cannot find module '../../idauto/node_modules/pg'` —
+`mpi-2h-cli`, `mpi-3-retrieval-cli`, `mpi-4-openrouter`, `mpi-4-relevance-router`,
+`mpi-4-runtime`. That failure predates the ID Auto extraction and is independent of it.
+
+### What was done
+
+| File | Change |
+|---|---|
+| `projects/personal-intelligence/package.json` | **New.** Declares `pg` at `^8.13.1` — the range already used by `projects/idauto`, `projects/command-center` and `projects/ssangyong-autos` |
+| `projects/personal-intelligence/package-lock.json` | **New.** Pins pg **8.23.0** with the same integrity hash as `projects/idauto`'s lock. Both resolved trees are identical across all 14 packages, so **no duplicate `pg` version exists** |
+| `cli/mpi-ingest-cli.js:185`, `cli/mpi-retrieve-cli.js:109`, `cli/mpi-runtime-cli.js:90` | `require('pg')`, resolved from the MPI package boundary |
+| `persistence/activation.js` | **Wording only.** Its header and its refusal message both stated `pg` was deliberately *not* an MPI dependency. That is no longer true. **The design is unchanged**: the library still never requires `pg` itself, the composition root still injects it, and a missing driver source is still a refusal, never a silent mock |
+| `tests/mpi-2h-cli-test.js` | Assertion 23 asserted the CLI source literally contained `idauto/node_modules/pg` — a test pinning the defect in place. It now asserts `require('pg')`. Its stated intent, *"real activation + real pg; no mock/memory fallback"*, is unchanged |
+| `tests/mpi-activation-test.js` | Assertion 9 (D10) resolved its real driver from `projects/idauto/node_modules/pg` and skipped when absent. It now resolves MPI's own — and consequently **runs** rather than skips |
+
+**Seven references to `projects/idauto` were removed and none introduced.**
+
+### Validation — executed, not assumed
+
+| Check | Result |
+|---|---|
+| All 22 MPI suites | **544 passed, 0 failed** (before: 5 suites aborted) |
+| `mpi-2h-events` | 16 / 0 |
+| `mpi-activation` | **11 / 0**, 4 skipped — was 10 / 0, 5 skipped; assertion 9 now runs against a real `pg.Pool` |
+| `mpi-2h-cli` | **24 / 0** — was `SUITE ABORTED` |
+| `scripts/project-intelligence.js validate` | **PASSED** — 0 errors, 0 warnings |
+| `mythos-governance-invariant` | 89 / 0 |
+| `devx-1-idauto-test-impact` | 92 / 0 |
+| `inf-backup-auto-0-backup` | 245 / 0 |
+| `mythos-identity-core-0-contract` | 124 / 0 |
+| `npm ci` from a wiped `node_modules` | succeeds; resolves pg 8.23.0 — the lockfile is complete and consistent |
+| Clean-environment resolution (`NODE_PATH` unset) | all three CLIs resolve to `projects/personal-intelligence/node_modules/pg` |
+
+### Explicitly out of scope, and untouched
+
+`projects/idauto/**`, the ID Auto database schema, the ID Auto protocol,
+`reference/identity.js`, `ops/offhost-backup.js`, `ops/adapters/s3-compatible.js`, the
+Mythos automation backup logic, `tests/mythos-identity-core-0-contract-test.js`, and IDA-4
+or later work. `git status` over each of those paths is empty.
+
+### What this did NOT fix
+
+The two MPI imports of `projects/idauto/ops/adapters/s3-compatible.js`
+(`mpi-ingest-cli.js:46`, `mpi-retrieve-cli.js:37`) remain. Those are D6/D7 — a genuine
+**shared-module** question, not a dependency-ownership one, and relocating a module is a
+different risk profile from declaring a dependency. `projects/idauto/` therefore still
+cannot be deleted.
+
+### Next stage — `IDA-DECOUPLE-2`
+
+Relocate `s3-compatible.js` to a Mythos-owned home (`projects/infrastructure/ops/` is the
+recommendation in `docs/ID_AUTO_DEPENDENCY_BOUNDARY.md` §7) and repoint the two MPI CLI
+imports. `offhost-backup.js` (D1) follows in IDA-DECOUPLE-3, the identity-core contract
+split in IDA-DECOUPLE-4, and only then can `projects/idauto/` be removed.
+
+### Remote state at handover
+
+| | |
+|---|---|
+| Branch | `claude/idauto-source-cleanup-post-publication` |
+| Local HEAD | `6e2dfaa` |
+| Remote HEAD | `6e2dfaa` plus this handover commit — pushed and verified equal to local |
+| PR | **#16, draft — NOT merged** |
+| Other open drafts | mythos-prod **#14**; `othoth77/idauto` **#1** |
+| `origin/main` | `0a00c30` |
+
+---
+
+
+## Previous entry
+
+**Previously:** MYTHOS **IDAUTO-STANDALONE-MIGRATION — `othoth77/idauto` PUBLISHED AND CLEAN-CLONE VERIFIED (601/601); IT IS NOW CANONICAL. THE STAGING SNAPSHOT IS REMOVED; THE SOURCE CANNOT FOLLOW IT — MYTHOS IMPORTS IT.**
 
 **Stage:** `IDAUTO-STANDALONE-MIGRATION` · **Status:** **PUBLISHED and CLEAN-CLONE VERIFIED**; source removal **BLOCKED** — `projects/automation` and `projects/personal-intelligence` `require()` ID Auto ops modules, and mythos-core validates its identity contract against ID Auto's schema. See `docs/IDAUTO_STANDALONE_MIGRATION.md` §3
 **Branch:** `claude/idauto-standalone-migration-ejyl27` · **Baseline:** `5e2011b` (`main`)
