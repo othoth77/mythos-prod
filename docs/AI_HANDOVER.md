@@ -1,6 +1,96 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
+**From:** MYTHOS **IDAUTO-STANDALONE-MIGRATION — ID AUTO EXTRACTED AND VALIDATED; PUBLICATION BLOCKED ON REPOSITORY CREATION; NOTHING REMOVED FROM THIS REPOSITORY**
+
+**Stage:** `IDAUTO-STANDALONE-MIGRATION` · **Status:** standalone repository built and validated; **publication BLOCKED**; source cleanup **PREPARED, NOT EXECUTED**
+**Branch:** `claude/idauto-standalone-migration-ejyl27` · **Baseline:** `5e2011b` (`main`)
+**Type:** extraction + documentation. **No production change. Nothing deployed, no DNS, no database mutation, no service touched, and no ID Auto file removed from this repository.**
+
+### What was done
+
+ID Auto was extracted from `projects/idauto/`, `docs/IDAUTO_*.md`,
+`docs/IDA3_INGESTION_ARCHITECTURE.md` and `tests/ida-*.js` into a complete standalone
+repository, and repositioned as **IDauto — an open vehicle identity and history protocol**.
+
+88 files. The IDA-0 → IDA-3 baseline moved intact — schema, API, ingestion, review queue,
+ops tooling — along with 25 implementation-record sections extracted **verbatim** from this
+file, unedited, blockers and mistakes included.
+
+### Validation — executed, not assumed
+
+A live PostgreSQL 16 instance was provisioned in the working environment, the migrated
+`schema.sql`, the IDA-3A migration and the synthetic seed applied, and **all 13 suites
+re-run in the new layout: 601 assertions, 0 failures.** Per-suite counts match this
+repository's last recorded numbers, except `idauto-storage-ops` (72 → 73, where one
+assertion was replaced by a stronger pair).
+
+Also verified: 24 tables, all `idauto_`-prefixed; the IDA-3A migration idempotent against
+`schema.sql`; `access_scope` present on both affected tables; **zero owner-PII columns**; no
+secret, credential or real vehicle data; every JS file parses; every JSON schema valid.
+
+### One real defect found by the move, and fixed
+
+`ops/media-ops.js` and `ops/offhost-backup.js` computed the repository root as
+`__dirname/../../..` — correct at `projects/idauto/ops/`, wrong once `ops/` sits at a
+repository root. Left unfixed, the "refuse to restore inside the git repository" guard would
+have resolved two levels above the repository and silently stopped protecting it. Fixed in
+both files, covered by the suite.
+
+Separately, the hardcoded `/home/deploy` entries in the restore-refusal lists were
+**generalised, not deleted**: the guard now refuses any direct child of `/home` by rule, so
+`/home/deploy` is still refused — on every host — and the tests prove it through the CLI
+rather than by inspecting a constant.
+
+### PUBLICATION IS BLOCKED — owner action required
+
+`othoth77/idauto` **does not exist**, and this session cannot create it:
+`POST /user/repos` returns `403 Resource not accessible by integration`. Repository creation
+requires an account-administration permission the integration does not hold.
+
+**Owner action:** create an **empty** `othoth77/idauto` — no README, no `.gitignore`, no
+licence, so the migrated tree is authoritative — and grant the session access to it. Nothing
+else is outstanding; the content is finished and validated.
+
+Because the working environment is ephemeral, the complete validated tree is staged on this
+branch at `migration-staging/idauto-standalone/` so the work is not lost. It is a snapshot,
+not a source tree, and it is deleted in the same change that adds the pointer document.
+
+### Nothing was removed from this repository — deliberately
+
+`projects/idauto/`, `docs/IDAUTO_*.md` and `tests/ida-*.js` are untouched and remain
+authoritative. Removing them before the standalone repository is published would leave the
+project with a snapshot and no Git history. The cleanup is planned in full — what goes, what
+stays, which integrations break, and in what order — in
+`docs/IDAUTO_STANDALONE_MIGRATION.md` §4, and is **not executed**.
+
+Two integrations will break when it is executed and must change in the same commit:
+`projects/meta/test-impact-map.json` and `tests/devx-1-idauto-test-impact-test.js`. The live
+`idauto-postgres` database and media store are **unaffected** — the schema is unchanged, so
+a deployment repoints rather than migrates.
+
+### Blockers carried forward, unchanged
+
+`IDA-2E` (real authentication) remains **BLOCKED** — re-scoped in the standalone roadmap to
+IDA-7 on W3C DID/VC primitives, since there is no Mythos auth service to wait for and never
+was. `IDA-3F` (off-host backup) remains **BLOCKED** — tooling complete, no off-host copy
+exists. 15 LEGAL-REVIEW-REQUIRED items remain open.
+`PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` remains **NO**.
+
+### Changed files in this repository
+
+`docs/IDAUTO_STANDALONE_MIGRATION.md` (new) · `docs/AI_HANDOVER.md` (this entry) ·
+`migration-staging/**` (transient snapshot).
+
+### Next
+
+Owner creates `othoth77/idauto` → push the staged tree → open the standalone PR as a draft →
+independent verification from a clean clone → **only then** the separate cleanup PR here.
+
+---
+
+## Previous entry
+
 **From:** MYTHOS **MOS-1.1 — RELEASE GATE PASSED. CONTRAST MEASURED. MOS-1's DNS BLOCKER WAS A WRONG CLAIM AND IS WITHDRAWN. NOT DEPLOYED — AND THIS SESSION CANNOT DEPLOY IT.**
 
 **Stage:** MOS-1.1 · **Status:** gate passed, pushed; deployment is an on-host action
