@@ -228,7 +228,7 @@ const C1 = 'a'.repeat(64);
 
   const source = fs.readFileSync(path.join(BASE, 'projects/personal-intelligence/cli/mpi-ingest-cli.js'), 'utf8');
   ok(/require\('\.\.\/persistence\/activation'\)/.test(source) &&
-     /idauto\/node_modules\/pg/.test(source) &&
+     /require\('pg'\)/.test(source) &&
      !/in-?memory|fallback\s+store|mockClient/i.test(source.replace(/\/\/[^\n]*\n/g, '\n')),
     '23 production path wires real activation + real pg; no mock/memory fallback exists');
   ok(!/setInterval|setTimeout|cron|schedule/i.test(source),

@@ -182,7 +182,7 @@ async function run(argv, deps) {
 
   // ---- Composition (§29): activation → content store → ingestion ----------
   const activate = d.activate || activation.activate;
-  const activated = await activate({ env: env, pg: d.pg || require('../../idauto/node_modules/pg') });
+  const activated = await activate({ env: env, pg: d.pg || require('pg') });
   if (!activated.enabled) throw refusal('CLI_PERSISTENCE_DISABLED (MPI_PERSISTENCE_ENABLED is not true)');
   const client = activated.client;
 
