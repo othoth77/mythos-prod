@@ -13,8 +13,8 @@ The repository **already contains a provider-neutral, S3-compatible off-host bac
 
 | Component | Path |
 |---|---|
-| Core (manifest, stage, push, verify, restore-verify, retention, redact) | `projects/idauto/ops/offhost-backup.js` |
-| SigV4 S3-compatible transport | `projects/idauto/ops/adapters/s3-compatible.js` |
+| Core (manifest, stage, push, verify, restore-verify, retention, redact) | `projects/infrastructure/ops/offhost-backup.js` |
+| SigV4 S3-compatible transport | `projects/infrastructure/ops/adapters/s3-compatible.js` |
 | Test suite | `tests/ida-3f-offhost-backup-test.js` |
 
 It is **R2-ready as written**: AWS SigV4 signing, injectable transport (so it tests offline), HTTPS-only endpoints enforced, and a config file whose permissions are checked. **No new tooling is required, and none should be installed** — not `rclone`, not `aws`, not `s3cmd`. Introducing a second mechanism would create two backup paths with one set of guarantees between them.
@@ -123,7 +123,7 @@ cd /var/backups/mythos && sha256sum *-$TS.* > SHA256SUMS-$TS.txt
 Record every C1 in the evidence table. A dump whose C1 was never recorded cannot be round-trip proven later.
 
 ### F. Upload (**O**)
-Use the existing `push()` in `projects/idauto/ops/offhost-backup.js`. Do not hand-roll a `curl` upload — it would bypass the manifest, the retention rules, and the redaction path.
+Use the existing `push()` in `projects/infrastructure/ops/offhost-backup.js`. Do not hand-roll a `curl` upload — it would bypass the manifest, the retention rules, and the redaction path.
 
 ### G. Fresh download (**C2 source**)
 Download to a **different directory** — `/var/backups/mythos-verify/`. Never re-hash the local original and call it a round trip; that proves only that the disk still works.

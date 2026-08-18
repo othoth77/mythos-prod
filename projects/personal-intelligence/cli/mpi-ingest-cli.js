@@ -43,7 +43,7 @@ const path = require('path');
 const ingestion = require('../persistence/ingestion');
 const contentStore = require('../persistence/content-store');
 const activation = require('../persistence/activation');
-const s3 = require('../../idauto/ops/adapters/s3-compatible.js');
+const s3 = require('../../infrastructure/ops/adapters/s3-compatible.js');
 
 // O-2H-1 (ratified, §32): the initial source is explicit_instruction + note
 // ONLY. observation/feedback remain valid module-level vocabulary but are NOT

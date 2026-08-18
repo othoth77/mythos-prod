@@ -34,7 +34,7 @@
 const retrieval = require('../persistence/retrieval');
 const activation = require('../persistence/activation');
 const contentStore = require('../persistence/content-store');
-const s3 = require('../../idauto/ops/adapters/s3-compatible.js');
+const s3 = require('../../infrastructure/ops/adapters/s3-compatible.js');
 
 function refusal(code) {
   const e = new Error(code);

@@ -246,11 +246,10 @@
       "targeted_tests": [
         "node tests/idauto-storage-ops-test.js",
         "node tests/ida-2f-object-storage-test.js",
-        "node tests/ida-2h-review-queue-ui-test.js",
-        "node tests/inf-backup-auto-0-backup-test.js"
+        "node tests/ida-2h-review-queue-ui-test.js"
       ],
       "risk_lane": "STANDARD",
-      "notes": "Operator tooling over the media store. Selects its own suite plus the two suites that exercise storage (IDA-2F, and IDA-2H via api.js -> storage.js). Must stay ABOVE the general projects/idauto/ rule. INF-BACKUP-AUTO-0's orchestrator requires offhost-backup.js directly (O-BACKUP-1 reuse contract), so a change here can break it — that dependency edge is why its suite is selected from this rule too."
+      "notes": "Operator tooling over the media store (media-ops.js). Selects its own suite plus the two suites that exercise storage (IDA-2F, and IDA-2H via api.js -> storage.js). Must stay ABOVE the general projects/idauto/ rule. IDA-DECOUPLE-2 moved offhost-backup.js to projects/infrastructure/ops/, so the INF-BACKUP-AUTO-0 edge that used to be selected from here now belongs to that rule instead."
     },
     {
       "path_prefix": "projects/idauto/",
@@ -293,6 +292,19 @@
         "node tests/inf-backup-auto-0-backup-test.js"
       ],
       "risk_lane": "STANDARD"
+    },
+    {
+      "path_prefix": "projects/infrastructure/ops/",
+      "track": "mythos-automation-operations",
+      "targeted_tests": [
+        "node tests/ida-3f-offhost-backup-test.js",
+        "node tests/inf-backup-auto-0-backup-test.js",
+        "node tests/mpi-2h-cli-test.js",
+        "node tests/mpi-3-retrieval-cli-test.js",
+        "node tests/mpi-d3-content-store-test.js"
+      ],
+      "risk_lane": "HIGH_RISK",
+      "notes": "Generic, Mythos-owned backup and S3-compatible storage primitives, relocated here from projects/idauto/ops/ by IDA-DECOUPLE-2. Zero IDauto domain concepts; Node built-ins only. Three consumers depend on them: the INF-BACKUP-AUTO-0 orchestrator (O-BACKUP-1 reuse contract) and the two MPI CLIs, so all three consumer suites are selected alongside the modules' own suite. HIGH_RISK because a defect here silently weakens backup integrity."
     },
     {
       "path_prefix": "projects/infrastructure/cloudflare/",

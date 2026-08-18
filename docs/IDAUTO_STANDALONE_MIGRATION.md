@@ -8,8 +8,9 @@ verified from a clean clone (13 suites, 601 assertions, 0 failures). **Develop I
 there, not here.**
 
 > **The duplicated source in `projects/idauto/` has NOT been removed, deliberately.**
-> Three Mythos projects `require()` it at runtime. Removing it breaks them. See §3 — that is
-> the open decision, and it is the owner's, not this migration's.
+> **Updated 2026-08-18 (IDA-DECOUPLE-1 and -2):** the *runtime* coupling is now gone — no
+> Mythos runtime file resolves any path inside `projects/idauto/`. One **test** dependency
+> remains and still blocks removal. See §3.
 
 ---
 
@@ -57,45 +58,45 @@ Evidence:
 Everything above still also exists here. The copies here are now **duplicates of a canonical
 source elsewhere**, kept only because of §3.
 
-## 3. Why the source cannot be deleted yet — the blocker
+## 3. Why the source cannot be deleted yet — the remaining blocker
 
 The migration audit recorded *"Class A — required external dependency: **None**"*. That was
-measured in one direction only: every `require()` **inside** the migrated tree resolves to a
-Node built-in, `pg`, or a path within it. **The reverse direction was never measured**, and
-it is not empty. Mythos code imports ID Auto:
+measured in one direction only: every `require()` **inside** the migrated tree. **The reverse
+direction was never measured**, and it was not empty. Full analysis:
+[`docs/ID_AUTO_DEPENDENCY_BOUNDARY.md`](ID_AUTO_DEPENDENCY_BOUNDARY.md).
 
-| Importer | Imports | Kind |
-|---|---|---|
-| `projects/automation/reference/backup-operations-orchestrator.js:41` | `../../idauto/ops/offhost-backup.js` | **Hard `require()`.** Line 20 states the module is "REQUIRED from here, never" duplicated; lines 649/667 assert `reuses_module === 'projects/idauto/ops/offhost-backup.js'` |
-| `projects/personal-intelligence/cli/mpi-ingest-cli.js:46` | `../../idauto/ops/adapters/s3-compatible.js` | **Hard `require()`** |
-| `projects/personal-intelligence/cli/mpi-retrieve-cli.js:37` | `../../idauto/ops/adapters/s3-compatible.js` | **Hard `require()`** |
-| `projects/personal-intelligence/cli/*.js` (3 files) | `../../idauto/node_modules/pg` | **Hard `require()`** into ID Auto's *installed dependency directory* |
-| `tests/mythos-identity-core-0-contract-test.js` | reads `projects/idauto/database/schema.sql` and `reference/identity.js` | Mythos-core's identity contract is validated **against ID Auto as its reference consumer** |
-| `tests/inf-backup-auto-0-backup-test.js:383` | asserts the orchestrator's `reuses_module` path | |
-| `tests/mpi-activation-test.js:90` | resolves `projects/idauto/node_modules/pg` | |
+### Resolved — the runtime coupling is gone
 
-Measured, not predicted: deleting `projects/idauto/` takes
-`inf-backup-auto-0-backup-test` (245 → error), `mpi-2h-events-test` (16 → error) and
-`mythos-identity-core-0-contract-test` (124 → error) from clean to failing. Several other
-MPI suites already fail on `idauto/node_modules/pg` **before** any deletion — a pre-existing
-fragility, not caused by this work, and further evidence that the coupling is real.
+| Was | Resolved by |
+|---|---|
+| `projects/personal-intelligence/cli/*.js` (3 files) → `../../idauto/node_modules/pg` | **IDA-DECOUPLE-1** (`6e2dfaa`) — MPI has its own `package.json` declaring `pg`; the CLIs `require('pg')` |
+| `projects/automation/reference/backup-operations-orchestrator.js:41` → `../../idauto/ops/offhost-backup.js`, plus the `reuses_module` literal at 649/667 | **IDA-DECOUPLE-2** — module moved to `projects/infrastructure/ops/offhost-backup.js`; both literals updated |
+| `projects/personal-intelligence/cli/mpi-ingest-cli.js:46` and `mpi-retrieve-cli.js:37` → `../../idauto/ops/adapters/s3-compatible.js` | **IDA-DECOUPLE-2** — module moved to `projects/infrastructure/ops/adapters/s3-compatible.js` |
 
-Resolving this means choosing one of these, and it is an architectural decision:
+Both moves were true `git mv` operations with byte-identical contents, not copies. **No
+Mythos runtime file resolves any path inside `projects/idauto/` any more.**
 
-1. **Relocate the shared modules.** `offhost-backup.js` and `s3-compatible.js` are generic
-   infrastructure that ended up under `projects/idauto/` for historical reasons. Move them to
-   a Mythos-owned home (`projects/infrastructure/` or `projects/automation/`), and let IDauto
-   keep its own copy. Cleanest; touches two Mythos projects.
-2. **Vendor them into each consumer.** Duplicates code the orchestrator explicitly says must
-   not be duplicated. Rejected unless (1) is impossible.
-3. **Depend on the published package.** IDauto is not published to a registry, and adding a
-   cross-repository dependency for two files is disproportionate.
-4. **Keep `projects/idauto/` indefinitely as a vendored copy.** Honest but guarantees drift.
+### Still blocking
 
-Until one is chosen, `projects/idauto/`, `tests/ida-*.js`,
-`tests/devx-1-idauto-test-impact-test.js` and `docs/IDAUTO_*.md` all stay. They are coupled:
-DEVX-1 reads `docs/IDAUTO_TEST_RUNBOOK.md` and the ID Auto sources, and the impact-map rules
-point at the `ida-*` suites, so removing any one of them alone breaks the others.
+| Blocker | Kind |
+|---|---|
+| `tests/mythos-identity-core-0-contract-test.js` reads `projects/idauto/database/schema.sql` and `reference/identity.js` | **Test.** Mythos-core's identity contract is validated **against ID Auto as its reference consumer** — the platform adopted ID Auto's `actor_type` vocabulary verbatim, so ID Auto is the source, not a copy |
+
+Measured before the decoupling work: deleting `projects/idauto/` took
+`inf-backup-auto-0-backup` (245), `mpi-2h-events` (16) and `mythos-identity-core-0-contract`
+(124) from clean to hard error. **Re-measured after IDA-DECOUPLE-1 and -2: the first two are
+free of the coupling; the third still is not.** It is the one remaining gate.
+
+Resolving it means splitting the test — dropping the two sections that assert *IDauto's* own
+invariants (already covered in that repository's `docs/IDENTITY_ARCHITECTURE.md`) and
+replacing the vocabulary check with a versioned artefact both repositories pin. That is
+**IDA-DECOUPLE-3**, and the constraint is measured: stubbing the two reads leaves 115 passed
+/ 9 failed, with **6 more assertions passing vacuously**, so a fixture must be real content.
+
+Until then `projects/idauto/`, `tests/ida-*.js`, `tests/devx-1-idauto-test-impact-test.js`
+and `docs/IDAUTO_*.md` all stay. They are coupled: DEVX-1 reads
+`docs/IDAUTO_TEST_RUNBOOK.md` and the ID Auto sources, and the impact-map rules point at the
+`ida-*` suites, so removing any one of them alone breaks the others.
 
 ## 4. What has been removed
 
@@ -108,7 +109,7 @@ lives at `bdfec2c` in `othoth77/idauto`.
 
 | Kept | Why |
 |---|---|
-| `projects/idauto/**`, `tests/ida-*.js`, `docs/IDAUTO_*.md` | §3 — Mythos imports them |
+| `projects/idauto/**`, `tests/ida-*.js`, `docs/IDAUTO_*.md` | §3 — one Mythos **test** still reads them |
 | ID Auto entries in `docs/AI_HANDOVER.md` | The record of work done **in this repository**. Their commit hashes resolve only here |
 | ID Auto references in `docs/CHANGELOG.md`, `docs/PROJECT_HISTORY.md`, `docs/history/DAILY_HISTORY.md` | History, not duplication |
 | ID Auto rows in `docs/AUTOMOTIVE_*.md` | Portfolio-level context; ID Auto is one product in the Automotive track |
@@ -120,8 +121,8 @@ lives at `bdfec2c` in `othoth77/idauto`.
 
 | Integration | Effect of the move |
 |---|---|
-| `projects/automation` → `idauto/ops/offhost-backup.js` | **BLOCKING — see §3** |
-| `projects/personal-intelligence` → `idauto/ops/adapters/`, `idauto/node_modules/pg` | **BLOCKING — see §3** |
+| `projects/automation` → `idauto/ops/offhost-backup.js` | **RESOLVED** — IDA-DECOUPLE-2 |
+| `projects/personal-intelligence` → `idauto/ops/adapters/`, `idauto/node_modules/pg` | **RESOLVED** — IDA-DECOUPLE-1 and -2 |
 | Mythos-core identity contract → ID Auto schema and `identity.js` | **BLOCKING — see §3** |
 | Atelier Network work-order `vehicle_id` | None — documentation-level; ATN-1 is not implemented |
 | Fixpert Smart Gate | None — IDA-6 in the new roadmap, not implemented |
