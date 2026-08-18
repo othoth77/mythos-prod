@@ -1,7 +1,39 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **FULL AUTONOMOUS MANDATE, FOURTH PASS — REAL FONTS SELF-HOSTED (AUTO-4), CLOSING TYPE-2 AND FURTHER NARROWING GRID-2 WITH MEASURED METRICS. ALSO: THE "NOT DEPLOYED" / "LIVE PRODUCTION DATA" APPARENT CONTRADICTION IN THE CONCURRENT MOS-2.x/3.x WORK IS RECONCILED — NO CORRECTION NEEDED. NO PRODUCTION FILE TOUCHED; EIGHT NEW FONT FILES AND ONE NEW CSS FILE ARE ADDITIVE ONLY.**
+**From:** **OTH-KNOWLEDGE-0 — SHARED ENGINEERING MEMORY CREATED, VALIDATED, AND PROMOTED TO ITS STANDALONE REPOSITORY `othoth77/oth-knowledge`. DOCUMENTATION ONLY — NO APPLICATION, CSS, CONFIG OR TEST FILE CHANGED.**
+
+**What exists now:** a shared engineering memory for ALL othoth77 projects —
+four plain-Markdown files (`README.md`, `PROJECTS.md`, `PROBLEMS.md`,
+`LESSONS.md`) built from repository evidence only (docs/, git history, live
+tree; read-only discovery): 19 monorepo project areas mapped, all 21 other
+GitHub repositories documented with verification status (`UNVERIFIED` where
+this repo's docs are silent), 23 significant investigated problems preserved
+with their full investigation history, 15 durable lessons. Validation before
+delivery: 562 referenced repository paths confirmed to exist, secret scan
+clean, Markdown structure checked.
+
+**Canonical location — this is the load-bearing fact:** the standalone
+**PRIVATE** repository **`othoth77/oth-knowledge`**, branch `main`, root
+commit `67b3a88` (remote HEAD verified by `ls-remote` and by listing the four
+files through the GitHub API). That repository is now **the canonical source
+of truth for engineering memory across all projects**; its `README.md`
+mandates the BEFORE-every-task workflow (identify project → read PROJECTS.md
+→ search PROBLEMS.md → search LESSONS.md → inspect the real files → reuse →
+only then implement) and the AFTER-every-task recording workflow, applying to
+every project, not only mythos-prod.
+
+**In mythos-prod:** the content was first delivered as `oth-knowledge/` on
+branch `claude/oth-knowledge-memory-system-ad1sa3` (PR #24, draft) at commit
+`81fd2bf`, because the GitHub App integration cannot create repositories
+(`403 Resource not accessible by integration` — recorded as a PROBLEMS.md
+entry). After the owner created the standalone repo and the move was
+verified, the in-repo copy was reduced to a single pointer `README.md`
+(non-destructive: the full validated copy remains in that branch's history at
+`81fd2bf`, byte-identical to what was pushed to the standalone repo apart
+from the documented README/PROBLEMS promotion notes). The mythos-prod copy
+must never again be treated as primary.
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, FOURTH PASS — REAL FONTS SELF-HOSTED (AUTO-4), CLOSING TYPE-2 AND FURTHER NARROWING GRID-2 WITH MEASURED METRICS. ALSO: THE "NOT DEPLOYED" / "LIVE PRODUCTION DATA" APPARENT CONTRADICTION IN THE CONCURRENT MOS-2.x/3.x WORK IS RECONCILED — NO CORRECTION NEEDED. NO PRODUCTION FILE TOUCHED; EIGHT NEW FONT FILES AND ONE NEW CSS FILE ARE ADDITIVE ONLY.**
 
 **Reconciliation, not a correction.** Before continuing the mandate, a real
 tension needed resolving: this document and several of my own AUTO-3-era
@@ -486,6 +518,56 @@ it would add the first font binaries this repository has tracked, so it
 needs an explicit decision rather than an assumption.
 
 ---
+
+## MOS-3 PRODUCTION ACTIVATION (2026-08-18) — **EXECUTOR ACTIVATED AND PROVEN WITH REAL PARALLEL AI; CONSOLE HALF STILL BLOCKED AT THE DOCUMENTED BOUNDARY**
+
+### Stage
+
+MOS-3 Production Activation — GitHub → VPS → real production verification. No new code; documentation only in this commit.
+
+### Status: PARTIAL — executor COMPLETE, console BLOCKED
+
+### Phases executed
+
+| Phase | Result |
+|---|---|
+| 1 Precheck | Local `d1d4226`; origin had moved to `4e5ac602` (design-docs/fonts only — zero overlap). Running executor confirmed OLD code by **authenticated** probe (`/dispatcher` → 404 with a valid token; note: an unauthenticated probe is worthless here — the auth gate 401s every path before routing). **Queue idle: zero RUNNING / WAITING_RETRY / WAITING_FOR_QUOTA** (165 COMPLETED · 5 FAILED · 3 CANCELLED · 13 BLOCKED-awaiting-owner) — the restart interrupted nothing |
+| 2 Update | Fast-forward `d1d4226` → **`4e5ac602`**; MOS-3 commits (`b5d3fb6`, `d0074ad`, `08dd93c`) verified ancestors of the activated tree |
+| 3 Restart | **`mythos-ai-executor` restarted** (own-user unit, `XDG_RUNTIME_DIR=/run/user/1000 systemctl --user restart`; MainPID 3345103 → 1873730). **`mythos-os-console`: BLOCKED** — both documented paths re-attempted and denied verbatim (`sudo: I'm sorry ubuntu…`; machine transport `Permission denied`) — the MOS-1.6/1.7 boundary, unchanged |
+| 4 Health | Executor ok (store/claude-cli 2.1.233/n8n/omniroute all green); **`GET /dispatcher` LIVE in production for the first time**: `{running:0, max_parallel:5, queued:0}`. Console 8140 answers but still serves the pre-MOS-2 process (`/login-gate.css` 404) |
+| 5 Real test | See below |
+
+### Real production proof — real AI, real parallelism
+
+Two missions created and dispatched through the capacity gate (`dispatched:true` → running 1, then 2):
+
+| Mission | Provider | Started | Ended | Result |
+|---|---|---|---|---|
+| `t-20260818232508-yuhrvs` | **claude-code** (repo-read) | 23:25:08.662Z | 23:25:26.407Z | COMPLETED — report names HEAD `4e5ac602…`, **independently cross-checked against `git rev-parse HEAD`: exact match** |
+| `t-20260818232508-dclx97` | **openai-compat** (advisory) | 23:25:08.791Z | 23:25:12.125Z | COMPLETED — structured advisory report extracted |
+
+**Parallelism proven, not sampled:** `M2.start < M1.end AND M1.start < M2.end` → **True** — the execution intervals genuinely overlapped, across two different real providers, through one capacity gate, which settled back to `{running:0, queued:0}`. `report_to_git:false` on both, so activation left no artifact commits.
+
+One pre-existing cosmetic noted (not a MOS-3 defect): an in-flight `openai-compat` task briefly reads `effective: INTERRUPTED` because the advisory provider makes an in-process HTTP call and records no child pid; the dispatcher's own in-flight accounting counts it correctly, and it resolves to COMPLETED in seconds. Phase-1 semantics, unchanged.
+
+### Blocker (exact)
+
+The **console half of activation remains blocked**: `mythos-os-console` is a `deploy`-user unit; `ubuntu` has no path to it (sudo grant is one unrelated command; machine-transport bus refused; `/run/user/1001` unreadable — all previously evidenced in MOS-1.6/1.7 and re-confirmed now). Until the operator runs `systemctl --user restart mythos-os-console` as `deploy`: the live UI at `os.mythosprod.xyz` cannot show Mission Control, and `POST /api/missions/start` on the public site still answers with pre-MOS-2 behaviour. **The dispatcher itself is fully live** — n8n, the CLI, and any token-holding caller get capacity-gated dispatch today.
+
+### Record
+
+| | |
+|---|---|
+| VPS commit before | `d1d4226` |
+| VPS commit after | `4e5ac602` (+ this documentation commit) |
+| Services restarted | `mythos-ai-executor` only |
+| Untouched | nginx, TLS, console service, `roadmap-state.json`, `projects/ssangyong-autos/` |
+| Tests | Suites unchanged from MOS-3C (419/158/257); this stage's verification is the live production proof above |
+| Deployment | Executor: **ACTIVATED**. Console: **BLOCKED — operator action** |
+
+### Next stage
+
+Operator restarts `mythos-os-console` as `deploy`, then loads `os.mythosprod.xyz` and confirms Mission Control renders and can start a mission through the UI (the backend it needs is now live and proven). **Not MOS-4** — stopped here per instruction.
 
 ## MOS-3C + FINAL ACCEPTANCE — AI OPERATING LAYER v1 COMPLETE (2026-08-18) — **PASS; ALL THIRTEEN PROOFS GREEN; NOT DEPLOYED**
 
