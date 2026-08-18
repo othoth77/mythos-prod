@@ -106,7 +106,9 @@ does not invent a reading. Left to 1F under **GRID-3**.
 | Gutter | 16 | 20 | 24 |
 | Margin | 20 | 48 | 80 |
 
-**Containers:** content max **1280**, wide **1440**, prose max **68ch**.
+**Containers:** content max **1280**, wide **1440**, prose max **68ch** as
+originally approved (1C §5) — **implementation value resolved to 48ch by
+AUTO-5**, see §4.3.
 
 **One arithmetic fact worth stating:** `1280 + 80 + 80 = 1440` exactly. The wide
 container is therefore either a second, wider content width *or* the outer frame
@@ -165,15 +167,24 @@ already-narrowed token value **65ch** (`tokens.css`,
 characters — still well past the stated 65. Hitting 65 real characters
 literally would take **≈48ch** (≈465 px).
 
-**Still recorded as GRID-2, still not closed.** The measurement closes the
-*unit* question (now answerable, on real evidence) but not the *value*
-question: `--mythos-container-prose` traces to an **owner-approved** figure
-(**A-009**), and picking between "narrow it to the literal 65-character
-target" and "keep the existing measure, defensible against commonly-cited
-45–95-character comfortable ranges" is a real trade-off against that
-approval — not a gap a delegated-mandate specification pass fills in.
-Full derivation: `../../assets/brand/fonts/README.md`; register entry:
-`../MYTHOS_DESIGN_DECISIONS.md` §0.5, AUTO-4.
+**RESOLVED 2026-08-18 by AUTO-5.** `--mythos-container-prose` is set to
+**48ch** (≈64 real characters, ≈460.8 px at 16 px body) — the value that
+actually honours the approved **65-character** intent, now that real
+metrics make it computable. This **supersedes** 1C §5's **68ch** as an
+*implementation* number, on the reasoning that 68ch was always an
+unvalidated estimate of the same 65-character intent, never an independent
+design goal, and could not be checked until real font files existed
+(**AUTO-4**). It does not touch or contradict the approved text of either
+`MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md` or `TYPOGRAPHY.md`, both of which
+remain unedited as the historical record. New supporting evidence: both
+68ch (≈91 characters) and 65ch (≈87) **fail WCAG 2.2 1.4.8's 80-character
+guideline outright** (AAA, not required at this system's AA floor, but the
+same rationale `TYPOGRAPHY.md` §2 already states); 48ch clears it with
+margin. Responsive check: 48ch (460.8 px) stays a ceiling only — the
+narrowest measured column (280 px at 320 px, §4.2) is already well under
+it, so nothing changes at mobile widths. Full derivation, the three-value
+comparison table, and full reasoning: `../MYTHOS_DESIGN_DECISIONS.md` §0.5,
+AUTO-5 (not owner-approved, fully reversible, zero cost to revert).
 
 ---
 
@@ -283,7 +294,7 @@ The floor and the control heights do not agree; see **C-005** below.
 |---|---|---|---|
 | ~~**C-005**~~ | Conflict | 40/36 px control height vs 44 px touch minimum | **RESOLVED — A-022** (owner-approved, Stage 1F). Visual box may stay 40/36; hit box must reach 44 × 44 and may extend beyond it |
 | ~~**GRID-1**~~ | Open | `2xl` behaviour; 1440 container ambiguity | **RESOLVED — AUTO-3** (delegated mandate). 1440 is the 1280 frame at its own margins; `2xl` inherits `xl`'s capped state and has none of its own |
-| **GRID-2** | Open | 68ch vs 65 characters | **Narrowed further with real metrics, still not closed — AUTO-4.** Neither 68ch nor 65ch actually renders 65 real characters (≈91 / ≈87); ≈48ch would be literal. Final value trades off against owner-approved A-009, so AUTO-4 records evidence rather than choosing |
+| ~~**GRID-2**~~ | **Resolved — AUTO-5** | 68ch vs 65 characters | `--mythos-container-prose` set to **48ch**, superseding 1C §5's 68ch approximation on real font metrics, honouring the approved 65-character intent. Not owner-approved; see §0.5 AUTO-5 |
 | ~~**GRID-3**~~ | Open | Off-scale spacing steps; button padding | **RESOLVED — AUTO-3.** `space-1`/`space-2` are optical-correction only; `space-7`/`space-12` are legitimate scale members outside the named bands; padding confirmed as 10/16 inside a 1 px border |
 | ~~**SURF-1**~~ | Open | Light elevation ramp; no shadow values | **RESOLVED — AUTO-3.** Ramp extended (`ground-deep`, `surface-card`, `border-strong`), shadow tokens defined |
 

@@ -159,11 +159,17 @@
   --mythos-grid-margin-lg: 80px;
   --mythos-container-content: 1280px;
   --mythos-container-wide: 1440px; /* = content + margin-lg * 2 — AUTO-3 GRID-1 */
-  --mythos-container-prose: 65ch;  /* intent value — AUTO-3 GRID-2, partial. Real
-     metrics measured AUTO-4 (../fonts/README.md): 65ch still renders ~87 real
-     average characters in IBM Plex Sans at 16px, not 65 — ~48ch would be
-     literal. Value unchanged here: it trades off against an owner-approved
-     grid measure (A-009) and is not AUTO-4's decision to make. */
+  --mythos-container-prose: 48ch;  /* RESOLVED — AUTO-5, supersedes 1C §5's
+     68ch approximation (A-009). TYPOGRAPHY.md §2's approved intent is 65
+     CHARACTERS, stated precisely — 68ch was always an unvalidated estimate
+     of that same intent, written before real font metrics existed to
+     calibrate it. Measured directly from the self-hosted IBM Plex Sans
+     (AUTO-4): 48ch renders ~64 real average characters, honouring the
+     approved 65-character intent (68ch/65ch both rendered ~91/~87 — see
+     assets/brand/fonts/README.md and MYTHOS_DESIGN_DECISIONS.md §0.5,
+     AUTO-5, for the full derivation, WCAG 1.4.8 cross-check, and why this
+     supersedes the ch-unit number without contradicting the approved
+     character-count intent it was always meant to implement. */
 
   /* ---------------------------------------------------------------------
      GLOBAL — typography (TYPOGRAPHY.md §1–2; families/roles A-014, weight

@@ -56,7 +56,7 @@ untested collision between two token systems answering to the same names.**
 screenshots at every breakpoint the responsive spec defines, for every page
 `css/main.css` currently styles.
 
-### 2.2 Real font files (TYPE-2, GRID-2) — **CLOSED 2026-08-18, AUTO-4**
+### 2.2 Real font files (TYPE-2, GRID-2) — **CLOSED 2026-08-18, AUTO-4 / AUTO-5**
 
 **Ready.** Eight self-hosted WOFF2 files now exist at `assets/brand/fonts/`
 (Archivo Expanded 600; IBM Plex Sans 400/500/600; IBM Plex Sans Arabic
@@ -66,13 +66,15 @@ declared in `assets/brand/fonts/fonts.css`, named in `tokens.css`'s new
 subset ranges, weight instances, and a real measured performance budget
 (Latin ≈99.5KB, Arabic ≈133.8KB/script) replace the provisional numbers.
 
-**GRID-2 is narrowed but not closed** — real character-advance metrics were
-measured directly from the shipped font (`fontTools`), showing neither 65ch
-nor 68ch actually renders 65 real characters. What remains is not a missing
-font file any more; it is a real trade-off against an **owner-approved**
-grid value (A-009), which this audit's prerequisites do not authorise
-overriding. Full derivation: `assets/brand/fonts/README.md`;
-`docs/MYTHOS_DESIGN_DECISIONS.md` §0.5, AUTO-4.
+**GRID-2 is now closed too — AUTO-5, 2026-08-18.** Real character-advance
+metrics measured directly from the shipped font (`fontTools`) showed
+neither 65ch nor 68ch actually renders 65 real characters. Under an
+explicit continuation instruction authorising resolution of this specific
+trade-off, `--mythos-container-prose` was set to **48ch**, superseding 1C
+§5's 68ch approximation — not owner-approved, fully reversible, with full
+provenance recorded rather than a silent override. Full derivation:
+`assets/brand/fonts/README.md`; `docs/MYTHOS_DESIGN_DECISIONS.md` §0.5,
+AUTO-5.
 
 **Still open, unaffected by this closure:** `text-wrap`/line-height fidelity
 against the real files has not been verified in an actual browser — that

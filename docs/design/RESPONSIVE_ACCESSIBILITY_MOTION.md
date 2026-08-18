@@ -486,7 +486,7 @@ lost, because under the approved philosophy motion never carried meaning alone.
 | Ref | Where it bit in 1G | Status |
 |---|---|---|
 | ~~**GRID-1**~~ | §1.1 — the "large desktop" class had nothing of its own | **RESOLVED — AUTO-3.** 1440 is the 1280 frame at its own margins; `2xl` inherits `xl`'s capped state |
-| **GRID-2** | Prose measure — 68ch versus 65 characters | **Narrowed, not closed — AUTO-3.** 65 characters is the intent; 68ch an approximation pending real font metrics |
+| ~~**GRID-2**~~ | Prose measure — 68ch versus 65 characters | **RESOLVED — AUTO-5.** `container-prose` set to 48ch, superseding the 68ch approximation on real font metrics; not owner-approved |
 | ~~**GRID-3**~~ | Off-scale values and the four spacing steps with no band | **RESOLVED — AUTO-3.** Roles clarified; button padding confirmed |
 | ~~**SURF-1**~~ | §1.8, §3.3 — cards in light theme, no shadow value | **RESOLVED — AUTO-3.** Ramp extended, shadows defined |
 | ~~**GOLD-2**~~ | §2.2 — every hover/active state unmeasured on light | **RESOLVED — AUTO-3.** Both darken from `gold-800`, verified against AA |

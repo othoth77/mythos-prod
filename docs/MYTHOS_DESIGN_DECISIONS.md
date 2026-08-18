@@ -399,7 +399,7 @@ a different thing, and the distinction is preserved throughout.
 
 | Ref | Why it stays open |
 |---|---|
-| **GRID-2** | Further narrowed by **AUTO-4**, real metrics measured from the now-self-hosted IBM Plex Sans: neither 65ch nor 68ch actually renders 65 real characters (≈87 and ≈91 respectively); ≈48ch would be literal. Still not closed — the final number trades off against an **owner-approved** grid value (A-009), which AUTO-4 does not override |
+| ~~**GRID-2**~~ | **RESOLVED 2026-08-18 by AUTO-5** — `--mythos-container-prose` set to **48ch**, superseding 1C §5's 68ch approximation on real font metrics; not owner-approved, see §0.5 AUTO-5 |
 | **A11Y-1**'s exact visual weight of the dashed border, **GOLD-2**'s underlying hue choice for future extension, and any item marked "genuine judgement call, not derivable" above | Recorded as decisions made under delegated authority precisely because they could not be computed — flagged rather than disguised as derivations |
 | **LOGO-1** | Unchanged by this sweep — still narrowed, not closed (see AUTO-1) |
 | **C-001 / O-002** | Dar Hijama charter-versus-live-site — a real-world conflict this sweep does not touch, since resolving it means adjudicating a specific project's brand, not deriving a system rule |
@@ -478,6 +478,86 @@ owner-approved value, not a specification gap-fill. Full derivation:
 referenced by no existing application, project, or build. Reversible at
 zero cost — deleting `assets/brand/fonts/` and the token additions returns
 the repository to its pre-AUTO-4 state exactly.
+
+### AUTO-5 — GRID-2 resolved: prose measure set to 48ch, superseding 1C §5's 68ch approximation
+
+**Trigger.** Explicit continuation instruction: resolve the remaining GRID-2
+ch-width decision autonomously "using the actual self-hosted fonts,
+readability, responsive behaviour, WCAG, and the approved design intent,"
+recording provenance and supersession rather than silently overriding an
+owner-approved value. This is a deliberate widening of what AUTO-4 declined
+to do — AUTO-4 measured the evidence and stopped short of picking a number
+because doing so would supersede A-009. **AUTO-5 is explicitly authorised to
+make that call**, under the same delegated mandate, with the same
+non-owner-approved status and the same reversibility.
+
+**What "supersede" means here, precisely.** Two owner-approved documents
+state the same underlying design goal in two different, non-interchangeable
+units: `MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md` §5 (behind **A-009**) writes
+the implementation as **68ch**; `TYPOGRAPHY.md` §2 (behind **A-014**) states
+the actual intent as **65 characters**. Both were approved; neither
+document could have calibrated `ch` against real character-advance metrics
+at the time, because no font file existed anywhere in this repository until
+**AUTO-4**. **68ch was never an independent design goal — it was always an
+unvalidated estimate of the 65-character intent**, written down before the
+data needed to validate it existed. AUTO-5 does not contradict the design
+intent; it corrects the one number that was always meant to implement that
+intent and could not previously be checked.
+
+**The decision.** `--mythos-container-prose` is set to **48ch**.
+
+**Evidence, computed directly from the shipped `ibm-plex-sans-400-latin.woff2`
+(fontTools, same method as AUTO-4):**
+
+| ch value | Rendered width @ 16px | Real average characters | vs. the 65-character intent |
+|---|---|---|---|
+| 68ch (A-009, as written) | 652.8 px | ≈91 | +40% over |
+| 65ch (AUTO-3's prior token value) | 624.0 px | ≈87 | +34% over |
+| **48ch (AUTO-5)** | **460.8 px** | **≈64** | **−1.5%, effectively exact** |
+
+**WCAG cross-check (new evidence, not in AUTO-4).** WCAG 2.2 **1.4.8 Visual
+Presentation** (AAA — not a requirement at this system's stated AA floor,
+but directly relevant supporting evidence since it exists for the identical
+reason `TYPOGRAPHY.md` §2 states a character cap) recommends **no more than
+80 characters per line**. Both 68ch and 65ch **fail this guideline outright**
+(≈91 and ≈87 characters — neither is a borderline case). 48ch clears it with
+real margin (≈64, 16 characters under the ceiling).
+
+**Responsive check.** `max-width: 48ch` (460.8 px) is a **ceiling**, not a
+fixed width — `GRID_AND_SPACING.md` §4.2's measured column widths show the
+narrowest available column is **280 px at the 320 px breakpoint**, well
+under 460.8 px, so the prose container simply fills the available column on
+mobile exactly as it does today; nothing about the responsive behaviour
+changes below the point where 48ch first becomes the binding constraint
+(roughly the `md`/768 range upward, where the measured column width already
+exceeds it). No new breakpoint, grid value or column width was introduced —
+verified against the already-approved figures in §4.2, not asserted.
+
+**Why 48ch and not some other close value.** The exact computed figure is
+48.4ch (65 characters × 0.4469 em average-character-width ÷ 0.600 em
+`ch`-basis width). 48 is the nearest whole `ch` — CSS custom properties in
+this system are written as clean numbers throughout (see the entire spacing
+and grid scale), and 48.4 vs 48 is a 0.06-character difference, well inside
+any measurement's practical precision.
+
+**What is NOT touched.** `MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md` and
+`TYPOGRAPHY.md` are **not edited** — the owner-approved text of both stays
+exactly as written, preserved as historical record. `GRID_AND_SPACING.md`
+and `tokens.css` (the derived/canonical and machine-readable layers) are
+updated to carry the resolved, evidence-backed implementation value, with
+this entry as the recorded provenance and supersession statement. If a
+genuine owner review later prefers the literal 68ch (or any other number),
+reverting is a one-line change with zero cost — nothing downstream depends
+on 48ch except the two 1I prototypes that referenced the token directly
+(updated in this same pass to read the token rather than a hardcoded value,
+so they now track any future change automatically).
+
+**Authority, reversibility and scope.** **AUTO-5, NOT owner-approved.**
+Unlike AUTO-1–4, this entry explicitly supersedes a number written into an
+owner-approved section — flagged here in the clearest terms this register
+uses, not softened. It remains fully reversible: no application, no
+production file, nothing outside this specification layer and two static
+prototypes is affected.
 
 ### Stage 1I — design prototypes delivered
 
@@ -886,7 +966,7 @@ rather than filled in.
 | Ref | Question | Blocking? | Where it came from |
 |---|---|---|---|
 | **GRID-1** | Two container questions: `2xl` (≥ 1920) has no behaviour the approved text names that is not already true from a **1440** viewport, because the 1280 content cap binds 480 px earlier; and the 1440 "wide" container is ambiguous between a second content width and the outer frame of the 1280 container, since `1280 + 80 + 80 = 1440` exactly | No | `GRID_AND_SPACING.md` §4 |
-| **GRID-2** | Prose measure is approved as **68ch** in 1C §5 and as **65 characters** in `TYPOGRAPHY.md` §2. Different units. **Narrowed 2026-08-18 by AUTO-4** with real font metrics — neither number renders 65 real characters; not closed, see §0.5 AUTO-4 | No | `GRID_AND_SPACING.md` §4.3 |
+| ~~**GRID-2**~~ | Prose measure is approved as **68ch** in 1C §5 and as **65 characters** in `TYPOGRAPHY.md` §2. **RESOLVED 2026-08-18 by AUTO-5** — 48ch, superseding the 68ch approximation on real font metrics, honouring the 65-character intent (see §0.5 AUTO-5) | — | `GRID_AND_SPACING.md` §4.3 |
 | **GRID-3** | Four of the twelve spacing steps (**2, 4, 32, 160**) fall outside both legal bands; and the approved button padding **9 / 15** is off the spacing scale entirely | No | `GRID_AND_SPACING.md` §2, §3 |
 | **SURF-1** | The light elevation ramp has **two** steps (`paper-100`, `paper-200`) to the dark ramp's **four** (`ink-900/850/800/750`), so a card on a raised surface has no light-theme equivalent; and **no shadow values are specified** anywhere — only the rule for when a shadow is permitted | No | `GRID_AND_SPACING.md` §7 |
 | **GOLD-2** | Light-theme **hover** and **active** gold states are unspecified. The approved palette designates `gold-700` for borders and large graphics and `gold-800` for text; `gold-700` measures **3.94** on paper, below AA for text | No | `DESIGN_TOKENS.md` §4.4 |

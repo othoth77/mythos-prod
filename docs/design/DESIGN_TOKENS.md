@@ -103,7 +103,7 @@ component library will try to build them from `space-*` and fail:
 | `grid-margin-{sm,md,lg}` | 20 / 48 / 80 | 1C §5 |
 | `container-content` | 1280 | 1C §5 |
 | `container-wide` | 1440 | 1C §5 — reading ambiguous, **GRID-1** |
-| `container-prose` | 68ch | 1C §5 — unit unreconciled, **GRID-2** |
+| `container-prose` | ~~68ch~~ **48ch** | 1C §5 as approved; **RESOLVED — AUTO-5**, superseding 68ch on real font metrics (`MYTHOS_DESIGN_DECISIONS.md` §0.5) |
 | `size-control-compact` | 36 | 1C §7 |
 | `size-control-comfortable` | 40 | 1C §7 |
 | `size-touch-min` | 44 | 1C §7, §11 — conflicts with the above, **C-005** |
@@ -330,7 +330,8 @@ brand-level colour decision without touching a component.
 never revisited until now. **TOKEN-1, TOKEN-2, SURF-1, GOLD-2 and SEQ-1 are now
 resolved as AUTO-3**, not owner-approved; full reasoning and values in
 `MYTHOS_DESIGN_DECISIONS.md` §0.5. GRID-1 and GRID-3 are resolved AUTO-3;
-GRID-2 is narrowed, not closed.
+**GRID-2 is resolved AUTO-5** (48ch, superseding the 68ch approximation on
+real font metrics measured after AUTO-4 self-hosted the fonts).
 
 | Ref | Statement | Status |
 |---|---|---|
@@ -341,7 +342,7 @@ GRID-2 is narrowed, not closed.
 | ~~**GOLD-2**~~ | Light-theme gold hover and active states | **RESOLVED — AUTO-3.** Both darken from `gold-800`, verified against AA |
 | ~~**SEQ-1**~~ | Sequential and diverging data scales | **RESOLVED — AUTO-3.** 6-step sequential, 7-step diverging, both ≥ 3 : 1 on ink |
 | **GRID-1** | Container width ambiguity, `2xl` behaviour | **RESOLVED — AUTO-3.** 1440 is the 1280 frame at its own margins; `2xl` has none of its own |
-| **GRID-2** | 68ch vs 65 characters | **Narrowed, not closed — AUTO-3.** 65 characters is the design intent; 68ch is an implementation approximation pending real font metrics |
+| ~~**GRID-2**~~ | 68ch vs 65 characters | **RESOLVED — AUTO-5.** `container-prose` set to 48ch, superseding the 68ch approximation on real font metrics; not owner-approved |
 | **GRID-3** | Off-scale spacing steps, button padding | **RESOLVED — AUTO-3.** Roles clarified; padding confirmed as 10/16 inside a 1 px border |
 | **MIG-1 / MIG-3** | Aligning implemented Mythos OS tokens with this system | **Still not actioned.** AUTO-2 found execution requires full-application visual regression this session cannot run — see C-006 |
 

@@ -42,21 +42,22 @@ accent**, never replacing a project's primary colour and never automatically.
 
 **Still open:** **LOGO-1** (does a vector master exist outside Git — narrowed
 2026-08-18, one of three off-host repositories now searched with a genuine
-negative, two remain blocked — **AUTO-1**) and **GRID-2** (68ch vs 65
-characters — narrowed twice, most recently with real font metrics
-(**AUTO-4**), still not closed because the final value trades off against an
-owner-approved figure). Also open from the recovery era: **C-001** / **O-002**,
-the Dar Hijama charter-versus-live-site conflict, which **A-021 does not
-adjudicate**.
+negative, two remain blocked — **AUTO-1**). Also open from the recovery era:
+**C-001** / **O-002**, the Dar Hijama charter-versus-live-site conflict,
+which **A-021 does not adjudicate**.
 
-**Resolved 2026-08-18 under the delegated mandate (AUTO-1 through AUTO-4):**
+**Resolved 2026-08-18 under the delegated mandate (AUTO-1 through AUTO-5):**
 **LOGO-2** (adopted as production master, not owner-approved), **C-006**
 (canonical system named — execution still deferred, see AUTO-2), ~~**C-005**~~
-(resolved by **A-022**, owner-approved, unaffected), **GRID-1**, **GRID-3**,
-**SURF-1**, **GOLD-2**, **GOLD-3**, **TOKEN-1**, **TOKEN-2**, **MOTION-1/2/3**,
-**LINK-1**, **SHAPE-1**, **TYPE-2**, **TYPE-3**, **SPACE-1**, **A11Y-1/2**,
-**SEQ-1**, **ECO-1/2/3**. Full statements and every value:
-`../MYTHOS_DESIGN_DECISIONS.md` §0.5. Machine-readable tokens:
+(resolved by **A-022**, owner-approved, unaffected), **GRID-1**, **GRID-2**
+(prose measure set to 48ch, **superseding** 1C §5's 68ch approximation on
+real font metrics — see AUTO-5, the one AUTO-\* decision in this whole
+programme that explicitly supersedes an owner-approved number rather than
+filling a gap), **GRID-3**, **SURF-1**, **GOLD-2**, **GOLD-3**, **TOKEN-1**,
+**TOKEN-2**, **MOTION-1/2/3**, **LINK-1**, **SHAPE-1**, **TYPE-2**,
+**TYPE-3**, **SPACE-1**, **A11Y-1/2**, **SEQ-1**, **ECO-1/2/3**. Full
+statements and every value: `../MYTHOS_DESIGN_DECISIONS.md` §0.5.
+Machine-readable tokens:
 `../../assets/brand/tokens/tokens.css`. Self-hosted fonts (**AUTO-4**):
 `../../assets/brand/fonts/`.
 
