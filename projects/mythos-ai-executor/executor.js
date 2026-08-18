@@ -48,6 +48,20 @@ if (process.env.MYTHOS_EXECUTOR_ALLOW_MOCK === '1') {
 var NOTIFY_SH = path.join(__dirname, '..', 'mythos-orchestrator', 'notify.sh');
 var PRIORITY_WEIGHT = { high: 0, normal: 1, low: 2 };
 
+// MOS-3A: the central dispatcher's capacity ceiling. `bin/mythos-ai-executor
+// serve` runs server.start() and executor.daemon() in ONE process, so this
+// in-process counter is a valid central gate for everything that starts a
+// task through this module (tick, quota/retry resume, the /resume route,
+// and the new /dispatch route). Clamped so a bad env value can neither
+// starve the queue (0) nor blow past what the host can sustain.
+var MAX_PARALLEL = (function () {
+  var raw = parseInt(process.env.MYTHOS_MAX_PARALLEL, 10);
+  if (isNaN(raw)) raw = 5;
+  if (raw < 1) raw = 1;
+  if (raw > 8) raw = 8;
+  return raw;
+})();
+
 // --- Task creation ----------------------------------------------------------
 
 function newTaskId() {
@@ -325,7 +339,14 @@ function tailOf(text, n) {
 // Runs (or resumes) one task to its next durable state. Returns the final
 // status object. `opts._recreated` guards the single session-recreation
 // retry against loops.
-function runTask(taskId, opts) {
+//
+// This is the CORE implementation. The exported `runTask` (defined below,
+// near the dispatcher) wraps this function so every caller — tick(), the
+// quota/retry resume paths, the session-recreation recursion just below,
+// the server's /resume route, and dispatchTask/drainQueue — releases a
+// capacity slot back to the console queue when the run settles, without
+// this function needing to know that dispatcher exists.
+function runTaskCore(taskId, opts) {
   opts = opts || {};
   var task = state.readJSON(taskId, 'task.json');
   var status = state.readStatus(taskId);
@@ -459,7 +480,11 @@ function handleFailure(task, taskId, outcome, mode, opts) {
     var st = state.readStatus(taskId);
     st.claude_session_id = provider.newSessionId ? provider.newSessionId() : null;
     state.writeJSON(taskId, 'status.json', st);
-    return runTask(taskId, { _recreated: true });
+    // Calls the CORE implementation directly, not the exported wrapper: this
+    // recreation is a continuation of the same admitted run already in
+    // progress inside runTask's own settle chain, not a new entry point, so
+    // it must not attach a second drainQueue hook on top of the outer one.
+    return runTaskCore(taskId, { _recreated: true });
   }
 
   var kind = outcome.timed_out ? 'transient' : quota.classifyFailure(text);
@@ -544,7 +569,11 @@ function summaries() {
       retry_count: st.retry_count, quota_state: st.quota_state,
       claude_session_id: st.claude_session_id, next_action: st.next_action,
       last_error: st.last_error || null, execution_id: st.execution_id || null,
-      core_owned: task.requested_by === CORE_OWNER
+      core_owned: task.requested_by === CORE_OWNER,
+      // MOS-3A: needed by the dispatcher's drain (to find console-owned
+      // QUEUED tasks) and by the console UI to tell its own missions apart
+      // from n8n/daemon-originated ones.
+      requested_by: task.requested_by || null
     };
   });
 }
@@ -617,6 +646,161 @@ function tick(now) {
   }
 
   return Promise.resolve(actions.length ? actions : [{ action: 'idle' }]);
+}
+
+// --- Capacity-gated dispatch (MOS-3A) ----------------------------------------------
+//
+// A central dispatcher on top of runTaskCore/tick, not a replacement for
+// either. tick() above is UNTOUCHED: it still starts at most one task per
+// step, on its own 15s cadence, for daemon-owned work (n8n intake and
+// recovery/retry/quota resumption). What this section adds is a second,
+// capacity-gated entry point — dispatchTask — that the console's explicit
+// "start mission" call now uses instead of the old unconditional /resume,
+// plus a drain that keeps pulling queued console missions in as capacity
+// frees up.
+//
+// Design notes:
+//   - Quota/retry resumes are CONTINUATIONS of an already-admitted
+//     execution (the task was already counted against capacity when it
+//     first ran); they are NOT capacity-gated here, only fresh admissions
+//     through dispatchTask/drainQueue are.
+//   - drainQueue is scoped to requested_by === 'mos-console' missions only,
+//     so n8n intake and daemon/tick semantics (one task per tick, its own
+//     FIFO) are completely unchanged by this stage.
+//   - tick() itself is never modified. It calls the exported `runTask`
+//     name below, so a slot a tick-started task frees also drains queued
+//     console missions — without tick's own logic changing at all.
+
+// taskId -> true from just before runTaskCore is invoked until the run
+// settles. Needed because runningCount() reads summaries(), and a task
+// freshly transitioned to RUNNING still shows pid: null (set by the
+// provider's onSpawn callback only after the child actually spawns), so
+// state.effectiveStatus reports it as INTERRUPTED, not RUNNING, for that
+// brief window. Without this set, a burst of dispatches could all read the
+// same stale runningCount and blow past MAX_PARALLEL.
+var DISPATCH_INFLIGHT = Object.create(null);
+
+// Number of DISTINCT task ids that are either effective RUNNING (per
+// summaries()) or in-flight (admitted but not yet visible as RUNNING). A
+// union of ids, not a sum, so a task that is briefly both is counted once.
+function runningCount() {
+  var ids = Object.create(null);
+  summaries().forEach(function (s) { if (s.effective === 'RUNNING') ids[s.task_id] = true; });
+  Object.keys(DISPATCH_INFLIGHT).forEach(function (id) { ids[id] = true; });
+  return Object.keys(ids).length;
+}
+
+// Shared admission path for dispatchTask and drainQueue: mark in-flight,
+// start the run, and on settle release the slot and try to drain more.
+// Never throws and never lets a dispatch_error stop the caller.
+function startConsoleTask(taskId) {
+  DISPATCH_INFLIGHT[taskId] = true;
+  // A synchronous throw out of runTask (e.g. a corrupt task.json making
+  // readJSON throw before the promise exists) must not leak the in-flight
+  // entry -- a leaked entry would permanently eat one capacity slot until
+  // the process restarts.
+  var run;
+  try {
+    run = runTask(taskId);
+  } catch (syncErr) {
+    delete DISPATCH_INFLIGHT[taskId];
+    try {
+      state.appendEvent(taskId, 'dispatch_error', {
+        message: redact.redact(String((syncErr && syncErr.message) || syncErr))
+      });
+    } catch (e2) { /* telemetry must never break the drain */ }
+    return;
+  }
+  run.then(function () {
+    delete DISPATCH_INFLIGHT[taskId];
+    try { drainQueue(); } catch (e) { /* best-effort */ }
+  }).catch(function (err) {
+    delete DISPATCH_INFLIGHT[taskId];
+    try {
+      state.appendEvent(taskId, 'dispatch_error', {
+        message: redact.redact(String((err && err.message) || err))
+      });
+    } catch (e2) { /* telemetry must never break the drain */ }
+    try { drainQueue(); } catch (e3) { /* best-effort */ }
+  });
+}
+
+// The capacity-gated entry point the console's explicit start now uses in
+// place of the old unconditional /resume. Does NOT await completion — it
+// only decides admission and returns immediately.
+function dispatchTask(taskId) {
+  var status = state.readStatus(taskId);
+  if (!status) return Promise.reject(new Error('NO_SUCH_TASK: ' + taskId));
+  if (status.status !== 'QUEUED') {
+    return Promise.reject(new Error('NOT_DISPATCHABLE: task ' + taskId + ' is ' + status.status));
+  }
+
+  var running = runningCount();
+  if (running >= MAX_PARALLEL) {
+    state.appendEvent(taskId, 'dispatch_deferred', { running: running, max_parallel: MAX_PARALLEL });
+    return Promise.resolve({
+      task_id: taskId, dispatched: false, queued: true,
+      running: running, max_parallel: MAX_PARALLEL
+    });
+  }
+
+  startConsoleTask(taskId);
+  return Promise.resolve({
+    task_id: taskId, dispatched: true,
+    running: running + 1, max_parallel: MAX_PARALLEL
+  });
+}
+
+var DRAINING = false; // reentrancy guard: a drain triggered from inside a
+                       // drain's own settle hook must not recurse unboundedly.
+
+// Pulls queued console missions in as capacity allows. Never throws; one
+// bad task cannot stop the drain from trying the next one.
+function drainQueue() {
+  if (DRAINING) return;
+  DRAINING = true;
+  try {
+    while (runningCount() < MAX_PARALLEL) {
+      var candidates = summaries().filter(function (s) {
+        return s.status === 'QUEUED' && s.requested_by === 'mos-console';
+      }).sort(function (a, b) {
+        var pw = (PRIORITY_WEIGHT[a.priority] || 1) - (PRIORITY_WEIGHT[b.priority] || 1);
+        return pw !== 0 ? pw : String(a.created_at).localeCompare(String(b.created_at));
+      });
+      if (!candidates.length) break;
+      try {
+        startConsoleTask(candidates[0].task_id);
+      } catch (e) { /* one bad task must not stop the drain */ }
+    }
+  } finally {
+    DRAINING = false;
+  }
+}
+
+function dispatcherStatus() {
+  return {
+    running: runningCount(),
+    max_parallel: MAX_PARALLEL,
+    queued: summaries().filter(function (s) {
+      return s.status === 'QUEUED' && s.requested_by === 'mos-console';
+    }).length
+  };
+}
+
+// The exported runTask: wraps runTaskCore so EVERY caller — tick() (via
+// this same name, its own code unchanged), quota/retry resume, the
+// server's /resume route, and dispatchTask/drainQueue above — drains
+// queued console missions when a slot frees, without runTaskCore or tick()
+// needing to know the dispatcher exists. Never alters the resolved value
+// or rejection runTaskCore produces.
+function runTask(taskId, opts) {
+  return runTaskCore(taskId, opts).then(function (result) {
+    try { drainQueue(); } catch (e) { /* best-effort */ }
+    return result;
+  }, function (err) {
+    try { drainQueue(); } catch (e) { /* best-effort */ }
+    throw err;
+  });
 }
 
 // --- Health (mission §22) -----------------------------------------------------------
@@ -732,5 +916,9 @@ module.exports = {
   verifyGit: verifyGit,
   commitReportToGit: commitReportToGit,
   sshEnv: sshEnv,
-  acquireDaemonLock: acquireDaemonLock
+  acquireDaemonLock: acquireDaemonLock,
+  dispatchTask: dispatchTask,
+  drainQueue: drainQueue,
+  dispatcherStatus: dispatcherStatus,
+  MAX_PARALLEL: MAX_PARALLEL
 };

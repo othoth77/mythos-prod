@@ -193,7 +193,10 @@ ok(/var WRITE_ROUTES = \[/.test(serverCode) && /matchWriteRoute/.test(serverCode
 var writeRoutesBlock = (serverCode.match(/var WRITE_ROUTES = \[[\s\S]*?\];/) || [''])[0];
 ok(/\/api\/missions\/start/.test(writeRoutesBlock), 'the start route is named explicitly in WRITE_ROUTES');
 ok(/CANCEL_ROUTE_RE/.test(writeRoutesBlock), 'the cancel route is named explicitly in WRITE_ROUTES');
-eq((writeRoutesBlock.match(/\{ test:/g) || []).length, 2, 'exactly two write routes are registered -- start and cancel, nothing else');
+ok(/DISPATCH_ROUTE_RE/.test(writeRoutesBlock), 'the dispatch route is named explicitly in WRITE_ROUTES');
+// MOS-3A narrows this from 2: the capacity-gated dispatch relay is a third
+// deliberate exception, same shape and discipline as the first two.
+eq((writeRoutesBlock.match(/\{ test:/g) || []).length, 3, 'exactly three write routes are registered -- start, cancel and dispatch, nothing else');
 // The ONE named exception (readBoundedBody, MOS-2's request-body reader for
 // exactly one relay route) is stripped by exact name before this check, so
 // any OTHER, unnamed body reader still fails the suite.
@@ -367,6 +370,15 @@ function startStub() {
         if (req.method === 'POST' && u === '/tasks/tk-stub-start-0001/resume') {
           res.writeHead(202, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ task_id: 'tk-stub-start-0001', accepted: true }));
+          return;
+        }
+        // MOS-3A: the capacity-gated dispatch route the console now calls
+        // instead of /resume for its explicit start. The /resume stub above
+        // is kept -- the real executor endpoint still exists and is still
+        // exercised by other flows.
+        if (req.method === 'POST' && u === '/tasks/tk-stub-start-0001/dispatch') {
+          res.writeHead(202, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ task_id: 'tk-stub-start-0001', dispatched: true, running: 1, max_parallel: 5 }));
           return;
         }
 
@@ -590,7 +602,7 @@ startStub().then(function (stub) {
 
         eq(okStart.status, 200, 'a valid start succeeds');
         eq(okStart.json.data.task_id, 'tk-stub-start-0001', 'the created task id is returned');
-        eq(okStart.json.data.status, 'RUNNING', 'the explicit resume made it RUNNING, not just QUEUED');
+        eq(okStart.json.data.status, 'RUNNING', 'the explicit dispatch made it RUNNING, not just QUEUED');
         eq(okStart.json.data.provider, 'claude-code', 'the provider actually used is echoed back');
 
         [badMock, badGemini, badExtra, noInstr, noTitle, emptyTitle, emptyBody].forEach(function (r, i) {
@@ -601,11 +613,12 @@ startStub().then(function (stub) {
         eq(wrongDelete.status, 405, 'DELETE on the write path is still refused like every other method');
 
         // The relay must have reached the stub executor exactly twice —
-        // create, then the explicit resume — and ONLY for the one valid
+        // create, then the explicit dispatch (MOS-3A: replaces the old
+        // unconditional /resume call) — and ONLY for the one valid
         // request. Every rejected request above must never have reached
         // upstream at all: validation happens before any relay call.
-        var startCalls = stubPostBodies.filter(function (c) { return /^\/tasks(\/tk-stub-start-0001\/resume)?$/.test(c.url); });
-        eq(startCalls.length, 2, 'exactly two calls reached the executor: create, then resume — nothing for the seven rejected requests');
+        var startCalls = stubPostBodies.filter(function (c) { return /^\/tasks(\/tk-stub-start-0001\/dispatch)?$/.test(c.url); });
+        eq(startCalls.length, 2, 'exactly two calls reached the executor: create, then dispatch — nothing for the seven rejected requests');
         eq(startCalls[0].url, '/tasks', 'the first call creates the task');
         eq(startCalls[0].body.project, 'mythos-prod', 'project is fixed server-side, never caller input');
         eq(startCalls[0].body.execution_profile, 'repo-read', 'execution_profile is fixed to the read-only ceiling, never caller input');
@@ -614,7 +627,7 @@ startStub().then(function (stub) {
         eq(startCalls[0].body.instruction, 'Inspect the repository and report findings.', 'the caller-authored instruction is forwarded verbatim');
         ok(!Object.prototype.hasOwnProperty.call(startCalls[0].body, 'working_directory'),
            'working_directory is never sent by the console — the executor supplies its own default');
-        eq(startCalls[1].url, '/tasks/tk-stub-start-0001/resume', 'the second call is the explicit resume on the id just created');
+        eq(startCalls[1].url, '/tasks/tk-stub-start-0001/dispatch', 'the second call is the explicit dispatch on the id just created');
         stubPostBodies.length = 0;
 
         // -----------------------------------------------------------------
