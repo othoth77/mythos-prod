@@ -124,6 +124,129 @@ independent verification from a clean clone → **only then** the separate clean
 
 ## Previous entry
 
+**From:** MYTHOS **MOS-1.2 — DEPLOYMENT AUTOMATED WITH HARD GATES; A CLAIM I MADE TWICE WAS WRONG AND IS CORRECTED. PR #12 IS MERGED. STILL NOT DEPLOYED — THE HOST IS UNREACHABLE FROM ANY CLAUDE SESSION.**
+
+**Stage:** MOS-1.2 · **Status:** committed and pushed; deployment is an on-host action
+**Commit:** `a253bde716a50f61c27eb24f444789bab96b7569`
+**Branch:** `claude/mythos-os-dashboard-audit-y4174m` (restarted from `main` after PR #12 merged)
+**Remote HEAD:** `a253bde716a50f61c27eb24f444789bab96b7569` — verified equal after push
+**Base:** `main` @ `5e2011bafa5a18071631962e3ce069c05c10ac94` (PR #12 merge commit, 2026-08-18T11:18:13Z)
+
+### PR #12 is merged
+
+`5e2011b`, two parents `66e0b0e` + `521a60c`. The console, its tools and
+`tests/mos-1-console-test.js` are on `main`. PR #11 (brand foundation)
+was not merged or modified. **The VPS has not pulled yet**, so the git
+relay will report `REFUSED: local main is not a fast-forward` on every
+tick until it does — see the Phase 1/3 sequence recorded in the previous
+entry.
+
+### The correction — I was wrong, twice, and said so
+
+I reported that §10.2 step 2 was **broken**:
+
+```
+printf '...%s\n' "$(read -rs T; echo "$T")"
+```
+
+**It is not broken.** Under bash the subshell inherits stdin and the
+command substitution captures the value; a functional test confirmed it
+produces the correct token, backslashes included. I asserted otherwise in
+two consecutive reports without testing it, which is the same failure
+mode as the DNS claim in MOS-1 — a confident assertion about something I
+had not run.
+
+The replacement stands, for two reasons that **were** measured:
+
+1. It prints **no prompt**. The operator faces a blank line with no sign
+   that input is wanted.
+2. `echo` is not backslash-safe across shells. Run the same block under
+   `sh`/dash and a token containing a backslash is silently **corrupted**
+   — verified: `tok\with\backslash` became `tok\withackslash`.
+
+The new form reads into a variable in the current shell, prompts
+explicitly, prints with `printf` (a bash builtin, so the value never
+reaches the process table), unsets, `chmod 600`, and verifies by mode and
+line count — never by printing the value.
+
+### What was added
+
+`projects/mythos-os-console/tools/deploy.sh` — executes §10.2 with every
+gate as a hard stop rather than a remembered instruction:
+
+| Gate | Enforced as |
+|---|---|
+| Wrong machine | Phase 0 asserts `/etc/nginx`, `/home/deploy`, the worktree and DNS; aborts otherwise |
+| xtrace | refuses to start if `set -x` is on — it would print the token |
+| Tests | must pass before anything is installed |
+| Service health | `/api/health` must report `ok` **and** `token_provisioned:true` |
+| **Read-only** | `POST` must return **405** before the console is exposed publicly |
+| nginx | `nginx -t` must pass before any reload; a symlink this run created is removed automatically if it fails, and nginx is not reloaded |
+| Neighbours | `ordre`, `panel`, `tv` must be healthy before certbot may run |
+| TLS | dry run must pass; real issuance is confirmed (rate limits) |
+| Untouched state | `roadmap-state.json` and the SSANGYONG tree fingerprinted at start, re-checked at end |
+
+It stops at the one step `deploy` cannot perform — writing the vhost into
+`/etc/nginx` needs root, and `deploy`'s sudo grant is exactly `nginx -t`,
+`systemctl reload nginx`, `certbot` — and prints the two root commands
+rather than pretending. Re-running is safe; every step checks for its own
+prior result.
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `tests/mos-1-console-test.js` | **322 passed, 0 failed** |
+| `tools/contrast.js` | **26/26 rendered pairs AA** |
+| `bash -n` | clean on `deploy.sh` and `host-preflight.sh` |
+| deploy.sh off-host behaviour | **functionally verified** — run in this container it aborts with "nothing; the host is unchanged" |
+| corrected token pattern | **functionally verified** — one non-empty line, mode 600 |
+| old token pattern | **functionally verified** — works under bash, corrupts under dash |
+
+Full suite not rerun: the diff is one new script plus one documentation
+file; no existing code path changed. `AGENTS.md` §8.
+
+### Changed files
+
+`projects/mythos-os-console/tools/deploy.sh` (new) ·
+`docs/MYTHOS_OS_CONSOLE_ARCHITECTURE.md` (§10.2 step 2 corrected, script
+referenced).
+
+**Untouched, verified against the diff:** governance, SSANGYONG,
+`roadmap-state.json`, everything under `projects/mythos-ai-executor/`,
+`css/`, `index.html`, `js/`. No secret committed.
+
+### Deployment status
+
+**Not deployed.** Exhaustively established this session that no Claude
+session can reach the host: not on it (`/home/deploy`, `/etc/nginx`
+absent; node v22.22.2 here vs v22.22.1 there), no `ssh` binary and no
+keys, network refused at the proxy (`x-deny-reason: host_not_allowed`,
+for `os.` and the live `ordre.` alike), and **no Claude Code Remote
+environment is the VPS** — `list_environments` returns only two
+`anthropic_cloud` containers under the same policy.
+
+### Exact next step
+
+On the VPS, as `deploy`, after the `main` pull:
+
+```bash
+bash projects/mythos-os-console/tools/deploy.sh
+```
+
+It will stop at Phase 5 for the two root commands, then resume on re-run.
+
+### Next stage
+
+**MOS-2 — deploy**, on the host. Off-host, the remaining item is
+self-hosting Playfair Display and Inter to remove the CSP font exception;
+it would add the first font binaries this repository has tracked, so it
+needs an explicit decision rather than an assumption.
+
+---
+
+## Previous entry
+
 **From:** MYTHOS **MOS-1.1 — RELEASE GATE PASSED. CONTRAST MEASURED. MOS-1's DNS BLOCKER WAS A WRONG CLAIM AND IS WITHDRAWN. NOT DEPLOYED — AND THIS SESSION CANNOT DEPLOY IT.**
 
 **Stage:** MOS-1.1 · **Status:** gate passed, pushed; deployment is an on-host action
