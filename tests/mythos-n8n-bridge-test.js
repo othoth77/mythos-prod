@@ -365,7 +365,98 @@ console.log('\n7. THE OWNER CAN ANSWER AN APPROVAL (AND ONLY THE OWNER)');
 })();
 
 // ===========================================================================
-console.log('\n8. CLEANUP');
+console.log('\n8. CRASH RECOVERY: TASKS STRANDED BY A RESTART');
+// ===========================================================================
+// Killing the executor mid-mission used to leave its tasks in RUNNING
+// forever: the process was gone but nothing said so, so the DAG waited on
+// them for eternity. Campaign state survived and the continuation lease
+// cleared, which made recovery LOOK complete while the campaign could not
+// actually progress. Found by killing the real service, not by a unit test.
+(function () {
+  var domain = require(path.join(EXEC, 'core', 'domain'));
+  var runner = require(path.join(EXEC, 'core', 'campaign-runner'));
+
+  function mkMission(tasks) {
+    var goal = domain.createGoal({ text: 'crash recovery fixture goal', project: 'bridge-crash' });
+    store.create(goal);
+    var m = domain.createMission({ goal_id: goal.id, title: 'Crash recovery fixture', project: 'bridge-crash' });
+    store.create(m);
+    var ids = tasks.map(function (spec) {
+      var t = domain.createTask({
+        mission_id: m.id, title: spec.key + ' task', project: 'bridge-crash',
+        task_type: 'generic', metadata: { plan_key: spec.key },
+        executor_task_id: spec.executor_task_id || null,
+        attempt: spec.attempt || 1, max_attempts: spec.max_attempts || 3
+      });
+      store.create(t);
+      if (spec.status && spec.status !== t.status) {
+        var chain = { RUNNING: ['READY', 'RUNNING'], COMPLETED: ['READY', 'RUNNING', 'COMPLETED'] };
+        (chain[spec.status] || [spec.status]).forEach(function (s) {
+          try { store.transition('task', t.id, s, {}); } catch (e) { /* fixture best effort */ }
+        });
+      }
+      return t.id;
+    });
+    m.task_ids = ids;
+    store.save(m);
+    return { mission: m, ids: ids };
+  }
+
+  // A task whose executor process is provably gone is re-queued, once, within
+  // its attempt budget.
+  var f1 = mkMission([{ key: 'implement', status: 'RUNNING', executor_task_id: 't-gone-0001', attempt: 1 }]);
+  var execState = require(path.join(EXEC, 'lib', 'state'));
+  function execStatus(id, status) {
+    execState.ensureTaskDir(id);
+    execState.writeJSON(id, 'status.json', status);
+  }
+  execStatus('t-gone-0001', { status: 'RUNNING', pid: 999999 });
+  var rec1 = runner.recoverOrphanedTasks(f1.mission.id);
+  var t1 = store.load('task', f1.ids[0]);
+  ok(rec1.length === 1 && rec1[0].outcome === 'REQUEUED', 'crash: a dead-pid task is recovered');
+  ok(t1.status === 'READY', 'crash: it returns to READY so the DAG can run it again');
+  ok(t1.attempt === 2, 'crash: the attempt counter advances (recovery is bounded, not a loop)');
+
+  // A task whose process is ALIVE is never stolen — the same rule the
+  // reservation lease follows.
+  var f2 = mkMission([{ key: 'implement', status: 'RUNNING', executor_task_id: 't-alive-001', attempt: 1 }]);
+  execStatus('t-alive-001', { status: 'RUNNING', pid: process.pid });
+  var rec2 = runner.recoverOrphanedTasks(f2.mission.id);
+  ok(rec2.length === 0, 'crash: a LIVE task is never reclaimed');
+  ok(store.load('task', f2.ids[0]).status === 'RUNNING', 'crash: the live task keeps running');
+
+  // Unverifiable (no executor id yet — mid-dispatch) is left alone until it
+  // ages past the grace window, so recovery cannot steal a starting task.
+  var f3 = mkMission([{ key: 'implement', status: 'RUNNING', attempt: 1 }]);
+  var rec3 = runner.recoverOrphanedTasks(f3.mission.id);
+  ok(rec3.length === 0, 'crash: an unverifiable task inside the grace window is left alone');
+  // store.save() stamps updated_at, so age it on disk instead of through the
+  // API — the point is to simulate elapsed time, not to test the setter.
+  var t3 = store.load('task', f3.ids[0]);
+  t3.updated_at = new Date(Date.now() - (runner.ORPHAN_GRACE_MS + 60000)).toISOString();
+  fs.writeFileSync(store.entityFile('task', f3.ids[0]), JSON.stringify(t3, null, 2));
+  var rec3b = runner.recoverOrphanedTasks(f3.mission.id);
+  ok(rec3b.length === 1, 'crash: past the grace window it is finally recovered');
+
+  // Out of attempts → FAILED, never an endless requeue.
+  var f4 = mkMission([{ key: 'implement', status: 'RUNNING', executor_task_id: 't-gone-0002',
+    attempt: 3, max_attempts: 3 }]);
+  execStatus('t-gone-0002', { status: 'RUNNING', pid: 999998 });
+  var rec4 = runner.recoverOrphanedTasks(f4.mission.id);
+  ok(rec4.length === 1 && rec4[0].outcome === 'FAILED',
+    'crash: a task out of attempts FAILS instead of being requeued forever');
+
+  // Completed work is never touched — the whole point of resuming.
+  var f5 = mkMission([{ key: 'inspect', status: 'COMPLETED' },
+    { key: 'implement', status: 'RUNNING', executor_task_id: 't-gone-0003', attempt: 1 }]);
+  execStatus('t-gone-0003', { status: 'RUNNING', pid: 999997 });
+  runner.recoverOrphanedTasks(f5.mission.id);
+  ok(store.load('task', f5.ids[0]).status === 'COMPLETED',
+    'crash: a COMPLETED task is never re-run by recovery');
+})();
+
+// ===========================================================================
+console.log('\n9. CLEANUP');
 // ===========================================================================
 (function () {
   try { fs.rmSync(RUNTIME, { recursive: true, force: true }); } catch (e) { /* best effort */ }

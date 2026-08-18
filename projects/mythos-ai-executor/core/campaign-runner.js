@@ -27,13 +27,125 @@ var orchestrator = require('./orchestrator');
 var coreWiring = require('./core-wiring');
 var policyEngine = require('./policy-engine');
 var selfImprove = require('./self-improve');
+var unattended = require('./unattended');
+
+// Translates a park result into the step outcome. Attended mode stops at the
+// gate as before; unattended mode has already recorded the denial, so the
+// step reports a continuing state and the loop selects other work. The gate
+// itself is identical in both modes — only the answer differs.
+function parkOutcome(parked, attendedAction, detail) {
+  if (parked && parked.auto_denied) {
+    return { state: 'READY', action: 'auto_denied', policy_kind: parked.policy_kind,
+      denied_action: attendedAction, detail: detail };
+  }
+  return { state: 'WAITING_FOR_APPROVAL', action: attendedAction, detail: detail };
+}
 
 // One step. Returns { state, action, detail }.
+// How long a RUNNING task whose liveness cannot be established is left alone
+// before it is treated as orphaned. A task mid-dispatch has been transitioned
+// to RUNNING but may not have recorded its executor id yet, so recovering
+// instantly could steal a task that is genuinely starting.
+var ORPHAN_GRACE_MS = 5 * 60 * 1000;
+
+// How many consecutive BLOCKED-class failures unattended mode absorbs before
+// it stops selecting new work and idles instead. Infrastructure failure is
+// not the capability's fault, so the capability is never written off for it —
+// but if the host is genuinely broken every mission will fail the same way,
+// and an unbounded loop would churn all night burning quota on doomed work.
+// Idling instead lets the daemon re-evaluate later, when the cause may be
+// gone. Reset by any accepted mission.
+var UNATTENDED_BLOCKED_STREAK_LIMIT = 3;
+
+// Crash recovery for tasks, the counterpart to the reservation lease.
+//
+// A restart mid-mission used to leave its tasks in RUNNING forever: the
+// process executing them was gone, but nothing ever said so, and the DAG
+// waited on them for eternity. Campaign state survived the restart and the
+// continuation lease cleared correctly, yet the campaign could not actually
+// make progress — recovery looked complete and was not. Found by killing the
+// executor mid-mission rather than by any unit test.
+//
+// The rule is the lease's rule: never reclaim what cannot be PROVEN dead.
+// A live pid is left alone; an unverifiable task is left alone until it ages
+// past the grace window; only then is it re-queued, and only within its
+// existing attempt budget, so recovery can never loop forever.
+function recoverOrphanedTasks(missionId) {
+  var execState = require('../lib/state');
+  var mission;
+  try { mission = store.load('mission', missionId); } catch (e) { return []; }
+  if (!mission) return [];
+  var recovered = [];
+
+  (mission.task_ids || []).forEach(function (id) {
+    var t;
+    try { t = store.load('task', id); } catch (e) { return; }
+    if (!t || t.status !== 'RUNNING') return;
+
+    var alive = null;   // true | false | null (unverifiable)
+    if (t.executor_task_id) {
+      var st = null;
+      try { st = execState.readJSON(t.executor_task_id, 'status.json'); } catch (e) { st = null; }
+      if (st && st.pid) alive = execState.processAlive(st.pid);
+      else if (st && ['COMPLETED', 'FAILED', 'CANCELLED'].indexOf(st.status) !== -1) alive = false;
+    }
+    if (alive === true) return;                       // genuinely still running
+
+    var age = Date.now() - Date.parse(t.updated_at || t.created_at || 0);
+    if (alive === null && !(age > ORPHAN_GRACE_MS)) return;   // fail safe
+
+    var attempt = t.attempt || 1;
+    var maxAttempts = t.max_attempts || 3;
+    var detail = {
+      orphan_recovered: true,
+      reason: alive === false ? 'executing process is gone' : 'unverifiable past the grace window',
+      recovered_at: new Date().toISOString()
+    };
+    try {
+      store.transition('task', id, 'RETRYING', {
+        metadata: Object.assign({}, t.metadata, detail)
+      });
+      if (attempt >= maxAttempts) {
+        store.transition('task', id, 'FAILED', {
+          metadata: Object.assign({}, t.metadata, detail,
+            { failure: 'orphaned by a restart and out of attempts' })
+        });
+        recovered.push({ task_id: id, plan_key: t.metadata && t.metadata.plan_key, outcome: 'FAILED' });
+      } else {
+        store.transition('task', id, 'READY', {
+          attempt: attempt + 1,
+          metadata: Object.assign({}, t.metadata, detail)
+        });
+        recovered.push({ task_id: id, plan_key: t.metadata && t.metadata.plan_key, outcome: 'REQUEUED' });
+      }
+      store.appendEventLine({
+        event_type: 'TASK_RESUMED', subject_id: id, project: t.project,
+        detail: detail
+      });
+    } catch (e) { /* a task that raced to a terminal state needs no recovery */ }
+  });
+
+  return recovered;
+}
+
 function advanceCampaign(campaignId, opts) {
   opts = opts || {};
   coreWiring.assertEnabled();
   var c = campaign.loadCampaign(campaignId);
   if (!c) return Promise.reject(new Error('NO_SUCH_CAMPAIGN: ' + campaignId));
+
+  // Before deciding anything, reclaim tasks stranded RUNNING by a crash or
+  // restart. Without this a single interruption wedges the mission forever.
+  if (c.current_mission && c.current_mission.mission_id) {
+    var reclaimed = recoverOrphanedTasks(c.current_mission.mission_id);
+    if (reclaimed.length) {
+      store.appendEventLine({
+        event_type: 'TASK_RESUMED', subject_id: c.current_mission.mission_id,
+        project: c.project,
+        detail: { orphans_recovered: reclaimed.length, tasks: reclaimed }
+      });
+    }
+  }
 
   // Terminal or operator-held states never act on their own.
   if (['COMPLETED', 'PAUSED'].indexOf(c.state) !== -1) {
@@ -57,6 +169,23 @@ function advanceCampaign(campaignId, opts) {
     if (c.state !== 'READY') campaign.transition(campaignId, 'READY', {});
     var proposal = campaign.proposeNextMission(campaignId);
     if (!proposal.proposal) {
+      // UNATTENDED: "nothing selectable right now" is NOT "finished".
+      // A capability can become selectable later — a dependency lands, a
+      // roadmap entry is corrected, or a human re-opens an AUTO_DENIED one.
+      // Declaring COMPLETED here would end the night on the first quiet
+      // moment and make the terminal state a lie. Stay READY and idle; the
+      // daemon tick re-evaluates the roadmap on its own schedule, and no
+      // human is asked anything.
+      if (unattended.enabled()) {
+        campaign.note(campaign.loadCampaign(campaignId), {
+          event: 'idle_no_safe_work',
+          reason: proposal.reason,
+          approval_candidates: (proposal.approval_candidates || []).length,
+          evaluated_at: new Date().toISOString()
+        });
+        return Promise.resolve({ state: 'READY', action: 'idle',
+          detail: proposal.reason, re_evaluates: true });
+      }
       // Nothing left that is autonomously safe: the campaign is done, and
       // whatever remains is recorded as needing human approval.
       campaign.transition(campaignId, 'COMPLETED', {
@@ -67,6 +196,17 @@ function advanceCampaign(campaignId, opts) {
     }
     var started = campaign.startMission(campaignId, proposal.proposal, opts);
     if (started.requires_approval) {
+      // The pre-flight gate refused at selection time — the cheapest possible
+      // refusal, zero agent invocations. Unattended mode answers it here
+      // rather than parking, so the loop moves to the next capability.
+      if (unattended.enabled()) {
+        var deniedPre = campaign.parkForApproval(campaignId, {
+          mission_id: null, capability_key: proposal.proposal.capability_key,
+          objective: proposal.proposal.objective, reason: started.reason,
+          action_class: 'GOVERNANCE'
+        });
+        return Promise.resolve(parkOutcome(deniedPre, 'approval_required', started.reason));
+      }
       return Promise.resolve({ state: 'WAITING_FOR_APPROVAL', action: 'approval_required',
         detail: started.reason, approval_id: started.approval_id });
     }
@@ -138,11 +278,11 @@ function settleMission(campaignId, mission, opts) {
     var reasons = approvalParked.map(function (t) {
       return (t.metadata.plan_key || t.id) + ': ' + (t.metadata.approval_reason || 'approval required');
     });
-    campaign.parkForApproval(campaignId, {
+    var parked1 = campaign.parkForApproval(campaignId, {
       mission_id: cm.mission_id, capability_key: cm.capability_key,
       objective: cm.objective, reason: reasons.join(' | '), action_class: 'POLICY'
     });
-    return { state: 'WAITING_FOR_APPROVAL', action: 'approval_required', detail: reasons.join(' | ') };
+    return parkOutcome(parked1, 'approval_required', reasons.join(' | '));
   }
 
   // The mission finished (either way) → acceptance on evidence.
@@ -151,6 +291,11 @@ function settleMission(campaignId, mission, opts) {
     var verdict = campaign.acceptMission(campaignId, opts);
     if (verdict.accepted) {
       campaign.finishMission(campaignId, true, 'accepted on evidence');
+      var cleared = campaign.loadCampaign(campaignId);
+      if (cleared.consecutive_blocked) {
+        cleared.consecutive_blocked = 0;
+        campaign.saveCampaign(cleared);
+      }
       var after = campaign.loadCampaign(campaignId);
       campaign.transition(campaignId, 'READY', {});
       return { state: 'READY', action: 'mission_accepted',
@@ -165,13 +310,12 @@ function settleMission(campaignId, mission, opts) {
       // Never repair a governance breach automatically — stop and escalate.
       var gKey = cm.capability_key, gObjective = cm.objective, gMission = cm.mission_id;
       campaign.finishMission(campaignId, false, verdict.problems.join('; '));
-      campaign.parkForApproval(campaignId, {
+      var parked2 = campaign.parkForApproval(campaignId, {
         mission_id: gMission, capability_key: gKey, objective: gObjective,
         reason: 'governance violation detected in the real diff: ' + verdict.problems.join('; '),
         action_class: 'GOVERNANCE'
       });
-      return { state: 'WAITING_FOR_APPROVAL', action: 'governance_violation',
-        detail: verdict.problems.join('; ') };
+      return parkOutcome(parked2, 'governance_violation', verdict.problems.join('; '));
     }
     // Classify against the REAL task errors when we have them: the
     // acceptance summary says "tasks not completed", which would mask an
@@ -213,12 +357,48 @@ function repairOrEscalate(campaignId, problems, opts, detailOverride) {
   }
   if (behaviour === 'WAITING_FOR_APPROVAL') {
     campaign.finishMission(campaignId, false, kind + ': ' + problems);
+    if (unattended.enabled()) {
+      // Route through the same park path so the denial gets a real approval
+      // record, rather than silently transitioning the campaign onward.
+      var parked4 = campaign.parkForApproval(campaignId, {
+        mission_id: cm && cm.mission_id, capability_key: cm && cm.capability_key,
+        objective: cm && cm.objective, reason: kind + ': ' + problems,
+        action_class: 'POLICY'
+      });
+      var out4 = parkOutcome(parked4, 'approval_required', problems);
+      out4.failure_kind = kind;
+      return out4;
+    }
     campaign.transition(campaignId, 'WAITING_FOR_APPROVAL', {});
     return { state: 'WAITING_FOR_APPROVAL', action: 'approval_required',
       detail: problems, failure_kind: kind };
   }
   if (behaviour === 'BLOCKED') {
     campaign.finishMission(campaignId, false, kind + ': ' + problems);
+    // UNATTENDED: one blocked capability must not block the campaign. The
+    // capability is NOT recorded as denied — an infrastructure fault says
+    // nothing about whether the work is safe or possible — so it stays
+    // selectable once the cause clears.
+    if (unattended.enabled()) {
+      var cb = campaign.loadCampaign(campaignId);
+      var streak = (cb.consecutive_blocked || 0) + 1;
+      cb.consecutive_blocked = streak;
+      cb.current_mission = null;
+      campaign.saveCampaign(cb);
+      campaign.note(campaign.loadCampaign(campaignId), {
+        event: 'blocked_continue', failure_kind: kind, streak: streak,
+        detail: String(problems).slice(0, 300)
+      });
+      if (campaign.loadCampaign(campaignId).state !== 'READY') {
+        campaign.transition(campaignId, 'READY', {});
+      }
+      if (streak >= UNATTENDED_BLOCKED_STREAK_LIMIT) {
+        return { state: 'READY', action: 'idle', detail: problems,
+          failure_kind: kind, blocked_streak: streak, re_evaluates: true };
+      }
+      return { state: 'READY', action: 'blocked_continue', detail: problems,
+        failure_kind: kind, blocked_streak: streak };
+    }
     campaign.transition(campaignId, 'BLOCKED', {});
     return { state: 'BLOCKED', action: 'blocked', detail: problems, failure_kind: kind };
   }
@@ -227,13 +407,15 @@ function repairOrEscalate(campaignId, problems, opts, detailOverride) {
     var rKey = cm.capability_key, rObjective = cm.objective, rMission = cm.mission_id;
     campaign.finishMission(campaignId, false,
       'repair budget exhausted after ' + (cycles - 1) + ' cycles: ' + problems);
-    campaign.parkForApproval(campaignId, {
+    var parked3 = campaign.parkForApproval(campaignId, {
       mission_id: rMission, capability_key: rKey, objective: rObjective,
       reason: 'repair budget exhausted after ' + (cycles - 1) + ' cycles: ' + problems,
       action_class: 'POLICY'
     });
-    return { state: 'WAITING_FOR_APPROVAL', action: 'repair_exhausted',
-      detail: problems, repair_cycles: cycles - 1, failure_kind: kind };
+    var out3 = parkOutcome(parked3, 'repair_exhausted', problems);
+    out3.repair_cycles = cycles - 1;
+    out3.failure_kind = kind;
+    return out3;
   }
 
   cm.repair_cycles = cycles;
@@ -288,7 +470,7 @@ function runCampaign(campaignId, opts) {
     return advanceCampaign(campaignId, opts).then(function (out) {
       steps.push(out);
       var halt = ['COMPLETED', 'WAITING_FOR_QUOTA', 'WAITING_FOR_APPROVAL', 'BLOCKED', 'PAUSED'];
-      if (halt.indexOf(out.state) !== -1 || out.action === 'noop') {
+      if (halt.indexOf(out.state) !== -1 || out.action === 'noop' || out.action === 'idle') {
         return { steps: steps, stopped: out.action, state: out.state };
       }
       return step(n + 1);
@@ -312,7 +494,13 @@ function resumeCampaign(campaignId, opts) {
   } else if (c.state === 'PAUSED') {
     campaign.transition(campaignId, 'READY', {});
   }
-  return advanceCampaign(campaignId, Object.assign({}, opts, { approval_granted: true }));
+  // Propagate ONLY what the caller actually supplied. This used to force
+  // approval_granted:true unconditionally, which meant resumeCampaign() on a
+  // still-parked campaign sailed past the approval halt in advanceCampaign()
+  // even though no approval had been granted and the transition above had
+  // (correctly) not fired. The flag is the caller's assertion that a human
+  // decided; the runner must never manufacture it.
+  return advanceCampaign(campaignId, opts);
 }
 
 // Read model for CLI/API.
@@ -345,6 +533,8 @@ function campaignStatus(campaignId) {
 
 module.exports = {
   advanceCampaign: advanceCampaign,
+  recoverOrphanedTasks: recoverOrphanedTasks,
+  ORPHAN_GRACE_MS: ORPHAN_GRACE_MS,
   runCampaign: runCampaign,
   resumeCampaign: resumeCampaign,
   campaignStatus: campaignStatus,
