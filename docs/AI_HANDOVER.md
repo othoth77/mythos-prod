@@ -1,7 +1,135 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **IDA-DECOUPLE-2 — THE TWO GENERIC OPS MODULES ARE NOW MYTHOS-OWNED. ZERO MYTHOS RUNTIME FILES RESOLVE ANY PATH INSIDE `projects/idauto/`. ONE TEST DEPENDENCY STILL BLOCKS DELETION.**
+**From:** MYTHOS **IDA-DECOUPLE-3 — BLOCKED ON AN ARCHITECTURAL DECISION, REPORTED NOT IMPLEMENTED. THE BOUNDARY NEEDS AN IDauto-SIDE PUBLICATION. ONE REAL DEFECT IN THE CONTRACT TEST WAS FOUND AND FIXED.**
+
+**Stage:** `IDA-DECOUPLE-3` · **Status:** **BLOCKED — owner decision required** · **Commit:** `62b134a`
+**Branch:** `claude/idauto-source-cleanup-post-publication` · **Baseline:** `d268525`
+**Type:** analysis + one defect fix. **No production change. `othoth77/idauto` untouched; its schema, protocol, identity and roadmap unchanged.**
+
+### Why it is blocked — checked, not assumed
+
+The goal was to stop `tests/mythos-identity-core-0-contract-test.js` reading
+`projects/idauto/database/schema.sql` and `reference/identity.js` **without losing the
+contract**. Both halves of any correct solution require changing `othoth77/idauto`, which the
+instruction for this stage says to stop on rather than do:
+
+- **IDauto's published protocol does not carry either vocabulary.** `protocol/schemas/`
+  publishes `source_type`, verification status, trust levels `T0–T3` and access scope — and
+  **no `actor_type`, no org-role enum**. The vocabulary exists only in `database/schema.sql`,
+  the very internal file this stage is meant to stop reading. Publishing it **adds a new
+  artefact to the IDauto public protocol surface.**
+- **IDauto's own suite does not cover the internal invariants.** Nothing in
+  `othoth77/idauto/tests/` asserts that `identity.js` lacks `jwt.sign`/`bcrypt`/`passport`,
+  that `idauto_organizations.id` is still `SERIAL`, or that `mythos_org_ref` was never added.
+  Moving those assertions means **writing new tests in the IDauto repository**, not relocating
+  existing ones.
+
+**A Mythos-only pinned artefact was considered and rejected.** It would satisfy *"no
+`projects/idauto` read"* and would catch Mythos-side drift — but IDauto-side drift would become
+invisible until someone re-pinned by hand. Today the test reads the live file, so that drift
+**is** caught. A Mythos-only pin would **weaken** the contract while appearing to formalise it.
+
+### The decision the owner has to make
+
+Publish the two vocabularies as versioned artefacts in `othoth77/idauto/protocol/`, and add the
+IDauto-side conformance tests that assert `schema.sql` matches them. Then Mythos pins them by
+version and digest, and drift fails loudly from **either** direction. Full proposal, including
+the artefact shape and the failure matrix, in `docs/ID_AUTO_DEPENDENCY_BOUNDARY.md` **§10**.
+
+Once made, the Mythos side is small and mechanical — and `projects/idauto/` becomes deletable.
+
+### Two corrections to the classification this stage started from
+
+Both measured (both reads stubbed: 124 → **115 passed / 9 failed**), and both material:
+
+- **The split among the 9 failures is 6 cross-product / 3 IDauto-internal — not 2 / 7.**
+  `mythos_user_id` and `actor_ref` are **Mythos's** identifiers living in IDauto's schema;
+  `MYTHOS_IDENTITY_ARCHITECTURE.md` §2 argues the entire `VARCHAR(64)` decision *from* those
+  live columns. Deleting them as "IDauto internals" would discard the federation contract.
+- **There are two shared vocabularies, not one.** Besides `actor_type`,
+  `idauto_user_roles.role` (`owner · admin · member · readonly`) is pinned against
+  `EXPECTED_ORG_ROLES` and recorded as copied verbatim. A boundary covering only `actor_type`
+  leaves half the contract unowned.
+
+**Vacuity is 7, not 6:** the six `identity.js contains no …` plus `deferred mythos_org_ref was
+NOT added`, which is trivially true of an empty string. Sixteen assertions depend on IDauto in
+total.
+
+### The defect that was found and fixed
+
+The `actor_type` CHECK is declared **twice** in IDauto's `schema.sql` — on `idauto_submissions`
+(line 383) and on `idauto_audit_log` (line 910). **The contract test's search was unscoped, so
+it matched `idauto_submissions` first** — not the table its own assertion label names, and not
+the table `MYTHOS_IDENTITY_ARCHITECTURE.md` §12 names as the source. They agree today, so it
+passed; it simply was not verifying what it claimed.
+
+Fixed by scoping to the `idauto_audit_log` body (via a `tableBody()` helper factored out of the
+existing `columnType()`), plus one new assertion that **every** `actor_type` CHECK in the schema
+declares the same vocabulary — so the "platform-wide verbatim" claim is proven, not assumed.
+
+Proven by mutation, with `schema.sql` restored byte-identical afterwards:
+
+| Mutation | Before | After |
+|---|---|---|
+| `'root'` added to `idauto_audit_log`'s CHECK only | **silently passed** | **2 failures** |
+| `'root'` added to `idauto_submissions`' CHECK only | passed | **1 failure** — divergence guard |
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `mythos-identity-core-0-contract` | **125 / 0** (124 before; +1 is the new divergence assertion) |
+| `mythos-governance-invariant` · `devx-1-idauto-test-impact` | 89 / 0 · 92 / 0 |
+| `mpi-0-finalization-governance` · `inf-backup-auto-0-backup` · `ida-3f-offhost-backup` | 36 / 0 · 245 / 0 · 35 / 0 |
+| `scripts/project-intelligence.js validate` | **0 errors, 0 warnings** |
+| **Full Mythos suite** | 110 suites, **4900 passed, 2 failed** |
+| Reconciliation vs the 4877 baseline | **+23 = +22** from main's MOS-1.8 additions to `mos-1-console` (322 → 344) **+1** my new assertion |
+| The 2 failures | `mythos-orchestration-core` 255/2 — **pre-existing** |
+| Non-zero exits | the **same 26** as the previous baseline, unchanged |
+
+### Verification checklist
+
+- ✅ zero Mythos source imports `projects/idauto`
+- ❌ **zero Mythos tests read `projects/idauto` internals** — `mythos-identity-core-0-contract-test.js` still does, deliberately; that is the blocker
+- ✅ ACTOR_TYPES drift remains detectable — **strengthened**, see above
+- ✅ no stale copied fixture — none created
+- ✅ IDauto internals remain owned by IDauto
+- ✅ no regression
+
+### Remaining IDauto dependencies
+
+**One, test-only:** `tests/mythos-identity-core-0-contract-test.js`. `projects/idauto/` still
+cannot be deleted. `tests/devx-1-idauto-test-impact-test.js` and `tests/ida-*.js` go with the
+source when it goes.
+
+### Next stage
+
+**Owner decision on §10, not a coding stage.** After it: publish the artefacts in IDauto, add
+the IDauto-side conformance tests, pin them in Mythos, repoint §8 and the org-role assertion,
+drop the IDauto-internal rows, then delete `projects/idauto/**`.
+
+**IDA-4 is NOT unblocked** and was not started. It never depended on this — it is gated on the
+IDauto roadmap (IDA-2E authentication BLOCKED, 15 LEGAL-REVIEW-REQUIRED items open), which this
+work does not touch.
+
+### Remote state at handover
+
+| | |
+|---|---|
+| Branch | `claude/idauto-source-cleanup-post-publication` |
+| Stage commit | `62b134a` |
+| Remote HEAD | `62b134a` plus this handover commit — pushed and verified equal to local |
+| PR | **#16, draft — NOT merged** |
+| `origin/main` | `ed376ea` |
+| `othoth77/idauto` `main` | `bdfec2c` — **untouched** |
+
+---
+
+## Previous entry
+
+
+**Previously:** MYTHOS **IDA-DECOUPLE-2 — THE TWO GENERIC OPS MODULES ARE NOW MYTHOS-OWNED. ZERO MYTHOS RUNTIME FILES RESOLVE ANY PATH INSIDE `projects/idauto/`. ONE TEST DEPENDENCY STILL BLOCKS DELETION.**
 
 **Stage:** `IDA-DECOUPLE-2` · **Status:** **COMPLETE** · **Commit:** `e053a56`
 **Branch:** `claude/idauto-source-cleanup-post-publication` · **Baseline:** `79c01d8`
