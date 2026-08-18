@@ -18,7 +18,7 @@ is what has to hold true across all of them.
 | Layer | Specified | Machine-readable | Implemented anywhere | Verified in a real browser |
 |---|---|---|---|---|
 | Colour | ✅ A-013/015/016 | ✅ `tokens.css` | ❌ | ❌ |
-| Typography | ✅ A-014 | ✅ `tokens.css` (partial — no font files) | ❌ | ❌ |
+| Typography | ✅ A-014 | ✅ `tokens.css` + `fonts.css`, real WOFF2 files (AUTO-4) | ❌ | ❌ |
 | Grid/spacing | ✅ A-009, AUTO-3 | ✅ `tokens.css` | ❌ | ❌ |
 | Radius/elevation | ✅ A-009, AUTO-3 (shadows) | ✅ `tokens.css` | ❌ | ❌ |
 | Components | ✅ 1F, partial for 13/21 | ❌ (no component code exists in any language) | ❌ | ❌ |
@@ -36,6 +36,11 @@ in isolation, not that it works inside any real codebase.
 
 ## 2. The five prerequisites, and where each stands
 
+**Updated 2026-08-18 (AUTO-4): one of five closed.** §2.2 (font files) is
+done. The other four are unchanged by this — §2.1's visual-regression gap,
+§2.3's missing component framework, §2.4's unauthorised migrations, and
+§2.5's missing live-verification loop are all independent of font-hosting.
+
 ### 2.1 A resolved token conflict (C-006)
 
 **Not ready.** Two systems both answer to `--mythos-*` with different values.
@@ -51,18 +56,28 @@ untested collision between two token systems answering to the same names.**
 screenshots at every breakpoint the responsive spec defines, for every page
 `css/main.css` currently styles.
 
-### 2.2 Real font files (TYPE-2, GRID-2)
+### 2.2 Real font files (TYPE-2, GRID-2) — **CLOSED 2026-08-18, AUTO-4**
 
-**Not ready.** No font file exists in this repository, self-hosted or
-otherwise. This blocks three things at once: **TYPE-2**'s numbers stay
-provisional, **GRID-2**'s two prose-measure units cannot be reconciled, and
-`text-wrap` / line-height fidelity in any component cannot be verified against
-the actual approved typefaces (Archivo Expanded, IBM Plex Sans / Sans Arabic /
-Mono) rather than the Google Fonts CDN stand-in the prototypes use.
+**Ready.** Eight self-hosted WOFF2 files now exist at `assets/brand/fonts/`
+(Archivo Expanded 600; IBM Plex Sans 400/500/600; IBM Plex Sans Arabic
+400/500/600; IBM Plex Mono 400 — exactly what the approved scale uses),
+declared in `assets/brand/fonts/fonts.css`, named in `tokens.css`'s new
+`--mythos-font-*`/`--mythos-weight-*` tokens. **TYPE-2 is closed** — real
+subset ranges, weight instances, and a real measured performance budget
+(Latin ≈99.5KB, Arabic ≈133.8KB/script) replace the provisional numbers.
 
-**What closes it:** sourcing and self-hosting the four approved OFL font
-families at the weight instances **TYPE-2** specifies, then re-measuring §4.3
-of `GRID_AND_SPACING.md` against their real character-advance metrics.
+**GRID-2 is narrowed but not closed** — real character-advance metrics were
+measured directly from the shipped font (`fontTools`), showing neither 65ch
+nor 68ch actually renders 65 real characters. What remains is not a missing
+font file any more; it is a real trade-off against an **owner-approved**
+grid value (A-009), which this audit's prerequisites do not authorise
+overriding. Full derivation: `assets/brand/fonts/README.md`;
+`docs/MYTHOS_DESIGN_DECISIONS.md` §0.5, AUTO-4.
+
+**Still open, unaffected by this closure:** `text-wrap`/line-height fidelity
+against the real files has not been verified in an actual browser — that
+still needs §2.5's live-verification loop, same as every other layer in
+§1's table.
 
 ### 2.3 A component library, in a real framework
 
@@ -148,8 +163,7 @@ distinguishes prototype 3 (Mythos OS, a new file) from a real migration of
 Not a schedule — an honest dependency order, since several of the "not ready"
 items above depend on each other:
 
-1. **Font files** (§2.2) — has no dependency on anything else, could start
-   immediately if authorised.
+1. ~~**Font files**~~ (§2.2) — **done, AUTO-4, 2026-08-18.**
 2. **C-006 execution** (§2.1) — needs the verification-loop question (§2.5)
    settled first, or it cannot be proven safe.
 3. **Component library, real framework** (§2.3) — most efficiently follows

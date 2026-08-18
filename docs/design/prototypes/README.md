@@ -7,12 +7,15 @@ five-item continuation ("Complete 1I Design Prototypes"), matching the seven
 areas the original programme brief named in its §23.
 
 Each file is a **self-contained static HTML page**. Open any of them directly
-in a browser — no build step, no server, no dependency beyond the two files
-below and a Google Fonts CDN load (a stand-in only; see the note in each file).
+in a browser — no build step, no server, no external network dependency for
+six of the seven (prototype 5 keeps one CDN load for the *fictional
+project's own* Playfair Display typeface, deliberately, since that face
+belongs to the demonstration, not to Mythos — see its own note below).
 
 ## Dependencies
 
 - `../../../assets/brand/tokens/tokens.css` — the canonical token system (AUTO-3)
+- `../../../assets/brand/fonts/fonts.css` — real self-hosted Mythos fonts (**TYPE-2**, AUTO-4). Replaces an earlier Google Fonts CDN stand-in that, for prototypes 1/2/4/6/7, was requesting an invalid family name ("Archivo Expanded" is not a real Google Fonts family) and silently failing — every display heading in those five prototypes was rendering in the fallback stack, not the approved typeface, until this fix
 - `../../../assets/brand/master/*.svg` — the adopted vector reconstruction (AUTO-1), inlined directly into each page rather than `<img>`-referenced, so `currentColor` correctly inherits the page's text colour
 
 ## The seven prototypes
@@ -32,8 +35,10 @@ below and a Google Fonts CDN load (a stand-in only; see the note in each file).
 - Not a claim that any of the seven areas is built, deployed, or ready to ship.
 - Not a redesign of any real project's live site — `5-public-project-example.html`
   is explicitly fictional.
-- Not a font decision — Google Fonts is loaded as a prototype convenience only;
-  `TYPOGRAPHY.md` requires self-hosting once real font files exist (**TYPE-2**).
+- Not a font decision beyond what **TYPE-2**/**AUTO-4** already closed —
+  prototypes 1–4, 6, 7 now load the real self-hosted Mythos fonts;
+  prototype 5's Playfair Display CDN load is the fictional project's own
+  typeface choice, not a Mythos stand-in, and is intentionally unchanged.
 - Not evidence that Mythos Digital, Services or Logistique exist as operating
   brands (**O-004**) — prototype 4 says so explicitly, in the page itself.
 

@@ -229,6 +229,17 @@ ok(!/ style="/.test(shellMarkup), 'the shell has no inline style attribute');
 ok(/hasOwnProperty\.call\(STATIC, pathname\)/.test(serverCode), 'static files come from an explicit whitelist');
 ok(!/path\.join\([^)]*pathname/.test(serverCode), 'no request path is ever joined onto a directory');
 
+// MOS-3C: Dispatcher API field allowlist
+var missionDispatchMatch = serverCode.match(/var MISSION_DISPATCH_FIELDS\s*=\s*\[([^\]]+)\]/);
+ok(missionDispatchMatch, 'server defines MISSION_DISPATCH_FIELDS');
+if (missionDispatchMatch) {
+  var fieldList = missionDispatchMatch[1];
+  ok(!/\bpid\b/.test(fieldList), 'MISSION_DISPATCH_FIELDS does not contain pid');
+  ok(!/\bclaude_session_id\b/.test(fieldList), 'MISSION_DISPATCH_FIELDS does not contain claude_session_id');
+  ok(!/\bworking_directory\b/.test(fieldList), 'MISSION_DISPATCH_FIELDS does not contain working_directory');
+  ok(!/\btoken\b/.test(fieldList), 'MISSION_DISPATCH_FIELDS does not contain token');
+}
+
 // The two new static entries follow the identical whitelist pattern —
 // no new route, no new mechanism, nothing to weaken.
 ok(/'\/login-gate\.css':\s*\{ file: path\.join\(WEB, 'login-gate\.css'\)/.test(serverCode),
@@ -381,6 +392,17 @@ function startStub() {
           res.end(JSON.stringify({ task_id: 'tk-stub-start-0001', dispatched: true, running: 1, max_parallel: 5 }));
           return;
         }
+        // MOS-3C: dispatcher status endpoint and queued task dispatch
+        if (req.method === 'GET' && u === '/dispatcher') {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ running: 2, max_parallel: 5, queued: 1 }));
+          return;
+        }
+        if (req.method === 'POST' && u === '/tasks/tk-stub-q-0001/dispatch') {
+          res.writeHead(202, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ task_id: 'tk-stub-q-0001', dispatched: false, queued: true, running: 5, max_parallel: 5 }));
+          return;
+        }
 
         // MOS-2.1: detail, report, cancel -- standing in for the real
         // executor's own GET /tasks/<id>, GET /tasks/<id>/report and
@@ -486,7 +508,10 @@ startStub().then(function (stub) {
       req(port, '/api/roadmap'), req(port, '/api/modules'),
       req(port, '/', 'POST'), req(port, '/api/missions', 'DELETE'),
       req(port, '/etc/passwd'), req(port, '/../../css/main.css'), req(port, '/missions'),
-      req(port, '/login-gate.css'), req(port, '/login-gate.js')
+      req(port, '/login-gate.css'), req(port, '/login-gate.js'),
+      req(port, '/api/dispatcher', 'GET'),
+      req(port, '/api/missions/tk-stub-q-0001/dispatch', 'POST', {}),
+      req(port, '/api/missions/tk-stub-q-0001/dispatch', 'GET')
     ]).then(function (r) {
       var shell = r[0], css = r[1], ccss = r[2], ajs = r[3], mjs = r[4];
       var health = r[5], missions = r[6], campaigns = r[7];
@@ -494,6 +519,7 @@ startStub().then(function (stub) {
       var roadmap = r[13], mods = r[14], post = r[15], del = r[16];
       var passwd = r[17], traverse = r[18], deep = r[19];
       var gateCss = r[20], gateJs = r[21];
+      var dispatcherStatus = r[22], dispatchQueued = r[23], dispatchGet = r[24];
 
       eq(shell.status, 200, 'shell is served');
       ok(/MYTHOS OS/.test(shell.text), 'shell carries the Mythos OS title');
@@ -575,6 +601,32 @@ startStub().then(function (stub) {
       eq(post.status, 405, 'POST is refused');
       eq(post.json.error, 'read_only', 'the refusal names the read-only property');
       eq(del.status, 405, 'DELETE is refused');
+
+      // -----------------------------------------------------------------
+      // MOS-3C: Dispatcher API coverage
+      // -----------------------------------------------------------------
+      eq(dispatcherStatus.status, 200, 'MOS-3C C1: GET /api/dispatcher returns 200');
+      var dsKeys = Object.keys(dispatcherStatus.json.data || {}).sort();
+      var expectedKeys = ['max_parallel', 'queued', 'running', 'providers'].sort();
+      ok(dsKeys.join(',') === expectedKeys.join(','),
+         'MOS-3C C1: /api/dispatcher has exactly the keys running/max_parallel/queued/providers (got ' + dsKeys.join(',') + ')');
+      ok(Array.isArray(dispatcherStatus.json.data.providers), 'MOS-3C C1: providers is an array');
+      eq(dispatcherStatus.json.data.providers.length, 2, 'MOS-3C C1: providers array has 2 entries');
+      var providerNames = dispatcherStatus.json.data.providers.slice().sort();
+      eq(providerNames[0], 'claude-code', 'MOS-3C C1: first provider is claude-code');
+      eq(providerNames[1], 'openai-compat', 'MOS-3C C1: second provider is openai-compat');
+      ok(dispatcherStatus.text.indexOf(SECRET_TOKEN) === -1, 'MOS-3C C1: /api/dispatcher does not leak SECRET_TOKEN');
+
+      eq(dispatchQueued.status, 200, 'MOS-3C C2: POST /api/missions/.../dispatch returns 200');
+      var dqKeys = Object.keys(dispatchQueued.json.data || {}).sort();
+      var dqExpected = ['dispatched', 'max_parallel', 'queued', 'running', 'task_id'].sort();
+      ok(dqKeys.join(',') === dqExpected.join(','),
+         'MOS-3C C2: dispatch response has exactly task_id/dispatched/queued/running/max_parallel (got ' + dqKeys.join(',') + ')');
+      ok(dispatchQueued.json.data.queued === true, 'MOS-3C C2: queued field is true');
+      ok(dispatchQueued.text.indexOf(SECRET_TOKEN) === -1, 'MOS-3C C2: dispatch response does not leak SECRET_TOKEN');
+      ok(stubHits.some(function (h) { return h.indexOf('/tasks/tk-stub-q-0001/dispatch') !== -1; }), 'MOS-3C C2: dispatch call reached the stub');
+
+      eq(dispatchGet.status, 404, 'MOS-3C C3: GET on /api/missions/.../dispatch returns 404 (no read route exists)');
 
       eq(passwd.status, 404, 'an arbitrary path is 404, not a file');
       eq(traverse.status, 404, 'a traversal attempt is 404');

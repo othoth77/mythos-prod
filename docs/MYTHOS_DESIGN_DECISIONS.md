@@ -399,13 +399,85 @@ a different thing, and the distinction is preserved throughout.
 
 | Ref | Why it stays open |
 |---|---|
-| **GRID-2** | Partially narrowed, not closed: **65 characters** is adopted as the design *intent*, **68ch** as an implementation approximation to validate once fonts are self-hosted (**TYPE-2**). The two cannot be fully reconciled without a real font's actual character-advance metrics, which do not exist in this repository |
+| **GRID-2** | Further narrowed by **AUTO-4**, real metrics measured from the now-self-hosted IBM Plex Sans: neither 65ch nor 68ch actually renders 65 real characters (≈87 and ≈91 respectively); ≈48ch would be literal. Still not closed — the final number trades off against an **owner-approved** grid value (A-009), which AUTO-4 does not override |
 | **A11Y-1**'s exact visual weight of the dashed border, **GOLD-2**'s underlying hue choice for future extension, and any item marked "genuine judgement call, not derivable" above | Recorded as decisions made under delegated authority precisely because they could not be computed — flagged rather than disguised as derivations |
 | **LOGO-1** | Unchanged by this sweep — still narrowed, not closed (see AUTO-1) |
 | **C-001 / O-002** | Dar Hijama charter-versus-live-site — a real-world conflict this sweep does not touch, since resolving it means adjudicating a specific project's brand, not deriving a system rule |
 | **O-003 / O-004 / O-006 / O-007 / C-004 / U-001** | Carried from the recovery era, all evidence questions (does a vhost exist, was a decision ever made) rather than design questions a sweep like this can answer |
 
 **Authority, reversibility and scope — identical to AUTO-1/AUTO-2.** **AUTO-3, NOT owner-approved.** Every value above is a specification change only — no CSS, token artifact wiring, or application file is affected by the *decisions themselves* (the one generated artifact, `tokens.css`, is new, standalone, and unwired — see the entry above). Everything here is reversible at zero cost: a later owner review can accept, reject or amend any single row without touching any other.
+
+### AUTO-4 — real fonts self-hosted, TYPE-2 closed, GRID-2 narrowed further with real metrics
+
+**Trigger.** `IMPLEMENTATION_READINESS_AUDIT.md` §2.2 named font-hosting as
+the one prerequisite with **zero dependency on anything else** — it did not
+need the visual-regression capability that blocks C-006/MIG-1–3, and it
+closes a real gap (**TYPE-2**'s numbers, left provisional by **AUTO-3**, and
+**GRID-2**'s reconciliation, explicitly deferred "once fonts are
+self-hosted"). Purely additive: eight new binary files plus one new CSS
+file, neither referenced by any existing application or build.
+
+**What was done.** All four owner-approved OFL families
+(`TYPOGRAPHY.md` §1) downloaded from Google Fonts' own hosting — the
+standard, licence-compliant way to self-host a Google Fonts family, source
+unmodified — at exactly the weight instances the approved type scale
+(`TYPOGRAPHY.md` §2) actually uses: Archivo Expanded 600 only; IBM Plex
+Sans 400/500/600; IBM Plex Sans Arabic 400/500/600 (mirroring the Latin
+roles per **A-014**); IBM Plex Mono 400. Each subset to the single script it
+serves (`latin` or `arabic`), per `TYPOGRAPHY.md` §5. Files at
+`assets/brand/fonts/`, declared in `assets/brand/fonts/fonts.css`, named in
+new `--mythos-font-*`/`--mythos-weight-*` tokens in `tokens.css`. Full
+source URLs and the exact reproduction command are in
+`assets/brand/fonts/README.md`.
+
+**Correction to AUTO-3's own TYPE-2 policy row.** AUTO-3 (line "TYPE-2"
+above) stated the weight set as "Plex Sans 400/600" — **this missed the
+Label style, which the approved scale (`TYPOGRAPHY.md` §2) sets in Plex
+Sans **500**, not 400 or 600.** Caught while sourcing the real files against
+the scale table directly. Corrected here rather than silently reshipped:
+three Plex Sans weights are self-hosted (400/500/600), matching what the
+scale actually specifies, and the same three for the Arabic companion.
+
+**Budget revised on real evidence.** AUTO-3 set a provisional
+"≤120 KB per script" target. Measured against the real files: the Latin set
+across all three Latin-set roles (display + text + mono) is **~99.5 KB**,
+inside budget. The Arabic set at full three-weight fidelity is **~133.8 KB**
+— about 11% over. The alternative (drop the Arabic 500 instance) would make
+Arabic Label fall back to a weight Latin Label never uses, a real fidelity
+gap the same body of decisions (**A-014**) exists to prevent. **AUTO-4
+revises the budget to a real, measured number — ≤140 KB per script — rather
+than dropping fidelity to fit an arbitrary provisional figure.** This is the
+kind of number a specification is allowed to firm up once real data exists;
+it changes no owner-approved value.
+
+**TYPE-2 — closed.** Subset ranges, weight instances and the performance
+budget are now real, measured values, not provisional ones. See
+`assets/brand/fonts/README.md` for the full table.
+
+**GRID-2 — narrowed further with real metrics, still not closed.** Measured
+directly from `ibm-plex-sans-400-latin.woff2` with `fontTools`: the `ch`
+CSS unit (the advance width of the digit `0`) is **0.600 em** in this
+typeface; the frequency-weighted average character width of real English
+prose is **0.447 em** — 25% narrower. Consequence: a `68ch` box (the literal
+CSS value in `GRID_AND_SPACING.md`) is 652.8 px at 16 px body size and fits
+**≈91** real average characters, not 68. Even the already-narrowed
+`--mythos-container-prose: 65ch` token (**AUTO-3**) is 624 px and fits
+**≈87** real characters — still well past the **65** `TYPOGRAPHY.md` §2
+actually asks for. Hitting 65 real characters literally would take
+**≈48ch**, a materially narrower measure than either number currently in
+the system. **AUTO-4 records this evidence and does not act on it**: unlike
+TYPE-2, `--mythos-container-prose` traces to an **owner-approved** grid
+figure (**A-009**), and choosing between "keep the existing measure, which
+is defensible as within commonly-cited 45–95-character comfortable ranges"
+and "narrow it to the literally-stated 65" is a real trade-off against an
+owner-approved value, not a specification gap-fill. Full derivation:
+`assets/brand/fonts/README.md`.
+
+**Authority, reversibility and scope — identical to AUTO-1/AUTO-2/AUTO-3.**
+**AUTO-4, NOT owner-approved.** Every file added is new, additive, and
+referenced by no existing application, project, or build. Reversible at
+zero cost — deleting `assets/brand/fonts/` and the token additions returns
+the repository to its pre-AUTO-4 state exactly.
 
 ### Stage 1I — design prototypes delivered
 
@@ -741,7 +813,7 @@ by inference.**
 | **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Not yet | **NEW, from A-015 / A-016.** **Not actioned** — specification only. Closes three measured contrast failures and the missing 3 : 1 control boundary |
 | **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** As a Mythos OS product it should carry the Mythos OS visual language, not a third divergent one. **Not actioned** — the O-A1 approval is classification only and explicitly forbids touching Command Center code, CSS, assets, deployment or branding |
 | **SEQ-1** | Sequential and diverging data scales for continuous data | No | **NEW, raised by 1D.** The eight-series categorical palette is approved; continuous scales were outside the 1C scope and must not be improvised (`docs/design/COLOR_SYSTEM.md` §5) |
-| **TYPE-2** | Font subsets, shipped weight instances, and the font performance budget | No | **NEW, raised by 1D.** Outside the approved 1C scope (`docs/design/TYPOGRAPHY.md` §5) |
+| ~~**TYPE-2**~~ | Font subsets, shipped weight instances, and the font performance budget | — | **RESOLVED 2026-08-18 by AUTO-4** — real files self-hosted, real numbers measured; not owner-approved, see §0.5 |
 
 **Standing finding recorded 2026-08-18 (measurement, not a decision):** the
 recovered historical logo **cannot serve as a production master**. Measured:
@@ -814,7 +886,7 @@ rather than filled in.
 | Ref | Question | Blocking? | Where it came from |
 |---|---|---|---|
 | **GRID-1** | Two container questions: `2xl` (≥ 1920) has no behaviour the approved text names that is not already true from a **1440** viewport, because the 1280 content cap binds 480 px earlier; and the 1440 "wide" container is ambiguous between a second content width and the outer frame of the 1280 container, since `1280 + 80 + 80 = 1440` exactly | No | `GRID_AND_SPACING.md` §4 |
-| **GRID-2** | Prose measure is approved as **68ch** in 1C §5 and as **65 characters** in `TYPOGRAPHY.md` §2. Different units. `ch` is the advance of the digit *0*, so the two reconcile only against real font metrics — and **no font file exists in this repository** | No | `GRID_AND_SPACING.md` §4.3 |
+| **GRID-2** | Prose measure is approved as **68ch** in 1C §5 and as **65 characters** in `TYPOGRAPHY.md` §2. Different units. **Narrowed 2026-08-18 by AUTO-4** with real font metrics — neither number renders 65 real characters; not closed, see §0.5 AUTO-4 | No | `GRID_AND_SPACING.md` §4.3 |
 | **GRID-3** | Four of the twelve spacing steps (**2, 4, 32, 160**) fall outside both legal bands; and the approved button padding **9 / 15** is off the spacing scale entirely | No | `GRID_AND_SPACING.md` §2, §3 |
 | **SURF-1** | The light elevation ramp has **two** steps (`paper-100`, `paper-200`) to the dark ramp's **four** (`ink-900/850/800/750`), so a card on a raised surface has no light-theme equivalent; and **no shadow values are specified** anywhere — only the rule for when a shadow is permitted | No | `GRID_AND_SPACING.md` §7 |
 | **GOLD-2** | Light-theme **hover** and **active** gold states are unspecified. The approved palette designates `gold-700` for borders and large graphics and `gold-800` for text; `gold-700` measures **3.94** on paper, below AA for text | No | `DESIGN_TOKENS.md` §4.4 |
