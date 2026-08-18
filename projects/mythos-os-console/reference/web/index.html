@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<!--
+  MYTHOS OS COMMAND CENTER
+  projects/mythos-os-console/reference/web/index.html
+
+  The shell, and only the shell. Every module surface is rendered by
+  app.js into #view from the registry in modules.js — this file contains
+  nothing module-specific and must not grow any.
+
+  No inline <script> and no inline style: the Content-Security-Policy
+  served by server.js is script-src 'self'.
+-->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex, nofollow">
+  <title>MYTHOS OS — Command Center</title>
+
+  <!-- Playfair Display + Inter, exactly as index.html:17-19 of the
+       Mythos OS application loads them. Both have full local fallback
+       stacks in mythos.css, so a blocked font request degrades the
+       typeface and nothing else. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/mythos.css">
+  <link rel="stylesheet" href="/console.css">
+  <link rel="icon" type="image/png" href="/assets/logomythos.png">
+</head>
+<body>
+
+  <div class="mythos-app" id="app">
+
+    <div class="mythos-scrim" id="scrim"></div>
+
+    <aside class="mythos-sidebar" id="sidebar">
+      <div class="mythos-logo">
+        <div class="mythos-logo-img">
+          <img src="/assets/logomythos.png" alt="Mythos">
+        </div>
+        <span class="mythos-logo-caption">COMMAND CENTER</span>
+      </div>
+
+      <nav class="mythos-nav" id="nav" aria-label="MYTHOS OS modules"></nav>
+
+      <div class="mythos-sidebar-foot">
+        <div class="console-identity" id="identity"></div>
+      </div>
+    </aside>
+
+    <main class="mythos-main" id="main">
+      <div class="console-topbar">
+        <button type="button"
+                class="mythos-btn mythos-btn-outline mythos-nav-toggle"
+                id="nav-toggle"
+                aria-controls="sidebar"
+                aria-expanded="false">
+          <span aria-hidden="true">☰</span>
+          <span class="mythos-visually-hidden">Modules</span>
+        </button>
+        <div class="console-link" id="link-state" aria-live="polite"></div>
+      </div>
+
+      <div id="view" tabindex="-1">
+        <div class="mythos-state">
+          <span class="mythos-state-icon" aria-hidden="true">◈</span>
+          <div class="mythos-state-title">Loading</div>
+          <p class="mythos-state-body">Reading the Mythos control plane.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/modules.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

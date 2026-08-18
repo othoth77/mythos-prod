@@ -1,0 +1,694 @@
+/* =====================================================
+   MYTHOS DESIGN SYSTEM — shell layer
+   projects/mythos-os-console/reference/web/mythos.css
+
+   This file is NOT a new visual identity. Every value below is either
+   RECOVERED verbatim from the existing Mythos OS brand system, DERIVED
+   from values observed there, or EXTENDED to fill a documented gap. Each
+   block says which, so a later reader can tell invention from evidence.
+
+   Authority, in order:
+     D-001  css/main.css :root          — colour, the whole of it
+     index.html:19                      — Playfair Display + Inter
+     css/main.css .nav-* .btn-* .page-* — component form
+     css/dashboard.css .db-kpi-*        — KPI surface
+     docs/MYTHOS_DESIGN_DECISIONS.md    — the decision register
+
+   Nothing here overrides css/main.css. The production Mythos OS app is not
+   touched by this file; the tokens are re-declared under a --mythos-*
+   namespace so both can coexist on one page if they ever meet.
+
+   Anything a future MYTHOS OS module needs from the shell lives here.
+   console.css holds only what is specific to the Command Center.
+   ===================================================== */
+
+/* ---------------------------------------------------------------
+   1. TOKENS
+   --------------------------------------------------------------- */
+
+:root {
+  color-scheme: dark;
+
+  /* --- Colour · RECOVERED verbatim from css/main.css :root (D-001) --- */
+  --mythos-bg:          #0e0e0e;
+  --mythos-surface:     #161616;
+  --mythos-card:        #1d1d1d;
+  --mythos-border:      #2a2a2a;
+
+  --mythos-gold:        #c9a84c;
+  --mythos-gold-light:  #e4c472;
+  --mythos-gold-dim:    rgba(201,168,76,0.12);
+
+  /* Gold hairlines · RECOVERED — the two alphas main.css uses for a
+     gold-tinted border (.entity-card 0.15, .entity-badge 0.22). Named
+     so that a composition layer never needs a raw colour literal. */
+  --mythos-gold-line:   rgba(201,168,76,0.15);
+  --mythos-gold-line-2: rgba(201,168,76,0.22);
+
+  --mythos-text:        #e8e4dc;
+  --mythos-muted:       #6b6860;
+
+  --mythos-danger:      #c0392b;
+  --mythos-green:       #2ecc71;
+  --mythos-green-dim:   rgba(46,204,113,0.12);
+  --mythos-blue:        #5dade2;
+  --mythos-blue-dim:    rgba(93,173,226,0.12);
+  --mythos-today:       #e67e22;
+  --mythos-today-dim:   rgba(230,126,34,0.12);
+  --mythos-past:        #555;
+  --mythos-past-dim:    rgba(85,85,85,0.12);
+  --mythos-purple:      #9b59b6;
+  --mythos-purple-dim:  rgba(155,89,182,0.12);
+
+  /* --- Colour · EXTENDED ------------------------------------------
+     css/main.css declares --danger with NO --danger-dim, while every
+     other semantic colour has one. The register (D-001) describes the
+     pairing as universal; the stylesheet is one short of it. This
+     completes the convention at the same 12% alpha rather than
+     inventing a different treatment for danger alone. The omission in
+     main.css is recorded as an inconsistency, not corrected there —
+     retrofitting the live app is out of this stage's scope. */
+  --mythos-danger-dim:  rgba(192,57,43,0.12);
+
+  /* Readable danger text on a dark ground. #c0392b at 4.5:1 against
+     #0e0e0e fails; main.css already reaches for #ff8c82 / #e74c3c in
+     .btn-danger and .stat-chip .val.red for exactly this reason, so
+     this is RECOVERED practice given a name. */
+  --mythos-danger-text: #ff8c82;
+
+  /* --- Typography · RECOVERED from index.html:19 + main.css --------
+     Playfair Display for display/numeric emphasis, Inter for UI text.
+     U-003 records that Mythos has no *written* typography decision;
+     these two faces are nonetheless what the product has shipped since
+     d1a9d19, so the implementation is the evidence. Full fallback
+     stacks: the Uthina charter (D-002) establishes the precedent that
+     a font pack may not ship, so no layout may depend on the webfont
+     arriving. --mythos-font-mono has no precedent and is EXTENDED —
+     an ops console displays task ids, hashes and log lines, and
+     Inter's digits are proportional. */
+  --mythos-font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --mythos-font-ui:      'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --mythos-font-mono:    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* --- Type scale · DERIVED from sizes observed across css/ -------- */
+  --mythos-fs-micro: 9px;
+  --mythos-fs-tiny:  10px;
+  --mythos-fs-xs:    11px;
+  --mythos-fs-sm:    12px;
+  --mythos-fs-md:    13px;
+  --mythos-fs-base:  14px;   /* body, set on <body> in main.css */
+  --mythos-fs-lg:    16px;
+  --mythos-fs-xl:    18px;
+  --mythos-fs-2xl:   20px;
+  --mythos-fs-3xl:   24px;
+  --mythos-fs-4xl:   26px;
+  --mythos-fs-5xl:   32px;   /* .page-title */
+
+  --mythos-tracking-caps: 0.12em;  /* .nav-section 0.14em · .ss-header 0.12em · labels 0.08-0.1em */
+
+  /* --- Spacing · DERIVED -------------------------------------------
+     U-004 records that no spacing scale exists anywhere in the
+     portfolio. This is the first one. It is a 4px base fitted to the
+     values css/main.css already uses (6/7/8/10/12/14/16/18/20/22/24/40)
+     rather than a scale imposed over them. NEW, not recovered. */
+  --mythos-sp-1: 4px;
+  --mythos-sp-2: 6px;
+  --mythos-sp-3: 8px;
+  --mythos-sp-4: 12px;
+  --mythos-sp-5: 16px;
+  --mythos-sp-6: 20px;
+  --mythos-sp-7: 24px;
+  --mythos-sp-8: 32px;
+  --mythos-sp-9: 40px;
+
+  /* --- Radius · RECOVERED (the set main.css actually uses) --------- */
+  --mythos-radius-xs:   5px;
+  --mythos-radius-sm:   6px;
+  --mythos-radius-md:   8px;
+  --mythos-radius-lg:   12px;
+  --mythos-radius-xl:   16px;
+  --mythos-radius-pill: 999px;
+
+  /* --- Elevation · RECOVERED verbatim ------------------------------ */
+  --mythos-shadow-sm:   0 2px 8px rgba(0,0,0,0.3);
+  --mythos-shadow-md:   0 4px 16px rgba(0,0,0,0.3);
+  --mythos-shadow-lg:   0 8px 32px rgba(0,0,0,0.4);
+  --mythos-shadow-gold: 0 8px 28px rgba(201,168,76,0.20);
+
+  /* --- Motion · RECOVERED ------------------------------------------
+     The design roadmap's Stage 9 records "no motion system exists".
+     That is true of the *documentation*; the implementation has been
+     consistent since d1a9d19 — two durations and one overshoot easing,
+     used everywhere. Named here so the practice stops being invisible.
+     It is a recovered idiom, NOT an authored motion system. */
+  --mythos-ease-overshoot: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --mythos-dur-fast: 0.15s;
+  --mythos-dur-base: 0.3s;
+
+  /* --- Layout · RECOVERED from .sidebar / .main -------------------- */
+  --mythos-sidebar-w: 310px;
+  --mythos-main-pad:  var(--mythos-sp-9);
+
+  /* --- Focus · EXTENDED --------------------------------------------
+     The strategy document records accessibility as VERIFIED ABSENT
+     across the whole portfolio, with ID Auto's focus ring the only
+     positive. This applies that precedent in the Mythos palette. A
+     keyboard-only console with no focus ring is not shippable. */
+  --mythos-focus-ring: 0 0 0 2px var(--mythos-bg), 0 0 0 4px var(--mythos-gold);
+}
+
+/* Breakpoints, for reference — CSS custom properties cannot be used in
+   media queries, so these are written literally below. The ladder is
+   ADOPTED from css/main.css (1100 / 900 / 760), which is the D-001
+   source file. The other three stylesheets use four further widths;
+   that divergence is recorded in the audit and is not resolved here. */
+
+/* ---------------------------------------------------------------
+   2. BASE
+   --------------------------------------------------------------- */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+::selection { background: rgba(201,168,76,.28); color: var(--mythos-text); }
+
+body {
+  background: var(--mythos-bg);
+  color: var(--mythos-text);
+  font-family: var(--mythos-font-ui);
+  font-size: var(--mythos-fs-base);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--mythos-gold-light); }
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--mythos-focus-ring);
+  border-radius: var(--mythos-radius-sm);
+}
+
+.mythos-visually-hidden {
+  position: absolute; width: 1px; height: 1px;
+  margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
+}
+
+.mythos-mono { font-family: var(--mythos-font-mono); font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------
+   3. SHELL — sidebar + main, per css/main.css .app / .sidebar / .main
+   --------------------------------------------------------------- */
+
+.mythos-app { display: flex; min-height: 100vh; }
+
+.mythos-sidebar {
+  width: var(--mythos-sidebar-w);
+  flex-shrink: 0;
+  background: var(--mythos-surface);
+  border-right: 1px solid var(--mythos-border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  inset-inline-start: 0;
+  height: 100vh;
+  overflow: hidden;
+  z-index: 40;
+}
+
+.mythos-main {
+  margin-inline-start: var(--mythos-sidebar-w);
+  flex: 1;
+  min-width: 0;
+  padding: var(--mythos-sp-8) var(--mythos-main-pad) var(--mythos-main-pad);
+}
+
+/* Logo block — .logo / .logo-img / .logo-photo in main.css. Height is
+   reduced from 140px to 108px: main.css sizes that block around a
+   client photo, and the console shows a wordmark. The border, radius,
+   inner ground and gold ring are unchanged. */
+.mythos-logo {
+  padding: var(--mythos-sp-4) 14px var(--mythos-sp-3);
+  border-bottom: 1px solid var(--mythos-border);
+  user-select: none;
+}
+
+.mythos-logo-img {
+  height: 108px;
+  background: #050505;
+  border: 2px solid var(--mythos-gold);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px rgba(228,196,114,.20), 0 12px 34px rgba(201,168,76,.18);
+  padding: var(--mythos-sp-4);
+}
+
+.mythos-logo-img img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
+
+.mythos-logo-caption {
+  color: #e5e5e5;
+  font-family: var(--mythos-font-display);
+  font-size: var(--mythos-fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: center;
+  display: block;
+  margin-top: var(--mythos-sp-2);
+}
+
+/* ---------------------------------------------------------------
+   4. NAVIGATION — .nav / .nav-section / .nav-btn, verbatim behaviour
+   --------------------------------------------------------------- */
+
+.mythos-nav { padding: var(--mythos-sp-4) var(--mythos-sp-4) var(--mythos-sp-3); flex: 1; min-height: 0; overflow-y: auto; }
+.mythos-nav::-webkit-scrollbar { width: 8px; }
+.mythos-nav::-webkit-scrollbar-thumb { background: rgba(201,168,76,.22); border-radius: var(--mythos-radius-pill); }
+.mythos-nav::-webkit-scrollbar-track { background: transparent; }
+
+.mythos-nav-section {
+  color: var(--mythos-muted);
+  font-size: var(--mythos-fs-tiny);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 7px var(--mythos-sp-4) var(--mythos-sp-1);
+}
+
+.mythos-nav-btn {
+  width: 100%;
+  padding: 7px var(--mythos-sp-4);
+  background: none;
+  border: none;
+  color: var(--mythos-muted);
+  font-family: var(--mythos-font-ui);
+  font-size: var(--mythos-fs-base);
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+  border-radius: var(--mythos-radius-sm);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1px;
+  transition: background var(--mythos-dur-fast), color var(--mythos-dur-fast),
+              box-shadow 0.22s var(--mythos-ease-overshoot),
+              transform 0.22s var(--mythos-ease-overshoot);
+}
+
+.mythos-nav-btn:hover {
+  background: var(--mythos-gold-dim);
+  color: var(--mythos-text);
+  box-shadow: inset -3px 0 0 rgba(201,168,76,0.5);
+  transform: translateY(-1px);
+}
+
+.mythos-nav-btn.active {
+  background: var(--mythos-gold-dim);
+  color: var(--mythos-gold);
+  box-shadow: inset -3px 0 0 var(--mythos-gold);
+  transform: translateY(-2px);
+}
+
+.mythos-nav-btn .ico { font-size: var(--mythos-fs-lg); width: 22px; text-align: center; flex-shrink: 0; }
+.mythos-nav-btn .label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* A module that is registered but not yet built is shown, dimmed and
+   marked — never hidden. The shell's job is to make the shape of the
+   system legible, and a hidden module is an undocumented one. */
+.mythos-nav-btn.planned { opacity: 0.55; }
+.mythos-nav-btn .tag {
+  font-size: var(--mythos-fs-micro);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--mythos-muted);
+  border: 1px solid var(--mythos-border);
+  border-radius: var(--mythos-radius-pill);
+  padding: 1px 6px;
+  flex-shrink: 0;
+}
+
+/* Sidebar footer — the .sidebar-stats-block idiom from main.css */
+.mythos-sidebar-foot { padding: 14px var(--mythos-sp-5); border-top: 1px solid var(--mythos-border); }
+
+/* ---------------------------------------------------------------
+   5. PAGE HEADER — .page-header / .page-title
+   --------------------------------------------------------------- */
+
+.mythos-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--mythos-sp-5);
+  flex-wrap: wrap;
+  margin-bottom: var(--mythos-sp-8);
+  padding-bottom: var(--mythos-sp-7);
+  border-bottom: 2px solid rgba(201,168,76,0.15);
+}
+
+.mythos-page-title {
+  font-family: var(--mythos-font-display);
+  font-size: var(--mythos-fs-5xl);
+  color: var(--mythos-text);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  margin: 0;
+}
+
+.mythos-page-title span { color: var(--mythos-gold-light); text-shadow: 0 2px 12px rgba(201,168,76,0.2); }
+
+.mythos-page-sub { color: var(--mythos-muted); font-size: var(--mythos-fs-sm); margin-top: var(--mythos-sp-2); }
+
+/* ---------------------------------------------------------------
+   6. BUTTONS — .btn / .btn-gold / .btn-outline / .btn-danger / .btn-sm
+   --------------------------------------------------------------- */
+
+.mythos-btn {
+  padding: 10px var(--mythos-sp-6);
+  border: none;
+  border-radius: var(--mythos-radius-md);
+  font-family: var(--mythos-font-ui);
+  font-size: var(--mythos-fs-md);
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.02em;
+  box-shadow: var(--mythos-shadow-sm);
+  transition: all var(--mythos-dur-base) var(--mythos-ease-overshoot);
+}
+
+.mythos-btn-gold {
+  background: linear-gradient(135deg, var(--mythos-gold) 0%, #d4b860 100%);
+  color: var(--mythos-bg);
+  font-weight: 700;
+  box-shadow: 0 4px 15px rgba(201,168,76,0.3);
+}
+.mythos-btn-gold:hover {
+  background: linear-gradient(135deg, var(--mythos-gold-light) 0%, var(--mythos-gold) 100%);
+  box-shadow: 0 6px 24px rgba(201,168,76,0.45);
+  transform: translateY(-2px);
+}
+
+.mythos-btn-outline {
+  background: transparent;
+  border: 2px solid rgba(201,168,76,0.3);
+  color: var(--mythos-gold);
+  font-weight: 600;
+}
+.mythos-btn-outline:hover {
+  border-color: var(--mythos-gold);
+  color: var(--mythos-gold-light);
+  background: var(--mythos-gold-dim);
+  box-shadow: 0 4px 16px rgba(201,168,76,0.2);
+  transform: translateY(-1px);
+}
+
+.mythos-btn-danger {
+  background: transparent;
+  border: 2px solid rgba(192,57,43,0.4);
+  color: var(--mythos-danger-text);
+  font-weight: 600;
+}
+.mythos-btn-danger:hover {
+  background: rgba(192,57,43,0.15);
+  border-color: var(--mythos-danger);
+  color: #ff6b60;
+  box-shadow: 0 4px 16px rgba(192,57,43,0.25);
+  transform: translateY(-1px);
+}
+
+.mythos-btn-sm { padding: var(--mythos-sp-3) 14px; font-size: var(--mythos-fs-sm); font-weight: 600; }
+
+.mythos-btn[disabled] { opacity: 0.45; cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ---------------------------------------------------------------
+   7. SURFACES — .entity-card / .invoice-card composition
+   --------------------------------------------------------------- */
+
+.mythos-card {
+  background: linear-gradient(135deg, rgba(30,30,30,0.8), rgba(20,20,20,0.6));
+  border: 2px solid rgba(201,168,76,0.15);
+  border-radius: var(--mythos-radius-lg);
+  padding: 22px;
+  box-shadow: var(--mythos-shadow-md);
+  transition: all var(--mythos-dur-base) var(--mythos-ease-overshoot);
+}
+
+.mythos-card:hover { border-color: rgba(201,168,76,.45); box-shadow: var(--mythos-shadow-lg); }
+
+.mythos-card.clickable { cursor: pointer; }
+.mythos-card.clickable:hover {
+  border-color: rgba(201,168,76,.75);
+  transform: translateY(-4px);
+  background: linear-gradient(135deg, rgba(201,168,76,.12), rgba(20,20,20,0.6));
+  box-shadow: 0 12px 32px rgba(201,168,76,0.2);
+}
+
+.mythos-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--mythos-sp-4); margin-bottom: 10px; }
+.mythos-card-title { font-family: var(--mythos-font-display); color: var(--mythos-text); font-size: var(--mythos-fs-xl); font-weight: 800; }
+.mythos-card-meta { color: var(--mythos-muted); font-size: var(--mythos-fs-sm); line-height: 1.55; }
+
+.mythos-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--mythos-sp-5); }
+
+/* Section heading — .invoices-section-title gold rule idiom */
+.mythos-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mythos-font-display);
+  font-size: var(--mythos-fs-2xl);
+  font-weight: 700;
+  color: var(--mythos-text);
+  margin: var(--mythos-sp-8) 0 var(--mythos-sp-5);
+}
+.mythos-section-title::before {
+  content: '';
+  width: 3px;
+  height: var(--mythos-fs-3xl);
+  background: var(--mythos-gold);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.mythos-section-title:first-child { margin-top: 0; }
+
+/* ---------------------------------------------------------------
+   8. KPI — css/dashboard.css .db-kpi-*
+   --------------------------------------------------------------- */
+
+.mythos-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
+
+.mythos-kpi {
+  background: #1a1a1a;
+  border: 1px solid var(--mythos-border);
+  border-radius: var(--mythos-radius-lg);
+  padding: 18px var(--mythos-sp-5) 14px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s, transform var(--mythos-dur-fast);
+}
+.mythos-kpi:hover { border-color: rgba(201,168,76,0.4); transform: translateY(-2px); }
+.mythos-kpi::before {
+  content: '';
+  position: absolute;
+  top: 0; inset-inline: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.3), transparent);
+}
+.mythos-kpi-icon { font-size: var(--mythos-fs-2xl); margin-bottom: var(--mythos-sp-3); display: block; }
+.mythos-kpi-value {
+  font-family: var(--mythos-font-display);
+  font-size: var(--mythos-fs-4xl);
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: var(--mythos-sp-1);
+  color: var(--mythos-gold-light);
+}
+.mythos-kpi-label {
+  color: var(--mythos-muted);
+  font-size: var(--mythos-fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ---------------------------------------------------------------
+   9. STATUS AND STATE
+   --------------------------------------------------------------- */
+
+/* Pill — .entity-badge / .invoice-type-badge. Every state is a colour
+   AND a word: the MCC architecture (§7) already established that a
+   safety class must not depend on colour perception, and the same rule
+   applies to an operational state. */
+.mythos-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--mythos-sp-2);
+  width: max-content;
+  max-width: 100%;
+  padding: var(--mythos-sp-1) 10px;
+  border-radius: var(--mythos-radius-pill);
+  font-size: var(--mythos-fs-xs);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  color: var(--mythos-gold-light);
+  background: var(--mythos-gold-dim);
+  border: 1px solid rgba(201,168,76,.22);
+}
+
+.mythos-badge::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Semantic variants. The colour → meaning mapping is the console's, and
+   is documented in docs/MYTHOS_OS_DESIGN_SYSTEM.md §6:
+     gold   = the owner is being waited on
+     blue   = in flight
+     green  = finished well
+     danger = finished badly
+     orange = paused by a limit, will resume itself
+     purple = declared, not started
+     past   = inert */
+.mythos-badge.is-attention { color: var(--mythos-gold-light); background: var(--mythos-gold-dim); border-color: rgba(201,168,76,.28); }
+.mythos-badge.is-running   { color: var(--mythos-blue);       background: var(--mythos-blue-dim);   border-color: rgba(93,173,226,.28); }
+.mythos-badge.is-ok        { color: #8ff0b5;                  background: var(--mythos-green-dim);  border-color: rgba(46,204,113,.28); }
+.mythos-badge.is-error     { color: var(--mythos-danger-text); background: var(--mythos-danger-dim); border-color: rgba(192,57,43,.32); }
+.mythos-badge.is-waiting   { color: var(--mythos-today);      background: var(--mythos-today-dim);  border-color: rgba(230,126,34,.28); }
+.mythos-badge.is-planned   { color: var(--mythos-purple);     background: var(--mythos-purple-dim); border-color: rgba(155,89,182,.28); }
+.mythos-badge.is-inert     { color: var(--mythos-muted);      background: var(--mythos-past-dim);   border-color: rgba(255,255,255,.07); }
+
+/* Row — .detail-row */
+.mythos-list { display: grid; gap: 10px; }
+
+.mythos-row {
+  background: linear-gradient(135deg, rgba(30,30,30,0.8), rgba(20,20,20,0.6));
+  border: 2px solid rgba(201,168,76,0.15);
+  border-radius: var(--mythos-radius-lg);
+  padding: 18px var(--mythos-sp-6);
+  display: grid;
+  grid-template-columns: minmax(190px, 1.2fr) minmax(150px, .8fr) minmax(200px, 1.4fr) minmax(150px, .7fr);
+  gap: var(--mythos-sp-5);
+  align-items: start;
+  box-shadow: var(--mythos-shadow-md);
+  transition: all var(--mythos-dur-base) var(--mythos-ease-overshoot);
+}
+.mythos-row:hover { border-color: rgba(201,168,76,.45); }
+.mythos-row-main { min-width: 0; }
+.mythos-row-title { color: var(--mythos-text); font-weight: 600; font-size: var(--mythos-fs-base); overflow-wrap: anywhere; }
+.mythos-row-sub { color: var(--mythos-muted); font-size: var(--mythos-fs-sm); margin-top: var(--mythos-sp-1); overflow-wrap: anywhere; }
+.mythos-row-end { display: flex; justify-content: flex-end; }
+
+/* Field label — main.css `label` */
+.mythos-label {
+  display: block;
+  color: var(--mythos-muted);
+  font-size: var(--mythos-fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: var(--mythos-sp-3);
+}
+
+/* Whole-surface state. An ops console is wrong more often than it is
+   empty: it is unreachable, forbidden, or not built. Each of those is a
+   different message and none of them may be rendered as zero. */
+.mythos-state {
+  border: 2px dashed var(--mythos-border);
+  border-radius: var(--mythos-radius-lg);
+  padding: var(--mythos-sp-9) var(--mythos-sp-7);
+  text-align: center;
+  color: var(--mythos-muted);
+  background: rgba(255,255,255,.012);
+}
+.mythos-state-icon { font-size: var(--mythos-fs-5xl); display: block; margin-bottom: var(--mythos-sp-4); opacity: .7; }
+.mythos-state-title { font-family: var(--mythos-font-display); font-size: var(--mythos-fs-2xl); color: var(--mythos-text); font-weight: 700; margin-bottom: var(--mythos-sp-3); }
+.mythos-state-body { font-size: var(--mythos-fs-md); line-height: 1.6; max-width: 62ch; margin: 0 auto; }
+.mythos-state.is-error { border-color: rgba(192,57,43,.35); }
+.mythos-state.is-error .mythos-state-title { color: var(--mythos-danger-text); }
+
+/* ---------------------------------------------------------------
+   10. TABLE
+   --------------------------------------------------------------- */
+
+.mythos-table-wrap { overflow-x: auto; border: 1px solid var(--mythos-border); border-radius: var(--mythos-radius-lg); background: var(--mythos-card); }
+.mythos-table { width: 100%; border-collapse: collapse; font-size: var(--mythos-fs-md); }
+.mythos-table th {
+  text-align: start;
+  padding: 14px 18px;
+  color: var(--mythos-gold-light);
+  font-size: var(--mythos-fs-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-bottom: 2px solid rgba(201,168,76,0.25);
+  white-space: nowrap;
+}
+.mythos-table td { padding: 14px 18px; border-bottom: 1px solid var(--mythos-border); vertical-align: top; }
+.mythos-table tr:last-child td { border-bottom: none; }
+
+/* ---------------------------------------------------------------
+   11. RESPONSIVE — ladder adopted from css/main.css
+   --------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+  .mythos-row { grid-template-columns: 1fr 1fr; }
+  .mythos-row > :nth-child(3), .mythos-row > :nth-child(4) { grid-column: 1 / -1; }
+  .mythos-row-end { justify-content: flex-start; }
+}
+
+@media (max-width: 900px) {
+  /* main.css keeps the 310px sidebar fixed at every width — the audit
+     records that as the largest practical gap in the system (design
+     roadmap Stage 8). The console cannot ship that way, so below 900px
+     the sidebar becomes an off-canvas drawer. This is an EXTENSION and
+     is deliberately confined to the console shell; css/main.css is not
+     modified by this stage. */
+  .mythos-app { display: block; }
+
+  .mythos-sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.24s var(--mythos-ease-overshoot);
+    box-shadow: var(--mythos-shadow-lg);
+  }
+  .mythos-app.nav-open .mythos-sidebar { transform: translateX(0); }
+
+  .mythos-main { margin-inline-start: 0; padding-top: 76px; }
+
+  /* .mythos-nav-toggle is revealed by console.css, which owns its base
+     rule. Declaring the reveal here instead loses to that base rule —
+     console.css loads second, and a media query grants no extra
+     specificity. Found by headless-browser verification (D-010), not by
+     reading the source: the drawer could not be opened on a phone. */
+
+  .mythos-scrim { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 35; }
+  .mythos-app.nav-open .mythos-scrim { display: block; }
+
+  .mythos-row { grid-template-columns: 1fr; }
+  .mythos-page-title { font-size: var(--mythos-fs-3xl); }
+}
+
+@media (max-width: 760px) {
+  :root { --mythos-main-pad: var(--mythos-sp-7); }
+  .mythos-grid, .mythos-kpi-grid { grid-template-columns: 1fr; }
+  .mythos-card { padding: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .mythos-nav-btn:hover, .mythos-nav-btn.active,
+  .mythos-card.clickable:hover, .mythos-btn:hover, .mythos-kpi:hover { transform: none; }
+}
