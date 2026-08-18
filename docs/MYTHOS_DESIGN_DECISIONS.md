@@ -444,6 +444,18 @@ existing deviation.
 | **Evidence** | All four `:root` blocks read directly |
 | **Status** | **CONFLICTING — never arbitrated.** No document records whether this divergence was chosen or accumulated |
 
+### C-005 — Control height 40 px vs touch minimum 44 px
+
+| Field | Value |
+|---|---|
+| **Conflict** | Two **owner-approved** statements inside **A-009**. §7 sets control height at **36 px compact / 40 px comfortable**; §7 and §11 both require touch targets of **≥ 44 × 44 px at every breakpoint**. A 40 px control does not meet a 44 px minimum |
+| **Evidence** | `MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md` §7 (Button, Input, "Touch targets ≥ 44 × 44 px") and §11 ("Touch targets 44 × 44 minimum at every breakpoint — not only small ones") |
+| **Found** | Stage **1E**, 2026-08-18, while deriving the size token family |
+| **Resolutions available** | Grow the visual control height at coarse pointers, **or** extend the hit area beyond the visual box. **The approved text names neither** |
+| **Status** | **CONFLICTING — not resolved.** Left for 1F or the owner. Resolving it inside a component is precisely the failure the token architecture exists to prevent |
+
+---
+
 ---
 
 ## 3. Open decisions
@@ -539,6 +551,40 @@ moment of this approval:**
 | ~~**O-A3**~~ | Whether, and under what conditions, a public project may use a Mythos-level colour | **RESOLVED 2026-08-18 by A-021** — controlled ecosystem accent only. Completes the exception clause inside **A-006** |
 | **LOGO-1** | Does an original vector or layered master source exist outside Git? | Yes, for LOGO-2 | **STILL OPEN — searched 2026-08-18, result C (only vector derivative found), scope PARTIAL.** Exhaustive over Git history (438 commits, 36 branches — **exactly 14 vector blobs have ever existed, all of them the Stage 1B reconstruction**) and over this container's entire filesystem. **Three of four priority locations were unreachable** (the VPS filesystem does not exist in a cloud session) and **the fourth — the off-host snapshot repositories — was blocked by session permission policy, not by lack of account access.** No original, no master, nothing new discovered; equally, **no true negative established.** Full record: `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md` |
 | **LOGO-2** | Adoption of the vector reconstruction as the **production** master | **PROPOSED — AWAITING OWNER APPROVAL.** A full proposal was delivered 2026-08-18 (`docs/design/LOGO_SYSTEM.md`, commit `46915a0`) and **reviewed by the owner, who placed it on hold**: it is **not** to be converted into an owner-approved production master **while LOGO-1 remains open**. The 1C approval does not adopt it either — that specification is deliberately independent of which logo master is eventually chosen |
+
+### 3.4 New open items raised by Stage 1E — grid, spacing, tokens
+
+**Raised by derivation, not by opinion.** Stage 1E computed the approved figures
+out to their consequences. Each item below is a place where the approved
+specification is silent or self-inconsistent, found by arithmetic and recorded
+rather than filled in.
+
+| Ref | Question | Blocking? | Where it came from |
+|---|---|---|---|
+| **GRID-1** | Two container questions: `2xl` (≥ 1920) has no behaviour the approved text names that is not already true from a **1440** viewport, because the 1280 content cap binds 480 px earlier; and the 1440 "wide" container is ambiguous between a second content width and the outer frame of the 1280 container, since `1280 + 80 + 80 = 1440` exactly | No | `GRID_AND_SPACING.md` §4 |
+| **GRID-2** | Prose measure is approved as **68ch** in 1C §5 and as **65 characters** in `TYPOGRAPHY.md` §2. Different units. `ch` is the advance of the digit *0*, so the two reconcile only against real font metrics — and **no font file exists in this repository** | No | `GRID_AND_SPACING.md` §4.3 |
+| **GRID-3** | Four of the twelve spacing steps (**2, 4, 32, 160**) fall outside both legal bands; and the approved button padding **9 / 15** is off the spacing scale entirely | No | `GRID_AND_SPACING.md` §2, §3 |
+| **SURF-1** | The light elevation ramp has **two** steps (`paper-100`, `paper-200`) to the dark ramp's **four** (`ink-900/850/800/750`), so a card on a raised surface has no light-theme equivalent; and **no shadow values are specified** anywhere — only the rule for when a shadow is permitted | No | `GRID_AND_SPACING.md` §7 |
+| **GOLD-2** | Light-theme **hover** and **active** gold states are unspecified. The approved palette designates `gold-700` for borders and large graphics and `gold-800` for text; `gold-700` measures **3.94** on paper, below AA for text | No | `DESIGN_TOKENS.md` §4.4 |
+| **TOKEN-1** | Generating an actual token artifact (`tokens.css` / `tokens.json`) is **not authorised**. It would put CSS or a build input into the repository, and it would force values onto C-005, SURF-1 and GOLD-2 that no one has decided | No | `DESIGN_TOKENS.md` §8 |
+| **TOKEN-2** | Whether tokens carry a namespace prefix (`--mythos-accent` vs `--accent`). The approved examples show none, but they are illustrative; a shared ecosystem with independently branded projects (**A-006**) is where a prefix earns its keep | No | `DESIGN_TOKENS.md` §2 |
+
+**One structural choice Stage 1E made itself, flagged so it can be rejected:**
+grid tokens (`grid-*`, `container-*`) are consumed **directly by the layout
+primitive** rather than through the semantic tier. A layout frame is the thing
+components sit *in*, and routing nine grid values through nine semantic aliases
+would add names without meaning and push the semantic layer past its approved
+60-token ceiling. **This is not an owner decision.** It is reversible at the cost
+of nine semantic tokens.
+
+**Effect on U-004** (*"Mythos spacing and grid — no scale exists in any document
+or stylesheet"*): the **specification** half is now answered — `A-009` approved a
+scale and `GRID_AND_SPACING.md` states it in implementable form. The
+**stylesheet** half is unchanged: no CSS in this repository has a spacing scale,
+and **MIG-3** remains unactioned. U-004 is therefore narrowed, not closed, and
+its original text above is left exactly as the recovery stage wrote it.
+
+---
 
 ---
 
