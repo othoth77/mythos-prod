@@ -471,7 +471,7 @@ by inference.**
 | ~~**O-A1**~~ | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | — | **RESOLVED 2026-08-18 by A-020** — a product of **Mythos OS**, not a sixth unit. `MYTHOS → Mythos OS → Mythos Command Center → ordre.mythosprod.xyz`. No unit logo is created |
 | ~~**O-A3**~~ | Whether and under what conditions a public project may use a Mythos-level colour | — | **RESOLVED 2026-08-18 by A-021** — permitted **only as a controlled ecosystem accent**, never replacing the project's primary colour, never automatic. **C-001** and **O-002** remain open: the policy is forward-looking and does not adjudicate the existing Dar Hijama deviation |
 | ~~**GOLD-1**~~ | Which gold is the master? | — | **RESOLVED 2026-08-18 by A-013** — Mythos Gold `#D9A441`, with `#805C19` for gold text on light grounds |
-| **LOGO-2** | Whether the vector reconstruction is adopted as the **production** master | Yes — it blocks monochrome, favicon, app icon, social avatar, print above 14 cm and all signage | **PROPOSAL DELIVERED 2026-08-18, AWAITING DECISION.** `docs/design/LOGO_SYSTEM.md` now carries the final logo system and a recommendation. **Central finding, measured:** the recovered raster is **insufficient as a production master** — `logomythos.png` has **0 non-opaque pixels** (ground baked in), **15,393 distinct colours** (cannot flatten to one ink), and a **142 mm** ceiling at 300 dpi. **Recommendation:** adopt a **two-master model** — the historical raster stays the authoritative record under **A-007**, unmodified; the reconstruction becomes the working production master, always described as a derivative. Three conditions attach, including that a later LOGO-1 find is diffed against it. **Adoption would not close LOGO-1, and would not authorise applying the mark anywhere** |
+| **LOGO-2** | Whether the vector reconstruction is adopted as the **production** master | Yes — it blocks monochrome, favicon, app icon, social avatar, print above 14 cm and all signage | **PROPOSED — AWAITING OWNER APPROVAL** (status set by the owner at the 2026-08-18 review hold). `docs/design/LOGO_SYSTEM.md` now carries the final logo system and a recommendation. **Central finding, measured:** the recovered raster is **insufficient as a production master** — `logomythos.png` has **0 non-opaque pixels** (ground baked in), **15,393 distinct colours** (cannot flatten to one ink), and a **142 mm** ceiling at 300 dpi. **Recommendation:** adopt a **two-master model** — the historical raster stays the authoritative record under **A-007**, unmodified; the reconstruction becomes the working production master, always described as a derivative. Three conditions attach, including that a later LOGO-1 find is diffed against it. **Adoption would not close LOGO-1, and would not authorise applying the mark anywhere** |
 | **O-004b** | Whether and when Mythos Services, Digital and Logistique become operating brands | No | **A-002** fixes the roster; the evidence gap for these three is unchanged |
 | ~~**TYPE-1**~~ | Retire Playfair Display from the master brand? | — | **RESOLVED 2026-08-18 by A-014** — retired from the master; master stack is Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono |
 | ~~**SEM-1**~~ | Adopt the corrected semantic palette? | — | **RESOLVED 2026-08-18 by A-015** — adopted, verified on all four surfaces |
@@ -492,6 +492,19 @@ avatar crops, placement on any other ground, and print or signage above ~14 cm
 **impossible from the raster alone**. It does not diminish **A-007**: the raster
 remains the authoritative record of what the identity *is*. It is the evidence
 base for the **LOGO-2** recommendation in `docs/design/LOGO_SYSTEM.md` §1.
+
+**Standing constraint recorded 2026-08-18 — the LOGO-2 review hold.** The owner
+reviewed the LOGO-2 proposal, confirmed the two-master model, the descriptor
+system and the three layout forms are understood, and **explicitly withheld
+approval**. The gate is stated plainly so it cannot be lost:
+
+> **The proposed reconstruction must not be converted into an OWNER-APPROVED
+> production master while LOGO-1 remains open.**
+
+**LOGO-2 status is therefore `PROPOSED — AWAITING OWNER APPROVAL`**, and it may
+not be moved to approved by inference, by a later stage needing it, or by the
+absence of an objection. Only an explicit owner decision changes it. Until then
+no logo is generated, no asset is created, and nothing is applied.
 
 ### 3.2 Prior open questions answered by the 2026-08-18 approval
 
@@ -525,7 +538,7 @@ moment of this approval:**
 | ~~**O-A1**~~ | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | **RESOLVED 2026-08-18 by A-020** — a product of Mythos OS. The palette consequence it carried is now tracked as **MIG-4**, not actioned |
 | ~~**O-A3**~~ | Whether, and under what conditions, a public project may use a Mythos-level colour | **RESOLVED 2026-08-18 by A-021** — controlled ecosystem accent only. Completes the exception clause inside **A-006** |
 | **LOGO-1** | Does an original vector or layered master source exist outside Git? | Yes, for LOGO-2 | **STILL OPEN — searched 2026-08-18, result C (only vector derivative found), scope PARTIAL.** Exhaustive over Git history (438 commits, 36 branches — **exactly 14 vector blobs have ever existed, all of them the Stage 1B reconstruction**) and over this container's entire filesystem. **Three of four priority locations were unreachable** (the VPS filesystem does not exist in a cloud session) and **the fourth — the off-host snapshot repositories — was blocked by session permission policy, not by lack of account access.** No original, no master, nothing new discovered; equally, **no true negative established.** Full record: `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md` |
-| **LOGO-2** | Adoption of the Stage 1B vector reconstruction as the master | **OPEN.** Depends on LOGO-1. **The 1C approval does not adopt it** — the approved specification is deliberately independent of which logo master is eventually chosen |
+| **LOGO-2** | Adoption of the vector reconstruction as the **production** master | **PROPOSED — AWAITING OWNER APPROVAL.** A full proposal was delivered 2026-08-18 (`docs/design/LOGO_SYSTEM.md`, commit `46915a0`) and **reviewed by the owner, who placed it on hold**: it is **not** to be converted into an owner-approved production master **while LOGO-1 remains open**. The 1C approval does not adopt it either — that specification is deliberately independent of which logo master is eventually chosen |
 
 ---
 

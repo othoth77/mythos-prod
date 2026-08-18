@@ -2,10 +2,18 @@
 
 **Stage:** MYTHOS-DESIGN-LOGO-2 — final logo system
 **Date:** 2026-08-18 UTC
-**Status:** **PROPOSAL — NOT APPROVED.** Nothing here is implemented. No
-application code, CSS, existing asset, deployed site, public project or Command
-Center file was modified, and **the historical logo was not redrawn, recoloured
-or recreated.**
+**Status:** **PROPOSED — AWAITING OWNER APPROVAL.** Nothing here is implemented.
+No application code, CSS, existing asset, deployed site, public project or
+Command Center file was modified, and **the historical logo was not redrawn,
+recoloured or recreated.**
+
+**Owner review, 2026-08-18 — reviewed and placed on hold.** The two-master
+model, the descriptor system and the three layout forms are understood and
+confirmed as read. Approval is **withheld**, with the gate stated explicitly:
+**the reconstruction is not to become an owner-approved production master while
+LOGO-1 remains open.** This status may not be changed by inference, by a later
+stage needing it, or by the absence of an objection — only by an explicit owner
+decision. Until then no logo is generated and no asset is created.
 
 **Supersedes:** the Stage 1B version of this document, which proposed the vector
 reconstruction. That reconstruction is unchanged; what is new is the system
@@ -331,5 +339,5 @@ implementation decision, and MIG-1 to MIG-4 stay unactioned.
 | Two-master model | **PROPOSED — NOT APPROVED** |
 | Geometry, descriptor system, six lockups | **PROPOSED — NOT APPROVED** |
 | Usage rules §8 | **PROPOSED — NOT APPROVED** |
-| Adoption of the reconstruction (**LOGO-2**) | **PROPOSED — NOT APPROVED.** Recommendation in §10 |
-| **LOGO-1** | **OPEN.** Adoption would not close it |
+| Adoption of the reconstruction (**LOGO-2**) | **PROPOSED — AWAITING OWNER APPROVAL.** Reviewed 2026-08-18 and held pending LOGO-1. Recommendation in §10 |
+| **LOGO-1** | **OPEN** — and it now **gates** LOGO-2 by explicit owner instruction |
