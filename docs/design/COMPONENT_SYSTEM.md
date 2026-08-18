@@ -496,18 +496,22 @@ silently resolved.**
 
 ---
 
-## 10. New items raised by 1F
+## 10. New items raised by 1F — all four resolved, AUTO-3, 2026-08-18
 
-| Ref | Statement | Recommendation (**PROPOSED**, not decided) |
+| Ref | Statement | Adopted (**AUTO-3**, delegated mandate, not owner-approved) |
 |---|---|---|
-| **MOTION-1** | The approved rule *"nothing loops, nothing autoplays"* (1C §10) and the approved required **loading** state (1C §7) cannot both hold as written. A spinner loops and autoplays | Static skeletons and determinate progress only. It also satisfies reduced motion, which an animated indicator does not |
-| **LINK-1** | The inline text link has **no approved colour**. Gold is reserved for the primary action, active state, focus ring and the 35° gesture; and gold may never create hierarchy in running text. No other accent exists | Underline in `text-primary`, thickening on hover. Colour never distinguishes a link |
-| **SHAPE-1** | A switch track needs a pill, but `radius-pill` is approved for **avatars and status dots only** (1C §6) | A rectangular switch at `radius-control` (2) — consistent with the wordmark's flat terminals |
-| **GOLD-3** | The recovered CSS draws select chevrons in gold, but the approved scarcity rule allows **one gold element per view**. A five-select form would carry five | Chevrons take `text-secondary`. Gold stays with the primary action |
+| ~~**MOTION-1**~~ | *"Nothing loops, nothing autoplays"* vs the required loading state | **Static skeletons and determinate progress only.** Adopted exactly as recommended |
+| ~~**LINK-1**~~ | The inline text link has no approved colour | **Underline in `text-primary`, thickening on hover.** Adopted exactly as recommended |
+| ~~**SHAPE-1**~~ | A switch track needs a pill; `radius-pill` is avatars/status-dots only | **Rectangular switch at `radius-control` (2).** Adopted exactly as recommended |
+| ~~**GOLD-3**~~ | Select chevrons in gold breaks the scarcity rule | **Chevrons take `text-secondary`.** Adopted exactly as recommended |
 
-**None of these four may be resolved by inference, by a later stage needing them,
-or by choosing a value inside a component.** The last is the specific failure the
-token architecture exists to prevent (`DESIGN_TOKENS.md` §6).
+**These were not resolved by inference or by a later stage needing them** — the
+recommendation each already carried was reviewed, found sound, and formally
+adopted under the delegated mandate recorded at `MYTHOS_DESIGN_DECISIONS.md`
+§0.5, **AUTO-3**. The distinction the original text drew still matters: this is
+not the token architecture quietly settling a value inside a component
+(`DESIGN_TOKENS.md` §6) — it is an explicit, dated, reversible decision, on the
+record as not owner-approved.
 
 ---
 

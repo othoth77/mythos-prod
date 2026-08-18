@@ -185,14 +185,14 @@ menus, modals, toasts.
 values. A component asking for `gold-500` would lock the brand colour into the
 component; one asking for `accent` survives any future change to the gold.
 
-## 8. Open
+## 8. Open — updated, this table predates several resolutions
 
-| Ref | Question |
-|---|---|
-| **O-A1** | Mythos Command Center's indigo `#4f46e5` sits outside this palette. Its classification is unresolved, and resolving it has a visible colour consequence |
-| **O-A3** | Whether, and under what conditions, a public project may use a Mythos-level colour in its own identity |
-| **New — SEQ-1** | Sequential and diverging data scales (§5) |
-| **MIG-1 / MIG-3** | Aligning the implemented Mythos OS tokens with this system. **Not actioned** — requires its own authorisation |
+| Ref | Question | Status |
+|---|---|---|
+| ~~**O-A1**~~ | Mythos Command Center's indigo `#4f46e5` sits outside this palette | **RESOLVED — A-020** (owner-approved). The Command Center is a product of Mythos OS; its palette consequence is tracked as MIG-4, not actioned |
+| ~~**O-A3**~~ | Whether, and under what conditions, a public project may use a Mythos-level colour | **RESOLVED — A-021** (owner-approved). Controlled ecosystem accent only |
+| ~~**New — SEQ-1**~~ | Sequential and diverging data scales (§5) | **RESOLVED — AUTO-3** (delegated mandate, not owner-approved). 6-step sequential, 7-step diverging, both ≥ 3 : 1 on ink. Full values: `MYTHOS_DESIGN_DECISIONS.md` §0.5, `assets/brand/tokens/tokens.css` |
+| **MIG-1 / MIG-3** | Aligning the implemented Mythos OS tokens with this system | **Not actioned.** AUTO-2 found execution requires full-application visual regression this session cannot run |
 
 ## 9. What this document did not do
 

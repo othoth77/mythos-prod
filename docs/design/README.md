@@ -7,12 +7,21 @@
 specifications derived from that approval** — they introduce no new values.
 `COMPONENT_SYSTEM.md`, `RESPONSIVE_ACCESSIBILITY_MOTION.md` and
 `PUBLIC_ECOSYSTEM_ARCHITECTURE.md` are **specifications only**, and every line in
-them is labelled **OWNER-APPROVED**, **DERIVED**, **PROPOSED** or **OPEN** —
-because **thirteen of the twenty-one components have no approved base
+them is labelled **OWNER-APPROVED**, **DERIVED**, **PROPOSED**, **AUTO-\*** or
+**OPEN** — because **thirteen of the twenty-one components have no approved base
 specification**, and because the ecosystem architecture describes surfaces that
-in several cases **do not exist yet**. `LOGO_SYSTEM.md` remains **PROPOSED and not
-approved**: the historical logo is still the authoritative source, no redraw is
-authorised (**A-007**), and adoption of the vector reconstruction is **LOGO-2**.
+in several cases **do not exist yet**. `LOGO_SYSTEM.md`'s reconstruction is now
+the **ADOPTED production master** (**AUTO-1**, delegated mandate, **NOT
+owner-approved** — see `MYTHOS_DESIGN_DECISIONS.md` §0.5): the historical logo
+remains the authoritative historical source regardless, and no redraw is
+authorised (**A-007**).
+
+**AUTO-\* is a distinct category from A-\*.** Introduced 2026-08-18 under an
+explicit, dated delegation of authority the owner confirmed directly. Every
+**AUTO-\*** decision is fully reversible, changes no live file, and can be
+accepted, amended or reversed by a genuine owner review at zero cost. It is
+never represented as an owner approval — see §0.5 for the full authority chain
+and the six rules every AUTO-\* decision follows.
 
 **Approval is not authorisation to implement.** Nothing in `docs/design/` is
 implemented, applied to a project, or referenced by production. Four migrations
@@ -31,17 +40,22 @@ resolving **C-005**) — the visual box may stay 40 px, the hit box must reach
 **O-A3**) — a Mythos-level colour is permitted **only as a controlled ecosystem
 accent**, never replacing a project's primary colour and never automatically.
 
-**Still open:** **LOGO-1** (does a vector master exist outside Git — searched,
-result C, blocked on off-host access) and **LOGO-2** (adoption of the Stage 1B
-reconstruction — a full proposal was delivered and the owner **placed it on
-hold** pending LOGO-1). Also open from the recovery era: **C-001** / **O-002**,
-the Dar Hijama charter-versus-live-site conflict, which **A-021 does not
-adjudicate**.
+**Still open:** **LOGO-1** (does a vector master exist outside Git — narrowed
+2026-08-18, one of three off-host repositories now searched with a genuine
+negative, two remain blocked — **AUTO-1**) and **GRID-2** (68ch vs 65
+characters — narrowed to a stated design intent, not fully closed, pending real
+font metrics). Also open from the recovery era: **C-001** / **O-002**, the Dar
+Hijama charter-versus-live-site conflict, which **A-021 does not adjudicate**.
 
-**Raised by Stage 1E**, by computing the approved figures out to their
-consequences: ~~**C-005**~~ (**resolved by A-022**), **GRID-1/2/3**, **SURF-1**,
-**GOLD-2**, **TOKEN-1/2**. Full statements in
-`../MYTHOS_DESIGN_DECISIONS.md` §3.4.
+**Resolved 2026-08-18 under the delegated mandate (AUTO-1 through AUTO-3):**
+**LOGO-2** (adopted as production master, not owner-approved), **C-006**
+(canonical system named — execution still deferred, see AUTO-2), ~~**C-005**~~
+(resolved by **A-022**, owner-approved, unaffected), **GRID-1**, **GRID-3**,
+**SURF-1**, **GOLD-2**, **GOLD-3**, **TOKEN-1**, **TOKEN-2**, **MOTION-1/2/3**,
+**LINK-1**, **SHAPE-1**, **TYPE-2**, **TYPE-3**, **SPACE-1**, **A11Y-1/2**,
+**SEQ-1**, **ECO-1/2/3**. Full statements and every value:
+`../MYTHOS_DESIGN_DECISIONS.md` §0.5. Machine-readable tokens:
+`../../assets/brand/tokens/tokens.css`.
 
 **Raised by Stage 1H**, by describing the ecosystem against recorded evidence
 rather than intent: **ECO-1** (the brand tree nests Command Center under Mythos

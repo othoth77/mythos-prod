@@ -470,37 +470,39 @@ lost, because under the approved philosophy motion never carried meaning alone.
 
 # PART 4 — OPEN REGISTER
 
-## 4.1 New, raised by 1G
+## 4.1 New, raised by 1G — all six resolved, AUTO-3, 2026-08-18
 
-| Ref | Statement | Recommendation (**PROPOSED**, not decided) |
+| Ref | Statement | Adopted (**AUTO-3**, delegated mandate, not owner-approved) |
 |---|---|---|
-| **TYPE-3** | Fluid type is approved as `clamp()` "between the scale's stops", but **which stop floors each style, and at which viewports the endpoints sit, are unspecified** — both are needed to write a single `clamp()` | Floor at the next stop down; endpoints 320 and 1240. Body and below stay fixed |
-| **SPACE-1** | The approved spacing bands **do not vary by breakpoint** and no rule says whether they should. A 128 px section gap is a quarter of a 320 px phone viewport | Section spacing steps one band down at mobile; component spacing unchanged |
-| **A11Y-1** | Under `forced-colors`, **gold is the system's only emphasis channel** and it is overridden. Status survives (form plus colour); **the primary-versus-secondary button distinction does not** | A non-colour channel for the primary action — but this is a real design decision, not a derivation |
-| **A11Y-2** | *Colour never carries meaning alone*, and **disabled is a meaning** — yet the approved system gives it no non-colour channel | — |
-| **MOTION-2** | The M's slant does not mirror in RTL. **Whether the 35° motion vector mirrors is unstated** — keeping it preserves the angle and breaks layout logic; mirroring it does the reverse | — |
-| **MOTION-3** | The 35° gesture exists as a **shape** rule and a **motion** rule, each "once per view". **Whether they share one budget is unstated** | — |
+| ~~**TYPE-3**~~ | `clamp()` floor stop and endpoints unspecified | **Floor at the next stop down; endpoints 320 and 1240.** Adopted exactly as recommended |
+| ~~**SPACE-1**~~ | Spacing bands do not vary by breakpoint | **Section spacing steps one band down at mobile; component spacing unchanged.** Adopted exactly as recommended |
+| ~~**A11Y-1**~~ | Forced-colors overrides gold, the only emphasis channel; primary/secondary distinction lost | **`border-style` distinction** — primary solid, secondary dashed. Border style, not colour, survives `forced-colors`. Flagged honestly as a genuine judgement call, not a derivation |
+| ~~**A11Y-2**~~ | Disabled has no non-colour channel | **The `disabled`/`aria-disabled` attribute is the non-colour channel** (screen-reader-detectable), plus `cursor: not-allowed` |
+| ~~**MOTION-2**~~ | Does the 35° motion vector mirror in RTL? | **No — same absolute travel direction in both directions**, matching A-012's own reasoning for the mark's slant |
+| ~~**MOTION-3**~~ | Do the shape-cut and motion-vector share one per-view budget? | **Yes, one shared budget** — two 35° gestures in one view is a doubled gesture, not two separate allowances |
 
-## 4.2 Carried, and untouched by 1G
+## 4.2 Carried, and updated where AUTO-3 or A-022 resolved them
 
-| Ref | Where it bit in 1G |
-|---|---|
-| **GRID-1** | §1.1 — **the "large desktop" class the owner asked to define has nothing of its own**; §1.4 — which container frames full-bleed content |
-| **GRID-2** | Prose measure — 68ch versus 65 characters, unreconcilable without font metrics |
-| **GRID-3** | Off-scale values and the four spacing steps with no band |
-| **SURF-1** | §1.8, §3.3 — cards in light theme, and **no shadow value** for the three floating components |
-| **GOLD-2** | §2.2 — **every hover and active state is unmeasured on light** |
-| **GOLD-3** | Select chevrons versus the one-gold-per-view rule |
-| **TOKEN-1 / TOKEN-2** | No token artifact exists; names here are specification names, written unprefixed provisionally |
-| **MOTION-1** | §3.4 — **stated in full and deliberately left open** |
-| **LINK-1** | The inline text link still has no approved colour |
-| **SHAPE-1** | The switch versus `radius-pill` |
-| **LOGO-1** | **OPEN** |
-| **LOGO-2** | **PROPOSED — AWAITING OWNER APPROVAL**, gated on LOGO-1 |
-| **C-001 / O-002** | Dar Hijama charter versus live site |
+| Ref | Where it bit in 1G | Status |
+|---|---|---|
+| ~~**GRID-1**~~ | §1.1 — the "large desktop" class had nothing of its own | **RESOLVED — AUTO-3.** 1440 is the 1280 frame at its own margins; `2xl` inherits `xl`'s capped state |
+| **GRID-2** | Prose measure — 68ch versus 65 characters | **Narrowed, not closed — AUTO-3.** 65 characters is the intent; 68ch an approximation pending real font metrics |
+| ~~**GRID-3**~~ | Off-scale values and the four spacing steps with no band | **RESOLVED — AUTO-3.** Roles clarified; button padding confirmed |
+| ~~**SURF-1**~~ | §1.8, §3.3 — cards in light theme, no shadow value | **RESOLVED — AUTO-3.** Ramp extended, shadows defined |
+| ~~**GOLD-2**~~ | §2.2 — every hover/active state unmeasured on light | **RESOLVED — AUTO-3.** Both darken from `gold-800`, verified against AA |
+| ~~**GOLD-3**~~ | Select chevrons versus the one-gold-per-view rule | **RESOLVED — AUTO-3.** `text-secondary` |
+| ~~**TOKEN-1 / TOKEN-2**~~ | No token artifact existed; names unprefixed provisionally | **RESOLVED — AUTO-3.** `assets/brand/tokens/tokens.css`, `--mythos-*` prefix |
+| ~~**MOTION-1**~~ | §3.4 — stated in full and deliberately left open | **RESOLVED — AUTO-3.** Static skeletons and determinate progress adopted |
+| ~~**LINK-1**~~ | The inline text link had no approved colour | **RESOLVED — AUTO-3.** Underline in `text-primary` |
+| ~~**SHAPE-1**~~ | The switch versus `radius-pill` | **RESOLVED — AUTO-3.** Rectangular, `radius-control` |
+| **LOGO-1** | — | **Still OPEN, narrowed** — see AUTO-1. One of three off-host repositories searched (negative); two remain blocked |
+| **LOGO-2** | — | **RESOLVED — AUTO-1.** Adopted as production master, **not owner-approved** |
+| **C-001 / O-002** | Dar Hijama charter versus live site | **Untouched.** A real-world project conflict, not a system rule a sweep can resolve |
 
-**None of the above was resolved, narrowed by inference, or given a value inside
-a specification.**
+**Full reasoning and every value: `MYTHOS_DESIGN_DECISIONS.md` §0.5, AUTO-1
+through AUTO-3.** Nothing above was resolved by silent inference — every row
+that changed cites the register entry that changed it, and every entry there is
+explicitly marked as delegated-mandate authority, never owner approval.
 
 ---
 
