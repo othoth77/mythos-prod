@@ -392,6 +392,39 @@ needs an explicit decision rather than an assumption.
 
 ---
 
+## MOS-3B — MISSION CONTROL: LIFECYCLE VIEW, CAPACITY STRIP, GUARDED POLLING (2026-08-18) — **PASS; BROWSER-VERIFIED END TO END; NOT DEPLOYED**
+
+### Stage
+
+MOS-3B — second stage of AI Operating Layer v1 (Opus implemented the frontend under a fixed spec; the orchestrator integrated and browser-verified). Files: `app.js` (+301/-60 net), `console.css` (+25). Zero test assertions changed; suites 401/125/257 green under both implementer and orchestrator runs.
+
+### Delivered
+
+1. **Server-driven provider select** — `START_PROVIDERS` hardcode deleted; **zero provider-name literals remain in app.js**; the select builds from `/api/dispatcher`'s `providers`; on read failure it disables with an honest note, never an invented list.
+2. **Capacity strip** on command-center and missions: `Executions running: X / MAX · queued: N`, live, `upstreamFailure` on failure.
+3. **Missions page grouped by lifecycle** — Pending / Running / Waiting / Awaiting the owner / Completed / Failed / Cancelled + honest `Other` catch-all; every row an execution card; **`Start now` on QUEUED rows** posting the MOS-3A dispatch relay with three honest outcome labels.
+4. **Auto-refresh without reload** — 12s poller through a `renderModule` extraction (a poll repaint cannot drift from a real navigation; focus untouched), four guards each protecting operator state: hidden tab, focused field, open detail panel, half-written mission. `route()` stops the poller on navigation.
+
+### Verification (live rig: real MOS-3A executor code, isolated scratch state root, real browser)
+
+Five genuinely distinct on-disk task states rendered as five correctly counted sections; **clicking the real `Start now` dispatched the queued task end to end** (backend confirmed RUNNING; dispatcher 2/5→queue 0; button `Started`+disabled); **the poll was proven both ways** — every cycle correctly skipped while `document.hidden` (guard working), and one cycle after visibility returned the view repainted (strip `2/5·queued 0`, Pending·0, Running·2, badge QUEUED→RUNNING) with no reload. Production console (8140) and executor (8130) untouched; rig torn down and confirmed.
+
+### Operational finding
+
+**The deployed executor at 8130 answers 404 for `/dispatcher` — it predates MOS-3A**, exactly as the deployed console predates MOS-2. Both services need the operator restart already on record (`systemctl --user restart mythos-ai-executor` as `ubuntu` is within this session's own user but was deliberately NOT done mid-campaign — the concurrent autonomous session is actively running missions through that executor; restarting it is an operator-timed action). Until then the new start path degrades honestly: missions stay QUEUED and the old daemon tick starts them serially.
+
+### Record
+
+| | |
+|---|---|
+| Base | `460d931` |
+| Commit | `d0074ad` (+ this handover entry) |
+| Deployment | **Not performed** |
+
+### Next stage
+
+**MOS-3C (Haiku): the thirteen required proofs** — `wait-file` mock kind for deterministic hold-and-release, then concurrency (2 and 5 simultaneous), queue overflow (6th QUEUED), slot-free auto-drain, failure isolation, cancellation (with the mock self-pid SIGTERM hazard neutralized), invalid inputs, credential sweeps on the new surfaces, result association, full regression. Then final acceptance.
+
 ## MOS-3A — CENTRAL MULTI-AI DISPATCHER WITH CAPACITY CONTROL (2026-08-18) — **PASS; MAX_PARALLEL=5 ENFORCED CENTRALLY, QUEUE AUTO-DRAINS; NOT DEPLOYED**
 
 ### Stage
