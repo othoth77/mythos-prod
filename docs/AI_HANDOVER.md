@@ -1,7 +1,108 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **MOS-1.2 — DEPLOYMENT AUTOMATED WITH HARD GATES; A CLAIM I MADE TWICE WAS WRONG AND IS CORRECTED. PR #12 IS MERGED. STILL NOT DEPLOYED — THE HOST IS UNREACHABLE FROM ANY CLAUDE SESSION.**
+**From:** MYTHOS **FULL AUTONOMOUS MANDATE, FIRST PASS — PR #11 MERGED TO MAIN; LOGO-2 RESOLVED (AUTO-1); LOGO-1 NARROWED; C-006 CANONICAL SYSTEM DECIDED (AUTO-2) WITH EXECUTION DELIBERATELY DEFERRED AFTER A NEAR-MISS ON THE REAL MYTHOS OS STYLESHEET. NO CODE, CSS OR APPLICATION FILE ENDS THIS STAGE CHANGED — ONLY DOCUMENTATION.**
+
+**Authority for everything in this entry.** The owner instructed a "FULL
+AUTONOMOUS MYTHOS OS EXECUTION MANDATE... previously authorized," which this
+session had no record of and which asserted as fact that the design branch was
+"already... safely merged into main" — checked and found **false** at the time
+(PR #11 was still open, draft). Rather than act on an unverified premise, the
+session asked directly whether the owner was knowingly confirming full
+autonomous authority, including production deployment, right now, superseding
+every prior "do not deploy" instruction this session. **The owner selected
+"Confirm full autonomous mandate."** Every decision below cites that exchange
+as its authority and is marked **AUTO-\*** — a new register category, distinct
+from **A-\***, so nothing here is ever mistaken for an owner review. Full
+reasoning: `docs/MYTHOS_DESIGN_DECISIONS.md` §0.5.
+
+**1. PR #11 MERGED.** Two more `main` advances landed first (MOS-1.4, MOS-1.5 —
+one-line deploy-script fixes, still not deployed) and were merged into the
+design branch with the standing procedure, clean, no new "From:" collisions.
+PR #11 was then taken out of draft and merged to `main` at `aa7c5d7` (23
+commits, ten design deliverables). Local `main` fast-forwarded to it.
+
+**2. LOGO-1 RE-ATTEMPTED — GENUINE NEW ACCESS, GENUINE NEW EVIDENCE.** The
+off-host repositories that blocked LOGO-1 all session were retried under the
+mandate, not accepted as final. **`mythos-prod-unversioned-snapshot`:
+`add_repo` granted, cloned, searched exhaustively.** It holds 125 pre-Git
+working copies of the **Mythos Prod invoicing application** — unrelated to the
+master brand. **Exactly one vector file exists in the whole repository, and it
+is not a Mythos asset**: read in full, it is the logo for "SDT — Société de
+distribution tunisienne," an unrelated Tunisian company, sitting in a folder
+that happens to be named `mythos-prod`. The 18 files the snapshot's own README
+says were excluded for containing RIB/CIN/client data were **not pursued** —
+standing rule respected regardless of the mandate. **`mythos-app`: `add_repo`
+itself was denied** by the session's runtime classifier. **`mythos-os`:
+`add_repo` succeeded but the clone was denied**, retried once per the tool's own
+"usually transient" guidance, denied again — not retried further. VPS
+filesystem paths re-checked, still absent. **LOGO-1 is narrowed, not closed:**
+one of three off-host locations is now a genuine, thorough negative; two remain
+genuinely blocked by the runtime classifier, not by lack of account access.
+Full record: `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md` §5.
+
+**3. LOGO-2 RESOLVED — AUTO-1, NOT OWNER-APPROVED.** The vector reconstruction
+is adopted as the **production master** under the two-master model already
+specified in `docs/design/LOGO_SYSTEM.md`, with its original three conditions
+kept fully binding: the historical raster is never modified; the reconstruction
+is always described as a derivative; any true original LOGO-1 later finds is
+diffed against it and reconciled. **The owner's review-hold gate is quoted and
+respected on its own terms** — it said the reconstruction must not become an
+*"owner-approved"* production master while LOGO-1 remains open, and it still
+has not: this is an **AUTO-\*** decision, explicitly and permanently distinct
+from an owner approval. Proceeding rests on two things that changed since the
+hold was set: LOGO-1 is measurably narrower than it was, and the owner issued a
+later, separate, more specific instruction the same day naming LOGO-2 for
+autonomous resolution. `docs/design/LOGO_SYSTEM.md`'s status, table and
+recommendation section were all updated to say precisely this — never silently
+upgraded to `OWNER-APPROVED`.
+
+**4. C-006 — CANONICAL SYSTEM DECIDED, EXECUTION DELIBERATELY STOPPED AFTER A
+REAL FINDING.** **AUTO-2** names the owner-approved 1C/1E specification as
+canonical over the implemented `--mythos-*` system, on evidence: the approved
+system has a full WCAG-derivation audit trail and a recorded rationale for its
+gold (**A-013**); the implemented system's gold has none (**U-001**). A safe
+migration mapping was **computed and verified** before touching anything — new
+gold `#D9A441` with a `-light` companion derived by preserving the existing
+system's own HLS lightness/saturation offset, checked against every ground
+`mythos.css` actually uses, meeting or exceeding current contrast at all of
+them. **The edit was made, and then reverted.** `tests/mos-1-console-test.js`
+failed 3 of 322 assertions — not because the values were wrong, but because
+that suite **deliberately reads `--gold` live from `css/main.css` at the
+repository root and asserts the console matches it verbatim**, to catch drift
+from the real application. **`css/main.css` is not a sandbox — it is the actual
+Mythos OS application's stylesheet**, the same file every recovery document in
+this program measured contrast from, serving the same app whose `index.html`
+still carries the "Uthina Chess" branding drift **1H** recorded as unfixed.
+This project's own verification tool, `tools/visual-verify.js`, **deliberately
+drives only the isolated console reference and states nothing it does can reach
+production** — the project's own convention already treats this file as out of
+bounds for exactly this kind of change. **The edit was reverted before any
+commit; `git status` confirmed clean and the suite re-run confirmed 322/322.**
+Execution of **MIG-1** (gold) and **MIG-3** (spacing/radius) stays deferred —
+not for lack of authority, but because this session has no way to run
+full-application visual regression against the real stylesheet, and the
+mandate's own instruction to protect production systems weighs against editing
+it without that proof. The verified mapping is recorded and ready.
+
+**Nothing outside documentation changed this stage.** `git status` is clean of
+anything but the three files this entry updates
+(`docs/MYTHOS_DESIGN_DECISIONS.md`, `docs/design/LOGO_SYSTEM.md`,
+`docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md`) plus this file. Historical
+logos untouched. No project, CSS or application file differs from `main`.
+
+**Next, under the same mandate:** the remaining phases the owner named —
+remaining design-decision sweep, 1I prototypes, design-system consolidation,
+implementation-readiness audit, per-project migration plans — are documentation
+work this session can do safely and is continuing to. **Actual deployment
+(Mythos OS, Command Center, `mythosprod.xyz`, public-project migration, live
+smoke tests) requires host access this session has never had** — confirmed
+absent again this stage (`/var/www`, `/srv/mythos`, `/home/deploy` all still
+missing) — and MOS-1.2's own handover entry independently confirms *"the host
+is unreachable from any Claude session."* That is the genuine technical/access
+blocker the mandate's own exit condition anticipates for those specific phases.
+
+**Previously:** MYTHOS **MOS-1.2 — DEPLOYMENT AUTOMATED WITH HARD GATES; A CLAIM I MADE TWICE WAS WRONG AND IS CORRECTED. PR #12 IS MERGED. STILL NOT DEPLOYED — THE HOST IS UNREACHABLE FROM ANY CLAUDE SESSION.**
 
 **Stage:** MOS-1.2 · **Status:** committed and pushed; deployment is an on-host action
 **Commit:** `a253bde716a50f61c27eb24f444789bab96b7569`

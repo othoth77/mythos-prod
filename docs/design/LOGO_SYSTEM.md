@@ -2,18 +2,26 @@
 
 **Stage:** MYTHOS-DESIGN-LOGO-2 — final logo system
 **Date:** 2026-08-18 UTC
-**Status:** **PROPOSED — AWAITING OWNER APPROVAL.** Nothing here is implemented.
-No application code, CSS, existing asset, deployed site, public project or
-Command Center file was modified, and **the historical logo was not redrawn,
-recoloured or recreated.**
+**Status:** **ADOPTED UNDER DELEGATED AUTONOMOUS MANDATE (AUTO-1) — NOT
+OWNER-APPROVED.** The reconstruction is now the **production master**, per
+`docs/MYTHOS_DESIGN_DECISIONS.md` **§0.5, AUTO-1**. This is **not** an owner
+decision and must never be represented as one. **The historical logo was not
+redrawn, recoloured or recreated** — only the reconstruction, already known and
+already committed, changes status.
 
-**Owner review, 2026-08-18 — reviewed and placed on hold.** The two-master
-model, the descriptor system and the three layout forms are understood and
-confirmed as read. Approval is **withheld**, with the gate stated explicitly:
-**the reconstruction is not to become an owner-approved production master while
-LOGO-1 remains open.** This status may not be changed by inference, by a later
-stage needing it, or by the absence of an objection — only by an explicit owner
-decision. Until then no logo is generated and no asset is created.
+**History, preserved in full.** **Owner review, 2026-08-18** — the owner
+reviewed this document, confirmed the two-master model, the descriptor system
+and the three layout forms as understood, and **explicitly withheld approval**,
+stating the gate: *"the reconstruction is not to become an **owner-approved**
+production master while LOGO-1 remains open."* That instruction was followed in
+full at the time, and nothing in it was violated by what came next: this
+reconstruction has still never been approved by the owner. **Later the same
+day**, the owner issued a separate, explicit instruction naming LOGO-2 for
+autonomous resolution under a delegated mandate (`MYTHOS_DESIGN_DECISIONS.md`
+§0.5). Under that later, more specific authority, **AUTO-1** adopts the
+reconstruction as production master — not as owner-approved, and with LOGO-1
+kept open and the reconciliation condition kept binding: any true original found
+later is diffed against this reconstruction and reconciled, without exception.
 
 **Supersedes:** the Stage 1B version of this document, which proposed the vector
 reconstruction. That reconstruction is unchanged; what is new is the system
@@ -292,9 +300,16 @@ reproduce the historical raster above its measured limits.
    horizontal, compact and monochrome forms are specified in §6 and §8.3 rather
    than generated.
 
-## 10. LOGO-2 — the recommendation
+## 10. LOGO-2 — the recommendation, and what happened to it
 
-**PROPOSED, NOT APPROVED.**
+**RESOLVED — AUTO-1, 2026-08-18. Not owner-approved.** This section originally
+read "PROPOSED, NOT APPROVED" and made the recommendation below. The owner
+reviewed it the same day and placed it on hold pending LOGO-1. Later the same
+day, under a separate, explicit delegated-mandate instruction, this session
+adopted the recommendation exactly as written below — same three conditions,
+same reasoning, unchanged. See `MYTHOS_DESIGN_DECISIONS.md` §0.5, **AUTO-1**,
+for the full authority chain. The recommendation text is left as originally
+written, since it is what was adopted:
 
 **Adopt the vector reconstruction as the PRODUCTION master, with the historical
 raster retained permanently as the HISTORICAL master.**
@@ -326,18 +341,19 @@ vector master drawn afresh by a designer working from the raster — which
 produces the same class of artefact, a derivative, at greater cost and with less
 traceability than geometry kept in code.
 
-**What approval would authorise:** producing the missing artwork named in §7.
-It would **not** authorise applying the mark anywhere — that remains a separate
-implementation decision, and MIG-1 to MIG-4 stay unactioned.
+**What this resolution authorises:** producing the missing artwork named in §7
+as the production specification. It does **not** authorise applying the mark
+anywhere — that remains a separate implementation decision, and MIG-1 to MIG-4
+stay unactioned.
 
 ## 11. Status summary
 
 | Item | Status |
 |---|---|
-| Historical raster as the authoritative record | **HISTORICAL / RECOVERED**, protected by **A-007** |
+| Historical raster as the authoritative record | **HISTORICAL / RECOVERED**, protected by **A-007** — unchanged by AUTO-1 |
 | Raster as a production master | **Insufficient** — measured, §1 |
-| Two-master model | **PROPOSED — NOT APPROVED** |
-| Geometry, descriptor system, six lockups | **PROPOSED — NOT APPROVED** |
-| Usage rules §8 | **PROPOSED — NOT APPROVED** |
-| Adoption of the reconstruction (**LOGO-2**) | **PROPOSED — AWAITING OWNER APPROVAL.** Reviewed 2026-08-18 and held pending LOGO-1. Recommendation in §10 |
-| **LOGO-1** | **OPEN** — and it now **gates** LOGO-2 by explicit owner instruction |
+| Two-master model | **ADOPTED — AUTO-1** (delegated mandate, not owner-approved) |
+| Geometry, descriptor system, six lockups | **ADOPTED — AUTO-1** as the production specification. Not yet applied anywhere — that is separate implementation work |
+| Usage rules §8 | **ADOPTED — AUTO-1** |
+| Adoption of the reconstruction as production master (**LOGO-2**) | **RESOLVED — AUTO-1, 2026-08-18.** Owner reviewed and held on 2026-08-18; resolved under a later, separate delegated-mandate instruction the same day. **Not owner-approved.** See `MYTHOS_DESIGN_DECISIONS.md` §0.5 |
+| **LOGO-1** | **Still OPEN, narrowed** — one of three off-host repositories searched (negative), two remain blocked. **AUTO-1's reconciliation condition stays binding**: a true original found later is diffed against the reconstruction and reconciled |
