@@ -51,6 +51,7 @@ VHOST_AVAIL="/etc/nginx/sites-available/$DOMAIN"
 VHOST_ENABLED="/etc/nginx/sites-enabled/$DOMAIN"
 NEIGHBOURS=(ordre.mythosprod.xyz panel.mythosprod.xyz tv.mythosprod.xyz)
 ASSUME_YES="${MOS_ASSUME_YES:-0}"
+READY_TIMEOUT="${MOS_READY_TIMEOUT:-30}"
 [ "${1:-}" = "--assume-yes" ] && ASSUME_YES=1
 
 DID_ENV=0; DID_UNIT=0; DID_SYMLINK=0
@@ -63,7 +64,7 @@ die()  { printf '  \033[31mSTOP\033[0m  %s\n' "$1" >&2; exit 1; }
 confirm() {
   [ "$ASSUME_YES" = "1" ] && return 0
   local reply
-  read -rp "  >> $1 [y/N] " reply
+  read -r -p "  >> $1 [y/N] " reply
   case "$reply" in y|Y|yes|YES) return 0 ;; *) die "declined by operator" ;; esac
 }
 
@@ -166,6 +167,50 @@ systemctl --user is-active --quiet mythos-os-console \
   || { journalctl --user -u mythos-os-console -n 30 --no-pager >&2 || true; die "unit is not active. Log above."; }
 ok "mythos-os-console is $(systemctl --user is-active mythos-os-console)"
 
+# systemd calls a Type=simple unit active as soon as it has forked, which is
+# before Node has bound the port. Phase 4 curls /api/health immediately, so
+# without an explicit wait it intermittently reports a connection refused on
+# a service that is perfectly healthy a second later — a false failure that
+# aborts a deployment for no reason. `is-active` answers "did it start"; only
+# the socket answers "can it serve". Gate on the socket.
+#
+# Bounded by wall clock, not by attempt count: each probe may itself take up
+# to --max-time, so counting iterations would silently overshoot the budget.
+say "Phase 3.1 — readiness (GATE: the port must answer before anything is verified)"
+ready=0; last_code=000
+ready_started="$(date +%s)"; ready_deadline=$(( ready_started + READY_TIMEOUT ))
+while :; do
+  # A crash loop must fail fast and loudly rather than burn the whole budget.
+  if systemctl --user is-failed --quiet mythos-os-console; then
+    printf '\n  --- journalctl --user -u mythos-os-console -n 40 ---\n' >&2
+    journalctl --user -u mythos-os-console -n 40 --no-pager >&2 || true
+    die "unit entered a failed state $(( $(date +%s) - ready_started ))s into the readiness wait. Log above."
+  fi
+  # `curl -w` prints 000 itself on a refused connection, so `|| echo 000`
+  # would concatenate to "000000" and fall through the 000 diagnostic branch,
+  # mislabelling "nothing listening" as "bound but erroring". Let curl's own
+  # value stand; `|| true` is only there to satisfy set -e.
+  last_code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:$PORT/api/health")" || true
+  [ -n "$last_code" ] || last_code=000
+  [ "$last_code" = "200" ] && { ready=1; break; }
+  [ "$(date +%s)" -ge "$ready_deadline" ] && break
+  sleep 1
+done
+if [ "$ready" != 1 ]; then
+  printf '\n  waited %ss for http://127.0.0.1:%s/api/health; last HTTP code: %s\n' \
+    "$(( $(date +%s) - ready_started ))" "$PORT" "$last_code" >&2
+  case "$last_code" in
+    000) printf '  000 — nothing accepted the connection: the process never bound the port.\n' >&2 ;;
+    *)   printf '  %s — the port answered but not with 200: it bound and is erroring.\n' "$last_code" >&2 ;;
+  esac
+  printf '\n  --- systemctl --user status mythos-os-console ---\n' >&2
+  systemctl --user status mythos-os-console --no-pager -n 0 >&2 || true
+  printf '\n  --- journalctl --user -u mythos-os-console -n 40 ---\n' >&2
+  journalctl --user -u mythos-os-console -n 40 --no-pager >&2 || true
+  die "127.0.0.1:$PORT did not serve /api/health with HTTP 200 within ${READY_TIMEOUT}s."
+fi
+ok "127.0.0.1:$PORT answering /api/health with 200 after $(( $(date +%s) - ready_started ))s"
+
 # ---------------------------------------------------------------------
 say "Phase 4 — local verification (GATE: nothing is exposed until this passes)"
 health="$(curl -fsS --max-time 10 "http://127.0.0.1:$PORT/api/health")" || die "GET /api/health failed on 127.0.0.1:$PORT."
@@ -251,7 +296,18 @@ say "Phase 8 — TLS"
 if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
   ok "certificate already present"
 else
-  sudo certbot --nginx -d "$DOMAIN" --dry-run || die "certbot dry run FAILED. No certificate requested."
+  # `certonly` is REQUIRED here, not stylistic. certbot's own guard
+  # (cli_utils.set_test_server_options) rejects --dry-run for any verb outside
+  # certonly/renew/reconfigure, and the bare `certbot --nginx` form uses the
+  # implicit `run` verb -- which is exactly what stopped the real deployment at
+  # this line: "--dry-run currently only works with the 'certonly' or 'renew'
+  # subcommands ('run')". Verified against certbot 4.0.0.
+  #
+  # certonly exercises the same nginx authenticator the real issuance below
+  # uses, so this remains a true preflight, but it never runs the installer, so
+  # it cannot edit the nginx config. --dry-run forces staging=True inside
+  # certbot, so no production certificate can be issued by this line.
+  sudo certbot certonly --nginx -d "$DOMAIN" --dry-run || die "certbot dry run FAILED. No certificate requested."
   ok "certbot dry run passed"
   confirm "request the real certificate for $DOMAIN? (Let's Encrypt rate limits apply)"
   sudo certbot --nginx -d "$DOMAIN" || die "certbot FAILED."
