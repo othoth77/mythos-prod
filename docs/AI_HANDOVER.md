@@ -223,6 +223,63 @@ needs an explicit decision rather than an assumption.
 
 ---
 
+## MOS-1.8 — TEMPORARY INTERNAL LOGIN GATE (2026-08-18) — **PASS; NOT THE FINAL AUTH ARCHITECTURE; NOT DEPLOYED**
+
+### Stage
+
+MOS-1.8 — a client-side, UI-level temporary login gate placed in front of the Mythos OS Command Center (`projects/mythos-os-console/`), while it is internal-only. **Explicitly not the final authentication/authorization architecture** — recorded as such throughout, so it is never mistaken for one later.
+
+### Why client-side, and why that is the correct choice here (not a shortcut)
+
+`server.js` documents its own guarantee in its header comment: **"THE READ-ONLY PROPERTY IS STRUCTURAL, NOT POLICY."** Only `GET`/`HEAD` are ever routed, no request body is ever read, and `tests/mos-1-console-test.js` asserts this at source level — adding a write surface fails the suite rather than shipping quietly. A server-side password-check endpoint would itself be exactly the write surface this guarantee exists to prevent. The gate is therefore entirely client-side: **zero new routes, zero request-body reads, the control-plane API completely untouched.**
+
+### What was built
+
+| File | Change |
+|---|---|
+| `projects/mythos-os-console/reference/web/login-gate.css` | New. Visual language adapted (not copied) from the legacy Mythos Prod ERP login screen (`js/auth.js`), composed entirely from existing `var(--mythos-*)` tokens — zero literal colour values |
+| `projects/mythos-os-console/reference/web/login-gate.js` | New. One password field, Enter submits, SHA-256 digest comparison via Web Crypto (`crypto.subtle.digest`) — **the password is never shipped as plaintext, only its digest**. `sessionStorage`-based unlocked state (survives a same-session refresh, clears on session end). Fails closed if markup is missing or Web Crypto is unavailable |
+| `projects/mythos-os-console/reference/server.js` | +2 lines — two new entries in the existing static-file whitelist, identical shape to the existing six, no new mechanism |
+| `projects/mythos-os-console/reference/web/index.html` | +28 lines, 0 deletions — the gate markup as the first child of `<body>` (before the existing `#app`), plus a stylesheet `<link>` and one `<script src="/login-gate.js">` tag. Not one existing line touched |
+| `tests/mos-1-console-test.js` | +73/-4 — extended the existing exact-match "no inline script" regex to name the one new tag; added HTTP coverage for the two new static files; added colour-purity assertions for `login-gate.css` mirroring `console.css`'s; added gate-specific source assertions (§ below) |
+
+### Behaviour delivered against the spec
+
+One password field labelled "Mot de passe"; Enter submits (native form submit, no extra keyboard handling needed); wrong password shows exactly `Mot de passe incorrect.` via `textContent`; correct password removes the gate from the DOM and sets the session flag; refresh within the same browser session does not re-prompt; no username field, no registration, no forgot-password, no social login, no unnecessary text. The gate sits before the Command Center in document order and blocks it visually/interactively via a fixed, opaque, high-z-index overlay — it does not wrap, hide, fetch-gate, or modify a single existing line of the Command Center's own markup, styles, or scripts.
+
+**Honestly scoped, not oversold:** this is a UI-level gate, not a data boundary. The underlying page's own network calls to `/api/*` are not blocked by it — blocking them would require a server-side check, which is exactly the write-surface guarantee above that this stage does not touch. This is recorded explicitly so the gate is never mistaken for real access control.
+
+### Verification performed
+
+| Check | Result |
+|---|---|
+| Password absent from every changed/new file | Swept `server.js`, `index.html`, `login-gate.css`, `login-gate.js`, the test file — **clean** |
+| Password absent from every live HTTP response | Real server started on a scratch port; shell, `login-gate.css`, `login-gate.js` all fetched and grepped — **clean**. Startup log line contains no password |
+| `node --check` | `server.js`, `login-gate.js`, `tests/mos-1-console-test.js` — all clean |
+| `tests/mos-1-console-test.js` | **344 passed, 0 failed** (322 → 344; all 22 new assertions from this change; zero pre-existing assertion altered in meaning) |
+| Real interactive behaviour, on the actual committed source | No headless browser is available on this host (`playwright` absent, matching the README's "a browser is deliberately not a dependency"). Built a DOM-mock harness (Node `vm` + Node's built-in WebCrypto, spec-identical to browser `SubtleCrypto`) that loads and **executes the real, committed `login-gate.js`** — not a reimplementation — across four scenarios: wrong password (error shown, gate stays, no session set, input cleared+refocused); correct password (gate removed, session set); reload with an existing session (gate removed **immediately**, no re-prompt — refresh preserves the temporary login state); Web Crypto unavailable (fails closed). **12/12 checks passed** |
+| Live serving | Real server on `MOS_PORT=18199`: shell serves the gate before `#app`; both new static files 200 with correct content-type and the full security-header set inherited automatically (same `head()` function as every other response — no special-casing needed) |
+| Diff minimality | 5 files, 318 insertions / 3 deletions total; **zero** lines touched in `upstream.js`, `deploy.sh`, any nginx config, or `roadmap-state.json` |
+
+### Record
+
+| | |
+|---|---|
+| Base | `0447209`, branch `main`, fast-forwarded once more mid-stage (see below) |
+| Commit | `94b4cbd` |
+| Remote HEAD | see below — verified after delivery |
+| Tests | `tests/mos-1-console-test.js` 344/344; `node --check` clean; DOM-mock harness 12/12; live-server manual verification as tabulated above |
+| Files changed | `projects/mythos-os-console/reference/server.js`, `.../web/index.html`, `.../web/login-gate.css` (new), `.../web/login-gate.js` (new), `tests/mos-1-console-test.js` |
+| Deployment | **Not performed** — not requested by this stage, and the existing privilege boundary (MOS-1.6/1.7) still applies regardless |
+
+### Mid-stage sync
+
+`origin/main` had advanced again before this stage began (PR mandate commits resolving LOGO-2/LOGO-1/C-006, `0447209`) — fetched via the established read-only HTTPS path and fast-forwarded; zero overlap with anything this stage touched.
+
+### Next stage
+
+**Replace this temporary gate with real authentication/authorization** — the explicit, stated purpose of everything above being scoped the way it is. Until then: deployment remains blocked at the same privilege boundary recorded in MOS-1.6/1.7 (unrelated to this stage, since deployment was not requested here); the design-branch/LOGO governance items are separately tracked; the deployment governance amendment (production `LEVEL_3` boundary vs. chat delegation) remains open.
+
 ## MOS-1.7 — `--machine=deploy@.host` TESTED AND REFUSED (2026-08-18) — **STILL BLOCKED; SAME BOUNDARY, CONFIRMED FROM A SECOND ANGLE; NOTHING DEPLOYED, NO CERTIFICATE REQUESTED, deploy.sh UNTOUCHED**
 
 ### Stage

@@ -85,6 +85,8 @@ var STATIC = {
   '/console.css': { file: path.join(WEB, 'console.css'), type: 'text/css; charset=utf-8' },
   '/modules.js': { file: path.join(WEB, 'modules.js'), type: 'application/javascript; charset=utf-8' },
   '/app.js': { file: path.join(WEB, 'app.js'), type: 'application/javascript; charset=utf-8' },
+  '/login-gate.css': { file: path.join(WEB, 'login-gate.css'), type: 'text/css; charset=utf-8' },
+  '/login-gate.js': { file: path.join(WEB, 'login-gate.js'), type: 'application/javascript; charset=utf-8' },
   '/assets/logomythos.png': { file: path.join(REPO_ASSETS, 'logomythos.png'), type: 'image/png' }
 };
 

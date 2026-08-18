@@ -63,6 +63,8 @@ var mythosCss = read(path.join(WEB, 'mythos.css'));
 var consoleCss = read(path.join(WEB, 'console.css'));
 var appJs = read(path.join(WEB, 'app.js'));
 var shellHtml = read(path.join(WEB, 'index.html'));
+var loginGateCss = read(path.join(WEB, 'login-gate.css'));
+var loginGateJs = read(path.join(WEB, 'login-gate.js'));
 var serverJs = read(path.join(REF, 'server.js'));
 var upstreamJs = read(path.join(REF, 'upstream.js'));
 
@@ -107,6 +109,13 @@ ok(/fonts\.googleapis\.com\/css2\?family=Playfair\+Display[^"]*Inter/.test(shell
 ok(!/#[0-9a-fA-F]{3,8}\b/.test(consoleCss), 'console.css declares no hex colour');
 ok(!/rgba?\(/.test(consoleCss), 'console.css declares no rgb/rgba colour');
 ok(/var\(--mythos-/.test(consoleCss), 'console.css composes from design-system tokens');
+
+// login-gate.css is a separate composition file (the temporary internal
+// login gate, see login-gate.js). Same discipline as console.css: no
+// literal colour, tokens only.
+ok(!/#[0-9a-fA-F]{3,8}\b/.test(loginGateCss), 'login-gate.css declares no hex colour');
+ok(!/rgba?\(/.test(loginGateCss), 'login-gate.css declares no rgb/rgba colour');
+ok(/var\(--mythos-/.test(loginGateCss), 'login-gate.css composes from design-system tokens');
 
 // Recovered component idioms.
 ok(/inset -3px 0 0 var\(--mythos-gold\)/.test(mythosCss), 'active nav item keeps the inset gold rail from main.css');
@@ -191,13 +200,65 @@ ok(!/child_process|[^.\w]exec\(|[^.\w]spawn\(|[^.\w]eval\(|new Function/.test(se
   ok(appCode.indexOf(sink) === -1, 'client never uses ' + sink);
 });
 ok(/textContent/.test(appCode), 'client assigns text through textContent');
-ok(!/<script/.test(shellMarkup.replace(/<script src="\/(modules|app)\.js"><\/script>/g, '')),
-   'the shell has no inline script');
+ok(!/<script/.test(shellMarkup.replace(/<script src="\/(modules|app|login-gate)\.js"><\/script>/g, '')),
+   'the shell has no inline script (login-gate.js is the one new, named, external script tag)');
 ok(!/ style="/.test(shellMarkup), 'the shell has no inline style attribute');
 
 // Static serving is a whitelist, not a resolved path.
 ok(/hasOwnProperty\.call\(STATIC, pathname\)/.test(serverCode), 'static files come from an explicit whitelist');
 ok(!/path\.join\([^)]*pathname/.test(serverCode), 'no request path is ever joined onto a directory');
+
+// The two new static entries follow the identical whitelist pattern —
+// no new route, no new mechanism, nothing to weaken.
+ok(/'\/login-gate\.css':\s*\{ file: path\.join\(WEB, 'login-gate\.css'\)/.test(serverCode),
+   'login-gate.css is served through the same static whitelist as every other asset');
+ok(/'\/login-gate\.js':\s*\{ file: path\.join\(WEB, 'login-gate\.js'\)/.test(serverCode),
+   'login-gate.js is served through the same static whitelist as every other asset');
+
+// ---------------------------------------------------------------------------
+// 2b. TEMPORARY LOGIN GATE — source-level guarantees
+//
+// This is a UI-level gate, not a data boundary: it changes no server
+// route, reads no request body, and calls no backend of any kind — the
+// server.js read-only guarantees above are untouched by its existence.
+// What is tested here is specific to the gate itself: the credential
+// lives only as a SHA-256 digest, never as text; the client renders
+// only through textContent, like the rest of this app; and the gate
+// markup actually exists in the shell it is meant to sit in front of.
+// ---------------------------------------------------------------------------
+
+var loginGateCode = code(loginGateJs);
+
+// The stored secret material is shaped like a SHA-256 digest (64 lowercase
+// hex characters) and nothing else — never the plaintext password. This
+// is checked structurally, without this suite ever holding or comparing
+// against the plaintext itself.
+ok(/HASH\s*=\s*'[0-9a-f]{64}'/.test(loginGateCode),
+   'the gate stores a SHA-256 digest, not a plaintext password');
+
+['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write'].forEach(function (sink) {
+  ok(loginGateCode.indexOf(sink) === -1, 'login-gate.js never uses ' + sink);
+});
+ok(/textContent/.test(loginGateCode), 'login-gate.js assigns error text through textContent');
+ok(!/child_process|[^.\w]exec\(|[^.\w]spawn\(|[^.\w]eval\(|new Function/.test(loginGateCode),
+   'no execution path in login-gate.js (MCC-1 precedent)');
+ok(/sessionStorage/.test(loginGateCode) && !/localStorage/.test(loginGateCode),
+   'the unlocked state is session-scoped (sessionStorage), never persisted across browser sessions (localStorage)');
+ok(/crypto\.subtle\.digest/.test(loginGateCode), 'the password is verified via Web Crypto, never sent anywhere');
+
+// The gate markup exists in the shell, before the existing Command
+// Center element in document order, and is the ONLY thing an
+// unauthenticated visitor's markup contains ahead of it.
+var gateIdx = shellHtml.indexOf('id="mythos-gate"');
+var appIdx = shellHtml.indexOf('id="app"');
+ok(gateIdx !== -1, 'the login gate markup exists in the shell');
+ok(appIdx !== -1 && gateIdx !== -1 && gateIdx < appIdx,
+   'the login gate sits before the Command Center in document order');
+ok(/id="mythos-gate-password"[^>]*type="password"/.test(shellHtml) ||
+   /type="password"[^>]*id="mythos-gate-password"/.test(shellHtml),
+   'the gate has exactly one password-type input');
+ok(!/name="username"|type="text"[^>]*login|<select/.test(shellMarkup.slice(gateIdx, appIdx)),
+   'the gate has no username field, no registration, no additional login-adjacent controls');
 
 // ===========================================================================
 // 3. THE MODULE REGISTRY
@@ -327,13 +388,15 @@ startStub().then(function (stub) {
       req(port, '/api/budget'), req(port, '/api/agents'), req(port, '/api/providers'),
       req(port, '/api/roadmap'), req(port, '/api/modules'),
       req(port, '/', 'POST'), req(port, '/api/missions', 'DELETE'),
-      req(port, '/etc/passwd'), req(port, '/../../css/main.css'), req(port, '/missions')
+      req(port, '/etc/passwd'), req(port, '/../../css/main.css'), req(port, '/missions'),
+      req(port, '/login-gate.css'), req(port, '/login-gate.js')
     ]).then(function (r) {
       var shell = r[0], css = r[1], ccss = r[2], ajs = r[3], mjs = r[4];
       var health = r[5], missions = r[6], campaigns = r[7];
       var ev7 = r[8], evMax = r[9], budget = r[10], agents = r[11], providers = r[12];
       var roadmap = r[13], mods = r[14], post = r[15], del = r[16];
       var passwd = r[17], traverse = r[18], deep = r[19];
+      var gateCss = r[20], gateJs = r[21];
 
       eq(shell.status, 200, 'shell is served');
       ok(/MYTHOS OS/.test(shell.text), 'shell carries the Mythos OS title');
@@ -341,6 +404,10 @@ startStub().then(function (stub) {
       eq(ccss.status, 200, 'console.css is served');
       eq(ajs.status, 200, 'app.js is served');
       eq(mjs.status, 200, 'modules.js is served');
+      eq(gateCss.status, 200, 'login-gate.css is served');
+      eq(gateJs.status, 200, 'login-gate.js is served');
+      eq(gateCss.headers['content-type'], 'text/css; charset=utf-8', 'login-gate.css has the correct content type');
+      eq(gateJs.headers['content-type'], 'application/javascript; charset=utf-8', 'login-gate.js has the correct content type');
 
       // Security headers on every response, including static.
       [shell, css, health, passwd].forEach(function (x, n) {
