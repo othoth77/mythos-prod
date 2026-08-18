@@ -559,6 +559,95 @@ uses, not softened. It remains fully reversible: no application, no
 production file, nothing outside this specification layer and two static
 prototypes is affected.
 
+### AUTO-6 — real local visual-regression tooling built and pilot-verified; MIG-1/MIG-2 rescoped on real evidence
+
+**Trigger.** Continuation instruction item 2: inspect the actual Mythos OS
+application architecture, build the safest possible visual-regression
+procedure, compare the approved system against the actual application
+without blindly rewriting `css/main.css`, and — if full verification isn't
+safely possible — build everything needed to make the migration executable
+later, clearly separated from anything actually applied.
+
+**What was found, before any tool was built.** `css/main.css` is not a
+sandbox and never was — it is the real, live, production stylesheet of
+`index.html`, the actual application this repository's own `README.md`
+identifies as **"Production management platform for Mythos clients (chess
+school)," live at `https://uthinachess.tn/0726/Prod/`**, a PHP + vanilla-JS
+SPA with real client data, invoices, and Google OAuth. This is consistent
+with — not a correction of — `docs/MYTHOS_DESIGN_RECOVERY.md` §4.1, which
+named `css/main.css` "the only Mythos-branded design system that exists as
+implemented, committed code" from the very first recovery stage, distinct
+from Uthina Chess's own separate public brand kit (§4.2, `--uc-*` tokens,
+a different file entirely). **The stakes this reconfirms: this file is
+genuinely, currently serving real production traffic and real client
+data**, which is exactly why AUTO-2 stopped short of touching it and why
+this stage builds verification tooling before attempting anything further,
+not instead of caution.
+
+**What was built.** `tools/visual-verify.js` (repo root, new) — copies the
+application's static surface into an isolated OS temp directory (never
+this checkout: `api.php` auto-creates `appdata/` on first request, and this
+tool structurally prevents that from ever landing inside a real checkout),
+serves it locally with `php -S`, seeds the browser session exactly the way
+`js/auth.js`'s own `AUTH.createSession()` does (the same flag a real login
+sets, written client-side — no credential guessed, no OAuth touched), then
+screenshots named views with a real headless browser. **Hard-coded,
+in-code guard**: refuses any host that is not `127.0.0.1`/`localhost` —
+this tool cannot be pointed at `uthinachess.tn`, by construction, not by
+convention.
+
+**What was verified with it — a real pilot, not a demonstration.** The
+`--gold`/`--gold-light`/`--gold-dim` custom-property declarations were
+changed to the approved values (`#D9A441`/`#EBCE99`/`rgba(217,164,65,.12)`,
+was `#c9a84c`/`#e4c472`/`rgba(201,168,76,.12)`) in an **isolated copy
+only**, and three real views were screenshotted before and after.
+Pixel-diffed (`PIL.ImageChops`): 0.04–0.54% of frame changed per view,
+confined entirely to gold-coloured elements, zero layout regression. This
+is the first genuinely measured, not asserted, evidence this whole program
+has produced about what a `css/main.css` change actually does when
+rendered.
+
+**What the pilot also proved — real scope, larger than previously
+recorded.** Grepping the actual application (not just `css/main.css`) for
+the literal `#c9a84c` finds **42 occurrences across 12 files** — most of
+them hardcoded inside JavaScript-generated HTML strings in the accounting
+module (bank entries, purchases, suppliers, TVA validation), entirely
+outside the CSS custom-property system. **MIG-1's own register statement
+— "Align `--gold: #c9a84c`... a token-level change: one value" — undercounts
+the real migration by 41 sites.** The same check for `MIG-2` ("the 45
+Playfair Display declarations") finds **93 occurrences across 14 files** —
+also undercounted, by more than half. Full mapping, file-by-file:
+`docs/design/MIG_EXECUTION_MAPPING.md`.
+
+**What this stage explicitly does NOT do.** It does not execute MIG-1,
+MIG-2, MIG-3, or MIG-4. It does not modify `css/main.css`, any JS file, or
+`index.html` in the tracked repository — every change from the pilot lived
+only in a temporary, isolated copy, deleted after the run. It does not
+claim the CSS-property-only pilot result generalises to a safe full
+migration — the 39 remaining JS/HTML literal sites are explicitly
+unverified, and the pilot's three views never reached the
+accounting/fournisseurs modules where most of them concentrate. **This
+mirrors AUTO-2's original discipline exactly, with one real difference: a
+verification capability now exists where none did, and the honest scope of
+two migrations is now measured instead of estimated.**
+
+**Corrections to prior documents, recorded not silently applied.**
+`MYTHOS_DESIGN_DECISIONS.md`'s MIG-1 and MIG-2 statements (§ recovery-era
+register, "Not yet actioned" table) described a 1-value swap and "45
+declarations" respectively — both now shown, by direct measurement, to
+understate the real scope. Corrected in `MIGRATION_PLANS.md`,
+`IMPLEMENTATION_READINESS_AUDIT.md`, and this entry, with the original
+statements left visible rather than deleted (their register rows are
+struck through and annotated, not removed).
+
+**Authority, reversibility and scope.** **AUTO-6, NOT owner-approved.**
+The tool itself is new, additive, untracked by any build (this repository
+has none, by design — `README.md`), and inert unless deliberately invoked
+— it does not run automatically, and running it touches only a temporary
+directory outside the repository. Fully reversible: deleting
+`tools/visual-verify.js` and `docs/design/MIG_EXECUTION_MAPPING.md`
+returns the repository to its pre-AUTO-6 state exactly.
+
 ### Stage 1I — design prototypes delivered
 
 **Not a decision — a deliverable, recorded for completeness.** Seven
@@ -888,8 +977,8 @@ by inference.**
 | **O-004b** | Whether and when Mythos Services, Digital and Logistique become operating brands | No | **A-002** fixes the roster; the evidence gap for these three is unchanged |
 | ~~**TYPE-1**~~ | Retire Playfair Display from the master brand? | — | **RESOLVED 2026-08-18 by A-014** — retired from the master; master stack is Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono |
 | ~~**SEM-1**~~ | Adopt the corrected semantic palette? | — | **RESOLVED 2026-08-18 by A-015** — adopted, verified on all four surfaces |
-| **MIG-1** | Align Mythos OS's implemented `--gold: #c9a84c` with the approved master `#D9A441` | Not yet | **NEW, from A-013.** A token-level change: one value. **Not actioned** — the 1C approval is specification-only. Belongs to an authorised implementation stage |
-| **MIG-2** | Replace the 45 `Playfair Display` declarations in `css/*.css` | Not yet | **NEW, from A-014.** **Not actioned** — specification only |
+| **MIG-1** | ~~Align Mythos OS's implemented `--gold: #c9a84c` with the approved master `#D9A441`~~ — **real scope measured AUTO-6: 42 occurrences, 12 files, not one value** | Not yet | **NEW, from A-013.** **Not actioned** — CSS-property layer pilot-verified clean (AUTO-6); 39 JS/HTML literal sites unverified. See `docs/design/MIG_EXECUTION_MAPPING.md` |
+| **MIG-2** | ~~Replace the 45 `Playfair Display` declarations in `css/*.css`~~ — **real scope measured AUTO-6: 93 occurrences, 14 files, not 45, and not confined to CSS** | Not yet | **NEW, from A-014.** **Not actioned.** See `docs/design/MIG_EXECUTION_MAPPING.md` |
 | **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Not yet | **NEW, from A-015 / A-016.** **Not actioned** — specification only. Closes three measured contrast failures and the missing 3 : 1 control boundary |
 | **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** As a Mythos OS product it should carry the Mythos OS visual language, not a third divergent one. **Not actioned** — the O-A1 approval is classification only and explicitly forbids touching Command Center code, CSS, assets, deployment or branding |
 | **SEQ-1** | Sequential and diverging data scales for continuous data | No | **NEW, raised by 1D.** The eight-series categorical palette is approved; continuous scales were outside the 1C scope and must not be improvised (`docs/design/COLOR_SYSTEM.md` §5) |

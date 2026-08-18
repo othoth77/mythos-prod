@@ -1,7 +1,85 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **FULL AUTONOMOUS MANDATE, FIFTH PASS — GRID-2 RESOLVED (AUTO-5): PROSE MEASURE SET TO 48ch, EXPLICITLY SUPERSEDING 1C §5's 68ch APPROXIMATION ON REAL FONT METRICS, UNDER AN EXPLICIT CONTINUATION INSTRUCTION AUTHORISING THAT SUPERSESSION. FIRST AUTO-\* DECISION IN THIS PROGRAMME TO OVERRIDE A NUMBER IN AN OWNER-APPROVED SECTION, RATHER THAN FILL A GAP — FLAGGED AS SUCH, NOT SOFTENED. NO OWNER-APPROVED SOURCE DOCUMENT EDITED; ONLY THE DERIVED/CANONICAL AND MACHINE-READABLE LAYERS CARRY THE NEW VALUE.**
+**From:** MYTHOS **FULL AUTONOMOUS MANDATE, SIXTH PASS — REAL LOCAL VISUAL-REGRESSION TOOLING BUILT AND PILOT-VERIFIED (AUTO-6). `css/main.css` CONFIRMED AS GENUINELY LIVE PRODUCTION (`uthinachess.tn`, REAL CLIENT DATA) BEFORE ANYTHING WAS TOUCHED. MIG-1/MIG-2 RESCOPED ON REAL, MEASURED EVIDENCE — BOTH LARGER THAN PREVIOUSLY RECORDED (42 AND 93 OCCURRENCES, NOT 1 AND 45). NOTHING EXECUTED: THE PILOT RAN ONLY IN AN ISOLATED TEMP COPY, DELETED AFTER THE RUN.**
+
+**What this pass was asked to do, and the caution that governed it.** The
+continuation instruction's item 2 asked for the safest possible
+visual-regression procedure against the real application, explicitly
+warning not to blindly rewrite `css/main.css`. Before building anything,
+this pass re-confirmed exactly what that file is: `README.md` (repository
+root, always present, never previously quoted in this handover) states
+plainly — **"Production management platform for Mythos clients (chess
+school)... Live at `https://uthinachess.tn/0726/Prod/`."** This is
+consistent with `docs/MYTHOS_DESIGN_RECOVERY.md` §4.1's original naming of
+`css/main.css` as "the only Mythos-branded design system that exists as
+implemented, committed code" — not a contradiction requiring correction,
+but a fact worth stating in the clearest possible terms before touching
+anything near it: **this is genuinely live, currently serving real client
+data.** That confirmation is exactly why everything below happened in an
+isolated temp copy, never the tracked checkout.
+
+**What was built: `tools/visual-verify.js` (repo root, new).** Copies the
+app's static surface into a fresh OS temp directory (never this checkout —
+`api.php` auto-creates `appdata/` on first request, and this tool
+structurally prevents that from ever landing here), serves it with
+`php -S 127.0.0.1:<port>`, seeds the browser session exactly as
+`js/auth.js`'s own `AUTH.createSession()` does (the same flag a real login
+sets — zero credentials guessed, zero OAuth touched), screenshots named
+views with a real headless Chromium (the pre-installed
+`/opt/pw-browsers` build; the `playwright` npm package had a version
+mismatch against it, resolved by pinning `executablePath` directly rather
+than attempting any browser download). **Hard-coded guard, in code, not
+documentation**: refuses any host but `127.0.0.1`/`localhost` — cannot be
+pointed at `uthinachess.tn` by construction.
+
+**A real pilot, not a demo.** `--gold`/`--gold-light`/`--gold-dim` changed
+to the approved values (`#D9A441`/`#EBCE99`/`rgba(217,164,65,.12)`) in the
+isolated copy only. Three real views (dashboard, tasks, registrations)
+screenshotted before and after, pixel-diffed with `PIL.ImageChops`:
+**0.04–0.54% of frame changed per view, confined entirely to gold-coloured
+elements, zero layout regression.** First genuinely measured (not
+asserted) evidence this whole design programme has produced about what a
+`css/main.css` change actually renders.
+
+**The pilot also exposed real, previously uncounted scope.** Grepping the
+live application (not just the CSS variable) for `#c9a84c` finds **42
+occurrences across 12 files** — most inside JavaScript-generated HTML
+strings in the accounting module (bank, purchases, suppliers, TVA), wholly
+outside the CSS custom-property system. The register's own MIG-1 statement
+("one value") undercounts by 41 sites. The same check for "Playfair
+Display" (MIG-2) finds **93 occurrences across 14 files**, not the "45"
+previously recorded. **Both corrections are recorded, not silently
+applied** — see `docs/design/MIG_EXECUTION_MAPPING.md` for the full
+file-by-file map, the rollback plan, and exactly what remains before
+either migration could ship for real (the accounting/fournisseurs modules,
+where most JS-literal occurrences concentrate, were never reached by this
+pilot's three views).
+
+**What this pass explicitly did not do.** Did not execute MIG-1, MIG-2,
+MIG-3, or MIG-4. Did not modify `css/main.css`, any JS file, or
+`index.html` in the tracked repository — every pilot change lived only in
+a temp directory, deleted after the run (`git status` confirmed clean
+throughout). Did not attempt MIG-3's full mapping (scope noted: `--muted`,
+73 occurrences across 2 files — not line-mapped this pass). Did not touch
+`appdata/`, `google_config.php`, or any credential — none exists in this
+checkout, confirmed via `.gitignore` before starting.
+
+**GRID-2/AUTO-5 documentation consistency, completed this pass.** Five
+specification documents (`DESIGN_TOKENS.md`, `COMPONENT_SYSTEM.md`,
+`RESPONSIVE_ACCESSIBILITY_MOTION.md`, `PUBLIC_ECOSYSTEM_ARCHITECTURE.md`,
+plus stray mentions elsewhere) still carried "OPEN — GRID-2" language
+dating to AUTO-3, missed by the AUTO-4/5 passes. All corrected to point at
+AUTO-5. Also caught: `PUBLIC_ECOSYSTEM_ARCHITECTURE.md`'s TYPE-2 row still
+said "provisional," predating AUTO-4.
+
+**Authority and reversibility — unchanged from AUTO-1–5.** AUTO-6, not
+owner-approved. `tools/visual-verify.js` is inert unless deliberately
+invoked; deleting it and `docs/design/MIG_EXECUTION_MAPPING.md` returns
+the repository to its exact pre-AUTO-6 state. See
+`MYTHOS_DESIGN_DECISIONS.md` §0.5.
+
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, FIFTH PASS — GRID-2 RESOLVED (AUTO-5): PROSE MEASURE SET TO 48ch, EXPLICITLY SUPERSEDING 1C §5's 68ch APPROXIMATION ON REAL FONT METRICS, UNDER AN EXPLICIT CONTINUATION INSTRUCTION AUTHORISING THAT SUPERSESSION. FIRST AUTO-\* DECISION IN THIS PROGRAMME TO OVERRIDE A NUMBER IN AN OWNER-APPROVED SECTION, RATHER THAN FILL A GAP — FLAGGED AS SUCH, NOT SOFTENED. NO OWNER-APPROVED SOURCE DOCUMENT EDITED; ONLY THE DERIVED/CANONICAL AND MACHINE-READABLE LAYERS CARRY THE NEW VALUE.**
 
 **The decision.** `--mythos-container-prose`: **48ch**, was 65ch (AUTO-3
 token value) / 68ch (1C §5 as approved). Real metrics from the self-hosted

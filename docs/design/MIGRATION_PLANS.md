@@ -24,19 +24,20 @@ authorised for execution by being written down.**
 
 | | |
 |---|---|
-| **Current state** | Implemented, internal, not deployed publicly. Source of the recovered `--c9a84c` gold (**D-001**), the "45 Playfair Display declarations" (**MIG-2**'s target), and the `--muted` 3.47:1 contrast failure **A-015** corrected in specification |
+| **Current state** | Implemented, internal, not deployed publicly. Source of the recovered `--c9a84c` gold (**D-001**), Playfair Display (**MIG-2**'s target), and the `--muted` 3.47:1 contrast failure **A-015** corrected in specification |
 | **What migration means** | `MIG-1` (gold to `#D9A441`), `MIG-2` (Playfair replacement), `MIG-3` (semantic/control-border token alignment) all land here |
-| **Blocked on** | Full-application visual regression tooling this session does not have (**AUTO-2**). This is the **highest-risk target in the whole program** — it is the file every other document in this project measured contrast *from* |
-| **Risk** | High. Silent regression would affect whatever currently consumes this file |
+| **Visual-regression tooling** | **Built and pilot-verified, AUTO-6** — `tools/visual-verify.js` (repo root) drives the real application locally, zero real data or credentials, cannot target production. See `MIG_EXECUTION_MAPPING.md` for the pilot result and the real, re-measured scope of MIG-1 (42 occurrences, 12 files — not 1) and MIG-2 (93 occurrences, 14 files — not 45). Coverage gap named honestly: the pilot's three views don't reach the accounting/fournisseurs modules where most of the JS-literal occurrences concentrate |
+| **Blocked on** | Not tooling any more. What remains: executing the full multi-file change (39 JS/HTML literal sites for MIG-1 alone) correctly and re-verifying it, including the accounting views the current pilot doesn't reach — real work, not a missing capability. Still the **highest-risk target in the whole program** — it is the file every other document in this project measured contrast *from*, and it is genuinely live production (`uthinachess.tn`) |
+| **Risk** | High. Silent regression would affect whatever currently consumes this file. Mitigated, not eliminated, by AUTO-6's tooling |
 | **Recommended order** | Last, after every other migration has proven the process on lower-risk targets |
 
 ### 1.2 Mythos OS Console / Command Center (`projects/mythos-os-console/`)
 
 | | |
 |---|---|
-| **Current state** | Built, tested (322/322), **not deployed** — blocked at a confirmed `deploy`-user privilege boundary (MOS-1.6/1.7), unrelated to design readiness |
+| **Current state** | Built, tested (322/322 at the time; MOS-3C brought the suite to 419/158/257), **not deployed** — blocked at a confirmed `deploy`-user privilege boundary (MOS-1.6/1.7), re-confirmed by MOS-3 PRODUCTION ACTIVATION from a session with real host access; unrelated to design readiness |
 | **What migration means** | `MIG-4` — reconciling `mythos.css`'s `--mythos-*` values with the canonical spec (the exact conflict **C-006**/**AUTO-2** named) |
-| **Blocked on** | The same visual-regression gap as 1.1, though at **smaller scope** — this file has its own isolated test suite (`tests/mos-1-console-test.js`) and its own headless-browser tool (`tools/visual-verify.js`), unlike `css/main.css` |
+| **Blocked on** | The same visual-regression gap as 1.1, though at **smaller scope** — this file has its own isolated test suite (`tests/mos-1-console-test.js`) and its own headless-browser tool (`projects/mythos-os-console/tools/visual-verify.js`, distinct from the repo-root `tools/visual-verify.js` AUTO-6 added for Mythos Prod), unlike `css/main.css` |
 | **Risk** | Medium — real, but bounded by existing tooling that already covers this specific file |
 | **Recommended order** | **First** among the two Mythos-owned CSS targets — it is the one this program already has verification tooling for |
 
@@ -94,9 +95,14 @@ Can start now (no CSS/application-file prerequisite):
   → mythosprod.xyz hub (if O-003 authorises building it at all)
   → Ecosystem-strip footers on any live project the owner wants attributed
 
-Needs full-app visual regression tooling first:
+Tooling gap closed for Mythos Prod (AUTO-6) — execution itself still pending:
   → Mythos OS Console reconciliation (MIG-4) — smaller scope, existing tooling
-  → css/main.css reconciliation (MIG-1/2/3) — largest scope, no tooling yet
+  → css/main.css reconciliation (MIG-1/2/3) — largest scope; tooling now
+    exists and one layer is pilot-verified (see `MIG_EXECUTION_MAPPING.md`),
+    but the real scope is 42 (MIG-1) and 93 (MIG-2) occurrences across 12
+    and 14 files respectively — not the 1-value/45-declaration estimates
+    this document previously carried — so execution is real, multi-file
+    work, not a missing capability any more
 
 Needs an evidence question answered first, not a design decision:
   → AgriBee   (O-007: is it meant to be served?)
