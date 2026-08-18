@@ -297,6 +297,20 @@ session still cannot deploy it (§10.3).
 Run on the VPS as `deploy`, in order. Nothing here is destructive; every
 step is reversible and each one is checked before the next.
 
+**`projects/mythos-os-console/tools/deploy.sh` executes this runbook**
+with every gate below enforced as a hard stop rather than remembered —
+`set -euo pipefail`, the token read without echo, the service verified on
+loopback before anything is exposed, `POST` required to return 405 before
+public exposure, `nginx -t` required to pass before any reload, the three
+neighbouring sites required to stay healthy before certbot runs, and
+`roadmap-state.json` plus the SSANGYONG tree fingerprinted at the start
+and re-checked at the end. It refuses to run anywhere that is not the
+real host, and it stops at the one step `deploy` cannot perform — writing
+the vhost into `/etc/nginx`, which needs root — printing the two commands
+instead of pretending. Re-running it is safe.
+
+The manual sequence below remains the specification the script implements.
+
 ```bash
 # 0. Preflight. Read-only; installs and starts nothing.
 bash projects/mythos-os-console/tools/host-preflight.sh
@@ -305,10 +319,28 @@ bash projects/mythos-os-console/tools/host-preflight.sh
 node tests/mos-1-console-test.js            # expect: 322 passed, 0 failed
 
 # 2. Credentials. Outside the worktree, 0600, never echoed.
+#    The earlier form here read inside a command substitution:
+#      printf '...%s\n' "$(read -rs T; echo "$T")"
+#    Under bash that does work — the subshell inherits stdin and the
+#    substitution captures the value. It was replaced for two reasons
+#    that are real: it prints NO prompt, so the operator faces a blank
+#    line with no sign that input is wanted; and `echo` is not
+#    backslash-safe across shells, so running the block under sh/dash
+#    silently CORRUPTS a token containing a backslash (verified:
+#    tok\with\backslash became tok\withackslash). Read into a variable
+#    in the current shell and print with printf instead.
+umask 077
 install -d -m 700 /home/deploy/deployments/mythos-os-console
-printf 'MOS_EXECUTOR_TOKEN=%s\n' "$(read -rs T; echo "$T")" \
+printf 'MOS_EXECUTOR_TOKEN (input hidden): '
+IFS= read -rs MOS_TOK && printf '\n'
+printf 'MOS_EXECUTOR_TOKEN=%s\n' "$MOS_TOK" \
   > /home/deploy/deployments/mythos-os-console/.env
+unset MOS_TOK
 chmod 600 /home/deploy/deployments/mythos-os-console/.env
+
+#    Verify WITHOUT printing the value: mode, and a line count.
+stat -c '%a %U:%G %n' /home/deploy/deployments/mythos-os-console/.env
+grep -c '^MOS_EXECUTOR_TOKEN=.\+$' /home/deploy/deployments/mythos-os-console/.env   # must be 1
 
 # 3. The service, before nginx — so the vhost never proxies to nothing.
 mkdir -p ~/.config/systemd/user
