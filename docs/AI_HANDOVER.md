@@ -122,6 +122,61 @@ needs an explicit decision rather than an assumption.
 
 ---
 
+## MOS-1.5 — confirm() EXPLICIT read -r -p (2026-08-18) — **PASS; NOT DEPLOYED, NO CERTIFICATE ISSUED**
+
+### Stage
+
+MOS-1.5 — one-line fix to `confirm()` in `projects/mythos-os-console/tools/deploy.sh`. Fix prepared and validated only; **no deployment performed**.
+
+### Owner report and independent finding
+
+The owner reported the `confirm()` bug still present on the VPS, showing:
+
+```text
+read -rp "..." >> $1 [y/N] " reply
+```
+
+**Independent investigation on this host — which is `deploy.sh`'s own default `MOS_REPO` target — found the committed source already read** `read -rp "  >> $1 [y/N] " reply`: bash's standard combined-flag form of `read -r -p`, already valid and functionally correct. A host-wide search (every `deploy.sh` copy on the filesystem, the exact reported string via `grep -r`, byte-level check of the tracked file for CRLF/BOM/hidden characters) found **no second copy and no corruption reachable from this session**. The discrepancy with what was observed elsewhere could not be independently reproduced here — recorded honestly rather than silently assumed resolved.
+
+### Fix applied regardless
+
+Per explicit instruction, split into the unambiguous two-flag form:
+
+```diff
+-  read -rp "  >> $1 [y/N] " reply
++  read -r -p "  >> $1 [y/N] " reply
+```
+
+Semantically identical to `-rp` in bash; removes any ambiguity about flag combination.
+
+### Verification — confirm()/die() extracted verbatim, not reimplemented
+
+| Input | Expected | Result |
+|---|---|---|
+| `y`, `Y`, `yes`, `YES` | exit 0 | **PASS**, all four |
+| `n`, `N`, `no` | exit 1, `declined by operator` | **PASS** |
+| empty, `" "`, `maybe`, `1`, `yesplease` | exit 1, `declined by operator` | **PASS**, all five |
+| true EOF, no newline at all (Ctrl-D) | exit 1, fails closed | **PASS** — does not proceed |
+| `ASSUME_YES=1`, zero bytes on stdin | exit 0, `read` never blocks | **PASS** |
+| `--assume-yes` (real script, by inspection) | sets `ASSUME_YES=1` at line 55 | **unchanged, confirmed present** |
+
+`bash -n`: clean. `tests/mos-1-console-test.js`: **322 passed, 0 failed**. Diff is a single line (1 insertion, 1 deletion); `die` sites **39 → 39**, `GATE:` labels **4 → 4** — no gate touched.
+
+### Record
+
+| | |
+|---|---|
+| Base | `a0e4043`, branch `main`, remote HEAD verified identical before starting |
+| Commit | `83ab0c6` |
+| Remote HEAD | verified after delivery — see below |
+| Tests | `bash -n` clean; `tests/mos-1-console-test.js` 322/322; `confirm()` exercised in isolation across 11 distinct inputs plus the EOF and `ASSUME_YES` paths, as tabulated above |
+| Files changed | `projects/mythos-os-console/tools/deploy.sh`, `docs/AI_HANDOVER.md` (this entry) |
+| VPS | **Not modified.** No deployment run. No certificate requested or issued |
+
+### Next stage
+
+**Owner to pull this commit on the VPS and confirm the observed corruption is gone there.** If the VPS file still differs from what GitHub now serves after pulling, that points to an out-of-band edit or a stale checkout on that host rather than a defect in this source — worth checking `git status`/`git diff` on the VPS checkout directly. Once confirmed, resume the deployment run from Phase 8 per MOS-1.4's next stage. Separately open and unchanged: the design-branch merge (`255c566`), the LOGO-2 owner gate, and the deployment governance amendment.
+
 ## MOS-1.4 — PHASE 8 TLS PREFLIGHT FIXED (2026-08-18) — **PASS; NOT DEPLOYED, NGINX AND VPS UNTOUCHED**
 
 ### Stage
