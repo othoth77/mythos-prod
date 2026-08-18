@@ -64,7 +64,7 @@ die()  { printf '  \033[31mSTOP\033[0m  %s\n' "$1" >&2; exit 1; }
 confirm() {
   [ "$ASSUME_YES" = "1" ] && return 0
   local reply
-  read -rp "  >> $1 [y/N] " reply
+  read -r -p "  >> $1 [y/N] " reply
   case "$reply" in y|Y|yes|YES) return 0 ;; *) die "declined by operator" ;; esac
 }
 
