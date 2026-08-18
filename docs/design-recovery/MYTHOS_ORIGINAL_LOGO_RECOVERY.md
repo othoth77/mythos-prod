@@ -248,7 +248,12 @@ Recorded per the program's §6 analysis checklist; no evolution was designed:
 ## 10. Status
 
 - Original logo located, identified, and canonically recorded: **done**.
-- Original sources modified: **none**.
-- New design created: **none** (not authorized in this action).
-- Next authorized step per the program: **1B — LOGO EVOLUTION**, ideally
-  preceded by the §7 vector hunt from a VPS-capable session.
+- Original sources modified: **none** — and they remain unmodified after 1B.
+- New design created in *this* action: **none**.
+- **Superseded by:** `docs/design/LOGO_SYSTEM.md` (Stage 1B, logo evolution),
+  which builds the proposed vector master system from the geometry recorded
+  here. This document remains the canonical record of the **original**; 1B
+  does not replace it and does not alter the assets it describes.
+- The §7 vector hunt remains **open and unperformed** — it needs a VPS-capable
+  session. If a layered or vector original is found, the 1B reconstruction
+  must be diffed against it before any master is declared final.

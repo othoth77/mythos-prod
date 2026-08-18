@@ -1,0 +1,39 @@
+# MYTHOS brand assets
+
+**Status: PROPOSAL — awaiting owner validation (Stage 1B, logo evolution).**
+No production file references anything in this directory. Nothing here is
+deployed.
+
+Specification: `docs/design/LOGO_SYSTEM.md`
+Historical record: `docs/design-recovery/MYTHOS_ORIGINAL_LOGO_RECOVERY.md`
+
+## Layout
+
+```
+assets/brand/
+├── source/     canonical geometry + the generator (edit here)
+├── master/     generated SVG masters (never hand-edit)
+└── export/     generated PNG exports (never hand-edit)
+```
+
+`source/` is the only writable layer. `master/` and `export/` are build output:
+regenerate them, do not patch them, or the system will drift.
+
+## Regenerating
+
+```bash
+cd assets/brand/source
+python3 build-masters.py          # SVG masters
+python3 build-masters.py --png    # masters + PNG exports (requires cairosvg)
+```
+
+`build-masters.py` reads its geometry from `mythos-logo-geometry.py`, which is
+the single source of truth for every letterform, weight and gap.
+
+## Relationship to the historical assets
+
+The historical logos under `assets/logos/` are **untouched and must stay that
+way**. `logomythos.png` and `logo.png` are the recovered originals this
+evolution was measured from; the other files there are non-Mythos client and
+project logos. Nothing in this directory overwrites, replaces or supersedes
+them — they remain the historical record regardless of what is approved here.
