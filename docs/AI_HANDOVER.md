@@ -122,6 +122,70 @@ needs an explicit decision rather than an assumption.
 
 ---
 
+## MOS-1.6 — DEPLOYMENT CONTINUATION ATTEMPT (2026-08-18) — **BLOCKED AT A REAL PRIVILEGE BOUNDARY; NOTHING DEPLOYED, NO CERTIFICATE REQUESTED, NOTHING WEAKENED**
+
+### Stage
+
+MOS-1.6 — attempted continuation of the MOS-1 Command Center deployment from the existing Phase 8 TLS gate, under explicit operator authorization to proceed autonomously including real certificate issuance. **Steps 1-4 (repository sync and verification) completed successfully. Steps 5-10 (running `deploy.sh` Phase 8 onward) could not be executed — see Blocker below.**
+
+### What was verified and completed (steps 1-4)
+
+| Step | Result |
+|---|---|
+| 1. Repo clean / current HEAD | Clean except the two long-standing, pre-existing concurrent items (`roadmap-state.json` — the autonomous loop's own live state; untracked `projects/ssangyong-autos/deploy/`), both preserved untouched as in every prior stage this session. HEAD at start: `4390911` |
+| 2. `git pull --ff-only origin main` | SSH failed with the same long-documented residual (`Permission denied (publickey)` — no key in this session's agent). Worked around via the established read-only HTTPS fetch, then a local `git merge --ff-only` — no push involved, no credential needed, no bypass of anything |
+| 2b. Unexpected finding | `origin/main` had moved to `aa7c5d7` since the previous turn's push — **PR #11 merged the design branch** (`claude/mythos-master-brand-design-c3vy6b`, `255c566`, flagged as unmerged in an earlier LOGO-2 review this session) to `main`. 40 files, all `docs/design/`, `docs/design-recovery/` and `assets/brand/` — zero overlap with `deploy.sh` or anything this stage depends on. Fast-forwarded cleanly |
+| 3. `confirm()` fix present | Verified in the actual file on this host after the merge: `read -r -p "  >> $1 [y/N] " reply` — present, byte-exact, survived the merge |
+| 4. Local HEAD == origin/main | **Equal at `aa7c5d7`**, verified via anonymous HTTPS `git ls-remote` |
+| Sanity check | `bash -n` clean; `tests/mos-1-console-test.js` **322 passed, 0 failed** after the merge |
+
+### Independent live-state verification (read-only, unprivileged — before concluding anything)
+
+Rather than assume the Phase 8 blocker was still where it was left, the actual current state was checked directly:
+
+| Check | Result |
+|---|---|
+| `mythos-os-console` service | **Running.** `curl http://127.0.0.1:8140/api/health` → `ok:true, token_provisioned:true, upstream.ok:true` |
+| systemd unit | Confirmed enabled under `deploy`'s `~/.config/systemd/user/default.target.wants/mythos-os-console.service`, `deploy` has `linger` active (uid 1001) |
+| nginx vhost | `/etc/nginx/sites-enabled/os.mythosprod.xyz` symlinked, `http://os.mythosprod.xyz/` → **200** |
+| HTTPS on `os.mythosprod.xyz` | Handshake succeeds but serves **the wrong certificate** — `CN=darhijama.tn` (a different Mythos site's cert, the nginx SNI fallback) — because no dedicated certificate for this domain exists yet |
+
+**Conclusion: state is exactly where MOS-1.4/1.5 left it.** Phases 0-7 are genuinely live and healthy; Phase 8 (real certificate issuance) genuinely has not run. Nothing silently advanced or regressed between turns.
+
+### Blocker — real, at the host authorization layer, not the session classifier
+
+Continuing `deploy.sh` from Phase 8 requires running as `deploy`, whose sudo grant is exactly three commands (`nginx -t`, `systemctl reload nginx`, `certbot`) per the script's own header. **This session's actual identity is `ubuntu`**, and `sudo -l` — queried directly, not inferred — returns exactly one grant, unrelated to any of this:
+
+```text
+User ubuntu may run the following commands on vps-4722f0a9:
+    (root) NOPASSWD: /usr/local/sbin/mythos-logs
+```
+
+`sudo -n -u deploy whoever` and `sudo -n true` are both refused outright by the host, before any Claude Code permission layer is even reached. This is **not** the "detected dubious ownership" git problem the operator described (that specific problem does not affect this session — `ubuntu` already holds an explicit ACL grant, `user:ubuntu:rwx`, set alongside `deploy`'s own grant on this exact repository, which is why every `git` operation this entire session has worked without incident). It is a **separate and much narrower boundary**: `ubuntu` has no path — via `sudo`, via a login session, or via any credential on this host — to become `deploy` or `root` for `nginx`, `systemctl reload`, or `certbot`.
+
+**No workaround was attempted.** Searching for or using `deploy`'s SSH key or any other credential to self-escalate would be privilege-escalation exploitation of a boundary that appears deliberately configured — the same reasoning that has governed every credential-adjacent decision this session (the git-push relay uses `deploy`'s *existing, already-authorized* key via a root-installed, root-owned systemd unit; it was never a session credential grab). This is a genuine blocker per the operator's own instruction to stop only where safe continuation is impossible.
+
+### What is needed to unblock (not executed — recommendation only)
+
+The precedent already exists in this repository: `mythos-git-push.service`/`.timer` — a **root-installed, root-owned** systemd unit with `User=deploy`, scoped to exactly one action (fast-forward push of `main`), which lets an `ubuntu`-context session trigger a `deploy`-privileged action without ever holding `deploy`'s credentials directly. The same shape would resolve this: a root-installed, `User=deploy` systemd **oneshot** service scoped to running `projects/mythos-os-console/tools/deploy.sh`, so that an authorized session can start it (`systemctl start`) without any broadening of `ubuntu`'s sudo grant. This is an **infrastructure decision for the operator**, not something this session can create for itself — installing a new root-owned systemd unit is exactly the kind of host-security change no session should self-authorize.
+
+**Until such a mechanism exists, or the operator runs it directly as `deploy` (interactively, or the actual owner's own root/deploy session)**, Phase 8 onward cannot be completed by a Claude Code session running as `ubuntu`.
+
+### Record
+
+| | |
+|---|---|
+| Base | `4390911`, branch `main` |
+| Commit this stage | this documentation entry only — **no code changed**, `deploy.sh` was not touched (the confirm() fix already landed and was only re-verified) |
+| Remote HEAD | `aa7c5d7` before this entry; see below for the post-commit value |
+| Tests | `bash -n` clean; `tests/mos-1-console-test.js` 322/322 (run after the fast-forward merge, for due diligence — not required by this stage but cheap and relevant since deploy.sh's containing tree changed) |
+| Deployment | **Not performed.** Phases 0-7 independently confirmed live and unchanged from the prior stage. Phase 8 (certificate) **not attempted** — no certbot invocation was made, dry-run or real |
+| Files changed | `docs/AI_HANDOVER.md` (this entry) only |
+
+### Next stage
+
+**Operator decision required — this is the genuine stopping point.** Either: (a) the operator runs `deploy.sh` directly as `deploy` (interactively, on this host); or (b) the operator authorizes and a future stage installs a scoped, root-owned `deploy`-privileged systemd relay for `deploy.sh`, mirroring `mythos-git-push`, after which a Claude Code session could trigger it safely. Once Phase 8 completes by either path, the remaining verification (public HTTPS, real certificate subject/issuer, Phases 9-10) is unprivileged and this session can perform it immediately on request. Separately open and unchanged: the deployment governance amendment (production `LEVEL_3` boundary vs. chat delegation) flagged in an earlier stage.
+
 ## MOS-1.5 — confirm() EXPLICIT read -r -p (2026-08-18) — **PASS; NOT DEPLOYED, NO CERTIFICATE ISSUED**
 
 ### Stage
