@@ -452,7 +452,7 @@ moment of this approval:**
 |---|---|---|
 | **O-A1** | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | **OPEN.** Its indigo `#4f46e5` sits outside the approved palette, so its placement now carries a visible consequence |
 | **O-A3** | Whether, and under what conditions, a public project may use a Mythos-level colour in its own identity | **OPEN.** The exception clause inside **A-006**; unaffected by the 1C approval |
-| **LOGO-1** | Does an original vector or layered master exist outside Git? | **OPEN.** Blocked on environment access, not on a decision. Until it resolves, **a monochrome master cannot be produced**, because the recovered artefact is a metallic raster that **A-007** forbids recolouring |
+| **LOGO-1** | Does an original vector or layered master source exist outside Git? | Yes, for LOGO-2 | **STILL OPEN — searched 2026-08-18, result C (only vector derivative found), scope PARTIAL.** Exhaustive over Git history (438 commits, 36 branches — **exactly 14 vector blobs have ever existed, all of them the Stage 1B reconstruction**) and over this container's entire filesystem. **Three of four priority locations were unreachable** (the VPS filesystem does not exist in a cloud session) and **the fourth — the off-host snapshot repositories — was blocked by session permission policy, not by lack of account access.** No original, no master, nothing new discovered; equally, **no true negative established.** Full record: `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md` |
 | **LOGO-2** | Adoption of the Stage 1B vector reconstruction as the master | **OPEN.** Depends on LOGO-1. **The 1C approval does not adopt it** — the approved specification is deliberately independent of which logo master is eventually chosen |
 
 ---
