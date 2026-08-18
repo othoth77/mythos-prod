@@ -423,6 +423,26 @@ business-unit example states, in the page itself, that Mythos Digital has
 **zero recovered evidence (O-004)** — a prototype of the descriptor system, not
 a claim the unit exists. Not deployed; referenced by no application.
 
+### Stages consolidation, readiness audit, migration plans — delivered
+
+**Not decisions — three deliverables, mandate items 6–8, recorded for
+completeness.** `docs/design/MYTHOS_DESIGN_SYSTEM.md` (a single topic-ordered
+reference over 1C–1I and AUTO-1–3, introducing no new value — reasoning stays
+in the source documents, this one is authoritative for the value itself);
+`docs/design/IMPLEMENTATION_READINESS_AUDIT.md` (the honest finding: **nothing
+in this program has been implemented or verified in any running application,
+anywhere** — every readiness-table cell for "implemented" and "verified" is
+empty, and five concrete prerequisites are named, none satisfied yet);
+`docs/design/MIGRATION_PLANS.md` (a plan per project and Mythos-owned surface,
+calibrated to the evidence-based ledger — most public-project plans reduce
+honestly to "ecosystem strip only, if wanted" or "no action," since **A-006**
+already forbids the skin migration and three projects have open factual
+questions, **O-006/007/002**, that precede any design question).
+
+**None of the three authorises or executes anything.** The readiness audit in
+particular is deliberately a finding, not a plan — it names what would have to
+be true, not a schedule for making it true.
+
 ---
 
 ## 1. Confirmed decisions
