@@ -386,3 +386,127 @@ suite will report green while testing nothing.
 Only after that does step 5 — deleting `projects/idauto/**` — become safe.
 
 It needs an explicit authorisation. It is not started.
+
+---
+
+## 10. IDA-DECOUPLE-3 — the identity contract boundary
+
+**Status: BLOCKED on an architectural decision. Reported, not implemented.**
+One safe correction was made; the boundary itself was not, and the reason is below.
+
+### 10.1 Measured classification of every IDauto-dependent assertion
+
+Executed, not inferred: both reads stubbed to `''`, then diffed against the intact run
+(124 → **115 passed / 9 failed**). Nine fail; **seven more keep passing but only vacuously**.
+Sixteen assertions depend on IDauto in total.
+
+| # | Assertion | Reads | Class |
+|---|---|---|---|
+| 1 | `live idauto_audit_log actor_type CHECK found` | `schema.sql` | **B — cross-product** |
+| 2 | `ACTOR_TYPES == live vocabulary` | `schema.sql` | **B — the contract itself** |
+| 3 | `idauto_contributors.mythos_user_id remains VARCHAR(64)` | `schema.sql` | **B — federation** |
+| 4 | `idauto_user_roles.mythos_user_id remains VARCHAR(64)` | `schema.sql` | **B — federation** |
+| 5 | `idauto_audit_log.actor_ref remains VARCHAR(64)` | `schema.sql` | **B — federation** |
+| 6 | `live idauto_user_roles role set matches the contract` | `schema.sql` | **B — a SECOND shared vocabulary** |
+| 7 | `idauto_organizations.id remains SERIAL` | `schema.sql` | **A — IDauto-internal** |
+| 8 | `identity.js still exports resolveIdentity/clearIdentityCache` | `identity.js` | **A — IDauto-internal** |
+| 9 | `identity.js still reads IDAUTO_ADMIN_IDENTITIES` | `identity.js` | **A — IDauto-internal** |
+| 10 | `deferred mythos_org_ref was NOT added` | `schema.sql` | **A** — and **vacuous** under an empty stub |
+| 11–16 | `identity.js contains no createSession / jwt.sign / bcrypt / passport / OAuth / hashPassword` (×6) | `identity.js` | **A** — and **vacuous** |
+
+**The split is 6 cross-product / 3 internal among the failures — not 2 / 7.** Two corrections
+to the working assumption this stage started from, both material:
+
+- **`mythos_user_id` and `actor_ref` are not IDauto internals.** They are *Mythos's* identifiers
+  living in IDauto's schema. `docs/MYTHOS_IDENTITY_ARCHITECTURE.md` §2 argues the whole
+  `VARCHAR(64)` decision **from** those live columns — *"ID Auto's deployed columns are already
+  `VARCHAR(64)` … choosing `BIGSERIAL` would force a type change on a live schema, including an
+  append-only audit log."* Deleting rows 3–5 would discard the federation contract, not IDauto trivia.
+- **There are two shared vocabularies, not one.** Besides `actor_type`, row 6 pins
+  `idauto_user_roles.role` (`owner · admin · member · readonly`) against `EXPECTED_ORG_ROLES`.
+  `MYTHOS_IDENTITY_ARCHITECTURE.md` §5 records it as copied **verbatim** from that live CHECK.
+  Any boundary that covers only `actor_type` leaves half the contract unowned.
+
+**Vacuity is 7, not 6** — the six `identity.js contains no …` plus `deferred mythos_org_ref was
+NOT added`, which is trivially true of an empty string. A fixture must be real content.
+
+### 10.2 The proposed boundary
+
+The vocabularies are **IDauto's to define and Mythos's to adopt** — that direction is recorded
+in `MYTHOS_IDENTITY_ARCHITECTURE.md` §5 and §12, and it is why a Mythos-owned copy cannot be
+the source of truth. The smallest correct boundary is therefore:
+
+```
+IDauto  protocol/vocabularies/actor-type.v1.json   ← published, versioned, IDauto-owned
+        protocol/vocabularies/org-role.v1.json
+             ▲ IDauto's own suite asserts schema.sql CHECK == published artefact
+             │
+             ▼ Mythos pins {version, sha256}; contract test asserts ACTOR_TYPES == artefact
+Mythos  projects/mythos-core/contracts/idauto-vocabularies.pinned.json
+```
+
+Drift then fails loudly from **either** direction, which is the requirement:
+
+| Change | What fails |
+|---|---|
+| IDauto edits `schema.sql` without republishing | **IDauto's** suite — its CHECK no longer matches its own artefact |
+| IDauto republishes a new version | Mythos's pinned digest mismatches — a deliberate, reviewable re-pin |
+| Mythos edits `ACTOR_TYPES` | Mythos's contract test, immediately |
+
+### 10.3 Why it was not implemented
+
+**Both halves require changing `othoth77/idauto`, which this stage's own instruction says to
+stop on rather than do.** Checked, not assumed:
+
+- **IDauto's published protocol does not carry either vocabulary.**
+  `protocol/schemas/` publishes `source_type`, verification status, trust levels `T0–T3` and
+  access scope — and **no** `actor_type` and **no** org-role enum. The vocabulary exists only in
+  `database/schema.sql`, which is precisely the internal file this stage is meant to stop
+  reading. Publishing it **adds a new artefact to the IDauto public protocol surface.**
+- **IDauto's own suite does not cover the three internal invariants**, nor the seven vacuous
+  ones. There is no assertion anywhere in `othoth77/idauto/tests/` that `identity.js` lacks
+  `jwt.sign`/`bcrypt`/`passport`, that `idauto_organizations.id` is still `SERIAL`, or that
+  `mythos_org_ref` was never added. (`ida-3a` asserts `BIGSERIAL`/`VARCHAR(64)` on the
+  *ingestion* tables — a different concern.) Moving rows 7–16 there means **writing new tests in
+  the IDauto repository**, not relocating existing ones.
+
+**A Mythos-only artefact was considered and rejected.** Pinning a provenance-stamped copy
+inside Mythos would satisfy "no `projects/idauto` read" and would detect Mythos-side drift —
+but IDauto-side drift would then be invisible until someone re-pinned by hand. Today the test
+reads the live file, so that drift **is** caught. A Mythos-only pin would therefore *weaken*
+the contract while appearing to formalise it, which is the false confidence this stage exists
+to avoid. It is not offered as a fallback.
+
+### 10.4 The decision the owner has to make
+
+Publish the two vocabularies as versioned artefacts in `othoth77/idauto/protocol/`, and add the
+IDauto-side conformance tests. That is a change to IDauto's **public protocol surface**, so it
+belongs to whoever owns that surface. Once made, the Mythos side is small and mechanical: pin
+the artefacts, repoint §8 and row 6, delete rows 7–16 as IDauto-owned, and
+`projects/idauto/` becomes deletable.
+
+Until then `tests/mythos-identity-core-0-contract-test.js` keeps reading the two files and
+**`projects/idauto/` cannot be deleted.** That is a smaller blocker than it was — it is one
+test, no runtime code — but it is a real one.
+
+### 10.5 What WAS done — a real defect in the contract itself
+
+The `actor_type` CHECK is declared **twice** in `schema.sql`: on `idauto_submissions` (line 383)
+and on `idauto_audit_log` (line 910). The test's search was **unscoped**, so it matched
+`idauto_submissions` first — *not* the table its own label names, and not the table
+`MYTHOS_IDENTITY_ARCHITECTURE.md` §12 names as the source. The two agree today, so it passed;
+it simply was not verifying what it claimed, and divergence in `idauto_audit_log` would have
+gone unnoticed.
+
+Fixed by scoping the search to the `idauto_audit_log` body, plus one new assertion that **every**
+`actor_type` CHECK in the schema declares the same vocabulary — so the "platform-wide verbatim"
+claim is now proven rather than assumed.
+
+Proven by mutation, with `schema.sql` restored byte-identical afterwards:
+
+| Mutation | Before the fix | After |
+|---|---|---|
+| `'root'` added to `idauto_audit_log`'s CHECK only | **silently passed** — wrong table read | **2 failures** |
+| `'root'` added to `idauto_submissions`' CHECK only | passed | **1 failure** — the divergence guard |
+
+Suite: **125 passed / 0 failed** (124 before; +1 is the new divergence assertion).
