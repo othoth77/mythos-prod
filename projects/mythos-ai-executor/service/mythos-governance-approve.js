@@ -107,10 +107,17 @@ if (!reason || reason.trim().length < 10) {
   die('--reason "<why>" is required and must be a real sentence');
 }
 
+// Root inspecting a checkout owned by `deploy` trips git's dubious-ownership
+// guard, which would make approval impossible for the one user who is
+// allowed to grant it. Scope the exception to this repository only.
+function gitRead(args) {
+  return cp.execFileSync('git', ['-c', 'safe.directory=' + REPO, '-C', REPO].concat(args),
+    { encoding: 'utf8' });
+}
+
 var full;
 try {
-  full = cp.execFileSync('git', ['-C', REPO, 'rev-parse', '--verify', commit + '^{commit}'],
-    { encoding: 'utf8' }).trim();
+  full = gitRead(['rev-parse', '--verify', commit + '^{commit}']).trim();
 } catch (e) {
   die('commit not found in ' + REPO + ': ' + commit);
 }
@@ -119,8 +126,8 @@ try {
 // A blanket approval is not expressible through this tool.
 var files;
 try {
-  files = cp.execFileSync('git', ['-C', REPO, 'show', '--pretty=format:', '--name-only', full],
-    { encoding: 'utf8' }).split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
+  files = gitRead(['show', '--pretty=format:', '--name-only', full])
+    .split('\n').map(function (s) { return s.trim(); }).filter(Boolean);
 } catch (e) {
   die('cannot read the commit diff: ' + e.message);
 }

@@ -58,7 +58,11 @@ var cp = require('child_process');
 
 var KEY_FILE = process.env.MYTHOS_GOV_KEY || '/etc/mythos/governance.key';
 var STORE_DIR = process.env.MYTHOS_GOV_STORE || '/var/lib/mythos/governance/approvals';
-var DENY_LOG = process.env.MYTHOS_GOV_DENYLOG || '/var/lib/mythos/governance/denied.log';
+// The deny log lives in its own directory so the relay user can WRITE the
+// record without being able to write APPROVALS. deploy gets rw on log/ and
+// read-only on approvals/ — the process that enforces the invariant must not
+// also be able to mint permission for it.
+var DENY_LOG = process.env.MYTHOS_GOV_DENYLOG || '/var/lib/mythos/governance/log/denied.log';
 
 // Root-owned copy of the caged surface. Deliberately NOT read from the
 // repository — see property 4 above.
