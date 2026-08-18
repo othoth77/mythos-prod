@@ -13,8 +13,8 @@ ID Auto was extracted from `projects/idauto/`, `docs/IDAUTO_*.md`,
 `docs/IDA3_INGESTION_ARCHITECTURE.md` and `tests/ida-*.js` into a complete standalone
 repository, and repositioned as **IDauto — an open vehicle identity and history protocol**.
 
-88 files. The IDA-0 → IDA-3 baseline moved intact — schema, API, ingestion, review queue,
-ops tooling — along with 25 implementation-record sections extracted **verbatim** from this
+91 files. The IDA-0 → IDA-3 baseline moved intact — schema, API, ingestion, review queue,
+ops tooling — along with 30 implementation-record sections extracted **verbatim** from this
 file, unedited, blockers and mistakes included.
 
 ### Validation — executed, not assumed
@@ -24,6 +24,11 @@ A live PostgreSQL 16 instance was provisioned in the working environment, the mi
 re-run in the new layout: 601 assertions, 0 failures.** Per-suite counts match this
 repository's last recorded numbers, except `idauto-storage-ops` (72 → 73, where one
 assertion was replaced by a stronger pair).
+
+**Completeness proven, not assumed:** all 44 origin file pairs were compared byte-for-byte —
+**zero missing** — and `reference/` has **zero executable-code changes**, every diff being a
+path comment. Every `require()` across the tree resolves to a Node built-in, `pg`, or a path
+inside the new repository: **no external module dependency exists**.
 
 Also verified: 24 tables, all `idauto_`-prefixed; the IDA-3A migration idempotent against
 `schema.sql`; `access_scope` present on both affected tables; **zero owner-PII columns**; no
@@ -73,14 +78,42 @@ a deployment repoints rather than migrates.
 
 `IDA-2E` (real authentication) remains **BLOCKED** — re-scoped in the standalone roadmap to
 IDA-7 on W3C DID/VC primitives, since there is no Mythos auth service to wait for and never
-was. `IDA-3F` (off-host backup) remains **BLOCKED** — tooling complete, no off-host copy
-exists. 15 LEGAL-REVIEW-REQUIRED items remain open.
-`PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` remains **NO**.
+was. 15 LEGAL-REVIEW-REQUIRED items remain open.
+`PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` remains **NO**, now on two blockers rather than three.
+
+### A correction this session made against itself
+
+The first pass reported **`IDA-3F` as BLOCKED with no off-host copy in existence**. That was
+wrong, and the mistake is worth recording because it is the exact failure `AGENTS.md` §2
+names: it read the IDA-3F stage entries of 2026-08-12 and treated them as current, without
+scanning forward for the entries that superseded them.
+
+The off-host gate **closed on 2026-08-14** — batch `20260814T161856Z`, `idauto` dumped,
+uploaded, freshly downloaded, checksum-matched and restored into an isolated container with
+`--network none`, 24 tables / 2,551 rows source-identical. `docs/OFF_HOST_BACKUP_GATE.md` §6
+records all seven conditions MET, and this very file already noted that
+`projects/meta/project-ledger.json` and that runbook's own header were carrying the stale
+"BLOCKED" status. The migration inherited precisely the staleness this file had flagged.
+
+A completeness audit found it, corrected it throughout the standalone tree, and recovered
+four artefacts the first pass had missed: five superseding handover entries (2026-08-14),
+the ID Auto risk-register rows (8 owned + 9 cross-product), the off-host backup runbook, and
+the ID Auto identity-architecture decisions — the last of which also surfaced one previously
+undocumented external dependency.
+
+**Nothing outstanding is thereby claimed done.** There is still no backup *schedule* — the
+single batch ages daily — and the media store has no verified off-host copy.
+
+**The stale statuses in *this* repository are unchanged** and still need their own order:
+`projects/meta/project-ledger.json` and the `docs/OFF_HOST_BACKUP_GATE.md` header. The
+correction was applied to the standalone tree only, which is the correct scope for this
+branch.
 
 ### Changed files in this repository
 
 `docs/IDAUTO_STANDALONE_MIGRATION.md` (new) · `docs/AI_HANDOVER.md` (this entry) ·
-`migration-staging/**` (transient snapshot).
+`migration-staging/**` (transient snapshot, 92 files). **No ID Auto source, test, document
+or schema in this repository was modified.**
 
 ### Next
 

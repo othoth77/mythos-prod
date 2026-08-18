@@ -21,11 +21,30 @@ The complete standalone content is staged at `migration-staging/idauto-standalon
 branch, purely so the work survives an ephemeral working environment. See
 `migration-staging/README.md`.
 
+## 1a. Correction applied 2026-08-18 — revision 2
+
+The first pass of this migration reported **IDA-3F as BLOCKED with no off-host copy in
+existence**, carried over from the 2026-08-12 stage entries without scanning forward. A
+completeness audit corrected it: the off-host gate **closed on 2026-08-14**
+(`docs/OFF_HOST_BACKUP_GATE.md` §6), and `docs/AI_HANDOVER.md` had already flagged the stale
+statuses this migration then inherited — including that same runbook's header still reading
+"PREPARED · BLOCKED" against its own §6.
+
+The audit also recovered four artefacts the first pass missed: five superseding handover
+entries, the ID Auto risk register rows, the off-host backup runbook, and the ID Auto
+identity-architecture decisions. Details in
+`migration-staging/idauto-standalone/docs/STANDALONE_MIGRATION_AUDIT.md` §10.
+
+**This does not resolve the stale statuses in this repository.** They remain as they were —
+`projects/meta/project-ledger.json` and the `OFF_HOST_BACKUP_GATE.md` header each still need
+their own order, exactly as `docs/AI_HANDOVER.md` records. The correction was applied to the
+standalone tree only.
+
 ## 2. What was migrated, and what it was validated against
 
 | | |
 |---|---|
-| Files migrated | 88 |
+| Files migrated | 91 |
 | Origin baseline | `5e2011b` (`main`) |
 | Test result in the new layout | **601 assertions, 0 failures**, 13 suites, live PostgreSQL 16 |
 | Schema | 24 tables, applies cleanly; `ida-3a` migration idempotent against it |
@@ -37,7 +56,7 @@ branch, purely so the work survives an ephemeral working environment. See
 Full inventory, path mapping, and the A/B/C/D dependency classification:
 `migration-staging/idauto-standalone/docs/MIGRATION_FROM_MYTHOS_PROD.md`.
 Full validation evidence:
-`migration-staging/idauto-standalone/docs/MIGRATION_AUDIT_REPORT.md`.
+`migration-staging/idauto-standalone/docs/STANDALONE_MIGRATION_AUDIT.md`.
 
 ## 3. Why publication is blocked
 
@@ -114,7 +133,7 @@ The body is the migration summary, source baseline, strategic evolution, archite
 changes, protocol direction, security and privacy decisions, blockchain position,
 open-source strategy, validation results, known blockers, legal-review items, and what
 remains planned — drawn from
-`migration-staging/idauto-standalone/docs/MIGRATION_AUDIT_REPORT.md` and
+`migration-staging/idauto-standalone/docs/STANDALONE_MIGRATION_AUDIT.md` and
 `.../docs/ROADMAP_EVOLUTION_2026-08-18.md`.
 
 ## 6. Status carried forward, unchanged
@@ -122,7 +141,8 @@ remains planned — drawn from
 The migration changed no stage status. As at the origin baseline:
 
 - IDA-0, IDA-1, IDA-2 (with IDA-2E blocked), IDA-3A–3E: complete
-- IDA-3F: tooling merged and offline-verified; **no off-host copy exists — BLOCKED**
+- IDA-3F: **EXECUTED and restore-verified 2026-08-14** — batch `20260814T161856Z`; the
+  off-host backup gate is **CLOSED**. No schedule exists, and the batch ages daily
 - IDA-3G/H/I: not started
 - 15 LEGAL-REVIEW-REQUIRED items: open
 - `PUBLIC_ENDPOINT_READY_TO_IMPLEMENT`: **NO**
