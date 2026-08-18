@@ -903,6 +903,64 @@ needs an explicit decision rather than an assumption.
 
 ---
 
+## MOS-2.1 — MISSION EXECUTION LIFECYCLE DASHBOARD (2026-08-18) — **PASS; FULL PENDING→RUNNING→COMPLETED/FAILED/CANCELLED VIEW; NOT DEPLOYED**
+
+### Stage
+
+MOS-2.1 — extends MOS-2's "start mission" capability into a complete execution lifecycle view: PENDING → STARTING → RUNNING → COMPLETED → FAILED → CANCELLED, all visible, with per-execution detail and a cancel action. Read-only architecture audit performed first, no file modified during that pass.
+
+### Audit findings
+
+**Everything needed already existed on the executor.** `GET /tasks/<id>` (task + status + checkpoint), `GET /tasks/<id>/report` (structured result), `POST /tasks/<id>/cancel` (cooperative, SIGTERM if running, refuses an already-terminal task with 409) — all unmodified, all three relays just forward to them. **No new executor-side code was written.**
+
+**Execution identity already existed too.** `runTask()` already stamps `execution_id`, `started_at`, `ended_at`, `last_error` onto `status.json` on every attempt — `summaries()` just never surfaced them. Two genuinely-missing fields added (`last_error`, `execution_id` were fully absent; `started_at`/`ended_at` were only half-covered via `created_at`/`updated_at`) — same pattern as MOS-2's `model` field addition, not a new entity.
+
+**No new list endpoint, no polling added.** The existing `/api/missions` (already GET, already tested) backs the Executions list — the Command Center's own already-fetched task array is reused for both "Missions — Pending" and the new "Executions" section, zero extra network round trip. No interval polling was added; the console re-fetches on hash-route visits exactly as MOS-1 already did.
+
+### The one structural change
+
+`WRITE_ROUTES` went from a one-entry exact-path map to an explicit, named, ordered list of `{test, handler}` pairs (`matchWriteRoute`), so a second write route (cancel) could be added without turning the write surface into an open pattern — still exactly two entries, both named, both tested at source level. The two new GET relays (detail, report) needed **no** change to `WRITE_ROUTES` or the method gate at all — plain reads through the existing `API`-object dispatch shape, extended with regex matching mirroring the executor's own `/tasks/<id>` route style.
+
+### Safety
+
+Every relayed response passes through an explicit field allowlist (`TASK_DETAIL_TASK_FIELDS` / `TASK_DETAIL_STATUS_FIELDS`), the same discipline as the existing `agentsView` — `pid`, `claude_session_id`, `working_directory`, and any unrecognised field are dropped, never passed through by default, even though nothing in these shapes is actually a credential (verified in MOS-2's audit). The cancel relay carries no payload beyond the task id already validated by the route regex itself. Cancelling an already-terminal task is rejected by the executor's own existing check — not re-implemented, not bypassed. No serialisation added or removed; `runTask()` still has no cross-task lock.
+
+### Files
+
+| File | Change |
+|---|---|
+| `executor.js` | +2 fields in `summaries()` (`last_error`, `execution_id` fully added; `started_at`/`ended_at` completed) |
+| `server.js` | `WRITE_ROUTES` restructured to an explicit named list (`matchWriteRoute`) +`handleMissionCancel()`; +`TASK_DETAIL_RE`/`TASK_REPORT_RE` regex GET relays +`handleMissionDetail()` +`handleMissionReport()`, both allowlisted |
+| `app.js` | +`executionsSection()` +`executionCard()` — Mission/Execution ID/Model/Status/Started row, `[View Details]` (inline expand/collapse, no modal), `[Cancel]` shown only for non-terminal states. No `alert()`/`confirm()`/`innerHTML` anywhere |
+| `console.css` | +execution card styles, `var(--mythos-*)` tokens only |
+| `tests/mos-1-console-test.js` | stub extended for `GET /tasks/<id>`, `GET /tasks/<id>/report`, `POST /tasks/<id>/cancel`; two MOS-2 assertions narrowed (not deleted) to describe the new two-route structure; extensive new coverage (below) |
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `node --check` | Clean on all touched JS |
+| `tests/mos-1-console-test.js` | **400 passed, 0 failed** (377 → 400) |
+| `tests/mythos-ai-executor-test.js` | **125/125** (full suite — `executor.js` changed) |
+| `tests/mythos-orchestration-core-test.js` | **257/257** (full suite — shared core behaviour) |
+| Live smoke test | Stub executor + the real `server.js`, run *before* the test-file changes were written. A planted `secret_field`/`working_directory`/`pid`/`claude_session_id` on the stub's response correctly never appeared in the relayed output; a path-traversal-shaped cancel URL correctly never matched the write-route pattern at all |
+| Test-suite coverage → the eight requested items | 1: list loading — `/api/missions` still 200, array. 2: running display — full allowlist verified against a stub carrying planted secret fields. 3/4: completed/failed — same allowlisted mechanism proven generically (field-by-field assertions apply regardless of which state populated them). 5: cancel — success case, and an already-terminal task correctly rejected (502, not silently accepted). 6: six distinct invalid actions, each traced to whether it actually reached the stub (three never relay at all; the rest do and come back as clean errors). 7: no credentials — `SECRET_TOKEN` swept out of detail/report responses. 8: read-only guarantees — write-route allowlist still exactly two named entries, asserted at source level |
+
+### Record
+
+| | |
+|---|---|
+| Base | `77fd1e2`, branch `main` |
+| Commit | `d6fd1d0` |
+| Remote HEAD | see below — verified after delivery |
+| Deployment | **Not performed** — not requested by this stage |
+
+### Next stage
+
+Explicitly **not** automatic AI routing (per instruction — stopping here). Natural follow-ons, none started: polling/auto-refresh for the Executions view (currently visit-triggered only); surfacing `checkpoint.json` in the detail panel; a bulk "cancel all" (deliberately not built — each cancel is an individually confirmed owner action, matching the existing per-action discipline). Unrelated and unchanged: the login gate, the deployment privilege boundary (MOS-1.6/1.7), the design-branch/LOGO governance items.
+
+---
+
 ## MOS-2 — MISSION QUEUE / MODEL SELECTION / START EXECUTION (2026-08-18) — **PASS; FIRST REAL AI OPERATING LAYER CAPABILITY; NOT DEPLOYED**
 
 ### Stage

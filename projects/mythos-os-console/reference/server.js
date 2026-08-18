@@ -218,15 +218,35 @@ var API = {
   }
 };
 
-// The ONE deliberate exception to "GET/HEAD only", named here so it is
-// never confused with an accident. MOS-2 adds a single narrow relay: the
-// browser sends {title, instruction, provider, model?} and nothing else;
-// this file fixes every other field (project, execution_profile, mode,
-// working_directory) server-side and forwards to the executor's own,
-// unmodified, already-safe /tasks and /tasks/<id>/resume endpoints. The
-// browser never talks to a provider, never sees a credential, and cannot
-// widen scope beyond what is hard-coded below.
-var WRITE_ROUTES = { '/api/missions/start': true };
+// The deliberate exceptions to "GET/HEAD only", named here so none is ever
+// confused with an accident. MOS-2 added the first (start a mission);
+// MOS-2.1 adds the second (cancel one) — same shape, same discipline: a
+// fixed, narrow payload, forwarded to an executor endpoint that already
+// exists and is already safe, never a new capability invented at this
+// layer. The browser never talks to a provider, never sees a credential,
+// and cannot widen scope beyond what is hard-coded in each handler.
+var TASK_ID_RE = '[a-z0-9][a-z0-9-]{6,62}[a-z0-9]';
+var CANCEL_ROUTE_RE = new RegExp('^/api/missions/(' + TASK_ID_RE + ')/cancel$');
+var WRITE_ROUTES = [
+  { test: function (p) { return p === '/api/missions/start' ? [] : null; }, handler: handleStartMission },
+  { test: function (p) { var m = CANCEL_ROUTE_RE.exec(p); return m ? [m[1]] : null; }, handler: handleMissionCancel }
+];
+
+function matchWriteRoute(pathname) {
+  for (var i = 0; i < WRITE_ROUTES.length; i++) {
+    var args = WRITE_ROUTES[i].test(pathname);
+    if (args) return { handler: WRITE_ROUTES[i].handler, args: args };
+  }
+  return null;
+}
+
+// Read-only detail relays: mirror the executor's own GET /tasks/<id> and
+// GET /tasks/<id>/report verbatim in shape, through an explicit field
+// allowlist (same discipline as agentsView below) rather than passing an
+// upstream object straight to the browser. GET, so these need no entry in
+// WRITE_ROUTES and touch no part of the read-only guarantee.
+var TASK_DETAIL_RE = new RegExp('^/api/missions/(' + TASK_ID_RE + ')$');
+var TASK_REPORT_RE = new RegExp('^/api/missions/(' + TASK_ID_RE + ')/report$');
 
 // --- MOS-2: the one write relay --------------------------------------
 
@@ -326,17 +346,73 @@ function handleStartMission(req, res) {
   });
 }
 
+// --- MOS-2.1: execution lifecycle -- two read relays, one cancel relay --
+
+// Mirrors GET /tasks/<id> through an explicit field allowlist, the same
+// discipline as agentsView above: an unrecognised upstream field is
+// dropped silently rather than passed through by default. Nothing in
+// task.json or status.json is a credential (verified in MOS-2's audit;
+// claude_session_id is already served today via /api/missions's own
+// summaries()), but the allowlist is kept anyway so this relay cannot
+// start leaking a field added to either file for an unrelated reason.
+var TASK_DETAIL_TASK_FIELDS = ['task_id', 'project', 'stage', 'instruction', 'provider', 'model', 'priority', 'execution_profile', 'created_at'];
+var TASK_DETAIL_STATUS_FIELDS = ['status', 'started_at', 'ended_at', 'last_error', 'next_action', 'execution_id', 'retry_count'];
+
+function pick(src, fields) {
+  var out = {};
+  fields.forEach(function (f) { if (src && Object.prototype.hasOwnProperty.call(src, f)) out[f] = src[f]; });
+  return out;
+}
+
+function handleMissionDetail(res, taskId) {
+  upstream.get('/tasks/' + taskId).then(function (d) {
+    ok(res, {
+      task: pick(d.task, TASK_DETAIL_TASK_FIELDS),
+      status: pick(d.status, TASK_DETAIL_STATUS_FIELDS),
+      effective: d.effective
+    });
+  }).catch(function (e) { problem(res, e); });
+}
+
+// Mirrors GET /tasks/<id>/report. Only the two required report fields
+// (status, summary) plus problems (structural validation/git-verification
+// findings -- strings about report validity, never file content or a
+// credential) are surfaced; provider_result_tail and git detail are not.
+function handleMissionReport(res, taskId) {
+  upstream.get('/tasks/' + taskId + '/report').then(function (d) {
+    var report = (d && d.report && d.report.report) || null;
+    ok(res, {
+      status: report ? report.status : null,
+      summary: report ? report.summary : null,
+      next_stage: report ? report.next_stage : null,
+      problems: (d && d.report && d.report.problems) || []
+    });
+  }).catch(function (e) { problem(res, e); });
+}
+
+// The cancel relay takes no payload beyond the task id already validated
+// by the route regex -- there is nothing for the browser to supply, so
+// nothing is read from the body except to drain it.
+function handleMissionCancel(req, res, taskId) {
+  readBoundedBody(req, 1024).then(function () {
+    return upstream.post('/tasks/' + taskId + '/cancel', {});
+  }).then(function (d) {
+    ok(res, { task_id: taskId, status: (d && d.status) || 'CANCELLED' });
+  }).catch(function (e) { problem(res, e); });
+}
+
 function handler(req, res) {
-  var isWriteRoute = req.method === 'POST' && Object.prototype.hasOwnProperty.call(WRITE_ROUTES, String(req.url || '').split('?')[0]);
-  if (req.method !== 'GET' && req.method !== 'HEAD' && !isWriteRoute) {
-    // Refused before routing. Every path but the one named above has no
+  var reqPathname = String(req.url || '/').split('?')[0];
+  var writeMatch = req.method === 'POST' ? matchWriteRoute(reqPathname) : null;
+  if (req.method !== 'GET' && req.method !== 'HEAD' && !writeMatch) {
+    // Refused before routing. Every path but the ones named above has no
     // write surface, and the refusal is the surface's definition rather
     // than a gap in it.
     head(res, 405, 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ ok: false, error: 'read_only', detail: 'This console is read-only except for POST /api/missions/start.' }));
+    res.end(JSON.stringify({ ok: false, error: 'read_only', detail: 'This console is read-only except for POST /api/missions/start and POST /api/missions/<id>/cancel.' }));
     return;
   }
-  if (isWriteRoute) return handleStartMission(req, res);
+  if (writeMatch) return writeMatch.handler.apply(null, [req, res].concat(writeMatch.args));
 
   var split = String(req.url || '/').split('?');
   var pathname = split[0];
@@ -346,6 +422,14 @@ function handler(req, res) {
     var p = kv.split('=');
     try { query[decodeURIComponent(p[0])] = decodeURIComponent(p[1] || ''); } catch (e) { /* ignore */ }
   });
+
+  var dm;
+  if (req.method === 'GET' && (dm = TASK_REPORT_RE.exec(pathname))) {
+    return handleMissionReport(res, dm[1]);
+  }
+  if (req.method === 'GET' && (dm = TASK_DETAIL_RE.exec(pathname))) {
+    return handleMissionDetail(res, dm[1]);
+  }
 
   if (Object.prototype.hasOwnProperty.call(API, pathname)) {
     try { API[pathname](res, query); }
