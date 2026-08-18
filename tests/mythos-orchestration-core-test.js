@@ -263,6 +263,62 @@ function makeRepo(name) {
     '2B memory: recall survives process restart');
 })();
 
+// --- Daily-history ingestion (machine-retrievable backfill of DAILY_HISTORY.md) ---
+(function () {
+  var sample = [
+    '# Mythos — Daily History Ledger',
+    '',
+    '**Stage:** SOMETHING',
+    '',
+    '---',
+    '',
+    '## 2026-07-29',
+    '',
+    '- **Commits:** 5.',
+    '- **End-of-day HEAD:** `9c8c4c2`.',
+    '',
+    '## 2026-07-30',
+    '',
+    '- **Commits:** 16.',
+    '',
+    '### Later the same day — a follow-up note',
+    '',
+    '- nested subsection content stays with 2026-07-30.',
+    '',
+    '## Corrections and Amendments',
+    '',
+    '- not a day; must never be ingested as one.',
+    '',
+    '## Amendment — 2026-08-10 — corrects an earlier entry',
+    '',
+    '- also not a day.'
+  ].join('\n');
+
+  var sections = memory.parseDailyHistorySections(sample);
+  ok(sections.length === 2 && sections[0].date === '2026-07-29' && sections[1].date === '2026-07-30',
+    '2B daily-history: only real "## YYYY-MM-DD" headers become sections');
+  ok(sections[1].content.indexOf('nested subsection content') !== -1,
+    '2B daily-history: "### Later the same day" subsections stay inside their parent day');
+
+  var first = memory.ingestDailyHistory('dh-proj', sample);
+  ok(first.ingested.length === 2 && first.skipped.length === 0 && first.errors.length === 0,
+    '2B daily-history: first ingest records both real days');
+  ok(memory.recall('dh-proj', 'End-of-day HEAD').length >= 1,
+    '2B daily-history: ingested days are lexically recallable');
+
+  var second = memory.ingestDailyHistory('dh-proj', sample);
+  ok(second.ingested.length === 0 && second.skipped.length === 2,
+    '2B daily-history: rerunning the same ingest is idempotent (skips, no duplicates)');
+  ok(memory.listProject('dh-proj').filter(function (e) {
+    return e.source === 'docs/history/DAILY_HISTORY.md#2026-07-29';
+  }).length === 1, '2B daily-history: no duplicate entry after a second ingest');
+
+  var extended = sample + '\n\n## 2026-07-31\n\n- **Commits:** 2.\n';
+  var third = memory.ingestDailyHistory('dh-proj', extended);
+  ok(third.ingested.length === 1 && third.ingested[0] === '2026-07-31' && third.skipped.length === 2,
+    '2B daily-history: a newly appended day is ingested while prior days are skipped');
+})();
+
 // --- Context engine ---------------------------------------------------------------
 (function () {
   throws(function () { context.assembleContext({}); }, /CONTEXT_REQUIRES_PROJECT/,

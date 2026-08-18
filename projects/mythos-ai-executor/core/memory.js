@@ -121,6 +121,61 @@ function recall(project, query, opts) {
   return scored.slice(0, limit);
 }
 
+var DAILY_HISTORY_SOURCE_PREFIX = 'docs/history/DAILY_HISTORY.md#';
+
+// Splits DAILY_HISTORY.md's markdown into whole-day sections (only "## "
+// headers whose entire line is a date). "### Later the same day" subsections
+// stay inside their parent day's content; non-date "## " headers such as
+// amendments are parsed but discarded, never mistaken for a day.
+function parseDailyHistorySections(text) {
+  var blocks = String(text || '').split(/\n(?=## )/);
+  var sections = [];
+  blocks.forEach(function (block) {
+    var m = /^## (\d{4}-\d{2}-\d{2})\s*\n([\s\S]*)$/.exec(block.trim());
+    if (m) sections.push({ date: m[1], content: m[2].trim() });
+  });
+  return sections;
+}
+
+// Backfills docs/history/DAILY_HISTORY.md into structured, recallable
+// memory entries (category execution_history) — the machine-retrieval gap
+// named for Project Memory's precursors (vision §3 component F). Idempotent
+// by source: a day already ingested for this project is skipped, so
+// reruns after new days are appended never duplicate entries. One bad day
+// (e.g. secret-shaped content) is recorded as an error rather than losing
+// the rest of the backfill.
+function ingestDailyHistory(project, historyText) {
+  var alreadyIngested = {};
+  listProject(project).forEach(function (e) {
+    if (String(e.source || '').indexOf(DAILY_HISTORY_SOURCE_PREFIX) === 0) {
+      alreadyIngested[e.source] = true;
+    }
+  });
+
+  var ingested = [];
+  var skipped = [];
+  var errors = [];
+  parseDailyHistorySections(historyText).forEach(function (section) {
+    var source = DAILY_HISTORY_SOURCE_PREFIX + section.date;
+    if (alreadyIngested[source]) { skipped.push(section.date); return; }
+    try {
+      remember({
+        project: project,
+        category: 'execution_history',
+        title: 'Daily history: ' + section.date,
+        content: section.content.slice(0, 4000),
+        source: source,
+        confidence: 0.9,
+        tags: ['daily-history', section.date]
+      });
+      ingested.push(section.date);
+    } catch (e) {
+      errors.push({ date: section.date, error: e.message });
+    }
+  });
+  return { ingested: ingested, skipped: skipped, errors: errors };
+}
+
 module.exports = {
   CATEGORIES: CATEGORIES,
   CATEGORY_WEIGHT: CATEGORY_WEIGHT,
@@ -128,5 +183,7 @@ module.exports = {
   remember: remember,
   supersede: supersede,
   listProject: listProject,
-  recall: recall
+  recall: recall,
+  parseDailyHistorySections: parseDailyHistorySections,
+  ingestDailyHistory: ingestDailyHistory
 };
