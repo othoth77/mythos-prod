@@ -1,7 +1,84 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **FULL AUTONOMOUS MANDATE, SIXTH PASS — REAL LOCAL VISUAL-REGRESSION TOOLING BUILT AND PILOT-VERIFIED (AUTO-6). `css/main.css` CONFIRMED AS GENUINELY LIVE PRODUCTION (`uthinachess.tn`, REAL CLIENT DATA) BEFORE ANYTHING WAS TOUCHED. MIG-1/MIG-2 RESCOPED ON REAL, MEASURED EVIDENCE — BOTH LARGER THAN PREVIOUSLY RECORDED (42 AND 93 OCCURRENCES, NOT 1 AND 45). NOTHING EXECUTED: THE PILOT RAN ONLY IN AN ISOLATED TEMP COPY, DELETED AFTER THE RUN.**
+**From:** MYTHOS **FULL AUTONOMOUS MANDATE, SEVENTH PASS — FINAL BLOCKER-DRIVEN EXECUTION PASS CLOSED OUT. DOCUMENTATION CONSISTENCY SWEEP ACROSS 1A–1I: FOUND AND FIXED STALE "OPEN" MARKERS FOR SEVEN ALREADY-RESOLVED ITEMS (SURF-1, GOLD-2, GOLD-3, GRID-1, TOKEN-1, TOKEN-2, SEQ-1) THAT AUTO-3 RESOLVED BUT `COMPONENT_SYSTEM.md`, `DESIGN_TOKENS.md` AND `RESPONSIVE_ACCESSIBILITY_MOTION.md` NEVER RECORDED. O-002/O-006/O-007 RE-CHECKED — GENUINELY UNREACHABLE FROM THIS SESSION, CONFIRMED BY SEARCHING THE ONE ADDITIONAL ATTACHED REPOSITORY, NO NEW EVIDENCE FOUND.**
+
+**Documentation consistency sweep — what was found.**
+`docs/design/COMPONENT_SYSTEM.md` in particular had never been touched since
+AUTO-3 resolved seven of the items its own tables listed as open: **SURF-1**
+(6 separate mentions — shadow/light-surface values for Dropdown, Modal,
+Card, Tooltip, Toast), **GOLD-2** (state-matrix hover/active), **GOLD-3**
+(select chevron colour), **GRID-1** (modal/overlay max-width). All corrected
+in place with real values and an AUTO-3 pointer, not deleted — the map of
+which components each item touched is kept. `DESIGN_TOKENS.md` had the same
+gap for **TOKEN-2**'s namespace decision and four **SURF-1**/**GOLD-2**
+token-table cells, now filled with the real resolved values
+(`paper-050`/`paper-250`/`paper-strong`/`#5a4011`/`#6b4d15`).
+`RESPONSIVE_ACCESSIBILITY_MOTION.md` had one stale **GRID-1** and one stale
+**GOLD-2** mention. `PUBLIC_ECOSYSTEM_ARCHITECTURE.md` still described LOGO-2
+as `PROPOSED — AWAITING OWNER APPROVAL` in three places, after **AUTO-1**
+adopted it — corrected to state both the historical status (accurate when
+1H was written) and the current one. `TYPOGRAPHY.md` still listed **TYPE-2**
+as open in its §6 table despite resolving it in §5, and still said "45"
+Playfair declarations in two places — both corrected to point at the real,
+measured **AUTO-6** figures.
+
+**O-002 / O-006 / O-007 — re-checked, no new evidence.** Searched this
+session's filesystem and its one additional attached repository
+(`othoth77/mythos-prod-unversioned-snapshot`, confirmed present and
+re-verified via `git rev-parse HEAD`) for any trace of Mouain, AgriBee, or
+Dar Hijama. **None exists in either** — the snapshot repository's own
+`README.md` scopes it strictly to pre-Git Mythos Prod working copies, not
+these three projects. This session has no host/VPS access and no other
+repository attached. **These three remain genuine external blockers**,
+unchanged from `MIGRATION_PLANS.md`'s prior recording — resolving them
+needs either owner input or a session with access this one does not have.
+
+**Deployment — re-confirmed, unchanged, not re-attempted.** Already
+answered by evidence merged to `main` before this pass began (MOS-3
+PRODUCTION ACTIVATION): the `mythos-ai-executor` is live in production
+with real, proven parallel AI dispatch; **the console remains blocked at
+the same `deploy`-user privilege boundary** (MOS-1.6/1.7), re-confirmed by
+a session with real host access trying two documented paths, both refused.
+This sandboxed session has no host access and made no attempt to gain any.
+
+**Full blocker matrix — as of this pass:**
+
+| Item | State | Detail |
+|---|---|---|
+| GRID-2 | **DONE** | AUTO-5 — 48ch, supersedes 68ch, provenance recorded |
+| TYPE-2 | **DONE** | AUTO-4 — real fonts self-hosted |
+| Font-hosting prerequisite (§2.2) | **DONE** | AUTO-4 |
+| Visual-regression tooling (§2.5, Mythos Prod half) | **DONE** | AUTO-6, `tools/visual-verify.js`, pilot-verified |
+| C-006 execution / MIG-1 / MIG-2 (§2.1) | **READY, not executed** | Real scope mapped (42/93 occurrences), one layer pilot-verified clean; 39+93 literal sites still need the actual multi-file change and extended-view verification. `MIG_EXECUTION_MAPPING.md` |
+| MIG-3 | **READY (partial)** | Scope noted (73 `--muted` occurrences, 2 files), not line-mapped |
+| MIG-4 (Command Center) | **BLOCKED** | Same visual-regression gap, smaller scope, existing console tooling |
+| Component library, real framework (§2.3) | **BLOCKED** | No framework/build step exists anywhere in this repo (by design) |
+| Console deployment | **BLOCKED — confirmed, external** | `deploy`-user privilege boundary, MOS-1.6/1.7, re-confirmed with host access |
+| `mythosprod.xyz` hub build | **READY, not built** | No apex vhost exists; O-003 (build it at all?) still open |
+| LOGO-1 | **BLOCKED — external** | 2 of 3 off-host repos unreachable from any session so far |
+| O-002 (Dar Hijama) | **OWNER-INPUT / BLOCKED — external** | Real conflict between charter and live site; not in any accessible repo |
+| O-006 (Mouain) | **OWNER-INPUT / BLOCKED — external** | Merge 1,787 lines? Not in any accessible repo |
+| O-007 (AgriBee) | **OWNER-INPUT / BLOCKED — external** | Serve it? Not in any accessible repo |
+| Documentation consistency | **DONE, this pass** | Seven stale "OPEN" markers across 3 files corrected; LOGO-2 status corrected in 3 places |
+
+**Exact record:** base `5febb3e` (AUTO-6 merge). This pass's commit(s) and
+remote HEAD verified after push — see the PR this entry accompanies.
+Tests: no dedicated suite exists for Mythos Prod / `css/main.css` at
+repository root (confirmed, none created this pass either — the pilot used
+existing manual verification, not a new automated suite);
+`mythos-os-console` suite stands at 419/158/257 (MOS-3C, unrelated to this
+pass). Deployment: executor **ACTIVATED** in production (MOS-3); console
+**BLOCKED**, unchanged.
+
+**Next executable action, if this mandate continues:** execute the mapped
+MIG-1 change (`MIG_EXECUTION_MAPPING.md` §2) across all 12 files, extend
+`tools/visual-verify.js`'s view list to reach the accounting/fournisseurs
+modules, and re-verify — the largest piece of genuinely ready, unblocked
+work this pass identified. Everything else in the matrix above is either
+done or requires access/input this session does not have.
+
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, SIXTH PASS — REAL LOCAL VISUAL-REGRESSION TOOLING BUILT AND PILOT-VERIFIED (AUTO-6). `css/main.css` CONFIRMED AS GENUINELY LIVE PRODUCTION (`uthinachess.tn`, REAL CLIENT DATA) BEFORE ANYTHING WAS TOUCHED. MIG-1/MIG-2 RESCOPED ON REAL, MEASURED EVIDENCE — BOTH LARGER THAN PREVIOUSLY RECORDED (42 AND 93 OCCURRENCES, NOT 1 AND 45). NOTHING EXECUTED: THE PILOT RAN ONLY IN AN ISOLATED TEMP COPY, DELETED AFTER THE RUN.**
 
 **What this pass was asked to do, and the caution that governed it.** The
 continuation instruction's item 2 asked for the safest possible

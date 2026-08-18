@@ -14,8 +14,11 @@ Source document: `MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md` §4, approved at commit
 did not settle something, it is marked **OPEN**.
 
 **Not implemented.** No CSS, font file or application code has been changed.
-Replacing the 45 existing `Playfair Display` declarations is tracked as
-**MIG-2** and requires its own authorisation.
+Replacing the existing `Playfair Display` declarations is tracked as
+**MIG-2** and requires its own authorisation — real scope measured directly
+against the application (**AUTO-6**): **93 occurrences across 14 files**,
+not the 45 CSS-only declarations originally estimated. See
+`MIG_EXECUTION_MAPPING.md`.
 
 ---
 
@@ -141,8 +144,8 @@ budget widened rather than dropping it). Full derivation and source URLs:
 
 | Ref | Question |
 |---|---|
-| **TYPE-2** | Subsets, shipped weight instances, and the font performance budget |
-| **MIG-2** | Replacing the 45 `Playfair Display` declarations in `css/*.css`. **Not actioned** |
+| ~~**TYPE-2**~~ | **RESOLVED — AUTO-4.** Real self-hosted files, weight instances and measured budget — see §5 |
+| **MIG-2** | Replacing the `Playfair Display` declarations — real scope measured, AUTO-6: 93 occurrences, 14 files, not "45 in `css/*.css`". **Not actioned** |
 | **U-003** | The historical rationale for the Playfair + Inter pairing was never recorded, and retiring it does not recover it |
 
 ## 7. What this document did not do
