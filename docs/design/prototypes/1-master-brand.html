@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MYTHOS — Master Brand Prototype (1I)</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="../../../assets/brand/tokens/tokens.css">
+<!-- Prototype convenience only: TYPOGRAPHY.md requires self-hosted fonts (TYPE-2).
+     No font file exists in this repository yet, so this prototype loads from
+     Google Fonts as a stand-in. Not the approved production approach. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--mythos-ground); color: var(--mythos-text-primary);
+    font-family: 'IBM Plex Sans', sans-serif; font-size: 16px; line-height: 1.62;
+  }
+  .banner {
+    background: var(--mythos-warning-dim); border-bottom: 1px solid var(--mythos-warning);
+    color: var(--mythos-text-primary); padding: var(--mythos-space-3) var(--mythos-space-6);
+    font-size: 13px; text-align: center;
+  }
+  main { max-width: 1280px; margin: 0 auto; padding: var(--mythos-space-11) var(--mythos-space-8); }
+  section { margin-bottom: var(--mythos-space-11); }
+  h1 { font-family: 'Archivo Expanded', sans-serif; font-weight: 600; font-size: 61px; line-height: 1.02; letter-spacing: -0.022em; margin: 0 0 var(--mythos-space-6); }
+  h2 { font-family: 'Archivo Expanded', sans-serif; font-weight: 600; font-size: 39px; line-height: 1.12; letter-spacing: -0.018em; margin: 0 0 var(--mythos-space-6); }
+  p.lede { font-size: 18px; line-height: 1.62; color: var(--mythos-text-secondary); max-width: 65ch; }
+  .hero { display: flex; align-items: center; gap: var(--mythos-space-9); flex-wrap: wrap; }
+  .hero svg { width: 380px; height: auto; color: var(--mythos-text-primary); flex-shrink: 0; }
+  .gesture-note { font-size: 13px; color: var(--mythos-text-secondary); margin-top: var(--mythos-space-4); }
+  .gesture-note .mark { color: var(--mythos-accent); font-weight: 600; }
+
+  .swatch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--mythos-space-5); }
+  .swatch { border-radius: var(--mythos-radius-card); overflow: hidden; border: 1px solid var(--mythos-border-hairline); }
+  .swatch .fill { height: 88px; }
+  .swatch .label { padding: var(--mythos-space-3) var(--mythos-space-4); background: var(--mythos-surface); font-size: 13px; }
+  .swatch .label code { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--mythos-text-secondary); display: block; margin-top: 2px; }
+
+  .type-row { display: flex; align-items: baseline; gap: var(--mythos-space-6); padding: var(--mythos-space-5) 0; border-bottom: 1px solid var(--mythos-border-hairline); }
+  .type-row .sample { flex: 1; }
+  .type-row .meta { width: 160px; flex-shrink: 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--mythos-text-secondary); }
+
+  .lockup-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--mythos-space-6); }
+  .lockup-card { background: var(--mythos-surface); border-radius: var(--mythos-radius-card); padding: var(--mythos-space-7); text-align: center; }
+  .lockup-card svg { width: 100%; height: auto; color: var(--mythos-text-primary); }
+  .lockup-card .name { margin-top: var(--mythos-space-4); font-size: 13px; color: var(--mythos-text-secondary); }
+
+  .cut { position: relative; }
+  .cut::before {
+    content: ''; position: absolute; top: 0; right: 0; width: 64px; height: 64px;
+    background: var(--mythos-accent);
+    clip-path: polygon(100% 0, 100% 100%, 0 0);
+  }
+  footer { border-top: 1px solid var(--mythos-border-hairline); padding: var(--mythos-space-8); text-align: center; font-size: 13px; color: var(--mythos-text-secondary); }
+</style>
+</head>
+<body>
+<div class="banner">
+  PROTOTYPE — 1I, delegated mandate. Not deployed. Not a production asset.
+  Fonts loaded from Google Fonts as a stand-in; TYPE-2 requires self-hosting once font files exist.
+</div>
+
+<main>
+  <section class="hero">
+    <svg viewBox="0 0 6074 1000" role="img" aria-label="MYTHOS">
+      <path fill="currentColor" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/>
+      <path fill="currentColor" transform="translate(1440 0)" d="M0 0 L290 0 L483 470 L676 0 L966 0 L614 640 L614 1000 L352 1000 L352 640 Z"/>
+      <path fill="currentColor" transform="translate(2454 0)" d="M0 0 L760 0 L760 230 L510 230 L510 1000 L250 1000 L250 230 L0 230 Z"/>
+      <path fill="currentColor" transform="translate(3286 0)" d="M0 0 L264 0 L264 395 L619 395 L619 0 L883 0 L883 1000 L619 1000 L619 605 L264 605 L264 1000 L0 1000 Z"/>
+      <path fill="currentColor" transform="translate(4235 0)" d="M520 0 A520 500 0 1 0 520 1000 A520 500 0 1 0 520 0 Z M520 255 A265 245 0 1 1 520 745 A265 245 0 1 1 520 255 Z"/>
+      <path fill="currentColor" transform="translate(5329 0)" d="M313 0 C243.5 8.3 210.5 17.0 164 39 C117.5 61.0 91.3 81.2 62 119 C32.7 156.8 15.4 198.9 6 243 C-3.4 287.1 -6.0 312.2 11 357 C28.0 401.8 17.3 430.9 98 485 C178.7 539.1 420 636 447 649 C471 661 465 700 460 726 C455 752 436 774 408 790 L0 790 L0 1000 L356 1000 C454.1 997.2 474.3 1000.4 530 985 C585.7 969.6 619.4 950.5 657 917 C694.6 883.5 716.7 852.1 733 804 C749.3 755.9 759.8 712.0 745 657 C730.2 602.0 680 545 653 507 C641 490 330 358 295 345 C275 337 262 325 262 306 C262 288 268 274 285 262 L343 210 L742 210 L742 0 Z"/>
+    </svg>
+    <div>
+      <h1 style="font-size: 39px;">Constant + Movement</h1>
+      <p class="lede">One letter — the M — is slanted 35°. Five stand upright. A stable
+      system with one element in motion. This is the production master, adopted
+      <strong>AUTO-1</strong>: not owner-approved, fully reversible, gated on LOGO-1.</p>
+      <p class="gesture-note">The <span class="mark">35° gesture</span> appears once per
+      view. This page uses it exactly once — the gold cut, top-right of the type
+      section below.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Colour</h2>
+    <div class="swatch-grid">
+      <div class="swatch"><div class="fill" style="background:var(--mythos-accent)"></div><div class="label">Mythos Gold<code>--mythos-accent</code></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--mythos-ground)"></div><div class="label">Ground<code>--mythos-ground</code></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--mythos-surface)"></div><div class="label">Surface<code>--mythos-surface</code></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--mythos-success)"></div><div class="label">Success<code>--mythos-success</code></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--mythos-warning)"></div><div class="label">Warning<code>--mythos-warning</code></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--mythos-danger)"></div><div class="label">Danger<code>--mythos-danger</code></div></div>
+      <div class="swatch"><div class="fill" style="background:var(--mythos-info)"></div><div class="label">Info<code>--mythos-info</code></div></div>
+    </div>
+  </section>
+
+  <section class="cut">
+    <h2>Type — Constant + Movement in text</h2>
+    <div class="type-row"><div class="meta">Display XL / Archivo Expanded</div><div class="sample" style="font-family:'Archivo Expanded';font-size:49px;font-weight:600;letter-spacing:-0.020em;">The evolution, not revolution</div></div>
+    <div class="type-row"><div class="meta">H2 / Archivo Expanded</div><div class="sample" style="font-family:'Archivo Expanded';font-size:31px;font-weight:600;letter-spacing:-0.015em;">Master brand, five units, independent projects</div></div>
+    <div class="type-row"><div class="meta">Body / Plex Sans</div><div class="sample" style="font-size:16px;">Projects inherit the system, not the skin. The master identity remains recognisable without forcing every surface into one visual universe.</div></div>
+    <div class="type-row"><div class="meta">Data / Plex Mono</div><div class="sample" style="font-family:'IBM Plex Mono';font-size:14px;">#D9A441 · 8.59:1 · AAA</div></div>
+  </section>
+
+  <section>
+    <h2>The five units</h2>
+    <div class="lockup-grid">
+      <div class="lockup-card">
+        <svg viewBox="0 0 6074 1360"><path fill="currentColor" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/><path fill="currentColor" transform="translate(1440 0)" d="M0 0 L290 0 L483 470 L676 0 L966 0 L614 640 L614 1000 L352 1000 L352 640 Z"/><path fill="currentColor" transform="translate(2454 0)" d="M0 0 L760 0 L760 230 L510 230 L510 1000 L250 1000 L250 230 L0 230 Z"/><path fill="currentColor" transform="translate(3286 0)" d="M0 0 L264 0 L264 395 L619 395 L619 0 L883 0 L883 1000 L619 1000 L619 605 L264 605 L264 1000 L0 1000 Z"/><path fill="currentColor" transform="translate(4235 0)" d="M520 0 A520 500 0 1 0 520 1000 A520 500 0 1 0 520 0 Z M520 255 A265 245 0 1 1 520 745 A265 245 0 1 1 520 255 Z"/><path fill="currentColor" transform="translate(5329 0)" d="M313 0 C243.5 8.3 210.5 17.0 164 39 C117.5 61.0 91.3 81.2 62 119 C32.7 156.8 15.4 198.9 6 243 C-3.4 287.1 -6.0 312.2 11 357 C28.0 401.8 17.3 430.9 98 485 C178.7 539.1 420 636 447 649 C471 661 465 700 460 726 C455 752 436 774 408 790 L0 790 L0 1000 L356 1000 C454.1 997.2 474.3 1000.4 530 985 C585.7 969.6 619.4 950.5 657 917 C694.6 883.5 716.7 852.1 733 804 C749.3 755.9 759.8 712.0 745 657 C730.2 602.0 680 545 653 507 C641 490 330 358 295 345 C275 337 262 325 262 306 C262 288 268 274 285 262 L343 210 L742 210 L742 0 Z"/></svg>
+        <div class="name">Mythos OS</div>
+      </div>
+      <div class="lockup-card"><div style="height:74px;display:flex;align-items:center;justify-content:center;font-family:'Archivo Expanded';font-size:24px;font-weight:600;">MYTHOS <span style="font-size:13px;color:var(--mythos-text-secondary);margin-left:8px;font-family:'IBM Plex Sans';font-weight:400;">/ Prod</span></div><div class="name">Mythos Prod</div></div>
+      <div class="lockup-card"><div style="height:74px;display:flex;align-items:center;justify-content:center;font-family:'Archivo Expanded';font-size:24px;font-weight:600;">MYTHOS <span style="font-size:13px;color:var(--mythos-text-secondary);margin-left:8px;font-family:'IBM Plex Sans';font-weight:400;">/ Digital</span></div><div class="name">Mythos Digital</div></div>
+      <div class="lockup-card"><div style="height:74px;display:flex;align-items:center;justify-content:center;font-family:'Archivo Expanded';font-size:24px;font-weight:600;">MYTHOS <span style="font-size:13px;color:var(--mythos-text-secondary);margin-left:8px;font-family:'IBM Plex Sans';font-weight:400;">/ Services</span></div><div class="name">Mythos Services</div></div>
+      <div class="lockup-card"><div style="height:74px;display:flex;align-items:center;justify-content:center;font-family:'Archivo Expanded';font-size:24px;font-weight:600;">MYTHOS <span style="font-size:13px;color:var(--mythos-text-secondary);margin-left:8px;font-family:'IBM Plex Sans';font-weight:400;">/ Logistique</span></div><div class="name">Mythos Logistique</div></div>
+    </div>
+    <p class="gesture-note">The descriptor is a slot, not a design (LOGO_SYSTEM.md).
+    Word count, size, tracking and position are fixed — only the word changes.
+    <strong>Services, Digital and Logistique have zero recovered evidence (O-004)</strong> —
+    these lockups are illustrative of the SYSTEM, not a claim these units exist as brands.</p>
+  </section>
+</main>
+
+<footer>
+  MYTHOS 1I prototype — docs/design/prototypes/1-master-brand.html — not deployed, not referenced by any application.
+  Tokens: assets/brand/tokens/tokens.css · Marks: assets/brand/master/
+</footer>
+</body>
+</html>

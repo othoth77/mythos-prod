@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Mythos OS — Dashboard Prototype (1I)</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="../../../assets/brand/tokens/tokens.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--mythos-ground); color: var(--mythos-text-primary); font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; }
+  .banner { background: var(--mythos-warning-dim); border-bottom: 1px solid var(--mythos-warning); padding: var(--mythos-space-3) var(--mythos-space-6); font-size: 13px; text-align: center; }
+  .shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+  aside {
+    background: var(--mythos-surface); border-right: 1px solid var(--mythos-border-hairline);
+    padding: var(--mythos-space-6) var(--mythos-space-4); display: flex; flex-direction: column; gap: var(--mythos-space-2);
+  }
+  aside .brand { display: flex; align-items: center; gap: var(--mythos-space-3); padding: 0 var(--mythos-space-3) var(--mythos-space-6); }
+  aside .brand svg { width: 24px; height: 24px; color: var(--mythos-text-primary); }
+  aside .brand strong { font-size: 13px; }
+  aside a {
+    display: flex; align-items: center; height: var(--mythos-size-control-comfortable);
+    padding: 0 var(--mythos-space-4); border-radius: var(--mythos-radius-control);
+    color: var(--mythos-text-secondary); text-decoration: none; font-size: 14px;
+  }
+  aside a.active { color: var(--mythos-accent); background: var(--mythos-accent-dim); box-shadow: inset 3px 0 0 var(--mythos-accent); }
+
+  main { padding: var(--mythos-space-8); }
+  .page-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: var(--mythos-space-8); }
+  h1 { font-size: 25px; margin: 0 0 4px; font-weight: 600; }
+  .page-head p { margin: 0; color: var(--mythos-text-secondary); font-size: 14px; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--mythos-space-5); margin-bottom: var(--mythos-space-8); }
+  .kpi { background: var(--mythos-surface-card); border-radius: var(--mythos-radius-card); padding: var(--mythos-space-6); }
+  .kpi .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--mythos-text-secondary); margin-bottom: var(--mythos-space-2); }
+  .kpi .value { font-family: 'IBM Plex Mono', monospace; font-size: 28px; font-weight: 400; }
+  .kpi .value.accent { color: var(--mythos-accent); }
+
+  table { width: 100%; border-collapse: collapse; background: var(--mythos-surface); border-radius: var(--mythos-radius-card); overflow: hidden; }
+  th, td { text-align: left; padding: var(--mythos-space-4) var(--mythos-space-5); border-bottom: 1px solid var(--mythos-border-hairline); font-size: 13px; }
+  th { color: var(--mythos-text-secondary); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.08em; }
+  td.num { font-family: 'IBM Plex Mono', monospace; text-align: right; }
+
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 10px; border-radius: var(--mythos-radius-pill); }
+  .badge.attention { background: var(--mythos-accent-dim); color: var(--mythos-accent); }
+  .badge.attention::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--mythos-accent); }
+  .badge.ok { background: var(--mythos-success-dim); color: var(--mythos-success); }
+  .badge.ok::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--mythos-success); }
+
+  .btn-primary {
+    height: var(--mythos-size-control-comfortable); padding: 0 var(--mythos-space-5);
+    border-radius: var(--mythos-radius-control); border: none; background: var(--mythos-accent);
+    color: var(--mythos-text-on-accent); font-weight: 600; font-size: 14px; cursor: pointer;
+  }
+  .btn-primary:focus-visible { outline: 2px solid var(--mythos-focus-ring); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="banner">PROTOTYPE — 1I, delegated mandate. This is a NEW, standalone prototype file. It does not touch, reference or replace css/main.css or any tracked Mythos OS application file (see C-006, AUTO-2).</div>
+
+<div class="shell">
+  <aside>
+    <div class="brand">
+      <svg viewBox="0 0 1380 1000"><path fill="currentColor" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/></svg>
+      <strong>Mythos OS</strong>
+    </div>
+    <a href="#" class="active">Overview</a>
+    <a href="#">Command Center</a>
+    <a href="#">Modules</a>
+    <a href="#">Budget</a>
+    <a href="#">Missions</a>
+    <a href="#">Settings</a>
+  </aside>
+  <main>
+    <div class="page-head">
+      <div>
+        <h1>Overview</h1>
+        <p>Gold means the owner is being waited on (D-013). Nothing here is fabricated activity.</p>
+      </div>
+      <button class="btn-primary">New mission</button>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi"><div class="label">Active modules</div><div class="value">6</div></div>
+      <div class="kpi"><div class="label">Awaiting owner</div><div class="value accent">2</div></div>
+      <div class="kpi"><div class="label">Budget used</div><div class="value">41%</div></div>
+      <div class="kpi"><div class="label">Uptime</div><div class="value">99.8%</div></div>
+    </div>
+
+    <table>
+      <thead><tr><th>Mission</th><th>Status</th><th>Owner action</th><th class="num">Spend</th></tr></thead>
+      <tbody>
+        <tr><td>MOS-1.8 — login gate</td><td><span class="badge ok">finished well</span></td><td>—</td><td class="num">$0.42</td></tr>
+        <tr><td>Design branch merge</td><td><span class="badge attention">awaiting owner</span></td><td>Review AUTO-3</td><td class="num">$0.00</td></tr>
+        <tr><td>Deploy — Command Center TLS</td><td><span class="badge attention">awaiting owner</span></td><td>Privilege boundary — run deploy.sh as `deploy`</td><td class="num">$0.00</td></tr>
+      </tbody>
+    </table>
+  </main>
+</div>
+</body>
+</html>
