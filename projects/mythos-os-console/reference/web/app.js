@@ -186,6 +186,27 @@
       });
   }
 
+  // MOS-2: the one write call this console makes. Same-origin POST to
+  // the one relay route server.js accepts; the browser never addresses
+  // a provider or an executor endpoint directly.
+  function postJSON(path, payload) {
+    return fetch(path, {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload || {})
+    }).then(function (res) {
+      return res.json()
+        .catch(function () { return { ok: false, error: 'bad_response', detail: 'HTTP ' + res.status }; })
+        .then(function (body) {
+          if (res.ok && body && body.ok) return body;
+          var err = new Error(body && body.detail ? body.detail : 'HTTP ' + res.status);
+          err.code = (body && body.error) || 'http_' + res.status;
+          throw err;
+        });
+    });
+  }
+
   // A failed read is rendered as what it is. It is never rendered as an
   // empty list — an operator who cannot tell "nothing is running" from
   // "I cannot see what is running" has been misinformed by the console.
@@ -220,8 +241,9 @@
   RENDERERS['command-center'] = function (view) {
     view.appendChild(pageHeader('COMMAND CENTER', 'Live state of the Mythos control plane.'));
     view.appendChild(readonlyNotice(
-      'This console is read-only by construction. It cannot start, stop, approve or cancel anything; ' +
-      'those remain owner actions on the host.'
+      'This console is read-only by construction, with one deliberate exception: Missions — Pending below can ' +
+      'start a new mission on a real provider. It still cannot stop, approve or cancel anything; those remain ' +
+      'owner actions on the host.'
     ));
 
     var slot = el('div', {});
@@ -257,6 +279,10 @@
       ]);
       slot.appendChild(grid);
 
+      var pending = tasks.filter(function (t) { return String(t.effective || t.status).toUpperCase() === 'QUEUED'; });
+      slot.appendChild(sectionTitle('Missions — Pending'));
+      slot.appendChild(startMissionSection(pending));
+
       if (attention.length) {
         slot.appendChild(sectionTitle('Awaiting the owner'));
         var list = el('div', { className: 'mythos-list' });
@@ -290,6 +316,108 @@
       cellText('Next action', t.next_action),
       el('div', { className: 'mythos-row-end' }, [badge(state)])
     ]);
+  }
+
+  // MOS-2: the real, currently runnable provider enum, mirrored 1:1 from
+  // server.js's own REAL_PROVIDERS — anything else this select could offer
+  // would be rejected by that check, so nothing else is offered. Excludes
+  // 'mock' (test-only) and 'gemini' (registered but unconfigured — no
+  // credential exists, and it is not in the Phase 1 provider enum at all).
+  var START_PROVIDERS = [
+    { value: 'claude-code', label: 'claude-code — execution authority' },
+    { value: 'openai-compat', label: 'openai-compat — advisory, via OmniRoute' }
+  ];
+
+  function pendingRow(t) {
+    return row([
+      cellMain(t.stage || 'unstaged', t.task_id || ''),
+      cellText('Provider', t.provider),
+      cellText('Model', t.model || '(default)'),
+      cellText('Priority', t.priority),
+      el('div', { className: 'mythos-row-end' }, [badge(t.effective || t.status)])
+    ]);
+  }
+
+  // A new mission: title + instruction + provider (+ optional model). No
+  // other field exists client-side to send — project, execution_profile,
+  // mode and requested_by are fixed server-side in server.js and are never
+  // part of this payload. Feedback renders inline; this file has no
+  // alert()/confirm() anywhere and this does not start one.
+  function startMissionSection(pending) {
+    var wrap = el('div', {});
+    var feedback = el('div', { className: 'mythos-start-feedback' });
+
+    var titleInput = el('input', {
+      className: 'mythos-input',
+      attrs: { type: 'text', id: 'mission-title', maxlength: '200', placeholder: 'Short mission title', autocomplete: 'off' }
+    });
+    var instructionInput = el('textarea', {
+      className: 'mythos-input mythos-textarea',
+      attrs: { id: 'mission-instruction', maxlength: '20000', rows: '3',
+        placeholder: 'What should the agent do? Read-only analysis only — this pathway cannot write, commit or deploy.' }
+    });
+    var providerSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-provider' } },
+      START_PROVIDERS.map(function (p) { return el('option', { attrs: { value: p.value }, text: p.label }); }));
+    var modelInput = el('input', {
+      className: 'mythos-input',
+      attrs: { type: 'text', id: 'mission-model', maxlength: '100', placeholder: 'model (optional — provider default if blank)', autocomplete: 'off' }
+    });
+
+    var startBtn = el('button', {
+      className: 'mythos-btn mythos-btn-gold',
+      attrs: { type: 'button' },
+      text: 'Start Mission'
+    });
+
+    startBtn.addEventListener('click', function () {
+      clear(feedback);
+      var title = titleInput.value.trim();
+      var instruction = instructionInput.value.trim();
+      if (!title || !instruction) {
+        feedback.appendChild(statePanel('⚠', 'Missing fields', 'Title and instruction are both required.', true));
+        return;
+      }
+      startBtn.disabled = true;
+      startBtn.textContent = 'Starting…';
+      postJSON('/api/missions/start', {
+        title: title,
+        instruction: instruction,
+        provider: providerSelect.value,
+        model: modelInput.value.trim() || undefined
+      }).then(function (r) {
+        clear(feedback);
+        feedback.appendChild(statePanel('▶', 'Mission started', r.data.task_id + ' — ' + r.data.status +
+          ' on ' + r.data.provider + (r.data.model ? ' (' + r.data.model + ')' : '') +
+          '. It will appear under Missions once the next status refresh loads.'));
+        titleInput.value = ''; instructionInput.value = ''; modelInput.value = '';
+      }).catch(function (e) {
+        clear(feedback);
+        feedback.appendChild(statePanel('⚠', 'Could not start mission', e.message, true));
+      }).then(function () {
+        startBtn.disabled = false;
+        startBtn.textContent = 'Start Mission';
+      });
+    });
+
+    var form = el('div', { className: 'mythos-start-form' }, [
+      el('label', { className: 'mythos-label', attrs: { for: 'mission-title' }, text: 'Title' }), titleInput,
+      el('label', { className: 'mythos-label', attrs: { for: 'mission-instruction' }, text: 'Instruction' }), instructionInput,
+      el('div', { className: 'mythos-start-row' }, [
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-provider' }, text: 'Provider' }), providerSelect]),
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model (optional)' }), modelInput])
+      ]),
+      startBtn, feedback
+    ]);
+    wrap.appendChild(form);
+
+    if (!pending.length) {
+      wrap.appendChild(statePanel('◌', 'No missions pending', 'Nothing is QUEUED right now — start one above.'));
+    } else {
+      var list = el('div', { className: 'mythos-list' });
+      pending.forEach(function (t) { list.appendChild(pendingRow(t)); });
+      wrap.appendChild(list);
+    }
+    return wrap;
   }
 
   RENDERERS.missions = function (view) {

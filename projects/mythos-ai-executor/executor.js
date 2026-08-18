@@ -537,7 +537,7 @@ function summaries() {
     var task = state.readJSON(id, 'task.json') || {};
     return {
       task_id: id, project: task.project, stage: task.stage,
-      provider: task.provider, priority: task.priority || 'normal',
+      provider: task.provider, model: task.model || null, priority: task.priority || 'normal',
       status: st.status, effective: state.effectiveStatus(st),
       created_at: task.created_at, updated_at: st.updated_at,
       retry_count: st.retry_count, quota_state: st.quota_state,

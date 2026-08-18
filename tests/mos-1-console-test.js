@@ -184,13 +184,25 @@ measured.filter(function (r) { return r.informational && /--muted as body text/.
 var serverCode = code(serverJs), upstreamCode = code(upstreamJs), appCode = code(appJs);
 var shellMarkup = markup(shellHtml);
 
-ok(/req\.method !== 'GET' && req\.method !== 'HEAD'/.test(serverCode),
-   'server refuses every method but GET and HEAD before routing');
-ok(!/readBody|req\.on\('data'/.test(serverCode), 'server contains no request-body reader at all');
-['POST', 'PUT', 'PATCH', 'DELETE'].forEach(function (verb) {
+ok(/req\.method !== 'GET' && req\.method !== 'HEAD' && !isWriteRoute/.test(serverCode),
+   'server refuses every method but GET, HEAD and the one named write route before routing');
+ok(/var WRITE_ROUTES = \{ '\/api\/missions\/start': true \};/.test(serverCode),
+   'the write-route exception is an explicit, named, single-entry allowlist -- not a pattern that could grow silently');
+// The ONE named exception (readBoundedBody, MOS-2's request-body reader for
+// exactly one relay route) is stripped by exact name before this check, so
+// any OTHER, unnamed body reader still fails the suite.
+ok(!/readBody|req\.on\('data'/.test(serverCode.replace(/function readBoundedBody[\s\S]*?\n\}\n/, '')),
+   'server contains no request-body reader beyond the one named MOS-2 exception (readBoundedBody)');
+['PUT', 'PATCH', 'DELETE'].forEach(function (verb) {
   ok(!new RegExp("method:\\s*'" + verb + "'").test(upstreamCode), 'upstream client issues no ' + verb);
   ok(!new RegExp("method:\\s*'" + verb + "'").test(serverCode), 'server issues no ' + verb);
 });
+// POST is now issued exactly once, by upstream.post() -- server-to-executor
+// only, over the channel already carrying the bearer token, never
+// browser-to-anything. GET remains issued too.
+ok((upstreamCode.match(/method:\s*'POST'/g) || []).length === 1,
+   'upstream client issues POST exactly once (its own post() function, added for MOS-2)');
+ok(!/method:\s*'POST'/.test(serverCode), 'the console server itself never issues a POST anywhere (it only relays through upstream.post)');
 ok(/method: 'GET'/.test(upstreamCode), 'upstream client issues GET');
 ok(!/child_process|[^.\w]exec\(|[^.\w]spawn\(|[^.\w]eval\(|new Function/.test(serverCode + upstreamCode + appCode),
    'no execution path anywhere in the console (MCC-1 precedent)');
@@ -320,31 +332,58 @@ for (var i = 0; i < 120; i++) STUB_EVENTS.events.push({ type: 'tick', at: '2026-
 var SECRET_TOKEN = 'mos-test-token-do-not-leak-9f3a';
 var stubHits = [];
 
+var stubPostBodies = []; // { url, body } for every POST the stub received, newest last
+
 function startStub() {
   return new Promise(function (resolve) {
     var s = http.createServer(function (req, res) {
-      stubHits.push(req.method + ' ' + req.url);
-      var u = req.url.split('?')[0];
-      if (u === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, store: 'ok' })); return; }
-      var auth = req.headers.authorization || '';
-      if (auth !== 'Bearer ' + SECRET_TOKEN) { res.writeHead(401); res.end(JSON.stringify({ error: 'unauthorized' })); return; }
-      var body =
-        u === '/tasks' ? STUB_TASKS :
-        u === '/campaigns' ? { campaigns: [{ campaign_id: 'c-1', state: 'RUNNING', missions_total: 3, missions_completed: 1, needs_human: false }] } :
-        u === '/events' ? STUB_EVENTS :
-        /^\/budget\//.test(u) ? { project: u.split('/')[2], currency: 'USD', limit: 10, reserved: 1, spent: 2, remaining: 7, stale_reservations: 0 } :
-        null;
-      if (!body) { res.writeHead(404); res.end('{}'); return; }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(body));
+      var chunks = [];
+      req.on('data', function (d) { chunks.push(d); });
+      req.on('end', function () {
+        var u = req.url.split('?')[0];
+        stubHits.push(req.method + ' ' + req.url);
+        var raw = Buffer.concat(chunks).toString('utf8');
+        var parsed = null;
+        try { parsed = raw ? JSON.parse(raw) : null; } catch (e) { /* not JSON */ }
+        if (req.method === 'POST') stubPostBodies.push({ url: u, body: parsed });
+
+        if (u === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, store: 'ok' })); return; }
+        var auth = req.headers.authorization || '';
+        if (auth !== 'Bearer ' + SECRET_TOKEN) { res.writeHead(401); res.end(JSON.stringify({ error: 'unauthorized' })); return; }
+
+        // MOS-2: create + explicit resume, standing in for the real
+        // executor's own POST /tasks and POST /tasks/<id>/resume.
+        if (req.method === 'POST' && u === '/tasks') {
+          res.writeHead(201, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ task_id: 'tk-stub-start-0001', status: 'QUEUED' }));
+          return;
+        }
+        if (req.method === 'POST' && u === '/tasks/tk-stub-start-0001/resume') {
+          res.writeHead(202, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ task_id: 'tk-stub-start-0001', accepted: true }));
+          return;
+        }
+
+        var body =
+          u === '/tasks' ? STUB_TASKS :
+          u === '/campaigns' ? { campaigns: [{ campaign_id: 'c-1', state: 'RUNNING', missions_total: 3, missions_completed: 1, needs_human: false }] } :
+          u === '/events' ? STUB_EVENTS :
+          /^\/budget\//.test(u) ? { project: u.split('/')[2], currency: 'USD', limit: 10, reserved: 1, spent: 2, remaining: 7, stale_reservations: 0 } :
+          null;
+        if (!body) { res.writeHead(404); res.end('{}'); return; }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(body));
+      });
     });
     s.listen(0, '127.0.0.1', function () { resolve(s); });
   });
 }
 
-function req(port, p, method) {
+function req(port, p, method, body) {
   return new Promise(function (resolve) {
-    http.request({ host: '127.0.0.1', port: port, path: p, method: method || 'GET' }, function (res) {
+    var payload = body !== undefined ? JSON.stringify(body) : null;
+    var headers = payload !== null ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {};
+    var r = http.request({ host: '127.0.0.1', port: port, path: p, method: method || 'GET', headers: headers }, function (res) {
       var b = '';
       res.on('data', function (d) { b += d; });
       res.on('end', function () {
@@ -352,7 +391,9 @@ function req(port, p, method) {
         try { json = JSON.parse(b); } catch (e) { /* static */ }
         resolve({ status: res.statusCode, headers: res.headers, text: b, json: json });
       });
-    }).end();
+    });
+    if (payload !== null) r.write(payload);
+    r.end();
   });
 }
 
@@ -484,8 +525,57 @@ startStub().then(function (stub) {
       ok(!/--bg:/.test(traverse.text), 'traversal returns no file content');
       eq(deep.status, 404, 'a deep path is a genuine 404 (routing is hash-based)');
 
-      s.close();
-      stub.close();
+      // -----------------------------------------------------------------
+      // MOS-2: the one write relay, POST /api/missions/start
+      // -----------------------------------------------------------------
+      return Promise.all([
+        req(port, '/api/missions/start', 'POST', { title: 'Test mission', instruction: 'Inspect the repository and report findings.', provider: 'claude-code' }),
+        req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'mock' }),
+        req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'gemini' }),
+        req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 'repo-write' }),
+        req(port, '/api/missions/start', 'POST', { title: 'x', provider: 'claude-code' }),
+        req(port, '/api/missions/start', 'POST', { instruction: 'y', provider: 'claude-code' }),
+        req(port, '/api/missions/start', 'POST', { title: '', instruction: 'y', provider: 'claude-code' }),
+        req(port, '/api/missions/start', 'POST', {}),
+        req(port, '/api/missions/start', 'GET'), // wrong method on the one write path
+        req(port, '/api/missions/start', 'DELETE')
+      ]).then(function (rr) {
+        var okStart = rr[0], badMock = rr[1], badGemini = rr[2], badExtra = rr[3],
+            noInstr = rr[4], noTitle = rr[5], emptyTitle = rr[6], emptyBody = rr[7],
+            wrongGet = rr[8], wrongDelete = rr[9];
+
+        eq(okStart.status, 200, 'a valid start succeeds');
+        eq(okStart.json.data.task_id, 'tk-stub-start-0001', 'the created task id is returned');
+        eq(okStart.json.data.status, 'RUNNING', 'the explicit resume made it RUNNING, not just QUEUED');
+        eq(okStart.json.data.provider, 'claude-code', 'the provider actually used is echoed back');
+
+        [badMock, badGemini, badExtra, noInstr, noTitle, emptyTitle, emptyBody].forEach(function (r, i) {
+          eq(r.status, 400, 'invalid start request ' + i + ' is rejected');
+          eq(r.json.error, 'bad_request', 'invalid start request ' + i + ' names bad_request');
+        });
+        eq(wrongGet.status, 404, 'GET on the write-only path is not treated as the write route (falls through to 404, not 405 — it never matches a GET route)');
+        eq(wrongDelete.status, 405, 'DELETE on the write path is still refused like every other method');
+
+        // The relay must have reached the stub executor exactly twice —
+        // create, then the explicit resume — and ONLY for the one valid
+        // request. Every rejected request above must never have reached
+        // upstream at all: validation happens before any relay call.
+        var startCalls = stubPostBodies.filter(function (c) { return /^\/tasks(\/tk-stub-start-0001\/resume)?$/.test(c.url); });
+        eq(startCalls.length, 2, 'exactly two calls reached the executor: create, then resume — nothing for the seven rejected requests');
+        eq(startCalls[0].url, '/tasks', 'the first call creates the task');
+        eq(startCalls[0].body.project, 'mythos-prod', 'project is fixed server-side, never caller input');
+        eq(startCalls[0].body.execution_profile, 'repo-read', 'execution_profile is fixed to the read-only ceiling, never caller input');
+        eq(startCalls[0].body.requested_by, 'mos-console', 'requested_by identifies the console, distinct from the core owner');
+        eq(startCalls[0].body.provider, 'claude-code', 'the caller-chosen provider is forwarded');
+        eq(startCalls[0].body.instruction, 'Inspect the repository and report findings.', 'the caller-authored instruction is forwarded verbatim');
+        ok(!Object.prototype.hasOwnProperty.call(startCalls[0].body, 'working_directory'),
+           'working_directory is never sent by the console — the executor supplies its own default');
+        eq(startCalls[1].url, '/tasks/tk-stub-start-0001/resume', 'the second call is the explicit resume on the id just created');
+
+        stubPostBodies.length = 0;
+        s.close();
+        stub.close();
+      });
     });
   });
 })

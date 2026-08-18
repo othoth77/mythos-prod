@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Public Project Example — Boundary Prototype (1I)</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="../../../assets/brand/tokens/tokens.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: 'IBM Plex Sans', sans-serif; }
+  .banner { background: var(--mythos-warning-dim); border-bottom: 1px solid var(--mythos-warning); padding: var(--mythos-space-3) var(--mythos-space-6); font-size: 13px; text-align: center; color: var(--mythos-text-primary); background-color: #0e0e0e; }
+
+  /* This project's OWN identity — deliberately NOT Mythos tokens. A fictional
+     example project, "Loulou Studio", with its own green/cream palette. */
+  .project { --project-primary: #2f6b4f; --project-ink: #1c2e24; --project-cream: #f6f1e6; }
+  .project { background: var(--project-cream); color: var(--project-ink); }
+  header.project-nav { display: flex; justify-content: space-between; align-items: center; padding: 24px 48px; }
+  header.project-nav .logo { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; color: var(--project-primary); }
+  header.project-nav nav a { color: var(--project-ink); text-decoration: none; margin-left: 28px; font-size: 14px; }
+  .hero { padding: 96px 48px; text-align: center; }
+  .hero h1 { font-family: 'Playfair Display', serif; font-size: 48px; margin: 0 0 16px; color: var(--project-primary); }
+  .hero p { font-size: 18px; max-width: 60ch; margin: 0 auto; opacity: .8; }
+  .hero button {
+    margin-top: 32px; background: var(--project-primary); color: white; border: none;
+    padding: 14px 32px; border-radius: 4px; font-size: 15px; cursor: pointer;
+  }
+
+  /* --- A-021 boundary --- */
+  footer.project-footer { background: var(--project-ink); color: var(--project-cream); padding: 48px; }
+  footer.project-footer .cols { display: flex; gap: 64px; max-width: 1000px; margin: 0 auto; font-size: 14px; opacity: .85; }
+  footer.project-footer h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .1em; opacity: .6; margin: 0 0 12px; }
+
+  .ecosystem-strip {
+    background: var(--mythos-ground); border-top: 1px solid var(--mythos-border-hairline);
+    padding: var(--mythos-space-5); display: flex; align-items: center; justify-content: center;
+    gap: var(--mythos-space-3); font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: var(--mythos-text-secondary);
+  }
+  .ecosystem-strip svg { width: 18px; height: 18px; color: var(--mythos-accent); flex-shrink: 0; }
+  .ecosystem-strip a { color: var(--mythos-text-secondary); text-decoration: underline; }
+
+  .annotation { max-width: 900px; margin: 48px auto; padding: 0 48px; font-family: 'IBM Plex Sans', sans-serif; font-size: 14px; color: #333; }
+  .annotation .rule { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 12px; }
+  .annotation .rule .yes { color: #2f6b4f; font-weight: 700; }
+  .annotation .rule .no { color: #b23934; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="banner">PROTOTYPE — 1I. "Loulou Studio" is a fictional example project used only to demonstrate the A-021 boundary. It does not exist and is not any real Mythos project.</div>
+
+<div class="project">
+  <header class="project-nav">
+    <div class="logo">Loulou Studio</div>
+    <nav><a href="#">Menu</a><a href="#">Book</a><a href="#">Contact</a></nav>
+  </header>
+  <div class="hero">
+    <h1>Fully its own identity</h1>
+    <p>Its own logo, its own palette, its own type. Nothing here is Mythos —
+    per A-004 and A-006, that is exactly correct.</p>
+    <button>Reserve a table</button>
+  </div>
+  <footer class="project-footer">
+    <div class="cols">
+      <div><h4>Loulou Studio</h4>123 Rue de la Paix<br>Tunis</div>
+      <div><h4>Hours</h4>Tue–Sun, 10:00–22:00</div>
+      <div><h4>Follow</h4>Instagram · Facebook</div>
+    </div>
+  </footer>
+  <div class="ecosystem-strip">
+    <svg viewBox="0 0 1380 1000"><path fill="currentColor" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/></svg>
+    A MYTHOS project — <a href="#">mythosprod.xyz</a>
+  </div>
+</div>
+
+<div class="annotation">
+  <h3 style="font-family:sans-serif;">What this prototype is demonstrating (A-021)</h3>
+  <div class="rule"><span class="yes">✓</span> The project's own primary colour (green) and logo (Playfair wordmark) — untouched, dominant everywhere</div>
+  <div class="rule"><span class="yes">✓</span> Gold appears exactly once, in the ecosystem strip below the project's own footer — never in the hero, header or primary action</div>
+  <div class="rule"><span class="no">✗</span> Gold is never the "Reserve a table" button — that stays the project's own green</div>
+  <div class="rule"><span class="no">✗</span> The header does not carry a MYTHOS lockup — this is not a Mythos-branded product</div>
+</div>
+</body>
+</html>

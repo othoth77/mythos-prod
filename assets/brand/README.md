@@ -1,8 +1,9 @@
 # MYTHOS brand assets
 
-**Status: PROPOSAL — awaiting owner validation (Stage 1B, logo evolution).**
-No production file references anything in this directory. Nothing here is
-deployed.
+**Status, updated 2026-08-18: the vector reconstruction is the ADOPTED
+production master (AUTO-1 — delegated mandate, NOT owner-approved).** See
+`docs/MYTHOS_DESIGN_DECISIONS.md` §0.5. No production file references anything
+in this directory. Nothing here is deployed.
 
 Specification: `docs/design/LOGO_SYSTEM.md`
 Historical record: `docs/design-recovery/MYTHOS_ORIGINAL_LOGO_RECOVERY.md`
@@ -13,7 +14,9 @@ Historical record: `docs/design-recovery/MYTHOS_ORIGINAL_LOGO_RECOVERY.md`
 assets/brand/
 ├── source/     canonical geometry + the generator (edit here)
 ├── master/     generated SVG masters (never hand-edit)
-└── export/     generated PNG exports (never hand-edit)
+├── export/     generated PNG exports (never hand-edit)
+└── tokens/     tokens.css — the canonical 1C/1E token artifact (AUTO-3, TOKEN-1)
+                NOT wired into any application or build
 ```
 
 `source/` is the only writable layer. `master/` and `export/` are build output:

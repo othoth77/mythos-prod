@@ -104,9 +104,11 @@
 }
 
 /* --- Read-only notice ---------------------------------------------
-   This console never writes. That is a governance property, not an
-   unfinished feature, so it is stated on the surface rather than
-   implied by the absence of buttons. */
+   This console writes exactly one thing (MOS-2: starting a mission,
+   relayed through server.js's one narrow route) and nothing else. That
+   boundary is a governance property, not an unfinished feature, so it
+   is stated on the surface rather than implied by the absence of
+   buttons. */
 
 .console-readonly {
   display: flex;
@@ -139,3 +141,45 @@
   .console-cap { grid-template-columns: 40px 1fr; }
   .console-cap > :nth-child(3) { grid-column: 1 / -1; }
 }
+
+/* --- Start Mission form (MOS-2) -------------------------------------
+   The one form this console has. Composition only, like every other
+   rule in this file: no colour literal, tokens only. */
+
+.mythos-start-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--mythos-sp-3);
+  padding: var(--mythos-sp-6);
+  margin-bottom: var(--mythos-sp-6);
+  border: 1px solid var(--mythos-border);
+  border-radius: var(--mythos-radius-lg);
+  background: var(--mythos-card);
+}
+
+.mythos-start-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--mythos-sp-4);
+}
+@media (max-width: 760px) {
+  .mythos-start-row { grid-template-columns: 1fr; }
+}
+
+.mythos-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--mythos-sp-3) var(--mythos-sp-4);
+  background: var(--mythos-bg);
+  border: 1px solid var(--mythos-border);
+  border-radius: var(--mythos-radius-sm);
+  color: var(--mythos-text);
+  font-family: var(--mythos-font-ui);
+  font-size: var(--mythos-fs-base);
+}
+.mythos-input:focus { outline: none; border-color: var(--mythos-gold); box-shadow: var(--mythos-focus-ring); }
+
+.mythos-textarea { resize: vertical; min-height: 64px; font-family: var(--mythos-font-ui); }
+
+.mythos-start-feedback:empty { display: none; }
+.mythos-start-feedback .mythos-state { padding: var(--mythos-sp-4) 0 0; }

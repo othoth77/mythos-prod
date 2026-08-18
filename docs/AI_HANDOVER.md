@@ -121,13 +121,190 @@ work does not touch.
 | Stage commit | `62b134a` |
 | Remote HEAD | `62b134a` plus this handover commit — pushed and verified equal to local |
 | PR | **#16, draft — NOT merged** |
-| `origin/main` | `ed376ea` |
+| `origin/main` | `77fd1e2` (merged in) |
 | `othoth77/idauto` `main` | `bdfec2c` — **untouched** |
+
 
 ---
 
 ## Previous entry
 
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, THIRD PASS — ALL FIVE CONTINUATION ITEMS COMPLETE (DECISION SWEEP, 1I PROTOTYPES, CONSOLIDATION, READINESS AUDIT, MIGRATION PLANS). STOPPING HERE: THE AUDIT ITSELF IS THE EVIDENCE THAT EVERY REMAINING PHASE IS GENUINELY BLOCKED, NOT A CHOICE TO STOP EARLY. NO APPLICATION, CSS OR ASSET FILE CHANGED ACROSS ANY OF THIS PASS.**
+
+**Items 6–8 of the mandate's continuation are done**, completing all five named
+items. `docs/design/MYTHOS_DESIGN_SYSTEM.md` (topic-ordered consolidation of
+1C–1I and AUTO-1–3, introduces nothing new), `docs/design/
+IMPLEMENTATION_READINESS_AUDIT.md`, `docs/design/MIGRATION_PLANS.md`. PR #21,
+merged to `main` at `893a3f9`.
+
+**The readiness audit's finding is the most important thing this pass
+produced, and it is stated plainly rather than softened:** across the entire
+design programme — 1A through 1I, AUTO-1 through AUTO-3 — **nothing has been
+implemented or verified in any running application, anywhere, at any point.**
+Every cell in the audit's readiness table for "implemented" and "verified" is
+empty. Five concrete, named prerequisites are **not satisfied**: a resolved
+token conflict (**C-006**), real self-hosted font files (**TYPE-2**), a
+component library in an actual framework (none exists in any language, in
+this repository, for this system), authorised individual migrations
+(**MIG-1–4**, still recorded and not actioned), and a live-application
+verification loop (the existing tooling, `tools/visual-verify.js`, is scoped
+by the project's own convention to isolated reference implementations only,
+never a real consuming application).
+
+**What genuinely closes each item this pass:**
+
+**Decision sweep (AUTO-3, PR #18)** — eighteen open items. Six adopted
+unchanged from an existing recommendation (MOTION-1, LINK-1, SHAPE-1, GOLD-3,
+TYPE-3, SPACE-1). Twelve newly reasoned through with computation or explicit
+argument: **GOLD-2** darkens rather than lightens on light-theme hover/active
+(lightening fails AA immediately; darkening only ever raises contrast, verified
+8.71/7.02). **SURF-1** extends the light elevation ramp and defines shadows by
+*measuring* the lightness step the already-approved `paper-100→paper-200`
+transition encodes, then extending that exact step. **TOKEN-1** authorised,
+artifact generated (see below). **TOKEN-2** adopts `--mythos-*`, matching
+C-006's real precedent. **MOTION-2/3, A11Y-1/2, SEQ-1, GRID-1/3, ECO-1/2/3**
+all resolved with reasoning on the record, not assertion — full detail
+`MYTHOS_DESIGN_DECISIONS.md` §0.5. **GRID-2 stays narrowed, not closed** — 65
+characters as intent, 68ch as an approximation, pending real font metrics.
+**C-001/O-002 and the recovery-era evidence questions are untouched** — real
+conflicts and facts a decision sweep cannot derive.
+
+**`assets/brand/tokens/tokens.css` generated** — first machine-readable
+artifact for the canonical system, new, standalone, unwired. One real error
+caught before it shipped: the reduced-motion block first wrote every duration
+to `0ms`, contradicting the approved rule (*durations resolve to
+`motion-micro`, not zero*) — corrected before commit.
+
+**1I Design Prototypes (PR #20)** — seven self-contained static HTML files
+matching the original brief's §23, `docs/design/prototypes/`. The Mythos OS
+prototype is deliberately a **new, standalone file** — it does not touch
+`css/main.css`. The business-unit example states its own unit (Mythos Digital)
+has zero recovered evidence, in the page itself. The public-project example is
+explicitly fictional, demonstrating the **A-021** boundary: the project's own
+identity dominates, gold appears exactly once, in the ecosystem strip.
+
+**Consolidation, audit, migration plans (PR #21)** — described above.
+
+**Every AUTO-\* decision across this entire mandate remains reversible at zero
+cost, and none is represented as an owner approval.** The distinction has been
+maintained consistently: A-\* is owner review, AUTO-\* is delegated authority,
+and every document touched this pass states which is which rather than
+blurring them.
+
+**Why this is a stopping point, not a pause of convenience.** The mandate's own
+exit condition is a genuine technical/security/access blocker, evidenced. This
+pass produced exactly that evidence, twice over: **(1)** `AUTO-2` (previous
+pass) found and reverted a near-miss on `css/main.css`, the real Mythos OS
+stylesheet, because this session has no full-application visual-regression
+capability — the readiness audit generalises that single finding into the
+actual prerequisite blocking `MIG-1`–`MIG-4` and any real implementation.
+**(2)** MOS-1.6 and MOS-1.7 (merged into `main` earlier this pass) independently
+confirm, from a session **with** host access, a deliberately-configured
+`deploy`-user privilege boundary — refused two different ways, correctly not
+escalated around. **Both blockers are named, evidenced and unchanged by
+anything this pass could do.** What remained genuinely executable — the
+decision sweep, the token artifact, the prototypes, the consolidation, the
+audit, the migration plans — is done.
+
+**What is left, concretely, for whoever picks this up next:**
+
+1. Font files, self-hosted (§2.2 of the readiness audit) — no dependency on
+   anything else, could start immediately if authorised.
+2. A session or tooling change that can run full-application visual
+   regression against `css/main.css` and `projects/mythos-os-console` — the
+   single prerequisite blocking every remaining migration.
+3. Answers to **O-006** (merge Mouain's lines?), **O-007** (serve AgriBee?),
+   **O-002** (which Dar Hijama artifact is authoritative?) — evidence
+   questions, not design questions.
+4. The operator action MOS-1.7 named: run `deploy.sh` directly as `deploy`, or
+   create a root-installed `User=deploy` systemd relay mirroring
+   `mythos-git-push.service` — outside this session's authority to create
+   unilaterally.
+
+**Repository state:** `main` at `893a3f9`. Six PRs opened and merged across
+this mandate (#11, #17, #18, #19, #20, #21), each via the branch-then-PR
+pattern this repository already used, none force-pushed, no secret committed,
+no historical evidence altered. Every merge verified against `origin/main`
+before proceeding to the next.
+
+---
+
+## Previous entry
+
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, SECOND PASS — DECISION SWEEP COMPLETE (AUTO-3, 18 ITEMS), TOKEN ARTIFACT GENERATED. NO APPLICATION, CSS OR BUILD FILE CHANGED — ONE NEW, STANDALONE, UNWIRED SPECIFICATION FILE.**
+
+**Item 4 of the mandate's five-item continuation** ("complete the remaining
+decision sweep") is done. Full reasoning and every value:
+`docs/MYTHOS_DESIGN_DECISIONS.md` §0.5, **AUTO-3**.
+
+**Six items already had a complete recommendation and were formally adopted
+unchanged:** MOTION-1, LINK-1, SHAPE-1, GOLD-3, TYPE-3, SPACE-1.
+
+**Twelve were newly reasoned through, each with computation or explicit
+argument, not assertion:** **GOLD-2** — light-theme hover/active **darken** from
+`gold-800`, never lighten, because lightening immediately fails AA (`paper-100`
+on `gold-700` = 3.94) while darkening only ever raises contrast (verified 8.71,
+7.02). **SURF-1** — the light elevation ramp was extended and shadows defined by
+**measuring** the lightness step the already-approved `paper-100`→`paper-200`
+transition encodes, then extending that same step rather than inventing a new
+one. **TOKEN-1** — authorised; the blocker was permission, not a technical
+question. **TOKEN-2** — `--mythos-*` prefix adopted, matching C-006's real
+precedent. **MOTION-2** — the 35° motion vector does **not** mirror in RTL,
+direct application of A-012's own reasoning for the mark's slant. **MOTION-3** —
+the shape-cut and motion-vector share **one** per-view budget, preserving the
+rarity the system is built on. **A11Y-1** — primary/secondary buttons
+distinguished by `border-style` under `forced-colors` (survives it; colour does
+not) — flagged explicitly as a genuine judgement call, not a derivation.
+**A11Y-2** — the `disabled`/`aria-disabled` attribute **is** the non-colour,
+screen-reader-detectable channel. **SEQ-1** — sequential (6-step) and diverging
+(7-step) data scales generated in HLS, monotonic lightness, every step ≥ 3:1 on
+ink. **GRID-1** — 1440 is the 1280 container at its own margins, not a second
+width; `2xl` inherits `xl`'s capped state and has none of its own. **GRID-3** —
+off-scale spacing steps given an explicit role (optical correction, or
+legitimate-but-unbanded); button padding confirmed as 10/16 inside a 1px
+border. **ECO-1/2/3** — Command Center DNS stays flat (brand hierarchy is UI,
+never URL); `panel.`/`tv.` classified internal infrastructure, no branding;
+the twelve extra projects classified internal tooling — none has any public
+serving surface, live or planned.
+
+**GRID-2 is narrowed, not closed:** 65 characters is the design intent, 68ch an
+approximation pending real font metrics that don't exist yet. **C-001, O-002**
+and the recovery-era evidence questions (**O-003/004/006/007, C-004, U-001**)
+are untouched — real-world conflicts and unresolved facts a decision sweep
+cannot derive.
+
+**`assets/brand/tokens/tokens.css` generated** — the first machine-readable
+artifact for the canonical 1C/1E system, now that TOKEN-1 is authorised. **New,
+standalone, referenced by no application, HTML file or build step.** One real
+error was caught and fixed before landing: the reduced-motion block first wrote
+all durations to `0ms`, which contradicts the approved rule (*"every duration
+resolves to `motion-micro`"*, not zero) — corrected before commit.
+
+**Documentation propagated, not duplicated.** `COLOR_SYSTEM.md`,
+`GRID_AND_SPACING.md`, `DESIGN_TOKENS.md`, `COMPONENT_SYSTEM.md`,
+`RESPONSIVE_ACCESSIBILITY_MOTION.md`, `PUBLIC_ECOSYSTEM_ARCHITECTURE.md` and the
+design `README.md` each got a pointer update to the register rather than a full
+rewrite — the register stays the single authoritative record. Two stale
+statuses caught in passing and corrected: `COLOR_SYSTEM.md` §8 still listed
+O-A1/O-A3 as open long after A-020/A-021 resolved them; `GRID_AND_SPACING.md` §9
+still listed C-005 as open long after A-022 resolved it.
+
+**Every AUTO-3 row is reversible at zero cost** — nothing touches a live file,
+and a genuine owner review can accept, amend or reverse any single item without
+affecting the others. Committed via branch + PR (`claude/decision-sweep-auto3`,
+PR #18), merged to `main` at `392e97e`, remote verified equal.
+
+**Next, under the same mandate:** item 5 (1I Design Prototypes), then
+consolidation, the implementation-readiness audit, and migration plans.
+**Deployment-dependent phases remain blocked** — MOS-1.6/1.7 (merged into `main`
+this stage's window) independently confirm a real, deliberately-configured
+`deploy`-user privilege boundary from a session **with** host access, refused
+two different ways. Not attempted again; not this session's decision to
+escalate around.
+
+---
+
+## Previous entry
 
 **Previously:** MYTHOS **IDA-DECOUPLE-2 — THE TWO GENERIC OPS MODULES ARE NOW MYTHOS-OWNED. ZERO MYTHOS RUNTIME FILES RESOLVE ANY PATH INSIDE `projects/idauto/`. ONE TEST DEPENDENCY STILL BLOCKS DELETION.**
 
@@ -265,10 +442,10 @@ is not authorised by this stage.**
 | `origin/main` | `0447209` |
 | `othoth77/idauto` `main` | `bdfec2c` — **untouched** |
 
+
 ---
 
 ## Previous entry
-
 
 **Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, FIRST PASS — PR #11 MERGED TO MAIN; LOGO-2 RESOLVED (AUTO-1); LOGO-1 NARROWED; C-006 CANONICAL SYSTEM DECIDED (AUTO-2) WITH EXECUTION DELIBERATELY DEFERRED AFTER A NEAR-MISS ON THE REAL MYTHOS OS STYLESHEET. NO CODE, CSS OR APPLICATION FILE ENDS THIS STAGE CHANGED — ONLY DOCUMENTATION.**
 
@@ -723,6 +900,67 @@ It will stop at Phase 5 for the two root commands, then resume on re-run.
 self-hosting Playfair Display and Inter to remove the CSP font exception;
 it would add the first font binaries this repository has tracked, so it
 needs an explicit decision rather than an assumption.
+
+---
+
+## MOS-2 — MISSION QUEUE / MODEL SELECTION / START EXECUTION (2026-08-18) — **PASS; FIRST REAL AI OPERATING LAYER CAPABILITY; NOT DEPLOYED**
+
+### Stage
+
+MOS-2 — turns the Command Center from a read-only dashboard into the first operational surface for starting real AI-executed missions on real providers, in genuine parallel. Reuses the existing executor, provider registry and control-plane contracts; builds no parallel architecture.
+
+### Architecture audit performed first — no file modified during that pass
+
+Read `core/domain.js`, `core/orchestrator.js`, `core/core-wiring.js`, `core/provider-router.js`, `core/scheduler.js`, both `server.js` files, `executor.js`, both real provider modules, `upstream.js`, `app.js`, `config/agents.json`, `config/router.json`, `config/projects.json`, `lib/policy.js`, `lib/state.js`.
+
+**The decisive finding: this system has two execution architectures, and only one honours a caller's model choice.** Phase 2's goal/campaign intake explicitly, three times over, refuses a caller-selected provider — `core-wiring.js`'s own comment: *"Provider… NOT accepted from the caller — configuration and policy, not input"*; `campaign-service.js` allowlists only `objective/project/requested_by`; and `orchestrator.buildRunner` calls `provider-router.route()` **unconditionally** on every dispatch, overwriting any pre-set `agent_id`. This is deliberate, three-times-reinforced governance — **not touched by this stage.** Phase 1's `task.schema.json`, by contrast, has always had `provider` as a required, real, caller-set enum (`claude-code` / `openai-compat` / `mock`) plus an optional `model` string — the only place in the system a human's model choice is actually honoured rather than silently re-routed. **Decision: build on Phase 1.**
+
+**Real parallelism, no new lock.** `executor.js`'s `tick()` serialises itself to one task at a time as its *own* background-loop policy ("At most one task runs at a time") — but `runTask()`, which `POST /tasks/<id>/resume` calls directly, has **no cross-task lock at all**. Starting two missions calls `runTask()` twice, independently. Proven live (see Verification).
+
+**Execution identity already existed.** `runTask()` already stamps `execution_id`, `provider`, `model`, `started_at`, `ended_at`, `status` onto the task record on every attempt — no parallel Execution entity was added.
+
+**Real models only.** `server.js`'s `REAL_PROVIDERS = ['claude-code', 'openai-compat']` mirrors the actual enum — excludes `mock` (test-only) and `gemini` (registered in `agents.json` but genuinely unconfigured, no credential exists, and not in the Phase 1 enum at all). The client select offers exactly these two.
+
+### The one governance change, made once, narrowly
+
+`server.js`'s own header says *"THE READ-ONLY PROPERTY IS STRUCTURAL, NOT POLICY"*; `app.js`'s own header says *"adding one is a governance change, not a feature."* This stage's whole purpose is exactly that change: **one** new route, `POST /api/missions/start`, in a one-entry named allowlist checked before the method gate. The browser sends `{title, instruction, provider, model?}` and nothing else; `project` (`mythos-prod`), `execution_profile` (`repo-read` — `Write`/`Edit`/`NotebookEdit` structurally disallowed regardless of instruction content), `requested_by` (`mos-console`, distinct from `orchestration-core` so nothing is ever mistaken for a core-owned task) are fixed server-side and never read from the request. The relay makes exactly two calls to the executor's own, **unmodified** `/tasks` and `/tasks/<id>/resume` — no new executor-side code exists. The browser never addresses a provider or the executor directly, and never sees the bearer token.
+
+**Safety boundaries respected, not bypassed:** budget reservation and `WAITING_FOR_APPROVAL` are Phase-2-core concepts that don't exist for standalone Phase 1 tasks — nothing to bypass. Quota exhaustion is caught by the executor's own existing `lib/quota.js` classification, unchanged. `repo-read` is the same profile Phase 1 has always enforced, not invented for this stage.
+
+### Files
+
+| File | Change |
+|---|---|
+| `executor.js` | +1 line — `model` added to `summaries()` (already stored, not previously surfaced) |
+| `upstream.js` | +`post()` — mirrors `get()` exactly, server-to-executor only |
+| `server.js` | +`WRITE_ROUTES` (one named entry) +`handleStartMission()` — validates, rejects any unexpected field, fixes every safety-relevant field server-side, relays create+resume |
+| `app.js` | +`postJSON()` +`startMissionSection()` (title, instruction, real two-entry provider select, optional model, Start button, inline feedback — no `alert()`/`confirm()`/`innerHTML`) +"Missions — Pending" section in the Command Center; readonly notice text updated to honestly name the one exception |
+| `console.css` | +form styles, `var(--mythos-*)` tokens only, zero literal colour |
+| `tests/mos-1-console-test.js` | stub extended to stand in for `POST /tasks`/`resume`; two existing assertions **narrowed** (not deleted) to name the one exception, matching the MOS-1.1 script-tag precedent; extensive new coverage (below) |
+
+### Verification
+
+| Check | Result |
+|---|---|
+| `node --check` | Clean on all 5 touched JS files |
+| `tests/mos-1-console-test.js` | **374 passed, 0 failed** (344 → 374) |
+| `tests/mythos-ai-executor-test.js` | **125/125** (full suite — `executor.js` changed) |
+| `tests/mythos-orchestration-core-test.js` | **257/257** (full suite — shared core behaviour) |
+| Live smoke test | Stub executor + the real `server.js`, wired exactly as production (`MOS_EXECUTOR_URL` pointed at the stub). A valid start reached the stub with **exactly** the fixed payload and correct bearer token, in order (create then resume); an invalid provider, an extra field, and a missing field were all rejected **before ever reaching the stub** (confirmed via the stub's own call log — zero calls for the seven rejected requests); every other write attempt still 405; `GET /` still 200 |
+| Test-suite coverage | Seven distinct invalid requests (bad provider incl. `mock` and `gemini`, unexpected field, missing title, missing instruction, empty title, empty body) all rejected 400, asserted to never reach the stub; the two real calls asserted field-by-field against what the stub actually received |
+
+### Record
+
+| | |
+|---|---|
+| Base | `1752f12`, branch `main`, fast-forwarded once more mid-stage (docs/design mandate commits, zero overlap) |
+| Commit | `158efe6` |
+| Remote HEAD | see below — verified after delivery |
+| Deployment | **Not performed** — not requested by this stage |
+
+### Next stage
+
+Operator can now start a real mission from the Command Center and watch it run to completion via the existing Missions view — the first genuinely operational (not read-only) capability the console has ever had. Natural follow-ons, none started here: surfacing `execution_id`/`ended_at`/result on the pending-mission rows once a mission completes; a "cancel" action (the executor already has `/tasks/<id>/cancel`, same relay shape); widening `execution_profile` beyond `repo-read` (an explicit, separate owner decision, not implied by this stage). Unrelated and unchanged: the login gate, the deployment privilege boundary (MOS-1.6/1.7), the design-branch/LOGO governance items.
 
 ---
 

@@ -1,0 +1,292 @@
+/* =============================================================================
+   MYTHOS DESIGN TOKENS — the canonical 1C/1E specification, TOKEN-1 / AUTO-3
+   =============================================================================
+
+   STATUS: SPECIFICATION ARTIFACT. NOT WIRED INTO ANY APPLICATION OR BUILD.
+
+   This file is not referenced by any HTML, any project, or any build step in
+   this repository. It exists so the canonical token values have exactly one
+   machine-readable source, instead of living only in prose across
+   COLOR_SYSTEM.md, TYPOGRAPHY.md, GRID_AND_SPACING.md, DESIGN_TOKENS.md and
+   the AUTO-3 register entry. Wiring it into a real application is a separate,
+   future authorisation — this file changes nothing about what currently
+   renders anywhere.
+
+   Authority: docs/MYTHOS_DESIGN_DECISIONS.md
+     - GLOBAL/SEMANTIC values:        A-009, A-013, A-014, A-015, A-016 (owner-approved)
+     - Namespace prefix (--mythos-*): TOKEN-2, resolved AUTO-3 (delegated mandate)
+     - GOLD-2, SURF-1 extensions:     resolved AUTO-3 (delegated mandate)
+     - Artifact generation itself:    TOKEN-1, authorised under the full
+                                       autonomous mandate, resolved AUTO-3
+
+   Do not confuse this file with projects/mythos-os-console's own
+   --mythos-* system (D-001-derived, C-006). The two are related but
+   NOT identical — see C-006 and AUTO-2 for the values that still differ
+   (spacing, radius, accent) and why they have not been reconciled yet.
+
+   Naming grammar (docs/design/DESIGN_TOKENS.md §2):
+     GLOBAL:    --mythos-<family>-<step>       e.g. --mythos-ink-100
+     SEMANTIC:  --mythos-<role>[-<variant>]     e.g. --mythos-text-primary
+     Component-tier tokens are NOT defined here — see DESIGN_TOKENS.md §6.
+     They resolve to semantic tokens only, never to global ones.
+
+     One simplification from DESIGN_TOKENS.md §4.6's original proposal,
+     noted honestly rather than silently: that section proposed a further
+     semantic aliasing layer for spacing (space-section-sm/md/lg/xl,
+     space-component-xs/sm/md/lg) distinct from the raw 12-step scale.
+     This artifact exposes the raw scale as GLOBAL only — radius and size
+     tokens already carry semantic names at the global tier (radius-control,
+     not radius-2), and adding a second spacing alias layer without a
+     concrete consumer to validate it against seemed like indirection
+     without benefit. If a real implementation needs the alias layer,
+     add it then, against real usage — not speculatively here.
+   ============================================================================= */
+
+:root {
+  /* ---------------------------------------------------------------------
+     GLOBAL — ink / paper neutrals (COLOR_SYSTEM.md §2)
+     --------------------------------------------------------------------- */
+  --mythos-ink-900: #0B0B0A;
+  --mythos-ink-850: #0E0E0D;
+  --mythos-ink-800: #161614;
+  --mythos-ink-750: #1D1D1B;
+  --mythos-ink-700: #2A2A27;
+  --mythos-ink-600: #3A3934;
+  --mythos-ink-550: #726F64;
+  --mythos-ink-500: #55534B;
+  --mythos-ink-400: #7A776C;
+  --mythos-ink-300: #A8A498;
+  --mythos-ink-200: #CFCBC0;
+  --mythos-ink-100: #E8E4DC;
+
+  --mythos-paper-050: #F7F6F3; /* AUTO-3, ground-deep, extends the ramp */
+  --mythos-paper-100: #F5F3EF;
+  --mythos-paper-200: #EFECE5;
+  --mythos-paper-250: #E9E5DD; /* AUTO-3, surface-card, extends the ramp */
+  --mythos-paper-300: #D6D1C5;
+  --mythos-paper-500: #7F7B6D;
+  --mythos-paper-900: #14130F;
+  --mythos-paper-strong: #CAC4B4; /* AUTO-3, border-strong, extends the ramp */
+
+  /* ---------------------------------------------------------------------
+     GLOBAL — Mythos Gold (A-013; hover/active on paper: AUTO-3 GOLD-2)
+     --------------------------------------------------------------------- */
+  --mythos-gold-200: #EBCE99;
+  --mythos-gold-400: #DDAE55;
+  --mythos-gold-500: #D9A441;
+  --mythos-gold-700: #9D711F;
+  --mythos-gold-800: #805C19;
+  --mythos-gold-850: #6B4D15; /* AUTO-3, light-theme accent-active */
+  --mythos-gold-900: #5A4011; /* AUTO-3, light-theme accent-hover */
+  --mythos-gold-dim: rgba(217, 164, 65, 0.12);
+
+  /* ---------------------------------------------------------------------
+     GLOBAL — semantic hues (COLOR_SYSTEM.md §4, A-015)
+     --------------------------------------------------------------------- */
+  --mythos-success: #4ADE80;
+  --mythos-success-light: #136B34;
+  --mythos-success-dim: rgba(74, 222, 128, 0.12);
+  --mythos-warning: #F0A342;
+  --mythos-warning-light: #7A4F09;
+  --mythos-warning-dim: rgba(240, 163, 66, 0.12);
+  --mythos-danger: #F1706A;
+  --mythos-danger-light: #9E2419;
+  --mythos-danger-dim: rgba(241, 112, 106, 0.12);
+  --mythos-info: #7DC4EA;
+  --mythos-info-light: #19608F;
+  --mythos-info-dim: rgba(125, 196, 234, 0.12);
+
+  /* ---------------------------------------------------------------------
+     GLOBAL — data visualisation (COLOR_SYSTEM.md §5; sequential/diverging: AUTO-3 SEQ-1)
+     --------------------------------------------------------------------- */
+  --mythos-chart-1: #D9A441;
+  --mythos-chart-2: #7DC4EA;
+  --mythos-chart-3: #4ADE80;
+  --mythos-chart-4: #B98BD0;
+  --mythos-chart-5: #F0A342;
+  --mythos-chart-6: #6FB3A8;
+  --mythos-chart-7: #E8846F;
+  --mythos-chart-8: #8E9BD4;
+
+  --mythos-seq-1: #7E5C1B;
+  --mythos-seq-2: #AD7D25;
+  --mythos-seq-3: #D49D35;
+  --mythos-seq-4: #DEB463;
+  --mythos-seq-5: #E8CA92;
+  --mythos-seq-6: #F2E0C0;
+
+  --mythos-div-1: #75B5D7;
+  --mythos-div-2: #4D9FCB;
+  --mythos-div-3: #3486B2;
+  --mythos-div-4: #726F64;
+  --mythos-div-5: #D77975;
+  --mythos-div-6: #CB534D;
+  --mythos-div-7: #B23934;
+
+  /* ---------------------------------------------------------------------
+     GLOBAL — spacing (GRID_AND_SPACING.md §2; GRID-3 role clarified AUTO-3)
+     --------------------------------------------------------------------- */
+  --mythos-space-1: 2px;   /* optical correction only — AUTO-3 GRID-3 */
+  --mythos-space-2: 4px;   /* optical correction only — AUTO-3 GRID-3 */
+  --mythos-space-3: 8px;
+  --mythos-space-4: 12px;
+  --mythos-space-5: 16px;
+  --mythos-space-6: 24px;
+  --mythos-space-7: 32px;
+  --mythos-space-8: 48px;
+  --mythos-space-9: 64px;
+  --mythos-space-10: 96px;
+  --mythos-space-11: 128px;
+  --mythos-space-12: 160px;
+
+  /* ---------------------------------------------------------------------
+     GLOBAL — grid / container (1C §5; consumed by the layout primitive
+     directly, not through the semantic tier — DESIGN_TOKENS.md §3.1)
+     --------------------------------------------------------------------- */
+  --mythos-grid-columns-sm: 4;
+  --mythos-grid-columns-md: 8;
+  --mythos-grid-columns-lg: 8;
+  --mythos-grid-columns-xl: 12;
+  --mythos-grid-gutter-sm: 16px;
+  --mythos-grid-gutter-md: 20px;
+  --mythos-grid-gutter-lg: 24px;
+  --mythos-grid-margin-sm: 20px;
+  --mythos-grid-margin-md: 48px;
+  --mythos-grid-margin-lg: 80px;
+  --mythos-container-content: 1280px;
+  --mythos-container-wide: 1440px; /* = content + margin-lg * 2 — AUTO-3 GRID-1 */
+  --mythos-container-prose: 65ch;  /* intent value — AUTO-3 GRID-2, partial */
+
+  /* ---------------------------------------------------------------------
+     GLOBAL — radius (1C §6)
+     --------------------------------------------------------------------- */
+  --mythos-radius-none: 0;
+  --mythos-radius-control: 2px;
+  --mythos-radius-card: 6px;
+  --mythos-radius-overlay: 12px;
+  --mythos-radius-pill: 999px;
+
+  /* ---------------------------------------------------------------------
+     GLOBAL — size (component/touch geometry; A-022)
+     --------------------------------------------------------------------- */
+  --mythos-size-control-compact: 36px;
+  --mythos-size-control-comfortable: 40px;
+  --mythos-size-touch-min: 44px;
+
+  /* ---------------------------------------------------------------------
+     GLOBAL — motion (1C §10; A-018)
+     --------------------------------------------------------------------- */
+  --mythos-motion-micro: 120ms;
+  --mythos-motion-base: 180ms;
+  --mythos-motion-enter: 240ms;
+  --mythos-motion-overlay: 320ms;
+  --mythos-motion-page: 480ms;
+  --mythos-ease-enter: cubic-bezier(0.2, 0, 0, 1);
+  --mythos-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --mythos-ease-move: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---------------------------------------------------------------------
+     GLOBAL — elevation (AUTO-3 SURF-1; dark-theme opacities)
+     --------------------------------------------------------------------- */
+  --mythos-shadow-floating: 0 4px 16px rgba(11, 11, 10, 0.28), 0 1px 2px rgba(11, 11, 10, 0.20);
+  --mythos-shadow-overlay: 0 12px 40px rgba(11, 11, 10, 0.40), 0 2px 6px rgba(11, 11, 10, 0.26);
+
+  /* =====================================================================
+     SEMANTIC — dark ground (default; A-010, A-017)
+     ===================================================================== */
+  --mythos-ground: var(--mythos-ink-850);
+  --mythos-ground-deep: var(--mythos-ink-900);
+  --mythos-surface: var(--mythos-ink-800);
+  --mythos-surface-card: var(--mythos-ink-750);
+
+  --mythos-text-primary: var(--mythos-ink-100);
+  --mythos-text-secondary: var(--mythos-ink-300);
+  --mythos-text-disabled: var(--mythos-ink-400);
+  --mythos-text-on-accent: var(--mythos-ink-850);
+  --mythos-text-inverse: var(--mythos-paper-900);
+
+  --mythos-border-hairline: var(--mythos-ink-700);
+  --mythos-border-control: var(--mythos-ink-550);
+  --mythos-border-strong: var(--mythos-ink-600);
+  --mythos-focus-ring: var(--mythos-gold-500);
+
+  --mythos-accent: var(--mythos-gold-500);
+  --mythos-accent-hover: var(--mythos-gold-200);
+  --mythos-accent-active: var(--mythos-gold-400);
+  --mythos-accent-dim: var(--mythos-gold-dim);
+
+  --mythos-link: var(--mythos-text-primary); /* AUTO-3 LINK-1 — never gold */
+}
+
+/* ===========================================================================
+   SEMANTIC — light ground (A-017, "light complete, never a filter over dark")
+   =========================================================================== */
+:root[data-theme="light"] {
+  --mythos-ground: var(--mythos-paper-100);
+  --mythos-ground-deep: var(--mythos-paper-050);   /* AUTO-3 SURF-1 */
+  --mythos-surface: var(--mythos-paper-200);
+  --mythos-surface-card: var(--mythos-paper-250);  /* AUTO-3 SURF-1 */
+
+  --mythos-text-primary: var(--mythos-paper-900);
+  --mythos-text-secondary: var(--mythos-ink-500);
+  --mythos-text-disabled: var(--mythos-paper-500);
+  --mythos-text-on-accent: var(--mythos-paper-100);
+  --mythos-text-inverse: var(--mythos-ink-100);
+
+  --mythos-border-hairline: var(--mythos-paper-300);
+  --mythos-border-control: var(--mythos-paper-500);
+  --mythos-border-strong: var(--mythos-paper-strong); /* AUTO-3 SURF-1 */
+  --mythos-focus-ring: var(--mythos-gold-800);
+
+  --mythos-accent: var(--mythos-gold-800);
+  --mythos-accent-hover: var(--mythos-gold-900);   /* AUTO-3 GOLD-2, darkens */
+  --mythos-accent-active: var(--mythos-gold-850);  /* AUTO-3 GOLD-2, darkens */
+  --mythos-accent-dim: var(--mythos-gold-dim);
+
+  --mythos-link: var(--mythos-text-primary);
+
+  /* light-theme shadows: same shapes, roughly a third the opacity — AUTO-3 SURF-1 */
+  --mythos-shadow-floating: 0 4px 16px rgba(20, 19, 15, 0.10), 0 1px 2px rgba(20, 19, 15, 0.07);
+  --mythos-shadow-overlay: 0 12px 40px rgba(20, 19, 15, 0.14), 0 2px 6px rgba(20, 19, 15, 0.09);
+}
+
+/* Follow the system when the owner has not stated a preference (A-010: dark-first) */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]):not([data-theme="light"]) {
+    --mythos-ground: var(--mythos-paper-100);
+    --mythos-ground-deep: var(--mythos-paper-050);
+    --mythos-surface: var(--mythos-paper-200);
+    --mythos-surface-card: var(--mythos-paper-250);
+    --mythos-text-primary: var(--mythos-paper-900);
+    --mythos-text-secondary: var(--mythos-ink-500);
+    --mythos-text-disabled: var(--mythos-paper-500);
+    --mythos-text-on-accent: var(--mythos-paper-100);
+    --mythos-text-inverse: var(--mythos-ink-100);
+    --mythos-border-hairline: var(--mythos-paper-300);
+    --mythos-border-control: var(--mythos-paper-500);
+    --mythos-border-strong: var(--mythos-paper-strong);
+    --mythos-focus-ring: var(--mythos-gold-800);
+    --mythos-accent: var(--mythos-gold-800);
+    --mythos-accent-hover: var(--mythos-gold-900);
+    --mythos-accent-active: var(--mythos-gold-850);
+    --mythos-link: var(--mythos-text-primary);
+    --mythos-shadow-floating: 0 4px 16px rgba(20, 19, 15, 0.10), 0 1px 2px rgba(20, 19, 15, 0.07);
+    --mythos-shadow-overlay: 0 12px 40px rgba(20, 19, 15, 0.14), 0 2px 6px rgba(20, 19, 15, 0.09);
+  }
+}
+
+/* ===========================================================================
+   Reduced motion — A-018. "Every transform collapses to opacity and every
+   duration resolves to motion-micro." Not zero — motion-micro (120ms) is
+   itself the reduced-motion floor; collapsing further is not the approved
+   rule. Components are responsible for the transform half (translate/scale
+   removed, opacity kept) — this remap only handles the duration half.
+   =========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --mythos-motion-base: var(--mythos-motion-micro);
+    --mythos-motion-enter: var(--mythos-motion-micro);
+    --mythos-motion-overlay: var(--mythos-motion-micro);
+    --mythos-motion-page: var(--mythos-motion-micro);
+  }
+}
