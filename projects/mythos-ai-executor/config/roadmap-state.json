@@ -96,7 +96,24 @@
         "branch_preserved": true
       },
       "recorded_at": "2026-08-17T23:54:46.712Z"
+    },
+    "C": {
+      "status": "IMPLEMENTED",
+      "evidence": {
+        "commit": "545d9c5a31929ede2a36cc26268be2317aae9f37",
+        "tests": [
+          "tests/mythos-orchestration-core-test.js: 257 passed, 0 failed (re-run at HEAD 447026bb4051c802226d6c5238cf9eea3efd6fd4)"
+        ],
+        "built_by_commits": [
+          "2fa6a0ede9e1874d491f242724f808011a221d1e (mission planner + task dependency DAG)",
+          "d8972fcd8220934b4342f9e59bf4473fa3502f69 (safe parallel execution + central policy engine)",
+          "545d9c5a31929ede2a36cc26268be2317aae9f37 (full orchestration integration, acceptance A-S)"
+        ],
+        "note": "core/dag.js + core/scheduler.js already generalize the Phase-1 executor queue into DAG-driven, multi-task execution (dependency validation, ready-set computation, transitive failure propagation, bounded parallel dispatch, per-task worktree isolation) before this task ran. The vision doc heading (section 3.C) was never updated to reflect Phase 2 shipping, so the roadmap selector kept surfacing an already-implemented capability from stale prose. Corrected the recorded status with real evidence rather than re-implementing a redundant task engine.",
+        "recorded_by": "autonomous task t-20260818001335-mtiogp"
+      },
+      "recorded_at": "2026-08-18T00:15:52.815Z"
     }
   },
-  "updated_at": "2026-08-17T23:54:46.712Z"
+  "updated_at": "2026-08-18T00:15:52.815Z"
 }
