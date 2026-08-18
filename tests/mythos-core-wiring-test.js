@@ -599,6 +599,80 @@ chain = chain.then(function () {
 });
 
 // ===========================================================================
+// 11. CONCURRENT DISPATCH (capability Q) — independent DAG branches actually
+// overlap through the REAL Phase 1 bridge, not just the injectable mock
+// runner other suites use. The mock provider's run() is gated so the FIRST
+// branch cannot resolve until the SECOND has also started: if the bridge
+// (core-wiring → orchestrator.executorBridge → executor.runTask) secretly
+// serialized dispatch, the second call would never happen and this would
+// hang — caught by the race timeout below instead of wedging the suite.
+// ===========================================================================
+chain = chain.then(function () {
+  var core = require(path.join(EXEC, 'core', 'core-wiring'));
+  var store = require(path.join(EXEC, 'core', 'store'));
+  var orchestrator = require(path.join(EXEC, 'core', 'orchestrator'));
+  var mockProvider = require(path.join(EXEC, 'providers', 'mock'));
+
+  var submittedProbe = orchestrator.submitGoal('Two independent branches for the concurrency probe.', {
+    project: 'mythos-prod', requested_by: 'wiring-test',
+    spec: {
+      title: 'Concurrent branches probe',
+      tasks: [
+        { key: 'branch-a', title: 'Independent branch A', task_type: 'analysis', capabilities_required: ['analysis'], depends_on: [] },
+        { key: 'branch-b', title: 'Independent branch B', task_type: 'analysis', capabilities_required: ['analysis'], depends_on: [] }
+      ]
+    }
+  });
+  ok(!submittedProbe.rejected, 'Q concurrent: two-branch mission planned and validated');
+  var missionId = submittedProbe.mission.id;
+
+  var originalRun = mockProvider.run;
+  var startedCount = 0;
+  var releaseOrder = [];
+  var pending = [];
+  mockProvider.run = function (task, prompt, sessionId, mode, opts, onSpawn) {
+    startedCount += 1;
+    if (typeof onSpawn === 'function') onSpawn(process.pid);
+    var outcome = {
+      exit_code: 0, signal: null, timed_out: false, duration_ms: 1, stdout: '', stderr: '',
+      session_id: sessionId, started_pid: process.pid,
+      parsed: { is_error: false, result: 'done\n```json\n{"mythos_report": true, ' +
+        '"status": "completed", "summary": "concurrent probe ok", "tests": ["mock: pass"], "commit": null}\n```' }
+    };
+    return new Promise(function (resolve) {
+      pending.push(function () { releaseOrder.push(task.task_id); resolve(outcome); });
+      if (startedCount >= 2) {
+        var toRelease = pending; pending = [];
+        toRelease.forEach(function (fn) { fn(); });
+      }
+    });
+  };
+
+  var timedOut = false;
+  var timeout = new Promise(function (_res, reject) {
+    setTimeout(function () { timedOut = true; reject(new Error('CONCURRENCY_TIMEOUT: second branch never started — dispatch is serialized')); }, 5000);
+  });
+
+  return Promise.race([
+    core.advanceMission(missionId, { review: false, max_parallel: 2 }),
+    timeout
+  ]).then(function (mission) {
+    mockProvider.run = originalRun;
+    ok(!timedOut, 'Q concurrent: the second independent branch started before the first resolved');
+    ok(startedCount === 2, 'Q concurrent: both branches actually invoked the real provider');
+    ok(mission.status === 'COMPLETED', 'Q concurrent: mission completed through the real bridge');
+    var tasks = mission.task_ids.map(function (id) { return store.load('task', id); });
+    ok(tasks.every(function (t) { return t.status === 'COMPLETED' && t.executor_task_id; }),
+      'Q concurrent: both branches ran as real (non-stubbed) executor tasks');
+    ok(mission.metadata.peak_concurrency >= 2,
+      'Q concurrent: scheduler recorded genuine parallel dispatch, not just sequential success');
+  }, function (err) {
+    mockProvider.run = originalRun;
+    throw err;
+  });
+});
+
+// ===========================================================================
 chain.then(function () {
   fs.rmSync(FIXTURES, { recursive: true, force: true });
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
