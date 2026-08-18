@@ -1,7 +1,39 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **FULL AUTONOMOUS MANDATE, FOURTH PASS — REAL FONTS SELF-HOSTED (AUTO-4), CLOSING TYPE-2 AND FURTHER NARROWING GRID-2 WITH MEASURED METRICS. ALSO: THE "NOT DEPLOYED" / "LIVE PRODUCTION DATA" APPARENT CONTRADICTION IN THE CONCURRENT MOS-2.x/3.x WORK IS RECONCILED — NO CORRECTION NEEDED. NO PRODUCTION FILE TOUCHED; EIGHT NEW FONT FILES AND ONE NEW CSS FILE ARE ADDITIVE ONLY.**
+**From:** **OTH-KNOWLEDGE-0 — SHARED ENGINEERING MEMORY CREATED, VALIDATED, AND PROMOTED TO ITS STANDALONE REPOSITORY `othoth77/oth-knowledge`. DOCUMENTATION ONLY — NO APPLICATION, CSS, CONFIG OR TEST FILE CHANGED.**
+
+**What exists now:** a shared engineering memory for ALL othoth77 projects —
+four plain-Markdown files (`README.md`, `PROJECTS.md`, `PROBLEMS.md`,
+`LESSONS.md`) built from repository evidence only (docs/, git history, live
+tree; read-only discovery): 19 monorepo project areas mapped, all 21 other
+GitHub repositories documented with verification status (`UNVERIFIED` where
+this repo's docs are silent), 23 significant investigated problems preserved
+with their full investigation history, 15 durable lessons. Validation before
+delivery: 562 referenced repository paths confirmed to exist, secret scan
+clean, Markdown structure checked.
+
+**Canonical location — this is the load-bearing fact:** the standalone
+**PRIVATE** repository **`othoth77/oth-knowledge`**, branch `main`, root
+commit `67b3a88` (remote HEAD verified by `ls-remote` and by listing the four
+files through the GitHub API). That repository is now **the canonical source
+of truth for engineering memory across all projects**; its `README.md`
+mandates the BEFORE-every-task workflow (identify project → read PROJECTS.md
+→ search PROBLEMS.md → search LESSONS.md → inspect the real files → reuse →
+only then implement) and the AFTER-every-task recording workflow, applying to
+every project, not only mythos-prod.
+
+**In mythos-prod:** the content was first delivered as `oth-knowledge/` on
+branch `claude/oth-knowledge-memory-system-ad1sa3` (PR #24, draft) at commit
+`81fd2bf`, because the GitHub App integration cannot create repositories
+(`403 Resource not accessible by integration` — recorded as a PROBLEMS.md
+entry). After the owner created the standalone repo and the move was
+verified, the in-repo copy was reduced to a single pointer `README.md`
+(non-destructive: the full validated copy remains in that branch's history at
+`81fd2bf`, byte-identical to what was pushed to the standalone repo apart
+from the documented README/PROBLEMS promotion notes). The mythos-prod copy
+must never again be treated as primary.
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, FOURTH PASS — REAL FONTS SELF-HOSTED (AUTO-4), CLOSING TYPE-2 AND FURTHER NARROWING GRID-2 WITH MEASURED METRICS. ALSO: THE "NOT DEPLOYED" / "LIVE PRODUCTION DATA" APPARENT CONTRADICTION IN THE CONCURRENT MOS-2.x/3.x WORK IS RECONCILED — NO CORRECTION NEEDED. NO PRODUCTION FILE TOUCHED; EIGHT NEW FONT FILES AND ONE NEW CSS FILE ARE ADDITIVE ONLY.**
 
 **Reconciliation, not a correction.** Before continuing the mandate, a real
 tension needed resolving: this document and several of my own AUTO-3-era
