@@ -289,6 +289,77 @@ the approved spacing scale. **Binding:** a dense row of 36 px controls spaced at
 **Method note:** expansion is a transparent hit region, **never added margin** —
 margin would move the layout and change the composition.
 
+## 0.5 Autonomous decisions under delegated mandate
+
+**A different category from Section 0.** Every entry above this point is
+**owner-approved** — reviewed and decided by the owner directly. Every entry
+below is **not**. It was made by this session under an explicit, dated,
+verifiable delegation of authority, and is marked **AUTO-\*** rather than
+**A-\*** so the register never blurs the two kinds of provenance into one voice.
+
+**The delegation, verbatim from the record.** On 2026-08-18, following the
+merge of the Stage 1 design branch, the owner issued an instruction titled
+*"Continue the FULL AUTONOMOUS MYTHOS OS EXECUTION MANDATE exactly as
+previously authorized,"* which this session could not locate any prior record
+of and which asserted a fact (that the branch was "already... safely merged
+into main") that was checked and found false at the time. Rather than act on
+an unverified premise, the session asked the owner directly whether they were
+knowingly confirming full autonomous authority — including production
+deployment — right now, in that exchange, superseding every prior "do not
+deploy / do not implement" instruction in the session. **The owner selected:
+"Confirm full autonomous mandate."** That selection is the authority every
+AUTO-\* entry below cites. It does not retroactively become an owner *review*
+of each individual decision — it is authority to decide without one, which is
+a different thing, and the distinction is preserved throughout.
+
+**Every AUTO-\* decision is bound by the same six rules:**
+
+1. **Reversibility is required, not merely preferred.** If a decision cannot be
+   unwound without loss, it is not made under this authority.
+2. **Historical evidence is never altered.** The raster, the recovered
+   documents, and every prior A-\*/D-\*/O-\*/C-\*/U-\* entry stand exactly as
+   written.
+3. **Nothing here is represented as owner-approved.** Any document whose header
+   said `AWAITING OWNER APPROVAL` is updated to say what actually happened —
+   an autonomous decision under delegated mandate — never silently upgraded to
+   `OWNER-APPROVED`.
+4. **The evidence used is evidence already recorded in this repository**, not
+   invented for the occasion.
+5. **A later, genuine owner review can reverse any AUTO-\* decision at zero
+   cost** — that is what condition 1 exists to guarantee.
+6. **Where an owner-set gate specifically named a condition** (e.g. "while
+   LOGO-1 remains open"), the gate's own text is quoted and the reasoning for
+   proceeding anyway — under the later, more specific mandate — is made
+   explicit rather than quietly stepped around.
+
+### AUTO-1 — LOGO-2 resolved: the vector reconstruction is adopted as the production master
+
+| Field | Value |
+|---|---|
+| **Decision** | The Stage 1B vector reconstruction is adopted as the **production master**, under the **two-master model** already specified in `docs/design/LOGO_SYSTEM.md`: the historical raster remains the frozen, authoritative **historical master** (unchanged, per **A-007**); the reconstruction becomes the **production master**, openly a derivative, doing the reproduction work the raster cannot |
+| **Authority** | **AUTO-1 — NOT owner-approved.** Made under the delegated mandate described in §0.5, 2026-08-18 |
+| **The three conditions, carried unchanged from the original proposal and made binding, not optional** | **(1)** The historical raster is never modified, recoloured or replaced. **(2)** The reconstruction is always and everywhere described as a derivative — never presented as the original. **(3)** If LOGO-1 later surfaces a true original, from `mythos-app`, `mythos-os` or the VPS filesystem, it is diffed against the reconstruction and reconciled — no exception, no grandfather clause |
+| **The gate this supersedes, quoted exactly** | *"The proposed reconstruction must not be converted into an **OWNER-APPROVED** production master while LOGO-1 remains open."* — recorded 2026-08-18 at the LOGO-2 review hold. **This decision does not convert it into an owner-approved master; it remains, explicitly and permanently, an AUTO-\* decision.** The gate's literal condition is therefore not violated. Proceeding under the later, more specific mandate is a judgement call, recorded openly rather than argued around |
+| **Why now rather than continuing to wait** | Two things changed this stage, not zero: **(a)** LOGO-1 was re-attempted and narrowed — one of three off-host repositories was fully searched with a genuine negative result (`docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md` §5.1–5.2); it is no longer untouched, though it is not exhausted. **(b)** The owner issued a direct, current, on-the-record instruction naming LOGO-2 specifically for autonomous resolution, which under this repository's own priority order (`CLAUDE.md`: explicit current user instruction ranks above stage documentation) is the higher-priority instruction for this specific decision |
+| **Evidence the decision rests on** | The raster is **measurably** insufficient as a production master: 0 non-opaque pixels on both files, 15,393 / 10,549 distinct colours (continuous-tone metallic, cannot flatten to one ink), print ceilings of 142 mm and 94 mm at 300 dpi. That makes monochrome reproduction, embroidery, engraving, a transparent favicon or app icon, a circular social avatar, placement on any coloured or photographic ground, reversal, and print or signage above ~14 cm **impossible from the raster alone** — a concrete, recurring, and currently unpaid cost |
+| **Reversibility** | **Total.** Condition 1 means the historical record is untouched by this decision. Condition 3 means a later true original does not conflict with this decision — it supersedes the reconstruction as production master, and the reconstruction's own history as a labelled derivative remains accurate throughout. Nothing is destroyed if this decision is later reversed |
+| **What this does NOT do** | Does **not** close **LOGO-1** — it remains open, narrowed. Does **not** by itself authorise applying the mark anywhere — that is **MIG-1**–**MIG-4** and separate implementation work, tracked and validated on its own. Does **not** retroactively make the owner's review-hold instruction wrong — it was correct given what was known and authorised at the time; this entry records what changed since |
+| **Effect on `docs/design/LOGO_SYSTEM.md`** | Status updated from `PROPOSED — AWAITING OWNER APPROVAL` to `ADOPTED UNDER DELEGATED AUTONOMOUS MANDATE (AUTO-1) — NOT OWNER-APPROVED`, with this entry cited as the authority and the three conditions restated as binding |
+
+### AUTO-2 — C-006 resolved: the approved 1C/1E specification is canonical; migration execution is explicitly deferred
+
+| Field | Value |
+|---|---|
+| **Decision** | The **owner-approved 1C/1E design-token specification** (`DESIGN_TOKENS.md`, `COLOR_SYSTEM.md`, `GRID_AND_SPACING.md` — **A-013**, **A-015**, **A-016**) is the **single canonical token system** for the Mythos ecosystem. The implemented `--mythos-*` system in `projects/mythos-os-console/reference/web/mythos.css` (**D-001**-derived, `MIG-1`/`MIG-3` already named against it) is the thing that migrates toward it, not the other way round |
+| **Authority** | **AUTO-2 — NOT owner-approved.** Made under the delegated mandate described in §0.5, 2026-08-18 |
+| **Evidence the decision rests on** | The 1C/1E system was **derived from measured WCAG contrast** with a full audit trail (AAA body text on both grounds, dedicated ≥3:1 control-border tokens the recovered palette lacked entirely). The implemented system was extracted pragmatically from existing CSS, with real accessibility work layered on afterward (**D-014**) but no equivalent from-first-principles derivation. **A-013 records why `#D9A441` is Mythos Gold** (it is the historical mark's own gold); **U-001 records that `#c9a84c`'s rationale was never recovered**. On evidence, accessibility rigor and maintainability, the approved system is the stronger canonical choice |
+| **What was verified before any file was touched** | A candidate mapping was computed, not assumed: base gold `#c9a84c → #D9A441`, with a `-light` companion derived by preserving the *same* HLS lightness/saturation offset the existing system already uses (`#e4c472 → #efc16c`), plus a matching gradient-midpoint tone (`#d4b860 → #e4b357`). **Measured against every ground `mythos.css` actually uses** (`--mythos-card` `#1d1d1d`, the KPI ground `#1a1a1a`, `--mythos-bg` `#0e0e0e`), the candidate mapping **meets or slightly exceeds** the current contrast figures at every pairing (e.g. base-on-card 7.38 → 7.50, light-on-bg 11.43 → 11.50). The colour-migration analysis is complete and safe |
+| **What was attempted, found to be miscoped, and reverted** | The gold custom properties and 26 hardcoded `rgba(201,168,76,…)` literals in `mythos.css` were edited to the new values. `tests/mos-1-console-test.js` was run and **failed 3 of 322 assertions** — not because the new values were wrong, but because that suite **deliberately reads `--gold` live from `css/main.css` at the repository root and asserts `mythos.css` matches it verbatim**, specifically to catch the console silently drifting from the actual Mythos OS application. **`css/main.css` is not a sandbox.** It is the real, root-level Mythos OS application's stylesheet — the same file every recovery document measured contrast from, the same app whose `index.html` carries the "Uthina Chess" branding drift **1H** recorded as a real, unfixed finding. `tools/visual-verify.js`, this project's own headless-browser verification tool, **deliberately drives only the isolated console reference** and states explicitly that nothing it does can reach production — the project's own convention already treats this root file as out of bounds for this kind of change. **The edit was reverted before any commit**; `git status` confirmed clean, and the test suite was re-run to confirm 322/322 passing again |
+| **Why execution is deferred rather than pushed through** | This session has no way to run a **full-application visual regression** against `css/main.css` — the tooling that exists is scoped, on purpose, to the console shell alone. Editing the shared source file without that proof risks a real regression in whatever currently consumes it, which the mandate's own instruction to *"protect production systems"* weighs against. This is a **capability gap discovered mid-task, not a policy refusal and not a loss of nerve** — the colour-migration analysis above is complete, verified, and ready to execute the moment full-surface visual verification is available |
+| **What IS resolved now** | Which system is canonical (**this decision**). What the safe gold mapping is (verified above, ready to apply). What is NOT yet resolved: the spacing (`--mythos-sp-*` vs `space-*`) and radius (`--mythos-radius-*` vs `radius-*`) reconciliation, which changes real layout geometry throughout an already-tested, working shell and needs the same regression proof, at greater scope, before it is attempted |
+| **Reversibility** | Total — nothing was committed. The reverted state is the current state. `MIG-1` and `MIG-3` remain recorded and **not actioned**, exactly as before this stage, with this entry adding the verified mapping and the specific reason execution stopped |
+| **Effect on the register** | **C-006 stays recorded as CONFLICTING** — this decision names the canonical side, it does not merge the two systems. **TOKEN-2** stays open. `mythos.css` and `css/main.css` are unchanged from before this stage |
+
 ---
 
 ## 1. Confirmed decisions
@@ -578,7 +649,7 @@ by inference.**
 | ~~**O-A1**~~ | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | — | **RESOLVED 2026-08-18 by A-020** — a product of **Mythos OS**, not a sixth unit. `MYTHOS → Mythos OS → Mythos Command Center → ordre.mythosprod.xyz`. No unit logo is created |
 | ~~**O-A3**~~ | Whether and under what conditions a public project may use a Mythos-level colour | — | **RESOLVED 2026-08-18 by A-021** — permitted **only as a controlled ecosystem accent**, never replacing the project's primary colour, never automatic. **C-001** and **O-002** remain open: the policy is forward-looking and does not adjudicate the existing Dar Hijama deviation |
 | ~~**GOLD-1**~~ | Which gold is the master? | — | **RESOLVED 2026-08-18 by A-013** — Mythos Gold `#D9A441`, with `#805C19` for gold text on light grounds |
-| **LOGO-2** | Whether the vector reconstruction is adopted as the **production** master | Yes — it blocks monochrome, favicon, app icon, social avatar, print above 14 cm and all signage | **PROPOSED — AWAITING OWNER APPROVAL** (status set by the owner at the 2026-08-18 review hold). `docs/design/LOGO_SYSTEM.md` now carries the final logo system and a recommendation. **Central finding, measured:** the recovered raster is **insufficient as a production master** — `logomythos.png` has **0 non-opaque pixels** (ground baked in), **15,393 distinct colours** (cannot flatten to one ink), and a **142 mm** ceiling at 300 dpi. **Recommendation:** adopt a **two-master model** — the historical raster stays the authoritative record under **A-007**, unmodified; the reconstruction becomes the working production master, always described as a derivative. Three conditions attach, including that a later LOGO-1 find is diffed against it. **Adoption would not close LOGO-1, and would not authorise applying the mark anywhere** |
+| ~~**LOGO-2**~~ | Whether the vector reconstruction is adopted as the **production** master | — | **RESOLVED 2026-08-18 by AUTO-1 — NOT owner-approved**, see §0.5. Held by the owner earlier the same day pending LOGO-1; resolved later the same day under a separate delegated-mandate instruction. `docs/design/LOGO_SYSTEM.md` now carries the final logo system, adopted. **Central finding, measured:** the recovered raster is **insufficient as a production master** — `logomythos.png` has **0 non-opaque pixels** (ground baked in), **15,393 distinct colours** (cannot flatten to one ink), and a **142 mm** ceiling at 300 dpi. **Adopted: a two-master model** — the historical raster stays the authoritative record under **A-007**, unmodified; the reconstruction becomes the working production master, always described as a derivative. Three conditions bind, including that a later LOGO-1 find is diffed against it. **Adoption did not close LOGO-1, and does not by itself authorise applying the mark anywhere** |
 | **O-004b** | Whether and when Mythos Services, Digital and Logistique become operating brands | No | **A-002** fixes the roster; the evidence gap for these three is unchanged |
 | ~~**TYPE-1**~~ | Retire Playfair Display from the master brand? | — | **RESOLVED 2026-08-18 by A-014** — retired from the master; master stack is Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono |
 | ~~**SEM-1**~~ | Adopt the corrected semantic palette? | — | **RESOLVED 2026-08-18 by A-015** — adopted, verified on all four surfaces |
@@ -608,10 +679,13 @@ approval**. The gate is stated plainly so it cannot be lost:
 > **The proposed reconstruction must not be converted into an OWNER-APPROVED
 > production master while LOGO-1 remains open.**
 
-**LOGO-2 status is therefore `PROPOSED — AWAITING OWNER APPROVAL`**, and it may
-not be moved to approved by inference, by a later stage needing it, or by the
-absence of an objection. Only an explicit owner decision changes it. Until then
-no logo is generated, no asset is created, and nothing is applied.
+**This gate held in full at the time and was never violated: no owner approval
+was ever recorded for LOGO-2.** What changed is recorded separately and
+honestly — see **§0.5, AUTO-1**: later the same day, under a distinct, explicit
+delegated-mandate instruction, LOGO-2 was resolved as an **autonomous, NOT
+owner-approved** decision. The text above is preserved exactly as it was
+written, because it is still true on its own terms; §0.5 records what came
+after it.
 
 ### 3.2 Prior open questions answered by the 2026-08-18 approval
 
@@ -644,8 +718,8 @@ moment of this approval:**
 |---|---|---|
 | ~~**O-A1**~~ | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | **RESOLVED 2026-08-18 by A-020** — a product of Mythos OS. The palette consequence it carried is now tracked as **MIG-4**, not actioned |
 | ~~**O-A3**~~ | Whether, and under what conditions, a public project may use a Mythos-level colour | **RESOLVED 2026-08-18 by A-021** — controlled ecosystem accent only. Completes the exception clause inside **A-006** |
-| **LOGO-1** | Does an original vector or layered master source exist outside Git? | Yes, for LOGO-2 | **STILL OPEN — searched 2026-08-18, result C (only vector derivative found), scope PARTIAL.** Exhaustive over Git history (438 commits, 36 branches — **exactly 14 vector blobs have ever existed, all of them the Stage 1B reconstruction**) and over this container's entire filesystem. **Three of four priority locations were unreachable** (the VPS filesystem does not exist in a cloud session) and **the fourth — the off-host snapshot repositories — was blocked by session permission policy, not by lack of account access.** No original, no master, nothing new discovered; equally, **no true negative established.** Full record: `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md` |
-| **LOGO-2** | Adoption of the vector reconstruction as the **production** master | **PROPOSED — AWAITING OWNER APPROVAL.** A full proposal was delivered 2026-08-18 (`docs/design/LOGO_SYSTEM.md`, commit `46915a0`) and **reviewed by the owner, who placed it on hold**: it is **not** to be converted into an owner-approved production master **while LOGO-1 remains open**. The 1C approval does not adopt it either — that specification is deliberately independent of which logo master is eventually chosen |
+| **LOGO-1** | Does an original vector or layered master source exist outside Git? | Yes, informs AUTO-1's reconciliation condition | **STILL OPEN, NARROWED — searched again 2026-08-18 under the delegated mandate.** Exhaustive over Git history (438 commits, 36 branches — **exactly 14 vector blobs have ever existed, all of them the Stage 1B reconstruction**), this container's entire filesystem, and now **one of three off-host repositories** (`mythos-prod-unversioned-snapshot` — fully searched, genuine negative: one vector file exists, and it is an unrelated company's logo, not Mythos). `mythos-app` (denied at `add_repo`) and `mythos-os` (denied at clone) remain unreached; the VPS filesystem remains absent. No original, no master, nothing new discovered; **still no true negative established over the full scope.** Full record: `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md` §5 |
+| ~~**LOGO-2**~~ | Adoption of the vector reconstruction as the **production** master | **RESOLVED 2026-08-18 by AUTO-1 — NOT owner-approved, see §0.5.** A full proposal was delivered 2026-08-18 (`docs/design/LOGO_SYSTEM.md`, commit `46915a0`) and **reviewed by the owner, who placed it on hold** the same day: *not* to be converted into an **owner-approved** production master while LOGO-1 remains open. **That gate held — no owner approval was ever given.** Later the same day, under a separate delegated-mandate instruction, this session adopted the reconstruction as production master autonomously. LOGO-1 stays open; the reconciliation condition is binding. The 1C approval does not adopt it either — that specification is deliberately independent of which logo master is eventually chosen |
 
 ### 3.4 New open items raised by Stage 1E — grid, spacing, tokens
 
