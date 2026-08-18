@@ -62,7 +62,7 @@
   gap: var(--mythos-sp-3);
   flex-wrap: wrap;
   margin-inline-start: auto;
-  color: var(--mythos-muted);
+  color: var(--mythos-text-secondary);
   font-size: var(--mythos-fs-sm);
 }
 
@@ -72,7 +72,7 @@
 
 .console-identity { display: grid; gap: var(--mythos-sp-2); }
 .console-identity .row { display: flex; justify-content: space-between; align-items: center; gap: var(--mythos-sp-3); }
-.console-identity .k { color: var(--mythos-muted); font-size: var(--mythos-fs-xs); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; }
+.console-identity .k { color: var(--mythos-text-secondary); font-size: var(--mythos-fs-xs); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; }
 .console-identity .v { color: var(--mythos-text); font-size: var(--mythos-fs-xs); font-family: var(--mythos-font-mono); }
 
 /* --- Definition list used by detail surfaces ---------------------- */
@@ -95,7 +95,7 @@
   border-radius: var(--mythos-radius-md);
   font-size: var(--mythos-fs-md);
 }
-.console-event .at { color: var(--mythos-muted); font-family: var(--mythos-font-mono); font-size: var(--mythos-fs-xs); white-space: nowrap; }
+.console-event .at { color: var(--mythos-text-secondary); font-family: var(--mythos-font-mono); font-size: var(--mythos-fs-xs); white-space: nowrap; }
 .console-event .what { color: var(--mythos-text); overflow-wrap: anywhere; }
 .console-event .what b { color: var(--mythos-gold-light); font-weight: 700; }
 

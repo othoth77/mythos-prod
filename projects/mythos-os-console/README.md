@@ -35,10 +35,34 @@ reference/
     console.css        composition for this surface; contains no colour literal
     modules.js         the module registry — the scalability contract
     app.js             router + one render function per module
+tools/
+  contrast.js          WCAG 2.1 measurement over every rendered pair
+  visual-verify.js     headless-browser gate (D-010); needs a browser
+  host-preflight.sh    read-only deployment precondition check, run on the VPS
 deploy/
   nginx-os.mythosprod.xyz.conf
   mythos-os-console.user.service
 ```
+
+## Verify it
+
+```bash
+node tests/mos-1-console-test.js                              # 322 assertions
+node projects/mythos-os-console/tools/contrast.js             # WCAG 2.1, 26/26 AA
+node projects/mythos-os-console/tools/visual-verify.js        # 499 browser checks
+bash projects/mythos-os-console/tools/host-preflight.sh       # on the VPS only
+```
+
+`contrast.js` is also asserted by the test suite, so AA cannot regress
+silently. `visual-verify.js` needs playwright and exits 2 with a plain
+message when it is absent — a browser is deliberately not a dependency of
+this repository.
+
+## Deploy it
+
+`docs/MYTHOS_OS_CONSOLE_ARCHITECTURE.md` §10.2 is the runbook, with
+rollback. Run `tools/host-preflight.sh` first; it refuses to pass if any
+precondition is missing.
 
 ## Adding a module
 

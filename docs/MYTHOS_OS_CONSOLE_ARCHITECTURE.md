@@ -3,7 +3,7 @@
 **Stage:** MOS-1
 **Code:** `projects/mythos-os-console/`
 **Tests:** `tests/mos-1-console-test.js` — 286 assertions
-**Domain:** `os.mythosprod.xyz` (DNS not yet created — owner action)
+**Domain:** `os.mythosprod.xyz` (DNS resolves; not yet deployed)
 **Design:** `docs/MYTHOS_OS_DESIGN_SYSTEM.md`
 
 ---
@@ -257,7 +257,7 @@ blocker.
 ## 10. Deployment
 
 ```
-DNS  os.mythosprod.xyz  →  51.68.226.211        ← NOT CREATED (owner action, LEVEL_3)
+DNS  os.mythosprod.xyz  →  51.68.226.211        ← RESOLVES (corrected 2026-08-18)
   ↓
 nginx  /etc/nginx/sites-enabled/os.mythosprod.xyz
   ↓  proxy_pass
@@ -269,6 +269,104 @@ nginx  /etc/nginx/sites-enabled/os.mythosprod.xyz
 - vhost source of truth: `deploy/nginx-os.mythosprod.xyz.conf`. certbot
   rewrites the installed copy when the certificate is issued; do not
   hand-write the 443 block.
+
+### 10.0 A correction, recorded rather than quietly fixed
+
+MOS-1 reported that `os.mythosprod.xyz` had no DNS record and named
+creating one as the blocking owner action. **That was wrong.** The name
+resolves to `51.68.226.211`, and two fabricated subdomains of
+`mythosprod.xyz` return NXDOMAIN from the same resolver, so it is a real
+record rather than a wildcard.
+
+The claim was carried over from
+`projects/command-center/deploy/nginx-ordre.mythosprod.xyz.conf`, whose
+DNS prerequisite genuinely was unmet at the time it was written. It was
+never checked by resolving the name. An unverified precondition copied
+from a neighbouring document is exactly the failure `AGENTS.md` §2 is
+about — *never rely exclusively on conversation summaries or an earlier
+session* — and it is why
+`projects/mythos-os-console/tools/host-preflight.sh` now exists: it
+checks every precondition against the host instead of against a document,
+and refuses to pass if one is missing.
+
+**What this does not change:** the console is still not deployed, and this
+session still cannot deploy it (§10.3).
+
+### 10.2 Deployment runbook
+
+Run on the VPS as `deploy`, in order. Nothing here is destructive; every
+step is reversible and each one is checked before the next.
+
+```bash
+# 0. Preflight. Read-only; installs and starts nothing.
+bash projects/mythos-os-console/tools/host-preflight.sh
+
+# 1. Tests, on the host that will run it.
+node tests/mos-1-console-test.js            # expect: 322 passed, 0 failed
+
+# 2. Credentials. Outside the worktree, 0600, never echoed.
+install -d -m 700 /home/deploy/deployments/mythos-os-console
+printf 'MOS_EXECUTOR_TOKEN=%s\n' "$(read -rs T; echo "$T")" \
+  > /home/deploy/deployments/mythos-os-console/.env
+chmod 600 /home/deploy/deployments/mythos-os-console/.env
+
+# 3. The service, before nginx — so the vhost never proxies to nothing.
+mkdir -p ~/.config/systemd/user
+cp projects/mythos-os-console/deploy/mythos-os-console.user.service \
+   ~/.config/systemd/user/mythos-os-console.service
+systemctl --user daemon-reload
+systemctl --user enable --now mythos-os-console
+systemctl --user status mythos-os-console --no-pager
+
+# 4. Smoke-test on loopback before exposing anything publicly.
+curl -fsS http://127.0.0.1:8140/api/health | head -20
+curl -fsS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8140/
+curl -fsS -o /dev/null -w '%{http_code}\n' -X POST http://127.0.0.1:8140/   # expect 405
+```
+
+Steps 5–7 need root, which `deploy` does not have for file writes — its
+sudo grant is exactly `nginx -t`, `systemctl reload nginx` and `certbot`.
+
+```bash
+# 5. vhost (root)
+cp projects/mythos-os-console/deploy/nginx-os.mythosprod.xyz.conf \
+   /etc/nginx/sites-available/os.mythosprod.xyz
+ln -s /etc/nginx/sites-available/os.mythosprod.xyz /etc/nginx/sites-enabled/
+
+# 6. Validate and reload. `nginx -t` first, always — a bad config would
+#    take the six neighbouring sites down with it.
+sudo nginx -t && sudo systemctl reload nginx
+
+# 7. TLS. Dry run first, exactly as MCC-1 did for ordre.mythosprod.xyz.
+sudo certbot --nginx -d os.mythosprod.xyz --dry-run
+sudo certbot --nginx -d os.mythosprod.xyz
+```
+
+```bash
+# 8. Post-deploy verification.
+bash projects/mythos-os-console/tools/host-preflight.sh   # expect 0 blocking
+curl -fsS https://os.mythosprod.xyz/api/health
+curl -sS -o /dev/null -w '%{http_code}\n' -X POST https://os.mythosprod.xyz/   # expect 405
+for h in ordre panel tv; do curl -sS -o /dev/null -w "$h %{http_code}\n" "https://$h.mythosprod.xyz/"; done
+```
+
+**Rollback**, at any point, in one step each: `systemctl --user disable
+--now mythos-os-console`; `rm /etc/nginx/sites-enabled/os.mythosprod.xyz
+&& sudo nginx -t && sudo systemctl reload nginx`. The console has no
+database and writes nothing, so there is no data to unwind.
+
+### 10.3 Why this session cannot run any of it
+
+Not a permission question — a location one. This session runs in an
+ephemeral remote container, not on the VPS: `/home/deploy`, `/etc/nginx`
+and `/srv/mythos` do not exist here. The environment's network policy also
+refuses the production hosts outright (`x-deny-reason: host_not_allowed`
+from the agent proxy, for `os.mythosprod.xyz` and the confirmed-live
+`ordre.mythosprod.xyz` alike), so the host cannot even be inspected from
+here, let alone changed.
+
+Everything that can be prepared off-host has been: the runbook above, the
+preflight script, the vhost, the unit, and a suite that passes.
 - unit source of truth: `deploy/mythos-os-console.user.service`. The three
   hardening directives that cannot work under a user manager on this host
   are omitted deliberately, for the reasons recorded in

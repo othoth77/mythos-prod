@@ -351,9 +351,55 @@ this surface:
 - The nav drawer has `aria-expanded`, `aria-controls`, and closes on `Escape`.
 - Decorative glyphs are `aria-hidden`; the toggle carries a visually-hidden label.
 
-**Contrast was not measured by this stage and no claim is made about it** —
-the same honesty the recovery audit applied. Measuring the D-001 palette is
-recorded as follow-up work.
+### 8.1 Contrast — MEASURED (MOS-1.1)
+
+MOS-1 declined to claim anything about contrast, matching the recovery
+audit's honesty. That was the right disclaimer and the wrong end state.
+It is now measured.
+
+`projects/mythos-os-console/tools/contrast.js` computes WCAG 2.1 relative
+luminance and contrast ratios over **every pair the console actually
+renders**, reading the tokens out of `mythos.css` rather than a copied
+list, and compositing translucent fills over their real backdrop first —
+a 12 %-alpha `-dim` ground is not the ground the text sits on. The
+assertions live in `tests/mos-1-console-test.js`, so contrast is now an
+enforced property rather than a one-off measurement, and the arithmetic
+itself is checked against WCAG's own anchors (white-on-black = 21:1,
+`#777` on white = 4.48:1).
+
+**Result: 26 of 26 rendered pairs meet WCAG 2.1 AA.** 12 also meet AAA.
+Independently confirmed in-browser against computed styles by
+`tools/visual-verify.js`, which agrees to the second decimal.
+
+#### What failed, and what was done about it
+
+Three findings, all real:
+
+| Finding | Measured | Resolution |
+|---|---|---|
+| `--muted` as body text | **3.03–3.47:1** on the three grounds | Usage change. `--muted` stays declared verbatim; secondary *text* now uses `--mythos-text-secondary: #999` — **recovered from `index.html:125`**, where the application already reaches for a lighter grey when a muted label must be read. `css/dashboard.css:75` does the same with `#888`. Measures 5.39–6.78:1. |
+| `is-planned` badge, raw `--purple` | **3.21:1** | Usage change. `--mythos-purple-text: #c9a6d8`, derived by the rule the system already applies to its other semantic solids — `#8ff0b5` from `--green`, `#ff8c82` from `--danger`. Measures 7.07:1. |
+| `is-inert` badge, `--muted` on `past-dim` | **2.80:1** | Adopts the recovered inert treatment from `css/main.css` `.invoice-payment-badge.pending` — `rgba(255,255,255,.035)` ground — with secondary text. Measures 5.39:1. |
+
+**No D-001 token was changed.** Every fix is a decision about *which
+token is used where*, and every replacement value is either recovered
+from the existing implementation or derived by a rule that implementation
+already follows. The complete D-001 palette is still declared in
+`mythos.css`, so future modules inherit it whole.
+
+#### Recorded, not fixed
+
+| Pair | Measured | Why it stands |
+|---|---|---|
+| `--muted` on any ground | 3.03–3.47:1 | A D-001 token. Not this stage's to revise; the shell simply does not use it as text. Changing it is a change to the live application and needs its own stage. |
+| Raw `--danger` as text | 3.55:1 | Not used by the console — `--danger-text` exists precisely because of this. Recorded so nobody reaches for the raw solid later. |
+| `--border` on card / ground | **1.17:1 / 1.34:1** | WCAG 1.4.11 governs boundaries *required to identify or operate a control*. These are neither: the console has no form control of any kind, and a card is identified by its content and its ground, not its hairline. The affordances 1.4.11 does govern — focus ring **8.45:1**, active nav rail **7.92:1**, section rule **7.38:1** — pass comfortably. Reported rather than waved away; a future surface with real inputs must revisit it. |
+
+**Not covered, and not claimed:** no testing with a screen reader, no
+colour-blindness simulation, no keyboard-only walkthrough by a person,
+and no WCAG audit beyond contrast. Every status renders as a colour *and*
+a word, which is the structural mitigation for colour vision deficiency,
+but that is a design property rather than a tested outcome.
 
 ---
 
@@ -431,7 +477,9 @@ owner decision; MOS-1 is the second data point in its favour.
 |---|---|---|
 | 1 | `--danger-dim` missing from `css/main.css` | No — a change to the live app, needs its own stage |
 | 2 | Nine breakpoints across four stylesheets | No — design-roadmap Stage 8 |
-| 3 | Contrast of the D-001 palette never measured | No |
+| 3 | ~~Contrast of the D-001 palette never measured~~ | **DONE (MOS-1.1)** — §8.1 |
 | 4 | Self-host Playfair Display + Inter to remove the CSP font exception | No |
 | 5 | Adopt D-010 headless verification as standard (O-009) | **Yes** |
-| 6 | `os.mythosprod.xyz` DNS A record | **Yes — LEVEL_3, blocks deployment** |
+| 6 | ~~`os.mythosprod.xyz` DNS A record~~ | **NOT REQUIRED** — the record exists; MOS-1's claim was wrong (architecture §10.0) |
+| 7 | `--muted` is below AA as text throughout the live application, not only here | No — a change to `css/main.css`, needs its own stage |
+| 8 | Screen-reader, keyboard and colour-vision testing by a person | No — outside what an automated gate can assert |

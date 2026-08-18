@@ -182,6 +182,19 @@ decided, but the decision is not recoverable).
 | **Affected** | Every MYTHOS OS operational surface |
 | **Notes** | The only genuinely new design decision in MOS-1. It introduces no colour — it assigns operational meaning to the existing D-001 palette. It does **not** answer U-001 (why gold); it gives the accent a defined job in this context. Also records the console's governing interface rule: an empty result and an unreadable one must never look alike |
 
+### D-014 — Secondary text uses a readable tone, not `--muted`
+
+| Field | Value |
+|---|---|
+| **Project** | Mythos OS |
+| **Decision** | `--muted` `#6b6860` is not used as text. Secondary text — labels, metadata, inactive navigation, timestamps — uses `--mythos-text-secondary` `#999`. Badge text for a semantic solid uses a lightened tint of that solid, never the solid itself |
+| **Source** | Stage MOS-1.1; `docs/MYTHOS_OS_DESIGN_SYSTEM.md` §8.1 |
+| **Evidence** | **Measured, not asserted.** `--muted` computes 3.03–3.47:1 against the three D-001 grounds — below WCAG 2.1 AA (4.5:1) everywhere it appears as text. `#999` is recovered from `index.html:125` and `#888` from `css/dashboard.css:75`, the two places the application already reaches for a lighter grey when a muted label must actually be read. `projects/mythos-os-console/tools/contrast.js` computes it; `tests/mos-1-console-test.js` enforces it; `tools/visual-verify.js` confirms it in-browser against computed styles |
+| **Date / commit** | 2026-08-18, stage MOS-1.1 |
+| **Status** | **CONFIRMED — implemented and enforced** |
+| **Affected** | Every MYTHOS OS surface built on the shell |
+| **Notes** | **No D-001 token was changed.** `--muted` remains declared verbatim so the shell carries the complete palette; what changed is which token is used where. Ends the portfolio-wide "contrast was not measured and no claim is made" disclaimer for this surface only: 26 of 26 rendered pairs meet AA, 12 meet AAA. Two things are recorded and deliberately NOT fixed — `--muted` is below AA as text throughout the live application (a `css/main.css` change, its own stage), and `--border` at 1.17–1.34:1 is decorative, outside WCAG 1.4.11, which governs boundaries needed to identify or operate a control; the console has no form control at all |
+
 ---
 
 ## 2. Conflicting decisions

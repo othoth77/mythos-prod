@@ -120,6 +120,54 @@ ok(/--mythos-focus-ring/.test(mythosCss) && /:focus-visible/.test(mythosCss), 'a
 ok(/@media \(max-width: 900px\)/.test(mythosCss), 'the sidebar collapses below 900px (main.css never does)');
 ok(/--mythos-sp-1:/.test(mythosCss), 'a spacing scale exists (U-004: the portfolio had none)');
 
+// ---------------------------------------------------------------------------
+// 1b. CONTRAST — measured, not disclaimed
+//
+// docs/MYTHOS_DESIGN_STRATEGY.md §13 records accessibility as VERIFIED
+// ABSENT portfolio-wide and states that contrast "was NOT measured".
+// MOS-1.1 measured it. These assertions keep it measured: every pair the
+// console actually renders must meet WCAG 2.1 AA, so a future token or
+// surface change cannot quietly drop below it.
+//
+// Informational rows — the raw D-001 solids the console deliberately does
+// NOT use as text, and the decorative hairlines WCAG 1.4.11 does not
+// govern — are excluded from the pass requirement and asserted separately
+// to stay honest about why they exist.
+// ---------------------------------------------------------------------------
+
+var contrast = require(path.join(PROJ, 'tools', 'contrast.js'));
+var measured = contrast.measure();
+
+var rendered = measured.filter(function (r) { return !r.informational; });
+ok(rendered.length >= 20, 'the contrast tool covers the console\'s real pairings (' + rendered.length + ' rendered pairs)');
+rendered.forEach(function (r) {
+  ok(r.passes, 'WCAG 2.1 AA: ' + r.id + ' — ' + r.ratio + ':1, needs ' + r.required.toFixed(1));
+});
+
+// The measurement must be a real computation, not a table of remembered
+// numbers: check the algorithm against the two anchors WCAG itself fixes.
+ok(Math.round(contrast.ratio(contrast.parse('#ffffff'), contrast.parse('#000000')) * 100) / 100 === 21,
+   'contrast maths: white on black is exactly 21:1');
+ok(Math.abs(contrast.ratio(contrast.parse('#777777'), contrast.parse('#ffffff')) - 4.48) < 0.02,
+   'contrast maths: #777 on white is 4.48:1 (the classic AA near-miss)');
+ok(Math.abs(contrast.over(contrast.parse('rgba(255,255,255,0.5)'), contrast.parse('#000000')).r - 127.5) < 0.01,
+   'alpha compositing: 50% white over black resolves to mid grey');
+
+// The tokens the tool measures are read from mythos.css, not retyped.
+ok(/tokens\(\)/.test(read(path.join(PROJ, 'tools', 'contrast.js'))) &&
+   /readFileSync\(CSS/.test(read(path.join(PROJ, 'tools', 'contrast.js'))),
+   'contrast tool reads its tokens from the stylesheet rather than a copied list');
+
+// Usage rule: --muted stays declared for D-001 completeness but is not
+// used as text, because it measures below AA on every ground.
+ok(/--mythos-muted:\s*#6b6860;/.test(mythosCss), '--muted is still declared verbatim (D-001 completeness)');
+ok(!/color:\s*var\(--mythos-muted\)/.test(mythosCss) && !/color:\s*var\(--mythos-muted\)/.test(consoleCss),
+   '--muted is never used as a text colour (measured 3.03-3.47:1, below AA)');
+ok(/--mythos-text-secondary:\s*#999;/.test(mythosCss),
+   'secondary text uses #999, recovered from index.html:125');
+measured.filter(function (r) { return r.informational && /--muted as body text/.test(r.id); })
+  .forEach(function (r) { ok(!r.passes, 'recorded honestly: ' + r.id + ' fails AA at ' + r.ratio + ':1'); });
+
 // ===========================================================================
 // 2. READ-ONLY, AT SOURCE LEVEL
 // ===========================================================================
