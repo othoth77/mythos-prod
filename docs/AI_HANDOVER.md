@@ -1,7 +1,60 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** **OTH-KNOWLEDGE-0 — SHARED ENGINEERING MEMORY CREATED, VALIDATED, AND PROMOTED TO ITS STANDALONE REPOSITORY `othoth77/oth-knowledge`. DOCUMENTATION ONLY — NO APPLICATION, CSS, CONFIG OR TEST FILE CHANGED.**
+**From:** MYTHOS **FULL AUTONOMOUS MANDATE, FIFTH PASS — GRID-2 RESOLVED (AUTO-5): PROSE MEASURE SET TO 48ch, EXPLICITLY SUPERSEDING 1C §5's 68ch APPROXIMATION ON REAL FONT METRICS, UNDER AN EXPLICIT CONTINUATION INSTRUCTION AUTHORISING THAT SUPERSESSION. FIRST AUTO-\* DECISION IN THIS PROGRAMME TO OVERRIDE A NUMBER IN AN OWNER-APPROVED SECTION, RATHER THAN FILL A GAP — FLAGGED AS SUCH, NOT SOFTENED. NO OWNER-APPROVED SOURCE DOCUMENT EDITED; ONLY THE DERIVED/CANONICAL AND MACHINE-READABLE LAYERS CARRY THE NEW VALUE.**
+
+**The decision.** `--mythos-container-prose`: **48ch**, was 65ch (AUTO-3
+token value) / 68ch (1C §5 as approved). Real metrics from the self-hosted
+`ibm-plex-sans-400-latin.woff2` (AUTO-4, `fontTools`): 68ch renders ≈91 real
+characters, 65ch renders ≈87 — both overshoot the approved **65-character**
+intent (`TYPOGRAPHY.md` §2, behind A-014) by 34–40%, and both fail WCAG 2.2
+1.4.8's 80-character guideline (AAA, supporting evidence not a requirement
+at this system's AA floor). 48ch renders ≈64 — effectively exact. Verified
+against the approved column widths (`GRID_AND_SPACING.md` §4.2): the
+narrowest is 280px at 320px, well under the new 460.8px ceiling, so nothing
+changes at mobile widths — `max-width` simply yields to the smaller parent
+as it always did.
+
+**Why this is a supersession, stated plainly, not softened.** 68ch was
+written into `MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md` §5, behind
+owner-approved **A-009**. AUTO-5 changes the *implementation number* on the
+reasoning that 68ch was always an unvalidated estimate of the same
+65-character intent A-014 also approved, never an independent design goal,
+and could not be checked before AUTO-4 put a real font file in the
+repository. The owner-approved source text is **not edited** — it stays
+exactly as written, the historical record intact. Only `tokens.css` and the
+derived/canonical `GRID_AND_SPACING.md` carry 48ch, with the register entry
+(`MYTHOS_DESIGN_DECISIONS.md` §0.5, AUTO-5) as the explicit provenance and
+supersession statement a genuine owner review can accept, amend or reverse
+at zero cost — nothing outside the specification layer and two static
+prototypes (switched from a hardcoded 65ch to the token, so they now track
+any future change automatically) depends on this number.
+
+**Also fixed:** five specification documents
+(`DESIGN_TOKENS.md`, `COMPONENT_SYSTEM.md`, `RESPONSIVE_ACCESSIBILITY_MOTION.md`,
+`PUBLIC_ECOSYSTEM_ARCHITECTURE.md`, and stray mentions inside
+`MYTHOS_DESIGN_SYSTEM.md`/`docs/design/README.md`) still carried
+"OPEN — GRID-2" / "narrowed, not closed" language dating to AUTO-3, never
+updated across AUTO-4. All now read RESOLVED with a pointer to AUTO-5.
+`PUBLIC_ECOSYSTEM_ARCHITECTURE.md` also had a stale TYPE-2 line ("final
+numbers still provisional") predating AUTO-4 — corrected in the same pass.
+
+**Merged cleanly from `main` before this pass:** `oth-knowledge` promotion
+(informational, no overlap) and **MOS-3 PRODUCTION ACTIVATION** — the
+`mythos-ai-executor` is now live in production with real, proven parallel
+AI dispatch (`GET /dispatcher` live, two real missions genuinely overlapped
+across two providers); **the console half remains blocked at the exact
+same `deploy`-user privilege boundary** (MOS-1.6/1.7), re-confirmed
+verbatim by a session with real host access, unrelated to anything this
+pass touched. This directly answers this pass's own deployment re-check
+(item 3 of the current continuation): **still blocked, freshly
+re-confirmed by first-hand evidence from a session that actually has host
+access — nothing for this sandboxed session to add or attempt.**
+
+**Authority and reversibility — unchanged from AUTO-1–4.** AUTO-5, not
+owner-approved. See `MYTHOS_DESIGN_DECISIONS.md` §0.5.
+
+**Previously:** **OTH-KNOWLEDGE-0 — SHARED ENGINEERING MEMORY CREATED, VALIDATED, AND PROMOTED TO ITS STANDALONE REPOSITORY `othoth77/oth-knowledge`. DOCUMENTATION ONLY — NO APPLICATION, CSS, CONFIG OR TEST FILE CHANGED.**
 
 **What exists now:** a shared engineering memory for ALL othoth77 projects —
 four plain-Markdown files (`README.md`, `PROJECTS.md`, `PROBLEMS.md`,

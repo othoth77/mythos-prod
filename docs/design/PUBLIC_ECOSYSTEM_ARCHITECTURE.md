@@ -479,8 +479,8 @@ Full reasoning: `MYTHOS_DESIGN_DECISIONS.md` §0.5, AUTO-3.
 | **LOGO-1** | Still OPEN, **narrowed** (**AUTO-1**) — one of three off-host repositories searched, negative; two remain blocked |
 | **LOGO-2** | **RESOLVED — AUTO-1.** Adopted as production master, not owner-approved |
 | **GRID-1**, **GRID-3**, **SURF-1**, **GOLD-2**, **GOLD-3**, **TOKEN-1**, **TOKEN-2**, **MOTION-1**, **MOTION-2**, **MOTION-3**, **LINK-1**, **SHAPE-1**, **TYPE-3**, **SPACE-1**, **A11Y-1**, **A11Y-2**, **SEQ-1** | **RESOLVED — AUTO-3.** Full values and reasoning per item: `MYTHOS_DESIGN_DECISIONS.md` §0.5 |
-| **GRID-2** | Narrowed, not closed — AUTO-3. 65 characters is the intent; 68ch an approximation pending real font metrics |
-| **TYPE-2** | **RESOLVED — AUTO-3.** Weight instances and script-subset budget decided; final numbers still provisional pending real font files |
+| **GRID-2** | **RESOLVED — AUTO-5.** `container-prose` set to 48ch, superseding the 68ch approximation on real font metrics; not owner-approved |
+| **TYPE-2** | **RESOLVED — AUTO-4.** Real self-hosted WOFF2 files, real weight instances and measured performance budget — no longer provisional |
 | **C-001** / **O-002** | Untouched. A real-world project conflict, not a system rule a sweep can resolve |
 
 Also carried from the recovery era and untouched: **O-003** (apex site) ·

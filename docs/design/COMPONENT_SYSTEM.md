@@ -172,7 +172,7 @@ rule**, not merely by taste.
 | **Label** | **Visible and persistent. Placeholder is never a label** — **OWNER-APPROVED** |
 | **Type** | Body (16) — never below 16 px, which also prevents iOS zoom-on-focus — **OWNER-APPROVED** via TYPOGRAPHY §2 |
 | **Error** | `danger` border **plus** a message **plus** `aria-describedby`. Never colour alone |
-| **Help text** | Body S, `text-secondary`. **Measure OPEN — GRID-2** |
+| **Help text** | Body S, `text-secondary`. **Measure: `container-prose` (48ch) — RESOLVED, GRID-2/AUTO-5** |
 | **Keyboard** | Focus ring on `:focus-visible`. Error message announced via `aria-live="polite"` |
 | **Responsive** | Full width at `sm`; field groups collapse to one column below `md` |
 
@@ -244,7 +244,7 @@ Tab enters and leaves the group as one stop. Groups always sit in a `fieldset`.
 - **Errors:** summary at the top linking to each field, plus per-field messages.
   Focus moves to the summary on failed submit, not to the first field silently.
 - **Submit:** one primary action. Loading state **OPEN — MOTION-1**.
-- **Measure of help and error text: OPEN — GRID-2.**
+- **Measure of help and error text: `container-prose` (48ch) — RESOLVED, GRID-2/AUTO-5.**
 
 ---
 
@@ -316,7 +316,7 @@ new visual language.
 | **Light theme** | **OPEN — SURF-1.** `surface-card` has no light value; the light ramp has two steps to the dark ramp's four, so *card on raised surface* has no light equivalent |
 | **Text contrast** | `text-secondary` on a card is **6.78 : 1 — AA, not AAA**. Stated, not rounded up |
 | **Interactive cards** | The whole card is the hit box; it contains **one** primary action, never nested buttons that compete with the card's own target |
-| **Measure** | Body text inside a card: **OPEN — GRID-2** |
+| **Measure** | Body text inside a card: `container-prose` (48ch) — **RESOLVED, GRID-2/AUTO-5** |
 
 ### 5.2 Modal — base OWNER-APPROVED
 
@@ -336,7 +336,7 @@ new visual language.
 
 - Caption (13) on `surface`, `radius-control` (2), `space-3` (8) padding —
   **PROPOSED**.
-- **Shadow: OPEN — SURF-1.** **Max width: OPEN — GRID-2.**
+- **Shadow: OPEN — SURF-1.** **Max width: `container-prose` (48ch) — RESOLVED, GRID-2/AUTO-5.**
 - **Never the only channel for information** — universal rule 4 applied: a
   tooltip supplements, it does not carry.
 - **Touch has no hover**, so a tooltip must also be reachable by focus, and any
@@ -489,7 +489,7 @@ silently resolved.**
 | **SURF-1** | Card, Dropdown, Modal, Tooltip, Toast, Select listbox, Table | `surface-card` and `border-strong` have **no light value**; **no shadow values exist** for the three floating components; the table's 4 % row hover sits outside the token system |
 | **GOLD-2** | Button, Checkbox, Radio, Switch, Tabs, Pagination, Link, state matrix §2.1 | **No light-theme hover or active gold.** Every hover and active state in this document is specified on dark and unspecified on light |
 | **GRID-1** | Modal, page shell, Table full-bleed | Which container frames an overlay — 1280 content or 1440 wide |
-| **GRID-2** | Card body, Alert, Tooltip, Form help and error text | Prose measure is approved as both 68ch and 65 characters; no font file exists to reconcile them |
+| ~~**GRID-2**~~ | Card body, Alert, Tooltip, Form help and error text | **RESOLVED — AUTO-5.** `container-prose` is 48ch |
 | **GRID-3** | Button padding 9 / 15, Card padding 20, Checkbox box 20, Switch track 20 | Values that are off the 8-point scale, and four scale steps with no legal band |
 | **TOKEN-1** | All | **No token artifact exists.** Every token name here is a specification name, not an implemented custom property |
 | **TOKEN-2** | All | Whether these names carry a namespace prefix. Names are written unprefixed **provisionally** |
