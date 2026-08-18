@@ -1,8 +1,11 @@
 # Mythos Design System — documentation index
 
-**Status: the design foundation is in progress and every document here is a
-PROPOSAL awaiting owner validation.** Nothing in `docs/design/` is implemented,
-applied to a project, or referenced by production.
+**Status by document — they are not all the same.** `BRAND_ARCHITECTURE.md` is
+**OWNER-APPROVED** (2026-08-18) as the working architectural baseline.
+`LOGO_SYSTEM.md` is **PROPOSED and not approved** — the historical logo remains
+the authoritative source and no redraw is authorised (decision **A-007**).
+Nothing in `docs/design/` is implemented, applied to a project, or referenced by
+production.
 
 ## Reading order
 
@@ -12,15 +15,16 @@ Start with the evidence, then the structure, then the mark.
 |---|---|---|
 | 0 | `../MYTHOS_DESIGN_RECOVERY.md` | What design work already existed, with evidence. **Read before anything else** |
 | 0 | `../design-recovery/MYTHOS_ORIGINAL_LOGO_RECOVERY.md` | The canonical record of the original Mythos logo |
-| 1 | `BRAND_ARCHITECTURE.md` | The three tiers — master brand, endorsed units, independent projects — and what each inherits |
-| 2 | `LOGO_SYSTEM.md` | The mark: what was preserved from the original, what changed and why, the construction grid, and the full master set |
+| 1 | `BRAND_ARCHITECTURE.md` | **OWNER-APPROVED.** The three tiers — master brand, endorsed units, independent projects — and what each inherits |
+| 2 | `LOGO_SYSTEM.md` | **PROPOSED.** The mark: what was preserved from the original, what changed and why, the construction grid, and the full master set |
 
 ## Companion records outside this directory
 
 | Document | Role |
 |---|---|
 | `../MYTHOS_DESIGN_STRATEGY.md` | Strategic baseline extracted from existing work |
-| `../MYTHOS_DESIGN_DECISIONS.md` | Decision register — `D-*` confirmed, `O-*` open, `C-*` conflicting |
+| `../MYTHOS_DESIGN_DECISIONS.md` | Decision register — **`A-*` owner-approved**, `D-*` recovered evidence, `O-*` open, `C-*` conflicting, `U-*` unknown |
+| `../design-recovery/PENDING_VECTOR_SOURCE_TASK.md` | Pending investigation **LOGO-1** — does a vector master exist outside Git? |
 | `../MYTHOS_PROJECT_DESIGN_MATRIX.md` | Per-project design state, cell by cell |
 | `../MYTHOS_DESIGN_ROADMAP.md` | Sequence of design stages |
 | `../../assets/brand/README.md` | Generated logo masters and how to rebuild them |

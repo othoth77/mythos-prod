@@ -14,6 +14,96 @@ decision) · `SUPERSEDED` (replaced, with the replacement identified) ·
 `CONFLICTING` (evidence disagrees with itself) · `UNKNOWN` (believed to have been
 decided, but the decision is not recoverable).
 
+**Added 2026-08-18:** `OWNER-APPROVED` (the owner has decided it; binding
+baseline) · `PROPOSED` (drafted by a design stage, **not** approved, not
+citable as a decision).
+
+Sections 1–4 below are the **recovery record** and are historical evidence.
+They are never rewritten. Section 0 records owner decisions taken after the
+recovery and states which recovery-era questions each one answers.
+
+---
+
+## 0. Owner-approved baseline
+
+Approved by the owner on **2026-08-18**, after reviewing Stage 1A
+(`docs/design/BRAND_ARCHITECTURE.md`). These entries are **binding**. They are
+the only design decisions in this register that carry owner authority; every
+`D-*` entry below is *recovered evidence of a past decision*, which is a
+different thing.
+
+### A-001 — MYTHOS is the master brand
+
+| Field | Value |
+|---|---|
+| **Decision** | MYTHOS is the master brand of the ecosystem. Not "Mythos Prod" |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Affects** | Every tier of the architecture; the identity system; the future `mythosprod.xyz` hub |
+| **Notes** | `Mythos Prod` continues as one business-unit name and as the historical repository name (`othoth77/mythos-prod`). It no longer controls the master identity |
+
+### A-002 — The five Mythos business units
+
+| Field | Value |
+|---|---|
+| **Decision** | The Mythos units are **Mythos OS, Mythos Prod, Mythos Services, Mythos Digital, Mythos Logistique** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Answers** | **O-004**, as far as the *set* is concerned |
+| **Notes** | Approval fixes the roster. It does **not** assert operating status: the recovery audit found **no evidence of any kind** for Mythos Services, Digital or Logistique (`MYTHOS_DESIGN_STRATEGY.md` §5), and that evidence gap is unchanged. Whether and when those three become operating brands remains **O-004b** (§3) |
+
+### A-003 — Units use the master identity plus a descriptor
+
+| Field | Value |
+|---|---|
+| **Decision** | The five units use the **MYTHOS master identity plus a descriptor**. **Five unrelated independent logos must not be created** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Affects** | `docs/design/BRAND_ARCHITECTURE.md` §4; every future unit |
+| **Notes** | This approves the *principle*. It does **not** approve any particular drawing of the mark or lockup — see A-007 and `LOGO-2` |
+
+### A-004 — Public projects remain independently branded
+
+| Field | Value |
+|---|---|
+| **Decision** | AgriBee, Dar Hijama, Fixpert, IDAuto, Mouain, Notre Jour, SsangYong.autos, Uthina Chess and future projects **remain independently branded** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Answers** | **O-001**, in the direction of project brand independence |
+| **Notes** | Settles the question the recovery audit called blocking. It also means the four-palette divergence recorded in **C-004** is, from now on, the intended state at project level — though **C-004 remains historically unarbitrated**, because approving the rule forward does not retroactively explain the past |
+
+### A-005 — Projects inherit shared Mythos standards
+
+| Field | Value |
+|---|---|
+| **Decision** | Public projects inherit shared Mythos standards where appropriate: **accessibility, responsive principles, spacing principles, component principles, performance, governance** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Affects** | `BRAND_ARCHITECTURE.md` §5.1 (shared column); the entry conditions for any new project |
+| **Notes** | "Where appropriate" is the owner's wording and is preserved. Retroactive application to the two live charter projects is **not** approved — see **O-A4** |
+
+### A-006 — Projects do NOT inherit the Mythos visual skin
+
+| Field | Value |
+|---|---|
+| **Decision** | Public projects do **not** automatically inherit the Mythos visual skin. Their own logo, palette, imagery, personality and customer-facing identity remain independent **unless explicitly approved later** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Affects** | `BRAND_ARCHITECTURE.md` §5.1 (independent column), §5.3 |
+| **Notes** | The "unless explicitly approved later" clause is what keeps **O-A3** open: a project *may* one day use a Mythos-level colour, but only by explicit approval, never by drift or inference |
+
+### A-007 — The recovered historical logo is the authoritative historical source
+
+| Field | Value |
+|---|---|
+| **Decision** | The recovered historical Mythos logo is the **authoritative historical source** for the master-brand discussion. It must **not** be redrawn, replaced, simplified, recoloured or recreated during this stage |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Source of the artifact** | `assets/logos/logomythos.png`, recorded in `docs/design-recovery/MYTHOS_ORIGINAL_LOGO_RECOVERY.md` |
+| **Notes** | The Stage 1B vector masters under `assets/brand/` therefore remain **PROPOSED and unapproved**. They are a reconstruction offered for a later decision, are referenced by nothing in production, and must not be cited as the Mythos logo. No further logo drawing is authorised in this stage |
+
+### A-008 — The gold distinction stays open
+
+| Field | Value |
+|---|---|
+| **Decision** | The distinction between the **historical logo gold**, the **Mythos OS UI gold** and **project-level colours** remains **OPEN**. It must not be resolved by inference |
+| **Status** | **OWNER-APPROVED as an instruction to leave open** — 2026-08-18 |
+| **Tracked as** | **GOLD-1** (§3) |
+| **Notes** | Directly connected to **C-003** (two golds, unexplained) and **U-001** (the rationale for `#c9a84c` was never recorded) |
+
 ---
 
 ## 1. Confirmed decisions
@@ -211,6 +301,33 @@ decided, but the decision is not recoverable).
 | **O-008** | Reduce Uthina's five parallel site copies to one? | No | All preserved, none deleted |
 | **O-009** | Adopt D-010 headless-browser design QA as a standard? | No | Proven once, never generalised |
 | **O-010** | Adopt D-006 clear-space/minimum-size rules portfolio-wide? | No | Currently Dar Hijama only |
+
+### 3.1 Open decisions carried forward after the 2026-08-18 owner approval
+
+Recorded with the owner's own wording and IDs. **None of these may be resolved
+by inference.**
+
+| ID | Decision needed | Blocking? | Notes |
+|---|---|---|---|
+| **O-A1** | Classification of Mythos Command Center / `ordre.mythosprod.xyz` within the Mythos architecture | Yes, for 1C and for the hub IA | Live, Mythos-level, **absent from the approved five-unit roster (A-002)**, and carrying a third divergent Mythos-level palette (light `#f6f7f9` / indigo `#4f46e5`). Cannot be absorbed silently |
+| **O-A3** | **Whether and under what conditions a public project may use a Mythos-level colour in its own visual identity** | Yes, for any project-level design work | The owner's scoping, which is broader than the earlier draft framing of O-A3. Governs the exception clause in **A-006**. Related evidence: **C-001** (Dar Hijama's live site uses `#c9a84c` while its charter specifies green) and **O-002**, both of which remain open on their own terms |
+| **GOLD-1** | Relationship between the historical Mythos logo gold gradient and the Mythos OS UI gold `#c9a84c` | Yes, for 1D colour | Measured evidence only: the historical logo's gold is a **gradient**, sampled roughly `#AB7E2F → #F8D276`, centred near `#D9A441`; the UI gold is the flat `#c9a84c`; Uthina Chess Imperial Gold is `#D9A441`. No document connects them. See **C-003**, **U-001** |
+| **LOGO-2** | Whether the Stage 1B vector reconstruction is adopted as the master, once **LOGO-1** is settled | Yes, for 1C | The 1B masters are **PROPOSED**, never approved (**A-007**). Adoption is a separate decision from the architecture approved on 2026-08-18 |
+| **O-004b** | Whether and when Mythos Services, Digital and Logistique become operating brands | No | **A-002** fixes the roster; the evidence gap for these three is unchanged |
+
+### 3.2 Prior open questions answered by the 2026-08-18 approval
+
+Additive record. The rows above in §3 are left exactly as the recovery stage
+wrote them; this table states what changed, without rewriting the evidence.
+
+| Prior ID | Now | By |
+|---|---|---|
+| **O-001** — brand independence vs Mythos consistency | **ANSWERED** — projects stay independently branded | **A-004**, with **A-005**/**A-006** setting what is and is not inherited |
+| **O-004** — do the three units exist as brands? | **PARTIALLY ANSWERED** — the roster is fixed; operating status is not asserted | **A-002**; remainder tracked as **O-004b** |
+
+**Still open and untouched by this approval:** O-002, O-003, O-005, O-006,
+O-007, O-008, O-009, O-010, and the vector-source question tracked as
+**LOGO-1** (see `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md`).
 
 ---
 

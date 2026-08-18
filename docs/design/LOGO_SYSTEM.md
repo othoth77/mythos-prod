@@ -2,8 +2,30 @@
 
 **Stage:** MYTHOS-DESIGN-1B — logo evolution
 **Date:** 2026-08-18 UTC
-**Status:** **PROPOSAL — awaiting owner validation.** Nothing in this document is
-deployed, and no production file references any asset described here.
+**Status:** **PROPOSED — NOT APPROVED.** Nothing in this document is deployed, and
+no production file references any asset described here.
+
+**Owner validation of 2026-08-18 — what it did and did not do.** The owner
+approved the *brand architecture* (`BRAND_ARCHITECTURE.md`, decisions
+**A-001**–**A-006**). It did **not** approve this logo system. Three
+instructions from that validation bind this document:
+
+- **A-007** — the recovered historical logo (`assets/logos/logomythos.png`) is the
+  **authoritative historical source** for the master-brand discussion, and it must
+  **not** be redrawn, replaced, simplified, recoloured or recreated during this
+  stage. The masters described here are a **reconstruction offered for a later
+  decision**; they must not be cited as the Mythos logo, and no further logo
+  drawing is authorised.
+- **A-003** — the *principle* that units use the master identity plus a descriptor
+  **is** approved. The particular drawing of the lockup below is not.
+- **A-008 / GOLD-1** — the relationship between the historical logo gold, the
+  Mythos OS UI gold and project colours stays **OPEN** and must not be resolved
+  by inference. §8 below is unchanged by the approval.
+
+Adoption of this reconstruction as the master is tracked as **LOGO-2**, and
+depends on **LOGO-1** — whether a true vector source exists outside Git
+(`docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md`).
+
 **Predecessor:** `docs/design-recovery/MYTHOS_ORIGINAL_LOGO_RECOVERY.md` (the
 canonical record of the original logo, which this evolution is built from).
 
@@ -128,7 +150,7 @@ without redrawing anything.
 
 These are named rather than silently settled:
 
-- **O-L1 — the gold value.** The lockup rules currently use `#C9A84C`, the
+- **GOLD-1 (was O-L1) — the gold value.** The lockup rules currently use `#C9A84C`, the
   Mythos OS UI gold, as a placeholder. The original logo's gold is a *gradient*
   sampled at roughly `#AB7E2F → #F8D276`, centred near `#D9A441`. Whether the
   master gold becomes the UI gold, the logo's centre value, or a new value is a
@@ -139,7 +161,7 @@ These are named rather than silently settled:
   the lockups carry no font dependency.
 - **O-L3 — the ink and paper values.** `#0E0E0E` and `#F5F3EF` are taken from
   the existing Mythos OS tokens as a reasonable default, pending 1D.
-- **O-L4 — vector provenance.** A layered or vector original may still exist
+- **LOGO-1 (was O-L4) — vector provenance.** A layered or vector original may still exist
   off-Git (see the recovery record §7). If one is found, this reconstruction
   must be diffed against it before the masters are declared final.
 

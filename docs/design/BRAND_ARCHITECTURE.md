@@ -2,8 +2,21 @@
 
 **Stage:** MYTHOS-DESIGN-1A — brand architecture
 **Date:** 2026-08-18 UTC
-**Status:** **PROPOSAL — awaiting owner validation.** No production file implements
-anything below. This document defines structure and rules; it applies none of them.
+**Status:** **OWNER-APPROVED — 2026-08-18.** The owner approved this document as the
+**working architectural baseline**. It is binding for later stages.
+
+**What approval covers, precisely:** the three-tier structure (§2), the master
+brand (§3), the five-unit roster and the endorsed-descriptor principle (§4),
+project brand independence and the shared-standards split (§5). Recorded as
+decisions **A-001**–**A-006** in `docs/MYTHOS_DESIGN_DECISIONS.md` §0.
+
+**What approval does NOT cover:** any drawing of the logo or lockup (the Stage 1B
+masters remain **PROPOSED**, decision **A-007**), any colour value, any
+typeface, and every decision listed in §9. Approving the architecture is not
+approving the artwork that will eventually express it.
+
+No production file implements anything below. This document defines structure
+and rules; it applies none of them.
 **Companions:** `docs/design/LOGO_SYSTEM.md` (the mark that carries this
 architecture) · `docs/MYTHOS_DESIGN_RECOVERY.md` (evidence) ·
 `docs/MYTHOS_DESIGN_DECISIONS.md` (decision register) ·
@@ -241,18 +254,23 @@ what is fixed here is only that the hub's structure follows the three tiers.
 
 **Current state:** no apex vhost exists. The hub does not exist in any form.
 
-## 9. Open decisions this stage does NOT settle
+## 9. Open decisions — carried forward, not settled
 
-Named so no later stage mistakes silence for a decision.
+The owner's approval of 2026-08-18 explicitly kept these open and directed that
+**none may be resolved by inference.** The canonical register is
+`docs/MYTHOS_DESIGN_DECISIONS.md` §3.1; the IDs below are the owner's.
 
-| Ref | Question | Why it is not settled here |
+| Ref | Question | Why it stays open |
 |---|---|---|
-| **O-A1** | Where does Mythos Command Center sit — a product of Mythos OS, or a sixth unit? | It is live, Mythos-level, absent from the owner's list, and carries a third divergent palette. Owner decision |
-| **O-A2** | Do the three evidence-free units become real brands, and in what order? | Register **O-004**. The architecture holds them; it cannot conjure them |
-| **O-A3** | Is Dar Hijama's charter or its live site authoritative? | Register **O-002** / conflict **C-1**. Resolving it also decides whether Mythos-level colour may reach a project's own palette — a precedent, not a detail |
-| **O-A4** | Do the two recovered charters (Uthina, Dar Hijama) adopt the shared floor of §5.1 retroactively? | Touching live sites is out of scope for a design stage. Registers **O-009**, **O-010** |
-| **O-A5** | Does Mouain's unmerged branch merge before it is placed in the architecture? | Register **O-006**. It is listed above because the owner named it, but it is invisible from `main` |
-| **O-A6** | What endorsement appears in a project footer — symbol, wordmark, or a line of text? | Depends on the master colour and type decisions still open in 1D |
+| **O-A1** | Where does Mythos Command Center / `ordre.mythosprod.xyz` sit in this architecture? | It is live, Mythos-level, **absent from the approved five-unit roster**, and carries a third divergent Mythos-level palette. An architecture cannot silently absorb a running product |
+| **O-A3** | **Whether, and under what conditions, a public project may use a Mythos-level colour in its own visual identity** | This is the exception clause inside decision **A-006**. Until it is settled, a project's palette stays its own. Related open evidence: conflict **C-001** and question **O-002** |
+| **GOLD-1** | How the historical logo's gold gradient relates to the Mythos OS UI gold `#c9a84c` | Measurement exists (`#AB7E2F → #F8D276`, centred near `#D9A441`); explanation does not. See **C-003**, **U-001** |
+| **LOGO-1** | Does an original vector or layered master source exist outside Git? | A question of fact, blocked on environment access. Tracked as a pending task: `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md` |
+| **LOGO-2** | Is the Stage 1B vector reconstruction adopted as the master? | Depends on **LOGO-1**. The masters are PROPOSED and unapproved (**A-007**) |
+| **O-004b** | Do Mythos Services, Digital and Logistique become operating brands, and when? | The roster is approved (**A-002**); the evidence gap for these three is unchanged |
+| **O-A4** | Do the two recovered charters (Uthina Chess, Dar Hijama) adopt the shared floor of §5.1 retroactively? | Approval of **A-005** is forward-looking. Touching live sites is out of scope for a design stage. Registers **O-009**, **O-010** |
+| **O-A5** | Does Mouain's unmerged branch merge before it is placed in the architecture? | Register **O-006**. Listed in §5.4 because the owner named it, but it is invisible from `main` |
+| **O-A6** | What form does footer endorsement take — symbol, wordmark or a line of text? | Depends on colour and type decisions still open |
 
 ## 10. What this stage did not do
 
