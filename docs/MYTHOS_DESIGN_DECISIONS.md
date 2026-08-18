@@ -265,6 +265,32 @@ existing deviation.
 
 ---
 
+### A-022 — Control height and touch target are two different things
+
+| Field | Value |
+|---|---|
+| **Decision** | **Visual control height may remain 40 px. The interactive hit area must be at least 44 × 44 px. The hit area may extend beyond the visual control box where necessary. Every visual component is NOT to be forced to 44 px high** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18, owner instruction opening Stage 1F |
+| **Resolves** | **C-005**, raised by Stage 1E |
+| **Scope** | Every interactive component in the system, at every breakpoint |
+
+**What it changes structurally:** the visual box and the hit box become two
+separate specifications, and each component states both. It preserves the
+approved 36 / 40 control heights *and* the approved 44 × 44 minimum, which
+1E had shown could not both be true of a single box.
+
+**Derived consequence, computed at 1F** (`COMPONENT_SYSTEM.md` §1.1): a 40 px
+control needs **2 px** of expansion per side and a **12 px** (`space-4`) gap to
+its neighbour; a 36 px control needs **4 px** and **16 px** (`space-5`), so that
+the approved 8 px separation is measured between *hit* boxes. Both gaps land on
+the approved spacing scale. **Binding:** a dense row of 36 px controls spaced at
+`space-3` (8) produces **overlapping hit areas** and is not permitted.
+
+**Method note:** expansion is a transparent hit region, **never added margin** —
+margin would move the layout and change the composition.
+
+---
+
 ## 1. Confirmed decisions
 
 ### D-001 — Mythos OS dark-and-gold token system
@@ -444,7 +470,7 @@ existing deviation.
 | **Evidence** | All four `:root` blocks read directly |
 | **Status** | **CONFLICTING — never arbitrated.** No document records whether this divergence was chosen or accumulated |
 
-### C-005 — Control height 40 px vs touch minimum 44 px
+### ~~C-005~~ — Control height 40 px vs touch minimum 44 px — **RESOLVED by A-022**
 
 | Field | Value |
 |---|---|
@@ -452,7 +478,7 @@ existing deviation.
 | **Evidence** | `MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md` §7 (Button, Input, "Touch targets ≥ 44 × 44 px") and §11 ("Touch targets 44 × 44 minimum at every breakpoint — not only small ones") |
 | **Found** | Stage **1E**, 2026-08-18, while deriving the size token family |
 | **Resolutions available** | Grow the visual control height at coarse pointers, **or** extend the hit area beyond the visual box. **The approved text names neither** |
-| **Status** | **CONFLICTING — not resolved.** Left for 1F or the owner. Resolving it inside a component is precisely the failure the token architecture exists to prevent |
+| **Status** | **RESOLVED 2026-08-18 by A-022** — the owner separated the two: the visual box may stay 40 px, the *hit* box must reach 44 × 44, and the hit area may extend beyond the visual box. **Neither approved value was discarded.** Original conflict text above left unaltered |
 
 ---
 
@@ -583,6 +609,36 @@ scale and `GRID_AND_SPACING.md` states it in implementable form. The
 **stylesheet** half is unchanged: no CSS in this repository has a spacing scale,
 and **MIG-3** remains unactioned. U-004 is therefore narrowed, not closed, and
 its original text above is left exactly as the recovery stage wrote it.
+
+---
+
+### 3.5 New open items raised by Stage 1F — component system
+
+**Found by specifying components against the approved rules, not by opinion.**
+Each is a place where two approved statements collide, or where a component the
+owner asked for has no approved value at all. **None was resolved inside a
+component** — that is the specific failure the token architecture exists to
+prevent.
+
+| Ref | Statement | Blocking? | Recommendation (**PROPOSED**, not decided) |
+|---|---|---|---|
+| **MOTION-1** | The approved motion rule *"nothing loops, nothing autoplays"* (1C §10) and the approved requirement that every interactive element have a **loading** state (1C §7) cannot both hold as written — **a spinner loops and autoplays** | For the loading state only | Static skeletons and determinate progress only. It is also the only route that stays perceivable under `prefers-reduced-motion` |
+| **LINK-1** | The inline text link has **no approved colour**. Gold is reserved for the primary action, active state, focus ring and the 35° gesture — *"nothing else"* (`COLOR_SYSTEM.md` §3.2) — and *"gold is never used to create hierarchy in running text"* (`TYPOGRAPHY.md` §4). **No other accent colour exists in the system** | No | Underline in `text-primary`, thickening on hover. Colour never distinguishes a link, which is also robust for colour-vision deficiency |
+| **SHAPE-1** | A switch track needs a pill, but `radius-pill` is approved for **avatars and status dots only** (1C §6). The component set the owner requested and the approved radius rule do not fit | No | A rectangular switch at `radius-control` (2) — consistent with a wordmark built on flat terminals |
+| **GOLD-3** | The recovered CSS draws select chevrons in gold, but the approved scarcity rule allows **one gold element per view** — *"if two things are gold, one of them is wrong"*. A form with five selects would carry five, before counting the primary button | No | Chevrons take `text-secondary`; gold stays with the primary action |
+
+**Thirteen of the twenty-one components the owner named have no approved base
+specification.** 1C §7 specified Button, Input, Card, Navigation, Table, Modal,
+Chip/status and Toast — and nothing else. For the other thirteen every value in
+`COMPONENT_SYSTEM.md` is marked **DERIVED** (computed from approved rules, no new
+decision) or **PROPOSED** (a new decision, rejectable on its own). That split is
+stated at the top of each affected entry rather than left for a reader to infer.
+
+**Still open and untouched by 1F:** **SURF-1** and **GOLD-2** are the two that
+bite hardest — between them they leave *every* hover and active state
+unspecified on light, and leave the three floating components (menu, modal,
+toast) with no shadow value. `COMPONENT_SYSTEM.md` §9 maps every open reference
+to the components it affects.
 
 ---
 
