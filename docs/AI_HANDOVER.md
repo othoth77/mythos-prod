@@ -542,6 +542,34 @@ Read `core/domain.js`, `core/orchestrator.js`, `core/core-wiring.js`, `core/prov
 
 Operator can now start a real mission from the Command Center and watch it run to completion via the existing Missions view — the first genuinely operational (not read-only) capability the console has ever had. Natural follow-ons, none started here: surfacing `execution_id`/`ended_at`/result on the pending-mission rows once a mission completes; a "cancel" action (the executor already has `/tasks/<id>/cancel`, same relay shape); widening `execution_profile` beyond `repo-read` (an explicit, separate owner decision, not implied by this stage). Unrelated and unchanged: the login gate, the deployment privilege boundary (MOS-1.6/1.7), the design-branch/LOGO governance items.
 
+### Independent re-verification (concurrent session, same day)
+
+A second, concurrent session was separately instructed to build this exact
+capability (mission queue → model selection → start → execution status),
+starting from a branch that predated this MOS-2 commit. Before writing any
+code, that session's own read-only audit discovered MOS-2 already merged to
+`main` and stopped rather than duplicating it — per the standing rule against
+a parallel architecture. Independent checks performed on the merged code,
+not just a re-read of this entry: `task.schema.json`'s real `provider` enum
+and optional `model` field confirmed directly; `core-wiring.js:72` ("Provider
+… NOT accepted from the caller") and `campaign-service.js`'s
+`objective`/`project`/`requested_by`-only allowlist confirmed directly,
+corroborating the Phase-1-over-Phase-2 decision above; `executor.js`'s
+`execution_id`/`started_at`/`ended_at` stamping in `runTask()` confirmed
+directly. All three test suites re-run fresh after merging `main` into that
+session's own branch: `tests/mos-1-console-test.js` **374/374**,
+`tests/mythos-ai-executor-test.js` **125/125**,
+`tests/mythos-orchestration-core-test.js` **255/257** — the two failures are
+pre-existing and environmental (`O accept: persistent delivery relay unit
+exists` / `timer is active`, checking for `/etc/systemd/system/mythos-git-
+push.service` on a real host; this sandbox has no systemd, `PID 1` is not
+systemd — the same class of gap MOS-1.6/1.7 already documents, not a MOS-2
+regression). No file under `projects/mythos-os-console/` or
+`projects/mythos-ai-executor/` was modified by that session. `main` was
+merged into `claude/mythos-deployment-auth-0d1wvz` (unrelated font-sourcing
+branch/PR #23) purely to stay current; no new commit was made against this
+capability.
+
 ---
 
 ## MOS-1.8 — TEMPORARY INTERNAL LOGIN GATE (2026-08-18) — **PASS; NOT THE FINAL AUTH ARCHITECTURE; NOT DEPLOYED**
