@@ -1,13 +1,329 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **SUB-STAGE 1G — RESPONSIVE + ACCESSIBILITY + MOTION. SPECIFICATION ONLY: nothing implemented, no application code, no CSS, no asset, no deployment.** `docs/design/RESPONSIVE_ACCESSIBILITY_MOTION.md` written (520 lines) — one combined document, as the owner named it. **MOTION-1 IS STILL OPEN, AND THAT IS THE INSTRUCTION, NOT AN OMISSION.** The owner said: *"If a loading state requires an exception, document it as PROPOSED and leave it OPEN."* §3.4 states the contradiction in the approved text's own words — *"nothing loops, nothing autoplays"* (1C §10) against the required **loading** state on every interactive element (1C §7) — sets out **three routes with their costs**, and recommends **routes 1 and 2 together** (determinate progress where measurable, static skeletons elsewhere). **The deciding argument is not aesthetic: A-018 requires the interface to stay legible with animation disabled entirely**, which routes 1 and 2 satisfy unchanged while an animated indicator needs a second non-animated fallback anyway. **It is a recommendation, not a decision.** Five things are binding regardless of route: no layout shift, accessible name kept, `aria-busy` set, not removed from the tab order, completion announced politely. **TWO MEASURED FINDINGS RESHAPED THE RESPONSIVE SECTION.** **(1) Zoom is not a special mode — it moves the user down the same bands.** From a 1280 viewport, **200 % zoom = 640 px effective and lands in TABLET**; **400 % = 320 px and lands in MOBILE**. So **the tablet layout IS the desktop-at-200 %-zoom layout** and cannot be a degraded middle state, and **the 320 px reflow requirement and 400 % zoom are the same test**, satisfied together rather than separately. **(2) Nine of the twelve approved type styles have a default line-height below 1.5** — all six display and heading styles plus Caption 1.46, Label 1.34, Data 1.44. WCAG 1.4.12 requires content to survive a user forcing 1.5, and forcing Display XL from 1.02 to 1.5 grows its line box by **47 %**, so **no fixed-height container may wrap a heading, label or data cell**. Not a defect in the scale — tight display leading is correct — but a constraint on every container it sits in. **WHERE GRID-1 BIT HARDEST: the owner asked 1G to define LARGE DESKTOP, and the approved system gives it nothing of its own** — every `2xl` metric is identical to `xl`, and the 1280 content cap already stops the grid growing from a **1440** viewport, 480 px below the `2xl` boundary. **No value was invented; the class is recorded as OPEN under GRID-1.** **A-022 preserved exactly:** visual 40 comfortable / 36 compact, hit area ≥ 44 × 44, expansion 2 px (40) or 4 px (36) per side, minimum neighbour gaps 12 (`space-4`) and 16 (`space-5`). **Measured against WCAG: 24 × 24 is the AA target-size requirement and 44 × 44 is AAA — A-022 exceeds the AA floor by 3.36× in area.** The system also states where it does **not** reach AAA: `text-secondary` on a card is **6.78 : 1 — AA**. **SIX NEW OPEN ITEMS, all recorded in register §3.6, none resolved:** **TYPE-3** (fluid `clamp()` is approved "between the scale's stops" but neither the floor stop nor the endpoint viewports are specified — both are needed to write one `clamp()`); **SPACE-1** (the spacing bands do not vary by breakpoint and no rule says whether they should — a 128 px section gap is a **quarter of a 320 px phone**); **A11Y-1** (**under `forced-colors` gold is the system's ONLY emphasis channel and it is overridden** — status survives because colour is always paired with form, but **the primary-versus-secondary button distinction does not**); **A11Y-2** (*colour never carries meaning alone*, **disabled is a meaning**, and the approved system gives it no non-colour channel); **MOTION-2** (the M's slant does not mirror in RTL, but **whether the 35° motion vector mirrors is unstated** — keeping it preserves the angle and breaks layout logic, mirroring does the reverse); **MOTION-3** (the 35° gesture exists as a **shape** rule and a **motion** rule, each "once per view" — **whether they share one budget is unstated**). **Flagged, deliberately NOT changed:** `docs/design/README.md` still lists `RESPONSIVE_SYSTEM.md`, `ACCESSIBILITY.md` and `MOTION_SYSTEM.md` as still to be written; all three are superseded by this one file, but the index was **outside the three files the owner's instruction named**. **Unchanged and verified:** historical logos byte-identical (`b7bd0ac1…`, `426828f9…`), 14 brand masters untouched, no CSS or application file modified, **LOGO-2 still `PROPOSED — AWAITING OWNER APPROVAL`** gated on **LOGO-1**, GRID-1/2/3, SURF-1, GOLD-2/3, TOKEN-1/2, LINK-1, SHAPE-1, C-001/O-002 all untouched, MIG-1 to MIG-4 unactioned. **Next authorised sub-stage: 1H — Mythos Public Ecosystem Architecture**, which **O-A1 was required to precede and now does** (**A-020** placed Command Center under Mythos OS).
+**From:** MYTHOS **SUB-STAGE 1G — RESPONSIVE + ACCESSIBILITY + MOTION. SPECIFICATION ONLY: nothing implemented, no application code, no CSS, no asset, no deployment.** `docs/design/RESPONSIVE_ACCESSIBILITY_MOTION.md` written (520 lines) — one combined document, as the owner named it. **MOTION-1 IS STILL OPEN, AND THAT IS THE INSTRUCTION, NOT AN OMISSION.** The owner said: *"If a loading state requires an exception, document it as PROPOSED and leave it OPEN."* §3.4 states the contradiction in the approved text's own words — *"nothing loops, nothing autoplays"* (1C §10) against the required **loading** state on every interactive element (1C §7) — sets out **three routes with their costs**, and recommends **routes 1 and 2 together** (determinate progress where measurable, static skeletons elsewhere). **The deciding argument is not aesthetic: A-018 requires the interface to stay legible with animation disabled entirely**, which routes 1 and 2 satisfy unchanged while an animated indicator needs a second non-animated fallback anyway. **It is a recommendation, not a decision.** Five things are binding regardless of route: no layout shift, accessible name kept, `aria-busy` set, not removed from the tab order, completion announced politely. **TWO MEASURED FINDINGS RESHAPED THE RESPONSIVE SECTION.** **(1) Zoom is not a special mode — it moves the user down the same bands.** From a 1280 viewport, **200 % zoom = 640 px effective and lands in TABLET**; **400 % = 320 px and lands in MOBILE**. So **the tablet layout IS the desktop-at-200 %-zoom layout** and cannot be a degraded middle state, and **the 320 px reflow requirement and 400 % zoom are the same test**, satisfied together rather than separately. **(2) Nine of the twelve approved type styles have a default line-height below 1.5** — all six display and heading styles plus Caption 1.46, Label 1.34, Data 1.44. WCAG 1.4.12 requires content to survive a user forcing 1.5, and forcing Display XL from 1.02 to 1.5 grows its line box by **47 %**, so **no fixed-height container may wrap a heading, label or data cell**. Not a defect in the scale — tight display leading is correct — but a constraint on every container it sits in. **WHERE GRID-1 BIT HARDEST: the owner asked 1G to define LARGE DESKTOP, and the approved system gives it nothing of its own** — every `2xl` metric is identical to `xl`, and the 1280 content cap already stops the grid growing from a **1440** viewport, 480 px below the `2xl` boundary. **No value was invented; the class is recorded as OPEN under GRID-1.** **A-022 preserved exactly:** visual 40 comfortable / 36 compact, hit area ≥ 44 × 44, expansion 2 px (40) or 4 px (36) per side, minimum neighbour gaps 12 (`space-4`) and 16 (`space-5`). **Measured against WCAG: 24 × 24 is the AA target-size requirement and 44 × 44 is AAA — A-022 exceeds the AA floor by 3.36× in area.** The system also states where it does **not** reach AAA: `text-secondary` on a card is **6.78 : 1 — AA**. **SIX NEW OPEN ITEMS, all recorded in register §3.6, none resolved:** **TYPE-3** (fluid `clamp()` is approved "between the scale's stops" but neither the floor stop nor the endpoint viewports are specified — both are needed to write one `clamp()`); **SPACE-1** (the spacing bands do not vary by breakpoint and no rule says whether they should — a 128 px section gap is a **quarter of a 320 px phone**); **A11Y-1** (**under `forced-colors` gold is the system's ONLY emphasis channel and it is overridden** — status survives because colour is always paired with form, but **the primary-versus-secondary button distinction does not**); **A11Y-2** (*colour never carries meaning alone*, **disabled is a meaning**, and the approved system gives it no non-colour channel); **MOTION-2** (the M's slant does not mirror in RTL, but **whether the 35° motion vector mirrors is unstated** — keeping it preserves the angle and breaks layout logic, mirroring does the reverse); **MOTION-3** (the 35° gesture exists as a **shape** rule and a **motion** rule, each "once per view" — **whether they share one budget is unstated**). **Flagged, deliberately NOT changed:** `docs/design/README.md` still lists `RESPONSIVE_SYSTEM.md`, `ACCESSIBILITY.md` and `MOTION_SYSTEM.md` as still to be written; all three are superseded by this one file, but the index was **outside the three files the owner's instruction named**. **Unchanged and verified:** historical logos byte-identical (`b7bd0ac1…`, `426828f9…`), 14 brand masters untouched, no CSS or application file modified, **LOGO-2 still `PROPOSED — AWAITING OWNER APPROVAL`** gated on **LOGO-1**, GRID-1/2/3, SURF-1, GOLD-2/3, TOKEN-1/2, LINK-1, SHAPE-1, C-001/O-002 all untouched, MIG-1 to MIG-4 unactioned. **Next authorised sub-stage: 1H — Mythos Public Ecosystem Architecture**, which **O-A1 was required to precede and now does** (**A-020** placed Command Center under Mythos OS). **MERGE NOTE, 2026-08-18 — `main` merged at `5e2011b` (MOS-1 / MOS-1.1, PR #12).** Conflict in this file resolved by the standing procedure: **both entry chains kept intact and interleaved by commit time**, exactly one `From:` (1G, 12:19, the genuinely latest), MOS-1.1 (09:46) placed between the LOGO-2 proposal and O-A3, MOS-1 (09:12) between O-A1 and MYTHOS-DELIVERY-AUDIT-0. Every file this branch never touched was taken from `main` verbatim. **ONE CLAIM OF MINE BECAME FALSE ON MERGE AND WAS CORRECTED, NOT DELETED:** register §3.4 said *"no CSS in this repository has a spacing scale"* — MOS-1 shipped `projects/mythos-os-console/reference/web/mythos.css` with a spacing scale, a radius scale and **68 `--mythos-*` custom properties**. **NEW CONFLICT RECORDED — C-006: two `--mythos-*` token systems now exist and some names collide.** Implemented (MOS-1) versus approved-on-paper (1C/1E): spacing **4·6·8·12·16·20·24·32·40** vs **2·4·8·12·16·24·32·48·64·96·128·160**; radius **5·6·8·12·16·999** vs **0·2·6·12·999**; accent **`#c9a84c`** (legacy, **U-001**) vs **`#D9A441`** (**A-013**). **The sharp edge: `--mythos-sp-6` is 20 px while `space-6` is 24 px, and `--mythos-radius-sm` is 6 px while the approved workhorse `radius-1` is 2 px** — similar names, different values. **Neither side did anything wrong:** MOS-1's **D-012** explicitly extends Mythos OS's own confirmed **D-001** identity, and **MIG-1 / MIG-3 were never actioned** — C-006 is the visible cost of that. **D-012 stands and the approved 1C/1E specifications stand; neither is withdrawn.** **TOKEN-2 now has real precedent (`main` chose `--mythos-*`) but that is evidence, not a decision, and TOKEN-2 stays OPEN.** Nothing was migrated, implemented or resolved.
 **Previously:** MYTHOS **SUB-STAGE 1F — COMPONENT SYSTEM. SPECIFICATION ONLY: no component code, no CSS, no `tokens.css`/`tokens.json`, no Storybook, no React, no asset, no deployment.** `docs/design/COMPONENT_SYSTEM.md` written (524 lines) covering **all twenty-one components the owner named**, plus Toast, each with structure, spacing, dimensions, typography, semantic tokens, six states, keyboard behaviour, touch target, accessibility, responsive behaviour and reduced-motion behaviour. **C-005 IS RESOLVED — recorded as A-022, an owner decision, not an inference.** The visual control height may remain **40 px**; the interactive hit area must be **≥ 44 × 44**; the hit area **may extend beyond the visual box**; and **no component is forced to 44 px high**. Both approved values survive — the visual box and the hit box are now two separate specifications, and every component entry states both. **Derived consequence, computed:** a 40 px control needs **2 px** expansion per side and a **12 px (`space-4`)** gap to its neighbour; a 36 px control needs **4 px** and **16 px (`space-5`)**, because the approved 8 px separation is now measured between *hit* boxes. **Both gaps land on the approved spacing scale**, so the resolution does not push layout off-system — but it is **binding** that a dense row of 36 px controls spaced at `space-3` (8) produces **overlapping hit areas** and is not permitted. Expansion is a transparent hit region, **never added margin**, so composition is unchanged. **THE FACT THAT SHAPES THIS DOCUMENT: thirteen of the twenty-one components have no approved base specification at all.** 1C §7 specified Button, Input, Card, Navigation, Table, Modal, Chip/status and Toast — and nothing else. So every line is labelled **OWNER-APPROVED**, **DERIVED** (computed from approved rules, no new decision) or **PROPOSED** (a new decision, rejectable individually), and the split is stated at the top of each affected entry rather than left to be inferred. **Four new items were found by specifying components against the approved rules, and none was resolved inside a component:** **MOTION-1** — *"nothing loops, nothing autoplays"* (1C §10) and the required **loading** state on every interactive element (1C §7) **cannot both hold: a spinner loops and autoplays**; the loading state is therefore left OPEN in every entry, with static skeletons and determinate progress recommended because that is the only route that survives `prefers-reduced-motion`. **LINK-1** — the inline text link has **no approved colour**: gold is reserved for the primary action, active state, focus ring and the 35° gesture *"nothing else"*, gold may never create hierarchy in running text, and **no other accent exists in the system**; underline in `text-primary` recommended. **SHAPE-1** — a switch needs a pill, but `radius-pill` is approved for **avatars and status dots only**; a rectangular switch at `radius-control` recommended. **GOLD-3** — gold select chevrons (as the recovered CSS draws them) would break the **one-gold-per-view** scarcity rule; a five-select form would carry five, before counting the primary button. **The two pre-existing opens that bite hardest are SURF-1 and GOLD-2:** between them **every hover and active state in the system is unspecified on light**, and the three components the approved system says genuinely float — menu, modal, toast — **have no shadow value**. §9 of the new document maps every open reference (SURF-1, GOLD-2, GRID-1, GRID-2, GRID-3, TOKEN-1, TOKEN-2) to the exact components it affects. **Register updated:** **A-022** added to §0 with its derived geometry, **C-005** marked RESOLVED with its original conflict text left unaltered, and new **§3.5** records MOTION-1, LINK-1, SHAPE-1 and GOLD-3. **Unchanged and verified:** historical logos byte-identical (`b7bd0ac1…`, `426828f9…`), 14 brand masters untouched, no CSS or application file modified, **LOGO-2 still `PROPOSED — AWAITING OWNER APPROVAL`** and gated on **LOGO-1**, MIG-1 to MIG-4 unactioned. **Next authorised sub-stage: 1G — Responsive + Accessibility + Motion**, which inherits MOTION-1 as its first question.
 **Previously:** MYTHOS **SUB-STAGE 1E — GRID + SPACING + TOKENS. DOCUMENTATION ONLY: no code, no CSS, no token file, no asset, no logo generation, no deployment.** Two canonical specifications written, both derived entirely from the owner-approved 1C identity (**A-009**, commit `35a8f8a`): `docs/design/GRID_AND_SPACING.md` (285 lines) and `docs/design/DESIGN_TOKENS.md` (344 lines). **No new value was invented — every number is an approved number.** What is new is the arithmetic, and **the arithmetic found six things the approved text does not reconcile.** **(1) C-005, a genuine conflict between two owner-approved statements:** the comfortable control height is **40 px** and the touch minimum is **≥ 44 × 44 px at every breakpoint**. A 40 px control cannot meet a 44 px minimum. Two resolutions exist — grow the visual height at coarse pointers, or extend the hit area beyond the visual box — and **the approved text names neither**, so it was recorded as CONFLICTING and left for 1F or the owner. **(2) There is no baseline grid, and 1F must not attempt one:** all **twelve** styles in the approved type scale were computed against the 4 px grid and **twelve of twelve are off-grid** (Body = 16 × 1.62 = **25.92 px**). Arabic settles it — under the approved +6 % size / +0.15 line-height rules Body renders at **30.02 px** against the Latin 25.92, so a baseline grid that held for one script would break the other. Rhythm therefore comes from block gaps, not an invisible ruler. **(3) The spacing scale does not govern the grid or the controls:** gutter 20, margins 80 and 20, control heights 36/40/44 and button padding 9/15 are all **off the 8-point scale**, so `grid-*` and `size-*` had to be named as separate global families or 1F would have tried to build them from `space-*` and failed. **(4) Columns are fractional** — measured 84.67 px at a 1440 viewport, 45.50 at 600 — so a fixed-pixel column implementation will visibly break alignment; and **the grid stops growing at 1440, not at 1920**, because the 1280 content cap binds 480 px below the `2xl` breakpoint, which leaves `2xl` with no behaviour of its own (**GRID-1**). **320 px reflow was checked and works** — 58 px column. **(5) The light theme is genuinely incomplete:** the light elevation ramp has **two** steps to the dark ramp's **four**, no shadow values exist anywhere, and light-theme gold hover/active states are unspecified (**SURF-1**, **GOLD-2**). Those semantic cells were **left empty rather than guessed**. **(6) Rule 5 was measured, not asserted:** the semantic layer specified here is **59 tokens** against the approved 40–60 ceiling — **one token of headroom**, which means 1F cannot add semantic names freely. **NO TOKEN ARTIFACT WAS GENERATED.** `tokens.css` / `tokens.json` would put CSS or a build input into the repository, which every recent instruction excludes, and it would force values onto C-005, SURF-1 and GOLD-2 that no one has decided. Recorded as **TOKEN-1**, requiring explicit authorisation. **One structural choice was made by this stage and is flagged so it can be rejected:** grid tokens are consumed directly by the layout primitive rather than through the semantic tier — reversible at the cost of nine semantic tokens. **Register updated:** **C-005** added to §2, new §3.4 records **GRID-1/2/3**, **SURF-1**, **GOLD-2**, **TOKEN-1/2**, and **U-004 is narrowed, not closed** — the specification half is answered, the stylesheet half is still empty and **MIG-3 stays unactioned**. **Unchanged and verified:** historical logos byte-identical (`b7bd0ac1…`, `426828f9…`), 14 brand masters untouched, LOGO-2 still `PROPOSED — AWAITING OWNER APPROVAL` and gated on LOGO-1. **Next authorised sub-stage: 1F — Component System**, which must resolve C-005 explicitly rather than by picking a value inside a component.
 **Previously:** MYTHOS **LOGO-2 REVIEW HOLD RECORDED BY OWNER INSTRUCTION — LOGO-2 IS `PROPOSED — AWAITING OWNER APPROVAL`, NOT APPROVED, NOT IMPLEMENTED.** The owner reviewed the LOGO-2 proposal, confirmed the two-master model, the descriptor system and the three layout forms are understood, and **explicitly withheld approval**. **The gate, recorded verbatim so it cannot be lost: the proposed reconstruction must not be converted into an owner-approved production master while LOGO-1 remains open.** That status may not be moved by inference, by a later stage needing it, or by the absence of an objection — **only an explicit owner decision changes it**. **DOCUMENTATION ONLY — nothing else happened this stage: no code, no CSS, no asset, no logo generation, no deployment, no Command Center change, no public project change**; the historical logos are byte-identical (`logomythos.png` SHA-256 `b7bd0ac1…`, `logo.png` `426828f9…`) and the 14 generated brand masters are unchanged. **Two genuine discrepancies were found and fixed, which is why a commit exists at all** (the owner's condition was: no commit unless documentation actually changes). **(1)** the LOGO-2 row in `docs/MYTHOS_DESIGN_DECISIONS.md` §3.3 was **stale** — it still read *"OPEN. Depends on LOGO-1. The 1C approval does not adopt it"*, written before the proposal existed, so a reader had no indication a full proposal had been delivered at `46915a0`; **(2)** three different status phrasings for LOGO-2 existed across the documentation, none of them the owner's canonical label. Both files now carry `PROPOSED — AWAITING OWNER APPROVAL` and the standing constraint is written out as a quoted block in the register, ahead of §3.2, so it is read before any later stage acts. **The other four states were checked and were already correct, so they were not touched:** 1C master visual identity **OWNER-APPROVED**, O-A1 **RESOLVED** (A-020, Command Center is a product of Mythos OS), O-A3 **RESOLVED** (A-021, colour usage policy), LOGO-1 **STILL OPEN** — and LOGO-1 is now recorded as **gating** LOGO-2. **Flagged, not changed** (out of the scope named by the owner): `assets/brand/README.md` still labels the assets *"Stage 1B, logo evolution"*; its substance (proposal, awaiting owner validation, nothing deployed) is correct, only the stage label lags. **Nothing is blocked on me — LOGO-2 is blocked on the owner, and LOGO-1 is blocked on off-host repository access or a VPS-capable session.**
 **Previously:** MYTHOS **LOGO-2 FINAL LOGO SYSTEM PROPOSED — AWAITING DECISION. PROPOSAL ONLY: no implementation, no application code, no CSS, no existing asset, no deployed site, no public project, no Command Center change; the historical logo was NOT redrawn, recoloured or recreated, and NO new production asset was created.** `docs/design/LOGO_SYSTEM.md` rewritten as the final logo system (335 lines), superseding the Stage 1B version. **THE CENTRAL FINDING, MEASURED THIS STAGE AND STATED PLAINLY BECAUSE THE OWNER ASKED: the recovered raster is INSUFFICIENT as a production master.** `logomythos.png` — 1672×941, **0 non-opaque pixels** (the ground is baked in, so the mark cannot sit on any other surface), **15,393 distinct colours** (continuous-tone metallic, cannot be flattened to one ink), ceiling **142 mm at 300 dpi**; `logo.png` — 1111×328, **0 non-opaque pixels**, **10,549 colours**, ceiling **94 mm**. That makes monochrome reproduction, one-colour print, embroidery, engraving, stamping, a transparent favicon or app icon, a circular social avatar, placement on any coloured or photographic ground, reversal, and print or signage above ~14 cm **impossible from the raster alone**. **This does not weaken A-007** — the raster remains the authoritative record of what the identity IS, and the proposal explicitly refuses to replace it. **PROPOSED: a two-master model.** HISTORICAL MASTER (the raster, frozen, authoritative, never modified or recoloured) and PRODUCTION MASTER (the reconstruction, openly a derivative, regenerated from code, doing the reproduction work the raster cannot). **The descriptor system answers "five descriptors without five identities" structurally: the descriptor is a SLOT, not a design** — word count (always one), case, size (15% of cap), tracking (0.42em), colour, position (21% of cap below baseline) and flanking-rule geometry are all FIXED, so **the only thing that varies between units is the word itself**; five units therefore produce five lockups that are visibly the same object with a different label. Three layout forms specified — stacked (primary), horizontal (a 1 px gold hairline divider, for headers and bands) and compact (M symbol + descriptor) — **as specifications, not files**, per the instruction not to add production assets. Usage rules written for all ten requested contexts (dark, light, monochrome, small sizes, favicon/app icon, social, documents, print, digital interfaces, horizontal/compact), with the gold changing value by ground (`#D9A441` 8.59:1 on ink · `#805C19` 5.47:1 on paper, because `#D9A441` measures only 2.05:1 there) and verified minimum sizes (wordmark 90 px, symbol 32 px). **§7 names what does NOT exist yet** so the gap is visible: horizontal lockups ×6, compact lockups ×6, a monochrome one-colour master, a print master with outlined descriptor type, and social avatar crops. **LOGO-2 RECOMMENDATION (proposed, not approved): adopt the reconstruction as the PRODUCTION master**, because the cost of waiting is concrete and recurring (no monochrome, favicon, app icon, avatar, large print or signage today), because LOGO-1's remaining unsearched scope is unlikely to change the answer, and because the decision is cheap to reverse since the geometry lives in code. **Three conditions attached:** the historical raster is never modified or replaced; the reconstruction is always described as a derivative and never as the original; and if LOGO-1 later finds a true original it is diffed against the reconstruction and reconciled. **Adoption would NOT close LOGO-1 and would NOT authorise applying the mark anywhere** — MIG-1 to MIG-4 stay unactioned. The honest alternative is recorded too: commissioning a fresh vector master produces the same class of artefact — a derivative — at greater cost and with less traceability. Files changed: the three the owner named. Validation: documentation only; `assets/logos/` and `assets/icons/` byte-identical; no code, CSS, asset, project or Command Center file touched. **LOGO-2 REMAINS NOT APPROVED. LOGO-1 REMAINS OPEN.** Next: owner decision on LOGO-2.
+**Previously:** MYTHOS **MOS-1.1 — RELEASE GATE PASSED. CONTRAST MEASURED. MOS-1's DNS BLOCKER WAS A WRONG CLAIM AND IS WITHDRAWN. NOT DEPLOYED — AND THIS SESSION CANNOT DEPLOY IT.**
+
+**Stage:** MOS-1.1 · **Status:** gate passed, pushed; deployment is an on-host action
+**Commit:** `99abcef` · **Branch:** `claude/mythos-os-dashboard-audit-y4174m` · **PR:** #12 (draft, open, mergeable clean)
+**Baseline:** MOS-1 `7f0ce25`; `origin/main` `66e0b0e`, zero commits behind
+**Worktree:** clean
+
+### The correction that matters most
+
+**MOS-1 said `os.mythosprod.xyz` had no DNS record and named creating one
+as the blocking owner action. That was wrong.** The name resolves to
+`51.68.226.211`; two fabricated subdomains of `mythosprod.xyz` return
+NXDOMAIN from the same resolver, so it is a real record, not a wildcard.
+
+The claim was carried over from
+`projects/command-center/deploy/nginx-ordre.mythosprod.xyz.conf`, whose
+DNS prerequisite genuinely was unmet when it was written, and it was never
+checked by resolving the name. That is precisely what `AGENTS.md` §2
+forbids — relying on an earlier session's document instead of verifying.
+`projects/mythos-os-console/tools/host-preflight.sh` exists because of it:
+ten preconditions, each checked against the host rather than a document,
+refusing to pass if one is missing.
+
+Corrected in the architecture doc (§10.0), the design-system follow-ups,
+the vhost comment, the changelog and the PR body.
+
+### Contrast: measured, no longer disclaimed
+
+`docs/MYTHOS_DESIGN_STRATEGY.md` §13 records accessibility as VERIFIED
+ABSENT portfolio-wide and states that contrast "was NOT measured and no
+claim is made about it". MOS-1 repeated it. MOS-1.1 measured it.
+
+`tools/contrast.js` computes WCAG 2.1 ratios over every pair the console
+renders, reading tokens from `mythos.css` rather than a copied list and
+compositing translucent fills over their real backdrop. The suite asserts
+it; the arithmetic is checked against WCAG's own anchors; `visual-verify.js`
+confirms it in-browser against computed styles and agrees to the second
+decimal.
+
+**Result: 26 of 26 rendered pairs meet AA. 12 meet AAA.**
+
+Three real failures found and fixed **as usage changes — no D-001 token
+was altered**:
+
+| Finding | Was | Now | Value from |
+|---|---|---|---|
+| `--muted` as body text | 3.03–3.47:1 | 5.39–6.78:1 | `#999`, recovered from `index.html:125` |
+| `is-planned` badge on raw `--purple` | 3.21:1 | 7.07:1 | lightened tint, the rule that produced `#8ff0b5` and `#ff8c82` |
+| `is-inert` badge on `past-dim` | 2.80:1 | 5.39:1 | recovered `.invoice-payment-badge.pending` treatment |
+
+`--muted` stays declared verbatim, so the shell still carries the whole
+D-001 palette. Recorded as **D-014**.
+
+**Recorded and deliberately NOT fixed:** `--muted` is below AA as text
+throughout the live application — a `css/main.css` change, its own stage;
+and `--border` at 1.17–1.34:1 is decorative, outside WCAG 1.4.11, which
+governs boundaries needed to identify or operate a control. The console
+has no form control at all, and the affordances 1.4.11 does govern pass at
+7.38–8.45:1.
+
+**Not covered and not claimed:** no screen-reader testing, no
+colour-blindness simulation, no keyboard walkthrough by a person, no WCAG
+audit beyond contrast.
+
+### Gate results
+
+| Gate | Result |
+|---|---|
+| Tests | `tests/mos-1-console-test.js` **322 assertions, 0 failures** (was 286) |
+| Contrast | **26/26 rendered pairs AA**, 12 AAA |
+| Browser | **499 checks, 6 viewports × 14 routes, clean** — 1440/1100/1024/768/390/320 |
+| Routes | all 14 render; exactly one active nav item each; no route below 60 chars of content |
+| Drawer | off-canvas below 900px, docked above, opens on toggle, closes on Escape, scrim shown, `aria-expanded` tracks — at every narrow viewport |
+| MOS-1 defect 1 (drawer) | regression-guarded |
+| MOS-1 defect 2 (inline styles) | regression-guarded — **zero** `[style]` attributes on every route at every viewport; zero CSP violations |
+| MOS-1 defect 3 (timestamp) | regression-guarded — envelope `at` renders as a real stamp, asserted not to be an em dash |
+| Brand drift | none — computed `rgb(14,14,14)` / `rgb(232,228,220)` / `rgb(228,196,114)` / `rgb(201,168,76)` / `rgb(22,22,22)` / 310px / Playfair / Inter, all matched against values read from `css/main.css` at run time |
+| Secrets | token absent from every response body, every error detail and the rendered DOM; no `Bearer`, no credential variable name; branch diff carries no credential pattern |
+| Invented data | none — no literal data collection in the client; all six planned modules assert zero badges, zero KPIs, zero rows, and must name their data source |
+| Existing APIs | all eight live modules read the executor API or its config registries; nothing is synthesised |
+| Governance / SSANGYONG / `css/` / `index.html` / `js/` / `command-center/` | **untouched**, verified against the branch diff |
+
+One defect was found during the gate and it was in my own harness, not the
+product: the in-browser contrast sampler read `rgba(201,168,76,0.12)` as
+opaque gold and reported 1:1 for the active nav item. Fixed by compositing
+alpha properly; it now reports 6.48:1, matching the authored-token
+measurement exactly.
+
+### Deployment status
+
+**Not deployed. Not deployable from this session — a location problem, not
+a permission one.**
+
+This session runs in an ephemeral remote container. `/home/deploy`,
+`/etc/nginx` and `/srv/mythos` do not exist here. The environment's network
+policy also refuses the production hosts outright —
+`x-deny-reason: host_not_allowed` from the agent proxy, for
+`os.mythosprod.xyz` and the confirmed-live `ordre.mythosprod.xyz` alike —
+so the host cannot even be inspected from here.
+
+**Everything preparable off-host is prepared:** the runbook with rollback
+(`docs/MYTHOS_OS_CONSOLE_ARCHITECTURE.md` §10.2), `tools/host-preflight.sh`,
+the vhost, the systemd unit, and a suite that passes.
+
+### Exact owner action
+
+Run the §10.2 runbook on the VPS, starting with
+`bash projects/mythos-os-console/tools/host-preflight.sh`. It is no longer
+a DNS action. Steps 0–4 need no root (the unit is user-scope). Steps 5–7
+need root for the vhost copy and symlink; `deploy`'s sudo grant already
+covers `nginx -t`, `systemctl reload nginx` and `certbot`.
+
+Second decision, not blocking: **O-009** — adopt D-010 headless
+verification as standard. Now three applications, and this stage is the
+strongest evidence yet: 499 automated checks, all three prior defects
+regression-guarded.
+
+### Next stage
+
+**MOS-2 — deploy**, on the host. Off-host, the buildable follow-up remains
+**self-hosting Playfair Display and Inter** to remove the CSP font
+exception; note it would add the first font files this repository has ever
+tracked, which is worth deciding explicitly.
+
+PR #12 is deliberately **not merged** and no second PR was opened.
+
+---
+
+## Previous entry
+
 **Previously:** MYTHOS **O-A3 RESOLVED BY OWNER DECISION — MYTHOS COLOUR USAGE POLICY FOR PUBLIC PROJECTS APPROVED. Documentation only: no public project, CSS, asset or logo modified; Dar Hijama, Uthina Chess, Notre Jour and Command Center all untouched; MIG-1/2/3/4 NOT implemented.** Recorded as **A-021** in `docs/MYTHOS_DESIGN_DECISIONS.md` §0 and as a new **§5.5** in `docs/design/BRAND_ARCHITECTURE.md`, with **O-A3** struck through as RESOLVED in both the register (§3.1, §3.3) and the architecture (§9). **The rule:** a public project may use a MYTHOS-level colour **only as a controlled ecosystem accent** — the project's own palette stays primary; its logo and visual identity stay independent; MYTHOS colours never replace the primary brand colour; Mythos Gold appears only in limited ecosystem contexts (endorsement, footer, shared legal/ownership areas, the Mythos hub or project directory, cross-product navigation); use inside a project's own UI needs a **documented functional or architectural reason**; such usage stays secondary and must not turn the project into a MYTHOS-branded product; **a project never receives MYTHOS colours automatically**; and any exception affecting the primary identity needs explicit owner approval. Worked examples recorded as approved: **Dar Hijama** green stays primary and Mythos Gold never replaces it; **Uthina Chess** keeps its existing identity as primary; **Notre Jour** keeps its own identity, with MYTHOS DNA structural rather than a forced visual skin. **This completes A-006** — the "unless explicitly approved later" clause finally has its rule, and A-006's note now points at it. **Framed in the architecture as the colour half of "DNA is a floor, not a look":** §5.1 says a project inherits the system and keeps its skin; §5.5 says exactly how far a Mythos colour may travel into a project before it stops being an endorsement and starts being a rebrand — to the footer, the legal line and the ecosystem navigation, and no further without an explicit decision. **Consequence recorded honestly and NOT actioned: the policy does not retroactively bless the live Dar Hijama site.** The recovery audit found `/var/www/darhijama.tn/index.html` using cream tones plus **`#c9a84c`** with **not one of its six charter colours present** — measured against this policy that is a Mythos-level colour occupying the primary role, which rules 1, 3 and 6 forbid, and `#c9a84c` is in any case the superseded interface gold rather than the approved Mythos Gold `#D9A441` (A-013). Nothing was changed; the question of which artifact is authoritative remains **C-001** / **O-002**, both still open. The approval sets the rule going forward and does not adjudicate the existing deviation. **Still OPEN and untouched: LOGO-1** (does a vector master exist outside Git — searched, result C, blocked on off-host repository access) and **LOGO-2** (adoption of the 1B reconstruction, dependent on LOGO-1), plus the recovery-era C-001 / O-002. Files changed: the four the owner named — decision register, brand architecture, design index, this handover. Validation: documentation only; `assets/logos/` and `assets/icons/` byte-identical; no CSS, code, asset, logo or project file modified. **No implementation started.** Next: with O-A1 and O-A3 both settled, the remaining Stage 1 blockers are LOGO-1 (needs off-host or VPS access) and owner authorisation for any implementation; 1H may proceed on the hub placement question.
 **Previously:** MYTHOS **O-A1 RESOLVED BY OWNER DECISION — MYTHOS COMMAND CENTER IS A PRODUCT OF MYTHOS OS, NOT A SIXTH UNIT. Documentation only: no Command Center code, CSS, asset, deployment or branding touched; no unit logo created; no implementation.** The owner approved the placement `MYTHOS → Mythos OS → Mythos Command Center → ordre.mythosprod.xyz` on 2026-08-18. Recorded as **A-020** in `docs/MYTHOS_DESIGN_DECISIONS.md` §0, with **O-A1** struck through as RESOLVED in both §3.1 and §3.3. **What the placement settles:** the five-unit roster fixed by A-002 is **unchanged** — Command Center sits one level below it, inside Mythos OS; **no unit logo is created for it**, because it is not an endorsed unit and **A-003 therefore does not apply** — it takes no `MYTHOS / <descriptor>` lockup and no independent mark, and is branded as what it is, a product surface of Mythos OS; naming is "Mythos Command Center" in prose, never as a peer of the five units; and it inherits the Mythos OS visual language because it is part of it. **The hub is unblocked:** `BRAND_ARCHITECTURE.md` §8 was explicitly waiting on this placement, and the `mythosprod.xyz` information architecture now places Command Center **under Mythos OS** rather than beside the five units — Stage 1H can proceed on that point. **A precedent was recorded rather than left implicit:** the test for any future Mythos-level surface is *does it have its own market and customers, or is it a face of an existing unit?* — a tool is not a company. **One consequence recorded and NOT actioned:** Command Center carries an unrelated palette (light `#f6f7f9` / indigo `#4f46e5`), recorded at recovery as a third divergent Mythos-level visual language. Under this placement that palette is out of system, and aligning it is now tracked as **MIG-4**, joining MIG-1 (gold), MIG-2 (45 Playfair declarations) and MIG-3 (semantic and control-border tokens) — all four remain unexecuted and require their own authorisation. The approval is **classification only** and explicitly forbade touching Command Center code, CSS, assets, deployment or branding. **Still OPEN and untouched: O-A3** (whether a public project may use a Mythos-level colour), **LOGO-1** (does a vector master exist outside Git — searched, result C, blocked on off-host access) and **LOGO-2** (adoption of the 1B reconstruction, dependent on LOGO-1). Files changed: the four the owner named — decision register, brand architecture, design index, this handover. Validation: documentation only; `assets/logos/` and `assets/icons/` byte-identical; no code, CSS, asset or deployment modified. **No implementation started.** Next: 1H may now proceed on the hub placement question; O-A3, LOGO-1 and LOGO-2 still await owner input or environment access.
+**Previously:** MYTHOS **MOS-1 — MYTHOS OS COMMAND CENTER: AUDITED, BUILT, TESTED, PUSHED. NOT DEPLOYED — BLOCKED ON AN OWNER DNS ACTION.**
+
+**Stage:** MOS-1 · **Status:** implemented and pushed; deployment blocked
+**Commit:** `305ad3a1db82602e55ce62d699486a2e732dad8d`
+**Branch:** `claude/mythos-os-dashboard-audit-y4174m`
+**Remote HEAD:** `305ad3a1db82602e55ce62d699486a2e732dad8d` — verified equal after push
+**Baseline:** `main` @ `66e0b0e` (local, `origin/main` and the branch were all equal at start)
+**Worktree:** clean; nothing left in `/tmp` and nothing unpushed
+
+### Objective
+
+Build the MYTHOS OS Command Center for `os.mythosprod.xyz` as an extension
+of the **existing** Mythos brand system, not a new product identity —
+preceded by an audit of what that system already is, and architected so the
+remaining MYTHOS OS modules can be added without redesigning the shell.
+
+### The audit came first, and it changed the plan twice
+
+`docs/MYTHOS_OS_DESIGN_SYSTEM.md` is the audit and the resulting
+specification. Two findings altered what got built:
+
+1. **`docs/design/` does not exist.** The design documentation is the four
+   top-level `MYTHOS_DESIGN_*.md` files. Recorded so the next reader does
+   not go looking for a directory.
+2. **The design roadmap's Stage 1 is BLOCKED on O-001 and says "do not
+   begin".** O-001 asks whether *other Mythos projects* carry Mythos
+   branding. The Command Center is not another project — it is a new
+   surface of Mythos OS, whose identity is already CONFIRMED as D-001.
+   Extending Mythos OS with its own established system pre-empts nothing,
+   so the stage proceeded without touching O-001. That reasoning is written
+   down in §1.12 rather than assumed.
+
+Everything in the shell is tagged **RECOVERED** (copied from
+`css/main.css`), **DERIVED** (a scale fitted to observed values), or
+**EXTENDED** (new, filling a gap the recovery audit names as absent). Three
+things are new and say so: a spacing scale (U-004: the portfolio had none),
+a mono stack, and `--danger-dim` completing a semantic pairing that
+`css/main.css` leaves one short of.
+
+### What was built
+
+`projects/mythos-os-console/` — node `http`, vanilla front end, **no
+dependency and no build step**, following `projects/idauto/reference/` and
+`projects/command-center/reference/`.
+
+- `web/mythos.css` — the design system, `--mythos-*` namespaced so it
+  coexists with `css/main.css` without collision.
+- `web/console.css` — composition only; **contains no colour literal**.
+- `web/modules.js` — the module registry, which is the scalability
+  contract: 14 modules, 8 built, 6 planned.
+- `web/app.js` — router plus one render function per module.
+- `reference/server.js` + `reference/upstream.js` — read-only surface.
+
+**Read-only is structural, not policy**, and enforced in four independent
+places: GET/HEAD only refused before routing; no request-body reader exists
+in the server file; the upstream client exposes GET only; all three
+asserted at source level. Approvals, cancellation and campaign control stay
+in the owner-operated CLI where `AGENTS.md` §25.3 put them. **No governance
+control was modified and nothing was self-approved.**
+
+**A planned module is shown, dimmed, and renders a surface naming the file
+or schema that would back it.** Memory, Governance, Approvals, Secrets,
+Sandbox and Settings each name their blocker. Nothing renders invented data.
+
+**An empty result and an unreadable one never look alike.** An unreachable
+control plane says the current state is unknown; it does not render an
+empty list.
+
+### Tests
+
+`tests/mos-1-console-test.js` — **286 assertions, 0 failures**,
+deterministic and offline (a stub control plane; no executor, no database,
+no AI quota).
+
+The D-001 colour values are **read out of `css/main.css` at test time**
+rather than retyped, so if the product stylesheet changes the suite reports
+that the console has drifted from the brand system. `console.css` is
+asserted to contain no colour literal at all — the mechanism that stops a
+fifth palette accumulating the way the first four did (C-004).
+
+**Full suite not rerun, and the reason:** no shared or existing code was
+modified. The diff is 13 new files plus two documentation files; nothing
+imports the console and the console imports nothing from the application.
+Per `AGENTS.md` §8 targeted tests are the correct validation point here.
+
+### D-010 applied a second time, and it earned its place
+
+Headless-browser verification across 1440 / 1100 / 390 px and nine routes
+found **three defects that source review had not**:
+
+1. The mobile nav drawer **could not be opened** — `.mythos-nav-toggle`'s
+   base `display: none` is in `console.css` while the reveal was written in
+   `mythos.css`'s 900px block; `console.css` loads second and a media query
+   grants no extra specificity.
+2. Two dead `style=""` attributes tripped the console's **own** CSP on
+   every page load.
+3. The "last read" timestamp never rendered — it read `r.data.at`, but `at`
+   sits on the response envelope.
+
+All three fixed and re-verified clean. The harness also asserts the
+*computed* brand values in the browser: background really `rgb(14,14,14)`,
+title really Playfair Display, active nav item really `rgb(201,168,76)`,
+sidebar really 310px. It is **not committed** — it needs a browser that is
+not a project dependency and the repository has no browser-test runner —
+but the method and findings are recorded in
+`docs/MYTHOS_OS_DESIGN_SYSTEM.md` §10.
+
+**O-009 (adopt D-010 as standard) is now supported by two independent data
+points.** Still an owner decision.
+
+### Changed files
+
+| File | Change |
+|---|---|
+| `projects/mythos-os-console/**` | NEW — 9 files: server, upstream client, shell, design system, registry, client, README, nginx vhost, systemd unit |
+| `tests/mos-1-console-test.js` | NEW — 286 assertions |
+| `docs/MYTHOS_OS_DESIGN_SYSTEM.md` | NEW — the audit and specification |
+| `docs/MYTHOS_OS_CONSOLE_ARCHITECTURE.md` | NEW — architecture |
+| `docs/MYTHOS_DESIGN_DECISIONS.md` | D-012, D-013 added; O-009 note updated |
+| `docs/CHANGELOG.md` | MOS-1 entry |
+
+**Not touched, deliberately:** `css/main.css`, `css/layout.css`,
+`css/dashboard.css`, `css/professional.css`, `index.html`, any application
+JS, `projects/command-center/` (C-004 remains open — retrofitting it is
+design-roadmap Stage 3, which is blocked behind O-001), and every
+governance control.
+
+### Deployment and migration
+
+**Deployment: NOT DONE. Migration: none — the console has no database.**
+
+`os.mythosprod.xyz` has **no DNS record** and there is no wildcard on
+`mythosprod.xyz`. Creating a DNS record is a LEVEL_3 action under
+`AGENTS.md` §25.3 and never executes automatically. The vhost
+(`deploy/nginx-os.mythosprod.xyz.conf`) and the systemd unit
+(`deploy/mythos-os-console.user.service`) are committed as **inert
+configuration**. Nothing was installed, no certificate requested, no
+service started, no nginx reload.
+
+### THE OWNER-ONLY BLOCKER
+
+> **Create the `os.mythosprod.xyz` A record at OVH pointing to
+> `51.68.226.211`.**
+
+Everything downstream is prepared and waits on that single action. Once it
+resolves, deployment is the same procedure MCC-1 used for
+`ordre.mythosprod.xyz`: install the vhost, `nginx -t`, reload,
+`certbot --nginx` after a passing dry run, install the unit, provision
+`/home/deploy/deployments/mythos-os-console/.env` with
+`MOS_EXECUTOR_TOKEN`, start under `systemctl --user`.
+
+### Second owner decision, not blocking
+
+**O-009 — adopt D-010 headless-browser visual verification as a standard.**
+Recommended. Two applications, six real defects, zero false positives.
+
+### Known risks and deferred items
+
+1. **CSP font exception.** `style-src`/`font-src` admit the two Google
+   Fonts hosts so the console keeps Playfair Display and Inter, matching
+   `index.html:19`. `script-src`/`object-src` are unrelaxed and full local
+   fallbacks are declared. Self-hosting the two families removes the
+   exception; recorded as follow-up, not done.
+2. **`--danger-dim` missing from `css/main.css`.** Completed in the shell
+   only. Fixing the live stylesheet is a change to production behaviour and
+   needs its own stage.
+3. **Nine breakpoints across four stylesheets.** Unreconciled; the console
+   adopts the `main.css` ladder. Design-roadmap Stage 8.
+4. **Contrast of the D-001 palette has never been measured.** No claim is
+   made about it, by this stage or the recovery audit.
+5. **C-004 (four unarbitrated palettes) and O-001 remain open.** Untouched.
+
+### Next stage
+
+**MOS-2 — deploy the console**, entered only after the owner creates the
+DNS record. Until then, the buildable follow-up is **MOS-1.1: self-host
+Playfair Display and Inter** to remove the CSP exception — note this would
+add the first font files the repository has ever tracked, which is a
+decision worth taking explicitly rather than incidentally.
+
+The pre-existing Phase-1 roadmap position is unchanged by this stage.
+
+---
+
+## Previous entry
+
 **Previously:** MYTHOS **MYTHOS-DELIVERY-AUDIT-0 — `eabfc82` AUDITED, TESTED AND CLEARED FOR DELIVERY; PARKED ON OWNER APPROVAL, NOT SELF-APPROVED.** The last delivery blocker was audited rather than waved through. **What it changes:** one functional line in `core/campaign-service.js` — `continuable` in `describe()` now reads `(CONTINUABLE.indexOf(state) !== -1 || state === 'RUNNING') && !lock`. **Why it is required:** `continueCampaign()` has always accepted `RUNNING`, but `describe()` advertised `false` for it, and the n8n autopilot routes on that field. A campaign sits in `RUNNING` between ticks — mission started, DAG not yet advanced — which is the normal unattended state, so the autopilot idled and unattended operation stalled after the first mission start. **Safety verified line by line, not assumed:** `continuable` is now false for exactly the states `continueCampaign` refuses (both DECISION_STATES and COMPLETED fall through to false); `DECISION_STATES = ['WAITING_FOR_APPROVAL','BLOCKED']` is unchanged; `needs_human` is unchanged; the NEEDS_HUMAN refusal is unchanged; and single-flight `&& !lock` is preserved. It widens no authority — it aligns an advertised field with behaviour that already existed. **Proven in production for hours before approval was ever sought:** the fix has driven every autopilot continuation since 03:10:51, and the ten overnight code missions exist because of it. **Targeted tests: 445 assertions, zero failures** — n8n-bridge 80/80, governance-invariant 89/89, unattended-policy 53/53, autonomous-campaign 137/137, core-wiring 86/86 — with the four refusal assertions passing explicitly (WAITING_FOR_APPROVAL never auto-continued, BLOCKED never auto-continued, COMPLETED not restarted, concurrent continuation refused). **`eabfc82` is the ONLY commit blocking `main`**; `11a63ea` and `327dc93` are ordinary and ride the same ref push. **No approval was created and none will be** — a session minting its own approval is the failure this whole boundary exists to prevent. Owner command: `sudo mythos-governance-approve --commit eabfc82 --by "Othman Haddad" --reason "autopilot stall fix: describe().continuable now mirrors continueCampaign acceptance"`, then the relay delivers on its next 5-minute tick with no further action. **State at audit:** local `327dc93`, `origin/main` `fcdf0b3`, campaign `c-msxnck3a-00282b` READY / 19 completed / `needs_human:false` / idling and re-evaluating, executor active (API 200), relay timer active, n8n healthy and autopilot active, V `OWNER_DENIED` and J `AUTO_DENIED` preserved, 8 human-gated capabilities untouched. Nothing else was modified: no sudo change, no governance infrastructure change, no SSANGYONG, no n8n workflow change.
 **Previously:** MYTHOS **MYTHOS-MVP-COMPLETE — THE PHASE-1 AUTONOMOUS ROADMAP IS EXHAUSTED. 19 capabilities delivered, 10 of them overnight with no human present, and every remaining item is human-gated by design.** Campaign `c-msxnck3a-00282b`, READY, `needs_human:false`. **Completed (19):** R, AF, E, M, N, H, B, C, D, F, G, K, L, Q, W, X, AA, AE, Y — **15 produced real code**, 4 corrected the roadmap's own map. Every one of the ten overnight missions (F, G, K, L, Q, W, X, AA, AE, Y) was code, which is what the earlier map-correction cycles bought. **Overnight metrics:** 18 MISSION_COMPLETED, 1 MISSION_FAILED, 57 TASK_COMPLETED, 57 VALIDATION_PASSED / 1 VALIDATION_FAILED, 1 TASK_RETRYING (bounded repair, recovered), 37 COMMIT_CREATED, 18 MEMORY_UPDATED, 1 APPROVAL_REQUESTED → 1 APPROVAL_DENIED (automatic, capability **J**, recorded `AUTO_DENIED` and distinct from OWNER_DENIED), **0 QUOTA_EXHAUSTED**, 0 provider fallbacks. **Autopilot proven self-sustaining:** `n8n-autopilot` ticked every 10 minutes for hours (06:50, 07:00, 07:10, 07:20, 07:30 …) with no chat session driving it — the property the whole MVP existed to demonstrate. **The autonomous roadmap is EXHAUSTED — verified, not assumed:** `proposeNextMission` returns NONE with reason *"no autonomously selectable capability remains (8 remaining capabilities require human approval)"*, so the loop is correctly IDLE and re-evaluating on each tick (unattended rule 9) rather than stalled. **Roadmap now:** 18 IMPLEMENTED, R IN_PROGRESS in the roadmap yet already present in `completed_missions`, so the selector excludes it — an inconsistency left from its original loose-gate acceptance, and an owner decision to re-open rather than something the loop should re-attempt on its own, 8 governance-surface capabilities parked for human approval (AC Self-Improvement Engine, AD Human Override, O Quota/Budget Engine, P Fallback Engine, S Policy/Risk Engine, T Secret Broker, U Sandbox, Z Audit Log), 4 CONCEPTUAL needing a human design decision (A, AB, I and one more), J `AUTO_DENIED`, V `OWNER_DENIED` — the owner's decision preserved untouched. **Governance held under sustained autonomous load.** The delivery invariant denied a real autonomous mission branch, `1e4a1ee`, for touching `config/agents.json` and `core/agent-registry.js`; that branch stays local and recorded while 23 other mission branches delivered to GitHub. `main` is at `fcdf0b3`, blocked only by `eabfc82` (the autopilot stall fix, which edits caged `core/campaign-service.js`) — **no self-approval was created for it, and none will be.** **Tests: 1020 assertions, ZERO failures** across all nine suites — governance-invariant 89, unattended-policy 53, autonomous-campaign 137, orchestration-core 257 (the delivery-timer assertion now passes because the owner enabled the timer), n8n-bridge 80, ai-executor 125, core-wiring 86, budget-ledger 121, reservation-lease 72. **Owner-only items, each one command:** approve `eabfc82` to unblock `main`; approve `1e4a1ee` if that mission's agent-registry change is wanted; and decide whether to re-open J or V, design the 4 CONCEPTUAL capabilities, or authorise any of the 8 governance-surface ones. **Observation for the record:** `approval_required` now mixes two shapes — structured approval records and plain capability-label strings written by the selector's `approval_candidates`. Harmless today (`needs_human` is state-derived, and `resolveApproval` still matches the object entries) but untidy, and worth normalising in a future approved change to `campaign.js`. SSANGYONG untouched, no duplicate n8n workflow, sudo hardening unchanged, verifier byte-identical with zero cage drift.
 **Previously:** MYTHOS **MYTHOS-LAUNCH-2 — UNATTENDED OPERATION RUNNING; A SILENT STALL FOUND AND FIXED; TWO ONE-COMMAND OWNER ITEMS OUTSTANDING.** Campaign `c-msxnck3a-00282b` is live with **9 missions completed** (R, AF, E, M, N, H, B, C, D). Mission **D** proved the whole lifecycle unattended: selected by the loop, implemented, tested, reviewed, committed `7ef806b`, **delivered to GitHub by the relay** (`mission branches: pushed=1`, 12 `mythos/*` branches on the remote), roadmap updated, and capability **F** selected automatically — no human at any step. Branch isolation held: `7ef806b` is 1 ahead of `main` and not an ancestor of it. **STALL FOUND (`eabfc82`).** Unattended operation halted silently after the first mission start. `continueCampaign()` accepts state `RUNNING`; `describe().continuable` excluded it; the n8n autopilot routes on exactly that field. So a campaign sitting in `RUNNING` — the NORMAL state between ticks, mission started and DAG not yet advanced — advertised `continuable:false`, the autopilot took its idle branch, and the loop looked alive while doing nothing. Evidence: exactly one `CAMPAIGN_CONTINUE_REQUESTED` in the window (mine, `owner-launch`), and capability F left with all tasks `QUEUED`. The advertised field now mirrors what the API actually accepts. **No authority was widened** — `continueCampaign` already accepted RUNNING — and every refusal is untouched: `WAITING_FOR_APPROVAL` and `BLOCKED` still return `NEEDS_HUMAN`, the single-flight lease still gates concurrency, no decision state became continuable. n8n-bridge 80/80 and governance-invariant 89/89 unchanged. **This commit edits `core/campaign-service.js`, a caged path, so the invariant refuses to deliver it and I did NOT create an approval for my own change.** It is live locally because the executor loads the repo copy — recorded here for owner review rather than applied quietly. **TWO OWNER-ONLY ITEMS, each one command.** (1) The four approvals the owner created are valid but **unreadable by the relay**: `mythos-governance-approve` writes `0640` as root, the store directory has no setgid bit, so files land `root:root` while the relay runs as `deploy` — EACCES, swallowed by `loadApprovals()`, seen as zero approvals. Failing closed on an unreadable store is correct; the effect is that a valid approval is invisible. Fix: `sudo chgrp deploy /var/lib/mythos/governance/approvals/*.json && sudo chmod g+s /var/lib/mythos/governance/approvals` — the setgid bit stops it recurring. (2) Optionally approve `eabfc82` to deliver the stall fix. **Autopilot confirmed self-sustaining:** after the fix, `CAMPAIGN_CONTINUE_REQUESTED | requested_by: n8n-autopilot` at 03:10:51 advanced capability F with no human and no session involvement — the loop now drives itself on the 10-minute schedule. **Honest note on value:** 3 of the 9 completed missions produced documentation corrections rather than code, because the Master Vision understates what already exists — the loop is spending missions correcting its own map. Refreshing the vision would convert those cycles into real capability work. Sudo hardening unchanged and active; governance verifier byte-identical to source, 25 paths, cage drift zero; SSANGYONG and n8n untouched; no duplicate workflow.

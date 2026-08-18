@@ -1,0 +1,71 @@
+# MYTHOS OS COMMAND CENTER — user-level systemd unit (MOS-1)
+#
+# Install at ~deploy/.config/systemd/user/mythos-os-console.service and run
+# by the `deploy` user's own systemd manager, made durable across logout and
+# reboot by `loginctl enable-linger deploy`.
+#
+# Why user scope, and why several standard hardening directives are absent,
+# is recorded once in projects/command-center/deploy/mythos-command-center.user.service
+# and in docs/MYTHOS_COMMAND_CENTER_ARCHITECTURE.md §11.1. The same three
+# findings apply here and are not re-derived:
+#
+#   ProtectKernelTunables / ProtectKernelModules / ProtectClock /
+#   RestrictNamespaces  → status=218/CAPABILITIES; an unprivileged user
+#                         manager may not drop bounding-set capabilities.
+#   MemoryDenyWriteExecute → incompatible with V8's JIT; crashes under load,
+#                         not at startup.
+#
+# A directive that stops the service from starting protects nothing, so they
+# are omitted deliberately rather than carried and silently broken.
+
+[Unit]
+Description=MYTHOS OS Command Center — read-only operations console for os.mythosprod.xyz
+Documentation=https://github.com/othoth77/mythos-prod
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/deploy/projects/mythos-prod/projects/mythos-os-console
+
+# Credentials live outside the git worktree, mode 0600, never echoed.
+# Contains MOS_EXECUTOR_TOKEN (or MOS_EXECUTOR_TOKEN_FILE) and optionally
+# MOS_EXECUTOR_URL.
+#
+# Unlike the sibling command-library service, this one does NOT refuse to
+# start without its token, and that difference is deliberate. That service
+# has a write surface, so starting without auth would expose it. This one
+# has no write surface at all — starting without a token exposes nothing,
+# and a console that comes up and reports "no token provisioned" is more
+# useful to an operator than a unit that will not start.
+EnvironmentFile=/home/deploy/deployments/mythos-os-console/.env
+
+ExecStart=/usr/bin/node /home/deploy/projects/mythos-prod/projects/mythos-os-console/reference/server.js
+
+Restart=on-failure
+RestartSec=5s
+
+# --- Hardening -------------------------------------------------------------
+# The process reads its own static assets and the executor config directory,
+# talks to the executor over loopback, and writes nothing anywhere.
+# ReadWritePaths is empty and that is accurate, not aspirational.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectControlGroups=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @obsolete
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+ReadWritePaths=
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mythos-os-console
+
+[Install]
+WantedBy=default.target
