@@ -94,7 +94,11 @@ Start with the evidence, then the structure, then the mark.
 | 7 | `COMPONENT_SYSTEM.md` | **SPECIFICATION.** Twenty-one components, each with structure, dimensions, tokens, six states, keyboard, touch, accessibility, responsive and reduced-motion behaviour. Carries **A-022**, which separates the visual box from the hit box |
 | 8 | `RESPONSIVE_ACCESSIBILITY_MOTION.md` | **SPECIFICATION.** The four device classes against the five approved bands, the WCAG 2.2 floor, and the motion system. Records that **zoom moves the user down the same bands** — 200 % lands in tablet, 400 % in mobile — and that **no baseline grid is possible**. **MOTION-1 left OPEN by owner instruction** |
 | 9 | `PUBLIC_ECOSYSTEM_ARCHITECTURE.md` | **ARCHITECTURE.** How MYTHOS relates to its units, its products and the independent public projects: endorsement rules, where MYTHOS may and may not appear, domain architecture, hub structure, onboarding and governance. Carries an **evidence-based status ledger** — five projects LIVE, three BUILT but unserved, and **the master brand with no public surface at all** |
-| 10 | `LOGO_SYSTEM.md` | **PROPOSED — AWAITING OWNER APPROVAL.** The mark: what was preserved from the original, what changed and why, the construction grid, and the full master set. Held pending **LOGO-1** |
+| 10 | `LOGO_SYSTEM.md` | **ADOPTED — AUTO-1, not owner-approved.** The mark: what was preserved from the original, what changed and why, the construction grid, and the full master set. **LOGO-1** stays open and the reconciliation condition stays binding |
+| 11 | `MYTHOS_DESIGN_SYSTEM.md` | **Consolidated reference.** Every canonical value from 1C–1I and AUTO-1–3 in one topic-ordered document — start here for "what do I build against," not the stage-by-stage history |
+| 12 | `IMPLEMENTATION_READINESS_AUDIT.md` | **Finding, not a plan.** Nothing in this program has been implemented or verified in any running application. Five concrete prerequisites named, none satisfied |
+| 13 | `MIGRATION_PLANS.md` | **Plans, not authorisation.** A calibrated plan per project and Mythos-owned surface — most reduce to "ecosystem strip only" or "no action" once **A-006** and the open evidence questions are respected |
+| 14 | `prototypes/` | **Seven static HTML prototypes**, matching the original brief's §23. Not deployed |
 
 ## Companion records outside this directory
 
