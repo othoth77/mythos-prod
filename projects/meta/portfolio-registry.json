@@ -124,18 +124,20 @@
       "category": "AUTOMOTIVE",
       "strategic_parent": "mythos-automotive",
       "evidence_status": "REPOSITORY_VERIFIED",
-      "implementation_status": "FOUNDATION",
-      "current_stage": "IDA-1 complete",
-      "next_stage": "IDA-2 — PostgreSQL Core, API and Manual Capture MVP",
+      "implementation_status": "ACTIVE",
+      "current_stage": "IDA-3F complete (in othoth77/idauto)",
+      "next_stage": "IDA-4 — Citizen Vehicle Passport (tracked in othoth77/idauto)",
       "repository_paths": [
-        "docs/IDAUTO_*.md",
-        "projects/idauto/"
+        "docs/IDAUTO_STANDALONE_MIGRATION.md",
+        "projects/idauto/",
+        "docs/IDAUTO_*.md"
       ],
       "domain_pack": null,
       "dependencies": [],
       "shared_platform_capabilities": [],
-      "notes": "Next authorised Automotive implementation stage overall.",
-      "last_verified_at": "2026-08-06T00:00:00Z"
+      "notes": "Canonical repository is https://github.com/othoth77/idauto as of 2026-08-18 (published at bdfec2c, clean-clone verified: 13 suites, 601 assertions, 0 failures). The copy under projects/idauto/ REMAINS here because projects/automation and projects/personal-intelligence require() its ops modules at runtime, and mythos-core validates its identity contract against its schema. Resolving that is an open architectural decision — see docs/IDAUTO_STANDALONE_MIGRATION.md section 3. Roadmap, risks and stage history are tracked in the external repository.",
+      "last_verified_at": "2026-08-18T00:00:00Z",
+      "external_repository": "https://github.com/othoth77/idauto"
     },
     {
       "id": "atelier-network",
