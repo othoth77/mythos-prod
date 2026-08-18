@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 6074 1360" role="img" aria-label="Mythos Services">
+<title>Mythos Services</title>
+<path fill="currentColor" transform="translate(0 0)" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/>
+<path fill="currentColor" transform="translate(1440 0)" d="M0 0 L290 0 L483 470 L676 0 L966 0 L614 640 L614 1000 L352 1000 L352 640 Z"/>
+<path fill="currentColor" transform="translate(2454 0)" d="M0 0 L760 0 L760 230 L510 230 L510 1000 L250 1000 L250 230 L0 230 Z"/>
+<path fill="currentColor" transform="translate(3286 0)" d="M0 0 L264 0 L264 395 L619 395 L619 0 L883 0 L883 1000 L619 1000 L619 605 L264 605 L264 1000 L0 1000 Z"/>
+<path fill="currentColor" transform="translate(4235 0)" d="M520 0 A520 500 0 1 0 520 1000 A520 500 0 1 0 520 0 Z M520 255 A265 245 0 1 1 520 745 A265 245 0 1 1 520 255 Z"/>
+<path fill="currentColor" transform="translate(5329 0)" d="M313 0 C243.5 8.3 210.5 17.0 164 39 C117.5 61.0 91.3 81.2 62 119 C32.7 156.8 15.4 198.9 6 243 C-3.4 287.1 -6.0 312.2 11 357 C28.0 401.8 17.3 430.9 98 485 C178.7 539.1 420 636 447 649 C471 661 465 700 460 726 C455 752 436 774 408 790 L0 790 L0 1000 L356 1000 C454.1 997.2 474.3 1000.4 530 985 C585.7 969.6 619.4 950.5 657 917 C694.6 883.5 716.7 852.1 733 804 C749.3 755.9 759.8 712.0 745 657 C730.2 602.0 680 545 653 507 C641 490 330 358 295 345 C275 337 262 325 262 306 C262 288 268 274 285 262 L343 210 L742 210 L742 0 Z"/>
+<path fill="#C9A84C" d="M2188 1286 L30 1292 L2188 1299 Z"/>
+<path fill="#C9A84C" d="M3886 1286 L6044 1292 L3886 1299 Z"/>
+<text x="3037" y="1346" fill="currentColor" text-anchor="middle" font-family="Inter, Helvetica Neue, Arial, sans-serif" font-weight="500" font-size="150" letter-spacing="63" dx="32">SERVICES</text>
+</svg>

@@ -1,0 +1,285 @@
+# MYTHOS Grid and Spacing
+
+**Stage:** MYTHOS-DESIGN-1E — grid, spacing, shape
+**Date:** 2026-08-18 UTC
+**Status:** **CANONICAL SPECIFICATION**, derived entirely from the owner-approved
+master visual identity. Not implemented.
+
+**Authority:** **A-009** — the 1C approval, which adopted "every RECOMMENDED
+value in §3–§14: palette, scale, spacing, radius, components, icons, motion,
+responsive rules". Source sections: `MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md`
+**§5** (grid and spacing), **§6** (shape and surface) and **§11** (responsive),
+approved at commit `35a8f8a`.
+
+**This document introduces no new values.** Every number below is an approved
+number. What is new is the *arithmetic*: the approved figures have been computed
+out to their consequences, and **where two approved statements do not reconcile,
+that is recorded as a conflict rather than quietly resolved** (§9).
+
+**Not implemented.** No CSS, token file, application code or asset has been
+changed.
+
+---
+
+## 1. Principles
+
+1. **The scale is a constraint, not a palette.** Values between the steps are not
+   "close enough" — they are out of system. A composed interface is one where the
+   spacing decisions were already made.
+2. **Space is measured between blocks, never inside type.** The approved line
+   heights do not land on the grid (§6), so vertical rhythm comes from block gaps.
+3. **Mobile is a design target, not a shrink** (§11 of the source). Every layout
+   is drawn at `sm` first; the desktop layout must justify what it adds.
+4. **Layout is fractional.** The approved container and gutter figures produce
+   non-integer columns at almost every viewport (§4.2), so columns are expressed
+   as fractions and never as fixed pixel widths.
+5. **Where the approved specification is silent, this document says so.** No gap
+   is filled by improvisation.
+
+---
+
+## 2. The spacing scale
+
+Eight-point with 4 px half-steps, twelve steps:
+
+`2 · 4 · 8 · 12 · 16 · 24 · 32 · 48 · 64 · 96 · 128 · 160`
+
+**Naming.** The approved token philosophy names one spacing token by example:
+`space-6`. Naming the twelve steps by position makes `space-6` resolve to **24 px**,
+which is both the sixth step and the most-used component gap — so position
+indexing is the reading consistent with the approved example. This is a *naming*
+derivation forced by that example; **no value is added, removed or changed.**
+
+| Token | Value | Token | Value |
+|---|---|---|---|
+| `space-1` | 2 | `space-7` | 32 |
+| `space-2` | 4 | `space-8` | 48 |
+| `space-3` | 8 | `space-9` | 64 |
+| `space-4` | 12 | `space-10` | 96 |
+| `space-5` | 16 | `space-11` | 128 |
+| `space-6` | **24** | `space-12` | 160 |
+
+**The two legal bands** (approved, §5):
+
+- **Sections** use only **48 / 64 / 96 / 128** — `space-8` to `space-11`.
+- **Components** use only **8 / 12 / 16 / 24** — `space-3` to `space-6`.
+
+**Four steps have no band.** `space-1` (2), `space-2` (4), `space-7` (32) and
+`space-12` (160) sit outside both. Either they are reserved for optical
+correction and hairline offsets, or the bands are incomplete. The approved text
+does not say which — recorded as **GRID-3**, not decided here.
+
+---
+
+## 3. What the spacing scale does **not** govern
+
+This is the most consequential finding of the stage, because a component library
+built on the opposite assumption fails immediately. **Three approved groups of
+numbers are not on the spacing scale**, and are therefore separate scales:
+
+| Group | Approved values | On the scale? |
+|---|---|---|
+| **Grid gutters** | 24 / 20 / 16 | 24 and 16 yes — **20 no** |
+| **Grid margins** | 80 / 48 / 20 | 48 yes — **80 and 20 no** |
+| **Control heights** | 36 / 40 / 44 | **none** |
+| **Button padding** | 9 / 15 | **none** |
+| **Type leading** | see §6 | **none** |
+
+**Consequence.** `space-*` tokens may not be used to build the grid frame, a
+control height, or a line box. Those need their own token groups —
+`grid-*` and `size-*` — specified in `DESIGN_TOKENS.md` §3.
+
+**Button padding 9 / 15 is genuinely off-system.** The nearest coherent reading
+is that these sit *inside* a 1 px border, making the outer geometry 10 / 16 — of
+which only 16 is on the scale. The approved text does not say, and this document
+does not invent a reading. Left to 1F under **GRID-3**.
+
+---
+
+## 4. The grid
+
+### 4.1 Containers, columns, gutters, margins
+
+| Metric | `sm` | `md` / `lg` | `xl` / `2xl` |
+|---|---|---|---|
+| Columns | 4 | 8 | 12 |
+| Gutter | 16 | 20 | 24 |
+| Margin | 20 | 48 | 80 |
+
+**Containers:** content max **1280**, wide **1440**, prose max **68ch**.
+
+**One arithmetic fact worth stating:** `1280 + 80 + 80 = 1440` exactly. The wide
+container is therefore either a second, wider content width *or* the outer frame
+of the 1280 content container at its own margins. Both readings are clean; the
+approved text does not distinguish them — **GRID-1**.
+
+### 4.2 Measured column widths
+
+Computed, not asserted. Column = (content − (n−1) × gutter) ÷ n.
+
+| Viewport | Band | Content | Column |
+|---|---|---|---|
+| 320 | `sm` | 280 | **58.00** |
+| 360 | `sm` | 320 | **68.00** |
+| 412 | `sm` | 372 | 81.00 |
+| 600 | `md` | 504 | 45.50 |
+| 768 | `md` | 672 | 66.50 |
+| 904 | `lg` | 808 | 83.50 |
+| 1240 | `xl` | 1080 | **68.00** |
+| 1440 | `xl` | **1280 — capped** | 84.67 |
+| 1920 | `2xl` | 1280 — capped | 84.67 |
+
+**Three things follow.**
+
+1. **Columns are fractional.** 84.67 and 45.50 are not pixel widths. Columns are
+   `fr` or percentage; a fixed-pixel column implementation will drift by up to a
+   pixel per column and visibly break alignment across a 12-column row.
+2. **320 px reflow works.** WCAG 2.2 reflow at 320 px (approved, §12) leaves a
+   58 px column — narrow but positive. The grid does not collapse at the floor.
+3. **The grid stops growing at 1440, not at 1920.** The 1280 content cap binds
+   from a 1440 viewport upward, so margins begin absorbing surplus **480 px below
+   the `2xl` breakpoint**. The `2xl` row's stated behaviour — *"grid stops
+   growing; margins absorb the surplus"* — is already true throughout `xl`.
+   `2xl` therefore has no behaviour of its own that the approved text names.
+   Recorded as **GRID-1**; not resolved here.
+
+*(Minor observation, no decision attached: the column is 68.00 px at both 360 and
+1240 — the entry points of the two most important bands.)*
+
+### 4.3 Prose measure
+
+`TYPOGRAPHY.md` §2 caps running text near **65 characters**; §5 of the source sets
+prose max at **68ch**. These are not the same unit: `ch` is the advance width of
+the digit *0*, not of an average character, so 68 `ch` renders as some other
+number of actual characters — how many depends on the shipped font's metrics.
+
+Both figures are approved, so neither is overridden. **The prose container must be
+measured against the 65-character target once the fonts are in place**, and the
+unit reconciled then. Recorded as **GRID-2**. No font file exists in this
+repository (`TYPOGRAPHY.md` §7), so it cannot be measured now.
+
+---
+
+## 5. Breakpoints
+
+Defined by content behaviour rather than by devices (approved, §5).
+
+| Name | Range | What changes |
+|---|---|---|
+| `sm` | < 600 | Single column. Navigation collapses to a full-screen overlay. Tables become cards |
+| `md` | 600–903 | Two columns. Sidebars become sheets |
+| `lg` | 904–1239 | Three columns. Persistent sidebar returns |
+| `xl` | 1240–1919 | Full 12-column grid at max content width |
+| `2xl` | ≥ 1920 | Grid stops growing; margins absorb the surplus — but see §4.2.3 |
+
+**Column counts and layout regions are different things.** The *grid* is 4 / 8 / 12
+(§4.1); the *regions* named above are 1 / 2 / 3. A `lg` layout has three regions
+placed on eight columns, not three columns.
+
+**Approved responsive rules** carried forward without change: navigation preserves
+the tier structure at every size; tables become stacked cards below `md`; wide
+content scrolls inside its own container and the page body never scrolls sideways;
+type scales with `clamp()` between the scale's stops and never below 16 px for
+body; touch targets are 44 × 44 minimum **at every breakpoint**; sidebars become
+sheets at `md`; modals become full-screen at `sm`; images switch from 16:9 at `lg`+
+to 4:5 at `sm`.
+
+---
+
+## 6. Vertical rhythm — there is no baseline grid
+
+Every line box in the approved type scale was computed against the 4 px grid:
+
+| Style | Size / LH | Line box | On 4 px grid |
+|---|---|---|---|
+| Display XL | 61 / 1.02 | 62.22 | no |
+| Display L | 49 / 1.06 | 51.94 | no |
+| H1 | 39 / 1.12 | 43.68 | no |
+| H2 | 31 / 1.18 | 36.58 | no |
+| H3 | 25 / 1.24 | 31.00 | no |
+| H4 | 20 / 1.32 | 26.40 | no |
+| Body L | 18 / 1.62 | 29.16 | no |
+| Body | 16 / 1.62 | **25.92** | no |
+| Body S | 14 / 1.56 | 21.84 | no |
+| Caption | 13 / 1.46 | 18.98 | no |
+| Label | 12 / 1.34 | 16.08 | no |
+| Data | 14 / 1.44 | 20.16 | no |
+
+**Twelve of twelve are off-grid.** A baseline grid is therefore not achievable
+with the approved type scale, and **must not be attempted in 1F.**
+
+Arabic settles it beyond argument. Under the approved +6 % size and +0.15
+line-height rules (`TYPOGRAPHY.md` §3), Body renders at **30.02 px** against the
+Latin **25.92 px**. A baseline grid that held for one script would break the
+other — and this brand is bilingual by design, not by translation.
+
+**What replaces it:** blocks are separated by `space-*` values from the two legal
+bands; leading is left to the type scale. Rhythm is the gap between blocks, not
+an invisible ruler behind them.
+
+---
+
+## 7. Shape and elevation
+
+**Radius, argued from the mark** (approved, §6). The wordmark has flat terminals
+and sharp corners, so the identity argues for low radius.
+
+| Token | Value | Applies to |
+|---|---|---|
+| `radius-0` | 0 | Tables, data cells, full-bleed media, the 35° cut |
+| `radius-1` | **2 px** | **The workhorse** — inputs, buttons, chips, small cards |
+| `radius-2` | 6 px | Cards, panels, menus |
+| `radius-3` | 12 px | Modals, sheets, app tiles |
+| `radius-full` | 999 px | Avatars and status dots **only** |
+
+**Elevation is by surface, not by shadow:** `ink-850 → ink-800 → ink-750` with a
+1 px `ink-700` hairline. Shadows are reserved for elements that genuinely float —
+menus, modals, toasts — and never used to decorate a static card.
+
+**Two elevation gaps, recorded not filled** (**SURF-1**):
+
+- **The light ramp is shallower than the dark ramp.** Dark has four steps
+  (`ink-900 / 850 / 800 / 750`); light has two (`paper-100 / 200`). A card resting
+  on a raised surface has no distinct light-theme equivalent.
+- **No shadow values are specified.** The approved text says *when* to use a
+  shadow, never *what* it is.
+
+**The signature shape** is unchanged: a **35° cut** on one edge of **one element
+per view** — a section divider, an image mask, a hero corner, a chart's leading
+bar. One per view is the whole discipline (**A-012**).
+
+---
+
+## 8. Density
+
+*Comfortable* for content and marketing; *compact* for operational views, reducing
+vertical padding one step — **never type below 13 px and never targets below
+44 px** (approved, §7).
+
+The floor and the control heights do not agree; see **C-005** below.
+
+---
+
+## 9. Open and conflicting
+
+| Ref | Type | Statement |
+|---|---|---|
+| **C-005** | **Conflict between two approved statements** | The comfortable control height is **40 px** and the compact height **36 px** (§7 of the source), while the touch minimum is **≥ 44 × 44 px at every breakpoint** (§7 and §11). A 40 px control does not meet a 44 px minimum. Two resolutions exist — grow the visual height at coarse pointers, or extend the hit area beyond the visual box — and **the approved text names neither.** Not resolved here |
+| **GRID-1** | Open | `2xl` has no behaviour the approved text names that is not already true from a 1440 viewport (§4.2.3); and the 1440 "wide" container is ambiguous between a second content width and the outer frame of the 1280 container (§4.1) |
+| **GRID-2** | Open | Prose measure is stated as **68ch** and as **65 characters**. Different units; reconcilable only against real font metrics, and no font file exists yet (§4.3) |
+| **GRID-3** | Open | Four spacing steps (2, 4, 32, 160) fall outside both legal bands; and button padding 9 / 15 is off-scale entirely (§2, §3) |
+| **SURF-1** | Open | The light elevation ramp has two steps to the dark ramp's four, and no shadow values are specified (§7) |
+
+**None of these blocks 1F**, but each is a decision 1F would otherwise make by
+accident. They are listed so that a component library cannot silently settle them.
+
+---
+
+## 10. What this document did not do
+
+- Did not change any CSS, token file, application code or asset.
+- Did not introduce a spacing, grid, breakpoint or radius value the owner has not
+  approved.
+- Did not resolve C-005, GRID-1, GRID-2, GRID-3 or SURF-1.
+- Did not specify components — that is Stage 1F.
+- Did not action MIG-1, MIG-2, MIG-3 or MIG-4.

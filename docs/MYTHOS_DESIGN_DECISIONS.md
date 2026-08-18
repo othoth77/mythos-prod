@@ -14,6 +14,281 @@ decision) · `SUPERSEDED` (replaced, with the replacement identified) ·
 `CONFLICTING` (evidence disagrees with itself) · `UNKNOWN` (believed to have been
 decided, but the decision is not recoverable).
 
+**Added 2026-08-18:** `OWNER-APPROVED` (the owner has decided it; binding
+baseline) · `PROPOSED` (drafted by a design stage, **not** approved, not
+citable as a decision).
+
+Sections 1–4 below are the **recovery record** and are historical evidence.
+They are never rewritten. Section 0 records owner decisions taken after the
+recovery and states which recovery-era questions each one answers.
+
+---
+
+## 0. Owner-approved baseline
+
+Approved by the owner on **2026-08-18**, after reviewing Stage 1A
+(`docs/design/BRAND_ARCHITECTURE.md`). These entries are **binding**. They are
+the only design decisions in this register that carry owner authority; every
+`D-*` entry below is *recovered evidence of a past decision*, which is a
+different thing.
+
+### A-001 — MYTHOS is the master brand
+
+| Field | Value |
+|---|---|
+| **Decision** | MYTHOS is the master brand of the ecosystem. Not "Mythos Prod" |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Affects** | Every tier of the architecture; the identity system; the future `mythosprod.xyz` hub |
+| **Notes** | `Mythos Prod` continues as one business-unit name and as the historical repository name (`othoth77/mythos-prod`). It no longer controls the master identity |
+
+### A-002 — The five Mythos business units
+
+| Field | Value |
+|---|---|
+| **Decision** | The Mythos units are **Mythos OS, Mythos Prod, Mythos Services, Mythos Digital, Mythos Logistique** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Answers** | **O-004**, as far as the *set* is concerned |
+| **Notes** | Approval fixes the roster. It does **not** assert operating status: the recovery audit found **no evidence of any kind** for Mythos Services, Digital or Logistique (`MYTHOS_DESIGN_STRATEGY.md` §5), and that evidence gap is unchanged. Whether and when those three become operating brands remains **O-004b** (§3) |
+
+### A-003 — Units use the master identity plus a descriptor
+
+| Field | Value |
+|---|---|
+| **Decision** | The five units use the **MYTHOS master identity plus a descriptor**. **Five unrelated independent logos must not be created** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Affects** | `docs/design/BRAND_ARCHITECTURE.md` §4; every future unit |
+| **Notes** | This approves the *principle*. It does **not** approve any particular drawing of the mark or lockup — see A-007 and `LOGO-2` |
+
+### A-004 — Public projects remain independently branded
+
+| Field | Value |
+|---|---|
+| **Decision** | AgriBee, Dar Hijama, Fixpert, IDAuto, Mouain, Notre Jour, SsangYong.autos, Uthina Chess and future projects **remain independently branded** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Answers** | **O-001**, in the direction of project brand independence |
+| **Notes** | Settles the question the recovery audit called blocking. It also means the four-palette divergence recorded in **C-004** is, from now on, the intended state at project level — though **C-004 remains historically unarbitrated**, because approving the rule forward does not retroactively explain the past |
+
+### A-005 — Projects inherit shared Mythos standards
+
+| Field | Value |
+|---|---|
+| **Decision** | Public projects inherit shared Mythos standards where appropriate: **accessibility, responsive principles, spacing principles, component principles, performance, governance** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Affects** | `BRAND_ARCHITECTURE.md` §5.1 (shared column); the entry conditions for any new project |
+| **Notes** | "Where appropriate" is the owner's wording and is preserved. Retroactive application to the two live charter projects is **not** approved — see **O-A4** |
+
+### A-006 — Projects do NOT inherit the Mythos visual skin
+
+| Field | Value |
+|---|---|
+| **Decision** | Public projects do **not** automatically inherit the Mythos visual skin. Their own logo, palette, imagery, personality and customer-facing identity remain independent **unless explicitly approved later** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Affects** | `BRAND_ARCHITECTURE.md` §5.1 (independent column), §5.3 |
+| **Notes** | The "unless explicitly approved later" clause was what kept **O-A3** open. **Its rule now exists: A-021** (2026-08-18) — a Mythos-level colour is permitted only as a controlled ecosystem accent, never replacing the project's primary colour, and never automatically |
+
+### A-007 — The recovered historical logo is the authoritative historical source
+
+| Field | Value |
+|---|---|
+| **Decision** | The recovered historical Mythos logo is the **authoritative historical source** for the master-brand discussion. It must **not** be redrawn, replaced, simplified, recoloured or recreated during this stage |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Source of the artifact** | `assets/logos/logomythos.png`, recorded in `docs/design-recovery/MYTHOS_ORIGINAL_LOGO_RECOVERY.md` |
+| **Notes** | The Stage 1B vector masters under `assets/brand/` therefore remain **PROPOSED and unapproved**. They are a reconstruction offered for a later decision, are referenced by nothing in production, and must not be cited as the Mythos logo. No further logo drawing is authorised in this stage |
+
+### A-008 — The gold distinction stays open
+
+| Field | Value |
+|---|---|
+| **Decision** | The distinction between the **historical logo gold**, the **Mythos OS UI gold** and **project-level colours** remains **OPEN**. It must not be resolved by inference |
+| **Status** | **OWNER-APPROVED as an instruction to leave open** — 2026-08-18 · **SUPERSEDED the same day by A-013** |
+| **Tracked as** | **GOLD-1** — now **RESOLVED**, see §3.1 |
+| **Notes** | Directly connected to **C-003** (two golds, unexplained) and **U-001** (the rationale for `#c9a84c` was never recorded). **Supersession recorded, not silent:** this entry instructed that the gold stay open; the owner subsequently took the decision in **A-013** after reviewing the 1C final proposal. The instruction was correct while it stood — it prevented the question being settled by inference — and it was closed by an explicit owner decision rather than by drift. The original text above is unaltered |
+
+---
+
+### A-009 — MYTHOS 1C Master Visual Identity approved
+
+| Field | Value |
+|---|---|
+| **Decision** | The **MYTHOS Master Visual Identity specification** is approved as the master brand's visual system |
+| **Approved artefact** | `docs/design/MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md` at commit **`35a8f8a`** (revision 3, final) |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Scope of approval** | **The specification only.** Approval is not authorisation to implement. No application code, CSS, asset or website may be changed on the strength of it; implementation is Stages 1D–1F and needs its own authorisation |
+| **Notes** | A-010 – A-018 record the substantive decisions the approval contains, so each is separately citable |
+
+### A-010 — MYTHOS is dark-first
+
+| Field | Value |
+|---|---|
+| **Decision** | The master identity is **dark-first**. Ink is the default ground; light is fully specified rather than derived |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Evidence basis** | The recovered mark lives on black, and the only implemented Mythos design system is dark |
+
+### A-011 — Constant + Movement is the core visual principle
+
+| Field | Value |
+|---|---|
+| **Decision** | **Constant + Movement** is the core visual principle. The constant is orthogonal — grid, type, surfaces, right angles. The movement is the single permitted non-orthogonal element |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Notes** | Derived from the recovered fact that one letter is slanted while five stand upright. The principle is deliberately falsifiable: the gestures on any screen can be counted |
+
+### A-012 — The 35° gesture is the signature movement
+
+| Field | Value |
+|---|---|
+| **Decision** | The **35° gesture**, derived from the historical M, is the signature movement of the visual language. It appears **once per view**, and is gold **or** geometric, never both at once |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Notes** | Measured at 34.9° in the source and rationalised to exactly 35.0°. This is a system constant, **not** a change to the logo — A-007 is unaffected |
+
+### A-013 — Mythos Gold is `#D9A441`
+
+| Field | Value |
+|---|---|
+| **Decision** | **Mythos Gold = `#D9A441`** — the historical logo's own gold. Where contrast requires it on light grounds, gold text and icons use **`#805C19`** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Resolves** | **GOLD-1** |
+| **Supersedes** | **A-008**, which had instructed that the gold stay open |
+| **Measured** | `#D9A441` 8.59 : 1 on ink `#0E0E0D`; `#805C19` 5.47 : 1 on paper `#F5F3EF`. **No single gold serves both grounds** — `#D9A441` measures 2.05 : 1 on paper — so a gold per ground is a technical requirement, not a preference |
+| **Effect on C-003** | The **master value** is now decided and has a recorded rationale: it is the gold in the mark. The *historical* relationship between `#c9a84c` and `#D9A441` remains unexplained, so **C-003 is resolved forward, not retroactively**, and **U-001** stays UNKNOWN as a historical question |
+| **Consequence recorded** | Mythos OS's implemented `--gold: #c9a84c` now differs from the master. Tracked as **MIG-1** (§3.1). **Not actioned** — this approval is specification-only |
+
+### A-014 — Master typography
+
+| Field | Value |
+|---|---|
+| **Decision** | **Playfair Display is removed from the MYTHOS master typography.** The master stack is **Archivo Expanded** (display) + **IBM Plex Sans** (text/UI) + **IBM Plex Sans Arabic** + **IBM Plex Mono** (data) |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Resolves** | **TYPE-1** |
+| **Rationale** | Playfair has **no Arabic** — disqualifying for a group operating in Arabic, French and English; its hairlines disappear at the 11–13 px sizes the codebase most uses; and it signals luxury-editorial where the recovered wordmark is an extended geometric sans. The replacement is one designed family across Latin, Arabic and monospace, all open-licensed and self-hostable |
+| **Scope** | The **master brand** only. Playfair may remain in any public project whose own identity calls for it — protected by **A-006** |
+| **Consequence recorded** | 45 `Playfair Display` declarations exist in `css/*.css`. **Not actioned** — specification only. Tracked as **MIG-2** (§3.1) |
+
+### A-015 — Corrected semantic colour system
+
+| Field | Value |
+|---|---|
+| **Decision** | Adopt the **corrected semantic colour system**, verified on all four surfaces (ink, surface, card, paper and paper-2) |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Resolves** | **SEM-1** |
+| **Rationale** | Three recovered semantic tokens fail contrast as body text — `--danger` 3.55 : 1, `--muted` 3.47 : 1, `--past` 2.59 : 1 — and they are precisely the tokens carrying errors, secondary text and disabled state. The 12 %-alpha `-dim` convention (**D-001**) is preserved unchanged |
+| **Consequence recorded** | Touches the Mythos OS token block. **Not actioned.** Tracked as **MIG-3** (§3.1) |
+
+### A-016 — Accessibility corrections for non-text boundaries
+
+| Field | Value |
+|---|---|
+| **Decision** | Adopt the accessibility corrections for **non-text boundaries**: dedicated control-border tokens meeting the 3 : 1 WCAG 2.2 requirement — `#726F64` on dark (3.84 : 1) and `#7F7B6D` on light (3.82 : 1) |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Rationale** | Measured this stage: **the recovered palette contained no value meeting 3 : 1 for a control boundary.** Form fields therefore had no conforming border anywhere in the system — a silent defect |
+
+### A-017 — Dark and light themes are both part of the system
+
+| Field | Value |
+|---|---|
+| **Decision** | **Both themes are part of the system.** Light is fully specified, not a filter over dark. Theme is a token remap, never a component fork |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+
+### A-018 — Reduced-motion behaviour is required
+
+| Field | Value |
+|---|---|
+| **Decision** | **Reduced-motion behaviour is required.** Under `prefers-reduced-motion` every transform collapses to opacity, and the interface must remain complete and legible with animation disabled entirely |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+
+### A-019 — Architecture reaffirmed by the 1C approval
+
+| Field | Value |
+|---|---|
+| **Decision** | The 1C approval **reaffirms without altering**: the five Mythos units stay under the MYTHOS master identity and **no five independent unit logos are created** (**A-003**); public projects keep their **independent visual identities** (**A-004**) and inherit **structural** Mythos DNA rather than the Mythos visual skin (**A-006**); the **historical logo remains unchanged** (**A-007**) |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Notes** | Recorded as a confirmation so the reaffirmation is traceable. It creates no new obligation and duplicates no earlier entry |
+
+### A-020 — Mythos Command Center is a product of Mythos OS
+
+| Field | Value |
+|---|---|
+| **Decision** | **Mythos Command Center is a product/system of Mythos OS, not a sixth Mythos company or unit.** The hierarchy is `MYTHOS → Mythos OS → Mythos Command Center → ordre.mythosprod.xyz` |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Resolves** | **O-A1** |
+| **Consequence for the unit roster** | The five-unit roster fixed by **A-002** is **unchanged**. Command Center sits one level below it, inside Mythos OS |
+| **Consequence for identity** | **No new Mythos unit logo is created.** Command Center is not an endorsed unit, so **A-003** does not apply to it: it takes no `MYTHOS / <descriptor>` lockup of its own. It is branded as what it is — a product surface of Mythos OS |
+| **Consequence for the hub** | The `mythosprod.xyz` information architecture must place Command Center **under Mythos OS**, not beside the five units. Relevant to Stage 1H |
+| **Not actioned** | Command Center currently carries its own unrelated palette (light `#f6f7f9` / indigo `#4f46e5`), recorded at recovery as a third divergent Mythos-level visual language. Now that it is a Mythos OS product rather than an independent entity, that palette is **out of system**. Tracked as **MIG-4** (§3.1). **No code, CSS, asset, deployment or branding was changed** — this approval is classification only |
+
+### A-021 — Mythos colour usage policy for public projects
+
+| Field | Value |
+|---|---|
+| **Decision** | A public project may use a MYTHOS-level colour **only as a controlled ecosystem accent** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Resolves** | **O-A3** |
+| **Completes** | The "unless explicitly approved later" clause inside **A-006** now has its rule |
+
+**The eight rules, as approved:**
+
+1. The project's own brand palette remains **primary**.
+2. The project's logo and visual identity remain **independent**.
+3. MYTHOS colours **never replace** the project's primary brand colour.
+4. **Mythos Gold may appear in limited ecosystem contexts only** — Mythos
+   endorsement, footer, shared legal/ownership areas, the Mythos hub or project
+   directory, and cross-product navigation.
+5. A project may use a MYTHOS colour **inside its own UI only when there is a
+   documented functional or architectural reason**.
+6. Such usage stays **secondary** and must not visually turn the project into a
+   MYTHOS-branded product.
+7. **A project does not receive MYTHOS colours automatically.**
+8. Any exception affecting the project's **primary identity requires explicit
+   owner approval**.
+
+**Worked examples, as approved:**
+
+| Project | Primary identity | Mythos Gold |
+|---|---|---|
+| **Dar Hijama** | Green remains primary | May exist as a limited ecosystem accent. **Does not replace the green** |
+| **Uthina Chess** | Its existing identity remains primary | MYTHOS colours do not become its primary palette |
+| **Notre Jour** | Its own identity remains primary | MYTHOS DNA remains structural, not a forced visual skin |
+
+**Which gold rule 4 refers to:** Mythos Gold is `#D9A441` (**A-013**), with
+`#805C19` where contrast on light grounds requires it (`COLOR_SYSTEM.md` §3).
+
+**Consequence recorded, NOT actioned — the policy does not retroactively bless
+the live Dar Hijama site.** The recovery audit found that
+`/var/www/darhijama.tn/index.html` uses cream tones plus **`#c9a84c`** and that
+**not one of its six charter colours appears** (**C-001**). Measured against
+this policy that is not a limited ecosystem accent — it reads as a Mythos-level
+colour occupying the primary role, which rules 1, 3 and 6 forbid; and `#c9a84c`
+is in any case the superseded interface gold, not the approved Mythos Gold.
+**Nothing was changed.** Dar Hijama was not touched, and the underlying question
+of which artifact is authoritative remains **C-001** / **O-002**, both still
+open. This approval sets the rule going forward; it does not adjudicate the
+existing deviation.
+
+---
+
+### A-022 — Control height and touch target are two different things
+
+| Field | Value |
+|---|---|
+| **Decision** | **Visual control height may remain 40 px. The interactive hit area must be at least 44 × 44 px. The hit area may extend beyond the visual control box where necessary. Every visual component is NOT to be forced to 44 px high** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18, owner instruction opening Stage 1F |
+| **Resolves** | **C-005**, raised by Stage 1E |
+| **Scope** | Every interactive component in the system, at every breakpoint |
+
+**What it changes structurally:** the visual box and the hit box become two
+separate specifications, and each component states both. It preserves the
+approved 36 / 40 control heights *and* the approved 44 × 44 minimum, which
+1E had shown could not both be true of a single box.
+
+**Derived consequence, computed at 1F** (`COMPONENT_SYSTEM.md` §1.1): a 40 px
+control needs **2 px** of expansion per side and a **12 px** (`space-4`) gap to
+its neighbour; a 36 px control needs **4 px** and **16 px** (`space-5`), so that
+the approved 8 px separation is measured between *hit* boxes. Both gaps land on
+the approved spacing scale. **Binding:** a dense row of 36 px controls spaced at
+`space-3` (8) produces **overlapping hit areas** and is not permitted.
+
+**Method note:** expansion is a transparent hit region, **never added margin** —
+margin would move the layout and change the composition.
+
 ---
 
 ## 1. Confirmed decisions
@@ -234,6 +509,48 @@ decided, but the decision is not recoverable).
 | **Evidence** | All four `:root` blocks read directly |
 | **Status** | **CONFLICTING — never arbitrated.** No document records whether this divergence was chosen or accumulated |
 
+### C-006 — Two `--mythos-*` token systems now exist, and some names collide
+
+| Field | Value |
+|---|---|
+| **Conflict** | The 1C/1E token system (**approved on paper, not implemented**) and the MOS-1 shell token system (**implemented on `main`, not derived from 1C**) share the `--mythos-*` namespace. **Where their names look alike, their values differ** |
+| **Evidence** | `projects/mythos-os-console/reference/web/mythos.css` at `5e2011b`, read directly; `docs/design/GRID_AND_SPACING.md` §2 and §7; `COLOR_SYSTEM.md` §3 |
+| **Found** | 2026-08-18, while merging `main` into the Stage 1 design branch. **Neither side did anything wrong** — MOS-1's **D-012** is explicit that it extends Mythos OS's own confirmed **D-001** identity, and MIG-1/MIG-3 were never actioned |
+
+**The measured divergences:**
+
+| Axis | Implemented (MOS-1, `main`) | Approved (1C / 1E) |
+|---|---|---|
+| Spacing scale | 4 · 6 · 8 · 12 · 16 · 20 · 24 · 32 · 40 | 2 · 4 · 8 · 12 · 16 · 24 · 32 · 48 · 64 · 96 · 128 · 160 |
+| Radius scale | 5 · 6 · 8 · 12 · 16 · 999 | 0 · **2** · 6 · 12 · 999 |
+| Accent | `#c9a84c` — the legacy gold (**D-001**, rationale unrecorded, **U-001**) | `#D9A441` — Mythos Gold (**A-013**, rationale recorded: it is the gold in the mark) |
+
+**The sharp edge:** `--mythos-sp-6` is **20 px** in the implemented system and
+`space-6` is **24 px** in the approved one; the implemented `--mythos-radius-sm`
+is **6 px** while the approved workhorse `radius-1` is **2 px**. **Two systems,
+similar names, different values.** Anyone reading one and implementing against
+the other gets silently wrong geometry.
+
+| Field | Value |
+|---|---|
+| **Status** | **CONFLICTING — not resolved, and not resolvable here.** It is the visible cost of **MIG-1** and **MIG-3** being recorded and deliberately unactioned |
+| **Does not change** | **D-012 stands**; the approved 1C/1E specifications stand. Neither is withdrawn or amended by this entry |
+| **Bears on** | **TOKEN-2** — the namespace question now has real precedent, since `main` chose `--mythos-*`. **That is evidence, not a decision**, and TOKEN-2 stays open |
+
+---
+
+### ~~C-005~~ — Control height 40 px vs touch minimum 44 px — **RESOLVED by A-022**
+
+| Field | Value |
+|---|---|
+| **Conflict** | Two **owner-approved** statements inside **A-009**. §7 sets control height at **36 px compact / 40 px comfortable**; §7 and §11 both require touch targets of **≥ 44 × 44 px at every breakpoint**. A 40 px control does not meet a 44 px minimum |
+| **Evidence** | `MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md` §7 (Button, Input, "Touch targets ≥ 44 × 44 px") and §11 ("Touch targets 44 × 44 minimum at every breakpoint — not only small ones") |
+| **Found** | Stage **1E**, 2026-08-18, while deriving the size token family |
+| **Resolutions available** | Grow the visual control height at coarse pointers, **or** extend the hit area beyond the visual box. **The approved text names neither** |
+| **Status** | **RESOLVED 2026-08-18 by A-022** — the owner separated the two: the visual box may stay 40 px, the *hit* box must reach 44 × 44, and the hit area may extend beyond the visual box. **Neither approved value was discarded.** Original conflict text above left unaltered |
+
+---
+
 ---
 
 ## 3. Open decisions
@@ -250,6 +567,244 @@ decided, but the decision is not recoverable).
 | **O-008** | Reduce Uthina's five parallel site copies to one? | No | All preserved, none deleted |
 | **O-009** | Adopt D-010 headless-browser design QA as a standard? | No | Proven **twice**: SsangYong (3 defects) and MOS-1 (3 defects, incl. a mobile drawer that could not be opened). Recommended for adoption |
 | **O-010** | Adopt D-006 clear-space/minimum-size rules portfolio-wide? | No | Currently Dar Hijama only |
+
+### 3.1 Open decisions carried forward after the 2026-08-18 owner approval
+
+Recorded with the owner's own wording and IDs. **None of these may be resolved
+by inference.**
+
+| ID | Decision needed | Blocking? | Notes |
+|---|---|---|---|
+| ~~**O-A1**~~ | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | — | **RESOLVED 2026-08-18 by A-020** — a product of **Mythos OS**, not a sixth unit. `MYTHOS → Mythos OS → Mythos Command Center → ordre.mythosprod.xyz`. No unit logo is created |
+| ~~**O-A3**~~ | Whether and under what conditions a public project may use a Mythos-level colour | — | **RESOLVED 2026-08-18 by A-021** — permitted **only as a controlled ecosystem accent**, never replacing the project's primary colour, never automatic. **C-001** and **O-002** remain open: the policy is forward-looking and does not adjudicate the existing Dar Hijama deviation |
+| ~~**GOLD-1**~~ | Which gold is the master? | — | **RESOLVED 2026-08-18 by A-013** — Mythos Gold `#D9A441`, with `#805C19` for gold text on light grounds |
+| **LOGO-2** | Whether the vector reconstruction is adopted as the **production** master | Yes — it blocks monochrome, favicon, app icon, social avatar, print above 14 cm and all signage | **PROPOSED — AWAITING OWNER APPROVAL** (status set by the owner at the 2026-08-18 review hold). `docs/design/LOGO_SYSTEM.md` now carries the final logo system and a recommendation. **Central finding, measured:** the recovered raster is **insufficient as a production master** — `logomythos.png` has **0 non-opaque pixels** (ground baked in), **15,393 distinct colours** (cannot flatten to one ink), and a **142 mm** ceiling at 300 dpi. **Recommendation:** adopt a **two-master model** — the historical raster stays the authoritative record under **A-007**, unmodified; the reconstruction becomes the working production master, always described as a derivative. Three conditions attach, including that a later LOGO-1 find is diffed against it. **Adoption would not close LOGO-1, and would not authorise applying the mark anywhere** |
+| **O-004b** | Whether and when Mythos Services, Digital and Logistique become operating brands | No | **A-002** fixes the roster; the evidence gap for these three is unchanged |
+| ~~**TYPE-1**~~ | Retire Playfair Display from the master brand? | — | **RESOLVED 2026-08-18 by A-014** — retired from the master; master stack is Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono |
+| ~~**SEM-1**~~ | Adopt the corrected semantic palette? | — | **RESOLVED 2026-08-18 by A-015** — adopted, verified on all four surfaces |
+| **MIG-1** | Align Mythos OS's implemented `--gold: #c9a84c` with the approved master `#D9A441` | Not yet | **NEW, from A-013.** A token-level change: one value. **Not actioned** — the 1C approval is specification-only. Belongs to an authorised implementation stage |
+| **MIG-2** | Replace the 45 `Playfair Display` declarations in `css/*.css` | Not yet | **NEW, from A-014.** **Not actioned** — specification only |
+| **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Not yet | **NEW, from A-015 / A-016.** **Not actioned** — specification only. Closes three measured contrast failures and the missing 3 : 1 control boundary |
+| **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** As a Mythos OS product it should carry the Mythos OS visual language, not a third divergent one. **Not actioned** — the O-A1 approval is classification only and explicitly forbids touching Command Center code, CSS, assets, deployment or branding |
+| **SEQ-1** | Sequential and diverging data scales for continuous data | No | **NEW, raised by 1D.** The eight-series categorical palette is approved; continuous scales were outside the 1C scope and must not be improvised (`docs/design/COLOR_SYSTEM.md` §5) |
+| **TYPE-2** | Font subsets, shipped weight instances, and the font performance budget | No | **NEW, raised by 1D.** Outside the approved 1C scope (`docs/design/TYPOGRAPHY.md` §5) |
+
+**Standing finding recorded 2026-08-18 (measurement, not a decision):** the
+recovered historical logo **cannot serve as a production master**. Measured:
+`logomythos.png` 1672 × 941 with **0 non-opaque pixels** and **15,393 distinct
+colours**, maximum **142 mm** at 300 dpi; `logo.png` 1111 × 328, **0 non-opaque
+pixels**, **10,549 colours**, maximum **94 mm**. This makes monochrome
+reproduction, embroidery, engraving, transparent favicons and app icons, social
+avatar crops, placement on any other ground, and print or signage above ~14 cm
+**impossible from the raster alone**. It does not diminish **A-007**: the raster
+remains the authoritative record of what the identity *is*. It is the evidence
+base for the **LOGO-2** recommendation in `docs/design/LOGO_SYSTEM.md` §1.
+
+**Standing constraint recorded 2026-08-18 — the LOGO-2 review hold.** The owner
+reviewed the LOGO-2 proposal, confirmed the two-master model, the descriptor
+system and the three layout forms are understood, and **explicitly withheld
+approval**. The gate is stated plainly so it cannot be lost:
+
+> **The proposed reconstruction must not be converted into an OWNER-APPROVED
+> production master while LOGO-1 remains open.**
+
+**LOGO-2 status is therefore `PROPOSED — AWAITING OWNER APPROVAL`**, and it may
+not be moved to approved by inference, by a later stage needing it, or by the
+absence of an objection. Only an explicit owner decision changes it. Until then
+no logo is generated, no asset is created, and nothing is applied.
+
+### 3.2 Prior open questions answered by the 2026-08-18 approval
+
+Additive record. The rows above in §3 are left exactly as the recovery stage
+wrote them; this table states what changed, without rewriting the evidence.
+
+| Prior ID | Now | By |
+|---|---|---|
+| **O-001** — brand independence vs Mythos consistency | **ANSWERED** — projects stay independently branded | **A-004**, with **A-005**/**A-006** setting what is and is not inherited |
+| **O-004** — do the three units exist as brands? | **PARTIALLY ANSWERED** — the roster is fixed; operating status is not asserted | **A-002**; remainder tracked as **O-004b** |
+
+**Still open and untouched by this approval:** O-002, O-003, O-005, O-006,
+O-007, O-008, O-009, O-010, and the vector-source question tracked as
+**LOGO-1** (see `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md`).
+
+### 3.3 The 2026-08-18 approval of 1C — what it closed, and what it did not
+
+| Prior ID | Now | By |
+|---|---|---|
+| **GOLD-1** | **RESOLVED** — Mythos Gold `#D9A441` | **A-013** (supersedes A-008) |
+| **TYPE-1** | **RESOLVED** — Playfair Display retired from the master | **A-014** |
+| **SEM-1** | **RESOLVED** — corrected semantics adopted | **A-015** |
+| **C-003** | **Resolved forward only.** The master value is decided and has a recorded rationale; the historical relationship between the two golds is still unexplained | **A-013** |
+| **U-001** | **Still UNKNOWN.** The rationale for `#c9a84c` was never recorded and approving a different master does not recover it | — |
+
+**Explicitly still OPEN, and not resolvable by inference — reaffirmed at the
+moment of this approval:**
+
+| Ref | Question | State |
+|---|---|---|
+| ~~**O-A1**~~ | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | **RESOLVED 2026-08-18 by A-020** — a product of Mythos OS. The palette consequence it carried is now tracked as **MIG-4**, not actioned |
+| ~~**O-A3**~~ | Whether, and under what conditions, a public project may use a Mythos-level colour | **RESOLVED 2026-08-18 by A-021** — controlled ecosystem accent only. Completes the exception clause inside **A-006** |
+| **LOGO-1** | Does an original vector or layered master source exist outside Git? | Yes, for LOGO-2 | **STILL OPEN — searched 2026-08-18, result C (only vector derivative found), scope PARTIAL.** Exhaustive over Git history (438 commits, 36 branches — **exactly 14 vector blobs have ever existed, all of them the Stage 1B reconstruction**) and over this container's entire filesystem. **Three of four priority locations were unreachable** (the VPS filesystem does not exist in a cloud session) and **the fourth — the off-host snapshot repositories — was blocked by session permission policy, not by lack of account access.** No original, no master, nothing new discovered; equally, **no true negative established.** Full record: `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md` |
+| **LOGO-2** | Adoption of the vector reconstruction as the **production** master | **PROPOSED — AWAITING OWNER APPROVAL.** A full proposal was delivered 2026-08-18 (`docs/design/LOGO_SYSTEM.md`, commit `46915a0`) and **reviewed by the owner, who placed it on hold**: it is **not** to be converted into an owner-approved production master **while LOGO-1 remains open**. The 1C approval does not adopt it either — that specification is deliberately independent of which logo master is eventually chosen |
+
+### 3.4 New open items raised by Stage 1E — grid, spacing, tokens
+
+**Raised by derivation, not by opinion.** Stage 1E computed the approved figures
+out to their consequences. Each item below is a place where the approved
+specification is silent or self-inconsistent, found by arithmetic and recorded
+rather than filled in.
+
+| Ref | Question | Blocking? | Where it came from |
+|---|---|---|---|
+| **GRID-1** | Two container questions: `2xl` (≥ 1920) has no behaviour the approved text names that is not already true from a **1440** viewport, because the 1280 content cap binds 480 px earlier; and the 1440 "wide" container is ambiguous between a second content width and the outer frame of the 1280 container, since `1280 + 80 + 80 = 1440` exactly | No | `GRID_AND_SPACING.md` §4 |
+| **GRID-2** | Prose measure is approved as **68ch** in 1C §5 and as **65 characters** in `TYPOGRAPHY.md` §2. Different units. `ch` is the advance of the digit *0*, so the two reconcile only against real font metrics — and **no font file exists in this repository** | No | `GRID_AND_SPACING.md` §4.3 |
+| **GRID-3** | Four of the twelve spacing steps (**2, 4, 32, 160**) fall outside both legal bands; and the approved button padding **9 / 15** is off the spacing scale entirely | No | `GRID_AND_SPACING.md` §2, §3 |
+| **SURF-1** | The light elevation ramp has **two** steps (`paper-100`, `paper-200`) to the dark ramp's **four** (`ink-900/850/800/750`), so a card on a raised surface has no light-theme equivalent; and **no shadow values are specified** anywhere — only the rule for when a shadow is permitted | No | `GRID_AND_SPACING.md` §7 |
+| **GOLD-2** | Light-theme **hover** and **active** gold states are unspecified. The approved palette designates `gold-700` for borders and large graphics and `gold-800` for text; `gold-700` measures **3.94** on paper, below AA for text | No | `DESIGN_TOKENS.md` §4.4 |
+| **TOKEN-1** | Generating an actual token artifact (`tokens.css` / `tokens.json`) is **not authorised**. It would put CSS or a build input into the repository, and it would force values onto C-005, SURF-1 and GOLD-2 that no one has decided | No | `DESIGN_TOKENS.md` §8 |
+| **TOKEN-2** | Whether tokens carry a namespace prefix (`--mythos-accent` vs `--accent`). The approved examples show none, but they are illustrative; a shared ecosystem with independently branded projects (**A-006**) is where a prefix earns its keep | No | `DESIGN_TOKENS.md` §2 |
+
+**One structural choice Stage 1E made itself, flagged so it can be rejected:**
+grid tokens (`grid-*`, `container-*`) are consumed **directly by the layout
+primitive** rather than through the semantic tier. A layout frame is the thing
+components sit *in*, and routing nine grid values through nine semantic aliases
+would add names without meaning and push the semantic layer past its approved
+60-token ceiling. **This is not an owner decision.** It is reversible at the cost
+of nine semantic tokens.
+
+**Effect on U-004** (*"Mythos spacing and grid — no scale exists in any document
+or stylesheet"*): the **specification** half is now answered — `A-009` approved a
+scale and `GRID_AND_SPACING.md` states it in implementable form. The
+**stylesheet** half was unchanged at the time of writing, and **MIG-3** remains
+unactioned. U-004 is therefore narrowed, not closed, and its original text above
+is left exactly as the recovery stage wrote it.
+
+**Corrected 2026-08-18, after merging `main` at `5e2011b`.** The sentence above
+originally read *"no CSS in this repository has a spacing scale"*. **That is no
+longer true.** Stage MOS-1 landed on `main` and shipped
+`projects/mythos-os-console/reference/web/mythos.css`, which declares a spacing
+scale, a radius scale and 68 `--mythos-*` custom properties. The claim is
+corrected rather than deleted, and the collision it creates is recorded as
+**C-006** below. **MIG-1 and MIG-3 are still unactioned, and nothing here
+resolves TOKEN-2.**
+
+---
+
+### 3.5 New open items raised by Stage 1F — component system
+
+**Found by specifying components against the approved rules, not by opinion.**
+Each is a place where two approved statements collide, or where a component the
+owner asked for has no approved value at all. **None was resolved inside a
+component** — that is the specific failure the token architecture exists to
+prevent.
+
+| Ref | Statement | Blocking? | Recommendation (**PROPOSED**, not decided) |
+|---|---|---|---|
+| **MOTION-1** | The approved motion rule *"nothing loops, nothing autoplays"* (1C §10) and the approved requirement that every interactive element have a **loading** state (1C §7) cannot both hold as written — **a spinner loops and autoplays** | For the loading state only | Static skeletons and determinate progress only. It is also the only route that stays perceivable under `prefers-reduced-motion` |
+| **LINK-1** | The inline text link has **no approved colour**. Gold is reserved for the primary action, active state, focus ring and the 35° gesture — *"nothing else"* (`COLOR_SYSTEM.md` §3.2) — and *"gold is never used to create hierarchy in running text"* (`TYPOGRAPHY.md` §4). **No other accent colour exists in the system** | No | Underline in `text-primary`, thickening on hover. Colour never distinguishes a link, which is also robust for colour-vision deficiency |
+| **SHAPE-1** | A switch track needs a pill, but `radius-pill` is approved for **avatars and status dots only** (1C §6). The component set the owner requested and the approved radius rule do not fit | No | A rectangular switch at `radius-control` (2) — consistent with a wordmark built on flat terminals |
+| **GOLD-3** | The recovered CSS draws select chevrons in gold, but the approved scarcity rule allows **one gold element per view** — *"if two things are gold, one of them is wrong"*. A form with five selects would carry five, before counting the primary button | No | Chevrons take `text-secondary`; gold stays with the primary action |
+
+**Thirteen of the twenty-one components the owner named have no approved base
+specification.** 1C §7 specified Button, Input, Card, Navigation, Table, Modal,
+Chip/status and Toast — and nothing else. For the other thirteen every value in
+`COMPONENT_SYSTEM.md` is marked **DERIVED** (computed from approved rules, no new
+decision) or **PROPOSED** (a new decision, rejectable on its own). That split is
+stated at the top of each affected entry rather than left for a reader to infer.
+
+**Still open and untouched by 1F:** **SURF-1** and **GOLD-2** are the two that
+bite hardest — between them they leave *every* hover and active state
+unspecified on light, and leave the three floating components (menu, modal,
+toast) with no shadow value. `COMPONENT_SYSTEM.md` §9 maps every open reference
+to the components it affects.
+
+---
+
+### 3.6 New open items raised by Stage 1G — responsive, accessibility, motion
+
+**Found by specifying the four device classes, the accessibility floor and the
+motion system against the approved rules.** Each is a place where the approved
+text stops short of what the specification needs. **None was resolved**, and
+**MOTION-1 was deliberately left open on the owner's explicit instruction.**
+
+| Ref | Question | Blocking? | Recommendation (**PROPOSED**, not decided) |
+|---|---|---|---|
+| **TYPE-3** | Fluid type is approved as `clamp()` *"between the scale's stops"*, but **which stop floors each style, and at which viewports the clamp endpoints sit, are unspecified** — and both are needed to write a single `clamp()` | No | Floor at the next stop down; endpoints at **320** and **1240** (where the grid first reaches 12 columns). Body and below stay fixed, because a fluid body range would break either the 16 px floor or the 13 px operational floor |
+| **SPACE-1** | The approved spacing bands **do not vary by breakpoint**, and no approved rule says whether they should. A 128 px section gap is **a quarter of a 320 px phone viewport** | No | Section spacing steps one band down at mobile (128 → 96, 96 → 64, 64 → 48); component spacing unchanged, being already at the small end of the scale |
+| **A11Y-1** | Under `forced-colors` the palette is replaced by the user's. **Gold is the system's only emphasis channel** — primary action, active state, focus ring and the 35° gesture all carry it. Status survives because the approved rule already pairs colour with a dot, chip or stripe; **the primary-versus-secondary button distinction does not** | No | Needs a non-colour channel for the primary action. This is a real design decision, **not** something derivation can supply |
+| **A11Y-2** | The universal rule is *colour never carries meaning alone*, and **disabled is a meaning** — yet the approved system gives disabled **no non-colour channel**. A disabled control is currently distinguished by contrast alone, which is what the rule forbids elsewhere | No | — |
+| **MOTION-2** | The M's slant does not mirror in RTL (**A-012**), and the 35° motion vector is the same angle as the mark. **Whether the vector mirrors is unstated:** keeping it preserves the angle and breaks layout logic; mirroring it does the reverse | No | — |
+| **MOTION-3** | The 35° gesture exists twice in the approved text — as a **shape** (a 35° cut on one element per view, 1C §6) and as a **motion** (one element per view travelling along 35°, 1C §10), each *"once per view"*. **Whether they share one budget or two is unstated** | No | — |
+
+**MOTION-1 remains OPEN by instruction, not by omission.** The owner's 1G
+instruction was explicit: *"If a loading state requires an exception, document it
+as PROPOSED and leave it OPEN."* `RESPONSIVE_ACCESSIBILITY_MOTION.md` §3.4 states
+the contradiction in the approved text's own words, sets out three routes with
+their costs, and recommends **routes 1 and 2 together** — determinate progress
+where measurable, static skeletons elsewhere — on the ground that **A-018
+requires the interface to remain legible with animation disabled entirely**,
+which routes 1 and 2 satisfy unchanged while an animated indicator needs a
+second, non-animated fallback regardless. **That is a recommendation. It is not a
+decision, and it may not be treated as one.**
+
+**Two measured findings from 1G worth carrying forward, neither of them a new
+decision:**
+
+- **Zoom is not a special mode — it moves the user down the same bands.** From a
+  1280 viewport, 200 % zoom yields a **640 px** effective width and lands in the
+  tablet band; 400 % yields **320 px** and lands in mobile. So **the tablet
+  layout is the desktop-at-200 %-zoom layout** and cannot be a degraded middle
+  state, and **the 320 px reflow requirement and 400 % zoom are the same test**.
+- **Nine of the twelve approved type styles have a default line-height below
+  1.5** — all six display and heading styles plus Caption (1.46), Label (1.34)
+  and Data (1.44). WCAG 1.4.12 requires content to survive a user forcing 1.5, so
+  **no fixed-height container may wrap a heading, label or data cell**; forcing
+  Display XL from 1.02 to 1.5 grows its line box by **47 %**. This is not a defect
+  in the scale — tight display leading is correct — it is a constraint on every
+  container the scale sits in.
+
+**Where GRID-1 bit hardest:** the owner asked 1G to define **large desktop** as
+one of four device classes, and **every approved metric for `2xl` is identical to
+`xl`** — the content cap already stops the grid growing from a 1440 viewport,
+480 px below the `2xl` boundary. **The class has nothing of its own in the
+approved system**, and none was invented.
+
+---
+
+### 3.7 New open items raised by Stage 1H — public ecosystem architecture
+
+**Found by describing the ecosystem against the recorded evidence rather than
+against intent.** All three are gaps between what the approved architecture
+covers and what the recovery documents show actually exists. **None was
+resolved**, and 1H resolved nothing carried in from earlier stages.
+
+| Ref | Question | Blocking? | Evidence |
+|---|---|---|---|
+| **ECO-1** | **A-020** nests Mythos Command Center **under** Mythos OS, but the domain architecture makes `os.mythosprod.xyz` and `ordre.mythosprod.xyz` **sibling subdomains** of the same apex — the URL says peers, the brand tree says one contains the other. Which structure the address bar should reflect is unstated | No | `MYTHOS_PROJECT_DESIGN_MATRIX.md` §8; **A-020**. **The Command Center is live and was not touched** |
+| **ECO-2** | `panel.mythosprod.xyz` and `tv.mythosprod.xyz` are **live subdomains of the master domain with no place anywhere in the approved brand architecture** — neither units (**A-002**), nor products of a unit (**A-020**), nor independent projects (**A-004**). `tv.` runs Jellyfin, third-party software on a Mythos hostname | No | Recovered live-service map: proxies `127.0.0.1:8000` and `127.0.0.1:8096` |
+| **ECO-3** | **Twelve projects exist outside the owner's eight-project list**, all recorded as VERIFIED present — **KnowledgeVault KMS alone is 752 distinct files, the largest body of design work outside the eight**. **A-004** names eight projects "and future projects"; whether these twelve are ecosystem projects, internal tooling or archive is undecided, and it determines what a `mythosprod.xyz` hub would list | No | `MYTHOS_PROJECT_DESIGN_MATRIX.md` §7 |
+
+**The status ledger is evidence-based, and the headline is worth stating in the
+register itself:** of the eight named public projects, **five are LIVE**
+(Uthina Chess, SsangYong.autos, Fixpert, Notre Jour, Dar Hijama) and **three are
+BUILT but unserved** (AgriBee, ID Auto, Mouain — **O-007**, no vhost, and
+**O-006**, 1,787 unmerged lines). On the Mythos side, **the master brand has no
+public surface at all** (`mythosprod.xyz` has no apex vhost — **O-003**),
+**Mythos OS is built but not deployed** (DNS resolves; MOS-1.1), and **the
+Command Center is the only live Mythos-owned brand surface**.
+
+**C-006 is recorded by 1H as an ecosystem problem, not only a CSS one, and is
+still OPEN.** Under **A-005** public projects inherit *the standards*; with two
+token systems both answering to the name "Mythos", **a project cannot know which
+standard it is inheriting**. 1H merged neither system, renamed neither and chose
+no winner — the reconciliation belongs to a later **implementation** stage
+alongside **MIG-1** and **MIG-3**, both still unactioned.
+
+**A-021 was applied exactly as approved**, with no reinterpretation or expansion,
+and **C-001 / O-002 remain open** — the policy is forward-looking and still does
+not adjudicate the live Dar Hijama deviation.
+
+---
 
 ---
 
