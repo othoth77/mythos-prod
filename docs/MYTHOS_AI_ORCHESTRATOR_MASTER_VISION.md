@@ -304,10 +304,13 @@ the automation track's connector catalogue (capability-scoped, least-privilege,
 e.g. `backup_storage_readonly`) — the same philosophy, per-track rather than
 runtime-wide.
 
-### L. MCP Tool Layer — PLANNED (Phase 2+); see §8
+### L. MCP Tool Layer — precursor IMPLEMENTED; full layer PLANNED (Phase 2+); see §8
 
 Standardized tool/resource protocol where appropriate. **Mythos does not
-currently depend on MCP.**
+currently depend on MCP.** Precursor: `core/mcp-tool-adapter.js` reshapes the
+existing tool registry (K) into MCP's `tools/list`/`tools/call` wire shapes
+(read-only, no new dependency, no server or transport) so a real MCP server
+can be wired in later without redesigning the tool contract.
 
 ### M. Model / Provider Router — DESIGNED; MVP abstraction IMPLEMENTED
 
@@ -545,7 +548,7 @@ read-only connectors) is the implemented precedent for this contract.
 
 ---
 
-## 8. MCP — PLANNED
+## 8. MCP — precursor IMPLEMENTED, full layer PLANNED
 
 MCP (Model Context Protocol) is recorded as a **planned** standardized
 tool/resource layer where appropriate, so external tools and resources can be
@@ -553,7 +556,10 @@ added without tightly coupling every agent to every integration.
 
 **Mythos does not currently depend on MCP.** Adoption is per-integration and
 pragmatic: MCP where it reduces coupling, direct adapters where MCP adds
-nothing.
+nothing. `core/mcp-tool-adapter.js` is the smallest coherent step toward
+that: a read-only reshaping of the existing tool registry (§7) into MCP's
+`tools/list`/`tools/call` shapes, with no MCP SDK dependency and no server —
+grant and schema checks still run in the registry underneath it.
 
 ---
 
