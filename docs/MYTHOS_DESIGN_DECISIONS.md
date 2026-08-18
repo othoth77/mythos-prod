@@ -673,7 +673,8 @@ in the source documents, this one is authoritative for the value itself);
 `docs/design/IMPLEMENTATION_READINESS_AUDIT.md` (the honest finding: **nothing
 in this program has been implemented or verified in any running application,
 anywhere** — every readiness-table cell for "implemented" and "verified" is
-empty, and five concrete prerequisites are named, none satisfied yet);
+empty, and five concrete prerequisites are named, none satisfied yet — as of
+this stage; two are now closed and one partly closed, see **AUTO-4/5/6**);
 `docs/design/MIGRATION_PLANS.md` (a plan per project and Mythos-owned surface,
 calibrated to the evidence-based ledger — most public-project plans reduce
 honestly to "ecosystem strip only, if wanted" or "no action," since **A-006**

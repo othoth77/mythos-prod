@@ -4,7 +4,7 @@
 **Date:** 2026-08-18 UTC
 **Status:** **AUDIT ONLY. No implementation performed by this document.**
 
-**Purpose.** The design system (1A–1I, AUTO-1 through AUTO-3) is complete as a
+**Purpose.** The design system (1A–1I, AUTO-1 through AUTO-6) is complete as a
 specification. This audit asks the next honest question: what would actually
 have to be true before any of it could be implemented against a real
 application, and where does that break down today? It is a gap analysis, not

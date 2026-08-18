@@ -66,11 +66,11 @@ golds** (`gold-200` lightest through `gold-800` darkest). This is the convention
 the approved palette already follows; it is recorded here because a token file
 that broke it would be silently confusing.
 
-**OPEN — TOKEN-2:** whether tokens carry a namespace prefix (`--mythos-accent`
-vs `--accent`). The approved examples show none, but they are illustrative rather
-than literal, and a shared ecosystem with independently branded public projects
-(**A-006**) is exactly the situation where a prefix earns its keep. Not decided
-here.
+**RESOLVED — TOKEN-2, AUTO-3:** tokens carry the `--mythos-*` prefix
+(`--mythos-accent`, not `--accent`), matching **C-006**'s real-world
+precedent — the independently-implemented `mythos-os-console` system had
+already made this exact choice. Not owner-approved; see
+`../MYTHOS_DESIGN_DECISIONS.md` §0.5.
 
 ---
 
@@ -129,12 +129,16 @@ a new colour, size or duration.**
 | Token | Dark | Light |
 |---|---|---|
 | `ground` | `ink-850` | `paper-100` |
-| `ground-deep` | `ink-900` | **OPEN — SURF-1** |
+| `ground-deep` | `ink-900` | `paper-050` — **RESOLVED, SURF-1/AUTO-3** |
 | `surface` | `ink-800` | `paper-200` |
-| `surface-card` | `ink-750` | **OPEN — SURF-1** |
+| `surface-card` | `ink-750` | `paper-250` — **RESOLVED, SURF-1/AUTO-3** |
 
-The light ramp has two steps to the dark ramp's four. The two empty cells are
-left empty rather than guessed.
+The light ramp originally had two steps to the dark ramp's four; **AUTO-3
+extended it to match** (`paper-050` for `ground-deep`, `paper-250` for
+`surface-card`), by measuring the lightness step the already-approved
+`paper-100→paper-200` transition encodes and extending that same step, not
+inventing a new one. Not owner-approved; see `../MYTHOS_DESIGN_DECISIONS.md`
+§0.5.
 
 ### 4.2 Text — 5
 
@@ -152,7 +156,7 @@ left empty rather than guessed.
 |---|---|---|
 | `border-hairline` | `ink-700` | `paper-300` |
 | `border-control` | `ink-550` — 3.84 / 3.60 / 3.36 | `paper-500` — 3.82 / 3.59 |
-| `border-strong` | `ink-600` | **OPEN — SURF-1** |
+| `border-strong` | `ink-600` | `paper-strong` — **RESOLVED, SURF-1/AUTO-3** |
 | `focus-ring` | `gold-500` — 8.59 | `gold-800` — 5.47 |
 
 **Focus is never removed** (**A-016**). Both focus values exceed the 3 : 1 that
@@ -163,15 +167,19 @@ WCAG 2.2 requires for non-text UI.
 | Token | Dark | Light |
 |---|---|---|
 | `accent` | `gold-500` | `gold-800` |
-| `accent-hover` | `gold-200` | **OPEN — GOLD-2** |
-| `accent-active` | `gold-400` | **OPEN — GOLD-2** |
+| `accent-hover` | `gold-200` | `#5a4011` — **RESOLVED, GOLD-2/AUTO-3** |
+| `accent-active` | `gold-400` | `#6b4d15` — **RESOLVED, GOLD-2/AUTO-3** |
 | `accent-dim` | `gold-dim` (12 % alpha) | `gold-dim` |
 
-**GOLD-2:** the approved palette designates two golds for light grounds —
-`gold-700` for borders and large graphics, `gold-800` for text. Neither is
-designated as a light-theme *hover* or *active* state, and `gold-700` measures
-3.94 on paper, which is below AA for text. The light interaction states are
-therefore genuinely unspecified. Not invented here.
+**GOLD-2 — RESOLVED, AUTO-3.** The approved palette designates two golds for
+light grounds — `gold-700` for borders and large graphics, `gold-800` for
+text — but neither was designated as a light-theme *hover* or *active*
+state, and `gold-700` measures 3.94 on paper, below AA for text. Computed,
+not assumed: lightening `gold-800` (the dark-theme hover pattern) fails AA
+immediately; darkening is the only direction that can't break AA — it only
+ever raises contrast. `accent-hover` (`#5a4011`) and `accent-active`
+(`#6b4d15`) both darken from `gold-800`, verified at 8.71:1 / 7.02:1. Not
+owner-approved; see `../MYTHOS_DESIGN_DECISIONS.md` §0.5.
 
 ### 4.5 Status — 8
 
@@ -228,8 +236,11 @@ is permitted and never what it is — **SURF-1**.
 `chart-1` … `chart-8`, in the approved order, all ≥ 7 : 1 on ink. Gold leads the
 sequence. Series never rely on hue alone.
 
-**OPEN — SEQ-1** (carried from `COLOR_SYSTEM.md` §5): sequential and diverging
-scales for continuous data are not specified and must not be improvised.
+**RESOLVED — SEQ-1, AUTO-3** (carried from `COLOR_SYSTEM.md` §5): sequential
+(6-step, single-hue gold, `#7e5c1b`→`#f2e0c0`) and diverging (7-step,
+info↔neutral↔danger, `#75b5d7`→`#726f64`→`#b23934`) scales now defined, all
+steps ≥ 3:1 on ink. Not owner-approved; see
+`../MYTHOS_DESIGN_DECISIONS.md` §0.5.
 
 ---
 

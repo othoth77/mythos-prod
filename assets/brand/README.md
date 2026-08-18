@@ -15,7 +15,9 @@ assets/brand/
 ├── source/     canonical geometry + the generator (edit here)
 ├── master/     generated SVG masters (never hand-edit)
 ├── export/     generated PNG exports (never hand-edit)
-└── tokens/     tokens.css — the canonical 1C/1E token artifact (AUTO-3, TOKEN-1)
+├── tokens/     tokens.css — the canonical 1C/1E token artifact (AUTO-3, TOKEN-1)
+│               NOT wired into any application or build
+└── fonts/      8 self-hosted WOFF2 files + fonts.css (AUTO-4, TYPE-2)
                 NOT wired into any application or build
 ```
 
