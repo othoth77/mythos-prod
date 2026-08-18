@@ -471,7 +471,7 @@ by inference.**
 | ~~**O-A1**~~ | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | — | **RESOLVED 2026-08-18 by A-020** — a product of **Mythos OS**, not a sixth unit. `MYTHOS → Mythos OS → Mythos Command Center → ordre.mythosprod.xyz`. No unit logo is created |
 | ~~**O-A3**~~ | Whether and under what conditions a public project may use a Mythos-level colour | — | **RESOLVED 2026-08-18 by A-021** — permitted **only as a controlled ecosystem accent**, never replacing the project's primary colour, never automatic. **C-001** and **O-002** remain open: the policy is forward-looking and does not adjudicate the existing Dar Hijama deviation |
 | ~~**GOLD-1**~~ | Which gold is the master? | — | **RESOLVED 2026-08-18 by A-013** — Mythos Gold `#D9A441`, with `#805C19` for gold text on light grounds |
-| **LOGO-2** | Whether the Stage 1B vector reconstruction is adopted as the master, once **LOGO-1** is settled | Yes, for 1C | The 1B masters are **PROPOSED**, never approved (**A-007**). Adoption is a separate decision from the architecture approved on 2026-08-18 |
+| **LOGO-2** | Whether the vector reconstruction is adopted as the **production** master | Yes — it blocks monochrome, favicon, app icon, social avatar, print above 14 cm and all signage | **PROPOSAL DELIVERED 2026-08-18, AWAITING DECISION.** `docs/design/LOGO_SYSTEM.md` now carries the final logo system and a recommendation. **Central finding, measured:** the recovered raster is **insufficient as a production master** — `logomythos.png` has **0 non-opaque pixels** (ground baked in), **15,393 distinct colours** (cannot flatten to one ink), and a **142 mm** ceiling at 300 dpi. **Recommendation:** adopt a **two-master model** — the historical raster stays the authoritative record under **A-007**, unmodified; the reconstruction becomes the working production master, always described as a derivative. Three conditions attach, including that a later LOGO-1 find is diffed against it. **Adoption would not close LOGO-1, and would not authorise applying the mark anywhere** |
 | **O-004b** | Whether and when Mythos Services, Digital and Logistique become operating brands | No | **A-002** fixes the roster; the evidence gap for these three is unchanged |
 | ~~**TYPE-1**~~ | Retire Playfair Display from the master brand? | — | **RESOLVED 2026-08-18 by A-014** — retired from the master; master stack is Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono |
 | ~~**SEM-1**~~ | Adopt the corrected semantic palette? | — | **RESOLVED 2026-08-18 by A-015** — adopted, verified on all four surfaces |
@@ -481,6 +481,17 @@ by inference.**
 | **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** As a Mythos OS product it should carry the Mythos OS visual language, not a third divergent one. **Not actioned** — the O-A1 approval is classification only and explicitly forbids touching Command Center code, CSS, assets, deployment or branding |
 | **SEQ-1** | Sequential and diverging data scales for continuous data | No | **NEW, raised by 1D.** The eight-series categorical palette is approved; continuous scales were outside the 1C scope and must not be improvised (`docs/design/COLOR_SYSTEM.md` §5) |
 | **TYPE-2** | Font subsets, shipped weight instances, and the font performance budget | No | **NEW, raised by 1D.** Outside the approved 1C scope (`docs/design/TYPOGRAPHY.md` §5) |
+
+**Standing finding recorded 2026-08-18 (measurement, not a decision):** the
+recovered historical logo **cannot serve as a production master**. Measured:
+`logomythos.png` 1672 × 941 with **0 non-opaque pixels** and **15,393 distinct
+colours**, maximum **142 mm** at 300 dpi; `logo.png` 1111 × 328, **0 non-opaque
+pixels**, **10,549 colours**, maximum **94 mm**. This makes monochrome
+reproduction, embroidery, engraving, transparent favicons and app icons, social
+avatar crops, placement on any other ground, and print or signage above ~14 cm
+**impossible from the raster alone**. It does not diminish **A-007**: the raster
+remains the authoritative record of what the identity *is*. It is the evidence
+base for the **LOGO-2** recommendation in `docs/design/LOGO_SYSTEM.md` §1.
 
 ### 3.2 Prior open questions answered by the 2026-08-18 approval
 
