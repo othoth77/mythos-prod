@@ -771,6 +771,41 @@ approved system**, and none was invented.
 
 ---
 
+### 3.7 New open items raised by Stage 1H — public ecosystem architecture
+
+**Found by describing the ecosystem against the recorded evidence rather than
+against intent.** All three are gaps between what the approved architecture
+covers and what the recovery documents show actually exists. **None was
+resolved**, and 1H resolved nothing carried in from earlier stages.
+
+| Ref | Question | Blocking? | Evidence |
+|---|---|---|---|
+| **ECO-1** | **A-020** nests Mythos Command Center **under** Mythos OS, but the domain architecture makes `os.mythosprod.xyz` and `ordre.mythosprod.xyz` **sibling subdomains** of the same apex — the URL says peers, the brand tree says one contains the other. Which structure the address bar should reflect is unstated | No | `MYTHOS_PROJECT_DESIGN_MATRIX.md` §8; **A-020**. **The Command Center is live and was not touched** |
+| **ECO-2** | `panel.mythosprod.xyz` and `tv.mythosprod.xyz` are **live subdomains of the master domain with no place anywhere in the approved brand architecture** — neither units (**A-002**), nor products of a unit (**A-020**), nor independent projects (**A-004**). `tv.` runs Jellyfin, third-party software on a Mythos hostname | No | Recovered live-service map: proxies `127.0.0.1:8000` and `127.0.0.1:8096` |
+| **ECO-3** | **Twelve projects exist outside the owner's eight-project list**, all recorded as VERIFIED present — **KnowledgeVault KMS alone is 752 distinct files, the largest body of design work outside the eight**. **A-004** names eight projects "and future projects"; whether these twelve are ecosystem projects, internal tooling or archive is undecided, and it determines what a `mythosprod.xyz` hub would list | No | `MYTHOS_PROJECT_DESIGN_MATRIX.md` §7 |
+
+**The status ledger is evidence-based, and the headline is worth stating in the
+register itself:** of the eight named public projects, **five are LIVE**
+(Uthina Chess, SsangYong.autos, Fixpert, Notre Jour, Dar Hijama) and **three are
+BUILT but unserved** (AgriBee, ID Auto, Mouain — **O-007**, no vhost, and
+**O-006**, 1,787 unmerged lines). On the Mythos side, **the master brand has no
+public surface at all** (`mythosprod.xyz` has no apex vhost — **O-003**),
+**Mythos OS is built but not deployed** (DNS resolves; MOS-1.1), and **the
+Command Center is the only live Mythos-owned brand surface**.
+
+**C-006 is recorded by 1H as an ecosystem problem, not only a CSS one, and is
+still OPEN.** Under **A-005** public projects inherit *the standards*; with two
+token systems both answering to the name "Mythos", **a project cannot know which
+standard it is inheriting**. 1H merged neither system, renamed neither and chose
+no winner — the reconciliation belongs to a later **implementation** stage
+alongside **MIG-1** and **MIG-3**, both still unactioned.
+
+**A-021 was applied exactly as approved**, with no reinterpretation or expansion,
+and **C-001 / O-002 remain open** — the policy is forward-looking and still does
+not adjudicate the live Dar Hijama deviation.
+
+---
+
 ---
 
 ## 4. Unknown — believed decided, not recoverable

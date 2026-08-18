@@ -5,9 +5,12 @@
 (**A-009**–**A-019**) are **OWNER-APPROVED**. `COLOR_SYSTEM.md`,
 `TYPOGRAPHY.md`, `GRID_AND_SPACING.md` and `DESIGN_TOKENS.md` are **canonical
 specifications derived from that approval** — they introduce no new values.
-`COMPONENT_SYSTEM.md` is a **specification only**, and every line in it is
-labelled **OWNER-APPROVED**, **DERIVED**, **PROPOSED** or **OPEN** — because
-**thirteen of its twenty-one components have no approved base specification.** `LOGO_SYSTEM.md` remains **PROPOSED and not
+`COMPONENT_SYSTEM.md`, `RESPONSIVE_ACCESSIBILITY_MOTION.md` and
+`PUBLIC_ECOSYSTEM_ARCHITECTURE.md` are **specifications only**, and every line in
+them is labelled **OWNER-APPROVED**, **DERIVED**, **PROPOSED** or **OPEN** —
+because **thirteen of the twenty-one components have no approved base
+specification**, and because the ecosystem architecture describes surfaces that
+in several cases **do not exist yet**. `LOGO_SYSTEM.md` remains **PROPOSED and not
 approved**: the historical logo is still the authoritative source, no redraw is
 authorised (**A-007**), and adoption of the vector reconstruction is **LOGO-2**.
 
@@ -40,6 +43,17 @@ consequences: ~~**C-005**~~ (**resolved by A-022**), **GRID-1/2/3**, **SURF-1**,
 **GOLD-2**, **TOKEN-1/2**. Full statements in
 `../MYTHOS_DESIGN_DECISIONS.md` §3.4.
 
+**Raised by Stage 1H**, by describing the ecosystem against recorded evidence
+rather than intent: **ECO-1** (the brand tree nests Command Center under Mythos
+OS while the domains make them siblings), **ECO-2** (`panel.` and `tv.` are live
+subdomains of the master domain with no place in the architecture) and **ECO-3**
+(twelve projects exist outside the owner's list of eight, KnowledgeVault KMS
+alone being 752 files). See §3.7.
+
+**Raised by Stage 1G**, by computing the responsive and accessibility
+consequences: **TYPE-3**, **SPACE-1**, **A11Y-1**, **A11Y-2**, **MOTION-2**,
+**MOTION-3**. See §3.6.
+
 **Raised by Stage 1F**, by specifying components against the approved rules:
 **MOTION-1** (*"nothing loops, nothing autoplays"* versus the required loading
 state — a spinner does both), **LINK-1** (the inline text link has no approved
@@ -64,7 +78,9 @@ Start with the evidence, then the structure, then the mark.
 | 5 | `GRID_AND_SPACING.md` | **Derived, canonical.** The 12-step spacing scale, the 4 / 8 / 12 grid with measured column widths, the five breakpoints, the radius scale — and the proof that **no baseline grid is possible** with the approved type scale |
 | 6 | `DESIGN_TOKENS.md` | **Derived, canonical.** The three tiers, the naming grammar, and the **59-token semantic layer** measured against the approved 40–60 ceiling. **No token artifact was generated** — that is `TOKEN-1`, unauthorised |
 | 7 | `COMPONENT_SYSTEM.md` | **SPECIFICATION.** Twenty-one components, each with structure, dimensions, tokens, six states, keyboard, touch, accessibility, responsive and reduced-motion behaviour. Carries **A-022**, which separates the visual box from the hit box |
-| 8 | `LOGO_SYSTEM.md` | **PROPOSED — AWAITING OWNER APPROVAL.** The mark: what was preserved from the original, what changed and why, the construction grid, and the full master set. Held pending **LOGO-1** |
+| 8 | `RESPONSIVE_ACCESSIBILITY_MOTION.md` | **SPECIFICATION.** The four device classes against the five approved bands, the WCAG 2.2 floor, and the motion system. Records that **zoom moves the user down the same bands** — 200 % lands in tablet, 400 % in mobile — and that **no baseline grid is possible**. **MOTION-1 left OPEN by owner instruction** |
+| 9 | `PUBLIC_ECOSYSTEM_ARCHITECTURE.md` | **ARCHITECTURE.** How MYTHOS relates to its units, its products and the independent public projects: endorsement rules, where MYTHOS may and may not appear, domain architecture, hub structure, onboarding and governance. Carries an **evidence-based status ledger** — five projects LIVE, three BUILT but unserved, and **the master brand with no public surface at all** |
+| 10 | `LOGO_SYSTEM.md` | **PROPOSED — AWAITING OWNER APPROVAL.** The mark: what was preserved from the original, what changed and why, the construction grid, and the full master set. Held pending **LOGO-1** |
 
 ## Companion records outside this directory
 
@@ -79,9 +95,12 @@ Start with the evidence, then the structure, then the mark.
 
 ## Still to be written
 
-`MOTION_SYSTEM.md` · `RESPONSIVE_SYSTEM.md` · `ACCESSIBILITY.md` ·
-`IMAGE_ART_DIRECTION.md` · `BUSINESS_UNITS.md` · `PUBLIC_WEBSITES.md` ·
-`BRAND_GOVERNANCE.md`
+`IMAGE_ART_DIRECTION.md` · `BUSINESS_UNITS.md` · `BRAND_GOVERNANCE.md`
+
+**Superseded placeholder names.** `RESPONSIVE_SYSTEM.md`, `ACCESSIBILITY.md` and
+`MOTION_SYSTEM.md` are all covered by the single `RESPONSIVE_ACCESSIBILITY_MOTION.md`,
+as the owner named it at 1G. `PUBLIC_WEBSITES.md` is covered by
+`PUBLIC_ECOSYSTEM_ARCHITECTURE.md`, as the owner named it at 1H.
 
 Each of these has an approved source section in
 `MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md`, so writing them is derivation rather
