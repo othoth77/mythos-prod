@@ -203,6 +203,18 @@ different thing.
 | **Status** | **OWNER-APPROVED** — 2026-08-18 |
 | **Notes** | Recorded as a confirmation so the reaffirmation is traceable. It creates no new obligation and duplicates no earlier entry |
 
+### A-020 — Mythos Command Center is a product of Mythos OS
+
+| Field | Value |
+|---|---|
+| **Decision** | **Mythos Command Center is a product/system of Mythos OS, not a sixth Mythos company or unit.** The hierarchy is `MYTHOS → Mythos OS → Mythos Command Center → ordre.mythosprod.xyz` |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Resolves** | **O-A1** |
+| **Consequence for the unit roster** | The five-unit roster fixed by **A-002** is **unchanged**. Command Center sits one level below it, inside Mythos OS |
+| **Consequence for identity** | **No new Mythos unit logo is created.** Command Center is not an endorsed unit, so **A-003** does not apply to it: it takes no `MYTHOS / <descriptor>` lockup of its own. It is branded as what it is — a product surface of Mythos OS |
+| **Consequence for the hub** | The `mythosprod.xyz` information architecture must place Command Center **under Mythos OS**, not beside the five units. Relevant to Stage 1H |
+| **Not actioned** | Command Center currently carries its own unrelated palette (light `#f6f7f9` / indigo `#4f46e5`), recorded at recovery as a third divergent Mythos-level visual language. Now that it is a Mythos OS product rather than an independent entity, that palette is **out of system**. Tracked as **MIG-4** (§3.1). **No code, CSS, asset, deployment or branding was changed** — this approval is classification only |
+
 ---
 
 ## 1. Confirmed decisions
@@ -408,7 +420,7 @@ by inference.**
 
 | ID | Decision needed | Blocking? | Notes |
 |---|---|---|---|
-| **O-A1** | Classification of Mythos Command Center / `ordre.mythosprod.xyz` within the Mythos architecture | Yes, for 1C and for the hub IA | Live, Mythos-level, **absent from the approved five-unit roster (A-002)**, and carrying a third divergent Mythos-level palette (light `#f6f7f9` / indigo `#4f46e5`). Cannot be absorbed silently |
+| ~~**O-A1**~~ | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | — | **RESOLVED 2026-08-18 by A-020** — a product of **Mythos OS**, not a sixth unit. `MYTHOS → Mythos OS → Mythos Command Center → ordre.mythosprod.xyz`. No unit logo is created |
 | **O-A3** | **Whether and under what conditions a public project may use a Mythos-level colour in its own visual identity** | Yes, for any project-level design work | The owner's scoping, which is broader than the earlier draft framing of O-A3. Governs the exception clause in **A-006**. Related evidence: **C-001** (Dar Hijama's live site uses `#c9a84c` while its charter specifies green) and **O-002**, both of which remain open on their own terms |
 | ~~**GOLD-1**~~ | Which gold is the master? | — | **RESOLVED 2026-08-18 by A-013** — Mythos Gold `#D9A441`, with `#805C19` for gold text on light grounds |
 | **LOGO-2** | Whether the Stage 1B vector reconstruction is adopted as the master, once **LOGO-1** is settled | Yes, for 1C | The 1B masters are **PROPOSED**, never approved (**A-007**). Adoption is a separate decision from the architecture approved on 2026-08-18 |
@@ -418,6 +430,7 @@ by inference.**
 | **MIG-1** | Align Mythos OS's implemented `--gold: #c9a84c` with the approved master `#D9A441` | Not yet | **NEW, from A-013.** A token-level change: one value. **Not actioned** — the 1C approval is specification-only. Belongs to an authorised implementation stage |
 | **MIG-2** | Replace the 45 `Playfair Display` declarations in `css/*.css` | Not yet | **NEW, from A-014.** **Not actioned** — specification only |
 | **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Not yet | **NEW, from A-015 / A-016.** **Not actioned** — specification only. Closes three measured contrast failures and the missing 3 : 1 control boundary |
+| **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** As a Mythos OS product it should carry the Mythos OS visual language, not a third divergent one. **Not actioned** — the O-A1 approval is classification only and explicitly forbids touching Command Center code, CSS, assets, deployment or branding |
 | **SEQ-1** | Sequential and diverging data scales for continuous data | No | **NEW, raised by 1D.** The eight-series categorical palette is approved; continuous scales were outside the 1C scope and must not be improvised (`docs/design/COLOR_SYSTEM.md` §5) |
 | **TYPE-2** | Font subsets, shipped weight instances, and the font performance budget | No | **NEW, raised by 1D.** Outside the approved 1C scope (`docs/design/TYPOGRAPHY.md` §5) |
 
@@ -450,7 +463,7 @@ moment of this approval:**
 
 | Ref | Question | State |
 |---|---|---|
-| **O-A1** | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | **OPEN.** Its indigo `#4f46e5` sits outside the approved palette, so its placement now carries a visible consequence |
+| ~~**O-A1**~~ | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | **RESOLVED 2026-08-18 by A-020** — a product of Mythos OS. The palette consequence it carried is now tracked as **MIG-4**, not actioned |
 | **O-A3** | Whether, and under what conditions, a public project may use a Mythos-level colour in its own identity | **OPEN.** The exception clause inside **A-006**; unaffected by the 1C approval |
 | **LOGO-1** | Does an original vector or layered master source exist outside Git? | Yes, for LOGO-2 | **STILL OPEN — searched 2026-08-18, result C (only vector derivative found), scope PARTIAL.** Exhaustive over Git history (438 commits, 36 branches — **exactly 14 vector blobs have ever existed, all of them the Stage 1B reconstruction**) and over this container's entire filesystem. **Three of four priority locations were unreachable** (the VPS filesystem does not exist in a cloud session) and **the fourth — the off-host snapshot repositories — was blocked by session permission policy, not by lack of account access.** No original, no master, nothing new discovered; equally, **no true negative established.** Full record: `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md` |
 | **LOGO-2** | Adoption of the Stage 1B vector reconstruction as the master | **OPEN.** Depends on LOGO-1. **The 1C approval does not adopt it** — the approved specification is deliberately independent of which logo master is eventually chosen |

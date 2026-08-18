@@ -10,6 +10,10 @@ brand (§3), the five-unit roster and the endorsed-descriptor principle (§4),
 project brand independence and the shared-standards split (§5). Recorded as
 decisions **A-001**–**A-006** in `docs/MYTHOS_DESIGN_DECISIONS.md` §0.
 
+**Second approval, 2026-08-18 — A-020:** Mythos Command Center is placed as a
+**product of Mythos OS**, not a sixth unit (§4.4). This resolves **O-A1** and
+unblocks the hub information architecture (§8).
+
 **What approval does NOT cover:** any drawing of the logo or lockup (the Stage 1B
 masters remain **PROPOSED**, decision **A-007**), any colour value, any
 typeface, and every decision listed in §9. Approving the architecture is not
@@ -132,17 +136,38 @@ built to hold them, and lockup masters exist for all five — but this document
 does not claim they are businesses in operation, and no later stage should cite
 it as though it did. This is open question **O-004** in the decision register.
 
-### 4.4 Mythos Command Center — an unplaced product
+### 4.4 Mythos Command Center — placed, 2026-08-18
 
-`ordre.mythosprod.xyz` is **live** and serves the Mythos AI Command Center. It is
-a Mythos-level product, it sits on a Mythos subdomain, and it is **absent from
-the owner's five-unit list**. It also carries its own unrelated palette
-(light ground `#f6f7f9`, indigo `#4f46e5`) — a third divergent Mythos-level
-visual language alongside Mythos OS's dark-and-gold.
+**OWNER-APPROVED (A-020).** `ordre.mythosprod.xyz` is **live**, and its place in
+the architecture is now settled:
 
-Left open deliberately, as **O-A1** (§9). The architecture cannot silently
-absorb a live product; where Command Center sits — a product *of* Mythos OS, or
-a unit in its own right — is an owner decision.
+```
+MYTHOS
+└── Mythos OS
+    └── Mythos Command Center
+        └── ordre.mythosprod.xyz
+```
+
+**Mythos Command Center is a product/system of Mythos OS — not a sixth Mythos
+company or unit.** The five-unit roster fixed by **A-002** is unchanged;
+Command Center sits one level below it.
+
+**What follows from that placement:**
+
+| | |
+|---|---|
+| **No unit logo** | Command Center is not an endorsed unit, so **A-003** does not apply to it. It receives **no `MYTHOS / <descriptor>` lockup of its own** and no independent mark. It is branded as what it is — a product surface of Mythos OS |
+| **Naming** | "Mythos Command Center" in prose. Never "Mythos Command Center" as a peer of Mythos OS, Prod, Digital, Services or Logistique |
+| **Hub architecture** | The `mythosprod.xyz` information architecture places it **under Mythos OS**, not beside the five units. This is what §8 was waiting on, and it unblocks Stage 1H |
+| **Visual language** | It inherits the Mythos OS visual language, because it is part of it |
+| **A precedent, recorded** | The same test applies to any future Mythos-level surface: *does it have its own market and customers, or is it a face of an existing unit?* Command Center is a face of Mythos OS. A tool is not a company |
+
+**Not actioned, and deliberately so.** Command Center currently carries an
+unrelated palette (light `#f6f7f9` / indigo `#4f46e5`) — recorded at recovery as
+a third divergent Mythos-level visual language. Under this placement that
+palette is out of system, and aligning it is tracked as **MIG-4**. **No code,
+CSS, asset, deployment or branding was changed:** this approval is
+classification only.
 
 ## 5. Tier 3 — public projects
 
@@ -252,6 +277,10 @@ Its structure must let a project be added without touching the design of any
 other project or of the hub itself. Detailed IA belongs to sub-stage **1H**;
 what is fixed here is only that the hub's structure follows the three tiers.
 
+**Unblocked 2026-08-18.** The one placement the hub was waiting on is settled:
+Command Center appears **under Mythos OS**, not as a sixth top-level entry
+(§4.4, **A-020**).
+
 **Current state:** no apex vhost exists. The hub does not exist in any form.
 
 ## 9. Open decisions — carried forward, not settled
@@ -262,7 +291,7 @@ The owner's approval of 2026-08-18 explicitly kept these open and directed that
 
 | Ref | Question | Why it stays open |
 |---|---|---|
-| **O-A1** | Where does Mythos Command Center / `ordre.mythosprod.xyz` sit in this architecture? | It is live, Mythos-level, **absent from the approved five-unit roster**, and carries a third divergent Mythos-level palette. An architecture cannot silently absorb a running product |
+| ~~**O-A1**~~ | Where does Mythos Command Center sit? | **RESOLVED 2026-08-18 by A-020** — a product of Mythos OS, not a sixth unit. See §4.4. The palette consequence is tracked as **MIG-4**, not actioned |
 | **O-A3** | **Whether, and under what conditions, a public project may use a Mythos-level colour in its own visual identity** | This is the exception clause inside decision **A-006**. Until it is settled, a project's palette stays its own. Related open evidence: conflict **C-001** and question **O-002** |
 | **GOLD-1** | How the historical logo's gold gradient relates to the Mythos OS UI gold `#c9a84c` | Measurement exists (`#AB7E2F → #F8D276`, centred near `#D9A441`); explanation does not. See **C-003**, **U-001** |
 | **LOGO-1** | Does an original vector or layered master source exist outside Git? | A question of fact, blocked on environment access. Tracked as a pending task: `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md` |
@@ -280,3 +309,6 @@ The owner's approval of 2026-08-18 explicitly kept these open and directed that
 - Did not merge, move or alter the Mouain branch.
 - Did not create the `mythosprod.xyz` hub or any vhost.
 - Did not apply endorsement to any project.
+- **The 2026-08-18 O-A1 approval changed classification only:** no Command
+  Center code, CSS, asset, deployment or branding was touched, and no unit logo
+  was created for it.
