@@ -1,152 +1,187 @@
 # Proposed sudo restriction for the Mythos session user
 
-**Status: PROPOSAL. Nothing here has been applied.** Sudo configuration is
-unchanged on the host.
+**Status: PROPOSAL. Nothing here has been applied.** Sudo is unchanged.
 
-## The problem
+## Current state
 
-The governance delivery invariant rests on one property: an interactive Claude
-session (running as `ubuntu`) cannot read the signing key or alter the
-installed verifier. File permissions already enforce that —
-`/etc/mythos/governance.key` is `root:deploy 0640`, the approval store is
-`root:deploy 0750`, and the verifier is `root:root 0644` — and all three are
-verified unreadable/unwritable by `ubuntu` in the test suite.
-
-Sudo defeats all of it. Two files grant the session user blanket root:
+Two files grant the interactive session user blanket root:
 
 | File | Rule |
 |---|---|
 | `/etc/sudoers.d/90-cloud-init-users` | `ubuntu ALL=(ALL) NOPASSWD:ALL` |
 | `/etc/sudoers.d/99-claude-desktop` | `ubuntu ALL=(ALL:ALL) NOPASSWD: ALL` |
 
-Both must be addressed; removing one leaves the other.
+Both must be addressed; removing one leaves the other. Every prohibited
+capability is reachable today:
 
-**A command blocklist cannot work.** Today's own sudo log shows `install -o`,
-`cp`, `sh -c`, `env`, and `docker exec` in routine use — every one of those is
-root-equivalent and can read the key or overwrite the verifier. Any allowlist
-containing a general-purpose file copier, an interpreter, or `docker` is
-equivalent to blanket root. So the restriction has to be an allowlist of
-narrow, specific commands, and the interesting question is what the session
-genuinely needs.
+| Must be prevented | Reachable today via |
+|---|---|
+| read `governance.key` | `sudo cat /etc/mythos/governance.key` |
+| write the governance verifier | `sudo install`/`cp`/`tee` → `/usr/local/lib/mythos/` |
+| install root binaries | `sudo install -o root … /usr/local/bin/` |
+| modify systemd units/timers | `sudo sed -i /etc/systemd/system/…`, `systemctl edit` |
+| restart governance infrastructure | `sudo systemctl start mythos-git-push.*` |
+| arbitrary root shell/interpreter | `sudo sh -c`, `sudo node -e`, `sudo env …` |
+| docker as a root escape | `sudo docker run -v /etc:/host` |
 
-Note that `mythos-ai-executor` is a **user** unit — `systemctl --user` needs no
-sudo at all. The real sudo surface is small.
+**A blocklist cannot work.** Today's sudo log shows `install -o`, `cp`, `sh -c`,
+`env` and `docker exec` in routine use. Any allowlist containing a file
+copier, an interpreter, an editor, or a container runtime is equivalent to
+restoring blanket root.
 
-## Minimum safe change
+## The proposed change
+
+Because *restarting governance infrastructure* and *modifying units* are both
+prohibited, almost nothing mutating remains legitimate. The session's sudo
+surface reduces to **read-only observability**.
 
 ### 1. Remove the blanket grants
 
-```
+```bash
 sudo rm /etc/sudoers.d/99-claude-desktop
-sudo sed -i 's/^ubuntu ALL=(ALL) NOPASSWD:ALL$/# removed: replaced by 50-mythos-session/' /etc/sudoers.d/90-cloud-init-users
+sudo cp /etc/sudoers.d/90-cloud-init-users /root/90-cloud-init-users.bak
+sudo sed -i 's|^ubuntu ALL=(ALL) NOPASSWD:ALL$|# ubuntu blanket root removed — see /etc/sudoers.d/50-mythos-session|' /etc/sudoers.d/90-cloud-init-users
 ```
 
-### 2. Add the scoped grant
-
-`/etc/sudoers.d/50-mythos-session`, mode `0440 root:root`, validated with
-`visudo -c -f` **before** the blanket grants are removed:
+### 2. `/etc/sudoers.d/50-mythos-session` — `root:root 0440`
 
 ```sudoers
-# Mythos session user — scoped root.
+# Mythos session user — read-only root, nothing more.
 #
-# Blanket NOPASSWD:ALL is removed so an interactive Claude session cannot read
-# /etc/mythos/governance.key or overwrite /usr/local/lib/mythos/governance-verify.js.
-# Everything below is chosen to contain no file copier, no interpreter, no
-# editor and no container runtime — each of which would be equivalent to
-# restoring blanket root.
+# The governance delivery invariant depends on this user being unable to read
+# /etc/mythos/governance.key or alter /usr/local/lib/mythos/governance-verify.js.
+# File permissions already enforce that; blanket sudo defeated it.
+#
+# Contains NO file copier, NO interpreter, NO editor, NO container runtime and
+# NO service control — each would be equivalent to blanket root, and service
+# control is itself prohibited for this user.
 
-# Mythos system units only. NOT `systemctl edit` (spawns an editor → shell),
-# NOT a bare `systemctl` wildcard.
-Cmnd_Alias MYTHOS_UNIT_CTL = \
-    /usr/bin/systemctl start mythos-git-push.service, \
-    /usr/bin/systemctl start mythos-git-push.timer, \
-    /usr/bin/systemctl stop mythos-git-push.timer, \
-    /usr/bin/systemctl enable mythos-git-push.timer, \
-    /usr/bin/systemctl disable mythos-git-push.timer, \
-    /usr/bin/systemctl is-active mythos-git-push.timer, \
-    /usr/bin/systemctl is-enabled mythos-git-push.timer, \
-    /usr/bin/systemctl status mythos-git-push.service, \
-    /usr/bin/systemctl daemon-reload
-
-# Read-only observability through a fixed-argument wrapper, because
-# `journalctl` with a pager can spawn a shell.
 Cmnd_Alias MYTHOS_OBSERVE = /usr/local/sbin/mythos-logs
 
-ubuntu ALL=(root) NOPASSWD: MYTHOS_UNIT_CTL, MYTHOS_OBSERVE
+ubuntu ALL=(root) NOPASSWD: MYTHOS_OBSERVE
 ```
 
-### 3. Add the read-only log wrapper
+### 3. `/usr/local/sbin/mythos-logs` — `root:root 0755`
 
-`/usr/local/sbin/mythos-logs`, `root:root 0755` — fixed arguments, no pager,
-no user-supplied unit:
+Fixed arguments only: no user-supplied unit, no user-supplied path, no pager
+(a pager can spawn a shell).
 
 ```bash
 #!/usr/bin/env bash
-# Read-only Mythos observability for the session user. Fixed arguments so no
-# pager can be spawned and no arbitrary unit can be read.
 set -euo pipefail
 case "${1:-relay}" in
-  relay)    exec journalctl --no-pager -n "${2:-50}" -u mythos-git-push.service ;;
-  denials)  exec cat /var/lib/mythos/governance/log/denied.log ;;
+  relay)     exec journalctl --no-pager -n "${2:-50}" -u mythos-git-push.service ;;
+  executor)  exec journalctl --no-pager -n "${2:-50}" --user-unit mythos-ai-executor ;;
+  denials)   exec cat /var/lib/mythos/governance/log/denied.log ;;
   approvals) exec /usr/local/bin/mythos-governance-approve --list ;;
-  *) echo "usage: mythos-logs [relay [n] | denials | approvals]" >&2; exit 2 ;;
+  status)    exec systemctl is-active mythos-git-push.timer ;;
+  *) echo "usage: mythos-logs [relay|executor [n]|denials|approvals|status]" >&2; exit 2 ;;
 esac
 ```
 
-### 4. Deliberately NOT granted
+`--list` is read-only; the approval tool still refuses to *create* anything
+unless invoked directly as root, and the session cannot invoke it directly.
 
-| Excluded | Why |
+## What still works without sudo — normal development is not broken
+
+| Activity | Needs sudo? |
 |---|---|
-| `docker` | `docker run -v /etc:/host` reads the key. Container runtime access is root access. |
-| `install`, `cp`, `tee`, `dd`, `sed -i` | Overwrite the installed verifier. |
-| `sh`, `bash`, `node`, `python`, `env` | Arbitrary code as root. |
-| `systemctl edit`, `visudo`, any editor | Editor shell escape. |
-| `cat`, `less`, `head` on arbitrary paths | Reads the key directly. |
-| `mythos-governance-approve` | **The session must never be able to run the approval tool at all.** It is the owner's command, invoked from a human shell. |
+| `git`, editing the repo, `node tests/*.js` | no |
+| **Executor start/stop/restart** (`systemctl --user`) | **no — it is a user unit** |
+| Campaign control via the executor HTTP API | no |
+| Reading orchestration state, worktrees, event log | no |
+| Committing; local mission branches | no |
 
-## Consequence to accept
+The campaign, the executor and the whole autonomous loop therefore remain
+fully operable by a session **without any root at all**.
 
-**n8n management stops being available to the session.** Today sessions run
-`sudo docker exec n8n-n8n-1 n8n …`, and keeping that is equivalent to keeping
-blanket root. Two honest options:
+## What the session loses (deliberate)
 
-- **(a) Accept it** — the owner performs n8n changes; sessions read state
-  through the API instead. Recommended: n8n work is rare and deliberate.
-- **(b) Add a fixed-argument wrapper** `/usr/local/sbin/mythos-n8n` allowing
-  only `n8n list:workflow`, `n8n update:workflow --id=<id> --active=<bool>` and
-  `n8n import:workflow --input=<path under a fixed dir>`, with the id matched
-  against a literal allowlist. More work, keeps the capability, still shuts the
-  mount escape.
+| Lost | Who does it instead |
+|---|---|
+| `sudo systemctl start mythos-git-push.service` (delivery) | Owner, from a human shell |
+| Enabling/disabling the relay timer | Owner |
+| Installing/updating root binaries and the verifier | Owner |
+| `sudo docker exec n8n-n8n-1 …` (n8n management) | Owner |
 
-## The change that removes the problem instead of containing it
+**n8n management is the one real cost.** Keeping `sudo docker` keeps blanket
+root, so it cannot stay as-is. If it must be retained, add a fixed-argument
+wrapper allowing only `n8n list:workflow`, `n8n update:workflow --id=<id from
+a literal allowlist> --active=<true|false>` and `n8n import:workflow
+--input=<path under one fixed directory>` — never a bare `docker exec`, never
+`docker run`, never `-v`.
 
-Everything above is host configuration, and host configuration is only as good
-as the next person with root. The structural fix is to **make the signing key
-absent from this host**:
-
-Replace the HMAC key with an **ed25519 keypair**. The public key lives at
-`/etc/mythos/governance.pub` (world-readable — verification needs no secret);
-the private key never exists on the VPS. The owner signs an approval on their
-own machine and copies the signed record into the store. Then no amount of
-host root — sudo, docker, a compromised session, or a future me — can mint an
-approval, because the secret is not here to steal.
-
-`governance-verify.js` would change only in `signatureValid()`:
-`crypto.verify(null, canonicalPayload, publicKey, sigBuffer)`. The store,
-binding, fail-closed behaviour and DENY + RECORD + CONTINUE all stay as they
-are.
-
-Recommended sequence: apply the sudo scoping now as containment, then move to
-asymmetric signing so the containment stops being load-bearing.
-
-## Verification after applying (do not skip)
+## Verification after applying
 
 ```bash
-sudo visudo -c                      # config parses BEFORE logging out
-sudo -l -U ubuntu                   # exactly the scoped list, nothing more
-sudo cat /etc/mythos/governance.key  # must fail
-node tests/mythos-governance-invariant-test.js   # isolation assertions
+sudo visudo -c                                   # parses, BEFORE logging out
+sudo -l -U ubuntu                                # exactly mythos-logs, nothing else
+sudo cat /etc/mythos/governance.key              # must fail
+sudo install -m0644 /dev/null /usr/local/lib/mythos/x   # must fail
+node tests/mythos-governance-invariant-test.js   # isolation assertions still pass
 ```
 
-Keep one root shell open while applying, so a mistake in `sudoers` cannot lock
+Keep a second root shell open while applying, so a sudoers mistake cannot lock
 the host out.
+
+---
+
+# Asymmetric approval design (Phase 4 — evaluation only)
+
+## Verdict: NOT already supported. Do not implement yet.
+
+Verification is a one-function change; **signing is not**. Today
+`mythos-governance-approve` signs on the host with the shared HMAC key, which
+is exactly the thing being removed. Moving to asymmetric approval needs new
+owner-side tooling and a new import path, so it is a deliberate stage, not a
+refactor.
+
+## Why it is worth doing
+
+Every protection above is host configuration, and host configuration is only
+as good as the next person with root. If the secret is not on the VPS, no
+amount of host root — sudo, docker, a compromised session, a future agent —
+can mint an approval.
+
+## Design
+
+```
+owner's machine                     VPS
+───────────────                     ───
+ed25519 PRIVATE key   ──signs──►    approval JSON + signature
+(never leaves)                      stored in /var/lib/mythos/governance/approvals
+                                    verified against /etc/mythos/governance.pub
+                                    (world-readable — verification needs no secret)
+                                            │
+                                            ▼
+                                    relay delivers, or DENY + RECORD + CONTINUE
+```
+
+Changes required:
+
+1. **`governance-verify.js`** — `signatureValid()` becomes
+   `crypto.verify(null, Buffer.from(canonicalPayload(a)), publicKey, Buffer.from(a.sig,'base64'))`.
+   Canonical payload, commit binding, path coverage, fail-closed and
+   DENY + RECORD + CONTINUE are all unchanged. `sign()` is deleted from the
+   host entirely.
+2. **New owner-side signer** (runs on the owner's machine, not here): takes a
+   commit sha and its protected paths, produces the signed JSON.
+3. **New import path on the VPS** — `mythos-governance-approve --import <file>`
+   which only *verifies and stores* a signed record. It can no longer create
+   one, so it no longer needs to be root-only for secrecy, only for store
+   write access.
+4. **Key handling** — `/etc/mythos/governance.pub` world-readable; delete
+   `/etc/mythos/governance.key` once migrated. Keep a documented rotation
+   procedure.
+
+Migration is safe: verification can accept both formats during a transition
+window, then HMAC support is removed.
+
+**Cost:** the owner must be at their signing machine to approve a governance
+change. That is the intended property, not a drawback.
+
+## Recommended sequence
+
+1. Apply the sudo scoping (containment, reversible, minutes).
+2. Then move to asymmetric signing, so the containment stops being
+   load-bearing.
