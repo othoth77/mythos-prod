@@ -251,11 +251,20 @@ executor's persistent queue, state machine, and retry/backoff — task-level
 only, no inter-task dependencies. The Task Engine generalizes it to
 DAG-driven, multi-task execution.
 
-### D. Dependency DAG — PLANNED (Phase 2)
+### D. Dependency DAG — IMPLEMENTED (Phase 2)
 
 Explicit dependency graph over tasks so independent work runs concurrently and
 dependent work waits (§11). Needed to move beyond one-task-at-a-time
 execution. Consumed by Durable Execution (E) and Parallel Execution (Q).
+`projects/mythos-ai-executor/core/dag.js` (Kahn's-algorithm cycle/topology
+validation, transitive failure propagation, pure recompute-on-restart
+readiness) shipped in commit `2fa6a0e` and is wired into the mission planner
+(`core/planner.js`) and scheduler (`core/scheduler.js`, bounded-concurrency
+dispatch); covered by `tests/mythos-orchestration-core-test.js` (linear/branch
+readiness, cycle/self/unknown-dependency rejection, doomed-task propagation,
+restart recovery). This baseline document predates Phase 2 delivery
+(`docs/AI_HANDOVER.md`, MYTHOS-ORCH-CORE entry, 234/234) and was not updated
+at the time — this status line is corrected retroactively.
 
 ### E. Durable Execution — task-level IMPLEMENTED; mission-level PLANNED
 
