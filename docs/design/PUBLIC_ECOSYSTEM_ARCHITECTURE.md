@@ -459,30 +459,36 @@ decision.
 
 ---
 
-## 16. Open register
+## 16. Open register — updated, AUTO-3, 2026-08-18
 
-### 16.1 New, raised by 1H
+### 16.1 New, raised by 1H — all three resolved
 
-| Ref | Statement |
+| Ref | Statement | Adopted (**AUTO-3**, delegated mandate, not owner-approved) |
+|---|---|---|
+| ~~**ECO-1**~~ | Brand hierarchy nests Command Center under Mythos OS; domain architecture makes `os.`/`ordre.` siblings | **DNS stays as-is.** Brand hierarchy is expressed in navigation/breadcrumb UI only, never in the URL — renesting a live service is real infrastructure risk for a purely representational question |
+| ~~**ECO-2**~~ | `panel.`/`tv.` have no place in the approved architecture | **Classified as internal infrastructure.** Carry no Mythos branding, mark, gold or design-system styling of any kind — neither units, products, nor projects |
+| ~~**ECO-3**~~ | Twelve projects exist outside the owner's list | **Classified as internal tooling/archive.** None has any recorded public domain or vhost, live or planned, unlike the eight named projects — they do not appear in a future hub |
+
+Full reasoning: `MYTHOS_DESIGN_DECISIONS.md` §0.5, AUTO-3.
+
+### 16.2 Carried — most resolved by AUTO-1/AUTO-2/AUTO-3, listed by name so a later reader finds each
+
+| Ref | Status |
 |---|---|
-| **ECO-1** | The brand hierarchy nests Command Center **under** Mythos OS (**A-020**), while the domain architecture makes `os.` and `ordre.` **sibling subdomains**. Which structure the address bar should reflect is unstated. **The Command Center is live and was not touched** |
-| **ECO-2** | `panel.mythosprod.xyz` and `tv.mythosprod.xyz` are **live subdomains of the master domain with no place in the approved architecture** — neither units, nor products, nor independent projects. One runs third-party software (Jellyfin) |
-| **ECO-3** | **Twelve projects exist outside the owner's eight-project list**, all verified present — KnowledgeVault KMS alone is **752 distinct files, the largest body of design work outside the eight**. Whether they are ecosystem projects, internal tooling or archive determines what the hub lists |
-
-### 16.2 Carried, and untouched by 1H
-
-Each is written out in full so a later reader can find it by name:
-
-**C-006** · **LOGO-1** · **LOGO-2** · **GRID-1** · **GRID-2** · **GRID-3** ·
-**SURF-1** · **GOLD-2** · **GOLD-3** · **TOKEN-1** · **TOKEN-2** · **MOTION-1** ·
-**MOTION-2** · **MOTION-3** · **LINK-1** · **SHAPE-1** · **TYPE-2** · **TYPE-3** ·
-**SPACE-1** · **A11Y-1** · **A11Y-2** · **SEQ-1** · **C-001** · **O-002**.
+| **C-006** | Canonical system named (**AUTO-2**); reconciliation execution still not actioned — full-application visual regression this session cannot run |
+| **LOGO-1** | Still OPEN, **narrowed** (**AUTO-1**) — one of three off-host repositories searched, negative; two remain blocked |
+| **LOGO-2** | **RESOLVED — AUTO-1.** Adopted as production master, not owner-approved |
+| **GRID-1**, **GRID-3**, **SURF-1**, **GOLD-2**, **GOLD-3**, **TOKEN-1**, **TOKEN-2**, **MOTION-1**, **MOTION-2**, **MOTION-3**, **LINK-1**, **SHAPE-1**, **TYPE-3**, **SPACE-1**, **A11Y-1**, **A11Y-2**, **SEQ-1** | **RESOLVED — AUTO-3.** Full values and reasoning per item: `MYTHOS_DESIGN_DECISIONS.md` §0.5 |
+| **GRID-2** | Narrowed, not closed — AUTO-3. 65 characters is the intent; 68ch an approximation pending real font metrics |
+| **TYPE-2** | **RESOLVED — AUTO-3.** Weight instances and script-subset budget decided; final numbers still provisional pending real font files |
+| **C-001** / **O-002** | Untouched. A real-world project conflict, not a system rule a sweep can resolve |
 
 Also carried from the recovery era and untouched: **O-003** (apex site) ·
 **O-004** (do Mythos Services, Digital and Logistique exist as brands?) ·
 **O-006** (Mouain's 1,787 unmerged lines) · **O-007** (is AgriBee intended to be
 served?) · **C-004** (four unarbitrated palettes) · **U-001** (why `#c9a84c`) ·
-**MIG-1**–**MIG-4**.
+**MIG-1**–**MIG-4**. All are evidence or infrastructure questions, not design
+questions a decision sweep can answer.
 
 **None was resolved, narrowed by inference, or given a value.**
 

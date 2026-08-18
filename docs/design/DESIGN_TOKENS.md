@@ -294,21 +294,26 @@ never a filter over dark. No component, and no component token, changes.
 
 ---
 
-## 8. What was **not** produced, and why
+## 8. What was **not** produced, and why — updated, AUTO-3
 
-**No `tokens.css`, `tokens.json` or any other token artifact was written.**
+**Update, delegated mandate, 2026-08-18.** A real artifact now exists:
+`assets/brand/tokens/tokens.css`. **TOKEN-1** is resolved — the missing piece was
+explicit authorisation, which the mandate supplies (`MYTHOS_DESIGN_DECISIONS.md`
+§0.5, **AUTO-3**). The artifact is new, standalone, and **not wired into any
+application, HTML file or build step** — generating it changes nothing about what
+currently renders anywhere. The reasoning below, from when this was written, is
+left intact because it explains correctly why the artifact did not exist *then*.
 
-The approved 1C text authorises the token *architecture* at 1E, and this document
-is that architecture. Generating a real artifact is a different act: it puts CSS
-custom properties or a JSON build input into the repository, which every recent
-owner instruction has excluded — *no code changes, no CSS changes, no asset
-changes*. It is also the point at which the unresolved items in §9 would have to
-be given values, because a file cannot contain an empty cell the way a
-specification can.
-
-Recorded as **TOKEN-1**: generating the token artifact requires explicit owner
-authorisation, and should follow the resolution of **C-005**, **SURF-1** and
-**GOLD-2** rather than precede it.
+**Original text, unchanged:** No `tokens.css`, `tokens.json` or other token
+artifact was written at 1E. The approved 1C text authorises the token
+*architecture* at 1E, and this document is that architecture. Generating a real
+artifact is a different act: it puts CSS custom properties or a JSON build input
+into the repository, which every recent owner instruction excluded at the
+time — *no code changes, no CSS changes, no asset changes*. It was also the point
+at which the then-unresolved items in §9 would have had to be given values,
+because a file cannot contain an empty cell the way a specification can. **Those
+items are now resolved — see AUTO-3 — which is what made generating the artifact
+honest rather than premature.**
 
 **One consequence of the architecture, re-checked and still true:** because
 components ask for `accent` and never for `gold-500`, the token structure did not
@@ -318,18 +323,27 @@ brand-level colour decision without touching a component.
 
 ---
 
-## 9. Open
+## 9. Open — updated, AUTO-3, 2026-08-18
 
-| Ref | Statement |
-|---|---|
-| **C-005** | 40 px comfortable control height vs 44 px touch minimum — two approved statements that cannot both hold |
-| **TOKEN-1** | Generating an actual token artifact is **not authorised** and should follow C-005 / SURF-1 / GOLD-2 |
-| **TOKEN-2** | Namespace prefix on token names (`--mythos-accent` vs `--accent`) |
-| **SURF-1** | Light elevation ramp has 2 steps to dark's 4; no shadow values specified |
-| **GOLD-2** | Light-theme gold hover and active states are unspecified |
-| **SEQ-1** | Sequential and diverging data scales (carried from `COLOR_SYSTEM.md` §5) |
-| **GRID-1 / 2 / 3** | Container, measure and scale-band questions — see `GRID_AND_SPACING.md` §9 |
-| **MIG-1 / MIG-3** | Aligning implemented Mythos OS tokens with this system. **Not actioned** |
+**~~C-005~~ was resolved back at Stage 1F as A-022** (visual control box may stay
+40 px, hit box must reach 44 × 44) — this table simply predates that and was
+never revisited until now. **TOKEN-1, TOKEN-2, SURF-1, GOLD-2 and SEQ-1 are now
+resolved as AUTO-3**, not owner-approved; full reasoning and values in
+`MYTHOS_DESIGN_DECISIONS.md` §0.5. GRID-1 and GRID-3 are resolved AUTO-3;
+GRID-2 is narrowed, not closed.
+
+| Ref | Statement | Status |
+|---|---|---|
+| ~~**C-005**~~ | 40 px comfortable control height vs 44 px touch minimum | **RESOLVED — A-022** (owner-approved, Stage 1F) |
+| ~~**TOKEN-1**~~ | Generating an actual token artifact | **RESOLVED — AUTO-3.** `assets/brand/tokens/tokens.css` |
+| ~~**TOKEN-2**~~ | Namespace prefix on token names | **RESOLVED — AUTO-3.** `--mythos-*`, matching C-006's real-world precedent |
+| ~~**SURF-1**~~ | Light elevation ramp; no shadow values | **RESOLVED — AUTO-3.** Ramp extended, shadows defined |
+| ~~**GOLD-2**~~ | Light-theme gold hover and active states | **RESOLVED — AUTO-3.** Both darken from `gold-800`, verified against AA |
+| ~~**SEQ-1**~~ | Sequential and diverging data scales | **RESOLVED — AUTO-3.** 6-step sequential, 7-step diverging, both ≥ 3 : 1 on ink |
+| **GRID-1** | Container width ambiguity, `2xl` behaviour | **RESOLVED — AUTO-3.** 1440 is the 1280 frame at its own margins; `2xl` has none of its own |
+| **GRID-2** | 68ch vs 65 characters | **Narrowed, not closed — AUTO-3.** 65 characters is the design intent; 68ch is an implementation approximation pending real font metrics |
+| **GRID-3** | Off-scale spacing steps, button padding | **RESOLVED — AUTO-3.** Roles clarified; padding confirmed as 10/16 inside a 1 px border |
+| **MIG-1 / MIG-3** | Aligning implemented Mythos OS tokens with this system | **Still not actioned.** AUTO-2 found execution requires full-application visual regression this session cannot run — see C-006 |
 
 ---
 

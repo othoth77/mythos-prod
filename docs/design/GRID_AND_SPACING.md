@@ -260,18 +260,20 @@ The floor and the control heights do not agree; see **C-005** below.
 
 ---
 
-## 9. Open and conflicting
+## 9. Open and conflicting — updated, AUTO-3 / A-022, 2026-08-18
 
-| Ref | Type | Statement |
-|---|---|---|
-| **C-005** | **Conflict between two approved statements** | The comfortable control height is **40 px** and the compact height **36 px** (§7 of the source), while the touch minimum is **≥ 44 × 44 px at every breakpoint** (§7 and §11). A 40 px control does not meet a 44 px minimum. Two resolutions exist — grow the visual height at coarse pointers, or extend the hit area beyond the visual box — and **the approved text names neither.** Not resolved here |
-| **GRID-1** | Open | `2xl` has no behaviour the approved text names that is not already true from a 1440 viewport (§4.2.3); and the 1440 "wide" container is ambiguous between a second content width and the outer frame of the 1280 container (§4.1) |
-| **GRID-2** | Open | Prose measure is stated as **68ch** and as **65 characters**. Different units; reconcilable only against real font metrics, and no font file exists yet (§4.3) |
-| **GRID-3** | Open | Four spacing steps (2, 4, 32, 160) fall outside both legal bands; and button padding 9 / 15 is off-scale entirely (§2, §3) |
-| **SURF-1** | Open | The light elevation ramp has two steps to the dark ramp's four, and no shadow values are specified (§7) |
+| Ref | Type | Statement | Status |
+|---|---|---|---|
+| ~~**C-005**~~ | Conflict | 40/36 px control height vs 44 px touch minimum | **RESOLVED — A-022** (owner-approved, Stage 1F). Visual box may stay 40/36; hit box must reach 44 × 44 and may extend beyond it |
+| ~~**GRID-1**~~ | Open | `2xl` behaviour; 1440 container ambiguity | **RESOLVED — AUTO-3** (delegated mandate). 1440 is the 1280 frame at its own margins; `2xl` inherits `xl`'s capped state and has none of its own |
+| **GRID-2** | Open | 68ch vs 65 characters | **Narrowed, not closed — AUTO-3.** 65 characters is the design intent; 68ch is an implementation approximation, pending real font metrics |
+| ~~**GRID-3**~~ | Open | Off-scale spacing steps; button padding | **RESOLVED — AUTO-3.** `space-1`/`space-2` are optical-correction only; `space-7`/`space-12` are legitimate scale members outside the named bands; padding confirmed as 10/16 inside a 1 px border |
+| ~~**SURF-1**~~ | Open | Light elevation ramp; no shadow values | **RESOLVED — AUTO-3.** Ramp extended (`ground-deep`, `surface-card`, `border-strong`), shadow tokens defined |
 
-**None of these blocks 1F**, but each is a decision 1F would otherwise make by
-accident. They are listed so that a component library cannot silently settle them.
+Full reasoning and values for every AUTO-3 row: `MYTHOS_DESIGN_DECISIONS.md`
+§0.5. Machine-readable values: `assets/brand/tokens/tokens.css`. **None of these
+was owner-approved** — AUTO-3 is a delegated-mandate decision, distinct from
+A-022 above it in this same table.
 
 ---
 
