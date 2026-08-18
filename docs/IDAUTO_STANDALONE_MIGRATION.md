@@ -12,14 +12,13 @@ source-repository cleanup **prepared as a separate draft PR, NOT MERGED**
 ID Auto has been extracted from this repository into a standalone repository and
 repositioned as an open vehicle identity and history protocol (IDauto).
 
-**Nothing has been removed from `othoth77/mythos-prod`.** `projects/idauto/`,
-`docs/IDAUTO_*.md`, `docs/IDA3_INGESTION_ARCHITECTURE.md` and `tests/ida-*.js` are all
-untouched and remain authoritative until the standalone repository is published and
-verified.
+**Nothing is removed from `othoth77/mythos-prod` by this branch.** `projects/idauto/`,
+`docs/IDAUTO_*.md`, `docs/IDA3_INGESTION_ARCHITECTURE.md` and `tests/ida-*.js` are all still
+here. Removing them is the separate draft cleanup PR described in §4.
 
-The complete standalone content is staged at `migration-staging/idauto-standalone/` on this
-branch, purely so the work survives an ephemeral working environment. See
-`migration-staging/README.md`.
+`migration-staging/idauto-standalone/` on this branch has served its purpose — it existed
+only so the validated tree would survive an ephemeral working environment until the
+repository existed. The cleanup PR deletes it.
 
 ## 1a. Correction applied 2026-08-18 — revision 2
 
@@ -93,13 +92,12 @@ could not create the repository — `POST /user/repos` returned
 permission the integration does not hold. It was cleared by the owner creating the empty
 repository. Nothing about the migration itself had to change.
 
-## 4. Source-repository cleanup — PREPARED, NOT EXECUTED
+## 4. Source-repository cleanup — the separate draft PR
 
-This is deliberately a **separate, later** change, and it must not be started before the
-standalone repository is published and verified. Until then, deleting from here would leave
-the project with one snapshot and no Git history.
+Deliberately a **separate** change, gated on publication and clean-clone verification — both
+now done (§3). It is opened as a **draft** and is not merged automatically.
 
-### 4.1 To be removed, once and only once `othoth77/idauto` is live
+### 4.1 Removed by the cleanup PR
 
 | Path | Files |
 |---|---|
