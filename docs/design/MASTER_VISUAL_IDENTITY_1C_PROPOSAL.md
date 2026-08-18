@@ -1,12 +1,43 @@
 # MYTHOS — Master Visual Identity
 
 **Stage:** MYTHOS-DESIGN-1C — master visual identity
-**Revision:** 3 — **FINAL PROPOSAL, submitted for approval**
+**Revision:** 3 — final
 **Date:** 2026-08-18 UTC
-**Status:** **NOT APPROVED.** 1C remains non-approved until the owner reviews this
-document. Nothing here is implemented. No application code, CSS, existing asset
-or historical logo was modified, and **no logo was redrawn, recoloured or
-recreated.**
+**Status:** **OWNER-APPROVED — 2026-08-18**, at commit `35a8f8a`.
+
+**What the approval covers: the MASTER VISUAL IDENTITY SPECIFICATION only.**
+It is **not** authorisation to implement. Nothing here is implemented; no
+application code, CSS, existing asset or website has been changed on the
+strength of it, and **no logo was redrawn, recoloured or recreated.**
+Implementation is Stages 1D–1F and requires its own authorisation.
+
+**Approved decisions**, recorded as **A-009**–**A-019** in
+`docs/MYTHOS_DESIGN_DECISIONS.md` §0:
+
+| | Approved |
+|---|---|
+| **A-010** | MYTHOS is dark-first |
+| **A-011** | Constant + Movement is the core visual principle |
+| **A-012** | The 35° gesture derived from the historical M is the signature movement |
+| **A-013** | **Mythos Gold = `#D9A441`**; `#805C19` for gold text on light grounds — *resolves GOLD-1, supersedes A-008* |
+| **A-014** | Playfair Display removed from the master; Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono — *resolves TYPE-1* |
+| **A-015** | The corrected semantic colour system — *resolves SEM-1* |
+| **A-016** | Accessibility corrections for non-text boundaries |
+| **A-017** | Dark and light themes are both part of the system |
+| **A-018** | Reduced-motion behaviour is required |
+| **A-019** | Reaffirms: five units under the master identity with no independent unit logos; public projects keep independent identities and inherit structural DNA only; the historical logo remains unchanged |
+
+**Still OPEN and untouched by this approval — not resolvable by inference:**
+**O-A1** (Command Center placement) · **O-A3** (Mythos-level colour in a project
+identity) · **LOGO-1** (does a vector master exist outside Git) · **LOGO-2**
+(adoption of the 1B reconstruction). **Nothing in this specification depends on
+any of them** — it works with the historical mark, with the 1B reconstruction,
+or with a future recovered master.
+
+**Three migration consequences are recorded but NOT actioned** — `MIG-1` the
+Mythos OS gold, `MIG-2` the 45 Playfair declarations, `MIG-3` the semantic and
+control-border tokens (register §3.1). They belong to an authorised
+implementation stage.
 
 **Built on:** the recovered historical logo · the owner-approved 1A brand
 architecture (**A-001**–**A-008**) · the implemented Mythos OS evidence · the
@@ -16,12 +47,14 @@ recovered Uthina Chess and Dar Hijama charters · contrast measured this stage.
 
 ## 0. What changed in this revision, and how to read it
 
-Revisions 1 and 2 offered options. **This revision decides.** The owner asked
-for the best professional judgement on every remaining detail, optimised for the
-strongest long-term identity rather than for compatibility with existing code.
+Revisions 1 and 2 offered options; revision 3 decided. **The owner approved
+revision 3 on 2026-08-18**, so the values below are no longer recommendations —
+they are the approved specification. Every contrast figure is measured rather
+than estimated.
 
-So the hedging is gone. Every value below is a specific recommendation, and
-every contrast figure is measured rather than estimated.
+The `RECOMMENDED` labels throughout the document are retained as written, so the
+record of what was proposed stays legible. Read them as **APPROVED** except
+where a section is explicitly marked OPEN.
 
 | Label | Meaning |
 |---|---|
@@ -682,7 +715,7 @@ form remains **O-A6**, open.
 
 ## 16. Decisions
 
-### 16.1 Recommended for approval
+### 16.1 Approved — 2026-08-18
 
 | Ref | Recommendation |
 |---|---|
@@ -715,10 +748,15 @@ unit-expression system.
   modified.
 - **Not a logo change.** Per **A-007** nothing was redrawn, recoloured or
   recreated.
-- **Not approved.** **1C remains NON-APPROVED until the owner reviews this
-  document.**
+- **Approved as a specification, not as work.** The owner approved this document
+  on 2026-08-18 (**A-009**). That approval authorises nothing to be built —
+  implementation is a separate authorisation.
 
-**If approved, the sequence is:** **1D** writes `COLOR_SYSTEM.md` and
-`TYPOGRAPHY.md` from §3 and §4 → **1E** the token architecture and grid from §5
-and §9 → **1F** the component system from §7. **O-A1 should be settled before
-1H**, because the public hub's information architecture depends on it.
+**The sequence, now authorised to be planned but not built:** **1D** writes
+`COLOR_SYSTEM.md` and `TYPOGRAPHY.md` from §3 and §4 → **1E** the token
+architecture and grid from §5 and §9 → **1F** the component system from §7.
+**O-A1 should be settled before 1H**, because the public hub's information
+architecture depends on it.
+
+Because components consume semantic tokens rather than raw values (§9), 1E can
+proceed without waiting on LOGO-1 or LOGO-2.

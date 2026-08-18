@@ -100,9 +100,108 @@ different thing.
 | Field | Value |
 |---|---|
 | **Decision** | The distinction between the **historical logo gold**, the **Mythos OS UI gold** and **project-level colours** remains **OPEN**. It must not be resolved by inference |
-| **Status** | **OWNER-APPROVED as an instruction to leave open** — 2026-08-18 |
-| **Tracked as** | **GOLD-1** (§3) |
-| **Notes** | Directly connected to **C-003** (two golds, unexplained) and **U-001** (the rationale for `#c9a84c` was never recorded) |
+| **Status** | **OWNER-APPROVED as an instruction to leave open** — 2026-08-18 · **SUPERSEDED the same day by A-013** |
+| **Tracked as** | **GOLD-1** — now **RESOLVED**, see §3.1 |
+| **Notes** | Directly connected to **C-003** (two golds, unexplained) and **U-001** (the rationale for `#c9a84c` was never recorded). **Supersession recorded, not silent:** this entry instructed that the gold stay open; the owner subsequently took the decision in **A-013** after reviewing the 1C final proposal. The instruction was correct while it stood — it prevented the question being settled by inference — and it was closed by an explicit owner decision rather than by drift. The original text above is unaltered |
+
+---
+
+### A-009 — MYTHOS 1C Master Visual Identity approved
+
+| Field | Value |
+|---|---|
+| **Decision** | The **MYTHOS Master Visual Identity specification** is approved as the master brand's visual system |
+| **Approved artefact** | `docs/design/MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md` at commit **`35a8f8a`** (revision 3, final) |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Scope of approval** | **The specification only.** Approval is not authorisation to implement. No application code, CSS, asset or website may be changed on the strength of it; implementation is Stages 1D–1F and needs its own authorisation |
+| **Notes** | A-010 – A-018 record the substantive decisions the approval contains, so each is separately citable |
+
+### A-010 — MYTHOS is dark-first
+
+| Field | Value |
+|---|---|
+| **Decision** | The master identity is **dark-first**. Ink is the default ground; light is fully specified rather than derived |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Evidence basis** | The recovered mark lives on black, and the only implemented Mythos design system is dark |
+
+### A-011 — Constant + Movement is the core visual principle
+
+| Field | Value |
+|---|---|
+| **Decision** | **Constant + Movement** is the core visual principle. The constant is orthogonal — grid, type, surfaces, right angles. The movement is the single permitted non-orthogonal element |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Notes** | Derived from the recovered fact that one letter is slanted while five stand upright. The principle is deliberately falsifiable: the gestures on any screen can be counted |
+
+### A-012 — The 35° gesture is the signature movement
+
+| Field | Value |
+|---|---|
+| **Decision** | The **35° gesture**, derived from the historical M, is the signature movement of the visual language. It appears **once per view**, and is gold **or** geometric, never both at once |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Notes** | Measured at 34.9° in the source and rationalised to exactly 35.0°. This is a system constant, **not** a change to the logo — A-007 is unaffected |
+
+### A-013 — Mythos Gold is `#D9A441`
+
+| Field | Value |
+|---|---|
+| **Decision** | **Mythos Gold = `#D9A441`** — the historical logo's own gold. Where contrast requires it on light grounds, gold text and icons use **`#805C19`** |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Resolves** | **GOLD-1** |
+| **Supersedes** | **A-008**, which had instructed that the gold stay open |
+| **Measured** | `#D9A441` 8.59 : 1 on ink `#0E0E0D`; `#805C19` 5.47 : 1 on paper `#F5F3EF`. **No single gold serves both grounds** — `#D9A441` measures 2.05 : 1 on paper — so a gold per ground is a technical requirement, not a preference |
+| **Effect on C-003** | The **master value** is now decided and has a recorded rationale: it is the gold in the mark. The *historical* relationship between `#c9a84c` and `#D9A441` remains unexplained, so **C-003 is resolved forward, not retroactively**, and **U-001** stays UNKNOWN as a historical question |
+| **Consequence recorded** | Mythos OS's implemented `--gold: #c9a84c` now differs from the master. Tracked as **MIG-1** (§3.1). **Not actioned** — this approval is specification-only |
+
+### A-014 — Master typography
+
+| Field | Value |
+|---|---|
+| **Decision** | **Playfair Display is removed from the MYTHOS master typography.** The master stack is **Archivo Expanded** (display) + **IBM Plex Sans** (text/UI) + **IBM Plex Sans Arabic** + **IBM Plex Mono** (data) |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Resolves** | **TYPE-1** |
+| **Rationale** | Playfair has **no Arabic** — disqualifying for a group operating in Arabic, French and English; its hairlines disappear at the 11–13 px sizes the codebase most uses; and it signals luxury-editorial where the recovered wordmark is an extended geometric sans. The replacement is one designed family across Latin, Arabic and monospace, all open-licensed and self-hostable |
+| **Scope** | The **master brand** only. Playfair may remain in any public project whose own identity calls for it — protected by **A-006** |
+| **Consequence recorded** | 45 `Playfair Display` declarations exist in `css/*.css`. **Not actioned** — specification only. Tracked as **MIG-2** (§3.1) |
+
+### A-015 — Corrected semantic colour system
+
+| Field | Value |
+|---|---|
+| **Decision** | Adopt the **corrected semantic colour system**, verified on all four surfaces (ink, surface, card, paper and paper-2) |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Resolves** | **SEM-1** |
+| **Rationale** | Three recovered semantic tokens fail contrast as body text — `--danger` 3.55 : 1, `--muted` 3.47 : 1, `--past` 2.59 : 1 — and they are precisely the tokens carrying errors, secondary text and disabled state. The 12 %-alpha `-dim` convention (**D-001**) is preserved unchanged |
+| **Consequence recorded** | Touches the Mythos OS token block. **Not actioned.** Tracked as **MIG-3** (§3.1) |
+
+### A-016 — Accessibility corrections for non-text boundaries
+
+| Field | Value |
+|---|---|
+| **Decision** | Adopt the accessibility corrections for **non-text boundaries**: dedicated control-border tokens meeting the 3 : 1 WCAG 2.2 requirement — `#726F64` on dark (3.84 : 1) and `#7F7B6D` on light (3.82 : 1) |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Rationale** | Measured this stage: **the recovered palette contained no value meeting 3 : 1 for a control boundary.** Form fields therefore had no conforming border anywhere in the system — a silent defect |
+
+### A-017 — Dark and light themes are both part of the system
+
+| Field | Value |
+|---|---|
+| **Decision** | **Both themes are part of the system.** Light is fully specified, not a filter over dark. Theme is a token remap, never a component fork |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+
+### A-018 — Reduced-motion behaviour is required
+
+| Field | Value |
+|---|---|
+| **Decision** | **Reduced-motion behaviour is required.** Under `prefers-reduced-motion` every transform collapses to opacity, and the interface must remain complete and legible with animation disabled entirely |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+
+### A-019 — Architecture reaffirmed by the 1C approval
+
+| Field | Value |
+|---|---|
+| **Decision** | The 1C approval **reaffirms without altering**: the five Mythos units stay under the MYTHOS master identity and **no five independent unit logos are created** (**A-003**); public projects keep their **independent visual identities** (**A-004**) and inherit **structural** Mythos DNA rather than the Mythos visual skin (**A-006**); the **historical logo remains unchanged** (**A-007**) |
+| **Status** | **OWNER-APPROVED** — 2026-08-18 |
+| **Notes** | Recorded as a confirmation so the reaffirmation is traceable. It creates no new obligation and duplicates no earlier entry |
 
 ---
 
@@ -311,9 +410,14 @@ by inference.**
 |---|---|---|---|
 | **O-A1** | Classification of Mythos Command Center / `ordre.mythosprod.xyz` within the Mythos architecture | Yes, for 1C and for the hub IA | Live, Mythos-level, **absent from the approved five-unit roster (A-002)**, and carrying a third divergent Mythos-level palette (light `#f6f7f9` / indigo `#4f46e5`). Cannot be absorbed silently |
 | **O-A3** | **Whether and under what conditions a public project may use a Mythos-level colour in its own visual identity** | Yes, for any project-level design work | The owner's scoping, which is broader than the earlier draft framing of O-A3. Governs the exception clause in **A-006**. Related evidence: **C-001** (Dar Hijama's live site uses `#c9a84c` while its charter specifies green) and **O-002**, both of which remain open on their own terms |
-| **GOLD-1** | Relationship between the historical Mythos logo gold gradient and the Mythos OS UI gold `#c9a84c` | Yes, for 1D colour | Measured evidence only: the historical logo's gold is a **gradient**, sampled roughly `#AB7E2F → #F8D276`, centred near `#D9A441`; the UI gold is the flat `#c9a84c`; Uthina Chess Imperial Gold is `#D9A441`. No document connects them. See **C-003**, **U-001** |
+| ~~**GOLD-1**~~ | Which gold is the master? | — | **RESOLVED 2026-08-18 by A-013** — Mythos Gold `#D9A441`, with `#805C19` for gold text on light grounds |
 | **LOGO-2** | Whether the Stage 1B vector reconstruction is adopted as the master, once **LOGO-1** is settled | Yes, for 1C | The 1B masters are **PROPOSED**, never approved (**A-007**). Adoption is a separate decision from the architecture approved on 2026-08-18 |
 | **O-004b** | Whether and when Mythos Services, Digital and Logistique become operating brands | No | **A-002** fixes the roster; the evidence gap for these three is unchanged |
+| ~~**TYPE-1**~~ | Retire Playfair Display from the master brand? | — | **RESOLVED 2026-08-18 by A-014** — retired from the master; master stack is Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono |
+| ~~**SEM-1**~~ | Adopt the corrected semantic palette? | — | **RESOLVED 2026-08-18 by A-015** — adopted, verified on all four surfaces |
+| **MIG-1** | Align Mythos OS's implemented `--gold: #c9a84c` with the approved master `#D9A441` | Not yet | **NEW, from A-013.** A token-level change: one value. **Not actioned** — the 1C approval is specification-only. Belongs to an authorised implementation stage |
+| **MIG-2** | Replace the 45 `Playfair Display` declarations in `css/*.css` | Not yet | **NEW, from A-014.** **Not actioned** — specification only |
+| **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Not yet | **NEW, from A-015 / A-016.** **Not actioned** — specification only. Closes three measured contrast failures and the missing 3 : 1 control boundary |
 
 ### 3.2 Prior open questions answered by the 2026-08-18 approval
 
@@ -328,6 +432,26 @@ wrote them; this table states what changed, without rewriting the evidence.
 **Still open and untouched by this approval:** O-002, O-003, O-005, O-006,
 O-007, O-008, O-009, O-010, and the vector-source question tracked as
 **LOGO-1** (see `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md`).
+
+### 3.3 The 2026-08-18 approval of 1C — what it closed, and what it did not
+
+| Prior ID | Now | By |
+|---|---|---|
+| **GOLD-1** | **RESOLVED** — Mythos Gold `#D9A441` | **A-013** (supersedes A-008) |
+| **TYPE-1** | **RESOLVED** — Playfair Display retired from the master | **A-014** |
+| **SEM-1** | **RESOLVED** — corrected semantics adopted | **A-015** |
+| **C-003** | **Resolved forward only.** The master value is decided and has a recorded rationale; the historical relationship between the two golds is still unexplained | **A-013** |
+| **U-001** | **Still UNKNOWN.** The rationale for `#c9a84c` was never recorded and approving a different master does not recover it | — |
+
+**Explicitly still OPEN, and not resolvable by inference — reaffirmed at the
+moment of this approval:**
+
+| Ref | Question | State |
+|---|---|---|
+| **O-A1** | Classification of Mythos Command Center / `ordre.mythosprod.xyz` | **OPEN.** Its indigo `#4f46e5` sits outside the approved palette, so its placement now carries a visible consequence |
+| **O-A3** | Whether, and under what conditions, a public project may use a Mythos-level colour in its own identity | **OPEN.** The exception clause inside **A-006**; unaffected by the 1C approval |
+| **LOGO-1** | Does an original vector or layered master exist outside Git? | **OPEN.** Blocked on environment access, not on a decision. Until it resolves, **a monochrome master cannot be produced**, because the recovered artefact is a metallic raster that **A-007** forbids recolouring |
+| **LOGO-2** | Adoption of the Stage 1B vector reconstruction as the master | **OPEN.** Depends on LOGO-1. **The 1C approval does not adopt it** — the approved specification is deliberately independent of which logo master is eventually chosen |
 
 ---
 
