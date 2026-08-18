@@ -551,6 +551,36 @@ var dag = require(path.join(EXEC, 'core', 'dag'));
 })();
 
 // ===========================================================================
+// PHASE 2N — adversarial review instruction (capability X: Adversarial
+// Reviewer). Precursor: the default template's review task must actively
+// direct the reviewer to hunt for problems by category, not just ask for a
+// pass/fail opinion.
+// ===========================================================================
+
+(function () {
+  ok(planner.ADVERSARIAL_REVIEW_CATEGORIES.length >= 5 &&
+     planner.ADVERSARIAL_REVIEW_CATEGORIES.indexOf('security') !== -1 &&
+     planner.ADVERSARIAL_REVIEW_CATEGORIES.indexOf('regression') !== -1,
+    '2N adversarial review: category taxonomy covers regression and security at least');
+
+  var instruction = planner.buildAdversarialReviewInstruction();
+  planner.ADVERSARIAL_REVIEW_CATEGORIES.forEach(function (cat) {
+    ok(instruction.indexOf(cat) !== -1, '2N adversarial review: instruction names category "' + cat + '"');
+  });
+  ok(/actively try to break it/.test(instruction),
+    '2N adversarial review: instruction demands hunting for defects, not confirming correctness');
+  ok(/specific failure scenario/.test(instruction),
+    '2N adversarial review: instruction rejects generic impressions in favor of concrete findings');
+
+  var goal = domain.createGoal({ text: 'Adversarial review wiring check.', project: 'core-test' });
+  store.create(goal);
+  var plan = planner.planMission(goal);
+  var reviewTask = plan.tasks.filter(function (t) { return t.key === 'review'; })[0];
+  ok(reviewTask && reviewTask.task_type === 'review' && reviewTask.instruction === instruction,
+    '2N adversarial review: the template plan\'s review task uses the shared adversarial instruction');
+})();
+
+// ===========================================================================
 // PHASE 2F — task DAG
 // ===========================================================================
 

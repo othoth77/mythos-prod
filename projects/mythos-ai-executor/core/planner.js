@@ -46,6 +46,20 @@ var SPEC_TASK_FIELDS = ['key', 'title', 'task_type', 'instruction',
   'capabilities_required', 'policy_classes', 'depends_on', 'max_attempts',
   'budget_usd'];
 
+// Vision doc §13, capability X (Adversarial Reviewer): "actively hunts for
+// what is wrong rather than confirming what is right." A verdict of "looks
+// fine" is only trustworthy if every category below was actually checked,
+// not skipped in favor of a general impression.
+var ADVERSARIAL_REVIEW_CATEGORIES = ['regression', 'security', 'edge_case',
+  'hidden_assumption', 'incompleteness', 'deployment'];
+
+function buildAdversarialReviewInstruction() {
+  return 'Adversarially review the change: do not confirm it is correct, actively try to break it. ' +
+    'For each of these categories, report a concrete finding or explicitly state none was found: ' +
+    ADVERSARIAL_REVIEW_CATEGORIES.join(', ') + '. ' +
+    'A finding must name a specific failure scenario (input, state, or condition), not a general impression.';
+}
+
 // --- Template planning ------------------------------------------------------
 
 // The default development template. `hints.components` forks parallel
@@ -86,7 +100,7 @@ function planMission(goal, hints) {
   spec.tasks.push({ key: 'test', title: 'Run targeted tests', task_type: 'testing',
     instruction: 'Run targeted tests for the change.', depends_on: afterImplement });
   spec.tasks.push({ key: 'review', title: 'Adversarial review', task_type: 'review',
-    instruction: 'Actively search for regressions, missing requirements, security problems, edge cases.',
+    instruction: buildAdversarialReviewInstruction(),
     depends_on: ['test'] });
   spec.tasks.push({ key: 'report', title: 'Report results', task_type: 'reporting',
     instruction: 'Produce the structured mission report.', depends_on: ['review'] });
@@ -246,6 +260,8 @@ function persistPlan(plan) {
 module.exports = {
   TASK_TYPES: TASK_TYPES,
   TYPE_DEFAULTS: TYPE_DEFAULTS,
+  ADVERSARIAL_REVIEW_CATEGORIES: ADVERSARIAL_REVIEW_CATEGORIES,
+  buildAdversarialReviewInstruction: buildAdversarialReviewInstruction,
   planMission: planMission,
   planFromSpec: planFromSpec,
   validatePlan: validatePlan,
