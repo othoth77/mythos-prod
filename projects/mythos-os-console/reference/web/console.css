@@ -183,3 +183,26 @@
 
 .mythos-start-feedback:empty { display: none; }
 .mythos-start-feedback .mythos-state { padding: var(--mythos-sp-4) 0 0; }
+
+/* --- Execution cards (MOS-2.1) ---------------------------------------- */
+
+.mythos-exec-card {
+  border: 1px solid var(--mythos-border);
+  border-radius: var(--mythos-radius-md);
+  margin-bottom: var(--mythos-sp-3);
+  overflow: hidden;
+}
+.mythos-exec-card .mythos-row { border: none; margin: 0; }
+
+.mythos-exec-actions {
+  display: flex;
+  gap: var(--mythos-sp-3);
+  margin-left: var(--mythos-sp-4);
+}
+
+.mythos-exec-detail {
+  padding: 0 var(--mythos-sp-5);
+}
+.mythos-exec-detail:empty { padding: 0; }
+.mythos-exec-detail .console-fact { padding: var(--mythos-sp-3) 0; border-top: 1px solid var(--mythos-border); }
+.mythos-exec-detail .mythos-state { padding: var(--mythos-sp-4) 0; }

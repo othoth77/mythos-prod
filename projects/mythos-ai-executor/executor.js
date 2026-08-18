@@ -540,8 +540,10 @@ function summaries() {
       provider: task.provider, model: task.model || null, priority: task.priority || 'normal',
       status: st.status, effective: state.effectiveStatus(st),
       created_at: task.created_at, updated_at: st.updated_at,
+      started_at: st.started_at || null, ended_at: st.ended_at || null,
       retry_count: st.retry_count, quota_state: st.quota_state,
       claude_session_id: st.claude_session_id, next_action: st.next_action,
+      last_error: st.last_error || null, execution_id: st.execution_id || null,
       core_owned: task.requested_by === CORE_OWNER
     };
   });

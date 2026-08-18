@@ -283,6 +283,9 @@
       slot.appendChild(sectionTitle('Missions — Pending'));
       slot.appendChild(startMissionSection(pending));
 
+      slot.appendChild(sectionTitle('Executions'));
+      slot.appendChild(executionsSection(tasks));
+
       if (attention.length) {
         slot.appendChild(sectionTitle('Awaiting the owner'));
         var list = el('div', { className: 'mythos-list' });
@@ -418,6 +421,88 @@
       wrap.appendChild(list);
     }
     return wrap;
+  }
+
+  // MOS-2.1: the complete lifecycle view. Every task from the SAME
+  // /api/missions response already fetched for this page — no second
+  // list fetch. States not covered by an explicit card class fall
+  // through to badge()'s own is-inert default, so a future executor
+  // state is shown honestly rather than dropped from the list.
+  var CANCELLABLE_STATES = ['QUEUED', 'RUNNING', 'WAITING_FOR_QUOTA', 'WAITING_RETRY', 'INTERRUPTED'];
+
+  function executionsSection(tasks) {
+    var wrap = el('div', {});
+    if (!tasks.length) {
+      wrap.appendChild(statePanel('◌', 'No executions yet', 'Nothing has been created. Start a mission above.'));
+      return wrap;
+    }
+    var sorted = tasks.slice().sort(function (a, b) {
+      return String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || ''));
+    });
+    var list = el('div', { className: 'mythos-list' });
+    sorted.forEach(function (t) { list.appendChild(executionCard(t)); });
+    wrap.appendChild(list);
+    return wrap;
+  }
+
+  function executionCard(t) {
+    var state = String(t.effective || t.status || 'UNKNOWN').toUpperCase();
+    var detailSlot = el('div', { className: 'mythos-exec-detail' });
+    var detailOpen = false;
+
+    var viewBtn = el('button', { className: 'mythos-btn mythos-btn-outline', attrs: { type: 'button' }, text: 'View Details' });
+    viewBtn.addEventListener('click', function () {
+      if (detailOpen) { clear(detailSlot); detailOpen = false; viewBtn.textContent = 'View Details'; return; }
+      detailOpen = true;
+      viewBtn.textContent = 'Hide Details';
+      clear(detailSlot);
+      detailSlot.appendChild(statePanel('◌', 'Loading…', ''));
+      var calls = [api('/api/missions/' + encodeURIComponent(t.task_id)).catch(function (e) { return { ok: false, err: e }; })];
+      var terminal = ['COMPLETED', 'FAILED', 'CANCELLED', 'BLOCKED'].indexOf(state) !== -1;
+      if (terminal) calls.push(api('/api/missions/' + encodeURIComponent(t.task_id) + '/report').catch(function (e) { return { ok: false, err: e }; }));
+      Promise.all(calls).then(function (r) {
+        clear(detailSlot);
+        var detail = r[0], report = r[1];
+        if (!detail.ok) { detailSlot.appendChild(upstreamFailure(detail.err, 'the execution detail')); return; }
+        detailSlot.appendChild(fact('Instruction', detail.data.task.instruction));
+        detailSlot.appendChild(fact('Execution ID', detail.data.status.execution_id || '(not started)'));
+        detailSlot.appendChild(fact('Next action', detail.data.status.next_action));
+        if (detail.data.status.last_error) detailSlot.appendChild(fact('Last error', detail.data.status.last_error));
+        if (report && report.ok && report.data.summary) detailSlot.appendChild(fact('Result summary', report.data.summary));
+        if (report && report.ok && report.data.problems && report.data.problems.length) {
+          detailSlot.appendChild(fact('Report problems', report.data.problems.join('; ')));
+        }
+      });
+    });
+
+    var cancelBtn = null;
+    if (CANCELLABLE_STATES.indexOf(state) !== -1) {
+      cancelBtn = el('button', { className: 'mythos-btn mythos-btn-outline', attrs: { type: 'button' }, text: 'Cancel' });
+      cancelBtn.addEventListener('click', function () {
+        cancelBtn.disabled = true;
+        cancelBtn.textContent = 'Cancelling…';
+        postJSON('/api/missions/' + encodeURIComponent(t.task_id) + '/cancel', {}).then(function () {
+          cancelBtn.textContent = 'Cancelled';
+        }).catch(function (e) {
+          clear(detailSlot);
+          detailSlot.appendChild(statePanel('⚠', 'Could not cancel', e.message, true));
+          cancelBtn.disabled = false;
+          cancelBtn.textContent = 'Cancel';
+        });
+      });
+    }
+
+    var actions = el('div', { className: 'mythos-exec-actions' }, [viewBtn, cancelBtn]);
+
+    return el('div', { className: 'mythos-exec-card' }, [
+      row([
+        cellMain(t.stage || 'unstaged', 'Execution ID: ' + (t.execution_id || t.task_id)),
+        cellText('Model', (t.provider || '—') + (t.model ? ' (' + t.model + ')' : '')),
+        cellText('Started', t.started_at ? stamp(t.started_at) : '—'),
+        el('div', { className: 'mythos-row-end' }, [badge(state), actions])
+      ]),
+      detailSlot
+    ]);
   }
 
   RENDERERS.missions = function (view) {
