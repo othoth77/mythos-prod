@@ -195,7 +195,15 @@ function describe(campaignId) {
     objective: c.objective,
     state: st.state,
     running: !!lock,
-    continuable: CONTINUABLE.indexOf(st.state) !== -1 && !lock,
+    // Must mirror what continueCampaign() ACTUALLY accepts, including
+    // RUNNING. A campaign sits in RUNNING between ticks with its mission
+    // started but its DAG not yet advanced — that is the normal unattended
+    // state, and it is exactly when the autopilot needs to call again.
+    // Advertising `false` there made the autopilot idle forever and stalled
+    // unattended operation after the first mission start. This widens no
+    // authority: continueCampaign already accepted RUNNING, and the refusals
+    // for WAITING_FOR_APPROVAL and BLOCKED are untouched.
+    continuable: (CONTINUABLE.indexOf(st.state) !== -1 || st.state === 'RUNNING') && !lock,
     needs_human: DECISION_STATES.indexOf(st.state) !== -1,
     completed_missions: (st.completed_missions || []).map(function (x) {
       return {
