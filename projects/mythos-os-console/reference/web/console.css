@@ -184,6 +184,28 @@
 .mythos-start-feedback:empty { display: none; }
 .mythos-start-feedback .mythos-state { padding: var(--mythos-sp-4) 0 0; }
 
+/* --- Dispatcher capacity strip (MOS-3B) ------------------------------
+   One quiet line stating the executor's real ceiling and what is waiting
+   behind it. It sits above a form that can add to that queue, so it is
+   deliberately understated — a fact, not an alert. Composition only, like
+   every other rule in this file: no colour literal, tokens only. */
+
+.console-capacity {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--mythos-sp-3);
+  padding: var(--mythos-sp-3) var(--mythos-sp-5);
+  margin-bottom: var(--mythos-sp-5);
+  border: 1px solid var(--mythos-border);
+  border-radius: var(--mythos-radius-md);
+  background: var(--mythos-card);
+  color: var(--mythos-text-secondary);
+  font-size: var(--mythos-fs-md);
+}
+.console-capacity .k { text-transform: uppercase; letter-spacing: var(--mythos-tracking-caps); font-size: var(--mythos-fs-xs); font-weight: 700; }
+.console-capacity .v { color: var(--mythos-text); font-size: var(--mythos-fs-base); font-weight: 700; }
+
 /* --- Execution cards (MOS-2.1) ---------------------------------------- */
 
 .mythos-exec-card {
@@ -194,8 +216,11 @@
 }
 .mythos-exec-card .mythos-row { border: none; margin: 0; }
 
+/* MOS-3B: a QUEUED card now carries three controls (details, start now,
+   cancel), so the row wraps rather than overflowing on a narrow screen. */
 .mythos-exec-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--mythos-sp-3);
   margin-left: var(--mythos-sp-4);
 }

@@ -253,9 +253,10 @@
       api('/api/health').catch(function (e) { return { ok: false, err: e }; }),
       api('/api/missions').catch(function (e) { return { ok: false, err: e }; }),
       api('/api/campaigns').catch(function (e) { return { ok: false, err: e }; }),
-      api('/api/events?limit=12').catch(function (e) { return { ok: false, err: e }; })
+      api('/api/events?limit=12').catch(function (e) { return { ok: false, err: e }; }),
+      api('/api/dispatcher').catch(function (e) { return { ok: false, err: e }; })
     ]).then(function (r) {
-      var health = r[0], missions = r[1], campaigns = r[2], events = r[3];
+      var health = r[0], missions = r[1], campaigns = r[2], events = r[3], dispatcher = r[4];
       clear(slot);
 
       if (!missions.ok) { slot.appendChild(upstreamFailure(missions.err, 'the executor task API')); return; }
@@ -281,7 +282,11 @@
 
       var pending = tasks.filter(function (t) { return String(t.effective || t.status).toUpperCase() === 'QUEUED'; });
       slot.appendChild(sectionTitle('Missions — Pending'));
-      slot.appendChild(startMissionSection(pending));
+      // MOS-3B: capacity first, then the form. An operator about to start a
+      // mission should see whether a slot exists before they type, and the
+      // provider list in the form below is the dispatcher's, not ours.
+      slot.appendChild(capacitySlot(dispatcher));
+      slot.appendChild(startMissionSection(pending, dispatcher.ok ? dispatcher.data.providers : null));
 
       slot.appendChild(sectionTitle('Executions'));
       slot.appendChild(executionsSection(tasks));
@@ -308,6 +313,8 @@
       } else {
         slot.appendChild(eventFeed(events.data.events || []));
       }
+
+      startPolling('command-center');
     });
   };
 
@@ -321,15 +328,32 @@
     ]);
   }
 
-  // MOS-2: the real, currently runnable provider enum, mirrored 1:1 from
-  // server.js's own REAL_PROVIDERS — anything else this select could offer
-  // would be rejected by that check, so nothing else is offered. Excludes
-  // 'mock' (test-only) and 'gemini' (registered but unconfigured — no
-  // credential exists, and it is not in the Phase 1 provider enum at all).
-  var START_PROVIDERS = [
-    { value: 'claude-code', label: 'claude-code — execution authority' },
-    { value: 'openai-compat', label: 'openai-compat — advisory, via OmniRoute' }
-  ];
+  // MOS-3B: the dispatcher's own capacity, stated in one line. running and
+  // max_parallel are the executor's real ceiling; queued is what is waiting
+  // behind it. A missing number renders as an em dash — the strip never
+  // invents a figure, because "0 running" and "I cannot see what is
+  // running" are different facts.
+  function capacityStrip(d) {
+    d = d || {};
+    return el('div', { className: 'console-capacity' }, [
+      el('span', { className: 'k', text: 'Executions running:' }),
+      el('span', { className: 'v mythos-mono', text: countText(d.running) + ' / ' + countText(d.max_parallel) }),
+      el('span', { attrs: { 'aria-hidden': 'true' }, text: '·' }),
+      el('span', { className: 'k', text: 'queued:' }),
+      el('span', { className: 'v mythos-mono', text: countText(d.queued) })
+    ]);
+  }
+
+  function countText(n) {
+    return n === null || n === undefined || isNaN(Number(n)) ? '—' : String(n);
+  }
+
+  // The strip and its failure share one call site, so no page can end up
+  // rendering an empty strip where a failed read belongs.
+  function capacitySlot(dispatcher) {
+    return dispatcher.ok ? capacityStrip(dispatcher.data)
+                         : upstreamFailure(dispatcher.err, 'the dispatcher');
+  }
 
   function pendingRow(t) {
     return row([
@@ -346,7 +370,14 @@
   // mode and requested_by are fixed server-side in server.js and are never
   // part of this payload. Feedback renders inline; this file has no
   // alert()/confirm() anywhere and this does not start one.
-  function startMissionSection(pending) {
+  //
+  // MOS-3B: `providers` is the list GET /api/dispatcher returned — the
+  // server's own source of truth for what can actually run — or null when
+  // that read failed. This function holds no provider knowledge at all:
+  // no hardcoded enum, no per-provider label, no per-provider behaviour.
+  // A provider added or withdrawn server-side changes this select with no
+  // edit here, and a provider the console cannot confirm is never offered.
+  function startMissionSection(pending, providers) {
     var wrap = el('div', {});
     var feedback = el('div', { className: 'mythos-start-feedback' });
 
@@ -359,8 +390,15 @@
       attrs: { id: 'mission-instruction', maxlength: '20000', rows: '3',
         placeholder: 'What should the agent do? Read-only analysis only — this pathway cannot write, commit or deploy.' }
     });
+    var providerList = providers || [];
     var providerSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-provider' } },
-      START_PROVIDERS.map(function (p) { return el('option', { attrs: { value: p.value }, text: p.label }); }));
+      providerList.map(function (p) { return el('option', { attrs: { value: p }, text: String(p) }); }));
+    var providerNote = null;
+    if (!providerList.length) {
+      providerSelect.disabled = true;
+      providerNote = el('div', { className: 'mythos-row-sub',
+        text: 'provider list unavailable — the control plane could not be read' });
+    }
     var modelInput = el('input', {
       className: 'mythos-input',
       attrs: { type: 'text', id: 'mission-model', maxlength: '100', placeholder: 'model (optional — provider default if blank)', autocomplete: 'off' }
@@ -389,9 +427,19 @@
         model: modelInput.value.trim() || undefined
       }).then(function (r) {
         clear(feedback);
-        feedback.appendChild(statePanel('▶', 'Mission started', r.data.task_id + ' — ' + r.data.status +
-          ' on ' + r.data.provider + (r.data.model ? ' (' + r.data.model + ')' : '') +
-          '. It will appear under Missions once the next status refresh loads.'));
+        // MOS-3B: the dispatcher is capacity-gated, so a created mission is
+        // RUNNING or QUEUED, and the two are not the same news. The server's
+        // own note (why it queued, against which ceiling) is shown verbatim
+        // rather than paraphrased into a cheerier sentence.
+        var d = r.data || {};
+        var isRunning = String(d.status).toUpperCase() === 'RUNNING';
+        feedback.appendChild(statePanel(
+          isRunning ? '▶' : '◌',
+          isRunning ? 'Mission started' : 'Mission queued',
+          d.task_id + ' — ' + d.status + ' on ' + d.provider + (d.model ? ' (' + d.model + ')' : '') + '.' +
+          (d.note ? ' ' + d.note + '.' : '') +
+          ' It will appear under Missions once the next status refresh loads.'
+        ));
         titleInput.value = ''; instructionInput.value = ''; modelInput.value = '';
       }).catch(function (e) {
         clear(feedback);
@@ -406,7 +454,7 @@
       el('label', { className: 'mythos-label', attrs: { for: 'mission-title' }, text: 'Title' }), titleInput,
       el('label', { className: 'mythos-label', attrs: { for: 'mission-instruction' }, text: 'Instruction' }), instructionInput,
       el('div', { className: 'mythos-start-row' }, [
-        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-provider' }, text: 'Provider' }), providerSelect]),
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-provider' }, text: 'Provider' }), providerSelect, providerNote]),
         el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model (optional)' }), modelInput])
       ]),
       startBtn, feedback
@@ -492,7 +540,32 @@
       });
     }
 
-    var actions = el('div', { className: 'mythos-exec-actions' }, [viewBtn, cancelBtn]);
+    // MOS-3B: an explicit start for a task the daemon has not picked up
+    // yet. The dispatcher is capacity-gated, so "I asked" and "it ran" are
+    // two different outcomes and the button says which one happened rather
+    // than claiming the optimistic one. Either way it stays disabled — the
+    // task is already committed and asking twice would only race.
+    var startNowBtn = null;
+    if (state === 'QUEUED') {
+      startNowBtn = el('button', { className: 'mythos-btn mythos-btn-outline', attrs: { type: 'button' }, text: 'Start now' });
+      startNowBtn.addEventListener('click', function () {
+        startNowBtn.disabled = true;
+        startNowBtn.textContent = 'Starting…';
+        postJSON('/api/missions/' + encodeURIComponent(t.task_id) + '/dispatch', {}).then(function (r) {
+          var d = r.data || {};
+          startNowBtn.textContent = d.dispatched ? 'Started'
+                                  : d.queued ? 'Queued — at capacity'
+                                  : 'Queued — start not confirmed';
+        }).catch(function (e) {
+          clear(detailSlot);
+          detailSlot.appendChild(statePanel('⚠', 'Could not start now', e.message, true));
+          startNowBtn.disabled = false;
+          startNowBtn.textContent = 'Start now';
+        });
+      });
+    }
+
+    var actions = el('div', { className: 'mythos-exec-actions' }, [viewBtn, startNowBtn, cancelBtn]);
 
     return el('div', { className: 'mythos-exec-card' }, [
       row([
@@ -505,48 +578,82 @@
     ]);
   }
 
+  // MOS-3B: the lifecycle, in the order an operator walks it — what has not
+  // started, what is running, what is held up by a limit, what is held up
+  // by the owner, and then the three terminal outcomes. The order is the
+  // page; a flat newest-first list made the operator do this grouping in
+  // their own head, every time they opened it.
+  //
+  // Pending and Running are always drawn, empty or not: those two answers
+  // are the reason the page is opened, and an absent section reads as "not
+  // loaded" rather than "none". Every other section is omitted when empty.
+  var MISSION_GROUPS = [
+    { title: 'Pending', states: ['QUEUED'], always: true,
+      emptyTitle: 'No missions pending',
+      emptyBody: 'Nothing is QUEUED right now — start one from the Command Center.' },
+    { title: 'Running', states: ['RUNNING'], always: true,
+      emptyTitle: 'Nothing running',
+      emptyBody: 'The executor reports no mission in the RUNNING state.' },
+    { title: 'Waiting', states: ['WAITING_FOR_QUOTA', 'WAITING_RETRY', 'INTERRUPTED'] },
+    { title: 'Awaiting the owner', states: ['BLOCKED', 'WAITING_FOR_APPROVAL'] },
+    { title: 'Completed', states: ['COMPLETED'] },
+    { title: 'Failed', states: ['FAILED'] },
+    { title: 'Cancelled', states: ['CANCELLED'] }
+  ];
+
+  function taskState(t) { return String(t.effective || t.status || 'UNKNOWN').toUpperCase(); }
+
+  function isGroupedState(state) {
+    return MISSION_GROUPS.some(function (g) { return g.states.indexOf(state) !== -1; });
+  }
+
+  function missionCards(tasks) {
+    var list = el('div', { className: 'mythos-list' });
+    tasks.forEach(function (t) { list.appendChild(executionCard(t)); });
+    return list;
+  }
+
   RENDERERS.missions = function (view) {
-    view.appendChild(pageHeader('MISSIONS', 'Every executor task, newest first.'));
+    view.appendChild(pageHeader('MISSIONS', 'Every executor task, grouped by where it stands in its lifecycle.'));
     var slot = el('div', {});
     view.appendChild(slot);
 
-    api('/api/missions').then(function (r) {
+    Promise.all([
+      api('/api/missions').catch(function (e) { return { ok: false, err: e }; }),
+      api('/api/dispatcher').catch(function (e) { return { ok: false, err: e }; })
+    ]).then(function (r) {
+      var missions = r[0], dispatcher = r[1];
       clear(slot);
-      var tasks = (r.data.tasks || []).slice().sort(function (a, b) {
+      slot.appendChild(capacitySlot(dispatcher));
+
+      if (!missions.ok) { slot.appendChild(upstreamFailure(missions.err, 'the executor task API')); return; }
+
+      var tasks = (missions.data.tasks || []).slice().sort(function (a, b) {
         return String(b.updated_at || b.created_at || '').localeCompare(String(a.updated_at || a.created_at || ''));
       });
-      if (!tasks.length) {
-        slot.appendChild(statePanel('◌', 'No missions', 'The executor task store is empty.'));
-        return;
-      }
-      slot.appendChild(el('div', { className: 'mythos-kpi-grid' }, countByState(tasks).map(function (c) {
-        return kpi('•', String(c.n), c.state.replace(/_/g, ' '));
-      })));
-      var list = el('div', { className: 'mythos-list' });
-      tasks.forEach(function (t) {
-        list.appendChild(row([
-          cellMain(t.project || 'unknown project', t.task_id || ''),
-          cellText('Stage / provider', [t.stage, t.provider].filter(Boolean).join(' · ')),
-          cellText('Updated', stamp(t.updated_at) + (ago(t.updated_at) ? '  (' + ago(t.updated_at) + ')' : '')),
-          el('div', { className: 'mythos-row-end' }, [badge(t.effective || t.status)])
-        ]));
+
+      MISSION_GROUPS.forEach(function (g) {
+        var members = tasks.filter(function (t) { return g.states.indexOf(taskState(t)) !== -1; });
+        if (!members.length && !g.always) return;
+        slot.appendChild(sectionTitle(g.title + ' · ' + members.length));
+        slot.appendChild(members.length ? missionCards(members)
+                                        : statePanel('◌', g.emptyTitle, g.emptyBody));
       });
-      slot.appendChild(sectionTitle('All missions'));
-      slot.appendChild(list);
-    }).catch(function (e) {
-      clear(slot);
-      slot.appendChild(upstreamFailure(e, 'the executor task API'));
+
+      // A state this console has never heard of is a state the executor is
+      // genuinely in. It is shown, badged as itself, rather than filtered
+      // out of a page whose whole claim is that it lists every task.
+      var other = tasks.filter(function (t) { return !isGroupedState(taskState(t)); });
+      if (other.length) {
+        slot.appendChild(sectionTitle('Other · ' + other.length));
+        slot.appendChild(el('div', { className: 'mythos-card-meta',
+          text: 'States this console has no lifecycle group for, shown exactly as the executor reports them.' }));
+        slot.appendChild(missionCards(other));
+      }
+
+      startPolling('missions');
     });
   };
-
-  function countByState(items) {
-    var seen = {};
-    items.forEach(function (t) {
-      var s = String(t.effective || t.status || 'UNKNOWN');
-      seen[s] = (seen[s] || 0) + 1;
-    });
-    return Object.keys(seen).sort().map(function (k) { return { state: k, n: seen[k] }; });
-  }
 
   RENDERERS.campaigns = function (view) {
     view.appendChild(pageHeader('CAMPAIGNS', 'Multi-mission campaigns and where each has reached.'));
@@ -870,7 +977,89 @@
     }).catch(function () { clear(box); });
   }
 
+  // ---------------------------------------------------------------
+  // Auto-refresh (MOS-3B)
+  //
+  // The lifecycle pages go stale the moment they are drawn: a mission
+  // starts, a slot frees, a run ends. Until now the only way to see that
+  // was F5, which is also the fastest way to lose a half-typed mission.
+  // So the poller re-renders in place, and refuses to run at all whenever
+  // a re-render would destroy something the operator is holding. Every
+  // guard below is a thing the operator would have lost. A skipped cycle
+  // costs twelve seconds; a destroyed one costs their work.
+  // ---------------------------------------------------------------
+
+  var POLL_TIMER = null;
+  var POLL_MS = 12000;
+
+  function stopPolling() {
+    if (POLL_TIMER) { clearInterval(POLL_TIMER); POLL_TIMER = null; }
+  }
+
+  function startPolling(moduleId) {
+    stopPolling();
+    POLL_TIMER = setInterval(function () {
+      if (!canRefresh()) return;              // skipped silently — see canRefresh
+      var mod = registry.byId(moduleId);
+      if (!mod) return;
+      renderModule(mod);
+    }, POLL_MS);
+  }
+
+  function canRefresh() {
+    // (a) A background tab has no operator watching it. Re-rendering it
+    //     buys nothing and keeps polling the control plane for no reader.
+    if (document.hidden) return false;
+
+    // (b) Focus inside a field in #view means someone is typing into a
+    //     node this refresh is about to remove. Their caret, selection and
+    //     unsent text would all go with it.
+    var active = document.activeElement;
+    if (active && viewEl.contains(active) &&
+        ['INPUT', 'TEXTAREA', 'SELECT'].indexOf(active.tagName) !== -1) return false;
+
+    // (c) An open detail panel is a deliberate act — the operator asked for
+    //     that execution's instruction, error or report and is reading it.
+    //     A refresh would collapse it with no warning and no way back to
+    //     the same scroll position.
+    var details = document.querySelectorAll('.mythos-exec-detail');
+    for (var i = 0; i < details.length; i++) {
+      if (details[i].firstChild) return false;
+    }
+
+    // (d) A half-written mission is unsaved work that exists nowhere else.
+    //     Not focused is not the same as not started: the operator may be
+    //     reading the page, or copying text from another window, with a
+    //     drafted title and instruction already in the form.
+    var titleInput = document.getElementById('mission-title');
+    var instructionInput = document.getElementById('mission-instruction');
+    if (titleInput && titleInput.value !== '') return false;
+    if (instructionInput && instructionInput.value !== '') return false;
+
+    return true;
+  }
+
+  // The one place a module is painted into #view. route() and the
+  // auto-refresh poller both go through it, so a refresh cannot drift from
+  // what a real navigation would have drawn. Focus and the connection strip
+  // stay in route(): a poll must not move the operator's focus.
+  function renderModule(mod) {
+    clear(viewEl);
+    var renderer = mod.state === 'live' ? RENDERERS[mod.id] : null;
+    if (renderer) {
+      renderer(viewEl);
+    } else {
+      viewEl.appendChild(pageHeader(mod.label.toUpperCase(), mod.summary));
+      viewEl.appendChild(notBuilt(mod));
+    }
+  }
+
   function route() {
+    // MOS-3B: a poller belongs to the module that started it. Leaving one
+    // running across a route change would repaint #view with the previous
+    // module's content.
+    stopPolling();
+
     var id = (location.hash || '').replace(/^#\/?/, '') || registry.defaultId;
     var mod = registry.byId(id);
     if (!mod) {
@@ -883,15 +1072,7 @@
 
     document.title = 'MYTHOS OS — ' + mod.label;
     buildNav(mod.id);
-    clear(viewEl);
-
-    var renderer = mod.state === 'live' ? RENDERERS[mod.id] : null;
-    if (renderer) {
-      renderer(viewEl);
-    } else {
-      viewEl.appendChild(pageHeader(mod.label.toUpperCase(), mod.summary));
-      viewEl.appendChild(notBuilt(mod));
-    }
+    renderModule(mod);
     viewEl.focus();
     refreshLink();
   }
