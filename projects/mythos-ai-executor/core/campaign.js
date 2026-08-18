@@ -33,6 +33,7 @@ var memory = require('./memory');
 var roadmap = require('./roadmap');
 var planner = require('./planner');
 var selfImprove = require('./self-improve');
+var unattended = require('./unattended');
 var policyEngine = require('./policy-engine');
 var budget = require('./budget');
 var events = require('./events');
@@ -333,10 +334,97 @@ function parkForApproval(campaignId, info) {
     requested_at: new Date().toISOString()
   }]);
   saveCampaign(c);
+
+  // UNATTENDED MODE. The gate still fired and the approval entity still
+  // exists — what changes is that the answer is decided now, automatically,
+  // and it is always DENY. The campaign does not stop for a human it has no
+  // way to reach. See core/unattended.js for why an automatic answer is only
+  // ever safe in the restrictive direction.
+  if (unattended.enabled()) {
+    return autoDenyApproval(campaignId, info, approval, reason);
+  }
+
   if (c.state !== 'WAITING_FOR_APPROVAL') {
     transition(campaignId, 'WAITING_FOR_APPROVAL', {});
   }
   return approval;
+}
+
+// Deterministically refuses an approval that unattended mode will not put to
+// a human, records it as a real decided approval (so the audit trail is
+// identical in shape to a human denial, distinguished only by the decider),
+// and returns the campaign to READY so the loop selects other work.
+//
+// This function can only ever DENY. It takes no `granted` parameter, and
+// there is deliberately no code path through it that grants anything.
+function autoDenyApproval(campaignId, info, approval, reason) {
+  var verdict = unattended.classify(reason);
+
+  // Belt and braces: if a future edit somehow produced a granting verdict,
+  // refuse to act on it rather than trusting the table.
+  if (unattended.grantsAnything(verdict)) {
+    throw new Error('UNATTENDED_POLICY_MUST_NOT_GRANT: ' + verdict.action);
+  }
+
+  try {
+    policyEngine.decideApproval(approval.id, false, 'unattended-policy (automatic)');
+  } catch (e) {
+    if (!/APPROVAL_ALREADY_DECIDED/.test(String(e.message))) throw e;
+  }
+
+  var c = loadCampaign(campaignId);
+  c.approval_required = (c.approval_required || []).filter(function (a) {
+    return a.approval_id !== approval.id;
+  });
+  c.approval_decisions = (c.approval_decisions || []).concat([{
+    capability_key: info.capability_key || null,
+    approval_id: approval.id,
+    granted: false,
+    automatic: true,
+    decided_by: 'unattended-policy (automatic)',
+    policy_kind: verdict.kind,
+    note: verdict.detail,
+    reason: reason,
+    decided_at: new Date().toISOString()
+  }]);
+
+  if (verdict.terminal_for_capability && info.capability_key) {
+    c.blocked_missions = (c.blocked_missions || []).filter(function (b) {
+      return b.capability_key !== info.capability_key;
+    });
+    try {
+      roadmap.recordProgress(c.repo_path, info.capability_key, 'AUTO_DENIED', {
+        denied_by: 'unattended-policy (automatic)',
+        policy_kind: verdict.kind,
+        note: verdict.detail,
+        reason: String(reason).slice(0, 300),
+        branch_preserved: verdict.preserve_evidence
+      });
+    } catch (e) { /* an unwritable roadmap must not lose the decision */ }
+  }
+  if (c.current_mission &&
+      (!info.capability_key || c.current_mission.capability_key === info.capability_key)) {
+    c.current_mission = null;
+  }
+  saveCampaign(c);
+
+  if (loadCampaign(campaignId).state !== 'READY') {
+    transition(campaignId, 'READY', {});
+  }
+  store.appendEventLine({
+    event_type: 'APPROVAL_DENIED',
+    subject_id: campaignId, project: c.project,
+    detail: {
+      approval_id: approval.id, capability_key: info.capability_key || null,
+      decided_by: 'unattended-policy (automatic)', automatic: true,
+      policy_kind: verdict.kind, action: verdict.action
+    }
+  });
+  return {
+    id: approval.id, auto_denied: true, policy_kind: verdict.kind,
+    action: verdict.action, detail: verdict.detail,
+    terminal_for_capability: verdict.terminal_for_capability
+  };
 }
 
 // Records a HUMAN decision on an outstanding approval and lets the campaign
@@ -739,6 +827,7 @@ module.exports = {
   governanceGate: governanceGate,
   requireApproval: requireApproval,
   parkForApproval: parkForApproval,
+  autoDenyApproval: autoDenyApproval,
   resolveApproval: resolveApproval,
   buildMissionSpec: buildMissionSpec,
   startMission: startMission,

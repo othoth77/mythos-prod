@@ -159,6 +159,14 @@ function candidates(repoPath) {
       selectable = false;
       reasons.push('the owner denied this capability\'s approval request — only a human may re-open it');
     }
+    // AUTO_DENIED is the unattended policy's own refusal, kept DISTINCT from
+    // OWNER_DENIED on purpose: one is a human verdict, the other is a machine
+    // declining to act without one. Collapsing them would let the loop's own
+    // denials masquerade as owner decisions in the roadmap.
+    if (c.effective_status === 'AUTO_DENIED') {
+      selectable = false;
+      reasons.push('denied automatically by unattended policy — a human may re-open it');
+    }
     // Score = readiness, minus a penalty for late delivery phases. An
     // unphased capability sits between: it is neither promised early nor
     // deferred late.
@@ -210,7 +218,7 @@ function selectNext(repoPath, opts) {
 // marked done by assertion.
 function recordProgress(repoPath, key, status, evidence) {
   if (STATUSES.indexOf(status) === -1 &&
-      ['IN_PROGRESS', 'VALIDATED', 'OWNER_DENIED'].indexOf(status) === -1) {
+      ['IN_PROGRESS', 'VALIDATED', 'OWNER_DENIED', 'AUTO_DENIED'].indexOf(status) === -1) {
     throw new Error('ROADMAP_UNKNOWN_STATUS: ' + String(status).slice(0, 40));
   }
   if (['IMPLEMENTED', 'VALIDATED'].indexOf(status) !== -1) {
