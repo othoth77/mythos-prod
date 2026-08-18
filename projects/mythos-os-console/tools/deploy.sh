@@ -296,7 +296,18 @@ say "Phase 8 — TLS"
 if [ -d "/etc/letsencrypt/live/$DOMAIN" ]; then
   ok "certificate already present"
 else
-  sudo certbot --nginx -d "$DOMAIN" --dry-run || die "certbot dry run FAILED. No certificate requested."
+  # `certonly` is REQUIRED here, not stylistic. certbot's own guard
+  # (cli_utils.set_test_server_options) rejects --dry-run for any verb outside
+  # certonly/renew/reconfigure, and the bare `certbot --nginx` form uses the
+  # implicit `run` verb -- which is exactly what stopped the real deployment at
+  # this line: "--dry-run currently only works with the 'certonly' or 'renew'
+  # subcommands ('run')". Verified against certbot 4.0.0.
+  #
+  # certonly exercises the same nginx authenticator the real issuance below
+  # uses, so this remains a true preflight, but it never runs the installer, so
+  # it cannot edit the nginx config. --dry-run forces staging=True inside
+  # certbot, so no production certificate can be issued by this line.
+  sudo certbot certonly --nginx -d "$DOMAIN" --dry-run || die "certbot dry run FAILED. No certificate requested."
   ok "certbot dry run passed"
   confirm "request the real certificate for $DOMAIN? (Let's Encrypt rate limits apply)"
   sudo certbot --nginx -d "$DOMAIN" || die "certbot FAILED."
