@@ -156,6 +156,45 @@ decided, but the decision is not recoverable).
 | **Status** | **CONFIRMED** |
 | **Notes** | Establishes `assets/logos/` as the canonical logo location for the Mythos OS application |
 
+### D-012 — Mythos OS design system extracted as a reusable shell layer
+
+| Field | Value |
+|---|---|
+| **Project** | Mythos OS |
+| **Decision** | The D-001 token system is re-declared under a `--mythos-*` namespace in `projects/mythos-os-console/reference/web/mythos.css`, together with the component idioms `css/main.css` already implements (nav rail, button set, card surface, KPI, page header, section rule, pill, detail row). Composition layers may not declare a colour literal; a missing colour is a missing token |
+| **Source** | Stage MOS-1; `docs/MYTHOS_OS_DESIGN_SYSTEM.md` |
+| **Evidence** | Every colour value is read out of `css/main.css` at test time and matched, so the extraction cannot silently drift from D-001 — `tests/mos-1-console-test.js` |
+| **Date / commit** | 2026-08-18, stage MOS-1 |
+| **Status** | **CONFIRMED — implemented** |
+| **Affected** | `os.mythosprod.xyz` and every future MYTHOS OS module |
+| **Notes** | An extraction, not a revision. `css/main.css` is **not modified**; the namespace lets both coexist. Records three additions that are new rather than recovered and are tagged as such in the specification: a spacing scale (U-004 had none), a mono stack, and `--danger-dim` completing a pairing `main.css` leaves one short. Does **not** touch C-004 or O-001 — this is Mythos OS extending its own confirmed identity, not a cross-project decision |
+
+### D-013 — Gold means the owner is being waited on
+
+| Field | Value |
+|---|---|
+| **Project** | Mythos OS |
+| **Decision** | In an operational surface, each state colour carries a fixed meaning: **gold** = awaiting the owner · blue = in flight · green = finished well · danger = finished badly · orange = paused by a limit, will self-resume · purple = declared, not started · grey = inert. Gold is reserved for owner attention and used for no other state. Every status renders as a colour **and** a word |
+| **Source** | Stage MOS-1; `docs/MYTHOS_OS_DESIGN_SYSTEM.md` §6 |
+| **Evidence** | Implemented in `mythos.css` `.mythos-badge.is-*` and `app.js` `STATE_CLASS`; the colour-and-word rule follows `docs/MYTHOS_COMMAND_CENTER_ARCHITECTURE.md` §7 |
+| **Date / commit** | 2026-08-18, stage MOS-1 |
+| **Status** | **CONFIRMED — implemented. NEW, not recovered** |
+| **Affected** | Every MYTHOS OS operational surface |
+| **Notes** | The only genuinely new design decision in MOS-1. It introduces no colour — it assigns operational meaning to the existing D-001 palette. It does **not** answer U-001 (why gold); it gives the accent a defined job in this context. Also records the console's governing interface rule: an empty result and an unreadable one must never look alike |
+
+### D-014 — Secondary text uses a readable tone, not `--muted`
+
+| Field | Value |
+|---|---|
+| **Project** | Mythos OS |
+| **Decision** | `--muted` `#6b6860` is not used as text. Secondary text — labels, metadata, inactive navigation, timestamps — uses `--mythos-text-secondary` `#999`. Badge text for a semantic solid uses a lightened tint of that solid, never the solid itself |
+| **Source** | Stage MOS-1.1; `docs/MYTHOS_OS_DESIGN_SYSTEM.md` §8.1 |
+| **Evidence** | **Measured, not asserted.** `--muted` computes 3.03–3.47:1 against the three D-001 grounds — below WCAG 2.1 AA (4.5:1) everywhere it appears as text. `#999` is recovered from `index.html:125` and `#888` from `css/dashboard.css:75`, the two places the application already reaches for a lighter grey when a muted label must actually be read. `projects/mythos-os-console/tools/contrast.js` computes it; `tests/mos-1-console-test.js` enforces it; `tools/visual-verify.js` confirms it in-browser against computed styles |
+| **Date / commit** | 2026-08-18, stage MOS-1.1 |
+| **Status** | **CONFIRMED — implemented and enforced** |
+| **Affected** | Every MYTHOS OS surface built on the shell |
+| **Notes** | **No D-001 token was changed.** `--muted` remains declared verbatim so the shell carries the complete palette; what changed is which token is used where. Ends the portfolio-wide "contrast was not measured and no claim is made" disclaimer for this surface only: 26 of 26 rendered pairs meet AA, 12 meet AAA. Two things are recorded and deliberately NOT fixed — `--muted` is below AA as text throughout the live application (a `css/main.css` change, its own stage), and `--border` at 1.17–1.34:1 is decorative, outside WCAG 1.4.11, which governs boundaries needed to identify or operate a control; the console has no form control at all |
+
 ---
 
 ## 2. Conflicting decisions
@@ -209,7 +248,7 @@ decided, but the decision is not recoverable).
 | **O-006** | Merge Mouain's 1,787 unmerged lines to `main`? | No | Invisible from `main` today |
 | **O-007** | Is `agribee.tn` intended to be served? | No | Files and logo exist; no vhost |
 | **O-008** | Reduce Uthina's five parallel site copies to one? | No | All preserved, none deleted |
-| **O-009** | Adopt D-010 headless-browser design QA as a standard? | No | Proven once, never generalised |
+| **O-009** | Adopt D-010 headless-browser design QA as a standard? | No | Proven **twice**: SsangYong (3 defects) and MOS-1 (3 defects, incl. a mobile drawer that could not be opened). Recommended for adoption |
 | **O-010** | Adopt D-006 clear-space/minimum-size rules portfolio-wide? | No | Currently Dar Hijama only |
 
 ---

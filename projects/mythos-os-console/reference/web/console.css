@@ -1,0 +1,141 @@
+/* =====================================================
+   MYTHOS OS COMMAND CENTER — surface styles
+   projects/mythos-os-console/reference/web/console.css
+
+   Composition only. Every colour, radius, shadow, duration and type
+   size below is a token from mythos.css. If a rule here needs a raw
+   value that the design system does not have, that is a signal the
+   token set is incomplete — add it to mythos.css instead, so the next
+   MYTHOS OS module inherits it.
+   ===================================================== */
+
+/* --- Top bar (console-specific; main.css has no equivalent) -------- */
+
+.console-topbar {
+  display: flex;
+  align-items: center;
+  gap: var(--mythos-sp-4);
+  margin-bottom: var(--mythos-sp-7);
+}
+
+.mythos-nav-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 42px; height: 42px;
+  padding: 0;
+  font-size: var(--mythos-fs-2xl);
+  line-height: 1;
+}
+
+@media (max-width: 900px) {
+  /* The toggle's base rule is in this file, so its reveal must be too —
+     see the note at the 900px breakpoint in mythos.css. */
+  .mythos-nav-toggle { display: inline-flex; }
+
+  .console-topbar {
+    position: fixed;
+    top: 0; inset-inline: 0;
+    z-index: 30;
+    padding: var(--mythos-sp-4) var(--mythos-sp-5);
+    margin-bottom: 0;
+    background: var(--mythos-surface);
+    border-bottom: 1px solid var(--mythos-border);
+  }
+}
+
+/* #view is focused on every route change so a screen reader announces
+   the new module. It is a programmatic focus target, not a control, so
+   it must not paint the design system's focus ring around the entire
+   page — which is exactly what it did until headless verification
+   showed it. Interactive controls keep their ring. */
+#view:focus, #view:focus-visible { outline: none; box-shadow: none; }
+
+/* --- Connection strip --------------------------------------------
+   The console reads a live control plane. When that plane is
+   unreachable the operator must see it at the top of every module,
+   not discover it as an empty list further down. */
+
+.console-link {
+  display: flex;
+  align-items: center;
+  gap: var(--mythos-sp-3);
+  flex-wrap: wrap;
+  margin-inline-start: auto;
+  color: var(--mythos-text-secondary);
+  font-size: var(--mythos-fs-sm);
+}
+
+.console-link .stamp { font-family: var(--mythos-font-mono); font-size: var(--mythos-fs-xs); }
+
+/* --- Sidebar identity footer -------------------------------------- */
+
+.console-identity { display: grid; gap: var(--mythos-sp-2); }
+.console-identity .row { display: flex; justify-content: space-between; align-items: center; gap: var(--mythos-sp-3); }
+.console-identity .k { color: var(--mythos-text-secondary); font-size: var(--mythos-fs-xs); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; }
+.console-identity .v { color: var(--mythos-text); font-size: var(--mythos-fs-xs); font-family: var(--mythos-font-mono); }
+
+/* --- Definition list used by detail surfaces ---------------------- */
+
+.console-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--mythos-sp-5); }
+.console-fact .v { color: var(--mythos-text); font-size: var(--mythos-fs-base); overflow-wrap: anywhere; }
+.console-fact .v.num { font-family: var(--mythos-font-display); font-size: var(--mythos-fs-3xl); font-weight: 800; color: var(--mythos-gold-light); line-height: 1.1; }
+
+/* --- Event feed ---------------------------------------------------- */
+
+.console-feed { display: grid; gap: var(--mythos-sp-2); }
+
+.console-event {
+  display: grid;
+  grid-template-columns: 178px 1fr;
+  gap: var(--mythos-sp-4);
+  padding: 10px var(--mythos-sp-5);
+  background: var(--mythos-card);
+  border: 1px solid var(--mythos-border);
+  border-radius: var(--mythos-radius-md);
+  font-size: var(--mythos-fs-md);
+}
+.console-event .at { color: var(--mythos-text-secondary); font-family: var(--mythos-font-mono); font-size: var(--mythos-fs-xs); white-space: nowrap; }
+.console-event .what { color: var(--mythos-text); overflow-wrap: anywhere; }
+.console-event .what b { color: var(--mythos-gold-light); font-weight: 700; }
+
+@media (max-width: 760px) {
+  .console-event { grid-template-columns: 1fr; gap: var(--mythos-sp-1); }
+}
+
+/* --- Read-only notice ---------------------------------------------
+   This console never writes. That is a governance property, not an
+   unfinished feature, so it is stated on the surface rather than
+   implied by the absence of buttons. */
+
+.console-readonly {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--mythos-sp-4);
+  padding: 14px var(--mythos-sp-5);
+  margin-bottom: var(--mythos-sp-7);
+  border: 1px solid var(--mythos-gold-line-2);
+  border-inline-start: 3px solid var(--mythos-gold);
+  border-radius: var(--mythos-radius-md);
+  background: var(--mythos-gold-dim);
+  color: var(--mythos-text);
+  font-size: var(--mythos-fs-md);
+  line-height: 1.55;
+}
+.console-readonly .ico { font-size: var(--mythos-fs-lg); line-height: 1.3; }
+
+/* --- Roadmap / capability rows ------------------------------------- */
+
+.console-cap { display: grid; grid-template-columns: 48px 1fr auto; gap: var(--mythos-sp-4); align-items: center; }
+.console-cap .key {
+  font-family: var(--mythos-font-display);
+  font-size: var(--mythos-fs-2xl);
+  font-weight: 800;
+  color: var(--mythos-gold);
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .console-cap { grid-template-columns: 40px 1fr; }
+  .console-cap > :nth-child(3) { grid-column: 1 / -1; }
+}
