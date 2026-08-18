@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Component Showcase Prototype (1I)</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="stylesheet" href="../../../assets/brand/tokens/tokens.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--mythos-ground); color: var(--mythos-text-primary); font-family: 'IBM Plex Sans', sans-serif; }
+  .banner { background: var(--mythos-warning-dim); border-bottom: 1px solid var(--mythos-warning); padding: var(--mythos-space-3) var(--mythos-space-6); font-size: 13px; text-align: center; }
+  main { max-width: 1100px; margin: 0 auto; padding: var(--mythos-space-9) var(--mythos-space-8); }
+  h1 { font-family: 'Archivo Expanded'; font-size: 31px; margin: 0 0 var(--mythos-space-8); }
+  section { margin-bottom: var(--mythos-space-9); }
+  h2 { font-size: 18px; margin: 0 0 var(--mythos-space-2); }
+  .sub { font-size: 13px; color: var(--mythos-text-secondary); margin: 0 0 var(--mythos-space-5); }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--mythos-space-5); }
+
+  /* hit-box visualisation — A-022 */
+  .hitbox-demo { position: relative; display: inline-block; }
+  .hitbox-demo::after {
+    content: 'hit area'; position: absolute; inset: -2px; border: 1px dashed var(--mythos-border-control);
+    border-radius: var(--mythos-radius-control); pointer-events: none;
+    display: flex; align-items: flex-end; justify-content: center; padding-bottom: 2px;
+    font-size: 9px; color: var(--mythos-text-secondary); font-family: monospace;
+  }
+  .hitbox-demo.h40::after { inset: -2px; }
+  .hitbox-demo.h36::after { inset: -4px; }
+
+  .btn {
+    height: var(--mythos-size-control-comfortable); padding: 0 var(--mythos-space-5);
+    border-radius: var(--mythos-radius-control); font-size: 14px; font-weight: 600; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary { background: var(--mythos-accent); color: var(--mythos-text-on-accent); border: none; }
+  .btn-primary:hover { background: var(--mythos-accent-hover); }
+  .btn-primary:active { background: var(--mythos-accent-active); }
+  .btn-primary:disabled { background: var(--mythos-accent); opacity: 0.4; cursor: not-allowed; }
+  .btn-primary:focus-visible { outline: 2px solid var(--mythos-focus-ring); outline-offset: 2px; }
+  .btn-secondary { background: transparent; color: var(--mythos-text-primary); border: 1px solid var(--mythos-border-control); }
+  .btn-secondary:focus-visible { outline: 2px solid var(--mythos-focus-ring); outline-offset: 2px; }
+  .btn-ghost { background: none; border: none; color: var(--mythos-text-primary); }
+  .btn-compact { height: var(--mythos-size-control-compact); }
+
+  .field { display: flex; flex-direction: column; gap: var(--mythos-space-2); max-width: 280px; }
+  .field label { font-size: 13px; font-weight: 500; }
+  .field input {
+    height: var(--mythos-size-control-comfortable); border-radius: var(--mythos-radius-control);
+    border: 1px solid var(--mythos-border-control); background: var(--mythos-surface); color: var(--mythos-text-primary);
+    padding: 0 var(--mythos-space-4); font-size: 16px; font-family: inherit;
+  }
+  .field input:focus-visible { outline: 2px solid var(--mythos-focus-ring); outline-offset: 2px; border-color: transparent; }
+  .field.error input { border-color: var(--mythos-danger); }
+  .field.error .msg { color: var(--mythos-danger); font-size: 12px; }
+
+  .card { background: var(--mythos-surface); border-radius: var(--mythos-radius-card); padding: var(--mythos-space-6); border: 1px solid var(--mythos-border-hairline); width: 240px; }
+
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 2px 10px; border-radius: var(--mythos-radius-pill); }
+  .badge.success { background: var(--mythos-success-dim); color: var(--mythos-success); }
+  .badge.success::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--mythos-success); }
+  .badge.danger { background: var(--mythos-danger-dim); color: var(--mythos-danger); }
+  .badge.danger::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--mythos-danger); }
+
+  .switch { position: relative; display: inline-block; width: 40px; height: 20px; }
+  .switch input { opacity: 0; width: 44px; height: 44px; position: absolute; top: -12px; left: -2px; margin: 0; cursor: pointer; }
+  .switch .track { position: absolute; inset: 0; background: var(--mythos-border-control); border-radius: var(--mythos-radius-control); transition: background var(--mythos-motion-micro); }
+  .switch input:checked ~ .track { background: var(--mythos-accent); }
+  .switch .thumb { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: var(--mythos-text-primary); border-radius: 2px; transition: transform var(--mythos-motion-micro); }
+  .switch input:checked ~ .thumb { transform: translateX(20px); }
+
+  .skeleton { background: var(--mythos-surface); border-radius: var(--mythos-radius-control); height: 16px; position: relative; overflow: hidden; }
+  /* MOTION-1: static skeleton, no shimmer, no loop */
+
+  a.mythos-link { color: var(--mythos-link); text-decoration: underline; text-decoration-thickness: 1px; }
+  a.mythos-link:hover { text-decoration-thickness: 2px; }
+</style>
+</head>
+<body>
+<div class="banner">PROTOTYPE — 1I. Dashed outlines show the A-022 hit area extending beyond the visual box. Not deployed.</div>
+
+<main>
+  <h1>Component Showcase</h1>
+
+  <section>
+    <h2>Buttons — A-022 hit box</h2>
+    <p class="sub">Visual height 40 (comfortable) / 36 (compact). Hit area ≥ 44 × 44, extending 2px / 4px per side — never by adding margin.</p>
+    <div class="row">
+      <span class="hitbox-demo h40"><button class="btn btn-primary">Publish</button></span>
+      <span class="hitbox-demo h40"><button class="btn btn-secondary">Cancel</button></span>
+      <button class="btn btn-ghost">Ghost</button>
+      <span class="hitbox-demo h36"><button class="btn btn-primary btn-compact">Compact</button></span>
+      <button class="btn btn-primary" disabled>Disabled</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Inputs</h2>
+    <div class="row">
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" placeholder="you@example.com">
+      </div>
+      <div class="field error">
+        <label for="pw">Password</label>
+        <input id="pw" type="password" aria-describedby="pw-err">
+        <span class="msg" id="pw-err">At least 8 characters — never colour-only</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Cards, badges, status</h2>
+    <div class="row">
+      <div class="card">
+        <h3 style="margin:0 0 8px;font-size:15px;">MOS-1.8</h3>
+        <span class="badge success">finished well</span>
+      </div>
+      <div class="card">
+        <h3 style="margin:0 0 8px;font-size:15px;">Deploy blocked</h3>
+        <span class="badge danger">privilege boundary</span>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Switch — SHAPE-1</h2>
+    <p class="sub">Rectangular, `radius-control` — never a pill. Pills are reserved for avatars and status dots.</p>
+    <label class="switch">
+      <input type="checkbox" checked>
+      <span class="track"></span>
+      <span class="thumb"></span>
+    </label>
+  </section>
+
+  <section>
+    <h2>Loading — MOTION-1</h2>
+    <p class="sub">Static skeleton, no shimmer, no loop. Perceivable under <code>prefers-reduced-motion</code> with zero change.</p>
+    <div style="max-width:280px;display:flex;flex-direction:column;gap:8px;">
+      <div class="skeleton" style="width:70%;"></div>
+      <div class="skeleton" style="width:100%;"></div>
+      <div class="skeleton" style="width:40%;"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Link — LINK-1</h2>
+    <p>Never gold. <a class="mythos-link" href="#">An inline link</a> in running
+    text, underlined in <code>text-primary</code>, thickening on hover — colour
+    never distinguishes it.</p>
+  </section>
+</main>
+</body>
+</html>

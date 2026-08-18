@@ -405,7 +405,23 @@ a different thing, and the distinction is preserved throughout.
 | **C-001 / O-002** | Dar Hijama charter-versus-live-site — a real-world conflict this sweep does not touch, since resolving it means adjudicating a specific project's brand, not deriving a system rule |
 | **O-003 / O-004 / O-006 / O-007 / C-004 / U-001** | Carried from the recovery era, all evidence questions (does a vhost exist, was a decision ever made) rather than design questions a sweep like this can answer |
 
-**Authority, reversibility and scope — identical to AUTO-1/AUTO-2.** **AUTO-3, NOT owner-approved.** Every value above is a specification change only — no CSS, token artifact wiring, or application file is affected by the *decisions themselves* (the one generated artifact, `tokens.css`, is recorded separately in §9 as new, standalone, and unwired). Everything here is reversible at zero cost: a later owner review can accept, reject or amend any single row without touching any other.
+**Authority, reversibility and scope — identical to AUTO-1/AUTO-2.** **AUTO-3, NOT owner-approved.** Every value above is a specification change only — no CSS, token artifact wiring, or application file is affected by the *decisions themselves* (the one generated artifact, `tokens.css`, is new, standalone, and unwired — see the entry above). Everything here is reversible at zero cost: a later owner review can accept, reject or amend any single row without touching any other.
+
+### Stage 1I — design prototypes delivered
+
+**Not a decision — a deliverable, recorded for completeness.** Seven
+self-contained static HTML prototypes, matching the seven areas the original
+programme brief named (§23): master brand, `mythosprod.xyz` hub, Mythos OS,
+a business-unit example, a public-project example, mobile experience,
+component showcase. `docs/design/prototypes/`, indexed by its own `README.md`.
+
+**Every prototype uses only owner-approved or AUTO-\* values** — nothing new
+was invented to build them. Two things were deliberately kept visible rather
+than smoothed over: the Mythos OS prototype is a **new, standalone file**, not
+a touch to `css/main.css` (consistent with **AUTO-2**'s finding); and the
+business-unit example states, in the page itself, that Mythos Digital has
+**zero recovered evidence (O-004)** — a prototype of the descriptor system, not
+a claim the unit exists. Not deployed; referenced by no application.
 
 ---
 
