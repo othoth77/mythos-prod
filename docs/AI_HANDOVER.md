@@ -1,6 +1,136 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
+**From:** MYTHOS **MOS-1.1 — RELEASE GATE PASSED. CONTRAST MEASURED. MOS-1's DNS BLOCKER WAS A WRONG CLAIM AND IS WITHDRAWN. NOT DEPLOYED — AND THIS SESSION CANNOT DEPLOY IT.**
+
+**Stage:** MOS-1.1 · **Status:** gate passed, pushed; deployment is an on-host action
+**Commit:** `99abcef` · **Branch:** `claude/mythos-os-dashboard-audit-y4174m` · **PR:** #12 (draft, open, mergeable clean)
+**Baseline:** MOS-1 `7f0ce25`; `origin/main` `66e0b0e`, zero commits behind
+**Worktree:** clean
+
+### The correction that matters most
+
+**MOS-1 said `os.mythosprod.xyz` had no DNS record and named creating one
+as the blocking owner action. That was wrong.** The name resolves to
+`51.68.226.211`; two fabricated subdomains of `mythosprod.xyz` return
+NXDOMAIN from the same resolver, so it is a real record, not a wildcard.
+
+The claim was carried over from
+`projects/command-center/deploy/nginx-ordre.mythosprod.xyz.conf`, whose
+DNS prerequisite genuinely was unmet when it was written, and it was never
+checked by resolving the name. That is precisely what `AGENTS.md` §2
+forbids — relying on an earlier session's document instead of verifying.
+`projects/mythos-os-console/tools/host-preflight.sh` exists because of it:
+ten preconditions, each checked against the host rather than a document,
+refusing to pass if one is missing.
+
+Corrected in the architecture doc (§10.0), the design-system follow-ups,
+the vhost comment, the changelog and the PR body.
+
+### Contrast: measured, no longer disclaimed
+
+`docs/MYTHOS_DESIGN_STRATEGY.md` §13 records accessibility as VERIFIED
+ABSENT portfolio-wide and states that contrast "was NOT measured and no
+claim is made about it". MOS-1 repeated it. MOS-1.1 measured it.
+
+`tools/contrast.js` computes WCAG 2.1 ratios over every pair the console
+renders, reading tokens from `mythos.css` rather than a copied list and
+compositing translucent fills over their real backdrop. The suite asserts
+it; the arithmetic is checked against WCAG's own anchors; `visual-verify.js`
+confirms it in-browser against computed styles and agrees to the second
+decimal.
+
+**Result: 26 of 26 rendered pairs meet AA. 12 meet AAA.**
+
+Three real failures found and fixed **as usage changes — no D-001 token
+was altered**:
+
+| Finding | Was | Now | Value from |
+|---|---|---|---|
+| `--muted` as body text | 3.03–3.47:1 | 5.39–6.78:1 | `#999`, recovered from `index.html:125` |
+| `is-planned` badge on raw `--purple` | 3.21:1 | 7.07:1 | lightened tint, the rule that produced `#8ff0b5` and `#ff8c82` |
+| `is-inert` badge on `past-dim` | 2.80:1 | 5.39:1 | recovered `.invoice-payment-badge.pending` treatment |
+
+`--muted` stays declared verbatim, so the shell still carries the whole
+D-001 palette. Recorded as **D-014**.
+
+**Recorded and deliberately NOT fixed:** `--muted` is below AA as text
+throughout the live application — a `css/main.css` change, its own stage;
+and `--border` at 1.17–1.34:1 is decorative, outside WCAG 1.4.11, which
+governs boundaries needed to identify or operate a control. The console
+has no form control at all, and the affordances 1.4.11 does govern pass at
+7.38–8.45:1.
+
+**Not covered and not claimed:** no screen-reader testing, no
+colour-blindness simulation, no keyboard walkthrough by a person, no WCAG
+audit beyond contrast.
+
+### Gate results
+
+| Gate | Result |
+|---|---|
+| Tests | `tests/mos-1-console-test.js` **322 assertions, 0 failures** (was 286) |
+| Contrast | **26/26 rendered pairs AA**, 12 AAA |
+| Browser | **499 checks, 6 viewports × 14 routes, clean** — 1440/1100/1024/768/390/320 |
+| Routes | all 14 render; exactly one active nav item each; no route below 60 chars of content |
+| Drawer | off-canvas below 900px, docked above, opens on toggle, closes on Escape, scrim shown, `aria-expanded` tracks — at every narrow viewport |
+| MOS-1 defect 1 (drawer) | regression-guarded |
+| MOS-1 defect 2 (inline styles) | regression-guarded — **zero** `[style]` attributes on every route at every viewport; zero CSP violations |
+| MOS-1 defect 3 (timestamp) | regression-guarded — envelope `at` renders as a real stamp, asserted not to be an em dash |
+| Brand drift | none — computed `rgb(14,14,14)` / `rgb(232,228,220)` / `rgb(228,196,114)` / `rgb(201,168,76)` / `rgb(22,22,22)` / 310px / Playfair / Inter, all matched against values read from `css/main.css` at run time |
+| Secrets | token absent from every response body, every error detail and the rendered DOM; no `Bearer`, no credential variable name; branch diff carries no credential pattern |
+| Invented data | none — no literal data collection in the client; all six planned modules assert zero badges, zero KPIs, zero rows, and must name their data source |
+| Existing APIs | all eight live modules read the executor API or its config registries; nothing is synthesised |
+| Governance / SSANGYONG / `css/` / `index.html` / `js/` / `command-center/` | **untouched**, verified against the branch diff |
+
+One defect was found during the gate and it was in my own harness, not the
+product: the in-browser contrast sampler read `rgba(201,168,76,0.12)` as
+opaque gold and reported 1:1 for the active nav item. Fixed by compositing
+alpha properly; it now reports 6.48:1, matching the authored-token
+measurement exactly.
+
+### Deployment status
+
+**Not deployed. Not deployable from this session — a location problem, not
+a permission one.**
+
+This session runs in an ephemeral remote container. `/home/deploy`,
+`/etc/nginx` and `/srv/mythos` do not exist here. The environment's network
+policy also refuses the production hosts outright —
+`x-deny-reason: host_not_allowed` from the agent proxy, for
+`os.mythosprod.xyz` and the confirmed-live `ordre.mythosprod.xyz` alike —
+so the host cannot even be inspected from here.
+
+**Everything preparable off-host is prepared:** the runbook with rollback
+(`docs/MYTHOS_OS_CONSOLE_ARCHITECTURE.md` §10.2), `tools/host-preflight.sh`,
+the vhost, the systemd unit, and a suite that passes.
+
+### Exact owner action
+
+Run the §10.2 runbook on the VPS, starting with
+`bash projects/mythos-os-console/tools/host-preflight.sh`. It is no longer
+a DNS action. Steps 0–4 need no root (the unit is user-scope). Steps 5–7
+need root for the vhost copy and symlink; `deploy`'s sudo grant already
+covers `nginx -t`, `systemctl reload nginx` and `certbot`.
+
+Second decision, not blocking: **O-009** — adopt D-010 headless
+verification as standard. Now three applications, and this stage is the
+strongest evidence yet: 499 automated checks, all three prior defects
+regression-guarded.
+
+### Next stage
+
+**MOS-2 — deploy**, on the host. Off-host, the buildable follow-up remains
+**self-hosting Playfair Display and Inter** to remove the CSP font
+exception; note it would add the first font files this repository has ever
+tracked, which is worth deciding explicitly.
+
+PR #12 is deliberately **not merged** and no second PR was opened.
+
+---
+
+## Previous entry
+
 **From:** MYTHOS **MOS-1 — MYTHOS OS COMMAND CENTER: AUDITED, BUILT, TESTED, PUSHED. NOT DEPLOYED — BLOCKED ON AN OWNER DNS ACTION.**
 
 **Stage:** MOS-1 · **Status:** implemented and pushed; deployment blocked
