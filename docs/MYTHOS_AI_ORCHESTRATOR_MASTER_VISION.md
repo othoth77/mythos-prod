@@ -237,12 +237,24 @@ Accepts a high-level goal ("increase sales") and decomposes it into
 objectives and missions (§19). Needed so the owner states outcomes, not task
 lists. Feeds the Mission Planner (B); reads Project Memory (F) and metrics.
 
-### B. Mission Planner — PLANNED (Phase 2)
+### B. Mission Planner — IMPLEMENTED (Phase 2E)
 
 Turns a mission into a concrete ordered plan: tasks, dependencies, agents,
 tools, validation criteria. Needed because a single prompt cannot carry a
-whole project. Produces the Task DAG (D); consults Agent Registry (J), Tool
-Registry (K), Context Engine (H).
+whole project. Produces the Task DAG (D) that Agent Registry (J) and Tool
+Registry (K) route against, and that Context Engine (H) assembles context
+for at task-execution time.
+
+`projects/mythos-ai-executor/core/planner.js`: `planMission` (deterministic
+template, parallel component branches with an integration merge) and
+`planFromSpec` (externally/LLM-produced plans — nothing executes merely
+because it was generated; every plan passes schema, policy, and dependency
+validation, and unknown task types/policy classes/fields are refused, not
+tolerated) both funnel into `validatePlan` + `persistPlan`. `explainPlan`
+renders the tree so a plan is inspectable before anything runs. Wired into
+`orchestrator.submitGoal`, `campaign.js`, and `self-improve.js`. See
+`docs/AI_HANDOVER.md` Phase 2E entry and `tests/mythos-orchestration-core-test.js`
+("PHASE 2E — mission planner").
 
 ### C. Task Engine — PLANNED (Phase 2)
 
