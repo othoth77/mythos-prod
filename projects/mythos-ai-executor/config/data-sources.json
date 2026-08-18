@@ -1,0 +1,18 @@
+{
+  "ssangyong_autos": {
+    "project": "ssangyong-autos",
+    "kind": "postgres",
+    "description": "SsangYong Parts catalog — deployed read-only Postgres database.",
+    "read_only": true,
+    "required_env": ["SSANGYONG_DB_HOST", "SSANGYONG_DB_PORT", "SSANGYONG_DB_USER", "SSANGYONG_DB_PASSWORD", "SSANGYONG_DB_NAME"],
+    "reference_module": "projects/ssangyong-autos/reference/db.js"
+  },
+  "mythos_command_center": {
+    "project": "command-center",
+    "kind": "postgres",
+    "description": "Mythos AI Command Center library — deployed read-write Postgres database confined to the mcc schema.",
+    "read_only": false,
+    "required_env": ["MCC_DB_HOST", "MCC_DB_PORT", "MCC_DB_USER", "MCC_DB_PASSWORD", "MCC_DB_NAME"],
+    "reference_module": "projects/command-center/reference/db.js"
+  }
+}

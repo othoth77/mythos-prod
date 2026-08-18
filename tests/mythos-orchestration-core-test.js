@@ -1536,6 +1536,80 @@ chain2 = chain2.then(function () {
 });
 
 // ===========================================================================
+// PHASE 2N — project data layer (vision §5 / capability G)
+// ===========================================================================
+
+var projectData = require(path.join(EXEC, 'core', 'project-data'));
+
+(function () {
+  projectData.resetForTests();
+
+  var sya = projectData.describeSource('ssangyong_autos');
+  ok(!!sya && sya.project === 'ssangyong-autos' && sya.kind === 'postgres' && sya.read_only === true,
+    '2N data: known precursor ssangyong_autos discoverable and read-only');
+  ok(sya.required_env.indexOf('SSANGYONG_DB_PASSWORD') !== -1,
+    '2N data: descriptor lists required env var NAMES');
+  ok(Object.keys(sya).sort().join(',') === 'available,configured,description,kind,name,project,read_only,required_env',
+    '2N data: describeSource() exposes only metadata fields, never raw env values');
+  ok(sya.available === false, '2N data: declarative-only source has no adapter wired yet');
+
+  var mcc = projectData.describeSource('mythos_command_center');
+  ok(!!mcc && mcc.read_only === false, '2N data: mythos_command_center discoverable and read-write');
+
+  var names = projectData.listSources().map(function (s) { return s.name; });
+  ok(names.indexOf('ssangyong_autos') !== -1 && names.indexOf('mythos_command_center') !== -1,
+    '2N data: listSources returns every registered source');
+  ok(projectData.listSources('ssangyong-autos').length === 1,
+    '2N data: listSources filters by project');
+
+  ok(projectData.describeSource('ghost_source') === null, '2N data: unknown source returns null, not a throw');
+
+  throws(function () { projectData.registerSource('bad name', { project: 'x', kind: 'postgres', description: 'd', read_only: true, required_env: [] }); },
+    /INVALID_DATA_SOURCE_NAME/, '2N data: source name must be lowercase snake_case');
+  throws(function () { projectData.registerSource('x', { project: 'x', kind: 'carrier-pigeon', description: 'd', read_only: true, required_env: [] }); },
+    /UNKNOWN_KIND/, '2N data: unknown kind refused');
+  throws(function () { projectData.registerSource('x', { project: 'x', kind: 'postgres', description: 'd', read_only: true, required_env: ['DB_PASSWORD=hunter2'] }); },
+    /REFUSES_SECRETS/, '2N data: a descriptor carrying a secret-shaped value is refused');
+  throws(function () { projectData.registerAdapter('ghost_source', { query: function () {} }); },
+    /UNKNOWN_DATA_SOURCE/, '2N data: cannot wire an adapter onto an unregistered source');
+
+  projectData.registerSource('sheet_x', {
+    project: 'sheet-proj', kind: 'sheet', description: 'A read-only sheet.', read_only: true, required_env: []
+  });
+  ok(projectData.describeSource('sheet_x').configured === true,
+    '2N data: a source with no required env is always configured');
+})();
+
+chain2 = chain2.then(function () {
+  return projectData.query('ghost_source', 'select 1').then(
+    function () { ok(false, '2N data: query on unknown source should reject'); },
+    function (err) { ok(/UNKNOWN_DATA_SOURCE/.test(err.message), '2N data: query on unknown source rejects'); }
+  );
+}).then(function () {
+  return projectData.query('ssangyong_autos', 'select 1').then(
+    function () { ok(false, '2N data: query on unwired source should reject'); },
+    function (err) { ok(/HAS_NO_ADAPTER/.test(err.message), '2N data: query on a declarative-only source rejects'); }
+  );
+}).then(function () {
+  var calls = [];
+  projectData.registerAdapter('ssangyong_autos', {
+    query: function (text, params) { calls.push([text, params]); return Promise.resolve({ rows: [{ ok: 1 }] }); }
+  });
+  ok(projectData.describeSource('ssangyong_autos').available === true,
+    '2N data: source becomes available once an adapter is wired');
+  return projectData.query('ssangyong_autos', 'SELECT * FROM sya_products WHERE id = $1', [7]).then(function (result) {
+    ok(result.rows[0].ok === 1, '2N data: query() delegates to the wired adapter and returns its result');
+    ok(calls.length === 1 && calls[0][0] === 'SELECT * FROM sya_products WHERE id = $1' && calls[0][1][0] === 7,
+      '2N data: query() forwards the exact statement and params — no rewriting');
+  });
+}).then(function () {
+  return projectData.query('ssangyong_autos', 'DELETE FROM sya_products').then(
+    function () { ok(false, '2N data: write-shaped statement on a read-only source should reject'); },
+    function (err) { ok(/READ_ONLY/.test(err.message), '2N data: read-only source refuses a write-shaped statement even with an adapter wired'); }
+  );
+});
+
+// ===========================================================================
 // Summary
 // ===========================================================================
 chain2.then(function () {
