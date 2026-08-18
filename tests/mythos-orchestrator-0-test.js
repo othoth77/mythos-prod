@@ -778,6 +778,104 @@ console.log('\n35. DETERMINISM — routing is deterministic');
     'The schema validator rejects unexpected properties (contract strictness is real)');
 })();
 
+console.log('\n36. VERIFIER — a mismatched files_changed claim is rejected');
+(function () {
+  var repo = mkRepo('repo-files-mismatch', { second: true });
+  var task = baseTask({
+    working_directory: repo.dir, branch: 'work', baseline_commit: repo.sha,
+    delivery: { commit_required: true, push_required: false, handover_required: false, tests_required: false }
+  });
+  var result = baseResult({
+    branch: 'work', baseline: repo.sha,
+    implementation_commit: repo.head,
+    files_changed: ['not-the-real-file.md']
+  });
+  var ver = verifier.verify(task, result, { skipFetch: true });
+  ok(!ver.verified, 'A files_changed claim that does not match the real diff never verifies');
+  ok(ver.failures.some(function (f) { return f.indexOf('files_changed_matches_diff') === 0; }),
+    'The verifier names the mismatched diff check');
+})();
+
+console.log('\n37. VERIFIER — a secret in the diff is caught regardless of the summary');
+(function () {
+  var repo = mkRepo('repo-secret-diff');
+  var baseline = repo.head;
+  fs.writeFileSync(path.join(repo.dir, 'config.env'), 'AWS_ACCESS_KEY_ID=AKIAABCDEFGHIJKLMNOP\n');
+  g(['add', 'config.env'], repo.dir);
+  g(['commit', '--quiet', '-m', 'fixture: add config'], repo.dir);
+  var implSha = g(['rev-parse', 'HEAD'], repo.dir);
+
+  var task = baseTask({
+    working_directory: repo.dir, branch: 'work', baseline_commit: baseline,
+    delivery: { commit_required: true, push_required: false, handover_required: false, tests_required: false }
+  });
+  var result = baseResult({
+    branch: 'work', baseline: baseline,
+    implementation_commit: implSha,
+    files_changed: ['config.env'],
+    summary: 'Added configuration.'
+  });
+  var ver = verifier.verify(task, result, { skipFetch: true });
+  ok(!ver.verified, 'A commit that introduces a credential-shaped string never verifies, even when the rest of the report is honest');
+  ok(ver.failures.some(function (f) { return f.indexOf('no_secret_in_diff') === 0; }),
+    'The verifier names the secret-in-diff check');
+})();
+
+console.log('\n38. VERIFIER — an implementation commit from unrelated history is rejected');
+(function () {
+  var repo = mkRepo('repo-unrelated-history');
+  var baseline = repo.head;
+  g(['checkout', '--quiet', '--orphan', 'unrelated'], repo.dir);
+  fs.writeFileSync(path.join(repo.dir, 'other.md'), '# other\n');
+  g(['add', 'other.md'], repo.dir);
+  g(['commit', '--quiet', '-m', 'fixture: unrelated history'], repo.dir);
+  var unrelatedSha = g(['rev-parse', 'HEAD'], repo.dir);
+
+  var task = baseTask({
+    working_directory: repo.dir, branch: 'work', baseline_commit: baseline,
+    delivery: { commit_required: true, push_required: false, handover_required: false, tests_required: false }
+  });
+  var result = baseResult({
+    branch: 'work', baseline: baseline,
+    implementation_commit: unrelatedSha,
+    files_changed: ['other.md']
+  });
+  var ver = verifier.verify(task, result, { skipFetch: true });
+  ok(!ver.verified, 'A commit that does not descend from the declared baseline never verifies');
+  ok(ver.failures.some(function (f) { return f.indexOf('baseline_is_ancestor_of_commit') === 0; }),
+    'The verifier names the ancestry check');
+})();
+
+console.log('\n39. VERIFIER — a remote head that omits the implementation commit is rejected');
+(function () {
+  var bare = tmpdir('repo-push-bare.git');
+  g(['init', '--quiet', '--bare', bare]);
+  var repo = mkRepo('repo-push-work');
+  g(['remote', 'add', 'origin', bare], repo.dir);
+  g(['push', '--quiet', 'origin', 'work'], repo.dir);
+  var realRemoteHead = g(['rev-parse', 'HEAD'], repo.dir); // what origin actually has
+
+  fs.writeFileSync(path.join(repo.dir, 'second.md'), '# second\n');
+  g(['add', 'second.md'], repo.dir);
+  g(['commit', '--quiet', '-m', 'fixture: unpushed implementation'], repo.dir);
+  var implSha = g(['rev-parse', 'HEAD'], repo.dir);
+
+  var task = baseTask({
+    working_directory: repo.dir, branch: 'work', baseline_commit: realRemoteHead,
+    delivery: { commit_required: true, push_required: true, handover_required: false, tests_required: false }
+  });
+  var result = baseResult({
+    branch: 'work', baseline: realRemoteHead,
+    implementation_commit: implSha,
+    remote_head: realRemoteHead, // honestly reports what origin actually has
+    files_changed: ['second.md']
+  });
+  var ver = verifier.verify(task, result, { skipFetch: true });
+  ok(!ver.verified, 'A claimed remote head that does not actually contain the implementation commit never verifies');
+  ok(ver.failures.some(function (f) { return f.indexOf('commit_reachable_from_remote_head') === 0; }),
+    'The verifier names the unreachable-commit check, catching a push that silently failed to deliver the real work');
+})();
+
 // ---------------------------------------------------------------------------
 if (SAVED_HOME === undefined) { delete process.env.MYTHOS_ORCHESTRATOR_HOME; } else { process.env.MYTHOS_ORCHESTRATOR_HOME = SAVED_HOME; }
 CLEANUP.forEach(function (d) {
