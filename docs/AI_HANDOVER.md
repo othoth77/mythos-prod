@@ -122,6 +122,62 @@ needs an explicit decision rather than an assumption.
 
 ---
 
+## MOS-1.4 — PHASE 8 TLS PREFLIGHT FIXED (2026-08-18) — **PASS; NOT DEPLOYED, NGINX AND VPS UNTOUCHED**
+
+### Stage
+
+MOS-1.4 — one-line fix to Phase 8 of `projects/mythos-os-console/tools/deploy.sh`. Fix prepared and validated only; **no deployment performed by this stage**.
+
+### Exact VPS blocker
+
+The real deployment cleared **Phases 3, 3.1, 4, 5, 6 (nginx -t passed, nginx reloaded) and 7 (all neighbour gates)**, then stopped at Phase 8:
+
+```text
+--dry-run currently only works with the 'certonly' or 'renew' subcommands
+```
+
+**Cause — confirmed in the installed source, not inferred.** `certbot 4.0.0` at `/usr/lib/python3/dist-packages/certbot/_internal/cli/cli_utils.py`, function `set_test_server_options()`:
+
+```python
+if config.dry_run:
+    if verb not in ["certonly", "renew", "reconfigure"]:
+        raise errors.Error("--dry-run currently only works with the "
+                           "'certonly' or 'renew' subcommands (%r)" % verb)
+    config.break_my_certs = config.staging = True
+```
+
+`certbot --nginx -d X --dry-run` carries no explicit verb, so certbot uses the implicit **`run`** verb and the guard fires. Calling the guard directly with each verb reproduced the VPS message **verbatim** for `run` and accepted `certonly`, `renew`, `reconfigure`.
+
+### Resolution
+
+```text
+- sudo certbot          --nginx -d "$DOMAIN" --dry-run
++ sudo certbot certonly --nginx -d "$DOMAIN" --dry-run
+```
+
+`certonly` is the correct verb, not merely an accepted one: it uses the **same nginx authenticator** the real issuance uses (so the preflight still exercises the real HTTP-01 path), it **never runs the installer** (so unlike `run` it cannot edit the nginx config), and `--dry-run` sets `staging=True` inside certbot — **verified by calling the guard** — so **no production certificate can be issued by the preflight line**.
+
+**No `-n`/`--non-interactive` added.** The guard sets `tos` and `register_unsafely_without_email` itself when an ACME account exists, and one necessarily does on this host: all three neighbour domains serve working TLS (`ordre` 200, `panel` 302, `tv` 302). `/etc/letsencrypt` is root-only and was **not** read; no privilege was escalated and no credential was requested, exposed or created.
+
+### Protections — all verified intact
+
+`die` sites **39 → 39**, `GATE:` labels **4 → 4**; diff is 12 insertions / 1 deletion (11 lines of it explanatory comment). Real issuance still sits behind the operator `confirm`, and a failing dry run still dies before reaching it. Untouched: xtrace refusal, token-never-printed checks, `nginx -t` rollback, neighbour gates, Phase 3.1 readiness gate, and the `roadmap-state.json` / SSANGYONG fingerprints. Idempotence preserved — the `/etc/letsencrypt/live/$DOMAIN` guard still short-circuits both certbot calls.
+
+### Record
+
+| | |
+|---|---|
+| Base | `b288856`, branch `main`, remote HEAD verified identical before starting |
+| Commit | `4890981` |
+| Remote HEAD | verified after delivery — see below |
+| Tests | `bash -n` clean on `deploy.sh` and `host-preflight.sh`; **`tests/mos-1-console-test.js` 322 passed, 0 failed**. certbot guard called directly for `run`/`certonly`/`renew`/`reconfigure`. Phase 8 shell logic extracted and exercised in isolation with `certbot`/`sudo` stubbed to emulate the 4.0.0 guard, across **four** scenarios: cert absent (`certonly` dry run, then issuance without `--dry-run`), **old invocation as a regression check** (reproduces the VPS error and never reaches issuance), cert present (**zero** certbot calls), dry-run failure (dies, issuance never reached) |
+| Files changed | `projects/mythos-os-console/tools/deploy.sh`, `docs/AI_HANDOVER.md` (this entry) |
+| VPS | **Not modified.** No deployment, no nginx change, no certbot executed against the ACME service |
+
+### Next stage
+
+**Re-run `bash projects/mythos-os-console/tools/deploy.sh` on the VPS as `deploy`** to carry Phase 8 through. Expect the `certonly --dry-run` to pass against Let's Encrypt **staging**, then the operator confirm before real issuance, then Phases 9–10. Two things remain unproven on the real host and are stated as such: Phase 3.1 has still only been proven in isolation, and this Phase 8 fix has not yet run against the live certbot. Separately open and unchanged: the design-branch merge (`255c566`), the LOGO-2 owner gate, and the deployment governance amendment.
+
 ## MOS-1.3 — DEPLOY READINESS RACE FIXED (2026-08-18) — **PASS; NO DEPLOYMENT, NGINX UNTOUCHED**
 
 ### Stage
