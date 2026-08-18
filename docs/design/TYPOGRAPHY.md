@@ -13,9 +13,14 @@ Source document: `MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md` §4, approved at commit
 **This document introduces no new decisions.** Where the approved specification
 did not settle something, it is marked **OPEN**.
 
-**Not implemented.** No CSS, font file or application code has been changed.
-Replacing the 45 existing `Playfair Display` declarations is tracked as
-**MIG-2** and requires its own authorisation.
+**Not implemented.** No application CSS or application code has been changed.
+Real, self-hosted font files now exist at `assets/brand/fonts/` (OFL-1.1,
+latin/arabic subsets, the weight instances the scale in §2 actually uses) as
+a standalone, unwired specification artifact — see
+`assets/brand/fonts/fonts.css`. It is not referenced by any HTML, project or
+build step; wiring it in is a separate, future authorisation. Replacing the
+45 existing `Playfair Display` declarations is tracked as **MIG-2** and
+requires its own authorisation.
 
 ---
 
@@ -125,20 +130,36 @@ else (`COLOR_SYSTEM.md` §3.2).
 - Every family declares a real fallback stack. A silent fallback to a system
   face is a visual bug, not a graceful degradation.
 
-**OPEN — TYPE-2:** the exact subset ranges, weight instances to ship, and the
-performance budget in KB. These were outside the approved 1C scope.
+**Self-hosted files now exist** (`assets/brand/fonts/`, unwired) at exactly
+the weight instances the scale in §2 uses: Archivo 600 (wdth 125%), Plex Sans
+400/500/600, Plex Sans Arabic 400/500/600, Plex Mono 400 — `latin` subset for
+the first, third and fourth, `arabic` for Plex Sans Arabic. Total vendored
+size: 284 KB across 8 files.
+
+**OPEN — TYPE-2, narrowed but not closed:** the weight instances above are
+derived directly from the already-approved scale, not a new decision. What
+TYPE-2 still has not settled: whether additional subsets beyond latin/arabic
+(e.g. `latin-ext` for French diacritics) are needed, and the KB performance
+budget once real usage is measured against a live page. These remain outside
+the approved 1C scope.
 
 ## 6. Open
 
 | Ref | Question |
 |---|---|
-| **TYPE-2** | Subsets, shipped weight instances, and the font performance budget |
+| **TYPE-2** | Narrowed: weight instances are now sourced and self-hosted. Still open — subset ranges beyond latin/arabic, and the font performance budget |
 | **MIG-2** | Replacing the 45 `Playfair Display` declarations in `css/*.css`. **Not actioned** |
 | **U-003** | The historical rationale for the Playfair + Inter pairing was never recorded, and retiring it does not recover it |
 
 ## 7. What this document did not do
 
-- Did not change any CSS, font file or application code.
-- Did not add a font file to the repository.
-- Did not introduce a typographic decision the owner has not approved.
+- Did not change any application CSS or application code.
+- Did not wire the self-hosted font files (`assets/brand/fonts/`) into any
+  application, HTML file or build step — they exist as a standalone artifact.
+- Did not introduce a typographic decision the owner has not approved — the
+  vendored weight instances are read directly from the already-approved §2
+  scale, not a new choice.
 - Did not action MIG-2.
+- Did not re-measure `GRID_AND_SPACING.md` §4.3 against the new files' real
+  character-advance metrics — GRID-2 remains narrowed, not closed (see
+  `docs/design/IMPLEMENTATION_READINESS_AUDIT.md` §2.2).

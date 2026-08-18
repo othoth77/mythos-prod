@@ -1,0 +1,134 @@
+/* =============================================================================
+   MYTHOS SELF-HOSTED FONTS — @font-face declarations for the four approved
+   OFL type families (TYPOGRAPHY.md §1, §5)
+   =============================================================================
+
+   STATUS: SPECIFICATION ARTIFACT. NOT WIRED INTO ANY APPLICATION OR BUILD.
+
+   This file is not referenced by any HTML, any project, or any build step in
+   this repository. It exists so the four approved typefaces have real,
+   self-hosted font files and a machine-readable @font-face block, instead of
+   depending on the Google Fonts CDN the design prototypes currently use as a
+   stand-in (docs/design/prototypes/). Wiring it into a real application is a
+   separate, future authorisation — this file changes nothing about what
+   currently renders anywhere.
+
+   Authority: docs/design/TYPOGRAPHY.md §1 (stack), §5 (loading and
+   performance). Weight instances below are the ones the approved type scale
+   (TYPOGRAPHY.md §2) actually uses — not a new decision. TYPE-2 (exact subset
+   ranges beyond latin/arabic, and the KB performance budget) remains OPEN;
+   this artifact narrows it (real files, real weights) without closing it.
+   See docs/design/IMPLEMENTATION_READINESS_AUDIT.md §2.2.
+
+   Each family's font file(s), OFL licence text and exact upstream source URL
+   live under this same directory:
+
+     archivo/                 Archivo, variable wdth+wght, instanced at
+                               wdth 125% ("Expanded") / wght 600
+     ibm-plex-sans/            IBM Plex Sans, weights 400 / 500 / 600
+     ibm-plex-sans-arabic/     IBM Plex Sans Arabic, weights 400 / 500 / 600
+     ibm-plex-mono/            IBM Plex Mono, weight 400
+
+   All four are OFL-1.1 licensed (see each family's OFL.txt), self-hostable at
+   no cost, sourced from Google Fonts' hosted builds (fonts.gstatic.com) on
+   2026-08-18 — the same upstream Google Fonts uses to serve these families,
+   downloaded once and vendored here rather than loaded from their CDN at
+   runtime. Each family's SOURCES.tsv records the exact upstream URL, subset
+   and weight for reproducibility.
+
+   Subsetting note: only the `latin` subset is vendored for Archivo, IBM Plex
+   Sans and IBM Plex Mono, and only `arabic` for IBM Plex Sans Arabic — the
+   minimum needed to validate real character-advance metrics (GRID-2) and
+   real rendering against the approved scale. TYPE-2's full subset-range and
+   KB-budget decision (e.g. latin-ext, additional scripts) is not made here.
+   ============================================================================= */
+
+/* ---------------------------------------------------------------------------
+   Archivo — Display face (TYPOGRAPHY.md §1, §2: "Archivo Expanded 600")
+   Variable family; instanced here at the one weight/width pair the approved
+   scale uses. font-stretch communicates the "Expanded" width to the engine;
+   the file itself is the variable font, not a static-width cut.
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Mythos Archivo';
+  font-style: normal;
+  font-weight: 600;
+  font-stretch: 125%;
+  font-display: swap;
+  src: url('./archivo/600.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ---------------------------------------------------------------------------
+   IBM Plex Sans — Text / UI face (TYPOGRAPHY.md §2: weights 400, 500, 600)
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Mythos Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./ibm-plex-sans/400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Mythos Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./ibm-plex-sans/500.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Mythos Plex Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./ibm-plex-sans/600.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ---------------------------------------------------------------------------
+   IBM Plex Sans Arabic — Arabic face (TYPOGRAPHY.md §3: matches Latin weights
+   so the six binding Arabic rules — +6% size, +0.15 line-height, tracking
+   forced to 0 — apply at the same 400/500/600 steps as Latin)
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Mythos Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./ibm-plex-sans-arabic/400.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE80-FEFC;
+}
+
+@font-face {
+  font-family: 'Mythos Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('./ibm-plex-sans-arabic/500.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE80-FEFC;
+}
+
+@font-face {
+  font-family: 'Mythos Plex Sans Arabic';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('./ibm-plex-sans-arabic/600.woff2') format('woff2');
+  unicode-range: U+0600-06FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE80-FEFC;
+}
+
+/* ---------------------------------------------------------------------------
+   IBM Plex Mono — Data / code face (TYPOGRAPHY.md §2: "Plex Mono 400")
+   --------------------------------------------------------------------------- */
+@font-face {
+  font-family: 'Mythos Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./ibm-plex-mono/400.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}

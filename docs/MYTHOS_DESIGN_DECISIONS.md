@@ -443,6 +443,35 @@ questions, **O-006/007/002**, that precede any design question).
 particular is deliberately a finding, not a plan — it names what would have to
 be true, not a schedule for making it true.
 
+### Stage — real font files sourced and self-hosted
+
+**Not a decision — a deliverable, recorded for completeness.** The four
+approved OFL type families (`TYPOGRAPHY.md` §1) are now sourced and
+self-hosted at `assets/brand/fonts/`: Archivo (wdth 125%/wght 600), IBM Plex
+Sans (400/500/600), IBM Plex Sans Arabic (400/500/600), IBM Plex Mono (400) —
+exactly the weight instances the already-approved type scale (`TYPOGRAPHY.md`
+§2) uses, read off that table rather than newly chosen. Each family carries
+its OFL.txt licence and a `SOURCES.tsv` recording the exact upstream URL for
+reproducibility. `assets/brand/fonts/fonts.css` declares them, standalone and
+unwired — the same pattern `tokens.css` already established, referenced by no
+application, HTML file or build step. This closes the "no font file exists in
+this repository" half of **TYPE-2** and **GRID-2** (`IMPLEMENTATION_READINESS_
+AUDIT.md` §2.2); it does not close either item outright — see **AUTO-4**
+below for what the files make newly measurable.
+
+### AUTO-4 — GRID-2 measured against real font metrics: recommendation ready, not decided
+
+| Field | Value |
+|---|---|
+| **What this is** | A **measurement**, made possible for the first time by the font files sourced above — not a new design decision. It closes the specific blocker `GRID_AND_SPACING.md` §4.3 named: *"No font file exists in this repository, so it cannot be measured now."* What to do with the result is left **PROPOSED, not decided** — changing an approved implementation value is a spec change like **TYPE-3**/**SPACE-1**/**A11Y-1** above, not something a measurement alone settles |
+| **Method** | Read `hmtx`/`cmap` directly from `assets/brand/fonts/ibm-plex-sans/400.woff2` (the approved Body face, `TYPOGRAPHY.md` §2) via `fontTools`. `ch` is CSS's own definition — the advance width of `0`. Average character width computed from standard English letter-frequency weighting (space included, ~18% of running text), applied to this font's real per-glyph advances, at the approved 16 px Body size |
+| **Result** | `0` advances **0.6em** (600/1000 upm) → **1ch = 9.6px** at 16px → **68ch = 652.8px**. The frequency-weighted average English character advances **0.446em = 7.14px** — narrower than a digit, as expected. **652.8px fits ~91–92 average characters, not 65.** The `ch`-based approximation is not close to the 65-character intent for this typeface; it is roughly 40% too wide |
+| **Recommendation (PROPOSED, not decided)** | **≈48ch** (65 × 7.14 ÷ 9.6) reproduces the 65-character intent for IBM Plex Sans at Body size. Two ways to apply it, neither chosen here: **(a)** change the approved prose-max token from `68ch` to `48ch`; **(b)** keep `68ch` as a deliberately generous outer cap and add a narrower `65ch`-equivalent value for the primary reading-width use case, if both were in fact meant to coexist for different purposes. The measurement does not resolve which — that is the open decision |
+| **Why not resolved outright, unlike AUTO-1/2/3** | `GRID_AND_SPACING.md` §4.3 states explicitly: *"Both figures are approved, so neither is overridden."* Silently replacing `68ch` would overwrite an owner-approved value on this session's own authority, which the AUTO-\* rules (§0.5, condition 3) do not permit — only a *reversible, clearly-labelled* recommendation does |
+| **Evidence used** | The real, self-hosted font file itself (new this stage) — not invented, not assumed. Reproducible: rerun `fontTools` against `assets/brand/fonts/ibm-plex-sans/400.woff2` and the same numbers follow |
+| **Reversibility** | Total. No file that renders anywhere was touched. `GRID_AND_SPACING.md` §4.3 and §9's **GRID-2** row are updated to record the measurement and the recommendation, not to apply it |
+| **Effect on the register** | **GRID-2** moves from *"narrowed, not closed, pending real font metrics"* to *"measured; recommendation ready, pending sign-off."* **TYPE-2** narrows the same way — weight instances are sourced; subset-range and KB-budget questions remain genuinely open |
+
 ---
 
 ## 1. Confirmed decisions

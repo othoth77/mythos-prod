@@ -18,7 +18,7 @@ is what has to hold true across all of them.
 | Layer | Specified | Machine-readable | Implemented anywhere | Verified in a real browser |
 |---|---|---|---|---|
 | Colour | ✅ A-013/015/016 | ✅ `tokens.css` | ❌ | ❌ |
-| Typography | ✅ A-014 | ✅ `tokens.css` (partial — no font files) | ❌ | ❌ |
+| Typography | ✅ A-014 | ✅ `tokens.css` + `assets/brand/fonts/fonts.css` (real self-hosted files, unwired) | ❌ | ❌ |
 | Grid/spacing | ✅ A-009, AUTO-3 | ✅ `tokens.css` | ❌ | ❌ |
 | Radius/elevation | ✅ A-009, AUTO-3 (shadows) | ✅ `tokens.css` | ❌ | ❌ |
 | Components | ✅ 1F, partial for 13/21 | ❌ (no component code exists in any language) | ❌ | ❌ |
@@ -53,16 +53,22 @@ screenshots at every breakpoint the responsive spec defines, for every page
 
 ### 2.2 Real font files (TYPE-2, GRID-2)
 
-**Not ready.** No font file exists in this repository, self-hosted or
-otherwise. This blocks three things at once: **TYPE-2**'s numbers stay
-provisional, **GRID-2**'s two prose-measure units cannot be reconciled, and
-`text-wrap` / line-height fidelity in any component cannot be verified against
-the actual approved typefaces (Archivo Expanded, IBM Plex Sans / Sans Arabic /
-Mono) rather than the Google Fonts CDN stand-in the prototypes use.
+**Partially ready.** Real, self-hosted OFL font files now exist at
+`assets/brand/fonts/` — Archivo (wdth 125%/wght 600), IBM Plex Sans
+(400/500/600), IBM Plex Sans Arabic (400/500/600), IBM Plex Mono (400): the
+exact weight instances the approved type scale (`TYPOGRAPHY.md` §2) uses, not
+a new decision. Each family carries its OFL.txt licence and a `SOURCES.tsv`
+recording the exact upstream URL for reproducibility. `assets/brand/fonts/
+fonts.css` declares them, standalone and unwired, the same pattern
+`tokens.css` already uses.
 
-**What closes it:** sourcing and self-hosting the four approved OFL font
-families at the weight instances **TYPE-2** specifies, then re-measuring §4.3
-of `GRID_AND_SPACING.md` against their real character-advance metrics.
+**What this does not close:** re-measuring §4.3 of `GRID_AND_SPACING.md`
+against the new files' real character-advance metrics (**GRID-2** stays
+narrowed, not closed — that needs a font-metrics pass, not just the files
+existing), and **TYPE-2**'s remaining open questions — subset ranges beyond
+the vendored `latin`/`arabic`, and the KB performance budget once real usage
+is measured against a live page. `text-wrap` / line-height fidelity is still
+unverified in any real component, since no component code exists (§2.3).
 
 ### 2.3 A component library, in a real framework
 
@@ -148,8 +154,9 @@ distinguishes prototype 3 (Mythos OS, a new file) from a real migration of
 Not a schedule — an honest dependency order, since several of the "not ready"
 items above depend on each other:
 
-1. **Font files** (§2.2) — has no dependency on anything else, could start
-   immediately if authorised.
+1. **Font files** (§2.2) — sourced and self-hosted this pass. GRID-2's
+   character-advance re-measurement against the real files is the remaining
+   piece, and has no dependency on anything else either.
 2. **C-006 execution** (§2.1) — needs the verification-loop question (§2.5)
    settled first, or it cannot be proven safe.
 3. **Component library, real framework** (§2.3) — most efficiently follows

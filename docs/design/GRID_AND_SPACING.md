@@ -155,8 +155,31 @@ number of actual characters — how many depends on the shipped font's metrics.
 
 Both figures are approved, so neither is overridden. **The prose container must be
 measured against the 65-character target once the fonts are in place**, and the
-unit reconciled then. Recorded as **GRID-2**. No font file exists in this
-repository (`TYPOGRAPHY.md` §7), so it cannot be measured now.
+unit reconciled then. Recorded as **GRID-2**.
+
+**Measured, 2026-08-18, against the real self-hosted IBM Plex Sans 400 file**
+(`assets/brand/fonts/ibm-plex-sans/400.woff2`, the approved Body face — see
+`docs/design/IMPLEMENTATION_READINESS_AUDIT.md` §2.2):
+
+- `ch` is defined as the advance width of `0`. In this font, `0` is **600
+  units / 1000 upm = 0.6em** — wide, because digits are tabular. At the 16 px
+  Body size, `1ch = 9.6px`, so **68ch = 652.8px**.
+- The average character width of real running English text is narrower than a
+  digit. Weighted by standard English letter frequency (space included, since
+  it is ~18% of running text), the average advance is **0.446em = 7.14px** at
+  16 px.
+- **652.8px of prose space fits roughly 91–92 average characters, not 65.**
+  The `ch`-based approximation overshoots the 65-character design intent by
+  a wide margin for this typeface — it is not a close approximation, it is a
+  different number.
+- Working backward, the `ch` value that actually reproduces the 65-character
+  intent for this font is **≈48ch** (65 × 7.14px ÷ 9.6px), not 68ch.
+
+**This is a measurement, not a decision.** It closes the "we cannot measure
+this without real font files" blocker the readiness audit named, but changing
+the approved `68ch` implementation value is a spec change like any other —
+see the recommendation row for **GRID-2** in
+`docs/MYTHOS_DESIGN_DECISIONS.md` §0.5, **AUTO-4**.
 
 ---
 
@@ -266,7 +289,7 @@ The floor and the control heights do not agree; see **C-005** below.
 |---|---|---|---|
 | ~~**C-005**~~ | Conflict | 40/36 px control height vs 44 px touch minimum | **RESOLVED — A-022** (owner-approved, Stage 1F). Visual box may stay 40/36; hit box must reach 44 × 44 and may extend beyond it |
 | ~~**GRID-1**~~ | Open | `2xl` behaviour; 1440 container ambiguity | **RESOLVED — AUTO-3** (delegated mandate). 1440 is the 1280 frame at its own margins; `2xl` inherits `xl`'s capped state and has none of its own |
-| **GRID-2** | Open | 68ch vs 65 characters | **Narrowed, not closed — AUTO-3.** 65 characters is the design intent; 68ch is an implementation approximation, pending real font metrics |
+| **GRID-2** | Open | 68ch vs 65 characters | **Measured, 2026-08-18, against real IBM Plex Sans metrics — recommendation ready, not yet decided.** 68ch renders as ~91–92 average English characters, not 65; ≈48ch reproduces the 65-character intent. See §4.3 and `MYTHOS_DESIGN_DECISIONS.md` §0.5, **AUTO-4** |
 | ~~**GRID-3**~~ | Open | Off-scale spacing steps; button padding | **RESOLVED — AUTO-3.** `space-1`/`space-2` are optical-correction only; `space-7`/`space-12` are legitimate scale members outside the named bands; padding confirmed as 10/16 inside a 1 px border |
 | ~~**SURF-1**~~ | Open | Light elevation ramp; no shadow values | **RESOLVED — AUTO-3.** Ramp extended (`ground-deep`, `surface-card`, `border-strong`), shadow tokens defined |
 
