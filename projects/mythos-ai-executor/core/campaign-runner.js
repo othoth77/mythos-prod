@@ -29,11 +29,101 @@ var policyEngine = require('./policy-engine');
 var selfImprove = require('./self-improve');
 
 // One step. Returns { state, action, detail }.
+// How long a RUNNING task whose liveness cannot be established is left alone
+// before it is treated as orphaned. A task mid-dispatch has been transitioned
+// to RUNNING but may not have recorded its executor id yet, so recovering
+// instantly could steal a task that is genuinely starting.
+var ORPHAN_GRACE_MS = 5 * 60 * 1000;
+
+// Crash recovery for tasks, the counterpart to the reservation lease.
+//
+// A restart mid-mission used to leave its tasks in RUNNING forever: the
+// process executing them was gone, but nothing ever said so, and the DAG
+// waited on them for eternity. Campaign state survived the restart and the
+// continuation lease cleared correctly, yet the campaign could not actually
+// make progress — recovery looked complete and was not. Found by killing the
+// executor mid-mission rather than by any unit test.
+//
+// The rule is the lease's rule: never reclaim what cannot be PROVEN dead.
+// A live pid is left alone; an unverifiable task is left alone until it ages
+// past the grace window; only then is it re-queued, and only within its
+// existing attempt budget, so recovery can never loop forever.
+function recoverOrphanedTasks(missionId) {
+  var execState = require('../lib/state');
+  var mission;
+  try { mission = store.load('mission', missionId); } catch (e) { return []; }
+  if (!mission) return [];
+  var recovered = [];
+
+  (mission.task_ids || []).forEach(function (id) {
+    var t;
+    try { t = store.load('task', id); } catch (e) { return; }
+    if (!t || t.status !== 'RUNNING') return;
+
+    var alive = null;   // true | false | null (unverifiable)
+    if (t.executor_task_id) {
+      var st = null;
+      try { st = execState.readJSON(t.executor_task_id, 'status.json'); } catch (e) { st = null; }
+      if (st && st.pid) alive = execState.processAlive(st.pid);
+      else if (st && ['COMPLETED', 'FAILED', 'CANCELLED'].indexOf(st.status) !== -1) alive = false;
+    }
+    if (alive === true) return;                       // genuinely still running
+
+    var age = Date.now() - Date.parse(t.updated_at || t.created_at || 0);
+    if (alive === null && !(age > ORPHAN_GRACE_MS)) return;   // fail safe
+
+    var attempt = t.attempt || 1;
+    var maxAttempts = t.max_attempts || 3;
+    var detail = {
+      orphan_recovered: true,
+      reason: alive === false ? 'executing process is gone' : 'unverifiable past the grace window',
+      recovered_at: new Date().toISOString()
+    };
+    try {
+      store.transition('task', id, 'RETRYING', {
+        metadata: Object.assign({}, t.metadata, detail)
+      });
+      if (attempt >= maxAttempts) {
+        store.transition('task', id, 'FAILED', {
+          metadata: Object.assign({}, t.metadata, detail,
+            { failure: 'orphaned by a restart and out of attempts' })
+        });
+        recovered.push({ task_id: id, plan_key: t.metadata && t.metadata.plan_key, outcome: 'FAILED' });
+      } else {
+        store.transition('task', id, 'READY', {
+          attempt: attempt + 1,
+          metadata: Object.assign({}, t.metadata, detail)
+        });
+        recovered.push({ task_id: id, plan_key: t.metadata && t.metadata.plan_key, outcome: 'REQUEUED' });
+      }
+      store.appendEventLine({
+        event_type: 'TASK_RESUMED', subject_id: id, project: t.project,
+        detail: detail
+      });
+    } catch (e) { /* a task that raced to a terminal state needs no recovery */ }
+  });
+
+  return recovered;
+}
+
 function advanceCampaign(campaignId, opts) {
   opts = opts || {};
   coreWiring.assertEnabled();
   var c = campaign.loadCampaign(campaignId);
   if (!c) return Promise.reject(new Error('NO_SUCH_CAMPAIGN: ' + campaignId));
+
+  // Before deciding anything, reclaim tasks stranded RUNNING by a crash or
+  // restart. Without this a single interruption wedges the mission forever.
+  if (c.current_mission && c.current_mission.mission_id) {
+    var reclaimed = recoverOrphanedTasks(c.current_mission.mission_id);
+    if (reclaimed.length) {
+      store.appendEventLine({
+        event_type: 'TASK_RESUMED', subject_id: c.current_mission.mission_id,
+        project: c.project,
+        detail: { orphans_recovered: reclaimed.length, tasks: reclaimed }
+      });
+    }
+  }
 
   // Terminal or operator-held states never act on their own.
   if (['COMPLETED', 'PAUSED'].indexOf(c.state) !== -1) {
@@ -345,6 +435,8 @@ function campaignStatus(campaignId) {
 
 module.exports = {
   advanceCampaign: advanceCampaign,
+  recoverOrphanedTasks: recoverOrphanedTasks,
+  ORPHAN_GRACE_MS: ORPHAN_GRACE_MS,
   runCampaign: runCampaign,
   resumeCampaign: resumeCampaign,
   campaignStatus: campaignStatus,
