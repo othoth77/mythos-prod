@@ -1,7 +1,105 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **FULL AUTONOMOUS MANDATE, SECOND PASS — DECISION SWEEP COMPLETE (AUTO-3, 18 ITEMS), TOKEN ARTIFACT GENERATED. NO APPLICATION, CSS OR BUILD FILE CHANGED — ONE NEW, STANDALONE, UNWIRED SPECIFICATION FILE.**
+**From:** MYTHOS **FULL AUTONOMOUS MANDATE, THIRD PASS — ALL FIVE CONTINUATION ITEMS COMPLETE (DECISION SWEEP, 1I PROTOTYPES, CONSOLIDATION, READINESS AUDIT, MIGRATION PLANS). STOPPING HERE: THE AUDIT ITSELF IS THE EVIDENCE THAT EVERY REMAINING PHASE IS GENUINELY BLOCKED, NOT A CHOICE TO STOP EARLY. NO APPLICATION, CSS OR ASSET FILE CHANGED ACROSS ANY OF THIS PASS.**
+
+**Items 6–8 of the mandate's continuation are done**, completing all five named
+items. `docs/design/MYTHOS_DESIGN_SYSTEM.md` (topic-ordered consolidation of
+1C–1I and AUTO-1–3, introduces nothing new), `docs/design/
+IMPLEMENTATION_READINESS_AUDIT.md`, `docs/design/MIGRATION_PLANS.md`. PR #21,
+merged to `main` at `893a3f9`.
+
+**The readiness audit's finding is the most important thing this pass
+produced, and it is stated plainly rather than softened:** across the entire
+design programme — 1A through 1I, AUTO-1 through AUTO-3 — **nothing has been
+implemented or verified in any running application, anywhere, at any point.**
+Every cell in the audit's readiness table for "implemented" and "verified" is
+empty. Five concrete, named prerequisites are **not satisfied**: a resolved
+token conflict (**C-006**), real self-hosted font files (**TYPE-2**), a
+component library in an actual framework (none exists in any language, in
+this repository, for this system), authorised individual migrations
+(**MIG-1–4**, still recorded and not actioned), and a live-application
+verification loop (the existing tooling, `tools/visual-verify.js`, is scoped
+by the project's own convention to isolated reference implementations only,
+never a real consuming application).
+
+**What genuinely closes each item this pass:**
+
+**Decision sweep (AUTO-3, PR #18)** — eighteen open items. Six adopted
+unchanged from an existing recommendation (MOTION-1, LINK-1, SHAPE-1, GOLD-3,
+TYPE-3, SPACE-1). Twelve newly reasoned through with computation or explicit
+argument: **GOLD-2** darkens rather than lightens on light-theme hover/active
+(lightening fails AA immediately; darkening only ever raises contrast, verified
+8.71/7.02). **SURF-1** extends the light elevation ramp and defines shadows by
+*measuring* the lightness step the already-approved `paper-100→paper-200`
+transition encodes, then extending that exact step. **TOKEN-1** authorised,
+artifact generated (see below). **TOKEN-2** adopts `--mythos-*`, matching
+C-006's real precedent. **MOTION-2/3, A11Y-1/2, SEQ-1, GRID-1/3, ECO-1/2/3**
+all resolved with reasoning on the record, not assertion — full detail
+`MYTHOS_DESIGN_DECISIONS.md` §0.5. **GRID-2 stays narrowed, not closed** — 65
+characters as intent, 68ch as an approximation, pending real font metrics.
+**C-001/O-002 and the recovery-era evidence questions are untouched** — real
+conflicts and facts a decision sweep cannot derive.
+
+**`assets/brand/tokens/tokens.css` generated** — first machine-readable
+artifact for the canonical system, new, standalone, unwired. One real error
+caught before it shipped: the reduced-motion block first wrote every duration
+to `0ms`, contradicting the approved rule (*durations resolve to
+`motion-micro`, not zero*) — corrected before commit.
+
+**1I Design Prototypes (PR #20)** — seven self-contained static HTML files
+matching the original brief's §23, `docs/design/prototypes/`. The Mythos OS
+prototype is deliberately a **new, standalone file** — it does not touch
+`css/main.css`. The business-unit example states its own unit (Mythos Digital)
+has zero recovered evidence, in the page itself. The public-project example is
+explicitly fictional, demonstrating the **A-021** boundary: the project's own
+identity dominates, gold appears exactly once, in the ecosystem strip.
+
+**Consolidation, audit, migration plans (PR #21)** — described above.
+
+**Every AUTO-\* decision across this entire mandate remains reversible at zero
+cost, and none is represented as an owner approval.** The distinction has been
+maintained consistently: A-\* is owner review, AUTO-\* is delegated authority,
+and every document touched this pass states which is which rather than
+blurring them.
+
+**Why this is a stopping point, not a pause of convenience.** The mandate's own
+exit condition is a genuine technical/security/access blocker, evidenced. This
+pass produced exactly that evidence, twice over: **(1)** `AUTO-2` (previous
+pass) found and reverted a near-miss on `css/main.css`, the real Mythos OS
+stylesheet, because this session has no full-application visual-regression
+capability — the readiness audit generalises that single finding into the
+actual prerequisite blocking `MIG-1`–`MIG-4` and any real implementation.
+**(2)** MOS-1.6 and MOS-1.7 (merged into `main` earlier this pass) independently
+confirm, from a session **with** host access, a deliberately-configured
+`deploy`-user privilege boundary — refused two different ways, correctly not
+escalated around. **Both blockers are named, evidenced and unchanged by
+anything this pass could do.** What remained genuinely executable — the
+decision sweep, the token artifact, the prototypes, the consolidation, the
+audit, the migration plans — is done.
+
+**What is left, concretely, for whoever picks this up next:**
+
+1. Font files, self-hosted (§2.2 of the readiness audit) — no dependency on
+   anything else, could start immediately if authorised.
+2. A session or tooling change that can run full-application visual
+   regression against `css/main.css` and `projects/mythos-os-console` — the
+   single prerequisite blocking every remaining migration.
+3. Answers to **O-006** (merge Mouain's lines?), **O-007** (serve AgriBee?),
+   **O-002** (which Dar Hijama artifact is authoritative?) — evidence
+   questions, not design questions.
+4. The operator action MOS-1.7 named: run `deploy.sh` directly as `deploy`, or
+   create a root-installed `User=deploy` systemd relay mirroring
+   `mythos-git-push.service` — outside this session's authority to create
+   unilaterally.
+
+**Repository state:** `main` at `893a3f9`. Six PRs opened and merged across
+this mandate (#11, #17, #18, #19, #20, #21), each via the branch-then-PR
+pattern this repository already used, none force-pushed, no secret committed,
+no historical evidence altered. Every merge verified against `origin/main`
+before proceeding to the next.
+
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, SECOND PASS — DECISION SWEEP COMPLETE (AUTO-3, 18 ITEMS), TOKEN ARTIFACT GENERATED. NO APPLICATION, CSS OR BUILD FILE CHANGED — ONE NEW, STANDALONE, UNWIRED SPECIFICATION FILE.**
 
 **Item 4 of the mandate's five-item continuation** ("complete the remaining
 decision sweep") is done. Full reasoning and every value:
