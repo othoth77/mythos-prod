@@ -51,6 +51,7 @@ VHOST_AVAIL="/etc/nginx/sites-available/$DOMAIN"
 VHOST_ENABLED="/etc/nginx/sites-enabled/$DOMAIN"
 NEIGHBOURS=(ordre.mythosprod.xyz panel.mythosprod.xyz tv.mythosprod.xyz)
 ASSUME_YES="${MOS_ASSUME_YES:-0}"
+READY_TIMEOUT="${MOS_READY_TIMEOUT:-30}"
 [ "${1:-}" = "--assume-yes" ] && ASSUME_YES=1
 
 DID_ENV=0; DID_UNIT=0; DID_SYMLINK=0
@@ -165,6 +166,50 @@ done
 systemctl --user is-active --quiet mythos-os-console \
   || { journalctl --user -u mythos-os-console -n 30 --no-pager >&2 || true; die "unit is not active. Log above."; }
 ok "mythos-os-console is $(systemctl --user is-active mythos-os-console)"
+
+# systemd calls a Type=simple unit active as soon as it has forked, which is
+# before Node has bound the port. Phase 4 curls /api/health immediately, so
+# without an explicit wait it intermittently reports a connection refused on
+# a service that is perfectly healthy a second later — a false failure that
+# aborts a deployment for no reason. `is-active` answers "did it start"; only
+# the socket answers "can it serve". Gate on the socket.
+#
+# Bounded by wall clock, not by attempt count: each probe may itself take up
+# to --max-time, so counting iterations would silently overshoot the budget.
+say "Phase 3.1 — readiness (GATE: the port must answer before anything is verified)"
+ready=0; last_code=000
+ready_started="$(date +%s)"; ready_deadline=$(( ready_started + READY_TIMEOUT ))
+while :; do
+  # A crash loop must fail fast and loudly rather than burn the whole budget.
+  if systemctl --user is-failed --quiet mythos-os-console; then
+    printf '\n  --- journalctl --user -u mythos-os-console -n 40 ---\n' >&2
+    journalctl --user -u mythos-os-console -n 40 --no-pager >&2 || true
+    die "unit entered a failed state $(( $(date +%s) - ready_started ))s into the readiness wait. Log above."
+  fi
+  # `curl -w` prints 000 itself on a refused connection, so `|| echo 000`
+  # would concatenate to "000000" and fall through the 000 diagnostic branch,
+  # mislabelling "nothing listening" as "bound but erroring". Let curl's own
+  # value stand; `|| true` is only there to satisfy set -e.
+  last_code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:$PORT/api/health")" || true
+  [ -n "$last_code" ] || last_code=000
+  [ "$last_code" = "200" ] && { ready=1; break; }
+  [ "$(date +%s)" -ge "$ready_deadline" ] && break
+  sleep 1
+done
+if [ "$ready" != 1 ]; then
+  printf '\n  waited %ss for http://127.0.0.1:%s/api/health; last HTTP code: %s\n' \
+    "$(( $(date +%s) - ready_started ))" "$PORT" "$last_code" >&2
+  case "$last_code" in
+    000) printf '  000 — nothing accepted the connection: the process never bound the port.\n' >&2 ;;
+    *)   printf '  %s — the port answered but not with 200: it bound and is erroring.\n' "$last_code" >&2 ;;
+  esac
+  printf '\n  --- systemctl --user status mythos-os-console ---\n' >&2
+  systemctl --user status mythos-os-console --no-pager -n 0 >&2 || true
+  printf '\n  --- journalctl --user -u mythos-os-console -n 40 ---\n' >&2
+  journalctl --user -u mythos-os-console -n 40 --no-pager >&2 || true
+  die "127.0.0.1:$PORT did not serve /api/health with HTTP 200 within ${READY_TIMEOUT}s."
+fi
+ok "127.0.0.1:$PORT answering /api/health with 200 after $(( $(date +%s) - ready_started ))s"
 
 # ---------------------------------------------------------------------
 say "Phase 4 — local verification (GATE: nothing is exposed until this passes)"
