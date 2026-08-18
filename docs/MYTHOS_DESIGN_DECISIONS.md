@@ -642,6 +642,57 @@ to the components it affects.
 
 ---
 
+### 3.6 New open items raised by Stage 1G — responsive, accessibility, motion
+
+**Found by specifying the four device classes, the accessibility floor and the
+motion system against the approved rules.** Each is a place where the approved
+text stops short of what the specification needs. **None was resolved**, and
+**MOTION-1 was deliberately left open on the owner's explicit instruction.**
+
+| Ref | Question | Blocking? | Recommendation (**PROPOSED**, not decided) |
+|---|---|---|---|
+| **TYPE-3** | Fluid type is approved as `clamp()` *"between the scale's stops"*, but **which stop floors each style, and at which viewports the clamp endpoints sit, are unspecified** — and both are needed to write a single `clamp()` | No | Floor at the next stop down; endpoints at **320** and **1240** (where the grid first reaches 12 columns). Body and below stay fixed, because a fluid body range would break either the 16 px floor or the 13 px operational floor |
+| **SPACE-1** | The approved spacing bands **do not vary by breakpoint**, and no approved rule says whether they should. A 128 px section gap is **a quarter of a 320 px phone viewport** | No | Section spacing steps one band down at mobile (128 → 96, 96 → 64, 64 → 48); component spacing unchanged, being already at the small end of the scale |
+| **A11Y-1** | Under `forced-colors` the palette is replaced by the user's. **Gold is the system's only emphasis channel** — primary action, active state, focus ring and the 35° gesture all carry it. Status survives because the approved rule already pairs colour with a dot, chip or stripe; **the primary-versus-secondary button distinction does not** | No | Needs a non-colour channel for the primary action. This is a real design decision, **not** something derivation can supply |
+| **A11Y-2** | The universal rule is *colour never carries meaning alone*, and **disabled is a meaning** — yet the approved system gives disabled **no non-colour channel**. A disabled control is currently distinguished by contrast alone, which is what the rule forbids elsewhere | No | — |
+| **MOTION-2** | The M's slant does not mirror in RTL (**A-012**), and the 35° motion vector is the same angle as the mark. **Whether the vector mirrors is unstated:** keeping it preserves the angle and breaks layout logic; mirroring it does the reverse | No | — |
+| **MOTION-3** | The 35° gesture exists twice in the approved text — as a **shape** (a 35° cut on one element per view, 1C §6) and as a **motion** (one element per view travelling along 35°, 1C §10), each *"once per view"*. **Whether they share one budget or two is unstated** | No | — |
+
+**MOTION-1 remains OPEN by instruction, not by omission.** The owner's 1G
+instruction was explicit: *"If a loading state requires an exception, document it
+as PROPOSED and leave it OPEN."* `RESPONSIVE_ACCESSIBILITY_MOTION.md` §3.4 states
+the contradiction in the approved text's own words, sets out three routes with
+their costs, and recommends **routes 1 and 2 together** — determinate progress
+where measurable, static skeletons elsewhere — on the ground that **A-018
+requires the interface to remain legible with animation disabled entirely**,
+which routes 1 and 2 satisfy unchanged while an animated indicator needs a
+second, non-animated fallback regardless. **That is a recommendation. It is not a
+decision, and it may not be treated as one.**
+
+**Two measured findings from 1G worth carrying forward, neither of them a new
+decision:**
+
+- **Zoom is not a special mode — it moves the user down the same bands.** From a
+  1280 viewport, 200 % zoom yields a **640 px** effective width and lands in the
+  tablet band; 400 % yields **320 px** and lands in mobile. So **the tablet
+  layout is the desktop-at-200 %-zoom layout** and cannot be a degraded middle
+  state, and **the 320 px reflow requirement and 400 % zoom are the same test**.
+- **Nine of the twelve approved type styles have a default line-height below
+  1.5** — all six display and heading styles plus Caption (1.46), Label (1.34)
+  and Data (1.44). WCAG 1.4.12 requires content to survive a user forcing 1.5, so
+  **no fixed-height container may wrap a heading, label or data cell**; forcing
+  Display XL from 1.02 to 1.5 grows its line box by **47 %**. This is not a defect
+  in the scale — tight display leading is correct — it is a constraint on every
+  container the scale sits in.
+
+**Where GRID-1 bit hardest:** the owner asked 1G to define **large desktop** as
+one of four device classes, and **every approved metric for `2xl` is identical to
+`xl`** — the content cap already stops the grid growing from a 1440 viewport,
+480 px below the `2xl` boundary. **The class has nothing of its own in the
+approved system**, and none was invented.
+
+---
+
 ---
 
 ## 4. Unknown — believed decided, not recoverable
