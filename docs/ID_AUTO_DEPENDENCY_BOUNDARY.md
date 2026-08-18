@@ -22,22 +22,28 @@ matrix and the migration table carry per-row status; this section is the summary
 | Stage | Change | Commit | Result |
 |---|---|---|---|
 | **IDA-DECOUPLE-1** | MPI declares and resolves its own `pg` (D5, D10) | `6e2dfaa` | ✅ **DONE** — all 22 MPI suites 544/0; five had been aborting |
-| **IDA-DECOUPLE-2** | `offhost-backup.js` and `s3-compatible.js` moved to `projects/infrastructure/ops/` (D1–D4, D9) | *this stage* | ✅ **DONE** — true `git mv`, byte-identical, consumers and path assertions updated |
-| IDA-DECOUPLE-3 | Split the identity-core contract test (D6, D7, D8) | — | **NOT STARTED** |
-| IDA-DECOUPLE-4 | Delete `projects/idauto/**` and its suites and docs (D11, D12) | — | **NOT STARTED** — blocked on 3 |
+| **IDA-DECOUPLE-2** | `offhost-backup.js` and `s3-compatible.js` moved to `projects/infrastructure/ops/` (D1–D4, D9) | — | ✅ **DONE** — true `git mv`, byte-identical, consumers and path assertions updated |
+| **IDA-DECOUPLE-3** | Split the identity-core contract test (D6, D7, D8) | *this stage* | ✅ **DONE** — ID Auto published the three vocabulary artifacts (`protocol/vocabularies/{actor-type,org-role,actor-identifier}.v1.json`, commit `42e8546`, branch `protocol-identity-vocabularies`) with its own conformance suite (`identity-conformance-test.js`, 77/0, 7/7 planted mutations caught). Mythos now consumes pinned, digest-verified copies under `projects/mythos-core/contracts/idauto/` — no read of `projects/idauto/` remains anywhere in this suite. |
+| IDA-DECOUPLE-4 | Delete `projects/idauto/**` and its suites and docs (D11, D12) | — | **NOT STARTED** — blocked only on the owner's go-ahead; nothing technical remains |
 
 **The acceptance condition of IDA-DECOUPLE-2 is met: zero Mythos runtime files resolve any
 path inside `projects/idauto/`.** Verified by exhaustive search — no `require()` or import of
 anything under `projects/idauto/` exists in any `.js` file outside `projects/idauto/` and
 outside `tests/`.
 
-**What still reaches into `projects/idauto/`, all of it test-only:**
+**As of IDA-DECOUPLE-3, the last test-time coupling is gone too.** `grep -c "projects/idauto"
+tests/mythos-identity-core-0-contract-test.js` is **0**. What remains reaching into
+`projects/idauto/` is exclusively the two suites whose whole purpose is to test-that-source, and
+they are deletable only together with it:
 
 | | What | Class |
 |---|---|---|
-| **D6 / D7 / D8** | `tests/mythos-identity-core-0-contract-test.js` reads `database/schema.sql` and `reference/identity.js` | the real remaining blocker — IDA-DECOUPLE-3 |
+| ~~D6 / D7 / D8~~ | ~~`tests/mythos-identity-core-0-contract-test.js` reads `database/schema.sql` and `reference/identity.js`~~ | **RESOLVED** — see §10.6 |
 | **D11** | `tests/devx-1-idauto-test-impact-test.js` asserts the ID Auto rules in the impact map | goes with the source |
 | **D12** | `tests/ida-*.js`, `tests/idauto-storage-ops-test.js` | ID Auto's own duplicated suites; go with the source |
+
+**`projects/idauto/` deletion (step 5, IDA-DECOUPLE-4) is now blocked only on the owner's
+go-ahead — nothing technical stands in the way any more.**
 
 Note `tests/ida-3f-offhost-backup-test.js` is no longer in D12's position: it tests the two
 relocated modules, so it now points at `projects/infrastructure/ops/` and is a **Mythos**
@@ -238,7 +244,7 @@ Strictly ordered. Each step is independently verifiable and independently revert
 | **1** ✅ **DONE** (`6e2dfaa`, IDA-DECOUPLE-1) | Give `projects/personal-intelligence` a `package.json` declaring `pg`; CLIs `require('pg')` (D5, D10) | 5 MPI suites that **already fail today** | **LOW** — `activation.js` is unchanged; it already takes `pg` by injection and refuses without it | `mpi-activation`, `mpi-2h-cli`, `mpi-3-retrieval-cli`, `mpi-4-*` green |
 | **2** ✅ **DONE** (IDA-DECOUPLE-2) | Move `s3-compatible.js` → `projects/infrastructure/ops/adapters/`; update D3, D4 | MPI ↛ ID Auto | **MEDIUM** | `mpi-2h-events` 16/16, `mpi-2h-cli`, `mpi-3-retrieval-cli` |
 | **3** ✅ **DONE** (IDA-DECOUPLE-2, same commit as 2) | Move `offhost-backup.js` → `projects/infrastructure/ops/`; update D1 **and both path literals** in D2; update D9 | automation ↛ ID Auto | **HIGH** | `inf-backup-auto-0-backup` **245/245**; the `reuses_module` guard must still *refuse* a wrong value |
-| **4** ⬜ **NEXT** | Split the identity-core test: keep §8 against a versioned vocabulary artefact (D6); delete §12/§12b (D7, D8) — already covered in IDauto's `docs/IDENTITY_ARCHITECTURE.md` | mythos-core ↛ ID Auto | **MEDIUM** | `mythos-identity-core-0-contract` **115/124 → 115+** with no ID Auto read |
+| **4** ✅ **DONE** (IDA-DECOUPLE-3) | Split the identity-core test: §8 now reads a pinned, digest-verified copy of ID Auto's published vocabulary artifacts (D6); §12/§12b deleted — the internal invariants they asserted are IDauto's own business, covered there by `tests/identity-conformance-test.js` (D7, D8) | mythos-core ↛ ID Auto | **MEDIUM** | `mythos-identity-core-0-contract` **125 → 157/0**, zero reads of `projects/idauto/` (`grep -c "projects/idauto"` on the suite is **0**) |
 | **5** ⬜ | Delete `projects/idauto/**`, `tests/ida-*.js`, `tests/devx-1-idauto-test-impact-test.js`, `docs/IDAUTO_*.md`, `docs/IDA3_*.md`; remove the 15 ID Auto rules from `test-impact-map.json` | The cleanup PR #16 can complete | **MEDIUM** | Full suite; **0 dangling test references** in the impact map |
 
 Steps 1–4 are prerequisites for 5. **Step 5 must not be attempted before them.** That was
@@ -246,10 +252,15 @@ measured before any of this work: deleting `projects/idauto/` then took
 `inf-backup-auto-0-backup` (245), `mpi-2h-events` (16) and `mythos-identity-core-0-contract`
 (124) from clean to hard error.
 
-**Re-measured after steps 1–3.** Two of those three are now free of the coupling —
-`inf-backup-auto-0-backup` and `mpi-2h-events` no longer resolve anything under
-`projects/idauto/`. **`mythos-identity-core-0-contract` still would break**, and it is now
-the *only* suite standing between here and step 5, which is precisely what step 4 addresses.
+**Re-measured after steps 1–3.** Two of those three were free of the coupling —
+`inf-backup-auto-0-backup` and `mpi-2h-events` no longer resolved anything under
+`projects/idauto/`. `mythos-identity-core-0-contract` was still the one that would break, and
+was the *only* suite standing between here and step 5.
+
+**Re-measured again after step 4 (IDA-DECOUPLE-3).** `mythos-identity-core-0-contract` no
+longer resolves anything under `projects/idauto/` either — see §10.6. All three suites listed
+above are now free of the coupling, and deleting `projects/idauto/` (step 5) is blocked only on
+the owner's authorisation, not on any remaining technical dependency.
 
 ---
 
@@ -510,3 +521,50 @@ Proven by mutation, with `schema.sql` restored byte-identical afterwards:
 | `'root'` added to `idauto_submissions`' CHECK only | passed | **1 failure** — the divergence guard |
 
 Suite: **125 passed / 0 failed** (124 before; +1 is the new divergence assertion).
+
+---
+
+### 10.6 Implemented (2026-08-18, `IDA-DECOUPLE-3`)
+
+The boundary described in §10.2 is now built. ID Auto published
+`protocol/vocabularies/actor-type.v1.json`, `org-role.v1.json` and `actor-identifier.v1.json`
+(branch `protocol-identity-vocabularies`, commit `42e8546`), each guarded by its own
+conformance suite (`tests/identity-conformance-test.js`, 77 passed / 0 failed, 7/7 planted
+mutations caught). Mythos pins digest-verified copies of the three files under
+`projects/mythos-core/contracts/idauto/`, recorded in `PINS.json` (upstream commit, per-file
+SHA-256, version, revision). `tests/mythos-identity-core-0-contract-test.js` §8 verifies every
+digest before parsing anything, then asserts `ACTOR_TYPES`/`ORG_ROLES` against the pinned
+content by sorted-set equality in both directions, with non-empty/unique/lowercase vacuity
+guards on each side. §12 and §12b (the IDauto-internal invariants — `idauto_organizations.id`
+SERIAL, the `identity.js` stub shape, `IDAUTO_ADMIN_IDENTITIES`) were deleted; those are now
+IDauto's own business, asserted in its own conformance suite. A final §14 proves the suite's
+own source contains no reference to the extracted `projects/idauto/` tree.
+
+Result: **157 passed, 0 failed** (was 125), and `grep -c "projects/idauto"
+tests/mythos-identity-core-0-contract-test.js` is **0**. Full re-pin procedure is documented in
+`projects/mythos-core/contracts/idauto/README.md`; there is deliberately no script that
+performs it, so a re-pin is always an authored, reviewed commit.
+
+**Two corrections from the final architecture review, both material to §10.1 and §10.3 above.
+The original text of both sections is left unedited above; these are appended, not
+substituted.**
+
+**Correction to §10.1 — the count was 16, but is actually 17.** §10.5's own divergence
+assertion (*"every `actor_type` CHECK in the schema declares the SAME vocabulary"*) also reads
+`schema.sql` and was added after the 115/9 stub measurement in §10.1 was taken. Under the same
+stub it fails too — `allActorChecks.length > 0` is false against an empty string — so the true
+stub-failure count is **10, not 9** (row count in §10.1's table is unaffected; the divergence
+assertion simply wasn't in the suite yet when that table was built).
+
+**Correction to §10.3 — the premise that "a Mythos-only pin would weaken a live read" assumed a
+live read that, by the time of the final review, no longer matched canonical.** The vendored
+copy at (the now-deleted) `projects/idauto/database/schema.sql` had SHA-256 `bb282a75…`, which
+had already diverged from the canonical `othoth77/idauto` `database/schema.sql` (`b41c000d…`)
+by one line — a documentation-comment line referencing a line number that had shifted, not a
+CHECK constraint. The "live" read §10.3 worried about weakening was therefore already stale
+relative to canonical at read time. A pin verified against canonical's own published, digest-
+stamped artifact — as implemented in §10.6 above — is **strictly stronger** than the status quo
+it replaced, not a weakening of it. §10.3's underlying architectural point (do not fabricate a
+Mythos-owned vocabulary copy with no upstream conformance backing it) still stands and is why
+the implementation waited for ID Auto to publish and conformance-test the artifacts first,
+rather than pinning a Mythos-authored guess.
