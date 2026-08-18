@@ -1,7 +1,112 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **IDA-DECOUPLE-1 — MPI NOW OWNS ITS `pg` DEPENDENCY. THE THREE COMPOSITION ROOTS NO LONGER REACH INTO ID AUTO'S `node_modules`. FIVE PREVIOUSLY ABORTING MPI SUITES NOW PASS.**
+**From:** MYTHOS **FULL AUTONOMOUS MANDATE, FIRST PASS — PR #11 MERGED TO MAIN; LOGO-2 RESOLVED (AUTO-1); LOGO-1 NARROWED; C-006 CANONICAL SYSTEM DECIDED (AUTO-2) WITH EXECUTION DELIBERATELY DEFERRED AFTER A NEAR-MISS ON THE REAL MYTHOS OS STYLESHEET. NO CODE, CSS OR APPLICATION FILE ENDS THIS STAGE CHANGED — ONLY DOCUMENTATION.**
+
+**Authority for everything in this entry.** The owner instructed a "FULL
+AUTONOMOUS MYTHOS OS EXECUTION MANDATE... previously authorized," which this
+session had no record of and which asserted as fact that the design branch was
+"already... safely merged into main" — checked and found **false** at the time
+(PR #11 was still open, draft). Rather than act on an unverified premise, the
+session asked directly whether the owner was knowingly confirming full
+autonomous authority, including production deployment, right now, superseding
+every prior "do not deploy" instruction this session. **The owner selected
+"Confirm full autonomous mandate."** Every decision below cites that exchange
+as its authority and is marked **AUTO-\*** — a new register category, distinct
+from **A-\***, so nothing here is ever mistaken for an owner review. Full
+reasoning: `docs/MYTHOS_DESIGN_DECISIONS.md` §0.5.
+
+**1. PR #11 MERGED.** Two more `main` advances landed first (MOS-1.4, MOS-1.5 —
+one-line deploy-script fixes, still not deployed) and were merged into the
+design branch with the standing procedure, clean, no new "From:" collisions.
+PR #11 was then taken out of draft and merged to `main` at `aa7c5d7` (23
+commits, ten design deliverables). Local `main` fast-forwarded to it.
+
+**2. LOGO-1 RE-ATTEMPTED — GENUINE NEW ACCESS, GENUINE NEW EVIDENCE.** The
+off-host repositories that blocked LOGO-1 all session were retried under the
+mandate, not accepted as final. **`mythos-prod-unversioned-snapshot`:
+`add_repo` granted, cloned, searched exhaustively.** It holds 125 pre-Git
+working copies of the **Mythos Prod invoicing application** — unrelated to the
+master brand. **Exactly one vector file exists in the whole repository, and it
+is not a Mythos asset**: read in full, it is the logo for "SDT — Société de
+distribution tunisienne," an unrelated Tunisian company, sitting in a folder
+that happens to be named `mythos-prod`. The 18 files the snapshot's own README
+says were excluded for containing RIB/CIN/client data were **not pursued** —
+standing rule respected regardless of the mandate. **`mythos-app`: `add_repo`
+itself was denied** by the session's runtime classifier. **`mythos-os`:
+`add_repo` succeeded but the clone was denied**, retried once per the tool's own
+"usually transient" guidance, denied again — not retried further. VPS
+filesystem paths re-checked, still absent. **LOGO-1 is narrowed, not closed:**
+one of three off-host locations is now a genuine, thorough negative; two remain
+genuinely blocked by the runtime classifier, not by lack of account access.
+Full record: `docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md` §5.
+
+**3. LOGO-2 RESOLVED — AUTO-1, NOT OWNER-APPROVED.** The vector reconstruction
+is adopted as the **production master** under the two-master model already
+specified in `docs/design/LOGO_SYSTEM.md`, with its original three conditions
+kept fully binding: the historical raster is never modified; the reconstruction
+is always described as a derivative; any true original LOGO-1 later finds is
+diffed against it and reconciled. **The owner's review-hold gate is quoted and
+respected on its own terms** — it said the reconstruction must not become an
+*"owner-approved"* production master while LOGO-1 remains open, and it still
+has not: this is an **AUTO-\*** decision, explicitly and permanently distinct
+from an owner approval. Proceeding rests on two things that changed since the
+hold was set: LOGO-1 is measurably narrower than it was, and the owner issued a
+later, separate, more specific instruction the same day naming LOGO-2 for
+autonomous resolution. `docs/design/LOGO_SYSTEM.md`'s status, table and
+recommendation section were all updated to say precisely this — never silently
+upgraded to `OWNER-APPROVED`.
+
+**4. C-006 — CANONICAL SYSTEM DECIDED, EXECUTION DELIBERATELY STOPPED AFTER A
+REAL FINDING.** **AUTO-2** names the owner-approved 1C/1E specification as
+canonical over the implemented `--mythos-*` system, on evidence: the approved
+system has a full WCAG-derivation audit trail and a recorded rationale for its
+gold (**A-013**); the implemented system's gold has none (**U-001**). A safe
+migration mapping was **computed and verified** before touching anything — new
+gold `#D9A441` with a `-light` companion derived by preserving the existing
+system's own HLS lightness/saturation offset, checked against every ground
+`mythos.css` actually uses, meeting or exceeding current contrast at all of
+them. **The edit was made, and then reverted.** `tests/mos-1-console-test.js`
+failed 3 of 322 assertions — not because the values were wrong, but because
+that suite **deliberately reads `--gold` live from `css/main.css` at the
+repository root and asserts the console matches it verbatim**, to catch drift
+from the real application. **`css/main.css` is not a sandbox — it is the actual
+Mythos OS application's stylesheet**, the same file every recovery document in
+this program measured contrast from, serving the same app whose `index.html`
+still carries the "Uthina Chess" branding drift **1H** recorded as unfixed.
+This project's own verification tool, `tools/visual-verify.js`, **deliberately
+drives only the isolated console reference and states nothing it does can reach
+production** — the project's own convention already treats this file as out of
+bounds for exactly this kind of change. **The edit was reverted before any
+commit; `git status` confirmed clean and the suite re-run confirmed 322/322.**
+Execution of **MIG-1** (gold) and **MIG-3** (spacing/radius) stays deferred —
+not for lack of authority, but because this session has no way to run
+full-application visual regression against the real stylesheet, and the
+mandate's own instruction to protect production systems weighs against editing
+it without that proof. The verified mapping is recorded and ready.
+
+**Nothing outside documentation changed this stage.** `git status` is clean of
+anything but the three files this entry updates
+(`docs/MYTHOS_DESIGN_DECISIONS.md`, `docs/design/LOGO_SYSTEM.md`,
+`docs/design-recovery/PENDING_VECTOR_SOURCE_TASK.md`) plus this file. Historical
+logos untouched. No project, CSS or application file differs from `main`.
+
+**Next, under the same mandate:** the remaining phases the owner named —
+remaining design-decision sweep, 1I prototypes, design-system consolidation,
+implementation-readiness audit, per-project migration plans — are documentation
+work this session can do safely and is continuing to. **Actual deployment
+(Mythos OS, Command Center, `mythosprod.xyz`, public-project migration, live
+smoke tests) requires host access this session has never had** — confirmed
+absent again this stage (`/var/www`, `/srv/mythos`, `/home/deploy` all still
+missing) — and MOS-1.2's own handover entry independently confirms *"the host
+is unreachable from any Claude session."* That is the genuine technical/access
+blocker the mandate's own exit condition anticipates for those specific phases.
+
+---
+
+## Previous entry
+
+**Previously:** MYTHOS **IDA-DECOUPLE-1 — MPI NOW OWNS ITS `pg` DEPENDENCY. THE THREE COMPOSITION ROOTS NO LONGER REACH INTO ID AUTO'S `node_modules`. FIVE PREVIOUSLY ABORTING MPI SUITES NOW PASS.**
 
 **Stage:** `IDA-DECOUPLE-1` · **Status:** **COMPLETE** · **Commit:** `6e2dfaa`
 **Branch:** `claude/idauto-source-cleanup-post-publication` · **Baseline:** `72a8d73`
@@ -87,8 +192,8 @@ split in IDA-DECOUPLE-4, and only then can `projects/idauto/` be removed.
 | Other open drafts | mythos-prod **#14**; `othoth77/idauto` **#1** |
 | `origin/main` | `0a00c30` |
 
----
 
+---
 
 ## Previous entry
 
@@ -226,6 +331,7 @@ a draft and not merged automatically. It must update `projects/meta/test-impact-
 and `tests/devx-1-idauto-test-impact-test.js` in the same commit as the removals, or DEVX-1
 breaks.
 
+
 ---
 
 ## Previous entry
@@ -350,6 +456,115 @@ it would add the first font binaries this repository has tracked, so it
 needs an explicit decision rather than an assumption.
 
 ---
+
+## MOS-1.7 — `--machine=deploy@.host` TESTED AND REFUSED (2026-08-18) — **STILL BLOCKED; SAME BOUNDARY, CONFIRMED FROM A SECOND ANGLE; NOTHING DEPLOYED, NO CERTIFICATE REQUESTED, deploy.sh UNTOUCHED**
+
+### Stage
+
+MOS-1.7 — the operator proposed a specific fix for MOS-1.6's blocker: `systemctl --machine=deploy@.host --user`, framed as an already-proven mechanism where `sudo -u deploy` merely lacks the D-Bus session environment. **That specific mechanism was tested directly and empirically before accepting or rejecting the premise** — it is not a fixable environment problem, and the deployment remains blocked at the same real boundary. `deploy.sh` was not modified, per instruction.
+
+### What was tested (all read-only / non-mutating, as `ubuntu`)
+
+| Test | Command | Result |
+|---|---|---|
+| Machine-transport status query | `systemctl --machine=deploy@.host --user status mythos-os-console` | **`Failed to connect to system scope bus via machine transport: Permission denied`** |
+| Machine-transport list-units | `systemctl --machine=deploy@.host --user list-units` | Same denial |
+| Direct filesystem access to `deploy`'s runtime dir | `ls /run/user/1001/` | `Permission denied` |
+| Direct filesystem access to `deploy`'s bus socket | `ls /run/user/1001/bus` | `Permission denied` |
+| `machinectl` CLI | `command -v machinectl` | Not installed (`systemd-container` package absent) — moot; the `systemctl --machine=` transport itself already gave a definitive denial through its own code path, independent of whether the separate CLI tool exists |
+| `polkit` rule inspection | `ls /etc/polkit-1/rules.d/` | `Permission denied` (standard root-only directory) — could not inspect for a scoped rule, but the actual operation was tested directly regardless, which is the authoritative signal |
+| Informational contrast | `loginctl user-status deploy` | **Succeeds** — read-only session introspection about `deploy`'s lingering login state works fine. Confirms the denial is specific to *connecting to and managing* the user bus, not a blanket refusal of every `deploy`-related query |
+
+### Why this rules out the "DBUS environment" framing
+
+Even manually constructing `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus` and exporting it would not help: the socket file itself refuses `ubuntu` at the filesystem permission layer, independent of how it is addressed. This is a genuine authorization denial at the machine-transport/D-Bus layer — the same category of finding as MOS-1.6's `sudo -l` result, reached by a completely different code path, which makes it a stronger confirmation of the boundary rather than a restatement of the same guess.
+
+### Live state, re-verified before concluding anything (unchanged from MOS-1.6)
+
+`mythos-os-console` still healthy on `127.0.0.1:8140` (`token_provisioned:true`, `upstream.ok:true`); `http://os.mythosprod.xyz/` still **200**; HTTPS still handshakes but serves `CN=darhijama.tn` (the SNI fallback — no dedicated certificate exists yet). **Nothing moved between turns.**
+
+### What was NOT attempted
+
+No credential hunt, no attempt to read `deploy`'s SSH key or any other secret to log in as `deploy` directly, no `deploy.sh` execution, no certbot invocation of any kind (dry-run or real), no nginx change. The reasoning is unchanged from MOS-1.6: this appears to be a deliberately configured host boundary, and using a credential this session does not hold to cross it would be self-escalation, not a fix.
+
+### Record
+
+| | |
+|---|---|
+| Base | `30ebf39`, branch `main`, remote HEAD verified identical before starting |
+| Commit this stage | this documentation entry only — **`deploy.sh` was not touched**, confirmed by diffstat (0 lines) before committing |
+| Remote HEAD | see below — verified after delivery |
+| Tests | Not applicable — no code changed. Live-state checks (read-only) tabulated above |
+| Deployment | **Not performed.** Phase 3 onward not attempted — the operator's proposed mechanism to reach it does not work from this session's identity |
+| Files changed | `docs/AI_HANDOVER.md` (this entry) only |
+
+### Next stage
+
+**Still an operator decision — the same two paths as MOS-1.6, now with a second, independently-confirmed line of evidence that no session-side technical fix exists:** (a) the operator runs `deploy.sh` directly as `deploy`, interactively, on this host; or (b) a root-installed, `User=deploy` systemd relay scoped specifically to `deploy.sh` is created — mirroring `mythos-git-push.service`, which already solves exactly this class of problem for git push. Both `sudo -u deploy` (MOS-1.6) and `systemctl --machine=deploy@.host --user` (this stage) have now been tested and refused; no third session-identity path is known. Once Phase 8 completes by either route, verification (public HTTPS, certificate subject/issuer, Phases 9-10) is unprivileged and this session can perform it immediately.
+
+## MOS-1.6 — DEPLOYMENT CONTINUATION ATTEMPT (2026-08-18) — **BLOCKED AT A REAL PRIVILEGE BOUNDARY; NOTHING DEPLOYED, NO CERTIFICATE REQUESTED, NOTHING WEAKENED**
+
+### Stage
+
+MOS-1.6 — attempted continuation of the MOS-1 Command Center deployment from the existing Phase 8 TLS gate, under explicit operator authorization to proceed autonomously including real certificate issuance. **Steps 1-4 (repository sync and verification) completed successfully. Steps 5-10 (running `deploy.sh` Phase 8 onward) could not be executed — see Blocker below.**
+
+### What was verified and completed (steps 1-4)
+
+| Step | Result |
+|---|---|
+| 1. Repo clean / current HEAD | Clean except the two long-standing, pre-existing concurrent items (`roadmap-state.json` — the autonomous loop's own live state; untracked `projects/ssangyong-autos/deploy/`), both preserved untouched as in every prior stage this session. HEAD at start: `4390911` |
+| 2. `git pull --ff-only origin main` | SSH failed with the same long-documented residual (`Permission denied (publickey)` — no key in this session's agent). Worked around via the established read-only HTTPS fetch, then a local `git merge --ff-only` — no push involved, no credential needed, no bypass of anything |
+| 2b. Unexpected finding | `origin/main` had moved to `aa7c5d7` since the previous turn's push — **PR #11 merged the design branch** (`claude/mythos-master-brand-design-c3vy6b`, `255c566`, flagged as unmerged in an earlier LOGO-2 review this session) to `main`. 40 files, all `docs/design/`, `docs/design-recovery/` and `assets/brand/` — zero overlap with `deploy.sh` or anything this stage depends on. Fast-forwarded cleanly |
+| 3. `confirm()` fix present | Verified in the actual file on this host after the merge: `read -r -p "  >> $1 [y/N] " reply` — present, byte-exact, survived the merge |
+| 4. Local HEAD == origin/main | **Equal at `aa7c5d7`**, verified via anonymous HTTPS `git ls-remote` |
+| Sanity check | `bash -n` clean; `tests/mos-1-console-test.js` **322 passed, 0 failed** after the merge |
+
+### Independent live-state verification (read-only, unprivileged — before concluding anything)
+
+Rather than assume the Phase 8 blocker was still where it was left, the actual current state was checked directly:
+
+| Check | Result |
+|---|---|
+| `mythos-os-console` service | **Running.** `curl http://127.0.0.1:8140/api/health` → `ok:true, token_provisioned:true, upstream.ok:true` |
+| systemd unit | Confirmed enabled under `deploy`'s `~/.config/systemd/user/default.target.wants/mythos-os-console.service`, `deploy` has `linger` active (uid 1001) |
+| nginx vhost | `/etc/nginx/sites-enabled/os.mythosprod.xyz` symlinked, `http://os.mythosprod.xyz/` → **200** |
+| HTTPS on `os.mythosprod.xyz` | Handshake succeeds but serves **the wrong certificate** — `CN=darhijama.tn` (a different Mythos site's cert, the nginx SNI fallback) — because no dedicated certificate for this domain exists yet |
+
+**Conclusion: state is exactly where MOS-1.4/1.5 left it.** Phases 0-7 are genuinely live and healthy; Phase 8 (real certificate issuance) genuinely has not run. Nothing silently advanced or regressed between turns.
+
+### Blocker — real, at the host authorization layer, not the session classifier
+
+Continuing `deploy.sh` from Phase 8 requires running as `deploy`, whose sudo grant is exactly three commands (`nginx -t`, `systemctl reload nginx`, `certbot`) per the script's own header. **This session's actual identity is `ubuntu`**, and `sudo -l` — queried directly, not inferred — returns exactly one grant, unrelated to any of this:
+
+```text
+User ubuntu may run the following commands on vps-4722f0a9:
+    (root) NOPASSWD: /usr/local/sbin/mythos-logs
+```
+
+`sudo -n -u deploy whoever` and `sudo -n true` are both refused outright by the host, before any Claude Code permission layer is even reached. This is **not** the "detected dubious ownership" git problem the operator described (that specific problem does not affect this session — `ubuntu` already holds an explicit ACL grant, `user:ubuntu:rwx`, set alongside `deploy`'s own grant on this exact repository, which is why every `git` operation this entire session has worked without incident). It is a **separate and much narrower boundary**: `ubuntu` has no path — via `sudo`, via a login session, or via any credential on this host — to become `deploy` or `root` for `nginx`, `systemctl reload`, or `certbot`.
+
+**No workaround was attempted.** Searching for or using `deploy`'s SSH key or any other credential to self-escalate would be privilege-escalation exploitation of a boundary that appears deliberately configured — the same reasoning that has governed every credential-adjacent decision this session (the git-push relay uses `deploy`'s *existing, already-authorized* key via a root-installed, root-owned systemd unit; it was never a session credential grab). This is a genuine blocker per the operator's own instruction to stop only where safe continuation is impossible.
+
+### What is needed to unblock (not executed — recommendation only)
+
+The precedent already exists in this repository: `mythos-git-push.service`/`.timer` — a **root-installed, root-owned** systemd unit with `User=deploy`, scoped to exactly one action (fast-forward push of `main`), which lets an `ubuntu`-context session trigger a `deploy`-privileged action without ever holding `deploy`'s credentials directly. The same shape would resolve this: a root-installed, `User=deploy` systemd **oneshot** service scoped to running `projects/mythos-os-console/tools/deploy.sh`, so that an authorized session can start it (`systemctl start`) without any broadening of `ubuntu`'s sudo grant. This is an **infrastructure decision for the operator**, not something this session can create for itself — installing a new root-owned systemd unit is exactly the kind of host-security change no session should self-authorize.
+
+**Until such a mechanism exists, or the operator runs it directly as `deploy` (interactively, or the actual owner's own root/deploy session)**, Phase 8 onward cannot be completed by a Claude Code session running as `ubuntu`.
+
+### Record
+
+| | |
+|---|---|
+| Base | `4390911`, branch `main` |
+| Commit this stage | this documentation entry only — **no code changed**, `deploy.sh` was not touched (the confirm() fix already landed and was only re-verified) |
+| Remote HEAD | `aa7c5d7` before this entry; see below for the post-commit value |
+| Tests | `bash -n` clean; `tests/mos-1-console-test.js` 322/322 (run after the fast-forward merge, for due diligence — not required by this stage but cheap and relevant since deploy.sh's containing tree changed) |
+| Deployment | **Not performed.** Phases 0-7 independently confirmed live and unchanged from the prior stage. Phase 8 (certificate) **not attempted** — no certbot invocation was made, dry-run or real |
+| Files changed | `docs/AI_HANDOVER.md` (this entry) only |
+
+### Next stage
+
+**Operator decision required — this is the genuine stopping point.** Either: (a) the operator runs `deploy.sh` directly as `deploy` (interactively, on this host); or (b) the operator authorizes and a future stage installs a scoped, root-owned `deploy`-privileged systemd relay for `deploy.sh`, mirroring `mythos-git-push`, after which a Claude Code session could trigger it safely. Once Phase 8 completes by either path, the remaining verification (public HTTPS, real certificate subject/issuer, Phases 9-10) is unprivileged and this session can perform it immediately on request. Separately open and unchanged: the deployment governance amendment (production `LEVEL_3` boundary vs. chat delegation) flagged in an earlier stage.
 
 ## MOS-1.5 — confirm() EXPLICIT read -r -p (2026-08-18) — **PASS; NOT DEPLOYED, NO CERTIFICATE ISSUED**
 
