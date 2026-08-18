@@ -99,7 +99,8 @@ source doc: none — values cross-checked clean against `tokens.css`.
 ## 3. Typography
 
 - **Display:** Archivo Expanded 600 only (single weight, per approved scale).
-- **Text/UI:** IBM Plex Sans 400/600.
+- **Text/UI:** IBM Plex Sans 400/500/600 (500 is Label — corrected AUTO-4,
+  AUTO-3's policy row had missed it).
 - **Arabic:** IBM Plex Sans Arabic — **+6% size, +0.15 line-height, tracking
   forced to 0** on every style, including Label.
 - **Data/code:** IBM Plex Mono 400.
@@ -108,12 +109,12 @@ source doc: none — values cross-checked clean against `tokens.css`.
 - **Fluid type:** `clamp()` floors at the next scale stop down; endpoints 320
   and 1240 (**TYPE-3**, AUTO-3). Body and below stay fixed.
 - **Prose measure:** 65 characters is the design intent; 68ch an
-  approximation (**GRID-2**, narrowed not closed — no font file exists yet to
-  reconcile the units).
-- **Font budget:** two weight instances per family where more than one is
-  used; subset per script independently; ≤120KB initial load per script;
-  self-hosted (**TYPE-2**, AUTO-3 — policy decided, numbers provisional
-  pending real font files).
+  approximation. Real font metrics now measured (**GRID-2**, narrowed
+  further by **AUTO-4** — neither number actually renders 65 real
+  characters; still not closed, see the register).
+- **Fonts:** self-hosted, real WOFF2 files, `assets/brand/fonts/` (**TYPE-2**,
+  **AUTO-4** — closed). Latin ≈99.5KB, Arabic ≈133.8KB per script
+  (revised budget ≤140KB/script — see `assets/brand/fonts/README.md`).
 
 Full detail: `TYPOGRAPHY.md`.
 
@@ -235,7 +236,7 @@ Full detail: `PUBLIC_ECOSYSTEM_ARCHITECTURE.md`.
 | Ref | Blocked on |
 |---|---|
 | **LOGO-1** | Two of three off-host repositories still unreachable (`mythos-app` denied at `add_repo`; `mythos-os` denied at clone); VPS filesystem absent. One of three fully searched — genuine negative |
-| **GRID-2** | Real font-metrics, which need real font files, which need **TYPE-2**'s numbers finalised first |
+| **GRID-2** | Real font-metrics now measured (**AUTO-4**); what remains is an owner call between the literal 65-character target (≈48ch) and the existing owner-approved grid measure — not evidence this repository lacks |
 | **O-003/004/006/007** | Whether a vhost exists or was ever intended — facts, not designs |
 
 **Blocked on real-world adjudication, not derivable from the system:**

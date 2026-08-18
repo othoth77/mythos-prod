@@ -43,11 +43,13 @@ accent**, never replacing a project's primary colour and never automatically.
 **Still open:** **LOGO-1** (does a vector master exist outside Git — narrowed
 2026-08-18, one of three off-host repositories now searched with a genuine
 negative, two remain blocked — **AUTO-1**) and **GRID-2** (68ch vs 65
-characters — narrowed to a stated design intent, not fully closed, pending real
-font metrics). Also open from the recovery era: **C-001** / **O-002**, the Dar
-Hijama charter-versus-live-site conflict, which **A-021 does not adjudicate**.
+characters — narrowed twice, most recently with real font metrics
+(**AUTO-4**), still not closed because the final value trades off against an
+owner-approved figure). Also open from the recovery era: **C-001** / **O-002**,
+the Dar Hijama charter-versus-live-site conflict, which **A-021 does not
+adjudicate**.
 
-**Resolved 2026-08-18 under the delegated mandate (AUTO-1 through AUTO-3):**
+**Resolved 2026-08-18 under the delegated mandate (AUTO-1 through AUTO-4):**
 **LOGO-2** (adopted as production master, not owner-approved), **C-006**
 (canonical system named — execution still deferred, see AUTO-2), ~~**C-005**~~
 (resolved by **A-022**, owner-approved, unaffected), **GRID-1**, **GRID-3**,
@@ -55,7 +57,8 @@ Hijama charter-versus-live-site conflict, which **A-021 does not adjudicate**.
 **LINK-1**, **SHAPE-1**, **TYPE-2**, **TYPE-3**, **SPACE-1**, **A11Y-1/2**,
 **SEQ-1**, **ECO-1/2/3**. Full statements and every value:
 `../MYTHOS_DESIGN_DECISIONS.md` §0.5. Machine-readable tokens:
-`../../assets/brand/tokens/tokens.css`.
+`../../assets/brand/tokens/tokens.css`. Self-hosted fonts (**AUTO-4**):
+`../../assets/brand/fonts/`.
 
 **Raised by Stage 1H**, by describing the ecosystem against recorded evidence
 rather than intent: **ECO-1** (the brand tree nests Command Center under Mythos

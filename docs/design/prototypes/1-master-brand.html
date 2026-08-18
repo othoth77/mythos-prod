@@ -5,12 +5,14 @@
 <title>MYTHOS — Master Brand Prototype (1I)</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="stylesheet" href="../../../assets/brand/tokens/tokens.css">
-<!-- Prototype convenience only: TYPOGRAPHY.md requires self-hosted fonts (TYPE-2).
-     No font file exists in this repository yet, so this prototype loads from
-     Google Fonts as a stand-in. Not the approved production approach. -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+<!-- Real self-hosted fonts (TYPE-2, AUTO-4) — replaces the earlier Google
+     Fonts CDN stand-in. That stand-in requested a family, "Archivo Expanded",
+     that does not exist as a distinct name on Google's CDN (confirmed: a
+     direct request 400s) — the combined multi-family request silently
+     dropped it with no error, so every display heading in this prototype
+     was rendering in the fallback stack, never Archivo Expanded, until this
+     fix. Found and corrected under AUTO-4. -->
+<link rel="stylesheet" href="../../../assets/brand/fonts/fonts.css">
 <style>
   * { box-sizing: border-box; }
   body {
