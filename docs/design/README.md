@@ -1,11 +1,17 @@
 # Mythos Design System — documentation index
 
-**Status by document — they are not all the same.** `BRAND_ARCHITECTURE.md` is
-**OWNER-APPROVED** (2026-08-18) as the working architectural baseline.
-`LOGO_SYSTEM.md` is **PROPOSED and not approved** — the historical logo remains
-the authoritative source and no redraw is authorised (decision **A-007**).
-Nothing in `docs/design/` is implemented, applied to a project, or referenced by
-production.
+**Status by document — they are not all the same.** `BRAND_ARCHITECTURE.md`
+(**A-001**–**A-006**) and `MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md`
+(**A-009**–**A-019**) are **OWNER-APPROVED**. `COLOR_SYSTEM.md` and
+`TYPOGRAPHY.md` are **canonical specifications derived from that approval** —
+they introduce no new decisions. `LOGO_SYSTEM.md` remains **PROPOSED and not
+approved**: the historical logo is still the authoritative source, no redraw is
+authorised (**A-007**), and adoption of the vector reconstruction is **LOGO-2**.
+
+**Approval is not authorisation to implement.** Nothing in `docs/design/` is
+implemented, applied to a project, or referenced by production. Three migrations
+are recorded and **not actioned** — `MIG-1` the gold, `MIG-2` the Playfair
+declarations, `MIG-3` the semantic and control-border tokens.
 
 ## Reading order
 
@@ -16,7 +22,10 @@ Start with the evidence, then the structure, then the mark.
 | 0 | `../MYTHOS_DESIGN_RECOVERY.md` | What design work already existed, with evidence. **Read before anything else** |
 | 0 | `../design-recovery/MYTHOS_ORIGINAL_LOGO_RECOVERY.md` | The canonical record of the original Mythos logo |
 | 1 | `BRAND_ARCHITECTURE.md` | **OWNER-APPROVED.** The three tiers — master brand, endorsed units, independent projects — and what each inherits |
-| 2 | `LOGO_SYSTEM.md` | **PROPOSED.** The mark: what was preserved from the original, what changed and why, the construction grid, and the full master set |
+| 2 | `MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md` | **OWNER-APPROVED.** The visual system: Constant + Movement, the 35° gesture, colour, type, spacing, shape, components, motion, responsive and accessibility |
+| 3 | `COLOR_SYSTEM.md` | **Derived, canonical.** Mythos Gold `#D9A441`, the ink and paper ramps, semantics verified on four surfaces, focus and non-text boundaries |
+| 4 | `TYPOGRAPHY.md` | **Derived, canonical.** Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono, the scale, and the six binding Arabic rules |
+| 5 | `LOGO_SYSTEM.md` | **PROPOSED.** The mark: what was preserved from the original, what changed and why, the construction grid, and the full master set |
 
 ## Companion records outside this directory
 
@@ -31,10 +40,14 @@ Start with the evidence, then the structure, then the mark.
 
 ## Still to be written
 
-`COLOR_SYSTEM.md` · `TYPOGRAPHY.md` · `GRID_AND_SPACING.md` ·
-`DESIGN_TOKENS.md` · `COMPONENT_SYSTEM.md` · `MOTION_SYSTEM.md` ·
-`RESPONSIVE_SYSTEM.md` · `ACCESSIBILITY.md` · `IMAGE_ART_DIRECTION.md` ·
-`BUSINESS_UNITS.md` · `PUBLIC_WEBSITES.md` · `BRAND_GOVERNANCE.md`
+`GRID_AND_SPACING.md` · `DESIGN_TOKENS.md` · `COMPONENT_SYSTEM.md` ·
+`MOTION_SYSTEM.md` · `RESPONSIVE_SYSTEM.md` · `ACCESSIBILITY.md` ·
+`IMAGE_ART_DIRECTION.md` · `BUSINESS_UNITS.md` · `PUBLIC_WEBSITES.md` ·
+`BRAND_GOVERNANCE.md`
+
+Each of these has an approved source section in
+`MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md`, so writing them is derivation rather
+than fresh decision-making.
 
 These are listed so their absence is visible. An empty slot here means the
 decision has **not** been made — never that it was made and left unwritten.

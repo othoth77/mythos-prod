@@ -6,9 +6,11 @@
 no production file references any asset described here.
 
 **Owner validation of 2026-08-18 — what it did and did not do.** The owner
-approved the *brand architecture* (`BRAND_ARCHITECTURE.md`, decisions
-**A-001**–**A-006**). It did **not** approve this logo system. Three
-instructions from that validation bind this document:
+approved the *brand architecture* (`BRAND_ARCHITECTURE.md`, **A-001**–**A-006**)
+and later the *master visual identity* (`MASTER_VISUAL_IDENTITY_1C_PROPOSAL.md`,
+**A-009**–**A-019**). Neither approved this logo system: the vector
+reconstruction described below is still **PROPOSED**, and its adoption is
+**LOGO-2**. Three instructions bind this document:
 
 - **A-007** — the recovered historical logo (`assets/logos/logomythos.png`) is the
   **authoritative historical source** for the master-brand discussion, and it must
@@ -18,9 +20,11 @@ instructions from that validation bind this document:
   drawing is authorised.
 - **A-003** — the *principle* that units use the master identity plus a descriptor
   **is** approved. The particular drawing of the lockup below is not.
-- **A-008 / GOLD-1** — the relationship between the historical logo gold, the
-  Mythos OS UI gold and project colours stays **OPEN** and must not be resolved
-  by inference. §8 below is unchanged by the approval.
+- **A-013 / GOLD-1 — RESOLVED 2026-08-18.** The gold question is no longer open.
+  **Mythos Gold is `#D9A441`**, the historical logo's own gold, with `#805C19`
+  for gold text on light grounds. This supersedes **A-008**, which had
+  instructed that the gold stay open. §8 below is superseded on this point and
+  is retained only as the record of what was proposed.
 
 Adoption of this reconstruction as the master is tracked as **LOGO-2**, and
 depends on **LOGO-1** — whether a true vector source exists outside Git
@@ -150,7 +154,8 @@ without redrawing anything.
 
 These are named rather than silently settled:
 
-- **GOLD-1 (was O-L1) — the gold value.** The lockup rules currently use `#C9A84C`, the
+- ~~**GOLD-1 (was O-L1)** — the gold value.~~ **RESOLVED 2026-08-18 by A-013: Mythos Gold `#D9A441`.** The paragraph below records what was proposed before the decision.
+- **Superseded note.** The lockup rules currently use `#C9A84C`, the
   Mythos OS UI gold, as a placeholder. The original logo's gold is a *gradient*
   sampled at roughly `#AB7E2F → #F8D276`, centred near `#D9A441`. Whether the
   master gold becomes the UI gold, the logo's centre value, or a new value is a
