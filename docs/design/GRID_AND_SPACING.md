@@ -153,10 +153,27 @@ prose max at **68ch**. These are not the same unit: `ch` is the advance width of
 the digit *0*, not of an average character, so 68 `ch` renders as some other
 number of actual characters — how many depends on the shipped font's metrics.
 
-Both figures are approved, so neither is overridden. **The prose container must be
-measured against the 65-character target once the fonts are in place**, and the
-unit reconciled then. Recorded as **GRID-2**. No font file exists in this
-repository (`TYPOGRAPHY.md` §7), so it cannot be measured now.
+Both figures are approved, so neither is overridden.
+
+**Measured 2026-08-18 (AUTO-4), now that real font files exist.** From
+`ibm-plex-sans-400-latin.woff2` (`fontTools`): the `ch` unit's basis glyph,
+`0`, has advance **0.600 em**; the frequency-weighted average character of
+real English prose is **0.447 em** — 25% narrower. Consequence: **68ch**
+(652.8 px at 16 px body) fits **≈91** real characters, not 68. The
+already-narrowed token value **65ch** (`tokens.css`,
+`--mythos-container-prose`, **AUTO-3**) is 624 px and fits **≈87** real
+characters — still well past the stated 65. Hitting 65 real characters
+literally would take **≈48ch** (≈465 px).
+
+**Still recorded as GRID-2, still not closed.** The measurement closes the
+*unit* question (now answerable, on real evidence) but not the *value*
+question: `--mythos-container-prose` traces to an **owner-approved** figure
+(**A-009**), and picking between "narrow it to the literal 65-character
+target" and "keep the existing measure, defensible against commonly-cited
+45–95-character comfortable ranges" is a real trade-off against that
+approval — not a gap a delegated-mandate specification pass fills in.
+Full derivation: `../../assets/brand/fonts/README.md`; register entry:
+`../MYTHOS_DESIGN_DECISIONS.md` §0.5, AUTO-4.
 
 ---
 
@@ -266,7 +283,7 @@ The floor and the control heights do not agree; see **C-005** below.
 |---|---|---|---|
 | ~~**C-005**~~ | Conflict | 40/36 px control height vs 44 px touch minimum | **RESOLVED — A-022** (owner-approved, Stage 1F). Visual box may stay 40/36; hit box must reach 44 × 44 and may extend beyond it |
 | ~~**GRID-1**~~ | Open | `2xl` behaviour; 1440 container ambiguity | **RESOLVED — AUTO-3** (delegated mandate). 1440 is the 1280 frame at its own margins; `2xl` inherits `xl`'s capped state and has none of its own |
-| **GRID-2** | Open | 68ch vs 65 characters | **Narrowed, not closed — AUTO-3.** 65 characters is the design intent; 68ch is an implementation approximation, pending real font metrics |
+| **GRID-2** | Open | 68ch vs 65 characters | **Narrowed further with real metrics, still not closed — AUTO-4.** Neither 68ch nor 65ch actually renders 65 real characters (≈91 / ≈87); ≈48ch would be literal. Final value trades off against owner-approved A-009, so AUTO-4 records evidence rather than choosing |
 | ~~**GRID-3**~~ | Open | Off-scale spacing steps; button padding | **RESOLVED — AUTO-3.** `space-1`/`space-2` are optical-correction only; `space-7`/`space-12` are legitimate scale members outside the named bands; padding confirmed as 10/16 inside a 1 px border |
 | ~~**SURF-1**~~ | Open | Light elevation ramp; no shadow values | **RESOLVED — AUTO-3.** Ramp extended (`ground-deep`, `surface-card`, `border-strong`), shadow tokens defined |
 

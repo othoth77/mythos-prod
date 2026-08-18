@@ -9,8 +9,9 @@
 // or from opts.script. Each entry:
 //
 //   { "kind": "success" | "quota" | "transient" | "blocked" | "fatal"
-//            | "malformed" | "missing-session" | "hang",
+//            | "malformed" | "missing-session" | "hang" | "wait-file",
 //     "text": optional result text override,
+//     "dir": required for "wait-file" kind — absolute directory to poll,
 //     "reset_epoch": optional epoch seconds for quota entries }
 //
 // The mock is NEVER selectable from task input in production: executor.js
@@ -19,6 +20,7 @@
 // =====================================================
 
 var fs = require('fs');
+var path = require('path');
 
 var PROVIDER_ID = 'mock';
 var callCount = 0;
@@ -87,6 +89,37 @@ function run(task, prompt, sessionId, mode, opts, onSpawn) {
   if (typeof onSpawn === 'function') onSpawn(process.pid);
   if (entry.kind === 'hang') {
     return new Promise(function () { /* never resolves; caller's timeout owns this */ });
+  }
+  if (entry.kind === 'wait-file') {
+    // Poll for file existence every 25ms. If dir/<task_id>.fail exists,
+    // resolve with 'fatal' outcome. If dir/<task_id> exists, resolve with
+    // 'success' outcome but summary = 'released <task_id>'.
+    var dir = entry.dir;
+    var taskId = task.task_id;
+    var failPath = path.join(dir, taskId + '.fail');
+    var succPath = path.join(dir, taskId);
+    return new Promise(function (resolve) {
+      var timer = setInterval(function () {
+        var failExists = fs.existsSync(failPath);
+        var succExists = fs.existsSync(succPath);
+        if (failExists) {
+          clearInterval(timer);
+          resolve(outcomeFor({
+            kind: 'fatal',
+            text: 'permanent failure: ' + taskId + ' marked as failed'
+          }, sessionId));
+          return;
+        }
+        if (succExists) {
+          clearInterval(timer);
+          resolve(outcomeFor({
+            kind: 'success',
+            summary: 'released ' + taskId
+          }, sessionId));
+          return;
+        }
+      }, 25);
+    });
   }
   return Promise.resolve(outcomeFor(entry, sessionId));
 }

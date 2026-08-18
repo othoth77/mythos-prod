@@ -168,6 +168,20 @@ var API = {
       .catch(function (e) { problem(res, e); });
   },
 
+  // MOS-3A: the dispatcher's own capacity/queue state, mirroring the
+  // executor's GET /dispatcher through an explicit field pick. providers
+  // comes from REAL_PROVIDERS -- this server's own single source of truth
+  // for what actually runs, not the executor -- so the UI has one place to
+  // read the runnable provider set from (removing the UI's own hardcoded
+  // copy is stage MOS-3B, not this one).
+  '/api/dispatcher': function (res) {
+    upstream.get('/dispatcher')
+      .then(function (d) {
+        ok(res, { running: d.running, max_parallel: d.max_parallel, queued: d.queued, providers: REAL_PROVIDERS });
+      })
+      .catch(function (e) { problem(res, e); });
+  },
+
   '/api/campaigns': function (res) {
     upstream.get('/campaigns')
       .then(function (b) { ok(res, { campaigns: b.campaigns || [] }); })
@@ -220,16 +234,19 @@ var API = {
 
 // The deliberate exceptions to "GET/HEAD only", named here so none is ever
 // confused with an accident. MOS-2 added the first (start a mission);
-// MOS-2.1 adds the second (cancel one) — same shape, same discipline: a
-// fixed, narrow payload, forwarded to an executor endpoint that already
-// exists and is already safe, never a new capability invented at this
-// layer. The browser never talks to a provider, never sees a credential,
-// and cannot widen scope beyond what is hard-coded in each handler.
+// MOS-2.1 added the second (cancel one); MOS-3A adds the third (dispatch
+// one that is already QUEUED) — same shape, same discipline: a fixed,
+// narrow payload, forwarded to an executor endpoint that already exists
+// and is already safe, never a new capability invented at this layer. The
+// browser never talks to a provider, never sees a credential, and cannot
+// widen scope beyond what is hard-coded in each handler.
 var TASK_ID_RE = '[a-z0-9][a-z0-9-]{6,62}[a-z0-9]';
 var CANCEL_ROUTE_RE = new RegExp('^/api/missions/(' + TASK_ID_RE + ')/cancel$');
+var DISPATCH_ROUTE_RE = new RegExp('^/api/missions/(' + TASK_ID_RE + ')/dispatch$');
 var WRITE_ROUTES = [
   { test: function (p) { return p === '/api/missions/start' ? [] : null; }, handler: handleStartMission },
-  { test: function (p) { var m = CANCEL_ROUTE_RE.exec(p); return m ? [m[1]] : null; }, handler: handleMissionCancel }
+  { test: function (p) { var m = CANCEL_ROUTE_RE.exec(p); return m ? [m[1]] : null; }, handler: handleMissionCancel },
+  { test: function (p) { var m = DISPATCH_ROUTE_RE.exec(p); return m ? [m[1]] : null; }, handler: handleMissionDispatch }
 ];
 
 function matchWriteRoute(pathname) {
@@ -324,18 +341,33 @@ function handleStartMission(req, res) {
     }).then(function (created) {
       var taskId = created && created.task_id;
       if (!taskId) return problem(res, { code: 'upstream_error', message: 'executor did not return a task id' });
-      // Fire the explicit start now, independent of the daemon's own
-      // 15-second tick and its own one-at-a-time policy for automatic
-      // pickups -- this is what makes two missions genuinely concurrent:
-      // runTask() itself has no cross-task lock, only the tick loop's own
-      // background policy does, and an explicit /resume bypasses it.
-      return upstream.post('/tasks/' + taskId + '/resume', {})
-        .then(function () { ok(res, { task_id: taskId, status: 'RUNNING', provider: provider, model: model || null }); })
+      // MOS-3A: the explicit start goes through the executor's capacity-
+      // gated dispatcher (POST /tasks/<id>/dispatch), not the old
+      // unconditional /resume -- runTask() itself still has no cross-task
+      // lock, but now a central in-process counter admits at most
+      // MAX_PARALLEL tasks at once, and this console mission is one
+      // candidate among possibly several, not a guaranteed immediate start.
+      return upstream.post('/tasks/' + taskId + '/dispatch', {})
+        .then(function (dispatched) {
+          if (dispatched && dispatched.dispatched) {
+            return ok(res, { task_id: taskId, status: 'RUNNING', provider: provider, model: model || null });
+          }
+          if (dispatched && dispatched.queued) {
+            return ok(res, { task_id: taskId, status: 'QUEUED', provider: provider, model: model || null,
+              note: 'created; at capacity (' + dispatched.running + '/' + dispatched.max_parallel + ')' +
+                ' — will start automatically when a slot frees' });
+          }
+          // Unrecognised shape from the executor: fall back to the same
+          // honest "queued, will run" note as an outright dispatch failure.
+          ok(res, { task_id: taskId, status: 'QUEUED', provider: provider, model: model || null,
+            note: 'created; the explicit start call did not confirm, but the task is queued and will run' });
+        })
         .catch(function () {
-          // Created but the explicit start call failed (e.g. a race with
-          // the daemon's own tick). The task is still safely QUEUED and
-          // will run on the next tick or a later manual resume -- this is
-          // not a failure to report as one.
+          // Created but the explicit dispatch call failed (e.g. a race with
+          // the daemon's own tick, or the executor briefly unreachable).
+          // The task is still safely QUEUED and will run on the next tick
+          // or the drain triggered by another task freeing a slot -- this
+          // is not a failure to report as one.
           ok(res, { task_id: taskId, status: 'QUEUED', provider: provider, model: model || null,
             note: 'created; the explicit start call did not confirm, but the task is queued and will run' });
         });
@@ -401,6 +433,23 @@ function handleMissionCancel(req, res, taskId) {
   }).catch(function (e) { problem(res, e); });
 }
 
+// --- MOS-3A: the dispatch relay --------------------------------------
+
+// Same shape as the cancel relay above: no payload beyond the task id
+// already validated by the route regex, so nothing is read from the body
+// except to drain it. Forwards to the executor's capacity-gated
+// POST /tasks/<id>/dispatch and hands back only an explicit field pick --
+// the upstream object is never passed through verbatim.
+var MISSION_DISPATCH_FIELDS = ['task_id', 'dispatched', 'queued', 'running', 'max_parallel'];
+
+function handleMissionDispatch(req, res, taskId) {
+  readBoundedBody(req, 1024).then(function () {
+    return upstream.post('/tasks/' + taskId + '/dispatch', {});
+  }).then(function (d) {
+    ok(res, pick(d, MISSION_DISPATCH_FIELDS));
+  }).catch(function (e) { problem(res, e); });
+}
+
 function handler(req, res) {
   var reqPathname = String(req.url || '/').split('?')[0];
   var writeMatch = req.method === 'POST' ? matchWriteRoute(reqPathname) : null;
@@ -409,7 +458,7 @@ function handler(req, res) {
     // write surface, and the refusal is the surface's definition rather
     // than a gap in it.
     head(res, 405, 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ ok: false, error: 'read_only', detail: 'This console is read-only except for POST /api/missions/start and POST /api/missions/<id>/cancel.' }));
+    res.end(JSON.stringify({ ok: false, error: 'read_only', detail: 'This console is read-only except for POST /api/missions/start, POST /api/missions/<id>/cancel and POST /api/missions/<id>/dispatch.' }));
     return;
   }
   if (writeMatch) return writeMatch.handler.apply(null, [req, res].concat(writeMatch.args));

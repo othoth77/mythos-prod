@@ -33,6 +33,100 @@ verified, the in-repo copy was reduced to a single pointer `README.md`
 `81fd2bf`, byte-identical to what was pushed to the standalone repo apart
 from the documented README/PROBLEMS promotion notes). The mythos-prod copy
 must never again be treated as primary.
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, FOURTH PASS — REAL FONTS SELF-HOSTED (AUTO-4), CLOSING TYPE-2 AND FURTHER NARROWING GRID-2 WITH MEASURED METRICS. ALSO: THE "NOT DEPLOYED" / "LIVE PRODUCTION DATA" APPARENT CONTRADICTION IN THE CONCURRENT MOS-2.x/3.x WORK IS RECONCILED — NO CORRECTION NEEDED. NO PRODUCTION FILE TOUCHED; EIGHT NEW FONT FILES AND ONE NEW CSS FILE ARE ADDITIVE ONLY.**
+
+**Reconciliation, not a correction.** Before continuing the mandate, a real
+tension needed resolving: this document and several of my own AUTO-3-era
+documents state "Mythos OS is BUILT but NOT DEPLOYED," while commit
+`22c4b43`'s message (MOS-2.1 VISUAL REGRESSION stage, merged into `main`
+before this pass) describes verification "against real production data (186
+real tasks)" and "live, authenticated" browser testing. **Read the full
+entry rather than assumed:** the only actual contact with production was
+**read-only diagnostic GETs** confirming `login-gate.css`/`.js` 404 on
+`os.mythosprod.xyz` — evidence-gathering, not deployment. The described
+"live, authenticated... real production data" verification ran against the
+**real, already-running executor backend** at `127.0.0.1:8130` (a local
+address), in a **local** browser — the actual code fix was never deployed
+(that same entry's own Record table: `Deployment: **Not performed**`). Every
+MOS-2.x/3.x headline in this document, including MOS-2.1's own, already says
+NOT DEPLOYED. **No claim of mine was made false by the merge. No correction
+was required.**
+
+**AUTO-4 — real fonts self-hosted, resolving TYPE-2, narrowing GRID-2
+further.** `IMPLEMENTATION_READINESS_AUDIT.md` §2.2 named font-hosting as
+the one prerequisite with zero dependency on anything else — unlike C-006
+and MIG-1–4, it did not need the visual-regression capability this session
+still lacks. Downloaded all four owner-approved OFL families
+(`TYPOGRAPHY.md` §1) from Google Fonts' own hosting — the standard,
+licence-compliant self-hosting method, source files unmodified — at exactly
+the weight instances the approved scale (`TYPOGRAPHY.md` §2) uses: Archivo
+Expanded 600; IBM Plex Sans 400/500/600; IBM Plex Sans Arabic 400/500/600;
+IBM Plex Mono 400. Eight WOFF2 files, `assets/brand/fonts/`, declared in
+new `fonts.css`, named in new `--mythos-font-*`/`--mythos-weight-*` tokens
+in `tokens.css`. Full source URLs, licence note and reproduction command:
+`assets/brand/fonts/README.md`.
+
+**A real bug in AUTO-3's own TYPE-2 policy caught and corrected.** AUTO-3
+specified "Plex Sans 400/600" — missing weight 500, which the approved scale
+uses for **Label**. Found while sourcing files against the scale table
+directly; corrected here, not silently reshipped. **A real, previously
+undetected bug in the 1I prototypes found and fixed too**: five of the seven
+prototypes (1, 2, 4, 6, 7) requested a Google Fonts family, "Archivo
+Expanded," that **does not exist** under that name on Google's CDN
+(confirmed: a direct request 400s) — the combined multi-family request
+silently dropped it with no error, so every display heading in those five
+prototypes has been rendering in the CSS fallback stack, never the approved
+typeface, since 1I shipped. Switching all six eligible prototypes (5 stays
+on its own fictional project's Playfair Display CDN load, deliberately) to
+the new self-hosted `fonts.css` fixes this as a side effect.
+
+**GRID-2 narrowed with real evidence, still not closed.** Measured directly
+from the shipped `ibm-plex-sans-400-latin.woff2` with `fontTools`: the `ch`
+unit's basis glyph (`0`) is 0.600 em; real English prose averages 0.447 em
+per character — 25% narrower. Neither the approved `68ch` (≈91 real
+characters) nor the AUTO-3-narrowed `65ch` token (≈87) actually renders 65
+characters; ≈48ch would be literal. **AUTO-4 records this and does not act
+on it** — `--mythos-container-prose` traces to an owner-approved figure
+(A-009), and choosing the final number is a real trade-off against that
+approval, not a specification gap. Full derivation:
+`assets/brand/fonts/README.md`; register: `MYTHOS_DESIGN_DECISIONS.md`
+§0.5, AUTO-4.
+
+**Files touched, all additive or documentation:** `assets/brand/fonts/`
+(new, 8 WOFF2 + `fonts.css` + `README.md`), `assets/brand/tokens/tokens.css`
+(+font tokens, +comment), `docs/MYTHOS_DESIGN_DECISIONS.md`,
+`docs/design/TYPOGRAPHY.md`, `docs/design/GRID_AND_SPACING.md`,
+`docs/design/MYTHOS_DESIGN_SYSTEM.md`, `docs/design/README.md`,
+`docs/design/IMPLEMENTATION_READINESS_AUDIT.md`, six prototype HTML files
+and their `README.md`. **No project file, no application file, no
+`css/main.css`, no `mythos-os-console` file touched.**
+
+**Verification:** all eight WOFF2 files confirmed valid (`wOF2` magic bytes,
+`file` utility), sourced via direct `curl` against `fonts.googleapis.com`
+with a modern-browser UA (required — without one the API serves legacy TTF).
+A real parsing trap was caught and fixed before any file was committed:
+requesting three weights in one query (`family=...:wght@400;500;600`)
+silently returns the **same** variable-font URL for every weight instead of
+distinct static files — verified directly, fixed by requesting one weight
+per call. Prototype HTML re-checked for tag balance after the edits (stack
+empty on all seven files; `path`-tag false positives from the checker's own
+void-element list, not a real issue — only `<link>` elements were touched).
+
+**Authority and reversibility — unchanged from AUTO-1–3.** AUTO-4, not
+owner-approved, fully reversible, changes no application or live-consumed
+file. See `MYTHOS_DESIGN_DECISIONS.md` §0.5.
+
+**What remains, concretely — updated from the third-pass list, one item
+closed:**
+
+1. ~~Font files~~ — **done, this pass (AUTO-4).**
+2. A session or tooling change that can run full-application visual
+   regression against `css/main.css` and `projects/mythos-os-console` —
+   still the single prerequisite blocking C-006 execution and MIG-1–4.
+3. Answers to **O-006**, **O-007**, **O-002** — evidence questions.
+4. The operator action MOS-1.7 named (service restart / a `deploy`-context
+   relay) — outside this session's authority to create unilaterally.
+5. An owner call on **GRID-2**'s final value, now that real numbers exist.
 
 **Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, THIRD PASS — ALL FIVE CONTINUATION ITEMS COMPLETE (DECISION SWEEP, 1I PROTOTYPES, CONSOLIDATION, READINESS AUDIT, MIGRATION PLANS). STOPPING HERE: THE AUDIT ITSELF IS THE EVIDENCE THAT EVERY REMAINING PHASE IS GENUINELY BLOCKED, NOT A CHOICE TO STOP EARLY. NO APPLICATION, CSS OR ASSET FILE CHANGED ACROSS ANY OF THIS PASS.**
 
@@ -424,6 +518,164 @@ it would add the first font binaries this repository has tracked, so it
 needs an explicit decision rather than an assumption.
 
 ---
+
+## MOS-3 PRODUCTION ACTIVATION (2026-08-18) — **EXECUTOR ACTIVATED AND PROVEN WITH REAL PARALLEL AI; CONSOLE HALF STILL BLOCKED AT THE DOCUMENTED BOUNDARY**
+
+### Stage
+
+MOS-3 Production Activation — GitHub → VPS → real production verification. No new code; documentation only in this commit.
+
+### Status: PARTIAL — executor COMPLETE, console BLOCKED
+
+### Phases executed
+
+| Phase | Result |
+|---|---|
+| 1 Precheck | Local `d1d4226`; origin had moved to `4e5ac602` (design-docs/fonts only — zero overlap). Running executor confirmed OLD code by **authenticated** probe (`/dispatcher` → 404 with a valid token; note: an unauthenticated probe is worthless here — the auth gate 401s every path before routing). **Queue idle: zero RUNNING / WAITING_RETRY / WAITING_FOR_QUOTA** (165 COMPLETED · 5 FAILED · 3 CANCELLED · 13 BLOCKED-awaiting-owner) — the restart interrupted nothing |
+| 2 Update | Fast-forward `d1d4226` → **`4e5ac602`**; MOS-3 commits (`b5d3fb6`, `d0074ad`, `08dd93c`) verified ancestors of the activated tree |
+| 3 Restart | **`mythos-ai-executor` restarted** (own-user unit, `XDG_RUNTIME_DIR=/run/user/1000 systemctl --user restart`; MainPID 3345103 → 1873730). **`mythos-os-console`: BLOCKED** — both documented paths re-attempted and denied verbatim (`sudo: I'm sorry ubuntu…`; machine transport `Permission denied`) — the MOS-1.6/1.7 boundary, unchanged |
+| 4 Health | Executor ok (store/claude-cli 2.1.233/n8n/omniroute all green); **`GET /dispatcher` LIVE in production for the first time**: `{running:0, max_parallel:5, queued:0}`. Console 8140 answers but still serves the pre-MOS-2 process (`/login-gate.css` 404) |
+| 5 Real test | See below |
+
+### Real production proof — real AI, real parallelism
+
+Two missions created and dispatched through the capacity gate (`dispatched:true` → running 1, then 2):
+
+| Mission | Provider | Started | Ended | Result |
+|---|---|---|---|---|
+| `t-20260818232508-yuhrvs` | **claude-code** (repo-read) | 23:25:08.662Z | 23:25:26.407Z | COMPLETED — report names HEAD `4e5ac602…`, **independently cross-checked against `git rev-parse HEAD`: exact match** |
+| `t-20260818232508-dclx97` | **openai-compat** (advisory) | 23:25:08.791Z | 23:25:12.125Z | COMPLETED — structured advisory report extracted |
+
+**Parallelism proven, not sampled:** `M2.start < M1.end AND M1.start < M2.end` → **True** — the execution intervals genuinely overlapped, across two different real providers, through one capacity gate, which settled back to `{running:0, queued:0}`. `report_to_git:false` on both, so activation left no artifact commits.
+
+One pre-existing cosmetic noted (not a MOS-3 defect): an in-flight `openai-compat` task briefly reads `effective: INTERRUPTED` because the advisory provider makes an in-process HTTP call and records no child pid; the dispatcher's own in-flight accounting counts it correctly, and it resolves to COMPLETED in seconds. Phase-1 semantics, unchanged.
+
+### Blocker (exact)
+
+The **console half of activation remains blocked**: `mythos-os-console` is a `deploy`-user unit; `ubuntu` has no path to it (sudo grant is one unrelated command; machine-transport bus refused; `/run/user/1001` unreadable — all previously evidenced in MOS-1.6/1.7 and re-confirmed now). Until the operator runs `systemctl --user restart mythos-os-console` as `deploy`: the live UI at `os.mythosprod.xyz` cannot show Mission Control, and `POST /api/missions/start` on the public site still answers with pre-MOS-2 behaviour. **The dispatcher itself is fully live** — n8n, the CLI, and any token-holding caller get capacity-gated dispatch today.
+
+### Record
+
+| | |
+|---|---|
+| VPS commit before | `d1d4226` |
+| VPS commit after | `4e5ac602` (+ this documentation commit) |
+| Services restarted | `mythos-ai-executor` only |
+| Untouched | nginx, TLS, console service, `roadmap-state.json`, `projects/ssangyong-autos/` |
+| Tests | Suites unchanged from MOS-3C (419/158/257); this stage's verification is the live production proof above |
+| Deployment | Executor: **ACTIVATED**. Console: **BLOCKED — operator action** |
+
+### Next stage
+
+Operator restarts `mythos-os-console` as `deploy`, then loads `os.mythosprod.xyz` and confirms Mission Control renders and can start a mission through the UI (the backend it needs is now live and proven). **Not MOS-4** — stopped here per instruction.
+
+## MOS-3C + FINAL ACCEPTANCE — AI OPERATING LAYER v1 COMPLETE (2026-08-18) — **PASS; ALL THIRTEEN PROOFS GREEN; NOT DEPLOYED**
+
+### Stage
+
+MOS-3C — proof suite and security audit, closing AI Operating Layer v1 (MOS-3A dispatcher → MOS-3B mission control → MOS-3C proofs). Division of labour recorded honestly: the Haiku test agent delivered the `wait-file` mock kind, the console C1–C4 dispatcher-API coverage and the P10 invalid-input pins — but **not** the concurrency ladder; the orchestrator wrote P2–P9 and P12 itself before acceptance rather than accepting "proven through existing mechanisms" as a substitute for proofs.
+
+### The thirteen required proofs — all green
+
+| # | Requirement | Proof |
+|---|---|---|
+| 1 | Existing suites green | 419 / 158 / 257 (console 401→419, executor 125→158, core unchanged) |
+| 2 | One mission starts | P2 — dispatched, RUNNING on disk |
+| 3 | Two concurrent | P3 — both RUNNING simultaneously on disk |
+| 4 | Five concurrent | P4 — five RUNNING; `dispatcherStatus running=5` |
+| 5 | Sixth becomes QUEUED | P5 — `{dispatched:false,queued:true}`, stays QUEUED, `dispatch_deferred` evented |
+| 6 | Completing one frees a slot | P6 — release → COMPLETED |
+| 7 | Queued mission starts automatically | P7 — the drain started it, **no manual dispatch**; queued back to 0 |
+| 8 | Provider failure isolates | P8 — one FAILED while four stayed RUNNING; then all released → COMPLETED; running back to 0 |
+| 9 | Cancellation works | P9a queued-cancel survives an explicit drain; P9b running-cancel holds even after the provider settles (illegal `CANCELLED→COMPLETED` refused; mock self-pid SIGTERM hazard neutralised with a documented scoped no-op handler); P9c terminal-cancel refuses |
+| 10 | Invalid provider/model rejected | P10 + existing createTask pins |
+| 11 | No credentials in API responses | C1/C2 token sweeps on the new surfaces + C4 source-level field-allowlist audit (no pid/session/path/token fields) + all pre-existing sweeps |
+| 12 | Results correctly associated | P12 — every report carries exactly its own task's release marker; explicit cross-association check |
+| 13 | MOS-2/2.1 intact | Full console suite green; zero pre-existing assertions changed in this stage |
+
+The `wait-file` mock kind (test-only provider, unreachable in production) is what makes these **observed on-disk behaviour**: tasks stay genuinely RUNNING until the test releases or fails them by creating a file.
+
+### FINAL ACCEPTANCE — AI Operating Layer v1
+
+**Accepted.** Architecture coherent (the dispatcher composes the untouched Phase-1 executor; no duplicate execution entity, no second task system, `/resume` and `tick()` byte-untouched); backend, dispatcher, queue, drain proven (MOS-3A + P2–P8); frontend browser-verified end to end incl. a real click-through dispatch and a proven no-reload poll repaint (MOS-3B); failures isolated (P8); cancellation safe (P9); results visible and correctly associated (MOS-3B UI + P12); provider abstraction pre-existing and verified, not rebuilt; `provider=auto` deliberately left to a future phase per mandate item J; evaluation-ready chain (mission → execution_id → report.json) documented, no evaluator built per item K.
+
+**Honest limits, stated plainly:** the DEPLOYED console (8140) and executor (8130) both predate this work — the operator restarts already on record are what makes any of it reachable in production (`systemctl --user restart mythos-ai-executor` as `ubuntu`, deliberately not done mid-campaign while the concurrent autonomous session runs missions through it; plus the deploy-owned console restart from MOS-1.6/1.7). Until then the new start path degrades honestly: missions queue and the old tick starts them serially.
+
+### Record
+
+| | |
+|---|---|
+| Commits this phase | `b5d3fb6`+`460d931` (3A) · `d0074ad`+`6fcbdb7` (3B) · `08dd93c` + this entry (3C) |
+| Remote HEAD | verified after relay delivery |
+| Working tree | clean except the two documented concurrent-session items (`roadmap-state.json`, untracked `projects/ssangyong-autos/deploy/`) |
+| Deployment | **Not performed** |
+
+### Next stage
+
+Operator restarts of the two deployed services, then the console's Mission Control is live against the capacity-gated dispatcher. Future phases per mandate: `provider=auto` routing; the evaluator over the existing mission→executions→results chain. Unrelated and unchanged: LOGO governance items, the deployment governance amendment.
+
+## MOS-3B — MISSION CONTROL: LIFECYCLE VIEW, CAPACITY STRIP, GUARDED POLLING (2026-08-18) — **PASS; BROWSER-VERIFIED END TO END; NOT DEPLOYED**
+
+### Stage
+
+MOS-3B — second stage of AI Operating Layer v1 (Opus implemented the frontend under a fixed spec; the orchestrator integrated and browser-verified). Files: `app.js` (+301/-60 net), `console.css` (+25). Zero test assertions changed; suites 401/125/257 green under both implementer and orchestrator runs.
+
+### Delivered
+
+1. **Server-driven provider select** — `START_PROVIDERS` hardcode deleted; **zero provider-name literals remain in app.js**; the select builds from `/api/dispatcher`'s `providers`; on read failure it disables with an honest note, never an invented list.
+2. **Capacity strip** on command-center and missions: `Executions running: X / MAX · queued: N`, live, `upstreamFailure` on failure.
+3. **Missions page grouped by lifecycle** — Pending / Running / Waiting / Awaiting the owner / Completed / Failed / Cancelled + honest `Other` catch-all; every row an execution card; **`Start now` on QUEUED rows** posting the MOS-3A dispatch relay with three honest outcome labels.
+4. **Auto-refresh without reload** — 12s poller through a `renderModule` extraction (a poll repaint cannot drift from a real navigation; focus untouched), four guards each protecting operator state: hidden tab, focused field, open detail panel, half-written mission. `route()` stops the poller on navigation.
+
+### Verification (live rig: real MOS-3A executor code, isolated scratch state root, real browser)
+
+Five genuinely distinct on-disk task states rendered as five correctly counted sections; **clicking the real `Start now` dispatched the queued task end to end** (backend confirmed RUNNING; dispatcher 2/5→queue 0; button `Started`+disabled); **the poll was proven both ways** — every cycle correctly skipped while `document.hidden` (guard working), and one cycle after visibility returned the view repainted (strip `2/5·queued 0`, Pending·0, Running·2, badge QUEUED→RUNNING) with no reload. Production console (8140) and executor (8130) untouched; rig torn down and confirmed.
+
+### Operational finding
+
+**The deployed executor at 8130 answers 404 for `/dispatcher` — it predates MOS-3A**, exactly as the deployed console predates MOS-2. Both services need the operator restart already on record (`systemctl --user restart mythos-ai-executor` as `ubuntu` is within this session's own user but was deliberately NOT done mid-campaign — the concurrent autonomous session is actively running missions through that executor; restarting it is an operator-timed action). Until then the new start path degrades honestly: missions stay QUEUED and the old daemon tick starts them serially.
+
+### Record
+
+| | |
+|---|---|
+| Base | `460d931` |
+| Commit | `d0074ad` (+ this handover entry) |
+| Deployment | **Not performed** |
+
+### Next stage
+
+**MOS-3C (Haiku): the thirteen required proofs** — `wait-file` mock kind for deterministic hold-and-release, then concurrency (2 and 5 simultaneous), queue overflow (6th QUEUED), slot-free auto-drain, failure isolation, cancellation (with the mock self-pid SIGTERM hazard neutralized), invalid inputs, credential sweeps on the new surfaces, result association, full regression. Then final acceptance.
+
+## MOS-3A — CENTRAL MULTI-AI DISPATCHER WITH CAPACITY CONTROL (2026-08-18) — **PASS; MAX_PARALLEL=5 ENFORCED CENTRALLY, QUEUE AUTO-DRAINS; NOT DEPLOYED**
+
+### Stage
+
+MOS-3A — first stage of AI Operating Layer v1 (orchestrated build: Sonnet implemented the backend under a fixed spec; the orchestrator audited, hardened, verified, committed). The genuine gap the audit found: starts were unbounded — every console start ran immediately; nothing enforced a ceiling or auto-started queued work in parallel. Provider abstraction (mandate item C) was audited and **already exists** (`providers/*.js` share one `run()` interface behind the `PROVIDERS` registry; `gemini.js` present, unconfigured) — deliberately not rebuilt.
+
+### What was built
+
+- **`executor.js`**: `MAX_PARALLEL` (env `MYTHOS_MAX_PARALLEL`, default 5, clamped [1,8]); `dispatchTask` (QUEUED-only admission, honest `{queued:true}` deferral with `dispatch_deferred` event); `drainQueue` (oldest QUEUED `mos-console` mission, priority-then-FIFO, reentrancy-guarded, scoped so n8n/daemon semantics are unchanged); `dispatcherStatus`; `runTask` now a thin wrapper over the untouched `runTaskCore` that fires the drain on every settle — a slot freed by ANY task releases queued console missions. `DISPATCH_INFLIGHT` closes the admission race (a freshly admitted task is not yet RUNNING on disk); counting is a union of distinct ids. `tick()` and the session-recreation recursion byte-untouched in logic; integrator hardening added so a synchronous throw cannot leak a capacity slot. `summaries()` now carries `requested_by`.
+- **executor `server.js`**: `POST /tasks/<id>/dispatch` (202/404/409), `GET /dispatcher` — behind existing bearer auth. **`/resume` byte-untouched** (n8n Quota Watch dependency).
+- **console `server.js`**: start relay now goes through `/dispatch` and reports RUNNING or QUEUED honestly; third named write route `POST /api/missions/<id>/dispatch`; new `/api/dispatcher` read (explicit pick + `providers` from `REAL_PROVIDERS` — the single server-side source the UI reads in MOS-3B).
+- **`tests/mos-1-console-test.js`**: only assertions invalidated by deliberate changes narrowed (write-route count 2→3 named; stub answers `/dispatch`; start-flow expects dispatch). New coverage is MOS-3C.
+
+### Verification
+
+`node --check` clean; suites **401/125/257 all green**; live in-process smoke in an isolated state root: 7 dispatches vs `MAX_PARALLEL=5` with hung mock providers → **exactly 5 genuinely RUNNING on disk, 2 QUEUED**, `dispatcherStatus {running:5, queued:2}`, RUNNING task rejected `NOT_DISPATCHABLE`, unknown id rejected `NO_SUCH_TASK` — **9/9**.
+
+### Record
+
+| | |
+|---|---|
+| Base | `523d855` |
+| Commit | `b5d3fb6` (+ this handover entry) |
+| Remote HEAD | verified after relay delivery — see the next stage's record if this one predates it |
+| Deployment | **Not performed.** The live console still runs the pre-MOS-2 process (restart remains the operator action recorded in the MOS-2.1 visual-regression entry) |
+
+### Next stage
+
+**MOS-3B (Opus): Mission Control frontend** — missions page grouped by lifecycle state, per-row start/cancel, capacity strip from `/api/dispatcher`, polling without reload, provider select served by the server. Then **MOS-3C (Haiku): the thirteen required proofs** incl. deterministic queue-drain via a `wait-file` mock kind.
 
 ## MOS-2.1 VISUAL REGRESSION — LOGO SIZING HARDENED (2026-08-18) — **FIXED THE SYMPTOM; ROOT CAUSE IS OPERATIONAL, NOT CODE — SERVICE RESTART STILL REQUIRED**
 

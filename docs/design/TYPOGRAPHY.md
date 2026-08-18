@@ -125,8 +125,17 @@ else (`COLOR_SYSTEM.md` §3.2).
 - Every family declares a real fallback stack. A silent fallback to a system
   face is a visual bug, not a graceful degradation.
 
-**OPEN — TYPE-2:** the exact subset ranges, weight instances to ship, and the
-performance budget in KB. These were outside the approved 1C scope.
+**RESOLVED — TYPE-2, AUTO-4, not owner-approved.** Subset ranges, weight
+instances, and the performance budget are real, measured values now — eight
+self-hosted WOFF2 files at `assets/brand/fonts/`, declared in
+`assets/brand/fonts/fonts.css`: Archivo Expanded 600 only; IBM Plex Sans
+400/500/600; IBM Plex Sans Arabic 400/500/600; IBM Plex Mono 400 — exactly
+the instances this scale (§2) actually calls for, nothing wider. Latin
+payload ≈99.5 KB, Arabic ≈133.8 KB (revised budget: ≤140 KB/script — see
+`assets/brand/fonts/README.md` for why 500 was added for Arabic and the
+budget widened rather than dropping it). Full derivation and source URLs:
+`assets/brand/fonts/README.md`; register entry:
+`../MYTHOS_DESIGN_DECISIONS.md` §0.5, AUTO-4.
 
 ## 6. Open
 

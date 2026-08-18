@@ -15,6 +15,9 @@
 //   GET  /tasks/<id>                status + checkpoint
 //   GET  /tasks/<id>/report         structured + rendered report
 //   POST /tasks/<id>/resume         force a resume attempt now
+//   POST /tasks/<id>/dispatch       capacity-gated dispatch (MOS-3A; console
+//                                   missions go through this, not /resume)
+//   GET  /dispatcher                dispatcher capacity/queue status
 //   POST /tasks/<id>/cancel         cooperative cancel (SIGTERM if running)
 //   POST /events/n8n-error          n8n failure-handler sink (logged, notified)
 //   POST /campaigns                 submit a goal (returns the LIVE campaign
@@ -159,6 +162,23 @@ function handler(req, res, token) {
       state.appendEvent(m[1], 'resume_error', { error: redact.redact(err.message) });
     });
     return send(res, 202, { task_id: m[1], accepted: true });
+  }
+
+  // MOS-3A: the capacity-gated dispatch the console's explicit start now
+  // uses instead of the unconditional /resume above. /resume itself is
+  // untouched — n8n's Quota Watch depends on it staying exactly as it is.
+  if ((m = /^\/tasks\/([a-z0-9-]{8,64})\/dispatch$/.exec(url)) && req.method === 'POST') {
+    return executor.dispatchTask(m[1]).then(function (result) {
+      send(res, 202, result);
+    }).catch(function (err) {
+      var msg = String((err && err.message) || err);
+      if (msg.indexOf('NO_SUCH_TASK') === 0) return send(res, 404, { error: 'no such task' });
+      return send(res, 409, { error: redact.redact(msg) });
+    });
+  }
+
+  if (req.method === 'GET' && url === '/dispatcher') {
+    return send(res, 200, executor.dispatcherStatus());
   }
 
   if ((m = /^\/tasks\/([a-z0-9-]{8,64})\/cancel$/.exec(url)) && req.method === 'POST') {

@@ -613,6 +613,201 @@ chain = chain.then(function () {
 });
 
 // ---------------------------------------------------------------------------
+// MOS-3C: Dispatcher proof suite (regression pinning)
+// ---------------------------------------------------------------------------
+chain = chain.then(function () {
+  // P10a: dispatchTask on nonexistent task rejects with NO_SUCH_TASK
+  return executor.dispatchTask('t-00000000000000-zzzzzz').catch(function (e) {
+    ok(/NO_SUCH_TASK/.test(e.message), 'MOS-3C P10a: dispatchTask rejects NO_SUCH_TASK');
+  }).then(function () {
+    // P10b: dispatchTask on RUNNING task rejects with NOT_DISPATCHABLE
+    var task = executor.createTask({ requested_by: 'mos-console', project: 'executor-selftest', stage: 'MOS-3C-P10b', instruction: 'test', provider: 'mock' });
+    state.transition(task.task_id, 'RUNNING', { pid: 99999 });
+    return executor.dispatchTask(task.task_id).catch(function (e) {
+      ok(/NOT_DISPATCHABLE/.test(e.message), 'MOS-3C P10b: dispatchTask rejects NOT_DISPATCHABLE for RUNNING');
+    });
+  }).then(function () {
+    // P10c: createTask with unknown provider throws UNKNOWN_PROVIDER
+    throws(function () { executor.createTask({ project: 'executor-selftest', instruction: 'x', provider: 'nope' }); }, /UNKNOWN_PROVIDER/, 'MOS-3C P10c: createTask rejects UNKNOWN_PROVIDER');
+    // P10d: dispatcherStatus is callable
+    ok(executor.dispatcherStatus().running >= 0, 'MOS-3C P10d: dispatcherStatus is callable');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MOS-3C: dispatcher concurrency ladder (P2-P9, P12) -- the proofs the
+// mandate names. Every state below is asserted on disk via
+// state.readStatus, never inferred from a return value alone. The
+// wait-file mock kind holds each task genuinely RUNNING until this test
+// releases it by creating <dir>/<task_id> (or fails it via .fail), so
+// concurrency, queue overflow, auto-drain and failure isolation are all
+// REAL, observed behaviour -- not parallel-looking bookkeeping.
+// ---------------------------------------------------------------------------
+
+var RELEASE_DIR = path.join(FIXTURES, 'mos3c-release');
+
+// Bounded poll: resolves when fn() is truthy, fails the named assertion at
+// timeout instead of hanging the suite forever.
+function pollUntil(fn, timeoutMs, label) {
+  var deadline = Date.now() + timeoutMs;
+  return new Promise(function (resolve) {
+    (function attempt() {
+      var v;
+      try { v = fn(); } catch (e) { v = false; }
+      if (v) { ok(true, label); resolve(true); return; }
+      if (Date.now() >= deadline) { ok(false, label + ' (timed out after ' + timeoutMs + 'ms)'); resolve(false); return; }
+      setTimeout(attempt, 50);
+    })();
+  });
+}
+
+function release(taskId) { fs.writeFileSync(path.join(RELEASE_DIR, taskId), ''); }
+function releaseFail(taskId) { fs.writeFileSync(path.join(RELEASE_DIR, taskId + '.fail'), ''); }
+function statusOf(taskId) { return (state.readStatus(taskId) || {}).status; }
+
+var L = {}; // ladder task ids, T1..T8
+
+chain = chain.then(function () {
+  fs.mkdirSync(RELEASE_DIR, { recursive: true });
+  setScript([{ kind: 'wait-file', dir: RELEASE_DIR }]); // last entry repeats: every run waits
+
+  // Precondition: nothing effective-RUNNING from earlier fixtures. (P10b's
+  // deliberately-orphaned RUNNING task has a dead pid, so it reads
+  // INTERRUPTED, not RUNNING, and is correctly excluded here.)
+  var st0 = executor.dispatcherStatus();
+  ok(st0.running === 0, 'MOS-3C precondition: no effective-RUNNING tasks before the ladder (running=' + st0.running +
+    (st0.running ? '; offenders: ' + executor.summaries().filter(function (s2) { return s2.effective === 'RUNNING'; }).map(function (s2) { return s2.task_id; }).join(',') : '') + ')');
+
+  // P2: one mission dispatches and genuinely runs.
+  L.t1 = mkTask({ stage: 'MOS-3C-T1', requested_by: 'mos-console' }).task_id;
+  return executor.dispatchTask(L.t1).then(function (r) {
+    ok(r.dispatched === true, 'MOS-3C P2: first dispatch admitted (dispatched:true)');
+    ok(statusOf(L.t1) === 'RUNNING', 'MOS-3C P2: task 1 RUNNING on disk');
+  });
+});
+
+chain = chain.then(function () {
+  // P3: two concurrent.
+  L.t2 = mkTask({ stage: 'MOS-3C-T2', requested_by: 'mos-console' }).task_id;
+  return executor.dispatchTask(L.t2).then(function (r) {
+    ok(r.dispatched === true, 'MOS-3C P3: second dispatch admitted');
+    ok(statusOf(L.t1) === 'RUNNING' && statusOf(L.t2) === 'RUNNING',
+      'MOS-3C P3: tasks 1 and 2 RUNNING simultaneously on disk');
+  });
+});
+
+chain = chain.then(function () {
+  // P4: five concurrent.
+  L.t3 = mkTask({ stage: 'MOS-3C-T3', requested_by: 'mos-console' }).task_id;
+  L.t4 = mkTask({ stage: 'MOS-3C-T4', requested_by: 'mos-console' }).task_id;
+  L.t5 = mkTask({ stage: 'MOS-3C-T5', requested_by: 'mos-console' }).task_id;
+  return executor.dispatchTask(L.t3).then(function () { return executor.dispatchTask(L.t4); })
+    .then(function () { return executor.dispatchTask(L.t5); })
+    .then(function () {
+      var running = [L.t1, L.t2, L.t3, L.t4, L.t5].filter(function (id) { return statusOf(id) === 'RUNNING'; });
+      ok(running.length === 5, 'MOS-3C P4: five tasks RUNNING simultaneously on disk (got ' + running.length + ')');
+      ok(executor.dispatcherStatus().running === 5, 'MOS-3C P4: dispatcherStatus reports running=5');
+    });
+});
+
+chain = chain.then(function () {
+  // P5: the sixth queues instead of blowing past the ceiling.
+  L.t6 = mkTask({ stage: 'MOS-3C-T6', requested_by: 'mos-console' }).task_id;
+  return executor.dispatchTask(L.t6).then(function (r) {
+    ok(r.dispatched === false && r.queued === true, 'MOS-3C P5: sixth dispatch deferred ({dispatched:false, queued:true})');
+    ok(statusOf(L.t6) === 'QUEUED', 'MOS-3C P5: sixth task stays QUEUED on disk');
+    ok(executor.dispatcherStatus().queued === 1, 'MOS-3C P5: dispatcherStatus reports queued=1');
+    var events = fs.readFileSync(state.taskFile(L.t6, 'events.log'), 'utf8');
+    ok(/dispatch_deferred/.test(events), 'MOS-3C P5: dispatch_deferred recorded in the sixth task\'s events.log');
+  });
+});
+
+chain = chain.then(function () {
+  // P6: completing one frees one slot. P7: the queued mission starts by
+  // itself -- the drain, not this test, dispatches it.
+  release(L.t1);
+  return pollUntil(function () { return statusOf(L.t1) === 'COMPLETED'; }, 5000,
+    'MOS-3C P6: released task 1 reaches COMPLETED')
+    .then(function () {
+      return pollUntil(function () { return statusOf(L.t6) === 'RUNNING'; }, 5000,
+        'MOS-3C P7: queued sixth task auto-started by the drain (no manual dispatch)');
+    })
+    .then(function () {
+      ok(executor.dispatcherStatus().queued === 0, 'MOS-3C P7: dispatcherStatus reports queued=0 after the drain');
+    });
+});
+
+chain = chain.then(function () {
+  // P8: one provider failure is isolated -- siblings keep running.
+  releaseFail(L.t2);
+  return pollUntil(function () { return statusOf(L.t2) === 'FAILED'; }, 5000,
+    'MOS-3C P8: fail-released task 2 reaches FAILED')
+    .then(function () {
+      var stillRunning = [L.t3, L.t4, L.t5, L.t6].filter(function (id) { return statusOf(id) === 'RUNNING'; });
+      ok(stillRunning.length === 4, 'MOS-3C P8: the other four tasks are still RUNNING after the failure (got ' + stillRunning.length + ')');
+      release(L.t3); release(L.t4); release(L.t5); release(L.t6);
+      return pollUntil(function () {
+        return [L.t3, L.t4, L.t5, L.t6].every(function (id) { return statusOf(id) === 'COMPLETED'; });
+      }, 5000, 'MOS-3C P8: remaining four all COMPLETED after release');
+    })
+    .then(function () {
+      ok(executor.dispatcherStatus().running === 0, 'MOS-3C P8: capacity fully released (running=0)');
+    });
+});
+
+chain = chain.then(function () {
+  // P9a: a cancelled QUEUED mission is never resurrected by the drain.
+  // Created only now, AFTER every P8 settle, so no in-flight drain can
+  // race this test by starting it before it is cancelled.
+  L.t7 = mkTask({ stage: 'MOS-3C-T7', requested_by: 'mos-console' }).task_id;
+  state.transition(L.t7, 'CANCELLED', { pid: null, ended_at: new Date().toISOString(), next_action: 'cancelled by MOS-3C P9a' });
+  executor.drainQueue();
+  ok(statusOf(L.t7) === 'CANCELLED', 'MOS-3C P9a: cancelled QUEUED mission stays CANCELLED through an explicit drain');
+
+  // P9b: cancelling a RUNNING mission wins over its later completion.
+  // HAZARD, neutralised: the mock records the TEST PROCESS's own pid, so
+  // the production cancel path's SIGTERM would hit this process -- a no-op
+  // handler absorbs it, exactly as specified for this proof.
+  var noop = function () {};
+  process.on('SIGTERM', noop);
+  L.t8 = mkTask({ stage: 'MOS-3C-T8', requested_by: 'mos-console' }).task_id;
+  return executor.dispatchTask(L.t8).then(function () {
+    ok(statusOf(L.t8) === 'RUNNING', 'MOS-3C P9b: task 8 RUNNING before cancellation');
+    var st8 = state.readStatus(L.t8);
+    if (st8.pid && state.processAlive(st8.pid)) {
+      try { process.kill(st8.pid, 'SIGTERM'); } catch (e) { /* raced */ }
+    }
+    state.transition(L.t8, 'CANCELLED', { pid: null, ended_at: new Date().toISOString(), next_action: 'cancelled by MOS-3C P9b' });
+    ok(statusOf(L.t8) === 'CANCELLED', 'MOS-3C P9b: RUNNING mission cancelled');
+    // Release it anyway: the in-flight provider resolves, but the illegal
+    // CANCELLED -> COMPLETED transition must refuse -- cancellation wins.
+    release(L.t8);
+    return new Promise(function (resolve) { setTimeout(resolve, 400); }).then(function () {
+      ok(statusOf(L.t8) === 'CANCELLED', 'MOS-3C P9b: cancellation holds after the provider settles (no resurrection)');
+      process.removeListener('SIGTERM', noop);
+    });
+  });
+});
+
+chain = chain.then(function () {
+  // P9c: terminal states refuse cancellation -- the same guard the HTTP
+  // handler answers 409 from.
+  throws(function () { state.transition(L.t1, 'CANCELLED', {}); }, /ILLEGAL_TRANSITION/,
+    'MOS-3C P9c: cancelling a COMPLETED mission refuses with ILLEGAL_TRANSITION');
+
+  // P12: every result is associated with its own mission and no other.
+  [L.t1, L.t3, L.t4, L.t5, L.t6].forEach(function (id) {
+    var rep = state.readJSON(id, 'report.json');
+    ok(rep && rep.report && rep.report.summary === 'released ' + id,
+      'MOS-3C P12: report for ' + id + ' carries exactly its own release marker');
+  });
+  var rep1 = JSON.stringify(state.readJSON(L.t1, 'report.json'));
+  ok(rep1.indexOf(L.t3) === -1, 'MOS-3C P12: task 1\'s report contains no trace of task 3 (cross-association check)');
+
+  fs.rmSync(RELEASE_DIR, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------------------
 chain.then(function () {
   fs.rmSync(FIXTURES, { recursive: true, force: true });
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
