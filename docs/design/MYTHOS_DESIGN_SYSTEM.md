@@ -108,10 +108,11 @@ source doc: none — values cross-checked clean against `tokens.css`.
   Label (12/1.34). **Body never below 16px on any viewport.**
 - **Fluid type:** `clamp()` floors at the next scale stop down; endpoints 320
   and 1240 (**TYPE-3**, AUTO-3). Body and below stay fixed.
-- **Prose measure:** 65 characters is the design intent; 68ch an
-  approximation. Real font metrics now measured (**GRID-2**, narrowed
-  further by **AUTO-4** — neither number actually renders 65 real
-  characters; still not closed, see the register).
+- **Prose measure:** `--mythos-container-prose` is **48ch** (**GRID-2**,
+  **RESOLVED — AUTO-5**), superseding 1C §5's 68ch approximation on real
+  font metrics — honours the approved 65-character intent (≈64 real
+  characters, was ≈91/≈87 for 68ch/65ch). Not owner-approved; see the
+  register for the full supersession statement.
 - **Fonts:** self-hosted, real WOFF2 files, `assets/brand/fonts/` (**TYPE-2**,
   **AUTO-4** — closed). Latin ≈99.5KB, Arabic ≈133.8KB per script
   (revised budget ≤140KB/script — see `assets/brand/fonts/README.md`).
@@ -236,7 +237,6 @@ Full detail: `PUBLIC_ECOSYSTEM_ARCHITECTURE.md`.
 | Ref | Blocked on |
 |---|---|
 | **LOGO-1** | Two of three off-host repositories still unreachable (`mythos-app` denied at `add_repo`; `mythos-os` denied at clone); VPS filesystem absent. One of three fully searched — genuine negative |
-| **GRID-2** | Real font-metrics now measured (**AUTO-4**); what remains is an owner call between the literal 65-character target (≈48ch) and the existing owner-approved grid measure — not evidence this repository lacks |
 | **O-003/004/006/007** | Whether a vhost exists or was ever intended — facts, not designs |
 
 **Blocked on real-world adjudication, not derivable from the system:**
