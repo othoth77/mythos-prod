@@ -122,6 +122,51 @@ needs an explicit decision rather than an assumption.
 
 ---
 
+## MOS-1.7 — `--machine=deploy@.host` TESTED AND REFUSED (2026-08-18) — **STILL BLOCKED; SAME BOUNDARY, CONFIRMED FROM A SECOND ANGLE; NOTHING DEPLOYED, NO CERTIFICATE REQUESTED, deploy.sh UNTOUCHED**
+
+### Stage
+
+MOS-1.7 — the operator proposed a specific fix for MOS-1.6's blocker: `systemctl --machine=deploy@.host --user`, framed as an already-proven mechanism where `sudo -u deploy` merely lacks the D-Bus session environment. **That specific mechanism was tested directly and empirically before accepting or rejecting the premise** — it is not a fixable environment problem, and the deployment remains blocked at the same real boundary. `deploy.sh` was not modified, per instruction.
+
+### What was tested (all read-only / non-mutating, as `ubuntu`)
+
+| Test | Command | Result |
+|---|---|---|
+| Machine-transport status query | `systemctl --machine=deploy@.host --user status mythos-os-console` | **`Failed to connect to system scope bus via machine transport: Permission denied`** |
+| Machine-transport list-units | `systemctl --machine=deploy@.host --user list-units` | Same denial |
+| Direct filesystem access to `deploy`'s runtime dir | `ls /run/user/1001/` | `Permission denied` |
+| Direct filesystem access to `deploy`'s bus socket | `ls /run/user/1001/bus` | `Permission denied` |
+| `machinectl` CLI | `command -v machinectl` | Not installed (`systemd-container` package absent) — moot; the `systemctl --machine=` transport itself already gave a definitive denial through its own code path, independent of whether the separate CLI tool exists |
+| `polkit` rule inspection | `ls /etc/polkit-1/rules.d/` | `Permission denied` (standard root-only directory) — could not inspect for a scoped rule, but the actual operation was tested directly regardless, which is the authoritative signal |
+| Informational contrast | `loginctl user-status deploy` | **Succeeds** — read-only session introspection about `deploy`'s lingering login state works fine. Confirms the denial is specific to *connecting to and managing* the user bus, not a blanket refusal of every `deploy`-related query |
+
+### Why this rules out the "DBUS environment" framing
+
+Even manually constructing `DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1001/bus` and exporting it would not help: the socket file itself refuses `ubuntu` at the filesystem permission layer, independent of how it is addressed. This is a genuine authorization denial at the machine-transport/D-Bus layer — the same category of finding as MOS-1.6's `sudo -l` result, reached by a completely different code path, which makes it a stronger confirmation of the boundary rather than a restatement of the same guess.
+
+### Live state, re-verified before concluding anything (unchanged from MOS-1.6)
+
+`mythos-os-console` still healthy on `127.0.0.1:8140` (`token_provisioned:true`, `upstream.ok:true`); `http://os.mythosprod.xyz/` still **200**; HTTPS still handshakes but serves `CN=darhijama.tn` (the SNI fallback — no dedicated certificate exists yet). **Nothing moved between turns.**
+
+### What was NOT attempted
+
+No credential hunt, no attempt to read `deploy`'s SSH key or any other secret to log in as `deploy` directly, no `deploy.sh` execution, no certbot invocation of any kind (dry-run or real), no nginx change. The reasoning is unchanged from MOS-1.6: this appears to be a deliberately configured host boundary, and using a credential this session does not hold to cross it would be self-escalation, not a fix.
+
+### Record
+
+| | |
+|---|---|
+| Base | `30ebf39`, branch `main`, remote HEAD verified identical before starting |
+| Commit this stage | this documentation entry only — **`deploy.sh` was not touched**, confirmed by diffstat (0 lines) before committing |
+| Remote HEAD | see below — verified after delivery |
+| Tests | Not applicable — no code changed. Live-state checks (read-only) tabulated above |
+| Deployment | **Not performed.** Phase 3 onward not attempted — the operator's proposed mechanism to reach it does not work from this session's identity |
+| Files changed | `docs/AI_HANDOVER.md` (this entry) only |
+
+### Next stage
+
+**Still an operator decision — the same two paths as MOS-1.6, now with a second, independently-confirmed line of evidence that no session-side technical fix exists:** (a) the operator runs `deploy.sh` directly as `deploy`, interactively, on this host; or (b) a root-installed, `User=deploy` systemd relay scoped specifically to `deploy.sh` is created — mirroring `mythos-git-push.service`, which already solves exactly this class of problem for git push. Both `sudo -u deploy` (MOS-1.6) and `systemctl --machine=deploy@.host --user` (this stage) have now been tested and refused; no third session-identity path is known. Once Phase 8 completes by either route, verification (public HTTPS, certificate subject/issuer, Phases 9-10) is unprivileged and this session can perform it immediately.
+
 ## MOS-1.6 — DEPLOYMENT CONTINUATION ATTEMPT (2026-08-18) — **BLOCKED AT A REAL PRIVILEGE BOUNDARY; NOTHING DEPLOYED, NO CERTIFICATE REQUESTED, NOTHING WEAKENED**
 
 ### Stage
