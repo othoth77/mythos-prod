@@ -1,9 +1,9 @@
 # ID Auto — standalone repository migration
 
 **Date:** 2026-08-18
-**Status:** standalone repository **built and validated**; **publication BLOCKED**;
-source-repository cleanup **PREPARED, NOT EXECUTED**
-**New home:** `othoth77/idauto` — *does not exist yet, see §3*
+**Status:** standalone repository **PUBLISHED and CLEAN-CLONE VERIFIED**;
+source-repository cleanup **prepared as a separate draft PR, NOT MERGED**
+**New home:** https://github.com/othoth77/idauto — `main` = `bdfec2c`, 91 files
 
 ---
 
@@ -58,22 +58,40 @@ Full inventory, path mapping, and the A/B/C/D dependency classification:
 Full validation evidence:
 `migration-staging/idauto-standalone/docs/STANDALONE_MIGRATION_AUDIT.md`.
 
-## 3. Why publication is blocked
+## 3. Publication — DONE (2026-08-18)
 
-`othoth77/idauto` does not exist. This session's GitHub integration cannot create it:
+The owner created `othoth77/idauto` and the audited tree was pushed to it verbatim as the
+repository's initial commit. It was then verified from a **clean clone** — deliberately not
+from the working tree it was built in.
 
-```
-POST /user/repos → 403 Resource not accessible by integration
-```
+| | |
+|---|---|
+| Repository | https://github.com/othoth77/idauto |
+| `main` | `bdfec2ce247f479155e920fd8156e8c94d5a6d49` (tree `26b93fb80acf6bfbe09f925fb95862b947dac035`) |
+| Files | 91 |
+| Clean-clone tests | **13 suites · 601 assertions · 0 failures** |
 
-Repository creation requires an account-administration permission the integration does not
-hold. **Owner action required:**
+Clean-clone procedure: fresh `git clone` into an empty directory → `npm install` from the
+published lockfile → a **newly created** PostgreSQL 16 database and role → schema +
+IDA-3A migration + synthetic seed → all 13 suites live. Commit and tree hashes matched, all
+91 files were byte-identical to the audited tree, 45/45 origin file pairs were present,
+0 `projects/idauto` and 0 `mythos-prod` references remained in code, 0 external imports
+beyond Node built-ins and `pg`, no secrets, and 0 owner-PII columns on any vehicle, plate,
+observation, fact, evidence or movement table.
 
-1. Create an **empty** public repository `othoth77/idauto` — no README, no `.gitignore`, no
-   licence, so the migrated tree is authoritative.
-2. Grant the working session access to it.
+Status record: `othoth77/idauto` PR #1 (draft) and that repository's
+`docs/STANDALONE_MIGRATION_AUDIT.md` §11.
 
-Nothing else is outstanding. The content is finished and validated.
+**`othoth77/idauto` is now the canonical home of IDauto.** This repository still holds the
+duplicated source until the cleanup PR in §4 is merged.
+
+### The earlier blocker, for the record
+
+Publication was blocked for roughly five hours because this session's GitHub integration
+could not create the repository — `POST /user/repos` returned
+`403 Resource not accessible by integration`, which needs an account-administration
+permission the integration does not hold. It was cleared by the owner creating the empty
+repository. Nothing about the migration itself had to change.
 
 ## 4. Source-repository cleanup — PREPARED, NOT EXECUTED
 
