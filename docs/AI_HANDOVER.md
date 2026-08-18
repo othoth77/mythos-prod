@@ -392,6 +392,36 @@ needs an explicit decision rather than an assumption.
 
 ---
 
+## MOS-3A — CENTRAL MULTI-AI DISPATCHER WITH CAPACITY CONTROL (2026-08-18) — **PASS; MAX_PARALLEL=5 ENFORCED CENTRALLY, QUEUE AUTO-DRAINS; NOT DEPLOYED**
+
+### Stage
+
+MOS-3A — first stage of AI Operating Layer v1 (orchestrated build: Sonnet implemented the backend under a fixed spec; the orchestrator audited, hardened, verified, committed). The genuine gap the audit found: starts were unbounded — every console start ran immediately; nothing enforced a ceiling or auto-started queued work in parallel. Provider abstraction (mandate item C) was audited and **already exists** (`providers/*.js` share one `run()` interface behind the `PROVIDERS` registry; `gemini.js` present, unconfigured) — deliberately not rebuilt.
+
+### What was built
+
+- **`executor.js`**: `MAX_PARALLEL` (env `MYTHOS_MAX_PARALLEL`, default 5, clamped [1,8]); `dispatchTask` (QUEUED-only admission, honest `{queued:true}` deferral with `dispatch_deferred` event); `drainQueue` (oldest QUEUED `mos-console` mission, priority-then-FIFO, reentrancy-guarded, scoped so n8n/daemon semantics are unchanged); `dispatcherStatus`; `runTask` now a thin wrapper over the untouched `runTaskCore` that fires the drain on every settle — a slot freed by ANY task releases queued console missions. `DISPATCH_INFLIGHT` closes the admission race (a freshly admitted task is not yet RUNNING on disk); counting is a union of distinct ids. `tick()` and the session-recreation recursion byte-untouched in logic; integrator hardening added so a synchronous throw cannot leak a capacity slot. `summaries()` now carries `requested_by`.
+- **executor `server.js`**: `POST /tasks/<id>/dispatch` (202/404/409), `GET /dispatcher` — behind existing bearer auth. **`/resume` byte-untouched** (n8n Quota Watch dependency).
+- **console `server.js`**: start relay now goes through `/dispatch` and reports RUNNING or QUEUED honestly; third named write route `POST /api/missions/<id>/dispatch`; new `/api/dispatcher` read (explicit pick + `providers` from `REAL_PROVIDERS` — the single server-side source the UI reads in MOS-3B).
+- **`tests/mos-1-console-test.js`**: only assertions invalidated by deliberate changes narrowed (write-route count 2→3 named; stub answers `/dispatch`; start-flow expects dispatch). New coverage is MOS-3C.
+
+### Verification
+
+`node --check` clean; suites **401/125/257 all green**; live in-process smoke in an isolated state root: 7 dispatches vs `MAX_PARALLEL=5` with hung mock providers → **exactly 5 genuinely RUNNING on disk, 2 QUEUED**, `dispatcherStatus {running:5, queued:2}`, RUNNING task rejected `NOT_DISPATCHABLE`, unknown id rejected `NO_SUCH_TASK` — **9/9**.
+
+### Record
+
+| | |
+|---|---|
+| Base | `523d855` |
+| Commit | `b5d3fb6` (+ this handover entry) |
+| Remote HEAD | verified after relay delivery — see the next stage's record if this one predates it |
+| Deployment | **Not performed.** The live console still runs the pre-MOS-2 process (restart remains the operator action recorded in the MOS-2.1 visual-regression entry) |
+
+### Next stage
+
+**MOS-3B (Opus): Mission Control frontend** — missions page grouped by lifecycle state, per-row start/cancel, capacity strip from `/api/dispatcher`, polling without reload, provider select served by the server. Then **MOS-3C (Haiku): the thirteen required proofs** incl. deterministic queue-drain via a `wait-file` mock kind.
+
 ## MOS-2.1 VISUAL REGRESSION — LOGO SIZING HARDENED (2026-08-18) — **FIXED THE SYMPTOM; ROOT CAUSE IS OPERATIONAL, NOT CODE — SERVICE RESTART STILL REQUIRED**
 
 ### Stage
