@@ -113,7 +113,11 @@ var EVENT_TYPES = [
   'CAMPAIGN_CONTINUE_REQUESTED', 'CAMPAIGN_CONTINUE_FAILED',
   // A recorded human decision on an approval. GRANTED already existed;
   // a DENIAL is just as much a decision and must be just as auditable.
-  'APPROVAL_DENIED'
+  'APPROVAL_DENIED',
+  // Artifact Manager (capability AA): tracked non-Git storage with
+  // provenance. Recorded so the durable stream shows what was stored and
+  // what was later read back, mirroring WORKTREE_CREATED/REMOVED above.
+  'ARTIFACT_STORED', 'ARTIFACT_RETRIEVED'
 ];
 
 // Policy classes (§12 of the Phase 2 order). DESTRUCTIVE and ROOT exist so
