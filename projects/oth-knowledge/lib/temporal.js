@@ -133,15 +133,23 @@ function isQuarantined(rec) {
   return Array.isArray(rec.tags) && QUARANTINE_TAGS.some((t) => rec.tags.indexOf(t) !== -1);
 }
 
+// Latest verified fact(s). When asOf is given, "verified" is judged at
+// that point in time: only truth times <= asOf count, and only conflict
+// resolutions decided by then supersede a fact (full asOf discipline, so
+// this field never leaks post-asOf resolution state into a point-in-time
+// view). Without asOf it reports the live latest-verified set.
 function latestVerified(store, opts) {
   const tag = opts && opts.tag;
+  const asOf = opts && opts.asOf;
+  if (asOf) requireAsOf(asOf);
   const facts = store.allRecords({
     kind: 'fact',
     where: (r) => ['EXPLICIT', 'HIGH'].indexOf(r.confidence) !== -1 &&
       !isQuarantined(r) && // never surface a quarantined record as verified (F4)
-      (!tag || (Array.isArray(r.tags) && r.tags.indexOf(tag) !== -1)) && !!truthTimeOf(r),
+      (!tag || (Array.isArray(r.tags) && r.tags.indexOf(tag) !== -1)) &&
+      !!truthTimeOf(r) && (!asOf || Date.parse(truthTimeOf(r)) <= Date.parse(asOf)),
   });
-  const losers = losingIds(store);
+  const losers = losingIds(store, asOf);
   const live = facts.filter((f) => !losers.has(f.id));
   live.sort((a, b) => Date.parse(truthTimeOf(b)) - Date.parse(truthTimeOf(a)) || (a.id < b.id ? -1 : 1));
   return live;

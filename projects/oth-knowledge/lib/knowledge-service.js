@@ -109,7 +109,7 @@ function openService(root, opts) {
       return {
         as_of: o.asOf,
         known: known.map((r) => ({ id: r.id, kind: r.kind, truth_time: temporal.truthTimeOf(r), classification: temporal.classify(store, r, { asOf: o.asOf }), quarantined: temporal.isQuarantined(r) })),
-        latest_verified: temporal.latestVerified(store, { tag: o && o.tag }).slice(0, 10).map((r) => r.id),
+        latest_verified: temporal.latestVerified(store, { tag: o && o.tag, asOf: o.asOf }).slice(0, 10).map((r) => r.id),
         open_contradictions: conflictLib.listConflicts(store, { state: 'open' }).map((r) => r.id),
       };
     },

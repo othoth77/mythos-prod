@@ -300,6 +300,17 @@ console.log('§13 security-audit regressions (Opus audit 2026-08-19)');
   expectError(() => trust.loadTrustModel(w(withKey), CLASSES), /credential-shaped/, 'F7: access_token (composite) rejected by widened regex');
 }
 
+console.log('§15 currentState.latest_verified honours asOf (final-review observation)');
+{
+  const s = storeLib.openStore(tmpRoot());
+  const past = extract.addFact(s, CLASSES, { statement: 'Verified in the past (synthetic)', confidence: 'EXPLICIT', prov: pv('owner-report', 'lv/1', '2026-01-01T00:00:00Z'), metadata: { assertion_class: 'OBSERVED' } });
+  const future = extract.addFact(s, CLASSES, { statement: 'Not true until later (synthetic)', confidence: 'EXPLICIT', prov: pv('owner-report', 'lv/2', '2027-01-01T00:00:00Z'), metadata: { assertion_class: 'OBSERVED' } });
+  const svc = service.openService(s.root);
+  const cs = svc.currentState({ asOf: ASOF });
+  ok(cs.latest_verified.indexOf(past.id) !== -1, 'a past EXPLICIT fact is in latest_verified at asOf');
+  ok(cs.latest_verified.indexOf(future.id) === -1, 'a future-dated fact is NOT latest_verified before its truth time (asOf-scoped)');
+}
+
 console.log('§14 store-level repository-containment (F6)');
 {
   const REPO = path.resolve(__dirname, '..');
