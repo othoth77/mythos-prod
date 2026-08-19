@@ -4,6 +4,45 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260819223747-bburbd` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | AI Operating Layer v1 — FINAL CLOSURE VALIDATION |
+| Provider / model | claude-code / default |
+| Execution profile | repo-test |
+| Started | 2026-08-19T22:37:47.672Z |
+| Ended | 2026-08-19T22:44:53.406Z |
+| Status | **COMPLETED** |
+| Claude session | `095e38a6-9def-4ec4-99d5-58fcdc98598d` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `d4318feb42b965f578eccf522d33c93cb709ffdc` |
+| Git verified | null |
+
+**Summary:** Read-only final closure validation of AI Operating Layer v1 at d4318fe. Git: local HEAD == origin/main == d4318fe, worktree clean, PR #46 merged (its merge commit IS remote HEAD; gh CLI was denied by the permission layer so this is git-evidenced). Governance patch da80870 verified on origin/main: mythos-gov memberless group, key root:mythos-gov 0640, deploy never a member, SupplementaryGroups=mythos-gov on the relay unit, governance-log ReadWritePaths present, approvals deliberately excluded, all fail-closed invariants intact. Tests executed for real: governance invariant 99/0 exit 0, executor 264/0 exit 0, unattended policy 53/0 exit 0, MOS-v2 gate SUCCESS (1264/264/257/156, 0 new failures) exit 0. Unlike the session that authored the patch, this session runs ON the VPS as deploy, so the live boundary was directly inspected read-only: production hardening is ALREADY ACTIVE (key uid=0 gid=979(mythos-gov) mode 640, group memberless, deploy groups = deploy/users/docker only), deploy gets EACCES on the key, on listing approvals and on writing approvals; the live systemd unit carries SupplementaryGroups=mythos-gov with ReadWritePaths limited to the repo and the governance log; installed /usr/local relay+verifier+unit are root-owned and sha256-identical to the merged repo (zero drift); the relay ran at 22:37:10 with Result=success and its journal shows it reading the store and issuing GOVERNANCE DENY on an unapproved protected change, so the approval relay is functional. Executor serves on 127.0.0.1:8130 and returns 401 unauthenticated. Security profiles confirmed (deploy profile disabled, sudo banned everywhere, repo-read/repo-test cannot write or commit or push, skills and MCP fail-closed, MAX_PARALLEL default 5 clamped to 8). One HIGH finding upgraded from 'uninspectable' to confirmed: deploy is in the docker group and the socket is reachable (Server 29.6.1), which is root-equivalent and defeats the mythos-gov key isolation via docker run -v /etc:/host; membership was NOT removed per mission constraint. Nothing was modified, committed, pushed, deployed, restarted, approved or hardened; no key material was read or printed. M-13 not started.
+
+**Tests:**
+- node tests/mythos-governance-invariant-test.js: 99 passed / 0 failed, exit 0
+- node tests/mythos-ai-executor-test.js: 264 passed / 0 failed, exit 0
+- node tests/mythos-unattended-policy-test.js: 53 passed / 0 failed, exit 0
+- node tests/mos-v2-regression-test.js: 4 suites PASS (1264/264/257/156), 0 new failures, exit 0
+- live-host governance boundary (read-only): deploy denied key read, approvals list and approvals write (EACCES) — PASS
+- live-host install drift (sha256 repo vs /usr/local + /etc/systemd/system): zero drift — PASS
+
+**Residual risks:**
+- HIGH — deploy is a member of the docker group (gid 986) and /var/run/docker.sock is reachable as deploy (Docker Server 29.6.1); docker socket access is root-equivalent and defeats the mythos-gov key isolation via 'docker run -v /etc:/host'. Repository evidence shows the runtime uses 'sudo docker' and no code path touches the socket, so the membership is not required. Not remediated: the mission explicitly forbade removing docker membership.
+- deploy's sudo surface was not inspected — the repo-test execution profile bans Bash(sudo:*), so 'sudo -l -U deploy' was not run. Passwordless sudo for deploy would be an equivalent escape.
+- Whether a signed governance approval record exists for da80870 is NOT VERIFIABLE from the deploy identity — the approvals store is EACCES by design. The merge reached main through a GitHub PR, a path governed by GitHub permissions rather than by the relay's signed-approval store.
+- The mythos-gov cage is enforced at the filesystem/systemd layer only; any future root-equivalent grant to deploy silently voids it. Only the invariant suite's live-host assertions would catch a regression, and only when run.
+
+**Next stage:** Operator (root, one command): 'sudo gpasswd -d deploy docker' to close the confirmed root-equivalent escape, then re-run 'node tests/mythos-governance-invariant-test.js' as deploy to reconfirm 99/0. The hardening script does NOT need re-running — its end state is already established and verified on the host. Do not start M-13; no approved roadmap stage beyond this closure exists.
+
+
+---
+
 ## Task `t-20260819220653-7iv7tt` — BLOCKED
 
 | Field | Value |
