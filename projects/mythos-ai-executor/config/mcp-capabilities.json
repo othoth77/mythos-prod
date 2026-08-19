@@ -1,0 +1,14 @@
+{
+  "servers": {
+    "github": {
+      "enabled": false,
+      "description": "GitHub PR/review operations. No credential exists on this host; ships disabled until an owner decision provisions one and flips this flag — never invent or assume a credential.",
+      "tools": {
+        "list_pull_requests": { "description": "List open pull requests for a repository." },
+        "get_pull_request_diff": { "description": "Fetch the diff for a single pull request." },
+        "create_review_comment": { "description": "Post a review comment on a pull request." }
+      },
+      "required_execution_profiles": ["repo-read", "repo-write"]
+    }
+  }
+}

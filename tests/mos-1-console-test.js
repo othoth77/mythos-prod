@@ -541,7 +541,8 @@ function startStub() {
           res.end(JSON.stringify({
             task: { task_id: 'abc12345', project: 'mythos-prod', stage: 'MOS-1', instruction: 'do the thing',
               provider: 'claude-code', model: null, priority: 'normal', execution_profile: 'repo-read',
-              created_at: '2026-08-18T08:00:00Z', working_directory: '/should/not/leak', secret_field: SECRET_TOKEN },
+              created_at: '2026-08-18T08:00:00Z', working_directory: '/should/not/leak', secret_field: SECRET_TOKEN,
+              skill_id: 'security-audit', skill_version: '1.0.0', mcp_capabilities: [] },
             status: { status: 'RUNNING', started_at: '2026-08-18T08:00:01Z', ended_at: null, last_error: null,
               next_action: 'provider running', execution_id: 'x-abc123', retry_count: 0, pid: 999, claude_session_id: 'sess-should-not-leak' },
             effective: 'RUNNING'
@@ -1036,6 +1037,11 @@ startStub().then(function (stub) {
              'pid is dropped by the detail allowlist');
           ok(!Object.prototype.hasOwnProperty.call(detail.json.data.status, 'claude_session_id'),
              'claude_session_id is dropped by the detail allowlist (even though /api/missions itself already serves it elsewhere)');
+          // M-12: skill_id/skill_version/mcp_capabilities are safe -- names
+          // only -- and pass through the detail allowlist.
+          eq(detail.json.data.task.skill_id, 'security-audit', 'M-12: detail relay surfaces skill_id');
+          eq(detail.json.data.task.skill_version, '1.0.0', 'M-12: detail relay surfaces skill_version');
+          ok(Array.isArray(detail.json.data.task.mcp_capabilities), 'M-12: detail relay surfaces mcp_capabilities as an array');
 
           // 7. No provider credentials exposed, on the two new relays specifically
           ok(detail.text.indexOf(SECRET_TOKEN) === -1, 'execution detail does not contain the token');
@@ -2933,6 +2939,71 @@ startStub().then(function (stub) {
       eq(l.res.status, 200, 'once the window rolls off, the correct password signs in again');
       ACTIVE_COOKIE = null;
       s.close();
+    });
+  });
+})
+
+// ===========================================================================
+// M-12: RUNTIME SKILLS — console-layer coverage.
+//
+// A dedicated stub and server, isolated from every other section's state,
+// exercising: (9) skill_id rejected as an unexpected field, (10) mcp_server
+// rejected, (11) mcp_tool rejected, (12) mcp_endpoint rejected, plus the
+// valid/invalid task_category path and its forwarding to the executor.
+// ===========================================================================
+.then(function () {
+  return startStub().then(function (stub) {
+    var stubPort = stub.address().port;
+    var server = freshServer({
+      MOS_EXECUTOR_URL: 'http://127.0.0.1:' + stubPort,
+      MOS_EXECUTOR_TOKEN: SECRET_TOKEN,
+      MOS_EXECUTOR_TOKEN_FILE: null
+    });
+    return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
+      var port = s.address().port;
+      ACTIVE_COOKIE = null;
+      stubPostBodies.length = 0;
+      return login(port, CONSOLE_SECRET).then(function (l) {
+        eq(l.res.status, 200, 'M-12: sign-in for the runtime-skill checks succeeds');
+        ACTIVE_COOKIE = l.cookie;
+
+        return Promise.all([
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', skill_id: 'security-audit' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', skill: 'security-audit' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', mcp_server: 'github' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', mcp_tool: 'github.list_pull_requests' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', mcp_endpoint: 'https://api.github.com' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', mcp: {} }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', task_category: 'security' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', task_category: 'not-a-real-category' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code' })
+        ]);
+      }).then(function (rr) {
+        var withSkillId = rr[0], withSkill = rr[1], withMcpServer = rr[2], withMcpTool = rr[3],
+            withMcpEndpoint = rr[4], withMcp = rr[5], validCategory = rr[6], invalidCategory = rr[7], noCategory = rr[8];
+
+        [['skill_id', withSkillId], ['skill', withSkill], ['mcp_server', withMcpServer],
+         ['mcp_tool', withMcpTool], ['mcp_endpoint', withMcpEndpoint], ['mcp', withMcp]].forEach(function (pair) {
+          eq(pair[1].status, 400, 'M-12(' + pair[0] + '): a payload carrying "' + pair[0] + '" is refused with 400');
+          eq(pair[1].json.error, 'bad_request', 'M-12(' + pair[0] + '): the refusal names bad_request');
+          ok(/unexpected field/.test(pair[1].json.detail), 'M-12(' + pair[0] + '): the refusal names it as an unexpected field, exactly like any other unrecognised key');
+        });
+        eq(validCategory.status, 200, 'M-12: a valid task_category ("security") is accepted');
+        eq(invalidCategory.status, 400, 'M-12: an unrecognised task_category is refused with 400');
+        ok(/task_category/.test(invalidCategory.json.detail), 'M-12: the refusal for an unrecognised task_category names the field and the allowed set');
+        eq(noCategory.status, 200, 'M-12: task_category is optional -- omitting it still succeeds');
+
+        var createCalls = stubPostBodies.filter(function (c) { return c.url === '/tasks'; });
+        eq(createCalls.length, 2, 'M-12: exactly two create calls reached the executor (the valid-category and no-category requests)');
+        eq(createCalls[0].body.task_category, 'security', 'M-12: task_category is relayed verbatim to the executor payload');
+        ok(!Object.prototype.hasOwnProperty.call(createCalls[1].body, 'task_category'),
+           'M-12: an absent task_category is never sent to the executor as null/undefined -- the field is simply not present');
+        stubPostBodies.length = 0;
+
+        ACTIVE_COOKIE = null;
+        s.close();
+        stub.close();
+      });
     });
   });
 })

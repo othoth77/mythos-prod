@@ -58,8 +58,13 @@
 // chosen by core/provider-router.js rather than named by the operator. The
 // router's OWN reason text is never here -- `reason` already carries only
 // this file's own short refusal codes, same discipline as everywhere else.
+// M-12 adds `task_category`: which runtime-skill category (if any) the
+// operator asked for on a mission start. WHICH skill was actually
+// selected, its version, and its instructions are not log material --
+// those live in the executor's own task.json, exactly like `instruction`
+// and `title` above.
 var DETAIL_FIELDS = ['profile', 'provider', 'model', 'priority', 'status', 'reason', 'route',
-                     'granted', 'approval_id', 'decompose', 'routed'];
+                     'granted', 'approval_id', 'decompose', 'routed', 'task_category'];
 
 // A detail value is a short scalar or it is nothing. Objects, arrays and
 // long strings are not log material; truncation is at 64 characters,

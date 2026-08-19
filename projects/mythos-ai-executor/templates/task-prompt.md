@@ -33,6 +33,8 @@ Additional permanent constraints:
 
 {{REQUIRED_TESTS}}
 
+{{SKILL_SECTION}}
+
 ## Continuity
 
 Previous checkpoint:

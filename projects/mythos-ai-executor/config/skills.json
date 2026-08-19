@@ -1,0 +1,67 @@
+{
+  "security-audit": {
+    "id": "security-audit",
+    "name": "Security Audit",
+    "version": "1.0.0",
+    "description": "Identify concrete, traced security defects in the mission's scope — injection, authz, secrets, data exposure.",
+    "categories": ["security"],
+    "instruction_source": "security-audit.md",
+    "required_capabilities": [],
+    "allowed_mcp_servers": [],
+    "allowed_mcp_tools": [],
+    "compatible_execution_profiles": ["repo-read", "repo-write", "repo-test", "autonomous"],
+    "enabled": true
+  },
+  "frontend": {
+    "id": "frontend",
+    "name": "Frontend",
+    "version": "1.0.0",
+    "description": "Implement or fix browser-facing work matching the codebase's existing DOM/CSS conventions.",
+    "categories": ["frontend"],
+    "instruction_source": "frontend.md",
+    "required_capabilities": [],
+    "allowed_mcp_servers": [],
+    "allowed_mcp_tools": [],
+    "compatible_execution_profiles": ["repo-read", "repo-write", "repo-test", "autonomous"],
+    "enabled": true
+  },
+  "testing": {
+    "id": "testing",
+    "name": "Testing",
+    "version": "1.0.0",
+    "description": "Select the right test scope, establish a baseline before calling a failure new, and report exact counts.",
+    "categories": ["testing"],
+    "instruction_source": "testing.md",
+    "required_capabilities": [],
+    "allowed_mcp_servers": [],
+    "allowed_mcp_tools": [],
+    "compatible_execution_profiles": ["repo-read", "repo-write", "repo-test", "autonomous"],
+    "enabled": true
+  },
+  "github-review": {
+    "id": "github-review",
+    "name": "GitHub Review",
+    "version": "1.0.0",
+    "description": "Review a pull request or diff for correctness, security, coverage and scope against the codebase's own conventions.",
+    "categories": ["github-review"],
+    "instruction_source": "github-review.md",
+    "required_capabilities": [],
+    "allowed_mcp_servers": ["github"],
+    "allowed_mcp_tools": ["github.list_pull_requests", "github.get_pull_request_diff", "github.create_review_comment"],
+    "compatible_execution_profiles": ["repo-read", "repo-write"],
+    "enabled": true
+  },
+  "generic": {
+    "id": "generic",
+    "name": "Generic",
+    "version": "1.0.0",
+    "description": "The default when no more specific skill category or keyword rule matched the mission.",
+    "categories": ["general"],
+    "instruction_source": "generic.md",
+    "required_capabilities": [],
+    "allowed_mcp_servers": [],
+    "allowed_mcp_tools": [],
+    "compatible_execution_profiles": ["repo-read", "repo-write", "repo-test", "autonomous", "deploy"],
+    "enabled": true
+  }
+}

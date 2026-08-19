@@ -20,33 +20,197 @@
     "max_retries"
   ],
   "properties": {
-    "schema_version": { "type": "string", "enum": ["1.0.0"] },
+    "schema_version": {
+      "type": "string",
+      "enum": [
+        "1.0.0"
+      ]
+    },
     "task_id": {
       "type": "string",
       "minLength": 8,
       "maxLength": 64,
       "pattern": "^[a-z0-9][a-z0-9-]{6,62}[a-z0-9]$"
     },
-    "project": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9-]*$" },
-    "stage": { "type": "string", "minLength": 1, "maxLength": 80 },
-    "instruction": { "type": "string", "minLength": 1, "maxLength": 20000 },
-    "priority": { "type": "string", "enum": ["low", "normal", "high"] },
-    "created_at": { "type": "string", "minLength": 20, "maxLength": 40 },
-    "requested_by": { "type": "string", "minLength": 1, "maxLength": 64 },
-    "mode": { "type": "string", "enum": ["autonomous", "advisory", "dry_run"] },
-    "provider": { "type": "string", "enum": ["claude-code", "openai-compat", "mock"] },
-    "model": { "type": ["string", "null"], "maxLength": 100 },
-    "fallback_model": { "type": ["string", "null"], "maxLength": 100 },
-    "execution_profile": { "type": ["string", "null"], "enum": ["repo-read", "repo-write", "repo-test", "autonomous", "deploy", null] },
-    "working_directory": { "type": ["string", "null"], "maxLength": 300, "pattern": "^/(?!tmp/)" },
-    "repository": { "type": ["string", "null"], "maxLength": 300 },
-    "branch": { "type": ["string", "null"], "maxLength": 100 },
-    "required_tests": { "type": "array", "items": { "type": "string", "maxLength": 300 } },
-    "constraints": { "type": "array", "items": { "type": "string", "maxLength": 1000 } },
-    "expected_delivery": { "type": "string", "enum": ["report", "commit", "none"] },
-    "report_to_git": { "type": "boolean" },
-    "timeout_seconds": { "type": "integer", "minimum": 30, "maximum": 21600 },
-    "max_retries": { "type": "integer", "minimum": 0, "maximum": 5 },
-    "max_turns": { "type": ["integer", "null"], "minimum": 1, "maximum": 500 }
+    "project": {
+      "type": "string",
+      "minLength": 2,
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9-]*$"
+    },
+    "stage": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "instruction": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 20000
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "normal",
+        "high"
+      ]
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 40
+    },
+    "requested_by": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "autonomous",
+        "advisory",
+        "dry_run"
+      ]
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "claude-code",
+        "openai-compat",
+        "mock"
+      ]
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "fallback_model": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "execution_profile": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "repo-read",
+        "repo-write",
+        "repo-test",
+        "autonomous",
+        "deploy",
+        null
+      ]
+    },
+    "working_directory": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 300,
+      "pattern": "^/(?!tmp/)"
+    },
+    "repository": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 300
+    },
+    "branch": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "task_category": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 40,
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "required_tests": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 300
+      }
+    },
+    "constraints": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "expected_delivery": {
+      "type": "string",
+      "enum": [
+        "report",
+        "commit",
+        "none"
+      ]
+    },
+    "report_to_git": {
+      "type": "boolean"
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "minimum": 30,
+      "maximum": 21600
+    },
+    "max_retries": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5
+    },
+    "max_turns": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 500
+    },
+    "skill_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 80
+    },
+    "skill_version": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 20
+    },
+    "skill_selection_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 200
+    },
+    "mcp_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9_-]+\\.[a-z0-9_-]+$",
+        "maxLength": 120
+      }
+    }
   }
 }

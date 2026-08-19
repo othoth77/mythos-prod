@@ -528,6 +528,16 @@
         return opt;
       }));
 
+    // M-12: the runtime skill layer's category vocabulary -- the same
+    // closed enum server.js validates (CONSOLE_TASK_CATEGORIES), mirrored
+    // here rather than fetched, exactly as PRIORITY_OPTIONS above is. Never
+    // sent when '(auto)' is selected: an absent task_category lets the
+    // executor's own keyword-rule selection apply, same as an n8n task.
+    var CATEGORY_OPTIONS = ['security', 'frontend', 'testing', 'github-review', 'general'];
+    var categorySelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-category' } },
+      [el('option', { attrs: { value: '' }, text: '(auto)' })].concat(
+        CATEGORY_OPTIONS.map(function (c) { return el('option', { attrs: { value: c }, text: c }); })));
+
     var startBtn = el('button', {
       className: 'mythos-btn mythos-btn-gold',
       attrs: { type: 'button' },
@@ -563,7 +573,8 @@
         // the operator can actually see, not a second source of truth.
         model: (!isAuto && modelList.length && modelSelect.value) ? modelSelect.value : undefined,
         execution_profile: chosenProfile,
-        priority: prioritySelect.value
+        priority: prioritySelect.value,
+        task_category: categorySelect.value || undefined
       };
       postJSON('/api/missions/start', payload).then(function (r) {
         clear(feedback);
@@ -597,7 +608,8 @@
         el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-provider' }, text: 'Provider' }), providerSelect, providerNote, taskTypeRow]),
         el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model (optional)' }), modelSelect, modelNote, modelAutoNote]),
         el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-profile' }, text: 'Execution profile' }), profileSelect, profileNote]),
-        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-priority' }, text: 'Priority' }), prioritySelect])
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-priority' }, text: 'Priority' }), prioritySelect]),
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-category' }, text: 'Category (optional)' }), categorySelect])
       ]),
       startBtn, feedback
     ]);
@@ -662,6 +674,9 @@
         detailSlot.appendChild(fact('Model', dTask.model || '(default)'));
         detailSlot.appendChild(fact('Priority', dTask.priority || '—'));
         detailSlot.appendChild(fact('Execution profile', dTask.execution_profile || '—'));
+        // M-12: the skill_id/skill_version badge-line -- names only, never
+        // the instruction content itself, which never reaches the browser.
+        detailSlot.appendChild(fact('Skill', dTask.skill_id ? (dTask.skill_id + ' v' + (dTask.skill_version || '?')) : '(none)'));
         detailSlot.appendChild(fact('Status', dStatus.status || state));
         detailSlot.appendChild(fact('Execution ID', dStatus.execution_id || '(not started)'));
         detailSlot.appendChild(fact('Created', dTask.created_at ? stamp(dTask.created_at) : '—'));

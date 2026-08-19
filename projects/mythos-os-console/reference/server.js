@@ -603,7 +603,17 @@ var CONSOLE_PRIORITIES = ['high', 'normal', 'low'];
 var CONSOLE_TASK_TYPES = ['inspection', 'research', 'analysis', 'design', 'coding',
   'testing', 'review', 'integration', 'validation', 'documentation',
   'reporting', 'marketing', 'generic'];
-var START_MISSION_FIELDS = ['title', 'instruction', 'provider', 'model', 'execution_profile', 'priority', 'task_type'];
+// M-12: the runtime skill registry's own category vocabulary
+// (projects/mythos-ai-executor/config/skills.json's categories, one per
+// skill), hardcoded here rather than fetched over a network call — the
+// registry is this list's SOURCE OF TRUTH; a category added there must be
+// added here too, and tests/mos-1-console-test.js pins both to the same
+// content so the two cannot silently drift. task_category is optional and,
+// when present, is relayed to the executor verbatim; skill selection
+// itself is entirely server-side from there (lib/skills.js selectSkill),
+// never something this console computes or chooses.
+var CONSOLE_TASK_CATEGORIES = ['security', 'frontend', 'testing', 'github-review', 'general'];
+var START_MISSION_FIELDS = ['title', 'instruction', 'provider', 'model', 'execution_profile', 'priority', 'task_type', 'task_category'];
 
 function readBoundedBody(req, maxBytes) {
   return new Promise(function (resolve, reject) {
@@ -764,6 +774,19 @@ function handleStartMission(req, res) {
       priority = payload.priority;
     }
 
+    // M-12: task_category is optional, and when present must be one of the
+    // registry's own category vocabulary above -- case-sensitive, no
+    // coercion, same discipline as execution_profile and priority. Absent
+    // entirely relays nothing, so the executor's own keyword-rule
+    // selection applies (lib/skills.js selectSkill).
+    var taskCategory = null;
+    if (payload.task_category !== undefined) {
+      if (typeof payload.task_category !== 'string' || CONSOLE_TASK_CATEGORIES.indexOf(payload.task_category) === -1) {
+        return rejectStart(req, res, 'task_category', 'task_category must be one of: ' + CONSOLE_TASK_CATEGORIES.join(', '));
+      }
+      taskCategory = payload.task_category;
+    }
+
     // The one write /tasks itself, whatever provider/model this request
     // ends with -- explicit (byte-identical to M-06) or router-resolved
     // (MOS-v2 M-11). `routed` marks the audit line only; nothing about the
@@ -778,7 +801,13 @@ function handleStartMission(req, res) {
         priority: priority,
         requested_by: 'mos-console',
         execution_profile: profile,
-        expected_delivery: 'report'
+        expected_delivery: 'report',
+        // M-12: relayed only when the operator picked one -- an absent
+        // task_category leaves the upstream payload byte-identical to
+        // before this stage, and the executor's own keyword-rule selection
+        // (lib/skills.js selectSkill) applies exactly as it does for any
+        // n8n-originated task that never named one either.
+        task_category: taskCategory || undefined
       }).then(function (created) {
         var taskId = created && created.task_id;
         if (!taskId) {
@@ -795,6 +824,9 @@ function handleStartMission(req, res) {
         function accepted(status, note) {
           var detail = { profile: profile, provider: finalProvider, model: finalModel || null,
                          priority: priority, status: status };
+          // M-12: recorded only when the operator named one, same
+          // discipline as `routed` immediately below.
+          if (taskCategory) detail.task_category = taskCategory;
           // MOS-v2 M-11: `routed` records only THAT the router chose this
           // provider, never why -- the router's reason text is never audit
           // material, same discipline as every other refusal code in this
@@ -926,7 +958,12 @@ function handleStartMission(req, res) {
 // claude_session_id is already served today via /api/missions's own
 // summaries()), but the allowlist is kept anyway so this relay cannot
 // start leaking a field added to either file for an unrelated reason.
-var TASK_DETAIL_TASK_FIELDS = ['task_id', 'project', 'stage', 'instruction', 'provider', 'model', 'priority', 'execution_profile', 'created_at'];
+// M-12: skill_id/skill_version and mcp_capabilities are safe -- names only,
+// never instruction content or MCP internals. mcp_capabilities is an array
+// of 'server.tool' strings the executor already resolved server-side
+// (lib/mcp-capabilities.js); this console never re-resolves or interprets it.
+var TASK_DETAIL_TASK_FIELDS = ['task_id', 'project', 'stage', 'instruction', 'provider', 'model', 'priority', 'execution_profile',
+  'created_at', 'skill_id', 'skill_version', 'mcp_capabilities'];
 var TASK_DETAIL_STATUS_FIELDS = ['status', 'started_at', 'ended_at', 'last_error', 'next_action', 'execution_id', 'retry_count'];
 
 function pick(src, fields) {

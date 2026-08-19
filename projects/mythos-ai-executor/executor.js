@@ -26,6 +26,8 @@ var state = require('./lib/state');
 var quota = require('./lib/quota');
 var policy = require('./lib/policy');
 var reporting = require('./lib/report');
+var skills = require('./lib/skills');
+var mcpCapabilities = require('./lib/mcp-capabilities');
 
 var schema = require('../mythos-orchestrator/lib/schema');
 var redact = require('../mythos-orchestrator/lib/redact');
@@ -74,8 +76,24 @@ function newTaskId() {
 // record, applies defaults, validates against the schema, and refuses
 // anything carrying a secret. The INSTRUCTION IS DATA (mission §12):
 // nothing in it can change provider, profile, or paths.
+// M-12 PART 2: skill selection, MCP tools and MCP endpoints are all
+// SERVER-SIDE decisions. Nothing an inbound payload names for any of
+// these is ever honoured — the schema's additionalProperties:false would
+// already drop an unrecognised key, but these six are refused explicitly
+// and loudly rather than silently ignored, so a caller learns it tried to
+// smuggle capability selection into a task envelope.
+var FORBIDDEN_INPUT_FIELDS = ['skill_id', 'skill', 'mcp_server', 'mcp_tool', 'mcp_endpoint', 'mcp'];
+
 function createTask(input) {
   if (!input || typeof input !== 'object') throw new Error('INVALID_TASK: payload is not an object');
+
+  var forbidden = FORBIDDEN_INPUT_FIELDS.filter(function (f) {
+    return Object.prototype.hasOwnProperty.call(input, f);
+  });
+  if (forbidden.length) {
+    throw new Error('TASK_FORBIDDEN_FIELD: payload must not carry ' + forbidden.join(', ') +
+      ' — skill selection and MCP capability resolution are server-side only');
+  }
 
   var project = String(input.project || '');
   var projectCfg = PROJECTS[project];
@@ -107,6 +125,7 @@ function createTask(input) {
     working_directory: isExecution ? (input.working_directory || projectCfg.path) : null,
     repository: projectCfg.repository || null,
     branch: input.branch || projectCfg.default_branch || null,
+    task_category: input.task_category || null,
     required_tests: input.required_tests || [],
     constraints: input.constraints || [],
     expected_delivery: input.expected_delivery || 'report',
@@ -130,6 +149,34 @@ function createTask(input) {
   var check = schema.validate(task, TASK_SCHEMA);
   if (!check.valid) throw new Error('TASK_SCHEMA_INVALID: ' + check.errors.join('; '));
 
+  // M-12 PART 2/3: skill selection happens AFTER the envelope validates,
+  // so the fields it adds below are never part of what a caller could
+  // have shaped via the schema. Selection is deterministic and always
+  // succeeds with SOME outcome (a skill, or null with a reason) — a
+  // malformed skills.json disables the layer, it never blocks the task.
+  var selection = skills.selectSkill({
+    stage: task.stage, instruction: task.instruction, task_category: task.task_category
+  });
+  task.skill_id = selection.skill ? selection.skill.id : null;
+  task.skill_version = selection.skill ? selection.skill.version : null;
+  task.skill_selection_reason = selection.reason;
+
+  // M-12 PART 6/7: resolved once, at creation, against the profile this
+  // task actually runs under — never against a profile a caller might
+  // later claim. Persisted as a plain array of 'server.tool' strings
+  // (names only) so nothing downstream needs to re-resolve or trust an
+  // inbound claim about capabilities.
+  var mcpResolved = mcpCapabilities.resolveCapabilities(selection.skill, task.execution_profile);
+  task.mcp_capabilities = mcpResolved.allowed;
+
+  // M-12 security review #4: the four skill/MCP audit fields were added
+  // AFTER the first schema.validate above, so re-validate the COMPLETE record
+  // now. The schema (additionalProperties:false) declares exactly these
+  // fields; a shape drift here (an over-long reason, a malformed capability
+  // spec) fails closed rather than persisting an unvalidated audit record.
+  var recheck = schema.validate(task, TASK_SCHEMA);
+  if (!recheck.valid) throw new Error('TASK_SCHEMA_INVALID (post-skill): ' + recheck.errors.join('; '));
+
   state.ensureTaskDir(task.task_id);
   state.writeJSON(task.task_id, 'task.json', task);
   state.writeJSON(task.task_id, 'status.json', {
@@ -147,8 +194,22 @@ function createTask(input) {
   });
   state.appendEvent(task.task_id, 'created', {
     project: task.project, stage: task.stage, provider: task.provider,
-    model: task.model, status: 'QUEUED'
+    model: task.model, status: 'QUEUED',
+    skill_id: task.skill_id, skill_version: task.skill_version,
+    skill_selection_reason: task.skill_selection_reason
   });
+  state.appendEvent(task.task_id, 'mcp_capabilities_resolved', {
+    allowed: task.mcp_capabilities, denied_reason: mcpResolved.denied_reason
+  });
+  // Fail-safe check (PART 3): a selected skill whose instruction file is
+  // missing or unreadable must never block the mission — buildPrompt will
+  // independently omit the section on every run, this event just records
+  // WHY once, at creation, instead of once per run/resume.
+  if (selection.skill && skills.renderSkillSection(selection.skill) === null) {
+    state.appendEvent(task.task_id, 'skill_instructions_unavailable', {
+      skill_id: selection.skill.id, instruction_source: selection.skill.instruction_source
+    });
+  }
   return task;
 }
 
@@ -194,6 +255,19 @@ function fill(template, vars) {
   });
 }
 
+// M-12 PART 3: renders the skill section fresh on every call (start AND
+// resume) so a section always reflects the skill file on disk right now.
+// Never throws: a null render (no skill selected, or file missing) simply
+// becomes the fixed placeholder text below — the fail-safe event for a
+// missing file was already recorded once, at task creation.
+function skillSectionFor(task) {
+  if (!task.skill_id) return '(no skill instructions active)';
+  var skillObj = skills.getSkill(task.skill_id);
+  if (!skillObj) return '(no skill instructions active)';
+  var rendered = skills.renderSkillSection(skillObj, { mcpCapabilities: task.mcp_capabilities || [] });
+  return rendered === null ? '(no skill instructions active)' : rendered;
+}
+
 function buildPrompt(task, status, resumeNote) {
   var checkpoint = state.readJSON(task.task_id, 'checkpoint.json');
   var prevReport = state.readJSON(task.task_id, 'report.json');
@@ -206,6 +280,7 @@ function buildPrompt(task, status, resumeNote) {
     OBJECTIVE: task.instruction,
     CONSTRAINTS: (task.constraints || []).map(function (c) { return '- ' + c; }).join('\n') || '(none beyond repository rules)',
     REQUIRED_TESTS: (task.required_tests || []).map(function (t) { return '- ' + t; }).join('\n') || '(choose targeted tests per AGENTS.md §8)',
+    SKILL_SECTION: skillSectionFor(task),
     EXPECTED_DELIVERY: task.expected_delivery,
     PREVIOUS_CHECKPOINT: checkpoint ? JSON.stringify(checkpoint, null, 2) : '(first run — none)',
     PREVIOUS_REPORT: prevReport && prevReport.report ? JSON.stringify(prevReport.report, null, 2) : '(none)',

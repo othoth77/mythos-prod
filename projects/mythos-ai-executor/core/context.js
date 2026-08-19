@@ -95,6 +95,25 @@ function assembleContext(opts) {
 
   priorTaskItems(opts.project, queryTerms, 4).forEach(function (i) { items.push(i); });
 
+  // M-12 PART 4: the runtime skill selected for THIS task (upstream, by
+  // lib/skills.js selectSkill — never re-selected or guessed here), admitted
+  // as exactly one more item under the SAME budget and item cap as every
+  // other source. relevance 500 is high-but-below-governance: above any
+  // lexical memory/prior-task score (small positive integers) but below the
+  // live repository-state item (999, always in scope). An unrelated skill's
+  // instructions never appear here because selection happens upstream of
+  // this call — opts.skill carries only the ONE already-chosen skill.
+  if (opts.skill && opts.skill.rendered) {
+    items.push({
+      kind: 'skill',
+      content: String(opts.skill.rendered),
+      relevance: 500,
+      source: 'skill:' + (opts.skill.id || 'unknown'),
+      timestamp: new Date().toISOString(),
+      confidence: 1.0
+    });
+  }
+
   // Relevance order, then admit under the budget.
   items.sort(function (a, b) { return b.relevance - a.relevance; });
   var admitted = [];
