@@ -60,7 +60,7 @@ function renderFinancialFlowDiagram() {
   const netResult = totalIncome - purchaseTotal - expenseTotal;
 
   return `
-    <div style="margin-top:32px; padding:24px; background:linear-gradient(135deg, #1a2633, #0f1923); border:2px solid rgba(201,168,76,0.2); border-radius:12px;">
+    <div style="margin-top:32px; padding:24px; background:linear-gradient(135deg, #1a2633, #0f1923); border:2px solid rgba(217,164,65,0.2); border-radius:12px;">
       <h3 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:18px; margin:0 0 24px; font-weight:800;">💳 Flux de trésorerie</h3>
       <div style="display:flex; flex-direction:column; gap:16px;">
         <div style="display:flex; align-items:center; gap:12px;">
@@ -68,11 +68,11 @@ function renderFinancialFlowDiagram() {
           <div style="flex:1;">
             <div style="color:var(--gold); font-weight:700; margin-bottom:4px;">Revenus entrants</div>
             <div style="display:flex; gap:12px;">
-              <div style="flex:1; padding:8px; background:rgba(201,168,76,0.1); border-radius:6px; font-size:12px;">
+              <div style="flex:1; padding:8px; background:rgba(217,164,65,0.1); border-radius:6px; font-size:12px;">
                 <div style="color:var(--muted);">Factures</div>
                 <div style="color:#4cc964; font-weight:700;">${fmtMoney(sales)}</div>
               </div>
-              <div style="flex:1; padding:8px; background:rgba(201,168,76,0.1); border-radius:6px; font-size:12px;">
+              <div style="flex:1; padding:8px; background:rgba(217,164,65,0.1); border-radius:6px; font-size:12px;">
                 <div style="color:var(--muted);">Calendrier</div>
                 <div style="color:#4cc964; font-weight:700;">${fmtMoney(cal)}</div>
               </div>
@@ -142,7 +142,7 @@ function renderReconciliationPage() {
 
   return `
     <div style="padding:20px;">
-      <h2 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:20px; margin:0 0 24px; border-bottom:2px solid rgba(201,168,76,0.3); padding-bottom:12px; font-weight:800;">🔄 Réconciliation Comptable Complète</h2>
+      <h2 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:20px; margin:0 0 24px; border-bottom:2px solid rgba(217,164,65,0.3); padding-bottom:12px; font-weight:800;">🔄 Réconciliation Comptable Complète</h2>
 
       <!-- Vue d'ensemble -->
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:32px;">
@@ -170,7 +170,7 @@ function renderReconciliationPage() {
           <div style="color:var(--muted); font-size:12px; margin-top:8px;">${bankEntries.length} mouvements</div>
         </div>
 
-        <div style="padding:20px; background:linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.06)); border:2px solid rgba(201,168,76,0.2); border-radius:12px;">
+        <div style="padding:20px; background:linear-gradient(135deg, rgba(217,164,65,0.12), rgba(217,164,65,0.06)); border:2px solid rgba(217,164,65,0.2); border-radius:12px;">
           <div style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:8px;">💵 Caisse</div>
           <div style="font-family:'Playfair Display',serif; font-size:28px; color:var(--gold-light); font-weight:800;">${fmtMoney(cashTotal)}</div>
           <div style="color:var(--muted); font-size:12px; margin-top:8px;">${cashEntries.length} entrées</div>
@@ -178,7 +178,7 @@ function renderReconciliationPage() {
       </div>
 
       <!-- État des liens -->
-      <div style="padding:20px; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04)); border:2px solid rgba(201,168,76,0.15); border-radius:12px; margin-bottom:32px;">
+      <div style="padding:20px; background:linear-gradient(135deg, rgba(217,164,65,0.08), rgba(217,164,65,0.04)); border:2px solid rgba(217,164,65,0.15); border-radius:12px; margin-bottom:32px;">
         <h3 style="color:var(--gold-light); font-size:14px; margin:0 0 16px; font-weight:700;">📎 État des Liaisons</h3>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; font-size:12px;">
           <div style="padding:12px; background:rgba(0,0,0,0.3); border-radius:6px;">
@@ -202,7 +202,7 @@ function renderReconciliationPage() {
       </div>
 
       <!-- Vérifications -->
-      <div style="padding:20px; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04)); border:2px solid rgba(201,168,76,0.15); border-radius:12px;">
+      <div style="padding:20px; background:linear-gradient(135deg, rgba(217,164,65,0.08), rgba(217,164,65,0.04)); border:2px solid rgba(217,164,65,0.15); border-radius:12px;">
         <h3 style="color:var(--gold-light); font-size:14px; margin:0 0 16px; font-weight:700;">✓ Vérifications</h3>
         <div style="display:flex; flex-direction:column; gap:12px; font-size:12px;">
           <div style="padding:12px; background:rgba(0,0,0,0.3); border-radius:6px; border-left:4px solid ${bankBalance > 0 ? '#4cc964' : '#ffa500'};">
@@ -240,7 +240,7 @@ function renderReconciliationPage() {
   if (el) {
     const html = `
       <div style="padding:20px;">
-        <h2 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:20px; margin:0 0 24px; border-bottom:2px solid rgba(201,168,76,0.3); padding-bottom:12px; font-weight:800;">🔄 Réconciliation Comptable Complète</h2>
+        <h2 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:20px; margin:0 0 24px; border-bottom:2px solid rgba(217,164,65,0.3); padding-bottom:12px; font-weight:800;">🔄 Réconciliation Comptable Complète</h2>
 
         <!-- Vue d'ensemble -->
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:32px;">
@@ -268,7 +268,7 @@ function renderReconciliationPage() {
             <div style="color:var(--muted); font-size:12px; margin-top:8px;">${bankEntries.length} mouvements</div>
           </div>
 
-          <div style="padding:20px; background:linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.06)); border:2px solid rgba(201,168,76,0.2); border-radius:12px;">
+          <div style="padding:20px; background:linear-gradient(135deg, rgba(217,164,65,0.12), rgba(217,164,65,0.06)); border:2px solid rgba(217,164,65,0.2); border-radius:12px;">
             <div style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:8px;">💵 Caisse</div>
             <div style="font-family:'Playfair Display',serif; font-size:28px; color:var(--gold-light); font-weight:800;">${fmtMoney(cashTotal)}</div>
             <div style="color:var(--muted); font-size:12px; margin-top:8px;">${cashEntries.length} entrées</div>
@@ -276,7 +276,7 @@ function renderReconciliationPage() {
         </div>
 
         <!-- État des liens -->
-        <div style="padding:20px; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04)); border:2px solid rgba(201,168,76,0.15); border-radius:12px; margin-bottom:32px;">
+        <div style="padding:20px; background:linear-gradient(135deg, rgba(217,164,65,0.08), rgba(217,164,65,0.04)); border:2px solid rgba(217,164,65,0.15); border-radius:12px; margin-bottom:32px;">
           <h3 style="color:var(--gold-light); font-size:14px; margin:0 0 16px; font-weight:700;">📎 État des Liaisons</h3>
           <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; font-size:12px;">
             <div style="padding:12px; background:rgba(0,0,0,0.3); border-radius:6px;">
@@ -300,7 +300,7 @@ function renderReconciliationPage() {
         </div>
 
         <!-- Vérifications -->
-        <div style="padding:20px; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04)); border:2px solid rgba(201,168,76,0.15); border-radius:12px;">
+        <div style="padding:20px; background:linear-gradient(135deg, rgba(217,164,65,0.08), rgba(217,164,65,0.04)); border:2px solid rgba(217,164,65,0.15); border-radius:12px;">
           <h3 style="color:var(--gold-light); font-size:14px; margin:0 0 16px; font-weight:700;">✓ Vérifications</h3>
           <div style="display:flex; flex-direction:column; gap:12px; font-size:12px;">
             <div style="padding:12px; background:rgba(0,0,0,0.3); border-radius:6px; border-left:4px solid ${bankBalance > 0 ? '#4cc964' : '#ffa500'};">
@@ -345,7 +345,7 @@ function renderFinancialAnalyticsDashboard() {
 
   return `
     <div style="margin-top:32px;">
-      <h2 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:20px; margin:0 0 20px; border-bottom:2px solid rgba(201,168,76,0.3); padding-bottom:12px; font-weight:800;">📈 Analyse financière annuelle ${report.year}</h2>
+      <h2 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:20px; margin:0 0 20px; border-bottom:2px solid rgba(217,164,65,0.3); padding-bottom:12px; font-weight:800;">📈 Analyse financière annuelle ${report.year}</h2>
 
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:16px; margin-bottom:32px;">
         <div style="padding:20px; background:linear-gradient(135deg, rgba(76,201,100,0.12), rgba(76,201,100,0.06)); border:1px solid rgba(76,201,100,0.2); border-radius:12px;">
@@ -373,7 +373,7 @@ function renderFinancialAnalyticsDashboard() {
         </div>
       </div>
 
-      <div style="padding:20px; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04)); border:1px solid rgba(201,168,76,0.15); border-radius:12px;">
+      <div style="padding:20px; background:linear-gradient(135deg, rgba(217,164,65,0.08), rgba(217,164,65,0.04)); border:1px solid rgba(217,164,65,0.15); border-radius:12px;">
         <h3 style="color:var(--gold-light); font-size:14px; margin:0 0 16px; font-weight:700;">📊 Synthèse mensuelle</h3>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; font-size:12px;">
           ${Object.keys(report.monthly).map(m => {
@@ -383,7 +383,7 @@ function renderFinancialAnalyticsDashboard() {
             return `
               <div style="padding:10px; background:rgba(0,0,0,0.3); border-radius:6px;">
                 <div style="color:var(--gold); font-weight:700; margin-bottom:4px;">${data.name}</div>
-                <div style="background:rgba(201,168,76,0.1); height:4px; border-radius:2px; margin-bottom:4px; overflow:hidden;">
+                <div style="background:rgba(217,164,65,0.1); height:4px; border-radius:2px; margin-bottom:4px; overflow:hidden;">
                   <div style="background:var(--gold); height:100%; width:${bar}%;"></div>
                 </div>
                 <div style="color:var(--muted); margin-bottom:2px;">💰 ${fmtMoney(monthTotal)}</div>

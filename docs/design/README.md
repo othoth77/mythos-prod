@@ -23,16 +23,17 @@ accepted, amended or reversed by a genuine owner review at zero cost. It is
 never represented as an owner approval — see §0.5 for the full authority chain
 and the six rules every AUTO-\* decision follows.
 
-**Approval is not authorisation to implement.** Nothing in `docs/design/` is
-implemented, applied to a project, or referenced by production. Four migrations
-are recorded and **not actioned** — `MIG-1` the gold, `MIG-2` the Playfair
-declarations, `MIG-3` the semantic and control-border tokens, `MIG-4` the
-Mythos Command Center palette. **AUTO-6** built real local verification
-tooling (`../../tools/visual-verify.js`) and measured MIG-1/MIG-2's actual
-scope directly against the application — 42 and 93 occurrences
-respectively, both larger than previously recorded. See
-`MIG_EXECUTION_MAPPING.md`. Tooling exists now; none of the four migrations
-is executed.
+**Approval is not authorisation to implement — but implementation, once
+verified, is no longer purely theoretical.** Nothing in `docs/design/`
+itself is implemented or applied to a project. Of the four migrations:
+~~`MIG-1`~~ **the gold — executed, AUTO-7**, 331 occurrences across 16
+files, verified across 16 real application views, committed to `main`,
+**not deployed** to production. `MIG-2` the Playfair declarations (93
+occurrences, 14 files — measured, AUTO-6), `MIG-3` the semantic and
+control-border tokens, and `MIG-4` the Mythos Command Center palette
+remain **not actioned**. **AUTO-6** built real local verification tooling
+(`../../tools/visual-verify.js`); **AUTO-7** used it for MIG-1's real
+execution. See `MIG_EXECUTION_MAPPING.md`.
 
 **Architecture decisions settled so far:** the three tiers and the five-unit
 roster (**A-001**–**A-006**); **Mythos Command Center as a product of Mythos OS
@@ -51,7 +52,7 @@ negative, two remain blocked — **AUTO-1**). Also open from the recovery era:
 **C-001** / **O-002**, the Dar Hijama charter-versus-live-site conflict,
 which **A-021 does not adjudicate**.
 
-**Resolved 2026-08-18 under the delegated mandate (AUTO-1 through AUTO-6):**
+**Resolved 2026-08-18 under the delegated mandate (AUTO-1 through AUTO-7):**
 **LOGO-2** (adopted as production master, not owner-approved), **C-006**
 (canonical system named — execution still deferred, see AUTO-2), ~~**C-005**~~
 (resolved by **A-022**, owner-approved, unaffected), **GRID-1**, **GRID-2**
@@ -104,7 +105,7 @@ Start with the evidence, then the structure, then the mark.
 | 8 | `RESPONSIVE_ACCESSIBILITY_MOTION.md` | **SPECIFICATION.** The four device classes against the five approved bands, the WCAG 2.2 floor, and the motion system. Records that **zoom moves the user down the same bands** — 200 % lands in tablet, 400 % in mobile — and that **no baseline grid is possible**. **MOTION-1 left OPEN by owner instruction** |
 | 9 | `PUBLIC_ECOSYSTEM_ARCHITECTURE.md` | **ARCHITECTURE.** How MYTHOS relates to its units, its products and the independent public projects: endorsement rules, where MYTHOS may and may not appear, domain architecture, hub structure, onboarding and governance. Carries an **evidence-based status ledger** — five projects LIVE, three BUILT but unserved, and **the master brand with no public surface at all** |
 | 10 | `LOGO_SYSTEM.md` | **ADOPTED — AUTO-1, not owner-approved.** The mark: what was preserved from the original, what changed and why, the construction grid, and the full master set. **LOGO-1** stays open and the reconciliation condition stays binding |
-| 11 | `MYTHOS_DESIGN_SYSTEM.md` | **Consolidated reference.** Every canonical value from 1C–1I and AUTO-1–6 in one topic-ordered document — start here for "what do I build against," not the stage-by-stage history |
+| 11 | `MYTHOS_DESIGN_SYSTEM.md` | **Consolidated reference.** Every canonical value from 1C–1I and AUTO-1–7 in one topic-ordered document — start here for "what do I build against," not the stage-by-stage history |
 | 12 | `IMPLEMENTATION_READINESS_AUDIT.md` | **Finding, not a plan.** Nothing in this program has been implemented or verified in any running application. Five prerequisites named; two closed (fonts, AUTO-4/5), one partly closed (visual-regression tooling, AUTO-6) |
 | 13 | `MIGRATION_PLANS.md` | **Plans, not authorisation.** A calibrated plan per project and Mythos-owned surface — most reduce to "ecosystem strip only" or "no action" once **A-006** and the open evidence questions are respected |
 | 14 | `prototypes/` | **Seven static HTML prototypes**, matching the original brief's §23. Not deployed |

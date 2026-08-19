@@ -50,12 +50,12 @@ function renderCashPage() {
     return { text: 'Lien invalide', color: '#ffa500', icon: '❓' };
   };
 
-  let html = `<div style="padding:16px; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04)); border:1px solid rgba(201,168,76,0.15); border-radius:12px; margin-bottom:16px;">
+  let html = `<div style="padding:16px; background:linear-gradient(135deg, rgba(217,164,65,0.08), rgba(217,164,65,0.04)); border:1px solid rgba(217,164,65,0.15); border-radius:12px; margin-bottom:16px;">
     <div style="color:var(--gold); font-weight:700; margin-bottom:12px; font-size:13px;">🔍 FILTRER LA CAISSE</div>
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Type de Liaison</label>
-        <select id="cash-filter-status" onchange="setComptaCashFilterStatus(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#c9a84c; border:1px solid #333; border-radius:6px;">
+        <select id="cash-filter-status" onchange="setComptaCashFilterStatus(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
           <option value="all">📊 Tous</option>
           <option value="expense" ${comptaCashFilterStatus === 'expense' ? 'selected' : ''}>🔴 Dépenses</option>
           <option value="income" ${comptaCashFilterStatus === 'income' ? 'selected' : ''}>🟢 Revenus</option>
@@ -66,12 +66,12 @@ function renderCashPage() {
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Montant Min</label>
-        <input type="number" id="cash-filter-min" value="${comptaCashFilterMinAmount === 0 ? '' : comptaCashFilterMinAmount}" placeholder="0" onchange="setComptaCashFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#c9a84c; border:1px solid #333; border-radius:6px;">
+        <input type="number" id="cash-filter-min" value="${comptaCashFilterMinAmount === 0 ? '' : comptaCashFilterMinAmount}" placeholder="0" onchange="setComptaCashFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
       </div>
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Montant Max</label>
-        <input type="number" id="cash-filter-max" value="${comptaCashFilterMaxAmount === Infinity ? '' : comptaCashFilterMaxAmount}" placeholder="∞" onchange="setComptaCashFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#c9a84c; border:1px solid #333; border-radius:6px;">
+        <input type="number" id="cash-filter-max" value="${comptaCashFilterMaxAmount === Infinity ? '' : comptaCashFilterMaxAmount}" placeholder="∞" onchange="setComptaCashFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
       </div>
 
       <div style="display:flex; align-items:flex-end;">
@@ -99,7 +99,7 @@ function renderCashPage() {
       `<button class="btn btn-gold btn-sm" onclick="openCashLinkModal('${entry.id}')">Lier</button>`;
 
     html += `
-      <tr style="border-left:4px solid ${linked.color}; border-bottom:1px solid rgba(201,168,76,0.08);">
+      <tr style="border-left:4px solid ${linked.color}; border-bottom:1px solid rgba(217,164,65,0.08);">
         <td style="padding:12px;"><strong>${esc(entry.date || '')}</strong></td>
         <td style="padding:12px;">${esc(entry.description || '')}</td>
         <td style="padding:12px; text-align:right; color:var(--gold-light); font-weight:700;">+${fmtMoney(entry.amount)}</td>

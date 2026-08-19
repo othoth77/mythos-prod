@@ -1,7 +1,87 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-19 UTC
-**From:** MYTHOS **IDA-DECOUPLE-3 — COMPLETE. THE IDENTITY CONTRACT BOUNDARY IS FORMALIZED: IDauto PUBLISHES THREE VERSIONED VOCABULARY ARTIFACTS; MYTHOS CONSUMES DIGEST-PINNED COPIES; NO MYTHOS TEST OR RUNTIME FILE RESOLVES ANYTHING UNDER `projects/idauto/` ANY MORE.**
+**Last updated:** 2026-08-18 UTC
+**From:** MYTHOS **FULL AUTONOMOUS MANDATE, EIGHTH PASS — MIG-1 EXECUTED FOR REAL (AUTO-7): THE MYTHOS GOLD MIGRATION APPLIED TO MYTHOS PROD'S ACTUAL SOURCE, 331 OCCURRENCES ACROSS 16 FILES (NOT THE 42/12 AUTO-6 ITSELF ESTIMATED), VERIFIED ACROSS 16 REAL APPLICATION VIEWS INCLUDING EVERY ACCOUNTING MODULE. TWO REAL BUGS CAUGHT AND FIXED BEFORE COMMIT: A LINE-ENDING CORRUPTION BUG IN MY OWN FIRST SUBSTITUTION ATTEMPT, AND ONE ORPHANED DOM SELECTOR THAT WOULD HAVE SILENTLY BROKEN A UI SEPARATOR. COMMITTED TO `main` ONLY — NOT DEPLOYED, PRODUCTION UNTOUCHED.**
+
+**What was executed, and why the scope grew again.** AUTO-6's own mapping
+("42 occurrences, 12 files") was itself a line count, not an occurrence
+count, and searched only the solid hex `#c9a84c` — missing the
+`rgba(201,168,76,ALPHA)` dim variant, which turned out to be the
+**majority** of real usage. Re-auditing before touching anything found the
+true count: **331 substitutions across 16 files** (three more files than
+AUTO-6 had found: `accounting-overview.js`, `accounting-reports.js`,
+`natures.js`, which use only the rgba form). Applied as a deterministic,
+exact-value substitution — `#c9a84c`→`#D9A441`, `#e4c472`→`#EBCE99`,
+`rgba(201,168,76,ALPHA)`→`rgba(217,164,65,ALPHA)` with alpha preserved
+exactly — not a heuristic, not role-guessing: every source literal maps to
+exactly one approved target.
+
+**Two real bugs, caught before commit, not after — the whole reason this
+was done carefully instead of quickly:**
+1. **Line-ending corruption.** My own first substitution script used
+   Python's default text-mode I/O, silently converting `css/main.css`,
+   `css/professional.css` and `index.html`'s native CRLF to LF —
+   turning a ~330-value change into a 1,258+3,304+4,392-line spurious
+   diff. Caught because the diff size was implausible for the stated
+   change (checked with `od -c` against the tracked blob, not assumed),
+   fixed by disabling Python's newline translation, redone from a clean
+   `git checkout --`, not patched over the corrupted version.
+2. **An orphaned DOM selector.** `js/shared/accounting-bank.js:172`
+   queried `div[style*="rgba(201,168,76"]` — a *truncated* rgba fragment
+   as a CSS attribute-contains selector, invisible to an exact-value regex
+   expecting a complete `rgba(...)` call. Left as-is, it would have
+   silently broken a UI separator's rendering the moment the real style
+   values changed underneath it, with no thrown error. Found by a full
+   re-grep for any remaining trace of the old value in *any* form after
+   the main substitution — not assumed complete.
+
+**Verification, real:** `node --check` clean on all 13 touched JS files;
+zero remaining trace of any old value anywhere in the touched surface;
+CRLF byte-verified preserved. `tools/visual-verify.js` extended with a
+`sv:<view>` mode calling the real router (`js/core/router.js`'s
+`showView`) directly — closes the exact coverage gap AUTO-6 named
+(accounting/fournisseurs modules the original 3-view pilot never reached).
+**16 real views** captured before and after: dashboard, tasks,
+registrations, `comptabilite`, `compta-suppliers`, `compta-purchases`,
+`compta-expenses`, `compta-bank`, `compta-cash`, `compta-categories`,
+`compta-reconciliation`, `fournisseurs`, `natures`, `representations`,
+`appel`, `conformite`. Pixel diff 0.21%–1.53% of frame per view, confined
+to gold-coloured chrome; the three highest-diff views manually reviewed —
+zero layout, text, or non-gold colour change. Browser console checked
+across all 11 accounting views: 3 external Google Fonts CDN network
+errors (pre-existing, this sandbox's network, unrelated to this change),
+**zero JS logic errors**.
+
+**A-006/A-021 — checked, not assumed clear.** This codebase is not itself
+one of the eight public projects those rules protect; it is Mythos's own
+internal application (confirmed via this repo's own `README.md`:
+"Production management platform for Mythos clients," and
+`MYTHOS_DESIGN_RECOVERY.md` §4.1's original naming), the thing MIG-1 was
+always about aligning *to* Mythos's identity. Uthina Chess's actual public
+brand kit is a separate file (`uthina-theme.css`, `--uc-*` tokens),
+untouched.
+
+**Not a deployment.** Committed to this repository's `main` branch only.
+Production (`uthinachess.tn`) is a separate host reached only by a manual,
+operator-triggered `rsync` this session has no access to and did not
+attempt — consistent with the standing deploy-user boundary this mandate
+has never bypassed.
+
+**What remains, per the continuation instruction's own list:** MIG-2
+(Playfair, 93 occurrences/14 files, not started), MIG-3 (semantic tokens,
+scope not fully mapped), MIG-4 (Command Center — checking whether it can
+be safely attempted at all, given a prior recorded prohibition, is the
+next step).
+
+**Authority and reversibility.** AUTO-7, not owner-approved. One
+`git revert` returns every one of the 331 values to its exact prior
+literal. See `MYTHOS_DESIGN_DECISIONS.md` §0.5.
+
+---
+
+## Previous entry
+
+**Previously:** MYTHOS **IDA-DECOUPLE-3 — COMPLETE. THE IDENTITY CONTRACT BOUNDARY IS FORMALIZED: IDauto PUBLISHES THREE VERSIONED VOCABULARY ARTIFACTS; MYTHOS CONSUMES DIGEST-PINNED COPIES; NO MYTHOS TEST OR RUNTIME FILE RESOLVES ANYTHING UNDER `projects/idauto/` ANY MORE.**
 
 **Stage:** `IDA-DECOUPLE-3` · **Status:** **COMPLETE** — architecture reviewed, implemented, independently audited on both sides, mutation-proven, final review **APPROVED**
 **Mythos commits:** `2719464` (implementation) · `d10a805` (final-review corrections) · **Branch:** `claude/idauto-source-cleanup-post-publication`
@@ -101,7 +181,6 @@ implements or unblocks Blockchain anchoring, VC/DID runtime, or the AI Trust Eng
 ---
 
 ## Previous entry
-
 
 **Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, SEVENTH PASS — FINAL BLOCKER-DRIVEN EXECUTION PASS CLOSED OUT. DOCUMENTATION CONSISTENCY SWEEP ACROSS 1A–1I: FOUND AND FIXED STALE "OPEN" MARKERS FOR SEVEN ALREADY-RESOLVED ITEMS (SURF-1, GOLD-2, GOLD-3, GRID-1, TOKEN-1, TOKEN-2, SEQ-1) THAT AUTO-3 RESOLVED BUT `COMPONENT_SYSTEM.md`, `DESIGN_TOKENS.md` AND `RESPONSIVE_ACCESSIBILITY_MOTION.md` NEVER RECORDED. O-002/O-006/O-007 RE-CHECKED — GENUINELY UNREACHABLE FROM THIS SESSION, CONFIRMED BY SEARCHING THE ONE ADDITIONAL ATTACHED REPOSITORY, NO NEW EVIDENCE FOUND.**
 

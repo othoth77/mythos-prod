@@ -14,7 +14,7 @@ function renderRepresentations() {
     '<table class="representations-list-table" style="width:100%; table-layout:fixed; min-width:1000px;">' +
     '<thead><tr style="background:#1a1a1a;"><th style="width:18%;padding:6px 8px;">Spectacle</th><th style="width:15%;padding:6px 8px;">Client</th><th style="width:15%;padding:6px 8px;">Directeur</th><th style="width:22%;padding:6px 8px;">Natures</th><th style="width:12%;text-align:right;padding:6px 8px;">Cachet</th><th style="width:18%;text-align:center;padding:6px 8px;">Actions</th></tr></thead>' +
     '<tbody>' + reps.map(rep => {
-      return `<tr style="cursor:pointer; border-bottom:1px solid #333; background:rgba(201,168,76,0.02);" onclick="showRepresentationDetail('${rep.id}')">
+      return `<tr style="cursor:pointer; border-bottom:1px solid #333; background:rgba(217,164,65,0.02);" onclick="showRepresentationDetail('${rep.id}')">
         <td style="padding:6px 8px;"><strong>${esc(rep.spectacle || 'Representation')}</strong></td>
         <td style="padding:6px 8px;">${esc(rep.clientName || '-')}</td>
         <td style="padding:6px 8px;">${esc(rep.director || '-')}</td>
@@ -33,7 +33,7 @@ function showRepresentationDetail(repId) {
   el.innerHTML = `
     <div style="margin-bottom:24px;">
       <button class="btn btn-outline" onclick="renderRepresentations()" style="margin-bottom:16px;">← Retour à la liste</button>
-      <div style="background:linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.06)); border:1px solid rgba(201,168,76,0.2); border-radius:16px; padding:32px 40px; margin-bottom:32px;">
+      <div style="background:linear-gradient(135deg, rgba(217,164,65,0.12), rgba(217,164,65,0.06)); border:1px solid rgba(217,164,65,0.2); border-radius:16px; padding:32px 40px; margin-bottom:32px;">
         <h1 style="font-family:'Playfair Display',serif; font-size:42px; color:var(--gold-light); font-weight:800; margin:0 0 16px 0;">${esc(rep.spectacle || 'Representation')}</h1>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:20px; margin-top:20px;">
           <div><div style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:5px;">Client</div><div style="color:var(--text); font-size:14px;">${esc(rep.clientName || '-')}</div></div>
@@ -113,7 +113,7 @@ function printRepresentations() {
   const today = formatDateLong(todayStr());
   const totalFee = reps.reduce((s, r) => s + num(r.fee), 0);
   const w = window.open('', '_blank');
-  w.document.write('<html><head><title>Representations</title><style>body{font-family:Arial;padding:20px;}table{width:100%;border-collapse:collapse;}th{background:#c9a84c;color:#fff;padding:8px;text-align:left;}td{padding:8px;border-bottom:1px solid #ddd;}</style></head><body>');
+  w.document.write('<html><head><title>Representations</title><style>body{font-family:Arial;padding:20px;}table{width:100%;border-collapse:collapse;}th{background:#D9A441;color:#fff;padding:8px;text-align:left;}td{padding:8px;border-bottom:1px solid #ddd;}</style></head><body>');
   w.document.write('<h2>Mes Representations - ' + today + '</h2>');
   w.document.write('<table><thead><tr><th>Spectacle</th><th>Client</th><th>Date</th><th>Cachet</th></tr></thead><tbody>');
   reps.forEach(r => { w.document.write('<tr><td>' + esc(r.spectacle||'') + '</td><td>' + esc(r.clientName||'') + '</td><td>' + formatDate(r.date||'') + '</td><td>' + fmtMoney(r.fee) + '</td></tr>'); });

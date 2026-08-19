@@ -66,8 +66,8 @@ function loadInscriptions() {
       tbody.innerHTML = visible.map(function(entry, i) {
         var r = entry.r;
         var bg = (i % 2 === 0) ? 'rgba(255,255,255,0.015)' : 'transparent';
-        return '<tr data-num="' + _escHtmlInsc(entry.num) + '" data-date="' + _escHtmlInsc(r.date) + '" data-heure="' + _escHtmlInsc(r.heure) + '" data-nom="' + _escHtmlInsc(r.nom) + '" data-tel="' + _escHtmlInsc(r.tel) + '" style="border-bottom:1px solid rgba(255,255,255,0.06);background:' + bg + ';transition:background .15s;" onmouseover="this.style.background=\'rgba(201,168,76,0.08)\'" onmouseout="this.style.background=\'' + bg + '\'">' +
-          '<td style="padding:16px 22px;color:#e4c472;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:700;letter-spacing:0.03em;">' + entry.num + '</td>' +
+        return '<tr data-num="' + _escHtmlInsc(entry.num) + '" data-date="' + _escHtmlInsc(r.date) + '" data-heure="' + _escHtmlInsc(r.heure) + '" data-nom="' + _escHtmlInsc(r.nom) + '" data-tel="' + _escHtmlInsc(r.tel) + '" style="border-bottom:1px solid rgba(255,255,255,0.06);background:' + bg + ';transition:background .15s;" onmouseover="this.style.background=\'rgba(217,164,65,0.08)\'" onmouseout="this.style.background=\'' + bg + '\'">' +
+          '<td style="padding:16px 22px;color:#EBCE99;font-family:\'Inter\',sans-serif;font-size:13px;font-weight:700;letter-spacing:0.03em;">' + entry.num + '</td>' +
           '<td style="padding:16px 22px;color:#ccc;font-family:\'Inter\',sans-serif;font-size:14px;">' + _escHtmlInsc(r.date) + '</td>' +
           '<td style="padding:16px 22px;color:#ccc;font-family:\'Inter\',sans-serif;font-size:14px;">' + _escHtmlInsc(r.heure) + '</td>' +
           '<td style="padding:16px 22px;color:#fff;font-family:\'Inter\',sans-serif;font-size:14px;font-weight:600;">' + _escHtmlInsc(r.nom) + '</td>' +
@@ -191,11 +191,11 @@ function renderAppels() {
     return;
   }
   var STATUT_DISPLAY = {
-    'À appeler':             { bg: 'linear-gradient(135deg,#c9a84c 0%,#e4c472 100%)', color: '#0e0e0e', border: 'none', label: 'À appeler' },
+    'À appeler':             { bg: 'linear-gradient(135deg,#D9A441 0%,#EBCE99 100%)', color: '#0e0e0e', border: 'none', label: 'À appeler' },
     'Numéro injoignable':    { bg: '#241313', color: '#ff8c82', border: '1px solid rgba(192,57,43,0.4)', label: '📞⚠ Numéro injoignable' },
     'Numéro faux':           { bg: '#241313', color: '#ff8c82', border: '1px solid rgba(192,57,43,0.4)', label: '❌ Numéro faux' },
     'Candidat sérieux':      { bg: '#132418', color: '#7be698', border: '1px solid rgba(63,201,107,0.4)', label: '✅ Candidat sérieux' },
-    'Candidat fantaisiste':  { bg: '#241f0f', color: '#e4c472', border: '1px solid rgba(201,168,76,0.4)', label: '🤔 Candidat fantaisiste' }
+    'Candidat fantaisiste':  { bg: '#241f0f', color: '#EBCE99', border: '1px solid rgba(217,164,65,0.4)', label: '🤔 Candidat fantaisiste' }
   };
   tbody.innerHTML = appels.map(function(a) {
     var statut = a.statut || 'À appeler';

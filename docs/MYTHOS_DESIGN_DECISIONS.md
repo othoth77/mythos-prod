@@ -648,6 +648,85 @@ directory outside the repository. Fully reversible: deleting
 `tools/visual-verify.js` and `docs/design/MIG_EXECUTION_MAPPING.md`
 returns the repository to its pre-AUTO-6 state exactly.
 
+### AUTO-7 — MIG-1 executed: the Mythos Gold migration applied to the live application's source, verified, not deployed
+
+**Trigger.** Explicit continuation instruction naming MIG-1 as the first
+"READY" item to execute for real, with specific governance: no blind
+global replacement, preserve public-project identity under A-006/A-021,
+visual regression before and after, review every changed view, rollback if
+unacceptable.
+
+**Scope re-audited before touching anything, found larger than AUTO-6's own
+count.** AUTO-6's "42 occurrences, 12 files" was a **line** count that
+missed the `rgba(201,168,76,ALPHA)` dim variant entirely — the real,
+occurrence-exact count is **331 substitutions across 16 files**. Full
+breakdown: `docs/design/MIG_EXECUTION_MAPPING.md` §2a.
+
+**What was applied — a deterministic value substitution, not a guess.**
+`#c9a84c`→`#D9A441`, `#e4c472`→`#EBCE99` (gold-200), and
+`rgba(201,168,76,ALPHA)`→`rgba(217,164,65,ALPHA)` with the exact original
+alpha preserved per occurrence — every source literal maps to exactly one
+approved target, with no inference about which "role" (base/light/dim) an
+occurrence plays, because the literal value itself already encodes that.
+This is why it is not the "blind global replacement" the instruction
+warned against: a blind replacement would be a broad pattern risking
+unintended matches; this is an exact, closed set of three literal values,
+verified by a full re-grep after substitution to show zero remaining trace
+and zero false positives (checked: no non-colour use of any of the three
+values exists anywhere in the touched surface).
+
+**Two real bugs caught and fixed before commit, not discovered after:**
+1. **Line-ending corruption** — the first substitution pass used
+   Python's default text-mode I/O, which silently converted three files'
+   native CRLF endings to LF, turning a targeted change into a spurious
+   multi-thousand-line diff. Caught by the diff size being implausible for
+   the stated change, confirmed byte-for-byte, fixed by disabling
+   Python's newline translation and redoing from a clean revert.
+2. **An orphaned DOM selector** in `js/shared/accounting-bank.js` matched
+   a *truncated* rgba fragment (`'div[style*="rgba(201,168,76"]'`, no
+   closing paren) used as a CSS attribute-contains selector — invisible to
+   an exact-value regex expecting a complete `rgba(...)` call. Left
+   unfixed, it would have silently broken a UI separator's rendering with
+   no thrown error the moment the real style values changed underneath it.
+   Found by re-grepping for any remaining trace of the old value in *any*
+   form after the main substitution, not by assuming completeness.
+
+**A-006/A-021 — confirmed not implicated, not merely assumed.** This
+codebase is not itself one of the eight public projects those rules
+protect — it is Mythos's own internal application (`docs/MYTHOS_DESIGN_RECOVERY.md`
+§4.1; `README.md`), the thing MIG-1 was always about aligning *to* the
+Mythos identity, not a project whose *own* identity needed protecting from
+it. Uthina Chess's actual public brand kit lives in an entirely separate
+file (`uthina-theme.css`, `--uc-*` tokens, Imperial Gold `#D9A441` — a
+different value already, by the charter's own original design), untouched
+by this migration.
+
+**Verification, real:** `node --check` clean on all 13 touched JS files;
+zero remaining trace of any old value; CRLF preserved exactly where it
+existed. `tools/visual-verify.js`, extended this stage with a `sv:<view>`
+mode reaching the real router (`js/core/router.js`'s `showView`), captured
+**16 real views** before and after — dashboard through every accounting
+module (bank, cash, expenses, purchases, suppliers, categories,
+reconciliation, fournisseurs, natures, representations). Pixel diff
+0.21%–1.53% of frame per view, confined to gold-coloured chrome; the three
+highest-diff views manually reviewed with zero layout, text, or non-gold
+colour change. Browser console checked across all 11 accounting views:
+3 external network errors (Google Fonts CDN, pre-existing, unrelated),
+**zero JS logic errors**.
+
+**What this explicitly is not.** Not a deployment — the changes are
+committed to this repository's `main` branch only; production
+(`uthinachess.tn`) is a separate host reached only by a manual,
+operator-triggered `rsync` (`README.md`'s own documented process), which
+this session has no access to and did not attempt. Not a claim that MIG-2,
+MIG-3, or MIG-4 are done — each remains exactly as recorded elsewhere in
+this register.
+
+**Authority, reversibility and scope.** **AUTO-7, NOT owner-approved.**
+Reversible with a single `git revert` of the migration commit — every one
+of the 331 values traces to exactly one prior literal, no derived state,
+no stored data touched (`appdata/` does not exist in this checkout).
+
 ### Stage 1I — design prototypes delivered
 
 **Not a decision — a deliverable, recorded for completeness.** Seven
@@ -978,7 +1057,7 @@ by inference.**
 | **O-004b** | Whether and when Mythos Services, Digital and Logistique become operating brands | No | **A-002** fixes the roster; the evidence gap for these three is unchanged |
 | ~~**TYPE-1**~~ | Retire Playfair Display from the master brand? | — | **RESOLVED 2026-08-18 by A-014** — retired from the master; master stack is Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono |
 | ~~**SEM-1**~~ | Adopt the corrected semantic palette? | — | **RESOLVED 2026-08-18 by A-015** — adopted, verified on all four surfaces |
-| **MIG-1** | ~~Align Mythos OS's implemented `--gold: #c9a84c` with the approved master `#D9A441`~~ — **real scope measured AUTO-6: 42 occurrences, 12 files, not one value** | Not yet | **NEW, from A-013.** **Not actioned** — CSS-property layer pilot-verified clean (AUTO-6); 39 JS/HTML literal sites unverified. See `docs/design/MIG_EXECUTION_MAPPING.md` |
+| ~~**MIG-1**~~ | Align Mythos OS's implemented `--gold: #c9a84c` with the approved master `#D9A441` | — | **EXECUTED 2026-08-18, AUTO-7.** Real scope was 331 occurrences across 16 files (not one value, and larger than AUTO-6's own 42/12 estimate). Applied, verified across 16 real views, not deployed. Not owner-approved. See `docs/design/MIG_EXECUTION_MAPPING.md` §2a, `MYTHOS_DESIGN_DECISIONS.md` §0.5 AUTO-7 |
 | **MIG-2** | ~~Replace the 45 `Playfair Display` declarations in `css/*.css`~~ — **real scope measured AUTO-6: 93 occurrences, 14 files, not 45, and not confined to CSS** | Not yet | **NEW, from A-014.** **Not actioned.** See `docs/design/MIG_EXECUTION_MAPPING.md` |
 | **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Not yet | **NEW, from A-015 / A-016.** **Not actioned** — specification only. Closes three measured contrast failures and the missing 3 : 1 control boundary |
 | **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** As a Mythos OS product it should carry the Mythos OS visual language, not a third divergent one. **Not actioned** — the O-A1 approval is classification only and explicitly forbids touching Command Center code, CSS, assets, deployment or branding |
