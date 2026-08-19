@@ -1031,6 +1031,55 @@ value, A-018's requirement, A-022's floor, and the approved disabled
 role; what is delegated is the decision to apply them here). One
 `git revert` restores everything. Not deployed.
 
+### AUTO-13 — the mythosprod.xyz hub, built for real: the master brand's first public surface
+
+**Trigger.** Final-mission §5 explicitly instructs building the hub's
+information architecture — which supersedes **O-003**'s open "should it
+exist" for the *build*. Deployment stays a separate step, still blocked at
+the host boundary, with a complete operator runbook shipped alongside.
+
+**What was built — `sites/mythosprod.xyz/`, fully static, self-contained.**
+One page (French, `lang="fr"`), zero external requests: canonical tokens
+and the AUTO-4 self-hosted faces travel as build-time copies inside the
+site directory (production serves that directory alone), the AUTO-1
+wordmark inlined as SVG with `currentColor`. `robots.txt`, `sitemap.xml`,
+canonical/OG/JSON-LD Organization metadata — nothing fabricated: no
+invented social profiles, addresses, or business claims.
+
+**The structure is PUBLIC_ECOSYSTEM_ARCHITECTURE.md §9's A-020 tree,
+exactly**: five units under MYTHOS; **Mythos Command Center under Mythos
+OS, never beside the units**; the three units with no recorded operations
+(Services/Digital/Logistique) listed as *structure only* — name and
+descriptor, no activity claim (O-A2 discipline). **Projects appear in
+their own identities** (A-004/A-006): deliberately neutral tiles, name +
+domain + evidence-based status from the ledger — the five live projects
+link out; AgriBee/ID Auto/Mouain show "En préparation" with no link. The
+twelve ECO-3 internal projects are excluded, as AUTO-3 classified them.
+
+**Design-system compliance, verified in a real browser, both themes.**
+Dark-first (A-010) with the token sheet's system-preference behaviour —
+the light render is not a bug but A-017 working ("light complete, never a
+filter over dark"), and both presentations were screenshot-verified. One
+35° gesture per view (A-012): the hero hairline, nowhere else — the gold
+unit descriptors are the approved lockup structure itself (AUTO-1), not
+ad-hoc emphasis, and gold never appears as a ground. Skip link,
+landmarks, `:focus-visible` ring, 44px interactive targets, reduced
+motion via the tokens. **Measured: zero horizontal overflow at
+320/375/768/1280; zero console errors; all 8 self-hosted fonts load
+(`document.fonts.check` confirms Archivo Expanded and Plex Mono active).**
+
+**Deployment: NOT performed.** `sites/mythosprod.xyz/DEPLOYMENT.md` carries
+the exact operator runbook — rsync layout, complete hardened nginx vhost
+(security headers + a strict CSP the site's zero-external-origin design
+makes possible), the MCC-1-proven certbot procedure, DNS note (owner
+action), smoke tests, and the trivial static rollback.
+
+**Authority, reversibility, scope.** **AUTO-13, NOT owner-approved.** A
+new, additive directory; nothing else references it; deleting it reverts
+everything. The build answers O-003's *capability* half — the hub now
+exists as deployable software; whether to point DNS at it remains the
+owner's call, exactly as recorded.
+
 ### Stage 1I — design prototypes delivered
 
 **Not a decision — a deliverable, recorded for completeness.** Seven
