@@ -727,6 +727,64 @@ Reversible with a single `git revert` of the migration commit — every one
 of the 331 values traces to exactly one prior literal, no derived state,
 no stored data touched (`appdata/` does not exist in this checkout).
 
+### AUTO-8 — MIG-2 attempted and rolled back: a real, found regression, not a guess pushed through
+
+**Trigger.** Continuation instruction naming MIG-2 as the second item to
+execute, with explicit governance: use the self-hosted approved fonts,
+verify Arabic and Latin rendering, run visual regression.
+
+**What was done, mechanically sound.** All 93 real occurrences of
+`font-family: 'Playfair Display', serif` (including two backslash-escaped
+variants inside JS string literals) substituted to `'Archivo Expanded',
+sans-serif`, with every co-located `font-weight` normalized to the
+approved system's single display weight, **600** (`TYPOGRAPHY.md` §2) —
+a deliberate choice not to self-host the five legacy weights (500–900)
+Playfair happened to carry, reasoned as preserving unconsidered accretion
+rather than honouring the approved system's own "one weight" display
+restraint. One real bug (a mis-positioned escape character breaking three
+JS files) caught by `node --check` and fixed before proceeding, same
+discipline as AUTO-7.
+
+**Arabic — checked directly, not assumed clear.** Real Arabic text exists
+in this application. Confirmed via Google Fonts' own API that Playfair
+Display has no Arabic subset — identical to Archivo Expanded. Arabic
+rendering is provably unaffected by this migration either way.
+
+**The regression, found by the verification this program insists on.** 17
+real views screenshotted before/after and pixel-diffed. Most were clean.
+Two selectors (`.compta-kpi`, `.stat-value` — the accounting dashboard's
+headline TND figures, 30px/800) **wrap to two lines under Archivo
+Expanded where Playfair Display fit them on one**, visibly misaligning
+that card's height against its row siblings. Confirmed by direct
+before/after comparison, not inferred.
+
+**Rolled back completely, not patched.** Fixing the wrap means resizing
+components to fit a different typeface's metrics — a new design decision
+this migration was never authorised to make unilaterally, and one that
+would need checking against every other large-display Playfair usage, not
+just the one found. `git checkout --` on all 15 touched files; confirmed
+byte-identical to the pre-attempt state.
+
+**Why this is the correct outcome, not a failure to complete.** The
+continuation instruction's own governance says exactly this: run visual
+regression, review every changed view, **roll back immediately if the
+result is unacceptable**. A found, real, visible layout regression in a
+live financial application's headline figures is exactly that case. MIG-1
+succeeded because real verification found the change was clean; MIG-2's
+verification found it was not, at two specific selectors — and the
+process worked precisely as designed either way.
+
+**MIG-2 status: READY (mechanism proven, Arabic confirmed unaffected),
+BLOCKED on one real, narrow, findings-backed question** — accept the
+KPI-card wrap, resize the two affected classes (and audit others like
+them), or some other resolution. Full record: `docs/design/
+MIG_EXECUTION_MAPPING.md` §3a.
+
+**Authority and reversibility.** AUTO-8, not owner-approved — and in this
+case, nothing to reverse, since nothing was kept. The register entry
+itself is the deliverable: an honest account of what was tried and why it
+was undone.
+
 ### Stage 1I — design prototypes delivered
 
 **Not a decision — a deliverable, recorded for completeness.** Seven
@@ -1058,7 +1116,7 @@ by inference.**
 | ~~**TYPE-1**~~ | Retire Playfair Display from the master brand? | — | **RESOLVED 2026-08-18 by A-014** — retired from the master; master stack is Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono |
 | ~~**SEM-1**~~ | Adopt the corrected semantic palette? | — | **RESOLVED 2026-08-18 by A-015** — adopted, verified on all four surfaces |
 | ~~**MIG-1**~~ | Align Mythos OS's implemented `--gold: #c9a84c` with the approved master `#D9A441` | — | **EXECUTED 2026-08-18, AUTO-7.** Real scope was 331 occurrences across 16 files (not one value, and larger than AUTO-6's own 42/12 estimate). Applied, verified across 16 real views, not deployed. Not owner-approved. See `docs/design/MIG_EXECUTION_MAPPING.md` §2a, `MYTHOS_DESIGN_DECISIONS.md` §0.5 AUTO-7 |
-| **MIG-2** | ~~Replace the 45 `Playfair Display` declarations in `css/*.css`~~ — **real scope measured AUTO-6: 93 occurrences, 14 files, not 45, and not confined to CSS** | Not yet | **NEW, from A-014.** **Not actioned.** See `docs/design/MIG_EXECUTION_MAPPING.md` |
+| **MIG-2** | ~~Replace the 45 `Playfair Display` declarations in `css/*.css`~~ — **real scope measured AUTO-6: 93 occurrences, 14 files, not 45, and not confined to CSS** | Not yet | **ATTEMPTED AND ROLLED BACK, AUTO-8.** Substitution mechanism proven (93/93, Arabic unaffected), but a real KPI-card text-wrap regression found by visual regression; reverted rather than patched with an unauthorised design change. See `docs/design/MIG_EXECUTION_MAPPING.md` §3a |
 | **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Not yet | **NEW, from A-015 / A-016.** **Not actioned** — specification only. Closes three measured contrast failures and the missing 3 : 1 control boundary |
 | **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** As a Mythos OS product it should carry the Mythos OS visual language, not a third divergent one. **Not actioned** — the O-A1 approval is classification only and explicitly forbids touching Command Center code, CSS, assets, deployment or branding |
 | **SEQ-1** | Sequential and diverging data scales for continuous data | No | **NEW, raised by 1D.** The eight-series categorical palette is approved; continuous scales were outside the 1C scope and must not be improvised (`docs/design/COLOR_SYSTEM.md` §5) |
