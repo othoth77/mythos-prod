@@ -838,6 +838,68 @@ MIG-3's two applied changes are single-value CSS substitutions,
 reversible with one `git revert`, identical in kind to MIG-1's pattern.
 MIG-4 has nothing to reverse — nothing was done.
 
+### AUTO-10 — C-006 executed for the console surface: mythos.css reconciled, the red suite AUTO-7/9 left behind is green again
+
+**Trigger.** Final-mission continuation (2026-08-19) naming C-006 as READY.
+Running the suites first — the mission's own EVIDENCE step — found
+something sharper than "ready": **`main` had been RED (414/419) since the
+AUTO-7/AUTO-9 merges.** `tests/mos-1-console-test.js`'s drift rule reads
+the D-001 palette live from `css/main.css` and requires `mythos.css` to
+carry it verbatim; when MIG-1/MIG-3 migrated `css/main.css`'s
+gold/gold-light/gold-dim/muted/danger, the console correctly drifted out
+of compliance. **AUTO-7/AUTO-9 never ran this suite — an honest miss,
+recorded here, found by this pass's own first check.** The drift alarm
+worked exactly as designed: it forced this reconciliation.
+
+**What was applied to `projects/mythos-os-console/reference/web/mythos.css`:**
+the five drifted tokens updated to the canonical values (`#D9A441`,
+`#EBCE99`, `rgba(217,164,65,0.12)`, `#A8A498`, `#F1706A`); the derived
+tokens that follow them (`gold-line`/`gold-line-2` hairlines,
+`danger-dim` 12% companion → `rgba(241,112,106,0.12)`, `shadow-gold`);
+**26 hardcoded gold rgba literals, 1 gold-light rgba literal, 5 danger
+rgba literals** — alpha preserved exactly, same deterministic method as
+MIG-1; and the three provenance comment blocks updated to record the
+history (D-001 values, MOS-1.1's measurements, the old danger-text
+rationale) rather than describe values that no longer exist.
+`--mythos-text-secondary` (#999) and `--mythos-danger-text` (#ff8c82)
+retained unchanged for composition-layer stability — both still pass AA;
+nothing that composes against them shifts.
+
+**Test narrowings — the suite's established pattern, never deletion:**
+three value-coupled assertions updated with their history kept in the
+labels: the hardcoded old `danger-dim` expectation; the hardcoded old
+`--muted: #6b6860` expectation (which had become mutually unsatisfiable
+with the suite's own live-drift rule); and the "recorded honestly:
+--muted as body text FAILS AA" informational assertion, which now
+asserts it **clears** AA — because with the corrected A-015 value it
+genuinely does, and asserting the old failure would be asserting a
+falsehood.
+
+**Verification.** Suite **419/419** (was 414/419 on `main`). Console
+shell served statically and driven with a real headless browser:
+computed custom-property values read from the live DOM match the six
+canonical values exactly; before/after screenshots diff **1.26%** of
+frame, confined to gold-toned chrome, layout intact. (The console's own
+`tools/visual-verify.js` hangs in this sandbox — its bare
+`chromium.launch()` cannot run as root without `--no-sandbox`; an
+equivalent check with the proven launch pattern was used instead, and
+the limitation is recorded rather than glossed.) Executor suite 158/158;
+orchestration 255/257, the 2 failures being VPS-only systemd-unit
+existence checks that cannot pass in a sandbox — environmental, verified
+by reading the assertions, not assumed.
+
+**What C-006 now is.** The canonical-versus-console conflict AUTO-2 named
+is **resolved for every value the drift rule governs** — the two files
+are verbatim-identical again, enforced by tests. Remaining, explicitly:
+the console's own *extended* tokens (spacing, radius, typography — Playfair/
+Inter, which the console inherited from the pre-migration app) are not
+governed by the drift rule and not reconciled by this entry; the console
+typography question follows MIG-2's resolution, not this one.
+
+**Authority, reversibility, scope.** **AUTO-10, NOT owner-approved.**
+One `git revert` restores every value; the drift test would then go red
+again, which is the correct alarm in both directions.
+
 ### Stage 1I — design prototypes delivered
 
 **Not a decision — a deliverable, recorded for completeness.** Seven
