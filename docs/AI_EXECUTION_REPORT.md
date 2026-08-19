@@ -4,6 +4,42 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260819220653-7iv7tt` — BLOCKED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | AI Operating Layer v1 — Final Closure |
+| Provider / model | claude-code / default |
+| Execution profile | repo-test |
+| Started | 2026-08-19T22:06:53.613Z |
+| Ended | 2026-08-19T22:09:24.762Z |
+| Status | **BLOCKED** |
+| Claude session | `f34b0301-8c9f-45ce-abf0-875a47215abd` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `a49386ea156bd3b18079dcd24605327134b3af18` |
+| Git verified | null |
+
+**Summary:** Final closure validation of AI Operating Layer v1 stopped at Phase 1. Local HEAD and origin/main are identical at a49386e with a clean worktree and correct remote (othoth77/mythos-prod), but PR #46 is NOT merged: its head branch origin/claude/mythos-prod-aol-v1-closure-hq9f0x sits two commits ahead (da80870 security fix, a8611e0 handover) with merge-base a49386e, da80870 is not an ancestor of origin/main, and the last merge commit on main is PR #44. The gh CLI is denied by this execution profile so PR metadata is unverifiable; the merge fact is proven from Git refs alone. Per the mission's Phase 1 rule I stopped and did not validate Phases 2-6 against non-existent merged code. I did run the named governance invariant test to establish whether the defect is live on current main: 87 passed / 2 failed, exit 1, both failures being the section 11 isolation assertions - the deploy identity (which missions execute as) CAN read /etc/mythos/governance.key and CAN list the live approval store, meaning a mission can forge a signed approval. That is the exact HIGH-severity defect PR #46 fixes, and it is currently unmitigated in production. Separately observed read-only: deploy is a member of the docker group (root-equivalent escalation path that would undercut the mythos-gov file-mode cage); left in place per instruction. systemctl and getent are denied by the profile so service state, mythos-gov group state and approval-relay function are NOT VERIFIABLE. No files modified, no commit, no push, no deploy, no service restart, no key material read or printed, M-13 not started.
+
+**Tests:**
+- node tests/mythos-governance-invariant-test.js (baseline on main a49386e, NOT the PR #46 state): 87 passed, 2 failed, exit 1 - FAIL on section 11 governance-key isolation
+- executor/security regression suites: NOT RUN (downstream of Phase 1 blocker; no pass claimed)
+
+**Residual risks:**
+- HIGH: /etc/mythos/governance.key is readable by the deploy identity that missions run as - a mission can read the signing key and approval store and forge a signed commit-bound approval, defeating the delivery-invariant cage. Unmitigated until PR #46 merges AND the root hardening script runs.
+- deploy is a member of the docker group (gid 986), a root-equivalent escalation path that can bypass the file-mode-based mythos-gov isolation PR #46 introduces; the cage is not airtight while this membership stands. Not removed, per mission instruction - needs a separate authorised task.
+- PR #46 review/mergeability state could not be confirmed (gh CLI denied by execution profile); only the unmerged fact is verified.
+- Production service state, mythos-gov group existence/memberlessness, and approval-relay function are unverified from this profile (systemctl and getent denied).
+- Repo-read write denial, execution-profile enforcement, skills fail-closed, MCP fail-closed, MAX_PARALLEL=5 and provider/model boundaries were not re-verified this pass.
+
+**Next stage:** Owner action 1: merge PR #46 (claude/mythos-prod-aol-v1-closure-hq9f0x -> main). Owner action 2, as root on the production VPS once the merge reaches the production checkout: sudo bash projects/mythos-ai-executor/service/mythos-governance-harden.sh, then verify with getent group mythos-gov (no members), runuser -u deploy -- test -r /etc/mythos/governance.key (MUST fail), and node tests/mythos-governance-invariant-test.js as deploy (0 failures). Re-run this final closure validation afterwards. Do not start M-13.
+
+
+---
+
 ## Task `t-20260819210602-to08f6` — COMPLETED
 
 | Field | Value |
