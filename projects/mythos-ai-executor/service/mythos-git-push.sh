@@ -20,11 +20,10 @@
 #     `deploy` (the checkout is writable by another user);
 #   - no credential is read, printed, or copied by this script.
 #
-# Install (root, one-time — deliberately not part of deploy/install.sh,
-# which runs unprivileged as ubuntu):
-#   cp service/mythos-git-push.sh /usr/local/bin/mythos-git-push   (0755 root)
-#   cp service/mythos-git-push.{service,timer} /etc/systemd/system/
-#   systemctl daemon-reload && systemctl enable --now mythos-git-push.timer
+# Install (root, idempotent — deliberately not part of deploy/install.sh,
+# which runs unprivileged). Installs root-owned copies, establishes the
+# mythos-gov key/store boundary, reloads systemd and verifies the cage:
+#   sudo bash service/mythos-governance-harden.sh
 set -euo pipefail
 
 REPO=/home/deploy/projects/mythos-prod
