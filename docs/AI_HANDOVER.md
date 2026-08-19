@@ -58,6 +58,43 @@ this repository and must be generated on the host.
 
 ---
 
+## M-12 — RUNTIME SKILLS + GOVERNED MCP CAPABILITY FOUNDATION (2026-08-19) — **PASS; THREE-AGENT BUILD, SECURITY-REVIEWED, PROOFS-COMPLETE; NOT DEPLOYED**
+
+### Stage
+
+M-12 (MOS-v2) — turns Skills into a runtime capability layer on the Phase-1 execution path: Mission → deterministic Skill selection → budgeted instruction injection → governed fail-closed MCP resolution → Policy → Model → Execution. Orchestrated build: Sonnet implemented under a fixed spec, Opus security-reviewed, Haiku regression-audited, the orchestrator integrated/hardened/verified. No existing component rebuilt — Context Builder, budgets, execution profiles, model catalog, goal/approval/planner/DAG/auto-routing all reused.
+
+### Delivered (5 new + 9 modified files)
+
+- **Registry** (`config/skills.json`, `skills/*.md`, `lib/skills.js`): server-side only, standalone from `.claude/`; strict whole-registry-fail-closed validation; browser can define none of it.
+- **Selection** (`lib/skills.js`): deterministic — closed-enum `task_category`, else keyword rules, else `generic`; `createTask` refuses `skill_id`/`skill`/`mcp_*` payloads loudly (`TASK_FORBIDDEN_FIELD`).
+- **Injection** (`executor.js`, `templates/task-prompt.md`): skill section BELOW the governance preamble with the fixed subordination sentence; one 6000-char budget, deterministic terminal truncation marker.
+- **Context** (`core/context.js`): one skill item under the EXISTING budget/caps; project isolation intact.
+- **MCP foundation** (`config/mcp-capabilities.json`, `lib/mcp-capabilities.js`): no client, no network, no credentials; github `enabled:false` fails closed; endpoint/url fields invalidate the registry by design; resolution gates on skill∩server∩tool∩profile.
+- **Audit**: `skill_id`/`skill_version`/`skill_selection_reason`/`mcp_capabilities` on task.json + events; console exposes names only.
+
+### Security review → all fixed
+
+Opus returned **CHANGES-REQUIRED (0 blockers, 4 MAJORs)**; every one fixed and proven against the real modules before commit: **#1** instruction bodies cached at load (no live-reload injection channel); **#2** realpath containment (symlink escape refused); **#3** `compatible_execution_profiles` now enforced in MCP resolution + `required_capabilities` documented declarative; **#4** four audit fields schema-declared + `createTask` re-validates the full record. Plus six MINORs (marker-last, surrogate strip, heading demotion, NUL rejection, null-proto map, dup-category rejection). Seven of the review's manual checks promoted into permanent suite assertions.
+
+### Verification
+
+Three independent passes agree. **Haiku audit: PROOFS-COMPLETE** — all 18 mandate items mapped to executable assertions (item 14/approval = M-09 scope, gate still green), 4 spot-checks pass, scope clean. Suites: **executor 264/264 (was 257), console 1264/1264, orchestration core 257/257, MOS-v2 regression gate PASS (20/20 areas, 0 new / 0 pre-existing)**. `node --check` clean on all touched files.
+
+### Record
+
+| | |
+|---|---|
+| Base | `7a78626` (+ 3 unrelated auto-report commits `756fc40..580e941` touching only `docs/AI_EXECUTION_REPORT.md`, generated when a review agent's probes reached the live executor daemon — harmless, already on origin, deliberately not history-rewritten) |
+| Commit | `3bbee99` (+ this handover entry) |
+| Remote HEAD | verified after relay delivery |
+| Working tree | clean except documented artifacts: concurrent `roadmap-state.json`, permission-pinned comment-only `identity-contract.js`, dead `projects/idauto/` remnants, untracked `projects/ssangyong-autos/deploy/` |
+| Deployment | **Not performed** |
+
+### Next stage (per the mission's FINAL GATE)
+
+**NOT M-13 feature work.** A read-only audit of the whole AI Operating Layer v1, then the VPS production-activation plan against final merged main. The deployed executor/console still need the operator restarts already on record (MOS-3 activation entry) to serve M-12. Auto-routing (provider=auto), a real MCP client, and MCP credentials remain explicitly future.
+
 ## MOS-v2 M-11 — governed auto-routing (2026-08-19)
 
 `provider: 'auto'` on the console start form. Path: profile validation +
