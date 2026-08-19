@@ -1,5 +1,8 @@
 # Mythos OS — AI Handover
 
+**Last updated:** 2026-08-19 UTC
+**From:** MOS-v2 **M-02 — DEPLOY RELAY, CHIEF-REVIEW FIXES APPLIED. NOT INSTALLED, NOT USED.**
+
 ## MOS-v2 M-02 — DEPLOY RELAY, CHIEF-REVIEW FIXES (2026-08-19) — **THREE ISSUES FIXED, NOT INSTALLED, NOT USED**
 
 Fable 5's review of PR #33 rejected the initial relay pending three fixes.
