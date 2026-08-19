@@ -12,6 +12,33 @@
 #
 # Do not install or use before M-01 (the console's own deployment) is
 # live — see RUNBOOK.md.
+#
+# --- ProtectSystem=strict vs certbot (chief review, MOS-v2 M-02 round 2) ---
+#
+# tools/deploy.sh Phase 8 runs `sudo certbot certonly --nginx ...` (dry
+# run) and, on operator confirmation, `sudo certbot --nginx ...` for real
+# issuance. certbot writes to /etc/letsencrypt (certs/keys/config),
+# /var/lib/letsencrypt (its account/state directory), and
+# /var/log/letsencrypt (its own log) — none of which exist under
+# ReadWritePaths in the first version of this unit, and ProtectSystem=
+# strict makes the rest of / read-only by default. Fixed below by adding
+# exactly those three directories, and no broader grant: not all of /etc
+# or /var, which would defeat the point of ProtectSystem=strict.
+#
+# What is NOT independently verified from this session: whether a mount
+# namespace's read-only bind mounts (set up by ProtectSystem for this
+# unit) are still enforced against a `sudo`-elevated child process in the
+# same namespace, or whether real root capabilities inside that namespace
+# can remount around it. Mount namespaces ordinarily persist across
+# execve (including through a setuid binary like sudo, which does not by
+# itself unshare a new mount namespace), so the expectation is that these
+# three ReadWritePaths entries are both necessary and sufficient — but
+# this session has no real host to run `sudo certbot` against and prove
+# it. Do not treat this as proven. Before the first production run of
+# this unit that reaches Phase 8 with no existing certificate, rehearse
+# it on the real host per RUNBOOK.md's "On-host verification required"
+# section — this unit must not be trusted for a real certbot run until
+# that rehearsal has passed.
 
 [Unit]
 Description=Mythos OS Console Phase-8 deployment relay (runs tools/deploy.sh as deploy)
@@ -26,4 +53,4 @@ Group=deploy
 ExecStart=/usr/local/bin/mythos-os-console-deploy
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/home/deploy/projects/mythos-prod /home/deploy/deployments/mythos-os-console /home/deploy/.config/systemd/user
+ReadWritePaths=/home/deploy/projects/mythos-prod /home/deploy/deployments/mythos-os-console /home/deploy/.config/systemd/user /etc/letsencrypt /var/lib/letsencrypt /var/log/letsencrypt

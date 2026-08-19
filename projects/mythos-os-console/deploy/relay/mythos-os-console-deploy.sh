@@ -51,6 +51,19 @@
 # lets an authorized session start, as deploy, work deploy could already
 # do for itself.
 #
+# Fix (chief review, MOS-v2 M-02 round 2): deploy.sh's own Phase 3 calls
+# `systemctl --user daemon-reload`, `systemctl --user enable --now`,
+# `systemctl --user restart`, and `systemctl --user is-active` against
+# the console's user service. Those are exactly the calls
+# mythos-os-console-restart.sh already had to provide deploy's session
+# environment for (a root-installed system unit with User=deploy has no
+# login session, so XDG_RUNTIME_DIR/DBUS_SESSION_BUS_ADDRESS are not set
+# by default). The first version of this script omitted that, so Phase 3
+# of a relay-triggered deploy.sh run would have failed the same way
+# `sudo -u deploy systemctl --user ...` did in MOS-1.6. Fixed below by
+# exporting the identical two variables the restart relay uses, before
+# deploy.sh ever runs.
+#
 # Prerequisite (read before installing): M-01 — the console's own
 # deployment — must already be live, i.e. Phases 0-7 of deploy.sh have
 # already succeeded at least once (interactively, by the operator, as
@@ -64,6 +77,13 @@
 #     /etc/systemd/system/
 #   systemctl daemon-reload
 set -euo pipefail
+
+# Same as mythos-os-console-restart.sh, and for the same reason: deploy.sh
+# talks to deploy's systemd --user manager internally (Phase 3), and this
+# process starts with no login session of its own to inherit it from.
+DEPLOY_UID="${MYTHOS_DEPLOY_UID:-1001}"
+export XDG_RUNTIME_DIR="/run/user/${DEPLOY_UID}"
+export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${DEPLOY_UID}/bus"
 
 REPO=/home/deploy/projects/mythos-prod
 exec bash "$REPO/projects/mythos-os-console/tools/deploy.sh"

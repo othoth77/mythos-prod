@@ -1,5 +1,53 @@
 # Mythos OS — AI Handover
 
+## MOS-v2 M-02 — DEPLOY RELAY, CHIEF-REVIEW FIXES (2026-08-19) — **THREE ISSUES FIXED, NOT INSTALLED, NOT USED**
+
+Fable 5's review of PR #33 rejected the initial relay pending three fixes.
+No redesign, no new milestones, no host action — exactly the three issues,
+scoped to `projects/mythos-os-console/deploy/relay/` and this file.
+
+**1. Deploy relay D-Bus environment (real bug, now fixed).**
+`mythos-os-console-deploy.sh` ran `tools/deploy.sh` without exporting
+`XDG_RUNTIME_DIR`/`DBUS_SESSION_BUS_ADDRESS`. `deploy.sh` Phase 3 itself
+calls `systemctl --user daemon-reload/enable/restart/is-active` against
+the console's user service — under a root-installed `User=deploy` system
+unit (no login session), those calls would have failed the same way
+`sudo -u deploy systemctl --user ...` failed in MOS-1.6. Fixed by
+exporting the identical two variables `mythos-os-console-restart.sh`
+already used, before invoking `deploy.sh`.
+
+**2. `ProtectSystem=strict` vs certbot.** `mythos-os-console-deploy.service`
+had no `ReadWritePaths` for `/etc/letsencrypt`, `/var/lib/letsencrypt`, or
+`/var/log/letsencrypt` — `sudo certbot` (deploy.sh Phase 8) needs to write
+all three, and the rest of `/etc`/`/var` correctly stays read-only.
+**Not independently verified against a real host**: whether a
+`sudo`-elevated child actually respects this unit's read-only mount
+namespace the way expected is stated explicitly as unproven, not
+assumed. `RUNBOOK.md` now has a mandatory "On-host verification required
+before production installation" section — a `certbot ... --dry-run`
+rehearsal through the installed unit, before any first real Phase 8 run.
+
+**3. Runbook health checks and secret setup.** `RUNBOOK.md` `Verify`
+section rewritten to the real M-01 unauthenticated behavior (`GET /login`
+→ 200, `GET /` → 302 → `/login`, `GET /api/health` → 401, `POST /` →
+405), replacing an earlier check that assumed `/api/health` was reachable
+without auth. Added a "One-time `MOS_CONSOLE_SECRET` setup" section:
+generate fresh (`openssl rand -base64 32`), explicitly **do not reuse the
+old login-gate password**, store outside the repo/worktree in the same
+0600 `/home/deploy/deployments/mythos-os-console/.env` pattern
+`deploy.sh` already uses for `MOS_EXECUTOR_TOKEN`. Neither relay script
+reads or handles this secret.
+
+**Validation:** `bash -n` clean on both scripts (unchanged from before,
+re-checked). `systemd-analyze verify` clean on both units, using a
+stand-in executable at the installed path (nothing is installed on any
+real host from this session). Diff reviewed — only
+`mythos-os-console-deploy.{sh,service}` and `RUNBOOK.md` changed; no
+secret values present, only documentation references. No host action
+taken; nothing installed, started, restarted, or deployed.
+
+---
+
 ## MOS-v2 M-02 — DEPLOY RELAY / OPERATOR RUNBOOK (2026-08-19) — **CREATED, NOT INSTALLED, NOT USED**
 
 Two new root-installable systemd oneshot units, following the
