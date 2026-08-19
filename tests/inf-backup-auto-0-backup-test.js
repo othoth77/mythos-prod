@@ -39,7 +39,7 @@ function rejects(p, re, l) {
 
 var ORCH_PATH = path.join(BASE, 'projects', 'automation', 'reference', 'backup-operations-orchestrator.js');
 var orch = require(ORCH_PATH);
-var OFFHOST_PATH = path.join(BASE, 'projects', 'idauto', 'ops', 'offhost-backup.js');
+var OFFHOST_PATH = path.join(BASE, 'projects', 'infrastructure', 'ops', 'offhost-backup.js');
 var offhost = require(OFFHOST_PATH);
 var AUT_CONFIG = JSON.parse(fs.readFileSync(path.join(BASE, 'projects', 'automation', 'config', 'automation.example.json'), 'utf8'));
 var COMMITTED_CATALOGUE = AUT_CONFIG.connector_catalogue.infrastructure;
@@ -372,7 +372,7 @@ ok(orch.assertIsolatedTarget(isolatedTarget({ restore_path: '/tmp/mythos-restore
 console.log('\n8. Reuse contract — the existing tooling is wrapped, never replaced (O-BACKUP-1)');
 // =======================================================================
 var orchSrc = fs.readFileSync(ORCH_PATH, 'utf8');
-ok(/require\(['"]\.\.\/\.\.\/idauto\/ops\/offhost-backup\.js['"]\)/.test(orchSrc),
+ok(/require\(['"]\.\.\/\.\.\/infrastructure\/ops\/offhost-backup\.js['"]\)/.test(orchSrc),
   '87 the orchestrator REQUIRES the existing offhost-backup module');
 ok(!/createHash\(['"]sha256['"]\)\.update\(fs\.readFileSync/.test(orchSrc),
   '88 the orchestrator does not reimplement file checksumming');
@@ -380,7 +380,7 @@ ok(!/function\s+buildManifest/.test(orchSrc), '89 the orchestrator does not reim
 ok(!/require\(['"]fs['"]\)/.test(orchSrc), '90 the orchestrator has NO filesystem capability of its own');
 ok(!/require\(['"](http|https|net|child_process)['"]\)/.test(orchSrc),
   '91 the orchestrator has no network or process-execution capability');
-ok(orch.buildBackupPlan({ operation: 'backup_create' }).reuses_module === 'projects/idauto/ops/offhost-backup.js',
+ok(orch.buildBackupPlan({ operation: 'backup_create' }).reuses_module === 'projects/infrastructure/ops/offhost-backup.js',
   '92 every plan declares the module it reuses');
 ok(orch.buildBackupPlan({ operation: 'backup_create' }).creates_parallel_mechanism === false,
   '93 every plan declares it creates no parallel mechanism');
