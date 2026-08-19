@@ -126,10 +126,81 @@ function releaseLock(campaignId) {
 
 // --- Goal intake --------------------------------------------------------------
 
+// --- Proposed-plan preview (MOS-v2 M-09) --------------------------------------
+
+// Renders what the campaign WOULD do next, without doing any of it. The
+// preview is built from the same two functions the loop itself uses —
+// campaign.proposeNextMission (roadmap selection) and
+// campaign.buildMissionSpec (the mission DAG) — so it is the real plan, not
+// a second planner's guess about it. NOTHING is persisted as a mission,
+// no goal entity is created, no task is queued: this is a read of the
+// decision the loop is about to make.
+//
+// Every field is picked explicitly. Internal campaign state, instructions
+// and runner-up selections are not part of a plan a human reviews.
+var PREVIEW_TASK_FIELDS = ['key', 'title', 'task_type', 'depends_on', 'policy_classes'];
+
+function planPreview(campaignId) {
+  var preview = {
+    available: false, reason: null, capability_key: null, title: null,
+    objective: null, risk: null, acceptance_criteria: [], tasks: []
+  };
+  var proposed;
+  try {
+    proposed = campaign.proposeNextMission(campaignId);
+  } catch (e) {
+    // A planner that cannot answer is a reason to ASK, never a reason to
+    // proceed: the campaign is parked either way, with the failure stated.
+    preview.reason = 'the planner could not propose a mission: ' +
+      String((e && e.message) || e).slice(0, 200);
+    return preview;
+  }
+  if (!proposed || !proposed.proposal) {
+    preview.reason = String((proposed && proposed.reason) ||
+      'no capability is currently selectable').slice(0, 300);
+    return preview;
+  }
+  var p = proposed.proposal;
+  var spec;
+  try {
+    spec = campaign.buildMissionSpec(p, {});
+  } catch (e) {
+    preview.reason = 'the mission specification could not be built: ' +
+      String((e && e.message) || e).slice(0, 200);
+    return preview;
+  }
+  preview.available = true;
+  preview.capability_key = p.capability_key || null;
+  preview.title = String(spec.title || p.title || '').slice(0, 200);
+  preview.objective = String(p.objective || '').slice(0, 400);
+  preview.reason = String(p.reason || '').slice(0, 300);
+  preview.risk = p.risk || null;
+  preview.acceptance_criteria = [].concat(p.acceptance_criteria || []).slice(0, 10)
+    .map(function (a) { return String(a).slice(0, 200); });
+  preview.tasks = (spec.tasks || []).map(function (t) {
+    var row = {};
+    PREVIEW_TASK_FIELDS.forEach(function (f) {
+      row[f] = f === 'depends_on' || f === 'policy_classes' ? [].concat(t[f] || []) : t[f];
+    });
+    return row;
+  });
+  return preview;
+}
+
 // Submitting a goal does NOT mean "make a campaign". If this project already
 // has one that can still continue, that campaign is the answer — the caller
 // gets its id and continues it. This is what keeps a retrying webhook, a
 // duplicated n8n execution or an impatient operator from forking the work.
+//
+// MOS-v2 M-09: `require_plan_approval` is an OPTIONAL boolean that only a
+// server-side caller sets. When it is true and a NEW campaign is created,
+// the campaign is parked in WAITING_FOR_APPROVAL with its proposed plan
+// attached BEFORE any mission is started — the AI proposes, a human
+// authorises, and only then does continueCampaign dispatch anything. The
+// HTTP surface passes it only when the authenticated payload asks for it,
+// and the console relay always asks. A caller that does not pass the flag
+// (n8n, the autopilot) sees exactly the behaviour it saw before: no extra
+// approval, no extra state, nothing to change on their side.
 function submitGoal(input) {
   coreWiring.assertEnabled();
   input = input || {};
@@ -157,15 +228,80 @@ function submitGoal(input) {
     // repo_path deliberately NOT taken from the payload: the repository is
     // configuration, not something a webhook caller chooses.
   });
+  if (input.require_plan_approval !== true) {
+    return {
+      campaign_id: created.campaign_id,
+      created: true,
+      state: created.state,
+      objective: created.objective
+    };
+  }
+
+  // --- mandatory human approval of the proposed plan --------------------
+  //
+  // Built and attached BEFORE the park, so the approval a human is asked
+  // to answer already carries the plan it is about. proposeNextMission
+  // writes the roadmap's approval CANDIDATES into approval_required when
+  // nothing is selectable; those are notes without an approval entity and
+  // would leave this brand-new campaign with unanswerable pending
+  // approvals, so they are cleared here. Nothing else can have written to
+  // this list — the campaign was created three lines ago.
+  var preview = planPreview(created.campaign_id);
+  var c = campaign.loadCampaign(created.campaign_id);
+  c.approval_required = [];
+  c.proposed_plan = preview;
+  c.require_plan_approval = true;
+  campaign.saveCampaign(c);
+
+  // capability_key is deliberately NOT passed: this approval is about the
+  // PLAN as a whole, not a verdict on one roadmap capability. Passing it
+  // would make an unattended auto-denial write that capability off in the
+  // roadmap because a console goal happened to be submitted while no human
+  // was reachable. The plan itself is recorded in proposed_plan above.
+  var parked = campaign.parkForApproval(created.campaign_id, {
+    action_class: 'GOVERNANCE',
+    objective: created.objective,
+    reason: 'proposed plan requires human approval before dispatch'
+  });
+  var after = campaign.loadCampaign(created.campaign_id);
   return {
     campaign_id: created.campaign_id,
     created: true,
-    state: created.state,
-    objective: created.objective
+    state: after ? after.state : created.state,
+    objective: created.objective,
+    require_plan_approval: true,
+    // Unattended mode still answers for itself, and it still only ever
+    // DENIES (core/unattended.js). Reported, never hidden.
+    auto_denied: !!(parked && parked.auto_denied),
+    approval_id: (parked && parked.id) || null,
+    proposed_plan: preview
   };
 }
 
 // --- Status -------------------------------------------------------------------
+
+// The stored preview, re-picked on the way out. A field added to the
+// stored object for some later reason does not become an API field by
+// default — same discipline as the console's own relays.
+function previewView(preview) {
+  if (!preview || typeof preview !== 'object') return null;
+  return {
+    available: preview.available === true,
+    reason: preview.reason || null,
+    capability_key: preview.capability_key || null,
+    title: preview.title || null,
+    objective: preview.objective || null,
+    risk: preview.risk || null,
+    acceptance_criteria: [].concat(preview.acceptance_criteria || []),
+    tasks: [].concat(preview.tasks || []).map(function (t) {
+      var row = {};
+      PREVIEW_TASK_FIELDS.forEach(function (f) {
+        row[f] = f === 'depends_on' || f === 'policy_classes' ? [].concat((t && t[f]) || []) : (t && t[f]) || null;
+      });
+      return row;
+    })
+  };
+}
 
 function describe(campaignId) {
   var c = safeLoad(campaignId);
@@ -214,6 +350,14 @@ function describe(campaignId) {
     }),
     blocked_missions: st.blocked_missions || [],
     approval_required: st.approval_required || [],
+    // MOS-v2 M-09: the plan a human is being asked to authorise —
+    // capability, objective and the mission's tasks WITH their
+    // dependencies, so the decision is made on the real DAG rather than on
+    // a one-line summary of it. Field-picked from the stored preview; the
+    // per-task instruction text and the campaign's internal state are not
+    // part of it.
+    plan_approval_required: c.require_plan_approval === true,
+    proposed_plan: previewView(c.proposed_plan),
     current_mission: cm ? {
       capability_key: cm.capability_key, mission_id: cm.mission_id, tasks: tasks
     } : null,
@@ -349,6 +493,8 @@ module.exports = {
   DECISION_STATES: DECISION_STATES,
   LIVE_STATES: LIVE_STATES,
   submitGoal: submitGoal,
+  planPreview: planPreview,
+  PREVIEW_TASK_FIELDS: PREVIEW_TASK_FIELDS,
   describe: describe,
   continueCampaign: continueCampaign,
   eventsSince: eventsSince,

@@ -613,6 +613,106 @@ chain = chain.then(function () {
 });
 
 // ---------------------------------------------------------------------------
+// 22b. HTTP API: the approval-resolution route (MOS-v2 M-09)
+//
+// WAITING_FOR_APPROVAL used to be a one-way door: the loop could enter it
+// and continueCampaign correctly refused to leave it, but the only exit
+// was hand-editing persisted JSON on the host. This route is the exit, and
+// it is behind the same bearer token as every other campaign route, calls
+// core/campaign.js's own resolveApproval, and refuses a decision that
+// names no human or states no verdict.
+// ---------------------------------------------------------------------------
+chain = chain.then(function () {
+  process.env.MYTHOS_EXECUTOR_TOKEN = 'test-token-0123456789abcdef';
+  var TOKEN = 'test-token-0123456789abcdef';
+  var servers = server.start({ port: 8198, binds: ['127.0.0.1'] });
+  var campaign = require(path.join(EXEC, 'core', 'campaign'));
+
+  function req(method, urlPath, body, token) {
+    return new Promise(function (resolve, reject) {
+      var payload = body ? JSON.stringify(body) : null;
+      var r = http.request({
+        host: '127.0.0.1', port: 8198, path: urlPath, method: method,
+        headers: Object.assign(
+          payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {},
+          token ? { 'Authorization': 'Bearer ' + token } : {}
+        )
+      }, function (res) {
+        var data = '';
+        res.on('data', function (d) { data += d; });
+        res.on('end', function () { resolve({ code: res.statusCode, body: JSON.parse(data || '{}') }); });
+      });
+      r.on('error', reject);
+      if (payload) r.write(payload);
+      r.end();
+    });
+  }
+
+  var c = campaign.createCampaign({ objective: 'A campaign parked for an HTTP decision.' });
+  var approval = campaign.parkForApproval(c.campaign_id, {
+    reason: 'proposed plan requires human approval before dispatch'
+  });
+  ok(campaign.loadCampaign(c.campaign_id).state === 'WAITING_FOR_APPROVAL',
+    'http/approvals: the fixture campaign is parked');
+  var route = '/campaigns/' + c.campaign_id + '/approvals/resolve';
+
+  return new Promise(function (resolve) { setTimeout(resolve, 200); }).then(function () {
+    return req('POST', route, { approval_id: approval.id, granted: true, decided_by: 'owner' }, null);
+  }).then(function (res) {
+    ok(res.code === 401, 'http/approvals: resolving without a bearer token is refused');
+    ok(campaign.loadCampaign(c.campaign_id).state === 'WAITING_FOR_APPROVAL',
+      'http/approvals: the unauthenticated attempt decided nothing');
+    return req('POST', route, { approval_id: approval.id, granted: true, decided_by: 'owner' }, 'wrong-token');
+  }).then(function (res) {
+    ok(res.code === 401, 'http/approvals: a wrong bearer token is refused');
+    return req('POST', route, { approval_id: approval.id, granted: true }, TOKEN);
+  }).then(function (res) {
+    ok(res.code === 400 && /APPROVAL_NEEDS_DECIDER/.test(res.body.error || ''),
+      'http/approvals: a decision naming no human is refused with 400');
+    return req('POST', route, { approval_id: approval.id, decided_by: 'owner' }, TOKEN);
+  }).then(function (res) {
+    ok(res.code === 400 && /APPROVAL_NEEDS_EXPLICIT_DECISION/.test(res.body.error || ''),
+      'http/approvals: a decision stating no verdict is refused with 400');
+    return req('POST', route, { approval_id: 'ap-nosuch-0001', granted: true, decided_by: 'owner' }, TOKEN);
+  }).then(function (res) {
+    ok(res.code === 404, 'http/approvals: a decision against an unheld approval is 404');
+    return req('POST', route, { capability_key: 'A', granted: true, decided_by: 'owner' }, TOKEN);
+  }).then(function (res) {
+    // The route addresses an approval by ITS OWN ID and by nothing else.
+    // resolveApproval can also match on a capability key, and this surface
+    // deliberately does not expose that: a capability key in a campaign
+    // payload is the one shape that could look like a caller choosing what
+    // runs.
+    ok(res.code === 404, 'http/approvals: a decision addressed by capability_key alone matches nothing');
+    ok(campaign.loadCampaign(c.campaign_id).state === 'WAITING_FOR_APPROVAL',
+      'http/approvals: the capability_key attempt decided nothing');
+    return req('POST', '/campaigns/c-nosuch-0001/approvals/resolve',
+               { approval_id: approval.id, granted: true, decided_by: 'owner' }, TOKEN);
+  }).then(function (res) {
+    ok(res.code === 404, 'http/approvals: an unknown campaign is 404');
+    ok(campaign.loadCampaign(c.campaign_id).state === 'WAITING_FOR_APPROVAL',
+      'http/approvals: every refused decision left the campaign parked');
+    return req('POST', route, { approval_id: approval.id, granted: true, decided_by: 'owner:test' }, TOKEN);
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.granted === true,
+      'http/approvals: an authenticated, complete decision is recorded');
+    ok(res.body.state === 'READY', 'http/approvals: resolving the last approval returns the campaign to READY');
+    ok(res.body.decided_by === 'owner:test', 'http/approvals: the decision names the human it was made by');
+    var stored = campaign.loadCampaign(c.campaign_id);
+    ok(stored.state === 'READY' && (stored.approval_required || []).length === 0,
+      'http/approvals: the PERSISTED campaign left WAITING_FOR_APPROVAL through the route, not through file surgery');
+    ok((stored.approval_decisions || []).length === 1,
+      'http/approvals: the decision is written to the campaign audit trail');
+    // GET on the same path is not the write route.
+    return req('GET', route, null, TOKEN);
+  }).then(function (res) {
+    ok(res.code === 404, 'http/approvals: the resolution path answers nothing to a GET');
+    servers.forEach(function (s) { s.close(); });
+    delete process.env.MYTHOS_EXECUTOR_TOKEN;
+  });
+});
+
+// ---------------------------------------------------------------------------
 // MOS-3C: Dispatcher proof suite (regression pinning)
 // ---------------------------------------------------------------------------
 chain = chain.then(function () {

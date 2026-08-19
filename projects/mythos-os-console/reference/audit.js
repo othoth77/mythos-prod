@@ -43,7 +43,14 @@
 // Every key this module will ever serialise inside `detail`. Anything
 // else a caller passes is dropped silently -- the log saying less than
 // the caller offered is the safe direction.
-var DETAIL_FIELDS = ['profile', 'provider', 'model', 'priority', 'status', 'reason', 'route'];
+// MOS-v2 M-09 adds two: `granted` (the boolean verdict an operator gave a
+// proposed plan) and `approval_id` (WHICH decision they answered). The
+// goal's own objective text is deliberately NOT here, for the same reason
+// `instruction` and `title` are not: it is operator-authored free text.
+// "Who approved which plan, and did they say yes" is the record; what the
+// plan said is in the executor's own campaign file.
+var DETAIL_FIELDS = ['profile', 'provider', 'model', 'priority', 'status', 'reason', 'route',
+                     'granted', 'approval_id'];
 
 // A detail value is a short scalar or it is nothing. Objects, arrays and
 // long strings are not log material; truncation is at 64 characters,
@@ -122,5 +129,12 @@ function record(entry) {
 module.exports = {
   record: record,
   line: line,
+  // MOS-v2 M-09: the same truncation the log uses, exported so that a
+  // decider identity sent to the control plane is derived from the SAME
+  // function as the audit actor -- one operator, one identity, in the
+  // journal and in the executor's approval record alike. A malformed or
+  // absent session resolves to 'unauthenticated' here too, so nothing a
+  // browser sends can become part of an identity.
+  actor: actorOf,
   DETAIL_FIELDS: DETAIL_FIELDS
 };

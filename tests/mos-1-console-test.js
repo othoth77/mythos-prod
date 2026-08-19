@@ -257,8 +257,13 @@ ok(/'\/api\/logout'/.test(writeRoutesBlock), 'the logout route is named explicit
 // MOS-3A narrowed this from 2 to 3 (start, cancel, dispatch). MOS-v2 M-01
 // adds login and logout: authentication is a write, so it belongs in the
 // same explicit list rather than in a side channel that no test reads.
-eq((writeRoutesBlock.match(/\{ test:/g) || []).length, 5,
-   'exactly five write routes are registered -- login, logout, start, cancel and dispatch, nothing else');
+// MOS-v2 M-09 adds the three goal-layer writes: submit a goal, decide an
+// approval, continue a campaign. Eight is the whole write surface.
+ok(/'\/api\/goals'/.test(writeRoutesBlock), 'the goal-create route is named explicitly in WRITE_ROUTES');
+ok(/GOAL_APPROVE_ROUTE_RE/.test(writeRoutesBlock), 'the goal-approval route is named explicitly in WRITE_ROUTES');
+ok(/GOAL_CONTINUE_ROUTE_RE/.test(writeRoutesBlock), 'the goal-continue route is named explicitly in WRITE_ROUTES');
+eq((writeRoutesBlock.match(/\{ test:/g) || []).length, 8,
+   'exactly eight write routes are registered -- login, logout, start, cancel, dispatch, goal create, goal approval and goal continue, nothing else');
 // EXACTLY ONE of them may be reached without a session, and it is the one
 // that establishes a session. A second `unauthenticated: true` anywhere in
 // this list is a hole in the boundary, so the count is asserted, not the
@@ -422,11 +427,11 @@ eq((publicBlock.match(/':\s*true/g) || []).length, 6,
 
 var registry = require(path.join(WEB, 'modules.js'));
 
-var EXPECTED = ['Command Center', 'Missions', 'Campaigns', 'Agents', 'Memory', 'Roadmap',
+var EXPECTED = ['Command Center', 'Goals', 'Missions', 'Campaigns', 'Agents', 'Memory', 'Roadmap',
                 'Governance', 'Approvals', 'Providers', 'Budget', 'Secrets', 'Sandbox',
                 'Audit', 'Settings'];
 
-eq(registry.modules.length, EXPECTED.length, 'the registry holds exactly the fourteen named MYTHOS OS modules');
+eq(registry.modules.length, EXPECTED.length, 'the registry holds exactly the fifteen named MYTHOS OS modules');
 EXPECTED.forEach(function (label) {
   ok(registry.modules.some(function (m) { return m.label === label; }), 'module registered: ' + label);
 });
@@ -888,7 +893,7 @@ startStub().then(function (stub) {
          'the fallback authority invariant is surfaced, not summarised away');
 
       eq(roadmap.status, 200, 'roadmap is 200');
-      eq(mods.json.data.modules.length, 14, 'the registry is served over the API too');
+      eq(mods.json.data.modules.length, 15, 'the registry is served over the API too');
 
       eq(post.status, 405, 'POST is refused');
       eq(post.json.error, 'read_only', 'the refusal names the read-only property');
@@ -1497,9 +1502,14 @@ startStub().then(function (stub) {
         // server.js relays dispatch only to upstream '/tasks/'-prefixed
         // endpoints -- no second dispatcher/queue was introduced by this
         // stage.
+        // MOS-v2 M-09 adds the goal layer, whose three writes relay to the
+        // executor's EXISTING campaign endpoints (POST /campaigns,
+        // /campaigns/<id>/approvals/resolve, /campaigns/<id>/continue). So
+        // the allowed set is two prefixes, not one -- and it is still a
+        // closed set: a post to anything else fails here.
         var dispatchCalls = serverCode.match(/upstream\.post\(\s*'([^']*)'/g) || [];
         dispatchCalls.forEach(function (call) {
-          ok(/upstream\.post\(\s*'\/tasks/.test(call), 'M-06: every upstream.post(...) call in server.js targets a /tasks-prefixed endpoint: ' + call);
+          ok(/upstream\.post\(\s*'\/(tasks|campaigns)/.test(call), 'M-06: every upstream.post(...) call in server.js targets a /tasks- or /campaigns-prefixed executor endpoint: ' + call);
         });
 
         ACTIVE_COOKIE = null;
@@ -1796,6 +1806,442 @@ startStub().then(function (stub) {
   // audit.js is server-side only, exactly like auth.js and upstream.js.
   ok(!fs.existsSync(path.join(WEB, 'audit.js')), 'M-07: audit.js is not in the served web directory');
   ok(serverCode.indexOf("'/audit.js'") === -1, 'M-07: audit.js has no STATIC entry');
+})
+// ===========================================================================
+// 4i. MOS-v2 M-09: THE GOAL LAYER AND MANDATORY HUMAN APPROVAL
+//
+// GOAL → PROPOSED PLAN → MISSIONS → DEPENDENCIES → HUMAN APPROVAL →
+// DISPATCH → RESULTS.
+//
+// The property under test is not "the console can create a goal". It is
+// that a goal created here CANNOT run until a human says so, and that the
+// human whose name goes on that decision is the one holding the session:
+//
+//   · require_plan_approval is written server-side on every submission and
+//     is not a field the browser can set, omit or falsify;
+//   · project and requested_by are likewise fixed here, never relayed from
+//     the payload;
+//   · decided_by is composed from the SESSION. A payload carrying one is
+//     refused as an unexpected field -- an operator cannot approve as
+//     somebody else, and a script cannot approve as an operator;
+//   · every one of the three new writes is refused without a session, and
+//     each writes exactly one audit line naming what happened;
+//   · both new read relays are field-picked, so an upstream field the
+//     console has never heard of -- here, one carrying a credential --
+//     never reaches the browser.
+// ===========================================================================
+.then(function () {
+  var GOAL_ID = 'c-goalstub-01ab';
+  var APPROVAL_ID = 'ap-mgoal01-abc123';
+  var PLAN_INSTRUCTION = 'GOAL-PLAN-INSTRUCTION-TEXT-do-not-relay';
+  var OBJECTIVE = 'Finish the goal layer and prove the approval gate holds.';
+  var goalPosts = [];   // { url, body } for every POST the goal stub received
+
+  var goalStub = http.createServer(function (rq, rs) {
+    var u = rq.url.split('?')[0];
+    var chunks = [];
+    rq.on('data', function (d) { chunks.push(d); });
+    rq.on('end', function () {
+      var raw = Buffer.concat(chunks).toString('utf8');
+      var parsed = null;
+      try { parsed = raw ? JSON.parse(raw) : null; } catch (e) { /* not JSON */ }
+      if (rq.method === 'POST') goalPosts.push({ url: u, body: parsed });
+
+      if (u === '/health') {
+        rs.writeHead(200, { 'Content-Type': 'application/json' });
+        rs.end(JSON.stringify({ ok: true }));
+        return;
+      }
+      function json(code, body) {
+        rs.writeHead(code, { 'Content-Type': 'application/json' });
+        rs.end(JSON.stringify(body));
+      }
+      // Every stub body below carries at least one field the console has
+      // never heard of, and it carries the executor token. If any relay
+      // passes an upstream object through instead of picking fields, the
+      // sweep at the end of this section finds the token in a response.
+      if (rq.method === 'POST' && u === '/campaigns') {
+        return json(201, {
+          campaign_id: GOAL_ID, created: true, state: 'WAITING_FOR_APPROVAL',
+          objective: OBJECTIVE, require_plan_approval: true, auto_denied: false,
+          approval_id: APPROVAL_ID,
+          proposed_plan: {
+            available: true, reason: 'next roadmap capability', capability_key: 'K',
+            title: 'Autonomous mission: K', objective: 'Implement K.', risk: 'low',
+            acceptance_criteria: ['tests pass'],
+            tasks: [
+              { key: 'inspect', title: 'Inspect', task_type: 'inspection', depends_on: [],
+                policy_classes: ['READ'], instruction: PLAN_INSTRUCTION },
+              { key: 'implement', title: 'Implement', task_type: 'coding', depends_on: ['inspect'],
+                policy_classes: ['READ', 'PROJECT_WRITE'], instruction: PLAN_INSTRUCTION }
+            ]
+          },
+          secret_field: SECRET_TOKEN
+        });
+      }
+      if (rq.method === 'GET' && u === '/campaigns') {
+        return json(200, { campaigns: [{
+          campaign_id: GOAL_ID, project: 'mythos-prod', state: 'WAITING_FOR_APPROVAL',
+          objective: OBJECTIVE, completed: 0, updated_at: '2026-08-19T00:00:00Z',
+          repo_path: '/should/not/leak', secret_field: SECRET_TOKEN
+        }] });
+      }
+      if (rq.method === 'GET' && u === '/campaigns/' + GOAL_ID) {
+        return json(200, {
+          campaign_id: GOAL_ID, project: 'mythos-prod', objective: OBJECTIVE,
+          state: 'WAITING_FOR_APPROVAL', running: false, continuable: false, needs_human: true,
+          plan_approval_required: true, updated_at: '2026-08-19T00:00:00Z',
+          proposed_plan: {
+            available: true, reason: 'next roadmap capability', capability_key: 'K',
+            title: 'Autonomous mission: K', objective: 'Implement K.', risk: 'low',
+            acceptance_criteria: ['tests pass'],
+            tasks: [{ key: 'inspect', title: 'Inspect', task_type: 'inspection', depends_on: [],
+                      policy_classes: ['READ'], instruction: PLAN_INSTRUCTION }],
+            secret_field: SECRET_TOKEN
+          },
+          approval_required: [{ approval_id: APPROVAL_ID, capability_key: null, mission_id: null,
+                                reason: 'proposed plan requires human approval before dispatch',
+                                objective: OBJECTIVE, requested_at: '2026-08-19T00:00:00Z',
+                                secret_field: SECRET_TOKEN }],
+          completed_missions: [{ capability_key: 'J', mission_id: 'm-1', commit: 'abc1234',
+                                 tests: ['12 passed'], repair_cycles: 0, secret_field: SECRET_TOKEN }],
+          blocked_missions: [{ capability_key: 'I', mission_id: 'm-0', reason: 'plan invalid',
+                               secret_field: SECRET_TOKEN }],
+          current_mission: { capability_key: 'K', mission_id: 'm-2',
+                             tasks: [{ task_id: 'tk-1', plan_key: 'inspect', status: 'QUEUED',
+                                       worktree: '/should/not/leak', agent: 'ag-1' }],
+                             secret_field: SECRET_TOKEN },
+          repo_path: '/should/not/leak', secret_field: SECRET_TOKEN
+        });
+      }
+      if (rq.method === 'POST' && u === '/campaigns/' + GOAL_ID + '/approvals/resolve') {
+        return json(200, { campaign_id: GOAL_ID, approval_id: APPROVAL_ID, granted: !!(parsed && parsed.granted),
+                           decided_by: parsed && parsed.decided_by, capability_key: null,
+                           remaining_approvals: 0, state: 'READY', secret_field: SECRET_TOKEN });
+      }
+      if (rq.method === 'POST' && u === '/campaigns/' + GOAL_ID + '/continue') {
+        return json(202, { accepted: true, code: 'ACCEPTED', campaign_id: GOAL_ID,
+                           from_state: 'READY', max_steps: 2, secret_field: SECRET_TOKEN });
+      }
+      json(404, { error: 'not found' });
+    });
+  });
+
+  // --- source-level: the fixed fields are fixed HERE, not in the browser --
+  var serverCode = code(read(path.join(REF, 'server.js')));
+  var appCode2 = code(appJs);
+  ok(/require_plan_approval: true/.test(serverCode),
+     'M-09: the console relay hard-codes require_plan_approval: true');
+  eq((serverCode.match(/require_plan_approval/g) || []).length, 1,
+     'M-09: require_plan_approval appears exactly once in server.js -- it is written, never read from a payload');
+  ok(!/payload\.require_plan_approval|payload\.project|payload\.requested_by|payload\.decided_by/.test(serverCode),
+     'M-09: server.js never reads require_plan_approval, project, requested_by or decided_by from a request payload');
+  ok(!/require_plan_approval|decided_by|requested_by/.test(appCode2),
+     'M-09: the browser has no notion of the approval flag, the decider or the requester -- it cannot send any of them');
+  ok(/'mos-console-operator:' \+ audit\.actor\(auth\.sessionIdFrom\(req\)\)/.test(serverCode),
+     'M-09: decided_by is composed from the session, through the same truncation the audit log uses');
+  var approvalFieldsBlock = (serverCode.match(/var GOAL_APPROVAL_FIELDS = \[[^\]]*\]/) || [''])[0];
+  ok(approvalFieldsBlock.indexOf('decided_by') === -1,
+     'M-09: decided_by is not an accepted field on the approval body, so a payload carrying one is refused rather than ignored');
+  ok(/confirmAction/.test(appCode2) && /Confirm approve/.test(appCode2) && /Confirm deny/.test(appCode2),
+     'M-09: approve and deny each require an explicit second, confirming click');
+
+  return new Promise(function (resolve) { goalStub.listen(0, '127.0.0.1', resolve); }).then(function () {
+    authMod.resetThrottle();
+    var server = freshServer({
+      MOS_EXECUTOR_URL: 'http://127.0.0.1:' + goalStub.address().port,
+      MOS_EXECUTOR_TOKEN: SECRET_TOKEN,
+      MOS_EXECUTOR_TOKEN_FILE: null
+    });
+    return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
+      var port = s.address().port;
+      ACTIVE_COOKIE = null;
+      var sessionId = null;
+      var bodies = [];
+
+      // --- 1. unauthenticated: all three writes refused ------------------
+      return Promise.all([
+        req(port, '/api/goals', 'POST', { objective: OBJECTIVE }, { cookie: null }),
+        req(port, '/api/goals/' + GOAL_ID + '/approvals', 'POST', { approval_id: APPROVAL_ID, granted: true }, { cookie: null }),
+        req(port, '/api/goals/' + GOAL_ID + '/continue', 'POST', {}, { cookie: null }),
+        req(port, '/api/goals', 'GET', undefined, { cookie: null }),
+        req(port, '/api/goals/' + GOAL_ID, 'GET', undefined, { cookie: null })
+      ]).then(function (anon) {
+        ['goal create', 'goal approval', 'goal continue'].forEach(function (name, i) {
+          eq(anon[i].status, 401, 'M-09: unauthenticated POST to the ' + name + ' route is 401');
+          eq(anon[i].json.error, 'unauthenticated', 'M-09: the unauthenticated ' + name + ' refusal names the reason');
+        });
+        eq(anon[3].status, 401, 'M-09: unauthenticated GET /api/goals is 401');
+        eq(anon[4].status, 401, 'M-09: unauthenticated GET /api/goals/<id> is 401');
+        eq(goalPosts.length, 0, 'M-09: not one unauthenticated goal write reached the control plane');
+        return login(port, CONSOLE_SECRET);
+      }).then(function (l) {
+        eq(l.res.status, 200, 'M-09: sign-in for the goal-layer checks succeeds');
+        ACTIVE_COOKIE = l.cookie;
+        sessionId = l.cookie.split('=')[1];
+
+        // --- 2. the create relay: validation matrix ---------------------
+        return Promise.all([
+          req(port, '/api/goals', 'POST', { objective: OBJECTIVE }),
+          req(port, '/api/goals', 'POST', { objective: OBJECTIVE, title: 'a title' }),
+          req(port, '/api/goals', 'POST', {}),
+          req(port, '/api/goals', 'POST', { objective: '' }),
+          req(port, '/api/goals', 'POST', { objective: '   ' }),
+          req(port, '/api/goals', 'POST', { objective: 42 }),
+          req(port, '/api/goals', 'POST', { objective: 'x'.repeat(2001) }),
+          req(port, '/api/goals', 'POST', { objective: OBJECTIVE, project: 'somebody-elses-project' }),
+          req(port, '/api/goals', 'POST', { objective: OBJECTIVE, requested_by: 'not-the-console' }),
+          req(port, '/api/goals', 'POST', { objective: OBJECTIVE, require_plan_approval: false }),
+          req(port, '/api/goals', 'POST', { objective: OBJECTIVE, title: 7 })
+        ]);
+      }).then(function (r) {
+        eq(r[0].status, 200, 'M-09: a well-formed goal is accepted');
+        eq(r[1].status, 200, 'M-09: an optional title is accepted');
+        [2, 3, 4, 5, 6, 10].forEach(function (i) {
+          eq(r[i].status, 400, 'M-09: malformed goal case ' + i + ' is rejected with 400');
+          eq(r[i].json.error, 'bad_request', 'M-09: malformed goal case ' + i + ' names bad_request');
+        });
+        // The three fields the console fixes server-side are not merely
+        // ignored when a caller supplies them -- the request is refused.
+        [[7, 'project'], [8, 'requested_by'], [9, 'require_plan_approval']].forEach(function (pair) {
+          eq(r[pair[0]].status, 400, 'M-09: a payload carrying ' + pair[1] + ' is refused, not silently ignored');
+          ok(/unexpected field/.test(r[pair[0]].json.detail),
+             'M-09: the refusal for ' + pair[1] + ' names it as an unexpected field');
+        });
+
+        // --- 3. the relayed payload shape -----------------------------
+        var creates = goalPosts.filter(function (c) { return c.url === '/campaigns'; });
+        eq(creates.length, 2, 'M-09: exactly the two accepted goals reached the control plane -- nothing for the nine rejected ones');
+        creates.forEach(function (c, i) {
+          eq(Object.keys(c.body).sort().join(','), 'objective,project,requested_by,require_plan_approval',
+             'M-09: relayed goal ' + i + ' carries exactly the fixed+validated fields');
+          eq(c.body.require_plan_approval, true, 'M-09: relayed goal ' + i + ' always asks for mandatory plan approval');
+          eq(c.body.project, 'mythos-prod', 'M-09: relayed goal ' + i + ' is fixed to the mythos-prod project');
+          eq(c.body.requested_by, 'mos-console', 'M-09: relayed goal ' + i + ' identifies the console as the requester');
+        });
+        // The title the browser may send is deliberately not relayed: the
+        // objective is the campaign's own text and a second free-text
+        // field would be a second truth about the same goal.
+        ok(!Object.prototype.hasOwnProperty.call(creates[1].body, 'title'),
+           'M-09: the optional title is accepted from the browser and never relayed upstream');
+        bodies.push(['POST /api/goals', r[0].text]);
+
+        var created = r[0].json.data;
+        eq(created.campaign_id, GOAL_ID, 'M-09: the create response names the campaign the executor made');
+        eq(created.state, 'WAITING_FOR_APPROVAL', 'M-09: a goal created from the console lands WAITING_FOR_APPROVAL');
+        eq(created.needs_approval, true, 'M-09: the response states that a human decision is required before anything runs');
+        eq(created.approval_id, APPROVAL_ID, 'M-09: the response names the approval to answer');
+        eq(created.proposed_plan.tasks.length, 2, 'M-09: the proposed plan reaches the browser with its tasks');
+        eq(created.proposed_plan.tasks[1].depends_on.join(','), 'inspect',
+           'M-09: a planned task carries its dependencies, so the DAG is what is being approved');
+        ok(!Object.prototype.hasOwnProperty.call(created.proposed_plan.tasks[0], 'instruction'),
+           'M-09: a planned task\'s agent instruction is dropped -- the plan is reviewed, not the prompt');
+        ok(!Object.prototype.hasOwnProperty.call(created, 'secret_field'),
+           'M-09: an unrecognised upstream field on the create response is dropped');
+        ok(r[0].text.indexOf(PLAN_INSTRUCTION) === -1, 'M-09: no plan instruction text reaches the browser');
+
+        // --- 4. the approval relay: the tamper test -------------------
+        return Promise.all([
+          req(port, '/api/goals/' + GOAL_ID + '/approvals', 'POST',
+              { approval_id: APPROVAL_ID, granted: true, decided_by: 'somebody-else' }),
+          req(port, '/api/goals/' + GOAL_ID + '/approvals', 'POST',
+              { approval_id: APPROVAL_ID, granted: true, actor: 'root' }),
+          req(port, '/api/goals/' + GOAL_ID + '/approvals', 'POST', { approval_id: APPROVAL_ID }),
+          req(port, '/api/goals/' + GOAL_ID + '/approvals', 'POST', { approval_id: APPROVAL_ID, granted: 'true' }),
+          req(port, '/api/goals/' + GOAL_ID + '/approvals', 'POST', { approval_id: APPROVAL_ID, granted: 1 }),
+          req(port, '/api/goals/' + GOAL_ID + '/approvals', 'POST', { granted: true }),
+          req(port, '/api/goals/' + GOAL_ID + '/approvals', 'POST', { approval_id: 'not-an-approval', granted: true }),
+          req(port, '/api/goals/' + GOAL_ID + '/approvals', 'POST', { approval_id: '../../etc/passwd', granted: true }),
+          req(port, '/api/goals/' + GOAL_ID + '/approvals', 'POST',
+              { approval_id: APPROVAL_ID, granted: false, note: 'n'.repeat(501) }),
+          req(port, '/api/goals/' + GOAL_ID + '/approvals', 'POST',
+              { approval_id: APPROVAL_ID, granted: false, note: 'not this plan' })
+        ]);
+      }).then(function (r) {
+        eq(r[0].status, 400, 'M-09: a payload carrying decided_by is REFUSED -- the decider is never taken from the browser');
+        ok(/unexpected field/.test(r[0].json.detail), 'M-09: the decided_by refusal names it as an unexpected field');
+        eq(r[1].status, 400, 'M-09: any other unexpected field on an approval body is refused too');
+        [2, 3, 4, 5, 6, 7, 8].forEach(function (i) {
+          eq(r[i].status, 400, 'M-09: malformed approval case ' + i + ' is rejected with 400');
+        });
+        // A decision is a boolean or it is nothing: 'true' and 1 are not
+        // consents, because "I could not tell what they meant" must never
+        // resolve to a grant.
+        ok(/granted/.test(r[3].json.detail) && /granted/.test(r[4].json.detail),
+           'M-09: a non-boolean granted value is refused by name, never coerced');
+        eq(r[9].status, 200, 'M-09: a well-formed denial is accepted');
+
+        var resolves = goalPosts.filter(function (c) { return /\/approvals\/resolve$/.test(c.url); });
+        eq(resolves.length, 1, 'M-09: exactly the one accepted decision reached the control plane');
+        eq(resolves[0].url, '/campaigns/' + GOAL_ID + '/approvals/resolve',
+           'M-09: the decision is relayed to the executor\'s own approval-resolution route, not a second approval system');
+        eq(Object.keys(resolves[0].body).sort().join(','), 'approval_id,decided_by,granted,note',
+           'M-09: the relayed decision carries exactly the four decision fields');
+        eq(resolves[0].body.granted, false, 'M-09: the operator\'s verdict is relayed verbatim');
+        eq(resolves[0].body.decided_by, 'mos-console-operator:sess:' + sessionId.slice(0, 8),
+           'M-09: decided_by is derived from the SESSION -- the operator holding it, truncated exactly as the audit log truncates it');
+        ok(resolves[0].body.decided_by.indexOf('somebody-else') === -1,
+           'M-09: the decided_by a browser tried to send appears nowhere in the relayed decision');
+        ok(resolves[0].body.decided_by.indexOf(sessionId) === -1,
+           'M-09: the session identifier never reaches the control plane in full');
+        bodies.push(['POST /api/goals/<id>/approvals', r[9].text]);
+
+        // --- 5. the continue relay ------------------------------------
+        return Promise.all([
+          req(port, '/api/goals/' + GOAL_ID + '/continue', 'POST', {}),
+          req(port, '/api/goals/' + GOAL_ID, 'GET'),
+          req(port, '/api/goals', 'GET')
+        ]);
+      }).then(function (r) {
+        var cont = r[0], detail = r[1], list = r[2];
+        eq(cont.status, 200, 'M-09: the continue relay answers 200');
+        eq(cont.json.data.accepted, true, 'M-09: the continue relay reports what the executor answered');
+        eq(cont.json.data.from_state, 'READY', 'M-09: the continue relay names the state the executor advanced from');
+        var continues = goalPosts.filter(function (c) { return /\/continue$/.test(c.url); });
+        eq(continues.length, 1, 'M-09: the continue call reached the executor once');
+        eq(Object.keys(continues[0].body).sort().join(','), 'requested_by',
+           'M-09: the continue relay sends only requested_by -- no max_steps, no capability, nothing the browser chose');
+        eq(continues[0].body.requested_by, 'mos-console', 'M-09: the continuation identifies the console');
+
+        // --- 6. the read relays are field-picked ----------------------
+        eq(list.status, 200, 'M-09: GET /api/goals answers 200');
+        var g0 = list.json.data.goals[0];
+        eq(Object.keys(g0).sort().join(','), 'campaign_id,completed,objective,project,state,updated_at',
+           'M-09: a goal summary carries exactly the allowlisted fields');
+        ok(!Object.prototype.hasOwnProperty.call(g0, 'secret_field'),
+           'M-09: an unrecognised upstream field on the goal list is dropped');
+        ok(list.text.indexOf('/should/not/leak') === -1, 'M-09: the executor\'s repo path never reaches the browser through the goal list');
+
+        eq(detail.status, 200, 'M-09: GET /api/goals/<id> answers 200');
+        var g = detail.json.data.goal;
+        eq(Object.keys(g).sort().join(','),
+           ['campaign_id', 'project', 'objective', 'state', 'running', 'continuable', 'needs_human',
+            'plan_approval_required', 'updated_at', 'proposed_plan', 'approval_required',
+            'completed_missions', 'blocked_missions', 'current_mission'].sort().join(','),
+           'M-09: the goal detail carries exactly the allowlisted top-level fields');
+        eq(g.plan_approval_required, true, 'M-09: the detail states that this goal is gated on a human decision');
+        eq(g.needs_human, true, 'M-09: the detail states that a human is being waited on');
+        eq(g.approval_required.length, 1, 'M-09: the pending approval is surfaced for review');
+        eq(g.approval_required[0].approval_id, APPROVAL_ID, 'M-09: the pending approval names the id to answer with');
+        ok(/human approval/.test(g.approval_required[0].reason), 'M-09: the pending approval states WHY it is being asked');
+        eq(Object.keys(g.approval_required[0]).sort().join(','),
+           'approval_id,capability_key,mission_id,objective,reason,requested_at',
+           'M-09: a pending approval carries exactly the allowlisted fields');
+        eq(g.proposed_plan.tasks[0].key, 'inspect', 'M-09: the proposed plan reaches the detail view');
+        ok(!Object.prototype.hasOwnProperty.call(g.proposed_plan, 'secret_field'),
+           'M-09: an unrecognised field inside the proposed plan is dropped');
+        ok(!Object.prototype.hasOwnProperty.call(g.proposed_plan.tasks[0], 'instruction'),
+           'M-09: the plan tasks in the detail view carry no agent instruction either');
+        ok(!Object.prototype.hasOwnProperty.call(g.completed_missions[0], 'secret_field'),
+           'M-09: an unrecognised field on a completed mission is dropped');
+        ok(!Object.prototype.hasOwnProperty.call(g.current_mission, 'secret_field'),
+           'M-09: an unrecognised field on the current mission is dropped');
+        eq(Object.keys(g.current_mission.tasks[0]).sort().join(','), 'plan_key,status,task_id',
+           'M-09: a current-mission task carries exactly the allowlisted fields -- no worktree path, no agent id');
+        ok(detail.text.indexOf('/should/not/leak') === -1, 'M-09: no worktree or repo path reaches the browser through the goal detail');
+        bodies.push(['GET /api/goals', list.text]);
+        bodies.push(['GET /api/goals/<id>', detail.text]);
+
+        // --- 7. the route id regex ------------------------------------
+        return Promise.all([
+          req(port, '/api/goals/tk-abc12345', 'GET'),
+          req(port, '/api/goals/c-UPPER-0001', 'GET'),
+          req(port, '/api/goals/c-short', 'GET'),
+          req(port, '/api/goals/../../etc/passwd', 'GET'),
+          req(port, '/api/goals/c-goalstub-01ab/approvals/extra', 'POST', {}),
+          req(port, '/api/goals/tk-abc12345/approvals', 'POST', { approval_id: APPROVAL_ID, granted: true }),
+          req(port, '/api/goals/tk-abc12345/continue', 'POST', {})
+        ]);
+      }).then(function (r) {
+        [0, 1, 2, 3].forEach(function (i) {
+          eq(r[i].status, 404, 'M-09: a GET id outside the campaign alphabet (case ' + i + ') is a 404, never relayed');
+        });
+        [4, 5, 6].forEach(function (i) {
+          eq(r[i].status, 405, 'M-09: a POST path outside the goal write routes (case ' + (i - 4) +
+             ') is refused by the method guard before routing');
+        });
+        var strayed = goalPosts.filter(function (c) { return !/^\/campaigns/.test(c.url); });
+        eq(strayed.length, 0, 'M-09: no goal request ever reached a control-plane path outside /campaigns');
+        return req(port, '/api/logout', 'POST', {});
+      }).then(function () {
+
+        // --- 8. the audit lines ---------------------------------------
+        var lines = [];
+        var realWrite = process.stdout.write;
+        process.stdout.write = function (chunk) {
+          var text = String(chunk);
+          if (text.indexOf('"log":"mos.audit"') !== -1) {
+            text.split('\n').forEach(function (l) { if (l.trim()) lines.push(JSON.parse(l)); });
+            return true;
+          }
+          return realWrite.apply(process.stdout, arguments);
+        };
+        function release() { process.stdout.write = realWrite; }
+
+        authMod.resetThrottle();
+        ACTIVE_COOKIE = null;
+        return login(port, CONSOLE_SECRET).then(function (l) {
+          ACTIVE_COOKIE = l.cookie;
+          sessionId = l.cookie.split('=')[1];
+          lines.length = 0;
+          return req(port, '/api/goals', 'POST', { objective: OBJECTIVE });
+        }).then(function () {
+          eq(lines.length, 1, 'M-09: creating a goal writes exactly one audit line');
+          eq(lines[0].action + ':' + lines[0].outcome, 'goal.create:accepted', 'M-09: the goal creation is recorded');
+          eq(lines[0].task_id, GOAL_ID, 'M-09: the goal creation records the campaign the executor made');
+          eq(lines[0].actor, 'sess:' + sessionId.slice(0, 8), 'M-09: the goal creation is attributed to the operator who asked');
+          ok(JSON.stringify(lines[0]).indexOf(OBJECTIVE) === -1,
+             'M-09: the goal objective is never written to the audit log');
+          lines.length = 0;
+          return req(port, '/api/goals/' + GOAL_ID + '/approvals', 'POST',
+                     { approval_id: APPROVAL_ID, granted: true });
+        }).then(function () {
+          eq(lines.length, 1, 'M-09: a decision writes exactly one audit line');
+          eq(lines[0].action + ':' + lines[0].outcome, 'goal.approve:accepted', 'M-09: the decision is recorded');
+          eq(lines[0].detail.granted, true, 'M-09: the audit line records WHICH WAY the operator decided');
+          eq(lines[0].detail.approval_id, APPROVAL_ID, 'M-09: the audit line records which approval was answered');
+          eq(lines[0].actor, 'sess:' + sessionId.slice(0, 8), 'M-09: the decision is attributed to the operator who made it');
+          ok(JSON.stringify(lines[0]).indexOf(sessionId) === -1,
+             'M-09: the session identifier never appears in full in a decision audit line');
+          lines.length = 0;
+          return req(port, '/api/goals/' + GOAL_ID + '/approvals', 'POST',
+                     { approval_id: APPROVAL_ID, granted: false, note: 'no' });
+        }).then(function () {
+          eq(lines[0].detail.granted, false, 'M-09: a DENIAL is recorded as explicitly as an approval');
+          ok(JSON.stringify(lines[0]).indexOf('"note"') === -1, 'M-09: the operator\'s note is not written to the audit log');
+          lines.length = 0;
+          return req(port, '/api/goals/' + GOAL_ID + '/continue', 'POST', {});
+        }).then(function () {
+          eq(lines.length, 1, 'M-09: a continuation writes exactly one audit line');
+          eq(lines[0].action + ':' + lines[0].outcome, 'goal.continue:accepted', 'M-09: the continuation is recorded');
+          eq(lines[0].task_id, GOAL_ID, 'M-09: the continuation records which goal it advanced');
+          lines.length = 0;
+          return req(port, '/api/goals', 'POST', { objective: 42 });
+        }).then(function () {
+          eq(lines[0].action + ':' + lines[0].outcome, 'goal.create:rejected', 'M-09: a refused goal is recorded too');
+          eq(lines[0].detail.reason, 'objective', 'M-09: the refusal names WHICH check refused it');
+          lines.length = 0;
+          return req(port, '/api/goals/' + GOAL_ID + '/continue', 'POST', {}, { cookie: null });
+        }).then(function (r) {
+          eq(r.status, 401, 'M-09: the unauthenticated continuation is still refused');
+          eq(lines[0].action + ':' + lines[0].outcome, 'write.denied:unauthenticated',
+             'M-09: an unauthenticated goal write is recorded as write.denied');
+          eq(lines[0].detail.route, 'goal.continue', 'M-09: the refused goal write names the route it aimed at');
+          eq(lines[0].task_id, GOAL_ID, 'M-09: the refused goal write records which goal was targeted');
+          release();
+
+          // --- 9. the sweep -------------------------------------------
+          bodies.forEach(function (row) {
+            ok(row[1].indexOf(SECRET_TOKEN) === -1, 'M-09: no executor token in the response for ' + row[0]);
+            ok(row[1].indexOf(CONSOLE_SECRET) === -1, 'M-09: no console secret in the response for ' + row[0]);
+          });
+          ACTIVE_COOKIE = null;
+          s.close();
+          goalStub.close();
+        }).catch(function (e) { release(); throw e; });
+      });
+    });
+  });
 })
 
 // ===========================================================================

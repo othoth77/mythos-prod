@@ -44,6 +44,21 @@
        write surface is still one readable list and still cannot grow
        silently.
 
+   THE GOAL LAYER IS APPROVAL-FIRST (MOS-v2 M-09).
+
+     · A goal submitted here is relayed with require_plan_approval fixed
+       true, server-side, on every request. The executor answers by
+       building the proposed plan, attaching it, and parking the campaign
+       in WAITING_FOR_APPROVAL BEFORE any mission starts. The AI may
+       propose; it never authorises itself.
+     · The only exit from that state is POST /api/goals/<id>/approvals --
+       an explicit boolean decision by a signed-in operator, with the
+       decider identity composed from the SESSION and never from the
+       payload.
+     · Dispatch remains the executor's own continueCampaign, which
+       refuses WAITING_FOR_APPROVAL and BLOCKED. No planner, queue,
+       dispatcher or approval store is duplicated at this layer.
+
    EVERY WRITE IS AUDITED (MOS-v2 M-07).
 
      · audit.js writes one append-only JSON line to stdout for each
@@ -311,6 +326,16 @@ var API = {
       .catch(function (e) { problem(res, e); });
   },
 
+  // MOS-v2 M-09: the goal layer's list view. Same upstream source as
+  // /api/campaigns -- one control plane, one campaign store -- but
+  // field-picked to the summary a goal list needs, so the two relays
+  // cannot drift into two shapes of the same thing by accident.
+  '/api/goals': function (res) {
+    upstream.get('/campaigns')
+      .then(function (b) { ok(res, { goals: pickList(b && b.campaigns, GOAL_SUMMARY_FIELDS) }); })
+      .catch(function (e) { problem(res, e); });
+  },
+
   '/api/events': function (res, query) {
     var limit = clampLimit(query.limit, 50, 500);
     upstream.get('/events?limit=' + limit)
@@ -373,12 +398,23 @@ var API = {
 var TASK_ID_RE = '[a-z0-9][a-z0-9-]{6,62}[a-z0-9]';
 var CANCEL_ROUTE_RE = new RegExp('^/api/missions/(' + TASK_ID_RE + ')/cancel$');
 var DISPATCH_ROUTE_RE = new RegExp('^/api/missions/(' + TASK_ID_RE + ')/dispatch$');
+// MOS-v2 M-09: a campaign id, exactly as the executor's own route regex
+// spells it. Narrower than TASK_ID_RE on purpose -- a goal route may only
+// ever address a campaign, and an id that does not look like one is not
+// forwarded to the control plane at all.
+var CAMPAIGN_ID_RE = 'c-[a-z0-9-]{8,40}';
+var GOAL_DETAIL_RE = new RegExp('^/api/goals/(' + CAMPAIGN_ID_RE + ')$');
+var GOAL_APPROVE_ROUTE_RE = new RegExp('^/api/goals/(' + CAMPAIGN_ID_RE + ')/approvals$');
+var GOAL_CONTINUE_ROUTE_RE = new RegExp('^/api/goals/(' + CAMPAIGN_ID_RE + ')/continue$');
 var WRITE_ROUTES = [
   { test: function (p) { return p === '/api/login' ? [] : null; }, handler: handleLogin, unauthenticated: true },
   { test: function (p) { return p === '/api/logout' ? [] : null; }, handler: handleLogout },
   { test: function (p) { return p === '/api/missions/start' ? [] : null; }, handler: handleStartMission },
   { test: function (p) { var m = CANCEL_ROUTE_RE.exec(p); return m ? [m[1]] : null; }, handler: handleMissionCancel },
-  { test: function (p) { var m = DISPATCH_ROUTE_RE.exec(p); return m ? [m[1]] : null; }, handler: handleMissionDispatch }
+  { test: function (p) { var m = DISPATCH_ROUTE_RE.exec(p); return m ? [m[1]] : null; }, handler: handleMissionDispatch },
+  { test: function (p) { return p === '/api/goals' ? [] : null; }, handler: handleGoalCreate },
+  { test: function (p) { var m = GOAL_APPROVE_ROUTE_RE.exec(p); return m ? [m[1]] : null; }, handler: handleGoalApproval },
+  { test: function (p) { var m = GOAL_CONTINUE_ROUTE_RE.exec(p); return m ? [m[1]] : null; }, handler: handleGoalContinue }
 ];
 
 // The audit label for a matched write route. Derived from the same two
@@ -391,6 +427,9 @@ function writeRouteLabel(pathname) {
   if (pathname === '/api/missions/start') return 'mission.start';
   if (CANCEL_ROUTE_RE.test(pathname)) return 'mission.cancel';
   if (DISPATCH_ROUTE_RE.test(pathname)) return 'mission.dispatch';
+  if (pathname === '/api/goals') return 'goal.create';
+  if (GOAL_APPROVE_ROUTE_RE.test(pathname)) return 'goal.approve';
+  if (GOAL_CONTINUE_ROUTE_RE.test(pathname)) return 'goal.continue';
   return 'write';
 }
 
@@ -834,6 +873,254 @@ function handleMissionDispatch(req, res, taskId) {
   });
 }
 
+/* =====================================================================
+   MOS-v2 M-09: THE GOAL LAYER
+
+   GOAL → PROPOSED PLAN → MISSIONS → DEPENDENCIES → HUMAN APPROVAL →
+   DISPATCH → RESULTS.
+
+   The console does not plan, schedule, dispatch or decide. Every one of
+   those already exists in the executor's orchestration core
+   (core/campaign.js, core/campaign-service.js, core/planner.js) and this
+   layer is three relays onto it -- no second planner, no second queue, no
+   second approval store, no second notion of what a campaign state means.
+
+   What this layer DOES own is that a goal created here can never run
+   without a human saying so:
+
+     · POST /api/goals always sends require_plan_approval: true. It is
+       not a field the browser may set, omit or falsify -- it is written
+       here, server-side, on every single request. The executor answers by
+       building the plan, attaching it, and parking the campaign in
+       WAITING_FOR_APPROVAL before any mission starts.
+     · The campaign leaves that state ONLY through POST
+       /api/goals/<id>/approvals, which is a human decision, and the
+       identity recorded against it is derived from the SESSION, never
+       from the payload. A payload carrying decided_by is refused as an
+       unexpected field, so an operator cannot approve as someone else and
+       a script cannot approve as an operator.
+     · Dispatch is still POST /api/goals/<id>/continue, which the
+       executor's own continueCampaign refuses while the campaign is
+       WAITING_FOR_APPROVAL or BLOCKED. Approving does not run anything;
+       it only makes running possible.
+   ===================================================================== */
+
+var GOAL_MAX_BODY = 8 * 1024;
+var GOAL_CREATE_FIELDS = ['objective', 'title'];
+var GOAL_APPROVAL_FIELDS = ['approval_id', 'granted', 'note'];
+// The executor's own approval-entity id shape (core/domain.js ID_PREFIX +
+// ID_RE). Validated here so a malformed value is refused before it is
+// relayed, and so nothing outside this alphabet can reach the audit log.
+var APPROVAL_ID_RE = /^ap-[a-z0-9]{6,12}-[a-z0-9]{4,8}$/;
+
+// Every field of a goal summary the console will serve. The upstream list
+// is the executor's own GET /campaigns; an extra field added there for an
+// unrelated reason never becomes a console response.
+var GOAL_SUMMARY_FIELDS = ['campaign_id', 'project', 'state', 'objective', 'completed', 'updated_at'];
+var GOAL_DETAIL_FIELDS = ['campaign_id', 'project', 'objective', 'state', 'running',
+                          'continuable', 'needs_human', 'plan_approval_required', 'updated_at'];
+var PLAN_TASK_FIELDS = ['key', 'title', 'task_type', 'depends_on', 'policy_classes'];
+var PLAN_FIELDS = ['available', 'reason', 'capability_key', 'title', 'objective', 'risk', 'acceptance_criteria'];
+var APPROVAL_FIELDS = ['approval_id', 'capability_key', 'mission_id', 'reason', 'objective', 'requested_at'];
+var COMPLETED_MISSION_FIELDS = ['capability_key', 'mission_id', 'commit', 'tests', 'repair_cycles'];
+var BLOCKED_MISSION_FIELDS = ['capability_key', 'mission_id', 'reason'];
+var CURRENT_MISSION_FIELDS = ['capability_key', 'mission_id'];
+var MISSION_TASK_FIELDS = ['task_id', 'plan_key', 'status'];
+
+function pickList(list, fields) {
+  return (Array.isArray(list) ? list : []).map(function (item) { return pick(item, fields); });
+}
+
+function planView(plan) {
+  if (!plan || typeof plan !== 'object') return null;
+  var out = pick(plan, PLAN_FIELDS);
+  out.tasks = pickList(plan.tasks, PLAN_TASK_FIELDS);
+  return out;
+}
+
+function goalDetailView(d) {
+  var out = pick(d, GOAL_DETAIL_FIELDS);
+  out.proposed_plan = planView(d && d.proposed_plan);
+  out.approval_required = pickList(d && d.approval_required, APPROVAL_FIELDS);
+  out.completed_missions = pickList(d && d.completed_missions, COMPLETED_MISSION_FIELDS);
+  out.blocked_missions = pickList(d && d.blocked_missions, BLOCKED_MISSION_FIELDS);
+  var cm = d && d.current_mission;
+  if (cm) {
+    out.current_mission = pick(cm, CURRENT_MISSION_FIELDS);
+    out.current_mission.tasks = pickList(cm.tasks, MISSION_TASK_FIELDS);
+  } else {
+    out.current_mission = null;
+  }
+  return out;
+}
+
+function handleGoalDetail(res, campaignId) {
+  upstream.get('/campaigns/' + campaignId).then(function (d) {
+    ok(res, { goal: goalDetailView(d) });
+  }).catch(function (e) { problem(res, e); });
+}
+
+// A refused write is a state-changing action that did not happen, and the
+// reason code names WHICH check refused -- never the caller's value.
+function rejectGoal(req, res, action, reason, detail) {
+  audit.record({ action: action, outcome: 'rejected',
+                 actor: auth.sessionIdFrom(req), detail: { reason: reason } });
+  return badRequest(res, detail);
+}
+
+/* POST /api/goals -- submit a goal.
+   project is fixed here ('mythos-prod', the only project this console
+   operates on), requested_by is fixed here ('mos-console'), and
+   require_plan_approval is fixed here (always true). None of the three is
+   read from the payload, so no browser request can widen what a goal is
+   allowed to be or skip the approval the next step depends on. `title` is
+   accepted and deliberately not relayed: the executor's campaign carries
+   the objective, and a second free-text field would be a second truth. */
+function handleGoalCreate(req, res) {
+  readBoundedBody(req, GOAL_MAX_BODY).then(function (raw) {
+    var payload;
+    try { payload = JSON.parse(raw || '{}'); }
+    catch (e) { return rejectGoal(req, res, 'goal.create', 'bad_json', 'body is not valid JSON'); }
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return rejectGoal(req, res, 'goal.create', 'bad_body', 'body must be a JSON object');
+    }
+    var unexpected = Object.keys(payload).filter(function (k) { return GOAL_CREATE_FIELDS.indexOf(k) === -1; });
+    if (unexpected.length) {
+      return rejectGoal(req, res, 'goal.create', 'unexpected_field', 'unexpected field: ' + unexpected[0].slice(0, 40));
+    }
+    var objective = payload.objective;
+    if (typeof objective !== 'string' || !objective.trim() || objective.length > 2000) {
+      return rejectGoal(req, res, 'goal.create', 'objective', 'objective (string, 1-2000 chars) is required');
+    }
+    if (payload.title !== undefined &&
+        (typeof payload.title !== 'string' || payload.title.length > 200)) {
+      return rejectGoal(req, res, 'goal.create', 'title', 'title, when present, must be a string of at most 200 chars');
+    }
+
+    return upstream.post('/campaigns', {
+      objective: objective.trim(),
+      project: 'mythos-prod',
+      requested_by: 'mos-console',
+      require_plan_approval: true
+    }).then(function (created) {
+      var campaignId = created && created.campaign_id;
+      if (!campaignId) {
+        audit.record({ action: 'goal.create', outcome: 'upstream_error',
+                       actor: auth.sessionIdFrom(req), detail: { reason: 'no_campaign_id' } });
+        return problem(res, { code: 'upstream_error', message: 'executor did not return a campaign id' });
+      }
+      // The objective text is NOT in the audit line: it is operator-
+      // authored free text and belongs in the executor's campaign record.
+      audit.record({ action: 'goal.create', outcome: 'accepted', actor: auth.sessionIdFrom(req),
+                     task_id: campaignId,
+                     detail: { status: created.state || null, reason: created.created === false ? 'existing_campaign' : null } });
+      ok(res, {
+        campaign_id: campaignId,
+        created: created.created === true,
+        state: created.state || null,
+        needs_approval: created.state === 'WAITING_FOR_APPROVAL',
+        approval_id: created.approval_id || null,
+        proposed_plan: planView(created.proposed_plan)
+      });
+    }).catch(function (e) {
+      audit.record({ action: 'goal.create', outcome: 'upstream_error', actor: auth.sessionIdFrom(req),
+                     detail: { reason: (e && e.code) || 'internal_error' } });
+      problem(res, e);
+    });
+  }).catch(function (e) {
+    if (e && e.message === 'BODY_TOO_LARGE') return rejectGoal(req, res, 'goal.create', 'body_too_large', 'request body too large');
+    problem(res, { code: 'internal_error', message: 'internal error' });
+  });
+}
+
+/* POST /api/goals/<id>/approvals -- the human decision.
+
+   decided_by is composed HERE from the session that made the request and
+   is never read from the payload: 'decided_by' is not in
+   GOAL_APPROVAL_FIELDS, so a body that carries one is refused as an
+   unexpected field rather than quietly ignored. The identity is the same
+   truncated form the audit log uses (audit.actor), so the journal line
+   and the executor's approval record name the same operator. */
+function handleGoalApproval(req, res, campaignId) {
+  readBoundedBody(req, GOAL_MAX_BODY).then(function (raw) {
+    var payload;
+    try { payload = JSON.parse(raw || '{}'); }
+    catch (e) { return rejectGoal(req, res, 'goal.approve', 'bad_json', 'body is not valid JSON'); }
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return rejectGoal(req, res, 'goal.approve', 'bad_body', 'body must be a JSON object');
+    }
+    var unexpected = Object.keys(payload).filter(function (k) { return GOAL_APPROVAL_FIELDS.indexOf(k) === -1; });
+    if (unexpected.length) {
+      return rejectGoal(req, res, 'goal.approve', 'unexpected_field', 'unexpected field: ' + unexpected[0].slice(0, 40));
+    }
+    if (typeof payload.approval_id !== 'string' || !APPROVAL_ID_RE.test(payload.approval_id)) {
+      return rejectGoal(req, res, 'goal.approve', 'approval_id', 'approval_id (an executor approval identifier) is required');
+    }
+    // No coercion: a decision is true or it is false. 'true', 1 and
+    // undefined are all refused, because "I could not tell what they
+    // meant" must never resolve to a grant.
+    if (typeof payload.granted !== 'boolean') {
+      return rejectGoal(req, res, 'goal.approve', 'granted', 'granted (boolean) is required');
+    }
+    if (payload.note !== undefined && (typeof payload.note !== 'string' || payload.note.length > 500)) {
+      return rejectGoal(req, res, 'goal.approve', 'note', 'note, when present, must be a string of at most 500 chars');
+    }
+
+    var decidedBy = 'mos-console-operator:' + audit.actor(auth.sessionIdFrom(req));
+    return upstream.post('/campaigns/' + campaignId + '/approvals/resolve', {
+      approval_id: payload.approval_id,
+      granted: payload.granted,
+      decided_by: decidedBy,
+      note: payload.note || ''
+    }).then(function (d) {
+      audit.record({ action: 'goal.approve', outcome: 'accepted', actor: auth.sessionIdFrom(req),
+                     task_id: campaignId,
+                     detail: { granted: payload.granted, approval_id: payload.approval_id,
+                               status: (d && d.state) || null } });
+      ok(res, {
+        campaign_id: campaignId,
+        approval_id: payload.approval_id,
+        granted: payload.granted,
+        state: (d && d.state) || null,
+        remaining_approvals: (d && d.remaining_approvals) === undefined ? null : d.remaining_approvals
+      });
+    }).catch(function (e) {
+      audit.record({ action: 'goal.approve', outcome: 'failed', actor: auth.sessionIdFrom(req),
+                     task_id: campaignId,
+                     detail: { granted: payload.granted, approval_id: payload.approval_id,
+                               reason: (e && e.code) || 'internal_error' } });
+      problem(res, e);
+    });
+  }).catch(function (e) {
+    if (e && e.message === 'BODY_TOO_LARGE') return rejectGoal(req, res, 'goal.approve', 'body_too_large', 'request body too large');
+    problem(res, { code: 'internal_error', message: 'internal error' });
+  });
+}
+
+/* POST /api/goals/<id>/continue -- ask the executor to advance the
+   campaign. Takes no payload beyond the id already validated by the route
+   regex; max_steps is not offered, so the executor's own default bound
+   applies. The executor still refuses a campaign that is
+   WAITING_FOR_APPROVAL or BLOCKED -- this route cannot talk it past that,
+   and a refusal comes back as an upstream error, recorded as one. */
+function handleGoalContinue(req, res, campaignId) {
+  readBoundedBody(req, 1024).then(function () {
+    return upstream.post('/campaigns/' + campaignId + '/continue', { requested_by: 'mos-console' });
+  }).then(function (d) {
+    audit.record({ action: 'goal.continue', outcome: 'accepted', actor: auth.sessionIdFrom(req),
+                   task_id: campaignId, detail: { status: (d && d.from_state) || null } });
+    ok(res, {
+      campaign_id: campaignId,
+      accepted: !!(d && d.accepted),
+      from_state: (d && d.from_state) || null
+    });
+  }).catch(function (e) {
+    audit.record({ action: 'goal.continue', outcome: 'failed', actor: auth.sessionIdFrom(req),
+                   task_id: campaignId, detail: { reason: (e && e.code) || 'internal_error' } });
+    problem(res, e);
+  });
+}
+
 function handler(req, res) {
   var reqPathname = String(req.url || '/').split('?')[0];
   var writeMatch = req.method === 'POST' ? matchWriteRoute(reqPathname) : null;
@@ -842,7 +1129,7 @@ function handler(req, res) {
     // write surface, and the refusal is the surface's definition rather
     // than a gap in it.
     head(res, 405, 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ ok: false, error: 'read_only', detail: 'This console is read-only except for POST /api/login, POST /api/logout, POST /api/missions/start, POST /api/missions/<id>/cancel and POST /api/missions/<id>/dispatch.' }));
+    res.end(JSON.stringify({ ok: false, error: 'read_only', detail: 'This console is read-only except for POST /api/login, POST /api/logout, POST /api/missions/start, POST /api/missions/<id>/cancel, POST /api/missions/<id>/dispatch, POST /api/goals, POST /api/goals/<id>/approvals and POST /api/goals/<id>/continue.' }));
     return;
   }
   // --- the authentication boundary ---------------------------------
@@ -902,6 +1189,9 @@ function handler(req, res) {
   }
   if (req.method === 'GET' && (dm = TASK_DETAIL_RE.exec(pathname))) {
     return handleMissionDetail(res, dm[1]);
+  }
+  if (req.method === 'GET' && (dm = GOAL_DETAIL_RE.exec(pathname))) {
+    return handleGoalDetail(res, dm[1]);
   }
 
   if (Object.prototype.hasOwnProperty.call(API, pathname)) {

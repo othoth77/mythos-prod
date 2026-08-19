@@ -27,6 +27,13 @@
 //   GET  /campaigns/<id>            state, missions, current tasks, worktrees
 //   POST /campaigns/<id>/continue   single-flight continuation; refuses
 //                                   WAITING_FOR_APPROVAL and BLOCKED
+//   POST /campaigns/<id>/approvals/resolve
+//                                   record a HUMAN decision on an
+//                                   outstanding approval (MOS-v2 M-09).
+//                                   The only supported way out of
+//                                   WAITING_FOR_APPROVAL; requires an
+//                                   explicit granted boolean and a
+//                                   recorded decided_by identity.
 //   GET  /campaigns/<id>/report     completed/blocked/approval-required view
 //   GET  /events?since=&limit=      cursor event feed for the n8n bridge
 //
@@ -296,10 +303,19 @@ function handler(req, res, token) {
         // Only objective/project/requested_by are read. Provider, profile,
         // permission mode, repo path and capability are NOT accepted from
         // the caller — they are configuration and policy, not input.
+        // MOS-v2 M-09: require_plan_approval is the ONE new field read
+        // here, and it is read as a strict boolean identity — an absent,
+        // null, string or truthy-but-not-true value is not a request for
+        // it, so no existing caller's payload can acquire the behaviour by
+        // accident. It can only ever make the campaign MORE restrictive
+        // (parked for a human before anything runs), never less, which is
+        // why it is safe to accept from an already-authenticated caller.
+        // The console relay always sends true.
         var out = svc.submitGoal({
           objective: payload.objective,
           project: payload.project,
-          requested_by: payload.requested_by || 'n8n'
+          requested_by: payload.requested_by || 'n8n',
+          require_plan_approval: payload.require_plan_approval === true
         });
         send(res, out.created ? 201 : 200, out);
       }).catch(function (err) {
@@ -349,6 +365,54 @@ function handler(req, res, token) {
         send(res, code, out);
       }).catch(function (err) {
         send(res, 500, { error: redact.redact(err.message) });
+      });
+    }
+
+    // MOS-v2 M-09: the way OUT of WAITING_FOR_APPROVAL.
+    //
+    // Before this route the gate was a one-way door: the loop could enter
+    // WAITING_FOR_APPROVAL and continueCampaign correctly refused to leave
+    // it, but the only supported exit was hand-editing persisted JSON on
+    // the host — exactly the untracked state surgery the approval
+    // mechanism exists to prevent. This does not weaken the gate: it calls
+    // core/campaign.js's own resolveApproval, which demands an explicit
+    // boolean decision AND a recorded decider, decides the durable
+    // policy-engine approval entity first, writes the audit trail, and
+    // treats DENY as the conservative direction. Nothing here decides
+    // anything; it translates HTTP into that one function.
+    if ((cm2 = /^\/campaigns\/(c-[a-z0-9-]{8,40})\/approvals\/resolve$/.exec(url)) && req.method === 'POST') {
+      return readBody(req).then(function (body) {
+        var payload = {};
+        try { payload = JSON.parse(body || '{}'); } catch (e) { payload = {}; }
+        var camp2 = require('./core/campaign');
+        // Only the four decision fields are read, and the outstanding
+        // approval is addressed by its own id and by nothing else.
+        // resolveApproval also matches on capability_key and mission_id,
+        // and this route deliberately does NOT expose either: a capability
+        // key in a campaign payload is the one shape that could look like
+        // a caller choosing what runs, and the n8n bridge's authority test
+        // pins the whole campaign surface against reading one. An
+        // approval_id names a decision that already exists; it selects no
+        // work, no provider and no path.
+        var out = camp2.resolveApproval(cm2[1], {
+          approval_id: payload.approval_id,
+          granted: payload.granted,
+          decided_by: payload.decided_by,
+          note: payload.note
+        });
+        send(res, 200, out);
+      }).catch(function (err) {
+        var msg = String((err && err.message) || err);
+        if (/NO_SUCH_CAMPAIGN|INVALID_CAMPAIGN_ID/.test(msg)) {
+          return send(res, 404, { error: 'no such campaign' });
+        }
+        if (/NO_MATCHING_APPROVAL|NO_SUCH_APPROVAL/.test(msg)) {
+          return send(res, 404, { error: 'no matching approval on this campaign' });
+        }
+        if (/APPROVAL_NEEDS_DECIDER|APPROVAL_NEEDS_EXPLICIT_DECISION/.test(msg)) {
+          return send(res, 400, { error: redact.redact(msg) });
+        }
+        send(res, 409, { error: redact.redact(msg) });
       });
     }
 

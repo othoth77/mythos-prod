@@ -1,7 +1,51 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MOS-v2 **M-08 — COMPLETE REGRESSION GATE GREEN: 0 NEW FAILURES, 2 KNOWN PRE-EXISTING (VPS-ONLY), 20/20 COVERAGE AREAS MAPPED.**
+**From:** MOS-v2 **M-09 — GOAL LAYER + MANDATORY HUMAN APPROVAL. THE AI PROPOSES; ONLY A HUMAN AUTHORISES; ONLY THE EXISTING DISPATCHER EXECUTES.**
+
+## MOS-v2 M-09 — Goal + human approval (2026-08-19)
+
+**Architecture delivered:** GOAL → PROPOSED PLAN → HUMAN APPROVAL →
+DISPATCH → RESULTS, on the existing campaign machinery — no new planner,
+approval system, queue or dispatcher.
+
+**Executor.** `campaign-service.submitGoal` accepts optional
+`require_plan_approval` (strict `=== true`; absent = byte-identical old
+behaviour for n8n/autopilot): a NEW campaign builds its plan preview from
+the loop's own `proposeNextMission` + `buildMissionSpec` (nothing
+persisted, nothing queued), attaches it as field-picked `proposed_plan`
+(key/title/type/depends_on/policy_classes — no instruction text) and
+parks WAITING_FOR_APPROVAL via the existing `parkForApproval` BEFORE any
+mission starts; deliberately parked WITHOUT `capability_key` so an
+unattended auto-deny cannot write a roadmap capability off. NEW route
+`POST /campaigns/<id>/approvals/resolve` (bearer + core gate) →
+`campaign.resolveApproval`; accepts `approval_id` only. Exit from the
+gate is only a granted resolution → READY; dispatch remains only
+`continueCampaign`, which still refuses decision states.
+
+**Console.** Goals module (registry 14 → 15): `GET /api/goals`,
+`GET /api/goals/<id>` (field-picked incl. `proposed_plan`,
+`approval_required`); writes `POST /api/goals` (objective 1..2000;
+`require_plan_approval: true`, `project`, `requested_by` fixed
+server-side), `POST /api/goals/<id>/approvals` (`approval_id`+`granted`+
+optional note; `decided_by` composed SERVER-SIDE as
+`mos-console-operator:sess:xxxxxxxx` — a payload carrying `decided_by` is
+refused as an unexpected field), `POST /api/goals/<id>/continue`.
+Write-route count 5 → 8, all authenticated, bounded, audited
+(`goal.create`/`goal.approve`/`goal.continue` — never objective text).
+UI: Goals page with plan review, two-click in-page confirm on
+Approve/Deny (no native dialogs), continue, results.
+
+**Tests.** Console **1141/0** (was 972/0). Executor **175/0** (was
+158/0). Autonomous-campaign **190/0** (was 137/0). n8n-bridge **80/0**.
+Orchestration-core 255/2 (the 2 known VPS-only). Regression gate:
+**0 new failures, 20/20 mapped, exit 0** — chief-re-verified.
+
+**Next stage.** M-10 governed AI decomposition (Opus).
+
+---
+
+**Previously:** MOS-v2 **M-08 — COMPLETE REGRESSION GATE GREEN: 0 NEW FAILURES, 2 KNOWN PRE-EXISTING (VPS-ONLY), 20/20 COVERAGE AREAS MAPPED.**
 
 ## MOS-v2 M-08 — complete regression gate (2026-08-19)
 

@@ -761,6 +761,308 @@
     });
   };
 
+  // ---------------------------------------------------------------
+  // MOS-v2 M-09: GOALS
+  //
+  // GOAL → PROPOSED PLAN → MISSIONS → DEPENDENCIES → HUMAN APPROVAL →
+  // DISPATCH → RESULTS, drawn in that order because that IS the order.
+  //
+  // The page holds no planner, no queue and no notion of what a campaign
+  // state means: every value on it comes from the executor through
+  // server.js's field-picked relays. What it adds is the one thing a
+  // browser is for — showing an operator the plan an AI proposed, and
+  // taking their yes or no before anything runs.
+  //
+  // A decision is never one click. Approve and Deny both arm first and
+  // send on a second, explicit confirmation, with the armed state naming
+  // what is about to happen; a mis-click costs a click, not an
+  // authorisation. This is an in-page confirmation rather than
+  // window.confirm() deliberately: this file starts no browser dialog
+  // anywhere, and a native dialog is also the one thing an operator
+  // dismisses reflexively.
+  // ---------------------------------------------------------------
+
+  function confirmAction(label, armedLabel, className, run) {
+    var armed = false;
+    var btn = el('button', { className: 'mythos-btn ' + className, attrs: { type: 'button' }, text: label });
+    btn.addEventListener('click', function () {
+      if (!armed) {
+        armed = true;
+        btn.textContent = armedLabel;
+        btn.classList.add('is-armed');
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      run(btn);
+    });
+    return btn;
+  }
+
+  function planTree(plan) {
+    if (!plan) {
+      return statePanel('◌', 'No plan proposed yet',
+        'The control plane has not attached a proposed plan to this goal.');
+    }
+    if (!plan.available) {
+      return statePanel('⚠', 'No plan could be proposed',
+        plan.reason || 'The planner did not select a capability for this goal.', true);
+    }
+    var head = el('div', { className: 'mythos-card' }, [
+      el('span', { className: 'mythos-label', text: 'Proposed mission' }),
+      el('div', { className: 'mythos-card-meta',
+        text: (plan.capability_key ? plan.capability_key + ' — ' : '') + (plan.title || '(untitled)') }),
+      plan.objective ? fact('Objective', plan.objective) : null,
+      plan.reason ? fact('Why this one', plan.reason) : null,
+      plan.risk ? fact('Risk', String(plan.risk)) : null,
+      (plan.acceptance_criteria && plan.acceptance_criteria.length)
+        ? fact('Acceptance criteria', plan.acceptance_criteria.join('; ')) : null
+    ]);
+    var list = el('div', { className: 'mythos-list' });
+    (plan.tasks || []).forEach(function (t) {
+      var deps = (t.depends_on || []);
+      list.appendChild(row([
+        cellMain(t.key + ': ' + (t.title || ''), t.task_type || ''),
+        cellText('Depends on', deps.length ? deps.join(', ') : '(no dependencies — starts immediately)'),
+        cellText('Policy', (t.policy_classes || []).join('+'))
+      ]));
+    });
+    return el('div', {}, [head, sectionTitle('Planned tasks · ' + (plan.tasks || []).length), list]);
+  }
+
+  function approvalBlock(goal, slot, reload) {
+    var pending = goal.approval_required || [];
+    if (!pending.length) return null;
+    var wrap = el('div', {});
+    wrap.appendChild(sectionTitle('Awaiting your decision · ' + pending.length));
+    var feedback = el('div', { className: 'mythos-start-feedback' });
+    pending.forEach(function (a) {
+      function decide(granted) {
+        return function (btn) {
+          clear(feedback);
+          postJSON('/api/goals/' + encodeURIComponent(goal.campaign_id) + '/approvals', {
+            approval_id: a.approval_id,
+            granted: granted
+          }).then(function (r) {
+            var d = r.data || {};
+            btn.textContent = granted ? 'Approved' : 'Denied';
+            feedback.appendChild(statePanel(granted ? '✓' : '⊘',
+              granted ? 'Plan approved' : 'Plan denied',
+              'The decision was recorded against ' + a.approval_id + '. The goal is now ' +
+              (d.state || 'updated') + '.' +
+              (granted ? ' Nothing has run yet — use Continue to dispatch it.' : '')));
+            reload();
+          }).catch(function (e) {
+            btn.disabled = false;
+            btn.textContent = granted ? 'Approve' : 'Deny';
+            clear(feedback);
+            feedback.appendChild(statePanel('⚠', 'Could not record the decision', e.message, true));
+          });
+        };
+      }
+      wrap.appendChild(el('div', { className: 'mythos-exec-card' }, [
+        row([
+          cellMain(a.reason || 'approval required', a.approval_id || ''),
+          cellText('Capability', a.capability_key || '—'),
+          el('div', { className: 'mythos-row-end' }, [
+            badge('WAITING_FOR_APPROVAL'),
+            el('div', { className: 'mythos-exec-actions' }, [
+              confirmAction('Approve', 'Confirm approve', 'mythos-btn-gold', decide(true)),
+              confirmAction('Deny', 'Confirm deny', 'mythos-btn-outline', decide(false))
+            ])
+          ])
+        ])
+      ]));
+    });
+    wrap.appendChild(feedback);
+    return wrap;
+  }
+
+  function goalDetail(campaignId, slot) {
+    function reload() { goalDetail(campaignId, slot); }
+    clear(slot);
+    slot.appendChild(statePanel('◌', 'Loading…', ''));
+    api('/api/goals/' + encodeURIComponent(campaignId)).then(function (r) {
+      clear(slot);
+      var g = (r.data && r.data.goal) || {};
+      slot.appendChild(el('div', { className: 'mythos-card' }, [
+        fact('Goal', g.objective || '—'),
+        fact('State', String(g.state || 'UNKNOWN')),
+        fact('Approval gate', g.plan_approval_required
+          ? 'ON — this goal was created from the console and cannot dispatch without an approval'
+          : 'not set for this campaign'),
+        fact('Waiting on you', g.needs_human ? 'YES' : 'no')
+      ]));
+
+      slot.appendChild(sectionTitle('Proposed plan'));
+      slot.appendChild(planTree(g.proposed_plan));
+
+      var approvals = approvalBlock(g, slot, reload);
+      if (approvals) slot.appendChild(approvals);
+
+      if (g.continuable) {
+        var contFeedback = el('div', { className: 'mythos-start-feedback' });
+        var contBtn = confirmAction('Continue', 'Confirm continue', 'mythos-btn-outline', function (btn) {
+          clear(contFeedback);
+          postJSON('/api/goals/' + encodeURIComponent(campaignId) + '/continue', {}).then(function (r2) {
+            var d = r2.data || {};
+            btn.textContent = d.accepted ? 'Continuing' : 'Not accepted';
+            contFeedback.appendChild(statePanel(d.accepted ? '▶' : '◌',
+              d.accepted ? 'Dispatch accepted' : 'Dispatch not accepted',
+              'The executor answered from state ' + (d.from_state || 'unknown') + '.'));
+          }).catch(function (e) {
+            btn.disabled = false;
+            btn.textContent = 'Continue';
+            clear(contFeedback);
+            contFeedback.appendChild(statePanel('⚠', 'Could not continue', e.message, true));
+          });
+        });
+        slot.appendChild(sectionTitle('Dispatch'));
+        slot.appendChild(el('div', { className: 'mythos-card' }, [
+          el('div', { className: 'mythos-card-meta',
+            text: 'Approving authorises the plan; it does not run it. Continue asks the executor to advance the campaign, and the executor still refuses any campaign that is waiting for a decision.' }),
+          el('div', { className: 'mythos-exec-actions' }, [contBtn]),
+          contFeedback
+        ]));
+      }
+
+      if (g.current_mission) {
+        slot.appendChild(sectionTitle('Current mission'));
+        var cmList = el('div', { className: 'mythos-list' });
+        (g.current_mission.tasks || []).forEach(function (t) {
+          cmList.appendChild(row([
+            cellMain(t.plan_key || t.task_id, t.task_id || ''),
+            el('div', { className: 'mythos-row-end' }, [badge(t.status)])
+          ]));
+        });
+        slot.appendChild(el('div', { className: 'mythos-card' }, [
+          fact('Capability', g.current_mission.capability_key || '—'),
+          fact('Mission', g.current_mission.mission_id || '—')
+        ]));
+        slot.appendChild(cmList);
+      }
+
+      var completed = g.completed_missions || [];
+      var blocked = g.blocked_missions || [];
+      slot.appendChild(sectionTitle('Results · ' + completed.length + ' completed, ' + blocked.length + ' blocked'));
+      if (!completed.length && !blocked.length) {
+        slot.appendChild(statePanel('◌', 'No results yet', 'No mission of this goal has finished.'));
+      } else {
+        var results = el('div', { className: 'mythos-list' });
+        completed.forEach(function (m) {
+          results.appendChild(row([
+            cellMain(m.capability_key || m.mission_id || 'mission', m.mission_id || ''),
+            cellText('Commit', m.commit || '—'),
+            cellText('Tests', [].concat(m.tests || []).join(' | ') || '—'),
+            el('div', { className: 'mythos-row-end' }, [badge('COMPLETED')])
+          ]));
+        });
+        blocked.forEach(function (m) {
+          results.appendChild(row([
+            cellMain(m.capability_key || m.mission_id || 'mission', m.mission_id || ''),
+            cellText('Reason', m.reason || '—'),
+            el('div', { className: 'mythos-row-end' }, [badge('BLOCKED')])
+          ]));
+        });
+        slot.appendChild(results);
+      }
+    }).catch(function (e) {
+      clear(slot);
+      slot.appendChild(upstreamFailure(e, 'the executor campaign API'));
+    });
+  }
+
+  RENDERERS.goals = function (view) {
+    view.appendChild(pageHeader('GOALS',
+      'State a goal. The control plane proposes a plan. Nothing dispatches until you approve it.'));
+
+    var feedback = el('div', { className: 'mythos-start-feedback' });
+    var objectiveInput = el('textarea', {
+      className: 'mythos-input mythos-textarea',
+      attrs: { id: 'goal-objective', maxlength: '2000', rows: '3',
+        placeholder: 'What should Mythos achieve? The control plane will propose the missions and their dependencies for your approval.' }
+    });
+    var submitBtn = el('button', {
+      className: 'mythos-btn mythos-btn-gold', attrs: { type: 'button' }, text: 'Propose Plan'
+    });
+
+    var listSlot = el('div', {});
+    var detailSlot = el('div', { className: 'mythos-exec-detail' });
+
+    function loadList() {
+      clear(listSlot);
+      listSlot.appendChild(statePanel('◌', 'Loading…', ''));
+      api('/api/goals').then(function (r) {
+        clear(listSlot);
+        var goals = (r.data && r.data.goals) || [];
+        if (!goals.length) {
+          listSlot.appendChild(statePanel('◌', 'No goals', 'The orchestration core reports no campaign.'));
+          return;
+        }
+        var list = el('div', { className: 'mythos-list' });
+        goals.forEach(function (g) {
+          var openBtn = el('button', { className: 'mythos-btn mythos-btn-outline', attrs: { type: 'button' }, text: 'Review' });
+          openBtn.addEventListener('click', function () { goalDetail(g.campaign_id, detailSlot); });
+          list.appendChild(row([
+            cellMain(g.objective || g.campaign_id, g.campaign_id || ''),
+            cellText('Completed missions', g.completed === undefined ? '—' : String(g.completed)),
+            cellText('Updated', g.updated_at ? stamp(g.updated_at) : '—'),
+            el('div', { className: 'mythos-row-end' }, [
+              badge(g.state), el('div', { className: 'mythos-exec-actions' }, [openBtn])
+            ])
+          ]));
+        });
+        listSlot.appendChild(list);
+      }).catch(function (e) {
+        clear(listSlot);
+        listSlot.appendChild(upstreamFailure(e, 'the executor campaign API'));
+      });
+    }
+
+    submitBtn.addEventListener('click', function () {
+      clear(feedback);
+      var objective = objectiveInput.value.trim();
+      if (!objective) {
+        feedback.appendChild(statePanel('⚠', 'Missing goal', 'An objective is required.', true));
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Proposing…';
+      // The browser sends the objective and nothing else. project,
+      // requested_by and the mandatory plan approval are all fixed
+      // server-side in server.js and are not fields here.
+      postJSON('/api/goals', { objective: objective }).then(function (r) {
+        clear(feedback);
+        var d = r.data || {};
+        feedback.appendChild(statePanel(
+          d.needs_approval ? '⏸' : '◌',
+          d.needs_approval ? 'Plan proposed — awaiting your approval' : 'Goal submitted',
+          d.campaign_id + ' is ' + (d.state || 'submitted') +
+          (d.created ? '.' : ' (an existing live campaign for this project answered instead of a second one being created).') +
+          (d.needs_approval ? ' Review the proposed plan below and approve or deny it. Nothing runs until you do.' : '')
+        ));
+        objectiveInput.value = '';
+        loadList();
+        if (d.campaign_id) goalDetail(d.campaign_id, detailSlot);
+      }).catch(function (e) {
+        clear(feedback);
+        feedback.appendChild(statePanel('⚠', 'Could not submit the goal', e.message, true));
+      }).then(function () {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Propose Plan';
+      });
+    });
+
+    view.appendChild(el('div', { className: 'mythos-start-form' }, [
+      el('label', { className: 'mythos-label', attrs: { for: 'goal-objective' }, text: 'Goal' }),
+      objectiveInput, submitBtn, feedback
+    ]));
+    view.appendChild(sectionTitle('Goals'));
+    view.appendChild(listSlot);
+    view.appendChild(detailSlot);
+    loadList();
+  };
+
   RENDERERS.campaigns = function (view) {
     view.appendChild(pageHeader('CAMPAIGNS', 'Multi-mission campaigns and where each has reached.'));
     var slot = el('div', {});
@@ -1161,6 +1463,9 @@
     var instructionInput = document.getElementById('mission-instruction');
     if (titleInput && titleInput.value !== '') return false;
     if (instructionInput && instructionInput.value !== '') return false;
+    // (e) MOS-v2 M-09: a half-written goal is the same unsaved work.
+    var objectiveInput = document.getElementById('goal-objective');
+    if (objectiveInput && objectiveInput.value !== '') return false;
 
     return true;
   }

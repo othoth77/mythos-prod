@@ -236,3 +236,12 @@
 .mythos-exec-detail:empty { padding: 0; }
 .mythos-exec-detail .console-fact { padding: var(--mythos-sp-3) 0; border-top: 1px solid var(--mythos-border); }
 .mythos-exec-detail .mythos-state { padding: var(--mythos-sp-4) 0; }
+
+/* MOS-v2 M-09: an armed decision button. Approve and Deny both arm on the
+   first click and send on the second, so the armed state has to LOOK
+   different from the resting one -- otherwise the two-step confirmation is
+   invisible and the second click is the accident the first one prevented. */
+.mythos-btn.is-armed {
+  border-color: var(--mythos-gold);
+  box-shadow: var(--mythos-focus-ring);
+}

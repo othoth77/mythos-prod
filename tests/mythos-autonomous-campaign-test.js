@@ -36,6 +36,12 @@ fs.mkdirSync(FIXTURES, { recursive: true });
 process.env.MYTHOS_EXECUTOR_HOME = path.join(FIXTURES, 'home');
 process.env.MYTHOS_EXECUTOR_ALLOW_MOCK = '1';
 process.env.MYTHOS_CORE_ENABLED = 'true';
+// MOS-v2 M-09: campaign-service.submitGoal deliberately does NOT take a
+// repo path from its caller -- the repository is configuration, not input --
+// so the goal-layer section below points the core at a throwaway repo the
+// same way the deployment does: through the environment, read once when
+// core-wiring loads. It must therefore be set before the requires below.
+process.env.MYTHOS_CORE_REPO_PATH = path.join(FIXTURES, 'goal-repo');
 
 var campaign = require(path.join(EXEC, 'core', 'campaign'));
 var runner = require(path.join(EXEC, 'core', 'campaign-runner'));
@@ -44,6 +50,7 @@ var store = require(path.join(EXEC, 'core', 'store'));
 var memory = require(path.join(EXEC, 'core', 'memory'));
 var selfImprove = require(path.join(EXEC, 'core', 'self-improve'));
 var agents = require(path.join(EXEC, 'core', 'agent-registry'));
+var policy = require(path.join(EXEC, 'core', 'policy-engine'));
 
 var passed = 0, failed = 0, failures = [];
 function ok(cond, name) {
@@ -966,6 +973,245 @@ chain = chain.then(function () {
     ok(/does not exist|commit/i.test(problems),
       'git: the refusal names the unverifiable commit');
   });
+});
+
+
+// ===========================================================================
+// 18. MOS-v2 M-09: MANDATORY HUMAN APPROVAL OF A PROPOSED PLAN
+//
+// GOAL → PROPOSED PLAN → MISSIONS → DEPENDENCIES → HUMAN APPROVAL →
+// DISPATCH → RESULTS.
+//
+// The AI may PROPOSE a plan. It may never authorise its own plan. For a
+// goal submitted with require_plan_approval (which is what the console
+// always does), the campaign is parked in WAITING_FOR_APPROVAL with the
+// proposed plan attached BEFORE any mission is started, and the only way
+// out is a recorded human decision. What is asserted here is the whole
+// sequence, in the order it can actually fail:
+//
+//   · the park happens before any task exists, not after one is running;
+//   · a parked campaign refuses to continue and executes nothing;
+//   · a decision demands an explicit boolean AND a named decider;
+//   · granting returns the campaign to READY and only THEN does a
+//     continuation dispatch anything;
+//   · denying dispatches nothing at all;
+//   · unattended mode still answers for itself, and still only DENIES;
+//   · a caller that does not pass the flag sees exactly what it saw
+//     before -- no extra state, no extra approval.
+// ===========================================================================
+chain = chain.then(function () {
+  useMockAgents();
+  var svc = require(path.join(EXEC, 'core', 'campaign-service'));
+  var goalRepo = makeVisionRepo('goal-repo', [
+    { key: 'A', title: 'Adapter Improvement', status: 'PARTIAL (Phase 2)' },
+    { key: 'B', title: 'Docs Improvement', status: 'PLANNED (Phase 3)' }
+  ]);
+  ok(goalRepo === process.env.MYTHOS_CORE_REPO_PATH,
+    'M-09: the goal-layer fixture repo is the one core-wiring was pointed at');
+
+  // --- the flag is opt-in: an existing caller is untouched ------------
+  var plain = svc.submitGoal({
+    objective: 'Continue developing Mythos without a console gate.',
+    project: 'goal-noflag', requested_by: 'n8n'
+  });
+  ok(plain.created === true && plain.state === 'PLANNING',
+    'M-09: a goal submitted WITHOUT the flag still lands PLANNING (n8n behaviour is unchanged)');
+  ok(plain.require_plan_approval === undefined && plain.approval_id === undefined,
+    'M-09: a goal submitted without the flag carries no approval fields at all');
+  ok((campaign.loadCampaign(plain.campaign_id).approval_required || []).length === 0,
+    'M-09: a goal submitted without the flag has no pending approval');
+
+  // A truthy-but-not-true value is NOT a request for the gate: the flag is
+  // compared by identity, so nothing acquires the behaviour by accident.
+  var stringy = svc.submitGoal({
+    objective: 'A goal whose flag is a string, not a boolean.',
+    project: 'goal-stringflag', requested_by: 'n8n', require_plan_approval: 'true'
+  });
+  ok(stringy.state === 'PLANNING',
+    'M-09: require_plan_approval is read by identity -- a truthy string does not switch the gate on');
+
+  // --- the park, before anything starts -------------------------------
+  var parked = svc.submitGoal({
+    objective: 'Improve the adapter through the console goal layer.',
+    project: 'goal-park', requested_by: 'mos-console', require_plan_approval: true
+  });
+  ok(parked.created === true, 'M-09: a console goal creates a campaign');
+  ok(parked.state === 'WAITING_FOR_APPROVAL',
+    'M-09: a console goal lands WAITING_FOR_APPROVAL, not PLANNING or READY');
+  ok(parked.require_plan_approval === true && !!parked.approval_id,
+    'M-09: the response names a real approval to answer');
+  ok(parked.auto_denied === false, 'M-09: attended mode decides nothing automatically');
+
+  var parkedCampaign = campaign.loadCampaign(parked.campaign_id);
+  ok(parkedCampaign.state === 'WAITING_FOR_APPROVAL',
+    'M-09: the PERSISTED campaign is WAITING_FOR_APPROVAL, so a restart cannot lose the gate');
+  ok(parkedCampaign.current_mission === null,
+    'M-09: NO mission was started before the approval -- the plan is proposed, not begun');
+  ok((parkedCampaign.completed_missions || []).length === 0 &&
+     (parkedCampaign.blocked_missions || []).length === 0,
+    'M-09: nothing has run for this campaign at all');
+  ok((parkedCampaign.approval_required || []).length === 1,
+    'M-09: exactly one approval is outstanding -- the plan itself');
+  var entry = parkedCampaign.approval_required[0];
+  ok(entry.approval_id === parked.approval_id &&
+     /requires human approval before dispatch/.test(entry.reason),
+    'M-09: the outstanding approval is the plan approval, and it says so');
+  ok(policy.pendingApprovals().some(function (a) { return a.id === parked.approval_id; }),
+    'M-09: the approval is a REAL policy-engine entity, not a note on the campaign');
+
+  // --- the plan a human is being asked to authorise --------------------
+  var plan = parkedCampaign.proposed_plan;
+  ok(plan && plan.available === true, 'M-09: a proposed plan is attached to the campaign');
+  ok(plan.capability_key === 'A', 'M-09: the proposed plan names the capability the loop would select');
+  ok(plan.tasks.length >= 4, 'M-09: the proposed plan carries the mission tasks (' + plan.tasks.length + ')');
+  var implement = plan.tasks.filter(function (t) { return t.key === 'implement'; })[0];
+  ok(implement && implement.depends_on.length >= 1,
+    'M-09: the proposed plan carries task DEPENDENCIES, so the DAG is what is approved');
+  ok(implement.policy_classes.indexOf('PROJECT_WRITE') !== -1,
+    'M-09: the proposed plan states which policy classes each task needs');
+  ok(!Object.prototype.hasOwnProperty.call(plan.tasks[0], 'instruction'),
+    'M-09: the plan preview carries no agent instruction text -- the plan is reviewed, not the prompt');
+
+  var described = svc.describe(parked.campaign_id);
+  ok(described.needs_human === true && described.continuable === false,
+    'M-09: describe() reports that a human owns this campaign and it is not continuable');
+  ok(described.plan_approval_required === true,
+    'M-09: describe() states that this campaign is gated on a plan approval');
+  ok(described.proposed_plan && described.proposed_plan.tasks.length === plan.tasks.length,
+    'M-09: describe() exposes the proposed plan for review');
+  ok(described.approval_required.length === 1 && described.approval_required[0].approval_id === parked.approval_id,
+    'M-09: describe() exposes the approval id a decision must be made against');
+
+  // --- a parked campaign executes NOTHING ------------------------------
+  var ranWhileParked = 0;
+  var refused = svc.continueCampaign(parked.campaign_id, {
+    agent_runner: function () { ranWhileParked += 1; throw new Error('must never execute'); },
+    repo_path: goalRepo
+  });
+  ok(refused.accepted === false && refused.code === 'NEEDS_HUMAN',
+    'M-09: continuing a campaign that is waiting for a plan approval is REFUSED');
+  ok(/human approval before dispatch/.test(refused.reason || ''),
+    'M-09: the refusal states what is being waited on');
+  ok(ranWhileParked === 0, 'M-09: no agent ran while the plan was awaiting a decision');
+
+  // --- a decision needs a decider AND an explicit verdict ---------------
+  throws(function () {
+    campaign.resolveApproval(parked.campaign_id, { approval_id: parked.approval_id, granted: true });
+  }, /APPROVAL_NEEDS_DECIDER/, 'M-09: an approval cannot be resolved without a recorded human identity');
+  throws(function () {
+    campaign.resolveApproval(parked.campaign_id, { approval_id: parked.approval_id, decided_by: 'owner' });
+  }, /APPROVAL_NEEDS_EXPLICIT_DECISION/, 'M-09: an approval cannot be resolved without an explicit boolean verdict');
+  throws(function () {
+    campaign.resolveApproval(parked.campaign_id, {
+      approval_id: parked.approval_id, decided_by: 'owner', granted: 'yes'
+    });
+  }, /APPROVAL_NEEDS_EXPLICIT_DECISION/, 'M-09: a non-boolean verdict is refused, never coerced into consent');
+  throws(function () {
+    campaign.resolveApproval(parked.campaign_id, {
+      approval_id: 'ap-nosuch-0001', decided_by: 'owner', granted: true
+    });
+  }, /NO_MATCHING_APPROVAL/, 'M-09: a decision against an approval this campaign does not hold is refused');
+  ok(campaign.loadCampaign(parked.campaign_id).state === 'WAITING_FOR_APPROVAL',
+    'M-09: every refused decision leaves the campaign exactly where it was');
+
+  // --- GRANT → READY → and only then does a continuation dispatch -------
+  var granted = campaign.resolveApproval(parked.campaign_id, {
+    approval_id: parked.approval_id, granted: true,
+    decided_by: 'mos-console-operator:sess:abcd1234', note: 'plan looks right'
+  });
+  ok(granted.granted === true && granted.remaining_approvals === 0,
+    'M-09: the grant is recorded and nothing else is outstanding');
+  ok(granted.state === 'READY', 'M-09: granting the plan returns the campaign to READY');
+  var afterGrant = campaign.loadCampaign(parked.campaign_id);
+  ok(afterGrant.current_mission === null,
+    'M-09: APPROVING RUNS NOTHING -- it only makes running possible');
+  var decision = (afterGrant.approval_decisions || [])[0];
+  ok(decision && decision.granted === true &&
+     decision.decided_by === 'mos-console-operator:sess:abcd1234',
+    'M-09: the decision records WHO decided, in the operator identity the console composed');
+  ok(policy.pendingApprovals().every(function (a) { return a.id !== parked.approval_id; }),
+    'M-09: the durable approval entity is decided, not left pending');
+
+  var dispatched = [];
+  var cont = svc.continueCampaign(parked.campaign_id, {
+    repo_path: goalRepo, max_steps: 1,
+    review_fn: function () { return { verdict: 'pass', findings: [] }; },
+    agent_runner: function (agentName, task) {
+      dispatched.push(task.metadata.plan_key);
+      return Promise.resolve({ status: 'completed', summary: task.title + ' done' });
+    }
+  });
+  ok(cont.accepted === true, 'M-09: once approved, the campaign accepts a continuation');
+  return cont.promise.then(function () {
+    var st = runner.campaignStatus(parked.campaign_id);
+    ok(dispatched.length >= 1 || st.current_mission,
+      'M-09: the approved plan is DISPATCHED through the existing continuation path (' +
+      dispatched.join(',') + ')');
+    ok(st.current_mission ? st.current_mission.capability_key === 'A' : true,
+      'M-09: what was dispatched is the mission that was approved');
+  });
+});
+
+// ===========================================================================
+// 18b. DENIAL DISPATCHES NOTHING
+// ===========================================================================
+chain = chain.then(function () {
+  useMockAgents();
+  var svc = require(path.join(EXEC, 'core', 'campaign-service'));
+  var goalRepo = process.env.MYTHOS_CORE_REPO_PATH;
+  var denied = svc.submitGoal({
+    objective: 'A goal the owner is going to refuse outright.',
+    project: 'goal-deny', requested_by: 'mos-console', require_plan_approval: true
+  });
+  ok(denied.state === 'WAITING_FOR_APPROVAL', 'M-09: the goal to be denied is parked first');
+
+  var out = campaign.resolveApproval(denied.campaign_id, {
+    approval_id: denied.approval_id, granted: false,
+    decided_by: 'mos-console-operator:sess:beef0001', note: 'not this plan'
+  });
+  ok(out.granted === false, 'M-09: the denial is recorded as a denial');
+  var c = campaign.loadCampaign(denied.campaign_id);
+  ok(c.current_mission === null && (c.completed_missions || []).length === 0,
+    'M-09: a denied plan started nothing, before or after the decision');
+  var d = (c.approval_decisions || [])[0];
+  ok(d && d.granted === false && d.decided_by === 'mos-console-operator:sess:beef0001',
+    'M-09: the denial names the human who made it');
+  ok((c.approval_required || []).length === 0,
+    'M-09: a denied approval is no longer outstanding');
+  var stored = store.load('approval', denied.approval_id);
+  ok(stored && stored.status === 'DENIED',
+    'M-09: the durable approval entity itself records the refusal');
+});
+
+// ===========================================================================
+// 18c. UNATTENDED MODE STILL ANSWERS FOR ITSELF -- AND STILL ONLY DENIES
+// ===========================================================================
+chain = chain.then(function () {
+  useMockAgents();
+  var svc = require(path.join(EXEC, 'core', 'campaign-service'));
+  process.env.MYTHOS_UNATTENDED = 'true';
+  try {
+    var g = svc.submitGoal({
+      objective: 'A goal submitted while nobody is reachable to approve it.',
+      project: 'goal-unattended', requested_by: 'mos-console', require_plan_approval: true
+    });
+    ok(g.auto_denied === true,
+      'M-09: with the flag set, unattended mode still decides the plan approval automatically');
+    ok(g.state === 'READY',
+      'M-09: the auto-denied campaign returns to READY, exactly as the unattended policy already did');
+    var c = campaign.loadCampaign(g.campaign_id);
+    var d = (c.approval_decisions || [])[0];
+    ok(d && d.granted === false && d.automatic === true,
+      'M-09: the automatic answer is a DENIAL -- unattended mode can never grant a plan');
+    ok(/unattended-policy/.test(String(d.decided_by)),
+      'M-09: the automatic denial is attributed to the unattended policy, never to an operator');
+    ok(c.current_mission === null,
+      'M-09: nothing was dispatched by the automatic denial');
+    ok((c.approval_required || []).length === 0,
+      'M-09: the auto-denied approval is not left outstanding for a human who will never see it');
+  } finally {
+    delete process.env.MYTHOS_UNATTENDED;
+  }
 });
 
 // ===========================================================================
