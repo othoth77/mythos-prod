@@ -1,0 +1,29 @@
+# Mythos OS Console — Phase-8 deployment relay (stage MOS-v2 M-02).
+#
+# System unit, root-installed, running as `deploy`. Same shape as
+# `projects/mythos-ai-executor/service/mythos-git-push.service`: a
+# root-owned unit that lets an authorized non-deploy session trigger one
+# fixed, `deploy`-privileged action (`systemctl start
+# mythos-os-console-deploy`) without ever holding `deploy`'s credentials.
+# It exposes no shell, accepts no arguments and no flags, and reads no
+# secret directly — see mythos-os-console-deploy.sh for exactly what it
+# runs and why NoNewPrivileges is deliberately not set here (deploy.sh's
+# own, already-scoped three-command sudo grant needs it).
+#
+# Do not install or use before M-01 (the console's own deployment) is
+# live — see RUNBOOK.md.
+
+[Unit]
+Description=Mythos OS Console Phase-8 deployment relay (runs tools/deploy.sh as deploy)
+Documentation=https://github.com/othoth77/mythos-prod
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+ExecStart=/usr/local/bin/mythos-os-console-deploy
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/deploy/projects/mythos-prod /home/deploy/deployments/mythos-os-console /home/deploy/.config/systemd/user

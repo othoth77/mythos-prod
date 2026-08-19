@@ -1,5 +1,41 @@
 # Mythos OS — AI Handover
 
+## MOS-v2 M-02 — DEPLOY RELAY / OPERATOR RUNBOOK (2026-08-19) — **CREATED, NOT INSTALLED, NOT USED**
+
+Two new root-installable systemd oneshot units, following the
+`mythos-git-push.service` pattern MOS-1.6/1.7 recommended, under
+`projects/mythos-os-console/deploy/relay/`:
+
+- `mythos-os-console-restart.{sh,service}` — restarts the already-live
+  `mythos-os-console` `--user` service as `deploy`, hardened
+  (`NoNewPrivileges`, `PrivateTmp`, `ProtectSystem=strict`, empty
+  `ReadWritePaths`). No file access, no secret.
+- `mythos-os-console-deploy.{sh,service}` — re-runs
+  `tools/deploy.sh` unmodified/unparameterized as `deploy`, for the
+  documented Phase-8 deployment operation. `NoNewPrivileges` is
+  deliberately **not** set on this one — deploy.sh's own Phases 5/6/8
+  need deploy's existing three-command sudo grant (`nginx -t`,
+  `systemctl reload nginx`, `certbot`), which `NoNewPrivileges` would
+  silently break; the sudoers grant itself remains the scope boundary,
+  unchanged and unbroadened by this unit.
+- `RUNBOOK.md` — install / execute / verify / rollback, and an explicit
+  gate: **do not install or use either unit until M-01 (the console's
+  own first deployment) is live.**
+
+Both units were validated with `systemd-analyze verify` (using a stand-in
+executable, since neither script is installed anywhere) — clean, no
+directive or syntax errors. `bash -n` clean on both scripts.
+
+**No host action was taken.** Nothing was installed, started, or
+deployed; nginx and application source were not touched. Files are new,
+under `projects/mythos-os-console/deploy/relay/` only.
+
+This does not itself unblock MOS-1.6/1.7's Phase 8 — installing these
+units still requires root, which remains an operator action outside this
+session's identity, exactly as MOS-1.6/1.7 already concluded.
+
+---
+
 **Last updated:** 2026-08-19 UTC
 **From:** MYTHOS **FULL AUTONOMOUS MANDATE, TENTH PASS — MIG-3 PARTIALLY EXECUTED (AUTO-9): `--muted`/`--danger` CORRECTED TO THEIR APPROVED VALUES AND APPLIED, `--past`/CONTROL-BORDER LEFT EXPLICITLY OPEN (NO APPROVED TARGET FOR ONE, TOO BROAD A BLAST RADIUS FOR THE OTHER). MIG-4 CHECKED AND LEFT BLOCKED WITH EVIDENCE: MCC-1 (COMMAND CENTER) IS CONFIRMED LIVE, DEPLOYED, SERVING REAL PUBLIC TRAFFIC — NOT A SAFE LOCAL PILOT TARGET — AND A STANDING, NEVER-REVOKED INSTRUCTION FORBIDS TOUCHING IT. NO COMMAND CENTER FILE WAS READ OR TOUCHED. THIS CLOSES THE FOUR-MIGRATION EXECUTION PASS THE CONTINUATION INSTRUCTION NAMED — FULL FINAL BLOCKER MATRIX BELOW.**
 
