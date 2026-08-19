@@ -6,6 +6,11 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Added — OTH-K2-W — executor-side knowledge-service wiring
+
+- **`projects/mythos-ai-executor/lib/knowledge.js` + `config/knowledge.json`** — the AI Operating Layer's read-only consumption of OTH Knowledge, completing the integration stage `docs/OTH_KNOWLEDGE_INTEGRATION.md` §3 deferred from OTH-K2. Fail-closed config (unknown fields, endpoint/url/credential-shaped keys at any depth, relative or in-repository store roots each disable the whole layer); explicit read-operation allowlist so a write operation on the service surface never becomes reachable from the AI layer; `currentState` without an explicit `asOf` refused at the executor boundary; every search hit annotated with provenance plus `presentation` (`assertion_class`, `is_claim`/"claim — never present as fact", `quarantined`). Ships **disabled** with `store_root: null` until an operator provisions a persistent private store outside the repository.
+- New suite `tests/othk-2w-executor-wiring-test.js` (39/0), run alongside the MOS-v2 regression gate, the executor suite, and othk-0/1/2 — all green; `projects/oth-knowledge/` itself unchanged.
+
 ### Changed — MOS-1.1 — release gate: contrast measured, a wrong claim corrected
 
 - **Contrast measured, not disclaimed.** `projects/mythos-os-console/tools/contrast.js` computes WCAG 2.1 ratios over every pair the console renders, reading tokens from `mythos.css` and compositing translucent fills over their real backdrop. **26 of 26 rendered pairs meet AA; 12 meet AAA.** Now asserted by the suite, so it cannot regress. Recorded as **D-014**.

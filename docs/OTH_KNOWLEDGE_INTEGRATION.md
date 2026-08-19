@@ -37,10 +37,25 @@ call can never create, version, or tombstone knowledge.
 The executor/console (projects/mythos-ai-executor, mythos-os-console)
 integrate by requiring `knowledge-service.js` with a store-root path
 from configuration — the same pattern as their existing config-driven
-resources. That wiring is a separate, executor-scoped stage (it touches
-the MOS-v2 regression-gate surface and must run under that gate); the
-boundary contract above is what it codes against. Nothing in the
-knowledge layer will need to change.
+resources.
+
+**Delivered (OTH-K2-W):** the executor side of this wiring exists at
+`projects/mythos-ai-executor/lib/knowledge.js` +
+`config/knowledge.json`, validated under the MOS-v2 regression gate.
+It follows the executor's fail-closed config discipline (unknown
+fields, endpoint/url/credential-shaped keys anywhere, a relative or
+in-repository store root, or an unreadable file each disable the whole
+layer), exposes ONLY an explicit read-operation allowlist (a write
+operation appearing on the service surface would still not become
+reachable), and enforces the consuming-side rules below in code:
+`currentState` without `asOf` is refused at the executor boundary
+(`MYTHOS_KNOWLEDGE_ASOF`), and every search hit carries provenance plus
+a `presentation` annotation (`assertion_class`, `is_claim`,
+`statement_class`, `quarantined`). The config ships **disabled** with
+`store_root: null` — activating it is the operator step of pointing it
+at a provisioned persistent private store outside the repository.
+Suite: `tests/othk-2w-executor-wiring-test.js`. Nothing in the
+knowledge layer changed.
 
 Rules for the consuming side:
 1. Treat `asOf` as an explicit input — never let the layer default to
