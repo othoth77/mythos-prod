@@ -1,7 +1,109 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **FULL AUTONOMOUS MANDATE, SEVENTH PASS — FINAL BLOCKER-DRIVEN EXECUTION PASS CLOSED OUT. DOCUMENTATION CONSISTENCY SWEEP ACROSS 1A–1I: FOUND AND FIXED STALE "OPEN" MARKERS FOR SEVEN ALREADY-RESOLVED ITEMS (SURF-1, GOLD-2, GOLD-3, GRID-1, TOKEN-1, TOKEN-2, SEQ-1) THAT AUTO-3 RESOLVED BUT `COMPONENT_SYSTEM.md`, `DESIGN_TOKENS.md` AND `RESPONSIVE_ACCESSIBILITY_MOTION.md` NEVER RECORDED. O-002/O-006/O-007 RE-CHECKED — GENUINELY UNREACHABLE FROM THIS SESSION, CONFIRMED BY SEARCHING THE ONE ADDITIONAL ATTACHED REPOSITORY, NO NEW EVIDENCE FOUND.**
+**Last updated:** 2026-08-19 UTC
+**From:** MYTHOS **IDA-DECOUPLE-3 — COMPLETE. THE IDENTITY CONTRACT BOUNDARY IS FORMALIZED: IDauto PUBLISHES THREE VERSIONED VOCABULARY ARTIFACTS; MYTHOS CONSUMES DIGEST-PINNED COPIES; NO MYTHOS TEST OR RUNTIME FILE RESOLVES ANYTHING UNDER `projects/idauto/` ANY MORE.**
+
+**Stage:** `IDA-DECOUPLE-3` · **Status:** **COMPLETE** — architecture reviewed, implemented, independently audited on both sides, mutation-proven, final review **APPROVED**
+**Mythos commits:** `2719464` (implementation) · `d10a805` (final-review corrections) · **Branch:** `claude/idauto-source-cleanup-post-publication`
+**IDauto commits:** `42e8546` (publication, pinned) · `350792b` (vacuity-gap fix) · **Branch:** `protocol-identity-vocabularies` — `othoth77/idauto` `main` (`bdfec2c`) **untouched**
+**Type:** protocol boundary. **No production change. No schema change on either side, no API change, no deployment, no database mutation.**
+
+### The boundary, as built
+
+```
+othoth77/idauto  protocol/vocabularies/          <- published, versioned, IDauto-owned
+                   actor-type.v1.json              sha256 1df70435...56edf
+                   org-role.v1.json                sha256 18e64fc5...1fb6e
+                   actor-identifier.v1.json        sha256 923b59ab...9689a
+                   ^ tests/identity-conformance-test.js (81/0, offline) binds
+                   | schema.sql <-> artifacts: both named actor_type CHECK sites,
+                   | cross-site identity, chk_user_role, all four VARCHAR(64)
+                   | actor-reference columns (null lookup = failure), storage
+                   | widths, artifact hygiene, the identity.js no-auth invariant
+                   v
+mythos-prod      projects/mythos-core/contracts/idauto/
+                   verbatim copies + PINS.json {version, revision, sha256,
+                   upstream commit 42e8546..., date} + README (six-step re-pin
+                   procedure; deliberately NO auto-repin script)
+```
+
+`tests/mythos-identity-core-0-contract-test.js` (**157/0**, was 125) asserts each pinned
+copy's **raw-bytes SHA-256 before any vocabulary assertion**, then version/filename/
+canonical_id agreement, then genuine two-direction subset equality with `ACTOR_TYPES` and
+`ORG_ROLES` behind vacuity guards, then the identifier contract **behaviourally** through the
+artifact's example vectors — and finally asserts, self-referentially, that its own source
+resolves nothing under the extracted tree. `grep -c "projects/idauto"` over the suite: **0**.
+
+### Honest limits of the mechanism — stated, not discovered later
+
+- An upstream **republication is invisible here until a human re-pins** — the local copy
+  still matches its own pin. The guarantee is *no silent divergence from a named, dated,
+  digest-identified upstream version*, not freshness.
+- The pin detects **accident, not tampering**: editing the copy and `PINS.json` together
+  passes the suite and is caught by review of that visible two-file diff.
+- `PINS.json` pins a commit on the **unmerged** IDauto branch. **That branch must merge by
+  merge commit, never squash/rebase**, or the pinned commit becomes unreachable. Recorded in
+  the boundary doc §10.6.
+
+### Verification — executed, both repos
+
+| Check | Result |
+|---|---|
+| IDauto complete suite (live PostgreSQL 16, all 14 suites) | **678 / 0** — the original 601 preserved exactly + the conformance suite (77, now 81 after the vacuity fix) |
+| IDauto conformance mutations (independent audit) | **7/7 caught** — both CHECK sites, org-role, VARCHAR width, artifact-side value, max_length, no-auth invariant; schema restored byte-identical |
+| Mythos identity-core | **157 / 0** · digest-before-parse order **proven by mutation** (4/4: pinned-copy edit, pin-digest edit, contract edit, version edit — each failing at exactly the expected assertion) |
+| Mythos full suite | **5040 passed, 2 failed** — the 2 are `mythos-orchestration-core`, pre-existing; the 26 non-zero-exit suites are the identical pre-existing list. **Zero regressions** |
+| governance 89/0 · devx-1 92/0 · mpi-0-finalization 36/0 · backup 245/0 · ida-3f 35/0 · validate 0 errors | all green |
+| Artifact byte-identity across repos | verified independently twice; digests match `PINS.json`; `upstream.commit` = real pushed commit |
+
+### Review discipline — what the final review corrected
+
+The final architecture review (two-pass: design, then implementation) **BLOCKED once** on
+three documentation defects and approved after they were fixed in `d10a805`: a "now-deleted"
+claim about the still-present vendored tree; the half-applied "17-not-16" assertion-count
+correction; and a drift-guarantee table that claimed upstream republication fails the Mythos
+digest — it does not, and both documents now state the asymmetry honestly. It also surfaced a
+real vacuity gap in the new IDauto suite's §4 (empty `columns`/`examples` arrays would pass
+green), closed in IDauto `350792b` (+4 preconditions, suite 77 -> 81, `columns:[]` mutation
+verified caught). The UUIDv7 creation-timestamp disclosure in `actor-identifier.v1.json` is
+recorded in the boundary doc §10.6 as **knowingly accepted** — the one disclosure that is not
+a restatement of already-public schema content.
+
+### Assertion disposition (the measured 17)
+
+**7 cross-product** — now enforced on both sides through the artifacts. **3 IDauto-internal**
+(`organizations.id SERIAL`, `identity.js` exports, `IDAUTO_ADMIN_IDENTITIES`) — removed from
+Mythos; the no-auth invariant is enforced for real in IDauto behind a non-emptiness
+precondition. **7 vacuous** — removed; six became real IDauto assertions, and
+`mythos_org_ref NOT added` was dropped entirely (a permanent test engineered to fail when the
+planned §6.6 migration succeeds, contradicting the suite's own header).
+
+### Remaining Mythos -> IDauto dependencies
+
+**None that block deletion technically.** `projects/idauto/**`, `tests/ida-*.js` and
+`tests/devx-1-idauto-test-impact-test.js` remain only as the not-yet-deleted duplicated tree
+plus its own suites (D11/D12 — "go with the source"). **IDA-DECOUPLE-4** (the deletion) is
+now blocked **only on the owner's go-ahead** — nothing technical remains.
+
+### PRs
+
+mythos-prod **#16** (draft, this branch) — updated, NOT merged. `othoth77/idauto` draft PR
+for `protocol-identity-vocabularies` — **must merge by merge commit, never squash**. #14
+remains superseded; idauto #1 unchanged.
+
+### Next stage
+
+**IDA-DECOUPLE-4** on owner authorization. **IDA-4 (Citizen Vehicle Passport) is NOT started
+and remains BLOCKED on its own gates** — IDA-2E authentication, legal review (15 items),
+public-endpoint readiness, privacy architecture, threat model. Nothing in this stage
+implements or unblocks Blockchain anchoring, VC/DID runtime, or the AI Trust Engine.
+
+---
+
+## Previous entry
+
+
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, SEVENTH PASS — FINAL BLOCKER-DRIVEN EXECUTION PASS CLOSED OUT. DOCUMENTATION CONSISTENCY SWEEP ACROSS 1A–1I: FOUND AND FIXED STALE "OPEN" MARKERS FOR SEVEN ALREADY-RESOLVED ITEMS (SURF-1, GOLD-2, GOLD-3, GRID-1, TOKEN-1, TOKEN-2, SEQ-1) THAT AUTO-3 RESOLVED BUT `COMPONENT_SYSTEM.md`, `DESIGN_TOKENS.md` AND `RESPONSIVE_ACCESSIBILITY_MOTION.md` NEVER RECORDED. O-002/O-006/O-007 RE-CHECKED — GENUINELY UNREACHABLE FROM THIS SESSION, CONFIRMED BY SEARCHING THE ONE ADDITIONAL ATTACHED REPOSITORY, NO NEW EVIDENCE FOUND.**
 
 **Documentation consistency sweep — what was found.**
 `docs/design/COMPONENT_SYSTEM.md` in particular had never been touched since
