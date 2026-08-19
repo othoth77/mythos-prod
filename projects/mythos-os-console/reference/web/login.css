@@ -1,31 +1,36 @@
 /* =====================================================
-   MYTHOS OS COMMAND CENTER — temporary internal login gate
-   projects/mythos-os-console/reference/web/login-gate.css
+   MYTHOS OS COMMAND CENTER — sign-in page
+   projects/mythos-os-console/reference/web/login.css
 
-   NOT the final authentication architecture. A visual/UX gate in front
-   of the existing Command Center while it is internal-only, to be
-   replaced by real authentication/authorization. See login-gate.js and
-   docs/MYTHOS_OS_CONSOLE_ARCHITECTURE.md.
+   Replaces login-gate.css (MOS-1), which styled an overlay laid on top
+   of the console. This styles a page of its own — the only page an
+   unauthenticated request can reach.
 
    Composition only, like console.css: every colour, radius, shadow and
    type size below is a token from mythos.css. No literal colour value
-   is introduced by this file.
+   is introduced by this file, and tests/mos-1-console-test.js fails the
+   suite if one appears.
    ===================================================== */
 
-.mythos-gate {
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
+.mythos-login-body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--mythos-bg);
+}
+
+.mythos-login {
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--mythos-sp-6);
+  box-sizing: border-box;
   background:
     radial-gradient(ellipse 60% 50% at 50% 32%, var(--mythos-gold-dim), transparent 70%),
     var(--mythos-bg);
 }
 
-.mythos-gate-card {
+.mythos-login-card {
   width: 100%;
   max-width: 380px;
   background: var(--mythos-card);
@@ -37,16 +42,16 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .mythos-gate-card {
-    animation: mythos-gate-in var(--mythos-dur-base) var(--mythos-ease-overshoot);
+  .mythos-login-card {
+    animation: mythos-login-in var(--mythos-dur-base) var(--mythos-ease-overshoot);
   }
 }
-@keyframes mythos-gate-in {
+@keyframes mythos-login-in {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.mythos-gate-logo {
+.mythos-login-logo {
   width: 84px;
   height: 84px;
   margin: 0 auto var(--mythos-sp-6);
@@ -57,9 +62,9 @@
   align-items: center;
   justify-content: center;
 }
-.mythos-gate-logo img { max-width: 68%; max-height: 68%; object-fit: contain; display: block; }
+.mythos-login-logo img { max-width: 68%; max-height: 68%; object-fit: contain; display: block; }
 
-.mythos-gate-title {
+.mythos-login-title {
   font-family: var(--mythos-font-display);
   font-size: var(--mythos-fs-xl);
   font-weight: 700;
@@ -68,7 +73,7 @@
   margin: 0 0 var(--mythos-sp-2);
 }
 
-.mythos-gate-subtitle {
+.mythos-login-subtitle {
   font-family: var(--mythos-font-ui);
   font-size: var(--mythos-fs-xs);
   font-weight: 600;
@@ -78,9 +83,9 @@
   margin: 0 0 var(--mythos-sp-8);
 }
 
-.mythos-gate-form { text-align: left; }
+.mythos-login-form { text-align: left; }
 
-.mythos-gate-label {
+.mythos-login-label {
   display: block;
   font-family: var(--mythos-font-ui);
   font-size: var(--mythos-fs-xs);
@@ -91,7 +96,7 @@
   margin-bottom: var(--mythos-sp-3);
 }
 
-.mythos-gate-input {
+.mythos-login-input {
   width: 100%;
   box-sizing: border-box;
   padding: var(--mythos-sp-4) var(--mythos-sp-5);
@@ -102,21 +107,21 @@
   font-family: var(--mythos-font-ui);
   font-size: var(--mythos-fs-lg);
 }
-.mythos-gate-input:focus {
+.mythos-login-input:focus {
   outline: none;
   border-color: var(--mythos-gold);
   box-shadow: var(--mythos-focus-ring);
 }
 
-.mythos-gate-error {
+.mythos-login-error {
   font-family: var(--mythos-font-ui);
   font-size: var(--mythos-fs-sm);
   color: var(--mythos-danger-text);
   margin-top: var(--mythos-sp-4);
 }
-.mythos-gate-error[hidden] { display: none; }
+.mythos-login-error[hidden] { display: none; }
 
-.mythos-gate-submit {
+.mythos-login-submit {
   width: 100%;
   margin-top: var(--mythos-sp-7);
   padding: var(--mythos-sp-4);
@@ -131,9 +136,10 @@
   cursor: pointer;
   transition: opacity var(--mythos-dur-fast);
 }
-.mythos-gate-submit:hover { opacity: 0.92; }
-.mythos-gate-submit:focus-visible { outline: none; box-shadow: var(--mythos-focus-ring); }
+.mythos-login-submit:hover { opacity: 0.92; }
+.mythos-login-submit:focus-visible { outline: none; box-shadow: var(--mythos-focus-ring); }
+.mythos-login-submit[disabled] { opacity: 0.6; cursor: default; }
 
 @media (max-width: 480px) {
-  .mythos-gate-card { padding: var(--mythos-sp-7) var(--mythos-sp-6); }
+  .mythos-login-card { padding: var(--mythos-sp-7) var(--mythos-sp-6); }
 }

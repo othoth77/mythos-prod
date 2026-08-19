@@ -75,6 +75,11 @@
 .console-identity .k { color: var(--mythos-text-secondary); font-size: var(--mythos-fs-xs); text-transform: uppercase; letter-spacing: 0.1em; font-weight: 700; }
 .console-identity .v { color: var(--mythos-text); font-size: var(--mythos-fs-xs); font-family: var(--mythos-font-mono); }
 
+/* MOS-v2 M-01: ending a session is an action the operator can take, so
+   it is a control on the surface rather than a documented URL. Composed
+   from the existing outline button; this file adds layout only. */
+.console-signout { margin-top: var(--mythos-sp-4); width: 100%; justify-content: center; }
+
 /* --- Definition list used by detail surfaces ---------------------- */
 
 .console-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--mythos-sp-5); }

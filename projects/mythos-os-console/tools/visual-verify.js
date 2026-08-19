@@ -20,7 +20,9 @@
      node projects/mythos-os-console/tools/visual-verify.js [--shots DIR]
    ===================================================== */
 
+var fsMod = require('fs');
 var http = require('http');
+var osMod = require('os');
 var path = require('path');
 
 var REF = path.join(__dirname, '..', 'reference');
@@ -49,6 +51,27 @@ try {
 // It never reaches the repository, a database, or a running console.
 
 var TOKEN = 'visual-verify-stub-token';
+
+// MOS-v2 M-01. The console is behind a server-side session now, so a
+// browser that has not signed in is redirected to /login and every one of
+// the checks below would verify the sign-in page instead of the console.
+//
+// The console secret is written to a fresh 0600 file under the OS temp
+// directory for this run and deleted when it ends — auth.js reads the
+// secret only from a file whose mode grants nothing to group or other, so
+// a stub value in the environment would (correctly) be ignored. The value
+// is obviously synthetic and never leaves this process's temp file.
+var CONSOLE_SECRET = 'visual-verify-stub-console-secret';
+var SECRET_FILE = path.join(
+  fsMod.mkdtempSync(path.join(osMod.tmpdir(), 'mos-visual-verify-')), 'console-secret');
+fsMod.writeFileSync(SECRET_FILE, 'MOS_CONSOLE_SECRET=' + CONSOLE_SECRET + '\n', { mode: 0o600 });
+fsMod.chmodSync(SECRET_FILE, 0o600);
+process.env.MOS_CONSOLE_SECRET_FILE = SECRET_FILE;
+process.on('exit', function () {
+  try { fsMod.unlinkSync(SECRET_FILE); fsMod.rmdirSync(path.dirname(SECRET_FILE)); }
+  catch (e) { /* the temp directory is disposable either way */ }
+});
+
 var registry = require(path.join(REF, 'web', 'modules.js'));
 
 var STUB_TASKS = { tasks: [
@@ -160,8 +183,26 @@ function hexToRgb(h) {
     process.exit(1);
   });
 
+  // Every context this file opens is signed in. The session is minted in
+  // process through the same auth module the server uses, rather than by
+  // driving the login form, because what this tool verifies is the
+  // console's layout — a form submission in front of every viewport would
+  // add a failure mode that has nothing to do with what is being measured.
+  // The sign-in page itself is verified in runDeepChecks, unauthenticated,
+  // where it actually belongs.
+  function authedContext(browser, opts) {
+    var auth = require(path.join(REF, 'auth.js'));
+    var session = auth.createSession();
+    return browser.newContext(opts).then(function (ctx) {
+      return ctx.addCookies([{
+        name: auth.SESSION_COOKIE, value: session.id,
+        domain: '127.0.0.1', path: '/', httpOnly: true, sameSite: 'Strict'
+      }]).then(function () { return ctx; });
+    });
+  }
+
   function runViewport(browser, base, vp, check) {
-    return browser.newContext({ viewport: { width: vp.w, height: vp.h } }).then(function (ctx) {
+    return authedContext(browser, { viewport: { width: vp.w, height: vp.h } }).then(function (ctx) {
       return ctx.newPage().then(function (page) {
         var cspViolations = [];
         // The sandbox may have no outbound network, so the Google Fonts
@@ -271,7 +312,7 @@ function hexToRgb(h) {
 
   // Checks that need only one viewport, done once at desktop width.
   function runDeepChecks(browser, base, check) {
-    return browser.newContext({ viewport: { width: 1440, height: 1000 } }).then(function (ctx) {
+    return authedContext(browser, { viewport: { width: 1440, height: 1000 } }).then(function (ctx) {
       return ctx.newPage().then(function (page) {
         return page.goto(base + '/#/command-center', { waitUntil: 'networkidle' })
           .then(function () { return page.waitForTimeout(400); })
@@ -457,6 +498,49 @@ function hexToRgb(h) {
               });
           })
           .then(function () { return ctx.close(); });
+      });
+    })
+    // --- MOS-v2 M-01: THE SIGN-IN PAGE, UNAUTHENTICATED ---------------
+    //
+    // A fresh context with no session cookie: this is what a visitor who
+    // has not signed in actually gets. Two things are checked and they
+    // are the two that matter. First, that the console is genuinely not
+    // reachable — the shell URL lands on /login, so no operational
+    // surface renders. Second, that the page which IS reachable carries
+    // no credential material and no storage: the gate this replaced
+    // shipped a password digest to every visitor and wrote an "unlocked"
+    // flag to sessionStorage, and neither may come back.
+    .then(function () {
+      return browser.newContext({ viewport: { width: 1440, height: 1000 } }).then(function (ctx) {
+        return ctx.newPage().then(function (page) {
+          return page.goto(base + '/', { waitUntil: 'networkidle' })
+            .then(function () { return page.waitForTimeout(200); })
+            .then(function () {
+              check(/\/login$/.test(new URL(page.url()).pathname), 'an unauthenticated visit to / does not land on /login');
+              return page.evaluate(function () {
+                return {
+                  hasForm: !!document.getElementById('login-form'),
+                  passwordInputs: document.querySelectorAll('input[type="password"]').length,
+                  consoleShell: !!document.getElementById('app'),
+                  storage: (function () {
+                    try { return localStorage.length + sessionStorage.length; }
+                    catch (e) { return 0; }
+                  }()),
+                  cookieVisible: /mos_session/.test(document.cookie),
+                  bodyText: document.body.innerText
+                };
+              });
+            })
+            .then(function (r) {
+              check(r.hasForm, 'the sign-in page renders no sign-in form');
+              check(r.passwordInputs === 1, 'the sign-in page has ' + r.passwordInputs + ' password inputs, expected exactly 1');
+              check(!r.consoleShell, 'the console shell is present on the sign-in page — it must not be served at all');
+              check(r.storage === 0, 'the sign-in page wrote ' + r.storage + ' item(s) to web storage; it must write none');
+              check(!r.cookieVisible, 'the session cookie is readable from document.cookie — httpOnly is not in force');
+              check(!/[0-9a-f]{32,}/.test(r.bodyText), 'the sign-in page renders something digest-shaped');
+            })
+            .then(function () { return ctx.close(); });
+        });
       });
     });
   }

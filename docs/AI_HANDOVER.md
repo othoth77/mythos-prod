@@ -1,6 +1,137 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
+**From:** MOS-v2 **M-01 — SERVER-SIDE AUTHENTICATION FOR MYTHOS OS CONSOLE. IMPLEMENTED, TESTED, COMMITTED, PUSHED. NOT DEPLOYED.**
+
+## MOS-v2 M-01 — server-side authentication (2026-08-19)
+
+**Objective.** Replace the temporary client-side password gate on the
+Mythos OS Console with real server-side authentication: every `/api/`
+route behind a session, 401 for anyone without one, a login route, the
+secret readable only from a 0600 EnvironmentFile, constant-time
+comparison, an httpOnly `SameSite=Strict` session cookie, nothing
+credential-shaped in JavaScript-readable storage, and the existing
+allowlisted API/write-route architecture preserved.
+
+**What was actually wrong with what it replaced.** `login-gate.js` was
+markup laid over the console, unlocked by comparing a SHA-256 digest in
+the browser. It hid the page from a person and hid nothing at all from
+`curl` — every `/api/` route answered any unauthenticated caller — and it
+shipped the password's digest to every visitor, available for offline
+attack. It was deleted, not extended.
+
+**Changed files.**
+
+| File | Change |
+|---|---|
+| `projects/mythos-os-console/reference/auth.js` | NEW. Secret loading (file-only, 0600-enforced), `crypto.timingSafeEqual` verification, in-memory session store, cookie serialisation, login throttle. The only code that ever holds the secret. |
+| `projects/mythos-os-console/reference/server.js` | Session resolved once in `handler()` before every route; `unauthenticated()` / `redirect()`; `POST /api/login` and `POST /api/logout` added to the existing `WRITE_ROUTES` allowlist (3 → 5, exactly one flagged `unauthenticated: true`); `PUBLIC_PATHS` (six explicit paths); login-gate STATIC entries replaced by the sign-in page's; `/api/health` reports the secret's *state*, never its value. |
+| `reference/web/login.html`, `login.css`, `login.js` | NEW. The sign-in page. `login.js` holds no credential, does no crypto, touches no web storage. |
+| `reference/web/login-gate.js`, `login-gate.css` | DELETED. |
+| `reference/web/index.html` | Gate markup, stylesheet link and script tag removed; sign-out control added. |
+| `reference/web/app.js` | A 401 from any route navigates to `/login` instead of rendering; sign-out posts to `/api/logout`. |
+| `reference/web/console.css` | One layout rule for the sign-out control (tokens only). |
+| `deploy/mythos-os-console.user.service` | `Environment=MOS_CONSOLE_SECRET_FILE=…`; a stale comment claiming the service "has no write surface at all" (untrue since MOS-2) corrected in place rather than left standing. |
+| `tools/deploy.sh`, `tools/host-preflight.sh` | Provision and verify the 0600 secret file without reading it; refuse `MOS_CONSOLE_SECRET` in the EnvironmentFile; smoke tests rewritten to prove the boundary (401/302) instead of reading data the deployer can no longer reach anonymously. |
+| `tools/visual-verify.js` | Browser contexts carry a session; a new unauthenticated pass checks the sign-in page for storage writes, cookie visibility and digest-shaped content. |
+| `tests/mos-1-console-test.js` | +261 assertions. See below. |
+| `docs/MYTHOS_OS_CONSOLE_ARCHITECTURE.md`, `projects/mythos-os-console/README.md` | New §5.3; the superseded "there is no login, because there is nothing to authorise" claim corrected visibly rather than silently rewritten. |
+
+**Design decisions worth carrying forward.**
+
+- **The environment is not a secret store.** `MOS_CONSOLE_SECRET` is read
+  *only* from the file named by `MOS_CONSOLE_SECRET_FILE`, and only if
+  `stat` says no group or other permission bit is set. A value exported
+  into the environment is ignored, and a test proves it — `/proc/<pid>/environ`
+  is readable and the environment is inherited by every child process.
+- **Fail closed, and say why.** A missing, unreadable, group-readable or
+  secret-less file means nobody signs in and therefore nobody reaches
+  anything. The service still starts and names which of the four failure
+  modes applies, on its first journal line and in `/api/health` (itself
+  behind the session). The login route never tells the *caller* which:
+  a wrong password and a broken deployment are one `401
+  invalid_credentials`.
+- **405 still comes first.** The method refusal is what makes the surface
+  structurally read-only and it reveals nothing, so it stays ahead of the
+  session check. Everything after that line is gated.
+- **`SameSite=Strict` is the CSRF control.** No separate token was added;
+  no cross-site request carries the session cookie.
+- **A throttle, because one credential on a public route is an oracle.**
+  Ten failures per address per fifteen minutes; once engaged it refuses
+  the *correct* password too, so it cannot be guessed past.
+
+**Tests.** `node tests/mos-1-console-test.js` — **675 passed, 5 failed**
+(was 414 passed, 5 failed on `origin/main`; +261 assertions, no new
+failure). Added: the unauthenticated matrix over every route against a
+*healthy, fully configured* console; the authenticated happy path; wrong
+/ near-miss / case-flipped passwords; unknown, malformed, signed-out and
+expired sessions; method protection on the login and logout routes; the
+secret-file discipline (0644 refused, no-secret-line refused, missing
+file refused, environment-supplied value refused); a two-part credential
+sweep over every downloadable file and every live response; and the
+throttle. Syntax checks: `node --check` on all five changed/new JS files,
+`bash -n` on both shell scripts. A manual edge-case probe covered
+`HEAD /`, multi-cookie headers, a case-mangled cookie, and re-login while
+already signed in.
+
+**The 5 failures are pre-existing and are NOT this stage's.** They are
+the C-006 `--mythos-*` reconciliation: `css/main.css` moved five source
+tokens in MIG-1/MIG-3 and `mythos.css` was never reconciled. Verified by
+running the suite from a clean `origin/main` worktree, which fails the
+same five and no others. Not fixed here — it is a separate, already-named
+stage and this one did not touch a stylesheet token.
+
+**Not run:** `tools/visual-verify.js`. It needs playwright, which is
+deliberately not a dependency of this repository and is not installed in
+this environment; it exits 2 with a plain message. Its changes are
+therefore **written but unexecuted** and are labelled as such.
+
+**Deployment: NOT DONE, and not attempted.** No service restarted, no
+host touched. Deploying this stage requires, on the host, a
+`/home/deploy/deployments/mythos-os-console/.console-secret` file at mode
+0600 containing one `MOS_CONSOLE_SECRET=` line, created before the unit
+is restarted — without it the console starts and refuses every request.
+`tools/host-preflight.sh` now blocks on exactly that. The pre-existing
+`deploy`-user privilege boundary (MOS-1.6/1.7) is unchanged and still
+blocks console deployment.
+
+**Operational note the deployer must act on.** The MOS-1 gate's SHA-256
+digest was committed to this repository and remains in Git history, which
+is public to anyone with repository access. Treat the temporary password
+it covered as **compromised**: choose a NEW value for
+`MOS_CONSOLE_SECRET`, do not reuse the old one. Removing the digest from
+the working tree, as this stage does, does not remove it from history and
+was never going to.
+
+**Known risks / deferred.**
+
+- Sessions are in-process: a restart signs everyone out. Correct for a
+  single-process operations console; revisit only if it is ever run
+  behind more than one worker.
+- The throttle keys on the socket address, and nginx is the only thing
+  that reaches the port, so in production it is effectively global. That
+  is the conservative direction for a single-credential console, but it
+  means one attacker can lock the owner out for fifteen minutes. Recorded,
+  not solved.
+- `visual-verify.js` unexecuted (above).
+- C-006 palette reconciliation still open (above).
+
+**Worktree state.** Clean; work committed on
+`claude/mos-v2-server-auth-tmh065` and pushed. (The task text named
+`claude/mos-v2-m01-auth`; the branch enforced for this session is
+`claude/mos-v2-server-auth-tmh065`, and pushing anywhere else was not
+authorised.)
+
+**Next stage.** Either (a) C-006 — reconcile `mythos.css`'s `--mythos-*`
+tokens with the moved `css/main.css` sources and clear the five standing
+failures, or (b) provision the console secret on the host and deploy,
+which remains blocked on the `deploy`-user privilege boundary.
+
+---
+
+## Previous passes (historical record, most recent first)
+
+**Last updated:** 2026-08-19 UTC
 **From:** MYTHOS **FULL AUTONOMOUS MANDATE, TENTH PASS — MIG-3 PARTIALLY EXECUTED (AUTO-9): `--muted`/`--danger` CORRECTED TO THEIR APPROVED VALUES AND APPLIED, `--past`/CONTROL-BORDER LEFT EXPLICITLY OPEN (NO APPROVED TARGET FOR ONE, TOO BROAD A BLAST RADIUS FOR THE OTHER). MIG-4 CHECKED AND LEFT BLOCKED WITH EVIDENCE: MCC-1 (COMMAND CENTER) IS CONFIRMED LIVE, DEPLOYED, SERVING REAL PUBLIC TRAFFIC — NOT A SAFE LOCAL PILOT TARGET — AND A STANDING, NEVER-REVOKED INSTRUCTION FORBIDS TOUCHING IT. NO COMMAND CENTER FILE WAS READ OR TOUCHED. THIS CLOSES THE FOUR-MIGRATION EXECUTION PASS THE CONTINUATION INSTRUCTION NAMED — FULL FINAL BLOCKER MATRIX BELOW.**
 
 **MIG-3 — what was applied, and why the rest was left open.** `A-015`

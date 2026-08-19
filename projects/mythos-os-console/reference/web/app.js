@@ -172,9 +172,25 @@
   // Transport
   // ---------------------------------------------------------------
 
+  // MOS-v2 M-01: a 401 from any route means this browser no longer has a
+  // session -- it expired, the server restarted, or someone signed out in
+  // another tab. There is nothing a renderer can usefully do with that,
+  // and showing operational chrome around an empty console would be a
+  // lie about what the operator can see. So the transport short-circuits
+  // to the login page and the promise never resolves, which stops the
+  // caller's .then chain from painting anything.
+  //
+  // location.replace, not assign: a dead session must not sit in the
+  // history stack for the back button to return to.
+  function signedOut() {
+    if (location.pathname !== '/login') location.replace('/login');
+    return new Promise(function () { /* deliberately never settles: the page is navigating away */ });
+  }
+
   function api(path) {
     return fetch(path, { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
       .then(function (res) {
+        if (res.status === 401) return signedOut();
         return res.json()
           .catch(function () { return { ok: false, error: 'bad_response', detail: 'HTTP ' + res.status }; })
           .then(function (body) {
@@ -196,6 +212,7 @@
       credentials: 'same-origin',
       body: JSON.stringify(payload || {})
     }).then(function (res) {
+      if (res.status === 401) return signedOut();
       return res.json()
         .catch(function () { return { ok: false, error: 'bad_response', detail: 'HTTP ' + res.status }; })
         .then(function (body) {
@@ -963,6 +980,26 @@
     });
   }
 
+  // Ending a session is a server-side act: POST /api/logout destroys the
+  // session entry and clears the cookie. Clearing the cookie in the
+  // browser alone would leave a live session behind for anyone holding a
+  // copy of the identifier -- and this script cannot read the cookie in
+  // the first place, which is the point.
+  function signOut() {
+    var button = document.getElementById('signout');
+    if (!button) return;
+    button.addEventListener('click', function () {
+      button.disabled = true;
+      fetch('/api/logout', {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: '{}'
+      }).catch(function () { /* the redirect below is correct either way */ })
+        .then(function () { location.replace('/login'); });
+    });
+  }
+
   function identity() {
     var box = document.getElementById('identity');
     api('/api/health').then(function (r) {
@@ -1080,5 +1117,6 @@
   window.addEventListener('hashchange', route);
   route();
   identity();
+  signOut();
   setInterval(refreshLink, 60000);
 }());

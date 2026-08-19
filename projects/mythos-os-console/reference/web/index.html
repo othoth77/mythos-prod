@@ -28,37 +28,14 @@
 
   <link rel="stylesheet" href="/mythos.css">
   <link rel="stylesheet" href="/console.css">
-  <link rel="stylesheet" href="/login-gate.css">
   <link rel="icon" type="image/png" href="/assets/logomythos.png">
 </head>
 <body>
 
-  <!-- TEMPORARY internal login gate. Not the final authentication
-       architecture. See login-gate.js. Sits before the Command Center
-       in document order, and stays on top of it (position: fixed,
-       high z-index) until unlocked. -->
-  <div class="mythos-gate" id="mythos-gate">
-    <div class="mythos-gate-card">
-      <div class="mythos-gate-logo">
-        <img src="/assets/logomythos.png" alt="Mythos" width="160" height="90">
-      </div>
-      <p class="mythos-gate-title">MYTHOS OS</p>
-      <p class="mythos-gate-subtitle">Command Center</p>
-      <form class="mythos-gate-form" id="mythos-gate-form" autocomplete="off">
-        <label class="mythos-gate-label" for="mythos-gate-password">Mot de passe</label>
-        <input
-          class="mythos-gate-input"
-          type="password"
-          id="mythos-gate-password"
-          name="password"
-          autocomplete="current-password"
-          required>
-        <p class="mythos-gate-error" id="mythos-gate-error" hidden></p>
-        <button class="mythos-gate-submit" type="submit">Entrer</button>
-      </form>
-    </div>
-  </div>
-  <script src="/login-gate.js"></script>
+  <!-- MOS-v2 M-01: there is no login markup here any more. Access is a
+       server-side session (reference/auth.js); an unauthenticated
+       request never receives this file at all — server.js redirects it
+       to /login and answers 401 to every other path. -->
 
   <div class="mythos-app" id="app">
 
@@ -76,6 +53,7 @@
 
       <div class="mythos-sidebar-foot">
         <div class="console-identity" id="identity"></div>
+        <button type="button" class="mythos-btn mythos-btn-outline console-signout" id="signout">Sign out</button>
       </div>
     </aside>
 
