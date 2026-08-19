@@ -27,3 +27,6 @@ node_modules/
 
 # Orchestrator test fixtures (sandbox-writable fallback root)
 .test-fixtures/
+
+# oth-knowledge runtime store (never commit knowledge data)
+projects/oth-knowledge/data/

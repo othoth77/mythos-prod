@@ -1,0 +1,22 @@
+{
+  "format": "othk-retrieval-eval",
+  "version": 1,
+  "description": "Reproducible retrieval evaluation over the committed fixtures + infrastructure seed. Expectations match by kind + case-insensitive substring so the set is stable across id derivations.",
+  "k": 5,
+  "queries": [
+    { "q": "certbot certificate dry run", "expect": { "kind": "chunk", "contains": "certbot dry-run" } },
+    { "q": "nginx hardened vhost web server", "expect": { "kind": "chunk", "contains": "hardened vhost" } },
+    { "q": "rollback previous release symlink", "expect": { "kind": "chunk", "contains": "symlink switch" } },
+    { "q": "postgres backup restore", "expect": { "kind": "chunk", "contains": "postgres backup restore" } },
+    { "q": "streaming large json files in nodejs", "expect": { "kind": "chunk", "contains": "streaming large json" } },
+    { "q": "recall at k mean reciprocal rank metrics", "expect": { "kind": "chunk", "contains": "mean reciprocal" } },
+    { "q": "knowledge graph typed relationships between entities", "expect": { "kind": "chunk", "contains": "typed relationships" } },
+    { "q": "contradiction handling competing claims", "expect": { "kind": "chunk", "contains": "competing claims" } },
+    { "q": "tombstones deleted records reappearing", "expect": { "kind": "chunk", "contains": "tombstones prevent" } },
+    { "q": "what is the production VPS IP address", "expect": { "kind": "fact", "contains": "51.68.226.211" } },
+    { "q": "is rsync available on the owner windows machine", "expect": { "kind": "fact", "contains": "NOT available on the owner Windows machine" } },
+    { "q": "can the AI operating layer reach the VPS", "expect": { "kind": "fact", "contains": "CAPABILITY LIMITATION" } },
+    { "q": "deploy account ssh key type", "expect": { "kind": "fact", "contains": "ED25519" } },
+    { "q": "secret policy passwords tokens never stored", "expect": { "kind": "fact", "contains": "NON-STORABLE SECRET" } }
+  ]
+}

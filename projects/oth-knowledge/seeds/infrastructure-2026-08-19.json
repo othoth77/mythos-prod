@@ -1,0 +1,101 @@
+{
+  "format": "othk-seed",
+  "version": 1,
+  "title": "Infrastructure / Deployment Knowledge — verification of 2026-08-19",
+  "source_class": "owner-report",
+  "source_collection": "infrastructure-2026-08-19",
+  "source_reference": "owner-report/infrastructure-2026-08-19/mission-brief",
+  "captured_at": "2026-08-19T00:00:00Z",
+  "observed_at": "2026-08-19T00:00:00Z",
+  "actor": "owner",
+  "confidence": "EXPLICIT",
+  "entities": [
+    { "key": "vps", "entity_type": "host", "name": "vps-51.68.226.211", "metadata": { "ip": "51.68.226.211", "role": "production VPS" } },
+    { "key": "deploy-account", "entity_type": "account", "name": "deploy@vps-51.68.226.211", "metadata": { "user": "deploy", "auth": "ssh-public-key" } },
+    { "key": "owner-machine", "entity_type": "host", "name": "owner-windows-machine", "metadata": { "os": "Windows" } },
+    { "key": "ai-layer", "entity_type": "system", "name": "mythos-ai-operating-layer", "metadata": { "note": "AI execution environments (sandboxed sessions, executor daemon)" } }
+  ],
+  "observations": [
+    {
+      "key": "obs-ssh-test",
+      "statement": "TEST: SSH from the owner Windows machine to the VPS as deploy (command: ssh deploy@51.68.226.211, ED25519 public-key authentication). RESULT: successful login. Verified 2026-08-19.",
+      "entities": ["owner-machine", "vps", "deploy-account"],
+      "tags": ["TEST-COMMAND", "TEST-RESULT", "infrastructure"]
+    },
+    {
+      "key": "obs-scp-test",
+      "statement": "TEST: SCP file transfer from the owner Windows machine to the VPS as deploy (command: scp <file> deploy@51.68.226.211:<path>). RESULT: successful transfer. Verified 2026-08-19.",
+      "entities": ["owner-machine", "vps", "deploy-account"],
+      "tags": ["TEST-COMMAND", "TEST-RESULT", "infrastructure"]
+    },
+    {
+      "key": "obs-ai-env-test",
+      "statement": "TEST: from the Mythos AI execution environment (sandboxed remote session, 2026-08-19): TCP probe to 51.68.226.211 port 22 (command: bash /dev/tcp probe with 12s timeout) RESULT: unreachable; ssh/scp/rsync binaries absent; no key material present. AI-agent to VPS access is NOT available from this execution environment.",
+      "entities": ["ai-layer", "vps"],
+      "tags": ["TEST-COMMAND", "TEST-RESULT", "CAPABILITY-LIMITATION", "infrastructure"]
+    }
+  ],
+  "facts": [
+    {
+      "key": "fact-vps",
+      "statement": "VERIFIED FACT: the Mythos production VPS is 51.68.226.211.",
+      "entities": ["vps"],
+      "tags": ["VERIFIED-FACT", "infrastructure"]
+    },
+    {
+      "key": "fact-deploy-account",
+      "statement": "VERIFIED FACT: the deployment account on the VPS is 'deploy'; it exists and accepts SSH public-key authentication (key type ED25519).",
+      "entities": ["vps", "deploy-account"],
+      "evidence_keys": ["obs-ssh-test"],
+      "tags": ["VERIFIED-FACT", "infrastructure"]
+    },
+    {
+      "key": "fact-owner-ssh",
+      "statement": "VERIFIED FACT: SSH from the owner Windows machine to the VPS as deploy was verified successful on 2026-08-19; the previous deploy-user SSH blocker is resolved for the owner machine.",
+      "entities": ["owner-machine", "vps", "deploy-account"],
+      "evidence_keys": ["obs-ssh-test"],
+      "tags": ["VERIFIED-FACT", "infrastructure", "deployment"]
+    },
+    {
+      "key": "fact-owner-scp",
+      "statement": "VERIFIED FACT: SCP from the owner Windows machine to the VPS was verified successful on 2026-08-19; the owner-machine-to-VPS deployment SSH channel is usable.",
+      "entities": ["owner-machine", "vps", "deploy-account"],
+      "evidence_keys": ["obs-scp-test"],
+      "tags": ["VERIFIED-FACT", "infrastructure", "deployment"]
+    },
+    {
+      "key": "fact-rsync-vps",
+      "statement": "VERIFIED FACT: rsync is installed on the VPS.",
+      "entities": ["vps"],
+      "tags": ["VERIFIED-FACT", "infrastructure"]
+    },
+    {
+      "key": "fact-rsync-windows",
+      "statement": "VERIFIED FACT: rsync is currently NOT available on the owner Windows machine; transfers from Windows use scp or tar-over-ssh instead.",
+      "entities": ["owner-machine"],
+      "tags": ["VERIFIED-FACT", "infrastructure", "deployment"]
+    },
+    {
+      "key": "fact-capability-boundary",
+      "statement": "CAPABILITY LIMITATION: successful owner-machine SSH/SCP access MUST NOT be interpreted as proof that the Mythos AI Operating Layer can access the VPS. Owner-machine access and AI-agent infrastructure access are separate facts. AI-agent to VPS access remains unverified/unavailable until directly tested from the actual AI execution environment; the 2026-08-19 test from a sandboxed session found no transport (see evidence).",
+      "entities": ["ai-layer", "owner-machine", "vps"],
+      "evidence_keys": ["obs-ai-env-test"],
+      "tags": ["CAPABILITY-LIMITATION", "infrastructure", "deployment"]
+    },
+    {
+      "key": "fact-secret-policy",
+      "statement": "NON-STORABLE SECRET policy: private SSH keys, key contents, passwords, tokens and credentials are never stored in OTH Knowledge; only non-secret metadata is recorded (key type, purpose, verification date, test command, test result, fingerprint where appropriate).",
+      "entities": ["ai-layer"],
+      "tags": ["POLICY", "security"]
+    }
+  ],
+  "events": [
+    {
+      "key": "event-verification",
+      "title": "Infrastructure verification: owner-machine-to-VPS SSH/SCP channel confirmed working (deploy account, ED25519)",
+      "occurred_at": "2026-08-19T00:00:00Z",
+      "entities": ["owner-machine", "vps", "deploy-account"],
+      "tags": ["infrastructure", "deployment"]
+    }
+  ]
+}

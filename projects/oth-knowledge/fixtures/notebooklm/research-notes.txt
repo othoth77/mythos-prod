@@ -1,0 +1,7 @@
+NotebookLM research notes (synthetic fixture).
+
+A knowledge graph layer links entities through typed relationships. Edges
+such as depends-on, part-of and conflicts-with make contradiction handling
+explicit: competing claims stay connected to their sources instead of being
+merged. Temporal filtering over observation dates lets a query ask what was
+known at a given time.
