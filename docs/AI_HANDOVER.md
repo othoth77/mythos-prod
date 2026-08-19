@@ -1,7 +1,30 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MOS-v2 **M-01 — SERVER-SIDE AUTHENTICATION FOR MYTHOS OS CONSOLE. IMPLEMENTED, TESTED, COMMITTED, PUSHED. NOT DEPLOYED.**
+**From:** MOS-v2 M-03 (nginx contract alignment)
+
+## MOS-v2 M-03 — NGINX CONTRACT ALIGNMENT (2026-08-19)
+
+**Objective:** Correct genuine nginx/application contract mismatches for Mythos OS Console.
+
+**Issue:** nginx configured `client_max_body_size 16k` but application accepts 32KB mission payloads on `/api/missions/start` (MOS-2). Outdated comment claimed console was read-only.
+
+**Changes made:**
+- Increased `client_max_body_size` from 16k to 64k (32k payload + safety margin)
+- Updated comment to reflect actual write routes: `/api/missions/start` (MOS-2), `/api/missions/<id>/cancel` (MOS-2.1), `/api/missions/<id>/dispatch` (MOS-3A)
+- Preserved all proxy configuration, TLS ownership, certbot sections
+- No nginx redesign, no neighboring vhosts touched
+
+**File:** `projects/mythos-os-console/deploy/nginx-os.mythosprod.xyz.conf`
+**Commit:** eca5973
+**Remote HEAD:** eca5973 (verified pushed)
+**Tests:** mos-1-console-test.js runs (pre-existing CSS token failures unrelated to nginx changes)
+**Deployment:** Not run (per instructions)
+**Next stage:** Create PR and await review
+
+---
+
+**Previously:** MOS-v2 **M-01 — SERVER-SIDE AUTHENTICATION FOR MYTHOS OS CONSOLE. IMPLEMENTED, TESTED, COMMITTED, PUSHED. NOT DEPLOYED.**
 
 ## MOS-v2 M-01 — server-side authentication (2026-08-19)
 
