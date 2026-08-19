@@ -62,6 +62,9 @@ function importDirectory(store, classes, dir, opts) {
       continue;
     }
     const bytes = fs.readFileSync(file);
+    // This import run's own reference — used for every record this run
+    // creates, even when the artifact bytes were first seen elsewhere.
+    const sourceRef = SOURCE_CLASS + '/' + collection + '/' + rel.split(path.sep).join('/');
     let res;
     try {
       res = ingest.ingestArtifact(store, classes, {
@@ -69,7 +72,7 @@ function importDirectory(store, classes, dir, opts) {
         filename: path.basename(file),
         source_class: SOURCE_CLASS,
         source_collection: collection,
-        source_reference: SOURCE_CLASS + '/' + collection + '/' + rel.split(path.sep).join('/'),
+        source_reference: sourceRef,
         captured_at: o.captured_at,
         parser_version: PARSER_VERSION,
         importer: PARSER_VERSION,
@@ -93,9 +96,10 @@ function importDirectory(store, classes, dir, opts) {
           extract.addEvent(store, classes, {
             title: String(entry.title).slice(0, 500),
             occurred_at: entry.time,
+            key: sourceRef + '#entry-' + n,
             prov: {
               source_class: SOURCE_CLASS, source_collection: collection,
-              source_reference: res.artifact.provenance.source_reference + '#entry-' + n,
+              source_reference: sourceRef + '#entry-' + n,
               captured_at: o.captured_at, observed_at: entry.time,
               artifact_ref: res.artifact.content_ref,
             },

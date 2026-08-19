@@ -35,7 +35,9 @@ function losingIds(store, asOf) {
     const res = rel.metadata && rel.metadata.resolution;
     const winner = res && res.winner_id;
     if (!winner) continue;
-    if (asOf && res.decided_at && Date.parse(res.decided_at) > Date.parse(asOf)) continue;
+    // In a point-in-time view, a resolution not yet decided (or with no
+    // decided_at on record) has not happened: the loser was still live.
+    if (asOf && (!res.decided_at || Date.parse(res.decided_at) > Date.parse(asOf))) continue;
     if (winner === rel.from_id) losers.add(rel.to_id);
     else if (winner === rel.to_id) losers.add(rel.from_id);
   }
@@ -53,26 +55,39 @@ function classify(store, rec, opts) {
   const versions = store.getVersions(rec.id);
   const latest = versions[versions.length - 1];
   if (latest && latest.record !== rec && JSON.stringify(latest.record) !== JSON.stringify(rec)) return 'superseded';
-  if (losingIds(store).has(rec.id)) return 'superseded';
+  if (losingIds(store, asOf).has(rec.id)) return 'superseded';
   const t = truthTimeOf(rec);
   if (!t) return 'unknown-date';
   if (Date.parse(t) > Date.parse(asOf)) return 'planned';
   return 'current';
 }
 
-// Knowledge as known at a date: statements whose truth time <= asOf,
-// excluding losing sides of conflicts resolved by then. Versions matter:
-// uses the latest version whose provenance capture is <= asOf when
-// available, else the earliest version (honest: we cannot un-know).
+// Truth-time reconstruction at a date: statements whose truth time is
+// <= asOf, excluding losing sides of conflicts RESOLVED by then. This
+// is "what was true at T" (facts learned later about T still belong),
+// not an epistemic snapshot of what had been captured by T. Version
+// selection IS capture-aware: for a multi-version record, the version
+// returned is the newest one captured on or before asOf, so later
+// corrections never leak into a point-in-time view; if every version
+// was captured after asOf, the earliest is used (the closest surviving
+// representation of the original statement about that time).
 function knownAt(store, asOf) {
   if (!asOf) throw new Error('OTHK_TEMPORAL_INPUT: asOf required');
   const losers = losingIds(store, asOf);
   const out = [];
-  for (const rec of store.allRecords()) {
-    if (STATEMENT_KINDS.indexOf(rec.kind) === -1) continue;
+  for (const latest of store.allRecords()) {
+    if (STATEMENT_KINDS.indexOf(latest.kind) === -1) continue;
+    if (losers.has(latest.id)) continue;
+    const versions = store.getVersions(latest.id).filter((v) => !v.deleted);
+    if (!versions.length) continue;
+    let chosen = null;
+    for (const v of versions) {
+      const cap = v.record.provenance && v.record.provenance.captured_at;
+      if (cap && Date.parse(cap) <= Date.parse(asOf)) chosen = v; // versions are in order → ends newest qualifying
+    }
+    const rec = (chosen || versions[0]).record;
     const t = truthTimeOf(rec);
     if (!t || Date.parse(t) > Date.parse(asOf)) continue;
-    if (losers.has(rec.id)) continue;
     out.push(rec);
   }
   out.sort((a, b) => Date.parse(truthTimeOf(a)) - Date.parse(truthTimeOf(b)) || (a.id < b.id ? -1 : 1));

@@ -60,7 +60,11 @@ function findNearDuplicates(store, opts) {
   return pairs;
 }
 
-// Links a near-duplicate pair. Never deletes anything.
+// Links a near-duplicate pair. Never deletes anything. One link per
+// pair: the relationship id is derived from the pair alone, so a pair
+// that later crosses the higher threshold upgrades in place (new
+// version, old strength preserved in history) instead of accumulating
+// contradictory parallel links.
 function linkDuplicates(store, pairs) {
   const linked = [];
   for (const p of pairs) {
@@ -68,12 +72,17 @@ function linkDuplicates(store, pairs) {
     const key = [p.a, p.b].sort();
     const rel = {
       kind: 'relationship',
-      id: ids.recordId('relationship', relType + '/' + key.join('~')),
+      id: ids.recordId('relationship', 'near-duplicate/' + key.join('~')),
       rel_type: relType,
       from_id: key[0], to_id: key[1],
       metadata: { similarity: p.similarity, threshold_doc: 'dedup.js header', decided: 'automatic-link-only-never-merge' },
     };
-    if (!store.getRecord(rel.id)) { store.appendRecord(rel); linked.push(rel.id); }
+    const existing = store.getRecord(rel.id);
+    if (!existing) { store.appendRecord(rel); linked.push(rel.id); }
+    else if (existing.rel_type !== rel.rel_type || existing.metadata.similarity !== rel.metadata.similarity) {
+      store.appendRecord(rel, { allowNewVersion: true });
+      linked.push(rel.id);
+    }
   }
   return linked;
 }

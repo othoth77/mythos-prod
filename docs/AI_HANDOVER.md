@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** OTH-K2 **REAL-DATA KNOWLEDGE INTEGRATION: FOUR IMPORTERS, DEDUP/TEMPORAL/AUDIT ENGINES, AI-LAYER SERVICE BOUNDARY, EVALUATION V2 — 188/0 ACROSS THREE SUITES; REAL SOURCES DISCOVERED AND EVIDENCE-TABLED; CONTENT TRANSFER EXTERNALLY BLOCKED (SESSION PERMISSION POLICY).**
+**From:** OTH-K2 **REAL-DATA KNOWLEDGE INTEGRATION: FOUR IMPORTERS, DEDUP/TEMPORAL/AUDIT ENGINES, AI-LAYER SERVICE BOUNDARY, EVALUATION V2 — 206/0 ACROSS THREE SUITES; INDEPENDENT ADVERSARIAL REVIEW: 1 BLOCKER + 4 MAJOR + 5 MINOR FOUND, ALL 10 FIXED WITH REGRESSION TESTS; REAL SOURCES DISCOVERED AND EVIDENCE-TABLED; CONTENT TRANSFER EXTERNALLY BLOCKED (SESSION PERMISSION POLICY).**
 
 ## OTH-K2 — real-data knowledge integration (2026-08-19)
 
@@ -75,12 +75,12 @@ stays refused by the metadata-only class policy regardless.
 
 | | |
 |---|---|
-| Suites | **othk-0 89/0 · othk-1 30/0 · othk-2 69/0 (188/0 total)**; `node --check` clean on every file |
+| Suites | **othk-0 89/0 · othk-1 30/0 · othk-2 87/0 (206/0 total)**; `node --check` clean on every file |
 | Evaluation v2 | 20 queries: lexical R@5=1.0 R@10=1.0 MRR .95 · vector 1.0/1.0/.863 · hybrid 1.0/1.0/.925; provenance-correctness OK on all 198 hybrid hits; p@5 bounded ≈0.2 by single-relevant queries (documented) |
 | Temporal | "true in 2024" / current / superseded / planned / unknown-date all asserted; ingest-vs-truth axis separation asserted |
 | Security | size/depth/CSV guards tested; secret gate on importer paths; store-wide zero-PII assertion for contacts; secret scan clean |
 | VPS probe | TCP 22 unreachable, no client/keys (re-verified this session) |
-| Review | independent adversarial review agent run on the final diff; findings resolved before commit (see commit) |
+| Review | independent adversarial review (Opus-role) on the full diff returned CHANGES-REQUIRED: **1 BLOCKER** (headerless contacts CSV could persist a data row as column names — now refused by header validation before anything persists), **4 MAJOR** (event-id collision collapsing distinct same-title/time activity entries — fixed via per-entry identity keys; cross-class byte dedup silently dropping the second source — now records an explicit `also_present_in` relationship and extracted records carry the current import's reference; `knownAt` leaking later-captured corrections into point-in-time views — now version-selects by captured_at; `classify` ignoring asOf for conflict losers + optional decided_at — asOf honored, decided_at now mandatory), **5 MINOR** (contacts size cap, misleading gemini header comment, quarantine idempotency, parallel stale duplicate links, private Drive titles/ids in the discovery doc — all fixed). Every fix has a §11 regression assertion (18 new) |
 
 ### Blockers (all external, verified)
 

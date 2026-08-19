@@ -6,10 +6,10 @@
 // create_time,update_time,messages:[{author,text,create_time}]}]}) under
 // source class `gemini`. The original JSON is preserved as the artifact;
 // each conversation yields one EXTRACTED event with truth time =
-// create_time. Message texts stay in the artifact/document; extraction
-// never invents content and never promotes model output to fact — any
-// assistant statement worth keeping enters as a CLAIM asserted by
-// 'gemini', not as a fact.
+// create_time. Message texts stay in the artifact/document (retrievable
+// as chunks); this importer creates NO claim or fact records — model
+// output is never promoted, and curating statements out of a
+// conversation is a separate, human-driven step.
 // =====================================================
 'use strict';
 
@@ -40,12 +40,13 @@ function importExport(store, classes, input) {
   const parsed = parseExport(input.bytes); // validate BEFORE storing anything
   const collection = input.collection || 'gemini-export';
 
+  const sourceRef = SOURCE_CLASS + '/' + collection + '/' + (input.filename || 'gemini-export.json');
   const res = ingest.ingestArtifact(store, classes, {
     bytes: input.bytes,
     filename: input.filename || 'gemini-export.json',
     source_class: SOURCE_CLASS,
     source_collection: collection,
-    source_reference: SOURCE_CLASS + '/' + collection + '/' + (input.filename || 'gemini-export.json'),
+    source_reference: sourceRef,
     captured_at: input.captured_at,
     parser_version: PARSER_VERSION,
     importer: PARSER_VERSION,
@@ -64,9 +65,10 @@ function importExport(store, classes, input) {
     extract.addEvent(store, classes, {
       title: 'Gemini conversation: ' + title,
       occurred_at: when,
+      key: sourceRef + '#conversation-' + (conv.id || n),
       prov: {
         source_class: SOURCE_CLASS, source_collection: collection,
-        source_reference: res.artifact.provenance.source_reference + '#conversation-' + (conv.id || n),
+        source_reference: sourceRef + '#conversation-' + (conv.id || n),
         captured_at: input.captured_at, observed_at: when,
         artifact_ref: res.artifact.content_ref,
       },

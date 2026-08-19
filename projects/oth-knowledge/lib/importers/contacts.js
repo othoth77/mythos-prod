@@ -27,11 +27,37 @@ function fail(code, msg) { const e = new Error(code + ': ' + msg); e.code = code
 
 function sha256(bytes) { return crypto.createHash('sha256').update(bytes).digest('hex'); }
 
+// Header validation — the PII firewall. Column NAMES are the only file
+// content this importer ever persists, so a first data row mistaken for
+// a header would leak a contact. Fail closed: the header must look like
+// a contacts-export schema and must NOT look like data.
+const KNOWN_HEADER_TOKENS = /^(name|given name|additional name|family name|first name|middle name|last name|nickname|birthday|gender|notes|labels|organization.*|e-?mail.*|phone.*|address.*|website.*|relation.*|group membership|photo|.*prefix|.*suffix)$/i;
+const EMAIL_SHAPE = /@/;
+const PHONE_SHAPE = /^[+()\d][\d\s().\/-]{4,}$/;
+
+function validateHeader(header) {
+  const known = header.filter((h) => KNOWN_HEADER_TOKENS.test(String(h).trim()));
+  if (known.length === 0) {
+    throw fail('OTHK_IMPORT_FORMAT', 'contacts CSV header not recognized (no known contacts column names) — refusing so a data row can never be persisted as column names');
+  }
+  for (const cell of header) {
+    const c = String(cell).trim();
+    if (EMAIL_SHAPE.test(c) || PHONE_SHAPE.test(c)) {
+      throw fail('OTHK_IMPORT_FORMAT', 'contacts CSV header contains a data-shaped cell — refusing (nothing persisted)');
+    }
+    if (c.length > 120) throw fail('OTHK_IMPORT_FORMAT', 'contacts CSV header cell exceeds 120 chars — refusing');
+  }
+}
+
 // Parses in memory; returns aggregates + an in-memory row-hash set for
 // cross-file overlap measurement. Row hashes are NEVER persisted.
 function analyzeCsv(bytes) {
+  if (bytes.length > ingestLib.MAX_ARTIFACT_BYTES) {
+    throw fail('OTHK_INGEST_TOO_LARGE', bytes.length + ' bytes exceeds the ' + ingestLib.MAX_ARTIFACT_BYTES + '-byte limit');
+  }
   const text = normalize.decodeUtf8Strict(bytes);
   const parsed = normalize.parseCsv(text);
+  validateHeader(parsed.header);
   const rowHashes = new Set();
   let duplicateRows = 0;
   for (const row of parsed.rows) {

@@ -101,7 +101,27 @@ function ingestArtifact(store, classes, input, normalizeLib) {
   });
 
   if (already) {
-    // Same bytes re-presented: idempotent replay, no new records.
+    // Same bytes re-presented. Identical (class, collection): pure
+    // idempotent replay. DIFFERENT class/collection: the fact that this
+    // source also contained these bytes must not vanish — record an
+    // explicit also_present_in relationship (idempotent) linking the
+    // existing artifact to the current source, carrying the current
+    // import's own reference. The original attribution is never edited.
+    const ap = already.provenance;
+    if (ap && (ap.source_class !== prov.source_class || ap.source_collection !== prov.source_collection)) {
+      const rel = {
+        kind: 'relationship',
+        id: ids.recordId('relationship', 'also_present_in/' + already.id + '/' + prov.source_class + '/' + prov.source_collection),
+        rel_type: 'also_present_in',
+        from_id: already.id, to_id: source.id,
+        metadata: {
+          source_reference: prov.source_reference,
+          captured_at: prov.captured_at,
+          filename: input.filename,
+        },
+      };
+      if (!store.getRecord(rel.id)) store.appendRecord(rel);
+    }
     const docId = ids.recordId('document', artifactId);
     return {
       source, artifact: already, document: store.getRecord(docId),

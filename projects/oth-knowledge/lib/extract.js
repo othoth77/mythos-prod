@@ -67,10 +67,14 @@ function addObservation(store, classes, { statement, observed_at, prov, entity_i
   });
 }
 
-function addEvent(store, classes, { title, occurred_at, prov, entity_ids, tags, metadata }) {
+// `key`: optional caller-supplied identity discriminator. Importers pass
+// their per-entry source reference so two distinct entries sharing a
+// title and timestamp never collapse into one id (and re-imports stay
+// idempotent); without it, identity falls back to class/time/title.
+function addEvent(store, classes, { title, occurred_at, prov, entity_ids, tags, metadata, key }) {
   return put(store, {
     kind: 'event',
-    id: ids.recordId('event', prov.source_class + '/' + occurred_at + '/' + title),
+    id: ids.recordId('event', key ? prov.source_class + '/key/' + key : prov.source_class + '/' + occurred_at + '/' + title),
     title, occurred_at,
     provenance: makeProv(store, classes, prov),
     entity_ids: entity_ids || [], tags: tags || [], metadata: metadata || {},

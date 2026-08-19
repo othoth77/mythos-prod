@@ -94,6 +94,11 @@ function provenanceAudit(store, opts) {
 function quarantine(store, id, reason) {
   const rec = store.getRecord(id);
   if (!rec) return null;
+  // Idempotent: re-auditing a still-failing record must not grow history.
+  if (Array.isArray(rec.tags) && rec.tags.indexOf('quarantined') !== -1 &&
+      rec.metadata && rec.metadata.quarantine_reason === String(reason).slice(0, 500)) {
+    return id;
+  }
   const next = JSON.parse(JSON.stringify(rec));
   next.tags = Array.from(new Set([...(next.tags || []), 'quarantined']));
   next.metadata = Object.assign({}, next.metadata || {}, { quarantine_reason: String(reason).slice(0, 500) });

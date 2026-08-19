@@ -233,6 +233,90 @@ console.log('§10 knowledge-service boundary');
   ok(!('ingestArtifact' in svc) && !('addFact' in svc), 'service surface is read-only — the AI layer consumes, never owns');
 }
 
+console.log('§11 review-fix regressions (independent adversarial review 2026-08-19)');
+{
+  // R1 BLOCKER: headerless/data-shaped contacts CSV must be refused before anything persists.
+  const s = storeLib.openStore(tmpRoot());
+  expectError(() => contacts.importMetadata(s, CLASSES, {
+    bytes: Buffer.from('John Fixture,+21600000001,fixture.person@example.invalid\nJane Fixture,+21600000002,fixture2@example.invalid\n'),
+    filename: 'headerless.csv', captured_at: CAP,
+  }), /OTHK_IMPORT_FORMAT/, 'R1: headerless CSV (data row first) refused');
+  expectError(() => contacts.importMetadata(s, CLASSES, {
+    bytes: Buffer.from('Name,+21600000009\nA,B\n'),
+    filename: 'phone-in-header.csv', captured_at: CAP,
+  }), /data-shaped cell/, 'R1: phone-shaped header cell refused');
+  ok(s.allRecords().length === 0 || s.allRecords().every((r) => JSON.stringify(r).indexOf('Fixture') === -1), 'R1: refusals persisted nothing PII-bearing');
+  ok(JSON.stringify(s.allRecords()).indexOf('21600000') === -1, 'R1: no phone digits reached the store');
+
+  // R2 MAJOR: same-title+timestamp activity entries stay distinct events; replay idempotent.
+  const dir = tmpRoot();
+  fs.mkdirSync(path.join(dir, 'My Activity'), { recursive: true });
+  fs.writeFileSync(path.join(dir, 'My Activity', 'MyActivity.json'), JSON.stringify([
+    { header: 'Search', title: 'repeated search term', time: '2026-06-01T10:00:00Z' },
+    { header: 'Search', title: 'repeated search term', time: '2026-06-01T10:00:00Z' },
+  ]));
+  const s2 = storeLib.openStore(tmpRoot());
+  const rep = takeout.importDirectory(s2, CLASSES, dir, { captured_at: CAP, collection: 'collide' });
+  const evs = s2.allRecords({ kind: 'event' });
+  ok(rep.events === 2 && evs.length === 2, 'R2: colliding entries produce two distinct live events');
+  takeout.importDirectory(s2, CLASSES, dir, { captured_at: CAP, collection: 'collide' });
+  ok(s2.allRecords({ kind: 'event' }).length === 2 && evs.every((e) => s2.getVersions(e.id).length === 1), 'R2: re-import adds no versions and no events');
+
+  // R3 MAJOR: identical bytes under a second source class → explicit also_present_in link, own provenance on extracted records.
+  const s3 = storeLib.openStore(tmpRoot());
+  const sharedBytes = fs.readFileSync(path.join(dir, 'My Activity', 'MyActivity.json'));
+  ingest.ingestArtifact(s3, CLASSES, { bytes: sharedBytes, filename: 'act.json', source_class: 'manual', source_collection: 'notes', captured_at: CAP });
+  const rep3 = takeout.importDirectory(s3, CLASSES, dir, { captured_at: CAP, collection: 'collide' });
+  ok(rep3.deduplicated === 1, 'R3: takeout re-sees the manual bytes as dedup');
+  const alsoRels = s3.allRecords({ kind: 'relationship', where: (r) => r.rel_type === 'also_present_in' });
+  ok(alsoRels.length === 1 && /google-takeout\/collide/.test(alsoRels[0].metadata.source_reference), 'R3: also_present_in relationship records the second source');
+  const ev3 = s3.allRecords({ kind: 'event' })[0];
+  ok(ev3.provenance.source_class === 'google-takeout' && ev3.provenance.source_reference.indexOf('google-takeout/collide/') === 0, 'R3: extracted events carry the CURRENT import reference, not the foreign artifact reference');
+  ok(s3.verify().ok, 'R3: integrity holds with cross-class link');
+
+  // R4 MAJOR: knownAt returns the version captured by asOf, not a later correction.
+  const s4 = storeLib.openStore(tmpRoot());
+  const pv = (cap) => ({ source_class: 'manual', source_collection: 'v', source_reference: 'manual/v/x', captured_at: cap, observed_at: '2025-12-01T00:00:00Z' });
+  const f = extract.addFact(s4, CLASSES, { statement: 'original statement', confidence: 'HIGH', prov: pv('2026-01-10T00:00:00Z') });
+  const corrected = JSON.parse(JSON.stringify(s4.getRecord(f.id)));
+  corrected.statement = 'corrected statement';
+  corrected.provenance.captured_at = '2026-07-01T00:00:00Z';
+  s4.appendRecord(corrected, { allowNewVersion: true });
+  const view = temporal.knownAt(s4, '2026-03-01T00:00:00Z');
+  ok(view.length === 1 && view[0].statement === 'original statement', 'R4: point-in-time view serves the version captured by asOf');
+  ok(temporal.knownAt(s4, '2026-08-01T00:00:00Z')[0].statement === 'corrected statement', 'R4: later view serves the correction');
+
+  // R5 MAJOR: classify honors asOf for conflict losers; decided_at now mandatory.
+  const g1 = extract.addFact(s4, CLASSES, { statement: 'old value', confidence: 'MEDIUM', prov: pv('2026-01-10T00:00:00Z') });
+  const g2 = extract.addFact(s4, CLASSES, { statement: 'new value', confidence: 'EXPLICIT', prov: Object.assign(pv('2026-07-01T00:00:00Z'), { source_reference: 'manual/v/y' }) });
+  const rel = conflict.registerConflict(s4, g1.id, g2.id, 'r5');
+  expectError(() => conflict.resolveConflict(s4, rel.id, { state: 'resolved', decided_by: 'owner', winner_id: g2.id }), /decided_at required/, 'R5: resolution without decided_at refused');
+  conflict.resolveConflict(s4, rel.id, { state: 'resolved', decided_by: 'owner', decided_at: '2026-06-15T00:00:00Z', winner_id: g2.id });
+  ok(temporal.classify(s4, s4.getRecord(g1.id), { asOf: '2026-02-01T00:00:00Z' }) === 'current', 'R5: before the decision, the later loser is still current');
+  ok(temporal.classify(s4, s4.getRecord(g1.id), { asOf: '2026-08-01T00:00:00Z' }) === 'superseded', 'R5: after the decision it is superseded');
+
+  // R8 MINOR: repeated quarantine audits do not grow history.
+  const s5 = storeLib.openStore(tmpRoot());
+  s5.appendRecord({ kind: 'observation', id: require(path.join(BASE, 'lib/ids.js')).recordId('observation', 'ghost'), statement: 'orphan', observed_at: CAP, provenance: { source_class: 'manual', source_collection: 'ghost', source_reference: 'manual/ghost/x', captured_at: CAP } });
+  audit.provenanceAudit(s5, { quarantine: true });
+  audit.provenanceAudit(s5, { quarantine: true });
+  const gid = s5.allRecords({ kind: 'observation' })[0].id;
+  ok(s5.getVersions(gid).length === 2, 'R8: double quarantine audit leaves exactly one quarantine version');
+
+  // R9 MINOR: a pair upgrading past the duplicate threshold keeps ONE link (versioned), never two parallel links.
+  const s6 = storeLib.openStore(tmpRoot());
+  extract.addEntity(s6, { entity_type: 'x', name: 'a' });
+  const d1 = { kind: 'document', id: require(path.join(BASE, 'lib/ids.js')).recordId('document', 'p1'), artifact_id: 'artifact-x', text: 'x', media_type: 'text/plain', provenance: pv('2026-01-01T00:00:00Z') };
+  const pair = { a: 'document-aaaa', b: 'document-bbbb' };
+  dedup.linkDuplicates(s6, [Object.assign({}, pair, { similarity: 0.85 })]);
+  dedup.linkDuplicates(s6, [Object.assign({}, pair, { similarity: 0.97 })]);
+  const links = s6.allRecords({ kind: 'relationship' });
+  ok(links.length === 1 && links[0].rel_type === 'duplicate_of' && s6.getVersions(links[0].id).length === 2, 'R9: single upgraded link with history, no parallel stale link');
+
+  // R6 MINOR: contacts import enforces the artifact size cap.
+  expectError(() => contacts.importMetadata(s, CLASSES, { bytes: Buffer.alloc(ingest.MAX_ARTIFACT_BYTES + 1, 97), filename: 'huge.csv', captured_at: CAP }), /OTHK_INGEST_TOO_LARGE/, 'R6: oversized contacts CSV refused');
+}
+
 console.log('');
 console.log('othk-2: ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

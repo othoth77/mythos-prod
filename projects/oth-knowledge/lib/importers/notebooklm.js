@@ -47,12 +47,13 @@ function importNote(store, classes, input) {
   if (!input.captured_at) throw fail('OTHK_IMPORT_INPUT', 'captured_at required');
   const collection = input.collection || 'notebooklm-export';
 
+  const sourceRef = SOURCE_CLASS + '/' + collection + '/' + (input.filename || 'note.md');
   const res = ingest.ingestArtifact(store, classes, {
     bytes: input.bytes,
     filename: input.filename || 'note.md',
     source_class: SOURCE_CLASS,
     source_collection: collection,
-    source_reference: SOURCE_CLASS + '/' + collection + '/' + (input.filename || 'note.md'),
+    source_reference: sourceRef,
     captured_at: input.captured_at,
     observed_at: input.observed_at,
     parser_version: PARSER_VERSION,
@@ -70,7 +71,7 @@ function importNote(store, classes, input) {
       asserted_by: 'notebooklm' + (parsed.title ? ':' + parsed.title : ''),
       prov: {
         source_class: SOURCE_CLASS, source_collection: collection,
-        source_reference: res.artifact.provenance.source_reference + '#key-point',
+        source_reference: sourceRef + '#key-point',
         captured_at: input.captured_at, observed_at: input.observed_at,
         artifact_ref: res.artifact.content_ref,
       },
