@@ -468,7 +468,12 @@ var REAL_PROVIDERS = ['claude-code', 'openai-compat']; // the real, currently
 // absent. 'repo-write' additionally requires MOS_ALLOW_REPO_WRITE (see
 // handleStartMission); repo-read and repo-test need no extra authorization.
 var CONSOLE_PROFILES = ['repo-read', 'repo-test', 'repo-write'];
-var START_MISSION_FIELDS = ['title', 'instruction', 'provider', 'model', 'execution_profile'];
+// MOS-v2 M-06: the executor's own fixed priority vocabulary
+// (PRIORITY_WEIGHT), mirrored here for validation only -- this server does
+// not invent an ordering, it just refuses anything the executor would not
+// recognise before the request ever reaches it.
+var CONSOLE_PRIORITIES = ['high', 'normal', 'low'];
+var START_MISSION_FIELDS = ['title', 'instruction', 'provider', 'model', 'execution_profile', 'priority'];
 
 function readBoundedBody(req, maxBytes) {
   return new Promise(function (resolve, reject) {
@@ -494,14 +499,17 @@ function badRequest(res, detail) {
 // from 'orchestration-core' so this task is never mistaken for one the
 // Phase 2 core owns and drives itself), mode (the executor's own existing
 // default). The browser supplies only title/instruction/provider/model and,
-// optionally, execution_profile. MOS-v2 M-05: `model` is validated below
-// against model-catalog.js's own enabled entries, not accepted as
-// free-form text -- see the comment at that check. `execution_profile` is
-// validated below against CONSOLE_PROFILES
+// optionally, execution_profile and priority. MOS-v2 M-05: `model` is
+// validated below against model-catalog.js's own enabled entries, not
+// accepted as free-form text -- see the comment at that check.
+// `execution_profile` is validated below against CONSOLE_PROFILES
 // (MOS-v2 M-04) and, for 'repo-write', against MOS_ALLOW_REPO_WRITE. The
 // executor's own lib/policy.js is the structural enforcement of what each
 // profile can actually do; this validation exists so a request this server
-// already knows to refuse never reaches it.
+// already knows to refuse never reaches it. MOS-v2 M-06: `priority` is
+// validated below against CONSOLE_PRIORITIES, defaulting to 'normal' when
+// absent, and relayed verbatim -- the executor's own PRIORITY_WEIGHT is the
+// structural enforcement of ordering, this is just an early refusal.
 function handleStartMission(req, res) {
   readBoundedBody(req, START_MISSION_MAX_BODY).then(function (raw) {
     var payload;
@@ -568,12 +576,24 @@ function handleStartMission(req, res) {
       return;
     }
 
+    // MOS-v2 M-06: 'normal' is the default when the field is absent.
+    // Present, it must be exactly one of CONSOLE_PRIORITIES -- case-
+    // sensitive, no coercion -- same discipline as execution_profile above.
+    var priority = 'normal';
+    if (payload.priority !== undefined) {
+      if (typeof payload.priority !== 'string' || CONSOLE_PRIORITIES.indexOf(payload.priority) === -1) {
+        return badRequest(res, 'priority must be one of: ' + CONSOLE_PRIORITIES.join(', '));
+      }
+      priority = payload.priority;
+    }
+
     return upstream.post('/tasks', {
       project: 'mythos-prod',
       stage: title.trim().slice(0, 200),
       instruction: instruction,
       provider: provider,
       model: model || null,
+      priority: priority,
       requested_by: 'mos-console',
       execution_profile: profile,
       expected_delivery: 'report'

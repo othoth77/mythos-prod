@@ -384,11 +384,11 @@
   }
 
   // A new mission: title + instruction + provider (+ optional model, +
-  // optional execution profile). No other field exists client-side to
-  // send — project, mode and requested_by are fixed server-side in
-  // server.js and are never part of this payload. Feedback renders
-  // inline; this file has no alert()/confirm() anywhere and this does not
-  // start one.
+  // optional execution profile, + priority). No other field exists
+  // client-side to send — project, mode and requested_by are fixed
+  // server-side in server.js and are never part of this payload. Feedback
+  // renders inline; this file has no alert()/confirm() anywhere and this
+  // does not start one.
   //
   // MOS-3B: `providers` is the list GET /api/dispatcher returned — the
   // server's own source of truth for what can actually run — or null when
@@ -475,6 +475,20 @@
         text: 'execution profile list unavailable — the control plane could not be read' });
     }
 
+    // MOS-v2 M-06: priority is a fixed lifecycle vocabulary of the
+    // executor (PRIORITY_WEIGHT — 'high'|'normal'|'low'), not a
+    // server-authorized capability like provider/model/profile above, so a
+    // hardcoded three-option list here is acceptable — there is nothing
+    // server.js could withdraw or expand at this layer. Always sent
+    // (never omitted) for explicitness, defaulting to 'normal'.
+    var PRIORITY_OPTIONS = ['high', 'normal', 'low'];
+    var prioritySelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-priority' } },
+      PRIORITY_OPTIONS.map(function (p) {
+        var opt = el('option', { attrs: { value: p }, text: p });
+        if (p === 'normal') opt.selected = true;
+        return opt;
+      }));
+
     var startBtn = el('button', {
       className: 'mythos-btn mythos-btn-gold',
       attrs: { type: 'button' },
@@ -501,7 +515,8 @@
         instruction: instruction,
         provider: providerSelect.value,
         model: (modelList.length && modelSelect.value) ? modelSelect.value : undefined,
-        execution_profile: chosenProfile
+        execution_profile: chosenProfile,
+        priority: prioritySelect.value
       }).then(function (r) {
         clear(feedback);
         // MOS-3B: the dispatcher is capacity-gated, so a created mission is
@@ -533,7 +548,8 @@
       el('div', { className: 'mythos-start-row' }, [
         el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-provider' }, text: 'Provider' }), providerSelect, providerNote]),
         el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model (optional)' }), modelSelect, modelNote]),
-        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-profile' }, text: 'Execution profile' }), profileSelect, profileNote])
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-profile' }, text: 'Execution profile' }), profileSelect, profileNote]),
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-priority' }, text: 'Priority' }), prioritySelect])
       ]),
       startBtn, feedback
     ]);
@@ -590,11 +606,23 @@
         clear(detailSlot);
         var detail = r[0], report = r[1];
         if (!detail.ok) { detailSlot.appendChild(upstreamFailure(detail.err, 'the execution detail')); return; }
-        detailSlot.appendChild(fact('Instruction', detail.data.task.instruction));
-        detailSlot.appendChild(fact('Execution ID', detail.data.status.execution_id || '(not started)'));
-        detailSlot.appendChild(fact('Next action', detail.data.status.next_action));
-        if (detail.data.status.last_error) detailSlot.appendChild(fact('Last error', detail.data.status.last_error));
+        var dTask = detail.data.task || {};
+        var dStatus = detail.data.status || {};
+        detailSlot.appendChild(fact('Stage', dTask.stage || '—'));
+        detailSlot.appendChild(fact('Instruction', dTask.instruction));
+        detailSlot.appendChild(fact('Provider', dTask.provider || '—'));
+        detailSlot.appendChild(fact('Model', dTask.model || '(default)'));
+        detailSlot.appendChild(fact('Priority', dTask.priority || '—'));
+        detailSlot.appendChild(fact('Execution profile', dTask.execution_profile || '—'));
+        detailSlot.appendChild(fact('Status', dStatus.status || state));
+        detailSlot.appendChild(fact('Execution ID', dStatus.execution_id || '(not started)'));
+        detailSlot.appendChild(fact('Created', dTask.created_at ? stamp(dTask.created_at) : '—'));
+        detailSlot.appendChild(fact('Started', dStatus.started_at ? stamp(dStatus.started_at) : '—'));
+        detailSlot.appendChild(fact('Ended', dStatus.ended_at ? stamp(dStatus.ended_at) : '—'));
+        detailSlot.appendChild(fact('Next action', dStatus.next_action));
+        if (dStatus.last_error) detailSlot.appendChild(fact('Last error', dStatus.last_error));
         if (report && report.ok && report.data.summary) detailSlot.appendChild(fact('Result summary', report.data.summary));
+        if (report && report.ok && report.data.next_stage) detailSlot.appendChild(fact('Next stage', report.data.next_stage));
         if (report && report.ok && report.data.problems && report.data.problems.length) {
           detailSlot.appendChild(fact('Report problems', report.data.problems.join('; ')));
         }

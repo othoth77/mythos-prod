@@ -1,7 +1,41 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MOS-v2 **M-05 — SERVER-CONTROLLED MODEL CATALOG. IMPLEMENTED, TESTED.**
+**From:** MOS-v2 **M-06 — MISSION CONTROL COMPLETED. IMPLEMENTED, TESTED.**
+
+## MOS-v2 M-06 — Mission Control completion (2026-08-19)
+
+**Objective.** Complete the Mission surface: every mission carries title,
+instruction, priority, model, execution profile, status, execution id,
+timestamps, result, error and cancellation, on the existing executor
+dispatcher — no second queue, no second dispatcher (pinned by a new
+source-level test asserting every `upstream.post` targets `/tasks`-prefixed
+endpoints).
+
+**Changes.** `server.js`: `CONSOLE_PRIORITIES = ['high','normal','low']`
+(the executor's own PRIORITY_WEIGHT vocabulary); `priority` joins
+`START_MISSION_FIELDS`, validated case-sensitively (400 otherwise),
+default `'normal'`, relayed verbatim — the executor's priority-ordered
+queue already existed. `app.js`: priority select on the start form
+(fixed executor vocabulary, deliberately client-listed); mission DETAIL
+view now renders all of `TASK_DETAIL_TASK_FIELDS` /
+`TASK_DETAIL_STATUS_FIELDS` + report `next_stage` (added: stage/title,
+provider, model, priority, execution_profile, status, created/started/
+ended timestamps). Rows unchanged — `/api/missions` summaries genuinely
+don't carry `execution_profile`, so nothing was invented there. BLOCKED
+was already grouped under 'Awaiting the owner'; its `last_error` /
+`next_action` now surface on detail. Capacity strip (running /
+MAX_PARALLEL) pre-existing from MOS-3B, unchanged.
+
+**Tests.** Console **832 passed / 0 failed** (was 801/0; +31, §4f:
+priority matrix, full relay-payload-shape pin, detail pass-through,
+no-second-dispatcher pin). Executor **158/0**, untouched.
+
+**Next stage.** M-07 operator safety audit (Opus), then M-08 regression.
+
+---
+
+**Previously:** MOS-v2 **M-05 — SERVER-CONTROLLED MODEL CATALOG. IMPLEMENTED, TESTED.**
 
 ## MOS-v2 M-05 — server-controlled model catalog (2026-08-19)
 

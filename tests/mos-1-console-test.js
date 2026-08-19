@@ -1404,6 +1404,113 @@ startStub().then(function (stub) {
 })
 
 // ===========================================================================
+// 4f. MOS-v2 M-06: MISSION CONTROL COMPLETION — priority on the start relay
+//
+// A dedicated stub and server, isolated from 4a's/4d's/4e's, so this
+// section owns its own stubPostBodies/stubHits state cleanly.
+// ===========================================================================
+.then(function () {
+  return startStub().then(function (stub) {
+    var stubPort = stub.address().port;
+    delete process.env.MOS_ALLOW_REPO_WRITE;
+    var server = freshServer({
+      MOS_EXECUTOR_URL: 'http://127.0.0.1:' + stubPort,
+      MOS_EXECUTOR_TOKEN: SECRET_TOKEN,
+      MOS_EXECUTOR_TOKEN_FILE: null
+    });
+    return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
+      var port = s.address().port;
+      ACTIVE_COOKIE = null;
+      return login(port, CONSOLE_SECRET).then(function (l) {
+        eq(l.res.status, 200, 'M-06: sign-in for the priority checks succeeds');
+        ACTIVE_COOKIE = l.cookie;
+
+        return Promise.all([
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', priority: 'high' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', priority: 'urgent' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', priority: 'HIGH' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', priority: 5 }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', priority: '' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', priority: 'high', rogue_field: 'z' })
+        ]);
+      }).then(function (rr) {
+        var validHigh = rr[0], defaultPriority = rr[1], badUrgent = rr[2], badCase = rr[3],
+            badNonString = rr[4], badEmpty = rr[5], tamperedExtra = rr[6];
+
+        eq(validHigh.status, 200, 'M-06: priority "high" is accepted');
+        eq(defaultPriority.status, 200, 'M-06: omitting priority still succeeds (defaults to normal)');
+
+        [badUrgent, badCase, badNonString, badEmpty, tamperedExtra].forEach(function (r, i) {
+          eq(r.status, 400, 'M-06: invalid priority case ' + i + ' is rejected with 400');
+          eq(r.json.error, 'bad_request', 'M-06: invalid priority case ' + i + ' names bad_request');
+        });
+        ok(/priority/.test(badUrgent.json.detail), 'M-06: the 400 for an unrecognised priority names the allowed set');
+        ok(!/priority/.test(tamperedExtra.json.detail), 'M-06: an unknown field alongside a VALID priority is refused as an unexpected field, not miscategorised as a bad priority');
+
+        // Exactly four upstream calls (create + dispatch, twice) for the
+        // two accepted requests -- nothing at all for the five
+        // rejected requests above.
+        var calls = stubPostBodies.filter(function (c) { return /^\/tasks(\/tk-stub-start-0001\/dispatch)?$/.test(c.url); });
+        eq(calls.length, 4, 'M-06: exactly four upstream calls (create+dispatch, twice) for the two accepted requests -- nothing for the five rejected ones');
+        var createdPriorities = stubPostBodies.filter(function (c) { return c.url === '/tasks'; })
+          .map(function (c) { return c.body.priority; }).sort();
+        eq(createdPriorities.join(','), 'high,normal',
+           'M-06: the two accepted requests relayed high (validated) and normal (default) verbatim to the executor payload');
+
+        // --- full relay payload shape, pinned once -----------------------
+        var createCall = stubPostBodies.filter(function (c) { return c.url === '/tasks'; })[0];
+        eq(Object.keys(createCall.body).sort().join(','),
+           ['project', 'stage', 'instruction', 'provider', 'model', 'priority', 'requested_by', 'execution_profile', 'expected_delivery'].sort().join(','),
+           'M-06: the relay payload carries exactly the expected fixed+validated fields -- nothing more, nothing missing');
+        stubPostBodies.length = 0;
+
+        // --- source-level: priority is read from ONE place ---------------
+        var serverCode = code(read(path.join(REF, 'server.js')));
+        var fnStart = serverCode.indexOf('function handleStartMission');
+        var fnEnd = serverCode.indexOf('function handleMissionDetail');
+        var withinFn = serverCode.slice(fnStart, fnEnd);
+        var outsideFn = serverCode.slice(0, fnStart) + serverCode.slice(fnEnd);
+        var readsWithin = (withinFn.match(/payload\.priority/g) || []).length;
+        var readsOutside = (outsideFn.match(/payload\.priority/g) || []).length;
+        ok(readsWithin >= 1, 'M-06: handleStartMission reads payload.priority');
+        eq(readsOutside, 0, 'M-06: server.js never reads payload.priority anywhere outside handleStartMission');
+
+        // --- detail relay: all TASK_DETAIL fields pass through, unknown dropped ---
+        return req(port, '/api/missions/abc12345');
+      }).then(function (detail) {
+        eq(detail.status, 200, 'M-06: detail relay for abc12345 succeeds');
+        eq(detail.json.data.task.priority, 'normal', 'M-06: the console\'s /api/missions/<id> response passes priority through from upstream');
+        eq(detail.json.data.task.execution_profile, 'repo-read', 'M-06: the console\'s /api/missions/<id> response passes execution_profile through from upstream');
+        ok(!Object.prototype.hasOwnProperty.call(detail.json.data.task, 'working_directory'),
+           'M-06: unknown upstream task fields are still dropped alongside the new pass-through fields');
+        ok(!Object.prototype.hasOwnProperty.call(detail.json.data.task, 'secret_field'),
+           'M-06: an unrecognised upstream field is still dropped, not passed through');
+
+        // --- source pins: app.js has a priority select; no second dispatcher/queue ---
+        var appCode = code(appJs);
+        ok(/id:\s*'mission-priority'/.test(appCode) && /el\('select'/.test(appCode.slice(Math.max(0, appCode.indexOf("id: 'mission-priority'") - 200), appCode.indexOf("id: 'mission-priority'") + 50)),
+           'M-06: app.js has a priority select (mission-priority)');
+        ok(/'high'/.test(appCode) && /'normal'/.test(appCode) && /'low'/.test(appCode),
+           'M-06: app.js\'s priority select offers high/normal/low');
+
+        // server.js relays dispatch only to upstream '/tasks/'-prefixed
+        // endpoints -- no second dispatcher/queue was introduced by this
+        // stage.
+        var dispatchCalls = serverCode.match(/upstream\.post\(\s*'([^']*)'/g) || [];
+        dispatchCalls.forEach(function (call) {
+          ok(/upstream\.post\(\s*'\/tasks/.test(call), 'M-06: every upstream.post(...) call in server.js targets a /tasks-prefixed endpoint: ' + call);
+        });
+
+        ACTIVE_COOKIE = null;
+        s.close();
+        stub.close();
+      });
+    });
+  });
+})
+
+// ===========================================================================
 // 5c. SESSION LIFECYCLE — signing out, and running out of time
 //
 // A session that cannot be ended and a session that never ends are the
