@@ -1,6 +1,29 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
+**From:** MOS-v2 M-03 (nginx contract alignment)
+
+## MOS-v2 M-03 — NGINX CONTRACT ALIGNMENT (2026-08-19)
+
+**Objective:** Correct genuine nginx/application contract mismatches for Mythos OS Console.
+
+**Issue:** nginx configured `client_max_body_size 16k` but application accepts 32KB mission payloads on `/api/missions/start` (MOS-2). Outdated comment claimed console was read-only.
+
+**Changes made:**
+- Increased `client_max_body_size` from 16k to 64k (32k payload + safety margin)
+- Updated comment to reflect actual write routes: `/api/missions/start` (MOS-2), `/api/missions/<id>/cancel` (MOS-2.1), `/api/missions/<id>/dispatch` (MOS-3A)
+- Preserved all proxy configuration, TLS ownership, certbot sections
+- No nginx redesign, no neighboring vhosts touched
+
+**File:** `projects/mythos-os-console/deploy/nginx-os.mythosprod.xyz.conf`
+**Commit:** eca5973
+**Remote HEAD:** eca5973 (verified pushed)
+**Tests:** mos-1-console-test.js runs (pre-existing CSS token failures unrelated to nginx changes)
+**Deployment:** Not run (per instructions)
+**Next stage:** Create PR and await review
+
+---
+
 **From:** MYTHOS **FULL AUTONOMOUS MANDATE, TENTH PASS — MIG-3 PARTIALLY EXECUTED (AUTO-9): `--muted`/`--danger` CORRECTED TO THEIR APPROVED VALUES AND APPLIED, `--past`/CONTROL-BORDER LEFT EXPLICITLY OPEN (NO APPROVED TARGET FOR ONE, TOO BROAD A BLAST RADIUS FOR THE OTHER). MIG-4 CHECKED AND LEFT BLOCKED WITH EVIDENCE: MCC-1 (COMMAND CENTER) IS CONFIRMED LIVE, DEPLOYED, SERVING REAL PUBLIC TRAFFIC — NOT A SAFE LOCAL PILOT TARGET — AND A STANDING, NEVER-REVOKED INSTRUCTION FORBIDS TOUCHING IT. NO COMMAND CENTER FILE WAS READ OR TOUCHED. THIS CLOSES THE FOUR-MIGRATION EXECUTION PASS THE CONTINUATION INSTRUCTION NAMED — FULL FINAL BLOCKER MATRIX BELOW.**
 
 **MIG-3 — what was applied, and why the rest was left open.** `A-015`
