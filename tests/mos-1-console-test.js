@@ -904,9 +904,16 @@ startStub().then(function (stub) {
       // -----------------------------------------------------------------
       eq(dispatcherStatus.status, 200, 'MOS-3C C1: GET /api/dispatcher returns 200');
       var dsKeys = Object.keys(dispatcherStatus.json.data || {}).sort();
-      var expectedKeys = ['max_parallel', 'queued', 'running', 'providers', 'profiles', 'models'].sort();
+      // MOS-v2 M-11 adds auto_routing -- the UI's only signal that the
+      // auto-routing choice exists at all.
+      var expectedKeys = ['max_parallel', 'queued', 'running', 'providers', 'profiles', 'models', 'auto_routing'].sort();
       ok(dsKeys.join(',') === expectedKeys.join(','),
-         'MOS-3C C1 / M-05: /api/dispatcher has exactly the keys running/max_parallel/queued/providers/profiles/models (got ' + dsKeys.join(',') + ')');
+         'MOS-3C C1 / M-05 / M-11: /api/dispatcher has exactly the keys running/max_parallel/queued/providers/profiles/models/auto_routing (got ' + dsKeys.join(',') + ')');
+      ok(dispatcherStatus.json.data.auto_routing && dispatcherStatus.json.data.auto_routing.enabled === true,
+         'M-11: auto_routing.enabled is true');
+      ok(Array.isArray(dispatcherStatus.json.data.auto_routing.task_types) &&
+         dispatcherStatus.json.data.auto_routing.task_types.length > 0,
+         'M-11: auto_routing.task_types is a non-empty array');
       ok(Array.isArray(dispatcherStatus.json.data.providers), 'MOS-3C C1: providers is an array');
       eq(dispatcherStatus.json.data.providers.length, 2, 'MOS-3C C1: providers array has 2 entries');
       var providerNames = dispatcherStatus.json.data.providers.slice().sort();
@@ -1504,12 +1511,15 @@ startStub().then(function (stub) {
         // stage.
         // MOS-v2 M-09 adds the goal layer, whose three writes relay to the
         // executor's EXISTING campaign endpoints (POST /campaigns,
-        // /campaigns/<id>/approvals/resolve, /campaigns/<id>/continue). So
-        // the allowed set is two prefixes, not one -- and it is still a
+        // /campaigns/<id>/approvals/resolve, /campaigns/<id>/continue).
+        // MOS-v2 M-11 adds exactly one more: POST /route, the executor's
+        // OWN governed-routing decision (core/provider-router.js) -- not a
+        // second planner or dispatcher invented at this layer. So the
+        // allowed set is three prefixes, not one -- and it is still a
         // closed set: a post to anything else fails here.
         var dispatchCalls = serverCode.match(/upstream\.post\(\s*'([^']*)'/g) || [];
         dispatchCalls.forEach(function (call) {
-          ok(/upstream\.post\(\s*'\/(tasks|campaigns)/.test(call), 'M-06: every upstream.post(...) call in server.js targets a /tasks- or /campaigns-prefixed executor endpoint: ' + call);
+          ok(/upstream\.post\(\s*'\/(tasks|campaigns|route)/.test(call), 'M-06/M-11: every upstream.post(...) call in server.js targets a /tasks-, /campaigns- or /route-prefixed executor endpoint: ' + call);
         });
 
         ACTIVE_COOKIE = null;
@@ -2468,6 +2478,201 @@ startStub().then(function (stub) {
             s.close();
             stub.close();
           }).catch(function (e) { release(); throw e; });
+      });
+    });
+  });
+})
+
+// ===========================================================================
+// 4k. MOS-v2 M-11: GOVERNED AUTO-ROUTING
+//
+// provider: 'auto' never picks a provider itself -- it asks the executor's
+// OWN core/provider-router.js (POST /route, same bearer channel as every
+// other relay) and relays exactly what comes back. The properties under
+// test:
+//
+//   · task_type is required with 'auto' and refused with an explicit
+//     provider; model is refused alongside 'auto'; profile validation and
+//     the MOS_ALLOW_REPO_WRITE gate run BEFORE any routing call is made;
+//   · a router 'route'/'fallback' answer selects the model from
+//     model-catalog.js's own recommended_task_types, never a caller value;
+//   · 'wait_for_quota'/'no_provider' answers 409, and /tasks is never
+//     called;
+//   · a provider the router names but this console does not recognise is
+//     an honest 502, and /tasks is never called;
+//   · the relayed /tasks payload never carries the literal 'auto' anywhere;
+//   · an explicit-provider request is byte-identical to the M-06 shape.
+// ===========================================================================
+.then(function () {
+  var routePosts = [];   // { url, body } for every POST the route stub received
+
+  var routeStub = http.createServer(function (rq, rs) {
+    var u = rq.url.split('?')[0];
+    var chunks = [];
+    rq.on('data', function (d) { chunks.push(d); });
+    rq.on('end', function () {
+      var raw = Buffer.concat(chunks).toString('utf8');
+      var parsed = null;
+      try { parsed = raw ? JSON.parse(raw) : null; } catch (e) { /* not JSON */ }
+      if (rq.method === 'POST') routePosts.push({ url: u, body: parsed });
+
+      function json(code, body) {
+        rs.writeHead(code, { 'Content-Type': 'application/json' });
+        rs.end(JSON.stringify(body));
+      }
+      if (u === '/health') return json(200, { ok: true });
+
+      if (rq.method === 'POST' && u === '/route') {
+        var tt = parsed && parsed.task_type;
+        if (tt === 'coding') return json(200, { action: 'route', agent: 'claude-code', provider: 'claude-code', authority: true });
+        if (tt === 'research') return json(200, { action: 'route', agent: 'omniroute-advisory', provider: 'openai-compat', authority: false });
+        if (tt === 'design') return json(200, { action: 'wait_for_quota', agent: 'claude-code', reason: 'quota exhausted', resume_after: '2026-08-20T00:00:00Z' });
+        if (tt === 'validation') return json(200, { action: 'no_provider', reason: 'no available agent' });
+        if (tt === 'reporting') return json(200, { action: 'route', agent: 'ghost-agent', provider: 'unknown-provider', authority: false });
+        return json(200, { action: 'no_provider', reason: 'unrecognised fixture task_type' });
+      }
+      if (rq.method === 'POST' && u === '/tasks') {
+        return json(201, { task_id: 'tk-route-stub-0001', status: 'QUEUED' });
+      }
+      if (rq.method === 'POST' && u === '/tasks/tk-route-stub-0001/dispatch') {
+        return json(202, { task_id: 'tk-route-stub-0001', dispatched: true, running: 1, max_parallel: 5 });
+      }
+      json(404, { error: 'not found' });
+    });
+  });
+
+  // --- source-level: 'auto' is a genuine server-side vocabulary member,
+  // never a browser-invented string the console merely tolerates -------
+  var serverCode = code(read(path.join(REF, 'server.js')));
+  var appCode3 = code(appJs);
+  ok(/CONSOLE_TASK_TYPES/.test(serverCode) && /provider === 'auto'/.test(serverCode),
+     'M-11: server.js names an explicit task-type vocabulary and an explicit auto branch');
+  ok(/upstream\.post\(\s*'\/route'/.test(serverCode),
+     'M-11: the auto path calls the executor\'s own POST /route, not a second router');
+  ok(/auto — router decides/.test(appCode3) || /auto — router decides/.test(appCode3),
+     'M-11: the UI labels the auto option for what it is');
+
+  return new Promise(function (resolve) { routeStub.listen(0, '127.0.0.1', resolve); }).then(function () {
+    authMod.resetThrottle();
+    var server = freshServer({
+      MOS_EXECUTOR_URL: 'http://127.0.0.1:' + routeStub.address().port,
+      MOS_EXECUTOR_TOKEN: SECRET_TOKEN,
+      MOS_EXECUTOR_TOKEN_FILE: null,
+      MOS_ALLOW_REPO_WRITE: null
+    });
+    delete process.env.MOS_ALLOW_REPO_WRITE;
+    return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
+      var port = s.address().port;
+      ACTIVE_COOKIE = null;
+      return login(port, CONSOLE_SECRET).then(function (l) {
+        eq(l.res.status, 200, 'M-11: sign-in for the auto-routing checks succeeds');
+        ACTIVE_COOKIE = l.cookie;
+
+        // --- 1. auto + coding routes to claude-code with the catalog's
+        // recommended model, and the relayed payload carries no 'auto' ---
+        return req(port, '/api/missions/start', 'POST',
+          { title: 'route me', instruction: 'implement the thing', provider: 'auto', task_type: 'coding' });
+      }).then(function (r) {
+        eq(r.status, 200, 'M-11: auto + coding is accepted');
+        eq(r.json.data.provider, 'claude-code', 'M-11: the resolved provider is relayed to the browser');
+        eq(r.json.data.model, 'sonnet', 'M-11: the resolved model is the catalog\'s recommended entry for coding');
+        var relayed = routePosts.filter(function (p) { return p.url === '/tasks'; }).pop();
+        eq(relayed.body.provider, 'claude-code', 'M-11: the /tasks relay carries the RESOLVED provider');
+        eq(relayed.body.model, 'sonnet', 'M-11: the /tasks relay carries the RESOLVED model');
+        ok(JSON.stringify(relayed.body).indexOf('auto') === -1,
+           'M-11: the relayed /tasks payload contains no "auto" anywhere');
+
+        // --- 2. auto + research routes to openai-compat / gpt-4o-mini ---
+        return req(port, '/api/missions/start', 'POST',
+          { title: 'survey', instruction: 'survey the adapter', provider: 'auto', task_type: 'research' });
+      }).then(function (r) {
+        eq(r.status, 200, 'M-11: auto + research is accepted');
+        eq(r.json.data.provider, 'openai-compat', 'M-11: research resolves to the advisory provider');
+        eq(r.json.data.model, 'gpt-4o-mini', 'M-11: research resolves to the catalog\'s advisory model');
+
+        // --- 3. auto without task_type -> 400, no routing call ---------
+        var before = routePosts.filter(function (p) { return p.url === '/route'; }).length;
+        return req(port, '/api/missions/start', 'POST',
+          { title: 't', instruction: 'i', provider: 'auto' }).then(function (rr) { return { rr: rr, before: before }; });
+      }).then(function (o) {
+        eq(o.rr.status, 400, 'M-11: auto without task_type is refused with 400');
+        ok(/task_type/.test(o.rr.json.detail), 'M-11: the refusal names task_type');
+        eq(routePosts.filter(function (p) { return p.url === '/route'; }).length, o.before,
+           'M-11: no routing call was made for a request that never validated');
+
+        // --- 4. auto + explicit model -> 400 ----------------------------
+        return req(port, '/api/missions/start', 'POST',
+          { title: 't', instruction: 'i', provider: 'auto', task_type: 'coding', model: 'sonnet' });
+      }).then(function (r) {
+        eq(r.status, 400, 'M-11: auto with an explicit model is refused with 400');
+        ok(/model/.test(r.json.detail), 'M-11: the refusal names model');
+
+        // --- 5. auto + invalid task_type -> 400 -------------------------
+        return req(port, '/api/missions/start', 'POST',
+          { title: 't', instruction: 'i', provider: 'auto', task_type: 'not-a-real-type' });
+      }).then(function (r) {
+        eq(r.status, 400, 'M-11: an invalid task_type is refused with 400');
+        ok(/task_type/.test(r.json.detail), 'M-11: the refusal names task_type');
+
+        // --- 6. auto + repo-write without MOS_ALLOW_REPO_WRITE -> 403,
+        // BEFORE any routing call --------------------------------------
+        var beforeRoute = routePosts.filter(function (p) { return p.url === '/route'; }).length;
+        return req(port, '/api/missions/start', 'POST',
+          { title: 't', instruction: 'i', provider: 'auto', task_type: 'coding', execution_profile: 'repo-write' })
+          .then(function (rr) { return { rr: rr, beforeRoute: beforeRoute }; });
+      }).then(function (o) {
+        eq(o.rr.status, 403, 'M-11: auto + repo-write without MOS_ALLOW_REPO_WRITE is refused with 403');
+        eq(routePosts.filter(function (p) { return p.url === '/route'; }).length, o.beforeRoute,
+           'M-11: the profile gate refuses BEFORE any routing call is made');
+
+        // --- 7. upstream /route answers no_provider -> 409, no /tasks --
+        var beforeTasks = routePosts.filter(function (p) { return p.url === '/tasks'; }).length;
+        return req(port, '/api/missions/start', 'POST',
+          { title: 't', instruction: 'i', provider: 'auto', task_type: 'validation' })
+          .then(function (rr) { return { rr: rr, beforeTasks: beforeTasks }; });
+      }).then(function (o) {
+        eq(o.rr.status, 409, 'M-11: a no_provider routing answer is relayed as 409');
+        eq(o.rr.json.error, 'no_provider_available', 'M-11: the 409 names no_provider_available');
+        eq(routePosts.filter(function (p) { return p.url === '/tasks'; }).length, o.beforeTasks,
+           'M-11: no /tasks call is made when the router refuses');
+
+        // --- 8. upstream /route answers wait_for_quota -> 409, no /tasks
+        var beforeTasks2 = routePosts.filter(function (p) { return p.url === '/tasks'; }).length;
+        return req(port, '/api/missions/start', 'POST',
+          { title: 't', instruction: 'i', provider: 'auto', task_type: 'design' })
+          .then(function (rr) { return { rr: rr, beforeTasks2: beforeTasks2 }; });
+      }).then(function (o) {
+        eq(o.rr.status, 409, 'M-11: a wait_for_quota routing answer is relayed as 409');
+        eq(o.rr.json.error, 'wait_for_quota', 'M-11: the 409 names wait_for_quota');
+        eq(routePosts.filter(function (p) { return p.url === '/tasks'; }).length, o.beforeTasks2,
+           'M-11: no /tasks call is made while waiting on quota');
+
+        // --- 9. upstream /route returns a provider this console does not
+        // recognise -> 502, no /tasks call -------------------------------
+        var beforeTasks3 = routePosts.filter(function (p) { return p.url === '/tasks'; }).length;
+        return req(port, '/api/missions/start', 'POST',
+          { title: 't', instruction: 'i', provider: 'auto', task_type: 'reporting' })
+          .then(function (rr) { return { rr: rr, beforeTasks3: beforeTasks3 }; });
+      }).then(function (o) {
+        eq(o.rr.status, 502, 'M-11: a router-chosen provider this console does not recognise is an honest 502');
+        eq(routePosts.filter(function (p) { return p.url === '/tasks'; }).length, o.beforeTasks3,
+           'M-11: no /tasks call is made when the router names an unrecognised provider');
+
+        // --- 10. explicit-provider requests: byte-identical to M-06 -----
+        return req(port, '/api/missions/start', 'POST',
+          { title: 'explicit', instruction: 'do it', provider: 'claude-code', model: 'sonnet' });
+      }).then(function (r) {
+        eq(r.status, 200, 'M-11: an explicit-provider request still succeeds unchanged');
+        var relayed = routePosts.filter(function (p) { return p.url === '/tasks'; }).pop();
+        eq(Object.keys(relayed.body).sort().join(','),
+           'execution_profile,expected_delivery,instruction,model,priority,project,provider,requested_by,stage',
+           'M-11: the explicit-provider /tasks relay is the byte-identical M-06 payload shape');
+        eq(relayed.body.provider, 'claude-code', 'M-11: an explicit provider is relayed exactly as given');
+        eq(relayed.body.model, 'sonnet', 'M-11: an explicit model is relayed exactly as given');
+
+        s.close();
+        routeStub.close();
+        ACTIVE_COOKIE = null;
       });
     });
   });

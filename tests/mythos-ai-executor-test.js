@@ -796,6 +796,121 @@ chain = chain.then(function () {
 });
 
 // ---------------------------------------------------------------------------
+// 22d. HTTP API: governed auto-routing (MOS-v2 M-11)
+//
+// POST /route answers exactly what core/provider-router.js decided,
+// field-picked, with one additive rule this route owns: an execution-
+// requiring profile (repo-test/repo-write) can demand execution authority
+// even for a task_type the router alone would not, and when the router's
+// own pick cannot satisfy that, the answer is no_provider -- never a
+// downgraded authority. gemini is registered in the agent registry and, in
+// the cases below, even reports itself "available" via an injected probe,
+// but it is not in the executor's real PROVIDERS map (executor.js only
+// wires claude-code and openai-compat), so it must never be returned as a
+// routable agent either way.
+// ---------------------------------------------------------------------------
+chain = chain.then(function () {
+  process.env.MYTHOS_EXECUTOR_TOKEN = 'test-token-0123456789abcdef';
+  var TOKEN = 'test-token-0123456789abcdef';
+  var servers = server.start({ port: 8196, binds: ['127.0.0.1'] });
+  var agentRegistry = require(path.join(EXEC, 'core', 'agent-registry'));
+
+  function post(urlPath, body, token) {
+    return new Promise(function (resolve, reject) {
+      var payload = JSON.stringify(body || {});
+      var headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) };
+      if (token !== null) headers.Authorization = 'Bearer ' + (token || TOKEN);
+      var r = http.request({
+        host: '127.0.0.1', port: 8196, path: urlPath, method: 'POST', headers: headers
+      }, function (res) {
+        var data = '';
+        res.on('data', function (d) { data += d; });
+        res.on('end', function () { resolve({ code: res.statusCode, body: JSON.parse(data || '{}') }); });
+      });
+      r.on('error', reject);
+      r.write(payload);
+      r.end();
+    });
+  }
+
+  return new Promise(function (resolve) { setTimeout(resolve, 200); }).then(function () {
+    return post('/route', { task_type: 'coding', execution_profile: 'repo-read' }, null);
+  }).then(function (res) {
+    ok(res.code === 401, 'http/route: no bearer token is refused');
+    return post('/route', { task_type: 'not-a-real-type', execution_profile: 'repo-read' });
+  }).then(function (res) {
+    ok(res.code === 400 && /task_type/.test(res.body.error || ''),
+      'http/route: an unknown task_type is refused with 400');
+    return post('/route', { task_type: 'coding', execution_profile: 'deploy' });
+  }).then(function (res) {
+    ok(res.code === 400 && /execution_profile/.test(res.body.error || ''),
+      'http/route: an unknown execution_profile is refused with 400');
+    return post('/route', { task_type: 'coding', execution_profile: 'repo-read', model: 'sonnet' });
+  }).then(function (res) {
+    ok(res.code === 400 && /unexpected field/.test(res.body.error || ''),
+      'http/route: an unexpected field is refused with 400');
+
+    // claude-code available: an execution-authority task/profile routes to it.
+    agentRegistry.resetForTests();
+    agentRegistry.registerProbe('claude-code', function () { return true; });
+    agentRegistry.registerProbe('openai-compat', function () { return false; });
+    agentRegistry.registerProbe('gemini', function () { return false; });
+    return post('/route', { task_type: 'coding', execution_profile: 'repo-write' });
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.action === 'route', 'http/route: coding + repo-write routes');
+    ok(res.body.agent === 'claude-code' && res.body.provider === 'claude-code' && res.body.authority === true,
+      'http/route: the execution-authority agent is chosen for a coding+repo-write task');
+    ok(Object.keys(res.body).sort().join(',') === 'action,agent,authority,provider',
+      'http/route: the route response is field-picked to exactly action/agent/provider/authority');
+
+    // Only an advisory candidate is available, and the profile demands
+    // execution authority -- no_provider, never a downgrade.
+    agentRegistry.resetForTests();
+    agentRegistry.registerProbe('claude-code', function () { return false; });
+    agentRegistry.registerProbe('openai-compat', function () { return true; });
+    agentRegistry.registerProbe('gemini', function () { return false; });
+    return post('/route', { task_type: 'research', execution_profile: 'repo-write' });
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.action === 'no_provider',
+      'http/route: an advisory-only candidate for repo-write never downgrades authority — no_provider instead');
+    ok(res.body.agent === undefined, 'http/route: a no_provider answer carries no agent field');
+
+    // The identical advisory pick is fine when the profile does not demand
+    // execution authority.
+    return post('/route', { task_type: 'research', execution_profile: 'repo-read' });
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.action === 'route' && res.body.agent === 'omniroute-advisory' &&
+      res.body.authority === false, 'http/route: an advisory pick is fine for a read-only profile');
+
+    // gemini reports itself available here, but its provider is not wired
+    // into the executor's real PROVIDERS map -- must still be no_provider.
+    agentRegistry.resetForTests();
+    agentRegistry.registerProbe('claude-code', function () { return false; });
+    agentRegistry.registerProbe('openai-compat', function () { return false; });
+    agentRegistry.registerProbe('gemini', function () { return true; });
+    return post('/route', { task_type: 'research', execution_profile: 'repo-read' });
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.action === 'no_provider',
+      'http/route: gemini is never returned as routable even when it reports itself available');
+    ok(res.body.agent === undefined, 'http/route: the gemini refusal carries no agent field either');
+
+    // Nothing available at all: no_provider, cleanly.
+    agentRegistry.resetForTests();
+    agentRegistry.registerProbe('claude-code', function () { return false; });
+    agentRegistry.registerProbe('openai-compat', function () { return false; });
+    agentRegistry.registerProbe('gemini', function () { return false; });
+    return post('/route', { task_type: 'coding', execution_profile: 'repo-read' });
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.action === 'no_provider',
+      'http/route: no available agent at all answers no_provider');
+
+    agentRegistry.resetForTests();
+    servers.forEach(function (s) { s.close(); });
+    delete process.env.MYTHOS_EXECUTOR_TOKEN;
+  });
+});
+
+// ---------------------------------------------------------------------------
 // MOS-3C: Dispatcher proof suite (regression pinning)
 // ---------------------------------------------------------------------------
 chain = chain.then(function () {

@@ -20,6 +20,17 @@
 //   GET  /dispatcher                dispatcher capacity/queue status
 //   POST /tasks/<id>/cancel         cooperative cancel (SIGTERM if running)
 //   POST /events/n8n-error          n8n failure-handler sink (logged, notified)
+//   POST /route                     MOS-v2 M-11: governed auto-routing —
+//                                   {task_type, execution_profile} →
+//                                   core/provider-router.js's own decision,
+//                                   field-picked. Gated by MYTHOS_CORE_ENABLED
+//                                   like /goals (the router writes durable
+//                                   events through core/store on fallback and
+//                                   no_provider). Never widens authority: an
+//                                   execution-requiring profile/task_type
+//                                   that the router can only satisfy with an
+//                                   advisory agent answers no_provider rather
+//                                   than downgrading.
 //   POST /campaigns                 submit a goal (returns the LIVE campaign
 //                                   for the project if one exists — a second
 //                                   campaign is never created alongside it)
@@ -199,6 +210,121 @@ function handler(req, res, token) {
     }
     state.transition(m[1], 'CANCELLED', { pid: null, ended_at: new Date().toISOString(), next_action: 'cancelled by operator' });
     return send(res, 200, { task_id: m[1], status: 'CANCELLED' });
+  }
+
+  // --- MOS-v2 M-11: governed auto-routing -----------------------------------
+  // The ONLY thing this route decides is which agent core/provider-router.js
+  // would pick for a task shape — capability match, availability probing,
+  // quota state, cost/risk ranking, reputation tiebreak. Fallback (same
+  // authority only) and refusal are the router's own rules, unmodified. This
+  // handler adds exactly one thing the router does not know about: the
+  // console's execution_profile, which can demand execution authority even
+  // for a task_type the router alone would not (e.g. repo-write on a
+  // 'research' task). When that demand cannot be met by the router's own
+  // pick, the answer is no_provider — never a downgraded authority, never a
+  // provider this executor cannot actually run (checked against the real
+  // PROVIDERS map, so a registered-but-unimplemented or unconfigured
+  // provider such as gemini can never be returned as routable).
+  if (req.method === 'POST' && url === '/route') {
+    var routeCore;
+    try {
+      routeCore = require('./core/core-wiring');
+    } catch (e) {
+      return send(res, 500, { error: 'core unavailable: ' + redact.redact(e.message) });
+    }
+    if (!routeCore.coreEnabled()) {
+      return send(res, 503, {
+        error: 'core disabled',
+        detail: 'MYTHOS_CORE_ENABLED is not true; the orchestration core is off by default'
+      });
+    }
+    return readBody(req).then(function (body) {
+      var payload = JSON.parse(body || '{}');
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        return send(res, 400, { error: 'body must be a JSON object' });
+      }
+      var ROUTE_FIELDS = ['task_type', 'execution_profile'];
+      var unexpected = Object.keys(payload).filter(function (k) { return ROUTE_FIELDS.indexOf(k) === -1; });
+      if (unexpected.length) {
+        return send(res, 400, { error: 'unexpected field: ' + String(unexpected[0]).slice(0, 40) });
+      }
+
+      var plannerMod = require('./core/planner');
+      var taskType = payload.task_type;
+      if (typeof taskType !== 'string' || plannerMod.TASK_TYPES.indexOf(taskType) === -1) {
+        return send(res, 400, { error: 'task_type must be one of: ' + plannerMod.TASK_TYPES.join(', ') });
+      }
+
+      var ROUTE_PROFILES = ['repo-read', 'repo-test', 'repo-write'];
+      var profile = payload.execution_profile;
+      if (typeof profile !== 'string' || ROUTE_PROFILES.indexOf(profile) === -1) {
+        return send(res, 400, { error: 'execution_profile must be one of: ' + ROUTE_PROFILES.join(', ') });
+      }
+
+      var router = require('./core/provider-router');
+      var registry = require('./core/agent-registry');
+      var defaults = plannerMod.TYPE_DEFAULTS[taskType] || plannerMod.TYPE_DEFAULTS.generic;
+      var subject = {
+        id: 'route-probe',
+        project: 'mythos-prod',
+        task_type: taskType,
+        capabilities_required: defaults.capabilities
+      };
+
+      var result;
+      try {
+        result = router.route(subject, {});
+      } catch (e) {
+        return send(res, 500, { error: 'routing failed: ' + redact.redact(e.message) });
+      }
+
+      // repo-test and repo-write can both mutate the working tree (tests
+      // may run setup/build steps); repo-read never needs execution
+      // authority by itself. EXECUTION_TASK_TYPES is the router's own list
+      // for task_type alone — the profile check here is strictly additive,
+      // never a way to relax what the router already required.
+      var requireAuthority = profile === 'repo-write' || profile === 'repo-test' ||
+        router.needsExecutionAuthority(subject);
+
+      function pickRoute(o) {
+        var out = { action: o.action };
+        if (o.agent !== undefined && o.agent !== null) out.agent = o.agent;
+        if (o.provider !== undefined && o.provider !== null) out.provider = o.provider;
+        if (o.authority !== undefined) out.authority = o.authority;
+        if (o.reason !== undefined && o.reason !== null) out.reason = o.reason;
+        if (o.resume_after !== undefined) out.resume_after = o.resume_after;
+        return out;
+      }
+
+      if (result.action === 'route' || result.action === 'fallback') {
+        var def = registry.getAgent(result.agent);
+        var providerId = def ? def.provider : null;
+        var providerImpl = providerId ? require('./executor').PROVIDERS[providerId] : null;
+        if (!def || !providerImpl) {
+          return send(res, 200, pickRoute({
+            action: 'no_provider',
+            reason: 'the routed agent\'s provider is not registered for execution in this executor'
+          }));
+        }
+        if (requireAuthority && !def.execution_authority) {
+          return send(res, 200, pickRoute({
+            action: 'no_provider',
+            reason: 'no candidate with execution authority is available for this profile/task_type'
+          }));
+        }
+        return send(res, 200, pickRoute({
+          action: result.action, agent: result.agent, provider: providerId,
+          authority: def.execution_authority
+        }));
+      }
+
+      // 'wait_for_quota' or 'no_provider': passed through field-picked,
+      // exactly as the router decided — never silently retried or widened
+      // to a provider the router itself refused.
+      return send(res, 200, pickRoute(result));
+    }).catch(function (err) {
+      send(res, 400, { error: redact.redact(err.message) });
+    });
   }
 
   // --- Orchestration Core goal surface (Core Wiring stage) -----------------

@@ -304,7 +304,8 @@
       // provider list in the form below is the dispatcher's, not ours.
       slot.appendChild(capacitySlot(dispatcher));
       slot.appendChild(startMissionSection(pending, dispatcher.ok ? dispatcher.data.providers : null,
-        dispatcher.ok ? dispatcher.data.profiles : null, dispatcher.ok ? dispatcher.data.models : null));
+        dispatcher.ok ? dispatcher.data.profiles : null, dispatcher.ok ? dispatcher.data.models : null,
+        dispatcher.ok ? dispatcher.data.auto_routing : null));
 
       slot.appendChild(sectionTitle('Executions'));
       slot.appendChild(executionsSection(tasks));
@@ -414,7 +415,7 @@
   // subset of `models` whose provider matches, with a first option of
   // '(provider default)' (empty value) — omitting the field entirely, so
   // the server/provider's own default applies, same as before this stage.
-  function startMissionSection(pending, providers, profiles, models) {
+  function startMissionSection(pending, providers, profiles, models, autoRouting) {
     var wrap = el('div', {});
     var feedback = el('div', { className: 'mythos-start-feedback' });
 
@@ -428,10 +429,21 @@
         placeholder: 'What should the agent do? Read-only analysis only — this pathway cannot write, commit or deploy.' }
     });
     var providerList = providers || [];
-    var providerSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-provider' } },
-      providerList.map(function (p) { return el('option', { attrs: { value: p }, text: String(p) }); }));
+    // MOS-v2 M-11: 'auto — router decides' is offered ONLY when the server
+    // says so (GET /api/dispatcher's own auto_routing.enabled) — never a
+    // client-side assumption that routing exists. It is appended after the
+    // real providers, not in place of any of them, so nothing about the
+    // explicit-provider path changes.
+    var autoEnabled = !!(autoRouting && autoRouting.enabled);
+    var providerOptions = providerList.map(function (p) {
+      return el('option', { attrs: { value: p }, text: String(p) });
+    });
+    if (autoEnabled) {
+      providerOptions.push(el('option', { attrs: { value: 'auto' }, text: 'auto — router decides' }));
+    }
+    var providerSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-provider' } }, providerOptions);
     var providerNote = null;
-    if (!providerList.length) {
+    if (!providerList.length && !autoEnabled) {
       providerSelect.disabled = true;
       providerNote = el('div', { className: 'mythos-row-sub',
         text: 'provider list unavailable — the control plane could not be read' });
@@ -452,13 +464,40 @@
       modelNote = el('div', { className: 'mythos-row-sub',
         text: 'model list unavailable — the control plane could not be read' });
     }
+
+    // MOS-v2 M-11: the task-type select the router needs, shown only while
+    // 'auto' is selected, populated only from auto_routing.task_types — the
+    // exact vocabulary the server just told this browser it accepts.
+    var taskTypeList = (autoRouting && autoRouting.task_types) || [];
+    var taskTypeSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-task-type' } },
+      taskTypeList.map(function (t) { return el('option', { attrs: { value: t }, text: t }); }));
+    var taskTypeRow = el('div', { attrs: { id: 'mission-task-type-row' } }, [
+      el('label', { className: 'mythos-label', attrs: { for: 'mission-task-type' }, text: 'Task type' }),
+      taskTypeSelect
+    ]);
+    var modelAutoNote = el('div', { className: 'mythos-row-sub', text: 'model chosen by the router' });
+    taskTypeRow.style.display = 'none';
+    modelAutoNote.style.display = 'none';
+
+    function applyAutoState() {
+      var auto = providerSelect.value === 'auto';
+      taskTypeRow.style.display = auto ? '' : 'none';
+      modelSelect.disabled = auto || !modelList.length;
+      modelAutoNote.style.display = auto ? '' : 'none';
+      if (auto) modelSelect.value = '';
+    }
+
     // Repopulate the model select whenever the provider changes, to the
     // subset of `models` for the newly chosen provider — a model valid
-    // for one provider is never left selectable under another.
+    // for one provider is never left selectable under another. 'auto' has
+    // no model subset of its own: the select is cleared and disabled, and
+    // the router's own choice is shown only after the mission starts.
     providerSelect.addEventListener('change', function () {
       clear(modelSelect);
       modelOptionsFor(providerSelect.value).forEach(function (opt) { modelSelect.appendChild(opt); });
+      applyAutoState();
     });
+    applyAutoState();
 
     var profileList = profiles || [];
     var profileSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-profile' } },
@@ -510,14 +549,23 @@
       // default invented here. An empty/unavailable select sends nothing,
       // and the server's own 'repo-read' default applies.
       var chosenProfile = (profileList.length && profileSelect.value) ? profileSelect.value : undefined;
-      postJSON('/api/missions/start', {
+      var isAuto = providerSelect.value === 'auto';
+      var payload = {
         title: title,
         instruction: instruction,
         provider: providerSelect.value,
-        model: (modelList.length && modelSelect.value) ? modelSelect.value : undefined,
+        // task_type is sent only for 'auto' — the server refuses it
+        // alongside any other provider, and refuses 'auto' without it.
+        task_type: isAuto ? taskTypeSelect.value : undefined,
+        // 'auto' never carries a model: the router owns that choice, and
+        // the model select is disabled and cleared whenever 'auto' is
+        // selected (applyAutoState), so this is a straight mirror of what
+        // the operator can actually see, not a second source of truth.
+        model: (!isAuto && modelList.length && modelSelect.value) ? modelSelect.value : undefined,
         execution_profile: chosenProfile,
         priority: prioritySelect.value
-      }).then(function (r) {
+      };
+      postJSON('/api/missions/start', payload).then(function (r) {
         clear(feedback);
         // MOS-3B: the dispatcher is capacity-gated, so a created mission is
         // RUNNING or QUEUED, and the two are not the same news. The server's
@@ -546,8 +594,8 @@
       el('label', { className: 'mythos-label', attrs: { for: 'mission-title' }, text: 'Title' }), titleInput,
       el('label', { className: 'mythos-label', attrs: { for: 'mission-instruction' }, text: 'Instruction' }), instructionInput,
       el('div', { className: 'mythos-start-row' }, [
-        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-provider' }, text: 'Provider' }), providerSelect, providerNote]),
-        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model (optional)' }), modelSelect, modelNote]),
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-provider' }, text: 'Provider' }), providerSelect, providerNote, taskTypeRow]),
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model (optional)' }), modelSelect, modelNote, modelAutoNote]),
         el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-profile' }, text: 'Execution profile' }), profileSelect, profileNote]),
         el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-priority' }, text: 'Priority' }), prioritySelect])
       ]),

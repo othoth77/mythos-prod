@@ -54,8 +54,12 @@
 // model proposed is not log material -- that is in the executor's campaign
 // file, where the operator reviewed it. Whether an AI wrote the plan an
 // operator then approved is.
+// MOS-v2 M-11 adds `routed`: whether an auto-routed mission's provider was
+// chosen by core/provider-router.js rather than named by the operator. The
+// router's OWN reason text is never here -- `reason` already carries only
+// this file's own short refusal codes, same discipline as everywhere else.
 var DETAIL_FIELDS = ['profile', 'provider', 'model', 'priority', 'status', 'reason', 'route',
-                     'granted', 'approval_id', 'decompose'];
+                     'granted', 'approval_id', 'decompose', 'routed'];
 
 // A detail value is a short scalar or it is nothing. Objects, arrays and
 // long strings are not log material; truncation is at 64 characters,

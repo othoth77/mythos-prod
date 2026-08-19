@@ -1,7 +1,88 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MOS-v2 **M-10 — GOVERNED AI DECOMPOSITION. PLANNER OUTPUT IS DATA: SCHEMA → POLICY → DAG → HUMAN APPROVAL → THE EXISTING DISPATCHER, OR NOTHING.**
+**From:** MOS-v2 **FINAL — ALL ELEVEN STAGES CODE-COMPLETE AND MERGED-OR-MERGING; REGRESSION GATE 0 NEW FAILURES; PRODUCTION ACTIVATION OPERATOR-BLOCKED (HOST ACCESS), STEPS RECORDED.**
+
+## MOS-v2 FINAL (2026-08-19)
+
+**Status: CODE-COMPLETE.** Every MOS-v2 engineering stage is implemented,
+tested, and on GitHub. Production activation (and only it) awaits the
+operator on the host — no engineering remainder.
+
+| Stage | State |
+|---|---|
+| M-01 server auth | MERGED to main (#34) — production activation pending |
+| M-02 deploy relay | MERGED to main (#33) — host install pending |
+| M-03 nginx contract | MERGED to main (#32) — host reload pending |
+| M-04 execution profiles | DONE `bf46457` |
+| M-05 model catalog | DONE `221d826` |
+| M-06 mission control | DONE `6dbdf80` |
+| M-07 safety audit | ACCEPTED `04c48eb` (2 gaps fixed; report in docs/) |
+| M-08 regression gate | GREEN `b16ebde` — 0 new failures, 20/20 areas |
+| M-09 goal + approval | DONE `23e0b88` |
+| M-10 AI decomposition | DONE `e7f8cd8` |
+| M-11 auto-routing | DONE (this commit) |
+
+**Final suites (this tree):** console **1235/0**, executor **196/0**,
+autonomous-campaign **365/0**, n8n-bridge **80/0**, orchestration-core
+**255/2** (the pinned VPS-only pair), regression gate **exit 0, 0 new
+failures, 20/20 coverage**. Real parallel execution remains proven
+(MOS-3 production proofs untouched; MAX_PARALLEL=5 pinned by gate).
+
+**Fable 5 is not a runtime provider.** No Fable integration exists in
+the provider registry, catalog, or router; the runtime operates on
+claude-code + openai-compat (gemini registered but disabled, no
+credential). Verified by the M-05/M-11 allowlists and their tests.
+
+**No new secret entered Git.** The compromised MOS-1 password is
+documented as compromised; the new MOS_CONSOLE_SECRET exists nowhere in
+this repository and must be generated on the host.
+
+**Operator actions required to close MOS-v2 (Phase B, host-only):**
+1. Generate a NEW `MOS_CONSOLE_SECRET` (never the old password) into
+   `/home/deploy/deployments/mythos-os-console/.console-secret`, mode
+   0600, one `MOS_CONSOLE_SECRET=` line.
+2. Install/execute the M-02 relay units per
+   `projects/mythos-os-console/deploy/relay/RUNBOOK.md`; deploy the new
+   main revision via `tools/deploy.sh` (host-preflight now blocks on the
+   secret file); reload nginx for the M-03 64k body-size contract.
+3. Verify: `GET /login` 200 · `GET /` 302→/login · `GET /api/health` 401
+   unauthenticated · `POST /` 405 · authenticated API works · mission
+   create + cancel work · console serves the new revision · executor
+   runs the MOS-3 dispatcher revision with `MAX_PARALLEL=5`.
+4. Certbot dry-run before any real certificate operation.
+5. Owner decisions recorded and pending: executor `DEFAULT_PROFILE =
+   'repo-write'` fail-open default (M-07 observation); `MOS_ALLOW_REPO_WRITE`
+   remains unset until deliberately enabled; `MYTHOS_CORE_ENABLED`
+   governs the goal/route surfaces.
+
+---
+
+## MOS-v2 M-11 — governed auto-routing (2026-08-19)
+
+`provider: 'auto'` on the console start form. Path: profile validation +
+`MOS_ALLOW_REPO_WRITE` gate FIRST (unchanged, before any routing) → NEW
+executor `POST /route` (bearer, core-gated) → the existing
+`core/provider-router.route()` unmodified (capability, availability,
+quota, cost/risk, reputation) → executor-side enforcement: repo-test/
+repo-write or execution-shaped task types require an execution-authority
+agent (no downgrade — `no_provider` instead), and the agent's provider
+must exist in the executor's PROVIDERS map, so gemini can never be
+returned → console requires the answer ∈ REAL_PROVIDERS (502 otherwise);
+`wait_for_quota`/`no_provider` → 409 and `/tasks` is never called. Model:
+first enabled catalog entry for the routed provider recommending the
+task_type, else provider default; asserted through `isAllowed`. The
+executor never sees the string 'auto'. UI: auto option rendered only when
+the server advertises `auto_routing`; task-type select; model select
+disabled under auto. Two pins widened (dispatcher exact-keys +
+upstream.post closed set now incl. `/route`), nothing weakened.
+
+**Tests.** Console **1235/0** (+47, §4k), executor **196/0** (+13,
+§22d), gate 0 new failures — chief-re-verified.
+
+---
+
+**Previously:** MOS-v2 **M-10 — GOVERNED AI DECOMPOSITION. PLANNER OUTPUT IS DATA: SCHEMA → POLICY → DAG → HUMAN APPROVAL → THE EXISTING DISPATCHER, OR NOTHING.**
 
 ## MOS-v2 M-10 — governed AI decomposition (2026-08-19)
 

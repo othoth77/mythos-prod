@@ -315,7 +315,15 @@ var API = {
                    recommended_task_types: m.recommended_task_types };
         });
         ok(res, { running: d.running, max_parallel: d.max_parallel, queued: d.queued, providers: REAL_PROVIDERS,
-                  profiles: profiles, models: models });
+                  profiles: profiles, models: models,
+                  // MOS-v2 M-11: the UI renders the auto-routing choice
+                  // ONLY from this field -- no client-side assumption that
+                  // routing exists. `enabled` names whether the server
+                  // offers it at all (always true today; a future kill
+                  // switch flips one boolean here, nothing in the browser);
+                  // `task_types` is the exact, exhaustive set the browser
+                  // may send back as `task_type` when provider is 'auto'.
+                  auto_routing: { enabled: true, task_types: CONSOLE_TASK_TYPES } });
       })
       .catch(function (e) { problem(res, e); });
   },
@@ -584,7 +592,18 @@ var CONSOLE_PROFILES = ['repo-read', 'repo-test', 'repo-write'];
 // not invent an ordering, it just refuses anything the executor would not
 // recognise before the request ever reaches it.
 var CONSOLE_PRIORITIES = ['high', 'normal', 'low'];
-var START_MISSION_FIELDS = ['title', 'instruction', 'provider', 'model', 'execution_profile', 'priority'];
+// MOS-v2 M-11: the governed auto-routing task-type vocabulary. This is
+// exactly planner.js's own TASK_TYPES (projects/mythos-ai-executor/core/
+// planner.js) -- named as its own list rather than required from the
+// executor's files (upstream.js reads config, never code, from the
+// executor; this preserves that boundary) but never allowed to drift from
+// it, because both are pinned by tests/mos-1-console-test.js. Provider is
+// never one of these -- 'auto' means the SERVER picks the provider, not
+// that the browser picks nothing.
+var CONSOLE_TASK_TYPES = ['inspection', 'research', 'analysis', 'design', 'coding',
+  'testing', 'review', 'integration', 'validation', 'documentation',
+  'reporting', 'marketing', 'generic'];
+var START_MISSION_FIELDS = ['title', 'instruction', 'provider', 'model', 'execution_profile', 'priority', 'task_type'];
 
 function readBoundedBody(req, maxBytes) {
   return new Promise(function (resolve, reject) {
@@ -653,9 +672,38 @@ function handleStartMission(req, res) {
       return rejectStart(req, res, 'instruction', 'instruction (string, 1-20000 chars) is required');
     }
     var provider = payload.provider;
-    if (REAL_PROVIDERS.indexOf(provider) === -1) {
-      return rejectStart(req, res, 'provider', 'provider must be one of: ' + REAL_PROVIDERS.join(', '));
+    // MOS-v2 M-11: 'auto' asks the SERVER to pick the provider -- the
+    // executor's own core/provider-router.js, called below, after profile
+    // validation and the repo-write gate. It is accepted here as an
+    // additional allowed value, never a replacement for the explicit
+    // REAL_PROVIDERS enum: an operator who names a real provider still gets
+    // exactly the M-06 behaviour, byte-identical.
+    var isAuto = provider === 'auto';
+    if (!isAuto && REAL_PROVIDERS.indexOf(provider) === -1) {
+      return rejectStart(req, res, 'provider', 'provider must be one of: ' + REAL_PROVIDERS.join(', ') + ', or "auto"');
     }
+
+    // task_type exists ONLY to feed the router, so it is legal only when
+    // provider is 'auto' -- an explicit-provider request naming one is
+    // refused rather than silently ignored, so a caller cannot carry a
+    // field it thinks does something on a path where it does not.
+    var taskType = null;
+    if (isAuto) {
+      taskType = payload.task_type;
+      if (typeof taskType !== 'string' || CONSOLE_TASK_TYPES.indexOf(taskType) === -1) {
+        return rejectStart(req, res, 'task_type',
+          'task_type is required when provider is "auto" and must be one of: ' + CONSOLE_TASK_TYPES.join(', '));
+      }
+      // The router owns the provider/model pairing when auto-routing: a
+      // request that ALSO names a model is contradictory, not a hint, and
+      // is refused rather than guessed at.
+      if (payload.model !== undefined && payload.model !== null) {
+        return rejectStart(req, res, 'model', 'model must be absent when provider is "auto" — the router chooses it');
+      }
+    } else if (payload.task_type !== undefined) {
+      return rejectStart(req, res, 'task_type', 'task_type is only accepted when provider is "auto"');
+    }
+
     // MOS-v2 M-05: model is no longer free-form. Omitted or null relays
     // null to the executor -- each provider's own default applies
     // (documented in the providers/ directory; openai-compat's own code defaults to
@@ -664,9 +712,11 @@ function handleStartMission(req, res) {
     // catalog entry matching BOTH this provider and this exact id. This
     // check is intentionally placed after the provider check above, so an
     // unknown-model error can name the allowed set for the provider that
-    // was actually chosen, not some other provider's list.
+    // was actually chosen, not some other provider's list. Skipped
+    // entirely when auto -- the check above already refused a model
+    // alongside 'auto', so `model` is always absent here in that case.
     var model = payload.model;
-    if (model !== undefined && model !== null) {
+    if (!isAuto && model !== undefined && model !== null) {
       if (typeof model !== 'string' || !modelCatalog.isAllowed(provider, model)) {
         var allowedForProvider = modelCatalog.enabledModels()
           .filter(function (m) { return m.provider === provider; })
@@ -714,69 +764,151 @@ function handleStartMission(req, res) {
       priority = payload.priority;
     }
 
-    return upstream.post('/tasks', {
-      project: 'mythos-prod',
-      stage: title.trim().slice(0, 200),
-      instruction: instruction,
-      provider: provider,
-      model: model || null,
-      priority: priority,
-      requested_by: 'mos-console',
-      execution_profile: profile,
-      expected_delivery: 'report'
-    }).then(function (created) {
-      var taskId = created && created.task_id;
-      if (!taskId) {
+    // The one write /tasks itself, whatever provider/model this request
+    // ends with -- explicit (byte-identical to M-06) or router-resolved
+    // (MOS-v2 M-11). `routed` marks the audit line only; nothing about the
+    // relayed payload itself differs by how the provider/model were chosen.
+    function startWithProvider(finalProvider, finalModel, routed) {
+      return upstream.post('/tasks', {
+        project: 'mythos-prod',
+        stage: title.trim().slice(0, 200),
+        instruction: instruction,
+        provider: finalProvider,
+        model: finalModel || null,
+        priority: priority,
+        requested_by: 'mos-console',
+        execution_profile: profile,
+        expected_delivery: 'report'
+      }).then(function (created) {
+        var taskId = created && created.task_id;
+        if (!taskId) {
+          audit.record({ action: 'mission.start', outcome: 'upstream_error', actor: auth.sessionIdFrom(req),
+                         detail: { reason: 'no_task_id' } });
+          return problem(res, { code: 'upstream_error', message: 'executor did not return a task id' });
+        }
+        // MOS-v2 M-07: the task now exists upstream, so the audit line is
+        // written whichever way the dispatch below goes -- what is being
+        // recorded is that this operator caused this task to be created
+        // under this profile, not whether a slot happened to be free. The
+        // instruction that was relayed is deliberately NOT in the line;
+        // the executor's own task.json holds it.
+        function accepted(status, note) {
+          var detail = { profile: profile, provider: finalProvider, model: finalModel || null,
+                         priority: priority, status: status };
+          // MOS-v2 M-11: `routed` records only THAT the router chose this
+          // provider, never why -- the router's reason text is never audit
+          // material, same discipline as every other refusal code in this
+          // file. Absent entirely for an explicit-provider request, so an
+          // M-06 mission's audit line stays byte-identical.
+          if (routed) detail.routed = true;
+          audit.record({ action: 'mission.start', outcome: 'accepted', actor: auth.sessionIdFrom(req),
+                         task_id: taskId, detail: detail });
+          var data = { task_id: taskId, status: status, provider: finalProvider, model: finalModel || null };
+          if (note) data.note = note;
+          return ok(res, data);
+        }
+        // MOS-3A: the explicit start goes through the executor's capacity-
+        // gated dispatcher (POST /tasks/<id>/dispatch), not the old
+        // unconditional /resume -- runTask() itself still has no cross-task
+        // lock, but now a central in-process counter admits at most
+        // MAX_PARALLEL tasks at once, and this console mission is one
+        // candidate among possibly several, not a guaranteed immediate start.
+        return upstream.post('/tasks/' + taskId + '/dispatch', {})
+          .then(function (dispatched) {
+            if (dispatched && dispatched.dispatched) {
+              return accepted('RUNNING');
+            }
+            if (dispatched && dispatched.queued) {
+              return accepted('QUEUED',
+                'created; at capacity (' + dispatched.running + '/' + dispatched.max_parallel + ')' +
+                  ' — will start automatically when a slot frees');
+            }
+            // Unrecognised shape from the executor: fall back to the same
+            // honest "queued, will run" note as an outright dispatch failure.
+            accepted('QUEUED', 'created; the explicit start call did not confirm, but the task is queued and will run');
+          })
+          .catch(function () {
+            // Created but the explicit dispatch call failed (e.g. a race with
+            // the daemon's own tick, or the executor briefly unreachable).
+            // The task is still safely QUEUED and will run on the next tick
+            // or the drain triggered by another task freeing a slot -- this
+            // is not a failure to report as one.
+            accepted('QUEUED', 'created; the explicit start call did not confirm, but the task is queued and will run');
+          });
+      }).catch(function (e) {
         audit.record({ action: 'mission.start', outcome: 'upstream_error', actor: auth.sessionIdFrom(req),
-                       detail: { reason: 'no_task_id' } });
-        return problem(res, { code: 'upstream_error', message: 'executor did not return a task id' });
+                       detail: { profile: profile, provider: finalProvider, reason: (e && e.code) || 'internal_error' } });
+        problem(res, e);
+      });
+    }
+
+    if (!isAuto) {
+      return startWithProvider(provider, model, false);
+    }
+
+    /* MOS-v2 M-11: governed auto-routing.
+
+       The console never decides which provider runs an auto-routed
+       mission -- it asks the executor's OWN core/provider-router.js
+       (POST /route, same bearer channel every other relay uses) and
+       relays exactly, and only, what comes back:
+
+         · 'route' / 'fallback': the resolved provider MUST already be one
+           this console recognises (REAL_PROVIDERS) -- an agent the router
+           picked whose provider this console cannot name is an honest 502,
+           never a silent pass-through of an unknown string to /tasks. The
+           model is chosen HERE, from model-catalog.js's own enabled
+           entries for that provider (never the router's business, and
+           never a caller's business either -- the M-11 field check above
+           already refused a request naming both 'auto' and a model): the
+           first entry whose recommended_task_types includes the operator's
+           task_type, or none, so the provider's own default applies. That
+           choice is asserted against modelCatalog.isAllowed() as a belt
+           the catalog's own construction already guarantees, and a failed
+           assertion is a 500 this console raises on itself rather than
+           relaying a model nothing has vetted.
+         · 'wait_for_quota' / 'no_provider': 409, and /tasks is never
+           called -- an auto-routed mission is never queued against a
+           provider the router itself just refused. */
+    return upstream.post('/route', { task_type: taskType, execution_profile: profile }).then(function (routed) {
+      var action = routed && routed.action;
+      if (action === 'wait_for_quota' || action === 'no_provider') {
+        var refusalCode = action === 'wait_for_quota' ? 'wait_for_quota' : 'no_provider_available';
+        audit.record({ action: 'mission.start', outcome: refusalCode, actor: auth.sessionIdFrom(req),
+                       detail: { profile: profile, reason: (routed && routed.reason) || null } });
+        sendJSON(res, 409, { ok: false, error: refusalCode, detail: (routed && routed.reason) || 'no provider is available for this task' });
+        return;
       }
-      // MOS-v2 M-07: the task now exists upstream, so the audit line is
-      // written whichever way the dispatch below goes -- what is being
-      // recorded is that this operator caused this task to be created
-      // under this profile, not whether a slot happened to be free. The
-      // instruction that was relayed is deliberately NOT in the line;
-      // the executor's own task.json holds it.
-      function accepted(status, note) {
-        audit.record({ action: 'mission.start', outcome: 'accepted', actor: auth.sessionIdFrom(req),
-                       task_id: taskId,
-                       detail: { profile: profile, provider: provider, model: model || null,
-                                 priority: priority, status: status } });
-        var data = { task_id: taskId, status: status, provider: provider, model: model || null };
-        if (note) data.note = note;
-        return ok(res, data);
+      if (action !== 'route' && action !== 'fallback') {
+        audit.record({ action: 'mission.start', outcome: 'upstream_error', actor: auth.sessionIdFrom(req),
+                       detail: { profile: profile, reason: 'unrecognised_route_action' } });
+        return problem(res, { code: 'upstream_error', message: 'the router returned an unrecognised action' });
       }
-      // MOS-3A: the explicit start goes through the executor's capacity-
-      // gated dispatcher (POST /tasks/<id>/dispatch), not the old
-      // unconditional /resume -- runTask() itself still has no cross-task
-      // lock, but now a central in-process counter admits at most
-      // MAX_PARALLEL tasks at once, and this console mission is one
-      // candidate among possibly several, not a guaranteed immediate start.
-      return upstream.post('/tasks/' + taskId + '/dispatch', {})
-        .then(function (dispatched) {
-          if (dispatched && dispatched.dispatched) {
-            return accepted('RUNNING');
-          }
-          if (dispatched && dispatched.queued) {
-            return accepted('QUEUED',
-              'created; at capacity (' + dispatched.running + '/' + dispatched.max_parallel + ')' +
-                ' — will start automatically when a slot frees');
-          }
-          // Unrecognised shape from the executor: fall back to the same
-          // honest "queued, will run" note as an outright dispatch failure.
-          accepted('QUEUED', 'created; the explicit start call did not confirm, but the task is queued and will run');
-        })
-        .catch(function () {
-          // Created but the explicit dispatch call failed (e.g. a race with
-          // the daemon's own tick, or the executor briefly unreachable).
-          // The task is still safely QUEUED and will run on the next tick
-          // or the drain triggered by another task freeing a slot -- this
-          // is not a failure to report as one.
-          accepted('QUEUED', 'created; the explicit start call did not confirm, but the task is queued and will run');
-        });
+      var resolvedProvider = routed.provider;
+      if (REAL_PROVIDERS.indexOf(resolvedProvider) === -1) {
+        audit.record({ action: 'mission.start', outcome: 'upstream_error', actor: auth.sessionIdFrom(req),
+                       detail: { profile: profile, reason: 'router_chose_unrecognised_provider' } });
+        return problem(res, { code: 'upstream_error', message: 'the router chose a provider this console does not recognise' });
+      }
+      var resolvedModel = null;
+      var candidates = modelCatalog.enabledModels().filter(function (m) {
+        return m.provider === resolvedProvider &&
+          Array.isArray(m.recommended_task_types) && m.recommended_task_types.indexOf(taskType) !== -1;
+      });
+      if (candidates.length) resolvedModel = candidates[0].id;
+      if (resolvedModel !== null && !modelCatalog.isAllowed(resolvedProvider, resolvedModel)) {
+        // Unreachable by construction (resolvedModel came from
+        // enabledModels() for this exact provider) -- fails loudly rather
+        // than relaying an unvetted model if that construction is ever
+        // broken.
+        audit.record({ action: 'mission.start', outcome: 'upstream_error', actor: auth.sessionIdFrom(req),
+                       detail: { profile: profile, reason: 'resolved_model_not_allowed' } });
+        return problem(res, { code: 'internal_error', message: 'internal error' });
+      }
+      return startWithProvider(resolvedProvider, resolvedModel, true);
     }).catch(function (e) {
       audit.record({ action: 'mission.start', outcome: 'upstream_error', actor: auth.sessionIdFrom(req),
-                     detail: { profile: profile, provider: provider, reason: (e && e.code) || 'internal_error' } });
+                     detail: { profile: profile, reason: (e && e.code) || 'internal_error' } });
       problem(res, e);
     });
   }).catch(function (e) {
