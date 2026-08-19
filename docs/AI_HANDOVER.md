@@ -1,7 +1,40 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MOS-v2 **M-04 — GOVERNED EXECUTION PROFILES ON THE CONSOLE START RELAY. IMPLEMENTED, TESTED. (INTEGRATION PASS: M-01/M-03/M-02 ALL MERGED TO MAIN FIRST — SEE BELOW.)**
+**From:** MOS-v2 **M-05 — SERVER-CONTROLLED MODEL CATALOG. IMPLEMENTED, TESTED.**
+
+## MOS-v2 M-05 — server-controlled model catalog (2026-08-19)
+
+**Objective.** Replace the console's free-form model text entry with a
+server-controlled catalog. No arbitrary model string from the browser
+ever reaches the executor.
+
+**Changes.** NEW `projects/mythos-os-console/reference/model-catalog.js`
+— the single catalog source: claude-code opus/sonnet/haiku
+(architecture-security / implementation / tests-verification),
+openai-compat gpt-4o-mini (advisory; OmniRoute's genuinely configured
+default), and exactly one `enabled: false` gemini entry that demonstrates
+the disabled-state mechanism and never appears in API output (no
+credential exists — per `config/agents.json`'s own note).
+`server.js`: `handleStartMission` validates any supplied `model` with
+`isAllowed(provider, model)` (enabled entry matching both provider and
+exact id; 400 naming the provider's own allowed ids otherwise); omitted
+model still relays null → provider default. `/api/dispatcher` adds
+`models` (enabled entries only, `enabled` flag never served). `app.js`:
+model select populated from the dispatcher's `models` filtered by chosen
+provider, `(provider default)` first; free-text input removed.
+
+**Tests.** Console **801 passed / 0 failed** (was 721/0; +80 net, §4e).
+Executor **158/0**, untouched. Incidental fix: a comment containing a
+literal `providers/*.js` created an unterminated block-comment sequence
+for the suite's source-stripper; reworded, no functional change.
+
+**Next stage.** M-06 Mission Control completion (priority relay +
+profile/model surfacing).
+
+---
+
+**Previously:** MOS-v2 **M-04 — GOVERNED EXECUTION PROFILES ON THE CONSOLE START RELAY. IMPLEMENTED, TESTED. (INTEGRATION PASS: M-01/M-03/M-02 ALL MERGED TO MAIN FIRST — SEE BELOW.)**
 
 ## MOS-v2 M-04 — governed execution profiles (2026-08-19)
 

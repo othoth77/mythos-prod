@@ -51,6 +51,7 @@ var path = require('path');
 
 var auth = require('./auth');
 var upstream = require('./upstream');
+var modelCatalog = require('./model-catalog');
 
 var VERSION = 'mos-1';
 var WEB = path.join(__dirname, 'web');
@@ -234,6 +235,12 @@ var API = {
   // 'true' in this process's environment, read fresh on every request so
   // the switch takes effect without a restart. The browser never computes
   // this itself -- it renders exactly what this field says.
+  // MOS-v2 M-05: `models` is model-catalog.js's own enabledModels(), field-
+  // picked to { provider, id, label, capability, recommended_task_types }.
+  // A disabled entry (today, only gemini-2.5-pro) is never included, and
+  // the `enabled` flag itself is never included either -- everything
+  // served here is enabled by definition, so the field would say nothing
+  // a caller couldn't already infer from presence in the list.
   '/api/dispatcher': function (res) {
     upstream.get('/dispatcher')
       .then(function (d) {
@@ -241,7 +248,12 @@ var API = {
         var profiles = CONSOLE_PROFILES.map(function (name) {
           return { name: name, authorized: name === 'repo-write' ? repoWriteAuthorized : true };
         });
-        ok(res, { running: d.running, max_parallel: d.max_parallel, queued: d.queued, providers: REAL_PROVIDERS, profiles: profiles });
+        var models = modelCatalog.enabledModels().map(function (m) {
+          return { provider: m.provider, id: m.id, label: m.label, capability: m.capability,
+                   recommended_task_types: m.recommended_task_types };
+        });
+        ok(res, { running: d.running, max_parallel: d.max_parallel, queued: d.queued, providers: REAL_PROVIDERS,
+                  profiles: profiles, models: models });
       })
       .catch(function (e) { problem(res, e); });
   },
@@ -482,7 +494,10 @@ function badRequest(res, detail) {
 // from 'orchestration-core' so this task is never mistaken for one the
 // Phase 2 core owns and drives itself), mode (the executor's own existing
 // default). The browser supplies only title/instruction/provider/model and,
-// optionally, execution_profile -- validated below against CONSOLE_PROFILES
+// optionally, execution_profile. MOS-v2 M-05: `model` is validated below
+// against model-catalog.js's own enabled entries, not accepted as
+// free-form text -- see the comment at that check. `execution_profile` is
+// validated below against CONSOLE_PROFILES
 // (MOS-v2 M-04) and, for 'repo-write', against MOS_ALLOW_REPO_WRITE. The
 // executor's own lib/policy.js is the structural enforcement of what each
 // profile can actually do; this validation exists so a request this server
@@ -510,9 +525,23 @@ function handleStartMission(req, res) {
     if (REAL_PROVIDERS.indexOf(provider) === -1) {
       return badRequest(res, 'provider must be one of: ' + REAL_PROVIDERS.join(', '));
     }
+    // MOS-v2 M-05: model is no longer free-form. Omitted or null relays
+    // null to the executor -- each provider's own default applies
+    // (documented in the providers/ directory; openai-compat's own code defaults to
+    // 'gpt-4o-mini' when task.model is null). Present, it must be a string
+    // AND pass modelCatalog.isAllowed(provider, model) -- an enabled
+    // catalog entry matching BOTH this provider and this exact id. This
+    // check is intentionally placed after the provider check above, so an
+    // unknown-model error can name the allowed set for the provider that
+    // was actually chosen, not some other provider's list.
     var model = payload.model;
-    if (model !== undefined && model !== null && (typeof model !== 'string' || model.length > 100)) {
-      return badRequest(res, 'model must be a string of at most 100 characters');
+    if (model !== undefined && model !== null) {
+      if (typeof model !== 'string' || !modelCatalog.isAllowed(provider, model)) {
+        var allowedForProvider = modelCatalog.enabledModels()
+          .filter(function (m) { return m.provider === provider; })
+          .map(function (m) { return m.id; });
+        return badRequest(res, 'model must be one of: ' + allowedForProvider.join(', ') + ' (for provider ' + provider + ')');
+      }
     }
 
     // MOS-v2 M-04: 'repo-read' is the default ceiling when the field is

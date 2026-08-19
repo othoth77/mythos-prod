@@ -304,7 +304,7 @@
       // provider list in the form below is the dispatcher's, not ours.
       slot.appendChild(capacitySlot(dispatcher));
       slot.appendChild(startMissionSection(pending, dispatcher.ok ? dispatcher.data.providers : null,
-        dispatcher.ok ? dispatcher.data.profiles : null));
+        dispatcher.ok ? dispatcher.data.profiles : null, dispatcher.ok ? dispatcher.data.models : null));
 
       slot.appendChild(sectionTitle('Executions'));
       slot.appendChild(executionsSection(tasks));
@@ -404,7 +404,17 @@
   // disabled, so an operator can see it exists without being able to pick
   // it — the option server.js would refuse anyway is never offered as if
   // it would work.
-  function startMissionSection(pending, providers, profiles) {
+  //
+  // MOS-v2 M-05: `models` is model-catalog.js's own enabledModels(), as
+  // served by GET /api/dispatcher — { provider, id, label, capability,
+  // recommended_task_types }, never a hardcoded list here and never a
+  // disabled entry. There is no free-text model field any more: only a
+  // model this server has already agreed to relay can be selected at
+  // all. The select is repopulated whenever the provider changes, to the
+  // subset of `models` whose provider matches, with a first option of
+  // '(provider default)' (empty value) — omitting the field entirely, so
+  // the server/provider's own default applies, same as before this stage.
+  function startMissionSection(pending, providers, profiles, models) {
     var wrap = el('div', {});
     var feedback = el('div', { className: 'mythos-start-feedback' });
 
@@ -426,9 +436,28 @@
       providerNote = el('div', { className: 'mythos-row-sub',
         text: 'provider list unavailable — the control plane could not be read' });
     }
-    var modelInput = el('input', {
-      className: 'mythos-input',
-      attrs: { type: 'text', id: 'mission-model', maxlength: '100', placeholder: 'model (optional — provider default if blank)', autocomplete: 'off' }
+    var modelList = models || [];
+    function modelOptionsFor(providerValue) {
+      var opts = [el('option', { attrs: { value: '' }, text: '(provider default)' })];
+      modelList.filter(function (m) { return m.provider === providerValue; }).forEach(function (m) {
+        opts.push(el('option', { attrs: { value: m.id }, text: m.label + ' — ' + m.capability }));
+      });
+      return opts;
+    }
+    var modelSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-model' } },
+      modelOptionsFor(providerList[0]));
+    var modelNote = null;
+    if (!modelList.length) {
+      modelSelect.disabled = true;
+      modelNote = el('div', { className: 'mythos-row-sub',
+        text: 'model list unavailable — the control plane could not be read' });
+    }
+    // Repopulate the model select whenever the provider changes, to the
+    // subset of `models` for the newly chosen provider — a model valid
+    // for one provider is never left selectable under another.
+    providerSelect.addEventListener('change', function () {
+      clear(modelSelect);
+      modelOptionsFor(providerSelect.value).forEach(function (opt) { modelSelect.appendChild(opt); });
     });
 
     var profileList = profiles || [];
@@ -471,7 +500,7 @@
         title: title,
         instruction: instruction,
         provider: providerSelect.value,
-        model: modelInput.value.trim() || undefined,
+        model: (modelList.length && modelSelect.value) ? modelSelect.value : undefined,
         execution_profile: chosenProfile
       }).then(function (r) {
         clear(feedback);
@@ -488,7 +517,7 @@
           (d.note ? ' ' + d.note + '.' : '') +
           ' It will appear under Missions once the next status refresh loads.'
         ));
-        titleInput.value = ''; instructionInput.value = ''; modelInput.value = '';
+        titleInput.value = ''; instructionInput.value = ''; modelSelect.value = '';
       }).catch(function (e) {
         clear(feedback);
         feedback.appendChild(statePanel('⚠', 'Could not start mission', e.message, true));
@@ -503,7 +532,7 @@
       el('label', { className: 'mythos-label', attrs: { for: 'mission-instruction' }, text: 'Instruction' }), instructionInput,
       el('div', { className: 'mythos-start-row' }, [
         el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-provider' }, text: 'Provider' }), providerSelect, providerNote]),
-        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model (optional)' }), modelInput]),
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model (optional)' }), modelSelect, modelNote]),
         el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-profile' }, text: 'Execution profile' }), profileSelect, profileNote])
       ]),
       startBtn, feedback

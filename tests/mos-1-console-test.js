@@ -899,9 +899,9 @@ startStub().then(function (stub) {
       // -----------------------------------------------------------------
       eq(dispatcherStatus.status, 200, 'MOS-3C C1: GET /api/dispatcher returns 200');
       var dsKeys = Object.keys(dispatcherStatus.json.data || {}).sort();
-      var expectedKeys = ['max_parallel', 'queued', 'running', 'providers', 'profiles'].sort();
+      var expectedKeys = ['max_parallel', 'queued', 'running', 'providers', 'profiles', 'models'].sort();
       ok(dsKeys.join(',') === expectedKeys.join(','),
-         'MOS-3C C1: /api/dispatcher has exactly the keys running/max_parallel/queued/providers/profiles (got ' + dsKeys.join(',') + ')');
+         'MOS-3C C1 / M-05: /api/dispatcher has exactly the keys running/max_parallel/queued/providers/profiles/models (got ' + dsKeys.join(',') + ')');
       ok(Array.isArray(dispatcherStatus.json.data.providers), 'MOS-3C C1: providers is an array');
       eq(dispatcherStatus.json.data.providers.length, 2, 'MOS-3C C1: providers array has 2 entries');
       var providerNames = dispatcherStatus.json.data.providers.slice().sort();
@@ -1241,6 +1241,160 @@ startStub().then(function (stub) {
         return req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 'repo-write' });
       }).then(function (revoked) {
         eq(revoked.status, 403, 'M-04: turning MOS_ALLOW_REPO_WRITE back off refuses repo-write again immediately, without a restart');
+        ACTIVE_COOKIE = null;
+        s.close();
+        stub.close();
+      });
+    });
+  });
+})
+
+// ===========================================================================
+// 4e. MOS-v2 M-05: SERVER-CONTROLLED MODEL CATALOG
+//
+// A dedicated stub and server, isolated from 4a's and 4d's, so this
+// section owns its own stubPostBodies/stubHits state cleanly.
+// ===========================================================================
+.then(function () {
+  return startStub().then(function (stub) {
+    var stubPort = stub.address().port;
+    var server = freshServer({
+      MOS_EXECUTOR_URL: 'http://127.0.0.1:' + stubPort,
+      MOS_EXECUTOR_TOKEN: SECRET_TOKEN,
+      MOS_EXECUTOR_TOKEN_FILE: null
+    });
+    return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
+      var port = s.address().port;
+      ACTIVE_COOKIE = null;
+      return login(port, CONSOLE_SECRET).then(function (l) {
+        eq(l.res.status, 200, 'M-05: sign-in for the model-catalog checks succeeds');
+        ACTIVE_COOKIE = l.cookie;
+
+        return Promise.all([
+          // valid: enabled model matching its own provider
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', model: 'sonnet' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'openai-compat', model: 'gpt-4o-mini' }),
+          // omitted model -- existing default behaviour preserved
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code' }),
+          // unknown model strings
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', model: 'gpt-5' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', model: 'claude-x' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', model: '' }),
+          // cross-provider: a real, enabled model id under the WRONG provider
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', model: 'gpt-4o-mini' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'openai-compat', model: 'opus' }),
+          // disabled: gemini model id under a real, enabled provider
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', model: 'gemini-2.5-pro' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'openai-compat', model: 'gemini-2.5-pro' }),
+          // disabled provider itself is refused by the existing provider check --
+          // pinned here so this stage never accidentally loosens it
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'gemini', model: 'gemini-2.5-pro' }),
+          // case tamper
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', model: 'Sonnet' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', model: 'OPUS' }),
+          // non-string model
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', model: 5 }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', model: { id: 'sonnet' } })
+        ]);
+      }).then(function (rr) {
+        var validSonnet = rr[0], validGptMini = rr[1], omittedModel = rr[2],
+            badGpt5 = rr[3], badClaudeX = rr[4], badEmpty = rr[5],
+            crossA = rr[6], crossB = rr[7],
+            disabledA = rr[8], disabledB = rr[9], disabledProvider = rr[10],
+            caseA = rr[11], caseB = rr[12],
+            nonStringNum = rr[13], nonStringObj = rr[14];
+
+        eq(validSonnet.status, 200, 'M-05: claude-code + sonnet is accepted');
+        eq(validGptMini.status, 200, 'M-05: openai-compat + gpt-4o-mini is accepted');
+        eq(omittedModel.status, 200, 'M-05: omitting model still succeeds (existing default behaviour preserved)');
+
+        [badGpt5, badClaudeX, badEmpty, crossA, crossB, disabledA, disabledB,
+         caseA, caseB, nonStringNum, nonStringObj].forEach(function (r, i) {
+          eq(r.status, 400, 'M-05: rejected model case ' + i + ' is refused with 400');
+          eq(r.json.error, 'bad_request', 'M-05: rejected model case ' + i + ' names bad_request');
+        });
+        eq(disabledProvider.status, 400, 'M-05: provider "gemini" is refused before the model is ever consulted (pinning the existing provider check)');
+        eq(disabledProvider.json.error, 'bad_request', 'M-05: the gemini-provider refusal is a bad_request, not a model-shaped error');
+        ok(!/model must be/.test(disabledProvider.json.detail), 'M-05: the gemini-provider refusal is the PROVIDER error, not the model error -- provider is validated first');
+
+        ok(/model must be one of/.test(crossA.json.detail), 'M-05: a cross-provider model names the allowed set for the provider actually chosen');
+        ok(crossA.json.detail.indexOf('sonnet') !== -1, 'M-05: claude-code\'s 400 lists its own allowed ids');
+        ok(crossA.json.detail.indexOf('gpt-4o-mini') === -1, 'M-05: claude-code\'s 400 does not list openai-compat\'s ids');
+        ok(crossB.json.detail.indexOf('gpt-4o-mini') !== -1, 'M-05: openai-compat\'s 400 lists its own allowed ids');
+        ok(crossB.json.detail.indexOf('opus') === -1, 'M-05: openai-compat\'s 400 does not list claude-code\'s ids');
+        ok(!/gemini/.test(crossA.json.detail) && !/gemini/.test(crossB.json.detail),
+           'M-05: the allowed-ids list in a 400 never names a disabled (gemini) entry');
+
+        // Three accepted requests (validSonnet, validGptMini, omittedModel),
+        // each create+dispatch -- six upstream calls total -- nothing at all
+        // for the twelve rejected requests.
+        var calls = stubPostBodies.filter(function (c) { return /^\/tasks(\/tk-stub-start-0001\/dispatch)?$/.test(c.url); });
+        eq(calls.length, 6, 'M-05: exactly six upstream calls (create+dispatch, three times) for the three accepted requests (sonnet, gpt-4o-mini, and the omitted-model default) -- nothing for the twelve rejected ones');
+        var createdModels = stubPostBodies.filter(function (c) { return c.url === '/tasks'; })
+          .map(function (c) { return c.body.model; }).sort();
+        eq(createdModels.join(','), 'gpt-4o-mini,,sonnet',
+           'M-05: the two model-bearing requests relay their exact ids verbatim, and the omitted-model request relays null');
+        stubPostBodies.length = 0;
+
+        return req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code' });
+      }).then(function (defaulted) {
+        eq(defaulted.status, 200, 'M-05: a second omitted-model request also succeeds');
+        var createCall = stubPostBodies.filter(function (c) { return c.url === '/tasks'; })[0];
+        eq(createCall.body.model, null, 'M-05: an omitted model relays null verbatim -- the provider\'s own default applies (openai-compat defaults to gpt-4o-mini per its own code, documented not enforced here)');
+        stubPostBodies.length = 0;
+
+        return req(port, '/api/dispatcher', 'GET');
+      }).then(function (dispatcherR) {
+        eq(dispatcherR.status, 200, 'M-05: GET /api/dispatcher succeeds');
+        var models = dispatcherR.json.data.models;
+        ok(Array.isArray(models), 'M-05: /api/dispatcher serves a `models` array');
+        eq(models.length, 4, 'M-05: /api/dispatcher serves exactly the 4 enabled catalog entries');
+        ok(!models.some(function (m) { return m.provider === 'gemini'; }),
+           'M-05: /api/dispatcher never serves the disabled gemini entry');
+        models.forEach(function (m) {
+          ok(!Object.prototype.hasOwnProperty.call(m, 'enabled'),
+             'M-05: a served model entry never leaks the `enabled` flag itself: ' + m.id);
+          ['provider', 'id', 'label', 'capability', 'recommended_task_types'].forEach(function (f) {
+            ok(Object.prototype.hasOwnProperty.call(m, f), 'M-05: served model entry ' + m.id + ' has field ' + f);
+          });
+        });
+        var servedIds = models.map(function (m) { return m.provider + '/' + m.id; }).sort();
+        eq(servedIds.join(','), 'claude-code/haiku,claude-code/opus,claude-code/sonnet,openai-compat/gpt-4o-mini',
+           'M-05: /api/dispatcher serves exactly the expected 4 provider/id pairs');
+        ok(dispatcherR.text.indexOf(SECRET_TOKEN) === -1, 'M-05: /api/dispatcher does not leak SECRET_TOKEN via the models field');
+
+        // --- source-level pins ---------------------------------------
+        // The old free-form length-check branch must be gone from
+        // server.js -- it must no longer decide model validity by string
+        // length, only by consulting the catalog.
+        var serverCode = code(serverJs);
+        ok(!/model\.length > 100/.test(serverCode),
+           'M-05: server.js no longer contains the old free-form model length-check branch');
+        ok(/modelCatalog\.isAllowed\(/.test(serverCode),
+           'M-05: server.js validates model via modelCatalog.isAllowed(...)');
+
+        // model-catalog.js is the only file in the console reference tree
+        // that defines a model catalog of its own.
+        var refFiles = fs.readdirSync(REF).filter(function (f) { return /\.js$/.test(f) && f !== 'model-catalog.js'; });
+        refFiles.forEach(function (f) {
+          var src = code(read(path.join(REF, f)));
+          ok(!/var\s+CATALOG\s*=/.test(src), 'M-05: ' + f + ' does not define its own CATALOG -- model-catalog.js is the single source of truth');
+        });
+
+        var modelCatalogCode = code(read(path.join(REF, 'model-catalog.js')));
+        ok(/function isAllowed/.test(modelCatalogCode), 'M-05: model-catalog.js exports isAllowed');
+        ok(/function enabledModels/.test(modelCatalogCode), 'M-05: model-catalog.js exports enabledModels');
+        ok(/enabled:\s*false/.test(modelCatalogCode), 'M-05: model-catalog.js contains at least one disabled entry (gemini)');
+
+        // app.js: the old free-text model input must be gone; a select
+        // populated from the dispatcher's `models` must be present.
+        var appCode = code(appJs);
+        ok(!/type:\s*'text',\s*id:\s*'mission-model'/.test(appCode),
+           'M-05: app.js no longer builds mission-model as a free-text input');
+        ok(/id:\s*'mission-model'/.test(appCode) && /el\('select'/.test(appCode.slice(appCode.indexOf("id: 'mission-model'") - 200, appCode.indexOf("id: 'mission-model'") + 50)),
+           'M-05: mission-model is built as a <select>');
+        ok(/dispatcher\.data\.models/.test(appCode), 'M-05: app.js reads the model list from the dispatcher response, not a hardcoded list');
+
         ACTIVE_COOKIE = null;
         s.close();
         stub.close();
