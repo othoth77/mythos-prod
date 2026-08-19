@@ -1,7 +1,34 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MYTHOS **GATE-CLOSURE — THE ENTIRE ID AUTO PR STACK IS MERGED. #16 AND #14 ARE IN MAIN. THE REMAINING GATES ARE FORMALLY CLASSIFIED: B1/B2/B3 OWNER-BLOCKED, A5 OWNER-DECISION (EVALUATED), 16 LEGAL ITEMS OPEN. CITIZEN-FACING IDA-4 = NOT READY.**
+**From:** MYTHOS **FINAL MISSION, STAGE 1 — C-006 EXECUTED (AUTO-10). FIRST FINDING OF THE PASS: `main` HAD BEEN RED (414/419) SINCE THE AUTO-7/AUTO-9 MERGES — THE CONSOLE DRIFT TEST CORRECTLY CAUGHT `mythos.css` DIVERGING FROM THE MIGRATED `css/main.css`, AND THOSE PASSES NEVER RAN THE SUITE. RECONCILED: 5 TOKENS + DERIVED TOKENS + 32 HARDCODED RGBA LITERALS IN `mythos.css`, 3 VALUE-COUPLED TEST ASSERTIONS NARROWED WITH HISTORY KEPT. SUITE 419/419 GREEN; COMPUTED-STYLE + BEFORE/AFTER BROWSER VERIFICATION (1.26% DIFF, GOLD CHROME ONLY).**
+
+**The honest miss, stated plainly.** AUTO-7 (MIG-1) and AUTO-9 (MIG-3)
+migrated `css/main.css`'s gold/muted/danger and ran the repo-root
+application checks — but not `tests/mos-1-console-test.js`, whose drift
+rule reads that palette live and holds the console verbatim-identical.
+`main` carried 5 failing assertions from those merges until this pass's
+first EVIDENCE step found them. The alarm did its job; the miss was not
+running it. Fixed by executing exactly the reconciliation the alarm
+exists to force (register: AUTO-10; plan: `MIGRATION_PLANS.md` §1.2).
+
+**Also this stage, run in parallel by specialist agents (reports drafted,
+pending chief review before commit):** a per-project audit of the 8
+public projects (`docs/design/PUBLIC_PROJECTS_AUDIT.md` — live-site
+checks were blocked by this sandbox's egress-proxy policy, so it is
+in-repo evidence only, flagged honestly) and a responsive/zoom/console
+sweep of Mythos Prod (`docs/design/RESPONSIVE_SWEEP_REPORT.md` — zero
+horizontal overflow at 320–1920px including WCAG 200%/400% zoom
+equivalents, zero real console errors, two single-rule findings: nav
+touch targets 38–39px vs the 44px floor, and no `prefers-reduced-motion`
+support anywhere — both queued for the next implementation stage).
+
+**Suites on `main` after this stage:** console **419/419**, executor
+**158/158**, orchestration **255/257** (the 2 failures are VPS-only
+systemd-unit existence checks, unrunnable in a sandbox — verified by
+reading the assertions).
+
+**Previously:** MYTHOS **GATE-CLOSURE — THE ENTIRE ID AUTO PR STACK IS MERGED. #16 AND #14 ARE IN MAIN. THE REMAINING GATES ARE FORMALLY CLASSIFIED: B1/B2/B3 OWNER-BLOCKED, A5 OWNER-DECISION (EVALUATED), 16 LEGAL ITEMS OPEN. CITIZEN-FACING IDA-4 = NOT READY.**
 
 **Stage:** gate-closure mission · **Status:** all actionable items closed; every remaining gate is an owner, counsel or decision gate — none engineering-closable
 **Type:** merges + documentation. No production change.

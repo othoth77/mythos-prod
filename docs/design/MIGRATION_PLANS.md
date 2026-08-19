@@ -47,9 +47,9 @@ rather than silently, per this document's own standing discipline.
 |---|---|
 | **Current state** | Built, tested (322/322 at the time; MOS-3C brought the suite to 419/158/257), **not deployed** — blocked at a confirmed `deploy`-user privilege boundary (MOS-1.6/1.7), re-confirmed by MOS-3 PRODUCTION ACTIVATION from a session with real host access; unrelated to design readiness |
 | **What migration means** | Reconciling `mythos.css`'s `--mythos-*` values with the canonical spec (the exact conflict **C-006**/**AUTO-2** named) — not itself numbered `MIG-N` |
-| **Blocked on** | The same visual-regression gap as 1.1, though at **smaller scope** — this file has its own isolated test suite (`tests/mos-1-console-test.js`) and its own headless-browser tool (`projects/mythos-os-console/tools/visual-verify.js`, distinct from the repo-root `tools/visual-verify.js` AUTO-6 added for Mythos Prod), unlike `css/main.css` |
-| **Risk** | Medium — real, but bounded by existing tooling that already covers this specific file |
-| **Recommended order** | **First** among the Mythos-owned CSS targets — it is the one this program already has verification tooling for |
+| **EXECUTED — AUTO-10, 2026-08-19** | All drift-governed values reconciled (5 tokens, their derived tokens, 32 hardcoded rgba literals). The suite's own drift rule had correctly turned `main` red (414/419) when MIG-1/MIG-3 migrated `css/main.css` — this reconciliation restored **419/419**, with computed-style verification against a live browser and a 1.26% before/after visual diff confined to gold chrome. Console typography (Playfair/Inter) deliberately untouched — follows MIG-2's resolution |
+| **Risk** | Realized and closed for the colour system; remaining console typography risk is bounded by the same suite |
+| **Order** | Done first among the Mythos-owned CSS targets, exactly as this table recommended |
 
 ### 1.3 Command Center (`projects/command-center/`) — `MIG-4`, checked and left BLOCKED
 
@@ -128,7 +128,11 @@ Executed, AUTO-7/8/9 — updated 2026-08-19:
     production, a standing constraint against touching it applies, A-020
     authorises no implementation. Not attempted.
   → Mythos OS Console reconciliation (C-006, not itself numbered):
-    still not executed — smaller scope, existing tooling, next candidate.
+    EXECUTED, AUTO-10 (2026-08-19). mythos.css reconciled to the canonical
+    values (drift-test-enforced, 419/419 green — main had been red 414/419
+    since AUTO-7/9, an honest miss those passes' entries did not catch).
+    Console typography (Playfair/Inter) intentionally not touched — it
+    follows MIG-2's resolution.
 
 Needs an evidence question answered first, not a design decision:
   → AgriBee   (O-007: is it meant to be served?)

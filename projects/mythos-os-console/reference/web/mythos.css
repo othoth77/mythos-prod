@@ -29,26 +29,34 @@
 :root {
   color-scheme: dark;
 
-  /* --- Colour · RECOVERED verbatim from css/main.css :root (D-001) --- */
+  /* --- Colour · carried verbatim from css/main.css :root -----------
+     Originally RECOVERED as D-001. Reconciled 2026-08-19 under C-006
+     (AUTO-10, delegated mandate): gold/gold-light/gold-dim carry the
+     approved Mythos Gold family (MIG-1, A-013) and muted/danger carry
+     the corrected A-015 semantics, exactly as css/main.css now does —
+     the drift test (tests/mos-1-console-test.js) holds the two files
+     verbatim-identical, which is how this reconciliation was forced
+     the moment main.css migrated. Historical D-001 values are
+     preserved in docs/MYTHOS_DESIGN_RECOVERY.md §4.1. --- */
   --mythos-bg:          #0e0e0e;
   --mythos-surface:     #161616;
   --mythos-card:        #1d1d1d;
   --mythos-border:      #2a2a2a;
 
-  --mythos-gold:        #c9a84c;
-  --mythos-gold-light:  #e4c472;
-  --mythos-gold-dim:    rgba(201,168,76,0.12);
+  --mythos-gold:        #D9A441;
+  --mythos-gold-light:  #EBCE99;
+  --mythos-gold-dim:    rgba(217,164,65,0.12);
 
   /* Gold hairlines · RECOVERED — the two alphas main.css uses for a
      gold-tinted border (.entity-card 0.15, .entity-badge 0.22). Named
      so that a composition layer never needs a raw colour literal. */
-  --mythos-gold-line:   rgba(201,168,76,0.15);
-  --mythos-gold-line-2: rgba(201,168,76,0.22);
+  --mythos-gold-line:   rgba(217,164,65,0.15);
+  --mythos-gold-line-2: rgba(217,164,65,0.22);
 
   --mythos-text:        #e8e4dc;
-  --mythos-muted:       #6b6860;
+  --mythos-muted:       #A8A498;
 
-  --mythos-danger:      #c0392b;
+  --mythos-danger:      #F1706A;
   --mythos-green:       #2ecc71;
   --mythos-green-dim:   rgba(46,204,113,0.12);
   --mythos-blue:        #5dade2;
@@ -68,36 +76,34 @@
      inventing a different treatment for danger alone. The omission in
      main.css is recorded as an inconsistency, not corrected there —
      retrofitting the live app is out of this stage's scope. */
-  --mythos-danger-dim:  rgba(192,57,43,0.12);
+  --mythos-danger-dim:  rgba(241,112,106,0.12);
 
-  /* Readable danger text on a dark ground. #c0392b at 4.5:1 against
-     #0e0e0e fails; main.css already reaches for #ff8c82 / #e74c3c in
-     .btn-danger and .stat-chip .val.red for exactly this reason, so
-     this is RECOVERED practice given a name. Measured 6.87:1 as badge
-     text — see projects/mythos-os-console/tools/contrast.js. */
+  /* Readable danger text on a dark ground. HISTORICAL RATIONALE: the
+     D-001 danger #c0392b failed 4.5:1 against #0e0e0e, so main.css
+     reached for #ff8c82 / #e74c3c in .btn-danger and .stat-chip
+     .val.red, and this token named that RECOVERED practice. Since the
+     C-006 reconciliation --mythos-danger itself (#F1706A, A-015) now
+     clears AA as text, so this token is no longer load-bearing for
+     contrast — retained unchanged for composition-layer stability
+     (badges compose against it). Measured 6.87:1 as badge text — see
+     projects/mythos-os-console/tools/contrast.js. */
   --mythos-danger-text: #ff8c82;
 
-  /* --- Readable text tones · RECOVERED, and now MEASURED -----------
-     MOS-1.1 measured the palette instead of disclaiming it, and found
-     --muted at 3.03-3.47:1 against the three grounds — below WCAG 2.1
-     AA (4.5:1) as body text everywhere it appears.
+  /* --- Readable text tones · RECOVERED, MEASURED, then CORRECTED ---
+     HISTORY, preserved: MOS-1.1 measured the D-001 --muted (#6b6860)
+     at 3.03-3.47:1 against the three grounds — below WCAG AA as body
+     text everywhere it appeared — and, rather than change a D-001
+     token, adopted #999 for secondary *text* (recovered from
+     index.html:125, clearing AA at 5.39-6.78:1 on every ground).
 
-     --muted is a D-001 token and is NOT changed: it stays declared
-     verbatim above, so the shell still carries the complete palette.
-     What changes is USAGE. The implementation already solved this
-     twice and neither solution was written down:
-
-       css/dashboard.css:75  .db-kpi-label  color: #888
-       index.html:125        secondary label  color: #999
-
-     Both are lighter greys reached for precisely when a muted label
-     must actually be read. #999 is adopted because it clears AA on
-     every ground this shell renders (5.39-6.78:1), leaving margin so a
-     future module's surface cannot quietly slip under.
-
-     RULE FOR FUTURE MODULES: --mythos-muted is retained for D-001
-     completeness and for non-text use. Secondary *text* uses
-     --mythos-text-secondary. */
+     SINCE THE C-006 RECONCILIATION (2026-08-19): --mythos-muted now
+     carries the corrected A-015 secondary-text value (#A8A498,
+     applied to css/main.css by MIG-3/AUTO-9 and mirrored here by the
+     drift test), which itself clears AA on every ground this shell
+     renders. The historical defect this block documents is therefore
+     closed at the token level. --mythos-text-secondary is retained
+     unchanged for composition-layer stability — modules that compose
+     against it keep rendering identically. */
   --mythos-text-secondary: #999;
 
   /* Lightened purple for badge text. --purple #9b59b6 on --purple-dim
@@ -164,7 +170,7 @@
   --mythos-shadow-sm:   0 2px 8px rgba(0,0,0,0.3);
   --mythos-shadow-md:   0 4px 16px rgba(0,0,0,0.3);
   --mythos-shadow-lg:   0 8px 32px rgba(0,0,0,0.4);
-  --mythos-shadow-gold: 0 8px 28px rgba(201,168,76,0.20);
+  --mythos-shadow-gold: 0 8px 28px rgba(217,164,65,0.20);
 
   /* --- Motion · RECOVERED ------------------------------------------
      The design roadmap's Stage 9 records "no motion system exists".
@@ -200,7 +206,7 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-::selection { background: rgba(201,168,76,.28); color: var(--mythos-text); }
+::selection { background: rgba(217,164,65,.28); color: var(--mythos-text); }
 
 body {
   background: var(--mythos-bg);
@@ -274,7 +280,7 @@ a { color: var(--mythos-gold-light); }
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  box-shadow: 0 0 0 1px rgba(228,196,114,.20), 0 12px 34px rgba(201,168,76,.18);
+  box-shadow: 0 0 0 1px rgba(235,206,153,.20), 0 12px 34px rgba(217,164,65,.18);
   padding: var(--mythos-sp-4);
 }
 
@@ -297,7 +303,7 @@ a { color: var(--mythos-gold-light); }
 
 .mythos-nav { padding: var(--mythos-sp-4) var(--mythos-sp-4) var(--mythos-sp-3); flex: 1; min-height: 0; overflow-y: auto; }
 .mythos-nav::-webkit-scrollbar { width: 8px; }
-.mythos-nav::-webkit-scrollbar-thumb { background: rgba(201,168,76,.22); border-radius: var(--mythos-radius-pill); }
+.mythos-nav::-webkit-scrollbar-thumb { background: rgba(217,164,65,.22); border-radius: var(--mythos-radius-pill); }
 .mythos-nav::-webkit-scrollbar-track { background: transparent; }
 
 .mythos-nav-section {
@@ -333,7 +339,7 @@ a { color: var(--mythos-gold-light); }
 .mythos-nav-btn:hover {
   background: var(--mythos-gold-dim);
   color: var(--mythos-text);
-  box-shadow: inset -3px 0 0 rgba(201,168,76,0.5);
+  box-shadow: inset -3px 0 0 rgba(217,164,65,0.5);
   transform: translateY(-1px);
 }
 
@@ -378,7 +384,7 @@ a { color: var(--mythos-gold-light); }
   flex-wrap: wrap;
   margin-bottom: var(--mythos-sp-8);
   padding-bottom: var(--mythos-sp-7);
-  border-bottom: 2px solid rgba(201,168,76,0.15);
+  border-bottom: 2px solid rgba(217,164,65,0.15);
 }
 
 .mythos-page-title {
@@ -391,7 +397,7 @@ a { color: var(--mythos-gold-light); }
   margin: 0;
 }
 
-.mythos-page-title span { color: var(--mythos-gold-light); text-shadow: 0 2px 12px rgba(201,168,76,0.2); }
+.mythos-page-title span { color: var(--mythos-gold-light); text-shadow: 0 2px 12px rgba(217,164,65,0.2); }
 
 .mythos-page-sub { color: var(--mythos-text-secondary); font-size: var(--mythos-fs-sm); margin-top: var(--mythos-sp-2); }
 
@@ -416,17 +422,17 @@ a { color: var(--mythos-gold-light); }
   background: linear-gradient(135deg, var(--mythos-gold) 0%, #d4b860 100%);
   color: var(--mythos-bg);
   font-weight: 700;
-  box-shadow: 0 4px 15px rgba(201,168,76,0.3);
+  box-shadow: 0 4px 15px rgba(217,164,65,0.3);
 }
 .mythos-btn-gold:hover {
   background: linear-gradient(135deg, var(--mythos-gold-light) 0%, var(--mythos-gold) 100%);
-  box-shadow: 0 6px 24px rgba(201,168,76,0.45);
+  box-shadow: 0 6px 24px rgba(217,164,65,0.45);
   transform: translateY(-2px);
 }
 
 .mythos-btn-outline {
   background: transparent;
-  border: 2px solid rgba(201,168,76,0.3);
+  border: 2px solid rgba(217,164,65,0.3);
   color: var(--mythos-gold);
   font-weight: 600;
 }
@@ -434,21 +440,21 @@ a { color: var(--mythos-gold-light); }
   border-color: var(--mythos-gold);
   color: var(--mythos-gold-light);
   background: var(--mythos-gold-dim);
-  box-shadow: 0 4px 16px rgba(201,168,76,0.2);
+  box-shadow: 0 4px 16px rgba(217,164,65,0.2);
   transform: translateY(-1px);
 }
 
 .mythos-btn-danger {
   background: transparent;
-  border: 2px solid rgba(192,57,43,0.4);
+  border: 2px solid rgba(241,112,106,0.4);
   color: var(--mythos-danger-text);
   font-weight: 600;
 }
 .mythos-btn-danger:hover {
-  background: rgba(192,57,43,0.15);
+  background: rgba(241,112,106,0.15);
   border-color: var(--mythos-danger);
   color: #ff6b60;
-  box-shadow: 0 4px 16px rgba(192,57,43,0.25);
+  box-shadow: 0 4px 16px rgba(241,112,106,0.25);
   transform: translateY(-1px);
 }
 
@@ -462,21 +468,21 @@ a { color: var(--mythos-gold-light); }
 
 .mythos-card {
   background: linear-gradient(135deg, rgba(30,30,30,0.8), rgba(20,20,20,0.6));
-  border: 2px solid rgba(201,168,76,0.15);
+  border: 2px solid rgba(217,164,65,0.15);
   border-radius: var(--mythos-radius-lg);
   padding: 22px;
   box-shadow: var(--mythos-shadow-md);
   transition: all var(--mythos-dur-base) var(--mythos-ease-overshoot);
 }
 
-.mythos-card:hover { border-color: rgba(201,168,76,.45); box-shadow: var(--mythos-shadow-lg); }
+.mythos-card:hover { border-color: rgba(217,164,65,.45); box-shadow: var(--mythos-shadow-lg); }
 
 .mythos-card.clickable { cursor: pointer; }
 .mythos-card.clickable:hover {
-  border-color: rgba(201,168,76,.75);
+  border-color: rgba(217,164,65,.75);
   transform: translateY(-4px);
-  background: linear-gradient(135deg, rgba(201,168,76,.12), rgba(20,20,20,0.6));
-  box-shadow: 0 12px 32px rgba(201,168,76,0.2);
+  background: linear-gradient(135deg, rgba(217,164,65,.12), rgba(20,20,20,0.6));
+  box-shadow: 0 12px 32px rgba(217,164,65,0.2);
 }
 
 .mythos-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--mythos-sp-4); margin-bottom: 10px; }
@@ -522,13 +528,13 @@ a { color: var(--mythos-gold-light); }
   overflow: hidden;
   transition: border-color 0.2s, transform var(--mythos-dur-fast);
 }
-.mythos-kpi:hover { border-color: rgba(201,168,76,0.4); transform: translateY(-2px); }
+.mythos-kpi:hover { border-color: rgba(217,164,65,0.4); transform: translateY(-2px); }
 .mythos-kpi::before {
   content: '';
   position: absolute;
   top: 0; inset-inline: 0;
   height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.3), transparent);
+  background: linear-gradient(90deg, transparent, rgba(217,164,65,0.3), transparent);
 }
 .mythos-kpi-icon { font-size: var(--mythos-fs-2xl); margin-bottom: var(--mythos-sp-3); display: block; }
 .mythos-kpi-value {
@@ -570,7 +576,7 @@ a { color: var(--mythos-gold-light); }
   white-space: nowrap;
   color: var(--mythos-gold-light);
   background: var(--mythos-gold-dim);
-  border: 1px solid rgba(201,168,76,.22);
+  border: 1px solid rgba(217,164,65,.22);
 }
 
 .mythos-badge::before {
@@ -590,10 +596,10 @@ a { color: var(--mythos-gold-light); }
      orange = paused by a limit, will resume itself
      purple = declared, not started
      past   = inert */
-.mythos-badge.is-attention { color: var(--mythos-gold-light); background: var(--mythos-gold-dim); border-color: rgba(201,168,76,.28); }
+.mythos-badge.is-attention { color: var(--mythos-gold-light); background: var(--mythos-gold-dim); border-color: rgba(217,164,65,.28); }
 .mythos-badge.is-running   { color: var(--mythos-blue);       background: var(--mythos-blue-dim);   border-color: rgba(93,173,226,.28); }
 .mythos-badge.is-ok        { color: #8ff0b5;                  background: var(--mythos-green-dim);  border-color: rgba(46,204,113,.28); }
-.mythos-badge.is-error     { color: var(--mythos-danger-text); background: var(--mythos-danger-dim); border-color: rgba(192,57,43,.32); }
+.mythos-badge.is-error     { color: var(--mythos-danger-text); background: var(--mythos-danger-dim); border-color: rgba(241,112,106,.32); }
 .mythos-badge.is-waiting   { color: var(--mythos-today);      background: var(--mythos-today-dim);  border-color: rgba(230,126,34,.28); }
 .mythos-badge.is-planned   { color: var(--mythos-purple-text); background: var(--mythos-purple-dim); border-color: rgba(155,89,182,.28); }
 .mythos-badge.is-inert     { color: var(--mythos-text-secondary);      background: var(--mythos-past-dim);   border-color: rgba(255,255,255,.07); }
@@ -603,7 +609,7 @@ a { color: var(--mythos-gold-light); }
 
 .mythos-row {
   background: linear-gradient(135deg, rgba(30,30,30,0.8), rgba(20,20,20,0.6));
-  border: 2px solid rgba(201,168,76,0.15);
+  border: 2px solid rgba(217,164,65,0.15);
   border-radius: var(--mythos-radius-lg);
   padding: 18px var(--mythos-sp-6);
   display: grid;
@@ -613,7 +619,7 @@ a { color: var(--mythos-gold-light); }
   box-shadow: var(--mythos-shadow-md);
   transition: all var(--mythos-dur-base) var(--mythos-ease-overshoot);
 }
-.mythos-row:hover { border-color: rgba(201,168,76,.45); }
+.mythos-row:hover { border-color: rgba(217,164,65,.45); }
 .mythos-row-main { min-width: 0; }
 .mythos-row-title { color: var(--mythos-text); font-weight: 600; font-size: var(--mythos-fs-base); overflow-wrap: anywhere; }
 .mythos-row-sub { color: var(--mythos-text-secondary); font-size: var(--mythos-fs-sm); margin-top: var(--mythos-sp-1); overflow-wrap: anywhere; }
@@ -644,7 +650,7 @@ a { color: var(--mythos-gold-light); }
 .mythos-state-icon { font-size: var(--mythos-fs-5xl); display: block; margin-bottom: var(--mythos-sp-4); opacity: .7; }
 .mythos-state-title { font-family: var(--mythos-font-display); font-size: var(--mythos-fs-2xl); color: var(--mythos-text); font-weight: 700; margin-bottom: var(--mythos-sp-3); }
 .mythos-state-body { font-size: var(--mythos-fs-md); line-height: 1.6; max-width: 62ch; margin: 0 auto; }
-.mythos-state.is-error { border-color: rgba(192,57,43,.35); }
+.mythos-state.is-error { border-color: rgba(241,112,106,.35); }
 .mythos-state.is-error .mythos-state-title { color: var(--mythos-danger-text); }
 
 /* ---------------------------------------------------------------
@@ -661,7 +667,7 @@ a { color: var(--mythos-gold-light); }
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  border-bottom: 2px solid rgba(201,168,76,0.25);
+  border-bottom: 2px solid rgba(217,164,65,0.25);
   white-space: nowrap;
 }
 .mythos-table td { padding: 14px 18px; border-bottom: 1px solid var(--mythos-border); vertical-align: top; }

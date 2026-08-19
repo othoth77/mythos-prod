@@ -94,7 +94,9 @@ D001.forEach(function (name) {
   ok(re.test(mythosCss), 'mythos.css carries --mythos-' + name + ' verbatim from D-001 (' + value + ')');
 });
 
-ok(/--mythos-danger-dim:\s*rgba\(192,57,43,0\.12\)/.test(mythosCss),
+// Narrowed (C-006 reconciliation, AUTO-10): danger migrated to the corrected
+// A-015 value (#F1706A -> rgb 241,112,106), so its 12% companion follows it.
+ok(/--mythos-danger-dim:\s*rgba\(241,112,106,0\.12\)/.test(mythosCss),
    'danger-dim completes the 12% semantic pairing that main.css leaves incomplete');
 
 // Typography: the two faces the product has shipped since d1a9d19.
@@ -167,15 +169,20 @@ ok(/tokens\(\)/.test(read(path.join(PROJ, 'tools', 'contrast.js'))) &&
    /readFileSync\(CSS/.test(read(path.join(PROJ, 'tools', 'contrast.js'))),
    'contrast tool reads its tokens from the stylesheet rather than a copied list');
 
-// Usage rule: --muted stays declared for D-001 completeness but is not
-// used as text, because it measures below AA on every ground.
-ok(/--mythos-muted:\s*#6b6860;/.test(mythosCss), '--muted is still declared verbatim (D-001 completeness)');
+// Usage rule — narrowed (C-006 reconciliation, AUTO-10). Historically --muted
+// was the D-001 #6b6860, measured 3.03-3.47:1 (below AA), never used as text
+// here, with #999 adopted for secondary text instead. Since MIG-3/AUTO-9
+// corrected css/main.css's --muted to the A-015 value (#A8A498), the drift
+// rule above requires mythos.css to carry the same corrected value — and the
+// historical defect these assertions tracked is closed at the token level.
+ok(/--mythos-muted:\s*#A8A498;/.test(mythosCss),
+   '--muted carries the corrected A-015 value, verbatim with css/main.css (C-006)');
 ok(!/color:\s*var\(--mythos-muted\)/.test(mythosCss) && !/color:\s*var\(--mythos-muted\)/.test(consoleCss),
-   '--muted is never used as a text colour (measured 3.03-3.47:1, below AA)');
+   '--muted is still not used as a text colour here (composition stability; text uses --mythos-text-secondary)');
 ok(/--mythos-text-secondary:\s*#999;/.test(mythosCss),
    'secondary text uses #999, recovered from index.html:125');
 measured.filter(function (r) { return r.informational && /--muted as body text/.test(r.id); })
-  .forEach(function (r) { ok(!r.passes, 'recorded honestly: ' + r.id + ' fails AA at ' + r.ratio + ':1'); });
+  .forEach(function (r) { ok(r.passes, 'recorded honestly: ' + r.id + ' now CLEARS AA at ' + r.ratio + ':1 (was 3.03-3.47:1 pre-A-015)'); });
 
 // ===========================================================================
 // 2. READ-ONLY, AT SOURCE LEVEL
