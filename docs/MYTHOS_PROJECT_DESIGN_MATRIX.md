@@ -62,7 +62,7 @@ hierarchy is intended, not implemented.
 |---|---|---|---|---|---|---|---|
 | Mythos OS | `css/main.css` | dark | `#0e0e0e`/`#161616`/`#1d1d1d` | gold `#c9a84c` | `#e8e4dc` | — | **yes** |
 | Command Center | `projects/command-center/reference/web/app.css` | light | `#f6f7f9`/`#ffffff` | indigo `#4f46e5` | `#14181f` | `10px`/`6px` | **yes** |
-| ID Auto | `projects/idauto/reference/admin.css` | dark | `#0b1220` | teal `#72d7c5` | `#e8eef9` | `14px` | **yes** |
+| ID Auto | `reference/admin.css` in https://github.com/othoth77/idauto (formerly `projects/idauto/`, removed 2026-08-19) | dark | `#0b1220` | teal `#72d7c5` | `#e8eef9` | `14px` | **yes** |
 | SsangYong | `projects/ssangyong-autos/reference/shop.css` | light | `#f5f6f8`/`#fff` | navy `#0d3b66` | `#14181d` | `6px` | **yes** |
 | Uthina Chess | `/var/www/uthinachess/.../uthina-theme.css` | dark | `#050505`/`#08111C` | gold `#D9A441` | `#F7F0E3` | `28px`/`14px` | **no — VPS only** |
 

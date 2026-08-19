@@ -1,7 +1,72 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-18 UTC
-**From:** MYTHOS **FULL AUTONOMOUS MANDATE, EIGHTH PASS — MIG-1 EXECUTED FOR REAL (AUTO-7): THE MYTHOS GOLD MIGRATION APPLIED TO MYTHOS PROD'S ACTUAL SOURCE, 331 OCCURRENCES ACROSS 16 FILES (NOT THE 42/12 AUTO-6 ITSELF ESTIMATED), VERIFIED ACROSS 16 REAL APPLICATION VIEWS INCLUDING EVERY ACCOUNTING MODULE. TWO REAL BUGS CAUGHT AND FIXED BEFORE COMMIT: A LINE-ENDING CORRUPTION BUG IN MY OWN FIRST SUBSTITUTION ATTEMPT, AND ONE ORPHANED DOM SELECTOR THAT WOULD HAVE SILENTLY BROKEN A UI SEPARATOR. COMMITTED TO `main` ONLY — NOT DEPLOYED, PRODUCTION UNTOUCHED.**
+**Last updated:** 2026-08-19 UTC
+**From:** MYTHOS **IDA-DECOUPLE-4 — THE LEGACY IDauto TREE IS REMOVED. `othoth77/idauto` IS THE SOLE CANONICAL IMPLEMENTATION. THE STANDALONE MIGRATION IS CLOSED.**
+
+**Stage:** `IDA-DECOUPLE-4` + migration closure · **Status:** **COMPLETE** — owner-authorized, independently audited (ACCEPT, zero findings), architecture-reviewed (APPROVE)
+**Commits:** `231ff82` (removal) · *this commit* (closure docs) · **Branch:** `claude/idauto-source-cleanup-post-publication`
+**Type:** deletion of a duplicated tree whose canonical copy is verified elsewhere. **No production change. `othoth77/idauto` untouched.**
+
+### What was removed (`231ff82` — 49 files, −10,238 lines)
+
+`projects/idauto/**` (the entire duplicated tree) · its 13 own test suites (`ida-2*`,
+`ida-3a..3e`, `idauto-storage-ops`, `devx-1-idauto-test-impact`) · 8 duplicated
+`IDAUTO_*`/`IDA3_*` docs · the 15 `projects/idauto` impact-map rules. **Every deleted file has
+a verified canonical equivalent in `othoth77/idauto` at `bdfec2c`** — spot-checked by the
+architecture review, not assumed.
+
+### What was kept, deliberately
+
+`tests/ida-3f-offhost-backup-test.js` (35/0 — tests the **Mythos-owned** modules at
+`projects/infrastructure/ops/`; the `ida-` name is historical) ·
+`docs/IDAUTO_STANDALONE_MIGRATION.md` (the migration pointer, rewritten to record completion) ·
+`projects/mythos-core/contracts/idauto/` (the pinned protocol boundary) · every historical
+record — handover entries, CHANGELOG, ledger, statistics, provenance comments in
+command-center/ssangyong-autos/mythos-os-console/personal-intelligence.
+
+**New:** `tests/devx-2-impact-map-integrity-test.js` (7/0) preserves DEVX-1's one general
+safeguard — no impact-map rule may reference a nonexistent test path, duplicate a prefix, or
+reintroduce a `projects/idauto` prefix.
+
+### Closure sweep (this commit)
+
+The architecture review found five statements the deletion made false; all fixed: the
+impact-map `notes` still *instructed* keeping the deleted `projects/idauto` rules ordered
+(live config, not documentation) · `ROADMAP.md` §ID-Auto said the product "shares this
+repository under `projects/idauto/`" · `AUTOMOTIVE_PRODUCT_PORTFOLIO.md` gave
+`projects/idauto/` as the repository path · `MYTHOS_PROJECT_DESIGN_MATRIX.md` cited the
+deleted `admin.css` · `ID_AUTO_DEPENDENCY_BOUNDARY.md` still carried step 5 / D11 / D12 /
+§10.6 as pending. The boundary document now ends with **§11 Closure**: every D-row resolved,
+final state recorded.
+
+### Verification
+
+identity-core **157/0** · ida-3f 35/0 · devx-2 7/0 · backup 245/0 · governance 89/0 ·
+mpi-0-finalization 36/0 · validate **0 errors, 0 warnings** · full sweep **4864 passed,
+2 failed** (both `mythos-orchestration-core`, pre-existing; the 16 non-zero-exit suites are
+exactly the pre-existing set minus the deleted ones — nothing new fails). The count dropped
+from 5040 only by the deleted suites' own assertions.
+
+### Remaining duplication — stated honestly
+
+`offhost-backup.js` / `s3-compatible.js` now exist in **both** repositories at **different
+digests** — each correct for its own layout (the standalone fork fixed the `__dirname` depth
+guard for its location). Both sides pin AWS's SigV4 vector. Converging on one shared package
+is a **separate, unauthorized decision** — IDA-DECOUPLE-4's closure does NOT mean zero
+duplication remains. Recorded in the boundary doc §11.
+
+### Next stage
+
+**Stage 3 — operational backup gates** (live off-host round trip, schedule, media off-host
+copy): classify what is safely executable vs OWNER ACTION REQUIRED. Then the IDA-4 readiness
+audit (read-only). **IDA-4 is NOT started.**
+
+---
+
+## Previous entry
+
+
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, EIGHTH PASS — MIG-1 EXECUTED FOR REAL (AUTO-7): THE MYTHOS GOLD MIGRATION APPLIED TO MYTHOS PROD'S ACTUAL SOURCE, 331 OCCURRENCES ACROSS 16 FILES (NOT THE 42/12 AUTO-6 ITSELF ESTIMATED), VERIFIED ACROSS 16 REAL APPLICATION VIEWS INCLUDING EVERY ACCOUNTING MODULE. TWO REAL BUGS CAUGHT AND FIXED BEFORE COMMIT: A LINE-ENDING CORRUPTION BUG IN MY OWN FIRST SUBSTITUTION ATTEMPT, AND ONE ORPHANED DOM SELECTOR THAT WOULD HAVE SILENTLY BROKEN A UI SEPARATOR. COMMITTED TO `main` ONLY — NOT DEPLOYED, PRODUCTION UNTOUCHED.**
 
 **What was executed, and why the scope grew again.** AUTO-6's own mapping
 ("42 occurrences, 12 files") was itself a line count, not an occurrence

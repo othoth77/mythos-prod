@@ -24,23 +24,28 @@ matrix and the migration table carry per-row status; this section is the summary
 | **IDA-DECOUPLE-1** | MPI declares and resolves its own `pg` (D5, D10) | `6e2dfaa` | ✅ **DONE** — all 22 MPI suites 544/0; five had been aborting |
 | **IDA-DECOUPLE-2** | `offhost-backup.js` and `s3-compatible.js` moved to `projects/infrastructure/ops/` (D1–D4, D9) | — | ✅ **DONE** — true `git mv`, byte-identical, consumers and path assertions updated |
 | **IDA-DECOUPLE-3** | Split the identity-core contract test (D6, D7, D8) | *this stage* | ✅ **DONE** — ID Auto published the three vocabulary artifacts (`protocol/vocabularies/{actor-type,org-role,actor-identifier}.v1.json`, commit `42e8546`, branch `protocol-identity-vocabularies`) with its own conformance suite (`identity-conformance-test.js`, 77/0, 7/7 planted mutations caught). Mythos now consumes pinned, digest-verified copies under `projects/mythos-core/contracts/idauto/` — no read of `projects/idauto/` remains anywhere in this suite. |
-| IDA-DECOUPLE-4 | Delete `projects/idauto/**` and its suites and docs (D11, D12) | — | **NOT STARTED** — blocked only on the owner's go-ahead; nothing technical remains |
+| **IDA-DECOUPLE-4** | Delete `projects/idauto/**` and its suites and docs (D11, D12) | `231ff82` | ✅ **DONE** (2026-08-19, owner-authorized) — 49 files, −10,238 lines; independent audit ACCEPT, architecture review APPROVE; full sweep 4864/2 pre-existing, validate 0/0 |
 
 **The acceptance condition of IDA-DECOUPLE-2 is met: zero Mythos runtime files resolve any
 path inside `projects/idauto/`.** Verified by exhaustive search — no `require()` or import of
 anything under `projects/idauto/` exists in any `.js` file outside `projects/idauto/` and
 outside `tests/`.
 
-**As of IDA-DECOUPLE-3, the last test-time coupling is gone too.** `grep -c "projects/idauto"
-tests/mythos-identity-core-0-contract-test.js` is **0**. What remains reaching into
-`projects/idauto/` is exclusively the two suites whose whole purpose is to test-that-source, and
-they are deletable only together with it:
+**As of IDA-DECOUPLE-3, the last test-time coupling was gone; as of IDA-DECOUPLE-4, the tree
+itself is gone.** D11 and D12 were deleted with the source on 2026-08-19 (`231ff82`).
+`tests/ida-3f-offhost-backup-test.js` remains by design — it tests the Mythos-owned modules
+at `projects/infrastructure/ops/`; the `ida-` prefix is historical. DEVX-1's one general
+safeguard survives as `tests/devx-2-impact-map-integrity-test.js` (7/0), which also asserts
+that no impact-map rule can silently reintroduce a `projects/idauto` prefix.
+
+**Every D-row in this audit is now resolved.** The dependency this document was created to
+map no longer exists in any direction:
 
 | | What | Class |
 |---|---|---|
-| ~~D6 / D7 / D8~~ | ~~`tests/mythos-identity-core-0-contract-test.js` reads `database/schema.sql` and `reference/identity.js`~~ | **RESOLVED** — see §10.6 |
-| **D11** | `tests/devx-1-idauto-test-impact-test.js` asserts the ID Auto rules in the impact map | goes with the source |
-| **D12** | `tests/ida-*.js`, `tests/idauto-storage-ops-test.js` | ID Auto's own duplicated suites; go with the source |
+| ~~D6 / D7 / D8~~ | ~~identity-core reads of `schema.sql` / `identity.js`~~ | **RESOLVED** — §10.6 |
+| ~~D11~~ | ~~`tests/devx-1-idauto-test-impact-test.js`~~ | **DELETED with the source** — safeguard preserved in devx-2 |
+| ~~D12~~ | ~~`tests/ida-*.js` (except 3f), `tests/idauto-storage-ops-test.js`~~ | **DELETED with the source** — canonical copies live in `othoth77/idauto` |
 
 **`projects/idauto/` deletion (step 5, IDA-DECOUPLE-4) is now blocked only on the owner's
 go-ahead — nothing technical stands in the way any more.**
@@ -245,7 +250,7 @@ Strictly ordered. Each step is independently verifiable and independently revert
 | **2** ✅ **DONE** (IDA-DECOUPLE-2) | Move `s3-compatible.js` → `projects/infrastructure/ops/adapters/`; update D3, D4 | MPI ↛ ID Auto | **MEDIUM** | `mpi-2h-events` 16/16, `mpi-2h-cli`, `mpi-3-retrieval-cli` |
 | **3** ✅ **DONE** (IDA-DECOUPLE-2, same commit as 2) | Move `offhost-backup.js` → `projects/infrastructure/ops/`; update D1 **and both path literals** in D2; update D9 | automation ↛ ID Auto | **HIGH** | `inf-backup-auto-0-backup` **245/245**; the `reuses_module` guard must still *refuse* a wrong value |
 | **4** ✅ **DONE** (IDA-DECOUPLE-3) | Split the identity-core test: §8 now reads a pinned, digest-verified copy of ID Auto's published vocabulary artifacts (D6); §12/§12b deleted — the internal invariants they asserted are IDauto's own business, covered there by `tests/identity-conformance-test.js` (D7, D8) | mythos-core ↛ ID Auto | **MEDIUM** | `mythos-identity-core-0-contract` **125 → 157/0**, zero reads of `projects/idauto/` (`grep -c "projects/idauto"` on the suite is **0**) |
-| **5** ⬜ | Delete `projects/idauto/**`, `tests/ida-*.js`, `tests/devx-1-idauto-test-impact-test.js`, `docs/IDAUTO_*.md`, `docs/IDA3_*.md`; remove the 15 ID Auto rules from `test-impact-map.json` | The cleanup PR #16 can complete | **MEDIUM** | Full suite; **0 dangling test references** in the impact map |
+| **5** ✅ **DONE** (`231ff82`, IDA-DECOUPLE-4, 2026-08-19) | Delete `projects/idauto/**`, `tests/ida-*.js` (except 3f), `tests/devx-1-idauto-test-impact-test.js`, `docs/IDAUTO_*.md`, `docs/IDA3_*.md`; remove the 15 ID Auto rules from `test-impact-map.json` | The cleanup PR #16 can complete | **MEDIUM** | Full sweep 4864 passed / 2 pre-existing; devx-2 proves **0 dangling test references**; validate 0/0 |
 
 Steps 1–4 are prerequisites for 5. **Step 5 must not be attempted before them.** That was
 measured before any of this work: deleting `projects/idauto/` then took
@@ -568,8 +573,9 @@ carries this correction inline.
 
 **Correction to §10.3 — the premise that "a Mythos-only pin would weaken a live read" assumed a
 live read that, by the time of the final review, no longer matched canonical.** The vendored
-copy at `projects/idauto/database/schema.sql` — **still present; its deletion is IDA-DECOUPLE-4,
-NOT STARTED** — has SHA-256 `bb282a75…`, which
+copy at `projects/idauto/database/schema.sql` — still present at the time of that review; the
+tree was subsequently removed by IDA-DECOUPLE-4 (`231ff82`, 2026-08-19) — had SHA-256
+`bb282a75…`, which
 had already diverged from the canonical `othoth77/idauto` `database/schema.sql` (`b41c000d…`)
 by one line — a documentation-comment line referencing a line number that had shifted, not a
 CHECK constraint. The "live" read §10.3 worried about weakening was therefore already stale
@@ -593,3 +599,25 @@ rather than pinning a Mythos-authored guess.
   upstream commit becomes unreachable and the pin's provenance breaks. Alternatively, re-pin
   to the main-line commit after merge (a normal re-pin: bytes unchanged, only
   `upstream.commit` moves).
+
+---
+
+## 11. Closure — the migration is complete (2026-08-19)
+
+This document was created to map a dependency that no longer exists. Final state:
+
+| | |
+|---|---|
+| Canonical IDauto | `othoth77/idauto` — `main` `bdfec2c`; protocol vocabularies + conformance suite on branch `protocol-identity-vocabularies` (`350792b`, draft PR #2, **merge-commit only**) |
+| Mythos consumes | `projects/mythos-core/contracts/idauto/` — three pinned artifacts + `PINS.json` (upstream commit `42e8546`) |
+| `projects/idauto/` in Mythos | **removed** (`231ff82`) — zero runtime references, zero test reads; only historical records and provenance comments remain |
+| Evidence | identity-core 157/0 · ida-3f 35/0 · devx-2 7/0 · governance 89/0 · full sweep 4864/2 pre-existing · IDauto complete suite 678/0 live |
+
+**Remaining duplication — stated honestly, not closed.** `offhost-backup.js` (and
+`s3-compatible.js`) exist in **both** repositories, at **different digests**
+(`76891147…` at `projects/infrastructure/ops/`, `c76e7815…` at IDauto `ops/`): each side's
+copy is correct for its own repository layout (the divergence is the `__dirname` depth guard
+fixed for the standalone layout at extraction, plus the location move here). Both sides pin
+AWS's published SigV4 vector, so signing-path drift is caught independently. Converging on a
+single shared package remains a **separate, unauthorized architectural decision** — recorded
+here so IDA-DECOUPLE-4's closure is never read as "zero duplication remains."

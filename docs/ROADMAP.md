@@ -298,9 +298,15 @@ Ten open owner decisions (O-MAOL-1..10) are recorded in `docs/MYTHOS_AI_OPERATIN
 
 ## ID Auto — Separate Product Track
 
-ID Auto (`idauto.tn`) is a vehicle plate lookup and vehicle intelligence platform for Tunisia. It is a product within the Mythos ecosystem, sharing this repository under `projects/idauto/` and `docs/IDAUTO_*.md`.
+ID Auto (repositioned as **IDauto — an open vehicle identity and history protocol**) is a
+product within the Mythos ecosystem. It was developed in this repository under
+`projects/idauto/` until 2026-08-18, extracted to its canonical standalone repository
+https://github.com/othoth77/idauto, and the duplicated tree here was removed by
+IDA-DECOUPLE-4 on 2026-08-19. Mythos consumes its identity vocabularies through the pinned
+protocol artifacts at `projects/mythos-core/contracts/idauto/`.
 
-See `docs/IDAUTO_ROADMAP.md` for the full ID Auto stage plan.
+See `docs/ROADMAP.md` in https://github.com/othoth77/idauto for the full stage plan, and
+`docs/IDAUTO_STANDALONE_MIGRATION.md` here for the migration record.
 
 | Stage | Description | Status |
 |-------|-------------|--------|
