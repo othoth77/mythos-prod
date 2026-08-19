@@ -1,7 +1,44 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MYTHOS **FULL AUTONOMOUS MANDATE, TENTH PASS — MIG-3 PARTIALLY EXECUTED (AUTO-9): `--muted`/`--danger` CORRECTED TO THEIR APPROVED VALUES AND APPLIED, `--past`/CONTROL-BORDER LEFT EXPLICITLY OPEN (NO APPROVED TARGET FOR ONE, TOO BROAD A BLAST RADIUS FOR THE OTHER). MIG-4 CHECKED AND LEFT BLOCKED WITH EVIDENCE: MCC-1 (COMMAND CENTER) IS CONFIRMED LIVE, DEPLOYED, SERVING REAL PUBLIC TRAFFIC — NOT A SAFE LOCAL PILOT TARGET — AND A STANDING, NEVER-REVOKED INSTRUCTION FORBIDS TOUCHING IT. NO COMMAND CENTER FILE WAS READ OR TOUCHED. THIS CLOSES THE FOUR-MIGRATION EXECUTION PASS THE CONTINUATION INSTRUCTION NAMED — FULL FINAL BLOCKER MATRIX BELOW.**
+**From:** MYTHOS **IDAUTO MASTER MISSION — ALL EXECUTABLE STAGES COMPLETE. EXTRACTION, DECOUPLING AND REMOVAL FINISHED; IDA-4 FOUNDATION SUBSET IMPLEMENTED WITHIN ITS GATES; EVERY REMAINING ITEM IS AN OWNER, LEGAL OR ARCHITECTURE-GATED ACTION, NAMED AND RECORDED.**
+
+**Stage:** master mission (16 stages) · **Status:** every stage executed or explicitly gated — see the ledger below
+**Branches:** mythos `claude/idauto-source-cleanup-post-publication` (PR #16, draft) · idauto `protocol-identity-vocabularies` → `ida4-readiness` → `ida4-foundation` (PRs #2 → #3 → #4, drafts, **merge-commit only**)
+**Type:** the closing record. No production change anywhere in the mission.
+
+### Stage ledger
+
+| Stage | Outcome |
+|---|---|
+| 1 — IDA-DECOUPLE-4 | ✅ `231ff82` — legacy tree removed (−10,238 lines); audit ACCEPT zero findings; review APPROVE |
+| 2 — Migration closure | ✅ `fbd3fdc` — five falsified statements fixed; boundary doc closed (§11); remaining ops-module duplication recorded honestly |
+| 3 — Backup gates | ✅ `02a9ecd` — relocated tooling rehearsed C1→O→C2→R (synthetic); OWNER-GATE-B1/B2/B3 recorded, none worked around |
+| 4 — Readiness audit | ✅ idauto `f649398` — verdict **BLOCKED** for the citizen surface; **16** legal items (not 15 — a recovered PRODUCT_SPEC row) |
+| 5 — Architecture review | ✅ **APPROVE-WITH-GATES**; gate-free subset boundary defined |
+| 6 — IDA-4 foundation | ✅ **subset only**, idauto `39d6bee` — IVID library (pinned vectors), holder-ref + tombstone artifacts, schema-defect fixes, passport assembly (scope-invariant), migration plan + refusing dry-run, THREAT_MODEL v1; suite 130/0; audit ACCEPT 4/4 mutations |
+| 7 — Trust + verification | structural core already in the data model (T4 orthogonal, AI boundary as closed enums — review-verified); runtime remainder gated with the citizen surface |
+| 8-12 — IDA-5/7/8/9 + parts prep | ✅ idauto `cb70500` — per-element PREPARED/PARTIAL/OPEN verification with citations; conservative by review's judgment |
+| 13 — Final audit | ✅ Opus: **SYSTEM COHERENT**. Haiku's REJECT **adjudicated with evidence**: `mos-1-console` 414/5 and `stage4w` 42/2 fail **identically on pristine `origin/main`** (main's own MIG design-track regressions, not this work); three other flagged suites pass serially on both trees (audit-run interference); IDauto full suite **812/0** (601+81+130, two documented envs — the foundation suite's DB-env refusal is its guard working) |
+| 14-16 — Handover, PRs, report | ✅ this entry; five draft PRs, none merged |
+
+### Honest remainder — nothing hidden
+
+**Owner:** OWNER-GATE-B1/B2/B3 (live backup round trip, schedule, media copy) · A5 interim-auth decision · IDA-DECOUPLE PRs merge decisions (idauto #2 **merge commit, never squash** — the pin's provenance depends on it) · PR #14 close.
+**Legal counsel:** the 16 LEGAL-REVIEW-REQUIRED items (enumerated in idauto `docs/IDA4_READINESS_AUDIT.md` §B).
+**Engineering, gated:** IDA-4 citizen surface (auth+legal) · real authentication (IDA-2E→IDA-7) · deletion/correction mechanics · monitoring stack · issuer onboarding process, key management, SDKs/API contract/conformance suite (per `STAGE_PREPARATION_IDA5_TO_IDA9.md`).
+**Known duplication:** the two ops modules exist in both repos at different digests, each correct for its layout — a separate unauthorized convergence decision (boundary doc §11).
+**Pre-existing failures, not this work's:** `mythos-orchestration-core` 255/2; the 16 non-zero-exit suites (stage3* internals included — the old "2 failed" phrasing counted only summary-line suites); and now `mos-1-console` 5 + `stage4w` 2 **introduced on `main` by today's MIG design work** — flagged to the design track, out of this mission's scope.
+**Wording notes from the final review:** the prep doc's "14+2" phrasing (14 total *including* 2 new); an IVID version ≥10 would overflow `VARCHAR(40)` — a note for whoever mints v10.
+
+### PUBLIC_ENDPOINT_READY_TO_IMPLEMENT: **NO** — unchanged, and correctly so.
+
+---
+
+## Previous entry
+
+
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, TENTH PASS — MIG-3 PARTIALLY EXECUTED (AUTO-9): `--muted`/`--danger` CORRECTED TO THEIR APPROVED VALUES AND APPLIED, `--past`/CONTROL-BORDER LEFT EXPLICITLY OPEN (NO APPROVED TARGET FOR ONE, TOO BROAD A BLAST RADIUS FOR THE OTHER). MIG-4 CHECKED AND LEFT BLOCKED WITH EVIDENCE: MCC-1 (COMMAND CENTER) IS CONFIRMED LIVE, DEPLOYED, SERVING REAL PUBLIC TRAFFIC — NOT A SAFE LOCAL PILOT TARGET — AND A STANDING, NEVER-REVOKED INSTRUCTION FORBIDS TOUCHING IT. NO COMMAND CENTER FILE WAS READ OR TOUCHED. THIS CLOSES THE FOUR-MIGRATION EXECUTION PASS THE CONTINUATION INSTRUCTION NAMED — FULL FINAL BLOCKER MATRIX BELOW.**
 
 **MIG-3 — what was applied, and why the rest was left open.** `A-015`
 names three contrast-failing tokens. Mapped: `--muted` 73×, `--danger` 2×,
