@@ -337,8 +337,8 @@ const AUTH = {
     }
     .mp-login-logo p {
       color: #e5e5e5;
-      font-family: 'Playfair Display', serif;
-      font-size: 24px; font-weight: 700;
+      font-family: 'Archivo Expanded', sans-serif;
+      font-size: 24px; font-weight: 600;
       letter-spacing: 0.02em; margin: 18px 0 0 0;
     }
     .mp-login-form label {

@@ -47,30 +47,30 @@ function renderComptaViews() {
         `).join('')}
       </div>
 
-      <h2 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:20px; margin:0 0 16px; font-weight:800;">Résumé financier - ${getPeriodLabel(comptaDashboardPeriod)}</h2>
+      <h2 style="font-family: 'Archivo Expanded', sans-serif; color:var(--gold-light); font-size:20px; margin:0 0 16px; font-weight:600;">Résumé financier - ${getPeriodLabel(comptaDashboardPeriod)}</h2>
 
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:32px;">
         <div style="background:linear-gradient(135deg, rgba(217,164,65,0.12), rgba(217,164,65,0.06)); border:1px solid rgba(217,164,65,0.2); border-radius:12px; padding:20px; text-align:center;">
           <div style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:8px;">Revenus Total</div>
-          <div style="font-family:'Playfair Display',serif; font-size:32px; color:var(--gold-light); font-weight:800;">${fmtMoney(totalIncome)}</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size:32px; color:var(--gold-light); font-weight:400;">${fmtMoney(totalIncome)}</div>
           <div style="color:var(--muted); font-size:12px; margin-top:8px;">Factures: ${fmtMoney(sales)}</div>
         </div>
 
         <div style="background:linear-gradient(135deg, rgba(100,180,255,0.12), rgba(100,180,255,0.06)); border:1px solid rgba(100,180,255,0.2); border-radius:12px; padding:20px; text-align:center;">
           <div style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:8px;">Achats</div>
-          <div style="font-family:'Playfair Display',serif; font-size:32px; color:#64b4ff; font-weight:800;">${fmtMoney(purchaseTotal)}</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size:32px; color:#64b4ff; font-weight:400;">${fmtMoney(purchaseTotal)}</div>
           <div style="color:var(--muted); font-size:12px; margin-top:8px;">${purchases.length} facture${purchases.length !== 1 ? 's' : ''}</div>
         </div>
 
         <div style="background:linear-gradient(135deg, rgba(255,100,150,0.12), rgba(255,100,150,0.06)); border:1px solid rgba(255,100,150,0.2); border-radius:12px; padding:20px; text-align:center;">
           <div style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:8px;">Dépenses</div>
-          <div style="font-family:'Playfair Display',serif; font-size:32px; color:#ff6496; font-weight:800;">${fmtMoney(expenseTotal)}</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size:32px; color:#ff6496; font-weight:400;">${fmtMoney(expenseTotal)}</div>
           <div style="color:var(--muted); font-size:12px; margin-top:8px;">${expenses.length} dépense${expenses.length !== 1 ? 's' : ''}</div>
         </div>
 
         <div style="background:linear-gradient(135deg, rgba(${netResult >= 0 ? '76,201,100' : '201,100,76'},0.12), rgba(${netResult >= 0 ? '76,201,100' : '201,100,76'},0.06)); border:1px solid rgba(${netResult >= 0 ? '76,201,100' : '201,100,76'},0.2); border-radius:12px; padding:20px; text-align:center;">
           <div style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:8px;">Résultat Net</div>
-          <div style="font-family:'Playfair Display',serif; font-size:32px; color:${netResult >= 0 ? '#4cc964' : '#ff6464'}; font-weight:800;">${netResult >= 0 ? '+' : ''}${fmtMoney(netResult)}</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size:32px; color:${netResult >= 0 ? '#4cc964' : '#ff6464'}; font-weight:400;">${netResult >= 0 ? '+' : ''}${fmtMoney(netResult)}</div>
           <div style="color:var(--muted); font-size:12px; margin-top:8px;">Revenus - Achats - Dépenses</div>
         </div>
       </div>
@@ -78,7 +78,7 @@ function renderComptaViews() {
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:32px;">
         <div style="background:linear-gradient(135deg, rgba(100,200,100,0.12), rgba(100,200,100,0.06)); border:1px solid rgba(100,200,100,0.2); border-radius:12px; padding:20px; text-align:center;">
           <div style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:8px;">Solde Bancaire</div>
-          <div style="font-family:'Playfair Display',serif; font-size:28px; color:#64c864; font-weight:800;">${fmtMoney(lastBalance)}</div>
+          <div style="font-family: 'IBM Plex Mono', monospace; font-size:28px; color:#64c864; font-weight:400;">${fmtMoney(lastBalance)}</div>
         </div>
       </div>
     </div>
@@ -99,7 +99,7 @@ function renderComptaViews() {
     </div>
 
     <div style="margin-top:32px; padding:24px; background:linear-gradient(135deg, rgba(217,164,65,0.05), rgba(217,164,65,0.02)); border:1px solid rgba(217,164,65,0.1); border-radius:12px;">
-      <h3 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:16px; margin:0 0 16px; font-weight:800;">📊 Connexions comptables</h3>
+      <h3 style="font-family: 'Archivo Expanded', sans-serif; color:var(--gold-light); font-size:16px; margin:0 0 16px; font-weight:600;">📊 Connexions comptables</h3>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:16px; font-size:13px; color:var(--muted);">
         <div>
           <div style="color:var(--gold); font-weight:700; margin-bottom:6px;">💰 Dépenses par période</div>

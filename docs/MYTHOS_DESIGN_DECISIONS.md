@@ -900,6 +900,186 @@ typography question follows MIG-2's resolution, not this one.
 One `git revert` restores every value; the drift test would then go red
 again, which is the correct alarm in both directions.
 
+### AUTO-11 — MIG-2 executed: the typography migration, solved by role separation, not by shrinking type
+
+**Trigger.** Final-mission instruction: solve the Archivo/TND KPI wrapping
+regression professionally — evaluate layout, number formatting, container
+behaviour and typography; do not shrink typography to hide it; preserve
+the approved type system.
+
+**The chief-architect decision that unblocked it.** AUTO-8's regression
+happened because the legacy app conflates two roles in one typeface:
+Playfair Display carried both *headings* (words) and *financial figures*
+(numbers). The approved system already separates them — the display face
+carries headings; **the Data role carries financial and numeric values**
+(`TYPOGRAPHY.md` §2: IBM Plex Mono, tabular figures — stated for exactly
+this reason: "tabular figures for financial and technical tables"); the
+Label role (Plex Sans 500, uppercase, tracked) carries small table
+headers. AUTO-8's attempt pushed *everything* into the display face,
+which is what wrapped the KPI money figures. The professional resolution
+is the role split the system always intended — no typography was shrunk;
+every size is exactly what it was.
+
+**Execution: all 93 sites classified individually, line-keyed, and
+verified before substitution** (`--apply` aborts on any line whose
+content does not match the classification): **44 display sites** →
+`'Archivo Expanded'`, weight normalised to the approved 600; **6 label
+sites** (the five `*-list-table th` rules + `.month-group`) →
+`'IBM Plex Sans'`, weight 500; **43 numeric sites** (money via
+`fmtMoney`, KPIs, day/date numerals, times, invoice/contract reference
+IDs) → `'IBM Plex Mono'`, weight 400. Multi-line rules
+(`css/professional.css` ×7, `css/dashboard.css`, `js/auth.js`'s injected
+login CSS) had their weights normalised in a second targeted pass the
+line-keyed script cannot reach. `index.html` drops the Playfair CDN
+request and loads the self-hosted `assets/brand/fonts/fonts.css`
+(Archivo Expanded 600, Plex Sans 400/500/600 + Arabic, Plex Mono 400 —
+all AUTO-4 files). **Inter remains the body face** — its migration to
+IBM Plex Sans is a real, separate step recorded as remaining, not
+smuggled into this one.
+
+**A bug AUTO-8 already taught, re-made, and re-caught.** The
+substitution template again mis-positioned the backslash on
+escaped-quote sites inside JS template strings (5 sites, 3 files) —
+caught immediately by `node --check`, exactly as in AUTO-8, fixed before
+verification. Recorded because repeating a known bug is worth more
+embarrassment than the first occurrence.
+
+**Verification.** `node --check` clean on all 11 touched JS files; zero
+`Playfair` references outside the one explanatory comment; CRLF
+preserved byte-exact in the four files that carry it. **17 real views
+before/after**: diffs 1.32–6.30% (typeface-change footprint), every view
+chief-reviewed — and the decisive one, `comptabilite`: **"6545.000 TND"
+renders on ONE line in IBM Plex Mono, all three KPI cards
+height-aligned** — the exact AUTO-8 regression, solved. Dashboard's 54px
+day numeral, countdown cells, natures/representations table headers,
+category cards: all render correctly, no wrap, no overflow, no layout
+shift. Zero JS console errors across all accounting views (3
+pre-existing external-CDN network failures only, unchanged).
+
+**MIG-2: EXECUTED.** Remaining, recorded honestly: body face Inter →
+IBM Plex Sans (separate assessment); the console's own Playfair/Inter
+declarations (`mythos.css` — its drift rule does not govern typography;
+follows the same role-split when scheduled); true self-hosted-font
+rendering of Archivo/Plex verified in the isolated instance (fonts load
+from `assets/brand/fonts/`), while Inter still rides its CDN.
+
+**Authority, reversibility, scope.** **AUTO-11, NOT owner-approved.**
+One `git revert` restores all 93 sites, the weight normalisations, and
+the font links. Not deployed — production untouched.
+
+### AUTO-12 — MIG-3 completed + the sweep's two accessibility findings fixed
+
+**Trigger.** Final-mission items: complete MIG-3's remaining tokens where a
+principled mapping exists; fix the responsive sweep's two findings.
+
+**`--past` — resolved by role mapping, not an invented value.** AUTO-9
+left `--past: #555` (2.59:1) open because A-015 corrects four semantic
+roles and "past" is not one of them. The principled mapping exists one
+level up: a past-dated calendar entry is **de-emphasised by design** —
+the approved system's `text-disabled` role (`ink-400`, `#7A776C`,
+"deliberately below body contrast — disabled/non-text glyphs") is that
+exact role. `--past` → `#7A776C`, `--past-dim` → its 12% companion
+`rgba(122,119,108,0.12)` (the D-001 universal pairing), one literal
+`rgba(85,85,85,0.2)` hairline follows. `mythos.css` follows in lockstep
+— the C-006 drift rule now enforces this pairing automatically, and the
+console suite stayed **680/680** through the change. This is a mapping
+to an existing approved role token, with the same "below body contrast
+by design" semantics the source rule documents — not a new colour.
+
+**A-016 — the conforming control boundary, applied to actual controls
+only.** The stylesheet's `input, select, textarea` rule carried
+`border: 2px solid rgba(217,164,65,0.15)` — roughly 1.2:1 composited,
+the precise "no conforming border anywhere" defect A-016 (owner-approved)
+names. A `--control-border: #726F64` token (3.84:1 dark-ground, A-016's
+value) is declared and applied there. Additionally, **22 JS-inline and
+HTML-inline form controls** carrying `border:1px solid #333` (~1.5:1) —
+the accounting/fournisseurs/documentation filter inputs and selects —
+were switched to `var(--control-border)`, matched strictly on lines that
+render an `<input` or `<select`; decorative `#333` borders on cards,
+menus and images were deliberately left (A-016 governs control
+boundaries, not decoration — the earlier AUTO-9 caution about blast
+radius is honoured by this exact scoping).
+
+**A-022 — the 44px touch floor.** `.nav-btn` gains `min-height: 44px`;
+re-measured live at 375px: all 11 sidebar buttons now exactly 44px (were
+38–39px, the sweep's finding).
+
+**A-018 — reduced motion exists now.** `css/main.css` gains the
+`prefers-reduced-motion: reduce` block (owner-approved requirement the
+legacy surface never implemented — the sweep found zero support
+repo-wide). First verification caught a real specificity fight:
+`index.html`'s inline `.nav-btn` transition is declared `!important` at
+higher specificity than the universal rule, so the preference lost
+there; fixed with an explicit `button.nav-btn` override and re-verified
+live — `transitionDuration` collapses to `1e-05s` under the emulated
+preference.
+
+**Verification.** Console suite 680/680 (lockstep drift held); 5 real
+views before/after (1.77–2.05% diffs — nav-height + control-border +
+past-tone footprint), fournisseurs/bank/cash form panels re-screenshotted
+after the inline-control pass; `node --check` clean on the 5 touched JS
+files; touch-target and reduced-motion re-measured in a live browser as
+above. **Honest residual:** `--past`-styled calendar entries and
+`--danger` error states are still not visually exercised by the empty
+test data (same caveat as AUTO-9, unchanged); the fix is verified at the
+token/computed-style level, by analogy to the same-category changes that
+were screenshot-verified.
+
+**Authority, reversibility, scope.** **AUTO-12, NOT owner-approved**
+(though every value applied is itself owner-approved — A-016's boundary
+value, A-018's requirement, A-022's floor, and the approved disabled
+role; what is delegated is the decision to apply them here). One
+`git revert` restores everything. Not deployed.
+
+### AUTO-13 — the mythosprod.xyz hub, built for real: the master brand's first public surface
+
+**Trigger.** Final-mission §5 explicitly instructs building the hub's
+information architecture — which supersedes **O-003**'s open "should it
+exist" for the *build*. Deployment stays a separate step, still blocked at
+the host boundary, with a complete operator runbook shipped alongside.
+
+**What was built — `sites/mythosprod.xyz/`, fully static, self-contained.**
+One page (French, `lang="fr"`), zero external requests: canonical tokens
+and the AUTO-4 self-hosted faces travel as build-time copies inside the
+site directory (production serves that directory alone), the AUTO-1
+wordmark inlined as SVG with `currentColor`. `robots.txt`, `sitemap.xml`,
+canonical/OG/JSON-LD Organization metadata — nothing fabricated: no
+invented social profiles, addresses, or business claims.
+
+**The structure is PUBLIC_ECOSYSTEM_ARCHITECTURE.md §9's A-020 tree,
+exactly**: five units under MYTHOS; **Mythos Command Center under Mythos
+OS, never beside the units**; the three units with no recorded operations
+(Services/Digital/Logistique) listed as *structure only* — name and
+descriptor, no activity claim (O-A2 discipline). **Projects appear in
+their own identities** (A-004/A-006): deliberately neutral tiles, name +
+domain + evidence-based status from the ledger — the five live projects
+link out; AgriBee/ID Auto/Mouain show "En préparation" with no link. The
+twelve ECO-3 internal projects are excluded, as AUTO-3 classified them.
+
+**Design-system compliance, verified in a real browser, both themes.**
+Dark-first (A-010) with the token sheet's system-preference behaviour —
+the light render is not a bug but A-017 working ("light complete, never a
+filter over dark"), and both presentations were screenshot-verified. One
+35° gesture per view (A-012): the hero hairline, nowhere else — the gold
+unit descriptors are the approved lockup structure itself (AUTO-1), not
+ad-hoc emphasis, and gold never appears as a ground. Skip link,
+landmarks, `:focus-visible` ring, 44px interactive targets, reduced
+motion via the tokens. **Measured: zero horizontal overflow at
+320/375/768/1280; zero console errors; all 8 self-hosted fonts load
+(`document.fonts.check` confirms Archivo Expanded and Plex Mono active).**
+
+**Deployment: NOT performed.** `sites/mythosprod.xyz/DEPLOYMENT.md` carries
+the exact operator runbook — rsync layout, complete hardened nginx vhost
+(security headers + a strict CSP the site's zero-external-origin design
+makes possible), the MCC-1-proven certbot procedure, DNS note (owner
+action), smoke tests, and the trivial static rollback.
+
+**Authority, reversibility, scope.** **AUTO-13, NOT owner-approved.** A
+new, additive directory; nothing else references it; deleting it reverts
+everything. The build answers O-003's *capability* half — the hub now
+exists as deployable software; whether to point DNS at it remains the
+owner's call, exactly as recorded.
+
 ### Stage 1I — design prototypes delivered
 
 **Not a decision — a deliverable, recorded for completeness.** Seven
@@ -1231,8 +1411,8 @@ by inference.**
 | ~~**TYPE-1**~~ | Retire Playfair Display from the master brand? | — | **RESOLVED 2026-08-18 by A-014** — retired from the master; master stack is Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono |
 | ~~**SEM-1**~~ | Adopt the corrected semantic palette? | — | **RESOLVED 2026-08-18 by A-015** — adopted, verified on all four surfaces |
 | ~~**MIG-1**~~ | Align Mythos OS's implemented `--gold: #c9a84c` with the approved master `#D9A441` | — | **EXECUTED 2026-08-18, AUTO-7.** Real scope was 331 occurrences across 16 files (not one value, and larger than AUTO-6's own 42/12 estimate). Applied, verified across 16 real views, not deployed. Not owner-approved. See `docs/design/MIG_EXECUTION_MAPPING.md` §2a, `MYTHOS_DESIGN_DECISIONS.md` §0.5 AUTO-7 |
-| **MIG-2** | ~~Replace the 45 `Playfair Display` declarations in `css/*.css`~~ — **real scope measured AUTO-6: 93 occurrences, 14 files, not 45, and not confined to CSS** | Not yet | **ATTEMPTED AND ROLLED BACK, AUTO-8.** Substitution mechanism proven (93/93, Arabic unaffected), but a real KPI-card text-wrap regression found by visual regression; reverted rather than patched with an unauthorised design change. See `docs/design/MIG_EXECUTION_MAPPING.md` §3a |
-| **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Partial | **EXECUTED (partial), AUTO-9.** `--muted`/`--danger` corrected and applied; `--past` and the control-border token left explicitly open — no approved target for the former, too broad a blast radius for the latter without real per-selector work. See `docs/design/MIG_EXECUTION_MAPPING.md` §4 |
+| ~~**MIG-2**~~ | ~~Replace the 45 `Playfair Display` declarations in `css/*.css`~~ — real scope 93 occurrences, 14 files (AUTO-6) | — | **EXECUTED 2026-08-19, AUTO-11** — solved by role separation (display/label/data), after AUTO-8's honest rollback proved a blanket display-face swap wraps financial figures. All 93 sites classified individually and migrated; verified across 17 real views; the AUTO-8 regression selector now renders one-line in the approved Data face. Not owner-approved. See §0.5 AUTO-11 |
+| ~~**MIG-3**~~ | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | — | **COMPLETED 2026-08-19: AUTO-9 (`--muted`/`--danger`) + AUTO-12 (`--past` via the approved disabled-role mapping; A-016 control boundary applied to the stylesheet rule and 22 inline form controls, decorative borders deliberately untouched).** Not owner-approved. See §0.5 AUTO-12 |
 | **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** **CHECKED and left BLOCKED, AUTO-9** — MCC-1 is confirmed live, deployed, serving real public traffic; the O-A1 approval is classification only; a standing, unrevoked instruction never to touch MCC-1 applies. No file under `projects/command-center/` was read or touched. See `docs/design/MIG_EXECUTION_MAPPING.md` §5a |
 | **SEQ-1** | Sequential and diverging data scales for continuous data | No | **NEW, raised by 1D.** The eight-series categorical palette is approved; continuous scales were outside the 1C scope and must not be improvised (`docs/design/COLOR_SYSTEM.md` §5) |
 | ~~**TYPE-2**~~ | Font subsets, shipped weight instances, and the font performance budget | — | **RESOLVED 2026-08-18 by AUTO-4** — real files self-hosted, real numbers measured; not owner-approved, see §0.5 |
