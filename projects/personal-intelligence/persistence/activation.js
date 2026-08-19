@@ -11,10 +11,10 @@
 // pointed at a production database. This module makes `applicationReady`
 // TRUTHFULLY assertable — it does not assert it for anyone.
 //
-// DRIVER: `pg` is deliberately NOT an MPI dependency (this repository has no
-// root package.json, and idauto's vendored copy is gitignored). The
-// composition root injects the pg module (`activate({ pg: require('pg') })`)
-// or a prebuilt driver. A missing driver source is a refusal, never a
+// DRIVER: this library never requires `pg` itself. MPI owns the dependency
+// at its own package boundary (projects/personal-intelligence/package.json)
+// and the composition root injects the module (`activate({ pg: require('pg')
+// })`) or a prebuilt driver. A missing driver source is a refusal, never a
 // silent mock.
 // =====================================================
 'use strict';
@@ -92,7 +92,7 @@ function loadActivationConfig(env) {
 function buildDriver(config, pgModule) {
   if (!pgModule || typeof pgModule.Pool !== 'function') {
     const err = new Error('MPI ACTIVATION REFUSED: a pg module with .Pool is required — ' +
-      'pg is deliberately not an MPI dependency; the composition root must inject require("pg").');
+      'this module never requires pg itself; the composition root must inject require("pg").');
     err.code = 'ACTIVATION_DRIVER_REFUSED';
     throw err;
   }

@@ -54,7 +54,7 @@ Mythos OS is not an automotive product. It does not own vehicles, customers, val
 **Status:** FOUNDATION (IDA-1 complete)
 **Domain:** idauto.tn
 **Owner:** Mythos Prod
-**Repository path:** `projects/idauto/`, `docs/IDAUTO_*.md`
+**Repository:** https://github.com/othoth77/idauto (canonical since 2026-08-18; the duplicated tree here was removed by IDA-DECOUPLE-4 — see `docs/IDAUTO_STANDALONE_MIGRATION.md`)
 
 **Role:**
 

@@ -25,10 +25,15 @@ the control plane doing right now*. It is the implementation of Phase 8 of
   `ordre.mythosprod.xyz` is a searchable library of *commands* — a
   different product with a different domain and its own palette. The name
   collision is unfortunate and is worth knowing about; nothing is shared.
-- **Not multi-user.** There is no login, because there is nothing to
-  authorise: the console reads, and nginx plus the loopback binding are the
-  access boundary. A real per-user model waits for a real Mythos identity
-  service.
+- **Not multi-user.** There is one shared operator credential, not a user
+  directory: signing in proves you are the owner, and there is nothing
+  further to distinguish. A real per-user model waits for a real Mythos
+  identity service. (Superseded text, kept visible rather than quietly
+  rewritten: this section used to read "there is no login, because there is
+  nothing to authorise". That was wrong twice over — MOS-2 gave the console
+  a write surface, and even a pure read of live operational state is worth
+  authorising. MOS-v2 M-01 replaced the temporary client-side gate with the
+  server-side session described in §5.3.)
 - **Not a second copy of anything.** Every value shown is read live from the
   executor or its config files. The console stores nothing. The portfolio
   already has four divergent palettes because copies drift; this one keeps
@@ -63,7 +68,10 @@ Two, and only two.
 **The executor HTTP API**, over loopback, bearer-token authenticated. The
 token is read from the environment or an `EnvironmentFile` and never leaves
 the server process — the browser receives data, never a credential, and the
-test suite asserts the token appears in no response body.
+test suite asserts the token appears in no response body. It is a distinct
+credential from the console's own sign-in secret (§5.3): one gates what the
+console may read from the executor, the other gates who may reach the
+console at all, and neither substitutes for the other.
 
 | Console route | Executor route |
 |---|---|
@@ -180,13 +188,72 @@ removes the exception entirely** and is recorded as follow-up work in
 
 The sibling command-library service **refuses to start** without
 `MCC_ADMIN_TOKENS`, because starting without auth would expose its write
-surface. This one has no write surface, so starting without a token exposes
-nothing. It comes up and reports `token_provisioned: false`, and every data
-read returns `502 upstream_unauthorized` with a stated reason.
+surface. Here, the executor token gates only what the console may *read*
+from the control plane: without it the console comes up, reports
+`token_provisioned: false`, and returns `502 upstream_unauthorized` with a
+stated reason on every data read. Nothing is exposed, because who may reach
+the console at all is a separate control (§5.3) that fails closed.
 
 A console that starts and says what is wrong is more useful to an operator
 than a unit that will not start. The asymmetry is deliberate, and it is
 recorded in the systemd unit as well as here.
+
+### 5.3 Authentication (MOS-v2 M-01)
+
+Every request is resolved to a server-side session before any route runs.
+
+**What this replaced.** MOS-1 shipped `login-gate.js`: markup laid over the
+console, unlocked by comparing a SHA-256 digest in the browser. It hid the
+page from a person and hid nothing from `curl` — every `/api/` route
+answered anyone who asked — and it shipped the password's digest to every
+visitor for offline attack. It is deleted, not extended.
+
+**The boundary.** `reference/auth.js` resolves each request to a live
+session in `server.js`'s handler, after the structural method refusal and
+before every route:
+
+| Request | Answer |
+|---|---|
+| Any `/api/…` without a session | `401 unauthenticated`, no `data` field |
+| `GET /` or `/index.html` without a session | `302` to `/login` |
+| Any other path without a session | `401` |
+| `/login`, `/login.html`, `/login.css`, `/login.js`, `/mythos.css`, the logo | served — the six public paths, an explicit list, never a prefix |
+| `POST /api/login` | the one write route callable without a session |
+
+`/api/health` is **not** exempt. A method other than `GET`, `HEAD` or a
+registered `POST` still gets `405` first: that refusal is what makes the
+surface structurally read-only and it reveals nothing.
+
+**The secret.** `MOS_CONSOLE_SECRET` is read **only** from the file named by
+`MOS_CONSOLE_SECRET_FILE`, and only if that file's mode grants nothing to
+group or other (`0600` or tighter, re-checked by `stat` on every read). A
+value exported into the environment is ignored — the environment of a
+running service is readable through `/proc/<pid>/environ` and is inherited
+by every child process. Comparison is `crypto.timingSafeEqual` over
+fixed-width SHA-256 digests, so neither the secret's length nor how many
+leading bytes a guess matched can be timed. The value never leaves
+`auth.js`: `server.js` receives a boolean verdict and has no way to obtain
+it, so no route can serve it.
+
+**The session.** A 32-byte CSPRNG identifier, issued as
+`HttpOnly; SameSite=Strict; Secure; Path=/`, absolute eight-hour lifetime
+(`MOS_SESSION_TTL_MS`), held in process memory. Nothing anywhere in the
+console writes to `localStorage` or `sessionStorage`; the identifier appears
+in no response body, only in `Set-Cookie`. `SameSite=Strict` is what makes
+the three POST relays safe without a separate CSRF token. `POST /api/logout`
+destroys the entry server-side before clearing the cookie — clearing the
+cookie alone would leave a live session for anyone holding a copy. A
+restart invalidates every session, which is correct for an operations
+console rather than a defect to engineer around with a session store.
+
+**Failing closed.** A missing, unreadable, group-readable or secret-less
+file means nobody can sign in and therefore nobody reaches anything; the
+service still starts and names which of the four failure modes applies, on
+its first journal line and in `/api/health` (behind the session). The login
+route never distinguishes them to the caller: a wrong password and a broken
+deployment are one `401 invalid_credentials`. Ten failures from one address
+in fifteen minutes throttle it to `429`, and once engaged the throttle
+refuses the correct password too.
 
 ---
 
@@ -415,9 +482,13 @@ preflight script, the vhost, the unit, and a suite that passes.
 | `MOS_EXECUTOR_TOKEN_FILE` | — | file holding `MYTHOS_EXECUTOR_TOKEN=…` |
 | `MOS_EXECUTOR_CONFIG_DIR` | `../../mythos-ai-executor/config` | registry files |
 | `MOS_UPSTREAM_TIMEOUT_MS` | `8000` | upstream timeout |
+| `MOS_CONSOLE_SECRET_FILE` | — | path to the 0600 file holding `MOS_CONSOLE_SECRET=…` (§5.3) |
+| `MOS_SESSION_TTL_MS` | `28800000` | session lifetime, absolute |
 
-No variable holds a secret except the token, which is never logged and
-never serialised into a response.
+Exactly one variable holds a secret — `MOS_EXECUTOR_TOKEN`, never logged and
+never serialised into a response. The console's own sign-in secret is
+deliberately **not** in this table: only the *path* to it is an environment
+variable, and `MOS_CONSOLE_SECRET` set in the environment is ignored (§5.3).
 
 ---
 

@@ -87,7 +87,7 @@ async function run(argv, deps) {
   }
 
   const activate = d.activate || activation.activate;
-  const activated = await activate({ env: env, pg: d.pg || require('../../idauto/node_modules/pg') });
+  const activated = await activate({ env: env, pg: d.pg || require('pg') });
   if (!activated.enabled) throw refusal('RUNTIME_CLI_PERSISTENCE_DISABLED (MPI_PERSISTENCE_ENABLED is not true)');
 
   // Provider selection is COMMAND-shaped, never argument-shaped:

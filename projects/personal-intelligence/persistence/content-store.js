@@ -85,7 +85,7 @@ function keyFor(sha256) {
 
 // createContentStore({ adapter }) — adapter is the provider-neutral object
 // store contract already established by
-// projects/idauto/ops/adapters/s3-compatible.js: put(key, bytes, {sha256}),
+// projects/infrastructure/ops/adapters/s3-compatible.js: put(key, bytes, {sha256}),
 // get(key) -> bytes, head(key) -> {size, sha256} (throws 'missing object'
 // when absent). Injection keeps this module offline-testable and
 // provider-neutral, exactly like offhost-backup.js.

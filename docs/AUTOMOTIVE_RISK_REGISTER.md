@@ -61,7 +61,7 @@
 
 | ID | Domain | Description | L | I | Mitigation | Blocking stage | Status |
 |----|--------|-------------|---|---|-----------|----------------|--------|
-| R-O01 | All | Backups not tested — a backup without a tested restore is no backup | M | H | Restore testing programme required before any product reaches PILOT; backup status registry required | All PILOT stages | OPEN |
+| R-O01 | All | Backups not tested — a backup without a tested restore is no backup | M | H | Restore testing programme required before any product reaches PILOT; backup status registry required. 2026-08-19: one restore-verified off-host DB batch exists (2026-08-14, ageing daily); tooling relocated to `projects/infrastructure/ops/` and rehearsed end-to-end (C1→O→C2→R, synthetic, local adapter); live round trip, recurring schedule and media off-host copy are OWNER-GATE-B1/B2/B3 in `docs/OFF_HOST_BACKUP_GATE.md` §8 | All PILOT stages | OPEN — owner-gated |
 | R-O02 | All | Secrets leakage — `google_config.php`, `ACCES.txt`, `appdata/`, `documents/` must never be committed | H | H | Committed constraints in AGENTS.md; pre-commit or CI check recommended | Immediate | OPEN |
 | R-O03 | ID Auto / AutoValeur | Uncontrolled Mythos Super Admin access — no access review schedule or access revocation procedure | M | H | Periodic access review scheduled in Operating Model; all access audit-logged | IDA-2 | OPEN |
 | R-O04 | All | Single-VPS dependency — all products on one VPS with no defined disaster recovery | M | H | Multi-site or cold-standby DR plan required before national-scale launch | Production scale | OPEN |
