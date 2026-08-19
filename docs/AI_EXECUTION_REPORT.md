@@ -4,6 +4,45 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260819192023-7ba7th` — BLOCKED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | AI Operating Layer v1 — Close Final Security Gap |
+| Provider / model | claude-code / default |
+| Execution profile | repo-test |
+| Started | 2026-08-19T19:20:23.050Z |
+| Ended | 2026-08-19T19:27:50.179Z |
+| Status | **BLOCKED** |
+| Claude session | `67f03fee-6b64-4919-b5c2-3448c8294370` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `0f8bcc379057e310241fbb1688114cedd5c5822a` |
+| Git verified | null |
+
+**Summary:** Diagnosed the governance-key ownership FAIL completely against the live host but could not execute the fix. Root cause: the cage's load-bearing property ('the session user cannot read the signing key', governance-verify.js:36-40) assumed missions run as `ubuntu` and the relay as `deploy`; autonomous missions now execute AS `deploy` (verified uid=1001), and the key is root:deploy 0640, so the mission identity and the relay identity are the same. The suite reports 87 passed / 2 failed (the brief undercounted: both the key-read and approval-store-list assertions fail, same root cause). Verified read-only that the root-owned relay binaries are intact, unwritable by deploy, and the installed verifier is byte-identical to the repo source. Designed the minimal secure fix: a memberless system group `mythos-gov` owning the key and store, granted to the relay PROCESS via SupplementaryGroups= in mythos-git-push.service so systemd hands it at exec while `deploy` logins and missions never receive it; the root-only approve tool is unaffected. Requirement 5 answered with evidence: deploy's docker membership IS an autonomous-profile violation and is root-equivalent (daemon confirmed reachable as deploy, api=1.55) — it is what completes the forgery path, since approvals/ is 2750 and denies group write, so reading the key alone is insufficient but docker root supplies the write; it is NOT required by the runtime path (the sole repo docker use is deploy/install.sh, a one-time n8n installer already using `sudo docker`), and I did not change it because AGENTS.md 25.3 makes Docker membership execution level 3. Execution blocked by three environmental limits: Write/Edit tools disabled and bash heredocs rejected by the command guard, so no file could be authored; git add/commit/merge/rebase/pull all denied, so nothing could be committed or pushed; and no root, so the two live-host assertions cannot flip. I deliberately left the production checkout clean rather than strand uncommitted work (AGENTS.md 7/22). Separately found a pre-existing delivery stall: local main eec4d00 and origin/main 0f8bcc3 have diverged (merge-base --is-ancestor exits 1), so the relay currently refuses to push main and executor report commits are stranded on this host. No security invariant was weakened and no test was modified.
+
+**Tests:**
+- node tests/mythos-governance-invariant-test.js: 87 passed, 2 failed (baseline, unchanged — 'isolation: this user cannot read /etc/mythos/governance.key' and 'isolation: this user cannot list the live approval store')
+- live host inspection (read-only, node fs.statSync/accessSync): key root:deploy 0640 readable by deploy; approvals root:deploy 2750 listable not writable; /usr/local/bin/mythos-git-push and /usr/local/lib/mythos/governance-verify.js root:root and unwritable by deploy
+- installed-vs-repo verifier sha256 drift check: identical
+- docker socket reachability as deploy (GET /version, non-mutating): REACHABLE, api=1.55 server=29.6.1
+- git merge-base --is-ancestor origin/main HEAD: exit 1 (local main diverged; relay will refuse delivery)
+
+**Residual risks:**
+- UNFIXED, CRITICAL: the autonomous mission user `deploy` can still read /etc/mythos/governance.key and list the live approval store — the governance cage's stated load-bearing property is currently false in production.
+- UNFIXED, CRITICAL: `deploy` is in the `docker` group with a reachable daemon socket. This is root-equivalent and defeats ANY file-ownership-based governance boundary, including the fix designed above. Until removed, that fix stops accidents and honest code paths, not a hostile mission.
+- OPERATIONAL: local main is diverged from origin/main, so the delivery relay is refusing to push main; committed executor work is stranded on this host and is not reaching GitHub.
+- The comment block at governance-verify.js:36-46 documents an architecture that no longer matches reality (claims missions run as `ubuntu`); it will mislead the next reader until corrected.
+- The planned fix touches projects/mythos-ai-executor/service/, itself a protected path, so its own delivery will require a root-signed approval bound to that commit SHA.
+
+**Next stage:** Operator, in order: (1) resolve the main divergence so the relay can deliver again (fast-forward or rebase eec4d00 onto 0f8bcc3); (2) re-dispatch this task to a session that has file-edit and git-write capability, or apply the change manually — add `SupplementaryGroups=mythos-gov` to projects/mythos-ai-executor/service/mythos-git-push.service, correct the stale identity claim at governance-verify.js:36-46, and add the root harden script; (3) as root: groupadd --system mythos-gov (no members), install the updated unit, systemctl daemon-reload, then chown root:mythos-gov /etc/mythos/governance.key (0640) and /var/lib/mythos/governance{,/approvals,/log}, and verify with `runuser -u deploy -- test -r /etc/mythos/governance.key` failing while `runuser -u deploy -g mythos-gov -- test -r ...` succeeds; (4) re-run node tests/mythos-governance-invariant-test.js expecting 89/0; (5) sudo mythos-governance-approve --commit <sha> --by "<human>" --reason "<why>" so the relay will deliver the commit. Separately and as an owner decision under AGENTS.md 25.3: remove `deploy` from the docker group (no runtime dependency found). Do NOT start M-13.
+
+
+---
+
 ## Task `t-20260819184126-m5ngzc` — COMPLETED
 
 | Field | Value |
