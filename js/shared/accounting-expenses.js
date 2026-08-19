@@ -58,7 +58,7 @@ function renderExpensesByPaymentType(items) {
               </tr>
             `;
           }).join('')}
-          <tr style="border-top:2px solid rgba(201,168,76,0.3); font-weight:700; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04));">
+          <tr style="border-top:2px solid rgba(217,164,65,0.3); font-weight:700; background:linear-gradient(135deg, rgba(217,164,65,0.08), rgba(217,164,65,0.04));">
             <td><strong>TOTAL</strong></td>
             <td style="text-align:center;">${items.length}</td>
             <td style="text-align:right; color:var(--gold-light);">${fmtMoney(totalAmount)}</td>
@@ -132,9 +132,9 @@ function renderExpenseCategoryManager() {
             <div style="font-size:40px; margin-bottom:12px;">${cat.icon}</div>
             <div style="font-family:'Playfair Display',serif; font-size:18px; color:${cat.color}; font-weight:800; margin-bottom:12px;">${cat.name}</div>
             <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px;">
-              ${cat.subcategories.map(sub => `<span style="background:rgba(201,168,76,0.1); color:var(--muted); padding:4px 8px; border-radius:4px; font-size:11px;">${sub}</span>`).join('')}
+              ${cat.subcategories.map(sub => `<span style="background:rgba(217,164,65,0.1); color:var(--muted); padding:4px 8px; border-radius:4px; font-size:11px;">${sub}</span>`).join('')}
             </div>
-            <div style="display:flex; gap:8px; padding-top:12px; border-top:1px solid rgba(201,168,76,0.2);">
+            <div style="display:flex; gap:8px; padding-top:12px; border-top:1px solid rgba(217,164,65,0.2);">
               <button class="btn btn-outline btn-sm" style="flex:1;" onclick="editCategory('${cat.id}')" title="Modifier">✏️</button>
               <button class="btn btn-danger btn-sm" style="flex:1;" onclick="deleteCategory('${cat.id}')" title="Supprimer">✕</button>
             </div>
@@ -142,7 +142,7 @@ function renderExpenseCategoryManager() {
         `).join('')}
       </div>
 
-      <div style="margin-top:32px; padding:20px; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04)); border:1px solid rgba(201,168,76,0.15); border-radius:12px;">
+      <div style="margin-top:32px; padding:20px; background:linear-gradient(135deg, rgba(217,164,65,0.08), rgba(217,164,65,0.04)); border:1px solid rgba(217,164,65,0.15); border-radius:12px;">
         <div style="color:var(--muted); font-size:12px; margin-bottom:8px;">ℹ️ Conseil</div>
         <div style="color:var(--muted); font-size:12px; line-height:1.6;">Les catégories sont utilisées pour organiser vos dépenses. Vous pouvez créer des catégories personnalisées adaptées à votre activité. Les sous-catégories permettent une organisation plus granulaire.</div>
       </div>
@@ -160,7 +160,7 @@ function openCategoryModal(categoryId = null) {
   document.getElementById('category-edit-id').value = categoryId || '';
   document.getElementById('category-name').value = category?.name || '';
   document.getElementById('category-icon').value = category?.icon || '📋';
-  document.getElementById('category-color').value = category?.color || '#c9a84c';
+  document.getElementById('category-color').value = category?.color || '#D9A441';
 
   const subInput = document.getElementById('category-subcategories');
   subInput.value = category ? category.subcategories.join('\n') : '';
@@ -298,7 +298,7 @@ function renderExpenseReportByCategory() {
         }).join('')}
       </div>
 
-      <div style="margin-top:24px; padding:20px; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04)); border:1px solid rgba(201,168,76,0.15); border-radius:12px;">
+      <div style="margin-top:24px; padding:20px; background:linear-gradient(135deg, rgba(217,164,65,0.08), rgba(217,164,65,0.04)); border:1px solid rgba(217,164,65,0.15); border-radius:12px;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <div style="color:var(--muted); font-size:12px; text-transform:uppercase; margin-bottom:4px;">Total des dépenses</div>

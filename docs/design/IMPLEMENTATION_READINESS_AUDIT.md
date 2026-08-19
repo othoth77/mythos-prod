@@ -4,7 +4,7 @@
 **Date:** 2026-08-18 UTC
 **Status:** **AUDIT ONLY. No implementation performed by this document.**
 
-**Purpose.** The design system (1A–1I, AUTO-1 through AUTO-6) is complete as a
+**Purpose.** The design system (1A–1I, AUTO-1 through AUTO-7) is complete as a
 specification. This audit asks the next honest question: what would actually
 have to be true before any of it could be implemented against a real
 application, and where does that break down today? It is a gap analysis, not
@@ -17,7 +17,7 @@ is what has to hold true across all of them.
 
 | Layer | Specified | Machine-readable | Implemented anywhere | Verified in a real browser |
 |---|---|---|---|---|
-| Colour | ✅ A-013/015/016 | ✅ `tokens.css` | ❌ | ❌ |
+| Colour | ✅ A-013/015/016 | ✅ `tokens.css` | ⚠️ **Mythos Gold only** — Mythos Prod's `--gold`/`--gold-light`/`--gold-dim` (MIG-1, AUTO-7); the rest of the colour system (ink/paper ramps, semantic hues) is not | ⚠️ **Locally only** — `tools/visual-verify.js` against an isolated copy, 16 real views; never verified against the deployed production instance |
 | Typography | ✅ A-014 | ✅ `tokens.css` + `fonts.css`, real WOFF2 files (AUTO-4) | ❌ | ❌ |
 | Grid/spacing | ✅ A-009, AUTO-3 | ✅ `tokens.css` | ❌ | ❌ |
 | Radius/elevation | ✅ A-009, AUTO-3 (shadows) | ✅ `tokens.css` | ❌ | ❌ |
@@ -25,8 +25,11 @@ is what has to hold true across all of them.
 | Motion | ✅ 1G, AUTO-3 (MOTION-1) | ✅ durations/easing only | ❌ | ❌ |
 | Logo/mark | ✅ AUTO-1 | ✅ 14 SVG masters | ❌ | ❌ |
 
-**Reading this table honestly:** every row's rightmost two columns are empty.
-**Nothing in this design system has been implemented or verified in a running
+**Reading this table honestly:** one cell is no longer empty — Mythos Gold,
+one value out of the whole system, is implemented in Mythos Prod's real
+source and locally verified (**AUTO-7**). Every other row's rightmost two
+columns are still empty. **The overwhelming majority of this design system
+has still not been implemented or verified in a running
 application, anywhere, at any point in this program.** The prototypes
 (`docs/design/prototypes/`) are static demonstrations, not implementations —
 they prove the specification is internally consistent and renders correctly
@@ -43,33 +46,31 @@ pilot-verified, but full execution is not done. §2.3's missing component
 framework, §2.4's unauthorised migrations, and §2.5's missing
 live-verification loop are otherwise unchanged.
 
-### 2.1 A resolved token conflict (C-006) — **tooling gap closed, AUTO-6; execution still not done**
+### 2.1 A resolved token conflict (C-006) — **tooling gap closed AUTO-6; MIG-1 executed AUTO-7; C-006 itself still open**
 
 **Was "not ready" because this session had no way to run full-application
 visual regression against `css/main.css`, the real, currently-used Mythos
 Prod stylesheet.** **AUTO-6 built and proved `tools/visual-verify.js`**
-(repo root) — it drives the real application locally (isolated temp copy,
-zero real data or credentials, hard-coded to refuse any non-loopback host)
-and was used for a real pilot: the `--gold`/`--gold-light`/`--gold-dim`
-custom-property layer of **MIG-1** was changed to the approved values in an
-isolated copy and pixel-diffed against a real "before" screenshot —
-0.04–0.54% of frame changed, confined entirely to gold-coloured elements,
-zero layout regression. Full write-up: `MIG_EXECUTION_MAPPING.md`.
+(repo root, extended AUTO-7 with a `sv:<view>` mode reaching every
+accounting module through the real router) — drives the real application
+locally, zero real data or credentials, hard-coded to refuse any
+non-loopback host. **AUTO-7 used it for a real execution, not just a
+pilot:** all 331 real occurrences of the old gold value (16 files — the
+true scope, larger than AUTO-6's own 42/12 estimate) were substituted to
+the approved values and verified across 16 real application views. Full
+write-up: `MIG_EXECUTION_MAPPING.md` §2a.
 
-**What this does NOT close:** the token conflict itself is still live —
+**What this does NOT close:** the token *conflict* itself is still live —
 `--mythos-*` still means two different things in `css/main.css` and
 `mythos-os-console`'s own system (**C-006**), and the *canonical* system
-(`tokens.css`) is still not implemented anywhere. What AUTO-6 closes is the
-**tooling gap** blocking verification; executing MIG-1/2/3 correctly (which
-`MIG_EXECUTION_MAPPING.md` shows is real, larger, multi-file work — 42 and
-93 occurrences respectively, not 1 and 45) is still not done, and this
-audit does not claim otherwise.
+(`tokens.css`) is still not implemented anywhere. MIG-1 (gold) is done;
+**MIG-2 (Playfair, 93 occurrences/14 files) and MIG-3 (semantic/
+control-border tokens) are not**, and this audit does not claim otherwise.
 
-**What closes it fully:** executing the mapped changes in
-`MIG_EXECUTION_MAPPING.md` §2/§3, re-running `tools/visual-verify.js`
-against an expanded view list that reaches the accounting/fournisseurs
-modules (the current pilot's three views do not), at every breakpoint the
-responsive spec defines.
+**What closes C-006 fully:** executing MIG-2 and MIG-3 the same way MIG-1
+was executed, then reconciling `mythos-os-console`'s own `--mythos-*`
+system against the canonical one — a separate, smaller-scope target
+(`MIG-4`, tracked in §2.4).
 
 ### 2.2 Real font files (TYPE-2, GRID-2) — **CLOSED 2026-08-18, AUTO-4 / AUTO-5**
 
@@ -113,12 +114,11 @@ has no bundler either).
 
 ### 2.4 An authorised migration target (MIG-1 – MIG-4)
 
-**Not ready.** All four migrations are recorded and explicitly **not
-actioned**: `MIG-1` (gold, 42 occurrences/12 files — measured, AUTO-6),
-`MIG-2` (Playfair Display, 93 occurrences/14 files — measured, AUTO-6,
-larger than the "45" this line previously said), `MIG-3`
-(semantic/control-border tokens, scope noted not fully mapped), `MIG-4`
-(Command Center palette).
+~~**Not ready**~~ **for MIG-1: done.** ~~`MIG-1`~~ (gold, 331 occurrences/16
+files — measured AUTO-6, executed AUTO-7) is complete and verified. Still
+not actioned: `MIG-2` (Playfair Display, 93 occurrences/14 files —
+measured, AUTO-6), `MIG-3` (semantic/control-border tokens, scope noted not
+fully mapped), `MIG-4` (Command Center palette).
 Each requires its own authorisation beyond the design specification itself —
 **approval of a specification was never authorisation to implement it**, a
 distinction this program has held since 1A.

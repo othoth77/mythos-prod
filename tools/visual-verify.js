@@ -164,6 +164,12 @@ var VIEW_NAV_IDS = {
   'nav-conformite': 'nav-conformite',
 };
 
+// Views reached through window.showView(name) (js/core/router.js) rather
+// than a top-level #nav-* click — mostly nested accounting/comptabilité
+// modules and other non-sidebar views. Prefix a view name with "sv:" on
+// --views to use this path, e.g. --views sv:comptabilite,sv:compta-bank
+var SHOWVIEW_PREFIX = 'sv:';
+
 async function capture() {
   var sourceRoot = arg('source', REPO_ROOT);
   var outDir = arg('out', path.join(os.tmpdir(), 'mythos-vr-shots'));
@@ -198,7 +204,15 @@ async function capture() {
       await page.waitForTimeout(1200);
 
       for (var v of views) {
-        if (v !== 'dashboard') {
+        var fileLabel = v;
+        if (v.indexOf(SHOWVIEW_PREFIX) === 0) {
+          var viewName = v.slice(SHOWVIEW_PREFIX.length);
+          fileLabel = viewName;
+          await page.evaluate(function (name) {
+            if (typeof window.showView === 'function') window.showView(name);
+          }, viewName);
+          await page.waitForTimeout(500);
+        } else if (v !== 'dashboard') {
           var navId = VIEW_NAV_IDS[v] || v;
           var el = await page.$('#' + navId);
           if (el) {
@@ -208,7 +222,7 @@ async function capture() {
             process.stderr.write('visual-verify: view "' + v + '" has no #' + navId + ', skipping click\n');
           }
         }
-        var shotPath = path.join(outDir, label + '-' + v + '.png');
+        var shotPath = path.join(outDir, label + '-' + fileLabel + '.png');
         await page.screenshot({ path: shotPath, fullPage: true });
         process.stdout.write('wrote ' + shotPath + '\n');
       }

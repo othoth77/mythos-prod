@@ -46,7 +46,7 @@ function renderPurchasesPage() {
 
   html += '<div style="width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:12px;">' +
     '<table class="stat-table" style="width:100%; table-layout:fixed; min-width:1000px;">' +
-    '<thead><tr style="background:linear-gradient(145deg,#1a1a1a,#0e0e0e);border:1px solid #c9a84c;border-bottom:2px solid #c9a84c;"><th style="width:3%;text-align:center;color:#c9a84c;font-weight:700;padding:6px 8px;"><input type="checkbox" onchange="togglePurchaseSelectAll(this.checked)"></th><th style="width:10%;color:#c9a84c;font-weight:700;padding:6px 8px;">N°</th><th style="width:10%;color:#c9a84c;font-weight:700;padding:6px 8px;">Date</th><th style="width:20%;color:#c9a84c;font-weight:700;padding:6px 8px;">Fournisseur</th><th style="width:18%;color:#c9a84c;font-weight:700;padding:6px 8px;">Notes</th><th style="width:15%;color:#c9a84c;font-weight:700;padding:6px 8px;">Mode de paiement</th><th style="width:12%;color:#c9a84c;font-weight:700;padding:6px 8px;text-align:right;">TVA Total</th><th style="width:12%;color:#c9a84c;font-weight:700;padding:6px 8px;text-align:right;">Montant</th></tr></thead>' +
+    '<thead><tr style="background:linear-gradient(145deg,#1a1a1a,#0e0e0e);border:1px solid #D9A441;border-bottom:2px solid #D9A441;"><th style="width:3%;text-align:center;color:#D9A441;font-weight:700;padding:6px 8px;"><input type="checkbox" onchange="togglePurchaseSelectAll(this.checked)"></th><th style="width:10%;color:#D9A441;font-weight:700;padding:6px 8px;">N°</th><th style="width:10%;color:#D9A441;font-weight:700;padding:6px 8px;">Date</th><th style="width:20%;color:#D9A441;font-weight:700;padding:6px 8px;">Fournisseur</th><th style="width:18%;color:#D9A441;font-weight:700;padding:6px 8px;">Notes</th><th style="width:15%;color:#D9A441;font-weight:700;padding:6px 8px;">Mode de paiement</th><th style="width:12%;color:#D9A441;font-weight:700;padding:6px 8px;text-align:right;">TVA Total</th><th style="width:12%;color:#D9A441;font-weight:700;padding:6px 8px;text-align:right;">Montant</th></tr></thead>' +
     '<tbody>' + items.map(p => {
       const tvaTotalAmount = (num(p.tva19Amount || 0) + num(p.tva13Amount || 0) + num(p.tva7Amount || 0));
       return `<tr class="compta-detail-row" style="display:table-row;cursor:pointer;" onclick="openPurchaseModal('${p.id}')">` +
@@ -56,7 +56,7 @@ function renderPurchasesPage() {
         `<td style="padding:6px 8px;word-break:break-word;"><span style="font-size:18px;margin-right:4px;">${getCategoryIcon(p.category)}</span>${esc(p.supplierName || '')}</td>` +
         `<td style="color:#999;font-size:12px;padding:6px 8px;word-break:break-word;">${esc(p.notes || '')}</td>` +
         `<td style="color:#999;font-size:12px;padding:6px 8px;word-break:break-word;">${esc(p.payment || '')}</td>` +
-        `<td style="text-align:right;color:#c9a84c;font-weight:600;padding:6px 8px;word-break:break-word;">${fmtMoney(tvaTotalAmount)}</td>` +
+        `<td style="text-align:right;color:#D9A441;font-weight:600;padding:6px 8px;word-break:break-word;">${fmtMoney(tvaTotalAmount)}</td>` +
         `<td style="text-align:right;font-weight:600;padding:6px 8px;word-break:break-word;">${fmtMoney(p.amount)}</td>` +
       `</tr>`;
     }).join('') + '</tbody></table></div>';

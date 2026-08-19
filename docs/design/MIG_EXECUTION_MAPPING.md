@@ -1,9 +1,11 @@
 # MIG-1 / MIG-2 / MIG-3 execution mapping
 
-**Stage:** AUTO-6, delegated mandate, continuation pass
+**Stage:** AUTO-6 (mapping/tooling) → AUTO-7 (MIG-1 execution), delegated
+mandate, continuation passes
 **Date:** 2026-08-18 UTC
-**Status:** **MAPPING AND TOOLING ONLY. No migration is executed by this
-document.** `css/main.css` and every other file it maps is unmodified.
+**Status:** **MIG-1 EXECUTED** (§2a) — real gold migration applied across 16
+files, 331 occurrences, verified. **MIG-2 and MIG-3 remain mapping/scope
+only** — not executed. See each section for its actual status.
 
 **Purpose.** `IMPLEMENTATION_READINESS_AUDIT.md` §2.1 and `MIGRATION_PLANS.md`
 §1.1 named `css/main.css` reconciliation as blocked on "full-application
@@ -93,26 +95,89 @@ JS-template-driven filter panel). That inconsistency is worse than doing
 nothing — it is real drift, not a completed migration, and it is exactly
 what this stage's pilot exists to make visible before anyone ships it.
 
-**Execution plan, if and when authorised:**
-1. Change the three CSS declarations (`css/main.css` lines 6–8) — already
-   pilot-verified clean, above.
-2. In the same change, update all 39 JS/HTML literal occurrences listed
-   above to the same three values (`#D9A441`, `#EBCE99`, `rgba(217,164,65,…)`,
-   matched to whichever role — base/light/dim — each occurrence plays).
-3. Re-run `tools/visual-verify.js` with an expanded view list that visits
-   the accounting/fournisseurs modules specifically (the current pilot's
-   three views do not reach them — the nav requires opening those sections
-   first; the tool supports adding `nav-*` IDs, but the accounting views
-   are reached through in-page tabs, not top-level nav, so the view list
-   needs a small extension — noted here rather than pretended solved).
-4. Run the existing suites (no dedicated test file covers `css/main.css`
-   or its consuming JS today — confirmed, none exists at repository root).
-5. `git diff --stat` should show exactly the 12 files above, nothing else.
+## 2a. MIG-1 — EXECUTED 2026-08-18, real scope was even larger than §2's own count
 
-**Rollback:** a single `git revert` of the one migration commit — every
-value above traces to one source value each, no derived state, no
-migration of stored data (`appdata/`'s JSON is untouched by any of this;
-these are presentation-layer literals only).
+**§2's own "42 occurrences, 12 files" undercounted, too.** It was a **line**
+count (`grep -c`), not an occurrence count — several lines carry more than
+one match (a gradient stop pair, a multi-cell table header), and it
+searched only the solid hex `#c9a84c`, missing the `rgba(201,168,76,X)` dim
+variant entirely — which turned out to be the **majority** of real usage.
+The true, occurrence-exact count, found by re-auditing before execution:
+
+```
+331 substitutions across 16 files (not 42 across 12):
+  css/main.css 111, css/professional.css 1, index.html 77, js/app.js 5,
+  js/shared/accounting-bank.js 23, accounting-cash.js 7,
+  accounting-expenses.js 12, accounting-overview.js 9,
+  accounting-purchases.js 11, accounting-reports.js 28,
+  accounting-suppliers.js 20, accounting-tva.js 2, fournisseurs.js 9,
+  inscriptions.js 6, natures.js 5, representations.js 5
+```
+
+Three files (`accounting-overview.js`, `accounting-reports.js`,
+`natures.js`) use **only** the rgba dim form and were entirely invisible to
+§2's original hex-only search.
+
+**What was done.** All 331 occurrences substituted mechanically and
+exactly: `#c9a84c`→`#D9A441`, `#e4c472`→`#EBCE99` (case-insensitive,
+including the URL-encoded `%23c9a84c`/`%23e4c472` forms inside two SVG
+data-URIs in `css/main.css`), `rgba(201,168,76,ALPHA)`→
+`rgba(217,164,65,ALPHA)` with the exact original alpha and comma-spacing
+preserved per occurrence. This is a deterministic 1:1 value substitution,
+not an inferred one — every source value maps to exactly one target value,
+with no role-guessing.
+
+**Two real bugs caught before commit, not after:**
+1. **Line-ending corruption.** The substitution script's first run used
+   Python's default text-mode I/O, which silently converts `css/main.css`,
+   `css/professional.css` and `index.html`'s native CRLF line endings to
+   LF — turning a targeted ~330-value change into a spurious 1,258+3,304+
+   4,392-line diff with every line falsely flagged changed. Caught by
+   `git diff --stat` looking implausibly large for the change description,
+   confirmed with `od -c` showing `\r\n` in the tracked blob vs `\n` after
+   the script ran. Fixed by re-running with `newline=''` on both read and
+   write, which disables Python's newline translation entirely. Reverted
+   and redone from a clean `git checkout --`, not patched over.
+2. **An orphaned DOM selector.** `js/shared/accounting-bank.js:172` queries
+   `contractSelect.closest('div[style*="rgba(201,168,76"]')` — a
+   **truncated** rgba fragment used as a CSS attribute-contains selector,
+   not a complete `rgba(...)` call, so the exact-value regex above did not
+   touch it. Would have silently broken a UI behaviour (a `— OU —`
+   separator failing to render) the moment the real style attribute values
+   changed underneath it, with no error thrown. Found by a full post-
+   substitution re-grep for any remaining trace of the old RGB triplet in
+   any form, not assumed absent. Fixed with the same target value.
+
+**Verification, real, not asserted:**
+- `node --check` clean on all 13 touched JS files.
+- Zero remaining trace of `c9a84c`/`e4c472`/`rgba(201,168,76,…)` anywhere
+  in the touched surface, confirmed by re-grep after the fix.
+- CRLF preserved exactly in the three files that had it (byte-checked).
+- `tools/visual-verify.js`, extended with a `sv:<view>` mode that calls
+  `window.showView(name)` directly (`js/core/router.js`'s real dispatcher)
+  rather than only clicking top-level nav buttons, screenshotted **16
+  views** before and after — the dashboard/tasks/registrations from the
+  original pilot, plus `comptabilite`, `compta-suppliers`,
+  `compta-purchases`, `compta-expenses`, `compta-bank`, `compta-cash`,
+  `compta-categories`, `compta-reconciliation`, `fournisseurs`, `natures`,
+  `representations`, `appel`, `conformite` — closing the exact coverage
+  gap §5 originally named.
+- Pixel diff per view: **0.21%–1.53% of frame changed**, every view.
+  Manually reviewed the three highest-diff views
+  (`comptabilite` 1.53%, `compta-suppliers` 1.45%, `representations`
+  1.20%) — layout, text, icons, and every non-gold colour unchanged; only
+  gold-coloured chrome shifted tone. No missing content, no broken table,
+  no layout shift, in any of the 16.
+- Browser console captured across all 11 accounting-module views: **3
+  errors, all `net::ERR_CONNECTION_RESET`/`ERR_TUNNEL_CONNECTION_FAILED`**
+  — external Google Fonts CDN requests failing in this sandboxed
+  environment's network, present regardless of this change (no code
+  touched here fetches anything external) — **zero JS logic errors**.
+
+**Rollback:** a single `git revert` of the migration commit returns every
+one of the 331 values to its exact prior literal — no derived state, no
+stored-data migration (`appdata/` does not exist in this checkout and is
+untouched by any of this; these are presentation-layer literals only).
 
 ---
 
@@ -172,33 +237,32 @@ directly to MIG-3 whenever it is prioritised.
 
 ---
 
-## 5. What this stage does and does not authorise
+## 5. What has been done, and what has not
 
-**Built and verified, real and reusable:**
-- `tools/visual-verify.js` — drives the real application locally, proven
-  against a real scoped change, zero real data or credentials required,
-  cannot target production (hard-coded guard).
-- Exact, re-verified scope for MIG-1 (42 occurrences, 12 files) and MIG-2
-  (93 occurrences, 14 files) — both larger than previously recorded.
-- One real pixel-diff result: the MIG-1 CSS-custom-property layer alone is
-  visually clean (0.04–0.54% of frame, confined to gold elements).
+**Built, verified, and reusable:**
+- `tools/visual-verify.js` — drives the real application locally, cannot
+  target production (hard-coded guard); extended (AUTO-7) with a
+  `sv:<view>` mode that calls the real router (`window.showView`) to reach
+  nested accounting/comptabilité modules, not just top-level nav.
+- Exact, re-verified scope for MIG-1 (**331 occurrences, 16 files** — see
+  §2a; the earlier "42/12" in §2 was itself an undercount) and MIG-2 (93
+  occurrences, 14 files).
 
-**Not done, and not claimed:**
-- MIG-1 is **not executed** — only its CSS-property third is pilot-verified;
-  the 39 JS/HTML literal sites are unmodified.
-- MIG-2 and MIG-3 are **not executed** and not pilot-verified at all.
-- No accounting/financial view was screenshotted (the pilot's three views
-  don't reach them) — the JS-literal-heavy occurrences in MIG-1/2 are
-  concentrated exactly there, so this is a real, named gap in the pilot's
-  coverage, not an oversight glossed over.
-- `css/professional.css`, `css/dashboard.css`, `css/layout.css`,
-  `css/forms.css`, `css/facture.css`, `css/calendrier.css`, `css/print.css`
-  were copied into the pilot's isolated instance (so they rendered
-  correctly) but **not individually diffed** — only the three named views
-  were screenshotted, and not every stylesheet's rules are necessarily
-  exercised by them.
+**MIG-1 — EXECUTED, AUTO-7.** All 331 occurrences applied, verified across
+16 real application views (dashboard through every accounting module),
+zero remaining trace of the old values, two real bugs caught and fixed
+before commit (CRLF corruption, one orphaned DOM selector). See §2a for
+the full record. **This is the one migration in this entire document that
+moved from "mapped" to "done."**
 
-**This is deliberately a "ready to execute," not "executed," deliverable** —
-consistent with `AUTO-2`'s original reasoning for why this program does not
-touch `css/main.css` without real verification, now with a real verification
-path instead of none.
+**Still not done, and not claimed otherwise:**
+- MIG-2 and MIG-3 are **not executed** and not pilot-verified.
+- `css/dashboard.css`, `css/layout.css`, `css/forms.css`, `css/facture.css`,
+  `css/calendrier.css`, `css/print.css` were copied into every pilot run
+  (so they rendered correctly as part of the app shell) but **contain no
+  gold literals themselves** (confirmed: MIG-1's audit found matches only
+  in `css/main.css` and `css/professional.css` among the stylesheets) —
+  not individually diffed beyond that.
+- The Google Fonts CDN network errors noted in §2a's console check are
+  pre-existing (unrelated to any change here) and not investigated
+  further — out of scope for a gold-token migration.

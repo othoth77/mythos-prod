@@ -46,10 +46,10 @@ function selectTVARate(rate) {
 
     if (htFieldEl) {
       if (r === rate) {
-        htFieldEl.style.borderColor = '#c9a84c';
+        htFieldEl.style.borderColor = '#D9A441';
         htFieldEl.style.backgroundColor = '#1a1a1a';
         if (tvaFieldEl) {
-          tvaFieldEl.style.borderColor = '#c9a84c';
+          tvaFieldEl.style.borderColor = '#D9A441';
           tvaFieldEl.style.backgroundColor = '#1a1a1a';
         }
       } else {
