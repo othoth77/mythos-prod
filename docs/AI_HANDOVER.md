@@ -1,7 +1,88 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** OTH-K2-W **AI OPERATING LAYER ↔ KNOWLEDGE WIRING DELIVERED — EXECUTOR-SIDE READ-ONLY CONSUMER (FAIL-CLOSED CONFIG, OPERATION ALLOWLIST, EXPLICIT-ASOF, CLAIM-NEVER-FACT/QUARANTINE PRESENTATION), 39/0 NEW SUITE; MOS-V2 GATE + OTHK-0/1/2 + EXECUTOR SUITE ALL GREEN; OTH-K2 TRACK A NOW FULLY REPOSITORY-COMPLETE; TRACK B EXTERNAL BLOCKERS RE-RECORDED, NONE BYPASSED.**
+**From:** OTH-K3 **KNOWLEDGE TRUST MODEL + PRIVATE-STORE ARCHITECTURE + TRACK B READINESS + INDEPENDENT SECURITY AUDIT — READ-ONLY TRUST DERIVATION (CONFIDENCE NEVER TRUTH), OPUS ARCHITECTURE REVIEW (APPROVE-WITH-CHANGES, 13/13 DONE), OPUS SECURITY AUDIT (PASS-WITH-FINDINGS, F1–F15 ALL FIXED), OPUS FINAL REVIEW = APPROVE, HAIKU REPRODUCTION = ALL CONTROLS CONFIRMED. TRACK A REPOSITORY-COMPLETE; TRACK B FIXTURE-COMPLETE / REAL-DATA OWNER-BLOCKED; NO SECRETS, NO REPO-LOCAL STORE, NO HIDDEN WRITE PATH.**
+
+## OTH-K3 — knowledge trust model, private store, Track B readiness, security audit (2026-08-19)
+
+### Stage
+
+OTH-K3 on branch `claude/oth-knowledge-master-completion-wxuh6z` (from
+main `0f8bcc3`). Completes every repository-executable OTH-KNOWLEDGE item
+beyond Track A; all remaining items are owner/operator actions, each
+recorded with owner, blocker, required input, and ready procedure.
+
+### Delivered
+
+- **Trust model** (`projects/oth-knowledge/lib/trust.js` +
+  `config/trust-model.json`): strictly READ-ONLY derivation (zero store
+  writes, test-pinned). Authority tiers per source class (fail-closed
+  registry closed both ways against source-classes); statement category
+  from kind × tier × assertion class (model-output/imported content never
+  assesses as an accepted fact, at ANY statement kind); explicit-`asOf`
+  freshness (unknown-date stale fail-closed, `not-yet-true`, stale ≠
+  false); corroboration by (class, collection, content-anchor)
+  independence (duplicates/derived/self/unresolved listed but never
+  counted; `also_present_in` labelled separately); contradiction as of
+  `decided_at`; sticky quarantine across both tag spellings;
+  capture-aware version-at-asOf; closed non-truth-shaped summary enum
+  with `not_a_truth_value:true`, `basis[]`, and full `trace`. Surfaced
+  read-only via `knowledge-service.assessTrust` and the executor
+  `READ_OPS` allowlist (executor-side `MYTHOS_KNOWLEDGE_ASOF` guard).
+- **Private store architecture** (`docs/PRIVATE_STORE_ARCHITECTURE.md`):
+  location/permissions/backup/restore/DR/encryption/retention/migration
+  contract; writer-path repo-containment now enforced in `store.js`.
+- **Track B readiness** (`docs/OTH_TRACK_B_READINESS.md`): per-source
+  contracts, fixture-COMPLETE / real-data OWNER-BLOCKED, unblock procedure.
+- **Operator scripts** (`projects/oth-knowledge/ops/`): backup,
+  restore-verify (round-trip-verified locally), deploy-vps.
+
+### Reviews (independent, on the actual HEAD)
+
+| Gate | Model | Verdict |
+|---|---|---|
+| OTH-K3 architecture review (pre-implementation) | Opus | APPROVE-WITH-CHANGES — 13/13 implemented |
+| Security audit (probe-driven) | Opus | PASS-WITH-FINDINGS — F1–F15 all fixed + regression-tested |
+| Final architecture review | Opus | **APPROVE** (2 observations, both addressed) |
+| Independent reproduction | Haiku | all security controls CONFIRMED; all suites green; no secrets |
+
+### Verification (HEAD 042424a)
+
+| Suite | Result |
+|---|---|
+| othk-0 | 89/0 |
+| othk-1 | 30/0 |
+| othk-2 | 97/0 |
+| othk-2w | 40/0 |
+| othk-3 | 63/0 |
+| mythos-ai-executor | 264/0 |
+| MOS-v2 regression gate | PASS (0 new failures) |
+
+Static: `node --check` clean on every changed file; ops scripts `bash -n`
+clean; no secrets (scanned); config ships `enabled:false`. Scope: diff
+touches only `projects/oth-knowledge/`,
+`projects/mythos-ai-executor/lib/knowledge.js`, `docs/`, `tests/othk-*` —
+no MOS-v2 or unrelated Mythos code.
+
+### Open blockers (owner/operator — nothing repository-executable remains)
+
+| Item | Owner | Blocker | Required input | Ready procedure | Next action |
+|---|---|---|---|---|---|
+| Real-data imports (Takeout/Gemini/NotebookLM/Contacts) | Owner | No authorized export exists; Drive content transfer from AI sessions policy-denied | Owner-produced exports, authorized per source | `docs/OTH_TRACK_B_READINESS.md` §3; ops §5 of operations doc | Owner supplies exports on the machine that holds them |
+| Private store provisioning | Operator | Location is an owner decision | Ratified persistent out-of-repo path | `docs/PRIVATE_STORE_ARCHITECTURE.md` §10 (`umask 077; mkdir -p`) | Provision dir, set `store_root`+`enabled` in `config/knowledge.json` |
+| Contacts content (beyond metadata) | Owner | Metadata-only policy (MPI D1) | Explicit policy reversal | Architecture §6.2 | Owner decision |
+| Live backup/restore + off-host round trip | Operator | AI env cannot reach VPS (TCP/22) | Verified owner Windows→VPS channel | `ops/backup.sh`+`restore-verify.sh`; PRIVATE_STORE §6–7 | Operator runs over the verified channel |
+| VPS deployment | Operator | Same VPS access gap | Owner authorization | `ops/deploy-vps.sh` (code-only) | Operator runs from owner machine |
+
+### Next stage
+
+Production activation is an owner/operator sequence (provision store →
+flip `config/knowledge.json` → import authorized exports → backup +
+off-host). No repository-executable OTH-KNOWLEDGE work remains.
+
+---
+
+**Previously:** OTH-K2-W **AI OPERATING LAYER ↔ KNOWLEDGE WIRING DELIVERED — EXECUTOR-SIDE READ-ONLY CONSUMER (FAIL-CLOSED CONFIG, OPERATION ALLOWLIST, EXPLICIT-ASOF, CLAIM-NEVER-FACT/QUARANTINE PRESENTATION), 39/0 NEW SUITE; MOS-V2 GATE + OTHK-0/1/2 + EXECUTOR SUITE ALL GREEN; OTH-K2 TRACK A NOW FULLY REPOSITORY-COMPLETE; TRACK B EXTERNAL BLOCKERS RE-RECORDED, NONE BYPASSED.**
 
 ## OTH-K2-W — executor-side knowledge-service wiring (2026-08-19)
 
