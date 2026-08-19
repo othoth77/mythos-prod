@@ -785,6 +785,59 @@ case, nothing to reverse, since nothing was kept. The register entry
 itself is the deliverable: an honest account of what was tried and why it
 was undone.
 
+### AUTO-9 — MIG-3 partially executed; MIG-4 checked and left blocked with evidence, not a guess
+
+**Trigger.** Continuation instruction naming MIG-3 (complete the semantic-
+token mapping, apply only supported cases, leave ambiguous cases
+documented) and MIG-4 (proceed only if Command Center can be validated
+safely, otherwise leave READY/BLOCKED with exact evidence) as the last two
+independent items.
+
+**MIG-3 — mapped completely, applied where an approved target exists.**
+`A-015` names three contrast-failing tokens: `--danger` (3.55:1), `--muted`
+(3.47:1), `--past` (2.59:1). Real usage mapped: `--muted` 73×, `--danger`
+2×, `--past` 3×, each a single-source `:root` declaration. **Applied:**
+`--muted` → `#A8A498` (the corrected secondary-text value `COLOR_SYSTEM.md`
+names explicitly as this exact fix); `--danger` → `#F1706A` (A-015's
+corrected dark-ground value — Mythos Prod is dark-only, no theme
+ambiguity). **Left open, not guessed:** `--past` has no approved
+correction — it is not one of the four semantic roles A-015 actually
+corrects, only evidence that the current value fails; applying an
+invented replacement would be the exact "blind guess" this mandate
+forbids. The control-border token (**A-016**) was also left open —
+`--border` is used broadly as a decorative border throughout the
+application, not specifically for the 3:1 control boundary A-016
+corrects, and applying A-016's value globally would be a much larger,
+likely-wrong change than what was asked. Full record:
+`docs/design/MIG_EXECUTION_MAPPING.md` §4.
+
+**Verification.** Pure colour-value changes, the same low-risk category as
+MIG-1: 17 real views screenshotted before/after, diffs 0.73–1.46% of
+frame (in MIG-1's range, well below MIG-2's typeface-driven 1.28–6.51%),
+highest-diff views manually reviewed clean. **Coverage gap named
+honestly:** `--danger` and `--past` were not visually exercised — the
+isolated test instance's empty data has no error state or past-dated
+entry to render either style. Reasoned as low-risk by analogy (pure
+foreground-colour, no layout property), not confirmed by observation, and
+recorded as such.
+
+**MIG-4 — checked, left BLOCKED, not attempted.** Three convergent facts,
+not one assumption: (1) **A-020**'s own text — "this approval is
+classification only... no code, CSS, asset, deployment or branding was
+changed" — never authorised implementation. (2) This session's own
+standing instruction, never superseded: never touch MCC-1. (3) MCC-1 is
+**confirmed live, deployed, and serving real public traffic** at
+`ordre.mythosprod.xyz` — real DNS, a real TLS certificate, a real
+database, running from the live checkout — not a reference/stub the way
+`mythos-os-console`'s pilot target is. No file under
+`projects/command-center/` was read or touched to reach this conclusion.
+Full record: `docs/design/MIG_EXECUTION_MAPPING.md` §5a.
+
+**Authority, reversibility and scope.** **AUTO-9, NOT owner-approved.**
+MIG-3's two applied changes are single-value CSS substitutions,
+reversible with one `git revert`, identical in kind to MIG-1's pattern.
+MIG-4 has nothing to reverse — nothing was done.
+
 ### Stage 1I — design prototypes delivered
 
 **Not a decision — a deliverable, recorded for completeness.** Seven
@@ -1117,8 +1170,8 @@ by inference.**
 | ~~**SEM-1**~~ | Adopt the corrected semantic palette? | — | **RESOLVED 2026-08-18 by A-015** — adopted, verified on all four surfaces |
 | ~~**MIG-1**~~ | Align Mythos OS's implemented `--gold: #c9a84c` with the approved master `#D9A441` | — | **EXECUTED 2026-08-18, AUTO-7.** Real scope was 331 occurrences across 16 files (not one value, and larger than AUTO-6's own 42/12 estimate). Applied, verified across 16 real views, not deployed. Not owner-approved. See `docs/design/MIG_EXECUTION_MAPPING.md` §2a, `MYTHOS_DESIGN_DECISIONS.md` §0.5 AUTO-7 |
 | **MIG-2** | ~~Replace the 45 `Playfair Display` declarations in `css/*.css`~~ — **real scope measured AUTO-6: 93 occurrences, 14 files, not 45, and not confined to CSS** | Not yet | **ATTEMPTED AND ROLLED BACK, AUTO-8.** Substitution mechanism proven (93/93, Arabic unaffected), but a real KPI-card text-wrap regression found by visual regression; reverted rather than patched with an unauthorised design change. See `docs/design/MIG_EXECUTION_MAPPING.md` §3a |
-| **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Not yet | **NEW, from A-015 / A-016.** **Not actioned** — specification only. Closes three measured contrast failures and the missing 3 : 1 control boundary |
-| **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** As a Mythos OS product it should carry the Mythos OS visual language, not a third divergent one. **Not actioned** — the O-A1 approval is classification only and explicitly forbids touching Command Center code, CSS, assets, deployment or branding |
+| **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Partial | **EXECUTED (partial), AUTO-9.** `--muted`/`--danger` corrected and applied; `--past` and the control-border token left explicitly open — no approved target for the former, too broad a blast radius for the latter without real per-selector work. See `docs/design/MIG_EXECUTION_MAPPING.md` §4 |
+| **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** **CHECKED and left BLOCKED, AUTO-9** — MCC-1 is confirmed live, deployed, serving real public traffic; the O-A1 approval is classification only; a standing, unrevoked instruction never to touch MCC-1 applies. No file under `projects/command-center/` was read or touched. See `docs/design/MIG_EXECUTION_MAPPING.md` §5a |
 | **SEQ-1** | Sequential and diverging data scales for continuous data | No | **NEW, raised by 1D.** The eight-series categorical palette is approved; continuous scales were outside the 1C scope and must not be improvised (`docs/design/COLOR_SYSTEM.md` §5) |
 | ~~**TYPE-2**~~ | Font subsets, shipped weight instances, and the font performance budget | — | **RESOLVED 2026-08-18 by AUTO-4** — real files self-hosted, real numbers measured; not owner-approved, see §0.5 |
 
