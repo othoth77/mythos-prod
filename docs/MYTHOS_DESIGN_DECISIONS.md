@@ -900,6 +900,73 @@ typography question follows MIG-2's resolution, not this one.
 One `git revert` restores every value; the drift test would then go red
 again, which is the correct alarm in both directions.
 
+### AUTO-11 — MIG-2 executed: the typography migration, solved by role separation, not by shrinking type
+
+**Trigger.** Final-mission instruction: solve the Archivo/TND KPI wrapping
+regression professionally — evaluate layout, number formatting, container
+behaviour and typography; do not shrink typography to hide it; preserve
+the approved type system.
+
+**The chief-architect decision that unblocked it.** AUTO-8's regression
+happened because the legacy app conflates two roles in one typeface:
+Playfair Display carried both *headings* (words) and *financial figures*
+(numbers). The approved system already separates them — the display face
+carries headings; **the Data role carries financial and numeric values**
+(`TYPOGRAPHY.md` §2: IBM Plex Mono, tabular figures — stated for exactly
+this reason: "tabular figures for financial and technical tables"); the
+Label role (Plex Sans 500, uppercase, tracked) carries small table
+headers. AUTO-8's attempt pushed *everything* into the display face,
+which is what wrapped the KPI money figures. The professional resolution
+is the role split the system always intended — no typography was shrunk;
+every size is exactly what it was.
+
+**Execution: all 93 sites classified individually, line-keyed, and
+verified before substitution** (`--apply` aborts on any line whose
+content does not match the classification): **44 display sites** →
+`'Archivo Expanded'`, weight normalised to the approved 600; **6 label
+sites** (the five `*-list-table th` rules + `.month-group`) →
+`'IBM Plex Sans'`, weight 500; **43 numeric sites** (money via
+`fmtMoney`, KPIs, day/date numerals, times, invoice/contract reference
+IDs) → `'IBM Plex Mono'`, weight 400. Multi-line rules
+(`css/professional.css` ×7, `css/dashboard.css`, `js/auth.js`'s injected
+login CSS) had their weights normalised in a second targeted pass the
+line-keyed script cannot reach. `index.html` drops the Playfair CDN
+request and loads the self-hosted `assets/brand/fonts/fonts.css`
+(Archivo Expanded 600, Plex Sans 400/500/600 + Arabic, Plex Mono 400 —
+all AUTO-4 files). **Inter remains the body face** — its migration to
+IBM Plex Sans is a real, separate step recorded as remaining, not
+smuggled into this one.
+
+**A bug AUTO-8 already taught, re-made, and re-caught.** The
+substitution template again mis-positioned the backslash on
+escaped-quote sites inside JS template strings (5 sites, 3 files) —
+caught immediately by `node --check`, exactly as in AUTO-8, fixed before
+verification. Recorded because repeating a known bug is worth more
+embarrassment than the first occurrence.
+
+**Verification.** `node --check` clean on all 11 touched JS files; zero
+`Playfair` references outside the one explanatory comment; CRLF
+preserved byte-exact in the four files that carry it. **17 real views
+before/after**: diffs 1.32–6.30% (typeface-change footprint), every view
+chief-reviewed — and the decisive one, `comptabilite`: **"6545.000 TND"
+renders on ONE line in IBM Plex Mono, all three KPI cards
+height-aligned** — the exact AUTO-8 regression, solved. Dashboard's 54px
+day numeral, countdown cells, natures/representations table headers,
+category cards: all render correctly, no wrap, no overflow, no layout
+shift. Zero JS console errors across all accounting views (3
+pre-existing external-CDN network failures only, unchanged).
+
+**MIG-2: EXECUTED.** Remaining, recorded honestly: body face Inter →
+IBM Plex Sans (separate assessment); the console's own Playfair/Inter
+declarations (`mythos.css` — its drift rule does not govern typography;
+follows the same role-split when scheduled); true self-hosted-font
+rendering of Archivo/Plex verified in the isolated instance (fonts load
+from `assets/brand/fonts/`), while Inter still rides its CDN.
+
+**Authority, reversibility, scope.** **AUTO-11, NOT owner-approved.**
+One `git revert` restores all 93 sites, the weight normalisations, and
+the font links. Not deployed — production untouched.
+
 ### Stage 1I — design prototypes delivered
 
 **Not a decision — a deliverable, recorded for completeness.** Seven
@@ -1231,7 +1298,7 @@ by inference.**
 | ~~**TYPE-1**~~ | Retire Playfair Display from the master brand? | — | **RESOLVED 2026-08-18 by A-014** — retired from the master; master stack is Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono |
 | ~~**SEM-1**~~ | Adopt the corrected semantic palette? | — | **RESOLVED 2026-08-18 by A-015** — adopted, verified on all four surfaces |
 | ~~**MIG-1**~~ | Align Mythos OS's implemented `--gold: #c9a84c` with the approved master `#D9A441` | — | **EXECUTED 2026-08-18, AUTO-7.** Real scope was 331 occurrences across 16 files (not one value, and larger than AUTO-6's own 42/12 estimate). Applied, verified across 16 real views, not deployed. Not owner-approved. See `docs/design/MIG_EXECUTION_MAPPING.md` §2a, `MYTHOS_DESIGN_DECISIONS.md` §0.5 AUTO-7 |
-| **MIG-2** | ~~Replace the 45 `Playfair Display` declarations in `css/*.css`~~ — **real scope measured AUTO-6: 93 occurrences, 14 files, not 45, and not confined to CSS** | Not yet | **ATTEMPTED AND ROLLED BACK, AUTO-8.** Substitution mechanism proven (93/93, Arabic unaffected), but a real KPI-card text-wrap regression found by visual regression; reverted rather than patched with an unauthorised design change. See `docs/design/MIG_EXECUTION_MAPPING.md` §3a |
+| ~~**MIG-2**~~ | ~~Replace the 45 `Playfair Display` declarations in `css/*.css`~~ — real scope 93 occurrences, 14 files (AUTO-6) | — | **EXECUTED 2026-08-19, AUTO-11** — solved by role separation (display/label/data), after AUTO-8's honest rollback proved a blanket display-face swap wraps financial figures. All 93 sites classified individually and migrated; verified across 17 real views; the AUTO-8 regression selector now renders one-line in the approved Data face. Not owner-approved. See §0.5 AUTO-11 |
 | **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Partial | **EXECUTED (partial), AUTO-9.** `--muted`/`--danger` corrected and applied; `--past` and the control-border token left explicitly open — no approved target for the former, too broad a blast radius for the latter without real per-selector work. See `docs/design/MIG_EXECUTION_MAPPING.md` §4 |
 | **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** **CHECKED and left BLOCKED, AUTO-9** — MCC-1 is confirmed live, deployed, serving real public traffic; the O-A1 approval is classification only; a standing, unrevoked instruction never to touch MCC-1 applies. No file under `projects/command-center/` was read or touched. See `docs/design/MIG_EXECUTION_MAPPING.md` §5a |
 | **SEQ-1** | Sequential and diverging data scales for continuous data | No | **NEW, raised by 1D.** The eight-series categorical palette is approved; continuous scales were outside the 1C scope and must not be improvised (`docs/design/COLOR_SYSTEM.md` §5) |

@@ -29,7 +29,7 @@ function renderExpensesByPaymentType(items) {
 
   return `
     <div style="margin-top:32px;">
-      <h3 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:18px; margin:0 0 20px; font-weight:800;">💳 Dépenses par type de paiement</h3>
+      <h3 style="font-family: 'Archivo Expanded', sans-serif; color:var(--gold-light); font-size:18px; margin:0 0 20px; font-weight:600;">💳 Dépenses par type de paiement</h3>
       <table class="expenses-list-table">
         <thead>
           <tr>
@@ -122,7 +122,7 @@ function renderExpenseCategoryManager() {
   el.innerHTML = `
     <div style="margin-bottom:32px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-        <h2 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:20px; margin:0; font-weight:800;">Catégories de dépenses</h2>
+        <h2 style="font-family: 'Archivo Expanded', sans-serif; color:var(--gold-light); font-size:20px; margin:0; font-weight:600;">Catégories de dépenses</h2>
         <button class="btn btn-gold" onclick="openCategoryModal()">+ Nouvelle catégorie</button>
       </div>
 
@@ -130,7 +130,7 @@ function renderExpenseCategoryManager() {
         ${categories.map(cat => `
           <div style="background:linear-gradient(135deg, rgba(${parseInt(cat.color.slice(1,3), 16)},${parseInt(cat.color.slice(3,5), 16)},${parseInt(cat.color.slice(5,7), 16)},0.1), rgba(${parseInt(cat.color.slice(1,3), 16)},${parseInt(cat.color.slice(3,5), 16)},${parseInt(cat.color.slice(5,7), 16)},0.05)); border:2px solid ${cat.color}44; border-radius:12px; padding:20px; transition:all 0.3s ease;" onmouseover="this.style.borderColor='${cat.color}88'; this.style.boxShadow='0 4px 16px rgba(${parseInt(cat.color.slice(1,3), 16)},${parseInt(cat.color.slice(3,5), 16)},${parseInt(cat.color.slice(5,7), 16)},0.2)'" onmouseout="this.style.borderColor='${cat.color}44'; this.style.boxShadow='none'">
             <div style="font-size:40px; margin-bottom:12px;">${cat.icon}</div>
-            <div style="font-family:'Playfair Display',serif; font-size:18px; color:${cat.color}; font-weight:800; margin-bottom:12px;">${cat.name}</div>
+            <div style="font-family: 'Archivo Expanded', sans-serif; font-size:18px; color:${cat.color}; font-weight:600; margin-bottom:12px;">${cat.name}</div>
             <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px;">
               ${cat.subcategories.map(sub => `<span style="background:rgba(217,164,65,0.1); color:var(--muted); padding:4px 8px; border-radius:4px; font-size:11px;">${sub}</span>`).join('')}
             </div>
@@ -275,7 +275,7 @@ function renderExpenseReportByCategory() {
 
   return `
     <div style="margin-top:32px;">
-      <h3 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:18px; margin:0 0 20px; font-weight:800;">Dépenses par catégorie</h3>
+      <h3 style="font-family: 'Archivo Expanded', sans-serif; color:var(--gold-light); font-size:18px; margin:0 0 20px; font-weight:600;">Dépenses par catégorie</h3>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
         ${sortedCategories.map(([catName, catData]) => {
           const percentage = totalAmount > 0 ? (catData.total / totalAmount * 100).toFixed(1) : 0;
@@ -287,7 +287,7 @@ function renderExpenseReportByCategory() {
                   <div style="color:var(--text); font-size:12px; font-weight:700;">${catData.count} dépense${catData.count !== 1 ? 's' : ''}</div>
                 </div>
               </div>
-              <div style="color:${catData.color}; font-family:'Playfair Display',serif; font-size:20px; font-weight:800; margin-bottom:12px;">${catName}</div>
+              <div style="color:${catData.color}; font-family: 'Archivo Expanded', sans-serif; font-size:20px; font-weight:600; margin-bottom:12px;">${catName}</div>
               <div style="background:linear-gradient(90deg, ${catData.color} 0%, transparent ${percentage}%); height:6px; border-radius:3px; margin-bottom:12px;"></div>
               <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div style="color:var(--muted); font-size:12px;">${percentage}% du total</div>
@@ -302,7 +302,7 @@ function renderExpenseReportByCategory() {
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <div>
             <div style="color:var(--muted); font-size:12px; text-transform:uppercase; margin-bottom:4px;">Total des dépenses</div>
-            <div style="font-family:'Playfair Display',serif; font-size:28px; color:var(--gold-light); font-weight:800;">${fmtMoney(totalAmount)}</div>
+            <div style="font-family: 'IBM Plex Mono', monospace; font-size:28px; color:var(--gold-light); font-weight:400;">${fmtMoney(totalAmount)}</div>
           </div>
           <div style="text-align:right;">
             <div style="color:var(--muted); font-size:12px; margin-bottom:4px;">${expenses.length} dépense${expenses.length !== 1 ? 's' : ''}</div>

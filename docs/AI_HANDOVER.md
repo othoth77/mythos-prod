@@ -1,7 +1,17 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MOS-v2 **M-02 — DEPLOY RELAY, CHIEF-REVIEW FIXES APPLIED. NOT INSTALLED, NOT USED.**
+**From:** MYTHOS **FINAL MISSION, STAGE 2 — MIG-2 EXECUTED (AUTO-11), SOLVED BY ROLE SEPARATION, NOT TYPE-SHRINKING. ALL 93 PLAYFAIR SITES CLASSIFIED INDIVIDUALLY: 44 DISPLAY → ARCHIVO EXPANDED 600, 6 LABEL → PLEX SANS 500, 43 NUMERIC/FINANCIAL → IBM PLEX MONO 400 (THE APPROVED DATA ROLE — TABULAR FIGURES FOR MONEY, EXACTLY WHAT THE SYSTEM SPECIFIES THEM FOR). THE AUTO-8 KPI-WRAP REGRESSION IS GONE: "6545.000 TND" RENDERS ONE-LINE, CARDS ALIGNED, VERIFIED ACROSS 17 REAL VIEWS. PLAYFAIR CDN REMOVED; APPROVED FACES SELF-HOSTED. INTER BODY FACE REMAINS — A SEPARATE, RECORDED STEP. THE AUTO-8 ESCAPED-QUOTE BUG WAS RE-MADE AND RE-CAUGHT BY `node --check` — RECORDED, NOT HIDDEN.**
+
+**Why this works where AUTO-8's attempt could not:** the legacy app
+conflated headings (words) and financial figures (numbers) in one face.
+The approved system separates those roles by design — display face for
+headings, Data role (Plex Mono, tabular) for money and numerals, Label
+for small table headers. The role split IS the professional resolution
+the rollback was waiting for; no font-size changed anywhere. Register:
+AUTO-11; execution record: `MIG_EXECUTION_MAPPING.md` §3b.
+
+**Previously:** MOS-v2 **M-02 — DEPLOY RELAY, CHIEF-REVIEW FIXES APPLIED. NOT INSTALLED, NOT USED.**
 
 ## MOS-v2 M-02 — DEPLOY RELAY, CHIEF-REVIEW FIXES (2026-08-19) — **THREE ISSUES FIXED, NOT INSTALLED, NOT USED**
 
@@ -88,7 +98,7 @@ session's identity, exactly as MOS-1.6/1.7 already concluded.
 ---
 
 **Last updated:** 2026-08-19 UTC
-**From:** MOS-v2 M-03 (nginx contract alignment)
+**Previously:** MOS-v2 M-03 (nginx contract alignment)
 
 ## MOS-v2 M-03 — NGINX CONTRACT ALIGNMENT (2026-08-19)
 

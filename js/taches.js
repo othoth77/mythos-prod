@@ -284,7 +284,7 @@ function _tchCalCard(t) {
     + 'onmouseover="this.style.background=\'#181818\'" onmouseout="this.style.background=\''+cardBg+'\'">'
     // Date badge
     + '<div style="background:'+dateBg+';min-width:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px 10px;border-right:1px solid #1e1e1e;flex-shrink:0;">'
-      + '<div style="color:'+dateColor+';font-size:28px;font-weight:900;line-height:1;font-family:\'Playfair Display\',serif;">'+day+'</div>'
+      + '<div style="color:'+dateColor+';font-size:28px;font-weight:400;line-height:1;font-family: \'IBM Plex Mono\', monospace;">'+day+'</div>'
       + '<div style="color:'+dateColor+';font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-top:2px;">'+month+'</div>'
       + '<div style="color:'+dateColor+';font-size:10px;margin-top:4px;font-weight:600;">'+jour+'</div>'
     + '</div>'

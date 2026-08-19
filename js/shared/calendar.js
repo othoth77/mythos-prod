@@ -154,7 +154,7 @@ function _calRenderItem(item, today) {
         + 'onclick="openRappelsListModal()" '
         + 'onmouseover="this.style.background=\'#0d2028\'" onmouseout="this.style.background=\'#0a1a1e\'">'
         + '<div style="background:'+dateBgR+';min-width:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px 10px;border-right:1px solid #0e3340;flex-shrink:0;">'
-          + '<div style="color:'+dateColorR+';font-size:28px;font-weight:900;line-height:1;font-family:\'Playfair Display\',serif;">'+cardR.day+'</div>'
+          + '<div style="color:'+dateColorR+';font-size:28px;font-weight:400;line-height:1;font-family: \'IBM Plex Mono\', monospace;">'+cardR.day+'</div>'
           + '<div style="color:'+dateColorR+';font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-top:2px;">'+cardR.month+'</div>'
           + '<div style="color:#06b6d4;font-size:10px;margin-top:4px;font-weight:600;">'+cardR.jour+'</div>'
         + '</div>'
@@ -192,7 +192,7 @@ function _calRenderItem(item, today) {
 
       // DATE BADGE — grand
       '<div style="background:' + dateBg + ';min-width:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px 10px;border-right:1px solid ' + cardBorder + ';flex-shrink:0;">' +
-        '<div style="color:' + dateColor + ';font-size:28px;font-weight:900;line-height:1;font-family:\'Playfair Display\',serif;">' + card.day + '</div>' +
+        '<div style="color:' + dateColor + ';font-size:28px;font-weight:400;line-height:1;font-family: \'IBM Plex Mono\', monospace;">' + card.day + '</div>' +
         '<div style="color:' + dateColor + ';font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;margin-top:2px;">' + card.month + '</div>' +
         '<div style="color:' + (isToday ? '#22c55e' : '#666') + ';font-size:10px;margin-top:4px;font-weight:600;">' + card.jour + '</div>' +
       '</div>' +
