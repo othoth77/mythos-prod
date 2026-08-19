@@ -1,0 +1,9 @@
+{
+  "name": "@mythos/personal-intelligence",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mythos Personal Intelligence (MPI) — per-user, per-organisation, per-profession AI personalisation platform. Declares the `pg` driver that the MPI CLI composition roots inject into activate(); the persistence library itself never requires it.",
+  "dependencies": {
+    "pg": "^8.13.1"
+  }
+}

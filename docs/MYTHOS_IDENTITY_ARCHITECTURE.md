@@ -441,3 +441,46 @@ The six live ID Auto suites require operator-provisioned environment variables �
 | **Live migration required now** | **None** |
 | **Draft files to align** | Automotive, Atelier Network, AutoValeur (type changes); Personal Intelligence (comments only) |
 | **Future live change** | Additive `mythos_org_ref` on `idauto_organizations` — deferred |
+
+---
+
+## 11. Vocabulary adoption — pinned protocol artifacts (2026-08-18, `IDA-DECOUPLE-3`)
+
+**Note:** this repository's dependency-boundary audit (`docs/ID_AUTO_DEPENDENCY_BOUNDARY.md`
+§10) referred to this update as landing in "§12" of this document; at implementation time the
+document had no §12, so the update is recorded here as §11 instead. No renumbering of the
+existing sections above was performed.
+
+§10 records `Org roles` and `Actor types` as adopted "verbatim from live ID Auto" — until this
+stage that meant `tests/mythos-identity-core-0-contract-test.js` read ID Auto's `schema.sql`
+directly out of the vendored `projects/idauto/` source tree. That live read was the last thing
+keeping this repository coupled to ID Auto's internals at test time.
+
+ID Auto published both vocabularies as versioned protocol artifacts (branch
+`protocol-identity-vocabularies`, commit `42e8546`, guarded by its own conformance suite,
+`tests/identity-conformance-test.js`, 77 passed / 0 failed, 7/7 planted mutations caught):
+
+- `protocol/vocabularies/actor-type.v1.json`
+- `protocol/vocabularies/org-role.v1.json`
+- `protocol/vocabularies/actor-identifier.v1.json` (width/form of the `usr_`/`svc_` reference
+  itself — not previously a separate published artifact)
+
+Mythos now consumes **pinned, digest-verified copies** of those three files rather than a live
+read: `projects/mythos-core/contracts/idauto/{actor-type,org-role,actor-identifier}.v1.json`,
+with the upstream commit, version, revision and a SHA-256 digest of each file recorded in
+`projects/mythos-core/contracts/idauto/PINS.json`. `mythos-identity-core-0-contract-test.js`
+§8 verifies every digest **before** trusting anything parsed from the copies, then asserts
+`ACTOR_TYPES`/`ORG_ROLES` against the pinned content by set equality in both directions.
+
+ID Auto remains the defining source of both vocabularies; this repository only adopts them. A
+legitimate change to the pinned copies follows the six-step re-pin procedure documented in
+`projects/mythos-core/contracts/idauto/README.md` — there is deliberately no script that
+performs it automatically, so a drifted contract or a tampered copy can never be silently
+re-recorded as correct. Stated honestly: an upstream **republication** is invisible here until
+a human re-pins (the local copy still matches its own pin) — the mechanism guarantees no
+silent divergence from a named, dated, digest-identified upstream version, not freshness; and
+it detects accident, not tampering — an edit to the copy *and* `PINS.json` together passes,
+and is caught by review of that visible two-file diff, not by an assertion.
+
+This closes the last test-only dependency on `projects/idauto/` (`docs/ID_AUTO_DEPENDENCY_BOUNDARY.md`
+§0, rows D6-D8); see that document for the full before/after assertion inventory.

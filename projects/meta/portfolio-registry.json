@@ -124,18 +124,19 @@
       "category": "AUTOMOTIVE",
       "strategic_parent": "mythos-automotive",
       "evidence_status": "REPOSITORY_VERIFIED",
-      "implementation_status": "FOUNDATION",
-      "current_stage": "IDA-1 complete",
-      "next_stage": "IDA-2 — PostgreSQL Core, API and Manual Capture MVP",
+      "implementation_status": "ACTIVE",
+      "current_stage": "IDA-3F complete (in othoth77/idauto)",
+      "next_stage": "IDA-4 — Citizen Vehicle Passport (tracked in othoth77/idauto)",
       "repository_paths": [
-        "docs/IDAUTO_*.md",
-        "projects/idauto/"
+        "docs/IDAUTO_STANDALONE_MIGRATION.md",
+        "projects/mythos-core/contracts/idauto/"
       ],
       "domain_pack": null,
       "dependencies": [],
       "shared_platform_capabilities": [],
-      "notes": "Next authorised Automotive implementation stage overall.",
-      "last_verified_at": "2026-08-06T00:00:00Z"
+      "notes": "Canonical repository is https://github.com/othoth77/idauto as of 2026-08-18 (published at bdfec2c, clean-clone verified: 13 suites, 601 assertions, 0 failures). The duplicated copy under projects/idauto/, its own test suites, and the eight duplicated IDAUTO_*.md docs were removed from mythos-prod by IDA-DECOUPLE-4 on 2026-08-19; mythos-core continues to consume the identity contract via the pinned protocol artifacts at projects/mythos-core/contracts/idauto/, not the (now-deleted) source tree. Roadmap, risks and stage history are tracked in the external repository.",
+      "last_verified_at": "2026-08-19T00:00:00Z",
+      "external_repository": "https://github.com/othoth77/idauto"
     },
     {
       "id": "atelier-network",

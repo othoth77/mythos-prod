@@ -34,7 +34,7 @@
 const retrieval = require('../persistence/retrieval');
 const activation = require('../persistence/activation');
 const contentStore = require('../persistence/content-store');
-const s3 = require('../../idauto/ops/adapters/s3-compatible.js');
+const s3 = require('../../infrastructure/ops/adapters/s3-compatible.js');
 
 function refusal(code) {
   const e = new Error(code);
@@ -106,7 +106,7 @@ async function run(argv, deps) {
   const q = buildQuery(argv);
 
   const activate = d.activate || activation.activate;
-  const activated = await activate({ env: env, pg: d.pg || require('../../idauto/node_modules/pg') });
+  const activated = await activate({ env: env, pg: d.pg || require('pg') });
   if (!activated.enabled) throw refusal('RETRIEVE_CLI_PERSISTENCE_DISABLED (MPI_PERSISTENCE_ENABLED is not true)');
   const client = activated.client;
 

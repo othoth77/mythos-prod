@@ -8,8 +8,8 @@
 // readiness/liveness distinction.
 //
 //   MPI_SCRATCH_CONTAINER=<name> MPI_SCRATCH_DB=<db> node tests/mpi-activation-test.js
-// The real-pg case uses idauto's vendored (gitignored) pg when present and
-// SKIPS honestly when absent — it never fakes the real module.
+// The real-pg case uses MPI's own (gitignored) node_modules/pg when installed
+// and SKIPS honestly when absent — it never fakes the real module.
 // =====================================================
 'use strict';
 
@@ -86,8 +86,8 @@ async function offlineChecks() {
   err = null; try { activation.buildDriver(cfg, undefined); } catch (e) { err = e; }
   ok(err && err.code === 'ACTIVATION_DRIVER_REFUSED', '8 missing pg module -> refused, never a silent mock');
 
-  // 9 REAL driver adoption: the vendored pg module, when present
-  const pgPath = path.join(BASE, 'projects/idauto/node_modules/pg');
+  // 9 REAL driver adoption: MPI's own pg, when installed (node_modules is gitignored)
+  const pgPath = path.join(BASE, 'projects/personal-intelligence/node_modules/pg');
   if (fs.existsSync(pgPath)) {
     const pg = require(pgPath);
     const pool = activation.buildDriver(cfg, pg);
@@ -95,7 +95,7 @@ async function offlineChecks() {
        '9 real pg.Pool built from the contract config (connect() present — the F11-safe path)');
     await pool.end();
   } else {
-    skipped++; console.log('  SKIP 9 vendored pg absent on this checkout (gitignored) — not faked');
+    skipped++; console.log('  SKIP 9 MPI pg not installed on this checkout (gitignored) — not faked');
   }
 
   // 10 flag off -> activate() returns disabled without touching anything

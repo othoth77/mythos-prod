@@ -1,0 +1,25 @@
+{
+  "pin_format": 1,
+  "upstream": {
+    "repository": "https://github.com/othoth77/idauto",
+    "commit": "42e85461b18c3ab4ee88a58945e4f1b594096180",
+    "branch": "protocol-identity-vocabularies",
+    "path_prefix": "protocol/vocabularies/"
+  },
+  "pinned_at": "2026-08-18",
+  "pinned_by": "IDA-DECOUPLE-3",
+  "artifacts": [
+    { "artifact": "actor-type.v1.json", "vocabulary": "actor_type", "version": 1, "revision": 1,
+      "upstream_path": "protocol/vocabularies/actor-type.v1.json",
+      "local_path": "projects/mythos-core/contracts/idauto/actor-type.v1.json",
+      "sha256": "1df70435c72308a2231e0910acd0de68c6a20e564b3d586a6c91a86126256edf" },
+    { "artifact": "org-role.v1.json", "vocabulary": "org_role", "version": 1, "revision": 1,
+      "upstream_path": "protocol/vocabularies/org-role.v1.json",
+      "local_path": "projects/mythos-core/contracts/idauto/org-role.v1.json",
+      "sha256": "18e64fc57c4b4bde18a1403bd6cb7c7537b1977a280ebdbc27bf0a069c61fb6e" },
+    { "artifact": "actor-identifier.v1.json", "vocabulary": "actor_identifier", "version": 1, "revision": 1,
+      "upstream_path": "protocol/vocabularies/actor-identifier.v1.json",
+      "local_path": "projects/mythos-core/contracts/idauto/actor-identifier.v1.json",
+      "sha256": "923b59ab0ab610e2e8b9057c158bd76b80c8a36952936dd6faf50d2023b9689a" }
+  ]
+}
