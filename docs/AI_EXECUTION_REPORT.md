@@ -4,6 +4,44 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260819175013-sj9ph9` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | Skill Binding Production Test |
+| Provider / model | claude-code / default |
+| Execution profile | repo-read |
+| Started | 2026-08-19T17:50:14.018Z |
+| Ended | 2026-08-19T17:53:04.908Z |
+| Status | **COMPLETED** |
+| Claude session | `99db465a-acc4-49b4-b7ca-22161b84baa8` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `b805016a8a28a90743f2fe335fcba73360223849` |
+| Git verified | null |
+
+**Summary:** Read-only testing audit at HEAD b805016 (clean worktree, identical to origin/main on othoth77/mythos-prod). Verified the skill-binding chain for this stage: projects/mythos-ai-executor/config/skills.json declares testing v1.0.0 -> testing.md, enabled, compatible with all four execution profiles, and the ACTIVE SKILL text injected into this run matches projects/mythos-ai-executor/skills/testing.md verbatim, so registry-to-prompt resolution works in production. Testing configuration is plain Node with no framework, no root package.json and no CI: 102 suites under tests/ run as 'node tests/<name>-test.js', selected via projects/meta/test-impact-map.json (20 first-match-wins rules, HIGH_RISK FULL_SUITE_REQUIRED fallback) and compared against projects/meta/known-baselines.json (one entry, stage3d 104/110). All 20 test and script targets referenced by the impact map exist on disk. Two config gaps recorded, not fixed: projects/mythos-ai-executor/ and oth-knowledge/ match no rule and therefore fall through to the HIGH_RISK fallback, so tests/mythos-ai-executor-test.js is not selectable by lookup. BLOCKER: every 'node ...' invocation returned 'This command requires approval' because .claude/settings.local.json allowlists only 10 narrow Bash patterns and this session is non-interactive, so no test suite was executed and no pass/fail count is claimed. No files were modified, nothing was committed or pushed.
+
+**Tests:**
+- node scripts/project-intelligence.js validate: NOT RUN - blocked, command requires approval in non-interactive session
+- node tests/devx-2-impact-map-integrity-test.js: NOT RUN - blocked, command requires approval
+- node tests/mythos-ai-executor-test.js: NOT RUN - blocked, command requires approval
+- impact-map target existence check (static, ls): PASS - all 20 referenced tests/scripts exist
+- skill binding chain (static, read): PASS - skills.json testing v1.0.0 resolves to skills/testing.md, prompt text matches file verbatim
+
+**Residual risks:**
+- Executor tasks bound to the testing skill cannot execute any test command on this host, so the skill's core requirement (never claim a pass without running it) is unsatisfiable until the Bash allowlist is widened
+- projects/mythos-ai-executor/ has no test-impact-map rule; changes there escalate to FULL_SUITE_REQUIRED/HIGH_RISK and tests/mythos-ai-executor-test.js is never selected by lookup
+- oth-knowledge/ has the same missing-rule gap despite having three othk-* suites
+- No CI exists; every recorded test result in docs/AI_HANDOVER.md depends on an agent having actually run the command locally
+
+**Next stage:** Add Bash(node tests/*) and Bash(node scripts/project-intelligence.js validate) to the executor run's Bash allowlist via a reviewed change to .claude/settings.local.json, then re-run this stage so the four listed commands execute and report real counts; separately add a projects/mythos-ai-executor/ rule to projects/meta/test-impact-map.json mapping to node tests/mythos-ai-executor-test.js at STANDARD.
+
+
+---
+
 ## Task `t-20260819085112-piprmw` — BLOCKED
 
 | Field | Value |
