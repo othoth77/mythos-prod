@@ -1,0 +1,31 @@
+# Mythos OS Console — restart relay (stage MOS-v2 M-02).
+#
+# System unit, root-installed, running as `deploy`. Same shape as
+# `projects/mythos-ai-executor/service/mythos-git-push.service`: a
+# root-owned unit that lets an authorized non-deploy session trigger one
+# fixed, `deploy`-privileged action (`systemctl start
+# mythos-os-console-restart`) without ever holding `deploy`'s
+# credentials. It exposes no shell, accepts no arguments, and reads no
+# secret — see mythos-os-console-restart.sh for the single command it
+# runs.
+#
+# Do not install or use before M-01 (the console's own deployment) is
+# live — see RUNBOOK.md.
+
+[Unit]
+Description=Mythos OS Console restart relay (deploy-owned service restart)
+Documentation=https://github.com/othoth77/mythos-prod
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+ExecStart=/usr/local/bin/mythos-os-console-restart
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+# Intentionally empty: this unit writes nothing to disk. It only sends a
+# restart request over deploy's existing D-Bus session socket under
+# /run/user/<uid>/, which a read-only mount does not block connecting to.
+ReadWritePaths=

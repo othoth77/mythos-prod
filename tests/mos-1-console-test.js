@@ -26,6 +26,15 @@
 //      are the point: an unreachable plane must produce a stated
 //      failure, never an empty list.
 //
+//   5. SERVER-SIDE AUTHENTICATION (MOS-v2 M-01). Every /api/ route
+//      refuses a caller without a session; the secret is readable only
+//      from a 0600 file and never from the environment; the session
+//      identifier reaches the browser only as an httpOnly cookie and
+//      appears in no response body; and nothing the browser downloads
+//      contains credential material. The gate this replaced was
+//      client-side, so it had none of these properties and no test could
+//      have given it one.
+//
 // Deterministic and offline. No executor, no database, no network, no
 // AI quota. Run with: node tests/mos-1-console-test.js
 // =====================================================
@@ -63,10 +72,50 @@ var mythosCss = read(path.join(WEB, 'mythos.css'));
 var consoleCss = read(path.join(WEB, 'console.css'));
 var appJs = read(path.join(WEB, 'app.js'));
 var shellHtml = read(path.join(WEB, 'index.html'));
-var loginGateCss = read(path.join(WEB, 'login-gate.css'));
-var loginGateJs = read(path.join(WEB, 'login-gate.js'));
+var loginHtml = read(path.join(WEB, 'login.html'));
+var loginCss = read(path.join(WEB, 'login.css'));
+var loginJs = read(path.join(WEB, 'login.js'));
 var serverJs = read(path.join(REF, 'server.js'));
 var upstreamJs = read(path.join(REF, 'upstream.js'));
+var authJs = read(path.join(REF, 'auth.js'));
+
+// ---------------------------------------------------------------------------
+// AUTH FIXTURE (MOS-v2 M-01)
+//
+// The console reads its secret from a file and only from a file, and only
+// if that file's mode grants nothing to group or other. So the suite makes
+// two real files with two real modes: one correct, one deliberately loose.
+// Both live in a private temp directory that is removed when the process
+// exits. The value is obviously synthetic and never reaches the repository.
+// ---------------------------------------------------------------------------
+
+var CONSOLE_SECRET = 'mos-test-console-secret-do-not-leak-4c7e';
+var SECRET_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'mos-1-console-test-'));
+var SECRET_FILE = path.join(SECRET_DIR, 'console-secret');
+var LOOSE_SECRET_FILE = path.join(SECRET_DIR, 'console-secret-loose');
+var EMPTY_SECRET_FILE = path.join(SECRET_DIR, 'console-secret-empty');
+
+fs.writeFileSync(SECRET_FILE, 'MOS_CONSOLE_SECRET=' + CONSOLE_SECRET + '\n', { mode: 0o600 });
+fs.chmodSync(SECRET_FILE, 0o600);
+fs.writeFileSync(LOOSE_SECRET_FILE, 'MOS_CONSOLE_SECRET=' + CONSOLE_SECRET + '\n', { mode: 0o644 });
+fs.chmodSync(LOOSE_SECRET_FILE, 0o644);          // group/other readable: must be refused
+fs.writeFileSync(EMPTY_SECRET_FILE, '# no secret line here\n', { mode: 0o600 });
+fs.chmodSync(EMPTY_SECRET_FILE, 0o600);
+
+// The live auth module -- the same instance server.js uses, because
+// freshServer() drops only server.js and upstream.js from the require
+// cache. It is used for exactly one thing: clearing the login throttle
+// between sections, so a section that deliberately exhausts it cannot
+// poison the next one. It is never used to mint a session; every session
+// in this suite is issued by the real HTTP login route.
+var authMod = require(path.join(REF, 'auth.js'));
+
+process.on('exit', function () {
+  [SECRET_FILE, LOOSE_SECRET_FILE, EMPTY_SECRET_FILE].forEach(function (f) {
+    try { fs.unlinkSync(f); } catch (e) { /* already gone */ }
+  });
+  try { fs.rmdirSync(SECRET_DIR); } catch (e) { /* already gone */ }
+});
 
 // ===========================================================================
 // 1. DESIGN-SYSTEM FIDELITY — docs/MYTHOS_DESIGN_DECISIONS.md D-001
@@ -112,12 +161,14 @@ ok(!/#[0-9a-fA-F]{3,8}\b/.test(consoleCss), 'console.css declares no hex colour'
 ok(!/rgba?\(/.test(consoleCss), 'console.css declares no rgb/rgba colour');
 ok(/var\(--mythos-/.test(consoleCss), 'console.css composes from design-system tokens');
 
-// login-gate.css is a separate composition file (the temporary internal
-// login gate, see login-gate.js). Same discipline as console.css: no
-// literal colour, tokens only.
-ok(!/#[0-9a-fA-F]{3,8}\b/.test(loginGateCss), 'login-gate.css declares no hex colour');
-ok(!/rgba?\(/.test(loginGateCss), 'login-gate.css declares no rgb/rgba colour');
-ok(/var\(--mythos-/.test(loginGateCss), 'login-gate.css composes from design-system tokens');
+// login.css is a separate composition file (the sign-in page, MOS-v2
+// M-01, replacing MOS-1's login-gate.css). Same discipline as
+// console.css: no literal colour, tokens only.
+ok(!/#[0-9a-fA-F]{3,8}\b/.test(loginCss), 'login.css declares no hex colour');
+ok(!/rgba?\(/.test(loginCss), 'login.css declares no rgb/rgba colour');
+ok(/var\(--mythos-/.test(loginCss), 'login.css composes from design-system tokens');
+ok(/fonts\.googleapis\.com\/css2\?family=Playfair\+Display[^"]*Inter/.test(loginHtml),
+   'the sign-in page loads the same font URL as the console shell');
 
 // Recovered component idioms.
 ok(/inset -3px 0 0 var\(--mythos-gold\)/.test(mythosCss), 'active nav item keeps the inset gold rail from main.css');
@@ -201,9 +252,21 @@ var writeRoutesBlock = (serverCode.match(/var WRITE_ROUTES = \[[\s\S]*?\];/) || 
 ok(/\/api\/missions\/start/.test(writeRoutesBlock), 'the start route is named explicitly in WRITE_ROUTES');
 ok(/CANCEL_ROUTE_RE/.test(writeRoutesBlock), 'the cancel route is named explicitly in WRITE_ROUTES');
 ok(/DISPATCH_ROUTE_RE/.test(writeRoutesBlock), 'the dispatch route is named explicitly in WRITE_ROUTES');
-// MOS-3A narrows this from 2: the capacity-gated dispatch relay is a third
-// deliberate exception, same shape and discipline as the first two.
-eq((writeRoutesBlock.match(/\{ test:/g) || []).length, 3, 'exactly three write routes are registered -- start, cancel and dispatch, nothing else');
+ok(/'\/api\/login'/.test(writeRoutesBlock), 'the login route is named explicitly in WRITE_ROUTES');
+ok(/'\/api\/logout'/.test(writeRoutesBlock), 'the logout route is named explicitly in WRITE_ROUTES');
+// MOS-3A narrowed this from 2 to 3 (start, cancel, dispatch). MOS-v2 M-01
+// adds login and logout: authentication is a write, so it belongs in the
+// same explicit list rather than in a side channel that no test reads.
+eq((writeRoutesBlock.match(/\{ test:/g) || []).length, 5,
+   'exactly five write routes are registered -- login, logout, start, cancel and dispatch, nothing else');
+// EXACTLY ONE of them may be reached without a session, and it is the one
+// that establishes a session. A second `unauthenticated: true` anywhere in
+// this list is a hole in the boundary, so the count is asserted, not the
+// presence.
+eq((writeRoutesBlock.match(/unauthenticated:\s*true/g) || []).length, 1,
+   'exactly one write route is callable without a session');
+ok(/\{ test: function \(p\) \{ return p === '\/api\/login' \? \[\] : null; \}, handler: handleLogin, unauthenticated: true \}/.test(writeRoutesBlock),
+   'the one unauthenticated write route is POST /api/login and nothing else');
 // The ONE named exception (readBoundedBody, MOS-2's request-body reader for
 // exactly one relay route) is stripped by exact name before this check, so
 // any OTHER, unnamed body reader still fails the suite.
@@ -228,8 +291,11 @@ ok(!/child_process|[^.\w]exec\(|[^.\w]spawn\(|[^.\w]eval\(|new Function/.test(se
   ok(appCode.indexOf(sink) === -1, 'client never uses ' + sink);
 });
 ok(/textContent/.test(appCode), 'client assigns text through textContent');
-ok(!/<script/.test(shellMarkup.replace(/<script src="\/(modules|app|login-gate)\.js"><\/script>/g, '')),
-   'the shell has no inline script (login-gate.js is the one new, named, external script tag)');
+ok(!/<script/.test(shellMarkup.replace(/<script src="\/(modules|app)\.js"><\/script>/g, '')),
+   'the shell has no inline script, and loads only modules.js and app.js');
+ok(!/<script/.test(markup(loginHtml).replace(/<script src="\/login\.js"><\/script>/g, '')),
+   'the sign-in page has no inline script, and loads only login.js');
+ok(!/ style="/.test(markup(loginHtml)), 'the sign-in page has no inline style attribute');
 ok(!/ style="/.test(shellMarkup), 'the shell has no inline style attribute');
 
 // Static serving is a whitelist, not a resolved path.
@@ -247,57 +313,108 @@ if (missionDispatchMatch) {
   ok(!/\btoken\b/.test(fieldList), 'MISSION_DISPATCH_FIELDS does not contain token');
 }
 
-// The two new static entries follow the identical whitelist pattern —
-// no new route, no new mechanism, nothing to weaken.
-ok(/'\/login-gate\.css':\s*\{ file: path\.join\(WEB, 'login-gate\.css'\)/.test(serverCode),
-   'login-gate.css is served through the same static whitelist as every other asset');
-ok(/'\/login-gate\.js':\s*\{ file: path\.join\(WEB, 'login-gate\.js'\)/.test(serverCode),
-   'login-gate.js is served through the same static whitelist as every other asset');
-
-// ---------------------------------------------------------------------------
-// 2b. TEMPORARY LOGIN GATE — source-level guarantees
-//
-// This is a UI-level gate, not a data boundary: it changes no server
-// route, reads no request body, and calls no backend of any kind — the
-// server.js read-only guarantees above are untouched by its existence.
-// What is tested here is specific to the gate itself: the credential
-// lives only as a SHA-256 digest, never as text; the client renders
-// only through textContent, like the rest of this app; and the gate
-// markup actually exists in the shell it is meant to sit in front of.
-// ---------------------------------------------------------------------------
-
-var loginGateCode = code(loginGateJs);
-
-// The stored secret material is shaped like a SHA-256 digest (64 lowercase
-// hex characters) and nothing else — never the plaintext password. This
-// is checked structurally, without this suite ever holding or comparing
-// against the plaintext itself.
-ok(/HASH\s*=\s*'[0-9a-f]{64}'/.test(loginGateCode),
-   'the gate stores a SHA-256 digest, not a plaintext password');
-
-['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write'].forEach(function (sink) {
-  ok(loginGateCode.indexOf(sink) === -1, 'login-gate.js never uses ' + sink);
+// The sign-in page's files follow the identical whitelist pattern — no new
+// route, no new mechanism, nothing to weaken.
+['login.html', 'login.css', 'login.js'].forEach(function (f) {
+  ok(new RegExp("path\\.join\\(WEB, '" + f.replace('.', '\\.') + "'\\)").test(serverCode),
+     f + ' is served through the same static whitelist as every other asset');
 });
-ok(/textContent/.test(loginGateCode), 'login-gate.js assigns error text through textContent');
-ok(!/child_process|[^.\w]exec\(|[^.\w]spawn\(|[^.\w]eval\(|new Function/.test(loginGateCode),
-   'no execution path in login-gate.js (MCC-1 precedent)');
-ok(/sessionStorage/.test(loginGateCode) && !/localStorage/.test(loginGateCode),
-   'the unlocked state is session-scoped (sessionStorage), never persisted across browser sessions (localStorage)');
-ok(/crypto\.subtle\.digest/.test(loginGateCode), 'the password is verified via Web Crypto, never sent anywhere');
+// MOS-1's client-side gate is GONE, not disabled: no file, no STATIC
+// entry, no reference anywhere the browser can reach.
+['login-gate.js', 'login-gate.css'].forEach(function (f) {
+  ok(!fs.existsSync(path.join(WEB, f)), f + ' no longer exists');
+  ok(serverJs.indexOf(f) === -1, f + ' has no STATIC entry or any other mention in server.js');
+  ok(shellHtml.indexOf(f) === -1, f + ' is not referenced by the console shell');
+});
 
-// The gate markup exists in the shell, before the existing Command
-// Center element in document order, and is the ONLY thing an
-// unauthenticated visitor's markup contains ahead of it.
-var gateIdx = shellHtml.indexOf('id="mythos-gate"');
-var appIdx = shellHtml.indexOf('id="app"');
-ok(gateIdx !== -1, 'the login gate markup exists in the shell');
-ok(appIdx !== -1 && gateIdx !== -1 && gateIdx < appIdx,
-   'the login gate sits before the Command Center in document order');
-ok(/id="mythos-gate-password"[^>]*type="password"/.test(shellHtml) ||
-   /type="password"[^>]*id="mythos-gate-password"/.test(shellHtml),
-   'the gate has exactly one password-type input');
-ok(!/name="username"|type="text"[^>]*login|<select/.test(shellMarkup.slice(gateIdx, appIdx)),
-   'the gate has no username field, no registration, no additional login-adjacent controls');
+// ---------------------------------------------------------------------------
+// 2b. SERVER-SIDE AUTHENTICATION — source-level guarantees (MOS-v2 M-01)
+//
+// MOS-1 shipped a client-side gate. It hid markup and nothing else: the
+// console shell and every /api/ route were served to anyone who asked,
+// and the password's SHA-256 digest was downloaded by every visitor for
+// offline attack. This section asserts the properties that replaced it,
+// at source level, because each one is a boundary rather than a feature
+// and a boundary that only the happy path tests is not tested at all.
+// ---------------------------------------------------------------------------
+
+var authCode = code(authJs), loginJsCode = code(loginJs);
+var loginMarkup = markup(loginHtml);
+
+// THE SECRET COMES FROM A FILE, AND ONLY FROM A FILE.
+ok(/MOS_CONSOLE_SECRET_FILE/.test(authCode), 'auth.js reads the secret from the file named by MOS_CONSOLE_SECRET_FILE');
+ok(!/process\.env\.MOS_CONSOLE_SECRET\b/.test(authCode),
+   'auth.js never reads MOS_CONSOLE_SECRET from the environment (/proc/<pid>/environ is not a secret store)');
+ok(!/MOS_CONSOLE_SECRET\b(?!_FILE)/.test(code(serverJs).replace(/MOS_CONSOLE_SECRET_FILE/g, '')),
+   'server.js never touches the secret itself -- only auth.js does');
+ok(/&\s*0o077/.test(authCode) && /insecure_mode/.test(authCode),
+   'auth.js refuses a secret file with any group or other permission bit set (0600 or tighter)');
+ok(/statSync/.test(authCode), 'the file mode is checked by stat, not assumed from how it was written');
+
+// THE COMPARISON IS CONSTANT-TIME, over fixed-width digests so that
+// timingSafeEqual never sees a length mismatch and no length leaks.
+ok(/crypto\.timingSafeEqual/.test(authCode), 'the secret comparison uses crypto.timingSafeEqual');
+ok(/createHash\('sha256'\)/.test(authCode),
+   'both sides are hashed to a fixed width before comparison, so no length is leaked and no length mismatch can throw');
+ok(!/candidate\s*===\s*|===\s*loaded\.secret|secret\s*===/.test(authCode),
+   'the secret is never compared with ===, which short-circuits on the first differing byte');
+
+// THE SESSION IDENTIFIER IS UNGUESSABLE AND UNREADABLE BY SCRIPT.
+ok(/crypto\.randomBytes\(32\)/.test(authCode), 'session identifiers are 32 bytes from the CSPRNG');
+ok(/HttpOnly/.test(authCode), 'the session cookie is httpOnly');
+ok(/SameSite=Strict/.test(authCode), 'the session cookie is SameSite=Strict');
+ok(/Secure/.test(authCode), 'the session cookie is Secure');
+ok(/Path=\//.test(authCode), 'the session cookie is scoped to the whole origin, so no path escapes it');
+ok(/expiresAt/.test(authCode) && /expiresAt <= Date\.now\(\)/.test(authCode),
+   'a session carries an expiry and it is enforced on every lookup, not only by a sweep');
+ok(/function hasSessionCookie/.test(authCode),
+   'a presented cookie is detectable regardless of shape, so a malformed one can be cleared rather than resent forever');
+
+// NOTHING THE BROWSER LOADS TOUCHES WEB STORAGE OR HOLDS A CREDENTIAL.
+// This is the exact defect of the gate that was removed, so it is
+// asserted over every file the browser downloads, not just the new one.
+[['app.js', appCode], ['login.js', loginJsCode], ['modules.js', code(read(path.join(WEB, 'modules.js')))]].forEach(function (pair) {
+  ok(!/localStorage|sessionStorage/.test(pair[1]),
+     pair[0] + ' writes no token or flag to JavaScript-readable storage');
+  ok(!/[0-9a-f]{40,}/.test(pair[1]), pair[0] + ' carries no digest-shaped constant');
+  ok(!/crypto\.subtle/.test(pair[1]), pair[0] + ' does no client-side credential maths');
+});
+['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write'].forEach(function (sink) {
+  ok(loginJsCode.indexOf(sink) === -1, 'login.js never uses ' + sink);
+});
+ok(/textContent/.test(loginJsCode), 'login.js assigns error text through textContent');
+ok(!/child_process|[^.\w]exec\(|[^.\w]spawn\(|[^.\w]eval\(|new Function/.test(loginJsCode + authCode),
+   'no execution path in login.js or auth.js (MCC-1 precedent)');
+ok(/'\/api\/login'/.test(loginJsCode), 'login.js submits the password to the server rather than judging it itself');
+ok(/credentials: 'same-origin'/.test(loginJsCode), 'the sign-in request carries the same-origin credential mode');
+
+// THE CONSOLE SHELL NO LONGER CONTAINS A LOGIN AT ALL.
+ok(shellHtml.indexOf('id="mythos-gate"') === -1, 'the console shell has no gate markup');
+ok(!/type="password"/.test(shellHtml), 'the console shell has no password input');
+ok(!/<form/.test(shellMarkup), 'the console shell has no form of any kind');
+
+// THE SIGN-IN PAGE IS ONE PASSWORD FIELD AND NOTHING ELSE.
+ok(/id="login-password"[^>]*type="password"/.test(loginHtml) ||
+   /type="password"[^>]*id="login-password"/.test(loginHtml),
+   'the sign-in page has exactly one password-type input');
+eq((loginHtml.match(/type="password"/g) || []).length, 1, 'the sign-in page has exactly one password field');
+ok(!/name="username"|<select|type="email"/.test(loginMarkup),
+   'the sign-in page has no username field, no registration, no additional login-adjacent controls');
+ok(loginHtml.indexOf('id="app"') === -1, 'the sign-in page does not carry the console shell');
+
+// THE BOUNDARY IS RESOLVED ONCE, BEFORE ROUTING, AND FAILS CLOSED.
+ok(/var session = auth\.sessionFor\(req\);/.test(serverCode),
+   'server.js resolves the session once, in the handler, before any route runs');
+ok(/if \(!writeMatch\.unauthenticated && !session\) return unauthenticated\(res, staleCookie\);/.test(serverCode),
+   'a write route without the unauthenticated flag is refused before its handler runs');
+ok(/if \(!session\) \{/.test(serverCode), 'a read without a session never reaches a route');
+var publicBlock = (serverCode.match(/var PUBLIC_PATHS = \{[\s\S]*?\};/) || [''])[0];
+ok(publicBlock, 'server.js declares PUBLIC_PATHS as an explicit list');
+ok(!/\/api\//.test(publicBlock), 'no /api/ path is ever public');
+ok(!/console\.css|app\.js|modules\.js|'\/'/.test(publicBlock),
+   'the console shell and its scripts are not public: only the sign-in page and its assets are');
+eq((publicBlock.match(/':\s*true/g) || []).length, 6,
+   'exactly six public paths -- /login, /login.html, /login.css, /login.js, /mythos.css and the logo');
 
 // ===========================================================================
 // 3. THE MODULE REGISTRY
@@ -464,17 +581,29 @@ function startStub() {
   });
 }
 
-function req(port, p, method, body) {
+// MOS-v2 M-01: every request now carries the suite's current session
+// cookie by default, because after this stage that is what a real console
+// request looks like. A caller that wants the UNAUTHENTICATED behaviour --
+// which is most of section 5 -- passes { cookie: null } explicitly, so an
+// anonymous probe is always visible at the call site and can never be one
+// by accident.
+var ACTIVE_COOKIE = null;
+
+function req(port, p, method, body, opts) {
+  opts = opts || {};
+  var cookie = Object.prototype.hasOwnProperty.call(opts, 'cookie') ? opts.cookie : ACTIVE_COOKIE;
   return new Promise(function (resolve) {
     var payload = body !== undefined ? JSON.stringify(body) : null;
     var headers = payload !== null ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {};
+    if (cookie) headers.Cookie = cookie;
     var r = http.request({ host: '127.0.0.1', port: port, path: p, method: method || 'GET', headers: headers }, function (res) {
       var b = '';
       res.on('data', function (d) { b += d; });
       res.on('end', function () {
         var json = null;
         try { json = JSON.parse(b); } catch (e) { /* static */ }
-        resolve({ status: res.statusCode, headers: res.headers, text: b, json: json });
+        resolve({ status: res.statusCode, headers: res.headers, text: b, json: json,
+                  setCookie: res.headers['set-cookie'] || [] });
       });
     });
     if (payload !== null) r.write(payload);
@@ -482,7 +611,23 @@ function req(port, p, method, body) {
   });
 }
 
+/* Sign in over the real HTTP route and return the cookie pair the server
+   issued -- never a session minted by reaching into auth.js. What is being
+   tested is the route a browser actually uses. */
+function login(port, password) {
+  return req(port, '/api/login', 'POST', { password: password }, { cookie: null }).then(function (r) {
+    var raw = (r.setCookie[0] || '');
+    return { res: r, cookie: raw ? raw.split(';')[0] : null, raw: raw };
+  });
+}
+
 function freshServer(env) {
+  // Unless a case overrides it, every configuration gets the correct 0600
+  // secret file: authentication being available is the baseline, and the
+  // cases that remove or spoil it say so.
+  if (!Object.prototype.hasOwnProperty.call(env, 'MOS_CONSOLE_SECRET_FILE')) {
+    env.MOS_CONSOLE_SECRET_FILE = SECRET_FILE;
+  }
   Object.keys(env).forEach(function (k) {
     if (env[k] === null) delete process.env[k]; else process.env[k] = env[k];
   });
@@ -506,6 +651,146 @@ startStub().then(function (stub) {
   return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
     var port = s.address().port;
 
+    // =====================================================================
+    // 5a. THE UNAUTHENTICATED MATRIX (MOS-v2 M-01)
+    //
+    // Run FIRST, against a fully configured, fully working console with a
+    // healthy control plane behind it. That ordering is the point: this is
+    // not "the console fails when something is missing", it is "the console
+    // has everything it needs and still refuses a caller with no session".
+    // Every route the console serves is listed, not a sample, so a route
+    // added later without a session check fails here rather than shipping.
+    // =====================================================================
+    var ANON = { cookie: null };
+    var API_PATHS = ['/api/health', '/api/missions', '/api/campaigns', '/api/events?limit=5',
+                     '/api/budget', '/api/agents', '/api/providers', '/api/roadmap',
+                     '/api/modules', '/api/dispatcher', '/api/missions/abc12345',
+                     '/api/missions/abc12345/report'];
+    var PRIVATE_STATIC = ['/console.css', '/app.js', '/modules.js'];
+    var PUBLIC_STATIC = ['/login', '/login.html', '/login.css', '/login.js', '/mythos.css'];
+
+    return Promise.all([
+      Promise.all(API_PATHS.map(function (u) { return req(port, u, 'GET', undefined, ANON); })),
+      Promise.all(PRIVATE_STATIC.map(function (u) { return req(port, u, 'GET', undefined, ANON); })),
+      Promise.all(PUBLIC_STATIC.map(function (u) { return req(port, u, 'GET', undefined, ANON); })),
+      req(port, '/', 'GET', undefined, ANON),
+      req(port, '/index.html', 'GET', undefined, ANON),
+      req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code' }, ANON),
+      req(port, '/api/missions/abc12345/cancel', 'POST', {}, ANON),
+      req(port, '/api/missions/abc12345/dispatch', 'POST', {}, ANON),
+      req(port, '/api/logout', 'POST', {}, ANON),
+      req(port, '/nope', 'GET', undefined, ANON),
+      // A syntactically valid but unknown session identifier, and a
+      // malformed one. Both are 'not signed in', and both must have the
+      // stale cookie cleared on the way out.
+      req(port, '/api/health', 'GET', undefined, { cookie: 'mos_session=' + new Array(65).join('a') }),
+      req(port, '/api/health', 'GET', undefined, { cookie: 'mos_session=not-a-session-id' })
+    ]).then(function (anon) {
+      var anonApi = anon[0], anonPrivate = anon[1], anonPublic = anon[2];
+      var anonShell = anon[3], anonIndex = anon[4];
+      var anonStart = anon[5], anonCancel = anon[6], anonDispatch = anon[7], anonLogout = anon[8];
+      var anonUnknown = anon[9], unknownSession = anon[10], malformedSession = anon[11];
+
+      API_PATHS.forEach(function (u, i) {
+        eq(anonApi[i].status, 401, 'unauthenticated GET ' + u + ' is 401');
+        eq(anonApi[i].json.error, 'unauthenticated', 'unauthenticated GET ' + u + ' names the reason');
+        ok(!anonApi[i].json.data, 'unauthenticated GET ' + u + ' carries no data');
+      });
+      // The strongest single statement this suite can make about the
+      // boundary: with a live control plane behind it, no anonymous
+      // response anywhere contains a single byte of upstream state.
+      ok(anonApi.every(function (r) { return r.text.indexOf('tk-') === -1 && r.text.indexOf('mythos-prod') === -1; }),
+         'no unauthenticated response leaks any control-plane value');
+
+      PRIVATE_STATIC.forEach(function (u, i) {
+        eq(anonPrivate[i].status, 401, 'unauthenticated GET ' + u + ' is 401 -- the console\'s own code is not public either');
+      });
+      PUBLIC_STATIC.forEach(function (u, i) {
+        eq(anonPublic[i].status, 200, 'the sign-in page asset ' + u + ' is served without a session');
+      });
+      ok(/id="login-form"/.test(anonPublic[0].text), '/login serves the sign-in page');
+      ok(anonPublic[0].text.indexOf('id="app"') === -1, '/login does not serve the console shell');
+
+      eq(anonShell.status, 302, 'an unauthenticated visit to / is redirected');
+      eq(anonShell.headers.location, '/login', '...to the sign-in page');
+      eq(anonShell.text, '', 'the redirect carries no body, so no shell markup escapes');
+      eq(anonIndex.status, 302, 'an unauthenticated visit to /index.html is redirected too');
+
+      [['start', anonStart], ['cancel', anonCancel], ['dispatch', anonDispatch], ['logout', anonLogout]].forEach(function (pair) {
+        eq(pair[1].status, 401, 'unauthenticated POST to the ' + pair[0] + ' route is 401');
+        eq(pair[1].json.error, 'unauthenticated', 'unauthenticated POST to the ' + pair[0] + ' route names the reason');
+      });
+      ok(stubPostBodies.length === 0, 'not one unauthenticated write reached the control plane');
+
+      eq(anonUnknown.status, 401, 'an unknown path is 401 to an anonymous caller, not a 404 that maps the surface');
+
+      [['unknown', unknownSession], ['malformed', malformedSession]].forEach(function (pair) {
+        eq(pair[1].status, 401, 'a ' + pair[0] + ' session identifier is refused');
+        ok((pair[1].setCookie[0] || '').indexOf('Max-Age=0') !== -1,
+           'a ' + pair[0] + ' session identifier is cleared from the browser rather than left to keep being sent');
+      });
+
+      // =====================================================================
+      // 5b. SIGN-IN — the wrong password, then the right one
+      // =====================================================================
+      return Promise.all([
+        login(port, 'not-the-password'),
+        login(port, CONSOLE_SECRET.toUpperCase()),
+        login(port, CONSOLE_SECRET + 'x'),
+        login(port, CONSOLE_SECRET.slice(0, -1))
+      ]).then(function (bad) {
+        bad.forEach(function (b, i) {
+          eq(b.res.status, 401, 'invalid password ' + i + ' is refused');
+          eq(b.res.json.error, 'invalid_credentials', 'invalid password ' + i + ' names invalid_credentials');
+          eq(b.cookie, null, 'invalid password ' + i + ' issues no session cookie');
+          ok(b.res.text.indexOf(CONSOLE_SECRET) === -1, 'the refusal for password ' + i + ' does not echo the secret');
+        });
+        // A near miss and a case-flip are refused exactly like a wild
+        // guess, and the refusal says nothing about how close it was.
+        ok(bad.every(function (b) { return b.res.json.detail === 'invalid credentials'; }),
+           'every refusal is the same message: nothing distinguishes a near miss from a wild guess');
+
+        return Promise.all([
+          req(port, '/api/login', 'POST', { password: 123 }, ANON),
+          req(port, '/api/login', 'POST', { password: CONSOLE_SECRET, role: 'admin' }, ANON),
+          req(port, '/api/login', 'POST', {}, ANON),
+          req(port, '/api/login', 'GET', undefined, ANON),
+          req(port, '/api/login', 'DELETE', undefined, ANON),
+          req(port, '/api/login', 'PUT', undefined, ANON),
+          req(port, '/api/logout', 'GET', undefined, ANON)
+        ]).then(function (m) {
+          eq(m[0].status, 400, 'a non-string password is a bad request, never a comparison');
+          eq(m[1].status, 400, 'an extra field on the login body is rejected -- no privilege can be smuggled in');
+          eq(m[2].status, 400, 'an empty login body is a bad request');
+          eq(m[3].status, 401, 'GET /api/login is not a route: an anonymous GET is refused like any other');
+          eq(m[4].status, 405, 'DELETE /api/login is refused by the method guard');
+          eq(m[5].status, 405, 'PUT /api/login is refused by the method guard');
+          eq(m[6].status, 401, 'GET /api/logout is not a route either');
+          ok(stubPostBodies.length === 0, 'no rejected login reached the control plane');
+
+          return login(port, CONSOLE_SECRET);
+        });
+      }).then(function (good) {
+        eq(good.res.status, 200, 'the correct password signs in');
+        eq(good.res.json.data.authenticated, true, 'the response states the session is established');
+        ok(good.cookie, 'a session cookie is issued');
+        ok(/^mos_session=[0-9a-f]{64}$/.test(good.cookie), 'the session identifier is 64 hex characters of CSPRNG output');
+        ok(/HttpOnly/i.test(good.raw), 'the session cookie is httpOnly -- no script can read it');
+        ok(/SameSite=Strict/i.test(good.raw), 'the session cookie is SameSite=Strict -- no cross-site request carries it');
+        ok(/Secure/i.test(good.raw), 'the session cookie is Secure');
+        ok(/Path=\//.test(good.raw), 'the session cookie is scoped to the whole origin');
+        ok(good.res.text.indexOf(good.cookie.split('=')[1]) === -1,
+           'the session identifier appears in NO response body -- only in the Set-Cookie header');
+        ok(good.res.text.indexOf(CONSOLE_SECRET) === -1, 'the successful sign-in does not echo the secret');
+        ok(!/token|secret|password/i.test(JSON.stringify(good.res.json.data)),
+           'the sign-in response body names no credential of any kind');
+
+        // Everything from here runs as a signed-in operator, which is what
+        // the rest of this suite has always been testing.
+        ACTIVE_COOKIE = good.cookie;
+      });
+    }).then(function () {
+
     return Promise.all([
       req(port, '/'), req(port, '/mythos.css'), req(port, '/console.css'),
       req(port, '/app.js'), req(port, '/modules.js'),
@@ -515,7 +800,7 @@ startStub().then(function (stub) {
       req(port, '/api/roadmap'), req(port, '/api/modules'),
       req(port, '/', 'POST'), req(port, '/api/missions', 'DELETE'),
       req(port, '/etc/passwd'), req(port, '/../../css/main.css'), req(port, '/missions'),
-      req(port, '/login-gate.css'), req(port, '/login-gate.js'),
+      req(port, '/login.css'), req(port, '/login.js'),
       req(port, '/api/dispatcher', 'GET'),
       req(port, '/api/missions/tk-stub-q-0001/dispatch', 'POST', {}),
       req(port, '/api/missions/tk-stub-q-0001/dispatch', 'GET')
@@ -525,7 +810,7 @@ startStub().then(function (stub) {
       var ev7 = r[8], evMax = r[9], budget = r[10], agents = r[11], providers = r[12];
       var roadmap = r[13], mods = r[14], post = r[15], del = r[16];
       var passwd = r[17], traverse = r[18], deep = r[19];
-      var gateCss = r[20], gateJs = r[21];
+      var loginCssRes = r[20], loginJsRes = r[21];
       var dispatcherStatus = r[22], dispatchQueued = r[23], dispatchGet = r[24];
 
       eq(shell.status, 200, 'shell is served');
@@ -534,10 +819,10 @@ startStub().then(function (stub) {
       eq(ccss.status, 200, 'console.css is served');
       eq(ajs.status, 200, 'app.js is served');
       eq(mjs.status, 200, 'modules.js is served');
-      eq(gateCss.status, 200, 'login-gate.css is served');
-      eq(gateJs.status, 200, 'login-gate.js is served');
-      eq(gateCss.headers['content-type'], 'text/css; charset=utf-8', 'login-gate.css has the correct content type');
-      eq(gateJs.headers['content-type'], 'application/javascript; charset=utf-8', 'login-gate.js has the correct content type');
+      eq(loginCssRes.status, 200, 'login.css is served');
+      eq(loginJsRes.status, 200, 'login.js is served');
+      eq(loginCssRes.headers['content-type'], 'text/css; charset=utf-8', 'login.css has the correct content type');
+      eq(loginJsRes.headers['content-type'], 'application/javascript; charset=utf-8', 'login.js has the correct content type');
 
       // Security headers on every response, including static.
       [shell, css, health, passwd].forEach(function (x, n) {
@@ -773,6 +1058,7 @@ startStub().then(function (stub) {
         });
       });
     });
+    }); // end of the signed-in phase opened by the unauthenticated matrix
   });
 })
 // --- 4b. No token: an honest refusal, never an empty list ---------------
@@ -784,7 +1070,16 @@ startStub().then(function (stub) {
   });
   return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
     var port = s.address().port;
-    return Promise.all([req(port, '/api/missions'), req(port, '/api/health'), req(port, '/')]).then(function (r) {
+    // A missing EXECUTOR token and a missing SESSION are different
+    // failures and must not be conflated: this configuration still has a
+    // usable console secret, so the operator can sign in and then SEE the
+    // honest refusal. Signing in is what makes that distinction testable.
+    ACTIVE_COOKIE = null;
+    return login(port, CONSOLE_SECRET).then(function (l) {
+      eq(l.res.status, 200, 'sign-in works even with no executor token: the two credentials are independent');
+      ACTIVE_COOKIE = l.cookie;
+      return Promise.all([req(port, '/api/missions'), req(port, '/api/health'), req(port, '/')]);
+    }).then(function (r) {
       eq(r[0].status, 502, 'with no token, missions is an error status');
       eq(r[0].json.error, 'upstream_unauthorized', 'the error names the missing credential');
       ok(!r[0].json.data, 'no data field accompanies a failed read');
@@ -806,7 +1101,12 @@ startStub().then(function (stub) {
   });
   return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
     var port = s.address().port;
-    return Promise.all([req(port, '/api/missions'), req(port, '/api/health'), req(port, '/api/agents')]).then(function (r) {
+    ACTIVE_COOKIE = null;
+    return login(port, CONSOLE_SECRET).then(function (l) {
+      eq(l.res.status, 200, 'sign-in works while the control plane is down: the console authenticates locally');
+      ACTIVE_COOKIE = l.cookie;
+      return Promise.all([req(port, '/api/missions'), req(port, '/api/health'), req(port, '/api/agents')]);
+    }).then(function (r) {
       eq(r[0].status, 503, 'an unreachable control plane is 503');
       eq(r[0].json.error, 'upstream_unreachable', 'the error names unreachability, not emptiness');
       ok(r[0].json.detail.indexOf(SECRET_TOKEN) === -1, 'the failure detail leaks no token');
@@ -817,6 +1117,265 @@ startStub().then(function (stub) {
     });
   });
 })
+// ===========================================================================
+// 5c. SESSION LIFECYCLE — signing out, and running out of time
+//
+// A session that cannot be ended and a session that never ends are the
+// same defect wearing two hats. Both are checked against the server's own
+// state, not against the cookie: clearing a cookie in the browser proves
+// nothing if the identifier still works when replayed.
+// ===========================================================================
+.then(function () {
+  authMod.resetThrottle();
+  var server = freshServer({
+    MOS_EXECUTOR_URL: 'http://127.0.0.1:9',
+    MOS_EXECUTOR_TOKEN: SECRET_TOKEN,
+    MOS_EXECUTOR_TOKEN_FILE: null,
+    MOS_SESSION_TTL_MS: '1000'          // the floor auth.js accepts
+  });
+  return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
+    var port = s.address().port;
+    var held = null;
+    ACTIVE_COOKIE = null;
+
+    // /api/modules is served from the module registry on disk, so it
+    // answers 200 without touching the (deliberately unreachable) control
+    // plane. That isolates what this section measures: the session, and
+    // nothing else.
+    return login(port, CONSOLE_SECRET).then(function (l) {
+      eq(l.res.status, 200, 'sign-in for the lifecycle checks succeeds');
+      held = l.cookie;
+      return req(port, '/api/modules', 'GET', undefined, { cookie: held });
+    }).then(function (r) {
+      eq(r.status, 200, 'a fresh session reads an API route');
+      return req(port, '/api/logout', 'POST', {}, { cookie: held });
+    }).then(function (r) {
+      eq(r.status, 200, 'signing out succeeds');
+      eq(r.json.data.authenticated, false, 'signing out states the session is over');
+      ok((r.setCookie[0] || '').indexOf('Max-Age=0') !== -1, 'signing out clears the cookie in the browser');
+      return req(port, '/api/modules', 'GET', undefined, { cookie: held });
+    }).then(function (r) {
+      eq(r.status, 401,
+         'the cookie kept after signing out is worthless -- the session was destroyed on the SERVER, not merely unset in the browser');
+      return login(port, CONSOLE_SECRET);
+    }).then(function (l) {
+      held = l.cookie;
+      // A session at the 1s floor, replayed after it has run out. Nothing
+      // renews it: the lifetime is absolute, so using it does not extend it.
+      return new Promise(function (resolve) { setTimeout(resolve, 1300); })
+        .then(function () { return req(port, '/api/modules', 'GET', undefined, { cookie: held }); });
+    }).then(function (r) {
+      eq(r.status, 401, 'a session past its lifetime is refused');
+      eq(r.json.error, 'unauthenticated', 'an expired session is refused as unauthenticated, not as a server error');
+      ok(!r.json.data, 'an expired session receives no data');
+      ok((r.setCookie[0] || '').indexOf('Max-Age=0') !== -1, 'an expired session is cleared from the browser');
+      return req(port, '/', 'GET', undefined, { cookie: held });
+    }).then(function (r) {
+      eq(r.status, 302, 'an expired session lands on the sign-in page');
+      eq(r.headers.location, '/login', '...and nowhere else');
+      s.close();
+    });
+  });
+})
+
+// ===========================================================================
+// 5d. WHERE THE SECRET MAY COME FROM
+//
+// The requirement is not "the console has a password" but "the console
+// reads it from a 0600 EnvironmentFile and from nowhere else". Every way
+// of getting that wrong is exercised against a live console with a correct
+// password submitted, so each failure below is the file discipline
+// refusing, never a wrong guess being refused.
+// ===========================================================================
+.then(function () {
+  authMod.resetThrottle();
+  var server = freshServer({
+    MOS_EXECUTOR_URL: 'http://127.0.0.1:9',
+    MOS_EXECUTOR_TOKEN: SECRET_TOKEN,
+    MOS_EXECUTOR_TOKEN_FILE: null,
+    MOS_SESSION_TTL_MS: null,
+    MOS_CONSOLE_SECRET_FILE: SECRET_FILE
+  });
+  return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
+    var port = s.address().port;
+    ACTIVE_COOKIE = null;
+
+    // auth.js re-reads the file on every attempt, so the configuration can
+    // be changed under a running server. That is itself the property being
+    // relied on: a rotated secret takes effect without a restart, and a
+    // secret file whose mode is loosened stops working immediately.
+    function withSecretConfig(file, envValue) {
+      if (file === null) delete process.env.MOS_CONSOLE_SECRET_FILE;
+      else process.env.MOS_CONSOLE_SECRET_FILE = file;
+      if (envValue === null) delete process.env.MOS_CONSOLE_SECRET;
+      else process.env.MOS_CONSOLE_SECRET = envValue;
+      return login(port, CONSOLE_SECRET);
+    }
+
+    return withSecretConfig(LOOSE_SECRET_FILE, null).then(function (l) {
+      eq(l.res.status, 401,
+         'the CORRECT password is refused when the secret file is mode 0644 -- a secret others can read is not one this console will use');
+      eq(l.cookie, null, 'no session is issued from a group-readable secret file');
+      return withSecretConfig(EMPTY_SECRET_FILE, null);
+    }).then(function (l) {
+      eq(l.res.status, 401, 'a 0600 file with no MOS_CONSOLE_SECRET line authenticates nobody');
+      return withSecretConfig(path.join(SECRET_DIR, 'does-not-exist'), null);
+    }).then(function (l) {
+      eq(l.res.status, 401, 'a missing secret file authenticates nobody');
+      // THE ENVIRONMENT IS NOT A SECRET STORE. The correct value, exported
+      // exactly as an operator might, with no file configured at all.
+      return withSecretConfig(null, CONSOLE_SECRET);
+    }).then(function (l) {
+      eq(l.res.status, 401,
+         'MOS_CONSOLE_SECRET in the process environment authenticates nobody -- the environment is readable through /proc and inherited by children');
+      eq(l.cookie, null, 'no session is issued from an environment-supplied secret');
+      // And with a file configured but the environment ALSO set to the
+      // right value, the file still decides: a stale export cannot
+      // override, and cannot rescue, the file.
+      return withSecretConfig(EMPTY_SECRET_FILE, CONSOLE_SECRET);
+    }).then(function (l) {
+      eq(l.res.status, 401, 'an environment value cannot stand in for a file that holds no secret');
+      authMod.resetThrottle();
+      return withSecretConfig(SECRET_FILE, null);
+    }).then(function (l) {
+      eq(l.res.status, 200, 'with the 0600 file restored, the same password signs in');
+      ACTIVE_COOKIE = l.cookie;
+      return req(port, '/api/health');
+    }).then(function (r) {
+      eq(r.status, 200, 'health is readable by a signed-in operator');
+      eq(r.json.data.auth.secret_provisioned, true, 'health states the console secret is provisioned');
+      eq(r.json.data.auth.secret_problem, null, 'health reports no configuration problem');
+      ok(r.text.indexOf(CONSOLE_SECRET) === -1, 'health names the state of the secret, never its value');
+      // Break the file mode under the running console. The session already
+      // held stays valid -- it is not re-derived from the secret -- but the
+      // operator can SEE that nobody can sign in any more.
+      fs.chmodSync(SECRET_FILE, 0o644);
+      return req(port, '/api/health');
+    }).then(function (r) {
+      eq(r.json.data.auth.secret_provisioned, false, 'health stops claiming a secret is provisioned the moment the file mode is loosened');
+      eq(r.json.data.auth.secret_problem, 'insecure_mode', 'health names WHICH configuration problem it is');
+      fs.chmodSync(SECRET_FILE, 0o600);
+      s.close();
+    });
+  });
+})
+
+// ===========================================================================
+// 5e. CREDENTIAL SWEEP
+//
+// Two sweeps, because there are two ways to leak. The first reads every
+// file the browser can download: the gate this replaced shipped a password
+// digest in exactly such a file. The second reads every response a live,
+// signed-in console produces, including the sign-in exchange itself.
+// ===========================================================================
+.then(function () {
+  var DOWNLOADABLE = ['index.html', 'login.html', 'login.css', 'login.js',
+                      'app.js', 'modules.js', 'console.css', 'mythos.css'];
+  DOWNLOADABLE.forEach(function (f) {
+    var text = read(path.join(WEB, f));
+    ok(text.indexOf(CONSOLE_SECRET) === -1, 'sweep: ' + f + ' contains no console secret');
+    ok(text.indexOf(SECRET_TOKEN) === -1, 'sweep: ' + f + ' contains no executor token');
+    ok(!/MOS_CONSOLE_SECRET|MOS_EXECUTOR_TOKEN|MYTHOS_EXECUTOR_TOKEN/.test(text),
+       'sweep: ' + f + ' names no credential variable');
+    ok(!/[0-9a-f]{40,}/.test(text), 'sweep: ' + f + ' carries no digest- or key-shaped constant');
+  });
+  // The executor credential is the one the browser must never see, and the
+  // only code that holds it is upstream.js -- server-side, never served.
+  ok(!fs.existsSync(path.join(WEB, 'upstream.js')) && !fs.existsSync(path.join(WEB, 'auth.js')),
+     'sweep: neither the upstream client nor the auth module sits in the served web directory');
+  ok(!/console\.log|process\.stdout|process\.stderr/.test(authCode),
+     'sweep: auth.js writes nothing to stdout or stderr, so the secret cannot be logged from where it is read');
+
+  authMod.resetThrottle();
+  var server = freshServer({
+    MOS_EXECUTOR_URL: 'http://127.0.0.1:9',
+    MOS_EXECUTOR_TOKEN: SECRET_TOKEN,
+    MOS_EXECUTOR_TOKEN_FILE: null,
+    MOS_UPSTREAM_TIMEOUT_MS: '1500',
+    MOS_CONSOLE_SECRET_FILE: SECRET_FILE
+  });
+  return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
+    var port = s.address().port;
+    ACTIVE_COOKIE = null;
+    var sessionId = null;
+    var bodies = [];
+
+    return login(port, 'wrong').then(function (l) {
+      bodies.push(['failed sign-in', l.res.text]);
+      authMod.resetThrottle();
+      return login(port, CONSOLE_SECRET);
+    }).then(function (l) {
+      bodies.push(['successful sign-in', l.res.text]);
+      ACTIVE_COOKIE = l.cookie;
+      sessionId = l.cookie.split('=')[1];
+      return Promise.all(['/', '/login', '/app.js', '/console.css', '/modules.js', '/mythos.css',
+                          '/api/health', '/api/modules', '/api/missions', '/api/agents',
+                          '/api/providers', '/api/roadmap', '/api/budget'].map(function (u) {
+        return req(port, u).then(function (r) { return [u, r.text]; });
+      }));
+    }).then(function (rows) {
+      rows.concat(bodies).forEach(function (row) {
+        ok(row[1].indexOf(CONSOLE_SECRET) === -1, 'sweep: no console secret in the response for ' + row[0]);
+        ok(row[1].indexOf(SECRET_TOKEN) === -1, 'sweep: no executor token in the response for ' + row[0]);
+        ok(row[1].indexOf(sessionId) === -1, 'sweep: the session identifier never appears in the body of ' + row[0]);
+      });
+      // The identifier reaches the browser exactly once, in a header the
+      // browser will not expose to script.
+      return req(port, '/api/logout', 'POST', {});
+    }).then(function () { s.close(); });
+  });
+})
+
+// ===========================================================================
+// 5f. THE LOGIN ROUTE IS NOT AN ORACLE
+//
+// One credential, one route, reachable without a session: unthrottled,
+// that is an online brute force with no cost. The throttle is checked at
+// its most important moment -- once it has engaged, even the CORRECT
+// password is refused, so it cannot be walked past by finally guessing
+// right.
+// ===========================================================================
+.then(function () {
+  authMod.resetThrottle();
+  var server = freshServer({
+    MOS_EXECUTOR_URL: 'http://127.0.0.1:9',
+    MOS_EXECUTOR_TOKEN: SECRET_TOKEN,
+    MOS_EXECUTOR_TOKEN_FILE: null,
+    MOS_UPSTREAM_TIMEOUT_MS: '1500',
+    MOS_CONSOLE_SECRET_FILE: SECRET_FILE
+  });
+  return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
+    var port = s.address().port;
+    ACTIVE_COOKIE = null;
+
+    var seq = Promise.resolve();
+    var codes = [];
+    for (var n = 0; n < 10; n++) {
+      seq = seq.then(function () {
+        return login(port, 'guess-' + codes.length).then(function (l) { codes.push(l.res.status); });
+      });
+    }
+    return seq.then(function () {
+      ok(codes.every(function (c) { return c === 401; }),
+         'the first ten wrong passwords are each refused as invalid credentials (' + codes.join(',') + ')');
+      return login(port, 'guess-11');
+    }).then(function (l) {
+      eq(l.res.status, 429, 'the eleventh attempt is throttled, not answered');
+      eq(l.res.json.error, 'too_many_attempts', 'the throttle names itself');
+      return login(port, CONSOLE_SECRET);
+    }).then(function (l) {
+      eq(l.res.status, 429, 'once engaged the throttle refuses the CORRECT password too -- it cannot be guessed past');
+      eq(l.cookie, null, 'no session is issued while the throttle holds');
+      authMod.resetThrottle();
+      return login(port, CONSOLE_SECRET);
+    }).then(function (l) {
+      eq(l.res.status, 200, 'once the window rolls off, the correct password signs in again');
+      ACTIVE_COOKIE = null;
+      s.close();
+    });
+  });
+})
+
 .then(function () {
   console.log('\nMOS-1 console: ' + passed + ' passed, ' + failed + ' failed');
   if (failed) { failures.forEach(function (f) { console.error('  - ' + f); }); process.exit(1); }

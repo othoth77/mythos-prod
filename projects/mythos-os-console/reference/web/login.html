@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<!--
+  MYTHOS OS COMMAND CENTER — sign-in page
+  projects/mythos-os-console/reference/web/login.html
+
+  A page of its own, not an overlay. The MOS-1 gate was markup laid on
+  top of the console, so the console shell — and every /api/ route
+  behind it — was already served to whoever asked. This page is the only
+  thing an unauthenticated request can reach: server.js answers 401 to
+  everything else and 302s the two navigable HTML paths here.
+
+  No inline <script> and no inline style: the Content-Security-Policy
+  served by server.js is script-src 'self'.
+-->
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="robots" content="noindex, nofollow">
+  <title>MYTHOS OS — Sign in</title>
+
+  <!-- Playfair Display + Inter, the same two faces and the same URL the
+       console shell and the Mythos OS application load. Both have full
+       local fallback stacks in mythos.css. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="/mythos.css">
+  <link rel="stylesheet" href="/login.css">
+  <link rel="icon" type="image/png" href="/assets/logomythos.png">
+</head>
+<body class="mythos-login-body">
+
+  <main class="mythos-login">
+    <div class="mythos-login-card">
+      <div class="mythos-login-logo">
+        <img src="/assets/logomythos.png" alt="Mythos" width="160" height="90">
+      </div>
+      <h1 class="mythos-login-title">MYTHOS OS</h1>
+      <p class="mythos-login-subtitle">Command Center</p>
+
+      <!-- The form never navigates: login.js calls preventDefault and
+           posts to /api/login itself, which is why the CSP can keep
+           form-action 'none'. -->
+      <form class="mythos-login-form" id="login-form" autocomplete="off">
+        <label class="mythos-login-label" for="login-password">Password</label>
+        <input
+          class="mythos-login-input"
+          type="password"
+          id="login-password"
+          name="password"
+          autocomplete="current-password"
+          required>
+        <p class="mythos-login-error" id="login-error" role="alert" hidden></p>
+        <button class="mythos-login-submit" type="submit" id="login-submit">Sign in</button>
+      </form>
+    </div>
+  </main>
+
+  <script src="/login.js"></script>
+</body>
+</html>
