@@ -1,7 +1,40 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MYTHOS **IDAUTO MASTER MISSION — ALL EXECUTABLE STAGES COMPLETE. EXTRACTION, DECOUPLING AND REMOVAL FINISHED; IDA-4 FOUNDATION SUBSET IMPLEMENTED WITHIN ITS GATES; EVERY REMAINING ITEM IS AN OWNER, LEGAL OR ARCHITECTURE-GATED ACTION, NAMED AND RECORDED.**
+**From:** MYTHOS **GATE-CLOSURE — THE ENTIRE ID AUTO PR STACK IS MERGED. #16 AND #14 ARE IN MAIN. THE REMAINING GATES ARE FORMALLY CLASSIFIED: B1/B2/B3 OWNER-BLOCKED, A5 OWNER-DECISION (EVALUATED), 16 LEGAL ITEMS OPEN. CITIZEN-FACING IDA-4 = NOT READY.**
+
+**Stage:** gate-closure mission · **Status:** all actionable items closed; every remaining gate is an owner, counsel or decision gate — none engineering-closable
+**Type:** merges + documentation. No production change.
+
+### Merges (all by merge commit; provenance verified)
+
+| PR | Result |
+|---|---|
+| idauto **#2** vocabularies | merged `27a35b9` — pin commit `42e8546` remains an ancestor; the three vocabulary digests on idauto `main` equal this repo's pins byte-for-byte (re-verified post-merge) |
+| idauto **#3** readiness audit | merged `1d508e1` (retargeted to main first — GitHub does not auto-retarget while the base branch exists) |
+| idauto **#4** foundation subset | merged `24a28dd` — idauto `main` final |
+| mythos **#16** (this whole programme) | merged `91131eb` — validated first: identity-core 157/0, devx-2 7/0, validate 0/0, zero `projects/idauto` runtime refs |
+| mythos **#14** | **auto-resolved as merged by containment** — its head `1cc4d51` became an ancestor of main via #16; GitHub closed it as merged |
+
+Full sweep on merged main: **4857 passed / 9 failed** — the 9 are `mythos-orchestration-core` 2 (long pre-existing) + `mos-1-console` 5 + `stage4w` 2, the latter two **reproduced on pristine pre-merge main** (the design track's MIG work) — nothing new from any merge. idauto post-merge: ida4-foundation 130/0, identity-conformance 81/0, ida-2a 44/0.
+
+### Gate states (evidence in idauto `docs/IDA4_READINESS_AUDIT.md` §I, PR #5 there)
+
+- **B1 / B2 / B3** — OWNER-BLOCKED: no credential exists in any development environment (re-verified); B2's cadence is undefined in every policy document, an owner decision inside the owner gate. Procedures stand in `docs/OFF_HOST_BACKUP_GATE.md` §8.
+- **A5** — OWNER DECISION, fully evaluated: B1 magic-link now (hold PII, answer L06/L07/L09/L16 early) vs wait-for-IDA-7 (zero PII); **recommended default: option C** — the zero-account half (IVID issuance, passport assembly, IVID-only public QR — never by plate). Conditions on any B: credential-is-never-the-identifier; A2 authorization from day one.
+- **Legal** — `IDA4_LEGAL_GATE_MATRIX.md`: L01–L16 all **OPEN**, none APPROVED (approval requires evidence); counsel package filed; four citizen-surface blockers L06/L07/L09/L16.
+- **CITIZEN_FACING_IDA4_READY = NO** · `PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` = NO. Nothing citizen-facing was implemented.
+
+### Open PRs after this mission
+
+idauto **#5** (gate-closure docs, draft — for the owner's A5 decision + counsel handoff) and idauto **#1** (docs-only publication record, predates the stack; its CHANGELOG hunk will conflict trivially with merged main — owner's call to update-and-merge or close).
+
+---
+
+## Previous entry
+
+
+**Previously:** MYTHOS **IDAUTO MASTER MISSION — ALL EXECUTABLE STAGES COMPLETE. EXTRACTION, DECOUPLING AND REMOVAL FINISHED; IDA-4 FOUNDATION SUBSET IMPLEMENTED WITHIN ITS GATES; EVERY REMAINING ITEM IS AN OWNER, LEGAL OR ARCHITECTURE-GATED ACTION, NAMED AND RECORDED.**
 
 **Stage:** master mission (16 stages) · **Status:** every stage executed or explicitly gated — see the ledger below
 **Branches:** mythos `claude/idauto-source-cleanup-post-publication` (PR #16, draft) · idauto `protocol-identity-vocabularies` → `ida4-readiness` → `ida4-foundation` (PRs #2 → #3 → #4, drafts, **merge-commit only**)
