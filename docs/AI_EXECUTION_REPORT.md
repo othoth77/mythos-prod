@@ -4,6 +4,35 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260819085112-b95ogm` — BLOCKED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | review probe |
+| Provider / model | claude-code / default |
+| Execution profile | repo-read |
+| Started | 2026-08-19T08:53:11.975Z |
+| Ended | 2026-08-19T08:53:56.068Z |
+| Status | **BLOCKED** |
+| Claude session | `d3a34e5d-9f2d-496d-a3e2-1cf42c0d2098` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | — |
+| Git verified | null |
+
+**Summary:** Task t-20260819085112-b95ogm (stage: review probe, objective: 'do a thing') was treated as read-only review per AGENTS.md §6. Preflight failed: git fetch origin returned 'Permission denied (publickey)', so remote state (origin/main HEAD, divergence) could not be verified, which is a mandatory stop condition under AGENTS.md §5. The objective text itself carries no actionable scope. Pre-existing unrelated dirty working-tree state (idauto, mcp-capabilities, skills, ssangyong-autos deploy files, and modified executor/console/core files) was left untouched. No files were edited, staged, committed, or pushed.
+
+**Residual risks:**
+- This execution environment lacks SSH access to git@github.com:othoth77/mythos-prod.git, blocking any future task that requires fetch/push verification
+- The objective 'do a thing' is not actionable and should not be re-dispatched as-is
+
+**Next stage:** Restore SSH deploy-key access for this executor environment and re-dispatch with a concrete, scoped objective before any implementation work is attempted
+
+
+---
+
 ## Task `t-20260819085112-gzl1vd` — COMPLETED
 
 | Field | Value |
