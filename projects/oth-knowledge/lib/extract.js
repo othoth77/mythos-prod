@@ -30,14 +30,19 @@ function addEntity(store, { entity_type, name, metadata }) {
   });
 }
 
-function makeProv(classes, prov) { return provenance.buildProvenance(classes, prov); }
+// Builds provenance AND guarantees the (class, collection) source record
+// exists, so no extraction path can create orphaned provenance.
+function makeProv(store, classes, prov) {
+  provenance.ensureSource(store, classes, prov.source_class, prov.source_collection);
+  return provenance.buildProvenance(classes, prov);
+}
 
 function addFact(store, classes, { statement, confidence, prov, entity_ids, tags, metadata }) {
   return put(store, {
     kind: 'fact',
     id: ids.recordId('fact', prov.source_class + '/' + statement),
     statement, confidence,
-    provenance: makeProv(classes, prov),
+    provenance: makeProv(store, classes, prov),
     entity_ids: entity_ids || [], tags: tags || [], metadata: metadata || {},
   });
 }
@@ -47,7 +52,7 @@ function addClaim(store, classes, { statement, asserted_by, prov, entity_ids, ta
     kind: 'claim',
     id: ids.recordId('claim', prov.source_class + '/' + asserted_by + '/' + statement),
     statement, asserted_by,
-    provenance: makeProv(classes, prov),
+    provenance: makeProv(store, classes, prov),
     entity_ids: entity_ids || [], tags: tags || [],
   });
 }
@@ -57,17 +62,21 @@ function addObservation(store, classes, { statement, observed_at, prov, entity_i
     kind: 'observation',
     id: ids.recordId('observation', prov.source_class + '/' + observed_at + '/' + statement),
     statement, observed_at,
-    provenance: makeProv(classes, prov),
+    provenance: makeProv(store, classes, prov),
     entity_ids: entity_ids || [], tags: tags || [], metadata: metadata || {},
   });
 }
 
-function addEvent(store, classes, { title, occurred_at, prov, entity_ids, tags, metadata }) {
+// `key`: optional caller-supplied identity discriminator. Importers pass
+// their per-entry source reference so two distinct entries sharing a
+// title and timestamp never collapse into one id (and re-imports stay
+// idempotent); without it, identity falls back to class/time/title.
+function addEvent(store, classes, { title, occurred_at, prov, entity_ids, tags, metadata, key }) {
   return put(store, {
     kind: 'event',
-    id: ids.recordId('event', prov.source_class + '/' + occurred_at + '/' + title),
+    id: ids.recordId('event', key ? prov.source_class + '/key/' + key : prov.source_class + '/' + occurred_at + '/' + title),
     title, occurred_at,
-    provenance: makeProv(classes, prov),
+    provenance: makeProv(store, classes, prov),
     entity_ids: entity_ids || [], tags: tags || [], metadata: metadata || {},
   });
 }
@@ -101,7 +110,7 @@ function addDerived(store, classes, { text, derivation, derived_from, prov, tags
     kind: 'derived',
     id: ids.recordId('derived', derivation + '/' + derived_from.slice().sort().join(',')),
     text, derivation, derived_from,
-    provenance: makeProv(classes, prov),
+    provenance: makeProv(store, classes, prov),
     tags: tags || [],
   });
 }

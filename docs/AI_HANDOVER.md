@@ -1,7 +1,108 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** OTH-K1 **KNOWLEDGE OPERATING LAYER IMPLEMENTED AND TESTED (119/0); INFRASTRUCTURE KNOWLEDGE RECORDED AND MERGED TO `othoth77/oth-knowledge`; DEPLOYMENT BLOCKER RECLASSIFIED TO OPERATOR-EXECUTION-PENDING.**
+**From:** OTH-K2 **REAL-DATA KNOWLEDGE INTEGRATION: FOUR IMPORTERS, DEDUP/TEMPORAL/AUDIT ENGINES, AI-LAYER SERVICE BOUNDARY, EVALUATION V2 — 206/0 ACROSS THREE SUITES; INDEPENDENT ADVERSARIAL REVIEW: 1 BLOCKER + 4 MAJOR + 5 MINOR FOUND, ALL 10 FIXED WITH REGRESSION TESTS; REAL SOURCES DISCOVERED AND EVIDENCE-TABLED; CONTENT TRANSFER EXTERNALLY BLOCKED (SESSION PERMISSION POLICY).**
+
+## OTH-K2 — real-data knowledge integration (2026-08-19)
+
+### Stage
+
+OTH-K2 on branch `claude/oth-knowledge-mission-05buds` (restarted from
+merged main `c63391d` per merged-PR rule). Nothing from OTH-K1 rebuilt;
+all additions layer on the existing model/store/search.
+
+### Phase 1 — real data discovery (evidence: `docs/OTH_K2_DATA_DISCOVERY.md`)
+
+Authorized surfaces searched: this environment's filesystem (nothing) and
+the owner-connected Google Drive connector (real data present). Found:
+**no Takeout/Gemini/NotebookLM exports exist anywhere authorized**; real
+Google Contacts CSVs exist (2021, 2 files + 1 sheet, third-party PII);
+real owner business Docs exist (google-other). A Drive **content**
+download attempt was **denied by the session permission policy**
+(auto-mode classifier) — genuine external boundary, not worked around;
+metadata discovery works. Real imports are therefore operator-local CLI
+actions (procedure in the operations doc); contacts content additionally
+stays refused by the metadata-only class policy regardless.
+
+### Delivered
+
+- **Importers** (`lib/importers/`): takeout (directory walk, symlink-refusing,
+  activity→EXTRACTED events with entry truth time), gemini (conversations→
+  events; malformed shapes refused before any store write), notebooklm
+  (key points→CLAIMS asserted by notebooklm — model output never becomes
+  fact), contacts (**metadata-only**: hashes/counts/column names; zero PII
+  persisted, proven store-wide by test). All stamp parser_version +
+  normalizer_version + assertion_class (OBSERVED/EXTRACTED/DERIVED/INFERRED).
+- **Core upgrades:** CSV parser + JSON depth guard + 25MB artifact cap in
+  normalize/ingest; import lineage on artifacts/documents; `ensureSource`
+  moved to provenance.js and enforced on every extract path (audit-found
+  gap: extraction could previously create provenance without a source
+  record — fixed and tested).
+- **Dedup** (`lib/dedup.js`): shingle-Jaccard near-duplicates, documented
+  thresholds (≥0.95 duplicate_of, ≥0.80 possible_duplicate_of), entity
+  alias candidates — link-only, never merge, never delete.
+- **Temporal** (`lib/temporal.js`): truth time ≠ ingest time everywhere;
+  classify current/superseded/planned/unknown-date; `knownAt` honors
+  resolution decided_at (a later-overturned fact WAS 2024 knowledge);
+  whatChanged reports both time axes separately; latestVerified.
+- **Provenance audit** (`lib/audit.js`): Phase-10 checks per item, hard
+  failures vs warnings, explicit quarantine as a new tagged version;
+  `auditHits` retrieval-time provenance correctness.
+- **Knowledge service** (`lib/knowledge-service.js` +
+  `docs/OTH_KNOWLEDGE_INTEGRATION.md`): the provider-neutral, READ-ONLY
+  boundary the AI Operating Layer consumes (search/retrieve/entity/
+  evidence/history/provenance/contradictions/currentState/audit); the AI
+  layer never owns or writes knowledge; executor wiring deliberately a
+  separate gate-covered stage.
+- **CLI**: `import-takeout`, `import-gemini`, `import-notebooklm`,
+  `import-contacts-metadata` subcommands (smoke-tested).
+- **Operations** (`docs/OTH_KNOWLEDGE_OPERATIONS.md`): backup/restore/
+  rollback/re-index/re-import/conflict procedure/health checks/monitoring,
+  operator deployment package over the verified owner→VPS channel, and the
+  automatic vs operator vs owner ledger.
+
+### Decisions (evidence-based, recorded in architecture doc §12a)
+
+- **Embeddings: NO external provider now** — lexical already at
+  recall@5=recall@10=1.0, MRR 0.95 on the 20-query set; a provider would
+  add credential+network+reindex cost for no measurable gain. Interface
+  stays pluggable.
+- **Database: NO PostgreSQL now** — measured: 20k records → reopen 80ms,
+  lexical 6.5ms, hybrid 24ms, 15MB log, RSS 244MB (`eval/bench-store.js`).
+  Triggers documented (>100k records, multi-writer, >100ms, backup needs).
+
+### Verification
+
+| | |
+|---|---|
+| Suites | **othk-0 89/0 · othk-1 30/0 · othk-2 87/0 (206/0 total)**; `node --check` clean on every file |
+| Evaluation v2 | 20 queries: lexical R@5=1.0 R@10=1.0 MRR .95 · vector 1.0/1.0/.863 · hybrid 1.0/1.0/.925; provenance-correctness OK on all 198 hybrid hits; p@5 bounded ≈0.2 by single-relevant queries (documented) |
+| Temporal | "true in 2024" / current / superseded / planned / unknown-date all asserted; ingest-vs-truth axis separation asserted |
+| Security | size/depth/CSV guards tested; secret gate on importer paths; store-wide zero-PII assertion for contacts; secret scan clean |
+| VPS probe | TCP 22 unreachable, no client/keys (re-verified this session) |
+| Review | independent adversarial review (Opus-role) on the full diff returned CHANGES-REQUIRED: **1 BLOCKER** (headerless contacts CSV could persist a data row as column names — now refused by header validation before anything persists), **4 MAJOR** (event-id collision collapsing distinct same-title/time activity entries — fixed via per-entry identity keys; cross-class byte dedup silently dropping the second source — now records an explicit `also_present_in` relationship and extracted records carry the current import's reference; `knownAt` leaking later-captured corrections into point-in-time views — now version-selects by captured_at; `classify` ignoring asOf for conflict losers + optional decided_at — asOf honored, decided_at now mandatory), **5 MINOR** (contacts size cap, misleading gemini header comment, quarantine idempotency, parallel stale duplicate links, private Drive titles/ids in the discovery doc — all fixed). Every fix has a §11 regression assertion (18 new) |
+
+### Blockers (all external, verified)
+
+1. Real source content transfer from Drive → denied by session permission
+   policy; operator-local import path documented instead.
+2. Takeout/Gemini/NotebookLM exports do not exist yet — owner must produce
+   them.
+3. Persistent private store location (never Git) — owner/operator
+   provisioning decision.
+4. Contacts content beyond metadata — owner policy decision.
+5. VPS access from AI environments — unchanged; operator package ready.
+
+### Next stage
+
+OTH-K3 candidates: executor-side knowledge-service wiring (under the
+MOS-v2 regression gate), real imports once the owner supplies exports +
+a persistent private store, and the still-open MOS read-only audit /
+Phase-B activation.
+
+---
+
+**Previously:** OTH-K1 **KNOWLEDGE OPERATING LAYER IMPLEMENTED AND TESTED (119/0); INFRASTRUCTURE KNOWLEDGE RECORDED AND MERGED TO `othoth77/oth-knowledge`; DEPLOYMENT BLOCKER RECLASSIFIED TO OPERATOR-EXECUTION-PENDING.**
 
 ## OTH-K1 — knowledge operating layer + infrastructure knowledge (2026-08-19)
 

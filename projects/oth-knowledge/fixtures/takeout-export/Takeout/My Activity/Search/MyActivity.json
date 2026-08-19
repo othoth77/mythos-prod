@@ -1,0 +1,6 @@
+[
+  { "header": "Search", "title": "Searched for coolify deployment persistent volumes", "time": "2026-03-01T08:00:00Z", "titleUrl": "https://example.invalid/search" },
+  { "header": "Search", "title": "Searched for ed25519 ssh key windows openssh", "time": "2026-03-02T09:30:00Z" },
+  { "header": "Maps", "title": "Viewed synthetic fixture location", "time": "2026-03-03T10:45:00Z" },
+  { "header": "Search", "title": "Entry with missing time is skipped deterministically" }
+]

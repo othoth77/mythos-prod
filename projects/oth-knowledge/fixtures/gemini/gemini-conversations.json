@@ -1,0 +1,30 @@
+{
+  "note": "Synthetic Gemini export fixture mirroring the conversations[] shape. No real conversation data.",
+  "conversations": [
+    {
+      "id": "conv-001",
+      "title": "Planning the retrieval benchmark",
+      "create_time": "2026-04-10T09:00:00Z",
+      "update_time": "2026-04-10T09:20:00Z",
+      "messages": [
+        { "author": "user", "text": "How should we benchmark retrieval quality?", "create_time": "2026-04-10T09:00:05Z" },
+        { "author": "model", "text": "Use a fixed query set with recall and reciprocal rank metrics.", "create_time": "2026-04-10T09:00:20Z" }
+      ]
+    },
+    {
+      "id": "conv-002",
+      "title": "Backup strategy discussion",
+      "create_time": "2026-04-12T15:30:00Z",
+      "update_time": "2026-04-12T15:50:00Z",
+      "messages": [
+        { "author": "user", "text": "What makes a backup valid?", "create_time": "2026-04-12T15:30:10Z" },
+        { "author": "model", "text": "A backup is valid only after a tested restore.", "create_time": "2026-04-12T15:31:00Z" }
+      ]
+    },
+    {
+      "id": "conv-003",
+      "title": "Conversation with missing create_time is skipped, not fabricated",
+      "messages": []
+    }
+  ]
+}

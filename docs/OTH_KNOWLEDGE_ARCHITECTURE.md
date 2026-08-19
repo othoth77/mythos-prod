@@ -227,6 +227,32 @@ executable from this AI execution environment (§11). The blocker class
 therefore shifts from "no verified channel" to "operator execution
 pending" — all runbooks unchanged.
 
+## 12a. OTH-K2 decisions (2026-08-19, evidence-based)
+
+**Embeddings — NO external provider now.** Measured on the OTH-K2
+evaluation set (20 queries incl. importer-produced events/claims):
+lexical BM25 alone already achieves recall@5 = recall@10 = **1.0**,
+MRR **0.95**; the offline pseudo-semantic vectors add nothing the set
+can measure (vector MRR 0.863 < lexical). A real embedding provider
+would add a credential, a network dependency, and re-index cost for no
+measurable retrieval gain at this corpus size. The pluggable embedder
+interface stays (provider adapter = configuration, not code change);
+revisit when a real corpus produces queries that lexical retrieval
+measurably misses. Credentials, model/version recording, and embedding
+provenance requirements are pre-documented in §8 and the operations doc.
+
+**Database — NO PostgreSQL migration now.** Measured (`eval/bench-store.js`):
+5,000 records → append 31k rec/s, reopen 50 ms, lexical query 3.0 ms,
+log 3.8 MB, RSS 141 MB; 20,000 records → reopen 80 ms, lexical query
+6.5 ms, hybrid 24 ms, log 15 MB, RSS 244 MB (index build 11 s is the
+offline embedder, a batch cost). The real corpus today is orders of
+magnitude smaller. Migration triggers (any one): >100k live records,
+multi-writer concurrency, sustained query latency >100 ms, or an
+operational backup requirement the JSONL-file model cannot meet. If
+triggered: schema + deterministic migration preserving content hashes,
+provenance and versions, with tested rollback — per the operations doc.
+"PostgreSQL is more production" is explicitly not a trigger.
+
 ## 13. Future (explicitly not in OTH-K1)
 
 Real embedding providers; PostgreSQL/object-store backends; importer

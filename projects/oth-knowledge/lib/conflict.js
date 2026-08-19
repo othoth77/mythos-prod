@@ -54,6 +54,8 @@ function resolveConflict(store, relId, resolution) {
     throw fail('OTHK_CONFLICT_STATE', 'resolution state must be resolved/superseded/coexisting');
   }
   if (typeof resolution.decided_by !== 'string' || !resolution.decided_by) throw fail('OTHK_CONFLICT_STATE', 'decided_by required');
+  const model = require('./model.js');
+  if (!model.isIsoTimestamp(resolution.decided_at)) throw fail('OTHK_CONFLICT_STATE', 'decided_at required (valid ISO timestamp) — point-in-time views depend on it');
   const next = JSON.parse(JSON.stringify(rel));
   next.resolution_state = state;
   next.metadata = next.metadata || {};

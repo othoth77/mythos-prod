@@ -14,6 +14,9 @@ const provenance = require('./provenance.js');
 
 function fail(code, msg) { const e = new Error(code + ': ' + msg); e.code = code; return e; }
 
+// Oversized-input guard: refuse pathological artifacts before parsing.
+const MAX_ARTIFACT_BYTES = 25 * 1024 * 1024;
+
 // Credential-shape gate. Matches are refused; only the pattern NAME is
 // ever recorded or logged — never the matching text.
 const SECRET_PATTERNS = Object.freeze([
@@ -34,21 +37,9 @@ function detectSecretShapes(text) {
 }
 
 // Ensures the source record for (class, collection) exists; idempotent.
-function ensureSource(store, classes, sourceClass, sourceCollection) {
-  const cls = provenance.requireClass(classes, sourceClass);
-  const collection = sourceCollection || 'default';
-  const id = ids.recordId('source', cls.name + '/' + collection);
-  const existing = store.getRecord(id);
-  if (existing) return existing;
-  const rec = {
-    kind: 'source', id,
-    source_class: cls.name,
-    title: cls.title + ' — ' + collection,
-    metadata: { collection, policy: cls.policy },
-  };
-  store.appendRecord(rec);
-  return rec;
-}
+// (Canonical implementation lives in provenance.js; re-exported here for
+// existing callers.)
+const ensureSource = provenance.ensureSource;
 
 // Ingests one original artifact. Input:
 //   { bytes, filename, source_class, source_collection, source_reference?,
@@ -60,6 +51,9 @@ function ingestArtifact(store, classes, input, normalizeLib) {
   if (!input || !Buffer.isBuffer(input.bytes)) throw fail('OTHK_INGEST_INPUT', 'bytes Buffer required');
   if (typeof input.filename !== 'string' || !input.filename) throw fail('OTHK_INGEST_INPUT', 'filename required');
   if (typeof input.captured_at !== 'string') throw fail('OTHK_INGEST_INPUT', 'captured_at required');
+  if (input.bytes.length > MAX_ARTIFACT_BYTES) {
+    throw fail('OTHK_INGEST_TOO_LARGE', input.bytes.length + ' bytes exceeds the ' + MAX_ARTIFACT_BYTES + '-byte artifact limit');
+  }
 
   const cls = provenance.requireClass(classes, input.source_class);
   const source = ensureSource(store, classes, cls.name, input.source_collection);
@@ -107,7 +101,27 @@ function ingestArtifact(store, classes, input, normalizeLib) {
   });
 
   if (already) {
-    // Same bytes re-presented: idempotent replay, no new records.
+    // Same bytes re-presented. Identical (class, collection): pure
+    // idempotent replay. DIFFERENT class/collection: the fact that this
+    // source also contained these bytes must not vanish — record an
+    // explicit also_present_in relationship (idempotent) linking the
+    // existing artifact to the current source, carrying the current
+    // import's own reference. The original attribution is never edited.
+    const ap = already.provenance;
+    if (ap && (ap.source_class !== prov.source_class || ap.source_collection !== prov.source_collection)) {
+      const rel = {
+        kind: 'relationship',
+        id: ids.recordId('relationship', 'also_present_in/' + already.id + '/' + prov.source_class + '/' + prov.source_collection),
+        rel_type: 'also_present_in',
+        from_id: already.id, to_id: source.id,
+        metadata: {
+          source_reference: prov.source_reference,
+          captured_at: prov.captured_at,
+          filename: input.filename,
+        },
+      };
+      if (!store.getRecord(rel.id)) store.appendRecord(rel);
+    }
     const docId = ids.recordId('document', artifactId);
     return {
       source, artifact: already, document: store.getRecord(docId),
@@ -116,11 +130,20 @@ function ingestArtifact(store, classes, input, normalizeLib) {
     };
   }
 
+  // Import lineage: which importer/parser produced this, and which
+  // normalizer version derived the document — reproducibility anchors.
+  const lineage = {
+    parser_version: input.parser_version || 'ingest/1.0.0',
+    normalizer_version: normalize.NORMALIZER_VERSION || '1.0.0',
+    ingested_at: input.captured_at,
+  };
+  if (input.importer) lineage.importer = String(input.importer).slice(0, 100);
+
   const artifact = {
     kind: 'artifact', id: artifactId,
     content_ref: put.ref, filename: input.filename, byte_size: input.bytes.length,
     provenance: prov,
-    metadata: input.metadata || {},
+    metadata: Object.assign({}, input.metadata || {}, lineage),
     tags: input.tags || [],
   };
   store.appendRecord(artifact);
@@ -130,6 +153,7 @@ function ingestArtifact(store, classes, input, normalizeLib) {
     kind: 'document', id: docId,
     artifact_id: artifactId, text: norm.text, media_type: norm.media_type,
     provenance: prov,
+    metadata: lineage,
   };
   store.appendRecord(document);
 
@@ -146,4 +170,4 @@ function ingestArtifact(store, classes, input, normalizeLib) {
   return { source, artifact, document, chunks, deduplicated: false };
 }
 
-module.exports = { SECRET_PATTERNS, detectSecretShapes, ensureSource, ingestArtifact };
+module.exports = { SECRET_PATTERNS, MAX_ARTIFACT_BYTES, detectSecretShapes, ensureSource, ingestArtifact };
