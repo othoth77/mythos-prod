@@ -17,6 +17,7 @@ const searchLib = require('./search.js');
 const temporal = require('./temporal.js');
 const conflictLib = require('./conflict.js');
 const auditLib = require('./audit.js');
+const trustLib = require('./trust.js');
 
 function fail(code, msg) { const e = new Error(code + ': ' + msg); e.code = code; return e; }
 
@@ -25,7 +26,10 @@ function fail(code, msg) { const e = new Error(code + ': ' + msg); e.code = code
 // the importer/CLI paths, not through AI-layer calls.
 function openService(root, opts) {
   const store = storeLib.openStore(root);
-  provenanceLib.loadSourceClasses(opts && opts.sourceClassConfig); // fail-closed registry check at open
+  const classes = provenanceLib.loadSourceClasses(opts && opts.sourceClassConfig); // fail-closed registry check at open
+  // Trust model loads at open too (fail closed): a service that cannot
+  // assess trust refuses to open rather than failing at first call.
+  const trustModel = trustLib.loadTrustModel(opts && opts.trustModelConfig, classes);
   let index = null;
   const getIndex = () => {
     if (!index) index = searchLib.buildIndex(store, { embedder: opts && opts.embedder });
@@ -106,6 +110,13 @@ function openService(root, opts) {
         latest_verified: temporal.latestVerified(store, { tag: o && o.tag }).slice(0, 10).map((r) => r.id),
         open_contradictions: conflictLib.listConflicts(store, { state: 'open' }).map((r) => r.id),
       };
+    },
+
+    // assessTrust(id, {asOf}) → OTH-K3 trust report (read-only, traceable,
+    // never a truth value; asOf explicit — same rule as currentState)
+    assessTrust(id, o) {
+      if (!o || !o.asOf) throw fail('OTHK_SERVICE_INPUT', 'asOf required — trust is never assessed against the wall clock');
+      return trustLib.assessTrust(store, trustModel, id, { asOf: o.asOf });
     },
 
     // audit() → provenance audit report (read-only, no quarantine writes)

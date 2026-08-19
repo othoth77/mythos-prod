@@ -25,6 +25,7 @@ One module: `projects/oth-knowledge/lib/knowledge-service.js` —
 | `lookupProvenance(id)` | provenance, artifact availability, import lineage, assertion class |
 | `findContradictions({state, entity_id})` | conflict records with both sides |
 | `currentState({asOf, tag})` | temporal view: known / latest verified / open contradictions |
+| `assessTrust(id, {asOf})` | OTH-K3 trust report: statement category, authority tier, freshness, corroboration, contradictions, provenance strength — traceable, `not_a_truth_value: true`, asOf explicit |
 | `audit()` | read-only provenance audit report |
 | `stats()` | corpus statistics |
 
@@ -56,6 +57,16 @@ a `presentation` annotation (`assertion_class`, `is_claim`,
 at a provisioned persistent private store outside the repository.
 Suite: `tests/othk-2w-executor-wiring-test.js`. Nothing in the
 knowledge layer changed.
+
+**Delivered (OTH-K3):** `assessTrust` joined the read allowlist with the
+same executor-side explicit-`asOf` guard as `currentState`
+(`MYTHOS_KNOWLEDGE_ASOF`), and the presentation annotation's
+`quarantined` flag now detects both quarantine tag spellings
+(`quarantined` from the audit path, `quarantine` from the ingest
+secret-refusal path — a review-found defect, regression-tested). The
+trust report's own classification field is named `statement_category`
+(closed enum) precisely so it cannot collide with the presentation
+annotation's free-text `statement_class`.
 
 Rules for the consuming side:
 1. Treat `asOf` as an explicit input — never let the layer default to

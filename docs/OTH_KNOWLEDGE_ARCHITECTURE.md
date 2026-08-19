@@ -253,6 +253,55 @@ triggered: schema + deterministic migration preserving content hashes,
 provenance and versions, with tested rollback — per the operations doc.
 "PostgreSQL is more production" is explicitly not a trigger.
 
+## 12b. OTH-K3 — knowledge trust model (2026-08-19)
+
+`lib/trust.js` + `config/trust-model.json`: a strictly READ-ONLY trust
+derivation over the store (zero writes — test-pinned byte-identical
+store after assessment). Independently reviewed (Opus architecture
+review, APPROVE-WITH-CHANGES, all 13 required changes implemented).
+
+- **Authority:** every source class maps to a tier
+  (`first-party`/`operator`/`repository-verified`/`imported`/
+  `metadata-only`/`model-output`) in a fail-closed registry closed both
+  ways against `source-classes.json` (a registered class without a tier,
+  or a tier naming an unregistered class, refuses the whole model at
+  service open). Missing provenance → `untrusted`, fail closed.
+- **Statement category** is a function of kind × tier × assertion class,
+  never kind alone: a `fact` record carrying a model-output or imported
+  source, or an INFERRED/DERIVED assertion class, categorizes as
+  `imported-claim` — model output can never assess as an accepted fact.
+  Claims split `user-provided-claim` vs `imported-claim`; quarantine
+  overrides everything (`quarantined-assertion`).
+- **Freshness** is relative to an explicit `asOf` only (never the wall
+  clock): per-tier staleness horizons; `unknown-date` is stale
+  fail-closed; truth time after `asOf` is `not-yet-true` (no negative
+  age). **Stale ≠ false** — staleness never demotes the category.
+- **Corroboration:** independent evidence = distinct
+  (source class, collection, content anchor) identities, resolved by the
+  chunk→document→artifact→content-ref walk; duplicate citations,
+  derived records (recursed into `derived_from`), self-corroboration and
+  unresolved ids are listed but NEVER counted; `also_present_in`
+  attributions are enumerated separately, never silently folded in.
+- **Contradiction/supersession as of `asOf`:** conflict state derives
+  from `resolution.decided_at` (a conflict resolved after `asOf` was
+  open at `asOf`); the losing side of a resolved conflict caps at
+  `superseded`. The version assessed is the one selected by the same
+  capture-aware rule as `temporal.knownAt`.
+- **Quarantine is sticky** across version history ≤ `asOf` and across
+  BOTH tag spellings (`quarantined`/`quarantine`) — a later version
+  dropping the tag never silently recovers.
+- **Confidence never becomes truth:** the summary is a closed,
+  non-truth-shaped enum (`quarantined`/`superseded`/`contested`/
+  `unverified-assertion`/`weakly-supported`/`stale`/`supported`) with
+  non-overridable ceilings, `not_a_truth_value: true` on every report,
+  a `basis[]` naming what set the label, no numeric score, and a
+  `trace` block pointing every component at its evidence record ids.
+  Corroboration and absence-of-conflict can only fail to lower a label.
+
+Surface: `knowledge-service.assessTrust(id, {asOf})` (trust model loads
+fail-closed at `openService`); executor allowlist + executor-side asOf
+guard per the integration doc. Suite: `tests/othk-3-trust-test.js`.
+
 ## 13. Future (explicitly not in OTH-K1)
 
 Real embedding providers; PostgreSQL/object-store backends; importer
