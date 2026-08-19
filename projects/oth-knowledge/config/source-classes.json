@@ -1,0 +1,48 @@
+{
+  "format": "othk-source-classes",
+  "version": 1,
+  "classes": {
+    "google-takeout": {
+      "title": "Google Takeout exports",
+      "policy": "content",
+      "notes": "Each Takeout archive is one source collection; original files preserved as artifacts."
+    },
+    "google-contacts": {
+      "title": "Google Contacts",
+      "policy": "metadata-only",
+      "notes": "Third-party PII bodies are NOT stored, honouring the ecosystem's ratified stance (MPI D1) until an explicit owner decision reverses this for OTH Knowledge. Pointers and non-PII metadata only."
+    },
+    "gemini": {
+      "title": "Gemini conversation/data exports",
+      "policy": "content"
+    },
+    "notebooklm": {
+      "title": "NotebookLM notebooks and sources",
+      "policy": "content"
+    },
+    "google-other": {
+      "title": "Other Google data discovered during ingestion",
+      "policy": "content",
+      "notes": "Catch-all for Google source systems without a dedicated class yet; promote to a dedicated class before bulk ingestion."
+    },
+    "manual": {
+      "title": "Manually supplied documents",
+      "policy": "content"
+    },
+    "mythos-repo": {
+      "title": "Mythos repository documentation and history",
+      "policy": "content",
+      "notes": "Pointer-first: repository remains the source of truth; ingest for retrieval, never as a replacement canon."
+    },
+    "owner-report": {
+      "title": "Owner-reported verified facts",
+      "policy": "content",
+      "notes": "First-party statements from the owner (e.g. infrastructure verification reports)."
+    },
+    "external-provider": {
+      "title": "Future external providers",
+      "policy": "metadata-only",
+      "notes": "Fail-closed default for unclassified external systems; register a dedicated class with an explicit policy before content ingestion."
+    }
+  }
+}

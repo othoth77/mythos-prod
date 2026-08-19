@@ -1,0 +1,8 @@
+{
+  "note": "Synthetic Google Takeout-shaped fixture. No real personal data.",
+  "activity": [
+    { "header": "Search", "title": "Searched for postgres backup restore strategies", "time": "2026-05-02T09:15:00Z" },
+    { "header": "Search", "title": "Searched for nodejs streaming large json files", "time": "2026-05-03T10:20:00Z" },
+    { "header": "Drive", "title": "Edited document quarterly production planning", "time": "2026-05-04T14:00:00Z" }
+  ]
+}

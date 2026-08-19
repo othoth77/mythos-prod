@@ -66,3 +66,26 @@ Sandbox verification: this file, §1 (final mission, STAGE 5). Runbooks:
 authored in AUTO-13 (hub), MOS-v2 M-02 (relay), and pre-existing README
 procedure. Register: `docs/MYTHOS_DESIGN_DECISIONS.md` §0.5 (AUTO-10…13);
 execution record: `docs/design/MIG_EXECUTION_MAPPING.md`.
+
+## 5. Reassessment after the 2026-08-19 infrastructure verification
+
+The owner verified, from the owner Windows machine: SSH to the VPS as
+`deploy` (ED25519) **successful**, SCP **successful**; rsync present on
+the VPS but absent on Windows. Full classified record:
+`othoth77/oth-knowledge` `INFRASTRUCTURE.md` and the seed
+`projects/oth-knowledge/seeds/infrastructure-2026-08-19.json`.
+
+Consequences for §1–§3:
+
+1. **§1 stands for AI sessions.** Re-tested 2026-08-19 from the current
+   sandboxed session: TCP 22 to 51.68.226.211 unreachable, no ssh/scp/
+   rsync binaries, no key material. Nothing is deployable from AI
+   execution environments; owner-machine access is NOT AI-agent access.
+2. **The blocker class shifts** from "no verified channel exists" to
+   "**operator execution pending**": every runbook in §2 is now
+   executable by the owner over the verified Windows→VPS channel. Where
+   a runbook's transfer step says rsync, from Windows use `scp -r` or
+   tar-over-ssh until rsync is installed there.
+3. **§3 owner actions are unchanged** (DNS, host execution, MIG-4
+   authorization); item 2 "host execution" is now unblocked in
+   capability terms — it awaits the operator, not a channel.
