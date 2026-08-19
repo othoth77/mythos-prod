@@ -1,7 +1,39 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MOS-v2 **M-07 — OPERATOR SAFETY AUDIT: 10/12 SAFE WITH EVIDENCE, 2 REAL GAPS FIXED (AUDIT LOGGING, HEALTH PASSTHROUGH). ACCEPTED.**
+**From:** MOS-v2 **M-08 — COMPLETE REGRESSION GATE GREEN: 0 NEW FAILURES, 2 KNOWN PRE-EXISTING (VPS-ONLY), 20/20 COVERAGE AREAS MAPPED.**
+
+## MOS-v2 M-08 — complete regression gate (2026-08-19)
+
+NEW `tests/mos-v2-regression-test.js` + `docs/MOS_V2_M08_REGRESSION.md`.
+The gate runs the four relevant suites as child processes and classifies:
+
+| Suite | Result | Class |
+|---|---|---|
+| mos-1-console | 972/0 | PASS |
+| mythos-ai-executor | 158/0 | PASS |
+| mythos-orchestration-core | 255/2 | PRE-EXISTING (the 2 pinned by exact name: 'O accept: persistent delivery relay unit exists', 'O accept: delivery relay timer is active (inactive)' — VPS-only systemd checks, unrunnable in a sandbox; any OTHER failure fails the gate) |
+| mythos-orchestrator-0 | 156/0 | PASS |
+
+Coverage mapping asserts a real assertion exists per required area
+(authentication, authorization, model catalog, execution profiles,
+mission creation/start, dispatcher, MAX_PARALLEL=5, queue, auto-drain,
+failure isolation, cancellation incl. console relay, result association,
+credential isolation, invalid input, path traversal, request-size,
+unauthorized writes, session behavior): **20/20 mapped**. Baselines are
+floors (>= passed, 0 unexpected failures), so later stages that add
+assertions don't break the gate. Chief-review fix: the Model catalog
+mapping was re-anchored to the console suite's §4e (`model-catalog|isAllowed`)
+— the Haiku draft had pointed it at the executor suite.
+
+**Gate result: 0 new failures** (run twice, stable; re-verified after the
+mapping fix at 20/20).
+
+**Next stage.** M-09 Goal + human approval (Opus).
+
+---
+
+**Previously:** MOS-v2 **M-07 — OPERATOR SAFETY AUDIT: 10/12 SAFE WITH EVIDENCE, 2 REAL GAPS FIXED (AUDIT LOGGING, HEALTH PASSTHROUGH). ACCEPTED.**
 
 ## MOS-v2 M-07 — operator safety audit (2026-08-19)
 
