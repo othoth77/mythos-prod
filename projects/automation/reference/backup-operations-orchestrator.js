@@ -17,7 +17,7 @@
 // THIS MODULE OWNS NO BACKUP LOGIC.
 // Manifest construction, checksums, staging, upload, remote verification,
 // restore verification and retention all live in
-// `projects/idauto/ops/offhost-backup.js` and are REQUIRED from here, never
+// `projects/infrastructure/ops/offhost-backup.js` and are REQUIRED from here, never
 // reimplemented. O-BACKUP-1 says so explicitly, and
 // docs/OFF_HOST_BACKUP_GATE.md §0 says why: a second mechanism "would create
 // two backup paths with one set of guarantees between them". Everything this
@@ -38,7 +38,7 @@
 // =====================================================
 
 var crypto = require('crypto');
-var offhost = require('../../idauto/ops/offhost-backup.js');
+var offhost = require('../../infrastructure/ops/offhost-backup.js');
 
 // -----------------------------------------------------------------------
 // Levels (O-BACKUP-2, amended by O-BACKUP-5, ratified 2026-08-16).
@@ -646,7 +646,7 @@ function buildBackupPlan(request) {
     authorises_execution: false,
     self_authorising: false,
     prohibited_operations: PROHIBITED_OPERATIONS.slice(),
-    reuses_module: 'projects/idauto/ops/offhost-backup.js',
+    reuses_module: 'projects/infrastructure/ops/offhost-backup.js',
     creates_parallel_mechanism: false,
     steps: steps,
     verification: verification,
@@ -664,7 +664,7 @@ function gateCheck(plan) {
   if (!plan || typeof plan !== 'object') throw refuse('PLAN_REQUIRED');
   if (plan.authorises_execution !== false) throw refuse('PLAN_CLAIMS_SELF_AUTHORISATION');
   if (plan.creates_parallel_mechanism !== false) throw refuse('PARALLEL_MECHANISM_REFUSED');
-  if (plan.reuses_module !== 'projects/idauto/ops/offhost-backup.js') {
+  if (plan.reuses_module !== 'projects/infrastructure/ops/offhost-backup.js') {
     throw refuse('REUSE_CONTRACT_VIOLATED', 'O-BACKUP-1 requires the existing tooling, not a replacement');
   }
   if (OPERATION_LEVELS[plan.operation] !== plan.automation_level) {

@@ -85,7 +85,225 @@ session's identity, exactly as MOS-1.6/1.7 already concluded.
 ---
 
 **Last updated:** 2026-08-19 UTC
-**From:** MYTHOS **FULL AUTONOMOUS MANDATE, TENTH PASS — MIG-3 PARTIALLY EXECUTED (AUTO-9): `--muted`/`--danger` CORRECTED TO THEIR APPROVED VALUES AND APPLIED, `--past`/CONTROL-BORDER LEFT EXPLICITLY OPEN (NO APPROVED TARGET FOR ONE, TOO BROAD A BLAST RADIUS FOR THE OTHER). MIG-4 CHECKED AND LEFT BLOCKED WITH EVIDENCE: MCC-1 (COMMAND CENTER) IS CONFIRMED LIVE, DEPLOYED, SERVING REAL PUBLIC TRAFFIC — NOT A SAFE LOCAL PILOT TARGET — AND A STANDING, NEVER-REVOKED INSTRUCTION FORBIDS TOUCHING IT. NO COMMAND CENTER FILE WAS READ OR TOUCHED. THIS CLOSES THE FOUR-MIGRATION EXECUTION PASS THE CONTINUATION INSTRUCTION NAMED — FULL FINAL BLOCKER MATRIX BELOW.**
+**From:** MOS-v2 M-03 (nginx contract alignment)
+
+## MOS-v2 M-03 — NGINX CONTRACT ALIGNMENT (2026-08-19)
+
+**Objective:** Correct genuine nginx/application contract mismatches for Mythos OS Console.
+
+**Issue:** nginx configured `client_max_body_size 16k` but application accepts 32KB mission payloads on `/api/missions/start` (MOS-2). Outdated comment claimed console was read-only.
+
+**Changes made:**
+- Increased `client_max_body_size` from 16k to 64k (32k payload + safety margin)
+- Updated comment to reflect actual write routes: `/api/missions/start` (MOS-2), `/api/missions/<id>/cancel` (MOS-2.1), `/api/missions/<id>/dispatch` (MOS-3A)
+- Preserved all proxy configuration, TLS ownership, certbot sections
+- No nginx redesign, no neighboring vhosts touched
+
+**File:** `projects/mythos-os-console/deploy/nginx-os.mythosprod.xyz.conf`
+**Commit:** eca5973
+**Remote HEAD:** eca5973 (verified pushed)
+**Tests:** mos-1-console-test.js runs (pre-existing CSS token failures unrelated to nginx changes)
+**Deployment:** Not run (per instructions)
+**Next stage:** Create PR and await review
+
+---
+
+**Previously:** MOS-v2 **M-01 — SERVER-SIDE AUTHENTICATION FOR MYTHOS OS CONSOLE. IMPLEMENTED, TESTED, COMMITTED, PUSHED. NOT DEPLOYED.**
+
+## MOS-v2 M-01 — server-side authentication (2026-08-19)
+
+**Objective.** Replace the temporary client-side password gate on the
+Mythos OS Console with real server-side authentication: every `/api/`
+route behind a session, 401 for anyone without one, a login route, the
+secret readable only from a 0600 EnvironmentFile, constant-time
+comparison, an httpOnly `SameSite=Strict` session cookie, nothing
+credential-shaped in JavaScript-readable storage, and the existing
+allowlisted API/write-route architecture preserved.
+
+**What was actually wrong with what it replaced.** `login-gate.js` was
+markup laid over the console, unlocked by comparing a SHA-256 digest in
+the browser. It hid the page from a person and hid nothing at all from
+`curl` — every `/api/` route answered any unauthenticated caller — and it
+shipped the password's digest to every visitor, available for offline
+attack. It was deleted, not extended.
+
+**Changed files.**
+
+| File | Change |
+|---|---|
+| `projects/mythos-os-console/reference/auth.js` | NEW. Secret loading (file-only, 0600-enforced), `crypto.timingSafeEqual` verification, in-memory session store, cookie serialisation, login throttle. The only code that ever holds the secret. |
+| `projects/mythos-os-console/reference/server.js` | Session resolved once in `handler()` before every route; `unauthenticated()` / `redirect()`; `POST /api/login` and `POST /api/logout` added to the existing `WRITE_ROUTES` allowlist (3 → 5, exactly one flagged `unauthenticated: true`); `PUBLIC_PATHS` (six explicit paths); login-gate STATIC entries replaced by the sign-in page's; `/api/health` reports the secret's *state*, never its value. |
+| `reference/web/login.html`, `login.css`, `login.js` | NEW. The sign-in page. `login.js` holds no credential, does no crypto, touches no web storage. |
+| `reference/web/login-gate.js`, `login-gate.css` | DELETED. |
+| `reference/web/index.html` | Gate markup, stylesheet link and script tag removed; sign-out control added. |
+| `reference/web/app.js` | A 401 from any route navigates to `/login` instead of rendering; sign-out posts to `/api/logout`. |
+| `reference/web/console.css` | One layout rule for the sign-out control (tokens only). |
+| `deploy/mythos-os-console.user.service` | `Environment=MOS_CONSOLE_SECRET_FILE=…`; a stale comment claiming the service "has no write surface at all" (untrue since MOS-2) corrected in place rather than left standing. |
+| `tools/deploy.sh`, `tools/host-preflight.sh` | Provision and verify the 0600 secret file without reading it; refuse `MOS_CONSOLE_SECRET` in the EnvironmentFile; smoke tests rewritten to prove the boundary (401/302) instead of reading data the deployer can no longer reach anonymously. |
+| `tools/visual-verify.js` | Browser contexts carry a session; a new unauthenticated pass checks the sign-in page for storage writes, cookie visibility and digest-shaped content. |
+| `tests/mos-1-console-test.js` | +261 assertions. See below. |
+| `docs/MYTHOS_OS_CONSOLE_ARCHITECTURE.md`, `projects/mythos-os-console/README.md` | New §5.3; the superseded "there is no login, because there is nothing to authorise" claim corrected visibly rather than silently rewritten. |
+
+**Design decisions worth carrying forward.**
+
+- **The environment is not a secret store.** `MOS_CONSOLE_SECRET` is read
+  *only* from the file named by `MOS_CONSOLE_SECRET_FILE`, and only if
+  `stat` says no group or other permission bit is set. A value exported
+  into the environment is ignored, and a test proves it — `/proc/<pid>/environ`
+  is readable and the environment is inherited by every child process.
+- **Fail closed, and say why.** A missing, unreadable, group-readable or
+  secret-less file means nobody signs in and therefore nobody reaches
+  anything. The service still starts and names which of the four failure
+  modes applies, on its first journal line and in `/api/health` (itself
+  behind the session). The login route never tells the *caller* which:
+  a wrong password and a broken deployment are one `401
+  invalid_credentials`.
+- **405 still comes first.** The method refusal is what makes the surface
+  structurally read-only and it reveals nothing, so it stays ahead of the
+  session check. Everything after that line is gated.
+- **`SameSite=Strict` is the CSRF control.** No separate token was added;
+  no cross-site request carries the session cookie.
+- **A throttle, because one credential on a public route is an oracle.**
+  Ten failures per address per fifteen minutes; once engaged it refuses
+  the *correct* password too, so it cannot be guessed past.
+
+**Tests.** `node tests/mos-1-console-test.js` — **675 passed, 5 failed**
+(was 414 passed, 5 failed on `origin/main`; +261 assertions, no new
+failure). Added: the unauthenticated matrix over every route against a
+*healthy, fully configured* console; the authenticated happy path; wrong
+/ near-miss / case-flipped passwords; unknown, malformed, signed-out and
+expired sessions; method protection on the login and logout routes; the
+secret-file discipline (0644 refused, no-secret-line refused, missing
+file refused, environment-supplied value refused); a two-part credential
+sweep over every downloadable file and every live response; and the
+throttle. Syntax checks: `node --check` on all five changed/new JS files,
+`bash -n` on both shell scripts. A manual edge-case probe covered
+`HEAD /`, multi-cookie headers, a case-mangled cookie, and re-login while
+already signed in.
+
+**The 5 failures are pre-existing and are NOT this stage's.** They are
+the C-006 `--mythos-*` reconciliation: `css/main.css` moved five source
+tokens in MIG-1/MIG-3 and `mythos.css` was never reconciled. Verified by
+running the suite from a clean `origin/main` worktree, which fails the
+same five and no others. Not fixed here — it is a separate, already-named
+stage and this one did not touch a stylesheet token.
+
+**Not run:** `tools/visual-verify.js`. It needs playwright, which is
+deliberately not a dependency of this repository and is not installed in
+this environment; it exits 2 with a plain message. Its changes are
+therefore **written but unexecuted** and are labelled as such.
+
+**Deployment: NOT DONE, and not attempted.** No service restarted, no
+host touched. Deploying this stage requires, on the host, a
+`/home/deploy/deployments/mythos-os-console/.console-secret` file at mode
+0600 containing one `MOS_CONSOLE_SECRET=` line, created before the unit
+is restarted — without it the console starts and refuses every request.
+`tools/host-preflight.sh` now blocks on exactly that. The pre-existing
+`deploy`-user privilege boundary (MOS-1.6/1.7) is unchanged and still
+blocks console deployment.
+
+**Operational note the deployer must act on.** The MOS-1 gate's SHA-256
+digest was committed to this repository and remains in Git history, which
+is public to anyone with repository access. Treat the temporary password
+it covered as **compromised**: choose a NEW value for
+`MOS_CONSOLE_SECRET`, do not reuse the old one. Removing the digest from
+the working tree, as this stage does, does not remove it from history and
+was never going to.
+
+**Known risks / deferred.**
+
+- Sessions are in-process: a restart signs everyone out. Correct for a
+  single-process operations console; revisit only if it is ever run
+  behind more than one worker.
+- The throttle keys on the socket address, and nginx is the only thing
+  that reaches the port, so in production it is effectively global. That
+  is the conservative direction for a single-credential console, but it
+  means one attacker can lock the owner out for fifteen minutes. Recorded,
+  not solved.
+- `visual-verify.js` unexecuted (above).
+- C-006 palette reconciliation still open (above).
+
+**Worktree state.** Clean; work committed on
+`claude/mos-v2-server-auth-tmh065` and pushed. `origin/main` then advanced
+36 commits (the ID Auto decoupling stack and its gate-closure record) and
+was merged into this branch by merge commit — no rebase, no history
+rewrite. The only conflict was this file: both passes prepended an entry
+above the same tenth-pass record and each invented its own heading for
+what came before. Nothing was overwritten either way, so the resolution
+was ordering — newest pass first, gate-closure second, one heading over
+the historical record. The console suite was re-run on the merged tree:
+same 675 passed / 5 failed, same five pre-existing failures. (The task text named
+`claude/mos-v2-m01-auth`; the branch enforced for this session is
+`claude/mos-v2-server-auth-tmh065`, and pushing anywhere else was not
+authorised.)
+
+**Next stage.** Either (a) C-006 — reconcile `mythos.css`'s `--mythos-*`
+tokens with the moved `css/main.css` sources and clear the five standing
+failures, or (b) provision the console secret on the host and deploy,
+which remains blocked on the `deploy`-user privilege boundary.
+
+---
+
+**Previously:** MYTHOS **FINAL MISSION, STAGE 1 — C-006 EXECUTED (AUTO-10). FIRST FINDING OF THE PASS: `main` HAD BEEN RED (414/419) SINCE THE AUTO-7/AUTO-9 MERGES — THE CONSOLE DRIFT TEST CORRECTLY CAUGHT `mythos.css` DIVERGING FROM THE MIGRATED `css/main.css`, AND THOSE PASSES NEVER RAN THE SUITE. RECONCILED: 5 TOKENS + DERIVED TOKENS + 32 HARDCODED RGBA LITERALS IN `mythos.css`, 3 VALUE-COUPLED TEST ASSERTIONS NARROWED WITH HISTORY KEPT. SUITE 419/419 GREEN; COMPUTED-STYLE + BEFORE/AFTER BROWSER VERIFICATION (1.26% DIFF, GOLD CHROME ONLY).**
+
+**The honest miss, stated plainly.** AUTO-7 (MIG-1) and AUTO-9 (MIG-3)
+migrated `css/main.css`'s gold/muted/danger and ran the repo-root
+application checks — but not `tests/mos-1-console-test.js`, whose drift
+rule reads that palette live and holds the console verbatim-identical.
+`main` carried 5 failing assertions from those merges until this pass's
+first EVIDENCE step found them. The alarm did its job; the miss was not
+running it. Fixed by executing exactly the reconciliation the alarm
+exists to force (register: AUTO-10; plan: `MIGRATION_PLANS.md` §1.2).
+
+**Also this stage, run in parallel by specialist agents (reports drafted,
+pending chief review before commit):** a per-project audit of the 8
+public projects (`docs/design/PUBLIC_PROJECTS_AUDIT.md` — live-site
+checks were blocked by this sandbox's egress-proxy policy, so it is
+in-repo evidence only, flagged honestly) and a responsive/zoom/console
+sweep of Mythos Prod (`docs/design/RESPONSIVE_SWEEP_REPORT.md` — zero
+horizontal overflow at 320–1920px including WCAG 200%/400% zoom
+equivalents, zero real console errors, two single-rule findings: nav
+touch targets 38–39px vs the 44px floor, and no `prefers-reduced-motion`
+support anywhere — both queued for the next implementation stage).
+
+**Suites on `main` after this stage:** console **419/419**, executor
+**158/158**, orchestration **255/257** (the 2 failures are VPS-only
+systemd-unit existence checks, unrunnable in a sandbox — verified by
+reading the assertions).
+
+**Previously:** MYTHOS **GATE-CLOSURE — THE ENTIRE ID AUTO PR STACK IS MERGED. #16 AND #14 ARE IN MAIN. THE REMAINING GATES ARE FORMALLY CLASSIFIED: B1/B2/B3 OWNER-BLOCKED, A5 OWNER-DECISION (EVALUATED), 16 LEGAL ITEMS OPEN. CITIZEN-FACING IDA-4 = NOT READY.**
+
+**Stage:** gate-closure mission · **Status:** all actionable items closed; every remaining gate is an owner, counsel or decision gate — none engineering-closable
+**Type:** merges + documentation. No production change.
+
+### Merges (all by merge commit; provenance verified)
+
+| PR | Result |
+|---|---|
+| idauto **#2** vocabularies | merged `27a35b9` — pin commit `42e8546` remains an ancestor; the three vocabulary digests on idauto `main` equal this repo's pins byte-for-byte (re-verified post-merge) |
+| idauto **#3** readiness audit | merged `1d508e1` (retargeted to main first — GitHub does not auto-retarget while the base branch exists) |
+| idauto **#4** foundation subset | merged `24a28dd` — idauto `main` final |
+| mythos **#16** (this whole programme) | merged `91131eb` — validated first: identity-core 157/0, devx-2 7/0, validate 0/0, zero `projects/idauto` runtime refs |
+| mythos **#14** | **auto-resolved as merged by containment** — its head `1cc4d51` became an ancestor of main via #16; GitHub closed it as merged |
+
+Full sweep on merged main: **4857 passed / 9 failed** — the 9 are `mythos-orchestration-core` 2 (long pre-existing) + `mos-1-console` 5 + `stage4w` 2, the latter two **reproduced on pristine pre-merge main** (the design track's MIG work) — nothing new from any merge. idauto post-merge: ida4-foundation 130/0, identity-conformance 81/0, ida-2a 44/0.
+
+### Gate states (evidence in idauto `docs/IDA4_READINESS_AUDIT.md` §I, PR #5 there)
+
+- **B1 / B2 / B3** — OWNER-BLOCKED: no credential exists in any development environment (re-verified); B2's cadence is undefined in every policy document, an owner decision inside the owner gate. Procedures stand in `docs/OFF_HOST_BACKUP_GATE.md` §8.
+- **A5** — OWNER DECISION, fully evaluated: B1 magic-link now (hold PII, answer L06/L07/L09/L16 early) vs wait-for-IDA-7 (zero PII); **recommended default: option C** — the zero-account half (IVID issuance, passport assembly, IVID-only public QR — never by plate). Conditions on any B: credential-is-never-the-identifier; A2 authorization from day one.
+- **Legal** — `IDA4_LEGAL_GATE_MATRIX.md`: L01–L16 all **OPEN**, none APPROVED (approval requires evidence); counsel package filed; four citizen-surface blockers L06/L07/L09/L16.
+- **CITIZEN_FACING_IDA4_READY = NO** · `PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` = NO. Nothing citizen-facing was implemented.
+
+### Open PRs after this mission
+
+idauto **#5** (gate-closure docs, draft — for the owner's A5 decision + counsel handoff) and idauto **#1** (docs-only publication record, predates the stack; its CHANGELOG hunk will conflict trivially with merged main — owner's call to update-and-merge or close).
+
+---
+
+## Previous passes (historical record, most recent first)
+
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, TENTH PASS — MIG-3 PARTIALLY EXECUTED (AUTO-9): `--muted`/`--danger` CORRECTED TO THEIR APPROVED VALUES AND APPLIED, `--past`/CONTROL-BORDER LEFT EXPLICITLY OPEN (NO APPROVED TARGET FOR ONE, TOO BROAD A BLAST RADIUS FOR THE OTHER). MIG-4 CHECKED AND LEFT BLOCKED WITH EVIDENCE: MCC-1 (COMMAND CENTER) IS CONFIRMED LIVE, DEPLOYED, SERVING REAL PUBLIC TRAFFIC — NOT A SAFE LOCAL PILOT TARGET — AND A STANDING, NEVER-REVOKED INSTRUCTION FORBIDS TOUCHING IT. NO COMMAND CENTER FILE WAS READ OR TOUCHED. THIS CLOSES THE FOUR-MIGRATION EXECUTION PASS THE CONTINUATION INSTRUCTION NAMED — FULL FINAL BLOCKER MATRIX BELOW.**
 
 **MIG-3 — what was applied, and why the rest was left open.** `A-015`
 names three contrast-failing tokens. Mapped: `--muted` 73×, `--danger` 2×,
@@ -211,7 +429,118 @@ Full record: `docs/design/MIG_EXECUTION_MAPPING.md` §3a.
 MIG-4 (check whether Command Center can be safely validated at all, given
 a prior recorded prohibition on touching it).**
 
+---
+
+## Previous entry
+
+**Previously:** MYTHOS **BACKUP-GATES-0 — THE THREE OUTSTANDING BACKUP ITEMS ARE CLASSIFIED AND GATED. THE RELOCATED TOOLING IS REHEARSED END-TO-END (SAFE, SYNTHETIC). ALL THREE LIVE ITEMS ARE OWNER ACTIONS — NONE WAS WORKED AROUND.**
+
+**Stage:** Backup operational gates (master mission Stage 3) · **Status:** **COMPLETE as classification + safe verification**; the live items are **OWNER ACTION REQUIRED**
+**Branch:** `claude/idauto-source-cleanup-post-publication` · **Type:** documentation + one safe non-production rehearsal. **No credential touched, none invented, no production data read or written, no schedule installed.**
+
+### The A / B / C split — executed as such
+
+**B — safely executed now.** The full off-host gate sequence ran end-to-end from the NEW
+module location (`projects/infrastructure/ops/offhost-backup.js`) against synthetic data and
+a local directory adapter: `stage` → C1 `verifyLocal` (4 objects) → `push` (O) → C2
+`verifyRemote` → `restoreVerify` (R) — all green — and the in-repo restore guard was proven
+**by execution**: a restore targeted inside the repository was refused. Two fixture attempts
+were rejected by the module's own consistency contract (media manifest layout, then
+media-row consistency + capture ordering) before the third passed — the contract enforces
+itself on synthetic data too, which is itself evidence. Stated honestly: the rehearsal did
+NOT exercise the real HTTPS SigV4 transport and is not a substitute for OWNER-GATE-B1.
+
+**C — owner actions, recorded not resolved** (`docs/OFF_HOST_BACKUP_GATE.md` **§8**):
+- **OWNER-GATE-B1** — live round trip from the new location (needs the VPS credential
+  `secref-r2-backup` + an explicit `backup_create`/`restore_test` order; O-BACKUP-6
+  authorises only read-only `backup_verify`).
+- **OWNER-GATE-B2** — recurring schedule (LEVEL_4-eligible under the committed policy but
+  unordered and unscheduled; needs the recurring order + a host timer).
+- **OWNER-GATE-B3** — media off-host copy (no verified copy exists; tooling ready — the
+  rehearsal pushed and restore-verified media objects — credential + order missing).
+
+**A — documentation.** `OFF_HOST_BACKUP_GATE.md` §8 (post-extraction paths, rehearsal
+evidence, the three gates); `AUTOMOTIVE_RISK_REGISTER.md` R-O01 updated (status now
+"OPEN — owner-gated" with the dated evidence).
+
+### Next stage
+
+Master mission Stage 4: **IDA-4 readiness audit** (read-only; `docs/IDA4_READINESS_AUDIT.md`
+in the canonical IDauto repository). IDA-4 itself is NOT started.
+
+---
+
+## Previous entry
+
 **Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, NINTH PASS — MIG-2 ATTEMPTED (AUTO-8), THEN ROLLED BACK ON A REAL, FOUND VISUAL REGRESSION. ALL 93 PLAYFAIR DISPLAY OCCURRENCES SUBSTITUTED CLEANLY, ARABIC RENDERING CONFIRMED UNAFFECTED, ONE REAL ESCAPE-CHARACTER BUG CAUGHT AND FIXED — THEN REAL VISUAL REGRESSION ACROSS 17 VIEWS FOUND TWO SELECTORS (`.compta-kpi`, `.stat-value`) WHERE ARCHIVO EXPANDED'S WIDER METRICS WRAP HEADLINE TND FIGURES TO TWO LINES, MISALIGNING A KPI CARD ROW. ROLLED BACK COMPLETELY RATHER THAN PATCHED WITH AN UNAUTHORISED RESIZE DECISION — EXACTLY WHAT THE MANDATE'S OWN "ROLL BACK IMMEDIATELY IF UNACCEPTABLE" RULE IS FOR. NOTHING FROM THIS ATTEMPT IS COMMITTED; ONLY THE DOCUMENTATION OF WHAT WAS TRIED AND WHY.**
+
+---
+
+## Previous entry
+
+**Previously:** MYTHOS **IDA-DECOUPLE-4 — THE LEGACY IDauto TREE IS REMOVED. `othoth77/idauto` IS THE SOLE CANONICAL IMPLEMENTATION. THE STANDALONE MIGRATION IS CLOSED.**
+
+**Stage:** `IDA-DECOUPLE-4` + migration closure · **Status:** **COMPLETE** — owner-authorized, independently audited (ACCEPT, zero findings), architecture-reviewed (APPROVE)
+**Commits:** `231ff82` (removal) · *this commit* (closure docs) · **Branch:** `claude/idauto-source-cleanup-post-publication`
+**Type:** deletion of a duplicated tree whose canonical copy is verified elsewhere. **No production change. `othoth77/idauto` untouched.**
+
+### What was removed (`231ff82` — 49 files, −10,238 lines)
+
+`projects/idauto/**` (the entire duplicated tree) · its 13 own test suites (`ida-2*`,
+`ida-3a..3e`, `idauto-storage-ops`, `devx-1-idauto-test-impact`) · 8 duplicated
+`IDAUTO_*`/`IDA3_*` docs · the 15 `projects/idauto` impact-map rules. **Every deleted file has
+a verified canonical equivalent in `othoth77/idauto` at `bdfec2c`** — spot-checked by the
+architecture review, not assumed.
+
+### What was kept, deliberately
+
+`tests/ida-3f-offhost-backup-test.js` (35/0 — tests the **Mythos-owned** modules at
+`projects/infrastructure/ops/`; the `ida-` name is historical) ·
+`docs/IDAUTO_STANDALONE_MIGRATION.md` (the migration pointer, rewritten to record completion) ·
+`projects/mythos-core/contracts/idauto/` (the pinned protocol boundary) · every historical
+record — handover entries, CHANGELOG, ledger, statistics, provenance comments in
+command-center/ssangyong-autos/mythos-os-console/personal-intelligence.
+
+**New:** `tests/devx-2-impact-map-integrity-test.js` (7/0) preserves DEVX-1's one general
+safeguard — no impact-map rule may reference a nonexistent test path, duplicate a prefix, or
+reintroduce a `projects/idauto` prefix.
+
+### Closure sweep (this commit)
+
+The architecture review found five statements the deletion made false; all fixed: the
+impact-map `notes` still *instructed* keeping the deleted `projects/idauto` rules ordered
+(live config, not documentation) · `ROADMAP.md` §ID-Auto said the product "shares this
+repository under `projects/idauto/`" · `AUTOMOTIVE_PRODUCT_PORTFOLIO.md` gave
+`projects/idauto/` as the repository path · `MYTHOS_PROJECT_DESIGN_MATRIX.md` cited the
+deleted `admin.css` · `ID_AUTO_DEPENDENCY_BOUNDARY.md` still carried step 5 / D11 / D12 /
+§10.6 as pending. The boundary document now ends with **§11 Closure**: every D-row resolved,
+final state recorded.
+
+### Verification
+
+identity-core **157/0** · ida-3f 35/0 · devx-2 7/0 · backup 245/0 · governance 89/0 ·
+mpi-0-finalization 36/0 · validate **0 errors, 0 warnings** · full sweep **4864 passed,
+2 failed** (both `mythos-orchestration-core`, pre-existing; the 16 non-zero-exit suites are
+exactly the pre-existing set minus the deleted ones — nothing new fails). The count dropped
+from 5040 only by the deleted suites' own assertions.
+
+### Remaining duplication — stated honestly
+
+`offhost-backup.js` / `s3-compatible.js` now exist in **both** repositories at **different
+digests** — each correct for its own layout (the standalone fork fixed the `__dirname` depth
+guard for its location). Both sides pin AWS's SigV4 vector. Converging on one shared package
+is a **separate, unauthorized decision** — IDA-DECOUPLE-4's closure does NOT mean zero
+duplication remains. Recorded in the boundary doc §11.
+
+### Next stage
+
+**Stage 3 — operational backup gates** (live off-host round trip, schedule, media off-host
+copy): classify what is safely executable vs OWNER ACTION REQUIRED. Then the IDA-4 readiness
+audit (read-only). **IDA-4 is NOT started.**
+
+---
+
+## Previous entry
 
 **Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, EIGHTH PASS — MIG-1 EXECUTED FOR REAL (AUTO-7): THE MYTHOS GOLD MIGRATION APPLIED TO MYTHOS PROD'S ACTUAL SOURCE, 331 OCCURRENCES ACROSS 16 FILES (NOT THE 42/12 AUTO-6 ITSELF ESTIMATED), VERIFIED ACROSS 16 REAL APPLICATION VIEWS INCLUDING EVERY ACCOUNTING MODULE. TWO REAL BUGS CAUGHT AND FIXED BEFORE COMMIT: A LINE-ENDING CORRUPTION BUG IN MY OWN FIRST SUBSTITUTION ATTEMPT, AND ONE ORPHANED DOM SELECTOR THAT WOULD HAVE SILENTLY BROKEN A UI SEPARATOR. COMMITTED TO `main` ONLY — NOT DEPLOYED, PRODUCTION UNTOUCHED.**
 
@@ -288,6 +617,111 @@ next step).
 **Authority and reversibility.** AUTO-7, not owner-approved. One
 `git revert` returns every one of the 331 values to its exact prior
 literal. See `MYTHOS_DESIGN_DECISIONS.md` §0.5.
+
+---
+
+## Previous entry
+
+**Previously:** MYTHOS **IDA-DECOUPLE-3 — COMPLETE. THE IDENTITY CONTRACT BOUNDARY IS FORMALIZED: IDauto PUBLISHES THREE VERSIONED VOCABULARY ARTIFACTS; MYTHOS CONSUMES DIGEST-PINNED COPIES; NO MYTHOS TEST OR RUNTIME FILE RESOLVES ANYTHING UNDER `projects/idauto/` ANY MORE.**
+
+**Stage:** `IDA-DECOUPLE-3` · **Status:** **COMPLETE** — architecture reviewed, implemented, independently audited on both sides, mutation-proven, final review **APPROVED**
+**Mythos commits:** `2719464` (implementation) · `d10a805` (final-review corrections) · **Branch:** `claude/idauto-source-cleanup-post-publication`
+**IDauto commits:** `42e8546` (publication, pinned) · `350792b` (vacuity-gap fix) · **Branch:** `protocol-identity-vocabularies` — `othoth77/idauto` `main` (`bdfec2c`) **untouched**
+**Type:** protocol boundary. **No production change. No schema change on either side, no API change, no deployment, no database mutation.**
+
+### The boundary, as built
+
+```
+othoth77/idauto  protocol/vocabularies/          <- published, versioned, IDauto-owned
+                   actor-type.v1.json              sha256 1df70435...56edf
+                   org-role.v1.json                sha256 18e64fc5...1fb6e
+                   actor-identifier.v1.json        sha256 923b59ab...9689a
+                   ^ tests/identity-conformance-test.js (81/0, offline) binds
+                   | schema.sql <-> artifacts: both named actor_type CHECK sites,
+                   | cross-site identity, chk_user_role, all four VARCHAR(64)
+                   | actor-reference columns (null lookup = failure), storage
+                   | widths, artifact hygiene, the identity.js no-auth invariant
+                   v
+mythos-prod      projects/mythos-core/contracts/idauto/
+                   verbatim copies + PINS.json {version, revision, sha256,
+                   upstream commit 42e8546..., date} + README (six-step re-pin
+                   procedure; deliberately NO auto-repin script)
+```
+
+`tests/mythos-identity-core-0-contract-test.js` (**157/0**, was 125) asserts each pinned
+copy's **raw-bytes SHA-256 before any vocabulary assertion**, then version/filename/
+canonical_id agreement, then genuine two-direction subset equality with `ACTOR_TYPES` and
+`ORG_ROLES` behind vacuity guards, then the identifier contract **behaviourally** through the
+artifact's example vectors — and finally asserts, self-referentially, that its own source
+resolves nothing under the extracted tree. `grep -c "projects/idauto"` over the suite: **0**.
+
+### Honest limits of the mechanism — stated, not discovered later
+
+- An upstream **republication is invisible here until a human re-pins** — the local copy
+  still matches its own pin. The guarantee is *no silent divergence from a named, dated,
+  digest-identified upstream version*, not freshness.
+- The pin detects **accident, not tampering**: editing the copy and `PINS.json` together
+  passes the suite and is caught by review of that visible two-file diff.
+- `PINS.json` pins a commit on the **unmerged** IDauto branch. **That branch must merge by
+  merge commit, never squash/rebase**, or the pinned commit becomes unreachable. Recorded in
+  the boundary doc §10.6.
+
+### Verification — executed, both repos
+
+| Check | Result |
+|---|---|
+| IDauto complete suite (live PostgreSQL 16, all 14 suites) | **678 / 0** — the original 601 preserved exactly + the conformance suite (77, now 81 after the vacuity fix) |
+| IDauto conformance mutations (independent audit) | **7/7 caught** — both CHECK sites, org-role, VARCHAR width, artifact-side value, max_length, no-auth invariant; schema restored byte-identical |
+| Mythos identity-core | **157 / 0** · digest-before-parse order **proven by mutation** (4/4: pinned-copy edit, pin-digest edit, contract edit, version edit — each failing at exactly the expected assertion) |
+| Mythos full suite | **5040 passed, 2 failed** — the 2 are `mythos-orchestration-core`, pre-existing; the 26 non-zero-exit suites are the identical pre-existing list. **Zero regressions** |
+| governance 89/0 · devx-1 92/0 · mpi-0-finalization 36/0 · backup 245/0 · ida-3f 35/0 · validate 0 errors | all green |
+| Artifact byte-identity across repos | verified independently twice; digests match `PINS.json`; `upstream.commit` = real pushed commit |
+
+### Review discipline — what the final review corrected
+
+The final architecture review (two-pass: design, then implementation) **BLOCKED once** on
+three documentation defects and approved after they were fixed in `d10a805`: a "now-deleted"
+claim about the still-present vendored tree; the half-applied "17-not-16" assertion-count
+correction; and a drift-guarantee table that claimed upstream republication fails the Mythos
+digest — it does not, and both documents now state the asymmetry honestly. It also surfaced a
+real vacuity gap in the new IDauto suite's §4 (empty `columns`/`examples` arrays would pass
+green), closed in IDauto `350792b` (+4 preconditions, suite 77 -> 81, `columns:[]` mutation
+verified caught). The UUIDv7 creation-timestamp disclosure in `actor-identifier.v1.json` is
+recorded in the boundary doc §10.6 as **knowingly accepted** — the one disclosure that is not
+a restatement of already-public schema content.
+
+### Assertion disposition (the measured 17)
+
+**7 cross-product** — now enforced on both sides through the artifacts. **3 IDauto-internal**
+(`organizations.id SERIAL`, `identity.js` exports, `IDAUTO_ADMIN_IDENTITIES`) — removed from
+Mythos; the no-auth invariant is enforced for real in IDauto behind a non-emptiness
+precondition. **7 vacuous** — removed; six became real IDauto assertions, and
+`mythos_org_ref NOT added` was dropped entirely (a permanent test engineered to fail when the
+planned §6.6 migration succeeds, contradicting the suite's own header).
+
+### Remaining Mythos -> IDauto dependencies
+
+**None that block deletion technically.** `projects/idauto/**`, `tests/ida-*.js` and
+`tests/devx-1-idauto-test-impact-test.js` remain only as the not-yet-deleted duplicated tree
+plus its own suites (D11/D12 — "go with the source"). **IDA-DECOUPLE-4** (the deletion) is
+now blocked **only on the owner's go-ahead** — nothing technical remains.
+
+### PRs
+
+mythos-prod **#16** (draft, this branch) — updated, NOT merged. `othoth77/idauto` draft PR
+for `protocol-identity-vocabularies` — **must merge by merge commit, never squash**. #14
+remains superseded; idauto #1 unchanged.
+
+### Next stage
+
+**IDA-DECOUPLE-4** on owner authorization. **IDA-4 (Citizen Vehicle Passport) is NOT started
+and remains BLOCKED on its own gates** — IDA-2E authentication, legal review (15 items),
+public-endpoint readiness, privacy architecture, threat model. Nothing in this stage
+implements or unblocks Blockchain anchoring, VC/DID runtime, or the AI Trust Engine.
+
+---
+
+## Previous entry
 
 **Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, SEVENTH PASS — FINAL BLOCKER-DRIVEN EXECUTION PASS CLOSED OUT. DOCUMENTATION CONSISTENCY SWEEP ACROSS 1A–1I: FOUND AND FIXED STALE "OPEN" MARKERS FOR SEVEN ALREADY-RESOLVED ITEMS (SURF-1, GOLD-2, GOLD-3, GRID-1, TOKEN-1, TOKEN-2, SEQ-1) THAT AUTO-3 RESOLVED BUT `COMPONENT_SYSTEM.md`, `DESIGN_TOKENS.md` AND `RESPONSIVE_ACCESSIBILITY_MOTION.md` NEVER RECORDED. O-002/O-006/O-007 RE-CHECKED — GENUINELY UNREACHABLE FROM THIS SESSION, CONFIRMED BY SEARCHING THE ONE ADDITIONAL ATTACHED REPOSITORY, NO NEW EVIDENCE FOUND.**
 
@@ -624,6 +1058,140 @@ closed:**
    relay) — outside this session's authority to create unilaterally.
 5. An owner call on **GRID-2**'s final value, now that real numbers exist.
 
+---
+
+## Previous entry
+
+**Previously:** MYTHOS **IDA-DECOUPLE-3 — BLOCKED ON AN ARCHITECTURAL DECISION, REPORTED NOT IMPLEMENTED. THE BOUNDARY NEEDS AN IDauto-SIDE PUBLICATION. ONE REAL DEFECT IN THE CONTRACT TEST WAS FOUND AND FIXED.**
+
+**Stage:** `IDA-DECOUPLE-3` · **Status:** **BLOCKED — owner decision required** · **Commit:** `62b134a`
+**Branch:** `claude/idauto-source-cleanup-post-publication` · **Baseline:** `d268525`
+**Type:** analysis + one defect fix. **No production change. `othoth77/idauto` untouched; its schema, protocol, identity and roadmap unchanged.**
+
+### Why it is blocked — checked, not assumed
+
+The goal was to stop `tests/mythos-identity-core-0-contract-test.js` reading
+`projects/idauto/database/schema.sql` and `reference/identity.js` **without losing the
+contract**. Both halves of any correct solution require changing `othoth77/idauto`, which the
+instruction for this stage says to stop on rather than do:
+
+- **IDauto's published protocol does not carry either vocabulary.** `protocol/schemas/`
+  publishes `source_type`, verification status, trust levels `T0–T3` and access scope — and
+  **no `actor_type`, no org-role enum**. The vocabulary exists only in `database/schema.sql`,
+  the very internal file this stage is meant to stop reading. Publishing it **adds a new
+  artefact to the IDauto public protocol surface.**
+- **IDauto's own suite does not cover the internal invariants.** Nothing in
+  `othoth77/idauto/tests/` asserts that `identity.js` lacks `jwt.sign`/`bcrypt`/`passport`,
+  that `idauto_organizations.id` is still `SERIAL`, or that `mythos_org_ref` was never added.
+  Moving those assertions means **writing new tests in the IDauto repository**, not relocating
+  existing ones.
+
+**A Mythos-only pinned artefact was considered and rejected.** It would satisfy *"no
+`projects/idauto` read"* and would catch Mythos-side drift — but IDauto-side drift would become
+invisible until someone re-pinned by hand. Today the test reads the live file, so that drift
+**is** caught. A Mythos-only pin would **weaken** the contract while appearing to formalise it.
+
+### The decision the owner has to make
+
+Publish the two vocabularies as versioned artefacts in `othoth77/idauto/protocol/`, and add the
+IDauto-side conformance tests that assert `schema.sql` matches them. Then Mythos pins them by
+version and digest, and drift fails loudly from **either** direction. Full proposal, including
+the artefact shape and the failure matrix, in `docs/ID_AUTO_DEPENDENCY_BOUNDARY.md` **§10**.
+
+Once made, the Mythos side is small and mechanical — and `projects/idauto/` becomes deletable.
+
+### Two corrections to the classification this stage started from
+
+Both measured (both reads stubbed: 124 → **115 passed / 9 failed**), and both material:
+
+- **The split among the 9 failures is 6 cross-product / 3 IDauto-internal — not 2 / 7.**
+  `mythos_user_id` and `actor_ref` are **Mythos's** identifiers living in IDauto's schema;
+  `MYTHOS_IDENTITY_ARCHITECTURE.md` §2 argues the entire `VARCHAR(64)` decision *from* those
+  live columns. Deleting them as "IDauto internals" would discard the federation contract.
+- **There are two shared vocabularies, not one.** Besides `actor_type`,
+  `idauto_user_roles.role` (`owner · admin · member · readonly`) is pinned against
+  `EXPECTED_ORG_ROLES` and recorded as copied verbatim. A boundary covering only `actor_type`
+  leaves half the contract unowned.
+
+**Vacuity is 7, not 6:** the six `identity.js contains no …` plus `deferred mythos_org_ref was
+NOT added`, which is trivially true of an empty string. Sixteen assertions depend on IDauto in
+total.
+
+### The defect that was found and fixed
+
+The `actor_type` CHECK is declared **twice** in IDauto's `schema.sql` — on `idauto_submissions`
+(line 383) and on `idauto_audit_log` (line 910). **The contract test's search was unscoped, so
+it matched `idauto_submissions` first** — not the table its own assertion label names, and not
+the table `MYTHOS_IDENTITY_ARCHITECTURE.md` §12 names as the source. They agree today, so it
+passed; it simply was not verifying what it claimed.
+
+Fixed by scoping to the `idauto_audit_log` body (via a `tableBody()` helper factored out of the
+existing `columnType()`), plus one new assertion that **every** `actor_type` CHECK in the schema
+declares the same vocabulary — so the "platform-wide verbatim" claim is proven, not assumed.
+
+Proven by mutation, with `schema.sql` restored byte-identical afterwards:
+
+| Mutation | Before | After |
+|---|---|---|
+| `'root'` added to `idauto_audit_log`'s CHECK only | **silently passed** | **2 failures** |
+| `'root'` added to `idauto_submissions`' CHECK only | passed | **1 failure** — divergence guard |
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `mythos-identity-core-0-contract` | **125 / 0** (124 before; +1 is the new divergence assertion) |
+| `mythos-governance-invariant` · `devx-1-idauto-test-impact` | 89 / 0 · 92 / 0 |
+| `mpi-0-finalization-governance` · `inf-backup-auto-0-backup` · `ida-3f-offhost-backup` | 36 / 0 · 245 / 0 · 35 / 0 |
+| `scripts/project-intelligence.js validate` | **0 errors, 0 warnings** |
+| **Full Mythos suite** | 110 suites, **4900 passed, 2 failed** |
+| Reconciliation vs the 4877 baseline | **+23 = +22** from main's MOS-1.8 additions to `mos-1-console` (322 → 344) **+1** my new assertion |
+| The 2 failures | `mythos-orchestration-core` 255/2 — **pre-existing** |
+| Non-zero exits | the **same 26** as the previous baseline, unchanged |
+
+### Verification checklist
+
+- ✅ zero Mythos source imports `projects/idauto`
+- ❌ **zero Mythos tests read `projects/idauto` internals** — `mythos-identity-core-0-contract-test.js` still does, deliberately; that is the blocker
+- ✅ ACTOR_TYPES drift remains detectable — **strengthened**, see above
+- ✅ no stale copied fixture — none created
+- ✅ IDauto internals remain owned by IDauto
+- ✅ no regression
+
+### Remaining IDauto dependencies
+
+**One, test-only:** `tests/mythos-identity-core-0-contract-test.js`. `projects/idauto/` still
+cannot be deleted. `tests/devx-1-idauto-test-impact-test.js` and `tests/ida-*.js` go with the
+source when it goes.
+
+### Next stage
+
+**Owner decision on §10, not a coding stage.** After it: publish the artefacts in IDauto, add
+the IDauto-side conformance tests, pin them in Mythos, repoint §8 and the org-role assertion,
+drop the IDauto-internal rows, then delete `projects/idauto/**`.
+
+**IDA-4 is NOT unblocked** and was not started. It never depended on this — it is gated on the
+IDauto roadmap (IDA-2E authentication BLOCKED, 15 LEGAL-REVIEW-REQUIRED items open), which this
+work does not touch.
+
+### Remote state at handover
+
+| | |
+|---|---|
+| Branch | `claude/idauto-source-cleanup-post-publication` |
+| Stage commit | `62b134a` |
+| Remote HEAD | `62b134a` plus this handover commit — pushed and verified equal to local |
+| PR | **#16, draft — NOT merged** |
+| `origin/main` | `77fd1e2` (merged in) |
+| `othoth77/idauto` `main` | `bdfec2c` — **untouched** |
+
+
+---
+
+---
+
+## Previous entry
+
 **Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, THIRD PASS — ALL FIVE CONTINUATION ITEMS COMPLETE (DECISION SWEEP, 1I PROTOTYPES, CONSOLIDATION, READINESS AUDIT, MIGRATION PLANS). STOPPING HERE: THE AUDIT ITSELF IS THE EVIDENCE THAT EVERY REMAINING PHASE IS GENUINELY BLOCKED, NOT A CHOICE TO STOP EARLY. NO APPLICATION, CSS OR ASSET FILE CHANGED ACROSS ANY OF THIS PASS.**
 
 **Items 6–8 of the mandate's continuation are done**, completing all five named
@@ -722,6 +1290,10 @@ pattern this repository already used, none force-pushed, no secret committed,
 no historical evidence altered. Every merge verified against `origin/main`
 before proceeding to the next.
 
+---
+
+## Previous entry
+
 **Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, SECOND PASS — DECISION SWEEP COMPLETE (AUTO-3, 18 ITEMS), TOKEN ARTIFACT GENERATED. NO APPLICATION, CSS OR BUILD FILE CHANGED — ONE NEW, STANDALONE, UNWIRED SPECIFICATION FILE.**
 
 **Item 4 of the mandate's five-item continuation** ("complete the remaining
@@ -792,6 +1364,151 @@ this stage's window) independently confirm a real, deliberately-configured
 `deploy`-user privilege boundary from a session **with** host access, refused
 two different ways. Not attempted again; not this session's decision to
 escalate around.
+
+---
+
+## Previous entry
+
+**Previously:** MYTHOS **IDA-DECOUPLE-2 — THE TWO GENERIC OPS MODULES ARE NOW MYTHOS-OWNED. ZERO MYTHOS RUNTIME FILES RESOLVE ANY PATH INSIDE `projects/idauto/`. ONE TEST DEPENDENCY STILL BLOCKS DELETION.**
+
+**Stage:** `IDA-DECOUPLE-2` · **Status:** **COMPLETE** · **Commit:** `e053a56`
+**Branch:** `claude/idauto-source-cleanup-post-publication` · **Baseline:** `79c01d8`
+**Type:** relocation refactor. **No production change. Nothing deployed, no database mutation, no service touched, no backup created or restored, and `othoth77/idauto` untouched.**
+
+### What moved, and why it was never IDauto's
+
+The dependency audit measured both modules: **zero IDauto domain concepts**, imports limited
+to Node built-ins (`fs`, `path`, `crypto`, `os`, `https`). They sat under `projects/idauto/`
+for historical reasons only, and three Mythos consumers had to reach into another project's
+tree to use them.
+
+```
+projects/idauto/ops/offhost-backup.js
+  -> projects/infrastructure/ops/offhost-backup.js
+projects/idauto/ops/adapters/s3-compatible.js
+  -> projects/infrastructure/ops/adapters/s3-compatible.js
+```
+
+**A true move, not a copy.** `git mv`, recorded by git as **two renames with zero changed
+lines**. SHA-256 identical before and after — `76891147…` and `f8ed821f…`. No second copy
+exists anywhere in this repository.
+
+### Why `projects/infrastructure/ops/` specifically — the one real hazard
+
+The only path-sensitive line in either module is `offhost-backup.js:313`:
+
+```js
+var repo = path.resolve(__dirname, '../../..');
+```
+
+That is the guard which **refuses to restore inside the git repository**. Old and new
+locations are at **identical depth**, so it still resolves to the repository root and the
+file needed no edit at all. This was checked *first*, not last: the standalone migration
+found exactly this defect when the same file moved to a *different* depth, where the guard
+silently resolved two levels above the repository and stopped protecting it.
+
+### Consumers and assertions repointed
+
+| File | What changed |
+|---|---|
+| `projects/automation/reference/backup-operations-orchestrator.js` | the `require` at 41, the header comment at 20, and **both** occurrences of the `reuses_module` path literal (649 and 667). The O-BACKUP-1 guard refuses any plan whose value does not match, so updating one and not the other would have refused every plan |
+| `projects/personal-intelligence/cli/mpi-ingest-cli.js:46`, `mpi-retrieve-cli.js:37` | the `s3-compatible` require |
+| `tests/inf-backup-auto-0-backup-test.js` | `OFFHOST_PATH`, the require regex at 375, the literal at 383 |
+| `tests/ida-3f-offhost-backup-test.js` | both requires and the `require.resolve` at 358 |
+| `projects/meta/test-impact-map.json` | new `projects/infrastructure/ops/` rule (`HIGH_RISK`, 5 targeted suites covering the modules and all three consumers); the `projects/idauto/ops/` rule drops the INF-BACKUP-AUTO-0 edge, which no longer exists |
+
+**11 stale full-path references** corrected across `content-store.js`, `ROADMAP.md`,
+`OFF_HOST_BACKUP_GATE.md` and `AUTOMATION_ROADMAP.md`. **Zero remain.** The other
+`projects/idauto` mentions in command-center, ssangyong-autos, mythos-os-console and
+mythos-core are *"follows the convention in …"* provenance notes — accurate, left alone.
+
+`tests/ida-3f-offhost-backup-test.js` is now a **Mythos** suite by content. It keeps its
+`ida-` name deliberately: the name is referenced by the impact map, `project-ledger.json` and
+the runbooks, and renaming is churn in a risky diff.
+
+### Acceptance condition — met
+
+**Zero Mythos runtime files resolve any path inside `projects/idauto/`.** Verified by
+exhaustive search: no `require()` or import of anything under `projects/idauto/` exists in
+any `.js` file outside it and outside `tests/`.
+
+### Validation — executed, not assumed
+
+| Check | Result |
+|---|---|
+| `ida-3f-offhost-backup` | **35 / 0** — unchanged from pre-move baseline |
+| `inf-backup-auto-0-backup` | **245 / 0** — unchanged |
+| `mpi-2h-events` · `mpi-2h-cli` · `mpi-3-retrieval-cli` · `mpi-d3-content-store` | 16 / 0 · 24 / 0 · 13 / 0 · 27 / 0 |
+| `devx-1-idauto-test-impact` · `mythos-identity-core-0-contract` | 92 / 0 · 124 / 0 |
+| `mythos-governance-invariant` · `mpi-0-finalization-governance` | 89 / 0 · 36 / 0 |
+| `scripts/project-intelligence.js validate` | **0 errors, 0 warnings** |
+| **Full Mythos suite** | 110 suites, **4877 assertions passed, 2 failed** |
+| The 2 failures | `mythos-orchestration-core` 255/2 — **pre-existing** |
+| Regression check | all 26 suites with a non-zero exit re-run against the pre-move tree via `git stash`. **Identical, one for one, before and after** — missing `pg` in uninstalled project `node_modules`, `_memCache`, browser-only `document`, the `stage3*` provider-error suites. **Zero regressions** |
+
+### What was NOT verified — stated plainly
+
+The dependency-boundary document records as a **HIGH** risk that `offhost-backup.js` is the
+disaster-recovery path, and warns *"re-verify against the real path, not the suite alone."*
+**A live off-host round trip against real object storage was not performed**, and nothing
+here claims it was. What was established instead: byte-identical contents, the depth-guard
+check above, and both suites green from the new location. A live round trip remains an
+operator action and is the right gate before the next real backup runs.
+
+### Duplication — named, not hidden
+
+Two copies now genuinely exist: Mythos's at `projects/infrastructure/ops/`, IDauto's at
+`ops/` in `othoth77/idauto`. Both suites pin **AWS's published SigV4 vector**, so drift in
+the signing path — the highest-consequence surface — is caught independently on each side.
+Publishing a shared package is the eventual fix and is a **separate architectural decision**,
+not a refactor.
+
+### Remaining IDauto dependencies — all test-only
+
+| | What | Next |
+|---|---|---|
+| **D6 / D7 / D8** | `tests/mythos-identity-core-0-contract-test.js` reads `projects/idauto/database/schema.sql` and `reference/identity.js` | **IDA-DECOUPLE-3** — the only remaining gate |
+| **D11** | `tests/devx-1-idauto-test-impact-test.js` asserts the ID Auto impact-map rules | goes with the source |
+| **D12** | `tests/ida-*.js`, `tests/idauto-storage-ops-test.js` | ID Auto's own duplicated suites; go with the source |
+
+Re-measured: of the three suites that used to break on deleting `projects/idauto/`,
+**`inf-backup-auto-0-backup` and `mpi-2h-events` are now free of it. Only
+`mythos-identity-core-0-contract` still is not.**
+
+### Next stage — `IDA-DECOUPLE-3`
+
+Split the identity-core contract test. §12 (D7) and §12b (D8) assert **IDauto's** own
+invariants and are already covered by `docs/IDENTITY_ARCHITECTURE.md` in that repository —
+they can be dropped here. **§8 (D6) is different and must not simply be deleted**: it guards
+the core contract's `ACTOR_TYPES` against the live `idauto_audit_log` `actor_type` CHECK, and
+the platform adopted ID Auto's vocabulary verbatim, so ID Auto is the *source*. Replacing it
+with a frozen copy turns a drift **detector** into a drift **recorder**; the right shape is a
+versioned vocabulary artefact both repositories pin.
+
+**Measured constraint:** stubbing both reads leaves **115 passed / 9 failed** — and **6
+further assertions pass vacuously** (*"identity.js contains no `jwt.sign`"* is trivially true
+of an empty string). A fixture must be real content, never empty, or the suite reports green
+while testing nothing.
+
+Only after that does deleting `projects/idauto/**` become safe. **IDA-4 is not started and
+is not authorised by this stage.**
+
+### Remote state at handover
+
+| | |
+|---|---|
+| Branch | `claude/idauto-source-cleanup-post-publication` |
+| Stage commit | `e053a56` |
+| Remote HEAD | `e053a56` plus this handover commit — pushed and verified equal to local |
+| PR | **#16, draft — NOT merged** |
+| Other open drafts | mythos-prod **#14** (superseded); `othoth77/idauto` **#1** |
+| `origin/main` | `0447209` |
+| `othoth77/idauto` `main` | `bdfec2c` — **untouched** |
+
+
+---
+
+## Previous entry
 
 **Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, FIRST PASS — PR #11 MERGED TO MAIN; LOGO-2 RESOLVED (AUTO-1); LOGO-1 NARROWED; C-006 CANONICAL SYSTEM DECIDED (AUTO-2) WITH EXECUTION DELIBERATELY DEFERRED AFTER A NEAR-MISS ON THE REAL MYTHOS OS STYLESHEET. NO CODE, CSS OR APPLICATION FILE ENDS THIS STAGE CHANGED — ONLY DOCUMENTATION.**
 
@@ -893,6 +1610,240 @@ absent again this stage (`/var/www`, `/srv/mythos`, `/home/deploy` all still
 missing) — and MOS-1.2's own handover entry independently confirms *"the host
 is unreachable from any Claude session."* That is the genuine technical/access
 blocker the mandate's own exit condition anticipates for those specific phases.
+
+---
+
+## Previous entry
+
+**Previously:** MYTHOS **IDA-DECOUPLE-1 — MPI NOW OWNS ITS `pg` DEPENDENCY. THE THREE COMPOSITION ROOTS NO LONGER REACH INTO ID AUTO'S `node_modules`. FIVE PREVIOUSLY ABORTING MPI SUITES NOW PASS.**
+
+**Stage:** `IDA-DECOUPLE-1` · **Status:** **COMPLETE** · **Commit:** `6e2dfaa`
+**Branch:** `claude/idauto-source-cleanup-post-publication` · **Baseline:** `72a8d73`
+**Type:** dependency-ownership fix. **No production change. Nothing deployed, no database mutation, no service touched, and no ID Auto file modified.**
+
+### The defect
+
+`projects/personal-intelligence/` had **no `package.json`**. Its three CLI composition roots
+therefore resolved the PostgreSQL driver out of another project's installed dependency
+directory:
+
+```js
+require('../../idauto/node_modules/pg')
+```
+
+This is a dependency-ownership defect, not a code-sharing one — D5 in
+`docs/ID_AUTO_DEPENDENCY_BOUNDARY.md`. MPI needs `pg`; ID Auto merely happened to have it
+installed. `node_modules/` is gitignored, so the coupling **already broke on any checkout
+that had not run `npm install` inside `projects/idauto`**. Measured on this container before
+the fix: five MPI suites aborted with `Cannot find module '../../idauto/node_modules/pg'` —
+`mpi-2h-cli`, `mpi-3-retrieval-cli`, `mpi-4-openrouter`, `mpi-4-relevance-router`,
+`mpi-4-runtime`. That failure predates the ID Auto extraction and is independent of it.
+
+### What was done
+
+| File | Change |
+|---|---|
+| `projects/personal-intelligence/package.json` | **New.** Declares `pg` at `^8.13.1` — the range already used by `projects/idauto`, `projects/command-center` and `projects/ssangyong-autos` |
+| `projects/personal-intelligence/package-lock.json` | **New.** Pins pg **8.23.0** with the same integrity hash as `projects/idauto`'s lock. Both resolved trees are identical across all 14 packages, so **no duplicate `pg` version exists** |
+| `cli/mpi-ingest-cli.js:185`, `cli/mpi-retrieve-cli.js:109`, `cli/mpi-runtime-cli.js:90` | `require('pg')`, resolved from the MPI package boundary |
+| `persistence/activation.js` | **Wording only.** Its header and its refusal message both stated `pg` was deliberately *not* an MPI dependency. That is no longer true. **The design is unchanged**: the library still never requires `pg` itself, the composition root still injects it, and a missing driver source is still a refusal, never a silent mock |
+| `tests/mpi-2h-cli-test.js` | Assertion 23 asserted the CLI source literally contained `idauto/node_modules/pg` — a test pinning the defect in place. It now asserts `require('pg')`. Its stated intent, *"real activation + real pg; no mock/memory fallback"*, is unchanged |
+| `tests/mpi-activation-test.js` | Assertion 9 (D10) resolved its real driver from `projects/idauto/node_modules/pg` and skipped when absent. It now resolves MPI's own — and consequently **runs** rather than skips |
+
+**Seven references to `projects/idauto` were removed and none introduced.**
+
+### Validation — executed, not assumed
+
+| Check | Result |
+|---|---|
+| All 22 MPI suites | **544 passed, 0 failed** (before: 5 suites aborted) |
+| `mpi-2h-events` | 16 / 0 |
+| `mpi-activation` | **11 / 0**, 4 skipped — was 10 / 0, 5 skipped; assertion 9 now runs against a real `pg.Pool` |
+| `mpi-2h-cli` | **24 / 0** — was `SUITE ABORTED` |
+| `scripts/project-intelligence.js validate` | **PASSED** — 0 errors, 0 warnings |
+| `mythos-governance-invariant` | 89 / 0 |
+| `devx-1-idauto-test-impact` | 92 / 0 |
+| `inf-backup-auto-0-backup` | 245 / 0 |
+| `mythos-identity-core-0-contract` | 124 / 0 |
+| `npm ci` from a wiped `node_modules` | succeeds; resolves pg 8.23.0 — the lockfile is complete and consistent |
+| Clean-environment resolution (`NODE_PATH` unset) | all three CLIs resolve to `projects/personal-intelligence/node_modules/pg` |
+
+### Explicitly out of scope, and untouched
+
+`projects/idauto/**`, the ID Auto database schema, the ID Auto protocol,
+`reference/identity.js`, `ops/offhost-backup.js`, `ops/adapters/s3-compatible.js`, the
+Mythos automation backup logic, `tests/mythos-identity-core-0-contract-test.js`, and IDA-4
+or later work. `git status` over each of those paths is empty.
+
+### What this did NOT fix
+
+The two MPI imports of `projects/idauto/ops/adapters/s3-compatible.js`
+(`mpi-ingest-cli.js:46`, `mpi-retrieve-cli.js:37`) remain. Those are D6/D7 — a genuine
+**shared-module** question, not a dependency-ownership one, and relocating a module is a
+different risk profile from declaring a dependency. `projects/idauto/` therefore still
+cannot be deleted.
+
+### Next stage — `IDA-DECOUPLE-2`
+
+Relocate `s3-compatible.js` to a Mythos-owned home (`projects/infrastructure/ops/` is the
+recommendation in `docs/ID_AUTO_DEPENDENCY_BOUNDARY.md` §7) and repoint the two MPI CLI
+imports. `offhost-backup.js` (D1) follows in IDA-DECOUPLE-3, the identity-core contract
+split in IDA-DECOUPLE-4, and only then can `projects/idauto/` be removed.
+
+### Remote state at handover
+
+| | |
+|---|---|
+| Branch | `claude/idauto-source-cleanup-post-publication` |
+| Local HEAD | `6e2dfaa` |
+| Remote HEAD | `6e2dfaa` plus this handover commit — pushed and verified equal to local |
+| PR | **#16, draft — NOT merged** |
+| Other open drafts | mythos-prod **#14**; `othoth77/idauto` **#1** |
+| `origin/main` | `0a00c30` |
+
+
+---
+
+## Previous entry
+
+**Previously:** MYTHOS **IDAUTO-STANDALONE-MIGRATION — `othoth77/idauto` PUBLISHED AND CLEAN-CLONE VERIFIED (601/601); IT IS NOW CANONICAL. THE STAGING SNAPSHOT IS REMOVED; THE SOURCE CANNOT FOLLOW IT — MYTHOS IMPORTS IT.**
+
+**Stage:** `IDAUTO-STANDALONE-MIGRATION` · **Status:** **PUBLISHED and CLEAN-CLONE VERIFIED**; source removal **BLOCKED** — `projects/automation` and `projects/personal-intelligence` `require()` ID Auto ops modules, and mythos-core validates its identity contract against ID Auto's schema. See `docs/IDAUTO_STANDALONE_MIGRATION.md` §3
+**Branch:** `claude/idauto-standalone-migration-ejyl27` · **Baseline:** `5e2011b` (`main`)
+**Type:** extraction + documentation. **No production change. Nothing deployed, no DNS, no database mutation, no service touched, and no ID Auto file removed from this repository.**
+
+### What was done
+
+ID Auto was extracted from `projects/idauto/`, `docs/IDAUTO_*.md`,
+`docs/IDA3_INGESTION_ARCHITECTURE.md` and `tests/ida-*.js` into a complete standalone
+repository, and repositioned as **IDauto — an open vehicle identity and history protocol**.
+
+91 files. The IDA-0 → IDA-3 baseline moved intact — schema, API, ingestion, review queue,
+ops tooling — along with 30 implementation-record sections extracted **verbatim** from this
+file, unedited, blockers and mistakes included.
+
+### Validation — executed, not assumed
+
+A live PostgreSQL 16 instance was provisioned in the working environment, the migrated
+`schema.sql`, the IDA-3A migration and the synthetic seed applied, and **all 13 suites
+re-run in the new layout: 601 assertions, 0 failures.** Per-suite counts match this
+repository's last recorded numbers, except `idauto-storage-ops` (72 → 73, where one
+assertion was replaced by a stronger pair).
+
+**Completeness proven, not assumed:** all 44 origin file pairs were compared byte-for-byte —
+**zero missing** — and `reference/` has **zero executable-code changes**, every diff being a
+path comment. Every `require()` across the tree resolves to a Node built-in, `pg`, or a path
+inside the new repository: **no external module dependency exists**.
+
+Also verified: 24 tables, all `idauto_`-prefixed; the IDA-3A migration idempotent against
+`schema.sql`; `access_scope` present on both affected tables; **zero owner-PII columns**; no
+secret, credential or real vehicle data; every JS file parses; every JSON schema valid.
+
+### One real defect found by the move, and fixed
+
+`ops/media-ops.js` and `ops/offhost-backup.js` computed the repository root as
+`__dirname/../../..` — correct at `projects/idauto/ops/`, wrong once `ops/` sits at a
+repository root. Left unfixed, the "refuse to restore inside the git repository" guard would
+have resolved two levels above the repository and silently stopped protecting it. Fixed in
+both files, covered by the suite.
+
+Separately, the hardcoded `/home/deploy` entries in the restore-refusal lists were
+**generalised, not deleted**: the guard now refuses any direct child of `/home` by rule, so
+`/home/deploy` is still refused — on every host — and the tests prove it through the CLI
+rather than by inspecting a constant.
+
+### PUBLISHED AND CLEAN-CLONE VERIFIED
+
+The owner created `othoth77/idauto`; the audited tree was pushed verbatim as its initial
+commit and then verified from a **clean clone**, deliberately not from the working tree it
+was built in.
+
+`main` = `bdfec2ce247f479155e920fd8156e8c94d5a6d49`, tree `26b93fb8`, 91 files.
+
+Fresh clone into an empty directory → `npm install` from the published lockfile → a **newly
+created** PostgreSQL 16 database and role → schema + IDA-3A migration + synthetic seed →
+all 13 suites live: **601 assertions, 0 failures**, every per-suite count matching the
+pre-publication audit exactly. Commit and tree hashes matched; all 91 files byte-identical;
+45/45 origin pairs present; 0 `projects/idauto` and 0 `mythos-prod` references in code;
+0 external imports beyond Node built-ins and `pg`; no secrets; 0 owner-PII columns on any
+vehicle, plate, observation, fact, evidence or movement table.
+
+**`othoth77/idauto` is now canonical.** Status record: that repository's PR #1 (draft).
+
+Publication had been blocked for about five hours by `POST /user/repos` →
+`403 Resource not accessible by integration`, an account-administration permission this
+integration does not hold. Cleared by the owner creating the empty repository; nothing about
+the migration itself had to change.
+
+`migration-staging/idauto-standalone/` on this branch has now served its purpose — it existed
+only so the validated tree would survive an ephemeral environment. The cleanup PR deletes it.
+
+### Nothing removed from this repository by *this* branch — deliberately
+
+`projects/idauto/`, `docs/IDAUTO_*.md` and `tests/ida-*.js` are untouched and remain
+authoritative. Removing them before the standalone repository is published would leave the
+project with a snapshot and no Git history. The cleanup is planned in full — what goes, what
+stays, which integrations break, and in what order — in
+`docs/IDAUTO_STANDALONE_MIGRATION.md` §4, and is **not executed**.
+
+Two integrations will break when it is executed and must change in the same commit:
+`projects/meta/test-impact-map.json` and `tests/devx-1-idauto-test-impact-test.js`. The live
+`idauto-postgres` database and media store are **unaffected** — the schema is unchanged, so
+a deployment repoints rather than migrates.
+
+### Blockers carried forward, unchanged
+
+`IDA-2E` (real authentication) remains **BLOCKED** — re-scoped in the standalone roadmap to
+IDA-7 on W3C DID/VC primitives, since there is no Mythos auth service to wait for and never
+was. 15 LEGAL-REVIEW-REQUIRED items remain open.
+`PUBLIC_ENDPOINT_READY_TO_IMPLEMENT` remains **NO**, now on two blockers rather than three.
+
+### A correction this session made against itself
+
+The first pass reported **`IDA-3F` as BLOCKED with no off-host copy in existence**. That was
+wrong, and the mistake is worth recording because it is the exact failure `AGENTS.md` §2
+names: it read the IDA-3F stage entries of 2026-08-12 and treated them as current, without
+scanning forward for the entries that superseded them.
+
+The off-host gate **closed on 2026-08-14** — batch `20260814T161856Z`, `idauto` dumped,
+uploaded, freshly downloaded, checksum-matched and restored into an isolated container with
+`--network none`, 24 tables / 2,551 rows source-identical. `docs/OFF_HOST_BACKUP_GATE.md` §6
+records all seven conditions MET, and this very file already noted that
+`projects/meta/project-ledger.json` and that runbook's own header were carrying the stale
+"BLOCKED" status. The migration inherited precisely the staleness this file had flagged.
+
+A completeness audit found it, corrected it throughout the standalone tree, and recovered
+four artefacts the first pass had missed: five superseding handover entries (2026-08-14),
+the ID Auto risk-register rows (8 owned + 9 cross-product), the off-host backup runbook, and
+the ID Auto identity-architecture decisions — the last of which also surfaced one previously
+undocumented external dependency.
+
+**Nothing outstanding is thereby claimed done.** There is still no backup *schedule* — the
+single batch ages daily — and the media store has no verified off-host copy.
+
+**The stale statuses in *this* repository are unchanged** and still need their own order:
+`projects/meta/project-ledger.json` and the `docs/OFF_HOST_BACKUP_GATE.md` header. The
+correction was applied to the standalone tree only, which is the correct scope for this
+branch.
+
+### Changed files in this repository
+
+`docs/IDAUTO_STANDALONE_MIGRATION.md` (new) · `docs/AI_HANDOVER.md` (this entry) ·
+`migration-staging/**` (transient snapshot, 92 files). **No ID Auto source, test, document
+or schema in this repository was modified.**
+
+### Next
+
+Done: repository created → tree pushed at `bdfec2c` → clean clone verified 601/601 →
+standalone draft PR opened. **Now:** the separate cleanup PR in this repository, prepared as
+a draft and not merged automatically. It must update `projects/meta/test-impact-map.json`
+and `tests/devx-1-idauto-test-impact-test.js` in the same commit as the removals, or DEVX-1
+breaks.
+
+
+---
+
+## Previous entry
 
 **Previously:** MYTHOS **MOS-1.2 — DEPLOYMENT AUTOMATED WITH HARD GATES; A CLAIM I MADE TWICE WAS WRONG AND IS CORRECTED. PR #12 IS MERGED. STILL NOT DEPLOYED — THE HOST IS UNREACHABLE FROM ANY CLAUDE SESSION.**
 

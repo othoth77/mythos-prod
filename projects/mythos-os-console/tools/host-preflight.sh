@@ -22,6 +22,7 @@ EXPECT_IP="${MOS_EXPECT_IP:-51.68.226.211}"
 PORT="${MOS_PORT:-8140}"
 EXECUTOR="${MOS_EXECUTOR_URL:-http://127.0.0.1:8130}"
 ENVFILE="${MOS_ENVFILE:-/home/deploy/deployments/mythos-os-console/.env}"
+SECRETFILE="${MOS_SECRETFILE:-/home/deploy/deployments/mythos-os-console/.console-secret}"
 REPO="${MOS_REPO:-/home/deploy/projects/mythos-prod}"
 
 pass=0; fail=0; warn=0
@@ -90,6 +91,30 @@ if [ -f "$ENVFILE" ]; then
   fi
 else
   note "$ENVFILE does not exist yet — create it with MOS_EXECUTOR_TOKEN before starting the unit"
+fi
+
+# MOS-v2 M-01. The console's own sign-in secret, in its own file. Mode is a
+# BLOCKING check, not a note: reference/auth.js refuses a file with any group
+# or other permission bit, so a mode 0644 secret file means the console
+# answers 401 to every request including a correct password. Presence only —
+# this script never reads, prints or logs the value.
+if [ -f "$SECRETFILE" ]; then
+  sperms="$(stat -c '%a' "$SECRETFILE" 2>/dev/null)"
+  if [ "$sperms" = "600" ]; then
+    ok "$SECRETFILE exists, mode $sperms"
+  else
+    bad "$SECRETFILE mode is $sperms, must be 600 — auth.js refuses a group- or world-accessible secret file"
+  fi
+  if grep -q '^[[:space:]]*\(export[[:space:]]\+\)\?MOS_CONSOLE_SECRET=..*$' "$SECRETFILE" 2>/dev/null; then
+    ok "MOS_CONSOLE_SECRET is set (value not read)"
+  else
+    bad "$SECRETFILE has no non-empty MOS_CONSOLE_SECRET line — nobody can sign in"
+  fi
+else
+  bad "$SECRETFILE does not exist — the console will refuse every request until it does"
+fi
+if grep -q '^[[:space:]]*\(export[[:space:]]\+\)\?MOS_CONSOLE_SECRET=' "$ENVFILE" 2>/dev/null; then
+  bad "MOS_CONSOLE_SECRET appears in $ENVFILE — it is loaded into the service environment there and auth.js will not read it. Move it to $SECRETFILE."
 fi
 
 echo "7. nginx"

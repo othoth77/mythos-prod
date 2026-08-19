@@ -10,9 +10,9 @@ var os = require('os');
 
 var crypto = require('crypto');
 
-var core = require('../projects/idauto/ops/offhost-backup.js');
+var core = require('../projects/infrastructure/ops/offhost-backup.js');
 
-var s3 = require('../projects/idauto/ops/adapters/s3-compatible.js');
+var s3 = require('../projects/infrastructure/ops/adapters/s3-compatible.js');
 
 var root = fs.mkdtempSync(path.join(os.tmpdir(), 'ida-3f-'));
 
@@ -355,7 +355,7 @@ T('26 manifest restore metadata complete', function() {
 });
 
 T('27 no production database opened', function() {
-  assert(!require.cache[require.resolve('../projects/idauto/ops/offhost-backup.js')].children.some(function(x) {
+  assert(!require.cache[require.resolve('../projects/infrastructure/ops/offhost-backup.js')].children.some(function(x) {
     return /reference\/db/.test(x.filename);
   }));
 });
