@@ -1,7 +1,69 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MYTHOS **FULL AUTONOMOUS MANDATE, NINTH PASS — MIG-2 ATTEMPTED (AUTO-8), THEN ROLLED BACK ON A REAL, FOUND VISUAL REGRESSION. ALL 93 PLAYFAIR DISPLAY OCCURRENCES SUBSTITUTED CLEANLY, ARABIC RENDERING CONFIRMED UNAFFECTED, ONE REAL ESCAPE-CHARACTER BUG CAUGHT AND FIXED — THEN REAL VISUAL REGRESSION ACROSS 17 VIEWS FOUND TWO SELECTORS (`.compta-kpi`, `.stat-value`) WHERE ARCHIVO EXPANDED'S WIDER METRICS WRAP HEADLINE TND FIGURES TO TWO LINES, MISALIGNING A KPI CARD ROW. ROLLED BACK COMPLETELY RATHER THAN PATCHED WITH AN UNAUTHORISED RESIZE DECISION — EXACTLY WHAT THE MANDATE'S OWN "ROLL BACK IMMEDIATELY IF UNACCEPTABLE" RULE IS FOR. NOTHING FROM THIS ATTEMPT IS COMMITTED; ONLY THE DOCUMENTATION OF WHAT WAS TRIED AND WHY.**
+**From:** MYTHOS **FULL AUTONOMOUS MANDATE, TENTH PASS — MIG-3 PARTIALLY EXECUTED (AUTO-9): `--muted`/`--danger` CORRECTED TO THEIR APPROVED VALUES AND APPLIED, `--past`/CONTROL-BORDER LEFT EXPLICITLY OPEN (NO APPROVED TARGET FOR ONE, TOO BROAD A BLAST RADIUS FOR THE OTHER). MIG-4 CHECKED AND LEFT BLOCKED WITH EVIDENCE: MCC-1 (COMMAND CENTER) IS CONFIRMED LIVE, DEPLOYED, SERVING REAL PUBLIC TRAFFIC — NOT A SAFE LOCAL PILOT TARGET — AND A STANDING, NEVER-REVOKED INSTRUCTION FORBIDS TOUCHING IT. NO COMMAND CENTER FILE WAS READ OR TOUCHED. THIS CLOSES THE FOUR-MIGRATION EXECUTION PASS THE CONTINUATION INSTRUCTION NAMED — FULL FINAL BLOCKER MATRIX BELOW.**
+
+**MIG-3 — what was applied, and why the rest was left open.** `A-015`
+names three contrast-failing tokens. Mapped: `--muted` 73×, `--danger` 2×,
+`--past` 3×, each a single-source `:root` declaration in `css/main.css`.
+Applied: `--muted` → `#A8A498` (the exact corrected value `COLOR_SYSTEM.md`
+names for this defect), `--danger` → `#F1706A` (A-015's dark-ground
+correction — Mythos Prod is dark-only). Left open: `--past` has no
+approved correction at all (it isn't one of A-015's four corrected
+semantic roles, only evidence the current value fails); the
+control-border token (`A-016`) would need to replace `--border` used
+broadly as a *decorative* border throughout the app, not the specific
+form-control 3:1 boundary A-016 corrects — applying it globally would be
+a much bigger, likely-wrong change than asked. Verified: 17 real views,
+0.73–1.46% diff per view (MIG-1's low-risk range), highest-diff views
+manually clean. `--danger`/`--past` weren't visually exercised (no error
+state or past-dated entry in the empty test data) — stated as reasoning
+by analogy, not observed fact.
+
+**MIG-4 — checked, not attempted, three convergent reasons.** (1) A-020's
+own text: "this approval is classification only... no code, CSS, asset,
+deployment or branding was changed" — never an implementation
+authorisation. (2) This session's own standing instruction, never
+superseded: never touch MCC-1. (3) MCC-1 is genuinely live production —
+real DNS, real TLS, a real database, running from the live checkout — not
+a reference/stub the way `mythos-os-console`'s pilot target is. The block
+was established from documentation alone; nothing under
+`projects/command-center/` was read.
+
+**A pre-existing documentation error found and corrected in passing.**
+`MIGRATION_PLANS.md` §1.2 had mislabeled the `mythos-os-console`
+`--mythos-*` reconciliation (C-006) as `MIG-4` and folded Command Center
+into the same heading — both wrong; `MIG-4` was always Command Center's
+own palette migration. Split into two sections, corrected, not hidden.
+
+---
+
+## FINAL BLOCKER MATRIX — the continuation instruction's own execution pass, closed out
+
+| Item | Status | Evidence |
+|---|---|---|
+| **MIG-1** (gold) | **DONE** | 331 occurrences, 16 files, verified across 16 real views, committed to `main`, not deployed (AUTO-7) |
+| **MIG-2** (Playfair) | **ROLLED BACK** | 93/93 substituted cleanly, Arabic confirmed unaffected, but a real KPI-card text-wrap regression found and not patched with an unauthorised resize (AUTO-8) |
+| **MIG-3** (semantic tokens) | **PARTIAL** | `--muted`/`--danger` done and verified; `--past`/control-border explicitly open, not guessed (AUTO-9) |
+| **MIG-4** (Command Center) | **BLOCKED, evidenced** | MCC-1 confirmed live production; standing constraint; A-020 authorises no implementation (AUTO-9) |
+| Mythos OS Console reconciliation (C-006) | **READY, not executed** | Existing tooling (`tests/mos-1-console-test.js`, its own `visual-verify.js`), smaller scope than Mythos Prod, next natural candidate |
+| Console/Command Center deployment | **BLOCKED, external** | `deploy`-user privilege boundary (MOS-1.6/1.7), re-confirmed with real host access this pass did not have |
+| Visual-regression tooling (Mythos Prod) | **DONE** | `tools/visual-verify.js`, loopback-guarded, proven across three real migration attempts |
+| Documentation | **DONE, this pass** | Full record for all four migrations; one pre-existing MIG-4 mislabeling found and corrected |
+
+**Exact record.** Base before this pass: `8416f48` (AUTO-8 merge). This
+pass's own commit and remote HEAD verified after push — see the PR this
+entry accompanies. Tests: no dedicated suite exists for Mythos Prod at
+repository root (unchanged); `mythos-os-console` stands at 419/158/257,
+untouched this pass. Deployment: executor live (MOS-3, concurrent
+session), console blocked, MCC-1 live and explicitly not approached.
+
+**Next executable action, if this mandate continues:** the
+`mythos-os-console` `--mythos-*` reconciliation (C-006) — existing
+tooling, smaller scope, no standing prohibition unlike Command Center.
+Everything else in the matrix above is either done, correctly rolled
+back, deliberately left open pending a real decision, or blocked by
+evidence this session cannot act past.
 
 **Why this is a correct outcome, not a stall.** The continuation
 instruction was explicit: run visual regression, review every changed
@@ -64,6 +126,8 @@ Full record: `docs/design/MIG_EXECUTION_MAPPING.md` §3a.
 (complete the semantic-token mapping, apply only supported cases) and
 MIG-4 (check whether Command Center can be safely validated at all, given
 a prior recorded prohibition on touching it).**
+
+**Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, NINTH PASS — MIG-2 ATTEMPTED (AUTO-8), THEN ROLLED BACK ON A REAL, FOUND VISUAL REGRESSION. ALL 93 PLAYFAIR DISPLAY OCCURRENCES SUBSTITUTED CLEANLY, ARABIC RENDERING CONFIRMED UNAFFECTED, ONE REAL ESCAPE-CHARACTER BUG CAUGHT AND FIXED — THEN REAL VISUAL REGRESSION ACROSS 17 VIEWS FOUND TWO SELECTORS (`.compta-kpi`, `.stat-value`) WHERE ARCHIVO EXPANDED'S WIDER METRICS WRAP HEADLINE TND FIGURES TO TWO LINES, MISALIGNING A KPI CARD ROW. ROLLED BACK COMPLETELY RATHER THAN PATCHED WITH AN UNAUTHORISED RESIZE DECISION — EXACTLY WHAT THE MANDATE'S OWN "ROLL BACK IMMEDIATELY IF UNACCEPTABLE" RULE IS FOR. NOTHING FROM THIS ATTEMPT IS COMMITTED; ONLY THE DOCUMENTATION OF WHAT WAS TRIED AND WHY.**
 
 **Previously:** MYTHOS **FULL AUTONOMOUS MANDATE, EIGHTH PASS — MIG-1 EXECUTED FOR REAL (AUTO-7): THE MYTHOS GOLD MIGRATION APPLIED TO MYTHOS PROD'S ACTUAL SOURCE, 331 OCCURRENCES ACROSS 16 FILES (NOT THE 42/12 AUTO-6 ITSELF ESTIMATED), VERIFIED ACROSS 16 REAL APPLICATION VIEWS INCLUDING EVERY ACCOUNTING MODULE. TWO REAL BUGS CAUGHT AND FIXED BEFORE COMMIT: A LINE-ENDING CORRUPTION BUG IN MY OWN FIRST SUBSTITUTION ATTEMPT, AND ONE ORPHANED DOM SELECTOR THAT WOULD HAVE SILENTLY BROKEN A UI SEPARATOR. COMMITTED TO `main` ONLY — NOT DEPLOYED, PRODUCTION UNTOUCHED.**
 

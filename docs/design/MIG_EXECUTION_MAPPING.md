@@ -298,16 +298,117 @@ genuine visual trade-off requiring a real decision.
 
 ---
 
-## 4. MIG-3 — scope noted, not attempted
+## 4. MIG-3 — EXECUTED (partially) AUTO-9, 2026-08-19: two of three corrected tokens applied, one left open
 
-`--muted` (the recorded **3.47:1 contrast failure**, `A-015`'s correction
-target) is used **73 times** (`css/main.css` 52, `css/professional.css`
-21). No dedicated test file exercises `css/main.css`'s contrast at
-repository root (confirmed: none exists). Full line-level mapping not
-built this stage — MIG-1 and MIG-2's mapping already demonstrate the
-method (`grep` the exact token, count files, do not trust a prior
-document's count without re-verifying it); the same method applies
-directly to MIG-3 whenever it is prioritised.
+**Scope, completed this stage.** `A-015` names three recovered semantic
+tokens as contrast failures — `--danger` 3.55:1, `--muted` 3.47:1, `--past`
+2.59:1 — and gives corrected values for four semantic roles
+(success/warning/danger/info) and the corrected secondary-text role
+(`ink-300`). Mapped directly against the application:
+
+```
+--muted   used 73×  (css/main.css 52, css/professional.css 21) — text/label colour, no layout property
+--danger  used  2×  (css/main.css .btn-remove:hover, css/professional.css .cc-status-dot.cc-status-never)
+--past    used  3×  (css/main.css .time-section-header.past, .rdv-card.rdv-past ×2)
+```
+
+All three are single-source declarations in `css/main.css`'s `:root`
+block, referenced everywhere else via `var(--muted)` etc. — one change
+point each, unlike MIG-1's scattered literals.
+
+**Applied — `--muted` and `--danger`, both have an unambiguous approved
+target:**
+- `--muted: #6b6860` → **`#A8A498`** — `COLOR_SYSTEM.md`'s corrected
+  secondary-text value (`ink-300`), explicitly named as the fix for this
+  exact defect ("routing secondary text here is the exact defect A-015
+  corrects — the recovered `--muted` sat at 3.47:1").
+- `--danger: #c0392b` → **`#F1706A`** — `A-015`'s corrected dark-ground
+  danger value. Mythos Prod is dark-only (no light-theme toggle), so the
+  dark-ground correction applies directly, with no theme-selection
+  ambiguity to resolve.
+
+**Left open, genuinely — not guessed:** `--past: #555`. `A-015` measures
+it as failing (2.59:1) but, unlike danger/warning/success/info, "past" is
+not one of the four semantic roles the approved system actually corrects
+— it is Mythos Prod's own local concept (a past-dated calendar entry),
+outside the approved vocabulary entirely. There is no owner-approved
+target value to apply here, only evidence that the current one fails.
+Applying a guessed replacement would be exactly the "no blind
+replacement" this program exists to avoid. **Recorded as open, not
+silently left at a value already known to fail contrast, and not
+silently "fixed" with an invented number.**
+
+**Left open, genuinely — the control-border token (`A-016`).** `--border:
+#2a2a2a` is used as a **general decorative border** throughout the
+application (cards, sections, hairlines) — not specifically for the
+form-control 3:1 boundary `A-016` corrects. Applying `A-016`'s
+`#726F64` (dark-ground control-border value) to `--border` globally would
+dramatically lighten every decorative border in the app, not just form
+controls — a much bigger, likely-wrong change. Identifying which of the
+many `--border` usages are genuinely form-control boundaries (inputs,
+selects) versus decorative dividers needs real per-selector judgement, not
+a value swap. **Not attempted — the ambiguity is the honest output here,
+not a gap to be quietly filled.**
+
+**Verification.** Pure colour-value changes (no font, no layout property)
+— same low-risk category as MIG-1, confirmed rather than assumed: 17 real
+views screenshotted before/after, diffs 0.73%–1.46% of frame (in the same
+range as MIG-1's clean 0.21–1.53%, well below MIG-2's 1.28–6.51% typeface
+change), the highest-diff views (`compta-categories` 1.46%,
+`comptabilite` 1.41%) manually reviewed — zero layout change, only the
+expected `--muted` label-colour shift. **Coverage gap, named honestly:**
+`--danger` and `--past` were not visually exercised in this pass — the
+isolated test instance has empty `appdata/`, so no error state or
+past-dated calendar entry existed to render either style. Both remain
+low-risk on the same reasoning as `--muted` (pure foreground-colour
+properties, zero layout impact possible), but this is stated as reasoning
+by analogy, not as a screenshot-verified fact, and the two are
+distinguished from `--muted` accordingly.
+
+**Rollback:** identical pattern to MIG-1 — `git revert` the one commit;
+both changed values trace to exactly one prior literal each.
+
+---
+
+## 5a. MIG-4 — checked, left BLOCKED with exact evidence, AUTO-9
+
+**Not attempted, and not going to be, under this mandate.** Three
+independent, convergent pieces of evidence:
+
+1. **A-020's own text is explicit that it authorises nothing.** "No code,
+   CSS, asset, deployment or branding was changed — this approval is
+   classification only." Naming Command Center a Mythos OS product
+   (resolving O-A1) never authorised touching it — the same "approval of a
+   specification is never authorisation to implement it" principle this
+   whole programme has held since Stage 1A.
+2. **A standing, unrevoked constraint specific to this one system.** This
+   session's own operating history carries an explicit instruction, never
+   superseded by any later message: never touch MCC-1. Every historical
+   `AI_HANDOVER.md` entry for Command Center work reports "0 touched," "0
+   restarted," "no checkout/reset/stash/branch-switch performed" as a
+   deliberate, checked fact each time — the pattern of care this program
+   applies here specifically, distinct from its general production
+   caution elsewhere.
+3. **MCC-1 is confirmed live, deployed, and serving real public traffic**
+   at `ordre.mythosprod.xyz` — real DNS (`51.68.226.211`), a real
+   Let's-Encrypt certificate, a real PostgreSQL database
+   (`mythos_command_center`), running from the live checkout under a
+   `deploy`-owned systemd unit. Unlike `mythos-os-console`'s reference
+   directory (an explicitly-labelled stub control plane safe to drive
+   locally), `projects/command-center/reference/` **is** the real running
+   service, not a stand-in — there is no isolated, safe local copy to
+   pilot a change against the way MIG-1–3 used `tools/visual-verify.js`
+   against Mythos Prod.
+
+**Given all three, MIG-4 is left exactly where the continuation
+instruction's own fallback anticipates: READY (the palette misalignment
+is real and named — light `#f6f7f9`/indigo `#4f46e5` versus Mythos OS's
+dark-and-gold system) but BLOCKED, with this evidence, not a guess about
+whether it's safe.** No file under `projects/command-center/` was read,
+copied, or modified to reach this conclusion — the block was established
+from documentation and the standing constraint alone, deliberately, so
+that "checking whether it's safe" never became an excuse to get closer to
+a live system this mandate has never been authorised to touch.
 
 ---
 
@@ -325,12 +426,24 @@ directly to MIG-3 whenever it is prioritised.
 **MIG-1 — EXECUTED, AUTO-7.** All 331 occurrences applied, verified across
 16 real application views (dashboard through every accounting module),
 zero remaining trace of the old values, two real bugs caught and fixed
-before commit (CRLF corruption, one orphaned DOM selector). See §2a for
-the full record. **This is the one migration in this entire document that
-moved from "mapped" to "done."**
+before commit (CRLF corruption, one orphaned DOM selector). See §2a.
+
+**MIG-2 — ATTEMPTED then ROLLED BACK, AUTO-8.** All 93 occurrences applied
+and verified clean at the substitution level, but real visual regression
+found a genuine KPI-card text-wrap issue two selectors deep. Reverted
+completely rather than shipped with an unauthorised resize fix. See §3a.
+
+**MIG-3 — EXECUTED (partially), AUTO-9.** `--muted` and `--danger`
+corrected to their approved values (2 of 3 flagged tokens); `--past` and
+the control-border token (`A-016`) left explicitly open — no approved
+target exists for the former, and the latter's blast radius against
+decorative (non-control) borders is too broad to resolve without real
+per-selector judgement. See §4.
 
 **Still not done, and not claimed otherwise:**
-- MIG-2 and MIG-3 are **not executed** and not pilot-verified.
+- MIG-4 (Command Center) — not attempted; see §5a.
+- `--past` and the control-border reconciliation — deliberately left open,
+  not silently skipped (§4).
 - `css/dashboard.css`, `css/layout.css`, `css/forms.css`, `css/facture.css`,
   `css/calendrier.css`, `css/print.css` were copied into every pilot run
   (so they rendered correctly as part of the app shell) but **contain no
@@ -339,4 +452,4 @@ moved from "mapped" to "done."**
   not individually diffed beyond that.
 - The Google Fonts CDN network errors noted in §2a's console check are
   pre-existing (unrelated to any change here) and not investigated
-  further — out of scope for a gold-token migration.
+  further — out of scope for these migrations.
