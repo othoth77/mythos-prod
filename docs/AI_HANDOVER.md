@@ -82,6 +82,134 @@ off-host). No repository-executable OTH-KNOWLEDGE work remains.
 
 ---
 
+**Previously:** AOL-V1-GOV **AI OPERATING LAYER V1 — GOVERNANCE-KEY ISOLATION DELIVERED IN-REPOSITORY (mythos-gov ARCHITECTURE, RELAY SupplementaryGroups, DRIFT FIX, HARDENING SCRIPT, 99/0 INVARIANT); PRODUCTION ACTIVATION IS A DOCUMENTED ROOT-ON-VPS OPERATOR STEP — NOT PERFORMED FROM THIS SESSION AND NOT CLAIMED.**
+
+## AOL-V1-GOV — governance-key isolation from the mission executor (2026-08-19)
+
+### Stage
+
+AI Operating Layer v1 closure, security fix, on branch
+`claude/mythos-prod-aol-v1-closure-hq9f0x` from `origin/main` `a49386e`.
+Commit **`da80870`** (`security: isolate governance key from mission
+executor`). This session ran in an isolated remote container, **not** on the
+production VPS — every host-side claim below is explicitly labeled either
+repository-verified or operator-pending.
+
+### Why the previous boundary failed
+
+The delivery-invariant cage assumed missions run as `ubuntu` and the relay
+as `deploy`, so `/etc/mythos/governance.key` being `root:deploy 0640` was
+safe. Missions now execute **as `deploy`**: the mission identity could read
+the signing key and the approval store, so a mission could forge a signed
+approval — the one thing the cage exists to prevent.
+
+### The mythos-gov architecture (delivered in-repository)
+
+- `mythos-gov`: dedicated **memberless** system group. `deploy` is never a
+  member; no login session or mission receives it.
+- `governance.key`: `root:mythos-gov 0640` — unreadable by the mission
+  identity. `/var/lib/mythos/governance` and `approvals/` become
+  `root:mythos-gov 0750` (group reads, only root writes approvals);
+  `log/` `root:mythos-gov 2770` (the relay writes denials).
+- Only the relay **process** receives the group:
+  `SupplementaryGroups=mythos-gov` in
+  `projects/mythos-ai-executor/service/mythos-git-push.service`.
+- Repo/install drift closed: the unit now carries
+  `ReadWritePaths=/var/lib/mythos/governance/log` (was installed-only);
+  the approvals store is deliberately NOT in ReadWritePaths.
+- `service/mythos-governance-harden.sh` (new, root-only, idempotent):
+  creates the group (refuses one with members), installs root-owned copies
+  of relay/verifier/approve-tool/units, applies key + store ownership,
+  `systemctl daemon-reload` + enables the timer, then verifies the boundary
+  with `runuser` probes. Never prints key material; never regenerates an
+  existing key (that would invalidate persisted approval signatures).
+- `governance-verify.js`: stale identity comments corrected (mission user
+  = deploy, relay privilege = mythos-gov via SupplementaryGroups). **No
+  verification logic changed; nothing weakened.** The load-bearing property
+  stands: the mission execution identity cannot read the signing key.
+
+### Tests (executed in this session's container)
+
+| Command | Result | Exit |
+|---|---|---|
+| `node tests/mythos-governance-invariant-test.js` | **99 passed / 0 failed** (89 baseline + 10 additive §11B; the task's projected 92 assumed fewer additions — 99 is the real count) | 0 |
+| `node tests/mythos-ai-executor-test.js` | 264 / 0 | 0 |
+| `node tests/mythos-unattended-policy-test.js` | 53 / 0 | 0 |
+| `node tests/mos-v2-regression-test.js` | SUCCESS, 20/20 areas | 0 |
+
+§11B is fail-closed on any host: a live key or mythos-gov group that exists
+in an unsafe state (wrong owner/group/mode, members, deploy membership)
+FAILS; absence passes because nothing exists to leak. The two pre-existing
+§11 isolation assertions were kept unweakened — on the production host they
+fail **until** the hardening script runs, then must pass when the suite is
+run as `deploy`.
+
+### Production activation — OPERATOR STEP, NOT PERFORMED
+
+This session has no access to the VPS (no `/etc/mythos`, no `deploy` user,
+no systemd). Required root-on-VPS action, after this change reaches the
+production checkout:
+
+```
+sudo bash projects/mythos-ai-executor/service/mythos-governance-harden.sh
+```
+
+Then verify: `getent group mythos-gov` (no members);
+`runuser -u deploy -- test -r /etc/mythos/governance.key` MUST fail;
+`node tests/mythos-governance-invariant-test.js` as deploy → 0 failures;
+relay journal shows a governance verdict, not EACCES; approvals still issue
+via `sudo mythos-governance-approve --commit <sha> --by "<human>" --reason
+"<reason>"` (fail-closed mechanism unchanged).
+
+### Docker-group + sudo finding (not concealed, not blindly changed)
+
+Repository evidence: every Docker invocation is `sudo docker`
+(`deploy/install.sh`); no code path uses the Docker socket directly, so
+**docker-group membership for deploy is not required by the runtime**.
+Docker-socket access is root-equivalent and would defeat the mythos-gov
+file isolation (`docker run -v /etc:/host`), as would passwordless sudo for
+`deploy`. Host membership/sudoers could not be inspected or changed from
+this session. Operator actions: verify `id -nG deploy` and `sudo -l -U
+deploy`; if `docker` appears and nothing running as deploy needs the
+socket, `sudo gpasswd -d deploy docker`; restrict deploy's sudo per
+`docs/MYTHOS_SUDO_RESTRICTION_PROPOSAL.md` (that doc targets `ubuntu`; the
+same reasoning now applies to `deploy` as the autonomous profile). Until
+done, these remain **open autonomous-profile violations** of the same
+boundary this stage fixes.
+
+### Git state
+
+- The Phase-1 divergence was already resolved on the remote before this
+  session: `origin/main` = `a49386e` = the four executor-report commits
+  (`2081ff8`, `717bba3`, `39197a6`, `a49386e`) on top of `0f8bcc3`.
+  Nothing was force-pushed or discarded; the `recovered/reports-pre-m12-sync`
+  tag lives on the VPS clone and was not touched from here.
+- This stage's work: commit `da80870` (+ this handover commit) on
+  `claude/mythos-prod-aol-v1-closure-hq9f0x`, delivered via pull request —
+  this session's branch policy does not permit a direct push to `main`, and
+  `service/` is itself a governance-protected path whose merge to main is
+  exactly what the approval mechanism governs.
+- Worktree clean after commit; no `.claude/settings.local.json` exists in
+  this container and none was committed.
+
+### Boundary invariants re-verified (repository level)
+
+MAX_PARALLEL=5, skill binding, MCP fail-closed, repo-read/repo-test/
+repo-write profile boundaries: covered by the green executor (264/0),
+unattended (53/0) and MOS-v2 gate suites above; none of their sources were
+touched by this stage.
+
+### Next stage
+
+AI Operating Layer v1 is **repository-complete** for this closure; it is
+**CLOSED only after** the operator runs the hardening script on the VPS and
+the invariant suite passes there as `deploy` with 0 failures, and the
+merge to `main` is approved through the governance mechanism. The next
+stage is **NOT M-13** — no separately approved roadmap stage beyond this
+closure exists; no M-13 work was started.
+
+---
+
 **Previously:** OTH-K2-W **AI OPERATING LAYER ↔ KNOWLEDGE WIRING DELIVERED — EXECUTOR-SIDE READ-ONLY CONSUMER (FAIL-CLOSED CONFIG, OPERATION ALLOWLIST, EXPLICIT-ASOF, CLAIM-NEVER-FACT/QUARANTINE PRESENTATION), 39/0 NEW SUITE; MOS-V2 GATE + OTHK-0/1/2 + EXECUTOR SUITE ALL GREEN; OTH-K2 TRACK A NOW FULLY REPOSITORY-COMPLETE; TRACK B EXTERNAL BLOCKERS RE-RECORDED, NONE BYPASSED.**
 
 ## OTH-K2-W — executor-side knowledge-service wiring (2026-08-19)

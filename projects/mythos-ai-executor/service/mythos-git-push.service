@@ -1,15 +1,21 @@
 # Mythos — GitHub delivery relay (stage MYTHOS-GIT-DELIVERY-0).
 #
 # SYSTEM unit running as `deploy`, the user that legitimately owns the
-# on-disk GitHub machine credential. It exists because the executor daemon
-# (ubuntu, NoNewPrivileges=true — load-bearing, never weakened) has no
-# GitHub identity of its own: after a reboot, session SSH agents are empty
-# and report pushes fail. The executor keeps committing; this unit delivers.
+# on-disk GitHub machine credential. Autonomous missions ALSO run as
+# `deploy`, so the governance signing key must not be readable by the
+# `deploy` account itself: the key is root:mythos-gov 0640, `deploy` is not
+# a member of mythos-gov, and ONLY this process receives the group — via
+# SupplementaryGroups below — for the duration of the delivery check.
+# A mission running as `deploy` therefore cannot read or forge approvals,
+# while this relay can verify them.
 #
 # ExecStart points at a ROOT-OWNED copy in /usr/local/bin, deliberately not
-# at the repo checkout: the checkout is writable by `ubuntu`, and code that
-# runs as `deploy` must not be editable by a less-privileged user. Changing
-# the relay's behavior therefore requires root, like any deployment change.
+# at the repo checkout: the checkout is writable by the mission identity,
+# and code that carries the mythos-gov privilege must not be editable by
+# the identity it cages. Changing the relay's behavior therefore requires
+# root, like any deployment change. Host-side installation and the
+# governance file ownership are applied by the idempotent root-only
+# service/mythos-governance-harden.sh.
 
 [Unit]
 Description=Mythos GitHub delivery relay (fast-forward push of committed work)
@@ -20,8 +26,17 @@ Wants=network-online.target
 Type=oneshot
 User=deploy
 Group=deploy
+# The ONLY grant of the governance group anywhere: the relay process gets
+# mythos-gov as a supplementary group; the deploy account never does.
+SupplementaryGroups=mythos-gov
 ExecStart=/usr/local/bin/mythos-git-push
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ReadWritePaths=/home/deploy/projects/mythos-prod
+# The deny/decision log is the one governance path the relay may WRITE.
+# The approvals store is deliberately NOT listed: the process that enforces
+# the invariant must never be able to mint permission for it (it reads
+# approvals through the mythos-gov group; ProtectSystem=strict keeps them
+# read-only).
+ReadWritePaths=/var/lib/mythos/governance/log

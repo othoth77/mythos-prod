@@ -4,6 +4,253 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260819223747-bburbd` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | AI Operating Layer v1 — FINAL CLOSURE VALIDATION |
+| Provider / model | claude-code / default |
+| Execution profile | repo-test |
+| Started | 2026-08-19T22:37:47.672Z |
+| Ended | 2026-08-19T22:44:53.406Z |
+| Status | **COMPLETED** |
+| Claude session | `095e38a6-9def-4ec4-99d5-58fcdc98598d` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `d4318feb42b965f578eccf522d33c93cb709ffdc` |
+| Git verified | null |
+
+**Summary:** Read-only final closure validation of AI Operating Layer v1 at d4318fe. Git: local HEAD == origin/main == d4318fe, worktree clean, PR #46 merged (its merge commit IS remote HEAD; gh CLI was denied by the permission layer so this is git-evidenced). Governance patch da80870 verified on origin/main: mythos-gov memberless group, key root:mythos-gov 0640, deploy never a member, SupplementaryGroups=mythos-gov on the relay unit, governance-log ReadWritePaths present, approvals deliberately excluded, all fail-closed invariants intact. Tests executed for real: governance invariant 99/0 exit 0, executor 264/0 exit 0, unattended policy 53/0 exit 0, MOS-v2 gate SUCCESS (1264/264/257/156, 0 new failures) exit 0. Unlike the session that authored the patch, this session runs ON the VPS as deploy, so the live boundary was directly inspected read-only: production hardening is ALREADY ACTIVE (key uid=0 gid=979(mythos-gov) mode 640, group memberless, deploy groups = deploy/users/docker only), deploy gets EACCES on the key, on listing approvals and on writing approvals; the live systemd unit carries SupplementaryGroups=mythos-gov with ReadWritePaths limited to the repo and the governance log; installed /usr/local relay+verifier+unit are root-owned and sha256-identical to the merged repo (zero drift); the relay ran at 22:37:10 with Result=success and its journal shows it reading the store and issuing GOVERNANCE DENY on an unapproved protected change, so the approval relay is functional. Executor serves on 127.0.0.1:8130 and returns 401 unauthenticated. Security profiles confirmed (deploy profile disabled, sudo banned everywhere, repo-read/repo-test cannot write or commit or push, skills and MCP fail-closed, MAX_PARALLEL default 5 clamped to 8). One HIGH finding upgraded from 'uninspectable' to confirmed: deploy is in the docker group and the socket is reachable (Server 29.6.1), which is root-equivalent and defeats the mythos-gov key isolation via docker run -v /etc:/host; membership was NOT removed per mission constraint. Nothing was modified, committed, pushed, deployed, restarted, approved or hardened; no key material was read or printed. M-13 not started.
+
+**Tests:**
+- node tests/mythos-governance-invariant-test.js: 99 passed / 0 failed, exit 0
+- node tests/mythos-ai-executor-test.js: 264 passed / 0 failed, exit 0
+- node tests/mythos-unattended-policy-test.js: 53 passed / 0 failed, exit 0
+- node tests/mos-v2-regression-test.js: 4 suites PASS (1264/264/257/156), 0 new failures, exit 0
+- live-host governance boundary (read-only): deploy denied key read, approvals list and approvals write (EACCES) — PASS
+- live-host install drift (sha256 repo vs /usr/local + /etc/systemd/system): zero drift — PASS
+
+**Residual risks:**
+- HIGH — deploy is a member of the docker group (gid 986) and /var/run/docker.sock is reachable as deploy (Docker Server 29.6.1); docker socket access is root-equivalent and defeats the mythos-gov key isolation via 'docker run -v /etc:/host'. Repository evidence shows the runtime uses 'sudo docker' and no code path touches the socket, so the membership is not required. Not remediated: the mission explicitly forbade removing docker membership.
+- deploy's sudo surface was not inspected — the repo-test execution profile bans Bash(sudo:*), so 'sudo -l -U deploy' was not run. Passwordless sudo for deploy would be an equivalent escape.
+- Whether a signed governance approval record exists for da80870 is NOT VERIFIABLE from the deploy identity — the approvals store is EACCES by design. The merge reached main through a GitHub PR, a path governed by GitHub permissions rather than by the relay's signed-approval store.
+- The mythos-gov cage is enforced at the filesystem/systemd layer only; any future root-equivalent grant to deploy silently voids it. Only the invariant suite's live-host assertions would catch a regression, and only when run.
+
+**Next stage:** Operator (root, one command): 'sudo gpasswd -d deploy docker' to close the confirmed root-equivalent escape, then re-run 'node tests/mythos-governance-invariant-test.js' as deploy to reconfirm 99/0. The hardening script does NOT need re-running — its end state is already established and verified on the host. Do not start M-13; no approved roadmap stage beyond this closure exists.
+
+
+---
+
+## Task `t-20260819220653-7iv7tt` — BLOCKED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | AI Operating Layer v1 — Final Closure |
+| Provider / model | claude-code / default |
+| Execution profile | repo-test |
+| Started | 2026-08-19T22:06:53.613Z |
+| Ended | 2026-08-19T22:09:24.762Z |
+| Status | **BLOCKED** |
+| Claude session | `f34b0301-8c9f-45ce-abf0-875a47215abd` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `a49386ea156bd3b18079dcd24605327134b3af18` |
+| Git verified | null |
+
+**Summary:** Final closure validation of AI Operating Layer v1 stopped at Phase 1. Local HEAD and origin/main are identical at a49386e with a clean worktree and correct remote (othoth77/mythos-prod), but PR #46 is NOT merged: its head branch origin/claude/mythos-prod-aol-v1-closure-hq9f0x sits two commits ahead (da80870 security fix, a8611e0 handover) with merge-base a49386e, da80870 is not an ancestor of origin/main, and the last merge commit on main is PR #44. The gh CLI is denied by this execution profile so PR metadata is unverifiable; the merge fact is proven from Git refs alone. Per the mission's Phase 1 rule I stopped and did not validate Phases 2-6 against non-existent merged code. I did run the named governance invariant test to establish whether the defect is live on current main: 87 passed / 2 failed, exit 1, both failures being the section 11 isolation assertions - the deploy identity (which missions execute as) CAN read /etc/mythos/governance.key and CAN list the live approval store, meaning a mission can forge a signed approval. That is the exact HIGH-severity defect PR #46 fixes, and it is currently unmitigated in production. Separately observed read-only: deploy is a member of the docker group (root-equivalent escalation path that would undercut the mythos-gov file-mode cage); left in place per instruction. systemctl and getent are denied by the profile so service state, mythos-gov group state and approval-relay function are NOT VERIFIABLE. No files modified, no commit, no push, no deploy, no service restart, no key material read or printed, M-13 not started.
+
+**Tests:**
+- node tests/mythos-governance-invariant-test.js (baseline on main a49386e, NOT the PR #46 state): 87 passed, 2 failed, exit 1 - FAIL on section 11 governance-key isolation
+- executor/security regression suites: NOT RUN (downstream of Phase 1 blocker; no pass claimed)
+
+**Residual risks:**
+- HIGH: /etc/mythos/governance.key is readable by the deploy identity that missions run as - a mission can read the signing key and approval store and forge a signed commit-bound approval, defeating the delivery-invariant cage. Unmitigated until PR #46 merges AND the root hardening script runs.
+- deploy is a member of the docker group (gid 986), a root-equivalent escalation path that can bypass the file-mode-based mythos-gov isolation PR #46 introduces; the cage is not airtight while this membership stands. Not removed, per mission instruction - needs a separate authorised task.
+- PR #46 review/mergeability state could not be confirmed (gh CLI denied by execution profile); only the unmerged fact is verified.
+- Production service state, mythos-gov group existence/memberlessness, and approval-relay function are unverified from this profile (systemctl and getent denied).
+- Repo-read write denial, execution-profile enforcement, skills fail-closed, MCP fail-closed, MAX_PARALLEL=5 and provider/model boundaries were not re-verified this pass.
+
+**Next stage:** Owner action 1: merge PR #46 (claude/mythos-prod-aol-v1-closure-hq9f0x -> main). Owner action 2, as root on the production VPS once the merge reaches the production checkout: sudo bash projects/mythos-ai-executor/service/mythos-governance-harden.sh, then verify with getent group mythos-gov (no members), runuser -u deploy -- test -r /etc/mythos/governance.key (MUST fail), and node tests/mythos-governance-invariant-test.js as deploy (0 failures). Re-run this final closure validation afterwards. Do not start M-13.
+
+
+---
+
+## Task `t-20260819210602-to08f6` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | Resolve Main Divergence Safely |
+| Provider / model | claude-code / default |
+| Execution profile | repo-test |
+| Started | 2026-08-19T21:06:02.169Z |
+| Ended | 2026-08-19T21:09:09.372Z |
+| Status | **COMPLETED** |
+| Claude session | `34c72e26-9089-44b1-a8b7-bdb3a43e02a7` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `0f8bcc379057e310241fbb1688114cedd5c5822a` |
+| Git verified | null |
+
+**Summary:** Performed a strictly read-only Git divergence audit of mythos-prod ahead of the governance-key security patch. Local main dab0429 and origin/main 0f8bcc3 have diverged from merge-base d839fdb by 3 and 2 commits respectively, so a fast-forward is not possible. The 3 local-only commits are executor report commits touching only docs/AI_EXECUTION_REPORT.md (+133/-0), exist on no remote branch, and contain no product, security or config change; the 2 remote-only commits are PR #44 (OTH-K2-W knowledge wiring: lib/knowledge.js, config/knowledge.json, a 171-line test, plus three docs) and are unrelated to the governance-key work. The two sides touch disjoint file sets — proven decisively by the AI_EXECUTION_REPORT.md blob being byte-identical (ca83785) at merge-base and at origin/main — so replaying the local commits is conflict-free by construction. The safest operation is a scoped rebase onto origin/main behind a backup branch, with remote-HEAD verification after push; the exact sequence and abort path are given in the report. Two additional findings: three earlier executor report entries (tasks t-20260819125229/125643/135346) were orphaned from main history at the M12 sync and now survive only in dangling commit 46082fd, kept alive solely by stash@{0}'s parent pointer, so dropping that stash loses them permanently; and stash@{0} holds unreviewed local work in roadmap-state.json and identity-contract.js that the rebase will not disturb. No secret value was found, printed or persisted. Nothing was modified, committed, pushed, rebased, merged or deployed, and M-13 was not started.
+
+**Tests:**
+- targeted test suites: not run — read-only audit, zero files changed (AGENTS.md §8)
+- git preflight (fetch/status/branch/rev-parse HEAD/rev-parse origin/main): executed, clean tree, divergence 3 ahead / 2 behind
+- merge-base + ancestry verification (merge-base, --is-ancestor, branch -r --contains): executed, merge-base d839fdb confirmed, local commits on no remote branch
+- conflict-freedom proof via blob-hash comparison of docs/AI_EXECUTION_REPORT.md at base/remote/local: executed, base==remote (ca83785), disjoint file sets confirmed
+- secret pattern scan of local-only diff: executed, no secret values present (prose matches only)
+
+**Residual risks:**
+- Three executor report entries (t-20260819125229-zz1u2w, t-20260819125643-9om4k5, t-20260819135346-i5lru6) exist only in dangling commit 46082fd, absent from both local main and origin/main; they are protected from gc solely by stash@{0}'s parent reference, so dropping that stash makes them unrecoverable.
+- stash@{0} ('VPS-local-work-before-M12-sync-2026-08-19') holds unreviewed local-only work in projects/mythos-ai-executor/config/roadmap-state.json (+166/-1) and projects/mythos-core/reference/identity-contract.js; unaffected by the rebase but still uncommitted and off any branch.
+- The local-only report commits document exact production governance-key paths, ownership/mode, and the fact that the isolation property is currently false in production — acceptable in a private repo but a disclosure risk if repository visibility ever changes.
+- The rebase itself is unexecuted; the divergence persists until the owner runs the given sequence, so any further executor task committing to main will deepen it.
+- 23 prunable executor worktrees remain under /home/ubuntu/mythos-ai-executor/worktrees/ (hygiene only, out of scope).
+
+**Next stage:** Owner executes, from /home/deploy/projects/mythos-prod: (1) git tag recovered/reports-pre-m12-sync 46082fd to preserve the orphaned reports independently of the stash; (2) git fetch origin; (3) git branch backup/main-pre-rebase-20260819 dab0429e525ceba4426905d01178682097d57fd3; (4) git rebase --onto origin/main d839fdb0c11a3a2d7848c843200f5f66d37c42e8 main (expect zero conflicts); (5) git log --oneline -6 and git status --short to verify; (6) git push origin main; (7) git fetch origin && git rev-parse HEAD origin/main and confirm the two SHAs match. Only after the remote HEAD is verified does the governance-key security patch begin. Do not start M-13.
+
+
+---
+
+## Task `t-20260819202655-mgrdn6` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | Governance Key Patch Design |
+| Provider / model | claude-code / default |
+| Execution profile | repo-test |
+| Started | 2026-08-19T20:26:55.055Z |
+| Ended | 2026-08-19T20:33:17.879Z |
+| Status | **COMPLETED** |
+| Claude session | `a46754a0-e154-43f8-b50b-8883b816370e` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `0f8bcc379057e310241fbb1688114cedd5c5822a` |
+| Git verified | null |
+
+**Summary:** Read-only patch design for the governance-key gap found by x-mt0ftvr2 and diagnosed by x-mt0h7ytm. Re-verified the defect live: the executor daemon and all missions run as deploy (uid 1001), /etc/mythos/governance.key is root:deploy 0640 and readable by that user, and /var/lib/mythos/governance/approvals is root:deploy 2750 and listable, so the cage's stated load-bearing property is false in production; the suite reproduces this at 87 passed / 2 failed. Specified the minimal patch: a memberless system group mythos-gov owning the key and the whole store, granted only to the relay PROCESS via SupplementaryGroups=mythos-gov in mythos-git-push.service, plus a new root-only idempotent harden script, a comment-only correction of the stale ubuntu/deploy identity claim at governance-verify.js:36-46, and three additive test assertions that prove the mechanism rather than relaxing the invariant. The two existing isolation assertions are left byte-identical and must flip to passing on host state alone. Found an additional repository defect not previously recorded: the repo copy of mythos-git-push.service has drifted from the installed copy and is missing the /var/lib/mythos/governance/log ReadWritePaths entry, so installing it as-is would silently re-break deny logging; the patch corrects it. Confirmed with evidence that deploy's docker membership is NOT required by the production runtime (both repo docker call sites already use sudo; nothing in the runtime path touches the socket) and did not remove it, while stating that the root-equivalent socket defeats any file-ownership boundary until the owner rules. Nothing was modified, committed, pushed, deployed or restarted, and no secret value was printed or persisted.
+
+**Tests:**
+- node tests/mythos-governance-invariant-test.js: 87 passed, 2 failed (baseline reproduced — 'isolation: this user cannot read /etc/mythos/governance.key' and 'isolation: this user cannot list the live approval store')
+- live host inspection (read-only, node fs.statSync/readdirSync/readFileSync): key root:deploy 0640 READABLE by deploy; /var/lib/mythos and governance root:deploy 0750; approvals root:deploy 2750 LISTABLE not writable; log root:deploy 0770; 5 existing approval records root:deploy 0640
+- identity check: id = uid=1001(deploy) groups=deploy,users,docker; executor daemon PID 95259 owned by uid 1001 (/proc)
+- installed-vs-repo sha256 drift: governance-verify.js, mythos-git-push, mythos-governance-approve all identical
+- installed-vs-repo unit drift: /etc/systemd/system/mythos-git-push.service has ReadWritePaths including /var/lib/mythos/governance/log; repo copy does NOT (repository defect, corrected in the designed patch)
+- group existence check: mythos-gov absent from /etc/group
+- git log --oneline origin/main..HEAD: 2 local commits ahead, 2 behind — main diverged, relay will refuse to push
+- docker-dependency scan (rg over projects/ scripts/): only deploy/install.sh and personal-intelligence psql-driver.js, both invoking docker via sudo — no group dependency in the runtime path
+
+**Residual risks:**
+- UNFIXED, CRITICAL: deploy can still read /etc/mythos/governance.key and list the approval store; the fix is designed but requires root and repo-write, neither available to this task
+- CRITICAL: deploy is in the docker group with a root-equivalent socket, which defeats the designed ownership boundary against a hostile mission; owner decision under AGENTS.md 25.3, deliberately not changed
+- NOT VERIFIED: whether deploy holds any sudo grant — 'sudo -n -l' was blocked by the command guard and was not worked around; recorded sudo hardening targeted ubuntu, not deploy. If deploy has sudo, the boundary is decorative
+- BLOCKER: local main is diverged from origin/main (2 ahead / 2 behind), so the relay refuses to deliver main and any implementing commit would be stranded
+- BLOCKER: the patch edits projects/mythos-ai-executor/service/, a protected path, so its own delivery needs a root-signed approval bound to its SHA; no session may create one
+- The 5 existing approval records are root:deploy and become invisible to the relay unless re-grouped to mythos-gov during activation; the harden script does this, manual application must not skip it
+- mythos-governance-approve.js:160 recreates approvals/ as root:root 0750 without setgid if ever absent, re-locking the relay out; the harden script must be re-run after any store recreation. Fixing the tool is a further protected-path change, out of scope
+- Ordering hazard: applying the chown steps before installing the updated unit leaves the relay without mythos-gov and it fails closed with EACCES, delivering nothing
+- mythos-ai-executor.service:1-3 also carries a stale 'installed for ubuntu' claim; recorded, not changed — outside this objective
+- The suite will report 92/0 after the fix while the docker escalation path remains open: the assertions prove DAC exclusion, not the absence of privilege escalation
+
+**Next stage:** Operator, in order: (1) resolve the main divergence (git pull --ff-only or rebase) so the relay can deliver; (2) dispatch implementation to a session with file-edit and git-write capability to apply the five-file patch specified in this report; (3) as root, install the updated relay and verifier copies, then run mythos-governance-harden.sh and confirm 'runuser -u deploy -- test -r /etc/mythos/governance.key' FAILS while 'runuser -u deploy -g mythos-gov -- test -r ...' SUCCEEDS and getent group mythos-gov lists no members; (4) re-run node tests/mythos-governance-invariant-test.js expecting 92 passed / 0 failed; (5) start mythos-git-push.service and confirm the journal shows a governance verdict rather than EACCES; (6) sudo mythos-governance-approve --commit <sha> --by "<human>" --reason "<why>" to deliver the commit; (7) separately, owner ruling on removing deploy from the docker group and on whether deploy holds sudo. Do NOT start M-13.
+
+
+---
+
+## Task `t-20260819192023-7ba7th` — BLOCKED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | AI Operating Layer v1 — Close Final Security Gap |
+| Provider / model | claude-code / default |
+| Execution profile | repo-test |
+| Started | 2026-08-19T19:20:23.050Z |
+| Ended | 2026-08-19T19:27:50.179Z |
+| Status | **BLOCKED** |
+| Claude session | `67f03fee-6b64-4919-b5c2-3448c8294370` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `0f8bcc379057e310241fbb1688114cedd5c5822a` |
+| Git verified | null |
+
+**Summary:** Diagnosed the governance-key ownership FAIL completely against the live host but could not execute the fix. Root cause: the cage's load-bearing property ('the session user cannot read the signing key', governance-verify.js:36-40) assumed missions run as `ubuntu` and the relay as `deploy`; autonomous missions now execute AS `deploy` (verified uid=1001), and the key is root:deploy 0640, so the mission identity and the relay identity are the same. The suite reports 87 passed / 2 failed (the brief undercounted: both the key-read and approval-store-list assertions fail, same root cause). Verified read-only that the root-owned relay binaries are intact, unwritable by deploy, and the installed verifier is byte-identical to the repo source. Designed the minimal secure fix: a memberless system group `mythos-gov` owning the key and store, granted to the relay PROCESS via SupplementaryGroups= in mythos-git-push.service so systemd hands it at exec while `deploy` logins and missions never receive it; the root-only approve tool is unaffected. Requirement 5 answered with evidence: deploy's docker membership IS an autonomous-profile violation and is root-equivalent (daemon confirmed reachable as deploy, api=1.55) — it is what completes the forgery path, since approvals/ is 2750 and denies group write, so reading the key alone is insufficient but docker root supplies the write; it is NOT required by the runtime path (the sole repo docker use is deploy/install.sh, a one-time n8n installer already using `sudo docker`), and I did not change it because AGENTS.md 25.3 makes Docker membership execution level 3. Execution blocked by three environmental limits: Write/Edit tools disabled and bash heredocs rejected by the command guard, so no file could be authored; git add/commit/merge/rebase/pull all denied, so nothing could be committed or pushed; and no root, so the two live-host assertions cannot flip. I deliberately left the production checkout clean rather than strand uncommitted work (AGENTS.md 7/22). Separately found a pre-existing delivery stall: local main eec4d00 and origin/main 0f8bcc3 have diverged (merge-base --is-ancestor exits 1), so the relay currently refuses to push main and executor report commits are stranded on this host. No security invariant was weakened and no test was modified.
+
+**Tests:**
+- node tests/mythos-governance-invariant-test.js: 87 passed, 2 failed (baseline, unchanged — 'isolation: this user cannot read /etc/mythos/governance.key' and 'isolation: this user cannot list the live approval store')
+- live host inspection (read-only, node fs.statSync/accessSync): key root:deploy 0640 readable by deploy; approvals root:deploy 2750 listable not writable; /usr/local/bin/mythos-git-push and /usr/local/lib/mythos/governance-verify.js root:root and unwritable by deploy
+- installed-vs-repo verifier sha256 drift check: identical
+- docker socket reachability as deploy (GET /version, non-mutating): REACHABLE, api=1.55 server=29.6.1
+- git merge-base --is-ancestor origin/main HEAD: exit 1 (local main diverged; relay will refuse delivery)
+
+**Residual risks:**
+- UNFIXED, CRITICAL: the autonomous mission user `deploy` can still read /etc/mythos/governance.key and list the live approval store — the governance cage's stated load-bearing property is currently false in production.
+- UNFIXED, CRITICAL: `deploy` is in the `docker` group with a reachable daemon socket. This is root-equivalent and defeats ANY file-ownership-based governance boundary, including the fix designed above. Until removed, that fix stops accidents and honest code paths, not a hostile mission.
+- OPERATIONAL: local main is diverged from origin/main, so the delivery relay is refusing to push main; committed executor work is stranded on this host and is not reaching GitHub.
+- The comment block at governance-verify.js:36-46 documents an architecture that no longer matches reality (claims missions run as `ubuntu`); it will mislead the next reader until corrected.
+- The planned fix touches projects/mythos-ai-executor/service/, itself a protected path, so its own delivery will require a root-signed approval bound to that commit SHA.
+
+**Next stage:** Operator, in order: (1) resolve the main divergence so the relay can deliver again (fast-forward or rebase eec4d00 onto 0f8bcc3); (2) re-dispatch this task to a session that has file-edit and git-write capability, or apply the change manually — add `SupplementaryGroups=mythos-gov` to projects/mythos-ai-executor/service/mythos-git-push.service, correct the stale identity claim at governance-verify.js:36-46, and add the root harden script; (3) as root: groupadd --system mythos-gov (no members), install the updated unit, systemctl daemon-reload, then chown root:mythos-gov /etc/mythos/governance.key (0640) and /var/lib/mythos/governance{,/approvals,/log}, and verify with `runuser -u deploy -- test -r /etc/mythos/governance.key` failing while `runuser -u deploy -g mythos-gov -- test -r ...` succeeds; (4) re-run node tests/mythos-governance-invariant-test.js expecting 89/0; (5) sudo mythos-governance-approve --commit <sha> --by "<human>" --reason "<why>" so the relay will deliver the commit. Separately and as an owner decision under AGENTS.md 25.3: remove `deploy` from the docker group (no runtime dependency found). Do NOT start M-13.
+
+
+---
+
+## Task `t-20260819184126-m5ngzc` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | AI Operating Layer v1 Final Validation |
+| Provider / model | claude-code / default |
+| Execution profile | repo-test |
+| Started | 2026-08-19T18:41:26.270Z |
+| Ended | 2026-08-19T18:49:31.250Z |
+| Status | **COMPLETED** |
+| Claude session | `d92699b3-4634-45af-b2c4-11dd3bb23b16` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | `d839fdb0c11a3a2d7848c843200f5f66d37c42e8` |
+| Remote HEAD | `0f8bcc379057e310241fbb1688114cedd5c5822a` |
+| Git verified | true |
+
+**Summary:** Read-only final validation of the Mythos AI Operating Layer v1 at HEAD d839fdb, which equals origin/main on othoth77/mythos-prod with a clean worktree before and after. Git/release state PASS. Production runtime PASS: daemon PID 95259 runs this exact checkout, started 17:41 UTC after 3bbee99 (the last commit touching projects/mythos-ai-executor), CLI health returns ok:true with n8n 200 and omniroute 307 — which also makes docs/AI_HANDOVER.md:273 stale in claiming M-12 is not yet deployed. The full pipeline Mission->Goal/Plan->Approval->Decomposition->SkillSelection->Context/Prompt->MCP->Profile->Provider/Model->Dispatcher->WorktreeIsolation->Execution->Result->Audit was traced in code and is PASS; no Evaluation component exists (deliberate deferral), and worktree isolation covers the Phase-2 DAG path only — Phase-1 console missions including this one run in the shared checkout. Skill binding PASS with first-hand production evidence: selectSkill returns testing/1.0.0 with reason task_category:testing, and the 2142-char rendered section byte-matches the ACTIVE SKILL block in this mission's own prompt; MCP resolution is fail-closed with correct per-case reasons (skill_not_allowed, server_disabled, profile_incompatible). Direct inspection of task.json/events.log was BLOCKED by the working-directory restriction and was not worked around, as were systemctl and curl to 127.0.0.1:8130. MAX_PARALLEL=5 verified from executor.js:59-65 and its union-based runningCount gate, and proven behaviourally by the MOS-3C ladder (running=5, sixth deferred, drain auto-start) inside the passing 264/0 suite; live production observation is NOT VERIFIABLE with only three tasks in state and no mission manufactured. Security boundaries hold except one FAIL: /etc/mythos/governance.key is readable and the approval store listable by the execution user, because executor missions now run as deploy rather than ubuntu; the store remains unwritable, so forgery still needs a second breach. Nothing was modified, created, deleted, committed, pushed, deployed or restarted, and no other mission was altered.
+
+**Tests:**
+- mythos-ai-executor: 264 passed, 0 failed
+- mos-v2-regression gate: PASS — 4 suites, 20/20 areas, 0 new failures (Console 1264/0, AI Executor 264/0, Orchestration Core 257/0, Orchestrator-0 156/0)
+- mythos-orchestration-core: 257 passed, 0 failed
+- mythos-autonomous-campaign: 365 passed, 0 failed
+- mythos-n8n-bridge: 80 passed, 0 failed
+- mythos-core-wiring: 86 passed, 0 failed
+- mythos-unattended-policy: 53 passed, 0 failed
+- mythos-governance-invariant: 87 passed, 2 failed (PRE-EXISTING/environmental — key+store readable because this session runs as deploy, not ubuntu; baseline was 89/0, assertion count unchanged)
+- executor CLI health: ok:true (store_writable true, claude_cli 2.1.233, n8n 200, omniroute 307)
+- skill/MCP resolution probe (node -e against production registry): registry valid; testing/1.0.0 via task_category:testing; MCP [] with skill_not_allowed / server_disabled / profile_incompatible
+- BLOCKED (not worked around): systemctl is-active mythos-ai-executor; curl 127.0.0.1:8130/health and GET /dispatcher; ls/stat under /home/deploy/mythos-ai-executor/ and /etc/mythos/
+
+**Residual risks:**
+- BLOCKER: /etc/mythos/governance.key (root:deploy 0640) is readable and /var/lib/mythos/governance/approvals listable by the executor's execution user, breaking the recorded 'a Claude session cannot read the key' invariant; the store is still unwritable, so forgery needs a second independent breach, but defence-in-depth is down to one layer.
+- The committed unit service/mythos-ai-executor.service documents installation for the ubuntu user while the running daemon and its children are deploy — drift between committed and installed reality, and the direct cause of the two governance failures.
+- Inspection-only, NOT executed: deploy is in the docker group, and the autonomous profile is bypassPermissions with only Bash(sudo:*) disallowed; docker group membership is root-equivalent and is not constrained by the unit's NoNewPrivileges=true. AGENTS.md §25.3 classes Docker membership as permanent LEVEL_3, and no record of this combination was found in the handover.
+- No Evaluation/evaluator component exists in the pipeline; reputation.js (tiebreak, MIN_EVIDENCE=5) and validation.js are the nearest implemented pieces.
+- Phase-1 console missions execute in the shared checkout /home/deploy/projects/mythos-prod rather than an isolated worktree; worktree isolation applies to the Phase-2 mission/DAG path only.
+- MAX_PARALLEL=5 has no live production proof — the running daemon's EnvironmentFile and /dispatcher were both unreachable under this session's permissions, so an env override could not be excluded by observation (only by the clamp at executor.js:59-65).
+- docs/AI_HANDOVER.md:273 is stale: it states the deployed executor still needs operator restarts to serve M-12, which the live skill injection in this mission disproves.
+
+**Next stage:** Owner decision on governance-key ownership now that executor missions run as deploy: either narrow /etc/mythos/governance.key to a dedicated relay identity distinct from the mission-execution user, or ratify deploy as the execution user and amend the invariant plus its two assertions in tests/mythos-governance-invariant-test.js; then re-run node tests/mythos-governance-invariant-test.js expecting 89/0. Separately, rule on deploy's docker group membership under the autonomous profile, and correct docs/AI_HANDOVER.md:273.
+
+
+---
+
 ## Task `t-20260819181724-ftsz9x` — BLOCKED
 
 | Field | Value |

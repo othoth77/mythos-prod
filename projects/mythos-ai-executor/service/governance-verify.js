@@ -33,17 +33,29 @@
 //      read from the repository, because a session that can edit the repo
 //      could otherwise edit its own cage away. tests/ assert the embedded
 //      list matches core/self-improve.js so drift is caught.
-//   5. THE KEY IS UNREADABLE BY THE SESSION USER. Approvals are HMAC-signed
-//      with a key at /etc/mythos/governance.key (root:deploy 0640). The
-//      relay runs as `deploy` with NoNewPrivileges and can read it; a Claude
-//      session runs as `ubuntu` and cannot. Forging therefore requires an
-//      explicit privileged action rather than an ordinary file write.
+//   5. THE KEY IS UNREADABLE BY THE MISSION EXECUTION IDENTITY. Approvals
+//      are HMAC-signed with a key at /etc/mythos/governance.key
+//      (root:mythos-gov 0640). Autonomous missions and interactive sessions
+//      execute as `deploy`, and `deploy` is NOT a member of mythos-gov, so
+//      the account that produces commits can never read the key. Only the
+//      relay PROCESS receives mythos-gov — via SupplementaryGroups= in
+//      mythos-git-push.service — so the key is readable exactly during the
+//      delivery check and nowhere else. mythos-gov itself is a memberless
+//      system group: no login session, mission, or ordinary user carries
+//      it. Forging therefore requires an explicit privileged (root) action
+//      rather than an ordinary file write. (The pre-2026-08-19 layout —
+//      root:deploy 0640, missions as `ubuntu` — is obsolete: once missions
+//      moved to `deploy`, that ownership let the mission identity read the
+//      key, which is exactly what this property forbids.)
 //
-// Residual, stated plainly: `ubuntu` currently has passwordless sudo, so a
-// determined session could still read the key. That is a host configuration
-// decision, not something this file can fix; every such use is logged by
-// sudo and journald. Removing passwordless sudo for the session user is the
-// recommended hardening.
+// Residual, stated plainly: any passwordless sudo or Docker-socket access
+// held by the mission identity (`deploy`) defeats this file isolation —
+// sudo can read the key directly and the docker group can mount /etc into
+// a container. Those are host configuration decisions, not something this
+// file can fix; every sudo use is logged by sudo and journald. Removing
+// deploy's docker-group membership and restricting its sudo surface are
+// the recommended hardenings (see docs/MYTHOS_SUDO_RESTRICTION_PROPOSAL.md
+// and the AI Operating Layer v1 closure entry in docs/AI_HANDOVER.md).
 //
 // Usage (called by the relay):
 //   governance-verify.js verify --repo <path> --range <base>..<tip>
@@ -58,10 +70,11 @@ var cp = require('child_process');
 
 var KEY_FILE = process.env.MYTHOS_GOV_KEY || '/etc/mythos/governance.key';
 var STORE_DIR = process.env.MYTHOS_GOV_STORE || '/var/lib/mythos/governance/approvals';
-// The deny log lives in its own directory so the relay user can WRITE the
-// record without being able to write APPROVALS. deploy gets rw on log/ and
-// read-only on approvals/ — the process that enforces the invariant must not
-// also be able to mint permission for it.
+// The deny log lives in its own directory so the relay PROCESS can WRITE the
+// record without being able to write APPROVALS. The mythos-gov group gets rw
+// on log/ and read-only on approvals/ (the relay unit's ReadWritePaths lists
+// only log/) — the process that enforces the invariant must not also be able
+// to mint permission for it, and `deploy` itself gets neither.
 var DENY_LOG = process.env.MYTHOS_GOV_DENYLOG || '/var/lib/mythos/governance/log/denied.log';
 
 // Root-owned copy of the caged surface. Deliberately NOT read from the

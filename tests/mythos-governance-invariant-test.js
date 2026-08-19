@@ -420,6 +420,66 @@ console.log('\n11. THE SESSION USER CANNOT REACH THE REAL KEY OR STORE');
 })();
 
 // ===========================================================================
+console.log('\n11B. THE mythos-gov ARCHITECTURE: THE MISSION IDENTITY IS CAGED OUT');
+// ===========================================================================
+// Missions run as `deploy` — the same account the relay runs as. The key is
+// therefore isolated by GROUP, not by user: root:mythos-gov 0640, with
+// mythos-gov a MEMBERLESS system group granted to the relay PROCESS alone
+// via SupplementaryGroups. These assertions hold everywhere: on the
+// production host they prove the live boundary; where the live installation
+// is absent there is nothing to leak, and any key or group that DOES exist
+// in an unsafe state fails loudly. No assertion here accepts unsafe
+// ownership.
+(function () {
+  var unit = fs.readFileSync(path.join(EXEC, 'service', 'mythos-git-push.service'), 'utf8');
+  ok(/^SupplementaryGroups=mythos-gov$/m.test(unit),
+    'gov-group: the relay unit grants mythos-gov via SupplementaryGroups');
+  ok(/^User=deploy$/m.test(unit) && /^Group=deploy$/m.test(unit),
+    'gov-group: the relay still runs as deploy:deploy — privilege comes ONLY from the supplementary group');
+  ok(/^ReadWritePaths=\/var\/lib\/mythos\/governance\/log$/m.test(unit),
+    'gov-group: the relay unit can write the governance log (repo/install drift closed)');
+  ok(!/^ReadWritePaths=.*approvals/m.test(unit),
+    'gov-group: the approvals store is NEVER writable by the relay unit');
+
+  var harden = fs.readFileSync(path.join(EXEC, 'service', 'mythos-governance-harden.sh'), 'utf8');
+  ok(/chown root:"\$GOV_GROUP" "\$KEY_FILE"/.test(harden) &&
+     /chmod 0640 "\$KEY_FILE"/.test(harden) &&
+     /GOV_GROUP=mythos-gov/.test(harden),
+    'gov-group: the hardening procedure applies root:mythos-gov 0640 to the key');
+  ok(!/usermod[^\n]*mythos-gov|gpasswd -a|adduser[^\n]*mythos-gov/.test(harden) &&
+     /MEMBERLESS/.test(harden),
+    'gov-group: the hardening procedure never adds a member to mythos-gov and requires it memberless');
+
+  var src = fs.readFileSync(path.join(EXEC, 'service', 'governance-verify.js'), 'utf8');
+  ok(/root:mythos-gov 0640/.test(src) && !/\(root:deploy 0640\)/.test(src),
+    'gov-group: the verifier documents the real identity model, not the obsolete root:deploy one');
+
+  // Live host, fail-closed: a key that exists MUST be root:mythos-gov 0640.
+  var st = null;
+  try { st = fs.statSync('/etc/mythos/governance.key'); } catch (e) { st = null; }
+  if (st) {
+    var gidLine = '';
+    try { gidLine = cp.execFileSync('getent', ['group', 'mythos-gov'], { encoding: 'utf8' }).trim(); } catch (e) { gidLine = ''; }
+    var govGid = gidLine ? parseInt(gidLine.split(':')[2], 10) : -1;
+    ok(st.uid === 0 && st.gid === govGid && (st.mode & 511) === 0o640,
+      'gov-group: the LIVE key is root:mythos-gov 0640');
+  } else {
+    ok(true, 'gov-group: no live key on this host — nothing exists in an unsafe state');
+  }
+
+  // A mythos-gov group that exists MUST be memberless, and deploy must not
+  // carry it.
+  var groupLine = '';
+  try { groupLine = cp.execFileSync('getent', ['group', 'mythos-gov'], { encoding: 'utf8' }).trim(); } catch (e) { groupLine = ''; }
+  ok(!groupLine || groupLine.split(':')[3] === '' || groupLine.split(':')[3] === undefined,
+    'gov-group: mythos-gov (where present) has NO ordinary members');
+  var deployGroups = '';
+  try { deployGroups = cp.execFileSync('id', ['-nG', 'deploy'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch (e) { deployGroups = ''; }
+  ok(deployGroups.split(/\s+/).indexOf('mythos-gov') === -1,
+    'gov-group: deploy (where present) is NOT a member of mythos-gov');
+})();
+
+// ===========================================================================
 console.log('\n12. UNATTENDED POLICY: DENY + RECORD + CONTINUE, NEVER ASK');
 // ===========================================================================
 (function () {
