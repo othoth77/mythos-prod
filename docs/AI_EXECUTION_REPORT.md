@@ -4,6 +4,55 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260819181724-ftsz9x` — BLOCKED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | AI Operating Layer v1 Final Validation |
+| Provider / model | claude-code / default |
+| Execution profile | repo-read |
+| Started | 2026-08-19T18:17:24.485Z |
+| Ended | 2026-08-19T18:24:11.260Z |
+| Status | **BLOCKED** |
+| Claude session | `7efbbcf7-c9d2-4640-b46d-e3c6a647edbe` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `dbee6f8f131dcf459285d3a1a109423e4fdc9e29` |
+| Git verified | null |
+
+**Summary:** Read-only final validation of AI Operating Layer v1 at HEAD dbee6f8f131dcf459285d3a1a109423e4fdc9e29, which equals origin/main on othoth77/mythos-prod with a clean worktree. Git/release state PASS. Executor runtime PASS by live artifact: this mission's own /home/deploy/mythos-ai-executor/tasks/t-20260819181724-ftsz9x/ records daemon_pid 95259, status RUNNING, and the installed systemd user unit runs from this exact checkout; the daemon demonstrably contains M-12 (3bbee99, the newest AI-layer commit on main, with nothing under projects/mythos-ai-executor changed since), which also shows docs/AI_HANDOVER.md:273 is stale in claiming M-12 is not yet deployed. Skill binding PASS with production evidence: task.json carries skill_id=testing, skill_version=1.0.0, skill_selection_reason=task_category:testing, mcp_capabilities=[]; events.log records the created event with those fields plus mcp_capabilities_resolved {allowed:[],denied_reason:skill_not_allowed}, the correct fail-closed result since the testing skill declares no MCP servers and the only registered server (github) is enabled:false; prompt.md:118 contains the injected ACTIVE SKILL: Testing v1.0.0 section matching skills/testing.md verbatim with headings demoted. The full pipeline Mission-Goal/Plan-Approval-Decomposition-SkillSelection-Context/Prompt-MCP-Profile-Provider/Model-Dispatcher-WorktreeIsolation-Execution-Result-Audit was traced in code and is PASS; no Evaluation/evaluator component exists, a deliberate deferral recorded at AI_HANDOVER.md:2649. MAX_PARALLEL=5 verified from executor.js:59-65 (default 5, clamped 1..8) enforced in dispatchTask and drainQueue via a union-based runningCount, and from the unit's EnvironmentFile which sets only MYTHOS_EXECUTOR_TOKEN so no override applies; live behavioural proof is NOT VERIFIABLE since only two tasks exist in runtime state and the dispatcher endpoint is blocked, and no mission was created to manufacture a test. Security boundaries verified by inspection: repo-read disallows Write/Edit/sudo and allowlists no git commit or push, the deploy profile is enabled:false and throws PROFILE_DISABLED, NoNewPrivileges=true blocks escalation at the kernel, ROOT/DESTRUCTIVE are hard-floored to deny above any config, skills and MCP both fail closed whole-registry, and claude-code is the only executionAuthority provider with no cross-authority fallback. BLOCKED: every test suite invocation was refused by the Bash allowlist because this mission was dispatched under execution_profile repo-read, which grants only Bash(node --version) and not Bash(node:*); node tests/mythos-ai-executor-test.js, the executor CLI health command, curl to 127.0.0.1:8130/health, systemctl and ps were all denied and none was worked around. Zero suites ran, so no pass/fail count is claimed. Nothing was modified, created, deleted, committed, pushed, deployed or restarted, and no other mission was altered.
+
+**Tests:**
+- node --version: PASS (v22.22.1)
+- node tests/mythos-ai-executor-test.js: NOT RUN - BLOCKED by Bash allowlist under repo-read profile
+- node projects/mythos-ai-executor/bin/mythos-ai-executor health: NOT RUN - BLOCKED by Bash allowlist
+- curl -s http://127.0.0.1:8130/health: NOT RUN - BLOCKED by Bash allowlist
+- systemctl --user is-active mythos-ai-executor: NOT RUN - BLOCKED by Bash allowlist
+- ps -eo pid,etime,comm,args --no-headers: NOT RUN - BLOCKED by Bash allowlist
+- git HEAD vs origin/main (git rev-parse, after git fetch origin): PASS - both dbee6f8f131dcf459285d3a1a109423e4fdc9e29
+- worktree cleanliness (git status --short): PASS - empty
+- skill binding chain in live production artifacts (task.json + events.log + prompt.md, static read): PASS
+- MCP fail-closed resolution for the testing skill (events.log mcp_capabilities_resolved, static read): PASS
+- MAX_PARALLEL=5 default and enforcement (executor.js:59-65/814/838 + EnvironmentFile key scan, static read): PASS
+- execution-profile boundary repo-read (lib/policy.js + observed allow/deny pattern of node --version vs node <script>): PASS
+
+**Residual risks:**
+- No test suite has been executed for two consecutive validation missions; every recorded suite result for the AI layer rests on an earlier agent having run it, and there is no CI to re-establish it independently
+- Sections 3, 6 and 7 are verified by code reading plus live artifacts, not by green assertions; the committed proofs (concurrency ladder P2-P9/P12, skill/MCP pins) exist but are currently unexecutable from a dispatched mission
+- MAX_PARALLEL=5 is inferred from the code default plus absence of MYTHOS_MAX_PARALLEL in the unit's EnvironmentFile; the running process's actual environment could not be read (ps and /proc inspection blocked)
+- The executor HTTP health endpoint is unreachable from a dispatched mission even though lib/policy.js repo-read declares Bash(curl -s http://127.0.0.1:*) - the allowlist pattern and the effective sandbox disagree, and the cause is unresolved
+- MOS console (8140) and the n8n workflow layer could not be probed at all; their liveness and served revision are unverified
+- docs/AI_HANDOVER.md:273 is stale: it states the deployed executor still needs an operator restart to serve M-12, but production evidence shows M-12 is already live
+- No evaluator exists over the mission->execution_id->report.json chain, so the Audit/Evaluation stage of the pipeline is audit-only
+- projects/mythos-ai-executor/ still matches no rule in projects/meta/test-impact-map.json (carried over unfixed from the prior mission), so its suite is never selected by lookup and escalates to FULL_SUITE_REQUIRED
+
+**Next stage:** Re-dispatch this identical read-only validation mission with execution_profile set to "repo-test" instead of "repo-read" - that profile is already committed and enabled, already permits Bash(node:*) while still disallowing Write/Edit/git commit/git push, and therefore requires no allowlist edit and no widening of repo-read - then run node tests/mythos-ai-executor-test.js, tests/mos-1-console-test.js and tests/mos-v2-regression-test.js and report their real pass/fail counts to close the v1 verification criterion.
+
+
+---
+
 ## Task `t-20260819175013-sj9ph9` — COMPLETED
 
 | Field | Value |
