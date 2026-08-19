@@ -25,7 +25,7 @@ as CSS custom properties, `--mythos-*` prefixed. New, standalone, unwired.
 | Label | Meaning | Where |
 |---|---|---|
 | **A-001 – A-022** | Owner reviewed and approved directly | `MYTHOS_DESIGN_DECISIONS.md` §0 |
-| **AUTO-1 – AUTO-3** | Decided under an explicit, dated delegation of authority the owner confirmed 2026-08-18. **Never an owner approval.** Fully reversible | `MYTHOS_DESIGN_DECISIONS.md` §0.5 |
+| **AUTO-1 – AUTO-6** | Decided under an explicit, dated delegation of authority the owner confirmed 2026-08-18. **Never an owner approval.** Fully reversible | `MYTHOS_DESIGN_DECISIONS.md` §0.5 |
 | **D-\*** | Recovered evidence of a past decision — historical fact, not owner intent for the future | §1 |
 | **O-\* / C-\* / U-\*** | Open, conflicting, or unrecoverable — listed in §9 below, not resolved by this document | §3, §4 |
 

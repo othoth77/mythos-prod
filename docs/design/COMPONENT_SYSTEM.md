@@ -125,9 +125,11 @@ One mapping, used by every component. Only the deltas appear in each entry.
 
 **Hover is never the only signal for anything** — it does not exist on touch.
 
-**OPEN — GOLD-2** bites this table directly: `accent-hover` and `accent-active`
-**have no light-theme values**. Every hover and active row above is specified on
-dark and unspecified on light.
+**GOLD-2 — RESOLVED, AUTO-3.** `accent-hover` (`#5a4011`) and `accent-active`
+(`#6b4d15`) now have light-theme values, both darkening from `gold-800` rather
+than lightening (lightening fails AA immediately; darkening only ever raises
+contrast — verified 8.71:1 / 7.02:1). Not owner-approved; see
+`../MYTHOS_DESIGN_DECISIONS.md` §0.5.
 
 **OPEN — MOTION-1** (new, §10): the approved motion rules state *"nothing loops,
 nothing autoplays"* (1C §10), and the approved state list requires a **loading**
@@ -184,10 +186,10 @@ Everything here is DERIVED or PROPOSED.
   hit-box rule).
 - **Indicator:** chevron on the approved icon grid — 24 px, 2 px stroke, **square
   terminals and joins**, internal radius ≤ 1 px — **DERIVED** from 1C §8.
-- **Chevron colour:** **OPEN — GOLD-3 (new, §10).** The recovered CSS draws its
-  chevrons in gold, but the approved scarcity rule allows **one gold element per
-  view**. A form with five selects would carry five. **PROPOSED: chevrons take
-  `text-secondary`; gold stays with the primary action.** Not decided here.
+- **Chevron colour:** **RESOLVED — GOLD-3, AUTO-3.** Chevrons take
+  `text-secondary`; gold stays with the primary action, as this section
+  originally proposed. Not owner-approved; see `../MYTHOS_DESIGN_DECISIONS.md`
+  §0.5.
 - **Native first** — a native `<select>` at `sm`, because it inherits the
   platform picker and its own hit target — **PROPOSED**.
 - **Custom listbox**, if used: `role="listbox"`, `aria-expanded`, roving
@@ -292,9 +294,11 @@ new visual language.
 ### 4.4 Dropdown / menu — **no approved base**
 
 - Surface `surface`, `radius-card` (6), `border-hairline` — **DERIVED**.
-- **Shadow: OPEN — SURF-1.** A menu is one of the three things the approved
-  system says genuinely floats, and **no shadow value exists**.
-- **Light surface: OPEN — SURF-1** where the menu sits on a card.
+- **Shadow: RESOLVED — SURF-1, AUTO-3.** `shadow-floating` (a menu is one of
+  the three things the approved system says genuinely floats).
+- **Light surface: RESOLVED — SURF-1, AUTO-3.** `surface-card` now has a
+  light value (`#e9e5dd`). Not owner-approved; see
+  `../MYTHOS_DESIGN_DECISIONS.md` §0.5.
 - Item hit box ≥ 44, full-width targets, `space-3` (8) inline padding.
 - `role="menu"`, arrow keys, `Esc` closes and returns focus to the trigger,
   first item focused on open.
@@ -313,7 +317,7 @@ new visual language.
 | **Ground** | one surface step above its own ground — **OWNER-APPROVED** |
 | **Padding** | 16 / 20 / 24 by density — **OWNER-APPROVED**. Note **20 is off the spacing scale (GRID-3)** |
 | **Shadow** | **none** — elevation is by surface — **OWNER-APPROVED** |
-| **Light theme** | **OPEN — SURF-1.** `surface-card` has no light value; the light ramp has two steps to the dark ramp's four, so *card on raised surface* has no light equivalent |
+| **Light theme** | **RESOLVED — SURF-1, AUTO-3.** `surface-card` now has a light value (`#e9e5dd`); the light ramp is extended to match the dark ramp's steps. Not owner-approved |
 | **Text contrast** | `text-secondary` on a card is **6.78 : 1 — AA, not AAA**. Stated, not rounded up |
 | **Interactive cards** | The whole card is the hit box; it contains **one** primary action, never nested buttons that compete with the card's own target |
 | **Measure** | Body text inside a card: `container-prose` (48ch) — **RESOLVED, GRID-2/AUTO-5** |
@@ -324,10 +328,11 @@ new visual language.
   `sm`** — all **OWNER-APPROVED**.
 - `Esc` closes. Background scroll locked. `role="dialog"`, `aria-modal="true"`,
   labelled by its title.
-- **Shadow: OPEN — SURF-1.**
-- **Max width: OPEN — GRID-1.** The approved containers are 1280 content and
-  1440 wide, and which of the two frames an overlay is exactly the ambiguity
-  GRID-1 records.
+- **Shadow: RESOLVED — SURF-1, AUTO-3.** `shadow-overlay`.
+- **Max width: RESOLVED — GRID-1, AUTO-3.** 1440 is the 1280 content
+  container's own frame at its own margins, not a second width — so an
+  overlay sized to either reading is the same box. Not owner-approved; see
+  `../MYTHOS_DESIGN_DECISIONS.md` §0.5.
 - Enters at `motion-overlay` (320) along the vertical, **not** the 35° vector —
   the signature belongs to one element per view and a modal is not it.
 - Reduced motion → opacity only; the modal still opens, closes and traps focus.
@@ -336,7 +341,8 @@ new visual language.
 
 - Caption (13) on `surface`, `radius-control` (2), `space-3` (8) padding —
   **PROPOSED**.
-- **Shadow: OPEN — SURF-1.** **Max width: `container-prose` (48ch) — RESOLVED, GRID-2/AUTO-5.**
+- **Shadow: RESOLVED — SURF-1, AUTO-3** (`shadow-floating`). **Max width:
+  `container-prose` (48ch) — RESOLVED, GRID-2/AUTO-5.**
 - **Never the only channel for information** — universal rule 4 applied: a
   tooltip supplements, it does not carry.
 - **Touch has no hover**, so a tooltip must also be reachable by focus, and any
@@ -381,7 +387,7 @@ new visual language.
 - **The 35° entrance consumes the view's one motion gesture** (**A-012**) —
   **DERIVED**. If a view already animates an element along 35°, the toast fades.
 - Reduced motion → fade only, no travel.
-- **Shadow: OPEN — SURF-1.**
+- **Shadow: RESOLVED — SURF-1, AUTO-3** (`shadow-floating`). Not owner-approved.
 - `aria-live="polite"`; errors additionally persist somewhere non-transient.
 
 ### 6.4 Table — base OWNER-APPROVED
@@ -481,18 +487,21 @@ Touch targets stay ≥ 44 × 44 **at every breakpoint**, not only at `sm`
 
 ## 9. Where each open item bites
 
-This is the map 1G and any future implementation needs. **Nothing below was
-silently resolved.**
+This is the map 1G needed at the time. **All seven rows below are now
+RESOLVED — AUTO-3, except GRID-2 (AUTO-5)** — kept here rather than deleted
+so the map of which components each item touched stays on record. None of
+these is owner-approved; full statements: `../MYTHOS_DESIGN_DECISIONS.md`
+§0.5.
 
 | Ref | Components affected | What is missing |
 |---|---|---|
-| **SURF-1** | Card, Dropdown, Modal, Tooltip, Toast, Select listbox, Table | `surface-card` and `border-strong` have **no light value**; **no shadow values exist** for the three floating components; the table's 4 % row hover sits outside the token system |
-| **GOLD-2** | Button, Checkbox, Radio, Switch, Tabs, Pagination, Link, state matrix §2.1 | **No light-theme hover or active gold.** Every hover and active state in this document is specified on dark and unspecified on light |
-| **GRID-1** | Modal, page shell, Table full-bleed | Which container frames an overlay — 1280 content or 1440 wide |
+| ~~**SURF-1**~~ | Card, Dropdown, Modal, Tooltip, Toast, Select listbox, Table | **RESOLVED — AUTO-3.** Light ramp extended (`surface-card`, `border-strong` now have light values); `shadow-floating`/`shadow-overlay` defined for the three floating components. Table row hover unaffected |
+| ~~**GOLD-2**~~ | Button, Checkbox, Radio, Switch, Tabs, Pagination, Link, state matrix §2.1 | **RESOLVED — AUTO-3.** Light-theme hover/active gold defined, both darkening from `gold-800` |
+| ~~**GRID-1**~~ | Modal, page shell, Table full-bleed | **RESOLVED — AUTO-3.** 1440 is the 1280 container's own frame at its own margins, not a second width |
 | ~~**GRID-2**~~ | Card body, Alert, Tooltip, Form help and error text | **RESOLVED — AUTO-5.** `container-prose` is 48ch |
-| **GRID-3** | Button padding 9 / 15, Card padding 20, Checkbox box 20, Switch track 20 | Values that are off the 8-point scale, and four scale steps with no legal band |
-| **TOKEN-1** | All | **No token artifact exists.** Every token name here is a specification name, not an implemented custom property |
-| **TOKEN-2** | All | Whether these names carry a namespace prefix. Names are written unprefixed **provisionally** |
+| ~~**GRID-3**~~ | Button padding 9 / 15, Card padding 20, Checkbox box 20, Switch track 20 | **RESOLVED — AUTO-3.** Off-scale values confirmed as optical-correction/legitimate-outlier roles, not errors |
+| ~~**TOKEN-1**~~ | All | **RESOLVED — AUTO-3.** `assets/brand/tokens/tokens.css` generated (new, unwired) |
+| ~~**TOKEN-2**~~ | All | **RESOLVED — AUTO-3.** `--mythos-*` namespace adopted, matching C-006's real-world precedent |
 
 ---
 

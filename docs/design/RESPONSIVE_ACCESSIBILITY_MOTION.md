@@ -94,8 +94,10 @@ the margins absorb everything else: 80 px each at 1440, 160 at 1600, 320 at 1920
 
 `1280 + 80 + 80 = 1440` **exactly**, which is why the approved "wide 1440"
 container is ambiguous between a second content width and the outer frame of the
-1280 container. **OPEN — GRID-1.** Until it is settled, no layout may assume
-which of the two frames a full-bleed table, a dashboard or a modal.
+1280 container. **RESOLVED — GRID-1, AUTO-3.** 1440 is the 1280 container's
+own frame at its own margins, not a second width — a full-bleed table, a
+dashboard or a modal all read the same box either way. Not owner-approved;
+see `../MYTHOS_DESIGN_DECISIONS.md` §0.5.
 
 ## 1.5 Typography scaling — PROPOSED, underlying question OPEN
 
@@ -214,8 +216,10 @@ Every value was computed in 1D against all four surfaces. Binding rules:
 they carry no meaning**; and **colour never carries meaning alone** — every
 semantic state pairs a colour with a dot, chip, stripe or label.
 
-**OPEN — GOLD-2:** hover and active gold have **no light-theme value**, so every
-hover and active state in the system is measured on dark and unmeasured on light.
+**RESOLVED — GOLD-2, AUTO-3:** hover and active gold now have light-theme
+values (`#5a4011`/`#6b4d15`, both darkening from `gold-800`, verified
+8.71:1 / 7.02:1). Not owner-approved; see `../MYTHOS_DESIGN_DECISIONS.md`
+§0.5.
 
 ## 2.3 Focus — OWNER-APPROVED (A-016)
 

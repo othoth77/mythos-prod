@@ -120,10 +120,13 @@ logos must not be created**.
 case, size, tracking, colour, position and rule geometry are fixed; **only the
 word changes**. That is what allows five units without five identities.
 
-**Constraint carried forward, unresolved:** the descriptor system lives inside
-the LOGO-2 proposal, which is **`PROPOSED — AWAITING OWNER APPROVAL`** and gated
-on **LOGO-1**. **1H does not adopt it** and does not depend on it — the hierarchy
-above is an architecture, not a drawing.
+**Constraint noted for provenance:** the descriptor system lives inside the
+LOGO-2 proposal, which was **`PROPOSED — AWAITING OWNER APPROVAL`** at the
+time 1H was written and is now **`ADOPTED — AUTO-1`** (delegated mandate,
+2026-08-18, not owner-approved — `MYTHOS_DESIGN_DECISIONS.md` §0.5).
+**LOGO-1** stays open. **1H did not adopt it and did not depend on it** —
+the hierarchy above is an architecture, not a drawing, and is unaffected
+either way.
 
 ---
 
@@ -197,8 +200,11 @@ not own.**
    approval** (**A-021** rule 8).
 
 **What endorsement looks like is not specified here** and cannot be: the mark it
-would use is **LOGO-2**, which is `PROPOSED — AWAITING OWNER APPROVAL` and gated
-on **LOGO-1**. **OPEN by dependency, not by omission.**
+would use is **LOGO-2**, now `ADOPTED — AUTO-1` (delegated mandate, not
+owner-approved). **LOGO-1** stays open — the reconciliation condition
+`LOGO_SYSTEM.md` records is still binding, so this remains **OPEN by
+dependency, not by omission**, even though LOGO-2 itself is no longer
+`PROPOSED`.
 
 ---
 
