@@ -164,7 +164,7 @@
 
 .mythos-start-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: var(--mythos-sp-4);
 }
 @media (max-width: 760px) {
@@ -236,3 +236,34 @@
 .mythos-exec-detail:empty { padding: 0; }
 .mythos-exec-detail .console-fact { padding: var(--mythos-sp-3) 0; border-top: 1px solid var(--mythos-border); }
 .mythos-exec-detail .mythos-state { padding: var(--mythos-sp-4) 0; }
+
+/* MOS-v2 M-09: an armed decision button. Approve and Deny both arm on the
+   first click and send on the second, so the armed state has to LOOK
+   different from the resting one -- otherwise the two-step confirmation is
+   invisible and the second click is the accident the first one prevented. */
+.mythos-btn.is-armed {
+  border-color: var(--mythos-gold);
+  box-shadow: var(--mythos-focus-ring);
+}
+
+/* MOS-v2 M-10: the AI-decomposition opt-in on the goal form. The checkbox
+   and its label sit on one line with the explanation beneath, so what the
+   tick actually does is readable before it is ticked -- and the field is
+   plain, deliberately: choosing who writes the plan is not a decision that
+   should feel like an accent. */
+.console-check-field {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: var(--mythos-sp-2) var(--mythos-sp-3);
+  margin: var(--mythos-sp-3) 0;
+}
+.console-check-field .mythos-card-meta {
+  grid-column: 2;
+  margin: 0;
+}
+.mythos-check {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--mythos-gold);
+}

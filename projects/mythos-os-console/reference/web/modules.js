@@ -37,6 +37,15 @@
       summary: 'Live state of the Mythos control plane in one screen.'
     },
     {
+      id: 'goals',
+      label: 'Goals',
+      icon: '◎',
+      section: 'Execution',
+      state: 'live',
+      source: 'mythos-ai-executor GET /campaigns, GET /campaigns/:id, POST /campaigns, POST /campaigns/:id/approvals/resolve',
+      summary: 'Goal → proposed plan → human approval → dispatch. Nothing runs until the owner approves it.'
+    },
+    {
       id: 'missions',
       label: 'Missions',
       icon: '▶',

@@ -20,6 +20,17 @@
 //   GET  /dispatcher                dispatcher capacity/queue status
 //   POST /tasks/<id>/cancel         cooperative cancel (SIGTERM if running)
 //   POST /events/n8n-error          n8n failure-handler sink (logged, notified)
+//   POST /route                     MOS-v2 M-11: governed auto-routing —
+//                                   {task_type, execution_profile} →
+//                                   core/provider-router.js's own decision,
+//                                   field-picked. Gated by MYTHOS_CORE_ENABLED
+//                                   like /goals (the router writes durable
+//                                   events through core/store on fallback and
+//                                   no_provider). Never widens authority: an
+//                                   execution-requiring profile/task_type
+//                                   that the router can only satisfy with an
+//                                   advisory agent answers no_provider rather
+//                                   than downgrading.
 //   POST /campaigns                 submit a goal (returns the LIVE campaign
 //                                   for the project if one exists — a second
 //                                   campaign is never created alongside it)
@@ -27,6 +38,13 @@
 //   GET  /campaigns/<id>            state, missions, current tasks, worktrees
 //   POST /campaigns/<id>/continue   single-flight continuation; refuses
 //                                   WAITING_FOR_APPROVAL and BLOCKED
+//   POST /campaigns/<id>/approvals/resolve
+//                                   record a HUMAN decision on an
+//                                   outstanding approval (MOS-v2 M-09).
+//                                   The only supported way out of
+//                                   WAITING_FOR_APPROVAL; requires an
+//                                   explicit granted boolean and a
+//                                   recorded decided_by identity.
 //   GET  /campaigns/<id>/report     completed/blocked/approval-required view
 //   GET  /events?since=&limit=      cursor event feed for the n8n bridge
 //
@@ -194,6 +212,121 @@ function handler(req, res, token) {
     return send(res, 200, { task_id: m[1], status: 'CANCELLED' });
   }
 
+  // --- MOS-v2 M-11: governed auto-routing -----------------------------------
+  // The ONLY thing this route decides is which agent core/provider-router.js
+  // would pick for a task shape — capability match, availability probing,
+  // quota state, cost/risk ranking, reputation tiebreak. Fallback (same
+  // authority only) and refusal are the router's own rules, unmodified. This
+  // handler adds exactly one thing the router does not know about: the
+  // console's execution_profile, which can demand execution authority even
+  // for a task_type the router alone would not (e.g. repo-write on a
+  // 'research' task). When that demand cannot be met by the router's own
+  // pick, the answer is no_provider — never a downgraded authority, never a
+  // provider this executor cannot actually run (checked against the real
+  // PROVIDERS map, so a registered-but-unimplemented or unconfigured
+  // provider such as gemini can never be returned as routable).
+  if (req.method === 'POST' && url === '/route') {
+    var routeCore;
+    try {
+      routeCore = require('./core/core-wiring');
+    } catch (e) {
+      return send(res, 500, { error: 'core unavailable: ' + redact.redact(e.message) });
+    }
+    if (!routeCore.coreEnabled()) {
+      return send(res, 503, {
+        error: 'core disabled',
+        detail: 'MYTHOS_CORE_ENABLED is not true; the orchestration core is off by default'
+      });
+    }
+    return readBody(req).then(function (body) {
+      var payload = JSON.parse(body || '{}');
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+        return send(res, 400, { error: 'body must be a JSON object' });
+      }
+      var ROUTE_FIELDS = ['task_type', 'execution_profile'];
+      var unexpected = Object.keys(payload).filter(function (k) { return ROUTE_FIELDS.indexOf(k) === -1; });
+      if (unexpected.length) {
+        return send(res, 400, { error: 'unexpected field: ' + String(unexpected[0]).slice(0, 40) });
+      }
+
+      var plannerMod = require('./core/planner');
+      var taskType = payload.task_type;
+      if (typeof taskType !== 'string' || plannerMod.TASK_TYPES.indexOf(taskType) === -1) {
+        return send(res, 400, { error: 'task_type must be one of: ' + plannerMod.TASK_TYPES.join(', ') });
+      }
+
+      var ROUTE_PROFILES = ['repo-read', 'repo-test', 'repo-write'];
+      var profile = payload.execution_profile;
+      if (typeof profile !== 'string' || ROUTE_PROFILES.indexOf(profile) === -1) {
+        return send(res, 400, { error: 'execution_profile must be one of: ' + ROUTE_PROFILES.join(', ') });
+      }
+
+      var router = require('./core/provider-router');
+      var registry = require('./core/agent-registry');
+      var defaults = plannerMod.TYPE_DEFAULTS[taskType] || plannerMod.TYPE_DEFAULTS.generic;
+      var subject = {
+        id: 'route-probe',
+        project: 'mythos-prod',
+        task_type: taskType,
+        capabilities_required: defaults.capabilities
+      };
+
+      var result;
+      try {
+        result = router.route(subject, {});
+      } catch (e) {
+        return send(res, 500, { error: 'routing failed: ' + redact.redact(e.message) });
+      }
+
+      // repo-test and repo-write can both mutate the working tree (tests
+      // may run setup/build steps); repo-read never needs execution
+      // authority by itself. EXECUTION_TASK_TYPES is the router's own list
+      // for task_type alone — the profile check here is strictly additive,
+      // never a way to relax what the router already required.
+      var requireAuthority = profile === 'repo-write' || profile === 'repo-test' ||
+        router.needsExecutionAuthority(subject);
+
+      function pickRoute(o) {
+        var out = { action: o.action };
+        if (o.agent !== undefined && o.agent !== null) out.agent = o.agent;
+        if (o.provider !== undefined && o.provider !== null) out.provider = o.provider;
+        if (o.authority !== undefined) out.authority = o.authority;
+        if (o.reason !== undefined && o.reason !== null) out.reason = o.reason;
+        if (o.resume_after !== undefined) out.resume_after = o.resume_after;
+        return out;
+      }
+
+      if (result.action === 'route' || result.action === 'fallback') {
+        var def = registry.getAgent(result.agent);
+        var providerId = def ? def.provider : null;
+        var providerImpl = providerId ? require('./executor').PROVIDERS[providerId] : null;
+        if (!def || !providerImpl) {
+          return send(res, 200, pickRoute({
+            action: 'no_provider',
+            reason: 'the routed agent\'s provider is not registered for execution in this executor'
+          }));
+        }
+        if (requireAuthority && !def.execution_authority) {
+          return send(res, 200, pickRoute({
+            action: 'no_provider',
+            reason: 'no candidate with execution authority is available for this profile/task_type'
+          }));
+        }
+        return send(res, 200, pickRoute({
+          action: result.action, agent: result.agent, provider: providerId,
+          authority: def.execution_authority
+        }));
+      }
+
+      // 'wait_for_quota' or 'no_provider': passed through field-picked,
+      // exactly as the router decided — never silently retried or widened
+      // to a provider the router itself refused.
+      return send(res, 200, pickRoute(result));
+    }).catch(function (err) {
+      send(res, 400, { error: redact.redact(err.message) });
+    });
+  }
+
   // --- Orchestration Core goal surface (Core Wiring stage) -----------------
   // Gated by MYTHOS_CORE_ENABLED (default false). The core module is
   // lazy-required INSIDE these handlers, so with the flag off nothing
@@ -296,12 +429,35 @@ function handler(req, res, token) {
         // Only objective/project/requested_by are read. Provider, profile,
         // permission mode, repo path and capability are NOT accepted from
         // the caller — they are configuration and policy, not input.
+        // MOS-v2 M-09: require_plan_approval is the ONE new field read
+        // here, and it is read as a strict boolean identity — an absent,
+        // null, string or truthy-but-not-true value is not a request for
+        // it, so no existing caller's payload can acquire the behaviour by
+        // accident. It can only ever make the campaign MORE restrictive
+        // (parked for a human before anything runs), never less, which is
+        // why it is safe to accept from an already-authenticated caller.
+        // The console relay always sends true.
+        //
+        // MOS-v2 M-10: `decompose` is read the same way, by identity, and
+        // selects only WHERE THE PROPOSED PLAN COMES FROM — a planner
+        // model instead of the roadmap template. It selects no provider,
+        // no profile, no model and no path, it is legal only together
+        // with require_plan_approval (the service refuses it otherwise),
+        // and the plan it produces is still schema-, policy- and
+        // DAG-validated and still parked for a human before anything
+        // runs. submitGoal answers a decomposing caller with a Promise,
+        // so the response is awaited here; for every other caller
+        // Promise.resolve passes the same object straight through.
         var out = svc.submitGoal({
           objective: payload.objective,
           project: payload.project,
-          requested_by: payload.requested_by || 'n8n'
+          requested_by: payload.requested_by || 'n8n',
+          require_plan_approval: payload.require_plan_approval === true,
+          decompose: payload.decompose === true
         });
-        send(res, out.created ? 201 : 200, out);
+        return Promise.resolve(out).then(function (result) {
+          send(res, result.created ? 201 : 200, result);
+        });
       }).catch(function (err) {
         send(res, 400, { error: redact.redact(err.message) });
       });
@@ -349,6 +505,54 @@ function handler(req, res, token) {
         send(res, code, out);
       }).catch(function (err) {
         send(res, 500, { error: redact.redact(err.message) });
+      });
+    }
+
+    // MOS-v2 M-09: the way OUT of WAITING_FOR_APPROVAL.
+    //
+    // Before this route the gate was a one-way door: the loop could enter
+    // WAITING_FOR_APPROVAL and continueCampaign correctly refused to leave
+    // it, but the only supported exit was hand-editing persisted JSON on
+    // the host — exactly the untracked state surgery the approval
+    // mechanism exists to prevent. This does not weaken the gate: it calls
+    // core/campaign.js's own resolveApproval, which demands an explicit
+    // boolean decision AND a recorded decider, decides the durable
+    // policy-engine approval entity first, writes the audit trail, and
+    // treats DENY as the conservative direction. Nothing here decides
+    // anything; it translates HTTP into that one function.
+    if ((cm2 = /^\/campaigns\/(c-[a-z0-9-]{8,40})\/approvals\/resolve$/.exec(url)) && req.method === 'POST') {
+      return readBody(req).then(function (body) {
+        var payload = {};
+        try { payload = JSON.parse(body || '{}'); } catch (e) { payload = {}; }
+        var camp2 = require('./core/campaign');
+        // Only the four decision fields are read, and the outstanding
+        // approval is addressed by its own id and by nothing else.
+        // resolveApproval also matches on capability_key and mission_id,
+        // and this route deliberately does NOT expose either: a capability
+        // key in a campaign payload is the one shape that could look like
+        // a caller choosing what runs, and the n8n bridge's authority test
+        // pins the whole campaign surface against reading one. An
+        // approval_id names a decision that already exists; it selects no
+        // work, no provider and no path.
+        var out = camp2.resolveApproval(cm2[1], {
+          approval_id: payload.approval_id,
+          granted: payload.granted,
+          decided_by: payload.decided_by,
+          note: payload.note
+        });
+        send(res, 200, out);
+      }).catch(function (err) {
+        var msg = String((err && err.message) || err);
+        if (/NO_SUCH_CAMPAIGN|INVALID_CAMPAIGN_ID/.test(msg)) {
+          return send(res, 404, { error: 'no such campaign' });
+        }
+        if (/NO_MATCHING_APPROVAL|NO_SUCH_APPROVAL/.test(msg)) {
+          return send(res, 404, { error: 'no matching approval on this campaign' });
+        }
+        if (/APPROVAL_NEEDS_DECIDER|APPROVAL_NEEDS_EXPLICIT_DECISION/.test(msg)) {
+          return send(res, 400, { error: redact.redact(msg) });
+        }
+        send(res, 409, { error: redact.redact(msg) });
       });
     }
 

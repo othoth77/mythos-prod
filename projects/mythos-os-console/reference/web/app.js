@@ -303,7 +303,9 @@
       // mission should see whether a slot exists before they type, and the
       // provider list in the form below is the dispatcher's, not ours.
       slot.appendChild(capacitySlot(dispatcher));
-      slot.appendChild(startMissionSection(pending, dispatcher.ok ? dispatcher.data.providers : null));
+      slot.appendChild(startMissionSection(pending, dispatcher.ok ? dispatcher.data.providers : null,
+        dispatcher.ok ? dispatcher.data.profiles : null, dispatcher.ok ? dispatcher.data.models : null,
+        dispatcher.ok ? dispatcher.data.auto_routing : null));
 
       slot.appendChild(sectionTitle('Executions'));
       slot.appendChild(executionsSection(tasks));
@@ -382,11 +384,12 @@
     ]);
   }
 
-  // A new mission: title + instruction + provider (+ optional model). No
-  // other field exists client-side to send — project, execution_profile,
-  // mode and requested_by are fixed server-side in server.js and are never
-  // part of this payload. Feedback renders inline; this file has no
-  // alert()/confirm() anywhere and this does not start one.
+  // A new mission: title + instruction + provider (+ optional model, +
+  // optional execution profile, + priority). No other field exists
+  // client-side to send — project, mode and requested_by are fixed
+  // server-side in server.js and are never part of this payload. Feedback
+  // renders inline; this file has no alert()/confirm() anywhere and this
+  // does not start one.
   //
   // MOS-3B: `providers` is the list GET /api/dispatcher returned — the
   // server's own source of truth for what can actually run — or null when
@@ -394,7 +397,25 @@
   // no hardcoded enum, no per-provider label, no per-provider behaviour.
   // A provider added or withdrawn server-side changes this select with no
   // edit here, and a provider the console cannot confirm is never offered.
-  function startMissionSection(pending, providers) {
+  //
+  // MOS-v2 M-04: `profiles` is likewise the dispatcher's own list of
+  // { name, authorized } — never a hardcoded enum here, and the browser
+  // never computes authorization itself. An unauthorized profile (today,
+  // only repo-write when MOS_ALLOW_REPO_WRITE is off) is rendered but
+  // disabled, so an operator can see it exists without being able to pick
+  // it — the option server.js would refuse anyway is never offered as if
+  // it would work.
+  //
+  // MOS-v2 M-05: `models` is model-catalog.js's own enabledModels(), as
+  // served by GET /api/dispatcher — { provider, id, label, capability,
+  // recommended_task_types }, never a hardcoded list here and never a
+  // disabled entry. There is no free-text model field any more: only a
+  // model this server has already agreed to relay can be selected at
+  // all. The select is repopulated whenever the provider changes, to the
+  // subset of `models` whose provider matches, with a first option of
+  // '(provider default)' (empty value) — omitting the field entirely, so
+  // the server/provider's own default applies, same as before this stage.
+  function startMissionSection(pending, providers, profiles, models, autoRouting) {
     var wrap = el('div', {});
     var feedback = el('div', { className: 'mythos-start-feedback' });
 
@@ -408,18 +429,104 @@
         placeholder: 'What should the agent do? Read-only analysis only — this pathway cannot write, commit or deploy.' }
     });
     var providerList = providers || [];
-    var providerSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-provider' } },
-      providerList.map(function (p) { return el('option', { attrs: { value: p }, text: String(p) }); }));
+    // MOS-v2 M-11: 'auto — router decides' is offered ONLY when the server
+    // says so (GET /api/dispatcher's own auto_routing.enabled) — never a
+    // client-side assumption that routing exists. It is appended after the
+    // real providers, not in place of any of them, so nothing about the
+    // explicit-provider path changes.
+    var autoEnabled = !!(autoRouting && autoRouting.enabled);
+    var providerOptions = providerList.map(function (p) {
+      return el('option', { attrs: { value: p }, text: String(p) });
+    });
+    if (autoEnabled) {
+      providerOptions.push(el('option', { attrs: { value: 'auto' }, text: 'auto — router decides' }));
+    }
+    var providerSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-provider' } }, providerOptions);
     var providerNote = null;
-    if (!providerList.length) {
+    if (!providerList.length && !autoEnabled) {
       providerSelect.disabled = true;
       providerNote = el('div', { className: 'mythos-row-sub',
         text: 'provider list unavailable — the control plane could not be read' });
     }
-    var modelInput = el('input', {
-      className: 'mythos-input',
-      attrs: { type: 'text', id: 'mission-model', maxlength: '100', placeholder: 'model (optional — provider default if blank)', autocomplete: 'off' }
+    var modelList = models || [];
+    function modelOptionsFor(providerValue) {
+      var opts = [el('option', { attrs: { value: '' }, text: '(provider default)' })];
+      modelList.filter(function (m) { return m.provider === providerValue; }).forEach(function (m) {
+        opts.push(el('option', { attrs: { value: m.id }, text: m.label + ' — ' + m.capability }));
+      });
+      return opts;
+    }
+    var modelSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-model' } },
+      modelOptionsFor(providerList[0]));
+    var modelNote = null;
+    if (!modelList.length) {
+      modelSelect.disabled = true;
+      modelNote = el('div', { className: 'mythos-row-sub',
+        text: 'model list unavailable — the control plane could not be read' });
+    }
+
+    // MOS-v2 M-11: the task-type select the router needs, shown only while
+    // 'auto' is selected, populated only from auto_routing.task_types — the
+    // exact vocabulary the server just told this browser it accepts.
+    var taskTypeList = (autoRouting && autoRouting.task_types) || [];
+    var taskTypeSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-task-type' } },
+      taskTypeList.map(function (t) { return el('option', { attrs: { value: t }, text: t }); }));
+    var taskTypeRow = el('div', { attrs: { id: 'mission-task-type-row' } }, [
+      el('label', { className: 'mythos-label', attrs: { for: 'mission-task-type' }, text: 'Task type' }),
+      taskTypeSelect
+    ]);
+    var modelAutoNote = el('div', { className: 'mythos-row-sub', text: 'model chosen by the router' });
+    taskTypeRow.style.display = 'none';
+    modelAutoNote.style.display = 'none';
+
+    function applyAutoState() {
+      var auto = providerSelect.value === 'auto';
+      taskTypeRow.style.display = auto ? '' : 'none';
+      modelSelect.disabled = auto || !modelList.length;
+      modelAutoNote.style.display = auto ? '' : 'none';
+      if (auto) modelSelect.value = '';
+    }
+
+    // Repopulate the model select whenever the provider changes, to the
+    // subset of `models` for the newly chosen provider — a model valid
+    // for one provider is never left selectable under another. 'auto' has
+    // no model subset of its own: the select is cleared and disabled, and
+    // the router's own choice is shown only after the mission starts.
+    providerSelect.addEventListener('change', function () {
+      clear(modelSelect);
+      modelOptionsFor(providerSelect.value).forEach(function (opt) { modelSelect.appendChild(opt); });
+      applyAutoState();
     });
+    applyAutoState();
+
+    var profileList = profiles || [];
+    var profileSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-profile' } },
+      profileList.map(function (p) {
+        var opt = el('option', { attrs: { value: p.name }, text: p.name + (p.authorized ? '' : ' (not authorized)') });
+        if (!p.authorized) opt.disabled = true;
+        if (p.name === 'repo-read') opt.selected = true;
+        return opt;
+      }));
+    var profileNote = null;
+    if (!profileList.length) {
+      profileSelect.disabled = true;
+      profileNote = el('div', { className: 'mythos-row-sub',
+        text: 'execution profile list unavailable — the control plane could not be read' });
+    }
+
+    // MOS-v2 M-06: priority is a fixed lifecycle vocabulary of the
+    // executor (PRIORITY_WEIGHT — 'high'|'normal'|'low'), not a
+    // server-authorized capability like provider/model/profile above, so a
+    // hardcoded three-option list here is acceptable — there is nothing
+    // server.js could withdraw or expand at this layer. Always sent
+    // (never omitted) for explicitness, defaulting to 'normal'.
+    var PRIORITY_OPTIONS = ['high', 'normal', 'low'];
+    var prioritySelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-priority' } },
+      PRIORITY_OPTIONS.map(function (p) {
+        var opt = el('option', { attrs: { value: p }, text: p });
+        if (p === 'normal') opt.selected = true;
+        return opt;
+      }));
 
     var startBtn = el('button', {
       className: 'mythos-btn mythos-btn-gold',
@@ -437,12 +544,28 @@
       }
       startBtn.disabled = true;
       startBtn.textContent = 'Starting…';
-      postJSON('/api/missions/start', {
+      // execution_profile is sent only when the operator actually picked
+      // one from a populated, server-sourced list — never a client
+      // default invented here. An empty/unavailable select sends nothing,
+      // and the server's own 'repo-read' default applies.
+      var chosenProfile = (profileList.length && profileSelect.value) ? profileSelect.value : undefined;
+      var isAuto = providerSelect.value === 'auto';
+      var payload = {
         title: title,
         instruction: instruction,
         provider: providerSelect.value,
-        model: modelInput.value.trim() || undefined
-      }).then(function (r) {
+        // task_type is sent only for 'auto' — the server refuses it
+        // alongside any other provider, and refuses 'auto' without it.
+        task_type: isAuto ? taskTypeSelect.value : undefined,
+        // 'auto' never carries a model: the router owns that choice, and
+        // the model select is disabled and cleared whenever 'auto' is
+        // selected (applyAutoState), so this is a straight mirror of what
+        // the operator can actually see, not a second source of truth.
+        model: (!isAuto && modelList.length && modelSelect.value) ? modelSelect.value : undefined,
+        execution_profile: chosenProfile,
+        priority: prioritySelect.value
+      };
+      postJSON('/api/missions/start', payload).then(function (r) {
         clear(feedback);
         // MOS-3B: the dispatcher is capacity-gated, so a created mission is
         // RUNNING or QUEUED, and the two are not the same news. The server's
@@ -457,7 +580,7 @@
           (d.note ? ' ' + d.note + '.' : '') +
           ' It will appear under Missions once the next status refresh loads.'
         ));
-        titleInput.value = ''; instructionInput.value = ''; modelInput.value = '';
+        titleInput.value = ''; instructionInput.value = ''; modelSelect.value = '';
       }).catch(function (e) {
         clear(feedback);
         feedback.appendChild(statePanel('⚠', 'Could not start mission', e.message, true));
@@ -471,8 +594,10 @@
       el('label', { className: 'mythos-label', attrs: { for: 'mission-title' }, text: 'Title' }), titleInput,
       el('label', { className: 'mythos-label', attrs: { for: 'mission-instruction' }, text: 'Instruction' }), instructionInput,
       el('div', { className: 'mythos-start-row' }, [
-        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-provider' }, text: 'Provider' }), providerSelect, providerNote]),
-        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model (optional)' }), modelInput])
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-provider' }, text: 'Provider' }), providerSelect, providerNote, taskTypeRow]),
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model (optional)' }), modelSelect, modelNote, modelAutoNote]),
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-profile' }, text: 'Execution profile' }), profileSelect, profileNote]),
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-priority' }, text: 'Priority' }), prioritySelect])
       ]),
       startBtn, feedback
     ]);
@@ -529,11 +654,23 @@
         clear(detailSlot);
         var detail = r[0], report = r[1];
         if (!detail.ok) { detailSlot.appendChild(upstreamFailure(detail.err, 'the execution detail')); return; }
-        detailSlot.appendChild(fact('Instruction', detail.data.task.instruction));
-        detailSlot.appendChild(fact('Execution ID', detail.data.status.execution_id || '(not started)'));
-        detailSlot.appendChild(fact('Next action', detail.data.status.next_action));
-        if (detail.data.status.last_error) detailSlot.appendChild(fact('Last error', detail.data.status.last_error));
+        var dTask = detail.data.task || {};
+        var dStatus = detail.data.status || {};
+        detailSlot.appendChild(fact('Stage', dTask.stage || '—'));
+        detailSlot.appendChild(fact('Instruction', dTask.instruction));
+        detailSlot.appendChild(fact('Provider', dTask.provider || '—'));
+        detailSlot.appendChild(fact('Model', dTask.model || '(default)'));
+        detailSlot.appendChild(fact('Priority', dTask.priority || '—'));
+        detailSlot.appendChild(fact('Execution profile', dTask.execution_profile || '—'));
+        detailSlot.appendChild(fact('Status', dStatus.status || state));
+        detailSlot.appendChild(fact('Execution ID', dStatus.execution_id || '(not started)'));
+        detailSlot.appendChild(fact('Created', dTask.created_at ? stamp(dTask.created_at) : '—'));
+        detailSlot.appendChild(fact('Started', dStatus.started_at ? stamp(dStatus.started_at) : '—'));
+        detailSlot.appendChild(fact('Ended', dStatus.ended_at ? stamp(dStatus.ended_at) : '—'));
+        detailSlot.appendChild(fact('Next action', dStatus.next_action));
+        if (dStatus.last_error) detailSlot.appendChild(fact('Last error', dStatus.last_error));
         if (report && report.ok && report.data.summary) detailSlot.appendChild(fact('Result summary', report.data.summary));
+        if (report && report.ok && report.data.next_stage) detailSlot.appendChild(fact('Next stage', report.data.next_stage));
         if (report && report.ok && report.data.problems && report.data.problems.length) {
           detailSlot.appendChild(fact('Report problems', report.data.problems.join('; ')));
         }
@@ -670,6 +807,345 @@
 
       startPolling('missions');
     });
+  };
+
+  // ---------------------------------------------------------------
+  // MOS-v2 M-09: GOALS
+  //
+  // GOAL → PROPOSED PLAN → MISSIONS → DEPENDENCIES → HUMAN APPROVAL →
+  // DISPATCH → RESULTS, drawn in that order because that IS the order.
+  //
+  // The page holds no planner, no queue and no notion of what a campaign
+  // state means: every value on it comes from the executor through
+  // server.js's field-picked relays. What it adds is the one thing a
+  // browser is for — showing an operator the plan an AI proposed, and
+  // taking their yes or no before anything runs.
+  //
+  // A decision is never one click. Approve and Deny both arm first and
+  // send on a second, explicit confirmation, with the armed state naming
+  // what is about to happen; a mis-click costs a click, not an
+  // authorisation. This is an in-page confirmation rather than
+  // window.confirm() deliberately: this file starts no browser dialog
+  // anywhere, and a native dialog is also the one thing an operator
+  // dismisses reflexively.
+  // ---------------------------------------------------------------
+
+  function confirmAction(label, armedLabel, className, run) {
+    var armed = false;
+    var btn = el('button', { className: 'mythos-btn ' + className, attrs: { type: 'button' }, text: label });
+    btn.addEventListener('click', function () {
+      if (!armed) {
+        armed = true;
+        btn.textContent = armedLabel;
+        btn.classList.add('is-armed');
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+      run(btn);
+    });
+    return btn;
+  }
+
+  function planTree(plan) {
+    if (!plan) {
+      return statePanel('◌', 'No plan proposed yet',
+        'The control plane has not attached a proposed plan to this goal.');
+    }
+    if (!plan.available) {
+      return statePanel('⚠', 'No plan could be proposed',
+        plan.reason || 'The planner did not select a capability for this goal.', true);
+    }
+    // MOS-v2 M-10: WHO proposed this plan. A plan written by a planner
+    // model is labelled as one, with the provider and model named, so an
+    // operator is never asked to approve a generated plan without being
+    // told that is what it is.
+    var plannedBy = plan.source === 'ai-decomposition'
+      ? 'planner model' + (plan.planner_provider ? ' via ' + plan.planner_provider : '') +
+        (plan.planner_model ? ' (' + plan.planner_model + ')' : '') +
+        ' — proposed only; validated against the schema, the policy classes and the dependency graph here'
+      : null;
+    var head = el('div', { className: 'mythos-card' }, [
+      el('span', { className: 'mythos-label', text: 'Proposed mission' }),
+      el('div', { className: 'mythos-card-meta',
+        text: (plan.capability_key ? plan.capability_key + ' — ' : '') + (plan.title || '(untitled)') }),
+      plan.objective ? fact('Objective', plan.objective) : null,
+      plannedBy ? fact('Planned by', plannedBy) : null,
+      plan.reason ? fact('Why this one', plan.reason) : null,
+      plan.risk ? fact('Risk', String(plan.risk)) : null,
+      (plan.acceptance_criteria && plan.acceptance_criteria.length)
+        ? fact('Acceptance criteria', plan.acceptance_criteria.join('; ')) : null
+    ]);
+    var list = el('div', { className: 'mythos-list' });
+    (plan.tasks || []).forEach(function (t) {
+      var deps = (t.depends_on || []);
+      var cells = [
+        cellMain(t.key + ': ' + (t.title || ''), t.task_type || ''),
+        cellText('Depends on', deps.length ? deps.join(', ') : '(no dependencies — starts immediately)'),
+        cellText('Policy', (t.policy_classes || []).join('+'))
+      ];
+      // Advisory suggestions, shown as suggestions. The executor selects
+      // the model and the profile itself; these are what the planner had
+      // in mind, and nothing acts on them.
+      if (t.recommended_model || t.execution_profile) {
+        cells.push(cellText('Planner suggested (advisory)',
+          [t.recommended_model, t.execution_profile].filter(Boolean).join(' · ')));
+      }
+      if (t.expected_result) cells.push(cellText('Expected result', t.expected_result));
+      list.appendChild(row(cells));
+    });
+    return el('div', {}, [head, sectionTitle('Planned tasks · ' + (plan.tasks || []).length), list]);
+  }
+
+  function approvalBlock(goal, slot, reload) {
+    var pending = goal.approval_required || [];
+    if (!pending.length) return null;
+    var wrap = el('div', {});
+    wrap.appendChild(sectionTitle('Awaiting your decision · ' + pending.length));
+    var feedback = el('div', { className: 'mythos-start-feedback' });
+    pending.forEach(function (a) {
+      function decide(granted) {
+        return function (btn) {
+          clear(feedback);
+          postJSON('/api/goals/' + encodeURIComponent(goal.campaign_id) + '/approvals', {
+            approval_id: a.approval_id,
+            granted: granted
+          }).then(function (r) {
+            var d = r.data || {};
+            btn.textContent = granted ? 'Approved' : 'Denied';
+            feedback.appendChild(statePanel(granted ? '✓' : '⊘',
+              granted ? 'Plan approved' : 'Plan denied',
+              'The decision was recorded against ' + a.approval_id + '. The goal is now ' +
+              (d.state || 'updated') + '.' +
+              (granted ? ' Nothing has run yet — use Continue to dispatch it.' : '')));
+            reload();
+          }).catch(function (e) {
+            btn.disabled = false;
+            btn.textContent = granted ? 'Approve' : 'Deny';
+            clear(feedback);
+            feedback.appendChild(statePanel('⚠', 'Could not record the decision', e.message, true));
+          });
+        };
+      }
+      wrap.appendChild(el('div', { className: 'mythos-exec-card' }, [
+        row([
+          cellMain(a.reason || 'approval required', a.approval_id || ''),
+          cellText('Capability', a.capability_key || '—'),
+          el('div', { className: 'mythos-row-end' }, [
+            badge('WAITING_FOR_APPROVAL'),
+            el('div', { className: 'mythos-exec-actions' }, [
+              confirmAction('Approve', 'Confirm approve', 'mythos-btn-gold', decide(true)),
+              confirmAction('Deny', 'Confirm deny', 'mythos-btn-outline', decide(false))
+            ])
+          ])
+        ])
+      ]));
+    });
+    wrap.appendChild(feedback);
+    return wrap;
+  }
+
+  function goalDetail(campaignId, slot) {
+    function reload() { goalDetail(campaignId, slot); }
+    clear(slot);
+    slot.appendChild(statePanel('◌', 'Loading…', ''));
+    api('/api/goals/' + encodeURIComponent(campaignId)).then(function (r) {
+      clear(slot);
+      var g = (r.data && r.data.goal) || {};
+      slot.appendChild(el('div', { className: 'mythos-card' }, [
+        fact('Goal', g.objective || '—'),
+        fact('State', String(g.state || 'UNKNOWN')),
+        fact('Approval gate', g.plan_approval_required
+          ? 'ON — this goal was created from the console and cannot dispatch without an approval'
+          : 'not set for this campaign'),
+        fact('Waiting on you', g.needs_human ? 'YES' : 'no')
+      ]));
+
+      slot.appendChild(sectionTitle('Proposed plan'));
+      slot.appendChild(planTree(g.proposed_plan));
+
+      var approvals = approvalBlock(g, slot, reload);
+      if (approvals) slot.appendChild(approvals);
+
+      if (g.continuable) {
+        var contFeedback = el('div', { className: 'mythos-start-feedback' });
+        var contBtn = confirmAction('Continue', 'Confirm continue', 'mythos-btn-outline', function (btn) {
+          clear(contFeedback);
+          postJSON('/api/goals/' + encodeURIComponent(campaignId) + '/continue', {}).then(function (r2) {
+            var d = r2.data || {};
+            btn.textContent = d.accepted ? 'Continuing' : 'Not accepted';
+            contFeedback.appendChild(statePanel(d.accepted ? '▶' : '◌',
+              d.accepted ? 'Dispatch accepted' : 'Dispatch not accepted',
+              'The executor answered from state ' + (d.from_state || 'unknown') + '.'));
+          }).catch(function (e) {
+            btn.disabled = false;
+            btn.textContent = 'Continue';
+            clear(contFeedback);
+            contFeedback.appendChild(statePanel('⚠', 'Could not continue', e.message, true));
+          });
+        });
+        slot.appendChild(sectionTitle('Dispatch'));
+        slot.appendChild(el('div', { className: 'mythos-card' }, [
+          el('div', { className: 'mythos-card-meta',
+            text: 'Approving authorises the plan; it does not run it. Continue asks the executor to advance the campaign, and the executor still refuses any campaign that is waiting for a decision.' }),
+          el('div', { className: 'mythos-exec-actions' }, [contBtn]),
+          contFeedback
+        ]));
+      }
+
+      if (g.current_mission) {
+        slot.appendChild(sectionTitle('Current mission'));
+        var cmList = el('div', { className: 'mythos-list' });
+        (g.current_mission.tasks || []).forEach(function (t) {
+          cmList.appendChild(row([
+            cellMain(t.plan_key || t.task_id, t.task_id || ''),
+            el('div', { className: 'mythos-row-end' }, [badge(t.status)])
+          ]));
+        });
+        slot.appendChild(el('div', { className: 'mythos-card' }, [
+          fact('Capability', g.current_mission.capability_key || '—'),
+          fact('Mission', g.current_mission.mission_id || '—')
+        ]));
+        slot.appendChild(cmList);
+      }
+
+      var completed = g.completed_missions || [];
+      var blocked = g.blocked_missions || [];
+      slot.appendChild(sectionTitle('Results · ' + completed.length + ' completed, ' + blocked.length + ' blocked'));
+      if (!completed.length && !blocked.length) {
+        slot.appendChild(statePanel('◌', 'No results yet', 'No mission of this goal has finished.'));
+      } else {
+        var results = el('div', { className: 'mythos-list' });
+        completed.forEach(function (m) {
+          results.appendChild(row([
+            cellMain(m.capability_key || m.mission_id || 'mission', m.mission_id || ''),
+            cellText('Commit', m.commit || '—'),
+            cellText('Tests', [].concat(m.tests || []).join(' | ') || '—'),
+            el('div', { className: 'mythos-row-end' }, [badge('COMPLETED')])
+          ]));
+        });
+        blocked.forEach(function (m) {
+          results.appendChild(row([
+            cellMain(m.capability_key || m.mission_id || 'mission', m.mission_id || ''),
+            cellText('Reason', m.reason || '—'),
+            el('div', { className: 'mythos-row-end' }, [badge('BLOCKED')])
+          ]));
+        });
+        slot.appendChild(results);
+      }
+    }).catch(function (e) {
+      clear(slot);
+      slot.appendChild(upstreamFailure(e, 'the executor campaign API'));
+    });
+  }
+
+  RENDERERS.goals = function (view) {
+    view.appendChild(pageHeader('GOALS',
+      'State a goal. The control plane proposes a plan. Nothing dispatches until you approve it.'));
+
+    var feedback = el('div', { className: 'mythos-start-feedback' });
+    var objectiveInput = el('textarea', {
+      className: 'mythos-input mythos-textarea',
+      attrs: { id: 'goal-objective', maxlength: '2000', rows: '3',
+        placeholder: 'What should Mythos achieve? The control plane will propose the missions and their dependencies for your approval.' }
+    });
+    var submitBtn = el('button', {
+      className: 'mythos-btn mythos-btn-gold', attrs: { type: 'button' }, text: 'Propose Plan'
+    });
+    // MOS-v2 M-10. Unticked, the control plane proposes the roadmap's own
+    // next mission, exactly as before. Ticked, a planner model proposes
+    // the tasks and their dependencies instead — and the plan still lands
+    // in front of you here, still validated, still dispatching nothing
+    // until you approve it.
+    var decomposeBox = el('input', {
+      className: 'mythos-check', attrs: { id: 'goal-decompose', type: 'checkbox' }
+    });
+    var decomposeField = el('div', { className: 'console-check-field' }, [
+      decomposeBox,
+      el('label', { className: 'mythos-label', attrs: { for: 'goal-decompose' },
+        text: 'AI decomposition (planner model proposes the plan)' }),
+      el('div', { className: 'mythos-card-meta',
+        text: 'The planner writes tasks and dependencies only. It selects no provider, no profile and no permissions, its plan is validated against the same schema and policy as any other, and nothing runs until you approve it.' })
+    ]);
+
+    var listSlot = el('div', {});
+    var detailSlot = el('div', { className: 'mythos-exec-detail' });
+
+    function loadList() {
+      clear(listSlot);
+      listSlot.appendChild(statePanel('◌', 'Loading…', ''));
+      api('/api/goals').then(function (r) {
+        clear(listSlot);
+        var goals = (r.data && r.data.goals) || [];
+        if (!goals.length) {
+          listSlot.appendChild(statePanel('◌', 'No goals', 'The orchestration core reports no campaign.'));
+          return;
+        }
+        var list = el('div', { className: 'mythos-list' });
+        goals.forEach(function (g) {
+          var openBtn = el('button', { className: 'mythos-btn mythos-btn-outline', attrs: { type: 'button' }, text: 'Review' });
+          openBtn.addEventListener('click', function () { goalDetail(g.campaign_id, detailSlot); });
+          list.appendChild(row([
+            cellMain(g.objective || g.campaign_id, g.campaign_id || ''),
+            cellText('Completed missions', g.completed === undefined ? '—' : String(g.completed)),
+            cellText('Updated', g.updated_at ? stamp(g.updated_at) : '—'),
+            el('div', { className: 'mythos-row-end' }, [
+              badge(g.state), el('div', { className: 'mythos-exec-actions' }, [openBtn])
+            ])
+          ]));
+        });
+        listSlot.appendChild(list);
+      }).catch(function (e) {
+        clear(listSlot);
+        listSlot.appendChild(upstreamFailure(e, 'the executor campaign API'));
+      });
+    }
+
+    submitBtn.addEventListener('click', function () {
+      clear(feedback);
+      var objective = objectiveInput.value.trim();
+      if (!objective) {
+        feedback.appendChild(statePanel('⚠', 'Missing goal', 'An objective is required.', true));
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Proposing…';
+      // The browser sends the objective and nothing else. project,
+      // requested_by and the mandatory plan approval are all fixed
+      // server-side in server.js and are not fields here.
+      var body = { objective: objective };
+      if (decomposeBox.checked) body.decompose = true;
+      postJSON('/api/goals', body).then(function (r) {
+        clear(feedback);
+        var d = r.data || {};
+        feedback.appendChild(statePanel(
+          d.needs_approval ? '⏸' : '◌',
+          d.needs_approval ? 'Plan proposed — awaiting your approval' : 'Goal submitted',
+          d.campaign_id + ' is ' + (d.state || 'submitted') +
+          (d.created ? '.' : ' (an existing live campaign for this project answered instead of a second one being created).') +
+          (d.needs_approval ? ' Review the proposed plan below and approve or deny it. Nothing runs until you do.' : '')
+        ));
+        objectiveInput.value = '';
+        decomposeBox.checked = false;
+        loadList();
+        if (d.campaign_id) goalDetail(d.campaign_id, detailSlot);
+      }).catch(function (e) {
+        clear(feedback);
+        feedback.appendChild(statePanel('⚠', 'Could not submit the goal', e.message, true));
+      }).then(function () {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Propose Plan';
+      });
+    });
+
+    view.appendChild(el('div', { className: 'mythos-start-form' }, [
+      el('label', { className: 'mythos-label', attrs: { for: 'goal-objective' }, text: 'Goal' }),
+      objectiveInput, decomposeField, submitBtn, feedback
+    ]));
+    view.appendChild(sectionTitle('Goals'));
+    view.appendChild(listSlot);
+    view.appendChild(detailSlot);
+    loadList();
   };
 
   RENDERERS.campaigns = function (view) {
@@ -1072,6 +1548,9 @@
     var instructionInput = document.getElementById('mission-instruction');
     if (titleInput && titleInput.value !== '') return false;
     if (instructionInput && instructionInput.value !== '') return false;
+    // (e) MOS-v2 M-09: a half-written goal is the same unsaved work.
+    var objectiveInput = document.getElementById('goal-objective');
+    if (objectiveInput && objectiveInput.value !== '') return false;
 
     return true;
   }

@@ -36,6 +36,12 @@ fs.mkdirSync(FIXTURES, { recursive: true });
 process.env.MYTHOS_EXECUTOR_HOME = path.join(FIXTURES, 'home');
 process.env.MYTHOS_EXECUTOR_ALLOW_MOCK = '1';
 process.env.MYTHOS_CORE_ENABLED = 'true';
+// MOS-v2 M-09: campaign-service.submitGoal deliberately does NOT take a
+// repo path from its caller -- the repository is configuration, not input --
+// so the goal-layer section below points the core at a throwaway repo the
+// same way the deployment does: through the environment, read once when
+// core-wiring loads. It must therefore be set before the requires below.
+process.env.MYTHOS_CORE_REPO_PATH = path.join(FIXTURES, 'goal-repo');
 
 var campaign = require(path.join(EXEC, 'core', 'campaign'));
 var runner = require(path.join(EXEC, 'core', 'campaign-runner'));
@@ -44,6 +50,7 @@ var store = require(path.join(EXEC, 'core', 'store'));
 var memory = require(path.join(EXEC, 'core', 'memory'));
 var selfImprove = require(path.join(EXEC, 'core', 'self-improve'));
 var agents = require(path.join(EXEC, 'core', 'agent-registry'));
+var policy = require(path.join(EXEC, 'core', 'policy-engine'));
 
 var passed = 0, failed = 0, failures = [];
 function ok(cond, name) {
@@ -965,6 +972,729 @@ chain = chain.then(function () {
       .map(function (x) { return String(x.reason || ''); }).join(' ');
     ok(/does not exist|commit/i.test(problems),
       'git: the refusal names the unverifiable commit');
+  });
+});
+
+
+// ===========================================================================
+// 18. MOS-v2 M-09: MANDATORY HUMAN APPROVAL OF A PROPOSED PLAN
+//
+// GOAL → PROPOSED PLAN → MISSIONS → DEPENDENCIES → HUMAN APPROVAL →
+// DISPATCH → RESULTS.
+//
+// The AI may PROPOSE a plan. It may never authorise its own plan. For a
+// goal submitted with require_plan_approval (which is what the console
+// always does), the campaign is parked in WAITING_FOR_APPROVAL with the
+// proposed plan attached BEFORE any mission is started, and the only way
+// out is a recorded human decision. What is asserted here is the whole
+// sequence, in the order it can actually fail:
+//
+//   · the park happens before any task exists, not after one is running;
+//   · a parked campaign refuses to continue and executes nothing;
+//   · a decision demands an explicit boolean AND a named decider;
+//   · granting returns the campaign to READY and only THEN does a
+//     continuation dispatch anything;
+//   · denying dispatches nothing at all;
+//   · unattended mode still answers for itself, and still only DENIES;
+//   · a caller that does not pass the flag sees exactly what it saw
+//     before -- no extra state, no extra approval.
+// ===========================================================================
+chain = chain.then(function () {
+  useMockAgents();
+  var svc = require(path.join(EXEC, 'core', 'campaign-service'));
+  var goalRepo = makeVisionRepo('goal-repo', [
+    { key: 'A', title: 'Adapter Improvement', status: 'PARTIAL (Phase 2)' },
+    { key: 'B', title: 'Docs Improvement', status: 'PLANNED (Phase 3)' }
+  ]);
+  ok(goalRepo === process.env.MYTHOS_CORE_REPO_PATH,
+    'M-09: the goal-layer fixture repo is the one core-wiring was pointed at');
+
+  // --- the flag is opt-in: an existing caller is untouched ------------
+  var plain = svc.submitGoal({
+    objective: 'Continue developing Mythos without a console gate.',
+    project: 'goal-noflag', requested_by: 'n8n'
+  });
+  ok(plain.created === true && plain.state === 'PLANNING',
+    'M-09: a goal submitted WITHOUT the flag still lands PLANNING (n8n behaviour is unchanged)');
+  ok(plain.require_plan_approval === undefined && plain.approval_id === undefined,
+    'M-09: a goal submitted without the flag carries no approval fields at all');
+  ok((campaign.loadCampaign(plain.campaign_id).approval_required || []).length === 0,
+    'M-09: a goal submitted without the flag has no pending approval');
+
+  // A truthy-but-not-true value is NOT a request for the gate: the flag is
+  // compared by identity, so nothing acquires the behaviour by accident.
+  var stringy = svc.submitGoal({
+    objective: 'A goal whose flag is a string, not a boolean.',
+    project: 'goal-stringflag', requested_by: 'n8n', require_plan_approval: 'true'
+  });
+  ok(stringy.state === 'PLANNING',
+    'M-09: require_plan_approval is read by identity -- a truthy string does not switch the gate on');
+
+  // --- the park, before anything starts -------------------------------
+  var parked = svc.submitGoal({
+    objective: 'Improve the adapter through the console goal layer.',
+    project: 'goal-park', requested_by: 'mos-console', require_plan_approval: true
+  });
+  ok(parked.created === true, 'M-09: a console goal creates a campaign');
+  ok(parked.state === 'WAITING_FOR_APPROVAL',
+    'M-09: a console goal lands WAITING_FOR_APPROVAL, not PLANNING or READY');
+  ok(parked.require_plan_approval === true && !!parked.approval_id,
+    'M-09: the response names a real approval to answer');
+  ok(parked.auto_denied === false, 'M-09: attended mode decides nothing automatically');
+
+  var parkedCampaign = campaign.loadCampaign(parked.campaign_id);
+  ok(parkedCampaign.state === 'WAITING_FOR_APPROVAL',
+    'M-09: the PERSISTED campaign is WAITING_FOR_APPROVAL, so a restart cannot lose the gate');
+  ok(parkedCampaign.current_mission === null,
+    'M-09: NO mission was started before the approval -- the plan is proposed, not begun');
+  ok((parkedCampaign.completed_missions || []).length === 0 &&
+     (parkedCampaign.blocked_missions || []).length === 0,
+    'M-09: nothing has run for this campaign at all');
+  ok((parkedCampaign.approval_required || []).length === 1,
+    'M-09: exactly one approval is outstanding -- the plan itself');
+  var entry = parkedCampaign.approval_required[0];
+  ok(entry.approval_id === parked.approval_id &&
+     /requires human approval before dispatch/.test(entry.reason),
+    'M-09: the outstanding approval is the plan approval, and it says so');
+  ok(policy.pendingApprovals().some(function (a) { return a.id === parked.approval_id; }),
+    'M-09: the approval is a REAL policy-engine entity, not a note on the campaign');
+
+  // --- the plan a human is being asked to authorise --------------------
+  var plan = parkedCampaign.proposed_plan;
+  ok(plan && plan.available === true, 'M-09: a proposed plan is attached to the campaign');
+  ok(plan.capability_key === 'A', 'M-09: the proposed plan names the capability the loop would select');
+  ok(plan.tasks.length >= 4, 'M-09: the proposed plan carries the mission tasks (' + plan.tasks.length + ')');
+  var implement = plan.tasks.filter(function (t) { return t.key === 'implement'; })[0];
+  ok(implement && implement.depends_on.length >= 1,
+    'M-09: the proposed plan carries task DEPENDENCIES, so the DAG is what is approved');
+  ok(implement.policy_classes.indexOf('PROJECT_WRITE') !== -1,
+    'M-09: the proposed plan states which policy classes each task needs');
+  ok(!Object.prototype.hasOwnProperty.call(plan.tasks[0], 'instruction'),
+    'M-09: the plan preview carries no agent instruction text -- the plan is reviewed, not the prompt');
+
+  var described = svc.describe(parked.campaign_id);
+  ok(described.needs_human === true && described.continuable === false,
+    'M-09: describe() reports that a human owns this campaign and it is not continuable');
+  ok(described.plan_approval_required === true,
+    'M-09: describe() states that this campaign is gated on a plan approval');
+  ok(described.proposed_plan && described.proposed_plan.tasks.length === plan.tasks.length,
+    'M-09: describe() exposes the proposed plan for review');
+  ok(described.approval_required.length === 1 && described.approval_required[0].approval_id === parked.approval_id,
+    'M-09: describe() exposes the approval id a decision must be made against');
+
+  // --- a parked campaign executes NOTHING ------------------------------
+  var ranWhileParked = 0;
+  var refused = svc.continueCampaign(parked.campaign_id, {
+    agent_runner: function () { ranWhileParked += 1; throw new Error('must never execute'); },
+    repo_path: goalRepo
+  });
+  ok(refused.accepted === false && refused.code === 'NEEDS_HUMAN',
+    'M-09: continuing a campaign that is waiting for a plan approval is REFUSED');
+  ok(/human approval before dispatch/.test(refused.reason || ''),
+    'M-09: the refusal states what is being waited on');
+  ok(ranWhileParked === 0, 'M-09: no agent ran while the plan was awaiting a decision');
+
+  // --- a decision needs a decider AND an explicit verdict ---------------
+  throws(function () {
+    campaign.resolveApproval(parked.campaign_id, { approval_id: parked.approval_id, granted: true });
+  }, /APPROVAL_NEEDS_DECIDER/, 'M-09: an approval cannot be resolved without a recorded human identity');
+  throws(function () {
+    campaign.resolveApproval(parked.campaign_id, { approval_id: parked.approval_id, decided_by: 'owner' });
+  }, /APPROVAL_NEEDS_EXPLICIT_DECISION/, 'M-09: an approval cannot be resolved without an explicit boolean verdict');
+  throws(function () {
+    campaign.resolveApproval(parked.campaign_id, {
+      approval_id: parked.approval_id, decided_by: 'owner', granted: 'yes'
+    });
+  }, /APPROVAL_NEEDS_EXPLICIT_DECISION/, 'M-09: a non-boolean verdict is refused, never coerced into consent');
+  throws(function () {
+    campaign.resolveApproval(parked.campaign_id, {
+      approval_id: 'ap-nosuch-0001', decided_by: 'owner', granted: true
+    });
+  }, /NO_MATCHING_APPROVAL/, 'M-09: a decision against an approval this campaign does not hold is refused');
+  ok(campaign.loadCampaign(parked.campaign_id).state === 'WAITING_FOR_APPROVAL',
+    'M-09: every refused decision leaves the campaign exactly where it was');
+
+  // --- GRANT → READY → and only then does a continuation dispatch -------
+  var granted = campaign.resolveApproval(parked.campaign_id, {
+    approval_id: parked.approval_id, granted: true,
+    decided_by: 'mos-console-operator:sess:abcd1234', note: 'plan looks right'
+  });
+  ok(granted.granted === true && granted.remaining_approvals === 0,
+    'M-09: the grant is recorded and nothing else is outstanding');
+  ok(granted.state === 'READY', 'M-09: granting the plan returns the campaign to READY');
+  var afterGrant = campaign.loadCampaign(parked.campaign_id);
+  ok(afterGrant.current_mission === null,
+    'M-09: APPROVING RUNS NOTHING -- it only makes running possible');
+  var decision = (afterGrant.approval_decisions || [])[0];
+  ok(decision && decision.granted === true &&
+     decision.decided_by === 'mos-console-operator:sess:abcd1234',
+    'M-09: the decision records WHO decided, in the operator identity the console composed');
+  ok(policy.pendingApprovals().every(function (a) { return a.id !== parked.approval_id; }),
+    'M-09: the durable approval entity is decided, not left pending');
+
+  var dispatched = [];
+  var cont = svc.continueCampaign(parked.campaign_id, {
+    repo_path: goalRepo, max_steps: 1,
+    review_fn: function () { return { verdict: 'pass', findings: [] }; },
+    agent_runner: function (agentName, task) {
+      dispatched.push(task.metadata.plan_key);
+      return Promise.resolve({ status: 'completed', summary: task.title + ' done' });
+    }
+  });
+  ok(cont.accepted === true, 'M-09: once approved, the campaign accepts a continuation');
+  return cont.promise.then(function () {
+    var st = runner.campaignStatus(parked.campaign_id);
+    ok(dispatched.length >= 1 || st.current_mission,
+      'M-09: the approved plan is DISPATCHED through the existing continuation path (' +
+      dispatched.join(',') + ')');
+    ok(st.current_mission ? st.current_mission.capability_key === 'A' : true,
+      'M-09: what was dispatched is the mission that was approved');
+  });
+});
+
+// ===========================================================================
+// 18b. DENIAL DISPATCHES NOTHING
+// ===========================================================================
+chain = chain.then(function () {
+  useMockAgents();
+  var svc = require(path.join(EXEC, 'core', 'campaign-service'));
+  var goalRepo = process.env.MYTHOS_CORE_REPO_PATH;
+  var denied = svc.submitGoal({
+    objective: 'A goal the owner is going to refuse outright.',
+    project: 'goal-deny', requested_by: 'mos-console', require_plan_approval: true
+  });
+  ok(denied.state === 'WAITING_FOR_APPROVAL', 'M-09: the goal to be denied is parked first');
+
+  var out = campaign.resolveApproval(denied.campaign_id, {
+    approval_id: denied.approval_id, granted: false,
+    decided_by: 'mos-console-operator:sess:beef0001', note: 'not this plan'
+  });
+  ok(out.granted === false, 'M-09: the denial is recorded as a denial');
+  var c = campaign.loadCampaign(denied.campaign_id);
+  ok(c.current_mission === null && (c.completed_missions || []).length === 0,
+    'M-09: a denied plan started nothing, before or after the decision');
+  var d = (c.approval_decisions || [])[0];
+  ok(d && d.granted === false && d.decided_by === 'mos-console-operator:sess:beef0001',
+    'M-09: the denial names the human who made it');
+  ok((c.approval_required || []).length === 0,
+    'M-09: a denied approval is no longer outstanding');
+  var stored = store.load('approval', denied.approval_id);
+  ok(stored && stored.status === 'DENIED',
+    'M-09: the durable approval entity itself records the refusal');
+});
+
+// ===========================================================================
+// 18c. UNATTENDED MODE STILL ANSWERS FOR ITSELF -- AND STILL ONLY DENIES
+// ===========================================================================
+chain = chain.then(function () {
+  useMockAgents();
+  var svc = require(path.join(EXEC, 'core', 'campaign-service'));
+  process.env.MYTHOS_UNATTENDED = 'true';
+  try {
+    var g = svc.submitGoal({
+      objective: 'A goal submitted while nobody is reachable to approve it.',
+      project: 'goal-unattended', requested_by: 'mos-console', require_plan_approval: true
+    });
+    ok(g.auto_denied === true,
+      'M-09: with the flag set, unattended mode still decides the plan approval automatically');
+    ok(g.state === 'READY',
+      'M-09: the auto-denied campaign returns to READY, exactly as the unattended policy already did');
+    var c = campaign.loadCampaign(g.campaign_id);
+    var d = (c.approval_decisions || [])[0];
+    ok(d && d.granted === false && d.automatic === true,
+      'M-09: the automatic answer is a DENIAL -- unattended mode can never grant a plan');
+    ok(/unattended-policy/.test(String(d.decided_by)),
+      'M-09: the automatic denial is attributed to the unattended policy, never to an operator');
+    ok(c.current_mission === null,
+      'M-09: nothing was dispatched by the automatic denial');
+    ok((c.approval_required || []).length === 0,
+      'M-09: the auto-denied approval is not left outstanding for a human who will never see it');
+  } finally {
+    delete process.env.MYTHOS_UNATTENDED;
+  }
+});
+
+
+// ===========================================================================
+// 19. MOS-v2 M-10: GOVERNED AI DECOMPOSITION
+//
+// HUMAN OBJECTIVE → PLANNER MODEL → SCHEMA → POLICY → DEPENDENCY/DAG →
+// HUMAN APPROVAL → THE EXISTING DISPATCHER.
+//
+// The planner model's output is DATA. Every assertion below exists
+// because there is a way for that to stop being true:
+//
+//   · a plan that executes because it was generated — so the parked
+//     campaign runs nothing, and the ONLY exit is resolveApproval;
+//   · a plan that dispatches something other than what the human read —
+//     so the VALIDATED spec is stored with the campaign and the granted
+//     approval dispatches that stored spec, never a re-generation;
+//   · a plan that widens its own authority — so policy classes,
+//     capabilities, budgets and attempt limits are not fields a planner
+//     may write at all, and 'autonomous' is not a profile it may propose;
+//   · a silent fallback — so a failed decomposition parks with the typed
+//     reason and BLOCKS rather than quietly dispatching the roadmap's own
+//     template plan under the belief that it was the AI's.
+// ===========================================================================
+
+var decompose = require(path.join(EXEC, 'core', 'decompose'));
+
+function plannerRunnerFor(payload) {
+  // Imitates the advisory provider's outcome shape. It also ASSERTS the
+  // synthetic task it is handed: the planner is reached with no working
+  // directory and no execution profile, which is the structural reason it
+  // cannot act on anything it proposes.
+  return function (task, prompt) {
+    ok(task.working_directory === null && task.execution_profile === null,
+      'M-10: the planner is called with no working directory and no execution profile');
+    ok(task.provider === 'openai-compat',
+      'M-10: the planner runs on the advisory provider from the existing registry');
+    ok(prompt.indexOf('MYTHOS_OBJECTIVE') !== -1,
+      'M-10: the objective is embedded in the prompt as delimited DATA');
+    return Promise.resolve({
+      exit_code: 0, parsed: { is_error: false, result: payload }, stdout: '', stderr: ''
+    });
+  };
+}
+
+function fenced(obj) {
+  return 'Here is the plan.\n\n```json\n' + JSON.stringify(obj) + '\n```\n';
+}
+
+var AI_PLAN = {
+  title: 'Survey and summarise the adapter',
+  tasks: [
+    { key: 'scan-a', title: 'Scan the adapter', task_type: 'inspection',
+      instruction: 'Read the adapter and state what exists.', depends_on: [],
+      recommended_model: 'gpt-4o-mini', execution_profile: 'repo-read',
+      expected_result: 'A list of files and their roles.' },
+    { key: 'scan-b', title: 'Scan the tests', task_type: 'inspection',
+      instruction: 'Read the adapter tests and state what they cover.', depends_on: [] },
+    { key: 'summarise', title: 'Summarise both scans', task_type: 'reporting',
+      instruction: 'Summarise the two scans into one report.',
+      depends_on: ['scan-a', 'scan-b'], priority: 'normal' }
+  ]
+};
+
+// --- 19a. the parser and the mapper, on their own ---------------------------
+chain = chain.then(function () {
+  // Happy path.
+  var parsed = decompose.parsePlannerOutput(fenced(AI_PLAN));
+  ok(parsed.tasks.length === 3, 'M-10: a fenced json plan parses to its tasks');
+
+  var mapped = decompose.toPlanSpec(parsed);
+  ok(mapped.spec.tasks.length === 3, 'M-10: the mapped spec carries every task');
+  var specKeys = Object.keys(mapped.spec.tasks[0]).sort().join(',');
+  ok(specKeys === 'depends_on,instruction,key,task_type,title',
+    'M-10: a spec task carries ONLY the whitelisted planner fields (' + specKeys + ')');
+  ['policy_classes', 'capabilities_required', 'budget_usd', 'max_attempts',
+    'recommended_model', 'execution_profile'].forEach(function (f) {
+    ok(!Object.prototype.hasOwnProperty.call(mapped.spec.tasks[0], f),
+      'M-10: the spec carries no ' + f + ' — a generated plan cannot write its own authority');
+  });
+  ok(mapped.advisory.tasks['scan-a'].recommended_model === 'gpt-4o-mini' &&
+     mapped.advisory.tasks['scan-a'].execution_profile === 'repo-read',
+    'M-10: model and profile suggestions travel BESIDE the spec, as advisory metadata');
+  ok(mapped.advisory.tasks['scan-b'].recommended_model === undefined,
+    'M-10: advisory metadata is only what the planner actually offered');
+
+  // Refusals: output shape.
+  [
+    ['no fence at all', 'Sure! I would run three tasks: first, inspect the repo.'],
+    ['prose json without a fence', '{"title":"x","tasks":[{"key":"a"}]}'],
+    ['an unparseable fence', '```json\n{"title": "x", tasks: oops}\n```'],
+    ['two fenced plans', fenced(AI_PLAN) + fenced(AI_PLAN)],
+    ['an empty task list', fenced({ title: 'x', tasks: [] })],
+    ['a non-object plan', fenced([1, 2, 3])]
+  ].forEach(function (pair) {
+    try {
+      decompose.parsePlannerOutput(pair[1]);
+      ok(false, 'M-10: ' + pair[0] + ' is refused');
+    } catch (e) {
+      ok(e.code === 'PLANNER_OUTPUT_INVALID',
+        'M-10: ' + pair[0] + ' is refused as PLANNER_OUTPUT_INVALID (' + e.code + ')');
+    }
+  });
+
+  // Bounds.
+  var many = { title: 'too many', tasks: [] };
+  for (var i = 0; i < 21; i++) {
+    many.tasks.push({ key: 't' + i, title: 'T', task_type: 'inspection', instruction: 'x', depends_on: [] });
+  }
+  try {
+    decompose.parsePlannerOutput(fenced(many));
+    ok(false, 'M-10: a plan of 21 tasks is refused');
+  } catch (e) {
+    ok(e.code === 'PLANNER_OUTPUT_INVALID' && /at most 20/.test(e.message),
+      'M-10: a plan above the task ceiling is refused by count');
+  }
+  var huge = fenced({ title: 'big', tasks: [{ key: 'a', title: 'A', task_type: 'inspection',
+    instruction: 'x'.repeat(70 * 1024), depends_on: [] }] });
+  ok(Buffer.byteLength(huge) > decompose.MAX_OUTPUT_BYTES, 'M-10: the oversize fixture really is oversize');
+  try {
+    decompose.parsePlannerOutput(huge);
+    ok(false, 'M-10: an oversized planner answer is refused');
+  } catch (e) {
+    ok(e.code === 'PLANNER_OUTPUT_INVALID' && /bytes/.test(e.message),
+      'M-10: an oversized planner answer is refused by size, before it is parsed');
+  }
+
+  // Refusals: what a plan may say.
+  [
+    ['a policy class', { key: 'a', title: 'A', task_type: 'inspection', instruction: 'x',
+      depends_on: [], policy_classes: ['DESTRUCTIVE'] }],
+    ['a capability', { key: 'a', title: 'A', task_type: 'inspection', instruction: 'x',
+      depends_on: [], capabilities_required: ['deploy'] }],
+    ['a budget', { key: 'a', title: 'A', task_type: 'inspection', instruction: 'x',
+      depends_on: [], budget_usd: 500 }],
+    ['a working directory', { key: 'a', title: 'A', task_type: 'inspection', instruction: 'x',
+      depends_on: [], working_directory: '/etc' }],
+    ['an unknown task type', { key: 'a', title: 'A', task_type: 'root-shell', instruction: 'x', depends_on: [] }],
+    ['the autonomous profile', { key: 'a', title: 'A', task_type: 'inspection', instruction: 'x',
+      depends_on: [], execution_profile: 'autonomous' }],
+    ['the deploy profile', { key: 'a', title: 'A', task_type: 'inspection', instruction: 'x',
+      depends_on: [], execution_profile: 'deploy' }],
+    ['a dependency on itself', { key: 'a', title: 'A', task_type: 'inspection', instruction: 'x',
+      depends_on: ['a'] }],
+    ['a dependency outside the plan', { key: 'a', title: 'A', task_type: 'inspection', instruction: 'x',
+      depends_on: ['nowhere'] }],
+    ['a key that is not a key', { key: '../../etc/passwd', title: 'A', task_type: 'inspection',
+      instruction: 'x', depends_on: [] }],
+    ['no instruction', { key: 'a', title: 'A', task_type: 'inspection', depends_on: [] }]
+  ].forEach(function (pair) {
+    try {
+      decompose.toPlanSpec({ title: 't', tasks: [pair[1]] });
+      ok(false, 'M-10: a plan proposing ' + pair[0] + ' is refused');
+    } catch (e) {
+      ok(e.code === 'PLANNER_PLAN_REFUSED',
+        'M-10: a plan proposing ' + pair[0] + ' is refused as PLANNER_PLAN_REFUSED (' + e.code + ')');
+    }
+  });
+
+  // The planner is never reached with authority, and never falls back.
+  return decompose.decomposeObjective('Survey the adapter and report on it.', {
+    runner: plannerRunnerFor(fenced(AI_PLAN))
+  }).then(function (out) {
+    ok(out.provider === 'openai-compat' && typeof out.text === 'string',
+      'M-10: decomposeObjective reports which advisory provider answered');
+    ok(out.prompt.indexOf('capabilities, policy classes, permissions') !== -1,
+      'M-10: the fixed prompt tells the planner it may not choose permissions');
+    // A provider that cannot answer fails CLOSED.
+    return decompose.decomposeObjective('Survey the adapter and report on it.', {
+      runner: function () {
+        return Promise.resolve({ exit_code: 1, stderr: 'ADVISORY_KEY_UNAVAILABLE',
+          parsed: { is_error: true, result: 'advisory provider unavailable' } });
+      }
+    }).then(function () {
+      ok(false, 'M-10: an unavailable planner is refused');
+    }, function (e) {
+      ok(e.code === 'PLANNER_UNAVAILABLE',
+        'M-10: a planner that cannot answer fails CLOSED as PLANNER_UNAVAILABLE');
+    });
+  }).then(function () {
+    // No credential and no injected runner: the real provider path.
+    var prevKey = process.env.MYTHOS_ADVISORY_KEY_FILE;
+    process.env.MYTHOS_ADVISORY_KEY_FILE = path.join(FIXTURES, 'no-such-advisory.env');
+    return decompose.decomposeObjective('Survey the adapter and report on it.', {}).then(function () {
+      ok(false, 'M-10: decomposition without a credential is refused');
+    }, function (e) {
+      ok(e.code === 'PLANNER_UNAVAILABLE',
+        'M-10: with no advisory credential the planner is PLANNER_UNAVAILABLE — never a fallback to running something');
+    }).then(function () {
+      if (prevKey === undefined) delete process.env.MYTHOS_ADVISORY_KEY_FILE;
+      else process.env.MYTHOS_ADVISORY_KEY_FILE = prevKey;
+    });
+  });
+});
+
+// --- 19b. the whole flow: propose → park → approve → dispatch --------------
+chain = chain.then(function () {
+  useMockAgents();
+  var svc = require(path.join(EXEC, 'core', 'campaign-service'));
+
+  // The flag pair: an AI plan is never dispatched unreviewed.
+  throws(function () {
+    svc.submitGoal({ objective: 'Decompose this without any approval gate at all.',
+      project: 'goal-ai-noapproval', decompose: true });
+  }, /DECOMPOSE_REQUIRES_APPROVAL/,
+    'M-10: asking for AI decomposition WITHOUT the approval gate is refused outright');
+
+  var submitted = svc.submitGoal({
+    objective: 'Survey the adapter implementation and report what it covers.',
+    project: 'goal-ai-happy', requested_by: 'mos-console',
+    require_plan_approval: true, decompose: true,
+    decompose_runner: plannerRunnerFor(fenced(AI_PLAN))
+  });
+  ok(typeof submitted.then === 'function',
+    'M-10: a decomposing submission is answered asynchronously (a planner is a network call)');
+
+  return submitted.then(function (g) {
+    ok(g.state === 'WAITING_FOR_APPROVAL' && g.decompose === true,
+      'M-10: an AI-decomposed goal parks WAITING_FOR_APPROVAL, exactly as the template one does');
+    ok(g.decompose_status === 'VALIDATED', 'M-10: the stored plan is a VALIDATED plan');
+    ok(!!g.approval_id, 'M-10: a real approval is outstanding');
+
+    var plan = g.proposed_plan;
+    ok(plan.available === true && plan.source === 'ai-decomposition',
+      'M-10: the attached plan says it came from a planner model');
+    ok(plan.planner_provider === 'openai-compat',
+      'M-10: the attached plan names the planner provider a human is being asked to trust');
+    ok(plan.tasks.length === 3 && plan.tasks.map(function (t) { return t.key; }).join(',') === 'scan-a,scan-b,summarise',
+      'M-10: the plan a human reviews is the AI plan, task for task');
+    var summarise = plan.tasks[2];
+    ok(summarise.depends_on.join(',') === 'scan-a,scan-b',
+      'M-10: the DEPENDENCIES are what is being approved, not a flat list');
+    ok(plan.tasks[0].policy_classes.join('+') === 'READ',
+      'M-10: the policy classes shown are the ones planner.js DERIVED from the task type');
+    ok(plan.tasks[0].recommended_model === 'gpt-4o-mini' &&
+       plan.tasks[0].execution_profile === 'repo-read' &&
+       /files and their roles/.test(plan.tasks[0].expected_result),
+      'M-10: the planner ADVISORY fields are shown to the human, per task');
+    ok(plan.tasks[1].recommended_model === undefined,
+      'M-10: a task the planner made no suggestion for carries no empty suggestion');
+
+    var c = campaign.loadCampaign(g.campaign_id);
+    ok(c.state === 'WAITING_FOR_APPROVAL' && c.current_mission === null,
+      'M-10: NOTHING was dispatched by decomposing — the campaign is parked with a proposal');
+    ok(c.decompose && c.decompose.status === 'VALIDATED' && c.decompose.spec &&
+       c.decompose.spec.tasks.length === 3,
+      'M-10: the VALIDATED SPEC is stored durably with the campaign');
+    ok(c.decompose.spec.tasks.every(function (t) {
+      return Object.keys(t).sort().join(',') === 'depends_on,instruction,key,task_type,title';
+    }), 'M-10: the stored spec is the whitelisted spec, not the planner\'s raw answer');
+    ok(c.decompose.approval_id === g.approval_id,
+      'M-10: the stored spec names WHICH approval must be granted before it may run');
+
+    var described = svc.describe(g.campaign_id);
+    ok(described.proposed_plan.source === 'ai-decomposition' &&
+       described.proposed_plan.planner_provider === 'openai-compat',
+      'M-10: describe() relays the plan provenance for review');
+    ok(described.proposed_plan.tasks[0].recommended_model === 'gpt-4o-mini',
+      'M-10: describe() relays the per-task advisory suggestions');
+    ok(described.needs_human === true && described.continuable === false,
+      'M-10: a decomposed campaign is not continuable while a human owns it');
+
+    // A parked AI plan executes nothing.
+    var ranWhileParked = 0;
+    var refused = svc.continueCampaign(g.campaign_id, {
+      agent_runner: function () { ranWhileParked += 1; throw new Error('must never execute'); }
+    });
+    ok(refused.accepted === false && refused.code === 'NEEDS_HUMAN' && ranWhileParked === 0,
+      'M-10: continuing an unapproved AI plan is refused and runs nothing');
+
+    // GRANT → the STORED spec is what dispatches.
+    var granted = campaign.resolveApproval(g.campaign_id, {
+      approval_id: g.approval_id, granted: true,
+      decided_by: 'mos-console-operator:sess:aa11bb22', note: 'plan reviewed'
+    });
+    ok(granted.granted === true && granted.state === 'READY',
+      'M-10: granting the AI plan returns the campaign to READY');
+    ok(campaign.loadCampaign(g.campaign_id).current_mission === null,
+      'M-10: granting still RUNS NOTHING — it only makes running possible');
+
+    var dispatched = [];
+    var cont = svc.continueCampaign(g.campaign_id, {
+      // Enough steps for the mission to be started AND for its dependency
+      // graph to advance, so what is asserted below is the real dispatch
+      // order rather than the intention to dispatch.
+      max_steps: 3,
+      review_fn: function () { return { verdict: 'pass', findings: [] }; },
+      agent_runner: function (agentName, task) {
+        dispatched.push(task.metadata.plan_key);
+        return Promise.resolve({ status: 'completed', summary: task.title + ' done' });
+      }
+    });
+    ok(cont.accepted === true, 'M-10: once approved, the campaign accepts a continuation');
+    return cont.promise.then(function () {
+      var after = campaign.loadCampaign(g.campaign_id);
+      var mission = store.load('mission', after.decompose.mission_id);
+      ok(!!mission, 'M-10: the granted approval started a mission from the stored spec');
+      var keys = mission.task_ids.map(function (id) { return store.load('task', id).metadata.plan_key; });
+      ok(keys.sort().join(',') === 'scan-a,scan-b,summarise',
+        'M-10: the DISPATCHED mission is the stored AI plan, task for task (' + keys.join(',') + ')');
+      ok(keys.indexOf('implement') === -1 && keys.indexOf('inspect') === -1,
+        'M-10: no roadmap-template task was substituted into the approved plan');
+      ok(!!after.decompose.dispatched_at,
+        'M-10: the stored spec records that it has been dispatched, so it dispatches once');
+
+      // The DAG gates it: dag.js decides what may start, and it is the
+      // existing persistPlan wiring that encodes the gate.
+      var byKey = {};
+      mission.task_ids.forEach(function (id) {
+        var t = store.load('task', id);
+        byKey[t.metadata.plan_key] = t;
+      });
+      ok(byKey['summarise'].depends_on.length === 2 &&
+         byKey['summarise'].depends_on.indexOf(byKey['scan-a'].id) !== -1,
+        'M-10: the dependent task depends on the REAL task ids of both scans');
+      if (dispatched.indexOf('summarise') !== -1) {
+        ok(dispatched.indexOf('summarise') > dispatched.indexOf('scan-a') &&
+           dispatched.indexOf('summarise') > dispatched.indexOf('scan-b'),
+          'M-10: the dependent task ran only after both of its dependencies (' + dispatched.join(',') + ')');
+      } else {
+        ok(dispatched.indexOf('scan-a') !== -1 || dispatched.indexOf('scan-b') !== -1,
+          'M-10: the independent tasks are the ones the dispatcher started first (' + dispatched.join(',') + ')');
+      }
+      svc.releaseLock(g.campaign_id);
+    });
+  });
+});
+
+// --- 19c. every failure mode parks, and none of them fall back --------------
+[
+  { project: 'goal-ai-junk', label: 'junk instead of a plan',
+    output: 'I think you should just start coding, honestly.', code: 'PLANNER_OUTPUT_INVALID' },
+  { project: 'goal-ai-toomany', label: 'more tasks than the ceiling',
+    output: (function () {
+      var many = { title: 'too many', tasks: [] };
+      for (var i = 0; i < 25; i++) {
+        many.tasks.push({ key: 'k' + i, title: 'T', task_type: 'inspection',
+          instruction: 'x', depends_on: [] });
+      }
+      return '```json\n' + JSON.stringify(many) + '\n```';
+    })(), code: 'PLANNER_OUTPUT_INVALID' },
+  { project: 'goal-ai-oversized', label: 'an oversized answer',
+    output: '```json\n' + JSON.stringify({ title: 'big', tasks: [{ key: 'a', title: 'A',
+      task_type: 'inspection', instruction: 'x'.repeat(70 * 1024), depends_on: [] }] }) + '\n```',
+    code: 'PLANNER_OUTPUT_INVALID' },
+  { project: 'goal-ai-policy', label: 'a task writing its own policy class',
+    output: '```json\n' + JSON.stringify({ title: 'escalation', tasks: [
+      { key: 'a', title: 'A', task_type: 'inspection', instruction: 'x', depends_on: [],
+        policy_classes: ['DESTRUCTIVE', 'DEPLOY'] }] }) + '\n```',
+    code: 'PLANNER_PLAN_REFUSED' },
+  { project: 'goal-ai-type', label: 'a task type that does not exist',
+    output: '```json\n' + JSON.stringify({ title: 'unknown type', tasks: [
+      { key: 'a', title: 'A', task_type: 'shell', instruction: 'rm -rf /', depends_on: [] }] }) + '\n```',
+    code: 'PLANNER_PLAN_REFUSED' },
+  { project: 'goal-ai-profile', label: 'the autonomous execution profile',
+    output: '```json\n' + JSON.stringify({ title: 'profile grab', tasks: [
+      { key: 'a', title: 'A', task_type: 'coding', instruction: 'x', depends_on: [],
+        execution_profile: 'autonomous' }] }) + '\n```',
+    code: 'PLANNER_PLAN_REFUSED' },
+  { project: 'goal-ai-cycle', label: 'a dependency cycle',
+    output: '```json\n' + JSON.stringify({ title: 'cycle', tasks: [
+      { key: 'a', title: 'A', task_type: 'inspection', instruction: 'x', depends_on: ['b'] },
+      { key: 'b', title: 'B', task_type: 'inspection', instruction: 'x', depends_on: ['a'] }] }) + '\n```',
+    code: 'PLANNER_PLAN_INVALID' }
+].forEach(function (bad) {
+  chain = chain.then(function () {
+    useMockAgents();
+    var svc = require(path.join(EXEC, 'core', 'campaign-service'));
+    return svc.submitGoal({
+      objective: 'A goal whose planner answers with ' + bad.label + '.',
+      project: bad.project, requested_by: 'mos-console',
+      require_plan_approval: true, decompose: true,
+      decompose_runner: plannerRunnerFor(bad.output)
+    }).then(function (g) {
+      ok(g.state === 'WAITING_FOR_APPROVAL',
+        'M-10 (' + bad.label + '): the campaign is PARKED for a human, never silently continued');
+      ok(g.decompose_status === 'FAILED' && g.decompose_error === bad.code,
+        'M-10 (' + bad.label + '): the typed refusal is ' + bad.code + ' (got ' + g.decompose_error + ')');
+      ok(g.proposed_plan.available === false && g.proposed_plan.tasks.length === 0,
+        'M-10 (' + bad.label + '): no plan is attached, because none was produced');
+      ok(g.proposed_plan.reason.indexOf(bad.code) !== -1,
+        'M-10 (' + bad.label + '): the typed reason is VISIBLE on the plan a human is shown');
+      var c = campaign.loadCampaign(g.campaign_id);
+      var pending = (c.approval_required || [])[0];
+      ok(pending && pending.reason.indexOf(bad.code) !== -1 &&
+         /NO template plan has been substituted/.test(pending.reason),
+        'M-10 (' + bad.label + '): the approval asks the FALLBACK QUESTION instead of answering it');
+      ok(c.current_mission === null && (c.completed_missions || []).length === 0,
+        'M-10 (' + bad.label + '): nothing was dispatched');
+
+      // And granting it still dispatches nothing: a failed decomposition
+      // can never become a roadmap-template dispatch.
+      var dispatched = 0;
+      campaign.resolveApproval(g.campaign_id, {
+        approval_id: g.approval_id, granted: true,
+        decided_by: 'mos-console-operator:sess:cc33dd44'
+      });
+      var cont = svc.continueCampaign(g.campaign_id, {
+        max_steps: 1,
+        agent_runner: function () { dispatched += 1; return Promise.resolve({ status: 'completed', summary: 'x' }); }
+      });
+      ok(cont.accepted === true, 'M-10 (' + bad.label + '): the granted campaign accepts a continuation');
+      return cont.promise.then(function () {
+        var after = campaign.loadCampaign(g.campaign_id);
+        ok(after.state === 'BLOCKED',
+          'M-10 (' + bad.label + '): with no validated plan the campaign BLOCKS rather than falling back');
+        ok(dispatched === 0,
+          'M-10 (' + bad.label + '): not one agent ran — no template plan was substituted for the failed one');
+        ok((after.blocked_missions || []).some(function (b) { return /template plan/.test(b.reason || ''); }),
+          'M-10 (' + bad.label + '): the block states that no substitution was made');
+        svc.releaseLock(g.campaign_id);
+      });
+    });
+  });
+});
+
+// --- 19d. approval is mandatory: a DENIED AI plan never dispatches ----------
+chain = chain.then(function () {
+  useMockAgents();
+  var svc = require(path.join(EXEC, 'core', 'campaign-service'));
+  return svc.submitGoal({
+    objective: 'An AI-decomposed plan the owner is going to refuse.',
+    project: 'goal-ai-denied', requested_by: 'mos-console',
+    require_plan_approval: true, decompose: true,
+    decompose_runner: plannerRunnerFor(fenced(AI_PLAN))
+  }).then(function (g) {
+    ok(g.decompose_status === 'VALIDATED', 'M-10: the plan to be denied is a valid one');
+    campaign.resolveApproval(g.campaign_id, {
+      approval_id: g.approval_id, granted: false,
+      decided_by: 'mos-console-operator:sess:ee55ff66', note: 'not this plan'
+    });
+    var dispatched = 0;
+    var cont = svc.continueCampaign(g.campaign_id, {
+      max_steps: 1,
+      agent_runner: function () { dispatched += 1; return Promise.resolve({ status: 'completed', summary: 'x' }); }
+    });
+    return cont.promise.then(function () {
+      var c = campaign.loadCampaign(g.campaign_id);
+      ok(dispatched === 0 && c.current_mission === null,
+        'M-10: a DENIED AI plan dispatches nothing, even though the campaign left WAITING_FOR_APPROVAL');
+      ok(c.state === 'BLOCKED',
+        'M-10: a denied AI plan blocks — "no longer waiting" is not consent');
+      ok((c.blocked_missions || []).some(function (b) { return /not been granted/.test(b.reason || ''); }),
+        'M-10: the block names the missing human decision');
+      svc.releaseLock(g.campaign_id);
+    });
+  });
+});
+
+// --- 19e. unattended mode is unaffected: it still only ever DENIES ----------
+chain = chain.then(function () {
+  useMockAgents();
+  var svc = require(path.join(EXEC, 'core', 'campaign-service'));
+  process.env.MYTHOS_UNATTENDED = 'true';
+  return svc.submitGoal({
+    objective: 'An AI-decomposed goal submitted while nobody is reachable.',
+    project: 'goal-ai-unattended', requested_by: 'mos-console',
+    require_plan_approval: true, decompose: true,
+    decompose_runner: plannerRunnerFor(fenced(AI_PLAN))
+  }).then(function (g) {
+    ok(g.auto_denied === true && g.state === 'READY',
+      'M-10: unattended mode answers an AI plan the same way it answers any other — automatically');
+    var c = campaign.loadCampaign(g.campaign_id);
+    var d = (c.approval_decisions || [])[0];
+    ok(d && d.granted === false,
+      'M-10: the automatic answer to an AI-decomposed plan is a DENIAL, never a grant');
+    var dispatched = 0;
+    var cont = svc.continueCampaign(g.campaign_id, {
+      max_steps: 1,
+      agent_runner: function () { dispatched += 1; return Promise.resolve({ status: 'completed', summary: 'x' }); }
+    });
+    return cont.promise.then(function () {
+      ok(dispatched === 0,
+        'M-10: an auto-denied AI plan dispatches nothing — unattended mode cannot approve a generated plan into execution');
+      ok(campaign.loadCampaign(g.campaign_id).state === 'BLOCKED',
+        'M-10: the auto-denied AI campaign blocks rather than selecting roadmap work it was never asked to do');
+      svc.releaseLock(g.campaign_id);
+    });
+  }).then(function () {
+    delete process.env.MYTHOS_UNATTENDED;
+  }, function (e) {
+    delete process.env.MYTHOS_UNATTENDED;
+    throw e;
   });
 });
 

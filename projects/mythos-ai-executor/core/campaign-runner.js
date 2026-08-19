@@ -128,6 +128,46 @@ function recoverOrphanedTasks(missionId) {
   return recovered;
 }
 
+// MOS-v2 M-10. Why an AI-decomposed campaign may NOT dispatch, or null if
+// it may. Read-only: it decides nothing and writes nothing.
+//
+// The grant is checked against the campaign's own decision record for the
+// approval id the plan was parked under. "Not waiting for approval any
+// more" is NOT consent — an unattended auto-denial also clears the wait,
+// and a denied plan must stay undispatchable rather than become the next
+// thing the loop picks up.
+function decompositionRefusal(c, dec) {
+  if (dec.status !== 'VALIDATED' || !dec.spec) {
+    return 'AI decomposition produced no validated plan (' + (dec.code || 'PLANNER_FAILED') + '): ' +
+      String(dec.reason || 'no plan was generated').slice(0, 300) +
+      ' — no template plan is ever substituted for one a planner failed to produce; ' +
+      'submit the goal again, with or without decomposition.';
+  }
+  var granted = (c.approval_decisions || []).some(function (d) {
+    return d && d.granted === true && d.approval_id && d.approval_id === dec.approval_id;
+  });
+  if (!granted) {
+    return 'the AI-decomposed plan has not been granted by a human ' +
+      '(approval ' + (dec.approval_id || 'unknown') + '); nothing is dispatched without that decision.';
+  }
+  return null;
+}
+
+// Records the refusal on the campaign and blocks it, so describe() and the
+// event feed both state WHY rather than showing an empty BLOCKED.
+function blockCampaign(campaignId, reason) {
+  var c = campaign.loadCampaign(campaignId);
+  c.blocked_missions = (c.blocked_missions || []).concat([{
+    mission_id: null, capability_key: null,
+    reason: String(reason).slice(0, 600), at: new Date().toISOString()
+  }]);
+  campaign.saveCampaign(c);
+  if (campaign.loadCampaign(campaignId).state !== 'BLOCKED') {
+    campaign.transition(campaignId, 'BLOCKED', {});
+  }
+  return { state: 'BLOCKED', action: 'blocked', detail: reason };
+}
+
 function advanceCampaign(campaignId, opts) {
   opts = opts || {};
   coreWiring.assertEnabled();
@@ -167,6 +207,62 @@ function advanceCampaign(campaignId, opts) {
     // Always pass through READY: PLANNING → RUNNING is not a legal
     // transition, and the state machine is the authority here.
     if (c.state !== 'READY') campaign.transition(campaignId, 'READY', {});
+
+    // MOS-v2 M-10: a campaign whose plan was AI-DECOMPOSED never selects
+    // roadmap work. Its plan is the one a human read and approved, and
+    // that is the only thing it may dispatch:
+    //
+    //   · no validated spec (decomposition failed) → BLOCKED, with the
+    //     typed reason. Falling through to proposeNextMission here would
+    //     dispatch a template plan nobody reviewed under the belief it
+    //     was the AI's — the exact substitution this stage exists to
+    //     prevent;
+    //   · a spec whose approval was not GRANTED (denied, auto-denied by
+    //     unattended mode, or still outstanding) → BLOCKED. There is no
+    //     path from decomposition to dispatch that does not pass through
+    //     campaign.resolveApproval;
+    //   · already dispatched → COMPLETED. One approved plan, dispatched
+    //     once; more work needs another goal and another decision.
+    var dec = c.decompose;
+    if (dec && dec.requested === true) {
+      var refusal = decompositionRefusal(c, dec);
+      if (refusal) return Promise.resolve(blockCampaign(campaignId, refusal));
+      if (dec.dispatched_at) {
+        campaign.transition(campaignId, 'COMPLETED', {
+          completion_reason: 'the approved AI-decomposed plan has been dispatched; ' +
+            'further work needs a new goal and a new decision'
+        });
+        return Promise.resolve({ state: 'COMPLETED', action: 'completed',
+          detail: 'the approved AI-decomposed plan has been dispatched' });
+      }
+      var startedDec = campaign.startMission(campaignId, {
+        capability_key: null,
+        title: dec.title || 'AI-decomposed plan',
+        objective: c.objective,
+        acceptance_criteria: [],
+        authority: 'human-approved'
+      }, Object.assign({}, opts, { spec: dec.spec }));
+      if (startedDec.requires_approval) {
+        return Promise.resolve({ state: 'WAITING_FOR_APPROVAL', action: 'approval_required',
+          detail: startedDec.reason, approval_id: startedDec.approval_id });
+      }
+      if (startedDec.blocked) {
+        return Promise.resolve({ state: 'BLOCKED', action: 'blocked', detail: startedDec.reason });
+      }
+      var cDec = campaign.loadCampaign(campaignId);
+      cDec.decompose = Object.assign({}, cDec.decompose, {
+        dispatched_at: new Date().toISOString(),
+        mission_id: startedDec.mission_id
+      });
+      campaign.saveCampaign(cDec);
+      if (campaign.loadCampaign(campaignId).state !== 'RUNNING') {
+        campaign.transition(campaignId, 'RUNNING', {});
+      }
+      return Promise.resolve({ state: 'RUNNING', action: 'mission_started',
+        detail: 'approved AI-decomposed plan: ' + (dec.title || 'plan'),
+        mission_id: startedDec.mission_id, decomposed: true });
+    }
+
     var proposal = campaign.proposeNextMission(campaignId);
     if (!proposal.proposal) {
       // UNATTENDED: "nothing selectable right now" is NOT "finished".
@@ -533,6 +629,7 @@ function campaignStatus(campaignId) {
 
 module.exports = {
   advanceCampaign: advanceCampaign,
+  decompositionRefusal: decompositionRefusal,
   recoverOrphanedTasks: recoverOrphanedTasks,
   ORPHAN_GRACE_MS: ORPHAN_GRACE_MS,
   runCampaign: runCampaign,

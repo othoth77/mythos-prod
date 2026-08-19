@@ -1,7 +1,371 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MYTHOS **FINAL MISSION, STAGE 5 — DEPLOYMENT READINESS CONSOLIDATED (`docs/DEPLOYMENT_READINESS.md`). THE BLOCKER IS NOW EVIDENCED FROM INSIDE THE BUILD SESSION, NOT ASSUMED: NO SSH/RSYNC/SCP BINARIES, EMPTY `~/.ssh`, NO KEY MATERIAL, EGRESS PROXY 403s ALL EXTERNAL DOMAINS — NO TRANSPORT AND NO PATH TO THE HOST EXISTS, AND NONE WAS CREATED (THE MANDATE'S MUST-NOT LIST WAS HONORED VERBATIM). EVERY DEPLOYABLE HAS ITS EXECUTABLE RUNBOOK: HUB (`sites/mythosprod.xyz/DEPLOYMENT.md`), MYTHOS PROD (README RSYNC), CONSOLE M-01/M-02 (`deploy/relay/RUNBOOK.md`). MIG-4 DELIBERATELY HAS NONE. THREE OWNER ACTIONS REMAIN: DNS (§25.3), HOST EXECUTION (MOS-1.6/1.7), MIG-4 AUTHORIZATION.**
+**From:** MOS-v2 **FINAL — ALL ELEVEN STAGES CODE-COMPLETE AND MERGED-OR-MERGING; REGRESSION GATE 0 NEW FAILURES; PRODUCTION ACTIVATION OPERATOR-BLOCKED (HOST ACCESS), STEPS RECORDED.**
+
+## MOS-v2 FINAL (2026-08-19)
+
+**Status: CODE-COMPLETE.** Every MOS-v2 engineering stage is implemented,
+tested, and on GitHub. Production activation (and only it) awaits the
+operator on the host — no engineering remainder.
+
+| Stage | State |
+|---|---|
+| M-01 server auth | MERGED to main (#34) — production activation pending |
+| M-02 deploy relay | MERGED to main (#33) — host install pending |
+| M-03 nginx contract | MERGED to main (#32) — host reload pending |
+| M-04 execution profiles | DONE `bf46457` |
+| M-05 model catalog | DONE `221d826` |
+| M-06 mission control | DONE `6dbdf80` |
+| M-07 safety audit | ACCEPTED `04c48eb` (2 gaps fixed; report in docs/) |
+| M-08 regression gate | GREEN `b16ebde` — 0 new failures, 20/20 areas |
+| M-09 goal + approval | DONE `23e0b88` |
+| M-10 AI decomposition | DONE `e7f8cd8` |
+| M-11 auto-routing | DONE (this commit) |
+
+**Final suites (this tree):** console **1235/0**, executor **196/0**,
+autonomous-campaign **365/0**, n8n-bridge **80/0**, orchestration-core
+**255/2** (the pinned VPS-only pair), regression gate **exit 0, 0 new
+failures, 20/20 coverage**. Real parallel execution remains proven
+(MOS-3 production proofs untouched; MAX_PARALLEL=5 pinned by gate).
+
+**Fable 5 is not a runtime provider.** No Fable integration exists in
+the provider registry, catalog, or router; the runtime operates on
+claude-code + openai-compat (gemini registered but disabled, no
+credential). Verified by the M-05/M-11 allowlists and their tests.
+
+**No new secret entered Git.** The compromised MOS-1 password is
+documented as compromised; the new MOS_CONSOLE_SECRET exists nowhere in
+this repository and must be generated on the host.
+
+**Operator actions required to close MOS-v2 (Phase B, host-only):**
+1. Generate a NEW `MOS_CONSOLE_SECRET` (never the old password) into
+   `/home/deploy/deployments/mythos-os-console/.console-secret`, mode
+   0600, one `MOS_CONSOLE_SECRET=` line.
+2. Install/execute the M-02 relay units per
+   `projects/mythos-os-console/deploy/relay/RUNBOOK.md`; deploy the new
+   main revision via `tools/deploy.sh` (host-preflight now blocks on the
+   secret file); reload nginx for the M-03 64k body-size contract.
+3. Verify: `GET /login` 200 · `GET /` 302→/login · `GET /api/health` 401
+   unauthenticated · `POST /` 405 · authenticated API works · mission
+   create + cancel work · console serves the new revision · executor
+   runs the MOS-3 dispatcher revision with `MAX_PARALLEL=5`.
+4. Certbot dry-run before any real certificate operation.
+5. Owner decisions recorded and pending: executor `DEFAULT_PROFILE =
+   'repo-write'` fail-open default (M-07 observation); `MOS_ALLOW_REPO_WRITE`
+   remains unset until deliberately enabled; `MYTHOS_CORE_ENABLED`
+   governs the goal/route surfaces.
+
+---
+
+## MOS-v2 M-11 — governed auto-routing (2026-08-19)
+
+`provider: 'auto'` on the console start form. Path: profile validation +
+`MOS_ALLOW_REPO_WRITE` gate FIRST (unchanged, before any routing) → NEW
+executor `POST /route` (bearer, core-gated) → the existing
+`core/provider-router.route()` unmodified (capability, availability,
+quota, cost/risk, reputation) → executor-side enforcement: repo-test/
+repo-write or execution-shaped task types require an execution-authority
+agent (no downgrade — `no_provider` instead), and the agent's provider
+must exist in the executor's PROVIDERS map, so gemini can never be
+returned → console requires the answer ∈ REAL_PROVIDERS (502 otherwise);
+`wait_for_quota`/`no_provider` → 409 and `/tasks` is never called. Model:
+first enabled catalog entry for the routed provider recommending the
+task_type, else provider default; asserted through `isAllowed`. The
+executor never sees the string 'auto'. UI: auto option rendered only when
+the server advertises `auto_routing`; task-type select; model select
+disabled under auto. Two pins widened (dispatcher exact-keys +
+upstream.post closed set now incl. `/route`), nothing weakened.
+
+**Tests.** Console **1235/0** (+47, §4k), executor **196/0** (+13,
+§22d), gate 0 new failures — chief-re-verified.
+
+---
+
+**Previously:** MOS-v2 **M-10 — GOVERNED AI DECOMPOSITION. PLANNER OUTPUT IS DATA: SCHEMA → POLICY → DAG → HUMAN APPROVAL → THE EXISTING DISPATCHER, OR NOTHING.**
+
+## MOS-v2 M-10 — governed AI decomposition (2026-08-19)
+
+**Pipeline delivered:** objective → NEW `core/decompose.js`
+(`decomposeObjective` through the existing provider registry — provider
+REFUSED if `executionAuthority === true`; synthetic advisory task with no
+working directory and no profile; injectable runner for tests) →
+`parsePlannerOutput` (exactly one fenced json block, ≤64KB, ≤20 tasks) →
+`toPlanSpec` (only key/title/task_type/instruction/depends_on reach the
+spec; recommended_model / execution_profile / expected_result / priority
+travel as a separate advisory object; anything else refused) →
+`planner.planFromSpec` + `validatePlan` against a real policy engine →
+M-09 `parkForApproval` → `resolveApproval` → existing `continueCampaign`
+→ `startMission({spec})` → `persistPlan` → dag.js-gated parallel
+dispatch. Policy classes / capabilities / budgets are never
+planner-writable — planner.js derives them from task type.
+
+**The validated spec is stored durably** on the campaign
+(`campaign.decompose.{status, spec, advisory, approval_id, ...}`) before
+the park, and a grant dispatches EXACTLY that stored spec — the runner
+requires a recorded `granted === true` decision for the stored
+`approval_id` (unattended auto-deny therefore can never dispatch);
+anything else → BLOCKED with the reason visible. Decomposition failure of
+any kind (typed: PLANNER_UNAVAILABLE / PLANNER_OUTPUT_INVALID /
+PLANNER_PLAN_REFUSED / PLANNER_PLAN_INVALID / DECOMPOSE_REQUIRES_APPROVAL)
+fails closed and parks with the code in the approval reason — **no silent
+template fallback**; granting that failure-approval still BLOCKs rather
+than dispatching a plan no human reviewed.
+
+**Console.** `POST /api/goals` accepts strict-boolean `decompose`
+(default false → byte-identical M-09 payload); UI checkbox + 'Planned by'
+provider/model line + per-task advisory cells; audit gains the boolean.
+
+**Tests.** Console **1188/0**, executor **183/0**, autonomous-campaign
+**365/0** (was 190/0), n8n-bridge 80/0, orchestration-core 255/2 (known
+pair), governance-invariant 89/0, unattended-policy 53/0, core-wiring
+86/0. Regression gate **0 new failures, 20/20, exit 0** — chief-re-verified.
+
+**Next stage.** M-11 governed auto-routing (Sonnet).
+
+---
+
+**Previously:** MOS-v2 **M-09 — GOAL LAYER + MANDATORY HUMAN APPROVAL. THE AI PROPOSES; ONLY A HUMAN AUTHORISES; ONLY THE EXISTING DISPATCHER EXECUTES.**
+
+## MOS-v2 M-09 — Goal + human approval (2026-08-19)
+
+**Architecture delivered:** GOAL → PROPOSED PLAN → HUMAN APPROVAL →
+DISPATCH → RESULTS, on the existing campaign machinery — no new planner,
+approval system, queue or dispatcher.
+
+**Executor.** `campaign-service.submitGoal` accepts optional
+`require_plan_approval` (strict `=== true`; absent = byte-identical old
+behaviour for n8n/autopilot): a NEW campaign builds its plan preview from
+the loop's own `proposeNextMission` + `buildMissionSpec` (nothing
+persisted, nothing queued), attaches it as field-picked `proposed_plan`
+(key/title/type/depends_on/policy_classes — no instruction text) and
+parks WAITING_FOR_APPROVAL via the existing `parkForApproval` BEFORE any
+mission starts; deliberately parked WITHOUT `capability_key` so an
+unattended auto-deny cannot write a roadmap capability off. NEW route
+`POST /campaigns/<id>/approvals/resolve` (bearer + core gate) →
+`campaign.resolveApproval`; accepts `approval_id` only. Exit from the
+gate is only a granted resolution → READY; dispatch remains only
+`continueCampaign`, which still refuses decision states.
+
+**Console.** Goals module (registry 14 → 15): `GET /api/goals`,
+`GET /api/goals/<id>` (field-picked incl. `proposed_plan`,
+`approval_required`); writes `POST /api/goals` (objective 1..2000;
+`require_plan_approval: true`, `project`, `requested_by` fixed
+server-side), `POST /api/goals/<id>/approvals` (`approval_id`+`granted`+
+optional note; `decided_by` composed SERVER-SIDE as
+`mos-console-operator:sess:xxxxxxxx` — a payload carrying `decided_by` is
+refused as an unexpected field), `POST /api/goals/<id>/continue`.
+Write-route count 5 → 8, all authenticated, bounded, audited
+(`goal.create`/`goal.approve`/`goal.continue` — never objective text).
+UI: Goals page with plan review, two-click in-page confirm on
+Approve/Deny (no native dialogs), continue, results.
+
+**Tests.** Console **1141/0** (was 972/0). Executor **175/0** (was
+158/0). Autonomous-campaign **190/0** (was 137/0). n8n-bridge **80/0**.
+Orchestration-core 255/2 (the 2 known VPS-only). Regression gate:
+**0 new failures, 20/20 mapped, exit 0** — chief-re-verified.
+
+**Next stage.** M-10 governed AI decomposition (Opus).
+
+---
+
+**Previously:** MOS-v2 **M-08 — COMPLETE REGRESSION GATE GREEN: 0 NEW FAILURES, 2 KNOWN PRE-EXISTING (VPS-ONLY), 20/20 COVERAGE AREAS MAPPED.**
+
+## MOS-v2 M-08 — complete regression gate (2026-08-19)
+
+NEW `tests/mos-v2-regression-test.js` + `docs/MOS_V2_M08_REGRESSION.md`.
+The gate runs the four relevant suites as child processes and classifies:
+
+| Suite | Result | Class |
+|---|---|---|
+| mos-1-console | 972/0 | PASS |
+| mythos-ai-executor | 158/0 | PASS |
+| mythos-orchestration-core | 255/2 | PRE-EXISTING (the 2 pinned by exact name: 'O accept: persistent delivery relay unit exists', 'O accept: delivery relay timer is active (inactive)' — VPS-only systemd checks, unrunnable in a sandbox; any OTHER failure fails the gate) |
+| mythos-orchestrator-0 | 156/0 | PASS |
+
+Coverage mapping asserts a real assertion exists per required area
+(authentication, authorization, model catalog, execution profiles,
+mission creation/start, dispatcher, MAX_PARALLEL=5, queue, auto-drain,
+failure isolation, cancellation incl. console relay, result association,
+credential isolation, invalid input, path traversal, request-size,
+unauthorized writes, session behavior): **20/20 mapped**. Baselines are
+floors (>= passed, 0 unexpected failures), so later stages that add
+assertions don't break the gate. Chief-review fix: the Model catalog
+mapping was re-anchored to the console suite's §4e (`model-catalog|isAllowed`)
+— the Haiku draft had pointed it at the executor suite.
+
+**Gate result: 0 new failures** (run twice, stable; re-verified after the
+mapping fix at 20/20).
+
+**Next stage.** M-09 Goal + human approval (Opus).
+
+---
+
+**Previously:** MOS-v2 **M-07 — OPERATOR SAFETY AUDIT: 10/12 SAFE WITH EVIDENCE, 2 REAL GAPS FIXED (AUDIT LOGGING, HEALTH PASSTHROUGH). ACCEPTED.**
+
+## MOS-v2 M-07 — operator safety audit (2026-08-19)
+
+**Full report:** `docs/MOS_V2_M07_SECURITY_AUDIT.md`. Write surface after
+M-01/M-04/M-05/M-06 audited item by item; bypass probes actually executed
+(case/unicode/whitespace tampering, `__proto__`/`constructor` keys,
+duplicate JSON keys, `..%2f`/`%3f` smuggling) — all refused with zero
+upstream calls.
+
+**Two real gaps, both fixed console-side:**
+- **F1 — no auditability.** NEW `reference/audit.js` + server wiring: one
+  JSON line per write action (login/logout/mission.start/cancel/dispatch/
+  write.denied) with ts, action, truncated actor (`sess:`+8 chars),
+  re-validated task_id, outcome; structurally cannot log a password, full
+  session id, or instruction text (7-name detail allowlist, 64-char
+  truncation); logging failure never breaks a request.
+- **F2 — `/api/health` relayed the executor's `/health` body verbatim**
+  (the only allowlist-less relay). Now field-picked via
+  `upstreamHealthView()`; probes reduced to booleans.
+
+**Executor-side observations — documented, NOT fixed (executor out of
+scope this stage; owner decision recorded):** (1) `policy.DEFAULT_PROFILE
+= 'repo-write'` is fail-open for any executor-token holder when the field
+is absent — console unaffected (always sends explicit profile); (2)
+`MOS_ALLOW_REPO_WRITE` governs only the console path; (3) cancel SIGTERMs
+a stored pid with only a liveness check.
+
+**Residual (accepted, recorded):** over-limit bodies close the socket
+(fail-closed); global login throttle can lock the operator out 15 min (by
+design); in-memory sessions; journald audit log not tamper-evident;
+Google Fonts CSP exception stands.
+
+**Tests.** Console **972 passed / 0 failed** (was 832/0; +139, §4g/§4h).
+Executor **158/0**, untouched.
+
+**Next stage.** M-08 complete regression (Haiku).
+
+---
+
+**Previously:** MOS-v2 **M-06 — MISSION CONTROL COMPLETED. IMPLEMENTED, TESTED.**
+
+## MOS-v2 M-06 — Mission Control completion (2026-08-19)
+
+**Objective.** Complete the Mission surface: every mission carries title,
+instruction, priority, model, execution profile, status, execution id,
+timestamps, result, error and cancellation, on the existing executor
+dispatcher — no second queue, no second dispatcher (pinned by a new
+source-level test asserting every `upstream.post` targets `/tasks`-prefixed
+endpoints).
+
+**Changes.** `server.js`: `CONSOLE_PRIORITIES = ['high','normal','low']`
+(the executor's own PRIORITY_WEIGHT vocabulary); `priority` joins
+`START_MISSION_FIELDS`, validated case-sensitively (400 otherwise),
+default `'normal'`, relayed verbatim — the executor's priority-ordered
+queue already existed. `app.js`: priority select on the start form
+(fixed executor vocabulary, deliberately client-listed); mission DETAIL
+view now renders all of `TASK_DETAIL_TASK_FIELDS` /
+`TASK_DETAIL_STATUS_FIELDS` + report `next_stage` (added: stage/title,
+provider, model, priority, execution_profile, status, created/started/
+ended timestamps). Rows unchanged — `/api/missions` summaries genuinely
+don't carry `execution_profile`, so nothing was invented there. BLOCKED
+was already grouped under 'Awaiting the owner'; its `last_error` /
+`next_action` now surface on detail. Capacity strip (running /
+MAX_PARALLEL) pre-existing from MOS-3B, unchanged.
+
+**Tests.** Console **832 passed / 0 failed** (was 801/0; +31, §4f:
+priority matrix, full relay-payload-shape pin, detail pass-through,
+no-second-dispatcher pin). Executor **158/0**, untouched.
+
+**Next stage.** M-07 operator safety audit (Opus), then M-08 regression.
+
+---
+
+**Previously:** MOS-v2 **M-05 — SERVER-CONTROLLED MODEL CATALOG. IMPLEMENTED, TESTED.**
+
+## MOS-v2 M-05 — server-controlled model catalog (2026-08-19)
+
+**Objective.** Replace the console's free-form model text entry with a
+server-controlled catalog. No arbitrary model string from the browser
+ever reaches the executor.
+
+**Changes.** NEW `projects/mythos-os-console/reference/model-catalog.js`
+— the single catalog source: claude-code opus/sonnet/haiku
+(architecture-security / implementation / tests-verification),
+openai-compat gpt-4o-mini (advisory; OmniRoute's genuinely configured
+default), and exactly one `enabled: false` gemini entry that demonstrates
+the disabled-state mechanism and never appears in API output (no
+credential exists — per `config/agents.json`'s own note).
+`server.js`: `handleStartMission` validates any supplied `model` with
+`isAllowed(provider, model)` (enabled entry matching both provider and
+exact id; 400 naming the provider's own allowed ids otherwise); omitted
+model still relays null → provider default. `/api/dispatcher` adds
+`models` (enabled entries only, `enabled` flag never served). `app.js`:
+model select populated from the dispatcher's `models` filtered by chosen
+provider, `(provider default)` first; free-text input removed.
+
+**Tests.** Console **801 passed / 0 failed** (was 721/0; +80 net, §4e).
+Executor **158/0**, untouched. Incidental fix: a comment containing a
+literal `providers/*.js` created an unterminated block-comment sequence
+for the suite's source-stripper; reworded, no functional change.
+
+**Next stage.** M-06 Mission Control completion (priority relay +
+profile/model surfacing).
+
+---
+
+**Previously:** MOS-v2 **M-04 — GOVERNED EXECUTION PROFILES ON THE CONSOLE START RELAY. IMPLEMENTED, TESTED. (INTEGRATION PASS: M-01/M-03/M-02 ALL MERGED TO MAIN FIRST — SEE BELOW.)**
+
+## MOS-v2 M-04 — governed execution profiles (2026-08-19)
+
+**Objective.** Let the operator choose an execution profile for a console
+mission without letting the browser invent permissions. The executor's
+`lib/policy.js` (repo-read / repo-test / repo-write / autonomous /
+deploy-disabled) remains the structural enforcement and was NOT touched;
+this stage adds the console's own governed subset in front of it.
+
+**Changes.**
+
+| File | Change |
+|---|---|
+| `projects/mythos-os-console/reference/server.js` | `CONSOLE_PROFILES = ['repo-read','repo-test','repo-write']` (safest first); `execution_profile` joins `START_MISSION_FIELDS`, validated case-sensitively against the allowlist (400 otherwise, before any upstream call); default remains `repo-read`; `repo-write` additionally requires `MOS_ALLOW_REPO_WRITE === 'true'` read fresh per request, else 403 `profile_not_authorized`; the validated profile replaces the hard-coded `repo-read` in the relay payload; `/api/dispatcher` now also returns `profiles: [{name, authorized}]`. |
+| `reference/web/app.js` | Profile select on the start form, populated only from `/api/dispatcher`'s `profiles` field (no client-side enum), unauthorized options disabled; `execution_profile` sent only when the operator picked one. |
+| `reference/web/console.css` | Start-form grid 2 → 3 columns. |
+| `tests/mos-1-console-test.js` | +41 net assertions (§4d): valid/default/invalid profile, `autonomous`/`deploy`/case-flip refused, repo-write 403 without the env switch and relayed with it, tamper cases, dispatcher profile exposure in both env states, source-level pin that `payload.execution_profile` is read only inside `handleStartMission`. |
+
+**Tests.** Console **721 passed / 0 failed** (was 680/0). Executor
+**158/0** (zero changes under `projects/mythos-ai-executor` — verified by
+diff). `node --check` clean.
+
+**Not deployed.** `MOS_ALLOW_REPO_WRITE` is unset everywhere; repo-write
+stays refused until an operator sets it in the service environment — an
+explicit owner decision, not a default.
+
+**Next stage.** M-05 model catalog.
+
+---
+
+## MOS-v2 INTEGRATION PASS — M-01 + M-03 + M-02 MERGED TO MAIN (2026-08-19)
+
+PRs merged in order **#34 (M-01 auth) → #32 (M-03 nginx) → #33 (M-02
+relay)**, each by merge commit after bringing the PR branch up to the then-
+current main and re-running the console suite (680/0 at every step; the 5
+pre-C-006 failures were cleared by AUTO-10 already on main). Only
+`docs/AI_HANDOVER.md` ordering conflicts were resolved; no entry lost.
+Post-merge `main` = `0e75846`. Suites on merged main: console 680/0,
+executor 158/0, orchestrator-0 156/0, orchestration-core 255/2 (the 2 are
+the long-documented VPS-only systemd checks, unrunnable in a sandbox).
+
+**Production activation (Phase B) is operator-blocked from the
+development environment**: no SSH credential exists there and its egress
+proxy refuses `os.mythosprod.xyz`, so the merged deployment architecture
+must be activated on the host per `projects/mythos-os-console/deploy/relay/RUNBOOK.md`
+and `tools/deploy.sh`: (1) generate a NEW `MOS_CONSOLE_SECRET` — the old
+password is compromised via the MOS-1 digest in Git history and must not
+be reused — into the documented 0600 secret file; (2) install/execute the
+M-02 relay units to restart/deploy the console at the new main revision;
+(3) verify `GET /login` 200, `GET /` 302→/login, `GET /api/health` 401
+unauthenticated, `POST /` 405, authenticated API + mission create/cancel;
+(4) confirm the executor runs the MOS-3 dispatcher revision with
+MAX_PARALLEL=5; (5) certbot dry-run before any real certificate action.
+
+---
+
+**Previously:** MYTHOS **FINAL MISSION, STAGE 5 — DEPLOYMENT READINESS CONSOLIDATED (`docs/DEPLOYMENT_READINESS.md`). THE BLOCKER IS NOW EVIDENCED FROM INSIDE THE BUILD SESSION, NOT ASSUMED: NO SSH/RSYNC/SCP BINARIES, EMPTY `~/.ssh`, NO KEY MATERIAL, EGRESS PROXY 403s ALL EXTERNAL DOMAINS — NO TRANSPORT AND NO PATH TO THE HOST EXISTS, AND NONE WAS CREATED (THE MANDATE'S MUST-NOT LIST WAS HONORED VERBATIM). EVERY DEPLOYABLE HAS ITS EXECUTABLE RUNBOOK: HUB (`sites/mythosprod.xyz/DEPLOYMENT.md`), MYTHOS PROD (README RSYNC), CONSOLE M-01/M-02 (`deploy/relay/RUNBOOK.md`). MIG-4 DELIBERATELY HAS NONE. THREE OWNER ACTIONS REMAIN: DNS (§25.3), HOST EXECUTION (MOS-1.6/1.7), MIG-4 AUTHORIZATION.**
 
 **Previously:** MYTHOS **FINAL MISSION, STAGE 4 — THE mythosprod.xyz HUB IS BUILT (AUTO-13): THE MASTER BRAND'S FIRST PUBLIC SURFACE, AS REAL DEPLOYABLE SOFTWARE. `sites/mythosprod.xyz/` — FULLY STATIC, SELF-CONTAINED (CANONICAL TOKENS + AUTO-4 SELF-HOSTED FACES TRAVEL INSIDE THE SITE, ZERO EXTERNAL REQUESTS), THE A-020 TREE EXACTLY (COMMAND CENTER UNDER MYTHOS OS), PROJECTS IN THEIR OWN IDENTITIES WITH EVIDENCE-BASED STATUSES, NO FABRICATED CLAIMS FOR THE THREE UNITS WITHOUT RECORDED OPERATIONS. VERIFIED IN A REAL BROWSER IN BOTH THEMES: ZERO OVERFLOW AT 320–1280, ZERO CONSOLE ERRORS, ALL 8 SELF-HOSTED FONTS CONFIRMED ACTIVE. NOT DEPLOYED — DEPLOYMENT.md CARRIES THE COMPLETE OPERATOR RUNBOOK (HARDENED NGINX VHOST + STRICT CSP, MCC-1-PROVEN CERTBOT, SMOKE TESTS, STATIC ROLLBACK); DNS REMAINS AN OWNER ACTION AND THE HOST BOUNDARY STANDS.**
 

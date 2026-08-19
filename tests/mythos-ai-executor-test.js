@@ -31,6 +31,13 @@ fs.mkdirSync(FIXTURES, { recursive: true });
 process.env.MYTHOS_EXECUTOR_HOME = path.join(FIXTURES, 'home');
 process.env.MYTHOS_EXECUTOR_ALLOW_MOCK = '1';
 delete process.env.MYTHOS_MOCK_SCRIPT;
+// MOS-v2 M-10: the advisory credential is pinned at a path that does not
+// exist, so the planner-model path is deterministically UNAVAILABLE here
+// on any host. A suite that reached a real planner would consume real
+// quota and stop being offline; a suite that happened to find a
+// credential on one machine and not another would stop being
+// deterministic. Read once, at provider load, so it must be set first.
+process.env.MYTHOS_ADVISORY_KEY_FILE = path.join(FIXTURES, 'no-advisory-credential.env');
 
 var executor = require(path.join(EXEC, 'executor'));
 var state = require(path.join(EXEC, 'lib', 'state'));
@@ -609,6 +616,297 @@ chain = chain.then(function () {
       servers.forEach(function (s) { s.close(); });
       delete process.env.MYTHOS_EXECUTOR_TOKEN;
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 22b. HTTP API: the approval-resolution route (MOS-v2 M-09)
+//
+// WAITING_FOR_APPROVAL used to be a one-way door: the loop could enter it
+// and continueCampaign correctly refused to leave it, but the only exit
+// was hand-editing persisted JSON on the host. This route is the exit, and
+// it is behind the same bearer token as every other campaign route, calls
+// core/campaign.js's own resolveApproval, and refuses a decision that
+// names no human or states no verdict.
+// ---------------------------------------------------------------------------
+chain = chain.then(function () {
+  process.env.MYTHOS_EXECUTOR_TOKEN = 'test-token-0123456789abcdef';
+  var TOKEN = 'test-token-0123456789abcdef';
+  var servers = server.start({ port: 8198, binds: ['127.0.0.1'] });
+  var campaign = require(path.join(EXEC, 'core', 'campaign'));
+
+  function req(method, urlPath, body, token) {
+    return new Promise(function (resolve, reject) {
+      var payload = body ? JSON.stringify(body) : null;
+      var r = http.request({
+        host: '127.0.0.1', port: 8198, path: urlPath, method: method,
+        headers: Object.assign(
+          payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {},
+          token ? { 'Authorization': 'Bearer ' + token } : {}
+        )
+      }, function (res) {
+        var data = '';
+        res.on('data', function (d) { data += d; });
+        res.on('end', function () { resolve({ code: res.statusCode, body: JSON.parse(data || '{}') }); });
+      });
+      r.on('error', reject);
+      if (payload) r.write(payload);
+      r.end();
+    });
+  }
+
+  var c = campaign.createCampaign({ objective: 'A campaign parked for an HTTP decision.' });
+  var approval = campaign.parkForApproval(c.campaign_id, {
+    reason: 'proposed plan requires human approval before dispatch'
+  });
+  ok(campaign.loadCampaign(c.campaign_id).state === 'WAITING_FOR_APPROVAL',
+    'http/approvals: the fixture campaign is parked');
+  var route = '/campaigns/' + c.campaign_id + '/approvals/resolve';
+
+  return new Promise(function (resolve) { setTimeout(resolve, 200); }).then(function () {
+    return req('POST', route, { approval_id: approval.id, granted: true, decided_by: 'owner' }, null);
+  }).then(function (res) {
+    ok(res.code === 401, 'http/approvals: resolving without a bearer token is refused');
+    ok(campaign.loadCampaign(c.campaign_id).state === 'WAITING_FOR_APPROVAL',
+      'http/approvals: the unauthenticated attempt decided nothing');
+    return req('POST', route, { approval_id: approval.id, granted: true, decided_by: 'owner' }, 'wrong-token');
+  }).then(function (res) {
+    ok(res.code === 401, 'http/approvals: a wrong bearer token is refused');
+    return req('POST', route, { approval_id: approval.id, granted: true }, TOKEN);
+  }).then(function (res) {
+    ok(res.code === 400 && /APPROVAL_NEEDS_DECIDER/.test(res.body.error || ''),
+      'http/approvals: a decision naming no human is refused with 400');
+    return req('POST', route, { approval_id: approval.id, decided_by: 'owner' }, TOKEN);
+  }).then(function (res) {
+    ok(res.code === 400 && /APPROVAL_NEEDS_EXPLICIT_DECISION/.test(res.body.error || ''),
+      'http/approvals: a decision stating no verdict is refused with 400');
+    return req('POST', route, { approval_id: 'ap-nosuch-0001', granted: true, decided_by: 'owner' }, TOKEN);
+  }).then(function (res) {
+    ok(res.code === 404, 'http/approvals: a decision against an unheld approval is 404');
+    return req('POST', route, { capability_key: 'A', granted: true, decided_by: 'owner' }, TOKEN);
+  }).then(function (res) {
+    // The route addresses an approval by ITS OWN ID and by nothing else.
+    // resolveApproval can also match on a capability key, and this surface
+    // deliberately does not expose that: a capability key in a campaign
+    // payload is the one shape that could look like a caller choosing what
+    // runs.
+    ok(res.code === 404, 'http/approvals: a decision addressed by capability_key alone matches nothing');
+    ok(campaign.loadCampaign(c.campaign_id).state === 'WAITING_FOR_APPROVAL',
+      'http/approvals: the capability_key attempt decided nothing');
+    return req('POST', '/campaigns/c-nosuch-0001/approvals/resolve',
+               { approval_id: approval.id, granted: true, decided_by: 'owner' }, TOKEN);
+  }).then(function (res) {
+    ok(res.code === 404, 'http/approvals: an unknown campaign is 404');
+    ok(campaign.loadCampaign(c.campaign_id).state === 'WAITING_FOR_APPROVAL',
+      'http/approvals: every refused decision left the campaign parked');
+    return req('POST', route, { approval_id: approval.id, granted: true, decided_by: 'owner:test' }, TOKEN);
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.granted === true,
+      'http/approvals: an authenticated, complete decision is recorded');
+    ok(res.body.state === 'READY', 'http/approvals: resolving the last approval returns the campaign to READY');
+    ok(res.body.decided_by === 'owner:test', 'http/approvals: the decision names the human it was made by');
+    var stored = campaign.loadCampaign(c.campaign_id);
+    ok(stored.state === 'READY' && (stored.approval_required || []).length === 0,
+      'http/approvals: the PERSISTED campaign left WAITING_FOR_APPROVAL through the route, not through file surgery');
+    ok((stored.approval_decisions || []).length === 1,
+      'http/approvals: the decision is written to the campaign audit trail');
+    // GET on the same path is not the write route.
+    return req('GET', route, null, TOKEN);
+  }).then(function (res) {
+    ok(res.code === 404, 'http/approvals: the resolution path answers nothing to a GET');
+    servers.forEach(function (s) { s.close(); });
+    delete process.env.MYTHOS_EXECUTOR_TOKEN;
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 22c. HTTP API: the AI-decomposition flag (MOS-v2 M-10)
+//
+// `decompose` selects only WHERE THE PROPOSED PLAN COMES FROM. It is read
+// by identity, it is legal only together with require_plan_approval, and
+// when the planner cannot be reached the campaign is PARKED with the typed
+// reason rather than falling back to a plan nobody reviewed. No planner is
+// contacted in this suite: the advisory credential is pinned at a path
+// that does not exist, which is exactly the fail-closed case.
+// ---------------------------------------------------------------------------
+chain = chain.then(function () {
+  process.env.MYTHOS_EXECUTOR_TOKEN = 'test-token-0123456789abcdef';
+  var TOKEN = 'test-token-0123456789abcdef';
+  var servers = server.start({ port: 8197, binds: ['127.0.0.1'] });
+  var campaign = require(path.join(EXEC, 'core', 'campaign'));
+
+  function post(urlPath, body) {
+    return new Promise(function (resolve, reject) {
+      var payload = JSON.stringify(body);
+      var r = http.request({
+        host: '127.0.0.1', port: 8197, path: urlPath, method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+          'Authorization': 'Bearer ' + TOKEN
+        }
+      }, function (res) {
+        var data = '';
+        res.on('data', function (d) { data += d; });
+        res.on('end', function () { resolve({ code: res.statusCode, body: JSON.parse(data || '{}') }); });
+      });
+      r.on('error', reject);
+      r.write(payload);
+      r.end();
+    });
+  }
+
+  return new Promise(function (resolve) { setTimeout(resolve, 200); }).then(function () {
+    return post('/campaigns', {
+      objective: 'Decompose this goal with no approval gate at all.',
+      project: 'exec-decompose-nogate', decompose: true
+    });
+  }).then(function (res) {
+    ok(res.code === 400 && /DECOMPOSE_REQUIRES_APPROVAL/.test(res.body.error || ''),
+      'http/decompose: asking for an AI-written plan WITHOUT the approval gate is refused');
+    return post('/campaigns', {
+      objective: 'Decompose this goal while no planner credential exists.',
+      project: 'exec-decompose-gated', require_plan_approval: true, decompose: true
+    });
+  }).then(function (res) {
+    ok(res.code === 201, 'http/decompose: a gated decomposing goal is accepted and answered once resolved');
+    ok(res.body.state === 'WAITING_FOR_APPROVAL',
+      'http/decompose: the campaign is PARKED for a human even though decomposition failed');
+    ok(res.body.decompose_status === 'FAILED' && res.body.decompose_error === 'PLANNER_UNAVAILABLE',
+      'http/decompose: an unreachable planner is reported as PLANNER_UNAVAILABLE, typed');
+    ok(res.body.proposed_plan && res.body.proposed_plan.available === false &&
+      /PLANNER_UNAVAILABLE/.test(res.body.proposed_plan.reason || ''),
+      'http/decompose: the failure is VISIBLE on the plan a human is shown');
+    var c = campaign.loadCampaign(res.body.campaign_id);
+    ok(c.current_mission === null && (c.completed_missions || []).length === 0,
+      'http/decompose: a failed decomposition dispatched nothing');
+    ok(c.decompose && c.decompose.spec === null,
+      'http/decompose: no spec is stored, so nothing can later be dispatched as though it had been approved');
+    // The flag is read by identity: a truthy string is not a request.
+    return post('/campaigns', {
+      objective: 'A goal whose decompose flag is a string, not a boolean.',
+      project: 'exec-decompose-stringy', require_plan_approval: true, decompose: 'true'
+    });
+  }).then(function (res) {
+    ok(res.code === 201 && res.body.decompose === undefined,
+      'http/decompose: a truthy-but-not-true flag does not switch decomposition on');
+    servers.forEach(function (s) { s.close(); });
+    delete process.env.MYTHOS_EXECUTOR_TOKEN;
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 22d. HTTP API: governed auto-routing (MOS-v2 M-11)
+//
+// POST /route answers exactly what core/provider-router.js decided,
+// field-picked, with one additive rule this route owns: an execution-
+// requiring profile (repo-test/repo-write) can demand execution authority
+// even for a task_type the router alone would not, and when the router's
+// own pick cannot satisfy that, the answer is no_provider -- never a
+// downgraded authority. gemini is registered in the agent registry and, in
+// the cases below, even reports itself "available" via an injected probe,
+// but it is not in the executor's real PROVIDERS map (executor.js only
+// wires claude-code and openai-compat), so it must never be returned as a
+// routable agent either way.
+// ---------------------------------------------------------------------------
+chain = chain.then(function () {
+  process.env.MYTHOS_EXECUTOR_TOKEN = 'test-token-0123456789abcdef';
+  var TOKEN = 'test-token-0123456789abcdef';
+  var servers = server.start({ port: 8196, binds: ['127.0.0.1'] });
+  var agentRegistry = require(path.join(EXEC, 'core', 'agent-registry'));
+
+  function post(urlPath, body, token) {
+    return new Promise(function (resolve, reject) {
+      var payload = JSON.stringify(body || {});
+      var headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) };
+      if (token !== null) headers.Authorization = 'Bearer ' + (token || TOKEN);
+      var r = http.request({
+        host: '127.0.0.1', port: 8196, path: urlPath, method: 'POST', headers: headers
+      }, function (res) {
+        var data = '';
+        res.on('data', function (d) { data += d; });
+        res.on('end', function () { resolve({ code: res.statusCode, body: JSON.parse(data || '{}') }); });
+      });
+      r.on('error', reject);
+      r.write(payload);
+      r.end();
+    });
+  }
+
+  return new Promise(function (resolve) { setTimeout(resolve, 200); }).then(function () {
+    return post('/route', { task_type: 'coding', execution_profile: 'repo-read' }, null);
+  }).then(function (res) {
+    ok(res.code === 401, 'http/route: no bearer token is refused');
+    return post('/route', { task_type: 'not-a-real-type', execution_profile: 'repo-read' });
+  }).then(function (res) {
+    ok(res.code === 400 && /task_type/.test(res.body.error || ''),
+      'http/route: an unknown task_type is refused with 400');
+    return post('/route', { task_type: 'coding', execution_profile: 'deploy' });
+  }).then(function (res) {
+    ok(res.code === 400 && /execution_profile/.test(res.body.error || ''),
+      'http/route: an unknown execution_profile is refused with 400');
+    return post('/route', { task_type: 'coding', execution_profile: 'repo-read', model: 'sonnet' });
+  }).then(function (res) {
+    ok(res.code === 400 && /unexpected field/.test(res.body.error || ''),
+      'http/route: an unexpected field is refused with 400');
+
+    // claude-code available: an execution-authority task/profile routes to it.
+    agentRegistry.resetForTests();
+    agentRegistry.registerProbe('claude-code', function () { return true; });
+    agentRegistry.registerProbe('openai-compat', function () { return false; });
+    agentRegistry.registerProbe('gemini', function () { return false; });
+    return post('/route', { task_type: 'coding', execution_profile: 'repo-write' });
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.action === 'route', 'http/route: coding + repo-write routes');
+    ok(res.body.agent === 'claude-code' && res.body.provider === 'claude-code' && res.body.authority === true,
+      'http/route: the execution-authority agent is chosen for a coding+repo-write task');
+    ok(Object.keys(res.body).sort().join(',') === 'action,agent,authority,provider',
+      'http/route: the route response is field-picked to exactly action/agent/provider/authority');
+
+    // Only an advisory candidate is available, and the profile demands
+    // execution authority -- no_provider, never a downgrade.
+    agentRegistry.resetForTests();
+    agentRegistry.registerProbe('claude-code', function () { return false; });
+    agentRegistry.registerProbe('openai-compat', function () { return true; });
+    agentRegistry.registerProbe('gemini', function () { return false; });
+    return post('/route', { task_type: 'research', execution_profile: 'repo-write' });
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.action === 'no_provider',
+      'http/route: an advisory-only candidate for repo-write never downgrades authority — no_provider instead');
+    ok(res.body.agent === undefined, 'http/route: a no_provider answer carries no agent field');
+
+    // The identical advisory pick is fine when the profile does not demand
+    // execution authority.
+    return post('/route', { task_type: 'research', execution_profile: 'repo-read' });
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.action === 'route' && res.body.agent === 'omniroute-advisory' &&
+      res.body.authority === false, 'http/route: an advisory pick is fine for a read-only profile');
+
+    // gemini reports itself available here, but its provider is not wired
+    // into the executor's real PROVIDERS map -- must still be no_provider.
+    agentRegistry.resetForTests();
+    agentRegistry.registerProbe('claude-code', function () { return false; });
+    agentRegistry.registerProbe('openai-compat', function () { return false; });
+    agentRegistry.registerProbe('gemini', function () { return true; });
+    return post('/route', { task_type: 'research', execution_profile: 'repo-read' });
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.action === 'no_provider',
+      'http/route: gemini is never returned as routable even when it reports itself available');
+    ok(res.body.agent === undefined, 'http/route: the gemini refusal carries no agent field either');
+
+    // Nothing available at all: no_provider, cleanly.
+    agentRegistry.resetForTests();
+    agentRegistry.registerProbe('claude-code', function () { return false; });
+    agentRegistry.registerProbe('openai-compat', function () { return false; });
+    agentRegistry.registerProbe('gemini', function () { return false; });
+    return post('/route', { task_type: 'coding', execution_profile: 'repo-read' });
+  }).then(function (res) {
+    ok(res.code === 200 && res.body.action === 'no_provider',
+      'http/route: no available agent at all answers no_provider');
+
+    agentRegistry.resetForTests();
+    servers.forEach(function (s) { s.close(); });
+    delete process.env.MYTHOS_EXECUTOR_TOKEN;
   });
 });
 
