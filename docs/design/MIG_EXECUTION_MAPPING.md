@@ -209,18 +209,92 @@ grep -ro "Playfair Display" css/*.css js/*.js js/shared/*.js js/core/*.js index.
 | `js/shared/accounting-bank.js` | 1 |
 | `js/shared/representations.js` | 1 |
 
-**Not executed here** — the same reasoning as MIG-1 applies with larger
-blast radius (93 sites, 14 files, the reporting module alone carrying 19).
-The replacement typeface itself is also not yet decided at the
-implementation level: `TYPOGRAPHY.md` names **Archivo Expanded** as the
-approved display face, but no one has verified `text-wrap`/line-height
-fidelity against 93 real, already-shipping usages — a real design
-question (does Archivo Expanded's metrics work at every size Playfair is
-currently used at, from report headers down to small print labels?), not
-just a search-and-replace. **Recording the real number is itself the
-useful output of this pass** — the previous "45" figure was never
-re-verified after being written, and could have been trusted for an
-actual migration attempt.
+**Recording the real number is itself part of this pass's output** — the
+previous "45" figure was never re-verified after being written. §3a below
+records what happened when execution was actually attempted (AUTO-8) — the
+concern raised here ("does Archivo Expanded's metrics work at every size
+Playfair is currently used at") turned out to be the exact, real problem.
+
+---
+
+## 3a. MIG-2 — ATTEMPTED and ROLLED BACK, AUTO-8, 2026-08-19: a real, found regression
+
+**What was done.** All 93 occurrences (exact count confirmed, one per
+line, unlike MIG-1's multi-per-line case) substituted: `font-family:
+'Playfair Display', serif` → `font-family: 'Archivo Expanded', sans-serif`,
+including the two lines that used backslash-escaped quotes inside JS string
+literals (`\'Playfair Display\'`). Every co-located `font-weight` on the
+same declaration normalized to **600** — the approved system's single
+display weight (`TYPOGRAPHY.md` §2), rather than self-hosting the five
+different weights (500/600/700/800/900) the legacy Playfair usage happened
+to carry, on the reasoning that preserving that ad-hoc weight variety would
+work against the approved system's own stated "one weight for display"
+restraint discipline, not with it — the old variety was accretion, not a
+considered hierarchy. `index.html`'s Google Fonts CDN request for Playfair
+Display removed (Inter, unrelated to this migration, kept).
+
+**Arabic checked directly, not assumed.** Real Arabic text exists in this
+application (`js/shared/fournisseurs.js`, `js/shared/contacts.js`, a
+contact-status option, an error alert). Confirmed via Google Fonts' own
+CSS2 API that **Playfair Display has no Arabic subset** (only
+latin/latin-ext/cyrillic/vietnamese) — identical to Archivo Expanded.
+Arabic rendering is therefore **provably unaffected**: neither the old nor
+the new font supports it, so the existing system-font fallback behaviour
+for Arabic text is unchanged either way.
+
+**One real bug caught and fixed before the rollback decision, not
+after.** The first substitution script's escaped-quote handling put the
+closing backslash in the wrong position (`\'Archivo Expanded'\, sans-serif`
+— invalid JS), breaking `js/taches.js`, `js/shared/calendar.js`, and
+`js/shared/dashboard.js`. Caught by `node --check` immediately, fixed, and
+re-verified clean before proceeding to visual regression — the same
+"verify before trusting" discipline MIG-1 established.
+
+**Real visual regression run: 17 views, before/after, pixel-diffed.**
+Diffs ranged 1.28%–6.51% of frame — much larger than MIG-1's 0.21–1.53%,
+expected for a typeface (not colour) change. Most views reviewed clean —
+headings, table headers, category cards all rendered correctly with no
+truncation or overflow (`compta-suppliers`, `compta-categories`, `natures`,
+`representations`, `appel` all manually checked, zero regression).
+
+**The regression, found and confirmed:** `.compta-kpi` and `.stat-value`
+(`css/main.css` — 30px, `font-weight: 800`, used for the accounting
+dashboard's headline TND figures) **wrap to two lines under Archivo
+Expanded where they fit on one line under Playfair Display**, because
+Archivo Expanded's letterforms are measurably wider at matched pixel
+sizes. Confirmed by direct before/after comparison of the `comptabilite`
+view: "6545.000 TND" — one line before, two lines ("6545.000" / "TND")
+after. The card containing it grows to accommodate the wrap, which then
+**visibly misaligns that card's height against its row siblings**
+(`ACHATS`/`DÉPENSES`, whose shorter "0.000 TND" values still fit on one
+line) — a real, visible layout inconsistency in a live financial
+application's headline figures, not a data-loss or truncation bug, but a
+genuine polish regression this migration introduced and Playfair Display
+did not have.
+
+**Why this was rolled back rather than patched.** Fixing the wrap (reducing
+`.compta-kpi`/`.stat-value`'s font-size, or any other component-level
+dimension change) is a **new design decision** — adjusting sizes to fit a
+different typeface's metrics — outside what "replace the declared
+typeface" authorises, and the same "no blind global replacement, no
+guessing" discipline that governed MIG-1 applies here: patching this one
+selector without checking whether the same risk exists at every other
+large-font-size Playfair usage (page titles, `client-detail-hero h1` at
+42px, `spectacle-calculator-head h3` at 36px — not individually re-checked
+after the two confirmed-clean cases) would be exactly the kind of
+unverified guess this program does not make.
+
+**Rolled back completely** — `git checkout --` on all 15 touched files,
+confirmed clean (`grep -c "Playfair Display" css/main.css` → 37, matching
+the pre-attempt state exactly). Nothing from this attempt is committed.
+
+**Status: MIG-2 is READY (mechanism proven, 93/93 substitutions apply
+cleanly, Arabic confirmed unaffected) but BLOCKED on one real, found,
+narrow issue** — whether to accept the KPI-card wrap as a minor cosmetic
+trade-off, or resize the affected large-display classes to fit (a real
+design decision, not this pass's to make unilaterally), or take some
+other resolution. Not a tooling gap, not a scope-measurement gap — a
+genuine visual trade-off requiring a real decision.
 
 ---
 
