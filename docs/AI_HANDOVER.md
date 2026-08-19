@@ -1,7 +1,64 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MOS-v2 **M-02 — DEPLOY RELAY, CHIEF-REVIEW FIXES APPLIED. NOT INSTALLED, NOT USED.**
+**From:** MOS-v2 **M-04 — GOVERNED EXECUTION PROFILES ON THE CONSOLE START RELAY. IMPLEMENTED, TESTED. (INTEGRATION PASS: M-01/M-03/M-02 ALL MERGED TO MAIN FIRST — SEE BELOW.)**
+
+## MOS-v2 M-04 — governed execution profiles (2026-08-19)
+
+**Objective.** Let the operator choose an execution profile for a console
+mission without letting the browser invent permissions. The executor's
+`lib/policy.js` (repo-read / repo-test / repo-write / autonomous /
+deploy-disabled) remains the structural enforcement and was NOT touched;
+this stage adds the console's own governed subset in front of it.
+
+**Changes.**
+
+| File | Change |
+|---|---|
+| `projects/mythos-os-console/reference/server.js` | `CONSOLE_PROFILES = ['repo-read','repo-test','repo-write']` (safest first); `execution_profile` joins `START_MISSION_FIELDS`, validated case-sensitively against the allowlist (400 otherwise, before any upstream call); default remains `repo-read`; `repo-write` additionally requires `MOS_ALLOW_REPO_WRITE === 'true'` read fresh per request, else 403 `profile_not_authorized`; the validated profile replaces the hard-coded `repo-read` in the relay payload; `/api/dispatcher` now also returns `profiles: [{name, authorized}]`. |
+| `reference/web/app.js` | Profile select on the start form, populated only from `/api/dispatcher`'s `profiles` field (no client-side enum), unauthorized options disabled; `execution_profile` sent only when the operator picked one. |
+| `reference/web/console.css` | Start-form grid 2 → 3 columns. |
+| `tests/mos-1-console-test.js` | +41 net assertions (§4d): valid/default/invalid profile, `autonomous`/`deploy`/case-flip refused, repo-write 403 without the env switch and relayed with it, tamper cases, dispatcher profile exposure in both env states, source-level pin that `payload.execution_profile` is read only inside `handleStartMission`. |
+
+**Tests.** Console **721 passed / 0 failed** (was 680/0). Executor
+**158/0** (zero changes under `projects/mythos-ai-executor` — verified by
+diff). `node --check` clean.
+
+**Not deployed.** `MOS_ALLOW_REPO_WRITE` is unset everywhere; repo-write
+stays refused until an operator sets it in the service environment — an
+explicit owner decision, not a default.
+
+**Next stage.** M-05 model catalog.
+
+---
+
+## MOS-v2 INTEGRATION PASS — M-01 + M-03 + M-02 MERGED TO MAIN (2026-08-19)
+
+PRs merged in order **#34 (M-01 auth) → #32 (M-03 nginx) → #33 (M-02
+relay)**, each by merge commit after bringing the PR branch up to the then-
+current main and re-running the console suite (680/0 at every step; the 5
+pre-C-006 failures were cleared by AUTO-10 already on main). Only
+`docs/AI_HANDOVER.md` ordering conflicts were resolved; no entry lost.
+Post-merge `main` = `0e75846`. Suites on merged main: console 680/0,
+executor 158/0, orchestrator-0 156/0, orchestration-core 255/2 (the 2 are
+the long-documented VPS-only systemd checks, unrunnable in a sandbox).
+
+**Production activation (Phase B) is operator-blocked from the
+development environment**: no SSH credential exists there and its egress
+proxy refuses `os.mythosprod.xyz`, so the merged deployment architecture
+must be activated on the host per `projects/mythos-os-console/deploy/relay/RUNBOOK.md`
+and `tools/deploy.sh`: (1) generate a NEW `MOS_CONSOLE_SECRET` — the old
+password is compromised via the MOS-1 digest in Git history and must not
+be reused — into the documented 0600 secret file; (2) install/execute the
+M-02 relay units to restart/deploy the console at the new main revision;
+(3) verify `GET /login` 200, `GET /` 302→/login, `GET /api/health` 401
+unauthenticated, `POST /` 405, authenticated API + mission create/cancel;
+(4) confirm the executor runs the MOS-3 dispatcher revision with
+MAX_PARALLEL=5; (5) certbot dry-run before any real certificate action.
+
+---
+
+**Previously:** MOS-v2 **M-02 — DEPLOY RELAY, CHIEF-REVIEW FIXES APPLIED. NOT INSTALLED, NOT USED.**
 
 ## MOS-v2 M-02 — DEPLOY RELAY, CHIEF-REVIEW FIXES (2026-08-19) — **THREE ISSUES FIXED, NOT INSTALLED, NOT USED**
 

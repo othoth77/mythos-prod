@@ -226,10 +226,22 @@ var API = {
   // for what actually runs, not the executor -- so the UI has one place to
   // read the runnable provider set from (removing the UI's own hardcoded
   // copy is stage MOS-3B, not this one).
+  // MOS-v2 M-04: `profiles` names the three console-offered execution
+  // profiles in safest-first order, each with the authorization the
+  // browser is allowed to act on. repo-read and repo-test are always
+  // authorized (read-only/test-only per the executor's own policy.js);
+  // repo-write is authorized only when MOS_ALLOW_REPO_WRITE is exactly
+  // 'true' in this process's environment, read fresh on every request so
+  // the switch takes effect without a restart. The browser never computes
+  // this itself -- it renders exactly what this field says.
   '/api/dispatcher': function (res) {
     upstream.get('/dispatcher')
       .then(function (d) {
-        ok(res, { running: d.running, max_parallel: d.max_parallel, queued: d.queued, providers: REAL_PROVIDERS });
+        var repoWriteAuthorized = process.env.MOS_ALLOW_REPO_WRITE === 'true';
+        var profiles = CONSOLE_PROFILES.map(function (name) {
+          return { name: name, authorized: name === 'repo-write' ? repoWriteAuthorized : true };
+        });
+        ok(res, { running: d.running, max_parallel: d.max_parallel, queued: d.queued, providers: REAL_PROVIDERS, profiles: profiles });
       })
       .catch(function (e) { problem(res, e); });
   },
@@ -435,7 +447,16 @@ var REAL_PROVIDERS = ['claude-code', 'openai-compat']; // the real, currently
   // and excludes 'gemini' (registered in the agent registry but genuinely
   // unconfigured -- no credential exists -- and not in the Phase 1 provider
   // enum at all). Never invent a name beyond what actually runs.
-var START_MISSION_FIELDS = ['title', 'instruction', 'provider', 'model'];
+// MOS-v2 M-04: the console's own execution-profile allowlist, safest first.
+// This is a SUBSET of what the executor's lib/policy.js recognises
+// ('autonomous' and 'deploy' are never offered here at all) and the console
+// enforces it independently -- the executor would refuse an unknown or
+// disabled profile too, but a request this server already knows to reject
+// should never reach it. 'repo-read' is the default when the field is
+// absent. 'repo-write' additionally requires MOS_ALLOW_REPO_WRITE (see
+// handleStartMission); repo-read and repo-test need no extra authorization.
+var CONSOLE_PROFILES = ['repo-read', 'repo-test', 'repo-write'];
+var START_MISSION_FIELDS = ['title', 'instruction', 'provider', 'model', 'execution_profile'];
 
 function readBoundedBody(req, maxBytes) {
   return new Promise(function (resolve, reject) {
@@ -457,12 +478,15 @@ function badRequest(res, detail) {
 
 // Everything not in this function is fixed here, server-side, and never
 // read from the request: project ('mythos-prod' -- the only project this
-// console operates on), execution_profile ('repo-read' -- Write/Edit/
-// NotebookEdit structurally disallowed by lib/policy.js regardless of what
-// the instruction says), requested_by (identifies the console, distinct
+// console operates on), requested_by (identifies the console, distinct
 // from 'orchestration-core' so this task is never mistaken for one the
 // Phase 2 core owns and drives itself), mode (the executor's own existing
-// default). The browser supplies only title/instruction/provider/model.
+// default). The browser supplies only title/instruction/provider/model and,
+// optionally, execution_profile -- validated below against CONSOLE_PROFILES
+// (MOS-v2 M-04) and, for 'repo-write', against MOS_ALLOW_REPO_WRITE. The
+// executor's own lib/policy.js is the structural enforcement of what each
+// profile can actually do; this validation exists so a request this server
+// already knows to refuse never reaches it.
 function handleStartMission(req, res) {
   readBoundedBody(req, START_MISSION_MAX_BODY).then(function (raw) {
     var payload;
@@ -491,6 +515,30 @@ function handleStartMission(req, res) {
       return badRequest(res, 'model must be a string of at most 100 characters');
     }
 
+    // MOS-v2 M-04: 'repo-read' is the default ceiling when the field is
+    // absent. Present, it must be exactly one of CONSOLE_PROFILES --
+    // case-sensitive, no coercion -- or the request is refused before it
+    // ever reaches the executor.
+    var profile = 'repo-read';
+    if (payload.execution_profile !== undefined) {
+      if (typeof payload.execution_profile !== 'string' || CONSOLE_PROFILES.indexOf(payload.execution_profile) === -1) {
+        return badRequest(res, 'execution_profile must be one of: ' + CONSOLE_PROFILES.join(', '));
+      }
+      profile = payload.execution_profile;
+    }
+    // repo-write is the one profile that can change files, so it carries
+    // its own explicit server-side authorization, read fresh from the
+    // environment on every request rather than cached at startup -- an
+    // operator flipping the switch takes effect without a restart, in
+    // either direction. This is a distinct failure from a malformed
+    // request (400 bad_request): the request is well-formed and the
+    // profile is real, it is simply not switched on here.
+    if (profile === 'repo-write' && process.env.MOS_ALLOW_REPO_WRITE !== 'true') {
+      sendJSON(res, 403, { ok: false, error: 'profile_not_authorized',
+                           detail: 'repo-write is not authorized on this console' });
+      return;
+    }
+
     return upstream.post('/tasks', {
       project: 'mythos-prod',
       stage: title.trim().slice(0, 200),
@@ -498,7 +546,7 @@ function handleStartMission(req, res) {
       provider: provider,
       model: model || null,
       requested_by: 'mos-console',
-      execution_profile: 'repo-read',
+      execution_profile: profile,
       expected_delivery: 'report'
     }).then(function (created) {
       var taskId = created && created.task_id;

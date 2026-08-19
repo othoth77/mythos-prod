@@ -164,7 +164,7 @@
 
 .mythos-start-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: var(--mythos-sp-4);
 }
 @media (max-width: 760px) {

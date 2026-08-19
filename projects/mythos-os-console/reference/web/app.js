@@ -303,7 +303,8 @@
       // mission should see whether a slot exists before they type, and the
       // provider list in the form below is the dispatcher's, not ours.
       slot.appendChild(capacitySlot(dispatcher));
-      slot.appendChild(startMissionSection(pending, dispatcher.ok ? dispatcher.data.providers : null));
+      slot.appendChild(startMissionSection(pending, dispatcher.ok ? dispatcher.data.providers : null,
+        dispatcher.ok ? dispatcher.data.profiles : null));
 
       slot.appendChild(sectionTitle('Executions'));
       slot.appendChild(executionsSection(tasks));
@@ -382,11 +383,12 @@
     ]);
   }
 
-  // A new mission: title + instruction + provider (+ optional model). No
-  // other field exists client-side to send — project, execution_profile,
-  // mode and requested_by are fixed server-side in server.js and are never
-  // part of this payload. Feedback renders inline; this file has no
-  // alert()/confirm() anywhere and this does not start one.
+  // A new mission: title + instruction + provider (+ optional model, +
+  // optional execution profile). No other field exists client-side to
+  // send — project, mode and requested_by are fixed server-side in
+  // server.js and are never part of this payload. Feedback renders
+  // inline; this file has no alert()/confirm() anywhere and this does not
+  // start one.
   //
   // MOS-3B: `providers` is the list GET /api/dispatcher returned — the
   // server's own source of truth for what can actually run — or null when
@@ -394,7 +396,15 @@
   // no hardcoded enum, no per-provider label, no per-provider behaviour.
   // A provider added or withdrawn server-side changes this select with no
   // edit here, and a provider the console cannot confirm is never offered.
-  function startMissionSection(pending, providers) {
+  //
+  // MOS-v2 M-04: `profiles` is likewise the dispatcher's own list of
+  // { name, authorized } — never a hardcoded enum here, and the browser
+  // never computes authorization itself. An unauthorized profile (today,
+  // only repo-write when MOS_ALLOW_REPO_WRITE is off) is rendered but
+  // disabled, so an operator can see it exists without being able to pick
+  // it — the option server.js would refuse anyway is never offered as if
+  // it would work.
+  function startMissionSection(pending, providers, profiles) {
     var wrap = el('div', {});
     var feedback = el('div', { className: 'mythos-start-feedback' });
 
@@ -421,6 +431,21 @@
       attrs: { type: 'text', id: 'mission-model', maxlength: '100', placeholder: 'model (optional — provider default if blank)', autocomplete: 'off' }
     });
 
+    var profileList = profiles || [];
+    var profileSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-profile' } },
+      profileList.map(function (p) {
+        var opt = el('option', { attrs: { value: p.name }, text: p.name + (p.authorized ? '' : ' (not authorized)') });
+        if (!p.authorized) opt.disabled = true;
+        if (p.name === 'repo-read') opt.selected = true;
+        return opt;
+      }));
+    var profileNote = null;
+    if (!profileList.length) {
+      profileSelect.disabled = true;
+      profileNote = el('div', { className: 'mythos-row-sub',
+        text: 'execution profile list unavailable — the control plane could not be read' });
+    }
+
     var startBtn = el('button', {
       className: 'mythos-btn mythos-btn-gold',
       attrs: { type: 'button' },
@@ -437,11 +462,17 @@
       }
       startBtn.disabled = true;
       startBtn.textContent = 'Starting…';
+      // execution_profile is sent only when the operator actually picked
+      // one from a populated, server-sourced list — never a client
+      // default invented here. An empty/unavailable select sends nothing,
+      // and the server's own 'repo-read' default applies.
+      var chosenProfile = (profileList.length && profileSelect.value) ? profileSelect.value : undefined;
       postJSON('/api/missions/start', {
         title: title,
         instruction: instruction,
         provider: providerSelect.value,
-        model: modelInput.value.trim() || undefined
+        model: modelInput.value.trim() || undefined,
+        execution_profile: chosenProfile
       }).then(function (r) {
         clear(feedback);
         // MOS-3B: the dispatcher is capacity-gated, so a created mission is
@@ -472,7 +503,8 @@
       el('label', { className: 'mythos-label', attrs: { for: 'mission-instruction' }, text: 'Instruction' }), instructionInput,
       el('div', { className: 'mythos-start-row' }, [
         el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-provider' }, text: 'Provider' }), providerSelect, providerNote]),
-        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model (optional)' }), modelInput])
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model (optional)' }), modelInput]),
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-profile' }, text: 'Execution profile' }), profileSelect, profileNote])
       ]),
       startBtn, feedback
     ]);

@@ -899,15 +899,27 @@ startStub().then(function (stub) {
       // -----------------------------------------------------------------
       eq(dispatcherStatus.status, 200, 'MOS-3C C1: GET /api/dispatcher returns 200');
       var dsKeys = Object.keys(dispatcherStatus.json.data || {}).sort();
-      var expectedKeys = ['max_parallel', 'queued', 'running', 'providers'].sort();
+      var expectedKeys = ['max_parallel', 'queued', 'running', 'providers', 'profiles'].sort();
       ok(dsKeys.join(',') === expectedKeys.join(','),
-         'MOS-3C C1: /api/dispatcher has exactly the keys running/max_parallel/queued/providers (got ' + dsKeys.join(',') + ')');
+         'MOS-3C C1: /api/dispatcher has exactly the keys running/max_parallel/queued/providers/profiles (got ' + dsKeys.join(',') + ')');
       ok(Array.isArray(dispatcherStatus.json.data.providers), 'MOS-3C C1: providers is an array');
       eq(dispatcherStatus.json.data.providers.length, 2, 'MOS-3C C1: providers array has 2 entries');
       var providerNames = dispatcherStatus.json.data.providers.slice().sort();
       eq(providerNames[0], 'claude-code', 'MOS-3C C1: first provider is claude-code');
       eq(providerNames[1], 'openai-compat', 'MOS-3C C1: second provider is openai-compat');
       ok(dispatcherStatus.text.indexOf(SECRET_TOKEN) === -1, 'MOS-3C C1: /api/dispatcher does not leak SECRET_TOKEN');
+
+      // -----------------------------------------------------------------
+      // MOS-v2 M-04: /api/dispatcher's profiles field, MOS_ALLOW_REPO_WRITE unset
+      // -----------------------------------------------------------------
+      ok(Array.isArray(dispatcherStatus.json.data.profiles), 'M-04: profiles is an array');
+      eq(dispatcherStatus.json.data.profiles.length, 3, 'M-04: profiles array has exactly 3 entries');
+      var profileNames = dispatcherStatus.json.data.profiles.map(function (p) { return p.name; });
+      eq(profileNames.join(','), 'repo-read,repo-test,repo-write', 'M-04: profiles are named in safest-first order');
+      dispatcherStatus.json.data.profiles.forEach(function (p) {
+        var wantAuthorized = p.name !== 'repo-write';
+        eq(p.authorized, wantAuthorized, 'M-04: ' + p.name + '.authorized is ' + wantAuthorized + ' with MOS_ALLOW_REPO_WRITE unset');
+      });
 
       eq(dispatchQueued.status, 200, 'MOS-3C C2: POST /api/missions/.../dispatch returns 200');
       var dqKeys = Object.keys(dispatchQueued.json.data || {}).sort();
@@ -932,7 +944,7 @@ startStub().then(function (stub) {
         req(port, '/api/missions/start', 'POST', { title: 'Test mission', instruction: 'Inspect the repository and report findings.', provider: 'claude-code' }),
         req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'mock' }),
         req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'gemini' }),
-        req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 'repo-write' }),
+        req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', unexpected_field: 'z' }),
         req(port, '/api/missions/start', 'POST', { title: 'x', provider: 'claude-code' }),
         req(port, '/api/missions/start', 'POST', { instruction: 'y', provider: 'claude-code' }),
         req(port, '/api/missions/start', 'POST', { title: '', instruction: 'y', provider: 'claude-code' }),
@@ -940,7 +952,7 @@ startStub().then(function (stub) {
         req(port, '/api/missions/start', 'GET'), // wrong method on the one write path
         req(port, '/api/missions/start', 'DELETE')
       ]).then(function (rr) {
-        var okStart = rr[0], badMock = rr[1], badGemini = rr[2], badExtra = rr[3],
+        var okStart = rr[0], badMock = rr[1], badGemini = rr[2], badUnexpectedField = rr[3],
             noInstr = rr[4], noTitle = rr[5], emptyTitle = rr[6], emptyBody = rr[7],
             wrongGet = rr[8], wrongDelete = rr[9];
 
@@ -949,7 +961,7 @@ startStub().then(function (stub) {
         eq(okStart.json.data.status, 'RUNNING', 'the explicit dispatch made it RUNNING, not just QUEUED');
         eq(okStart.json.data.provider, 'claude-code', 'the provider actually used is echoed back');
 
-        [badMock, badGemini, badExtra, noInstr, noTitle, emptyTitle, emptyBody].forEach(function (r, i) {
+        [badMock, badGemini, badUnexpectedField, noInstr, noTitle, emptyTitle, emptyBody].forEach(function (r, i) {
           eq(r.status, 400, 'invalid start request ' + i + ' is rejected');
           eq(r.json.error, 'bad_request', 'invalid start request ' + i + ' names bad_request');
         });
@@ -965,7 +977,7 @@ startStub().then(function (stub) {
         eq(startCalls.length, 2, 'exactly two calls reached the executor: create, then dispatch — nothing for the seven rejected requests');
         eq(startCalls[0].url, '/tasks', 'the first call creates the task');
         eq(startCalls[0].body.project, 'mythos-prod', 'project is fixed server-side, never caller input');
-        eq(startCalls[0].body.execution_profile, 'repo-read', 'execution_profile is fixed to the read-only ceiling, never caller input');
+        eq(startCalls[0].body.execution_profile, 'repo-read', 'execution_profile defaults to the read-only ceiling when the caller sends none');
         eq(startCalls[0].body.requested_by, 'mos-console', 'requested_by identifies the console, distinct from the core owner');
         eq(startCalls[0].body.provider, 'claude-code', 'the caller-chosen provider is forwarded');
         eq(startCalls[0].body.instruction, 'Inspect the repository and report findings.', 'the caller-authored instruction is forwarded verbatim');
@@ -1117,6 +1129,126 @@ startStub().then(function (stub) {
     });
   });
 })
+
+// ===========================================================================
+// 4d. MOS-v2 M-04: GOVERNED EXECUTION PROFILES
+//
+// A dedicated stub and server, isolated from 4a's, so this section owns its
+// own stubPostBodies/stubHits state cleanly and MOS_ALLOW_REPO_WRITE can be
+// flipped mid-section without disturbing any other section's assumptions.
+// ===========================================================================
+.then(function () {
+  return startStub().then(function (stub) {
+    var stubPort = stub.address().port;
+    delete process.env.MOS_ALLOW_REPO_WRITE;
+    var server = freshServer({
+      MOS_EXECUTOR_URL: 'http://127.0.0.1:' + stubPort,
+      MOS_EXECUTOR_TOKEN: SECRET_TOKEN,
+      MOS_EXECUTOR_TOKEN_FILE: null
+    });
+    return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
+      var port = s.address().port;
+      ACTIVE_COOKIE = null;
+      return login(port, CONSOLE_SECRET).then(function (l) {
+        eq(l.res.status, 200, 'M-04: sign-in for the profile-governance checks succeeds');
+        ACTIVE_COOKIE = l.cookie;
+
+        // --- valid profile, default, and every kind of invalid/unauthorized input ---
+        return Promise.all([
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 'repo-test' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 'autonomous' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 'deploy' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 'ROOT' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: '' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 5 }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 'Repo-Write' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 'repo-write' }),
+          req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 'repo-test', rogue_field: 'z' })
+        ]);
+      }).then(function (rr) {
+        var validRepoTest = rr[0], defaultProfile = rr[1], badAutonomous = rr[2], badDeploy = rr[3],
+            badRoot = rr[4], badEmpty = rr[5], badNonString = rr[6], badCaseSensitive = rr[7],
+            unauthorizedWrite = rr[8], tamperedExtra = rr[9];
+
+        eq(validRepoTest.status, 200, 'M-04: execution_profile "repo-test" is accepted');
+        eq(defaultProfile.status, 200, 'M-04: omitting execution_profile still succeeds (defaults to repo-read)');
+
+        [badAutonomous, badDeploy, badRoot, badEmpty, badNonString, badCaseSensitive, tamperedExtra].forEach(function (r, i) {
+          eq(r.status, 400, 'M-04: invalid execution_profile case ' + i + ' is rejected with 400');
+          eq(r.json.error, 'bad_request', 'M-04: invalid execution_profile case ' + i + ' names bad_request');
+        });
+        ok(/execution_profile/.test(badAutonomous.json.detail), 'M-04: the 400 for an unrecognised profile names the allowed set');
+        ok(!/execution_profile/.test(tamperedExtra.json.detail), 'M-04: an unknown field alongside a VALID profile is refused as an unexpected field, not miscategorised as a bad profile');
+
+        eq(unauthorizedWrite.status, 403, 'M-04: repo-write is refused while MOS_ALLOW_REPO_WRITE is unset');
+        eq(unauthorizedWrite.json.error, 'profile_not_authorized', 'M-04: the refusal names profile_not_authorized, not bad_request');
+        ok(!/bad_request/.test(unauthorizedWrite.json.error), 'M-04: an unauthorized profile is never reported as a malformed request');
+
+        // Exactly two upstream calls (create + dispatch) for EACH of the two
+        // requests that actually succeeded (repo-test, then the default
+        // repo-read) -- nothing at all for the eight rejected/unauthorized
+        // requests above.
+        var calls = stubPostBodies.filter(function (c) { return /^\/tasks(\/tk-stub-start-0001\/dispatch)?$/.test(c.url); });
+        eq(calls.length, 4, 'M-04: exactly four upstream calls (create+dispatch, twice) for the two accepted requests -- nothing for the eight rejected/unauthorized ones');
+        // Both valid requests fired concurrently (Promise.all), so their
+        // create calls can interleave in either order -- identify them by
+        // URL, not by array position, and check the SET of profiles created.
+        var createdProfiles = stubPostBodies.filter(function (c) { return c.url === '/tasks'; })
+          .map(function (c) { return c.body.execution_profile; }).sort();
+        eq(createdProfiles.join(','), 'repo-read,repo-test',
+           'M-04: the two accepted requests relayed repo-test (validated) and repo-read (default) verbatim to the executor payload');
+        stubPostBodies.length = 0;
+
+        // --- source-level: execution_profile is read from ONE place -----
+        // Every read of payload.execution_profile must fall inside
+        // handleStartMission -- the one function that validates it -- and
+        // nowhere else in the file reads it from any other source.
+        var serverCode = code(read(path.join(REF, 'server.js')));
+        var fnStart = serverCode.indexOf('function handleStartMission');
+        var fnEnd = serverCode.indexOf('function handleMissionDetail');
+        ok(fnStart !== -1 && fnEnd !== -1 && fnEnd > fnStart, 'M-04: handleStartMission is located as a single contiguous function in server.js');
+        var withinFn = serverCode.slice(fnStart, fnEnd);
+        var outsideFn = serverCode.slice(0, fnStart) + serverCode.slice(fnEnd);
+        var readsWithin = (withinFn.match(/payload\.execution_profile/g) || []).length;
+        var readsOutside = (outsideFn.match(/payload\.execution_profile/g) || []).length;
+        ok(readsWithin >= 1, 'M-04: handleStartMission reads payload.execution_profile');
+        eq(readsOutside, 0, 'M-04: server.js never reads payload.execution_profile anywhere outside handleStartMission');
+        var envReads = serverCode.match(/process\.env\.MOS_ALLOW_REPO_WRITE/g) || [];
+        eq(envReads.length, 2, 'M-04: MOS_ALLOW_REPO_WRITE is read live, at request time, in exactly the two places that need it (the start-mission authorization check and the /api/dispatcher profiles field) -- never cached at module load');
+
+        // --- authorize repo-write and prove the identical request now succeeds ---
+        process.env.MOS_ALLOW_REPO_WRITE = 'true';
+        return req(port, '/api/missions/start', 'POST',
+          { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 'repo-write' });
+      }).then(function (authorizedWrite) {
+        eq(authorizedWrite.status, 200, 'M-04: repo-write succeeds once MOS_ALLOW_REPO_WRITE=true');
+        var writeCalls = stubPostBodies.filter(function (c) { return c.url === '/tasks'; });
+        eq(writeCalls.length, 1, 'M-04: the now-authorized repo-write request reached the executor');
+        eq(writeCalls[0].body.execution_profile, 'repo-write', 'M-04: repo-write is relayed once authorized');
+        stubPostBodies.length = 0;
+
+        return req(port, '/api/dispatcher', 'GET');
+      }).then(function (dispatcherAuthorized) {
+        var profiles = dispatcherAuthorized.json.data.profiles;
+        var byName = {};
+        profiles.forEach(function (p) { byName[p.name] = p.authorized; });
+        eq(byName['repo-write'], true, 'M-04: /api/dispatcher reports repo-write authorized once MOS_ALLOW_REPO_WRITE=true');
+        eq(byName['repo-read'], true, 'M-04: repo-read stays authorized regardless of the switch');
+        eq(byName['repo-test'], true, 'M-04: repo-test stays authorized regardless of the switch');
+
+        delete process.env.MOS_ALLOW_REPO_WRITE;
+        return req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 'repo-write' });
+      }).then(function (revoked) {
+        eq(revoked.status, 403, 'M-04: turning MOS_ALLOW_REPO_WRITE back off refuses repo-write again immediately, without a restart');
+        ACTIVE_COOKIE = null;
+        s.close();
+        stub.close();
+      });
+    });
+  });
+})
+
 // ===========================================================================
 // 5c. SESSION LIFECYCLE — signing out, and running out of time
 //
