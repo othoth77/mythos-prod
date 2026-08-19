@@ -32,12 +32,32 @@ WorkingDirectory=/home/deploy/projects/mythos-prod/projects/mythos-os-console
 # MOS_EXECUTOR_URL.
 #
 # Unlike the sibling command-library service, this one does NOT refuse to
-# start without its token, and that difference is deliberate. That service
-# has a write surface, so starting without auth would expose it. This one
-# has no write surface at all — starting without a token exposes nothing,
-# and a console that comes up and reports "no token provisioned" is more
-# useful to an operator than a unit that will not start.
+# start without its executor token, and that difference is deliberate.
+# The token buys READS from the control plane; without it every data read
+# reports "not authorised" and nothing is exposed. A console that comes up
+# and states it has no token is more useful to an operator than a unit
+# that will not start. (Corrected for MOS-v2 M-01: the original text said
+# this service "has no write surface at all". That stopped being true at
+# MOS-2, which added three narrow POST relays. The reasoning above never
+# depended on it — the token gates reads, and the sign-in secret below is
+# what gates the surface as a whole.)
 EnvironmentFile=/home/deploy/deployments/mythos-os-console/.env
+
+# MOS-v2 M-01 — the console's OWN sign-in secret, in its own 0600 file.
+#
+# Only the PATH is an environment variable. MOS_CONSOLE_SECRET itself is
+# never exported into this process's environment, and reference/auth.js
+# refuses to read it from there: the environment of a running service is
+# readable through /proc/<pid>/environ and is inherited by every child
+# process, and a console password may not live anywhere that broad.
+# auth.js re-checks the mode on every read and refuses the file outright
+# if any group or other permission bit is set.
+#
+# The console still starts when this file is absent or wrong — and then
+# refuses every request, logging which of the four failure modes applies.
+# That is the fail-closed direction: a misconfigured console is visible
+# and useless, never open.
+Environment=MOS_CONSOLE_SECRET_FILE=/home/deploy/deployments/mythos-os-console/.console-secret
 
 ExecStart=/usr/bin/node /home/deploy/projects/mythos-prod/projects/mythos-os-console/reference/server.js
 

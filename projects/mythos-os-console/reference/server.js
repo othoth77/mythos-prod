@@ -23,12 +23,33 @@
 
    STATIC FILES are served from an explicit whitelist, not by resolving
    a request path against a directory. There is no path to traverse.
+
+   EVERY ROUTE IS BEHIND A SERVER-SIDE SESSION (MOS-v2 M-01).
+
+     · The MOS-1 login gate was client-side markup. It hid the console
+       from a browser and hid nothing at all from `curl` — every /api/
+       route answered anyone who asked. It is deleted, not extended.
+     · auth.js resolves each request to a live session before any route
+       is consulted. Without one, every /api/ path answers 401 and every
+       other path answers 401 or, for the two navigable HTML paths, a
+       302 to /login. Nothing under /api/ is exempt, including
+       /api/health.
+     · The four exceptions are the login page itself and the assets it
+       needs to render: /login, /login.css, /login.js, /mythos.css and
+       the logo. They are static files carrying no operational state,
+       and they are named in PUBLIC_PATHS rather than pattern-matched.
+     · POST /api/login is the one write route that may be called
+       unauthenticated -- it is what authentication is. It is registered
+       in the same explicit WRITE_ROUTES list as the other four, so the
+       write surface is still one readable list and still cannot grow
+       silently.
    ===================================================== */
 
 var fs = require('fs');
 var http = require('http');
 var path = require('path');
 
+var auth = require('./auth');
 var upstream = require('./upstream');
 
 var VERSION = 'mos-1';
@@ -85,21 +106,41 @@ var STATIC = {
   '/console.css': { file: path.join(WEB, 'console.css'), type: 'text/css; charset=utf-8' },
   '/modules.js': { file: path.join(WEB, 'modules.js'), type: 'application/javascript; charset=utf-8' },
   '/app.js': { file: path.join(WEB, 'app.js'), type: 'application/javascript; charset=utf-8' },
-  '/login-gate.css': { file: path.join(WEB, 'login-gate.css'), type: 'text/css; charset=utf-8' },
-  '/login-gate.js': { file: path.join(WEB, 'login-gate.js'), type: 'application/javascript; charset=utf-8' },
+  '/login': { file: path.join(WEB, 'login.html'), type: 'text/html; charset=utf-8' },
+  '/login.html': { file: path.join(WEB, 'login.html'), type: 'text/html; charset=utf-8' },
+  '/login.css': { file: path.join(WEB, 'login.css'), type: 'text/css; charset=utf-8' },
+  '/login.js': { file: path.join(WEB, 'login.js'), type: 'application/javascript; charset=utf-8' },
   '/assets/logomythos.png': { file: path.join(REPO_ASSETS, 'logomythos.png'), type: 'image/png' }
 };
 
-function head(res, code, type, length) {
+// The only paths an unauthenticated request may read: the login page,
+// the two stylesheets it composes from, its script, and the logo. Every
+// one is a static file with no operational state in it. This is a
+// membership check against a fixed list -- never a prefix, never a
+// pattern -- for the same reason STATIC is a whitelist.
+var PUBLIC_PATHS = {
+  '/login': true,
+  '/login.html': true,
+  '/login.css': true,
+  '/login.js': true,
+  '/mythos.css': true,
+  '/assets/logomythos.png': true
+};
+
+// `extra` exists for exactly two headers -- Set-Cookie and Location --
+// and is applied after the security headers so a caller can add to them
+// but the ordering never lets one be dropped by accident.
+function head(res, code, type, length, extra) {
   var h = { 'Content-Type': type };
   Object.keys(SECURITY_HEADERS).forEach(function (k) { h[k] = SECURITY_HEADERS[k]; });
   if (length !== undefined) h['Content-Length'] = length;
+  if (extra) Object.keys(extra).forEach(function (k) { h[k] = extra[k]; });
   res.writeHead(code, h);
 }
 
-function sendJSON(res, code, obj) {
+function sendJSON(res, code, obj, extra) {
   var body = JSON.stringify(obj);
-  head(res, code, 'application/json; charset=utf-8', Buffer.byteLength(body));
+  head(res, code, 'application/json; charset=utf-8', Buffer.byteLength(body), extra);
   res.end(body);
 }
 
@@ -148,9 +189,20 @@ function clampLimit(raw, def, max) {
 var API = {
   '/api/health': function (res) {
     upstream.health().then(function (up) {
+      // secretState() reports whether a usable console secret exists and,
+      // if not, WHY -- 'unconfigured', 'unreadable', 'insecure_mode' or
+      // 'missing'. Those are names of failure modes, never any part of a
+      // value, and this route is itself behind the session, so only an
+      // authenticated operator ever sees them.
+      var secret = auth.secretState();
       ok(res, {
         version: VERSION,
         token_provisioned: !!upstream.loadToken(),
+        auth: {
+          secret_provisioned: secret.provisioned,
+          secret_problem: secret.reason,
+          session_ttl_ms: auth.ttlMs()
+        },
         upstream: {
           ok: up.ok,
           reachable: up.reachable,
@@ -240,10 +292,19 @@ var API = {
 // and is already safe, never a new capability invented at this layer. The
 // browser never talks to a provider, never sees a credential, and cannot
 // widen scope beyond what is hard-coded in each handler.
+// MOS-v2 M-01 adds two more, and one of them carries the only
+// `unauthenticated: true` flag in this file: POST /api/login IS the
+// authentication step, so requiring a session to reach it would be a
+// closed loop. Every other entry -- logout included -- is refused with
+// 401 before its handler runs. The flag is explicit and per-route so
+// that "which routes may be called without a session" is one grep, not
+// an inference from control flow.
 var TASK_ID_RE = '[a-z0-9][a-z0-9-]{6,62}[a-z0-9]';
 var CANCEL_ROUTE_RE = new RegExp('^/api/missions/(' + TASK_ID_RE + ')/cancel$');
 var DISPATCH_ROUTE_RE = new RegExp('^/api/missions/(' + TASK_ID_RE + ')/dispatch$');
 var WRITE_ROUTES = [
+  { test: function (p) { return p === '/api/login' ? [] : null; }, handler: handleLogin, unauthenticated: true },
+  { test: function (p) { return p === '/api/logout' ? [] : null; }, handler: handleLogout },
   { test: function (p) { return p === '/api/missions/start' ? [] : null; }, handler: handleStartMission },
   { test: function (p) { var m = CANCEL_ROUTE_RE.exec(p); return m ? [m[1]] : null; }, handler: handleMissionCancel },
   { test: function (p) { var m = DISPATCH_ROUTE_RE.exec(p); return m ? [m[1]] : null; }, handler: handleMissionDispatch }
@@ -252,9 +313,110 @@ var WRITE_ROUTES = [
 function matchWriteRoute(pathname) {
   for (var i = 0; i < WRITE_ROUTES.length; i++) {
     var args = WRITE_ROUTES[i].test(pathname);
-    if (args) return { handler: WRITE_ROUTES[i].handler, args: args };
+    if (args) return { handler: WRITE_ROUTES[i].handler, args: args, unauthenticated: WRITE_ROUTES[i].unauthenticated === true };
   }
   return null;
+}
+
+// --- MOS-v2 M-01: the authentication boundary -------------------------
+
+// One refusal shape for every unauthenticated request, whatever the
+// reason: no cookie, an unknown session, an expired one. The client
+// cannot tell them apart, and it does not need to -- the answer is
+// always "log in". A cookie that WAS presented and did not resolve is
+// cleared on the way out, so a browser holding an expired session does
+// not keep sending it until it ages out on its own.
+function unauthenticated(res, staleCookie) {
+  sendJSON(res, 401, { ok: false, error: 'unauthenticated', detail: 'authentication required' },
+           staleCookie ? { 'Set-Cookie': auth.clearedCookie() } : undefined);
+}
+
+// The two navigable HTML paths get a redirect instead of a bare 401,
+// because an operator who typed the URL should land on the login form
+// rather than on a JSON error. Nothing else in this server redirects:
+// /app.js, /console.css, /modules.js and every /api/ path answer 401,
+// because a redirect to an HTML page is a useless answer to a fetch.
+function redirect(res, location, staleCookie) {
+  var extra = { Location: location };
+  if (staleCookie) extra['Set-Cookie'] = auth.clearedCookie();
+  head(res, 302, 'text/plain; charset=utf-8', 0, extra);
+  res.end();
+}
+
+var LOGIN_MAX_BODY = 4 * 1024;
+var LOGIN_FIELDS = ['password'];
+
+/* POST /api/login. The only route that may be reached without a
+   session, and the only place a password is ever accepted.
+
+   What it does NOT do is as much of the design as what it does:
+
+     · It never says why a login failed. A wrong password, a secret file
+       that is missing, unreadable or group-readable, and a console with
+       no secret configured at all are one answer -- 401
+       invalid_credentials. The operator diagnoses configuration from
+       /api/health and the journal, both of which are behind the
+       session; an anonymous caller learns nothing about the deployment.
+     · It never echoes the submitted password, in the response or in a
+       log line.
+     · It never sends the session identifier anywhere JavaScript can
+       read it. The identifier exists only in the Set-Cookie header, and
+       the response body carries an expiry timestamp and nothing else. */
+function handleLogin(req, res) {
+  if (!auth.loginAllowed(req)) {
+    sendJSON(res, 429, { ok: false, error: 'too_many_attempts',
+                         detail: 'too many failed sign-in attempts; wait and try again' });
+    return;
+  }
+  readBoundedBody(req, LOGIN_MAX_BODY).then(function (raw) {
+    var payload;
+    try { payload = JSON.parse(raw || '{}'); }
+    catch (e) { return badRequest(res, 'body is not valid JSON'); }
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return badRequest(res, 'body must be a JSON object');
+    }
+    var unexpected = Object.keys(payload).filter(function (k) { return LOGIN_FIELDS.indexOf(k) === -1; });
+    if (unexpected.length) return badRequest(res, 'unexpected field: ' + unexpected[0].slice(0, 40));
+
+    var password = payload.password;
+    if (typeof password !== 'string' || !password || password.length > 512) {
+      return badRequest(res, 'password (string, 1-512 chars) is required');
+    }
+
+    if (!auth.verifyPassword(password).ok) {
+      auth.recordLoginFailure(req);
+      sendJSON(res, 401, { ok: false, error: 'invalid_credentials', detail: 'invalid credentials' });
+      return;
+    }
+
+    auth.clearLoginFailures(req);
+    // A caller who already holds a session gets a new identifier and the
+    // old one is dropped: signing in again rotates, it does not
+    // accumulate.
+    var previous = auth.sessionIdFrom(req);
+    if (previous) auth.destroySession(previous);
+    var session = auth.createSession();
+    sendJSON(res, 200, { ok: true, at: new Date().toISOString(),
+                         data: { authenticated: true, expires_at: new Date(session.expiresAt).toISOString() } },
+             { 'Set-Cookie': auth.sessionCookie(session.id) });
+  }).catch(function (e) {
+    if (e && e.message === 'BODY_TOO_LARGE') return badRequest(res, 'request body too large');
+    problem(res, { code: 'internal_error', message: 'internal error' });
+  });
+}
+
+/* POST /api/logout. Requires a session, because ending one you do not
+   hold is not an operation. The server-side entry is destroyed first --
+   clearing the cookie alone would leave a live session behind for
+   anyone who kept a copy of the identifier. */
+function handleLogout(req, res) {
+  readBoundedBody(req, 1024).then(function () {
+    auth.destroySession(auth.sessionIdFrom(req));
+    sendJSON(res, 200, { ok: true, at: new Date().toISOString(), data: { authenticated: false } },
+             { 'Set-Cookie': auth.clearedCookie() });
+  }).catch(function () {
+    problem(res, { code: 'internal_error', message: 'internal error' });
+  });
 }
 
 // Read-only detail relays: mirror the executor's own GET /tasks/<id> and
@@ -458,10 +620,37 @@ function handler(req, res) {
     // write surface, and the refusal is the surface's definition rather
     // than a gap in it.
     head(res, 405, 'application/json; charset=utf-8');
-    res.end(JSON.stringify({ ok: false, error: 'read_only', detail: 'This console is read-only except for POST /api/missions/start, POST /api/missions/<id>/cancel and POST /api/missions/<id>/dispatch.' }));
+    res.end(JSON.stringify({ ok: false, error: 'read_only', detail: 'This console is read-only except for POST /api/login, POST /api/logout, POST /api/missions/start, POST /api/missions/<id>/cancel and POST /api/missions/<id>/dispatch.' }));
     return;
   }
-  if (writeMatch) return writeMatch.handler.apply(null, [req, res].concat(writeMatch.args));
+  // --- the authentication boundary ---------------------------------
+  //
+  // Resolved once, here, before any route runs. Placing it after the
+  // 405 check and before everything else is deliberate: the method
+  // refusal above is structural (it is what makes this surface
+  // read-only) and reveals nothing, so it stays first; from this line
+  // on, no handler in this file executes for a caller without a
+  // session, except the one route flagged unauthenticated.
+  var session = auth.sessionFor(req);
+  var staleCookie = !session && auth.hasSessionCookie(req);
+
+  if (writeMatch) {
+    if (!writeMatch.unauthenticated && !session) return unauthenticated(res, staleCookie);
+    return writeMatch.handler.apply(null, [req, res].concat(writeMatch.args));
+  }
+
+  if (Object.prototype.hasOwnProperty.call(PUBLIC_PATHS, reqPathname)) {
+    // An operator who already has a session and asks for the login page
+    // is sent to the console instead of being shown a form they have no
+    // reason to fill in.
+    if (session && (reqPathname === '/login' || reqPathname === '/login.html')) return redirect(res, '/');
+    return serveStatic(STATIC[reqPathname], res, req.method);
+  }
+
+  if (!session) {
+    if (reqPathname === '/' || reqPathname === '/index.html') return redirect(res, '/login', staleCookie);
+    return unauthenticated(res, staleCookie);
+  }
 
   var split = String(req.url || '/').split('?');
   var pathname = split[0];
@@ -506,12 +695,19 @@ function start(opts) {
   });
 }
 
-module.exports = { start: start, handler: handler, CSP: CSP, VERSION: VERSION };
+module.exports = { start: start, handler: handler, CSP: CSP, VERSION: VERSION, PUBLIC_PATHS: PUBLIC_PATHS };
 
 if (require.main === module) {
   start().then(function (server) {
     var a = server.address();
+    // The auth state is named, never valued. A console with no usable
+    // secret still starts -- and still refuses every request, because
+    // the boundary fails closed -- so that an operator sees WHY on the
+    // first line of the journal instead of a unit that will not boot.
+    var secret = auth.secretState();
     process.stdout.write('mythos-os-console ' + VERSION + ' listening on ' + a.address + ':' + a.port +
-      ' → ' + upstream.target() + (upstream.loadToken() ? '' : ' (NO TOKEN — reads will report unauthorised)') + '\n');
+      ' → ' + upstream.target() + (upstream.loadToken() ? '' : ' (NO TOKEN — reads will report unauthorised)') +
+      (secret.provisioned ? '' : ' (NO CONSOLE SECRET: ' + secret.reason +
+        ' — every request will be refused until MOS_CONSOLE_SECRET_FILE names a 0600 file)') + '\n');
   });
 }

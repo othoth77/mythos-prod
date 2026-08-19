@@ -43,6 +43,7 @@ PORT="${MOS_PORT:-8140}"
 EXECUTOR="${MOS_EXECUTOR_URL:-http://127.0.0.1:8130}"
 REPO="${MOS_REPO:-/home/deploy/projects/mythos-prod}"
 ENVDIR="${MOS_ENVDIR:-/home/deploy/deployments/mythos-os-console}"
+SECRETFILE="${MOS_SECRETFILE:-/home/deploy/deployments/mythos-os-console/.console-secret}"
 ENVFILE="$ENVDIR/.env"
 UNIT_SRC_REL="projects/mythos-os-console/deploy/mythos-os-console.user.service"
 VHOST_SRC_REL="projects/mythos-os-console/deploy/nginx-os.mythosprod.xyz.conf"
@@ -147,6 +148,41 @@ case "$(git check-ignore -v "$ENVFILE" 2>/dev/null; git ls-files --error-unmatch
 esac
 ok "credential file is outside the git worktree"
 
+# --- MOS-v2 M-01: the console's own sign-in secret ---------------------
+# A SEPARATE file from $ENVFILE, and separate on purpose: $ENVFILE is a
+# systemd EnvironmentFile, so everything in it becomes part of the service's
+# environment, readable through /proc/<pid>/environ and inherited by every
+# child. Only the PATH to this file is exported; reference/auth.js reads the
+# value itself and refuses the file if any group or other permission bit is
+# set. Nothing below reads, prints or logs the secret.
+if [ -f "$SECRETFILE" ] && grep -q '^MOS_CONSOLE_SECRET=.\+$' "$SECRETFILE"; then
+  ok "$SECRETFILE already holds a console secret (value not read)"
+else
+  umask 077
+  install -d -m 700 "$ENVDIR"
+  # Same read/printf discipline as the token above, and the same reasons.
+  printf '  >> MOS_CONSOLE_SECRET (console sign-in password, input hidden): '
+  IFS= read -rs MOS_SEC || die "could not read the console secret"
+  printf '\n'
+  [ -n "$MOS_SEC" ] || die "empty console secret."
+  printf 'MOS_CONSOLE_SECRET=%s\n' "$MOS_SEC" > "$SECRETFILE"
+  unset MOS_SEC
+  chmod 600 "$SECRETFILE"
+  DID_ENV=1
+  ok "wrote $SECRETFILE"
+fi
+[ "$(stat -c '%a' "$SECRETFILE")" = "600" ] || die "$SECRETFILE is mode $(stat -c '%a' "$SECRETFILE"), expected 600 — auth.js refuses anything looser."
+[ "$(grep -c '^MOS_CONSOLE_SECRET=.\+$' "$SECRETFILE")" = "1" ] || die "$SECRETFILE does not contain exactly one non-empty MOS_CONSOLE_SECRET line."
+if grep -q '^MOS_CONSOLE_SECRET=' "$ENVFILE"; then
+  die "MOS_CONSOLE_SECRET is in $ENVFILE. That file is a systemd EnvironmentFile; auth.js will not read the value from the environment. Move it to $SECRETFILE."
+fi
+ok "console secret: mode 600, exactly one line, not in the EnvironmentFile (never printed)"
+
+case "$(git check-ignore -v "$SECRETFILE" 2>/dev/null; git ls-files --error-unmatch "$SECRETFILE" 2>/dev/null || true)" in
+  *"$SECRETFILE"*) die "$SECRETFILE is inside the git worktree and tracked. Move it outside the repo." ;;
+esac
+ok "console secret file is outside the git worktree"
+
 # ---------------------------------------------------------------------
 say "Phase 3 — systemd user unit"
 mkdir -p "$(dirname "$UNIT_DST")"
@@ -190,14 +226,19 @@ while :; do
   # would concatenate to "000000" and fall through the 000 diagnostic branch,
   # mislabelling "nothing listening" as "bound but erroring". Let curl's own
   # value stand; `|| true` is only there to satisfy set -e.
-  last_code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:$PORT/api/health")" || true
+  # MOS-v2 M-01: /api/health is behind the session, so it answers 401 to
+  # this probe and 401 is not a readiness signal you can distinguish from
+  # half the ways a proxy can fail. /login is the public sign-in page and
+  # is served by the same process from the same static whitelist, so a 200
+  # there proves the port is bound AND the process is serving.
+  last_code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 2 "http://127.0.0.1:$PORT/login")" || true
   [ -n "$last_code" ] || last_code=000
   [ "$last_code" = "200" ] && { ready=1; break; }
   [ "$(date +%s)" -ge "$ready_deadline" ] && break
   sleep 1
 done
 if [ "$ready" != 1 ]; then
-  printf '\n  waited %ss for http://127.0.0.1:%s/api/health; last HTTP code: %s\n' \
+  printf '\n  waited %ss for http://127.0.0.1:%s/login; last HTTP code: %s\n' \
     "$(( $(date +%s) - ready_started ))" "$PORT" "$last_code" >&2
   case "$last_code" in
     000) printf '  000 — nothing accepted the connection: the process never bound the port.\n' >&2 ;;
@@ -209,33 +250,55 @@ if [ "$ready" != 1 ]; then
   journalctl --user -u mythos-os-console -n 40 --no-pager >&2 || true
   die "127.0.0.1:$PORT did not serve /api/health with HTTP 200 within ${READY_TIMEOUT}s."
 fi
-ok "127.0.0.1:$PORT answering /api/health with 200 after $(( $(date +%s) - ready_started ))s"
+ok "127.0.0.1:$PORT answering /login with 200 after $(( $(date +%s) - ready_started ))s"
 
 # ---------------------------------------------------------------------
 say "Phase 4 — local verification (GATE: nothing is exposed until this passes)"
-health="$(curl -fsS --max-time 10 "http://127.0.0.1:$PORT/api/health")" || die "GET /api/health failed on 127.0.0.1:$PORT."
-echo "$health" | grep -q '"ok":true' || die "/api/health did not report ok:true."
-echo "$health" | grep -q '"token_provisioned":true' || die "/api/health reports token_provisioned:false — the unit is not reading $ENVFILE."
-ok "/api/health ok, token provisioned"
+# MOS-v2 M-01 changed what this phase can and should check.
+#
+# Every probe below is UNAUTHENTICATED, and that is the point: what has to
+# be true before this console is exposed to the internet is that a caller
+# with no session sees nothing. The authenticated matrix — a real sign-in,
+# a real session, real data behind it — is proven by
+# tests/mos-1-console-test.js, which Phase 1 already ran and which gates
+# this script. Signing in here would mean this script reading the console
+# password to build a request body, and no phase of this deployment reads
+# a credential value.
+code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:$PORT/login")"
+[ "$code" = "200" ] || die "the sign-in page returned $code on loopback, expected 200."
+ok "/login 200 — the console is serving"
 
-if echo "$health" | grep -q '"upstream":{"ok":true'; then
-  ok "control plane reachable"
-else
-  info "control plane not reporting ok — the console will render that honestly; continuing"
-fi
+code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:$PORT/api/health")"
+[ "$code" = "401" ] || die "unauthenticated /api/health returned $code, expected 401. The authentication boundary is not in force — refusing to expose this."
+ok "unauthenticated /api/health 401 — the boundary is live"
 
 code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "http://127.0.0.1:$PORT/")"
-[ "$code" = "200" ] || die "shell returned $code on loopback, expected 200."
-ok "shell 200"
+[ "$code" = "302" ] || die "unauthenticated shell returned $code on loopback, expected a 302 to /login."
+ok "unauthenticated shell 302 -> /login"
 
 code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -X POST "http://127.0.0.1:$PORT/")"
 [ "$code" = "405" ] || die "POST returned $code, expected 405. The read-only property is a governance claim — refusing to expose this publicly."
 ok "POST 405 — read-only surface confirmed"
 
-for p in /api/missions /api/agents /api/providers /api/roadmap /api/modules; do
+for p in /api/missions /api/agents /api/providers /api/roadmap /api/modules /api/dispatcher /api/budget; do
   c="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "http://127.0.0.1:$PORT$p")"
-  case "$c" in 200|502|503) ok "$p -> $c" ;; *) die "$p returned $c" ;; esac
+  [ "$c" = "401" ] || die "unauthenticated $p returned $c, expected 401."
+  ok "unauthenticated $p -> 401"
 done
+
+# Configuration is confirmed from the unit's own startup line, which names
+# a missing credential and never prints one.
+startup="$(journalctl --user -u mythos-os-console -n 100 --no-pager 2>/dev/null | grep 'listening on' | tail -1 || true)"
+[ -n "$startup" ] || die "no 'listening on' line in the journal — cannot confirm how the unit is configured."
+if printf '%s' "$startup" | grep -q 'NO CONSOLE SECRET'; then
+  die "the unit reports no usable console secret: ${startup#*NO CONSOLE SECRET}. Nobody can sign in — refusing to expose this."
+fi
+ok "console secret provisioned (unit startup line, value never printed)"
+if printf '%s' "$startup" | grep -q 'NO TOKEN'; then
+  info "the unit reports no executor token — the console will render every data read as 'not authorised'; continuing"
+else
+  ok "executor token provisioned (unit startup line, value never printed)"
+fi
 
 # ---------------------------------------------------------------------
 say "Phase 5 — nginx vhost"
@@ -316,11 +379,15 @@ fi
 
 # ---------------------------------------------------------------------
 say "Phase 9 — public verification"
-curl -fsS --max-time 20 "https://$DOMAIN/api/health" >/dev/null || die "https://$DOMAIN/api/health failed."
-ok "https://$DOMAIN/api/health 200"
+c="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$DOMAIN/login")"
+[ "$c" = "200" ] || die "https://$DOMAIN/login returned $c."
+ok "https://$DOMAIN/login 200"
+c="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$DOMAIN/api/health")"
+[ "$c" = "401" ] || die "https://$DOMAIN/api/health returned $c to an unauthenticated caller, expected 401. The public surface is not gated."
+ok "public unauthenticated /api/health 401 — the boundary holds in production"
 c="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://$DOMAIN/")"
-[ "$c" = "200" ] || die "https://$DOMAIN/ returned $c."
-ok "https://$DOMAIN/ 200"
+[ "$c" = "302" ] || die "https://$DOMAIN/ returned $c to an unauthenticated caller, expected a 302 to /login."
+ok "https://$DOMAIN/ 302 -> /login"
 c="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 -X POST "https://$DOMAIN/")"
 [ "$c" = "405" ] || die "POST to the public URL returned $c, expected 405."
 ok "public POST 405 — read-only holds in production"
