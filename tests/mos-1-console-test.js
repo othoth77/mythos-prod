@@ -1511,6 +1511,294 @@ startStub().then(function (stub) {
 })
 
 // ===========================================================================
+// 4g. MOS-v2 M-07: OPERATOR AUDITABILITY
+//
+// Before this stage the console could create, cancel and dispatch real
+// executor missions and sign an operator in and out while leaving no
+// record of any of it. The executor's own task events start at task
+// creation, so a refused repo-write, a throttled sign-in, a mission
+// rejected at validation and an unauthenticated write attempt were all
+// invisible afterwards -- and those are precisely the events an incident
+// review asks about.
+//
+// What is asserted here is BOTH halves of the contract:
+//
+//   · every state-changing action writes exactly one audit line, with a
+//     truncated actor and a machine-readable outcome; and
+//   · no audit line can EVER carry a password, a session identifier in
+//     full, or instruction/title text -- enforced by an allowlist inside
+//     audit.js, so it is a property of the module rather than a habit of
+//     its callers. That half is tested against the module directly, not
+//     only through the server, because a call site can be added tomorrow.
+// ===========================================================================
+.then(function () {
+  var auditMod = require(path.join(REF, 'audit.js'));
+  var auditCode = code(read(path.join(REF, 'audit.js')));
+
+  // --- the allowlist, tested at the module ---------------------------
+  var hostile = auditMod.line({
+    action: 'mission.start', outcome: 'accepted', actor: 'f'.repeat(64), task_id: 'tk-audit-0001',
+    detail: {
+      profile: 'repo-write', provider: 'claude-code', model: 'opus', priority: 'high', status: 'RUNNING',
+      // Everything below is what a careless future caller might hand it.
+      instruction: 'SENSITIVE-INSTRUCTION-TEXT', title: 'SENSITIVE-TITLE',
+      password: CONSOLE_SECRET, token: SECRET_TOKEN, session: 'f'.repeat(64), cookie: 'mos_session=' + 'f'.repeat(64)
+    }
+  });
+  var hostileText = JSON.stringify(hostile);
+  ok(hostileText.indexOf('SENSITIVE-INSTRUCTION-TEXT') === -1, 'M-07: audit.js drops instruction text handed to it in detail');
+  ok(hostileText.indexOf('SENSITIVE-TITLE') === -1, 'M-07: audit.js drops title text handed to it in detail');
+  ok(hostileText.indexOf(CONSOLE_SECRET) === -1, 'M-07: audit.js drops a password handed to it in detail');
+  ok(hostileText.indexOf(SECRET_TOKEN) === -1, 'M-07: audit.js drops an executor token handed to it in detail');
+  ok(hostileText.indexOf('f'.repeat(64)) === -1, 'M-07: no 64-character identifier survives anywhere in an audit line');
+  eq(hostile.detail.profile, 'repo-write', 'M-07: an allowlisted detail field (profile) is kept');
+  eq(hostile.detail.provider, 'claude-code', 'M-07: an allowlisted detail field (provider) is kept');
+  eq(hostile.detail.model, 'opus', 'M-07: an allowlisted detail field (model) is kept');
+  eq(hostile.detail.priority, 'high', 'M-07: an allowlisted detail field (priority) is kept');
+  eq(hostile.detail.status, 'RUNNING', 'M-07: an allowlisted detail field (status) is kept');
+  eq(Object.keys(hostile.detail).sort().join(','), 'model,priority,profile,provider,status',
+     'M-07: the audit line carries exactly the allowlisted detail fields and nothing else');
+  eq(hostile.actor, 'sess:' + 'f'.repeat(8), 'M-07: the actor is the first eight characters of the session identifier, prefixed');
+  eq(hostile.task_id, 'tk-audit-0001', 'M-07: a well-formed task id is recorded');
+  eq(hostile.log, 'mos.audit', 'M-07: every line names itself mos.audit');
+
+  ['instruction', 'title', 'password', 'secret', 'token', 'session', 'cookie', 'stage'].forEach(function (f) {
+    ok(auditMod.DETAIL_FIELDS.indexOf(f) === -1, 'M-07: "' + f + '" is not an allowlisted audit detail field');
+  });
+
+  // An actor that is not a well-formed identifier is never echoed --
+  // including a value an attacker chose.
+  [null, undefined, '', 'not-a-session', 'F'.repeat(64), 'a'.repeat(63), { id: 'x' }, 12345].forEach(function (bad, i) {
+    eq(auditMod.line({ actor: bad }).actor, 'unauthenticated',
+       'M-07: a malformed actor value (case ' + i + ') is recorded as unauthenticated, never echoed');
+  });
+  // A task id is re-checked against the route alphabet here, so nothing
+  // can forge a second log line by choosing a URL.
+  ['../../etc/passwd', 'tk-x\n{"log":"mos.audit"}', 'TK-UPPER-0001', 'short', 'tk-' + 'a'.repeat(80), 5, null].forEach(function (bad, i) {
+    eq(auditMod.line({ task_id: bad }).task_id, null,
+       'M-07: a task id outside the route alphabet (case ' + i + ') is recorded as null, never echoed');
+  });
+  eq(auditMod.line({ detail: { reason: 'r'.repeat(200) } }).detail.reason.length, 64,
+     'M-07: a detail value is truncated to 64 characters');
+  ok(JSON.stringify(auditMod.line({ action: 'x', outcome: 'y' })).indexOf('\n') === -1,
+     'M-07: an audit line serialises to exactly one line');
+  ok(!/process\.env|require\('fs'\)|readFileSync/.test(auditCode),
+     'M-07: audit.js reads no environment variable and no file -- it cannot reach a credential to log one');
+  ok(/process\.stdout\.write/.test(auditCode), 'M-07: audit.js writes to stdout, so the record lands in the journal');
+
+  // --- the call sites, tested against a live console ------------------
+  var lines = [];
+  var realWrite = process.stdout.write;
+  function capture() {
+    process.stdout.write = function (chunk) {
+      var text = String(chunk);
+      if (text.indexOf('"log":"mos.audit"') !== -1) {
+        text.split('\n').forEach(function (l) { if (l.trim()) lines.push(JSON.parse(l)); });
+        return true;
+      }
+      return realWrite.apply(process.stdout, arguments);
+    };
+  }
+  function release() { process.stdout.write = realWrite; }
+  function actions() { return lines.map(function (l) { return l.action + ':' + l.outcome; }); }
+
+  var auditStub = http.createServer(function (rq, rs) {
+    var u = rq.url.split('?')[0];
+    rq.on('data', function () { /* drained */ });
+    rq.on('end', function () {
+      if (u === '/health') {
+        rs.writeHead(200, { 'Content-Type': 'application/json' });
+        // A field the console has never heard of, carrying a credential.
+        // The health relay must reduce this to its own shape rather than
+        // pass an upstream body through verbatim.
+        rs.end(JSON.stringify({ ok: true, time: '2026-08-19T00:00:00Z',
+          checks: { store_writable: true, claude_cli: '1.0.0', n8n: { ok: true }, omniroute: { ok: false }, queue: { QUEUED: 2 } },
+          rogue_field: SECRET_TOKEN }));
+        return;
+      }
+      if (rq.method === 'POST' && u === '/tasks') {
+        rs.writeHead(201, { 'Content-Type': 'application/json' });
+        rs.end(JSON.stringify({ task_id: 'tk-audit-0001', status: 'QUEUED' }));
+        return;
+      }
+      if (rq.method === 'POST' && /\/(dispatch|cancel)$/.test(u)) {
+        rs.writeHead(200, { 'Content-Type': 'application/json' });
+        rs.end(JSON.stringify({ task_id: 'tk-audit-0001', dispatched: true, running: 1, max_parallel: 5, status: 'CANCELLED' }));
+        return;
+      }
+      rs.writeHead(200, { 'Content-Type': 'application/json' });
+      rs.end(JSON.stringify({ tasks: [] }));
+    });
+  });
+
+  return new Promise(function (resolve) { auditStub.listen(0, '127.0.0.1', resolve); }).then(function () {
+    authMod.resetThrottle();
+    delete process.env.MOS_ALLOW_REPO_WRITE;
+    var server = freshServer({
+      MOS_EXECUTOR_URL: 'http://127.0.0.1:' + auditStub.address().port,
+      MOS_EXECUTOR_TOKEN: SECRET_TOKEN,
+      MOS_EXECUTOR_TOKEN_FILE: null
+    });
+    return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
+      var port = s.address().port;
+      ACTIVE_COOKIE = null;
+      var sessionId = null;
+      var INSTRUCTION = 'AUDIT-PROBE-INSTRUCTION-TEXT-do-not-log-me';
+
+      capture();
+      // 1. Unauthenticated writes: the events nothing downstream can record.
+      return req(port, '/api/missions/start', 'POST',
+                 { title: 't', instruction: INSTRUCTION, provider: 'claude-code' }, { cookie: null })
+      .then(function (r) {
+        eq(r.status, 401, 'M-07: the unauthenticated start attempt is still refused');
+        eq(lines.length, 1, 'M-07: an unauthenticated write attempt writes exactly one audit line');
+        eq(lines[0].action, 'write.denied', 'M-07: the refused write is recorded as write.denied');
+        eq(lines[0].outcome, 'unauthenticated', 'M-07: its outcome names the reason');
+        eq(lines[0].actor, 'unauthenticated', 'M-07: a caller with no session is recorded as unauthenticated');
+        eq(lines[0].detail.route, 'mission.start', 'M-07: the refused write names the route it aimed at');
+        eq(lines[0].task_id, null, 'M-07: a start attempt carries no task id');
+        return req(port, '/api/missions/tk-audit-0001/cancel', 'POST', {}, { cookie: null });
+      }).then(function () {
+        eq(lines.length, 2, 'M-07: the unauthenticated cancel attempt is recorded too');
+        eq(lines[1].detail.route, 'mission.cancel', 'M-07: the refused cancel names its route');
+        eq(lines[1].task_id, 'tk-audit-0001', 'M-07: the refused cancel records which task was targeted');
+        lines.length = 0;
+        // 2. Sign-in: failure, then success.
+        return login(port, 'wrong-password');
+      }).then(function () {
+        eq(lines.length, 1, 'M-07: a failed sign-in writes exactly one audit line');
+        eq(lines[0].action + ':' + lines[0].outcome, 'login:invalid_credentials', 'M-07: the failed sign-in is recorded as login:invalid_credentials');
+        eq(lines[0].actor, 'unauthenticated', 'M-07: a failed sign-in has no actor');
+        ok(JSON.stringify(lines[0]).indexOf('wrong-password') === -1, 'M-07: the submitted password never reaches the audit line');
+        lines.length = 0;
+        return login(port, CONSOLE_SECRET);
+      }).then(function (l) {
+        eq(l.res.status, 200, 'M-07: sign-in for the audit checks succeeds');
+        ACTIVE_COOKIE = l.cookie;
+        sessionId = l.cookie.split('=')[1];
+        eq(lines.length, 1, 'M-07: a successful sign-in writes exactly one audit line');
+        eq(lines[0].action + ':' + lines[0].outcome, 'login:success', 'M-07: the successful sign-in is recorded as login:success');
+        eq(lines[0].actor, 'sess:' + sessionId.slice(0, 8), 'M-07: the actor is the truncated identifier of the session just issued');
+        ok(JSON.stringify(lines[0]).indexOf(sessionId) === -1, 'M-07: the session identifier never appears in full in an audit line');
+        ok(JSON.stringify(lines[0]).indexOf(CONSOLE_SECRET) === -1, 'M-07: the console secret never appears in an audit line');
+        lines.length = 0;
+        // 3. Reads change nothing and are not audited.
+        return Promise.all([req(port, '/api/missions', 'GET'), req(port, '/api/modules', 'GET'), req(port, '/api/health', 'GET')]);
+      }).then(function (reads) {
+        eq(lines.length, 0, 'M-07: read routes write no audit line -- only state-changing actions are recorded');
+        // The health relay reduces the upstream body to its own shape.
+        var health = reads[2];
+        ok(health.text.indexOf(SECRET_TOKEN) === -1, 'M-07: an unknown upstream health field carrying a credential never reaches the browser');
+        ok(health.text.indexOf('rogue_field') === -1, 'M-07: an unknown upstream health field is dropped, not passed through');
+        var hd = health.json.data.upstream.detail;
+        eq(hd.checks.store_writable, true, 'M-07: the reduced health view keeps store_writable');
+        eq(hd.checks.claude_cli, '1.0.0', 'M-07: the reduced health view keeps the CLI version');
+        eq(hd.checks.n8n, true, 'M-07: the reduced health view reduces the n8n probe to a boolean');
+        eq(hd.checks.omniroute, false, 'M-07: the reduced health view reduces the omniroute probe to a boolean');
+        eq(hd.checks.queue.QUEUED, 2, 'M-07: the reduced health view keeps the queue histogram');
+        eq(Object.keys(hd).sort().join(','), 'checks,ok,time', 'M-07: the reduced health view has exactly three top-level fields');
+        // 4. A rejected mission: recorded, with a reason code and no input.
+        return req(port, '/api/missions/start', 'POST', { title: 't', instruction: INSTRUCTION, provider: 'mock' });
+      }).then(function (r) {
+        eq(r.status, 400, 'M-07: the bad-provider mission is still refused');
+        eq(lines.length, 1, 'M-07: a rejected mission writes exactly one audit line');
+        eq(lines[0].action + ':' + lines[0].outcome, 'mission.start:rejected', 'M-07: the rejection is recorded as mission.start:rejected');
+        eq(lines[0].detail.reason, 'provider', 'M-07: the rejection names WHICH check refused it');
+        ok(JSON.stringify(lines[0]).indexOf('mock') === -1, 'M-07: the caller-supplied value that was refused is not echoed into the log');
+        lines.length = 0;
+        return req(port, '/api/missions/start', 'POST',
+                   { title: 't', instruction: INSTRUCTION, provider: 'claude-code', rogue_field: SECRET_TOKEN });
+      }).then(function (r) {
+        eq(r.status, 400, 'M-07: the unexpected-field mission is still refused');
+        eq(lines[0].detail.reason, 'unexpected_field', 'M-07: an unexpected field is recorded by reason code');
+        ok(JSON.stringify(lines[0]).indexOf('rogue_field') === -1, 'M-07: the unexpected field NAME is not written into the log');
+        ok(JSON.stringify(lines[0]).indexOf(SECRET_TOKEN) === -1, 'M-07: the unexpected field VALUE is not written into the log');
+        lines.length = 0;
+        // 5. The refusal that matters most: repo-write, unauthorized.
+        return req(port, '/api/missions/start', 'POST',
+                   { title: 't', instruction: INSTRUCTION, provider: 'claude-code', execution_profile: 'repo-write' });
+      }).then(function (r) {
+        eq(r.status, 403, 'M-07: repo-write is still refused while MOS_ALLOW_REPO_WRITE is unset');
+        eq(lines.length, 1, 'M-07: the refused repo-write writes exactly one audit line');
+        eq(lines[0].action + ':' + lines[0].outcome, 'mission.start:denied_profile', 'M-07: an unauthorized profile is recorded as denied_profile, distinctly from a malformed request');
+        eq(lines[0].detail.profile, 'repo-write', 'M-07: the refused repo-write names the profile that was asked for');
+        eq(lines[0].actor, 'sess:' + sessionId.slice(0, 8), 'M-07: the refused repo-write is attributed to the operator who asked');
+        lines.length = 0;
+        // 6. An accepted mission, including an authorized repo-write.
+        process.env.MOS_ALLOW_REPO_WRITE = 'true';
+        return req(port, '/api/missions/start', 'POST',
+                   { title: 'AUDIT-PROBE-TITLE', instruction: INSTRUCTION, provider: 'claude-code',
+                     model: 'opus', execution_profile: 'repo-write', priority: 'high' });
+      }).then(function (r) {
+        eq(r.status, 200, 'M-07: the authorized repo-write mission starts');
+        eq(lines.length, 1, 'M-07: an accepted mission writes exactly one audit line');
+        var a = lines[0];
+        eq(a.action + ':' + a.outcome, 'mission.start:accepted', 'M-07: the accepted mission is recorded as mission.start:accepted');
+        eq(a.task_id, 'tk-audit-0001', 'M-07: the accepted mission records the task id the executor issued');
+        eq(a.detail.profile, 'repo-write', 'M-07: repo-write USE is recorded, not only its refusal');
+        eq(a.detail.provider, 'claude-code', 'M-07: the accepted mission records the provider');
+        eq(a.detail.model, 'opus', 'M-07: the accepted mission records the model');
+        eq(a.detail.priority, 'high', 'M-07: the accepted mission records the priority');
+        eq(a.detail.status, 'RUNNING', 'M-07: the accepted mission records the resulting status');
+        ok(JSON.stringify(a).indexOf(INSTRUCTION) === -1, 'M-07: the mission instruction is never written to the audit log');
+        ok(JSON.stringify(a).indexOf('AUDIT-PROBE-TITLE') === -1, 'M-07: the mission title is never written to the audit log');
+        delete process.env.MOS_ALLOW_REPO_WRITE;
+        lines.length = 0;
+        // 7. Cancel and dispatch.
+        return req(port, '/api/missions/tk-audit-0001/cancel', 'POST', {});
+      }).then(function (r) {
+        eq(r.status, 200, 'M-07: the cancel relay still answers 200');
+        eq(lines[0].action + ':' + lines[0].outcome, 'mission.cancel:accepted', 'M-07: a cancel is recorded');
+        eq(lines[0].task_id, 'tk-audit-0001', 'M-07: the cancel records which task it targeted');
+        eq(lines[0].actor, 'sess:' + sessionId.slice(0, 8), 'M-07: the cancel is attributed to the operator who asked');
+        lines.length = 0;
+        return req(port, '/api/missions/tk-audit-0001/dispatch', 'POST', {});
+      }).then(function (r) {
+        eq(r.status, 200, 'M-07: the dispatch relay still answers 200');
+        eq(lines[0].action + ':' + lines[0].outcome, 'mission.dispatch:accepted', 'M-07: a dispatch is recorded');
+        eq(lines[0].task_id, 'tk-audit-0001', 'M-07: the dispatch records which task it targeted');
+        lines.length = 0;
+        // 8. Sign-out, by the same actor that signed in.
+        return req(port, '/api/logout', 'POST', {});
+      }).then(function (r) {
+        eq(r.status, 200, 'M-07: sign-out still answers 200');
+        eq(lines.length, 1, 'M-07: signing out writes exactly one audit line');
+        eq(lines[0].action + ':' + lines[0].outcome, 'logout:success', 'M-07: the sign-out is recorded');
+        eq(lines[0].actor, 'sess:' + sessionId.slice(0, 8), 'M-07: the sign-out is attributed to the session that ended');
+        release();
+        ACTIVE_COOKIE = null;
+        s.close();
+        auditStub.close();
+      }).catch(function (e) { release(); throw e; });
+    });
+  });
+})
+
+// ===========================================================================
+// 4h. MOS-v2 M-07: the audit surface cannot grow silently
+// ===========================================================================
+.then(function () {
+  var serverCode = code(read(path.join(REF, 'server.js')));
+  ok(/require\('\.\/audit'\)/.test(serverCode), 'M-07: server.js loads the audit module');
+  var calls = serverCode.match(/audit\.record\(\{[\s\S]*?\}\);/g) || [];
+  ok(calls.length >= 10, 'M-07: every state-changing path records an audit line (' + calls.length + ' call sites)');
+  calls.forEach(function (call, i) {
+    ok(!/payload\.instruction|payload\.title|instruction:|title:|password/.test(call),
+       'M-07: audit call site ' + i + ' passes no instruction, title or password');
+    ok(/action:/.test(call) && /outcome:/.test(call),
+       'M-07: audit call site ' + i + ' names both an action and an outcome');
+  });
+  // The refusal of an unauthenticated write stays a single unconditional
+  // line: the audit record is written BEFORE it, never inside it, so the
+  // boundary cannot be made conditional on logging succeeding.
+  ok(/if \(!writeMatch\.unauthenticated && !session\) return unauthenticated\(res, staleCookie\);/.test(serverCode),
+     'M-07: auditing the refused write did not turn the boundary into a branch');
+  // audit.js is server-side only, exactly like auth.js and upstream.js.
+  ok(!fs.existsSync(path.join(WEB, 'audit.js')), 'M-07: audit.js is not in the served web directory');
+  ok(serverCode.indexOf("'/audit.js'") === -1, 'M-07: audit.js has no STATIC entry');
+})
+
+// ===========================================================================
 // 5c. SESSION LIFECYCLE — signing out, and running out of time
 //
 // A session that cannot be ended and a session that never ends are the

@@ -43,6 +43,18 @@
        in the same explicit WRITE_ROUTES list as the other four, so the
        write surface is still one readable list and still cannot grow
        silently.
+
+   EVERY WRITE IS AUDITED (MOS-v2 M-07).
+
+     · audit.js writes one append-only JSON line to stdout for each
+       state-changing action -- sign-in (success, failure, throttled),
+       sign-out, mission start (accepted, rejected, profile-denied,
+       upstream failure), cancel and dispatch -- plus every write refused
+       for want of a session. Reads are not audited; they change nothing.
+     · The line carries a truncated actor, never a session identifier in
+       full, never a password, and never instruction or title text. That
+       is enforced by an allowlist inside audit.js, not by discipline at
+       the call sites here.
    ===================================================== */
 
 var fs = require('fs');
@@ -50,6 +62,7 @@ var http = require('http');
 var path = require('path');
 
 var auth = require('./auth');
+var audit = require('./audit');
 var upstream = require('./upstream');
 var modelCatalog = require('./model-catalog');
 
@@ -187,6 +200,40 @@ function clampLimit(raw, def, max) {
   return Math.min(n, max);
 }
 
+/* MOS-v2 M-07: the executor's own /health body, reduced to an explicit
+   shape before it is served.
+
+   Every other relay in this file field-picks what it forwards (agentsView,
+   TASK_DETAIL_*_FIELDS, MISSION_DISPATCH_FIELDS) precisely so a field
+   added upstream for an unrelated reason cannot become a console
+   response. The health body was the one exception: whatever the executor
+   returned was passed through verbatim. Nothing in it is a credential
+   today -- executor.health() reports a store-writability boolean, a CLI
+   version string, two loopback probe results and a status histogram -- so
+   this closes a passthrough, not an active leak. The queue histogram is
+   copied key by key, admitting only the executor's own uppercase status
+   names with numeric counts, because it is the one map here whose keys
+   are not known in advance. */
+function upstreamHealthView(detail) {
+  if (!detail || typeof detail !== 'object') return null;
+  var checks = (detail.checks && typeof detail.checks === 'object') ? detail.checks : {};
+  var queue = {};
+  Object.keys((checks.queue && typeof checks.queue === 'object') ? checks.queue : {}).forEach(function (k) {
+    if (/^[A-Z_]{3,32}$/.test(k) && typeof checks.queue[k] === 'number') queue[k] = checks.queue[k];
+  });
+  return {
+    ok: detail.ok === true,
+    time: typeof detail.time === 'string' ? detail.time : null,
+    checks: {
+      store_writable: checks.store_writable === true,
+      claude_cli: typeof checks.claude_cli === 'string' ? checks.claude_cli : null,
+      n8n: !!(checks.n8n && checks.n8n.ok),
+      omniroute: !!(checks.omniroute && checks.omniroute.ok),
+      queue: queue
+    }
+  };
+}
+
 var API = {
   '/api/health': function (res) {
     upstream.health().then(function (up) {
@@ -209,7 +256,7 @@ var API = {
           reachable: up.reachable,
           target: up.target,
           error: up.error || null,
-          detail: up.detail || null
+          detail: upstreamHealthView(up.detail)
         }
       });
     }).catch(function (e) { problem(res, e); });
@@ -334,6 +381,19 @@ var WRITE_ROUTES = [
   { test: function (p) { var m = DISPATCH_ROUTE_RE.exec(p); return m ? [m[1]] : null; }, handler: handleMissionDispatch }
 ];
 
+// The audit label for a matched write route. Derived from the same two
+// regexes and the same two literals WRITE_ROUTES uses, so a route added
+// there without a label here reads as 'write' rather than as something
+// else's name.
+function writeRouteLabel(pathname) {
+  if (pathname === '/api/login') return 'login';
+  if (pathname === '/api/logout') return 'logout';
+  if (pathname === '/api/missions/start') return 'mission.start';
+  if (CANCEL_ROUTE_RE.test(pathname)) return 'mission.cancel';
+  if (DISPATCH_ROUTE_RE.test(pathname)) return 'mission.dispatch';
+  return 'write';
+}
+
 function matchWriteRoute(pathname) {
   for (var i = 0; i < WRITE_ROUTES.length; i++) {
     var args = WRITE_ROUTES[i].test(pathname);
@@ -388,6 +448,7 @@ var LOGIN_FIELDS = ['password'];
        the response body carries an expiry timestamp and nothing else. */
 function handleLogin(req, res) {
   if (!auth.loginAllowed(req)) {
+    audit.record({ action: 'login', outcome: 'throttled' });
     sendJSON(res, 429, { ok: false, error: 'too_many_attempts',
                          detail: 'too many failed sign-in attempts; wait and try again' });
     return;
@@ -409,6 +470,11 @@ function handleLogin(req, res) {
 
     if (!auth.verifyPassword(password).ok) {
       auth.recordLoginFailure(req);
+      // The reason the VERDICT was negative is never logged either -- a
+      // wrong password and an unreadable secret file are one line here,
+      // exactly as they are one response to the caller. The operator
+      // diagnoses configuration from /api/health, not from the audit log.
+      audit.record({ action: 'login', outcome: 'invalid_credentials' });
       sendJSON(res, 401, { ok: false, error: 'invalid_credentials', detail: 'invalid credentials' });
       return;
     }
@@ -420,6 +486,10 @@ function handleLogin(req, res) {
     var previous = auth.sessionIdFrom(req);
     if (previous) auth.destroySession(previous);
     var session = auth.createSession();
+    // The NEW session is the actor: every later action by this operator
+    // carries the same truncated prefix, so a sign-in and the missions
+    // that followed it read as one sequence.
+    audit.record({ action: 'login', outcome: 'success', actor: session.id });
     sendJSON(res, 200, { ok: true, at: new Date().toISOString(),
                          data: { authenticated: true, expires_at: new Date(session.expiresAt).toISOString() } },
              { 'Set-Cookie': auth.sessionCookie(session.id) });
@@ -435,7 +505,9 @@ function handleLogin(req, res) {
    anyone who kept a copy of the identifier. */
 function handleLogout(req, res) {
   readBoundedBody(req, 1024).then(function () {
-    auth.destroySession(auth.sessionIdFrom(req));
+    var ending = auth.sessionIdFrom(req);
+    auth.destroySession(ending);
+    audit.record({ action: 'logout', outcome: 'success', actor: ending });
     sendJSON(res, 200, { ok: true, at: new Date().toISOString(), data: { authenticated: false } },
              { 'Set-Cookie': auth.clearedCookie() });
   }).catch(function () {
@@ -510,28 +582,40 @@ function badRequest(res, detail) {
 // validated below against CONSOLE_PRIORITIES, defaulting to 'normal' when
 // absent, and relayed verbatim -- the executor's own PRIORITY_WEIGHT is the
 // structural enforcement of ordering, this is just an early refusal.
+/* MOS-v2 M-07: a refused mission is a state-changing action that did not
+   happen, and that is exactly what an audit log is for -- ten refusals in
+   a minute is a different event from one. `reason` is a fixed code naming
+   WHICH check refused, never the caller's value and never the human
+   message: the message can quote the operator's own input (an unexpected
+   field name is echoed, truncated, in the 400 body), the code cannot. */
+function rejectStart(req, res, reason, detail) {
+  audit.record({ action: 'mission.start', outcome: 'rejected',
+                 actor: auth.sessionIdFrom(req), detail: { reason: reason } });
+  return badRequest(res, detail);
+}
+
 function handleStartMission(req, res) {
   readBoundedBody(req, START_MISSION_MAX_BODY).then(function (raw) {
     var payload;
     try { payload = JSON.parse(raw || '{}'); }
-    catch (e) { return badRequest(res, 'body is not valid JSON'); }
+    catch (e) { return rejectStart(req, res, 'bad_json', 'body is not valid JSON'); }
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-      return badRequest(res, 'body must be a JSON object');
+      return rejectStart(req, res, 'bad_body', 'body must be a JSON object');
     }
     var unexpected = Object.keys(payload).filter(function (k) { return START_MISSION_FIELDS.indexOf(k) === -1; });
-    if (unexpected.length) return badRequest(res, 'unexpected field: ' + unexpected[0].slice(0, 40));
+    if (unexpected.length) return rejectStart(req, res, 'unexpected_field', 'unexpected field: ' + unexpected[0].slice(0, 40));
 
     var title = payload.title;
     if (typeof title !== 'string' || !title.trim() || title.length > 200) {
-      return badRequest(res, 'title (string, 1-200 chars) is required');
+      return rejectStart(req, res, 'title', 'title (string, 1-200 chars) is required');
     }
     var instruction = payload.instruction;
     if (typeof instruction !== 'string' || !instruction.trim() || instruction.length > 20000) {
-      return badRequest(res, 'instruction (string, 1-20000 chars) is required');
+      return rejectStart(req, res, 'instruction', 'instruction (string, 1-20000 chars) is required');
     }
     var provider = payload.provider;
     if (REAL_PROVIDERS.indexOf(provider) === -1) {
-      return badRequest(res, 'provider must be one of: ' + REAL_PROVIDERS.join(', '));
+      return rejectStart(req, res, 'provider', 'provider must be one of: ' + REAL_PROVIDERS.join(', '));
     }
     // MOS-v2 M-05: model is no longer free-form. Omitted or null relays
     // null to the executor -- each provider's own default applies
@@ -548,7 +632,7 @@ function handleStartMission(req, res) {
         var allowedForProvider = modelCatalog.enabledModels()
           .filter(function (m) { return m.provider === provider; })
           .map(function (m) { return m.id; });
-        return badRequest(res, 'model must be one of: ' + allowedForProvider.join(', ') + ' (for provider ' + provider + ')');
+        return rejectStart(req, res, 'model', 'model must be one of: ' + allowedForProvider.join(', ') + ' (for provider ' + provider + ')');
       }
     }
 
@@ -559,7 +643,7 @@ function handleStartMission(req, res) {
     var profile = 'repo-read';
     if (payload.execution_profile !== undefined) {
       if (typeof payload.execution_profile !== 'string' || CONSOLE_PROFILES.indexOf(payload.execution_profile) === -1) {
-        return badRequest(res, 'execution_profile must be one of: ' + CONSOLE_PROFILES.join(', '));
+        return rejectStart(req, res, 'execution_profile', 'execution_profile must be one of: ' + CONSOLE_PROFILES.join(', '));
       }
       profile = payload.execution_profile;
     }
@@ -571,6 +655,10 @@ function handleStartMission(req, res) {
     // request (400 bad_request): the request is well-formed and the
     // profile is real, it is simply not switched on here.
     if (profile === 'repo-write' && process.env.MOS_ALLOW_REPO_WRITE !== 'true') {
+      // The single most important line this log can carry: somebody asked
+      // this console for repository write authority and was refused.
+      audit.record({ action: 'mission.start', outcome: 'denied_profile',
+                     actor: auth.sessionIdFrom(req), detail: { profile: profile, reason: 'repo_write_not_authorized' } });
       sendJSON(res, 403, { ok: false, error: 'profile_not_authorized',
                            detail: 'repo-write is not authorized on this console' });
       return;
@@ -582,7 +670,7 @@ function handleStartMission(req, res) {
     var priority = 'normal';
     if (payload.priority !== undefined) {
       if (typeof payload.priority !== 'string' || CONSOLE_PRIORITIES.indexOf(payload.priority) === -1) {
-        return badRequest(res, 'priority must be one of: ' + CONSOLE_PRIORITIES.join(', '));
+        return rejectStart(req, res, 'priority', 'priority must be one of: ' + CONSOLE_PRIORITIES.join(', '));
       }
       priority = payload.priority;
     }
@@ -599,7 +687,26 @@ function handleStartMission(req, res) {
       expected_delivery: 'report'
     }).then(function (created) {
       var taskId = created && created.task_id;
-      if (!taskId) return problem(res, { code: 'upstream_error', message: 'executor did not return a task id' });
+      if (!taskId) {
+        audit.record({ action: 'mission.start', outcome: 'upstream_error', actor: auth.sessionIdFrom(req),
+                       detail: { reason: 'no_task_id' } });
+        return problem(res, { code: 'upstream_error', message: 'executor did not return a task id' });
+      }
+      // MOS-v2 M-07: the task now exists upstream, so the audit line is
+      // written whichever way the dispatch below goes -- what is being
+      // recorded is that this operator caused this task to be created
+      // under this profile, not whether a slot happened to be free. The
+      // instruction that was relayed is deliberately NOT in the line;
+      // the executor's own task.json holds it.
+      function accepted(status, note) {
+        audit.record({ action: 'mission.start', outcome: 'accepted', actor: auth.sessionIdFrom(req),
+                       task_id: taskId,
+                       detail: { profile: profile, provider: provider, model: model || null,
+                                 priority: priority, status: status } });
+        var data = { task_id: taskId, status: status, provider: provider, model: model || null };
+        if (note) data.note = note;
+        return ok(res, data);
+      }
       // MOS-3A: the explicit start goes through the executor's capacity-
       // gated dispatcher (POST /tasks/<id>/dispatch), not the old
       // unconditional /resume -- runTask() itself still has no cross-task
@@ -609,17 +716,16 @@ function handleStartMission(req, res) {
       return upstream.post('/tasks/' + taskId + '/dispatch', {})
         .then(function (dispatched) {
           if (dispatched && dispatched.dispatched) {
-            return ok(res, { task_id: taskId, status: 'RUNNING', provider: provider, model: model || null });
+            return accepted('RUNNING');
           }
           if (dispatched && dispatched.queued) {
-            return ok(res, { task_id: taskId, status: 'QUEUED', provider: provider, model: model || null,
-              note: 'created; at capacity (' + dispatched.running + '/' + dispatched.max_parallel + ')' +
-                ' — will start automatically when a slot frees' });
+            return accepted('QUEUED',
+              'created; at capacity (' + dispatched.running + '/' + dispatched.max_parallel + ')' +
+                ' — will start automatically when a slot frees');
           }
           // Unrecognised shape from the executor: fall back to the same
           // honest "queued, will run" note as an outright dispatch failure.
-          ok(res, { task_id: taskId, status: 'QUEUED', provider: provider, model: model || null,
-            note: 'created; the explicit start call did not confirm, but the task is queued and will run' });
+          accepted('QUEUED', 'created; the explicit start call did not confirm, but the task is queued and will run');
         })
         .catch(function () {
           // Created but the explicit dispatch call failed (e.g. a race with
@@ -627,12 +733,15 @@ function handleStartMission(req, res) {
           // The task is still safely QUEUED and will run on the next tick
           // or the drain triggered by another task freeing a slot -- this
           // is not a failure to report as one.
-          ok(res, { task_id: taskId, status: 'QUEUED', provider: provider, model: model || null,
-            note: 'created; the explicit start call did not confirm, but the task is queued and will run' });
+          accepted('QUEUED', 'created; the explicit start call did not confirm, but the task is queued and will run');
         });
-    }).catch(function (e) { problem(res, e); });
+    }).catch(function (e) {
+      audit.record({ action: 'mission.start', outcome: 'upstream_error', actor: auth.sessionIdFrom(req),
+                     detail: { profile: profile, provider: provider, reason: (e && e.code) || 'internal_error' } });
+      problem(res, e);
+    });
   }).catch(function (e) {
-    if (e && e.message === 'BODY_TOO_LARGE') return badRequest(res, 'request body too large');
+    if (e && e.message === 'BODY_TOO_LARGE') return rejectStart(req, res, 'body_too_large', 'request body too large');
     problem(res, { code: 'internal_error', message: 'internal error' });
   });
 }
@@ -688,8 +797,18 @@ function handleMissionCancel(req, res, taskId) {
   readBoundedBody(req, 1024).then(function () {
     return upstream.post('/tasks/' + taskId + '/cancel', {});
   }).then(function (d) {
-    ok(res, { task_id: taskId, status: (d && d.status) || 'CANCELLED' });
-  }).catch(function (e) { problem(res, e); });
+    var status = (d && d.status) || 'CANCELLED';
+    audit.record({ action: 'mission.cancel', outcome: 'accepted', actor: auth.sessionIdFrom(req),
+                   task_id: taskId, detail: { status: status } });
+    ok(res, { task_id: taskId, status: status });
+  }).catch(function (e) {
+    // A cancel the executor refused (409 on an already-terminal task) is
+    // recorded too: an operator repeatedly trying to stop something is
+    // information, and it is exactly the trace a post-incident read wants.
+    audit.record({ action: 'mission.cancel', outcome: 'failed', actor: auth.sessionIdFrom(req),
+                   task_id: taskId, detail: { reason: (e && e.code) || 'internal_error' } });
+    problem(res, e);
+  });
 }
 
 // --- MOS-3A: the dispatch relay --------------------------------------
@@ -705,8 +824,14 @@ function handleMissionDispatch(req, res, taskId) {
   readBoundedBody(req, 1024).then(function () {
     return upstream.post('/tasks/' + taskId + '/dispatch', {});
   }).then(function (d) {
+    audit.record({ action: 'mission.dispatch', outcome: 'accepted', actor: auth.sessionIdFrom(req),
+                   task_id: taskId, detail: { status: d && d.dispatched ? 'RUNNING' : 'QUEUED' } });
     ok(res, pick(d, MISSION_DISPATCH_FIELDS));
-  }).catch(function (e) { problem(res, e); });
+  }).catch(function (e) {
+    audit.record({ action: 'mission.dispatch', outcome: 'failed', actor: auth.sessionIdFrom(req),
+                   task_id: taskId, detail: { reason: (e && e.code) || 'internal_error' } });
+    problem(res, e);
+  });
 }
 
 function handler(req, res) {
@@ -730,6 +855,19 @@ function handler(req, res) {
   // session, except the one route flagged unauthenticated.
   var session = auth.sessionFor(req);
   var staleCookie = !session && auth.hasSessionCookie(req);
+
+  // MOS-v2 M-07: a write attempted with no session is the event most worth
+  // having a record of, and the one nothing downstream can record -- it
+  // never reaches the executor, so the executor's own task events cannot
+  // know it happened. Audited here, immediately before the refusal below,
+  // and kept OUT of that refusal so the boundary itself stays the single
+  // unconditional line the suite pins it as. `route` is the matched
+  // route's own label, never the raw request path, so the log cannot be
+  // written into by choosing a URL.
+  if (writeMatch && !writeMatch.unauthenticated && !session) {
+    audit.record({ action: 'write.denied', outcome: 'unauthenticated',
+                   task_id: writeMatch.args[0], detail: { route: writeRouteLabel(reqPathname) } });
+  }
 
   if (writeMatch) {
     if (!writeMatch.unauthenticated && !session) return unauthenticated(res, staleCookie);

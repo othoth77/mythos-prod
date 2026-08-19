@@ -1,7 +1,47 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MOS-v2 **M-06 — MISSION CONTROL COMPLETED. IMPLEMENTED, TESTED.**
+**From:** MOS-v2 **M-07 — OPERATOR SAFETY AUDIT: 10/12 SAFE WITH EVIDENCE, 2 REAL GAPS FIXED (AUDIT LOGGING, HEALTH PASSTHROUGH). ACCEPTED.**
+
+## MOS-v2 M-07 — operator safety audit (2026-08-19)
+
+**Full report:** `docs/MOS_V2_M07_SECURITY_AUDIT.md`. Write surface after
+M-01/M-04/M-05/M-06 audited item by item; bypass probes actually executed
+(case/unicode/whitespace tampering, `__proto__`/`constructor` keys,
+duplicate JSON keys, `..%2f`/`%3f` smuggling) — all refused with zero
+upstream calls.
+
+**Two real gaps, both fixed console-side:**
+- **F1 — no auditability.** NEW `reference/audit.js` + server wiring: one
+  JSON line per write action (login/logout/mission.start/cancel/dispatch/
+  write.denied) with ts, action, truncated actor (`sess:`+8 chars),
+  re-validated task_id, outcome; structurally cannot log a password, full
+  session id, or instruction text (7-name detail allowlist, 64-char
+  truncation); logging failure never breaks a request.
+- **F2 — `/api/health` relayed the executor's `/health` body verbatim**
+  (the only allowlist-less relay). Now field-picked via
+  `upstreamHealthView()`; probes reduced to booleans.
+
+**Executor-side observations — documented, NOT fixed (executor out of
+scope this stage; owner decision recorded):** (1) `policy.DEFAULT_PROFILE
+= 'repo-write'` is fail-open for any executor-token holder when the field
+is absent — console unaffected (always sends explicit profile); (2)
+`MOS_ALLOW_REPO_WRITE` governs only the console path; (3) cancel SIGTERMs
+a stored pid with only a liveness check.
+
+**Residual (accepted, recorded):** over-limit bodies close the socket
+(fail-closed); global login throttle can lock the operator out 15 min (by
+design); in-memory sessions; journald audit log not tamper-evident;
+Google Fonts CSP exception stands.
+
+**Tests.** Console **972 passed / 0 failed** (was 832/0; +139, §4g/§4h).
+Executor **158/0**, untouched.
+
+**Next stage.** M-08 complete regression (Haiku).
+
+---
+
+**Previously:** MOS-v2 **M-06 — MISSION CONTROL COMPLETED. IMPLEMENTED, TESTED.**
 
 ## MOS-v2 M-06 — Mission Control completion (2026-08-19)
 
