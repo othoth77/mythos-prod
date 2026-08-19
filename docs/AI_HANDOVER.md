@@ -1,7 +1,83 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MOS-v2 **FINAL — ALL ELEVEN STAGES CODE-COMPLETE AND MERGED-OR-MERGING; REGRESSION GATE 0 NEW FAILURES; PRODUCTION ACTIVATION OPERATOR-BLOCKED (HOST ACCESS), STEPS RECORDED.**
+**From:** OTH-K1 **KNOWLEDGE OPERATING LAYER IMPLEMENTED AND TESTED (119/0); INFRASTRUCTURE KNOWLEDGE RECORDED AND MERGED TO `othoth77/oth-knowledge`; DEPLOYMENT BLOCKER RECLASSIFIED TO OPERATOR-EXECUTION-PENDING.**
+
+## OTH-K1 — knowledge operating layer + infrastructure knowledge (2026-08-19)
+
+### Stage
+
+OTH-K1 (oth-knowledge mission, branch `claude/oth-knowledge-mission-05buds`)
+— first implementation stage of the provider-agnostic knowledge operating
+layer. Canonical architecture + placement decision:
+`docs/OTH_KNOWLEDGE_ARCHITECTURE.md` (implementation lives in
+`projects/oth-knowledge/` here; engineering-memory CONTENT canon remains the
+standalone repo `othoth77/oth-knowledge`, unchanged in role). Distinct from
+MPI by design; MPI's ratified D1/D2 boundaries are respected, not re-decided
+— `google-contacts` and unclassified external providers are registered
+**metadata-only, fail-closed**.
+
+### Delivered
+
+- **Model** (`lib/model.js`): closed 12-kind enum (source/artifact/document/
+  chunk/entity/fact/claim/observation/event/relationship/evidence/derived),
+  fail-closed validation, mandatory provenance on knowledge-bearing kinds,
+  derived records forced to name their sources.
+- **Store** (`lib/store.js`): append-only JSONL + content-addressed originals
+  (`othk://sha256/…`), explicit versioning/supersession (silent overwrite
+  refused), tombstones, integrity verify (orphans, hash mismatch), lossless
+  export/import.
+- **Ingestion** (`lib/ingest.js`, `lib/normalize.js`): source→collection→
+  artifact→document→chunks with per-class provenance; originals preserved
+  byte-for-byte; dedup by content address; typed refusals for malformed
+  JSON, invalid UTF-8, NUL, unsupported types, empty text; credential-shape
+  gate refuses secrets and records only the pattern name.
+- **Conflicts** (`lib/conflict.js`): contradictions never overwrite —
+  conflicts_with relationships with open/resolved/superseded/coexisting
+  states; resolution is a new version; losers stay readable.
+- **Retrieval** (`lib/search.js`): exact, lexical BM25, pluggable
+  provider-agnostic embedder (offline deterministic default, labeled
+  pseudo-semantic), hybrid RRF; metadata/entity/temporal/provenance/
+  confidence filters; every hit carries provenance.
+- **Evaluation** (`eval/`): committed 14-query set + runner. Measured:
+  lexical recall@5 1.0 / MRR 0.964 · vector 1.0 / 0.857 · hybrid 1.0 / 0.964.
+- **CLI** (`cli/othk-cli.js`): ingest/seed/search/export/validate/stats;
+  smoke-tested end-to-end.
+- **Infrastructure knowledge recorded twice, no secrets anywhere**: seed
+  `seeds/infrastructure-2026-08-19.json` (facts+observations+evidence with
+  provenance, classified VERIFIED FACT / TEST COMMAND / TEST RESULT /
+  CAPABILITY LIMITATION / POLICY) and canonical `INFRASTRUCTURE.md` in
+  `othoth77/oth-knowledge` — **merged to its main `51c218c`** (PR #1).
+
+### Deployment reassessment (2026-08-19)
+
+Owner Windows→VPS SSH/SCP as `deploy` (ED25519) verified successful; rsync
+on VPS, not on Windows. Re-tested from THIS sandboxed session: TCP 22
+unreachable, no ssh/scp/rsync, no keys → AI-agent→VPS access remains
+NOT AVAILABLE; owner access ≠ AI access (capability boundary recorded).
+Blocker class shifts from "no verified channel" to **operator execution
+pending** — all §2 runbooks now executable by the owner (scp/tar-over-ssh
+from Windows). `docs/DEPLOYMENT_READINESS.md` §5 added. Nothing deployed.
+
+### Record
+
+| | |
+|---|---|
+| Commits | `118dda3` (implementation) + this handover/docs commit |
+| Tests | **othk-0 89/0 · othk-1 30/0** (new suites, this tree); `node --check` clean on all new files; JSON fixtures validated; secret scan clean. Full existing suites not rerun — no existing module touched (additive change: new project dir, two new test files, one .gitignore line, docs). |
+| Worktree | clean after commit |
+| Deployment | not performed (no new blocker introduced; layer is a dependency-free library/CLI) |
+
+### Next stage
+
+OTH-K2: real importer for one concrete source (e.g. an actual Takeout
+archive walk) behind owner authorization per source; optional real
+embedding provider adapter; PostgreSQL/object-store backend if the corpus
+outgrows JSONL. Also still open from MOS-v2: the read-only AI-Operating-
+Layer v1 audit and the operator's Phase-B production activation (now
+channel-unblocked, see above).
+
+---
 
 ## MOS-v2 FINAL (2026-08-19)
 
