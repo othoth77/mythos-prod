@@ -4,6 +4,53 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260819202655-mgrdn6` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | Governance Key Patch Design |
+| Provider / model | claude-code / default |
+| Execution profile | repo-test |
+| Started | 2026-08-19T20:26:55.055Z |
+| Ended | 2026-08-19T20:33:17.879Z |
+| Status | **COMPLETED** |
+| Claude session | `a46754a0-e154-43f8-b50b-8883b816370e` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `0f8bcc379057e310241fbb1688114cedd5c5822a` |
+| Git verified | null |
+
+**Summary:** Read-only patch design for the governance-key gap found by x-mt0ftvr2 and diagnosed by x-mt0h7ytm. Re-verified the defect live: the executor daemon and all missions run as deploy (uid 1001), /etc/mythos/governance.key is root:deploy 0640 and readable by that user, and /var/lib/mythos/governance/approvals is root:deploy 2750 and listable, so the cage's stated load-bearing property is false in production; the suite reproduces this at 87 passed / 2 failed. Specified the minimal patch: a memberless system group mythos-gov owning the key and the whole store, granted only to the relay PROCESS via SupplementaryGroups=mythos-gov in mythos-git-push.service, plus a new root-only idempotent harden script, a comment-only correction of the stale ubuntu/deploy identity claim at governance-verify.js:36-46, and three additive test assertions that prove the mechanism rather than relaxing the invariant. The two existing isolation assertions are left byte-identical and must flip to passing on host state alone. Found an additional repository defect not previously recorded: the repo copy of mythos-git-push.service has drifted from the installed copy and is missing the /var/lib/mythos/governance/log ReadWritePaths entry, so installing it as-is would silently re-break deny logging; the patch corrects it. Confirmed with evidence that deploy's docker membership is NOT required by the production runtime (both repo docker call sites already use sudo; nothing in the runtime path touches the socket) and did not remove it, while stating that the root-equivalent socket defeats any file-ownership boundary until the owner rules. Nothing was modified, committed, pushed, deployed or restarted, and no secret value was printed or persisted.
+
+**Tests:**
+- node tests/mythos-governance-invariant-test.js: 87 passed, 2 failed (baseline reproduced — 'isolation: this user cannot read /etc/mythos/governance.key' and 'isolation: this user cannot list the live approval store')
+- live host inspection (read-only, node fs.statSync/readdirSync/readFileSync): key root:deploy 0640 READABLE by deploy; /var/lib/mythos and governance root:deploy 0750; approvals root:deploy 2750 LISTABLE not writable; log root:deploy 0770; 5 existing approval records root:deploy 0640
+- identity check: id = uid=1001(deploy) groups=deploy,users,docker; executor daemon PID 95259 owned by uid 1001 (/proc)
+- installed-vs-repo sha256 drift: governance-verify.js, mythos-git-push, mythos-governance-approve all identical
+- installed-vs-repo unit drift: /etc/systemd/system/mythos-git-push.service has ReadWritePaths including /var/lib/mythos/governance/log; repo copy does NOT (repository defect, corrected in the designed patch)
+- group existence check: mythos-gov absent from /etc/group
+- git log --oneline origin/main..HEAD: 2 local commits ahead, 2 behind — main diverged, relay will refuse to push
+- docker-dependency scan (rg over projects/ scripts/): only deploy/install.sh and personal-intelligence psql-driver.js, both invoking docker via sudo — no group dependency in the runtime path
+
+**Residual risks:**
+- UNFIXED, CRITICAL: deploy can still read /etc/mythos/governance.key and list the approval store; the fix is designed but requires root and repo-write, neither available to this task
+- CRITICAL: deploy is in the docker group with a root-equivalent socket, which defeats the designed ownership boundary against a hostile mission; owner decision under AGENTS.md 25.3, deliberately not changed
+- NOT VERIFIED: whether deploy holds any sudo grant — 'sudo -n -l' was blocked by the command guard and was not worked around; recorded sudo hardening targeted ubuntu, not deploy. If deploy has sudo, the boundary is decorative
+- BLOCKER: local main is diverged from origin/main (2 ahead / 2 behind), so the relay refuses to deliver main and any implementing commit would be stranded
+- BLOCKER: the patch edits projects/mythos-ai-executor/service/, a protected path, so its own delivery needs a root-signed approval bound to its SHA; no session may create one
+- The 5 existing approval records are root:deploy and become invisible to the relay unless re-grouped to mythos-gov during activation; the harden script does this, manual application must not skip it
+- mythos-governance-approve.js:160 recreates approvals/ as root:root 0750 without setgid if ever absent, re-locking the relay out; the harden script must be re-run after any store recreation. Fixing the tool is a further protected-path change, out of scope
+- Ordering hazard: applying the chown steps before installing the updated unit leaves the relay without mythos-gov and it fails closed with EACCES, delivering nothing
+- mythos-ai-executor.service:1-3 also carries a stale 'installed for ubuntu' claim; recorded, not changed — outside this objective
+- The suite will report 92/0 after the fix while the docker escalation path remains open: the assertions prove DAC exclusion, not the absence of privilege escalation
+
+**Next stage:** Operator, in order: (1) resolve the main divergence (git pull --ff-only or rebase) so the relay can deliver; (2) dispatch implementation to a session with file-edit and git-write capability to apply the five-file patch specified in this report; (3) as root, install the updated relay and verifier copies, then run mythos-governance-harden.sh and confirm 'runuser -u deploy -- test -r /etc/mythos/governance.key' FAILS while 'runuser -u deploy -g mythos-gov -- test -r ...' SUCCEEDS and getent group mythos-gov lists no members; (4) re-run node tests/mythos-governance-invariant-test.js expecting 92 passed / 0 failed; (5) start mythos-git-push.service and confirm the journal shows a governance verdict rather than EACCES; (6) sudo mythos-governance-approve --commit <sha> --by "<human>" --reason "<why>" to deliver the commit; (7) separately, owner ruling on removing deploy from the docker group and on whether deploy holds sudo. Do NOT start M-13.
+
+
+---
+
 ## Task `t-20260819192023-7ba7th` — BLOCKED
 
 | Field | Value |
