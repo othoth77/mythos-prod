@@ -4,6 +4,45 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260819210602-to08f6` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | Resolve Main Divergence Safely |
+| Provider / model | claude-code / default |
+| Execution profile | repo-test |
+| Started | 2026-08-19T21:06:02.169Z |
+| Ended | 2026-08-19T21:09:09.372Z |
+| Status | **COMPLETED** |
+| Claude session | `34c72e26-9089-44b1-a8b7-bdb3a43e02a7` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `0f8bcc379057e310241fbb1688114cedd5c5822a` |
+| Git verified | null |
+
+**Summary:** Performed a strictly read-only Git divergence audit of mythos-prod ahead of the governance-key security patch. Local main dab0429 and origin/main 0f8bcc3 have diverged from merge-base d839fdb by 3 and 2 commits respectively, so a fast-forward is not possible. The 3 local-only commits are executor report commits touching only docs/AI_EXECUTION_REPORT.md (+133/-0), exist on no remote branch, and contain no product, security or config change; the 2 remote-only commits are PR #44 (OTH-K2-W knowledge wiring: lib/knowledge.js, config/knowledge.json, a 171-line test, plus three docs) and are unrelated to the governance-key work. The two sides touch disjoint file sets — proven decisively by the AI_EXECUTION_REPORT.md blob being byte-identical (ca83785) at merge-base and at origin/main — so replaying the local commits is conflict-free by construction. The safest operation is a scoped rebase onto origin/main behind a backup branch, with remote-HEAD verification after push; the exact sequence and abort path are given in the report. Two additional findings: three earlier executor report entries (tasks t-20260819125229/125643/135346) were orphaned from main history at the M12 sync and now survive only in dangling commit 46082fd, kept alive solely by stash@{0}'s parent pointer, so dropping that stash loses them permanently; and stash@{0} holds unreviewed local work in roadmap-state.json and identity-contract.js that the rebase will not disturb. No secret value was found, printed or persisted. Nothing was modified, committed, pushed, rebased, merged or deployed, and M-13 was not started.
+
+**Tests:**
+- targeted test suites: not run — read-only audit, zero files changed (AGENTS.md §8)
+- git preflight (fetch/status/branch/rev-parse HEAD/rev-parse origin/main): executed, clean tree, divergence 3 ahead / 2 behind
+- merge-base + ancestry verification (merge-base, --is-ancestor, branch -r --contains): executed, merge-base d839fdb confirmed, local commits on no remote branch
+- conflict-freedom proof via blob-hash comparison of docs/AI_EXECUTION_REPORT.md at base/remote/local: executed, base==remote (ca83785), disjoint file sets confirmed
+- secret pattern scan of local-only diff: executed, no secret values present (prose matches only)
+
+**Residual risks:**
+- Three executor report entries (t-20260819125229-zz1u2w, t-20260819125643-9om4k5, t-20260819135346-i5lru6) exist only in dangling commit 46082fd, absent from both local main and origin/main; they are protected from gc solely by stash@{0}'s parent reference, so dropping that stash makes them unrecoverable.
+- stash@{0} ('VPS-local-work-before-M12-sync-2026-08-19') holds unreviewed local-only work in projects/mythos-ai-executor/config/roadmap-state.json (+166/-1) and projects/mythos-core/reference/identity-contract.js; unaffected by the rebase but still uncommitted and off any branch.
+- The local-only report commits document exact production governance-key paths, ownership/mode, and the fact that the isolation property is currently false in production — acceptable in a private repo but a disclosure risk if repository visibility ever changes.
+- The rebase itself is unexecuted; the divergence persists until the owner runs the given sequence, so any further executor task committing to main will deepen it.
+- 23 prunable executor worktrees remain under /home/ubuntu/mythos-ai-executor/worktrees/ (hygiene only, out of scope).
+
+**Next stage:** Owner executes, from /home/deploy/projects/mythos-prod: (1) git tag recovered/reports-pre-m12-sync 46082fd to preserve the orphaned reports independently of the stash; (2) git fetch origin; (3) git branch backup/main-pre-rebase-20260819 dab0429e525ceba4426905d01178682097d57fd3; (4) git rebase --onto origin/main d839fdb0c11a3a2d7848c843200f5f66d37c42e8 main (expect zero conflicts); (5) git log --oneline -6 and git status --short to verify; (6) git push origin main; (7) git fetch origin && git rev-parse HEAD origin/main and confirm the two SHAs match. Only after the remote HEAD is verified does the governance-key security patch begin. Do not start M-13.
+
+
+---
+
 ## Task `t-20260819202655-mgrdn6` — COMPLETED
 
 | Field | Value |
