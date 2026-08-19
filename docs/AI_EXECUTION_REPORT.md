@@ -4,6 +4,53 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260819184126-m5ngzc` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | AI Operating Layer v1 Final Validation |
+| Provider / model | claude-code / default |
+| Execution profile | repo-test |
+| Started | 2026-08-19T18:41:26.270Z |
+| Ended | 2026-08-19T18:49:31.250Z |
+| Status | **COMPLETED** |
+| Claude session | `d92699b3-4634-45af-b2c4-11dd3bb23b16` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | `d839fdb0c11a3a2d7848c843200f5f66d37c42e8` |
+| Remote HEAD | `0f8bcc379057e310241fbb1688114cedd5c5822a` |
+| Git verified | true |
+
+**Summary:** Read-only final validation of the Mythos AI Operating Layer v1 at HEAD d839fdb, which equals origin/main on othoth77/mythos-prod with a clean worktree before and after. Git/release state PASS. Production runtime PASS: daemon PID 95259 runs this exact checkout, started 17:41 UTC after 3bbee99 (the last commit touching projects/mythos-ai-executor), CLI health returns ok:true with n8n 200 and omniroute 307 — which also makes docs/AI_HANDOVER.md:273 stale in claiming M-12 is not yet deployed. The full pipeline Mission->Goal/Plan->Approval->Decomposition->SkillSelection->Context/Prompt->MCP->Profile->Provider/Model->Dispatcher->WorktreeIsolation->Execution->Result->Audit was traced in code and is PASS; no Evaluation component exists (deliberate deferral), and worktree isolation covers the Phase-2 DAG path only — Phase-1 console missions including this one run in the shared checkout. Skill binding PASS with first-hand production evidence: selectSkill returns testing/1.0.0 with reason task_category:testing, and the 2142-char rendered section byte-matches the ACTIVE SKILL block in this mission's own prompt; MCP resolution is fail-closed with correct per-case reasons (skill_not_allowed, server_disabled, profile_incompatible). Direct inspection of task.json/events.log was BLOCKED by the working-directory restriction and was not worked around, as were systemctl and curl to 127.0.0.1:8130. MAX_PARALLEL=5 verified from executor.js:59-65 and its union-based runningCount gate, and proven behaviourally by the MOS-3C ladder (running=5, sixth deferred, drain auto-start) inside the passing 264/0 suite; live production observation is NOT VERIFIABLE with only three tasks in state and no mission manufactured. Security boundaries hold except one FAIL: /etc/mythos/governance.key is readable and the approval store listable by the execution user, because executor missions now run as deploy rather than ubuntu; the store remains unwritable, so forgery still needs a second breach. Nothing was modified, created, deleted, committed, pushed, deployed or restarted, and no other mission was altered.
+
+**Tests:**
+- mythos-ai-executor: 264 passed, 0 failed
+- mos-v2-regression gate: PASS — 4 suites, 20/20 areas, 0 new failures (Console 1264/0, AI Executor 264/0, Orchestration Core 257/0, Orchestrator-0 156/0)
+- mythos-orchestration-core: 257 passed, 0 failed
+- mythos-autonomous-campaign: 365 passed, 0 failed
+- mythos-n8n-bridge: 80 passed, 0 failed
+- mythos-core-wiring: 86 passed, 0 failed
+- mythos-unattended-policy: 53 passed, 0 failed
+- mythos-governance-invariant: 87 passed, 2 failed (PRE-EXISTING/environmental — key+store readable because this session runs as deploy, not ubuntu; baseline was 89/0, assertion count unchanged)
+- executor CLI health: ok:true (store_writable true, claude_cli 2.1.233, n8n 200, omniroute 307)
+- skill/MCP resolution probe (node -e against production registry): registry valid; testing/1.0.0 via task_category:testing; MCP [] with skill_not_allowed / server_disabled / profile_incompatible
+- BLOCKED (not worked around): systemctl is-active mythos-ai-executor; curl 127.0.0.1:8130/health and GET /dispatcher; ls/stat under /home/deploy/mythos-ai-executor/ and /etc/mythos/
+
+**Residual risks:**
+- BLOCKER: /etc/mythos/governance.key (root:deploy 0640) is readable and /var/lib/mythos/governance/approvals listable by the executor's execution user, breaking the recorded 'a Claude session cannot read the key' invariant; the store is still unwritable, so forgery needs a second independent breach, but defence-in-depth is down to one layer.
+- The committed unit service/mythos-ai-executor.service documents installation for the ubuntu user while the running daemon and its children are deploy — drift between committed and installed reality, and the direct cause of the two governance failures.
+- Inspection-only, NOT executed: deploy is in the docker group, and the autonomous profile is bypassPermissions with only Bash(sudo:*) disallowed; docker group membership is root-equivalent and is not constrained by the unit's NoNewPrivileges=true. AGENTS.md §25.3 classes Docker membership as permanent LEVEL_3, and no record of this combination was found in the handover.
+- No Evaluation/evaluator component exists in the pipeline; reputation.js (tiebreak, MIN_EVIDENCE=5) and validation.js are the nearest implemented pieces.
+- Phase-1 console missions execute in the shared checkout /home/deploy/projects/mythos-prod rather than an isolated worktree; worktree isolation applies to the Phase-2 mission/DAG path only.
+- MAX_PARALLEL=5 has no live production proof — the running daemon's EnvironmentFile and /dispatcher were both unreachable under this session's permissions, so an env override could not be excluded by observation (only by the clamp at executor.js:59-65).
+- docs/AI_HANDOVER.md:273 is stale: it states the deployed executor still needs operator restarts to serve M-12, which the live skill injection in this mission disproves.
+
+**Next stage:** Owner decision on governance-key ownership now that executor missions run as deploy: either narrow /etc/mythos/governance.key to a dedicated relay identity distinct from the mission-execution user, or ratify deploy as the execution user and amend the invariant plus its two assertions in tests/mythos-governance-invariant-test.js; then re-run node tests/mythos-governance-invariant-test.js expecting 89/0. Separately, rule on deploy's docker group membership under the autonomous profile, and correct docs/AI_HANDOVER.md:273.
+
+
+---
+
 ## Task `t-20260819181724-ftsz9x` — BLOCKED
 
 | Field | Value |
