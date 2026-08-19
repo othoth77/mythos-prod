@@ -28,19 +28,38 @@ authorised for execution by being written down.**
 | **What migration means** | ~~`MIG-1` (gold to `#D9A441`)~~ **done**. `MIG-2` (Playfair replacement), `MIG-3` (semantic/control-border token alignment) still land here |
 | **Visual-regression tooling** | **Built, pilot-verified (AUTO-6) and used for a real execution (AUTO-7)** — `tools/visual-verify.js` (repo root) drives the real application locally, zero real data or credentials, cannot target production; extended with a `sv:<view>` mode reaching the accounting/comptabilité modules directly through the real router. See `MIG_EXECUTION_MAPPING.md` |
 | **MIG-1 — DONE, AUTO-7** | All 331 real occurrences (16 files — larger than either the original "1 value" or AUTO-6's own "42/12" estimate) substituted to the approved values, verified across 16 real application views including every accounting module, zero remaining trace, two real bugs (CRLF corruption, an orphaned DOM selector) caught and fixed before commit. **Committed to `main`, not deployed** — production is a separate host reached only by manual operator `rsync`, untouched |
-| **MIG-2 / MIG-3 — still blocked on execution, not tooling** | Real, multi-file work remains: MIG-2 is 93 occurrences/14 files, MIG-3 is ~73 occurrences/2 files not yet line-mapped. Still the **highest-risk remaining work in the whole program** — genuinely live production (`uthinachess.tn`) |
+| **MIG-2 — attempted, rolled back, AUTO-8** | 93/93 occurrences substitute cleanly, Arabic confirmed unaffected, but real visual regression found a genuine KPI-card text-wrap issue (`.compta-kpi`/`.stat-value`) Archivo Expanded's wider metrics cause. Rolled back rather than patched with an unauthorised resize decision. Blocked on a real design question, not tooling or scope. See `MIG_EXECUTION_MAPPING.md` §3a |
+| **MIG-3 — partially executed, AUTO-9** | `--muted` (73 occurrences) and `--danger` (2) corrected and applied, verified across 17 real views (0.73–1.46% diff, MIG-1's low-risk range). `--past` and the control-border token (A-016) deliberately left open — no approved target for the former, too broad a blast radius for the latter. See `MIG_EXECUTION_MAPPING.md` §4 |
+| **MIG-4 — checked, left BLOCKED, AUTO-9** | Not attempted. MCC-1 (Command Center) is confirmed live, deployed, serving real public traffic (`ordre.mythosprod.xyz`) — not a reference/stub. A-020's approval is classification only; a standing instruction never to touch MCC-1 applies. See `MIG_EXECUTION_MAPPING.md` §5a |
 | **Risk** | High for MIG-2/3, same reasoning as MIG-1 before AUTO-7. MIG-1 itself: risk realized and mitigated, not merely reduced — real execution, real verification, real rollback path (`git revert`) |
 | **Recommended order** | Last, after every other migration has proven the process on lower-risk targets |
 
-### 1.2 Mythos OS Console / Command Center (`projects/mythos-os-console/`)
+### 1.2 Mythos OS Console (`projects/mythos-os-console/`) — the C-006 reconciliation, distinct from MIG-4
+
+**Correction, AUTO-9.** This section's heading previously named "Command
+Center" alongside the console and called this reconciliation `MIG-4` —
+both wrong. `MIG-4` is Command Center's own palette migration (§1.3
+below); the console's `--mythos-*` reconciliation (**C-006**/**AUTO-2**)
+was never assigned its own `MIG-N` number in the register. Corrected here
+rather than silently, per this document's own standing discipline.
 
 | | |
 |---|---|
 | **Current state** | Built, tested (322/322 at the time; MOS-3C brought the suite to 419/158/257), **not deployed** — blocked at a confirmed `deploy`-user privilege boundary (MOS-1.6/1.7), re-confirmed by MOS-3 PRODUCTION ACTIVATION from a session with real host access; unrelated to design readiness |
-| **What migration means** | `MIG-4` — reconciling `mythos.css`'s `--mythos-*` values with the canonical spec (the exact conflict **C-006**/**AUTO-2** named) |
+| **What migration means** | Reconciling `mythos.css`'s `--mythos-*` values with the canonical spec (the exact conflict **C-006**/**AUTO-2** named) — not itself numbered `MIG-N` |
 | **Blocked on** | The same visual-regression gap as 1.1, though at **smaller scope** — this file has its own isolated test suite (`tests/mos-1-console-test.js`) and its own headless-browser tool (`projects/mythos-os-console/tools/visual-verify.js`, distinct from the repo-root `tools/visual-verify.js` AUTO-6 added for Mythos Prod), unlike `css/main.css` |
 | **Risk** | Medium — real, but bounded by existing tooling that already covers this specific file |
-| **Recommended order** | **First** among the two Mythos-owned CSS targets — it is the one this program already has verification tooling for |
+| **Recommended order** | **First** among the Mythos-owned CSS targets — it is the one this program already has verification tooling for |
+
+### 1.3 Command Center (`projects/command-center/`) — `MIG-4`, checked and left BLOCKED
+
+| | |
+|---|---|
+| **Current state** | **Confirmed live, deployed, serving real public traffic** at `ordre.mythosprod.xyz` — real DNS, a real TLS certificate, a real PostgreSQL database, running from the live checkout under a `deploy`-owned systemd unit. Not a reference/stub the way the console's pilot target is |
+| **What migration means** | Bringing Command Center's own palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos OS visual language, now that **A-020** classifies it as a Mythos OS product rather than an independent entity |
+| **Blocked on** | Three convergent facts, **AUTO-9**: (1) A-020's own text — "this approval is classification only... no code, CSS, asset, deployment or branding was changed" — never authorised implementation. (2) A standing, unrevoked instruction never to touch MCC-1. (3) MCC-1 is genuinely live production, not a safe local pilot target the way Mythos Prod or the console are |
+| **Risk** | Not assessed — deliberately. No file under `projects/command-center/` was read or touched to reach the block decision |
+| **Recommended order** | Not scheduled. Requires an owner decision to lift the standing MCC-1 constraint before any further step, including safety assessment, is appropriate |
 
 ### 1.3 `mythosprod.xyz` (the hub)
 
@@ -96,14 +115,20 @@ Can start now (no CSS/application-file prerequisite):
   → mythosprod.xyz hub (if O-003 authorises building it at all)
   → Ecosystem-strip footers on any live project the owner wants attributed
 
-Tooling gap closed for Mythos Prod (AUTO-6) — execution itself still pending:
-  → Mythos OS Console reconciliation (MIG-4) — smaller scope, existing tooling
-  → css/main.css reconciliation (MIG-1/2/3) — largest scope; tooling now
-    exists and one layer is pilot-verified (see `MIG_EXECUTION_MAPPING.md`),
-    but the real scope is 42 (MIG-1) and 93 (MIG-2) occurrences across 12
-    and 14 files respectively — not the 1-value/45-declaration estimates
-    this document previously carried — so execution is real, multi-file
-    work, not a missing capability any more
+Executed, AUTO-7/8/9 — updated 2026-08-19:
+  → MIG-1 (gold): DONE. 331 occurrences, 16 files, verified, committed to
+    main, not deployed.
+  → MIG-2 (Playfair): ATTEMPTED, ROLLED BACK. 93/93 substituted cleanly,
+    but real visual regression found a KPI-card text-wrap issue; reverted
+    rather than shipped with an unauthorised resize fix.
+  → MIG-3 (semantic tokens): PARTIAL. --muted/--danger corrected and
+    applied; --past and the control-border token left open, no approved
+    target / too broad a blast radius respectively.
+  → MIG-4 (Command Center): CHECKED, BLOCKED. MCC-1 confirmed live
+    production, a standing constraint against touching it applies, A-020
+    authorises no implementation. Not attempted.
+  → Mythos OS Console reconciliation (C-006, not itself numbered):
+    still not executed — smaller scope, existing tooling, next candidate.
 
 Needs an evidence question answered first, not a design decision:
   → AgriBee   (O-007: is it meant to be served?)

@@ -727,6 +727,117 @@ Reversible with a single `git revert` of the migration commit — every one
 of the 331 values traces to exactly one prior literal, no derived state,
 no stored data touched (`appdata/` does not exist in this checkout).
 
+### AUTO-8 — MIG-2 attempted and rolled back: a real, found regression, not a guess pushed through
+
+**Trigger.** Continuation instruction naming MIG-2 as the second item to
+execute, with explicit governance: use the self-hosted approved fonts,
+verify Arabic and Latin rendering, run visual regression.
+
+**What was done, mechanically sound.** All 93 real occurrences of
+`font-family: 'Playfair Display', serif` (including two backslash-escaped
+variants inside JS string literals) substituted to `'Archivo Expanded',
+sans-serif`, with every co-located `font-weight` normalized to the
+approved system's single display weight, **600** (`TYPOGRAPHY.md` §2) —
+a deliberate choice not to self-host the five legacy weights (500–900)
+Playfair happened to carry, reasoned as preserving unconsidered accretion
+rather than honouring the approved system's own "one weight" display
+restraint. One real bug (a mis-positioned escape character breaking three
+JS files) caught by `node --check` and fixed before proceeding, same
+discipline as AUTO-7.
+
+**Arabic — checked directly, not assumed clear.** Real Arabic text exists
+in this application. Confirmed via Google Fonts' own API that Playfair
+Display has no Arabic subset — identical to Archivo Expanded. Arabic
+rendering is provably unaffected by this migration either way.
+
+**The regression, found by the verification this program insists on.** 17
+real views screenshotted before/after and pixel-diffed. Most were clean.
+Two selectors (`.compta-kpi`, `.stat-value` — the accounting dashboard's
+headline TND figures, 30px/800) **wrap to two lines under Archivo
+Expanded where Playfair Display fit them on one**, visibly misaligning
+that card's height against its row siblings. Confirmed by direct
+before/after comparison, not inferred.
+
+**Rolled back completely, not patched.** Fixing the wrap means resizing
+components to fit a different typeface's metrics — a new design decision
+this migration was never authorised to make unilaterally, and one that
+would need checking against every other large-display Playfair usage, not
+just the one found. `git checkout --` on all 15 touched files; confirmed
+byte-identical to the pre-attempt state.
+
+**Why this is the correct outcome, not a failure to complete.** The
+continuation instruction's own governance says exactly this: run visual
+regression, review every changed view, **roll back immediately if the
+result is unacceptable**. A found, real, visible layout regression in a
+live financial application's headline figures is exactly that case. MIG-1
+succeeded because real verification found the change was clean; MIG-2's
+verification found it was not, at two specific selectors — and the
+process worked precisely as designed either way.
+
+**MIG-2 status: READY (mechanism proven, Arabic confirmed unaffected),
+BLOCKED on one real, narrow, findings-backed question** — accept the
+KPI-card wrap, resize the two affected classes (and audit others like
+them), or some other resolution. Full record: `docs/design/
+MIG_EXECUTION_MAPPING.md` §3a.
+
+**Authority and reversibility.** AUTO-8, not owner-approved — and in this
+case, nothing to reverse, since nothing was kept. The register entry
+itself is the deliverable: an honest account of what was tried and why it
+was undone.
+
+### AUTO-9 — MIG-3 partially executed; MIG-4 checked and left blocked with evidence, not a guess
+
+**Trigger.** Continuation instruction naming MIG-3 (complete the semantic-
+token mapping, apply only supported cases, leave ambiguous cases
+documented) and MIG-4 (proceed only if Command Center can be validated
+safely, otherwise leave READY/BLOCKED with exact evidence) as the last two
+independent items.
+
+**MIG-3 — mapped completely, applied where an approved target exists.**
+`A-015` names three contrast-failing tokens: `--danger` (3.55:1), `--muted`
+(3.47:1), `--past` (2.59:1). Real usage mapped: `--muted` 73×, `--danger`
+2×, `--past` 3×, each a single-source `:root` declaration. **Applied:**
+`--muted` → `#A8A498` (the corrected secondary-text value `COLOR_SYSTEM.md`
+names explicitly as this exact fix); `--danger` → `#F1706A` (A-015's
+corrected dark-ground value — Mythos Prod is dark-only, no theme
+ambiguity). **Left open, not guessed:** `--past` has no approved
+correction — it is not one of the four semantic roles A-015 actually
+corrects, only evidence that the current value fails; applying an
+invented replacement would be the exact "blind guess" this mandate
+forbids. The control-border token (**A-016**) was also left open —
+`--border` is used broadly as a decorative border throughout the
+application, not specifically for the 3:1 control boundary A-016
+corrects, and applying A-016's value globally would be a much larger,
+likely-wrong change than what was asked. Full record:
+`docs/design/MIG_EXECUTION_MAPPING.md` §4.
+
+**Verification.** Pure colour-value changes, the same low-risk category as
+MIG-1: 17 real views screenshotted before/after, diffs 0.73–1.46% of
+frame (in MIG-1's range, well below MIG-2's typeface-driven 1.28–6.51%),
+highest-diff views manually reviewed clean. **Coverage gap named
+honestly:** `--danger` and `--past` were not visually exercised — the
+isolated test instance's empty data has no error state or past-dated
+entry to render either style. Reasoned as low-risk by analogy (pure
+foreground-colour, no layout property), not confirmed by observation, and
+recorded as such.
+
+**MIG-4 — checked, left BLOCKED, not attempted.** Three convergent facts,
+not one assumption: (1) **A-020**'s own text — "this approval is
+classification only... no code, CSS, asset, deployment or branding was
+changed" — never authorised implementation. (2) This session's own
+standing instruction, never superseded: never touch MCC-1. (3) MCC-1 is
+**confirmed live, deployed, and serving real public traffic** at
+`ordre.mythosprod.xyz` — real DNS, a real TLS certificate, a real
+database, running from the live checkout — not a reference/stub the way
+`mythos-os-console`'s pilot target is. No file under
+`projects/command-center/` was read or touched to reach this conclusion.
+Full record: `docs/design/MIG_EXECUTION_MAPPING.md` §5a.
+
+**Authority, reversibility and scope.** **AUTO-9, NOT owner-approved.**
+MIG-3's two applied changes are single-value CSS substitutions,
+reversible with one `git revert`, identical in kind to MIG-1's pattern.
+MIG-4 has nothing to reverse — nothing was done.
+
 ### Stage 1I — design prototypes delivered
 
 **Not a decision — a deliverable, recorded for completeness.** Seven
@@ -1058,9 +1169,9 @@ by inference.**
 | ~~**TYPE-1**~~ | Retire Playfair Display from the master brand? | — | **RESOLVED 2026-08-18 by A-014** — retired from the master; master stack is Archivo Expanded + IBM Plex Sans / Sans Arabic / Mono |
 | ~~**SEM-1**~~ | Adopt the corrected semantic palette? | — | **RESOLVED 2026-08-18 by A-015** — adopted, verified on all four surfaces |
 | ~~**MIG-1**~~ | Align Mythos OS's implemented `--gold: #c9a84c` with the approved master `#D9A441` | — | **EXECUTED 2026-08-18, AUTO-7.** Real scope was 331 occurrences across 16 files (not one value, and larger than AUTO-6's own 42/12 estimate). Applied, verified across 16 real views, not deployed. Not owner-approved. See `docs/design/MIG_EXECUTION_MAPPING.md` §2a, `MYTHOS_DESIGN_DECISIONS.md` §0.5 AUTO-7 |
-| **MIG-2** | ~~Replace the 45 `Playfair Display` declarations in `css/*.css`~~ — **real scope measured AUTO-6: 93 occurrences, 14 files, not 45, and not confined to CSS** | Not yet | **NEW, from A-014.** **Not actioned.** See `docs/design/MIG_EXECUTION_MAPPING.md` |
-| **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Not yet | **NEW, from A-015 / A-016.** **Not actioned** — specification only. Closes three measured contrast failures and the missing 3 : 1 control boundary |
-| **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** As a Mythos OS product it should carry the Mythos OS visual language, not a third divergent one. **Not actioned** — the O-A1 approval is classification only and explicitly forbids touching Command Center code, CSS, assets, deployment or branding |
+| **MIG-2** | ~~Replace the 45 `Playfair Display` declarations in `css/*.css`~~ — **real scope measured AUTO-6: 93 occurrences, 14 files, not 45, and not confined to CSS** | Not yet | **ATTEMPTED AND ROLLED BACK, AUTO-8.** Substitution mechanism proven (93/93, Arabic unaffected), but a real KPI-card text-wrap regression found by visual regression; reverted rather than patched with an unauthorised design change. See `docs/design/MIG_EXECUTION_MAPPING.md` §3a |
+| **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Partial | **EXECUTED (partial), AUTO-9.** `--muted`/`--danger` corrected and applied; `--past` and the control-border token left explicitly open — no approved target for the former, too broad a blast radius for the latter without real per-selector work. See `docs/design/MIG_EXECUTION_MAPPING.md` §4 |
+| **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** **CHECKED and left BLOCKED, AUTO-9** — MCC-1 is confirmed live, deployed, serving real public traffic; the O-A1 approval is classification only; a standing, unrevoked instruction never to touch MCC-1 applies. No file under `projects/command-center/` was read or touched. See `docs/design/MIG_EXECUTION_MAPPING.md` §5a |
 | **SEQ-1** | Sequential and diverging data scales for continuous data | No | **NEW, raised by 1D.** The eight-series categorical palette is approved; continuous scales were outside the 1C scope and must not be improvised (`docs/design/COLOR_SYSTEM.md` §5) |
 | ~~**TYPE-2**~~ | Font subsets, shipped weight instances, and the font performance budget | — | **RESOLVED 2026-08-18 by AUTO-4** — real files self-hosted, real numbers measured; not owner-approved, see §0.5 |
 

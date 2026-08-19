@@ -209,31 +209,206 @@ grep -ro "Playfair Display" css/*.css js/*.js js/shared/*.js js/core/*.js index.
 | `js/shared/accounting-bank.js` | 1 |
 | `js/shared/representations.js` | 1 |
 
-**Not executed here** — the same reasoning as MIG-1 applies with larger
-blast radius (93 sites, 14 files, the reporting module alone carrying 19).
-The replacement typeface itself is also not yet decided at the
-implementation level: `TYPOGRAPHY.md` names **Archivo Expanded** as the
-approved display face, but no one has verified `text-wrap`/line-height
-fidelity against 93 real, already-shipping usages — a real design
-question (does Archivo Expanded's metrics work at every size Playfair is
-currently used at, from report headers down to small print labels?), not
-just a search-and-replace. **Recording the real number is itself the
-useful output of this pass** — the previous "45" figure was never
-re-verified after being written, and could have been trusted for an
-actual migration attempt.
+**Recording the real number is itself part of this pass's output** — the
+previous "45" figure was never re-verified after being written. §3a below
+records what happened when execution was actually attempted (AUTO-8) — the
+concern raised here ("does Archivo Expanded's metrics work at every size
+Playfair is currently used at") turned out to be the exact, real problem.
 
 ---
 
-## 4. MIG-3 — scope noted, not attempted
+## 3a. MIG-2 — ATTEMPTED and ROLLED BACK, AUTO-8, 2026-08-19: a real, found regression
 
-`--muted` (the recorded **3.47:1 contrast failure**, `A-015`'s correction
-target) is used **73 times** (`css/main.css` 52, `css/professional.css`
-21). No dedicated test file exercises `css/main.css`'s contrast at
-repository root (confirmed: none exists). Full line-level mapping not
-built this stage — MIG-1 and MIG-2's mapping already demonstrate the
-method (`grep` the exact token, count files, do not trust a prior
-document's count without re-verifying it); the same method applies
-directly to MIG-3 whenever it is prioritised.
+**What was done.** All 93 occurrences (exact count confirmed, one per
+line, unlike MIG-1's multi-per-line case) substituted: `font-family:
+'Playfair Display', serif` → `font-family: 'Archivo Expanded', sans-serif`,
+including the two lines that used backslash-escaped quotes inside JS string
+literals (`\'Playfair Display\'`). Every co-located `font-weight` on the
+same declaration normalized to **600** — the approved system's single
+display weight (`TYPOGRAPHY.md` §2), rather than self-hosting the five
+different weights (500/600/700/800/900) the legacy Playfair usage happened
+to carry, on the reasoning that preserving that ad-hoc weight variety would
+work against the approved system's own stated "one weight for display"
+restraint discipline, not with it — the old variety was accretion, not a
+considered hierarchy. `index.html`'s Google Fonts CDN request for Playfair
+Display removed (Inter, unrelated to this migration, kept).
+
+**Arabic checked directly, not assumed.** Real Arabic text exists in this
+application (`js/shared/fournisseurs.js`, `js/shared/contacts.js`, a
+contact-status option, an error alert). Confirmed via Google Fonts' own
+CSS2 API that **Playfair Display has no Arabic subset** (only
+latin/latin-ext/cyrillic/vietnamese) — identical to Archivo Expanded.
+Arabic rendering is therefore **provably unaffected**: neither the old nor
+the new font supports it, so the existing system-font fallback behaviour
+for Arabic text is unchanged either way.
+
+**One real bug caught and fixed before the rollback decision, not
+after.** The first substitution script's escaped-quote handling put the
+closing backslash in the wrong position (`\'Archivo Expanded'\, sans-serif`
+— invalid JS), breaking `js/taches.js`, `js/shared/calendar.js`, and
+`js/shared/dashboard.js`. Caught by `node --check` immediately, fixed, and
+re-verified clean before proceeding to visual regression — the same
+"verify before trusting" discipline MIG-1 established.
+
+**Real visual regression run: 17 views, before/after, pixel-diffed.**
+Diffs ranged 1.28%–6.51% of frame — much larger than MIG-1's 0.21–1.53%,
+expected for a typeface (not colour) change. Most views reviewed clean —
+headings, table headers, category cards all rendered correctly with no
+truncation or overflow (`compta-suppliers`, `compta-categories`, `natures`,
+`representations`, `appel` all manually checked, zero regression).
+
+**The regression, found and confirmed:** `.compta-kpi` and `.stat-value`
+(`css/main.css` — 30px, `font-weight: 800`, used for the accounting
+dashboard's headline TND figures) **wrap to two lines under Archivo
+Expanded where they fit on one line under Playfair Display**, because
+Archivo Expanded's letterforms are measurably wider at matched pixel
+sizes. Confirmed by direct before/after comparison of the `comptabilite`
+view: "6545.000 TND" — one line before, two lines ("6545.000" / "TND")
+after. The card containing it grows to accommodate the wrap, which then
+**visibly misaligns that card's height against its row siblings**
+(`ACHATS`/`DÉPENSES`, whose shorter "0.000 TND" values still fit on one
+line) — a real, visible layout inconsistency in a live financial
+application's headline figures, not a data-loss or truncation bug, but a
+genuine polish regression this migration introduced and Playfair Display
+did not have.
+
+**Why this was rolled back rather than patched.** Fixing the wrap (reducing
+`.compta-kpi`/`.stat-value`'s font-size, or any other component-level
+dimension change) is a **new design decision** — adjusting sizes to fit a
+different typeface's metrics — outside what "replace the declared
+typeface" authorises, and the same "no blind global replacement, no
+guessing" discipline that governed MIG-1 applies here: patching this one
+selector without checking whether the same risk exists at every other
+large-font-size Playfair usage (page titles, `client-detail-hero h1` at
+42px, `spectacle-calculator-head h3` at 36px — not individually re-checked
+after the two confirmed-clean cases) would be exactly the kind of
+unverified guess this program does not make.
+
+**Rolled back completely** — `git checkout --` on all 15 touched files,
+confirmed clean (`grep -c "Playfair Display" css/main.css` → 37, matching
+the pre-attempt state exactly). Nothing from this attempt is committed.
+
+**Status: MIG-2 is READY (mechanism proven, 93/93 substitutions apply
+cleanly, Arabic confirmed unaffected) but BLOCKED on one real, found,
+narrow issue** — whether to accept the KPI-card wrap as a minor cosmetic
+trade-off, or resize the affected large-display classes to fit (a real
+design decision, not this pass's to make unilaterally), or take some
+other resolution. Not a tooling gap, not a scope-measurement gap — a
+genuine visual trade-off requiring a real decision.
+
+---
+
+## 4. MIG-3 — EXECUTED (partially) AUTO-9, 2026-08-19: two of three corrected tokens applied, one left open
+
+**Scope, completed this stage.** `A-015` names three recovered semantic
+tokens as contrast failures — `--danger` 3.55:1, `--muted` 3.47:1, `--past`
+2.59:1 — and gives corrected values for four semantic roles
+(success/warning/danger/info) and the corrected secondary-text role
+(`ink-300`). Mapped directly against the application:
+
+```
+--muted   used 73×  (css/main.css 52, css/professional.css 21) — text/label colour, no layout property
+--danger  used  2×  (css/main.css .btn-remove:hover, css/professional.css .cc-status-dot.cc-status-never)
+--past    used  3×  (css/main.css .time-section-header.past, .rdv-card.rdv-past ×2)
+```
+
+All three are single-source declarations in `css/main.css`'s `:root`
+block, referenced everywhere else via `var(--muted)` etc. — one change
+point each, unlike MIG-1's scattered literals.
+
+**Applied — `--muted` and `--danger`, both have an unambiguous approved
+target:**
+- `--muted: #6b6860` → **`#A8A498`** — `COLOR_SYSTEM.md`'s corrected
+  secondary-text value (`ink-300`), explicitly named as the fix for this
+  exact defect ("routing secondary text here is the exact defect A-015
+  corrects — the recovered `--muted` sat at 3.47:1").
+- `--danger: #c0392b` → **`#F1706A`** — `A-015`'s corrected dark-ground
+  danger value. Mythos Prod is dark-only (no light-theme toggle), so the
+  dark-ground correction applies directly, with no theme-selection
+  ambiguity to resolve.
+
+**Left open, genuinely — not guessed:** `--past: #555`. `A-015` measures
+it as failing (2.59:1) but, unlike danger/warning/success/info, "past" is
+not one of the four semantic roles the approved system actually corrects
+— it is Mythos Prod's own local concept (a past-dated calendar entry),
+outside the approved vocabulary entirely. There is no owner-approved
+target value to apply here, only evidence that the current one fails.
+Applying a guessed replacement would be exactly the "no blind
+replacement" this program exists to avoid. **Recorded as open, not
+silently left at a value already known to fail contrast, and not
+silently "fixed" with an invented number.**
+
+**Left open, genuinely — the control-border token (`A-016`).** `--border:
+#2a2a2a` is used as a **general decorative border** throughout the
+application (cards, sections, hairlines) — not specifically for the
+form-control 3:1 boundary `A-016` corrects. Applying `A-016`'s
+`#726F64` (dark-ground control-border value) to `--border` globally would
+dramatically lighten every decorative border in the app, not just form
+controls — a much bigger, likely-wrong change. Identifying which of the
+many `--border` usages are genuinely form-control boundaries (inputs,
+selects) versus decorative dividers needs real per-selector judgement, not
+a value swap. **Not attempted — the ambiguity is the honest output here,
+not a gap to be quietly filled.**
+
+**Verification.** Pure colour-value changes (no font, no layout property)
+— same low-risk category as MIG-1, confirmed rather than assumed: 17 real
+views screenshotted before/after, diffs 0.73%–1.46% of frame (in the same
+range as MIG-1's clean 0.21–1.53%, well below MIG-2's 1.28–6.51% typeface
+change), the highest-diff views (`compta-categories` 1.46%,
+`comptabilite` 1.41%) manually reviewed — zero layout change, only the
+expected `--muted` label-colour shift. **Coverage gap, named honestly:**
+`--danger` and `--past` were not visually exercised in this pass — the
+isolated test instance has empty `appdata/`, so no error state or
+past-dated calendar entry existed to render either style. Both remain
+low-risk on the same reasoning as `--muted` (pure foreground-colour
+properties, zero layout impact possible), but this is stated as reasoning
+by analogy, not as a screenshot-verified fact, and the two are
+distinguished from `--muted` accordingly.
+
+**Rollback:** identical pattern to MIG-1 — `git revert` the one commit;
+both changed values trace to exactly one prior literal each.
+
+---
+
+## 5a. MIG-4 — checked, left BLOCKED with exact evidence, AUTO-9
+
+**Not attempted, and not going to be, under this mandate.** Three
+independent, convergent pieces of evidence:
+
+1. **A-020's own text is explicit that it authorises nothing.** "No code,
+   CSS, asset, deployment or branding was changed — this approval is
+   classification only." Naming Command Center a Mythos OS product
+   (resolving O-A1) never authorised touching it — the same "approval of a
+   specification is never authorisation to implement it" principle this
+   whole programme has held since Stage 1A.
+2. **A standing, unrevoked constraint specific to this one system.** This
+   session's own operating history carries an explicit instruction, never
+   superseded by any later message: never touch MCC-1. Every historical
+   `AI_HANDOVER.md` entry for Command Center work reports "0 touched," "0
+   restarted," "no checkout/reset/stash/branch-switch performed" as a
+   deliberate, checked fact each time — the pattern of care this program
+   applies here specifically, distinct from its general production
+   caution elsewhere.
+3. **MCC-1 is confirmed live, deployed, and serving real public traffic**
+   at `ordre.mythosprod.xyz` — real DNS (`51.68.226.211`), a real
+   Let's-Encrypt certificate, a real PostgreSQL database
+   (`mythos_command_center`), running from the live checkout under a
+   `deploy`-owned systemd unit. Unlike `mythos-os-console`'s reference
+   directory (an explicitly-labelled stub control plane safe to drive
+   locally), `projects/command-center/reference/` **is** the real running
+   service, not a stand-in — there is no isolated, safe local copy to
+   pilot a change against the way MIG-1–3 used `tools/visual-verify.js`
+   against Mythos Prod.
+
+**Given all three, MIG-4 is left exactly where the continuation
+instruction's own fallback anticipates: READY (the palette misalignment
+is real and named — light `#f6f7f9`/indigo `#4f46e5` versus Mythos OS's
+dark-and-gold system) but BLOCKED, with this evidence, not a guess about
+whether it's safe.** No file under `projects/command-center/` was read,
+copied, or modified to reach this conclusion — the block was established
+from documentation and the standing constraint alone, deliberately, so
+that "checking whether it's safe" never became an excuse to get closer to
+a live system this mandate has never been authorised to touch.
 
 ---
 
@@ -251,12 +426,24 @@ directly to MIG-3 whenever it is prioritised.
 **MIG-1 — EXECUTED, AUTO-7.** All 331 occurrences applied, verified across
 16 real application views (dashboard through every accounting module),
 zero remaining trace of the old values, two real bugs caught and fixed
-before commit (CRLF corruption, one orphaned DOM selector). See §2a for
-the full record. **This is the one migration in this entire document that
-moved from "mapped" to "done."**
+before commit (CRLF corruption, one orphaned DOM selector). See §2a.
+
+**MIG-2 — ATTEMPTED then ROLLED BACK, AUTO-8.** All 93 occurrences applied
+and verified clean at the substitution level, but real visual regression
+found a genuine KPI-card text-wrap issue two selectors deep. Reverted
+completely rather than shipped with an unauthorised resize fix. See §3a.
+
+**MIG-3 — EXECUTED (partially), AUTO-9.** `--muted` and `--danger`
+corrected to their approved values (2 of 3 flagged tokens); `--past` and
+the control-border token (`A-016`) left explicitly open — no approved
+target exists for the former, and the latter's blast radius against
+decorative (non-control) borders is too broad to resolve without real
+per-selector judgement. See §4.
 
 **Still not done, and not claimed otherwise:**
-- MIG-2 and MIG-3 are **not executed** and not pilot-verified.
+- MIG-4 (Command Center) — not attempted; see §5a.
+- `--past` and the control-border reconciliation — deliberately left open,
+  not silently skipped (§4).
 - `css/dashboard.css`, `css/layout.css`, `css/forms.css`, `css/facture.css`,
   `css/calendrier.css`, `css/print.css` were copied into every pilot run
   (so they rendered correctly as part of the app shell) but **contain no
@@ -265,4 +452,4 @@ moved from "mapped" to "done."**
   not individually diffed beyond that.
 - The Google Fonts CDN network errors noted in §2a's console check are
   pre-existing (unrelated to any change here) and not investigated
-  further — out of scope for a gold-token migration.
+  further — out of scope for these migrations.

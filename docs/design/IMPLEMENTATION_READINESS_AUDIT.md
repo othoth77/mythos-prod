@@ -114,14 +114,22 @@ has no bundler either).
 
 ### 2.4 An authorised migration target (MIG-1 – MIG-4)
 
-~~**Not ready**~~ **for MIG-1: done.** ~~`MIG-1`~~ (gold, 331 occurrences/16
-files — measured AUTO-6, executed AUTO-7) is complete and verified. Still
-not actioned: `MIG-2` (Playfair Display, 93 occurrences/14 files —
-measured, AUTO-6), `MIG-3` (semantic/control-border tokens, scope noted not
-fully mapped), `MIG-4` (Command Center palette).
-Each requires its own authorisation beyond the design specification itself —
-**approval of a specification was never authorisation to implement it**, a
-distinction this program has held since 1A.
+**Updated 2026-08-19, AUTO-9 — status per migration, not a single
+verdict:** ~~`MIG-1`~~ (gold, 331 occurrences/16 files) **done and
+verified** (AUTO-7). `MIG-2` (Playfair, 93 occurrences/14 files)
+**attempted then rolled back** on a real, found KPI-card text-wrap
+regression (AUTO-8) — mechanism proven, not shipped. `MIG-3` (semantic
+tokens) **partially done** — `--muted`/`--danger` corrected and applied,
+`--past`/control-border explicitly left open, no approved target for one
+and too broad a blast radius for the other (AUTO-9). `MIG-4` (Command
+Center palette) **checked and left blocked** — MCC-1 is confirmed live
+production, a standing constraint against touching it applies, and A-020
+authorises no implementation (AUTO-9). Full record:
+`docs/design/MIG_EXECUTION_MAPPING.md`.
+Each still requires its own authorisation beyond the design specification
+itself where not yet executed — **approval of a specification was never
+authorisation to implement it**, a distinction this program has held
+since 1A.
 
 **What closes it:** an explicit owner or delegated-mandate decision to action
 each migration individually, sequenced after §2.1 and §2.2 close (migrating
