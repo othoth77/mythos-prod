@@ -17,6 +17,10 @@ const os = require('os');
 const path = require('path');
 const api = require('../lib/api.js');
 const seedLib = require('../lib/seed.js');
+const auditLib = require('../lib/audit.js');
+const takeout = require('../lib/importers/takeout.js');
+const gemini = require('../lib/importers/gemini.js');
+const notebooklm = require('../lib/importers/notebooklm.js');
 
 const BASE = path.join(__dirname, '..');
 
@@ -38,6 +42,10 @@ function buildCorpus(root) {
     });
   }
   seedLib.loadSeed(kb.store, kb.classes, path.join(BASE, 'seeds', 'infrastructure-2026-08-19.json'));
+  // OTH-K2: importer-produced knowledge joins the evaluated corpus.
+  takeout.importDirectory(kb.store, kb.classes, path.join(BASE, 'fixtures', 'takeout-export'), { captured_at: '2026-08-19T00:00:00Z', collection: 'takeout-fixture' });
+  gemini.importExport(kb.store, kb.classes, { bytes: fs.readFileSync(path.join(BASE, 'fixtures', 'gemini', 'gemini-conversations.json')), filename: 'gemini-conversations.json', captured_at: '2026-08-19T00:00:00Z', collection: 'gemini-fixture' });
+  notebooklm.importNote(kb.store, kb.classes, { bytes: fs.readFileSync(path.join(BASE, 'fixtures', 'notebooklm', 'notebook-note.md')), filename: 'notebook-note.md', captured_at: '2026-08-19T00:00:00Z', observed_at: '2026-05-01T00:00:00Z', collection: 'notebooklm-fixture' });
   return kb;
 }
 
@@ -49,24 +57,41 @@ function matches(hitRecText, hit, expect) {
 function evaluate(kb, evalSet) {
   const modes = ['lexical', 'vector', 'hybrid'];
   const k = evalSet.k || 5;
+  const k2 = evalSet.k2 || 10;
   const results = {};
   for (const mode of modes) {
-    let hitsAtK = 0, rrSum = 0;
+    let hitsAtK = 0, hitsAtK2 = 0, rrSum = 0, relevantInTop5 = 0, top5Total = 0;
+    let provenanceFailures = 0, provenanceChecked = 0;
     const misses = [];
     for (const q of evalSet.queries) {
-      const hits = kb.search(q.q, { mode, limit: k });
+      const hits = kb.search(q.q, { mode, limit: k2 });
+      // provenance correctness on every returned hit
+      const pAudit = auditLib.auditHits(kb.store, hits);
+      provenanceChecked += pAudit.checked;
+      provenanceFailures += pAudit.failures.length;
       let rank = 0;
+      let relevantSeen = 0;
       for (let i = 0; i < hits.length; i++) {
         const full = kb.store.getRecord(hits[i].id);
         const text = full ? (full.text || full.statement || full.title || '') : '';
-        if (matches(text, hits[i], q.expect)) { rank = i + 1; break; }
+        const rel = matches(text, hits[i], q.expect);
+        if (rel && !rank) rank = i + 1;
+        if (rel && i < k) relevantSeen++;
       }
-      if (rank) { hitsAtK++; rrSum += 1 / rank; } else misses.push(q.q);
+      top5Total += Math.min(hits.length, k);
+      relevantInTop5 += relevantSeen;
+      if (rank && rank <= k) hitsAtK++;
+      if (rank && rank <= k2) hitsAtK2++;
+      if (rank) rrSum += 1 / rank; else misses.push(q.q);
     }
     results[mode] = {
       queries: evalSet.queries.length,
       recall_at_k: +(hitsAtK / evalSet.queries.length).toFixed(3),
+      recall_at_10: +(hitsAtK2 / evalSet.queries.length).toFixed(3),
       mrr: +(rrSum / evalSet.queries.length).toFixed(3),
+      precision_at_5: top5Total ? +(relevantInTop5 / top5Total).toFixed(3) : 0,
+      provenance_ok: provenanceFailures === 0,
+      provenance_checked: provenanceChecked,
       k,
       misses,
     };
@@ -89,7 +114,7 @@ function main() {
       console.log('corpus records: ' + report.corpus.records + ' · integrity: ' + (verify.ok ? 'OK' : 'FAIL'));
       for (const mode of Object.keys(results)) {
         const r = results[mode];
-        console.log('  ' + mode.padEnd(8) + ' recall@' + r.k + '=' + r.recall_at_k + '  mrr=' + r.mrr + (r.misses.length ? '  misses: ' + r.misses.join(' | ') : ''));
+        console.log('  ' + mode.padEnd(8) + ' recall@' + r.k + '=' + r.recall_at_k + '  recall@10=' + r.recall_at_10 + '  mrr=' + r.mrr + '  p@5=' + r.precision_at_5 + '  provenance=' + (r.provenance_ok ? 'OK(' + r.provenance_checked + ')' : 'FAIL') + (r.misses.length ? '  misses: ' + r.misses.join(' | ') : ''));
       }
     }
     return report;

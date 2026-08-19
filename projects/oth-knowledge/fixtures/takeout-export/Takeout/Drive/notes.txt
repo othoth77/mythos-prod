@@ -1,0 +1,4 @@
+Synthetic Takeout Drive note fixture.
+
+This file exercises the plain-text path of the Takeout importer walk and
+mentions container orchestration for retrieval tests.

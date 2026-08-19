@@ -3,6 +3,7 @@
   "version": 1,
   "description": "Reproducible retrieval evaluation over the committed fixtures + infrastructure seed. Expectations match by kind + case-insensitive substring so the set is stable across id derivations.",
   "k": 5,
+  "k2": 10,
   "queries": [
     { "q": "certbot certificate dry run", "expect": { "kind": "chunk", "contains": "certbot dry-run" } },
     { "q": "nginx hardened vhost web server", "expect": { "kind": "chunk", "contains": "hardened vhost" } },
@@ -17,6 +18,12 @@
     { "q": "is rsync available on the owner windows machine", "expect": { "kind": "fact", "contains": "NOT available on the owner Windows machine" } },
     { "q": "can the AI operating layer reach the VPS", "expect": { "kind": "fact", "contains": "CAPABILITY LIMITATION" } },
     { "q": "deploy account ssh key type", "expect": { "kind": "fact", "contains": "ED25519" } },
-    { "q": "secret policy passwords tokens never stored", "expect": { "kind": "fact", "contains": "NON-STORABLE SECRET" } }
+    { "q": "secret policy passwords tokens never stored", "expect": { "kind": "fact", "contains": "NON-STORABLE SECRET" } },
+    { "q": "coolify deployment persistent volumes search", "expect": { "kind": "event", "contains": "coolify deployment persistent volumes" } },
+    { "q": "ed25519 openssh windows key search activity", "expect": { "kind": "event", "contains": "ed25519 ssh key windows" } },
+    { "q": "benchmark retrieval quality conversation", "expect": { "kind": "event", "contains": "Planning the retrieval benchmark" } },
+    { "q": "backup strategy gemini discussion", "expect": { "kind": "event", "contains": "Backup strategy discussion" } },
+    { "q": "reverse proxy TLS termination edge", "expect": { "kind": "claim", "contains": "terminate TLS close to the edge" } },
+    { "q": "rollback previous release kept warm", "expect": { "kind": "claim", "contains": "previous-release directory kept warm" } }
   ]
 }

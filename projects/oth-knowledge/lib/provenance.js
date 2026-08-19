@@ -65,4 +65,24 @@ function buildProvenance(classes, fields) {
   return prov;
 }
 
-module.exports = { POLICIES, DEFAULT_CONFIG, loadSourceClasses, requireClass, buildProvenance };
+// Ensures the source record for (class, collection) exists; idempotent.
+// Lives here so every record-construction path (ingest, extract, seeds)
+// keeps the source registry complete.
+function ensureSource(store, classes, sourceClass, sourceCollection) {
+  const ids = require('./ids.js');
+  const cls = requireClass(classes, sourceClass);
+  const collection = sourceCollection || 'default';
+  const id = ids.recordId('source', cls.name + '/' + collection);
+  const existing = store.getRecord(id);
+  if (existing) return existing;
+  const rec = {
+    kind: 'source', id,
+    source_class: cls.name,
+    title: cls.title + ' — ' + collection,
+    metadata: { collection, policy: cls.policy },
+  };
+  store.appendRecord(rec);
+  return rec;
+}
+
+module.exports = { POLICIES, DEFAULT_CONFIG, loadSourceClasses, requireClass, buildProvenance, ensureSource };

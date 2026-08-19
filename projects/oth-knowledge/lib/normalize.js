@@ -11,6 +11,12 @@
 
 const path = require('path');
 
+// Bumped whenever normalization output can change for identical input.
+const NORMALIZER_VERSION = '1.1.0';
+// Parser-abuse guards.
+const MAX_JSON_DEPTH = 64;
+const MAX_CSV_FIELDS = 512;
+
 function fail(code, msg) { const e = new Error(code + ': ' + msg); e.code = code; return e; }
 
 const MEDIA_TYPES = Object.freeze({
@@ -51,15 +57,45 @@ function stripHtml(html) {
 
 // JSON artifacts (e.g. Takeout-shaped exports) flatten to searchable text
 // while preserving structure in metadata.
-function flattenJson(value, prefix, out) {
+function flattenJson(value, prefix, out, depth) {
+  const d = depth || 0;
+  if (d > MAX_JSON_DEPTH) throw fail('OTHK_NORMALIZE_MALFORMED', 'JSON nesting exceeds depth ' + MAX_JSON_DEPTH);
   if (value === null || value === undefined) return;
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
     out.push((prefix ? prefix + ': ' : '') + String(value));
   } else if (Array.isArray(value)) {
-    value.forEach((v, i) => flattenJson(v, prefix + '[' + i + ']', out));
+    value.forEach((v, i) => flattenJson(v, prefix + '[' + i + ']', out, d + 1));
   } else if (typeof value === 'object') {
-    for (const k of Object.keys(value)) flattenJson(value[k], prefix ? prefix + '.' + k : k, out);
+    for (const k of Object.keys(value)) flattenJson(value[k], prefix ? prefix + '.' + k : k, out, d + 1);
   }
+}
+
+// Minimal RFC-4180-ish CSV parser (quotes, escaped quotes, CRLF).
+// Returns { header: string[], rows: string[][] }.
+function parseCsv(text) {
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (text[i + 1] === '"') { field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else if (c === '"') inQuotes = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(field); field = '';
+      if (row.length > 1 || row[0] !== '') rows.push(row);
+      row = [];
+    } else field += c;
+    if (row.length > MAX_CSV_FIELDS) throw fail('OTHK_NORMALIZE_MALFORMED', 'CSV row exceeds ' + MAX_CSV_FIELDS + ' fields');
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  if (inQuotes) throw fail('OTHK_NORMALIZE_MALFORMED', 'CSV ends inside a quoted field');
+  if (!rows.length) throw fail('OTHK_NORMALIZE_EMPTY', 'CSV has no rows');
+  return { header: rows[0], rows: rows.slice(1) };
 }
 
 // Derives { text, media_type } from artifact bytes.
@@ -76,6 +112,13 @@ function normalize(bytes, filename) {
     text = lines.join('\n');
   } else if (media === 'text/html') {
     text = stripHtml(raw);
+  } else if (media === 'text/csv') {
+    const parsed = parseCsv(raw);
+    const lines = [];
+    for (const row of parsed.rows) {
+      lines.push(row.map((v, i) => (parsed.header[i] || 'col' + i) + ': ' + v).filter((s) => !/: $/.test(s)).join(' · '));
+    }
+    text = lines.join('\n');
   } else {
     text = raw;
   }
@@ -105,4 +148,7 @@ function chunkText(text, opts) {
   return chunks;
 }
 
-module.exports = { MEDIA_TYPES, mediaTypeFor, decodeUtf8Strict, stripHtml, normalize, chunkText };
+module.exports = {
+  NORMALIZER_VERSION, MAX_JSON_DEPTH, MAX_CSV_FIELDS,
+  MEDIA_TYPES, mediaTypeFor, decodeUtf8Strict, stripHtml, parseCsv, normalize, chunkText,
+};

@@ -5,6 +5,10 @@
 //
 // Usage:
 //   node othk-cli.js --store <root> ingest <file> --class <source-class> [--collection <c>] [--captured-at <iso>]
+//   node othk-cli.js --store <root> import-takeout <extracted-dir> [--collection <c>] [--captured-at <iso>]
+//   node othk-cli.js --store <root> import-gemini <export.json> [--collection <c>] [--captured-at <iso>]
+//   node othk-cli.js --store <root> import-notebooklm <note.md> [--collection <c>] [--captured-at <iso>]
+//   node othk-cli.js --store <root> import-contacts-metadata <contacts.csv> [--collection <c>] [--captured-at <iso>]
 //   node othk-cli.js --store <root> seed <seed.json>
 //   node othk-cli.js --store <root> search "<query>" [--mode exact|lexical|vector|hybrid] [--kind k] [--class c] [--tag t] [--after iso] [--before iso] [--limit n]
 //   node othk-cli.js --store <root> export [--kind k] [--class c] [--history] [--out file]
@@ -64,6 +68,22 @@ function main() {
       artifact: res.artifact.id, content_ref: res.artifact.content_ref,
       document: res.document.id, chunks: res.chunks.length, deduplicated: res.deduplicated,
     }, null, 2));
+  } else if (cmd === 'import-takeout' || cmd === 'import-gemini' || cmd === 'import-notebooklm' || cmd === 'import-contacts-metadata') {
+    const target = args._[1];
+    if (!target) usage(cmd + ' <path>');
+    const capturedAt = typeof args['captured-at'] === 'string' ? args['captured-at'] : new Date().toISOString();
+    const collection = typeof args.collection === 'string' ? args.collection : undefined;
+    let report;
+    if (cmd === 'import-takeout') {
+      report = require('../lib/importers/takeout.js').importDirectory(kb.store, kb.classes, target, { captured_at: capturedAt, collection });
+    } else {
+      const bytes = fs.readFileSync(target);
+      const input = { bytes, filename: path.basename(target), captured_at: capturedAt, collection };
+      if (cmd === 'import-gemini') report = require('../lib/importers/gemini.js').importExport(kb.store, kb.classes, input);
+      else if (cmd === 'import-notebooklm') report = require('../lib/importers/notebooklm.js').importNote(kb.store, kb.classes, input);
+      else { const r = require('../lib/importers/contacts.js').importMetadata(kb.store, kb.classes, input); delete r.analysis; report = r; }
+    }
+    console.log(JSON.stringify(report, null, 2));
   } else if (cmd === 'seed') {
     const file = args._[1];
     if (!file) usage('seed <seed.json>');

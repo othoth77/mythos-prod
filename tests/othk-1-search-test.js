@@ -76,7 +76,7 @@ console.log('§3 filters');
 
 console.log('§4 provenance on hits');
 {
-  const hits = kb.search('postgres backup restore', { mode: 'hybrid', limit: 3 });
+  const hits = kb.search('postgres backup restore strategies', { mode: 'hybrid', filters: { kind: 'chunk' }, limit: 3 });
   ok(hits.length >= 1 && hits[0].provenance && hits[0].provenance.source_class === 'google-takeout', 'hit carries source class');
   ok(typeof hits[0].provenance.source_reference === 'string' && hits[0].provenance.source_reference.length > 0, 'hit carries source reference');
   const rec = kb.store.getRecord(hits[0].id);
@@ -122,7 +122,7 @@ console.log('§7 corpus provenance separation');
   ok(classes.size >= 6, 'independent source records per class (' + classes.size + ' classes)');
   const takeout = kb.store.allRecords({ kind: 'artifact', where: (r) => r.provenance.source_class === 'google-takeout' });
   const manual = kb.store.allRecords({ kind: 'artifact', where: (r) => r.provenance.source_class === 'manual' });
-  ok(takeout.length === 1 && manual.length === 1, 'artifacts remain attributed to their own source class');
+  ok(takeout.length === 3 && manual.length === 1, 'artifacts remain attributed to their own source class (1 K1 fixture + 2 takeout-export files)');
 }
 
 console.log('');

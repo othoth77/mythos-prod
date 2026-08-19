@@ -10,15 +10,22 @@ Zero dependencies, plain Node ≥ 18. No network, no database, no daemon.
 ## Layout
 
 ```
-lib/        model, ids, store (append-only JSONL + content-addressed objects),
-            provenance, normalize, ingest, extract, conflict, search, seed, api
-config/     source-classes.json — closed source-class registry with per-class policy
-cli/        othk-cli.js — ingest / seed / search / export / validate / stats
-seeds/      reviewed structured knowledge (infrastructure verification 2026-08-19)
-fixtures/   synthetic test/eval corpus (no real personal data)
-eval/       reproducible retrieval evaluation set + runner
-data/       default store root at runtime — never committed
+lib/            model, ids, store (append-only JSONL + content-addressed objects),
+                provenance, normalize, ingest, extract, conflict, search, seed, api,
+                dedup, temporal, audit, knowledge-service (AI-layer boundary)
+lib/importers/  takeout, gemini, notebooklm, contacts (metadata-only) — versioned parsers
+config/         source-classes.json — closed source-class registry with per-class policy
+cli/            othk-cli.js — ingest / import-* / seed / search / export / validate / stats
+seeds/          reviewed structured knowledge (infrastructure verification 2026-08-19)
+fixtures/       synthetic test/eval corpus (no real personal data)
+eval/           reproducible retrieval evaluation set + runner + store benchmark
+data/           default store root at runtime — never committed
 ```
+
+Related canon: `docs/OTH_KNOWLEDGE_ARCHITECTURE.md` (model + decisions),
+`docs/OTH_KNOWLEDGE_INTEGRATION.md` (AI Operating Layer boundary),
+`docs/OTH_KNOWLEDGE_OPERATIONS.md` (backup/restore/import/deploy),
+`docs/OTH_K2_DATA_DISCOVERY.md` (real-data evidence table).
 
 ## Quick start
 
