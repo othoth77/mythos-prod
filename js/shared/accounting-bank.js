@@ -82,7 +82,7 @@ function openBankDetailModal(bankEntryId) {
     <div class="modal-overlay" onclick="closeBankDetailModal()" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:1000;">
       <div onclick="event.stopPropagation()" style="background:#0e0e0e; border:2px solid #D9A441; border-radius:16px; padding:32px; max-width:600px; width:90%; max-height:80vh; overflow-y:auto;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-          <h2 style="color:#D9A441; font-family:'Playfair Display',serif; font-size:24px; margin:0;">📋 Détails de la Transaction</h2>
+          <h2 style="color:#D9A441; font-family: 'Archivo Expanded', sans-serif; font-size:24px; margin:0;">📋 Détails de la Transaction</h2>
           <button onclick="closeBankDetailModal()" style="background:none; border:none; color:#D9A441; font-size:24px; cursor:pointer;">✕</button>
         </div>
 

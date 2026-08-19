@@ -39,7 +39,7 @@ function updateDashboardStats() {
       '<div style="display:flex;flex-direction:column;justify-content:center;">'
         + '<div style="color:#444;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.18em;margin-bottom:2px;">'+dayName+'</div>'
         + '<div style="display:flex;align-items:baseline;gap:10px;">'
-          + '<span style="color:#e8e8e8;font-size:54px;font-weight:900;font-family:\'Playfair Display\',serif;line-height:1;">'+dayNum+'</span>'
+          + '<span style="color:#e8e8e8;font-size:54px;font-weight:400;font-family: \'IBM Plex Mono\', monospace;line-height:1;">'+dayNum+'</span>'
           + '<div style="display:flex;flex-direction:column;">'
             + '<span style="color:#d4af37;font-size:18px;font-weight:700;line-height:1.1;">'+month+'</span>'
             + '<span style="color:#555;font-size:13px;font-weight:500;">'+year+'</span>'
@@ -129,7 +129,7 @@ function updateDashboardStats() {
         const monShort  = dateParts[1] ? (mNames[parseInt(dateParts[1],10)-1]||'') : '';
         return '<div class="db-recent-row" onclick="rdvEdit(\''+rdv.id+'\')" style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid #151515;cursor:pointer;transition:background 0.12s;" onmouseover="this.style.background=\'#181818\'" onmouseout="this.style.background=\'\'">'
           + '<div style="text-align:center;min-width:38px;flex-shrink:0;">'
-            + '<div style="color:'+dotColor+';font-size:20px;font-weight:900;font-family:\'Playfair Display\',serif;line-height:1;">'+dayNum+'</div>'
+            + '<div style="color:'+dotColor+';font-size:20px;font-weight:400;font-family: \'IBM Plex Mono\', monospace;line-height:1;">'+dayNum+'</div>'
             + '<div style="color:'+dotColor+';font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">'+monShort+'</div>'
           + '</div>'
           + '<div style="flex:1;min-width:0;">'

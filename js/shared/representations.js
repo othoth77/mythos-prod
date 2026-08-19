@@ -34,7 +34,7 @@ function showRepresentationDetail(repId) {
     <div style="margin-bottom:24px;">
       <button class="btn btn-outline" onclick="renderRepresentations()" style="margin-bottom:16px;">← Retour à la liste</button>
       <div style="background:linear-gradient(135deg, rgba(217,164,65,0.12), rgba(217,164,65,0.06)); border:1px solid rgba(217,164,65,0.2); border-radius:16px; padding:32px 40px; margin-bottom:32px;">
-        <h1 style="font-family:'Playfair Display',serif; font-size:42px; color:var(--gold-light); font-weight:800; margin:0 0 16px 0;">${esc(rep.spectacle || 'Representation')}</h1>
+        <h1 style="font-family: 'Archivo Expanded', sans-serif; font-size:42px; color:var(--gold-light); font-weight:600; margin:0 0 16px 0;">${esc(rep.spectacle || 'Representation')}</h1>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:20px; margin-top:20px;">
           <div><div style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:5px;">Client</div><div style="color:var(--text); font-size:14px;">${esc(rep.clientName || '-')}</div></div>
           <div><div style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:5px;">Directeur</div><div style="color:var(--text); font-size:14px;">${esc(rep.director || '-')}</div></div>

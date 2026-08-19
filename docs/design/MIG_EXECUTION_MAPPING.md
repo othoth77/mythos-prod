@@ -1,11 +1,13 @@
 # MIG-1 / MIG-2 / MIG-3 execution mapping
 
-**Stage:** AUTO-6 (mapping/tooling) → AUTO-7 (MIG-1 execution), delegated
-mandate, continuation passes
-**Date:** 2026-08-18 UTC
-**Status:** **MIG-1 EXECUTED** (§2a) — real gold migration applied across 16
-files, 331 occurrences, verified. **MIG-2 and MIG-3 remain mapping/scope
-only** — not executed. See each section for its actual status.
+**Stage:** AUTO-6 (mapping/tooling) → AUTO-7 (MIG-1) → AUTO-8 (MIG-2
+attempt, rolled back) → AUTO-9 (MIG-3 partial, MIG-4 blocked) → AUTO-11
+(MIG-2 executed via role separation), delegated mandate
+**Date:** 2026-08-18 → 2026-08-19 UTC
+**Status:** **MIG-1 EXECUTED** (§2a). **MIG-2 EXECUTED** (§3b, after §3a's
+honest rollback produced the diagnosis). **MIG-3 partial** (§4 — two of
+three tokens; `--past`/control-border tracked). **MIG-4 blocked with
+evidence** (§5a). See each section.
 
 **Purpose.** `IMPLEMENTATION_READINESS_AUDIT.md` §2.1 and `MIGRATION_PLANS.md`
 §1.1 named `css/main.css` reconciliation as blocked on "full-application
@@ -295,6 +297,31 @@ trade-off, or resize the affected large-display classes to fit (a real
 design decision, not this pass's to make unilaterally), or take some
 other resolution. Not a tooling gap, not a scope-measurement gap — a
 genuine visual trade-off requiring a real decision.
+
+---
+
+## 3b. MIG-2 — EXECUTED, AUTO-11, 2026-08-19: role separation solved what a blanket swap could not
+
+§3a's rollback was the right call and it also produced the diagnosis:
+the KPI wrap was a *role conflation* — Playfair carried both headings
+(words) and financial figures (numbers), and pushing both into the
+display face wrapped the figures. AUTO-11 re-executed the migration with
+each of the 93 sites classified individually into the approved system's
+own roles: **44 display** (Archivo Expanded 600), **6 label** (Plex Sans
+500 — the five table-header rules + `.month-group`), **43
+numeric/financial** (IBM Plex Mono 400, the Data role, tabular by
+design). No font-size changed anywhere. `index.html` now loads the
+self-hosted approved faces and no longer requests Playfair from the CDN
+(Inter body face remains — separate recorded step).
+
+Verified: 17 real views before/after (1.32–6.30% diffs, chief-reviewed);
+the `comptabilite` KPI row — §3a's exact regression — renders one-line,
+height-aligned; `node --check` clean; zero JS console errors. The AUTO-8
+escaped-quote template bug was re-made and re-caught by the same check
+(recorded in the register — repeating a known bug is the more
+embarrassing occurrence, and hiding it would be worse).
+
+Full record: `MYTHOS_DESIGN_DECISIONS.md` §0.5, AUTO-11.
 
 ---
 
