@@ -56,19 +56,26 @@ function ingestArtifact(store, classes, input, normalizeLib) {
   }
 
   const cls = provenance.requireClass(classes, input.source_class);
-  const source = ensureSource(store, classes, cls.name, input.source_collection);
+  const collection = (typeof input.source_collection === 'string' && input.source_collection) ? input.source_collection : 'default';
 
-  // Normalize first: policy + secret gates must see the text BEFORE any
-  // byte or record is persisted (fail-closed — nothing stored on refusal).
-  const norm = normalize.normalize(input.bytes, input.filename);
-
+  // Refusal gates run BEFORE any store write (fail-closed — nothing is
+  // persisted on refusal, not even the source envelope). Only after all
+  // gates pass is the source record ensured (F8).
   if (cls.policy === 'metadata-only') {
     throw fail('OTHK_INGEST_POLICY', 'source class ' + cls.name + ' is metadata-only; content ingestion refused (register pointers via addRecord instead)');
   }
 
-  const secretHits = detectSecretShapes(norm.text);
+  // Secret gate on BOTH the normalized text AND the raw decoded bytes:
+  // normalization strips <script>/<style>/comment bodies, so a gate on
+  // the normalized text alone would let credential bytes reach the
+  // preserved-original artifact (F1). The raw scan closes that hole.
+  const norm = normalize.normalize(input.bytes, input.filename);
+  const secretHits = Array.from(new Set(
+    detectSecretShapes(norm.text).concat(detectSecretShapes(input.bytes.toString('utf8')))));
   if (secretHits.length) {
-    // Record the refusal — pattern names only, never content.
+    // Now ensure the source (so the refusal record has a source), then
+    // record the refusal — pattern names only, never content.
+    const source0 = ensureSource(store, classes, cls.name, collection);
     const obsId = ids.recordId('observation', 'secret-refusal/' + ids.contentRef(input.bytes));
     if (!store.getRecord(obsId)) {
       store.appendRecord({
@@ -76,7 +83,7 @@ function ingestArtifact(store, classes, input, normalizeLib) {
         statement: 'Ingestion refused: credential-shaped content detected (' + secretHits.join(', ') + '). Content not stored.',
         observed_at: input.captured_at,
         provenance: provenance.buildProvenance(classes, {
-          source_class: cls.name, source_collection: source.metadata.collection,
+          source_class: cls.name, source_collection: source0.metadata.collection,
           source_reference: 'refused:' + input.filename, captured_at: input.captured_at,
         }),
         tags: ['quarantine', 'secret-refusal'],
@@ -84,6 +91,9 @@ function ingestArtifact(store, classes, input, normalizeLib) {
     }
     throw fail('OTHK_INGEST_SECRET', 'credential-shaped content refused: ' + secretHits.join(', '));
   }
+
+  // All refusal gates passed — now it is safe to create the source record.
+  const source = ensureSource(store, classes, cls.name, collection);
 
   // Original artifact: content-addressed, byte-identical, deduplicated.
   const put = store.putObject(input.bytes);

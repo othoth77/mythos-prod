@@ -44,7 +44,8 @@ function openService(root, opts) {
     retrieve(id) {
       const versions = store.getVersions(id);
       if (!versions.length) return null;
-      return { record: store.getRecord(id), versions: versions.map((v) => ({ version: v.version, written_at: v.written_at, deleted: v.deleted })), deleted: store.getRecord(id) === null };
+      const rec = store.getRecord(id);
+      return { record: rec, versions: versions.map((v) => ({ version: v.version, written_at: v.written_at, deleted: v.deleted })), deleted: rec === null, quarantined: rec ? temporal.isQuarantined(rec) : false };
     },
 
     // lookupEntity(name) → entities matching the folded name + linked records
@@ -79,6 +80,7 @@ function openService(root, opts) {
       if (!rec || !rec.provenance) return rec ? { provenance: null } : null;
       return {
         provenance: rec.provenance,
+        quarantined: temporal.isQuarantined(rec),
         artifact_available: rec.provenance.artifact_ref ? store.hasObject(rec.provenance.artifact_ref) : null,
         lineage: rec.metadata ? {
           importer: rec.metadata.importer || null,
@@ -106,7 +108,7 @@ function openService(root, opts) {
         .filter((r) => !o.tag || (Array.isArray(r.tags) && r.tags.indexOf(o.tag) !== -1));
       return {
         as_of: o.asOf,
-        known: known.map((r) => ({ id: r.id, kind: r.kind, truth_time: temporal.truthTimeOf(r), classification: temporal.classify(store, r, { asOf: o.asOf }) })),
+        known: known.map((r) => ({ id: r.id, kind: r.kind, truth_time: temporal.truthTimeOf(r), classification: temporal.classify(store, r, { asOf: o.asOf }), quarantined: temporal.isQuarantined(r) })),
         latest_verified: temporal.latestVerified(store, { tag: o && o.tag }).slice(0, 10).map((r) => r.id),
         open_contradictions: conflictLib.listConflicts(store, { state: 'open' }).map((r) => r.id),
       };

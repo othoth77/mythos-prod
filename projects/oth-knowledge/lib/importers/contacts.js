@@ -35,17 +35,29 @@ const KNOWN_HEADER_TOKENS = /^(name|given name|additional name|family name|first
 const EMAIL_SHAPE = /@/;
 const PHONE_SHAPE = /^[+()\d][\d\s().\/-]{4,}$/;
 
+const DIGIT_RUN = /\d{4,}/; // phone/address/id fragments in a mistaken-for-header data row
+
 function validateHeader(header) {
-  const known = header.filter((h) => KNOWN_HEADER_TOKENS.test(String(h).trim()));
-  if (known.length === 0) {
-    throw fail('OTHK_IMPORT_FORMAT', 'contacts CSV header not recognized (no known contacts column names) — refusing so a data row can never be persisted as column names');
-  }
+  // Data-shape rejection first: any cell that is NOT a known schema name
+  // but looks like data (email/phone/digit-run/overlong) refuses outright.
   for (const cell of header) {
     const c = String(cell).trim();
-    if (EMAIL_SHAPE.test(c) || PHONE_SHAPE.test(c)) {
+    if (KNOWN_HEADER_TOKENS.test(c)) {
+      if (c.length > 120) throw fail('OTHK_IMPORT_FORMAT', 'contacts CSV header cell exceeds 120 chars — refusing');
+      continue;
+    }
+    if (EMAIL_SHAPE.test(c) || PHONE_SHAPE.test(c) || DIGIT_RUN.test(c)) {
       throw fail('OTHK_IMPORT_FORMAT', 'contacts CSV header contains a data-shaped cell — refusing (nothing persisted)');
     }
     if (c.length > 120) throw fail('OTHK_IMPORT_FORMAT', 'contacts CSV header cell exceeds 120 chars — refusing');
+  }
+  // Then a MAJORITY of cells must be recognised schema names, not merely
+  // one (F10): a single matching cell in an otherwise unrecognised first
+  // row must not license persisting the rest of that row as column names.
+  const known = header.filter((h) => KNOWN_HEADER_TOKENS.test(String(h).trim()));
+  const needed = Math.max(2, Math.ceil(header.length * 0.6));
+  if (known.length < needed) {
+    throw fail('OTHK_IMPORT_FORMAT', 'contacts CSV header not recognized (' + known.length + '/' + header.length + ' known contacts column names; need ' + needed + ') — refusing so a data row can never be persisted as column names');
   }
 }
 

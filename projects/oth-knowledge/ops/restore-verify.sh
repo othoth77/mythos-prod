@@ -18,16 +18,20 @@ if [ -e "$DEST" ] && [ -n "$(ls -A "$DEST" 2>/dev/null)" ]; then
   echo "restore dir must be fresh/empty (never restore over a live store): $DEST" >&2; exit 1
 fi
 
-# 1. Integrity hash of the archive itself.
+# 1. Integrity hash of the archive itself — fail CLOSED when absent
+#    unless the operator explicitly opts out.
 if [ -f "$ARCHIVE.sha256" ]; then
   ( cd "$(dirname "$ARCHIVE")" && sha256sum -c "$(basename "$ARCHIVE").sha256" )
+elif [ "${3:-}" = "--allow-unverified" ]; then
+  echo "WARNING: no .sha256 next to archive — proceeding by explicit --allow-unverified" >&2
 else
-  echo "WARNING: no .sha256 next to archive — hash verification skipped" >&2
+  echo "no .sha256 next to archive — refusing (pass --allow-unverified to override)" >&2; exit 1
 fi
 
-# 2. Restore to fresh directory.
+# 2. Restore to fresh directory. --no-same-owner/--no-same-permissions so
+#    a crafted archive cannot restore setuid bits or foreign ownership.
 mkdir -p "$DEST"
-tar xzf "$ARCHIVE" -C "$DEST"
+tar --no-same-owner --no-same-permissions -xzf "$ARCHIVE" -C "$DEST"
 
 # 3. Locate the restored store root (the single extracted directory).
 ROOT="$(find "$DEST" -maxdepth 2 -name records.jsonl -printf '%h\n' | head -1)"

@@ -253,6 +253,57 @@ triggered: schema + deterministic migration preserving content hashes,
 provenance and versions, with tested rollback — per the operations doc.
 "PostgreSQL is more production" is explicitly not a trigger.
 
+## 10a. Independent security audit (2026-08-19, OTH-K3)
+
+An independent adversarial security audit (Opus, probe-driven) covered
+path traversal, repository-store injection, credential leakage, endpoint
+injection, filesystem access, prototype pollution, query/ReDoS abuse,
+malformed source data, provenance spoofing, trust manipulation,
+quarantine bypass, write-operation bypass, temporal-state bypass, and
+the ops shell scripts. Verdict **PASS-WITH-FINDINGS**; every CONFIRMED
+finding was fixed with a regression test:
+
+- **F1** — the secret gate scanned only normalized text, so credential
+  bytes hidden in stripped `<script>`/`<style>`/comment bodies reached
+  the preserved-original artifact. Now the gate scans the raw decoded
+  bytes as well (`lib/ingest.js`).
+- **F2** — the non-authoritative-tier trust ceiling applied only to
+  `kind:'fact'`; an attacker-supplied Takeout/Gemini `event`/`observation`
+  could reach `supported`. The ceiling now applies to every statement
+  kind (`lib/trust.js`).
+- **F3** — `asOf` was checked only for truthiness; a non-date value made
+  every `Date.parse` comparison NaN-false and returned future-dated
+  statements as `current`. `asOf` is now validated as an ISO timestamp
+  in the temporal path (`lib/temporal.js`).
+- **F4** — quarantined records presented clean through non-`search`
+  service ops and could appear in `latest_verified`. Quarantine is now
+  flagged on `retrieve`/`lookupProvenance`/`currentState`, excluded from
+  `latestVerified`, and detected in both tag spellings.
+- **F5** — the HTML strip used unbounded `[\s\S]*?` regexes that were
+  quadratic on an unterminated tag (single-file DoS). Bodies are now
+  bounded (measured linear).
+- **F6** — repository-containment was enforced only on the read-only
+  consumer; the writer (`store.openStore`) had no check, and a symlink
+  bypassed the executor's lexical check. `openStore` now refuses an
+  in-repository root (realpath-resolved) except the git-ignored
+  `data/` fixtures dir.
+- **F7–F15** — widened forbidden-key matching (composite spellings) and
+  added the scan to the source-class registry; refusal gates now run
+  before any store write (F8); symlinked import root refused (F9);
+  contacts header now requires a majority of recognised columns and
+  rejects digit-run cells (F10); `restore-verify.sh` fails closed on a
+  missing hash and extracts with `--no-same-owner/--no-same-permissions`
+  (F11); `deploy-vps.sh` validates its arguments (F12); `artifact_ref`
+  shape validated at write time (F13); a `not-yet-true` truth time never
+  assesses `supported` (F14); query length bounded (F15).
+
+No finding allowed code execution or a write outside the store; the
+frozen read-only executor allowlist, content-addressed traversal
+defense, corroboration-inflation resistance, and quarantine stickiness
+all held under probing. Regression coverage lives in
+`tests/othk-2-importers-test.js` §12 and `tests/othk-3-trust-test.js`
+§13–§14.
+
 ## 12b. OTH-K3 — knowledge trust model (2026-08-19)
 
 `lib/trust.js` + `config/trust-model.json`: a strictly READ-ONLY trust

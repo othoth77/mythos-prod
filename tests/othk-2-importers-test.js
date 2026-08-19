@@ -317,6 +317,44 @@ console.log('§11 review-fix regressions (independent adversarial review 2026-08
   expectError(() => contacts.importMetadata(s, CLASSES, { bytes: Buffer.alloc(ingest.MAX_ARTIFACT_BYTES + 1, 97), filename: 'huge.csv', captured_at: CAP }), /OTHK_INGEST_TOO_LARGE/, 'R6: oversized contacts CSV refused');
 }
 
+console.log('§12 security-audit regressions (Opus audit 2026-08-19)');
+{
+  // F1: normalization strips <script>/<style>/comment bodies BEFORE the
+  // secret gate; the original artifact bytes are preserved. A secret
+  // hidden inside a stripped body must still be refused (raw-byte scan).
+  const s = storeLib.openStore(tmpRoot());
+  expectError(() => ingest.ingestArtifact(s, CLASSES, { bytes: Buffer.from('<html><script>var k="AKIAIOSFODNN7EXAMPLE";</script>visible</html>'), filename: 'a.html', source_class: 'manual', captured_at: CAP }), /OTHK_INGEST_SECRET/, 'F1: secret in <script> body refused (raw bytes scanned, not just normalized text)');
+  expectError(() => ingest.ingestArtifact(s, CLASSES, { bytes: Buffer.from('<!-- -----BEGIN RSA PRIVATE KEY----- -->text'), filename: 'b.html', source_class: 'manual', captured_at: CAP }), /OTHK_INGEST_SECRET/, 'F1: PEM block in an HTML comment refused');
+  ok(s.allRecords({ kind: 'artifact' }).length === 0, 'F1: no artifact bytes persisted on secret refusal');
+
+  // F8: refusal paths write nothing before the gate (no source envelope
+  // leaks for a refused unsupported/oversized import).
+  const s2 = storeLib.openStore(tmpRoot());
+  try { ingest.ingestArtifact(s2, CLASSES, { bytes: Buffer.from('x'), filename: 'x.jpg', source_class: 'manual', captured_at: CAP }); } catch (e) { /* unsupported */ }
+  ok(s2.allRecords().length === 0, 'F8: an unsupported-type refusal persists nothing, not even a source record');
+
+  // F4: quarantined records present their state through non-search
+  // service ops and are excluded from latest_verified.
+  const s3 = storeLib.openStore(tmpRoot());
+  const qf = extract.addFact(s3, CLASSES, { statement: 'Quarantined but high-confidence (synthetic)', confidence: 'EXPLICIT', prov: { source_class: 'owner-report', source_collection: 'q', source_reference: 'owner/q/1', captured_at: CAP, observed_at: '2026-01-01T00:00:00Z' }, tags: ['crm'], metadata: { assertion_class: 'OBSERVED' } });
+  audit.quarantine(s3, qf.id, 'F4 test');
+  const svc = service.openService(s3.root);
+  ok(svc.retrieve(qf.id).quarantined === true, 'F4: retrieve() flags quarantined');
+  ok(svc.lookupProvenance(qf.id).quarantined === true, 'F4: lookupProvenance() flags quarantined');
+  const cs = svc.currentState({ asOf: '2026-08-20T00:00:00Z' }); // after the quarantine's capture time
+  ok(cs.latest_verified.indexOf(qf.id) === -1, 'F4: a quarantined fact never appears in latest_verified');
+  const kq = cs.known.filter((k) => k.id === qf.id);
+  ok(kq.length === 1 && kq[0].quarantined === true, 'F4: currentState known entries carry quarantine state');
+
+  // F3: a malformed (non-date) asOf is refused, never treated as "now".
+  expectError(() => svc.currentState({ asOf: 'not-a-date' }), /OTHK_TEMPORAL_INPUT|asOf/, 'F3: non-ISO asOf refused, never silently returns future-dated records as current');
+
+  // F15: pathological query length is bounded.
+  const s4 = storeLib.openStore(tmpRoot());
+  const svc4 = service.openService(s4.root);
+  expectError(() => svc4.search('x'.repeat(5000), { mode: 'lexical' }), /TOO_LONG/, 'F15: oversized query refused');
+}
+
 console.log('');
 console.log('othk-2: ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

@@ -46,9 +46,13 @@ function decodeUtf8Strict(bytes) {
 }
 
 function stripHtml(html) {
+  // Body-bounded script/style patterns: the naive /<script[\s\S]*?<\/script>/
+  // rescans to end-of-string from every "<script" when the tag is
+  // unterminated, which is quadratic and a single-file DoS (F5). These
+  // consume only up to the next "<", never past a missing close tag.
   return html
-    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
-    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script\b[^>]*>[^<]*(?:<(?!\/script>)[^<]*)*<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[^<]*(?:<(?!\/style>)[^<]*)*<\/style>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&#(\d+);/g, (m, d) => String.fromCharCode(Number(d)))

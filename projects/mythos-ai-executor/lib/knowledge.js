@@ -42,7 +42,9 @@ var ALLOWED_CONFIG_FIELDS = ['enabled', 'store_root', 'description'];
 // Rejected by presence anywhere in the document, at any depth: this is a
 // local-path wiring config, and anything endpoint- or credential-shaped
 // appearing in it is exactly the accident this check exists to catch.
-var FORBIDDEN_KEY_RE = /^(endpoint|url|key|token|secret|password|credential|api_key|apikey|auth)$/i;
+// Substring (not anchored): 'access_token', 'private_key', 'webhook_url'
+// and similar composite spellings must match too (F7).
+var FORBIDDEN_KEY_RE = /(endpoint|url|uri|host|hostname|webhook|key|token|secret|password|passphrase|credential|cookie|session|auth|bearer)/i;
 
 // The ONLY operations the executor may reach. Built as an explicit
 // allowlist so that even if the underlying service ever grew a write

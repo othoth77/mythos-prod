@@ -273,6 +273,49 @@ console.log('§12 executor wiring — allowlist, asOf guard, no write leak');
   ok(Object.keys(k.ops).every((n) => execKnowledge.READ_OPS.indexOf(n) !== -1), 'no op outside the allowlist is exposed');
 }
 
+console.log('§13 security-audit regressions (Opus audit 2026-08-19)');
+{
+  const takeout = require(path.join(BASE, 'lib/importers/takeout.js'));
+  // F2: an attacker-supplied Takeout EVENT must never assess as an
+  // established statement (the ceiling was previously fact-only).
+  const s = storeLib.openStore(tmpRoot());
+  const dir = tmpRoot();
+  fs.writeFileSync(path.join(dir, 'MyActivity.json'), JSON.stringify([{ header: 'Search', title: 'ATTACKER-CONTROLLED event title', time: '2026-07-01T00:00:00Z' }]));
+  takeout.importDirectory(s, CLASSES, dir, { captured_at: CAP, collection: 't' });
+  const ev = s.allRecords({ kind: 'event' })[0];
+  const a = trust.assessTrust(s, MODEL, ev.id, { asOf: ASOF });
+  ok(a.statement_category === 'imported-claim' && a.trust_summary === 'unverified-assertion', 'F2: imported-tier event caps at unverified-assertion, never supported');
+
+  // F14: future truth time never reads as supported.
+  const fut = extract.addEvent(s, CLASSES, { title: 'Owner-planned but future (synthetic)', occurred_at: '2099-01-01T00:00:00Z', prov: pv('owner-report', 'fut/1'), metadata: { assertion_class: 'OBSERVED' } });
+  const af = trust.assessTrust(s, MODEL, fut.id, { asOf: ASOF });
+  ok(af.freshness.status === 'not-yet-true' && af.trust_summary !== 'supported', 'F14: not-yet-true never assesses supported');
+
+  // F7: widened forbidden-key regex catches composite spellings.
+  const dir2 = tmpRoot();
+  const w = (o) => { const p = path.join(dir2, 't.json'); fs.writeFileSync(p, JSON.stringify(o)); return p; };
+  const base = { format: 'othk-trust-model', classes: {} };
+  for (const n of Object.keys(CLASSES)) base.classes[n] = { tier: 'imported', stale_after_days: 10 };
+  const withKey = JSON.parse(JSON.stringify(base)); withKey.classes.gemini.access_token = 'x';
+  expectError(() => trust.loadTrustModel(w(withKey), CLASSES), /credential-shaped/, 'F7: access_token (composite) rejected by widened regex');
+}
+
+console.log('§14 store-level repository-containment (F6)');
+{
+  const REPO = path.resolve(__dirname, '..');
+  expectError(() => storeLib.openStore(path.join(REPO, '.othk-evil')), /OTHK_STORE_INREPO/, 'F6: in-repo store root refused on the writer path');
+  expectError(() => storeLib.openStore(REPO), /OTHK_STORE_INREPO/, 'F6: repo root refused');
+  // sanctioned git-ignored data/ dir is allowed
+  const dataProbe = path.join(BASE, 'data', 'test-probe-' + process.pid);
+  const s = storeLib.openStore(dataProbe);
+  ok(!!s, 'F6: git-ignored data/ path allowed');
+  // symlink into the repo is caught by realpath
+  const outside = tmpRoot();
+  const link = path.join(outside, 'sneaky');
+  try { fs.symlinkSync(path.join(REPO, 'projects'), link); expectError(() => storeLib.openStore(link), /OTHK_STORE_INREPO/, 'F6: symlink into repo caught by realpath'); }
+  catch (e) { ok(/OTHK_STORE_INREPO/.test(e.message), 'F6: symlink into repo caught by realpath'); }
+}
+
 console.log('');
 console.log('othk-3: ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

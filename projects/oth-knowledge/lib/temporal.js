@@ -15,6 +15,16 @@ const conflict = require('./conflict.js');
 
 const STATEMENT_KINDS = ['fact', 'claim', 'observation', 'event'];
 
+// asOf must be a real ISO timestamp, not merely truthy: a non-date value
+// makes every Date.parse(asOf) comparison NaN-false, which silently
+// skips the capture-aware version selection AND the planned/future
+// cutoff, returning not-yet-true statements as "current" (F3).
+function requireAsOf(asOf) {
+  if (!require('./model.js').isIsoTimestamp(asOf)) {
+    throw new Error('OTHK_TEMPORAL_INPUT: asOf must be a valid ISO timestamp');
+  }
+}
+
 // Truth time: the record's own semantics — never store write time.
 function truthTimeOf(rec) {
   return rec.observed_at || rec.occurred_at ||
@@ -51,7 +61,7 @@ function losingIds(store, asOf) {
 //   unknown-date — no truth time (explicitly distinguished, never guessed)
 function classify(store, rec, opts) {
   const asOf = opts && opts.asOf;
-  if (!asOf) throw new Error('OTHK_TEMPORAL_INPUT: asOf reference date required');
+  requireAsOf(asOf);
   const versions = store.getVersions(rec.id);
   const latest = versions[versions.length - 1];
   if (latest && latest.record !== rec && JSON.stringify(latest.record) !== JSON.stringify(rec)) return 'superseded';
@@ -72,7 +82,7 @@ function classify(store, rec, opts) {
 // was captured after asOf, the earliest is used (the closest surviving
 // representation of the original statement about that time).
 function knownAt(store, asOf) {
-  if (!asOf) throw new Error('OTHK_TEMPORAL_INPUT: asOf required');
+  requireAsOf(asOf);
   const losers = losingIds(store, asOf);
   const out = [];
   for (const latest of store.allRecords()) {
@@ -98,7 +108,7 @@ function knownAt(store, asOf) {
 // explicitly so the two time axes are never conflated.
 function whatChanged(store, opts) {
   const after = opts && opts.after, before = opts && opts.before;
-  if (!after || !before) throw new Error('OTHK_TEMPORAL_INPUT: after and before required');
+  requireAsOf(after); requireAsOf(before);
   const truth = [], ingested = [], newVersions = [];
   for (const rec of store.allRecords()) {
     if (STATEMENT_KINDS.indexOf(rec.kind) === -1) continue;
@@ -114,11 +124,21 @@ function whatChanged(store, opts) {
 
 // Latest verified fact(s): highest truth time among live facts with
 // EXPLICIT/HIGH confidence, optionally filtered by tag.
+// A record is quarantined if any quarantine tag is present, in either
+// spelling ('quarantined' from the audit path, 'quarantine' from the
+// ingest secret-refusal path). A quarantined record must never be
+// presented as verified.
+const QUARANTINE_TAGS = ['quarantined', 'quarantine'];
+function isQuarantined(rec) {
+  return Array.isArray(rec.tags) && QUARANTINE_TAGS.some((t) => rec.tags.indexOf(t) !== -1);
+}
+
 function latestVerified(store, opts) {
   const tag = opts && opts.tag;
   const facts = store.allRecords({
     kind: 'fact',
     where: (r) => ['EXPLICIT', 'HIGH'].indexOf(r.confidence) !== -1 &&
+      !isQuarantined(r) && // never surface a quarantined record as verified (F4)
       (!tag || (Array.isArray(r.tags) && r.tags.indexOf(tag) !== -1)) && !!truthTimeOf(r),
   });
   const losers = losingIds(store);
@@ -127,4 +147,4 @@ function latestVerified(store, opts) {
   return live;
 }
 
-module.exports = { STATEMENT_KINDS, truthTimeOf, ingestTimeOf, losingIds, classify, knownAt, whatChanged, latestVerified };
+module.exports = { STATEMENT_KINDS, QUARANTINE_TAGS, isQuarantined, truthTimeOf, ingestTimeOf, losingIds, classify, knownAt, whatChanged, latestVerified };

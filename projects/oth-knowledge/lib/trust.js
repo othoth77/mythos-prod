@@ -55,7 +55,8 @@ const SUMMARIES = Object.freeze([
 const ASSESSABLE_KINDS = Object.freeze(['fact', 'claim', 'observation', 'event', 'derived']);
 const QUARANTINE_TAGS = ['quarantined', 'quarantine']; // audit.js vs ingest.js secret-refusal spelling
 
-const FORBIDDEN_KEY_RE = /^(endpoint|url|key|token|secret|password|credential|api_key|apikey|auth)$/i;
+// Substring (not anchored) so composite spellings match too (F7).
+const FORBIDDEN_KEY_RE = /(endpoint|url|uri|host|hostname|webhook|key|token|secret|password|passphrase|credential|cookie|session|auth|bearer)/i;
 const MAX_STALE_DAYS = 3650;
 
 function fail(code, msg) { const e = new Error(code + ': ' + msg); e.code = code; return e; }
@@ -268,16 +269,16 @@ function statementCategoryOf(rec, tier, quarantined) {
   if (rec.kind === 'claim') {
     return (tier === 'first-party' || tier === 'operator') ? 'user-provided-claim' : 'imported-claim';
   }
-  if (rec.kind === 'fact') {
-    // A fact record whose source is model output / bulk import, or whose
-    // assertion class is INFERRED/DERIVED, is asserted — not established:
-    // it can never assess as an accepted fact regardless of its kind.
-    if (tier === null || NON_AUTHORITATIVE_TIERS.indexOf(tier) !== -1) return 'imported-claim';
-    if (assertion === 'INFERRED' || assertion === 'DERIVED') return 'imported-claim';
-    return 'accepted-fact';
-  }
-  if (rec.kind === 'observation') return 'observation';
-  if (rec.kind === 'event') return 'event';
+  // Non-authoritative tier or unknown tier — bulk import / model output /
+  // metadata-only — asserts, it does not establish; and an INFERRED/DERIVED
+  // assertion class is not first-hand. This gate applies to EVERY
+  // statement kind, not just `fact` (F2): an attacker-supplied Takeout or
+  // Gemini `event` must never assess as an established statement either.
+  const nonAuthoritative = tier === null || NON_AUTHORITATIVE_TIERS.indexOf(tier) !== -1
+    || assertion === 'INFERRED' || assertion === 'DERIVED';
+  if (rec.kind === 'fact') return nonAuthoritative ? 'imported-claim' : 'accepted-fact';
+  if (rec.kind === 'observation') return nonAuthoritative ? 'imported-claim' : 'observation';
+  if (rec.kind === 'event') return nonAuthoritative ? 'imported-claim' : 'event';
   return 'derived';
 }
 
@@ -342,6 +343,10 @@ function assessTrust(store, trustModel, id, opts) {
     summary = 'unverified-assertion'; basis.push('statement category ' + category + ' — asserted, not established');
   } else if (strength.level === 'MISSING' || strength.level === 'WEAK' || authority.tier === 'untrusted') {
     summary = 'weakly-supported'; basis.push('provenance strength ' + strength.level + ', authority ' + authority.tier);
+  } else if (freshness.status === 'not-yet-true') {
+    // Truth time is after asOf: the statement is not yet true, so it is
+    // not a supported current statement (F14). Never 'supported'.
+    summary = 'unverified-assertion'; basis.push('truth time ' + freshness.truth_time + ' is after asOf — not yet true');
   } else if (freshness.stale) {
     summary = 'stale'; basis.push('truth time ' + (freshness.truth_time || 'unknown') + ' beyond the ' + (cfg ? cfg.stale_after_days : 0) + '-day horizon (stale, not false)');
   } else {

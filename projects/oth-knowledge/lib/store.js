@@ -221,9 +221,51 @@ class Store {
   }
 }
 
+// The knowledge store must never live in Git (AGENTS.md §3). The
+// executor consumer enforces this on the read path; enforce it on the
+// WRITER path too (F6) — this is the only component that puts bytes on
+// disk. Refuse an in-repository root unless it is the sanctioned,
+// git-ignored fixtures/tests directory (projects/oth-knowledge/data/).
+// Symlinks are resolved (realpath) so a symlink pointing back into the
+// repo cannot smuggle the store in lexically.
+const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
+const SANCTIONED_INREPO = path.resolve(__dirname, '..', 'data');
+
+function containmentResolve(p) {
+  // realpath the deepest existing ancestor so a not-yet-created store
+  // whose parent is a symlink is still checked against its real target.
+  let cur = path.resolve(p);
+  const tail = [];
+  // walk up to an existing path
+  // (bounded by the filesystem root; cur shrinks each iteration)
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    if (fs.existsSync(cur)) {
+      let real;
+      try { real = fs.realpathSync(cur); } catch (e) { real = cur; }
+      return tail.length ? path.join(real, ...tail.reverse()) : real;
+    }
+    const parent = path.dirname(cur);
+    if (parent === cur) return path.resolve(p); // reached fs root; nothing existed
+    tail.push(path.basename(cur));
+    cur = parent;
+  }
+}
+
+function assertNotInRepo(resolved) {
+  const real = containmentResolve(resolved);
+  const inRepo = real === REPO_ROOT || real.indexOf(REPO_ROOT + path.sep) === 0;
+  if (!inRepo) return;
+  const sanctioned = real === SANCTIONED_INREPO || real.indexOf(SANCTIONED_INREPO + path.sep) === 0;
+  if (!sanctioned) {
+    throw fail('OTHK_STORE_INREPO', 'store root is inside the repository (' + real + ') — the knowledge store must never live in Git; use an out-of-repo path or the git-ignored projects/oth-knowledge/data/');
+  }
+}
+
 function openStore(root) {
   if (typeof root !== 'string' || !root) throw fail('OTHK_STORE_INPUT', 'store root required');
   const resolved = path.resolve(root);
+  assertNotInRepo(resolved);
   const store = new Store(resolved);
   store._load();
   return store;
