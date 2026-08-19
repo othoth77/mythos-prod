@@ -130,10 +130,11 @@ function classify(v) {
 //
 //   resolveActor(credential) -> { mythos_user_id, actor_type } | null
 //
-// projects/idauto/reference/identity.js is the first adapter expected to
-// satisfy it; see projects/idauto/reference/IDENTITY_ADAPTER.md. This module
-// deliberately ships NO implementation — credential handling is out of scope
-// for this stage (binding decision §7).
+// reference/identity.js in the canonical ID Auto repository
+// (https://github.com/othoth77/idauto) is the first adapter expected to
+// satisfy it; see that repository's reference/IDENTITY_ADAPTER.md. This
+// module deliberately ships NO implementation — credential handling is out
+// of scope for this stage (binding decision §7).
 //
 // assertResolvedActor() lets an adapter self-check its output shape without
 // this module ever seeing the credential itself.
