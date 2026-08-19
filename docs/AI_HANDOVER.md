@@ -1,7 +1,50 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MOS-v2 **M-09 — GOAL LAYER + MANDATORY HUMAN APPROVAL. THE AI PROPOSES; ONLY A HUMAN AUTHORISES; ONLY THE EXISTING DISPATCHER EXECUTES.**
+**From:** MOS-v2 **M-10 — GOVERNED AI DECOMPOSITION. PLANNER OUTPUT IS DATA: SCHEMA → POLICY → DAG → HUMAN APPROVAL → THE EXISTING DISPATCHER, OR NOTHING.**
+
+## MOS-v2 M-10 — governed AI decomposition (2026-08-19)
+
+**Pipeline delivered:** objective → NEW `core/decompose.js`
+(`decomposeObjective` through the existing provider registry — provider
+REFUSED if `executionAuthority === true`; synthetic advisory task with no
+working directory and no profile; injectable runner for tests) →
+`parsePlannerOutput` (exactly one fenced json block, ≤64KB, ≤20 tasks) →
+`toPlanSpec` (only key/title/task_type/instruction/depends_on reach the
+spec; recommended_model / execution_profile / expected_result / priority
+travel as a separate advisory object; anything else refused) →
+`planner.planFromSpec` + `validatePlan` against a real policy engine →
+M-09 `parkForApproval` → `resolveApproval` → existing `continueCampaign`
+→ `startMission({spec})` → `persistPlan` → dag.js-gated parallel
+dispatch. Policy classes / capabilities / budgets are never
+planner-writable — planner.js derives them from task type.
+
+**The validated spec is stored durably** on the campaign
+(`campaign.decompose.{status, spec, advisory, approval_id, ...}`) before
+the park, and a grant dispatches EXACTLY that stored spec — the runner
+requires a recorded `granted === true` decision for the stored
+`approval_id` (unattended auto-deny therefore can never dispatch);
+anything else → BLOCKED with the reason visible. Decomposition failure of
+any kind (typed: PLANNER_UNAVAILABLE / PLANNER_OUTPUT_INVALID /
+PLANNER_PLAN_REFUSED / PLANNER_PLAN_INVALID / DECOMPOSE_REQUIRES_APPROVAL)
+fails closed and parks with the code in the approval reason — **no silent
+template fallback**; granting that failure-approval still BLOCKs rather
+than dispatching a plan no human reviewed.
+
+**Console.** `POST /api/goals` accepts strict-boolean `decompose`
+(default false → byte-identical M-09 payload); UI checkbox + 'Planned by'
+provider/model line + per-task advisory cells; audit gains the boolean.
+
+**Tests.** Console **1188/0**, executor **183/0**, autonomous-campaign
+**365/0** (was 190/0), n8n-bridge 80/0, orchestration-core 255/2 (known
+pair), governance-invariant 89/0, unattended-policy 53/0, core-wiring
+86/0. Regression gate **0 new failures, 20/20, exit 0** — chief-re-verified.
+
+**Next stage.** M-11 governed auto-routing (Sonnet).
+
+---
+
+**Previously:** MOS-v2 **M-09 — GOAL LAYER + MANDATORY HUMAN APPROVAL. THE AI PROPOSES; ONLY A HUMAN AUTHORISES; ONLY THE EXISTING DISPATCHER EXECUTES.**
 
 ## MOS-v2 M-09 — Goal + human approval (2026-08-19)
 

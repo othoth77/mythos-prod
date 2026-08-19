@@ -2245,6 +2245,235 @@ startStub().then(function (stub) {
 })
 
 // ===========================================================================
+// 4j. MOS-v2 M-10: AI DECOMPOSITION IS AN OPT-IN, NOT A NEW AUTHORITY
+//
+// The console gains ONE field: a boolean asking that the proposed plan be
+// written by a planner model instead of taken from the roadmap template.
+// What is checked here is that it stays exactly that:
+//
+//   · a strict boolean — 'true', 1 and null are refused, not coerced;
+//   · relayed ONLY when it is exactly true, so a goal submitted without it
+//     produces the byte-identical upstream payload M-09 produced;
+//   · it names no model, no provider, no profile and no permissions. The
+//     browser cannot send any of those, and the console does not compose
+//     them: which model plans, and under what authority, is the
+//     executor's decision;
+//   · the plan still comes back for THIS operator's approval, with the
+//     planner's advisory suggestions relayed as review material and the
+//     agent instruction still dropped;
+//   · the audit line records WHETHER an AI wrote the plan, as a boolean
+//     and nothing more.
+// ===========================================================================
+.then(function () {
+  var GOAL_ID = 'c-decomp01-02cd';
+  var APPROVAL_ID = 'ap-mdec001-abc123';
+  var PLAN_INSTRUCTION = 'DECOMPOSED-PLAN-INSTRUCTION-do-not-relay';
+  var OBJECTIVE = 'Survey the adapter and report what it covers.';
+  var posts = [];
+
+  // --- source-level pins ------------------------------------------------
+  var serverCode = code(read(path.join(REF, 'server.js')));
+  var appCode = code(appJs);
+  var auditCode = code(read(path.join(REF, 'audit.js')));
+  var createFields = (serverCode.match(/var GOAL_CREATE_FIELDS = \[[^\]]*\]/) || [''])[0];
+  ok(/'decompose'/.test(createFields),
+     'M-10: decompose is an accepted field on the goal-create body');
+  ok(/if \(payload\.decompose === true\) relay\.decompose = true;/.test(serverCode),
+     'M-10: the flag is relayed only when it is exactly true — never coerced, never defaulted on');
+  var goalCreateBlock = serverCode.slice(serverCode.indexOf('function handleGoalCreate'),
+                                         serverCode.indexOf('function handleGoalApproval'));
+  ok(goalCreateBlock.length > 200 &&
+     !/payload\.model|payload\.provider|payload\.execution_profile|payload\.planner/.test(goalCreateBlock),
+     'M-10: the goal-create relay reads no model, provider, profile or planner selection from a payload');
+  ok(/'decompose'/.test((auditCode.match(/var DETAIL_FIELDS = \[[\s\S]*?\]/) || [''])[0]),
+     'M-10: decompose is an allowlisted audit detail field');
+  ok(/AI decomposition \(planner model proposes the plan\)/.test(appCode),
+     'M-10: the create-goal form offers the AI-decomposition checkbox, named for what it does');
+  ok(/if \(decomposeBox\.checked\) body\.decompose = true;/.test(appCode),
+     'M-10: the browser sends decompose only when the operator ticked it');
+  ok(/planner_provider/.test(appCode) && /Planner suggested \(advisory\)/.test(appCode),
+     'M-10: the plan view names the planner that proposed it and labels its suggestions as advisory');
+
+  var AI_PLAN = {
+    available: true, reason: 'proposed by the planner model and validated', capability_key: null,
+    title: 'Survey and summarise', objective: OBJECTIVE, risk: null, acceptance_criteria: [],
+    source: 'ai-decomposition', planner_provider: 'openai-compat', planner_model: 'gpt-4o-mini',
+    tasks: [
+      { key: 'scan-a', title: 'Scan', task_type: 'inspection', depends_on: [],
+        policy_classes: ['READ'], recommended_model: 'gpt-4o-mini',
+        execution_profile: 'repo-read', expected_result: 'A list of files.',
+        instruction: PLAN_INSTRUCTION, secret_field: SECRET_TOKEN },
+      { key: 'summarise', title: 'Summarise', task_type: 'reporting', depends_on: ['scan-a'],
+        policy_classes: ['READ'], instruction: PLAN_INSTRUCTION }
+    ],
+    secret_field: SECRET_TOKEN
+  };
+
+  var stub = http.createServer(function (rq, rs) {
+    var u = rq.url.split('?')[0];
+    var chunks = [];
+    rq.on('data', function (d) { chunks.push(d); });
+    rq.on('end', function () {
+      var raw = Buffer.concat(chunks).toString('utf8');
+      var parsed = null;
+      try { parsed = raw ? JSON.parse(raw) : null; } catch (e) { /* not JSON */ }
+      if (rq.method === 'POST') posts.push({ url: u, body: parsed });
+      function json(codeNum, body) {
+        rs.writeHead(codeNum, { 'Content-Type': 'application/json' });
+        rs.end(JSON.stringify(body));
+      }
+      if (u === '/health') return json(200, { ok: true });
+      if (rq.method === 'POST' && u === '/campaigns') {
+        return json(201, {
+          campaign_id: GOAL_ID, created: true, state: 'WAITING_FOR_APPROVAL',
+          objective: OBJECTIVE, require_plan_approval: true, auto_denied: false,
+          approval_id: APPROVAL_ID, decompose: true, decompose_status: 'VALIDATED',
+          proposed_plan: AI_PLAN, secret_field: SECRET_TOKEN
+        });
+      }
+      if (rq.method === 'GET' && u === '/campaigns/' + GOAL_ID) {
+        return json(200, {
+          campaign_id: GOAL_ID, project: 'mythos-prod', objective: OBJECTIVE,
+          state: 'WAITING_FOR_APPROVAL', running: false, continuable: false, needs_human: true,
+          plan_approval_required: true, updated_at: '2026-08-19T00:00:00Z',
+          proposed_plan: AI_PLAN, approval_required: [], completed_missions: [],
+          blocked_missions: [], current_mission: null, secret_field: SECRET_TOKEN
+        });
+      }
+      json(404, { error: 'not found' });
+    });
+  });
+
+  return new Promise(function (resolve) { stub.listen(0, '127.0.0.1', resolve); }).then(function () {
+    authMod.resetThrottle();
+    var server = freshServer({
+      MOS_EXECUTOR_URL: 'http://127.0.0.1:' + stub.address().port,
+      MOS_EXECUTOR_TOKEN: SECRET_TOKEN,
+      MOS_EXECUTOR_TOKEN_FILE: null
+    });
+    return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
+      var port = s.address().port;
+      ACTIVE_COOKIE = null;
+      var sessionId = null;
+      var texts = [];
+      return login(port, CONSOLE_SECRET).then(function (l) {
+        ACTIVE_COOKIE = l.cookie;
+        sessionId = l.cookie.split('=')[1];
+        return Promise.all([
+          req(port, '/api/goals', 'POST', { objective: OBJECTIVE, decompose: true }),
+          req(port, '/api/goals', 'POST', { objective: OBJECTIVE, decompose: false }),
+          req(port, '/api/goals', 'POST', { objective: OBJECTIVE, decompose: 'true' }),
+          req(port, '/api/goals', 'POST', { objective: OBJECTIVE, decompose: 1 }),
+          req(port, '/api/goals', 'POST', { objective: OBJECTIVE, decompose: null }),
+          req(port, '/api/goals', 'POST', { objective: OBJECTIVE, decompose: {} }),
+          req(port, '/api/goals', 'POST', { objective: OBJECTIVE, planner_model: 'gpt-4o' })
+        ]);
+      }).then(function (r) {
+        eq(r[0].status, 200, 'M-10: a goal asking for AI decomposition is accepted');
+        eq(r[1].status, 200, 'M-10: a goal explicitly declining it is accepted');
+        [2, 3, 4, 5].forEach(function (i) {
+          eq(r[i].status, 400, 'M-10: a non-boolean decompose (case ' + i + ') is refused with 400');
+          ok(/decompose/.test(r[i].json.detail),
+             'M-10: the refusal for case ' + i + ' names decompose by name, never coerces it');
+        });
+        eq(r[6].status, 400, 'M-10: a payload trying to choose the planner model is refused');
+        ok(/unexpected field/.test(r[6].json.detail),
+           'M-10: choosing a planner model is refused as an unexpected field — the executor decides that');
+
+        var creates = posts.filter(function (c) { return c.url === '/campaigns'; });
+        eq(creates.length, 2, 'M-10: only the two accepted goals reached the control plane');
+        eq(Object.keys(creates[0].body).sort().join(','),
+           'decompose,objective,project,requested_by,require_plan_approval',
+           'M-10: the relayed decomposing goal carries the flag alongside the fields M-09 already fixed');
+        eq(creates[0].body.decompose, true, 'M-10: the flag is relayed as a true boolean');
+        eq(creates[0].body.require_plan_approval, true,
+           'M-10: an AI-decomposed goal STILL relays mandatory plan approval — the two are never traded off');
+        eq(Object.keys(creates[1].body).sort().join(','),
+           'objective,project,requested_by,require_plan_approval',
+           'M-10: declining decomposition relays the byte-identical M-09 payload, with no flag at all');
+
+        var created = r[0].json.data;
+        eq(created.proposed_plan.source, 'ai-decomposition',
+           'M-10: the browser is told the plan was written by a planner model');
+        eq(created.proposed_plan.planner_provider, 'openai-compat',
+           'M-10: the browser is told WHICH provider proposed it');
+        eq(created.proposed_plan.planner_model, 'gpt-4o-mini',
+           'M-10: the browser is told which model proposed it');
+        eq(created.proposed_plan.tasks[0].recommended_model, 'gpt-4o-mini',
+           'M-10: the planner\'s advisory model suggestion reaches the review view');
+        eq(created.proposed_plan.tasks[0].execution_profile, 'repo-read',
+           'M-10: the planner\'s advisory profile suggestion reaches the review view');
+        eq(created.proposed_plan.tasks[0].expected_result, 'A list of files.',
+           'M-10: the planner\'s expected result reaches the review view');
+        ok(!Object.prototype.hasOwnProperty.call(created.proposed_plan.tasks[1], 'recommended_model'),
+           'M-10: a task the planner made no suggestion for carries no empty suggestion');
+        ok(!Object.prototype.hasOwnProperty.call(created.proposed_plan.tasks[0], 'instruction'),
+           'M-10: the agent instruction is still dropped — the plan is reviewed, not the prompt');
+        ok(!Object.prototype.hasOwnProperty.call(created.proposed_plan.tasks[0], 'secret_field'),
+           'M-10: an unrecognised field on a decomposed plan task is dropped');
+        ok(!Object.prototype.hasOwnProperty.call(created, 'decompose_status'),
+           'M-10: an upstream field the console has never heard of does not become a console field');
+        ok(r[0].text.indexOf(PLAN_INSTRUCTION) === -1,
+           'M-10: no planner-written instruction text reaches the browser');
+        texts.push(['POST /api/goals (decompose)', r[0].text]);
+        return req(port, '/api/goals/' + GOAL_ID, 'GET');
+      }).then(function (detail) {
+        eq(detail.status, 200, 'M-10: the goal detail answers 200 for a decomposed plan');
+        var g = detail.json.data.goal;
+        eq(g.proposed_plan.planner_model, 'gpt-4o-mini',
+           'M-10: the detail view relays the planner provenance too');
+        eq(g.proposed_plan.tasks[0].execution_profile, 'repo-read',
+           'M-10: the detail view relays the advisory suggestions too');
+        ok(!Object.prototype.hasOwnProperty.call(g.proposed_plan.tasks[0], 'instruction'),
+           'M-10: the detail view drops the instruction on a decomposed plan as well');
+        texts.push(['GET /api/goals/<id> (decompose)', detail.text]);
+
+        // --- the audit line ------------------------------------------
+        var lines = [];
+        var realWrite = process.stdout.write;
+        process.stdout.write = function (chunk) {
+          var text = String(chunk);
+          if (text.indexOf('"log":"mos.audit"') !== -1) {
+            text.split('\n').forEach(function (l) { if (l.trim()) lines.push(JSON.parse(l)); });
+            return true;
+          }
+          return realWrite.apply(process.stdout, arguments);
+        };
+        function release() { process.stdout.write = realWrite; }
+        return req(port, '/api/goals', 'POST', { objective: OBJECTIVE, decompose: true })
+          .then(function () {
+            eq(lines.length, 1, 'M-10: a decomposed goal writes exactly one audit line');
+            eq(lines[0].detail.decompose, true,
+               'M-10: the audit line records that a planner model wrote this plan');
+            ok(JSON.stringify(lines[0]).indexOf(OBJECTIVE) === -1,
+               'M-10: the objective is still never written to the audit log');
+            lines.length = 0;
+            return req(port, '/api/goals', 'POST', { objective: OBJECTIVE });
+          }).then(function () {
+            eq(lines[0].detail.decompose, false,
+               'M-10: a goal that did not ask for decomposition records the boolean as false');
+            lines.length = 0;
+            return req(port, '/api/goals', 'POST', { objective: OBJECTIVE, decompose: 'yes' });
+          }).then(function () {
+            eq(lines[0].action + ':' + lines[0].outcome, 'goal.create:rejected',
+               'M-10: a malformed decompose value is recorded as a refused write');
+            eq(lines[0].detail.reason, 'decompose',
+               'M-10: the refusal names WHICH check refused it');
+            release();
+            texts.forEach(function (rowText) {
+              ok(rowText[1].indexOf(SECRET_TOKEN) === -1,
+                 'M-10: no executor token in the response for ' + rowText[0]);
+            });
+            ACTIVE_COOKIE = null;
+            s.close();
+            stub.close();
+          }).catch(function (e) { release(); throw e; });
+      });
+    });
+  });
+})
+
+// ===========================================================================
 // 5c. SESSION LIFECYCLE — signing out, and running out of time
 //
 // A session that cannot be ended and a session that never ends are the

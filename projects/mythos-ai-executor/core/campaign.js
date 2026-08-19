@@ -579,6 +579,14 @@ function buildMissionSpec(proposal, opts) {
 
 // Starts one mission for a proposal. Returns { mission_id, goal_id } or an
 // approval/blocked outcome. Does not execute — advanceCampaign does.
+//
+// MOS-v2 M-10: `opts.spec` supplies the mission spec instead of
+// buildMissionSpec — the stored, already-human-approved spec of an
+// AI-decomposed plan. It is a SUBSTITUTION OF THE SPEC ONLY: the
+// governance gate, planner.planFromSpec, planner.validatePlan against the
+// real policy engine, persistPlan and every downstream state transition
+// are the same lines they were, so a supplied spec passes exactly the
+// checks a template spec passes and can skip none of them.
 function startMission(campaignId, proposal, opts) {
   opts = opts || {};
   var c = loadCampaign(campaignId);
@@ -593,7 +601,7 @@ function startMission(campaignId, proposal, opts) {
     metadata: { campaign_id: c.campaign_id, capability_key: proposal.capability_key }
   });
   store.create(goal);
-  var plan = planner.planFromSpec(goal, buildMissionSpec(proposal, opts));
+  var plan = planner.planFromSpec(goal, opts.spec || buildMissionSpec(proposal, opts));
   var engine = opts.policy || policyEngine.createEngine();
   var vetted = planner.validatePlan(plan, function (req) {
     return engine.checkPolicy({ action_class: req.action_class, project: c.project });

@@ -31,6 +31,13 @@ fs.mkdirSync(FIXTURES, { recursive: true });
 process.env.MYTHOS_EXECUTOR_HOME = path.join(FIXTURES, 'home');
 process.env.MYTHOS_EXECUTOR_ALLOW_MOCK = '1';
 delete process.env.MYTHOS_MOCK_SCRIPT;
+// MOS-v2 M-10: the advisory credential is pinned at a path that does not
+// exist, so the planner-model path is deterministically UNAVAILABLE here
+// on any host. A suite that reached a real planner would consume real
+// quota and stop being offline; a suite that happened to find a
+// credential on one machine and not another would stop being
+// deterministic. Read once, at provider load, so it must be set first.
+process.env.MYTHOS_ADVISORY_KEY_FILE = path.join(FIXTURES, 'no-advisory-credential.env');
 
 var executor = require(path.join(EXEC, 'executor'));
 var state = require(path.join(EXEC, 'lib', 'state'));
@@ -707,6 +714,82 @@ chain = chain.then(function () {
     return req('GET', route, null, TOKEN);
   }).then(function (res) {
     ok(res.code === 404, 'http/approvals: the resolution path answers nothing to a GET');
+    servers.forEach(function (s) { s.close(); });
+    delete process.env.MYTHOS_EXECUTOR_TOKEN;
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 22c. HTTP API: the AI-decomposition flag (MOS-v2 M-10)
+//
+// `decompose` selects only WHERE THE PROPOSED PLAN COMES FROM. It is read
+// by identity, it is legal only together with require_plan_approval, and
+// when the planner cannot be reached the campaign is PARKED with the typed
+// reason rather than falling back to a plan nobody reviewed. No planner is
+// contacted in this suite: the advisory credential is pinned at a path
+// that does not exist, which is exactly the fail-closed case.
+// ---------------------------------------------------------------------------
+chain = chain.then(function () {
+  process.env.MYTHOS_EXECUTOR_TOKEN = 'test-token-0123456789abcdef';
+  var TOKEN = 'test-token-0123456789abcdef';
+  var servers = server.start({ port: 8197, binds: ['127.0.0.1'] });
+  var campaign = require(path.join(EXEC, 'core', 'campaign'));
+
+  function post(urlPath, body) {
+    return new Promise(function (resolve, reject) {
+      var payload = JSON.stringify(body);
+      var r = http.request({
+        host: '127.0.0.1', port: 8197, path: urlPath, method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+          'Authorization': 'Bearer ' + TOKEN
+        }
+      }, function (res) {
+        var data = '';
+        res.on('data', function (d) { data += d; });
+        res.on('end', function () { resolve({ code: res.statusCode, body: JSON.parse(data || '{}') }); });
+      });
+      r.on('error', reject);
+      r.write(payload);
+      r.end();
+    });
+  }
+
+  return new Promise(function (resolve) { setTimeout(resolve, 200); }).then(function () {
+    return post('/campaigns', {
+      objective: 'Decompose this goal with no approval gate at all.',
+      project: 'exec-decompose-nogate', decompose: true
+    });
+  }).then(function (res) {
+    ok(res.code === 400 && /DECOMPOSE_REQUIRES_APPROVAL/.test(res.body.error || ''),
+      'http/decompose: asking for an AI-written plan WITHOUT the approval gate is refused');
+    return post('/campaigns', {
+      objective: 'Decompose this goal while no planner credential exists.',
+      project: 'exec-decompose-gated', require_plan_approval: true, decompose: true
+    });
+  }).then(function (res) {
+    ok(res.code === 201, 'http/decompose: a gated decomposing goal is accepted and answered once resolved');
+    ok(res.body.state === 'WAITING_FOR_APPROVAL',
+      'http/decompose: the campaign is PARKED for a human even though decomposition failed');
+    ok(res.body.decompose_status === 'FAILED' && res.body.decompose_error === 'PLANNER_UNAVAILABLE',
+      'http/decompose: an unreachable planner is reported as PLANNER_UNAVAILABLE, typed');
+    ok(res.body.proposed_plan && res.body.proposed_plan.available === false &&
+      /PLANNER_UNAVAILABLE/.test(res.body.proposed_plan.reason || ''),
+      'http/decompose: the failure is VISIBLE on the plan a human is shown');
+    var c = campaign.loadCampaign(res.body.campaign_id);
+    ok(c.current_mission === null && (c.completed_missions || []).length === 0,
+      'http/decompose: a failed decomposition dispatched nothing');
+    ok(c.decompose && c.decompose.spec === null,
+      'http/decompose: no spec is stored, so nothing can later be dispatched as though it had been approved');
+    // The flag is read by identity: a truthy string is not a request.
+    return post('/campaigns', {
+      objective: 'A goal whose decompose flag is a string, not a boolean.',
+      project: 'exec-decompose-stringy', require_plan_approval: true, decompose: 'true'
+    });
+  }).then(function (res) {
+    ok(res.code === 201 && res.body.decompose === undefined,
+      'http/decompose: a truthy-but-not-true flag does not switch decomposition on');
     servers.forEach(function (s) { s.close(); });
     delete process.env.MYTHOS_EXECUTOR_TOKEN;
   });

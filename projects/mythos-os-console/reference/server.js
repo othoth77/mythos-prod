@@ -906,7 +906,15 @@ function handleMissionDispatch(req, res, taskId) {
    ===================================================================== */
 
 var GOAL_MAX_BODY = 8 * 1024;
-var GOAL_CREATE_FIELDS = ['objective', 'title'];
+// MOS-v2 M-10 adds `decompose`: a boolean asking that the PROPOSED PLAN be
+// written by a planner model rather than taken from the roadmap template.
+// It is the only planning field a browser may send, it is validated as a
+// strict boolean, and it is relayed only when it is exactly true -- so a
+// goal submitted without it produces the byte-identical upstream payload
+// M-09 produced. It chooses no model, no provider and no profile: the
+// executor decides all three, the plan is validated there, and it is still
+// parked for this operator's approval before anything runs.
+var GOAL_CREATE_FIELDS = ['objective', 'title', 'decompose'];
 var GOAL_APPROVAL_FIELDS = ['approval_id', 'granted', 'note'];
 // The executor's own approval-entity id shape (core/domain.js ID_PREFIX +
 // ID_RE). Validated here so a malformed value is refused before it is
@@ -919,8 +927,14 @@ var APPROVAL_ID_RE = /^ap-[a-z0-9]{6,12}-[a-z0-9]{4,8}$/;
 var GOAL_SUMMARY_FIELDS = ['campaign_id', 'project', 'state', 'objective', 'completed', 'updated_at'];
 var GOAL_DETAIL_FIELDS = ['campaign_id', 'project', 'objective', 'state', 'running',
                           'continuable', 'needs_human', 'plan_approval_required', 'updated_at'];
-var PLAN_TASK_FIELDS = ['key', 'title', 'task_type', 'depends_on', 'policy_classes'];
-var PLAN_FIELDS = ['available', 'reason', 'capability_key', 'title', 'objective', 'risk', 'acceptance_criteria'];
+// The three advisory fields (M-10) are what the PLANNER MODEL suggested,
+// relayed for a human to read and used by nothing: pick() only emits a
+// field the upstream object actually carries, so a template plan's tasks
+// keep exactly the M-09 shape.
+var PLAN_TASK_FIELDS = ['key', 'title', 'task_type', 'depends_on', 'policy_classes',
+                        'recommended_model', 'execution_profile', 'expected_result'];
+var PLAN_FIELDS = ['available', 'reason', 'capability_key', 'title', 'objective', 'risk',
+                   'acceptance_criteria', 'source', 'planner_provider', 'planner_model'];
 var APPROVAL_FIELDS = ['approval_id', 'capability_key', 'mission_id', 'reason', 'objective', 'requested_at'];
 var COMPLETED_MISSION_FIELDS = ['capability_key', 'mission_id', 'commit', 'tests', 'repair_cycles'];
 var BLOCKED_MISSION_FIELDS = ['capability_key', 'mission_id', 'reason'];
@@ -996,13 +1010,23 @@ function handleGoalCreate(req, res) {
         (typeof payload.title !== 'string' || payload.title.length > 200)) {
       return rejectGoal(req, res, 'goal.create', 'title', 'title, when present, must be a string of at most 200 chars');
     }
+    // A boolean or it is nothing: 'true', 1 and 'yes' are refused rather
+    // than coerced, exactly as the approval verdict is.
+    if (payload.decompose !== undefined && typeof payload.decompose !== 'boolean') {
+      return rejectGoal(req, res, 'goal.create', 'decompose', 'decompose, when present, must be a boolean');
+    }
 
-    return upstream.post('/campaigns', {
+    var relay = {
       objective: objective.trim(),
       project: 'mythos-prod',
       requested_by: 'mos-console',
       require_plan_approval: true
-    }).then(function (created) {
+    };
+    // Relayed ONLY when the operator asked for it. An absent or false
+    // value leaves the upstream payload exactly as it was before M-10.
+    if (payload.decompose === true) relay.decompose = true;
+
+    return upstream.post('/campaigns', relay).then(function (created) {
       var campaignId = created && created.campaign_id;
       if (!campaignId) {
         audit.record({ action: 'goal.create', outcome: 'upstream_error',
@@ -1013,7 +1037,9 @@ function handleGoalCreate(req, res) {
       // authored free text and belongs in the executor's campaign record.
       audit.record({ action: 'goal.create', outcome: 'accepted', actor: auth.sessionIdFrom(req),
                      task_id: campaignId,
-                     detail: { status: created.state || null, reason: created.created === false ? 'existing_campaign' : null } });
+                     detail: { status: created.state || null,
+                               decompose: payload.decompose === true,
+                               reason: created.created === false ? 'existing_campaign' : null } });
       ok(res, {
         campaign_id: campaignId,
         created: created.created === true,

@@ -311,13 +311,27 @@ function handler(req, res, token) {
         // (parked for a human before anything runs), never less, which is
         // why it is safe to accept from an already-authenticated caller.
         // The console relay always sends true.
+        //
+        // MOS-v2 M-10: `decompose` is read the same way, by identity, and
+        // selects only WHERE THE PROPOSED PLAN COMES FROM — a planner
+        // model instead of the roadmap template. It selects no provider,
+        // no profile, no model and no path, it is legal only together
+        // with require_plan_approval (the service refuses it otherwise),
+        // and the plan it produces is still schema-, policy- and
+        // DAG-validated and still parked for a human before anything
+        // runs. submitGoal answers a decomposing caller with a Promise,
+        // so the response is awaited here; for every other caller
+        // Promise.resolve passes the same object straight through.
         var out = svc.submitGoal({
           objective: payload.objective,
           project: payload.project,
           requested_by: payload.requested_by || 'n8n',
-          require_plan_approval: payload.require_plan_approval === true
+          require_plan_approval: payload.require_plan_approval === true,
+          decompose: payload.decompose === true
         });
-        send(res, out.created ? 201 : 200, out);
+        return Promise.resolve(out).then(function (result) {
+          send(res, result.created ? 201 : 200, result);
+        });
       }).catch(function (err) {
         send(res, 400, { error: redact.redact(err.message) });
       });

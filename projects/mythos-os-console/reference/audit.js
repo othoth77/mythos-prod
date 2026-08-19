@@ -49,8 +49,13 @@
 // `instruction` and `title` are not: it is operator-authored free text.
 // "Who approved which plan, and did they say yes" is the record; what the
 // plan said is in the executor's own campaign file.
+// MOS-v2 M-10 adds one more: `decompose`, the boolean recording whether a
+// goal asked for its plan to be written by a planner model. WHICH plan the
+// model proposed is not log material -- that is in the executor's campaign
+// file, where the operator reviewed it. Whether an AI wrote the plan an
+// operator then approved is.
 var DETAIL_FIELDS = ['profile', 'provider', 'model', 'priority', 'status', 'reason', 'route',
-                     'granted', 'approval_id'];
+                     'granted', 'approval_id', 'decompose'];
 
 // A detail value is a short scalar or it is nothing. Objects, arrays and
 // long strings are not log material; truncation is at 64 characters,

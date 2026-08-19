@@ -36,6 +36,10 @@ var runner = require('./campaign-runner');
 var store = require('./store');
 var budget = require('./budget');
 var coreWiring = require('./core-wiring');
+var decompose = require('./decompose');
+var planner = require('./planner');
+var domain = require('./domain');
+var policyEngine = require('./policy-engine');
 
 // States from which a continuation may legitimately proceed. Everything
 // else is either terminal or a decision state someone must resolve.
@@ -187,6 +191,98 @@ function planPreview(campaignId) {
   return preview;
 }
 
+// --- AI-decomposed plan preview (MOS-v2 M-10) ---------------------------------
+
+// Advisory metadata a decomposed plan carries per task. Present only when
+// the planner offered it, so a template preview's tasks are byte-identical
+// to what M-09 produced.
+var ADVISORY_PREVIEW_FIELDS = ['recommended_model', 'execution_profile', 'expected_result', 'priority'];
+
+// objective → planner model → parse → spec → planner.planFromSpec.
+//
+// The planner model produces DATA. What makes it a plan is the SAME
+// validation every other plan passes: planner.planFromSpec applies the
+// SPEC_TASK_FIELDS whitelist, the task-type enum, the derived policy
+// classes and the DAG check, and planner.validatePlan puts every derived
+// policy class through the real policy engine. Nothing here is a second
+// validation path — it is the existing one, called with a spec that
+// happens to have been written by a model.
+//
+// The goal entity handed to planFromSpec is TRANSIENT: it is built with
+// domain.createGoal and deliberately not store.create'd, exactly as
+// planPreview persists nothing. A preview is a read of a decision, not
+// the decision.
+//
+// Resolves { preview, spec, advisory, provider, model }. Rejects with a
+// typed error (PLANNER_UNAVAILABLE, PLANNER_OUTPUT_INVALID,
+// PLANNER_PLAN_REFUSED, PLANNER_PLAN_INVALID). It NEVER resolves to a
+// template plan: a roadmap plan presented as the AI's plan would be a
+// plan dispatched under the belief that a human had reviewed it.
+function decomposedPreview(objective, project, opts) {
+  opts = opts || {};
+  var planner_provider = null;
+  var planner_model = null;
+  return decompose.decomposeObjective(objective, {
+    project: project,
+    model: opts.model,
+    runner: opts.runner
+  }).then(function (out) {
+    planner_provider = out.provider;
+    planner_model = out.model;
+    var mapped = decompose.toPlanSpec(decompose.parsePlannerOutput(out.text));
+    var goal = domain.createGoal({
+      text: objective, project: project,
+      requested_by: 'decompose-preview'
+    });
+    var plan = planner.planFromSpec(goal, mapped.spec);
+    var engine = policyEngine.createEngine();
+    var vetted = planner.validatePlan(plan, function (req) {
+      return engine.checkPolicy({ action_class: req.action_class, project: project });
+    });
+    if (!plan.valid || !vetted.valid) {
+      var errs = plan.errors.concat(vetted.errors);
+      var err = new Error('PLANNER_PLAN_INVALID: ' + errs.slice(0, 4).join('; '));
+      err.code = 'PLANNER_PLAN_INVALID';
+      throw err;
+    }
+    var advisoryByKey = (mapped.advisory && mapped.advisory.tasks) || {};
+    return {
+      spec: mapped.spec,
+      advisory: mapped.advisory,
+      provider: planner_provider,
+      model: planner_model,
+      preview: {
+        available: true,
+        // Named so a reviewer can never mistake a generated plan for the
+        // roadmap's own selection.
+        reason: 'proposed by the planner model and validated against schema, policy and dependencies',
+        capability_key: null,
+        title: String(plan.title || '').slice(0, 200),
+        objective: String(objective).slice(0, 400),
+        risk: null,
+        acceptance_criteria: [],
+        source: 'ai-decomposition',
+        planner_provider: planner_provider,
+        planner_model: planner_model,
+        // The VALIDATED plan is what is shown, not the planner's raw
+        // answer: the policy classes below are the ones planner.js
+        // derived from each task type, not anything a model wrote.
+        tasks: plan.tasks.map(function (t) {
+          var row = {};
+          PREVIEW_TASK_FIELDS.forEach(function (f) {
+            row[f] = f === 'depends_on' || f === 'policy_classes' ? [].concat(t[f] || []) : t[f];
+          });
+          var adv = advisoryByKey[t.key] || {};
+          ADVISORY_PREVIEW_FIELDS.forEach(function (f) {
+            if (adv[f] !== undefined) row[f] = adv[f];
+          });
+          return row;
+        })
+      }
+    };
+  });
+}
+
 // Submitting a goal does NOT mean "make a campaign". If this project already
 // has one that can still continue, that campaign is the answer — the caller
 // gets its id and continues it. This is what keeps a retrying webhook, a
@@ -201,17 +297,43 @@ function planPreview(campaignId) {
 // and the console relay always asks. A caller that does not pass the flag
 // (n8n, the autopilot) sees exactly the behaviour it saw before: no extra
 // approval, no extra state, nothing to change on their side.
+//
+// MOS-v2 M-10: `decompose` is a second OPTIONAL boolean, read by identity
+// for the same reason, and legal only together with require_plan_approval.
+// When set, the proposed plan comes from the PLANNER MODEL
+// (decomposeObjective → parsePlannerOutput → toPlanSpec →
+// planner.planFromSpec) instead of the roadmap template, and the validated
+// spec is stored with the campaign so a granted approval dispatches the
+// plan the human actually read.
+//
+// RETURN SHAPE: the result object, as before — EXCEPT when decompose is
+// true, where a Promise of the same object is returned instead, because a
+// planner model is a network call. Callers that never pass decompose see
+// byte-identical synchronous behaviour; the one caller that does wraps the
+// result in Promise.resolve, which is correct for both.
 function submitGoal(input) {
   coreWiring.assertEnabled();
   input = input || {};
   var project = typeof input.project === 'string' && input.project.trim()
     ? input.project.trim() : 'mythos-prod';
 
+  // MOS-v2 M-10: AI decomposition without the approval gate is refused
+  // outright. A plan a model wrote is exactly the plan that must not
+  // dispatch unreviewed, so the two flags are not independent: asking for
+  // one without the other is a mistake, and it is answered as one rather
+  // than by quietly running an unreviewed generated plan.
+  if (input.decompose === true && input.require_plan_approval !== true) {
+    var de = new Error('DECOMPOSE_REQUIRES_APPROVAL: an AI-decomposed plan is only ever ' +
+      'proposed for human approval, never dispatched unreviewed');
+    de.code = 'DECOMPOSE_REQUIRES_APPROVAL';
+    throw de;
+  }
+
   var live = campaign.listCampaigns().filter(function (c) {
     return c.project === project && LIVE_STATES.indexOf(c.state) !== -1;
   });
   if (live.length) {
-    return {
+    var existing = {
       campaign_id: live[0].campaign_id,
       created: false,
       state: live[0].state,
@@ -219,6 +341,10 @@ function submitGoal(input) {
       reason: 'an existing campaign for this project can still continue; ' +
         'a second campaign is never created while one is live'
     };
+    // A decomposing caller is answered asynchronously in every case, so
+    // one call shape does not depend on whether a campaign happened to
+    // already exist.
+    return input.decompose === true ? Promise.resolve(existing) : existing;
   }
 
   var created = campaign.createCampaign({
@@ -240,17 +366,86 @@ function submitGoal(input) {
   // --- mandatory human approval of the proposed plan --------------------
   //
   // Built and attached BEFORE the park, so the approval a human is asked
-  // to answer already carries the plan it is about. proposeNextMission
-  // writes the roadmap's approval CANDIDATES into approval_required when
-  // nothing is selectable; those are notes without an approval entity and
-  // would leave this brand-new campaign with unanswerable pending
-  // approvals, so they are cleared here. Nothing else can have written to
-  // this list — the campaign was created three lines ago.
-  var preview = planPreview(created.campaign_id);
+  // to answer already carries the plan it is about.
+  //
+  // MOS-v2 M-10: WHERE the plan comes from is the only difference between
+  // the two branches below. Everything after — attach, park, decide,
+  // dispatch — is one path, so the AI-decomposed plan cannot acquire a
+  // second approval mechanism or a second dispatcher by existing.
+  if (input.decompose === true) {
+    return decomposedPreview(created.objective, project, {
+      runner: input.decompose_runner,
+      model: input.planner_model
+    }).then(function (out) {
+      return parkProposedPlan(created, out.preview, {
+        requested: true,
+        status: 'VALIDATED',
+        provider: out.provider,
+        model: out.model,
+        title: out.preview.title,
+        // THE VALIDATED SPEC, stored durably with the campaign. A granted
+        // approval dispatches THIS — never a re-generation, which would be
+        // a different plan from the one the human read.
+        spec: out.spec,
+        advisory: out.advisory,
+        generated_at: new Date().toISOString(),
+        dispatched_at: null
+      }, 'proposed plan requires human approval before dispatch');
+    }, function (err) {
+      // Decomposition failed. The campaign is still parked for a human,
+      // with the typed reason visible and the FALLBACK QUESTION asked
+      // rather than answered: substituting the roadmap template plan here
+      // would dispatch a plan nobody reviewed under the belief it was the
+      // AI's. campaign-runner refuses to select roadmap work for a
+      // campaign whose decomposition did not produce a validated spec, so
+      // even granting this approval cannot turn into a template dispatch.
+      var code = (err && err.code) || 'PLANNER_FAILED';
+      var detail = String((err && err.message) || err).slice(0, 300);
+      return parkProposedPlan(created, {
+        available: false,
+        reason: 'AI decomposition failed (' + code + '): ' + detail,
+        capability_key: null, title: null,
+        objective: String(created.objective).slice(0, 400),
+        risk: null, acceptance_criteria: [],
+        source: 'ai-decomposition',
+        planner_provider: null, planner_model: null,
+        tasks: []
+      }, {
+        requested: true,
+        status: 'FAILED',
+        code: code,
+        reason: detail,
+        spec: null,
+        advisory: null,
+        generated_at: new Date().toISOString(),
+        dispatched_at: null
+      }, 'AI decomposition failed (' + code + '): ' + detail +
+        ' — no plan was generated and NO template plan has been substituted. ' +
+        'Decide whether to retry decomposition or to submit this goal again ' +
+        'without it; approving here dispatches nothing.');
+    });
+  }
+
+  return parkProposedPlan(created, planPreview(created.campaign_id), null,
+    'proposed plan requires human approval before dispatch');
+}
+
+// Attaches a proposed plan to a brand-new campaign and parks it for a
+// human. Shared by the M-09 template path and the M-10 decomposition path
+// so there is exactly one park, one approval entity and one response
+// shape for "a plan is waiting for you".
+//
+// proposeNextMission writes the roadmap's approval CANDIDATES into
+// approval_required when nothing is selectable; those are notes without
+// an approval entity and would leave this brand-new campaign with
+// unanswerable pending approvals, so they are cleared here. Nothing else
+// can have written to this list — the campaign was created moments ago.
+function parkProposedPlan(created, preview, decomposeRecord, reason) {
   var c = campaign.loadCampaign(created.campaign_id);
   c.approval_required = [];
   c.proposed_plan = preview;
   c.require_plan_approval = true;
+  if (decomposeRecord) c.decompose = decomposeRecord;
   campaign.saveCampaign(c);
 
   // capability_key is deliberately NOT passed: this approval is about the
@@ -261,10 +456,21 @@ function submitGoal(input) {
   var parked = campaign.parkForApproval(created.campaign_id, {
     action_class: 'GOVERNANCE',
     objective: created.objective,
-    reason: 'proposed plan requires human approval before dispatch'
+    reason: reason
   });
   var after = campaign.loadCampaign(created.campaign_id);
-  return {
+  if (decomposeRecord && after) {
+    // WHICH approval authorises this spec. The runner dispatches a stored
+    // spec only against a GRANTED decision on exactly this id, so an
+    // unattended auto-denial — or any other outcome that is not a human
+    // grant — leaves the plan undispatchable rather than merely unparked.
+    after.decompose = Object.assign({}, after.decompose, {
+      approval_id: (parked && parked.id) || null,
+      auto_denied: !!(parked && parked.auto_denied)
+    });
+    campaign.saveCampaign(after);
+  }
+  var out = {
     campaign_id: created.campaign_id,
     created: true,
     state: after ? after.state : created.state,
@@ -276,6 +482,12 @@ function submitGoal(input) {
     approval_id: (parked && parked.id) || null,
     proposed_plan: preview
   };
+  if (decomposeRecord) {
+    out.decompose = true;
+    out.decompose_status = decomposeRecord.status;
+    if (decomposeRecord.code) out.decompose_error = decomposeRecord.code;
+  }
+  return out;
 }
 
 // --- Status -------------------------------------------------------------------
@@ -285,7 +497,7 @@ function submitGoal(input) {
 // default — same discipline as the console's own relays.
 function previewView(preview) {
   if (!preview || typeof preview !== 'object') return null;
-  return {
+  var view = {
     available: preview.available === true,
     reason: preview.reason || null,
     capability_key: preview.capability_key || null,
@@ -298,9 +510,23 @@ function previewView(preview) {
       PREVIEW_TASK_FIELDS.forEach(function (f) {
         row[f] = f === 'depends_on' || f === 'policy_classes' ? [].concat((t && t[f]) || []) : (t && t[f]) || null;
       });
+      // MOS-v2 M-10: the planner's ADVISORY suggestions, relayed only when
+      // the planner actually made them — a template plan's tasks keep the
+      // exact shape M-09 served. Nothing reads these to select anything;
+      // they are shown to the human who is about to decide.
+      ADVISORY_PREVIEW_FIELDS.forEach(function (f) {
+        if (t && t[f] !== undefined && t[f] !== null) row[f] = t[f];
+      });
       return row;
     })
   };
+  // Provenance: WHICH planner proposed this, when one did. Absent on a
+  // template preview rather than present-and-null, so a reviewer never
+  // sees an empty planner line on a plan no planner touched.
+  if (preview.source) view.source = String(preview.source).slice(0, 40);
+  if (preview.planner_provider) view.planner_provider = String(preview.planner_provider).slice(0, 60);
+  if (preview.planner_model) view.planner_model = String(preview.planner_model).slice(0, 60);
+  return view;
 }
 
 function describe(campaignId) {
@@ -494,7 +720,9 @@ module.exports = {
   LIVE_STATES: LIVE_STATES,
   submitGoal: submitGoal,
   planPreview: planPreview,
+  decomposedPreview: decomposedPreview,
   PREVIEW_TASK_FIELDS: PREVIEW_TASK_FIELDS,
+  ADVISORY_PREVIEW_FIELDS: ADVISORY_PREVIEW_FIELDS,
   describe: describe,
   continueCampaign: continueCampaign,
   eventsSince: eventsSince,

@@ -808,11 +808,21 @@
       return statePanel('⚠', 'No plan could be proposed',
         plan.reason || 'The planner did not select a capability for this goal.', true);
     }
+    // MOS-v2 M-10: WHO proposed this plan. A plan written by a planner
+    // model is labelled as one, with the provider and model named, so an
+    // operator is never asked to approve a generated plan without being
+    // told that is what it is.
+    var plannedBy = plan.source === 'ai-decomposition'
+      ? 'planner model' + (plan.planner_provider ? ' via ' + plan.planner_provider : '') +
+        (plan.planner_model ? ' (' + plan.planner_model + ')' : '') +
+        ' — proposed only; validated against the schema, the policy classes and the dependency graph here'
+      : null;
     var head = el('div', { className: 'mythos-card' }, [
       el('span', { className: 'mythos-label', text: 'Proposed mission' }),
       el('div', { className: 'mythos-card-meta',
         text: (plan.capability_key ? plan.capability_key + ' — ' : '') + (plan.title || '(untitled)') }),
       plan.objective ? fact('Objective', plan.objective) : null,
+      plannedBy ? fact('Planned by', plannedBy) : null,
       plan.reason ? fact('Why this one', plan.reason) : null,
       plan.risk ? fact('Risk', String(plan.risk)) : null,
       (plan.acceptance_criteria && plan.acceptance_criteria.length)
@@ -821,11 +831,20 @@
     var list = el('div', { className: 'mythos-list' });
     (plan.tasks || []).forEach(function (t) {
       var deps = (t.depends_on || []);
-      list.appendChild(row([
+      var cells = [
         cellMain(t.key + ': ' + (t.title || ''), t.task_type || ''),
         cellText('Depends on', deps.length ? deps.join(', ') : '(no dependencies — starts immediately)'),
         cellText('Policy', (t.policy_classes || []).join('+'))
-      ]));
+      ];
+      // Advisory suggestions, shown as suggestions. The executor selects
+      // the model and the profile itself; these are what the planner had
+      // in mind, and nothing acts on them.
+      if (t.recommended_model || t.execution_profile) {
+        cells.push(cellText('Planner suggested (advisory)',
+          [t.recommended_model, t.execution_profile].filter(Boolean).join(' · ')));
+      }
+      if (t.expected_result) cells.push(cellText('Expected result', t.expected_result));
+      list.appendChild(row(cells));
     });
     return el('div', {}, [head, sectionTitle('Planned tasks · ' + (plan.tasks || []).length), list]);
   }
@@ -985,6 +1004,21 @@
     var submitBtn = el('button', {
       className: 'mythos-btn mythos-btn-gold', attrs: { type: 'button' }, text: 'Propose Plan'
     });
+    // MOS-v2 M-10. Unticked, the control plane proposes the roadmap's own
+    // next mission, exactly as before. Ticked, a planner model proposes
+    // the tasks and their dependencies instead — and the plan still lands
+    // in front of you here, still validated, still dispatching nothing
+    // until you approve it.
+    var decomposeBox = el('input', {
+      className: 'mythos-check', attrs: { id: 'goal-decompose', type: 'checkbox' }
+    });
+    var decomposeField = el('div', { className: 'console-check-field' }, [
+      decomposeBox,
+      el('label', { className: 'mythos-label', attrs: { for: 'goal-decompose' },
+        text: 'AI decomposition (planner model proposes the plan)' }),
+      el('div', { className: 'mythos-card-meta',
+        text: 'The planner writes tasks and dependencies only. It selects no provider, no profile and no permissions, its plan is validated against the same schema and policy as any other, and nothing runs until you approve it.' })
+    ]);
 
     var listSlot = el('div', {});
     var detailSlot = el('div', { className: 'mythos-exec-detail' });
@@ -1031,7 +1065,9 @@
       // The browser sends the objective and nothing else. project,
       // requested_by and the mandatory plan approval are all fixed
       // server-side in server.js and are not fields here.
-      postJSON('/api/goals', { objective: objective }).then(function (r) {
+      var body = { objective: objective };
+      if (decomposeBox.checked) body.decompose = true;
+      postJSON('/api/goals', body).then(function (r) {
         clear(feedback);
         var d = r.data || {};
         feedback.appendChild(statePanel(
@@ -1042,6 +1078,7 @@
           (d.needs_approval ? ' Review the proposed plan below and approve or deny it. Nothing runs until you do.' : '')
         ));
         objectiveInput.value = '';
+        decomposeBox.checked = false;
         loadList();
         if (d.campaign_id) goalDetail(d.campaign_id, detailSlot);
       }).catch(function (e) {
@@ -1055,7 +1092,7 @@
 
     view.appendChild(el('div', { className: 'mythos-start-form' }, [
       el('label', { className: 'mythos-label', attrs: { for: 'goal-objective' }, text: 'Goal' }),
-      objectiveInput, submitBtn, feedback
+      objectiveInput, decomposeField, submitBtn, feedback
     ]));
     view.appendChild(sectionTitle('Goals'));
     view.appendChild(listSlot);
