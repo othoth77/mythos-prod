@@ -1,7 +1,76 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** OTH-K2 **REAL-DATA KNOWLEDGE INTEGRATION: FOUR IMPORTERS, DEDUP/TEMPORAL/AUDIT ENGINES, AI-LAYER SERVICE BOUNDARY, EVALUATION V2 — 206/0 ACROSS THREE SUITES; INDEPENDENT ADVERSARIAL REVIEW: 1 BLOCKER + 4 MAJOR + 5 MINOR FOUND, ALL 10 FIXED WITH REGRESSION TESTS; REAL SOURCES DISCOVERED AND EVIDENCE-TABLED; CONTENT TRANSFER EXTERNALLY BLOCKED (SESSION PERMISSION POLICY).**
+**From:** OTH-K2-W **AI OPERATING LAYER ↔ KNOWLEDGE WIRING DELIVERED — EXECUTOR-SIDE READ-ONLY CONSUMER (FAIL-CLOSED CONFIG, OPERATION ALLOWLIST, EXPLICIT-ASOF, CLAIM-NEVER-FACT/QUARANTINE PRESENTATION), 39/0 NEW SUITE; MOS-V2 GATE + OTHK-0/1/2 + EXECUTOR SUITE ALL GREEN; OTH-K2 TRACK A NOW FULLY REPOSITORY-COMPLETE; TRACK B EXTERNAL BLOCKERS RE-RECORDED, NONE BYPASSED.**
+
+## OTH-K2-W — executor-side knowledge-service wiring (2026-08-19)
+
+### Stage
+
+OTH-K2-W on branch `claude/oth-k2-repo-execution-ul5dsl` (from main
+`d839fdb`). Completes the one Track A item OTH-K2 deliberately deferred:
+the AI Operating Layer integration, which touches the MOS-v2
+regression-gate surface and therefore ran under that gate.
+
+### Delivered
+
+- **`projects/mythos-ai-executor/lib/knowledge.js`** — the executor's
+  read-only OTH Knowledge consumer per `docs/OTH_KNOWLEDGE_INTEGRATION.md`:
+  fail-closed config validation (unknown fields, endpoint/url/credential-
+  shaped keys at any depth, relative or in-repository store roots, and
+  unreadable/unparseable files each disable the WHOLE layer — same
+  discipline as lib/skills.js and lib/mcp-capabilities.js); an explicit
+  read-operation allowlist (`READ_OPS`) so a write operation appearing on
+  the service surface never becomes reachable from the AI layer (proven
+  against a deliberately widened stub service); `currentState` without an
+  explicit `asOf` refused at the executor boundary (`MYTHOS_KNOWLEDGE_ASOF`)
+  in addition to the service's own refusal; every search hit annotated with
+  `presentation` (`assertion_class`, `is_claim`, `statement_class`
+  "claim — never present as fact", `quarantined`) alongside its provenance.
+  No network code, no credentials, no writes, no wall-clock reads.
+- **`projects/mythos-ai-executor/config/knowledge.json`** — ships
+  **disabled**, `store_root: null`: no persistent private store exists yet
+  (Track B). Activation = operator sets an absolute out-of-repo store root
+  and flips `enabled`; a store root inside the repository is refused by
+  validation so the knowledge store can never land in Git.
+- **`docs/OTH_KNOWLEDGE_INTEGRATION.md` §3** updated from "separate
+  executor-scoped stage" to the delivered wiring record. Nothing in
+  `projects/oth-knowledge/` changed — boundary held.
+
+### Verification
+
+| | |
+|---|---|
+| New suite | `tests/othk-2w-executor-wiring-test.js` **39/0** (config fail-closed ×13, shipped-default ×4, defective-open ×4, allowlist/frozen surface ×5, explicit-asOf ×3, presentation/provenance ×7, widened-service allowlist hold ×3) |
+| Gates | MOS-v2 regression suite pass/fail **1/0 (all subtests green)**; `mythos-ai-executor-test.js` green; othk-0 **89/0**, othk-1 **30/0**, othk-2 **87/0** — knowledge layer untouched and proven so |
+| Static | `node --check` clean; config JSON parses; no secrets (paths and booleans only) |
+
+### Track B — external blockers (recorded, not bypassed)
+
+1. Real Google data (Takeout/Gemini/NotebookLM exports) — requires
+   authorized owner-produced exports; none exist on any authorized surface.
+2. AI execution environment → VPS TCP/22 — unreachable (unchanged).
+3. Owner Windows → `deploy@51.68.226.211` SSH — **VERIFIED** working channel.
+4. Owner Windows → VPS SCP — **VERIFIED**; VPS-side rsync — **VERIFIED**;
+   Windows-side rsync — unavailable (SCP is the transfer tool from Windows).
+5. Persistent private store location (never Git) — owner/operator
+   provisioning decision; the shipped-disabled config is the activation
+   point once provisioned.
+6. Drive content transfer from AI environments — denied by session
+   permission policy; operator-local import CLI is the documented path.
+7. Private keys/secrets never enter OTH Knowledge — enforced by the ingest
+   secret gate (othk-2 §-tested) and by this stage's config validation.
+
+### Next stage
+
+OTH-K3 candidates unchanged: real imports once the owner supplies exports
+and a provisioned store (then flip `config/knowledge.json`), and the
+still-open MOS read-only audit / Phase-B activation. OTH-K2 Track A has no
+remaining repository-executable work.
+
+---
+
+**Previously:** OTH-K2 **REAL-DATA KNOWLEDGE INTEGRATION: FOUR IMPORTERS, DEDUP/TEMPORAL/AUDIT ENGINES, AI-LAYER SERVICE BOUNDARY, EVALUATION V2 — 206/0 ACROSS THREE SUITES; INDEPENDENT ADVERSARIAL REVIEW: 1 BLOCKER + 4 MAJOR + 5 MINOR FOUND, ALL 10 FIXED WITH REGRESSION TESTS; REAL SOURCES DISCOVERED AND EVIDENCE-TABLED; CONTENT TRANSFER EXTERNALLY BLOCKED (SESSION PERMISSION POLICY).**
 
 ## OTH-K2 — real-data knowledge integration (2026-08-19)
 
