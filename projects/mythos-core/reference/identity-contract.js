@@ -40,15 +40,16 @@ var RE_USER    = new RegExp('^usr_' + UUIDV7 + '$');
 var RE_ORG     = new RegExp('^org_' + UUIDV7 + '$');
 var RE_SERVICE = /^svc_[a-z0-9][a-z0-9._-]{0,40}$/;
 
-// Organisation-scope roles — copied verbatim from the LIVE
-// idauto_user_roles CHECK constraint so ID Auto's semantics carry over
-// without translation. Order is meaningful only for display.
+// Organisation-scope roles — adopted verbatim from ID Auto's vocabulary,
+// now consumed as the pinned protocol artifact org-role.v1.json (see
+// projects/mythos-core/contracts/idauto/). Order is meaningful only for display.
 var ORG_ROLES = ['owner', 'admin', 'member', 'readonly'];
 
 // The single platform-scope role. There is no second one by design.
 var PLATFORM_ROLE = 'mythos_super_admin';
 
-// Adopted verbatim from the LIVE idauto_audit_log CHECK constraint.
+// Adopted verbatim from ID Auto's actor_type vocabulary, now consumed as
+// the pinned protocol artifact actor-type.v1.json (see contracts/idauto/).
 var ACTOR_TYPES = ['system', 'contributor', 'professional_user', 'admin', 'anonymous'];
 
 // ---------------------------------------------------------------------

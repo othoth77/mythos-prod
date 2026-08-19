@@ -475,7 +475,12 @@ with the upstream commit, version, revision and a SHA-256 digest of each file re
 ID Auto remains the defining source of both vocabularies; this repository only adopts them. A
 legitimate change to the pinned copies follows the six-step re-pin procedure documented in
 `projects/mythos-core/contracts/idauto/README.md` — there is deliberately no script that
-performs it automatically, so drift is always caught rather than silently re-recorded.
+performs it automatically, so a drifted contract or a tampered copy can never be silently
+re-recorded as correct. Stated honestly: an upstream **republication** is invisible here until
+a human re-pins (the local copy still matches its own pin) — the mechanism guarantees no
+silent divergence from a named, dated, digest-identified upstream version, not freshness; and
+it detects accident, not tampering — an edit to the copy *and* `PINS.json` together passes,
+and is caught by review of that visible two-file diff, not by an assertion.
 
 This closes the last test-only dependency on `projects/idauto/` (`docs/ID_AUTO_DEPENDENCY_BOUNDARY.md`
 §0, rows D6-D8); see that document for the full before/after assertion inventory.

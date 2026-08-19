@@ -409,7 +409,11 @@ One safe correction was made; the boundary itself was not, and the reason is bel
 
 Executed, not inferred: both reads stubbed to `''`, then diffed against the intact run
 (124 → **115 passed / 9 failed**). Nine fail; **seven more keep passing but only vacuously**.
-Sixteen assertions depend on IDauto in total.
+~~Sixteen~~ **Seventeen** assertions depend on IDauto in total — see the correction in §10.6:
+the §10.5 divergence assertion (`every actor_type CHECK declares the SAME vocabulary`) also
+reads `idautoSql`, fails under an empty stub, and post-dates this table, which is why it has
+no row below. With it, the stub-failure count is **10**, and the split is 7 cross-product /
+3 internal / 7 vacuous.
 
 | # | Assertion | Reads | Class |
 |---|---|---|---|
@@ -456,13 +460,17 @@ IDauto  protocol/vocabularies/actor-type.v1.json   ← published, versioned, IDa
 Mythos  projects/mythos-core/contracts/idauto-vocabularies.pinned.json
 ```
 
-Drift then fails loudly from **either** direction, which is the requirement:
+Drift is detected as follows — and the guarantees are asymmetric, stated honestly:
 
-| Change | What fails |
+| Change | What fails, and when |
 |---|---|
-| IDauto edits `schema.sql` without republishing | **IDauto's** suite — its CHECK no longer matches its own artefact |
-| IDauto republishes a new version | Mythos's pinned digest mismatches — a deliberate, reviewable re-pin |
-| Mythos edits `ACTOR_TYPES` | Mythos's contract test, immediately |
+| IDauto edits `schema.sql` without republishing | **IDauto's** suite, immediately — its CHECK no longer matches its own artefact |
+| Mythos edits `ACTOR_TYPES`, or the pinned copy is edited | **Mythos's** contract test, immediately — set equality, or the digest asserted before it |
+| **IDauto republishes a new version/revision** | **Nothing fails in Mythos.** The local copy is untouched, so its digest still matches its pin. Mythos sits on the *older, still-internally-consistent* vocabulary until a human performs the re-pin procedure. This is re-sync **latency**, a process property no offline mechanism can remove — the pin guarantees Mythos can never *silently* diverge from a named, dated, digest-identified upstream version; it does not guarantee that version is the newest |
+
+The pin detects **accident, not tampering**: a person who edits the pinned copy *and*
+`PINS.json` in one commit passes the suite. The defence is code review of a visible
+two-file diff, not an assertion.
 
 ### 10.3 Why it was not implemented
 
@@ -553,12 +561,15 @@ substituted.**
 assertion (*"every `actor_type` CHECK in the schema declares the SAME vocabulary"*) also reads
 `schema.sql` and was added after the 115/9 stub measurement in §10.1 was taken. Under the same
 stub it fails too — `allActorChecks.length > 0` is false against an empty string — so the true
-stub-failure count is **10, not 9** (row count in §10.1's table is unaffected; the divergence
-assertion simply wasn't in the suite yet when that table was built).
+stub-failure count is **10, not 9**, and the true total is **17 IDauto-dependent assertions,
+not 16**: the divergence assertion post-dates §10.1's table and is its missing seventeenth
+row (cross-product class; its post-boundary home is the IDauto conformance suite). §10.1 now
+carries this correction inline.
 
 **Correction to §10.3 — the premise that "a Mythos-only pin would weaken a live read" assumed a
 live read that, by the time of the final review, no longer matched canonical.** The vendored
-copy at (the now-deleted) `projects/idauto/database/schema.sql` had SHA-256 `bb282a75…`, which
+copy at `projects/idauto/database/schema.sql` — **still present; its deletion is IDA-DECOUPLE-4,
+NOT STARTED** — has SHA-256 `bb282a75…`, which
 had already diverged from the canonical `othoth77/idauto` `database/schema.sql` (`b41c000d…`)
 by one line — a documentation-comment line referencing a line number that had shifted, not a
 CHECK constraint. The "live" read §10.3 worried about weakening was therefore already stale
@@ -568,3 +579,17 @@ it replaced, not a weakening of it. §10.3's underlying architectural point (do 
 Mythos-owned vocabulary copy with no upstream conformance backing it) still stands and is why
 the implementation waited for ID Auto to publish and conformance-test the artifacts first,
 rather than pinning a Mythos-authored guess.
+
+**Two accepted facts, recorded so they are deliberate rather than unnoticed:**
+
+- **`actor-identifier.v1.json` publishes the `usr_<uuidv7>` pattern.** UUIDv7 embeds a
+  48-bit millisecond creation timestamp, so any holder of a Mythos user id can read that
+  user's creation time. This is inherent to the platform's own §2 choice of UUIDv7 (any
+  holder can read the version nibble regardless), assessed low, and **knowingly accepted**
+  as the one disclosure in the artifact set that is not a pure restatement of already-public
+  schema content.
+- **`PINS.json` pins a commit on the unmerged IDauto branch `protocol-identity-vocabularies`.**
+  That branch must be merged with a **merge commit, never a squash or rebase**, or the pinned
+  upstream commit becomes unreachable and the pin's provenance breaks. Alternatively, re-pin
+  to the main-line commit after merge (a normal re-pin: bytes unchanged, only
+  `upstream.commit` moves).
