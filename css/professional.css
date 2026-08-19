@@ -3,7 +3,7 @@
    ======================================== */
 
 :root {
-  --gradient-gold: linear-gradient(135deg, #d4af37 0%, #c9a84c 100%);
+  --gradient-gold: linear-gradient(135deg, #d4af37 0%, #D9A441 100%);
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.15);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.25);

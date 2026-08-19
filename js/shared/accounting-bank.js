@@ -80,39 +80,39 @@ function openBankDetailModal(bankEntryId) {
 
   modal.innerHTML = `
     <div class="modal-overlay" onclick="closeBankDetailModal()" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; z-index:1000;">
-      <div onclick="event.stopPropagation()" style="background:#0e0e0e; border:2px solid #c9a84c; border-radius:16px; padding:32px; max-width:600px; width:90%; max-height:80vh; overflow-y:auto;">
+      <div onclick="event.stopPropagation()" style="background:#0e0e0e; border:2px solid #D9A441; border-radius:16px; padding:32px; max-width:600px; width:90%; max-height:80vh; overflow-y:auto;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:24px;">
-          <h2 style="color:#c9a84c; font-family:'Playfair Display',serif; font-size:24px; margin:0;">📋 Détails de la Transaction</h2>
-          <button onclick="closeBankDetailModal()" style="background:none; border:none; color:#c9a84c; font-size:24px; cursor:pointer;">✕</button>
+          <h2 style="color:#D9A441; font-family:'Playfair Display',serif; font-size:24px; margin:0;">📋 Détails de la Transaction</h2>
+          <button onclick="closeBankDetailModal()" style="background:none; border:none; color:#D9A441; font-size:24px; cursor:pointer;">✕</button>
         </div>
 
         <div style="background:#1a1a1a; padding:20px; border-radius:12px; margin-bottom:20px;">
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
             <div>
               <div style="color:#999; font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:5px;">Date</div>
-              <div style="color:#c9a84c; font-size:14px;">${esc((entry.date || '').slice(5))}</div>
+              <div style="color:#D9A441; font-size:14px;">${esc((entry.date || '').slice(5))}</div>
             </div>
             <div>
               <div style="color:#999; font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:5px;">Type</div>
-              <div style="color:#c9a84c; font-size:14px;"><span style="font-size:16px; margin-right:4px;">${getBankTypeIcon(entry.type)}</span>${esc(entry.type || '')}</div>
+              <div style="color:#D9A441; font-size:14px;"><span style="font-size:16px; margin-right:4px;">${getBankTypeIcon(entry.type)}</span>${esc(entry.type || '')}</div>
             </div>
             <div>
               <div style="color:#999; font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:5px;">Montant</div>
-              <div style="color:#c9a84c; font-size:14px; font-weight:700;">${fmtMoney(entry.amount)}</div>
+              <div style="color:#D9A441; font-size:14px; font-weight:700;">${fmtMoney(entry.amount)}</div>
             </div>
             <div>
               <div style="color:#999; font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:5px;">Direction</div>
-              <div style="color:#c9a84c; font-size:14px;">${entry.direction || 'N/A'}</div>
+              <div style="color:#D9A441; font-size:14px;">${entry.direction || 'N/A'}</div>
             </div>
             <div>
               <div style="color:#999; font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:5px;">Référence</div>
-              <div style="color:#c9a84c; font-size:14px; font-family:monospace;">${esc(entry.reference || entry.id || 'N/A')}</div>
+              <div style="color:#D9A441; font-size:14px; font-family:monospace;">${esc(entry.reference || entry.id || 'N/A')}</div>
             </div>
           </div>
 
           <div style="margin-top:16px; padding-top:16px; border-top:1px solid #333;">
             <div style="color:#999; font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:8px;">Libellé Complet</div>
-            <div style="color:#ddd; font-size:13px; line-height:1.6; padding:12px; background:#0a0a0a; border-radius:8px; border-left:3px solid #c9a84c;">
+            <div style="color:#ddd; font-size:13px; line-height:1.6; padding:12px; background:#0a0a0a; border-radius:8px; border-left:3px solid #D9A441;">
               ${esc(entry.label || '---')}
             </div>
           </div>
@@ -169,7 +169,7 @@ function openBankLinkModal(bankEntryId) {
   if (contractSelect) {
     const contractLabel = contractSelect.previousElementSibling;
     const contractHint = contractSelect.nextElementSibling;
-    const nextSeparator = contractSelect.closest('div[style*="rgba(201,168,76"]')?.nextElementSibling;
+    const nextSeparator = contractSelect.closest('div[style*="rgba(217,164,65"]')?.nextElementSibling;
     if (contractLabel) contractLabel.textContent = '✎ Lier a un Contrat (Alimentation de compte)';
     if (contractHint) contractHint.textContent = "Paiement recu dans le cadre d'un contrat";
     if (nextSeparator) nextSeparator.innerHTML = '&mdash; OU &mdash;';
@@ -372,12 +372,12 @@ function renderBankPage() {
   let html = '';
 
   // Barre de filtrage
-  html += `<div style="padding:16px; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04)); border:1px solid rgba(201,168,76,0.15); border-radius:12px; margin-bottom:16px;">
+  html += `<div style="padding:16px; background:linear-gradient(135deg, rgba(217,164,65,0.08), rgba(217,164,65,0.04)); border:1px solid rgba(217,164,65,0.15); border-radius:12px; margin-bottom:16px;">
     <div style="color:var(--gold); font-weight:700; margin-bottom:12px; font-size:13px;">🔍 FILTRER LES TRANSACTIONS</div>
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Type</label>
-        <select id="bank-filter-type" onchange="setComptaBankFilterType(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#c9a84c; border:1px solid #333; border-radius:6px;">
+        <select id="bank-filter-type" onchange="setComptaBankFilterType(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
           <option value="all">📋 Tous</option>
           <option value="retrait" ${comptaBankFilterType === 'retrait' ? 'selected' : ''}>🔴 Retraits</option>
           <option value="alimentation" ${comptaBankFilterType === 'alimentation' ? 'selected' : ''}>🟢 Alimentations</option>
@@ -386,7 +386,7 @@ function renderBankPage() {
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Statut</label>
-        <select id="bank-filter-status" onchange="setComptaBankFilterStatus(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#c9a84c; border:1px solid #333; border-radius:6px;">
+        <select id="bank-filter-status" onchange="setComptaBankFilterStatus(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
           <option value="all">📊 Tous</option>
           <option value="linked" ${comptaBankFilterStatus === 'linked' ? 'selected' : ''}>✓ Liés</option>
           <option value="unlinked" ${comptaBankFilterStatus === 'unlinked' ? 'selected' : ''}>⚠️ Non liés</option>
@@ -395,17 +395,17 @@ function renderBankPage() {
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Montant Min</label>
-        <input type="number" id="bank-filter-min" value="${comptaBankFilterMinAmount === 0 ? '' : comptaBankFilterMinAmount}" placeholder="0" onchange="setComptaBankFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#c9a84c; border:1px solid #333; border-radius:6px;">
+        <input type="number" id="bank-filter-min" value="${comptaBankFilterMinAmount === 0 ? '' : comptaBankFilterMinAmount}" placeholder="0" onchange="setComptaBankFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
       </div>
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Montant Max</label>
-        <input type="number" id="bank-filter-max" value="${comptaBankFilterMaxAmount === Infinity ? '' : comptaBankFilterMaxAmount}" placeholder="∞" onchange="setComptaBankFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#c9a84c; border:1px solid #333; border-radius:6px;">
+        <input type="number" id="bank-filter-max" value="${comptaBankFilterMaxAmount === Infinity ? '' : comptaBankFilterMaxAmount}" placeholder="∞" onchange="setComptaBankFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
       </div>
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Recherche globale</label>
-        <input type="text" id="bank-filter-reference" value="${esc(comptaBankFilterReference)}" placeholder="Ref, Libellé, Type, Montant..." onchange="setComptaBankFilterReference(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#c9a84c; border:1px solid #333; border-radius:6px;">
+        <input type="text" id="bank-filter-reference" value="${esc(comptaBankFilterReference)}" placeholder="Ref, Libellé, Type, Montant..." onchange="setComptaBankFilterReference(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
       </div>
 
       <div style="display:flex; align-items:flex-end;">
@@ -686,7 +686,7 @@ function displayImportResults(imported, duplicates) {
     });
 
     const rows = filtered.map(entry => `
-      <tr style="border-bottom:1px solid rgba(201,168,76,0.1);">
+      <tr style="border-bottom:1px solid rgba(217,164,65,0.1);">
         <td style="padding:12px 8px; color:var(--text); font-size:13px;">${esc(entry.date)}</td>
         <td style="padding:12px 8px; color:var(--text); font-size:13px;">${esc(entry.label)}</td>
         <td style="padding:12px 8px; color:var(--text); font-size:13px;">${esc(entry.type)}</td>
@@ -734,13 +734,13 @@ function displayImportResults(imported, duplicates) {
                      placeholder="🔍 Chercher par date, libellé, type ou montant..."
                      value="${currentSearchTerm}"
                      onkeyup="updateImportSearch(this.value)"
-                     style="width:100%; padding:10px 12px; background:#1a1a1a; border:1px solid rgba(201,168,76,0.3); border-radius:6px; color:var(--text); font-size:13px;">
+                     style="width:100%; padding:10px 12px; background:#1a1a1a; border:1px solid rgba(217,164,65,0.3); border-radius:6px; color:var(--text); font-size:13px;">
             </div>
 
             <!-- Tableau -->
             <table style="width:100%; border-collapse:collapse; margin-bottom:24px;">
               <thead>
-                <tr style="background:rgba(201,168,76,0.08); border-bottom:2px solid rgba(201,168,76,0.2);">
+                <tr style="background:rgba(217,164,65,0.08); border-bottom:2px solid rgba(217,164,65,0.2);">
                   <th style="padding:12px 8px; text-align:left; color:var(--gold); font-weight:700; font-size:12px;">📅 Date</th>
                   <th style="padding:12px 8px; text-align:left; color:var(--gold); font-weight:700; font-size:12px;">📝 Libellé</th>
                   <th style="padding:12px 8px; text-align:left; color:var(--gold); font-weight:700; font-size:12px;">🏷️ Type</th>
@@ -753,7 +753,7 @@ function displayImportResults(imported, duplicates) {
             </table>
           </div>
 
-          <div style="padding:16px 24px; background:rgba(0,0,0,0.2); border-top:1px solid rgba(201,168,76,0.1); display:flex; justify-content:flex-end; gap:12px;">
+          <div style="padding:16px 24px; background:rgba(0,0,0,0.2); border-top:1px solid rgba(217,164,65,0.1); display:flex; justify-content:flex-end; gap:12px;">
             <button class="btn btn-outline" onclick="closeImportResults()">Fermer</button>
           </div>
         </div>

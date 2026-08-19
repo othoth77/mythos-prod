@@ -30,17 +30,17 @@ function renderFournisseurs() {
   const allFournisseurs = STORE.suppliers();
   const categories = ['all', ...new Set(allFournisseurs.filter(f => f.category).map(f => f.category))];
 
-  let html = `<div style="padding:16px; background:linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.04)); border:1px solid rgba(201,168,76,0.15); border-radius:12px; margin-bottom:16px;">
+  let html = `<div style="padding:16px; background:linear-gradient(135deg, rgba(217,164,65,0.08), rgba(217,164,65,0.04)); border:1px solid rgba(217,164,65,0.15); border-radius:12px; margin-bottom:16px;">
     <div style="color:var(--gold); font-weight:700; margin-bottom:12px; font-size:13px;">🔍 RECHERCHER & FILTRER</div>
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:12px;">
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Rechercher par nom, contact ou adresse</label>
-        <input type="text" id="fournisseur-search" placeholder="Tapez pour chercher..." value="${fournisseurSearchQuery}" oninput="setFournisseurSearch(this.value)" style="width:100%; padding:8px; background:#1a1a1a; color:#c9a84c; border:1px solid #333; border-radius:6px;">
+        <input type="text" id="fournisseur-search" placeholder="Tapez pour chercher..." value="${fournisseurSearchQuery}" oninput="setFournisseurSearch(this.value)" style="width:100%; padding:8px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
       </div>
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Filtrer par catégorie</label>
-        <select id="fournisseur-filter-category" onchange="setFournisseurFilterCategory(this.value)" style="width:100%; padding:8px; background:#1a1a1a; color:#c9a84c; border:1px solid #333; border-radius:6px;">
+        <select id="fournisseur-filter-category" onchange="setFournisseurFilterCategory(this.value)" style="width:100%; padding:8px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
           <option value="all">📊 Toutes les catégories</option>
           ${categories.filter(c => c !== 'all').map(cat => `<option value="${cat}" ${fournisseurFilterCategory === cat ? 'selected' : ''}>${getFournisseurCategoryIcon(cat)} ${cat}</option>`).join('')}
         </select>
@@ -76,7 +76,7 @@ function getFournisseurCategoryStyle(category) {
     'Électronique': { icon: '💻', color: '#9b59b6', bg: 'rgba(155,89,182,0.1)' },
     'Matériel': { icon: '🔧', color: '#95a5a6', bg: 'rgba(149,165,166,0.1)' },
     'Décor': { icon: '🎨', color: '#e74c3c', bg: 'rgba(231,76,60,0.1)' },
-    'Logistique': { icon: '🚚', color: '#c9a84c', bg: 'rgba(201,168,76,0.1)' },
+    'Logistique': { icon: '🚚', color: '#D9A441', bg: 'rgba(217,164,65,0.1)' },
     'Services': { icon: '💼', color: '#3498db', bg: 'rgba(52,152,219,0.1)' },
     'Banque': { icon: '🏦', color: '#2ecc71', bg: 'rgba(46,204,113,0.1)' },
     'Hôtel': { icon: '🏨', color: '#e67e22', bg: 'rgba(230,126,34,0.1)' },
@@ -86,7 +86,7 @@ function getFournisseurCategoryStyle(category) {
     'Mecanicien': { icon: '🔩', color: '#7f8c8d', bg: 'rgba(127,140,141,0.1)' },
     'Alimentaires': { icon: '🍎', color: '#3498db', bg: 'rgba(52,152,219,0.1)' }
   };
-  return styles[category] || { icon: '📦', color: '#c9a84c', bg: 'rgba(201,168,76,0.1)' };
+  return styles[category] || { icon: '📦', color: '#D9A441', bg: 'rgba(217,164,65,0.1)' };
 }
 
 function getFournisseurCategoryIcon(category) {

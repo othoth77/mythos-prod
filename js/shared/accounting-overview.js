@@ -50,7 +50,7 @@ function renderComptaViews() {
       <h2 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:20px; margin:0 0 16px; font-weight:800;">Résumé financier - ${getPeriodLabel(comptaDashboardPeriod)}</h2>
 
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:32px;">
-        <div style="background:linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.06)); border:1px solid rgba(201,168,76,0.2); border-radius:12px; padding:20px; text-align:center;">
+        <div style="background:linear-gradient(135deg, rgba(217,164,65,0.12), rgba(217,164,65,0.06)); border:1px solid rgba(217,164,65,0.2); border-radius:12px; padding:20px; text-align:center;">
           <div style="color:var(--muted); font-size:11px; text-transform:uppercase; font-weight:700; margin-bottom:8px;">Revenus Total</div>
           <div style="font-family:'Playfair Display',serif; font-size:32px; color:var(--gold-light); font-weight:800;">${fmtMoney(totalIncome)}</div>
           <div style="color:var(--muted); font-size:12px; margin-top:8px;">Factures: ${fmtMoney(sales)}</div>
@@ -89,7 +89,7 @@ function renderComptaViews() {
       <button class="compta-link-card purple" onclick="showView('compta-expenses')"><div class="compta-link-head"><div class="compta-link-icon">D</div><div class="compta-link-arrow">></div></div><div class="compta-link-title">Depenses par periode</div><div class="compta-link-desc">Jour, semaine, mois et annee.</div><div class="compta-link-meta">${fmtMoney(expenses.reduce((s, e) => s + num(e.amount), 0))}</div></button>
       <button class="compta-link-card green" onclick="showView('compta-bank')"><div class="compta-link-head"><div class="compta-link-icon">B</div><div class="compta-link-arrow">></div></div><div class="compta-link-title">Extrait bancaire BIAT</div><div class="compta-link-desc">Mouvements et solde.</div><div class="compta-link-meta">${fmtMoney(lastBalance)}</div></button>
       <button class="compta-link-card gold" onclick="showView('compta-cash')"><div class="compta-link-head"><div class="compta-link-icon">C</div><div class="compta-link-arrow">></div></div><div class="compta-link-title">Gestion Caisse</div><div class="compta-link-desc">Entrées et sorties de caisse.</div><div class="compta-link-meta">${STORE.cashEntries ? STORE.cashEntries().length : 0} entrées</div></button>
-      <button class="compta-link-card" onclick="showView('compta-reconciliation')" style="background:linear-gradient(135deg, rgba(201,168,76,0.15), rgba(201,168,76,0.08)); border:2px solid rgba(201,168,76,0.3);"><div class="compta-link-head"><div class="compta-link-icon" style="color:var(--gold-light); font-weight:800;">🔄</div><div class="compta-link-arrow">></div></div><div class="compta-link-title">Réconciliation Complète</div><div class="compta-link-desc">Tappabq shamilah - État financier.</div><div class="compta-link-meta">Banque + Caisse + Résultat</div></button>
+      <button class="compta-link-card" onclick="showView('compta-reconciliation')" style="background:linear-gradient(135deg, rgba(217,164,65,0.15), rgba(217,164,65,0.08)); border:2px solid rgba(217,164,65,0.3);"><div class="compta-link-head"><div class="compta-link-icon" style="color:var(--gold-light); font-weight:800;">🔄</div><div class="compta-link-arrow">></div></div><div class="compta-link-title">Réconciliation Complète</div><div class="compta-link-desc">Tappabq shamilah - État financier.</div><div class="compta-link-meta">Banque + Caisse + Résultat</div></button>
     </div>
 
     <div class="compta-grid">
@@ -98,7 +98,7 @@ function renderComptaViews() {
       <div class="compta-card purple"><div class="compta-title">Depenses</div><div class="compta-row"><span class="compta-label">Total</span><span class="compta-value gold">${fmtMoney(expenseTotal)}</span></div></div>
     </div>
 
-    <div style="margin-top:32px; padding:24px; background:linear-gradient(135deg, rgba(201,168,76,0.05), rgba(201,168,76,0.02)); border:1px solid rgba(201,168,76,0.1); border-radius:12px;">
+    <div style="margin-top:32px; padding:24px; background:linear-gradient(135deg, rgba(217,164,65,0.05), rgba(217,164,65,0.02)); border:1px solid rgba(217,164,65,0.1); border-radius:12px;">
       <h3 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:16px; margin:0 0 16px; font-weight:800;">📊 Connexions comptables</h3>
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:16px; font-size:13px; color:var(--muted);">
         <div>

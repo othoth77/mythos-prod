@@ -22,7 +22,7 @@ function showNatureDetail(natureId) {
   el.innerHTML = `
     <div style="margin-bottom:24px;">
       <button class="btn btn-outline" onclick="renderNatures()" style="margin-bottom:16px;">← Retour à la liste</button>
-      <div style="background:linear-gradient(135deg, rgba(201,168,76,0.12), rgba(201,168,76,0.06)); border:1px solid rgba(201,168,76,0.2); border-radius:16px; padding:32px 40px; margin-bottom:32px;">
+      <div style="background:linear-gradient(135deg, rgba(217,164,65,0.12), rgba(217,164,65,0.06)); border:1px solid rgba(217,164,65,0.2); border-radius:16px; padding:32px 40px; margin-bottom:32px;">
         <div style="display:flex; align-items:center; gap:20px; margin-bottom:20px;">
           <div style="font-size:64px;">${esc(nature.icon || '🎭')}</div>
           <div>
@@ -33,10 +33,10 @@ function showNatureDetail(natureId) {
       </div>
     </div>
 
-    ${reps.length > 0 ? `<h2 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:20px; margin:32px 0 20px; border-bottom:2px solid rgba(201,168,76,0.3); padding-bottom:12px; font-weight:800;">Représentations liées (${reps.length})</h2>
+    ${reps.length > 0 ? `<h2 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:20px; margin:32px 0 20px; border-bottom:2px solid rgba(217,164,65,0.3); padding-bottom:12px; font-weight:800;">Représentations liées (${reps.length})</h2>
     <table class="representations-list-table" style="margin-bottom:32px;"><thead><tr><th>Spectacle</th><th>Client</th><th>Directeur</th><th style="text-align:right;">Cachet</th><th style="width:150px;text-align:center;">Actions</th></tr></thead><tbody>` + reps.map(r => `<tr><td><strong>${esc(r.spectacle || 'Spectacle')}</strong></td><td>${esc(r.clientName || '')}</td><td>${esc(r.director || '')}</td><td style="text-align:right;color:var(--gold-light);font-weight:700;">${fmtMoney(r.fee)}</td><td style="text-align:center;"><button class="btn btn-outline btn-sm" onclick="openRepresentationModal('${r.id}')" title="Modifier">✏️</button> <button class="btn btn-danger btn-sm" onclick="deleteRepresentation('${r.id}')" title="Supprimer">✕</button></td></tr>`).join('') + '</tbody></table>' : '<div class="empty-state" style="margin:32px 0;">Aucune représentation pour cette nature.</div>'}
 
-    ${invs.length > 0 ? `<h2 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:20px; margin:32px 0 20px; border-bottom:2px solid rgba(201,168,76,0.3); padding-bottom:12px; font-weight:800;">Factures liées (${invs.length})</h2>
+    ${invs.length > 0 ? `<h2 style="font-family:'Playfair Display',serif; color:var(--gold-light); font-size:20px; margin:32px 0 20px; border-bottom:2px solid rgba(217,164,65,0.3); padding-bottom:12px; font-weight:800;">Factures liées (${invs.length})</h2>
     <div class="invoice-grid">` + invs.map(inv => {
       const isSans = inv.type === 'sans_tva';
       const title = isSans ? 'Sans numerotation' : esc(inv.num || '-');
