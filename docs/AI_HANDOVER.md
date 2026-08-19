@@ -1,7 +1,47 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-19 UTC
-**From:** MYTHOS **IDA-DECOUPLE-4 — THE LEGACY IDauto TREE IS REMOVED. `othoth77/idauto` IS THE SOLE CANONICAL IMPLEMENTATION. THE STANDALONE MIGRATION IS CLOSED.**
+**From:** MYTHOS **BACKUP-GATES-0 — THE THREE OUTSTANDING BACKUP ITEMS ARE CLASSIFIED AND GATED. THE RELOCATED TOOLING IS REHEARSED END-TO-END (SAFE, SYNTHETIC). ALL THREE LIVE ITEMS ARE OWNER ACTIONS — NONE WAS WORKED AROUND.**
+
+**Stage:** Backup operational gates (master mission Stage 3) · **Status:** **COMPLETE as classification + safe verification**; the live items are **OWNER ACTION REQUIRED**
+**Branch:** `claude/idauto-source-cleanup-post-publication` · **Type:** documentation + one safe non-production rehearsal. **No credential touched, none invented, no production data read or written, no schedule installed.**
+
+### The A / B / C split — executed as such
+
+**B — safely executed now.** The full off-host gate sequence ran end-to-end from the NEW
+module location (`projects/infrastructure/ops/offhost-backup.js`) against synthetic data and
+a local directory adapter: `stage` → C1 `verifyLocal` (4 objects) → `push` (O) → C2
+`verifyRemote` → `restoreVerify` (R) — all green — and the in-repo restore guard was proven
+**by execution**: a restore targeted inside the repository was refused. Two fixture attempts
+were rejected by the module's own consistency contract (media manifest layout, then
+media-row consistency + capture ordering) before the third passed — the contract enforces
+itself on synthetic data too, which is itself evidence. Stated honestly: the rehearsal did
+NOT exercise the real HTTPS SigV4 transport and is not a substitute for OWNER-GATE-B1.
+
+**C — owner actions, recorded not resolved** (`docs/OFF_HOST_BACKUP_GATE.md` **§8**):
+- **OWNER-GATE-B1** — live round trip from the new location (needs the VPS credential
+  `secref-r2-backup` + an explicit `backup_create`/`restore_test` order; O-BACKUP-6
+  authorises only read-only `backup_verify`).
+- **OWNER-GATE-B2** — recurring schedule (LEVEL_4-eligible under the committed policy but
+  unordered and unscheduled; needs the recurring order + a host timer).
+- **OWNER-GATE-B3** — media off-host copy (no verified copy exists; tooling ready — the
+  rehearsal pushed and restore-verified media objects — credential + order missing).
+
+**A — documentation.** `OFF_HOST_BACKUP_GATE.md` §8 (post-extraction paths, rehearsal
+evidence, the three gates); `AUTOMOTIVE_RISK_REGISTER.md` R-O01 updated (status now
+"OPEN — owner-gated" with the dated evidence).
+
+### Next stage
+
+Master mission Stage 4: **IDA-4 readiness audit** (read-only; `docs/IDA4_READINESS_AUDIT.md`
+in the canonical IDauto repository). IDA-4 itself is NOT started.
+
+---
+
+## Previous entry
+
+
+**Previously:** MYTHOS **IDA-DECOUPLE-4 — THE LEGACY IDauto TREE IS REMOVED. `othoth77/idauto` IS THE SOLE CANONICAL IMPLEMENTATION. THE STANDALONE MIGRATION IS CLOSED.**
 
 **Stage:** `IDA-DECOUPLE-4` + migration closure · **Status:** **COMPLETE** — owner-authorized, independently audited (ACCEPT, zero findings), architecture-reviewed (APPROVE)
 **Commits:** `231ff82` (removal) · *this commit* (closure docs) · **Branch:** `claude/idauto-source-cleanup-post-publication`

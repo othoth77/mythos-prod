@@ -196,3 +196,40 @@ Restore is `pg_restore` / `mysql <` **into the scratch database only**. It is ne
 ## 7. What is required to unblock
 
 One owner action: **create the R2 bucket and a bucket-scoped credential, then write `~/.config/mythos/idauto-offhost.env` with mode `0600`.** Nothing else is missing — the tooling, the runbook, the validation procedure and the isolation requirements are all in place and tested offline.
+
+---
+
+## 8. Post-extraction state and the three operator gates (2026-08-19)
+
+**The tooling moved.** IDA-DECOUPLE-2 relocated the core and the transport to
+`projects/infrastructure/ops/offhost-backup.js` and
+`projects/infrastructure/ops/adapters/s3-compatible.js` (byte-identical `git mv`), and
+IDA-DECOUPLE-4 removed the old `projects/idauto/ops/` location entirely. Every path in the
+runbook sections above that mentions `projects/idauto/ops/` now means
+`projects/infrastructure/ops/`. The canonical IDauto product repository
+(https://github.com/othoth77/idauto) carries its own fork of both modules, adjusted for its
+own layout — the two copies serve different repositories and are **not** interchangeable.
+
+**Rehearsal evidence — safe, non-production (2026-08-19).** The full gate sequence was
+executed end-to-end from the NEW location against synthetic data and a local directory
+adapter: `stage` → C1 `verifyLocal` (4 objects) → `push` (O) → C2 `verifyRemote` →
+`restoreVerify` (R), all green — and the in-repo restore guard was proven by execution, not
+inspection: a restore targeted inside the repository was **refused**. Stated honestly: this
+rehearsal did **not** exercise the real HTTPS SigV4 transport (that requires the R2
+credential) and touched no production data. The suite evidence stands separately:
+`inf-backup-auto-0-backup` 245/0, `ida-3f-offhost-backup` 35/0 (SigV4 vectors pinned).
+
+**The three operator gates — each requires an action only the owner can take.** Per
+O-BACKUP-6, only read-only `backup_verify` is authorised to execute; *"each further operation
+needs its own owner order."* No credential exists in any development environment, and none
+was invented.
+
+| Gate | What it is | What the owner must do |
+|---|---|---|
+| **OWNER-GATE-B1 — live round trip after relocation** | One `backup_create` + isolated `restore_test` from the new module location against real R2, refreshing the 2026-08-14 verified batch | Issue the order for one `backup_create` + `restore_test`; run on the VPS where `~/.config/mythos/idauto-offhost.env` (0600, `secref-r2-backup`) lives — sections 4-6 above are the procedure |
+| **OWNER-GATE-B2 — recurring schedule** | No schedule exists; the verified copy ages daily. `backup_create`/`restore_test` are LEVEL_4-eligible under the committed policy but **unexecuted and unscheduled** | Issue the recurring-operation order and install the host timer (systemd/cron on the VPS). Until then every backup is a manual owner-ordered act |
+| **OWNER-GATE-B3 — media off-host copy** | The media store has **no verified off-host copy**; only the database gate closed on 2026-08-14. The tooling already carries media objects (§2, and the rehearsal above pushed and restore-verified media objects) | Same credential and an explicit order covering the media set; §4 D-M apply unchanged |
+
+Nothing in these three gates is blocked on tooling. All three are blocked on credentials and
+orders that exist only with the owner — recorded here as **OWNER ACTION REQUIRED**, not
+worked around.
