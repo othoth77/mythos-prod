@@ -377,7 +377,7 @@ function renderBankPage() {
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Type</label>
-        <select id="bank-filter-type" onchange="setComptaBankFilterType(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
+        <select id="bank-filter-type" onchange="setComptaBankFilterType(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid var(--control-border); border-radius:6px;">
           <option value="all">📋 Tous</option>
           <option value="retrait" ${comptaBankFilterType === 'retrait' ? 'selected' : ''}>🔴 Retraits</option>
           <option value="alimentation" ${comptaBankFilterType === 'alimentation' ? 'selected' : ''}>🟢 Alimentations</option>
@@ -386,7 +386,7 @@ function renderBankPage() {
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Statut</label>
-        <select id="bank-filter-status" onchange="setComptaBankFilterStatus(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
+        <select id="bank-filter-status" onchange="setComptaBankFilterStatus(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid var(--control-border); border-radius:6px;">
           <option value="all">📊 Tous</option>
           <option value="linked" ${comptaBankFilterStatus === 'linked' ? 'selected' : ''}>✓ Liés</option>
           <option value="unlinked" ${comptaBankFilterStatus === 'unlinked' ? 'selected' : ''}>⚠️ Non liés</option>
@@ -395,17 +395,17 @@ function renderBankPage() {
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Montant Min</label>
-        <input type="number" id="bank-filter-min" value="${comptaBankFilterMinAmount === 0 ? '' : comptaBankFilterMinAmount}" placeholder="0" onchange="setComptaBankFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
+        <input type="number" id="bank-filter-min" value="${comptaBankFilterMinAmount === 0 ? '' : comptaBankFilterMinAmount}" placeholder="0" onchange="setComptaBankFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid var(--control-border); border-radius:6px;">
       </div>
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Montant Max</label>
-        <input type="number" id="bank-filter-max" value="${comptaBankFilterMaxAmount === Infinity ? '' : comptaBankFilterMaxAmount}" placeholder="∞" onchange="setComptaBankFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
+        <input type="number" id="bank-filter-max" value="${comptaBankFilterMaxAmount === Infinity ? '' : comptaBankFilterMaxAmount}" placeholder="∞" onchange="setComptaBankFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid var(--control-border); border-radius:6px;">
       </div>
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Recherche globale</label>
-        <input type="text" id="bank-filter-reference" value="${esc(comptaBankFilterReference)}" placeholder="Ref, Libellé, Type, Montant..." onchange="setComptaBankFilterReference(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
+        <input type="text" id="bank-filter-reference" value="${esc(comptaBankFilterReference)}" placeholder="Ref, Libellé, Type, Montant..." onchange="setComptaBankFilterReference(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid var(--control-border); border-radius:6px;">
       </div>
 
       <div style="display:flex; align-items:flex-end;">

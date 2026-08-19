@@ -15,8 +15,9 @@
     --blue-dim: rgba(93,173,226,0.12);
     --today: #e67e22;
     --today-dim: rgba(230,126,34,0.12);
-    --past: #555;
-    --past-dim: rgba(85,85,85,0.12);
+    --past: #7A776C;
+    --past-dim: rgba(122,119,108,0.12);
+    --control-border: #726F64; /* A-016 dark-ground control boundary, 3.84:1 */
     --purple: #9b59b6;
     --purple-dim: rgba(155,89,182,0.12);
   }
@@ -39,7 +40,7 @@
   .nav::-webkit-scrollbar-thumb { background: rgba(217,164,65,.22); border-radius: 999px; }
   .nav::-webkit-scrollbar-track { background: transparent; }
   .nav-section { color: var(--muted); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; padding: 7px 12px 4px; }
-  .nav-btn { width: 100%; padding: 7px 12px; background: none; border: none; color: var(--muted); font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; border-radius: 6px; display: flex; align-items: center; gap: 10px; transition: background 0.15s, color 0.15s, box-shadow 0.22s cubic-bezier(0.34,1.56,0.64,1), transform 0.22s cubic-bezier(0.34,1.56,0.64,1); margin-bottom: 1px; }
+  .nav-btn { width: 100%; min-height: 44px; /* A-022 touch floor */ padding: 7px 12px; background: none; border: none; color: var(--muted); font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; border-radius: 6px; display: flex; align-items: center; gap: 10px; transition: background 0.15s, color 0.15s, box-shadow 0.22s cubic-bezier(0.34,1.56,0.64,1), transform 0.22s cubic-bezier(0.34,1.56,0.64,1); margin-bottom: 1px; }
   .nav-btn:hover { background: var(--gold-dim); color: var(--text); box-shadow: inset -3px 0 0 rgba(217,164,65,0.5); transform: translateY(-1px); }
   .nav-btn.active { background: var(--gold-dim); color: var(--gold); box-shadow: inset -3px 0 0 var(--gold); transform: translateY(-2px); }
   .nav-btn .ico { font-size: 16px; width: 22px; text-align: center; }
@@ -95,7 +96,7 @@
   .quick-field-actions { display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
   .quick-field-actions .btn { padding:5px 9px; font-size:11px; }
   label { color: var(--muted); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; margin-bottom: 8px; }
-  input, select, textarea { background: linear-gradient(145deg, rgba(30,30,30,0.8), rgba(20,20,20,0.6)); border: 2px solid rgba(217,164,65,0.15); color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; padding: 12px 14px; border-radius: 8px; outline: none; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
+  input, select, textarea { background: linear-gradient(145deg, rgba(30,30,30,0.8), rgba(20,20,20,0.6)); border: 2px solid var(--control-border); /* was rgba(217,164,65,0.15) ~1.2:1 -- A-016 requires >=3:1 */ color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; padding: 12px 14px; border-radius: 8px; outline: none; transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: inset 0 2px 4px rgba(0,0,0,0.3); }
   input:focus, select:focus, textarea:focus { border-color: var(--gold); background: linear-gradient(145deg, rgba(30,30,30,0.95), rgba(20,20,20,0.8)); box-shadow: inset 0 2px 4px rgba(0,0,0,0.3), 0 0 0 3px rgba(217,164,65,0.1); }
   .invoice-number-fields { display:grid; grid-template-columns:1fr 120px; gap:10px; }
   .invoice-number-fields div { display:grid; gap:5px; }
@@ -269,7 +270,7 @@
   .time-section-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.10em; }
   .time-section-header.upcoming { background: var(--blue-dim); color: var(--blue); border: 1px solid rgba(93,173,226,0.2); }
   .time-section-header.today { background: var(--today-dim); color: var(--today); border: 1px solid rgba(230,126,34,0.35); animation: pulse-border 2s infinite; }
-  .time-section-header.past { background: var(--past-dim); color: var(--past); border: 1px solid rgba(85,85,85,0.2); }
+  .time-section-header.past { background: var(--past-dim); color: var(--past); border: 1px solid rgba(122,119,108,0.2); }
   @keyframes pulse-border { 0%,100%{border-color:rgba(230,126,34,0.35);}50%{border-color:rgba(230,126,34,0.7);} }
   .time-section-header .tsh-count { margin-left: auto; font-size: 11px; opacity: 0.7; }
   .time-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
@@ -626,4 +627,22 @@
 .nav-btn.active {
   box-shadow: inset -3px 0 0 var(--gold) !important;
   transform: translateY(-2px) !important;
+}
+
+/* A-018 (owner-approved): the interface must remain complete and legible
+   with animation disabled. Every duration collapses under the user's
+   reduced-motion preference; layout and state remain fully rendered. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  /* index.html's inline style block re-declares .nav-btn's transition with
+     !important at higher specificity than * -- match it explicitly so the
+     preference wins there too. */
+  button.nav-btn, button.nav-btn:hover, button.nav-btn.active {
+    transition-duration: 0.01ms !important;
+  }
 }

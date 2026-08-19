@@ -501,7 +501,7 @@ function previewBulkFiles(input) {
       return '<div style="display:flex;align-items:center;gap:10px;background:#111;border:1px solid #222;border-radius:8px;padding:8px 12px;">' +
         '<span style="font-size:20px;">' + fi2.icon + '</span>' +
         '<div style="flex:1;">' +
-          '<input type="text" id="bulk-name-' + i + '" value="' + escapeHtml(_cleanDocumentName(f.name)) + '" style="width:100%;background:#1a1a1a;border:1px solid #333;border-radius:6px;padding:5px 8px;color:#ddd;font-size:12px;" placeholder="Nom du document">' +
+          '<input type="text" id="bulk-name-' + i + '" value="' + escapeHtml(_cleanDocumentName(f.name)) + '" style="width:100%;background:#1a1a1a;border:1px solid var(--control-border);border-radius:6px;padding:5px 8px;color:#ddd;font-size:12px;" placeholder="Nom du document">' +
         '</div>' +
         '<span style="color:#555;font-size:11px;flex-shrink:0;">' + (f.size/1024).toFixed(0) + ' Ko</span>' +
       '</div>';
