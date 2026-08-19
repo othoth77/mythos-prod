@@ -36,12 +36,12 @@ function renderSuppliersPage() {
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)); gap:12px;">
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Rechercher par nom, contact ou adresse</label>
-        <input type="text" id="supplier-search" placeholder="Tapez pour chercher..." value="${supplierSearchQuery}" oninput="setSupplierSearch(this.value)" style="width:100%; padding:8px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
+        <input type="text" id="supplier-search" placeholder="Tapez pour chercher..." value="${supplierSearchQuery}" oninput="setSupplierSearch(this.value)" style="width:100%; padding:8px; background:#1a1a1a; color:#D9A441; border:1px solid var(--control-border); border-radius:6px;">
       </div>
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Filtrer par catégorie</label>
-        <select id="supplier-filter-category" onchange="setSupplierFilterCategory(this.value)" style="width:100%; padding:8px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
+        <select id="supplier-filter-category" onchange="setSupplierFilterCategory(this.value)" style="width:100%; padding:8px; background:#1a1a1a; color:#D9A441; border:1px solid var(--control-border); border-radius:6px;">
           <option value="all">📊 Toutes les catégories</option>
           ${categories.filter(c => c !== 'all').map(cat => `<option value="${cat}" ${supplierFilterCategory === cat ? 'selected' : ''}>${getSupplierCategoryStyle(cat).icon} ${cat}</option>`).join('')}
         </select>

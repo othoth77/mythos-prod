@@ -967,6 +967,70 @@ from `assets/brand/fonts/`), while Inter still rides its CDN.
 One `git revert` restores all 93 sites, the weight normalisations, and
 the font links. Not deployed — production untouched.
 
+### AUTO-12 — MIG-3 completed + the sweep's two accessibility findings fixed
+
+**Trigger.** Final-mission items: complete MIG-3's remaining tokens where a
+principled mapping exists; fix the responsive sweep's two findings.
+
+**`--past` — resolved by role mapping, not an invented value.** AUTO-9
+left `--past: #555` (2.59:1) open because A-015 corrects four semantic
+roles and "past" is not one of them. The principled mapping exists one
+level up: a past-dated calendar entry is **de-emphasised by design** —
+the approved system's `text-disabled` role (`ink-400`, `#7A776C`,
+"deliberately below body contrast — disabled/non-text glyphs") is that
+exact role. `--past` → `#7A776C`, `--past-dim` → its 12% companion
+`rgba(122,119,108,0.12)` (the D-001 universal pairing), one literal
+`rgba(85,85,85,0.2)` hairline follows. `mythos.css` follows in lockstep
+— the C-006 drift rule now enforces this pairing automatically, and the
+console suite stayed **680/680** through the change. This is a mapping
+to an existing approved role token, with the same "below body contrast
+by design" semantics the source rule documents — not a new colour.
+
+**A-016 — the conforming control boundary, applied to actual controls
+only.** The stylesheet's `input, select, textarea` rule carried
+`border: 2px solid rgba(217,164,65,0.15)` — roughly 1.2:1 composited,
+the precise "no conforming border anywhere" defect A-016 (owner-approved)
+names. A `--control-border: #726F64` token (3.84:1 dark-ground, A-016's
+value) is declared and applied there. Additionally, **22 JS-inline and
+HTML-inline form controls** carrying `border:1px solid #333` (~1.5:1) —
+the accounting/fournisseurs/documentation filter inputs and selects —
+were switched to `var(--control-border)`, matched strictly on lines that
+render an `<input` or `<select`; decorative `#333` borders on cards,
+menus and images were deliberately left (A-016 governs control
+boundaries, not decoration — the earlier AUTO-9 caution about blast
+radius is honoured by this exact scoping).
+
+**A-022 — the 44px touch floor.** `.nav-btn` gains `min-height: 44px`;
+re-measured live at 375px: all 11 sidebar buttons now exactly 44px (were
+38–39px, the sweep's finding).
+
+**A-018 — reduced motion exists now.** `css/main.css` gains the
+`prefers-reduced-motion: reduce` block (owner-approved requirement the
+legacy surface never implemented — the sweep found zero support
+repo-wide). First verification caught a real specificity fight:
+`index.html`'s inline `.nav-btn` transition is declared `!important` at
+higher specificity than the universal rule, so the preference lost
+there; fixed with an explicit `button.nav-btn` override and re-verified
+live — `transitionDuration` collapses to `1e-05s` under the emulated
+preference.
+
+**Verification.** Console suite 680/680 (lockstep drift held); 5 real
+views before/after (1.77–2.05% diffs — nav-height + control-border +
+past-tone footprint), fournisseurs/bank/cash form panels re-screenshotted
+after the inline-control pass; `node --check` clean on the 5 touched JS
+files; touch-target and reduced-motion re-measured in a live browser as
+above. **Honest residual:** `--past`-styled calendar entries and
+`--danger` error states are still not visually exercised by the empty
+test data (same caveat as AUTO-9, unchanged); the fix is verified at the
+token/computed-style level, by analogy to the same-category changes that
+were screenshot-verified.
+
+**Authority, reversibility, scope.** **AUTO-12, NOT owner-approved**
+(though every value applied is itself owner-approved — A-016's boundary
+value, A-018's requirement, A-022's floor, and the approved disabled
+role; what is delegated is the decision to apply them here). One
+`git revert` restores everything. Not deployed.
+
 ### Stage 1I — design prototypes delivered
 
 **Not a decision — a deliverable, recorded for completeness.** Seven
@@ -1299,7 +1363,7 @@ by inference.**
 | ~~**SEM-1**~~ | Adopt the corrected semantic palette? | — | **RESOLVED 2026-08-18 by A-015** — adopted, verified on all four surfaces |
 | ~~**MIG-1**~~ | Align Mythos OS's implemented `--gold: #c9a84c` with the approved master `#D9A441` | — | **EXECUTED 2026-08-18, AUTO-7.** Real scope was 331 occurrences across 16 files (not one value, and larger than AUTO-6's own 42/12 estimate). Applied, verified across 16 real views, not deployed. Not owner-approved. See `docs/design/MIG_EXECUTION_MAPPING.md` §2a, `MYTHOS_DESIGN_DECISIONS.md` §0.5 AUTO-7 |
 | ~~**MIG-2**~~ | ~~Replace the 45 `Playfair Display` declarations in `css/*.css`~~ — real scope 93 occurrences, 14 files (AUTO-6) | — | **EXECUTED 2026-08-19, AUTO-11** — solved by role separation (display/label/data), after AUTO-8's honest rollback proved a blanket display-face swap wraps financial figures. All 93 sites classified individually and migrated; verified across 17 real views; the AUTO-8 regression selector now renders one-line in the approved Data face. Not owner-approved. See §0.5 AUTO-11 |
-| **MIG-3** | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | Partial | **EXECUTED (partial), AUTO-9.** `--muted`/`--danger` corrected and applied; `--past` and the control-border token left explicitly open — no approved target for the former, too broad a blast radius for the latter without real per-selector work. See `docs/design/MIG_EXECUTION_MAPPING.md` §4 |
+| ~~**MIG-3**~~ | Apply the corrected semantic tokens and the new control-border tokens to the Mythos OS token block | — | **COMPLETED 2026-08-19: AUTO-9 (`--muted`/`--danger`) + AUTO-12 (`--past` via the approved disabled-role mapping; A-016 control boundary applied to the stylesheet rule and 22 inline form controls, decorative borders deliberately untouched).** Not owner-approved. See §0.5 AUTO-12 |
 | **MIG-4** | Bring Mythos Command Center's palette (light `#f6f7f9` / indigo `#4f46e5`) into the Mythos system | Not yet | **NEW, from A-020.** **CHECKED and left BLOCKED, AUTO-9** — MCC-1 is confirmed live, deployed, serving real public traffic; the O-A1 approval is classification only; a standing, unrevoked instruction never to touch MCC-1 applies. No file under `projects/command-center/` was read or touched. See `docs/design/MIG_EXECUTION_MAPPING.md` §5a |
 | **SEQ-1** | Sequential and diverging data scales for continuous data | No | **NEW, raised by 1D.** The eight-series categorical palette is approved; continuous scales were outside the 1C scope and must not be improvised (`docs/design/COLOR_SYSTEM.md` §5) |
 | ~~**TYPE-2**~~ | Font subsets, shipped weight instances, and the font performance budget | — | **RESOLVED 2026-08-18 by AUTO-4** — real files self-hosted, real numbers measured; not owner-approved, see §0.5 |

@@ -55,7 +55,7 @@ function renderCashPage() {
     <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Type de Liaison</label>
-        <select id="cash-filter-status" onchange="setComptaCashFilterStatus(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
+        <select id="cash-filter-status" onchange="setComptaCashFilterStatus(this.value)" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid var(--control-border); border-radius:6px;">
           <option value="all">📊 Tous</option>
           <option value="expense" ${comptaCashFilterStatus === 'expense' ? 'selected' : ''}>🔴 Dépenses</option>
           <option value="income" ${comptaCashFilterStatus === 'income' ? 'selected' : ''}>🟢 Revenus</option>
@@ -66,12 +66,12 @@ function renderCashPage() {
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Montant Min</label>
-        <input type="number" id="cash-filter-min" value="${comptaCashFilterMinAmount === 0 ? '' : comptaCashFilterMinAmount}" placeholder="0" onchange="setComptaCashFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
+        <input type="number" id="cash-filter-min" value="${comptaCashFilterMinAmount === 0 ? '' : comptaCashFilterMinAmount}" placeholder="0" onchange="setComptaCashFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid var(--control-border); border-radius:6px;">
       </div>
 
       <div>
         <label style="color:var(--muted); font-size:11px; font-weight:700; margin-bottom:4px; display:block;">Montant Max</label>
-        <input type="number" id="cash-filter-max" value="${comptaCashFilterMaxAmount === Infinity ? '' : comptaCashFilterMaxAmount}" placeholder="∞" onchange="setComptaCashFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid #333; border-radius:6px;">
+        <input type="number" id="cash-filter-max" value="${comptaCashFilterMaxAmount === Infinity ? '' : comptaCashFilterMaxAmount}" placeholder="∞" onchange="setComptaCashFilterAmount()" style="width:100%; padding:6px; background:#1a1a1a; color:#D9A441; border:1px solid var(--control-border); border-radius:6px;">
       </div>
 
       <div style="display:flex; align-items:flex-end;">
