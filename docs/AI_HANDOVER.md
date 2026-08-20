@@ -1,7 +1,74 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** RUNNER-FIX **VPS RUNNER PROVISIONING PERMISSION FIX — the first live run of provision-runner.sh on the VPS failed at extraction (`tar ... Cannot open: Permission denied`): the temp dir came from `mktemp -d` as root (0700 root-owned) so the unprivileged `sudo -u mythos-runner tar` could not open the tarball inside it. FIXED by chowning the temp dir + tarball to mythos-runner before extraction (no mode widening, no root extraction), plus full rerun-safety for the partial state the failure left (account adopted + password re-locked every run, download/registration tracked independently, config.sh --replace, token only required while unregistered). New regression suite tests/vps-runner-provisioning-test.js 25/0; governance 99/0; MOS-v2 gate SUCCESS. VPS still holds the partial install (account created, nothing extracted, unregistered) — NO manual cleanup needed, operator reruns the same install command with a fresh RUNNER_TOKEN from a checkout containing this fix. M-13 NOT STARTED.**
+**From:** STC-AR **STATUS CENTER SIMPLE-ARABIC LAYER — every explanatory/definition text on the live Status Center now carries a short, simple Modern-Arabic explanation for a non-technical reader, rendered UNDER the unchanged English (RTL, IBM Plex Sans Arabic, visually secondary). Centralized in app.js (states, projects, execution paths, blockers, owner/next actions, change groups, source hierarchy, misc UI messages) keyed by stable ids/exact recorded titles — dynamic English from data/current.json is preserved verbatim; status values, numbers, hashes, dates, URLs untouched; data/ and reviews/ untouched. VALIDATED: stc-1 73/0 · governance 99/0 · MOS-v2 gate SUCCESS · headless render check 26/0 (desktop + 390px mobile; English intact; Arabic under English; RTL + smaller confirmed; the 455px mobile scrollWidth is PRE-EXISTING — byte-identical without this change — caused by the header .gesture element, recorded not fixed). NOT DEPLOYED — operator redeploys per DEPLOYMENT.md step 1.**
+
+## STC-AR — Status Center simple-Arabic explanation layer (2026-08-20)
+
+### Stage
+
+Branch `claude/status-center-routing-fix-ah002u` restarted from main
+`149dbae` (its previous content, PR #56, is fully merged history).
+Ordered scope: keep English primary and add a simple Arabic explanation
+under every explanatory/definition text of the Status Center, without
+touching the evidence model, status logic, data, or design.
+
+### Delivered
+
+- `assets/app.css` — `.simple-ar`: `direction: rtl`, `text-align:
+  right`, `--mythos-font-text-arabic` (the already-shipped IBM Plex
+  Sans Arabic faces), 13px/12.5px vs 16px body English, secondary ink,
+  isolated bidi. No redesign; one additive class.
+- `index.html` — 15 static Arabic lines: one under each section's
+  explanatory heading/note (executive status, legend, projects, tracks,
+  infrastructure, timeline, what-changed, blockers, owner actions,
+  next actions, do-not-reopen, documents, repositories, history) plus
+  the noscript note. English untouched.
+- `assets/app.js` — centralized `AR` layer + `arEl`/`arState`/
+  `arTrackExplanation` helpers: meaning-based Arabic for all 22 state
+  values (legend, drawers, document/repository classifications,
+  fallbacks), all 22 project purposes, all 10 execution paths, all 12
+  blockers, all 8 owner actions, all 6 next actions, the 11
+  what-changed groups, the 5 source-hierarchy entries, and the UI
+  messages (empty timeline, no-changes, compare-no-diff, load error,
+  review-now drawer). Keys are stable ids or exact recorded titles from
+  `data/current.json`; unknown keys render no Arabic line — nothing is
+  invented. Rendering stays textContent/createElement only; the track
+  Arabic reuses the recorded "N of M" numbers verbatim.
+- `data/`, `reviews/`, `health.json`, the review engine, and all
+  status values/numbers/hashes/dates/URLs: unchanged.
+
+### Verification
+
+| Check | Result |
+|---|---|
+| stc-1 suite | **73/0** |
+| Governance invariant suite | **99/0** |
+| MOS-v2 regression gate | **SUCCESS** — 0 new failures |
+| Headless render check (1440px + true 390px mobile: console clean, Arabic under every English target, English samples intact, RTL/right/13px/Plex-Arabic computed, drawer + dynamic sections covered) | **26/0** |
+| `node --check` app.js | clean |
+
+Known pre-existing issue, recorded not fixed (out of scope): mobile
+scrollWidth 455 at a 390px viewport — reproduced byte-identically on
+the unmodified tree; the header `.gesture` element overhangs. A future
+stage can clip it (`overflow-x` on the header) with visual proof.
+
+### Deployment
+
+NOT DEPLOYED. The live site still serves the pre-Arabic revision.
+Operator: rerun `sites/status.mythosprod.xyz/DEPLOYMENT.md` step 1
+(content rsync; no vhost/cert change needed) or
+`sudo bash scripts/deploy-status-center.sh` from a checkout containing
+this commit.
+
+### Next stage
+
+Operator redeploys the surface; future reviews continue via the
+registry → review engine flow unchanged.
+
+---
+
+**Previously:** RUNNER-FIX **VPS RUNNER PROVISIONING PERMISSION FIX — the first live run of provision-runner.sh on the VPS failed at extraction (`tar ... Cannot open: Permission denied`): the temp dir came from `mktemp -d` as root (0700 root-owned) so the unprivileged `sudo -u mythos-runner tar` could not open the tarball inside it. FIXED by chowning the temp dir + tarball to mythos-runner before extraction (no mode widening, no root extraction), plus full rerun-safety for the partial state the failure left (account adopted + password re-locked every run, download/registration tracked independently, config.sh --replace, token only required while unregistered). New regression suite tests/vps-runner-provisioning-test.js 25/0; governance 99/0; MOS-v2 gate SUCCESS. VPS still holds the partial install (account created, nothing extracted, unregistered) — NO manual cleanup needed, operator reruns the same install command with a fresh RUNNER_TOKEN from a checkout containing this fix. M-13 NOT STARTED.**
 
 ## VPS runner provisioning permission fix (2026-08-20)
 
