@@ -88,6 +88,19 @@ unprivileged `tar` (no mode widening, extraction still never runs as
 root). Rerun the same install command from a checkout containing the
 fix; the partially-created account is reused automatically.
 
+A second, latent bug was fixed in the same pass before it could strike:
+the registration step passed `RUNNER_TOKEN` as a trailing word after
+the `bash -c` command string. That word becomes the child shell's `$0`
+— not an environment variable — and `sudo`'s `env_reset` strips the
+real variable, so `config.sh` would have received an **empty token**
+(and the token text would have appeared in the process list). Verified
+empirically in a sandbox. Registration now runs via `runuser`, which
+inherits the root shell's exported environment; the child shell expands
+`$RUNNER_TOKEN` itself. The token still is exchanged immediately by
+`config.sh`, is never persisted, never echoed, and never appears in the
+`runuser` argv. Both bugs are pinned by
+`tests/vps-runner-provisioning-test.js`.
+
 ## 4. Repository Actions settings (owner, once)
 
 In `othoth77/mythos-prod` → Settings → Actions:

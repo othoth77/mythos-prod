@@ -1,7 +1,61 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** MOS-CONSOLE-LIVE **MOS-v2 CONSOLE 100% LIVE VERIFIED AND CLOSED (DO NOT REOPEN). Full suite green ON the VPS (mos-1 1438/0, executor 264/0, governance 99/0, unattended 53/0, MOS-v2 gate SUCCESS 20/20 — first run with 0 pre-existing failures). Live Command-Center missions: A = t-20260820140341-upbarn (titleless start, auto-title derived live, instruction byte-identical, COMPLETED in 82s through the real executor, structured report persisted and relay-delivered to origin/main as 159456a) and B = t-20260820150659-sm69d6 (continuation from persisted state ONLY, after full console+executor restarts). BLOCKED missions stayed BLOCKED across restarts; console secret 0600/provisioned; zero secret leakage. ONE real Console defect found by live verification and FIXED: console title ceiling 200 vs executor stage maxLength 80 → opaque upstream_error for 81-200-char titles; e888044 aligns the whole title contract at 80 with a live-shaped boundary regression. Next: OTH-KNOWLEDGE live activation (owner-only).**
+**From:** RUNNER-MAIN **PR #53 MERGED TO MAIN (merge commit `149dbae`) — the runner package with the temp-dir permission fix (PR #55, `6117338`) is on main. HOWEVER the second runner fix (`3c53612`, registration token never reached config.sh: bash -c trailing-word + sudo env_reset → empty token) landed on the branch AFTER the #53 merge and is NOT yet on main — main's provision-runner.sh at `db2909a` still carries the broken registration call. THIS follow-up PR delivers the token fix + updated tests/runbook to main. Validated on the merged tree: runner suite 29/0, bash -n clean, gate YAML parses, governance 99/0, MOS-v2 gate SUCCESS 0 new failures. VPS install remains an OWNER-MACHINE action (deploy SSH channel, key `vps_ovh_ed25519`; the isolated AI container still has no path — VPS-PATH finding stands for it). Operator MUST provision from a main checkout that includes THIS PR, not `db2909a`/`159456a`, or registration will fail with an empty token. M-13 NOT STARTED.**
+
+## RUNNER-MAIN — PR #53 merged; token fix delivered to main (2026-08-20)
+
+### What happened
+
+1. PR #55 (temp-dir permission fix, `6117338`) merged into the runner
+   branch; PR #53 branch then updated against current main and merged to
+   main as **`149dbae`** (merged_by owner, 13:50:49Z).
+2. In parallel, the RUNNER-TOKEN-FIX session landed `3c53612` on the
+   runner branch — after the #53 merge point — so main (`db2909a`) has
+   the perms fix but **still the empty-token registration bug**.
+3. This entry accompanies the follow-up PR that fast-forwards main to
+   the runner-branch tip content (`25e38f8` tree): runuser-based
+   registration (`export RUNNER_TOKEN`, token never in argv), extended
+   `tests/vps-runner-provisioning-test.js` (29/0, both bugs pinned),
+   runbook §3a updated.
+
+### State at this entry
+
+- PR #53: MERGED (`149dbae`). PR #55: MERGED. Remote HEAD (main) at
+  entry time: `db2909a` → after this PR merges, verify the new HEAD
+  contains `3c53612` before any VPS action.
+- VPS (per VPS-GATE-VERIFY, read-only): partial runner state intact —
+  `mythos-runner` uid 999 (no banned groups), `/opt/mythos-gh-runner`
+  0750, unit inactive, GitHub runner registry empty. No manual cleanup
+  needed; the fixed installer adopts it.
+- Access: owner-machine SSH as deploy (`vps_ovh_ed25519`) is the only
+  verified live channel. The isolated AI container cannot reach the VPS
+  (SSH blocked, HTTPS 403 by egress policy) — install steps are
+  owner/operator actions.
+
+### Exact next operator sequence (unchanged from RUNNER-TOKEN-FIX)
+
+From the owner machine: update the VPS checkout
+`/home/deploy/projects/mythos-prod` to the post-this-PR main (deploy
+identity for GitHub auth), confirm
+`projects/infrastructure/github-runner/provision-runner.sh` contains
+`export RUNNER_TOKEN` and `runuser -u "$RUNNER_USER"`, take a FRESH
+registration token + the CURRENTLY displayed runner version/SHA from
+the GitHub "New self-hosted runner" page, then as root:
+
+```bash
+cd /home/deploy/projects/mythos-prod/projects/infrastructure/github-runner
+RUNNER_TOKEN=<fresh-token> RUNNER_VERSION=<displayed> RUNNER_SHA256=<displayed> \
+  bash provision-runner.sh
+```
+
+Then `bash verify-runner.sh` (must end ALL CHECKS PASS), confirm
+`mythos-vps-runner` Idle on GitHub, and only then dispatch the VPS
+Final Gate workflow. M-13 NOT started.
+
+---
+
+**Previous entry — From:** MOS-CONSOLE-LIVE **MOS-v2 CONSOLE 100% LIVE VERIFIED AND CLOSED (DO NOT REOPEN). Full suite green ON the VPS (mos-1 1438/0, executor 264/0, governance 99/0, unattended 53/0, MOS-v2 gate SUCCESS 20/20 — first run with 0 pre-existing failures). Live Command-Center missions: A = t-20260820140341-upbarn (titleless start, auto-title derived live, instruction byte-identical, COMPLETED in 82s through the real executor, structured report persisted and relay-delivered to origin/main as 159456a) and B = t-20260820150659-sm69d6 (continuation from persisted state ONLY, after full console+executor restarts). BLOCKED missions stayed BLOCKED across restarts; console secret 0600/provisioned; zero secret leakage. ONE real Console defect found by live verification and FIXED: console title ceiling 200 vs executor stage maxLength 80 → opaque upstream_error for 81-200-char titles; e888044 aligns the whole title contract at 80 with a live-shaped boundary regression. Next: OTH-KNOWLEDGE live activation (owner-only).**
 
 ## MOS-CONSOLE-LIVE — MOS-v2 Console FINAL COMPLETION: live gate closed on the production VPS (2026-08-20)
 
@@ -241,6 +295,108 @@ Owner provisions `/home/deploy/othk-store` + authorized exports to open
 the OTH-KNOWLEDGE live gate (NEXT-OTHK-STORE, now P0). NOT M-13.
 
 ---
+
+**Previously:** RUNNER-TOKEN-FIX **SECOND LATENT PROVISIONING BUG FIXED BEFORE THE LIVE RERUN: the registration step passed RUNNER_TOKEN as a trailing word after the `bash -c` command string — that word becomes the child shell's `$0`, NOT an environment variable, and sudo's env_reset strips the real variable, so config.sh would have received an EMPTY token (proven empirically in a sandbox: child saw token=[], $0=[RUNNER_TOKEN=…]; the token text would also have appeared in the process list). Registration now runs via runuser (env inheritance, token never in the runuser argv). Regression suite extended to 29 checks pinning both bugs; suite 29/0 on the index blobs, governance 99/0, MOS-v2 gate SUCCESS (0 new failures) re-run on an LF clone. VPS partial state and operator command unchanged — rerun runbook §3 with a fresh token once this is on the governed path. M-13 NOT STARTED.**
+
+## RUNNER-TOKEN-FIX — registration token never reached config.sh (2026-08-20)
+
+### Stage
+
+FINAL LIVE GATE — second provisioning-fix pass, directly on PR #53's
+branch `claude/mythos-vps-runner-finalize-5rapsk` (on top of 77143c3,
+which already contains the extraction-permission fix from PR #55 and
+the merge of origin/main 149dbae).
+
+### Root cause (exact, verified empirically — not guessed)
+
+The registration call was
+`sudo -u mythos-runner bash -c "… --token \"$RUNNER_TOKEN\" …" RUNNER_TOKEN=<value>`:
+
+- A word after a `bash -c` command string is the child shell's **`$0`**,
+  never an environment assignment, so the child had no `RUNNER_TOKEN`
+  variable — and the raw token sat in `$0`, visible in the process list
+  for the life of the child shell.
+- `sudo`'s default `env_reset` strips `RUNNER_TOKEN` from the parent
+  environment, so the `$RUNNER_TOKEN` expansion inside the `-c` string
+  (deferred to the child via the escaped `\$`) resolved to **empty**.
+- Sandbox proof (Linux container, sudo + locked-password user, exported
+  `RUNNER_TOKEN=SECRET123`): child printed `token=[]` and
+  `$0=[RUNNER_TOKEN=SECRET123]`. The same probe via `runuser` printed
+  `token=[SECRET123]` with `HOME` correctly set to the target user's.
+
+The 2026-08-20 live install never reached this step (it died at
+extraction first), so this had produced no live failure yet — it would
+have been the very next one.
+
+### Fix (least privilege preserved, no secret widening)
+
+`provision-runner.sh` step 3/6 now registers via
+`runuser -u mythos-runner -- bash -c '… --token "$RUNNER_TOKEN" …' _ "$RUNNER_HOME" "$REPO_URL"`
+with `export RUNNER_TOKEN`: `runuser` (the tool `verify-runner.sh`
+already uses; no sudoers env policy applies) inherits the root shell's
+exported environment and the child expands the token itself. The token
+is still exchanged immediately by `config.sh`, never persisted, never
+echoed, never in the `runuser` argv; `--replace` and all rerun-safety
+behavior from the previous fix are unchanged. `RUNNER_HOME`/`REPO_URL`
+travel as positional parameters, not string-interpolated.
+
+### Validation (this session)
+
+- `tests/vps-runner-provisioning-test.js` extended with a
+  token-delivery regression block (no trailing-word token, export +
+  runuser env inheritance, no sudo-based registration remains, repo
+  scope now asserted via positional args): **29/0** against the
+  committed LF blobs in a Linux container.
+- `bash -n` both scripts (LF blobs): clean. Workflow YAML parses.
+- `tests/mythos-governance-invariant-test.js`: **99/0** (Linux container).
+- `tests/mos-v2-regression-test.js` on a clean LF clone in a Linux
+  container: **SUCCESS, 0 new failures** (MOS-1 Console 1433/0, AI
+  Executor 264/0, Orchestration Core 255/2 known VPS-only,
+  Orchestrator-0 156/0). Caution for future sessions: the gate
+  false-fails one static scan against a Windows CRLF working copy —
+  always run it from an LF checkout.
+- No secrets anywhere in the diff (token appears only as variable
+  *names* and a redacted sandbox literal `SECRET123`).
+
+### Live state — re-verified first-hand this session (read-only, owner-machine SSH)
+
+Over the documented channel (`ssh deploy@51.68.226.211`,
+`~/.ssh/vps_ovh_ed25519`, BatchMode), all read-only:
+
+- Host `vps-4722f0a9`; `id -nG deploy` → `deploy users` — the
+  docker-group remediation **holds live** (independently re-confirmed
+  after VPS-GATE-VERIFY).
+- Partial runner state exactly as recorded: `mythos-runner` account
+  exists (uid 999, groups `mythos-runner` only — no banned groups),
+  `/opt/mythos-gh-runner` present, mode 0750 `mythos-runner:mythos-runner`
+  (deploy gets EACCES listing it — correct), unit
+  `mythos-gh-runner` **inactive**, GitHub runner registry **empty**
+  (API: 0 runners).
+- The VPS checkout sits at a local executor-report commit (`159456a`)
+  whose `provision-runner.sh` still contains **both** bugs — the
+  operator MUST update the checkout (or use a fresh clone of `main`
+  after this PR merges) before rerunning the installer.
+
+### Next operator action (exact)
+
+1. Merge PR #61 (this branch; CLEAN/MERGEABLE, all suites green).
+2. As root on the VPS (OVH KVM per oth-knowledge INFRASTRUCTURE.md §5),
+   from a checkout containing the merged fix, run runbook §3 with a
+   **fresh** registration token, RUNNER_VERSION=2.336.0,
+   RUNNER_SHA256=04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d.
+3. Confirm `mythos-vps-runner` = Idle → dispatch **VPS Final Gate**.
+
+### Next stage
+
+NOT M-13. Merge PR #61 → operator install → runner-based VPS Final
+Gate. Docker remediation and on-host governance are already GREEN
+(VPS-GATE-VERIFY); the remaining live-gate blockers after the runner
+are OTH-KNOWLEDGE store provisioning (owner-only) and the designed
+on-host E2E refusal (in-container proofs stand).
+---
+
+**Previously:** RUNNER-FIX **VPS RUNNER PROVISIONING PERMISSION FIX — the first live run of provision-runner.sh on the VPS failed at extraction (`tar ... Cannot open: Permission denied`): the temp dir came from `mktemp -d` as root (0700 root-owned) so the unprivileged `sudo -u mythos-runner tar` could not open the tarball inside it. FIXED by chowning the temp dir + tarball to mythos-runner before extraction (no mode widening, no root extraction), plus full rerun-safety for the partial state the failure left (account adopted + password re-locked every run, download/registration tracked independently, config.sh --replace, token only required while unregistered). New regression suite tests/vps-runner-provisioning-test.js 25/0; governance 99/0; MOS-v2 gate SUCCESS. VPS still holds the partial install (account created, nothing extracted, unregistered) — NO manual cleanup needed, operator reruns the same install command with a fresh RUNNER_TOKEN from a checkout containing this fix. M-13 NOT STARTED.**
+
 
 ## VPS runner provisioning permission fix (2026-08-20)
 
