@@ -135,6 +135,7 @@ var STATIC = {
   '/console.css': { file: path.join(WEB, 'console.css'), type: 'text/css; charset=utf-8' },
   '/modules.js': { file: path.join(WEB, 'modules.js'), type: 'application/javascript; charset=utf-8' },
   '/app.js': { file: path.join(WEB, 'app.js'), type: 'application/javascript; charset=utf-8' },
+  '/mission-report.js': { file: path.join(WEB, 'mission-report.js'), type: 'application/javascript; charset=utf-8' },
   '/login': { file: path.join(WEB, 'login.html'), type: 'text/html; charset=utf-8' },
   '/login.html': { file: path.join(WEB, 'login.html'), type: 'text/html; charset=utf-8' },
   '/login.css': { file: path.join(WEB, 'login.css'), type: 'text/css; charset=utf-8' },
@@ -989,8 +990,11 @@ function handleStartMission(req, res) {
 // never instruction content or MCP internals. mcp_capabilities is an array
 // of 'server.tool' strings the executor already resolved server-side
 // (lib/mcp-capabilities.js); this console never re-resolves or interprets it.
+// task_category joins the allowlist for the same reason skill_id did: a
+// name from a fixed vocabulary the console itself validated at start, never
+// content. The detail panel and the copyable mission report both show it.
 var TASK_DETAIL_TASK_FIELDS = ['task_id', 'project', 'stage', 'instruction', 'provider', 'model', 'priority', 'execution_profile',
-  'created_at', 'skill_id', 'skill_version', 'mcp_capabilities'];
+  'created_at', 'skill_id', 'skill_version', 'mcp_capabilities', 'task_category'];
 var TASK_DETAIL_STATUS_FIELDS = ['status', 'started_at', 'ended_at', 'last_error', 'next_action', 'execution_id', 'retry_count'];
 
 function pick(src, fields) {

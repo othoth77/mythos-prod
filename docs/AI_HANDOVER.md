@@ -1,7 +1,64 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** CC-AUTO-TITLE **COMMAND CENTER — MISSION TITLE DERIVED FROM THE INSTRUCTION'S FIRST NON-EMPTY LINE WHEN THE TITLE IS EMPTY (SERVER-SIDE, AT handleStartMission); DELIVERED VIA PULL REQUEST.**
+**From:** CC-COPY-REPORT **COMMAND CENTER — COPY MISSION REPORT BUTTON FOR TERMINAL MISSIONS (CLIENT-SIDE REPORT BUILDER web/mission-report.js + COPY ROW IN THE EXECUTION DETAIL PANEL); DELIVERED VIA PULL REQUEST (PR #47, WITH CC-AUTO-TITLE).**
+
+## CC-COPY-REPORT — Command Center copy mission report (2026-08-20)
+
+### Stage
+
+Command Center UI/UX feature, on branch
+`claude/command-center-auto-title-slat0z` (stacked on CC-AUTO-TITLE, same
+PR #47). Objective: a terminal mission (COMPLETED / BLOCKED / FAILED /
+CANCELLED) offers a **Copy Mission Report** button (plus an optional
+**Copy Result** when a summary exists) that copies a complete, structured,
+plain-text report to the operator's clipboard for pasting into another AI
+conversation. Nothing is sent anywhere; executor behaviour, mission
+execution, the security model, approvals, skills, providers and execution
+profiles are untouched.
+
+### Implementation
+
+- `projects/mythos-os-console/reference/web/mission-report.js` — NEW, the
+  ONE owner of the report format. Dual-environment (modules.js pattern):
+  the browser gets `window.MythosMissionReport`, tests `require()` the
+  same file. `buildMissionReport(mission)` is deterministic (no clock, no
+  fetch, no DOM); input is exactly the detail-relay task/status/effective
+  plus the report-relay data. Missing fields render as `<not available>`,
+  never invented; duration is computed from started/ended when both parse;
+  free text is verbatim and untruncated; one redaction pass replaces
+  credential-shaped values (labelled key/token/password assignments,
+  bearer headers, well-known token shapes) with `[REDACTED]`.
+  `buildResultText(mission)` backs the optional Copy Result button.
+- `projects/mythos-os-console/reference/web/app.js` — `copyRow()` appended
+  to the execution detail panel on the terminal-state path; copies via
+  `navigator.clipboard.writeText`, confirms with "Mission report copied",
+  and falls back to a pre-selected read-only textarea when the clipboard
+  API is unavailable. Detail panel now also shows the Category fact.
+- `projects/mythos-os-console/reference/server.js` — `task_category` added
+  to TASK_DETAIL_TASK_FIELDS (a vocabulary name, same reasoning as
+  skill_id) and `/mission-report.js` to the STATIC whitelist
+  (auth-required, like app.js). No other backend change.
+- `projects/mythos-os-console/reference/web/index.html` — loads
+  mission-report.js before app.js. `console.css` — copy-row styling.
+- `tests/mos-1-console-test.js` — unit tests requiring mission-report.js
+  directly (spec cases 1–11: terminal states, missing fields, multiline
+  and 100k-char untruncated text, explicit/derived titles, redaction) plus
+  source-level clipboard wiring assertions (case 12), and the new file
+  added to every existing sweep (XSS sinks, exec paths, storage/digest,
+  credential sweep, private-static auth).
+
+### Tests (executed in this session's container)
+
+| Command | Result | Exit |
+|---|---|---|
+| `node tests/mos-1-console-test.js` | **1388 passed / 0 failed** | 0 |
+| `node tests/mos-v2-regression-test.js` | SUCCESS, 20/20 areas; 0 new failures (Orchestration Core 255/2 pre-existing, untouched) | 0 |
+
+### State
+
+Delivered via pull request (PR #47). No deployment, no data migration.
+Next stage: unchanged (M-13 NOT started, per task instruction).
 
 ## CC-AUTO-TITLE — Command Center auto-title from instruction (2026-08-20)
 

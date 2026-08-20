@@ -651,6 +651,57 @@
     return wrap;
   }
 
+  // Copy Mission Report / Copy Result — terminal missions only. The text
+  // is built by window.MythosMissionReport (web/mission-report.js, the ONE
+  // owner of the report format, unit-tested in tests/mos-1-console-test.js)
+  // from exactly the objects the detail panel already fetched and rendered:
+  // no second fetch, no extra fields, and nothing is sent anywhere — the
+  // text goes to the operator's clipboard and nowhere else.
+  function copyRow(mission) {
+    var reporter = window.MythosMissionReport;
+    var note = el('span', { className: 'mythos-copy-note' });
+    var fallbackArea = null;
+    var wrap = el('div', { className: 'mythos-copy-row' });
+
+    function copyButton(label, confirmation, buildText) {
+      var btn = el('button', { className: 'mythos-btn mythos-btn-outline', attrs: { type: 'button' }, text: label });
+      btn.addEventListener('click', function () {
+        var text = buildText();
+        var clip = (navigator.clipboard && navigator.clipboard.writeText)
+          ? navigator.clipboard.writeText(text)
+          : Promise.reject(new Error('clipboard unavailable'));
+        clip.then(function () {
+          note.textContent = confirmation;
+        }).catch(function () {
+          // Clipboard API unavailable or denied: same fallback posture as
+          // the rest of this console — show the honest state and hand the
+          // operator the text. A read-only textarea, pre-selected, so one
+          // Ctrl/Cmd-C finishes the same job. Still nothing sent anywhere.
+          note.textContent = 'Clipboard unavailable — text selected below, press Ctrl/Cmd-C';
+          if (!fallbackArea) {
+            fallbackArea = el('textarea', { className: 'mythos-input mythos-textarea', attrs: { readonly: 'readonly', rows: '12' } });
+            wrap.appendChild(fallbackArea);
+          }
+          fallbackArea.value = text;
+          fallbackArea.focus();
+          fallbackArea.select();
+        });
+      });
+      return btn;
+    }
+
+    wrap.appendChild(copyButton('Copy Mission Report', 'Mission report copied', function () {
+      return reporter.buildMissionReport(mission);
+    }));
+    // The optional second button, only when there is a result to copy.
+    var resultText = reporter.buildResultText(mission);
+    if (resultText !== null) {
+      wrap.appendChild(copyButton('Copy Result', 'Result copied', function () { return resultText; }));
+    }
+    wrap.appendChild(note);
+    return wrap;
+  }
+
   function executionCard(t) {
     var state = String(t.effective || t.status || 'UNKNOWN').toUpperCase();
     var detailSlot = el('div', { className: 'mythos-exec-detail' });
@@ -677,6 +728,7 @@
         detailSlot.appendChild(fact('Provider', dTask.provider || '—'));
         detailSlot.appendChild(fact('Model', dTask.model || '(default)'));
         detailSlot.appendChild(fact('Priority', dTask.priority || '—'));
+        detailSlot.appendChild(fact('Category', dTask.task_category || '(none)'));
         detailSlot.appendChild(fact('Execution profile', dTask.execution_profile || '—'));
         // M-12: the skill_id/skill_version badge-line -- names only, never
         // the instruction content itself, which never reaches the browser.
@@ -692,6 +744,17 @@
         if (report && report.ok && report.data.next_stage) detailSlot.appendChild(fact('Next stage', report.data.next_stage));
         if (report && report.ok && report.data.problems && report.data.problems.length) {
           detailSlot.appendChild(fact('Report problems', report.data.problems.join('; ')));
+        }
+        // Terminal missions (COMPLETED / BLOCKED / FAILED / CANCELLED) get
+        // the copy buttons — whatever the outcome was, and even if the
+        // report fetch itself failed (the metadata report still copies).
+        if (terminal) {
+          detailSlot.appendChild(copyRow({
+            task: dTask,
+            status: dStatus,
+            effective: detail.data.effective || state,
+            report: (report && report.ok) ? report.data : null
+          }));
         }
       });
     });

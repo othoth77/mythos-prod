@@ -71,6 +71,7 @@ function markup(src) { return src.replace(/<!--[\s\S]*?-->/g, ''); }
 var mythosCss = read(path.join(WEB, 'mythos.css'));
 var consoleCss = read(path.join(WEB, 'console.css'));
 var appJs = read(path.join(WEB, 'app.js'));
+var missionReportJs = read(path.join(WEB, 'mission-report.js'));
 var shellHtml = read(path.join(WEB, 'index.html'));
 var loginHtml = read(path.join(WEB, 'login.html'));
 var loginCss = read(path.join(WEB, 'login.css'));
@@ -240,6 +241,7 @@ measured.filter(function (r) { return r.informational && /--muted as body text/.
 // ===========================================================================
 
 var serverCode = code(serverJs), upstreamCode = code(upstreamJs), appCode = code(appJs);
+var missionReportCode = code(missionReportJs);
 var shellMarkup = markup(shellHtml);
 
 ok(/req\.method !== 'GET' && req\.method !== 'HEAD' && !writeMatch/.test(serverCode),
@@ -288,16 +290,17 @@ ok((upstreamCode.match(/method:\s*'POST'/g) || []).length === 1,
    'upstream client issues POST exactly once (its own post() function, added for MOS-2)');
 ok(!/method:\s*'POST'/.test(serverCode), 'the console server itself never issues a POST anywhere (it only relays through upstream.post)');
 ok(/method: 'GET'/.test(upstreamCode), 'upstream client issues GET');
-ok(!/child_process|[^.\w]exec\(|[^.\w]spawn\(|[^.\w]eval\(|new Function/.test(serverCode + upstreamCode + appCode),
+ok(!/child_process|[^.\w]exec\(|[^.\w]spawn\(|[^.\w]eval\(|new Function/.test(serverCode + upstreamCode + appCode + missionReportCode),
    'no execution path anywhere in the console (MCC-1 precedent)');
 
 // XSS: the whole client renders through textContent.
 ['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write'].forEach(function (sink) {
   ok(appCode.indexOf(sink) === -1, 'client never uses ' + sink);
+  ok(missionReportCode.indexOf(sink) === -1, 'mission-report.js never uses ' + sink);
 });
 ok(/textContent/.test(appCode), 'client assigns text through textContent');
-ok(!/<script/.test(shellMarkup.replace(/<script src="\/(modules|app)\.js"><\/script>/g, '')),
-   'the shell has no inline script, and loads only modules.js and app.js');
+ok(!/<script/.test(shellMarkup.replace(/<script src="\/(modules|mission-report|app)\.js"><\/script>/g, '')),
+   'the shell has no inline script, and loads only modules.js, mission-report.js and app.js');
 ok(!/<script/.test(markup(loginHtml).replace(/<script src="\/login\.js"><\/script>/g, '')),
    'the sign-in page has no inline script, and loads only login.js');
 ok(!/ style="/.test(markup(loginHtml)), 'the sign-in page has no inline style attribute');
@@ -378,12 +381,158 @@ ok(/function hasSessionCookie/.test(authCode),
 // NOTHING THE BROWSER LOADS TOUCHES WEB STORAGE OR HOLDS A CREDENTIAL.
 // This is the exact defect of the gate that was removed, so it is
 // asserted over every file the browser downloads, not just the new one.
-[['app.js', appCode], ['login.js', loginJsCode], ['modules.js', code(read(path.join(WEB, 'modules.js')))]].forEach(function (pair) {
+[['app.js', appCode], ['login.js', loginJsCode], ['modules.js', code(read(path.join(WEB, 'modules.js')))], ['mission-report.js', missionReportCode]].forEach(function (pair) {
   ok(!/localStorage|sessionStorage/.test(pair[1]),
      pair[0] + ' writes no token or flag to JavaScript-readable storage');
   ok(!/[0-9a-f]{40,}/.test(pair[1]), pair[0] + ' carries no digest-shaped constant');
   ok(!/crypto\.subtle/.test(pair[1]), pair[0] + ' does no client-side credential maths');
 });
+// ===========================================================================
+// COPY MISSION REPORT — unit tests for the report builder itself.
+//
+// mission-report.js is dual-environment (the same pattern as modules.js),
+// so the EXACT code the browser runs is require()d and exercised here
+// directly, deterministically, with no server and no DOM. The input shape
+// is exactly what app.js hands it: the detail relay's task/status/effective
+// plus the report relay's data.
+// ===========================================================================
+(function () {
+  var mr = require(path.join(WEB, 'mission-report.js'));
+  var NA = mr.NOT_AVAILABLE;
+
+  function mission(overrides) {
+    var base = {
+      task: { task_id: 'tk-1', project: 'mythos-prod', stage: 'My mission title',
+              instruction: 'First line\nSecond line', provider: 'claude-code', model: 'sonnet',
+              priority: 'normal', execution_profile: 'repo-read', created_at: '2026-08-20T08:00:00Z',
+              skill_id: 'security-audit', skill_version: '1.0.0', mcp_capabilities: ['github.list_pull_requests'],
+              task_category: 'security' },
+      status: { status: 'COMPLETED', started_at: '2026-08-20T08:00:10Z', ended_at: '2026-08-20T09:02:13Z',
+                last_error: null, next_action: 'none — mission complete', execution_id: 'x-unit-1', retry_count: 0 },
+      effective: 'COMPLETED',
+      report: { status: 'completed', summary: 'All work done.\nDetails on line two.', next_stage: 'M-99', problems: [] }
+    };
+    Object.keys(overrides || {}).forEach(function (k) { base[k] = overrides[k]; });
+    return base;
+  }
+
+  // 1. COMPLETED: every metadata and result field appears.
+  var full = mr.buildMissionReport(mission());
+  ok(full.indexOf('MYTHOS MISSION REPORT') === 0, 'report: opens with the MYTHOS MISSION REPORT header');
+  eq(full.indexOf('Title:\nMy mission title') !== -1, true, 'report: title appears');
+  eq(full.indexOf('Execution ID:\nx-unit-1') !== -1, true, 'report: execution id appears');
+  eq(full.indexOf('Status:\nCOMPLETED') !== -1, true, 'report: status appears');
+  eq(full.indexOf('Stage:\nMy mission title') !== -1, true, 'report: stage appears');
+  eq(full.indexOf('Skill:\nsecurity-audit v1.0.0') !== -1, true, 'report: skill and version appear');
+  eq(full.indexOf('Provider:\nclaude-code') !== -1, true, 'report: provider appears');
+  eq(full.indexOf('Model:\nsonnet') !== -1, true, 'report: model appears');
+  eq(full.indexOf('Execution Profile:\nrepo-read') !== -1, true, 'report: execution profile appears');
+  eq(full.indexOf('Priority:\nnormal') !== -1, true, 'report: priority appears');
+  eq(full.indexOf('Category:\nsecurity') !== -1, true, 'report: category appears');
+  eq(full.indexOf('Created:\n2026-08-20T08:00:00Z') !== -1, true, 'report: created timestamp appears');
+  eq(full.indexOf('Started:\n2026-08-20T08:00:10Z') !== -1, true, 'report: started timestamp appears');
+  eq(full.indexOf('Ended:\n2026-08-20T09:02:13Z') !== -1, true, 'report: ended timestamp appears');
+  eq(full.indexOf('Duration:\n1h 02m 03s') !== -1, true, 'report: duration is calculated from the two timestamps');
+  eq(full.indexOf('INSTRUCTION\n-----------\nFirst line\nSecond line') !== -1, true, 'report: complete multiline instruction, preserved exactly (6)');
+  eq(full.indexOf('RESULT SUMMARY\n--------------\nAll work done.\nDetails on line two.') !== -1, true, 'report: complete multiline result summary, preserved exactly (7)');
+  eq(full.indexOf('NEXT ACTION\n-----------\nnone — mission complete') !== -1, true, 'report: next action appears');
+  eq(full.indexOf('report_next_stage: M-99') !== -1, true, 'report: raw details carry the report next_stage');
+  eq(full.indexOf('mcp_capabilities: github.list_pull_requests') !== -1, true, 'report: raw details carry mcp capability names');
+  eq(full.indexOf('ERROR / BLOCKER\n---------------\n' + NA) !== -1, true, 'report: a null error is ' + NA + ', not invented');
+
+  // 2. BLOCKED: blocker and next action appear.
+  var blocked = mr.buildMissionReport(mission({
+    status: { status: 'BLOCKED', started_at: '2026-08-20T08:00:10Z', ended_at: null,
+              last_error: 'approval_required: repo-write needs the owner', next_action: 'owner must approve', execution_id: 'x-unit-2', retry_count: 1 },
+    effective: 'BLOCKED', report: null
+  }));
+  eq(blocked.indexOf('Status:\nBLOCKED') !== -1, true, 'report: BLOCKED status appears (2)');
+  eq(blocked.indexOf('ERROR / BLOCKER\n---------------\napproval_required: repo-write needs the owner') !== -1, true, 'report: blocker text appears (2)');
+  eq(blocked.indexOf('NEXT ACTION\n-----------\nowner must approve') !== -1, true, 'report: next action appears for a blocked mission (2)');
+  eq(blocked.indexOf('Duration:\n' + NA) !== -1, true, 'report: no duration is invented while ended_at is null (2)');
+
+  // 3. FAILED: error information appears.
+  var failed = mr.buildMissionReport(mission({
+    status: { status: 'FAILED', started_at: '2026-08-20T08:00:10Z', ended_at: '2026-08-20T08:00:52Z',
+              last_error: 'provider exited 1: ENOSPC', next_action: null, execution_id: 'x-unit-3', retry_count: 2 },
+    effective: 'FAILED'
+  }));
+  eq(failed.indexOf('Status:\nFAILED') !== -1, true, 'report: FAILED status appears (3)');
+  eq(failed.indexOf('ERROR / BLOCKER\n---------------\nprovider exited 1: ENOSPC') !== -1, true, 'report: error text appears (3)');
+  eq(failed.indexOf('Duration:\n42s') !== -1, true, 'report: sub-minute duration renders as seconds (3)');
+  eq(failed.indexOf('retry_count: 2') !== -1, true, 'report: retry count is carried in raw details (3)');
+
+  // 4. CANCELLED: status appears correctly.
+  var cancelled = mr.buildMissionReport(mission({
+    status: { status: 'CANCELLED', started_at: null, ended_at: null, last_error: null,
+              next_action: null, execution_id: null, retry_count: 0 },
+    effective: 'CANCELLED', report: null
+  }));
+  eq(cancelled.indexOf('Status:\nCANCELLED') !== -1, true, 'report: CANCELLED status appears (4)');
+  eq(cancelled.indexOf('Execution ID:\n' + NA) !== -1, true, 'report: a never-started execution id is ' + NA + ' (4)');
+
+  // 5. Missing optional fields: <not available> everywhere, no crash —
+  // including the pathological empty mission.
+  var bare = mr.buildMissionReport({ task: { stage: 'Bare', instruction: 'i' }, status: {}, effective: 'COMPLETED', report: null });
+  eq(bare.indexOf('Skill:\n' + NA) !== -1, true, 'report: missing skill is ' + NA + ' (5)');
+  eq(bare.indexOf('Model:\n' + NA) !== -1, true, 'report: missing model is ' + NA + ' (5)');
+  eq(bare.indexOf('Category:\n' + NA) !== -1, true, 'report: missing category is ' + NA + ' (5)');
+  eq(bare.indexOf('RESULT SUMMARY\n--------------\n' + NA) !== -1, true, 'report: missing report summary is ' + NA + ' (5)');
+  eq(bare.indexOf('Status:\nCOMPLETED') !== -1, true, 'report: status falls back to the effective state (5)');
+  ok(typeof mr.buildMissionReport({}) === 'string' && mr.buildMissionReport({}).indexOf('Title:\n' + NA) !== -1,
+     'report: a completely empty mission still builds, all ' + NA + ' (5)');
+
+  // 8. Long result: not truncated.
+  var longLine = new Array(2001).join('x') + '\n';
+  var longSummary = new Array(51).join(longLine); // 50 lines × 2000 chars
+  var longRep = mr.buildMissionReport(mission({ report: { status: 'completed', summary: longSummary, next_stage: null, problems: [] } }));
+  eq(longRep.indexOf(longSummary.replace(/\s+$/, '')) !== -1, true, 'report: a 100k-char result summary is carried untruncated (8)');
+
+  // 9/10. Titles: explicit and auto-derived both arrive here as task.stage
+  // (the start relay stores the title AS stage, derived or typed), so both
+  // are the same assertion: stage in, title out, byte-identical.
+  var derived = mr.buildMissionReport(mission({ task: { stage: 'AI OPERATING LAYER v1 — FINAL CLOSURE / POST-MERGE', instruction: 'AI OPERATING LAYER v1 — FINAL CLOSURE / POST-MERGE\n\nThis is a NEW validation execution.' } }));
+  eq(derived.indexOf('Title:\nAI OPERATING LAYER v1 — FINAL CLOSURE / POST-MERGE') !== -1, true, 'report: an auto-derived title (stored as stage) is preserved (10)');
+  eq(full.indexOf('Title:\nMy mission title') !== -1, true, 'report: an explicit title is preserved (9)');
+
+  // 11. Sensitive data: labelled values, bearer headers and well-known
+  // token shapes are redacted; ordinary prose mentioning "token" is not.
+  var leaky = mr.buildMissionReport(mission({
+    report: { status: 'completed', next_stage: null, problems: [],
+      summary: 'Set api_key=abc123secret then Authorization: Bearer aBcDeF123456.789 and GITHUB token: ghp_' + new Array(37).join('a') + '\nThe token count was fine.' }
+  }));
+  eq(leaky.indexOf('abc123secret') === -1, true, 'report: a labelled api_key value is redacted (11)');
+  eq(leaky.indexOf('aBcDeF123456.789') === -1, true, 'report: a bearer token is redacted (11)');
+  eq(leaky.indexOf('ghp_' + new Array(37).join('a')) === -1, true, 'report: a GitHub-shaped token is redacted even unlabelled (11)');
+  eq(leaky.indexOf('[REDACTED]') !== -1, true, 'report: redaction marker is present (11)');
+  eq(leaky.indexOf('The token count was fine.') !== -1, true, 'report: prose that merely says "token" is untouched (11)');
+
+  // Copy Result: the summary alone, redacted the same way; null when there
+  // is nothing to copy so the UI can withhold the button.
+  eq(mr.buildResultText(mission()), 'All work done.\nDetails on line two.', 'copy-result: returns exactly the summary');
+  eq(mr.buildResultText(mission({ report: null })), null, 'copy-result: null when there is no report');
+  eq(mr.buildResultText(mission({ report: { summary: '   ' } })), null, 'copy-result: null when the summary is blank');
+  ok(mr.buildResultText(mission({ report: { summary: 'password: hunter2' } })).indexOf('hunter2') === -1,
+     'copy-result: redaction applies to the summary copy too');
+}());
+
+// 12. Clipboard wiring — source-level, the same discipline as every other
+// browser-behaviour assertion in this suite: the button exists, is built
+// from the report builder (never a second string construction), copies via
+// navigator.clipboard, confirms with the exact required message, and sends
+// nothing anywhere (mission-report.js and the copy path fetch nothing).
+ok(/Copy Mission Report/.test(appCode), 'clipboard: app.js offers the Copy Mission Report button (12)');
+ok(/Copy Result/.test(appCode), 'clipboard: app.js offers the optional Copy Result button (12)');
+ok(/Mission report copied/.test(appCode), 'clipboard: the exact confirmation text is shown (12)');
+ok(/navigator\.clipboard\.writeText/.test(appCode), 'clipboard: the copy goes through navigator.clipboard (12)');
+ok(/MythosMissionReport\.buildMissionReport|reporter\.buildMissionReport/.test(appCode),
+   'clipboard: the copied text comes from the one report builder, never a second construction (12)');
+ok(!/buildMissionReport/.test(appCode.replace(/reporter\.buildMissionReport|window\.MythosMissionReport/g, '')),
+   'clipboard: app.js never reimplements buildMissionReport');
+ok(!/fetch\(|XMLHttpRequest|api\(/.test(missionReportCode), 'clipboard: mission-report.js fetches nothing and sends nothing (12)');
+ok(/COMPLETED|terminal/.test(appCode) && /copyRow/.test(appCode),
+   'clipboard: the copy row is attached on the terminal-state path (12)');
+
 ['innerHTML', 'outerHTML', 'insertAdjacentHTML', 'document.write'].forEach(function (sink) {
   ok(loginJsCode.indexOf(sink) === -1, 'login.js never uses ' + sink);
 });
@@ -542,7 +691,7 @@ function startStub() {
             task: { task_id: 'abc12345', project: 'mythos-prod', stage: 'MOS-1', instruction: 'do the thing',
               provider: 'claude-code', model: null, priority: 'normal', execution_profile: 'repo-read',
               created_at: '2026-08-18T08:00:00Z', working_directory: '/should/not/leak', secret_field: SECRET_TOKEN,
-              skill_id: 'security-audit', skill_version: '1.0.0', mcp_capabilities: [] },
+              skill_id: 'security-audit', skill_version: '1.0.0', mcp_capabilities: [], task_category: 'security' },
             status: { status: 'RUNNING', started_at: '2026-08-18T08:00:01Z', ended_at: null, last_error: null,
               next_action: 'provider running', execution_id: 'x-abc123', retry_count: 0, pid: 999, claude_session_id: 'sess-should-not-leak' },
             effective: 'RUNNING'
@@ -672,7 +821,7 @@ startStub().then(function (stub) {
                      '/api/budget', '/api/agents', '/api/providers', '/api/roadmap',
                      '/api/modules', '/api/dispatcher', '/api/missions/abc12345',
                      '/api/missions/abc12345/report'];
-    var PRIVATE_STATIC = ['/console.css', '/app.js', '/modules.js'];
+    var PRIVATE_STATIC = ['/console.css', '/app.js', '/modules.js', '/mission-report.js'];
     var PUBLIC_STATIC = ['/login', '/login.html', '/login.css', '/login.js', '/mythos.css'];
 
     return Promise.all([
@@ -1047,6 +1196,7 @@ startStub().then(function (stub) {
           eq(detail.json.data.task.skill_id, 'security-audit', 'M-12: detail relay surfaces skill_id');
           eq(detail.json.data.task.skill_version, '1.0.0', 'M-12: detail relay surfaces skill_version');
           ok(Array.isArray(detail.json.data.task.mcp_capabilities), 'M-12: detail relay surfaces mcp_capabilities as an array');
+          eq(detail.json.data.task.task_category, 'security', 'detail relay surfaces task_category (a vocabulary name, for the mission report)');
 
           // 7. No provider credentials exposed, on the two new relays specifically
           ok(detail.text.indexOf(SECRET_TOKEN) === -1, 'execution detail does not contain the token');
@@ -2939,7 +3089,7 @@ startStub().then(function (stub) {
 // ===========================================================================
 .then(function () {
   var DOWNLOADABLE = ['index.html', 'login.html', 'login.css', 'login.js',
-                      'app.js', 'modules.js', 'console.css', 'mythos.css'];
+                      'app.js', 'modules.js', 'mission-report.js', 'console.css', 'mythos.css'];
   DOWNLOADABLE.forEach(function (f) {
     var text = read(path.join(WEB, f));
     ok(text.indexOf(CONSOLE_SECRET) === -1, 'sweep: ' + f + ' contains no console secret');
