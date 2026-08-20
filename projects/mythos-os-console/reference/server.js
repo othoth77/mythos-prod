@@ -615,6 +615,22 @@ var CONSOLE_TASK_TYPES = ['inspection', 'research', 'analysis', 'design', 'codin
 var CONSOLE_TASK_CATEGORIES = ['security', 'frontend', 'testing', 'github-review', 'general'];
 var START_MISSION_FIELDS = ['title', 'instruction', 'provider', 'model', 'execution_profile', 'priority', 'task_type', 'task_category'];
 
+// Auto-title fallback: the first non-empty line of the instruction, trimmed
+// and capped to the same 200-char ceiling the title field itself enforces,
+// or null when the instruction has no non-empty line — the caller's own
+// validation error applies then, never an invented title. This is the ONE
+// place a mission title is ever derived; the browser form sends no title at
+// all when its field is blank and relies on this.
+function deriveTitleFromInstruction(instruction) {
+  if (typeof instruction !== 'string') return null;
+  var lines = instruction.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (line) return line.slice(0, 200).trim();
+  }
+  return null;
+}
+
 function readBoundedBody(req, maxBytes) {
   return new Promise(function (resolve, reject) {
     var chunks = [];
@@ -674,6 +690,17 @@ function handleStartMission(req, res) {
     if (unexpected.length) return rejectStart(req, res, 'unexpected_field', 'unexpected field: ' + unexpected[0].slice(0, 40));
 
     var title = payload.title;
+    // A title the caller actually provided is preserved exactly (including
+    // a non-string one, which stays a rejection below — never silently
+    // replaced). Only an absent, null, empty or whitespace-only title is
+    // derived from the instruction; a failed derivation (no non-empty line)
+    // leaves `title` as sent, so the existing rejection below applies
+    // unchanged. Nothing but the title is affected: every other field is
+    // validated exactly as before, whichever way the title was obtained.
+    if (title === undefined || title === null || (typeof title === 'string' && !title.trim())) {
+      var derivedTitle = deriveTitleFromInstruction(payload.instruction);
+      if (derivedTitle !== null) title = derivedTitle;
+    }
     if (typeof title !== 'string' || !title.trim() || title.length > 200) {
       return rejectStart(req, res, 'title', 'title (string, 1-200 chars) is required');
     }

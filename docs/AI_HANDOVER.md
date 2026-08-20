@@ -1,7 +1,54 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-19 UTC
-**From:** AOL-V1-GOV **AI OPERATING LAYER V1 — GOVERNANCE-KEY ISOLATION DELIVERED IN-REPOSITORY (mythos-gov ARCHITECTURE, RELAY SupplementaryGroups, DRIFT FIX, HARDENING SCRIPT, 99/0 INVARIANT); PRODUCTION ACTIVATION IS A DOCUMENTED ROOT-ON-VPS OPERATOR STEP — NOT PERFORMED FROM THIS SESSION AND NOT CLAIMED.**
+**Last updated:** 2026-08-20 UTC
+**From:** CC-AUTO-TITLE **COMMAND CENTER — MISSION TITLE DERIVED FROM THE INSTRUCTION'S FIRST NON-EMPTY LINE WHEN THE TITLE IS EMPTY (SERVER-SIDE, AT handleStartMission); DELIVERED VIA PULL REQUEST.**
+
+## CC-AUTO-TITLE — Command Center auto-title from instruction (2026-08-20)
+
+### Stage
+
+Small isolated UX improvement, on branch
+`claude/command-center-auto-title-slat0z` from `origin/main` `e8ff449`.
+Objective: when a mission is created with an empty, null, whitespace-only or
+absent title, derive the title from the first non-empty line of the
+instruction (trimmed, capped at the title field's own 200-char ceiling). An
+explicitly provided title is never replaced; an instruction with no
+non-empty line derives nothing, so the existing title rejection applies
+unchanged.
+
+### Implementation
+
+- `projects/mythos-os-console/reference/server.js` — the one derivation
+  point: `deriveTitleFromInstruction()` plus the fallback in
+  `handleStartMission`, BEFORE the unchanged title validation, so
+  API-created missions get the same behaviour as the browser form. Nothing
+  but the title is affected — skill selection, task_category, execution
+  profiles, provider/model selection, approval boundaries and execution
+  behaviour are untouched (the relayed payload is otherwise byte-identical).
+- `projects/mythos-os-console/reference/web/app.js` — the form now requires
+  only the instruction and omits a blank title from the payload entirely
+  (no client-side duplication of the derivation logic); placeholder marks
+  the title optional.
+- `tests/mos-1-console-test.js` — new dedicated section 4d2 (explicit /
+  empty / whitespace / absent title, multiline first-line selection,
+  empty-instruction rejection unchanged, 200-char cap, field-shaped first
+  line lands only in the title, and every relayed sibling field unchanged);
+  the two MOS-2 missing-title rejections now pair the missing/empty title
+  with an underivable instruction.
+
+### Tests (executed in this session's container)
+
+| Command | Result | Exit |
+|---|---|---|
+| `node tests/mos-1-console-test.js` | **1318 passed / 0 failed** | 0 |
+| `node tests/mos-v2-regression-test.js` | SUCCESS, 20/20 areas; 3 suites PASS, Orchestration Core 255/2 marked PRE-EXISTING by the gate itself (untouched by this stage), 0 new failures | 0 |
+
+### State
+
+Delivered via pull request from
+`claude/command-center-auto-title-slat0z` (this session's branch policy —
+no direct push to `main`). No deployment, no data migration. Next stage:
+unchanged (M-13 NOT started, per task instruction).
 
 ## AOL-V1-GOV — governance-key isolation from the mission executor (2026-08-19)
 

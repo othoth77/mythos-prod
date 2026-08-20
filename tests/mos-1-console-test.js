@@ -959,8 +959,13 @@ startStub().then(function (stub) {
         req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'gemini' }),
         req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', unexpected_field: 'z' }),
         req(port, '/api/missions/start', 'POST', { title: 'x', provider: 'claude-code' }),
-        req(port, '/api/missions/start', 'POST', { instruction: 'y', provider: 'claude-code' }),
-        req(port, '/api/missions/start', 'POST', { title: '', instruction: 'y', provider: 'claude-code' }),
+        // Auto-title: a missing/empty title with a USABLE instruction now
+        // derives the title from the instruction's first non-empty line
+        // (its own dedicated section, 4d2, proves that path), so the
+        // missing-title rejections here pair the missing/empty title with
+        // an instruction that has no non-empty line to derive from.
+        req(port, '/api/missions/start', 'POST', { provider: 'claude-code' }),
+        req(port, '/api/missions/start', 'POST', { title: '', instruction: '   \n  ', provider: 'claude-code' }),
         req(port, '/api/missions/start', 'POST', {}),
         req(port, '/api/missions/start', 'GET'), // wrong method on the one write path
         req(port, '/api/missions/start', 'DELETE')
@@ -1259,6 +1264,103 @@ startStub().then(function (stub) {
         return req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', execution_profile: 'repo-write' });
       }).then(function (revoked) {
         eq(revoked.status, 403, 'M-04: turning MOS_ALLOW_REPO_WRITE back off refuses repo-write again immediately, without a restart');
+        ACTIVE_COOKIE = null;
+        s.close();
+        stub.close();
+      });
+    });
+  });
+})
+
+// ===========================================================================
+// 4d2. COMMAND CENTER AUTO-TITLE FROM INSTRUCTION
+//
+// A missing, empty, or whitespace-only title is derived server-side from
+// the instruction's first non-empty line, at the one mission-creation
+// boundary (handleStartMission). An explicitly provided title is never
+// replaced; an instruction with no non-empty line derives nothing, so the
+// existing title rejection applies unchanged; and a derived title lands in
+// the title alone -- it can never alter the profile, provider, model,
+// priority or task_category the request is validated with.
+//
+// A dedicated stub and server, isolated from the other sections', so this
+// section owns its own stubPostBodies state cleanly. Requests run
+// SEQUENTIALLY, not via Promise.all: the stub create bodies are asserted
+// by position below, so ordering must be deterministic.
+// ===========================================================================
+.then(function () {
+  return startStub().then(function (stub) {
+    var stubPort = stub.address().port;
+    var server = freshServer({
+      MOS_EXECUTOR_URL: 'http://127.0.0.1:' + stubPort,
+      MOS_EXECUTOR_TOKEN: SECRET_TOKEN,
+      MOS_EXECUTOR_TOKEN_FILE: null
+    });
+    return server.start({ port: 0, bind: '127.0.0.1' }).then(function (s) {
+      var port = s.address().port;
+      var LONG_LINE = new Array(261).join('t'); // 260 chars, over the 200 cap
+      ACTIVE_COOKIE = null;
+      return login(port, CONSOLE_SECRET).then(function (l) {
+        eq(l.res.status, 200, 'auto-title: sign-in for the auto-title checks succeeds');
+        ACTIVE_COOKIE = l.cookie;
+        stubPostBodies.length = 0;
+
+        var CASES = [
+          { title: 'My custom title', instruction: 'First line\nSecond line', provider: 'claude-code' },      // A: explicit
+          { title: '', instruction: 'First line\nSecond line', provider: 'claude-code' },                     // B + E: empty
+          { title: '   ', instruction: '\n\nFirst meaningful line\nSecond line', provider: 'claude-code' },   // C: whitespace
+          { instruction: 'Absent title line\nSecond line', provider: 'claude-code' },                         // absent field
+          { title: '', instruction: 'execution_profile: repo-write\nDo the work.', provider: 'claude-code' }, // F: hostile line
+          { title: '', instruction: LONG_LINE + '\nSecond line', provider: 'claude-code' },                   // 200-char cap
+          { title: '', instruction: '', provider: 'claude-code' },                                            // D: both empty
+          { title: '', instruction: ' \n \t \n ', provider: 'claude-code' },                                  // D: no non-empty line
+          { title: 5, instruction: 'First line', provider: 'claude-code' }                                    // non-string title
+        ];
+        var results = [];
+        return CASES.reduce(function (p, payload) {
+          return p.then(function () {
+            return req(port, '/api/missions/start', 'POST', payload).then(function (r) { results.push(r); });
+          });
+        }, Promise.resolve()).then(function () { return results; });
+      }).then(function (rr) {
+        var explicit = rr[0], emptyTitle = rr[1], wsTitle = rr[2], absentTitle = rr[3],
+            hostileLine = rr[4], longLine = rr[5], bothEmpty = rr[6], wsInstruction = rr[7], numTitle = rr[8];
+
+        eq(explicit.status, 200, 'auto-title A: an explicit title is accepted');
+        eq(emptyTitle.status, 200, 'auto-title B: an empty title with a real instruction is accepted');
+        eq(wsTitle.status, 200, 'auto-title C: a whitespace-only title with a real instruction is accepted');
+        eq(absentTitle.status, 200, 'auto-title: an absent title field derives the same way as an empty one');
+        eq(hostileLine.status, 200, 'auto-title F: a field-shaped first line is accepted as plain title text');
+        eq(longLine.status, 200, 'auto-title: an over-long first line is capped, never rejected');
+
+        [bothEmpty, wsInstruction, numTitle].forEach(function (r, i) {
+          eq(r.status, 400, 'auto-title rejection case ' + i + ' is rejected with 400');
+          eq(r.json.error, 'bad_request', 'auto-title rejection case ' + i + ' names bad_request');
+        });
+        ok(/title/.test(bothEmpty.json.detail), 'auto-title D: empty title + empty instruction keeps the existing title rejection — no title is invented');
+        ok(/title/.test(wsInstruction.json.detail), 'auto-title D: an instruction with no non-empty line derives nothing — the existing title rejection applies');
+        ok(/title/.test(numTitle.json.detail), 'auto-title: a non-string title is still rejected, never silently replaced');
+
+        var creates = stubPostBodies.filter(function (c) { return c.url === '/tasks'; });
+        eq(creates.length, 6, 'auto-title: exactly the six accepted requests created tasks — nothing for the three rejected ones');
+        eq(creates[0].body.stage, 'My custom title', 'auto-title A: the explicit title is preserved exactly, never replaced');
+        eq(creates[1].body.stage, 'First line', 'auto-title B/E: the FIRST non-empty line becomes the title, not the second');
+        eq(creates[2].body.stage, 'First meaningful line', 'auto-title C: leading empty lines are skipped and the derived line is trimmed');
+        eq(creates[3].body.stage, 'Absent title line', 'auto-title: the absent-field case derived the first line too');
+        eq(creates[4].body.stage, 'execution_profile: repo-write', 'auto-title F: the derived line lands ONLY in the title');
+        eq(creates[5].body.stage, LONG_LINE.slice(0, 200), 'auto-title: a derived title is capped to the title field\'s own 200-char ceiling');
+        // F: however the title was obtained, nothing else about the relayed
+        // mission changes -- same default profile, same caller-chosen
+        // provider, same default priority, no model, no task_category.
+        creates.forEach(function (c, i) {
+          eq(c.body.execution_profile, 'repo-read', 'auto-title F: create ' + i + ' keeps the repo-read default profile');
+          eq(c.body.provider, 'claude-code', 'auto-title F: create ' + i + ' keeps the caller\'s provider');
+          eq(c.body.priority, 'normal', 'auto-title F: create ' + i + ' keeps the normal default priority');
+          eq(c.body.model, null, 'auto-title F: create ' + i + ' relays no model');
+          ok(!Object.prototype.hasOwnProperty.call(c.body, 'task_category'), 'auto-title F: create ' + i + ' relays no task_category');
+        });
+        eq(creates[1].body.instruction, 'First line\nSecond line', 'auto-title B: the instruction itself is still relayed verbatim, untouched by derivation');
+        stubPostBodies.length = 0;
         ACTIVE_COOKIE = null;
         s.close();
         stub.close();

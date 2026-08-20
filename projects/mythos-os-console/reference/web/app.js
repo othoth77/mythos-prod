@@ -421,7 +421,7 @@
 
     var titleInput = el('input', {
       className: 'mythos-input',
-      attrs: { type: 'text', id: 'mission-title', maxlength: '200', placeholder: 'Short mission title', autocomplete: 'off' }
+      attrs: { type: 'text', id: 'mission-title', maxlength: '200', placeholder: 'Short mission title (optional — defaults to the instruction’s first line)', autocomplete: 'off' }
     });
     var instructionInput = el('textarea', {
       className: 'mythos-input mythos-textarea',
@@ -548,8 +548,8 @@
       clear(feedback);
       var title = titleInput.value.trim();
       var instruction = instructionInput.value.trim();
-      if (!title || !instruction) {
-        feedback.appendChild(statePanel('⚠', 'Missing fields', 'Title and instruction are both required.', true));
+      if (!instruction) {
+        feedback.appendChild(statePanel('⚠', 'Missing fields', 'Instruction is required.', true));
         return;
       }
       startBtn.disabled = true;
@@ -561,7 +561,11 @@
       var chosenProfile = (profileList.length && profileSelect.value) ? profileSelect.value : undefined;
       var isAuto = providerSelect.value === 'auto';
       var payload = {
-        title: title,
+        // A blank title is omitted entirely: the server derives the mission
+        // title from the instruction's first non-empty line (its
+        // deriveTitleFromInstruction is the single owner of that logic —
+        // never duplicated here).
+        title: title || undefined,
         instruction: instruction,
         provider: providerSelect.value,
         // task_type is sent only for 'auto' — the server refuses it
