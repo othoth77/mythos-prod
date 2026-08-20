@@ -1,8 +1,10 @@
 {
-  "captured_at": "2026-08-20T10:30:00Z",
+  "captured_at": "2026-08-20T10:55:00Z",
   "capture_method": "GitHub API listing of othoth77/mythos-prod pull requests (state=all), captured during the STC-1 audit session. Refresh by re-running the same listing and rewriting this file; the review engine records the capture date with every snapshot.",
   "repository": "othoth77/mythos-prod",
   "prs": [
+    { "number": 55, "title": "fix(runner): temp-dir ownership for unprivileged extraction + rerun-safe provisioning (fixes PR #53 live-install failure)", "state": "open", "merged": false, "created_at": "2026-08-20", "branch": "claude/vps-runner-provisioning-perms-xbbao2" },
+    { "number": 54, "title": "STC-1 — MYTHOS Status Center: evidence model, review engine, immutable history, design-system UI", "state": "open", "merged": false, "created_at": "2026-08-20", "branch": "claude/mythos-status-center-stoqv2" },
     { "number": 53, "title": "FINAL LIVE GATE: self-hosted VPS runner package (least-privilege provisioning + read-only gate workflow)", "state": "open", "merged": false, "created_at": "2026-08-20", "branch": "claude/mythos-vps-runner-finalize-5rapsk" },
     { "number": 52, "title": "docs(handover): OTH-K3 MERGED record (PR #45 → main b6e52d5)", "state": "open", "merged": false, "created_at": "2026-08-20", "branch": "claude/oth-knowledge-master-completion-wxuh6z" },
     { "number": 51, "title": "VPS-PATH handover: no restorable execution path from AI environment", "state": "closed", "merged": true, "merged_at": "2026-08-20", "branch": "claude/mythos-os-integration-validation-5fv45z" },

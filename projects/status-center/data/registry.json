@@ -18,6 +18,8 @@
     { "id": "EV-PR-48", "type": "pr", "reference": "#48", "date": "2026-08-20", "note": "INT-E2E lifecycle validation + auto-title, merged c2ec2d7" },
     { "id": "EV-PR-51", "type": "pr", "reference": "#51", "date": "2026-08-20", "note": "VPS-PATH: no restorable execution path from AI environment" },
     { "id": "EV-PR-53", "type": "pr", "reference": "#53", "date": "2026-08-20", "note": "OPEN draft: self-hosted VPS runner package proposal (final live gate)" },
+    { "id": "EV-PR-54", "type": "pr", "reference": "#54", "date": "2026-08-20", "note": "OPEN draft: STC-1 Status Center delivery (branch claude/mythos-status-center-stoqv2, commit 6195bf4)" },
+    { "id": "EV-PR-55", "type": "pr", "reference": "#55", "date": "2026-08-20", "note": "OPEN draft: runner provisioning fix — its title records that a live install of the PR #53 runner package was attempted and failed on temp-dir ownership; provisioning is actively iterating" },
     { "id": "EV-PR-39", "type": "pr", "reference": "#39", "date": "2026-08-19", "note": "MOS-v2 finalization M-04..M-11" },
     { "id": "EV-PR-34", "type": "pr", "reference": "#34", "date": "2026-08-19", "note": "MOS-v2 M-01 server-side authentication" },
     { "id": "EV-PR-40", "type": "pr", "reference": "#40", "date": "2026-08-19", "note": "AUTO-13: mythosprod.xyz ecosystem hub built" },
@@ -370,7 +372,7 @@
       "id": "PROJECT-STATUS-CENTER", "name": "Mythos Status Center", "executive": false,
       "purpose": "This surface: the single source of truth for the ecosystem — evidence-based status, immutable review history, blockers, owner actions, next actions.",
       "status": "READY", "maturity": "TESTED", "repository": "othoth77/mythos-prod (sites/status.mythosprod.xyz + projects/status-center)",
-      "last_change": "2026-08-20 (built in this stage)",
+      "last_change": "2026-08-20 (STC-1 delivered: commit 6195bf4, PR #54 draft)",
       "blocker": "status.mythosprod.xyz DNS record does not exist yet (owner will create it); deployment is the standard static-site operator runbook.",
       "next_action": "Owner creates the DNS A record; operator runs sites/status.mythosprod.xyz/DEPLOYMENT.md.",
       "headline": "Review engine (read-only, immutable snapshots, comparison, discovery), machine-readable data model, Mythos-Design-System UI, health endpoint, tests. Reviews run from the repository — the browser surface is read-only by design.",
@@ -378,7 +380,7 @@
         "implementation": { "status": "DONE" },
         "deployment": { "status": "OWNER_ACTION", "note": "DNS + operator runbook" }
       },
-      "evidence": ["EV-STC-ENGINE", "EV-STC-SITE", "EV-DNS-STATUS-PENDING"]
+      "evidence": ["EV-STC-ENGINE", "EV-STC-SITE", "EV-DNS-STATUS-PENDING", "EV-PR-54"]
     },
     {
       "id": "PROJECT-MIGRATION", "name": "Migrations & Data Protection", "executive": false,
@@ -533,7 +535,7 @@
         { "id": "INT-GATE", "status": "DONE", "what": "Full container-executable suite green incl. mcc-1 506/0 (first green)", "evidence": ["EV-MCC-TEST"] },
         { "id": "INT-VPS-GATE", "status": "BLOCKED", "what": "Live gate — blocked at preflight, no VPS access path" },
         { "id": "VPS-PATH", "status": "BLOCKED", "what": "Every mechanism tested and categorized; operator options documented", "evidence": ["EV-VPS-PATH", "EV-PR-51"] },
-        { "id": "FINAL-LIVE-GATE", "status": "OWNER_ACTION", "what": "Option A mission ready to dispatch; Option B runner proposal open (PR #53)", "evidence": ["EV-PR-53"] }
+        { "id": "FINAL-LIVE-GATE", "status": "OWNER_ACTION", "what": "Option A mission ready to dispatch. Option B runner package (PR #53): a live install was attempted and failed on temp-dir ownership; fix open as PR #55 — provisioning actively iterating, not yet verified", "evidence": ["EV-PR-53", "EV-PR-55"] }
       ] },
     { "id": "TRACK-DESIGN", "name": "Design programme", "project": "PROJECT-DESIGN-SYSTEM",
       "stages": [
@@ -570,7 +572,7 @@
       ] },
     { "id": "TRACK-STATUS-CENTER", "name": "Status Center", "project": "PROJECT-STATUS-CENTER",
       "stages": [
-        { "id": "STC-1-BUILD", "status": "DONE", "what": "Data model, review engine, immutable history, comparison, discovery, UI, health, tests", "evidence": ["EV-STC-ENGINE", "EV-STC-SITE"] },
+        { "id": "STC-1-BUILD", "status": "DONE", "what": "Data model, review engine, immutable history, comparison, discovery, UI, health, tests", "tests": "stc-1 73/0 · render 18/0 · MOS-v2 gate SUCCESS", "evidence": ["EV-STC-ENGINE", "EV-STC-SITE", "EV-PR-54"] },
         { "id": "STC-DEPLOY", "status": "OWNER_ACTION", "what": "DNS record + static-site operator runbook", "evidence": ["EV-DNS-STATUS-PENDING"] }
       ] }
   ],
@@ -592,7 +594,7 @@
     { "id": "MS-2026-08-17-MCC", "date": "2026-08-17", "project": "PROJECT-COMMAND-CENTER", "title": "Command Center v1 LIVE + autonomous loop + MAOL-0", "what": "MCC-1 built and verified live over HTTPS (506/0); autonomous development loop with governance cage; crash-safe leases; MAOL master spec.", "status": "DONE", "evidence": ["EV-MCC-LIVE", "EV-MAOL-SPEC"] },
     { "id": "MS-2026-08-18-BRAND", "date": "2026-08-18", "project": "PROJECT-DESIGN-SYSTEM", "title": "Peak day (126 commits): brand system, MOS-1→3C, ID Auto spin-out, governance incident", "what": "Owner-approved visual identity; MOS-1..MOS-3C (AI Operating Layer v1, 13 proofs); ID Auto published standalone; oth-knowledge repo born; GI-2026-08-18-01 incident → cage made a delivery invariant.", "status": "DONE", "evidence": ["EV-GI-INCIDENT", "EV-GOV-INVARIANT", "EV-MVP-COMPLETE"] },
     { "id": "MS-2026-08-19-MOSV2", "date": "2026-08-19", "project": "PROJECT-MOS-V2", "title": "Yesterday: MOS-v2 M-01→M-12, design migrations, OTH-K1→K3, governance closure", "what": "Twenty PRs merged: complete MOS-v2 console; MIG-1/2/3 executed; ecosystem hub built; OTH Knowledge K1/K2/K2-W/K3 with an independent security audit; governance key isolated (AOL v1 closure).", "status": "DONE", "evidence": ["EV-PR-39", "EV-M12", "EV-PR-42", "EV-PR-43", "EV-PR-44", "EV-PR-46"] },
-    { "id": "MS-2026-08-20-TODAY", "date": "2026-08-20", "project": "PROJECT-COMMAND-CENTER", "title": "Today: Command Center UX closed, E2E proven, VPS path exhausted, OTH-K3 merged", "what": "Auto-title/auto-routing/copy-report merged (PR #47/#48); mission lifecycle proven 54/0; INT-GATE green incl. mcc-1 506/0; VPS access mechanisms exhaustively categorized as BLOCKED (PR #50/#51); OTH-K3 merged to main (PR #45 → b6e52d5); runner proposal opened (PR #53); Status Center built.", "status": "DONE", "evidence": ["EV-PR-47", "EV-PR-48", "EV-PR-51", "EV-PR-45", "EV-MAIN-HEAD", "EV-PR-53"] }
+    { "id": "MS-2026-08-20-TODAY", "date": "2026-08-20", "project": "PROJECT-COMMAND-CENTER", "title": "Today: Command Center UX closed, E2E proven, VPS path exhausted, OTH-K3 merged", "what": "Auto-title/auto-routing/copy-report merged (PR #47/#48); mission lifecycle proven 54/0; INT-GATE green incl. mcc-1 506/0; VPS access mechanisms exhaustively categorized as BLOCKED (PR #50/#51); OTH-K3 merged to main (PR #45 → b6e52d5); runner proposal opened (PR #53) and its first live install failed → fix opened (PR #55); Status Center built and delivered (PR #54).", "status": "DONE", "evidence": ["EV-PR-47", "EV-PR-48", "EV-PR-51", "EV-PR-45", "EV-MAIN-HEAD", "EV-PR-53", "EV-PR-54", "EV-PR-55"] }
   ],
 
   "blockers": [

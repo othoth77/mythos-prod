@@ -83,6 +83,22 @@ no existing test weakened.
 | Deploy the site | Operator | `sites/status.mythosprod.xyz/DEPLOYMENT.md` (rsync → vhost with `/health` alias → certbot → smoke tests) |
 | Future reviews | Any session | Update `projects/status-center/data/registry.json` with evidence → `node projects/status-center/bin/review.js` → commit → redeploy step 1 |
 
+### Delivery record (continuation, same day)
+
+STC-1 pushed as **`6195bf4`** on
+`claude/mythos-status-center-stoqv2`; **PR #54 (draft)** opened against
+main `b6e52d5`. Continuation pass: PR ledger refreshed (adds #54 and
+#55 — the PR #53 runner package's first live install failed on
+temp-dir ownership and PR #55 fixes it; the runner path is iterating,
+not verified), registry updated with the delivery evidence, second
+immutable snapshot **REVIEW-2026-08-20-002** produced (links to -001;
+60 evidence items, 51 VERIFIED / 9 RECORDED / 0 NOT_VERIFIED; zero
+phantom changes). Re-validated: stc-1 73/0, render check 18/0; MOS-v2
+gate result of this morning reused (no code outside
+status-center/sites/docs changed since it ran SUCCESS at this tree).
+Deployment state unchanged: **REPOSITORY-COMPLETE / NOT-DEPLOYED** —
+owner DNS + operator runbook remain the only path to live.
+
 ### Next stage
 
 The Status Center is now the project's memory: every future major
