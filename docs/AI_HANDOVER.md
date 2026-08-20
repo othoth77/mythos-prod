@@ -1,6 +1,6 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-19 UTC
+**Last updated:** 2026-08-20 UTC
 **From:** OTH-K3 **KNOWLEDGE TRUST MODEL + PRIVATE-STORE ARCHITECTURE + TRACK B READINESS + INDEPENDENT SECURITY AUDIT — READ-ONLY TRUST DERIVATION (CONFIDENCE NEVER TRUTH), OPUS ARCHITECTURE REVIEW (APPROVE-WITH-CHANGES, 13/13 DONE), OPUS SECURITY AUDIT (PASS-WITH-FINDINGS, F1–F15 ALL FIXED), OPUS FINAL REVIEW = APPROVE, HAIKU REPRODUCTION = ALL CONTROLS CONFIRMED. TRACK A REPOSITORY-COMPLETE; TRACK B FIXTURE-COMPLETE / REAL-DATA OWNER-BLOCKED; NO SECRETS, NO REPO-LOCAL STORE, NO HIDDEN WRITE PATH.**
 
 ## OTH-K3 — knowledge trust model, private store, Track B readiness, security audit (2026-08-19)
@@ -82,7 +82,557 @@ off-host). No repository-executable OTH-KNOWLEDGE work remains.
 
 ---
 
-**Previously:** AOL-V1-GOV **AI OPERATING LAYER V1 — GOVERNANCE-KEY ISOLATION DELIVERED IN-REPOSITORY (mythos-gov ARCHITECTURE, RELAY SupplementaryGroups, DRIFT FIX, HARDENING SCRIPT, 99/0 INVARIANT); PRODUCTION ACTIVATION IS A DOCUMENTED ROOT-ON-VPS OPERATOR STEP — NOT PERFORMED FROM THIS SESSION AND NOT CLAIMED.**
+**Previously:** VPS-PATH **VPS EXECUTION-PATH RESTORATION — BLOCKED: EVERY EXISTING MECHANISM EXHAUSTIVELY TESTED AND CATEGORIZED (SSH NETWORK-BLOCKED; HTTPS TO THE VPS DENIED BY ORGANIZATION EGRESS POLICY, ROUTING AROUND PROHIBITED; NO RUNNER ARCHITECTURE EXISTS; NO CREDENTIALS PRESENT BY DESIGN). MINIMUM OPERATOR ACTIONS DOCUMENTED, INCLUDING A READY-TO-DISPATCH ON-HOST GATE MISSION. POST-PR-#47 MERGED TREE RE-VERIFIED GREEN (CONSOLE 1433/0, E2E 54/0, MOS-v2 GATE PASS).**
+
+## VPS-PATH — execution-path restoration attempt (2026-08-20)
+
+### Stage
+
+Ordered scope: restore a safe VPS execution path, then rerun the VPS
+Final Gate. Executed from this AI session's isolated remote container at
+`origin/main` **`70d3e71`** (owner's merge of PR #47 — parallel
+Command-Center auto-title/simplify/copy-report work). **Preflight
+re-verification of the combined tree after that merge, executed here:
+mos-1 console 1433/0 · mos-e2e-lifecycle 54/0 · MOS-v2 gate SUCCESS —
+the PR #47 + PR #48 title implementations merged cleanly (single
+`autoTitleFromInstruction`, derivation preserved).**
+
+### Access-path discovery — every mechanism, tested or inspected
+
+| Mechanism | Result | Category |
+|---|---|---|
+| SSH `deploy@51.68.226.211` (TCP/22) | Connect timeout (re-verified) | network/firewall — blocked for this environment |
+| SSH client config / keys / known_hosts | `~/.ssh` empty; no key material anywhere; none created | missing credentials (by design — never fabricated) |
+| DNS `os.mythosprod.xyz` / `mythosprod.xyz` | Resolves correctly → 51.68.226.211 | NOT a DNS failure |
+| HTTPS to the VPS (console, apex) | Agent-proxy `CONNECT` → **403** — the destination is not in this session's organization egress policy. Proxy README: "Do not retry or route around it — report the blocked host." NOT routed around. | organization egress policy |
+| GitHub Actions / self-hosted runner | No `.github/workflows`, no runner registration, no runner architecture in the repository | missing runner — provisioning would be NEW infrastructure |
+| Claude Code Remote environments | Only `anthropic_cloud` environments exist; no self-hosted pool on the VPS | missing runner |
+| Coolify | `projects/infrastructure/coolify/environments.json` is credential-free BY DESIGN (per `docs/AUTOMATION_SECURITY_AND_SECRETS.md` §4); deployment-only anyway | no credentials; wrong tool for command execution |
+| OVH / Cloudflare connectors (`projects/infrastructure`) | Credential-gated; no credentials in this environment | missing credentials (by design) |
+| Executor HTTP API / n8n | VPS-loopback only, by architecture | unreachable, correctly so |
+| `mythos-git-push` relay | Pull/report-only; executes no instructions from Git (a load-bearing security property — NOT repurposed) | not an execution path, by design |
+| Prior on-host AI validations | Ran as **missions of the VPS-local mythos-ai-executor**, dispatched by the owner (e.g. `t-20260819223747`, `t-20260820075238`) | EXISTS — owner-dispatched only |
+
+`docs/DEPLOYMENT_READINESS.md` independently corroborates: AI sessions
+have no SSH path; the one VERIFIED channel is owner Windows →
+`deploy@51.68.226.211`.
+
+Nothing was weakened, bypassed, fabricated, or routed around; no
+credential was created; host-key verification and the egress policy were
+respected throughout.
+
+### Gate statuses (order §10 format)
+
+```
+VPS execution path:  BLOCKED
+Access mechanism:    none available to this environment (table above)
+Docker privilege:    BLOCKED — unreachable (finding stands open: deploy ∈ docker)
+Governance:          BLOCKED on-host re-check — last on-host validation showed the
+                     boundary INTACT (key root:mythos-gov 0640, memberless group,
+                     deploy EACCES on key + approvals, zero drift)
+Live OTH-KNOWLEDGE:  BLOCKED — store unprovisioned; fail-closed wiring proven (othk-2w)
+Live E2E:            BLOCKED on-host — proven in-container (mos-e2e-lifecycle 54/0)
+Persistent Memory:   BLOCKED on-host — proven in-container (same suite, full teardown)
+Failure validation:  BLOCKED on-host — container matrix green
+Tests:               merged tree at 70d3e71 re-verified: console 1433/0, E2E 54/0,
+                     MOS-v2 gate SUCCESS; no live suite executable
+```
+
+### Minimum operator actions (choose one path to unblock)
+
+**Option A — zero new infrastructure (uses the existing authorized
+mechanism).** The owner dispatches ONE mission through the Command Center
+(os.mythosprod.xyz), exactly as the previous on-host validations were
+dispatched. Suggested instruction (title auto-derives):
+
+```
+Run the Mythos OS VPS Final Gate read-only checks and report evidence:
+1. Baseline: hostname, git rev-parse HEAD and origin/main, service state
+   (mythos-ai-executor user unit, mythos-git-push timer), id -nG deploy,
+   getent group docker.
+2. Governance: verify governance.key and approvals store are EACCES as
+   deploy; installed relay/verifier/units sha256 vs repo (zero drift).
+3. Knowledge: report config/knowledge.json enabled/store_root state.
+4. Run node tests/mythos-governance-invariant-test.js and
+   node tests/mos-e2e-lifecycle-test.js — the E2E suite hard-refuses on
+   this host by design (registered checkout present): record that refusal
+   as the expected safety behavior, do not override it.
+5. Report exact results; change nothing.
+```
+
+Two actions remain root-only even under Option A (the executor bans sudo):
+`sudo gpasswd -d deploy docker` (then re-run the invariant suite as
+deploy), and provisioning the OTH-KNOWLEDGE store root + owner exports.
+
+**Option B — make future gates AI-executable end-to-end:** either (1) add
+`os.mythosprod.xyz` to this Claude Code session's organization egress
+allowlist AND provide the console credential through an approved secret
+channel (enables live Command-Center E2E from sessions, but never the
+root steps), or (2) provision a self-hosted Claude Code runner/environment
+on the VPS (least-privilege service account, scoped to this repository,
+no secrets in repo, governance boundaries preserved) — the full gate then
+becomes executable as ordered. Both are owner infrastructure decisions;
+neither was performed from here.
+
+### Next stage
+
+NOT M-13. Unblock via Option A or B above, then rerun the VPS Final Gate.
+
+---
+
+**Previously:** CC-SIMPLIFY **COMMAND CENTER — SIMPLIFIED MISSION FORM (AUTO DEFAULTS FOR SKILL/PROVIDER/MODEL/PROFILE/TASK-TYPE, ADVANCED DISCLOSURE, SERVER-SIDE DETERMINISTIC TASK-TYPE INFERENCE FAIL-CLOSED TO generic); DELIVERED VIA PULL REQUEST (PR #47, WITH CC-AUTO-TITLE AND CC-COPY-REPORT).**
+
+## CC-SIMPLIFY — simplified + automated mission creation (2026-08-20)
+
+### Merge note (2026-08-20, PR #47 finalization)
+
+While PR #47 was open, a parallel session delivered its own auto-title
+implementation straight through PR #48 (`8baf003`,
+`autoTitleFromInstruction`: whitespace-normalised first meaningful line,
+title optional in validation, empty-instruction refusals name the
+instruction). On merging `origin/main` into this branch, that
+implementation was adopted as the ONE canonical derivation point and this
+branch's earlier `deriveTitleFromInstruction` was removed; the CC-AUTO-TITLE
+entry below describes the superseded variant and stands as history. All
+other CC stages (skill/routing/simplified UI, copy mission report) apply
+unchanged on top, and the mos-1 auto-title tests now pin main's semantics.
+
+Final pre-merge head: **`1c3f8eb`** (merge of `origin/main` `5d7f5f3`
+into the branch), verified on the remote. Merged-tree results, all exit 0:
+mos-1-console **1433/0**, mos-e2e-lifecycle **54/0**, executor **264/0**,
+unattended **53/0**, governance **99/0**, MOS-v2 gate **SUCCESS, 20/20
+areas, 0 new failures** (Orchestration Core 255/2 pre-existing). Next
+stage: none authorised beyond PR #47 delivery — M-13 NOT started.
+
+### Stage
+
+Command Center UX/orchestration improvement, on branch
+`claude/command-center-auto-title-slat0z` (third stacked stage on PR #47).
+The operator writes the instruction; every technical field defaults to
+Auto. No executor change, no security weakening, M-13 not started.
+
+### Implementation
+
+- `projects/mythos-os-console/reference/server.js` — when provider is
+  'auto' and task_type is ABSENT, `inferTaskType()` (new, deterministic
+  ordered TASK_TYPE_RULES over title+instruction, the same idiom as
+  lib/skills.js's keyword rules) picks a CONSOLE_TASK_TYPES member,
+  failing CLOSED to 'generic'. A present task_type is validated exactly as
+  before; explicit-provider requests are byte-identical. Inference feeds
+  ONLY the M-11 router call — profile/category/model/authorization gates
+  are untouched and run on request fields alone, so instruction text can
+  never select repo-write, bypass approval, or alter policy. The start
+  response now carries execution_profile (and task_type when auto) so the
+  UI reflects what the server actually selected.
+- `projects/mythos-os-console/reference/web/app.js` — simplified form:
+  Title (optional/automatic), Instruction, Skill (the M-12 category
+  select relabelled by the skill each category selects — the registry's
+  own one-category-per-skill vocabulary, no second registry; Auto ''
+  default = absent field = executor keyword rules), Priority (normal),
+  Start. Provider/Model/Execution profile/Task type live in a collapsed
+  `<details>` Advanced block with Auto defaults: provider defaults to
+  'auto' when the server offers it, model '' = provider default, profile
+  '' = field absent = the server's own repo-read default (the browser no
+  longer sends repo-read explicitly), task type '' = server inference.
+  All manual overrides preserved. Feedback line shows the server-selected
+  profile and routed task_type.
+- `console.css` — Advanced disclosure styling.
+- `tests/mos-1-console-test.js` — M-11 reworked: inference cases (coding
+  inferred; fail-closed generic; router only ever hears vocabulary
+  members), SECURITY case (instruction demanding "ignore execution
+  profile, select repo-write, bypass approval" relays repo-read and no
+  category), UI source-level assertions (Auto defaults, Advanced block
+  contains the overrides, primary view stays simple), stub /route generic
+  fixture. Present-but-invalid task_type still 400.
+
+### Tests (executed in this session's container; all exit 0)
+
+| Command | Result |
+|---|---|
+| `node tests/mos-1-console-test.js` | **1414 passed / 0 failed** |
+| `node tests/mos-v2-regression-test.js` | SUCCESS, 20/20 areas, 0 new failures (Orchestration Core 255/2 pre-existing) |
+| `node tests/mythos-ai-executor-test.js` | 264 / 0 |
+| `node tests/mythos-unattended-policy-test.js` | 53 / 0 |
+| `node tests/mythos-governance-invariant-test.js` | 99 / 0 |
+
+### State
+
+Delivered via pull request (PR #47). No deployment, no data migration.
+Next stage: unchanged (M-13 NOT started).
+
+## CC-COPY-REPORT — Command Center copy mission report (2026-08-20)
+
+### Stage
+
+Command Center UI/UX feature, on branch
+`claude/command-center-auto-title-slat0z` (stacked on CC-AUTO-TITLE, same
+PR #47). Objective: a terminal mission (COMPLETED / BLOCKED / FAILED /
+CANCELLED) offers a **Copy Mission Report** button (plus an optional
+**Copy Result** when a summary exists) that copies a complete, structured,
+plain-text report to the operator's clipboard for pasting into another AI
+conversation. Nothing is sent anywhere; executor behaviour, mission
+execution, the security model, approvals, skills, providers and execution
+profiles are untouched.
+
+### Implementation
+
+- `projects/mythos-os-console/reference/web/mission-report.js` — NEW, the
+  ONE owner of the report format. Dual-environment (modules.js pattern):
+  the browser gets `window.MythosMissionReport`, tests `require()` the
+  same file. `buildMissionReport(mission)` is deterministic (no clock, no
+  fetch, no DOM); input is exactly the detail-relay task/status/effective
+  plus the report-relay data. Missing fields render as `<not available>`,
+  never invented; duration is computed from started/ended when both parse;
+  free text is verbatim and untruncated; one redaction pass replaces
+  credential-shaped values (labelled key/token/password assignments,
+  bearer headers, well-known token shapes) with `[REDACTED]`.
+  `buildResultText(mission)` backs the optional Copy Result button.
+- `projects/mythos-os-console/reference/web/app.js` — `copyRow()` appended
+  to the execution detail panel on the terminal-state path; copies via
+  `navigator.clipboard.writeText`, confirms with "Mission report copied",
+  and falls back to a pre-selected read-only textarea when the clipboard
+  API is unavailable. Detail panel now also shows the Category fact.
+- `projects/mythos-os-console/reference/server.js` — `task_category` added
+  to TASK_DETAIL_TASK_FIELDS (a vocabulary name, same reasoning as
+  skill_id) and `/mission-report.js` to the STATIC whitelist
+  (auth-required, like app.js). No other backend change.
+- `projects/mythos-os-console/reference/web/index.html` — loads
+  mission-report.js before app.js. `console.css` — copy-row styling.
+- `tests/mos-1-console-test.js` — unit tests requiring mission-report.js
+  directly (spec cases 1–11: terminal states, missing fields, multiline
+  and 100k-char untruncated text, explicit/derived titles, redaction) plus
+  source-level clipboard wiring assertions (case 12), and the new file
+  added to every existing sweep (XSS sinks, exec paths, storage/digest,
+  credential sweep, private-static auth).
+
+### Tests (executed in this session's container)
+
+| Command | Result | Exit |
+|---|---|---|
+| `node tests/mos-1-console-test.js` | **1388 passed / 0 failed** | 0 |
+| `node tests/mos-v2-regression-test.js` | SUCCESS, 20/20 areas; 0 new failures (Orchestration Core 255/2 pre-existing, untouched) | 0 |
+
+### State
+
+Delivered via pull request (PR #47). No deployment, no data migration.
+Next stage: unchanged (M-13 NOT started, per task instruction).
+
+## CC-AUTO-TITLE — Command Center auto-title from instruction (2026-08-20)
+
+### Stage
+
+Small isolated UX improvement, on branch
+`claude/command-center-auto-title-slat0z` from `origin/main` `e8ff449`.
+Objective: when a mission is created with an empty, null, whitespace-only or
+absent title, derive the title from the first non-empty line of the
+instruction (trimmed, capped at the title field's own 200-char ceiling). An
+explicitly provided title is never replaced; an instruction with no
+non-empty line derives nothing, so the existing title rejection applies
+unchanged.
+
+### Implementation
+
+- `projects/mythos-os-console/reference/server.js` — the one derivation
+  point: `deriveTitleFromInstruction()` plus the fallback in
+  `handleStartMission`, BEFORE the unchanged title validation, so
+  API-created missions get the same behaviour as the browser form. Nothing
+  but the title is affected — skill selection, task_category, execution
+  profiles, provider/model selection, approval boundaries and execution
+  behaviour are untouched (the relayed payload is otherwise byte-identical).
+- `projects/mythos-os-console/reference/web/app.js` — the form now requires
+  only the instruction and omits a blank title from the payload entirely
+  (no client-side duplication of the derivation logic); placeholder marks
+  the title optional.
+- `tests/mos-1-console-test.js` — new dedicated section 4d2 (explicit /
+  empty / whitespace / absent title, multiline first-line selection,
+  empty-instruction rejection unchanged, 200-char cap, field-shaped first
+  line lands only in the title, and every relayed sibling field unchanged);
+  the two MOS-2 missing-title rejections now pair the missing/empty title
+  with an underivable instruction.
+
+### Tests (executed in this session's container)
+
+| Command | Result | Exit |
+|---|---|---|
+| `node tests/mos-1-console-test.js` | **1318 passed / 0 failed** | 0 |
+| `node tests/mos-v2-regression-test.js` | SUCCESS, 20/20 areas; 3 suites PASS, Orchestration Core 255/2 marked PRE-EXISTING by the gate itself (untouched by this stage), 0 new failures | 0 |
+
+### State
+
+Delivered via pull request from
+`claude/command-center-auto-title-slat0z` (this session's branch policy —
+no direct push to `main`). No deployment, no data migration. Next stage:
+unchanged (M-13 NOT started, per task instruction).
+---
+
+**Previously:** INT-VPS-GATE **VPS FINAL GATE — BLOCKED AT STEP 1 (VPS PREFLIGHT): NO ACCESS PATH FROM THIS AI EXECUTION ENVIRONMENT REACHES THE VPS. EVERY LIVE GATE RECORDED BLOCKED WITH EVIDENCE; NOTHING BYPASSED, NOTHING MODIFIED ON ANY HOST. THE GATE REQUIRES EITHER THE OWNER'S SSH CHANNEL OR A SESSION EXECUTING ON THE VPS ITSELF.**
+
+## INT-VPS-GATE — live-VPS validation attempt (2026-08-20)
+
+### Stage
+
+Ordered scope: strictly live-VPS validation (docker-group removal,
+on-host governance verification, live OTH-KNOWLEDGE, live E2E, persistent
+memory on the host, live failure validation). Executed from this AI
+session's isolated remote container. **Stopped at step 1 per the order's
+stop conditions — VPS access is unavailable.** No host, repository code,
+or configuration was modified; this handover entry is the stage's only
+change.
+
+### Access-path evidence (all verified this session, 2026-08-20 ~08:53 UTC)
+
+| Path | Result |
+|---|---|
+| SSH `deploy@51.68.226.211` (TCP/22) | UNREACHABLE — connection probe times out (re-confirmed twice this session; consistent with the long-standing Track B blocker "AI execution environment → VPS TCP/22 unreachable") |
+| SSH credentials in this environment | NONE — `~/.ssh` is empty; no key material exists here, and outbound network is HTTPS-proxy-only |
+| Public Command Center `https://os.mythosprod.xyz/login` | HTTP 000 — no connection through this environment's egress; and console sign-in would additionally require `MOS_CONSOLE_SECRET`, which is not available to this session and was not invented. Root-shell steps (docker group, key/store permissions) are impossible over the console regardless |
+| Claude Code Remote environments | Only two `anthropic_cloud` environments exist — no self-hosted runner on the VPS, so no child session can be created on the host |
+
+The one VERIFIED working channel remains **owner Windows → `deploy@51.68.226.211` SSH** (Track B, re-recorded 2026-08-19), which only the owner can drive; root steps additionally need the owner's sudo.
+
+### Gate statuses (order §10 format)
+
+```
+VPS security:            BLOCKED — no VPS access from this environment
+Governance:              BLOCKED (on-host re-verification) — last on-host validation
+                         (2026-08-20, task t-20260820075238-o372yt, ran ON the VPS as
+                         deploy) showed the boundary INTACT: key root:mythos-gov 0640,
+                         memberless group, deploy EACCES on key + approvals, zero drift
+Live OTH-KNOWLEDGE:      BLOCKED — store not provisioned; requires owner exports +
+                         operator store root (config/knowledge.json ships disabled;
+                         fail-closed wiring proven by othk-2w 39/0)
+Live E2E:                BLOCKED on-host — proven end-to-end with the real modules
+                         in-container (mos-e2e-lifecycle 54/0 at the merged baseline)
+Persistent Memory:       BLOCKED on-host — proven in-container with full stack teardown
+                         (Mission B ← Mission A via public API only, same suite)
+Live failure validation: BLOCKED on-host — container-executable failure matrix green
+                         (E2E + othk-2w + M-09/campaign suites)
+Final test result:       repository suite remains green at 029abca (INT-GATE entry
+                         below: full matrix incl. mcc-1 506/0, MOS-v2 gate SUCCESS);
+                         no live suite could be executed
+```
+
+### Required operator actions (unchanged, exact)
+
+1. SSH to the VPS; `id -nG deploy` and `getent group docker`; if deploy is a
+   member: `sudo gpasswd -d deploy docker`; then as deploy re-run
+   `node tests/mythos-governance-invariant-test.js` (expect 99/0) and confirm
+   services (all Docker use is `sudo docker`; no code path uses the socket).
+2. Provision the OTH-KNOWLEDGE store (owner exports + absolute out-of-repo
+   store root), flip `config/knowledge.json`, validate per
+   `docs/OTH_KNOWLEDGE_INTEGRATION.md`.
+3. Run one real mission through os.mythosprod.xyz (mission ID as evidence),
+   then the two-mission restart test on the host.
+
+Alternatively: give an AI session a real execution path on the VPS (e.g. a
+self-hosted runner or restored SSH), and this gate becomes executable
+end-to-end as ordered.
+
+### Next stage
+
+NOT M-13. Unchanged from INT-GATE: next-stage selection happens only after
+the operator closes the VPS gates above.
+
+---
+
+**Previously:** INT-GATE **PR #48 CLOSURE + FINAL GATE — PR #48 MERGED TO MAIN (`c2ec2d7`); FULL FINAL SUITE GREEN AT THE MERGED BASELINE INCLUDING MCC-1 (506/0, DATABASE GAP RESOLVED); VPS-BOUND GATES (DOCKER-GROUP FIX, ON-HOST GOVERNANCE REVALIDATION, LIVE OTH-KNOWLEDGE, LIVE E2E) REMAIN OPERATOR/HOST BLOCKERS FROM THIS CONTAINER — RECORDED EXACTLY, NONE BYPASSED.**
+
+## INT-GATE — PR #48 closure + live integration + final gate (2026-08-20)
+
+### Stage
+
+PR #48 closure and final gate, executed from an isolated remote container
+(NOT the VPS — verified: TCP/22 to 51.68.226.211 unreachable, no
+`/etc/mythos`, no `deploy` user on this host).
+
+```
+Starting SHA (origin/main): 8e081b3
+PR #48 merge SHA:           c2ec2d7  (merge commit, repo convention, PR head e194bce)
+Final SHA / Remote HEAD:    origin/main = c2ec2d7 + this handover commit on
+                            claude/mythos-os-integration-validation-5fv45z
+```
+
+### Done
+
+1. **PR #48 reviewed and merged.** Scope confirmed as exactly the two
+   intended changes (automatic title rule; real console → real executor
+   E2E lifecycle suite) plus the handover update — 5 files, +630/−12, no
+   security file, no reviews or review threads outstanding,
+   `mergeable_state: clean`. Merged via merge commit `c2ec2d7`; verified
+   `origin/main` contains the PR head and the merged tree is byte-identical
+   to the tree the full suite ran on (diff = 0). Post-merge targeted
+   regression at the merged tree: E2E 54/0, MOS-v2 gate SUCCESS.
+2. **MCC-1 database gap RESOLVED.** Provisioned per the repository's own
+   convention (schema.sql header): local PostgreSQL 16 cluster, role
+   `mythos_command_center_owner`, database `mythos_command_center_test`
+   (the suite's own `_test` hard-abort guard satisfied), idempotent
+   `database/schema.sql` applied as the owner, `npm ci` from the project's
+   committed lockfile, test-only password generated per run and never
+   committed. Result: **mcc-1 506 passed / 0 failed, exit 0** — first
+   recorded green run of this suite.
+3. **Full final suite at the merged baseline (all executed this session):**
+   othk-0 89/0 · othk-1 30/0 · othk-2 87/0 · othk-2w 39/0 · executor
+   264/0 · governance-invariant 99/0 · unattended 53/0 ·
+   orchestration-core 255/2 (the 2 = the gate-known VPS-only systemd
+   delivery-relay unit/timer checks; no systemd on this host; the MOS-v2
+   gate itself verifies they are exactly the known ones) ·
+   autonomous-campaign 365/0 · core-wiring 86/0 · mos-1 console 1283/0 ·
+   mos-e2e-lifecycle 54/0 · **mcc-1 506/0** · MOS-v2 gate SUCCESS
+   (0 new failures, 20/20 areas).
+4. **Security final review.** Merged diff inspected file-by-file: only the
+   console title validation (never widens authority), UI optional-title,
+   tests, docs. Secret scan of the full merged diff through
+   `mythos-orchestrator/lib/redact` `findSecretKinds`: the only hits are
+   the E2E suite's per-run `crypto.randomBytes` test credentials (the
+   pre-existing mos-1 pattern) — no literal secret exists in the diff. No
+   permission widening, no governance/executor/knowledge surface touched,
+   no test weakened.
+
+### NOT done — external blockers (exact, none bypassed)
+
+| Gate | Blocker | Required action |
+|---|---|---|
+| Docker-group HIGH finding (§4) | This container cannot reach the VPS (TCP/22 unreachable; no host tooling). The finding is on the VPS host. | Operator, root on VPS: verify `id -nG deploy`, then `sudo gpasswd -d deploy docker`; re-run `node tests/mythos-governance-invariant-test.js` as deploy (expect 99/0) and confirm `sudo docker`-based services still operate (repo evidence: no code path uses the socket). |
+| On-host governance revalidation (§5) | Same — host access required. Last on-host validation (2026-08-20, task t-20260820075238-o372yt) verified the full boundary intact. | Re-run invariant suite as deploy after the docker-group fix. |
+| Live OTH-KNOWLEDGE provisioning (§6–7) | Requires (a) owner-produced exports (Takeout/Gemini/NotebookLM) which exist on no authorized surface, and (b) an operator-provisioned absolute out-of-repo store root on the VPS. `config/knowledge.json` ships disabled by design; fail-closed wiring proven by othk-2w 39/0. No credentials invented. | Owner supplies exports; operator provisions store root; flip `enabled` + `store_root` in `config/knowledge.json` per `docs/OTH_KNOWLEDGE_INTEGRATION.md`. |
+| Live Command Center → Executor E2E on the VPS (§8–9) | The real console/executor run on the VPS loopback; unreachable from here. The complete lifecycle including full-teardown persistent-memory (Mission B ← Mission A) is proven end-to-end with the real modules in-container (mos-e2e-lifecycle 54/0). | Operator (or a session ON the VPS): run one real mission through os.mythosprod.xyz and record the mission ID; repeat the two-mission restart test. |
+
+Container-executable failure tests (§10) all ran and fail closed: empty
+instruction, missing title (now derived, not a failure), unknown provider,
+disallowed profile, executor unavailable, verification failure (no-report
+→ BLOCKED), knowledge unavailable/invalid config (othk-2w), missing/denied
+approval (M-09 console suite + campaign/orchestration suites).
+
+### Security
+
+No boundary weakened, no secrets committed, no privilege widened. The
+open HIGH docker-group finding on the VPS remains open until the operator
+acts (table above) — a clean final baseline is NOT claimed while it stands.
+
+### Worktree / Git state
+
+Worktree clean. `origin/main` = `c2ec2d7`. Designated branch restarted
+from the merged main for this handover commit (previous PR #48 history
+only), pushed and remote-verified.
+
+### Next stage
+
+NOT M-13 (explicitly not started). The gate is COMPLETE for everything
+executable from this environment; it closes fully when the operator
+executes the VPS actions in the blocker table. Next engineering stage
+selection happens only after that, from actual system state.
+
+---
+
+**Previously:** INT-E2E **MYTHOS OS INTEGRATION VALIDATION — COMPLETE END-TO-END MISSION LIFECYCLE PROVEN (INSTRUCTION → COMMAND CENTER → MISSION → EXECUTOR → VERIFICATION → PERSISTENT RESULT → FRESH-SESSION HANDOVER → NEXT MISSION), AUTOMATIC TITLE RULE DELIVERED; FULL REQUIRED SUITE GREEN (E2E 54/0, CONSOLE 1283/0, EXECUTOR 264/0, GOVERNANCE 99/0, MOS-v2 GATE 0 NEW FAILURES); SINCE MERGED TO MAIN AS PR #48 (`c2ec2d7`).**
+
+## INT-E2E — end-to-end mission-lifecycle validation + automatic title rule (2026-08-20)
+
+### Stage
+
+Mythos OS integration validation on branch
+`claude/mythos-os-integration-validation-5fv45z` from `origin/main`
+**`8e081b3`** (starting SHA). Two commits: **`8baf003`**
+(`feat(mos-console): automatic mission title from first meaningful
+instruction line`) and **`b590a13`** (`test(e2e): full mission lifecycle`).
+Delivered via pull request (this session's branch policy does not permit a
+direct push to `main`). This session ran in an isolated remote container,
+not on the VPS.
+
+### Objective
+
+Validate the already-implemented architecture end-to-end — Instruction →
+Command Center → Mission → Knowledge → Governance → Execution →
+Verification → Result → Persistent Memory/Handover → Next Mission — and
+implement only the missing wiring. No completed work was rebuilt; no
+security boundary was touched.
+
+### Delivered
+
+1. **Automatic title rule** (`projects/mythos-os-console/reference/server.js`,
+   `web/app.js`): a mission started without a title (absent, null, empty or
+   whitespace-only) takes the first meaningful line of the instruction —
+   whitespace runs normalised to single spaces, trimmed, capped at the same
+   200-char constraint an explicit title has. Deterministic string work,
+   never a model call. The instruction is never mutated. A
+   provided-but-invalid title (non-string, >200 chars) stays an explicit
+   400 refusal. The UI marks the field optional and omits an empty title.
+2. **E2E lifecycle suite** (`tests/mos-e2e-lifecycle-test.js`, 54/0): real
+   console + real executor wired over real HTTP (no stub control plane;
+   the mock stands in only at the executor's own exported PROVIDERS seam).
+   Proves: titleless instruction → mission with derived title and
+   byte-identical instruction, project/priority/profile preserved;
+   COMPLETED through the real capacity-gated dispatcher and state machine;
+   requested/executed/succeeded/verified are DISTINCT persisted states
+   (report.json carries an independent git-verification surface; a clean
+   run with no structured report lands BLOCKED, never COMPLETED); blocked
+   runs persist exact blocker, evidence and required human action;
+   persisted record carries mission ID, instruction, title, project,
+   states, result, verification, timestamps, next action — and no secret;
+   then EVERY module/server instance is torn down and a genuinely fresh
+   stack reads Mission A through the public API alone and Mission B
+   continues from it (persistent-memory loop closed with no hidden
+   conversational context); failure injection: empty instruction, unknown
+   provider, disallowed profile, executor-down — all explicit, fail-closed.
+   SAFETY: the suite hard-refuses to run on any host where the registered
+   mythos-prod checkout exists (report delivery would touch the real
+   repository) — run it in an isolated container.
+
+### Validation of the already-implemented layers (verified, not rebuilt)
+
+| Layer | Evidence (executed this session, this container) |
+|---|---|
+| OTH-K2 knowledge (fail-closed, read-only allowlist, explicit asOf, claim/quarantine) | othk-0 **89/0**, othk-1 **30/0**, othk-2 **87/0**, othk-2w **39/0** |
+| AI Operating Layer / executor | executor **264/0**, core-wiring **86/0** |
+| Governance isolation (mythos-gov, approval relay, fail-closed) | governance-invariant **99/0** |
+| Approval lifecycle + autonomous loop (memory → roadmap → next mission) | autonomous-campaign **365/0**, orchestration-core **255/2** (the 2 are the gate-known VPS-only systemd unit/timer checks — no systemd in this container) |
+| Unattended / caged paths | unattended-policy **53/0** |
+| Command Center console | mos-1 **1283/0** (was 1264; +19 auto-title assertions) |
+| E2E lifecycle + failure injection | mos-e2e-lifecycle **54/0** (new) |
+| MOS-v2 regression gate | **SUCCESS** — 0 new failures, 20/20 areas mapped |
+
+Baseline before any change (at `8e081b3`) was identically green.
+`tests/mcc-1-command-center-test.js` (the secrets-library command center)
+was NOT run: it requires a live PostgreSQL `_test` database that this
+container does not provide — environmental, recorded, not concealed.
+
+### Security
+
+No security file was modified. The diff touches only the console's
+title validation (strictly: a previously-refused shape is now derived
+server-side; every provided-but-invalid shape still refuses), the UI
+optional-title affordance, and tests. Governance/invariant/unattended
+suites ran unweakened and green. No secrets committed (verified: the E2E
+suite itself asserts no credential appears in any persisted record).
+
+### State corrections carried forward (from task t-20260820075238-o372yt)
+
+- AOL-V1-GOV reached `main` via **PR #46**, merge commit **`d4318fe`**.
+- The VPS governance hardening **is active** (verified on-host 2026-08-19/20
+  by the executor validation tasks: key `root:mythos-gov 0640`, memberless
+  group, deploy EACCES on key and approvals, zero install drift).
+- OPEN HIGH finding, unremediated by design (operator action): `deploy` is
+  in the `docker` group and the socket is reachable — root-equivalent,
+  defeats the mythos-gov isolation. Operator: `sudo gpasswd -d deploy docker`.
+
+### Worktree / Git state
+
+Worktree clean after commits. `origin/claude/mythos-os-integration-validation-5fv45z`
+= `b590a13` + this handover commit; verified against the remote after push.
+`origin/main` = `8e081b3` (unchanged by this session).
+
+### Next stage
+
+Merge this branch to `main` through the governed PR path. Then the
+remaining items are operator-side: remove deploy's docker membership
+(HIGH finding above) and, when the owner supplies exports and a
+provisioned store, OTH-K3 activation (`config/knowledge.json`). No new
+engineering stage beyond this validation is authorised; M-13 was not
+started.
+
+---
+
+**Previously:** AOL-V1-GOV **AI OPERATING LAYER V1 — GOVERNANCE-KEY ISOLATION DELIVERED IN-REPOSITORY (mythos-gov ARCHITECTURE, RELAY SupplementaryGroups, DRIFT FIX, HARDENING SCRIPT, 99/0 INVARIANT); PRODUCTION ACTIVATION IS A DOCUMENTED ROOT-ON-VPS OPERATOR STEP — NOT PERFORMED FROM THAT SESSION; SINCE VERIFIED ACTIVE ON-HOST (see State corrections above).**
 
 ## AOL-V1-GOV — governance-key isolation from the mission executor (2026-08-19)
 

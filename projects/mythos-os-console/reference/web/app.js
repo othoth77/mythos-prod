@@ -421,7 +421,7 @@
 
     var titleInput = el('input', {
       className: 'mythos-input',
-      attrs: { type: 'text', id: 'mission-title', maxlength: '200', placeholder: 'Short mission title', autocomplete: 'off' }
+      attrs: { type: 'text', id: 'mission-title', maxlength: '200', placeholder: 'Short mission title (optional — first instruction line is used)', autocomplete: 'off' }
     });
     var instructionInput = el('textarea', {
       className: 'mythos-input mythos-textarea',
@@ -442,6 +442,10 @@
       providerOptions.push(el('option', { attrs: { value: 'auto' }, text: 'auto — router decides' }));
     }
     var providerSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-provider' } }, providerOptions);
+    // Simplified flow: Auto is the DEFAULT whenever the server offers it --
+    // the normal mission needs no provider decision at all. Explicit
+    // providers stay one click away in Advanced, unchanged.
+    if (autoEnabled) providerSelect.value = 'auto';
     var providerNote = null;
     if (!providerList.length && !autoEnabled) {
       providerSelect.disabled = true;
@@ -450,7 +454,7 @@
     }
     var modelList = models || [];
     function modelOptionsFor(providerValue) {
-      var opts = [el('option', { attrs: { value: '' }, text: '(provider default)' })];
+      var opts = [el('option', { attrs: { value: '' }, text: 'Auto — provider default' })];
       modelList.filter(function (m) { return m.provider === providerValue; }).forEach(function (m) {
         opts.push(el('option', { attrs: { value: m.id }, text: m.label + ' — ' + m.capability }));
       });
@@ -469,8 +473,13 @@
     // 'auto' is selected, populated only from auto_routing.task_types — the
     // exact vocabulary the server just told this browser it accepts.
     var taskTypeList = (autoRouting && autoRouting.task_types) || [];
+    // '' (Auto, the default) sends no task_type at all: the server infers
+    // it deterministically from the title + instruction (its own
+    // TASK_TYPE_RULES, fail-closed to 'generic') before asking the router.
+    // A named type is still relayed and validated exactly as before.
     var taskTypeSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-task-type' } },
-      taskTypeList.map(function (t) { return el('option', { attrs: { value: t }, text: t }); }));
+      [el('option', { attrs: { value: '' }, text: 'Auto — inferred from the instruction' })].concat(
+        taskTypeList.map(function (t) { return el('option', { attrs: { value: t }, text: t }); })));
     var taskTypeRow = el('div', { attrs: { id: 'mission-task-type-row' } }, [
       el('label', { className: 'mythos-label', attrs: { for: 'mission-task-type' }, text: 'Task type' }),
       taskTypeSelect
@@ -500,13 +509,18 @@
     applyAutoState();
 
     var profileList = profiles || [];
+    // '' (Auto, the default) sends no execution_profile at all, so the
+    // server's own documented default -- the read-only repo-read ceiling --
+    // applies. The browser never invents a profile value: Auto here IS
+    // field absence, and escalation stays an explicit operator act in this
+    // select, still subject to the server's M-04 authorization gate.
     var profileSelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-profile' } },
-      profileList.map(function (p) {
-        var opt = el('option', { attrs: { value: p.name }, text: p.name + (p.authorized ? '' : ' (not authorized)') });
-        if (!p.authorized) opt.disabled = true;
-        if (p.name === 'repo-read') opt.selected = true;
-        return opt;
-      }));
+      [el('option', { attrs: { value: '' }, text: 'Auto — server default (repo-read)' })].concat(
+        profileList.map(function (p) {
+          var opt = el('option', { attrs: { value: p.name }, text: p.name + (p.authorized ? '' : ' (not authorized)') });
+          if (!p.authorized) opt.disabled = true;
+          return opt;
+        })));
     var profileNote = null;
     if (!profileList.length) {
       profileSelect.disabled = true;
@@ -528,15 +542,28 @@
         return opt;
       }));
 
-    // M-12: the runtime skill layer's category vocabulary -- the same
-    // closed enum server.js validates (CONSOLE_TASK_CATEGORIES), mirrored
-    // here rather than fetched, exactly as PRIORITY_OPTIONS above is. Never
-    // sent when '(auto)' is selected: an absent task_category lets the
-    // executor's own keyword-rule selection apply, same as an n8n task.
-    var CATEGORY_OPTIONS = ['security', 'frontend', 'testing', 'github-review', 'general'];
+    // M-12 + simplified flow: the SKILL field. A skill is selected through
+    // the registry's own category vocabulary (config/skills.json defines
+    // exactly one category per skill; server.js validates the same closed
+    // enum as CONSOLE_TASK_CATEGORIES, and tests pin both to the registry)
+    // -- so this select IS the task_category control, labelled by the
+    // skill each category selects rather than by the category's internal
+    // name. There is no second skill registry and no new field: the value
+    // relayed is still task_category, verbatim. '' (Auto, the default)
+    // sends nothing, so the executor's own fail-closed keyword-rule
+    // selection applies -- and whatever is chosen here, skill selection
+    // can never widen execution authority: profile and governance gates
+    // are validated server-side before the skill layer ever sees the task.
+    var SKILL_OPTIONS = [
+      { value: '', label: 'Auto — resolved from the instruction' },
+      { value: 'security', label: 'security-audit' },
+      { value: 'frontend', label: 'frontend' },
+      { value: 'testing', label: 'testing' },
+      { value: 'github-review', label: 'github-review' },
+      { value: 'general', label: 'generic' }
+    ];
     var categorySelect = el('select', { className: 'mythos-input', attrs: { id: 'mission-category' } },
-      [el('option', { attrs: { value: '' }, text: '(auto)' })].concat(
-        CATEGORY_OPTIONS.map(function (c) { return el('option', { attrs: { value: c }, text: c }); })));
+      SKILL_OPTIONS.map(function (o) { return el('option', { attrs: { value: o.value }, text: o.label }); }));
 
     var startBtn = el('button', {
       className: 'mythos-btn mythos-btn-gold',
@@ -546,10 +573,12 @@
 
     startBtn.addEventListener('click', function () {
       clear(feedback);
+      // Title is optional (automatic title rule): the server derives it
+      // from the first meaningful instruction line when none is given.
       var title = titleInput.value.trim();
       var instruction = instructionInput.value.trim();
-      if (!title || !instruction) {
-        feedback.appendChild(statePanel('⚠', 'Missing fields', 'Title and instruction are both required.', true));
+      if (!instruction) {
+        feedback.appendChild(statePanel('⚠', 'Missing instruction', 'Instruction is required.', true));
         return;
       }
       startBtn.disabled = true;
@@ -561,12 +590,16 @@
       var chosenProfile = (profileList.length && profileSelect.value) ? profileSelect.value : undefined;
       var isAuto = providerSelect.value === 'auto';
       var payload = {
-        title: title,
+        // An empty title is omitted entirely, so the server's own
+        // automatic-title derivation applies (never an empty string).
+        title: title || undefined,
         instruction: instruction,
         provider: providerSelect.value,
         // task_type is sent only for 'auto' — the server refuses it
-        // alongside any other provider, and refuses 'auto' without it.
-        task_type: isAuto ? taskTypeSelect.value : undefined,
+        // alongside any other provider — and only when the operator named
+        // one: Auto ('') omits the field so the server's own deterministic
+        // inference applies.
+        task_type: (isAuto && taskTypeSelect.value) ? taskTypeSelect.value : undefined,
         // 'auto' never carries a model: the router owns that choice, and
         // the model select is disabled and cleared whenever 'auto' is
         // selected (applyAutoState), so this is a straight mirror of what
@@ -587,7 +620,9 @@
         feedback.appendChild(statePanel(
           isRunning ? '▶' : '◌',
           isRunning ? 'Mission started' : 'Mission queued',
-          d.task_id + ' — ' + d.status + ' on ' + d.provider + (d.model ? ' (' + d.model + ')' : '') + '.' +
+          d.task_id + ' — ' + d.status + ' on ' + d.provider + (d.model ? ' (' + d.model + ')' : '') +
+          (d.execution_profile ? ' · profile ' + d.execution_profile : '') +
+          (d.task_type ? ' · routed as ' + d.task_type : '') + '.' +
           (d.note ? ' ' + d.note + '.' : '') +
           ' It will appear under Missions once the next status refresh loads.'
         ));
@@ -601,16 +636,26 @@
       });
     });
 
-    var form = el('div', { className: 'mythos-start-form' }, [
-      el('label', { className: 'mythos-label', attrs: { for: 'mission-title' }, text: 'Title' }), titleInput,
-      el('label', { className: 'mythos-label', attrs: { for: 'mission-instruction' }, text: 'Instruction' }), instructionInput,
+    // The simplified form: the operator writes the instruction; everything
+    // technical defaults to Auto and lives behind Advanced. Nothing was
+    // removed -- every manual override this form ever offered is still
+    // here, one disclosure away, validated server-side exactly as before.
+    var advanced = el('details', { className: 'mythos-advanced' }, [
+      el('summary', { className: 'mythos-label', text: 'Advanced' }),
       el('div', { className: 'mythos-start-row' }, [
         el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-provider' }, text: 'Provider' }), providerSelect, providerNote, taskTypeRow]),
-        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model (optional)' }), modelSelect, modelNote, modelAutoNote]),
-        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-profile' }, text: 'Execution profile' }), profileSelect, profileNote]),
-        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-priority' }, text: 'Priority' }), prioritySelect]),
-        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-category' }, text: 'Category (optional)' }), categorySelect])
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-model' }, text: 'Model' }), modelSelect, modelNote, modelAutoNote]),
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-profile' }, text: 'Execution profile' }), profileSelect, profileNote])
+      ])
+    ]);
+    var form = el('div', { className: 'mythos-start-form' }, [
+      el('label', { className: 'mythos-label', attrs: { for: 'mission-title' }, text: 'Title (optional — automatic)' }), titleInput,
+      el('label', { className: 'mythos-label', attrs: { for: 'mission-instruction' }, text: 'Instruction' }), instructionInput,
+      el('div', { className: 'mythos-start-row' }, [
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-category' }, text: 'Skill' }), categorySelect]),
+        el('div', {}, [el('label', { className: 'mythos-label', attrs: { for: 'mission-priority' }, text: 'Priority' }), prioritySelect])
       ]),
+      advanced,
       startBtn, feedback
     ]);
     wrap.appendChild(form);
@@ -647,6 +692,57 @@
     return wrap;
   }
 
+  // Copy Mission Report / Copy Result — terminal missions only. The text
+  // is built by window.MythosMissionReport (web/mission-report.js, the ONE
+  // owner of the report format, unit-tested in tests/mos-1-console-test.js)
+  // from exactly the objects the detail panel already fetched and rendered:
+  // no second fetch, no extra fields, and nothing is sent anywhere — the
+  // text goes to the operator's clipboard and nowhere else.
+  function copyRow(mission) {
+    var reporter = window.MythosMissionReport;
+    var note = el('span', { className: 'mythos-copy-note' });
+    var fallbackArea = null;
+    var wrap = el('div', { className: 'mythos-copy-row' });
+
+    function copyButton(label, confirmation, buildText) {
+      var btn = el('button', { className: 'mythos-btn mythos-btn-outline', attrs: { type: 'button' }, text: label });
+      btn.addEventListener('click', function () {
+        var text = buildText();
+        var clip = (navigator.clipboard && navigator.clipboard.writeText)
+          ? navigator.clipboard.writeText(text)
+          : Promise.reject(new Error('clipboard unavailable'));
+        clip.then(function () {
+          note.textContent = confirmation;
+        }).catch(function () {
+          // Clipboard API unavailable or denied: same fallback posture as
+          // the rest of this console — show the honest state and hand the
+          // operator the text. A read-only textarea, pre-selected, so one
+          // Ctrl/Cmd-C finishes the same job. Still nothing sent anywhere.
+          note.textContent = 'Clipboard unavailable — text selected below, press Ctrl/Cmd-C';
+          if (!fallbackArea) {
+            fallbackArea = el('textarea', { className: 'mythos-input mythos-textarea', attrs: { readonly: 'readonly', rows: '12' } });
+            wrap.appendChild(fallbackArea);
+          }
+          fallbackArea.value = text;
+          fallbackArea.focus();
+          fallbackArea.select();
+        });
+      });
+      return btn;
+    }
+
+    wrap.appendChild(copyButton('Copy Mission Report', 'Mission report copied', function () {
+      return reporter.buildMissionReport(mission);
+    }));
+    // The optional second button, only when there is a result to copy.
+    var resultText = reporter.buildResultText(mission);
+    if (resultText !== null) {
+      wrap.appendChild(copyButton('Copy Result', 'Result copied', function () { return resultText; }));
+    }
+    wrap.appendChild(note);
+    return wrap;
+  }
+
   function executionCard(t) {
     var state = String(t.effective || t.status || 'UNKNOWN').toUpperCase();
     var detailSlot = el('div', { className: 'mythos-exec-detail' });
@@ -673,6 +769,7 @@
         detailSlot.appendChild(fact('Provider', dTask.provider || '—'));
         detailSlot.appendChild(fact('Model', dTask.model || '(default)'));
         detailSlot.appendChild(fact('Priority', dTask.priority || '—'));
+        detailSlot.appendChild(fact('Category', dTask.task_category || '(none)'));
         detailSlot.appendChild(fact('Execution profile', dTask.execution_profile || '—'));
         // M-12: the skill_id/skill_version badge-line -- names only, never
         // the instruction content itself, which never reaches the browser.
@@ -688,6 +785,17 @@
         if (report && report.ok && report.data.next_stage) detailSlot.appendChild(fact('Next stage', report.data.next_stage));
         if (report && report.ok && report.data.problems && report.data.problems.length) {
           detailSlot.appendChild(fact('Report problems', report.data.problems.join('; ')));
+        }
+        // Terminal missions (COMPLETED / BLOCKED / FAILED / CANCELLED) get
+        // the copy buttons — whatever the outcome was, and even if the
+        // report fetch itself failed (the metadata report still copies).
+        if (terminal) {
+          detailSlot.appendChild(copyRow({
+            task: dTask,
+            status: dStatus,
+            effective: detail.data.effective || state,
+            report: (report && report.ok) ? report.data : null
+          }));
         }
       });
     });

@@ -4,6 +4,45 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260820075238-o372yt` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | AI OPERATING LAYER v1 — FINAL CLOSURE / POST-MERGE |
+| Provider / model | claude-code / default |
+| Execution profile | repo-test |
+| Started | 2026-08-20T07:52:38.845Z |
+| Ended | 2026-08-20T08:04:34.944Z |
+| Status | **COMPLETED** |
+| Claude session | `fb49d00d-bca4-4098-86ca-67895279ede2` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `e8ff4498a40f619d014eb6b37c7cea22d0360737` |
+| Git verified | null |
+
+**Summary:** Read-only post-merge validation of AI Operating Layer v1 across all 9 phases. Git: HEAD == origin/main == e8ff449, worktree clean. PR #46 is merged — the objective's merge hash a4318fe does not exist as a Git object; the real merge commit is d4318fe (single-character transcription error), verified as an ancestor of origin/main, so I corrected rather than blocked. All 10 Phase-2 architecture checks pass; the invariant test diff is 60 insertions / 0 deletions, so Section 11 is unchanged and Section 11B is purely additive. All four test suites were actually executed on this host as deploy: governance-invariant 99/0 exit 0, executor 264/0 exit 0, unattended-policy 53/0 exit 0, MOS-v2 4 suites / 0 new failures / 20-of-20 areas mapped exit 0. Production evidence gathered read-only via inline node (stat/getent were tool-blocked outside the working directory); the key value was never read or printed: governance.key is root:mythos-gov 0640, mythos-gov (gid 979) is memberless, deploy is not a member, and this validation — itself running as deploy — got EACCES on both the key and the approvals store. All four installed governance files are root:root and SHA-256-identical to origin/main (zero drift), and the live systemd unit carries SupplementaryGroups=mythos-gov with ReadWritePaths on the log but not approvals. The relay journal shows no EACCES: every 5-minute run exits 0 and records real GOVERNANCE DENY verdicts. mythos-ai-executor.service is a systemd USER unit (active/enabled), which is why the system-scope query returned not-found. Approval relay, skill/MCP fail-closed, execution profiles, MAX_PARALLEL and provider/model boundaries all verified from repository and green tests. One confirmed HIGH finding recorded and deliberately not changed: deploy is in the docker group (gid 986) and /var/run/docker.sock is rw-reachable, a root-equivalent path that bypasses the mythos-gov file isolation. Nothing was modified, committed, pushed, deployed, restarted, or approved.
+
+**Tests:**
+- node tests/mythos-governance-invariant-test.js: 99 passed / 0 failed, exit 0
+- node tests/mythos-ai-executor-test.js: 264 passed / 0 failed, exit 0
+- node tests/mythos-unattended-policy-test.js: 53 passed / 0 failed, exit 0
+- node tests/mos-v2-regression-test.js: 4 suites PASS / 0 new failures / 20 of 20 areas mapped, exit 0
+
+**Residual risks:**
+- HIGH/CONFIRMED: deploy is a member of docker (gid 986) and /var/run/docker.sock (0660 root:docker) is read+write reachable from the mission identity. Root-equivalent: a mission can mount /etc/mythos into a container and read governance.key, defeating the root:mythos-gov 0640 isolation and enabling forged approvals. Exploit path traced, not executed. Operator fix: sudo gpasswd -d deploy docker (install.sh only ever calls sudo docker; no code path uses the socket).
+- docs/AI_HANDOVER.md is stale in three respects and was not edited per the validation constraint: (1) PR #46 and merge commit d4318fe are not recorded; (2) the line-4 headline still says production activation was NOT PERFORMED, though this validation proves the hardening has been applied on the VPS; (3) lines 90-91 say host membership could not be inspected, but it now has been (deploy IS in docker).
+- sudo -l -U deploy could not be verified: it requires root and Bash(sudo:*) is disallowed under the repo-test execution profile. Passwordless sudo for deploy, if present, would defeat the same boundary as the docker membership.
+- The live runtime value of MYTHOS_MAX_PARALLEL is not verifiable read-only (/proc/<pid>/environ blocked, /status returns unauthorized). The code clamp bounds it to [1,8] with default 5 regardless.
+- The objective's merge hash a4318fe is not a valid Git object; d4318fe was used. Flagged for owner override if that substitution is not accepted.
+- LOW, no traced exploit path: mythos-git-push.sh:49 allows MYTHOS_GOV_VERIFIER to override the verifier path, but the only invoker is the root-owned unit, which does not set it, and neither file is writable by deploy.
+
+**Next stage:** Owner/operator action only — no engineering stage is authorised. (1) Run sudo gpasswd -d deploy docker to close the confirmed root-equivalence finding, and verify sudo -l -U deploy. (2) Update docs/AI_HANDOVER.md to record PR #46, merge commit d4318fe, the completed VPS hardening, and the now-inspected Docker membership. M-13 was NOT started and no next stage was invented.
+
+
+---
+
 ## Task `t-20260819223747-bburbd` — COMPLETED
 
 | Field | Value |
