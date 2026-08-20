@@ -1,7 +1,97 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** RUNNER-MAIN **PR #53 MERGED TO MAIN (merge commit `149dbae`) — the runner package with the temp-dir permission fix (PR #55, `6117338`) is on main. HOWEVER the second runner fix (`3c53612`, registration token never reached config.sh: bash -c trailing-word + sudo env_reset → empty token) landed on the branch AFTER the #53 merge and is NOT yet on main — main's provision-runner.sh at `db2909a` still carries the broken registration call. THIS follow-up PR delivers the token fix + updated tests/runbook to main. Validated on the merged tree: runner suite 29/0, bash -n clean, gate YAML parses, governance 99/0, MOS-v2 gate SUCCESS 0 new failures. VPS install remains an OWNER-MACHINE action (deploy SSH channel, key `vps_ovh_ed25519`; the isolated AI container still has no path — VPS-PATH finding stands for it). Operator MUST provision from a main checkout that includes THIS PR, not `db2909a`/`159456a`, or registration will fail with an empty token. M-13 NOT STARTED.**
+**From:** VPS-ADMIN-FINAL — **VPS ADMINISTRATION FINAL / COMPLETE.** The permanent admin path (SSH → mythosadmin → scoped sudo → mythos-deploy) is live-verified end-to-end from Windows: key-only auth, deploy/rollback/fail-safe all exercised on the real host at `db2909a`, governance 99/0 + MOS-v2 gate SUCCESS 20/20 on-host, zero production damage, `status.mythosprod.xyz` untouched (outside mythos-deploy scope, owner-controlled). Full evidence in the VPS-ADMIN-FINAL entry below. Next: OTH-KNOWLEDGE live activation (owner-only). Previous entries (RUNNER-MAIN, MOS-CONSOLE-LIVE) preserved below.
+
+## VPS-ADMIN-FINAL — permanent VPS administration path closed (2026-08-20)
+
+### Stage
+
+Finalization order: close the permanent VPS administration path.
+Constraints honored: no change to `status.mythosprod.xyz`, no root SSH,
+no broad sudo, no KVM needed, GitHub source of truth. All evidence below
+is first-hand from the owner Windows machine on 2026-08-20.
+
+- **Status: VPS ADMINISTRATION FINAL / COMPLETE.**
+- **Baseline verified:** origin/main = `db2909a`
+  (`fix(vps-admin): make sudoers bootstrap atomic and self-verifying`);
+  local main fast-forwarded to it, clean. `ops/vps-admin/` complete
+  (`mythos-deploy`, `50-mythosadmin`, `root-hook.sh`, `README.md`),
+  `root-hook.sh` last touched by `db2909a`; `bash -n` clean on both
+  scripts (committed LF content).
+- **Final commit SHA / remote HEAD:** the commit carrying this entry
+  (verified local == origin/main after push; see delivery note at end).
+
+### The permanent admin path (exact tested commands)
+
+```
+ssh -i ~/.ssh/mythosadmin_ed25519 mythosadmin@51.68.226.211
+sudo mythos-deploy list | version | status [target|all]
+sudo mythos-deploy preflight <os|panel|ordre|tv>      # read-only
+sudo mythos-deploy reload                              # nginx -t gate + graceful reload
+sudo mythos-deploy deploy <target> [ref]               # git → nginx -t → reload → health → rollback-on-fail
+sudo mythos-deploy rollback <target>                   # restore last-good SHA
+```
+
+- **Authentication:** `mythosadmin` key-only (`mythosadmin_ed25519`,
+  private key on owner workstation only); password locked (`passwd -S` →
+  `L`); `PasswordAuthentication no`; `PermitRootLogin prohibit-password`
+  and live root login attempts with both workstation keys → *Permission
+  denied* (root SSH unusable).
+- **Scoped sudo model:** `sudo -l` = exactly `mythos-deploy`,
+  `nginx -t`, `systemctl reload|status|is-active nginx`, `certbot`,
+  `mythos-logs` — nothing else (`sudo bash`, `sudo cat`,
+  `sudo systemctl restart nginx` all refused live). Groups:
+  `mythosadmin` only (uid 1002); no sudo/docker/deploy membership.
+- **Emergency path (unchanged, untested-by-design here):** OVH Manager →
+  KVM console → root → `su - deploy`. Not needed at any point.
+
+### Live gate results (all PASS)
+
+| Gate | Evidence |
+|---|---|
+| Admin SSH + identity | `id` → `mythosadmin`, BatchMode (key) auth |
+| Preflight ×4 | os/panel/ordre/tv: clean tree, nginx -t OK, health 302/302/200/302 |
+| Nginx safety | `nginx -t` OK (pre-existing darhijama duplicate-server-name warns only); graceful reload; all 14 sites-available checksums unchanged; DarHijama/fixpert/ssangyong/notrejour/status all 200 after |
+| Deploy (tv, non-critical) | `320de74` → `db2909a` ff-only as `deploy`, nginx -t, reload, health 302 → **SUCCESS only after health**; audit line `deploy tv OK now=db2909a prev=320de74… health=302` |
+| Rollback (tv) | `tv.lastgood` = `320de74`; rollback → checkout `320de74` (detached HEAD by design), nginx -t, reload, health 302; restored with `deploy tv main` → `db2909a` |
+| Fail-safe: dirty tree | untracked file injected via deploy channel → `refusing to deploy: working tree not clean` (exit 1); file removed, tree clean again |
+| Fail-safe: unknown/protected/injection | `deploy bogus`, `deploy status`, `preflight status`, `deploy "os; id"` all refused (exit 1) |
+| Fail-safe: privilege | arbitrary sudo refused; `/etc/mythos/governance.key` (0640 root:mythos-gov) unreadable directly and via sudo; `/etc/nginx/sites-available` and the deploy repo unwritable by mythosadmin; `/usr/local/sbin/mythos-deploy` root:root 0755 not writable |
+| Fail-safe: invalid-nginx + failed-health paths | verified by code review (nginx_validate gates every reload path; health failure → rollback + `die`, never SUCCESS) — live triggering would require damaging production config, which mythosadmin provably cannot do; the rollback primitives themselves were exercised live above |
+| Security audit | deploy owns `/home/deploy/projects/mythos-prod` (clean, main @ `db2909a`); deploy ∉ docker; NoNewPrivileges=yes on relay + executor + console services, ProtectSystem=strict on relay |
+| Suites (on-host, as deploy, at `db2909a`) | governance invariant **99/0**; MOS-v2 regression gate **SUCCESS 20/20, 0 new failures**; vps-runner-provisioning **25/0**; bash -n clean |
+
+### Operational notes
+
+1. **`status.mythosprod.xyz` is outside mythos-deploy scope and remains
+   owner-controlled.** The registry hard-refuses it (`PROTECTED`); this
+   finalization never touched it (checksum + 200 verified).
+2. `rollback` leaves the checkout on a detached HEAD at the last-good
+   SHA (by design — the branch pointer is not rewound). To return to
+   tracking main afterwards: `sudo mythos-deploy deploy <target> main`.
+3. The audit log `/var/log/mythos-deploy.log` attributes every action to
+   the invoking sudo user with SHAs; `/var/lib/mythos-deploy/<t>.lastgood`
+   holds the rollback point.
+4. Pre-existing, out of scope: nginx duplicate-server-name warnings for
+   darhijama (a `.disabled-*` duplicate); a `mythos-git-push` relay
+   REFUSED/DENY cycle from before this stage (governance denying
+   unapproved mission branch `1e4a1ee` — the boundary working as
+   designed, per MOS-CONSOLE-LIVE).
+
+### Final success criteria
+
+ADMIN PATH PASS · SSH KEY PASS · SCOPED SUDO PASS · DEPLOY TOOL PASS ·
+GIT VALIDATION PASS · NGINX VALIDATION PASS · HEALTH CHECK PASS ·
+ROLLBACK PASS · FAIL-SAFE PASS · SECURITY AUDIT PASS · GOVERNANCE PASS ·
+MOS-v2 PASS · DOCUMENTATION PASS · GIT PUSH + REMOTE HEAD: see delivery
+note.
+
+**Next stage:** OTH-KNOWLEDGE live activation (owner-only), unchanged
+from MOS-CONSOLE-LIVE.
+
+---
+**Previous entry — From:** RUNNER-MAIN **PR #53 MERGED TO MAIN (merge commit `149dbae`) — the runner package with the temp-dir permission fix (PR #55, `6117338`) is on main. HOWEVER the second runner fix (`3c53612`, registration token never reached config.sh: bash -c trailing-word + sudo env_reset → empty token) landed on the branch AFTER the #53 merge and is NOT yet on main — main's provision-runner.sh at `db2909a` still carries the broken registration call. THIS follow-up PR delivers the token fix + updated tests/runbook to main. Validated on the merged tree: runner suite 29/0, bash -n clean, gate YAML parses, governance 99/0, MOS-v2 gate SUCCESS 0 new failures. VPS install remains an OWNER-MACHINE action (deploy SSH channel, key `vps_ovh_ed25519`; the isolated AI container still has no path — VPS-PATH finding stands for it). Operator MUST provision from a main checkout that includes THIS PR, not `db2909a`/`159456a`, or registration will fail with an empty token. M-13 NOT STARTED.**
 
 ## RUNNER-MAIN — PR #53 merged; token fix delivered to main (2026-08-20)
 
