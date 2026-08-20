@@ -1,7 +1,190 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** STC-LIVE **STATUS CENTER DEPLOYED AND LIVE at https://status.mythosprod.xyz/ (operator ran scripts/deploy-status-center.sh on the VPS at repo 9992f7a: vhost + certbot TLS + all acceptance and regression checks PASS; darhijama.tn fallback redirect ENDED; independently re-verified live from the owner machine). REVIEW-2026-08-20-004 = immutable post-deployment snapshot. Delta: DNS configured → VPS vhost deployed → TLS active → Status Center LIVE.**
+**From:** RUNNER-FIX **VPS RUNNER PROVISIONING PERMISSION FIX — the first live run of provision-runner.sh on the VPS failed at extraction (`tar ... Cannot open: Permission denied`): the temp dir came from `mktemp -d` as root (0700 root-owned) so the unprivileged `sudo -u mythos-runner tar` could not open the tarball inside it. FIXED by chowning the temp dir + tarball to mythos-runner before extraction (no mode widening, no root extraction), plus full rerun-safety for the partial state the failure left (account adopted + password re-locked every run, download/registration tracked independently, config.sh --replace, token only required while unregistered). New regression suite tests/vps-runner-provisioning-test.js 25/0; governance 99/0; MOS-v2 gate SUCCESS. VPS still holds the partial install (account created, nothing extracted, unregistered) — NO manual cleanup needed, operator reruns the same install command with a fresh RUNNER_TOKEN from a checkout containing this fix. M-13 NOT STARTED.**
+
+## VPS runner provisioning permission fix (2026-08-20)
+
+### Stage
+
+FINAL LIVE GATE — provisioning-script fix, on branch
+`claude/vps-runner-provisioning-perms-xbbao2`, stacked on PR #53's
+branch `claude/mythos-vps-runner-finalize-5rapsk` (032c415).
+
+### Exact blocker observed on the VPS
+
+First live run of `provision-runner.sh` (RUNNER_VERSION=2.336.0,
+checksum verified OK, `mythos-runner` account created OK) failed at
+step 2/6:
+
+```
+tar (child): /tmp/tmp.IlWxm7GTDP/actions-runner-linux-x64-2.336.0.tar.gz: Cannot open: Permission denied
+```
+
+**Root cause:** `TMP="$(mktemp -d)"` runs as root → `/tmp/tmp.XXXX` is
+root-owned mode 0700. The extraction deliberately runs unprivileged
+(`sudo -u mythos-runner tar -xzf "$TMP/$TARBALL" ...`), and
+`mythos-runner` can neither traverse the directory nor open the tarball.
+The VPS was left with a partial install: account + `/opt/mythos-gh-runner`
+exist; no binaries, no registration, no unit.
+
+### Fix (least-privilege preserved)
+
+`projects/infrastructure/github-runner/provision-runner.sh`:
+
+- chown the temp dir and the downloaded tarball to `mythos-runner`
+  (mode kept 0700) after the checksum passes and **before** the
+  unprivileged `tar`. Extraction still never runs as root; no chmod 777,
+  no docker group, no sudo grant, unit unchanged (NoNewPrivileges=yes).
+- Rerun-safety for the exact partial state left on the VPS: existing
+  `mythos-runner` adopted only if its home is `/opt/mythos-gh-runner`
+  (else hard-fail), password locked unconditionally on every run,
+  `chown -R` of the runner home before extraction clears any root-owned
+  fragments, download (`run.sh`) and registration (`.runner`) tracked
+  independently so any partial state resumes correctly, `config.sh
+  --replace` survives a stale GitHub-side registration, and
+  `RUNNER_TOKEN` is only demanded while the runner is unregistered.
+
+### Validation
+
+- `bash -n` clean on both scripts; workflow YAML parses.
+- NEW `tests/vps-runner-provisioning-test.js`: **25/0** — regression
+  pins the chown-before-unprivileged-tar ordering, rejects forbidden
+  remediations (chmod 777, root extraction, docker group, sudoers,
+  token echo), and asserts all §3–§4 security invariants.
+- `tests/mythos-governance-invariant-test.js`: **99/0**.
+- `tests/mos-v2-regression-test.js`: **SUCCESS, 20/20 areas, 0 new
+  failures** (1 known pre-existing VPS-only suite).
+
+### Operator action to unblock the live gate (unchanged shape)
+
+No manual cleanup of the partial install. From a VPS checkout containing
+this fix, with a **fresh** registration token (they expire ~1 h):
+
+```bash
+cd /home/deploy/projects/mythos-prod/projects/infrastructure/github-runner
+sudo RUNNER_TOKEN=<fresh-token> RUNNER_VERSION=2.336.0 \
+     RUNNER_SHA256=04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d \
+     bash provision-runner.sh
+```
+
+(RUNNER_VERSION/SHA256 as displayed on the GitHub "New self-hosted
+runner" page at rerun time — re-copy them if GitHub now shows a newer
+version.)
+
+M-13 NOT started.
+
+---
+
+**Previous entry — From:** RUNNER-PKG **MYTHOS OS FINAL LIVE GATE — SELF-HOSTED RUNNER PACKAGE REPOSITORY-COMPLETE (LEAST-PRIVILEGE PROVISIONING SCRIPT + HARDENED SYSTEMD UNIT + SECURITY VERIFICATION + READ-ONLY workflow_dispatch GATE WORKFLOW ON LABEL mythos-vps). LIVE GATE REMAINS BLOCKED: NO AI EXECUTION PATH TO THE VPS EXISTS (RE-VERIFIED — SSH TIMEOUT, HTTPS 403 BY ORG EGRESS POLICY, NO SELF-HOSTED CLAUDE ENVIRONMENT). ONE OPERATOR ROOT ACTION (RUN provision-runner.sh ON THE VPS) UNBLOCKS EVERY LIVE SECTION. MERGED TREE AT b6e52d5 + PACKAGE RE-VERIFIED: GOVERNANCE 99/0, MOS-v2 GATE SUCCESS. NO SECRETS, M-13 NOT STARTED.**
+
+## MYTHOS OS FINAL LIVE GATE — self-hosted runner package (2026-08-20)
+
+### Stage
+
+MYTHOS OS FINAL LIVE GATE (master finalization order: runner → VPS
+hardening → live knowledge → E2E → final gate), on branch
+`claude/mythos-vps-runner-finalize-5rapsk`.
+
+**Starting SHA:** `b6e52d5` (origin/main at preflight — note: the order
+stated main was at `70d3e71`, but the owner had since merged PR #45
+(OTH-K3), a forced-update of the tracking ref to `b6e52d5`; preflight
+proceeded from the real remote state per AGENTS.md §2).
+
+### Access-path re-verification (do-not-assume-unchanged rule)
+
+Every VPS-PATH mechanism re-tested from this session, all still blocked:
+SSH `51.68.226.211:22` connect timeout; HTTPS to `os.mythosprod.xyz`
+CONNECT 403 from the organization egress proxy (not routed around); no
+`.github/workflows` or runner registration existed; Claude Code Remote
+has only `anthropic_cloud` environments (no self-hosted pool). No
+credentials exist here by design and none were fabricated.
+
+### Delivered (repository-executable portion of order §3–§4)
+
+- `projects/infrastructure/github-runner/provision-runner.sh` —
+  idempotent root installer: dedicated system account `mythos-runner`
+  (locked password, home `/opt/mythos-gh-runner`, hard-fails if the
+  account is in docker/sudo/mythos-gov/root or has any sudoers entry),
+  checksum-verified runner download, repo-scoped registration to
+  `othoth77/mythos-prod` (label `mythos-vps`, token via install-time env
+  only — never stored, never echoed), hardened unit install,
+  enable/start, then security verification. Never touches governance
+  files, deploy, docker membership, firewall, or Mythos services.
+- `projects/infrastructure/github-runner/mythos-gh-runner.service` —
+  NoNewPrivileges=yes (sudo structurally impossible from jobs — the §4
+  sudo boundary is satisfied by granting NOTHING), ProtectSystem=full,
+  ProtectHome=read-only, PrivateTmp, empty capability bounding set,
+  Restart=always, enabled for reboot survival.
+- `projects/infrastructure/github-runner/verify-runner.sh` — read-only
+  PASS/FAIL verification of every §3–§4 requirement: identity, banned
+  groups, `sudo -l -U mythos-runner` empty, governance.key + approval
+  store EACCES, docker.sock unreachable, unit active/enabled/hardened,
+  restart survival. Exits non-zero on any failure; reads no secret values.
+- `.github/workflows/vps-final-gate.yml` — workflow_dispatch-only,
+  `permissions: contents: read`, runs-on `[self-hosted, mythos-vps]`:
+  smoke job (identity + boundary assertions, fail-closed) and gate job
+  (§5 baseline, §6 docker-group finding report — remediation stays a
+  root-only operator command, governance invariant suite, §8 knowledge
+  config state, E2E suite with the designed host refusal recorded as the
+  expected result). All read-only on the host.
+- `docs/VPS_RUNNER_PROVISIONING.md` — operator runbook: GitHub-side
+  token/version/checksum retrieval, one-command install, Actions
+  settings hardening, rollback, and the governance note that
+  `.github/workflows/**` is a protected path (the on-VPS relay correctly
+  refuses to deliver commits touching it without an explicit approval;
+  Actions executes the workflow from GitHub regardless).
+
+### Gate statuses (order §17 format)
+
+```
+Stage:              MYTHOS OS FINAL LIVE GATE
+Starting SHA:       b6e52d5
+Runner:             BLOCKED live — repository package COMPLETE; install
+                    is a one-time operator root action on the VPS
+Runner security:    designed + script-enforced fail-closed; live
+                    verification pending install (verify-runner.sh)
+VPS:                BLOCKED — no execution path from AI sessions (re-verified)
+Docker group:       BLOCKED — finding stands OPEN (deploy ∈ docker);
+                    remediation remains: sudo gpasswd -d deploy docker
+Governance:         BLOCKED on-host — invariant suite in-container 99/0;
+                    last on-host validation showed boundary INTACT
+OTH-KNOWLEDGE:      BLOCKED — store unprovisioned (owner decision);
+                    fail-closed wiring proven (othk-2w)
+Backup/restore:     BLOCKED live — round-trip proven locally (OTH-K3 ops)
+Live E2E:           BLOCKED on-host — proven in-container (mos-e2e-lifecycle)
+Persistent Memory:  BLOCKED on-host — proven in-container
+Failure Injection:  BLOCKED on-host — container matrix green
+MCC-1:              BLOCKED live — green in-container (VPS-PATH entry)
+Full Suite:         governance 99/0 + MOS-v2 gate SUCCESS (20/20 areas,
+                    0 new failures) re-executed HERE on b6e52d5 + package
+MOS-v2:             GREEN (this session, exit 0)
+Security:           no secrets committed; no privilege granted; runner
+                    package enforces least privilege fail-closed
+```
+
+### Remaining blocker (exact) and required operator action (exact)
+
+One blocker: **no AI execution path to the VPS** (network + egress
+policy + no credentials, all by design). Required operator action:
+follow `docs/VPS_RUNNER_PROVISIONING.md` §3 — get the registration
+token/version/checksum from GitHub → Settings → Actions → Runners, then
+as root on the VPS run
+`sudo RUNNER_TOKEN=… RUNNER_VERSION=… RUNNER_SHA256=… bash
+projects/infrastructure/github-runner/provision-runner.sh`. When
+`mythos-vps-runner` shows Idle, dispatch the **VPS Final Gate** workflow;
+the two root-only remediations (docker-group removal, OTH-KNOWLEDGE
+store provisioning) remain separate operator commands already documented.
+
+### Next stage
+
+NOT M-13. Operator installs the runner (one action above) → rerun the
+VPS Final Gate live sections (§5–§16 of the order) → only then determine
+the next engineering stage.
+
+---
+
+**Previously:** STC-LIVE **STATUS CENTER DEPLOYED AND LIVE at https://status.mythosprod.xyz/ (operator ran scripts/deploy-status-center.sh on the VPS at repo 9992f7a: vhost + certbot TLS + all acceptance and regression checks PASS; darhijama.tn fallback redirect ENDED; independently re-verified live from the owner machine). REVIEW-2026-08-20-004 = immutable post-deployment snapshot. Delta: DNS configured → VPS vhost deployed → TLS active → Status Center LIVE.**
 
 ## VPS-ADMIN — permanent VPS administration model (2026-08-20)
 

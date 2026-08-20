@@ -1,0 +1,121 @@
+# =====================================================
+# Mythos OS — VPS Final Gate (self-hosted runner, read-only)
+#
+# Runs ONLY on manual dispatch, ONLY on the mythos-vps self-hosted
+# runner (provisioned per docs/VPS_RUNNER_PROVISIONING.md). Every step
+# is read-only on the host: no service restart, no permission change,
+# no governance mutation, no store write. Root-only remediations
+# (docker-group removal, store provisioning) remain operator actions
+# by design — the runner has NoNewPrivileges and cannot escalate.
+#
+# NOTE: .github/workflows/** is a governance-protected path — the
+# on-VPS relay refuses to deliver commits touching it without an
+# explicit approval. Actions executes this file from GitHub, so the
+# workflow runs regardless; approve delivery when updating the VPS
+# checkout of main past this commit.
+# =====================================================
+name: VPS Final Gate
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-final-gate
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Runner smoke + identity boundary
+    runs-on: [self-hosted, mythos-vps]
+    timeout-minutes: 10
+    steps:
+      - name: Harmless test job — identity report
+        run: |
+          echo "hostname: $(hostname)"
+          echo "user: $(id -un) uid=$(id -u)"
+          echo "groups: $(id -nG)"
+          echo "os: $(. /etc/os-release && echo "$PRETTY_NAME")"
+      - name: Assert least-privilege identity (fail-closed)
+        run: |
+          set -eu
+          [ "$(id -u)" -ne 0 ] || { echo "FAIL: runner is root"; exit 1; }
+          for banned in docker sudo mythos-gov root; do
+            if id -nG | tr ' ' '\n' | grep -qx "$banned"; then
+              echo "FAIL: runner is in banned group $banned"; exit 1
+            fi
+          done
+          if sudo -n true 2>/dev/null; then
+            echo "FAIL: runner has passwordless sudo"; exit 1
+          fi
+          echo "PASS: non-root, no docker/sudo/mythos-gov, no sudo -n"
+      - name: Assert governance material unreachable (values never read)
+        run: |
+          set -eu
+          ! test -r /etc/mythos/governance.key || { echo "FAIL: can read governance.key"; exit 1; }
+          ! ls /var/lib/mythos/governance/approvals >/dev/null 2>&1 || { echo "FAIL: can list approval store"; exit 1; }
+          ! test -r /var/run/docker.sock || { echo "FAIL: can reach docker socket"; exit 1; }
+          echo "PASS: governance.key EACCES, approvals EACCES, docker.sock unreachable"
+
+  gate:
+    name: VPS baseline + governance + suites (read-only)
+    needs: smoke
+    runs-on: [self-hosted, mythos-vps]
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: VPS baseline (section 5 of the gate order)
+        run: |
+          set -eu
+          echo "hostname:        $(hostname)"
+          echo "runner user:     $(id -un) ($(id -nG))"
+          echo "node:            $(node --version 2>/dev/null || echo MISSING)"
+          echo "workflow sha:    $GITHUB_SHA"
+          echo "deploy groups:   $(id -nG deploy 2>/dev/null || echo 'deploy account not visible')"
+          echo "docker group:    $(getent group docker || echo 'no docker group')"
+          echo "mythos-gov:      $(getent group mythos-gov || echo 'no mythos-gov group')"
+          if [ -d /home/deploy/projects/mythos-prod ]; then
+            echo "vps checkout:    present (contents not readable from this identity by policy — reported as-is)"
+          fi
+
+      - name: Docker-group finding (section 6 — report only, remediation is root-only)
+        run: |
+          set -eu
+          if getent group docker | cut -d: -f4 | tr ',' '\n' | grep -qx deploy; then
+            echo "FINDING OPEN: deploy is in the docker group (root-equivalent)."
+            echo "Operator remediation (root): gpasswd -d deploy docker && re-run this gate."
+            echo "docker_finding=open" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "PASS: deploy is NOT in the docker group"
+          fi
+
+      - name: Governance invariant suite (identity-agnostic, read-only)
+        run: node tests/mythos-governance-invariant-test.js
+
+      - name: Knowledge configuration state (section 8 — report only)
+        run: |
+          set -eu
+          node -e '
+            const c = require("./projects/oth-knowledge/config/knowledge.json");
+            console.log("enabled:", c.enabled === true);
+            console.log("store_root set:", typeof c.store_root === "string" && c.store_root.length > 0);
+          ' 2>/dev/null || echo "knowledge config not present/parseable at this revision — reported as-is"
+
+      - name: E2E lifecycle suite — expected host refusal is the PASS condition
+        run: |
+          set +e
+          out="$(node tests/mos-e2e-lifecycle-test.js 2>&1)"; code=$?
+          echo "$out" | tail -20
+          if [ $code -eq 0 ]; then
+            echo "E2E suite ran to completion on this host (no registered-checkout refusal)."
+          else
+            if echo "$out" | grep -qi 'refus\|registered checkout\|this host'; then
+              echo "PASS(expected): suite hard-refuses on the production host by design — recorded, not overridden."
+            else
+              echo "FAIL: suite failed for a reason other than the designed host refusal."
+              exit 1
+            fi
+          fi
