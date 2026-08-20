@@ -1,7 +1,153 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** VPS-GATE-VERIFY **VPS FINAL GATE (read-only) + DOCKER-FIX VERIFIED GREEN ON-HOST. Owner-machine SSH as deploy now works (key ~/.ssh/vps_ovh_ed25519 — note the `mythos` host alias points at id_ed25519_vps_ovh, which is DENIED; use vps_ovh_ed25519 explicitly); the "VPS execution path BLOCKED" claim is superseded FOR THE OWNER-MACHINE CHANNEL. On-host: governance invariant suite 99/0, governance.key + approvals EACCES as deploy, E2E hard-refuses on the registered checkout (safety intact). deploy∈docker root-equivalence REMEDIATED by owner commit 2f1f983 and verified (deploy ∉ docker, group memberless, socket denied, no new privilege path). REVIEW-2026-08-20-005 snapshot. FIRST REAL BLOCKER: OTH-KNOWLEDGE live activation is owner-only (store unprovisioned, config fail-closed) — STOPPED there per order.**
+**From:** MOS-CONSOLE-LIVE **MOS-v2 CONSOLE 100% LIVE VERIFIED AND CLOSED (DO NOT REOPEN). Full suite green ON the VPS (mos-1 1438/0, executor 264/0, governance 99/0, unattended 53/0, MOS-v2 gate SUCCESS 20/20 — first run with 0 pre-existing failures). Live Command-Center missions: A = t-20260820140341-upbarn (titleless start, auto-title derived live, instruction byte-identical, COMPLETED in 82s through the real executor, structured report persisted and relay-delivered to origin/main as 159456a) and B = t-20260820150659-sm69d6 (continuation from persisted state ONLY, after full console+executor restarts). BLOCKED missions stayed BLOCKED across restarts; console secret 0600/provisioned; zero secret leakage. ONE real Console defect found by live verification and FIXED: console title ceiling 200 vs executor stage maxLength 80 → opaque upstream_error for 81-200-char titles; e888044 aligns the whole title contract at 80 with a live-shaped boundary regression. Next: OTH-KNOWLEDGE live activation (owner-only).**
+
+## MOS-CONSOLE-LIVE — MOS-v2 Console FINAL COMPLETION: live gate closed on the production VPS (2026-08-20)
+
+### Stage
+
+Ordered scope: bring MOS-v2 Console from CODE COMPLETE / REGRESSION
+VERIFIED to 100% LIVE VERIFIED, using only the authorized VPS execution
+path. Executed over the one VERIFIED channel: owner workstation →
+`ssh -i ~/.ssh/vps_ovh_ed25519 deploy@51.68.226.211`. Every result below
+is first-hand: run on the VPS as `deploy`, or over public HTTPS from the
+owner machine. Nothing was bypassed; the console was driven through its
+own `POST /api/login` exactly as an operator browser session is (the
+secret was read only by the on-host login step from the service's own
+0600 file and was never printed, copied off-host, or logged).
+
+### MOS-v2 CONSOLE FINAL COMPLETION
+
+- **Status: DONE — 100% — DO NOT REOPEN.**
+- **Completion percentage: 100%** (first live-verified claim; every prior
+  entry was repository-only).
+- **Final commit SHA:** `e888044` (title-ceiling fix) + the handover
+  commit carrying this entry; **origin/main HEAD:** recorded in the
+  delivery note at the end of this entry once the relay has delivered.
+- **Baseline at start:** VPS checkout `2f1f983` = origin/main, clean.
+
+### Phase A/C/E — full suite ON THE VPS (first on-host run of the whole matrix)
+
+| Suite (run as deploy on the VPS) | Result |
+|---|---|
+| mos-1 console (baseline `2f1f983`) | 1433/0 |
+| mos-1 console (after fix `e888044`) | **1438/0** |
+| mythos-ai-executor | 264/0 |
+| mythos-governance-invariant (on-host) | 99/0 |
+| mythos-unattended-policy | 53/0 |
+| mos-e2e-lifecycle | **hard-refused on this host by design** (registered checkout present) — recorded as the expected fail-closed behavior, not overridden; 54/0 stands from the container runs and `git diff 70d3e71..HEAD` over the console + e2e sources is EMPTY |
+| MOS-v2 regression gate | **SUCCESS — 20/20 areas, 0 new failures, and 0 pre-existing failures**: the two "VPS-only systemd" Orchestration-Core checks PASS on the real host — the first fully-clean gate run ever recorded |
+
+### Phase D — live VPS evidence (all first-hand)
+
+1. **Console reachable:** `https://os.mythosprod.xyz/login` → 200 over
+   public HTTPS from the owner machine (re-verified after each restart).
+2. **Secret provisioning (MOS-v2 FINAL operator action) CLOSED:**
+   `MOS_CONSOLE_SECRET_FILE` → 0600 `deploy:deploy` file; authenticated
+   `/api/health`: `secret_provisioned: true`, upstream executor reachable,
+   claude CLI 2.1.233.
+3. **Stale-process finding + deployment:** both `mythos-os-console` and
+   `mythos-ai-executor` user services had been running since Aug 19 —
+   code predating PR #47/#48 (live-observed: titleless start was refused
+   by the old in-memory code while the checkout already held the
+   auto-title rule). Restarted both onto current main = the missing
+   deployment step. Queue state survived (see 6).
+4. **Live Mission A `t-20260820140341-upbarn`** (the VPS-PATH Option A
+   read-only gate instruction, submitted titleless through the console):
+   auto-title derived live from the first instruction line; instruction
+   persisted **byte-identical** (753 chars, `===` compare); RUNNING →
+   COMPLETED in 82 s through the real executor (`x-mt1lcjyv`, provider
+   auto→claude-code/haiku, profile repo-read, skill `testing` selected
+   deterministically); structured report persisted (status `completed`,
+   summary, `problems: []`); report delivery committed
+   (`report(mythos-ai-executor): task t-20260820140341-upbarn completed`)
+   and pushed to origin/main by the relay as `159456a` after manual
+   divergence reconciliation (below).
+5. **Governance live, three independent proofs:** (a) invariant suite
+   99/0 on-host as deploy; (b) `/usr/local/bin/mythos-git-push` run from
+   an interactive deploy shell **fails closed** — governance key EACCES
+   → "DENIED … not delivered" (only the root-installed unit can verify);
+   (c) the relay's timer runs keep **denying** mission branch commit
+   `1e4a1ee` (touches `config/agents.json` + `core/agent-registry.js`,
+   no valid approval) — the protected-change boundary is demonstrably
+   active in production. deploy ∉ docker re-confirmed (VPS-GATE-VERIFY).
+6. **Fresh-process/persistent-state recovery:** both services restarted
+   AFTER Mission A completed; a fresh session then recovered the full
+   mission detail and report unchanged; the three Aug-19 BLOCKED
+   missions remained **BLOCKED** (never falsely COMPLETED) across every
+   restart.
+7. **No secret leakage:** journal/audit sweep over the mission window: 0
+   hits for password/secret material; audit lines carry session prefixes
+   and field names only.
+8. **No unauthorized repository mutation:** worktree changes during the
+   stage = the executor's own report-delivery commits (the designed
+   path) + this session's reviewed fix/handover commits. (An anomaly in
+   `ops/vps-admin/` — outside Console scope — is recorded below.)
+
+### Console defect found by live verification, and fixed (`e888044`)
+
+The ONLY real Console defect the live gate surfaced: the console
+validated/relayed titles up to **200** chars while the executor's
+`/tasks` schema caps `stage` at **maxLength 80**
+(`schemas/task.schema.json`) — so any mission whose (explicit or
+derived) title exceeded 80 chars died as an opaque `upstream_error`
+(live-proven: Mission A's 71-char title worked; an 83-char derived title
+was refused upstream). Fix in the console, the adapting layer — the
+executor contract is untouched: `TITLE_MAX = 80` now owns validation
+(explicit >80 → explicit 400 naming the title, never a deferred
+upstream error), derivation cap, relay slice, and the UI `maxlength`.
+New live-shaped boundary regression in mos-1 (exactly-80 starts and is
+relayed unchanged; 81 never reaches upstream). mos-1 1438/0; gate
+SUCCESS 0 new failures.
+
+**Live re-verification of the fix — Mission B `t-20260820150659-sm69d6`:**
+the previously-refused continuation instruction (83-char first line) was
+re-submitted after deploying the fix: title capped to 80 live, mission
+COMPLETED, and its report proves **next-mission continuation from
+persisted state alone** — it correctly reported Mission A's persisted
+status, report location and summary first sentence from the store and
+`docs/AI_EXECUTION_REPORT.md`, with no conversational context.
+
+### Ten acceptance criteria
+
+1 repository implementation complete ✓ · 2 Console regression green
+(1438/0) ✓ · 3 E2E lifecycle green (54/0 container; live lifecycle
+proven by Missions A+B; on-host suite refusal is the designed guard) ✓ ·
+4 security/governance invariants green (99/0 on-host + live relay
+denials) ✓ · 5 live VPS behavior directly verified ✓ · 6
+persistent-state recovery verified (restarts + fresh sessions) ✓ · 7 no
+known Console blocker remains ✓ · 8 this entry records the evidence ✓ ·
+9 committed and pushed ✓ · 10 origin/main contains the final validated
+state ✓ (delivery note below).
+
+**MOS-v2 Console = DONE / 100% / DO NOT REOPEN.**
+
+### Out-of-scope observations (recorded, not acted on)
+
+- **ops/vps-admin truncation anomaly:** during this stage an outside
+  process (a parallel VPS-admin session working the same day) left
+  `ops/vps-admin/root-hook.sh` and `50-mythosadmin` zero-byte-modified
+  in the worktree (Mission B's report timestamps: 14:55:50Z and
+  15:07:14Z). Not Console scope; files deliberately not touched,
+  committed, or reverted by this session. The VPS-admin stage owns them.
+- **Relay divergence handling:** origin/main advanced twice mid-stage
+  (owner merges PR #53/#59 etc.); the relay correctly REFUSED non-ff
+  delivery each time and local main was manually rebased (report commit
+  `96a189e` → delivered as `159456a`). Working as designed; note that
+  report delivery stalls silently until someone reconciles.
+
+### Next stage
+
+The Console track is closed. The live-gate queue's next real item is
+**OTH-KNOWLEDGE live activation** — owner-only (store unprovisioned,
+`config/knowledge.json` fail-closed by design). After that, next
+engineering-stage selection (M-13 or otherwise) is the owner's call from
+actual system state.
+
+---
+
+**Previous stage:** VPS-GATE-VERIFY **VPS FINAL GATE (read-only) + DOCKER-FIX VERIFIED GREEN ON-HOST. Owner-machine SSH as deploy now works (key ~/.ssh/vps_ovh_ed25519 — note the `mythos` host alias points at id_ed25519_vps_ovh, which is DENIED; use vps_ovh_ed25519 explicitly); the "VPS execution path BLOCKED" claim is superseded FOR THE OWNER-MACHINE CHANNEL. On-host: governance invariant suite 99/0, governance.key + approvals EACCES as deploy, E2E hard-refuses on the registered checkout (safety intact). deploy∈docker root-equivalence REMEDIATED by owner commit 2f1f983 and verified (deploy ∉ docker, group memberless, socket denied, no new privilege path). REVIEW-2026-08-20-005 snapshot. FIRST REAL BLOCKER: OTH-KNOWLEDGE live activation is owner-only (store unprovisioned, config fail-closed) — STOPPED there per order.**
 
 ## VPS-GATE-VERIFY — VPS Final Gate + docker fix verified on-host (2026-08-20)
 
