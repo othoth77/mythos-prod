@@ -1,7 +1,96 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** INT-E2E **MYTHOS OS INTEGRATION VALIDATION — COMPLETE END-TO-END MISSION LIFECYCLE PROVEN (INSTRUCTION → COMMAND CENTER → MISSION → EXECUTOR → VERIFICATION → PERSISTENT RESULT → FRESH-SESSION HANDOVER → NEXT MISSION), AUTOMATIC TITLE RULE DELIVERED; FULL REQUIRED SUITE GREEN (E2E 54/0, CONSOLE 1283/0, EXECUTOR 264/0, GOVERNANCE 99/0, MOS-v2 GATE 0 NEW FAILURES).**
+**From:** INT-GATE **PR #48 CLOSURE + FINAL GATE — PR #48 MERGED TO MAIN (`c2ec2d7`); FULL FINAL SUITE GREEN AT THE MERGED BASELINE INCLUDING MCC-1 (506/0, DATABASE GAP RESOLVED); VPS-BOUND GATES (DOCKER-GROUP FIX, ON-HOST GOVERNANCE REVALIDATION, LIVE OTH-KNOWLEDGE, LIVE E2E) REMAIN OPERATOR/HOST BLOCKERS FROM THIS CONTAINER — RECORDED EXACTLY, NONE BYPASSED.**
+
+## INT-GATE — PR #48 closure + live integration + final gate (2026-08-20)
+
+### Stage
+
+PR #48 closure and final gate, executed from an isolated remote container
+(NOT the VPS — verified: TCP/22 to 51.68.226.211 unreachable, no
+`/etc/mythos`, no `deploy` user on this host).
+
+```
+Starting SHA (origin/main): 8e081b3
+PR #48 merge SHA:           c2ec2d7  (merge commit, repo convention, PR head e194bce)
+Final SHA / Remote HEAD:    origin/main = c2ec2d7 + this handover commit on
+                            claude/mythos-os-integration-validation-5fv45z
+```
+
+### Done
+
+1. **PR #48 reviewed and merged.** Scope confirmed as exactly the two
+   intended changes (automatic title rule; real console → real executor
+   E2E lifecycle suite) plus the handover update — 5 files, +630/−12, no
+   security file, no reviews or review threads outstanding,
+   `mergeable_state: clean`. Merged via merge commit `c2ec2d7`; verified
+   `origin/main` contains the PR head and the merged tree is byte-identical
+   to the tree the full suite ran on (diff = 0). Post-merge targeted
+   regression at the merged tree: E2E 54/0, MOS-v2 gate SUCCESS.
+2. **MCC-1 database gap RESOLVED.** Provisioned per the repository's own
+   convention (schema.sql header): local PostgreSQL 16 cluster, role
+   `mythos_command_center_owner`, database `mythos_command_center_test`
+   (the suite's own `_test` hard-abort guard satisfied), idempotent
+   `database/schema.sql` applied as the owner, `npm ci` from the project's
+   committed lockfile, test-only password generated per run and never
+   committed. Result: **mcc-1 506 passed / 0 failed, exit 0** — first
+   recorded green run of this suite.
+3. **Full final suite at the merged baseline (all executed this session):**
+   othk-0 89/0 · othk-1 30/0 · othk-2 87/0 · othk-2w 39/0 · executor
+   264/0 · governance-invariant 99/0 · unattended 53/0 ·
+   orchestration-core 255/2 (the 2 = the gate-known VPS-only systemd
+   delivery-relay unit/timer checks; no systemd on this host; the MOS-v2
+   gate itself verifies they are exactly the known ones) ·
+   autonomous-campaign 365/0 · core-wiring 86/0 · mos-1 console 1283/0 ·
+   mos-e2e-lifecycle 54/0 · **mcc-1 506/0** · MOS-v2 gate SUCCESS
+   (0 new failures, 20/20 areas).
+4. **Security final review.** Merged diff inspected file-by-file: only the
+   console title validation (never widens authority), UI optional-title,
+   tests, docs. Secret scan of the full merged diff through
+   `mythos-orchestrator/lib/redact` `findSecretKinds`: the only hits are
+   the E2E suite's per-run `crypto.randomBytes` test credentials (the
+   pre-existing mos-1 pattern) — no literal secret exists in the diff. No
+   permission widening, no governance/executor/knowledge surface touched,
+   no test weakened.
+
+### NOT done — external blockers (exact, none bypassed)
+
+| Gate | Blocker | Required action |
+|---|---|---|
+| Docker-group HIGH finding (§4) | This container cannot reach the VPS (TCP/22 unreachable; no host tooling). The finding is on the VPS host. | Operator, root on VPS: verify `id -nG deploy`, then `sudo gpasswd -d deploy docker`; re-run `node tests/mythos-governance-invariant-test.js` as deploy (expect 99/0) and confirm `sudo docker`-based services still operate (repo evidence: no code path uses the socket). |
+| On-host governance revalidation (§5) | Same — host access required. Last on-host validation (2026-08-20, task t-20260820075238-o372yt) verified the full boundary intact. | Re-run invariant suite as deploy after the docker-group fix. |
+| Live OTH-KNOWLEDGE provisioning (§6–7) | Requires (a) owner-produced exports (Takeout/Gemini/NotebookLM) which exist on no authorized surface, and (b) an operator-provisioned absolute out-of-repo store root on the VPS. `config/knowledge.json` ships disabled by design; fail-closed wiring proven by othk-2w 39/0. No credentials invented. | Owner supplies exports; operator provisions store root; flip `enabled` + `store_root` in `config/knowledge.json` per `docs/OTH_KNOWLEDGE_INTEGRATION.md`. |
+| Live Command Center → Executor E2E on the VPS (§8–9) | The real console/executor run on the VPS loopback; unreachable from here. The complete lifecycle including full-teardown persistent-memory (Mission B ← Mission A) is proven end-to-end with the real modules in-container (mos-e2e-lifecycle 54/0). | Operator (or a session ON the VPS): run one real mission through os.mythosprod.xyz and record the mission ID; repeat the two-mission restart test. |
+
+Container-executable failure tests (§10) all ran and fail closed: empty
+instruction, missing title (now derived, not a failure), unknown provider,
+disallowed profile, executor unavailable, verification failure (no-report
+→ BLOCKED), knowledge unavailable/invalid config (othk-2w), missing/denied
+approval (M-09 console suite + campaign/orchestration suites).
+
+### Security
+
+No boundary weakened, no secrets committed, no privilege widened. The
+open HIGH docker-group finding on the VPS remains open until the operator
+acts (table above) — a clean final baseline is NOT claimed while it stands.
+
+### Worktree / Git state
+
+Worktree clean. `origin/main` = `c2ec2d7`. Designated branch restarted
+from the merged main for this handover commit (previous PR #48 history
+only), pushed and remote-verified.
+
+### Next stage
+
+NOT M-13 (explicitly not started). The gate is COMPLETE for everything
+executable from this environment; it closes fully when the operator
+executes the VPS actions in the blocker table. Next engineering stage
+selection happens only after that, from actual system state.
+
+---
+
+**Previously:** INT-E2E **MYTHOS OS INTEGRATION VALIDATION — COMPLETE END-TO-END MISSION LIFECYCLE PROVEN (INSTRUCTION → COMMAND CENTER → MISSION → EXECUTOR → VERIFICATION → PERSISTENT RESULT → FRESH-SESSION HANDOVER → NEXT MISSION), AUTOMATIC TITLE RULE DELIVERED; FULL REQUIRED SUITE GREEN (E2E 54/0, CONSOLE 1283/0, EXECUTOR 264/0, GOVERNANCE 99/0, MOS-v2 GATE 0 NEW FAILURES); SINCE MERGED TO MAIN AS PR #48 (`c2ec2d7`).**
 
 ## INT-E2E — end-to-end mission-lifecycle validation + automatic title rule (2026-08-20)
 
