@@ -19,7 +19,7 @@
   "observations": [
     {
       "key": "obs-owner-ssh-channel-works",
-      "statement": "TEST (2026-08-20): from the owner Windows machine, `ssh deploy@51.68.226.211` with key ~/.ssh/id_ed25519_vps_ovh succeeds non-interactively (BatchMode). This is the documented owner-machine channel (DEPLOYMENT_READINESS.md) and it is now exercised directly from a session. It does NOT restore access for the isolated AI container — the VPS-PATH finding still holds for that environment.",
+      "statement": "TEST (2026-08-20): from the owner Windows machine, `ssh deploy@51.68.226.211` with key ~/.ssh/vps_ovh_ed25519 succeeds non-interactively (BatchMode). NOTE: the ~/.ssh/config `mythos` alias points at id_ed25519_vps_ovh, whose public key is NOT authorized on the host (Permission denied) — use vps_ovh_ed25519 explicitly. This is the documented owner-machine channel (DEPLOYMENT_READINESS.md) and it is now exercised directly from a session. It does NOT restore access for the isolated AI container — the VPS-PATH finding still holds for that environment.",
       "entities": ["deploy-account", "vps"],
       "tags": ["TEST-RESULT", "infrastructure", "access-path"]
     },

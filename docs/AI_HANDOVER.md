@@ -1,14 +1,17 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** VPS-GATE-VERIFY **VPS FINAL GATE (read-only) + DOCKER-FIX VERIFIED GREEN ON-HOST. Owner-machine SSH as deploy now works (key id_ed25519_vps_ovh); the "VPS execution path BLOCKED" claim is superseded FOR THE OWNER-MACHINE CHANNEL. On-host: governance invariant suite 99/0, governance.key + approvals EACCES as deploy, E2E hard-refuses on the registered checkout (safety intact). deploy∈docker root-equivalence REMEDIATED by owner commit 2f1f983 and verified (deploy ∉ docker, group memberless, socket denied, no new privilege path). REVIEW-2026-08-20-005 snapshot. FIRST REAL BLOCKER: OTH-KNOWLEDGE live activation is owner-only (store unprovisioned, config fail-closed) — STOPPED there per order.**
+**From:** VPS-GATE-VERIFY **VPS FINAL GATE (read-only) + DOCKER-FIX VERIFIED GREEN ON-HOST. Owner-machine SSH as deploy now works (key ~/.ssh/vps_ovh_ed25519 — note the `mythos` host alias points at id_ed25519_vps_ovh, which is DENIED; use vps_ovh_ed25519 explicitly); the "VPS execution path BLOCKED" claim is superseded FOR THE OWNER-MACHINE CHANNEL. On-host: governance invariant suite 99/0, governance.key + approvals EACCES as deploy, E2E hard-refuses on the registered checkout (safety intact). deploy∈docker root-equivalence REMEDIATED by owner commit 2f1f983 and verified (deploy ∉ docker, group memberless, socket denied, no new privilege path). REVIEW-2026-08-20-005 snapshot. FIRST REAL BLOCKER: OTH-KNOWLEDGE live activation is owner-only (store unprovisioned, config fail-closed) — STOPPED there per order.**
 
 ## VPS-GATE-VERIFY — VPS Final Gate + docker fix verified on-host (2026-08-20)
 
 **Read-only, on-host, first-hand.** This session runs on the owner's
 Windows machine and reached the VPS over the one documented verified
-channel — `ssh deploy@51.68.226.211` with `~/.ssh/id_ed25519_vps_ovh`
-(host-key already trusted; BatchMode, non-interactive). Every check below
+channel — `ssh deploy@51.68.226.211` with `~/.ssh/vps_ovh_ed25519`
+(host-key already trusted; BatchMode, non-interactive). NOTE: the
+`~/.ssh/config` `mythos` alias references `id_ed25519_vps_ovh`, whose
+public key is NOT authorized on the host (Permission denied) — the
+working private key is `vps_ovh_ed25519`. Every check below
 was read-only; nothing on the host was changed. This does NOT mean the
 isolated AI container can reach the VPS — the VPS-PATH finding stands for
 that environment; it means the OWNER-MACHINE channel is now exercised
