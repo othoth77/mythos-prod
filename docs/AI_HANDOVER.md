@@ -3,6 +3,29 @@
 **Last updated:** 2026-08-20 UTC
 **From:** STC-1 **MYTHOS STATUS CENTER BUILT — FULL-ECOSYSTEM AUDIT (668 COMMITS, 53 PRS, 23 REPOSITORIES, COMPLETE HANDOVER + DOCS RECONCILIATION), MACHINE-READABLE EVIDENCE MODEL, READ-ONLY REVIEW ENGINE WITH IMMUTABLE SNAPSHOTS + COMPARISON + REPOSITORY DISCOVERY, MYTHOS-DESIGN-SYSTEM UI AT sites/status.mythosprod.xyz, HEALTH ENDPOINT, STC-1 SUITE 73/0, BROWSER RENDER CHECK 18/0, MOS-v2 GATE SUCCESS (0 NEW FAILURES). DEPLOYMENT = OWNER DNS + OPERATOR RUNBOOK.**
 
+## STC-MERGE — Status Center merged to main (2026-08-20)
+
+**PR #54 MERGED.** Merge commit **`760861d330d2eb8cba7b21f6dba753983c30e2d8`**
+= current `origin/main` (verified post-merge; previous main `b6e52d5`;
+branch head `943af5b` fully contained). Repository gate at merge time:
+stc-1 **73/0**, render check **18/0**, othk-3 63/0, governance 99/0,
+MOS-v2 regression gate **SUCCESS** (0 new failures); PR mergeable-state
+clean, zero review threads, no CI configured in this repository.
+
+**Deployment state: NOT DEPLOYED — NOT LIVE.** DNS
+`status.mythosprod.xyz → 51.68.226.211` is created and verified
+(NXDOMAIN control passed); HTTP to the hostname still falls into the
+VPS default-vhost fallback (301 → darhijama.tn) until the operator
+executes `sites/status.mythosprod.xyz/DEPLOYMENT.md` over the verified
+Windows→VPS channel. This AI session's access state re-verified today:
+egress proxy 403 `host_not_allowed` for the hostname; TCP/22 blocked —
+nothing bypassed. The VPS checkout must first be updated to `760861d`
+(fetch + fast-forward only; commands recorded in this stage's report).
+PR #56 (STATUS-RT placeholder) is superseded by this merge and can be
+closed by the owner.
+
+---
+
 ## STC-1 — Mythos Status Center (2026-08-20)
 
 ### Stage
