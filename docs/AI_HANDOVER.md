@@ -90,6 +90,15 @@ note.
 **Next stage:** OTH-KNOWLEDGE live activation (owner-only), unchanged
 from MOS-CONSOLE-LIVE.
 
+**Delivery note:** this entry was delivered as commit `93d6d65`
+(rebased onto `54ee306`, the PR #62 RUNNER-MAIN merge, which landed
+mid-stage); pushed and verified local == origin/main ==
+`93d6d655db32d1a38c7e77e337bf2eae618fc934`. GIT PUSH PASS · REMOTE HEAD
+VERIFIED. Working tree at delivery carried two files being edited by a
+PARALLEL session (OTH-KNOWLEDGE activation: `knowledge.json`,
+`othk-2w-executor-wiring-test.js`) — deliberately excluded from this
+stage's commits and left in place.
+
 ---
 **Previous entry — From:** RUNNER-MAIN **PR #53 MERGED TO MAIN (merge commit `149dbae`) — the runner package with the temp-dir permission fix (PR #55, `6117338`) is on main. HOWEVER the second runner fix (`3c53612`, registration token never reached config.sh: bash -c trailing-word + sudo env_reset → empty token) landed on the branch AFTER the #53 merge and is NOT yet on main — main's provision-runner.sh at `db2909a` still carries the broken registration call. THIS follow-up PR delivers the token fix + updated tests/runbook to main. Validated on the merged tree: runner suite 29/0, bash -n clean, gate YAML parses, governance 99/0, MOS-v2 gate SUCCESS 0 new failures. VPS install remains an OWNER-MACHINE action (deploy SSH channel, key `vps_ovh_ed25519`; the isolated AI container still has no path — VPS-PATH finding stands for it). Operator MUST provision from a main checkout that includes THIS PR, not `db2909a`/`159456a`, or registration will fail with an empty token. M-13 NOT STARTED.**
 
