@@ -1,7 +1,16 @@
 # status.mythosprod.xyz — MYTHOS Status Center
 
-Status: **BUILT (STC-1, 2026-08-20), NOT DEPLOYED** — DNS record does not
-exist yet (owner creates it); deployment follows `DEPLOYMENT.md`.
+Status: **BUILT (STC-1, 2026-08-20), NOT DEPLOYED.** The DNS record now
+EXISTS (`A 51.68.226.211`, verified live 2026-08-20); until the vhost +
+certificate are installed the hostname falls into the VPS default-vhost
+fallback and 301-redirects to `https://darhijama.tn/` (root cause:
+`docs/audits/STATUS_CENTER_ROUTING_DIAGNOSIS_2026-08-20.md`). Deployment
+follows `DEPLOYMENT.md` — strictly additive, no existing vhost touched.
+
+Note: an earlier parallel branch (PR #56, STATUS-RT) shipped a
+placeholder "provisioning page" for this hostname; that placeholder is
+SUPERSEDED by this full implementation. Its diagnosis and runbook
+hardening are merged here.
 
 The single source of truth for the MYTHOS ecosystem: evidence-based
 project status, per-track progress, blockers with unblock procedures,
