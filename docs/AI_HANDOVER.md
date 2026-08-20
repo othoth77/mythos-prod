@@ -1,7 +1,97 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** RUNNER-FIX **VPS RUNNER PROVISIONING PERMISSION FIX — the first live run of provision-runner.sh on the VPS failed at extraction (`tar ... Cannot open: Permission denied`): the temp dir came from `mktemp -d` as root (0700 root-owned) so the unprivileged `sudo -u mythos-runner tar` could not open the tarball inside it. FIXED by chowning the temp dir + tarball to mythos-runner before extraction (no mode widening, no root extraction), plus full rerun-safety for the partial state the failure left (account adopted + password re-locked every run, download/registration tracked independently, config.sh --replace, token only required while unregistered). New regression suite tests/vps-runner-provisioning-test.js 25/0; governance 99/0; MOS-v2 gate SUCCESS. VPS still holds the partial install (account created, nothing extracted, unregistered) — NO manual cleanup needed, operator reruns the same install command with a fresh RUNNER_TOKEN from a checkout containing this fix. M-13 NOT STARTED.**
+**From:** VPS-GATE-VERIFY **VPS FINAL GATE (read-only) + DOCKER-FIX VERIFIED GREEN ON-HOST. Owner-machine SSH as deploy now works (key id_ed25519_vps_ovh); the "VPS execution path BLOCKED" claim is superseded FOR THE OWNER-MACHINE CHANNEL. On-host: governance invariant suite 99/0, governance.key + approvals EACCES as deploy, E2E hard-refuses on the registered checkout (safety intact). deploy∈docker root-equivalence REMEDIATED by owner commit 2f1f983 and verified (deploy ∉ docker, group memberless, socket denied, no new privilege path). REVIEW-2026-08-20-005 snapshot. FIRST REAL BLOCKER: OTH-KNOWLEDGE live activation is owner-only (store unprovisioned, config fail-closed) — STOPPED there per order.**
+
+## VPS-GATE-VERIFY — VPS Final Gate + docker fix verified on-host (2026-08-20)
+
+**Read-only, on-host, first-hand.** This session runs on the owner's
+Windows machine and reached the VPS over the one documented verified
+channel — `ssh deploy@51.68.226.211` with `~/.ssh/id_ed25519_vps_ovh`
+(host-key already trusted; BatchMode, non-interactive). Every check below
+was read-only; nothing on the host was changed. This does NOT mean the
+isolated AI container can reach the VPS — the VPS-PATH finding stands for
+that environment; it means the OWNER-MACHINE channel is now exercised
+directly from a session.
+
+### 1. VPS-GATE — GREEN (read-only run)
+
+- **Baseline:** host `vps-4722f0a9`; checkout `/home/deploy/projects/mythos-prod`
+  HEAD **`2f1f983`** (clean working tree, one merge behind GitHub main
+  `149dbae` — `2f1f983` is contained in main via `77143c3`).
+  `mythos-ai-executor.service` **active + enabled** (up ~20h);
+  `mythos-git-push.timer` active/waiting.
+- **Governance, on-host as deploy (not only in-container):**
+  `/etc/mythos/governance.key` = `root:mythos-gov 0640`, **EACCES** as
+  deploy; approvals store **EACCES**; `tests/mythos-governance-invariant-test.js`
+  = **99 passed / 0 failed** run on the host.
+- **E2E safety:** `tests/mos-e2e-lifecycle-test.js` **hard-refuses** on the
+  registered checkout ("run only in an isolated container") — the
+  documented safety behavior, **not overridden**. Live on-host E2E is
+  therefore intentionally not runnable here; the in-container proof
+  (54/0) stands.
+
+### 2. DOCKER-FIX — GREEN (remediated + verified)
+
+The prior CONFIRMED HIGH `deploy ∈ docker` root-equivalence is
+**remediated**. Live on-host as deploy:
+
+- `id -nG deploy` → `deploy users` (**no docker**).
+- `getent group docker` → `docker:x:986:` (**memberless**).
+- `/var/run/docker.sock` is `srw-rw---- root:docker`; `docker ps` is
+  **denied** to deploy.
+
+Remediation was shipped by **owner commit `2f1f983`** ("ops(vps-admin):
+permanent least-privilege VPS administration model"), on `origin/main`
+via `149dbae`. **No new privilege-equivalent path** was introduced:
+deploy's sudo is exactly `nginx -t` / `systemctl reload nginx` /
+`certbot`; the installed `50-mythosadmin` sudoers explicitly contains no
+file-copier, interpreter, editor, container runtime, or arbitrary
+systemctl (each would be blanket-root and would defeat the governance
+boundary). The audited `mythos-deploy` tool lists `status` as
+**PROTECTED/refused**, so it cannot touch the Status Center vhost.
+
+### 3. FIRST REAL BLOCKER — OTH-KNOWLEDGE live activation (owner-only)
+
+On-host: `/home/deploy/othk-store` is **absent**;
+`projects/mythos-ai-executor/config/knowledge.json` is present and
+**fail-closed** (`enabled:false`, `store_root:null`). Per
+`docs/PRIVATE_STORE_ARCHITECTURE.md`, provisioning the store is an
+**owner/operator action** with the canonical location still a pending
+owner decision, and Track B needs owner-produced authorized exports — no
+AI session may perform either. **Stopped here** per the order (§14: stop
+at the first real blocker). The subsequent live steps (on-host E2E,
+Mission A→persistence→Mission B, backup/restore, failure injection) are
+gated behind this same owner provisioning or the deliberate on-host E2E
+refusal; their in-container proofs are unchanged and were not re-fabricated.
+
+### Content-sync note (Status Center REVIEW exposure)
+
+The live `/health` still reports `REVIEW-2026-08-20-003` because
+`/var/www/status.mythosprod.xyz/` is owned by `www-data` and deploy
+cannot write it, while the audited deploy tool protects `status`. Exposing
+a newer REVIEW on the live host is a root/owner content-sync action
+outside deploy's authority — recorded, not performed (no new deployment
+mechanism created).
+
+### Gate statuses
+
+```
+VPS execution path (owner machine):  GREEN — SSH deploy@… works, read-only gate run
+VPS-GATE (read-only, on-host):       GREEN — baseline clean, governance 99/0 on-host
+DOCKER-FIX:                          GREEN — deploy ∉ docker, socket denied, no new priv path
+Governance:                          GREEN on-host — key+approvals EACCES, suite 99/0
+Live OTH-KNOWLEDGE:                  OWNER-BLOCKED — store unprovisioned, config fail-closed
+Live on-host E2E / persistence:      REFUSED BY DESIGN on the checkout; in-container 54/0 stands
+Full regression / MOS-v2 gate:       not re-run here (container suite); unchanged from prior green
+```
+
+### Next stage
+
+Owner provisions `/home/deploy/othk-store` + authorized exports to open
+the OTH-KNOWLEDGE live gate (NEXT-OTHK-STORE, now P0). NOT M-13.
+
+---
 
 ## VPS runner provisioning permission fix (2026-08-20)
 
