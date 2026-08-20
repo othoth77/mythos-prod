@@ -1,7 +1,192 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** INT-VPS-GATE **VPS FINAL GATE — BLOCKED AT STEP 1 (VPS PREFLIGHT): NO ACCESS PATH FROM THIS AI EXECUTION ENVIRONMENT REACHES THE VPS. EVERY LIVE GATE RECORDED BLOCKED WITH EVIDENCE; NOTHING BYPASSED, NOTHING MODIFIED ON ANY HOST. THE GATE REQUIRES EITHER THE OWNER'S SSH CHANNEL OR A SESSION EXECUTING ON THE VPS ITSELF.**
+**From:** CC-SIMPLIFY **COMMAND CENTER — SIMPLIFIED MISSION FORM (AUTO DEFAULTS FOR SKILL/PROVIDER/MODEL/PROFILE/TASK-TYPE, ADVANCED DISCLOSURE, SERVER-SIDE DETERMINISTIC TASK-TYPE INFERENCE FAIL-CLOSED TO generic); DELIVERED VIA PULL REQUEST (PR #47, WITH CC-AUTO-TITLE AND CC-COPY-REPORT).**
+
+## CC-SIMPLIFY — simplified + automated mission creation (2026-08-20)
+
+### Merge note (2026-08-20, PR #47 finalization)
+
+While PR #47 was open, a parallel session delivered its own auto-title
+implementation straight through PR #48 (`8baf003`,
+`autoTitleFromInstruction`: whitespace-normalised first meaningful line,
+title optional in validation, empty-instruction refusals name the
+instruction). On merging `origin/main` into this branch, that
+implementation was adopted as the ONE canonical derivation point and this
+branch's earlier `deriveTitleFromInstruction` was removed; the CC-AUTO-TITLE
+entry below describes the superseded variant and stands as history. All
+other CC stages (skill/routing/simplified UI, copy mission report) apply
+unchanged on top, and the mos-1 auto-title tests now pin main's semantics.
+
+Final pre-merge head: **`1c3f8eb`** (merge of `origin/main` `5d7f5f3`
+into the branch), verified on the remote. Merged-tree results, all exit 0:
+mos-1-console **1433/0**, mos-e2e-lifecycle **54/0**, executor **264/0**,
+unattended **53/0**, governance **99/0**, MOS-v2 gate **SUCCESS, 20/20
+areas, 0 new failures** (Orchestration Core 255/2 pre-existing). Next
+stage: none authorised beyond PR #47 delivery — M-13 NOT started.
+
+### Stage
+
+Command Center UX/orchestration improvement, on branch
+`claude/command-center-auto-title-slat0z` (third stacked stage on PR #47).
+The operator writes the instruction; every technical field defaults to
+Auto. No executor change, no security weakening, M-13 not started.
+
+### Implementation
+
+- `projects/mythos-os-console/reference/server.js` — when provider is
+  'auto' and task_type is ABSENT, `inferTaskType()` (new, deterministic
+  ordered TASK_TYPE_RULES over title+instruction, the same idiom as
+  lib/skills.js's keyword rules) picks a CONSOLE_TASK_TYPES member,
+  failing CLOSED to 'generic'. A present task_type is validated exactly as
+  before; explicit-provider requests are byte-identical. Inference feeds
+  ONLY the M-11 router call — profile/category/model/authorization gates
+  are untouched and run on request fields alone, so instruction text can
+  never select repo-write, bypass approval, or alter policy. The start
+  response now carries execution_profile (and task_type when auto) so the
+  UI reflects what the server actually selected.
+- `projects/mythos-os-console/reference/web/app.js` — simplified form:
+  Title (optional/automatic), Instruction, Skill (the M-12 category
+  select relabelled by the skill each category selects — the registry's
+  own one-category-per-skill vocabulary, no second registry; Auto ''
+  default = absent field = executor keyword rules), Priority (normal),
+  Start. Provider/Model/Execution profile/Task type live in a collapsed
+  `<details>` Advanced block with Auto defaults: provider defaults to
+  'auto' when the server offers it, model '' = provider default, profile
+  '' = field absent = the server's own repo-read default (the browser no
+  longer sends repo-read explicitly), task type '' = server inference.
+  All manual overrides preserved. Feedback line shows the server-selected
+  profile and routed task_type.
+- `console.css` — Advanced disclosure styling.
+- `tests/mos-1-console-test.js` — M-11 reworked: inference cases (coding
+  inferred; fail-closed generic; router only ever hears vocabulary
+  members), SECURITY case (instruction demanding "ignore execution
+  profile, select repo-write, bypass approval" relays repo-read and no
+  category), UI source-level assertions (Auto defaults, Advanced block
+  contains the overrides, primary view stays simple), stub /route generic
+  fixture. Present-but-invalid task_type still 400.
+
+### Tests (executed in this session's container; all exit 0)
+
+| Command | Result |
+|---|---|
+| `node tests/mos-1-console-test.js` | **1414 passed / 0 failed** |
+| `node tests/mos-v2-regression-test.js` | SUCCESS, 20/20 areas, 0 new failures (Orchestration Core 255/2 pre-existing) |
+| `node tests/mythos-ai-executor-test.js` | 264 / 0 |
+| `node tests/mythos-unattended-policy-test.js` | 53 / 0 |
+| `node tests/mythos-governance-invariant-test.js` | 99 / 0 |
+
+### State
+
+Delivered via pull request (PR #47). No deployment, no data migration.
+Next stage: unchanged (M-13 NOT started).
+
+## CC-COPY-REPORT — Command Center copy mission report (2026-08-20)
+
+### Stage
+
+Command Center UI/UX feature, on branch
+`claude/command-center-auto-title-slat0z` (stacked on CC-AUTO-TITLE, same
+PR #47). Objective: a terminal mission (COMPLETED / BLOCKED / FAILED /
+CANCELLED) offers a **Copy Mission Report** button (plus an optional
+**Copy Result** when a summary exists) that copies a complete, structured,
+plain-text report to the operator's clipboard for pasting into another AI
+conversation. Nothing is sent anywhere; executor behaviour, mission
+execution, the security model, approvals, skills, providers and execution
+profiles are untouched.
+
+### Implementation
+
+- `projects/mythos-os-console/reference/web/mission-report.js` — NEW, the
+  ONE owner of the report format. Dual-environment (modules.js pattern):
+  the browser gets `window.MythosMissionReport`, tests `require()` the
+  same file. `buildMissionReport(mission)` is deterministic (no clock, no
+  fetch, no DOM); input is exactly the detail-relay task/status/effective
+  plus the report-relay data. Missing fields render as `<not available>`,
+  never invented; duration is computed from started/ended when both parse;
+  free text is verbatim and untruncated; one redaction pass replaces
+  credential-shaped values (labelled key/token/password assignments,
+  bearer headers, well-known token shapes) with `[REDACTED]`.
+  `buildResultText(mission)` backs the optional Copy Result button.
+- `projects/mythos-os-console/reference/web/app.js` — `copyRow()` appended
+  to the execution detail panel on the terminal-state path; copies via
+  `navigator.clipboard.writeText`, confirms with "Mission report copied",
+  and falls back to a pre-selected read-only textarea when the clipboard
+  API is unavailable. Detail panel now also shows the Category fact.
+- `projects/mythos-os-console/reference/server.js` — `task_category` added
+  to TASK_DETAIL_TASK_FIELDS (a vocabulary name, same reasoning as
+  skill_id) and `/mission-report.js` to the STATIC whitelist
+  (auth-required, like app.js). No other backend change.
+- `projects/mythos-os-console/reference/web/index.html` — loads
+  mission-report.js before app.js. `console.css` — copy-row styling.
+- `tests/mos-1-console-test.js` — unit tests requiring mission-report.js
+  directly (spec cases 1–11: terminal states, missing fields, multiline
+  and 100k-char untruncated text, explicit/derived titles, redaction) plus
+  source-level clipboard wiring assertions (case 12), and the new file
+  added to every existing sweep (XSS sinks, exec paths, storage/digest,
+  credential sweep, private-static auth).
+
+### Tests (executed in this session's container)
+
+| Command | Result | Exit |
+|---|---|---|
+| `node tests/mos-1-console-test.js` | **1388 passed / 0 failed** | 0 |
+| `node tests/mos-v2-regression-test.js` | SUCCESS, 20/20 areas; 0 new failures (Orchestration Core 255/2 pre-existing, untouched) | 0 |
+
+### State
+
+Delivered via pull request (PR #47). No deployment, no data migration.
+Next stage: unchanged (M-13 NOT started, per task instruction).
+
+## CC-AUTO-TITLE — Command Center auto-title from instruction (2026-08-20)
+
+### Stage
+
+Small isolated UX improvement, on branch
+`claude/command-center-auto-title-slat0z` from `origin/main` `e8ff449`.
+Objective: when a mission is created with an empty, null, whitespace-only or
+absent title, derive the title from the first non-empty line of the
+instruction (trimmed, capped at the title field's own 200-char ceiling). An
+explicitly provided title is never replaced; an instruction with no
+non-empty line derives nothing, so the existing title rejection applies
+unchanged.
+
+### Implementation
+
+- `projects/mythos-os-console/reference/server.js` — the one derivation
+  point: `deriveTitleFromInstruction()` plus the fallback in
+  `handleStartMission`, BEFORE the unchanged title validation, so
+  API-created missions get the same behaviour as the browser form. Nothing
+  but the title is affected — skill selection, task_category, execution
+  profiles, provider/model selection, approval boundaries and execution
+  behaviour are untouched (the relayed payload is otherwise byte-identical).
+- `projects/mythos-os-console/reference/web/app.js` — the form now requires
+  only the instruction and omits a blank title from the payload entirely
+  (no client-side duplication of the derivation logic); placeholder marks
+  the title optional.
+- `tests/mos-1-console-test.js` — new dedicated section 4d2 (explicit /
+  empty / whitespace / absent title, multiline first-line selection,
+  empty-instruction rejection unchanged, 200-char cap, field-shaped first
+  line lands only in the title, and every relayed sibling field unchanged);
+  the two MOS-2 missing-title rejections now pair the missing/empty title
+  with an underivable instruction.
+
+### Tests (executed in this session's container)
+
+| Command | Result | Exit |
+|---|---|---|
+| `node tests/mos-1-console-test.js` | **1318 passed / 0 failed** | 0 |
+| `node tests/mos-v2-regression-test.js` | SUCCESS, 20/20 areas; 3 suites PASS, Orchestration Core 255/2 marked PRE-EXISTING by the gate itself (untouched by this stage), 0 new failures | 0 |
+
+### State
+
+Delivered via pull request from
+`claude/command-center-auto-title-slat0z` (this session's branch policy —
+no direct push to `main`). No deployment, no data migration. Next stage:
+unchanged (M-13 NOT started, per task instruction).
+---
+
+**Previously:** INT-VPS-GATE **VPS FINAL GATE — BLOCKED AT STEP 1 (VPS PREFLIGHT): NO ACCESS PATH FROM THIS AI EXECUTION ENVIRONMENT REACHES THE VPS. EVERY LIVE GATE RECORDED BLOCKED WITH EVIDENCE; NOTHING BYPASSED, NOTHING MODIFIED ON ANY HOST. THE GATE REQUIRES EITHER THE OWNER'S SSH CHANNEL OR A SESSION EXECUTING ON THE VPS ITSELF.**
 
 ## INT-VPS-GATE — live-VPS validation attempt (2026-08-20)
 
