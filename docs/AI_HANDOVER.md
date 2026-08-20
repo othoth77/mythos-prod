@@ -74,11 +74,45 @@ no MOS-v2 or unrelated Mythos code.
 | Live backup/restore + off-host round trip | Operator | AI env cannot reach VPS (TCP/22) | Verified owner Windows→VPS channel | `ops/backup.sh`+`restore-verify.sh`; PRIVATE_STORE §6–7 | Operator runs over the verified channel |
 | VPS deployment | Operator | Same VPS access gap | Owner authorization | `ops/deploy-vps.sh` (code-only) | Operator runs from owner machine |
 
+### Merge record (2026-08-20)
+
+```
+OTH-K3:        MERGED
+PR:            #45
+Head:          a6e01002310c1ca333dbc4d34ffc98a3209c73f4
+Merge SHA:     b6e52d577fdad530bcaab2237252de3ce63407db
+Remote HEAD:   b6e52d577fdad530bcaab2237252de3ce63407db (origin/main)
+Tests:         othk-0 89/0 · othk-1 30/0 · othk-2 97/0 · othk-2w 40/0 ·
+               othk-3 63/0 · executor 264/0 · governance 99/0 ·
+               E2E 54/0 · console 1433/0 · MOS-v2 gate PASS
+               (mcc-1 needs `pg`, absent in this container — environmental,
+               reproduces on pristine origin/main, not an OTH-K3 regression)
+Security:      Opus audit PASS-WITH-FINDINGS, F1–F15 all fixed + regression-tested;
+               Haiku reproduction — all controls CONFIRMED; no secrets;
+               no repo-local store; no hidden write path
+```
+
+Brought onto current `origin/main` (`723135e`) via merge `a6e0100` before
+merging; only conflict was this handover file (entry stacking), resolved
+without losing any origin/main stage record (VPS-PATH / CC-SIMPLIFY /
+INT-VPS-GATE / INT-GATE / INT-E2E preserved). No OTH-K3 source changed in
+the rebase-to-main; no newer Mythos OS work overwritten; no security
+control weakened.
+
+### Remaining owner-blocked items (unchanged — not repository tasks)
+
+- Real-data imports (Takeout/Gemini/NotebookLM/Contacts) — owner exports required.
+- Private-store provisioning — owner ratifies location; operator provisions.
+- Contacts-content policy — owner policy reversal (metadata-only today).
+- Live backup/restore round trip — operator over the verified owner→VPS channel.
+- VPS deployment / live OTH-KNOWLEDGE activation — operator on-host.
+
 ### Next stage
 
-Production activation is an owner/operator sequence (provision store →
-flip `config/knowledge.json` → import authorized exports → backup +
-off-host). No repository-executable OTH-KNOWLEDGE work remains.
+Live OTH-KNOWLEDGE + VPS Final Gate — an owner/operator sequence
+(provision store → flip `config/knowledge.json` → import authorized
+exports → backup + off-host round trip → on-host validation). No
+repository-executable OTH-KNOWLEDGE work remains. **M-13 not started.**
 
 ---
 
