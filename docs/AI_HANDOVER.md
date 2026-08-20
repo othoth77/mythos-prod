@@ -106,6 +106,234 @@ store provisioning) remain separate operator commands already documented.
 NOT M-13. Operator installs the runner (one action above) → rerun the
 VPS Final Gate live sections (§5–§16 of the order) → only then determine
 the next engineering stage.
+---
+
+**Previously:** STC-1 **MYTHOS STATUS CENTER BUILT — FULL-ECOSYSTEM AUDIT (668 COMMITS, 53 PRS, 23 REPOSITORIES, COMPLETE HANDOVER + DOCS RECONCILIATION), MACHINE-READABLE EVIDENCE MODEL, READ-ONLY REVIEW ENGINE WITH IMMUTABLE SNAPSHOTS + COMPARISON + REPOSITORY DISCOVERY, MYTHOS-DESIGN-SYSTEM UI AT sites/status.mythosprod.xyz, HEALTH ENDPOINT, STC-1 SUITE 73/0, BROWSER RENDER CHECK 18/0, MOS-v2 GATE SUCCESS (0 NEW FAILURES). DEPLOYMENT = OWNER DNS + OPERATOR RUNBOOK.**
+
+## STC-MERGE — Status Center merged to main (2026-08-20)
+
+**PR #54 MERGED.** Merge commit **`760861d330d2eb8cba7b21f6dba753983c30e2d8`**
+= current `origin/main` (verified post-merge; previous main `b6e52d5`;
+branch head `943af5b` fully contained). Repository gate at merge time:
+stc-1 **73/0**, render check **18/0**, othk-3 63/0, governance 99/0,
+MOS-v2 regression gate **SUCCESS** (0 new failures); PR mergeable-state
+clean, zero review threads, no CI configured in this repository.
+
+**Deployment state: NOT DEPLOYED — NOT LIVE.** DNS
+`status.mythosprod.xyz → 51.68.226.211` is created and verified
+(NXDOMAIN control passed); HTTP to the hostname still falls into the
+VPS default-vhost fallback (301 → darhijama.tn) until the operator
+executes `sites/status.mythosprod.xyz/DEPLOYMENT.md` over the verified
+Windows→VPS channel. This AI session's access state re-verified today:
+egress proxy 403 `host_not_allowed` for the hostname; TCP/22 blocked —
+nothing bypassed. The VPS checkout must first be updated to `760861d`
+(fetch + fast-forward only; commands recorded in this stage's report).
+PR #56 (STATUS-RT placeholder) is superseded by this merge and can be
+closed by the owner.
+
+**One-command deployment added (same stage):**
+`scripts/deploy-status-center.sh` — audited, idempotent, root-run,
+fail-closed automation of the full runbook (preflight incl. DNS/clean
+main/expected files/foreign-claim check, content sync, additive vhost
+that never touches other sites and never clobbers a certbot-managed
+file, `nginx -t` before reload, certbot skip-if-present, acceptance
+smoke tests incl. no-darhijama.tn-in-chain + `/health`, regression
+checks on darhijama.tn/uthinachess.tn/panel, `--rollback` mode,
+non-zero exit and explicit NOT-VERIFIED message on any failure).
+`bash -n` clean; fail-closed behavior demonstrated in-container
+(exit 1 at first missing prerequisite); stc-1 re-run 73/0.
+
+---
+
+## STC-1 — Mythos Status Center (2026-08-20)
+
+### Stage
+
+STC-1 on branch `claude/mythos-status-center-stoqv2` (from main
+`b6e52d5`). Ordered scope: build the permanent MYTHOS Status Center —
+project memory + current status + audit system + history + review
+engine — at https://status.mythosprod.xyz/ (owner creates DNS).
+
+### Delivered
+
+- **Audit first**: complete read of this handover (15,892 lines), docs/
+  reconciliation (CURRENT vs HISTORICAL vs CONFLICTING vs SUPERSEDED),
+  full git history (repo born 2026-07-29 — 668 commits, 22 days; the
+  "6-month" windows ARE the whole history), all 53 PRs, 23-repository
+  account inventory. Local clone was shallow with a stale origin/main
+  ref — unshallowed and re-fetched before any conclusion.
+- **Data model** (`projects/status-center/lib/model.js` +
+  `data/registry.json`): fixed status vocabulary
+  (DONE/READY/IN_PROGRESS/BLOCKED/OWNER_ACTION/NOT_STARTED/DEFERRED/
+  SUPERSEDED/NOT_VERIFIED), 9-step maturity ladder (IDEA →
+  PRODUCTION_VERIFIED), stable IDs (PROJECT-*/TRACK-*/BLOCKER-*/
+  ACTION-*/EV-*/REVIEW-*), evidence records with per-item verification
+  status, fail-closed registry validation. 22 projects, 15 tracks with
+  stage lists, 17 milestones, 12 blockers, 8 owner actions, 7 ordered
+  next actions, 15 do-not-reopen entries, 23 classified documents,
+  23 classified repositories. No global completion percentage exists;
+  track percentages are calculated from stage lists or NOT_CALCULABLE.
+- **Review engine** (`lib/engine.js`, `bin/review.js`): read-only
+  (git subcommand allowlist, no network, no credentials); verifies
+  file/commit/PR/test evidence against the repository, re-marking
+  failures NOT_VERIFIED; reconciles documents; detects NEW_DISCOVERY
+  repositories (never silently classified); compares against the
+  previous snapshot (COMPLETED/UNBLOCKED/BLOCKED/REGRESSED/CHANGED/
+  SUPERSEDED + blocker/action/percent deltas); writes immutable
+  `reviews/YYYY/…-review-NNN.json` (refuses overwrite) plus
+  `data/current.json`, `data/reviews-index.json`, `health.json`
+  (M-07-style field allowlist). First snapshot:
+  **REVIEW-2026-08-20-001** at main `b6e52d5`, 58 evidence items
+  (49 VERIFIED here, 9 RECORDED, 0 NOT_VERIFIED).
+- **Surface** (`sites/status.mythosprod.xyz/`): reuses the canonical
+  design system (build-time copies of tokens/fonts/brand per the hub's
+  copy rule; one 35° gesture; pills extend the hub badge recipe; links
+  never gold; mono for machine identifiers). Sections: executive
+  status, legend + source hierarchy, project matrix
+  (search/filter/sort/detail drawer), track progress, infrastructure
+  execution paths, interactive timeline (whole-history → today, by
+  project), WHAT CHANGED, blockers, owner actions, next actions,
+  DO NOT REOPEN, document reconciliation, repository discovery, review
+  history + any-two-snapshot comparison. Rendering is
+  textContent/createElement only (no innerHTML/eval/external requests);
+  [REVIEW NOW] re-fetches the latest snapshot and shows the engine
+  command — the browser is read-only by design and can execute nothing.
+  Tier decision recorded in the site README (product surface of Mythos
+  OS, A-020 pattern; noindex + robots Disallow as an operational
+  surface).
+
+### Verification (this branch)
+
+| Check | Result |
+|---|---|
+| stc-1 suite (`tests/stc-1-status-center-test.js`) | **73/0** |
+| Headless-browser render check (desktop + 390px mobile, XSS probe, console) | **18/0** |
+| othk-3 | 63/0 |
+| governance invariant | 99/0 |
+| MOS-v2 regression gate | **SUCCESS** — 20/20 areas, 0 new failures (core 255/2 pre-existing systemd-only) |
+
+Scope: new files only under `projects/status-center/`,
+`sites/status.mythosprod.xyz/`, `tests/stc-1-status-center-test.js`,
+plus this handover/CHANGELOG/ROADMAP entry. No existing code touched;
+no existing test weakened.
+
+### Open items
+
+| Item | Owner | Procedure |
+|---|---|---|
+| DNS `status.mythosprod.xyz → 51.68.226.211` | Owner | OVH panel (no wildcard exists) |
+| Deploy the site | Operator | `sites/status.mythosprod.xyz/DEPLOYMENT.md` (rsync → vhost with `/health` alias → certbot → smoke tests) |
+| Future reviews | Any session | Update `projects/status-center/data/registry.json` with evidence → `node projects/status-center/bin/review.js` → commit → redeploy step 1 |
+
+### Delivery record (continuation, same day)
+
+STC-1 pushed as **`6195bf4`** on
+`claude/mythos-status-center-stoqv2`; **PR #54 (draft)** opened against
+main `b6e52d5`. Continuation pass: PR ledger refreshed (adds #54 and
+#55 — the PR #53 runner package's first live install failed on
+temp-dir ownership and PR #55 fixes it; the runner path is iterating,
+not verified), registry updated with the delivery evidence, second
+immutable snapshot **REVIEW-2026-08-20-002** produced (links to -001;
+60 evidence items, 51 VERIFIED / 9 RECORDED / 0 NOT_VERIFIED; zero
+phantom changes). Re-validated: stc-1 73/0, render check 18/0; MOS-v2
+gate result of this morning reused (no code outside
+status-center/sites/docs changed since it ran SUCCESS at this tree).
+Deployment state unchanged: **REPOSITORY-COMPLETE / NOT-DEPLOYED** —
+owner DNS + operator runbook remain the only path to live.
+
+### Next stage
+
+The Status Center is now the project's memory: every future major
+change updates the registry and produces a review snapshot. Immediate
+P0s on its own next-actions list: dispatch the Option A VPS Final Gate
+mission; remove `deploy` from the docker group.
+
+---
+
+**Reconciliation note (STC-2, 2026-08-20):** The STATUS-RT entry below
+was produced by a parallel session branched from main `b6e52d5`, which
+could not see PR #54. Its routing diagnosis is ACCEPTED and its runbook
+hardening is ADOPTED (merged into the STC branch / PR #54). Two of its
+claims are corrected by this merge: "the Status Center was never built"
+was true only of `main` — the full Status Center exists on the STC
+branch (PR #54); and its placeholder provisioning page is SUPERSEDED by
+that implementation. The merged
+`sites/status.mythosprod.xyz/DEPLOYMENT.md` combines both runbooks
+(full-app CSP + /health alias from STC-1; fault-reproducing preflight,
+additive-only guarantees, verification pass-criteria and regression
+checks from STATUS-RT). The `status.mythosprod.xyz` DNS record now
+EXISTS (re-verified from this session too: A → 51.68.226.211, no
+wildcard) — the remaining gap is the vhost + certificate, i.e. exactly
+the runbook.
+
+**Previously (parallel session):** STATUS-RT **STATUS.MYTHOSPROD.XYZ → DARHIJAMA.TN REDIRECT — ROOT-CAUSED (ORIGIN NGINX DEFAULT-VHOST FALLBACK; DNS CORRECT; CLOUDFLARE NOT IN PATH; NO STATUS CENTER EVER DEPLOYED OR BUILT). OPERATOR-READY ADDITIVE FIX COMMITTED (VHOST RUNBOOK + PROVISIONING PAGE); VPS EXECUTION BLOCKED FROM AI ENVIRONMENT (VPS-PATH STATE UNCHANGED). NOTHING EXISTING TOUCHED; DARHIJAMA UNTOUCHED.**
+
+## STATUS-RT — status.mythosprod.xyz routing diagnosis + operator-ready fix (2026-08-20)
+
+### Stage
+
+Branch `claude/status-center-routing-fix-ah002u` (from main `b6e52d5`).
+Ordered scope: diagnose why `https://status.mythosprod.xyz/` redirects to
+`https://darhijama.tn/`, fix if the approved access path permits,
+otherwise leave an exact operator-ready fix.
+
+### Diagnosis (full evidence: `docs/audits/STATUS_CENTER_ROUTING_DIAGNOSIS_2026-08-20.md`)
+
+- **DNS CORRECT**: `status.mythosprod.xyz` is an explicit `A` record →
+  `51.68.226.211` (verified live this session; no wildcard — a random
+  subdomain is NXDOMAIN). Cloudflare is NOT in the path (OVH
+  nameservers, direct origin IP).
+- **ROOT CAUSE — origin nginx**: no vhost carries
+  `server_name status.mythosprod.xyz`, so requests fall to the
+  default-server fallback, which answers unknown hosts with
+  `301 → https://darhijama.tn/` (the same documented failure mode as the
+  apex, `docs/CLOUDFLARE_DOMAIN_INVENTORY.md` §5). No certificate exists
+  for the hostname either (SNI falls back to the default cert).
+- **Status Center NOT deployed — and never built**: before this stage the
+  repository contained zero references to `status.mythosprod.xyz` or a
+  "Status Center". The exact missing deployment step is that no artifact
+  existed at all: no site content, no vhost, no cert. DNS was created
+  ahead of any deployment.
+- DarHijama itself is healthy and is only the fallback *destination*; no
+  DarHijama change is needed, proposed, or made.
+
+### Delivered (repository-executable portion)
+
+- `docs/audits/STATUS_CENTER_ROUTING_DIAGNOSIS_2026-08-20.md` — layer-by-
+  layer evidence (DNS → Cloudflare → VPS → nginx → vhost → redirect →
+  docroot → DarHijama → TLS → deployment config) with causal chain.
+- `sites/status.mythosprod.xyz/` — **BUILT, NOT DEPLOYED**: honest
+  provisioning page (self-contained, no scripts, `noindex`, no invented
+  status data per O-A2) + `DEPLOYMENT.md` operator runbook: strictly
+  additive vhost (exact `server_name` beats the default fallback),
+  certbot per the MCC-1-VERIFY-proven procedure, required verification
+  (`curl -I` / `curl -IL` must show no `darhijama.tn` in the chain) and
+  regression checks (darhijama.tn / uthinachess.tn / panel still fine),
+  evidence-recording step, rollback.
+
+### Blocker (why not executed here)
+
+No approved access path from this AI environment to the VPS: SSH
+network-blocked and HTTPS to the VPS egress-denied (proxy CONNECT 403,
+re-verified this session) — the VPS-PATH (2026-08-20) state, unchanged.
+Live `curl` verification of the fault and of the fix is therefore an
+operator step, embedded in the runbook (§0 preflight reproduces the fault,
+§4 verifies the fix).
+
+### Tests
+
+Static-content + documentation stage: no application code changed; no
+test suite applies. `sites/status.mythosprod.xyz/index.html` is
+self-contained static HTML (no scripts).
+
+### Next stage
+
+Operator executes `sites/status.mythosprod.xyz/DEPLOYMENT.md` on the VPS,
+appends the execution evidence to the diagnosis doc, and flips this
+stage's deployment status to DEPLOYED. Separately: an actual Status Center
+product (live status data) is an undesigned future stage requiring owner
+scoping. *(Superseded on this point by PR #54 — the Status Center product
+is built; see the reconciliation note above.)*
 
 ---
 
