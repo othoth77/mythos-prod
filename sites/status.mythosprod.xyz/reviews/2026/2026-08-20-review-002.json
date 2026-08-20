@@ -1,0 +1,4537 @@
+{
+  "review_id": "REVIEW-2026-08-20-002",
+  "timestamp": "2026-08-20T10:51:10.681Z",
+  "engine_version": "1.0.0",
+  "audited_sources": {
+    "repository": "https://github.com/othoth77/mythos-prod",
+    "registry": "projects/status-center/data/registry.json",
+    "pr_ledger_captured_at": "2026-08-20T10:55:00Z",
+    "repo_snapshot_captured_at": "2026-08-20T10:20:00Z",
+    "documents_checked": 23,
+    "evidence_checked": 60
+  },
+  "git": {
+    "collected": true,
+    "head": "6195bf42a927a193a11ffc0dfbb0353c32209763",
+    "branch": "claude/mythos-status-center-stoqv2",
+    "origin_main": "b6e52d577fdad530bcaab2237252de3ce63407db",
+    "remote_url": "https://github.com/othoth77/mythos-prod",
+    "worktree_clean": false,
+    "last_commit": {
+      "hash": "b6e52d577fdad530bcaab2237252de3ce63407db",
+      "date": "2026-08-20T09:34:45+00:00",
+      "subject": "Merge pull request #45 from othoth77/claude/oth-knowledge-master-completion-wxuh6z"
+    },
+    "recent_commits": [
+      {
+        "hash": "b6e52d5",
+        "date": "2026-08-20",
+        "subject": "Merge pull request #45 from othoth77/claude/oth-knowledge-master-completion-wxuh6z"
+      },
+      {
+        "hash": "a6e0100",
+        "date": "2026-08-20",
+        "subject": "Merge origin/main (723135e) into OTH-K3 branch — bring PR #45 onto current main"
+      },
+      {
+        "hash": "723135e",
+        "date": "2026-08-20",
+        "subject": "Merge pull request #51 from othoth77/claude/mythos-os-integration-validation-5fv45z"
+      },
+      {
+        "hash": "a5f907c",
+        "date": "2026-08-20",
+        "subject": "docs(handover): VPS-PATH — execution-path restoration blocked; all mechanisms categorized, minimum operator actions documented; post-PR#47 tree re-verified green"
+      },
+      {
+        "hash": "70d3e71",
+        "date": "2026-08-20",
+        "subject": "Merge pull request #47 from othoth77/claude/command-center-auto-title-slat0z"
+      },
+      {
+        "hash": "bfb42a3",
+        "date": "2026-08-20",
+        "subject": "docs(handover): record PR #47 post-merge head and merged-tree test results"
+      },
+      {
+        "hash": "1c3f8eb",
+        "date": "2026-08-20",
+        "subject": "Merge origin/main into claude/command-center-auto-title-slat0z"
+      },
+      {
+        "hash": "5d7f5f3",
+        "date": "2026-08-20",
+        "subject": "Merge pull request #50 from othoth77/claude/mythos-os-integration-validation-5fv45z"
+      },
+      {
+        "hash": "93aaf65",
+        "date": "2026-08-20",
+        "subject": "docs(handover): INT-VPS-GATE blocked at preflight — no VPS access path from AI environment; evidence and operator actions recorded"
+      },
+      {
+        "hash": "098c09f",
+        "date": "2026-08-20",
+        "subject": "feat(command-center): simplify mission creation and automate routing"
+      },
+      {
+        "hash": "029abca",
+        "date": "2026-08-20",
+        "subject": "Merge pull request #49 from othoth77/claude/mythos-os-integration-validation-5fv45z"
+      },
+      {
+        "hash": "52c3ad9",
+        "date": "2026-08-20",
+        "subject": "docs(handover): INT-GATE — PR #48 merged at c2ec2d7, full suite green incl. mcc-1 506/0, VPS-bound blockers recorded"
+      },
+      {
+        "hash": "2b16ba7",
+        "date": "2026-08-20",
+        "subject": "feat(command-center): add copy mission report"
+      },
+      {
+        "hash": "c2ec2d7",
+        "date": "2026-08-20",
+        "subject": "Merge pull request #48 from othoth77/claude/mythos-os-integration-validation-5fv45z"
+      },
+      {
+        "hash": "e194bce",
+        "date": "2026-08-20",
+        "subject": "docs(handover): INT-E2E lifecycle validation at b590a13 — full suite green, auto-title delivered"
+      },
+      {
+        "hash": "b590a13",
+        "date": "2026-08-20",
+        "subject": "test(e2e): full mission lifecycle — Command Center → executor → verification → persistent handover → next mission"
+      },
+      {
+        "hash": "8baf003",
+        "date": "2026-08-20",
+        "subject": "feat(mos-console): automatic mission title from first meaningful instruction line"
+      },
+      {
+        "hash": "8e081b3",
+        "date": "2026-08-20",
+        "subject": "report(mythos-ai-executor): task t-20260820075238-o372yt completed"
+      },
+      {
+        "hash": "f1b76d4",
+        "date": "2026-08-20",
+        "subject": "feat(command-center): derive mission title from instruction"
+      },
+      {
+        "hash": "a6be402",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (e8ff449) into OTH-K3 branch — resolve AI_HANDOVER stacking"
+      },
+      {
+        "hash": "e8ff449",
+        "date": "2026-08-19",
+        "subject": "report(mythos-ai-executor): task t-20260819223747-bburbd completed"
+      },
+      {
+        "hash": "d4318fe",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #46 from othoth77/claude/mythos-prod-aol-v1-closure-hq9f0x"
+      },
+      {
+        "hash": "1790a8f",
+        "date": "2026-08-19",
+        "subject": "report(mythos-ai-executor): task t-20260819220653-7iv7tt blocked"
+      },
+      {
+        "hash": "a8611e0",
+        "date": "2026-08-19",
+        "subject": "docs(handover): AOL-V1-GOV governance-key isolation at da80870"
+      },
+      {
+        "hash": "da80870",
+        "date": "2026-08-19",
+        "subject": "security: isolate governance key from mission executor"
+      },
+      {
+        "hash": "a49386e",
+        "date": "2026-08-19",
+        "subject": "report(mythos-ai-executor): task t-20260819210602-to08f6 completed"
+      },
+      {
+        "hash": "39197a6",
+        "date": "2026-08-19",
+        "subject": "report(mythos-ai-executor): task t-20260819202655-mgrdn6 completed"
+      },
+      {
+        "hash": "717bba3",
+        "date": "2026-08-19",
+        "subject": "report(mythos-ai-executor): task t-20260819192023-7ba7th blocked"
+      },
+      {
+        "hash": "2081ff8",
+        "date": "2026-08-19",
+        "subject": "report(mythos-ai-executor): task t-20260819184126-m5ngzc completed"
+      },
+      {
+        "hash": "1842f8e",
+        "date": "2026-08-19",
+        "subject": "docs(handover): OTH-K3 stage record — trust model, private store, Track B, security audit; Opus APPROVE + Haiku CONFIRMED; open owner blockers tabled"
+      },
+      {
+        "hash": "042424a",
+        "date": "2026-08-19",
+        "subject": "fix(oth-knowledge): thread asOf into currentState.latest_verified (Opus final-review observation #2)"
+      },
+      {
+        "hash": "fabdb51",
+        "date": "2026-08-19",
+        "subject": "docs(changelog): record OTH-K3 trust model, private-store architecture, Track B readiness, and security-audit fixes"
+      },
+      {
+        "hash": "1bc2945",
+        "date": "2026-08-19",
+        "subject": "fix(oth-knowledge): security-audit findings F1-F15 — raw-byte secret gate, trust ceiling on all kinds, asOf validation, quarantine surfacing, linear HTML strip, writer repo-containment (all suites green)"
+      },
+      {
+        "hash": "4ef0107",
+        "date": "2026-08-19",
+        "subject": "docs(roadmap): add OTH Knowledge track table (OTH-K1..K3 done; Track B owner-blocked)"
+      },
+      {
+        "hash": "26df462",
+        "date": "2026-08-19",
+        "subject": "feat(oth-knowledge): OTH-K3 knowledge trust model — read-only, traceable, confidence never truth (othk-3 54/0; all gates green)"
+      },
+      {
+        "hash": "0314d23",
+        "date": "2026-08-19",
+        "subject": "docs+ops(oth-knowledge): private-store architecture, Track B readiness record, operator backup/restore/deploy scripts"
+      },
+      {
+        "hash": "0f8bcc3",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #44 from othoth77/claude/oth-k2-repo-execution-ul5dsl"
+      },
+      {
+        "hash": "90c6f3f",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-ai): OTH-K2-W executor-side knowledge-service wiring — fail-closed config, read-only allowlist, explicit-asOf, claim/quarantine presentation (39/0; MOS-v2 gate green)"
+      },
+      {
+        "hash": "d839fdb",
+        "date": "2026-08-19",
+        "subject": "report(mythos-ai-executor): task t-20260819181724-ftsz9x blocked"
+      },
+      {
+        "hash": "dbee6f8",
+        "date": "2026-08-19",
+        "subject": "report(mythos-ai-executor): task t-20260819175013-sj9ph9 completed"
+      },
+      {
+        "hash": "b805016",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #43 from othoth77/claude/oth-knowledge-mission-05buds"
+      },
+      {
+        "hash": "88265a5",
+        "date": "2026-08-19",
+        "subject": "fix(oth-knowledge): resolve all 10 independent-review findings (1 blocker, 4 major, 5 minor) with regression tests"
+      },
+      {
+        "hash": "6af1f6d",
+        "date": "2026-08-19",
+        "subject": "feat(oth-knowledge): OTH-K2 real-data knowledge integration — importers, dedup, temporal, provenance audit, AI-layer service boundary"
+      },
+      {
+        "hash": "c63391d",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #42 from othoth77/claude/oth-knowledge-mission-05buds"
+      },
+      {
+        "hash": "cad8989",
+        "date": "2026-08-19",
+        "subject": "docs(handover): OTH-K1 knowledge layer at 118dda3; infrastructure knowledge merged to oth-knowledge; deployment blocker reclassified operator-execution-pending"
+      },
+      {
+        "hash": "118dda3",
+        "date": "2026-08-19",
+        "subject": "feat(oth-knowledge): OTH-K1 knowledge operating layer — model, store, provenance, ingestion, conflicts, hybrid search, evaluation"
+      },
+      {
+        "hash": "3636b8c",
+        "date": "2026-08-19",
+        "subject": "docs(handover): M-12 runtime skills + governed MCP at 3bbee99"
+      },
+      {
+        "hash": "3bbee99",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-ai): M-12 runtime skills + governed MCP capability foundation"
+      },
+      {
+        "hash": "580e941",
+        "date": "2026-08-19",
+        "subject": "report(mythos-ai-executor): task t-20260819085112-piprmw blocked"
+      },
+      {
+        "hash": "6dabce9",
+        "date": "2026-08-19",
+        "subject": "report(mythos-ai-executor): task t-20260819085112-b95ogm blocked"
+      },
+      {
+        "hash": "756fc40",
+        "date": "2026-08-19",
+        "subject": "report(mythos-ai-executor): task t-20260819085112-gzl1vd completed"
+      },
+      {
+        "hash": "7a78626",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #39 from othoth77/claude/mos-v2-finalization-2k9zki"
+      },
+      {
+        "hash": "0270ee9",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (7129d39) into MOS-v2 finalization branch"
+      },
+      {
+        "hash": "4b7cadc",
+        "date": "2026-08-19",
+        "subject": "feat: M-11 governed auto-routing + MOS-v2 final handover record (MOS-v2)"
+      },
+      {
+        "hash": "e7f8cd8",
+        "date": "2026-08-19",
+        "subject": "feat: M-10 governed AI decomposition (MOS-v2)"
+      },
+      {
+        "hash": "23e0b88",
+        "date": "2026-08-19",
+        "subject": "feat: M-09 Goal layer + mandatory human approval (MOS-v2)"
+      },
+      {
+        "hash": "b16ebde",
+        "date": "2026-08-19",
+        "subject": "test: M-08 complete MOS-v2 regression gate (MOS-v2)"
+      },
+      {
+        "hash": "04c48eb",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-os-console): M-07 operator safety audit — audit log + health allowlist (MOS-v2)"
+      },
+      {
+        "hash": "6dbdf80",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-os-console): M-06 Mission Control completion (MOS-v2)"
+      },
+      {
+        "hash": "7129d39",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #41 from othoth77/claude/mythos-stage5-deploy-readiness"
+      },
+      {
+        "hash": "90bc216",
+        "date": "2026-08-19",
+        "subject": "docs: consolidate deployment readiness + evidence the blocker (STAGE 5)"
+      },
+      {
+        "hash": "221d826",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-os-console): M-05 server-controlled model catalog (MOS-v2)"
+      },
+      {
+        "hash": "81a8f3d",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #40 from othoth77/claude/mythos-auto13-hub"
+      },
+      {
+        "hash": "c1a42ff",
+        "date": "2026-08-19",
+        "subject": "feat(sites): build the mythosprod.xyz ecosystem hub (AUTO-13)"
+      },
+      {
+        "hash": "bf46457",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-os-console): M-04 governed execution profiles on the start relay (MOS-v2)"
+      },
+      {
+        "hash": "8a7fee6",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #38 from othoth77/claude/mythos-auto12-mig3-a11y"
+      },
+      {
+        "hash": "c2e2999",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-prod): complete MIG-3 + fix both sweep findings (AUTO-12)"
+      },
+      {
+        "hash": "02aae4a",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #37 from othoth77/claude/mythos-auto11-mig2"
+      },
+      {
+        "hash": "2b707af",
+        "date": "2026-08-19",
+        "subject": "Merge remote-tracking branch 'origin/main' into claude/mythos-auto11-mig2"
+      },
+      {
+        "hash": "5c0f961",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-prod): execute MIG-2 via role separation (AUTO-11)"
+      },
+      {
+        "hash": "0e75846",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #33 from othoth77/claude/mos-v2-m02-relay-81ppf8"
+      },
+      {
+        "hash": "7b0af43",
+        "date": "2026-08-19",
+        "subject": "docs: restore AI_HANDOVER header lines lost in auto-merge"
+      },
+      {
+        "hash": "835e82d",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (0595834) into MOS-v2 M-02 branch"
+      },
+      {
+        "hash": "0595834",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #32 from othoth77/claude/mos-v2-nginx-contract-qawqxn"
+      },
+      {
+        "hash": "a1cb16c",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (1621c17) into MOS-v2 M-03 branch"
+      },
+      {
+        "hash": "1621c17",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #34 from othoth77/claude/mos-v2-server-auth-tmh065"
+      },
+      {
+        "hash": "6b9050c",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (4e3c890) into MOS-v2 M-01 branch"
+      },
+      {
+        "hash": "4e3c890",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #36 from othoth77/claude/mythos-auto10-c006"
+      },
+      {
+        "hash": "4daf4fd",
+        "date": "2026-08-19",
+        "subject": "docs(design): add specialist audit reports -- public projects + responsive sweep"
+      },
+      {
+        "hash": "47d2b66",
+        "date": "2026-08-19",
+        "subject": "fix(mythos-os-console): execute C-006 -- reconcile mythos.css, restore green suite (AUTO-10)"
+      },
+      {
+        "hash": "7424862",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (17f05fc) into the MOS-v2 M-01 auth branch"
+      },
+      {
+        "hash": "17f05fc",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #35 from othoth77/claude/gate-closure-record"
+      },
+      {
+        "hash": "befdf7a",
+        "date": "2026-08-19",
+        "subject": "docs: gate-closure record — PR stack merged, gates formally classified"
+      },
+      {
+        "hash": "9932a0e",
+        "date": "2026-08-19",
+        "subject": "fix(mythos-os-console): deploy relay chief-review fixes (MOS-v2 M-02 round 2)"
+      },
+      {
+        "hash": "91131eb",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #16 from othoth77/claude/idauto-source-cleanup-post-publication"
+      },
+      {
+        "hash": "0916595",
+        "date": "2026-08-19",
+        "subject": "feat(mos-console): MOS-v2 M-01 — server-side authentication"
+      },
+      {
+        "hash": "9de838f",
+        "date": "2026-08-19",
+        "subject": "docs: master-mission closing record — stage ledger, adjudicated final audit, honest remainder"
+      },
+      {
+        "hash": "975cb8a",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-os-console): add deploy-owned relay + operator runbook (MOS-v2 M-02)"
+      },
+      {
+        "hash": "608a7de",
+        "date": "2026-08-19",
+        "subject": "Update AI_HANDOVER.md with MOS-v2 M-03 completion record"
+      },
+      {
+        "hash": "eca5973",
+        "date": "2026-08-19",
+        "subject": "MOS-v2 M-03: Fix nginx client_max_body_size for mission dispatch"
+      },
+      {
+        "hash": "cd5c807",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (7cd3aa0) into the ID Auto cleanup branch"
+      },
+      {
+        "hash": "7cd3aa0",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #31 from othoth77/claude/mythos-auto9-mig3-mig4"
+      },
+      {
+        "hash": "96b0a28",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-prod): MIG-3 partial execution, MIG-4 checked and blocked (AUTO-9)"
+      },
+      {
+        "hash": "8416f48",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #30 from othoth77/claude/mythos-auto8-mig2-rollback"
+      },
+      {
+        "hash": "02a9ecd",
+        "date": "2026-08-19",
+        "subject": "docs(backup): classify the three outstanding backup items; rehearse the relocated tooling"
+      },
+      {
+        "hash": "6624e53",
+        "date": "2026-08-19",
+        "subject": "docs(design): MIG-2 attempted and rolled back on a real regression (AUTO-8)"
+      },
+      {
+        "hash": "fbd3fdc",
+        "date": "2026-08-19",
+        "subject": "docs: close the standalone migration (IDA-DECOUPLE-4 + Stage 2 closure)"
+      },
+      {
+        "hash": "1797ffa",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (c09ea55) into the ID Auto cleanup branch"
+      },
+      {
+        "hash": "231ff82",
+        "date": "2026-08-19",
+        "subject": "chore(idauto): remove legacy implementation from mythos-prod"
+      },
+      {
+        "hash": "c09ea55",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #29 from othoth77/claude/mythos-auto7-mig1-gold"
+      },
+      {
+        "hash": "641495e",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-prod): execute MIG-1, the Mythos Gold migration (AUTO-7)"
+      },
+      {
+        "hash": "9ed83bd",
+        "date": "2026-08-19",
+        "subject": "docs: record IDA-DECOUPLE-3 COMPLETE in the handover"
+      },
+      {
+        "hash": "36dc631",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (4a03034) into the ID Auto cleanup branch"
+      },
+      {
+        "hash": "d10a805",
+        "date": "2026-08-19",
+        "subject": "docs(identity): correct drift-guarantee and count statements; tighten set assertions"
+      },
+      {
+        "hash": "4a03034",
+        "date": "2026-08-18",
+        "subject": "Merge pull request #28 from othoth77/claude/mythos-final-consistency-pass"
+      },
+      {
+        "hash": "5329cc6",
+        "date": "2026-08-18",
+        "subject": "docs(design): final consistency pass, O-002/006/007 re-checked, blocker matrix"
+      },
+      {
+        "hash": "5febb3e",
+        "date": "2026-08-18",
+        "subject": "Merge pull request #27 from othoth77/claude/mythos-auto6-visual-verify"
+      },
+      {
+        "hash": "2719464",
+        "date": "2026-08-18",
+        "subject": "refactor(identity): consume IDauto protocol vocabulary"
+      },
+      {
+        "hash": "9301119",
+        "date": "2026-08-18",
+        "subject": "feat(design): local visual-regression tooling, MIG-1/MIG-2 rescoped (AUTO-6)"
+      },
+      {
+        "hash": "7f6aec0",
+        "date": "2026-08-18",
+        "subject": "Merge origin/main (9e19b34) into the ID Auto cleanup branch"
+      },
+      {
+        "hash": "9e19b34",
+        "date": "2026-08-18",
+        "subject": "Merge pull request #26 from othoth77/claude/mythos-auto5-grid2"
+      },
+      {
+        "hash": "c4fe949",
+        "date": "2026-08-18",
+        "subject": "docs(handover): AUTO-5 entry, GRID-2 resolved and deployment re-check"
+      },
+      {
+        "hash": "4eecc79",
+        "date": "2026-08-18",
+        "subject": "Merge remote-tracking branch 'origin/main' into claude/mythos-auto5-grid2"
+      },
+      {
+        "hash": "3e656a1",
+        "date": "2026-08-18",
+        "subject": "feat(design): resolve GRID-2, prose measure 48ch supersedes 68ch (AUTO-5)"
+      },
+      {
+        "hash": "677515a",
+        "date": "2026-08-18",
+        "subject": "Merge pull request #24 from othoth77/claude/oth-knowledge-memory-system-ad1sa3"
+      },
+      {
+        "hash": "3100df8",
+        "date": "2026-08-18",
+        "subject": "Merge remote-tracking branch 'origin/main' into claude/oth-knowledge-memory-system-ad1sa3"
+      },
+      {
+        "hash": "e7505a6",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-3 production activation -- executor live, real parallel AI proven; console blocked at documented boundary"
+      },
+      {
+        "hash": "fbf0254",
+        "date": "2026-08-18",
+        "subject": "docs(oth-knowledge): promote to standalone repo othoth77/oth-knowledge, reduce in-repo copy to a pointer"
+      },
+      {
+        "hash": "99c721c",
+        "date": "2026-08-18",
+        "subject": "Merge origin/main (4e5ac60) into the ID Auto cleanup branch"
+      },
+      {
+        "hash": "4e5ac60",
+        "date": "2026-08-18",
+        "subject": "Merge pull request #25 from othoth77/claude/mythos-auto4-font-hosting"
+      },
+      {
+        "hash": "7da965f",
+        "date": "2026-08-18",
+        "subject": "Merge remote-tracking branch 'origin/main' into claude/mythos-auto4-font-hosting"
+      },
+      {
+        "hash": "5e8b608",
+        "date": "2026-08-18",
+        "subject": "feat(design): self-host real fonts, close TYPE-2, narrow GRID-2 (AUTO-4)"
+      },
+      {
+        "hash": "e5050db",
+        "date": "2026-08-18",
+        "subject": "Merge origin/main (6fcbdb7) into the ID Auto cleanup branch"
+      },
+      {
+        "hash": "d1d4226",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-3C + final acceptance -- AI Operating Layer v1 complete at 08dd93c"
+      },
+      {
+        "hash": "08dd93c",
+        "date": "2026-08-18",
+        "subject": "test(mythos-ai): MOS-3C -- the thirteen proofs: concurrency, queue, drain, isolation"
+      },
+      {
+        "hash": "81fd2bf",
+        "date": "2026-08-18",
+        "subject": "docs(oth-knowledge): create shared engineering memory (PROJECTS, PROBLEMS, LESSONS)"
+      },
+      {
+        "hash": "6fcbdb7",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-3B -- mission control frontend at d0074ad"
+      },
+      {
+        "hash": "d0074ad",
+        "date": "2026-08-18",
+        "subject": "feat(mythos-os-console): MOS-3B -- mission control: lifecycle view, capacity strip, guarded polling"
+      },
+      {
+        "hash": "460d931",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-3A -- capacity-gated dispatcher at b5d3fb6"
+      },
+      {
+        "hash": "b5d3fb6",
+        "date": "2026-08-18",
+        "subject": "feat(mythos-ai): MOS-3A -- central multi-AI dispatcher with capacity control"
+      },
+      {
+        "hash": "e6e2a2d",
+        "date": "2026-08-18",
+        "subject": "Merge origin/main (523d855) into the ID Auto cleanup branch"
+      },
+      {
+        "hash": "523d855",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-2.1 visual regression -- logo sizing hardened at 22c4b43"
+      },
+      {
+        "hash": "22c4b43",
+        "date": "2026-08-18",
+        "subject": "fix(mythos-os-console): bound both logo images against a missing stylesheet"
+      },
+      {
+        "hash": "bbc9b3e",
+        "date": "2026-08-18",
+        "subject": "Merge origin/main (2897f5b) into the ID Auto cleanup branch"
+      },
+      {
+        "hash": "2897f5b",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-2.1 -- mission execution lifecycle dashboard at d6fd1d0"
+      },
+      {
+        "hash": "d6fd1d0",
+        "date": "2026-08-18",
+        "subject": "feat(mythos-os-console): MOS-2.1 -- mission execution lifecycle dashboard"
+      },
+      {
+        "hash": "26a8554",
+        "date": "2026-08-18",
+        "subject": "Merge origin/main (77fd1e2) into the ID Auto cleanup branch"
+      },
+      {
+        "hash": "51bf9b5",
+        "date": "2026-08-18",
+        "subject": "docs: record IDA-DECOUPLE-3 as BLOCKED in the handover"
+      },
+      {
+        "hash": "62b134a",
+        "date": "2026-08-18",
+        "subject": "fix(identity): scope the actor_type contract check to the right table"
+      },
+      {
+        "hash": "77fd1e2",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-2 -- mission queue/model selection/start execution at 158efe6"
+      },
+      {
+        "hash": "158efe6",
+        "date": "2026-08-18",
+        "subject": "feat(mythos-os-console): MOS-2 -- mission queue, model selection, start execution"
+      },
+      {
+        "hash": "1752f12",
+        "date": "2026-08-18",
+        "subject": "docs(handover): mandate continuation complete, stopping at evidenced blockers (#22)"
+      },
+      {
+        "hash": "b1bbf2f",
+        "date": "2026-08-18",
+        "subject": "docs(handover): full autonomous mandate continuation complete, stopping at evidenced blockers"
+      },
+      {
+        "hash": "893a3f9",
+        "date": "2026-08-18",
+        "subject": "mandate items 6-8: consolidation, readiness audit, migration plans (#21)"
+      },
+      {
+        "hash": "93baab9",
+        "date": "2026-08-18",
+        "subject": "mandate items 6-8: design system consolidation, readiness audit, migration plans"
+      },
+      {
+        "hash": "168f50f",
+        "date": "2026-08-18",
+        "subject": "mandate item 5: 1I design prototypes (#20)"
+      },
+      {
+        "hash": "fd358b9",
+        "date": "2026-08-18",
+        "subject": "mandate item 5: 1I design prototypes (7 static, standalone HTML files)"
+      },
+      {
+        "hash": "7fde513",
+        "date": "2026-08-18",
+        "subject": "docs(handover): AUTO-3 decision sweep recorded (#19)"
+      },
+      {
+        "hash": "82146ff",
+        "date": "2026-08-18",
+        "subject": "docs(handover): AUTO-3 decision sweep recorded"
+      },
+      {
+        "hash": "392e97e",
+        "date": "2026-08-18",
+        "subject": "mandate item 4: decision sweep resolves eighteen open items (AUTO-3) (#18)"
+      },
+      {
+        "hash": "a8f73d3",
+        "date": "2026-08-18",
+        "subject": "Merge remote-tracking branch 'origin/main' into claude/decision-sweep-auto3"
+      },
+      {
+        "hash": "625858f",
+        "date": "2026-08-18",
+        "subject": "mandate item 4: decision sweep resolves eighteen open items (AUTO-3), generates the token artifact"
+      },
+      {
+        "hash": "d268525",
+        "date": "2026-08-18",
+        "subject": "Merge origin/main (ed376ea) into the ID Auto cleanup branch"
+      },
+      {
+        "hash": "c57df17",
+        "date": "2026-08-18",
+        "subject": "docs: record IDA-DECOUPLE-2 in the handover"
+      },
+      {
+        "hash": "e053a56",
+        "date": "2026-08-18",
+        "subject": "refactor(infrastructure): extract generic ops from IDauto"
+      },
+      {
+        "hash": "ed376ea",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-1.8 — temporary internal login gate at 94b4cbd"
+      },
+      {
+        "hash": "94b4cbd",
+        "date": "2026-08-18",
+        "subject": "feat(mythos-os-console): temporary internal login gate in front of the Command Center"
+      },
+      {
+        "hash": "79c01d8",
+        "date": "2026-08-18",
+        "subject": "Merge origin/main (0447209) into the ID Auto cleanup branch"
+      },
+      {
+        "hash": "0447209",
+        "date": "2026-08-18",
+        "subject": "mandate: LOGO-2 resolved (AUTO-1), LOGO-1 narrowed, C-006 canonical system decided (AUTO-2) (#17)"
+      },
+      {
+        "hash": "454c38b",
+        "date": "2026-08-18",
+        "subject": "Merge remote-tracking branch 'origin/main' into claude/full-mandate-pass-1-logo2-c006"
+      },
+      {
+        "hash": "f158743",
+        "date": "2026-08-18",
+        "subject": "mandate: PR #11 merged, LOGO-2 resolved (AUTO-1), LOGO-1 narrowed, C-006 canonical system decided (AUTO-2)"
+      },
+      {
+        "hash": "96ed3d2",
+        "date": "2026-08-18",
+        "subject": "docs: record IDA-DECOUPLE-1 in the handover"
+      },
+      {
+        "hash": "6e2dfaa",
+        "date": "2026-08-18",
+        "subject": "fix(mpi): own pg dependency at composition root"
+      },
+      {
+        "hash": "463a681",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-1.7 — machine-transport bus access to deploy also refused"
+      },
+      {
+        "hash": "72a8d73",
+        "date": "2026-08-18",
+        "subject": "docs: ID Auto dependency boundary audit — read-only, no source changed"
+      },
+      {
+        "hash": "30ebf39",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-1.6 — deployment continuation blocked at a real privilege boundary"
+      },
+      {
+        "hash": "adaf55e",
+        "date": "2026-08-18",
+        "subject": "Merge origin/main (aa7c5d7) into the ID Auto cleanup branch"
+      },
+      {
+        "hash": "7d2ac0b",
+        "date": "2026-08-18",
+        "subject": "cleanup(idauto): remove the staging snapshot; the source cannot follow it yet"
+      },
+      {
+        "hash": "aa7c5d7",
+        "date": "2026-08-18",
+        "subject": "design(stage 1): Mythos brand foundation — recovery through public ecosystem architecture (#11)"
+      },
+      {
+        "hash": "771c12b",
+        "date": "2026-08-18",
+        "subject": "Merge remote-tracking branch 'origin/main' into claude/mythos-master-brand-design-c3vy6b"
+      },
+      {
+        "hash": "4390911",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-1.5 — confirm() explicit read -r -p at 83ab0c6"
+      },
+      {
+        "hash": "83ab0c6",
+        "date": "2026-08-18",
+        "subject": "fix(mythos-os-console): confirm() uses explicit read -r -p, not combined -rp"
+      },
+      {
+        "hash": "1cc4d51",
+        "date": "2026-08-18",
+        "subject": "docs(idauto): §1 and §4 wording follows from publication being done"
+      },
+      {
+        "hash": "8e770e0",
+        "date": "2026-08-18",
+        "subject": "Merge main (b288856, MOS-1.2 / MOS-1.3) into the Stage 1 design branch"
+      },
+      {
+        "hash": "a229e34",
+        "date": "2026-08-18",
+        "subject": "docs(handover): record publication and clean-clone verification"
+      },
+      {
+        "hash": "a0e4043",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-1.4 — Phase 8 certonly fix at 4890981"
+      },
+      {
+        "hash": "5db1a70",
+        "date": "2026-08-18",
+        "subject": "docs(idauto): othoth77/idauto published and clean-clone verified — it is now canonical"
+      },
+      {
+        "hash": "4890981",
+        "date": "2026-08-18",
+        "subject": "fix(mythos-os-console): Phase 8 TLS preflight must use the certonly verb"
+      },
+      {
+        "hash": "b288856",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-1.3 — deploy readiness race fixed at 5bdff38"
+      },
+      {
+        "hash": "5bdff38",
+        "date": "2026-08-18",
+        "subject": "fix(mythos-os-console): wait for real readiness before Phase 4 verification"
+      },
+      {
+        "hash": "255c566",
+        "date": "2026-08-18",
+        "subject": "docs: define Mythos public ecosystem architecture"
+      },
+      {
+        "hash": "c380edb",
+        "date": "2026-08-18",
+        "subject": "Merge origin/main (0a00c30) into the ID Auto standalone migration branch"
+      },
+      {
+        "hash": "0a00c30",
+        "date": "2026-08-18",
+        "subject": "Merge pull request #15 from othoth77/claude/mythos-os-dashboard-audit-y4174m"
+      },
+      {
+        "hash": "099a133",
+        "date": "2026-08-18",
+        "subject": "docs(idauto): completeness audit — IDA-3F status corrected, four missed artefacts recovered"
+      },
+      {
+        "hash": "345827a",
+        "date": "2026-08-18",
+        "subject": "Merge main (5e2011b, MOS-1 / MOS-1.1) into the Stage 1 design branch"
+      },
+      {
+        "hash": "6fbc103",
+        "date": "2026-08-18",
+        "subject": "docs: define Mythos responsive accessibility and motion system"
+      },
+      {
+        "hash": "b516b39",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-1.2 — a253bde recorded; PR #12 merged at 5e2011b; the \"broken step 2\" claim corrected"
+      },
+      {
+        "hash": "a253bde",
+        "date": "2026-08-18",
+        "subject": "feat(mythos-os-console): MOS-1.2 — deploy.sh with hard gates, and an honest correction to §10.2 step 2"
+      },
+      {
+        "hash": "db8bb8d",
+        "date": "2026-08-18",
+        "subject": "docs(idauto): standalone migration completed and validated — publication blocked, nothing removed here"
+      },
+      {
+        "hash": "5e2011b",
+        "date": "2026-08-18",
+        "subject": "Merge pull request #12 — MOS-1 / MOS-1.1 MYTHOS OS Command Center"
+      },
+      {
+        "hash": "0154cae",
+        "date": "2026-08-18",
+        "subject": "docs: define Mythos 1F component system"
+      },
+      {
+        "hash": "960739f",
+        "date": "2026-08-18",
+        "subject": "docs: derive Mythos grid, spacing and token architecture (1E)"
+      },
+      {
+        "hash": "c3b595d",
+        "date": "2026-08-18",
+        "subject": "docs: record LOGO-2 owner review hold"
+      },
+      {
+        "hash": "46915a0",
+        "date": "2026-08-18",
+        "subject": "docs: propose Mythos final logo system"
+      },
+      {
+        "hash": "521a60c",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-1.1 — 99abcef gate passed; the MOS-1 DNS blocker was a wrong claim and is withdrawn"
+      },
+      {
+        "hash": "99abcef",
+        "date": "2026-08-18",
+        "subject": "feat(mythos-os-console): MOS-1.1 — release gate: contrast measured, and a wrong claim corrected"
+      },
+      {
+        "hash": "95ac2b2",
+        "date": "2026-08-18",
+        "subject": "docs: approve Mythos colour usage policy for public projects"
+      },
+      {
+        "hash": "7538870",
+        "date": "2026-08-18",
+        "subject": "docs: approve Mythos Command Center as Mythos OS product"
+      },
+      {
+        "hash": "7f0ce25",
+        "date": "2026-08-18",
+        "subject": "docs(handover): MOS-1 — 305ad3a audited, built, tested, pushed; parked on an owner DNS action"
+      },
+      {
+        "hash": "305ad3a",
+        "date": "2026-08-18",
+        "subject": "feat(mythos-os-console): MOS-1 — the Command Center, built on the existing brand system"
+      }
+    ],
+    "commit_count": null,
+    "not_verified": []
+  },
+  "projects": [
+    {
+      "id": "PROJECT-MYTHOS-OS",
+      "name": "Mythos OS (production app)",
+      "executive": true,
+      "purpose": "Online-first production-management platform (PHP + vanilla JS) — the original Mythos Prod application and its runtime-plugin architecture.",
+      "status": "DONE",
+      "maturity": "DEPLOYED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-08 (RUNTIME-DUPLICATE-CLEANUP-0, PR #9)",
+      "blocker": null,
+      "next_action": "Deploy the merged post-refactor revision to production (operator; DEPLOYMENT_READINESS.md).",
+      "headline": "Roadmap stages 1A → 4AG all complete: js/app.js reduced 9,948 → 991 lines across ~50 stages with a green cumulative suite (~1,978 assertions). Four small items deliberately deferred (app-fresh.js, removePersonRow, invoice addLine() stub, Logs/Sidebar/Sync ~210 lines).",
+      "dimensions": {
+        "roadmap": {
+          "percent": 100,
+          "basis": "CALCULATED",
+          "note": "all recorded refactor stages DONE"
+        },
+        "implementation": {
+          "percent": 100,
+          "basis": "CALCULATED",
+          "note": "all extraction stages merged"
+        },
+        "tests": {
+          "status": "DONE",
+          "note": "cumulative Stage-4 suite green; regression suites still green at 70d3e71"
+        },
+        "production": {
+          "status": "NOT_VERIFIED",
+          "note": "legacy production instance exists; merged refactor revision not yet redeployed — operator step"
+        }
+      },
+      "evidence": [
+        "EV-STAGE4-END",
+        "EV-STAGE4-SUITE",
+        "EV-DEPLOY-READINESS"
+      ]
+    },
+    {
+      "id": "PROJECT-MOS-V2",
+      "name": "Mythos OS Console (MOS-v2)",
+      "executive": true,
+      "purpose": "Operator console at os.mythosprod.xyz: mission control, goals with mandatory human approval, governed AI decomposition, auto-routing, runtime skills, governed MCP foundation.",
+      "status": "READY",
+      "maturity": "TESTED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-20 (INT-E2E auto-title; console suite 1433/0 at 70d3e71)",
+      "blocker": "Deployment is an operator sequence: new MOS_CONSOLE_SECRET, M-02 relay install, deploy.sh, nginx reload — plus the VPS access gap for AI sessions.",
+      "next_action": "Operator executes the MOS-v2 Phase-B deployment runbook (projects/mythos-os-console/deploy/relay/RUNBOOK.md).",
+      "headline": "M-01 → M-12 code-complete and security-audited (M-07), regression-gated (M-08, 20/20 areas). Built, tested in-container, NOT deployed. DNS os.mythosprod.xyz already resolves.",
+      "dimensions": {
+        "roadmap": {
+          "percent": 100,
+          "basis": "CALCULATED",
+          "note": "M-01..M-12 all DONE"
+        },
+        "implementation": {
+          "percent": 100,
+          "basis": "CALCULATED"
+        },
+        "tests": {
+          "status": "DONE",
+          "note": "console 1433/0 · executor 264/0 · gate 20/20 at 70d3e71"
+        },
+        "deployment": {
+          "status": "OWNER_ACTION",
+          "note": "Phase-B operator runbook ready; not executed"
+        },
+        "production": {
+          "status": "NOT_VERIFIED"
+        }
+      },
+      "evidence": [
+        "EV-PR-34",
+        "EV-PR-39",
+        "EV-M12",
+        "EV-MOSV2-GATE",
+        "EV-E2E-TEST"
+      ]
+    },
+    {
+      "id": "PROJECT-COMMAND-CENTER",
+      "name": "Command Center (MCC · ordre.mythosprod.xyz)",
+      "executive": true,
+      "purpose": "Mission dispatch surface: create missions (auto-title, auto-routing), execution profiles, mission reports, one-click report copy. 13-table mcc schema, no DELETE route, never executes stored commands.",
+      "status": "DONE",
+      "maturity": "PRODUCTION_VERIFIED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-20 (PR #47 simplification merged 70d3e71)",
+      "blocker": null,
+      "next_action": "None required. MCC-2 is planned, not started. Live redeploy of the PR #47/#48 revision is an operator step.",
+      "headline": "Live over HTTPS since 2026-08-17 (Let's Encrypt valid to 2026-11-15), suite 506/0. Mission creation simplified 2026-08-20: title derives automatically, routing is automatic, mission report copies in one click. E2E lifecycle proven 54/0.",
+      "dimensions": {
+        "implementation": {
+          "percent": 100,
+          "basis": "CALCULATED"
+        },
+        "tests": {
+          "status": "DONE",
+          "note": "mcc-1 506/0 · E2E 54/0"
+        },
+        "deployment": {
+          "status": "DONE",
+          "note": "live at ordre.mythosprod.xyz (operator-verified 2026-08-17); latest merged revision pending redeploy"
+        },
+        "production": {
+          "status": "DONE",
+          "note": "real missions dispatched and completed through it (e.g. t-20260820075238)"
+        }
+      },
+      "evidence": [
+        "EV-MCC-LIVE",
+        "EV-MCC-TEST",
+        "EV-PR-47",
+        "EV-PR-48",
+        "EV-CC-SIMPLIFY"
+      ]
+    },
+    {
+      "id": "PROJECT-OTH-KNOWLEDGE",
+      "name": "OTH Knowledge",
+      "executive": true,
+      "purpose": "Provider-agnostic knowledge operating layer: model, store, provenance, conflicts, hybrid search, trust model (confidence never truth), read-only executor wiring.",
+      "status": "OWNER_ACTION",
+      "maturity": "TESTED",
+      "repository": "othoth77/mythos-prod + othoth77/oth-knowledge",
+      "last_change": "2026-08-20 (OTH-K3 merged, PR #45 → b6e52d5)",
+      "blocker": "Everything repository-executable is finished. Live activation needs: private store provisioned, config flipped, owner-authorized real-data exports, VPS backup round trip.",
+      "next_action": "Operator provisions /home/deploy/othk-store (umask 077), sets store_root + enabled in config/knowledge.json; owner supplies authorized exports.",
+      "headline": "Track A repository-COMPLETE (K1, K2, K2-W, K3; security audit F1–F15 all fixed; Opus APPROVE, Haiku CONFIRMED). Track B fixture-COMPLETE, real data OWNER-BLOCKED. Executor wiring ships disabled and fail-closed. Repository completion is NOT live activation.",
+      "dimensions": {
+        "repository": {
+          "status": "DONE",
+          "note": "othk suites 89+30+97+40+63 / 0"
+        },
+        "fixtures": {
+          "status": "DONE",
+          "note": "all four importers fixture-validated"
+        },
+        "real_data": {
+          "status": "OWNER_ACTION",
+          "note": "no authorized export exists yet"
+        },
+        "private_store": {
+          "status": "OWNER_ACTION",
+          "note": "location decided (/home/deploy/othk-store), not provisioned"
+        },
+        "backup_restore": {
+          "status": "READY",
+          "note": "ops scripts round-trip-verified locally; live run needs VPS channel"
+        },
+        "deployment": {
+          "status": "OWNER_ACTION",
+          "note": "ops/deploy-vps.sh ready; operator executes"
+        }
+      },
+      "evidence": [
+        "EV-PR-45",
+        "EV-OTHK3-HEAD",
+        "EV-OTHK-TESTS",
+        "EV-TRACKB",
+        "EV-PRIVATE-STORE"
+      ]
+    },
+    {
+      "id": "PROJECT-OTH-MASTER",
+      "name": "OTH Master / Personal Intelligence (MPI)",
+      "executive": false,
+      "purpose": "The owner's personal memory engine: mythos_intelligence schema, guarded ingestion, deterministic retrieval with provenance, provider-neutral runtime. Distinct from OTH Knowledge.",
+      "status": "READY",
+      "maturity": "EXTERNALLY_CONNECTED",
+      "repository": "othoth77/mythos-prod (+ othoth77/oth-master corpus)",
+      "last_change": "2026-08-16 (MPI-DOC-SYNC-0); production apply 2026-08-14/15",
+      "blocker": "External-source importers (DeepSeek, Claude, Gemini, NotebookLM, Takeout) deliberately NOT built yet; Contacts content permanently metadata-only (D1c). MPI-5..MPI-10 planned, unauthorised.",
+      "next_action": "Owner decides the next MPI stage; real external-source ingestion requires owner-produced exports (same gate as OTH Knowledge Track B).",
+      "headline": "MPI-0 → MPI-4 complete and PRODUCTION-APPLIED: mythos_intelligence live on idauto-postgres, real 36-memory corpus ingested (batches 2h-001..004), first real retrieval 36/36 deterministic with provenance, verified R2 backup with proven restore, one real OpenRouter request. Source-by-source: DeepSeek/Claude/Gemini/NotebookLM/Takeout = importer NOT BUILT, no real data; Google Contacts = real 2021 exports discovered, metadata-only by policy.",
+      "dimensions": {
+        "implementation": {
+          "percent": 100,
+          "basis": "CALCULATED",
+          "note": "MPI-0..4 stages all DONE; later stages not authorised"
+        },
+        "tests": {
+          "status": "DONE",
+          "note": "full MPI 721/721 (23 suites) at MPI-4"
+        },
+        "production": {
+          "status": "DONE",
+          "note": "schema applied to production DB; 36-memory corpus verified; backups proven (C1==C2)"
+        },
+        "external_sources": {
+          "status": "NOT_STARTED",
+          "note": "importers post-2H territory, none built — by design"
+        }
+      },
+      "evidence": [
+        "EV-PR-4",
+        "EV-MPI-APPLY",
+        "EV-MPI-BACKUP",
+        "EV-K2-DISCOVERY"
+      ]
+    },
+    {
+      "id": "PROJECT-ID-AUTO",
+      "name": "ID Auto",
+      "executive": false,
+      "purpose": "Vehicle identity platform for Tunisia (plates, observations, review queue, media). Extracted to its own repository.",
+      "status": "OWNER_ACTION",
+      "maturity": "TESTED",
+      "repository": "othoth77/idauto",
+      "last_change": "2026-08-19 (IDA-DECOUPLE-4; extraction closed)",
+      "blocker": "IDA-4 citizen-facing: CITIZEN_FACING_IDA4_READY = NO. Legal items L01–L16 all OPEN (4 citizen-surface blockers). Real auth (IDA-2E) blocked until a real Mythos identity service exists. IDA-3F off-host media backup deferred (R2 billing).",
+      "next_action": "Owner: legal review L01–L16; decision A5 (recommended option C — IVID-only public surface). Technical foundation is ready.",
+      "headline": "Foundation, backend, database, media, ingestion, review queue: DONE in the standalone repo (clean-clone 601/601; conformance 77/0 with 7/7 mutations caught). Technical completion ≠ legal/citizen-facing readiness — those are explicitly separate and open.",
+      "dimensions": {
+        "foundation": {
+          "status": "DONE",
+          "note": "IDA-0..IDA-3 complete"
+        },
+        "backend_database": {
+          "status": "DONE",
+          "note": "live idauto-postgres, 24 tables, atomic audit"
+        },
+        "auth": {
+          "status": "BLOCKED",
+          "note": "IDA-2E-PRE stub only — never real auth; do not reopen without a real identity service"
+        },
+        "legal": {
+          "status": "OWNER_ACTION",
+          "note": "L01–L16 all open"
+        },
+        "citizen_facing": {
+          "status": "NOT_STARTED",
+          "note": "IDA-4 not started; PUBLIC_ENDPOINT_READY_TO_IMPLEMENT = NO"
+        }
+      },
+      "evidence": [
+        "EV-PR-16",
+        "EV-IDA-MIGRATION",
+        "EV-IDA-BOUNDARY"
+      ]
+    },
+    {
+      "id": "PROJECT-AUTOMOTIVE",
+      "name": "Mythos Automotive (MAE)",
+      "executive": false,
+      "purpose": "Automotive ecosystem umbrella: control plane, KPI model, risk register, product portfolio.",
+      "status": "DEFERRED",
+      "maturity": "ARCHITECTURE_DEFINED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-06 (MAE-0 foundation docs)",
+      "blocker": "MAE-1..MAE-3 were gated on IDA-2 in-repo — that gate is orphaned by the ID Auto extraction; MAE-4 requires legal counsel.",
+      "next_action": "Owner decision to re-scope MAE-1 against the standalone idauto repo, or keep deferred.",
+      "headline": "Documentation/architecture only (MAE-0, 2026-08-05/06): 18-table control plane, 8 MADs, 48 risks, 40 domain events. Zero implementation.",
+      "dimensions": {
+        "architecture": {
+          "status": "DONE"
+        },
+        "implementation": {
+          "status": "NOT_STARTED"
+        }
+      },
+      "evidence": [
+        "EV-REPO-SNAPSHOT"
+      ]
+    },
+    {
+      "id": "PROJECT-ATELIER-NETWORK",
+      "name": "Atelier Network (ATN)",
+      "executive": false,
+      "purpose": "Workshop network product: 24-table atn_ schema, 14 canonical IDs, KPI set.",
+      "status": "DEFERRED",
+      "maturity": "ARCHITECTURE_DEFINED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-06 (ATN-0)",
+      "blocker": "ATN-1 gated on ID Auto foundations (now in the standalone repo).",
+      "next_action": "Keep deferred until the automotive track is re-scoped.",
+      "headline": "Foundation documentation stage only — no deployment, no real data, no implementation (its own README says so).",
+      "dimensions": {
+        "architecture": {
+          "status": "DONE"
+        },
+        "implementation": {
+          "status": "NOT_STARTED"
+        }
+      },
+      "evidence": [
+        "EV-REPO-SNAPSHOT"
+      ]
+    },
+    {
+      "id": "PROJECT-AUTOVALEUR",
+      "name": "AutoValeur (AVA)",
+      "executive": false,
+      "purpose": "Vehicle valuation product: 18-table schema, Deal Radar, 3 product versions.",
+      "status": "DEFERRED",
+      "maturity": "ARCHITECTURE_DEFINED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-06 (AVA-0)",
+      "blocker": "AVA-1 gated on IDA-2 PostgreSQL foundations; 17 LEGAL items open.",
+      "next_action": "Keep deferred until the automotive track is re-scoped.",
+      "headline": "Planning only — no real data, no deployment, no implementation.",
+      "dimensions": {
+        "architecture": {
+          "status": "DONE"
+        },
+        "implementation": {
+          "status": "NOT_STARTED"
+        }
+      },
+      "evidence": [
+        "EV-REPO-SNAPSHOT"
+      ]
+    },
+    {
+      "id": "PROJECT-SSANGYONG",
+      "name": "SsangYong Autos (SYA)",
+      "executive": false,
+      "purpose": "ssangyong.autos: catalog database, read-only catalog API, storefront.",
+      "status": "DONE",
+      "maturity": "DEPLOYED",
+      "repository": "othoth77/mythos-prod (projects/ssangyong-autos)",
+      "last_change": "2026-08-16 (SYA-SHOP-1b)",
+      "blocker": "nginx config drift: installed vhost diverges 101 lines from the repo copy — authoritative copy is an open owner decision.",
+      "next_action": "Owner decides which nginx copy is authoritative; reconcile.",
+      "headline": "Catalog deployed on live PostgreSQL (5 tables, 1,519 rows, 18/18 checks), SYA-API-1 60/0 live, storefront 41/0 with visual verification. §21 legacy freeze stands permanently.",
+      "dimensions": {
+        "implementation": {
+          "status": "DONE"
+        },
+        "tests": {
+          "status": "DONE",
+          "note": "API 60/0 live · storefront 41/0"
+        },
+        "deployment": {
+          "status": "DONE",
+          "note": "operator-verified 2026-08-16"
+        }
+      },
+      "evidence": [
+        "EV-SYA-DEPLOY",
+        "EV-SYA-DRIFT"
+      ]
+    },
+    {
+      "id": "PROJECT-AUTOMATION",
+      "name": "Automation (AUT / INF-*-AUTO)",
+      "executive": false,
+      "purpose": "Governed automation: read-only OVH/Cloudflare connectors, DNS comparison and operations, staging deploy foundation, backup automation — all behind owner approval gates.",
+      "status": "READY",
+      "maturity": "TESTED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-16 (INF-BACKUP-AUTO-0 O-BACKUP-6: first live gated backup_verify)",
+      "blocker": "Every write path is gated shut by design: 0 of 40 DNS approval fields granted, write connectors disabled, zero live credentials in the repo or environment.",
+      "next_action": "Owner grants specific approvals only when a migration/deploy/backup run is actually wanted.",
+      "headline": "Reference implementations complete and mutation-tested (DNS-AUTO-2 97/97 with 25/25 mutations caught; BACKUP-AUTO 245/245 with a live gated backup_verify). The gates being shut is the designed state, not a defect.",
+      "dimensions": {
+        "implementation": {
+          "percent": 100,
+          "basis": "CALCULATED",
+          "note": "delivered stages all DONE; MONITOR-AUTO-0 not started"
+        },
+        "authorisation": {
+          "status": "OWNER_ACTION",
+          "note": "all approval gates deliberately shut"
+        }
+      },
+      "evidence": [
+        "EV-AUTOMATION-GATES",
+        "EV-CF-INVENTORY"
+      ]
+    },
+    {
+      "id": "PROJECT-INFRASTRUCTURE",
+      "name": "Infrastructure (OVH / Cloudflare / DNS / VPS)",
+      "executive": false,
+      "purpose": "The physical substrate: OVH VPS 51.68.226.211, OVH DNS, Cloudflare plans, nginx, Coolify, n8n, executor, backups.",
+      "status": "BLOCKED",
+      "maturity": "DEPLOYED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-20 (VPS-PATH categorization)",
+      "blocker": "No execution path from AI sessions to the VPS (see BLOCKER-VPS-EXECUTION). Owner/operator paths exist and are verified.",
+      "next_action": "Owner picks Option A (dispatch one Command-Center gate mission) or Option B (egress allowlist + secret, or self-hosted runner — PR #53 proposal).",
+      "headline": "VPS healthy (2026-08-10 audit: HEALTHY_WITH_WARNINGS, 26 containers), memory caps partially applied, off-host backups proven for idauto/coolify/darhijama + MPI. Every AI-session execution mechanism tested and blocked; nothing was bypassed.",
+      "paths": [
+        {
+          "name": "SSH deploy@51.68.226.211 (AI session)",
+          "status": "BLOCKED",
+          "note": "TCP/22 connect timeout; no keys by design"
+        },
+        {
+          "name": "SSH owner Windows → VPS",
+          "status": "DONE",
+          "note": "VERIFIED channel (ED25519), DEPLOYMENT_READINESS §5"
+        },
+        {
+          "name": "HTTPS to VPS from AI session",
+          "status": "BLOCKED",
+          "note": "organization egress policy 403 — not routed around"
+        },
+        {
+          "name": "DNS resolution (os./ordre./apex)",
+          "status": "DONE",
+          "note": "resolves correctly → 51.68.226.211; NOT a DNS failure"
+        },
+        {
+          "name": "GitHub Actions / self-hosted runner",
+          "status": "NOT_STARTED",
+          "note": "no workflows, no runner registered; PR #53 proposes one"
+        },
+        {
+          "name": "Coolify",
+          "status": "READY",
+          "note": "v4.3.2 live; deployment-only; only the Dar Hijama staging environment is authorised"
+        },
+        {
+          "name": "n8n",
+          "status": "DONE",
+          "note": "single instance at n8n.ssangyong.autos — permanent MVP decision, no second instance"
+        },
+        {
+          "name": "Executor HTTP API",
+          "status": "DONE",
+          "note": "VPS-loopback only, by architecture (correctly unreachable from outside)"
+        },
+        {
+          "name": "mythos-git-push relay",
+          "status": "DONE",
+          "note": "pull/report-only; executes no instructions from Git — load-bearing security property"
+        },
+        {
+          "name": "Owner-dispatched executor missions",
+          "status": "DONE",
+          "note": "the one working AI-adjacent path (e.g. t-20260820075238)"
+        }
+      ],
+      "dimensions": {
+        "vps_health": {
+          "status": "DONE",
+          "note": "2026-08-10 audit; on-host validations through 2026-08-20"
+        },
+        "ai_execution_path": {
+          "status": "BLOCKED"
+        },
+        "backups": {
+          "status": "DONE",
+          "note": "off-host round trips proven 2026-08-14 (idauto, coolify, darhijama, MPI)"
+        },
+        "cloudflare_migration": {
+          "status": "OWNER_ACTION",
+          "note": "INF-CF-2 not entered for any of the 8 domains"
+        }
+      },
+      "evidence": [
+        "EV-VPS-PATH",
+        "EV-DEPLOY-READINESS",
+        "EV-PR-51",
+        "EV-PR-53",
+        "EV-VPS-GOV-ONHOST"
+      ]
+    },
+    {
+      "id": "PROJECT-VPS-FINAL-GATE",
+      "name": "VPS Final Gate",
+      "executive": true,
+      "purpose": "The last live validation: run the full gate on the host itself (governance re-check, live E2E, persistent memory, failure validation, knowledge store).",
+      "status": "BLOCKED",
+      "maturity": "TESTED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-20 (VPS-PATH: blocked; PR #53 runner proposal opened)",
+      "blocker": "Everything proven in-container (console 1433/0, E2E 54/0, gate 20/20); the live-on-host run needs an owner-dispatched mission or a provisioned runner.",
+      "next_action": "Owner dispatches the ready-to-send Option A gate mission through ordre.mythosprod.xyz (text is in the VPS-PATH handover entry).",
+      "headline": "BLOCKED at access, not at readiness. The exact read-only gate mission is written and waiting; two root-only actions remain (remove deploy from docker group; provision the knowledge store).",
+      "dimensions": {
+        "in_container_proof": {
+          "status": "DONE",
+          "note": "merged tree at 70d3e71 re-verified green"
+        },
+        "live_gate": {
+          "status": "BLOCKED"
+        }
+      },
+      "evidence": [
+        "EV-VPS-PATH",
+        "EV-PR-51",
+        "EV-PR-53",
+        "EV-MOSV2-GATE"
+      ]
+    },
+    {
+      "id": "PROJECT-SECURITY",
+      "name": "Security & Governance",
+      "executive": true,
+      "purpose": "Governance key isolation, approval relay, executor restrictions, unattended policy, fail-closed controls, trust model, audits.",
+      "status": "OWNER_ACTION",
+      "maturity": "DEPLOYED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-20 (on-host validation: boundary INTACT, zero drift)",
+      "blocker": "One CONFIRMED HIGH finding stands open: deploy is in the docker group with a reachable socket (root-equivalent). Fix is one root command.",
+      "next_action": "Owner runs: sudo gpasswd -d deploy docker — then re-run tests/mythos-governance-invariant-test.js as deploy (expect 99/0).",
+      "headline": "Governance hardening ACTIVE and verified on-host: /etc/mythos/governance.key root:mythos-gov 0640, memberless group, deploy EACCES on key + approvals, installed relay sha256-identical to main. Incident GI-2026-08-18-01 adjudicated (authorisation ruled INVALID; cage is now a delivery invariant). OTH-K3 security audit PASS-WITH-FINDINGS, F1–F15 all fixed.",
+      "dimensions": {
+        "governance_key": {
+          "status": "DONE",
+          "note": "verified on-host 2026-08-19/20"
+        },
+        "docker_boundary": {
+          "status": "OWNER_ACTION",
+          "note": "deploy ∈ docker — HIGH, unremediated"
+        },
+        "audits": {
+          "status": "DONE",
+          "note": "M-07 operator audit; OTH-K3 F1–F15; governance suite 99/0"
+        },
+        "secrets": {
+          "status": "DONE",
+          "note": "no credentials in repo by design; leaked capabilities revoked not erased"
+        }
+      },
+      "evidence": [
+        "EV-PR-46",
+        "EV-AOL-CLOSURE",
+        "EV-GOV-TEST",
+        "EV-VPS-GOV-ONHOST",
+        "EV-DOCKER-FINDING",
+        "EV-GI-INCIDENT",
+        "EV-GOV-INVARIANT"
+      ]
+    },
+    {
+      "id": "PROJECT-AI-ORCHESTRATION",
+      "name": "AI Operating Layer & Orchestration",
+      "executive": false,
+      "purpose": "Persistent autonomous execution: mythos-ai-executor, Orchestration Core (Phase 2), budget ledger, reservation leases, autonomous campaign loop, MAOL vision.",
+      "status": "DONE",
+      "maturity": "PRODUCTION_VERIFIED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-19 (AOL v1 closure, PR #46)",
+      "blocker": "MAOL-1 (multi-tenant operating layer) NOT AUTHORISED — entry gates O-MAOL-1..10 open. This is a deliberate stop, not a defect.",
+      "next_action": "None until the owner opens MAOL-1 (providers/DPAs, budget model, residency).",
+      "headline": "v1 COMPLETE AND CLOSED: executor deployed and proven on the VPS (real overlapping missions), Orchestration Core 2A–2M, budget ledger, crash-safe leases, autonomous loop that completed real missions unattended — 19 capabilities, 1,020 assertions, zero failures. Frozen state after the governance incident was resolved by the hardening closure.",
+      "dimensions": {
+        "implementation": {
+          "percent": 100,
+          "basis": "CALCULATED",
+          "note": "v1 scope closed"
+        },
+        "production": {
+          "status": "DONE",
+          "note": "executor live; owner-dispatched missions completed through 2026-08-20"
+        },
+        "maol_phase_1": {
+          "status": "NOT_STARTED",
+          "note": "not authorised"
+        }
+      },
+      "evidence": [
+        "EV-EXEC-DEPLOYED",
+        "EV-MVP-COMPLETE",
+        "EV-MAOL-SPEC",
+        "EV-PR-46"
+      ]
+    },
+    {
+      "id": "PROJECT-DESIGN-SYSTEM",
+      "name": "Mythos Design System & Brand",
+      "executive": false,
+      "purpose": "Master visual identity (Constant + Movement, the 35° gesture), tokens, typography, components, public ecosystem architecture, migrations of the legacy app CSS.",
+      "status": "DONE",
+      "maturity": "INTEGRATED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-19 (AUTO-12 completes MIG-3; AUTO-13 hub)",
+      "blocker": "MIG-4 (Command Center palette) BLOCKED by the standing owner instruction not to touch the Command Center. LOGO-1 vector-source recovery partial (2 of 3 off-host repos unreachable).",
+      "next_action": "None urgent; MIG-4 waits for explicit owner permission.",
+      "headline": "Owner-approved identity (A-009..A-019; gold #D9A441), canonical --mythos-* tokens, self-hosted fonts, 18 open items resolved in one AUTO-3 sweep, MIG-1/2/3 executed with visual-regression proof, C-006 console reconciliation done. The Status Center reuses exactly this system.",
+      "dimensions": {
+        "identity": {
+          "status": "DONE",
+          "note": "owner-approved"
+        },
+        "tokens_fonts": {
+          "status": "DONE"
+        },
+        "migrations": {
+          "status": "DONE",
+          "note": "MIG-1..3 executed; MIG-4 deliberately blocked"
+        }
+      },
+      "evidence": [
+        "EV-DESIGN-DECISIONS",
+        "EV-TOKENS",
+        "EV-PR-40"
+      ]
+    },
+    {
+      "id": "PROJECT-ECOSYSTEM-HUB",
+      "name": "mythosprod.xyz Ecosystem Hub",
+      "executive": false,
+      "purpose": "The public master-brand page: units, products, projects, legal — the visual reference surface for the whole ecosystem.",
+      "status": "OWNER_ACTION",
+      "maturity": "REFERENCE_IMPLEMENTED",
+      "repository": "othoth77/mythos-prod (sites/mythosprod.xyz)",
+      "last_change": "2026-08-19 (AUTO-13 built; STAGE 5 blocker evidenced)",
+      "blocker": "Apex DNS + vhost + certbot are owner/operator actions; the apex currently redirects to darhijama.tn with a wrong-principal TLS error.",
+      "next_action": "Owner creates apex/www A records → 51.68.226.211; operator runs sites/mythosprod.xyz/DEPLOYMENT.md.",
+      "headline": "BUILT, NOT DEPLOYED. Complete runbook exists (rsync → vhost → DNS → certbot → smoke tests).",
+      "dimensions": {
+        "implementation": {
+          "status": "DONE"
+        },
+        "deployment": {
+          "status": "OWNER_ACTION"
+        }
+      },
+      "evidence": [
+        "EV-HUB-BUILT",
+        "EV-HUB-RUNBOOK",
+        "EV-PR-40"
+      ]
+    },
+    {
+      "id": "PROJECT-STATUS-CENTER",
+      "name": "Mythos Status Center",
+      "executive": false,
+      "purpose": "This surface: the single source of truth for the ecosystem — evidence-based status, immutable review history, blockers, owner actions, next actions.",
+      "status": "READY",
+      "maturity": "TESTED",
+      "repository": "othoth77/mythos-prod (sites/status.mythosprod.xyz + projects/status-center)",
+      "last_change": "2026-08-20 (STC-1 delivered: commit 6195bf4, PR #54 draft)",
+      "blocker": "status.mythosprod.xyz DNS record does not exist yet (owner will create it); deployment is the standard static-site operator runbook.",
+      "next_action": "Owner creates the DNS A record; operator runs sites/status.mythosprod.xyz/DEPLOYMENT.md.",
+      "headline": "Review engine (read-only, immutable snapshots, comparison, discovery), machine-readable data model, Mythos-Design-System UI, health endpoint, tests. Reviews run from the repository — the browser surface is read-only by design.",
+      "dimensions": {
+        "implementation": {
+          "status": "DONE"
+        },
+        "deployment": {
+          "status": "OWNER_ACTION",
+          "note": "DNS + operator runbook"
+        }
+      },
+      "evidence": [
+        "EV-STC-ENGINE",
+        "EV-STC-SITE",
+        "EV-DNS-STATUS-PENDING",
+        "EV-PR-54"
+      ]
+    },
+    {
+      "id": "PROJECT-MIGRATION",
+      "name": "Migrations & Data Protection",
+      "executive": false,
+      "purpose": "Repository migration gate, VPS file migration, off-host protection, PC decommission, Supabase evaluation.",
+      "status": "OWNER_ACTION",
+      "maturity": "TESTED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-17 (repo-migration gate recorded)",
+      "blocker": "mythos-prod → mythos-os migration NOT AUTHORISED (precondition 5 owner-only). PC decommission closed by owner declaration but 322 CANONICAL_IN_GIT files were never independently verified.",
+      "next_action": "None unless the owner authorises the repository migration.",
+      "headline": "VPS migration complete (2,241 files hash-verified), 14/14 non-Git projects protected off-host, PostgreSQL off-host backups proven, Supabase evaluated and REJECTED, ID Auto standalone migration CLOSED.",
+      "dimensions": {
+        "vps_migration": {
+          "status": "DONE"
+        },
+        "offhost_protection": {
+          "status": "DONE"
+        },
+        "repo_migration": {
+          "status": "OWNER_ACTION",
+          "note": "not authorised — do not start"
+        },
+        "pc_decommission": {
+          "status": "NOT_VERIFIED",
+          "note": "owner-declared closed; 322 files unverified"
+        }
+      },
+      "evidence": [
+        "EV-REPO-MIG-GATE",
+        "EV-OFFHOST",
+        "EV-IDA-MIGRATION"
+      ]
+    },
+    {
+      "id": "PROJECT-DEVX",
+      "name": "DevX & Meta",
+      "executive": false,
+      "purpose": "Development acceleration: stage runner, test-impact mapping, skills registry, project ledger.",
+      "status": "DONE",
+      "maturity": "INTEGRATED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-12 (DEVX-1)",
+      "blocker": null,
+      "next_action": "DEVX-2/3 are future items — not started, not scheduled.",
+      "headline": "DEVX-0 (stage runner) and DEVX-1 (impact mapping, 92/0) complete; 20+ agent skills governed under a reviewed lifecycle.",
+      "dimensions": {
+        "implementation": {
+          "status": "DONE"
+        }
+      },
+      "evidence": [
+        "EV-REPO-SNAPSHOT"
+      ]
+    },
+    {
+      "id": "PROJECT-RESEARCH",
+      "name": "Research Intelligence",
+      "executive": false,
+      "purpose": "Free-first research layer (RES-0 foundation docs).",
+      "status": "NOT_STARTED",
+      "maturity": "ARCHITECTURE_DEFINED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-08 (RES-0, PR #5)",
+      "blocker": "RES-1 explicitly NOT AUTHORISED — owner entry gate pending.",
+      "next_action": "None until the owner authorises RES-1.",
+      "headline": "Documentation only. RES-0 done; nothing implemented — by design.",
+      "dimensions": {
+        "architecture": {
+          "status": "DONE"
+        },
+        "implementation": {
+          "status": "NOT_STARTED"
+        }
+      },
+      "evidence": [
+        "EV-REPO-SNAPSHOT"
+      ]
+    },
+    {
+      "id": "PROJECT-PORTFOLIO",
+      "name": "Portfolio & Legacy Projects",
+      "executive": false,
+      "purpose": "The pre-Mythos project portfolio (fixpert, uthina-chess, classepro, festival, agribee, darhijama, notrejour, …) — preserved, protected, mostly dormant.",
+      "status": "DONE",
+      "maturity": "DEPLOYED",
+      "repository": "various othoth77/*",
+      "last_change": "2026-08-13 (off-host protection sweep)",
+      "blocker": "Open design-programme externals: O-002 (Dar Hijama artifact), O-006 (Mouain's 1,787 unmerged lines), O-007 (serve AgriBee).",
+      "next_action": "Owner decisions O-002 / O-006 / O-007 when wanted.",
+      "headline": "All 14 non-Git projects protected in private repos (remote-verified). Five project apexes live per the 2026-08-18 domain map.",
+      "dimensions": {
+        "protection": {
+          "status": "DONE"
+        }
+      },
+      "evidence": [
+        "EV-OFFHOST"
+      ]
+    }
+  ],
+  "tracks": [
+    {
+      "id": "TRACK-MYTHOS-OS-REFACTOR",
+      "name": "Mythos OS — legacy decomposition",
+      "project": "PROJECT-MYTHOS-OS",
+      "stages": [
+        {
+          "id": "STAGE-1",
+          "status": "DONE",
+          "what": "Storage/API core, Event Bus, Platform Registry (1A–1C)",
+          "evidence": [
+            "EV-STAGE4-END"
+          ]
+        },
+        {
+          "id": "STAGE-2",
+          "status": "DONE",
+          "what": "Production plugin, shared plugins, Shell, Plugin SDK (2A–2D)"
+        },
+        {
+          "id": "STAGE-3",
+          "status": "DONE",
+          "what": "Runtime services + tasks/contacts/notes/planning/calendar/dashboard/production runtimes (3A–3H)"
+        },
+        {
+          "id": "STAGE-4",
+          "status": "DONE",
+          "what": "33 sub-stages 4A–4AG: app.js 9,948 → 991 lines",
+          "tests": "cumulative ~1,978/0; Haiku 9/9",
+          "evidence": [
+            "EV-STAGE4-END",
+            "EV-STAGE4-SUITE"
+          ]
+        },
+        {
+          "id": "RUNTIME-DUPLICATE-CLEANUP-0",
+          "status": "DONE",
+          "what": "stableLineCount collision fixed; invoices.js loads",
+          "tests": "24/0 new · 4z 48/0"
+        },
+        {
+          "id": "DEFERRED-ITEMS",
+          "status": "DEFERRED",
+          "what": "app-fresh.js removal, removePersonRow, invoice addLine() stub, Logs/Sidebar/Sync (~210 lines)"
+        }
+      ],
+      "progress": {
+        "done_stages": 5,
+        "total_stages": 6,
+        "percent": 83,
+        "basis": "CALCULATED",
+        "explanation": "5 of 6 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-MOS-V2",
+      "name": "MOS-v2 console",
+      "project": "PROJECT-MOS-V2",
+      "stages": [
+        {
+          "id": "M-01",
+          "status": "DONE",
+          "what": "Server-side authentication",
+          "evidence": [
+            "EV-PR-34"
+          ]
+        },
+        {
+          "id": "M-02",
+          "status": "DONE",
+          "what": "Deploy-owned relay + operator runbook"
+        },
+        {
+          "id": "M-03",
+          "status": "DONE",
+          "what": "nginx client_max_body_size contract"
+        },
+        {
+          "id": "M-04",
+          "status": "DONE",
+          "what": "Governed execution profiles"
+        },
+        {
+          "id": "M-05",
+          "status": "DONE",
+          "what": "Server-controlled model catalog"
+        },
+        {
+          "id": "M-06",
+          "status": "DONE",
+          "what": "Mission Control completion"
+        },
+        {
+          "id": "M-07",
+          "status": "DONE",
+          "what": "Operator safety audit (audit log, health allowlist)"
+        },
+        {
+          "id": "M-08",
+          "status": "DONE",
+          "what": "Complete regression gate (20/20 areas)",
+          "evidence": [
+            "EV-MOSV2-GATE"
+          ]
+        },
+        {
+          "id": "M-09",
+          "status": "DONE",
+          "what": "Goal layer + mandatory human approval"
+        },
+        {
+          "id": "M-10",
+          "status": "DONE",
+          "what": "Governed AI decomposition"
+        },
+        {
+          "id": "M-11",
+          "status": "DONE",
+          "what": "Governed auto-routing",
+          "evidence": [
+            "EV-PR-39"
+          ]
+        },
+        {
+          "id": "M-12",
+          "status": "DONE",
+          "what": "Runtime skills + governed MCP foundation",
+          "tests": "executor 264/0 · console 1264/0",
+          "evidence": [
+            "EV-M12"
+          ]
+        },
+        {
+          "id": "PHASE-B-DEPLOY",
+          "status": "OWNER_ACTION",
+          "what": "Secret, relay install, deploy.sh, nginx reload — operator runbook ready"
+        }
+      ],
+      "progress": {
+        "done_stages": 12,
+        "total_stages": 13,
+        "percent": 92,
+        "basis": "CALCULATED",
+        "explanation": "12 of 13 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-COMMAND-CENTER",
+      "name": "Command Center (MCC)",
+      "project": "PROJECT-COMMAND-CENTER",
+      "stages": [
+        {
+          "id": "MCC-1",
+          "status": "DONE",
+          "what": "Command library + mission dispatch (502/0)"
+        },
+        {
+          "id": "MCC-1-VERIFY",
+          "status": "DONE",
+          "what": "Live over HTTPS at ordre.mythosprod.xyz (506/0)",
+          "evidence": [
+            "EV-MCC-LIVE"
+          ]
+        },
+        {
+          "id": "CC-AUTO-TITLE",
+          "status": "SUPERSEDED",
+          "what": "PR #47 title variant — superseded by PR #48's autoTitleFromInstruction on merge"
+        },
+        {
+          "id": "CC-COPY-REPORT",
+          "status": "DONE",
+          "what": "One-click mission report copy (redaction pass)"
+        },
+        {
+          "id": "CC-SIMPLIFY",
+          "status": "DONE",
+          "what": "Auto title + auto routing + progressive disclosure",
+          "tests": "mos-1 1433/0 merged tree",
+          "evidence": [
+            "EV-CC-SIMPLIFY",
+            "EV-PR-47"
+          ]
+        },
+        {
+          "id": "INT-E2E",
+          "status": "DONE",
+          "what": "Full mission lifecycle proven end-to-end",
+          "tests": "54/0",
+          "evidence": [
+            "EV-E2E-TEST",
+            "EV-PR-48"
+          ]
+        },
+        {
+          "id": "MCC-2",
+          "status": "NOT_STARTED",
+          "what": "Planned; unscoped"
+        }
+      ],
+      "progress": {
+        "done_stages": 6,
+        "total_stages": 7,
+        "percent": 86,
+        "basis": "CALCULATED",
+        "explanation": "6 of 7 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-OTH-KNOWLEDGE",
+      "name": "OTH Knowledge",
+      "project": "PROJECT-OTH-KNOWLEDGE",
+      "stages": [
+        {
+          "id": "OTH-K0",
+          "status": "DONE",
+          "what": "Engineering memory promoted to othoth77/oth-knowledge"
+        },
+        {
+          "id": "OTH-K1",
+          "status": "DONE",
+          "what": "Knowledge operating layer (model/store/provenance/search/eval)",
+          "tests": "othk-0 89/0 · othk-1 30/0",
+          "evidence": [
+            "EV-PR-42"
+          ]
+        },
+        {
+          "id": "OTH-K2",
+          "status": "DONE",
+          "what": "Importers, dedup, temporal, provenance audit, service boundary",
+          "tests": "othk-2 97/0",
+          "evidence": [
+            "EV-PR-43"
+          ]
+        },
+        {
+          "id": "OTH-K2-W",
+          "status": "DONE",
+          "what": "Executor wiring — fail-closed, read-only, ships disabled",
+          "tests": "othk-2w 40/0",
+          "evidence": [
+            "EV-PR-44"
+          ]
+        },
+        {
+          "id": "OTH-K3",
+          "status": "DONE",
+          "what": "Trust model, private-store architecture, Track B readiness, ops scripts; security audit F1–F15 fixed",
+          "tests": "othk-3 63/0",
+          "evidence": [
+            "EV-PR-45",
+            "EV-OTHK3-HEAD"
+          ]
+        },
+        {
+          "id": "TRACK-B-REAL-DATA",
+          "status": "OWNER_ACTION",
+          "what": "Owner-produced authorized exports per source",
+          "evidence": [
+            "EV-TRACKB"
+          ]
+        },
+        {
+          "id": "STORE-PROVISION",
+          "status": "OWNER_ACTION",
+          "what": "Provision /home/deploy/othk-store; flip config",
+          "evidence": [
+            "EV-PRIVATE-STORE"
+          ]
+        },
+        {
+          "id": "LIVE-DEPLOY-BACKUP",
+          "status": "OWNER_ACTION",
+          "what": "ops/deploy-vps.sh + live backup round trip over the verified owner channel"
+        }
+      ],
+      "progress": {
+        "done_stages": 5,
+        "total_stages": 8,
+        "percent": 63,
+        "basis": "CALCULATED",
+        "explanation": "5 of 8 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-OTH-MASTER",
+      "name": "OTH Master / MPI",
+      "project": "PROJECT-OTH-MASTER",
+      "stages": [
+        {
+          "id": "MPI-0",
+          "status": "DONE",
+          "what": "Foundation + finalization (63/0)",
+          "evidence": [
+            "EV-PR-4"
+          ]
+        },
+        {
+          "id": "MPI-1",
+          "status": "DONE",
+          "what": "Context assembler + compiler (50/0)"
+        },
+        {
+          "id": "MPI-2",
+          "status": "DONE",
+          "what": "Memory engine: schema production-applied; F8–F14 audit chain closed; verified R2 backup",
+          "evidence": [
+            "EV-MPI-APPLY",
+            "EV-MPI-BACKUP"
+          ]
+        },
+        {
+          "id": "MPI-2H",
+          "status": "DONE",
+          "what": "Guarded ingestion; real batches 2h-001..004 → 36-memory corpus"
+        },
+        {
+          "id": "MPI-3",
+          "status": "DONE",
+          "what": "Retrieval R1/R2/R3 — 36/36 deterministic with provenance"
+        },
+        {
+          "id": "MPI-4",
+          "status": "DONE",
+          "what": "Provider-neutral runtime; OpenRouter free-only with one real verified request; relevance router 65/0"
+        },
+        {
+          "id": "EXTERNAL-IMPORTERS",
+          "status": "NOT_STARTED",
+          "what": "DeepSeek/Claude/Gemini/NotebookLM/Takeout importers deliberately not built; Contacts permanently metadata-only (D1c)"
+        },
+        {
+          "id": "MPI-5-TO-10",
+          "status": "NOT_STARTED",
+          "what": "Planned, unauthorised"
+        }
+      ],
+      "progress": {
+        "done_stages": 6,
+        "total_stages": 8,
+        "percent": 75,
+        "basis": "CALCULATED",
+        "explanation": "6 of 8 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-ID-AUTO",
+      "name": "ID Auto",
+      "project": "PROJECT-ID-AUTO",
+      "stages": [
+        {
+          "id": "IDA-0",
+          "status": "DONE",
+          "what": "Foundation (11-table schema, plate formats)"
+        },
+        {
+          "id": "IDA-1",
+          "status": "DONE",
+          "what": "Product vision / capture / access / governance"
+        },
+        {
+          "id": "IDA-2",
+          "status": "DONE",
+          "what": "PostgreSQL, read/write API, atomic audit, admin + review UI (182/0); IDA-2E real auth BLOCKED — stub only"
+        },
+        {
+          "id": "IDA-3",
+          "status": "DONE",
+          "what": "Ingestion schema/service/rate-limit/route/review queue; 3F off-host media backup DEFERRED (billing)"
+        },
+        {
+          "id": "IDA-DECOUPLE",
+          "status": "DONE",
+          "what": "Extraction to othoth77/idauto; legacy tree removed; conformance pinned",
+          "evidence": [
+            "EV-PR-16",
+            "EV-IDA-BOUNDARY"
+          ]
+        },
+        {
+          "id": "IDA-4",
+          "status": "NOT_STARTED",
+          "what": "Citizen-facing — blocked on legal L01–L16 and owner decision A5"
+        }
+      ],
+      "progress": {
+        "done_stages": 5,
+        "total_stages": 6,
+        "percent": 83,
+        "basis": "CALCULATED",
+        "explanation": "5 of 6 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-AUTOMATION",
+      "name": "Automation",
+      "project": "PROJECT-AUTOMATION",
+      "stages": [
+        {
+          "id": "AUT-0",
+          "status": "DONE",
+          "what": "Automation-first foundation (levels, 18 permanent LEVEL_3 boundaries)"
+        },
+        {
+          "id": "INF-OVH-API-0",
+          "status": "DONE",
+          "what": "OVH read-only connector (26/0, mocked)"
+        },
+        {
+          "id": "INF-CF-AUTO-0",
+          "status": "DONE",
+          "what": "Cloudflare read-only connector (26/0, mocked)"
+        },
+        {
+          "id": "INF-DNS-AUTO-1",
+          "status": "DONE",
+          "what": "DNS comparison/safety/plan (85/0)"
+        },
+        {
+          "id": "INF-DNS-AUTO-2",
+          "status": "OWNER_ACTION",
+          "what": "DNS operations implemented (97/0, 25/25 mutations) — 0/40 approvals granted",
+          "evidence": [
+            "EV-AUTOMATION-GATES"
+          ]
+        },
+        {
+          "id": "INF-DEPLOY-AUTO-0",
+          "status": "OWNER_ACTION",
+          "what": "Staging deploy foundation (124/0) — Dar Hijama only; no deployment executed"
+        },
+        {
+          "id": "INF-BACKUP-AUTO-0",
+          "status": "OWNER_ACTION",
+          "what": "Backup automation (245/0); live gated backup_verify proven; backup_create needs its own owner order"
+        },
+        {
+          "id": "INF-MONITOR-AUTO-0",
+          "status": "NOT_STARTED",
+          "what": "Planned"
+        }
+      ],
+      "progress": {
+        "done_stages": 4,
+        "total_stages": 8,
+        "percent": 50,
+        "basis": "CALCULATED",
+        "explanation": "4 of 8 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-CLOUDFLARE",
+      "name": "Cloudflare edge migration",
+      "project": "PROJECT-INFRASTRUCTURE",
+      "stages": [
+        {
+          "id": "INF-CF-0",
+          "status": "DONE",
+          "what": "Edge security foundation (docs)"
+        },
+        {
+          "id": "INF-CF-1",
+          "status": "DONE",
+          "what": "8-domain inventory",
+          "evidence": [
+            "EV-CF-INVENTORY"
+          ]
+        },
+        {
+          "id": "INF-CF-2-PREP",
+          "status": "DONE",
+          "what": "Export intake + owner approval gate (40 fields)"
+        },
+        {
+          "id": "INF-CF-2",
+          "status": "OWNER_ACTION",
+          "what": "Not entered for any domain; approvals all NOT_REQUESTED"
+        },
+        {
+          "id": "INF-CF-3-TO-7",
+          "status": "NOT_STARTED",
+          "what": "Planned"
+        }
+      ],
+      "progress": {
+        "done_stages": 3,
+        "total_stages": 5,
+        "percent": 60,
+        "basis": "CALCULATED",
+        "explanation": "3 of 5 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-AI-ORCHESTRATION",
+      "name": "AI Operating Layer",
+      "project": "PROJECT-AI-ORCHESTRATION",
+      "stages": [
+        {
+          "id": "MYTHOS-AI-EXECUTOR-0",
+          "status": "DONE",
+          "what": "Persistent executor deployed and proven (118/0)",
+          "evidence": [
+            "EV-EXEC-DEPLOYED"
+          ]
+        },
+        {
+          "id": "ORCH-CORE-PHASE-2",
+          "status": "DONE",
+          "what": "2A–2M full stack; first real mission PASS; core wiring; budget ledger"
+        },
+        {
+          "id": "LEASE-SYSTEM",
+          "status": "DONE",
+          "what": "Crash-safe reservation leases (72/0, SIGKILL recovery proven)"
+        },
+        {
+          "id": "AUTONOMOUS-LOOP",
+          "status": "DONE",
+          "what": "Campaigns, governance cage, unattended DENY+RECORD+CONTINUE; MVP-COMPLETE 1,020 assertions",
+          "evidence": [
+            "EV-MVP-COMPLETE"
+          ]
+        },
+        {
+          "id": "AOL-V1-GOV",
+          "status": "DONE",
+          "what": "Governance key isolation closure (99/0)",
+          "evidence": [
+            "EV-PR-46",
+            "EV-AOL-CLOSURE"
+          ]
+        },
+        {
+          "id": "MAOL-0",
+          "status": "DONE",
+          "what": "Master specification (spec only)",
+          "evidence": [
+            "EV-MAOL-SPEC"
+          ]
+        },
+        {
+          "id": "MAOL-1",
+          "status": "NOT_STARTED",
+          "what": "NOT AUTHORISED — gates O-MAOL-1..10 open"
+        }
+      ],
+      "progress": {
+        "done_stages": 6,
+        "total_stages": 7,
+        "percent": 86,
+        "basis": "CALCULATED",
+        "explanation": "6 of 7 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-VPS-GATE",
+      "name": "Integration & VPS Final Gate",
+      "project": "PROJECT-VPS-FINAL-GATE",
+      "stages": [
+        {
+          "id": "INT-E2E",
+          "status": "DONE",
+          "what": "In-container E2E lifecycle 54/0",
+          "evidence": [
+            "EV-E2E-TEST"
+          ]
+        },
+        {
+          "id": "INT-GATE",
+          "status": "DONE",
+          "what": "Full container-executable suite green incl. mcc-1 506/0 (first green)",
+          "evidence": [
+            "EV-MCC-TEST"
+          ]
+        },
+        {
+          "id": "INT-VPS-GATE",
+          "status": "BLOCKED",
+          "what": "Live gate — blocked at preflight, no VPS access path"
+        },
+        {
+          "id": "VPS-PATH",
+          "status": "BLOCKED",
+          "what": "Every mechanism tested and categorized; operator options documented",
+          "evidence": [
+            "EV-VPS-PATH",
+            "EV-PR-51"
+          ]
+        },
+        {
+          "id": "FINAL-LIVE-GATE",
+          "status": "OWNER_ACTION",
+          "what": "Option A mission ready to dispatch. Option B runner package (PR #53): a live install was attempted and failed on temp-dir ownership; fix open as PR #55 — provisioning actively iterating, not yet verified",
+          "evidence": [
+            "EV-PR-53",
+            "EV-PR-55"
+          ]
+        }
+      ],
+      "progress": {
+        "done_stages": 2,
+        "total_stages": 5,
+        "percent": 40,
+        "basis": "CALCULATED",
+        "explanation": "2 of 5 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-DESIGN",
+      "name": "Design programme",
+      "project": "PROJECT-DESIGN-SYSTEM",
+      "stages": [
+        {
+          "id": "DESIGN-1A-1I",
+          "status": "DONE",
+          "what": "Brand architecture → identity → color/type → grid/tokens → components → responsive/a11y → ecosystem → prototypes"
+        },
+        {
+          "id": "AUTO-1-TO-13",
+          "status": "DONE",
+          "what": "Delegated mandate sweep: LOGO-2, C-006 decision, 18-item decision sweep, fonts, GRID-2, visual-regression tooling, MIG execution, hub",
+          "evidence": [
+            "EV-DESIGN-DECISIONS",
+            "EV-TOKENS"
+          ]
+        },
+        {
+          "id": "MIG-1",
+          "status": "DONE",
+          "what": "Mythos Gold migration (331 occurrences / 16 files)"
+        },
+        {
+          "id": "MIG-2",
+          "status": "DONE",
+          "what": "Typography migration via role separation (after a real rollback)"
+        },
+        {
+          "id": "MIG-3",
+          "status": "DONE",
+          "what": "Completed with both sweep findings fixed"
+        },
+        {
+          "id": "MIG-4",
+          "status": "BLOCKED",
+          "what": "Command Center palette — frozen by standing owner instruction"
+        },
+        {
+          "id": "LOGO-1",
+          "status": "DEFERRED",
+          "what": "Vector-source recovery partial (2 of 3 off-host repos unreachable)"
+        }
+      ],
+      "progress": {
+        "done_stages": 5,
+        "total_stages": 7,
+        "percent": 71,
+        "basis": "CALCULATED",
+        "explanation": "5 of 7 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-SSANGYONG",
+      "name": "SsangYong Autos",
+      "project": "PROJECT-SSANGYONG",
+      "stages": [
+        {
+          "id": "SYA-STAGE-3-4",
+          "status": "DONE",
+          "what": "Schema design + migration pipeline dry-run"
+        },
+        {
+          "id": "SYA-STAGE-5",
+          "status": "DONE",
+          "what": "DB + role provisioned; catalog deployed 18/18 (1,519 rows)",
+          "evidence": [
+            "EV-SYA-DEPLOY"
+          ]
+        },
+        {
+          "id": "SYA-API-1",
+          "status": "DONE",
+          "what": "Read-only catalog API (60/0 live)"
+        },
+        {
+          "id": "SYA-SHOP-1",
+          "status": "DONE",
+          "what": "Storefront + visual verification (41/0)"
+        },
+        {
+          "id": "SYA-NGINX-DRIFT",
+          "status": "OWNER_ACTION",
+          "what": "101-line drift between repo and installed vhost — authoritative copy undecided",
+          "evidence": [
+            "EV-SYA-DRIFT"
+          ]
+        }
+      ],
+      "progress": {
+        "done_stages": 4,
+        "total_stages": 5,
+        "percent": 80,
+        "basis": "CALCULATED",
+        "explanation": "4 of 5 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-MIGRATION",
+      "name": "Migrations & protection",
+      "project": "PROJECT-MIGRATION",
+      "stages": [
+        {
+          "id": "VPS-TRANSFER",
+          "status": "DONE",
+          "what": "2,241 files hash-verified; placement complete"
+        },
+        {
+          "id": "OFFHOST-PROTECTION",
+          "status": "DONE",
+          "what": "14/14 non-Git projects in private repos",
+          "evidence": [
+            "EV-OFFHOST"
+          ]
+        },
+        {
+          "id": "OFFHOST-DB-BACKUPS",
+          "status": "DONE",
+          "what": "idauto/coolify/darhijama + MPI round trips proven"
+        },
+        {
+          "id": "PC-DECOMMISSION",
+          "status": "NOT_VERIFIED",
+          "what": "Owner-declared closed; 322 CANONICAL_IN_GIT files never independently verified"
+        },
+        {
+          "id": "SUPABASE-EVALUATION",
+          "status": "SUPERSEDED",
+          "what": "Evaluated and rejected — do not adopt"
+        },
+        {
+          "id": "IDAUTO-MIGRATION",
+          "status": "DONE",
+          "what": "Standalone migration CLOSED",
+          "evidence": [
+            "EV-IDA-MIGRATION"
+          ]
+        },
+        {
+          "id": "REPO-MIGRATION",
+          "status": "OWNER_ACTION",
+          "what": "mythos-prod → mythos-os: recorded, NOT AUTHORISED, NOT STARTED",
+          "evidence": [
+            "EV-REPO-MIG-GATE"
+          ]
+        }
+      ],
+      "progress": {
+        "done_stages": 5,
+        "total_stages": 7,
+        "percent": 71,
+        "basis": "CALCULATED",
+        "explanation": "5 of 7 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-ECOSYSTEM-HUB",
+      "name": "Public sites",
+      "project": "PROJECT-ECOSYSTEM-HUB",
+      "stages": [
+        {
+          "id": "AUTO-13-HUB",
+          "status": "DONE",
+          "what": "mythosprod.xyz hub built",
+          "evidence": [
+            "EV-HUB-BUILT"
+          ]
+        },
+        {
+          "id": "HUB-DEPLOY",
+          "status": "OWNER_ACTION",
+          "what": "Apex DNS + vhost + certbot (runbook ready)",
+          "evidence": [
+            "EV-HUB-RUNBOOK"
+          ]
+        }
+      ],
+      "progress": {
+        "done_stages": 1,
+        "total_stages": 2,
+        "percent": 50,
+        "basis": "CALCULATED",
+        "explanation": "1 of 2 recorded stages DONE (superseded counted as closed)"
+      }
+    },
+    {
+      "id": "TRACK-STATUS-CENTER",
+      "name": "Status Center",
+      "project": "PROJECT-STATUS-CENTER",
+      "stages": [
+        {
+          "id": "STC-1-BUILD",
+          "status": "DONE",
+          "what": "Data model, review engine, immutable history, comparison, discovery, UI, health, tests",
+          "tests": "stc-1 73/0 · render 18/0 · MOS-v2 gate SUCCESS",
+          "evidence": [
+            "EV-STC-ENGINE",
+            "EV-STC-SITE",
+            "EV-PR-54"
+          ]
+        },
+        {
+          "id": "STC-DEPLOY",
+          "status": "OWNER_ACTION",
+          "what": "DNS record + static-site operator runbook",
+          "evidence": [
+            "EV-DNS-STATUS-PENDING"
+          ]
+        }
+      ],
+      "progress": {
+        "done_stages": 1,
+        "total_stages": 2,
+        "percent": 50,
+        "basis": "CALCULATED",
+        "explanation": "1 of 2 recorded stages DONE (superseded counted as closed)"
+      }
+    }
+  ],
+  "milestones": [
+    {
+      "id": "MS-2026-07-29-GENESIS",
+      "date": "2026-07-29",
+      "project": "PROJECT-MYTHOS-OS",
+      "title": "Repository genesis + Mythos OS platform architecture",
+      "what": "Initial import of the PHP + vanilla JS production platform; architecture docs; Stage 1A/1B (storage core, Event Bus, Platform Registry).",
+      "result": "The whole ecosystem is 22 days old — the '6-month' view is the complete history.",
+      "status": "DONE",
+      "evidence": [
+        "EV-STAGE4-END"
+      ]
+    },
+    {
+      "id": "MS-2026-07-30-RUNTIMES",
+      "date": "2026-07-30",
+      "project": "PROJECT-MYTHOS-OS",
+      "title": "Stages 2A–3H: plugins, Shell, SDK, all runtime migrations",
+      "what": "Production/shared plugins, Mythos Shell, Plugin SDK, tasks/contacts/notes/planning/calendar/dashboard/production runtimes, consolidation.",
+      "status": "DONE"
+    },
+    {
+      "id": "MS-2026-08-05-STAGE4",
+      "date": "2026-08-05",
+      "project": "PROJECT-MYTHOS-OS",
+      "title": "Stage 4 complete (4A → 4AG)",
+      "what": "33 extraction sub-stages over five days; js/app.js 9,948 → 991 lines; cumulative suite ~1,978 green.",
+      "status": "DONE",
+      "evidence": [
+        "EV-STAGE4-END",
+        "EV-STAGE4-SUITE"
+      ]
+    },
+    {
+      "id": "MS-2026-08-05-PRODUCT-TRACKS",
+      "date": "2026-08-05",
+      "project": "PROJECT-AUTOMOTIVE",
+      "title": "Product foundations opened: ID Auto, AutoValeur, MAE, Atelier Network, Cloudflare",
+      "what": "IDA-0/1, AVA-0, MAE-0, ATN-0, INF-CF-0 — all documentation/schema foundations.",
+      "status": "DONE"
+    },
+    {
+      "id": "MS-2026-08-07-MPI0",
+      "date": "2026-08-07",
+      "project": "PROJECT-OTH-MASTER",
+      "title": "MPI-0 Personal Intelligence + DevX + Research foundations",
+      "what": "PI platform foundation (context contracts, learning governance, 18 skills), DEVX-0 stage runner, RES-0.",
+      "status": "DONE",
+      "evidence": [
+        "EV-PR-4"
+      ]
+    },
+    {
+      "id": "MS-2026-08-08-CONNECTORS",
+      "date": "2026-08-08",
+      "project": "PROJECT-AUTOMATION",
+      "title": "Read-only OVH + Cloudflare connectors",
+      "what": "Reference implementations, mocked, 26/0 each; shared helpers extracted.",
+      "status": "DONE"
+    },
+    {
+      "id": "MS-2026-08-10-VPS-AUDIT",
+      "date": "2026-08-10",
+      "project": "PROJECT-INFRASTRUCTURE",
+      "title": "VPS health audit + memory budget + stage reconciliation",
+      "what": "HEALTHY_WITH_WARNINGS; memory caps started; the 'Stage 3E is next' documentation error discovered and corrected (3E–3H had been merged since 07-30).",
+      "status": "DONE"
+    },
+    {
+      "id": "MS-2026-08-11-IDA2",
+      "date": "2026-08-11",
+      "project": "PROJECT-ID-AUTO",
+      "title": "IDA-2 Phase B: live PostgreSQL, APIs, admin + review UI",
+      "what": "idauto-postgres provisioned (tested restore), read/write APIs with atomic audit, identity stub, media storage, admin UIs; deep audit fixed 4 MEDIUM findings.",
+      "status": "DONE"
+    },
+    {
+      "id": "MS-2026-08-12-IDENTITY",
+      "date": "2026-08-12",
+      "project": "PROJECT-ID-AUTO",
+      "title": "Identity contract + IDA-3 ingestion + first orchestrator",
+      "what": "MYTHOS-IDENTITY-CORE-0 canonical contract (124/0); IDA-3A–3F ingestion chain; multi-agent orchestrator v0 (156/0); MPI-1.",
+      "status": "DONE"
+    },
+    {
+      "id": "MS-2026-08-13-PROTECTION",
+      "date": "2026-08-13",
+      "project": "PROJECT-MIGRATION",
+      "title": "VPS migration + off-host protection sweep",
+      "what": "2,241 files classified and hash-verified; 14 non-Git projects protected in private repos; Supabase evaluated and rejected.",
+      "status": "DONE",
+      "evidence": [
+        "EV-OFFHOST"
+      ]
+    },
+    {
+      "id": "MS-2026-08-14-MPI2",
+      "date": "2026-08-14",
+      "project": "PROJECT-OTH-MASTER",
+      "title": "MPI-2 hardened and PRODUCTION-APPLIED",
+      "what": "F8–F14 audit/remediation chain; mythos_intelligence applied to production (356/356); first verified off-host backups (3/3 restore PASS); MPI-2G R2 gate closed.",
+      "status": "DONE",
+      "evidence": [
+        "EV-MPI-APPLY",
+        "EV-MPI-BACKUP"
+      ]
+    },
+    {
+      "id": "MS-2026-08-15-MPI34",
+      "date": "2026-08-15",
+      "project": "PROJECT-OTH-MASTER",
+      "title": "Real corpus ingested; MPI-3/MPI-4 runtime",
+      "what": "Batches 2h-001..004 → 36 memories; retrieval 36/36 deterministic; provider-neutral runtime with one real OpenRouter request; DNS/deploy automation stages delivered gated.",
+      "status": "DONE"
+    },
+    {
+      "id": "MS-2026-08-16-ORCH-CORE",
+      "date": "2026-08-16",
+      "project": "PROJECT-AI-ORCHESTRATION",
+      "title": "Orchestration Core Phase 2 + AI Executor deployed + SsangYong live",
+      "what": "2A–2M in one day; first real mission PASS; executor deployed on the VPS (118/0); SsangYong catalog + API + storefront live.",
+      "status": "DONE",
+      "evidence": [
+        "EV-EXEC-DEPLOYED",
+        "EV-SYA-DEPLOY"
+      ]
+    },
+    {
+      "id": "MS-2026-08-17-MCC",
+      "date": "2026-08-17",
+      "project": "PROJECT-COMMAND-CENTER",
+      "title": "Command Center v1 LIVE + autonomous loop + MAOL-0",
+      "what": "MCC-1 built and verified live over HTTPS (506/0); autonomous development loop with governance cage; crash-safe leases; MAOL master spec.",
+      "status": "DONE",
+      "evidence": [
+        "EV-MCC-LIVE",
+        "EV-MAOL-SPEC"
+      ]
+    },
+    {
+      "id": "MS-2026-08-18-BRAND",
+      "date": "2026-08-18",
+      "project": "PROJECT-DESIGN-SYSTEM",
+      "title": "Peak day (126 commits): brand system, MOS-1→3C, ID Auto spin-out, governance incident",
+      "what": "Owner-approved visual identity; MOS-1..MOS-3C (AI Operating Layer v1, 13 proofs); ID Auto published standalone; oth-knowledge repo born; GI-2026-08-18-01 incident → cage made a delivery invariant.",
+      "status": "DONE",
+      "evidence": [
+        "EV-GI-INCIDENT",
+        "EV-GOV-INVARIANT",
+        "EV-MVP-COMPLETE"
+      ]
+    },
+    {
+      "id": "MS-2026-08-19-MOSV2",
+      "date": "2026-08-19",
+      "project": "PROJECT-MOS-V2",
+      "title": "Yesterday: MOS-v2 M-01→M-12, design migrations, OTH-K1→K3, governance closure",
+      "what": "Twenty PRs merged: complete MOS-v2 console; MIG-1/2/3 executed; ecosystem hub built; OTH Knowledge K1/K2/K2-W/K3 with an independent security audit; governance key isolated (AOL v1 closure).",
+      "status": "DONE",
+      "evidence": [
+        "EV-PR-39",
+        "EV-M12",
+        "EV-PR-42",
+        "EV-PR-43",
+        "EV-PR-44",
+        "EV-PR-46"
+      ]
+    },
+    {
+      "id": "MS-2026-08-20-TODAY",
+      "date": "2026-08-20",
+      "project": "PROJECT-COMMAND-CENTER",
+      "title": "Today: Command Center UX closed, E2E proven, VPS path exhausted, OTH-K3 merged",
+      "what": "Auto-title/auto-routing/copy-report merged (PR #47/#48); mission lifecycle proven 54/0; INT-GATE green incl. mcc-1 506/0; VPS access mechanisms exhaustively categorized as BLOCKED (PR #50/#51); OTH-K3 merged to main (PR #45 → b6e52d5); runner proposal opened (PR #53) and its first live install failed → fix opened (PR #55); Status Center built and delivered (PR #54).",
+      "status": "DONE",
+      "evidence": [
+        "EV-PR-47",
+        "EV-PR-48",
+        "EV-PR-51",
+        "EV-PR-45",
+        "EV-MAIN-HEAD",
+        "EV-PR-53",
+        "EV-PR-54",
+        "EV-PR-55"
+      ]
+    }
+  ],
+  "blockers": [
+    {
+      "id": "BLOCKER-VPS-EXECUTION",
+      "title": "No VPS execution path from AI sessions",
+      "type": "infrastructure",
+      "project": "PROJECT-VPS-FINAL-GATE",
+      "priority": "P0",
+      "status": "BLOCKED",
+      "owner": "Owner/operator",
+      "impact": "Prevents the live VPS Final Gate, live E2E, on-host governance re-check, knowledge-store provisioning and console deployment from AI sessions.",
+      "required_input": "Option A: owner dispatches the prepared gate mission via ordre.mythosprod.xyz. Option B: egress allowlist + MOS_CONSOLE_SECRET, or a self-hosted runner (PR #53 package).",
+      "unblock": "Option A costs zero new infrastructure — dispatch the ready mission text from the VPS-PATH handover entry.",
+      "created": "2026-08-19",
+      "last_checked": "2026-08-20",
+      "evidence": [
+        "EV-VPS-PATH",
+        "EV-PR-51",
+        "EV-PR-53"
+      ]
+    },
+    {
+      "id": "BLOCKER-DEPLOY-DOCKER-GROUP",
+      "title": "deploy user is in the docker group (root-equivalent)",
+      "type": "security",
+      "project": "PROJECT-SECURITY",
+      "priority": "P0",
+      "status": "OWNER_ACTION",
+      "owner": "Owner (root)",
+      "impact": "CONFIRMED HIGH: defeats the mythos-gov isolation while it stands; a clean final security baseline is explicitly not claimable.",
+      "required_input": "One root command on the VPS.",
+      "unblock": "sudo gpasswd -d deploy docker — then re-run tests/mythos-governance-invariant-test.js as deploy (expect 99/0).",
+      "created": "2026-08-19",
+      "last_checked": "2026-08-20",
+      "evidence": [
+        "EV-DOCKER-FINDING"
+      ]
+    },
+    {
+      "id": "BLOCKER-OTHK-STORE",
+      "title": "OTH Knowledge private store unprovisioned",
+      "type": "infrastructure",
+      "project": "PROJECT-OTH-KNOWLEDGE",
+      "priority": "P1",
+      "status": "OWNER_ACTION",
+      "owner": "Operator",
+      "impact": "Knowledge layer stays disabled (fail-closed, proven by othk-2w); no live knowledge for the executor.",
+      "required_input": "Ratified store path (decided: /home/deploy/othk-store).",
+      "unblock": "umask 077; mkdir -p /home/deploy/othk-store; set store_root + enabled in projects/oth-knowledge/config/knowledge.json (PRIVATE_STORE_ARCHITECTURE.md §10).",
+      "created": "2026-08-19",
+      "last_checked": "2026-08-20",
+      "evidence": [
+        "EV-PRIVATE-STORE"
+      ]
+    },
+    {
+      "id": "BLOCKER-OTHK-REAL-DATA",
+      "title": "No authorized real-data exports (Track B)",
+      "type": "data",
+      "project": "PROJECT-OTH-KNOWLEDGE",
+      "priority": "P1",
+      "status": "OWNER_ACTION",
+      "owner": "Owner",
+      "impact": "Track B cannot move past fixtures; OTH Master external sources equally blocked.",
+      "required_input": "Owner-produced exports (Takeout, Gemini, NotebookLM) on the machine that holds them; Contacts content needs an explicit policy reversal (MPI D1).",
+      "unblock": "Follow docs/OTH_TRACK_B_READINESS.md §3 per source.",
+      "created": "2026-08-19",
+      "last_checked": "2026-08-20",
+      "evidence": [
+        "EV-TRACKB",
+        "EV-K2-DISCOVERY"
+      ]
+    },
+    {
+      "id": "BLOCKER-MOS-CONSOLE-DEPLOY",
+      "title": "MOS-v2 console not deployed",
+      "type": "deployment",
+      "project": "PROJECT-MOS-V2",
+      "priority": "P1",
+      "status": "OWNER_ACTION",
+      "owner": "Operator",
+      "impact": "os.mythosprod.xyz stays dark although the console is code-complete and gated green.",
+      "required_input": "New MOS_CONSOLE_SECRET (never the compromised MOS-1 password), relay install, deploy.sh run, nginx reload.",
+      "unblock": "Execute projects/mythos-os-console/deploy/relay/RUNBOOK.md Phase B; verify /login 200, / 302, /api/health 401 unauthenticated.",
+      "created": "2026-08-19",
+      "last_checked": "2026-08-20",
+      "evidence": [
+        "EV-DEPLOY-READINESS"
+      ]
+    },
+    {
+      "id": "BLOCKER-STATUS-DNS",
+      "title": "status.mythosprod.xyz DNS record does not exist",
+      "type": "dns",
+      "project": "PROJECT-STATUS-CENTER",
+      "priority": "P1",
+      "status": "OWNER_ACTION",
+      "owner": "Owner",
+      "impact": "The Status Center cannot go live at its URL.",
+      "required_input": "One A record: status.mythosprod.xyz → 51.68.226.211 (OVH; no wildcard exists).",
+      "unblock": "Create the record, then run sites/status.mythosprod.xyz/DEPLOYMENT.md (rsync → vhost → certbot → smoke tests).",
+      "created": "2026-08-20",
+      "last_checked": "2026-08-20",
+      "evidence": [
+        "EV-DNS-STATUS-PENDING"
+      ]
+    },
+    {
+      "id": "BLOCKER-HUB-DNS",
+      "title": "mythosprod.xyz apex not served",
+      "type": "dns",
+      "project": "PROJECT-ECOSYSTEM-HUB",
+      "priority": "P2",
+      "status": "OWNER_ACTION",
+      "owner": "Owner",
+      "impact": "The master-brand hub stays invisible; the apex currently redirects to darhijama.tn with a TLS principal error.",
+      "required_input": "Apex + www A records → 51.68.226.211; remove the stray redirect.",
+      "unblock": "sites/mythosprod.xyz/DEPLOYMENT.md.",
+      "created": "2026-08-19",
+      "last_checked": "2026-08-20",
+      "evidence": [
+        "EV-HUB-BUILT",
+        "EV-HUB-RUNBOOK"
+      ]
+    },
+    {
+      "id": "BLOCKER-IDA4-LEGAL",
+      "title": "ID Auto citizen-facing blocked on legal",
+      "type": "legal",
+      "project": "PROJECT-ID-AUTO",
+      "priority": "P2",
+      "status": "OWNER_ACTION",
+      "owner": "Owner + legal counsel",
+      "impact": "IDA-4 cannot start; no public endpoint may be implemented.",
+      "required_input": "Legal review of L01–L16 (four citizen-surface blockers: L06/L07/L09/L16); owner decision A5 (recommended option C — IVID-only).",
+      "unblock": "Legal counsel engagement; decisions recorded in the idauto repo.",
+      "created": "2026-08-18",
+      "last_checked": "2026-08-20",
+      "evidence": [
+        "EV-IDA-MIGRATION"
+      ]
+    },
+    {
+      "id": "BLOCKER-DNS-APPROVALS",
+      "title": "Cloudflare migration approvals: 0 of 40 granted",
+      "type": "authorisation",
+      "project": "PROJECT-AUTOMATION",
+      "priority": "P3",
+      "status": "OWNER_ACTION",
+      "owner": "Owner",
+      "impact": "INF-CF-2 and automated DNS operations cannot begin for any domain — by design.",
+      "required_input": "Per-domain APPROVED_FOR_MIGRATION fields, LEVEL_3 flags, provider credentials by reference.",
+      "unblock": "Only if/when the owner actually wants the Cloudflare migration; nothing is wrong today.",
+      "created": "2026-08-15",
+      "last_checked": "2026-08-20",
+      "evidence": [
+        "EV-AUTOMATION-GATES",
+        "EV-CF-INVENTORY"
+      ]
+    },
+    {
+      "id": "BLOCKER-SYA-NGINX-DRIFT",
+      "title": "ssangyong.autos nginx drift (101 lines)",
+      "type": "configuration",
+      "project": "PROJECT-SSANGYONG",
+      "priority": "P2",
+      "status": "OWNER_ACTION",
+      "owner": "Owner",
+      "impact": "Repo and installed vhost disagree; a future deploy could clobber the live TLS key path.",
+      "required_input": "Decision: which copy is authoritative.",
+      "unblock": "Reconcile the chosen direction, commit the result.",
+      "created": "2026-08-17",
+      "last_checked": "2026-08-20",
+      "evidence": [
+        "EV-SYA-DRIFT"
+      ]
+    },
+    {
+      "id": "BLOCKER-REPO-MIGRATION",
+      "title": "Repository migration to mythos-os NOT AUTHORISED",
+      "type": "authorisation",
+      "project": "PROJECT-MIGRATION",
+      "priority": "P3",
+      "status": "OWNER_ACTION",
+      "owner": "Owner",
+      "impact": "None day-to-day — mythos-prod remains the sole source of truth. Guard rail: no session may start this migration.",
+      "required_input": "Owner resolves precondition 5 (contents of othoth77/mythos-os) and explicitly authorises.",
+      "unblock": "docs/MYTHOS_REPOSITORY_MIGRATION.md gate closure.",
+      "created": "2026-08-17",
+      "last_checked": "2026-08-20",
+      "evidence": [
+        "EV-REPO-MIG-GATE"
+      ]
+    },
+    {
+      "id": "BLOCKER-BACKUP-GATES",
+      "title": "Recurring off-host backups not scheduled (OWNER-GATE-B1/B2/B3)",
+      "type": "operations",
+      "project": "PROJECT-MIGRATION",
+      "priority": "P2",
+      "status": "OWNER_ACTION",
+      "owner": "Owner/operator",
+      "impact": "One-time round trips are proven; there is no recurring schedule and no verified media off-host copy.",
+      "required_input": "B1 explicit backup_create/restore_test order; B2 a host timer; B3 media copy authorization.",
+      "unblock": "Dispatch the orders; INF-BACKUP-AUTO-0 tooling is ready and gated.",
+      "created": "2026-08-19",
+      "last_checked": "2026-08-20",
+      "evidence": [
+        "EV-AUTOMATION-GATES"
+      ]
+    }
+  ],
+  "owner_actions": [
+    {
+      "id": "ACTION-VPS-GATE-MISSION",
+      "status": "OWNER_ACTION",
+      "what": "Dispatch the VPS Final Gate mission (Option A)",
+      "why": "It is the zero-new-infrastructure unblock for the whole live-gate chain.",
+      "impact": "Closes INT-VPS-GATE: on-host governance re-check, live E2E, persistent-memory and failure validation.",
+      "required_input": "Paste the prepared 5-step read-only mission text (VPS-PATH handover entry) into ordre.mythosprod.xyz.",
+      "expected_result": "A mission report with baseline, governance EACCES evidence, suite results run on the host.",
+      "procedure": "docs/AI_HANDOVER.md → VPS-PATH → 'Minimum operator actions', Option A."
+    },
+    {
+      "id": "ACTION-REMOVE-DOCKER",
+      "status": "OWNER_ACTION",
+      "what": "Remove deploy from the docker group",
+      "why": "Open CONFIRMED HIGH security finding — root-equivalence defeats governance isolation.",
+      "impact": "Makes the governance baseline claimable as clean.",
+      "required_input": "Root access (owner Windows → VPS SSH, the verified channel).",
+      "expected_result": "id -nG deploy no longer lists docker; invariant suite 99/0 as deploy.",
+      "procedure": "sudo gpasswd -d deploy docker && node tests/mythos-governance-invariant-test.js"
+    },
+    {
+      "id": "ACTION-STATUS-DNS",
+      "status": "OWNER_ACTION",
+      "what": "Create DNS for status.mythosprod.xyz and deploy the Status Center",
+      "why": "The Status Center is built and ready; only DNS + the standard static runbook remain.",
+      "impact": "The single source of truth goes live at https://status.mythosprod.xyz/.",
+      "required_input": "OVH DNS: A record status → 51.68.226.211.",
+      "expected_result": "HTTPS page serving data/current.json review REVIEW-2026-08-20-001; /health returns the allowlisted JSON.",
+      "procedure": "sites/status.mythosprod.xyz/DEPLOYMENT.md (rsync → vhost → certbot → smoke tests)."
+    },
+    {
+      "id": "ACTION-PRIVATE-STORE",
+      "status": "OWNER_ACTION",
+      "what": "Provision the OTH Knowledge private store",
+      "why": "Track A is repository-complete; the store is the first activation step.",
+      "impact": "Enables live knowledge (fail-closed wiring already proven).",
+      "required_input": "Operator session on the VPS.",
+      "expected_result": "/home/deploy/othk-store exists (0700); config/knowledge.json store_root set, enabled true.",
+      "procedure": "docs/PRIVATE_STORE_ARCHITECTURE.md §10."
+    },
+    {
+      "id": "ACTION-AUTHORIZED-EXPORTS",
+      "status": "OWNER_ACTION",
+      "what": "Produce authorized data exports (Takeout / Gemini / NotebookLM)",
+      "why": "No AI session may transfer this content; only the owner can produce it on the machine that holds it.",
+      "impact": "Unblocks OTH Knowledge Track B and future OTH Master external sources.",
+      "required_input": "Per-source exports as specified.",
+      "expected_result": "Importers validate real data (fixture paths already proven).",
+      "procedure": "docs/OTH_TRACK_B_READINESS.md §3."
+    },
+    {
+      "id": "ACTION-MOS-DEPLOY",
+      "status": "OWNER_ACTION",
+      "what": "Deploy the MOS-v2 console",
+      "why": "Code-complete, security-audited, regression-gated — dark only for lack of the operator run.",
+      "impact": "os.mythosprod.xyz live with goals, approvals, mission control.",
+      "required_input": "New MOS_CONSOLE_SECRET (0600), root for relay units and nginx.",
+      "expected_result": "Login 200, unauthenticated health 401, missions dispatchable.",
+      "procedure": "projects/mythos-os-console/deploy/relay/RUNBOOK.md."
+    },
+    {
+      "id": "ACTION-HUB-DNS",
+      "status": "OWNER_ACTION",
+      "what": "Create apex DNS and deploy the mythosprod.xyz hub",
+      "why": "The master-brand page is built; the apex currently misroutes to darhijama.tn.",
+      "impact": "Public ecosystem hub live.",
+      "required_input": "Apex + www A records → 51.68.226.211.",
+      "expected_result": "https://mythosprod.xyz/ serving the hub with valid TLS.",
+      "procedure": "sites/mythosprod.xyz/DEPLOYMENT.md."
+    },
+    {
+      "id": "ACTION-IDA-LEGAL",
+      "status": "OWNER_ACTION",
+      "what": "Engage legal review for ID Auto citizen surface",
+      "why": "L01–L16 are open; IDA-4 may not start without them.",
+      "impact": "Unlocks the citizen-facing half of ID Auto.",
+      "required_input": "Legal counsel; owner decision A5.",
+      "expected_result": "Recorded clearances in the idauto repo.",
+      "procedure": "othoth77/idauto legal register."
+    }
+  ],
+  "next_actions": [
+    {
+      "id": "NEXT-VPS-GATE",
+      "priority": "P0",
+      "order": 1,
+      "title": "Dispatch the Option A VPS Final Gate mission",
+      "detail": "One mission through ordre.mythosprod.xyz closes the whole live-gate chain. The text is written and waiting in the VPS-PATH handover entry.",
+      "depends_on": null
+    },
+    {
+      "id": "NEXT-DOCKER-FIX",
+      "priority": "P0",
+      "order": 2,
+      "title": "sudo gpasswd -d deploy docker, then re-run the governance invariant suite",
+      "detail": "The one open HIGH security finding. One command plus one test run.",
+      "depends_on": null
+    },
+    {
+      "id": "NEXT-STATUS-DEPLOY",
+      "priority": "P1",
+      "order": 3,
+      "title": "Create status.mythosprod.xyz DNS and run its deployment runbook",
+      "detail": "Makes this Status Center the live single source of truth.",
+      "depends_on": null
+    },
+    {
+      "id": "NEXT-OTHK-STORE",
+      "priority": "P1",
+      "order": 4,
+      "title": "Provision /home/deploy/othk-store and flip config/knowledge.json",
+      "detail": "First activation step for live knowledge; everything else is already fail-closed-proven.",
+      "depends_on": "NEXT-VPS-GATE"
+    },
+    {
+      "id": "NEXT-MOS-DEPLOY",
+      "priority": "P1",
+      "order": 5,
+      "title": "Execute the MOS-v2 Phase-B deployment runbook",
+      "detail": "New secret, relay units, deploy.sh, nginx reload — console goes live at os.mythosprod.xyz.",
+      "depends_on": null
+    },
+    {
+      "id": "NEXT-EXPORTS",
+      "priority": "P2",
+      "order": 6,
+      "title": "Produce authorized exports for OTH Knowledge Track B",
+      "detail": "Takeout / Gemini / NotebookLM, per docs/OTH_TRACK_B_READINESS.md §3.",
+      "depends_on": "NEXT-OTHK-STORE"
+    },
+    {
+      "id": "NEXT-HUB-DEPLOY",
+      "priority": "P2",
+      "order": 7,
+      "title": "Create apex DNS and deploy the mythosprod.xyz hub",
+      "detail": "Fixes the darhijama.tn misroute and publishes the master-brand page.",
+      "depends_on": null
+    }
+  ],
+  "do_not_reopen": [
+    {
+      "item": "Mythos OS Stage 1A → 4AG decomposition + RUNTIME-DUPLICATE-CLEANUP-0",
+      "project": "PROJECT-MYTHOS-OS",
+      "reason": "Complete with a green cumulative suite; only the four recorded deferred items remain.",
+      "evidence": [
+        "EV-STAGE4-END",
+        "EV-STAGE4-SUITE"
+      ]
+    },
+    {
+      "item": "MOS-v2 M-01 → M-12",
+      "project": "PROJECT-MOS-V2",
+      "reason": "Code-complete, security-audited (M-07), regression-gated (M-08). Remaining work is deployment, not development.",
+      "evidence": [
+        "EV-M12",
+        "EV-MOSV2-GATE"
+      ]
+    },
+    {
+      "item": "OTH-K1 / OTH-K2 / OTH-K2-W / OTH-K3",
+      "project": "PROJECT-OTH-KNOWLEDGE",
+      "reason": "Repository-executable scope fully closed; independently reviewed (Opus APPROVE, Haiku CONFIRMED, F1–F15 fixed). Remaining work is owner/operator activation only.",
+      "evidence": [
+        "EV-PR-45",
+        "EV-OTHK3-HEAD"
+      ]
+    },
+    {
+      "item": "Governance hardening (AOL v1 closure) + cage-as-delivery-invariant",
+      "project": "PROJECT-SECURITY",
+      "reason": "Verified on-host with zero drift; the incident evidence (GI-2026-08-18-01) is preserved and must never be altered or deleted.",
+      "evidence": [
+        "EV-PR-46",
+        "EV-GI-INCIDENT",
+        "EV-GOV-INVARIANT"
+      ]
+    },
+    {
+      "item": "Command Center simplification (auto-title, auto-routing, copy report)",
+      "project": "PROJECT-COMMAND-CENTER",
+      "reason": "Merged (PR #47/#48); PR #47's title variant is the superseded one — the merged rule is autoTitleFromInstruction.",
+      "evidence": [
+        "EV-PR-47",
+        "EV-PR-48"
+      ]
+    },
+    {
+      "item": "ID Auto standalone migration + IDA-DECOUPLE-1..4",
+      "project": "PROJECT-ID-AUTO",
+      "reason": "CLOSED. othoth77/idauto is the sole canonical implementation; never resurrect the removed legacy tree.",
+      "evidence": [
+        "EV-IDA-MIGRATION",
+        "EV-PR-16"
+      ]
+    },
+    {
+      "item": "IDA-2E real authentication",
+      "project": "PROJECT-ID-AUTO",
+      "reason": "Explicitly: do not re-attempt without a real Mythos identity service; IDA-2E-PRE is a stub and must never be described as real auth."
+    },
+    {
+      "item": "MPI-0 → MPI-4 + production apply + F8–F14 remediations",
+      "project": "PROJECT-OTH-MASTER",
+      "reason": "Production-applied and backup-proven. F14: user-record deletion forbidden permanently; O-2H-3: keep-everything, no automatic retention jobs.",
+      "evidence": [
+        "EV-MPI-APPLY",
+        "EV-MPI-BACKUP"
+      ]
+    },
+    {
+      "item": "pgvector / vector search",
+      "project": "PROJECT-OTH-MASTER",
+      "reason": "DECIDED AND DEFERRED — not required for v1 and must not be installed; trigger conditions are documented."
+    },
+    {
+      "item": "Supabase adoption",
+      "project": "PROJECT-MIGRATION",
+      "reason": "Evaluated and REJECTED (8 required extensions unavailable). Do not re-evaluate without new facts."
+    },
+    {
+      "item": "Single n8n instance decision",
+      "project": "PROJECT-INFRASTRUCTURE",
+      "reason": "Permanent MVP decision: n8n.ssangyong.autos only; provisioning n8n.mythosprod.xyz is forbidden until an explicit owner approval."
+    },
+    {
+      "item": "Off-host backup destination audit",
+      "project": "PROJECT-MIGRATION",
+      "reason": "Settled 2026-08-14; do not repeat until the owner provisions a new destination."
+    },
+    {
+      "item": "Design decisions A-009..A-019, AUTO-1..AUTO-13, canonical tokens",
+      "project": "PROJECT-DESIGN-SYSTEM",
+      "reason": "Owner-approved identity and delegated sweep are closed; build on sites/mythosprod.xyz/assets/tokens.css, never the console's legacy sheet.",
+      "evidence": [
+        "EV-DESIGN-DECISIONS",
+        "EV-TOKENS"
+      ]
+    },
+    {
+      "item": "AI Operating Layer v1 (executor, core 2A–2M, budget, leases, loop)",
+      "project": "PROJECT-AI-ORCHESTRATION",
+      "reason": "v1 scope closed with 1,020 assertions green; next step is MAOL-1 authorization, not a rebuild.",
+      "evidence": [
+        "EV-MVP-COMPLETE"
+      ]
+    },
+    {
+      "item": "mythos-git-push relay executes no instructions from Git",
+      "project": "PROJECT-SECURITY",
+      "reason": "Load-bearing security property — never repurpose the relay as an execution path."
+    }
+  ],
+  "documents": [
+    {
+      "path": "docs/AI_HANDOVER.md",
+      "classification": "CURRENT",
+      "note": "The operational ledger (15,892 lines). Three self-flagged staleness points are corrected in AI_EXECUTION_REPORT.md; PR #52 (open) records the OTH-K3 merge.",
+      "exists": true
+    },
+    {
+      "path": "docs/CHANGELOG.md",
+      "classification": "CURRENT",
+      "note": "Most current narrative document.",
+      "exists": true
+    },
+    {
+      "path": "docs/AI_EXECUTION_REPORT.md",
+      "classification": "CURRENT",
+      "note": "Executor mission reports incl. the on-host governance validations.",
+      "exists": true
+    },
+    {
+      "path": "docs/DEPLOYMENT_READINESS.md",
+      "classification": "CURRENT",
+      "note": "Deployment blocker evidence + the verified owner channel.",
+      "exists": true
+    },
+    {
+      "path": "docs/OTH_TRACK_B_READINESS.md",
+      "classification": "CURRENT",
+      "exists": true
+    },
+    {
+      "path": "docs/PRIVATE_STORE_ARCHITECTURE.md",
+      "classification": "CURRENT",
+      "exists": true
+    },
+    {
+      "path": "docs/OTH_KNOWLEDGE_ARCHITECTURE.md",
+      "classification": "CURRENT",
+      "exists": true
+    },
+    {
+      "path": "docs/IDAUTO_STANDALONE_MIGRATION.md",
+      "classification": "CURRENT",
+      "exists": true
+    },
+    {
+      "path": "docs/MYTHOS_REPOSITORY_MIGRATION.md",
+      "classification": "CURRENT",
+      "note": "Owner directive — NOT AUTHORISED gate.",
+      "exists": true
+    },
+    {
+      "path": "docs/MYTHOS_DESIGN_DECISIONS.md",
+      "classification": "CURRENT",
+      "note": "The design decision register.",
+      "exists": true
+    },
+    {
+      "path": "docs/ROADMAP.md",
+      "classification": "CONFLICTING",
+      "note": "Header says 2026-08-08 while body has 08-19 rows; omits MOS-1/MOS-v2/MCC-1/AUTO-13 entirely; still lists the extracted IDA-* track; Stage 5/6 blocks duplicated.",
+      "exists": true
+    },
+    {
+      "path": "docs/PROJECT_STATE.md",
+      "classification": "HISTORICAL",
+      "note": "Frozen 2026-07-31 at Stage 3C (893 tests) — the most stale doc in the set; never a status source.",
+      "exists": true
+    },
+    {
+      "path": "docs/PROJECT_STATUS.md",
+      "classification": "HISTORICAL",
+      "note": "2026-08-08 snapshot; lists ID Auto as ACTIVE although extracted.",
+      "exists": true
+    },
+    {
+      "path": "docs/PROJECT_STATISTICS.md",
+      "classification": "HISTORICAL",
+      "note": "Frozen at 171 commits (2026-08-08); real count 668.",
+      "exists": true
+    },
+    {
+      "path": "docs/AUTOMATION_ROADMAP.md",
+      "classification": "CONFLICTING",
+      "note": "Header 2026-08-08 vs body updated through 08-16 (self-flagged).",
+      "exists": true
+    },
+    {
+      "path": "docs/MOS_V2_M08_REGRESSION.md",
+      "classification": "SUPERSEDED",
+      "note": "19/19 areas and old counts superseded by the 20/20 gate runs in AI_EXECUTION_REPORT.md.",
+      "exists": true
+    },
+    {
+      "path": "docs/MPI_PRODUCTION_READINESS.md",
+      "classification": "SUPERSEDED",
+      "note": "Its F8 fix was proven wrong; MPI_FINDINGS_REMEDIATION.md is authoritative.",
+      "exists": true
+    },
+    {
+      "path": "docs/MYTHOS_OS_CONSOLE_ARCHITECTURE.md",
+      "classification": "CONFLICTING",
+      "note": "Header still says 'MOS-1 · 286 assertions' while the suite is 1,433.",
+      "exists": true
+    },
+    {
+      "path": "projects/personal-intelligence/README.md",
+      "classification": "CONFLICTING",
+      "note": "Says 'Stage MPI-0, not deployed' while MPI-2 is production-applied.",
+      "exists": true
+    },
+    {
+      "path": "projects/meta/project-ledger.json",
+      "classification": "HISTORICAL",
+      "note": "generated_at 2026-08-08, source_commit bf95988.",
+      "exists": true
+    },
+    {
+      "path": "docs/PROJECT_HISTORY.md",
+      "classification": "HISTORICAL",
+      "exists": true
+    },
+    {
+      "path": "docs/history/DAILY_HISTORY.md",
+      "classification": "HISTORICAL",
+      "note": "Backfill ends 2026-08-06.",
+      "exists": true
+    },
+    {
+      "path": "docs/worklogs",
+      "classification": "HISTORICAL",
+      "note": "All 2026-07-31; practice abandoned.",
+      "exists": true
+    }
+  ],
+  "repositories": [
+    {
+      "id": "REPO-MYTHOS-PROD",
+      "full_name": "othoth77/mythos-prod",
+      "classification": "ACTIVE",
+      "visibility": "public",
+      "note": "Source of truth for the whole Mythos OS ecosystem (AGENTS.md §2.1)."
+    },
+    {
+      "id": "REPO-IDAUTO",
+      "full_name": "othoth77/idauto",
+      "classification": "ACTIVE",
+      "visibility": "public",
+      "note": "Sole canonical ID Auto implementation since 2026-08-18 (main bdfec2c, 601/601 clean-clone)."
+    },
+    {
+      "id": "REPO-OTH-KNOWLEDGE",
+      "full_name": "othoth77/oth-knowledge",
+      "classification": "ACTIVE",
+      "visibility": "private",
+      "note": "Private engineering-memory content repo (PROJECTS, PROBLEMS, LESSONS); code lives in mythos-prod projects/oth-knowledge."
+    },
+    {
+      "id": "REPO-OTH-MASTER",
+      "full_name": "othoth77/oth-master",
+      "classification": "FOUNDATION",
+      "visibility": "private",
+      "note": "OTH Master corpus repo; last push 2026-08-09. Product-side ingestion happens via MPI in mythos-prod."
+    },
+    {
+      "id": "REPO-MYTHOS-OS",
+      "full_name": "othoth77/mythos-os",
+      "classification": "OWNER_DIRECTION",
+      "visibility": "private",
+      "note": "Stale 2026-07-29 working copy. Formal migration target — NOT AUTHORISED, NOT STARTED, never a verification source."
+    },
+    {
+      "id": "REPO-MYTHOS-APP",
+      "full_name": "othoth77/mythos-app",
+      "classification": "ARCHIVED",
+      "visibility": "private",
+      "note": "Off-host protection copy (Phase 1, 2026-08-13)."
+    },
+    {
+      "id": "REPO-MYTHOS-SNAPSHOT",
+      "full_name": "othoth77/mythos-prod-unversioned-snapshot",
+      "classification": "ARCHIVED",
+      "visibility": "private",
+      "note": "Unversioned-file protection snapshot."
+    },
+    {
+      "id": "REPO-KNOWLEDGEVAULT",
+      "full_name": "othoth77/knowledgevault-kms",
+      "classification": "ARCHIVED",
+      "visibility": "private",
+      "note": "KnowledgeVault protection copy (752 files, design-recovery source)."
+    },
+    {
+      "id": "REPO-FIXPERT",
+      "full_name": "othoth77/fixpert",
+      "classification": "ARCHIVED",
+      "visibility": "private",
+      "note": "Portfolio project, protected off-host (a2ccf83)."
+    },
+    {
+      "id": "REPO-SSANGYONG",
+      "full_name": "othoth77/ssangyong",
+      "classification": "FOUNDATION",
+      "visibility": "private",
+      "note": "SsangYong assets; live work tracked as projects/ssangyong-autos in mythos-prod (e347e76)."
+    },
+    {
+      "id": "REPO-UTHINA-CHESS",
+      "full_name": "othoth77/uthina-chess",
+      "classification": "ARCHIVED",
+      "visibility": "private",
+      "note": "Portfolio, protected off-host (c8c33ea)."
+    },
+    {
+      "id": "REPO-CLASSEPRO",
+      "full_name": "othoth77/classepro",
+      "classification": "ARCHIVED",
+      "visibility": "private",
+      "note": "Portfolio, protected off-host."
+    },
+    {
+      "id": "REPO-OUDHNA-SERVICE",
+      "full_name": "othoth77/oudhna-service",
+      "classification": "ARCHIVED",
+      "visibility": "private",
+      "note": "Portfolio, protected off-host."
+    },
+    {
+      "id": "REPO-FESTIVAL",
+      "full_name": "othoth77/festival",
+      "classification": "ARCHIVED",
+      "visibility": "private",
+      "note": "Portfolio, protected off-host."
+    },
+    {
+      "id": "REPO-CHATRANGE",
+      "full_name": "othoth77/chatrange",
+      "classification": "ARCHIVED",
+      "visibility": "private",
+      "note": "Portfolio, protected off-host."
+    },
+    {
+      "id": "REPO-AGRIBEE",
+      "full_name": "othoth77/agribee",
+      "classification": "FOUNDATION",
+      "visibility": "private",
+      "note": "agribee.tn project; serving decision O-007 open."
+    },
+    {
+      "id": "REPO-NETTOYAGE-PHOTO",
+      "full_name": "othoth77/nettoyage-photo-vps",
+      "classification": "ARCHIVED",
+      "visibility": "private",
+      "note": "VPS photo-cleanup tooling, protected off-host."
+    },
+    {
+      "id": "REPO-KARHMANA",
+      "full_name": "othoth77/karhmana",
+      "classification": "ARCHIVED",
+      "visibility": "private",
+      "note": "Portfolio, protected off-host."
+    },
+    {
+      "id": "REPO-DARHIJAMA",
+      "full_name": "othoth77/darhijama",
+      "classification": "FOUNDATION",
+      "visibility": "public",
+      "note": "Dar Hijama (darhijama.tn) — the one authorised Coolify staging track (never deployed)."
+    },
+    {
+      "id": "REPO-DARHIJAMA-SITE",
+      "full_name": "othoth77/darhijama-site",
+      "classification": "ARCHIVED",
+      "visibility": "private",
+      "note": "Dar Hijama site copy, protected off-host."
+    },
+    {
+      "id": "REPO-NOTRE-JOUR",
+      "full_name": "othoth77/notre-jour",
+      "classification": "ARCHIVED",
+      "visibility": "private",
+      "note": "Protected off-host."
+    },
+    {
+      "id": "REPO-NOTREJOUR",
+      "full_name": "othoth77/notrejour",
+      "classification": "FOUNDATION",
+      "visibility": "private",
+      "note": "notrejour.tn — 15 commits ahead of darhijama copy (archive-candidate claim retracted 2026-08-13)."
+    },
+    {
+      "id": "REPO-TELEGRAM-BOT",
+      "full_name": "othoth77/telegram-bot",
+      "classification": "ARCHIVED",
+      "visibility": "public",
+      "note": "Pre-Mythos project (last push 2026-05-11)."
+    }
+  ],
+  "new_discoveries": [],
+  "evidence": [
+    {
+      "id": "EV-MAIN-HEAD",
+      "type": "commit",
+      "reference": "b6e52d577fdad530bcaab2237252de3ce63407db",
+      "date": "2026-08-20",
+      "note": "origin/main HEAD — merge of PR #45 (OTH-K3)",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-PR-45",
+      "type": "pr",
+      "reference": "#45",
+      "date": "2026-08-20",
+      "note": "OTH-K3 trust model + private-store architecture + Track B readiness, merged to main b6e52d5",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "OTH-K3 — knowledge trust model, private-store architecture, Track B readiness, operator ops scripts (closed, merged)"
+    },
+    {
+      "id": "EV-PR-46",
+      "type": "pr",
+      "reference": "#46",
+      "date": "2026-08-19",
+      "note": "Governance key isolated from mission executor (AOL v1 closure), merged d4318fe",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "security: isolate governance key from mission executor (AOL v1 closure) (closed, merged)"
+    },
+    {
+      "id": "EV-PR-47",
+      "type": "pr",
+      "reference": "#47",
+      "date": "2026-08-20",
+      "note": "Command Center simplified mission creation, merged 70d3e71",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "feat(command-center): simplified mission creation — auto title, auto routing, copy mission report (closed, merged)"
+    },
+    {
+      "id": "EV-PR-48",
+      "type": "pr",
+      "reference": "#48",
+      "date": "2026-08-20",
+      "note": "INT-E2E lifecycle validation + auto-title, merged c2ec2d7",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "INT-E2E: end-to-end mission-lifecycle validation + automatic mission title rule (closed, merged)"
+    },
+    {
+      "id": "EV-PR-51",
+      "type": "pr",
+      "reference": "#51",
+      "date": "2026-08-20",
+      "note": "VPS-PATH: no restorable execution path from AI environment",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "VPS-PATH handover: no restorable execution path from AI environment (closed, merged)"
+    },
+    {
+      "id": "EV-PR-53",
+      "type": "pr",
+      "reference": "#53",
+      "date": "2026-08-20",
+      "note": "OPEN draft: self-hosted VPS runner package proposal (final live gate)",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "FINAL LIVE GATE: self-hosted VPS runner package (least-privilege provisioning + read-only gate workflow) (open)"
+    },
+    {
+      "id": "EV-PR-54",
+      "type": "pr",
+      "reference": "#54",
+      "date": "2026-08-20",
+      "note": "OPEN draft: STC-1 Status Center delivery (branch claude/mythos-status-center-stoqv2, commit 6195bf4)",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "STC-1 — MYTHOS Status Center: evidence model, review engine, immutable history, design-system UI (open)"
+    },
+    {
+      "id": "EV-PR-55",
+      "type": "pr",
+      "reference": "#55",
+      "date": "2026-08-20",
+      "note": "OPEN draft: runner provisioning fix — its title records that a live install of the PR #53 runner package was attempted and failed on temp-dir ownership; provisioning is actively iterating",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "fix(runner): temp-dir ownership for unprivileged extraction + rerun-safe provisioning (fixes PR #53 live-install failure) (open)"
+    },
+    {
+      "id": "EV-PR-39",
+      "type": "pr",
+      "reference": "#39",
+      "date": "2026-08-19",
+      "note": "MOS-v2 finalization M-04..M-11",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "MOS-v2 finalization: M-04 → M-11 (closed, merged)"
+    },
+    {
+      "id": "EV-PR-34",
+      "type": "pr",
+      "reference": "#34",
+      "date": "2026-08-19",
+      "note": "MOS-v2 M-01 server-side authentication",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "MOS-v2 M-01 — server-side authentication for Mythos OS Console (closed, merged)"
+    },
+    {
+      "id": "EV-PR-40",
+      "type": "pr",
+      "reference": "#40",
+      "date": "2026-08-19",
+      "note": "AUTO-13: mythosprod.xyz ecosystem hub built",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "feat(sites): build the mythosprod.xyz ecosystem hub (AUTO-13) (closed, merged)"
+    },
+    {
+      "id": "EV-PR-42",
+      "type": "pr",
+      "reference": "#42",
+      "date": "2026-08-19",
+      "note": "OTH-K1 knowledge operating layer",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "OTH-K1: provider-agnostic knowledge operating layer (closed, merged)"
+    },
+    {
+      "id": "EV-PR-43",
+      "type": "pr",
+      "reference": "#43",
+      "date": "2026-08-19",
+      "note": "OTH-K2 real-data knowledge integration (Track A)",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "OTH-K2: real-data knowledge integration (closed, merged)"
+    },
+    {
+      "id": "EV-PR-44",
+      "type": "pr",
+      "reference": "#44",
+      "date": "2026-08-19",
+      "note": "OTH-K2-W executor-side knowledge wiring, ships disabled",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "OTH-K2-W: executor-side knowledge-service wiring (closed, merged)"
+    },
+    {
+      "id": "EV-PR-16",
+      "type": "pr",
+      "reference": "#16",
+      "date": "2026-08-19",
+      "note": "ID Auto extraction complete — othoth77/idauto is sole canonical implementation",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "ID Auto extraction complete — othoth77/idauto is the sole canonical implementation (closed, merged)"
+    },
+    {
+      "id": "EV-PR-12",
+      "type": "pr",
+      "reference": "#12",
+      "date": "2026-08-18",
+      "note": "MOS-1 Mythos OS Console built on the brand system",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "MOS-1 — MYTHOS OS Command Center, built on the existing brand system (closed, merged)"
+    },
+    {
+      "id": "EV-PR-4",
+      "type": "pr",
+      "reference": "#4",
+      "date": "2026-08-07",
+      "note": "MPI-0 Personal Intelligence foundation + finalization",
+      "evidence_status": "VERIFIED",
+      "evidence_note": "Mythos Personal Intelligence & Skills Platform — MPI-0 Foundation + Finalization (closed, merged)"
+    },
+    {
+      "id": "EV-M12",
+      "type": "commit",
+      "reference": "3bbee99",
+      "date": "2026-08-19",
+      "note": "M-12 runtime skills + governed MCP foundation; executor 264/264, console 1264/1264",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-STAGE4-END",
+      "type": "commit",
+      "reference": "ebe42f9",
+      "date": "2026-08-05",
+      "note": "Stage 4AG — js/app.js reduced 9,948 → 991 lines across 33 sub-stages",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-CC-SIMPLIFY",
+      "type": "commit",
+      "reference": "098c09f",
+      "date": "2026-08-20",
+      "note": "Command Center: simplify mission creation and automate routing",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-E2E-TEST",
+      "type": "test",
+      "reference": "tests/mos-e2e-lifecycle-test.js",
+      "date": "2026-08-20",
+      "note": "Full mission lifecycle 54/0 (in-container)",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-GOV-TEST",
+      "type": "test",
+      "reference": "tests/mythos-governance-invariant-test.js",
+      "date": "2026-08-19",
+      "note": "Governance invariant suite 99/0",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-MOSV2-GATE",
+      "type": "test",
+      "reference": "tests/mos-v2-regression-test.js",
+      "date": "2026-08-20",
+      "note": "MOS-v2 regression gate 20/20 areas, 0 new failures at 70d3e71 (console 1433/0, E2E 54/0)",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-MCC-TEST",
+      "type": "test",
+      "reference": "tests/mcc-1-command-center-test.js",
+      "date": "2026-08-20",
+      "note": "MCC-1 suite 506/0 (first green in-container at INT-GATE)",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-OTHK-TESTS",
+      "type": "test",
+      "reference": "tests/othk-3-trust-test.js",
+      "date": "2026-08-19",
+      "note": "othk-0 89/0 · othk-1 30/0 · othk-2 97/0 · othk-2w 40/0 · othk-3 63/0 at 042424a",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-OTHK3-HEAD",
+      "type": "commit",
+      "reference": "042424a",
+      "date": "2026-08-19",
+      "note": "OTH-K3 branch HEAD; Opus final review APPROVE, Haiku reproduction CONFIRMED, F1–F15 fixed",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-AOL-CLOSURE",
+      "type": "commit",
+      "reference": "da80870",
+      "date": "2026-08-19",
+      "note": "mythos-gov memberless group; key root:mythos-gov 0640; governance 99/0",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-MCC-LIVE",
+      "type": "external",
+      "reference": "https://ordre.mythosprod.xyz (MCC-1-VERIFY)",
+      "date": "2026-08-17",
+      "note": "Live over HTTPS; DNS → 51.68.226.211; Let's Encrypt valid to 2026-11-15; suite 506/0. Recorded operator verification of 2026-08-17 — not re-checkable from this environment.",
+      "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-VPS-GOV-ONHOST",
+      "type": "operator-report",
+      "reference": "docs/AI_EXECUTION_REPORT.md missions t-20260819223747 / t-20260820075238-o372yt",
+      "date": "2026-08-20",
+      "note": "On-host validation via owner-dispatched executor missions: governance boundary INTACT (key root:mythos-gov 0640, deploy EACCES, zero drift)",
+      "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-DOCKER-FINDING",
+      "type": "operator-report",
+      "reference": "docs/AI_EXECUTION_REPORT.md — deploy in docker group (gid 986)",
+      "date": "2026-08-20",
+      "note": "CONFIRMED HIGH: deploy ∈ docker + rw docker.sock = root-equivalent; unremediated; fix is sudo gpasswd -d deploy docker",
+      "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-VPS-PATH",
+      "type": "document",
+      "reference": "docs/AI_HANDOVER.md",
+      "date": "2026-08-20",
+      "note": "VPS-PATH entry: every access mechanism tested/inspected and categorized; SSH timeout, HTTPS egress-policy 403, no runner, no credentials by design",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-DEPLOY-READINESS",
+      "type": "document",
+      "reference": "docs/DEPLOYMENT_READINESS.md",
+      "date": "2026-08-19",
+      "note": "Deployment BLOCKED — external, evidenced; the one VERIFIED channel is owner Windows → deploy@51.68.226.211 (SSH ED25519)",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-TRACKB",
+      "type": "document",
+      "reference": "docs/OTH_TRACK_B_READINESS.md",
+      "date": "2026-08-19",
+      "note": "All four importers fixture-COMPLETE; real-data validation OWNER-BLOCKED per source",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-PRIVATE-STORE",
+      "type": "document",
+      "reference": "docs/PRIVATE_STORE_ARCHITECTURE.md",
+      "date": "2026-08-19",
+      "note": "Canonical production store /home/deploy/othk-store/ on 51.68.226.211 — provisioning NOT performed",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-K2-DISCOVERY",
+      "type": "document",
+      "reference": "docs/OTH_K2_DATA_DISCOVERY.md",
+      "date": "2026-08-19",
+      "note": "Takeout/Gemini/NotebookLM: source absent. Google Contacts: real 2021 exports found (495,257 B + 135,889 B CSV), imported METADATA-ONLY per MPI D1",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-MPI-APPLY",
+      "type": "document",
+      "reference": "docs/ROADMAP.md",
+      "date": "2026-08-15",
+      "note": "MPI-2A applied to production idauto-postgres (mythos_intelligence schema, 356/356); MPI-3 first real retrieval 36/36 deterministic; MPI-4 done; corpus = 36 memories",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-MPI-BACKUP",
+      "type": "operator-report",
+      "reference": "MPI-2G gate — bucket mythos-mpi-backups, C1==C2 round trip",
+      "date": "2026-08-14",
+      "note": "First verified MPI backup on dedicated R2; isolated restore proven",
+      "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-IDA-MIGRATION",
+      "type": "document",
+      "reference": "docs/IDAUTO_STANDALONE_MIGRATION.md",
+      "date": "2026-08-19",
+      "note": "COMPLETE — othoth77/idauto main bdfec2c, 91 files, clean-clone 601/601; legacy tree removed by IDA-DECOUPLE-4 (231ff82, −10,238 lines)",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-IDA-BOUNDARY",
+      "type": "document",
+      "reference": "docs/ID_AUTO_DEPENDENCY_BOUNDARY.md",
+      "date": "2026-08-19",
+      "note": "IDA-DECOUPLE-1..4 complete; conformance 77/0 with 7/7 mutations caught",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-HUB-BUILT",
+      "type": "file",
+      "reference": "sites/mythosprod.xyz/index.html",
+      "date": "2026-08-19",
+      "note": "Ecosystem hub BUILT (AUTO-13), NOT DEPLOYED — no apex vhost, apex DNS currently redirects elsewhere",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-HUB-RUNBOOK",
+      "type": "file",
+      "reference": "sites/mythosprod.xyz/DEPLOYMENT.md",
+      "date": "2026-08-19",
+      "note": "Operator runbook: rsync → nginx vhost → DNS A record → certbot → smoke tests",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-STC-ENGINE",
+      "type": "file",
+      "reference": "projects/status-center/lib/engine.js",
+      "date": "2026-08-20",
+      "note": "Status Center review engine (read-only, immutable snapshots)",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-STC-SITE",
+      "type": "file",
+      "reference": "sites/status.mythosprod.xyz/index.html",
+      "date": "2026-08-20",
+      "note": "Status Center surface — Mythos Design System tokens/fonts, read-only UI",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-SYA-DEPLOY",
+      "type": "operator-report",
+      "reference": "SSANGYONG Stage 5 Phase 3 — 18/18 checks",
+      "date": "2026-08-16",
+      "note": "Catalog deployed: 5 tables / 21 indexes / 1,519 rows; SYA-API-1 60/0 live; storefront 41/0",
+      "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-SYA-DRIFT",
+      "type": "operator-report",
+      "reference": "Untracked-path audit — nginx drift 101 lines",
+      "date": "2026-08-17",
+      "note": "Repo nginx conf diverges 101 lines from installed /etc/nginx/sites-enabled/ssangyong.autos; authoritative copy = open owner decision",
+      "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-AUTOMATION-GATES",
+      "type": "document",
+      "reference": "docs/AUTOMATION_ROADMAP.md",
+      "date": "2026-08-16",
+      "note": "INF-DNS-AUTO-2: 0 of 40 owner approval fields APPROVED_FOR_MIGRATION; all write connectors disabled; zero live credentials anywhere",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-CF-INVENTORY",
+      "type": "document",
+      "reference": "docs/CLOUDFLARE_DOMAIN_INVENTORY.md",
+      "date": "2026-08-06",
+      "note": "8 domains inventoried; INF-CF-2 not started for any; owner approval gate all NOT_REQUESTED",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-GI-INCIDENT",
+      "type": "document",
+      "reference": "docs/MYTHOS_MVP_FINAL_REPORT.md",
+      "date": "2026-08-18",
+      "note": "GI-2026-08-18-01: caged relay modified outside approval; owner ruled authorisation INVALID; evidence preserved, never delete",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-GOV-INVARIANT",
+      "type": "commit",
+      "reference": "f9a4007",
+      "date": "2026-08-18",
+      "note": "Governance cage made a delivery invariant (denied its own author's commit)",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-MVP-COMPLETE",
+      "type": "document",
+      "reference": "docs/AI_HANDOVER.md",
+      "date": "2026-08-18",
+      "note": "MYTHOS-MVP-COMPLETE: 19 capabilities, 1,020 assertions zero failures, Phase-1 autonomous roadmap exhausted",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-EXEC-DEPLOYED",
+      "type": "operator-report",
+      "reference": "MYTHOS-AI-EXECUTOR-0 — tasks t-20260816181607-030ggb, t-20260816182039-r4zuoq",
+      "date": "2026-08-16",
+      "note": "Executor built/tested/deployed/proven on the VPS (118/118)",
+      "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-REPO-MIG-GATE",
+      "type": "document",
+      "reference": "docs/MYTHOS_REPOSITORY_MIGRATION.md",
+      "date": "2026-08-17",
+      "note": "Migration to othoth77/mythos-os: owner directive recorded, NOT AUTHORISED, NOT STARTED",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-OFFHOST",
+      "type": "document",
+      "reference": "docs/OFFHOST_PROJECT_REGISTRY.md",
+      "date": "2026-08-13",
+      "note": "14 of 14 non-Git projects protected off-host in private repos, remote-verified",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-DESIGN-DECISIONS",
+      "type": "document",
+      "reference": "docs/MYTHOS_DESIGN_DECISIONS.md",
+      "date": "2026-08-19",
+      "note": "Design decision register: A-* owner-approved, AUTO-* delegated (18 items resolved in AUTO-3), MIG-1..3 executed, MIG-4 blocked",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-TOKENS",
+      "type": "file",
+      "reference": "sites/mythosprod.xyz/assets/tokens.css",
+      "date": "2026-08-19",
+      "note": "Canonical --mythos-* token sheet (AUTO-3), self-hosted fonts (AUTO-4)",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-DNS-STATUS-PENDING",
+      "type": "dns",
+      "reference": "status.mythosprod.xyz",
+      "date": "2026-08-20",
+      "note": "DNS record does not exist yet — owner will create it (no wildcard on mythosprod.xyz)",
+      "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-REPO-SNAPSHOT",
+      "type": "repository",
+      "reference": "othoth77 account snapshot 2026-08-20 (23 repos)",
+      "date": "2026-08-20",
+      "note": "Captured via authorized session listing; stored in projects/status-center/data/repo-snapshot.json",
+      "evidence_status": "RECORDED"
+    },
+    {
+      "id": "EV-STAGE4-SUITE",
+      "type": "test",
+      "reference": "tests/stage4a-test.js",
+      "date": "2026-08-05",
+      "note": "Stage 4 cumulative suite ~1,978 assertions green at 4AG; independent Haiku check 9/9 PASS",
+      "evidence_status": "VERIFIED"
+    },
+    {
+      "id": "EV-MAOL-SPEC",
+      "type": "commit",
+      "reference": "0124868",
+      "date": "2026-08-17",
+      "note": "MAOL-0 master specification (1,891 lines, spec only; O-MAOL-1..10 open)",
+      "evidence_status": "VERIFIED"
+    }
+  ],
+  "prs": [
+    {
+      "number": 55,
+      "title": "fix(runner): temp-dir ownership for unprivileged extraction + rerun-safe provisioning (fixes PR #53 live-install failure)",
+      "state": "open",
+      "merged": false,
+      "created_at": "2026-08-20",
+      "branch": "claude/vps-runner-provisioning-perms-xbbao2"
+    },
+    {
+      "number": 54,
+      "title": "STC-1 — MYTHOS Status Center: evidence model, review engine, immutable history, design-system UI",
+      "state": "open",
+      "merged": false,
+      "created_at": "2026-08-20",
+      "branch": "claude/mythos-status-center-stoqv2"
+    },
+    {
+      "number": 53,
+      "title": "FINAL LIVE GATE: self-hosted VPS runner package (least-privilege provisioning + read-only gate workflow)",
+      "state": "open",
+      "merged": false,
+      "created_at": "2026-08-20",
+      "branch": "claude/mythos-vps-runner-finalize-5rapsk"
+    },
+    {
+      "number": 52,
+      "title": "docs(handover): OTH-K3 MERGED record (PR #45 → main b6e52d5)",
+      "state": "open",
+      "merged": false,
+      "created_at": "2026-08-20",
+      "branch": "claude/oth-knowledge-master-completion-wxuh6z"
+    },
+    {
+      "number": 51,
+      "title": "VPS-PATH handover: no restorable execution path from AI environment",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-20",
+      "branch": "claude/mythos-os-integration-validation-5fv45z"
+    },
+    {
+      "number": 50,
+      "title": "INT-VPS-GATE handover: blocked at VPS preflight",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-20",
+      "branch": "claude/mythos-os-integration-validation-5fv45z"
+    },
+    {
+      "number": 49,
+      "title": "INT-GATE handover: PR #48 closure, full final suite green incl. MCC-1",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-20",
+      "branch": "claude/mythos-os-integration-validation-5fv45z"
+    },
+    {
+      "number": 48,
+      "title": "INT-E2E: end-to-end mission-lifecycle validation + automatic mission title rule",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-20",
+      "branch": "claude/mythos-os-integration-validation-5fv45z"
+    },
+    {
+      "number": 47,
+      "title": "feat(command-center): simplified mission creation — auto title, auto routing, copy mission report",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-20",
+      "branch": "claude/command-center-auto-title-slat0z"
+    },
+    {
+      "number": 46,
+      "title": "security: isolate governance key from mission executor (AOL v1 closure)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-prod-aol-v1-closure-hq9f0x"
+    },
+    {
+      "number": 45,
+      "title": "OTH-K3 — knowledge trust model, private-store architecture, Track B readiness, operator ops scripts",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-20",
+      "branch": "claude/oth-knowledge-master-completion-wxuh6z"
+    },
+    {
+      "number": 44,
+      "title": "OTH-K2-W: executor-side knowledge-service wiring",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/oth-k2-repo-execution-ul5dsl"
+    },
+    {
+      "number": 43,
+      "title": "OTH-K2: real-data knowledge integration",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/oth-knowledge-mission-05buds"
+    },
+    {
+      "number": 42,
+      "title": "OTH-K1: provider-agnostic knowledge operating layer",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/oth-knowledge-mission-05buds"
+    },
+    {
+      "number": 41,
+      "title": "docs: consolidate deployment readiness + evidence the blocker (STAGE 5)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-stage5-deploy-readiness"
+    },
+    {
+      "number": 40,
+      "title": "feat(sites): build the mythosprod.xyz ecosystem hub (AUTO-13)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto13-hub"
+    },
+    {
+      "number": 39,
+      "title": "MOS-v2 finalization: M-04 → M-11",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/mos-v2-finalization-2k9zki"
+    },
+    {
+      "number": 38,
+      "title": "Complete MIG-3 + fix both sweep findings (AUTO-12)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto12-mig3-a11y"
+    },
+    {
+      "number": 37,
+      "title": "Execute MIG-2 via role separation — no type shrinking (AUTO-11)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto11-mig2"
+    },
+    {
+      "number": 36,
+      "title": "C-006 executed: mythos.css reconciled, red suite restored to green (AUTO-10)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto10-c006"
+    },
+    {
+      "number": 35,
+      "title": "docs: gate-closure record — PR stack merged, gates formally classified",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/gate-closure-record"
+    },
+    {
+      "number": 34,
+      "title": "MOS-v2 M-01 — server-side authentication for Mythos OS Console",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/mos-v2-server-auth-tmh065"
+    },
+    {
+      "number": 33,
+      "title": "Mythos OS Console: deploy-owned relay + operator runbook (MOS-v2 M-02)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/mos-v2-m02-relay-81ppf8"
+    },
+    {
+      "number": 32,
+      "title": "MOS-v2 M-03: Fix nginx client_max_body_size for mission dispatch",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/mos-v2-nginx-contract-qawqxn"
+    },
+    {
+      "number": 31,
+      "title": "MIG-3 partial execution, MIG-4 checked and blocked (AUTO-9)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto9-mig3-mig4"
+    },
+    {
+      "number": 30,
+      "title": "Document MIG-2 attempt and rollback on a real regression (AUTO-8)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto8-mig2-rollback"
+    },
+    {
+      "number": 29,
+      "title": "Execute MIG-1: the Mythos Gold migration (AUTO-7)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto7-mig1-gold"
+    },
+    {
+      "number": 28,
+      "title": "Final consistency pass, O-002/006/007 re-checked, blocker matrix",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-final-consistency-pass"
+    },
+    {
+      "number": 27,
+      "title": "Local visual-regression tooling, MIG-1/MIG-2 rescoped (AUTO-6)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-auto6-visual-verify"
+    },
+    {
+      "number": 26,
+      "title": "Resolve GRID-2: prose measure 48ch supersedes 68ch (AUTO-5)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-auto5-grid2"
+    },
+    {
+      "number": 25,
+      "title": "Self-host real fonts, close TYPE-2, narrow GRID-2 (AUTO-4)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-auto4-font-hosting"
+    },
+    {
+      "number": 24,
+      "title": "oth-knowledge: engineering memory promoted to othoth77/oth-knowledge",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/oth-knowledge-memory-system-ad1sa3"
+    },
+    {
+      "number": 23,
+      "title": "mandate item 9: self-hosted font files sourced; GRID-2 measured (AUTO-4)",
+      "state": "open",
+      "merged": false,
+      "created_at": "2026-08-18",
+      "branch": "claude/mythos-deployment-auth-0d1wvz",
+      "note": "Stale draft — superseded by PR #25 (AUTO-4 delivered). Candidate for closure."
+    },
+    {
+      "number": 22,
+      "title": "docs(handover): full autonomous mandate continuation complete",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/handover-mandate-pass-complete"
+    },
+    {
+      "number": 21,
+      "title": "mandate items 6-8: design system consolidation, readiness audit, migration plans",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/consolidation-audit-migration-plans"
+    },
+    {
+      "number": 20,
+      "title": "mandate item 5: 1I design prototypes",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/1i-design-prototypes"
+    },
+    {
+      "number": 19,
+      "title": "docs(handover): AUTO-3 decision sweep recorded",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/handover-auto3"
+    },
+    {
+      "number": 18,
+      "title": "mandate item 4: decision sweep resolves eighteen open items (AUTO-3)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/decision-sweep-auto3"
+    },
+    {
+      "number": 17,
+      "title": "mandate: LOGO-2 resolved (AUTO-1), LOGO-1 narrowed, C-006 canonical system decided (AUTO-2)",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/full-mandate-pass-1-logo2-c006"
+    },
+    {
+      "number": 16,
+      "title": "ID Auto extraction complete — othoth77/idauto is the sole canonical implementation",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/idauto-source-cleanup-post-publication"
+    },
+    {
+      "number": 15,
+      "title": "MOS-1.2 — deploy.sh with hard gates",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-os-dashboard-audit-y4174m"
+    },
+    {
+      "number": 14,
+      "title": "[SUPERSEDED by #16] ID Auto standalone migration — record and staged tree",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-19",
+      "branch": "claude/idauto-standalone-migration-ejyl27"
+    },
+    {
+      "number": 13,
+      "title": "docs(idauto): evolve toward Open Vehicle Identity Protocol",
+      "state": "closed",
+      "merged": false,
+      "closed_at": "2026-08-18",
+      "branch": "agent/idauto-open-protocol-strategy-20260818"
+    },
+    {
+      "number": 12,
+      "title": "MOS-1 — MYTHOS OS Command Center, built on the existing brand system",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-os-dashboard-audit-y4174m"
+    },
+    {
+      "number": 11,
+      "title": "design(stage 1): Mythos brand foundation — recovery through public ecosystem architecture",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-master-brand-design-c3vy6b"
+    },
+    {
+      "number": 10,
+      "title": "refactor(automation): share read-only connector helpers",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-08",
+      "branch": "refactor/automation-connector-shared-helpers"
+    },
+    {
+      "number": 9,
+      "title": "refactor(runtime): remove stale duplicate function ownership",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-08",
+      "branch": "fix/runtime-duplicate-function-ownership"
+    },
+    {
+      "number": 8,
+      "title": "feat(automation): INF-CF-AUTO-0 Cloudflare Read-Only Connector",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-08",
+      "branch": "feat/inf-cf-auto-0-readonly-connector"
+    },
+    {
+      "number": 7,
+      "title": "feat(automation): INF-OVH-API-0 OVH Read-Only Connector",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-07",
+      "branch": "feat/inf-ovh-api-0-readonly-connector"
+    },
+    {
+      "number": 6,
+      "title": "feat(devx): Mythos Development Acceleration MVP",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-07",
+      "branch": "feat/devx-0-development-acceleration"
+    },
+    {
+      "number": 5,
+      "title": "docs(research): Mythos Research Intelligence free-first foundation",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-08",
+      "branch": "docs/research-intelligence-foundation"
+    },
+    {
+      "number": 4,
+      "title": "Mythos Personal Intelligence & Skills Platform — MPI-0 Foundation + Finalization",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-07",
+      "branch": "feat/mythos-personal-intelligence"
+    },
+    {
+      "number": 3,
+      "title": "docs(cloudflare): prepare authoritative DNS export intake",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-06",
+      "branch": "docs/cloudflare-zone-export-intake"
+    },
+    {
+      "number": 2,
+      "title": "docs(cloudflare): inventory Mythos domain portfolio",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-06",
+      "branch": "docs/cloudflare-domain-inventory"
+    },
+    {
+      "number": 1,
+      "title": "docs(cloudflare): establish edge security foundation",
+      "state": "closed",
+      "merged": true,
+      "merged_at": "2026-08-05",
+      "branch": "docs/cloudflare-foundation"
+    }
+  ],
+  "source_hierarchy": [
+    {
+      "source": "Current GitHub code (othoth77/mythos-prod main)",
+      "authority": "implementation authority"
+    },
+    {
+      "source": "Executed test results (recorded per stage with counts)",
+      "authority": "verification authority"
+    },
+    {
+      "source": "Live VPS / DNS / HTTPS evidence (operator-verified only)",
+      "authority": "deployment authority"
+    },
+    {
+      "source": "docs/AI_HANDOVER.md + docs/CHANGELOG.md + docs/AI_EXECUTION_REPORT.md",
+      "authority": "operational context (current)"
+    },
+    {
+      "source": "Older status documents (PROJECT_STATE.md, PROJECT_STATUS.md, stale ROADMAP sections)",
+      "authority": "historical evidence only — reconcile before trusting"
+    }
+  ],
+  "previous_review": "REVIEW-2026-08-20-001",
+  "changes": {
+    "added": [],
+    "completed": [],
+    "unblocked": [],
+    "blocked": [],
+    "changed": [],
+    "regressed": [],
+    "superseded": [],
+    "new_blockers": [],
+    "removed_blockers": [],
+    "new_owner_actions": [],
+    "percent_changes": [],
+    "new_projects": []
+  }
+}

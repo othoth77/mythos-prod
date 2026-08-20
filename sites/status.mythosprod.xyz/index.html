@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MYTHOS Status Center</title>
+  <meta name="description" content="Single source of truth for the MYTHOS ecosystem — evidence-based project status, history, blockers and next actions.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="canonical" href="https://status.mythosprod.xyz/">
+  <link rel="icon" type="image/svg+xml" href="assets/mythos-favicon.svg">
+  <link rel="apple-touch-icon" href="assets/mythos-appicon-512.png">
+  <meta name="theme-color" content="#0E0E0D">
+  <link rel="stylesheet" href="assets/fonts.css">
+  <link rel="stylesheet" href="assets/tokens.css">
+  <link rel="stylesheet" href="assets/app.css">
+</head>
+<body>
+<a class="skip-link" href="#content">Skip to content</a>
+
+<header class="site">
+  <div class="gesture" aria-hidden="true"></div>
+  <div class="container site-bar">
+    <a class="wordmark" href="/" aria-label="MYTHOS Status Center — home">
+      <svg viewBox="0 0 6074 1000" role="img" aria-hidden="true" focusable="false"><path fill="currentColor" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/><path fill="currentColor" transform="translate(1440 0)" d="M0 0 L290 0 L483 470 L676 0 L966 0 L614 640 L614 1000 L352 1000 L352 640 Z"/><path fill="currentColor" transform="translate(2454 0)" d="M0 0 L760 0 L760 230 L510 230 L510 1000 L250 1000 L250 230 L0 230 Z"/><path fill="currentColor" transform="translate(3286 0)" d="M0 0 L264 0 L264 395 L619 395 L619 0 L883 0 L883 1000 L619 1000 L619 605 L264 605 L264 1000 L0 1000 Z"/><path fill="currentColor" transform="translate(4235 0)" d="M520 0 A520 500 0 1 0 520 1000 A520 500 0 1 0 520 0 Z M520 255 A265 245 0 1 1 520 745 A265 245 0 1 1 520 255 Z"/><path fill="currentColor" transform="translate(5329 0)" d="M313 0 C243.5 8.3 210.5 17.0 164 39 C117.5 61.0 91.3 81.2 62 119 C32.7 156.8 15.4 198.9 6 243 C-3.4 287.1 -6.0 312.2 11 357 C28.0 401.8 17.3 430.9 98 485 C178.7 539.1 420 636 447 649 C471 661 465 700 460 726 C455 752 436 774 408 790 L0 790 L0 1000 L356 1000 C454.1 997.2 474.3 1000.4 530 985 C585.7 969.6 619.4 950.5 657 917 C694.6 883.5 716.7 852.1 733 804 C749.3 755.9 759.8 712.0 745 657 C730.2 602.0 680 545 653 507 C641 490 330 358 295 345 C275 337 262 325 262 306 C262 288 268 274 285 262 L343 210 L742 210 L742 0 Z"/></svg>
+      <span class="surface-name">Status Center</span>
+    </a>
+    <nav class="primary" aria-label="Sections">
+      <a href="#overview">Overview</a>
+      <a href="#projects">Projects</a>
+      <a href="#timeline">Timeline</a>
+      <a href="#changed">What changed</a>
+      <a href="#blockers">Blockers</a>
+      <a href="#owner">Owner actions</a>
+      <a href="#next">Next</a>
+      <a href="#history">History</a>
+    </nav>
+  </div>
+  <div class="container review-meta" id="review-meta">
+    <span>Review <strong id="m-review-id">…</strong></span>
+    <span>At <strong id="m-review-ts">…</strong></span>
+    <span>main <strong id="m-head">…</strong></span>
+    <span>Repos audited <strong id="m-repos">…</strong></span>
+    <span>Health <strong id="m-health">…</strong></span>
+    <span class="actions">
+      <button type="button" id="btn-review-now" class="primary">Review now</button>
+    </span>
+  </div>
+</header>
+
+<main id="content" class="container">
+  <noscript>
+    <p class="noscript-note">The Status Center renders its data model
+    (<a href="data/current.json">data/current.json</a>) in the browser.
+    Enable JavaScript, or read the JSON snapshot directly — every fact in
+    the UI comes from that file.</p>
+  </noscript>
+  <div id="load-error" class="load-error" hidden></div>
+
+  <section class="panel" id="overview" aria-labelledby="h-overview">
+    <p class="section-kicker">Executive status</p>
+    <h2 id="h-overview">Where are we?</h2>
+    <p class="section-note">Each figure states what it measures and how it
+    was obtained. There is no single global percentage — that number would
+    be a lie. Progress is per track, from evidence.</p>
+    <ul class="cards" id="exec-cards"></ul>
+  </section>
+
+  <section class="panel" id="legend" aria-labelledby="h-legend">
+    <p class="section-kicker">Vocabulary</p>
+    <h2 id="h-legend">State legend &amp; source hierarchy</h2>
+    <div id="legend-body"></div>
+  </section>
+
+  <section class="panel" id="projects" aria-labelledby="h-projects">
+    <p class="section-kicker">Project matrix</p>
+    <h2 id="h-projects">Projects</h2>
+    <div class="filter-row">
+      <input type="search" id="matrix-search" placeholder="Search projects…" aria-label="Search projects">
+      <select id="matrix-status" aria-label="Filter by status"></select>
+    </div>
+    <div class="table-wrap" id="matrix-wrap"></div>
+  </section>
+
+  <section class="panel" id="tracks" aria-labelledby="h-tracks">
+    <p class="section-kicker">Tracks &amp; stages</p>
+    <h2 id="h-tracks">Track progress</h2>
+    <p class="section-note">Percentages here are calculated from recorded
+    stage lists (done ÷ total) — never invented. A track without a stage
+    list shows NOT CALCULABLE.</p>
+    <ul class="cards" id="track-cards"></ul>
+  </section>
+
+  <section class="panel" id="infrastructure" aria-labelledby="h-infra">
+    <p class="section-kicker">Infrastructure &amp; VPS</p>
+    <h2 id="h-infra">Execution paths</h2>
+    <div id="infra-body"></div>
+  </section>
+
+  <section class="panel" id="timeline" aria-labelledby="h-timeline">
+    <p class="section-kicker">Timeline</p>
+    <h2 id="h-timeline">History</h2>
+    <div class="filter-row" id="timeline-filters"></div>
+    <ol class="timeline" id="timeline-list"></ol>
+  </section>
+
+  <section class="panel" id="changed" aria-labelledby="h-changed">
+    <p class="section-kicker">Since the previous review</p>
+    <h2 id="h-changed">What changed?</h2>
+    <div id="changed-body"></div>
+  </section>
+
+  <section class="panel" id="blockers" aria-labelledby="h-blockers">
+    <p class="section-kicker">Blockers</p>
+    <h2 id="h-blockers">What is blocked, and how to unblock it</h2>
+    <ul class="plain" id="blockers-list"></ul>
+  </section>
+
+  <section class="panel" id="owner" aria-labelledby="h-owner">
+    <p class="section-kicker">Owner actions</p>
+    <h2 id="h-owner">Only the owner can do these</h2>
+    <ul class="plain" id="owner-list"></ul>
+  </section>
+
+  <section class="panel" id="next" aria-labelledby="h-next">
+    <p class="section-kicker">Next actions</p>
+    <h2 id="h-next">The minimum sequence forward</h2>
+    <ul class="plain" id="next-list"></ul>
+  </section>
+
+  <section class="panel" id="donotreopen" aria-labelledby="h-dnr">
+    <p class="section-kicker">Do not reopen</p>
+    <h2 id="h-dnr">Completed — never rebuild</h2>
+    <p class="section-note">Work listed here is verifiably complete. A
+    future session must extend it, not restart it.</p>
+    <ul class="plain" id="dnr-list"></ul>
+  </section>
+
+  <section class="panel" id="documents" aria-labelledby="h-docs">
+    <p class="section-kicker">Document reconciliation</p>
+    <h2 id="h-docs">Which documents to trust</h2>
+    <div class="table-wrap" id="docs-wrap"></div>
+  </section>
+
+  <section class="panel" id="repositories" aria-labelledby="h-repos-s">
+    <p class="section-kicker">Repository discovery</p>
+    <h2 id="h-repos-s">Ecosystem repositories</h2>
+    <div class="table-wrap" id="repos-wrap"></div>
+  </section>
+
+  <section class="panel" id="history" aria-labelledby="h-history">
+    <p class="section-kicker">Review history</p>
+    <h2 id="h-history">Immutable snapshots</h2>
+    <div class="filter-row">
+      <select id="cmp-a" aria-label="Compare: earlier review"></select>
+      <select id="cmp-b" aria-label="Compare: later review"></select>
+      <button type="button" id="btn-compare">Compare</button>
+    </div>
+    <div id="history-body"></div>
+    <div id="compare-body"></div>
+  </section>
+</main>
+
+<dialog class="drawer" id="detail-drawer" aria-labelledby="drawer-title">
+  <h3 id="drawer-title"></h3>
+  <div id="drawer-body"></div>
+  <div class="close-row"><button type="button" id="drawer-close">Close</button></div>
+</dialog>
+
+<dialog class="drawer" id="review-drawer" aria-labelledby="review-drawer-title">
+  <h3 id="review-drawer-title">Run a review</h3>
+  <div id="review-drawer-body"></div>
+  <div class="close-row"><button type="button" id="review-drawer-close">Close</button></div>
+</dialog>
+
+<footer class="site">
+  <div class="container cols">
+    <svg viewBox="0 0 6074 1000" role="img" aria-hidden="true" focusable="false"><path fill="currentColor" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/><path fill="currentColor" transform="translate(1440 0)" d="M0 0 L290 0 L483 470 L676 0 L966 0 L614 640 L614 1000 L352 1000 L352 640 Z"/><path fill="currentColor" transform="translate(2454 0)" d="M0 0 L760 0 L760 230 L510 230 L510 1000 L250 1000 L250 230 L0 230 Z"/><path fill="currentColor" transform="translate(3286 0)" d="M0 0 L264 0 L264 395 L619 395 L619 0 L883 0 L883 1000 L619 1000 L619 605 L264 605 L264 1000 L0 1000 Z"/><path fill="currentColor" transform="translate(4235 0)" d="M520 0 A520 500 0 1 0 520 1000 A520 500 0 1 0 520 0 Z M520 255 A265 245 0 1 1 520 745 A265 245 0 1 1 520 255 Z"/><path fill="currentColor" transform="translate(5329 0)" d="M313 0 C243.5 8.3 210.5 17.0 164 39 C117.5 61.0 91.3 81.2 62 119 C32.7 156.8 15.4 198.9 6 243 C-3.4 287.1 -6.0 312.2 11 357 C28.0 401.8 17.3 430.9 98 485 C178.7 539.1 420 636 447 649 C471 661 465 700 460 726 C455 752 436 774 408 790 L0 790 L0 1000 L356 1000 C454.1 997.2 474.3 1000.4 530 985 C585.7 969.6 619.4 950.5 657 917 C694.6 883.5 716.7 852.1 733 804 C749.3 755.9 759.8 712.0 745 657 C730.2 602.0 680 545 653 507 C641 490 330 358 295 345 C275 337 262 325 262 306 C262 288 268 274 285 262 L343 210 L742 210 L742 0 Z"/></svg>
+    <span>Status Center — read-only observability surface. The data model is the page: <a href="data/current.json" class="mono">data/current.json</a> · <a href="health.json" class="mono">/health</a></span>
+    <span>© MYTHOS</span>
+  </div>
+</footer>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
