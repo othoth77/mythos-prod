@@ -1,0 +1,236 @@
+#!/usr/bin/env bash
+# mythos-deploy — single audited deployment tool for Mythos VPS projects.
+#
+# Runs as root (invoked as: sudo /usr/local/sbin/mythos-deploy <cmd> [target]).
+# It is deliberately NOT a general shell: every root action below is fixed,
+# every target is resolved through the hard-coded registry, and no
+# user-supplied string is ever handed to a shell, a file-copier, an
+# interpreter, or an arbitrary systemctl/certbot unit. Git operations run as
+# the unprivileged `deploy` user, who owns the project — root never writes
+# into the repository. This keeps the tool consistent with the governance
+# boundary (it cannot read /etc/mythos/governance.key or install root code).
+#
+# Owner/operator of /home/deploy/projects/mythos-prod remains `deploy`.
+set -euo pipefail
+
+VERSION="1.0.0"
+DEPLOY_USER="deploy"
+REPO="/home/deploy/projects/mythos-prod"
+STATE_DIR="/var/lib/mythos-deploy"
+LOG_FILE="/var/log/mythos-deploy.log"
+PROTECTED_NGINX_NOTE="unrelated sites (DarHijama, fixpert, ssangyong, notrejour, …) are never touched"
+
+# ---- Registry: the ONLY targets this tool may manage -----------------------
+# name | nginx site file (sites-available) | health URL | accepted http codes
+# `status` is intentionally listed as PROTECTED and refused (not yet deployed;
+# owner-controlled). Anything not listed here cannot be deployed at all.
+registry_line() {
+  case "$1" in
+    os)     echo "os.mythosprod.xyz|https://os.mythosprod.xyz/|200 301 302" ;;
+    panel)  echo "panel.mythosprod.xyz|https://panel.mythosprod.xyz/|200 301 302" ;;
+    ordre)  echo "ordre.mythosprod.xyz|https://ordre.mythosprod.xyz/|200 301 302" ;;
+    tv)     echo "tv.mythosprod.xyz|https://tv.mythosprod.xyz/|200 301 302" ;;
+    status) echo "PROTECTED" ;;
+    *)      echo "" ;;
+  esac
+}
+TARGETS="os panel ordre tv status"
+
+# ---- Output helpers --------------------------------------------------------
+ts()   { date -u +%Y-%m-%dT%H:%M:%SZ; }
+say()  { printf '%s\n' "$*"; }
+info() { printf '  %s\n' "$*"; }
+ok()   { printf '  [ OK ] %s\n' "$*"; }
+warn() { printf '  [WARN] %s\n' "$*"; }
+audit(){ printf '%s %s %s\n' "$(ts)" "${SUDO_USER:-?}" "$*" >>"$LOG_FILE" 2>/dev/null || true; }
+die()  { printf '  [FAIL] %s\n' "$*" >&2; audit "FAIL: $*"; exit 1; }
+
+require_root() { [ "$(id -u)" = "0" ] || die "must run as root (via: sudo mythos-deploy …)"; }
+
+resolve() {  # sets NGINX_SITE, HEALTH_URL, HEALTH_CODES; dies on bad/protected target
+  local t="$1" line; line="$(registry_line "$t")"
+  [ -n "$line" ] || die "unknown target '$t' — known: $TARGETS"
+  [ "$line" != "PROTECTED" ] || die "target '$t' is PROTECTED (owner-controlled, not deployable by this tool)"
+  NGINX_SITE="${line%%|*}"; local rest="${line#*|}"
+  HEALTH_URL="${rest%%|*}"; HEALTH_CODES="${rest#*|}"
+}
+
+# ---- Primitive root actions (all fixed — no user input reaches them) -------
+nginx_validate() { nginx -t >/tmp/mythos-nginx-test.$$ 2>&1; }
+nginx_reload()   { systemctl reload nginx; }
+
+git_deploy() {   # run git as the unprivileged owner; never as root
+  runuser -u "$DEPLOY_USER" -- git -C "$REPO" "$@"
+}
+
+health_check() { # $1 url, $2 accepted-codes ; returns 0/1, echoes code
+  local url="$1" accepted="$2" code c
+  code="$(curl -s -o /dev/null -w '%{http_code}' -m 12 "$url" 2>/dev/null || echo 000)"
+  for c in $accepted; do [ "$code" = "$c" ] && { echo "$code"; return 0; }; done
+  echo "$code"; return 1
+}
+
+# ---- Git validation --------------------------------------------------------
+git_state() {   # echoes a summary; returns nonzero if not clean
+  local branch head origin dirty
+  branch="$(git_deploy rev-parse --abbrev-ref HEAD)"
+  head="$(git_deploy rev-parse --short HEAD)"
+  dirty="$(git_deploy status --porcelain)"
+  info "repo:   $REPO"
+  info "branch: $branch"
+  info "HEAD:   $head"
+  git_deploy fetch --quiet origin "$branch" 2>/dev/null || warn "git fetch failed (offline?) — using local refs"
+  origin="$(git_deploy rev-parse --short "origin/$branch" 2>/dev/null || echo '?')"
+  info "origin/$branch: $origin"
+  if [ -n "$dirty" ]; then
+    warn "working tree has uncommitted changes:"; git_deploy status --porcelain | sed 's/^/         /'
+    return 1
+  fi
+  ok "working tree clean"
+  return 0
+}
+
+# ---- Subcommands -----------------------------------------------------------
+cmd_list() {
+  say "Mythos deploy targets (registry):"
+  local t line
+  for t in $TARGETS; do line="$(registry_line "$t")"
+    if [ "$line" = "PROTECTED" ]; then printf '  %-8s PROTECTED (owner-controlled, refused)\n' "$t"
+    else printf '  %-8s nginx:%s\n' "$t" "${line%%|*}"; fi
+  done
+  say ""; info "$PROTECTED_NGINX_NOTE"
+}
+
+cmd_status() {
+  local t="${1:-all}"
+  [ "$t" = "all" ] && { for t in os panel ordre tv; do cmd_status "$t"; done; return 0; }
+  resolve "$t"
+  say "── status: $t ($NGINX_SITE) ──"
+  local code; if code="$(health_check "$HEALTH_URL" "$HEALTH_CODES")"; then
+    ok "health $HEALTH_URL -> $code"; else warn "health $HEALTH_URL -> $code (expected: $HEALTH_CODES)"; fi
+  audit "status $t -> $code"
+}
+
+cmd_preflight() {  # read-only: validate git + nginx config. Changes nothing.
+  local t="$1"; resolve "$t"
+  say "── preflight: $t ──"
+  git_state || warn "git not clean — 'deploy' would refuse to proceed"
+  if nginx_validate; then ok "nginx -t passed (all sites parse)"; else
+    cat /tmp/mythos-nginx-test.$$; die "nginx config invalid — refusing"; fi
+  local code; if code="$(health_check "$HEALTH_URL" "$HEALTH_CODES")"; then
+    ok "current health $code"; else warn "current health $code"; fi
+  audit "preflight $t OK"
+  ok "preflight complete — safe to deploy"
+}
+
+cmd_reload() {  # safe, idempotent: validate then graceful reload; preserves every site
+  say "── reload nginx (graceful; preserves all sites) ──"
+  if nginx_validate; then ok "nginx -t passed"; else cat /tmp/mythos-nginx-test.$$; die "nginx config invalid — NOT reloading"; fi
+  nginx_reload && ok "nginx reloaded" || die "nginx reload failed"
+  audit "reload nginx OK"
+}
+
+cmd_deploy() {
+  local t="$1" ref="${2:-}"; resolve "$t"
+  mkdir -p "$STATE_DIR"
+  say "── deploy: $t ($NGINX_SITE) ──"
+
+  # 1. validate git state (must be clean)
+  git_state || die "refusing to deploy: working tree not clean"
+
+  # 2. snapshot current rev for rollback
+  local prev; prev="$(git_deploy rev-parse HEAD)"
+  echo "$prev" >"$STATE_DIR/$t.lastgood.candidate"
+  info "rollback point recorded: $(git_deploy rev-parse --short HEAD)"
+
+  # 3. update code (fast-forward only, as the owner). Idempotent: if already at
+  #    target ref, git reports up-to-date and nothing changes.
+  local branch; branch="$(git_deploy rev-parse --abbrev-ref HEAD)"
+  if [ -n "$ref" ]; then
+    info "checkout ref: $ref"
+    git_deploy checkout --quiet "$ref" || die "checkout '$ref' failed"
+  else
+    info "fast-forward $branch to origin/$branch"
+    git_deploy merge --ff-only "origin/$branch" || die "fast-forward failed (diverged?) — resolve manually"
+  fi
+  local now; now="$(git_deploy rev-parse --short HEAD)"
+  ok "code at $now"
+
+  # 4. validate nginx BEFORE any reload
+  if nginx_validate; then ok "nginx -t passed"; else
+    cat /tmp/mythos-nginx-test.$$
+    warn "nginx invalid — rolling back code"; git_deploy checkout --quiet "$prev" || true
+    die "nginx config invalid — rolled back, nothing reloaded"; fi
+
+  # 5. graceful reload (preserves all unrelated sites)
+  nginx_reload && ok "nginx reloaded" || { git_deploy checkout --quiet "$prev" || true; die "reload failed — code rolled back"; }
+
+  # 6. health check; on failure, roll back and reload
+  local code
+  if code="$(health_check "$HEALTH_URL" "$HEALTH_CODES")"; then
+    ok "health check passed ($code)"
+    mv "$STATE_DIR/$t.lastgood.candidate" "$STATE_DIR/$t.lastgood"
+    audit "deploy $t OK now=$now prev=$(git rev-parse --short "$prev" 2>/dev/null||echo "$prev") health=$code"
+    say ""; ok "DEPLOY SUCCEEDED: $t now at $now (health $code)"
+  else
+    warn "health check FAILED ($code, expected $HEALTH_CODES) — rolling back"
+    git_deploy checkout --quiet "$prev" && nginx_validate && nginx_reload && warn "rolled back to $(git_deploy rev-parse --short HEAD)"
+    rm -f "$STATE_DIR/$t.lastgood.candidate"
+    audit "deploy $t FAILED health=$code — rolled back to $prev"
+    die "DEPLOY FAILED: health $code — rolled back. NOT reporting success."
+  fi
+}
+
+cmd_rollback() {
+  local t="$1"; resolve "$t"
+  [ -f "$STATE_DIR/$t.lastgood" ] || die "no recorded last-good rev for '$t'"
+  local good; good="$(cat "$STATE_DIR/$t.lastgood")"
+  say "── rollback: $t -> $(git rev-parse --short "$good" 2>/dev/null || echo "$good") ──"
+  git_deploy checkout --quiet "$good" || die "checkout failed"
+  nginx_validate || die "nginx invalid after checkout"
+  nginx_reload && ok "rolled back and reloaded"
+  audit "rollback $t -> $good"
+}
+
+cmd_cert() {  # bounded certbot: domain comes from the registry, never free input
+  local t="$1"; resolve "$t"
+  say "── cert (issue/renew) for $NGINX_SITE ──"
+  info "running: certbot --nginx -d $NGINX_SITE --non-interactive --keep-until-expiring"
+  certbot --nginx -d "$NGINX_SITE" --non-interactive --keep-until-expiring --agree-tos \
+    && ok "certificate ensured for $NGINX_SITE" || die "certbot failed for $NGINX_SITE"
+  audit "cert $t ($NGINX_SITE)"
+}
+
+usage() {
+  cat <<EOF
+mythos-deploy v$VERSION — audited Mythos VPS deployment tool
+usage: sudo mythos-deploy <command> [target] [ref]
+
+  list                    show manageable targets ($TARGETS)
+  status   [target|all]   health of target(s)                (read-only)
+  preflight <target>      validate git + nginx config        (read-only)
+  reload                  validate + graceful nginx reload    (safe, idempotent)
+  deploy   <target> [ref] full deploy: git → nginx -t → reload → health → rollback-on-fail
+  rollback <target>       restore last known-good revision
+  cert     <target>       issue/renew TLS for the target's domain (idempotent)
+  version                 print version
+
+Targets are fixed; unrelated/production sites are never touched.
+EOF
+}
+
+# ---- Dispatch --------------------------------------------------------------
+require_root
+cmd="${1:-usage}"; shift || true
+case "$cmd" in
+  list)      cmd_list ;;
+  status)    cmd_status "${1:-all}" ;;
+  preflight) [ $# -ge 1 ] || die "preflight needs a target"; cmd_preflight "$1" ;;
+  reload)    cmd_reload ;;
+  deploy)    [ $# -ge 1 ] || die "deploy needs a target"; cmd_deploy "$1" "${2:-}" ;;
+  rollback)  [ $# -ge 1 ] || die "rollback needs a target"; cmd_rollback "$1" ;;
+  cert)      [ $# -ge 1 ] || die "cert needs a target"; cmd_cert "$1" ;;
+  version)   say "mythos-deploy $VERSION" ;;
+  usage|-h|--help) usage ;;
+  *) usage; die "unknown command '$cmd'" ;;
+esac
