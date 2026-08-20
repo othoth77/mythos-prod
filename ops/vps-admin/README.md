@@ -75,23 +75,29 @@ prints success unless the health check passed**. Actions are appended to
 
 ## Bootstrap / re-provisioning
 
-The bootstrap is idempotent — safe to re-run to repair drift.
+The bootstrap is idempotent and is now **independent of the temporary staging
+copy** for its audited tool and sudoers source. This prevents the exact failure
+mode where `/tmp/mythos-bootstrap/50-mythosadmin` disappears after an aborted
+run.
 
-1. Seed the staging dir (as `deploy`), from this repo:
-   ```bash
-   mkdir -p /tmp/mythos-bootstrap
-   cp ops/vps-admin/mythos-deploy ops/vps-admin/50-mythosadmin ops/vps-admin/root-hook.sh /tmp/mythos-bootstrap/
-   cp ~/mythosadmin.pub /tmp/mythos-bootstrap/mythosadmin.pub   # owner's mythosadmin public key
-   ```
-2. Run the bootstrap **once as root** (OVH KVM console, or any root shell):
-   ```bash
-   bash /tmp/mythos-bootstrap/root-hook.sh
-   cat /tmp/mythos-bootstrap/result.txt
-   ```
-3. Verify from the owner workstation:
-   ```bash
-   ssh -i ~/.ssh/mythosadmin_ed25519 mythosadmin@51.68.226.211 'sudo mythos-deploy status all'
-   ```
+Preferred owner/KVM path, from the checked-out repository:
+
+```bash
+bash /home/deploy/projects/mythos-prod/ops/vps-admin/root-hook.sh
+```
+
+The script uses the checked-in `mythos-deploy` and `50-mythosadmin`. The public
+key is needed only for first installation; on a re-run it preserves the
+existing `/home/mythosadmin/.ssh/authorized_keys` if the staging public-key
+file is absent. It validates sudoers before installation and exits non-zero on
+failure instead of reporting a false completion.
+
+For a first installation when the account has no key yet, stage the owner's
+public key as `/tmp/mythos-bootstrap/mythosadmin.pub`, then run the same command.
+
+After the bootstrap succeeds, normal administration uses SSH as `mythosadmin`
+and the audited `sudo mythos-deploy` path; KVM is reserved for emergency
+recovery only.
 
 See `docs/AI_HANDOVER.md` → "Permanent VPS administration model" for the full
 runbook including rollback and emergency KVM recovery.
