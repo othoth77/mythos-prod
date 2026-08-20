@@ -59,7 +59,9 @@ fi
 [ -f "$SRC/mythos-deploy" ] || die "missing $SRC/mythos-deploy"
 install -o root -g root -m 0755 "$SRC/mythos-deploy" /usr/local/sbin/mythos-deploy || die "tool install failed"
 install -d -o root -g root -m 0755 /var/lib/mythos-deploy
-install -o root -g root -m 0644 /dev/null /var/log/mythos-deploy.log
+touch /var/log/mythos-deploy.log
+chown root:root /var/log/mythos-deploy.log
+chmod 0644 /var/log/mythos-deploy.log
 log "tool: /usr/local/sbin/mythos-deploy installed ($(sha256sum /usr/local/sbin/mythos-deploy | cut -c1-16)…)"
 
 # 4. Controlled sudo. Validate before install and never leave a broken file.
