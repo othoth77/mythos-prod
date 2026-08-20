@@ -1,7 +1,105 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** CC-SIMPLIFY **COMMAND CENTER — SIMPLIFIED MISSION FORM (AUTO DEFAULTS FOR SKILL/PROVIDER/MODEL/PROFILE/TASK-TYPE, ADVANCED DISCLOSURE, SERVER-SIDE DETERMINISTIC TASK-TYPE INFERENCE FAIL-CLOSED TO generic); DELIVERED VIA PULL REQUEST (PR #47, WITH CC-AUTO-TITLE AND CC-COPY-REPORT).**
+**From:** VPS-PATH **VPS EXECUTION-PATH RESTORATION — BLOCKED: EVERY EXISTING MECHANISM EXHAUSTIVELY TESTED AND CATEGORIZED (SSH NETWORK-BLOCKED; HTTPS TO THE VPS DENIED BY ORGANIZATION EGRESS POLICY, ROUTING AROUND PROHIBITED; NO RUNNER ARCHITECTURE EXISTS; NO CREDENTIALS PRESENT BY DESIGN). MINIMUM OPERATOR ACTIONS DOCUMENTED, INCLUDING A READY-TO-DISPATCH ON-HOST GATE MISSION. POST-PR-#47 MERGED TREE RE-VERIFIED GREEN (CONSOLE 1433/0, E2E 54/0, MOS-v2 GATE PASS).**
+
+## VPS-PATH — execution-path restoration attempt (2026-08-20)
+
+### Stage
+
+Ordered scope: restore a safe VPS execution path, then rerun the VPS
+Final Gate. Executed from this AI session's isolated remote container at
+`origin/main` **`70d3e71`** (owner's merge of PR #47 — parallel
+Command-Center auto-title/simplify/copy-report work). **Preflight
+re-verification of the combined tree after that merge, executed here:
+mos-1 console 1433/0 · mos-e2e-lifecycle 54/0 · MOS-v2 gate SUCCESS —
+the PR #47 + PR #48 title implementations merged cleanly (single
+`autoTitleFromInstruction`, derivation preserved).**
+
+### Access-path discovery — every mechanism, tested or inspected
+
+| Mechanism | Result | Category |
+|---|---|---|
+| SSH `deploy@51.68.226.211` (TCP/22) | Connect timeout (re-verified) | network/firewall — blocked for this environment |
+| SSH client config / keys / known_hosts | `~/.ssh` empty; no key material anywhere; none created | missing credentials (by design — never fabricated) |
+| DNS `os.mythosprod.xyz` / `mythosprod.xyz` | Resolves correctly → 51.68.226.211 | NOT a DNS failure |
+| HTTPS to the VPS (console, apex) | Agent-proxy `CONNECT` → **403** — the destination is not in this session's organization egress policy. Proxy README: "Do not retry or route around it — report the blocked host." NOT routed around. | organization egress policy |
+| GitHub Actions / self-hosted runner | No `.github/workflows`, no runner registration, no runner architecture in the repository | missing runner — provisioning would be NEW infrastructure |
+| Claude Code Remote environments | Only `anthropic_cloud` environments exist; no self-hosted pool on the VPS | missing runner |
+| Coolify | `projects/infrastructure/coolify/environments.json` is credential-free BY DESIGN (per `docs/AUTOMATION_SECURITY_AND_SECRETS.md` §4); deployment-only anyway | no credentials; wrong tool for command execution |
+| OVH / Cloudflare connectors (`projects/infrastructure`) | Credential-gated; no credentials in this environment | missing credentials (by design) |
+| Executor HTTP API / n8n | VPS-loopback only, by architecture | unreachable, correctly so |
+| `mythos-git-push` relay | Pull/report-only; executes no instructions from Git (a load-bearing security property — NOT repurposed) | not an execution path, by design |
+| Prior on-host AI validations | Ran as **missions of the VPS-local mythos-ai-executor**, dispatched by the owner (e.g. `t-20260819223747`, `t-20260820075238`) | EXISTS — owner-dispatched only |
+
+`docs/DEPLOYMENT_READINESS.md` independently corroborates: AI sessions
+have no SSH path; the one VERIFIED channel is owner Windows →
+`deploy@51.68.226.211`.
+
+Nothing was weakened, bypassed, fabricated, or routed around; no
+credential was created; host-key verification and the egress policy were
+respected throughout.
+
+### Gate statuses (order §10 format)
+
+```
+VPS execution path:  BLOCKED
+Access mechanism:    none available to this environment (table above)
+Docker privilege:    BLOCKED — unreachable (finding stands open: deploy ∈ docker)
+Governance:          BLOCKED on-host re-check — last on-host validation showed the
+                     boundary INTACT (key root:mythos-gov 0640, memberless group,
+                     deploy EACCES on key + approvals, zero drift)
+Live OTH-KNOWLEDGE:  BLOCKED — store unprovisioned; fail-closed wiring proven (othk-2w)
+Live E2E:            BLOCKED on-host — proven in-container (mos-e2e-lifecycle 54/0)
+Persistent Memory:   BLOCKED on-host — proven in-container (same suite, full teardown)
+Failure validation:  BLOCKED on-host — container matrix green
+Tests:               merged tree at 70d3e71 re-verified: console 1433/0, E2E 54/0,
+                     MOS-v2 gate SUCCESS; no live suite executable
+```
+
+### Minimum operator actions (choose one path to unblock)
+
+**Option A — zero new infrastructure (uses the existing authorized
+mechanism).** The owner dispatches ONE mission through the Command Center
+(os.mythosprod.xyz), exactly as the previous on-host validations were
+dispatched. Suggested instruction (title auto-derives):
+
+```
+Run the Mythos OS VPS Final Gate read-only checks and report evidence:
+1. Baseline: hostname, git rev-parse HEAD and origin/main, service state
+   (mythos-ai-executor user unit, mythos-git-push timer), id -nG deploy,
+   getent group docker.
+2. Governance: verify governance.key and approvals store are EACCES as
+   deploy; installed relay/verifier/units sha256 vs repo (zero drift).
+3. Knowledge: report config/knowledge.json enabled/store_root state.
+4. Run node tests/mythos-governance-invariant-test.js and
+   node tests/mos-e2e-lifecycle-test.js — the E2E suite hard-refuses on
+   this host by design (registered checkout present): record that refusal
+   as the expected safety behavior, do not override it.
+5. Report exact results; change nothing.
+```
+
+Two actions remain root-only even under Option A (the executor bans sudo):
+`sudo gpasswd -d deploy docker` (then re-run the invariant suite as
+deploy), and provisioning the OTH-KNOWLEDGE store root + owner exports.
+
+**Option B — make future gates AI-executable end-to-end:** either (1) add
+`os.mythosprod.xyz` to this Claude Code session's organization egress
+allowlist AND provide the console credential through an approved secret
+channel (enables live Command-Center E2E from sessions, but never the
+root steps), or (2) provision a self-hosted Claude Code runner/environment
+on the VPS (least-privilege service account, scoped to this repository,
+no secrets in repo, governance boundaries preserved) — the full gate then
+becomes executable as ordered. Both are owner infrastructure decisions;
+neither was performed from here.
+
+### Next stage
+
+NOT M-13. Unblock via Option A or B above, then rerun the VPS Final Gate.
+
+---
+
+**Previously:** CC-SIMPLIFY **COMMAND CENTER — SIMPLIFIED MISSION FORM (AUTO DEFAULTS FOR SKILL/PROVIDER/MODEL/PROFILE/TASK-TYPE, ADVANCED DISCLOSURE, SERVER-SIDE DETERMINISTIC TASK-TYPE INFERENCE FAIL-CLOSED TO generic); DELIVERED VIA PULL REQUEST (PR #47, WITH CC-AUTO-TITLE AND CC-COPY-REPORT).**
 
 ## CC-SIMPLIFY — simplified + automated mission creation (2026-08-20)
 
