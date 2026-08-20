@@ -1108,19 +1108,18 @@ startStub().then(function (stub) {
         req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'gemini' }),
         req(port, '/api/missions/start', 'POST', { title: 'x', instruction: 'y', provider: 'claude-code', unexpected_field: 'z' }),
         req(port, '/api/missions/start', 'POST', { title: 'x', provider: 'claude-code' }),
-        // Auto-title: a missing/empty title with a USABLE instruction now
-        // derives the title from the instruction's first non-empty line
-        // (its own dedicated section, 4d2, proves that path), so the
-        // missing-title rejections here pair the missing/empty title with
-        // an instruction that has no non-empty line to derive from.
-        req(port, '/api/missions/start', 'POST', { provider: 'claude-code' }),
-        req(port, '/api/missions/start', 'POST', { title: '', instruction: '   \n  ', provider: 'claude-code' }),
+        // Automatic title rule: a MISSING or EMPTY title is no longer a
+        // refusal (it derives from the instruction — exercised sequentially
+        // below, where upstream-call order is deterministic). The
+        // provided-but-INVALID title shapes stay explicit refusals.
+        req(port, '/api/missions/start', 'POST', { title: 42, instruction: 'y', provider: 'claude-code' }),
+        req(port, '/api/missions/start', 'POST', { title: new Array(202).join('t'), instruction: 'y', provider: 'claude-code' }),
         req(port, '/api/missions/start', 'POST', {}),
         req(port, '/api/missions/start', 'GET'), // wrong method on the one write path
         req(port, '/api/missions/start', 'DELETE')
       ]).then(function (rr) {
         var okStart = rr[0], badMock = rr[1], badGemini = rr[2], badUnexpectedField = rr[3],
-            noInstr = rr[4], noTitle = rr[5], emptyTitle = rr[6], emptyBody = rr[7],
+            noInstr = rr[4], numberTitle = rr[5], longTitle = rr[6], emptyBody = rr[7],
             wrongGet = rr[8], wrongDelete = rr[9];
 
         eq(okStart.status, 200, 'a valid start succeeds');
@@ -1128,7 +1127,7 @@ startStub().then(function (stub) {
         eq(okStart.json.data.status, 'RUNNING', 'the explicit dispatch made it RUNNING, not just QUEUED');
         eq(okStart.json.data.provider, 'claude-code', 'the provider actually used is echoed back');
 
-        [badMock, badGemini, badUnexpectedField, noInstr, noTitle, emptyTitle, emptyBody].forEach(function (r, i) {
+        [badMock, badGemini, badUnexpectedField, noInstr, numberTitle, longTitle, emptyBody].forEach(function (r, i) {
           eq(r.status, 400, 'invalid start request ' + i + ' is rejected');
           eq(r.json.error, 'bad_request', 'invalid start request ' + i + ' names bad_request');
         });
@@ -1152,6 +1151,74 @@ startStub().then(function (stub) {
            'working_directory is never sent by the console — the executor supplies its own default');
         eq(startCalls[1].url, '/tasks/tk-stub-start-0001/dispatch', 'the second call is the explicit dispatch on the id just created');
         stubPostBodies.length = 0;
+
+        // -----------------------------------------------------------------
+        // Automatic title rule: a mission started WITHOUT a title takes the
+        // first meaningful line of the instruction as its title —
+        // whitespace-normalised, capped at 200 chars, derived
+        // deterministically (no model call) — and the instruction itself is
+        // relayed byte-identical, never rewritten. Run sequentially so each
+        // case's upstream create call can be asserted in isolation.
+        // -----------------------------------------------------------------
+        function startAndReadCreate(payload) {
+          return req(port, '/api/missions/start', 'POST', payload).then(function (r) {
+            var create = stubPostBodies.filter(function (c) { return c.url === '/tasks'; })[0];
+            stubPostBodies.length = 0;
+            return { response: r, create: create };
+          });
+        }
+        var LONG_LINE = new Array(61).join('word '); // 300 chars once normalised
+        return startAndReadCreate({
+          instruction: 'Implement automatic title generation\nwhen the user does not specify one.',
+          provider: 'claude-code'
+        }).then(function (c1) {
+          eq(c1.response.status, 200, 'auto-title: a titleless mission with a valid instruction is accepted');
+          eq(c1.create.body.stage, 'Implement automatic title generation',
+             'auto-title: the title is exactly the first instruction line');
+          eq(c1.create.body.instruction,
+             'Implement automatic title generation\nwhen the user does not specify one.',
+             'auto-title: the original instruction is relayed unchanged — the derived title never replaces or mutates it');
+          return startAndReadCreate({ title: '', instruction: 'Empty-string title\nsecond line', provider: 'claude-code' });
+        }).then(function (c2) {
+          eq(c2.response.status, 200, 'auto-title: an empty-string title is "not provided", not a refusal');
+          eq(c2.create.body.stage, 'Empty-string title', 'auto-title: empty-string title derives from the instruction');
+          return startAndReadCreate({ title: '   \t ', instruction: 'Whitespace-only title case', provider: 'claude-code' });
+        }).then(function (c3) {
+          eq(c3.response.status, 200, 'auto-title: a whitespace-only title is "not provided"');
+          eq(c3.create.body.stage, 'Whitespace-only title case', 'auto-title: whitespace-only title derives from the instruction');
+          return startAndReadCreate({ title: null, instruction: 'Null title case', provider: 'claude-code' });
+        }).then(function (c4) {
+          eq(c4.response.status, 200, 'auto-title: an explicit null title is "not provided"');
+          eq(c4.create.body.stage, 'Null title case', 'auto-title: null title derives from the instruction');
+          return startAndReadCreate({
+            instruction: '\n \n\r\n  Fix   the \t knowledge   sync\t bug \nunaffected detail line',
+            provider: 'claude-code'
+          });
+        }).then(function (c5) {
+          eq(c5.response.status, 200, 'auto-title: leading blank lines are skipped');
+          eq(c5.create.body.stage, 'Fix the knowledge sync bug',
+             'auto-title: the first MEANINGFUL line is used, whitespace runs normalised to single spaces');
+          return startAndReadCreate({ instruction: LONG_LINE + '\nrest', provider: 'claude-code' });
+        }).then(function (c6) {
+          eq(c6.response.status, 200, 'auto-title: an over-long first line is accepted');
+          // The derivation caps at 200 chars and the relay's own
+          // stage-trim then drops the trailing space the cap cut mid-word,
+          // so the exact deterministic value is the double-trimmed slice.
+          eq(c6.create.body.stage, LONG_LINE.replace(/\s+/g, ' ').trim().slice(0, 200).trim(),
+             'auto-title: the derived title is capped at the same 200-char constraint an explicit title has');
+          ok(c6.create.body.stage.length <= 200 && c6.create.body.stage.length >= 195,
+             'auto-title: the cap holds at the 200-char storage constraint (got ' + c6.create.body.stage.length + ')');
+          return startAndReadCreate({ title: 'Explicit title wins', instruction: 'Derived would differ', provider: 'claude-code' });
+        }).then(function (c7) {
+          eq(c7.response.status, 200, 'auto-title: an explicit title is still accepted');
+          eq(c7.create.body.stage, 'Explicit title wins', 'auto-title: a provided title is used verbatim, never overridden by derivation');
+          return req(port, '/api/missions/start', 'POST', { instruction: '   \n \t \n ', provider: 'claude-code' });
+        }).then(function (blankInstr) {
+          eq(blankInstr.status, 400, 'auto-title: a titleless mission with a whitespace-only instruction is refused on the INSTRUCTION check');
+          ok(/instruction/.test(blankInstr.json.detail), 'auto-title: the refusal names the instruction, not the title');
+          eq(stubPostBodies.length, 0, 'auto-title: the refused blank-instruction request never reached upstream');
+          return Promise.resolve();
+        }).then(function () {
 
         // -----------------------------------------------------------------
         // MOS-2.1: execution lifecycle -- detail, report, cancel
@@ -1241,6 +1308,7 @@ startStub().then(function (stub) {
           s.close();
           stub.close();
         });
+        }); // end of the sequential auto-title chain
       });
     });
     }); // end of the signed-in phase opened by the unauthenticated matrix
@@ -1487,8 +1555,8 @@ startStub().then(function (stub) {
           eq(r.status, 400, 'auto-title rejection case ' + i + ' is rejected with 400');
           eq(r.json.error, 'bad_request', 'auto-title rejection case ' + i + ' names bad_request');
         });
-        ok(/title/.test(bothEmpty.json.detail), 'auto-title D: empty title + empty instruction keeps the existing title rejection — no title is invented');
-        ok(/title/.test(wsInstruction.json.detail), 'auto-title D: an instruction with no non-empty line derives nothing — the existing title rejection applies');
+        ok(/instruction/.test(bothEmpty.json.detail), 'auto-title D: empty title + empty instruction is refused on the instruction check — no title is invented');
+        ok(/instruction/.test(wsInstruction.json.detail), 'auto-title D: an instruction with no non-empty line is refused on the instruction check — nothing is derived');
         ok(/title/.test(numTitle.json.detail), 'auto-title: a non-string title is still rejected, never silently replaced');
 
         var creates = stubPostBodies.filter(function (c) { return c.url === '/tasks'; });

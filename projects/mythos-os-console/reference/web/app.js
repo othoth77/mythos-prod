@@ -421,7 +421,7 @@
 
     var titleInput = el('input', {
       className: 'mythos-input',
-      attrs: { type: 'text', id: 'mission-title', maxlength: '200', placeholder: 'Short mission title (optional — defaults to the instruction’s first line)', autocomplete: 'off' }
+      attrs: { type: 'text', id: 'mission-title', maxlength: '200', placeholder: 'Short mission title (optional — first instruction line is used)', autocomplete: 'off' }
     });
     var instructionInput = el('textarea', {
       className: 'mythos-input mythos-textarea',
@@ -573,10 +573,12 @@
 
     startBtn.addEventListener('click', function () {
       clear(feedback);
+      // Title is optional (automatic title rule): the server derives it
+      // from the first meaningful instruction line when none is given.
       var title = titleInput.value.trim();
       var instruction = instructionInput.value.trim();
       if (!instruction) {
-        feedback.appendChild(statePanel('⚠', 'Missing fields', 'Instruction is required.', true));
+        feedback.appendChild(statePanel('⚠', 'Missing instruction', 'Instruction is required.', true));
         return;
       }
       startBtn.disabled = true;
@@ -588,10 +590,8 @@
       var chosenProfile = (profileList.length && profileSelect.value) ? profileSelect.value : undefined;
       var isAuto = providerSelect.value === 'auto';
       var payload = {
-        // A blank title is omitted entirely: the server derives the mission
-        // title from the instruction's first non-empty line (its
-        // deriveTitleFromInstruction is the single owner of that logic —
-        // never duplicated here).
+        // An empty title is omitted entirely, so the server's own
+        // automatic-title derivation applies (never an empty string).
         title: title || undefined,
         instruction: instruction,
         provider: providerSelect.value,
