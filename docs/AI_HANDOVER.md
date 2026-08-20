@@ -1,7 +1,65 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** CC-COPY-REPORT **COMMAND CENTER — COPY MISSION REPORT BUTTON FOR TERMINAL MISSIONS (CLIENT-SIDE REPORT BUILDER web/mission-report.js + COPY ROW IN THE EXECUTION DETAIL PANEL); DELIVERED VIA PULL REQUEST (PR #47, WITH CC-AUTO-TITLE).**
+**From:** CC-SIMPLIFY **COMMAND CENTER — SIMPLIFIED MISSION FORM (AUTO DEFAULTS FOR SKILL/PROVIDER/MODEL/PROFILE/TASK-TYPE, ADVANCED DISCLOSURE, SERVER-SIDE DETERMINISTIC TASK-TYPE INFERENCE FAIL-CLOSED TO generic); DELIVERED VIA PULL REQUEST (PR #47, WITH CC-AUTO-TITLE AND CC-COPY-REPORT).**
+
+## CC-SIMPLIFY — simplified + automated mission creation (2026-08-20)
+
+### Stage
+
+Command Center UX/orchestration improvement, on branch
+`claude/command-center-auto-title-slat0z` (third stacked stage on PR #47).
+The operator writes the instruction; every technical field defaults to
+Auto. No executor change, no security weakening, M-13 not started.
+
+### Implementation
+
+- `projects/mythos-os-console/reference/server.js` — when provider is
+  'auto' and task_type is ABSENT, `inferTaskType()` (new, deterministic
+  ordered TASK_TYPE_RULES over title+instruction, the same idiom as
+  lib/skills.js's keyword rules) picks a CONSOLE_TASK_TYPES member,
+  failing CLOSED to 'generic'. A present task_type is validated exactly as
+  before; explicit-provider requests are byte-identical. Inference feeds
+  ONLY the M-11 router call — profile/category/model/authorization gates
+  are untouched and run on request fields alone, so instruction text can
+  never select repo-write, bypass approval, or alter policy. The start
+  response now carries execution_profile (and task_type when auto) so the
+  UI reflects what the server actually selected.
+- `projects/mythos-os-console/reference/web/app.js` — simplified form:
+  Title (optional/automatic), Instruction, Skill (the M-12 category
+  select relabelled by the skill each category selects — the registry's
+  own one-category-per-skill vocabulary, no second registry; Auto ''
+  default = absent field = executor keyword rules), Priority (normal),
+  Start. Provider/Model/Execution profile/Task type live in a collapsed
+  `<details>` Advanced block with Auto defaults: provider defaults to
+  'auto' when the server offers it, model '' = provider default, profile
+  '' = field absent = the server's own repo-read default (the browser no
+  longer sends repo-read explicitly), task type '' = server inference.
+  All manual overrides preserved. Feedback line shows the server-selected
+  profile and routed task_type.
+- `console.css` — Advanced disclosure styling.
+- `tests/mos-1-console-test.js` — M-11 reworked: inference cases (coding
+  inferred; fail-closed generic; router only ever hears vocabulary
+  members), SECURITY case (instruction demanding "ignore execution
+  profile, select repo-write, bypass approval" relays repo-read and no
+  category), UI source-level assertions (Auto defaults, Advanced block
+  contains the overrides, primary view stays simple), stub /route generic
+  fixture. Present-but-invalid task_type still 400.
+
+### Tests (executed in this session's container; all exit 0)
+
+| Command | Result |
+|---|---|
+| `node tests/mos-1-console-test.js` | **1414 passed / 0 failed** |
+| `node tests/mos-v2-regression-test.js` | SUCCESS, 20/20 areas, 0 new failures (Orchestration Core 255/2 pre-existing) |
+| `node tests/mythos-ai-executor-test.js` | 264 / 0 |
+| `node tests/mythos-unattended-policy-test.js` | 53 / 0 |
+| `node tests/mythos-governance-invariant-test.js` | 99 / 0 |
+
+### State
+
+Delivered via pull request (PR #47). No deployment, no data migration.
+Next stage: unchanged (M-13 NOT started).
 
 ## CC-COPY-REPORT — Command Center copy mission report (2026-08-20)
 

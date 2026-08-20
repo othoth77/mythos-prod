@@ -604,6 +604,40 @@ var CONSOLE_PRIORITIES = ['high', 'normal', 'low'];
 var CONSOLE_TASK_TYPES = ['inspection', 'research', 'analysis', 'design', 'coding',
   'testing', 'review', 'integration', 'validation', 'documentation',
   'reporting', 'marketing', 'generic'];
+
+// Simplified mission flow: when the operator picks 'auto' and names no
+// task_type, the type is inferred HERE, server-side, from the title +
+// instruction text -- the same ordered keyword-rule idiom the executor's
+// own lib/skills.js uses for skill selection. First match wins, every
+// answer is a member of CONSOLE_TASK_TYPES, and nothing matching fails
+// CLOSED to 'generic' -- the vocabulary's own documented catch-all (the
+// skill registry defines generic as "the default when no more specific
+// rule matched"). This inference feeds ONLY the provider router (M-11):
+// it never touches execution_profile, task_category, model or any
+// authorization check, so an instruction can influence WHICH provider is
+// asked to run it, never what that run is allowed to do -- the M-04
+// profile gate and MOS_ALLOW_REPO_WRITE run exactly as before, on the
+// operator's explicit field or the repo-read default, blind to this text.
+var TASK_TYPE_RULES = [
+  { type: 'testing', re: /\btests?\b|\btesting\b|regression|coverage/ },
+  { type: 'review', re: /\breview\b|\baudit\b|pull request/ },
+  { type: 'documentation', re: /\bdocument|\bdocs\b|readme|changelog/ },
+  { type: 'validation', re: /validat|\bverify\b|verification/ },
+  { type: 'research', re: /\bresearch\b|investigate|\bsurvey\b|\bcompare\b/ },
+  { type: 'design', re: /\bdesign\b|architect/ },
+  { type: 'coding', re: /implement|refactor|\bfix\b|\bbug\b|\bbuild\b|\bcode\b|\bcoding\b|\bfeature\b/ },
+  { type: 'analysis', re: /analy[sz]/ },
+  { type: 'inspection', re: /\binspect|read-only/ },
+  { type: 'reporting', re: /\breport\b|summar/ }
+];
+
+function inferTaskType(title, instruction) {
+  var text = (String(title || '') + ' ' + String(instruction || '')).toLowerCase();
+  for (var i = 0; i < TASK_TYPE_RULES.length; i++) {
+    if (TASK_TYPE_RULES[i].re.test(text)) return TASK_TYPE_RULES[i].type;
+  }
+  return 'generic';
+}
 // M-12: the runtime skill registry's own category vocabulary
 // (projects/mythos-ai-executor/config/skills.json's categories, one per
 // skill), hardcoded here rather than fetched over a network call — the
@@ -727,10 +761,19 @@ function handleStartMission(req, res) {
     // field it thinks does something on a path where it does not.
     var taskType = null;
     if (isAuto) {
-      taskType = payload.task_type;
-      if (typeof taskType !== 'string' || CONSOLE_TASK_TYPES.indexOf(taskType) === -1) {
-        return rejectStart(req, res, 'task_type',
-          'task_type is required when provider is "auto" and must be one of: ' + CONSOLE_TASK_TYPES.join(', '));
+      // Simplified flow: an ABSENT task_type is inferred deterministically
+      // from the title + instruction (TASK_TYPE_RULES above, fail-closed to
+      // 'generic'). A PRESENT one is validated exactly as before -- the
+      // operator's explicit choice is never replaced, and an unrecognised
+      // value is still refused, never coerced.
+      if (payload.task_type === undefined || payload.task_type === null) {
+        taskType = inferTaskType(title, instruction);
+      } else {
+        taskType = payload.task_type;
+        if (typeof taskType !== 'string' || CONSOLE_TASK_TYPES.indexOf(taskType) === -1) {
+          return rejectStart(req, res, 'task_type',
+            'task_type must be one of: ' + CONSOLE_TASK_TYPES.join(', '));
+        }
       }
       // The router owns the provider/model pairing when auto-routing: a
       // request that ALSO names a model is contradictory, not a hint, and
@@ -863,7 +906,14 @@ function handleStartMission(req, res) {
           if (routed) detail.routed = true;
           audit.record({ action: 'mission.start', outcome: 'accepted', actor: auth.sessionIdFrom(req),
                          task_id: taskId, detail: detail });
-          var data = { task_id: taskId, status: status, provider: finalProvider, model: finalModel || null };
+          // Phase-5 honesty: the browser shows what the SERVER actually
+          // selected, not what the form assumed -- the profile that will
+          // govern the run and, for an auto-routed mission, the task_type
+          // the router was actually asked about (operator-named or
+          // inferred, the same field either way).
+          var data = { task_id: taskId, status: status, provider: finalProvider, model: finalModel || null,
+                       execution_profile: profile };
+          if (isAuto) data.task_type = taskType;
           if (note) data.note = note;
           return ok(res, data);
         }
