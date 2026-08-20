@@ -1,0 +1,75 @@
+{
+  "format": "othk-seed",
+  "version": 1,
+  "title": "Infrastructure / VPS privilege topology and root recovery path — verification of 2026-08-20",
+  "source_class": "owner-report",
+  "source_collection": "infrastructure-2026-08-20-vps-access",
+  "source_reference": "owner-report/infrastructure-2026-08-20-vps-access/operator-session",
+  "captured_at": "2026-08-20T00:00:00Z",
+  "observed_at": "2026-08-20T00:00:00Z",
+  "actor": "owner",
+  "confidence": "EXPLICIT",
+  "entities": [
+    { "key": "vps", "entity_type": "host", "name": "vps-51.68.226.211", "metadata": { "ip": "51.68.226.211", "role": "production VPS" } },
+    { "key": "ubuntu-account", "entity_type": "account", "name": "ubuntu@vps-51.68.226.211", "metadata": { "user": "ubuntu", "role": "interactive session user" } },
+    { "key": "deploy-account", "entity_type": "account", "name": "deploy@vps-51.68.226.211", "metadata": { "user": "deploy", "role": "deployment account" } },
+    { "key": "root-account", "entity_type": "account", "name": "root@vps-51.68.226.211", "metadata": { "user": "root" } },
+    { "key": "ovh-kvm", "entity_type": "system", "name": "ovh-kvm-console", "metadata": { "provider": "OVH", "access": "OVH Manager KVM console" } }
+  ],
+  "observations": [
+    {
+      "key": "obs-ubuntu-no-sudo",
+      "statement": "TEST (operator session, 2026-08-20): the ubuntu account on the VPS has no sudo. This supersedes the earlier recorded single grant (root NOPASSWD /usr/local/sbin/mythos-logs, MOS-1.6) and the 'current state' table of docs/MYTHOS_SUDO_RESTRICTION_PROPOSAL.md, which is now historical.",
+      "entities": ["ubuntu-account", "vps"],
+      "tags": ["TEST-RESULT", "CAPABILITY-LIMITATION", "infrastructure"]
+    },
+    {
+      "key": "obs-ubuntu-no-su-deploy",
+      "statement": "TEST (operator session, 2026-08-20): ubuntu cannot su to deploy — no password path and no sudo path. Consistent with the MOS-1.6/MOS-1.7 boundary investigation recorded in oth-knowledge PROBLEMS.md.",
+      "entities": ["ubuntu-account", "deploy-account", "vps"],
+      "tags": ["TEST-RESULT", "CAPABILITY-LIMITATION", "infrastructure"]
+    },
+    {
+      "key": "obs-root-ssh-disabled",
+      "statement": "TEST (operator session, 2026-08-20): direct root SSH to the VPS is disabled.",
+      "entities": ["root-account", "vps"],
+      "tags": ["TEST-RESULT", "CAPABILITY-LIMITATION", "infrastructure"]
+    },
+    {
+      "key": "obs-kvm-root",
+      "statement": "TEST (operator session, 2026-08-20): the OVH KVM console (via OVH Manager) provides root access to the VPS, and root can su - deploy. This is the verified root recovery path.",
+      "entities": ["ovh-kvm", "root-account", "deploy-account", "vps"],
+      "tags": ["TEST-RESULT", "infrastructure", "recovery"]
+    }
+  ],
+  "facts": [
+    {
+      "key": "fact-ubuntu-no-sudo",
+      "statement": "VERIFIED FACT: as of 2026-08-20 the ubuntu account on the production VPS has no sudo and cannot escalate to deploy by any path.",
+      "entities": ["ubuntu-account", "vps"],
+      "evidence_keys": ["obs-ubuntu-no-sudo", "obs-ubuntu-no-su-deploy"],
+      "tags": ["VERIFIED-FACT", "CAPABILITY-LIMITATION", "infrastructure"]
+    },
+    {
+      "key": "fact-root-ssh-disabled",
+      "statement": "VERIFIED FACT: direct root SSH to the production VPS is disabled; root is reachable only through the OVH KVM console.",
+      "entities": ["root-account", "vps", "ovh-kvm"],
+      "evidence_keys": ["obs-root-ssh-disabled", "obs-kvm-root"],
+      "tags": ["VERIFIED-FACT", "infrastructure"]
+    },
+    {
+      "key": "fact-recovery-path",
+      "statement": "VERIFIED FACT: the root recovery path to the deploy account is: OVH Manager -> KVM console -> log in as root -> su - deploy -> work in /home/deploy/projects/mythos-prod. The non-emergency channel remains owner-machine SSH as deploy (see infrastructure-2026-08-19).",
+      "entities": ["ovh-kvm", "root-account", "deploy-account", "vps"],
+      "evidence_keys": ["obs-kvm-root"],
+      "tags": ["VERIFIED-FACT", "infrastructure", "recovery", "deployment"]
+    },
+    {
+      "key": "fact-deploy-owns-checkout",
+      "statement": "VERIFIED FACT: the deploy account owns /home/deploy/projects/mythos-prod, the production checkout of othoth77/mythos-prod on the VPS.",
+      "entities": ["deploy-account", "vps"],
+      "evidence_keys": ["obs-kvm-root"],
+      "tags": ["VERIFIED-FACT", "infrastructure", "deployment"]
+    }
+  ]
+}

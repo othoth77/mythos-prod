@@ -1,7 +1,39 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** STC-1 **MYTHOS STATUS CENTER BUILT — FULL-ECOSYSTEM AUDIT (668 COMMITS, 53 PRS, 23 REPOSITORIES, COMPLETE HANDOVER + DOCS RECONCILIATION), MACHINE-READABLE EVIDENCE MODEL, READ-ONLY REVIEW ENGINE WITH IMMUTABLE SNAPSHOTS + COMPARISON + REPOSITORY DISCOVERY, MYTHOS-DESIGN-SYSTEM UI AT sites/status.mythosprod.xyz, HEALTH ENDPOINT, STC-1 SUITE 73/0, BROWSER RENDER CHECK 18/0, MOS-v2 GATE SUCCESS (0 NEW FAILURES). DEPLOYMENT = OWNER DNS + OPERATOR RUNBOOK.**
+**From:** VPS-ACCESS **VPS PRIVILEGE TOPOLOGY AND ROOT RECOVERY PATH RECORDED (ubuntu: no sudo, no su-to-deploy; direct root SSH disabled; OVH KVM → root → `su - deploy`; deploy owns /home/deploy/projects/mythos-prod). CANONICAL RECORD = othoth77/oth-knowledge INFRASTRUCTURE.md §5 + seed infrastructure-2026-08-20-vps-access.json. DOCS-ONLY — NO VPS/SSH CONFIGURATION CHANGED.**
+
+## VPS-ACCESS — privilege topology and root recovery path recorded (2026-08-20)
+
+**Docs/knowledge-only stage. No VPS permission, SSH, or sudo configuration
+was changed.** The owner's operator session of 2026-08-20 established the
+complete VPS access map; it is now persisted so no future session
+re-diagnoses it:
+
+- `ubuntu` has **no sudo** (supersedes the single `mythos-logs` grant
+  recorded at MOS-1.6 and the "current state" table of
+  `docs/MYTHOS_SUDO_RESTRICTION_PROPOSAL.md`, which is now historical).
+- `ubuntu` **cannot `su` to `deploy`** (boundary already investigated in
+  MOS-1.6/MOS-1.7 — do not re-test the dead ends listed there).
+- **Direct root SSH is disabled.**
+- The **OVH KVM console** (OVH Manager) provides **root** access; root
+  **can** `su - deploy`. Recovery path:
+  `OVH Manager → KVM → root → su - deploy → /home/deploy/projects/mythos-prod`.
+- `deploy` owns `/home/deploy/projects/mythos-prod` (production checkout).
+
+**Canonical record (read that, not this, for current truth):**
+`othoth77/oth-knowledge` → `INFRASTRUCTURE.md` **§5** ("VPS privilege
+topology and root recovery path — verified 2026-08-20"). Structured seed
+added in this repo:
+`projects/oth-knowledge/seeds/infrastructure-2026-08-20-vps-access.json`
+(same format as the 2026-08-19 seed). The non-emergency deployment
+channel remains owner-machine `ssh deploy@51.68.226.211`
+(oth-knowledge INFRASTRUCTURE.md §1); nothing about AI-session access
+changed (§2 still applies — no transport, no credentials).
+
+---
+
+**Previous stage:** STC-1 **MYTHOS STATUS CENTER BUILT — FULL-ECOSYSTEM AUDIT (668 COMMITS, 53 PRS, 23 REPOSITORIES, COMPLETE HANDOVER + DOCS RECONCILIATION), MACHINE-READABLE EVIDENCE MODEL, READ-ONLY REVIEW ENGINE WITH IMMUTABLE SNAPSHOTS + COMPARISON + REPOSITORY DISCOVERY, MYTHOS-DESIGN-SYSTEM UI AT sites/status.mythosprod.xyz, HEALTH ENDPOINT, STC-1 SUITE 73/0, BROWSER RENDER CHECK 18/0, MOS-v2 GATE SUCCESS (0 NEW FAILURES). DEPLOYMENT = OWNER DNS + OPERATOR RUNBOOK.**
 
 ## STC-MERGE — Status Center merged to main (2026-08-20)
 
