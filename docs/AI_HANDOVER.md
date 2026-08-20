@@ -1,7 +1,82 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** RUNNER-PKG **MYTHOS OS FINAL LIVE GATE — SELF-HOSTED RUNNER PACKAGE REPOSITORY-COMPLETE (LEAST-PRIVILEGE PROVISIONING SCRIPT + HARDENED SYSTEMD UNIT + SECURITY VERIFICATION + READ-ONLY workflow_dispatch GATE WORKFLOW ON LABEL mythos-vps). LIVE GATE REMAINS BLOCKED: NO AI EXECUTION PATH TO THE VPS EXISTS (RE-VERIFIED — SSH TIMEOUT, HTTPS 403 BY ORG EGRESS POLICY, NO SELF-HOSTED CLAUDE ENVIRONMENT). ONE OPERATOR ROOT ACTION (RUN provision-runner.sh ON THE VPS) UNBLOCKS EVERY LIVE SECTION. MERGED TREE AT b6e52d5 + PACKAGE RE-VERIFIED: GOVERNANCE 99/0, MOS-v2 GATE SUCCESS. NO SECRETS, M-13 NOT STARTED.**
+**From:** RUNNER-FIX **VPS RUNNER PROVISIONING PERMISSION FIX — the first live run of provision-runner.sh on the VPS failed at extraction (`tar ... Cannot open: Permission denied`): the temp dir came from `mktemp -d` as root (0700 root-owned) so the unprivileged `sudo -u mythos-runner tar` could not open the tarball inside it. FIXED by chowning the temp dir + tarball to mythos-runner before extraction (no mode widening, no root extraction), plus full rerun-safety for the partial state the failure left (account adopted + password re-locked every run, download/registration tracked independently, config.sh --replace, token only required while unregistered). New regression suite tests/vps-runner-provisioning-test.js 25/0; governance 99/0; MOS-v2 gate SUCCESS. VPS still holds the partial install (account created, nothing extracted, unregistered) — NO manual cleanup needed, operator reruns the same install command with a fresh RUNNER_TOKEN from a checkout containing this fix. M-13 NOT STARTED.**
+
+## VPS runner provisioning permission fix (2026-08-20)
+
+### Stage
+
+FINAL LIVE GATE — provisioning-script fix, on branch
+`claude/vps-runner-provisioning-perms-xbbao2`, stacked on PR #53's
+branch `claude/mythos-vps-runner-finalize-5rapsk` (032c415).
+
+### Exact blocker observed on the VPS
+
+First live run of `provision-runner.sh` (RUNNER_VERSION=2.336.0,
+checksum verified OK, `mythos-runner` account created OK) failed at
+step 2/6:
+
+```
+tar (child): /tmp/tmp.IlWxm7GTDP/actions-runner-linux-x64-2.336.0.tar.gz: Cannot open: Permission denied
+```
+
+**Root cause:** `TMP="$(mktemp -d)"` runs as root → `/tmp/tmp.XXXX` is
+root-owned mode 0700. The extraction deliberately runs unprivileged
+(`sudo -u mythos-runner tar -xzf "$TMP/$TARBALL" ...`), and
+`mythos-runner` can neither traverse the directory nor open the tarball.
+The VPS was left with a partial install: account + `/opt/mythos-gh-runner`
+exist; no binaries, no registration, no unit.
+
+### Fix (least-privilege preserved)
+
+`projects/infrastructure/github-runner/provision-runner.sh`:
+
+- chown the temp dir and the downloaded tarball to `mythos-runner`
+  (mode kept 0700) after the checksum passes and **before** the
+  unprivileged `tar`. Extraction still never runs as root; no chmod 777,
+  no docker group, no sudo grant, unit unchanged (NoNewPrivileges=yes).
+- Rerun-safety for the exact partial state left on the VPS: existing
+  `mythos-runner` adopted only if its home is `/opt/mythos-gh-runner`
+  (else hard-fail), password locked unconditionally on every run,
+  `chown -R` of the runner home before extraction clears any root-owned
+  fragments, download (`run.sh`) and registration (`.runner`) tracked
+  independently so any partial state resumes correctly, `config.sh
+  --replace` survives a stale GitHub-side registration, and
+  `RUNNER_TOKEN` is only demanded while the runner is unregistered.
+
+### Validation
+
+- `bash -n` clean on both scripts; workflow YAML parses.
+- NEW `tests/vps-runner-provisioning-test.js`: **25/0** — regression
+  pins the chown-before-unprivileged-tar ordering, rejects forbidden
+  remediations (chmod 777, root extraction, docker group, sudoers,
+  token echo), and asserts all §3–§4 security invariants.
+- `tests/mythos-governance-invariant-test.js`: **99/0**.
+- `tests/mos-v2-regression-test.js`: **SUCCESS, 20/20 areas, 0 new
+  failures** (1 known pre-existing VPS-only suite).
+
+### Operator action to unblock the live gate (unchanged shape)
+
+No manual cleanup of the partial install. From a VPS checkout containing
+this fix, with a **fresh** registration token (they expire ~1 h):
+
+```bash
+cd /home/deploy/projects/mythos-prod/projects/infrastructure/github-runner
+sudo RUNNER_TOKEN=<fresh-token> RUNNER_VERSION=2.336.0 \
+     RUNNER_SHA256=04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d \
+     bash provision-runner.sh
+```
+
+(RUNNER_VERSION/SHA256 as displayed on the GitHub "New self-hosted
+runner" page at rerun time — re-copy them if GitHub now shows a newer
+version.)
+
+M-13 NOT started.
+
+---
+
+**Previous entry — From:** RUNNER-PKG **MYTHOS OS FINAL LIVE GATE — SELF-HOSTED RUNNER PACKAGE REPOSITORY-COMPLETE (LEAST-PRIVILEGE PROVISIONING SCRIPT + HARDENED SYSTEMD UNIT + SECURITY VERIFICATION + READ-ONLY workflow_dispatch GATE WORKFLOW ON LABEL mythos-vps). LIVE GATE REMAINS BLOCKED: NO AI EXECUTION PATH TO THE VPS EXISTS (RE-VERIFIED — SSH TIMEOUT, HTTPS 403 BY ORG EGRESS POLICY, NO SELF-HOSTED CLAUDE ENVIRONMENT). ONE OPERATOR ROOT ACTION (RUN provision-runner.sh ON THE VPS) UNBLOCKS EVERY LIVE SECTION. MERGED TREE AT b6e52d5 + PACKAGE RE-VERIFIED: GOVERNANCE 99/0, MOS-v2 GATE SUCCESS. NO SECRETS, M-13 NOT STARTED.**
 
 ## MYTHOS OS FINAL LIVE GATE — self-hosted runner package (2026-08-20)
 
