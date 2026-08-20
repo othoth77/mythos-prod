@@ -145,6 +145,7 @@
     ownerActions: {
       'Dispatch the VPS Final Gate mission (Option A)': 'إرسال مهمة الفحص النهائي للخادم حتى يكتمل آخر تحقق شامل.',
       'Remove deploy from the docker group': 'سحب صلاحية زائدة من حساب النشر على الخادم — خطوة أمان مهمة.',
+      'Remove deploy from the docker group — COMPLETED 2026-08-20': 'سحب الصلاحية الزائدة من حساب النشر — أُنجز.',
       'Deploy the Status Center — COMPLETED 2026-08-20 (vhost + certificate deployed, LIVE)': 'نشر هذه الصفحة — أُنجز، وهي الآن تعمل فعلياً.',
       'Provision the OTH Knowledge private store': 'تجهيز مخزن المعرفة الخاص على الخادم.',
       'Produce authorized data exports (Takeout / Gemini / NotebookLM)': 'توفير نسخ مصرّح بها من البيانات الشخصية لتغذية طبقة المعرفة.',
@@ -154,6 +155,7 @@
     },
     nextActions: {
       'Dispatch the Option A VPS Final Gate mission': 'إرسال مهمة الفحص النهائي للخادم.',
+      'Provision /home/deploy/othk-store and activate config/knowledge.json': 'تجهيز مجلد مخزن المعرفة على الخادم، ثم تفعيل الإعداد الخاص به.',
       'sudo gpasswd -d deploy docker, then re-run the governance invariant suite': 'تنفيذ أمر سحب الصلاحية الزائدة من حساب النشر، ثم إعادة تشغيل اختبارات الحوكمة للتأكد.',
       'Provision /home/deploy/othk-store and flip config/knowledge.json': 'تجهيز مجلد مخزن المعرفة على الخادم، ثم تفعيل الإعداد الخاص به.',
       'Execute the MOS-v2 Phase-B deployment runbook': 'تنفيذ خطوات نشر لوحة التحكم كما هي موثّقة.',
@@ -198,6 +200,8 @@
     return n;
   }
   function arState(status) { return arEl(AR.states[status]); }
+  // Append-if-present: an unknown key yields no Arabic line, never a crash.
+  function arPut(parent, node) { if (node) parent.appendChild(node); }
   // "N of M recorded stages DONE" → simple Arabic with the SAME numbers
   // (numbers are reused verbatim, never recomputed or altered).
   function arTrackExplanation(explanation) {
@@ -244,8 +248,8 @@
         card.appendChild(row);
       });
       if (p.headline) card.appendChild(el('p', { text: p.headline }));
-      card.appendChild(arEl(AR.projects[p.id]));
-      card.appendChild(arState(p.status));
+      arPut(card, arEl(AR.projects[p.id]));
+      arPut(card, arState(p.status));
       root.appendChild(card);
     });
   }
@@ -268,7 +272,7 @@
       var li = el('li');
       li.appendChild(pill(s));
       li.appendChild(txt(' ' + meaning[s]));
-      li.appendChild(arState(s));
+      arPut(li, arState(s));
       ul.appendChild(li);
     });
     root.appendChild(ul);
@@ -278,7 +282,7 @@
       var ol = el('ol');
       d.source_hierarchy.forEach(function (s) {
         var li2 = el('li', { text: s.source + ' — ' + s.authority });
-        li2.appendChild(arEl(AR.sources[s.source]));
+        arPut(li2, arEl(AR.sources[s.source]));
         ol.appendChild(li2);
       });
       root.appendChild(ol);
@@ -325,7 +329,7 @@
       var tr = el('tr', { class: 'rowlink', tabindex: '0' });
       tr.appendChild(el('td', {}, [el('strong', { text: p.name }), el('br'), el('span', { class: 'mono', text: p.id })]));
       var tdP = el('td', { text: p.purpose });
-      tdP.appendChild(arEl(AR.projects[p.id]));
+      arPut(tdP, arEl(AR.projects[p.id]));
       tr.appendChild(tdP);
       var tdS = el('td'); tdS.appendChild(pill(p.status)); tr.appendChild(tdS);
       tr.appendChild(el('td', { class: 'mono', text: (p.maturity || '').replace(/_/g, ' ') }));
@@ -357,9 +361,9 @@
     var body = byId('drawer-body');
     clear(body);
     body.appendChild(pill(p.status));
-    body.appendChild(arState(p.status));
+    arPut(body, arState(p.status));
     body.appendChild(el('p', { text: p.purpose }));
-    body.appendChild(arEl(AR.projects[p.id]));
+    arPut(body, arEl(AR.projects[p.id]));
     if (p.headline) body.appendChild(el('p', { text: p.headline }));
 
     var kv = el('dl', { class: 'kv' });
@@ -456,8 +460,8 @@
       }
       card.appendChild(row);
       if (pr.explanation) card.appendChild(el('p', { text: pr.explanation }));
-      if (typeof pr.percent === 'number') card.appendChild(arTrackExplanation(pr.explanation));
-      else card.appendChild(arEl(AR.misc.notCalculable));
+      if (typeof pr.percent === 'number') arPut(card, arTrackExplanation(pr.explanation));
+      else arPut(card, arEl(AR.misc.notCalculable));
       if (t.note) card.appendChild(el('p', { text: t.note }));
       var open = el('button', { type: 'button', text: 'Stages (' + (t.stages || []).length + ')' });
       open.addEventListener('click', function () {
@@ -482,7 +486,7 @@
       li.appendChild(el('strong', { text: pth.name + ' ' }));
       li.appendChild(pill(pth.status));
       if (pth.note) li.appendChild(txt(' — ' + pth.note));
-      li.appendChild(arEl(AR.paths[pth.name]) || arState(pth.status));
+      arPut(li, arEl(AR.paths[pth.name]) || arState(pth.status));
       ul.appendChild(li);
     });
     root.appendChild(ul);
@@ -565,7 +569,7 @@
     if (!entries || !entries.length) return null;
     var card = el('div', { class: 'card' });
     card.appendChild(el('h3', { text: title + ' (' + entries.length + ')' }));
-    card.appendChild(arEl(AR.changeGroups[title]));
+    arPut(card, arEl(AR.changeGroups[title]));
     var ul = el('ul', { class: 'plain' });
     entries.forEach(function (e) { ul.appendChild(el('li', { text: fmt(e) })); });
     card.appendChild(ul);
@@ -612,7 +616,7 @@
         var li = el('li');
         li.appendChild(el('strong', { text: '[' + b.priority + '] ' + b.title + ' ' }));
         li.appendChild(pill(b.status));
-        li.appendChild(arEl(AR.blockers[b.id]) || arState(b.status));
+        arPut(li, arEl(AR.blockers[b.id]) || arState(b.status));
         var kv = el('dl', { class: 'kv' });
         [['Type', b.type], ['Project', b.project], ['Owner', b.owner], ['Impact', b.impact],
          ['Required input', b.required_input], ['How to unblock', b.unblock],
@@ -634,7 +638,7 @@
       var li = el('li');
       li.appendChild(el('strong', { text: a.what + ' ' }));
       li.appendChild(pill(a.status));
-      li.appendChild(arEl(AR.ownerActions[a.what]) || arState(a.status));
+      arPut(li, arEl(AR.ownerActions[a.what]) || arState(a.status));
       var kv = el('dl', { class: 'kv' });
       [['Why', a.why], ['Impact', a.impact], ['Required input', a.required_input],
        ['Expected result', a.expected_result], ['Procedure', a.procedure]]
@@ -655,7 +659,7 @@
         var li = el('li');
         li.appendChild(el('strong', { text: '[' + a.priority + '] ' + a.title }));
         if (a.detail) li.appendChild(el('p', { text: a.detail }));
-        li.appendChild(arEl(AR.nextActions[a.title]));
+        arPut(li, arEl(AR.nextActions[a.title]));
         if (a.depends_on) li.appendChild(el('p', { class: 'mono', text: 'depends on: ' + a.depends_on }));
         root.appendChild(li);
       });
@@ -685,7 +689,7 @@
       var tr = el('tr');
       tr.appendChild(el('td', { class: 'mono', text: doc.path + (doc.exists === false ? ' (missing)' : '') }));
       var td = el('td'); td.appendChild(pill(doc.classification));
-      td.appendChild(arState(doc.classification)); tr.appendChild(td);
+      arPut(td, arState(doc.classification)); tr.appendChild(td);
       tr.appendChild(el('td', { text: doc.note || '' }));
       tbody.appendChild(tr);
     });
@@ -703,7 +707,7 @@
       var tr = el('tr');
       tr.appendChild(el('td', { class: 'mono', text: r.full_name + (r.visibility ? ' (' + r.visibility + ')' : '') }));
       var td = el('td'); td.appendChild(pill(r.classification));
-      td.appendChild(arState(r.classification)); tr.appendChild(td);
+      arPut(td, arState(r.classification)); tr.appendChild(td);
       tr.appendChild(el('td', { class: 'mono', text: (r.pushed_at || '—').slice(0, 10) }));
       tr.appendChild(el('td', { text: r.note || '' }));
       tbody.appendChild(tr);

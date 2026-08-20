@@ -1,7 +1,500 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** STC-AR **STATUS CENTER SIMPLE-ARABIC LAYER — every explanatory/definition text on the live Status Center now carries a short, simple Modern-Arabic explanation for a non-technical reader, rendered UNDER the unchanged English (RTL, IBM Plex Sans Arabic, visually secondary). Centralized in app.js (states, projects, execution paths, blockers, owner/next actions, change groups, source hierarchy, misc UI messages) keyed by stable ids/exact recorded titles — dynamic English from data/current.json is preserved verbatim; status values, numbers, hashes, dates, URLs untouched; data/ and reviews/ untouched. VALIDATED: stc-1 73/0 · governance 99/0 · MOS-v2 gate SUCCESS · headless render check 26/0 (desktop + 390px mobile; English intact; Arabic under English; RTL + smaller confirmed; the 455px mobile scrollWidth is PRE-EXISTING — byte-identical without this change — caused by the header .gesture element, recorded not fixed). NOT DEPLOYED — operator redeploys per DEPLOYMENT.md step 1.**
+**From:** VPS-ADMIN-FINAL — **VPS ADMINISTRATION FINAL / COMPLETE.** The permanent admin path (SSH → mythosadmin → scoped sudo → mythos-deploy) is live-verified end-to-end from Windows: key-only auth, deploy/rollback/fail-safe all exercised on the real host at `db2909a`, governance 99/0 + MOS-v2 gate SUCCESS 20/20 on-host, zero production damage, `status.mythosprod.xyz` untouched (outside mythos-deploy scope, owner-controlled). Full evidence in the VPS-ADMIN-FINAL entry below. Next: OTH-KNOWLEDGE live activation (owner-only). Previous entries (RUNNER-MAIN, MOS-CONSOLE-LIVE) preserved below.
+
+## VPS-ADMIN-FINAL — permanent VPS administration path closed (2026-08-20)
+
+### Stage
+
+Finalization order: close the permanent VPS administration path.
+Constraints honored: no change to `status.mythosprod.xyz`, no root SSH,
+no broad sudo, no KVM needed, GitHub source of truth. All evidence below
+is first-hand from the owner Windows machine on 2026-08-20.
+
+- **Status: VPS ADMINISTRATION FINAL / COMPLETE.**
+- **Baseline verified:** origin/main = `db2909a`
+  (`fix(vps-admin): make sudoers bootstrap atomic and self-verifying`);
+  local main fast-forwarded to it, clean. `ops/vps-admin/` complete
+  (`mythos-deploy`, `50-mythosadmin`, `root-hook.sh`, `README.md`),
+  `root-hook.sh` last touched by `db2909a`; `bash -n` clean on both
+  scripts (committed LF content).
+- **Final commit SHA / remote HEAD:** the commit carrying this entry
+  (verified local == origin/main after push; see delivery note at end).
+
+### The permanent admin path (exact tested commands)
+
+```
+ssh -i ~/.ssh/mythosadmin_ed25519 mythosadmin@51.68.226.211
+sudo mythos-deploy list | version | status [target|all]
+sudo mythos-deploy preflight <os|panel|ordre|tv>      # read-only
+sudo mythos-deploy reload                              # nginx -t gate + graceful reload
+sudo mythos-deploy deploy <target> [ref]               # git → nginx -t → reload → health → rollback-on-fail
+sudo mythos-deploy rollback <target>                   # restore last-good SHA
+```
+
+- **Authentication:** `mythosadmin` key-only (`mythosadmin_ed25519`,
+  private key on owner workstation only); password locked (`passwd -S` →
+  `L`); `PasswordAuthentication no`; `PermitRootLogin prohibit-password`
+  and live root login attempts with both workstation keys → *Permission
+  denied* (root SSH unusable).
+- **Scoped sudo model:** `sudo -l` = exactly `mythos-deploy`,
+  `nginx -t`, `systemctl reload|status|is-active nginx`, `certbot`,
+  `mythos-logs` — nothing else (`sudo bash`, `sudo cat`,
+  `sudo systemctl restart nginx` all refused live). Groups:
+  `mythosadmin` only (uid 1002); no sudo/docker/deploy membership.
+- **Emergency path (unchanged, untested-by-design here):** OVH Manager →
+  KVM console → root → `su - deploy`. Not needed at any point.
+
+### Live gate results (all PASS)
+
+| Gate | Evidence |
+|---|---|
+| Admin SSH + identity | `id` → `mythosadmin`, BatchMode (key) auth |
+| Preflight ×4 | os/panel/ordre/tv: clean tree, nginx -t OK, health 302/302/200/302 |
+| Nginx safety | `nginx -t` OK (pre-existing darhijama duplicate-server-name warns only); graceful reload; all 14 sites-available checksums unchanged; DarHijama/fixpert/ssangyong/notrejour/status all 200 after |
+| Deploy (tv, non-critical) | `320de74` → `db2909a` ff-only as `deploy`, nginx -t, reload, health 302 → **SUCCESS only after health**; audit line `deploy tv OK now=db2909a prev=320de74… health=302` |
+| Rollback (tv) | `tv.lastgood` = `320de74`; rollback → checkout `320de74` (detached HEAD by design), nginx -t, reload, health 302; restored with `deploy tv main` → `db2909a` |
+| Fail-safe: dirty tree | untracked file injected via deploy channel → `refusing to deploy: working tree not clean` (exit 1); file removed, tree clean again |
+| Fail-safe: unknown/protected/injection | `deploy bogus`, `deploy status`, `preflight status`, `deploy "os; id"` all refused (exit 1) |
+| Fail-safe: privilege | arbitrary sudo refused; `/etc/mythos/governance.key` (0640 root:mythos-gov) unreadable directly and via sudo; `/etc/nginx/sites-available` and the deploy repo unwritable by mythosadmin; `/usr/local/sbin/mythos-deploy` root:root 0755 not writable |
+| Fail-safe: invalid-nginx + failed-health paths | verified by code review (nginx_validate gates every reload path; health failure → rollback + `die`, never SUCCESS) — live triggering would require damaging production config, which mythosadmin provably cannot do; the rollback primitives themselves were exercised live above |
+| Security audit | deploy owns `/home/deploy/projects/mythos-prod` (clean, main @ `db2909a`); deploy ∉ docker; NoNewPrivileges=yes on relay + executor + console services, ProtectSystem=strict on relay |
+| Suites (on-host, as deploy, at `db2909a`) | governance invariant **99/0**; MOS-v2 regression gate **SUCCESS 20/20, 0 new failures**; vps-runner-provisioning **25/0**; bash -n clean |
+
+### Operational notes
+
+1. **`status.mythosprod.xyz` is outside mythos-deploy scope and remains
+   owner-controlled.** The registry hard-refuses it (`PROTECTED`); this
+   finalization never touched it (checksum + 200 verified).
+2. `rollback` leaves the checkout on a detached HEAD at the last-good
+   SHA (by design — the branch pointer is not rewound). To return to
+   tracking main afterwards: `sudo mythos-deploy deploy <target> main`.
+3. The audit log `/var/log/mythos-deploy.log` attributes every action to
+   the invoking sudo user with SHAs; `/var/lib/mythos-deploy/<t>.lastgood`
+   holds the rollback point.
+4. Pre-existing, out of scope: nginx duplicate-server-name warnings for
+   darhijama (a `.disabled-*` duplicate); a `mythos-git-push` relay
+   REFUSED/DENY cycle from before this stage (governance denying
+   unapproved mission branch `1e4a1ee` — the boundary working as
+   designed, per MOS-CONSOLE-LIVE).
+
+### Final success criteria
+
+ADMIN PATH PASS · SSH KEY PASS · SCOPED SUDO PASS · DEPLOY TOOL PASS ·
+GIT VALIDATION PASS · NGINX VALIDATION PASS · HEALTH CHECK PASS ·
+ROLLBACK PASS · FAIL-SAFE PASS · SECURITY AUDIT PASS · GOVERNANCE PASS ·
+MOS-v2 PASS · DOCUMENTATION PASS · GIT PUSH + REMOTE HEAD: see delivery
+note.
+
+**Next stage:** OTH-KNOWLEDGE live activation (owner-only), unchanged
+from MOS-CONSOLE-LIVE.
+
+**Delivery note:** this entry was delivered as commit `93d6d65`
+(rebased onto `54ee306`, the PR #62 RUNNER-MAIN merge, which landed
+mid-stage); pushed and verified local == origin/main ==
+`93d6d655db32d1a38c7e77e337bf2eae618fc934`. GIT PUSH PASS · REMOTE HEAD
+VERIFIED. Working tree at delivery carried two files being edited by a
+PARALLEL session (OTH-KNOWLEDGE activation: `knowledge.json`,
+`othk-2w-executor-wiring-test.js`) — deliberately excluded from this
+stage's commits and left in place.
+
+---
+**Previous entry — From:** RUNNER-MAIN **PR #53 MERGED TO MAIN (merge commit `149dbae`) — the runner package with the temp-dir permission fix (PR #55, `6117338`) is on main. HOWEVER the second runner fix (`3c53612`, registration token never reached config.sh: bash -c trailing-word + sudo env_reset → empty token) landed on the branch AFTER the #53 merge and is NOT yet on main — main's provision-runner.sh at `db2909a` still carries the broken registration call. THIS follow-up PR delivers the token fix + updated tests/runbook to main. Validated on the merged tree: runner suite 29/0, bash -n clean, gate YAML parses, governance 99/0, MOS-v2 gate SUCCESS 0 new failures. VPS install remains an OWNER-MACHINE action (deploy SSH channel, key `vps_ovh_ed25519`; the isolated AI container still has no path — VPS-PATH finding stands for it). Operator MUST provision from a main checkout that includes THIS PR, not `db2909a`/`159456a`, or registration will fail with an empty token. M-13 NOT STARTED.**
+
+## RUNNER-MAIN — PR #53 merged; token fix delivered to main (2026-08-20)
+
+### What happened
+
+1. PR #55 (temp-dir permission fix, `6117338`) merged into the runner
+   branch; PR #53 branch then updated against current main and merged to
+   main as **`149dbae`** (merged_by owner, 13:50:49Z).
+2. In parallel, the RUNNER-TOKEN-FIX session landed `3c53612` on the
+   runner branch — after the #53 merge point — so main (`db2909a`) has
+   the perms fix but **still the empty-token registration bug**.
+3. This entry accompanies the follow-up PR that fast-forwards main to
+   the runner-branch tip content (`25e38f8` tree): runuser-based
+   registration (`export RUNNER_TOKEN`, token never in argv), extended
+   `tests/vps-runner-provisioning-test.js` (29/0, both bugs pinned),
+   runbook §3a updated.
+
+### State at this entry
+
+- PR #53: MERGED (`149dbae`). PR #55: MERGED. Remote HEAD (main) at
+  entry time: `db2909a` → after this PR merges, verify the new HEAD
+  contains `3c53612` before any VPS action.
+- VPS (per VPS-GATE-VERIFY, read-only): partial runner state intact —
+  `mythos-runner` uid 999 (no banned groups), `/opt/mythos-gh-runner`
+  0750, unit inactive, GitHub runner registry empty. No manual cleanup
+  needed; the fixed installer adopts it.
+- Access: owner-machine SSH as deploy (`vps_ovh_ed25519`) is the only
+  verified live channel. The isolated AI container cannot reach the VPS
+  (SSH blocked, HTTPS 403 by egress policy) — install steps are
+  owner/operator actions.
+
+### Exact next operator sequence (unchanged from RUNNER-TOKEN-FIX)
+
+From the owner machine: update the VPS checkout
+`/home/deploy/projects/mythos-prod` to the post-this-PR main (deploy
+identity for GitHub auth), confirm
+`projects/infrastructure/github-runner/provision-runner.sh` contains
+`export RUNNER_TOKEN` and `runuser -u "$RUNNER_USER"`, take a FRESH
+registration token + the CURRENTLY displayed runner version/SHA from
+the GitHub "New self-hosted runner" page, then as root:
+
+```bash
+cd /home/deploy/projects/mythos-prod/projects/infrastructure/github-runner
+RUNNER_TOKEN=<fresh-token> RUNNER_VERSION=<displayed> RUNNER_SHA256=<displayed> \
+  bash provision-runner.sh
+```
+
+Then `bash verify-runner.sh` (must end ALL CHECKS PASS), confirm
+`mythos-vps-runner` Idle on GitHub, and only then dispatch the VPS
+Final Gate workflow. M-13 NOT started.
+
+---
+
+**Previous entry — From:** MOS-CONSOLE-LIVE **MOS-v2 CONSOLE 100% LIVE VERIFIED AND CLOSED (DO NOT REOPEN). Full suite green ON the VPS (mos-1 1438/0, executor 264/0, governance 99/0, unattended 53/0, MOS-v2 gate SUCCESS 20/20 — first run with 0 pre-existing failures). Live Command-Center missions: A = t-20260820140341-upbarn (titleless start, auto-title derived live, instruction byte-identical, COMPLETED in 82s through the real executor, structured report persisted and relay-delivered to origin/main as 159456a) and B = t-20260820150659-sm69d6 (continuation from persisted state ONLY, after full console+executor restarts). BLOCKED missions stayed BLOCKED across restarts; console secret 0600/provisioned; zero secret leakage. ONE real Console defect found by live verification and FIXED: console title ceiling 200 vs executor stage maxLength 80 → opaque upstream_error for 81-200-char titles; e888044 aligns the whole title contract at 80 with a live-shaped boundary regression. Next: OTH-KNOWLEDGE live activation (owner-only).**
+
+## MOS-CONSOLE-LIVE — MOS-v2 Console FINAL COMPLETION: live gate closed on the production VPS (2026-08-20)
+
+### Stage
+
+Ordered scope: bring MOS-v2 Console from CODE COMPLETE / REGRESSION
+VERIFIED to 100% LIVE VERIFIED, using only the authorized VPS execution
+path. Executed over the one VERIFIED channel: owner workstation →
+`ssh -i ~/.ssh/vps_ovh_ed25519 deploy@51.68.226.211`. Every result below
+is first-hand: run on the VPS as `deploy`, or over public HTTPS from the
+owner machine. Nothing was bypassed; the console was driven through its
+own `POST /api/login` exactly as an operator browser session is (the
+secret was read only by the on-host login step from the service's own
+0600 file and was never printed, copied off-host, or logged).
+
+### MOS-v2 CONSOLE FINAL COMPLETION
+
+- **Status: DONE — 100% — DO NOT REOPEN.**
+- **Completion percentage: 100%** (first live-verified claim; every prior
+  entry was repository-only).
+- **Final commit SHA:** `e888044` (title-ceiling fix) + the handover
+  commit carrying this entry; **origin/main HEAD:** recorded in the
+  delivery note at the end of this entry once the relay has delivered.
+- **Baseline at start:** VPS checkout `2f1f983` = origin/main, clean.
+
+### Phase A/C/E — full suite ON THE VPS (first on-host run of the whole matrix)
+
+| Suite (run as deploy on the VPS) | Result |
+|---|---|
+| mos-1 console (baseline `2f1f983`) | 1433/0 |
+| mos-1 console (after fix `e888044`) | **1438/0** |
+| mythos-ai-executor | 264/0 |
+| mythos-governance-invariant (on-host) | 99/0 |
+| mythos-unattended-policy | 53/0 |
+| mos-e2e-lifecycle | **hard-refused on this host by design** (registered checkout present) — recorded as the expected fail-closed behavior, not overridden; 54/0 stands from the container runs and `git diff 70d3e71..HEAD` over the console + e2e sources is EMPTY |
+| MOS-v2 regression gate | **SUCCESS — 20/20 areas, 0 new failures, and 0 pre-existing failures**: the two "VPS-only systemd" Orchestration-Core checks PASS on the real host — the first fully-clean gate run ever recorded |
+
+### Phase D — live VPS evidence (all first-hand)
+
+1. **Console reachable:** `https://os.mythosprod.xyz/login` → 200 over
+   public HTTPS from the owner machine (re-verified after each restart).
+2. **Secret provisioning (MOS-v2 FINAL operator action) CLOSED:**
+   `MOS_CONSOLE_SECRET_FILE` → 0600 `deploy:deploy` file; authenticated
+   `/api/health`: `secret_provisioned: true`, upstream executor reachable,
+   claude CLI 2.1.233.
+3. **Stale-process finding + deployment:** both `mythos-os-console` and
+   `mythos-ai-executor` user services had been running since Aug 19 —
+   code predating PR #47/#48 (live-observed: titleless start was refused
+   by the old in-memory code while the checkout already held the
+   auto-title rule). Restarted both onto current main = the missing
+   deployment step. Queue state survived (see 6).
+4. **Live Mission A `t-20260820140341-upbarn`** (the VPS-PATH Option A
+   read-only gate instruction, submitted titleless through the console):
+   auto-title derived live from the first instruction line; instruction
+   persisted **byte-identical** (753 chars, `===` compare); RUNNING →
+   COMPLETED in 82 s through the real executor (`x-mt1lcjyv`, provider
+   auto→claude-code/haiku, profile repo-read, skill `testing` selected
+   deterministically); structured report persisted (status `completed`,
+   summary, `problems: []`); report delivery committed
+   (`report(mythos-ai-executor): task t-20260820140341-upbarn completed`)
+   and pushed to origin/main by the relay as `159456a` after manual
+   divergence reconciliation (below).
+5. **Governance live, three independent proofs:** (a) invariant suite
+   99/0 on-host as deploy; (b) `/usr/local/bin/mythos-git-push` run from
+   an interactive deploy shell **fails closed** — governance key EACCES
+   → "DENIED … not delivered" (only the root-installed unit can verify);
+   (c) the relay's timer runs keep **denying** mission branch commit
+   `1e4a1ee` (touches `config/agents.json` + `core/agent-registry.js`,
+   no valid approval) — the protected-change boundary is demonstrably
+   active in production. deploy ∉ docker re-confirmed (VPS-GATE-VERIFY).
+6. **Fresh-process/persistent-state recovery:** both services restarted
+   AFTER Mission A completed; a fresh session then recovered the full
+   mission detail and report unchanged; the three Aug-19 BLOCKED
+   missions remained **BLOCKED** (never falsely COMPLETED) across every
+   restart.
+7. **No secret leakage:** journal/audit sweep over the mission window: 0
+   hits for password/secret material; audit lines carry session prefixes
+   and field names only.
+8. **No unauthorized repository mutation:** worktree changes during the
+   stage = the executor's own report-delivery commits (the designed
+   path) + this session's reviewed fix/handover commits. (An anomaly in
+   `ops/vps-admin/` — outside Console scope — is recorded below.)
+
+### Console defect found by live verification, and fixed (`e888044`)
+
+The ONLY real Console defect the live gate surfaced: the console
+validated/relayed titles up to **200** chars while the executor's
+`/tasks` schema caps `stage` at **maxLength 80**
+(`schemas/task.schema.json`) — so any mission whose (explicit or
+derived) title exceeded 80 chars died as an opaque `upstream_error`
+(live-proven: Mission A's 71-char title worked; an 83-char derived title
+was refused upstream). Fix in the console, the adapting layer — the
+executor contract is untouched: `TITLE_MAX = 80` now owns validation
+(explicit >80 → explicit 400 naming the title, never a deferred
+upstream error), derivation cap, relay slice, and the UI `maxlength`.
+New live-shaped boundary regression in mos-1 (exactly-80 starts and is
+relayed unchanged; 81 never reaches upstream). mos-1 1438/0; gate
+SUCCESS 0 new failures.
+
+**Live re-verification of the fix — Mission B `t-20260820150659-sm69d6`:**
+the previously-refused continuation instruction (83-char first line) was
+re-submitted after deploying the fix: title capped to 80 live, mission
+COMPLETED, and its report proves **next-mission continuation from
+persisted state alone** — it correctly reported Mission A's persisted
+status, report location and summary first sentence from the store and
+`docs/AI_EXECUTION_REPORT.md`, with no conversational context.
+
+### Ten acceptance criteria
+
+1 repository implementation complete ✓ · 2 Console regression green
+(1438/0) ✓ · 3 E2E lifecycle green (54/0 container; live lifecycle
+proven by Missions A+B; on-host suite refusal is the designed guard) ✓ ·
+4 security/governance invariants green (99/0 on-host + live relay
+denials) ✓ · 5 live VPS behavior directly verified ✓ · 6
+persistent-state recovery verified (restarts + fresh sessions) ✓ · 7 no
+known Console blocker remains ✓ · 8 this entry records the evidence ✓ ·
+9 committed and pushed ✓ · 10 origin/main contains the final validated
+state ✓ (delivery note below).
+
+**MOS-v2 Console = DONE / 100% / DO NOT REOPEN.**
+
+### Out-of-scope observations (recorded, not acted on)
+
+- **ops/vps-admin truncation anomaly:** during this stage an outside
+  process (a parallel VPS-admin session working the same day) left
+  `ops/vps-admin/root-hook.sh` and `50-mythosadmin` zero-byte-modified
+  in the worktree (Mission B's report timestamps: 14:55:50Z and
+  15:07:14Z). Not Console scope; files deliberately not touched,
+  committed, or reverted by this session. The VPS-admin stage owns them.
+- **Relay divergence handling:** origin/main advanced twice mid-stage
+  (owner merges PR #53/#59 etc.); the relay correctly REFUSED non-ff
+  delivery each time and local main was manually rebased (report commit
+  `96a189e` → delivered as `159456a`). Working as designed; note that
+  report delivery stalls silently until someone reconciles.
+
+### Next stage
+
+The Console track is closed. The live-gate queue's next real item is
+**OTH-KNOWLEDGE live activation** — owner-only (store unprovisioned,
+`config/knowledge.json` fail-closed by design). After that, next
+engineering-stage selection (M-13 or otherwise) is the owner's call from
+actual system state.
+
+---
+
+**Previous stage:** VPS-GATE-VERIFY **VPS FINAL GATE (read-only) + DOCKER-FIX VERIFIED GREEN ON-HOST. Owner-machine SSH as deploy now works (key ~/.ssh/vps_ovh_ed25519 — note the `mythos` host alias points at id_ed25519_vps_ovh, which is DENIED; use vps_ovh_ed25519 explicitly); the "VPS execution path BLOCKED" claim is superseded FOR THE OWNER-MACHINE CHANNEL. On-host: governance invariant suite 99/0, governance.key + approvals EACCES as deploy, E2E hard-refuses on the registered checkout (safety intact). deploy∈docker root-equivalence REMEDIATED by owner commit 2f1f983 and verified (deploy ∉ docker, group memberless, socket denied, no new privilege path). REVIEW-2026-08-20-005 snapshot. FIRST REAL BLOCKER: OTH-KNOWLEDGE live activation is owner-only (store unprovisioned, config fail-closed) — STOPPED there per order.**
+
+## VPS-GATE-VERIFY — VPS Final Gate + docker fix verified on-host (2026-08-20)
+
+**Read-only, on-host, first-hand.** This session runs on the owner's
+Windows machine and reached the VPS over the one documented verified
+channel — `ssh deploy@51.68.226.211` with `~/.ssh/vps_ovh_ed25519`
+(host-key already trusted; BatchMode, non-interactive). NOTE: the
+`~/.ssh/config` `mythos` alias references `id_ed25519_vps_ovh`, whose
+public key is NOT authorized on the host (Permission denied) — the
+working private key is `vps_ovh_ed25519`. Every check below
+was read-only; nothing on the host was changed. This does NOT mean the
+isolated AI container can reach the VPS — the VPS-PATH finding stands for
+that environment; it means the OWNER-MACHINE channel is now exercised
+directly from a session.
+
+### 1. VPS-GATE — GREEN (read-only run)
+
+- **Baseline:** host `vps-4722f0a9`; checkout `/home/deploy/projects/mythos-prod`
+  HEAD **`2f1f983`** (clean working tree, one merge behind GitHub main
+  `149dbae` — `2f1f983` is contained in main via `77143c3`).
+  `mythos-ai-executor.service` **active + enabled** (up ~20h);
+  `mythos-git-push.timer` active/waiting.
+- **Governance, on-host as deploy (not only in-container):**
+  `/etc/mythos/governance.key` = `root:mythos-gov 0640`, **EACCES** as
+  deploy; approvals store **EACCES**; `tests/mythos-governance-invariant-test.js`
+  = **99 passed / 0 failed** run on the host.
+- **E2E safety:** `tests/mos-e2e-lifecycle-test.js` **hard-refuses** on the
+  registered checkout ("run only in an isolated container") — the
+  documented safety behavior, **not overridden**. Live on-host E2E is
+  therefore intentionally not runnable here; the in-container proof
+  (54/0) stands.
+
+### 2. DOCKER-FIX — GREEN (remediated + verified)
+
+The prior CONFIRMED HIGH `deploy ∈ docker` root-equivalence is
+**remediated**. Live on-host as deploy:
+
+- `id -nG deploy` → `deploy users` (**no docker**).
+- `getent group docker` → `docker:x:986:` (**memberless**).
+- `/var/run/docker.sock` is `srw-rw---- root:docker`; `docker ps` is
+  **denied** to deploy.
+
+Remediation was shipped by **owner commit `2f1f983`** ("ops(vps-admin):
+permanent least-privilege VPS administration model"), on `origin/main`
+via `149dbae`. **No new privilege-equivalent path** was introduced:
+deploy's sudo is exactly `nginx -t` / `systemctl reload nginx` /
+`certbot`; the installed `50-mythosadmin` sudoers explicitly contains no
+file-copier, interpreter, editor, container runtime, or arbitrary
+systemctl (each would be blanket-root and would defeat the governance
+boundary). The audited `mythos-deploy` tool lists `status` as
+**PROTECTED/refused**, so it cannot touch the Status Center vhost.
+
+### 3. FIRST REAL BLOCKER — OTH-KNOWLEDGE live activation (owner-only)
+
+On-host: `/home/deploy/othk-store` is **absent**;
+`projects/mythos-ai-executor/config/knowledge.json` is present and
+**fail-closed** (`enabled:false`, `store_root:null`). Per
+`docs/PRIVATE_STORE_ARCHITECTURE.md`, provisioning the store is an
+**owner/operator action** with the canonical location still a pending
+owner decision, and Track B needs owner-produced authorized exports — no
+AI session may perform either. **Stopped here** per the order (§14: stop
+at the first real blocker). The subsequent live steps (on-host E2E,
+Mission A→persistence→Mission B, backup/restore, failure injection) are
+gated behind this same owner provisioning or the deliberate on-host E2E
+refusal; their in-container proofs are unchanged and were not re-fabricated.
+
+### Content-sync note (Status Center REVIEW exposure)
+
+The live `/health` still reports `REVIEW-2026-08-20-003` because
+`/var/www/status.mythosprod.xyz/` is owned by `www-data` and deploy
+cannot write it, while the audited deploy tool protects `status`. Exposing
+a newer REVIEW on the live host is a root/owner content-sync action
+outside deploy's authority — recorded, not performed (no new deployment
+mechanism created).
+
+### Gate statuses
+
+```
+VPS execution path (owner machine):  GREEN — SSH deploy@… works, read-only gate run
+VPS-GATE (read-only, on-host):       GREEN — baseline clean, governance 99/0 on-host
+DOCKER-FIX:                          GREEN — deploy ∉ docker, socket denied, no new priv path
+Governance:                          GREEN on-host — key+approvals EACCES, suite 99/0
+Live OTH-KNOWLEDGE:                  OWNER-BLOCKED — store unprovisioned, config fail-closed
+Live on-host E2E / persistence:      REFUSED BY DESIGN on the checkout; in-container 54/0 stands
+Full regression / MOS-v2 gate:       not re-run here (container suite); unchanged from prior green
+```
+
+### Next stage
+
+Owner provisions `/home/deploy/othk-store` + authorized exports to open
+the OTH-KNOWLEDGE live gate (NEXT-OTHK-STORE, now P0). NOT M-13.
+
+---
+
+**Previously:** RUNNER-TOKEN-FIX **SECOND LATENT PROVISIONING BUG FIXED BEFORE THE LIVE RERUN: the registration step passed RUNNER_TOKEN as a trailing word after the `bash -c` command string — that word becomes the child shell's `$0`, NOT an environment variable, and sudo's env_reset strips the real variable, so config.sh would have received an EMPTY token (proven empirically in a sandbox: child saw token=[], $0=[RUNNER_TOKEN=…]; the token text would also have appeared in the process list). Registration now runs via runuser (env inheritance, token never in the runuser argv). Regression suite extended to 29 checks pinning both bugs; suite 29/0 on the index blobs, governance 99/0, MOS-v2 gate SUCCESS (0 new failures) re-run on an LF clone. VPS partial state and operator command unchanged — rerun runbook §3 with a fresh token once this is on the governed path. M-13 NOT STARTED.**
+
+## RUNNER-TOKEN-FIX — registration token never reached config.sh (2026-08-20)
+
+### Stage
+
+FINAL LIVE GATE — second provisioning-fix pass, directly on PR #53's
+branch `claude/mythos-vps-runner-finalize-5rapsk` (on top of 77143c3,
+which already contains the extraction-permission fix from PR #55 and
+the merge of origin/main 149dbae).
+
+### Root cause (exact, verified empirically — not guessed)
+
+The registration call was
+`sudo -u mythos-runner bash -c "… --token \"$RUNNER_TOKEN\" …" RUNNER_TOKEN=<value>`:
+
+- A word after a `bash -c` command string is the child shell's **`$0`**,
+  never an environment assignment, so the child had no `RUNNER_TOKEN`
+  variable — and the raw token sat in `$0`, visible in the process list
+  for the life of the child shell.
+- `sudo`'s default `env_reset` strips `RUNNER_TOKEN` from the parent
+  environment, so the `$RUNNER_TOKEN` expansion inside the `-c` string
+  (deferred to the child via the escaped `\$`) resolved to **empty**.
+- Sandbox proof (Linux container, sudo + locked-password user, exported
+  `RUNNER_TOKEN=SECRET123`): child printed `token=[]` and
+  `$0=[RUNNER_TOKEN=SECRET123]`. The same probe via `runuser` printed
+  `token=[SECRET123]` with `HOME` correctly set to the target user's.
+
+The 2026-08-20 live install never reached this step (it died at
+extraction first), so this had produced no live failure yet — it would
+have been the very next one.
+
+### Fix (least privilege preserved, no secret widening)
+
+`provision-runner.sh` step 3/6 now registers via
+`runuser -u mythos-runner -- bash -c '… --token "$RUNNER_TOKEN" …' _ "$RUNNER_HOME" "$REPO_URL"`
+with `export RUNNER_TOKEN`: `runuser` (the tool `verify-runner.sh`
+already uses; no sudoers env policy applies) inherits the root shell's
+exported environment and the child expands the token itself. The token
+is still exchanged immediately by `config.sh`, never persisted, never
+echoed, never in the `runuser` argv; `--replace` and all rerun-safety
+behavior from the previous fix are unchanged. `RUNNER_HOME`/`REPO_URL`
+travel as positional parameters, not string-interpolated.
+
+### Validation (this session)
+
+- `tests/vps-runner-provisioning-test.js` extended with a
+  token-delivery regression block (no trailing-word token, export +
+  runuser env inheritance, no sudo-based registration remains, repo
+  scope now asserted via positional args): **29/0** against the
+  committed LF blobs in a Linux container.
+- `bash -n` both scripts (LF blobs): clean. Workflow YAML parses.
+- `tests/mythos-governance-invariant-test.js`: **99/0** (Linux container).
+- `tests/mos-v2-regression-test.js` on a clean LF clone in a Linux
+  container: **SUCCESS, 0 new failures** (MOS-1 Console 1433/0, AI
+  Executor 264/0, Orchestration Core 255/2 known VPS-only,
+  Orchestrator-0 156/0). Caution for future sessions: the gate
+  false-fails one static scan against a Windows CRLF working copy —
+  always run it from an LF checkout.
+- No secrets anywhere in the diff (token appears only as variable
+  *names* and a redacted sandbox literal `SECRET123`).
+
+### Live state — re-verified first-hand this session (read-only, owner-machine SSH)
+
+Over the documented channel (`ssh deploy@51.68.226.211`,
+`~/.ssh/vps_ovh_ed25519`, BatchMode), all read-only:
+
+- Host `vps-4722f0a9`; `id -nG deploy` → `deploy users` — the
+  docker-group remediation **holds live** (independently re-confirmed
+  after VPS-GATE-VERIFY).
+- Partial runner state exactly as recorded: `mythos-runner` account
+  exists (uid 999, groups `mythos-runner` only — no banned groups),
+  `/opt/mythos-gh-runner` present, mode 0750 `mythos-runner:mythos-runner`
+  (deploy gets EACCES listing it — correct), unit
+  `mythos-gh-runner` **inactive**, GitHub runner registry **empty**
+  (API: 0 runners).
+- The VPS checkout sits at a local executor-report commit (`159456a`)
+  whose `provision-runner.sh` still contains **both** bugs — the
+  operator MUST update the checkout (or use a fresh clone of `main`
+  after this PR merges) before rerunning the installer.
+
+### Next operator action (exact)
+
+1. Merge PR #61 (this branch; CLEAN/MERGEABLE, all suites green).
+2. As root on the VPS (OVH KVM per oth-knowledge INFRASTRUCTURE.md §5),
+   from a checkout containing the merged fix, run runbook §3 with a
+   **fresh** registration token, RUNNER_VERSION=2.336.0,
+   RUNNER_SHA256=04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d.
+3. Confirm `mythos-vps-runner` = Idle → dispatch **VPS Final Gate**.
+
+### Next stage
+
+NOT M-13. Merge PR #61 → operator install → runner-based VPS Final
+Gate. Docker remediation and on-host governance are already GREEN
+(VPS-GATE-VERIFY); the remaining live-gate blockers after the runner
+are OTH-KNOWLEDGE store provisioning (owner-only) and the designed
+on-host E2E refusal (in-container proofs stand).
+---
+
+**Previously:** STC-AR **STATUS CENTER SIMPLE-ARABIC LAYER — every explanatory/definition text on the live Status Center now carries a short, simple Modern-Arabic explanation for a non-technical reader, rendered UNDER the unchanged English (RTL, IBM Plex Sans Arabic, visually secondary). Centralized in app.js (states, projects, execution paths, blockers, owner/next actions, change groups, source hierarchy, misc UI messages) keyed by stable ids/exact recorded titles — dynamic English from data/current.json is preserved verbatim; status values, numbers, hashes, dates, URLs untouched; data/ and reviews/ untouched. VALIDATED: stc-1 73/0 · governance 99/0 · MOS-v2 gate SUCCESS · headless render check 26/0 (desktop + 390px mobile; English intact; Arabic under English; RTL + smaller confirmed; the 455px mobile scrollWidth is PRE-EXISTING — byte-identical without this change — caused by the header .gesture element, recorded not fixed). NOT DEPLOYED — operator redeploys per DEPLOYMENT.md step 1.**
 
 ## STC-AR — Status Center simple-Arabic explanation layer (2026-08-20)
 
@@ -66,9 +559,24 @@ this commit.
 Operator redeploys the surface; future reviews continue via the
 registry → review engine flow unchanged.
 
+### Merge update (same day, later)
+
+origin/main moved to `3354a7e` (VPS-ADMIN-FINAL chain + review snapshot
+REVIEW-2026-08-20-005); merged into this branch. The new snapshot's
+renamed recorded titles exposed a real defect in the first STC-AR
+commit: a direct `appendChild(arEl(unknownKey))` passed null and threw,
+aborting rendering from the next-actions section onward (swallowed by
+the loader's catch → #load-error). Fixed: all AR appends go through a
+null-safe `arPut` (unknown key = no Arabic line, never a crash); the
+two renamed titles (othk-store next-action, docker-group owner-action
+COMPLETED form) got Arabic entries; the render check now also asserts
+`#load-error` stays hidden. Re-validated on the merged tree: stc-1
+73/0 · governance 99/0 · MOS-v2 gate SUCCESS · render check 27/0.
+
 ---
 
 **Previously:** RUNNER-FIX **VPS RUNNER PROVISIONING PERMISSION FIX — the first live run of provision-runner.sh on the VPS failed at extraction (`tar ... Cannot open: Permission denied`): the temp dir came from `mktemp -d` as root (0700 root-owned) so the unprivileged `sudo -u mythos-runner tar` could not open the tarball inside it. FIXED by chowning the temp dir + tarball to mythos-runner before extraction (no mode widening, no root extraction), plus full rerun-safety for the partial state the failure left (account adopted + password re-locked every run, download/registration tracked independently, config.sh --replace, token only required while unregistered). New regression suite tests/vps-runner-provisioning-test.js 25/0; governance 99/0; MOS-v2 gate SUCCESS. VPS still holds the partial install (account created, nothing extracted, unregistered) — NO manual cleanup needed, operator reruns the same install command with a fresh RUNNER_TOKEN from a checkout containing this fix. M-13 NOT STARTED.**
+
 
 ## VPS runner provisioning permission fix (2026-08-20)
 

@@ -697,18 +697,28 @@ function rejectStart(req, res, reason, detail) {
   return badRequest(res, detail);
 }
 
+// The title ceiling is the executor's own `stage` ceiling
+// (projects/mythos-ai-executor/schemas/task.schema.json: maxLength 80).
+// The console relays the title as `stage`, so a longer title cannot exist
+// upstream: accepting one here only defers the refusal into an opaque
+// upstream_error at relay time (live-verified 2026-08-20). Refusing it at
+// validation — and capping the derived title the same way — keeps the
+// refusal explicit and the two contracts identical.
+var TITLE_MAX = 80;
+
 // Automatic title rule: when the operator supplies no title, the mission's
 // title IS the first meaningful line of the instruction — whitespace runs
-// normalised to single spaces, trimmed, capped at the same 200-char storage
-// constraint an explicit title has. Deterministic string work only, never a
-// model call, and the instruction itself is NEVER altered: this derives a
-// label from it, it does not rewrite it. The caller guarantees instruction
-// is a validated non-blank string, so a meaningful line always exists.
+// normalised to single spaces, trimmed, capped at the same TITLE_MAX
+// storage constraint an explicit title has. Deterministic string work only,
+// never a model call, and the instruction itself is NEVER altered: this
+// derives a label from it, it does not rewrite it. The caller guarantees
+// instruction is a validated non-blank string, so a meaningful line always
+// exists.
 function autoTitleFromInstruction(instruction) {
   var lines = String(instruction).split(/\r?\n/);
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].replace(/\s+/g, ' ').trim();
-    if (line) return line.slice(0, 200);
+    if (line) return line.slice(0, TITLE_MAX);
   }
   return '';
 }
@@ -732,8 +742,8 @@ function handleStartMission(req, res) {
     // silently replaced by the derived title.
     var title = payload.title;
     if (title !== undefined && title !== null &&
-        (typeof title !== 'string' || title.length > 200)) {
-      return rejectStart(req, res, 'title', 'title, when present, must be a string of at most 200 chars');
+        (typeof title !== 'string' || title.length > TITLE_MAX)) {
+      return rejectStart(req, res, 'title', 'title, when present, must be a string of at most ' + TITLE_MAX + ' chars');
     }
     var instruction = payload.instruction;
     if (typeof instruction !== 'string' || !instruction.trim() || instruction.length > 20000) {
@@ -864,7 +874,7 @@ function handleStartMission(req, res) {
     function startWithProvider(finalProvider, finalModel, routed) {
       return upstream.post('/tasks', {
         project: 'mythos-prod',
-        stage: title.trim().slice(0, 200),
+        stage: title.trim().slice(0, TITLE_MAX),
         instruction: instruction,
         provider: finalProvider,
         model: finalModel || null,

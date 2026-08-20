@@ -1,0 +1,57 @@
+{
+  "format": "othk-seed",
+  "version": 1,
+  "title": "Security / deploy∈docker root-equivalence remediated + VPS Final Gate verified read-only on-host (2026-08-20)",
+  "source_class": "test-result",
+  "source_collection": "security-2026-08-20-docker-remediation-vps-gate",
+  "source_reference": "on-host/deploy@51.68.226.211/read-only-gate-session-2026-08-20",
+  "captured_at": "2026-08-20T00:00:00Z",
+  "observed_at": "2026-08-20T00:00:00Z",
+  "actor": "ai-session",
+  "confidence": "VERIFIED",
+  "entities": [
+    { "key": "vps", "entity_type": "host", "name": "vps-4722f0a9 (51.68.226.211)", "metadata": { "ip": "51.68.226.211", "role": "production VPS" } },
+    { "key": "deploy-account", "entity_type": "account", "name": "deploy@vps-51.68.226.211", "metadata": { "user": "deploy", "role": "deployment account + prod checkout owner" } },
+    { "key": "docker-group", "entity_type": "system", "name": "docker group (gid 986)", "metadata": { "gid": 986 } },
+    { "key": "gov-key", "entity_type": "system", "name": "/etc/mythos/governance.key", "metadata": { "perms": "root:mythos-gov 0640" } },
+    { "key": "vps-admin-commit", "entity_type": "artifact", "name": "commit 2f1f983", "metadata": { "title": "ops(vps-admin): permanent least-privilege VPS administration model" } }
+  ],
+  "observations": [
+    {
+      "key": "obs-owner-ssh-channel-works",
+      "statement": "TEST (2026-08-20): from the owner Windows machine, `ssh deploy@51.68.226.211` with key ~/.ssh/vps_ovh_ed25519 succeeds non-interactively (BatchMode). NOTE: the ~/.ssh/config `mythos` alias points at id_ed25519_vps_ovh, whose public key is NOT authorized on the host (Permission denied) — use vps_ovh_ed25519 explicitly. This is the documented owner-machine channel (DEPLOYMENT_READINESS.md) and it is now exercised directly from a session. It does NOT restore access for the isolated AI container — the VPS-PATH finding still holds for that environment.",
+      "entities": ["deploy-account", "vps"],
+      "tags": ["TEST-RESULT", "infrastructure", "access-path"]
+    },
+    {
+      "key": "obs-docker-remediated",
+      "statement": "TEST (2026-08-20, on-host as deploy): the prior CONFIRMED HIGH deploy∈docker root-equivalence is REMEDIATED. `id -nG deploy` = 'deploy users' (no docker); `getent group docker` = 'docker:x:986:' (memberless); /var/run/docker.sock is srw-rw---- root:docker and `docker ps` is denied to deploy. Remediation shipped by owner commit 2f1f983, on origin/main via merge 149dbae.",
+      "entities": ["deploy-account", "docker-group", "vps-admin-commit"],
+      "tags": ["TEST-RESULT", "security", "REMEDIATION", "governance"]
+    },
+    {
+      "key": "obs-no-new-privilege-path",
+      "statement": "TEST (2026-08-20, on-host): removing docker introduced no substitute root-equivalent path. deploy sudo = exactly `/usr/sbin/nginx -t`, `/usr/bin/systemctl reload nginx`, `/usr/bin/certbot`. The installed 50-mythosadmin sudoers contains no file-copier, interpreter, editor, container runtime, or arbitrary systemctl. The audited mythos-deploy tool resolves targets from a fixed registry and lists `status` (Status Center) as PROTECTED/refused; it runs git as the deploy owner (root never writes the repo).",
+      "entities": ["deploy-account", "vps-admin-commit"],
+      "tags": ["TEST-RESULT", "security", "least-privilege", "LESSON"]
+    },
+    {
+      "key": "obs-governance-onhost-99-0",
+      "statement": "TEST (2026-08-20, on-host as deploy): governance boundary intact ON-HOST (not only in-container). /etc/mythos/governance.key = root:mythos-gov 0640 with EACCES as deploy; approvals store EACCES; tests/mythos-governance-invariant-test.js = 99 passed / 0 failed run on the host.",
+      "entities": ["gov-key", "deploy-account", "vps"],
+      "tags": ["TEST-RESULT", "security", "governance"]
+    },
+    {
+      "key": "obs-e2e-refuses-on-checkout",
+      "statement": "TEST (2026-08-20, on-host): tests/mos-e2e-lifecycle-test.js hard-refuses on the registered production checkout ('run only in an isolated container') — a deliberate safety property. Live on-host E2E is therefore intentionally not runnable against the prod checkout; the in-container proof (54/0) is the record. Do not override the refusal.",
+      "entities": ["deploy-account", "vps"],
+      "tags": ["TEST-RESULT", "safety-by-design", "LESSON"]
+    },
+    {
+      "key": "obs-othk-store-owner-blocked",
+      "statement": "TEST (2026-08-20, on-host): /home/deploy/othk-store is ABSENT and projects/mythos-ai-executor/config/knowledge.json is fail-closed (enabled=false, store_root=null). Per docs/PRIVATE_STORE_ARCHITECTURE.md, store provisioning is an owner/operator action with the location still a pending owner decision, and Track B needs owner-produced authorized exports — no AI session performs either. This is the first genuine owner block after VPS-GATE + DOCKER-FIX went green.",
+      "entities": ["deploy-account", "vps"],
+      "tags": ["TEST-RESULT", "infrastructure", "OWNER-BLOCKED"]
+    }
+  ]
+}
