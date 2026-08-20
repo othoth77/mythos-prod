@@ -158,23 +158,41 @@ travel as positional parameters, not string-interpolated.
 - No secrets anywhere in the diff (token appears only as variable
   *names* and a redacted sandbox literal `SECRET123`).
 
-### Live state / next operator action (unchanged shape)
+### Live state — re-verified first-hand this session (read-only, owner-machine SSH)
 
-The VPS still holds the partial install (account created, nothing
-extracted, unregistered, no unit). After this branch reaches `main`
-through the governed path: operator (root, per oth-knowledge
-INFRASTRUCTURE.md §5 — OVH KVM) reruns runbook §3 from an updated
-checkout with a **fresh** registration token,
-RUNNER_VERSION=2.336.0,
-RUNNER_SHA256=04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d.
-Then `mythos-vps-runner` = Idle → dispatch **VPS Final Gate**.
+Over the documented channel (`ssh deploy@51.68.226.211`,
+`~/.ssh/vps_ovh_ed25519`, BatchMode), all read-only:
+
+- Host `vps-4722f0a9`; `id -nG deploy` → `deploy users` — the
+  docker-group remediation **holds live** (independently re-confirmed
+  after VPS-GATE-VERIFY).
+- Partial runner state exactly as recorded: `mythos-runner` account
+  exists (uid 999, groups `mythos-runner` only — no banned groups),
+  `/opt/mythos-gh-runner` present, mode 0750 `mythos-runner:mythos-runner`
+  (deploy gets EACCES listing it — correct), unit
+  `mythos-gh-runner` **inactive**, GitHub runner registry **empty**
+  (API: 0 runners).
+- The VPS checkout sits at a local executor-report commit (`159456a`)
+  whose `provision-runner.sh` still contains **both** bugs — the
+  operator MUST update the checkout (or use a fresh clone of `main`
+  after this PR merges) before rerunning the installer.
+
+### Next operator action (exact)
+
+1. Merge PR #61 (this branch; CLEAN/MERGEABLE, all suites green).
+2. As root on the VPS (OVH KVM per oth-knowledge INFRASTRUCTURE.md §5),
+   from a checkout containing the merged fix, run runbook §3 with a
+   **fresh** registration token, RUNNER_VERSION=2.336.0,
+   RUNNER_SHA256=04cf0be1aff4c3ec3554466c39124ca250e3effd8873bb7e8d68535aa9505d5d.
+3. Confirm `mythos-vps-runner` = Idle → dispatch **VPS Final Gate**.
 
 ### Next stage
 
-NOT M-13. Governed merge of PR #53 → operator install → live gate
-sections of the finalization order (runner verify → baseline → docker
-remediation → governance → knowledge → backup/restore → E2E → memory →
-failure injection → full regression → audit).
+NOT M-13. Merge PR #61 → operator install → runner-based VPS Final
+Gate. Docker remediation and on-host governance are already GREEN
+(VPS-GATE-VERIFY); the remaining live-gate blockers after the runner
+are OTH-KNOWLEDGE store provisioning (owner-only) and the designed
+on-host E2E refusal (in-container proofs stand).
 ---
 
 **Previously:** RUNNER-FIX **VPS RUNNER PROVISIONING PERMISSION FIX — the first live run of provision-runner.sh on the VPS failed at extraction (`tar ... Cannot open: Permission denied`): the temp dir came from `mktemp -d` as root (0700 root-owned) so the unprivileged `sudo -u mythos-runner tar` could not open the tarball inside it. FIXED by chowning the temp dir + tarball to mythos-runner before extraction (no mode widening, no root extraction), plus full rerun-safety for the partial state the failure left (account adopted + password re-locked every run, download/registration tracked independently, config.sh --replace, token only required while unregistered). New regression suite tests/vps-runner-provisioning-test.js 25/0; governance 99/0; MOS-v2 gate SUCCESS. VPS still holds the partial install (account created, nothing extracted, unregistered) — NO manual cleanup needed, operator reruns the same install command with a fresh RUNNER_TOKEN from a checkout containing this fix. M-13 NOT STARTED.**
