@@ -1,5 +1,12 @@
 # Deployment — status.mythosprod.xyz (operator runbook)
 
+> **One-command form:** every step below (preflight → content → vhost →
+> certbot → verification → regression checks) is automated,
+> idempotently and fail-closed, by `scripts/deploy-status-center.sh` —
+> run `sudo bash scripts/deploy-status-center.sh` from the repository
+> checkout. The manual steps remain the reference and the audit trail
+> for what the script does.
+
 **Status: BUILT, NOT DEPLOYED.** Deployment requires host access AI
 sessions do not have (SSH network-blocked; HTTPS to the VPS
 egress-denied — the documented VPS-PATH state). Execute from the

@@ -24,6 +24,18 @@ nothing bypassed. The VPS checkout must first be updated to `760861d`
 PR #56 (STATUS-RT placeholder) is superseded by this merge and can be
 closed by the owner.
 
+**One-command deployment added (same stage):**
+`scripts/deploy-status-center.sh` — audited, idempotent, root-run,
+fail-closed automation of the full runbook (preflight incl. DNS/clean
+main/expected files/foreign-claim check, content sync, additive vhost
+that never touches other sites and never clobbers a certbot-managed
+file, `nginx -t` before reload, certbot skip-if-present, acceptance
+smoke tests incl. no-darhijama.tn-in-chain + `/health`, regression
+checks on darhijama.tn/uthinachess.tn/panel, `--rollback` mode,
+non-zero exit and explicit NOT-VERIFIED message on any failure).
+`bash -n` clean; fail-closed behavior demonstrated in-container
+(exit 1 at first missing prerequisite); stc-1 re-run 73/0.
+
 ---
 
 ## STC-1 — Mythos Status Center (2026-08-20)

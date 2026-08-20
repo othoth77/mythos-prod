@@ -28,6 +28,27 @@ an operational surface, not a marketing page, so it ships
 This entry satisfies the §13 rule ("no project is published without a
 recorded tier").
 
+## One-command deployment
+
+For the KVM console (no long pastes), the entire runbook is automated
+in one audited, idempotent script — run as root from the repository
+checkout on the VPS:
+
+```bash
+sudo bash scripts/deploy-status-center.sh
+```
+
+It performs the full `DEPLOYMENT.md` sequence: preflight (DNS, clean
+main checkout, expected files, no foreign vhost claim), content sync,
+the additive nginx vhost (never touching dar-hijama-app or any other
+site; certbot-managed files are never clobbered), `nginx -t` before any
+reload, certbot (skipped if the certificate exists), the acceptance
+smoke tests (200, no darhijama.tn in the chain, `/health`, robots,
+data, fonts) and the regression checks (darhijama.tn, uthinachess.tn,
+panel). It exits non-zero and says so plainly if ANY check fails —
+"live" is only claimable when it prints `ALL CHECKS PASSED`.
+Rollback: `sudo bash scripts/deploy-status-center.sh --rollback`.
+
 ## Architecture
 
 - **Data model** — the page renders `data/current.json`, the latest
