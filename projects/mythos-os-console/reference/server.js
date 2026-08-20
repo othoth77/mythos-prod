@@ -662,6 +662,22 @@ function rejectStart(req, res, reason, detail) {
   return badRequest(res, detail);
 }
 
+// Automatic title rule: when the operator supplies no title, the mission's
+// title IS the first meaningful line of the instruction — whitespace runs
+// normalised to single spaces, trimmed, capped at the same 200-char storage
+// constraint an explicit title has. Deterministic string work only, never a
+// model call, and the instruction itself is NEVER altered: this derives a
+// label from it, it does not rewrite it. The caller guarantees instruction
+// is a validated non-blank string, so a meaningful line always exists.
+function autoTitleFromInstruction(instruction) {
+  var lines = String(instruction).split(/\r?\n/);
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].replace(/\s+/g, ' ').trim();
+    if (line) return line.slice(0, 200);
+  }
+  return '';
+}
+
 function handleStartMission(req, res) {
   readBoundedBody(req, START_MISSION_MAX_BODY).then(function (raw) {
     var payload;
@@ -673,13 +689,23 @@ function handleStartMission(req, res) {
     var unexpected = Object.keys(payload).filter(function (k) { return START_MISSION_FIELDS.indexOf(k) === -1; });
     if (unexpected.length) return rejectStart(req, res, 'unexpected_field', 'unexpected field: ' + unexpected[0].slice(0, 40));
 
+    // Title is optional (automatic title rule): absent, null, empty or
+    // whitespace-only means "not provided" and the title is derived from the
+    // instruction's first meaningful line below, AFTER the instruction is
+    // validated. A title that IS provided must still be a valid one — a
+    // non-string or an over-long string is an explicit refusal, never
+    // silently replaced by the derived title.
     var title = payload.title;
-    if (typeof title !== 'string' || !title.trim() || title.length > 200) {
-      return rejectStart(req, res, 'title', 'title (string, 1-200 chars) is required');
+    if (title !== undefined && title !== null &&
+        (typeof title !== 'string' || title.length > 200)) {
+      return rejectStart(req, res, 'title', 'title, when present, must be a string of at most 200 chars');
     }
     var instruction = payload.instruction;
     if (typeof instruction !== 'string' || !instruction.trim() || instruction.length > 20000) {
       return rejectStart(req, res, 'instruction', 'instruction (string, 1-20000 chars) is required');
+    }
+    if (typeof title !== 'string' || !title.trim()) {
+      title = autoTitleFromInstruction(instruction);
     }
     var provider = payload.provider;
     // MOS-v2 M-11: 'auto' asks the SERVER to pick the provider -- the
