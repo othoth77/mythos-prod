@@ -42,6 +42,8 @@
     { "id": "EV-MCC-LIVE", "type": "external", "reference": "https://ordre.mythosprod.xyz (MCC-1-VERIFY)", "date": "2026-08-17", "note": "Live over HTTPS; DNS → 51.68.226.211; Let's Encrypt valid to 2026-11-15; suite 506/0. Recorded operator verification of 2026-08-17 — not re-checkable from this environment." },
     { "id": "EV-VPS-GOV-ONHOST", "type": "operator-report", "reference": "docs/AI_EXECUTION_REPORT.md missions t-20260819223747 / t-20260820075238-o372yt", "date": "2026-08-20", "note": "On-host validation via owner-dispatched executor missions: governance boundary INTACT (key root:mythos-gov 0640, deploy EACCES, zero drift)" },
     { "id": "EV-DOCKER-FINDING", "type": "operator-report", "reference": "docs/AI_EXECUTION_REPORT.md — deploy in docker group (gid 986)", "date": "2026-08-20", "note": "CONFIRMED HIGH: deploy ∈ docker + rw docker.sock = root-equivalent; unremediated; fix is sudo gpasswd -d deploy docker" },
+    { "id": "EV-DOCKER-FIXED", "type": "vps", "reference": "on-host verification as deploy@51.68.226.211, 2026-08-20 (owner-machine SSH, key id_ed25519_vps_ovh)", "date": "2026-08-20", "note": "RESOLVED: the deploy∈docker root-equivalence is remediated. Live on-host: id -nG deploy = 'deploy users' (no docker); getent group docker = 'docker:x:986:' (MEMBERLESS); /var/run/docker.sock is srw-rw---- root:docker and `docker ps` is DENIED to deploy. Remediation shipped by owner commit 2f1f983 (ops(vps-admin): permanent least-privilege model), on origin/main via 149dbae. No new privilege-equivalent path introduced: deploy sudo = nginx -t / systemctl reload nginx / certbot only; the 50-mythosadmin sudoers explicitly contains no file-copier, interpreter, editor, container runtime, or arbitrary systemctl." },
+    { "id": "EV-VPS-GATE-ONHOST", "type": "vps", "reference": "on-host VPS Final Gate read-only checks as deploy@51.68.226.211, 2026-08-20 (owner-machine SSH)", "date": "2026-08-20", "note": "GREEN. Baseline: HEAD 2f1f983 (clean tree), mythos-ai-executor.service active+enabled (up 20h), mythos-git-push.timer active/waiting. Governance verified ON-HOST (not only in-container): /etc/mythos/governance.key = root:mythos-gov 0640, EACCES as deploy; approvals store EACCES as deploy; tests/mythos-governance-invariant-test.js = 99 passed / 0 failed run as deploy on the host. tests/mos-e2e-lifecycle-test.js correctly HARD-REFUSES on the registered checkout (documented safety behavior, not overridden). Nothing changed on the host; every check read-only." },
     { "id": "EV-VPS-PATH", "type": "document", "reference": "docs/AI_HANDOVER.md", "date": "2026-08-20", "note": "VPS-PATH entry: every access mechanism tested/inspected and categorized; SSH timeout, HTTPS egress-policy 403, no runner, no credentials by design" },
     { "id": "EV-DEPLOY-READINESS", "type": "document", "reference": "docs/DEPLOYMENT_READINESS.md", "date": "2026-08-19", "note": "Deployment BLOCKED — external, evidenced; the one VERIFIED channel is owner Windows → deploy@51.68.226.211 (SSH ED25519)" },
     { "id": "EV-TRACKB", "type": "document", "reference": "docs/OTH_TRACK_B_READINESS.md", "date": "2026-08-19", "note": "All four importers fixture-COMPLETE; real-data validation OWNER-BLOCKED per source" },
@@ -300,33 +302,34 @@
     {
       "id": "PROJECT-VPS-FINAL-GATE", "name": "VPS Final Gate", "executive": true,
       "purpose": "The last live validation: run the full gate on the host itself (governance re-check, live E2E, persistent memory, failure validation, knowledge store).",
-      "status": "BLOCKED", "maturity": "TESTED", "repository": "othoth77/mythos-prod",
-      "last_change": "2026-08-20 (VPS-PATH: blocked; PR #53 runner proposal opened)",
-      "blocker": "Everything proven in-container (console 1433/0, E2E 54/0, gate 20/20); the live-on-host run needs an owner-dispatched mission or a provisioned runner.",
-      "next_action": "Owner dispatches the ready-to-send Option A gate mission through ordre.mythosprod.xyz (text is in the VPS-PATH handover entry).",
-      "headline": "BLOCKED at access, not at readiness. The exact read-only gate mission is written and waiting; two root-only actions remain (remove deploy from docker group; provision the knowledge store).",
+      "status": "OWNER_ACTION", "maturity": "TESTED", "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-20 (VPS-GATE-VERIFY: read-only gate run ON-HOST as deploy — governance 99/0, docker fix confirmed; remaining live steps owner-blocked)",
+      "blocker": "OTH-KNOWLEDGE live activation is owner-blocked (store unprovisioned, config fail-closed) and live on-host E2E is refused by design on the registered checkout — both need an owner provisioning/mission act, not an AI session.",
+      "next_action": "Owner: provision /home/deploy/othk-store + authorized exports to activate live knowledge; the live E2E stays an in-container proof by safety design.",
+      "headline": "The read-only VPS gate now RUNS ON-HOST (owner-machine SSH as deploy): baseline captured, governance invariant suite 99/0 on-host, docker root-equivalence remediated + verified, E2E hard-refuses on the checkout as designed. Remaining live steps (knowledge store, on-host E2E, persistence) are owner-blocked, not readiness-blocked — in-container proofs stand (console 1433/0, E2E 54/0, gate 20/20).",
       "dimensions": {
-        "in_container_proof": { "status": "DONE", "note": "merged tree at 70d3e71 re-verified green" },
-        "live_gate": { "status": "BLOCKED" }
+        "in_container_proof": { "status": "DONE", "note": "merged tree re-verified green" },
+        "on_host_readonly_gate": { "status": "DONE", "note": "governance 99/0 on-host; docker fix verified; baseline clean" },
+        "live_gate": { "status": "OWNER_ACTION", "note": "knowledge store + on-host E2E remain owner/architecture-gated" }
       },
-      "evidence": ["EV-VPS-PATH", "EV-PR-51", "EV-PR-53", "EV-MOSV2-GATE"]
+      "evidence": ["EV-VPS-PATH", "EV-PR-51", "EV-PR-53", "EV-MOSV2-GATE", "EV-VPS-GATE-ONHOST", "EV-DOCKER-FIXED"]
     },
     {
       "id": "PROJECT-SECURITY", "name": "Security & Governance", "executive": true,
       "purpose": "Governance key isolation, approval relay, executor restrictions, unattended policy, fail-closed controls, trust model, audits.",
-      "status": "OWNER_ACTION", "maturity": "DEPLOYED",
+      "status": "DONE", "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-08-20 (on-host validation: boundary INTACT, zero drift)",
-      "blocker": "One CONFIRMED HIGH finding stands open: deploy is in the docker group with a reachable socket (root-equivalent). Fix is one root command.",
-      "next_action": "Owner runs: sudo gpasswd -d deploy docker — then re-run tests/mythos-governance-invariant-test.js as deploy (expect 99/0).",
-      "headline": "Governance hardening ACTIVE and verified on-host: /etc/mythos/governance.key root:mythos-gov 0640, memberless group, deploy EACCES on key + approvals, installed relay sha256-identical to main. Incident GI-2026-08-18-01 adjudicated (authorisation ruled INVALID; cage is now a delivery invariant). OTH-K3 security audit PASS-WITH-FINDINGS, F1–F15 all fixed.",
+      "last_change": "2026-08-20 (on-host gate: docker root-equivalence remediated + verified; governance 99/0 on-host)",
+      "blocker": null,
+      "next_action": "None open at the security boundary. Re-run the on-host governance suite after any future privilege change.",
+      "headline": "Governance hardening ACTIVE and verified on-host: /etc/mythos/governance.key root:mythos-gov 0640, memberless group, deploy EACCES on key + approvals, invariant suite 99/0 run ON-HOST as deploy. The prior CONFIRMED HIGH (deploy ∈ docker) is REMEDIATED and verified: deploy ∉ docker, docker group memberless, docker.sock denied — with no new privilege-equivalent path (deploy sudo = nginx -t / reload nginx / certbot only). Incident GI-2026-08-18-01 adjudicated (authorisation INVALID; cage is a delivery invariant). OTH-K3 audit PASS-WITH-FINDINGS, F1–F15 fixed.",
       "dimensions": {
-        "governance_key": { "status": "DONE", "note": "verified on-host 2026-08-19/20" },
-        "docker_boundary": { "status": "OWNER_ACTION", "note": "deploy ∈ docker — HIGH, unremediated" },
-        "audits": { "status": "DONE", "note": "M-07 operator audit; OTH-K3 F1–F15; governance suite 99/0" },
+        "governance_key": { "status": "DONE", "note": "verified on-host 2026-08-19/20; suite 99/0 on-host 2026-08-20" },
+        "docker_boundary": { "status": "DONE", "note": "REMEDIATED + verified on-host: deploy ∉ docker, group memberless, socket denied; no new privilege path" },
+        "audits": { "status": "DONE", "note": "M-07 operator audit; OTH-K3 F1–F15; governance suite 99/0 (on-host)" },
         "secrets": { "status": "DONE", "note": "no credentials in repo by design; leaked capabilities revoked not erased" }
       },
-      "evidence": ["EV-PR-46", "EV-AOL-CLOSURE", "EV-GOV-TEST", "EV-VPS-GOV-ONHOST", "EV-DOCKER-FINDING", "EV-GI-INCIDENT", "EV-GOV-INVARIANT"]
+      "evidence": ["EV-PR-46", "EV-AOL-CLOSURE", "EV-GOV-TEST", "EV-VPS-GOV-ONHOST", "EV-DOCKER-FINDING", "EV-DOCKER-FIXED", "EV-VPS-GATE-ONHOST", "EV-GI-INCIDENT", "EV-GOV-INVARIANT"]
     },
     {
       "id": "PROJECT-AI-ORCHESTRATION", "name": "AI Operating Layer & Orchestration", "executive": false,
@@ -601,7 +604,8 @@
     { "id": "MS-2026-08-18-BRAND", "date": "2026-08-18", "project": "PROJECT-DESIGN-SYSTEM", "title": "Peak day (126 commits): brand system, MOS-1→3C, ID Auto spin-out, governance incident", "what": "Owner-approved visual identity; MOS-1..MOS-3C (AI Operating Layer v1, 13 proofs); ID Auto published standalone; oth-knowledge repo born; GI-2026-08-18-01 incident → cage made a delivery invariant.", "status": "DONE", "evidence": ["EV-GI-INCIDENT", "EV-GOV-INVARIANT", "EV-MVP-COMPLETE"] },
     { "id": "MS-2026-08-19-MOSV2", "date": "2026-08-19", "project": "PROJECT-MOS-V2", "title": "Yesterday: MOS-v2 M-01→M-12, design migrations, OTH-K1→K3, governance closure", "what": "Twenty PRs merged: complete MOS-v2 console; MIG-1/2/3 executed; ecosystem hub built; OTH Knowledge K1/K2/K2-W/K3 with an independent security audit; governance key isolated (AOL v1 closure).", "status": "DONE", "evidence": ["EV-PR-39", "EV-M12", "EV-PR-42", "EV-PR-43", "EV-PR-44", "EV-PR-46"] },
     { "id": "MS-2026-08-20-TODAY", "date": "2026-08-20", "project": "PROJECT-COMMAND-CENTER", "title": "Today: Command Center UX closed, E2E proven, VPS path exhausted, OTH-K3 merged", "what": "Auto-title/auto-routing/copy-report merged (PR #47/#48); mission lifecycle proven 54/0; INT-GATE green incl. mcc-1 506/0; VPS access mechanisms exhaustively categorized as BLOCKED (PR #50/#51); OTH-K3 merged to main (PR #45 → b6e52d5); runner proposal opened (PR #53) and its first live install failed → fix opened (PR #55); Status Center built and delivered (PR #54).", "status": "DONE", "evidence": ["EV-PR-47", "EV-PR-48", "EV-PR-51", "EV-PR-45", "EV-MAIN-HEAD", "EV-PR-53", "EV-PR-54", "EV-PR-55"] },
-    { "id": "MS-2026-08-20-STC-LIVE", "date": "2026-08-20", "project": "PROJECT-STATUS-CENTER", "title": "Status Center LIVE at https://status.mythosprod.xyz/", "what": "Operator executed scripts/deploy-status-center.sh on the VPS (deployed repo 9992f7a): additive vhost + certbot TLS + acceptance smoke tests + regression checks all PASS; darhijama.tn fallback redirect ended; independently verified live from the owner machine. Delta: DNS configured → VPS vhost deployed → TLS active → Status Center LIVE.", "result": "The single source of truth is live over HTTPS; no other production site affected.", "status": "DONE", "evidence": ["EV-STC-DEPLOYED", "EV-STC-LIVE", "EV-AUDIT-ROUTING"] }
+    { "id": "MS-2026-08-20-STC-LIVE", "date": "2026-08-20", "project": "PROJECT-STATUS-CENTER", "title": "Status Center LIVE at https://status.mythosprod.xyz/", "what": "Operator executed scripts/deploy-status-center.sh on the VPS (deployed repo 9992f7a): additive vhost + certbot TLS + acceptance smoke tests + regression checks all PASS; darhijama.tn fallback redirect ended; independently verified live from the owner machine. Delta: DNS configured → VPS vhost deployed → TLS active → Status Center LIVE.", "result": "The single source of truth is live over HTTPS; no other production site affected.", "status": "DONE", "evidence": ["EV-STC-DEPLOYED", "EV-STC-LIVE", "EV-AUDIT-ROUTING"] },
+    { "id": "MS-2026-08-20-VPS-GATE-VERIFY", "date": "2026-08-20", "project": "PROJECT-SECURITY", "title": "VPS-GATE + DOCKER-FIX verified GREEN on-host", "what": "Read-only VPS Final Gate run on the host as deploy (owner-machine SSH): baseline clean (HEAD 2f1f983, executor active 20h), governance invariant suite 99/0 ON-HOST, governance.key + approvals EACCES as deploy, E2E suite hard-refuses on the registered checkout (safety intact). The prior CONFIRMED HIGH deploy∈docker root-equivalence is remediated by owner commit 2f1f983 and verified: deploy ∉ docker, group memberless, docker.sock denied, no new privilege-equivalent path.", "result": "VPS-GATE GREEN, DOCKER-FIX GREEN. Next live gate (OTH-KNOWLEDGE store activation) is the first genuine owner block.", "status": "DONE", "evidence": ["EV-VPS-GATE-ONHOST", "EV-DOCKER-FIXED"] }
   ],
 
   "blockers": [
@@ -610,16 +614,16 @@
       "required_input": "Option A: owner dispatches the prepared gate mission via ordre.mythosprod.xyz. Option B: egress allowlist + MOS_CONSOLE_SECRET, or a self-hosted runner (PR #53 package).",
       "unblock": "Option A costs zero new infrastructure — dispatch the ready mission text from the VPS-PATH handover entry.",
       "created": "2026-08-19", "last_checked": "2026-08-20", "evidence": ["EV-VPS-PATH", "EV-PR-51", "EV-PR-53"] },
-    { "id": "BLOCKER-DEPLOY-DOCKER-GROUP", "title": "deploy user is in the docker group (root-equivalent)", "type": "security", "project": "PROJECT-SECURITY", "priority": "P0", "status": "OWNER_ACTION", "owner": "Owner (root)",
-      "impact": "CONFIRMED HIGH: defeats the mythos-gov isolation while it stands; a clean final security baseline is explicitly not claimable.",
-      "required_input": "One root command on the VPS.",
-      "unblock": "sudo gpasswd -d deploy docker — then re-run tests/mythos-governance-invariant-test.js as deploy (expect 99/0).",
-      "created": "2026-08-19", "last_checked": "2026-08-20", "evidence": ["EV-DOCKER-FINDING"] },
-    { "id": "BLOCKER-OTHK-STORE", "title": "OTH Knowledge private store unprovisioned", "type": "infrastructure", "project": "PROJECT-OTH-KNOWLEDGE", "priority": "P1", "status": "OWNER_ACTION", "owner": "Operator",
-      "impact": "Knowledge layer stays disabled (fail-closed, proven by othk-2w); no live knowledge for the executor.",
-      "required_input": "Ratified store path (decided: /home/deploy/othk-store).",
-      "unblock": "umask 077; mkdir -p /home/deploy/othk-store; set store_root + enabled in projects/oth-knowledge/config/knowledge.json (PRIVATE_STORE_ARCHITECTURE.md §10).",
-      "created": "2026-08-19", "last_checked": "2026-08-20", "evidence": ["EV-PRIVATE-STORE"] },
+    { "id": "BLOCKER-DEPLOY-DOCKER-GROUP", "title": "RESOLVED: deploy removed from the docker group (root-equivalence remediated)", "type": "security", "project": "PROJECT-SECURITY", "priority": "P0", "status": "DONE", "owner": "Owner (root)",
+      "impact": "Was CONFIRMED HIGH (root-equivalence defeated mythos-gov isolation). Now remediated: a clean final security baseline at the docker boundary is claimable.",
+      "required_input": "None — resolved.",
+      "unblock": "RESOLVED 2026-08-20 by owner commit 2f1f983. Verified on-host as deploy: id -nG deploy = 'deploy users' (no docker), docker group memberless, docker.sock denied, governance invariant suite 99/0 on-host. No new privilege-equivalent path (deploy sudo scoped to nginx -t / reload nginx / certbot).",
+      "created": "2026-08-19", "last_checked": "2026-08-20", "evidence": ["EV-DOCKER-FINDING", "EV-DOCKER-FIXED", "EV-VPS-GATE-ONHOST"] },
+    { "id": "BLOCKER-OTHK-STORE", "title": "OTH Knowledge private store unprovisioned", "type": "infrastructure", "project": "PROJECT-OTH-KNOWLEDGE", "priority": "P0", "status": "OWNER_ACTION", "owner": "Operator",
+      "impact": "Knowledge layer stays disabled (fail-closed, proven by othk-2w); no live knowledge for the executor. Now the FIRST open live gate after VPS-GATE + DOCKER-FIX went green.",
+      "required_input": "Ratified store path (decided: /home/deploy/othk-store) — provisioning is owner-only by architecture; no AI session performs it.",
+      "unblock": "umask 077; mkdir -p /home/deploy/othk-store; set store_root + enabled in projects/mythos-ai-executor/config/knowledge.json (PRIVATE_STORE_ARCHITECTURE.md §10).",
+      "created": "2026-08-19", "last_checked": "2026-08-20", "note_verified": "On-host 2026-08-20 (owner-machine SSH as deploy): /home/deploy/othk-store ABSENT; projects/mythos-ai-executor/config/knowledge.json present and fail-closed (enabled=false, store_root=null).", "evidence": ["EV-PRIVATE-STORE"] },
     { "id": "BLOCKER-OTHK-REAL-DATA", "title": "No authorized real-data exports (Track B)", "type": "data", "project": "PROJECT-OTH-KNOWLEDGE", "priority": "P1", "status": "OWNER_ACTION", "owner": "Owner",
       "impact": "Track B cannot move past fixtures; OTH Master external sources equally blocked.",
       "required_input": "Owner-produced exports (Takeout, Gemini, NotebookLM) on the machine that holds them; Contacts content needs an explicit policy reversal (MPI D1).",
@@ -674,12 +678,12 @@
       "required_input": "Paste the prepared 5-step read-only mission text (VPS-PATH handover entry) into ordre.mythosprod.xyz.",
       "expected_result": "A mission report with baseline, governance EACCES evidence, suite results run on the host.",
       "procedure": "docs/AI_HANDOVER.md → VPS-PATH → 'Minimum operator actions', Option A." },
-    { "id": "ACTION-REMOVE-DOCKER", "status": "OWNER_ACTION", "what": "Remove deploy from the docker group",
-      "why": "Open CONFIRMED HIGH security finding — root-equivalence defeats governance isolation.",
-      "impact": "Makes the governance baseline claimable as clean.",
-      "required_input": "Root access (owner Windows → VPS SSH, the verified channel).",
-      "expected_result": "id -nG deploy no longer lists docker; invariant suite 99/0 as deploy.",
-      "procedure": "sudo gpasswd -d deploy docker && node tests/mythos-governance-invariant-test.js" },
+    { "id": "ACTION-REMOVE-DOCKER", "status": "DONE", "what": "Remove deploy from the docker group — COMPLETED 2026-08-20",
+      "why": "Was an open CONFIRMED HIGH security finding — root-equivalence defeated governance isolation.",
+      "impact": "The governance baseline is now claimable as clean at the docker boundary.",
+      "required_input": "None — completed by owner commit 2f1f983 (least-privilege model).",
+      "expected_result": "Met and verified on-host: id -nG deploy = 'deploy users' (no docker); docker group memberless; docker.sock denied; invariant suite 99/0 as deploy.",
+      "procedure": "Done via the permanent least-privilege model; re-verified read-only as deploy over owner-machine SSH." },
     { "id": "ACTION-STATUS-DNS", "status": "DONE", "what": "Deploy the Status Center — COMPLETED 2026-08-20 (vhost + certificate deployed, LIVE)",
       "why": "The Status Center was built and the routing fault root-caused: without a vhost the hostname 301-redirected to darhijama.tn via the default-vhost fallback.",
       "impact": "The single source of truth is live at https://status.mythosprod.xyz/; the darhijama.tn redirect has ended. Strictly additive — regression checks confirm no existing site touched.",
@@ -719,12 +723,10 @@
   ],
 
   "next_actions": [
-    { "id": "NEXT-VPS-GATE", "priority": "P0", "order": 1, "title": "Dispatch the Option A VPS Final Gate mission", "detail": "One mission through ordre.mythosprod.xyz closes the whole live-gate chain. The text is written and waiting in the VPS-PATH handover entry.", "depends_on": null },
-    { "id": "NEXT-DOCKER-FIX", "priority": "P0", "order": 2, "title": "sudo gpasswd -d deploy docker, then re-run the governance invariant suite", "detail": "The one open HIGH security finding. One command plus one test run.", "depends_on": null },
-    { "id": "NEXT-OTHK-STORE", "priority": "P1", "order": 3, "title": "Provision /home/deploy/othk-store and flip config/knowledge.json", "detail": "First activation step for live knowledge; everything else is already fail-closed-proven.", "depends_on": "NEXT-VPS-GATE" },
-    { "id": "NEXT-MOS-DEPLOY", "priority": "P1", "order": 4, "title": "Execute the MOS-v2 Phase-B deployment runbook", "detail": "New secret, relay units, deploy.sh, nginx reload — console goes live at os.mythosprod.xyz.", "depends_on": null },
-    { "id": "NEXT-EXPORTS", "priority": "P2", "order": 5, "title": "Produce authorized exports for OTH Knowledge Track B", "detail": "Takeout / Gemini / NotebookLM, per docs/OTH_TRACK_B_READINESS.md §3.", "depends_on": "NEXT-OTHK-STORE" },
-    { "id": "NEXT-HUB-DEPLOY", "priority": "P2", "order": 6, "title": "Create apex DNS and deploy the mythosprod.xyz hub", "detail": "Fixes the darhijama.tn misroute and publishes the master-brand page.", "depends_on": null }
+    { "id": "NEXT-OTHK-STORE", "priority": "P0", "order": 1, "title": "Provision /home/deploy/othk-store and activate config/knowledge.json", "detail": "The next open live gate. The read-only VPS gate and the docker fix are verified GREEN on-host; live knowledge activation is the first genuine owner block — store location is a pending owner decision and provisioning + authorized exports are owner-only by architecture (docs/PRIVATE_STORE_ARCHITECTURE.md). Set enabled=true + an absolute out-of-repo store_root after provisioning.", "depends_on": null },
+    { "id": "NEXT-MOS-DEPLOY", "priority": "P1", "order": 2, "title": "Execute the MOS-v2 Phase-B deployment runbook", "detail": "New secret, relay units, deploy.sh, nginx reload — console goes live at os.mythosprod.xyz.", "depends_on": null },
+    { "id": "NEXT-EXPORTS", "priority": "P2", "order": 3, "title": "Produce authorized exports for OTH Knowledge Track B", "detail": "Takeout / Gemini / NotebookLM, per docs/OTH_TRACK_B_READINESS.md §3.", "depends_on": "NEXT-OTHK-STORE" },
+    { "id": "NEXT-HUB-DEPLOY", "priority": "P2", "order": 4, "title": "Create apex DNS and deploy the mythosprod.xyz hub", "detail": "Fixes the darhijama.tn misroute and publishes the master-brand page.", "depends_on": null }
   ],
 
   "do_not_reopen": [

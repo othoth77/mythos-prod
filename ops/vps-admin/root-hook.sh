@@ -66,16 +66,17 @@ log "tool: /usr/local/sbin/mythos-deploy installed ($(sha256sum /usr/local/sbin/
 
 # 4. Controlled sudo. Validate before install and never leave a broken file.
 [ -f "$SRC/50-mythosadmin" ] || die "missing $SRC/50-mythosadmin"
-install -o root -g root -m 0440 "$SRC/50-mythosadmin" /tmp/50-mythosadmin.check || die "cannot stage sudoers check"
-if ! visudo -cf /tmp/50-mythosadmin.check >/dev/null 2>&1; then
-  rm -f /tmp/50-mythosadmin.check
-  die "50-mythosadmin failed visudo syntax check"
+CHECK="$STAGE/50-mythosadmin.check"
+install -o root -g root -m 0440 "$SRC/50-mythosadmin" "$CHECK" || die "cannot stage sudoers check"
+if ! CHECK_ERR="$(visudo -cf "$CHECK" 2>&1)"; then
+  rm -f "$CHECK"
+  die "50-mythosadmin failed visudo syntax check: $CHECK_ERR"
 fi
-rm -f /tmp/50-mythosadmin.check
+rm -f "$CHECK"
 install -o root -g root -m 0440 "$SRC/50-mythosadmin" /etc/sudoers.d/50-mythosadmin || die "sudoers install failed"
-if ! visudo -c >/dev/null 2>&1; then
+if ! GLOBAL_ERR="$(visudo -c 2>&1)"; then
   rm -f /etc/sudoers.d/50-mythosadmin
-  die "global visudo -c failed; sudoers file removed"
+  die "global visudo -c failed; sudoers file removed: $GLOBAL_ERR"
 fi
 log "sudo: /etc/sudoers.d/50-mythosadmin installed (visudo -c OK)"
 
