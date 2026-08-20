@@ -1,7 +1,77 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** INT-GATE **PR #48 CLOSURE + FINAL GATE — PR #48 MERGED TO MAIN (`c2ec2d7`); FULL FINAL SUITE GREEN AT THE MERGED BASELINE INCLUDING MCC-1 (506/0, DATABASE GAP RESOLVED); VPS-BOUND GATES (DOCKER-GROUP FIX, ON-HOST GOVERNANCE REVALIDATION, LIVE OTH-KNOWLEDGE, LIVE E2E) REMAIN OPERATOR/HOST BLOCKERS FROM THIS CONTAINER — RECORDED EXACTLY, NONE BYPASSED.**
+**From:** INT-VPS-GATE **VPS FINAL GATE — BLOCKED AT STEP 1 (VPS PREFLIGHT): NO ACCESS PATH FROM THIS AI EXECUTION ENVIRONMENT REACHES THE VPS. EVERY LIVE GATE RECORDED BLOCKED WITH EVIDENCE; NOTHING BYPASSED, NOTHING MODIFIED ON ANY HOST. THE GATE REQUIRES EITHER THE OWNER'S SSH CHANNEL OR A SESSION EXECUTING ON THE VPS ITSELF.**
+
+## INT-VPS-GATE — live-VPS validation attempt (2026-08-20)
+
+### Stage
+
+Ordered scope: strictly live-VPS validation (docker-group removal,
+on-host governance verification, live OTH-KNOWLEDGE, live E2E, persistent
+memory on the host, live failure validation). Executed from this AI
+session's isolated remote container. **Stopped at step 1 per the order's
+stop conditions — VPS access is unavailable.** No host, repository code,
+or configuration was modified; this handover entry is the stage's only
+change.
+
+### Access-path evidence (all verified this session, 2026-08-20 ~08:53 UTC)
+
+| Path | Result |
+|---|---|
+| SSH `deploy@51.68.226.211` (TCP/22) | UNREACHABLE — connection probe times out (re-confirmed twice this session; consistent with the long-standing Track B blocker "AI execution environment → VPS TCP/22 unreachable") |
+| SSH credentials in this environment | NONE — `~/.ssh` is empty; no key material exists here, and outbound network is HTTPS-proxy-only |
+| Public Command Center `https://os.mythosprod.xyz/login` | HTTP 000 — no connection through this environment's egress; and console sign-in would additionally require `MOS_CONSOLE_SECRET`, which is not available to this session and was not invented. Root-shell steps (docker group, key/store permissions) are impossible over the console regardless |
+| Claude Code Remote environments | Only two `anthropic_cloud` environments exist — no self-hosted runner on the VPS, so no child session can be created on the host |
+
+The one VERIFIED working channel remains **owner Windows → `deploy@51.68.226.211` SSH** (Track B, re-recorded 2026-08-19), which only the owner can drive; root steps additionally need the owner's sudo.
+
+### Gate statuses (order §10 format)
+
+```
+VPS security:            BLOCKED — no VPS access from this environment
+Governance:              BLOCKED (on-host re-verification) — last on-host validation
+                         (2026-08-20, task t-20260820075238-o372yt, ran ON the VPS as
+                         deploy) showed the boundary INTACT: key root:mythos-gov 0640,
+                         memberless group, deploy EACCES on key + approvals, zero drift
+Live OTH-KNOWLEDGE:      BLOCKED — store not provisioned; requires owner exports +
+                         operator store root (config/knowledge.json ships disabled;
+                         fail-closed wiring proven by othk-2w 39/0)
+Live E2E:                BLOCKED on-host — proven end-to-end with the real modules
+                         in-container (mos-e2e-lifecycle 54/0 at the merged baseline)
+Persistent Memory:       BLOCKED on-host — proven in-container with full stack teardown
+                         (Mission B ← Mission A via public API only, same suite)
+Live failure validation: BLOCKED on-host — container-executable failure matrix green
+                         (E2E + othk-2w + M-09/campaign suites)
+Final test result:       repository suite remains green at 029abca (INT-GATE entry
+                         below: full matrix incl. mcc-1 506/0, MOS-v2 gate SUCCESS);
+                         no live suite could be executed
+```
+
+### Required operator actions (unchanged, exact)
+
+1. SSH to the VPS; `id -nG deploy` and `getent group docker`; if deploy is a
+   member: `sudo gpasswd -d deploy docker`; then as deploy re-run
+   `node tests/mythos-governance-invariant-test.js` (expect 99/0) and confirm
+   services (all Docker use is `sudo docker`; no code path uses the socket).
+2. Provision the OTH-KNOWLEDGE store (owner exports + absolute out-of-repo
+   store root), flip `config/knowledge.json`, validate per
+   `docs/OTH_KNOWLEDGE_INTEGRATION.md`.
+3. Run one real mission through os.mythosprod.xyz (mission ID as evidence),
+   then the two-mission restart test on the host.
+
+Alternatively: give an AI session a real execution path on the VPS (e.g. a
+self-hosted runner or restored SSH), and this gate becomes executable
+end-to-end as ordered.
+
+### Next stage
+
+NOT M-13. Unchanged from INT-GATE: next-stage selection happens only after
+the operator closes the VPS gates above.
+
+---
+
+**Previously:** INT-GATE **PR #48 CLOSURE + FINAL GATE — PR #48 MERGED TO MAIN (`c2ec2d7`); FULL FINAL SUITE GREEN AT THE MERGED BASELINE INCLUDING MCC-1 (506/0, DATABASE GAP RESOLVED); VPS-BOUND GATES (DOCKER-GROUP FIX, ON-HOST GOVERNANCE REVALIDATION, LIVE OTH-KNOWLEDGE, LIVE E2E) REMAIN OPERATOR/HOST BLOCKERS FROM THIS CONTAINER — RECORDED EXACTLY, NONE BYPASSED.**
 
 ## INT-GATE — PR #48 closure + live integration + final gate (2026-08-20)
 
