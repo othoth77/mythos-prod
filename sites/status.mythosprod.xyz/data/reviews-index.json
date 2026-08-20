@@ -1,0 +1,11 @@
+{
+  "reviews": [
+    {
+      "review_id": "REVIEW-2026-08-20-001",
+      "timestamp": "2026-08-20T10:16:57.734Z",
+      "file": "reviews/2026/2026-08-20-review-001.json",
+      "head": "b6e52d577fdad530bcaab2237252de3ce63407db",
+      "blockers": 12
+    }
+  ]
+}

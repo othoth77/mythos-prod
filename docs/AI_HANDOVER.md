@@ -1,7 +1,98 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** OTH-K3 **KNOWLEDGE TRUST MODEL + PRIVATE-STORE ARCHITECTURE + TRACK B READINESS + INDEPENDENT SECURITY AUDIT — READ-ONLY TRUST DERIVATION (CONFIDENCE NEVER TRUTH), OPUS ARCHITECTURE REVIEW (APPROVE-WITH-CHANGES, 13/13 DONE), OPUS SECURITY AUDIT (PASS-WITH-FINDINGS, F1–F15 ALL FIXED), OPUS FINAL REVIEW = APPROVE, HAIKU REPRODUCTION = ALL CONTROLS CONFIRMED. TRACK A REPOSITORY-COMPLETE; TRACK B FIXTURE-COMPLETE / REAL-DATA OWNER-BLOCKED; NO SECRETS, NO REPO-LOCAL STORE, NO HIDDEN WRITE PATH.**
+**From:** STC-1 **MYTHOS STATUS CENTER BUILT — FULL-ECOSYSTEM AUDIT (668 COMMITS, 53 PRS, 23 REPOSITORIES, COMPLETE HANDOVER + DOCS RECONCILIATION), MACHINE-READABLE EVIDENCE MODEL, READ-ONLY REVIEW ENGINE WITH IMMUTABLE SNAPSHOTS + COMPARISON + REPOSITORY DISCOVERY, MYTHOS-DESIGN-SYSTEM UI AT sites/status.mythosprod.xyz, HEALTH ENDPOINT, STC-1 SUITE 73/0, BROWSER RENDER CHECK 18/0, MOS-v2 GATE SUCCESS (0 NEW FAILURES). DEPLOYMENT = OWNER DNS + OPERATOR RUNBOOK.**
+
+## STC-1 — Mythos Status Center (2026-08-20)
+
+### Stage
+
+STC-1 on branch `claude/mythos-status-center-stoqv2` (from main
+`b6e52d5`). Ordered scope: build the permanent MYTHOS Status Center —
+project memory + current status + audit system + history + review
+engine — at https://status.mythosprod.xyz/ (owner creates DNS).
+
+### Delivered
+
+- **Audit first**: complete read of this handover (15,892 lines), docs/
+  reconciliation (CURRENT vs HISTORICAL vs CONFLICTING vs SUPERSEDED),
+  full git history (repo born 2026-07-29 — 668 commits, 22 days; the
+  "6-month" windows ARE the whole history), all 53 PRs, 23-repository
+  account inventory. Local clone was shallow with a stale origin/main
+  ref — unshallowed and re-fetched before any conclusion.
+- **Data model** (`projects/status-center/lib/model.js` +
+  `data/registry.json`): fixed status vocabulary
+  (DONE/READY/IN_PROGRESS/BLOCKED/OWNER_ACTION/NOT_STARTED/DEFERRED/
+  SUPERSEDED/NOT_VERIFIED), 9-step maturity ladder (IDEA →
+  PRODUCTION_VERIFIED), stable IDs (PROJECT-*/TRACK-*/BLOCKER-*/
+  ACTION-*/EV-*/REVIEW-*), evidence records with per-item verification
+  status, fail-closed registry validation. 22 projects, 15 tracks with
+  stage lists, 17 milestones, 12 blockers, 8 owner actions, 7 ordered
+  next actions, 15 do-not-reopen entries, 23 classified documents,
+  23 classified repositories. No global completion percentage exists;
+  track percentages are calculated from stage lists or NOT_CALCULABLE.
+- **Review engine** (`lib/engine.js`, `bin/review.js`): read-only
+  (git subcommand allowlist, no network, no credentials); verifies
+  file/commit/PR/test evidence against the repository, re-marking
+  failures NOT_VERIFIED; reconciles documents; detects NEW_DISCOVERY
+  repositories (never silently classified); compares against the
+  previous snapshot (COMPLETED/UNBLOCKED/BLOCKED/REGRESSED/CHANGED/
+  SUPERSEDED + blocker/action/percent deltas); writes immutable
+  `reviews/YYYY/…-review-NNN.json` (refuses overwrite) plus
+  `data/current.json`, `data/reviews-index.json`, `health.json`
+  (M-07-style field allowlist). First snapshot:
+  **REVIEW-2026-08-20-001** at main `b6e52d5`, 58 evidence items
+  (49 VERIFIED here, 9 RECORDED, 0 NOT_VERIFIED).
+- **Surface** (`sites/status.mythosprod.xyz/`): reuses the canonical
+  design system (build-time copies of tokens/fonts/brand per the hub's
+  copy rule; one 35° gesture; pills extend the hub badge recipe; links
+  never gold; mono for machine identifiers). Sections: executive
+  status, legend + source hierarchy, project matrix
+  (search/filter/sort/detail drawer), track progress, infrastructure
+  execution paths, interactive timeline (whole-history → today, by
+  project), WHAT CHANGED, blockers, owner actions, next actions,
+  DO NOT REOPEN, document reconciliation, repository discovery, review
+  history + any-two-snapshot comparison. Rendering is
+  textContent/createElement only (no innerHTML/eval/external requests);
+  [REVIEW NOW] re-fetches the latest snapshot and shows the engine
+  command — the browser is read-only by design and can execute nothing.
+  Tier decision recorded in the site README (product surface of Mythos
+  OS, A-020 pattern; noindex + robots Disallow as an operational
+  surface).
+
+### Verification (this branch)
+
+| Check | Result |
+|---|---|
+| stc-1 suite (`tests/stc-1-status-center-test.js`) | **73/0** |
+| Headless-browser render check (desktop + 390px mobile, XSS probe, console) | **18/0** |
+| othk-3 | 63/0 |
+| governance invariant | 99/0 |
+| MOS-v2 regression gate | **SUCCESS** — 20/20 areas, 0 new failures (core 255/2 pre-existing systemd-only) |
+
+Scope: new files only under `projects/status-center/`,
+`sites/status.mythosprod.xyz/`, `tests/stc-1-status-center-test.js`,
+plus this handover/CHANGELOG/ROADMAP entry. No existing code touched;
+no existing test weakened.
+
+### Open items
+
+| Item | Owner | Procedure |
+|---|---|---|
+| DNS `status.mythosprod.xyz → 51.68.226.211` | Owner | OVH panel (no wildcard exists) |
+| Deploy the site | Operator | `sites/status.mythosprod.xyz/DEPLOYMENT.md` (rsync → vhost with `/health` alias → certbot → smoke tests) |
+| Future reviews | Any session | Update `projects/status-center/data/registry.json` with evidence → `node projects/status-center/bin/review.js` → commit → redeploy step 1 |
+
+### Next stage
+
+The Status Center is now the project's memory: every future major
+change updates the registry and produces a review snapshot. Immediate
+P0s on its own next-actions list: dispatch the Option A VPS Final Gate
+mission; remove `deploy` from the docker group.
+
+---
+
+**Previously:** OTH-K3 **KNOWLEDGE TRUST MODEL + PRIVATE-STORE ARCHITECTURE + TRACK B READINESS + INDEPENDENT SECURITY AUDIT — READ-ONLY TRUST DERIVATION (CONFIDENCE NEVER TRUTH), OPUS ARCHITECTURE REVIEW (APPROVE-WITH-CHANGES, 13/13 DONE), OPUS SECURITY AUDIT (PASS-WITH-FINDINGS, F1–F15 ALL FIXED), OPUS FINAL REVIEW = APPROVE, HAIKU REPRODUCTION = ALL CONTROLS CONFIRMED. TRACK A REPOSITORY-COMPLETE; TRACK B FIXTURE-COMPLETE / REAL-DATA OWNER-BLOCKED; NO SECRETS, NO REPO-LOCAL STORE, NO HIDDEN WRITE PATH.**
 
 ## OTH-K3 — knowledge trust model, private store, Track B readiness, security audit (2026-08-19)
 

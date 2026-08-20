@@ -1,0 +1,10 @@
+{
+  "application": "mythos-status-center",
+  "version": "1.0.0",
+  "status": "ok",
+  "review_id": "REVIEW-2026-08-20-001",
+  "review_timestamp": "2026-08-20T10:16:57.734Z",
+  "data_timestamp": "2026-08-20T10:16:57.734Z",
+  "repository_head": "b6e52d577fdad530bcaab2237252de3ce63407db",
+  "last_review": "REVIEW-2026-08-20-001"
+}

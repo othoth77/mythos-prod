@@ -1,0 +1,29 @@
+{
+  "captured_at": "2026-08-20T10:20:00Z",
+  "capture_method": "Authorized session repository listing for the othoth77 account during the STC-1 audit. Refresh by re-listing and rewriting this file; any repository present here but missing from registry.json appears in the dashboard as NEW_DISCOVERY requiring classification.",
+  "repos": [
+    { "full_name": "othoth77/mythos-prod", "pushed_at": "2026-08-20T09:44:08Z", "visibility": "public" },
+    { "full_name": "othoth77/idauto", "pushed_at": "2026-08-19T11:39:47Z", "visibility": "public" },
+    { "full_name": "othoth77/oth-knowledge", "pushed_at": "2026-08-19T10:38:49Z", "visibility": "private" },
+    { "full_name": "othoth77/mythos-os", "pushed_at": "2026-08-17T18:14:59Z", "visibility": "private" },
+    { "full_name": "othoth77/fixpert", "pushed_at": "2026-08-13T17:32:52Z", "visibility": "private" },
+    { "full_name": "othoth77/ssangyong", "pushed_at": "2026-08-13T17:32:46Z", "visibility": "private" },
+    { "full_name": "othoth77/uthina-chess", "pushed_at": "2026-08-13T17:32:38Z", "visibility": "private" },
+    { "full_name": "othoth77/classepro", "pushed_at": "2026-08-13T17:08:56Z", "visibility": "private" },
+    { "full_name": "othoth77/oudhna-service", "pushed_at": "2026-08-13T17:08:49Z", "visibility": "private" },
+    { "full_name": "othoth77/festival", "pushed_at": "2026-08-13T17:08:43Z", "visibility": "private" },
+    { "full_name": "othoth77/chatrange", "pushed_at": "2026-08-13T17:08:36Z", "visibility": "private" },
+    { "full_name": "othoth77/agribee", "pushed_at": "2026-08-13T17:08:29Z", "visibility": "private" },
+    { "full_name": "othoth77/mythos-app", "pushed_at": "2026-08-13T17:08:22Z", "visibility": "private" },
+    { "full_name": "othoth77/nettoyage-photo-vps", "pushed_at": "2026-08-13T17:08:14Z", "visibility": "private" },
+    { "full_name": "othoth77/karhmana", "pushed_at": "2026-08-13T17:08:06Z", "visibility": "private" },
+    { "full_name": "othoth77/darhijama-site", "pushed_at": "2026-08-13T17:07:59Z", "visibility": "private" },
+    { "full_name": "othoth77/mythos-prod-unversioned-snapshot", "pushed_at": "2026-08-13T17:07:51Z", "visibility": "private" },
+    { "full_name": "othoth77/knowledgevault-kms", "pushed_at": "2026-08-13T17:07:40Z", "visibility": "private" },
+    { "full_name": "othoth77/oth-master", "pushed_at": "2026-08-09T18:39:17Z", "visibility": "private" },
+    { "full_name": "othoth77/darhijama", "pushed_at": "2026-07-29T19:08:39Z", "visibility": "public" },
+    { "full_name": "othoth77/notre-jour", "pushed_at": "2026-07-29T03:46:30Z", "visibility": "private" },
+    { "full_name": "othoth77/notrejour", "pushed_at": "2026-07-23T19:44:05Z", "visibility": "private" },
+    { "full_name": "othoth77/telegram-bot", "pushed_at": "2026-05-11T23:24:50Z", "visibility": "public" }
+  ]
+}

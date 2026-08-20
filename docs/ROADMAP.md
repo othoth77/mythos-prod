@@ -296,6 +296,20 @@ Ten open owner decisions (O-MAOL-1..10) are recorded in `docs/MYTHOS_AI_OPERATIN
 
 ---
 
+## Status Center — Single Source of Truth Track
+
+The MYTHOS Status Center (`sites/status.mythosprod.xyz/` +
+`projects/status-center/`) is the ecosystem's permanent memory:
+evidence-based status, immutable review history, blockers, owner
+actions, next actions. Every future major change updates
+`projects/status-center/data/registry.json` and runs
+`node projects/status-center/bin/review.js` to snapshot a review.
+
+| Stage | Scope | Status |
+|---|---|---|
+| STC-1 | Full-ecosystem audit, data model, review engine, immutable history + comparison, repository discovery, design-system UI, health endpoint, tests (stc-1 73/0; render 18/0) | ✓ Done (2026-08-20) |
+| STC-DEPLOY | Owner DNS record `status.mythosprod.xyz → 51.68.226.211` + operator runbook `sites/status.mythosprod.xyz/DEPLOYMENT.md` | **OWNER-BLOCKED** |
+
 ## OTH Knowledge — Knowledge Operating Layer Track
 
 The provider-agnostic knowledge operating layer (`projects/oth-knowledge/`; architecture `docs/OTH_KNOWLEDGE_ARCHITECTURE.md`, integration `docs/OTH_KNOWLEDGE_INTEGRATION.md`, operations `docs/OTH_KNOWLEDGE_OPERATIONS.md`, private store `docs/PRIVATE_STORE_ARCHITECTURE.md`, Track B `docs/OTH_TRACK_B_READINESS.md`). The AI Operating Layer consumes it read-only; it never owns or writes knowledge.
