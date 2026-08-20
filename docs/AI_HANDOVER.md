@@ -1,7 +1,77 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** OTH-K3 **KNOWLEDGE TRUST MODEL + PRIVATE-STORE ARCHITECTURE + TRACK B READINESS + INDEPENDENT SECURITY AUDIT — READ-ONLY TRUST DERIVATION (CONFIDENCE NEVER TRUTH), OPUS ARCHITECTURE REVIEW (APPROVE-WITH-CHANGES, 13/13 DONE), OPUS SECURITY AUDIT (PASS-WITH-FINDINGS, F1–F15 ALL FIXED), OPUS FINAL REVIEW = APPROVE, HAIKU REPRODUCTION = ALL CONTROLS CONFIRMED. TRACK A REPOSITORY-COMPLETE; TRACK B FIXTURE-COMPLETE / REAL-DATA OWNER-BLOCKED; NO SECRETS, NO REPO-LOCAL STORE, NO HIDDEN WRITE PATH.**
+**From:** STATUS-RT **STATUS.MYTHOSPROD.XYZ → DARHIJAMA.TN REDIRECT — ROOT-CAUSED (ORIGIN NGINX DEFAULT-VHOST FALLBACK; DNS CORRECT; CLOUDFLARE NOT IN PATH; NO STATUS CENTER EVER DEPLOYED OR BUILT). OPERATOR-READY ADDITIVE FIX COMMITTED (VHOST RUNBOOK + PROVISIONING PAGE); VPS EXECUTION BLOCKED FROM AI ENVIRONMENT (VPS-PATH STATE UNCHANGED). NOTHING EXISTING TOUCHED; DARHIJAMA UNTOUCHED.**
+
+## STATUS-RT — status.mythosprod.xyz routing diagnosis + operator-ready fix (2026-08-20)
+
+### Stage
+
+Branch `claude/status-center-routing-fix-ah002u` (from main `b6e52d5`).
+Ordered scope: diagnose why `https://status.mythosprod.xyz/` redirects to
+`https://darhijama.tn/`, fix if the approved access path permits,
+otherwise leave an exact operator-ready fix.
+
+### Diagnosis (full evidence: `docs/audits/STATUS_CENTER_ROUTING_DIAGNOSIS_2026-08-20.md`)
+
+- **DNS CORRECT**: `status.mythosprod.xyz` is an explicit `A` record →
+  `51.68.226.211` (verified live this session; no wildcard — a random
+  subdomain is NXDOMAIN). Cloudflare is NOT in the path (OVH
+  nameservers, direct origin IP).
+- **ROOT CAUSE — origin nginx**: no vhost carries
+  `server_name status.mythosprod.xyz`, so requests fall to the
+  default-server fallback, which answers unknown hosts with
+  `301 → https://darhijama.tn/` (the same documented failure mode as the
+  apex, `docs/CLOUDFLARE_DOMAIN_INVENTORY.md` §5). No certificate exists
+  for the hostname either (SNI falls back to the default cert).
+- **Status Center NOT deployed — and never built**: before this stage the
+  repository contained zero references to `status.mythosprod.xyz` or a
+  "Status Center". The exact missing deployment step is that no artifact
+  existed at all: no site content, no vhost, no cert. DNS was created
+  ahead of any deployment.
+- DarHijama itself is healthy and is only the fallback *destination*; no
+  DarHijama change is needed, proposed, or made.
+
+### Delivered (repository-executable portion)
+
+- `docs/audits/STATUS_CENTER_ROUTING_DIAGNOSIS_2026-08-20.md` — layer-by-
+  layer evidence (DNS → Cloudflare → VPS → nginx → vhost → redirect →
+  docroot → DarHijama → TLS → deployment config) with causal chain.
+- `sites/status.mythosprod.xyz/` — **BUILT, NOT DEPLOYED**: honest
+  provisioning page (self-contained, no scripts, `noindex`, no invented
+  status data per O-A2) + `DEPLOYMENT.md` operator runbook: strictly
+  additive vhost (exact `server_name` beats the default fallback),
+  certbot per the MCC-1-VERIFY-proven procedure, required verification
+  (`curl -I` / `curl -IL` must show no `darhijama.tn` in the chain) and
+  regression checks (darhijama.tn / uthinachess.tn / panel still fine),
+  evidence-recording step, rollback.
+
+### Blocker (why not executed here)
+
+No approved access path from this AI environment to the VPS: SSH
+network-blocked and HTTPS to the VPS egress-denied (proxy CONNECT 403,
+re-verified this session) — the VPS-PATH (2026-08-20) state, unchanged.
+Live `curl` verification of the fault and of the fix is therefore an
+operator step, embedded in the runbook (§0 preflight reproduces the fault,
+§4 verifies the fix).
+
+### Tests
+
+Static-content + documentation stage: no application code changed; no
+test suite applies. `sites/status.mythosprod.xyz/index.html` is
+self-contained static HTML (no scripts).
+
+### Next stage
+
+Operator executes `sites/status.mythosprod.xyz/DEPLOYMENT.md` on the VPS,
+appends the execution evidence to the diagnosis doc, and flips this
+stage's deployment status to DEPLOYED. Separately: an actual Status Center
+product (live status data) is an undesigned future stage requiring owner
+scoping.
+
+---
+
+**Previously:** OTH-K3 **KNOWLEDGE TRUST MODEL + PRIVATE-STORE ARCHITECTURE + TRACK B READINESS + INDEPENDENT SECURITY AUDIT — READ-ONLY TRUST DERIVATION (CONFIDENCE NEVER TRUTH), OPUS ARCHITECTURE REVIEW (APPROVE-WITH-CHANGES, 13/13 DONE), OPUS SECURITY AUDIT (PASS-WITH-FINDINGS, F1–F15 ALL FIXED), OPUS FINAL REVIEW = APPROVE, HAIKU REPRODUCTION = ALL CONTROLS CONFIRMED. TRACK A REPOSITORY-COMPLETE; TRACK B FIXTURE-COMPLETE / REAL-DATA OWNER-BLOCKED; NO SECRETS, NO REPO-LOCAL STORE, NO HIDDEN WRITE PATH.**
 
 ## OTH-K3 — knowledge trust model, private store, Track B readiness, security audit (2026-08-19)
 
