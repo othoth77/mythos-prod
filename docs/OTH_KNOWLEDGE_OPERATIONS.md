@@ -23,8 +23,8 @@ worktree, NEVER an ephemeral container layer).
 
 - **Health check:** `node cli/othk-cli.js --store <root> validate` → exit 0 and `"ok": true`.
 - **Stats/monitoring expectation:** `stats` record counts should only grow or stay equal; `validate` must stay ok; any `problems[]` entry is an incident.
-- **Backup:** the store is two things — `records.jsonl` + `objects/` (+ `meta.json`). Backup = consistent copy of the root directory (no writer running): `tar czf othk-backup-<date>.tar.gz <root>`. Store backups outside the application host per AGENTS.md §16; contents are private data — encrypt at rest where the destination is shared.
-- **Restore:** untar to a fresh root, then `validate` (hash-verifies every artifact object and referential integrity). A backup is valid only after a tested restore.
+- **Backup:** the store is two things — `records.jsonl` + `objects/` (+ `meta.json`). Backup = consistent copy of the root directory (no writer running): `ops/backup.sh <root> <backup-dir>` (validates first, writes archive + `.sha256`, prints the encrypt step). Store backups outside the application host per AGENTS.md §16; contents are private data — encrypt at rest where the destination is shared. Full policy: `docs/PRIVATE_STORE_ARCHITECTURE.md` §6.
+- **Restore:** `ops/restore-verify.sh <archive> <fresh-dir>` (hash check, restore to a fresh root, `validate` hash-verifies every artifact object and referential integrity). A backup is valid only after a tested restore. Both scripts round-trip-verified locally 2026-08-19; the live owner-channel round trip remains an operator action.
 - **Rollback:** the log is append-only; a corrupted tail line can be truncated to the last valid line (validate afterwards). Records are never edited in place, so rollback of content = tombstone or supersede, both auditable.
 
 ## 3. Re-index / re-import / re-evaluation
@@ -63,7 +63,9 @@ unreachable — real imports are operator-local actions for now
 
 AI-agent→VPS access: **NOT AVAILABLE** (re-verified 2026-08-19: TCP 22
 unreachable, no client, no keys). The owner channel IS verified
-(Windows→VPS SSH/SCP as `deploy`, ED25519; rsync on VPS only). Package:
+(Windows→VPS SSH/SCP as `deploy`, ED25519; rsync on VPS only).
+Scripted: `ops/deploy-vps.sh [deploy@host] [remote-base]` — code only,
+refuses an uncommitted worktree, never touches a store. Manual package:
 
 ```bash
 # from the owner machine (rsync absent on Windows → scp/tar-over-ssh)

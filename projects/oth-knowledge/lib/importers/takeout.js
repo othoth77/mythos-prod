@@ -46,9 +46,12 @@ function importDirectory(store, classes, dir, opts) {
   const o = opts || {};
   if (!o.captured_at) throw fail('OTHK_IMPORT_INPUT', 'captured_at required');
   const root = path.resolve(dir);
-  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) {
-    throw fail('OTHK_IMPORT_INPUT', 'not a directory: ' + root);
-  }
+  if (!fs.existsSync(root)) throw fail('OTHK_IMPORT_INPUT', 'not a directory: ' + root);
+  // Refuse a symlinked import ROOT too — child entries are already
+  // lstat-skipped, but statSync on the root follows symlinks (F9), which
+  // would let a symlink named as the export dir pull in outside content.
+  if (fs.lstatSync(root).isSymbolicLink()) throw fail('OTHK_IMPORT_INPUT', 'symlinked import root refused: ' + root);
+  if (!fs.statSync(root).isDirectory()) throw fail('OTHK_IMPORT_INPUT', 'not a directory: ' + root);
   const collection = o.collection || ('takeout-' + path.basename(root));
   const report = { imported: 0, deduplicated: 0, skipped: [], events: 0, files: 0 };
 

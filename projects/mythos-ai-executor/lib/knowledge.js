@@ -42,7 +42,9 @@ var ALLOWED_CONFIG_FIELDS = ['enabled', 'store_root', 'description'];
 // Rejected by presence anywhere in the document, at any depth: this is a
 // local-path wiring config, and anything endpoint- or credential-shaped
 // appearing in it is exactly the accident this check exists to catch.
-var FORBIDDEN_KEY_RE = /^(endpoint|url|key|token|secret|password|credential|api_key|apikey|auth)$/i;
+// Substring (not anchored): 'access_token', 'private_key', 'webhook_url'
+// and similar composite spellings must match too (F7).
+var FORBIDDEN_KEY_RE = /(endpoint|url|uri|host|hostname|webhook|key|token|secret|password|passphrase|credential|cookie|session|auth|bearer)/i;
 
 // The ONLY operations the executor may reach. Built as an explicit
 // allowlist so that even if the underlying service ever grew a write
@@ -50,7 +52,8 @@ var FORBIDDEN_KEY_RE = /^(endpoint|url|key|token|secret|password|credential|api_
 // deliberate change here.
 var READ_OPS = [
   'search', 'retrieve', 'lookupEntity', 'lookupEvidence', 'lookupHistory',
-  'lookupProvenance', 'findContradictions', 'currentState', 'audit', 'stats'
+  'lookupProvenance', 'findContradictions', 'currentState', 'audit', 'stats',
+  'assessTrust'
 ];
 
 function scanForbiddenKeys(obj, where, errors) {
@@ -118,7 +121,9 @@ function presentationOf(service, id) {
     assertion_class: (prov && prov.lineage && prov.lineage.assertion_class) || null,
     is_claim: isClaim,
     statement_class: isClaim ? 'claim — never present as fact' : 'statement',
-    quarantined: tags.indexOf('quarantined') !== -1,
+    // Both tag spellings: audit.js quarantines with 'quarantined'; the
+    // ingest secret-refusal path tags 'quarantine'. Either must flag.
+    quarantined: tags.indexOf('quarantined') !== -1 || tags.indexOf('quarantine') !== -1,
   };
 }
 
@@ -164,6 +169,21 @@ function openKnowledge(opts) {
     }
     return innerCurrentState(q);
   };
+
+  // Same rule-1 guard for assessTrust: trust is a point-in-time
+  // judgement and the AI layer never defaults it to "now", even against
+  // a future service that softened its own check.
+  if (ops.assessTrust) {
+    var innerAssessTrust = ops.assessTrust;
+    ops.assessTrust = function (id, q) {
+      if (!q || !q.asOf) {
+        var e2 = new Error('MYTHOS_KNOWLEDGE_ASOF: asOf is required — the AI layer never defaults to "now"');
+        e2.code = 'MYTHOS_KNOWLEDGE_ASOF';
+        throw e2;
+      }
+      return innerAssessTrust(id, q);
+    };
+  }
 
   // Rules 2–4: every hit is annotated. search() output keeps the
   // service's provenance field and gains a presentation block.

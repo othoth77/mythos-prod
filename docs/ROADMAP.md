@@ -296,6 +296,22 @@ Ten open owner decisions (O-MAOL-1..10) are recorded in `docs/MYTHOS_AI_OPERATIN
 
 ---
 
+## OTH Knowledge — Knowledge Operating Layer Track
+
+The provider-agnostic knowledge operating layer (`projects/oth-knowledge/`; architecture `docs/OTH_KNOWLEDGE_ARCHITECTURE.md`, integration `docs/OTH_KNOWLEDGE_INTEGRATION.md`, operations `docs/OTH_KNOWLEDGE_OPERATIONS.md`, private store `docs/PRIVATE_STORE_ARCHITECTURE.md`, Track B `docs/OTH_TRACK_B_READINESS.md`). The AI Operating Layer consumes it read-only; it never owns or writes knowledge.
+
+| Stage | Description | Status |
+|---|---|---|
+| OTH-K1 | Core model, store, provenance, search, evaluation | ✓ Done (2026-08-19) |
+| OTH-K2 | Four importers, dedup, temporal, audit, service boundary, evaluation v2 | ✓ Done (2026-08-19, PR #43) |
+| OTH-K2-W | Executor-side read-only wiring (fail-closed config, allowlist) | ✓ Done (2026-08-19, PR #44) |
+| OTH-K3 | Knowledge trust model — authority/freshness/corroboration/contradiction, read-only, confidence never truth | ✓ Done (2026-08-19) — Opus-reviewed |
+| Track B | Real owner-data imports (Takeout/Gemini/NotebookLM/Contacts) into a provisioned private store | **OWNER-BLOCKED** — fixture-complete; needs owner exports + store provisioning (`docs/OTH_TRACK_B_READINESS.md` §3) |
+
+Track B and production activation (`config/knowledge.json`) are owner/operator actions; nothing further is repository-executable.
+
+---
+
 ## ID Auto — Separate Product Track
 
 ID Auto (repositioned as **IDauto — an open vehicle identity and history protocol**) is a

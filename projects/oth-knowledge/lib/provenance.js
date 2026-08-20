@@ -16,6 +16,17 @@ const DEFAULT_CONFIG = path.join(__dirname, '..', 'config', 'source-classes.json
 
 function fail(code, msg) { const e = new Error(code + ': ' + msg); e.code = code; return e; }
 
+// Endpoint/credential-shaped keys never belong in this local registry
+// config (F7): reject them anywhere in the document, whole-file closed.
+const FORBIDDEN_KEY_RE = /(endpoint|url|uri|host|hostname|webhook|key|token|secret|password|passphrase|credential|cookie|session|auth|bearer)/i;
+function scanForbiddenKeys(obj, where, errors) {
+  if (!obj || typeof obj !== 'object') return;
+  for (const k of Object.keys(obj)) {
+    if (FORBIDDEN_KEY_RE.test(k)) errors.push(where + '.' + k + ': endpoint/credential-shaped keys are rejected by design');
+    scanForbiddenKeys(obj[k], where + '.' + k, errors);
+  }
+}
+
 // Whole-registry fail-closed validation: one bad class invalidates the file.
 function loadSourceClasses(configPath) {
   const p = configPath || DEFAULT_CONFIG;
@@ -25,6 +36,9 @@ function loadSourceClasses(configPath) {
   if (!parsed || parsed.format !== 'othk-source-classes' || !model.isPlainObject(parsed.classes)) {
     throw fail('OTHK_SOURCE_CONFIG', 'invalid source-class registry format');
   }
+  const scanErrors = [];
+  scanForbiddenKeys(parsed, 'root', scanErrors);
+  if (scanErrors.length) throw fail('OTHK_SOURCE_CONFIG', scanErrors.join('; '));
   const classes = Object.create(null);
   for (const name of Object.keys(parsed.classes)) {
     const cls = parsed.classes[name];

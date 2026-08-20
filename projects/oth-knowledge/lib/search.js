@@ -191,8 +191,13 @@ function hybridSearch(index, query, filters, limit) {
     .map((f) => Object.assign({}, f.hit, { score: f.score, mode: 'hybrid' }));
 }
 
+const MAX_QUERY_CHARS = 4096; // bounded so a pathological query cannot drive cost (F15)
+
 function search(index, query, opts) {
   const o = opts || {};
+  if (typeof query === 'string' && query.length > MAX_QUERY_CHARS) {
+    throw new Error('OTHK_SEARCH_QUERY_TOO_LONG: query exceeds ' + MAX_QUERY_CHARS + ' chars');
+  }
   const mode = o.mode || 'hybrid';
   if (mode === 'exact') return exactSearch(index, query, o.filters, o.limit);
   if (mode === 'lexical') return lexicalSearch(index, query, o.filters, o.limit);
@@ -202,6 +207,6 @@ function search(index, query, opts) {
 }
 
 module.exports = {
-  SEARCHABLE_KINDS, tokenize, textOf, defaultEmbedder, cosine,
+  SEARCHABLE_KINDS, MAX_QUERY_CHARS, tokenize, textOf, defaultEmbedder, cosine,
   buildIndex, passesFilters, exactSearch, lexicalSearch, vectorSearch, hybridSearch, search,
 };

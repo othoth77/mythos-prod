@@ -53,6 +53,12 @@ function validateProvenance(prov, kind) {
   if (prov.observed_at !== undefined && prov.observed_at !== null && !isIsoTimestamp(prov.observed_at)) {
     throw fail('OTHK_MODEL_PROVENANCE', 'provenance.observed_at invalid timestamp');
   }
+  // A malformed artifact_ref would throw out of read-only audit/trust/
+  // provenance-lookup paths (ids.hashFromRef throws); validate its shape
+  // at write time so those surfaces can never fail on stored data (F13).
+  if (prov.artifact_ref !== undefined && prov.artifact_ref !== null && !ids.isContentRef(prov.artifact_ref)) {
+    throw fail('OTHK_MODEL_PROVENANCE', 'provenance.artifact_ref must be an othk content reference');
+  }
   if (prov.confidence !== undefined && CONFIDENCE.indexOf(prov.confidence) === -1) {
     throw fail('OTHK_MODEL_PROVENANCE', 'provenance.confidence must be one of ' + CONFIDENCE.join('/'));
   }

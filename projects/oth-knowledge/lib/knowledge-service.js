@@ -17,6 +17,7 @@ const searchLib = require('./search.js');
 const temporal = require('./temporal.js');
 const conflictLib = require('./conflict.js');
 const auditLib = require('./audit.js');
+const trustLib = require('./trust.js');
 
 function fail(code, msg) { const e = new Error(code + ': ' + msg); e.code = code; return e; }
 
@@ -25,7 +26,10 @@ function fail(code, msg) { const e = new Error(code + ': ' + msg); e.code = code
 // the importer/CLI paths, not through AI-layer calls.
 function openService(root, opts) {
   const store = storeLib.openStore(root);
-  provenanceLib.loadSourceClasses(opts && opts.sourceClassConfig); // fail-closed registry check at open
+  const classes = provenanceLib.loadSourceClasses(opts && opts.sourceClassConfig); // fail-closed registry check at open
+  // Trust model loads at open too (fail closed): a service that cannot
+  // assess trust refuses to open rather than failing at first call.
+  const trustModel = trustLib.loadTrustModel(opts && opts.trustModelConfig, classes);
   let index = null;
   const getIndex = () => {
     if (!index) index = searchLib.buildIndex(store, { embedder: opts && opts.embedder });
@@ -40,7 +44,8 @@ function openService(root, opts) {
     retrieve(id) {
       const versions = store.getVersions(id);
       if (!versions.length) return null;
-      return { record: store.getRecord(id), versions: versions.map((v) => ({ version: v.version, written_at: v.written_at, deleted: v.deleted })), deleted: store.getRecord(id) === null };
+      const rec = store.getRecord(id);
+      return { record: rec, versions: versions.map((v) => ({ version: v.version, written_at: v.written_at, deleted: v.deleted })), deleted: rec === null, quarantined: rec ? temporal.isQuarantined(rec) : false };
     },
 
     // lookupEntity(name) → entities matching the folded name + linked records
@@ -75,6 +80,7 @@ function openService(root, opts) {
       if (!rec || !rec.provenance) return rec ? { provenance: null } : null;
       return {
         provenance: rec.provenance,
+        quarantined: temporal.isQuarantined(rec),
         artifact_available: rec.provenance.artifact_ref ? store.hasObject(rec.provenance.artifact_ref) : null,
         lineage: rec.metadata ? {
           importer: rec.metadata.importer || null,
@@ -102,10 +108,17 @@ function openService(root, opts) {
         .filter((r) => !o.tag || (Array.isArray(r.tags) && r.tags.indexOf(o.tag) !== -1));
       return {
         as_of: o.asOf,
-        known: known.map((r) => ({ id: r.id, kind: r.kind, truth_time: temporal.truthTimeOf(r), classification: temporal.classify(store, r, { asOf: o.asOf }) })),
-        latest_verified: temporal.latestVerified(store, { tag: o && o.tag }).slice(0, 10).map((r) => r.id),
+        known: known.map((r) => ({ id: r.id, kind: r.kind, truth_time: temporal.truthTimeOf(r), classification: temporal.classify(store, r, { asOf: o.asOf }), quarantined: temporal.isQuarantined(r) })),
+        latest_verified: temporal.latestVerified(store, { tag: o && o.tag, asOf: o.asOf }).slice(0, 10).map((r) => r.id),
         open_contradictions: conflictLib.listConflicts(store, { state: 'open' }).map((r) => r.id),
       };
+    },
+
+    // assessTrust(id, {asOf}) → OTH-K3 trust report (read-only, traceable,
+    // never a truth value; asOf explicit — same rule as currentState)
+    assessTrust(id, o) {
+      if (!o || !o.asOf) throw fail('OTHK_SERVICE_INPUT', 'asOf required — trust is never assessed against the wall clock');
+      return trustLib.assessTrust(store, trustModel, id, { asOf: o.asOf });
     },
 
     // audit() → provenance audit report (read-only, no quarantine writes)

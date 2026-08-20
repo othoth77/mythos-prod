@@ -1,0 +1,16 @@
+{
+  "format": "othk-trust-model",
+  "version": 1,
+  "notes": "Authority tiers per source class (OTH-K3). Closed both ways against config/source-classes.json: every registered class must appear here, and no entry may name an unregistered class. stale_after_days is an epistemic freshness horizon — stale means 'old relative to asOf', never 'false'.",
+  "classes": {
+    "owner-report":      { "tier": "first-party",         "stale_after_days": 365 },
+    "manual":            { "tier": "operator",            "stale_after_days": 365 },
+    "mythos-repo":       { "tier": "repository-verified", "stale_after_days": 365 },
+    "google-takeout":    { "tier": "imported",            "stale_after_days": 730 },
+    "google-other":      { "tier": "imported",            "stale_after_days": 730 },
+    "external-provider": { "tier": "imported",            "stale_after_days": 365 },
+    "google-contacts":   { "tier": "metadata-only",       "stale_after_days": 730 },
+    "gemini":            { "tier": "model-output",        "stale_after_days": 365 },
+    "notebooklm":        { "tier": "model-output",        "stale_after_days": 365 }
+  }
+}

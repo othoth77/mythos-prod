@@ -148,6 +148,23 @@ console.log('§6 Rules 2–4 — provenance and presentation on every hit');
 
   const qHits = open.ops.search('searched coolify deployment', { mode: 'lexical', limit: 50 }).filter((h) => h.presentation.quarantined);
   ok(qHits.length >= 1, 'the quarantined record surfaces with quarantined=true, never silently clean');
+
+  // Regression (OTH-K3 review finding): the ingest secret-refusal path
+  // tags 'quarantine' (not 'quarantined'); that spelling must flag too.
+  {
+    const target = hits.find((h) => !h.presentation.quarantined);
+    const S2 = storeLib.openStore(ROOT);
+    const rec = S2.getRecord(target.id);
+    const next = JSON.parse(JSON.stringify(rec));
+    next.tags = Array.from(new Set([...(next.tags || []), 'quarantine']));
+    S2.appendRecord(next, { allowNewVersion: true });
+    const reopened = knowledge.openKnowledge({ config: cfg({ enabled: true, store_root: ROOT }) });
+    const hit2 = reopened.ops.search('reverse proxies terminate tls', { mode: 'lexical', limit: 50 })
+      .concat(reopened.ops.search('searched coolify deployment', { mode: 'lexical', limit: 50 }))
+      .filter((h) => h.id === target.id);
+    ok(hit2.length >= 1 && hit2.every((h) => h.presentation.quarantined === true),
+      "ingest-spelled 'quarantine' tag also presents quarantined=true (no bypass via the second tag vocabulary)");
+  }
 }
 
 console.log('§7 Allowlist holds against a widened service');
