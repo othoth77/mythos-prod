@@ -421,7 +421,7 @@
 
     var titleInput = el('input', {
       className: 'mythos-input',
-      attrs: { type: 'text', id: 'mission-title', maxlength: '200', placeholder: 'Short mission title (optional — first instruction line is used)', autocomplete: 'off' }
+      attrs: { type: 'text', id: 'mission-title', maxlength: '80', placeholder: 'Short mission title (optional — first instruction line is used)', autocomplete: 'off' }
     });
     var instructionInput = el('textarea', {
       className: 'mythos-input mythos-textarea',

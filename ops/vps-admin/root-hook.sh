@@ -3,7 +3,7 @@
 # Safe to re-run after /tmp cleanup: the audited tool and sudoers source come
 # from the repository; the public key is reused from the existing account when
 # already installed. Intended for an owner-controlled root/KVM shell.
-set -uo pipefail
+set -euo pipefail
 
 ADMIN="mythosadmin"
 STAGE="/tmp/mythos-bootstrap"
@@ -64,8 +64,10 @@ chown root:root /var/log/mythos-deploy.log
 chmod 0644 /var/log/mythos-deploy.log
 log "tool: /usr/local/sbin/mythos-deploy installed ($(sha256sum /usr/local/sbin/mythos-deploy | cut -c1-16)…)"
 
-# 4. Controlled sudo. Validate before install and never leave a broken file.
+# 4. Controlled sudo. Validate the exact source first, then install it
+# atomically. Never destroy an already-valid sudoers file on failure.
 [ -f "$SRC/50-mythosadmin" ] || die "missing $SRC/50-mythosadmin"
+install -d -o root -g root -m 0755 /etc/sudoers.d
 CHECK="$STAGE/50-mythosadmin.check"
 install -o root -g root -m 0440 "$SRC/50-mythosadmin" "$CHECK" || die "cannot stage sudoers check"
 if ! CHECK_ERR="$(visudo -cf "$CHECK" 2>&1)"; then
@@ -73,16 +75,50 @@ if ! CHECK_ERR="$(visudo -cf "$CHECK" 2>&1)"; then
   die "50-mythosadmin failed visudo syntax check: $CHECK_ERR"
 fi
 rm -f "$CHECK"
-install -o root -g root -m 0440 "$SRC/50-mythosadmin" /etc/sudoers.d/50-mythosadmin || die "sudoers install failed"
-if ! GLOBAL_ERR="$(visudo -c 2>&1)"; then
-  rm -f /etc/sudoers.d/50-mythosadmin
-  die "global visudo -c failed; sudoers file removed: $GLOBAL_ERR"
+
+FINAL="/etc/sudoers.d/50-mythosadmin"
+TMP="/etc/sudoers.d/.50-mythosadmin.tmp.$$"
+BACKUP="$STAGE/50-mythosadmin.previous"
+HAD_PREVIOUS=0
+if [ -f "$FINAL" ]; then
+  cp -a "$FINAL" "$BACKUP" || die "cannot back up existing sudoers file"
+  HAD_PREVIOUS=1
 fi
-log "sudo: /etc/sudoers.d/50-mythosadmin installed (visudo -c OK)"
+rm -f "$TMP"
+install -o root -g root -m 0440 "$SRC/50-mythosadmin" "$TMP" || die "sudoers temp install failed"
+chmod 0440 "$TMP" || die "sudoers temp chmod failed"
+mv -f "$TMP" "$FINAL" || die "sudoers atomic install failed"
+
+restore_previous() {
+  rm -f "$FINAL"
+  if [ "$HAD_PREVIOUS" = "1" ]; then
+    install -o root -g root -m 0440 "$BACKUP" "$FINAL" || true
+  fi
+}
+
+if ! GLOBAL_ERR="$(visudo -c 2>&1)"; then
+  restore_previous
+  die "global visudo -c failed; new sudoers file was reverted: $GLOBAL_ERR"
+fi
+
+MODE="$(stat -c '%a' "$FINAL" 2>/dev/null || echo '?')"
+[ "$MODE" = "440" ] || { restore_previous; die "sudoers mode is $MODE, expected 440"; }
+
+if ! PRIVS="$(sudo -n -l -U "$ADMIN" 2>&1)"; then
+  restore_previous
+  die "sudo privilege verification failed; new sudoers file was reverted: $PRIVS"
+fi
+printf '%s\n' "$PRIVS" | grep -Fq '/usr/local/sbin/mythos-deploy' || {
+  restore_previous
+  die "sudo privilege verification missing mythos-deploy; new sudoers file was reverted"
+}
+
+rm -f "$BACKUP"
+log "sudo: /etc/sudoers.d/50-mythosadmin installed atomically (mode 440, global visudo OK, sudo privilege check OK)"
 
 # 5. Ground-truth report.
 log "--- sudo -l -U $ADMIN ---"
-sudo -l -U "$ADMIN" 2>&1 | tee -a "$RESULT" || true
+printf '%s\n' "$PRIVS" | tee -a "$RESULT"
 log "--- safety assertions ---"
 log "groups($ADMIN): $(id -nG "$ADMIN")"
 log "sshd_config.d listing: $(ls /etc/ssh/sshd_config.d/ 2>/dev/null | tr '\n' ' ')"
