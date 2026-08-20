@@ -36,7 +36,12 @@ UNIT_NAME=mythos-gh-runner.service
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 [ "$(id -u)" -eq 0 ] || { echo "ERROR: run as root (installs a system unit)" >&2; exit 1; }
-[ -n "${RUNNER_TOKEN:-}" ] || { echo "ERROR: RUNNER_TOKEN not set (see header)" >&2; exit 1; }
+# RUNNER_TOKEN is only needed for registration; a rerun on an
+# already-configured runner (e.g. to repair the unit) must not demand a
+# fresh token.
+if [ ! -f "$RUNNER_HOME/.runner" ]; then
+  [ -n "${RUNNER_TOKEN:-}" ] || { echo "ERROR: RUNNER_TOKEN not set (see header)" >&2; exit 1; }
+fi
 [ -n "${RUNNER_VERSION:-}" ] || { echo "ERROR: RUNNER_VERSION not set (e.g. 2.325.0, from the GitHub runner page)" >&2; exit 1; }
 printf '%s' "$RUNNER_VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "ERROR: RUNNER_VERSION must be x.y.z" >&2; exit 1; }
 if [ -n "${RUNNER_SHA256:-}" ]; then
@@ -57,12 +62,22 @@ DL_URL="https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/$
 
 echo "== 1/6 dedicated least-privilege account =="
 if id "$RUNNER_USER" >/dev/null 2>&1; then
+  # A partially-created account from an interrupted run is safe to reuse,
+  # but only if it is the account this script would have created.
+  EXISTING_HOME="$(getent passwd "$RUNNER_USER" | cut -d: -f6)"
+  if [ "$EXISTING_HOME" != "$RUNNER_HOME" ]; then
+    echo "ERROR: $RUNNER_USER exists with home '$EXISTING_HOME' (expected $RUNNER_HOME) — not the account this script creates; refusing to adopt it" >&2
+    exit 1
+  fi
   echo "   $RUNNER_USER exists — reusing"
 else
   useradd --system --create-home --home-dir "$RUNNER_HOME" --shell /bin/bash "$RUNNER_USER"
-  passwd -l "$RUNNER_USER" >/dev/null
-  echo "   created $RUNNER_USER (locked password)"
+  echo "   created $RUNNER_USER"
 fi
+# lock the password on every run: a partial earlier run may have created
+# the account without reaching the lock step
+passwd -l "$RUNNER_USER" >/dev/null
+echo "   password locked"
 # hard guarantees the gate order requires — fail loudly, never "fix" by widening
 GROUPS_NOW="$(id -nG "$RUNNER_USER")"
 for banned in docker sudo mythos-gov root; do
@@ -78,18 +93,32 @@ chown "$RUNNER_USER:$RUNNER_USER" "$RUNNER_HOME"
 chmod 750 "$RUNNER_HOME"
 
 echo "== 2/6 runner package =="
-if [ -x "$RUNNER_HOME/run.sh" ] && [ -f "$RUNNER_HOME/.runner" ]; then
-  echo "   runner already installed and configured — skipping download/config"
-  SKIP_CONFIG=1
+# Download and configuration are tracked separately so a rerun resumes
+# exactly where a partial install stopped (binaries without .runner,
+# .runner without binaries, or neither).
+NEED_DOWNLOAD=1
+[ -x "$RUNNER_HOME/run.sh" ] && NEED_DOWNLOAD=0
+NEED_CONFIG=1
+[ -f "$RUNNER_HOME/.runner" ] && NEED_CONFIG=0
+if [ "$NEED_DOWNLOAD" -eq 0 ]; then
+  echo "   runner binaries already present — skipping download"
 else
-  SKIP_CONFIG=0
+  # mktemp -d as root yields a root-owned 0700 directory; the tarball
+  # inside it would be unreadable by $RUNNER_USER when tar runs
+  # unprivileged below ("Cannot open: Permission denied"). Hand the temp
+  # dir to $RUNNER_USER before downloading into it — no mode widening.
   TMP="$(mktemp -d)"
   trap 'rm -rf "$TMP"' EXIT
+  chown "$RUNNER_USER:$RUNNER_USER" "$TMP"
+  chmod 0700 "$TMP"
   echo "   downloading $DL_URL"
   curl -fsSL -o "$TMP/$TARBALL" "$DL_URL"
   if [ -n "${RUNNER_SHA256:-}" ]; then
     echo "${RUNNER_SHA256}  $TMP/$TARBALL" | sha256sum -c - || { echo "ERROR: checksum mismatch — aborting" >&2; exit 1; }
   fi
+  chown "$RUNNER_USER:$RUNNER_USER" "$TMP/$TARBALL"
+  # a partial earlier run may have left root-owned fragments in the home
+  chown -R "$RUNNER_USER:$RUNNER_USER" "$RUNNER_HOME"
   sudo -u "$RUNNER_USER" tar -xzf "$TMP/$TARBALL" -C "$RUNNER_HOME"
   if [ -x "$RUNNER_HOME/bin/installdependencies.sh" ]; then
     "$RUNNER_HOME/bin/installdependencies.sh" || echo "   (dependency install reported issues — check above)"
@@ -97,7 +126,7 @@ else
 fi
 
 echo "== 3/6 repo-scoped registration =="
-if [ "$SKIP_CONFIG" -eq 0 ]; then
+if [ "$NEED_CONFIG" -eq 1 ]; then
   # config.sh refuses root by design; token passed via argv within this
   # root shell only, exchanged immediately, never persisted by us.
   sudo -u "$RUNNER_USER" bash -c "cd '$RUNNER_HOME' && ./config.sh \
@@ -106,6 +135,7 @@ if [ "$SKIP_CONFIG" -eq 0 ]; then
     --name mythos-vps-runner \
     --labels mythos-vps \
     --work _work \
+    --replace \
     --unattended" RUNNER_TOKEN="$RUNNER_TOKEN"
 else
   echo "   already registered — skipping"

@@ -60,6 +60,34 @@ credential ever entering an AI session.
    it exits non-zero on any security check failure.
 3. Confirm on GitHub that runner **mythos-vps-runner** shows **Idle**.
 
+### 3a. Rerunning after a partial install (no manual cleanup needed)
+
+The script resumes from whatever state a previous run left behind — do
+**not** delete the `mythos-runner` account or `/opt/mythos-gh-runner`
+by hand:
+
+- An existing `mythos-runner` account is adopted (its home is verified
+  to be `/opt/mythos-gh-runner`; anything else is refused) and its
+  password is re-locked on every run.
+- Download and registration are tracked independently: binaries present
+  but unregistered → only `config.sh` runs; nothing present → both run.
+- Registration uses `--replace`, so a stale GitHub-side entry named
+  `mythos-vps-runner` cannot block a rerun.
+- `RUNNER_TOKEN` is only required while the runner is unregistered
+  (no `/opt/mythos-gh-runner/.runner`). Registration tokens expire in
+  ~1 hour — take a fresh one from the "New self-hosted runner" page for
+  the rerun.
+
+**2026-08-20 incident:** the first live install failed at extraction
+with `tar ... Cannot open: Permission denied`. Root cause: the script
+created its temp dir with `mktemp -d` as **root** (mode 0700,
+root-owned), then extracted as the unprivileged `mythos-runner` user,
+which could not open the tarball inside that directory. Fixed by
+chowning the temp dir and tarball to `mythos-runner` before the
+unprivileged `tar` (no mode widening, extraction still never runs as
+root). Rerun the same install command from a checkout containing the
+fix; the partially-created account is reused automatically.
+
 ## 4. Repository Actions settings (owner, once)
 
 In `othoth77/mythos-prod` → Settings → Actions:
