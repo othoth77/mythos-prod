@@ -84,6 +84,21 @@ ok(/--replace/.test(provision), 'config.sh --replace: reruns survive a stale Git
 ok(/if \[ ! -f "\$RUNNER_HOME\/\.runner" \]; then\n\s*\[ -n "\$\{RUNNER_TOKEN:-\}" \]/.test(provision),
   'RUNNER_TOKEN only required when registration is still needed');
 
+console.log('--- regression: registration token actually reaches config.sh ---');
+// The former `sudo -u … bash -c "…" RUNNER_TOKEN=…` pattern never
+// delivered the token: the trailing word becomes the child shell's $0
+// (and shows in the process list), while sudo env_reset strips the real
+// variable — config.sh received an EMPTY token (verified empirically
+// 2026-08-20). runuser inherits the exported env instead.
+ok(!/bash -c "[\s\S]*?" RUNNER_TOKEN=/.test(provision),
+  'token is never a bash -c trailing word (that is $0, not an env var)');
+ok(/export RUNNER_TOKEN/.test(provision),
+  'token exported so the unprivileged child shell inherits it');
+ok(/runuser -u "\$RUNNER_USER" -- bash -c '[\s\S]*?--token "\$RUNNER_TOKEN"[\s\S]*?'/.test(provision),
+  'registration runs via runuser; child expands $RUNNER_TOKEN from its own env');
+ok(!/sudo -u "\$RUNNER_USER" bash -c/.test(provision),
+  'no sudo-based registration call remains (env_reset would strip the token)');
+
 console.log('--- security invariants preserved ---');
 ok(/passwd -l/.test(provision), 'locked password');
 ok(/for banned in docker sudo mythos-gov root/.test(provision), 'banned-group hard-fail retained');
@@ -91,8 +106,9 @@ ok(/User=mythos-runner/.test(unit), 'unit runs as mythos-runner');
 ok(/NoNewPrivileges=yes/.test(unit), 'NoNewPrivileges=yes');
 ok(/^CapabilityBoundingSet=$/m.test(unit), 'empty capability bounding set');
 ok(/ProtectSystem=full/.test(unit) && /ProtectHome=read-only/.test(unit), 'unit filesystem hardening intact');
-ok(/--url '\$REPO_URL'/.test(provision) && /REPO_URL=https:\/\/github\.com\/othoth77\/mythos-prod/.test(provision),
-  'registration stays repo-scoped to othoth77/mythos-prod');
+ok(/--url "\$2"/.test(provision) && /_ "\$RUNNER_HOME" "\$REPO_URL"/.test(provision)
+    && /REPO_URL=https:\/\/github\.com\/othoth77\/mythos-prod/.test(provision),
+  'registration stays repo-scoped to othoth77/mythos-prod (URL via positional arg)');
 
 console.log('');
 console.log(passed + ' passed, ' + failed + ' failed');

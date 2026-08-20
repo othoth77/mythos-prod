@@ -127,16 +127,24 @@ fi
 
 echo "== 3/6 repo-scoped registration =="
 if [ "$NEED_CONFIG" -eq 1 ]; then
-  # config.sh refuses root by design; token passed via argv within this
-  # root shell only, exchanged immediately, never persisted by us.
-  sudo -u "$RUNNER_USER" bash -c "cd '$RUNNER_HOME' && ./config.sh \
-    --url '$REPO_URL' \
-    --token \"\$RUNNER_TOKEN\" \
+  # config.sh refuses root by design. The former sudo-based call passed
+  # the token as a trailing word after the -c string; that word becomes
+  # the child shell's $0 (not an env assignment, and additionally visible
+  # in the process list), while sudo's env_reset strips the real variable
+  # — config.sh would have received an EMPTY token (verified empirically).
+  # runuser (already used by verify-runner.sh; no sudoers env policy)
+  # inherits this root shell's exported environment, so the child
+  # expands $RUNNER_TOKEN itself: exchanged immediately by config.sh,
+  # never persisted, never echoed, never in the runuser argv.
+  export RUNNER_TOKEN
+  runuser -u "$RUNNER_USER" -- bash -c 'cd "$1" && ./config.sh \
+    --url "$2" \
+    --token "$RUNNER_TOKEN" \
     --name mythos-vps-runner \
     --labels mythos-vps \
     --work _work \
     --replace \
-    --unattended" RUNNER_TOKEN="$RUNNER_TOKEN"
+    --unattended' _ "$RUNNER_HOME" "$REPO_URL"
 else
   echo "   already registered — skipping"
 fi
