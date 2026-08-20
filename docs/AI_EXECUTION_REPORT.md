@@ -4,6 +4,39 @@ Newest first. Written automatically by projects/mythos-ai-executor; no secrets.
 
 ---
 
+## Task `t-20260820150659-sm69d6` — COMPLETED
+
+| Field | Value |
+|---|---|
+| Project | mythos-prod |
+| Stage | Continuation of mission t-20260820140341-upbarn (VPS Final Gate read-only checks |
+| Provider / model | claude-code / default |
+| Execution profile | repo-read |
+| Started | 2026-08-20T15:06:59.538Z |
+| Ended | 2026-08-20T15:08:59.186Z |
+| Status | **COMPLETED** |
+| Claude session | `dce0a850-c587-4cde-b856-f27df5c36214` |
+| Retries | 0 |
+| Quota waits | 0 |
+| Commit | — |
+| Remote HEAD | `159456a15f9c31b5e5ecea2f7084d1de161a70f9` |
+| Git verified | null |
+
+**Summary:** Read-only continuation mission relying solely on persisted state. Prior mission t-20260820140341-upbarn is recorded COMPLETED in both docs/AI_EXECUTION_REPORT.md (line 7/17) and the executor queue store (~/mythos-ai-executor/tasks/t-20260820140341-upbarn/status.json status=COMPLETED, report.json status=completed, git_verified=true); its summary's first sentence is 'VPS Final Gate read-only checks completed successfully.' Current git HEAD is 159456a15f9c31b5e5ecea2f7084d1de161a70f9 on branch main, and after `git fetch origin` origin/main is the same SHA, so the 1-commit divergence the prior mission listed as a residual risk is resolved (that mission's baseline was 2f1f983 / remote 149dbae). The worktree is NOT clean and it changed during this mission: the session-start snapshot listed 4 modified files, but a live git status shows 5 — ops/vps-admin/50-mythosadmin appeared as modified, and both it and ops/vps-admin/root-hook.sh are now zero bytes (git diff --stat shows -22 and -90 lines, deletions only). root-hook.sh was truncated at 14:55:50Z (before this mission) and 50-mythosadmin at 15:07:14Z, 15 seconds after this mission's 15:06:59.617Z checkpoint. I made no writes — every call was Read/Grep/Glob or read-only git (rev-parse, status, diff --stat, stash list, fetch) — so the truncation came from a process outside this session. Also present: one stash (stash@{0} VPS-local-work-before-M12-sync-2026-08-19), no untracked files under -uall, nothing staged. No file contents of the sudoers fragment or root hook were printed. Nothing was changed, committed, or pushed.
+
+**Tests:**
+- targeted tests: not applicable — read-only reporting mission, no code changed (AGENTS.md §8)
+
+**Residual risks:**
+- ops/vps-admin/root-hook.sh and ops/vps-admin/50-mythosadmin are truncated to 0 bytes in the worktree by a process outside this session; 50-mythosadmin was truncated at 15:07:14Z, during this mission's window. Live-vs-repository drift on the VPS least-privilege admin model is possible; both files are recoverable from 159456a but were deliberately not restored (this mission authorises no changes).
+- stash@{0} 'VPS-local-work-before-M12-sync-2026-08-19' still holds unmerged VPS-local work.
+- projects/mythos-os-console/reference/{server.js,web/app.js} and tests/mos-1-console-test.js carry uncommitted modifications of unknown provenance predating this mission.
+
+**Next stage:** Identify the process truncating ops/vps-admin/* before any further VPS-admin stage, then restore those two files from 159456a with `git checkout -- ops/vps-admin/` once the cause is understood; queue otherwise continues at NEXT-VPS-GATE and NEXT-DOCKER-FIX per docs/AI_HANDOVER.md.
+
+
+---
+
 ## Task `t-20260820140341-upbarn` — COMPLETED
 
 | Field | Value |
