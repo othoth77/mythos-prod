@@ -421,7 +421,7 @@
 
     var titleInput = el('input', {
       className: 'mythos-input',
-      attrs: { type: 'text', id: 'mission-title', maxlength: '200', placeholder: 'Short mission title', autocomplete: 'off' }
+      attrs: { type: 'text', id: 'mission-title', maxlength: '200', placeholder: 'Short mission title (optional — first instruction line is used)', autocomplete: 'off' }
     });
     var instructionInput = el('textarea', {
       className: 'mythos-input mythos-textarea',
@@ -546,10 +546,12 @@
 
     startBtn.addEventListener('click', function () {
       clear(feedback);
+      // Title is optional (automatic title rule): the server derives it
+      // from the first meaningful instruction line when none is given.
       var title = titleInput.value.trim();
       var instruction = instructionInput.value.trim();
-      if (!title || !instruction) {
-        feedback.appendChild(statePanel('⚠', 'Missing fields', 'Title and instruction are both required.', true));
+      if (!instruction) {
+        feedback.appendChild(statePanel('⚠', 'Missing instruction', 'Instruction is required.', true));
         return;
       }
       startBtn.disabled = true;
@@ -561,7 +563,9 @@
       var chosenProfile = (profileList.length && profileSelect.value) ? profileSelect.value : undefined;
       var isAuto = providerSelect.value === 'auto';
       var payload = {
-        title: title,
+        // An empty title is omitted entirely, so the server's own
+        // automatic-title derivation applies (never an empty string).
+        title: title || undefined,
         instruction: instruction,
         provider: providerSelect.value,
         // task_type is sent only for 'auto' — the server refuses it
