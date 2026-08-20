@@ -181,9 +181,205 @@ store provisioning) remain separate operator commands already documented.
 NOT M-13. Operator installs the runner (one action above) → rerun the
 VPS Final Gate live sections (§5–§16 of the order) → only then determine
 the next engineering stage.
+
 ---
 
-**Previously:** STC-1 **MYTHOS STATUS CENTER BUILT — FULL-ECOSYSTEM AUDIT (668 COMMITS, 53 PRS, 23 REPOSITORIES, COMPLETE HANDOVER + DOCS RECONCILIATION), MACHINE-READABLE EVIDENCE MODEL, READ-ONLY REVIEW ENGINE WITH IMMUTABLE SNAPSHOTS + COMPARISON + REPOSITORY DISCOVERY, MYTHOS-DESIGN-SYSTEM UI AT sites/status.mythosprod.xyz, HEALTH ENDPOINT, STC-1 SUITE 73/0, BROWSER RENDER CHECK 18/0, MOS-v2 GATE SUCCESS (0 NEW FAILURES). DEPLOYMENT = OWNER DNS + OPERATOR RUNBOOK.**
+**Previously:** STC-LIVE **STATUS CENTER DEPLOYED AND LIVE at https://status.mythosprod.xyz/ (operator ran scripts/deploy-status-center.sh on the VPS at repo 9992f7a: vhost + certbot TLS + all acceptance and regression checks PASS; darhijama.tn fallback redirect ENDED; independently re-verified live from the owner machine). REVIEW-2026-08-20-004 = immutable post-deployment snapshot. Delta: DNS configured → VPS vhost deployed → TLS active → Status Center LIVE.**
+
+## VPS-ADMIN — permanent VPS administration model (2026-08-20)
+
+### Stage
+
+Ordered scope: eliminate the recurring VPS-access problem permanently by
+establishing one stable, least-privilege, documented administration path —
+`SSH → mythosadmin → sudo → mythos-deploy` — that never depends on `ubuntu`
+privileges, direct root SSH, or manual KVM recovery. Executed from the owner
+workstation (the one VERIFIED channel: owner Windows → `deploy@51.68.226.211`).
+Source of truth for everything below: `ops/vps-admin/` (+ its `README.md`).
+
+### The model (ground truth)
+
+| Facet | Decision |
+|---|---|
+| **SSH user** | `mythosadmin` — dedicated admin account, uid separate from `ubuntu`/`deploy`. |
+| **Authentication** | SSH **public-key only**. Password is locked (`passwd -l`); private key `~/.ssh/mythosadmin_ed25519` lives only on the owner workstation. No password auth, no agent forwarding required. |
+| **SSH hardening** | **Unchanged.** `PasswordAuthentication no` and `PermitRootLogin prohibit-password` stay as-is; no `sshd_config`/`sshd_config.d` file was edited. Root SSH is **not** enabled. |
+| **Sudo model** | `/etc/sudoers.d/50-mythosadmin` (`root:root 0440`). `mythosadmin` may run as root **only**: `mythos-deploy`, `nginx -t`, `systemctl reload/status/is-active nginx`, `certbot`, `mythos-logs`. **No** file-copier, interpreter, editor, container runtime, or arbitrary `systemctl` — each would equal blanket root and would break the governance boundary. `mythosadmin` is in **no** privileged group (not `sudo`, not `docker`, not `deploy`). `/etc/mythos/governance.key` stays unreadable to it. |
+| **Project ownership** | `/home/deploy/projects/mythos-prod` remains owned/operated by **`deploy`**. `mythos-deploy` runs all git ops *as* `deploy` (`runuser -u deploy`); root never writes into the repo. |
+| **Deployment command** | `sudo mythos-deploy <cmd> [target] [ref]` — the single audited tool. |
+| **Untouched** | All existing nginx configs preserved; DarHijama, fixpert, ssangyong, notrejour and every non-Mythos site are outside the tool's fixed registry and cannot be affected. Status Center deployment left as-is (`status` is a PROTECTED, refused target). |
+
+### The deployment tool — `mythos-deploy`
+
+Single audited command so future Mythos deployments never require hand-typed
+nginx/certbot lines. Fixed registry only: `os` (`os.mythosprod.xyz`),
+`panel`, `ordre`, `tv`; `status` = PROTECTED/refused; unknown targets refused.
+
+```
+sudo mythos-deploy list                  # manageable targets
+sudo mythos-deploy status [target|all]   # health (read-only)
+sudo mythos-deploy preflight <target>    # validate git + nginx config (read-only)
+sudo mythos-deploy reload                # nginx -t + graceful reload (idempotent, safe)
+sudo mythos-deploy deploy <target> [ref] # git → nginx -t → reload → health → rollback-on-fail
+sudo mythos-deploy rollback <target>     # restore last known-good revision
+sudo mythos-deploy cert <target>         # issue/renew TLS for the target's domain
+```
+
+Properties (all enforced in code): **idempotent**; **validates git state**
+and refuses on a dirty tree; **validates nginx config before any reload**;
+graceful reload **preserves unrelated sites**; records a rollback point and
+**auto-rolls-back + reloads if the post-deploy health check fails**; reports
+failure explicitly and **never prints success unless health passed**; appends
+every action to `/var/log/mythos-deploy.log` (audit trail keyed by `SUDO_USER`).
+
+### Standard access path
+
+```
+# from the owner workstation:
+ssh -i ~/.ssh/mythosadmin_ed25519 mythosadmin@51.68.226.211
+# then, e.g.:
+sudo mythos-deploy status all
+sudo mythos-deploy preflight os
+sudo mythos-deploy deploy os
+```
+
+(An `~/.ssh/config` `Host mythosadmin` entry with
+`User mythosadmin` / `IdentityFile ~/.ssh/mythosadmin_ed25519` reduces this to
+`ssh mythosadmin`.)
+
+### Rollback procedure
+
+- **Automatic:** a failed post-deploy health check triggers an immediate
+  `git checkout <last-good>` + `nginx -t` + reload, and the command exits
+  non-zero without reporting success.
+- **Manual:** `sudo mythos-deploy rollback <target>` restores the last recorded
+  known-good revision (stored under `/var/lib/mythos-deploy/<target>.lastgood`)
+  and reloads after re-validating nginx.
+
+### Emergency KVM recovery procedure
+
+Use only if the SSH path itself is broken (lost/rotated key, sshd
+misconfiguration, sudoers error). The permanent model is designed so this is
+**not** part of routine work.
+
+1. OVH Manager → the VPS → **KVM / console** → log in as `root` (OVH boot/root
+   credential).
+2. **Re-provision the admin path (idempotent)** — restores account, key, tool
+   and sudoers from the repo copies:
+   ```bash
+   cd /home/deploy/projects/mythos-prod && git pull --ff-only
+   mkdir -p /tmp/mythos-bootstrap
+   cp ops/vps-admin/{mythos-deploy,50-mythosadmin,root-hook.sh} /tmp/mythos-bootstrap/
+   printf '%s\n' '<owner mythosadmin public key>' > /tmp/mythos-bootstrap/mythosadmin.pub
+   bash /tmp/mythos-bootstrap/root-hook.sh && cat /tmp/mythos-bootstrap/result.txt
+   ```
+3. **Fix a broken sudoers only:** `visudo -c`; if `50-mythosadmin` is at fault,
+   `rm /etc/sudoers.d/50-mythosadmin` then re-run step 2.
+4. **Rotate the admin key:** replace `~mythosadmin/.ssh/authorized_keys` with the
+   new public key (`chown mythosadmin:mythosadmin`, `chmod 600`).
+5. Never enable root SSH or add blanket NOPASSWD as a "fix" — re-run the
+   idempotent bootstrap instead.
+
+### Bootstrap record
+
+`ops/vps-admin/root-hook.sh` is the idempotent one-time root bootstrap. It was
+staged to `/tmp/mythos-bootstrap/` from this repo and is executed once as root
+via the OVH KVM console (owner decision — one KVM use to end future KVM
+dependence). It creates `mythosadmin`, installs the key, installs
+`mythos-deploy` + `50-mythosadmin` (with `visudo -c` validation before and
+after), and self-reports to `/tmp/mythos-bootstrap/result.txt`. Verification of
+the live path (SSH as `mythosadmin`, `sudo mythos-deploy status all`, a no-op
+`reload`) is recorded here once the owner has run the bootstrap.
+
+### Next stage
+
+Routine Mythos deployments run entirely through `ssh mythosadmin → sudo
+mythos-deploy …`. No `ubuntu` privileges, no root SSH, no manual KVM.
+
+---
+
+## STC-LIVE — Status Center deployed and live (2026-08-20)
+
+**The final live gate is closed.** The operator executed
+`scripts/deploy-status-center.sh` on the VPS with the production checkout
+at merge commit **`9992f7a`** (PR #57 — the deployment script itself,
+merged to main; main has since advanced by one docs-only commit,
+`213b3d9`). The script completed successfully — fail-closed, so success
+means every check passed:
+
+- **status.mythosprod.xyz HTTPS 200** — Status Center page served.
+- **No darhijama.tn redirect** anywhere in the chain (the default-vhost
+  fallback fault of STC-ROUTING-DIAGNOSIS is ended).
+- **/health PASS** · **review_id PASS** · **current.json PASS** ·
+  **robots PASS** · **fonts PASS**.
+- **Regressions PASS:** darhijama.tn, uthinachess.tn, panel — no other
+  production site touched (the vhost is strictly additive).
+
+**Independent verification (owner machine, same day, this session):**
+`GET https://status.mythosprod.xyz/` → 200, final URL stays on the
+hostname; `/health.json` → 200 `{status: ok, review_id:
+REVIEW-2026-08-20-003, repository_head: b6e52d5}` (the newest snapshot
+at deploy time); `/data/current.json` 200; `/robots.txt` 200;
+darhijama.tn 200, uthinachess.tn 200, panel.mythosprod.xyz 302 (login
+redirect, expected). SSH from this session was not possible
+(deploy-key auth denied in batch mode) — the deployment output above is
+the operator's report; the live HTTP evidence is first-hand.
+
+**Repository-side closure in this stage:**
+
+- Registry updated (`projects/status-center/data/registry.json`):
+  new evidence **EV-STC-DEPLOYED** (deployment) + **EV-STC-LIVE**
+  (external live verification); PROJECT-STATUS-CENTER → **DONE /
+  PRODUCTION_VERIFIED**, blocker cleared; track stage STC-DEPLOY →
+  DONE; BLOCKER-STATUS-DNS → DONE (resolved); ACTION-STATUS-DNS →
+  DONE; NEXT-STATUS-DEPLOY removed from the queue; milestone
+  **MS-2026-08-20-STC-LIVE** added; EV-DNS-STATUS-PENDING note marked
+  resolved (kept as the historical fault-window record).
+- **REVIEW-2026-08-20-004** run and persisted as the immutable
+  post-deployment snapshot (engine-computed WHAT-CHANGED delta records
+  the completion; results below in this entry's gate record).
+
+**What changed:** DNS configured → VPS vhost deployed → TLS active →
+Status Center LIVE.
+
+**Next stage:** the live-gate queue continues at NEXT-VPS-GATE (P0
+Option A mission) and NEXT-DOCKER-FIX (P0 security fix); the Status
+Center itself only needs its site data re-synced to the VPS after
+future reviews (content-sync step of DEPLOYMENT.md).
+
+---
+
+## VPS-ACCESS — privilege topology and root recovery path recorded (2026-08-20)
+
+**Docs/knowledge-only stage. No VPS permission, SSH, or sudo configuration
+was changed.** The owner's operator session of 2026-08-20 established the
+complete VPS access map; it is now persisted so no future session
+re-diagnoses it:
+
+- `ubuntu` has **no sudo** (supersedes the single `mythos-logs` grant
+  recorded at MOS-1.6 and the "current state" table of
+  `docs/MYTHOS_SUDO_RESTRICTION_PROPOSAL.md`, which is now historical).
+- `ubuntu` **cannot `su` to `deploy`** (boundary already investigated in
+  MOS-1.6/MOS-1.7 — do not re-test the dead ends listed there).
+- **Direct root SSH is disabled.**
+- The **OVH KVM console** (OVH Manager) provides **root** access; root
+  **can** `su - deploy`. Recovery path:
+  `OVH Manager → KVM → root → su - deploy → /home/deploy/projects/mythos-prod`.
+- `deploy` owns `/home/deploy/projects/mythos-prod` (production checkout).
+
+**Canonical record (read that, not this, for current truth):**
+`othoth77/oth-knowledge` → `INFRASTRUCTURE.md` **§5** ("VPS privilege
+topology and root recovery path — verified 2026-08-20"). Structured seed
+added in this repo:
+`projects/oth-knowledge/seeds/infrastructure-2026-08-20-vps-access.json`
+(same format as the 2026-08-19 seed). The non-emergency deployment
+channel remains owner-machine `ssh deploy@51.68.226.211`
+(oth-knowledge INFRASTRUCTURE.md §1); nothing about AI-session access
+changed (§2 still applies — no transport, no credentials).
+
+---
+
+**Previous stage:** STC-1 **MYTHOS STATUS CENTER BUILT — FULL-ECOSYSTEM AUDIT (668 COMMITS, 53 PRS, 23 REPOSITORIES, COMPLETE HANDOVER + DOCS RECONCILIATION), MACHINE-READABLE EVIDENCE MODEL, READ-ONLY REVIEW ENGINE WITH IMMUTABLE SNAPSHOTS + COMPARISON + REPOSITORY DISCOVERY, MYTHOS-DESIGN-SYSTEM UI AT sites/status.mythosprod.xyz, HEALTH ENDPOINT, STC-1 SUITE 73/0, BROWSER RENDER CHECK 18/0, MOS-v2 GATE SUCCESS (0 NEW FAILURES). DEPLOYMENT = OWNER DNS + OPERATOR RUNBOOK.**
 
 ## STC-MERGE — Status Center merged to main (2026-08-20)
 

@@ -1,0 +1,20 @@
+# Mythos VPS administrator — controlled sudo for Mythos operations only.
+#
+# Scope is deliberately narrow. It contains NO file-copier, NO interpreter,
+# NO editor, NO container runtime and NO arbitrary systemctl/unit control —
+# each of those would be equivalent to blanket root and would defeat the
+# governance boundary (mythosadmin must not be able to read
+# /etc/mythos/governance.key or install/alter /usr/local/lib/mythos code).
+#
+# mythos-deploy is root-owned 0755 (not writable by mythosadmin) and is itself
+# bounded: it resolves targets from a fixed registry and runs git as `deploy`.
+#
+# This mirrors, for a dedicated admin account, the exact trust `deploy`
+# already holds (nginx -t, reload nginx, certbot) plus the audited tool.
+
+Cmnd_Alias MYTHOS_DEPLOY  = /usr/local/sbin/mythos-deploy, /usr/local/sbin/mythos-deploy *
+Cmnd_Alias MYTHOS_NGINX   = /usr/sbin/nginx -t, /usr/bin/systemctl reload nginx, /usr/bin/systemctl status nginx, /usr/bin/systemctl is-active nginx
+Cmnd_Alias MYTHOS_CERT    = /usr/bin/certbot
+Cmnd_Alias MYTHOS_OBSERVE = /usr/local/sbin/mythos-logs
+
+mythosadmin ALL=(root) NOPASSWD: MYTHOS_DEPLOY, MYTHOS_NGINX, MYTHOS_CERT, MYTHOS_OBSERVE
