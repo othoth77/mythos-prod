@@ -1,7 +1,58 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-20 UTC
-**From:** VPS-ACCESS **VPS PRIVILEGE TOPOLOGY AND ROOT RECOVERY PATH RECORDED (ubuntu: no sudo, no su-to-deploy; direct root SSH disabled; OVH KVM → root → `su - deploy`; deploy owns /home/deploy/projects/mythos-prod). CANONICAL RECORD = othoth77/oth-knowledge INFRASTRUCTURE.md §5 + seed infrastructure-2026-08-20-vps-access.json. DOCS-ONLY — NO VPS/SSH CONFIGURATION CHANGED.**
+**From:** STC-LIVE **STATUS CENTER DEPLOYED AND LIVE at https://status.mythosprod.xyz/ (operator ran scripts/deploy-status-center.sh on the VPS at repo 9992f7a: vhost + certbot TLS + all acceptance and regression checks PASS; darhijama.tn fallback redirect ENDED; independently re-verified live from the owner machine). REVIEW-2026-08-20-004 = immutable post-deployment snapshot. Delta: DNS configured → VPS vhost deployed → TLS active → Status Center LIVE.**
+
+## STC-LIVE — Status Center deployed and live (2026-08-20)
+
+**The final live gate is closed.** The operator executed
+`scripts/deploy-status-center.sh` on the VPS with the production checkout
+at merge commit **`9992f7a`** (PR #57 — the deployment script itself,
+merged to main; main has since advanced by one docs-only commit,
+`213b3d9`). The script completed successfully — fail-closed, so success
+means every check passed:
+
+- **status.mythosprod.xyz HTTPS 200** — Status Center page served.
+- **No darhijama.tn redirect** anywhere in the chain (the default-vhost
+  fallback fault of STC-ROUTING-DIAGNOSIS is ended).
+- **/health PASS** · **review_id PASS** · **current.json PASS** ·
+  **robots PASS** · **fonts PASS**.
+- **Regressions PASS:** darhijama.tn, uthinachess.tn, panel — no other
+  production site touched (the vhost is strictly additive).
+
+**Independent verification (owner machine, same day, this session):**
+`GET https://status.mythosprod.xyz/` → 200, final URL stays on the
+hostname; `/health.json` → 200 `{status: ok, review_id:
+REVIEW-2026-08-20-003, repository_head: b6e52d5}` (the newest snapshot
+at deploy time); `/data/current.json` 200; `/robots.txt` 200;
+darhijama.tn 200, uthinachess.tn 200, panel.mythosprod.xyz 302 (login
+redirect, expected). SSH from this session was not possible
+(deploy-key auth denied in batch mode) — the deployment output above is
+the operator's report; the live HTTP evidence is first-hand.
+
+**Repository-side closure in this stage:**
+
+- Registry updated (`projects/status-center/data/registry.json`):
+  new evidence **EV-STC-DEPLOYED** (deployment) + **EV-STC-LIVE**
+  (external live verification); PROJECT-STATUS-CENTER → **DONE /
+  PRODUCTION_VERIFIED**, blocker cleared; track stage STC-DEPLOY →
+  DONE; BLOCKER-STATUS-DNS → DONE (resolved); ACTION-STATUS-DNS →
+  DONE; NEXT-STATUS-DEPLOY removed from the queue; milestone
+  **MS-2026-08-20-STC-LIVE** added; EV-DNS-STATUS-PENDING note marked
+  resolved (kept as the historical fault-window record).
+- **REVIEW-2026-08-20-004** run and persisted as the immutable
+  post-deployment snapshot (engine-computed WHAT-CHANGED delta records
+  the completion; results below in this entry's gate record).
+
+**What changed:** DNS configured → VPS vhost deployed → TLS active →
+Status Center LIVE.
+
+**Next stage:** the live-gate queue continues at NEXT-VPS-GATE (P0
+Option A mission) and NEXT-DOCKER-FIX (P0 security fix); the Status
+Center itself only needs its site data re-synced to the VPS after
+future reviews (content-sync step of DEPLOYMENT.md).
+
+---
 
 ## VPS-ACCESS — privilege topology and root recovery path recorded (2026-08-20)
 

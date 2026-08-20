@@ -67,9 +67,11 @@
     { "id": "EV-OFFHOST", "type": "document", "reference": "docs/OFFHOST_PROJECT_REGISTRY.md", "date": "2026-08-13", "note": "14 of 14 non-Git projects protected off-host in private repos, remote-verified" },
     { "id": "EV-DESIGN-DECISIONS", "type": "document", "reference": "docs/MYTHOS_DESIGN_DECISIONS.md", "date": "2026-08-19", "note": "Design decision register: A-* owner-approved, AUTO-* delegated (18 items resolved in AUTO-3), MIG-1..3 executed, MIG-4 blocked" },
     { "id": "EV-TOKENS", "type": "file", "reference": "sites/mythosprod.xyz/assets/tokens.css", "date": "2026-08-19", "note": "Canonical --mythos-* token sheet (AUTO-3), self-hosted fonts (AUTO-4)" },
-    { "id": "EV-DNS-STATUS-PENDING", "type": "dns", "reference": "status.mythosprod.xyz", "date": "2026-08-20", "note": "UPDATED same day: the A record now EXISTS → 51.68.226.211 (verified live from two independent sessions, NXDOMAIN control passed; no wildcard). Until the vhost + certificate exist, requests fall to the VPS default-vhost fallback and 301-redirect to darhijama.tn." },
+    { "id": "EV-DNS-STATUS-PENDING", "type": "dns", "reference": "status.mythosprod.xyz", "date": "2026-08-20", "note": "UPDATED same day: the A record now EXISTS → 51.68.226.211 (verified live from two independent sessions, NXDOMAIN control passed; no wildcard). RESOLVED 2026-08-20: the vhost + certificate now exist (see EV-STC-DEPLOYED / EV-STC-LIVE); the default-vhost fallback redirect to darhijama.tn has ended. Kept for the historical record of the fault window." },
     { "id": "EV-PR-56", "type": "pr", "reference": "#56", "date": "2026-08-20", "note": "OPEN draft (STATUS-RT, parallel session): routing diagnosis — origin nginx default-vhost fallback; DNS correct; Cloudflare not in path; DarHijama innocent. Diagnosis + runbook adopted into the STC branch; its placeholder page superseded by PR #54." },
     { "id": "EV-AUDIT-ROUTING", "type": "document", "reference": "docs/audits/STATUS_CENTER_ROUTING_DIAGNOSIS_2026-08-20.md", "date": "2026-08-20", "note": "Layer-by-layer routing evidence + causal chain + STC-2 reconciliation section" },
+    { "id": "EV-STC-DEPLOYED", "type": "deployment", "reference": "scripts/deploy-status-center.sh executed on the VPS 2026-08-20 (deployed repo 9992f7a)", "date": "2026-08-20", "note": "Operator-reported deployment output, all checks PASS: HTTPS 200, no darhijama.tn redirect, Status Center page served, /health PASS, review_id PASS, current.json PASS, robots PASS, fonts PASS, regression darhijama.tn PASS, regression uthinachess.tn PASS, regression panel PASS. Causal chain: DNS configured → VPS vhost deployed → TLS active → Status Center LIVE." },
+    { "id": "EV-STC-LIVE", "type": "external", "reference": "https://status.mythosprod.xyz/ — independent owner-machine HTTPS verification 2026-08-20", "date": "2026-08-20", "note": "Verified live from the owner machine, independent of the deployment session: GET / 200 with no redirect (final URL stays on the hostname); /health.json 200 status ok, review_id REVIEW-2026-08-20-003, repository_head b6e52d5; /data/current.json 200; /robots.txt 200; regressions darhijama.tn 200, uthinachess.tn 200, panel.mythosprod.xyz 302 (login redirect expected). Not re-checkable from a repo-only environment — recorded external verification." },
     { "id": "EV-REPO-SNAPSHOT", "type": "repository", "reference": "othoth77 account snapshot 2026-08-20 (23 repos)", "date": "2026-08-20", "note": "Captured via authorized session listing; stored in projects/status-center/data/repo-snapshot.json" },
     { "id": "EV-STAGE4-SUITE", "type": "test", "reference": "tests/stage4a-test.js", "date": "2026-08-05", "note": "Stage 4 cumulative suite ~1,978 assertions green at 4AG; independent Haiku check 9/9 PASS" },
     { "id": "EV-MAOL-SPEC", "type": "commit", "reference": "0124868", "date": "2026-08-17", "note": "MAOL-0 master specification (1,891 lines, spec only; O-MAOL-1..10 open)" }
@@ -373,16 +375,16 @@
     {
       "id": "PROJECT-STATUS-CENTER", "name": "Mythos Status Center", "executive": false,
       "purpose": "This surface: the single source of truth for the ecosystem — evidence-based status, immutable review history, blockers, owner actions, next actions.",
-      "status": "READY", "maturity": "TESTED", "repository": "othoth77/mythos-prod (sites/status.mythosprod.xyz + projects/status-center)",
-      "last_change": "2026-08-20 (STC-1 delivered: commit 6195bf4, PR #54 draft)",
-      "blocker": "DNS exists but no vhost/certificate: the hostname falls to the default-vhost fallback (301 → darhijama.tn). Root-caused; strictly-additive operator fix ready.",
-      "next_action": "Operator runs sites/status.mythosprod.xyz/DEPLOYMENT.md over the verified Windows→VPS channel (DNS is already done).",
-      "headline": "Review engine (read-only, immutable snapshots, comparison, discovery), machine-readable data model, Mythos-Design-System UI, health endpoint, tests. Reviews run from the repository — the browser surface is read-only by design.",
+      "status": "DONE", "maturity": "PRODUCTION_VERIFIED", "repository": "othoth77/mythos-prod (sites/status.mythosprod.xyz + projects/status-center)",
+      "last_change": "2026-08-20 (STC-LIVE: deployed to the VPS at repo 9992f7a — vhost + TLS active, live over HTTPS, verified from two machines)",
+      "blocker": null,
+      "next_action": "After each future repository review, sync the refreshed site data to the VPS per sites/status.mythosprod.xyz/DEPLOYMENT.md (content-sync step only).",
+      "headline": "LIVE at https://status.mythosprod.xyz/. Review engine (read-only, immutable snapshots, comparison, discovery), machine-readable data model, Mythos-Design-System UI, health endpoint, tests. Reviews run from the repository — the browser surface is read-only by design. Delta: DNS configured → VPS vhost deployed → TLS active → Status Center LIVE.",
       "dimensions": {
         "implementation": { "status": "DONE" },
-        "deployment": { "status": "OWNER_ACTION", "note": "DNS + operator runbook" }
+        "deployment": { "status": "DONE", "note": "deploy-status-center.sh on the VPS (repo 9992f7a), all acceptance + regression checks PASS; independently verified live from the owner machine" }
       },
-      "evidence": ["EV-STC-ENGINE", "EV-STC-SITE", "EV-DNS-STATUS-PENDING", "EV-PR-54"]
+      "evidence": ["EV-STC-ENGINE", "EV-STC-SITE", "EV-DNS-STATUS-PENDING", "EV-PR-54", "EV-STC-DEPLOYED", "EV-STC-LIVE"]
     },
     {
       "id": "PROJECT-MIGRATION", "name": "Migrations & Data Protection", "executive": false,
@@ -577,7 +579,7 @@
         { "id": "STC-1-BUILD", "status": "DONE", "what": "Data model, review engine, immutable history, comparison, discovery, UI, health, tests", "tests": "stc-1 73/0 · render 18/0 · MOS-v2 gate SUCCESS", "evidence": ["EV-STC-ENGINE", "EV-STC-SITE", "EV-PR-54"] },
         { "id": "STC-DNS", "status": "DONE", "what": "DNS A record created and verified (51.68.226.211, no wildcard)", "evidence": ["EV-DNS-STATUS-PENDING"] },
         { "id": "STC-ROUTING-DIAGNOSIS", "status": "DONE", "what": "darhijama.tn redirect root-caused: default-vhost fallback; strictly-additive fix + hardened runbook merged (STATUS-RT reconciled, placeholder superseded)", "evidence": ["EV-PR-56", "EV-AUDIT-ROUTING"] },
-        { "id": "STC-DEPLOY", "status": "OWNER_ACTION", "what": "Operator executes DEPLOYMENT.md: vhost + certbot + verification + regression checks", "evidence": ["EV-AUDIT-ROUTING"] }
+        { "id": "STC-DEPLOY", "status": "DONE", "what": "Deployment script executed on the VPS (repo 9992f7a): additive vhost + certbot TLS + acceptance smoke tests + regression checks all PASS; live over HTTPS with no darhijama.tn in the chain, independently re-verified from the owner machine", "evidence": ["EV-STC-DEPLOYED", "EV-STC-LIVE"] }
       ] }
   ],
 
@@ -598,7 +600,8 @@
     { "id": "MS-2026-08-17-MCC", "date": "2026-08-17", "project": "PROJECT-COMMAND-CENTER", "title": "Command Center v1 LIVE + autonomous loop + MAOL-0", "what": "MCC-1 built and verified live over HTTPS (506/0); autonomous development loop with governance cage; crash-safe leases; MAOL master spec.", "status": "DONE", "evidence": ["EV-MCC-LIVE", "EV-MAOL-SPEC"] },
     { "id": "MS-2026-08-18-BRAND", "date": "2026-08-18", "project": "PROJECT-DESIGN-SYSTEM", "title": "Peak day (126 commits): brand system, MOS-1→3C, ID Auto spin-out, governance incident", "what": "Owner-approved visual identity; MOS-1..MOS-3C (AI Operating Layer v1, 13 proofs); ID Auto published standalone; oth-knowledge repo born; GI-2026-08-18-01 incident → cage made a delivery invariant.", "status": "DONE", "evidence": ["EV-GI-INCIDENT", "EV-GOV-INVARIANT", "EV-MVP-COMPLETE"] },
     { "id": "MS-2026-08-19-MOSV2", "date": "2026-08-19", "project": "PROJECT-MOS-V2", "title": "Yesterday: MOS-v2 M-01→M-12, design migrations, OTH-K1→K3, governance closure", "what": "Twenty PRs merged: complete MOS-v2 console; MIG-1/2/3 executed; ecosystem hub built; OTH Knowledge K1/K2/K2-W/K3 with an independent security audit; governance key isolated (AOL v1 closure).", "status": "DONE", "evidence": ["EV-PR-39", "EV-M12", "EV-PR-42", "EV-PR-43", "EV-PR-44", "EV-PR-46"] },
-    { "id": "MS-2026-08-20-TODAY", "date": "2026-08-20", "project": "PROJECT-COMMAND-CENTER", "title": "Today: Command Center UX closed, E2E proven, VPS path exhausted, OTH-K3 merged", "what": "Auto-title/auto-routing/copy-report merged (PR #47/#48); mission lifecycle proven 54/0; INT-GATE green incl. mcc-1 506/0; VPS access mechanisms exhaustively categorized as BLOCKED (PR #50/#51); OTH-K3 merged to main (PR #45 → b6e52d5); runner proposal opened (PR #53) and its first live install failed → fix opened (PR #55); Status Center built and delivered (PR #54).", "status": "DONE", "evidence": ["EV-PR-47", "EV-PR-48", "EV-PR-51", "EV-PR-45", "EV-MAIN-HEAD", "EV-PR-53", "EV-PR-54", "EV-PR-55"] }
+    { "id": "MS-2026-08-20-TODAY", "date": "2026-08-20", "project": "PROJECT-COMMAND-CENTER", "title": "Today: Command Center UX closed, E2E proven, VPS path exhausted, OTH-K3 merged", "what": "Auto-title/auto-routing/copy-report merged (PR #47/#48); mission lifecycle proven 54/0; INT-GATE green incl. mcc-1 506/0; VPS access mechanisms exhaustively categorized as BLOCKED (PR #50/#51); OTH-K3 merged to main (PR #45 → b6e52d5); runner proposal opened (PR #53) and its first live install failed → fix opened (PR #55); Status Center built and delivered (PR #54).", "status": "DONE", "evidence": ["EV-PR-47", "EV-PR-48", "EV-PR-51", "EV-PR-45", "EV-MAIN-HEAD", "EV-PR-53", "EV-PR-54", "EV-PR-55"] },
+    { "id": "MS-2026-08-20-STC-LIVE", "date": "2026-08-20", "project": "PROJECT-STATUS-CENTER", "title": "Status Center LIVE at https://status.mythosprod.xyz/", "what": "Operator executed scripts/deploy-status-center.sh on the VPS (deployed repo 9992f7a): additive vhost + certbot TLS + acceptance smoke tests + regression checks all PASS; darhijama.tn fallback redirect ended; independently verified live from the owner machine. Delta: DNS configured → VPS vhost deployed → TLS active → Status Center LIVE.", "result": "The single source of truth is live over HTTPS; no other production site affected.", "status": "DONE", "evidence": ["EV-STC-DEPLOYED", "EV-STC-LIVE", "EV-AUDIT-ROUTING"] }
   ],
 
   "blockers": [
@@ -627,11 +630,11 @@
       "required_input": "New MOS_CONSOLE_SECRET (never the compromised MOS-1 password), relay install, deploy.sh run, nginx reload.",
       "unblock": "Execute projects/mythos-os-console/deploy/relay/RUNBOOK.md Phase B; verify /login 200, / 302, /api/health 401 unauthenticated.",
       "created": "2026-08-19", "last_checked": "2026-08-20", "evidence": ["EV-DEPLOY-READINESS"] },
-    { "id": "BLOCKER-STATUS-DNS", "title": "status.mythosprod.xyz falls to the VPS default-vhost fallback (vhost + certificate missing)", "type": "deployment", "project": "PROJECT-STATUS-CENTER", "priority": "P1", "status": "OWNER_ACTION", "owner": "Operator",
-      "impact": "https://status.mythosprod.xyz/ 301-redirects to darhijama.tn instead of serving the Status Center. DNS itself is DONE (A → 51.68.226.211, verified); the gap is exactly the missing vhost + certificate.",
-      "required_input": "One operator session over the verified Windows→VPS channel.",
-      "unblock": "Run sites/status.mythosprod.xyz/DEPLOYMENT.md: preflight reproduces the fault, additive vhost (exact server_name beats the default fallback), certbot, curl -I/-IL verification with no darhijama.tn in the chain, regression checks on darhijama.tn/uthinachess.tn/panel, rollback available.",
-      "created": "2026-08-20", "last_checked": "2026-08-20", "evidence": ["EV-DNS-STATUS-PENDING", "EV-PR-56", "EV-AUDIT-ROUTING"] },
+    { "id": "BLOCKER-STATUS-DNS", "title": "RESOLVED: status.mythosprod.xyz default-vhost fallback ended (vhost + certificate deployed 2026-08-20)", "type": "deployment", "project": "PROJECT-STATUS-CENTER", "priority": "P1", "status": "DONE", "owner": "Operator",
+      "impact": "Was: https://status.mythosprod.xyz/ 301-redirected to darhijama.tn. Now: the Status Center serves live over HTTPS with no darhijama.tn in the chain; all regression sites unaffected.",
+      "required_input": "None — resolved.",
+      "unblock": "RESOLVED 2026-08-20 by the operator run of scripts/deploy-status-center.sh on the VPS (deployed repo 9992f7a): additive vhost + certbot + acceptance + regression checks all PASS; independently verified from the owner machine.",
+      "created": "2026-08-20", "last_checked": "2026-08-20", "evidence": ["EV-DNS-STATUS-PENDING", "EV-PR-56", "EV-AUDIT-ROUTING", "EV-STC-DEPLOYED", "EV-STC-LIVE"] },
     { "id": "BLOCKER-HUB-DNS", "title": "mythosprod.xyz apex not served", "type": "dns", "project": "PROJECT-ECOSYSTEM-HUB", "priority": "P2", "status": "OWNER_ACTION", "owner": "Owner",
       "impact": "The master-brand hub stays invisible; the apex currently redirects to darhijama.tn with a TLS principal error.",
       "required_input": "Apex + www A records → 51.68.226.211; remove the stray redirect.",
@@ -677,12 +680,12 @@
       "required_input": "Root access (owner Windows → VPS SSH, the verified channel).",
       "expected_result": "id -nG deploy no longer lists docker; invariant suite 99/0 as deploy.",
       "procedure": "sudo gpasswd -d deploy docker && node tests/mythos-governance-invariant-test.js" },
-    { "id": "ACTION-STATUS-DNS", "status": "OWNER_ACTION", "what": "Deploy the Status Center (DNS already created — vhost + certificate remain)",
-      "why": "The Status Center is built and the routing fault is root-caused: without a vhost the hostname 301-redirects to darhijama.tn via the default-vhost fallback.",
-      "impact": "The single source of truth goes live at https://status.mythosprod.xyz/; the darhijama.tn redirect ends. Strictly additive — no existing site touched.",
-      "required_input": "Operator session over the verified Windows→VPS channel (DNS A record already exists and is verified).",
-      "expected_result": "HTTPS page serving data/current.json review REVIEW-2026-08-20-001; /health returns the allowlisted JSON.",
-      "procedure": "sites/status.mythosprod.xyz/DEPLOYMENT.md (rsync → vhost → certbot → smoke tests)." },
+    { "id": "ACTION-STATUS-DNS", "status": "DONE", "what": "Deploy the Status Center — COMPLETED 2026-08-20 (vhost + certificate deployed, LIVE)",
+      "why": "The Status Center was built and the routing fault root-caused: without a vhost the hostname 301-redirected to darhijama.tn via the default-vhost fallback.",
+      "impact": "The single source of truth is live at https://status.mythosprod.xyz/; the darhijama.tn redirect has ended. Strictly additive — regression checks confirm no existing site touched.",
+      "required_input": "None — completed by the operator run of scripts/deploy-status-center.sh (deployed repo 9992f7a).",
+      "expected_result": "Met: HTTPS 200 serving the Status Center; /health returns the allowlisted JSON (review REVIEW-2026-08-20-003, the newest snapshot at deploy time).",
+      "procedure": "Executed: scripts/deploy-status-center.sh per sites/status.mythosprod.xyz/DEPLOYMENT.md (rsync → vhost → certbot → smoke tests → regressions)." },
     { "id": "ACTION-PRIVATE-STORE", "status": "OWNER_ACTION", "what": "Provision the OTH Knowledge private store",
       "why": "Track A is repository-complete; the store is the first activation step.",
       "impact": "Enables live knowledge (fail-closed wiring already proven).",
@@ -718,11 +721,10 @@
   "next_actions": [
     { "id": "NEXT-VPS-GATE", "priority": "P0", "order": 1, "title": "Dispatch the Option A VPS Final Gate mission", "detail": "One mission through ordre.mythosprod.xyz closes the whole live-gate chain. The text is written and waiting in the VPS-PATH handover entry.", "depends_on": null },
     { "id": "NEXT-DOCKER-FIX", "priority": "P0", "order": 2, "title": "sudo gpasswd -d deploy docker, then re-run the governance invariant suite", "detail": "The one open HIGH security finding. One command plus one test run.", "depends_on": null },
-    { "id": "NEXT-STATUS-DEPLOY", "priority": "P1", "order": 3, "title": "Run the status.mythosprod.xyz deployment runbook (DNS already done)", "detail": "Vhost + certbot per sites/status.mythosprod.xyz/DEPLOYMENT.md ends the darhijama.tn fallback redirect and makes the Status Center the live single source of truth.", "depends_on": null },
-    { "id": "NEXT-OTHK-STORE", "priority": "P1", "order": 4, "title": "Provision /home/deploy/othk-store and flip config/knowledge.json", "detail": "First activation step for live knowledge; everything else is already fail-closed-proven.", "depends_on": "NEXT-VPS-GATE" },
-    { "id": "NEXT-MOS-DEPLOY", "priority": "P1", "order": 5, "title": "Execute the MOS-v2 Phase-B deployment runbook", "detail": "New secret, relay units, deploy.sh, nginx reload — console goes live at os.mythosprod.xyz.", "depends_on": null },
-    { "id": "NEXT-EXPORTS", "priority": "P2", "order": 6, "title": "Produce authorized exports for OTH Knowledge Track B", "detail": "Takeout / Gemini / NotebookLM, per docs/OTH_TRACK_B_READINESS.md §3.", "depends_on": "NEXT-OTHK-STORE" },
-    { "id": "NEXT-HUB-DEPLOY", "priority": "P2", "order": 7, "title": "Create apex DNS and deploy the mythosprod.xyz hub", "detail": "Fixes the darhijama.tn misroute and publishes the master-brand page.", "depends_on": null }
+    { "id": "NEXT-OTHK-STORE", "priority": "P1", "order": 3, "title": "Provision /home/deploy/othk-store and flip config/knowledge.json", "detail": "First activation step for live knowledge; everything else is already fail-closed-proven.", "depends_on": "NEXT-VPS-GATE" },
+    { "id": "NEXT-MOS-DEPLOY", "priority": "P1", "order": 4, "title": "Execute the MOS-v2 Phase-B deployment runbook", "detail": "New secret, relay units, deploy.sh, nginx reload — console goes live at os.mythosprod.xyz.", "depends_on": null },
+    { "id": "NEXT-EXPORTS", "priority": "P2", "order": 5, "title": "Produce authorized exports for OTH Knowledge Track B", "detail": "Takeout / Gemini / NotebookLM, per docs/OTH_TRACK_B_READINESS.md §3.", "depends_on": "NEXT-OTHK-STORE" },
+    { "id": "NEXT-HUB-DEPLOY", "priority": "P2", "order": 6, "title": "Create apex DNS and deploy the mythosprod.xyz hub", "detail": "Fixes the darhijama.tn misroute and publishes the master-brand page.", "depends_on": null }
   ],
 
   "do_not_reopen": [
