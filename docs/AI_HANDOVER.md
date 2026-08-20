@@ -1,7 +1,115 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-19 UTC
-**From:** AOL-V1-GOV **AI OPERATING LAYER V1 — GOVERNANCE-KEY ISOLATION DELIVERED IN-REPOSITORY (mythos-gov ARCHITECTURE, RELAY SupplementaryGroups, DRIFT FIX, HARDENING SCRIPT, 99/0 INVARIANT); PRODUCTION ACTIVATION IS A DOCUMENTED ROOT-ON-VPS OPERATOR STEP — NOT PERFORMED FROM THIS SESSION AND NOT CLAIMED.**
+**Last updated:** 2026-08-20 UTC
+**From:** INT-E2E **MYTHOS OS INTEGRATION VALIDATION — COMPLETE END-TO-END MISSION LIFECYCLE PROVEN (INSTRUCTION → COMMAND CENTER → MISSION → EXECUTOR → VERIFICATION → PERSISTENT RESULT → FRESH-SESSION HANDOVER → NEXT MISSION), AUTOMATIC TITLE RULE DELIVERED; FULL REQUIRED SUITE GREEN (E2E 54/0, CONSOLE 1283/0, EXECUTOR 264/0, GOVERNANCE 99/0, MOS-v2 GATE 0 NEW FAILURES).**
+
+## INT-E2E — end-to-end mission-lifecycle validation + automatic title rule (2026-08-20)
+
+### Stage
+
+Mythos OS integration validation on branch
+`claude/mythos-os-integration-validation-5fv45z` from `origin/main`
+**`8e081b3`** (starting SHA). Two commits: **`8baf003`**
+(`feat(mos-console): automatic mission title from first meaningful
+instruction line`) and **`b590a13`** (`test(e2e): full mission lifecycle`).
+Delivered via pull request (this session's branch policy does not permit a
+direct push to `main`). This session ran in an isolated remote container,
+not on the VPS.
+
+### Objective
+
+Validate the already-implemented architecture end-to-end — Instruction →
+Command Center → Mission → Knowledge → Governance → Execution →
+Verification → Result → Persistent Memory/Handover → Next Mission — and
+implement only the missing wiring. No completed work was rebuilt; no
+security boundary was touched.
+
+### Delivered
+
+1. **Automatic title rule** (`projects/mythos-os-console/reference/server.js`,
+   `web/app.js`): a mission started without a title (absent, null, empty or
+   whitespace-only) takes the first meaningful line of the instruction —
+   whitespace runs normalised to single spaces, trimmed, capped at the same
+   200-char constraint an explicit title has. Deterministic string work,
+   never a model call. The instruction is never mutated. A
+   provided-but-invalid title (non-string, >200 chars) stays an explicit
+   400 refusal. The UI marks the field optional and omits an empty title.
+2. **E2E lifecycle suite** (`tests/mos-e2e-lifecycle-test.js`, 54/0): real
+   console + real executor wired over real HTTP (no stub control plane;
+   the mock stands in only at the executor's own exported PROVIDERS seam).
+   Proves: titleless instruction → mission with derived title and
+   byte-identical instruction, project/priority/profile preserved;
+   COMPLETED through the real capacity-gated dispatcher and state machine;
+   requested/executed/succeeded/verified are DISTINCT persisted states
+   (report.json carries an independent git-verification surface; a clean
+   run with no structured report lands BLOCKED, never COMPLETED); blocked
+   runs persist exact blocker, evidence and required human action;
+   persisted record carries mission ID, instruction, title, project,
+   states, result, verification, timestamps, next action — and no secret;
+   then EVERY module/server instance is torn down and a genuinely fresh
+   stack reads Mission A through the public API alone and Mission B
+   continues from it (persistent-memory loop closed with no hidden
+   conversational context); failure injection: empty instruction, unknown
+   provider, disallowed profile, executor-down — all explicit, fail-closed.
+   SAFETY: the suite hard-refuses to run on any host where the registered
+   mythos-prod checkout exists (report delivery would touch the real
+   repository) — run it in an isolated container.
+
+### Validation of the already-implemented layers (verified, not rebuilt)
+
+| Layer | Evidence (executed this session, this container) |
+|---|---|
+| OTH-K2 knowledge (fail-closed, read-only allowlist, explicit asOf, claim/quarantine) | othk-0 **89/0**, othk-1 **30/0**, othk-2 **87/0**, othk-2w **39/0** |
+| AI Operating Layer / executor | executor **264/0**, core-wiring **86/0** |
+| Governance isolation (mythos-gov, approval relay, fail-closed) | governance-invariant **99/0** |
+| Approval lifecycle + autonomous loop (memory → roadmap → next mission) | autonomous-campaign **365/0**, orchestration-core **255/2** (the 2 are the gate-known VPS-only systemd unit/timer checks — no systemd in this container) |
+| Unattended / caged paths | unattended-policy **53/0** |
+| Command Center console | mos-1 **1283/0** (was 1264; +19 auto-title assertions) |
+| E2E lifecycle + failure injection | mos-e2e-lifecycle **54/0** (new) |
+| MOS-v2 regression gate | **SUCCESS** — 0 new failures, 20/20 areas mapped |
+
+Baseline before any change (at `8e081b3`) was identically green.
+`tests/mcc-1-command-center-test.js` (the secrets-library command center)
+was NOT run: it requires a live PostgreSQL `_test` database that this
+container does not provide — environmental, recorded, not concealed.
+
+### Security
+
+No security file was modified. The diff touches only the console's
+title validation (strictly: a previously-refused shape is now derived
+server-side; every provided-but-invalid shape still refuses), the UI
+optional-title affordance, and tests. Governance/invariant/unattended
+suites ran unweakened and green. No secrets committed (verified: the E2E
+suite itself asserts no credential appears in any persisted record).
+
+### State corrections carried forward (from task t-20260820075238-o372yt)
+
+- AOL-V1-GOV reached `main` via **PR #46**, merge commit **`d4318fe`**.
+- The VPS governance hardening **is active** (verified on-host 2026-08-19/20
+  by the executor validation tasks: key `root:mythos-gov 0640`, memberless
+  group, deploy EACCES on key and approvals, zero install drift).
+- OPEN HIGH finding, unremediated by design (operator action): `deploy` is
+  in the `docker` group and the socket is reachable — root-equivalent,
+  defeats the mythos-gov isolation. Operator: `sudo gpasswd -d deploy docker`.
+
+### Worktree / Git state
+
+Worktree clean after commits. `origin/claude/mythos-os-integration-validation-5fv45z`
+= `b590a13` + this handover commit; verified against the remote after push.
+`origin/main` = `8e081b3` (unchanged by this session).
+
+### Next stage
+
+Merge this branch to `main` through the governed PR path. Then the
+remaining items are operator-side: remove deploy's docker membership
+(HIGH finding above) and, when the owner supplies exports and a
+provisioned store, OTH-K3 activation (`config/knowledge.json`). No new
+engineering stage beyond this validation is authorised; M-13 was not
+started.
+
+---
+
+**Previously:** AOL-V1-GOV **AI OPERATING LAYER V1 — GOVERNANCE-KEY ISOLATION DELIVERED IN-REPOSITORY (mythos-gov ARCHITECTURE, RELAY SupplementaryGroups, DRIFT FIX, HARDENING SCRIPT, 99/0 INVARIANT); PRODUCTION ACTIVATION IS A DOCUMENTED ROOT-ON-VPS OPERATOR STEP — NOT PERFORMED FROM THAT SESSION; SINCE VERIFIED ACTIVE ON-HOST (see State corrections above).**
 
 ## AOL-V1-GOV — governance-key isolation from the mission executor (2026-08-19)
 
