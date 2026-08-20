@@ -18,6 +18,13 @@ entry below describes the superseded variant and stands as history. All
 other CC stages (skill/routing/simplified UI, copy mission report) apply
 unchanged on top, and the mos-1 auto-title tests now pin main's semantics.
 
+Final pre-merge head: **`1c3f8eb`** (merge of `origin/main` `5d7f5f3`
+into the branch), verified on the remote. Merged-tree results, all exit 0:
+mos-1-console **1433/0**, mos-e2e-lifecycle **54/0**, executor **264/0**,
+unattended **53/0**, governance **99/0**, MOS-v2 gate **SUCCESS, 20/20
+areas, 0 new failures** (Orchestration Core 255/2 pre-existing). Next
+stage: none authorised beyond PR #47 delivery — M-13 NOT started.
+
 ### Stage
 
 Command Center UX/orchestration improvement, on branch
