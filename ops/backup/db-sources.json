@@ -1,0 +1,34 @@
+{
+  "registry_version": "1.0.0",
+  "source": "docs/OFF_HOST_BACKUP_GATE.md §1 (verified read-only 2026-08-14)",
+  "note": "Declares WHICH databases are dumped and how their identity is re-verified before each dump (runbook §C). Contains no credentials: each dump reads the credential from its own container's environment at run time. Dump order is fixed and significant.",
+  "databases": [
+    {
+      "id": "idauto",
+      "container": "idauto-postgres",
+      "engine": "postgres",
+      "expected_engine_major": 15,
+      "expected_tables": 24,
+      "dump_extension": "dump",
+      "has_media_store": true
+    },
+    {
+      "id": "coolify",
+      "container": "coolify-db",
+      "engine": "postgres",
+      "expected_engine_major": 15,
+      "expected_tables": 66,
+      "dump_extension": "dump",
+      "has_media_store": false
+    },
+    {
+      "id": "darhijama_prod",
+      "container": "dar-hijama-production-mysql-1",
+      "engine": "mysql",
+      "expected_engine_major": 8,
+      "expected_tables": 39,
+      "dump_extension": "sql",
+      "has_media_store": false
+    }
+  ]
+}

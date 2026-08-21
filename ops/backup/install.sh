@@ -8,13 +8,16 @@ set -euo pipefail
 UNIT_DIR=/etc/systemd/system
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/systemd"
 SCRIPT=/home/deploy/projects/mythos-prod/ops/backup/mythos-backup-run.sh
+DUMP_SCRIPT=/home/deploy/projects/mythos-prod/ops/backup/mythos-db-dump.sh
 CONFIG=/home/deploy/.config/mythos/backup-schedule.env
 CRED=/home/deploy/.config/mythos/idauto-offhost.env
-UNITS="mythos-backup.service mythos-backup.timer mythos-backup-verify.service mythos-backup-verify.timer mythos-restore-test.service mythos-restore-test.timer"
+UNITS="mythos-db-dump.service mythos-backup.service mythos-backup.timer mythos-backup-verify.service mythos-backup-verify.timer mythos-restore-test.service mythos-restore-test.timer"
 
 [ "$(id -u)" -eq 0 ] || { echo "ERROR: must run as root" >&2; exit 1; }
 [ -f "$SCRIPT" ] || { echo "ERROR: $SCRIPT missing — update the deploy checkout first" >&2; exit 1; }
 bash -n "$SCRIPT" || { echo "ERROR: entry script fails bash -n" >&2; exit 1; }
+[ -f "$DUMP_SCRIPT" ] || { echo "ERROR: $DUMP_SCRIPT missing — update the deploy checkout first" >&2; exit 1; }
+bash -n "$DUMP_SCRIPT" || { echo "ERROR: dump script fails bash -n" >&2; exit 1; }
 [ -f "$CONFIG" ] || { echo "ERROR: $CONFIG missing — create it (0600, see README.md §2)" >&2; exit 1; }
 [ -f "$CRED" ] || { echo "ERROR: $CRED missing — the O-BACKUP-6 designated credential file is required" >&2; exit 1; }
 for f in "$CONFIG" "$CRED"; do
@@ -28,7 +31,7 @@ for u in $UNITS; do
 done
 
 if command -v systemd-analyze >/dev/null 2>&1; then
-  for u in mythos-backup.service mythos-backup-verify.service mythos-restore-test.service; do
+  for u in mythos-db-dump.service mythos-backup.service mythos-backup-verify.service mythos-restore-test.service; do
     systemd-analyze verify "$UNIT_DIR/$u" || { echo "ERROR: systemd-analyze rejected $u" >&2; exit 1; }
   done
 fi

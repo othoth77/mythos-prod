@@ -1,8 +1,12 @@
 [Unit]
 Description=Mythos scheduled off-host backup (stage, verify, push, verify-remote)
 Documentation=file:/home/deploy/projects/mythos-prod/ops/backup/README.md
-After=network-online.target
+After=network-online.target mythos-db-dump.service
 Wants=network-online.target
+# The dump must have completed before staging can find anything to carry.
+# Requires= (not Wants=) so a failed dump fails the backup loudly instead of
+# staging a stale run.
+Requires=mythos-db-dump.service
 
 [Service]
 Type=oneshot
