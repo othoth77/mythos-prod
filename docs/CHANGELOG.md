@@ -6,6 +6,10 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Added — PROD-CLOSURE-GATE — production closure attempt recorded (2026-08-21)
+
+- `MYTHOS_OS_PRODUCTION_CLOSURE_REPORT.md` — honest closure state (**REPOSITORY CLOSED · HOST NOT CLOSED · PRODUCTION NOT VERIFIED**), fresh access-state evidence, the VPS Final Gate run 32482633989 result (smoke/security PASS on-host ×2; gate job blocked by a newly discovered on-host runner-workspace permission fault, root-caused, operator one-liner recorded), per-P0 closure matrix, and the six-step operator sequence that flips the declarations. No production mutation performed; no check fabricated.
+
 ### Added — POST-AUDIT-EXEC — scheduled backups (BACKUP-SCHED) + Status Center live monitoring (STC-2) + production-sync audit (2026-08-21)
 
 - **`ops/backup/`** — scheduled off-host backups closing the audit's P0 backup gap (OWNER-GATE-B1/B2/B3): `mythos-backup-run.sh` (thin scheduled wrapper over the pre-existing `projects/infrastructure/ops/offhost-backup.js` — no parallel mechanism; fail-closed config gate; atomic redacted health record with `last_success_at` + `consecutive_failures`), systemd units (daily backup 03:30 UTC, daily verify 15:00 UTC, monthly restore test into an isolated throwaway destination, all `User=deploy`, hardened), root-run fail-closed `install.sh`, runbook. `tests/backup-scheduler-test.js` 48/0 — includes a full offline backup→verify→restore-test cycle through the real tool with a corruption-detection proof.

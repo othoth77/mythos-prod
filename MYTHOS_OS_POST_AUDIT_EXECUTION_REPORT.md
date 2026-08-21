@@ -91,3 +91,7 @@ The exact VPS sequence is recorded in the POST-AUDIT-EXEC entry of `docs/AI_HAND
 
 - **PR #63 merge commit on `main`:** `7fffa2facd93bf2e02aee805e1c93ba93254c49a`
 - **Final branch commit:** recorded in PR #66 (`claude/mythos-3month-audit-2drfk0` head) — see the PR page; the delivering session verified remote HEAD after push.
+
+## 8. Production closure addendum (2026-08-21, later the same day)
+
+The owner's follow-up production-closure mission was attempted and **stopped at the host boundary** per its own rule 8: this environment has no root/deploy channel (re-verified fresh), and the sanctioned runner channel failed on a **newly discovered on-host workspace-permission fault** (VPS Final Gate run 32482633989, deterministic across two attempts, not caused by any commit — the smoke/security job passed on-host both times). Nothing host-side was mutated or claimed. Status: **REPOSITORY CLOSED · HOST NOT CLOSED · PRODUCTION NOT VERIFIED.** Full evidence, per-P0 closure matrix, and the exact operator sequence: `MYTHOS_OS_PRODUCTION_CLOSURE_REPORT.md`.
