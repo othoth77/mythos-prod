@@ -1,7 +1,50 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-21 UTC
-**From:** STC2-AR-GATE — **Status Center brought to the current authoritative repository state: STC-2 live monitoring and the simple-Arabic layer integrated on one branch, the Arabic layer completed over the live panel, and the VPS Final Gate knowledge-config defect fixed.** The two Status Center workstreams existed only on unmerged branches (PR #66 STC-2 live monitoring, PR #58 STC-AR Arabic) and had never met: the Arabic layer predates the live panel, so the live section shipped with **no Arabic at all**. Both branches are now merged onto `claude/status-center-stc2-update-73v1oo` (one CSS conflict resolved, both blocks kept) and the missing Arabic completed — `AR.live` (LIVE / DEGRADED / DOWN / NOT_MONITORED, stale-snapshot warning, absent-monitor note, state legend under the live table) plus a page-level `#about-ar` section stating what the Status Center is, that statuses come from evidence and real checks, where the last-verified time is shown, and that **a stale snapshot is not a live verification**. English untouched; Arabic stays secondary, RTL-isolated (`unicode-bidi: isolate`, IBM Plex Sans Arabic already shipped), and carries no machine values. **Knowledge-gate defect fixed** (the non-blocking finding recorded in RUNNER-WS-CLEARED): the gate required `projects/oth-knowledge/config/knowledge.json` — a path that does not exist — and hid the error behind `|| echo`, so it verified nothing and always passed; it now reads the active `projects/mythos-ai-executor/config/knowledge.json` and asserts `enabled === true` and `store_root === "/home/deploy/othk-store"`, failing closed on a missing, unparseable or de-activated config. OTH-KNOWLEDGE architecture unchanged. Registry updated so the surface reports its own truth (`EV-STC2-MONITOR`, `EV-STC-AR`, `EV-GATE-KNOWLEDGE-FIX`; stages STC-2-MONITOR and STC-AR = **READY**, which honestly drops TRACK-STATUS-CENTER from 100% to 67%), and **REVIEW-2026-08-21-001** published at `origin/main` `7fffa2f`. Tests: stc-1 73/0 · stc-2 54/0 · **stc-ar 50/0 (new)** · **vps-final-gate-knowledge 22/0 (new)** · governance 99/0 · unattended 53/0 · backup-scheduler 48/0 · production-sync-audit 20/0 · runner-workspace-repair 13/0 · MOS-v2 gate SUCCESS 20/20 areas, 0 new failures. **DEPLOYMENT NOT PERFORMED — the live site still serves the 2026-08-20 snapshot** and the monitor timer has never been installed; both are root-only on the VPS and this session has no path to it (HTTPS to `status.mythosprod.xyz` is egress-blocked from the cloud container, so **no live verification was possible and none is claimed**). Next: operator runs `projects/status-center/monitor/install.sh` then the `DEPLOYMENT.md` §1 content sync (recorded as `ACTION-STC2-INSTALL` / `NEXT-STC2-INSTALL`). Previous entries preserved below.
+**Last updated:** 2026-08-21 19:35 UTC (post-closure execution)
+**From:** PROD-CLOSURE-EXEC — **Production Closure Execution Phase initiated and STEP 1 VERIFIED.** The owner's production-closure mission proceeded from the documented operator-repaired state (Step 0 CLEARED at 17:20 UTC, VPS Final Gate run 32507658817 SUCCESS). **STEP 1 — SYNC VPS CHECKOUT: VERIFIED at c353334bea37b635653325f529e1f28a869eb25e.** VPS Final Gate run #8 (32517604113, 2026-08-21 19:16 UTC) on `origin/main` c353334 **COMPLETE SUCCESS**: both jobs (smoke + gate) passed all steps. Host facts re-confirmed: checkout restored to c353334 · runner non-root, single-group (mythos-runner), no docker/sudo/mythos-gov · governance.key unreadable, approval store unlisted · governance invariant 99/0 passed ON THE HOST · knowledge configuration verified (enabled=true, store_root=/home/deploy/othk-store) · e2e lifecycle expected refusal working. **STEPS 2–8 remain operator-gated** (require root/deploy execution: executor restart + live gate, backup install, monitor install, status deploy, drift audit). This session has no SSH/SCP/rsync binaries, no credentials, and no external HTTPS path (egress 403) — verified fresh 2026-08-21 ~12:34 UTC and re-confirmed. The operator sequence is pinned in §11 of `MYTHOS_OS_PRODUCTION_CLOSURE_REPORT.md` and reproduced below for convenience. **REPOSITORY: CLOSED** (all code merged, all tests green). **PRODUCTION: NOT VERIFIED** (pending operator completion of steps 2–6). Previous entries preserved below.
+
+---
+
+**Operator sequence to complete production closure (from MYTHOS_OS_PRODUCTION_CLOSURE_REPORT.md §11):**
+
+```bash
+# Current state: main = c353334; VPS Final Gate verified green; Step 0 complete
+# Expected: all steps below PASS with the named verifications, then declarations flip to CLOSED/CLOSED/VERIFIED
+
+# PREREQUISITE: PR #64 (OTH-KNOWLEDGE Live Gate) is on branch claude/oth-knowledge-live-gate-tzrjk5
+#              with tests/othk-live-gate.js and a docs-only conflict with current main.
+#              Either merge PR #64 first, or incorporate tests/othk-live-gate.js from that branch.
+
+# STEP 1. VERIFIED ✓ (ci/runner-gate c353334 SUCCESS)
+#         VPS Final Gate run #8 at 2026-08-21 19:16 UTC: checkout restored, governance 99/0 on-host
+
+# STEP 2. Executor live gate (as deploy):
+systemctl --user restart mythos-ai-executor
+node tests/othk-live-gate.js --require-live      # expect exit 0 "LIVE PASS"
+#       (this test is on PR #64; merge or incorporate before running)
+
+# STEP 3. Backups (root):
+sudo bash ops/backup/install.sh && sudo systemctl start mythos-backup.service
+journalctl -u mythos-backup.service -n 40        # then check backup-health.json status=ok
+
+# STEP 4. Monitor (root):
+sudo bash projects/status-center/monitor/install.sh   # verifies first live-status.json itself
+
+# STEP 5. Status Center content deploy (root):
+sudo bash scripts/deploy-status-center.sh        # then browser-check the Live services section
+
+# STEP 6. Drift audit (as deploy):
+bash scripts/production-sync-audit.sh            # expect NO DRIFT beyond documented deltas
+
+# STEP 7 & 8 — Regression gates (from repository):
+node tests/mythos-governance-invariant-test.js   # expect 99/0
+node tests/mythos-ai-executor-test.js            # expect 264/0
+# ... other final-gate suites
+```
+
+---
+
+**Previous entry — From:** STC2-AR-GATE —
 
 ---
 **Previous entry — From:** RUNNER-WS-CLEARED — **STEP 0 CLEARED: the runner channel is repaired and proven green on the production host.** The operator executed the Step-0 repair via the bootstrap path recorded in RUNNER-WS-BOOTSTRAP; **VPS Final Gate run `32507658817` (17:20:35 UTC, ref `main` = `7fffa2f`) completed SUCCESS on both jobs.** Step-0E requirements met: **CHECKOUT SUCCESS** (`+ 6669021...7fffa2f -> origin/main`, `git log -1` = `7fffa2f`; the EACCES on `.git/objects` that reproduced identically across runs #4×2 and #5 is gone) · **SMOKE/SECURITY PASS** · **FINAL GATE SUCCESS**. First-hand host facts newly established: runner is `mythos-runner` single-group non-root; node v22.22.1; **`deploy groups: deploy users` → `PASS: deploy is NOT in the docker group`**; `docker:x:986:` and `mythos-gov:x:979:` both memberless; `/home/deploy/projects/mythos-prod` present; **governance invariant suite 99 passed / 0 failed executed ON THE VPS** (incl. live key `root:mythos-gov 0640`, runner cannot read the key or list/write the approval store); e2e lifecycle `REFUSED … registered checkout` → PASS(expected). No privilege escalation, no governance regression. **New non-blocking finding:** the gate's knowledge-config step reads `projects/oth-knowledge/config/knowledge.json` while the activated config is `projects/mythos-ai-executor/config/knowledge.json`, so that report line is uninformative — report-only, cannot fail the gate, and fixing it touches a governance-protected workflow path (separate reviewed change). **Steps 1–8 remain operator-gated** — the read-only gate cannot restart the executor, install timers, or deploy a site. Classifications: **REPOSITORY CLOSED · HOST NOT CLOSED · PRODUCTION NOT VERIFIED** (`MYTHOS_OS_PRODUCTION_CLOSURE_REPORT.md` §3.5, §12). Next: §11 steps 1–6 (checkout sync → executor restart + `--require-live` → `ops/backup/install.sh` → monitor install → Status Center deploy → drift audit). Previous entries preserved below.
