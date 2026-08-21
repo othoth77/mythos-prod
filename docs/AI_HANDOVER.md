@@ -1,9 +1,185 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-21 UTC
-**From:** STC2-AR-GATE-CLOSURE — **PR #70 merged; the corrected Knowledge Gate is now PROVEN on the production host; deployment remains the only open step.** PR #70 merged to `main` as **`c353334`** (owner-directed closure merge; PRs #66 and #58 auto-closed — their commits are contained in it, so no mechanism is duplicated). **VPS Final Gate run `32516337652`** dispatched at `c353334` — **both jobs SUCCESS on `mythos-vps-runner`**: runner smoke + identity boundary PASS, VPS baseline PASS, docker-group finding **`deploy` NOT in the docker group**, governance invariant suite **99/0 executed on the VPS**, e2e lifecycle `REFUSED … registered checkout` → PASS(expected), and the corrected section-8 step printed on-host: **`PASS: projects/mythos-ai-executor/config/knowledge.json enabled=true store_root=/home/deploy/othk-store`** — the report-only line that verified nothing is now a fail-closed assertion proven live. Post-merge repository suites re-run at `c353334`: stc-1 73/0 · stc-2 54/0 · stc-ar 50/0 · vps-final-gate-knowledge 22/0 · governance 99/0 · unattended 53/0 · backup-scheduler 48/0 · production-sync-audit 20/0 · othk-0 89/0 · othk-1 30/0 · othk-2 97/0 · othk-2w 42/0 · othk-3 63/0 · executor 264/0. **STILL NOT DONE — root-only, operator:** the Status Center content sync and the STC-2 monitor timer install. The published site therefore still serves `REVIEW-2026-08-20-005` / `149dbae`, `mythos-status-monitor.timer` has never run, and **no monitoring cycle exists**. **Live HTTPS verification was NOT performed and is NOT claimed:** `status.mythosprod.xyz` is denied by this environment's egress policy (proxy 403); per `/root/.ccr/README.md` a policy denial is reported, not routed around. Classifications: **REPOSITORY CLOSED · KNOWLEDGE GATE LIVE-VERIFIED · STATUS CENTER NOT DEPLOYED · MONITORING NOT ACTIVE · PRODUCTION NOT VERIFIED.** Exact operator sequence in the stage entry below. Previous entries preserved below.
+**From:** BACKUP-DUMP-STEP — **the off-host backup pipeline finally has the dump producer it never had; `mythos-backup.service` failed for a structural reason, not a configuration error.** Root cause: `discoverDb()` (`projects/infrastructure/ops/offhost-backup.js`) requires **exactly one** dump file in the database directory, and **nothing in this repository ever produced one** — `docs/OFF_HOST_BACKUP_GATE.md` §0 states the tool *carries* dumps rather than creating them, and `backup-operations-orchestrator.js` "never executes a shell command". A correctly created, correctly owned, empty dump directory was therefore guaranteed to fail; so would two days of dumps, or the three databases of gate §1. Delivered **`ops/backup/mythos-db-dump.sh` + `mythos-db-dump.service`**: the §4-D dump step as its own oneshot that `mythos-backup.service` `Requires=`/`After=`. **Privilege split (owner-chosen):** the dump unit runs as **root** because `docker exec` is required and `deploy` is deliberately not in the docker group; `mythos-backup.service` stays `User=deploy` and gains only read access — `deploy` never receives docker. Credentials are dereferenced **inside** each container (`$POSTGRES_USER`, `$MYSQL_ROOT_PASSWORD`), never on a command line, never in a host shell variable, never in this repository. Sources are declared in `ops/backup/db-sources.json` (no credentials) and re-verified per gate §C before every dump — container running, engine major, table count; a mismatch **stops the run**. Each artefact is structurally validated (`pg_restore --list` parses; `mysqldump` completion marker present), C1 recorded at the run root. Layout is **one directory per database per run**, which is what keeps the one-file rule satisfiable for three databases and successive daily runs; `mythos-backup-run.sh` gained multi-run mode (`MYTHOS_BACKUP_DB_ROOT` → `latest-run` → stage each database under `$PREFIX/<id>`), the legacy single-database layout unchanged and still tested. Nothing deletes; no force-style flags; no second mechanism. **Still blocked, deliberately not worked around:** the media `manifest.json` + `checksums.sha256` pair has no producer here, so a database without `MYTHOS_BACKUP_MEDIA_DIR_<ID>` **fails closed naming the variable** rather than staging an invented or empty media set; `coolify` and `darhijama_prod` have no media store at all and need an owner decision; the R2 credential and the recurring order remain **OWNER-GATE-B1/B2/B3**. Tests: **backup-db-dump 40/0 (new, offline via a docker shim)** · backup-scheduler 48/0 · inf-backup-auto-0 245/0 · ida-3f-offhost 35/0 · governance 99/0 · unattended 53/0 · stc-2 54/0 · production-sync-audit 20/0; no existing test modified. **NOT EXECUTED AGAINST PRODUCTION** — this session has no VPS path (no ssh client, no key material, TCP/22 timeout), so the dump step is offline-tested only and no backup has been produced. Previous entries preserved below.
 
 ---
+**Previous entry — From:** STC2-AR-GATE-CLOSURE — **PR #70 merged; the corrected Knowledge Gate is now PROVEN on the production host; deployment remains the only open step.** PR #70 merged to `main` as **`c353334`** (owner-directed closure merge; PRs #66 and #58 auto-closed — their commits are contained in it, so no mechanism is duplicated). **VPS Final Gate run `32516337652`** dispatched at `c353334` — **both jobs SUCCESS on `mythos-vps-runner`**: runner smoke + identity boundary PASS, VPS baseline PASS, docker-group finding **`deploy` NOT in the docker group**, governance invariant suite **99/0 executed on the VPS**, e2e lifecycle `REFUSED … registered checkout` → PASS(expected), and the corrected section-8 step printed on-host: **`PASS: projects/mythos-ai-executor/config/knowledge.json enabled=true store_root=/home/deploy/othk-store`** — the report-only line that verified nothing is now a fail-closed assertion proven live. Post-merge repository suites re-run at `c353334`: stc-1 73/0 · stc-2 54/0 · stc-ar 50/0 · vps-final-gate-knowledge 22/0 · governance 99/0 · unattended 53/0 · backup-scheduler 48/0 · production-sync-audit 20/0 · othk-0 89/0 · othk-1 30/0 · othk-2 97/0 · othk-2w 42/0 · othk-3 63/0 · executor 264/0. **STILL NOT DONE — root-only, operator:** the Status Center content sync and the STC-2 monitor timer install. The published site therefore still serves `REVIEW-2026-08-20-005` / `149dbae`, `mythos-status-monitor.timer` has never run, and **no monitoring cycle exists**. **Live HTTPS verification was NOT performed and is NOT claimed:** `status.mythosprod.xyz` is denied by this environment's egress policy (proxy 403); per `/root/.ccr/README.md` a policy denial is reported, not routed around. Classifications: **REPOSITORY CLOSED · KNOWLEDGE GATE LIVE-VERIFIED · STATUS CENTER NOT DEPLOYED · MONITORING NOT ACTIVE · PRODUCTION NOT VERIFIED.** Exact operator sequence in the stage entry below. Previous entries preserved below.
+
+---
+**Previous entry — From:** OTHK-LIVE-GATE — **CANONICAL OTH-KNOWLEDGE LIVE GATE BUILT AND GREEN: `tests/othk-live-gate.js`, verdict on this container READY — NOT LIVE (activated store lives on the VPS).** All executable evidence for core + retrieval + service read-only boundary + trust boundary + executor fail-closed boundary + persistent-store read/write separation mechanics + data-source policy is green in one canonical gate. Written before, and merged after, the parallel OTH-KNOWLEDGE LIVE ACTIVATION (PR #63, `dbb7ad9`: `config/knowledge.json` now `enabled=true`, `store_root=/home/deploy/othk-store`): the gate's §F is host-aware — on a host WITH the canonical store it opens the real store, requires it out-of-repo/readable, and proves a full read pass leaves it byte-identical → **LIVE PASS**; on any other host it proves the fail-closed disable and the separation mechanics on a gate-local out-of-repo store → READY — NOT LIVE. Targeted suites othk-0..3 + 2w all 0-fail; MOS-v2 regression gate SUCCESS, 0 new failures. **The Live condition is the on-host acceptance run: `node tests/othk-live-gate.js --require-live` on the VPS → exit 0 + "LIVE PASS".** Full entry below; previous entries (MYTHOS-OS-FINAL-CLOSURE, OTH-KNOWLEDGE LIVE ACTIVATION, VPS-ADMIN-FINAL, …) preserved.
+
+
+## BACKUP-DUMP-STEP — the missing dump producer (2026-08-21)
+
+### Stage
+
+`mythos-backup.service` reached `stage` and failed with
+`ERROR: database dump discovery failed`. Objective: find and fix the real
+cause without weakening verification, without a second backup mechanism,
+and without granting `deploy` docker.
+
+**Branch:** `claude/status-center-stc2-update-73v1oo`.
+
+### Root cause (not a configuration error)
+
+`discoverDb()` requires exactly one regular file in the database
+directory. The directory was correct, owned correctly, and **empty**,
+because no component in this repository produces a dump:
+
+| Layer | Evidence |
+|---|---|
+| `offhost-backup.js` | consumes `--database <dir>`; `discoverDb()` throws on `a.length !== 1` |
+| `docs/OFF_HOST_BACKUP_GATE.md` §0 | "dumps are not files it produces — they are files it carries" |
+| `backup-operations-orchestrator.js` | "THIS MODULE OWNS NO BACKUP LOGIC … never executes a shell command" |
+
+Two further blockers sat behind it: the media `manifest.json` +
+`checksums.sha256` pair has no producer either, and the one-file rule
+cannot express gate §1's three databases or successive daily runs.
+
+### Changed files
+
+- `ops/backup/mythos-db-dump.sh` (new) · `ops/backup/db-sources.json` (new)
+- `ops/backup/systemd/mythos-db-dump.service` (new)
+- `ops/backup/systemd/mythos-backup.service` — `Requires=`/`After=` the dump
+- `ops/backup/mythos-backup-run.sh` — multi-run mode, fail-closed media resolution
+- `ops/backup/install.sh` — installs and verifies the dump unit
+- `ops/backup/README.md` — §0 rewritten to the real contract
+- `tests/backup-db-dump-test.js` (new)
+
+### Targeted test results (executed this session)
+
+backup-db-dump **40/0** · backup-scheduler **48/0** ·
+inf-backup-auto-0 **245/0** · ida-3f-offhost **35/0** ·
+governance-invariant **99/0** · unattended-policy **53/0** ·
+stc-2 **54/0** · production-sync-audit **20/0**. No existing test was
+modified or removed.
+
+### Deployment status
+
+**NOT DEPLOYED, NOT PRODUCTION-VERIFIED.** No dump has been produced, no
+backup has run, no timer has been installed. The dump step is exercised
+only against an offline `docker` shim. This session has no VPS path.
+
+### Exact next stage (operator, root on the VPS)
+
+```bash
+git -C /home/deploy/projects/mythos-prod pull --ff-only
+# add to /home/deploy/.config/mythos/backup-schedule.env (0600):
+#   MYTHOS_BACKUP_DB_ROOT=/home/deploy/mythos-backups/db-runs
+#   MYTHOS_BACKUP_MEDIA_DIR_IDAUTO=/home/deploy/deployments/idauto-media
+sudo bash ops/backup/install.sh
+sudo systemctl start mythos-db-dump.service
+journalctl -u mythos-db-dump.service -n 40 --no-pager
+cat /home/deploy/mythos-backups/db-runs/latest-run
+```
+
+Expect the dump to succeed and the subsequent `stage` to stop on the
+media pair — that is the next real blocker and it needs the owner's
+decision on how a media-less database is represented.
+
+## OTHK-LIVE-GATE — canonical OTH-KNOWLEDGE live gate (2026-08-21)
+
+### Stage
+
+Objective: close OTH-KNOWLEDGE production readiness with one canonical,
+executable Live Gate — WITHOUT activating the knowledge layer (store
+provisioning is owner-only) and without weakening any control.
+
+- **Status: READY — NOT LIVE on this container.** All
+  repository-executable evidence green; LIVE PASS requires the on-host
+  acceptance run (the activated store exists only on the VPS).
+- **Baseline verified:** origin/main = `3354a7e` (VPS-ADMIN-FINAL delivery
+  note) at gate authoring; merged with origin/main = `7fffa2f` (PR #63
+  LIVE ACTIVATION + PR #65/#67 MYTHOS-OS-FINAL-CLOSURE) before delivery —
+  the gate's §F was made host-aware for the activated config in that
+  merge (see "Post-activation amendment" below).
+- **Commit / remote HEAD:** the commit carrying this entry on branch
+  `claude/oth-knowledge-live-gate-tzrjk5` (PR to main; see delivery note).
+- **Changed files:** `tests/othk-live-gate.js` (new), this handover.
+
+### The canonical gate — `tests/othk-live-gate.js`
+
+One executable, seven sections, each first-hand evidence (53 checks):
+
+| § | Proves | Result |
+|---|---|---|
+| A | Core invariants (delegates othk-0: model/store/provenance/ingest/conflict/seed) | PASS 89/0 |
+| B | Retrieval (delegates othk-1) + re-enforced measured eval thresholds from `run-eval.js --json`: lexical recall@5=1, MRR=0.95; vector recall@5=1; hybrid recall@5=1, MRR=0.925; provenance OK all modes; corpus integrity OK | PASS |
+| C | Service boundary: surface is EXACTLY the 11-op documented read allowlist; nothing write/ingest/mutate/tombstone-shaped reachable; provenance on every knowledge-bearing hit (entity identity nodes are the sole, audit-recognised exception); auditHits 0 failures | PASS |
+| D | Trust boundary: `currentState`/`assessTrust` refuse missing `asOf`; trust report `not_a_truth_value:true`; claim categorised `imported-claim`, never fact; quarantine preserved through `retrieve`/`lookupProvenance` as a new version (history intact) | PASS |
+| E | Executor boundary fail-closed: unknown field, credential-shaped key at depth, relative / in-repo / url-shaped store_root, absent store — each disables the whole layer; enabled facade is EXACTLY `READ_OPS` (11), frozen; executor-side asOf guards; presentation annotation (`is_claim`, `quarantined`) on every hit | PASS |
+| F | Persistence separation: shipped config validates (disabled → blocker recorded, mechanics mode). Operator CLI seeds a gate-local out-of-repo store (`validate` ok); executor opens it read-only; a full read pass leaves `records.jsonl` + `objects/` byte-identical (sha256 fingerprint); CLI `ingest` then grows the store — the operator CLI remains the only ingestion/curation path. If the shipped config is ever enabled, this section instead opens the REAL store, requires it outside the repo, readable, and byte-identical after a read pass → verdict LIVE PASS | PASS (mechanics) |
+| G | Data-source policy (OTH-K2 decisions): `google-contacts` and `external-provider` remain `metadata-only` (fail-closed); Gemini/NotebookLM/Takeout remain independent declared classes with closed-enum policies; live importer runs prove Gemini yields NO fact/claim records and NotebookLM yields claims only (0 facts) — no silent promotion to fact status; discovery record present | PASS |
+
+Verdict logic: any failure → exit 1. All green without a readable live
+store on this host → exit 0 "READY — NOT LIVE" (exit 2 with
+`--require-live`, verified). All green + configured store present and
+readable → "LIVE PASS". The gate creates temp stores
+only under `os.tmpdir()` and never writes inside the repository or touches
+`config/knowledge.json`. The §F live branch was additionally exercised in a
+scratch simulation (CLI-seeded temp store via `openKnowledge` default-shape
+config: 21 records read, no crash).
+
+### Tests executed (this container, Node, 2026-08-21)
+
+- Targeted first (pre-merge baseline `3354a7e`): othk-0 89/0 · othk-1 30/0 · othk-2 97/0 · othk-2w 40/0 · othk-3 63/0; gate 53/0.
+- Post-merge (with `7fffa2f`, activated config): gate → **55/0**, exit 0, verdict READY — NOT LIVE on this container; `--require-live` → exit 2 as designed; othk-2w (activated version) 42/0.
+- Broader regression (once per validation point): `tests/mos-v2-regression-test.js` → SUCCESS, 20/20 areas, 0 new failures (MOS-1 1438/0, AI Executor 264/0, Orchestrator-0 156/0; Orchestration Core 255/2 — the 2 are gate-classified KNOWN PRE-EXISTING, unrelated to this change); re-run green on the merged tree.
+
+### Post-activation amendment (same stage, at merge with `7fffa2f`)
+
+While this gate was in flight, PR #63 (`dbb7ad9`) executed the LIVE
+ACTIVATION: `config/knowledge.json` is now `enabled=true`,
+`store_root=/home/deploy/othk-store` (canonical VPS store, 37 records,
+0700 deploy-owned, outside Git). The gate's §F was therefore extended
+from two modes to three, mirroring the activation contract already pinned
+by the updated `othk-2w` on main:
+
+- enabled + store present on this host → open the REAL store, require it
+  out-of-repo and readable, full read pass byte-identical → **LIVE PASS**;
+- enabled + store absent (this container, any non-production host) →
+  prove the fail-closed disable (`does not exist` reason, never an
+  error), then run the separation-mechanics checks → READY — NOT LIVE
+  with the on-host run named as the remaining step;
+- disabled → the original unprovisioned-blocker mechanics mode.
+
+Re-validated after the merge: gate 55/0 exit 0 (READY — NOT LIVE on this
+container), `--require-live` exit 2; othk-2w (main's activated version)
+green; MOS-v2 gate re-run green.
+
+Re-validated a second time after merging `c353334` (STC2-AR-GATE, which
+also fixed the VPS Final Gate's knowledge-config step to assert the
+ACTIVE executor config — complementary to this gate, no overlap: that
+step checks the config's shape in CI, this gate proves the runtime
+boundary). Handover conflict resolved keeping both entries, exactly as
+STC2-AR-GATE's own "Deferred / open" note requested. Results at the
+merged tree: othk-0 89/0 · othk-1 30/0 · othk-2 97/0 · othk-2w 42/0 ·
+othk-3 63/0 · vps-final-gate-knowledge 22/0 · live gate 55/0 (exit 0,
+READY — NOT LIVE; `--require-live` exit 2) · MOS-v2 gate SUCCESS 20/20,
+0 new failures.
+
+### Remaining step (on-host acceptance run)
+
+Nothing repository-executable remains. The Live condition is unchanged in
+substance and now concretely executable: on the VPS (as `deploy`, repo at
+this commit), run
+
+`node tests/othk-live-gate.js --require-live`
+
+— exit 0 + "LIVE PASS" is the executable proof of OTH-KNOWLEDGE Live
+(real store open/read, byte-identical after the read pass). Anything
+else: do not claim Live.
+
+No real personal data, credentials, or store contents were created or
+committed by this stage; contacts remain metadata-only; VPS runner/security
+configuration untouched (Final Gate remains GREEN, not reopened).
+
+**Next stage:** on-host `--require-live` acceptance run (owner/operator);
+record its output here.
+
+---
+
 **Previous entry — From:** STC2-AR-GATE — **Status Center brought to the current authoritative repository state: STC-2 live monitoring and the simple-Arabic layer integrated on one branch, the Arabic layer completed over the live panel, and the VPS Final Gate knowledge-config defect fixed.** The two Status Center workstreams existed only on unmerged branches (PR #66 STC-2 live monitoring, PR #58 STC-AR Arabic) and had never met: the Arabic layer predates the live panel, so the live section shipped with **no Arabic at all**. Both branches are now merged onto `claude/status-center-stc2-update-73v1oo` (one CSS conflict resolved, both blocks kept) and the missing Arabic completed — `AR.live` (LIVE / DEGRADED / DOWN / NOT_MONITORED, stale-snapshot warning, absent-monitor note, state legend under the live table) plus a page-level `#about-ar` section stating what the Status Center is, that statuses come from evidence and real checks, where the last-verified time is shown, and that **a stale snapshot is not a live verification**. English untouched; Arabic stays secondary, RTL-isolated (`unicode-bidi: isolate`, IBM Plex Sans Arabic already shipped), and carries no machine values. **Knowledge-gate defect fixed** (the non-blocking finding recorded in RUNNER-WS-CLEARED): the gate required `projects/oth-knowledge/config/knowledge.json` — a path that does not exist — and hid the error behind `|| echo`, so it verified nothing and always passed; it now reads the active `projects/mythos-ai-executor/config/knowledge.json` and asserts `enabled === true` and `store_root === "/home/deploy/othk-store"`, failing closed on a missing, unparseable or de-activated config. OTH-KNOWLEDGE architecture unchanged. Registry updated so the surface reports its own truth (`EV-STC2-MONITOR`, `EV-STC-AR`, `EV-GATE-KNOWLEDGE-FIX`; stages STC-2-MONITOR and STC-AR = **READY**, which honestly drops TRACK-STATUS-CENTER from 100% to 67%), and **REVIEW-2026-08-21-001** published at `origin/main` `7fffa2f`. Tests: stc-1 73/0 · stc-2 54/0 · **stc-ar 50/0 (new)** · **vps-final-gate-knowledge 22/0 (new)** · governance 99/0 · unattended 53/0 · backup-scheduler 48/0 · production-sync-audit 20/0 · runner-workspace-repair 13/0 · MOS-v2 gate SUCCESS 20/20 areas, 0 new failures. **DEPLOYMENT NOT PERFORMED — the live site still serves the 2026-08-20 snapshot** and the monitor timer has never been installed; both are root-only on the VPS and this session has no path to it (HTTPS to `status.mythosprod.xyz` is egress-blocked from the cloud container, so **no live verification was possible and none is claimed**). Next: operator runs `projects/status-center/monitor/install.sh` then the `DEPLOYMENT.md` §1 content sync (recorded as `ACTION-STC2-INSTALL` / `NEXT-STC2-INSTALL`). Previous entries preserved below.
 
 ---
