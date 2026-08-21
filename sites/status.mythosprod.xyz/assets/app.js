@@ -191,6 +191,21 @@
       loadError: 'تعذّر تحميل بيانات الصفحة. هذه الصفحة تعرض ملف البيانات المنشور معها — تأكد من أنه موجود.',
       reviewReloaded: 'أُعيد تحميل أحدث نسخة منشورة من البيانات.',
       reviewReadOnly: 'هذه الصفحة للعرض فقط ولا يمكنها تنفيذ أي أوامر. إنتاج مراجعة جديدة يتم بتشغيل محرّك المراجعة من نسخة المستودع، ثم نشر النتيجة هنا.'
+    },
+    // ── STC-2 live monitoring (added with the live layer itself) ──
+    // Explains the MEANING of the four live states and of a stale
+    // snapshot. Service names, domains, latency, HTTP codes and
+    // timestamps stay exactly as the monitor wrote them.
+    live: {
+      intro: 'هذا القسم ليس وصفاً مكتوباً بل نتيجة فحص فعلي: يقوم المراقب بفحص كل خدمة كل خمس دقائق ويسجّل ما وجده — زمن الاستجابة، ورمز الاستجابة، ومدة صلاحية شهادة التأمين، وسبب العطل إن وُجد.',
+      LIVE: 'LIVE — الخدمة تعمل، وقد استجابت للفحص الأخير كما هو متوقع.',
+      DEGRADED: 'DEGRADED — الخدمة تعمل لكن بوضع غير سليم (بطء، أو شهادة تأمين قاربت على الانتهاء، أو موارد شبه ممتلئة).',
+      DOWN: 'DOWN — الخدمة لم تستجب أو استجابت بخطأ في الفحص الأخير.',
+      NOT_MONITORED: 'NOT MONITORED — لا يوجد فحص فعلي لهذه الخدمة، فلا يمكن القول إنها تعمل أو لا تعمل.',
+      staleTitle: 'تحذير: البيانات قديمة',
+      stale: 'آخر فحص أقدم مما ينبغي، ما يعني أن المراقب نفسه متوقف. البيانات المعروضة أدناه صورة قديمة ولا تعني أن الخدمات تعمل الآن — الصورة القديمة ليست تحققاً حياً.',
+      absent: 'لا توجد بيانات مراقبة حية على هذا الخادم بعد (لم يُثبَّت المراقب). غياب البيانات يُعلَن كما هو، ولا يُعرض على أنه حالة سليمة.',
+      legendTitle: 'معنى الحالات في الجدول أعلاه:'
     }
   };
   function arEl(text) {
@@ -848,6 +863,7 @@
           'STC-2 monitor is not yet installed on this host — see ' +
           'projects/status-center/monitor/README.md. Absence of data is ' +
           'reported, never painted green.' }));
+      arPut(body, arEl(AR.live.absent));
       return;
     }
     var age = Date.now() - Date.parse(doc.generated_at);
@@ -859,6 +875,8 @@
       stale ? el('span', { class: 'pill s-blocked', text: 'STALE SNAPSHOT — monitor may be down' }) : null
     ]);
     body.appendChild(meta);
+    arPut(body, arEl(AR.live.intro));
+    if (stale) arPut(body, arEl(AR.live.stale));
     var table = el('table', { class: 'matrix' }, [
       el('thead', null, [el('tr', null,
         ['Service', 'State', 'Latency', 'HTTP', 'Cert', 'Last check', 'History', 'Detail'].map(function (h) {
@@ -881,6 +899,13 @@
     ]);
     var wrap = el('div', { class: 'table-wrap' }, [table]);
     body.appendChild(wrap);
+    // Arabic state legend for the live table — meaning only, no data.
+    var legend = el('div', { class: 'live-legend' });
+    arPut(legend, arEl(AR.live.legendTitle));
+    ['LIVE', 'DEGRADED', 'DOWN', 'NOT_MONITORED'].forEach(function (st) {
+      arPut(legend, arEl(AR.live[st]));
+    });
+    body.appendChild(legend);
   }
   function loadLive() {
     return fetch('data/live-status.json', { cache: 'no-cache' }).then(function (r) {

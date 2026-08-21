@@ -220,6 +220,18 @@ dd .simple-ar,
   font-size: 12.5px;
   margin: 2px 0 6px;
 }
+/* Arabic state legend under the live table — one compact block. */
+.live-legend {
+  margin-top: var(--mythos-space-5);
+}
+.live-legend .simple-ar {
+  margin: 0 0 4px;
+}
+/* Page-level Arabic explanation of the whole surface. */
+.simple-ar.intro {
+  font-size: 14px;
+  margin-bottom: var(--mythos-space-6);
+}
 
 /* ── Status pills (extends the hub .badge recipe) ───── */
 .pill {

@@ -95,14 +95,36 @@ jobs:
       - name: Governance invariant suite (identity-agnostic, read-only)
         run: node tests/mythos-governance-invariant-test.js
 
-      - name: Knowledge configuration state (section 8 — report only)
+      - name: Knowledge configuration state (section 8 — verified, fail-closed)
         run: |
           set -eu
+          # The active executor knowledge wiring lives under
+          # projects/mythos-ai-executor/config/knowledge.json. The gate
+          # asserts the activated values instead of reporting whatever it
+          # finds: a missing, unparseable or de-activated config fails the
+          # gate rather than being swallowed.
           node -e '
-            const c = require("./projects/oth-knowledge/config/knowledge.json");
-            console.log("enabled:", c.enabled === true);
-            console.log("store_root set:", typeof c.store_root === "string" && c.store_root.length > 0);
-          ' 2>/dev/null || echo "knowledge config not present/parseable at this revision — reported as-is"
+            const fs = require("fs");
+            const PATH = "projects/mythos-ai-executor/config/knowledge.json";
+            const EXPECTED_STORE_ROOT = "/home/deploy/othk-store";
+            let c;
+            try {
+              c = JSON.parse(fs.readFileSync(PATH, "utf8"));
+            } catch (e) {
+              console.error("FAIL: cannot read/parse " + PATH + ": " + e.message);
+              process.exit(1);
+            }
+            const failures = [];
+            if (c.enabled !== true) failures.push("enabled must be true, got " + JSON.stringify(c.enabled));
+            if (c.store_root !== EXPECTED_STORE_ROOT) {
+              failures.push("store_root must be " + JSON.stringify(EXPECTED_STORE_ROOT) + ", got " + JSON.stringify(c.store_root));
+            }
+            if (failures.length) {
+              failures.forEach(function (f) { console.error("FAIL: " + f); });
+              process.exit(1);
+            }
+            console.log("PASS: " + PATH + " enabled=true store_root=" + c.store_root);
+          '
 
       - name: E2E lifecycle suite — expected host refusal is the PASS condition
         run: |

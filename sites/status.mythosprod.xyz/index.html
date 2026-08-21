@@ -25,6 +25,7 @@
       <span class="surface-name">Status Center</span>
     </a>
     <nav class="primary" aria-label="Sections">
+      <a href="#about-ar" lang="ar" dir="rtl">شرح بالعربية</a>
       <a href="#overview">Overview</a>
       <a href="#projects">Projects</a>
       <a href="#timeline">Timeline</a>
@@ -57,6 +58,15 @@
   </noscript>
   <div id="load-error" class="load-error" hidden></div>
 
+  <section class="panel" id="about-ar" aria-labelledby="h-about-ar">
+    <p class="section-kicker" lang="ar" dir="rtl">شرح مبسّط</p>
+    <h2 id="h-about-ar" lang="ar" dir="rtl">ما هذه الصفحة؟</h2>
+    <p class="simple-ar intro" lang="ar" dir="rtl">مركز حالة Mythos هو المرجع الوحيد لحالة كل مشاريع المنظومة. لا يعتمد على تصريحات أو تقارير مكتوبة، بل على أدلة وفحوصات فعلية: نتائج اختبارات مسجّلة، ومراجعات محفوظة لا تتغيّر، وفحوصات حيّة تُجرى على الخدمات نفسها.</p>
+    <p class="simple-ar intro" lang="ar" dir="rtl">في قسم «الخدمات الحيّة» أدناه، تعني <span dir="ltr">LIVE</span> أن الخدمة استجابت للفحص الأخير كما هو متوقع؛ و<span dir="ltr">DEGRADED</span> أنها تعمل بوضع غير سليم؛ و<span dir="ltr">DOWN</span> أنها لم تستجب أو استجابت بخطأ؛ و<span dir="ltr">NOT MONITORED</span> أنه لا يوجد فحص فعلي لها، فلا يصحّ القول إنها تعمل أو لا تعمل.</p>
+    <p class="simple-ar intro" lang="ar" dir="rtl">وقت آخر تحقّق مكتوب في الشريط العلوي (رقم المراجعة وتاريخها) وفي طابع الوقت أعلى قسم الخدمات الحيّة. إذا ظهر تنبيه بأن البيانات قديمة، فهذا يعني أن المراقب نفسه متوقف: الصورة القديمة ليست تحققاً حياً، ولا تعني أن الخدمات تعمل الآن.</p>
+    <p class="simple-ar intro" lang="ar" dir="rtl">الشرح العربي هنا طبقة توضيحية فقط؛ الأسماء التقنية والنطاقات وأرقام الإصدارات ونتائج الفحص تبقى كما هي بالإنجليزية دون ترجمة، لأنها قيم فعلية لا نصوص.</p>
+  </section>
+
   <section class="panel" id="live" aria-labelledby="h-live">
     <p class="section-kicker">Live monitoring</p>
     <h2 id="h-live">Live services</h2>
@@ -65,6 +75,7 @@
     computed from actual HTTP, TLS, resource and backup checks — never curated.
     A stale timestamp means the monitor itself is down. Everything below this
     section is the evidence-based review record, a separate data source.</p>
+    <p class="simple-ar" lang="ar" dir="rtl">نتائج فحص فعلي للخدمات، لا حالة مكتوبة يدوياً: يُجرى الفحص كل خمس دقائق ويُسجَّل ما وجده. ما بعد هذا القسم هو سجل المراجعة المبني على الأدلة، وهو مصدر بيانات منفصل.</p>
     <div id="live-body"></div>
   </section>
 
