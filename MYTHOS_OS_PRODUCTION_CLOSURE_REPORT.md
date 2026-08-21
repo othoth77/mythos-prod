@@ -53,6 +53,50 @@ PRODUCTION:  NOT VERIFIED
 - **Fresh dispatch to test current host state: run `32485711727` (13:13 UTC) — FAILURE, identical** (`insufficient permission … .git/objects`, EACCES ×3; smoke/security job again PASS). The fault persists un-repaired; three runs / five fetch-attempts now reproduce it byte-identically.
 - Delivered instead: the exact Step-0 tool + procedure above (`ops/runner/README.md`), so the sanctioned root path can perform the inspection and the *minimal* correction the mission specifies. Steps 1–8 remain gated behind it; classifications in §12 unchanged.
 
+### 3.4 Bootstrap deadlock and its resolution (2026-08-21, operator report)
+
+**Observed:** the operator (root via the OVH VNC/KVM terminal) ran the Step-0 command from `/opt/mythos-gh-runner/_work/mythos-prod` and got `No such file or directory`. **Root cause of the deadlock:** the repair script exists only in commit `b3531dd` on the PR #66 branch — it is on **no** VPS checkout: not in the broken runner workspace (frozen pre-`7fffa2f`), not in the deploy checkout (behind `main`), and not even on `main` itself. Two additional precision notes: (a) the failing git repository is the **nested** path `/opt/mythos-gh-runner/_work/mythos-prod/mythos-prod` (workspace dir, then repo dir — per the Actions logs' "Working directory"); (b) the script was never expected in the workspace — but no reachable checkout had it either, which was this report's own gap.
+
+**Sanctioned bootstrap (no governance bypass, no substitute implementation):** git's content-addressed delivery from the existing deploy clone — a fetch cannot be blocked by the broken workspace and `git show <commit>:<path>` needs no working tree at all. The extracted bytes are verifiable against the commit two independent ways:
+
+- git blob id of `b3531dd:ops/runner/inspect-and-repair-workspace.sh` = **`48bf244899b98fac8dc7fcd0fd5030ab07e53558`**
+- sha256 of the file bytes = **`70e3577b5f69535bcdefcf292723f855af5ce973d6122d458fe41bd1a6297946`** (4,821 bytes)
+
+**Exact operator sequence (root, OVH VNC):**
+
+```bash
+# STEP 0A — state, read-only (note the NESTED repo path):
+ls -ld /opt/mythos-gh-runner /opt/mythos-gh-runner/_work \
+      /opt/mythos-gh-runner/_work/mythos-prod \
+      /opt/mythos-gh-runner/_work/mythos-prod/mythos-prod/.git \
+      /opt/mythos-gh-runner/_work/mythos-prod/mythos-prod/.git/objects
+git -C /home/deploy/projects/mythos-prod -c safe.directory=/home/deploy/projects/mythos-prod \
+    rev-parse HEAD && git -C /home/deploy/projects/mythos-prod -c safe.directory=/home/deploy/projects/mythos-prod status --short | head
+
+# STEP 0B — obtain the exact committed tool via the existing delivery path:
+su - deploy -c "git -C /home/deploy/projects/mythos-prod fetch origin claude/mythos-3month-audit-2drfk0"
+git -C /home/deploy/projects/mythos-prod -c safe.directory=/home/deploy/projects/mythos-prod \
+    show b3531dd:ops/runner/inspect-and-repair-workspace.sh > /root/inspect-and-repair-workspace.sh
+chmod 700 /root/inspect-and-repair-workspace.sh
+sha256sum /root/inspect-and-repair-workspace.sh
+#   REQUIRED: 70e3577b5f69535bcdefcf292723f855af5ce973d6122d458fe41bd1a6297946 — STOP if different
+git -C /home/deploy/projects/mythos-prod rev-parse b3531dd:ops/runner/inspect-and-repair-workspace.sh
+#   REQUIRED: 48bf244899b98fac8dc7fcd0fd5030ab07e53558
+
+# STEP 0C — read-only inspection (changes nothing):
+bash /root/inspect-and-repair-workspace.sh
+
+# STEP 0D — ONLY if 0C listed foreign-owned entries explaining the EACCES:
+bash /root/inspect-and-repair-workspace.sh repair
+bash /root/inspect-and-repair-workspace.sh          # re-inspect: foreign list must be empty
+
+# STEP 0E — prove checkout: re-dispatch "VPS Final Gate" (Actions → Run workflow → main),
+# or report "repaired" to the driving session — it dispatches and analyzes the run itself.
+# Required: checkout SUCCESS · smoke/security PASS · gate SUCCESS. If checkout still fails: STOP.
+```
+
+The deploy fetch is the repository's normal delivery mechanism under deploy's existing credential; nothing is modified until `repair`, and `repair` remains bound to the diagnosed entries only. If the deploy-side fetch itself fails, STOP and report that exact error — do not improvise an alternate download path.
+
 ## 4. Backup status
 
 - **Repository-closed:** `ops/backup/` scheduler package (wraps the existing off-host tooling; daily backup, daily verify, monthly isolated restore test, health record) — suite **48/0** including a full offline backup→verify→restore-test cycle and corruption-detection proof.
