@@ -84,7 +84,35 @@ The push remains **blocked by session credential scope**, re-confirmed
 this session: `git push origin mythos-os-v1.0` returns
 `RPC failed; HTTP 403`, and no tag/release-creation tool exists in the
 available GitHub MCP set. The annotated tag exists locally on `7fffa2f`
-only. The owner one-liner stands.
+only.
+
+**Terminal push attempt aborted (owner, 2026-08-21).** A push of the
+pre-existing tag from the VPS terminal stopped at a GitHub credential
+prompt; the owner sent Ctrl+C and entered no credentials, and no Git
+credential was modified. Verified afterwards: **`origin` carries zero
+tags** (`git ls-remote --tags` empty, GitHub `list_tags` returns `[]`) —
+nothing was published and no cleanup is required.
+
+Two facts recorded so the attempt is not repeated on a wrong premise:
+
+- The reported `fatal: tag 'mythos-os-v1.0' already exists` is emitted by
+  `git tag -a`, not by the push. In the Phase 9 chain the `&&` means a
+  failed tag step blocks the push, so a credential prompt implies a
+  separate push invocation.
+- **The owner's local tag predates the retarget decision and is expected
+  to point at `c9e5430`, not `7fffa2f`.** Verify with
+  `git rev-list -n1 mythos-os-v1.0` before reusing it; pushing it as-is
+  would publish a v1.0 that excludes the OTH-KNOWLEDGE activation this
+  gate validated.
+
+**Route chosen by the owner: create the v1.0 release in the GitHub UI**
+(`/releases/new`, tag `mythos-os-v1.0`, target pinned to the commit
+`7fffa2f` rather than the `main` ref). Browser-only — no terminal, no
+credential prompt, no Git configuration change — and it creates the tag
+server-side from the correct commit, so the stale local tag needs no
+remediation. The Final Gate workflow cannot perform this step itself: it
+declares `permissions: contents: read` and has no tag or release job by
+design.
 
 ### Next stage
 
