@@ -1,7 +1,10 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-21 UTC
-**From:** RUNNER-WS-CLEARED — **STEP 0 CLEARED: the runner channel is repaired and proven green on the production host.** The operator executed the Step-0 repair via the bootstrap path recorded in RUNNER-WS-BOOTSTRAP; **VPS Final Gate run `32507658817` (17:20:35 UTC, ref `main` = `7fffa2f`) completed SUCCESS on both jobs.** Step-0E requirements met: **CHECKOUT SUCCESS** (`+ 6669021...7fffa2f -> origin/main`, `git log -1` = `7fffa2f`; the EACCES on `.git/objects` that reproduced identically across runs #4×2 and #5 is gone) · **SMOKE/SECURITY PASS** · **FINAL GATE SUCCESS**. First-hand host facts newly established: runner is `mythos-runner` single-group non-root; node v22.22.1; **`deploy groups: deploy users` → `PASS: deploy is NOT in the docker group`**; `docker:x:986:` and `mythos-gov:x:979:` both memberless; `/home/deploy/projects/mythos-prod` present; **governance invariant suite 99 passed / 0 failed executed ON THE VPS** (incl. live key `root:mythos-gov 0640`, runner cannot read the key or list/write the approval store); e2e lifecycle `REFUSED … registered checkout` → PASS(expected). No privilege escalation, no governance regression. **New non-blocking finding:** the gate's knowledge-config step reads `projects/oth-knowledge/config/knowledge.json` while the activated config is `projects/mythos-ai-executor/config/knowledge.json`, so that report line is uninformative — report-only, cannot fail the gate, and fixing it touches a governance-protected workflow path (separate reviewed change). **Steps 1–8 remain operator-gated** — the read-only gate cannot restart the executor, install timers, or deploy a site. Classifications: **REPOSITORY CLOSED · HOST NOT CLOSED · PRODUCTION NOT VERIFIED** (`MYTHOS_OS_PRODUCTION_CLOSURE_REPORT.md` §3.5, §12). Next: §11 steps 1–6 (checkout sync → executor restart + `--require-live` → `ops/backup/install.sh` → monitor install → Status Center deploy → drift audit). Previous entries preserved below.
+**From:** STC2-AR-GATE — **Status Center brought to the current authoritative repository state: STC-2 live monitoring and the simple-Arabic layer integrated on one branch, the Arabic layer completed over the live panel, and the VPS Final Gate knowledge-config defect fixed.** The two Status Center workstreams existed only on unmerged branches (PR #66 STC-2 live monitoring, PR #58 STC-AR Arabic) and had never met: the Arabic layer predates the live panel, so the live section shipped with **no Arabic at all**. Both branches are now merged onto `claude/status-center-stc2-update-73v1oo` (one CSS conflict resolved, both blocks kept) and the missing Arabic completed — `AR.live` (LIVE / DEGRADED / DOWN / NOT_MONITORED, stale-snapshot warning, absent-monitor note, state legend under the live table) plus a page-level `#about-ar` section stating what the Status Center is, that statuses come from evidence and real checks, where the last-verified time is shown, and that **a stale snapshot is not a live verification**. English untouched; Arabic stays secondary, RTL-isolated (`unicode-bidi: isolate`, IBM Plex Sans Arabic already shipped), and carries no machine values. **Knowledge-gate defect fixed** (the non-blocking finding recorded in RUNNER-WS-CLEARED): the gate required `projects/oth-knowledge/config/knowledge.json` — a path that does not exist — and hid the error behind `|| echo`, so it verified nothing and always passed; it now reads the active `projects/mythos-ai-executor/config/knowledge.json` and asserts `enabled === true` and `store_root === "/home/deploy/othk-store"`, failing closed on a missing, unparseable or de-activated config. OTH-KNOWLEDGE architecture unchanged. Registry updated so the surface reports its own truth (`EV-STC2-MONITOR`, `EV-STC-AR`, `EV-GATE-KNOWLEDGE-FIX`; stages STC-2-MONITOR and STC-AR = **READY**, which honestly drops TRACK-STATUS-CENTER from 100% to 67%), and **REVIEW-2026-08-21-001** published at `origin/main` `7fffa2f`. Tests: stc-1 73/0 · stc-2 54/0 · **stc-ar 50/0 (new)** · **vps-final-gate-knowledge 22/0 (new)** · governance 99/0 · unattended 53/0 · backup-scheduler 48/0 · production-sync-audit 20/0 · runner-workspace-repair 13/0 · MOS-v2 gate SUCCESS 20/20 areas, 0 new failures. **DEPLOYMENT NOT PERFORMED — the live site still serves the 2026-08-20 snapshot** and the monitor timer has never been installed; both are root-only on the VPS and this session has no path to it (HTTPS to `status.mythosprod.xyz` is egress-blocked from the cloud container, so **no live verification was possible and none is claimed**). Next: operator runs `projects/status-center/monitor/install.sh` then the `DEPLOYMENT.md` §1 content sync (recorded as `ACTION-STC2-INSTALL` / `NEXT-STC2-INSTALL`). Previous entries preserved below.
+
+---
+**Previous entry — From:** RUNNER-WS-CLEARED — **STEP 0 CLEARED: the runner channel is repaired and proven green on the production host.** The operator executed the Step-0 repair via the bootstrap path recorded in RUNNER-WS-BOOTSTRAP; **VPS Final Gate run `32507658817` (17:20:35 UTC, ref `main` = `7fffa2f`) completed SUCCESS on both jobs.** Step-0E requirements met: **CHECKOUT SUCCESS** (`+ 6669021...7fffa2f -> origin/main`, `git log -1` = `7fffa2f`; the EACCES on `.git/objects` that reproduced identically across runs #4×2 and #5 is gone) · **SMOKE/SECURITY PASS** · **FINAL GATE SUCCESS**. First-hand host facts newly established: runner is `mythos-runner` single-group non-root; node v22.22.1; **`deploy groups: deploy users` → `PASS: deploy is NOT in the docker group`**; `docker:x:986:` and `mythos-gov:x:979:` both memberless; `/home/deploy/projects/mythos-prod` present; **governance invariant suite 99 passed / 0 failed executed ON THE VPS** (incl. live key `root:mythos-gov 0640`, runner cannot read the key or list/write the approval store); e2e lifecycle `REFUSED … registered checkout` → PASS(expected). No privilege escalation, no governance regression. **New non-blocking finding:** the gate's knowledge-config step reads `projects/oth-knowledge/config/knowledge.json` while the activated config is `projects/mythos-ai-executor/config/knowledge.json`, so that report line is uninformative — report-only, cannot fail the gate, and fixing it touches a governance-protected workflow path (separate reviewed change). **Steps 1–8 remain operator-gated** — the read-only gate cannot restart the executor, install timers, or deploy a site. Classifications: **REPOSITORY CLOSED · HOST NOT CLOSED · PRODUCTION NOT VERIFIED** (`MYTHOS_OS_PRODUCTION_CLOSURE_REPORT.md` §3.5, §12). Next: §11 steps 1–6 (checkout sync → executor restart + `--require-live` → `ops/backup/install.sh` → monitor install → Status Center deploy → drift audit). Previous entries preserved below.
 
 ---
 **Previous entry — From:** RUNNER-WS-BOOTSTRAP — **STEP-0 BOOTSTRAP DEADLOCK RESOLVED ON PAPER; OPERATOR SEQUENCE READY.** Operator report: root access confirmed live (OVH VNC), but the Step-0 script was `No such file or directory` from `/opt/mythos-gh-runner/_work/mythos-prod` — correctly so: the tool exists only in `b3531dd` on the PR #66 branch, so **no VPS checkout has it** (not the broken workspace, not the deploy checkout, not `main`). Resolution uses git's content-addressed delivery from the existing deploy clone — no working checkout needed, no governance bypass, no substitute implementation: `su - deploy -c "git -C ~/projects/mythos-prod fetch origin claude/mythos-3month-audit-2drfk0"`, then root extracts `git show b3531dd:ops/runner/inspect-and-repair-workspace.sh` to `/root/`, verifies **sha256 `70e3577b…297946`** / blob **`48bf2448…3558`** (both pinned from the commit by this session), then 0C inspect (read-only) → 0D minimal repair → 0E re-dispatch the VPS Final Gate (required: checkout SUCCESS · smoke PASS · gate SUCCESS; STOP if checkout still fails). Precision note recorded: the failing git repo is the **nested** `_work/mythos-prod/mythos-prod` path. Full sequence: `MYTHOS_OS_PRODUCTION_CLOSURE_REPORT.md` §3.4. Classifications unchanged: **REPOSITORY CLOSED · HOST NOT CLOSED · PRODUCTION NOT VERIFIED.** Previous entries preserved below.
@@ -14,6 +17,81 @@
 
 ---
 **Previous entry — From:** POST-AUDIT-EXEC — **POST-AUDIT EXECUTION PHASE (owner order) — repository side COMPLETE.** The 2026-08-21 audit's P0/P1 findings were executed: (1) **BACKUP-SCHED** — scheduled off-host backups built as a thin wrapper over the existing tooling (`ops/backup/`: daily backup + daily verify + monthly isolated restore-test timers, health record for monitoring; backup-scheduler suite **48/0** incl. an offline full-cycle + corruption-detection proof); (2) **STC-2** — the Status Center gained real monitoring (`projects/status-center/monitor/`: 10-probe registry, read-only collector → LIVE/DEGRADED/DOWN/NOT_MONITORED with latency/HTTP/TLS-days/error/history/alerts, additive "Live services" UI; stc-2 **54/0**, stc-1 regression **73/0**); (3) **production-sync audit** — read-only operator drift script (`scripts/production-sync-audit.sh`, suite 20/0); (4) **OTH-KNOWLEDGE ACTIVATION MERGED** — PR #63 reviewed and validated on the merged tree, merged as **`7fffa2f`** (othk 89/30/97/42/63 all ×0, executor 264/0, governance 99/0, MOS-v2 gate SUCCESS); PR #64's live gate validated (single off-host failure = store absent, as designed) and left open on a docs-only conflict; (5) PRs #23/#52 closed as superseded with evidence; ROADMAP header + duplicate block fixed. Final gate battery on this tree: all green, 0 new failures. **Operator actions now hold the rest:** VPS checkout update + `mythos-ai-executor` restart + `othk-live-gate --require-live` (activation), `ops/backup/install.sh` (timers), `projects/status-center/monitor/install.sh` (monitor), then `scripts/production-sync-audit.sh` to confirm zero drift. Full record: `MYTHOS_OS_POST_AUDIT_EXECUTION_REPORT.md`. Previous entries preserved below.
+
+
+## STC2-AR-GATE — Status Center: STC-2 + Arabic integration, gate fix (2026-08-21)
+
+### Stage
+
+Bring `https://status.mythosprod.xyz/` to the current authoritative
+repository state: reconcile what is on main versus what lives only on
+branches, complete the Arabic layer, and fix the known VPS Final Gate
+knowledge-config verification defect.
+
+**Branch:** `claude/status-center-stc2-update-73v1oo` (from `main` `7fffa2f`).
+
+### Preflight reconciliation (what was actually true)
+
+| Item | State found |
+|---|---|
+| `origin/main` | `7fffa2f` (the local ref was stale at `447026b` until re-fetched) |
+| Deployed site | `REVIEW-2026-08-20-005`, `repository_head 149dbae` — a published snapshot, three days behind main |
+| STC-2 live monitoring | Implemented and tested, **only on PR #66** (`claude/mythos-3month-audit-2drfk0`) — not on main |
+| Arabic layer | Implemented, **only on PR #58** (`claude/status-center-routing-fix-ah002u`) — not on main, and predating the live panel |
+| Live panel Arabic | **Absent** — the two workstreams had never met |
+| Knowledge gate | Reading a non-existent path, error swallowed by `|| echo` |
+| Live verification | **Not possible** — egress to `status.mythosprod.xyz` is blocked from this container |
+
+### Changed files
+
+- `sites/status.mythosprod.xyz/index.html` — `#about-ar` explanation section, Arabic under the live panel note, Arabic nav entry.
+- `sites/status.mythosprod.xyz/assets/app.js` — `AR.live` dictionary; `renderLive` attaches the Arabic intro, stale warning, absent-data note and state legend; Arabic for the two new actions.
+- `sites/status.mythosprod.xyz/assets/app.css` — merge resolution keeping both the STC-2 and `.simple-ar` blocks; `.live-legend` and `.simple-ar.intro`.
+- `.github/workflows/vps-final-gate.yml` — knowledge step now verifies the active config and fails closed.
+- `projects/status-center/data/registry.json` — `EV-STC2-MONITOR`, `EV-STC-AR`, `EV-GATE-KNOWLEDGE-FIX`; stages `STC-2-MONITOR` / `STC-AR` (READY); `live_monitoring` dimension; `ACTION-STC2-INSTALL`; `NEXT-STC2-INSTALL`.
+- `sites/status.mythosprod.xyz/data/*`, `health.json`, `reviews/2026/2026-08-21-review-001.json` — REVIEW-2026-08-21-001.
+- `tests/stc-ar-arabic-layer-test.js`, `tests/vps-final-gate-knowledge-test.js` — new suites. No existing test was modified or removed.
+
+### Targeted test results (executed this session)
+
+stc-1 **73/0** · stc-2 **54/0** · stc-ar **50/0** · vps-final-gate-knowledge **22/0** ·
+governance-invariant **99/0** · unattended-policy **53/0** · backup-scheduler **48/0** ·
+production-sync-audit **20/0** · runner-workspace-repair **13/0**.
+MOS-v2 regression gate: **SUCCESS**, 20/20 areas, 3 suites PASS, 1 known
+pre-existing failure (Orchestration Core 255/2), **0 new failures**.
+Full 108-suite sweep not rerun: no shared core behaviour changed, and the
+2026-08-21 baseline (7620/45/0-new) still applies.
+
+### Deployment and migration status
+
+- **NOT DEPLOYED.** The live site still serves `REVIEW-2026-08-20-005`; the
+  Arabic layer and the live panel are not on the host.
+- **Monitoring NOT ACTIVE.** `mythos-status-monitor.timer` has never been
+  installed; no monitoring run has been observed. The live panel therefore
+  reports absent monitor data — which is the designed fail-closed behaviour,
+  not a green state.
+- No migration involved (static surface, no schema).
+- Rollback: the surface is static and additive; reverting the commit and
+  re-syncing restores the previous content.
+
+### Known risks / deferred
+
+- The published snapshot records `git.head` as this branch, not `main`;
+  the deployment step re-runs the review, which corrects it.
+- `TRACK-STATUS-CENTER` drops 100% → 67% by design: two real stages exist
+  that are not yet on the host. This is accurate reporting, not a regression.
+- The corrected gate has not been dispatched on the self-hosted runner from
+  this session; its assertion logic is executed verbatim by
+  `tests/vps-final-gate-knowledge-test.js` instead.
+
+### Exact next stage (operator, root on the VPS)
+
+1. `sudo bash projects/status-center/monitor/install.sh` — service + 5-minute timer.
+2. `sites/status.mythosprod.xyz/DEPLOYMENT.md` §1 content sync (`rsync` the site directory).
+3. Verify: `curl -I https://status.mythosprod.xyz/`, `/health` shows
+   `REVIEW-2026-08-21-001`, `/data/live-status.json` refreshes within 5 minutes,
+   and the page shows both the live panel and the Arabic layer.
+4. Re-dispatch the VPS Final Gate to exercise the corrected knowledge step.
 
 ## POST-AUDIT-EXEC — audit remediation executed (2026-08-21)
 
