@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Mythos off-host backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+Unit=mythos-backup.service
+
+[Install]
+WantedBy=timers.target

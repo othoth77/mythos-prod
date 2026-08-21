@@ -1,6 +1,7 @@
 # Mythos Automotive — Unified Roadmap
 
-**Last updated:** 2026-08-08 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added; MPI-0 — Personal Intelligence Foundation, plus MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry, merged to `main` via PR #4, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`; RES-0 — Research Intelligence free-first foundation added, merged to `main` via PR #5; DEVX-0 — Development Acceleration MVP added, merged to `main` via PR #6; INF-OVH-API-0 — OVH Read-Only Connector (reference implementation) added, merged to `main` via PR #7; RES-0 finalised and merged via PR #5; INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation) added, merged to `main` via PR #8, merge commit `82fd2f97165495fb112bbdff828a1ce4a6884334`; AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup added)
+**Last updated:** 2026-08-21 UTC (post-audit execution phase: STC-2 live monitoring + scheduled backups added to the Status Center track below; duplicated Stage 5/6 block removed; the OTH Knowledge activation config merged via PR #63. Historical header note retained below.)
+**Previous header (historical):** 2026-08-08 UTC (ATN-0 — Atelier Network Foundation added; MAE-0 complete; INF-CF-0 — Cloudflare Foundation added; INF-CF-1 — domain inventory complete; INF-CF-2-PREP — authoritative export intake and owner approval gate complete; AUT-0 — Automation-First Master Foundation added; MPI-0 — Personal Intelligence Foundation, plus MPI-0-FINALIZATION — Skills Evolution, Project Intelligence, Portfolio Registry, merged to `main` via PR #4, merge commit `8632a99dfb94ff101811a8d0aa47ea5418c3cb19`; RES-0 — Research Intelligence free-first foundation added, merged to `main` via PR #5; DEVX-0 — Development Acceleration MVP added, merged to `main` via PR #6; INF-OVH-API-0 — OVH Read-Only Connector (reference implementation) added, merged to `main` via PR #7; RES-0 finalised and merged via PR #5; INF-CF-AUTO-0 — Cloudflare Read-Only Connector (reference implementation) added, merged to `main` via PR #8, merge commit `82fd2f97165495fb112bbdff828a1ce4a6884334`; AUT-CONNECTOR-SHARED-HELPERS-0 — Shared Read-Only Connector Foundation Cleanup added)
 
 ---
 
@@ -103,19 +104,6 @@ Move production-specific domains out of app.js into `js/prod/`:
 5. `prod/accounting.js` (largest, extract last)
 
 **Note:** most of these domains were, in practice, already extracted as part of the actual 4A–4AG sequence above (e.g. `js/shared/clients.js`, `js/shared/collaborateurs.js`, `js/shared/mission-orders.js`, `js/shared/invoices.js`, `js/shared/contracts.js` all exist). Whether a distinct "Stage 5" is still meaningful, or whether the remaining open items above are better scoped as their own small stages, has not been decided — not evaluated as part of this reconciliation (would require re-deriving actual `js/app.js` remaining line count/content, out of scope here).
-
-### Stage 6 — Directory Reorganisation
-Rename files to match target hierarchy. Update all `<script src>` tags.
-
----
-
-### Stage 5 — Production Module Extraction
-Move production-specific domains out of app.js into `js/prod/`:
-1. `prod/clients.js`, `prod/collaborators.js` (simple CRUD)
-2. `prod/equipment.js` (vehicles)
-3. `prod/mission-orders.js`
-4. `prod/invoices.js`
-5. `prod/accounting.js` (largest, extract last)
 
 ### Stage 6 — Directory Reorganisation
 Rename files to match target hierarchy. Update all `<script src>` tags.
@@ -308,7 +296,9 @@ actions, next actions. Every future major change updates
 | Stage | Scope | Status |
 |---|---|---|
 | STC-1 | Full-ecosystem audit, data model, review engine, immutable history + comparison, repository discovery, design-system UI, health endpoint, tests (stc-1 73/0; render 18/0) | ✓ Done (2026-08-20) |
-| STC-DEPLOY | Owner DNS record `status.mythosprod.xyz → 51.68.226.211` + operator runbook `sites/status.mythosprod.xyz/DEPLOYMENT.md` | **OWNER-BLOCKED** |
+| STC-DEPLOY | Owner DNS record `status.mythosprod.xyz → 51.68.226.211` + operator runbook `sites/status.mythosprod.xyz/DEPLOYMENT.md` | ✓ Done (2026-08-20) — deployed LIVE (STC-LIVE handover entry) |
+| STC-2 | Live monitoring: probe collector (`projects/status-center/monitor/`), HTTP/TLS/latency/resources/backup checks, immutable JSONL history + transition alerts, "Live services" UI section, 5-min systemd timer | ✓ Done repository-side (2026-08-21, stc-2 54/0) — **operator install pending** (`monitor/install.sh`) |
+| BACKUP-SCHED | Scheduled off-host backups (`ops/backup/`): daily backup + verify timers, monthly restore test, health record consumed by STC-2 | ✓ Done repository-side (2026-08-21, backup-scheduler 48/0) — **operator install pending** (`ops/backup/install.sh`; closes OWNER-GATE-B1/B2/B3 once installed) |
 
 ## OTH Knowledge — Knowledge Operating Layer Track
 

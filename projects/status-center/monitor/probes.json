@@ -1,0 +1,100 @@
+{
+  "config_version": "1.0.0",
+  "note": "STC-2 live monitoring probe registry (post-audit Phase 2, 2026-08-21). Read by projects/status-center/monitor/bin/monitor.js. States are computed, never curated: LIVE / DEGRADED / DOWN / NOT_MONITORED. A probe that cannot run reports DOWN or NOT_MONITORED — never silent green.",
+  "defaults": {
+    "timeout_ms": 10000,
+    "cert_warn_days": 21,
+    "cert_down_days": 7
+  },
+  "probes": [
+    {
+      "id": "hub-apex",
+      "name": "mythosprod.xyz (ecosystem hub)",
+      "type": "https",
+      "url": "https://mythosprod.xyz/",
+      "expect_status": [200],
+      "enabled": true,
+      "note": "Known audit state: hub built, apex not served (BLOCKER-HUB-DNS). Until deployed this probe honestly reports DOWN."
+    },
+    {
+      "id": "os-console",
+      "name": "os.mythosprod.xyz (MOS-v2 Console)",
+      "type": "https",
+      "url": "https://os.mythosprod.xyz/login",
+      "expect_status": [200],
+      "enabled": true
+    },
+    {
+      "id": "ordre",
+      "name": "ordre.mythosprod.xyz (Command Center)",
+      "type": "https",
+      "url": "https://ordre.mythosprod.xyz/",
+      "expect_status": [200, 301, 302],
+      "enabled": true
+    },
+    {
+      "id": "status-center",
+      "name": "status.mythosprod.xyz (Status Center)",
+      "type": "https",
+      "url": "https://status.mythosprod.xyz/health.json",
+      "expect_status": [200],
+      "expect_body_substring": "\"status\"",
+      "enabled": true
+    },
+    {
+      "id": "n8n-sya",
+      "name": "n8n.ssangyong.autos (n8n)",
+      "type": "https",
+      "url": "https://n8n.ssangyong.autos/",
+      "expect_status": [200, 301, 302, 401],
+      "enabled": true,
+      "note": "Auth-gated: 401/302 count as alive."
+    },
+    {
+      "id": "sya-site",
+      "name": "ssangyong.autos (storefront)",
+      "type": "https",
+      "url": "https://ssangyong.autos/",
+      "expect_status": [200],
+      "enabled": true
+    },
+    {
+      "id": "sya-api",
+      "name": "SYA catalog API",
+      "type": "https",
+      "url": "https://ssangyong.autos/api/health",
+      "expect_status": [200],
+      "enabled": false,
+      "note": "OPERATOR: confirm the real read-only catalog API health path (SYA-API-1) and enable. Shipped disabled rather than guessing an endpoint — NOT_MONITORED is honest, a wrong URL is noise."
+    },
+    {
+      "id": "database",
+      "name": "idauto-postgres (database)",
+      "type": "tcp",
+      "host": "127.0.0.1",
+      "port": 5432,
+      "enabled": false,
+      "note": "OPERATOR: idauto-postgres runs under Docker/Coolify and deploy is no longer in the docker group (deliberate, VPS-GATE). Enable only after confirming a host-reachable port or a socket path; otherwise this stays NOT_MONITORED rather than false-DOWN."
+    },
+    {
+      "id": "vps-resources",
+      "name": "VPS resources (disk / memory / load)",
+      "type": "resources",
+      "disk_path": "/",
+      "disk_warn_pct": 85,
+      "disk_down_pct": 95,
+      "mem_warn_pct": 92,
+      "enabled": true
+    },
+    {
+      "id": "backup-system",
+      "name": "Off-host backup system",
+      "type": "backup-health",
+      "file": "/home/deploy/mythos-backups/health/backup-health.json",
+      "fresh_hours": 26,
+      "degraded_hours": 50,
+      "enabled": true,
+      "note": "Reads the health record written by ops/backup/mythos-backup-run.sh. A missing record is DOWN, never unknown-green."
+    }
+  ]
+}
