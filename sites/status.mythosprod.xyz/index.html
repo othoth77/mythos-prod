@@ -53,6 +53,7 @@
     (<a href="data/current.json">data/current.json</a>) in the browser.
     Enable JavaScript, or read the JSON snapshot directly — every fact in
     the UI comes from that file.</p>
+    <p class="simple-ar" lang="ar" dir="rtl">هذه الصفحة تعرض بياناتها من ملف واحد في المتصفح. فعّل جافاسكريبت، أو افتح ملف البيانات مباشرة — كل ما يظهر هنا مصدره ذلك الملف.</p>
   </noscript>
   <div id="load-error" class="load-error" hidden></div>
 
@@ -73,18 +74,21 @@
     <p class="section-note">Each figure states what it measures and how it
     was obtained. There is no single global percentage — that number would
     be a lie. Progress is per track, from evidence.</p>
+    <p class="simple-ar" lang="ar" dir="rtl">كل رقم في هذا القسم يوضّح ماذا يقيس وكيف حُسب. لا توجد نسبة إجمالية واحدة للمشروع كله لأنها ستكون مضللة؛ التقدّم يُعرض لكل مسار على حدة، وبالدليل.</p>
     <ul class="cards" id="exec-cards"></ul>
   </section>
 
   <section class="panel" id="legend" aria-labelledby="h-legend">
     <p class="section-kicker">Vocabulary</p>
     <h2 id="h-legend">State legend &amp; source hierarchy</h2>
+    <p class="simple-ar" lang="ar" dir="rtl">شرح الحالات: ماذا تعني كل حالة تظهر في هذه الصفحة، وأي مصدر معلومات نعتمد عليه عندما تختلف المصادر.</p>
     <div id="legend-body"></div>
   </section>
 
   <section class="panel" id="projects" aria-labelledby="h-projects">
     <p class="section-kicker">Project matrix</p>
     <h2 id="h-projects">Projects</h2>
+    <p class="simple-ar" lang="ar" dir="rtl">قائمة كل المشاريع: ماذا يفعل كل مشروع، وما وضعه الحالي، وما عائقه، وما خطوته القادمة. اضغط على أي سطر لعرض التفاصيل.</p>
     <div class="filter-row">
       <input type="search" id="matrix-search" placeholder="Search projects…" aria-label="Search projects">
       <select id="matrix-status" aria-label="Filter by status"></select>
@@ -98,18 +102,21 @@
     <p class="section-note">Percentages here are calculated from recorded
     stage lists (done ÷ total) — never invented. A track without a stage
     list shows NOT CALCULABLE.</p>
+    <p class="simple-ar" lang="ar" dir="rtl">النسب هنا محسوبة من عدد المراحل المنجزة مقسوماً على مجموع المراحل المسجلة — لا توجد أرقام تقديرية. المسار الذي لا توجد له قائمة مراحل مسجلة يُعرض بعبارة «غير قابل للحساب».</p>
     <ul class="cards" id="track-cards"></ul>
   </section>
 
   <section class="panel" id="infrastructure" aria-labelledby="h-infra">
     <p class="section-kicker">Infrastructure &amp; VPS</p>
     <h2 id="h-infra">Execution paths</h2>
+    <p class="simple-ar" lang="ar" dir="rtl">البنية التحتية: الخادم الرئيسي والطرق المتاحة لتنفيذ الأعمال عليه — أيّ الطرق تعمل فعلاً وأيّها متوقف ولماذا.</p>
     <div id="infra-body"></div>
   </section>
 
   <section class="panel" id="timeline" aria-labelledby="h-timeline">
     <p class="section-kicker">Timeline</p>
     <h2 id="h-timeline">History</h2>
+    <p class="simple-ar" lang="ar" dir="rtl">الخط الزمني: سجلّ ما حدث في المشروع حسب التاريخ، ويمكن تصفيته حسب الفترة الزمنية أو حسب المشروع.</p>
     <div class="filter-row" id="timeline-filters"></div>
     <ol class="timeline" id="timeline-list"></ol>
   </section>
@@ -117,24 +124,28 @@
   <section class="panel" id="changed" aria-labelledby="h-changed">
     <p class="section-kicker">Since the previous review</p>
     <h2 id="h-changed">What changed?</h2>
+    <p class="simple-ar" lang="ar" dir="rtl">ماذا تغيّر منذ المراجعة السابقة: ما اكتمل، وما تعطّل، وما استجدّ من عناصر أو عوائق.</p>
     <div id="changed-body"></div>
   </section>
 
   <section class="panel" id="blockers" aria-labelledby="h-blockers">
     <p class="section-kicker">Blockers</p>
     <h2 id="h-blockers">What is blocked, and how to unblock it</h2>
+    <p class="simple-ar" lang="ar" dir="rtl">العوائق: الأمور المتوقفة حالياً، وسبب توقف كل واحد منها، وما المطلوب بالضبط لفكّه.</p>
     <ul class="plain" id="blockers-list"></ul>
   </section>
 
   <section class="panel" id="owner" aria-labelledby="h-owner">
     <p class="section-kicker">Owner actions</p>
     <h2 id="h-owner">Only the owner can do these</h2>
+    <p class="simple-ar" lang="ar" dir="rtl">إجراءات صاحب المشروع: خطوات لا يستطيع أحد غيره القيام بها، ولن تتقدّم من دونه.</p>
     <ul class="plain" id="owner-list"></ul>
   </section>
 
   <section class="panel" id="next" aria-labelledby="h-next">
     <p class="section-kicker">Next actions</p>
     <h2 id="h-next">The minimum sequence forward</h2>
+    <p class="simple-ar" lang="ar" dir="rtl">الخطوات القادمة: أقصر تسلسل من الأعمال للمضي قدماً، مرتّب حسب الأولوية.</p>
     <ul class="plain" id="next-list"></ul>
   </section>
 
@@ -143,24 +154,28 @@
     <h2 id="h-dnr">Completed — never rebuild</h2>
     <p class="section-note">Work listed here is verifiably complete. A
     future session must extend it, not restart it.</p>
+    <p class="simple-ar" lang="ar" dir="rtl">الأعمال المذكورة هنا مكتملة ومثبتة بدليل. أي عمل مستقبلي يجب أن يبني عليها، لا أن يعيد إنشاءها من الصفر.</p>
     <ul class="plain" id="dnr-list"></ul>
   </section>
 
   <section class="panel" id="documents" aria-labelledby="h-docs">
     <p class="section-kicker">Document reconciliation</p>
     <h2 id="h-docs">Which documents to trust</h2>
+    <p class="simple-ar" lang="ar" dir="rtl">الوثائق: أيّ المستندات حديثة ويُعتمد عليها، وأيّها قديمة تُقرأ كتاريخ فقط، وأيّها متعارضة تحتاج مراجعة قبل تصديقها.</p>
     <div class="table-wrap" id="docs-wrap"></div>
   </section>
 
   <section class="panel" id="repositories" aria-labelledby="h-repos-s">
     <p class="section-kicker">Repository discovery</p>
     <h2 id="h-repos-s">Ecosystem repositories</h2>
+    <p class="simple-ar" lang="ar" dir="rtl">مستودعات الكود: قائمة مستودعات المنظومة على GitHub وتصنيف كل واحد منها.</p>
     <div class="table-wrap" id="repos-wrap"></div>
   </section>
 
   <section class="panel" id="history" aria-labelledby="h-history">
     <p class="section-kicker">Review history</p>
     <h2 id="h-history">Immutable snapshots</h2>
+    <p class="simple-ar" lang="ar" dir="rtl">سجل المراجعات: نسخة محفوظة لا تتغيّر من كل مراجعة سابقة، ويمكن اختيار أي نسختين ومقارنتهما لمعرفة ما تغيّر بينهما.</p>
     <div class="filter-row">
       <select id="cmp-a" aria-label="Compare: earlier review"></select>
       <select id="cmp-b" aria-label="Compare: later review"></select>
