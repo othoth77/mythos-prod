@@ -6,6 +6,13 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Changed — STC2-AR-GATE-CLOSURE — PR #70 merged, Knowledge Gate proven on the host (2026-08-21)
+
+- **PR #70 merged to `main` as `c353334`.** PRs #66 (STC-2 live monitoring, scheduled backups, production-sync audit) and #58 (simple-Arabic layer) auto-closed — their commits are contained in the merge, so no mechanism is duplicated.
+- **VPS Final Gate run `32516337652`** dispatched at `c353334`: both jobs **SUCCESS** on `mythos-vps-runner`. The corrected section-8 step printed on the production host — `PASS: projects/mythos-ai-executor/config/knowledge.json enabled=true store_root=/home/deploy/othk-store`. The step that previously verified nothing is now a fail-closed assertion proven live. Governance invariant suite **99/0 on the VPS**; `deploy` confirmed NOT in the docker group; e2e host refusal PASS(expected).
+- Post-merge repository suites re-run at `c353334`, all green: stc-1 73/0 · stc-2 54/0 · stc-ar 50/0 · vps-final-gate-knowledge 22/0 · governance 99/0 · unattended 53/0 · backup-scheduler 48/0 · production-sync-audit 20/0 · othk-0/1/2/2w/3 89/30/97/42/63 · executor 264/0.
+- **Deployment still open.** The Status Center content sync and the STC-2 monitor install are root-only on the VPS and were not performed: the published site still serves `REVIEW-2026-08-20-005` / `149dbae`, and no monitoring cycle has ever run. Live HTTPS verification was **not** performed — `status.mythosprod.xyz` is denied by this session's egress policy, and a policy denial is reported rather than routed around. Exact operator sequence recorded in `docs/AI_HANDOVER.md`.
+
 ### Changed — STC2-AR-GATE — Status Center brought to the current repository state (2026-08-21)
 
 - **STC-2 and the Arabic layer now exist together.** Live monitoring (PR #66) and the simple-Arabic explanation layer (PR #58) were each complete but on separate unmerged branches, and the Arabic layer predates the live panel — so the "Live services" section shipped with no Arabic at all. Both are merged onto one branch (one CSS conflict, both blocks kept) and the gap closed: `AR.live` covers **LIVE / DEGRADED / DOWN / NOT_MONITORED**, the stale-snapshot warning, the absent-monitor note and a state legend under the live table.
