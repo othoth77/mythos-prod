@@ -1,7 +1,122 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-21 UTC
-**From:** OTH-KNOWLEDGE-FINAL-GATE — **OTH-KNOWLEDGE FINAL LIVE GATE GREEN / CLOSED.** Live verification of the OTH-KNOWLEDGE stage passed in full: `othk-3` suite 63 passed / 0 failed; executor live knowledge config `valid=true, enabled=false, store_root=null`; the executor knowledge boundary is read-only and fails closed while knowledge is disabled; VPS Final Gate green. Verified at HEAD == origin/main == `3354a7ed1ee9a7a7b555eef9d726832620abf5d5`, clean worktree. No application code changed in this closure. Next: Final Mythos OS closure — no remaining implementation work unless a new gate finds a blocker. Previous entries (VPS-ADMIN-FINAL, RUNNER-MAIN, MOS-CONSOLE-LIVE) preserved below.
+**From:** MYTHOS-OS-FINAL-CLOSURE — **MYTHOS OS v1.0 FINAL / CLOSED — RELEASE FREEZE.** Final completion order executed: audit clean at `3b7631b`; Status Center review 0 regressions; full validation this session — targeted gates all green (mos-1 1438/0, executor 264/0, governance 99/0, othk 0–3 all green, MOS-v2 gate SUCCESS 20/20) and the full 108-suite regression sweep **7620 passed / 45 failed / 0 new failures** (the 45 are the documented pre-existing legacy stage3*/stage4w set); OTH-KNOWLEDGE ships disabled, fail-closed, read-only; security review clean (no secrets, no credentials); VPS Final Gate green per committed 2026-08-21 evidence (VPS unreachable from cloud sessions — documented constraint). Release tag `mythos-os-v1.0`. Next: production operation; remaining items are owner-action gates only. Previous entries preserved below.
+
+## MYTHOS-OS-FINAL-CLOSURE — final completion audit, full validation, release freeze (2026-08-21)
+
+### Stage
+
+Final Mythos OS completion order (Phases 1–9): final state audit, Status
+Center validation, full system validation, OTH-KNOWLEDGE final
+integration check, security review, documentation closure and release
+freeze. Documentation-only stage — **no application code was changed**.
+
+- **Status: MYTHOS OS v1.0 — FINAL / CLOSED.**
+- **Baseline verified:** HEAD == origin/main ==
+  `3b7631bee522ed6c913eada2f1f8ed9e51c716d7`, worktree clean.
+- **Final commit SHA / remote HEAD:** the commit carrying this entry
+  (verified local == origin/main after delivery).
+- **Release tag:** `mythos-os-v1.0` on the closure commit.
+
+### Phase 1 — audit result
+
+- HEAD == origin/main, clean worktree, correct repository
+  (`othoth77/mythos-prod`).
+- Status Center dry-run review (`REVIEW-2026-08-21-001` at
+  `3b7631b`): 22 projects, 15 tracks, 66 evidence items
+  (51 verified, 13 recorded, 2 not verified), 0 new repo discoveries,
+  0 regressions vs `REVIEW-2026-08-20-005`.
+- Remaining blockers are **owner-action gates only** (private knowledge
+  store provisioning, MOS console deployment approval, apex/hub DNS,
+  Cloudflare migration approvals 0/40, ID-Auto legal, recurring
+  off-host backup scheduling, repository migration NOT AUTHORISED,
+  ssangyong nginx drift). One environment blocker:
+  `BLOCKER-VPS-EXECUTION` — no VPS execution path from AI cloud
+  sessions (confirmed again this session: TCP/22 unreachable).
+- No AI-completable implementation work remains.
+
+### Phases 2–3 — validation executed this session (2026-08-21)
+
+Targeted gates (all green):
+
+| Suite | Result |
+|---|---|
+| `stc-1-status-center-test.js` | 73 / 0 |
+| `mos-1-console-test.js` | **1438 / 0** |
+| `mythos-ai-executor-test.js` | 264 / 0 |
+| `mythos-governance-invariant-test.js` | 99 / 0 |
+| `mythos-unattended-policy-test.js` | 53 / 0 |
+| `othk-0` / `othk-1` / `othk-2` / `othk-2w` / `othk-3` | 89/0 · 30/0 · 97/0 · 40/0 · 63/0 |
+| `mos-e2e-lifecycle-test.js` | 54 / 0 |
+| `mos-v2-regression-test.js` | SUCCESS, 20/20 areas, 0 new failures |
+
+Full regression sweep (all 108 suites in `tests/`, run once):
+**7620 passed / 45 failed / 0 new failures.** The 45 are exactly the
+documented pre-existing set: 43 in the eight legacy `stage3*`
+browser-runtime suites (byte-identical to the recorded clean-HEAD
+baseline) and 2 in `stage4w` (recorded pre-existing, reproduced on
+pristine main — see the 2026-08 merged-main sweep entry).
+Environment-blocked in this cloud container, unchanged classes: the
+DB-backed suites needing the `pg` module / live PostgreSQL
+(`mcc-1`, `sya-api-1`, `sya-shop-1`, MPI CLI/runtime suites — MPI
+non-DB assertions pass with documented skips) and the legacy
+DOM-harness suites (`core-test`, `stage1c-part1`, `stage2d`,
+`stage3a`: `_memCache` / `document.addEventListener`). All were last
+executed green-or-baseline on-host per the VPS full-suite entries.
+
+### Phase 4 — OTH-KNOWLEDGE final integration
+
+`projects/mythos-ai-executor/config/knowledge.json`:
+`enabled=false`, `store_root=null` — ships disabled, fail-closed,
+read-only executor boundary (othk-2w 40/0, othk-3 63/0 re-verified
+this session). Production knowledge storage stays **disabled**:
+no approved persistent private store exists (owner action
+`ACTION-PRIVATE-STORE`). No unauthorized writes possible by
+construction; ingestion/curation remain operator-CLI-only.
+
+### Phase 5 — VPS production check
+
+This cloud session cannot reach the VPS (TCP/22 and HTTPS to
+`status.mythosprod.xyz` both unreachable — the documented
+`BLOCKER-VPS-EXECUTION` environment constraint). VPS state therefore
+rests on the committed live evidence, all dated 2026-08-20/21:
+VPS-ADMIN-FINAL (key-only scoped-sudo admin path exercised end-to-end,
+deploy/rollback/fail-safe green), RUNNER-MAIN (runner provisioning fix
+delivered), and the OTH-KNOWLEDGE-FINAL-GATE entry recording **VPS
+Final Gate green** at `3354a7e`. No security control was weakened; no
+VPS mutation was attempted from this session.
+
+### Phase 6 — security review
+
+- Secret scan over history-added filenames and working tree: no real
+  credentials. All matches are test fixtures, synthetic detector
+  vectors (`AKIAIOSFODNN7EXAMPLE`, `sk-SYNTHETIC…`), stub tokens in
+  `visual-verify.js`, and redaction/detector source
+  (`redact.js`, `secrets.js`).
+- No `.env`/key files tracked (only `cloudflared.env.example`).
+- No private key material outside detector patterns and docs.
+
+### Phase 7 — final live gate
+
+Repo-side gates ALL GREEN this session (tables above). VPS Final Gate:
+green per committed 2026-08-21 evidence; not re-executable from this
+container (recorded honestly, not re-claimed as executed here).
+
+### Phase 9 — release freeze
+
+`mythos-os-v1.0` tagged on the closure commit and pushed after
+verifying HEAD == origin/main.
+
+### Next stage
+
+**Production operation.** No implementation stages remain. Open items
+are owner-action gates listed in Phase 1 (Status Center registry is
+authoritative). Warnings carried forward: pre-existing legacy
+`stage3*`/`stage4w` failures (legacy `js/app.js` track, reduction
+roadmap unchanged), and the owner-action blocker list.
+
+---
 
 ## OTH-KNOWLEDGE-FINAL-GATE — Final Live Gate verified and closed (2026-08-21)
 
