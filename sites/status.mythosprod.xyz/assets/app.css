@@ -180,6 +180,24 @@ section.panel h2 {
   font-size: 14px;
 }
 
+/* ── STC-2 live monitoring ──────────────────────────── */
+.live-dots { display: inline-flex; gap: 3px; align-items: center; }
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--mythos-border-hairline);
+}
+.live-dot.d-live { background: var(--mythos-success); }
+.live-dot.d-degraded { background: var(--mythos-warning); }
+.live-dot.d-down { background: var(--mythos-danger); }
+.live-dot.d-not_monitored { background: var(--mythos-text-disabled); }
+.live-detail {
+  font-family: var(--mythos-font-mono);
+  font-size: 12px;
+  color: var(--mythos-text-secondary);
+  max-width: 320px;
+  overflow-wrap: anywhere;
+}
+
 /* ── Status pills (extends the hub .badge recipe) ───── */
 .pill {
   display: inline-flex;

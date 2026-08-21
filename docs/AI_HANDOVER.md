@@ -1,7 +1,50 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-21 UTC
-**From:** MYTHOS-OS-FINAL-CLOSURE — **MYTHOS OS v1.0 FINAL / CLOSED — RELEASE FREEZE.** Final completion order executed: audit clean at `3b7631b`; Status Center review 0 regressions; full validation this session — targeted gates all green (mos-1 1438/0, executor 264/0, governance 99/0, othk 0–3 all green, MOS-v2 gate SUCCESS 20/20) and the full 108-suite regression sweep **7620 passed / 45 failed / 0 new failures** (the 45 are the documented pre-existing legacy stage3*/stage4w set); OTH-KNOWLEDGE ships disabled, fail-closed, read-only; security review clean (no secrets, no credentials); VPS Final Gate **executed live this session — SUCCESS at `c9e5430`** (workflow-dispatch run 32471179630 on the self-hosted runner). Release tag `mythos-os-v1.0` prepared; tag push blocked by session credential scope (owner one-liner remains). Next: production operation; remaining items are owner-action gates only. Previous entries preserved below.
+**From:** POST-AUDIT-EXEC — **POST-AUDIT EXECUTION PHASE (owner order) — repository side COMPLETE.** The 2026-08-21 audit's P0/P1 findings were executed: (1) **BACKUP-SCHED** — scheduled off-host backups built as a thin wrapper over the existing tooling (`ops/backup/`: daily backup + daily verify + monthly isolated restore-test timers, health record for monitoring; backup-scheduler suite **48/0** incl. an offline full-cycle + corruption-detection proof); (2) **STC-2** — the Status Center gained real monitoring (`projects/status-center/monitor/`: 10-probe registry, read-only collector → LIVE/DEGRADED/DOWN/NOT_MONITORED with latency/HTTP/TLS-days/error/history/alerts, additive "Live services" UI; stc-2 **54/0**, stc-1 regression **73/0**); (3) **production-sync audit** — read-only operator drift script (`scripts/production-sync-audit.sh`, suite 20/0); (4) **OTH-KNOWLEDGE ACTIVATION MERGED** — PR #63 reviewed and validated on the merged tree, merged as **`7fffa2f`** (othk 89/30/97/42/63 all ×0, executor 264/0, governance 99/0, MOS-v2 gate SUCCESS); PR #64's live gate validated (single off-host failure = store absent, as designed) and left open on a docs-only conflict; (5) PRs #23/#52 closed as superseded with evidence; ROADMAP header + duplicate block fixed. Final gate battery on this tree: all green, 0 new failures. **Operator actions now hold the rest:** VPS checkout update + `mythos-ai-executor` restart + `othk-live-gate --require-live` (activation), `ops/backup/install.sh` (timers), `projects/status-center/monitor/install.sh` (monitor), then `scripts/production-sync-audit.sh` to confirm zero drift. Full record: `MYTHOS_OS_POST_AUDIT_EXECUTION_REPORT.md`. Previous entries preserved below.
+
+## POST-AUDIT-EXEC — audit remediation executed (2026-08-21)
+
+### Stage
+
+Owner order: transform the 2026-08-21 audit (PR #66, `MYTHOS_3_MONTH_AUDIT_HANDOVER.md`) into completed production improvements. Executed on branch `claude/mythos-3month-audit-2drfk0` (PR #66). This session has no VPS path (egress 403 / TCP-22 blocked, re-verified) — host-side steps ship as tested, fail-closed installers and are listed as the exact operator sequence below.
+
+### Delivered (evidence per item)
+
+| Item | Files | Validation |
+|---|---|---|
+| Scheduled backups (P0) | `ops/backup/` (wrapper, 6 systemd units, installer, README) | `tests/backup-scheduler-test.js` **48/0**: fail-closed config gate, health-record schema + failure counter, full offline backup→verify→restore-test cycle through the real `offhost-backup.js`, tamper detection (exit 2), unit contract, no credentials/destructive flags |
+| Status Center live monitoring (P0) | `projects/status-center/monitor/` (probes.json, collector, units, installer, README) + `sites/status.mythosprod.xyz/` (Live services section, CSS, loader) | `tests/stc-2-monitor-test.js` **54/0**; `stc-1` **73/0** (0 regressions); unconfirmed endpoints (SYA API, database) ship `enabled:false` = honest NOT_MONITORED, never guessed |
+| Production-sync audit | `scripts/production-sync-audit.sh` | `tests/production-sync-audit-test.js` **20/0** (read-only contract pinned); smoke-run in-session produced correct drift findings |
+| OTH Knowledge activation | merged PR #63 → **`7fffa2f`** | pre-merge validation on merged tree: othk-0 **89/0**, othk-1 **30/0**, othk-2 **97/0**, othk-2w **42/0**, othk-3 **63/0**, executor **264/0**, governance **99/0**, MOS-v2 gate **SUCCESS**; PR #64 gate run on activated tree: 48/49, sole failure `store_root does not exist: /home/deploy/othk-store` — the designed off-host verdict |
+| Hygiene | PRs #23, #52 closed; `docs/ROADMAP.md` header + duplicate Stage 5/6 block; STC-2/BACKUP-SCHED rows | closure comments carry the supersession evidence |
+
+### Final gate battery (this tree, this session)
+
+othk-0 89/0 · othk-1 30/0 · othk-2 97/0 · othk-2w 42/0 · othk-3 63/0 · governance 99/0 · stc-1 73/0 · stc-2 54/0 · backup-scheduler 48/0 · production-sync-audit 20/0 · executor 264/0 · **MOS-v2 regression gate SUCCESS (20/20 areas, 0 new failures)**. Security posture of the new surface is pinned by tests: collectors read-only and credential-free, no shell-out, hardened units (NoNewPrivileges, ProtectSystem=strict + scoped ReadWritePaths), 0600 health/config files, redaction on every recorded error.
+
+### Exact operator sequence (the remaining work — VPS, in order)
+
+```bash
+# 1. Bring the checkout to main (contains #63 + this phase once merged)
+sudo mythos-deploy deploy os        # or: git -C /home/deploy/projects/mythos-prod pull --ff-only
+# 2. Activate knowledge in the running executor
+systemctl --user restart mythos-ai-executor   # as deploy
+node tests/othk-live-gate.js --require-live   # from PR #64's branch until merged; expect LIVE PASS
+# 3. Install the backup schedule (closes OWNER-GATE-B1/B2/B3)
+sudo bash ops/backup/install.sh               # then: sudo systemctl start mythos-backup.service (supervised first run)
+# 4. Install the live monitor
+sudo bash projects/status-center/monitor/install.sh
+# 5. Confirm zero drift
+bash scripts/production-sync-audit.sh         # as deploy; expect NO DRIFT except recorded deltas
+```
+
+### Deferred / open
+
+PR #64 (canonical live gate): validated, blocked only by a docs-conflict with advanced main — resolve its `docs/AI_HANDOVER.md` conflict (keep both entries) and merge, or fold the gate file into a follow-up. PR #58 (Status Center Arabic layer): unchanged, still an owner decision. The two shipped-disabled probes (SYA API path, database reachability) await operator confirmation in `probes.json`.
+
+---
+**Previous entry — From:** MYTHOS-OS-FINAL-CLOSURE — **MYTHOS OS v1.0 FINAL / CLOSED — RELEASE FREEZE.** Final completion order executed: audit clean at `3b7631b`; Status Center review 0 regressions; full validation this session — targeted gates all green (mos-1 1438/0, executor 264/0, governance 99/0, othk 0–3 all green, MOS-v2 gate SUCCESS 20/20) and the full 108-suite regression sweep **7620 passed / 45 failed / 0 new failures** (the 45 are the documented pre-existing legacy stage3*/stage4w set); OTH-KNOWLEDGE ships disabled, fail-closed, read-only; security review clean (no secrets, no credentials); VPS Final Gate **executed live this session — SUCCESS at `c9e5430`** (workflow-dispatch run 32471179630 on the self-hosted runner). Release tag `mythos-os-v1.0` prepared; tag push blocked by session credential scope (owner one-liner remains). Next: production operation; remaining items are owner-action gates only. Previous entries preserved below.
 
 ## MYTHOS-OS-FINAL-CLOSURE — final completion audit, full validation, release freeze (2026-08-21)
 

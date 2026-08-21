@@ -640,6 +640,75 @@
     byId('drawer-close').addEventListener('click', function () { byId('detail-drawer').close(); });
   }
 
+  // ── live monitoring (STC-2) ─────────────────────────────────────
+  // Independent data source: data/live-status.json, written by the
+  // monitor timer. Its absence must never break the review record UI.
+  var LIVE_PILL = { LIVE: 's-done', DEGRADED: 's-owner', DOWN: 's-blocked', NOT_MONITORED: 's-notverified' };
+  function livePill(state) {
+    return el('span', { class: 'pill ' + (LIVE_PILL[state] || 's-notverified'),
+      text: String(state).replace(/_/g, ' ') });
+  }
+  function liveDots(tail) {
+    var wrap = el('span', { class: 'live-dots', title: 'recent checks (oldest → newest)' });
+    (tail || []).forEach(function (h) {
+      wrap.appendChild(el('span', {
+        class: 'live-dot d-' + String(h.state).toLowerCase(),
+        title: h.at + ' — ' + h.state + (h.latency_ms != null ? ' (' + h.latency_ms + ' ms)' : '')
+      }));
+    });
+    return wrap;
+  }
+  function renderLive(doc) {
+    var body = byId('live-body');
+    if (!body) return;
+    clear(body);
+    if (!doc) {
+      body.appendChild(el('p', { class: 'section-note',
+        text: 'No live monitor data (data/live-status.json is absent). The ' +
+          'STC-2 monitor is not yet installed on this host — see ' +
+          'projects/status-center/monitor/README.md. Absence of data is ' +
+          'reported, never painted green.' }));
+      return;
+    }
+    var age = Date.now() - Date.parse(doc.generated_at);
+    var stale = !(age >= 0 && age < 15 * 60000);
+    var meta = el('p', { class: 'section-note' }, [
+      txt('Snapshot ' + doc.generated_at + ' on ' + doc.host + ' — '),
+      el('strong', { text: doc.summary.LIVE + ' live, ' + doc.summary.DEGRADED +
+        ' degraded, ' + doc.summary.DOWN + ' down, ' + doc.summary.NOT_MONITORED + ' not monitored' }),
+      stale ? el('span', { class: 'pill s-blocked', text: 'STALE SNAPSHOT — monitor may be down' }) : null
+    ]);
+    body.appendChild(meta);
+    var table = el('table', { class: 'matrix' }, [
+      el('thead', null, [el('tr', null,
+        ['Service', 'State', 'Latency', 'HTTP', 'Cert', 'Last check', 'History', 'Detail'].map(function (h) {
+          return el('th', { text: h });
+        }))]),
+      el('tbody', null, (doc.checks || []).map(function (c) {
+        var detail = c.error ? c.error
+          : (c.detail ? Object.keys(c.detail).map(function (k) { return k + '=' + c.detail[k]; }).join(' ') : '');
+        return el('tr', null, [
+          el('td', null, [el('strong', { text: c.name }), el('div', { class: 'basis', text: c.target })]),
+          el('td', null, [livePill(c.state)]),
+          el('td', { text: c.latency_ms != null ? c.latency_ms + ' ms' : '—' }),
+          el('td', { text: c.http_status != null ? String(c.http_status) : '—' }),
+          el('td', { text: c.cert_days_remaining != null ? c.cert_days_remaining + ' d' : '—' }),
+          el('td', { text: c.checked_at }),
+          el('td', null, [liveDots(c.history_tail)]),
+          el('td', { class: 'live-detail', text: detail || '—' })
+        ]);
+      }))
+    ]);
+    var wrap = el('div', { class: 'table-wrap' }, [table]);
+    body.appendChild(wrap);
+  }
+  function loadLive() {
+    return fetch('data/live-status.json', { cache: 'no-cache' }).then(function (r) {
+      if (!r.ok) return null;
+      return r.json();
+    }).then(renderLive).catch(function () { renderLive(null); });
+  }
+
   // ── boot ────────────────────────────────────────────────────────
   function renderAll() {
     var d = STATE.data;
@@ -686,5 +755,7 @@
     initReviewNow();
     initCompare();
     load(false);
+    loadLive();
+    setInterval(loadLive, 60000);
   });
 })();

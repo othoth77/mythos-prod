@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Mythos off-host backup verification (read-only)
+
+[Timer]
+OnCalendar=*-*-* 15:00:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+Unit=mythos-backup-verify.service
+
+[Install]
+WantedBy=timers.target

@@ -56,6 +56,17 @@
   </noscript>
   <div id="load-error" class="load-error" hidden></div>
 
+  <section class="panel" id="live" aria-labelledby="h-live">
+    <p class="section-kicker">Live monitoring</p>
+    <h2 id="h-live">Live services</h2>
+    <p class="section-note">Real probe results written by the STC-2 monitor
+    (<code>projects/status-center/monitor/</code>): LIVE / DEGRADED / DOWN are
+    computed from actual HTTP, TLS, resource and backup checks — never curated.
+    A stale timestamp means the monitor itself is down. Everything below this
+    section is the evidence-based review record, a separate data source.</p>
+    <div id="live-body"></div>
+  </section>
+
   <section class="panel" id="overview" aria-labelledby="h-overview">
     <p class="section-kicker">Executive status</p>
     <h2 id="h-overview">Where are we?</h2>
