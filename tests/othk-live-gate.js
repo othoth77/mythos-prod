@@ -25,11 +25,15 @@
 //                              the executor facade is exactly READ_OPS,
 //                              frozen.
 //   F. Persistence           — the SHIPPED config decides the mode:
-//                              enabled → open and read the real private
-//                              store and prove reads leave it
-//                              byte-identical; disabled → record the
-//                              owner-only provisioning blocker and prove
-//                              the read/write separation mechanics on a
+//                              enabled + store present on this host →
+//                              open and read the real private store and
+//                              prove reads leave it byte-identical;
+//                              enabled + store absent (activated config,
+//                              off the production host) → prove the
+//                              fail-closed disable, then mechanics mode;
+//                              disabled → record the owner-only
+//                              provisioning blocker and prove the
+//                              read/write separation mechanics on a
 //                              gate-local out-of-repo store (operator
 //                              CLI ingests; the executor facade cannot).
 //   G. Data-source policy    — the closed source-class registry keeps
@@ -44,11 +48,14 @@
 //                                   config points at a real, readable,
 //                                   out-of-repo private store.
 //   exit 0, "READY — NOT LIVE"    — every executable section green, but
-//                                   the shipped config is disabled: the
-//                                   persistent private store is an
-//                                   owner-only provisioning decision this
-//                                   gate must never take (it does not
-//                                   invent a store or flip the config).
+//                                   no readable live store on THIS host:
+//                                   either the config is disabled (store
+//                                   provisioning is an owner-only decision
+//                                   this gate must never take) or it is
+//                                   activated and the store lives on the
+//                                   production host — run the gate there.
+//                                   The gate never invents a store or
+//                                   flips the config.
 //   exit 1                        — any check failed.
 //   exit 2 with --require-live    — all checks green but not LIVE (for
 //                                   the owner's final activation run).
@@ -241,8 +248,9 @@ let liveBlocker = null;
   const shipped = knowledge.loadConfig();
   ok(shipped.valid, 'shipped config/knowledge.json parses and validates');
 
-  if (shipped.enabled) {
-    // LIVE MODE: the operator has provisioned a real private store.
+  let mechanicsMode = false;
+  if (shipped.enabled && fs.existsSync(shipped.store_root)) {
+    // LIVE MODE: the activated config points at a store present on THIS host.
     const real = knowledge.openKnowledge();
     ok(real.enabled === true, 'configured private store opens: ' + (real.store_root || real.reason));
     if (real.enabled) {
@@ -257,10 +265,25 @@ let liveBlocker = null;
       ok(before === after, 'full read pass leaves the real store byte-identical (executor cannot mutate it)');
       live = failed === 0;
     }
+  } else if (shipped.enabled) {
+    // ACTIVATED, but the canonical store lives on the production host and
+    // this is not it. The designed behavior is a fail-closed disable —
+    // prove it, then prove the separation mechanics locally. LIVE PASS can
+    // only be produced by running this gate on the host that has the store.
+    ok(path.isAbsolute(shipped.store_root) && shipped.store_root.indexOf(ROOT + path.sep) !== 0 && shipped.store_root !== ROOT,
+      'activated store_root is absolute and outside the repository: ' + shipped.store_root);
+    const offHost = knowledge.openKnowledge();
+    ok(offHost.enabled === false && /does not exist/.test(offHost.reason),
+      'activated config + absent store on this host → layer disables fail-closed, not an error');
+    liveBlocker = 'activated store_root (' + shipped.store_root + ') is not present on this host — run this gate ON the production host (`node tests/othk-live-gate.js --require-live`) for the LIVE PASS verdict';
+    console.log('  INFO activated config, store on another host — mechanics mode; on-host run required for LIVE');
+    mechanicsMode = true;
   } else {
     liveBlocker = 'persistent private store unprovisioned — config ships enabled=false/store_root=null; provisioning the store root (outside Git, e.g. /home/deploy/othk-store on the VPS) and flipping config/knowledge.json is an OWNER-ONLY action this gate must not take';
     console.log('  INFO shipped config is disabled — live-store checks run in mechanics mode; blocker recorded');
-
+    mechanicsMode = true;
+  }
+  if (mechanicsMode) {
     // Mechanics mode: prove the separation contract on a gate-local,
     // out-of-repo store, provisioned the way the operator would (CLI).
     const opRoot = tmpRoot('operator');

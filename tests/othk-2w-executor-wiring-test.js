@@ -77,7 +77,15 @@ console.log('§2 Shipped default and loadConfig');
 {
   const shipped = knowledge.loadConfig();
   ok(shipped.valid === true, 'shipped config/knowledge.json is well-formed');
-  ok(shipped.enabled === false, 'shipped config is DISABLED (no persistent private store exists yet)');
+  // ACTIVATED 2026-08-20 (owner FINAL LIVE GATE order): the shipped config
+  // points at the canonical VPS store. The activation contract: enabled,
+  // absolute, out-of-repo store_root. On hosts without that path the layer
+  // still disables itself fail-closed at open time (§3 below proves it).
+  ok(shipped.enabled === true, 'shipped config is ACTIVATED (production store provisioned 2026-08-20)');
+  ok(typeof shipped.store_root === 'string' && path.isAbsolute(shipped.store_root),
+    'activated store_root is absolute');
+  ok(path.relative(path.join(__dirname, '..'), shipped.store_root).indexOf('..') === 0,
+    'activated store_root is outside the repository');
 
   const dir = tmpRoot();
   const badJson = path.join(dir, 'bad.json');
@@ -89,7 +97,14 @@ console.log('§2 Shipped default and loadConfig');
 console.log('§3 openKnowledge — disabled and defective paths never throw');
 {
   const off = knowledge.openKnowledge();
-  ok(off.enabled === false && /disabled/.test(off.reason), 'default open → disabled with reason, not an error');
+  if (fs.existsSync(knowledge.loadConfig().store_root || '')) {
+    // Production host (store present): the activated layer opens.
+    ok(off.enabled === true, 'default open on the production host → enabled facade');
+  } else {
+    // Any other host: activated config + absent store → still fail-closed.
+    ok(off.enabled === false && /does not exist/.test(off.reason),
+      'default open without the production store → disabled with reason, not an error');
+  }
   const bad = knowledge.openKnowledge({ config: cfg({ zzz: 1 }) });
   ok(bad.enabled === false && /unknown field/.test(bad.reason), 'invalid config object → disabled with the validation reason');
   const ghost = knowledge.openKnowledge({ config: cfg({ enabled: true, store_root: path.join(os.tmpdir(), 'othk2w-does-not-exist-' + process.pid) }) });
