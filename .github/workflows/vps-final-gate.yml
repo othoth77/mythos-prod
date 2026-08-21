@@ -253,3 +253,96 @@ jobs:
           echo '--- full short status (paths only) ---'
           git -C "$R" -c safe.directory="$R" status --short 2>&1
           exit 0
+
+  # ===================================================================
+  # BRANCH-ONLY REDACTION-SAFE PROBE — not proposed for main.
+  #
+  # Characterises the single untracked artifact
+  #   projects/infrastructure/github-runner/tener|runsvc.sh|run.sh'
+  # WITHOUT ever emitting its contents.
+  #
+  # Every content test below is an EXIT-STATUS test (grep -q). No
+  # matched text, no line, no byte of the file is ever printed. The
+  # only content-derived values emitted are a SHA-256 digest, counts,
+  # and YES/NO booleans. There is no cat/head/tail/sed/awk, and no
+  # grep without -q, anywhere in this job.
+  #
+  # Identity: mythos-runner (unprivileged). The file is world-readable
+  # (0644 root:root) so an unprivileged read suffices; no privilege is
+  # requested or needed. This job cannot and does not modify anything.
+  # ===================================================================
+  probe:
+    name: Untracked artifact — redaction-safe characterisation (branch-only)
+    needs: smoke
+    runs-on: [self-hosted, mythos-vps]
+    timeout-minutes: 10
+    steps:
+      - name: Characterise without disclosing
+        run: |
+          set +e
+          D=/home/deploy/projects/mythos-prod/projects/infrastructure/github-runner
+          F="$D/tener|runsvc.sh|run.sh'"
+
+          echo "probe identity: $(id -un) uid=$(id -u) (unprivileged; NOT root)"
+          echo
+
+          if [ ! -e "$F" ]; then
+            echo "RESULT: file no longer present at the recorded path."
+            exit 0
+          fi
+          if [ ! -r "$F" ]; then
+            echo "RESULT: present but unreadable by this identity (EACCES)."
+            ls -ld --time-style=full-iso "$F" 2>&1
+            exit 0
+          fi
+
+          echo '=== 7. MODE / OWNERSHIP ==='
+          stat -c 'mode=%A (%a)  owner=%U:%G  size=%s  mtime=%y  inode=%i  links=%h' "$F" 2>&1
+          echo -n 'ACL present: '; case "$(ls -ld "$F" | cut -c11)" in '+') echo YES;; *) echo NO;; esac
+          echo
+
+          echo '=== 1-3. DIGEST AND COUNTS ==='
+          echo "sha256:     $(sha256sum "$F" | cut -d' ' -f1)"
+          echo "bytes:      $(wc -c < "$F")"
+          echo "lines(\\n):  $(wc -l < "$F")"
+          echo "words:      $(wc -w < "$F")"
+          echo -n "trailing newline: "; [ -n "$(tail -c1 "$F" | tr -d '\n')" ] && echo NO || echo YES
+          echo
+
+          # --- boolean helper: prints ONLY the label and YES/NO ---
+          b() { printf '  %-46s ' "$1"; shift; grep -qaE "$*" "$F" && echo YES || echo NO; }
+
+          echo '=== 4. CREDENTIAL / TOKEN-SHAPED PATTERNS ==='
+          b 'GitHub PAT/app token prefix (ghp_/gho_/ghs_)' 'gh[pousr]_[A-Za-z0-9]{20,}'
+          b 'long opaque alnum run (>=32)'                 '[A-Za-z0-9]{32,}'
+          b 'hex digest run (>=40)'                        '[0-9a-fA-F]{40,}'
+          b 'base64-ish run (>=32 with +/=)'               '[A-Za-z0-9+/]{32,}={0,2}'
+          b 'PEM private key header'                       'BEGIN [A-Z ]*PRIVATE KEY'
+          b 'Bearer / Authorization header'                'Bearer |Authorization:'
+          b 'secret-ish keyword'                           '(token|secret|password|passwd|credential|api[_-]?key)'
+          echo
+
+          echo '=== 5. GITHUB RUNNER REGISTRATION CREDENTIALS ==='
+          b 'RUNNER_TOKEN assignment'                      'RUNNER_TOKEN'
+          b 'runner credential filenames (.credentials/.runner)' '\.credentials|\.runner'
+          b 'config.sh --token / registration invocation'  'config\.sh|--token|--url .*github\.com'
+          b 'runner registration endpoint'                 'actions/runners/registration-token|api\.github\.com'
+          echo
+
+          echo '=== 6. RUNNER-MODIFYING SHELL COMMANDS ==='
+          b 'destructive removal (rm -rf / -r)'            'rm[[:space:]]+-[a-zA-Z]*[rf]'
+          b 'ownership/permission change (chown/chmod/setfacl)' 'chown|chmod|setfacl|gpasswd|usermod'
+          b 'service control (systemctl/svc.sh)'           'systemctl|svc\.sh|service '
+          b 'runner path reference (/opt/mythos-gh-runner)' '/opt/mythos-gh-runner'
+          b 'network fetch (curl/wget)'                    'curl |wget '
+          b 'archive extraction (tar)'                     'tar[[:space:]]+-?[xz]'
+          echo
+
+          echo '=== STRUCTURAL SHAPE (supports/refutes the shell-accident theory) ==='
+          b 'starts as a script (#! shebang anywhere)'      '^#!'
+          b 'looks like a find/grep pattern fragment'       'maintener|runsvc\.sh|run\.sh'
+          b 'contains pipe characters'                      '\|'
+          b 'contains an error/usage message'               '(No such file|not found|Usage:|command not found|Permission denied)'
+          echo
+          echo 'NOTE: every line above is an exit-status test. No file content was emitted.'
+          exit 0
