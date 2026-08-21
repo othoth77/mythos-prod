@@ -1,7 +1,99 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-21 UTC
-**From:** MYTHOS-OS-FINAL-CLOSURE — **MYTHOS OS v1.0 FINAL / CLOSED — RELEASE FREEZE.** Final completion order executed: audit clean at `3b7631b`; Status Center review 0 regressions; full validation this session — targeted gates all green (mos-1 1438/0, executor 264/0, governance 99/0, othk 0–3 all green, MOS-v2 gate SUCCESS 20/20) and the full 108-suite regression sweep **7620 passed / 45 failed / 0 new failures** (the 45 are the documented pre-existing legacy stage3*/stage4w set); OTH-KNOWLEDGE ships disabled, fail-closed, read-only; security review clean (no secrets, no credentials); VPS Final Gate **executed live this session — SUCCESS at `c9e5430`** (workflow-dispatch run 32471179630 on the self-hosted runner). Release tag `mythos-os-v1.0` prepared; tag push blocked by session credential scope (owner one-liner remains). Next: production operation; remaining items are owner-action gates only. Previous entries preserved below.
+**From:** VPS-FINAL-GATE-REDISPATCH — **VPS FINAL GATE RE-EXECUTED GREEN AT `7fffa2f`.** After the owner's runner workspace ownership repair, the sanctioned gate was re-dispatched: run **32507658817** (#6) — **CHECKOUT SUCCESS, SMOKE/SECURITY PASS, FINAL GATE SUCCESS**, governance invariant suite 99/0, E2E designed host refusal recorded, and the section-6 **docker-group finding now CLOSED** (`deploy` is no longer in `docker`). This clears the checkout failures of runs #4/#5 (`insufficient permission for adding an object to repository database .git/objects`). **One finding raised, not fixed:** the section-8 knowledge check reads a non-existent path (`projects/oth-knowledge/config/knowledge.json`) instead of the real `projects/mythos-ai-executor/config/knowledge.json`, so it has never verified the OTH-KNOWLEDGE activation — masked by `2>/dev/null`; `.github/workflows/**` is governance-protected and was out of scope. Release tag `mythos-os-v1.0` **retargeted from `c9e5430` to `7fffa2f`** per owner decision; push still blocked by session credential scope (HTTP 403), owner one-liner stands. No application code or workflow changed. Previous entries preserved below.
+
+**Previously:** MYTHOS-OS-FINAL-CLOSURE — **MYTHOS OS v1.0 FINAL / CLOSED — RELEASE FREEZE.** Final completion order executed: audit clean at `3b7631b`; Status Center review 0 regressions; full validation this session — targeted gates all green (mos-1 1438/0, executor 264/0, governance 99/0, othk 0–3 all green, MOS-v2 gate SUCCESS 20/20) and the full 108-suite regression sweep **7620 passed / 45 failed / 0 new failures** (the 45 are the documented pre-existing legacy stage3*/stage4w set); OTH-KNOWLEDGE ships disabled, fail-closed, read-only; security review clean (no secrets, no credentials); VPS Final Gate **executed live this session — SUCCESS at `c9e5430`** (workflow-dispatch run 32471179630 on the self-hosted runner). Release tag `mythos-os-v1.0` prepared; tag push blocked by session credential scope (owner one-liner remains). Next: production operation; remaining items are owner-action gates only. Previous entries preserved below.
+
+## VPS-FINAL-GATE-REDISPATCH — gate re-executed green at `7fffa2f` after runner workspace repair (2026-08-21)
+
+### Stage
+
+Documentation-only amendment. **No application code and no workflow was
+changed.** Records the sanctioned re-dispatch of the VPS Final Gate after
+the owner repaired runner workspace ownership on the VPS.
+
+### Runner workspace repair (owner action, completed before this run)
+
+The owner reported `REPAIR: completed` /
+`OK: workspace uniformly owned by mythos-runner`. Runs **32482633989**
+(#4) and **32485711727** (#5), both dispatched at `7fffa2f`, had failed
+in `actions/checkout@v4` with
+`error: insufficient permission for adding an object to repository
+database .git/objects` / `fatal: unpack-objects failed` (three attempts,
+exit 128) against
+`/opt/mythos-gh-runner/_work/mythos-prod/mythos-prod`.
+
+### Re-dispatch result — run `32507658817` (#6)
+
+Dispatched on `main` at
+`7fffa2facd93bf2e02aee805e1c93ba93254c49a`. **Conclusion: SUCCESS.**
+
+| Section | Result |
+|---|---|
+| Checkout (`actions/checkout@v4`) | **SUCCESS** — fetch clean, `git log -1` == `7fffa2f` |
+| Runner smoke + identity boundary | **PASS** |
+| Governance invariant suite | **99 passed / 0 failed** |
+| Docker-group finding (section 6) | **CLOSED — `PASS: deploy is NOT in the docker group`** |
+| E2E lifecycle suite | `PASS(expected)` — designed host refusal, recorded not overridden |
+| Final Gate (run conclusion) | **SUCCESS** |
+
+Identity evidence, unchanged from the hardened baseline: runner
+`mythos-vps-runner` on `vps-4722f0a9`, user `mythos-runner` uid=999,
+groups `mythos-runner` only; `PASS: non-root, no docker/sudo/mythos-gov,
+no sudo -n`; `PASS: governance.key EACCES, approvals EACCES,
+docker.sock unreachable`. `docker:x:986:` and `mythos-gov:x:979:` are
+both memberless; `deploy` groups are `deploy users`.
+
+**Delta vs the earlier SUCCESS at `c9e5430` (run 32471179630):** the
+section-6 docker finding, previously reported OPEN, is now closed by the
+owner's root remediation (`gpasswd -d deploy docker`).
+
+### Finding — section 8 knowledge check is a false negative (NOT fixed here)
+
+The section-8 step reports `knowledge config not present/parseable at
+this revision — reported as-is` on every run, including the earlier
+SUCCESS runs. This is a **wrong path in the workflow**, not a
+configuration problem:
+
+- `.github/workflows/vps-final-gate.yml` reads
+  `./projects/oth-knowledge/config/knowledge.json`, which **does not
+  exist** at `7fffa2f` (confirmed with `git show`).
+- The real file is `projects/mythos-ai-executor/config/knowledge.json`
+  and reads `enabled: true`,
+  `store_root: /home/deploy/othk-store` — matching what `7fffa2f`
+  claims.
+- The step is `2>/dev/null || echo …`, so the wrong path is masked and
+  the benign fallback is always printed.
+
+Consequence: **section 8 has never actually verified the OTH-KNOWLEDGE
+activation.** The gate conclusion is unaffected (report-only step). Not
+corrected in this amendment because `.github/workflows/**` is a
+governance-protected delivery path and the re-dispatch order was
+explicitly scoped to the gate only.
+
+### Release tag — retargeted to `7fffa2f`, still owner-gated
+
+The Phase 9 one-liner pinned `mythos-os-v1.0` to `c9e5430`, which
+predates both PR #67 and the OTH-KNOWLEDGE activation merge `7fffa2f`.
+Tagging `c9e5430` would ship a v1.0 excluding the activation that this
+gate just validated. **Owner decision recorded: v1.0 targets `7fffa2f`**
+and the Phase 9 command above is amended accordingly.
+
+The push remains **blocked by session credential scope**, re-confirmed
+this session: `git push origin mythos-os-v1.0` returns
+`RPC failed; HTTP 403`, and no tag/release-creation tool exists in the
+available GitHub MCP set. The annotated tag exists locally on `7fffa2f`
+only. The owner one-liner stands.
+
+### Next stage
+
+**Production operation**, unchanged. No implementation stages remain.
+Open items are owner-action gates (Status Center registry is
+authoritative), plus the two items above: the v1.0 tag push and the
+section-8 workflow path correction.
+
+---
 
 ## MYTHOS-OS-FINAL-CLOSURE — final completion audit, full validation, release freeze (2026-08-21)
 
@@ -116,10 +208,11 @@ commit `c9e543084b85815bae508f4cf2a1364828c0dbdd`); HEAD ==
 origin/main verified. **Tag push is not possible from this session:**
 the session git credential is scoped to the session branch and GitHub
 returns 403 on any `refs/tags` push (retried with backoff; no MCP
-tag/release-creation tool exists). The annotated tag `mythos-os-v1.0`
-exists locally on `c9e5430`. **Owner action (one command):**
-`git fetch origin main && git tag -a mythos-os-v1.0 c9e5430 -m 'Mythos OS v1.0' && git push origin mythos-os-v1.0`
-(or create a v1.0 release on `c9e5430` in the GitHub UI).
+tag/release-creation tool exists). **Superseded by the VPS-FINAL-GATE-REDISPATCH
+amendment below: the tag now targets `7fffa2f`, not `c9e5430`.** **Owner action
+(one command):**
+`git fetch origin main && git tag -a mythos-os-v1.0 7fffa2f -m 'Mythos OS v1.0' && git push origin mythos-os-v1.0`
+(or create a v1.0 release on `7fffa2f` in the GitHub UI).
 
 ### Next stage
 
