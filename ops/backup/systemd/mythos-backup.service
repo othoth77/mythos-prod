@@ -1,0 +1,16 @@
+[Unit]
+Description=Mythos scheduled off-host backup (stage, verify, push, verify-remote)
+Documentation=file:/home/deploy/projects/mythos-prod/ops/backup/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+WorkingDirectory=/home/deploy/projects/mythos-prod
+ExecStart=/usr/bin/env bash /home/deploy/projects/mythos-prod/ops/backup/mythos-backup-run.sh backup
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+PrivateTmp=yes
