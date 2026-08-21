@@ -6,6 +6,10 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Changed — RUNNER-WS-CLEARED — Step-0 runner blocker resolved, host gate green (2026-08-21)
+
+- The operator's Step-0 repair cleared the runner-workspace EACCES fault. **VPS Final Gate run `32507658817` — SUCCESS** at `7fffa2f`: checkout restored, smoke/security PASS, and the **governance invariant suite ran 99/0 on the production host** (live key `root:mythos-gov 0640`, `mythos-gov` memberless, `deploy` NOT in the docker group, approval store unreachable from the runner identity), e2e host-refusal PASS(expected). Recorded in `MYTHOS_OS_PRODUCTION_CLOSURE_REPORT.md` §3.5 with the full evidence table. Non-blocking finding logged: the gate's knowledge-config report step reads the wrong path (`projects/oth-knowledge/…` vs the activated `projects/mythos-ai-executor/…`) — report-only, fix requires a reviewed change to a governance-protected workflow. Classifications unchanged: REPOSITORY CLOSED · HOST NOT CLOSED · PRODUCTION NOT VERIFIED.
+
 ### Added — RUNNER-WS-REPAIR — Step-0 repair tooling for the runner workspace fault (2026-08-21)
 
 - `ops/runner/inspect-and-repair-workspace.sh` + `README.md` — root-run, inspect-first diagnosis (ownership/ACLs/immutable attrs/disk+inodes/foreign-owned entries along the exact failing path) with a minimal-correction `repair` mode (chowns only the diagnosed entries, refuses when none — no blind recursive chown) and a `reset` scoped to the disposable `_work/mythos-prod`. Never touches the runner service, sudoers, NoNewPrivileges, or governance. `tests/runner-workspace-repair-test.js` 13/0. Fault re-confirmed live before delivery (fresh gate run 32485711727: identical EACCES; smoke/security PASS).

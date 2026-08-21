@@ -14,7 +14,11 @@ HOST:        NOT CLOSED
 PRODUCTION:  NOT VERIFIED
 ```
 
-**MYTHOS OS is NOT declared Production Closed.** The mission's Phases 1–5 and 7–8 require root/deploy execution on the VPS or external HTTPS verification. This session re-verified, fresh, that it possesses **no such channel** (§3.1), and the one sanctioned host channel it does have — the read-only self-hosted runner — is currently broken by an on-host permission fault (§3.2, discovered and root-caused this session). Under critical rule 8 the mission **stops at Phase 1**, preserves the system, and records exactly what happened. Every operator command needed to finish is listed in §11.
+**MYTHOS OS is NOT declared Production Closed.** The mission's Phases 1–5 and 7–8 require root/deploy execution on the VPS or external HTTPS verification, and this session has **no such channel** (§3.1, re-verified).
+
+**Progress since first issue — Step 0 is CLEARED (§3.5).** The runner-workspace blocker was repaired by the operator and proven by **VPS Final Gate run `32507658817` (SUCCESS, 17:20 UTC)**: checkout restored, **governance invariant 99/0 executed on the production host**, `deploy` confirmed outside the docker group, live governance key `root:mythos-gov 0640`, `mythos-gov` memberless, e2e host-refusal behaving as designed. That is real host evidence and it upgrades the **security-boundary** row of §9 to host-proven.
+
+It does **not** flip HOST or PRODUCTION: the read-only gate cannot install a timer, restart the executor, or deploy a site. Scheduled backups, the live monitor, the executor restart + `--require-live`, the Status Center deployment and the on-host drift audit are all still un-run — so **HOST: NOT CLOSED · PRODUCTION: NOT VERIFIED** stand. The remaining sequence is §11 steps 1–6.
 
 ---
 
@@ -22,7 +26,8 @@ PRODUCTION:  NOT VERIFIED
 
 - Everything repository-executable is done, tested, and pushed (post-audit execution phase: backups scheduler, STC-2 monitor, sync-audit tooling, OTH activation merge, hygiene — full evidence in `MYTHOS_OS_POST_AUDIT_EXECUTION_REPORT.md`).
 - **No production mutation was performed in this mission** — none was possible, and none was faked.
-- **New host evidence WAS obtained** via the sanctioned runner: the security-boundary smoke job passed on the real VPS today (§6.2), and a **new on-host fault was discovered, reproduced, and root-caused**: the runner's git workspace is no longer writable by the runner identity, breaking the VPS Final Gate (§3.2). This is now the first operator action.
+- **New host evidence WAS obtained** via the sanctioned runner: the security-boundary smoke job passed on the real VPS (§6.2), and a **new on-host fault was discovered, reproduced, and root-caused** (§3.2) — the runner's git workspace was not writable by the runner identity, breaking the VPS Final Gate.
+- **UPDATE 17:20 UTC — that blocker is now CLEARED (§3.5):** the operator ran the Step-0 repair; VPS Final Gate run **`32507658817` is SUCCESS** at `7fffa2f` with checkout restored, governance **99/0 on the host**, `deploy` confirmed **not** in the docker group, and the e2e host-refusal behaving as designed. **Steps 1–8 remain operator-gated** (root/deploy actions the read-only gate cannot perform).
 
 ## 2. Production commit
 
@@ -97,6 +102,53 @@ bash /root/inspect-and-repair-workspace.sh          # re-inspect: foreign list m
 
 The deploy fetch is the repository's normal delivery mechanism under deploy's existing credential; nothing is modified until `repair`, and `repair` remains bound to the diagnosed entries only. If the deploy-side fetch itself fails, STOP and report that exact error — do not improvise an alternate download path.
 
+### 3.5 STEP 0 CLEARED — runner channel repaired and proven (2026-08-21, 17:20 UTC)
+
+**The operator executed the Step-0 repair on the VPS and the blocker is gone.**
+Proof: **VPS Final Gate run `32507658817` (run #6), dispatched 17:20:35 UTC at
+`7fffa2f` — conclusion SUCCESS, both jobs green.** This is first-hand host
+evidence, not a claim.
+
+| Step-0E requirement | Result (run 32507658817) |
+|---|---|
+| **CHECKOUT** | **SUCCESS** — `git fetch … +7fffa2f…` → `+ 6669021...7fffa2f -> origin/main (forced update)`; checked out; `git log -1 --format=%H` = `7fffa2facd93bf2e02aee805e1c93ba93254c49a`. The EACCES on `.git/objects` is gone (it had reproduced identically across runs #4 ×2 and #5) |
+| **SECURITY / SMOKE** | **PASS** — job `96851356223`, all steps green |
+| **FINAL GATE** | **SUCCESS** — job `96851394780`, all 8 steps green |
+
+**Host facts newly established by this run (read-only, first-hand):**
+
+| Fact | Evidence line |
+|---|---|
+| Host / runner identity | `hostname: vps-4722f0a9`; `runner user: mythos-runner (mythos-runner)` — single group, no docker/sudo/mythos-gov |
+| Node on host | `v22.22.1` |
+| **deploy is NOT in the docker group** | baseline `deploy groups: deploy users` **and** dedicated check → `PASS: deploy is NOT in the docker group` (BLOCKER-DEPLOY-DOCKER-GROUP confirmed remediated live) |
+| Group state | `docker:x:986:` and `mythos-gov:x:979:` — both with **no members** |
+| Deploy checkout | `/home/deploy/projects/mythos-prod` **present** (contents not readable from the runner identity, by policy) |
+| **Governance invariant suite ON THE HOST** | **99 passed, 0 failed** — incl. §11B `the LIVE key is root:mythos-gov 0640`, `mythos-gov has NO ordinary members`, `deploy is NOT a member of mythos-gov`; §11 the runner identity cannot read `/etc/mythos/governance.key`, cannot list the live approval store, cannot write into it |
+| E2E lifecycle suite | `REFUSED: the registered mythos-prod checkout exists at /home/deploy/projects/mythos-prod` → **PASS(expected)** — the fail-closed design held, not overridden |
+
+**No runner privilege escalation and no governance regression:** the runner
+remains non-root, single-group, sudo-less; every governance isolation
+assertion passed on the host itself.
+
+**New finding (report-only step, does NOT affect the gate result):** the
+workflow's "Knowledge configuration state" step reads
+`./projects/oth-knowledge/config/knowledge.json`, but the activated executor
+config lives at `projects/mythos-ai-executor/config/knowledge.json`. The step
+therefore printed `knowledge config not present/parseable at this revision —
+reported as-is` and told us nothing about activation. It is a `|| echo`
+report-only step, so the gate is unaffected. **This is not evidence for or
+against OTH Knowledge being live** — that still requires §11 step 2.
+`.github/workflows/**` is a governance-protected path, so this session did not
+amend it; correcting the path is a separate, reviewed change for the operator.
+
+**What this does and does not close:** Step 0 (0A–0E) is **COMPLETE**. Steps
+1–8 of the closure mission (checkout sync, executor restart + `--require-live`,
+backup install, monitor install, Status Center deploy, drift audit, host
+regression) remain **operator-gated**: they need root/deploy execution, and the
+Final Gate is read-only by design — it can prove the channel and the security
+boundary, it cannot install a timer, restart a service, or deploy a site.
+
 ## 4. Backup status
 
 - **Repository-closed:** `ops/backup/` scheduler package (wraps the existing off-host tooling; daily backup, daily verify, monthly isolated restore test, health record) — suite **48/0** including a full offline backup→verify→restore-test cycle and corruption-detection proof.
@@ -136,7 +188,8 @@ The deploy fetch is the repository's normal delivery mechanism under deploy's ex
 | production-sync-audit | **20/0** |
 | mythos-ai-executor | **264/0** |
 | MOS-v2 regression gate | **SUCCESS — 20/20 areas, 0 new failures** |
-| VPS Final Gate (host) | smoke job **PASS** (×2); gate job **FAILURE at checkout** — on-host workspace fault (§3.2), no suite ran on-host |
+| VPS Final Gate (host) — runs #4/#5 | smoke job **PASS** (×3); gate job **FAILURE at checkout** — on-host workspace fault (§3.2), no suite ran on-host |
+| **VPS Final Gate (host) — run `32507658817` (#6, after operator repair)** | **SUCCESS** — checkout restored; **governance invariant 99/0 executed on the VPS**; `deploy` NOT in docker group; e2e host-refusal PASS(expected) (§3.5) |
 
 ## 9. Evidence for every P0 closure
 
@@ -144,27 +197,27 @@ The deploy fetch is the repository's normal delivery mechanism under deploy's ex
 |---|---|---|---|
 | Recurring off-host backups | ✔ `ops/backup/` + 48/0 (commit `d87b289`) | ✘ installer not run | ✘ no scheduled run has occurred |
 | Real service monitoring | ✔ STC-2 + 54/0 (commit `d87b289`) | ✘ installer not run | ✘ no live snapshot exists |
+| Runner channel to the host (Step 0) | ✔ repair tooling + 13/0 (`b3531dd`) | **✔ repaired by operator; gate SUCCESS run 32507658817** | **✔ checkout + suites proven on-host** |
 | OTH Knowledge activation | ✔ merged `7fffa2f` + full gate battery | ✘ executor not restarted | ✘ `--require-live` not run on host |
 | Status Center current content | ✔ repo content final | ✘ webroot stale | ✘ external check blocked + pointless pre-deploy |
-| Security boundary (no regression) | ✔ governance 99/0 | **✔ runner smoke PASS on-host today (×2)** | partial — full deny-path proof needs the gate job, blocked by §3.2 |
+| Security boundary (no regression) | ✔ governance 99/0 | **✔ governance 99/0 executed ON THE HOST (run 32507658817); runner smoke PASS ×3; deploy ∉ docker; live key root:mythos-gov 0640; mythos-gov memberless** | **✔ for the boundary itself** — deny-path, key isolation and approval-store isolation all proven on the production host |
 
 ## 10. Remaining limitations
 
-1. **NEW / P0-blocking:** the self-hosted runner workspace permission fault (§3.2) — until fixed, the repository's only CI channel to the host is dead.
-2. Everything in §4–§7 marked host-open (installers, restart, deploy, on-host audits).
+1. ~~**P0-blocking:** the self-hosted runner workspace permission fault (§3.2).~~ **RESOLVED 17:20 UTC** by the operator's Step-0 repair — gate run `32507658817` SUCCESS (§3.5). The CI channel to the host is live again.
+2. Everything in §4–§7 marked host-open (installers, restart, deploy, on-host audits) — **this is now the whole of the remaining work**.
+2b. **Gate reporting defect (new, non-blocking):** the Final Gate's knowledge-config step reads `projects/oth-knowledge/config/knowledge.json` while the activated config is `projects/mythos-ai-executor/config/knowledge.json`, so that line reports nothing usable (§3.5). It is report-only (`|| echo`) and cannot fail the gate. Fixing it means editing a governance-protected workflow path — a separate reviewed change, deliberately not made here.
 3. PR #64 open (docs-only conflict); PR #58 open (owner decision); PR #66 left **unmerged deliberately** (critical rule 9 — nothing in governance requires merging it to deploy, since deployment consumes `main` and the operator packages live on the PR branch until the owner merges).
 4. Two probes shipped disabled pending endpoint confirmation; alerts recorded but not yet pushed to a phone/ntfy channel; the six `_memCache` known baselines and recorded undeployed deltas carry over unchanged.
 
 ## 11. Exact final system state + the operator sequence that closes it
 
-**State now:** `main` = `7fffa2f` (intended production revision); PR #66 (head `d87b289` + this report) carries the operator packages and documentation; production hosts run pre-`7fffa2f` code with the last-known-good services (os/ordre/status live per the 2026-08-20 operator verification); no automation timers installed; runner gate broken by §3.2.
+**State now (17:20 UTC):** `main` = `7fffa2f` (intended production revision); PR #66 carries the operator packages and documentation; **the runner gate channel is REPAIRED and proven green on the host** (§3.5); the production services still run pre-`7fffa2f` code (executor not yet restarted); no automation timers installed; Status Center still serving the older content. Step 0 is done — the sequence below now starts at step 1.
 
 **Operator sequence (in order; each step's verification named):**
 ```bash
-# 0. Fix the runner channel (root) — inspect first, minimal correction only:
-sudo bash ops/runner/inspect-and-repair-workspace.sh          # read-only diagnosis
-sudo bash ops/runner/inspect-and-repair-workspace.sh repair   # or: reset (disposable workspace)
-#    → re-dispatch "VPS Final Gate"; expect SUCCESS incl. governance 99/0 on-host.
+# 0. DONE 2026-08-21 17:20 UTC — runner channel repaired by the operator;
+#    VPS Final Gate run 32507658817 SUCCESS (checkout restored, governance 99/0 on-host).
 # 1. Phase 1 — sync the deploy checkout (STOP first if worktree is dirty; document it):
 sudo mythos-deploy preflight os && sudo mythos-deploy deploy os   # or git -C /home/deploy/projects/mythos-prod pull --ff-only
 # 2. Phase 2 — executor live gate (as deploy):
