@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-21 UTC
-**From:** MYTHOS-OS-FINAL-CLOSURE — **MYTHOS OS v1.0 FINAL / CLOSED — RELEASE FREEZE.** Final completion order executed: audit clean at `3b7631b`; Status Center review 0 regressions; full validation this session — targeted gates all green (mos-1 1438/0, executor 264/0, governance 99/0, othk 0–3 all green, MOS-v2 gate SUCCESS 20/20) and the full 108-suite regression sweep **7620 passed / 45 failed / 0 new failures** (the 45 are the documented pre-existing legacy stage3*/stage4w set); OTH-KNOWLEDGE ships disabled, fail-closed, read-only; security review clean (no secrets, no credentials); VPS Final Gate green per committed 2026-08-21 evidence (VPS unreachable from cloud sessions — documented constraint). Release tag `mythos-os-v1.0`. Next: production operation; remaining items are owner-action gates only. Previous entries preserved below.
+**From:** MYTHOS-OS-FINAL-CLOSURE — **MYTHOS OS v1.0 FINAL / CLOSED — RELEASE FREEZE.** Final completion order executed: audit clean at `3b7631b`; Status Center review 0 regressions; full validation this session — targeted gates all green (mos-1 1438/0, executor 264/0, governance 99/0, othk 0–3 all green, MOS-v2 gate SUCCESS 20/20) and the full 108-suite regression sweep **7620 passed / 45 failed / 0 new failures** (the 45 are the documented pre-existing legacy stage3*/stage4w set); OTH-KNOWLEDGE ships disabled, fail-closed, read-only; security review clean (no secrets, no credentials); VPS Final Gate **executed live this session — SUCCESS at `c9e5430`** (workflow-dispatch run 32471179630 on the self-hosted runner). Release tag `mythos-os-v1.0` prepared; tag push blocked by session credential scope (owner one-liner remains). Next: production operation; remaining items are owner-action gates only. Previous entries preserved below.
 
 ## MYTHOS-OS-FINAL-CLOSURE — final completion audit, full validation, release freeze (2026-08-21)
 
@@ -99,14 +99,27 @@ VPS mutation was attempted from this session.
 
 ### Phase 7 — final live gate
 
-Repo-side gates ALL GREEN this session (tables above). VPS Final Gate:
-green per committed 2026-08-21 evidence; not re-executable from this
-container (recorded honestly, not re-claimed as executed here).
+Repo-side gates ALL GREEN this session (tables above). VPS Final Gate
+**executed live from this session** via workflow dispatch on the
+self-hosted mythos-vps runner: run 32471179630 (run #2), ref `main`
+at the closure merge commit `c9e5430` — **conclusion: SUCCESS**
+(smoke + identity boundary, governance suite, knowledge config state,
+E2E host-refusal check all green). This supersedes the earlier
+statement that the gate was not re-executable from this container:
+SSH remains unreachable, but the dispatch-only workflow provides the
+live path.
 
 ### Phase 9 — release freeze
 
-`mythos-os-v1.0` tagged on the closure commit and pushed after
-verifying HEAD == origin/main.
+The closure entry was delivered to `origin/main` via PR #65 (merge
+commit `c9e543084b85815bae508f4cf2a1364828c0dbdd`); HEAD ==
+origin/main verified. **Tag push is not possible from this session:**
+the session git credential is scoped to the session branch and GitHub
+returns 403 on any `refs/tags` push (retried with backoff; no MCP
+tag/release-creation tool exists). The annotated tag `mythos-os-v1.0`
+exists locally on `c9e5430`. **Owner action (one command):**
+`git fetch origin main && git tag -a mythos-os-v1.0 c9e5430 -m 'Mythos OS v1.0' && git push origin mythos-os-v1.0`
+(or create a v1.0 release on `c9e5430` in the GitHub UI).
 
 ### Next stage
 
