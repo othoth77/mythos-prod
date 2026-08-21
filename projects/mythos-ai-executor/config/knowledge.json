@@ -1,5 +1,5 @@
 {
-  "enabled": false,
-  "store_root": null,
-  "description": "OTH Knowledge read-only consumption boundary (docs/OTH_KNOWLEDGE_INTEGRATION.md). Ships disabled: no persistent private knowledge store exists on this host yet — provisioning it is an owner/operator decision recorded in the handover blockers. To activate, set enabled=true and store_root to an absolute path OUTSIDE this repository; the knowledge store must never live in Git. The executor can only ever READ knowledge through this wiring — ingestion and curation stay on the operator CLI paths."
+  "enabled": true,
+  "store_root": "/home/deploy/othk-store",
+  "description": "OTH Knowledge read-only consumption boundary (docs/OTH_KNOWLEDGE_INTEGRATION.md). ACTIVATED 2026-08-20 per the owner's FINAL LIVE GATE completion order: store_root is the canonical persistent private store on the production VPS (docs/PRIVATE_STORE_ARCHITECTURE.md, 0700 deploy-owned, outside Git, validated ok with 37 records). On any host where this path does not exist the layer disables itself fail-closed — a disabled layer is a normal, reportable state. The executor can only ever READ knowledge through this wiring — ingestion and curation stay on the operator CLI paths."
 }
