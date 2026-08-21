@@ -1,0 +1,16 @@
+[Unit]
+Description=Mythos Status Center live monitor (STC-2 probe collector)
+Documentation=file:/home/deploy/projects/mythos-prod/projects/status-center/monitor/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/deploy/projects/mythos-prod
+ExecStart=/usr/bin/env node projects/status-center/monitor/bin/monitor.js --out /var/www/status.mythosprod.xyz/data
+Nice=10
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/var/www/status.mythosprod.xyz/data
+ReadOnlyPaths=/home/deploy

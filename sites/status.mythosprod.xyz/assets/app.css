@@ -180,6 +180,59 @@ section.panel h2 {
   font-size: 14px;
 }
 
+/* ── STC-2 live monitoring ──────────────────────────── */
+.live-dots { display: inline-flex; gap: 3px; align-items: center; }
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--mythos-border-hairline);
+}
+.live-dot.d-live { background: var(--mythos-success); }
+.live-dot.d-degraded { background: var(--mythos-warning); }
+.live-dot.d-down { background: var(--mythos-danger); }
+.live-dot.d-not_monitored { background: var(--mythos-text-disabled); }
+.live-detail {
+  font-family: var(--mythos-font-mono);
+  font-size: 12px;
+  color: var(--mythos-text-secondary);
+  max-width: 320px;
+  overflow-wrap: anywhere;
+}
+
+/* ── Simple-Arabic explanation layer (.simple-ar) ─────
+   Secondary, non-technical Arabic rendered directly UNDER the primary
+   English it explains. Always subordinate: smaller, secondary ink,
+   never replacing or reflowing the English above it. RTL block. */
+.simple-ar {
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: isolate;
+  font-family: var(--mythos-font-text-arabic);
+  font-size: 13px;
+  line-height: 1.75;
+  color: var(--mythos-text-secondary);
+  max-width: var(--mythos-container-prose);
+  margin: 2px 0 var(--mythos-space-5);
+}
+li .simple-ar,
+td .simple-ar,
+dd .simple-ar,
+.card .simple-ar {
+  font-size: 12.5px;
+  margin: 2px 0 6px;
+}
+/* Arabic state legend under the live table — one compact block. */
+.live-legend {
+  margin-top: var(--mythos-space-5);
+}
+.live-legend .simple-ar {
+  margin: 0 0 4px;
+}
+/* Page-level Arabic explanation of the whole surface. */
+.simple-ar.intro {
+  font-size: 14px;
+  margin-bottom: var(--mythos-space-6);
+}
+
 /* ── Status pills (extends the hub .badge recipe) ───── */
 .pill {
   display: inline-flex;
