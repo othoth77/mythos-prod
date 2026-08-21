@@ -1,7 +1,70 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-21 UTC
-**From:** MYTHOS-OS-FINAL-CLOSURE — **MYTHOS OS v1.0 FINAL / CLOSED — RELEASE FREEZE.** Final completion order executed: audit clean at `3b7631b`; Status Center review 0 regressions; full validation this session — targeted gates all green (mos-1 1438/0, executor 264/0, governance 99/0, othk 0–3 all green, MOS-v2 gate SUCCESS 20/20) and the full 108-suite regression sweep **7620 passed / 45 failed / 0 new failures** (the 45 are the documented pre-existing legacy stage3*/stage4w set); OTH-KNOWLEDGE ships disabled, fail-closed, read-only; security review clean (no secrets, no credentials); VPS Final Gate **executed live this session — SUCCESS at `c9e5430`** (workflow-dispatch run 32471179630 on the self-hosted runner). Release tag `mythos-os-v1.0` prepared; tag push blocked by session credential scope (owner one-liner remains). Next: production operation; remaining items are owner-action gates only. Previous entries preserved below.
+**From:** MYTHOS-FINAL-CLOSURE-VERIFY — Final Live Gate re-verified at current origin/main `6669021`: OTH-KNOWLEDGE gate all green (othk-0 89/0, othk-1 30/0, othk-2 97/0, othk-2w 40/0, othk-3 63/0), broader gate all green (stc-1 73/0, mos-1 1438/0, executor 264/0, governance 99/0, unattended 53/0, mos-e2e 54/0, mos-v2 SUCCESS 20/20), and VPS Final Gate dispatched live from this session — run 32476546112 (run #3) **SUCCESS at `6669021`** on the self-hosted runner. v1.0 release freeze stands; no blockers found. See entry below.
+
+## MYTHOS-FINAL-CLOSURE-VERIFY — Final Live Gate re-run at origin/main HEAD (2026-08-21)
+
+### Stage
+
+Verification-only stage — **no application code was changed**. Mission:
+re-run the complete OTH-KNOWLEDGE targeted gate and the broader Final
+Live Gate against the current origin/main, closing the gap that the
+last live VPS Final Gate run predated the two closure docs commits.
+
+- **Baseline verified:** HEAD == origin/main ==
+  `66690217d75c2d244990f18f3cf8363ca5ba8360`, worktree clean.
+- **Commit hash / remote HEAD:** the commit carrying this entry
+  (verified on the session branch after push).
+
+### OTH-KNOWLEDGE targeted gate (all green, this session)
+
+| Suite | Result |
+|---|---|
+| `othk-0-knowledge-core-test.js` | 89 / 0 |
+| `othk-1-search-test.js` | 30 / 0 |
+| `othk-2-importers-test.js` | 97 / 0 |
+| `othk-2w-executor-wiring-test.js` | 40 / 0 |
+| `othk-3-trust-test.js` | 63 / 0 |
+
+### Broader Final Live Gate (all green, this session)
+
+| Suite | Result |
+|---|---|
+| `stc-1-status-center-test.js` | 73 / 0 |
+| `mos-1-console-test.js` | 1438 / 0 |
+| `mythos-ai-executor-test.js` | 264 / 0 |
+| `mythos-governance-invariant-test.js` | 99 / 0 |
+| `mythos-unattended-policy-test.js` | 53 / 0 |
+| `mos-e2e-lifecycle-test.js` | 54 / 0 |
+| `mos-v2-regression-test.js` | SUCCESS, 20/20 areas, 0 new failures |
+
+### VPS Final Gate — live, at current origin/main
+
+Dispatched from this session on the self-hosted mythos-vps runner:
+run **32476546112** (run #3), ref `main`, head SHA
+`66690217d75c2d244990f18f3cf8363ca5ba8360` — **conclusion: SUCCESS**
+(<https://github.com/othoth77/mythos-prod/actions/runs/32476546112>).
+Unlike the previous run 32471179630 (SUCCESS at `c9e5430`), this run
+verifies the exact current origin/main HEAD.
+
+Full regression sweep NOT rerun: no code changed since the
+MYTHOS-OS-FINAL-CLOSURE sweep (7620/45/0 at the same tree) — the two
+intervening commits are docs-only merges; that result still applies.
+
+### Result
+
+**No blockers.** OTH-KNOWLEDGE remains disabled, fail-closed,
+read-only (`enabled=false`, `store_root=null`). v1.0 release freeze
+stands. Remaining items are the documented owner-action gates only
+(including the `mythos-os-v1.0` tag push one-liner).
+
+### Next stage
+
+**Production operation.** No implementation stages remain.
+
+---
+ — **MYTHOS OS v1.0 FINAL / CLOSED — RELEASE FREEZE.** Final completion order executed: audit clean at `3b7631b`; Status Center review 0 regressions; full validation this session — targeted gates all green (mos-1 1438/0, executor 264/0, governance 99/0, othk 0–3 all green, MOS-v2 gate SUCCESS 20/20) and the full 108-suite regression sweep **7620 passed / 45 failed / 0 new failures** (the 45 are the documented pre-existing legacy stage3*/stage4w set); OTH-KNOWLEDGE ships disabled, fail-closed, read-only; security review clean (no secrets, no credentials); VPS Final Gate **executed live this session — SUCCESS at `c9e5430`** (workflow-dispatch run 32471179630 on the self-hosted runner). Release tag `mythos-os-v1.0` prepared; tag push blocked by session credential scope (owner one-liner remains). Next: production operation; remaining items are owner-action gates only. Previous entries preserved below.
 
 ## MYTHOS-OS-FINAL-CLOSURE — final completion audit, full validation, release freeze (2026-08-21)
 
