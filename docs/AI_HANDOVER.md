@@ -1,7 +1,10 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-21 UTC
-**From:** STC2-AR-GATE — **Status Center brought to the current authoritative repository state: STC-2 live monitoring and the simple-Arabic layer integrated on one branch, the Arabic layer completed over the live panel, and the VPS Final Gate knowledge-config defect fixed.** The two Status Center workstreams existed only on unmerged branches (PR #66 STC-2 live monitoring, PR #58 STC-AR Arabic) and had never met: the Arabic layer predates the live panel, so the live section shipped with **no Arabic at all**. Both branches are now merged onto `claude/status-center-stc2-update-73v1oo` (one CSS conflict resolved, both blocks kept) and the missing Arabic completed — `AR.live` (LIVE / DEGRADED / DOWN / NOT_MONITORED, stale-snapshot warning, absent-monitor note, state legend under the live table) plus a page-level `#about-ar` section stating what the Status Center is, that statuses come from evidence and real checks, where the last-verified time is shown, and that **a stale snapshot is not a live verification**. English untouched; Arabic stays secondary, RTL-isolated (`unicode-bidi: isolate`, IBM Plex Sans Arabic already shipped), and carries no machine values. **Knowledge-gate defect fixed** (the non-blocking finding recorded in RUNNER-WS-CLEARED): the gate required `projects/oth-knowledge/config/knowledge.json` — a path that does not exist — and hid the error behind `|| echo`, so it verified nothing and always passed; it now reads the active `projects/mythos-ai-executor/config/knowledge.json` and asserts `enabled === true` and `store_root === "/home/deploy/othk-store"`, failing closed on a missing, unparseable or de-activated config. OTH-KNOWLEDGE architecture unchanged. Registry updated so the surface reports its own truth (`EV-STC2-MONITOR`, `EV-STC-AR`, `EV-GATE-KNOWLEDGE-FIX`; stages STC-2-MONITOR and STC-AR = **READY**, which honestly drops TRACK-STATUS-CENTER from 100% to 67%), and **REVIEW-2026-08-21-001** published at `origin/main` `7fffa2f`. Tests: stc-1 73/0 · stc-2 54/0 · **stc-ar 50/0 (new)** · **vps-final-gate-knowledge 22/0 (new)** · governance 99/0 · unattended 53/0 · backup-scheduler 48/0 · production-sync-audit 20/0 · runner-workspace-repair 13/0 · MOS-v2 gate SUCCESS 20/20 areas, 0 new failures. **DEPLOYMENT NOT PERFORMED — the live site still serves the 2026-08-20 snapshot** and the monitor timer has never been installed; both are root-only on the VPS and this session has no path to it (HTTPS to `status.mythosprod.xyz` is egress-blocked from the cloud container, so **no live verification was possible and none is claimed**). Next: operator runs `projects/status-center/monitor/install.sh` then the `DEPLOYMENT.md` §1 content sync (recorded as `ACTION-STC2-INSTALL` / `NEXT-STC2-INSTALL`). Previous entries preserved below.
+**From:** OTHK-LIVE-GATE — **the missing `tests/othk-live-gate.js` is implemented and pushed (`ef370b5`); OTH-KNOWLEDGE is NOT yet live-verified.** The LIVE ACTIVATION merge (`dbb7ad9`) and this handover both instructed operators to run `tests/othk-live-gate.js --require-live`, but that file existed nowhere on `origin/main` — the prescribed live verification was unrunnable by anyone. It now exists, built against the real production boundary (`openKnowledge` in `projects/mythos-ai-executor/lib/knowledge.js`; no new knowledge API, no writes). Fresh corrected VPS Final Gate **run 32533025885 (#14) at `c353334` — SUCCESS**, and the VPS deploy checkout is confirmed on-host at **HEAD == origin/main == `c353334`**. **FINAL LIVE GATE REMAINS OPEN and M-13 REMAINS NOT STARTED:** the gate has never been executed against the live store, which is `0700 deploy`-owned and unreachable from both the `mythos-runner` CI identity and this cloud session. Remaining work is one operator action (below). Previous entries preserved below.
+
+---
+**Previous entry — From:** STC2-AR-GATE — **Status Center brought to the current authoritative repository state: STC-2 live monitoring and the simple-Arabic layer integrated on one branch, the Arabic layer completed over the live panel, and the VPS Final Gate knowledge-config defect fixed.** The two Status Center workstreams existed only on unmerged branches (PR #66 STC-2 live monitoring, PR #58 STC-AR Arabic) and had never met: the Arabic layer predates the live panel, so the live section shipped with **no Arabic at all**. Both branches are now merged onto `claude/status-center-stc2-update-73v1oo` (one CSS conflict resolved, both blocks kept) and the missing Arabic completed — `AR.live` (LIVE / DEGRADED / DOWN / NOT_MONITORED, stale-snapshot warning, absent-monitor note, state legend under the live table) plus a page-level `#about-ar` section stating what the Status Center is, that statuses come from evidence and real checks, where the last-verified time is shown, and that **a stale snapshot is not a live verification**. English untouched; Arabic stays secondary, RTL-isolated (`unicode-bidi: isolate`, IBM Plex Sans Arabic already shipped), and carries no machine values. **Knowledge-gate defect fixed** (the non-blocking finding recorded in RUNNER-WS-CLEARED): the gate required `projects/oth-knowledge/config/knowledge.json` — a path that does not exist — and hid the error behind `|| echo`, so it verified nothing and always passed; it now reads the active `projects/mythos-ai-executor/config/knowledge.json` and asserts `enabled === true` and `store_root === "/home/deploy/othk-store"`, failing closed on a missing, unparseable or de-activated config. OTH-KNOWLEDGE architecture unchanged. Registry updated so the surface reports its own truth (`EV-STC2-MONITOR`, `EV-STC-AR`, `EV-GATE-KNOWLEDGE-FIX`; stages STC-2-MONITOR and STC-AR = **READY**, which honestly drops TRACK-STATUS-CENTER from 100% to 67%), and **REVIEW-2026-08-21-001** published at `origin/main` `7fffa2f`. Tests: stc-1 73/0 · stc-2 54/0 · **stc-ar 50/0 (new)** · **vps-final-gate-knowledge 22/0 (new)** · governance 99/0 · unattended 53/0 · backup-scheduler 48/0 · production-sync-audit 20/0 · runner-workspace-repair 13/0 · MOS-v2 gate SUCCESS 20/20 areas, 0 new failures. **DEPLOYMENT NOT PERFORMED — the live site still serves the 2026-08-20 snapshot** and the monitor timer has never been installed; both are root-only on the VPS and this session has no path to it (HTTPS to `status.mythosprod.xyz` is egress-blocked from the cloud container, so **no live verification was possible and none is claimed**). Next: operator runs `projects/status-center/monitor/install.sh` then the `DEPLOYMENT.md` §1 content sync (recorded as `ACTION-STC2-INSTALL` / `NEXT-STC2-INSTALL`). Previous entries preserved below.
 
 ---
 **Previous entry — From:** MYTHOS-FINAL-CLOSURE-VERIFY — Final Live Gate re-verified at current origin/main `6669021`: OTH-KNOWLEDGE gate all green (othk-0 89/0, othk-1 30/0, othk-2 97/0, othk-2w 40/0, othk-3 63/0), broader gate all green (stc-1 73/0, mos-1 1438/0, executor 264/0, governance 99/0, unattended 53/0, mos-e2e 54/0, mos-v2 SUCCESS 20/20), and VPS Final Gate dispatched live from this session — run 32476546112 (run #3) **SUCCESS at `6669021`** on the self-hosted runner. v1.0 release freeze stands; no blockers found. See entry below.
@@ -22,6 +25,92 @@
 **Previous entry — From:** POST-AUDIT-EXEC — **POST-AUDIT EXECUTION PHASE (owner order) — repository side COMPLETE.** The 2026-08-21 audit's P0/P1 findings were executed: (1) **BACKUP-SCHED** — scheduled off-host backups built as a thin wrapper over the existing tooling (`ops/backup/`: daily backup + daily verify + monthly isolated restore-test timers, health record for monitoring; backup-scheduler suite **48/0** incl. an offline full-cycle + corruption-detection proof); (2) **STC-2** — the Status Center gained real monitoring (`projects/status-center/monitor/`: 10-probe registry, read-only collector → LIVE/DEGRADED/DOWN/NOT_MONITORED with latency/HTTP/TLS-days/error/history/alerts, additive "Live services" UI; stc-2 **54/0**, stc-1 regression **73/0**); (3) **production-sync audit** — read-only operator drift script (`scripts/production-sync-audit.sh`, suite 20/0); (4) **OTH-KNOWLEDGE ACTIVATION MERGED** — PR #63 reviewed and validated on the merged tree, merged as **`7fffa2f`** (othk 89/30/97/42/63 all ×0, executor 264/0, governance 99/0, MOS-v2 gate SUCCESS); PR #64's live gate validated (single off-host failure = store absent, as designed) and left open on a docs-only conflict; (5) PRs #23/#52 closed as superseded with evidence; ROADMAP header + duplicate block fixed. Final gate battery on this tree: all green, 0 new failures. **Operator actions now hold the rest:** VPS checkout update + `mythos-ai-executor` restart + `othk-live-gate --require-live` (activation), `ops/backup/install.sh` (timers), `projects/status-center/monitor/install.sh` (monitor), then `scripts/production-sync-audit.sh` to confirm zero drift. Full record: `MYTHOS_OS_POST_AUDIT_EXECUTION_REPORT.md`. Previous entries preserved below.
 
 
+
+## OTHK-LIVE-GATE — missing live-runtime gate implemented (2026-08-21)
+
+### Stage
+
+Implement `tests/othk-live-gate.js`, the OTH-KNOWLEDGE live-runtime
+verification that the activation order requires but that did not exist.
+
+- **Baseline:** `origin/main` == `c353334`; branch
+  `claude/mythos-final-closure-6iejno` at **`ef370b5`**.
+- **Changed files:** `tests/othk-live-gate.js` (new) + this entry.
+  `.github/workflows/` deliberately untouched — governance-protected and
+  in flight on PR #74.
+
+### The defect
+
+`tests/othk-live-gate.js` was referenced by `dbb7ad9` and by this
+handover as the operator's live check, but `git ls-tree origin/main`
+returned no such path. The instruction was unexecutable, so
+OTH-KNOWLEDGE live-runtime state had never been verified by anyone:
+the `othk-*` suites prove the **contract**, the VPS Final Gate proves
+the **config**, and neither touches the live store.
+
+### What the gate verifies
+
+Against the real facade, read-only, via the existing allowlisted surface:
+
+| Group | Checks |
+|---|---|
+| A — config | valid, `enabled=true`, canonical `store_root`, out-of-repo |
+| B — store | exists, owner, `0700` root / `0600` files, `records.jsonl` + `meta.json` + optional `objects/` |
+| C — boundary | facade opens, `stats`/`search` reads, `asOf` still enforced, **no write-shaped op exposed**, parent not world-writable, `governance.key` unreadable, approvals unlistable |
+| D — restart | content-free fingerprint (count + sorted ids, sha256) + `systemctl --user is-active` |
+| E — secrets | live config carries only the 3 allowed fields; output guard installed |
+| F — fail-closed | missing store, in-repo store and credential-shaped key each disable the layer, with **no fallback** |
+
+Two modes: default reports **NOT LIVE** and exits 0 in a container
+clone; `--require-live` enforces everything and exits 1 otherwise
+(2 = usage). A run overriding `--config`/`--expect-store-root` can never
+print `LIVE VERIFIED`, so a diagnostic run cannot masquerade as
+production verification. Output is counts/modes/booleans/digests only.
+
+### Validation performed
+
+Live branch self-tested against a temporary out-of-repo seeded store
+(`0700`, `0600`, 21 records): **29 passed / 0 failed**, correctly
+reporting `NON-CANONICAL target — this is NOT production verification`.
+A deliberately wrong `--expect-fingerprint` **fails closed** (exit 1).
+Container mode: NOT LIVE, exit 0; `--require-live` in the container
+exits 1. Suites: othk-0 89/0 · othk-1 30/0 · othk-2 97/0 · othk-2w 42/0
+· othk-3 63/0 · vps-final-gate-knowledge 22/0 · governance 99/0 ·
+executor 264/0 · MOS-v2 **SUCCESS, 20/20 areas, 0 new failures**.
+
+### Host evidence this session
+
+- VPS Final Gate **run 32533025885 (#14), `c353334` — SUCCESS**;
+  raw: `PASS: … knowledge.json enabled=true store_root=/home/deploy/othk-store`,
+  governance suite `99 passed, 0 failed` on-host, runner
+  `mythos-runner uid=999`, `governance.key EACCES`.
+- VPS deploy checkout (read-only probe, run 32532833573):
+  `HEAD: c353334 / origin/main: c353334 / branch: main` — **VPS HEAD ==
+  origin/main**.
+
+### Why this is NOT closure
+
+The gate has **not** been run against the live store. The store is
+`0700 deploy`-owned; the CI identity is `mythos-runner` and cannot read
+it, and this cloud session has no host channel. Running it also requires
+the code to reach the VPS deploy checkout, i.e. a merge to `main` first.
+
+**OTH-KNOWLEDGE is NOT 100%. FINAL LIVE GATE is NOT closed. M-13 is NOT
+started.**
+
+### Exact next stage
+
+1. Review/merge the PR carrying `ef370b5` into `main`.
+2. Update the VPS deploy checkout to that `main`.
+3. As `deploy` on the VPS:
+   `node tests/othk-live-gate.js --require-live`
+   → record the printed fingerprint.
+4. `systemctl --user restart mythos-ai-executor`
+5. `node tests/othk-live-gate.js --require-live --expect-fingerprint=<fp>`
+   → `LIVE VERIFIED including restart survival` is the only output that
+   closes the gate.
+
+---
 ## STC2-AR-GATE — Status Center: STC-2 + Arabic integration, gate fix (2026-08-21)
 
 ### Stage
