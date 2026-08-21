@@ -11,12 +11,17 @@
 # Current state: main = c353334; VPS Final Gate verified green; Step 0 complete
 # Expected: all steps below PASS with the named verifications, then declarations flip to CLOSED/CLOSED/VERIFIED
 
+# PREREQUISITE: PR #64 (OTH-KNOWLEDGE Live Gate) is on branch claude/oth-knowledge-live-gate-tzrjk5
+#              with tests/othk-live-gate.js and a docs-only conflict with current main.
+#              Either merge PR #64 first, or incorporate tests/othk-live-gate.js from that branch.
+
 # STEP 1. VERIFIED ✓ (ci/runner-gate c353334 SUCCESS)
 #         VPS Final Gate run #8 at 2026-08-21 19:16 UTC: checkout restored, governance 99/0 on-host
 
 # STEP 2. Executor live gate (as deploy):
 systemctl --user restart mythos-ai-executor
 node tests/othk-live-gate.js --require-live      # expect exit 0 "LIVE PASS"
+#       (this test is on PR #64; merge or incorporate before running)
 
 # STEP 3. Backups (root):
 sudo bash ops/backup/install.sh && sudo systemctl start mythos-backup.service
