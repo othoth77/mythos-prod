@@ -100,6 +100,51 @@ live panel; no `darhijama.tn` anywhere in the redirect chain.
 - **Monitoring NOT ACTIVE.** No monitoring cycle has ever run.
 - Rollback: static, additive; re-sync the previous content to revert.
 
+### Production-closure execution attempt (2026-08-21, re-verified)
+
+A second closure order was executed against Steps 1–8. It **stopped at
+Step 1** — the production checkout sync — because no execution path to the
+VPS exists from an AI cloud session. Re-verified first-hand this session,
+not carried over from an earlier entry:
+
+| Probe | Result |
+|---|---|
+| `ssh` client in the session image | **absent** (`command -v ssh` → nothing) |
+| SSH key material (`~/.ssh`) | **empty** — no key of any kind |
+| TCP/22 → `51.68.226.211` | **timeout** (unchanged `BLOCKER-VPS-EXECUTION`) |
+| HTTPS → `status.mythosprod.xyz` | **egress-policy 403** at the proxy; per `/root/.ccr/README.md` a policy denial is reported, never routed around |
+
+Step 1 also cannot be *verified* through the one sanctioned on-host path.
+The VPS Final Gate's baseline step reports the deploy checkout as
+`present (contents not readable from this identity by policy — reported
+as-is)`: the runner identity is deliberately unable to read
+`/home/deploy/projects/mythos-prod`, so `git -C ~/projects/mythos-prod
+rev-parse HEAD` cannot be answered from a gate run either. That restriction
+is a governance control and was left intact.
+
+Consequently Steps 2–6 (deploy, monitor install, timer, first cycle, public
+verification, live-monitoring proof) are all downstream of a blocked Step 1
+and were **not attempted**. Step 7 (gate re-dispatch) was **not repeated**:
+run `32516337652` at `c353334` is the current gate evidence, and re-running
+it before a deployment would produce an identical result and prove nothing
+new about deployment.
+
+**No deployment mechanism was improvised, no second monitor or timer was
+created, no runner privilege was widened, and no infrastructure or egress
+control was bypassed to make progress.**
+
+**Every closure checklist item therefore stands as:** production checkout =
+`c353334` **NOT VERIFIED** · files deployed **NOT VERIFIED** · monitor
+installed **NO** · timer active **NO** · monitoring cycle executed **NO** ·
+`live-status.json` current **NO** · public HTTPS **NOT VERIFIED** ·
+`/health` **NOT VERIFIED** · Arabic in production **NOT VERIFIED** · RTL in
+production **NOT VERIFIED** · stale snapshot replaced **NO — the site still
+serves `REVIEW-2026-08-20-005` / `149dbae`** · redirect regression **NOT
+VERIFIED** · VPS Final Gate **SUCCESS (`32516337652`, pre-deployment)**.
+
+**STATUS CENTER = NOT LIVE VERIFIED. OPERATOR ACTION REQUIRED** — the
+command sequence above is unchanged and remains the exact next action.
+
 ## STC2-AR-GATE — Status Center: STC-2 + Arabic integration, gate fix (2026-08-21)
 
 ### Stage
