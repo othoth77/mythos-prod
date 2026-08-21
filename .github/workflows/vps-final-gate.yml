@@ -346,3 +346,108 @@ jobs:
           echo
           echo 'NOTE: every line above is an exit-status test. No file content was emitted.'
           exit 0
+
+  # ===================================================================
+  # BRANCH-ONLY POST-FAILURE DIAGNOSIS — not proposed for main.
+  #
+  # Diagnoses the reported failure
+  #   git@github.com: Permission denied (publickey)
+  # during an attempted `mythos-deploy deploy os`.
+  #
+  # STRICTLY READ-ONLY. No retry, no key generation, no credential,
+  # deploy, backup or nginx change; nothing is installed, started or
+  # written. Only: git remote/status/rev-parse/reflog reads, file
+  # existence + digest comparisons, and systemd list queries. Remote
+  # URLs are printed because they are configuration, not secrets; no
+  # key material, token or credential file is ever read.
+  # ===================================================================
+  postfail:
+    name: Post-failure diagnosis (read-only, branch-only)
+    needs: smoke
+    runs-on: [self-hosted, mythos-vps]
+    timeout-minutes: 10
+    steps:
+      - name: A — repository state and remotes
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          G="git -C $R -c safe.directory=$R"
+          echo '=== REMOTES (URLs are config, not secrets) ==='
+          $G remote -v 2>&1
+          echo
+          echo '=== STATUS --porcelain (empty = clean) ==='
+          $G status --porcelain 2>&1
+          echo '--- end status ---'
+          echo
+          echo -n 'HEAD:        '; $G rev-parse HEAD 2>&1
+          echo -n 'origin/main: '; $G rev-parse origin/main 2>&1
+          echo -n 'branch:      '; $G branch --show-current 2>&1
+          echo
+          echo '=== url.insteadOf rewrites (would turn https into ssh) ==='
+          $G config --get-regexp 'url\..*\.insteadof' 2>&1 || echo '(none in repo config)'
+          git config --global --get-regexp 'url\..*\.insteadof' 2>&1 || echo '(none in this identity global config)'
+          exit 0
+
+      - name: B — did HEAD move? (reflog, read-only)
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          G="git -C $R -c safe.directory=$R"
+          echo '=== HEAD REFLOG (last 12) ==='
+          $G reflog --date=iso -12 2>&1
+          echo
+          echo '=== FETCH_HEAD / ORIG_HEAD mtimes ==='
+          for f in .git/FETCH_HEAD .git/ORIG_HEAD .git/HEAD; do
+            stat -c '%y  %n' "$R/$f" 2>&1
+          done
+          exit 0
+
+      - name: C — installed mythos-deploy vs committed copy (drift check)
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          I=/usr/local/sbin/mythos-deploy
+          echo '=== INSTALLED TOOL ==='
+          stat -c 'mode=%A owner=%U:%G size=%s mtime=%y  %n' "$I" 2>&1
+          echo -n 'installed sha256: '; sha256sum "$I" 2>&1 | cut -d' ' -f1
+          echo -n 'committed sha256: '; sha256sum "$R/ops/vps-admin/mythos-deploy" 2>&1 | cut -d' ' -f1
+          echo
+          echo '(equal digests = no drift; differing = the running tool is NOT the committed one)'
+          exit 0
+
+      - name: D — deploy audit trail and state (read-only)
+        run: |
+          set +e
+          echo '=== /var/log/mythos-deploy.log (last 25 lines) ==='
+          tail -n 25 /var/log/mythos-deploy.log 2>&1
+          echo
+          echo '=== /var/lib/mythos-deploy ==='
+          ls -la --time-style=full-iso /var/lib/mythos-deploy 2>&1
+          exit 0
+
+      - name: E — backup units present? (query only, nothing started)
+        run: |
+          set +e
+          echo '=== backup unit files on disk ==='
+          ls -la /etc/systemd/system/mythos-backup* /etc/systemd/system/mythos-restore* 2>&1
+          echo
+          echo '=== timer state (list only) ==='
+          systemctl list-timers 'mythos-backup*' 'mythos-restore*' --no-pager 2>&1
+          exit 0
+
+      - name: F — committed backup chain contains no git (source assertion)
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          for f in ops/backup/install.sh ops/backup/mythos-backup-run.sh \
+                   projects/infrastructure/ops/offhost-backup.js \
+                   projects/infrastructure/ops/adapters/s3-compatible.js; do
+            printf '  %-58s ' "$f"
+            if [ -r "$R/$f" ]; then
+              grep -qaE '(^|[^a-zA-Z])git([^a-zA-Z]|$)|github\.com' "$R/$f" \
+                && echo 'CONTAINS git/github reference' || echo 'no git/github reference'
+            else
+              echo 'UNREADABLE'
+            fi
+          done
+          exit 0
