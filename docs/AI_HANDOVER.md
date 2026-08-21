@@ -1,7 +1,54 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-20 UTC
-**From:** VPS-ADMIN-FINAL — **VPS ADMINISTRATION FINAL / COMPLETE.** The permanent admin path (SSH → mythosadmin → scoped sudo → mythos-deploy) is live-verified end-to-end from Windows: key-only auth, deploy/rollback/fail-safe all exercised on the real host at `db2909a`, governance 99/0 + MOS-v2 gate SUCCESS 20/20 on-host, zero production damage, `status.mythosprod.xyz` untouched (outside mythos-deploy scope, owner-controlled). Full evidence in the VPS-ADMIN-FINAL entry below. Next: OTH-KNOWLEDGE live activation (owner-only). Previous entries (RUNNER-MAIN, MOS-CONSOLE-LIVE) preserved below.
+**Last updated:** 2026-08-21 UTC
+**From:** OTH-KNOWLEDGE-FINAL-GATE — **OTH-KNOWLEDGE FINAL LIVE GATE GREEN / CLOSED.** Live verification of the OTH-KNOWLEDGE stage passed in full: `othk-3` suite 63 passed / 0 failed; executor live knowledge config `valid=true, enabled=false, store_root=null`; the executor knowledge boundary is read-only and fails closed while knowledge is disabled; VPS Final Gate green. Verified at HEAD == origin/main == `3354a7ed1ee9a7a7b555eef9d726832620abf5d5`, clean worktree. No application code changed in this closure. Next: Final Mythos OS closure — no remaining implementation work unless a new gate finds a blocker. Previous entries (VPS-ADMIN-FINAL, RUNNER-MAIN, MOS-CONSOLE-LIVE) preserved below.
+
+## OTH-KNOWLEDGE-FINAL-GATE — Final Live Gate verified and closed (2026-08-21)
+
+### Stage
+
+OTH-KNOWLEDGE Final Live Gate: final live verification of the knowledge
+subsystem and its executor boundary, followed by this Git governance
+closure entry. Documentation-only stage — **no application code was
+changed**.
+
+- **Status: OTH-KNOWLEDGE FINAL / CLOSED.**
+- **Baseline verified:** HEAD == origin/main ==
+  `3354a7ed1ee9a7a7b555eef9d726832620abf5d5`, worktree clean.
+- **Final commit SHA / remote HEAD:** the commit carrying this entry
+  (verified local == origin/main after push).
+
+### Verification performed (all PASS)
+
+| Check | Result |
+|---|---|
+| `othk-3` test suite | **63 passed, 0 failed** |
+| Executor live knowledge config | `valid=true`, `enabled=false`, `store_root=null` |
+| Executor knowledge boundary | fails closed when knowledge is disabled; read-only by design |
+| VPS Final Gate | **green** |
+| Git state | HEAD == origin/main == `3354a7ed1ee9a7a7b555eef9d726832620abf5d5`, worktree clean |
+
+### Notes
+
+1. Knowledge remains **disabled** in live executor config
+   (`enabled=false`); enabling it is an owner-only action. With it
+   disabled, the boundary was verified to fail closed — no knowledge
+   reads or writes occur.
+2. The knowledge boundary is read-only: it never mutates production
+   data.
+3. Changed files in this closure: `docs/AI_HANDOVER.md` only.
+
+### Final success criteria
+
+OTHK-3 SUITE PASS (63/0) · LIVE CONFIG PASS (valid=true, enabled=false)
+· FAIL-CLOSED BOUNDARY PASS · VPS FINAL GATE PASS · GIT STATE PASS ·
+DOCUMENTATION PASS.
+
+**Next stage:** Final Mythos OS closure. No remaining implementation
+work unless a new gate finds a blocker.
+
+---
+**Previous entry — From:** VPS-ADMIN-FINAL — **VPS ADMINISTRATION FINAL / COMPLETE.** The permanent admin path (SSH → mythosadmin → scoped sudo → mythos-deploy) is live-verified end-to-end from Windows: key-only auth, deploy/rollback/fail-safe all exercised on the real host at `db2909a`, governance 99/0 + MOS-v2 gate SUCCESS 20/20 on-host, zero production damage, `status.mythosprod.xyz` untouched (outside mythos-deploy scope, owner-controlled). Full evidence in the VPS-ADMIN-FINAL entry below. Next: OTH-KNOWLEDGE live activation (owner-only). Previous entries (RUNNER-MAIN, MOS-CONSOLE-LIVE) preserved below.
 
 ## VPS-ADMIN-FINAL — permanent VPS administration path closed (2026-08-20)
 
