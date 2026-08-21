@@ -141,3 +141,115 @@ jobs:
               exit 1
             fi
           fi
+
+  # ===================================================================
+  # BRANCH-ONLY DIAGNOSTIC — not proposed for main.
+  #
+  # Identifies the untracked entries under
+  # projects/infrastructure/github-runner/ in the deploy checkout at
+  # /home/deploy/projects/mythos-prod, before any production sync.
+  #
+  # HARD CONSTRAINTS (owner order, 2026-08-21): no deploy, pull, reset,
+  # stash, delete or chown; nothing on the VPS is modified. Only
+  # metadata is read — names, owners, modes, sizes, timestamps and
+  # file(1) types. File CONTENTS are NEVER printed: this job contains
+  # no cat/head/tail/grep of any target file, by construction.
+  #
+  # The runner is mythos-runner (NoNewPrivileges, no sudo,
+  # ProtectHome=read-only) and CANNOT become deploy. Every probe exits 0
+  # and reports EACCES explicitly, so a DAC denial is recorded as the
+  # finding rather than failing the gate.
+  # ===================================================================
+  diagnose:
+    name: Deploy-checkout dirty-tree diagnostic (read-only, branch-only)
+    needs: smoke
+    runs-on: [self-hosted, mythos-vps]
+    timeout-minutes: 10
+    steps:
+      - name: Identity and reachability
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          echo "hostname:  $(hostname)"
+          echo "identity:  $(id -un) uid=$(id -u) groups=$(id -nG)"
+          echo "target:    $R"
+          echo
+          echo "--- path chain (stat only, no contents) ---"
+          for p in /home /home/deploy /home/deploy/projects "$R" "$R/.git" \
+                   "$R/projects/infrastructure/github-runner"; do
+            out="$(stat -c '%A %U:%G %n' "$p" 2>&1)" \
+              && echo "  $out" || echo "  UNREADABLE $p -> $out"
+          done
+          echo
+          if [ -r "$R" ] && [ -x "$R" ]; then
+            echo "READABLE: proceeding with the probes."
+          else
+            echo "EACCES: mythos-runner cannot traverse the deploy checkout."
+            echo "That is the expected DAC boundary, not a fault."
+          fi
+          exit 0
+
+      - name: 1of6 — full untracked paths
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          echo '=== FULL UNTRACKED PATHS ==='
+          git -C "$R" -c safe.directory="$R" status --short -uall \
+            -- projects/infrastructure/github-runner/ 2>&1
+          echo "(exit=$?)"; exit 0
+
+      - name: 2of6 — owners and timestamps
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          D="$R/projects/infrastructure/github-runner"
+          echo '=== OWNERS / TIMESTAMPS ==='
+          ls -la --time-style=full-iso "$D" 2>&1
+          echo
+          echo '--- entries newer than .git/HEAD ---'
+          find "$D" -newer "$R/.git/HEAD" \
+            -printf '%TY-%Tm-%Td %TH:%TM  %10s  %u:%g  %p\n' 2>&1 | sort
+          echo "(exit=$?)"; exit 0
+
+      - name: 3of6 — file types (type only, never contents)
+        run: |
+          set +e
+          D=/home/deploy/projects/mythos-prod/projects/infrastructure/github-runner
+          echo '=== FILE TYPES ==='
+          find "$D" -type f ! -path '*/.git/*' -exec file {} \; 2>&1
+          echo "(exit=$?)"; exit 0
+
+      - name: 4of6 — credential/runtime NAMES ONLY (contents never read)
+        run: |
+          set +e
+          D=/home/deploy/projects/mythos-prod/projects/infrastructure/github-runner
+          echo '=== CREDENTIAL/RUNTIME NAMES ONLY ==='
+          echo '(-ls prints mode, owner, size, mtime, name — no contents)'
+          find "$D" \( -name '.credentials*' -o -name '.runner' \
+                       -o -name '*.env' -o -name '*token*' \
+                       -o -name '*.tar.gz' \) -ls 2>&1
+          echo "(exit=$?)"; exit 0
+
+      - name: 5of6 — tracked runner files unmodified?
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          echo '=== TRACKED RUNNER FILES ==='
+          git -C "$R" -c safe.directory="$R" status --short \
+            -- 'projects/infrastructure/github-runner/*.sh' \
+               'projects/infrastructure/github-runner/*.service' 2>&1
+          echo "(empty above = all three tracked files unmodified)"
+          exit 0
+
+      - name: 6of6 — repository state
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          echo '=== REPOSITORY STATE ==='
+          echo -n 'HEAD:        '; git -C "$R" -c safe.directory="$R" rev-parse HEAD 2>&1
+          echo -n 'origin/main: '; git -C "$R" -c safe.directory="$R" rev-parse origin/main 2>&1
+          echo -n 'branch:      '; git -C "$R" -c safe.directory="$R" branch --show-current 2>&1
+          echo
+          echo '--- full short status (paths only) ---'
+          git -C "$R" -c safe.directory="$R" status --short 2>&1
+          exit 0
