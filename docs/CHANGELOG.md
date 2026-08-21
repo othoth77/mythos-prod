@@ -6,6 +6,10 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Added — RUNNER-WS-REPAIR — Step-0 repair tooling for the runner workspace fault (2026-08-21)
+
+- `ops/runner/inspect-and-repair-workspace.sh` + `README.md` — root-run, inspect-first diagnosis (ownership/ACLs/immutable attrs/disk+inodes/foreign-owned entries along the exact failing path) with a minimal-correction `repair` mode (chowns only the diagnosed entries, refuses when none — no blind recursive chown) and a `reset` scoped to the disposable `_work/mythos-prod`. Never touches the runner service, sudoers, NoNewPrivileges, or governance. `tests/runner-workspace-repair-test.js` 13/0. Fault re-confirmed live before delivery (fresh gate run 32485711727: identical EACCES; smoke/security PASS).
+
 ### Added — PROD-CLOSURE-GATE — production closure attempt recorded (2026-08-21)
 
 - `MYTHOS_OS_PRODUCTION_CLOSURE_REPORT.md` — honest closure state (**REPOSITORY CLOSED · HOST NOT CLOSED · PRODUCTION NOT VERIFIED**), fresh access-state evidence, the VPS Final Gate run 32482633989 result (smoke/security PASS on-host ×2; gate job blocked by a newly discovered on-host runner-workspace permission fault, root-caused, operator one-liner recorded), per-P0 closure matrix, and the six-step operator sequence that flips the declarations. No production mutation performed; no check fabricated.

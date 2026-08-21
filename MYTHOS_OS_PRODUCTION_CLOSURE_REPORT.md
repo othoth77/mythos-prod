@@ -46,7 +46,12 @@ PRODUCTION:  NOT VERIFIED
 - **Attempt 1 (12:35 UTC): FAILURE** in the gate job at `actions/checkout` — `error: insufficient permission for adding an object to repository database .git/objects` in `/opt/mythos-gh-runner/_work/mythos-prod/mythos-prod`, retried 3× internally, identical.
 - **Attempt 2 (12:37 UTC, single controlled re-run): identical failure** — deterministic, not a flake.
 - **Root cause:** on-host file-ownership fault in the runner's *disposable git workspace* — objects present in `.git/objects` that the `mythos-runner` identity cannot write alongside. **Not caused by `7fffa2f`**: the checkout never completed, so no repository code ran; run **#3 succeeded at 11:17 UTC** on the same workflow — the fault window is on-host, 11:18–12:35 UTC. The runner cannot self-heal (NoNewPrivileges, no sudo — by design), and `.github/workflows/**` is a governance-protected path this session must not amend on `main`.
-- **Operator remediation (root, one-liner):** `sudo rm -rf /opt/mythos-gh-runner/_work/mythos-prod` (the workspace is disposable and is recreated on the next run) — or `sudo chown -R mythos-runner: /opt/mythos-gh-runner/_work` — then re-dispatch the gate.
+- **Operator remediation (root):** now packaged precisely as `ops/runner/inspect-and-repair-workspace.sh` — read-only `inspect` first (ownership/ACLs/immutable attrs/df+inodes/foreign-owned entry list along the exact failing path), then `repair` (chowns **only** the listed foreign-owned entries — refuses to run when none exist; never a blind recursive chown) or `reset` (removes only the disposable `_work/mythos-prod`). Static contract pinned by `tests/runner-workspace-repair-test.js` **13/0**. Then re-dispatch the gate.
+
+### 3.3 Repair-mission update (2026-08-21, ~13:13 UTC)
+- The owner ordered Step-0 repair "using the existing sanctioned operator/root path". That path is the owner-workstation SSH (`mythosadmin`/`deploy`) — re-verified absent from this session (§3.1). **Root repair cannot be executed from here**; executing it any other way (e.g. amending the governance-protected workflow on `main`) is forbidden by the mission's own constraints and the repository's rules, and was not attempted.
+- **Fresh dispatch to test current host state: run `32485711727` (13:13 UTC) — FAILURE, identical** (`insufficient permission … .git/objects`, EACCES ×3; smoke/security job again PASS). The fault persists un-repaired; three runs / five fetch-attempts now reproduce it byte-identically.
+- Delivered instead: the exact Step-0 tool + procedure above (`ops/runner/README.md`), so the sanctioned root path can perform the inspection and the *minimal* correction the mission specifies. Steps 1–8 remain gated behind it; classifications in §12 unchanged.
 
 ## 4. Backup status
 
@@ -112,8 +117,9 @@ PRODUCTION:  NOT VERIFIED
 
 **Operator sequence (in order; each step's verification named):**
 ```bash
-# 0. Fix the runner channel (root):
-sudo rm -rf /opt/mythos-gh-runner/_work/mythos-prod
+# 0. Fix the runner channel (root) — inspect first, minimal correction only:
+sudo bash ops/runner/inspect-and-repair-workspace.sh          # read-only diagnosis
+sudo bash ops/runner/inspect-and-repair-workspace.sh repair   # or: reset (disposable workspace)
 #    → re-dispatch "VPS Final Gate"; expect SUCCESS incl. governance 99/0 on-host.
 # 1. Phase 1 — sync the deploy checkout (STOP first if worktree is dirty; document it):
 sudo mythos-deploy preflight os && sudo mythos-deploy deploy os   # or git -C /home/deploy/projects/mythos-prod pull --ff-only
