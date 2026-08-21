@@ -151,7 +151,8 @@
       'Produce authorized data exports (Takeout / Gemini / NotebookLM)': 'توفير نسخ مصرّح بها من البيانات الشخصية لتغذية طبقة المعرفة.',
       'Deploy the MOS-v2 console': 'نشر لوحة التحكم الجاهزة على الإنترنت.',
       'Create apex DNS and deploy the mythosprod.xyz hub': 'ربط النطاق الرئيسي ونشر الصفحة العامة للمنظومة.',
-      'Engage legal review for ID Auto citizen surface': 'بدء المراجعة القانونية لواجهة المواطنين في مشروع هوية السيارات.'
+      'Engage legal review for ID Auto citizen surface': 'بدء المراجعة القانونية لواجهة المواطنين في مشروع هوية السيارات.',
+      'Install the STC-2 monitor timer and re-sync the Status Center content': 'تشغيل المراقب الحيّ على الخادم، وتحديث محتوى هذه الصفحة، حتى تتحول من صورة منشورة إلى مراقبة فعلية مستمرة.'
     },
     nextActions: {
       'Dispatch the Option A VPS Final Gate mission': 'إرسال مهمة الفحص النهائي للخادم.',
@@ -160,7 +161,8 @@
       'Provision /home/deploy/othk-store and flip config/knowledge.json': 'تجهيز مجلد مخزن المعرفة على الخادم، ثم تفعيل الإعداد الخاص به.',
       'Execute the MOS-v2 Phase-B deployment runbook': 'تنفيذ خطوات نشر لوحة التحكم كما هي موثّقة.',
       'Produce authorized exports for OTH Knowledge Track B': 'توفير البيانات المصرّح بها لطبقة المعرفة.',
-      'Create apex DNS and deploy the mythosprod.xyz hub': 'ربط النطاق الرئيسي ونشر الصفحة العامة.'
+      'Create apex DNS and deploy the mythosprod.xyz hub': 'ربط النطاق الرئيسي ونشر الصفحة العامة.',
+      'Install the STC-2 monitor timer and sync the refreshed Status Center content': 'تثبيت المراقب الحيّ (فحص كل خمس دقائق) على الخادم، ثم نقل النسخة المحدّثة من هذه الصفحة إليه.'
     },
     changeGroups: {
       'Completed': 'ما اكتمل منذ المراجعة السابقة.',
