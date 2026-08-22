@@ -1,7 +1,106 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-22 UTC
-**From:** OTHK-PROD-VERIFIED — **THE ON-HOST ACCEPTANCE RUN IS DONE AND GREEN: `node tests/othk-live-gate.js --require-live` on the production VPS returns exit 0 and `VERDICT: LIVE PASS`, 52 passed / 0 failed.** Executed as `deploy` on `vps-4722f0a9` with the repository at `ef91aa0a7083b9869b293a53030ce40ade4ad5a2` (== `origin/main`). This is the single step OTHK-LIVE-GATE recorded as remaining, and it closes it — the container verdict `READY — NOT LIVE` (exit 2) differed only because the configured private store exists solely on this host. Store verified first-hand: `/home/deploy/othk-store` `drwx------ deploy:deploy`, files 0600, outside Git, untracked, 37 live records, **sha256 byte-identical before and after the gate** — the read path cannot mutate production data. Executor resolved: `mythos-ai-executor.service` is a **user** unit (`systemctl --user`), **active + enabled**, PID 1590 from this checkout — prior notes queried system scope, where it reports `not-found`; that scope mismatch, not a dead service, was the apparent staleness. No restart needed or performed. On-host regression all green: othk-0 **89/0** · othk-1 **30/0** · othk-2 **97/0** · othk-2w **42/0** · othk-3 **63/0** · governance **99/0** · vps-final-gate-knowledge **22/0** (**442/0**), plus live gate **52/0**. **Honest scope limit: what is production-verified is the knowledge BOUNDARY, not daemon consumption** — `lib/knowledge.js` is required only by the gate/tests; `server.js`/`executor.js`/`core/*` never call `openKnowledge`. **No security boundary was weakened and no code changed** — documentation/evidence only. `BLOCKER-OTHK-REAL-DATA` remains genuinely OWNER_ACTION (store classified records are `owner-report` only; no authorized Takeout/Gemini/NotebookLM export ingested). Full entry below; previous entries preserved.
+**From:** CLOSURE-2026-08-22 — **HOST CLOSURE ATTEMPTED; HOST NOT CLOSED, PRODUCTION NOT VERIFIED — the reason is a real outage: the SYA catalog API has been down since 2026-08-16.** `ssangyong-storefront.service` (a USER unit) has never started — `status=218/CAPABILITIES`, NRestarts 2975, nothing on `127.0.0.1:3011` — because it carries hardened SYSTEM-unit directives an unprivileged user manager cannot apply. nginx catch-all serves the storefront HTML, so the site looks up while the API is dead, answering `200 text/html` on `/api/health` — exactly why a status-only probe never caught it. Delivered this session: B2/B3/B4 gate-reliability fixes (`99ef70b`), B8 swap visibility (`33696dc`) and threshold (`f1afe86`), B9 registry re-verification (`d32b47f`). Four blockers cleared on real on-host evidence; two recorded rather than closed (BLOCKER-SYA-API-DOWN P0, BLOCKER-BACKUP-RESTORE-UNPROVEN P2). Gates green: production-sync-audit 24/0, stc-1 73/0, stc-2 77/0, stc-ar 50/0, hub-dashboard 50/0, **OTH-KNOWLEDGE live gate LIVE PASS 52/0 exit 0**. Security boundary re-verified unchanged. Monitoring now reports `vps-resources DEGRADED "swap 100% used"` truthfully, but `sya-api` stays NOT_MONITORED, so the P0 outage is still invisible to it. Full entry below; previous entries preserved.
+
+
+## CLOSURE-2026-08-22 — host closure attempt: HOST NOT CLOSED, PRODUCTION NOT VERIFIED (2026-08-22)
+
+### Stage
+
+Objective: finish the MYTHOS OS closure mission on the production host.
+Outcome: **partially achieved and honestly short of closure.** Everything
+repository-side is delivered and green; the host carries a live P0 outage
+that no amount of repository work can close.
+
+- **Where:** production VPS `vps-4722f0a9`, as `deploy`.
+- **Delivered:** `99ef70b` (B2/B3/B4), `33696dc` (B8 swap visibility),
+  `f1afe86` (B8 threshold), `d32b47f` (B9 registry + REVIEW-2026-08-22-001).
+
+### Why HOST is not closed — the SYA catalog API
+
+`ssangyong-storefront.service` is a **user** unit that has never started
+since **2026-08-16 17:23**:
+
+| Evidence | Value |
+|---|---|
+| exit status | `218/CAPABILITIES` |
+| restarts | **2975** and climbing (every 5s) |
+| journal failures | 21,458 |
+| listening on `127.0.0.1:3011` | **nothing** |
+
+Cause: it carries `ProtectKernelTunables`, `ProtectClock` and
+`MemoryDenyWriteExecute`. The first two make systemd drop capabilities
+from the bounding set, which an unprivileged **user** manager may not do;
+the third is incompatible with V8's JIT. This is the *exact* failure
+MCC-1 bisected and wrote up in `mythos-command-center.service`, whose
+header even names this unit as still carrying the defect.
+
+**The fix needs no root** — the unit is deploy-owned under
+`~/.config/systemd/user/`. Removing those three directives leaves a
+hardening set **identical to MCC-1**, which runs green; every other
+control is retained. This session was blocked from editing it by the
+harness permission layer, not by privilege.
+
+### Why the monitor did not catch it
+
+`ssangyong.autos` serves a catch-all/SPA fallback: **every** unmatched
+path answers `200 text/html` — `/api/health` and `/zzz-nonexistent`
+alike. The `sya-api` probe ships disabled and asserted only
+`expect_status: [200]`, so enabling it would have reported the dead API
+as **LIVE**. Fixed in `99ef70b` (B2): `probeHttps` gained
+`expect_content_type`, and the probe now requires `application/json`. It
+remains disabled pending operator confirmation of the real health path,
+so **the outage is still invisible to monitoring**.
+
+### Registry — re-verified on-host, not inferred
+
+Cleared with evidence: `BLOCKER-VPS-EXECUTION` (this session ran on the
+VPS as deploy) · `BLOCKER-HUB-DNS` (apex 200, 0 redirects, bytes match
+PR #77) · `BLOCKER-MOS-CONSOLE-DEPLOY` (runbook criteria exactly:
+/login 200, / 302, /api/health 401) · `BLOCKER-BACKUP-GATES` (three
+timers enabled+active; full off-host round trip clean 15:22:50-15:23:20
+incl. verify-remote; health `status=ok`, `consecutive_failures=0`).
+
+Recorded as open rather than folded away: **`BLOCKER-SYA-API-DOWN`**
+(P0) and **`BLOCKER-BACKUP-RESTORE-UNPROVEN`** (P2 —
+`mythos-restore-test.service` has never executed; backup *integrity* is
+proven, *recoverability* is not).
+
+### Gates
+
+| Gate | Result |
+|---|---|
+| `othk-live-gate.js --require-live` | **LIVE PASS, 52/0, exit 0** |
+| `production-sync-audit-test.js` | 24/0 |
+| `stc-1` / `stc-2` / `stc-ar` | 73/0 · 77/0 · 50/0 |
+| `hub-dashboard-test.js` | 50/0 |
+| Security boundary | unchanged — governance key denied to deploy, deploy outside docker/mythos-gov (both memberless), no passwordless sudo, docker.sock denied |
+
+Monitoring now reports `vps-resources` **DEGRADED — "swap 100% used"**
+truthfully (2.0/2.0 GiB swap, 146 MiB RAM free). The pressure is not
+Mythos: the three user units total ~41 MB RSS with zero restarts; the
+biggest swap holders are `omniroute` (427 MB), `mysqld` (373 MB) and
+`mariadbd` (91 MB), alongside desktop/browser sessions.
+
+### Remaining — all operator, none repository
+
+1. **Fix the SYA unit** (deploy, no root) — remove the three directives,
+   `daemon-reload`, restart, confirm `:3011` and a JSON `/api/health`.
+   Then enable the `sya-api` probe.
+2. **`sudo bash scripts/deploy-status-center.sh`** — the webroot is now
+   stale against REVIEW-2026-08-22-001.
+3. **Run the restore test** — `bash ops/backup/mythos-backup-run.sh
+   restore-test` as deploy (check disk: `/` is at 73%).
+4. **Reduce memory pressure** — three SQL engines (`mysqld`, `mariadbd`,
+   `postgres`) plus two VNC desktops on a 7.6 GiB box.
+
+**HOST: NOT CLOSED. PRODUCTION: NOT VERIFIED.** Both follow directly from
+item 1 being a live outage.
+
+---
+
+**Previous entry — From:** OTHK-PROD-VERIFIED — **THE ON-HOST ACCEPTANCE RUN IS DONE AND GREEN: `node tests/othk-live-gate.js --require-live` on the production VPS returns exit 0 and `VERDICT: LIVE PASS`, 52 passed / 0 failed.** Executed as `deploy` on `vps-4722f0a9` with the repository at `ef91aa0a7083b9869b293a53030ce40ade4ad5a2` (== `origin/main`). This is the single step OTHK-LIVE-GATE recorded as remaining, and it closes it — the container verdict `READY — NOT LIVE` (exit 2) differed only because the configured private store exists solely on this host. Store verified first-hand: `/home/deploy/othk-store` `drwx------ deploy:deploy`, files 0600, outside Git, untracked, 37 live records, **sha256 byte-identical before and after the gate** — the read path cannot mutate production data. Executor resolved: `mythos-ai-executor.service` is a **user** unit (`systemctl --user`), **active + enabled**, PID 1590 from this checkout — prior notes queried system scope, where it reports `not-found`; that scope mismatch, not a dead service, was the apparent staleness. No restart needed or performed. On-host regression all green: othk-0 **89/0** · othk-1 **30/0** · othk-2 **97/0** · othk-2w **42/0** · othk-3 **63/0** · governance **99/0** · vps-final-gate-knowledge **22/0** (**442/0**), plus live gate **52/0**. **Honest scope limit: what is production-verified is the knowledge BOUNDARY, not daemon consumption** — `lib/knowledge.js` is required only by the gate/tests; `server.js`/`executor.js`/`core/*` never call `openKnowledge`. **No security boundary was weakened and no code changed** — documentation/evidence only. `BLOCKER-OTHK-REAL-DATA` remains genuinely OWNER_ACTION (store classified records are `owner-report` only; no authorized Takeout/Gemini/NotebookLM export ingested). Full entry below; previous entries preserved.
 
 
 ## OTHK-PROD-VERIFIED — on-host live gate PASS on the production VPS (2026-08-22)

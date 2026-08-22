@@ -6,6 +6,15 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Changed — CLOSURE-2026-08-22 — host closure attempted on the VPS; production NOT verified (2026-08-22)
+
+- **Swap alerting enabled (B8 policy).** `vps-resources` now carries `swap_warn_pct: 90`. The host sits at **2.0/2.0 GiB swap used, 152 KiB free**, with 146 MiB RAM free, so the probe moves **LIVE → DEGRADED "swap 100% used"** — truthfully. Mythos services are not the cause: the three user units total ~41 MB RSS / ~23 MB swap, all below their own peaks with zero restarts. The load is interactive desktop/browser sessions, n8n, `omniroute` and jellyfin; the largest swap holders are `omniroute` (427 MB), `mysqld` (373 MB) and `mariadbd` (91 MB).
+- **Four registry blockers re-verified on-host and cleared with evidence** — `BLOCKER-VPS-EXECUTION` (this session ran on the VPS as deploy), `BLOCKER-HUB-DNS` (apex 200, no redirect, bytes match PR #77), `BLOCKER-MOS-CONSOLE-DEPLOY` (its own runbook criteria: /login 200, / 302, /api/health 401), `BLOCKER-BACKUP-GATES` (timers enabled+active, full off-host round trip clean incl. verify-remote, health ok). Published snapshot regenerated as **REVIEW-2026-08-22-001**.
+- **Two real blockers recorded rather than closed.** `BLOCKER-SYA-API-DOWN` (**P0, BLOCKED**) — `ssangyong-storefront.service` has never started since **2026-08-16**: `status=218/CAPABILITIES`, NRestarts 2975 and climbing, nothing on `127.0.0.1:3011`. nginx's catch-all serves the storefront HTML, so the site looks up while the catalog API is dead. `BLOCKER-BACKUP-RESTORE-UNPROVEN` (P2) — backups are created and verified off-host, but `mythos-restore-test.service` has never executed; integrity is proven, recoverability is not.
+- **HOST is NOT CLOSED and PRODUCTION is NOT VERIFIED.** The host-closure gate requires no known production outage, and the SYA catalog API is a live one. Monitoring improved but is not yet sufficient: it now detects the swap condition, while `sya-api` remains `NOT_MONITORED` — so the P0 outage is still invisible to it.
+- **Gates that did pass:** production-sync-audit **24/0** · stc-1 **73/0** · stc-2 **77/0** · stc-ar **50/0** · hub-dashboard **50/0** · OTH-KNOWLEDGE live gate **LIVE PASS, 52/0, exit 0**. Security boundary re-verified unchanged: governance key denied to deploy, deploy outside docker/mythos-gov (both memberless), no passwordless sudo, docker socket denied.
+- **Remaining, all operator-gated:** fix the SYA unit (deploy-runnable, no root); `sudo bash scripts/deploy-status-center.sh` to publish REVIEW-2026-08-22-001 (webroot now stale vs repo); run the restore test.
+
 ### Added — MONITOR-SWAP — swap headroom is visible to the resources probe (B8, 2026-08-22)
 
 - **The gap:** `probeResources` reported disk, memory and load but not swap, so the production VPS sat at **100% swap used (0 GB free)** with memory at 79% — under its 92% threshold — and the monitor reported `vps-resources: LIVE` with nothing to indicate the host had no paging headroom left. Found by the on-host closure audit.
