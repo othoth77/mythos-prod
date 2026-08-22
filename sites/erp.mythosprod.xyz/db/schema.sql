@@ -464,4 +464,39 @@ END $$;
 --   GRANT INSERT, SELECT ON audit_log TO erp_app;
 --   GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO erp_app;
 
+-- ── Foreign-key indexes ─────────────────────────────────────────────────────
+-- Validation against a throwaway PG15 instance found 28 foreign keys with no
+-- supporting index. PostgreSQL does not create these automatically, and without
+-- them every join and every referential check on the child side is a sequential
+-- scan. Added after the fact rather than assumed correct — which is the reason
+-- the schema was validated before being proposed for use.
+CREATE INDEX appointments_client_idx        ON appointments (client_id);
+CREATE INDEX appointments_project_idx       ON appointments (project_id);
+CREATE INDEX audit_log_actor_idx            ON audit_log (actor_id);
+CREATE INDEX bank_entries_account_idx       ON bank_entries (account_id);
+CREATE INDEX collaborators_user_idx         ON collaborators (user_id);
+CREATE INDEX contacts_client_idx            ON contacts (client_id);
+CREATE INDEX contracts_client_idx           ON contracts (client_id);
+CREATE INDEX contracts_project_idx          ON contracts (project_id);
+CREATE INDEX documents_client_idx           ON documents (client_id);
+CREATE INDEX documents_project_idx          ON documents (project_id);
+CREATE INDEX documents_uploaded_by_idx      ON documents (uploaded_by);
+CREATE INDEX expenses_category_idx          ON expenses (category_id);
+CREATE INDEX expenses_project_idx           ON expenses (project_id);
+CREATE INDEX inscriptions_contact_idx       ON inscriptions (contact_id);
+CREATE INDEX inscriptions_representation_idx ON inscriptions (representation_id);
+CREATE INDEX inventory_movements_actor_idx  ON inventory_movements (actor_id);
+CREATE INDEX inventory_movements_project_idx ON inventory_movements (project_id);
+CREATE INDEX invoices_project_idx           ON invoices (project_id);
+CREATE INDEX invoices_quote_idx             ON invoices (quote_id);
+CREATE INDEX payments_invoice_idx           ON payments (invoice_id);
+CREATE INDEX projects_client_idx            ON projects (client_id);
+CREATE INDEX projects_nature_idx            ON projects (nature_id);
+CREATE INDEX purchases_supplier_idx         ON purchases (supplier_id);
+CREATE INDEX quotes_client_idx              ON quotes (client_id);
+CREATE INDEX quotes_project_idx             ON quotes (project_id);
+CREATE INDEX representations_project_idx    ON representations (project_id);
+CREATE INDEX role_permissions_permission_idx ON role_permissions (permission_id);
+CREATE INDEX user_roles_role_idx            ON user_roles (role_id);
+
 COMMIT;
