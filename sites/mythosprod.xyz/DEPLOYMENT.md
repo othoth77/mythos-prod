@@ -1,10 +1,14 @@
 # mythosprod.xyz — deployment runbook
 
-**Status: BUILT, NOT DEPLOYED.** No apex vhost exists (O-003's recorded
-state). Deployment requires host access this build session does not have —
-the documented `deploy`-user privilege boundary (MOS-1.6/1.7). Everything
-below is ready to execute the moment an operator with legitimate access
-runs it.
+**Status: DEPLOYED 2026-08-22.** Live at https://mythosprod.xyz and
+https://www.mythosprod.xyz, TLS issued, HTTP redirected to HTTPS, and the
+`hub-apex` Status Center probe reports LIVE. BLOCKER-HUB-DNS is cleared.
+
+What was actually run on the host is recorded in §6 — it differs from the
+steps below only in the source path (this checkout lives at
+`/home/deploy/projects/mythos-prod`, not `/srv/mythos/repository`) and in
+the certbot invocation. The generic procedure below is retained as the
+rebuild recipe.
 
 The site is fully static and self-contained: no build step, no runtime, no
 external requests (all fonts self-hosted in `assets/fonts/`). Serving it is
@@ -95,3 +99,48 @@ The site is static: rollback = remove the vhost symlink and reload nginx
 (`sudo rm /etc/nginx/sites-enabled/mythosprod.xyz && sudo nginx -t && sudo
 systemctl reload nginx`), or re-rsync a previous checkout. No state, no
 database, no migrations — nothing else to undo.
+
+
+## 6. As-deployed record (2026-08-22, this host)
+
+The commands actually executed, in order. `nginx -t` passed before every
+reload; no unrelated vhost was touched.
+
+```bash
+# content — checkout path on this host; docs are not site content
+sudo mkdir -p /var/www/mythosprod.xyz
+sudo cp -a /home/deploy/projects/mythos-prod/sites/mythosprod.xyz/{index.html,robots.txt,sitemap.xml} \
+           /var/www/mythosprod.xyz/
+sudo cp -a /home/deploy/projects/mythos-prod/sites/mythosprod.xyz/assets /var/www/mythosprod.xyz/
+sudo chown -R www-data:www-data /var/www/mythosprod.xyz
+
+# vhost — §2 verbatim, written to /etc/nginx/sites-available/mythosprod.xyz
+sudo ln -sfn /etc/nginx/sites-available/mythosprod.xyz /etc/nginx/sites-enabled/mythosprod.xyz
+sudo nginx -t && sudo systemctl reload nginx
+
+# TLS — DNS for apex and www already pointed at 51.68.226.211
+sudo certbot --nginx -d mythosprod.xyz -d www.mythosprod.xyz \
+  --non-interactive --agree-tos --register-unsafely-without-email --redirect
+```
+
+certbot rewrote the vhost in place, adding the `listen 443 ssl` server, the
+certificate paths under `/etc/letsencrypt/live/mythosprod.xyz/`, and the
+port-80 → HTTPS redirect. **The file on disk is therefore no longer §2
+verbatim** — treat `/etc/nginx/sites-available/mythosprod.xyz` as the live
+copy and §2 as the pre-TLS source.
+
+Verified after deployment: apex and www both 200 over HTTPS; port 80 → 301
+to HTTPS on both names; certificate `CN=mythosprod.xyz`, SAN covers
+`mythosprod.xyz` and `www.mythosprod.xyz`, expires 2026-11-20; all five
+security headers present; `assets/fonts/*.woff2` served 200 with the
+immutable cache header; `robots.txt` carries the sitemap line.
+
+### Content note
+
+`index.html` gained two sections at deployment time — `#plateforme` (the
+platform service directory: OS Console, Command Center, Status Center, and
+the ERP/Production modules still in preparation) and `#etat` (link to the
+Status Center, plus the single access point that unified sign-in will
+attach to). Both compose only from classes and tokens the page already
+had: no new CSS, no JavaScript — the CSP sets `script-src 'none'` and the
+page must keep working under it.

@@ -14,7 +14,7 @@
       "url": "https://mythosprod.xyz/",
       "expect_status": [200],
       "enabled": true,
-      "note": "Known audit state: hub built, apex not served (BLOCKER-HUB-DNS). Until deployed this probe honestly reports DOWN."
+      "note": "Apex deployed 2026-08-22: the Mythos Hub is served from sites/mythosprod.xyz via /var/www/mythosprod.xyz, with TLS for mythosprod.xyz and www. BLOCKER-HUB-DNS is cleared. The probe is unchanged and still expects 200 — a DOWN here now means a real outage of the platform entry point, not a pending deployment."
     },
     {
       "id": "os-console",

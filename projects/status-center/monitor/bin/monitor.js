@@ -132,9 +132,13 @@ function probeResources(p) {
     out.detail.mem_used_pct = memPct;
     out.detail.load_1m = Math.round(os.loadavg()[0] * 100) / 100;
     out.detail.cpus = os.cpus().length;
-    if (diskPct != null && diskPct >= (p.disk_down_pct || 95)) problems.push('disk ' + diskPct + '% used');
-    else if (diskPct != null && diskPct >= (p.disk_warn_pct || 85)) warns.push('disk ' + diskPct + '% used');
-    if (memPct >= (p.mem_warn_pct || 92)) warns.push('memory ' + memPct + '% used');
+    // `||` would swallow an explicit 0: a threshold deliberately set to 0
+    // means "always breach", and silently substituting the default turns a
+    // configured alarm into silence. Only an absent threshold takes the default.
+    var thr = function (v, dflt) { return typeof v === 'number' && isFinite(v) ? v : dflt; };
+    if (diskPct != null && diskPct >= thr(p.disk_down_pct, 95)) problems.push('disk ' + diskPct + '% used');
+    else if (diskPct != null && diskPct >= thr(p.disk_warn_pct, 85)) warns.push('disk ' + diskPct + '% used');
+    if (memPct >= thr(p.mem_warn_pct, 92)) warns.push('memory ' + memPct + '% used');
     if (problems.length) { out.state = 'DOWN'; out.error = problems.join('; '); }
     else if (warns.length) { out.state = 'DEGRADED'; out.error = warns.join('; '); }
     return Promise.resolve(out);
