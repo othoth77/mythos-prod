@@ -1,11 +1,158 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-21 UTC
-**From:** VPSGATE-REVERIFY — **Runner repair re-verified on the production host; the closure sequence is still blocked at Step 1, so Step 2 was NOT executed.** Re-dispatch requested against `7fffa2f`: **not dispatchable** — `workflow_dispatch` accepts only a branch or tag ref, `7fffa2f` is a mid-history commit on `main` (now `c353334`) and the repository carries **no tags** (`git tag` empty; the tag-push constraint is already recorded in the closure amendments). The API refused it verbatim: `No ref found for: 7fffa2facd93bf2e02aee805e1c93ba93254c49a`. The nearest valid dispatch was run instead — **VPS Final Gate run `32522187585`, ref `main` = `c353334`, 20:10:11 UTC, conclusion SUCCESS on both jobs** on `mythos-vps-runner` (`vps-4722f0a9`): **CHECKOUT SUCCESS** · **SMOKE/SECURITY PASS** (non-root `mythos-runner`, no docker/sudo/mythos-gov, no `sudo -n`, `governance.key`/approvals/`docker.sock` unreachable) · **FINAL GATE SUCCESS**. On-host evidence this run: node v22.22.1; `deploy groups: deploy users` → **`PASS: deploy is NOT in the docker group`**; `docker:x:986:` and `mythos-gov:x:979:` memberless; governance invariant suite **99 passed / 0 failed executed on the VPS** (live key `root:mythos-gov 0640`); the **corrected** knowledge step now genuinely asserts and reports `PASS: projects/mythos-ai-executor/config/knowledge.json enabled=true store_root=/home/deploy/othk-store`; e2e lifecycle `REFUSED … registered checkout` → PASS(expected). The runner-workspace repair is therefore confirmed by **six** consecutive green gate runs since it was applied — `32507658817` (at `7fffa2f`, the exact commit asked for), `32516337652`, `32517604113`, `32519154690`, `32519424269`, `32522187585` — against the three byte-identical checkout EACCES failures before it. **No new dispatch at `7fffa2f` was possible or needed: the run at that commit already exists and is SUCCESS.** **Production Closure Step 2 was not started.** §11 Step 2 is `systemctl --user restart mythos-ai-executor` as `deploy` followed by `node tests/othk-live-gate.js --require-live` — a host mutation requiring a deploy shell. Access re-probed fresh this session: **no `ssh` binary, no `~/.ssh` keys, TCP/22 to 51.68.226.211 times out (exit 124)**. The sanctioned runner channel cannot substitute: it is read-only by design, runs as non-root `mythos-runner` with `NoNewPrivileges` and no sudo, and widening it would mean amending a governance-protected workflow path. **Step 1 (deploy-checkout sync) is also still un-run** and the owner explicitly withheld authorisation to deploy or modify any production target this session, so Step 2 would in any case run against a checkout behind `main`. Classifications unchanged: **REPOSITORY CLOSED · HOST NOT CLOSED · PRODUCTION NOT VERIFIED**. Next: operator executes §11 steps 1–6. Previous entries preserved below.
+**Last updated:** 2026-08-22 UTC
+**From:** OTHK-PROD-VERIFIED — **THE ON-HOST ACCEPTANCE RUN IS DONE AND GREEN: `node tests/othk-live-gate.js --require-live` on the production VPS returns exit 0 and `VERDICT: LIVE PASS`, 52 passed / 0 failed.** Executed as `deploy` on `vps-4722f0a9` with the repository at `ef91aa0a7083b9869b293a53030ce40ade4ad5a2` (== `origin/main`). This is the single step OTHK-LIVE-GATE recorded as remaining, and it closes it — the container verdict `READY — NOT LIVE` (exit 2) differed only because the configured private store exists solely on this host. Store verified first-hand: `/home/deploy/othk-store` `drwx------ deploy:deploy`, files 0600, outside Git, untracked, 37 live records, **sha256 byte-identical before and after the gate** — the read path cannot mutate production data. Executor resolved: `mythos-ai-executor.service` is a **user** unit (`systemctl --user`), **active + enabled**, PID 1590 from this checkout — prior notes queried system scope, where it reports `not-found`; that scope mismatch, not a dead service, was the apparent staleness. No restart needed or performed. On-host regression all green: othk-0 **89/0** · othk-1 **30/0** · othk-2 **97/0** · othk-2w **42/0** · othk-3 **63/0** · governance **99/0** · vps-final-gate-knowledge **22/0** (**442/0**), plus live gate **52/0**. **Honest scope limit: what is production-verified is the knowledge BOUNDARY, not daemon consumption** — `lib/knowledge.js` is required only by the gate/tests; `server.js`/`executor.js`/`core/*` never call `openKnowledge`. **No security boundary was weakened and no code changed** — documentation/evidence only. `BLOCKER-OTHK-REAL-DATA` remains genuinely OWNER_ACTION (store classified records are `owner-report` only; no authorized Takeout/Gemini/NotebookLM export ingested). Full entry below; previous entries preserved.
 
 ---
-**Previous entry — From:** OTHK-LIVE-GATE — **CANONICAL OTH-KNOWLEDGE LIVE GATE BUILT AND GREEN: `tests/othk-live-gate.js`, verdict on this container READY — NOT LIVE (activated store lives on the VPS).** All executable evidence for core + retrieval + service read-only boundary + trust boundary + executor fail-closed boundary + persistent-store read/write separation mechanics + data-source policy is green in one canonical gate. Written before, and merged after, the parallel OTH-KNOWLEDGE LIVE ACTIVATION (PR #63, `dbb7ad9`: `config/knowledge.json` now `enabled=true`, `store_root=/home/deploy/othk-store`): the gate's §F is host-aware — on a host WITH the canonical store it opens the real store, requires it out-of-repo/readable, and proves a full read pass leaves it byte-identical → **LIVE PASS**; on any other host it proves the fail-closed disable and the separation mechanics on a gate-local out-of-repo store → READY — NOT LIVE. Targeted suites othk-0..3 + 2w all 0-fail; MOS-v2 regression gate SUCCESS, 0 new failures. **The Live condition is the on-host acceptance run: `node tests/othk-live-gate.js --require-live` on the VPS → exit 0 + "LIVE PASS".** Full entry below; previous entries (MYTHOS-OS-FINAL-CLOSURE, OTH-KNOWLEDGE LIVE ACTIVATION, VPS-ADMIN-FINAL, …) preserved.
+**Previous entry — From:** VPSGATE-REVERIFY — **Runner repair re-verified on the production host; the closure sequence is still blocked at Step 1, so Step 2 was NOT executed.** Re-dispatch requested against `7fffa2f`: **not dispatchable** — `workflow_dispatch` accepts only a branch or tag ref, `7fffa2f` is a mid-history commit on `main` (now `c353334`) and the repository carries **no tags** (`git tag` empty; the tag-push constraint is already recorded in the closure amendments). The API refused it verbatim: `No ref found for: 7fffa2facd93bf2e02aee805e1c93ba93254c49a`. The nearest valid dispatch was run instead — **VPS Final Gate run `32522187585`, ref `main` = `c353334`, 20:10:11 UTC, conclusion SUCCESS on both jobs** on `mythos-vps-runner` (`vps-4722f0a9`): **CHECKOUT SUCCESS** · **SMOKE/SECURITY PASS** (non-root `mythos-runner`, no docker/sudo/mythos-gov, no `sudo -n`, `governance.key`/approvals/`docker.sock` unreachable) · **FINAL GATE SUCCESS**. On-host evidence this run: node v22.22.1; `deploy groups: deploy users` → **`PASS: deploy is NOT in the docker group`**; `docker:x:986:` and `mythos-gov:x:979:` memberless; governance invariant suite **99 passed / 0 failed executed on the VPS** (live key `root:mythos-gov 0640`); the **corrected** knowledge step now genuinely asserts and reports `PASS: projects/mythos-ai-executor/config/knowledge.json enabled=true store_root=/home/deploy/othk-store`; e2e lifecycle `REFUSED … registered checkout` → PASS(expected). The runner-workspace repair is therefore confirmed by **six** consecutive green gate runs since it was applied — `32507658817` (at `7fffa2f`, the exact commit asked for), `32516337652`, `32517604113`, `32519154690`, `32519424269`, `32522187585` — against the three byte-identical checkout EACCES failures before it. **No new dispatch at `7fffa2f` was possible or needed: the run at that commit already exists and is SUCCESS.** **Production Closure Step 2 was not started.** §11 Step 2 is `systemctl --user restart mythos-ai-executor` as `deploy` followed by `node tests/othk-live-gate.js --require-live` — a host mutation requiring a deploy shell. Access re-probed fresh this session: **no `ssh` binary, no `~/.ssh` keys, TCP/22 to 51.68.226.211 times out (exit 124)**. The sanctioned runner channel cannot substitute: it is read-only by design, runs as non-root `mythos-runner` with `NoNewPrivileges` and no sudo, and widening it would mean amending a governance-protected workflow path. **Step 1 (deploy-checkout sync) is also still un-run** and the owner explicitly withheld authorisation to deploy or modify any production target this session, so Step 2 would in any case run against a checkout behind `main`. Classifications unchanged: **REPOSITORY CLOSED · HOST NOT CLOSED · PRODUCTION NOT VERIFIED**. Next: operator executes §11 steps 1–6. Previous entries preserved below.
 
+
+## OTHK-PROD-VERIFIED — on-host live gate PASS on the production VPS (2026-08-22)
+
+### Stage
+
+Objective: execute the on-host acceptance run that OTHK-LIVE-GATE recorded
+as the sole remaining Live condition, and record its real result — without
+weakening any control and without changing application code.
+
+- **Status: OTH-KNOWLEDGE LIVE — PRODUCTION VERIFIED (boundary scope, see
+  "Scope limit" below).**
+- **Where:** production VPS `vps-4722f0a9`, as `deploy`, repository
+  `/home/deploy/projects/mythos-prod`.
+- **Baseline verified:** `HEAD == origin/main ==
+  ef91aa0a7083b9869b293a53030ce40ade4ad5a2`, branch `main`. **No sync was
+  needed** — the checkout was already at the required commit, so the
+  ordered `git reset --hard` was deliberately **not** run (see "Working
+  tree" below).
+- **Changed files:** this handover, `docs/CHANGELOG.md`,
+  `projects/status-center/data/registry.json`,
+  `MYTHOS_OS_PRODUCTION_CLOSURE_REPORT.md`. **No application code.**
+
+### The result
+
+```
+$ node tests/othk-live-gate.js --require-live
+  PASS  §A knowledge core (othk-0 delegated)                        (1/1)
+  PASS  §B retrieval (othk-1 delegated + measured eval thresholds)  (8/8)
+  PASS  §C service boundary (read allowlist only, provenance)       (7/7)
+  PASS  §D trust boundary (explicit asOf, claims never facts)       (8/8)
+  PASS  §E executor boundary (fail-closed config, READ_OPS, frozen) (16/16)
+  PASS  §F persistence — private store separation                   (5/5)
+  PASS  §G data-source policy (no silent promotion to fact status)  (7/7)
+  totals: 52 passed, 0 failed
+  VERDICT: LIVE PASS
+EXIT=0
+```
+
+Run twice (16:32 and 16:34 UTC, 2026-08-22), identical both times. The
+difference from the container's `READY — NOT LIVE` (exit 2) is solely that
+the configured private store exists and is readable here — precisely what
+§F is host-aware for. Nothing in the gate was modified.
+
+### Production store — verified first-hand, unmodified
+
+| Check | Result |
+|---|---|
+| `/home/deploy/othk-store` exists | yes |
+| ownership / mode | `drwx------ deploy:deploy` (0700) |
+| `records.jsonl`, `meta.json` | `-rw------- deploy:deploy` (0600) |
+| outside the repository tree | yes (`/home/deploy/…`, not under `projects/mythos-prod`) |
+| tracked by Git | **no** — `git ls-files \| grep othk-store` empty |
+| contents | 38 written versions / **37 live records**, 0 quarantined |
+| classified source classes | `owner-report` ×20 (no external-provider export) |
+| sha256 before gate | `851a5226bb2d4b864786a04a326981f0effc8677cabf5bb94fdf0edae905d7ea` |
+| sha256 after gate | **identical** — the read path cannot mutate production data |
+
+Permissions were **not** relaxed and no store content was created, altered
+or committed to obtain the pass.
+
+### Executor — the "stale service" was a systemd scope mismatch
+
+`mythos-ai-executor.service` is a **user** unit at
+`/home/deploy/.config/systemd/user/mythos-ai-executor.service`:
+
+- `systemctl --user is-active` → **active**; `is-enabled` → **enabled**
+- PID 1590, `node projects/mythos-ai-executor/bin/mythos-ai-executor serve`
+  from this checkout, listening `127.0.0.1:8130`, up since 13:47:45 UTC
+
+Queried in **system** scope (`systemctl status mythos-ai-executor`) it
+reports `Unit … could not be found` / `inactive` — that is the scope
+mismatch behind earlier "executor not restarted / stale" readings, not a
+dead service. HEAD was already the target commit, so **no restart was
+required and none was performed**; `sudo` was not used at any point.
+
+### Scope limit — what is and is not claimed
+
+`projects/mythos-ai-executor/lib/knowledge.js` is required **only** by
+`tests/othk-2w-executor-wiring-test.js`, `tests/othk-3-trust-test.js` and
+`tests/othk-live-gate.js`. `server.js`, `executor.js` and `core/*` contain
+no call to `openKnowledge` (verified by grep, including a check for dynamic
+`require` forms — there are none).
+
+- **Verified in production:** the knowledge **boundary** — fail-closed
+  config validation, the frozen 11-op `READ_OPS` allowlist, executor-side
+  `asOf` guards, claim/quarantine annotation, and private-store separation
+  — exercised against the **real configured store**.
+- **NOT claimed:** that the running daemon's decision loop consumes
+  knowledge. That wiring does not exist in this commit. Anyone reading
+  "OTH-KNOWLEDGE is live" should read it as *the boundary is live and
+  proven against real data*, not *the AI loop is querying it*.
+
+### Working tree — pre-existing unrelated changes, deliberately preserved
+
+The checkout was **dirty on arrival** with an unrelated
+`sites/mythosprod.xyz` hub-dashboard redesign owned by `ubuntu`
+(modified `index.html`; untracked `assets/dashboard.css`,
+`assets/dashboard.js`, `health.json`; timestamps 2026-08-22 16:29 UTC).
+Per the order's Phase-0 rule these were **not** destroyed: the
+`git reset --hard` was skipped as unnecessary (HEAD already correct), and
+this stage's commit uses explicit pathspecs so that work stays uncommitted
+and intact for its author.
+
+### Tests executed on the host (2026-08-22, as `deploy`)
+
+| Suite | Result |
+|---|---|
+| `othk-0-knowledge-core-test.js` | **89 passed, 0 failed** |
+| `othk-1-search-test.js` | **30 passed, 0 failed** |
+| `othk-2-importers-test.js` | **97 passed, 0 failed** |
+| `othk-2w-executor-wiring-test.js` | **42 passed, 0 failed** |
+| `othk-3-trust-test.js` | **63 passed, 0 failed** |
+| `mythos-governance-invariant-test.js` | **99 passed, 0 failed** |
+| `vps-final-gate-knowledge-test.js` | **22 passed, 0 failed** |
+| **subtotal** | **442 passed, 0 failed** |
+| `othk-live-gate.js --require-live` | **52 passed, 0 failed — LIVE PASS, exit 0** |
+
+### Security verification
+
+Knowledge store outside Git and untracked · store remains 0700
+deploy-owned/private · executor wiring unchanged · read-only allowlist
+intact and frozen (11 ops) · trust boundary intact · fail-closed behaviour
+intact · no Docker/sudo/governance bypass introduced (no `sudo` invoked,
+no unit file touched) · no credential committed — a tracked-file scan for
+`sk-ant-`/`ghp_`/`github_pat_`/`AKIA`/PEM blocks returns only the
+documented synthetic test vectors in `tests/` and `docs/AI_HANDOVER.md`
+§ audit notes · no `othk-store` content tracked.
+
+### Still open (not closed by this stage)
+
+- **`BLOCKER-OTHK-REAL-DATA` remains `OWNER_ACTION`.** The live store's
+  classified records are `owner-report` only; no authorized Takeout,
+  Gemini or NotebookLM export has been ingested. Track B is unchanged.
+- **Daemon consumption of the knowledge layer** (see "Scope limit") is a
+  future change, not a defect of this stage.
+- MYTHOS OS overall production closure is **not** flipped here: backup
+  timers, the Status Center monitor/deploy and the on-host drift audit are
+  outside this mission's scope and were not run.
+
+### Next stage
+
+Owner: authorized real-data exports (Track B), or a reviewed change wiring
+`openKnowledge` into the daemon's runtime path if consumption is wanted.
+
+---
+
+**Previous entry — From:** OTHK-LIVE-GATE — **CANONICAL OTH-KNOWLEDGE LIVE GATE BUILT AND GREEN: `tests/othk-live-gate.js`, verdict on this container READY — NOT LIVE (activated store lives on the VPS).** All executable evidence for core + retrieval + service read-only boundary + trust boundary + executor fail-closed boundary + persistent-store read/write separation mechanics + data-source policy is green in one canonical gate. Written before, and merged after, the parallel OTH-KNOWLEDGE LIVE ACTIVATION (PR #63, `dbb7ad9`: `config/knowledge.json` now `enabled=true`, `store_root=/home/deploy/othk-store`): the gate's §F is host-aware — on a host WITH the canonical store it opens the real store, requires it out-of-repo/readable, and proves a full read pass leaves it byte-identical → **LIVE PASS**; on any other host it proves the fail-closed disable and the separation mechanics on a gate-local out-of-repo store → READY — NOT LIVE. Targeted suites othk-0..3 + 2w all 0-fail; MOS-v2 regression gate SUCCESS, 0 new failures. **The Live condition is the on-host acceptance run: `node tests/othk-live-gate.js --require-live` on the VPS → exit 0 + "LIVE PASS".** Full entry below; previous entries (MYTHOS-OS-FINAL-CLOSURE, OTH-KNOWLEDGE LIVE ACTIVATION, VPS-ADMIN-FINAL, …) preserved.
 ## OTHK-LIVE-GATE — canonical OTH-KNOWLEDGE live gate (2026-08-21)
 
 ### Stage
