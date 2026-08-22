@@ -16,15 +16,18 @@ BEGIN;
 
 -- ── users: columns the login flow needs ─────────────────────────────────────
 ALTER TABLE users
-  ADD COLUMN password_algo        text,          -- 'argon2id'; NULL while SSO-only
+  ADD COLUMN password_algo        text,          -- KDF that produced password_hash; NULL while SSO-only
   ADD COLUMN password_changed_at  timestamptz,
   ADD COLUMN must_change_password boolean NOT NULL DEFAULT false,
   ADD COLUMN failed_attempts      integer NOT NULL DEFAULT 0,
   ADD COLUMN locked_until         timestamptz,
   ADD COLUMN mfa_secret           text,          -- TOTP, encrypted at rest by the app
   ADD COLUMN mfa_enabled          boolean NOT NULL DEFAULT false,
+  -- Both KDFs are permitted so a future move off scrypt can rehash users
+  -- lazily on next login instead of locking everyone out at cutover. The
+  -- implementation uses scrypt today; see docs/ERP_AUTH_SECURITY_DESIGN.md.
   ADD CONSTRAINT users_algo_known
-      CHECK (password_algo IS NULL OR password_algo IN ('argon2id')),
+      CHECK (password_algo IS NULL OR password_algo IN ('scrypt','argon2id')),
   -- A password hash without a recorded algorithm is unverifiable later.
   ADD CONSTRAINT users_hash_needs_algo
       CHECK ((password_hash IS NULL) = (password_algo IS NULL));

@@ -1,0 +1,18 @@
+{
+  "name": "mythos-erp-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mythos ERP API — authenticated boundary over PostgreSQL. Stage 4.",
+  "main": "server.js",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "pg": "^8.11.0"
+  },
+  "comment": [
+    "pg is the ONLY dependency and it is injected at call time (d.pg || require('pg')),",
+    "following projects/personal-intelligence. Every module here is unit-testable with a",
+    "fake client and no install. npm install has NOT been run on this host: Stage 4",
+    "forbids creating the production database, so nothing yet needs a live driver.",
+    "Password hashing uses node's built-in crypto.scrypt — see lib/password.js for why."
+  ]
+}

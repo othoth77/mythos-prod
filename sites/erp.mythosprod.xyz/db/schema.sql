@@ -45,7 +45,7 @@ CREATE TABLE users (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     email         citext NOT NULL UNIQUE,
     display_name  text   NOT NULL,
-    password_hash text,                       -- argon2id; NULL while SSO-only
+    password_hash text,                       -- self-describing KDF output; NULL while SSO-only
     is_active     boolean NOT NULL DEFAULT true,
     last_login_at timestamptz,
     created_at    timestamptz NOT NULL DEFAULT now(),

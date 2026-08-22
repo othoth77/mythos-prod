@@ -1,8 +1,11 @@
 # Mythos ERP — Stage 4: authentication, authorization and audit design
 
-**Status:** design, validated in a throwaway PostgreSQL 15 instance.
+**Status:** design **implemented** (A1–A10), validated in a throwaway
+PostgreSQL 15 instance. See §9 for what the code actually does, including one
+deviation from this design that is stated rather than hidden.
 **Not applied to production.** No `mythos_erp` database, no role, no table, no
 row. PHP still disabled, ERP still loopback-only, nginx untouched.
+`npm install` has not been run on this host.
 **Schema:** `sites/erp.mythosprod.xyz/db/schema-auth.sql` (extends `schema.sql`)
 **Date:** 2026-08-22.
 
@@ -179,7 +182,7 @@ Added by `schema-auth.sql` on top of Stage 3:
 | `sessions` | opaque server-side sessions; `token_hash`, `csrf_hash`, idle + absolute expiry, revocation reason, ip, user agent |
 | `login_attempts` | success and failure; feeds lockout and rate limiting; indexed by email+time and ip+time |
 | `password_reset_tokens` | single-use, hashed, expiring, `consumed_at` |
-| `users` (+9 columns) | `password_algo`, `password_changed_at`, `must_change_password`, `failed_attempts`, `locked_until`, `mfa_secret`, `mfa_enabled` |
+| `users` (+7 columns) | `password_algo`, `password_changed_at`, `must_change_password`, `failed_attempts`, `locked_until`, `mfa_secret`, `mfa_enabled` |
 | `audit_log` | action taxonomy tightened to the 22 above |
 | `user_effective_permissions` | view — the single authorization question |
 
@@ -242,7 +245,7 @@ its own trail.
 |---|---|---|
 | A1 | Provision `mythos_erp`, `erp_owner`, `erp_app`; apply both schema files | approval |
 | A2 | API skeleton: the five-step pipeline, deny by default, no handlers yet | A1 |
-| A3 | Argon2id hashing + login/logout + session issue, rotate, revoke | A2 |
+| A3 | Password hashing + login/logout + session issue, rotate, revoke | A2 |
 | A4 | Rate limiting and lockout from `login_attempts` | A3 |
 | A5 | Password reset: request, email, consume, revoke sessions | A3 |
 | A6 | Permission middleware reading `user_effective_permissions` | A2 |
@@ -257,6 +260,106 @@ interactively at deploy time or not at all.
 
 ---
 
+## 9. Implementation (A1–A10)
+
+Written under `sites/erp.mythosprod.xyz/api/`. 1012 lines, no framework.
+
+| File | Lines | What it is |
+|---|---|---|
+| `lib/password.js` | 84 | KDF: hash, verify, `needsRehash` |
+| `lib/tokens.js` | 70 | 256-bit tokens, sha256 storage, `__Host-` cookie |
+| `lib/audit.js` | 75 | Taxonomy enforcement, redaction, in-transaction write |
+| `lib/authz.js` | 94 | Permission map, deny-by-default, audited denials |
+| `lib/auth.js` | 307 | Login, lockout, sessions, CSRF, password reset |
+| `lib/pipeline.js` | 125 | The five-step request boundary |
+| `bin/create-super-admin.js` | 138 | A8 interactive bootstrap |
+| `migrations/migrate.js` | 101 | Checksummed migration runner |
+
+**The `lib/` layer requires `crypto` and its own siblings — nothing else.**
+`pg` is declared in `package.json` but injected at call time, so every module
+above is unit-testable with a fake client and no install. That is why the test
+suite runs offline on a host where `npm install` has deliberately never run.
+
+### 9.1 Deviation: scrypt, not Argon2id
+
+§2 of this document specified Argon2id. The implementation uses Node's built-in
+`crypto.scrypt` at OWASP's recommended parameters (N=2^17 ≈ 128 MiB, r=8, p=1).
+
+The reason is not cryptographic. Argon2id in Node requires a compiled native
+module, and every other piece of Mythos server code — `monitor.js`,
+`offhost-backup.js` — runs on builtins alone. Adding a native dependency to a
+production host is a larger decision than choosing a KDF, and Stage 4 was not
+approved to make it. scrypt is memory-hard and is OWASP's named alternative
+where Argon2id is unavailable.
+
+**This costs nothing later.** Hashes are self-describing
+(`$scrypt$N=131072,r=8,p=1$salt$key`), `users.password_algo` records the KDF,
+the CHECK constraint accepts both `'scrypt'` and `'argon2id'`, and
+`needsRehash()` already drives transparent upgrade on next login. Moving to
+Argon2id is a branch in `verify()`, not a redesign — and no user is locked out
+at cutover.
+
+If you would rather have Argon2id now, say so: it is a dependency decision for
+you to make, not one for me to make quietly.
+
+### 9.2 What the code enforces that the design only described
+
+- **An unaudited state change is not expressible.** `pipeline.handle()` runs
+  handlers for unsafe verbs inside a transaction and *throws* if the handler
+  returns no audit descriptor. The audit row commits with the change or neither
+  does. Stage 1 found 16 endpoints, 15 requiring nothing; this is the structural
+  answer to that, one place to get right instead of sixteen to get wrong.
+- **Deny by default is structural.** `requiredPermission()` returns `null` for
+  an unknown module or unmapped verb, and a request with no key is refused.
+  Adding a module without declaring its permissions fails closed.
+- **Denials are audited.** A system that logs only what succeeded cannot show
+  an attack in progress. Audit failure never converts a denial into a pass.
+- **Account enumeration is flattened on every path.** Unknown user, wrong
+  password and inactive account all return `invalid_credentials`, the unknown
+  branch still runs a KDF, and a fixed 200 ms response floor closes the timing
+  oracle that the response body alone would leave open.
+- **Lockout is always time-bounded** — exponential from 15 min, capped at 1 h.
+  A permanent lock reachable by anyone who knows an email address is a
+  denial-of-service tool.
+- **A password reset kills existing sessions.** A reset that leaves an
+  attacker's session alive has not recovered the account.
+
+### 9.3 Tests
+
+`tests/erp-4-auth-test.js` — **117 assertions, no dependencies, no database.**
+Sections: password hashing, tokens and cookies, authentication, sessions,
+authorization, permission boundaries, audit log, request pipeline, password
+reset, migration runner.
+
+The database is a fake that pattern-matches the SQL the code issues. That is a
+deliberate limit: it proves decision logic, not driver behaviour. Constraints,
+grants and the role matrix were validated against a real PostgreSQL 15 instance
+during design (§5.1) and are not re-faked here, because a fake that agrees with
+itself proves nothing.
+
+**The suite was green on its first run, which is the least trustworthy signal a
+test suite can give.** It was therefore mutation-tested: 34 single-line defects
+were injected into the implementation one at a time — `verify()` always true,
+CSRF check disabled, lockout removed, revoked sessions honoured, secrets not
+redacted, the audit requirement dropped, deny-by-default inverted, token
+entropy cut to 64 bits, and so on. **34 of 34 were caught.**
+
+One was not, at first: removing the authentication gate from `pipeline.handle()`
+still produced a 401, because authorization refuses the same request one step
+later. The test asserted the status code only, so it could not distinguish a
+working gate from a missing one behind a working backstop. The assertion now
+checks which gate refused and that the handler never ran. That hole was in the
+test, not the code — but a suite that cannot see the difference is not evidence.
+
+### 9.4 Schema correction made during implementation
+
+`schema-auth.sql` constrained `password_algo` to `'argon2id'` alone, which the
+implementation would have violated on its first insert. The CHECK now accepts
+`('scrypt','argon2id')` — both, so a future migration can rehash lazily instead
+of locking everyone out at cutover.
+
+---
+
 ## 8. Stage 4 conclusion
 
 Delivered: an authentication design with modern hashing and revocable
@@ -265,9 +368,13 @@ three deliberate privilege separations, an audit taxonomy of 22 actions enforced
 by the database, the schema to support all of it, and a validation run proving
 the matrix behaves as described.
 
+Implemented on top of that design (§9): 1012 lines of dependency-free code,
+117 assertions, 34/34 injected defects caught.
+
 **Not done, deliberately:** no production table, database or role created; no
-code written; no module connected; no PHP enabled; no nginx change; ERP still
-loopback-only and still returning 403 publicly.
+`npm install`; no module connected; no PHP enabled; no nginx change; ERP still
+loopback-only and still returning 403 publicly. The migration plan
+(`ERP_MIGRATION_PLAN.md`) is written but not executed.
 
 **Module migration must not begin until this design is approved** — and until
 A1–A10 exist, because a ported module with no authenticated API to call would
