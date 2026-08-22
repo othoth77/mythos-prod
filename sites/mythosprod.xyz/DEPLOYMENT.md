@@ -178,10 +178,47 @@ values. A fetch failure renders "Indisponible", never green.
 
 ## 7. Monitoring
 
-Two probes cover the entry point in
-`projects/status-center/monitor/probes.json`:
+Three probes cover the entry point in
+`projects/status-center/monitor/probes.json`. They are deliberately separate
+because each can fail while the others stay green:
 
 - `hub-apex` — `https://mythosprod.xyz/` expects 200. Unchanged; it stopped
   reporting DOWN because the apex is served, not because it was relaxed.
-- `hub-dashboard-health` — `https://mythosprod.xyz/health.json` expects 200
-  and a body containing `"application"`.
+  Proves the site answers over HTTPS.
+- `hub-dashboard-health` — `https://mythosprod.xyz/health.json`, 200 plus a
+  body containing `"application"`. Proves the deploy stamp is served.
+- `hub-status-endpoint` — `https://mythosprod.xyz/api/status.json`, 200 plus
+  a body containing `"checks"`. The alias points **outside** the Hub's
+  webroot into the Status Center's data directory, so it can break while the
+  Hub itself still answers 200 — the first two probes would both stay green
+  through that failure. Probing our own output is not a loop: the result
+  lands in the next snapshot.
+
+## 8. Freshness gate
+
+The Hub reads state it did not measure, which makes a *stale success* its
+most likely failure: if `mythos-status-monitor` stops, `/api/status.json`
+keeps serving its last good snapshot and every service would read green
+indefinitely. The payload warns about exactly this —
+`interval_note: "a stale generated_at means the monitor itself is down"`.
+
+`dashboard.js` therefore grades the snapshot before trusting it, mirroring
+the ladder `probeBackupHealth` already uses for the backup health record
+(fresh → healthy, a middle window → degraded with a reason, beyond → refuse),
+in minutes because the monitor timer is `OnUnitActiveSec=5min`:
+
+| Age | Tier | Behaviour |
+|---|---|---|
+| ≤ 15 min | `FRESH` | measured state rendered as-is |
+| ≤ 60 min | `STALE` | verdict capped at DEGRADED — LIVE pills read "Périmé", the services ratio is withheld, the reason is shown. Failures are still reported. |
+| > 60 min, missing, or in the future | `EXPIRED` | verdict withheld entirely; all states blanked with the reason |
+
+15 minutes is three monitor intervals, so one missed run is not an outage.
+A clock-skewed future timestamp is treated as unusable rather than as
+impossibly fresh.
+
+The rule the tiers encode: **staleness may never manufacture health, and may
+never hide a fault.** A stale DOWN is still DOWN.
+
+Covered by `tests/hub-dashboard-test.js` (50 checks), which also pins the CSP
+posture, token/class resolution and the probe registry.
