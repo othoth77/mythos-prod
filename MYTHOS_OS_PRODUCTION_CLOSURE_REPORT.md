@@ -14,6 +14,8 @@ HOST:        NOT CLOSED
 PRODUCTION:  NOT VERIFIED
 ```
 
+> **2026-08-22 amendment:** one row of this matrix has since moved on real host evidence — **OTH-KNOWLEDGE is now PRODUCTION VERIFIED (boundary scope)**: `othk-live-gate.js --require-live` returns **exit 0 / LIVE PASS (52/0)** on the VPS at `ef91aa0a…`, with the private store verified 0700/outside-Git/byte-identical across the read pass (§6.2.1). The three declarations above are **deliberately left unchanged** — the remaining closure steps (backup timers, monitor install, Status Center deployment, drift audit) were outside that mission's scope and remain un-run.
+
 **MYTHOS OS is NOT declared Production Closed.** The mission's Phases 1–5 and 7–8 require root/deploy execution on the VPS or external HTTPS verification, and this session has **no such channel** (§3.1, re-verified).
 
 **Progress since first issue — Step 0 is CLEARED (§3.5).** The runner-workspace blocker was repaired by the operator and proven by **VPS Final Gate run `32507658817` (SUCCESS, 17:20 UTC)**: checkout restored, **governance invariant 99/0 executed on the production host**, `deploy` confirmed outside the docker group, live governance key `root:mythos-gov 0640`, `mythos-gov` memberless, e2e host-refusal behaving as designed. That is real host evidence and it upgrades the **security-boundary** row of §9 to host-proven.
@@ -170,6 +172,58 @@ boundary, it cannot install a timer, restart a service, or deploy a site.
 
 ### 6.2 Host
 - **The production executor has NOT been restarted** (deploy-only action): the running service still predates `7fffa2f`, so the layer is effectively not yet live in production. `--require-live` has NOT been run on the host. **"OTH Knowledge active in production" is NOT claimed.**
+
+#### 6.2.1 AMENDMENT — 2026-08-22: `--require-live` HAS now been run on the host, and it PASSES
+
+The statement above is superseded for OTH-KNOWLEDGE. Executed directly on
+the production VPS as `deploy` on `vps-4722f0a9`, repository at
+`HEAD == origin/main == ef91aa0a7083b9869b293a53030ce40ade4ad5a2`:
+
+```
+$ node tests/othk-live-gate.js --require-live
+  totals: 52 passed, 0 failed
+  VERDICT: LIVE PASS
+EXIT=0
+```
+
+Run twice (16:32 and 16:34 UTC), identical. Supporting first-hand evidence:
+
+- **Store:** `/home/deploy/othk-store` `drwx------ deploy:deploy` (0700),
+  `records.jsonl`/`meta.json` 0600, **outside the repository**, **not
+  tracked by Git**, 38 written versions / **37 live records**, 0
+  quarantined. sha256 `851a5226…d7ea` **byte-identical immediately before
+  and after** the gate run — the read path cannot mutate production data.
+- **Executor:** `mythos-ai-executor.service` is a **`systemctl --user`**
+  unit, **active + enabled**, PID 1590, serving from this checkout on
+  `127.0.0.1:8130`. §6.2's "has NOT been restarted / still predates" reading
+  came from querying **system** scope, where the unit correctly reports
+  `not-found`. It is a scope mismatch, not a dead service. HEAD was already
+  the target commit, so no restart was required and none was performed.
+- **On-host regression:** othk-0 **89/0** · othk-1 **30/0** · othk-2
+  **97/0** · othk-2w **42/0** · othk-3 **63/0** · governance invariant
+  **99/0** · vps-final-gate-knowledge **22/0** = **442 passed, 0 failed**.
+
+**Scope limit — what this amendment does and does not claim.**
+`projects/mythos-ai-executor/lib/knowledge.js` is required only by the
+gate and the othk tests; `server.js`, `executor.js` and `core/*` contain no
+call to `openKnowledge`. Production-verified here is the knowledge
+**boundary** — fail-closed config validation, the frozen 11-op `READ_OPS`
+allowlist, executor-side `asOf` guards, claim/quarantine annotation and
+private-store separation — exercised against the **real** store.
+**"OTH Knowledge is consumed by the running daemon's decision loop" is
+still NOT claimed.**
+
+Nothing was weakened to obtain this: no `sudo`, no unit-file change, no
+permission relaxation, no application-code change, no store content
+created or committed. Track B real data (`BLOCKER-OTHK-REAL-DATA`) remains
+**OWNER_ACTION** — the store's classified records are `owner-report` only.
+
+**Effect on §12:** the OTH-KNOWLEDGE row of the closure matrix moves to
+**PRODUCTION VERIFIED (boundary scope)**. The document's overall
+declaration is **unchanged** — backup timers, the Status Center
+monitor/deployment and the on-host drift audit were outside this mission's
+scope and were not run, so `HOST: NOT CLOSED` / `PRODUCTION: NOT VERIFIED`
+still stand for MYTHOS OS as a whole.
 - **What the host DID prove today** (runner smoke job, both attempts, PASS): runner is non-root with no docker/sudo/mythos-gov membership and no passwordless sudo; `governance.key` unreadable, approval store unlistable, `docker.sock` unreachable. The deny-path/security boundary shows **no regression** at the identity this session can exercise.
 
 ## 7. Production sync status

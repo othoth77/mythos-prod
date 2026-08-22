@@ -58,5 +58,21 @@ console.log('§ coverage of the audited surfaces');
   check(pair[0] + ' covered', pair[1].test(src));
 });
 
+console.log('\n\u00a7 timer detection is deterministic (B3)');
+// `systemctl list-timers | grep -q "$t"` in a loop reported installed timers
+// as missing in ~23% of runs on the production host (11 false findings in 48
+// checks): grep -q exits at the first match, SIGPIPEs systemctl, and a later
+// invocation returns truncated output. Per-unit queries cannot do that.
+// Match executable lines only: the fix's own comment names the old pattern.
+var codeOnly = src.split('\n').filter(function (l) { return !/^\s*#/.test(l); }).join('\n');
+check('does not grep a shared list-timers listing',
+  !/list-timers[^\n]*\|\s*grep/.test(codeOnly));
+check('queries each timer directly with is-enabled',
+  /systemctl is-enabled "\$t"/.test(src));
+check('queries each timer directly with is-active',
+  /systemctl is-active "\$t"/.test(src));
+check('distinguishes installed-but-inactive from not-installed',
+  /installed but not active/.test(src) && /not installed/.test(src));
+
 console.log('\nproduction-sync-audit: ' + passed + ' passed, ' + failed + ' failed');
 process.exitCode = failed ? 1 : 0;
