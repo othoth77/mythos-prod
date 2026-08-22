@@ -1,7 +1,10 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-08-22 UTC
-**From:** BACKUP-DUMP-SUPERSEDED — **the dump step delivered under BACKUP-DUMP-STEP is withdrawn; PR #75 (`ef91aa0`) is the authoritative capture mechanism.** While this branch carried an unmerged `mythos-db-dump.sh` + `mythos-db-dump.service`, PR #75 merged **`ops/backup/mythos-backup-capture.sh` + `mythos-backup-capture.service`** solving the same root cause — and solving it further: it produces **both** inputs (the in-container `pg_dump -Fc` and the IDAUTO-STORAGE-OPS media set `manifest.json` + `checksums.sha256` + `media/aa/bb/<sha256>`), enforces the load-bearing capture ORDER (database metadata snapshot → dump → media copy, the order `offhost-backup.js` refuses to see reversed), constrains every path it creates or rotates to an allowlist of roots so a rewritten config cannot become a root-owned `rm -rf`, emits manifest values as JSON literals rather than raw interpolation, and installs root-owned **outside** the repository (`/usr/local/sbin`, 0700) so root never executes from the deploy-writable checkout. That last property is stronger than the in-repo `ExecStart` this branch used. Keeping both would create the second backup mechanism O-BACKUP-1 and `OFF_HOST_BACKUP_GATE.md` §0 forbid, so **this branch withdraws its own**: `ops/backup/mythos-db-dump.sh`, `ops/backup/db-sources.json`, `ops/backup/systemd/mythos-db-dump.service` and `tests/backup-db-dump-test.js` are deleted, and `mythos-backup-run.sh`, `install.sh`, `README.md` and `mythos-backup.service` are restored byte-identical to `origin/main` (`git diff` against main over `ops/backup/` and `tests/` is empty). The multi-run / per-database staging mode goes with it: PR #75 captures a single database into `MYTHOS_BACKUP_DB_DIR`, so the scope question ("three databases or one") is answered by the merged mechanism, not by this branch. **The root-cause analysis stands and is unchanged** — `discoverDb()` requires exactly one dump file and nothing produced one; that finding is what both implementations address. This branch is now **documentation only**: the STC2-AR-GATE-CLOSURE Status Center evidence. Previous entries preserved below.
+**From:** OTHK-PROD-VERIFIED — **THE ON-HOST ACCEPTANCE RUN IS DONE AND GREEN: `node tests/othk-live-gate.js --require-live` on the production VPS returns exit 0 and `VERDICT: LIVE PASS`, 52 passed / 0 failed.** Executed as `deploy` on `vps-4722f0a9` with the repository at `ef91aa0a7083b9869b293a53030ce40ade4ad5a2` (== `origin/main`). This is the single step OTHK-LIVE-GATE recorded as remaining, and it closes it — the container verdict `READY — NOT LIVE` (exit 2) differed only because the configured private store exists solely on this host. Store verified first-hand: `/home/deploy/othk-store` `drwx------ deploy:deploy`, files 0600, outside Git, untracked, 37 live records, **sha256 byte-identical before and after the gate** — the read path cannot mutate production data. Executor resolved: `mythos-ai-executor.service` is a **user** unit (`systemctl --user`), **active + enabled**, PID 1590 from this checkout — prior notes queried system scope, where it reports `not-found`; that scope mismatch, not a dead service, was the apparent staleness. No restart needed or performed. On-host regression all green: othk-0 **89/0** · othk-1 **30/0** · othk-2 **97/0** · othk-2w **42/0** · othk-3 **63/0** · governance **99/0** · vps-final-gate-knowledge **22/0** (**442/0**), plus live gate **52/0**. **Honest scope limit: what is production-verified is the knowledge BOUNDARY, not daemon consumption** — `lib/knowledge.js` is required only by the gate/tests; `server.js`/`executor.js`/`core/*` never call `openKnowledge`. **No security boundary was weakened and no code changed** — documentation/evidence only. `BLOCKER-OTHK-REAL-DATA` remains genuinely OWNER_ACTION (store classified records are `owner-report` only; no authorized Takeout/Gemini/NotebookLM export ingested). Full entry below; previous entries preserved.
+
+---
+**Previous entry — From:** BACKUP-DUMP-SUPERSEDED — **the dump step delivered under BACKUP-DUMP-STEP is withdrawn; PR #75 (`ef91aa0`) is the authoritative capture mechanism.** While this branch carried an unmerged `mythos-db-dump.sh` + `mythos-db-dump.service`, PR #75 merged **`ops/backup/mythos-backup-capture.sh` + `mythos-backup-capture.service`** solving the same root cause — and solving it further: it produces **both** inputs (the in-container `pg_dump -Fc` and the IDAUTO-STORAGE-OPS media set `manifest.json` + `checksums.sha256` + `media/aa/bb/<sha256>`), enforces the load-bearing capture ORDER (database metadata snapshot → dump → media copy, the order `offhost-backup.js` refuses to see reversed), constrains every path it creates or rotates to an allowlist of roots so a rewritten config cannot become a root-owned `rm -rf`, emits manifest values as JSON literals rather than raw interpolation, and installs root-owned **outside** the repository (`/usr/local/sbin`, 0700) so root never executes from the deploy-writable checkout. That last property is stronger than the in-repo `ExecStart` this branch used. Keeping both would create the second backup mechanism O-BACKUP-1 and `OFF_HOST_BACKUP_GATE.md` §0 forbid, so **this branch withdraws its own**: `ops/backup/mythos-db-dump.sh`, `ops/backup/db-sources.json`, `ops/backup/systemd/mythos-db-dump.service` and `tests/backup-db-dump-test.js` are deleted, and `mythos-backup-run.sh`, `install.sh`, `README.md` and `mythos-backup.service` are restored byte-identical to `origin/main` (`git diff` against main over `ops/backup/` and `tests/` is empty). The multi-run / per-database staging mode goes with it: PR #75 captures a single database into `MYTHOS_BACKUP_DB_DIR`, so the scope question ("three databases or one") is answered by the merged mechanism, not by this branch. **The root-cause analysis stands and is unchanged** — `discoverDb()` requires exactly one dump file and nothing produced one; that finding is what both implementations address. This branch is now **documentation only**: the STC2-AR-GATE-CLOSURE Status Center evidence. Previous entries preserved below.
 
 ---
 **Previous entry — From:** BACKUP-DUMP-STEP — **the off-host backup pipeline finally has the dump producer it never had; `mythos-backup.service` failed for a structural reason, not a configuration error.** Root cause: `discoverDb()` (`projects/infrastructure/ops/offhost-backup.js`) requires **exactly one** dump file in the database directory, and **nothing in this repository ever produced one** — `docs/OFF_HOST_BACKUP_GATE.md` §0 states the tool *carries* dumps rather than creating them, and `backup-operations-orchestrator.js` "never executes a shell command". A correctly created, correctly owned, empty dump directory was therefore guaranteed to fail; so would two days of dumps, or the three databases of gate §1. Delivered **`ops/backup/mythos-db-dump.sh` + `mythos-db-dump.service`**: the §4-D dump step as its own oneshot that `mythos-backup.service` `Requires=`/`After=`. **Privilege split (owner-chosen):** the dump unit runs as **root** because `docker exec` is required and `deploy` is deliberately not in the docker group; `mythos-backup.service` stays `User=deploy` and gains only read access — `deploy` never receives docker. Credentials are dereferenced **inside** each container (`$POSTGRES_USER`, `$MYSQL_ROOT_PASSWORD`), never on a command line, never in a host shell variable, never in this repository. Sources are declared in `ops/backup/db-sources.json` (no credentials) and re-verified per gate §C before every dump — container running, engine major, table count; a mismatch **stops the run**. Each artefact is structurally validated (`pg_restore --list` parses; `mysqldump` completion marker present), C1 recorded at the run root. Layout is **one directory per database per run**, which is what keeps the one-file rule satisfiable for three databases and successive daily runs; `mythos-backup-run.sh` gained multi-run mode (`MYTHOS_BACKUP_DB_ROOT` → `latest-run` → stage each database under `$PREFIX/<id>`), the legacy single-database layout unchanged and still tested. Nothing deletes; no force-style flags; no second mechanism. **Still blocked, deliberately not worked around:** the media `manifest.json` + `checksums.sha256` pair has no producer here, so a database without `MYTHOS_BACKUP_MEDIA_DIR_<ID>` **fails closed naming the variable** rather than staging an invented or empty media set; `coolify` and `darhijama_prod` have no media store at all and need an owner decision; the R2 credential and the recurring order remain **OWNER-GATE-B1/B2/B3**. Tests: **backup-db-dump 40/0 (new, offline via a docker shim)** · backup-scheduler 48/0 · inf-backup-auto-0 245/0 · ida-3f-offhost 35/0 · governance 99/0 · unattended 53/0 · stc-2 54/0 · production-sync-audit 20/0; no existing test modified. **NOT EXECUTED AGAINST PRODUCTION** — this session has no VPS path (no ssh client, no key material, TCP/22 timeout), so the dump step is offline-tested only and no backup has been produced. Previous entries preserved below.
@@ -89,6 +92,153 @@ Expect the dump to succeed and the subsequent `stage` to stop on the
 media pair — that is the next real blocker and it needs the owner's
 decision on how a media-less database is represented.
 
+
+## OTHK-PROD-VERIFIED — on-host live gate PASS on the production VPS (2026-08-22)
+
+### Stage
+
+Objective: execute the on-host acceptance run that OTHK-LIVE-GATE recorded
+as the sole remaining Live condition, and record its real result — without
+weakening any control and without changing application code.
+
+- **Status: OTH-KNOWLEDGE LIVE — PRODUCTION VERIFIED (boundary scope, see
+  "Scope limit" below).**
+- **Where:** production VPS `vps-4722f0a9`, as `deploy`, repository
+  `/home/deploy/projects/mythos-prod`.
+- **Baseline verified:** `HEAD == origin/main ==
+  ef91aa0a7083b9869b293a53030ce40ade4ad5a2`, branch `main`. **No sync was
+  needed** — the checkout was already at the required commit, so the
+  ordered `git reset --hard` was deliberately **not** run (see "Working
+  tree" below).
+- **Changed files:** this handover, `docs/CHANGELOG.md`,
+  `projects/status-center/data/registry.json`,
+  `MYTHOS_OS_PRODUCTION_CLOSURE_REPORT.md`. **No application code.**
+
+### The result
+
+```
+$ node tests/othk-live-gate.js --require-live
+  PASS  §A knowledge core (othk-0 delegated)                        (1/1)
+  PASS  §B retrieval (othk-1 delegated + measured eval thresholds)  (8/8)
+  PASS  §C service boundary (read allowlist only, provenance)       (7/7)
+  PASS  §D trust boundary (explicit asOf, claims never facts)       (8/8)
+  PASS  §E executor boundary (fail-closed config, READ_OPS, frozen) (16/16)
+  PASS  §F persistence — private store separation                   (5/5)
+  PASS  §G data-source policy (no silent promotion to fact status)  (7/7)
+  totals: 52 passed, 0 failed
+  VERDICT: LIVE PASS
+EXIT=0
+```
+
+Run twice (16:32 and 16:34 UTC, 2026-08-22), identical both times. The
+difference from the container's `READY — NOT LIVE` (exit 2) is solely that
+the configured private store exists and is readable here — precisely what
+§F is host-aware for. Nothing in the gate was modified.
+
+### Production store — verified first-hand, unmodified
+
+| Check | Result |
+|---|---|
+| `/home/deploy/othk-store` exists | yes |
+| ownership / mode | `drwx------ deploy:deploy` (0700) |
+| `records.jsonl`, `meta.json` | `-rw------- deploy:deploy` (0600) |
+| outside the repository tree | yes (`/home/deploy/…`, not under `projects/mythos-prod`) |
+| tracked by Git | **no** — `git ls-files \| grep othk-store` empty |
+| contents | 38 written versions / **37 live records**, 0 quarantined |
+| classified source classes | `owner-report` ×20 (no external-provider export) |
+| sha256 before gate | `851a5226bb2d4b864786a04a326981f0effc8677cabf5bb94fdf0edae905d7ea` |
+| sha256 after gate | **identical** — the read path cannot mutate production data |
+
+Permissions were **not** relaxed and no store content was created, altered
+or committed to obtain the pass.
+
+### Executor — the "stale service" was a systemd scope mismatch
+
+`mythos-ai-executor.service` is a **user** unit at
+`/home/deploy/.config/systemd/user/mythos-ai-executor.service`:
+
+- `systemctl --user is-active` → **active**; `is-enabled` → **enabled**
+- PID 1590, `node projects/mythos-ai-executor/bin/mythos-ai-executor serve`
+  from this checkout, listening `127.0.0.1:8130`, up since 13:47:45 UTC
+
+Queried in **system** scope (`systemctl status mythos-ai-executor`) it
+reports `Unit … could not be found` / `inactive` — that is the scope
+mismatch behind earlier "executor not restarted / stale" readings, not a
+dead service. HEAD was already the target commit, so **no restart was
+required and none was performed**; `sudo` was not used at any point.
+
+### Scope limit — what is and is not claimed
+
+`projects/mythos-ai-executor/lib/knowledge.js` is required **only** by
+`tests/othk-2w-executor-wiring-test.js`, `tests/othk-3-trust-test.js` and
+`tests/othk-live-gate.js`. `server.js`, `executor.js` and `core/*` contain
+no call to `openKnowledge` (verified by grep, including a check for dynamic
+`require` forms — there are none).
+
+- **Verified in production:** the knowledge **boundary** — fail-closed
+  config validation, the frozen 11-op `READ_OPS` allowlist, executor-side
+  `asOf` guards, claim/quarantine annotation, and private-store separation
+  — exercised against the **real configured store**.
+- **NOT claimed:** that the running daemon's decision loop consumes
+  knowledge. That wiring does not exist in this commit. Anyone reading
+  "OTH-KNOWLEDGE is live" should read it as *the boundary is live and
+  proven against real data*, not *the AI loop is querying it*.
+
+### Working tree — pre-existing unrelated changes, deliberately preserved
+
+The checkout was **dirty on arrival** with an unrelated
+`sites/mythosprod.xyz` hub-dashboard redesign owned by `ubuntu`
+(modified `index.html`; untracked `assets/dashboard.css`,
+`assets/dashboard.js`, `health.json`; timestamps 2026-08-22 16:29 UTC).
+Per the order's Phase-0 rule these were **not** destroyed: the
+`git reset --hard` was skipped as unnecessary (HEAD already correct), and
+this stage's commit uses explicit pathspecs so that work stays uncommitted
+and intact for its author.
+
+### Tests executed on the host (2026-08-22, as `deploy`)
+
+| Suite | Result |
+|---|---|
+| `othk-0-knowledge-core-test.js` | **89 passed, 0 failed** |
+| `othk-1-search-test.js` | **30 passed, 0 failed** |
+| `othk-2-importers-test.js` | **97 passed, 0 failed** |
+| `othk-2w-executor-wiring-test.js` | **42 passed, 0 failed** |
+| `othk-3-trust-test.js` | **63 passed, 0 failed** |
+| `mythos-governance-invariant-test.js` | **99 passed, 0 failed** |
+| `vps-final-gate-knowledge-test.js` | **22 passed, 0 failed** |
+| **subtotal** | **442 passed, 0 failed** |
+| `othk-live-gate.js --require-live` | **52 passed, 0 failed — LIVE PASS, exit 0** |
+
+### Security verification
+
+Knowledge store outside Git and untracked · store remains 0700
+deploy-owned/private · executor wiring unchanged · read-only allowlist
+intact and frozen (11 ops) · trust boundary intact · fail-closed behaviour
+intact · no Docker/sudo/governance bypass introduced (no `sudo` invoked,
+no unit file touched) · no credential committed — a tracked-file scan for
+`sk-ant-`/`ghp_`/`github_pat_`/`AKIA`/PEM blocks returns only the
+documented synthetic test vectors in `tests/` and `docs/AI_HANDOVER.md`
+§ audit notes · no `othk-store` content tracked.
+
+### Still open (not closed by this stage)
+
+- **`BLOCKER-OTHK-REAL-DATA` remains `OWNER_ACTION`.** The live store's
+  classified records are `owner-report` only; no authorized Takeout,
+  Gemini or NotebookLM export has been ingested. Track B is unchanged.
+- **Daemon consumption of the knowledge layer** (see "Scope limit") is a
+  future change, not a defect of this stage.
+- MYTHOS OS overall production closure is **not** flipped here: backup
+  timers, the Status Center monitor/deploy and the on-host drift audit are
+  outside this mission's scope and were not run.
+
+### Next stage
+
+Owner: authorized real-data exports (Track B), or a reviewed change wiring
+`openKnowledge` into the daemon's runtime path if consumption is wanted.
+
+---
+
+**Previous entry — From:** OTHK-LIVE-GATE — **CANONICAL OTH-KNOWLEDGE LIVE GATE BUILT AND GREEN: `tests/othk-live-gate.js`, verdict on this container READY — NOT LIVE (activated store lives on the VPS).** All executable evidence for core + retrieval + service read-only boundary + trust boundary + executor fail-closed boundary + persistent-store read/write separation mechanics + data-source policy is green in one canonical gate. Written before, and merged after, the parallel OTH-KNOWLEDGE LIVE ACTIVATION (PR #63, `dbb7ad9`: `config/knowledge.json` now `enabled=true`, `store_root=/home/deploy/othk-store`): the gate's §F is host-aware — on a host WITH the canonical store it opens the real store, requires it out-of-repo/readable, and proves a full read pass leaves it byte-identical → **LIVE PASS**; on any other host it proves the fail-closed disable and the separation mechanics on a gate-local out-of-repo store → READY — NOT LIVE. Targeted suites othk-0..3 + 2w all 0-fail; MOS-v2 regression gate SUCCESS, 0 new failures. **The Live condition is the on-host acceptance run: `node tests/othk-live-gate.js --require-live` on the VPS → exit 0 + "LIVE PASS".** Full entry below; previous entries (MYTHOS-OS-FINAL-CLOSURE, OTH-KNOWLEDGE LIVE ACTIVATION, VPS-ADMIN-FINAL, …) preserved.
 ## OTHK-LIVE-GATE — canonical OTH-KNOWLEDGE live gate (2026-08-21)
 
 ### Stage
