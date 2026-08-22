@@ -1,7 +1,7 @@
 {
   "registry_version": "1.0.0",
-  "curated_at": "2026-08-20",
-  "curation_note": "Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
+  "curated_at": "2026-08-22",
+  "curation_note": "Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
   "source_hierarchy": [
     {
       "source": "Current GitHub code (othoth77/mythos-prod main)",
@@ -25,6 +25,13 @@
     }
   ],
   "evidence": [
+    {
+      "id": "EV-OTHK-PROD-VERIFIED",
+      "type": "vps",
+      "reference": "on-host OTH-KNOWLEDGE live gate as deploy@vps-4722f0a9, 2026-08-22 16:32 + 16:34 UTC",
+      "date": "2026-08-22",
+      "note": "LIVE PASS. Repository at HEAD == origin/main == ef91aa0a7083b9869b293a53030ce40ade4ad5a2, branch main. node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed (§A 1/1 · §B 8/8 · §C 7/7 · §D 8/8 · §E 16/16 · §F 5/5 · §G 7/7), run twice with identical output. Store verified first-hand: /home/deploy/othk-store drwx------ deploy:deploy, records.jsonl + meta.json 0600, outside the repository, NOT tracked by Git, 38 written versions / 37 live records, 0 quarantined; sha256 851a5226bb2d4b864786a04a326981f0effc8677cabf5bb94fdf0edae905d7ea byte-identical immediately before and after the gate run, proving the read path cannot mutate production data. Executor mythos-ai-executor.service is a USER unit (systemctl --user): active + enabled, PID 1590, serving from this checkout on 127.0.0.1:8130 — the prior \"stale/not restarted\" readings were a system-vs-user systemd scope mismatch, not a dead service; no restart was needed (HEAD already correct) and none was performed. On-host regression: othk-0 89/0 · othk-1 30/0 · othk-2 97/0 · othk-2w 42/0 · othk-3 63/0 · governance 99/0 · vps-final-gate-knowledge 22/0 = 442 passed / 0 failed. SCOPE LIMIT: what is production-verified is the knowledge BOUNDARY (fail-closed config, frozen 11-op READ_OPS allowlist, asOf guards, private-store separation) against the real store — lib/knowledge.js is required only by the gate/tests; server.js/executor.js/core/* never call openKnowledge, so daemon consumption of knowledge is NOT claimed. No security boundary weakened, no sudo used, no application code changed, no store content created or committed."
+    },
     {
       "id": "EV-MAIN-HEAD",
       "type": "commit",
@@ -282,7 +289,7 @@
       "type": "document",
       "reference": "docs/PRIVATE_STORE_ARCHITECTURE.md",
       "date": "2026-08-19",
-      "note": "Canonical production store /home/deploy/othk-store/ on 51.68.226.211 — provisioning NOT performed"
+      "note": "Canonical production store /home/deploy/othk-store — PROVISIONED AND VERIFIED ON-HOST 2026-08-22 (0700 deploy-owned, files 0600, outside Git, untracked, 37 live records; supersedes the 2026-08-19 \"provisioning NOT performed\" state). See EV-OTHK-PROD-VERIFIED."
     },
     {
       "id": "EV-K2-DISCOVERY",
@@ -797,16 +804,16 @@
       "executive": true,
       "purpose": "Provider-agnostic knowledge operating layer: model, store, provenance, conflicts, hybrid search, trust model (confidence never truth), read-only executor wiring.",
       "status": "OWNER_ACTION",
-      "maturity": "TESTED",
+      "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod + othoth77/oth-knowledge",
-      "last_change": "2026-08-20 (OTH-K3 merged, PR #45 → b6e52d5)",
-      "blocker": "Everything repository-executable is finished. Live activation needs: private store provisioned, config flipped, owner-authorized real-data exports, VPS backup round trip.",
-      "next_action": "Operator provisions /home/deploy/othk-store (umask 077), sets store_root + enabled in config/knowledge.json; owner supplies authorized exports.",
-      "headline": "Track A repository-COMPLETE (K1, K2, K2-W, K3; security audit F1–F15 all fixed; Opus APPROVE, Haiku CONFIRMED). Track B fixture-COMPLETE, real data OWNER-BLOCKED. Executor wiring ships disabled and fail-closed. Repository completion is NOT live activation.",
+      "last_change": "2026-08-22 (on-host LIVE PASS at ef91aa0a7083b9869b293a53030ce40ade4ad5a2; private store provisioned + verified)",
+      "blocker": "Track A is production-verified on the host. The ONLY remaining owner item is Track B: no authorized Takeout/Gemini/NotebookLM export has been ingested (live store carries owner-report records only). Separately, daemon consumption of the knowledge layer is not wired in this commit — a future reviewed change, not a defect.",
+      "next_action": "Owner supplies authorized real-data exports per docs/OTH_TRACK_B_READINESS.md §3. Store provisioning and config activation are DONE and verified on-host.",
+      "headline": "Track A PRODUCTION-VERIFIED on the VPS: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed as deploy at ef91aa0a7083b9869b293a53030ce40ade4ad5a2, store 0700/outside-Git/byte-identical across the read pass, on-host regression 442/0. Project status stays OWNER_ACTION only because Track B real data remains owner-blocked. Verified scope is the knowledge BOUNDARY, not daemon consumption (server/executor/core never call openKnowledge).",
       "dimensions": {
         "repository": {
           "status": "DONE",
-          "note": "othk suites 89+30+97+40+63 / 0"
+          "note": "othk suites 89+30+97+42+63 / 0 (re-run on the production host 2026-08-22)"
         },
         "fixtures": {
           "status": "DONE",
@@ -814,22 +821,27 @@
         },
         "real_data": {
           "status": "OWNER_ACTION",
-          "note": "no authorized export exists yet"
+          "note": "still no authorized export ingested — live store holds owner-report records only"
         },
         "private_store": {
-          "status": "OWNER_ACTION",
-          "note": "location decided (/home/deploy/othk-store), not provisioned"
+          "status": "DONE",
+          "note": "/home/deploy/othk-store provisioned and verified on-host 2026-08-22: 0700 deploy-owned, files 0600, outside Git, untracked, 37 live records"
         },
         "backup_restore": {
           "status": "READY",
           "note": "ops scripts round-trip-verified locally; live run needs VPS channel"
         },
         "deployment": {
-          "status": "OWNER_ACTION",
-          "note": "ops/deploy-vps.sh ready; operator executes"
+          "status": "DONE",
+          "note": "production checkout at ef91aa0a7083b9869b293a53030ce40ade4ad5a2 == origin/main; mythos-ai-executor user unit active+enabled from this checkout"
+        },
+        "production_verification": {
+          "status": "DONE",
+          "note": "node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed on-host 2026-08-22, run twice identical; store byte-identical across the read pass"
         }
       },
       "evidence": [
+        "EV-OTHK-PROD-VERIFIED",
         "EV-PR-45",
         "EV-OTHK3-HEAD",
         "EV-OTHK-TESTS",
@@ -1683,16 +1695,26 @@
         },
         {
           "id": "STORE-PROVISION",
-          "status": "OWNER_ACTION",
-          "what": "Provision /home/deploy/othk-store; flip config",
+          "status": "DONE",
+          "what": "Provision /home/deploy/othk-store; flip config — DONE and verified on-host 2026-08-22",
           "evidence": [
-            "EV-PRIVATE-STORE"
+            "EV-PRIVATE-STORE",
+            "EV-OTHK-PROD-VERIFIED"
           ]
         },
         {
           "id": "LIVE-DEPLOY-BACKUP",
           "status": "OWNER_ACTION",
           "what": "ops/deploy-vps.sh + live backup round trip over the verified owner channel"
+        },
+        {
+          "id": "LIVE-GATE-ONHOST",
+          "status": "DONE",
+          "what": "On-host acceptance run of the canonical live gate on the production VPS",
+          "tests": "othk-live-gate --require-live 52/0 (LIVE PASS, exit 0); on-host regression 442/0",
+          "evidence": [
+            "EV-OTHK-PROD-VERIFIED"
+          ]
         }
       ]
     },
@@ -2457,16 +2479,17 @@
       "type": "infrastructure",
       "project": "PROJECT-OTH-KNOWLEDGE",
       "priority": "P0",
-      "status": "OWNER_ACTION",
+      "status": "DONE",
       "owner": "Operator",
-      "impact": "Knowledge layer stays disabled (fail-closed, proven by othk-2w); no live knowledge for the executor. Now the FIRST open live gate after VPS-GATE + DOCKER-FIX went green.",
+      "impact": "RESOLVED. Store provisioned and verified on-host; knowledge layer opens against the real store and the live gate returns LIVE PASS.",
       "required_input": "Ratified store path (decided: /home/deploy/othk-store) — provisioning is owner-only by architecture; no AI session performs it.",
       "unblock": "umask 077; mkdir -p /home/deploy/othk-store; set store_root + enabled in projects/mythos-ai-executor/config/knowledge.json (PRIVATE_STORE_ARCHITECTURE.md §10).",
       "created": "2026-08-19",
-      "last_checked": "2026-08-20",
-      "note_verified": "On-host 2026-08-20 (owner-machine SSH as deploy): /home/deploy/othk-store ABSENT; projects/mythos-ai-executor/config/knowledge.json present and fail-closed (enabled=false, store_root=null).",
+      "last_checked": "2026-08-22",
+      "note_verified": "On-host 2026-08-22 as deploy on vps-4722f0a9: /home/deploy/othk-store PRESENT, drwx------ deploy:deploy, files 0600, outside Git, untracked, 37 live records; projects/mythos-ai-executor/config/knowledge.json enabled=true, store_root=/home/deploy/othk-store; node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed.",
       "evidence": [
-        "EV-PRIVATE-STORE"
+        "EV-PRIVATE-STORE",
+        "EV-OTHK-PROD-VERIFIED"
       ]
     },
     {
@@ -2481,11 +2504,12 @@
       "required_input": "Owner-produced exports (Takeout, Gemini, NotebookLM) on the machine that holds them; Contacts content needs an explicit policy reversal (MPI D1).",
       "unblock": "Follow docs/OTH_TRACK_B_READINESS.md §3 per source.",
       "created": "2026-08-19",
-      "last_checked": "2026-08-20",
+      "last_checked": "2026-08-22",
       "evidence": [
         "EV-TRACKB",
         "EV-K2-DISCOVERY"
-      ]
+      ],
+      "note_verified": "Re-checked on-host 2026-08-22: the live store's classified records are source_class \"owner-report\" only — no authorized Takeout/Gemini/NotebookLM export has been ingested. Still genuinely OWNER_ACTION."
     },
     {
       "id": "BLOCKER-MOS-CONSOLE-DEPLOY",
@@ -2663,12 +2687,12 @@
     },
     {
       "id": "ACTION-PRIVATE-STORE",
-      "status": "OWNER_ACTION",
+      "status": "DONE",
       "what": "Provision the OTH Knowledge private store",
       "why": "Track A is repository-complete; the store is the first activation step.",
       "impact": "Enables live knowledge (fail-closed wiring already proven).",
       "required_input": "Operator session on the VPS.",
-      "expected_result": "/home/deploy/othk-store exists (0700); config/knowledge.json store_root set, enabled true.",
+      "expected_result": "DONE 2026-08-22: /home/deploy/othk-store exists (0700 deploy-owned, files 0600); config/knowledge.json enabled=true with store_root=/home/deploy/othk-store; on-host live gate returns LIVE PASS (exit 0, 52/0).",
       "procedure": "docs/PRIVATE_STORE_ARCHITECTURE.md §10."
     },
     {
