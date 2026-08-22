@@ -1,0 +1,21 @@
+[Unit]
+Description=Mythos backup capture (root-side database dump + media set)
+Documentation=file:/home/deploy/projects/mythos-prod/ops/backup/README.md
+After=docker.service
+Requires=docker.service
+Before=mythos-backup.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/mythos-backup-capture
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+RestrictRealtime=yes
+LockPersonality=yes
+ReadWritePaths=-/var/backups/mythos -/home/deploy/mythos-backups

@@ -41,6 +41,15 @@ function redact(s) {
   ).slice(0, 400);
 }
 
+// Threshold defaulting. `x || dflt` silently rewrites a configured 0 into
+// the default, because 0 is falsy — so `disk_warn_pct: 0` ("warn at any
+// usage") became 85 and a 73%-full disk reported LIVE. Every threshold
+// below is a number where 0 is a legitimate, meaningful setting, so the
+// default may only apply when the value is genuinely absent.
+function num(v, dflt) {
+  return (typeof v === 'number' && isFinite(v)) ? v : dflt;
+}
+
 // ── probe runners ──────────────────────────────────────────────────
 function probeHttps(p, defaults) {
   return new Promise(function (resolve) {
@@ -69,17 +78,30 @@ function probeHttps(p, defaults) {
         var body = Buffer.concat(chunks.map(Buffer.from)).toString('utf8').slice(0, 4096);
         var expected = (p.expect_status || [200]).indexOf(res.statusCode) >= 0;
         var bodyOk = !p.expect_body_substring || body.indexOf(p.expect_body_substring) >= 0;
+        // A status code alone cannot prove an API is alive. Hosts with an
+        // SPA/catch-all fallback answer EVERY unmatched path with 200 and the
+        // site's index.html — ssangyong.autos does exactly this, so a dead
+        // catalog API still returns 200 text/html on /api/health and any
+        // nonsense path. Asserting the media type makes that fallback fail
+        // the probe instead of passing it.
+        var ctype = String(res.headers['content-type'] || '');
+        var ctypeOk = !p.expect_content_type ||
+          ctype.toLowerCase().indexOf(String(p.expect_content_type).toLowerCase()) >= 0;
         var out = { latency_ms: latency, http_status: res.statusCode, cert_days_remaining: certDays };
         if (!expected) {
           out.state = 'DOWN';
           out.error = 'unexpected HTTP ' + res.statusCode + ' (expected ' + (p.expect_status || [200]).join('/') + ')';
+        } else if (!ctypeOk) {
+          out.state = 'DOWN';
+          out.error = 'expected content-type ' + p.expect_content_type +
+            ', got ' + (ctype || '(none)') + ' — a catch-all/SPA fallback answers 200 for dead endpoints';
         } else if (!bodyOk) {
           out.state = 'DOWN';
           out.error = 'expected body content missing: ' + p.expect_body_substring;
-        } else if (certDays != null && certDays <= (defaults.cert_down_days || 7)) {
+        } else if (certDays != null && certDays <= num(defaults.cert_down_days, 7)) {
           out.state = 'DOWN';
           out.error = 'TLS certificate expires in ' + certDays + ' day(s)';
-        } else if (certDays != null && certDays <= (defaults.cert_warn_days || 21)) {
+        } else if (certDays != null && certDays <= num(defaults.cert_warn_days, 21)) {
           out.state = 'DEGRADED';
           out.error = 'TLS certificate expires in ' + certDays + ' day(s)';
         } else {
@@ -102,6 +124,7 @@ function probeTcp(p, defaults) {
   return new Promise(function (resolve) {
     var started = Date.now();
     var timeout = p.timeout_ms || defaults.timeout_ms || 10000;
+    var handshake = p.handshake || null;
     var sock = net.connect({ host: p.host, port: p.port });
     var done = false;
     function finish(state, err) {
@@ -110,14 +133,67 @@ function probeTcp(p, defaults) {
       sock.destroy();
       resolve({ state: state, latency_ms: Date.now() - started, error: err || null });
     }
-    sock.setTimeout(timeout, function () { finish('DOWN', 'tcp timeout after ' + timeout + 'ms'); });
-    sock.on('connect', function () { finish('LIVE'); });
+    sock.setTimeout(timeout, function () {
+      finish('DOWN', handshake
+        ? 'no ' + handshake + ' response within ' + timeout + 'ms (socket accepted)'
+        : 'tcp timeout after ' + timeout + 'ms');
+    });
+    sock.on('connect', function () {
+      // Without a handshake an accepted socket is the whole result, and for a
+      // container published through docker-proxy that is weaker than it looks:
+      // the proxy accepts the client BEFORE it dials the container, so a wedged
+      // or absent backend still satisfies the connect. Where a probe declares a
+      // handshake we make the server speak its own protocol before calling it
+      // LIVE.
+      if (!handshake) return finish('LIVE');
+      if (handshake === 'postgres') {
+        // SSLRequest: 8 bytes, protocol-defined, sent before any startup
+        // message. It carries no user, no database and no credential, and a
+        // conforming server replies with a single 'S' or 'N'.
+        var req = Buffer.alloc(8);
+        req.writeInt32BE(8, 0);
+        req.writeInt32BE(80877103, 4);
+        sock.write(req);
+        return;
+      }
+      finish('DOWN', 'unknown handshake: ' + handshake);
+    });
+    sock.on('data', function (d) {
+      if (handshake !== 'postgres') return;
+      var reply = d.toString('latin1', 0, 1);
+      if (reply === 'S' || reply === 'N') finish('LIVE');
+      else finish('DOWN', 'postgres did not answer SSLRequest (got ' + JSON.stringify(reply) + ')');
+    });
     sock.on('error', function (e) { finish('DOWN', redact(e.message)); });
   });
 }
 
+// Swap has no os.* accessor and the collector must never shell out (pinned
+// by stc-2 §1), so read the kernel's own counters. Returns null when the
+// file is absent or unparseable, and { configured: false } when the host
+// simply has no swap — neither is an error, and neither may change state.
+function readSwap(file) {
+  try {
+    var mi = fs.readFileSync(file || '/proc/meminfo', 'utf8');
+    var t = /^SwapTotal:\s+(\d+)\s*kB/m.exec(mi);
+    var f = /^SwapFree:\s+(\d+)\s*kB/m.exec(mi);
+    if (!t || !f) return null;
+    var totalKb = Number(t[1]);
+    var freeKb = Number(f[1]);
+    if (!isFinite(totalKb) || !isFinite(freeKb) || totalKb <= 0) return { configured: false };
+    return {
+      configured: true,
+      used_pct: Math.round(100 * (1 - freeKb / totalKb)),
+      free_gb: Math.round(freeKb / 1048576 * 10) / 10
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 function probeResources(p) {
-  // Local, read-only: statfs for disk, os.freemem for memory, loadavg.
+  // Local, read-only: statfs for disk, os.freemem for memory, loadavg,
+  // /proc/meminfo for swap.
   try {
     var out = { state: 'LIVE', detail: {} };
     var problems = [];
@@ -132,9 +208,24 @@ function probeResources(p) {
     out.detail.mem_used_pct = memPct;
     out.detail.load_1m = Math.round(os.loadavg()[0] * 100) / 100;
     out.detail.cpus = os.cpus().length;
-    if (diskPct != null && diskPct >= (p.disk_down_pct || 95)) problems.push('disk ' + diskPct + '% used');
-    else if (diskPct != null && diskPct >= (p.disk_warn_pct || 85)) warns.push('disk ' + diskPct + '% used');
-    if (memPct >= (p.mem_warn_pct || 92)) warns.push('memory ' + memPct + '% used');
+    // Swap headroom was invisible here: a host can sit at 100% swap with the
+    // memory percentage still under its threshold, and nothing reported it.
+    var swap = readSwap(p.meminfo_path);
+    var swapPct = (swap && swap.configured) ? swap.used_pct : null;
+    out.detail.swap_used_pct = swapPct;
+    out.detail.swap_free_gb = (swap && swap.configured) ? swap.free_gb : null;
+    if (diskPct != null && diskPct >= num(p.disk_down_pct, 95)) problems.push('disk ' + diskPct + '% used');
+    else if (diskPct != null && diskPct >= num(p.disk_warn_pct, 85)) warns.push('disk ' + diskPct + '% used');
+    if (memPct >= num(p.mem_warn_pct, 92)) warns.push('memory ' + memPct + '% used');
+    // Opt-in by design: swap legitimately fills with cold pages on healthy
+    // hosts, so a default threshold would alarm on normal systems. With
+    // swap_warn_pct unset this probe reports swap without judging it. A
+    // configured 0 means "warn at any swap use" and must be honoured (B4).
+    var swapWarn = (typeof p.swap_warn_pct === 'number' && isFinite(p.swap_warn_pct))
+      ? p.swap_warn_pct : null;
+    if (swapPct != null && swapWarn != null && swapPct >= swapWarn) {
+      warns.push('swap ' + swapPct + '% used');
+    }
     if (problems.length) { out.state = 'DOWN'; out.error = problems.join('; '); }
     else if (warns.length) { out.state = 'DEGRADED'; out.error = warns.join('; '); }
     return Promise.resolve(out);
@@ -161,8 +252,8 @@ function probeBackupHealth(p) {
         last_duration_s: h.duration_s
       }
     };
-    if (ageH <= (p.fresh_hours || 26) && h.status === 'ok') out.state = 'LIVE';
-    else if (ageH <= (p.degraded_hours || 50)) {
+    if (ageH <= num(p.fresh_hours, 26) && h.status === 'ok') out.state = 'LIVE';
+    else if (ageH <= num(p.degraded_hours, 50)) {
       out.state = 'DEGRADED';
       out.error = h.status === 'ok'
         ? 'last success ' + Math.round(ageH) + 'h ago'
@@ -319,6 +410,7 @@ if (require.main === module) main();
 module.exports = {
   collect: collect,
   runProbe: runProbe,
+  probeTcp: probeTcp,
   probeBackupHealth: probeBackupHealth,
   probeResources: probeResources,
   historyTail: historyTail,

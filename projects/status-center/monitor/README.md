@@ -38,8 +38,17 @@ status.mythosprod.xyz `/health.json` · n8n.ssangyong.autos ·
 ssangyong.autos storefront · SYA catalog API (**disabled** until the
 operator confirms the real health path) · idauto-postgres (**disabled**
 until the operator confirms a host-reachable port — deploy is
-deliberately outside the docker group) · VPS disk/memory/load · the
-off-host backup system (via `ops/backup`'s health record).
+deliberately outside the docker group) · VPS disk/memory/**swap**/load ·
+the off-host backup system (via `ops/backup`'s health record).
+
+The resources probe reports `swap_used_pct` and `swap_free_gb` alongside
+disk, memory and load. Swap is **reported but not judged** by default: it
+legitimately fills with cold pages on healthy hosts, so alarming on it
+out of the box would be noise. Set `swap_warn_pct` on the `vps-resources`
+probe to make exhaustion DEGRADED — `0` means "warn at any swap use" and
+is honoured as written. Hosts with no swap, and any host where
+`/proc/meminfo` cannot be read, report both fields as `null` and are never
+penalised for it.
 
 ## Operator installation (on the VPS, after the site is deployed)
 

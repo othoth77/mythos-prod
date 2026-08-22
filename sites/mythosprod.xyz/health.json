@@ -1,0 +1,15 @@
+{
+  "application": "mythos-hub",
+  "version": "1.0.0",
+  "status": "ok",
+  "role": "platform entry point",
+  "services": [
+    "os.mythosprod.xyz",
+    "ordre.mythosprod.xyz",
+    "status.mythosprod.xyz"
+  ],
+  "status_source": "https://status.mythosprod.xyz/ (proxied same-origin at /api/status.json)",
+  "repository_head": null,
+  "deployed_at": null,
+  "note": "repository_head and deployed_at are null in the repository and stamped into the served copy at deploy time — see sites/mythosprod.xyz/DEPLOYMENT.md."
+}
