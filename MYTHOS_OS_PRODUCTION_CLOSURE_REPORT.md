@@ -238,3 +238,155 @@ When steps 0–6 pass with the named verifications, the three declarations in §
 ---
 
 *Prepared under critical rules 1–10: no VPS completion claimed without VPS evidence; no LIVE monitoring claimed; backups not declared protected; no checks fabricated; nothing deleted or replaced; no parallel mechanisms; stopped at the failing phase with the exact error, diagnosis, and scoped remediation; PR #66 not merged; production not declared closed.*
+
+---
+
+## Amendment — 2026-08-21 (post-merge) — supersedes the "PR #66 unmerged" statements
+
+**Nothing above is rewritten.** Per this repository's append-only convention
+(`docs/history/README.md`; AGENTS.md §18), the statements below were accurate
+when written and are preserved as the historical record. This amendment records
+what changed after them.
+
+**What is now superseded:**
+
+- §10 item 3 — "PR #66 left **unmerged deliberately** (critical rule 9 …)" —
+  **HISTORICAL.** True at the time of writing; the owner has since merged it.
+- The closing line — "… PR #66 not merged; production not declared closed" —
+  its **PR #66 clause is HISTORICAL**. The *production not declared closed*
+  clause **still stands** (see §12 and the amended classification below).
+- §2 — "Branch under PR #66" — the branch is merged; `main` is now the carrier.
+
+**Recorded facts (verified in-session against the remote):**
+
+| Fact | Evidence |
+|---|---|
+| **PR #66 MERGED** | GitHub `pull_request.closed` event, `{"outcome":"merged"}`, 2026-08-21T19:01:22Z |
+| **`c095e21` is an ancestor of `main`** | `git merge-base --is-ancestor c095e21 origin/main` → exit 0 |
+| **Current `main` = `c353334`** | `git rev-parse origin/main`; subject: *Merge pull request #70 — STC2-AR-GATE: Status Center final state (STC-2 live monitoring + Arabic layer + corrected knowledge gate)* |
+| **PR #70 merged subsequently** | it is `main`'s head merge commit at `c353334` |
+| **Knowledge-gate path finding FIXED by PR #70** | `git show origin/main:.github/workflows/vps-final-gate.yml` now reads `const PATH = "projects/mythos-ai-executor/config/knowledge.json"` — the defect recorded in §3.5 (gate read `projects/oth-knowledge/config/knowledge.json`) is closed, and closed by the correct path: a reviewed change to the governance-protected workflow, not an edit by this session |
+| **Step 0 (runner workspace) officially CLOSED** | VPS Final Gate run `32507658817` SUCCESS (§3.5) |
+
+**Consequence for the operator sequence (§11):** every deliverable
+(`ops/backup/`, `ops/runner/`, `projects/status-center/monitor/`,
+`scripts/production-sync-audit.sh`, all three reports) is now on `main`, so
+steps 3–5 no longer require a PR branch on the host — a normal checkout sync to
+`c353334` delivers them. The §11 sequence is otherwise unchanged.
+
+**Classification is NOT changed by this amendment.** Merging a pull request is
+repository evidence, not host evidence. See the final section of this document
+for the current, separately-evidenced classification.
+
+
+---
+
+## Final closure attempt — 2026-08-21, post-merge (steps 1–7 of the owner's closure order)
+
+**Instruction:** append the amendment (done above), then execute closure steps
+1–7. **Result: STOPPED AT STEP 1**, per the order's own STOP RULE — steps 1–6
+require root/deploy execution on the VPS, and this session's access was
+re-verified as absent (below). Nothing was faked; every channel available to
+this session was used.
+
+### Access re-verification (fresh, 2026-08-21, this attempt)
+
+| Probe | Result |
+|---|---|
+| TCP/22 → 51.68.226.211 | timeout (exit 124) |
+| `ssh` binary / `~/.ssh` | absent / no keys |
+| `curl https://status.mythosprod.xyz/` | `000` — egress proxy CONNECT 403 |
+
+### What WAS executed and verified
+
+**Host evidence — VPS Final Gate run `32517604113` (run #8), dispatched by this
+session at `main` = `c353334`, conclusion SUCCESS (both jobs):**
+
+| Gate step | Result |
+|---|---|
+| `actions/checkout` | **SUCCESS** — the Step-0 repair holds at the new revision |
+| Runner smoke + identity boundary | **PASS** — non-root, single group, no sudo; governance key/approval store/docker.sock unreachable |
+| Docker-group finding | **PASS: deploy is NOT in the docker group** |
+| Governance invariant suite (on the VPS) | **PASS** |
+| **Knowledge configuration state (now *verified*, fail-closed — PR #70's corrected step)** | **`PASS: projects/mythos-ai-executor/config/knowledge.json enabled=true store_root=/home/deploy/othk-store`** |
+| E2E lifecycle suite | `REFUSED … registered checkout exists at /home/deploy/projects/mythos-prod` → **PASS(expected)** |
+
+**Scope limit on that knowledge PASS (stated precisely):** it verifies the
+**committed configuration at `c353334`**, read from the runner's fresh checkout.
+It does **not** prove the live `mythos-ai-executor` process has been restarted
+onto that revision, and it is **not** a `--require-live` result. Step 2 remains
+unproven.
+
+**Step 7 — final regression battery, executed this session at `c353334`:**
+
+| Suite | Result |
+|---|---|
+| othk-0 / 1 / 2 / 2w / 3 | **89/0 · 30/0 · 97/0 · 42/0 · 63/0** |
+| mythos-governance-invariant (security) | **99/0** |
+| stc-1 / stc-2 / stc-ar | **73/0 · 54/0 · 50/0** |
+| vps-final-gate-knowledge | **22/0** |
+| backup-scheduler | **48/0** |
+| production-sync-audit | **20/0** |
+| runner-workspace-repair | **13/0** |
+| mythos-ai-executor | **264/0** |
+| MOS-v2 regression gate | **SUCCESS — 20/20 areas, 0 new failures** |
+
+### Per-step outcome of this attempt
+
+| Step | Outcome | Evidence / reason |
+|---|---|---|
+| Amendment | **DONE** | appended above, append-only, history intact |
+| 1 — sync VPS checkout to `c353334` | **NOT DONE** | root/deploy only; the deploy checkout's branch/HEAD/worktree state is **not observable** from here (the runner reports it only as "present … contents not readable from this identity by policy") |
+| 2 — executor restart + `othk-live-gate --require-live` | **NOT DONE** | `systemctl --user restart` is a deploy action. Committed config verified on host (above); **LIVE PASS not obtained** |
+| 3 — `ops/backup/install.sh` | **NOT DONE** | root installer. **Backup protection is NOT claimed**: no timer installed, no scheduled run, no health record |
+| 4 — monitor install | **NOT DONE** | root installer; no `live-status.json` exists on the host |
+| 5 — Status Center deploy + external check | **NOT DONE**; external verification **NOT VERIFIED** | root deploy script. External AI-side check is blocked by the 403 egress policy — **explicitly marked NOT VERIFIED**, as the order instructs |
+| 6 — drift audit on host | **NOT RUN** | requires the host |
+| 7 — final regression | **DONE (repository side) + host gate SUCCESS** | tables above |
+
+### FINAL CLASSIFICATION
+
+```
+REPOSITORY:  CLOSED
+HOST:        NOT CLOSED
+PRODUCTION:  NOT VERIFIED
+```
+
+`PRODUCTION: VERIFIED` is **not** declared: no P0 has live production evidence.
+Backups are not scheduled, the monitor is not running, the executor has not been
+restarted onto `c353334`, the Status Center still serves pre-STC-2 content, and
+no on-host drift audit has run.
+
+### Remaining blockers (all one class: root/deploy execution on the VPS)
+
+1. **Deploy checkout not synced** to `c353334` — blocks 2–6.
+2. **Executor not restarted** → OTH Knowledge not live-verified (`--require-live` unrun).
+3. **Backup scheduler not installed** → OWNER-GATE-B1/B2/B3 still open; last verified off-host backup remains 2026-08-14.
+4. **STC-2 monitor not installed** → no live probe data; Status Center still a curated record.
+5. **Status Center content not deployed**; **external verification blocked** for this session by egress policy (NOT VERIFIED, not "passed").
+6. **On-host drift audit not run.**
+
+Everything needed is on `main` at `c353334`; the sequence is §11 steps 1–6.
+
+
+---
+
+## Addendum — 2026-08-22 — Step-2 dependency RESOLVED (PR #64 merged)
+
+**Recorded fact:** `main` advanced `c353334` → **`7830ace`** (*Merge pull request
+#64 from othoth77/claude/oth-knowledge-live-gate-tzrjk5*). **`tests/othk-live-gate.js`
+is now present on `main`** (verified: `git ls-tree -r origin/main | grep live-gate`).
+
+**Consequence:** the Step-2 blocker recorded earlier — the live gate existing only
+on an unmerged branch, and being unrunnable from outside `<repo>/tests/` because it
+resolves `ROOT = path.resolve(__dirname, '..')` — is **closed by the canonical
+route (Option A: merge)**. No temporary extraction is needed. After the deploy
+checkout is synced to `7830ace`, Step 2 runs directly:
+
+```bash
+systemctl --user restart mythos-ai-executor     # as deploy
+cd /home/deploy/projects/mythos-prod && node tests/othk-live-gate.js --require-live
+```
+
+**Classification unchanged** — this is repository evidence, not host evidence.
+Steps 1–6 remain un-run: **REPOSITORY CLOSED · HOST NOT CLOSED · PRODUCTION NOT VERIFIED.**
