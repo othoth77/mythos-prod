@@ -124,6 +124,7 @@ function probeTcp(p, defaults) {
   return new Promise(function (resolve) {
     var started = Date.now();
     var timeout = p.timeout_ms || defaults.timeout_ms || 10000;
+    var handshake = p.handshake || null;
     var sock = net.connect({ host: p.host, port: p.port });
     var done = false;
     function finish(state, err) {
@@ -132,8 +133,37 @@ function probeTcp(p, defaults) {
       sock.destroy();
       resolve({ state: state, latency_ms: Date.now() - started, error: err || null });
     }
-    sock.setTimeout(timeout, function () { finish('DOWN', 'tcp timeout after ' + timeout + 'ms'); });
-    sock.on('connect', function () { finish('LIVE'); });
+    sock.setTimeout(timeout, function () {
+      finish('DOWN', handshake
+        ? 'no ' + handshake + ' response within ' + timeout + 'ms (socket accepted)'
+        : 'tcp timeout after ' + timeout + 'ms');
+    });
+    sock.on('connect', function () {
+      // Without a handshake an accepted socket is the whole result, and for a
+      // container published through docker-proxy that is weaker than it looks:
+      // the proxy accepts the client BEFORE it dials the container, so a wedged
+      // or absent backend still satisfies the connect. Where a probe declares a
+      // handshake we make the server speak its own protocol before calling it
+      // LIVE.
+      if (!handshake) return finish('LIVE');
+      if (handshake === 'postgres') {
+        // SSLRequest: 8 bytes, protocol-defined, sent before any startup
+        // message. It carries no user, no database and no credential, and a
+        // conforming server replies with a single 'S' or 'N'.
+        var req = Buffer.alloc(8);
+        req.writeInt32BE(8, 0);
+        req.writeInt32BE(80877103, 4);
+        sock.write(req);
+        return;
+      }
+      finish('DOWN', 'unknown handshake: ' + handshake);
+    });
+    sock.on('data', function (d) {
+      if (handshake !== 'postgres') return;
+      var reply = d.toString('latin1', 0, 1);
+      if (reply === 'S' || reply === 'N') finish('LIVE');
+      else finish('DOWN', 'postgres did not answer SSLRequest (got ' + JSON.stringify(reply) + ')');
+    });
     sock.on('error', function (e) { finish('DOWN', redact(e.message)); });
   });
 }
@@ -380,6 +410,7 @@ if (require.main === module) main();
 module.exports = {
   collect: collect,
   runProbe: runProbe,
+  probeTcp: probeTcp,
   probeBackupHealth: probeBackupHealth,
   probeResources: probeResources,
   historyTail: historyTail,

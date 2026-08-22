@@ -96,8 +96,9 @@
       "type": "tcp",
       "host": "127.0.0.1",
       "port": 5432,
+      "handshake": "postgres",
       "enabled": true,
-      "note": "ENABLED 2026-08-22: the precondition this note asked for is met — idauto-postgres publishes 127.0.0.1:5432 (docker ps: 127.0.0.1:5432->5432/tcp; ss -ltn confirms LISTEN), so the port is host-reachable without docker group membership and deploy's exclusion from that group is untouched. This is a TCP connect only: it opens a socket, observes that the server accepts it, and closes. It sends no startup packet, authenticates nothing, reads no business data, writes nothing, and needs no credential. Postgres logs the closed connection as a reset, which is expected for a liveness check. Loopback-only, so it also proves the port is not publicly exposed."
+      "note": "ENABLED 2026-08-22: the precondition this note asked for is met — idauto-postgres publishes 127.0.0.1:5432 (docker ps: 127.0.0.1:5432->5432/tcp; ss -ltn confirms LISTEN), so the port is host-reachable without docker group membership and deploy's exclusion from that group is untouched. This is a TCP connect only: it opens a socket, observes that the server accepts it, and closes. It sends no startup packet, authenticates nothing, reads no business data, writes nothing, and needs no credential. Postgres logs the closed connection as a reset, which is expected for a liveness check. Loopback-only, so it also proves the port is not publicly exposed. The handshake is why this is not merely a port check: the port is published through docker-proxy, which accepts the client BEFORE it dials the container, so a bare TCP connect would report LIVE against a wedged or absent PostgreSQL. Sending the 8-byte SSLRequest and requiring the protocol's own 'S'/'N' reply closes that false green. It still proves the server speaks PostgreSQL and is accepting connections, not that any particular database or query works — the backup job remains the end-to-end proof."
     },
     {
       "id": "vps-resources",

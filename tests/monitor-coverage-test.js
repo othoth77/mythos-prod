@@ -115,5 +115,82 @@ check('no probe embeds a credential-shaped field',
 check('no probe URL carries userinfo or a query secret',
   !probes.some(function (p) { return /:\/\/[^/@]*@|[?&](token|key|secret)=/i.test(p.url || ''); }));
 
-console.log('\nmonitor-coverage: ' + passed + ' passed, ' + failed + ' failed');
-process.exitCode = failed ? 1 : 0;
+// ---------------------------------------------------------------------------
+// §7 runs last because it opens sockets; everything above is pure registry
+// reading. These cases are the reason the database probe declares a handshake:
+// idauto-postgres is published through docker-proxy, which accepts the client
+// before it dials the container. A bare TCP probe therefore cannot tell a
+// healthy database from a dead one behind a live proxy — these fakes stand in
+// for exactly that.
+console.log('\n§7 the database probe cannot report a dead backend as LIVE');
+
+var net = require('net');
+var monitor = require(path.join(ROOT, 'projects', 'status-center', 'monitor', 'bin', 'monitor.js'));
+
+function withServer(onConnection, run) {
+  return new Promise(function (resolve) {
+    // Server-side sockets are tracked and destroyed explicitly: close() waits
+    // for open connections, and the silent-server case leaves one behind by
+    // design, so without this the helper hangs on the very case it exists for.
+    var socks = [];
+    var srv = net.createServer(function (c) { socks.push(c); onConnection(c); });
+    srv.listen(0, '127.0.0.1', function () {
+      run(srv.address().port).then(function (r) {
+        socks.forEach(function (c) { c.destroy(); });
+        srv.close(function () { resolve(r); });
+      });
+    });
+  });
+}
+var DEF = { timeout_ms: 1500 };
+
+(async function () {
+  // A conforming server: answers SSLRequest with 'N', as postgres does.
+  var okRes = await withServer(function (c) {
+    c.on('data', function () { c.write(Buffer.from('N', 'latin1')); });
+  }, function (port) {
+    return monitor.probeTcp({ host: '127.0.0.1', port: port, handshake: 'postgres' }, DEF);
+  });
+  check('a server that answers SSLRequest is LIVE', okRes.state === 'LIVE', JSON.stringify(okRes));
+
+  // The false-green case: accepts the socket, never speaks. This is what a
+  // docker-proxy in front of a wedged or absent container looks like.
+  var silentRes = await withServer(function () { /* accept and say nothing */ },
+    function (port) {
+      return monitor.probeTcp({ host: '127.0.0.1', port: port, handshake: 'postgres' }, DEF);
+    });
+  check('a socket that accepts but never answers is DOWN, not LIVE',
+    silentRes.state === 'DOWN', JSON.stringify(silentRes));
+  check('the silent case explains itself',
+    /socket accepted/.test(silentRes.error || ''), silentRes.error);
+
+  // Something is listening, but it is not postgres.
+  var wrongRes = await withServer(function (c) {
+    c.on('data', function () { c.write(Buffer.from('HTTP/1.1 200 OK', 'latin1')); });
+  }, function (port) {
+    return monitor.probeTcp({ host: '127.0.0.1', port: port, handshake: 'postgres' }, DEF);
+  });
+  check('a non-postgres listener is DOWN', wrongRes.state === 'DOWN', JSON.stringify(wrongRes));
+  check('the wrong-protocol case names what it got',
+    /did not answer SSLRequest/.test(wrongRes.error || ''), wrongRes.error);
+
+  // Nothing listening at all.
+  var deadRes = await monitor.probeTcp({ host: '127.0.0.1', port: 1, handshake: 'postgres' }, DEF);
+  check('a refused connection is DOWN', deadRes.state === 'DOWN', JSON.stringify(deadRes));
+
+  // Backwards compatibility: a probe with no handshake keeps the old meaning.
+  var plainRes = await withServer(function () { /* silent */ }, function (port) {
+    return monitor.probeTcp({ host: '127.0.0.1', port: port }, DEF);
+  });
+  check('a handshake-less tcp probe still reports a bare accept as LIVE',
+    plainRes.state === 'LIVE', JSON.stringify(plainRes));
+
+  var db = byId('database');
+  check('the shipped database probe declares the postgres handshake',
+    !!db && db.handshake === 'postgres');
+  check('the handshake carries no credential',
+    !!db && !/user|password|dbname/i.test(JSON.stringify(db).replace(/note":"[^"]*"/, '')));
+
+  console.log('\nmonitor-coverage: ' + passed + ' passed, ' + failed + ' failed');
+  process.exitCode = failed ? 1 : 0;
+})();
