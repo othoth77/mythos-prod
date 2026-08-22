@@ -127,10 +127,13 @@
             <span class="pill planned">Préservé</span>
           </div>
           <p class="card-desc">L'application ERP historique est conservée
-          intacte dans le dépôt&nbsp;: rien n'a été supprimé ni migré. Elle
-          n'est aujourd'hui exposée par aucun hôte. Sa route dédiée
-          (<span class="card-host">erp.mythosprod.xyz</span>) attend un
-          enregistrement DNS.</p>
+          intacte dans le dépôt&nbsp;: rien n'a été supprimé ni migré, et elle
+          n'a jamais occupé l'apex. Sa route dédiée
+          (<span class="card-host">erp.mythosprod.xyz</span>) est décrite et
+          prête, mais volontairement non déployée&nbsp;: l'enregistrement DNS
+          manque, et ses points d'écriture n'ont pas d'authentification — la
+          route est donc prévue en lecture seule, PHP désactivé, jusqu'à
+          correction.</p>
           <div class="card-foot"></div>
         </li>
 
@@ -155,8 +158,11 @@
             </div>
             <span class="pill" data-probe="sya-site">—</span>
           </div>
-          <p class="card-desc">SsangYong.autos — projet public indépendant,
-          supervisé par le Status Center (site et automatisation n8n).</p>
+          <p class="card-desc">SsangYong.autos — projet public indépendant.
+          La vitrine et l'automatisation n8n sont supervisées&nbsp;; l'API
+          catalogue est retirée (aucun service derrière
+          <span class="card-host">/api</span>), et le Status Center l'annonce
+          comme telle plutôt que de la compter absente en silence.</p>
           <div class="card-foot">
             <a class="open" href="https://ssangyong.autos/" rel="external">Visiter le site</a>
           </div>
