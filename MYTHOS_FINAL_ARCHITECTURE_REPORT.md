@@ -210,14 +210,41 @@ because nothing serves it; the reason `erp.mythosprod.xyz` is prepared rather th
 
 ## Verdict
 
-# PRODUCTION OPERATIONAL WITH NON-BLOCKING ITEMS
+# PRODUCTION CLOSED
 
-Two criteria remain open, and both close the same way: merge PR #78 and let the registry
-reach the running monitor. Nothing about that is uncertain — the probe is written, tested
-and verified LIVE against the real server; it simply has not been through review, and
-merging unreviewed is not how this repository works.
+**Closed 2026-08-22 19:20 UTC**, at `main` `2463b95`, after the two criteria below moved
+from ⏳ to ✅ by measurement rather than by reclassification.
 
-`PRODUCTION CLOSED` is deliberately withheld for a second reason: `vps-resources` is
-genuinely DEGRADED right now. Swap is fully consumed. Declaring closure over a live
-degraded resource probe would be exactly the silent green this stack refuses everywhere
-else — and the probe that surfaced it was added by the same instinct.
+What changed between the withheld verdict and this one:
+
+| # | Event | Effect |
+|---|---|---|
+| 1 | **PR #78 merged** (`4270a3e`) | `database` probe enabled with a PostgreSQL protocol handshake; `sya-api` documented as retired. Closed *"Status Center measures all critical services"* and *"Database health monitored"*. |
+| 2 | **PR #79 merged** (`540efdc`) | `tests/backup-hardening-test.js` pins the PR #75 hardening — 66 checks, mutation-tested, 9 of 9 injected regressions caught. |
+| 3 | **PR #80 merged** (`047d003`) | `erp.mythosprod.xyz` route defined; static preservation mode applied and verified on the host. Closed *"ERP route defined"*. |
+| 4 | **VPS resources restored** | Swap 100% → 40%; `vm.swappiness=10` persisted in `/etc/sysctl.d/99-mythos-memory.conf`. `vps-resources` returned to **LIVE**. |
+| 5 | **Mythos Hub deployed and verified** | `mythosprod.xyz` 200 over TLS, freshness gate live in the served bundle, three Hub probes LIVE. |
+| 6 | **Backup / R2 verified** | Installed binary byte-identical to `main`; `verify-remote` clean; `consecutive_failures: 0`; all three timers active. |
+| 7 | **Monitoring coverage completed** | 12 probes — **11 LIVE, 0 DEGRADED, 0 DOWN**. The single `NOT_MONITORED` is the documented SYA API retirement, not a gap. |
+
+All nine closure criteria pass. Verified at `HEAD == origin/main`, clean tree, 0 failed
+systemd units.
+
+### History — why closure was withheld earlier (retained deliberately)
+
+The two paragraphs below were written when this report was first published and are kept
+as the record of what was blocking at that time. They are **superseded**, not wrong.
+
+> Two criteria remain open, and both close the same way: merge PR #78 and let the registry
+> reach the running monitor. Nothing about that is uncertain — the probe is written, tested
+> and verified LIVE against the real server; it simply has not been through review, and
+> merging unreviewed is not how this repository works.
+>
+> `PRODUCTION CLOSED` is deliberately withheld for a second reason: `vps-resources` is
+> genuinely DEGRADED right now. Swap is fully consumed. Declaring closure over a live
+> degraded resource probe would be exactly the silent green this stack refuses everywhere
+> else — and the probe that surfaced it was added by the same instinct.
+
+`MYTHOS_FINAL_PRODUCTION_CLOSURE_REPORT.md` is a **point-in-time audit** taken before
+those merges and retains its own verdict of that moment by design. This report supersedes
+it.

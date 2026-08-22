@@ -17735,8 +17735,29 @@ Scope:
 
 # Final production architecture — 2026-08-22
 
+**Status: PRODUCTION CLOSED** — closed 2026-08-22 19:20 UTC at `main` `2463b95`.
+
 Recorded at `main` after PRs #77, #78, #79 and #80. Every figure below was
 measured on the host, not inferred.
+
+Closure was reached after, in order: **PR #78** merged (`4270a3e` — database
+probe enabled with a PostgreSQL protocol handshake, SYA API documented as
+retired), **PR #79** merged (`540efdc` — backup hardening pinned by 66
+mutation-tested checks), **PR #80** merged (`047d003` — ERP route defined and
+placed in static preservation mode), **VPS resources restored** (swap 100% →
+40%, `vm.swappiness=10` persisted, `vps-resources` back to LIVE), **Mythos Hub
+deployed and verified** (200 over TLS, freshness gate live, three Hub probes
+LIVE), **backup and R2 verified** (binary matches `main`, `verify-remote`
+clean, `consecutive_failures: 0`), and **monitoring coverage completed** (12
+probes: 11 LIVE, 0 DEGRADED, 0 DOWN, the one NOT_MONITORED being a documented
+retirement).
+
+The verdict was withheld twice before this — once for an unmerged probe, once
+for a live DEGRADED resource. Both were resolved by measurement rather than
+reclassified; that history is kept in
+`MYTHOS_FINAL_ARCHITECTURE_REPORT.md` §Verdict, and
+`MYTHOS_FINAL_PRODUCTION_CLOSURE_REPORT.md` remains a point-in-time audit of
+the earlier state.
 
 ```
                           mythosprod.xyz
