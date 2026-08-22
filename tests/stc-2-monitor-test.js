@@ -134,6 +134,44 @@ async function run() {
   r = await mod.probeBackupHealth({ file: bh, fresh_hours: 0, degraded_hours: 50 });
   check('fresh_hours 0 is honoured, not replaced by 26', r.state === 'DEGRADED', JSON.stringify(r));
 
+  console.log('\u00a76b2 swap is visible and honest (B8)');
+  // A host can sit at 100% swap with memory still under its threshold and
+  // nothing reported it. Swap is read from /proc/meminfo, injectable here so
+  // the assertions do not depend on the test host's own swap.
+  function meminfo(totalKb, freeKb) {
+    var f = path.join(work, 'meminfo-' + totalKb + '-' + freeKb);
+    fs.writeFileSync(f, 'MemTotal:       7900000 kB\nSwapTotal:       ' +
+      totalKb + ' kB\nSwapFree:        ' + freeKb + ' kB\n');
+    return f;
+  }
+  var permissive = { disk_path: os.tmpdir(), disk_warn_pct: 101, disk_down_pct: 101, mem_warn_pct: 101 };
+  function withSwap(extra) { return Object.assign({}, permissive, extra); }
+
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(2097152, 1048576) }));
+  check('swap_used_pct reported', r.detail.swap_used_pct === 50, JSON.stringify(r.detail));
+  check('swap_free_gb reported', r.detail.swap_free_gb === 1, JSON.stringify(r.detail));
+
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(2097152, 0) }));
+  check('exhausted swap is visible', r.detail.swap_used_pct === 100);
+  check('exhausted swap alone does NOT change state without a threshold', r.state === 'LIVE', JSON.stringify(r));
+
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(2097152, 0), swap_warn_pct: 90 }));
+  check('configured swap_warn_pct makes exhaustion DEGRADED', r.state === 'DEGRADED' && /swap 100% used/.test(r.error));
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(2097152, 2097152), swap_warn_pct: 90 }));
+  check('unused swap stays LIVE under the same threshold', r.state === 'LIVE', JSON.stringify(r));
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(2097152, 2097152), swap_warn_pct: 0 }));
+  check('swap_warn_pct 0 is honoured, not treated as unset', r.state === 'DEGRADED');
+
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(0, 0) }));
+  check('a host with no swap reports null, not 0% or NaN', r.detail.swap_used_pct === null);
+  check('a host with no swap is never penalised', r.state === 'LIVE');
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(0, 0), swap_warn_pct: 0 }));
+  check('no-swap host stays LIVE even with swap_warn_pct 0', r.state === 'LIVE', JSON.stringify(r));
+
+  r = await mod.probeResources(withSwap({ meminfo_path: path.join(work, 'no-such-meminfo') }));
+  check('unreadable meminfo degrades to null, never an error state',
+    r.detail.swap_used_pct === null && r.state === 'LIVE', JSON.stringify(r));
+
   console.log('\u00a76c a catch-all/SPA fallback cannot report an API alive (B2)');
   // ssangyong.autos answers EVERY unmatched path with 200 + the storefront
   // index.html, so status-only probing reported a six-day-dead catalog API as

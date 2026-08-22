@@ -6,6 +6,14 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Added — MONITOR-SWAP — swap headroom is visible to the resources probe (B8, 2026-08-22)
+
+- **The gap:** `probeResources` reported disk, memory and load but not swap, so the production VPS sat at **100% swap used (0 GB free)** with memory at 79% — under its 92% threshold — and the monitor reported `vps-resources: LIVE` with nothing to indicate the host had no paging headroom left. Found by the on-host closure audit.
+- **The fix:** the probe now reports **`swap_used_pct`** and **`swap_free_gb`** alongside the existing fields, read from `/proc/meminfo` (`SwapTotal`/`SwapFree`). The collector still never shells out — the no-`child_process` contract pinned by `stc-2` §1 is unchanged.
+- **Reported, not judged, by default.** Swap legitimately fills with cold pages on healthy hosts, so alarming on it out of the box would be noise. Set **`swap_warn_pct`** on the `vps-resources` probe to make exhaustion `DEGRADED`; left unset, swap is surfaced without affecting state. A configured `0` means "warn at any swap use" and is honoured as written (same discipline as the B4 threshold fix). **`probes.json` is deliberately unchanged**, so no live probe state flips as a result of this commit — verified by a real end-to-end collect: swap now visible, summary still 8 LIVE / 0 DEGRADED / 0 DOWN / 2 NOT_MONITORED.
+- **Honest on hosts without swap:** `SwapTotal: 0`, an absent or unparseable `/proc/meminfo` all report both fields as `null` and never penalise the host — a missing reading is never a failed one.
+- **Tests:** `stc-2` **77/0** (+11 assertions: reported values, exhaustion visible without a state change, threshold opt-in, zero honoured, no-swap hosts, unreadable meminfo). Relevant battery **393/0**. OTH-KNOWLEDGE live gate re-run **LIVE PASS, exit 0** — untouched.
+
 ### Fixed — GATE-RELIABILITY — three documented production gates could not be trusted (2026-08-22)
 
 Found by the on-host closure audit of 2026-08-22 and fixed here. All three were verified against the production VPS, not only in tests.

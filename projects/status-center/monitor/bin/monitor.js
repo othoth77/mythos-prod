@@ -138,8 +138,32 @@ function probeTcp(p, defaults) {
   });
 }
 
+// Swap has no os.* accessor and the collector must never shell out (pinned
+// by stc-2 §1), so read the kernel's own counters. Returns null when the
+// file is absent or unparseable, and { configured: false } when the host
+// simply has no swap — neither is an error, and neither may change state.
+function readSwap(file) {
+  try {
+    var mi = fs.readFileSync(file || '/proc/meminfo', 'utf8');
+    var t = /^SwapTotal:\s+(\d+)\s*kB/m.exec(mi);
+    var f = /^SwapFree:\s+(\d+)\s*kB/m.exec(mi);
+    if (!t || !f) return null;
+    var totalKb = Number(t[1]);
+    var freeKb = Number(f[1]);
+    if (!isFinite(totalKb) || !isFinite(freeKb) || totalKb <= 0) return { configured: false };
+    return {
+      configured: true,
+      used_pct: Math.round(100 * (1 - freeKb / totalKb)),
+      free_gb: Math.round(freeKb / 1048576 * 10) / 10
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 function probeResources(p) {
-  // Local, read-only: statfs for disk, os.freemem for memory, loadavg.
+  // Local, read-only: statfs for disk, os.freemem for memory, loadavg,
+  // /proc/meminfo for swap.
   try {
     var out = { state: 'LIVE', detail: {} };
     var problems = [];
@@ -154,9 +178,24 @@ function probeResources(p) {
     out.detail.mem_used_pct = memPct;
     out.detail.load_1m = Math.round(os.loadavg()[0] * 100) / 100;
     out.detail.cpus = os.cpus().length;
+    // Swap headroom was invisible here: a host can sit at 100% swap with the
+    // memory percentage still under its threshold, and nothing reported it.
+    var swap = readSwap(p.meminfo_path);
+    var swapPct = (swap && swap.configured) ? swap.used_pct : null;
+    out.detail.swap_used_pct = swapPct;
+    out.detail.swap_free_gb = (swap && swap.configured) ? swap.free_gb : null;
     if (diskPct != null && diskPct >= num(p.disk_down_pct, 95)) problems.push('disk ' + diskPct + '% used');
     else if (diskPct != null && diskPct >= num(p.disk_warn_pct, 85)) warns.push('disk ' + diskPct + '% used');
     if (memPct >= num(p.mem_warn_pct, 92)) warns.push('memory ' + memPct + '% used');
+    // Opt-in by design: swap legitimately fills with cold pages on healthy
+    // hosts, so a default threshold would alarm on normal systems. With
+    // swap_warn_pct unset this probe reports swap without judging it. A
+    // configured 0 means "warn at any swap use" and must be honoured (B4).
+    var swapWarn = (typeof p.swap_warn_pct === 'number' && isFinite(p.swap_warn_pct))
+      ? p.swap_warn_pct : null;
+    if (swapPct != null && swapWarn != null && swapPct >= swapWarn) {
+      warns.push('swap ' + swapPct + '% used');
+    }
     if (problems.length) { out.state = 'DOWN'; out.error = problems.join('; '); }
     else if (warns.length) { out.state = 'DEGRADED'; out.error = warns.join('; '); }
     return Promise.resolve(out);
