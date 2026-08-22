@@ -107,6 +107,7 @@
       "disk_warn_pct": 85,
       "disk_down_pct": 95,
       "mem_warn_pct": 92,
+      "swap_warn_pct": 90,
       "enabled": true
     },
     {
