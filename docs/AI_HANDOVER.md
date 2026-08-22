@@ -17730,3 +17730,124 @@ Scope:
 | `docs/production-safety.md` | Production safety rules | Stable |
 | `docs/CHANGELOG.md` | Release changelog | Empty |
 | `docs/worklogs/` | Per-task work logs | 7 entries
+
+---
+
+# Final production architecture — 2026-08-22
+
+Recorded at `main` after PRs #77, #78, #79 and #80. Every figure below was
+measured on the host, not inferred.
+
+```
+                          mythosprod.xyz
+                     Mythos Hub Dashboard  ── LIVE
+                                │
+        ┌───────────────┬───────┴───────┬────────────────┐
+   os.mythosprod    ordre.mythos    status.mythos    erp.mythosprod
+   Mythos OS        Command Center  Status Center    Legacy ERP
+   LIVE 302→login   LIVE 200        LIVE 200         STATIC, loopback-only
+
+   Independent public projects keep their own identity and are referenced,
+   never Mythos-skinned: ssangyong.autos · darhijama.tn · fixpert.tn ·
+   notrejour.tn · uthinachess.tn
+```
+
+## Mythos Hub — `mythosprod.xyz`
+
+The platform entry point. Static, self-contained, no build step. Service
+directory with **measured** state, infrastructure panel, an AI section that is
+interface-only and says so, and the brand/project sections beneath.
+
+The rule the page follows: **state is never asserted.** Every status surface
+ships `—`; `dashboard.js` only replaces a placeholder with something the Status
+Center measured. `/api/status.json` is an nginx alias onto the monitor's own
+output, so the Hub reads the single source of truth rather than becoming a
+second one.
+
+**Freshness gate** (`FRESH_MINUTES=15`, `STALE_MINUTES=60`, mirroring
+`probeBackupHealth`'s ladder against the 5-minute monitor cadence): fresh data
+renders as-is; a stale snapshot can never roll up to LIVE; beyond 60 minutes
+state is withheld entirely. A stale `DOWN` is still `DOWN` — staleness may
+never manufacture health, and may never hide a fault.
+
+CSP: `script-src 'self'; connect-src 'self'`, no `'unsafe-inline'` for scripts,
+no inline handlers. The page is complete without JavaScript.
+
+## ERP legacy — static preservation
+
+`erp.mythosprod.xyz`, **PHP not executed, loopback-only**. See
+`docs/ERP_SECURITY_STATUS.md` and `sites/erp.mythosprod.xyz/DEPLOYMENT.md`.
+
+Why static: `upload.php` derives the stored file's extension from the
+client-supplied filename behind a spoofable `Content-Type` check. Uploading
+`x.php` as `application/pdf` writes a `.php` file into the document directory —
+unauthenticated RCE the moment PHP runs there. `api.php` and `cleanup.php` have
+no authentication either.
+
+Four independent guards, any one sufficient: the `.php` files are not in the
+docroot at all; there is no `fastcgi_pass` directive; every `.php` path returns
+404; the write endpoints are refused by name. Plus `allow 127.0.0.1; deny all;`
+— absent DNS is not protection, since a `server_name` is reachable by
+Host-header spoofing.
+
+**Nothing was migrated or deleted.** The ERP has no server-side database; state
+is browser `localStorage` plus one 83-byte JSON file. The docroot is a copy.
+
+Before dynamic PHP: authentication, server-side upload validation, storage
+isolation outside the docroot, and a security review of all six endpoints.
+
+## Backup
+
+Root-side capture (`docker exec` is root-only; `deploy` is deliberately not in
+the docker group) hands two inputs to an unprivileged pipeline that stages,
+verifies, pushes to Cloudflare R2 and verifies remotely.
+
+Hardened in #75 and **pinned by `tests/backup-hardening-test.js`** (66 checks):
+the config is parsed as data and never sourced, paths are allowlisted per
+variable, the docker CLI is resolved rather than named, staging is root-owned
+with an unpredictable name, the manifest is JSON-escaped, and the installer
+checks owner as well as mode. Several assertions are negative — the pid-derived
+staging name and the `. "$CONFIG_FILE"` line must stay gone. The suite was
+mutation-tested: 9 of 9 injected regressions caught.
+
+## Monitoring
+
+12 probes, 11 enabled, 0 silent. `tests/monitor-coverage-test.js` makes it
+structural: every disabled probe must state a disposition, and the platform's
+dependencies must be enabled.
+
+- `database` — **protocol handshake, not a port check.** `idauto-postgres` is
+  published through `docker-proxy`, which accepts the client *before* dialling
+  the container, so a bare TCP connect reports LIVE against a wedged backend.
+  The probe sends an 8-byte `SSLRequest` (no user, no database, no credential)
+  and requires the protocol's own `S`/`N` reply.
+- `sya-api` — **RETIRED**, not pending. The vhost is a static root with
+  `try_files` and no `/api` proxy; `/api/health`, `/` and a nonsense path return
+  the byte-identical index.
+- Three Hub probes (`hub-apex`, `hub-dashboard-health`, `hub-status-endpoint`)
+  because each fails independently — the status alias points outside the Hub's
+  webroot and can break while the site still answers 200.
+
+## Security status
+
+| Control | State |
+|---|---|
+| `deploy` not in `docker` group | intact |
+| `deploy` sudo scope | `nginx -t`, `reload nginx`, `certbot` only |
+| Capture binary | `root:root 0700`, matches `main` |
+| Credential files | `0600`, owned by `deploy`; never read or printed |
+| Governance relay | all `main` commits approved |
+| ERP write endpoints | unreachable (static mode) |
+| Failed units | 0 |
+
+## Known conditions
+
+- `vm.swappiness=10` persisted in `/etc/sysctl.d/99-mythos-memory.conf`. Swap
+  had reached 100% — the cause was desktop sprawl (Chrome/Claude sessions held
+  55% of used RAM), not the platform. All 6 OOM kills in 7 days were desktop
+  processes with `oom_score_adj:300`; no Mythos service was ever a victim.
+- `erp.mythosprod.xyz` has no DNS record — owner action.
+- A duplicate database engine exists: `mariadbd` as a host service alongside
+  DarHijama's containerised MySQL. Unaudited.
+- The shared checkout `/home/deploy/projects/mythos-prod` is reset to `main` by
+  `mythos-ai-executor`. **Branch work there is not durable — use a worktree.**
