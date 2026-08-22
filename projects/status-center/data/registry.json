@@ -26,6 +26,41 @@
   ],
   "evidence": [
     {
+      "id": "EV-SYA-API-DOWN",
+      "type": "vps",
+      "reference": "systemctl --user status ssangyong-storefront on vps-4722f0a9, 2026-08-22",
+      "date": "2026-08-22",
+      "note": "Live production outage. status=218/CAPABILITIES, NRestarts=2830, restarting every 5s since 2026-08-16 17:23 (21458 journal failures). Nothing listening on 127.0.0.1:3011. nginx catch-all makes https://ssangyong.autos/api/health answer 200 text/html, so the outage is invisible to a status-only probe — the sya-api probe stays disabled and now requires expect_content_type (commit 99ef70b) so it cannot false-green when enabled."
+    },
+    {
+      "id": "EV-BACKUP-SCHEDULE-LIVE",
+      "type": "vps",
+      "reference": "systemd timers + ops/backup health record on vps-4722f0a9, 2026-08-22",
+      "date": "2026-08-22",
+      "note": "BLOCKER-BACKUP-GATES cleared on its stated criteria. mythos-backup.timer, mythos-backup-verify.timer and mythos-restore-test.timer are all enabled AND active. A full off-host round trip ran clean 2026-08-22 15:22:50-15:23:20 (stage, manifest, verify-local, push, verify-remote -> \"backup completed clean\"), and verify-remote completed clean again at 15:24:50 and 16:02:11. Health record: status=ok, last_success_at 2026-08-22T16:02:11Z, consecutive_failures=0. CAVEAT recorded, not hidden: mythos-restore-test.service has NEVER executed (journal empty; next scheduled 2026-09-01), so restore-from-backup is still unproven on this host."
+    },
+    {
+      "id": "EV-MOS-CONSOLE-LIVE",
+      "type": "vps",
+      "reference": "os.mythosprod.xyz probed from the host, 2026-08-22",
+      "date": "2026-08-22",
+      "note": "BLOCKER-MOS-CONSOLE-DEPLOY cleared against its OWN documented criteria (RUNBOOK Phase B): /login -> 200, / -> 302, /api/health -> 401 unauthenticated. Exactly as specified. mythos-os-console user unit active, serving 127.0.0.1:3021; monitor reports os-console LIVE, TLS 86 days."
+    },
+    {
+      "id": "EV-HUB-APEX-LIVE",
+      "type": "dns",
+      "reference": "https://mythosprod.xyz/ probed from the host, 2026-08-22",
+      "date": "2026-08-22",
+      "note": "BLOCKER-HUB-DNS cleared. Apex answers HTTP 200 with <title>MYTHOS - Hub</title>, 0 redirects — no darhijama.tn redirect and no TLS principal error. Content byte-matches commit 122f2d7 / PR #77 (merged as d2fb479). Monitor reports hub-apex LIVE, TLS 89 days. PR #77 also added hub-dashboard-health and hub-status-endpoint probes, both asserting body content."
+    },
+    {
+      "id": "EV-VPS-EXECUTION-ONHOST",
+      "type": "vps",
+      "reference": "this session executing on vps-4722f0a9 as deploy, 2026-08-22",
+      "date": "2026-08-22",
+      "note": "BLOCKER-VPS-EXECUTION is obsolete: an AI session ran directly on the production VPS as deploy for the whole 2026-08-22 closure work — on-host OTH-KNOWLEDGE live gate (LIVE PASS 52/0), on-host regression 442/0, gate-reliability fixes B2/B3/B4 committed and delivered (99ef70b), B8 swap visibility (33696dc) and threshold (f1afe86). Delivery went through the sanctioned mythos-git-push fast-forward relay, not a direct push. Root remains unavailable to this identity (no passwordless sudo), so root-only steps stay operator-gated — that is a narrower limit than \"no VPS execution path\"."
+    },
+    {
       "id": "EV-OTHK-PROD-VERIFIED",
       "type": "vps",
       "reference": "on-host OTH-KNOWLEDGE live gate as deploy@vps-4722f0a9, 2026-08-22 16:32 + 16:34 UTC",
@@ -2441,18 +2476,20 @@
       "type": "infrastructure",
       "project": "PROJECT-VPS-FINAL-GATE",
       "priority": "P0",
-      "status": "BLOCKED",
+      "status": "DONE",
       "owner": "Owner/operator",
-      "impact": "Prevents the live VPS Final Gate, live E2E, on-host governance re-check, knowledge-store provisioning and console deployment from AI sessions.",
+      "impact": "RESOLVED 2026-08-22: AI sessions do run on the production VPS as deploy. Root-only actions remain operator-gated, which is a narrower constraint than this blocker described.",
       "required_input": "Option A: owner dispatches the prepared gate mission via ordre.mythosprod.xyz. Option B: egress allowlist + MOS_CONSOLE_SECRET, or a self-hosted runner (PR #53 package).",
       "unblock": "Option A costs zero new infrastructure — dispatch the ready mission text from the VPS-PATH handover entry.",
       "created": "2026-08-19",
-      "last_checked": "2026-08-20",
+      "last_checked": "2026-08-22",
       "evidence": [
         "EV-VPS-PATH",
         "EV-PR-51",
-        "EV-PR-53"
-      ]
+        "EV-PR-53",
+        "EV-VPS-EXECUTION-ONHOST"
+      ],
+      "note_verified": "Verified by execution: the entire 2026-08-22 closure session ran on-host as deploy@vps-4722f0a9. See EV-VPS-EXECUTION-ONHOST."
     },
     {
       "id": "BLOCKER-DEPLOY-DOCKER-GROUP",
@@ -2517,16 +2554,18 @@
       "type": "deployment",
       "project": "PROJECT-MOS-V2",
       "priority": "P1",
-      "status": "OWNER_ACTION",
+      "status": "DONE",
       "owner": "Operator",
-      "impact": "os.mythosprod.xyz stays dark although the console is code-complete and gated green.",
+      "impact": "RESOLVED 2026-08-22: os.mythosprod.xyz is served and answers exactly as the runbook specifies.",
       "required_input": "New MOS_CONSOLE_SECRET (never the compromised MOS-1 password), relay install, deploy.sh run, nginx reload.",
       "unblock": "Execute projects/mythos-os-console/deploy/relay/RUNBOOK.md Phase B; verify /login 200, / 302, /api/health 401 unauthenticated.",
       "created": "2026-08-19",
-      "last_checked": "2026-08-20",
+      "last_checked": "2026-08-22",
       "evidence": [
-        "EV-DEPLOY-READINESS"
-      ]
+        "EV-DEPLOY-READINESS",
+        "EV-MOS-CONSOLE-LIVE"
+      ],
+      "note_verified": "Probed on-host 2026-08-22 against the runbook criteria: /login 200, / 302, /api/health 401. See EV-MOS-CONSOLE-LIVE."
     },
     {
       "id": "BLOCKER-STATUS-DNS",
@@ -2555,17 +2594,19 @@
       "type": "dns",
       "project": "PROJECT-ECOSYSTEM-HUB",
       "priority": "P2",
-      "status": "OWNER_ACTION",
+      "status": "DONE",
       "owner": "Owner",
-      "impact": "The master-brand hub stays invisible; the apex currently redirects to darhijama.tn with a TLS principal error.",
+      "impact": "RESOLVED 2026-08-22: the apex serves the Mythos Hub Dashboard over HTTPS (200, no redirect, valid TLS).",
       "required_input": "Apex + www A records → 51.68.226.211; remove the stray redirect.",
       "unblock": "sites/mythosprod.xyz/DEPLOYMENT.md.",
       "created": "2026-08-19",
-      "last_checked": "2026-08-20",
+      "last_checked": "2026-08-22",
       "evidence": [
         "EV-HUB-BUILT",
-        "EV-HUB-RUNBOOK"
-      ]
+        "EV-HUB-RUNBOOK",
+        "EV-HUB-APEX-LIVE"
+      ],
+      "note_verified": "Probed on-host 2026-08-22: 200, 0 redirects, <title>MYTHOS - Hub</title>, served content byte-matches PR #77 (d2fb479). See EV-HUB-APEX-LIVE."
     },
     {
       "id": "BLOCKER-IDA4-LEGAL",
@@ -2642,15 +2683,53 @@
       "type": "operations",
       "project": "PROJECT-MIGRATION",
       "priority": "P2",
-      "status": "OWNER_ACTION",
+      "status": "DONE",
       "owner": "Owner/operator",
-      "impact": "One-time round trips are proven; there is no recurring schedule and no verified media off-host copy.",
+      "impact": "RESOLVED 2026-08-22 on the stated criteria: a recurring schedule exists and an off-host copy is verified. NOT yet proven: restore-from-backup (mythos-restore-test.service has never executed; next scheduled 2026-09-01) — tracked as BLOCKER-BACKUP-RESTORE-UNPROVEN.",
       "required_input": "B1 explicit backup_create/restore_test order; B2 a host timer; B3 media copy authorization.",
       "unblock": "Dispatch the orders; INF-BACKUP-AUTO-0 tooling is ready and gated.",
       "created": "2026-08-19",
-      "last_checked": "2026-08-20",
+      "last_checked": "2026-08-22",
       "evidence": [
-        "EV-AUTOMATION-GATES"
+        "EV-AUTOMATION-GATES",
+        "EV-BACKUP-SCHEDULE-LIVE"
+      ],
+      "note_verified": "Timers enabled+active; full round trip clean 2026-08-22 15:22:50-15:23:20 incl. verify-remote; health status=ok, consecutive_failures=0. See EV-BACKUP-SCHEDULE-LIVE."
+    },
+    {
+      "id": "BLOCKER-SYA-API-DOWN",
+      "title": "SYA catalog API down since 2026-08-16 (218/CAPABILITIES crash loop)",
+      "type": "infrastructure",
+      "project": "PROJECT-SSANGYONG-AUTOS",
+      "priority": "P0",
+      "status": "BLOCKED",
+      "owner": "Operator",
+      "impact": "ssangyong-storefront.service (USER unit) has never started since 2026-08-16: hardened system-unit directives it cannot apply in user scope make systemd fail at the CAPABILITIES step. Nothing listens on 127.0.0.1:3011. The storefront HTML is served by nginx, so the site looks up while the catalog API is dead. This is a live production outage.",
+      "required_input": "Edit /home/deploy/.config/systemd/user/ssangyong-storefront.service as deploy (NO root needed) and restart the user unit.",
+      "unblock": "Remove ProtectKernelTunables, ProtectClock and MemoryDenyWriteExecute, per the bisected reasoning already recorded in mythos-command-center.service and docs/AI_HANDOVER.md. That leaves a hardening set identical to MCC-1, which runs green. Then: systemctl --user daemon-reload && systemctl --user restart ssangyong-storefront.",
+      "created": "2026-08-22",
+      "last_checked": "2026-08-22",
+      "note_verified": "On-host 2026-08-22: NRestarts=2830 and climbing, status=218/CAPABILITIES every 5s, 21458 journal failures. ss shows nothing on :3011.",
+      "evidence": [
+        "EV-SYA-API-DOWN"
+      ]
+    },
+    {
+      "id": "BLOCKER-BACKUP-RESTORE-UNPROVEN",
+      "title": "Restore-from-backup never exercised on this host",
+      "type": "infrastructure",
+      "project": "PROJECT-SECURITY",
+      "priority": "P2",
+      "status": "OWNER_ACTION",
+      "owner": "Operator",
+      "impact": "Backups are created and verified off-host, but no restore has ever been performed. Backup integrity is proven; recoverability is not.",
+      "required_input": "One run of the restore test.",
+      "unblock": "As deploy: bash ops/backup/mythos-backup-run.sh restore-test (the service is User=deploy). Or as root: systemctl start mythos-restore-test.service. Check disk headroom first — / is at 73%.",
+      "created": "2026-08-22",
+      "last_checked": "2026-08-22",
+      "note_verified": "On-host 2026-08-22: journalctl for mythos-restore-test.service returns \"No entries\"; timer next fires 2026-09-01.",
+      "evidence": [
+        "EV-BACKUP-SCHEDULE-LIVE"
       ]
     }
   ],
