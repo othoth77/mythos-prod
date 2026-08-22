@@ -193,6 +193,20 @@ command -v node >/dev/null 2>&1 \
 umask 077
 mkdir -p "$ARCHIVE"
 chmod 700 "$ARCHIVE"
+# The archive holds the dump history AND the staging area, so it must be a
+# root-only directory — the allowlist alone does not make it one, since two of
+# the permitted roots are owned by $OWNER. Without this, a config naming an
+# archive under $OWNER's tree lets $OWNER pre-seed the staging path, and
+# `install -d` follows a symlink: it would chmod and chown whatever the link
+# points at, and `stat` would then report the target's (now correct) mode back
+# to us. Check the link itself, before anything follows it.
+[ ! -L "$ARCHIVE" ] || fail "archive must not be a symlink: $ARCHIVE"
+ARCHIVE_OWNER="$(stat -c %U "$ARCHIVE")"
+ARCHIVE_MODE="$(stat -c %a "$ARCHIVE")"
+[ "$ARCHIVE_OWNER" = root ] \
+  || fail "archive must be owned by root (is $ARCHIVE_OWNER): $ARCHIVE"
+[ $(( 8#$ARCHIVE_MODE & 022 )) -eq 0 ] \
+  || fail "archive must not be group/world-writable (mode $ARCHIVE_MODE): $ARCHIVE"
 install -d -o "$OWNER" -g "$OWNER" -m 700 "$DB_DIR"
 
 TS="$(date -u +%Y%m%dT%H%M%SZ)"
@@ -288,7 +302,10 @@ read -r FP_B_COUNT FP_B_BYTES FP_B_DIGEST <<<"$(fingerprint "$SRC")"
 # for a symlink in the window between the `rm -rf` and the `mkdir`. Root now
 # stages inside the root-only archive (0700) under an unpredictable name.
 STAGE_PARENT="$ARCHIVE/.capture-staging"
+# Refuse the link before `install -d` can follow it (see the archive checks).
+[ ! -L "$STAGE_PARENT" ] || fail "staging parent must not be a symlink: $STAGE_PARENT"
 install -o root -g root -m 700 -d "$STAGE_PARENT"
+[ ! -L "$STAGE_PARENT" ] || fail "staging parent must not be a symlink: $STAGE_PARENT"
 [ "$(stat -c %U "$STAGE_PARENT")" = root ] || fail "staging parent is not root-owned: $STAGE_PARENT"
 [ "$(stat -c %a "$STAGE_PARENT")" = 700 ] || fail "staging parent is not 0700: $STAGE_PARENT"
 # Publishing must be an atomic rename, and rename cannot cross filesystems.
