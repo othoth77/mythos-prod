@@ -14,7 +14,29 @@
       "url": "https://mythosprod.xyz/",
       "expect_status": [200],
       "enabled": true,
-      "note": "Known audit state: hub built, apex not served (BLOCKER-HUB-DNS). Until deployed this probe honestly reports DOWN."
+      "note": "Apex deployed 2026-08-22: the Mythos Hub Dashboard is served from sites/mythosprod.xyz via /var/www/mythosprod.xyz, with TLS for mythosprod.xyz and www. BLOCKER-HUB-DNS is cleared. The probe is unchanged and still expects 200 — a DOWN here now means a real outage of the platform entry point, not a pending deployment."
+    },
+    {
+      "id": "hub-dashboard-health",
+      "name": "mythosprod.xyz/health.json (Hub dashboard endpoint)",
+      "type": "https",
+      "url": "https://mythosprod.xyz/health.json",
+      "expect_status": [200],
+      "expect_body_substring": "\"application\"",
+      "enabled": true,
+      "note": "Distinct from hub-apex: hub-apex proves the site answers over HTTPS, this proves the dashboard's own health endpoint is served. Both must be green for the entry point to be whole."
+    },
+    {
+      "id": "hub-status-endpoint",
+      "name": "mythosprod.xyz/api/status.json (Hub status feed)",
+      "type": "https",
+      "url": "https://mythosprod.xyz/api/status.json",
+      "expect_status": [
+        200
+      ],
+      "expect_body_substring": "\"checks\"",
+      "enabled": true,
+      "note": "The Hub reads its state through this same-origin alias onto this monitor's own output. The alias points outside the Hub's webroot, so it can break while the Hub itself still answers 200 — without this probe that failure is invisible. Probing our own output is not a loop: the result lands in the next snapshot."
     },
     {
       "id": "os-console",
@@ -64,8 +86,9 @@
       "type": "https",
       "url": "https://ssangyong.autos/api/health",
       "expect_status": [200],
+      "expect_content_type": "application/json",
       "enabled": false,
-      "note": "OPERATOR: confirm the real read-only catalog API health path (SYA-API-1) and enable. Shipped disabled rather than guessing an endpoint — NOT_MONITORED is honest, a wrong URL is noise."
+      "note": "OPERATOR: confirm the real read-only catalog API health path (SYA-API-1), then enable. Shipped disabled rather than guessing an endpoint — NOT_MONITORED is honest, a wrong URL is noise. expect_content_type is REQUIRED here and must stay: ssangyong.autos serves a catch-all/SPA fallback that answers HTTP 200 with the storefront index.html for /api/health and for any nonsense path, so expect_status alone reports LIVE against a dead API (verified on-host 2026-08-22; the API has been down since 2026-08-16)."
     },
     {
       "id": "database",

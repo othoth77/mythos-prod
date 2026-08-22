@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MYTHOS — Écosystème</title>
-<meta name="description" content="MYTHOS — le hub de l'écosystème : la marque, ses cinq unités (Prod, OS, Services, Digital, Logistique), leurs produits et les projets publics indépendants qu'elle porte.">
+<title>MYTHOS — Hub</title>
+<meta name="description" content="Le Hub MYTHOS : point d'entrée central de l'écosystème. Accès aux services (Mythos OS, Command Center, Status Center), état de l'infrastructure et annuaire des projets.">
 <link rel="canonical" href="https://mythosprod.xyz/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="MYTHOS">
-<meta property="og:title" content="MYTHOS — Écosystème">
-<meta property="og:description" content="La marque MYTHOS, ses unités, ses produits et les projets publics indépendants qu'elle porte.">
+<meta property="og:title" content="MYTHOS — Hub">
+<meta property="og:description" content="Point d'entrée central de l'écosystème MYTHOS : services, état de l'infrastructure et projets.">
 <meta property="og:url" content="https://mythosprod.xyz/">
 <meta property="og:image" content="https://mythosprod.xyz/assets/mythos-wordmark-reversed-2400.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -18,6 +18,8 @@
 <meta name="theme-color" content="#0E0E0D">
 <link rel="stylesheet" href="assets/fonts.css">
 <link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/dashboard.css">
+<script src="assets/dashboard.js" defer></script>
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -27,167 +29,264 @@
   "logo": "https://mythosprod.xyz/assets/mythos-appicon-512.png"
 }
 </script>
-<style>
-  /* mythosprod.xyz — the hub. Composes exclusively from the canonical
-     tokens (assets/tokens.css) and the self-hosted approved faces
-     (assets/fonts.css). Structure: PUBLIC_ECOSYSTEM_ARCHITECTURE.md §9
-     (A-020 tree); project boundary: A-004/A-006 — projects appear in
-     their own identities, never Mythos-skinned. One 35° gesture per
-     view (A-012): the hero rule, nowhere else. */
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scroll-behavior: smooth; }
-  body {
-    background: var(--mythos-ground);
-    color: var(--mythos-text-primary);
-    font-family: var(--mythos-font-text);
-    font-size: 16px; line-height: 1.62;
-    -webkit-font-smoothing: antialiased;
-  }
-  .skip-link {
-    position: absolute; left: -9999px; top: 0;
-    background: var(--mythos-accent); color: var(--mythos-text-on-accent);
-    padding: 12px 20px; z-index: 100; font-weight: 600; border-radius: 0 0 var(--mythos-radius-card) 0;
-  }
-  .skip-link:focus { left: 0; }
-  :focus-visible { outline: 2px solid var(--mythos-focus-ring); outline-offset: 2px; }
-
-  .container { max-width: var(--mythos-container-content); margin: 0 auto; padding: 0 var(--mythos-grid-margin-sm); }
-  @media (min-width: 600px)  { .container { padding: 0 var(--mythos-grid-margin-md); } }
-  @media (min-width: 1240px) { .container { padding: 0 var(--mythos-grid-margin-lg); } }
-
-  /* Header */
-  header.site {
-    border-bottom: 1px solid var(--mythos-border-hairline);
-    background: var(--mythos-ground-deep);
-  }
-  .site-bar { display: flex; align-items: center; justify-content: space-between; min-height: 72px; gap: var(--mythos-space-5); }
-  .site-bar .wordmark { display: flex; align-items: center; min-height: 44px; color: var(--mythos-text-primary); text-decoration: none; }
-  .site-bar .wordmark svg { height: 18px; width: auto; display: block; }
-  nav.primary { display: flex; gap: var(--mythos-space-3); flex-wrap: wrap; }
-  nav.primary a {
-    color: var(--mythos-text-secondary); text-decoration: none;
-    font-size: 14px; font-weight: 500;
-    padding: 12px 14px; min-height: 44px; display: inline-flex; align-items: center;
-    border-radius: var(--mythos-radius-control);
-  }
-  nav.primary a:hover { color: var(--mythos-text-primary); background: var(--mythos-surface); }
-
-  /* Hero — carries the view's single 35° gesture (A-012) */
-  .hero { padding: var(--mythos-space-10) 0 var(--mythos-space-9); position: relative; overflow: hidden; }
-  .hero h1 {
-    font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold);
-    font-size: clamp(39px, 6vw, 61px); line-height: 1.02; letter-spacing: -0.022em;
-    max-width: 18ch;
-  }
-  .hero p.lede { margin-top: var(--mythos-space-6); max-width: var(--mythos-container-prose); color: var(--mythos-text-secondary); font-size: 18px; }
-  .hero .gesture {
-    position: absolute; right: -80px; top: 0; bottom: 0; width: 45%;
-    background: linear-gradient(125deg, transparent 0 55%, var(--mythos-accent-dim) 55% 55.5%, transparent 55.5%);
-    pointer-events: none;
-  }
-
-  /* Sections */
-  section { padding: var(--mythos-space-9) 0; border-top: 1px solid var(--mythos-border-hairline); }
-  .section-kicker {
-    font-family: var(--mythos-font-text); font-size: 12px; font-weight: var(--mythos-weight-medium);
-    letter-spacing: 0.10em; text-transform: uppercase; color: var(--mythos-accent);
-    margin-bottom: var(--mythos-space-4);
-  }
-  h2 {
-    font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold);
-    font-size: clamp(25px, 3.4vw, 31px); line-height: 1.18; letter-spacing: -0.015em;
-    margin-bottom: var(--mythos-space-6);
-  }
-  .section-note { color: var(--mythos-text-secondary); max-width: var(--mythos-container-prose); margin-bottom: var(--mythos-space-7); }
-
-  /* Units — the brand tree (A-020), a structure, not business claims */
-  .tree { list-style: none; display: grid; gap: var(--mythos-space-4); max-width: 720px; }
-  .tree > li {
-    background: var(--mythos-surface); border: 1px solid var(--mythos-border-hairline);
-    border-radius: var(--mythos-radius-card); padding: var(--mythos-space-5) var(--mythos-space-6);
-  }
-  .unit-name { font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold); font-size: 20px; letter-spacing: 0.01em; }
-  .unit-name .descriptor { color: var(--mythos-accent); }
-  .unit-line { color: var(--mythos-text-secondary); font-size: 14px; margin-top: 4px; }
-  .tree .products { list-style: none; margin-top: var(--mythos-space-4); padding-left: var(--mythos-space-6); border-left: 2px solid var(--mythos-border-strong); }
-  .tree .products li { padding: var(--mythos-space-2) 0; color: var(--mythos-text-secondary); font-size: 14px; }
-  .tree .products .product-name { color: var(--mythos-text-primary); font-weight: 600; }
-
-  /* Projects — independent identities: deliberately neutral tiles (A-004/A-006) */
-  .projects { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--mythos-space-5); }
-  .projects li {
-    background: var(--mythos-surface); border: 1px solid var(--mythos-border-hairline);
-    border-radius: var(--mythos-radius-card); padding: var(--mythos-space-6);
-    display: flex; flex-direction: column; gap: var(--mythos-space-3);
-  }
-  .projects .p-name { font-size: 18px; font-weight: 600; }
-  .projects .p-domain { font-family: var(--mythos-font-mono); font-size: 13px; color: var(--mythos-text-secondary); }
-  .projects a.p-link {
-    color: var(--mythos-link); text-decoration: underline; text-underline-offset: 3px;
-    min-height: 44px; display: inline-flex; align-items: center; align-self: flex-start;
-  }
-  .projects a.p-link:hover { text-decoration-thickness: 2px; }
-  .badge {
-    align-self: flex-start; font-size: 12px; font-weight: var(--mythos-weight-medium);
-    letter-spacing: 0.06em; text-transform: uppercase;
-    padding: 3px 10px; border-radius: var(--mythos-radius-pill);
-  }
-  .badge.live { color: var(--mythos-success); background: var(--mythos-success-dim); }
-  .badge.prep { color: var(--mythos-text-secondary); background: var(--mythos-surface-card); border: 1px solid var(--mythos-border-hairline); }
-
-  /* Footer */
-  footer.site {
-    border-top: 1px solid var(--mythos-border-hairline);
-    background: var(--mythos-ground-deep);
-    padding: var(--mythos-space-8) 0; margin-top: var(--mythos-space-9);
-    color: var(--mythos-text-secondary); font-size: 14px;
-  }
-  footer.site .cols { display: flex; flex-wrap: wrap; gap: var(--mythos-space-8); justify-content: space-between; align-items: flex-start; }
-  footer.site .wordmark svg { height: 14px; width: auto; color: var(--mythos-text-secondary); }
-  footer.site p { max-width: 60ch; }
-</style>
 </head>
 <body>
 <a class="skip-link" href="#contenu">Aller au contenu</a>
 
 <header class="site">
+  <div class="gesture" aria-hidden="true"></div>
   <div class="container site-bar">
-    <a class="wordmark" href="/" aria-label="MYTHOS — accueil">
-      <svg viewBox="0 0 6074 1000" role="img" aria-hidden="true" focusable="false"><path fill="currentColor" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/><path fill="currentColor" transform="translate(1440 0)" d="M0 0 L290 0 L483 470 L676 0 L966 0 L614 640 L614 1000 L352 1000 L352 640 Z"/><path fill="currentColor" transform="translate(2454 0)" d="M0 0 L760 0 L760 230 L510 230 L510 1000 L250 1000 L250 230 L0 230 Z"/><path fill="currentColor" transform="translate(3286 0)" d="M0 0 L264 0 L264 395 L619 395 L619 0 L883 0 L883 1000 L619 1000 L619 605 L264 605 L264 1000 L0 1000 Z"/><path fill="currentColor" transform="translate(4235 0)" d="M520 0 A520 500 0 1 0 520 1000 A520 500 0 1 0 520 0 Z M520 255 A265 245 0 1 1 520 745 A265 245 0 1 1 520 255 Z"/><path fill="currentColor" transform="translate(5329 0)" d="M313 0 C243.5 8.3 210.5 17.0 164 39 C117.5 61.0 91.3 81.2 62 119 C32.7 156.8 15.4 198.9 6 243 C-3.4 287.1 -6.0 312.2 11 357 C28.0 401.8 17.3 430.9 98 485 C178.7 539.1 420 636 447 649 C471 661 465 700 460 726 C455 752 436 774 408 790 L0 790 L0 1000 L356 1000 C454.1 997.2 474.3 1000.4 530 985 C585.7 969.6 619.4 950.5 657 917 C694.6 883.5 716.7 852.1 733 804 C749.3 755.9 759.8 712.0 745 657 C730.2 602.0 680 545 653 507 C641 490 330 358 295 345 C275 337 262 325 262 306 C262 288 268 274 285 262 L343 210 L742 210 L742 0 Z"/></svg>
-    </a>
-    <nav class="primary" aria-label="Navigation principale">
-      <a href="#unites">Unités</a>
-      <a href="#projets">Projets</a>
-      <a href="#legal">Mentions</a>
-    </nav>
+    <div class="brand-lockup">
+      <a class="wordmark" href="/" aria-label="MYTHOS — accueil"><svg viewBox="0 0 6074 1000" role="img" aria-hidden="true" focusable="false"><path fill="currentColor" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/><path fill="currentColor" transform="translate(1440 0)" d="M0 0 L290 0 L483 470 L676 0 L966 0 L614 640 L614 1000 L352 1000 L352 640 Z"/><path fill="currentColor" transform="translate(2454 0)" d="M0 0 L760 0 L760 230 L510 230 L510 1000 L250 1000 L250 230 L0 230 Z"/><path fill="currentColor" transform="translate(3286 0)" d="M0 0 L264 0 L264 395 L619 395 L619 0 L883 0 L883 1000 L619 1000 L619 605 L264 605 L264 1000 L0 1000 Z"/><path fill="currentColor" transform="translate(4235 0)" d="M520 0 A520 500 0 1 0 520 1000 A520 500 0 1 0 520 0 Z M520 255 A265 245 0 1 1 520 745 A265 245 0 1 1 520 255 Z"/><path fill="currentColor" transform="translate(5329 0)" d="M313 0 C243.5 8.3 210.5 17.0 164 39 C117.5 61.0 91.3 81.2 62 119 C32.7 156.8 15.4 198.9 6 243 C-3.4 287.1 -6.0 312.2 11 357 C28.0 401.8 17.3 430.9 98 485 C178.7 539.1 420 636 447 649 C471 661 465 700 460 726 C455 752 436 774 408 790 L0 790 L0 1000 L356 1000 C454.1 997.2 474.3 1000.4 530 985 C585.7 969.6 619.4 950.5 657 917 C694.6 883.5 716.7 852.1 733 804 C749.3 755.9 759.8 712.0 745 657 C730.2 602.0 680 545 653 507 C641 490 330 358 295 345 C275 337 262 325 262 306 C262 288 268 274 285 262 L343 210 L742 210 L742 0 Z"/></svg></a>
+      <span class="unit">Hub</span>
+    </div>
+    <div class="header-tools">
+      <a class="sys-indicator" href="https://status.mythosprod.xyz/">
+        <span class="dot unknown" id="sys-dot" aria-hidden="true"></span>
+        <span class="label" id="sys-label">État — voir le Status Center</span>
+      </a>
+      <div class="user-area">
+        <span class="avatar" aria-hidden="true">—</span>
+        <a class="signin" href="https://os.mythosprod.xyz/login">S'identifier</a>
+      </div>
+    </div>
   </div>
 </header>
 
 <main id="contenu">
-  <div class="hero">
-    <div class="gesture" aria-hidden="true"></div>
-    <div class="container">
-      <h1>Une marque. Cinq unités. Des projets indépendants.</h1>
-      <p class="lede">MYTHOS est la structure qui porte l'écosystème&nbsp;: ses unités
-      opèrent sous l'identité MYTHOS, ses projets publics gardent chacun la leur.
-      Cette page est l'annuaire de l'ensemble.</p>
-    </div>
+  <div class="container page-intro">
+    <h1>Le point d'entrée de l'écosystème MYTHOS.</h1>
+    <p class="lede">Les services de la plateforme, l'état réel de
+    l'infrastructure et l'annuaire des projets — au même endroit. Les états
+    affichés ici sont <em>mesurés</em> par le Status Center&nbsp;; cette page ne
+    les recopie pas à la main et n'affiche jamais «&nbsp;en ligne&nbsp;» par
+    défaut.</p>
   </div>
+
+  <section id="services" aria-labelledby="h-services">
+    <div class="container">
+      <p class="section-kicker">Services</p>
+      <h2 id="h-services">Les services MYTHOS</h2>
+      <p class="section-note">Seuls les services supervisés portent un état.
+      Un service sans sonde est annoncé comme tel, jamais présenté comme
+      sain.</p>
+      <ul class="cards">
+
+        <li class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-name">Mythos OS</div>
+              <div class="card-host">os.mythosprod.xyz</div>
+            </div>
+            <span class="pill" data-probe="os-console">—</span>
+          </div>
+          <p class="card-desc">La console d'exploitation de l'écosystème&nbsp;:
+          supervision, opérations et accès aux runtimes internes.</p>
+          <div class="card-foot">
+            <a class="open" href="https://os.mythosprod.xyz/">Ouvrir la console</a>
+          </div>
+        </li>
+
+        <li class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-name">Command Center</div>
+              <div class="card-host">ordre.mythosprod.xyz</div>
+            </div>
+            <span class="pill" data-probe="ordre">—</span>
+          </div>
+          <p class="card-desc">La bibliothèque de commandes opérationnelles —
+          procédures exécutables et runbooks de l'écosystème.</p>
+          <div class="card-foot">
+            <a class="open" href="https://ordre.mythosprod.xyz/">Ouvrir le centre de commandes</a>
+          </div>
+        </li>
+
+        <li class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-name">Status Center</div>
+              <div class="card-host">status.mythosprod.xyz</div>
+            </div>
+            <span class="pill" data-probe="status-center">—</span>
+          </div>
+          <p class="card-desc">La source de vérité de l'état des services.
+          Les mesures affichées sur ce Hub viennent de lui&nbsp;; il n'y a pas
+          de second système de mesure.</p>
+          <div class="card-foot">
+            <a class="open" href="https://status.mythosprod.xyz/">Consulter l'état détaillé</a>
+          </div>
+        </li>
+
+        <li class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-name">ERP</div>
+              <div class="card-host">module hérité — préservé</div>
+            </div>
+            <span class="pill planned">Préservé</span>
+          </div>
+          <p class="card-desc">L'application ERP historique est conservée
+          intacte dans le dépôt&nbsp;: rien n'a été supprimé ni migré. Elle
+          n'est aujourd'hui exposée par aucun hôte. Sa route dédiée
+          (<span class="card-host">erp.mythosprod.xyz</span>) attend un
+          enregistrement DNS.</p>
+          <div class="card-foot"></div>
+        </li>
+
+        <li class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-name">Production</div>
+              <div class="card-host">module interne</div>
+            </div>
+            <span class="pill planned">En préparation</span>
+          </div>
+          <p class="card-desc">Gestion de production et d'événements pour
+          l'unité MYTHOS&nbsp;/&nbsp;Prod. Pas encore d'hôte dédié.</p>
+          <div class="card-foot"></div>
+        </li>
+
+        <li class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-name">SYA</div>
+              <div class="card-host">ssangyong.autos</div>
+            </div>
+            <span class="pill" data-probe="sya-site">—</span>
+          </div>
+          <p class="card-desc">SsangYong.autos — projet public indépendant,
+          supervisé par le Status Center (site et automatisation n8n).</p>
+          <div class="card-foot">
+            <a class="open" href="https://ssangyong.autos/" rel="external">Visiter le site</a>
+          </div>
+        </li>
+
+        <li class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-name">AgriBee</div>
+              <div class="card-host">agribee.tn</div>
+            </div>
+            <span class="pill planned">En préparation</span>
+          </div>
+          <p class="card-desc">Projet public indépendant. Pas encore déployé,
+          donc pas encore supervisé.</p>
+          <div class="card-foot"></div>
+        </li>
+
+        <li class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-name">Notre Jour</div>
+              <div class="card-host">notrejour.tn</div>
+            </div>
+            <span class="pill">Non supervisé</span>
+          </div>
+          <p class="card-desc">Projet public indépendant, en ligne mais sans
+          sonde dans le Status Center — ce Hub ne peut donc pas en affirmer
+          l'état.</p>
+          <div class="card-foot">
+            <a class="open" href="https://notrejour.tn/" rel="external">Visiter le site</a>
+          </div>
+        </li>
+
+      </ul>
+    </div>
+  </section>
+
+  <section id="infrastructure" aria-labelledby="h-infra">
+    <div class="container">
+      <p class="section-kicker">Infrastructure</p>
+      <h2 id="h-infra">État de la plateforme</h2>
+      <p class="section-note">Chiffres mesurés, pas déclarés. Une mesure
+      absente s'affiche comme absente.</p>
+      <div class="infra">
+
+        <div class="metric">
+          <span class="m-label">Services</span>
+          <span class="m-value"><span class="dot unknown" id="m-services-dot" aria-hidden="true"></span><span id="m-services">—</span></span>
+          <span class="m-sub" id="m-services-sub">supervisés par le Status Center</span>
+        </div>
+
+        <div class="metric">
+          <span class="m-label">Sauvegarde</span>
+          <span class="m-value"><span class="dot unknown" id="m-backup-dot" aria-hidden="true"></span><span id="m-backup">—</span></span>
+          <span class="m-sub" id="m-backup-sub">sauvegarde hors-site planifiée</span>
+        </div>
+
+        <div class="metric">
+          <span class="m-label">Sécurité — TLS</span>
+          <span class="m-value"><span class="dot unknown" id="m-security-dot" aria-hidden="true"></span><span id="m-security">—</span></span>
+          <span class="m-sub" id="m-security-sub">expiration du certificat le plus proche</span>
+        </div>
+
+        <div class="metric">
+          <span class="m-label">Dernier déploiement</span>
+          <span class="m-value"><span id="m-deploy">—</span></span>
+          <span class="m-sub" id="m-deploy-sub">révision publiée</span>
+        </div>
+
+        <div class="metric">
+          <span class="m-label">Santé système</span>
+          <span class="m-value"><span class="dot unknown" id="m-health-dot" aria-hidden="true"></span><span id="m-health">—</span></span>
+          <span class="m-sub" id="m-health-sub">disque · mémoire · charge</span>
+        </div>
+
+      </div>
+      <p class="infra-foot" id="infra-note">Mesures publiées par le
+      <a href="https://status.mythosprod.xyz/">Status Center</a>. Sans
+      JavaScript, cette page reste lisible et renvoie vers lui.</p>
+    </div>
+  </section>
+
+  <section id="ai" aria-labelledby="h-ai">
+    <div class="container">
+      <p class="section-kicker">À venir</p>
+      <h2 id="h-ai">Mythos AI Assistant</h2>
+      <div class="ai-shell">
+        <div class="ai-head">
+          <span class="ai-name">Mythos AI Assistant</span>
+          <span class="pill planned">Interface seule</span>
+        </div>
+        <p class="ai-note">L'emplacement de l'assistant est posé, son moteur ne
+        l'est pas. Le champ ci-dessous est volontairement inactif&nbsp;: aucune
+        requête n'est envoyée, aucun service d'IA n'est branché. Il n'y a rien
+        derrière ce champ, et la page le dit plutôt que de le laisser croire.</p>
+        <!-- Deliberately not a <form>: there is nothing to submit, and an
+             inline handler to prevent submission would need a CSP exemption
+             this site does not grant. -->
+        <div class="ai-composer">
+          <label class="sr-only" for="ai-input">Demander à Mythos AI (indisponible)</label>
+          <input type="text" id="ai-input" disabled
+                 placeholder="Assistant non connecté — disponible dans une prochaine étape"
+                 aria-describedby="ai-disabled-note">
+          <button type="button" class="send" disabled aria-disabled="true">Envoyer</button>
+        </div>
+        <p class="ai-note" id="ai-disabled-note" style="margin-top: 12px; margin-bottom: 0;">
+        Prévu&nbsp;: interrogation de l'état de l'écosystème, exécution assistée
+        des runbooks du Command Center, et lecture des journaux de
+        déploiement — chacun derrière l'authentification de la plateforme.</p>
+        <ul class="ai-caps">
+          <li>État de l'écosystème</li>
+          <li>Runbooks assistés</li>
+          <li>Journaux de déploiement</li>
+          <li>Sous authentification</li>
+        </ul>
+      </div>
+    </div>
+  </section>
 
   <section id="unites" aria-labelledby="h-unites">
     <div class="container">
       <p class="section-kicker">La structure</p>
       <h2 id="h-unites">Les unités MYTHOS</h2>
-      <p class="section-note">Une unité <em>est</em> MYTHOS&nbsp;: même identité, même
-      système, seul le descripteur change. Les produits d'une unité apparaissent
-      sous elle.</p>
+      <p class="section-note">Une unité <em>est</em> MYTHOS&nbsp;: même identité,
+      même système, seul le descripteur change.</p>
       <ul class="tree">
         <li>
           <div class="unit-name">MYTHOS <span class="descriptor">/ OS</span></div>
           <div class="unit-line">La plateforme d'exploitation interne de l'écosystème.</div>
-          <ul class="products">
-            <li><span class="product-name">Mythos Command Center</span> — bibliothèque de commandes opérationnelles (produit de Mythos OS).</li>
-          </ul>
         </li>
         <li>
           <div class="unit-name">MYTHOS <span class="descriptor">/ PROD</span></div>
@@ -211,47 +310,39 @@
         <li>
           <span class="p-name">Uthina Chess</span>
           <span class="p-domain">uthinachess.tn</span>
-          <span class="badge live">En ligne</span>
           <a class="p-link" href="https://uthinachess.tn/" rel="external">Visiter le site</a>
         </li>
         <li>
           <span class="p-name">SsangYong.autos</span>
           <span class="p-domain">ssangyong.autos</span>
-          <span class="badge live">En ligne</span>
           <a class="p-link" href="https://ssangyong.autos/" rel="external">Visiter le site</a>
         </li>
         <li>
           <span class="p-name">Fixpert</span>
           <span class="p-domain">fixpert.tn</span>
-          <span class="badge live">En ligne</span>
           <a class="p-link" href="https://fixpert.tn/" rel="external">Visiter le site</a>
         </li>
         <li>
           <span class="p-name">Notre Jour</span>
           <span class="p-domain">notrejour.tn</span>
-          <span class="badge live">En ligne</span>
           <a class="p-link" href="https://notrejour.tn/" rel="external">Visiter le site</a>
         </li>
         <li>
           <span class="p-name">Dar Hijama</span>
           <span class="p-domain">darhijama.tn</span>
-          <span class="badge live">En ligne</span>
           <a class="p-link" href="https://darhijama.tn/" rel="external">Visiter le site</a>
         </li>
         <li>
           <span class="p-name">AgriBee</span>
           <span class="p-domain">agribee.tn</span>
-          <span class="badge prep">En préparation</span>
         </li>
         <li>
           <span class="p-name">ID Auto</span>
           <span class="p-domain">idauto.tn</span>
-          <span class="badge prep">En préparation</span>
         </li>
         <li>
           <span class="p-name">Mouain</span>
           <span class="p-domain">mouain.tn</span>
-          <span class="badge prep">En préparation</span>
         </li>
       </ul>
     </div>
@@ -261,9 +352,7 @@
 <footer class="site" id="legal">
   <div class="container cols">
     <div>
-      <a class="wordmark" href="/" aria-label="MYTHOS — accueil">
-        <svg viewBox="0 0 6074 1000" role="img" aria-hidden="true" focusable="false"><path fill="currentColor" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/><path fill="currentColor" transform="translate(1440 0)" d="M0 0 L290 0 L483 470 L676 0 L966 0 L614 640 L614 1000 L352 1000 L352 640 Z"/><path fill="currentColor" transform="translate(2454 0)" d="M0 0 L760 0 L760 230 L510 230 L510 1000 L250 1000 L250 230 L0 230 Z"/><path fill="currentColor" transform="translate(3286 0)" d="M0 0 L264 0 L264 395 L619 395 L619 0 L883 0 L883 1000 L619 1000 L619 605 L264 605 L264 1000 L0 1000 Z"/><path fill="currentColor" transform="translate(4235 0)" d="M520 0 A520 500 0 1 0 520 1000 A520 500 0 1 0 520 0 Z M520 255 A265 245 0 1 1 520 745 A265 245 0 1 1 520 255 Z"/><path fill="currentColor" transform="translate(5329 0)" d="M313 0 C243.5 8.3 210.5 17.0 164 39 C117.5 61.0 91.3 81.2 62 119 C32.7 156.8 15.4 198.9 6 243 C-3.4 287.1 -6.0 312.2 11 357 C28.0 401.8 17.3 430.9 98 485 C178.7 539.1 420 636 447 649 C471 661 465 700 460 726 C455 752 436 774 408 790 L0 790 L0 1000 L356 1000 C454.1 997.2 474.3 1000.4 530 985 C585.7 969.6 619.4 950.5 657 917 C694.6 883.5 716.7 852.1 733 804 C749.3 755.9 759.8 712.0 745 657 C730.2 602.0 680 545 653 507 C641 490 330 358 295 345 C275 337 262 325 262 306 C262 288 268 274 285 262 L343 210 L742 210 L742 0 Z"/></svg>
-      </a>
+      <a class="wordmark" href="/" aria-label="MYTHOS — accueil"><svg viewBox="0 0 6074 1000" role="img" aria-hidden="true" focusable="false"><path fill="currentColor" d="M0 1000 L700 0 L960 0 L960 230 L1120 0 L1380 0 L1380 1000 L1120 1000 L1120 414 L710 1000 L710 429 L310 1000 Z"/><path fill="currentColor" transform="translate(1440 0)" d="M0 0 L290 0 L483 470 L676 0 L966 0 L614 640 L614 1000 L352 1000 L352 640 Z"/><path fill="currentColor" transform="translate(2454 0)" d="M0 0 L760 0 L760 230 L510 230 L510 1000 L250 1000 L250 230 L0 230 Z"/><path fill="currentColor" transform="translate(3286 0)" d="M0 0 L264 0 L264 395 L619 395 L619 0 L883 0 L883 1000 L619 1000 L619 605 L264 605 L264 1000 L0 1000 Z"/><path fill="currentColor" transform="translate(4235 0)" d="M520 0 A520 500 0 1 0 520 1000 A520 500 0 1 0 520 0 Z M520 255 A265 245 0 1 1 520 745 A265 245 0 1 1 520 255 Z"/><path fill="currentColor" transform="translate(5329 0)" d="M313 0 C243.5 8.3 210.5 17.0 164 39 C117.5 61.0 91.3 81.2 62 119 C32.7 156.8 15.4 198.9 6 243 C-3.4 287.1 -6.0 312.2 11 357 C28.0 401.8 17.3 430.9 98 485 C178.7 539.1 420 636 447 649 C471 661 465 700 460 726 C455 752 436 774 408 790 L0 790 L0 1000 L356 1000 C454.1 997.2 474.3 1000.4 530 985 C585.7 969.6 619.4 950.5 657 917 C694.6 883.5 716.7 852.1 733 804 C749.3 755.9 759.8 712.0 745 657 C730.2 602.0 680 545 653 507 C641 490 330 358 295 345 C275 337 262 325 262 306 C262 288 268 274 285 262 L343 210 L742 210 L742 0 Z"/></svg></a>
       <p style="margin-top: 12px;">Les projets référencés ci-dessus appartiennent à
       l'écosystème MYTHOS tout en conservant leur identité propre.</p>
     </div>

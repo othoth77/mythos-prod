@@ -117,6 +117,99 @@ async function run() {
   r = await mod.probeResources({ disk_path: os.tmpdir(), disk_warn_pct: 0, disk_down_pct: 101, mem_warn_pct: 101 });
   check('soft threshold breach → DEGRADED', r.state === 'DEGRADED');
 
+  console.log('\u00a76b thresholds honour a configured 0 (B4)');
+  // `x || dflt` rewrote a configured 0 into the default because 0 is falsy,
+  // so `disk_warn_pct: 0` became 85 and a 73%-full disk reported LIVE on the
+  // production host. A threshold of 0 is a legitimate setting and must win.
+  r = await mod.probeResources({ disk_path: os.tmpdir(), disk_warn_pct: 0, disk_down_pct: 101, mem_warn_pct: 101 });
+  check('disk_warn_pct 0 is honoured, not replaced by 85', r.state === 'DEGRADED', JSON.stringify(r));
+  r = await mod.probeResources({ disk_path: os.tmpdir(), disk_warn_pct: 101, disk_down_pct: 0, mem_warn_pct: 101 });
+  check('disk_down_pct 0 is honoured, not replaced by 95', r.state === 'DOWN', JSON.stringify(r));
+  r = await mod.probeResources({ disk_path: os.tmpdir(), disk_warn_pct: 101, disk_down_pct: 101, mem_warn_pct: 0 });
+  check('mem_warn_pct 0 is honoured, not replaced by 92', r.state === 'DEGRADED', JSON.stringify(r));
+  r = await mod.probeResources({ disk_path: os.tmpdir() });
+  check('absent thresholds still fall back to the shipped defaults',
+    r.state === 'LIVE' || r.state === 'DEGRADED' || r.state === 'DOWN');
+  writeBh('ok', 1, 0);
+  r = await mod.probeBackupHealth({ file: bh, fresh_hours: 0, degraded_hours: 50 });
+  check('fresh_hours 0 is honoured, not replaced by 26', r.state === 'DEGRADED', JSON.stringify(r));
+
+  console.log('\u00a76b2 swap is visible and honest (B8)');
+  // A host can sit at 100% swap with memory still under its threshold and
+  // nothing reported it. Swap is read from /proc/meminfo, injectable here so
+  // the assertions do not depend on the test host's own swap.
+  function meminfo(totalKb, freeKb) {
+    var f = path.join(work, 'meminfo-' + totalKb + '-' + freeKb);
+    fs.writeFileSync(f, 'MemTotal:       7900000 kB\nSwapTotal:       ' +
+      totalKb + ' kB\nSwapFree:        ' + freeKb + ' kB\n');
+    return f;
+  }
+  var permissive = { disk_path: os.tmpdir(), disk_warn_pct: 101, disk_down_pct: 101, mem_warn_pct: 101 };
+  function withSwap(extra) { return Object.assign({}, permissive, extra); }
+
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(2097152, 1048576) }));
+  check('swap_used_pct reported', r.detail.swap_used_pct === 50, JSON.stringify(r.detail));
+  check('swap_free_gb reported', r.detail.swap_free_gb === 1, JSON.stringify(r.detail));
+
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(2097152, 0) }));
+  check('exhausted swap is visible', r.detail.swap_used_pct === 100);
+  check('exhausted swap alone does NOT change state without a threshold', r.state === 'LIVE', JSON.stringify(r));
+
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(2097152, 0), swap_warn_pct: 90 }));
+  check('configured swap_warn_pct makes exhaustion DEGRADED', r.state === 'DEGRADED' && /swap 100% used/.test(r.error));
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(2097152, 2097152), swap_warn_pct: 90 }));
+  check('unused swap stays LIVE under the same threshold', r.state === 'LIVE', JSON.stringify(r));
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(2097152, 2097152), swap_warn_pct: 0 }));
+  check('swap_warn_pct 0 is honoured, not treated as unset', r.state === 'DEGRADED');
+
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(0, 0) }));
+  check('a host with no swap reports null, not 0% or NaN', r.detail.swap_used_pct === null);
+  check('a host with no swap is never penalised', r.state === 'LIVE');
+  r = await mod.probeResources(withSwap({ meminfo_path: meminfo(0, 0), swap_warn_pct: 0 }));
+  check('no-swap host stays LIVE even with swap_warn_pct 0', r.state === 'LIVE', JSON.stringify(r));
+
+  r = await mod.probeResources(withSwap({ meminfo_path: path.join(work, 'no-such-meminfo') }));
+  check('unreadable meminfo degrades to null, never an error state',
+    r.detail.swap_used_pct === null && r.state === 'LIVE', JSON.stringify(r));
+
+  console.log('\u00a76c a catch-all/SPA fallback cannot report an API alive (B2)');
+  // ssangyong.autos answers EVERY unmatched path with 200 + the storefront
+  // index.html, so status-only probing reported a six-day-dead catalog API as
+  // LIVE. Asserting the media type is what makes the fallback fail.
+  var fbSrv = await listen(function (req, res) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end('<!DOCTYPE html><title>storefront</title>');
+  });
+  var fbUrl = 'http://127.0.0.1:' + fbSrv.address().port + '/api/health';
+  r = await mod.runProbe({ id: 'fb', type: 'https', enabled: true, url: fbUrl, expect_status: [200] }, {});
+  check('status-only probe still reports the fallback LIVE (the old defect)', r.state === 'LIVE');
+  r = await mod.runProbe({ id: 'fb', type: 'https', enabled: true, url: fbUrl,
+    expect_status: [200], expect_content_type: 'application/json' }, {});
+  check('expect_content_type turns the HTML fallback into DOWN', r.state === 'DOWN', JSON.stringify(r));
+  check('the error names the real content-type', /text\/html/.test(r.error || ''));
+  fbSrv.close();
+
+  var jsonSrv = await listen(function (req, res) {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end('{"status":"ok"}');
+  });
+  var jsonUrl = 'http://127.0.0.1:' + jsonSrv.address().port + '/api/health';
+  r = await mod.runProbe({ id: 'j', type: 'https', enabled: true, url: jsonUrl,
+    expect_status: [200], expect_content_type: 'application/json' }, {});
+  check('a real JSON API still reports LIVE', r.state === 'LIVE', JSON.stringify(r));
+  r = await mod.runProbe({ id: 'j', type: 'https', enabled: true, url: jsonUrl, expect_status: [200] }, {});
+  check('probes without expect_content_type are unchanged', r.state === 'LIVE');
+  jsonSrv.close();
+
+  console.log('\u00a76d shipped probe registry keeps the SYA guard');
+  var probesCfg = JSON.parse(fs.readFileSync(
+    path.join(__dirname, '..', 'projects', 'status-center', 'monitor', 'probes.json'), 'utf8'));
+  var probeList = Array.isArray(probesCfg) ? probesCfg : probesCfg.probes;
+  var syaApi = probeList.filter(function (x) { return x.id === 'sya-api'; })[0];
+  check('sya-api probe exists', !!syaApi);
+  check('sya-api asserts a JSON content-type (cannot false-green on the SPA fallback)',
+    !!syaApi && syaApi.expect_content_type === 'application/json');
+
   console.log('§7 end-to-end collector run: snapshot, history, alerts');
   var e2eSrv = await listen(function (req, res) { res.writeHead(200); res.end('ok'); });
   var e2ePort = e2eSrv.address().port;

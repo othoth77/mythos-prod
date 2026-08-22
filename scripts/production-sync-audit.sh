@@ -94,11 +94,22 @@ fi
 
 say ""
 say "-- 5. Scheduled timers expected on this host"
+# `systemctl list-timers | grep -q "$t"` inside a loop is unreliable: grep -q
+# exits at the first match and SIGPIPEs systemctl mid-write, and a following
+# invocation can then return truncated output — which reported an installed
+# timer as missing in roughly a quarter of runs (measured 11 false findings
+# in 48 checks on the production host, a different timer each time). Ask
+# systemd about each unit directly instead: is-enabled/is-active are
+# per-unit, deterministic, and never depend on a shared listing.
 for t in mythos-backup.timer mythos-backup-verify.timer mythos-restore-test.timer mythos-status-monitor.timer; do
-  if systemctl list-timers --all --no-pager 2>/dev/null | grep -q "$t"; then
-    ok "$t installed"
-  else
+  t_enabled="$(systemctl is-enabled "$t" 2>/dev/null || true)"
+  t_active="$(systemctl is-active "$t" 2>/dev/null || true)"
+  if [ -z "$t_enabled" ] || [ "$t_enabled" = "not-found" ]; then
     drift "$t not installed (ops/backup/install.sh · projects/status-center/monitor/install.sh)"
+  elif [ "$t_active" != "active" ]; then
+    drift "$t installed but not active (state: ${t_active:-unknown}, enablement: $t_enabled)"
+  else
+    ok "$t installed (enabled: $t_enabled, active)"
   fi
 done
 
