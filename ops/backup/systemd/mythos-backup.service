@@ -1,12 +1,15 @@
 [Unit]
 Description=Mythos scheduled off-host backup (stage, verify, push, verify-remote)
 Documentation=file:/home/deploy/projects/mythos-prod/ops/backup/README.md
-After=network-online.target mythos-db-dump.service
+After=network-online.target
 Wants=network-online.target
-# The dump must have completed before staging can find anything to carry.
-# Requires= (not Wants=) so a failed dump fails the backup loudly instead of
-# staging a stale run.
-Requires=mythos-db-dump.service
+# The dump must be taken with `docker exec` inside the source container, which
+# is root-only by design (deploy is deliberately not in the docker group). The
+# root-side capture unit produces the dump and the media set as inputs; this
+# unit consumes them unprivileged. Requires= makes a failed capture stop the
+# backup rather than let it stage a stale input.
+Requires=mythos-backup-capture.service
+After=mythos-backup-capture.service
 
 [Service]
 Type=oneshot

@@ -6,6 +6,12 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Removed — BACKUP-DUMP-SUPERSEDED — the branch's own dump step, in favour of PR #75 (2026-08-22)
+
+- PR #75 (`ef91aa0`) merged `ops/backup/mythos-backup-capture.sh` + `mythos-backup-capture.service`, addressing the same root cause this branch had addressed with `mythos-db-dump.sh`. The merged mechanism goes further: it produces **both** pipeline inputs (dump *and* media set), enforces the load-bearing capture order, allowlists every path it creates or rotates, and installs root-owned outside the repository so root never executes from the deploy-writable checkout.
+- Keeping both would be the second backup mechanism O-BACKUP-1 forbids, so this branch **withdrew its own**: `mythos-db-dump.sh`, `db-sources.json`, `mythos-db-dump.service` and `tests/backup-db-dump-test.js` deleted; `mythos-backup-run.sh`, `install.sh`, `README.md` and `mythos-backup.service` restored byte-identical to `main`. The per-database multi-run staging mode went with it — PR #75 captures a single database, which settles that scope question.
+- The root-cause finding is unchanged and still stands: `discoverDb()` requires exactly one dump file, and nothing in the repository produced one.
+
 ### Changed — STC2-AR-GATE-CLOSURE — PR #70 merged, Knowledge Gate proven on the host (2026-08-21)
 
 - **PR #70 merged to `main` as `c353334`.** PRs #66 (STC-2 live monitoring, scheduled backups, production-sync audit) and #58 (simple-Arabic layer) auto-closed — their commits are contained in the merge, so no mechanism is duplicated.

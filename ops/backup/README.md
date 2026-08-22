@@ -8,108 +8,97 @@ audit's P0 finding "recurring off-host backups are not scheduled"
 `adapters/s3-compatible.js` (Cloudflare R2) adapter — it implements **no
 parallel backup mechanism** (the INF-BACKUP-AUTO-0 runbook forbids one).
 
-## 0. The dump step — why it exists and what it still needs
-
-**`mythos-backup.service` cannot succeed on a freshly created
-`MYTHOS_BACKUP_DB_DIR`, and this is by design, not a bug in the unit.**
-
-The wrapped tool *carries* database dumps; it never *produces* them —
-`docs/OFF_HOST_BACKUP_GATE.md` §0 states it outright, and
-`projects/automation/reference/backup-operations-orchestrator.js` "never
-executes a shell command". Nothing in this repository dumps a database.
-
-`stage` begins with `discoverDb()`
-(`projects/infrastructure/ops/offhost-backup.js`), which requires
-**exactly one** regular file in `MYTHOS_BACKUP_DB_DIR` (ignoring
-`manifest.json`). Anything else — **zero files included** — raises
-
-```
-ERROR: database dump discovery failed
-```
-
-so an empty, correctly-created, correctly-owned dump directory fails, and
-so does a directory holding two days of dumps or the three databases of
-`OFF_HOST_BACKUP_GATE.md` §1 (`idauto`, `coolify`, `darhijama_prod`).
-
-The same applies to media: `MYTHOS_BACKUP_MEDIA_DIR` must already contain
-a `checksums.sha256` (`<sha256>  media/<path>` lines) **and** a
-`manifest.json` carrying `database.row_count` (or `media_rows`) and
-`database.distinct_object_keys`, which `buildManifest()` cross-checks
-against the media objects and against capture order
-(database-before-media). Nothing in this repository produces that pair
-either — it comes from the media capture step.
-
-### 0.1 `mythos-db-dump.service` supplies the dumps
-
-`ops/backup/mythos-db-dump.sh` is the §4-D dump step, wired as its own
-oneshot unit that `mythos-backup.service` `Requires=` and runs `After=`.
-
-**Privilege split.** The dump needs `docker exec`, and `deploy` is
-deliberately **not** in the `docker` group (root-equivalent; its removal
-is a verified governance invariant). So the dump unit — and only the dump
-unit — runs as `root`; `mythos-backup.service` stays `User=deploy`. Nothing
-is granted to `deploy` beyond read access to the dumps produced for it.
-Credentials are dereferenced *inside* each container
-(`$POSTGRES_USER`, `$MYSQL_ROOT_PASSWORD`), so no secret reaches this
-host's process table, shell history, or this repository.
-
-**Layout.** One directory per database per run, which is what keeps
-`discoverDb()`'s one-file rule satisfiable for three databases and for
-successive daily runs:
-
-```
-$MYTHOS_BACKUP_DB_ROOT/run-<TS>/<id>/<id>-<TS>.<ext>   # exactly one file
-$MYTHOS_BACKUP_DB_ROOT/run-<TS>/SHA256SUMS.txt         # C1, at the run root
-$MYTHOS_BACKUP_DB_ROOT/latest-run                      # pointer, written last
-```
-
-**Sources** are declared in `ops/backup/db-sources.json` (no credentials)
-and re-verified before every dump per runbook §C — container running,
-engine major version, table count. A mismatch **stops the run**: it means
-something changed underneath the runbook. Each artefact is then
-structurally validated (`pg_restore --list` parses; the `mysqldump`
-completion marker is present). Nothing is ever deleted, and no
-force-style retry flag exists.
-
-The wrapper stages each database separately under
-`$MYTHOS_BACKUP_PREFIX/<id>` when `MYTHOS_BACKUP_DB_ROOT` is set. The
-original single-database layout (`MYTHOS_BACKUP_DB_DIR` +
-`MYTHOS_BACKUP_MEDIA_DIR`) still works unchanged.
-
-### 0.2 What is still missing — the media pair
-
-The wrapped tool requires a media `manifest.json` + `checksums.sha256`
-pair for **every** staged set, and **nothing in this repository produces
-that pair** — it comes from the media capture step. Each database
-therefore needs `MYTHOS_BACKUP_MEDIA_DIR_<ID>` configured (e.g.
-`MYTHOS_BACKUP_MEDIA_DIR_IDAUTO`). A database whose media directory is not
-configured **fails closed and names the missing variable** — it is never
-staged with an invented or empty media set.
-
-`coolify` and `darhijama_prod` have no media store at all
-(`has_media_store: false` in the registry), so staging them through this
-tool needs an owner decision on how a media-less database is represented.
-Until that is settled and the ID Auto media pair is being produced, the
-daily backup will still fail — correctly, loudly, and with a FAIL health
-record, which the Status Center reports as **DOWN**. A missing or failing
-record is never rendered as "unknown-green".
-
-**Still owner-gated:** the R2 credential and the recurring-operation order
-(**OWNER-GATE-B1/B2/B3**) remain outstanding.
-
 ## 1. What runs, when
 
 | Timer | Schedule (UTC) | What it does |
 |---|---|---|
-| `mythos-db-dump.service` | pulled in by `mythos-backup.service` (`Requires=`) | in-container `pg_dump`/`mysqldump` per §0.1 — the only root unit |
-| `mythos-backup.timer` | daily 03:30 (+ ≤15 min jitter) | `stage → manifest → verify-local → push → verify-remote`, per database |
+| `mythos-backup.timer` | daily 03:30 (+ ≤15 min jitter) | `capture (root) → stage → manifest → verify-local → push → verify-remote` |
 | `mythos-backup-verify.timer` | daily 15:00 | `verify-remote` (read-only) |
 | `mythos-restore-test.timer` | monthly, 1st 05:00 | `restore-verify` into a throwaway destination — never a live path |
 
-All units except `mythos-db-dump.service` (§0.1) run as `User=deploy`, and all are root-installed/root-owned
+The pipeline units run as `User=deploy` and are root-installed/root-owned
 (the `mythos-git-push` relay pattern). Deletion remains structurally
 refused by the tool (`--destructive` → exit 3); retention stays
 report-only per the adapter's append-only design.
+
+### 1.1 The root-side capture step (`mythos-backup-capture.service`)
+
+The off-host tooling backs up **file artefacts with a manifest**; it does not
+produce database dumps, it carries them (`docs/OFF_HOST_BACKUP_GATE.md` §0).
+The dump must be taken with `docker exec` **inside** the source container (§1:
+the PostgreSQL servers differ by minor version, and the credentials stay in the
+container's own environment), and docker access is root access. `deploy` is
+deliberately **not** in the docker group, so the dump cannot be taken by the
+scheduled pipeline itself.
+
+`mythos-backup-capture.service` is that root side, and nothing more:
+
+- runs `/usr/local/sbin/mythos-backup-capture` — a **root-owned 0700 copy**
+  installed by `install.sh` from `ops/backup/mythos-backup-capture.sh`. Root
+  never executes the deploy-writable checkout copy (the `mythos-git-push`
+  relay rule);
+- ordered `Before=` and pulled in by `Requires=` from `mythos-backup.service`,
+  so the backup **stops** rather than staging a stale input when capture fails;
+- produces exactly the two inputs the pipeline consumes and hands them over
+  owned by `deploy`:
+  1. `$MYTHOS_BACKUP_DB_DIR` — **exactly one** current `pg_dump -Fc` dump
+     (`discoverDb()` requires exactly one file). The previous dump is retired
+     to `$MYTHOS_BACKUP_DB_ARCHIVE` (root-only, `0700`), never deleted, and
+     only removed from the hand-off directory once an identical archived copy
+     is proven present;
+  2. `$MYTHOS_BACKUP_MEDIA_DIR` — the media **backup set** in the
+     IDAUTO-STORAGE-OPS format the tool consumes: `manifest.json` +
+     `checksums.sha256` (`<sha256>  media/aa/bb/<sha256>`) + `media/`. This is
+     **not** the live media store: the live store is not in that format and is
+     never written to (it is read, and its fingerprint is taken before and
+     after the copy);
+- enforces the capture order the tool checks — database metadata snapshot
+  (`REPEATABLE READ READ ONLY`) → `pg_dump` → media copy. Media-before-database
+  is refused by `offhost-backup.js` and by this script;
+- validates the dump with `pg_restore --list` before it is trusted, and records
+  C1 (`SHA256SUMS-<ts>.txt`, runbook §E) in the archive;
+- grants `deploy` nothing: no sudo rule, no docker group, no credential. It
+  never uploads and never reads the R2 credential file.
+
+The regenerated media input set replaces the previous one (one prior generation
+is kept as `<set>.prev`). No dump, staged set or remote object is ever deleted.
+
+### 1.2 What root will and will not accept from `deploy`
+
+The capture step runs as root while every one of its inputs lives under an
+account that is not root. Each of those inputs is therefore treated as data
+from a lower-trust source, not as instruction:
+
+- **the config is parsed, never sourced.** `. $CONFIG` would execute the file
+  as root, and it sits in `deploy`'s home — that would hand `deploy` a root
+  shell on the next timer fire and invert the boundary the split exists to
+  hold. It is read as inert `KEY=VALUE` data: unrecognised keys, malformed
+  lines and values carrying shell metacharacters are all refused, and nothing
+  in the file is ever evaluated;
+- **paths are allowlisted.** `MYTHOS_BACKUP_DB_DIR`, `MYTHOS_BACKUP_MEDIA_DIR`,
+  `MYTHOS_BACKUP_MEDIA_SOURCE` and `MYTHOS_BACKUP_DB_ARCHIVE` must be absolute,
+  free of `.`/`..`, and under `/var/backups/mythos`,
+  `/home/deploy/mythos-backups` or `/home/deploy/deployments`. The config
+  chooses where *inside* those roots, never whether to leave them — otherwise
+  the rotation below becomes an arbitrary root-owned `rm -rf`;
+- **the docker CLI is resolved, not named.** A config-supplied command name is
+  a root-executed binary of the config author's choosing; the resolved path
+  must be a non-symlink regular file owned by root and not group-writable;
+- **staging is root-owned.** The set is built under `$ARCHIVE/.capture-staging`
+  (root, `0700`, unpredictable name) and published with a single atomic
+  rename. The earlier `<set>.tmp.$$` sat in a `deploy`-owned directory under a
+  pid-derived name, where it could be pre-created or swapped for a symlink;
+  rotation now refuses to act on any path that is a symlink;
+- **the manifest is generated as JSON, not as text.** Every value is emitted
+  through a JSON string/number escaper and the result is parse-checked before
+  publication, so a path or hostname containing a quote cannot reshape the
+  document.
+
+`install.sh` enforces the matching half: the config and the credential file
+must each be a non-symlink regular file owned `deploy:deploy` at mode `0600`,
+in a directory owned by root or `deploy` that no one else can write. Mode
+alone was not enough — it says how a file may be reached, never who may
+replace it.
 
 ## 2. Operator installation (one time, on the VPS)
 
@@ -120,24 +109,29 @@ report-only per the adapter's append-only design.
    credentials:
 
    ```bash
-   MYTHOS_BACKUP_DB_ROOT=/home/deploy/mythos-backups/db-runs        # written by mythos-db-dump.service (preferred)
-   # legacy single-database alternative to MYTHOS_BACKUP_DB_ROOT:
-   # MYTHOS_BACKUP_DB_DIR=/home/deploy/mythos-backups/db-dumps      # must hold exactly one dump file
-   MYTHOS_BACKUP_MEDIA_DIR_IDAUTO=/home/deploy/deployments/idauto-media   # must already carry manifest.json + checksums.sha256 — see §0.2
+   # hand-off from the root-side capture step
+   MYTHOS_BACKUP_DB_DIR=/home/deploy/mythos-backups/db-dumps        # exactly one dump; consumed by stage
+   MYTHOS_BACKUP_MEDIA_DIR=/home/deploy/mythos-backups/media-set    # produced media backup SET, not the live store
+   # read-only sources for the capture step
+   MYTHOS_BACKUP_MEDIA_SOURCE=/home/deploy/deployments/idauto-media
+   MYTHOS_BACKUP_DB_CONTAINER=idauto-postgres
+   MYTHOS_BACKUP_DB_ARCHIVE=/var/backups/mythos                     # root-only dump archive (0700)
    MYTHOS_BACKUP_STAGE_ROOT=/home/deploy/mythos-backups/staging
    MYTHOS_BACKUP_PREFIX=mythos/daily
    MYTHOS_BACKUP_HEALTH_FILE=/home/deploy/mythos-backups/health/backup-health.json
    ```
+
+   `MYTHOS_BACKUP_MEDIA_DIR` must point at the **produced media backup set**,
+   never at the live media store: `offhost-backup.js` reads
+   `<dir>/checksums.sha256` and `<dir>/manifest.json` and resolves objects at
+   `<dir>/media/…`, which the live content-addressed store does not provide.
 3. Confirm the O-BACKUP-6 designated credential file exists:
    `/home/deploy/.config/mythos/idauto-offhost.env` (0600) — the
    s3-compatible adapter reads it itself.
 4. `sudo bash /home/deploy/projects/mythos-prod/ops/backup/install.sh`
    (fail-closed preflight: script syntax, config presence, 0600 modes,
    `systemd-analyze verify`, then enable timers).
-5. Run the dump first (it is also pulled in automatically by
-   `Requires=`): `sudo systemctl start mythos-db-dump.service`, then check
-   `$MYTHOS_BACKUP_DB_ROOT/latest-run`. Per §0.2 the media pair must exist
-   for every database being staged. Then run the first backup supervised:
+5. Run the first backup supervised:
    `sudo systemctl start mythos-backup.service && journalctl -u mythos-backup.service -n 40`.
 
 Rollback: `sudo systemctl disable --now mythos-backup.timer mythos-backup-verify.timer mythos-restore-test.timer`.
