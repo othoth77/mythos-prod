@@ -367,3 +367,26 @@ no on-host drift audit has run.
 6. **On-host drift audit not run.**
 
 Everything needed is on `main` at `c353334`; the sequence is §11 steps 1–6.
+
+
+---
+
+## Addendum — 2026-08-22 — Step-2 dependency RESOLVED (PR #64 merged)
+
+**Recorded fact:** `main` advanced `c353334` → **`7830ace`** (*Merge pull request
+#64 from othoth77/claude/oth-knowledge-live-gate-tzrjk5*). **`tests/othk-live-gate.js`
+is now present on `main`** (verified: `git ls-tree -r origin/main | grep live-gate`).
+
+**Consequence:** the Step-2 blocker recorded earlier — the live gate existing only
+on an unmerged branch, and being unrunnable from outside `<repo>/tests/` because it
+resolves `ROOT = path.resolve(__dirname, '..')` — is **closed by the canonical
+route (Option A: merge)**. No temporary extraction is needed. After the deploy
+checkout is synced to `7830ace`, Step 2 runs directly:
+
+```bash
+systemctl --user restart mythos-ai-executor     # as deploy
+cd /home/deploy/projects/mythos-prod && node tests/othk-live-gate.js --require-live
+```
+
+**Classification unchanged** — this is repository evidence, not host evidence.
+Steps 1–6 remain un-run: **REPOSITORY CLOSED · HOST NOT CLOSED · PRODUCTION NOT VERIFIED.**
