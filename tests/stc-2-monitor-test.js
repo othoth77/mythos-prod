@@ -270,9 +270,16 @@ async function run() {
    'sya-api', 'database', 'vps-resources', 'backup-system'].forEach(function (id) {
     check('registry covers ' + id, ids.indexOf(id) >= 0);
   });
-  check('unconfirmed endpoints ship disabled (sya-api, database)',
+  // database was unconfirmed when this assertion was written; the port it
+  // was waiting on (127.0.0.1:5432) is now published and verified, so it is
+  // enabled and the pin moved to sya-api alone. sya-api stays disabled
+  // because the API is retired, not because it is unconfirmed — that
+  // distinction is asserted in tests/monitor-coverage-test.js.
+  check('retired endpoint ships disabled and documented (sya-api)',
     shipped.probes.find(function (p) { return p.id === 'sya-api'; }).enabled === false &&
-    shipped.probes.find(function (p) { return p.id === 'database'; }).enabled === false);
+    /RETIRED/.test(shipped.probes.find(function (p) { return p.id === 'sya-api'; }).note || ''));
+  check('the confirmed database endpoint is enabled',
+    shipped.probes.find(function (p) { return p.id === 'database'; }).enabled === true);
   var appJs = fs.readFileSync(path.join(ROOT, 'sites/status.mythosprod.xyz/assets/app.js'), 'utf8');
   var idx = fs.readFileSync(path.join(ROOT, 'sites/status.mythosprod.xyz/index.html'), 'utf8');
   check('UI has a live section', /id="live-body"/.test(idx));

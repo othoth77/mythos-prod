@@ -88,7 +88,7 @@
       "expect_status": [200],
       "expect_content_type": "application/json",
       "enabled": false,
-      "note": "OPERATOR: confirm the real read-only catalog API health path (SYA-API-1), then enable. Shipped disabled rather than guessing an endpoint — NOT_MONITORED is honest, a wrong URL is noise. expect_content_type is REQUIRED here and must stay: ssangyong.autos serves a catch-all/SPA fallback that answers HTTP 200 with the storefront index.html for /api/health and for any nonsense path, so expect_status alone reports LIVE against a dead API (verified on-host 2026-08-22; the API has been down since 2026-08-16)."
+      "note": "RETIRED — not pending. Verified on-host 2026-08-22: there is no SYA API to probe. The ssangyong.autos vhost is a static root with try_files and carries no /api proxy_pass, ssangyong-storefront.service is inactive, and /api/health, / and an invented nonsense path all return the byte-identical storefront index (md5 1d7337e470ed06d91c965cba40c7dad1). The catalog API is absent, not merely unhealthy, so NOT_MONITORED is the accurate state for a system that no longer exists. Keep expect_content_type alongside the disabled flag: if the API is ever restored, flipping enabled is then sufficient, and the content-type assertion is what stops the SPA fallback from reporting a dead API as LIVE. Re-enable only when a real JSON endpoint exists."
     },
     {
       "id": "database",
@@ -96,8 +96,9 @@
       "type": "tcp",
       "host": "127.0.0.1",
       "port": 5432,
-      "enabled": false,
-      "note": "OPERATOR: idauto-postgres runs under Docker/Coolify and deploy is no longer in the docker group (deliberate, VPS-GATE). Enable only after confirming a host-reachable port or a socket path; otherwise this stays NOT_MONITORED rather than false-DOWN."
+      "handshake": "postgres",
+      "enabled": true,
+      "note": "ENABLED 2026-08-22: the precondition this note asked for is met — idauto-postgres publishes 127.0.0.1:5432 (docker ps: 127.0.0.1:5432->5432/tcp; ss -ltn confirms LISTEN), so the port is host-reachable without docker group membership and deploy's exclusion from that group is untouched. This is a TCP connect only: it opens a socket, observes that the server accepts it, and closes. It sends no startup packet, authenticates nothing, reads no business data, writes nothing, and needs no credential. Postgres logs the closed connection as a reset, which is expected for a liveness check. Loopback-only, so it also proves the port is not publicly exposed. The handshake is why this is not merely a port check: the port is published through docker-proxy, which accepts the client BEFORE it dials the container, so a bare TCP connect would report LIVE against a wedged or absent PostgreSQL. Sending the 8-byte SSLRequest and requiring the protocol's own 'S'/'N' reply closes that false green. It still proves the server speaks PostgreSQL and is accepting connections, not that any particular database or query works — the backup job remains the end-to-end proof."
     },
     {
       "id": "vps-resources",
