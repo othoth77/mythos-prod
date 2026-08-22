@@ -41,6 +41,15 @@ function redact(s) {
   ).slice(0, 400);
 }
 
+// Threshold defaulting. `x || dflt` silently rewrites a configured 0 into
+// the default, because 0 is falsy — so `disk_warn_pct: 0` ("warn at any
+// usage") became 85 and a 73%-full disk reported LIVE. Every threshold
+// below is a number where 0 is a legitimate, meaningful setting, so the
+// default may only apply when the value is genuinely absent.
+function num(v, dflt) {
+  return (typeof v === 'number' && isFinite(v)) ? v : dflt;
+}
+
 // ── probe runners ──────────────────────────────────────────────────
 function probeHttps(p, defaults) {
   return new Promise(function (resolve) {
@@ -69,17 +78,30 @@ function probeHttps(p, defaults) {
         var body = Buffer.concat(chunks.map(Buffer.from)).toString('utf8').slice(0, 4096);
         var expected = (p.expect_status || [200]).indexOf(res.statusCode) >= 0;
         var bodyOk = !p.expect_body_substring || body.indexOf(p.expect_body_substring) >= 0;
+        // A status code alone cannot prove an API is alive. Hosts with an
+        // SPA/catch-all fallback answer EVERY unmatched path with 200 and the
+        // site's index.html — ssangyong.autos does exactly this, so a dead
+        // catalog API still returns 200 text/html on /api/health and any
+        // nonsense path. Asserting the media type makes that fallback fail
+        // the probe instead of passing it.
+        var ctype = String(res.headers['content-type'] || '');
+        var ctypeOk = !p.expect_content_type ||
+          ctype.toLowerCase().indexOf(String(p.expect_content_type).toLowerCase()) >= 0;
         var out = { latency_ms: latency, http_status: res.statusCode, cert_days_remaining: certDays };
         if (!expected) {
           out.state = 'DOWN';
           out.error = 'unexpected HTTP ' + res.statusCode + ' (expected ' + (p.expect_status || [200]).join('/') + ')';
+        } else if (!ctypeOk) {
+          out.state = 'DOWN';
+          out.error = 'expected content-type ' + p.expect_content_type +
+            ', got ' + (ctype || '(none)') + ' — a catch-all/SPA fallback answers 200 for dead endpoints';
         } else if (!bodyOk) {
           out.state = 'DOWN';
           out.error = 'expected body content missing: ' + p.expect_body_substring;
-        } else if (certDays != null && certDays <= (defaults.cert_down_days || 7)) {
+        } else if (certDays != null && certDays <= num(defaults.cert_down_days, 7)) {
           out.state = 'DOWN';
           out.error = 'TLS certificate expires in ' + certDays + ' day(s)';
-        } else if (certDays != null && certDays <= (defaults.cert_warn_days || 21)) {
+        } else if (certDays != null && certDays <= num(defaults.cert_warn_days, 21)) {
           out.state = 'DEGRADED';
           out.error = 'TLS certificate expires in ' + certDays + ' day(s)';
         } else {
@@ -132,9 +154,9 @@ function probeResources(p) {
     out.detail.mem_used_pct = memPct;
     out.detail.load_1m = Math.round(os.loadavg()[0] * 100) / 100;
     out.detail.cpus = os.cpus().length;
-    if (diskPct != null && diskPct >= (p.disk_down_pct || 95)) problems.push('disk ' + diskPct + '% used');
-    else if (diskPct != null && diskPct >= (p.disk_warn_pct || 85)) warns.push('disk ' + diskPct + '% used');
-    if (memPct >= (p.mem_warn_pct || 92)) warns.push('memory ' + memPct + '% used');
+    if (diskPct != null && diskPct >= num(p.disk_down_pct, 95)) problems.push('disk ' + diskPct + '% used');
+    else if (diskPct != null && diskPct >= num(p.disk_warn_pct, 85)) warns.push('disk ' + diskPct + '% used');
+    if (memPct >= num(p.mem_warn_pct, 92)) warns.push('memory ' + memPct + '% used');
     if (problems.length) { out.state = 'DOWN'; out.error = problems.join('; '); }
     else if (warns.length) { out.state = 'DEGRADED'; out.error = warns.join('; '); }
     return Promise.resolve(out);
@@ -161,8 +183,8 @@ function probeBackupHealth(p) {
         last_duration_s: h.duration_s
       }
     };
-    if (ageH <= (p.fresh_hours || 26) && h.status === 'ok') out.state = 'LIVE';
-    else if (ageH <= (p.degraded_hours || 50)) {
+    if (ageH <= num(p.fresh_hours, 26) && h.status === 'ok') out.state = 'LIVE';
+    else if (ageH <= num(p.degraded_hours, 50)) {
       out.state = 'DEGRADED';
       out.error = h.status === 'ok'
         ? 'last success ' + Math.round(ageH) + 'h ago'
