@@ -63,6 +63,43 @@ scheduled pipeline itself.
 The regenerated media input set replaces the previous one (one prior generation
 is kept as `<set>.prev`). No dump, staged set or remote object is ever deleted.
 
+### 1.2 What root will and will not accept from `deploy`
+
+The capture step runs as root while every one of its inputs lives under an
+account that is not root. Each of those inputs is therefore treated as data
+from a lower-trust source, not as instruction:
+
+- **the config is parsed, never sourced.** `. $CONFIG` would execute the file
+  as root, and it sits in `deploy`'s home — that would hand `deploy` a root
+  shell on the next timer fire and invert the boundary the split exists to
+  hold. It is read as inert `KEY=VALUE` data: unrecognised keys, malformed
+  lines and values carrying shell metacharacters are all refused, and nothing
+  in the file is ever evaluated;
+- **paths are allowlisted.** `MYTHOS_BACKUP_DB_DIR`, `MYTHOS_BACKUP_MEDIA_DIR`,
+  `MYTHOS_BACKUP_MEDIA_SOURCE` and `MYTHOS_BACKUP_DB_ARCHIVE` must be absolute,
+  free of `.`/`..`, and under `/var/backups/mythos`,
+  `/home/deploy/mythos-backups` or `/home/deploy/deployments`. The config
+  chooses where *inside* those roots, never whether to leave them — otherwise
+  the rotation below becomes an arbitrary root-owned `rm -rf`;
+- **the docker CLI is resolved, not named.** A config-supplied command name is
+  a root-executed binary of the config author's choosing; the resolved path
+  must be a non-symlink regular file owned by root and not group-writable;
+- **staging is root-owned.** The set is built under `$ARCHIVE/.capture-staging`
+  (root, `0700`, unpredictable name) and published with a single atomic
+  rename. The earlier `<set>.tmp.$$` sat in a `deploy`-owned directory under a
+  pid-derived name, where it could be pre-created or swapped for a symlink;
+  rotation now refuses to act on any path that is a symlink;
+- **the manifest is generated as JSON, not as text.** Every value is emitted
+  through a JSON string/number escaper and the result is parse-checked before
+  publication, so a path or hostname containing a quote cannot reshape the
+  document.
+
+`install.sh` enforces the matching half: the config and the credential file
+must each be a non-symlink regular file owned `deploy:deploy` at mode `0600`,
+in a directory owned by root or `deploy` that no one else can write. Mode
+alone was not enough — it says how a file may be reached, never who may
+replace it.
+
 ## 2. Operator installation (one time, on the VPS)
 
 1. Ensure the deploy checkout contains this directory

@@ -43,38 +43,147 @@ CONFIG_FILE="${MYTHOS_BACKUP_CONFIG:-/home/deploy/.config/mythos/backup-schedule
 OWNER="${MYTHOS_BACKUP_OWNER:-deploy}"
 LOG_PREFIX="[mythos-backup-capture]"
 
+# Every path this script creates, rotates or removes must resolve under one of
+# these roots. The operator config chooses WHERE inside them, never whether to
+# leave them: without this, a rewritten config would turn the rotation below
+# into an arbitrary root-owned `rm -rf`/`mv` of any path on the host.
+ALLOWED_ROOTS="/var/backups/mythos /home/deploy/mythos-backups /home/deploy/deployments"
+
+# Keys this file recognises. The last three belong to the deploy-side pipeline
+# and are accepted-but-unused here, so the two sides can keep sharing one file.
+CONFIG_KEYS="MYTHOS_BACKUP_DB_DIR MYTHOS_BACKUP_MEDIA_DIR MYTHOS_BACKUP_MEDIA_SOURCE\
+ MYTHOS_BACKUP_DB_CONTAINER MYTHOS_BACKUP_DB_ARCHIVE MYTHOS_BACKUP_STAGE_ROOT\
+ MYTHOS_BACKUP_PREFIX MYTHOS_BACKUP_HEALTH_FILE"
+
 say()  { echo "$LOG_PREFIX $*"; }
 # `date +%3N` is not honoured everywhere (it can emit full nanoseconds), and the
 # manifest timestamp is parsed downstream — truncate to milliseconds explicitly.
 iso_ms() { date -u "$@" +%Y-%m-%dT%H:%M:%S.%N | sed -E 's/^(.{23}).*$/\1Z/'; }
 fail() { echo "$LOG_PREFIX ERROR: $*" >&2; exit 1; }
 
+# Values reach the manifest as JSON *literals*, never as raw interpolation: an
+# operator-supplied path or a hostname carrying a quote or a backslash would
+# otherwise emit a document the downstream parser rejects — or silently reshape
+# it. Numbers are proven numeric before they are emitted unquoted.
+json_str() {
+  local s="${1-}"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\t'/\\t}"
+  s="${s//$'\r'/\\r}"
+  s="${s//$'\n'/\\n}"
+  printf '"%s"' "$s"
+}
+json_int() {
+  case "${1-}" in
+    ''|*[!0-9]*) fail "refusing to emit a non-numeric JSON number: '${1-}'" ;;
+  esac
+  printf '%s' "$1"
+}
+
 TMP_FILES=()
 cleanup() { [ "${#TMP_FILES[@]}" -eq 0 ] || rm -rf -- "${TMP_FILES[@]}"; }
 trap cleanup EXIT
 
-[ "$(id -u)" -eq 0 ] || fail "must run as root (this is the root side of the docker boundary)"
-[ -f "$CONFIG_FILE" ] || fail "config not found: $CONFIG_FILE (operator must create it, 0600)"
+require_safe_path() { # <label> <path> — absolute, normalised, under ALLOWED_ROOTS
+  local label="$1" p="$2" pre ok=false
+  case "$p" in
+    /*) : ;;
+    *)  fail "$label must be an absolute path (got '$p')" ;;
+  esac
+  case "$p" in
+    *//*|*/..|*/../*|*/.|*/./*) fail "$label must be a normalised path without '.' or '..' (got '$p')" ;;
+  esac
+  for pre in $ALLOWED_ROOTS; do
+    case "$p" in
+      "$pre"|"$pre"/*) ok=true; break ;;
+    esac
+  done
+  [ "$ok" = true ] || fail "$label ('$p') is outside the permitted roots: $ALLOWED_ROOTS"
+}
 
-# The operator config declares WHAT to capture and WHERE it lands — never a
-# credential. Database credentials live only in the source container's own
-# environment and are never placed on a command line.
-# shellcheck disable=SC1090
-. "$CONFIG_FILE"
+[ "$(id -u)" -eq 0 ] || fail "must run as root (this is the root side of the docker boundary)"
+getent passwd "$OWNER" >/dev/null || fail "owner account not found: $OWNER"
+
+# --- Configuration: READ AS DATA, never sourced ------------------------------
+# Sourcing this file would execute it as root, and it lives under the home of
+# the unprivileged owner — that would hand `deploy` a root shell on the next
+# timer fire and invert the very boundary this script exists to hold. It is
+# therefore parsed as inert KEY=VALUE data: only recognised keys are accepted,
+# every value is shape-checked, and nothing in it is ever evaluated.
+[ ! -L "$CONFIG_FILE" ] || fail "config must not be a symlink: $CONFIG_FILE"
+[ -f "$CONFIG_FILE" ] || fail "config not found: $CONFIG_FILE (operator must create it, 0600)"
+CFG_OWNER="$(stat -c %U "$CONFIG_FILE")"
+CFG_MODE="$(stat -c %a "$CONFIG_FILE")"
+case "$CFG_OWNER" in
+  root|"$OWNER") : ;;
+  *) fail "config must be owned by root or $OWNER (is $CFG_OWNER): $CONFIG_FILE" ;;
+esac
+[ $(( 8#$CFG_MODE & 022 )) -eq 0 ] \
+  || fail "config must not be group/world-writable (mode $CFG_MODE): $CONFIG_FILE"
+
+declare -A CFG=()
+CFG_LINE=0
+while IFS= read -r line || [ -n "$line" ]; do
+  CFG_LINE=$((CFG_LINE + 1))
+  case "$line" in
+    ''|'#'*) continue ;;
+  esac
+  line="${line#export }"
+  key="${line%%=*}"
+  [ "$key" != "$line" ] || fail "config line $CFG_LINE is not KEY=VALUE"
+  val="${line#*=}"
+  case "$key" in
+    ''|*[!A-Z_]*) fail "config line $CFG_LINE has an unacceptable key" ;;
+  esac
+  case " $CONFIG_KEYS " in
+    *" $key "*) : ;;
+    *) fail "config line $CFG_LINE declares an unrecognised key: $key" ;;
+  esac
+  case "$val" in
+    \"*\") val="${val#\"}"; val="${val%\"}" ;;
+    \'*\') val="${val#\'}"; val="${val%\'}" ;;
+  esac
+  case "$val" in
+    *[!A-Za-z0-9/._:@+=,-]*) fail "config value for $key contains unacceptable characters" ;;
+  esac
+  CFG["$key"]="$val"
+done < "$CONFIG_FILE"
+
 for v in MYTHOS_BACKUP_DB_DIR MYTHOS_BACKUP_MEDIA_DIR MYTHOS_BACKUP_MEDIA_SOURCE; do
-  [ -n "${!v:-}" ] || fail "missing required config variable: $v"
+  [ -n "${CFG[$v]:-}" ] || fail "missing required config variable: $v"
 done
 
-CONTAINER="${MYTHOS_BACKUP_DB_CONTAINER:-idauto-postgres}"
-ARCHIVE="${MYTHOS_BACKUP_DB_ARCHIVE:-/var/backups/mythos}"
-SRC="$MYTHOS_BACKUP_MEDIA_SOURCE"
-SET_DIR="$MYTHOS_BACKUP_MEDIA_DIR"
-DB_DIR="$MYTHOS_BACKUP_DB_DIR"
-DOCKER="${MYTHOS_BACKUP_DOCKER:-docker}"
+CONTAINER="${CFG[MYTHOS_BACKUP_DB_CONTAINER]:-idauto-postgres}"
+ARCHIVE="${CFG[MYTHOS_BACKUP_DB_ARCHIVE]:-/var/backups/mythos}"
+SRC="${CFG[MYTHOS_BACKUP_MEDIA_SOURCE]}"
+SET_DIR="${CFG[MYTHOS_BACKUP_MEDIA_DIR]}"
+DB_DIR="${CFG[MYTHOS_BACKUP_DB_DIR]}"
 
-command -v "$DOCKER" >/dev/null 2>&1 || fail "docker CLI not available"
+case "$CONTAINER" in
+  ''|*[!A-Za-z0-9_.-]*) fail "unacceptable container name: $CONTAINER" ;;
+esac
+require_safe_path "MYTHOS_BACKUP_DB_ARCHIVE" "$ARCHIVE"
+require_safe_path "MYTHOS_BACKUP_MEDIA_SOURCE" "$SRC"
+require_safe_path "MYTHOS_BACKUP_MEDIA_DIR" "$SET_DIR"
+require_safe_path "MYTHOS_BACKUP_DB_DIR" "$DB_DIR"
+
+# The docker CLI is resolved here, not named by the config: a config-supplied
+# command name is a root-executed binary of the config author's choosing.
+DOCKER="$(command -v docker 2>/dev/null || true)"
+[ -n "$DOCKER" ] || fail "docker CLI not available"
+case "$DOCKER" in /*) : ;; *) fail "docker CLI did not resolve to an absolute path: $DOCKER" ;; esac
+[ ! -L "$DOCKER" ] || fail "docker CLI must not be a symlink: $DOCKER"
+[ "$(stat -c %U "$DOCKER")" = root ] || fail "docker CLI must be owned by root: $DOCKER"
+[ $(( 8#$(stat -c %a "$DOCKER") & 022 )) -eq 0 ] \
+  || fail "docker CLI must not be group/world-writable: $DOCKER"
+
+# The generated manifest is parse-checked before publication. The deploy-side
+# pipeline already requires node, so this introduces no new system dependency.
+command -v node >/dev/null 2>&1 \
+  || fail "node not available (required to validate the generated manifest)"
+
 [ -d "$SRC" ] || fail "media source not found: $SRC"
-getent passwd "$OWNER" >/dev/null || fail "owner account not found: $OWNER"
 
 # Source preflight (runbook §C): capture nothing if the source is not the
 # source the runbook describes.
@@ -173,8 +282,19 @@ fingerprint() { # <dir> -> "count bytes digest"
 
 read -r FP_B_COUNT FP_B_BYTES FP_B_DIGEST <<<"$(fingerprint "$SRC")"
 
-SET_TMP="$SET_DIR.tmp.$$"; TMP_FILES+=("$SET_TMP")
-rm -rf "$SET_TMP"
+# The set is BUILT where only root can write and PUBLISHED with one rename.
+# The old `$SET_DIR.tmp.$$` sat in a directory the unprivileged owner controls,
+# under a name derived from the pid: that path could be pre-created, or swapped
+# for a symlink in the window between the `rm -rf` and the `mkdir`. Root now
+# stages inside the root-only archive (0700) under an unpredictable name.
+STAGE_PARENT="$ARCHIVE/.capture-staging"
+install -o root -g root -m 700 -d "$STAGE_PARENT"
+[ "$(stat -c %U "$STAGE_PARENT")" = root ] || fail "staging parent is not root-owned: $STAGE_PARENT"
+[ "$(stat -c %a "$STAGE_PARENT")" = 700 ] || fail "staging parent is not 0700: $STAGE_PARENT"
+# Publishing must be an atomic rename, and rename cannot cross filesystems.
+[ "$(stat -c %d "$STAGE_PARENT")" = "$(stat -c %d "$(dirname "$SET_DIR")")" ] \
+  || fail "staging ($STAGE_PARENT) and hand-off ($SET_DIR) are on different filesystems"
+SET_TMP="$(mktemp -d "$STAGE_PARENT/set.XXXXXXXXXX")"; TMP_FILES+=("$SET_TMP")
 mkdir -p "$SET_TMP/media"
 : > "$SET_TMP/checksums.sha256"
 
@@ -223,48 +343,51 @@ CHECKSUMS_SHA="$(sha256sum "$SET_TMP/checksums.sha256" | cut -d' ' -f1)"
 cat > "$SET_TMP/manifest.json" <<JSON
 {
   "format_version": "1.0.0",
-  "created_at_utc": "$MEDIA_AT",
+  "created_at_utc": $(json_str "$MEDIA_AT"),
   "tool": "ops/backup/mythos-backup-capture.sh",
   "source": {
-    "storage_path": "$SRC",
-    "host_identifier": "$(hostname)",
+    "storage_path": $(json_str "$SRC"),
+    "host_identifier": $(json_str "$(hostname)"),
     "project": "mythos-prod / id-auto"
   },
   "backup_mode": "online-live",
   "consistency": {
     "strategy": "metadata-snapshot-first-then-media",
     "metadata_isolation": "REPEATABLE READ READ ONLY",
-    "metadata_snapshot_utc": "$METADATA_AT",
-    "source_fingerprint_before": { "count": $FP_B_COUNT, "bytes": $FP_B_BYTES, "digest": "$FP_B_DIGEST" },
-    "source_fingerprint_after": { "count": $FP_A_COUNT, "bytes": $FP_A_BYTES, "digest": "$FP_A_DIGEST" },
+    "metadata_snapshot_utc": $(json_str "$METADATA_AT"),
+    "source_fingerprint_before": { "count": $(json_int "$FP_B_COUNT"), "bytes": $(json_int "$FP_B_BYTES"), "digest": $(json_str "$FP_B_DIGEST") },
+    "source_fingerprint_after": { "count": $(json_int "$FP_A_COUNT"), "bytes": $(json_int "$FP_A_BYTES"), "digest": $(json_str "$FP_A_DIGEST") },
     "source_changed_during_backup": $CHANGED,
-    "state": "$STATE"
+    "state": $(json_str "$STATE")
   },
   "media": {
-    "file_count": $OBJ_COUNT,
-    "total_bytes": $OBJ_BYTES,
+    "file_count": $(json_int "$OBJ_COUNT"),
+    "total_bytes": $(json_int "$OBJ_BYTES"),
     "layout": "content-addressed sha256 aa/bb/<hash>"
   },
   "database": {
     "metadata_export_version": "1.0.0",
     "source_table": "idauto_observation_media",
-    "row_count": $ROW_COUNT,
-    "distinct_object_keys": $DISTINCT_KEYS,
-    "dump_filename": "$DUMP_NAME",
-    "dump_sha256": "$DUMP_SHA",
-    "dump_captured_at_utc": "$DUMP_AT"
+    "row_count": $(json_int "$ROW_COUNT"),
+    "distinct_object_keys": $(json_int "$DISTINCT_KEYS"),
+    "dump_filename": $(json_str "$DUMP_NAME"),
+    "dump_sha256": $(json_str "$DUMP_SHA"),
+    "dump_captured_at_utc": $(json_str "$DUMP_AT")
   },
   "integrity": {
     "checksums_file": "checksums.sha256",
-    "checksums_file_sha256": "$CHECKSUMS_SHA"
+    "checksums_file_sha256": $(json_str "$CHECKSUMS_SHA")
   },
   "anomalies": {
     "referenced_objects_missing_from_backup": [],
-    "unreferenced_objects_in_store": $UNREFERENCED
+    "unreferenced_objects_in_store": $(json_int "$UNREFERENCED")
   },
   "restore_note": "Media objects are content-addressed; each path under media/ is its own sha256. This set is the INPUT staged and pushed by ops/backup/mythos-backup-run.sh; it is not itself the off-host backup."
 }
 JSON
+# A manifest that will not parse is not a manifest. Prove it before publishing.
+node -e 'JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"))' "$SET_TMP/manifest.json" \
+  || fail "generated manifest.json is not valid JSON"
 
 # --- 5. Publish the media set atomically ------------------------------------
 # One prior generation is retained as <set>.prev. The regenerated input set is
@@ -273,9 +396,17 @@ chown -R "$OWNER":"$OWNER" "$SET_TMP"
 chmod 700 "$SET_TMP"
 find "$SET_TMP" -type d -exec chmod 700 {} +
 find "$SET_TMP" -type f -exec chmod 600 {} +
-rm -rf "$SET_DIR.prev"
-if [ -d "$SET_DIR" ]; then mv "$SET_DIR" "$SET_DIR.prev"; fi
-mv "$SET_TMP" "$SET_DIR"
+# Rotate through real directories only. A symlink planted at either path would
+# otherwise redirect the rename out of the hand-off area entirely; `--` keeps a
+# leading-dash name from being read as an option; `-T` replaces the target
+# instead of moving the source *into* it when the target already exists.
+[ ! -L "$SET_DIR" ] || fail "hand-off path is a symlink, refusing to publish: $SET_DIR"
+[ ! -L "$SET_DIR.prev" ] || fail "retained generation is a symlink, refusing to publish: $SET_DIR.prev"
+[ ! -e "$SET_DIR.prev" ] || [ -d "$SET_DIR.prev" ] \
+  || fail "retained generation is not a directory, refusing to publish: $SET_DIR.prev"
+rm -rf -- "$SET_DIR.prev"
+if [ -d "$SET_DIR" ]; then mv -T -- "$SET_DIR" "$SET_DIR.prev"; fi
+mv -T -- "$SET_TMP" "$SET_DIR"
 
 say "media set: $OBJ_COUNT objects / $OBJ_BYTES bytes / state=$STATE / unreferenced_in_store=$UNREFERENCED"
 say "capture complete — database $DUMP_AT, media $MEDIA_AT"
