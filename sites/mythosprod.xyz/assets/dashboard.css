@@ -1,0 +1,269 @@
+/* mythosprod.xyz — Mythos Hub Dashboard.
+   Composes exclusively from the canonical tokens (tokens.css) and the
+   self-hosted approved faces (fonts.css). No literal colour values, no
+   external origins. One 35° gesture per view (A-012): the header rule,
+   nowhere else — the dashboard grid deliberately carries none.
+
+   Progressive enhancement contract: every status surface renders a
+   readable, honest placeholder with no JavaScript. dashboard.js only ever
+   replaces "—" with a measured value; it never creates meaning that the
+   markup did not already carry. */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--mythos-ground);
+  color: var(--mythos-text-primary);
+  font-family: var(--mythos-font-text);
+  font-size: 16px; line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+.skip-link {
+  position: absolute; left: -9999px; top: 0;
+  background: var(--mythos-accent); color: var(--mythos-text-on-accent);
+  padding: 12px 20px; z-index: 100; font-weight: 600;
+  border-radius: 0 0 var(--mythos-radius-card) 0;
+}
+.skip-link:focus { left: 0; }
+:focus-visible { outline: 2px solid var(--mythos-focus-ring); outline-offset: 2px; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+.container { max-width: var(--mythos-container-wide); margin: 0 auto; padding: 0 var(--mythos-grid-margin-sm); }
+@media (min-width: 600px)  { .container { padding: 0 var(--mythos-grid-margin-md); } }
+@media (min-width: 1240px) { .container { padding: 0 var(--mythos-grid-margin-lg); } }
+
+/* ---- Header ------------------------------------------------------------ */
+header.site {
+  border-bottom: 1px solid var(--mythos-border-hairline);
+  background: var(--mythos-ground-deep);
+  position: relative; overflow: hidden;
+}
+header.site .gesture {
+  position: absolute; right: -60px; top: 0; bottom: 0; width: 28%;
+  background: linear-gradient(125deg, transparent 0 55%, var(--mythos-accent-dim) 55% 55.4%, transparent 55.4%);
+  pointer-events: none;
+}
+.site-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  min-height: 72px; gap: var(--mythos-space-5); flex-wrap: wrap;
+  position: relative;
+}
+.site-bar .wordmark {
+  display: flex; align-items: center; min-height: 44px;
+  color: var(--mythos-text-primary); text-decoration: none;
+}
+.site-bar .wordmark svg { height: 18px; width: auto; display: block; }
+.brand-lockup { display: flex; align-items: baseline; gap: var(--mythos-space-3); }
+.brand-lockup .unit {
+  font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold);
+  font-size: 13px; letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--mythos-accent);
+}
+.header-tools { display: flex; align-items: center; gap: var(--mythos-space-3); flex-wrap: wrap; }
+
+/* System status indicator — the header's single live signal */
+.sys-indicator {
+  display: inline-flex; align-items: center; gap: var(--mythos-space-3);
+  min-height: 44px; padding: 0 var(--mythos-space-4);
+  border: 1px solid var(--mythos-border-hairline);
+  border-radius: var(--mythos-radius-pill);
+  background: var(--mythos-surface);
+  color: var(--mythos-text-secondary);
+  font-size: 13px; text-decoration: none;
+}
+.sys-indicator:hover { border-color: var(--mythos-border-strong); color: var(--mythos-text-primary); }
+.dot {
+  width: 8px; height: 8px; border-radius: var(--mythos-radius-pill);
+  background: var(--mythos-text-disabled); flex: none;
+}
+.dot.live    { background: var(--mythos-success); }
+.dot.degraded{ background: var(--mythos-warning); }
+.dot.down    { background: var(--mythos-danger); }
+.dot.unknown { background: var(--mythos-text-disabled); }
+.sys-indicator .label { font-family: var(--mythos-font-mono); font-size: 12px; }
+
+/* User area — no auth backend yet; the entry point is real, the session is not */
+.user-area { display: flex; align-items: center; gap: var(--mythos-space-3); }
+.user-area .signin {
+  display: inline-flex; align-items: center; min-height: 44px;
+  padding: 0 var(--mythos-space-5);
+  background: var(--mythos-accent); color: var(--mythos-text-on-accent);
+  border-radius: var(--mythos-radius-control);
+  font-size: 14px; font-weight: var(--mythos-weight-medium); text-decoration: none;
+}
+.user-area .signin:hover { background: var(--mythos-accent-hover); }
+.user-area .avatar {
+  width: 36px; height: 36px; border-radius: var(--mythos-radius-pill);
+  border: 1px solid var(--mythos-border-hairline); background: var(--mythos-surface-card);
+  display: grid; place-items: center;
+  font-family: var(--mythos-font-mono); font-size: 12px; color: var(--mythos-text-secondary);
+}
+
+/* ---- Page intro -------------------------------------------------------- */
+.page-intro { padding: var(--mythos-space-9) 0 var(--mythos-space-7); }
+.page-intro h1 {
+  font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold);
+  font-size: clamp(31px, 4.4vw, 44px); line-height: 1.06; letter-spacing: -0.02em;
+  max-width: 20ch;
+}
+.page-intro p.lede {
+  margin-top: var(--mythos-space-5); max-width: var(--mythos-container-prose);
+  color: var(--mythos-text-secondary); font-size: 17px;
+}
+
+/* ---- Sections ---------------------------------------------------------- */
+section { padding: var(--mythos-space-9) 0; border-top: 1px solid var(--mythos-border-hairline); }
+.section-kicker {
+  font-size: 12px; font-weight: var(--mythos-weight-medium);
+  letter-spacing: 0.10em; text-transform: uppercase; color: var(--mythos-accent);
+  margin-bottom: var(--mythos-space-4);
+}
+h2 {
+  font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold);
+  font-size: clamp(25px, 3.4vw, 31px); line-height: 1.18; letter-spacing: -0.015em;
+  margin-bottom: var(--mythos-space-5);
+}
+.section-note {
+  color: var(--mythos-text-secondary); max-width: var(--mythos-container-prose);
+  margin-bottom: var(--mythos-space-7);
+}
+
+/* ---- Service cards ----------------------------------------------------- */
+.cards {
+  list-style: none; display: grid; gap: var(--mythos-space-5);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.card {
+  background: var(--mythos-surface); border: 1px solid var(--mythos-border-hairline);
+  border-radius: var(--mythos-radius-card); padding: var(--mythos-space-6);
+  display: flex; flex-direction: column; gap: var(--mythos-space-3);
+  transition: border-color var(--mythos-motion-micro) var(--mythos-ease-move);
+}
+.card:hover { border-color: var(--mythos-border-strong); }
+.card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--mythos-space-4); }
+.card-name { font-size: 18px; font-weight: 600; line-height: 1.25; }
+.card-host { font-family: var(--mythos-font-mono); font-size: 12px; color: var(--mythos-text-secondary); }
+.card-desc { color: var(--mythos-text-secondary); font-size: 14px; flex: 1 1 auto; }
+.card-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--mythos-space-4); flex-wrap: wrap; }
+.card a.open {
+  color: var(--mythos-link); text-decoration: underline; text-underline-offset: 3px;
+  min-height: 44px; display: inline-flex; align-items: center;
+  font-weight: var(--mythos-weight-medium);
+}
+.card a.open:hover { text-decoration-thickness: 2px; }
+
+/* Status pill inside a card. Default text is "—": honest before measurement. */
+.pill {
+  display: inline-flex; align-items: center; gap: var(--mythos-space-2);
+  padding: 3px 10px; border-radius: var(--mythos-radius-pill);
+  font-size: 12px; font-weight: var(--mythos-weight-medium);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--mythos-surface-card); border: 1px solid var(--mythos-border-hairline);
+  color: var(--mythos-text-secondary); white-space: nowrap;
+}
+.pill.live     { color: var(--mythos-success); background: var(--mythos-success-dim); border-color: transparent; }
+.pill.degraded { color: var(--mythos-warning); background: var(--mythos-warning-dim); border-color: transparent; }
+.pill.down     { color: var(--mythos-danger);  background: var(--mythos-danger-dim);  border-color: transparent; }
+.pill.planned  { color: var(--mythos-info);    background: var(--mythos-info-dim);    border-color: transparent; }
+
+/* ---- Infrastructure panel ---------------------------------------------- */
+.infra {
+  display: grid; gap: var(--mythos-space-5);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.metric {
+  background: var(--mythos-surface); border: 1px solid var(--mythos-border-hairline);
+  border-radius: var(--mythos-radius-card); padding: var(--mythos-space-5) var(--mythos-space-6);
+  display: flex; flex-direction: column; gap: var(--mythos-space-2);
+}
+.metric .m-label {
+  font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--mythos-text-secondary);
+}
+.metric .m-value {
+  font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold);
+  font-size: 26px; line-height: 1.15; letter-spacing: -0.01em;
+  display: flex; align-items: center; gap: var(--mythos-space-3);
+}
+.metric .m-sub { font-size: 13px; color: var(--mythos-text-secondary); font-family: var(--mythos-font-mono); }
+.infra-foot {
+  margin-top: var(--mythos-space-6); font-size: 13px; color: var(--mythos-text-secondary);
+}
+.infra-foot a { color: var(--mythos-link); text-underline-offset: 3px; }
+
+/* ---- AI area ----------------------------------------------------------- */
+.ai-shell {
+  background: var(--mythos-surface); border: 1px solid var(--mythos-border-hairline);
+  border-radius: var(--mythos-radius-card); padding: var(--mythos-space-7);
+  max-width: var(--mythos-container-content);
+}
+.ai-head { display: flex; align-items: center; gap: var(--mythos-space-4); flex-wrap: wrap; margin-bottom: var(--mythos-space-4); }
+.ai-head .ai-name { font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold); font-size: 20px; }
+.ai-note { color: var(--mythos-text-secondary); font-size: 14px; margin-bottom: var(--mythos-space-6); max-width: 62ch; }
+.ai-composer {
+  display: flex; gap: var(--mythos-space-3); flex-wrap: wrap; align-items: stretch;
+  border: 1px solid var(--mythos-border-control); border-radius: var(--mythos-radius-control);
+  background: var(--mythos-ground-deep); padding: var(--mythos-space-3);
+}
+.ai-composer input[type="text"] {
+  flex: 1 1 260px; min-height: var(--mythos-size-control-comfortable);
+  background: transparent; border: 0; color: var(--mythos-text-primary);
+  font-family: var(--mythos-font-text); font-size: 15px; padding: 0 var(--mythos-space-3);
+}
+.ai-composer input[type="text"]::placeholder { color: var(--mythos-text-disabled); }
+.ai-composer input[type="text"]:disabled { cursor: not-allowed; }
+.ai-composer .send {
+  min-height: var(--mythos-size-control-comfortable); padding: 0 var(--mythos-space-5);
+  border: 0; border-radius: var(--mythos-radius-control);
+  background: var(--mythos-surface-card); color: var(--mythos-text-disabled);
+  font-family: var(--mythos-font-text); font-size: 14px; font-weight: var(--mythos-weight-medium);
+  cursor: not-allowed;
+}
+.ai-caps { list-style: none; display: flex; flex-wrap: wrap; gap: var(--mythos-space-3); margin-top: var(--mythos-space-5); }
+.ai-caps li {
+  font-size: 13px; color: var(--mythos-text-secondary);
+  border: 1px solid var(--mythos-border-hairline); border-radius: var(--mythos-radius-pill);
+  padding: 6px 12px;
+}
+
+/* ---- Ecosystem (preserved brand content) ------------------------------- */
+.tree { list-style: none; display: grid; gap: var(--mythos-space-4); max-width: 720px; }
+.tree > li {
+  background: var(--mythos-surface); border: 1px solid var(--mythos-border-hairline);
+  border-radius: var(--mythos-radius-card); padding: var(--mythos-space-5) var(--mythos-space-6);
+}
+.unit-name { font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold); font-size: 20px; letter-spacing: 0.01em; }
+.unit-name .descriptor { color: var(--mythos-accent); }
+.unit-line { color: var(--mythos-text-secondary); font-size: 14px; margin-top: 4px; }
+
+.projects { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--mythos-space-5); }
+.projects li {
+  background: var(--mythos-surface); border: 1px solid var(--mythos-border-hairline);
+  border-radius: var(--mythos-radius-card); padding: var(--mythos-space-6);
+  display: flex; flex-direction: column; gap: var(--mythos-space-3);
+}
+.projects .p-name { font-size: 18px; font-weight: 600; }
+.projects .p-domain { font-family: var(--mythos-font-mono); font-size: 13px; color: var(--mythos-text-secondary); }
+.projects a.p-link {
+  color: var(--mythos-link); text-decoration: underline; text-underline-offset: 3px;
+  min-height: 44px; display: inline-flex; align-items: center; align-self: flex-start;
+}
+
+/* ---- Footer ------------------------------------------------------------ */
+footer.site {
+  border-top: 1px solid var(--mythos-border-hairline);
+  background: var(--mythos-ground-deep);
+  padding: var(--mythos-space-8) 0; margin-top: var(--mythos-space-9);
+  color: var(--mythos-text-secondary); font-size: 14px;
+}
+footer.site .cols { display: flex; flex-wrap: wrap; gap: var(--mythos-space-8); justify-content: space-between; align-items: flex-start; }
+footer.site .wordmark svg { height: 14px; width: auto; color: var(--mythos-text-secondary); }
+footer.site p { max-width: 60ch; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .card { transition: none; }
+}
