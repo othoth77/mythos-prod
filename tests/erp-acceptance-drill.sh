@@ -51,3 +51,6 @@ echo "[acceptance] roles and grants applied"
 export ERP_DATABASE_URL="postgres://erp_owner:$PW@127.0.0.1:$PORT/mythos_erp"
 export ERP_APP_DATABASE_URL="postgres://erp_app:$PW@127.0.0.1:$PORT/mythos_erp"
 node "$ROOT/tests/erp-acceptance-test.js"
+echo
+echo "[acceptance] running the security suite against the same database"
+node "$ROOT/tests/erp-security-test.js"
