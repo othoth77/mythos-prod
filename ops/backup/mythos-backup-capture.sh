@@ -50,6 +50,14 @@ LOG_PREFIX="[mythos-backup-capture]"
 # into an arbitrary root-owned `rm -rf`/`mv` of any path on the host.
 ALLOWED_ROOTS="/var/backups/mythos /home/deploy/mythos-backups /home/deploy/deployments"
 
+# The same reasoning applied to databases. The config file may be owned by the
+# unprivileged owner, and that account is deliberately NOT in the docker group —
+# so without this list, adding a name to MYTHOS_BACKUP_DB_LIST would make root
+# dump any database in the container and hand it to an account that could not
+# otherwise reach it. The config selects a SUBSET of this list; extending the
+# list is a root-side change, reviewed and installed like any other.
+ALLOWED_DATABASES="idauto mythos_command_center mythos_command_center_test ssangyong_autos mythos_erp"
+
 # Keys this file recognises. The last three belong to the deploy-side pipeline
 # and are accepted-but-unused here, so the two sides can keep sharing one file.
 CONFIG_KEYS="MYTHOS_BACKUP_DB_DIR MYTHOS_BACKUP_MEDIA_DIR MYTHOS_BACKUP_MEDIA_SOURCE\
@@ -219,6 +227,12 @@ for db in "${DB_LIST[@]}"; do
     ''|*[!A-Za-z0-9_]*) fail "unacceptable database name in the allowlist: '$db'" ;;
     [0-9]*) fail "database name must not start with a digit: '$db'" ;;
   esac
+  db_permitted=false
+  for permitted in $ALLOWED_DATABASES; do
+    [ "$db" != "$permitted" ] || { db_permitted=true; break; }
+  done
+  [ "$db_permitted" = true ] \
+    || fail "database '$db' is not a permitted backup target: $ALLOWED_DATABASES"
 done
 for i in "${!DB_LIST[@]}"; do
   for j in "${!DB_LIST[@]}"; do

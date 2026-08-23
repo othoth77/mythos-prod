@@ -116,6 +116,7 @@ Rules the capture step enforces:
 | Rule | Behaviour |
 |---|---|
 | Name shape | `^[A-Za-z_][A-Za-z0-9_]*$`, validated before it reaches any command |
+| Permitted targets | Must appear in the root-side `ALLOWED_DATABASES` constant in the capture script. The config selects a subset; it cannot extend the set, because that file may be owned by `deploy` and `deploy` is not in the docker group |
 | Duplicates | Refused |
 | **Listed but absent** | **Run fails.** A missing database is how a rename, a drop, or a never-provisioned database announces itself |
 | Unset | Falls back to the container's `$POSTGRES_DB` — exactly the pre-2026-08-23 behaviour |

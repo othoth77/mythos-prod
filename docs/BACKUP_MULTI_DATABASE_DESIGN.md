@@ -111,6 +111,16 @@ Rules:
 
 - Each name is validated against `^[A-Za-z_][A-Za-z0-9_]*$` before it reaches
   a shell command.
+- **The config may only select from a root-side `ALLOWED_DATABASES` constant.**
+  This was added after reviewing the change against its own threat model. The
+  config file may be owned by `deploy`, and `deploy` is deliberately not in the
+  docker group — so an allowlist read purely from the config would let that
+  account name any database in the container and have root dump it and hand it
+  over, which it could not otherwise reach. Before this change `deploy` could
+  obtain only `$POSTGRES_DB`. The script already applies exactly this pattern
+  to paths (`ALLOWED_ROOTS`: the config chooses where *inside* them, never
+  whether to leave them); databases now work the same way, and extending the
+  list is a reviewed root-side change.
 - Duplicates are refused.
 - **A listed database that does not exist fails the run.** This is the point:
   if `mythos_erp` is renamed, dropped, or never created, the backup must stop

@@ -124,6 +124,19 @@ check('database names are charset-validated before use',
 check('a name starting with a digit is refused',
   /database name must not start with a digit/.test(CAPTURE));
 check('duplicates are refused', /database listed twice in the allowlist/.test(CAPTURE));
+// The config file may be owned by the unprivileged owner, and that account is
+// not in the docker group. Without a root-side list, editing the config would
+// make root dump any database in the container and hand it to an account that
+// could not otherwise reach it.
+check('a root-side database allowlist exists', /^ALLOWED_DATABASES=/m.test(CAPTURE));
+check('the config can only select a SUBSET of it',
+  /is not a permitted backup target/.test(CAPTURE));
+check('the root-side list is a constant, not read from the config',
+  !/CFG\[MYTHOS_BACKUP_ALLOWED/.test(CAPTURE) &&
+  /^ALLOWED_DATABASES="[A-Za-z0-9_ ]+"$/m.test(CAPTURE));
+check('mythos_erp is a permitted target', /^ALLOWED_DATABASES="[^"]*\bmythos_erp\b/m.test(CAPTURE));
+check('the empty default "postgres" database is NOT a permitted target',
+  !/^ALLOWED_DATABASES="[^"]*\bpostgres\b/m.test(CAPTURE));
 check('a listed-but-absent database FAILS the run',
   /allowlisted database does not exist in/.test(CAPTURE));
 check('the database name is passed as an argument, never interpolated into the container shell',
