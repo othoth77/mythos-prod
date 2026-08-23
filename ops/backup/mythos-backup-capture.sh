@@ -18,7 +18,8 @@
 # owned by `deploy`, and exits. It never uploads, never reads a remote
 # credential, never deletes a dump, a staged set or a remote object.
 #
-#   input 1  $MYTHOS_BACKUP_DB_DIR/<one dump>   — pg_dump -Fc, taken in-container
+#   input 1  $MYTHOS_BACKUP_DB_DIR/<dump per database, plus globals-<TS>.sql>
+#            — pg_dump -Fc per allowlisted database, taken in-container
 #   input 2  $MYTHOS_BACKUP_MEDIA_DIR/          — the IDAUTO-STORAGE-OPS media
 #            backup-set format the tool consumes: manifest.json +
 #            checksums.sha256 + media/aa/bb/<sha256>
@@ -52,8 +53,8 @@ ALLOWED_ROOTS="/var/backups/mythos /home/deploy/mythos-backups /home/deploy/depl
 # Keys this file recognises. The last three belong to the deploy-side pipeline
 # and are accepted-but-unused here, so the two sides can keep sharing one file.
 CONFIG_KEYS="MYTHOS_BACKUP_DB_DIR MYTHOS_BACKUP_MEDIA_DIR MYTHOS_BACKUP_MEDIA_SOURCE\
- MYTHOS_BACKUP_DB_CONTAINER MYTHOS_BACKUP_DB_ARCHIVE MYTHOS_BACKUP_STAGE_ROOT\
- MYTHOS_BACKUP_PREFIX MYTHOS_BACKUP_HEALTH_FILE"
+ MYTHOS_BACKUP_DB_CONTAINER MYTHOS_BACKUP_DB_ARCHIVE MYTHOS_BACKUP_DB_LIST\
+ MYTHOS_BACKUP_STAGE_ROOT MYTHOS_BACKUP_PREFIX MYTHOS_BACKUP_HEALTH_FILE"
 
 say()  { echo "$LOG_PREFIX $*"; }
 # `date +%3N` is not honoured everywhere (it can emit full nanoseconds), and the
@@ -190,6 +191,44 @@ command -v node >/dev/null 2>&1 \
 [ "$("$DOCKER" inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null || echo false)" = "true" ] \
   || fail "source container is not running: $CONTAINER"
 
+# --- Database allowlist -------------------------------------------------------
+# Which databases are backed up is a decision that must be reviewable, so it is
+# stated here rather than inherited from the container's environment. Dumping
+# every database found would make the backup set depend on whatever happened to
+# exist that night; an allowlist makes both adding and REMOVING coverage a
+# visible diff.
+#
+# Unset means exactly today's behaviour — the container's own $POSTGRES_DB — so
+# an existing config keeps producing a byte-identical set.
+DB_LIST_RAW="${CFG[MYTHOS_BACKUP_DB_LIST]:-}"
+declare -a DB_LIST=()
+if [ -n "$DB_LIST_RAW" ]; then
+  IFS=',' read -r -a DB_LIST <<< "$DB_LIST_RAW"
+else
+  DEFAULT_DB="$("$DOCKER" exec "$CONTAINER" sh -c 'printf %s "${POSTGRES_DB:-}"' 2>/dev/null || true)"
+  [ -n "$DEFAULT_DB" ] \
+    || fail "no MYTHOS_BACKUP_DB_LIST and the container exposes no POSTGRES_DB to fall back to"
+  DB_LIST=("$DEFAULT_DB")
+fi
+[ "${#DB_LIST[@]}" -gt 0 ] || fail "MYTHOS_BACKUP_DB_LIST is empty"
+
+# Names are validated before they are ever handed to a command. They are passed
+# as positional arguments, never interpolated into a shell string.
+for db in "${DB_LIST[@]}"; do
+  case "$db" in
+    ''|*[!A-Za-z0-9_]*) fail "unacceptable database name in the allowlist: '$db'" ;;
+    [0-9]*) fail "database name must not start with a digit: '$db'" ;;
+  esac
+done
+for i in "${!DB_LIST[@]}"; do
+  for j in "${!DB_LIST[@]}"; do
+    [ "$i" -lt "$j" ] || continue
+    [ "${DB_LIST[$i]}" != "${DB_LIST[$j]}" ] \
+      || fail "database listed twice in the allowlist: '${DB_LIST[$i]}'"
+  done
+done
+PRIMARY_DB="${DB_LIST[0]}"
+
 umask 077
 mkdir -p "$ARCHIVE"
 chmod 700 "$ARCHIVE"
@@ -240,30 +279,85 @@ KEY_LINES="$(wc -l < "$KEYS")"
   || fail "key list ($KEY_LINES) disagrees with distinct-key count ($DISTINCT_KEYS)"
 say "database metadata: rows=$ROW_COUNT distinct_object_keys=$DISTINCT_KEYS"
 
-# --- 2. Database dump, in-container (runbook §D) -----------------------------
-DUMP_NAME="idauto-$TS.dump"
-DUMP_PART="$ARCHIVE/.$DUMP_NAME.part"; TMP_FILES+=("$DUMP_PART")
-say "dumping $CONTAINER with in-container pg_dump -Fc"
-"$DOCKER" exec "$CONTAINER" sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$DUMP_PART" \
-  || fail "pg_dump failed (see the source container; never retry with weakened flags)"
-[ -s "$DUMP_PART" ] || fail "pg_dump produced an empty dump"
+# --- 2. Database dumps, in-container (runbook §D) ----------------------------
+# Every allowlisted database must EXIST. A listed-but-absent database is a
+# failure, not a smaller backup: that is how a renamed, dropped or
+# never-provisioned database announces itself, and the whole point of naming
+# them is to be told when reality stops matching the list.
+EXISTING_DBS="$(mktemp)"; TMP_FILES+=("$EXISTING_DBS")
+"$DOCKER" exec "$CONTAINER" sh -c \
+  'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAXq -v ON_ERROR_STOP=1 \
+   -c "SELECT datname FROM pg_database WHERE NOT datistemplate"' > "$EXISTING_DBS" \
+  || fail "could not enumerate databases in $CONTAINER"
+for db in "${DB_LIST[@]}"; do
+  grep -qxF "$db" "$EXISTING_DBS" \
+    || fail "allowlisted database does not exist in $CONTAINER: '$db'"
+done
+say "allowlist: ${DB_LIST[*]} (primary: $PRIMARY_DB)"
 
-# A dump that will not parse is not a backup. Validate before it is trusted.
-"$DOCKER" exec -i "$CONTAINER" sh -c 'pg_restore --list > /dev/null' < "$DUMP_PART" \
-  || fail "dump failed pg_restore --list validation"
+declare -a DB_NAMES=() DB_FILES=() DB_SHAS=() DB_BYTES=()
+for db in "${DB_LIST[@]}"; do
+  d_name="$db-$TS.dump"
+  d_part="$ARCHIVE/.$d_name.part"; TMP_FILES+=("$d_part")
+  say "dumping $db from $CONTAINER with in-container pg_dump -Fc"
+  # The name is a positional argument, never interpolated into the shell string
+  # the container runs.
+  "$DOCKER" exec "$CONTAINER" sh -c 'pg_dump -U "$POSTGRES_USER" -d "$1" -Fc' _ "$db" > "$d_part" \
+    || fail "pg_dump failed for '$db' (see the source container; never retry with weakened flags)"
+  [ -s "$d_part" ] || fail "pg_dump produced an empty dump for '$db'"
 
-mv "$DUMP_PART" "$ARCHIVE/$DUMP_NAME"
-chmod 600 "$ARCHIVE/$DUMP_NAME"
-DUMP_SHA="$(sha256sum "$ARCHIVE/$DUMP_NAME" | cut -d' ' -f1)"
-# C1 per runbook §E — the source checksum, recorded at rest before upload.
-printf '%s  %s\n' "$DUMP_SHA" "$DUMP_NAME" >> "$ARCHIVE/SHA256SUMS-$TS.txt"
+  # A dump that will not parse is not a backup. Validate before it is trusted.
+  "$DOCKER" exec -i "$CONTAINER" sh -c 'pg_restore --list > /dev/null' < "$d_part" \
+    || fail "dump for '$db' failed pg_restore --list validation"
+
+  mv "$d_part" "$ARCHIVE/$d_name"
+  chmod 600 "$ARCHIVE/$d_name"
+  d_sha="$(sha256sum "$ARCHIVE/$d_name" | cut -d' ' -f1)"
+  # C1 per runbook §E — the source checksum, recorded at rest before upload.
+  printf '%s  %s\n' "$d_sha" "$d_name" >> "$ARCHIVE/SHA256SUMS-$TS.txt"
+  DB_NAMES+=("$db"); DB_FILES+=("$d_name"); DB_SHAS+=("$d_sha")
+  DB_BYTES+=("$(stat -c %s "$ARCHIVE/$d_name")")
+  say "dump: $d_name (${DB_BYTES[-1]} bytes) sha256=$d_sha"
+done
+
+# The primary keeps the position the manifest format has always given it.
+DUMP_NAME="${DB_FILES[0]}"
+DUMP_SHA="${DB_SHAS[0]}"
+
+# --- 2b. Cluster globals -----------------------------------------------------
+# pg_dump is per-database and emits no roles. The ERP's least-privilege model —
+# erp_app holding INSERT/SELECT on audit_log and no UPDATE or DELETE — IS roles
+# and grants, so a dump without them restores the tables and loses the property
+# that makes the audit log worth having.
+#
+# --no-role-passwords is deliberate: roles and grants come back, role password
+# hashes are never written to a backup that leaves this host.
+GLOBALS_NAME="globals-$TS.sql"
+GLOBALS_PART="$ARCHIVE/.$GLOBALS_NAME.part"; TMP_FILES+=("$GLOBALS_PART")
+say "dumping cluster globals (roles and grants, without password hashes)"
+"$DOCKER" exec "$CONTAINER" sh -c \
+  'pg_dumpall -U "$POSTGRES_USER" --globals-only --no-role-passwords' > "$GLOBALS_PART" \
+  || fail "pg_dumpall --globals-only failed"
+[ -s "$GLOBALS_PART" ] || fail "pg_dumpall produced empty globals"
+grep -q '^CREATE ROLE\|^ALTER ROLE' "$GLOBALS_PART" \
+  || fail "globals dump contains no role definitions — refusing to trust it"
+# Prove the redaction actually happened rather than assuming the flag worked.
+if grep -qi "PASSWORD '" "$GLOBALS_PART"; then
+  fail "globals dump contains password material despite --no-role-passwords"
+fi
+mv "$GLOBALS_PART" "$ARCHIVE/$GLOBALS_NAME"
+chmod 600 "$ARCHIVE/$GLOBALS_NAME"
+GLOBALS_SHA="$(sha256sum "$ARCHIVE/$GLOBALS_NAME" | cut -d' ' -f1)"
+printf '%s  %s\n' "$GLOBALS_SHA" "$GLOBALS_NAME" >> "$ARCHIVE/SHA256SUMS-$TS.txt"
 chmod 600 "$ARCHIVE/SHA256SUMS-$TS.txt"
-say "dump: $DUMP_NAME ($(stat -c %s "$ARCHIVE/$DUMP_NAME") bytes) sha256=$DUMP_SHA"
+say "globals: $GLOBALS_NAME ($(stat -c %s "$ARCHIVE/$GLOBALS_NAME") bytes) sha256=$GLOBALS_SHA"
 
-# --- 3. Publish exactly ONE current dump to the deploy-side dump dir ---------
-# discoverDb() in offhost-backup.js requires exactly one file in this directory.
-# The previous dump is retired to the archive, never deleted: it is removed from
-# the hand-off directory only once an identical copy is proven present there.
+# --- 3. Publish the current dump set to the deploy-side dump dir -------------
+# discoverDbs() in offhost-backup.js expects exactly the files this run wrote:
+# one dump per allowlisted database plus the globals. A leftover file from a
+# previous run would silently enter the backup set, so the count is asserted.
+# The previous dumps are retired to the archive, never deleted: one is removed
+# from the hand-off directory only once an identical copy is proven present.
 shopt -s nullglob
 for old in "$DB_DIR"/*; do
   [ -f "$old" ] || continue
@@ -276,12 +370,15 @@ for old in "$DB_DIR"/*; do
   fi
 done
 shopt -u nullglob
-cp -p "$ARCHIVE/$DUMP_NAME" "$DB_DIR/$DUMP_NAME"
-chown "$OWNER":"$OWNER" "$DB_DIR/$DUMP_NAME"
-chmod 600 "$DB_DIR/$DUMP_NAME"
+for f in "${DB_FILES[@]}" "$GLOBALS_NAME"; do
+  cp -p "$ARCHIVE/$f" "$DB_DIR/$f"
+  chown "$OWNER":"$OWNER" "$DB_DIR/$f"
+  chmod 600 "$DB_DIR/$f"
+done
+EXPECTED_IN_DB_DIR=$(( ${#DB_FILES[@]} + 1 ))
 COUNT_IN_DB_DIR="$(find "$DB_DIR" -maxdepth 1 -type f | wc -l)"
-[ "$COUNT_IN_DB_DIR" -eq 1 ] \
-  || fail "dump hand-off directory must hold exactly one file (holds $COUNT_IN_DB_DIR)"
+[ "$COUNT_IN_DB_DIR" -eq "$EXPECTED_IN_DB_DIR" ] \
+  || fail "dump hand-off directory must hold exactly $EXPECTED_IN_DB_DIR files (holds $COUNT_IN_DB_DIR)"
 
 # --- 4. Media backup set, AFTER the dump ------------------------------------
 # Format consumed by offhost-backup.js (and pinned by tests/backup-scheduler-test.js):
@@ -352,11 +449,30 @@ UNREFERENCED=$((FP_A_COUNT - OBJ_COUNT))
 
 MEDIA_AT="$(iso_ms)"
 DUMP_AT="$(iso_ms -r "$DB_DIR/$DUMP_NAME")"
+# Assert the order against the NEWEST database artefact, not the primary dump:
+# with several dumps plus globals, the primary is the oldest of them, and
+# checking it would let a later artefact overtake the media capture unnoticed.
+NEWEST_DB_AT="$DUMP_AT"
+for f in "${DB_FILES[@]}" "$GLOBALS_NAME"; do
+  t="$(iso_ms -r "$DB_DIR/$f")"
+  [ "$(date -u -d "$t" +%s%N)" -le "$(date -u -d "$NEWEST_DB_AT" +%s%N)" ] || NEWEST_DB_AT="$t"
+done
 # offhost-backup.js refuses a set captured media-before-database.
-[ "$(date -u -d "$DUMP_AT" +%s%N)" -le "$(date -u -d "$MEDIA_AT" +%s%N)" ] \
-  || fail "capture order violated: database $DUMP_AT is newer than media $MEDIA_AT"
+[ "$(date -u -d "$NEWEST_DB_AT" +%s%N)" -le "$(date -u -d "$MEDIA_AT" +%s%N)" ] \
+  || fail "capture order violated: database $NEWEST_DB_AT is newer than media $MEDIA_AT"
 
 CHECKSUMS_SHA="$(sha256sum "$SET_TMP/checksums.sha256" | cut -d' ' -f1)"
+
+# The databases[] array is what lets a consumer ask "is mythos_erp in this set?"
+# instead of inferring it from a filename. Emitted through json_str/json_int so
+# a database name can never reshape the document.
+DATABASES_JSON=""
+for i in "${!DB_NAMES[@]}"; do
+  [ -z "$DATABASES_JSON" ] || DATABASES_JSON="$DATABASES_JSON,"
+  DATABASES_JSON="$DATABASES_JSON
+      { \"name\": $(json_str "${DB_NAMES[$i]}"), \"dump_filename\": $(json_str "${DB_FILES[$i]}"), \"dump_sha256\": $(json_str "${DB_SHAS[$i]}"), \"bytes\": $(json_int "${DB_BYTES[$i]}") }"
+done
+
 cat > "$SET_TMP/manifest.json" <<JSON
 {
   "format_version": "1.0.0",
@@ -390,6 +506,14 @@ cat > "$SET_TMP/manifest.json" <<JSON
     "dump_filename": $(json_str "$DUMP_NAME"),
     "dump_sha256": $(json_str "$DUMP_SHA"),
     "dump_captured_at_utc": $(json_str "$DUMP_AT")
+  },
+  "databases": [$DATABASES_JSON
+  ],
+  "globals": {
+    "filename": $(json_str "$GLOBALS_NAME"),
+    "sha256": $(json_str "$GLOBALS_SHA"),
+    "includes_role_passwords": false,
+    "note": "pg_dumpall --globals-only --no-role-passwords: roles and grants restore, credential material is not carried off-host."
   },
   "integrity": {
     "checksums_file": "checksums.sha256",
@@ -426,5 +550,5 @@ if [ -d "$SET_DIR" ]; then mv -T -- "$SET_DIR" "$SET_DIR.prev"; fi
 mv -T -- "$SET_TMP" "$SET_DIR"
 
 say "media set: $OBJ_COUNT objects / $OBJ_BYTES bytes / state=$STATE / unreferenced_in_store=$UNREFERENCED"
-say "capture complete — database $DUMP_AT, media $MEDIA_AT"
+say "capture complete — ${#DB_FILES[@]} database(s) + globals, newest $NEWEST_DB_AT, media $MEDIA_AT"
 exit 0

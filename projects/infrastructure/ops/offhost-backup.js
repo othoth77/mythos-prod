@@ -59,12 +59,71 @@ function write(p, b) {
   });
 }
 
-function discoverDb(dir) {
-  var a = fs.readdirSync(dir).filter(function(n) {
+function dbDirFiles(dir) {
+  return fs.readdirSync(dir).filter(function(n) {
     return fs.statSync(path.join(dir, n)).isFile() && n !== 'manifest.json';
   }).sort();
-  if (a.length !== 1) throw problem('database dump discovery failed');
-  return path.join(dir, a[0]);
+}
+
+// The hand-off directory used to be contractually single-file. It now holds one
+// dump per allowlisted database plus the cluster globals, and WHICH file is the
+// primary is stated by the capture manifest rather than decided by sort() —
+// alphabetical order must not silently reassign the primary position when a
+// database is added.
+function discoverDbs(dir, mm) {
+  var files = dbDirFiles(dir);
+  var listed = (mm && Array.isArray(mm.databases)) ? mm.databases : null;
+
+  if (!listed) {
+    // Legacy single-database set: preserve the original contract exactly.
+    if (files.length !== 1) throw problem('database dump discovery failed');
+    return {
+      primary: files[0],
+      others: [],
+      globals: null,
+      databases: [ { name: null, dump_filename: files[0] } ]
+    };
+  }
+
+  var primary = mm.database && mm.database.dump_filename;
+  if (!primary || files.indexOf(primary) < 0) throw problem('primary database dump missing from hand-off');
+
+  var accounted = {};
+  accounted[primary] = true;
+  listed.forEach(function(d) {
+    if (!d || typeof d.dump_filename !== 'string') throw problem('malformed databases entry');
+    if (files.indexOf(d.dump_filename) < 0) {
+      throw problem('declared database dump missing from hand-off: ' + d.name);
+    }
+    accounted[d.dump_filename] = true;
+  });
+
+  var globals = (mm.globals && mm.globals.filename) || null;
+  if (globals) {
+    if (files.indexOf(globals) < 0) throw problem('declared globals dump missing from hand-off');
+    accounted[globals] = true;
+  }
+
+  // A file nobody declared must not ride along into the backup unnoticed.
+  var stray = files.filter(function(n) { return !accounted[n]; });
+  if (stray.length) throw problem('undeclared file in database hand-off: ' + stray[0]);
+
+  return {
+    primary: primary,
+    others: listed.map(function(d) { return d.dump_filename; })
+      .filter(function(n) { return n !== primary; }),
+    globals: globals,
+    databases: listed
+  };
+}
+
+// Answer "is this database in this set?" from the manifest, not from a filename.
+function hasDatabase(manifest, name) {
+  var list = (manifest && manifest.databases) || [];
+  for (var i = 0; i < list.length; i++) {
+    if (list[i] && list[i].name === name) return true;
+  }
+  return false;
 }
 
 function mediaEntries(mediaDir) {
@@ -85,9 +144,10 @@ function mediaEntries(mediaDir) {
 }
 
 function buildManifest(opts) {
-  var db = discoverDb(opts.dbDir);
   var mmPath = path.join(opts.mediaDir, 'manifest.json');
   var mm = readJson(mmPath);
+  var found = discoverDbs(opts.dbDir, mm);
+  var db = path.join(opts.dbDir, found.primary);
   var entries = mediaEntries(opts.mediaDir);
   var dbTime = new Date(opts.databaseCapturedAt || fs.statSync(db).mtime).toISOString();
   var mediaTime = new Date(opts.mediaCapturedAt || mm.created_at_utc).toISOString();
@@ -108,6 +168,14 @@ function buildManifest(opts) {
   ) throw problem('media-row consistency failure');
   var dbRel = 'database/' + path.basename(db);
   var mediaManifestRel = 'media-backup/manifest.json';
+  // objects[0] is the primary dump and objects[1] the media manifest. Those two
+  // positions are asserted by verifyLocal and by every set already in R2, so
+  // additional dumps and the globals are APPENDED — never inserted.
+  var extra = found.others.concat(found.globals ? [ found.globals ] : [])
+    .map(function(n) {
+      var f = path.join(opts.dbDir, n);
+      return { rel: 'database/' + n, source: f, sha256: fileHash(f), size: fs.statSync(f).size };
+    });
   var objects = [ {
     rel: dbRel,
     source: db,
@@ -118,7 +186,7 @@ function buildManifest(opts) {
     source: mmPath,
     sha256: fileHash(mmPath),
     size: fs.statSync(mmPath).size
-  } ].concat(entries);
+  } ].concat(entries).concat(extra);
   return {
     format_version: FORMAT_VERSION,
     created_at_utc: new Date(opts.now || Date.now()).toISOString(),
@@ -129,6 +197,24 @@ function buildManifest(opts) {
       dump_sha256: objects[0].sha256,
       media_row_count: rows
     },
+    // Recomputed here rather than copied from the capture manifest: this is the
+    // set's own claim about what it contains, and it must be true of the bytes
+    // that were actually staged.
+    databases: found.databases.map(function(d) {
+      var f = path.join(opts.dbDir, d.dump_filename);
+      return {
+        name: d.name,
+        dump_filename: d.dump_filename,
+        dump_sha256: fileHash(f),
+        size: fs.statSync(f).size
+      };
+    }),
+    globals: found.globals ? {
+      filename: found.globals,
+      sha256: fileHash(path.join(opts.dbDir, found.globals)),
+      size: fs.statSync(path.join(opts.dbDir, found.globals)).size,
+      includes_role_passwords: false
+    } : null,
     media: {
       manifest_sha256: objects[1].sha256,
       object_count: entries.length,
@@ -183,11 +269,21 @@ function regenerate(dir, dryRun) {
   });
   old.database.dump_sha256 = old.objects[0].sha256;
   old.media.manifest_sha256 = old.objects[1].sha256;
+  var byPath = {};
+  old.objects.forEach(function(o) { byPath[o.path] = o.sha256; });
+  (old.databases || []).forEach(function(d) {
+    var k = 'database/' + d.dump_filename;
+    if (byPath[k]) d.dump_sha256 = byPath[k];
+  });
+  if (old.globals && byPath['database/' + old.globals.filename]) {
+    old.globals.sha256 = byPath['database/' + old.globals.filename];
+  }
   if (!dryRun) write(path.join(dir, 'manifest.json'), JSON.stringify(old, null, 2) + '\n');
   return old;
 }
 
-function verifyLocal(dir) {
+function verifyLocal(dir, opts) {
+  opts = opts || {};
   var m;
   try {
     m = readJson(path.join(dir, 'manifest.json'));
@@ -224,10 +320,42 @@ function verifyLocal(dir) {
     m.media &&
     m.database.media_row_count < m.media.distinct_object_key_count
   ) p.push('media-row consistency failure');
+
+  // Every database the set CLAIMS to contain must be present as an object with
+  // the checksum the set claims. Without this, databases[] is documentation
+  // rather than a verified property.
+  var byPath = {};
+  (m.objects || []).forEach(function(o) { byPath[o.path] = o; });
+  if (Array.isArray(m.databases)) {
+    if (m.databases.length) {
+      var declaredPrimary = 'database/' + (m.database || {}).dump_filename;
+      if ((m.objects[0] || {}).path !== declaredPrimary) p.push('primary database dump is not objects[0]');
+    }
+    m.databases.forEach(function(d) {
+      var o = byPath['database/' + d.dump_filename];
+      if (!o) p.push('declared database not in set: ' + (d.name || d.dump_filename));
+      else if (o.sha256 !== d.dump_sha256) p.push('declared database checksum mismatch: ' + (d.name || d.dump_filename));
+    });
+  }
+  if (m.globals && m.globals.filename) {
+    var g = byPath['database/' + m.globals.filename];
+    if (!g) p.push('declared globals not in set');
+    else if (g.sha256 !== m.globals.sha256) p.push('globals checksum mismatch');
+  }
+
+  // An explicit demand from the caller: "this set must contain mythos_erp".
+  // Asked on every scheduled verify, this is what turns "the ERP quietly
+  // stopped being backed up" from a discovery-at-restore-time into an alert.
+  var required = opts.requireDatabase || [];
+  required.forEach(function(name) {
+    if (!hasDatabase(m, name)) p.push('required database absent from set: ' + name);
+  });
+
   return {
     ok: !p.length,
     problems: p,
     manifest: m,
+    databases: (m.databases || []).map(function(d) { return d.name; }),
     verified_objects: (m.objects || []).length
   };
 }
@@ -282,7 +410,8 @@ async function push(dir, adapter, opts) {
   }
 }
 
-async function verifyRemote(prefix, adapter) {
+async function verifyRemote(prefix, adapter, opts) {
+  opts = opts || {};
   try {
     var mb = await adapter.get(prefix + '/manifest.json');
     var m = JSON.parse(Buffer.from(mb).toString());
@@ -294,9 +423,14 @@ async function verifyRemote(prefix, adapter) {
       var h = await adapter.head(prefix + '/' + o.path);
       if (!h || h.size !== o.size || h.sha256 !== o.sha256) throw problem('remote checksum mismatch');
     }
+    // Intact bytes for the wrong set of databases is still a failed backup.
+    (opts.requireDatabase || []).forEach(function(name) {
+      if (!hasDatabase(m, name)) throw problem('required database absent from remote set: ' + name);
+    });
     return {
       ok: true,
-      manifest: m
+      manifest: m,
+      databases: (m.databases || []).map(function(d) { return d.name; })
     };
   } catch (e) {
     return {
@@ -322,7 +456,7 @@ async function restoreVerify(prefix, dest, adapter, opts) {
     refused: true,
     problems: [ 'unsafe restore path' ]
   };
-  var vr = await verifyRemote(prefix, adapter);
+  var vr = await verifyRemote(prefix, adapter, { requireDatabase: opts.requireDatabase });
   if (!vr.ok) return vr;
   if (opts.dryRun) return {
     ok: true,
@@ -343,7 +477,7 @@ async function restoreVerify(prefix, dest, adapter, opts) {
       if (!fs.existsSync(target)) write(target, b);
     }
     write(path.join(d, 'manifest.json'), JSON.stringify(vr.manifest, null, 2) + '\n');
-    return verifyLocal(d);
+    return verifyLocal(d, { requireDatabase: opts.requireDatabase });
   } catch (e) {
     return {
       ok: false,
@@ -389,6 +523,15 @@ function argv(name) {
   return i < 0 ? null : process.argv[i + 1];
 }
 
+// Repeatable flag: --require-database idauto --require-database mythos_erp
+function argvAll(name) {
+  var out = [];
+  for (var i = 3; i < process.argv.length; i++) {
+    if (process.argv[i] === '--' + name && process.argv[i + 1]) out.push(process.argv[i + 1]);
+  }
+  return out;
+}
+
 function has(name) {
   return process.argv.indexOf('--' + name) >= 0;
 }
@@ -428,7 +571,7 @@ async function main() {
       break;
 
      case 'verify-local':
-      r = verifyLocal(path.resolve(argv('stage')));
+      r = verifyLocal(path.resolve(argv('stage')), { requireDatabase: argvAll('require-database') });
       break;
 
      case 'push':
@@ -439,7 +582,9 @@ async function main() {
       break;
 
      case 'verify-remote':
-      r = await verifyRemote(argv('prefix'), loadAdapter());
+      r = await verifyRemote(argv('prefix'), loadAdapter(), {
+        requireDatabase: argvAll('require-database')
+      });
       break;
 
      case 'list':
@@ -455,7 +600,8 @@ async function main() {
 
      case 'restore-verify':
       r = await restoreVerify(argv('prefix'), argv('dest'), loadAdapter(), {
-        dryRun: dry
+        dryRun: dry,
+        requireDatabase: argvAll('require-database')
       });
       break;
 
@@ -463,7 +609,7 @@ async function main() {
       process.stdout.write(
         'Usage: offhost-backup.js ' +
         '<stage|manifest|verify-local|push|verify-remote|list|retention|restore-verify> ' +
-        '[options] [--dry-run]\n' +
+        '[options] [--require-database <name>]... [--dry-run]\n' +
         'Exit codes: 0 clean · 1 usage/env · 2 anomaly/verification failure · 3 refused\n'
       );
       process.exitCode = cmd ? 1 : 0;
@@ -488,6 +634,8 @@ module.exports = {
   verifyRemote: verifyRemote,
   restoreVerify: restoreVerify,
   retention: retention,
+  discoverDbs: discoverDbs,
+  hasDatabase: hasDatabase,
   redact: redact,
   safeRel: safeRel,
   FORMAT_VERSION: FORMAT_VERSION

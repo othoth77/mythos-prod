@@ -100,6 +100,60 @@ in a directory owned by root or `deploy` that no one else can write. Mode
 alone was not enough — it says how a file may be reached, never who may
 replace it.
 
+### 1.3 Which databases are backed up (`MYTHOS_BACKUP_DB_LIST`)
+
+A comma-separated allowlist. **This is the only place that decides what is
+protected**, and it is deliberately a list you have to edit rather than
+"everything on the server":
+
+- A throwaway database created for an afternoon does not silently enter the
+  backup, grow it, and have to be explained to whoever restores it.
+- Removing something from backup becomes a visible diff instead of a
+  `DROP DATABASE` nobody notices.
+
+Rules the capture step enforces:
+
+| Rule | Behaviour |
+|---|---|
+| Name shape | `^[A-Za-z_][A-Za-z0-9_]*$`, validated before it reaches any command |
+| Duplicates | Refused |
+| **Listed but absent** | **Run fails.** A missing database is how a rename, a drop, or a never-provisioned database announces itself |
+| Unset | Falls back to the container's `$POSTGRES_DB` — exactly the pre-2026-08-23 behaviour |
+
+Each database is dumped separately with in-container `pg_dump -Fc`, validated
+with `pg_restore --list`, and published to the hand-off directory. The name is
+passed as a positional argument, never interpolated into the shell string the
+container runs.
+
+**Cluster globals** are captured once per run as `globals-<TS>.sql` via
+`pg_dumpall --globals-only --no-role-passwords`. `pg_dump` is per-database and
+emits no roles, so without this a restore rebuilds the tables and loses the
+grants — including the property that `erp_app` may append to `audit_log` and
+may not rewrite it. `--no-role-passwords` keeps role password hashes out of a
+backup that leaves the host, and the capture step *verifies* the redaction
+rather than trusting the flag.
+
+#### Proving a database is covered
+
+```sh
+# fails (exit 2) if the set does not contain mythos_erp
+node projects/infrastructure/ops/offhost-backup.js verify-remote \
+  --prefix mythos --adapter <adapter> --require-database mythos_erp
+```
+
+`--require-database` is repeatable and works on `verify-local`,
+`verify-remote` and `restore-verify`. Put it on the scheduled verify for any
+database whose disappearance should page someone.
+
+#### Restore drill
+
+`ops/backup/restore-drill.sh` (root) proves a set actually restores, which
+`restore-verify` does not: it stands up a throwaway PostgreSQL 15 container,
+runs the real capture step against it, stages and verifies the set, drops the
+source databases and roles, then restores from the dumps and asserts the
+schema, the row counts and the grants came back. It refuses to run against a
+production container and touches no remote object.
+
 ## 2. Operator installation (one time, on the VPS)
 
 1. Ensure the deploy checkout contains this directory
@@ -116,6 +170,7 @@ replace it.
    MYTHOS_BACKUP_MEDIA_SOURCE=/home/deploy/deployments/idauto-media
    MYTHOS_BACKUP_DB_CONTAINER=idauto-postgres
    MYTHOS_BACKUP_DB_ARCHIVE=/var/backups/mythos                     # root-only dump archive (0700)
+   MYTHOS_BACKUP_DB_LIST=idauto,mythos_command_center,ssangyong_autos  # see §1.3
    MYTHOS_BACKUP_STAGE_ROOT=/home/deploy/mythos-backups/staging
    MYTHOS_BACKUP_PREFIX=mythos/daily
    MYTHOS_BACKUP_HEALTH_FILE=/home/deploy/mythos-backups/health/backup-health.json
@@ -169,3 +224,22 @@ tool against fixtures with a mock adapter, unit-file contract
 (`User=deploy`, oneshot, correct script path/mode per unit, timers have
 `OnCalendar` + `Persistent`), and that no unit or script carries a
 credential or a destructive flag.
+
+`tests/backup-multi-db-test.js` (85 assertions) covers explicit
+multi-database coverage: that the allowlist is validated and a listed-but-
+absent database fails the run; that a set contains exactly the declared
+databases and nothing else; that an undeclared file in the hand-off
+directory is refused rather than swept in; that corrupting any dump, the
+globals, or the manifest's own claims about them fails verification; that
+`--require-database` fails a set missing the named database both locally and
+against a remote; that push, remote verification and restore-verify still
+work; and that legacy single-database sets — including every set already in
+R2 — still stage, push and verify unchanged.
+
+The suite was mutation-tested: 22 single-line defects were injected into the
+capture script and the tool one at a time (globals dumped *with* password
+hashes, `--require-database` ignored, declared checksums not compared, a
+listed-but-absent database tolerated, the database name interpolated into
+the container shell, `FORMAT_VERSION` bumped). All 22 were caught — seven
+only after the suite was strengthened, because the original assertions
+matched text anywhere in the file rather than on the line that runs.
