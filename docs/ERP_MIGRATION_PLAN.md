@@ -126,6 +126,7 @@ Applied in order, once each, checksummed:
 |---|---|---|
 | 1 | `db/schema.sql` | 31 tables, 34 FKs, 39 explicit indexes, 22 `updated_at` triggers |
 | 2 | `db/schema-auth.sql` | 3 tables, 5 indexes, 1 view, 7 user columns, 6 roles, 28 permissions |
+| 3 | `db/schema-tenant.sql` | tenants, tenant_modules, tenant_memberships; `tenant_id` on 24 business tables + `user_roles`; uniqueness re-scoped per tenant; RLS on 29 tables with 30 policies; 3 invoice permissions; tenant #1 seeded |
 
 The runner records a sha256 per file in `schema_migrations`. **A file edited
 after being applied is an error, not a silent skip** — the fix is a new
@@ -139,15 +140,28 @@ exactly the mistake worth making impossible.
 ### Verification (do not skip)
 
 ```sql
--- 35 = 34 from the two schema files + schema_migrations, created by the runner
+-- 38 = 37 from the three schema files + schema_migrations, created by the runner
 SELECT count(*) FROM information_schema.tables
-  WHERE table_schema='public' AND table_type='BASE TABLE';   -- 35
+  WHERE table_schema='public' AND table_type='BASE TABLE';   -- 38
 SELECT count(*) FROM information_schema.views
   WHERE table_schema='public';                               -- 1 (user_effective_permissions)
+SELECT count(*) FROM pg_tables WHERE schemaname='public' AND rowsecurity;  -- 29
+SELECT count(*) FROM pg_policies WHERE schemaname='public';               -- 30
 SELECT count(*) FROM roles;        -- 6
-SELECT count(*) FROM permissions;  -- 28
+SELECT count(*) FROM permissions;  -- 31  (28 + the three invoices.* keys)
+SELECT count(*) FROM tenants;      -- 1   (Mythos Prod, tenant #1)
 SELECT count(*) FROM users;        -- 0  ← there must be no seeded account
 ```
+
+**And the isolation check, which matters more than the counts.** Connected as
+`erp_app` with no tenant context:
+
+```sql
+SELECT count(*) FROM clients;   -- must be 0, even when rows exist
+```
+
+A non-zero answer here means RLS is not applying to the application role —
+usually because it was granted ownership — and provisioning must stop.
 
 That last one is the security assertion, not a sanity check. **A fresh ERP has
 zero users.** If it has one, something seeded a default account and the
