@@ -21,6 +21,9 @@ var auth      = require(path.join(API, 'lib', 'auth'));
 var pipeline  = require(path.join(API, 'lib', 'pipeline'));
 var migrate   = require(path.join(API, 'migrations', 'migrate'));
 
+var T_A = 'aaaaaaaa-0000-4000-8000-000000000001';   // tenant A
+var T_B = 'bbbbbbbb-0000-4000-8000-000000000002';   // tenant B
+
 var passed = 0, failed = 0;
 function check(name, ok, detail) {
   if (ok) { passed++; console.log('  PASS ' + name); }
@@ -37,7 +40,9 @@ function makeDb(seed) {
     attempts: [],
     audits: [],
     resets: [],
-    updates: []
+    updates: [],
+    memberships: s.memberships || {},
+    disabledModules: s.disabledModules || []
   };
   db.query = function (sql, params) {
     var p = params || [];
@@ -72,7 +77,8 @@ function makeDb(seed) {
     }
     if (/INSERT INTO sessions/.test(q)) {
       var sess = { id: 'sess-' + (db.sessions.length + 1), user_id: p[0], token_hash: p[1],
-                   csrf_hash: p[2], idle_expires_at: p[3], absolute_expires_at: p[4], revoked_at: null };
+                   csrf_hash: p[2], idle_expires_at: p[3], absolute_expires_at: p[4], revoked_at: null,
+                   active_tenant_id: p[7] || null };
       db.sessions.push(sess);
       return Promise.resolve({ rows: [{ id: sess.id }] });
     }
@@ -93,12 +99,31 @@ function makeDb(seed) {
       db.sessions.forEach(function (x) { if (x.user_id === p[0]) x.revoked_at = new Date(); });
       return Promise.resolve({ rows: [] });
     }
-    if (/FROM user_effective_permissions WHERE user_id = \$1 AND permission_key/.test(q)) {
-      var keys = db.perms[p[0]] || [];
-      return Promise.resolve({ rows: keys.indexOf(p[1]) >= 0 ? [{ '?column?': 1 }] : [] });
+    // Permissions resolve per (user, tenant): a grant in one company must not
+    // authorise an action in another.
+    if (/FROM user_effective_permissions WHERE user_id = \$1 AND tenant_id = \$2 AND permission_key/.test(q)) {
+      var keys = db.perms[p[0] + ':' + p[1]] || db.perms[p[0]] || [];
+      return Promise.resolve({ rows: keys.indexOf(p[2]) >= 0 ? [{ '?column?': 1 }] : [] });
     }
     if (/SELECT permission_key FROM user_effective_permissions/.test(q)) {
-      return Promise.resolve({ rows: (db.perms[p[0]] || []).map(function (k) { return { permission_key: k }; }) });
+      var all = db.perms[p[0] + ':' + p[1]] || db.perms[p[0]] || [];
+      return Promise.resolve({ rows: all.map(function (k) { return { permission_key: k }; }) });
+    }
+    if (/FROM tenant_memberships tm JOIN tenants t/.test(q)) {
+      if (/tm.tenant_id = \$2/.test(q)) {
+        var mem = (db.memberships[p[0]] || []).indexOf(p[1]) >= 0;
+        return Promise.resolve({ rows: mem ? [{ '?column?': 1 }] : [] });
+      }
+      return Promise.resolve({ rows: (db.memberships[p[0]] || []).map(function (t, i) {
+        return { id: t, key: 't' + i, display_name: 'Tenant ' + i, is_default: i === 0 }; }) });
+    }
+    if (/FROM tenant_modules WHERE module_key/.test(q)) {
+      var off = db.disabledModules || [];
+      return Promise.resolve({ rows: [{ enabled: off.indexOf(p[0]) < 0 }] });
+    }
+    if (/^UPDATE sessions SET active_tenant_id/.test(q)) {
+      db.sessions.forEach(function (x) { if (x.id === p[0]) x.active_tenant_id = p[1]; });
+      return Promise.resolve({ rows: [] });
     }
     if (/SELECT id FROM users WHERE email/.test(q)) {
       return Promise.resolve({ rows: db.users.filter(function (u) { return u.email === p[0] && u.is_active && !u.deleted_at; })
@@ -132,6 +157,8 @@ function deps(db, over) {
   return Object.assign({
     db: db,
     tx: function (fn) { return Promise.resolve(fn(db)); },
+    withTenant: function (tenantId, fn) { db.lastTenant = tenantId; return Promise.resolve(fn(db)); },
+    withoutTenant: function (fn) { return Promise.resolve(fn(db)); },
     sleep: function () { return Promise.resolve(); },   // skip the 200ms floor in tests
     nowMs: function () { return 0; }
   }, over || {});
@@ -179,7 +206,8 @@ console.log('\n§3 authentication');
 var pwHash = await passwords.hash('a-really-long-password', FAST);
 function freshDb() {
   return makeDb({ users: [{ id: 'u1', email: 'ana@mythos.test', display_name: 'Ana',
-    password_hash: pwHash, password_algo: 'scrypt', is_active: true, failed_attempts: 0, locked_until: null }] });
+    password_hash: pwHash, password_algo: 'scrypt', is_active: true, failed_attempts: 0, locked_until: null }],
+    memberships: { u1: [T_A] } });
 }
 var db = freshDb();
 var ok = await auth.login(deps(db), { email: 'ana@mythos.test', password: 'a-really-long-password', ip: '10.0.0.1' });
@@ -264,27 +292,30 @@ check('unknown module has no permission (deny by default)', authz.requiredPermis
 check('unmapped verb has no permission (deny by default)', authz.requiredPermission('reports', 'DELETE') === null);
 check('planning has no delete verb mapped', authz.requiredPermission('planning', 'DELETE') === null);
 
-var adb = makeDb({ perms: { u1: ['clients.read'] } });
-var allowed = await authz.authorize(adb, { user: { id: 'u1', email: 'a@b.c' }, module: 'clients', method: 'GET' });
+var adb = makeDb({ perms: { ['u1:' + T_A]: ['clients.read'] } });
+var allowed = await authz.authorize(adb, { user: { id: 'u1', email: 'a@b.c' }, tenantId: T_A, module: 'clients', method: 'GET' });
 check('user with the permission is allowed', allowed.allowed === true);
-var denied = await authz.authorize(adb, { user: { id: 'u1', email: 'a@b.c' }, module: 'clients', method: 'POST' });
+var denied = await authz.authorize(adb, { user: { id: 'u1', email: 'a@b.c' }, tenantId: T_A, module: 'clients', method: 'POST' });
 check('user without the permission is denied', denied.allowed === false);
 check('denial is audited as permission.denied',
   adb.audits.some(function (a) { return a.action === 'permission.denied' && a.outcome === 'denied'; }));
-var anon = await authz.authorize(adb, { user: null, module: 'clients', method: 'GET' });
+var anon = await authz.authorize(adb, { user: null, tenantId: T_A, module: 'clients', method: 'GET' });
 check('anonymous is denied', anon.allowed === false && anon.reason === 'unauthenticated');
-var unknown = await authz.authorize(adb, { user: { id: 'u1', email: 'a@b.c' }, module: 'wat', method: 'GET' });
+var unknown = await authz.authorize(adb, { user: { id: 'u1', email: 'a@b.c' }, tenantId: T_A, module: 'wat', method: 'GET' });
 check('unknown module denied and audited', unknown.allowed === false && unknown.reason === 'no_permission_mapping');
+var noTenant = await authz.authorize(adb, { user: { id: 'u1', email: 'a@b.c' }, tenantId: null, module: 'clients', method: 'GET' });
+check('a permission-holding user with NO active tenant is denied',
+  noTenant.allowed === false && noTenant.reason === 'no_active_tenant');
 
 // ── §6 permission boundaries ───────────────────────────────────────────────
 console.log('\n§6 permission boundaries');
 var bdb = makeDb({ perms: {
-  fin: ['dashboard.read','finance.read','finance.write','reports.read','reports.export','clients.read','projects.read','documents.read'],
-  prod: ['dashboard.read','production.read','production.write','planning.read','planning.write','inventory.read','inventory.write','clients.read','documents.read'],
-  ro:  ['dashboard.read','clients.read','projects.read','planning.read','production.read','finance.read','documents.read','reports.read','inventory.read']
+  ['fin:' + T_A]: ['dashboard.read','finance.read','finance.write','reports.read','reports.export','clients.read','projects.read','documents.read'],
+  ['prod:' + T_A]: ['dashboard.read','production.read','production.write','planning.read','planning.write','inventory.read','inventory.write','clients.read','documents.read'],
+  ['ro:' + T_A]: ['dashboard.read','clients.read','projects.read','planning.read','production.read','finance.read','documents.read','reports.read','inventory.read']
 } });
 async function may(uid, mod, method) {
-  var d = await authz.authorize(bdb, { user: { id: uid, email: uid + '@t' }, module: mod, method: method });
+  var d = await authz.authorize(bdb, { user: { id: uid, email: uid + '@t' }, tenantId: T_A, module: mod, method: method });
   return d.allowed;
 }
 check('finance user CAN write finance', await may('fin', 'finance', 'POST'));
@@ -330,7 +361,7 @@ check('non-api path yields no module', pipeline.moduleFromPath('/etc/passwd') ==
 
 var pdb = makeDb({ perms: {} });
 var ran = false;
-var r401 = await pipeline.handle(deps(pdb), { method: 'GET', path: '/api/v1/clients' }, function () {
+var r401 = await pipeline.handle(deps(pdb), { method: 'GET', path: '/api/v1/clients', tenantId: T_A }, function () {
   ran = true;
   return { status: 200, body: {} };
 });
@@ -344,35 +375,35 @@ check('the handler never runs for an unauthenticated request', ran === false);
 
 var sdb = freshDb();
 var lg = await auth.login(deps(sdb), { email: 'ana@mythos.test', password: 'a-really-long-password', ip: '1.2.3.4' });
-sdb.perms = { u1: ['clients.read'] };
-var r403 = await pipeline.handle(deps(sdb), { method: 'POST', path: '/api/v1/clients', token: lg.token, csrf: lg.csrf, body: {} },
+sdb.perms = { ['u1:' + T_A]: ['clients.read'] };
+var r403 = await pipeline.handle(deps(sdb), { method: 'POST', path: '/api/v1/clients', tenantId: T_A, token: lg.token, csrf: lg.csrf, body: {} },
   function () { return { status: 200, body: {}, audit: { action: 'record.created' } }; });
 check('authenticated but unauthorized refused with 403', r403.status === 403);
 
-var r200 = await pipeline.handle(deps(sdb), { method: 'GET', path: '/api/v1/clients', token: lg.token },
+var r200 = await pipeline.handle(deps(sdb), { method: 'GET', path: '/api/v1/clients', tenantId: T_A, token: lg.token },
   function () { return { status: 200, body: { ok: true } }; });
 check('authorized read succeeds', r200.status === 200);
 
-sdb.perms = { u1: ['clients.read', 'clients.write'] };
-var rCsrf = await pipeline.handle(deps(sdb), { method: 'POST', path: '/api/v1/clients', token: lg.token, csrf: 'wrong', body: {} },
+sdb.perms = { ['u1:' + T_A]: ['clients.read', 'clients.write'] };
+var rCsrf = await pipeline.handle(deps(sdb), { method: 'POST', path: '/api/v1/clients', tenantId: T_A, token: lg.token, csrf: 'wrong', body: {} },
   function () { return { status: 200, body: {}, audit: { action: 'record.created' } }; });
 check('unsafe verb without valid csrf refused with 403', rCsrf.status === 403);
 check('csrf failure audited', sdb.audits.some(function (a) {
   return a.action === 'permission.denied' && a.detail && a.detail.reason === 'csrf_failed'; }));
 
-var rOk = await pipeline.handle(deps(sdb), { method: 'POST', path: '/api/v1/clients', token: lg.token, csrf: lg.csrf, body: { name: 'X' } },
+var rOk = await pipeline.handle(deps(sdb), { method: 'POST', path: '/api/v1/clients', tenantId: T_A, token: lg.token, csrf: lg.csrf, body: { name: 'X' } },
   function () { return { status: 201, body: {}, audit: { action: 'record.created', entity_table: 'clients' } }; });
 check('authorized write succeeds', rOk.status === 201);
 check('write produced an audit record', sdb.audits.some(function (a) { return a.action === 'record.created'; }));
 
 var threw = false;
 try {
-  await pipeline.handle(deps(sdb), { method: 'POST', path: '/api/v1/clients', token: lg.token, csrf: lg.csrf, body: {} },
+  await pipeline.handle(deps(sdb), { method: 'POST', path: '/api/v1/clients', tenantId: T_A, token: lg.token, csrf: lg.csrf, body: {} },
     function () { return { status: 200, body: {} }; });   // no audit descriptor
 } catch (e) { threw = /unaudited state change/.test(e.message); }
 check('a state change without an audit descriptor is refused', threw);
 
-var rVal = await pipeline.handle(deps(sdb), { method: 'POST', path: '/api/v1/clients', token: lg.token, csrf: lg.csrf, body: {} },
+var rVal = await pipeline.handle(deps(sdb), { method: 'POST', path: '/api/v1/clients', tenantId: T_A, token: lg.token, csrf: lg.csrf, body: {} },
   function () { return { status: 201, body: {}, audit: { action: 'record.created' } }; },
   function () { return { ok: false, error: 'name required' }; });
 check('validation failure refused with 422', rVal.status === 422);
@@ -424,7 +455,7 @@ var tampered = false;
 try { await migrate.migrate(mdb, { migrations: [{ version: '001.sql', sql: 'SELECT 2', checksum: 'bbb' }] }); }
 catch (e) { tampered = /changed after being applied/.test(e.message); }
 check('editing an applied migration is detected, not silently skipped', tampered);
-check('real migration files are discoverable', migrate.load().length === 2);
+check('real migration files are discoverable', migrate.load().length === 3);
 check('real migration files checksum stably',
   migrate.load()[0].checksum === migrate.load()[0].checksum && migrate.load()[0].checksum.length === 64);
 

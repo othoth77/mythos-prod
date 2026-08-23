@@ -10,6 +10,7 @@
 var password = require('./password');
 var tokens = require('./tokens');
 var audit = require('./audit');
+var tenancy = require('./tenancy');
 
 var POLICY = {
   idleSeconds: 8 * 3600,
@@ -127,7 +128,15 @@ function login(deps, input) {
         }
 
         return db.query('UPDATE users SET failed_attempts = 0, locked_until = NULL, last_login_at = now() WHERE id = $1', [user.id])
-          .then(function () { return issueSession(deps, user, input); })
+          .then(function () { return tenancy.membershipsFor(db, user.id); })
+          .then(function (memberships) {
+            // A user with no active membership authenticates but enters
+            // nothing: every tenant-scoped route will refuse. That is the
+            // correct state for a deactivated collaborator, not an error.
+            var preferred = memberships.filter(function (m) { return m.is_default; })[0] || memberships[0];
+            return issueSession(deps, user, input, preferred && preferred.id)
+              .then(function (session) { session.memberships = memberships; return session; });
+          })
           .then(function (session) {
             return recordAttempt(db, { email: email, userId: user.id, ip: input.ip, userAgent: input.userAgent, outcome: 'success' })
               .then(function () {
@@ -141,6 +150,12 @@ function login(deps, input) {
                 return withFloor(startedAt, {
                   ok: true,
                   user: { id: user.id, email: user.email, display_name: user.display_name },
+                  tenants: (session.memberships || []).map(function (m) {
+                    return { id: m.id, key: m.key, display_name: m.display_name };
+                  }),
+                  active_tenant_id: (session.memberships || []).filter(function (m) { return m.is_default; })[0]
+                    ? (session.memberships || []).filter(function (m) { return m.is_default; })[0].id
+                    : ((session.memberships || [])[0] || {}).id || null,
                   token: session.token, csrf: session.csrf,
                   cookie: tokens.cookieHeader(session.token, POLICY.idleSeconds),
                   needs_rehash: password.needsRehash(user.password_hash)
@@ -152,7 +167,7 @@ function login(deps, input) {
   });
 }
 
-function issueSession(deps, user, input) {
+function issueSession(deps, user, input, activeTenantId) {
   var db = deps.db;
   var token = (deps.makeToken || tokens.generate)();
   var csrf = (deps.makeToken || tokens.generate)();
@@ -160,11 +175,39 @@ function issueSession(deps, user, input) {
   var idle = new Date(t.getTime() + POLICY.idleSeconds * 1000);
   var abs = new Date(t.getTime() + POLICY.absoluteSeconds * 1000);
   return db.query(
-    'INSERT INTO sessions (user_id, token_hash, csrf_hash, idle_expires_at, absolute_expires_at, ip, user_agent)' +
-    ' VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
-    [user.id, tokens.hashToken(token), tokens.hashToken(csrf), idle, abs, input.ip || null, input.userAgent || null]
+    'INSERT INTO sessions (user_id, token_hash, csrf_hash, idle_expires_at, absolute_expires_at, ip, user_agent, active_tenant_id)' +
+    ' VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
+    [user.id, tokens.hashToken(token), tokens.hashToken(csrf), idle, abs,
+     input.ip || null, input.userAgent || null, activeTenantId || null]
   ).then(function (r) {
     return { token: token, csrf: csrf, sessionId: (r.rows && r.rows[0] && r.rows[0].id) || null };
+  });
+}
+
+/* Change the tenant a live session acts inside. Membership is re-checked here
+   rather than trusted from login: a membership can be revoked while a session
+   is open, and the session must not outlive the grant. */
+function switchTenant(deps, session, tenantId) {
+  var db = deps.db;
+  if (!session) return Promise.resolve({ ok: false, error: 'unauthenticated' });
+  return tenancy.isMember(db, session.user.id, tenantId).then(function (member) {
+    if (!member) {
+      return audit.write(db, {
+        actor_id: session.user.id, actor_label: session.user.email,
+        action: 'permission.denied', entity_table: 'tenants', entity_id: tenantId,
+        outcome: 'denied', detail: { reason: 'not_a_member' }
+      }).then(function () { return { ok: false, error: 'forbidden' }; });
+    }
+    return db.query('UPDATE sessions SET active_tenant_id = $2 WHERE id = $1',
+      [session.sessionId, tenantId])
+      .then(function () {
+        return audit.write(db, {
+          actor_id: session.user.id, actor_label: session.user.email,
+          action: 'tenant.switched', entity_table: 'tenants', entity_id: tenantId,
+          outcome: 'ok', detail: {}
+        });
+      })
+      .then(function () { return { ok: true, tenant_id: tenantId }; });
   });
 }
 
@@ -175,7 +218,7 @@ function validateSession(deps, token) {
   var t = now(deps.clock);
   return db.query(
     'SELECT s.id, s.user_id, s.csrf_hash, s.idle_expires_at, s.absolute_expires_at, s.revoked_at,' +
-    ' u.email, u.display_name, u.is_active' +
+    ' s.active_tenant_id, u.email, u.display_name, u.is_active' +
     ' FROM sessions s JOIN users u ON u.id = s.user_id' +
     ' WHERE s.token_hash = $1', [tokens.hashToken(token)]
   ).then(function (r) {
@@ -191,6 +234,7 @@ function validateSession(deps, token) {
       .then(function () {
         return {
           sessionId: s.id, csrf_hash: s.csrf_hash,
+          activeTenantId: s.active_tenant_id || null,
           user: { id: s.user_id, email: s.email, display_name: s.display_name }
         };
       });
@@ -296,6 +340,7 @@ module.exports = {
   POLICY: POLICY,
   login: login,
   issueSession: issueSession,
+  switchTenant: switchTenant,
   validateSession: validateSession,
   revokeSession: revokeSession,
   revokeAllForUser: revokeAllForUser,

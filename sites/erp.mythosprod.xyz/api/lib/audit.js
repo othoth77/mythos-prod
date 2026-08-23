@@ -22,7 +22,12 @@ var ACTIONS = [
   'record.created', 'record.updated', 'record.deleted', 'record.restored',
   'permission.denied', 'role.assigned', 'role.revoked',
   'user.created', 'user.disabled', 'user.enabled',
-  'export', 'backup.created', 'backup.restored'
+  'export', 'backup.created', 'backup.restored',
+  // Tenancy: switching company, and administering one. A cross-tenant attempt
+  // is recorded as permission.denied like any other refusal.
+  'tenant.switched', 'tenant.created', 'tenant.updated',
+  'module.enabled', 'module.disabled',
+  'membership.granted', 'membership.revoked'
 ];
 var OUTCOMES = ['ok', 'denied', 'error'];
 
@@ -56,9 +61,13 @@ function write(exec, entry) {
   if (!e.actor_label) throw new Error('audit entry requires actor_label');
   if (!e.entity_table) throw new Error('audit entry requires entity_table');
 
+  // tenant_id is nullable by design: a login happens before a tenant is
+  // chosen. The RLS insert policy uses IS NOT DISTINCT FROM, so a platform row
+  // is only insertable when no tenant is active, and a tenant row only when
+  // that tenant is — the database refuses a mislabelled audit entry.
   return exec.query(
-    'INSERT INTO audit_log (actor_id, actor_label, action, entity_table, entity_id, outcome, detail, ip)' +
-    ' VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    'INSERT INTO audit_log (actor_id, actor_label, action, entity_table, entity_id, outcome, detail, ip, tenant_id)' +
+    ' VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
     [
       e.actor_id || null,
       String(e.actor_label),
@@ -67,7 +76,8 @@ function write(exec, entry) {
       e.entity_id || null,
       e.outcome,
       JSON.stringify(redact(e.detail || {})),
-      e.ip || null
+      e.ip || null,
+      e.tenant_id || null
     ]
   );
 }

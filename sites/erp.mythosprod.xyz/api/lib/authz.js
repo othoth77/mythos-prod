@@ -22,6 +22,7 @@ var REQUIRE = {
   planning:   { GET: 'planning.read',   POST: 'planning.write',   PATCH: 'planning.write' },
   production: { GET: 'production.read', POST: 'production.write', PATCH: 'production.write' },
   finance:    { GET: 'finance.read',    POST: 'finance.write',    PATCH: 'finance.write',    DELETE: 'finance.delete' },
+  invoices:   { GET: 'invoices.read',   POST: 'invoices.write',   PATCH: 'invoices.write',   DELETE: 'invoices.delete' },
   documents:  { GET: 'documents.read',  POST: 'documents.write',  PATCH: 'documents.write',  DELETE: 'documents.delete' },
   reports:    { GET: 'reports.read' },
   inventory:  { GET: 'inventory.read',  POST: 'inventory.write',  PATCH: 'inventory.write' },
@@ -39,18 +40,24 @@ function requiredPermission(moduleName, method) {
   return m[String(method || '').toUpperCase()] || null;
 }
 
-function permissionsFor(exec, userId) {
+/* Permissions resolve per (user, TENANT). A grant in one company must not
+   authorise an action in another, so the tenant is part of the question, not
+   context the caller is trusted to have set correctly elsewhere. */
+function permissionsFor(exec, userId, tenantId) {
   return exec.query(
-    'SELECT permission_key FROM user_effective_permissions WHERE user_id = $1', [userId]
+    'SELECT permission_key FROM user_effective_permissions' +
+    ' WHERE user_id = $1 AND tenant_id = $2', [userId, tenantId]
   ).then(function (r) {
     return (r.rows || []).map(function (row) { return row.permission_key; });
   });
 }
 
-function has(exec, userId, key) {
+function has(exec, userId, tenantId, key) {
+  if (!tenantId) return Promise.resolve(false);
   return exec.query(
-    'SELECT 1 FROM user_effective_permissions WHERE user_id = $1 AND permission_key = $2 LIMIT 1',
-    [userId, key]
+    'SELECT 1 FROM user_effective_permissions' +
+    ' WHERE user_id = $1 AND tenant_id = $2 AND permission_key = $3 LIMIT 1',
+    [userId, tenantId, key]
   ).then(function (r) { return (r.rows || []).length > 0; });
 }
 
@@ -66,7 +73,13 @@ function authorize(exec, ctx) {
     return recordDenial(exec, ctx, key, 'unauthenticated')
       .then(function () { return { allowed: false, key: key, reason: 'unauthenticated' }; });
   }
-  return has(exec, ctx.user.id, key).then(function (ok) {
+  // No active tenant means no grant can apply: permissions only exist inside a
+  // company. This is deny-by-default for the tenancy dimension.
+  if (!ctx.tenantId) {
+    return recordDenial(exec, ctx, key, 'no_active_tenant')
+      .then(function () { return { allowed: false, key: key, reason: 'no_active_tenant' }; });
+  }
+  return has(exec, ctx.user.id, ctx.tenantId, key).then(function (ok) {
     if (ok) return { allowed: true, key: key, reason: null };
     return recordDenial(exec, ctx, key, 'missing_permission')
       .then(function () { return { allowed: false, key: key, reason: 'missing_permission' }; });
@@ -80,6 +93,7 @@ function recordDenial(exec, ctx, key, reason) {
     action: 'permission.denied',
     entity_table: String(ctx.module || 'unknown'),
     outcome: 'denied',
+    tenant_id: ctx.tenantId || null,
     detail: { method: ctx.method, path: ctx.path, required: key, reason: reason },
     ip: ctx.ip || null
   }).catch(function () { /* never let audit failure convert a denial into a pass */ });
