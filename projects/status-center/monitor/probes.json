@@ -80,15 +80,28 @@
     },
     {
       "id": "othmode-api",
-      "name": "othmode.mythosprod.xyz Task Reports API (authenticated)",
+      "name": "othmode.mythosprod.xyz Task Reports API (public read)",
       "type": "https",
       "url": "https://othmode.mythosprod.xyz/api/othmode/tasks",
+      "expect_status": [
+        200
+      ],
+      "expect_body_substring": "\"tasks\"",
+      "expect_content_type": "application/json",
+      "enabled": true,
+      "note": "This probe expected 401 until 7252de2 (2026-08-26) deliberately made the Task Reports a PUBLIC READ. The expectation was not updated with the release, so from 15:13Z the probe reported a false DOWN against a healthy service. 200 carrying a JSON body with \"tasks\" is the healthy state now: the route exists, is served by the current release, and answers with no credential. 404 remains the stale-process signature and still drives DOWN — expect_body_substring is set rather than status alone so that an empty or catch-all 200 cannot false-green (the sya-api lesson). This probe no longer asserts anything about authentication; that assertion moved to `othmode-authwall`, which is the only reason relaxing this one is safe."
+    },
+    {
+      "id": "othmode-authwall",
+      "name": "othmode.mythosprod.xyz authenticated API (auth wall)",
+      "type": "https",
+      "url": "https://othmode.mythosprod.xyz/api/othmode/evolution/events",
       "expect_status": [
         401
       ],
       "expect_content_type": "application/json",
       "enabled": true,
-      "note": "401 IS the healthy state: the route exists and refuses unauthenticated access. 404 means the service is running code older than the Task Reports release (exactly how the stale-process condition was caught on 2026-08-26); 200 would mean the auth wall is gone. Either way the probe goes DOWN."
+      "note": "401 IS the healthy state. This probe exists so that opening the read surface did not silently retire the auth-wall check `othmode-api` used to carry. /api/othmode/evolution/events genuinely still requires a session — it is the same endpoint tests/othmode-2-platform-test.js uses as its no-credential probe, so the monitor and the suite assert the same guarantee from opposite sides. A 200 here means an unauthenticated caller reached an administrative endpoint: a real security regression, and it must page. 404 means the running process is older than the evolution release. GET only — the monitor never issues a write; the separate guarantee that no POST route is public is asserted statically in the suite, never probed against production."
     },
     {
       "id": "status-center",

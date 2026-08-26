@@ -280,6 +280,28 @@ async function run() {
     /RETIRED/.test(shipped.probes.find(function (p) { return p.id === 'sya-api'; }).note || ''));
   check('the confirmed database endpoint is enabled',
     shipped.probes.find(function (p) { return p.id === 'database'; }).enabled === true);
+  // OTHMODE read/write split (7252de2 made the Task Reports a public read).
+  // The reads probe must NOT assert 401 — that expectation went stale with
+  // the release and produced a false DOWN — and it must not rely on status
+  // alone, or a catch-all 200 would false-green it. The auth-wall assertion
+  // the old expectation carried is not allowed to disappear with it: a
+  // separate probe has to keep asserting 401 on an endpoint that really is
+  // authenticated, so relaxing the read probe can never quietly stop
+  // monitoring authentication.
+  var othApi = shipped.probes.find(function (p) { return p.id === 'othmode-api'; });
+  var othWall = shipped.probes.find(function (p) { return p.id === 'othmode-authwall'; });
+  check('othmode-api expects the public read (200), not the retired 401',
+    !!othApi && othApi.expect_status.length === 1 && othApi.expect_status[0] === 200);
+  check('othmode-api cannot false-green on a catch-all 200',
+    !!othApi && othApi.expect_body_substring === '"tasks"' &&
+    othApi.expect_content_type === 'application/json');
+  check('the auth wall is still probed after the read surface opened',
+    !!othWall && othWall.enabled === true &&
+    othWall.expect_status.length === 1 && othWall.expect_status[0] === 401);
+  check('the auth-wall probe targets an endpoint that is still authenticated',
+    !!othWall && othWall.url === 'https://othmode.mythosprod.xyz/api/othmode/evolution/events');
+  check('no probe issues a write against production',
+    shipped.probes.every(function (p) { return !p.method || p.method === 'GET'; }));
   var appJs = fs.readFileSync(path.join(ROOT, 'sites/status.mythosprod.xyz/assets/app.js'), 'utf8');
   var idx = fs.readFileSync(path.join(ROOT, 'sites/status.mythosprod.xyz/index.html'), 'utf8');
   check('UI has a live section', /id="live-body"/.test(idx));
