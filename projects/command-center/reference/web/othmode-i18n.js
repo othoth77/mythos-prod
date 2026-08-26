@@ -166,7 +166,7 @@
 
     'oth.common.loading': 'Loading…',
     'oth.common.error': 'Could not load this section. The rest of OTHMODE stays usable.',
-    'oth.common.auth_needed': 'This section needs an access token (it shows operational detail). Click the button in the header to enter one.',
+    'oth.common.auth_needed': 'This section shows operational detail and needs a signed-in session. Open your one-time login link in this browser (header button explains how).',
     'oth.common.reason': 'Reason',
     'oth.common.refresh': 'Refresh'
   });
@@ -304,7 +304,7 @@
 
     'oth.common.loading': 'Chargement…',
     'oth.common.error': 'Impossible de charger cette section. Le reste d’OTHMODE reste utilisable.',
-    'oth.common.auth_needed': 'Cette section nécessite un jeton d’accès (elle montre du détail opérationnel). Cliquez sur le bouton dans l’en-tête pour en saisir un.',
+    'oth.common.auth_needed': 'Cette section montre du détail opérationnel et nécessite une session connectée. Ouvrez votre lien de connexion à usage unique dans ce navigateur (le bouton d’en-tête explique comment).',
     'oth.common.reason': 'Raison',
     'oth.common.refresh': 'Actualiser'
   });
@@ -466,14 +466,14 @@
     'variables.none': 'هذا الأمر لا يحتوي على متغيّرات.',
 
     'auth.title': 'صلاحية التعديل',
-    'auth.explain': 'القراءة والنسخ لا يحتاجان رمز دخول. تعديل المكتبة يحتاجه.',
-    'auth.token': 'رمز الدخول',
-    'auth.save': 'حفظ الرمز',
-    'auth.forget': 'نسيان الرمز',
+    'auth.explain': 'القراءة والنسخ مفتوحان. التعديل يحتاج جلسة مسجَّلة الدخول — لا شيء يُكتب أو يُلصق.',
+    'auth.signin_hint': 'سجّل الدخول بفتح رابط دخول لمرة واحدة في هذا المتصفح. يُنشئه المشغّل على الخادم بالأمر أدناه؛ الرابط يعمل مرة واحدة وينتهي خلال 15 دقيقة.',
+    'auth.session_note': 'هذا المتصفح مسجَّل الدخول عبر ملف جلسة آمن. لا يُخزَّن أي رمز في الصفحة أو في المتصفح.',
+    'auth.signout': 'تسجيل الخروج من هذا المتصفح',
     'auth.signed_in': 'التعديل مفعّل باسم',
     'auth.signed_out': 'قراءة فقط',
-    'auth.required': 'يلزم رمز دخول لتعديل المكتبة.',
-    'auth.invalid': 'هذا الرمز مرفوض.',
+    'auth.required': 'التعديل يحتاج جلسة مسجَّلة الدخول. افتح رابط الدخول لمرة واحدة في هذا المتصفح.',
+    'auth.invalid': 'رُفض تسجيل الدخول.',
 
     'warn.destructive.title': 'أمر خطِر',
     'warn.destructive.body': 'هذا الأمر مصنَّف خطِراً: قد يحذف بيانات أو يستبدلها نهائياً. اقرأه كاملاً قبل تشغيله في أي مكان.',
@@ -630,7 +630,7 @@
 
     'oth.common.loading': 'جارٍ التحميل…',
     'oth.common.error': 'تعذّر تحميل هذا القسم. بقية OTHMODE تبقى قابلة للاستعمال.',
-    'oth.common.auth_needed': 'هذا القسم يحتاج رمز دخول (لأنه يعرض تفاصيل تشغيلية). اضغط الزرّ في الأعلى لإدخاله.',
+    'oth.common.auth_needed': 'هذا القسم يعرض تفاصيل تشغيلية ويحتاج جلسة مسجَّلة الدخول. افتح رابط الدخول لمرة واحدة في هذا المتصفح (زرّ الأعلى يشرح الطريقة).',
     'oth.common.reason': 'السبب',
     'oth.common.refresh': 'تحديث'
   });

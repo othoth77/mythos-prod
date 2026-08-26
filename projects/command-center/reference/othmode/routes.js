@@ -23,6 +23,7 @@ var history = require('./history.js');
 var memory = require('./memory.js');
 var evolution = require('./evolution.js');
 var store = require('./store.js');
+var sessions = require('./sessions.js');
 
 function sendJson(res, status, body) {
   res.writeHead(status, {
@@ -82,6 +83,39 @@ function buildRoutes(db, auth) {
   function identityRole(req) { return roleOf(auth.identityFromRequest(req)); }
 
   return [
+
+    // ── Token-free sign-in: one-time login link → HttpOnly session ───────
+    // GET /auth/<code>. The code was minted by the operator CLI and is
+    // burned on first use. On success the browser gets an HttpOnly;
+    // Secure; SameSite=Strict cookie and a redirect to the app — no
+    // secret ever reaches page JavaScript, storage, or the URL bar after
+    // the redirect. On failure: plain 403, no hints, no logging of codes.
+    { method: 'GET', auth: false, pattern: /^\/auth\/([A-Za-z0-9_-]{20,120})$/, handler: function (req, res, m) {
+      var exchanged = sessions.exchangeCode(m[1]);
+      if (!exchanged) {
+        return sendJson(res, 403, { error: 'invalid or expired login link — mint a new one with: othmode-cli.js login-link' });
+      }
+      res.writeHead(302, {
+        'Location': '/',
+        'Cache-Control': 'no-store',
+        'Set-Cookie': 'oth_session=' + exchanged.sessionId +
+          '; Path=/; Max-Age=' + Math.floor(sessions.SESSION_TTL_MS / 1000) +
+          '; HttpOnly; Secure; SameSite=Strict'
+      });
+      return res.end();
+    } },
+
+    // Sign out: burns the server-side session and clears the cookie.
+    { method: 'POST', auth: true, pattern: /^\/api\/othmode\/logout$/, handler: function (req, res) {
+      var sessionId = auth.sessionIdFromRequest(req);
+      if (sessionId) sessions.revokeSession(sessionId);
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store',
+        'Set-Cookie': 'oth_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict'
+      });
+      return res.end(JSON.stringify({ signed_out: true }));
+    } },
 
     // ── Registries (read models; no new writers) ─────────────────────────
     { method: 'GET', auth: false, pattern: /^\/api\/othmode\/skills$/, handler: function (req, res) {

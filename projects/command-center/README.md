@@ -89,10 +89,23 @@ Existing commands are skipped, never overwritten. Use `--force-update` to overwr
 
 ## Editing access
 
-Reading and copying need no token. Editing does: click **Read-only** in the header and
-paste the token from
-`/home/deploy/deployments/mythos-command-center/.env` (`MCC_ADMIN_TOKENS`). It is stored in
-`localStorage` and sent only as an `Authorization: Bearer` header to this origin.
+Reading and copying are open. Editing needs a signed-in browser session — **nothing is
+ever typed or pasted into the UI**:
+
+```bash
+node projects/command-center/cli/othmode-cli.js login-link
+```
+
+run on the host prints a one-time URL (single use, 15-minute expiry). Open it once in the
+browser that should stay signed in; the server exchanges it for a 90-day session delivered
+as an `HttpOnly; Secure; SameSite=Strict` cookie. Only sha256 hashes of codes and session
+ids are stored (in the OTHMODE store, 0600); page JavaScript can never read the cookie,
+and no credential exists in `localStorage`, the page source, or any API response.
+`othmode-cli.js sessions` counts active sessions; `revoke-sessions` signs every browser
+out. Cookie-authenticated writes additionally require same-origin proof (CSRF check).
+
+`MCC_ADMIN_TOKENS` bearer tokens remain valid for the API (CLI, agents, automation) —
+they are simply no longer part of any interface workflow.
 
 ## Never store a credential here
 

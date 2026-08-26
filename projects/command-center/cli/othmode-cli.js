@@ -21,6 +21,9 @@
 //   node othmode-cli.js events
 //   node othmode-cli.js recovery <component> <STEP> ["note"] [STATE]
 //   node othmode-cli.js store-status
+//   node othmode-cli.js login-link [identity]   one-time browser sign-in URL
+//   node othmode-cli.js sessions                count active sessions/codes
+//   node othmode-cli.js revoke-sessions         sign every browser out
 //
 // Environment: OTHMODE_STORE_ROOT overrides the store location.
 // =====================================================
@@ -29,6 +32,7 @@ var os = require('os');
 var store = require('../reference/othmode/store.js');
 var evolution = require('../reference/othmode/evolution.js');
 var healthMod = require('../reference/othmode/health.js');
+var sessions = require('../reference/othmode/sessions.js');
 
 var actor = 'operator:' + (os.userInfo().username || 'unknown');
 var args = process.argv.slice(2);
@@ -67,6 +71,21 @@ try {
     out(healthMod.recordRecoveryStep({ component: args[1], step: args[2], note: args[3], state: args[4] }, actor));
   } else if (cmd === 'store-status') {
     out({ root: store.root(), provisioned: store.provisioned(), mode: store.getMode() });
+  } else if (cmd === 'login-link') {
+    // Token-free browser sign-in: prints a ONE-TIME URL (15-minute TTL).
+    // Open it once in the browser that should stay signed in; the code is
+    // burned on use and only its hash was ever stored. The identity
+    // defaults to owner — this CLI runs on the host as the operator, which
+    // is already the owner trust boundary.
+    var identity = args[1] || 'owner';
+    var minted = sessions.createLoginCode(identity);
+    var base = process.env.OTHMODE_BASE_URL || 'https://othmode.mythosprod.xyz';
+    console.log(base + '/auth/' + minted.code);
+    console.error('one-time login link for identity "' + identity + '" — expires ' + minted.expires_at + ', single use');
+  } else if (cmd === 'sessions') {
+    out(sessions.status());
+  } else if (cmd === 'revoke-sessions') {
+    out({ revoked: sessions.revokeAll() });
   } else {
     fail('unknown command "' + (cmd || '') + '" — see the header of this file for usage');
   }

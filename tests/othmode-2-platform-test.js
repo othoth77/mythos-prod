@@ -345,6 +345,141 @@ function finishAsync() {
     ok(!/child_process|\beval\s*\(|new\s+Function/.test(src), f + ' contains no exec/eval');
   });
 
+  runSessionTests();
+}
+
+// ---------------------------------------------------------------------------
+function runSessionTests() {
+  section('sessions — one-time login codes and browser sessions');
+  var sessions = require('../projects/command-center/reference/othmode/sessions.js');
+
+  var minted = sessions.createLoginCode('owner');
+  ok(typeof minted.code === 'string' && minted.code.length >= 40, 'login code minted (random, url-safe)');
+  var raw = fs.readFileSync(path.join(STORE_ROOT, 'config', 'sessions.json'), 'utf8');
+  ok(raw.indexOf(minted.code) === -1, 'plaintext code never persisted — hash only');
+
+  ok(sessions.exchangeCode('not-a-real-code') === null, 'unknown code refused');
+  var exchanged = sessions.exchangeCode(minted.code);
+  ok(exchanged && exchanged.identity === 'owner' && exchanged.sessionId.length >= 40, 'code exchanges for an owner session');
+  ok(sessions.exchangeCode(minted.code) === null, 'code is single-use — burned on exchange');
+  raw = fs.readFileSync(path.join(STORE_ROOT, 'config', 'sessions.json'), 'utf8');
+  ok(raw.indexOf(exchanged.sessionId) === -1, 'plaintext session id never persisted — hash only');
+
+  ok(sessions.identityForSession(exchanged.sessionId) === 'owner', 'session resolves to its identity');
+  ok(sessions.identityForSession('bogus') === null, 'unknown session resolves to null');
+
+  var authLib = require('../projects/command-center/reference/auth.js');
+  var ctxCookie = authLib.authContext({ headers: { cookie: 'a=b; oth_session=' + exchanged.sessionId } });
+  ok(ctxCookie.identity === 'owner' && ctxCookie.via === 'cookie', 'authContext resolves the session cookie');
+  ok(authLib.authContext({ headers: {} }).identity === null, 'no credential → no identity');
+
+  ok(sessions.revokeSession(exchanged.sessionId) === true, 'session revocable');
+  ok(sessions.identityForSession(exchanged.sessionId) === null, 'revoked session no longer resolves');
+
+  // Fail-closed: sessions need the provisioned store.
+  var savedRoot = process.env.OTHMODE_STORE_ROOT;
+  process.env.OTHMODE_STORE_ROOT = path.join(os.tmpdir(), 'othmode-nostore-' + process.pid);
+  var threw = false;
+  try { sessions.createLoginCode('owner'); } catch (e) { threw = e.code === 'OTHMODE_STORE_ABSENT'; }
+  ok(threw, 'minting without a store fails closed');
+  ok(sessions.exchangeCode('x') === null && sessions.identityForSession('x') === null, 'exchange/resolve without a store → null, never a throw');
+  process.env.OTHMODE_STORE_ROOT = savedRoot;
+
+  runHttpTests();
+}
+
+// ---------------------------------------------------------------------------
+// End-to-end over a real HTTP server: /auth exchange sets the HttpOnly
+// cookie, cookie authenticates, CSRF check refuses cross-origin writes,
+// logout burns the session. Needs the pg module to LOAD (never to connect):
+// present in projects/command-center/node_modules on dev/prod hosts. If it
+// cannot load, report SKIPPED loudly rather than false-passing.
+function runHttpTests() {
+  section('http — /auth exchange, cookie auth, CSRF, logout');
+  var http = require('http');
+  process.env.MCC_ADMIN_TOKENS = JSON.stringify({ 'suite-owner-token': 'owner' });
+  process.env.MCC_DB_HOST = '127.0.0.1'; process.env.MCC_DB_PORT = '5499';
+  process.env.MCC_DB_USER = 'x'; process.env.MCC_DB_PASSWORD = 'x'; process.env.MCC_DB_NAME = 'x';
+  var api;
+  try {
+    api = require('../projects/command-center/reference/api.js');
+  } catch (e) {
+    console.log('  [SKIP] pg module unavailable on this host — http section skipped (' + e.code + ')');
+    return finishSuite();
+  }
+  var authLib = require('../projects/command-center/reference/auth.js');
+  authLib.clearTokenCache();
+  var sessions = require('../projects/command-center/reference/othmode/sessions.js');
+  var server = api.createServer();
+
+  server.listen(0, '127.0.0.1', function () {
+    var port = server.address().port;
+
+    function request(method, reqPath, headers, body) {
+      return new Promise(function (resolve, reject) {
+        var req = http.request({ host: '127.0.0.1', port: port, method: method, path: reqPath, headers: headers || {} }, function (res) {
+          var chunks = [];
+          res.on('data', function (c) { chunks.push(c); });
+          res.on('end', function () {
+            resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') });
+          });
+        });
+        req.on('error', reject);
+        if (body !== undefined) req.end(JSON.stringify(body)); else req.end();
+      });
+    }
+
+    var minted = sessions.createLoginCode('owner');
+    var cookie = null;
+
+    request('GET', '/auth/' + minted.code).then(function (res) {
+      ok(res.status === 302 && res.headers.location === '/', '/auth/<code> → 302 to the app');
+      var setCookie = String(res.headers['set-cookie'] && res.headers['set-cookie'][0] || '');
+      ok(/^oth_session=/.test(setCookie) && /HttpOnly/.test(setCookie) && /Secure/.test(setCookie) && /SameSite=Strict/.test(setCookie),
+        'session cookie is HttpOnly + Secure + SameSite=Strict');
+      cookie = setCookie.split(';')[0];
+      return request('GET', '/auth/' + minted.code);
+    }).then(function (res) {
+      ok(res.status === 403, 'replaying the login link → 403 (single use)');
+      return request('GET', '/api/session', { cookie: cookie });
+    }).then(function (res) {
+      ok(res.status === 200 && JSON.parse(res.body).identity === 'owner', 'cookie authenticates /api/session as owner');
+      ok(res.body.indexOf(cookie.split('=')[1]) === -1, 'session id never echoed in an API response');
+      return request('POST', '/api/othmode/evolution/signals',
+        { cookie: cookie, 'content-type': 'application/json', origin: 'https://evil.example' },
+        { source: 'manual', description: 'csrf probe', dedup_key: 'csrf:1' });
+    }).then(function (res) {
+      ok(res.status === 403, 'cookie write from a foreign Origin → 403 (CSRF check)');
+      return request('POST', '/api/othmode/evolution/signals',
+        { cookie: cookie, 'content-type': 'application/json', 'sec-fetch-site': 'same-origin' },
+        { source: 'manual', description: 'same-origin write', dedup_key: 'csrf:2' });
+    }).then(function (res) {
+      ok(res.status === 201, 'cookie write with same-origin proof → 201');
+      return request('POST', '/api/othmode/evolution/signals',
+        { authorization: 'Bearer suite-owner-token', 'content-type': 'application/json' },
+        { source: 'manual', description: 'bearer write', dedup_key: 'csrf:3' });
+    }).then(function (res) {
+      ok(res.status === 201, 'bearer path unchanged (no CSRF requirement, explicit credential)');
+      return request('GET', '/api/othmode/history', {});
+    }).then(function (res) {
+      ok(res.status === 401, 'no credential at all → 401 preserved');
+      return request('POST', '/api/othmode/logout', { cookie: cookie, 'sec-fetch-site': 'same-origin' });
+    }).then(function (res) {
+      ok(res.status === 200 && /Max-Age=0/.test(String(res.headers['set-cookie'])), 'logout clears the cookie');
+      return request('GET', '/api/session', { cookie: cookie });
+    }).then(function (res) {
+      ok(res.status === 401, 'burned session no longer authenticates');
+      server.close();
+      finishSuite();
+    }).catch(function (e) {
+      ok(false, 'http section crashed: ' + e.message);
+      server.close();
+      finishSuite();
+    });
+  });
+}
+
+function finishSuite() {
   console.log('');
   console.log('OTHMODE-2 platform suite: ' + passed + ' passed, ' + failed + ' failed');
   process.exit(failed === 0 ? 0 : 1);

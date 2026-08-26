@@ -21,7 +21,18 @@ Master document: [OTHMODE_AUDIT_AND_DESIGN.md](OTHMODE_AUDIT_AND_DESIGN.md)
 | Command execution | **None**: no exec/eval/child_process in MCC runtime, asserted at source level by the test suite |
 | CI/CD | VPS Final Gate; deploy path health-gated with automatic rollback |
 
-No critical current-state findings. Two observations for implementation: (1) MCC reads are unauthenticated by design (acceptable for a command library; revisit for Memory/Evolution surfaces, which are more sensitive); (2) tokens live in browser localStorage (accepted trade-off today; document it).
+No critical current-state findings. Two observations for implementation: (1) MCC reads are unauthenticated by design (acceptable for a command library; revisit for Memory/Evolution surfaces, which are more sensitive); (2) ~~tokens live in browser localStorage~~ — **resolved 2026-08-26**: the UI token workflow was removed entirely (see §2.4).
+
+### 2.4 Browser authentication (implemented 2026-08-26 — token-free UI)
+
+The interface never asks for, sees, or stores a credential:
+
+- **Sign-in**: the operator mints a one-time login link on the host (`othmode-cli.js login-link`, identity defaults to owner). The 256-bit code is single-use, expires in 15 minutes, and only its sha256 hash is persisted. `GET /auth/<code>` burns the code and sets a session cookie: `oth_session`, `HttpOnly; Secure; SameSite=Strict; Path=/`, 90-day TTL. Session ids are 256-bit random, stored server-side as sha256 hashes in `<store>/config/sessions.json` (0600, atomic writes, capped at 50 sessions, fail-closed without the store).
+- **Requests**: the browser attaches the cookie itself; page JavaScript cannot read it (HttpOnly) and holds no secret. The legacy `mcc.token` localStorage key is scrubbed on boot.
+- **CSRF**: a cookie is ambient authority, so cookie-authenticated non-GET requests must also prove same-origin (`Origin` matches Host, or `Sec-Fetch-Site: same-origin`) — enforced server-side in api.js, independent of browser SameSite behaviour. Bearer requests are exempt (explicit per-request credential).
+- **Roles**: session identities flow through the identical role logic as bearer identities; owner-gated routes and HIGH-risk evolution approval are unchanged.
+- **Sign-out**: `POST /api/othmode/logout` deletes the server-side session and expires the cookie; `othmode-cli.js revoke-sessions` revokes every session at once.
+- **Bearer path preserved** for API/automation (`MCC_ADMIN_TOKENS`); timing-safe comparison unchanged. Constant-time hash comparison is used for codes and sessions too.
 
 ## 2. Target model
 
