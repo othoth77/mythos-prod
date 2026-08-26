@@ -1,6 +1,6 @@
 {
-  "review_id": "REVIEW-2026-08-26-006",
-  "timestamp": "2026-08-26T14:39:21.882Z",
+  "review_id": "REVIEW-2026-08-26-004",
+  "timestamp": "2026-08-26T14:16:14.929Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "git@github.com:othoth77/mythos-prod.git",
@@ -8,31 +8,21 @@
     "pr_ledger_captured_at": "2026-08-26T13:58:00Z",
     "repo_snapshot_captured_at": "2026-08-20T10:20:00Z",
     "documents_checked": 24,
-    "evidence_checked": 85
+    "evidence_checked": 83
   },
   "git": {
     "collected": true,
-    "head": "1c0c031e788314f9d4815ac70a71af54b9ce6972",
+    "head": "7ee79551c11bc724a9c351c6d82b6385a1e64603",
     "branch": "main",
-    "origin_main": "1c0c031e788314f9d4815ac70a71af54b9ce6972",
+    "origin_main": "7ee79551c11bc724a9c351c6d82b6385a1e64603",
     "remote_url": "git@github.com:othoth77/mythos-prod.git",
     "worktree_clean": false,
     "last_commit": {
-      "hash": "1c0c031e788314f9d4815ac70a71af54b9ce6972",
-      "date": "2026-08-26T14:32:55Z",
-      "subject": "fix(status-center): publish no longer wipes monitor runtime state; close NEXT-STATUS-PUBLISH"
+      "hash": "7ee79551c11bc724a9c351c6d82b6385a1e64603",
+      "date": "2026-08-26T14:00:12Z",
+      "subject": "chore(status-center): refresh pr-ledger; update PROJECT-COMMAND-CENTER"
     },
     "recent_commits": [
-      {
-        "hash": "1c0c031",
-        "date": "2026-08-26",
-        "subject": "fix(status-center): publish no longer wipes monitor runtime state; close NEXT-STATUS-PUBLISH"
-      },
-      {
-        "hash": "7903e08",
-        "date": "2026-08-26",
-        "subject": "feat(status-center): monitor OTHMODE; close three stale next_actions"
-      },
       {
         "hash": "7ee7955",
         "date": "2026-08-26",
@@ -1022,6 +1012,16 @@
         "hash": "4daf4fd",
         "date": "2026-08-19",
         "subject": "docs(design): add specialist audit reports -- public projects + responsive sweep"
+      },
+      {
+        "hash": "47d2b66",
+        "date": "2026-08-19",
+        "subject": "fix(mythos-os-console): execute C-006 -- reconcile mythos.css, restore green suite (AUTO-10)"
+      },
+      {
+        "hash": "7424862",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (17f05fc) into the MOS-v2 M-01 auth branch"
       }
     ],
     "commit_count": null,
@@ -3284,9 +3284,17 @@
   ],
   "next_actions": [
     {
+      "id": "NEXT-STATUS-PUBLISH",
+      "priority": "P1",
+      "order": 1,
+      "title": "Publish the pending Status Center reviews to production",
+      "detail": "The repository holds REVIEW-2026-08-26-001 (and the never-published REVIEW-2026-08-22-001) while https://status.mythosprod.xyz/ still serves REVIEW-2026-08-21-001. The gap was never a missing re-sync — it is a missing publish. Root-only by design: `sudo bash scripts/deploy-status-center.sh` from the repository checkout (idempotent, strictly additive, fail-closed, --rollback available). mythos-deploy refuses target `status` as PROTECTED/owner-controlled, and /var/www/status.mythosprod.xyz is not writable by `deploy`.",
+      "depends_on": null
+    },
+    {
       "id": "NEXT-EXPORTS",
       "priority": "P2",
-      "order": 1,
+      "order": 2,
       "title": "Produce authorized exports for OTH Knowledge Track B",
       "detail": "Takeout / Gemini / NotebookLM, per docs/OTH_TRACK_B_READINESS.md §3.",
       "depends_on": "NEXT-OTHK-STORE"
@@ -4392,22 +4400,6 @@
       "date": "2026-08-26",
       "note": "othmode.mythosprod.xyz added to the EXISTING STC-2 probe registry (no second monitoring system): `othmode` checks the surface (expect 200/301/302, text/html) and `othmode-api` checks the Task Reports API (expect exactly 401, application/json) so that a 404 — the stale-process signature — or a missing auth wall both drive the probe DOWN. The monitor unit runs from the repository working directory, so the timer picks these up on its next ~5-minute tick with no root action. VERIFIED IN PRODUCTION 2026-08-26T14:15:49Z: the root-run timer picked the probes up from the repository working directory on its next tick with no root action — live-status.json now carries 14 components (was 12), othmode LIVE http=200 TLS 89d and othmode-api LIVE http=401 TLS 89d.",
       "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-STATUS-PUBLISHED-0826",
-      "type": "deployment",
-      "reference": "https://status.mythosprod.xyz/ published by the owner, 2026-08-26",
-      "date": "2026-08-26",
-      "note": "Publication VERIFIED from the host: live data/current.json returns REVIEW-2026-08-26-004 and matches the repository byte-for-byte on every counted dimension — 23 projects, 90 PRs, 83 evidence items; PROJECT-OTHMODE live as DONE/PRODUCTION_VERIFIED; PROJECT-COMMAND-CENTER last_change 2026-08-26; ACTION-STC2-INSTALL, ACTION-MOS-DEPLOY and ACTION-HUB-DNS all DONE; all 11 snapshots present in the live reviews index; published assets/app.js byte-identical to the repository copy; Arabic layer live; site and health.json both 200. NEXT-STATUS-PUBLISH is satisfied. Second publish 2026-08-26T14:32Z shipped REVIEW-2026-08-26-005: live and repository now agree on 23 projects, 85 evidence items and a single open next_action (NEXT-EXPORTS).",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-PUBLISH-WIPES-MONITOR-STATE",
-      "type": "vps",
-      "reference": "scripts/deploy-status-center.sh rsync --delete, observed on vps-4722f0a9 2026-08-26T14:16Z",
-      "date": "2026-08-26",
-      "note": "DEFECT FOUND AND FIXED. The publish ran `rsync -a --delete` into the docroot excluding only DEPLOYMENT.md and README.md, but the STC-2 monitor writes its runtime state into that SAME docroot (data/live-status.json, data/live-history/) and that state is not in Git. The publish therefore deleted both. Blast radius was wider than the Status Center: the apex Hub serves /api/status.json as an nginx alias onto exactly that file, so a Status Center publish took the Hub's status feed on mythosprod.xyz to 404 as well — cross-domain impact from a site-local publish. live-status.json was recreated by the monitor's next tick (14:31:17Z, live panel back to 200, 14 components) but data/live-history/ — the per-month state JSONL and alerts.jsonl accumulated since 2026-08-22 — is permanently lost: /var/www is in no backup set. Fixed by adding `--exclude data/live-status.json --exclude data/live-history` to the rsync, with the reasoning recorded in the script. The fix takes effect on the next publish; the script is run from the repository, so no separate installation step is needed. FIX VERIFIED IN PRODUCTION 2026-08-26T14:36Z: the owner published again, this time running the corrected script, and the monitor's runtime state survived — data/live-status.json stayed 200 straight through the publish, data/live-history/ retained 2026-08.jsonl plus alerts.jsonl, the retained history_tail still carries the 14:31:17Z sample recorded BEFORE the publish (depth 2, not reset to 1), and the apex Hub's /api/status.json never left 200. The defect is closed: found, fixed at source, and confirmed by the regression it was written to prevent.",
-      "evidence_status": "RECORDED"
     }
   ],
   "prs": [
@@ -5237,7 +5229,7 @@
       "authority": "historical evidence only — reconcile before trusting"
     }
   ],
-  "previous_review": "REVIEW-2026-08-26-005",
+  "previous_review": "REVIEW-2026-08-26-003",
   "changes": {
     "added": [],
     "completed": [],

@@ -12,7 +12,9 @@
       "name": "mythosprod.xyz (ecosystem hub)",
       "type": "https",
       "url": "https://mythosprod.xyz/",
-      "expect_status": [200],
+      "expect_status": [
+        200
+      ],
       "enabled": true,
       "note": "Apex deployed 2026-08-22: the Mythos Hub Dashboard is served from sites/mythosprod.xyz via /var/www/mythosprod.xyz, with TLS for mythosprod.xyz and www. BLOCKER-HUB-DNS is cleared. The probe is unchanged and still expects 200 — a DOWN here now means a real outage of the platform entry point, not a pending deployment."
     },
@@ -21,7 +23,9 @@
       "name": "mythosprod.xyz/health.json (Hub dashboard endpoint)",
       "type": "https",
       "url": "https://mythosprod.xyz/health.json",
-      "expect_status": [200],
+      "expect_status": [
+        200
+      ],
       "expect_body_substring": "\"application\"",
       "enabled": true,
       "note": "Distinct from hub-apex: hub-apex proves the site answers over HTTPS, this proves the dashboard's own health endpoint is served. Both must be green for the entry point to be whole."
@@ -43,7 +47,9 @@
       "name": "os.mythosprod.xyz (MOS-v2 Console)",
       "type": "https",
       "url": "https://os.mythosprod.xyz/login",
-      "expect_status": [200],
+      "expect_status": [
+        200
+      ],
       "enabled": true
     },
     {
@@ -51,15 +57,47 @@
       "name": "ordre.mythosprod.xyz (Command Center)",
       "type": "https",
       "url": "https://ordre.mythosprod.xyz/",
-      "expect_status": [200, 301, 302],
+      "expect_status": [
+        200,
+        301,
+        302
+      ],
       "enabled": true
+    },
+    {
+      "id": "othmode",
+      "name": "othmode.mythosprod.xyz (OTHMODE control platform)",
+      "type": "https",
+      "url": "https://othmode.mythosprod.xyz/",
+      "expect_status": [
+        200,
+        301,
+        302
+      ],
+      "expect_content_type": "text/html",
+      "enabled": true,
+      "note": "Same Node process as `ordre` on 127.0.0.1:3021 — two hostnames, one runtime. expect_content_type guards against an nginx catch-all answering for a dead upstream (the sya-api lesson)."
+    },
+    {
+      "id": "othmode-api",
+      "name": "othmode.mythosprod.xyz Task Reports API (authenticated)",
+      "type": "https",
+      "url": "https://othmode.mythosprod.xyz/api/othmode/tasks",
+      "expect_status": [
+        401
+      ],
+      "expect_content_type": "application/json",
+      "enabled": true,
+      "note": "401 IS the healthy state: the route exists and refuses unauthenticated access. 404 means the service is running code older than the Task Reports release (exactly how the stale-process condition was caught on 2026-08-26); 200 would mean the auth wall is gone. Either way the probe goes DOWN."
     },
     {
       "id": "status-center",
       "name": "status.mythosprod.xyz (Status Center)",
       "type": "https",
       "url": "https://status.mythosprod.xyz/health.json",
-      "expect_status": [200],
+      "expect_status": [
+        200
+      ],
       "expect_body_substring": "\"status\"",
       "enabled": true
     },
@@ -68,7 +106,12 @@
       "name": "n8n.ssangyong.autos (n8n)",
       "type": "https",
       "url": "https://n8n.ssangyong.autos/",
-      "expect_status": [200, 301, 302, 401],
+      "expect_status": [
+        200,
+        301,
+        302,
+        401
+      ],
       "enabled": true,
       "note": "Auth-gated: 401/302 count as alive."
     },
@@ -77,7 +120,9 @@
       "name": "ssangyong.autos (storefront)",
       "type": "https",
       "url": "https://ssangyong.autos/",
-      "expect_status": [200],
+      "expect_status": [
+        200
+      ],
       "enabled": true
     },
     {
@@ -85,7 +130,9 @@
       "name": "SYA catalog API",
       "type": "https",
       "url": "https://ssangyong.autos/api/health",
-      "expect_status": [200],
+      "expect_status": [
+        200
+      ],
       "expect_content_type": "application/json",
       "enabled": false,
       "note": "RETIRED — not pending. Verified on-host 2026-08-22: there is no SYA API to probe. The ssangyong.autos vhost is a static root with try_files and carries no /api proxy_pass, ssangyong-storefront.service is inactive, and /api/health, / and an invented nonsense path all return the byte-identical storefront index (md5 1d7337e470ed06d91c965cba40c7dad1). The catalog API is absent, not merely unhealthy, so NOT_MONITORED is the accurate state for a system that no longer exists. Keep expect_content_type alongside the disabled flag: if the API is ever restored, flipping enabled is then sufficient, and the content-type assertion is what stops the SPA fallback from reporting a dead API as LIVE. Re-enable only when a real JSON endpoint exists."

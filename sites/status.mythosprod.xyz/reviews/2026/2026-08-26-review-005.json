@@ -1,6 +1,6 @@
 {
-  "review_id": "REVIEW-2026-08-26-006",
-  "timestamp": "2026-08-26T14:39:21.882Z",
+  "review_id": "REVIEW-2026-08-26-005",
+  "timestamp": "2026-08-26T14:32:30.588Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "git@github.com:othoth77/mythos-prod.git",
@@ -12,22 +12,17 @@
   },
   "git": {
     "collected": true,
-    "head": "1c0c031e788314f9d4815ac70a71af54b9ce6972",
+    "head": "7903e086d1affcdb131c824f95cc16efb5fee7b3",
     "branch": "main",
-    "origin_main": "1c0c031e788314f9d4815ac70a71af54b9ce6972",
+    "origin_main": "7903e086d1affcdb131c824f95cc16efb5fee7b3",
     "remote_url": "git@github.com:othoth77/mythos-prod.git",
     "worktree_clean": false,
     "last_commit": {
-      "hash": "1c0c031e788314f9d4815ac70a71af54b9ce6972",
-      "date": "2026-08-26T14:32:55Z",
-      "subject": "fix(status-center): publish no longer wipes monitor runtime state; close NEXT-STATUS-PUBLISH"
+      "hash": "7903e086d1affcdb131c824f95cc16efb5fee7b3",
+      "date": "2026-08-26T14:16:40Z",
+      "subject": "feat(status-center): monitor OTHMODE; close three stale next_actions"
     },
     "recent_commits": [
-      {
-        "hash": "1c0c031",
-        "date": "2026-08-26",
-        "subject": "fix(status-center): publish no longer wipes monitor runtime state; close NEXT-STATUS-PUBLISH"
-      },
       {
         "hash": "7903e08",
         "date": "2026-08-26",
@@ -1022,6 +1017,11 @@
         "hash": "4daf4fd",
         "date": "2026-08-19",
         "subject": "docs(design): add specialist audit reports -- public projects + responsive sweep"
+      },
+      {
+        "hash": "47d2b66",
+        "date": "2026-08-19",
+        "subject": "fix(mythos-os-console): execute C-006 -- reconcile mythos.css, restore green suite (AUTO-10)"
       }
     ],
     "commit_count": null,
@@ -4398,7 +4398,7 @@
       "type": "deployment",
       "reference": "https://status.mythosprod.xyz/ published by the owner, 2026-08-26",
       "date": "2026-08-26",
-      "note": "Publication VERIFIED from the host: live data/current.json returns REVIEW-2026-08-26-004 and matches the repository byte-for-byte on every counted dimension — 23 projects, 90 PRs, 83 evidence items; PROJECT-OTHMODE live as DONE/PRODUCTION_VERIFIED; PROJECT-COMMAND-CENTER last_change 2026-08-26; ACTION-STC2-INSTALL, ACTION-MOS-DEPLOY and ACTION-HUB-DNS all DONE; all 11 snapshots present in the live reviews index; published assets/app.js byte-identical to the repository copy; Arabic layer live; site and health.json both 200. NEXT-STATUS-PUBLISH is satisfied. Second publish 2026-08-26T14:32Z shipped REVIEW-2026-08-26-005: live and repository now agree on 23 projects, 85 evidence items and a single open next_action (NEXT-EXPORTS).",
+      "note": "Publication VERIFIED from the host: live data/current.json returns REVIEW-2026-08-26-004 and matches the repository byte-for-byte on every counted dimension — 23 projects, 90 PRs, 83 evidence items; PROJECT-OTHMODE live as DONE/PRODUCTION_VERIFIED; PROJECT-COMMAND-CENTER last_change 2026-08-26; ACTION-STC2-INSTALL, ACTION-MOS-DEPLOY and ACTION-HUB-DNS all DONE; all 11 snapshots present in the live reviews index; published assets/app.js byte-identical to the repository copy; Arabic layer live; site and health.json both 200. NEXT-STATUS-PUBLISH is satisfied.",
       "evidence_status": "RECORDED"
     },
     {
@@ -4406,7 +4406,7 @@
       "type": "vps",
       "reference": "scripts/deploy-status-center.sh rsync --delete, observed on vps-4722f0a9 2026-08-26T14:16Z",
       "date": "2026-08-26",
-      "note": "DEFECT FOUND AND FIXED. The publish ran `rsync -a --delete` into the docroot excluding only DEPLOYMENT.md and README.md, but the STC-2 monitor writes its runtime state into that SAME docroot (data/live-status.json, data/live-history/) and that state is not in Git. The publish therefore deleted both. Blast radius was wider than the Status Center: the apex Hub serves /api/status.json as an nginx alias onto exactly that file, so a Status Center publish took the Hub's status feed on mythosprod.xyz to 404 as well — cross-domain impact from a site-local publish. live-status.json was recreated by the monitor's next tick (14:31:17Z, live panel back to 200, 14 components) but data/live-history/ — the per-month state JSONL and alerts.jsonl accumulated since 2026-08-22 — is permanently lost: /var/www is in no backup set. Fixed by adding `--exclude data/live-status.json --exclude data/live-history` to the rsync, with the reasoning recorded in the script. The fix takes effect on the next publish; the script is run from the repository, so no separate installation step is needed. FIX VERIFIED IN PRODUCTION 2026-08-26T14:36Z: the owner published again, this time running the corrected script, and the monitor's runtime state survived — data/live-status.json stayed 200 straight through the publish, data/live-history/ retained 2026-08.jsonl plus alerts.jsonl, the retained history_tail still carries the 14:31:17Z sample recorded BEFORE the publish (depth 2, not reset to 1), and the apex Hub's /api/status.json never left 200. The defect is closed: found, fixed at source, and confirmed by the regression it was written to prevent.",
+      "note": "DEFECT FOUND AND FIXED. The publish ran `rsync -a --delete` into the docroot excluding only DEPLOYMENT.md and README.md, but the STC-2 monitor writes its runtime state into that SAME docroot (data/live-status.json, data/live-history/) and that state is not in Git. The publish therefore deleted both. Blast radius was wider than the Status Center: the apex Hub serves /api/status.json as an nginx alias onto exactly that file, so a Status Center publish took the Hub's status feed on mythosprod.xyz to 404 as well — cross-domain impact from a site-local publish. live-status.json was recreated by the monitor's next tick (14:31:17Z, live panel back to 200, 14 components) but data/live-history/ — the per-month state JSONL and alerts.jsonl accumulated since 2026-08-22 — is permanently lost: /var/www is in no backup set. Fixed by adding `--exclude data/live-status.json --exclude data/live-history` to the rsync, with the reasoning recorded in the script. The fix takes effect on the next publish; the script is run from the repository, so no separate installation step is needed.",
       "evidence_status": "RECORDED"
     }
   ],
@@ -5237,7 +5237,7 @@
       "authority": "historical evidence only — reconcile before trusting"
     }
   ],
-  "previous_review": "REVIEW-2026-08-26-005",
+  "previous_review": "REVIEW-2026-08-26-004",
   "changes": {
     "added": [],
     "completed": [],
