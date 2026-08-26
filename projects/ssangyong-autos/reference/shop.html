@@ -3,27 +3,169 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SsangYong Parts — Catalogue pièces détachées</title>
+  <title>SsangYong Parts — Pièces détachées SsangYong &amp; KGM en Tunisie</title>
+  <meta name="description" content="Catalogue de pièces détachées SsangYong et KGM en Tunisie : recherche par modèle, motorisation, référence OEM ou marque. Compatibilité véhicule vérifiée sur catalogue.">
+  <meta property="og:title" content="SsangYong Parts — Pièces détachées SsangYong &amp; KGM">
+  <meta property="og:description" content="La bonne pièce pour votre SsangYong : recherche par véhicule, référence OEM ou marque, compatibilité vérifiée.">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="fr_TN">
+  <meta name="theme-color" content="#101418">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23101418'/%3E%3Ccircle cx='16' cy='16' r='9' fill='none' stroke='%23f07f2e' stroke-width='3'/%3E%3Ccircle cx='16' cy='16' r='3' fill='%23f07f2e'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/shop.css">
 </head>
 <body>
+  <a class="skip-link" href="#main">Aller au contenu</a>
+
+  <!-- ================= TOP BAR ================= -->
+  <div class="topbar">
+    <p class="topbar-item">Catalogue technique SsangYong &amp; KGM — Tunisie</p>
+    <p class="topbar-item topbar-secondary">Compatibilité vérifiée sur catalogue · Références OEM</p>
+    <a class="topbar-item wa-gated" id="topbar-whatsapp" href="#" hidden>WhatsApp</a>
+  </div>
+
+  <!-- ================= HEADER ================= -->
   <header class="site-header">
-    <a class="brand" href="/">
-      <span class="brand-mark">SsangYong</span>
-      <span class="brand-sub">Pièces détachées</span>
-    </a>
-    <form class="search" id="search-form" role="search">
-      <label class="visually-hidden" for="search-input">Rechercher une pièce</label>
-      <input id="search-input" type="search" name="q" placeholder="Référence, désignation, numéro OE…" autocomplete="off">
-      <button type="submit">Rechercher</button>
-    </form>
+    <div class="header-main">
+      <a class="brand" href="/" id="brand-home">
+        <span class="brand-mark">SSANGYONG<span class="brand-dot">.</span>AUTOS</span>
+        <span class="brand-sub">Pièces détachées SsangYong &amp; KGM</span>
+      </a>
+      <form class="search" id="search-form" role="search">
+        <label class="visually-hidden" for="search-input">Rechercher une pièce, une référence OEM</label>
+        <input id="search-input" type="search" name="q" placeholder="Pièce, référence, numéro OEM…" autocomplete="off">
+        <button type="submit" class="btn btn-accent">Rechercher</button>
+      </form>
+      <div class="header-actions">
+        <a class="header-action" href="?view=cat" id="action-vehicle">
+          <span class="header-action-label">Mon véhicule</span>
+          <span class="header-action-value" id="vehicle-summary">Non défini</span>
+        </a>
+        <a class="header-action wa-gated" id="action-whatsapp" href="#" hidden>
+          <span class="header-action-label">Assistance</span>
+          <span class="header-action-value">WhatsApp</span>
+        </a>
+      </div>
+    </div>
+    <nav class="site-nav" aria-label="Navigation principale">
+      <a href="/" id="nav-home" data-nav="home">Accueil</a>
+      <a href="?view=cat" id="nav-catalogue" data-nav="cat">Catalogue</a>
+      <a href="?view=models" id="nav-models" data-nav="models">Modèles</a>
+      <a href="?view=cat" id="nav-oem" data-nav="oem">Recherche OEM</a>
+      <a href="?view=aide" id="nav-help" data-nav="aide">Assistance</a>
+    </nav>
   </header>
 
-  <!-- Catalogue view -->
+  <div id="main"></div>
+
+  <!-- ================= HOME VIEW ================= -->
+  <main id="view-home" class="home" hidden>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="hero-kicker">Catalogue pièces détachées</p>
+        <h1>La bonne pièce pour votre SsangYong.</h1>
+        <p class="hero-sub">Recherchez par véhicule, référence OEM ou marque de pièce — la compatibilité est vérifiée sur le catalogue, pas déclarée.</p>
+        <p class="hero-counts" id="hero-counts" aria-live="polite"></p>
+      </div>
+
+      <div class="hero-panel">
+        <div class="hero-tabs" role="tablist" aria-label="Mode de recherche">
+          <button type="button" class="hero-tab" id="tab-vehicle" aria-selected="true">Mon véhicule</button>
+          <button type="button" class="hero-tab" id="tab-oem" aria-selected="false">Référence OEM</button>
+          <button type="button" class="hero-tab" id="tab-browse" aria-selected="false">Parcourir</button>
+        </div>
+
+        <div class="hero-pane" id="pane-vehicle">
+          <label for="hero-model">Modèle SsangYong</label>
+          <select id="hero-model">
+            <option value="">Choisir un modèle…</option>
+          </select>
+          <label for="hero-motor">Motorisation</label>
+          <select id="hero-motor" disabled>
+            <option value="">Toutes les motorisations</option>
+          </select>
+          <button type="button" class="btn btn-accent btn-block" id="hero-vehicle-go">Voir les pièces compatibles</button>
+        </div>
+
+        <div class="hero-pane" id="pane-oem" hidden>
+          <label for="hero-oem-input">Référence OEM ou référence pièce</label>
+          <form id="hero-oem-form">
+            <input id="hero-oem-input" type="search" placeholder="Ex. 1731012101" autocomplete="off">
+            <button type="submit" class="btn btn-accent btn-block">Rechercher la référence</button>
+          </form>
+          <p class="hint">La recherche couvre la désignation, la référence fabricant et la référence OEM.</p>
+        </div>
+
+        <div class="hero-pane" id="pane-browse" hidden>
+          <p class="hint">Parcourez le catalogue complet, puis affinez par véhicule, marque ou disponibilité.</p>
+          <a class="btn btn-accent btn-block" href="?view=cat" id="hero-browse-go">Ouvrir le catalogue</a>
+          <a class="btn btn-ghost btn-block" href="?view=models" id="hero-models-go">Choisir par modèle</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Models -->
+    <section class="section" id="home-models">
+      <div class="section-head">
+        <h2>Votre SsangYong</h2>
+        <a class="section-link" href="?view=models" id="home-models-all">Tous les modèles</a>
+      </div>
+      <ul class="model-grid" id="home-model-grid"></ul>
+    </section>
+
+    <!-- Brands -->
+    <section class="section" id="home-brands">
+      <div class="section-head">
+        <h2>Marques référencées</h2>
+        <a class="section-link" href="?view=cat" id="home-brands-all">Tout le catalogue</a>
+      </div>
+      <ul class="brand-strip" id="home-brand-strip"></ul>
+    </section>
+
+    <!-- Trust -->
+    <section class="section trust" id="home-trust">
+      <h2 class="visually-hidden">Pourquoi ce catalogue</h2>
+      <ul class="trust-grid">
+        <li class="trust-card">
+          <h3>Compatibilité vérifiée</h3>
+          <p>Chaque pièce est liée aux modèles et motorisations qu'elle équipe, d'après le catalogue — jamais déclarée à la main.</p>
+        </li>
+        <li class="trust-card">
+          <h3>Références OEM</h3>
+          <p>Les correspondances constructeur sont affichées sur chaque fiche quand elles existent dans le catalogue.</p>
+        </li>
+        <li class="trust-card">
+          <h3>Catalogue vivant</h3>
+          <p>Prix et disponibilités datés : chaque fiche indique sa dernière vérification.</p>
+        </li>
+        <li class="trust-card">
+          <h3>Assistance pièce</h3>
+          <p>Une référence introuvable ? L'assistance identifie la bonne pièce à partir de votre véhicule.</p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Assistance CTA -->
+    <section class="section assist-cta" id="home-assist">
+      <div>
+        <h2>Vous ne trouvez pas votre pièce ?</h2>
+        <p>Envoyez votre référence ou les informations de votre véhicule (modèle, année, motorisation) — l'équipe identifie la bonne pièce.</p>
+      </div>
+      <a class="btn btn-accent" href="?view=aide" id="home-assist-go">Demander une pièce</a>
+    </section>
+  </main>
+
+  <!-- ================= CATALOGUE VIEW ================= -->
   <main id="view-catalogue" class="layout" hidden>
-    <aside class="filters">
+    <button type="button" class="filters-toggle" id="filters-toggle" aria-expanded="false" aria-controls="filters-panel">Filtres &amp; véhicule</button>
+    <aside class="filters" id="filters-panel">
+      <div class="filters-head">
+        <h2>Filtres</h2>
+        <button type="button" class="reset" id="filter-reset" hidden>Tout effacer</button>
+      </div>
+
       <section class="filter-block">
-        <h2>Votre véhicule</h2>
+        <h3>Votre véhicule</h3>
         <label for="filter-model">Modèle</label>
         <select id="filter-model">
           <option value="">Tous les modèles</option>
@@ -36,20 +178,55 @@
       </section>
 
       <section class="filter-block">
-        <h2>Marque de la pièce <span class="facet-count" id="brands-count"></span></h2>
-        <ul class="facet" id="filter-brands"></ul>
+        <h3>Disponibilité</h3>
+        <ul class="facet" id="filter-availability"></ul>
       </section>
 
-      <button type="button" class="reset" id="filter-reset" hidden>Effacer les filtres</button>
+      <section class="filter-block">
+        <h3>Marque de la pièce <span class="facet-count" id="brands-count"></span></h3>
+        <ul class="facet facet-scroll" id="filter-brands"></ul>
+      </section>
     </aside>
 
     <section class="results">
+      <nav class="crumbs" aria-label="Fil d'Ariane"><a href="/" id="crumb-home">Accueil</a> <span aria-hidden="true">/</span> <span id="crumb-current">Catalogue</span></nav>
       <div class="results-head">
-        <h1 id="results-title">Catalogue</h1>
-        <p id="results-count" class="results-count" aria-live="polite"></p>
+        <div>
+          <h1 id="results-title">Catalogue</h1>
+          <p id="results-count" class="results-count" aria-live="polite"></p>
+        </div>
+        <div class="results-tools">
+          <label class="visually-hidden" for="sort-select">Trier</label>
+          <select id="sort-select">
+            <option value="reference">Tri : référence</option>
+            <option value="price_asc">Prix croissant</option>
+            <option value="price_desc">Prix décroissant</option>
+            <option value="recent">Vérifiées récemment</option>
+          </select>
+          <div class="view-toggle" role="group" aria-label="Affichage">
+            <button type="button" id="view-grid-btn" aria-pressed="true">Grille</button>
+            <button type="button" id="view-list-btn" aria-pressed="false">Liste</button>
+          </div>
+        </div>
       </div>
+
+      <p class="active-vehicle" id="active-vehicle" hidden></p>
+
       <ul class="grid" id="product-grid"></ul>
-      <nav class="paging" id="paging" hidden>
+
+      <div class="empty-state" id="empty-state" hidden>
+        <h2>Aucune pièce trouvée pour cette combinaison.</h2>
+        <p>Le catalogue n'a pas de pièce correspondant à ces critères. Essayez :</p>
+        <div class="empty-actions">
+          <button type="button" class="btn btn-ghost" id="empty-reset">Réinitialiser les filtres</button>
+          <button type="button" class="btn btn-ghost" id="empty-change-vehicle">Modifier le véhicule</button>
+          <button type="button" class="btn btn-ghost" id="empty-oem">Rechercher par référence OEM</button>
+          <a class="btn btn-accent wa-gated" id="empty-whatsapp" href="#" hidden>Demander sur WhatsApp</a>
+          <a class="btn btn-accent" id="empty-assist" href="?view=aide">Demander à l'assistance</a>
+        </div>
+      </div>
+
+      <nav class="paging" id="paging" hidden aria-label="Pagination">
         <button type="button" id="page-prev">Précédent</button>
         <span id="page-status"></span>
         <button type="button" id="page-next">Suivant</button>
@@ -57,20 +234,34 @@
     </section>
   </main>
 
-  <!-- Product detail view -->
+  <!-- ================= PRODUCT VIEW ================= -->
   <main id="view-product" class="product" hidden>
-    <p class="crumbs"><a href="/" id="back-link">← Retour au catalogue</a></p>
+    <nav class="crumbs" aria-label="Fil d'Ariane">
+      <a href="/" id="crumb-p-home">Accueil</a> <span aria-hidden="true">/</span>
+      <a href="?view=cat" id="back-link">Catalogue</a> <span aria-hidden="true">/</span>
+      <span id="crumb-p-current"></span>
+    </nav>
     <div class="product-body">
       <div class="gallery">
-        <img id="product-image" alt="">
+        <div class="gallery-main"><img id="product-image" alt=""></div>
         <ul class="thumbs" id="product-thumbs"></ul>
       </div>
       <div class="product-info">
         <p class="product-brand" id="product-brand"></p>
         <h1 id="product-title"></h1>
         <p class="product-ref">Référence <strong id="product-ref"></strong></p>
-        <p class="price"><span id="product-price"></span></p>
-        <p class="availability" id="product-availability"></p>
+        <p class="fit-badge" id="product-fit-badge" hidden></p>
+
+        <div class="buy-panel">
+          <p class="price"><span id="product-price"></span></p>
+          <p class="availability" id="product-availability"></p>
+          <p class="delivery-note" id="product-delivery" hidden></p>
+          <div class="buy-actions">
+            <a class="btn btn-accent wa-gated" id="product-whatsapp" href="#" hidden>Commander sur WhatsApp</a>
+            <a class="btn btn-ghost" id="product-assist" href="?view=aide">Cette pièce convient-elle à mon véhicule ?</a>
+          </div>
+          <p class="buy-note">Consultation seule. La commande n'est pas encore disponible en ligne.</p>
+        </div>
 
         <section>
           <h2>Caractéristiques</h2>
@@ -92,12 +283,65 @@
     </div>
   </main>
 
+  <!-- ================= ASSISTANCE VIEW ================= -->
+  <main id="view-help" class="help" hidden>
+    <nav class="crumbs" aria-label="Fil d'Ariane"><a href="/" id="crumb-h-home">Accueil</a> <span aria-hidden="true">/</span> <span>Assistance</span></nav>
+    <h1>Assistance technique — trouver la bonne pièce</h1>
+    <p class="help-lead">Pour identifier une pièce avec certitude, préparez ces informations :</p>
+    <ul class="help-list">
+      <li><strong>Modèle et génération</strong> — ex. Rexton, Korando (C200)…</li>
+      <li><strong>Année et motorisation</strong> — ex. 2.0 e-XDi 2013</li>
+      <li><strong>Référence OEM</strong> si vous l'avez — gravée sur la pièce d'origine</li>
+      <li><strong>VIN (numéro de châssis)</strong> — identification sans ambiguïté</li>
+      <li>Une <strong>photo de la pièce</strong> si possible</li>
+    </ul>
+    <div class="help-channels">
+      <a class="btn btn-accent wa-gated" id="help-whatsapp" href="#" hidden>Envoyer sur WhatsApp</a>
+      <p class="hint" id="help-channel-note"></p>
+    </div>
+    <section class="section">
+      <h2>Ou cherchez vous-même</h2>
+      <div class="empty-actions">
+        <a class="btn btn-ghost" href="?view=cat" id="help-open-cat">Ouvrir le catalogue</a>
+        <a class="btn btn-ghost" href="?view=models" id="help-open-models">Choisir mon modèle</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- ================= MODELS VIEW ================= -->
+  <main id="view-models" class="models" hidden>
+    <nav class="crumbs" aria-label="Fil d'Ariane"><a href="/" id="crumb-m-home">Accueil</a> <span aria-hidden="true">/</span> <span>Modèles</span></nav>
+    <h1>Modèles SsangYong &amp; KGM</h1>
+    <p class="help-lead">Choisissez votre modèle pour n'afficher que les pièces compatibles.</p>
+    <ul class="model-grid" id="models-grid"></ul>
+  </main>
+
   <p class="state" id="state-message" role="status"></p>
 
+  <!-- ================= FOOTER ================= -->
   <footer class="site-footer">
-    <p>Catalogue SsangYong Parts — <span id="footer-counts"></span></p>
-    <p class="footer-note">Consultation seule. La commande n’est pas encore disponible en ligne.</p>
+    <div class="footer-cols">
+      <div class="footer-col">
+        <p class="footer-brand">SSANGYONG<span class="brand-dot">.</span>AUTOS</p>
+        <p class="footer-note">Catalogue de pièces détachées SsangYong &amp; KGM — Tunisie.</p>
+        <p class="footer-note" id="footer-counts"></p>
+      </div>
+      <div class="footer-col">
+        <p class="footer-head">Catalogue</p>
+        <a href="?view=cat" id="footer-cat">Toutes les pièces</a>
+        <a href="?view=models" id="footer-models">Par modèle</a>
+        <a href="?view=cat" id="footer-oem">Recherche OEM</a>
+      </div>
+      <div class="footer-col">
+        <p class="footer-head">Aide</p>
+        <a href="?view=aide" id="footer-help">Assistance pièce</a>
+        <a class="wa-gated" id="footer-whatsapp" href="#" hidden>WhatsApp</a>
+      </div>
+    </div>
+    <p class="footer-legal">Consultation seule. La commande n'est pas encore disponible en ligne. Conditions de disponibilité, de livraison et de garantie confirmées lors de la demande.</p>
   </footer>
+
+  <a class="wa-float wa-gated" id="wa-float" href="#" hidden aria-label="Contacter sur WhatsApp">WhatsApp</a>
 
   <script src="/shop-ui.js"></script>
 </body>

@@ -207,6 +207,38 @@ function get(p) { return request('GET', p); }
   ok(bySearch.body.total >= 1 && bySearch.body.products.some(function (p) { return p.canonical_reference === searchTerm; }),
      'Searching a known canonical_reference finds that product');
 
+  console.log('\n7b. SYA-SHOP-2 additions — sort, availability, availability facet');
+  var avail = await get('/api/availabilities');
+  ok(avail.status === 200 && Array.isArray(avail.body.availabilities) && avail.body.availabilities.length >= 1,
+     'GET /api/availabilities returns the availability facet');
+  var availTotal = avail.body.availabilities.reduce(function (sum, a) { return sum + a.product_count; }, 0);
+  ok(availTotal === page.body.total,
+     'Availability facet counts sum to the catalogue total (' + page.body.total + ') — same LIVE_STATUS predicate');
+
+  var firstAvail = avail.body.availabilities[0].availability;
+  var byAvail = await get('/api/products?availability=' + encodeURIComponent(firstAvail));
+  ok(byAvail.body.total === avail.body.availabilities[0].product_count &&
+     byAvail.body.products.every(function (p) { return p.availability === firstAvail; }),
+     'availability= filters exactly, and its total matches the facet count');
+
+  var priceAsc = await get('/api/products?sort=price_asc&limit=50');
+  var ascPrices = priceAsc.body.products.map(function (p) { return parseFloat(p.price_tnd); });
+  ok(ascPrices.every(function (v, i) { return i === 0 || ascPrices[i - 1] <= v; }),
+     'sort=price_asc pages in non-decreasing price order');
+  var priceDesc = await get('/api/products?sort=price_desc&limit=50');
+  var descPrices = priceDesc.body.products.map(function (p) { return parseFloat(p.price_tnd); });
+  ok(descPrices.every(function (v, i) { return i === 0 || descPrices[i - 1] >= v; }),
+     'sort=price_desc pages in non-increasing price order');
+  ok(priceAsc.body.total === page.body.total, 'Sorting never changes the result set, only its order');
+
+  var defaultOrder = await get('/api/products?limit=10&offset=0');
+  var explicitRef = await get('/api/products?sort=reference&limit=10&offset=0');
+  ok(JSON.stringify(defaultOrder.body.products) === JSON.stringify(explicitRef.body.products),
+     'sort=reference is the default order — omitting ?sort= is unchanged behaviour');
+
+  var badSort = await get('/api/products?sort=price;DROP');
+  ok(badSort.status === 400, 'An unknown sort value -> 400 (whitelist, never interpolated)');
+
   console.log('\n8. GET /api/products/:product_uid — detail');
   var uid = page.body.products[0].product_uid;
   var detail = await get('/api/products/' + encodeURIComponent(uid));

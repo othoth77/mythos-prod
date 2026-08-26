@@ -268,11 +268,43 @@ async function getBrands(res) {
 }
 
 // ---------------------------------------------------------------------------
+// GET /api/availabilities
+// Facet over sya_products.availability ('En Stock', 'Sur Commande', …) so the
+// storefront can offer a stock filter whose counts come from the same
+// LIVE_STATUS predicate as every list. Added in SYA-SHOP-2; values are the
+// scraped strings themselves — nothing is invented or normalised here.
+// ---------------------------------------------------------------------------
+async function getAvailabilities(res) {
+  var result = await db.query(
+    'SELECT availability, count(*) AS product_count FROM sya_products ' +
+    'WHERE ' + LIVE_STATUS + ' GROUP BY availability ORDER BY availability ASC'
+  );
+  sendJson(res, 200, {
+    availabilities: result.rows.map(function (r) {
+      return { availability: r.availability, product_count: toInt(r.product_count) };
+    })
+  });
+}
+
+// Whitelisted ORDER BY clauses for /api/products?sort=. The map is the whole
+// grammar — a sort value that is not a key here is a 400, and the SQL text
+// never contains caller input. 'reference' is the historical default order,
+// unchanged, so callers that never send ?sort= see identical pages.
+var PRODUCT_SORTS = {
+  reference: 'p.product_brand ASC, p.canonical_reference ASC',
+  price_asc: 'p.price_tnd ASC NULLS LAST, p.product_brand ASC, p.canonical_reference ASC',
+  price_desc: 'p.price_tnd DESC NULLS LAST, p.product_brand ASC, p.canonical_reference ASC',
+  recent: 'p.last_checked_at DESC NULLS LAST, p.product_brand ASC, p.canonical_reference ASC'
+};
+
+// ---------------------------------------------------------------------------
 // GET /api/products
 //   ?q=            free text over title / canonical reference / OEM reference
 //   ?brand=        exact product_brand
 //   ?model_id=     products fitting this vehicle model
 //   ?motorization_id= products fitting this specific motorization
+//   ?availability= exact availability string (facet values from /api/availabilities)
+//   ?sort=         reference (default) | price_asc | price_desc | recent
 //   ?limit= &offset=
 //
 // Only LIVE_STATUS rows are exposed — a withdrawn part must never surface in
@@ -306,6 +338,18 @@ async function getProducts(res, q) {
     where.push('EXISTS (SELECT 1 FROM sya_product_vehicle_compatibility c ' +
                'WHERE c.product_id = p.id AND c.vehicle_motorization_id = $' + params.length + ')');
   }
+  if (q.availability !== undefined && String(q.availability).trim() !== '') {
+    params.push(String(q.availability).trim());
+    where.push('p.availability = $' + params.length);
+  }
+
+  var orderBy = PRODUCT_SORTS.reference;
+  if (q.sort !== undefined) {
+    if (!Object.prototype.hasOwnProperty.call(PRODUCT_SORTS, String(q.sort))) {
+      throw badRequest('sort must be one of: ' + Object.keys(PRODUCT_SORTS).join(', '));
+    }
+    orderBy = PRODUCT_SORTS[String(q.sort)];
+  }
 
   var whereSql = 'WHERE ' + where.join(' AND ');
 
@@ -318,7 +362,7 @@ async function getProducts(res, q) {
     '  (SELECT im.image_url FROM sya_product_images im WHERE im.product_id = p.id ' +
     '   ORDER BY im.position ASC, im.id ASC LIMIT 1) AS main_image_url ' +
     'FROM sya_products p ' + whereSql + ' ' +
-    'ORDER BY p.product_brand ASC, p.canonical_reference ASC ' +
+    'ORDER BY ' + orderBy + ' ' +
     'LIMIT $' + (pageParams.length - 1) + ' OFFSET $' + pageParams.length,
     pageParams
   );
@@ -441,6 +485,7 @@ var ROUTES = [
   { method: 'GET', pattern: /^\/api\/vehicle-models$/, handler: function (req, res) { return getVehicleModels(res); } },
   { method: 'GET', pattern: /^\/api\/vehicle-models\/([^/]+)\/motorizations$/, handler: function (req, res, m) { return getModelMotorizations(res, decodePathSegment(m[1])); } },
   { method: 'GET', pattern: /^\/api\/brands$/, handler: function (req, res) { return getBrands(res); } },
+  { method: 'GET', pattern: /^\/api\/availabilities$/, handler: function (req, res) { return getAvailabilities(res); } },
   { method: 'GET', pattern: /^\/api\/products$/, handler: function (req, res, m, q) { return getProducts(res, q); } },
   { method: 'GET', pattern: /^\/api\/products\/([^/]+)$/, handler: function (req, res, m) { return getProduct(res, decodePathSegment(m[1])); } }
 ];
