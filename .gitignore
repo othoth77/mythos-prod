@@ -30,3 +30,6 @@ node_modules/
 
 # oth-knowledge runtime store (never commit knowledge data)
 projects/oth-knowledge/data/
+
+# Graphify generated graphs are runtime artifacts, never source (graphify skill rule)
+graphify-out/

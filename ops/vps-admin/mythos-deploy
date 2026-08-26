@@ -29,12 +29,13 @@ registry_line() {
     os)     echo "os.mythosprod.xyz|https://os.mythosprod.xyz/|200 301 302" ;;
     panel)  echo "panel.mythosprod.xyz|https://panel.mythosprod.xyz/|200 301 302" ;;
     ordre)  echo "ordre.mythosprod.xyz|https://ordre.mythosprod.xyz/|200 301 302" ;;
+    othmode) echo "othmode.mythosprod.xyz|https://othmode.mythosprod.xyz/|200 301 302" ;;
     tv)     echo "tv.mythosprod.xyz|https://tv.mythosprod.xyz/|200 301 302" ;;
     status) echo "PROTECTED" ;;
     *)      echo "" ;;
   esac
 }
-TARGETS="os panel ordre tv status"
+TARGETS="os panel ordre othmode tv status"
 
 # ---- Output helpers --------------------------------------------------------
 ts()   { date -u +%Y-%m-%dT%H:%M:%SZ; }
@@ -103,7 +104,7 @@ cmd_list() {
 
 cmd_status() {
   local t="${1:-all}"
-  [ "$t" = "all" ] && { for t in os panel ordre tv; do cmd_status "$t"; done; return 0; }
+  [ "$t" = "all" ] && { for t in os panel ordre othmode tv; do cmd_status "$t"; done; return 0; }
   resolve "$t"
   say "── status: $t ($NGINX_SITE) ──"
   local code; if code="$(health_check "$HEALTH_URL" "$HEALTH_CODES")"; then

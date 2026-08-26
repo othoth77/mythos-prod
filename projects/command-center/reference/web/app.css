@@ -735,6 +735,12 @@ kbd {
     gap: 16px;
     overflow-x: auto;
     padding: 10px 12px;
+    /* A grid item's implicit min-width:auto would size this to its full
+       nav-strip content (900px+ with the OTHMODE groups) and hand the
+       whole PAGE a horizontal scrollbar. min-width:0 keeps the scroll
+       inside the strip — the page body never scrolls sideways (LTR and
+       RTL both). */
+    min-width: 0;
   }
 
   .sidebar-group + .sidebar-group { margin-top: 0; }
@@ -759,3 +765,85 @@ kbd {
   * { transition: none !important; animation: none !important; }
   .command-card:hover { transform: none; }
 }
+
+/* =====================================================
+   OTHMODE additions — platform screens (othmode.js).
+   Same token set; nothing above changes. The `--oth-*` naming from the
+   design system maps onto the existing custom properties, which already
+   carry the approved values (docs/othmode/OTHMODE_UI_DESIGN.md §4.2).
+   ===================================================== */
+
+.brand-oth { color: var(--accent); }
+
+/* Dashboard strip: OthMode / health / open reviews */
+.oth-dash-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 26px;
+}
+.oth-dash-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-elevated); cursor: pointer; font: inherit; color: var(--text);
+  text-align: start; box-shadow: var(--shadow);
+}
+.oth-dash-card:hover { border-color: var(--border-strong); }
+.oth-dash-label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); }
+.oth-dash-value { font-size: 17px; font-weight: 650; font-variant-numeric: tabular-nums; }
+.oth-dash-card.is-on .oth-dash-value { color: var(--ok); }
+.oth-dash-card.is-off .oth-dash-value { color: var(--text-muted); }
+.oth-dash-card.is-warn .oth-dash-value { color: var(--warn); }
+.oth-dash-card.is-bad .oth-dash-value { color: var(--danger); }
+
+/* Data tables (skills, tools, history, health…) — horizontal scroll stays
+   inside the wrapper, never on the page body. */
+.tablewrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-elevated);
+}
+.oth-table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.oth-table th {
+  font-size: 11px; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--text-faint); text-align: start; white-space: nowrap;
+}
+.oth-table th, .oth-table td { padding: 9px 14px; border-block-end: 1px solid var(--border); }
+.oth-table tr:last-child td { border-block-end: 0; }
+.oth-table td { white-space: nowrap; vertical-align: top; }
+.oth-cell-wrap { white-space: normal; display: inline-block; min-width: 160px; max-width: 420px; }
+
+/* Six-state health chips — color plus text, never color alone. */
+.oth-state { border-color: transparent; }
+.oth-state-active   { background: var(--ok-soft);     color: var(--ok); }
+.oth-state-degraded { background: var(--warn-soft);   color: var(--warn); }
+.oth-state-failed   { background: var(--danger-soft); color: var(--danger); font-weight: 700; }
+.oth-state-blocked  { background: var(--accent-soft); color: var(--accent); }
+.oth-state-deprecated, .oth-state-disabled, .oth-state-inactive, .oth-state-designed, .oth-state-draft {
+  background: var(--bg-sunken); color: var(--text-muted);
+}
+.oth-state-replacement_required { background: var(--warn-soft); color: var(--warn); border-color: var(--warn); font-weight: 700; }
+.oth-state-validated { background: var(--ok-soft); color: var(--ok); }
+
+/* Evolution stage chips and the recovery pipeline */
+.oth-stage-row { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.oth-stage {
+  font-size: 11px; padding: 2px 8px; border-radius: 4px;
+  background: var(--bg-sunken); color: var(--text-muted); white-space: nowrap;
+}
+.oth-stage.is-done { background: var(--ok-soft); color: var(--ok); }
+.oth-stage.is-now  { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+.oth-stage.is-stop { background: var(--danger-soft); color: var(--danger); font-weight: 700; }
+
+/* Evolution tabs */
+.oth-tabs {
+  display: flex; gap: 2px; flex-wrap: wrap;
+  border-block-end: 1px solid var(--border); margin-bottom: 18px;
+}
+.oth-tab {
+  font: inherit; font-size: 13px; border: 0; background: none; color: var(--text-muted);
+  padding: 8px 14px; cursor: pointer; border-block-end: 2px solid transparent; margin-block-end: -1px;
+}
+.oth-tab:hover { color: var(--text); }
+.oth-tab.is-active { color: var(--accent); border-block-end-color: var(--accent); font-weight: 600; }
