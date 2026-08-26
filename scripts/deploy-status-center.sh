@@ -97,12 +97,23 @@ curl -sSI --max-time 10 "http://${HOST}/" 2>&1 | head -4 | sed 's/^/     /' || t
 # ── 2. Content ───────────────────────────────────────────────────────
 step "2/6 Copy site content → ${DOCROOT}"
 mkdir -p "${DOCROOT}"
+# --delete keeps the docroot an exact mirror of the repository, but the
+# STC-2 monitor writes its runtime state into this SAME docroot
+# (data/live-status.json and data/live-history/) and that state is not in
+# Git. Without these excludes every publish silently deletes the live panel
+# and the accumulated monitor history — observed on 2026-08-26, when a
+# publish removed live-status.json (live panel 404 until the next timer
+# tick) and destroyed data/live-history/ permanently, /var/www being in no
+# backup set. The monitor recreates live-status.json on its next ~5-minute
+# tick; the history JSONL and alerts.jsonl are unrecoverable.
 rsync -a --delete \
   --exclude DEPLOYMENT.md --exclude README.md \
+  --exclude data/live-status.json --exclude data/live-history \
   "${SITE_SRC}/" "${DOCROOT}/"
 chown -R www-data:www-data "${DOCROOT}"
 [ -f "${DOCROOT}/index.html" ] && [ -f "${DOCROOT}/health.json" ] || fail "docroot incomplete after rsync"
-info "content synced (data/, reviews/, health.json included — they ARE the data model)"
+info "content synced (data/, reviews/, health.json included — they ARE the data model;"
+info "monitor runtime state data/live-status.json + data/live-history/ preserved)"
 
 # ── 3. Vhost (additive, certbot-aware) ───────────────────────────────
 step "3/6 nginx vhost"
