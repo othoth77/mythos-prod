@@ -162,6 +162,16 @@ var PROVIDER_ENV_FILES = {
   'omniroute-advisory': '.config/mythos-ai-executor/executor.env'
 };
 
+// Tri-state on purpose: true (file exists), false (provably absent), null
+// (unknowable — e.g. the env file lives in another user's home and this
+// process may not look). Reporting "absent" for merely-unreadable would be
+// a lie the UI then repeats; null renders as "not tracked".
+function credentialPresence(file) {
+  try { fs.statSync(file); return true; } catch (e) {
+    return e.code === 'ENOENT' ? false : null;
+  }
+}
+
 function providers() {
   var agentsRes = resolve.cachedJson(resolve.repoPath('projects', 'mythos-ai-executor', 'config', 'agents.json'));
   var routerRes = resolve.cachedJson(resolve.repoPath('projects', 'mythos-ai-executor', 'config', 'router.json'));
@@ -183,7 +193,7 @@ function providers() {
         risk_level: a.risk_level || null,
         cost_tier: a.cost && a.cost.tier ? a.cost.tier : null,
         latency_class: a.latency && a.latency.class ? a.latency.class : null,
-        credential_present: envFile ? resolve.exists(path.join(home, envFile)) : null,
+        credential_present: envFile ? credentialPresence(path.join(home, envFile)) : null,
         note: a.note || null
       });
     });

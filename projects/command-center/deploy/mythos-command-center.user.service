@@ -68,9 +68,12 @@ Restart=on-failure
 RestartSec=5s
 
 # --- Hardening -------------------------------------------------------------
-# This process reads and writes exactly one PostgreSQL database and reads
-# its own static assets. It writes nothing to the filesystem at all, so the
-# sandbox is locked to match: ReadWritePaths is deliberately empty.
+# This process reads and writes exactly one PostgreSQL database, reads its
+# own static assets and other engines' registries, and appends to exactly
+# one filesystem location: the OTHMODE evolution/recovery store. The
+# sandbox is locked to match — that store directory is the only writable
+# path. (Provision it first: mkdir -m 700 /home/deploy/oth-evolution-store,
+# owned by deploy; the application fails closed while it is absent.)
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict
@@ -84,7 +87,7 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service
 SystemCallFilter=~@privileged @resources @obsolete
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
-ReadWritePaths=
+ReadWritePaths=/home/deploy/oth-evolution-store
 
 StandardOutput=journal
 StandardError=journal
