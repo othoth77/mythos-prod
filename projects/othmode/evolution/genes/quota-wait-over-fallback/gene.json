@@ -1,0 +1,18 @@
+{
+  "id": "quota-wait-over-fallback",
+  "type": "routing-strategy",
+  "version": "1.0",
+  "status": "VALIDATED",
+  "title": "Execution tasks wait for quota instead of falling back",
+  "origin_event": null,
+  "origin_note": "Codifies a pattern that already exists and is enforced in production: projects/mythos-ai-executor/config/router.json (never_for_execution_authority) and the WAITING_FOR_QUOTA task state. Recorded as a gene so the strategy is reusable and versioned, not rediscovered.",
+  "validation": {
+    "result": "PASS",
+    "evidence": [
+      "projects/mythos-ai-executor/config/router.json — fallback.never_for_execution_authority: true",
+      "tests/mythos-ai-executor-test.js — quota classification and resume behaviour",
+      "docs/AI_HANDOVER.md MOS-CONSOLE-LIVE — governance REFUSED/DENY cycle proving the boundary live"
+    ]
+  },
+  "review": { "tier": "LOW", "decision": "APPROVED", "note": "documents existing validated behaviour; no behavioural change" }
+}

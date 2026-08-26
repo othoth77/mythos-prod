@@ -72,3 +72,28 @@ Neither `mythos-repo-guardian` (scoped to `AGENTS.md`, which contained zero refe
 ## 7. Status
 
 This audit is complete for the 20 skills that exist as of MPI-0-FINALIZATION. Future changes to any skill must be recorded as a new row/section here, not a silent edit — see `docs/SKILLS_VERSIONING_POLICY.md`.
+
+---
+
+## OTHMODE Phase 2 (2026-08-26) — six skills added, overlap audit
+
+Added: `preflight`, `postflight`, `session-handoff`, `status-sync`,
+`search-first`, `graphify` (all v1.0.0). Overlap resolution, following the
+established owner/delegator pattern:
+
+- `preflight` DELEGATES the git preflight to `mythos-project-context` and
+  rule enforcement to `mythos-repo-guardian` (they stay the owners); it owns
+  only the OthMode-flag/health/deploy-preflight consolidation.
+- `postflight` DELEGATES doc sync to `mythos-doc-sync` and change discipline
+  to `mythos-safe-change`; it owns only the closing checklist ordering and
+  the evolution-recording step.
+- `session-handoff` owns the AI_HANDOVER entry format; `mythos-doc-sync`
+  remains the owner of cross-document consistency.
+- `status-sync` owns the one-writer boundary statement; the Status Center
+  engine remains the owner of status truth.
+- `search-first` owns the search/verdict/registry procedure; the Selector in
+  `docs/othmode/OTHMODE_EVOLUTION.md` consumes its evidence.
+- `graphify` owns the use-don't-build rule for graphs.
+
+Lifecycle note: these skills were added by reviewed Git change (this branch),
+consistent with `mythos-skill-evolution` — skills never self-modify.

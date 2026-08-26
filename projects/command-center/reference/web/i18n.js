@@ -451,6 +451,24 @@
     return category.name_en || category.name_fr || '';
   }
 
+  // Merge additional strings into a locale's table (creating the table for
+  // a locale that only existed as registry metadata, e.g. Arabic). Used by
+  // othmode-i18n.js — the OTHMODE strings and the reviewed Arabic layer
+  // ship as their own file instead of growing this one indefinitely.
+  function extend(code, table) {
+    if (!STRINGS[code]) STRINGS[code] = {};
+    Object.keys(table || {}).forEach(function (key) { STRINGS[code][key] = table[key]; });
+  }
+
+  // Flip a registered locale to enabled once its table is actually loaded.
+  // Arabic stays disabled until othmode-i18n.js has extended it — the
+  // original rule stands: never offer a locale whose strings are absent.
+  function enableLocale(code) {
+    for (var i = 0; i < LOCALES.length; i++) {
+      if (LOCALES[i].code === code) LOCALES[i].enabled = true;
+    }
+  }
+
   global.MccI18n = {
     t: t,
     setLocale: setLocale,
@@ -458,7 +476,9 @@
     locales: LOCALES,
     availableLocales: function () { return LOCALES.filter(function (l) { return l.enabled; }); },
     categoryName: categoryName,
-    dir: function () { return localeMeta(current).dir; }
+    dir: function () { return localeMeta(current).dir; },
+    extend: extend,
+    enableLocale: enableLocale
   };
 
 }(window));

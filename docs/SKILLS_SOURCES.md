@@ -52,3 +52,22 @@ No new external dependency was introduced to produce any skill in this list (`do
 ## 4. Status
 
 All 18 skills listed (16 preserved/created per the task's required list plus 2 new: `mythos-context-assembler`, `mythos-personal-learning`) exist as `.claude/skills/<name>/SKILL.md` manifests as of MPI-0, with 2 more added in MPI-0-FINALIZATION (`mythos-skill-evolution`, `mythos-project-history`; see below). Their responsibility boundaries were reviewed for overlap in `docs/SKILLS_EVOLUTION.md` — several near-duplicate boundaries were found (e.g. `mythos-project-context` and `mythos-repo-guardian` both restating the same git preflight; `mythos-safe-change` restating `mythos-test-intelligence`'s test-scope selection) and resolved there by making one skill the explicit owner and the other an explicit delegator, rather than by claiming no overlap ever existed. See `docs/SKILLS_EVOLUTION.md` for the full per-skill audit and `docs/SKILLS_ROADMAP.md` §"Agent Development Skills Inventory" for each skill's resulting scope boundary.
+
+---
+
+## 5. OTHMODE Phase 2 additions (2026-08-26)
+
+Six skills added by the OTHMODE implementation (`docs/othmode/`), each the
+result of the KEEP → EXTEND → MERGE → REPLACE → DEPRECATE → BUILD rule:
+
+| Skill | Classification | Verdict trail |
+|---|---|---|
+| `preflight` | MYTHOS ORIGINAL (consolidation) | EXTEND — delegates to `mythos-project-context` + `mythos-repo-guardian`; adds the OthMode/health pass |
+| `postflight` | MYTHOS ORIGINAL (consolidation) | EXTEND — delegates to `mythos-safe-change` + `mythos-doc-sync`; adds history/evolution recording |
+| `session-handoff` | MYTHOS ORIGINAL (formalization) | EXTEND — the live `docs/AI_HANDOVER.md` discipline beat external handoff candidates (Search First run recorded in the Open Source Registry) |
+| `status-sync` | MYTHOS ORIGINAL (boundary formalization) | KEEP/EXTEND — Status Center remains the only status writer |
+| `search-first` | ADAPTED — shimo4228/search-first (MIT) | Connect verdict + registry recording added per the OTHMODE mandate |
+| `graphify` | INTEGRATION — Graphify-Labs/graphify (Apache-2.0/MIT, PyPI `graphifyy`) | Adopt — never build a graph engine |
+
+No new runtime dependency was introduced by any of these skills. Skill
+Creator was NOT needed: consolidation left no genuinely missing skill.
