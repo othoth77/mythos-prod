@@ -1,0 +1,89 @@
+# SSANGYONG.AUTOS storefront — systemd unit (SYA-DEPLOY-1 artifact)
+#
+# NOT INSTALLED. This file is the prepared artifact; installing it requires
+# root, which the `deploy` account does not have (its sudo is exactly
+# `nginx -t`, `systemctl reload nginx`, `certbot`). See deploy/README.md for
+# the exact operator commands and the blockers that gate them.
+#
+# Install to /etc/systemd/system/ssangyong-storefront.service
+#
+# Serves BOTH the storefront and its read-only catalog API from one process on
+# loopback, which is what migration-plan §22 option 3 makes possible: page and
+# data share an origin, so nginx only ever proxies one upstream and the API
+# needs no public exposure of its own.
+
+[Unit]
+Description=SSANGYONG.AUTOS storefront and read-only catalog API
+Documentation=https://github.com/othoth77/mythos-prod
+# The catalog lives in the idauto-postgres container's PostgreSQL on loopback.
+# docker.service is a soft ordering dependency only: if the database is not up
+# the process exits and systemd restarts it, rather than the unit failing to
+# start at boot.
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/home/deploy/projects/mythos-prod
+
+# Credentials live outside the git worktree, mode 0600, and are never echoed.
+# systemd reads this as PID 1 before dropping to User=, so the file stays 0600
+# and unreadable to anything else.
+EnvironmentFile=/home/deploy/deployments/ssangyong-autos-storefront/.env
+
+ExecStart=/usr/bin/node /home/deploy/projects/mythos-prod/projects/ssangyong-autos/reference/api.js
+
+Restart=on-failure
+RestartSec=5s
+
+# --- Hardening -------------------------------------------------------------
+# This process is a read-only catalog server. It writes nothing, anywhere:
+# db.js opens every PostgreSQL connection with default_transaction_read_only=on,
+# and the filesystem is locked down to match, so the sandbox and the database
+# tell the same story.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+# MemoryDenyWriteExecute is deliberately ABSENT. It was present in this file
+# until 2026-08-26 (OTH-2026-00017) and would have been a trap for whoever
+# installed it: V8 is a JIT, mapping memory writable and then executable to
+# emit baseline code, so MDWE makes node die at the first hot function with
+#     # Fatal error ... Check failed: 12 == (*__errno_location ())
+#     v8::internal::baseline::BaselineCompiler::Build
+# — under load, not at startup, so the unit would look healthy for a while
+# first. Unlike ProtectKernelTunables and ProtectClock (which this
+# system-scope unit CAN legitimately apply, and keeps), this one is
+# scope-independent: it is incompatible with running node at all. Bisected
+# during MCC-1 deployment and confirmed by OTH-2026-00015, which removed the
+# same directive from the user-scope sibling to end a ten-day crash loop.
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @obsolete
+# Loopback only — nginx is the sole ingress. AF_UNIX is required for the
+# PostgreSQL/DNS resolver paths glibc may take.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressAllow=localhost
+IPAddressDeny=any
+# No writable path at all. ProtectSystem=strict already makes / read-only;
+# nothing is added back, because the service has nothing to write.
+ReadWritePaths=
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ssangyong-storefront
+
+[Install]
+WantedBy=multi-user.target
