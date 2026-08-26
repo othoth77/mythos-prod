@@ -180,20 +180,37 @@ step "5/6 Smoke tests"
 SMOKE_FAIL=0
 check() { local label="$1"; shift; if "$@" >/dev/null 2>&1; then info "PASS  ${label}"; else info "FAIL  ${label}"; SMOKE_FAIL=1; fi; }
 
-HDRS="$(curl -sSI  --max-time 15 "https://${HOST}/" || true)"
-CHAIN="$(curl -sSIL --max-time 30 "https://${HOST}/" || true)"
+# EVERY probe below is a GET. The first run of this script, 2026-08-26 20:01Z,
+# used `curl -I` for the header checks and reported DEPLOYMENT NOT VERIFIED
+# against a deployment that was in fact correct and complete: the upstream is
+# GET-only and answers HEAD with 405, which is its documented behaviour, not a
+# fault. Worse, the content-type check then measured the 405's headers rather
+# than the health document's and passed for the wrong reason. `-D- -o /dev/null`
+# gives the headers of a real GET, so the checks read what users actually get.
+HDRS="$(curl -sS -D- -o /dev/null  --max-time 15 "https://${HOST}/" || true)"
+CHAIN="$(curl -sSL -D- -o /dev/null --max-time 30 "http://${HOST}/" || true)"
 HEALTH="$(curl -sS  --max-time 15 "https://${HOST}/api/health" || true)"
-HEALTH_CT="$(curl -sSI --max-time 15 "https://${HOST}/api/health" || true)"
+HEALTH_CT="$(curl -sS -D- -o /dev/null --max-time 15 "https://${HOST}/api/health" || true)"
 
-check "HTTPS 200 from ${HOST}"                  grep -qE '^HTTP/[0-9.]+ 200' <<<"${HDRS}"
+check "HTTPS GET / returns 200"                 grep -qE '^HTTP/[0-9.]+ 200' <<<"${HDRS}"
 check "no darhijama.tn anywhere in the chain"   test -z "$(grep -i 'darhijama\.tn' <<<"${CHAIN}")"
+check "HTTP redirects to this host's own HTTPS" grep -qi "location: https://${HOST}/" <<<"${CHAIN}"
 # The whole point of the P0: JSON from the real catalog API, not an SPA fallback.
 check "/api/health is application/json"         grep -qi 'content-type: *application/json' <<<"${HEALTH_CT}"
 check "/api/health reports ok"                  grep -q '"status":"ok"' <<<"${HEALTH}"
 check "/api/health proves a real DB read"       grep -q '"read_only":true' <<<"${HEALTH}"
 check "catalog counts are present"              grep -q '"products"' <<<"${HEALTH}"
-# The edge must refuse write verbs even though the upstream is GET-only.
-check "POST /api/health refused at the edge"    bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -X POST 'https://${HOST}/api/health')\" = '403' ]"
+# Write verbs must be refused. WHERE they are refused depends on nginx location
+# precedence, and the first run got this wrong too. An exact-match location
+# (`location = /api/health`) beats a regex one (`location ~ ^/api/`), so on a
+# vhost where only the regex block carries limit_except, /api/health is proxied
+# straight through and the UPSTREAM refuses with 405 — still refused, one layer
+# later. Any other /api/ path is refused at the edge with 403. Both are asserted
+# separately so neither can hide the other.
+check "POST to an /api/ path refused 403 at the edge" \
+  bash -c "[ \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -X POST 'https://${HOST}/api/vehicles')\" = '403' ]"
+check "POST /api/health is refused (403 edge or 405 upstream)" \
+  bash -c "case \"\$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 -X POST 'https://${HOST}/api/health')\" in 403|405) exit 0;; *) exit 1;; esac"
 check "HSTS present"                            grep -qi 'strict-transport-security' <<<"${HDRS}"
 check "X-Frame-Options DENY present"            grep -qi 'x-frame-options: *DENY' <<<"${HDRS}"
 

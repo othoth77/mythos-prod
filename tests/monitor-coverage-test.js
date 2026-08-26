@@ -102,19 +102,27 @@ console.log('§5 SYA API retirement is documented, not assumed');
 
 var sya = byId('sya-api');
 check('sya-api probe is retained for the record', !!sya);
-check('sya-api is disabled', !!sya && sya.enabled === false);
-// Until 2026-08-26 these asserted the probe was documented as RETIRED, which
-// was true while there was no catalog API at all. It is no longer true:
-// OTH-2026-00015 restored the service, OTH-2026-00018 gave it an approved
-// public hostname (store.ssangyong.autos) and a deployment script. The probe
-// is now disabled pending a root deploy, and the assertions moved with the
-// fact rather than being deleted — what they protect is that a disabled probe
-// states a checkable disposition, not that the disposition is any one word.
-check('sya-api documents the deployment it is waiting on',
-  !!sya && /pending|AFTER/i.test(sya.note || '') &&
-  /deploy-sya-storefront\.sh/.test(sya.note || ''));
-check('the disposition cites what was verified, not just an intention',
-  !!sya && /darhijama|SPA fallback|catalog\.php|default/i.test(sya.note || ''));
+// Was 'sya-api is disabled' until 2026-08-26T20:01Z, when the owner ran
+// scripts/deploy-sya-storefront.sh and the catalog API became publicly
+// reachable for the first time since 2026-08-16. OTH-2026-00019 verified that
+// independently before flipping the probe, so this now asserts the end state
+// the whole P0 was working toward rather than a waiting condition.
+check('sya-api is enabled — the public catalog API is deployed',
+  !!sya && sya.enabled === true);
+// The origin probe must not be the only thing watching this service: it stays
+// green if the vhost or the certificate breaks. Both layers are required.
+var syaLoop = byId('sya-api-loopback');
+check('the origin is watched too, independently of the public path',
+  !!syaLoop && syaLoop.enabled === true && /127\.0\.0\.1:3011/.test(syaLoop.url || ''));
+// These asserted "documented as RETIRED", then "documents the deployment it is
+// waiting on", and now the deployment has happened. The probe's note must still
+// carry its history — why the apex was the wrong target, and why the
+// content-type guard exists — because that is what stops someone repointing it
+// back at ssangyong.autos and re-creating the six-day invisible outage.
+check('the note still records why the apex was never a valid target',
+  !!sya && /darhijama|SPA fallback|catalog\.php|apex/i.test(sya.note || ''));
+check('the note explains what the two guards prove',
+  !!sya && /read_only|PostgreSQL/i.test(sya.note || ''));
 // The apex must never be the target again: it answers 200 text/html for every
 // unmatched path and carries its own live /api/catalog.php (OTH-2026-00017).
 check('sya-api no longer points at the legacy apex',
