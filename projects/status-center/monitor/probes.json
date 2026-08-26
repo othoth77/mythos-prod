@@ -140,15 +140,16 @@
     },
     {
       "id": "sya-api",
-      "name": "SYA catalog API",
+      "name": "SYA catalog API (public)",
       "type": "https",
-      "url": "https://ssangyong.autos/api/health",
+      "url": "https://store.ssangyong.autos/api/health",
       "expect_status": [
         200
       ],
       "expect_content_type": "application/json",
-      "enabled": false,
-      "note": "RETIRED AT THIS URL — still not pending, but the reason narrowed on 2026-08-26. The original finding (on-host 2026-08-22) was that /api/health, / and an invented nonsense path all returned the byte-identical storefront index (md5 1d7337e470ed06d91c965cba40c7dad1), because the ssangyong.autos vhost is a static root with try_files and carries no /api proxy_pass, and because ssangyong-storefront.service was inactive. HALF OF THAT IS NOW FIXED: OTH-2026-00015 ended the service's 218/CAPABILITIES crash loop and the catalog API is live and serving real JSON on 127.0.0.1:3011 — watched by `sya-api-loopback`. What remains is exactly the missing nginx /api proxy_pass, which needs root and is tracked in BLOCKER-SYA-API-DOWN alongside BLOCKER-SYA-NGINX-DRIFT. This probe therefore stays DISABLED: the PUBLIC endpoint it names still does not exist, and enabling it would put a DOWN on the board for a root-gated route rather than for a broken service. Keep expect_content_type alongside the disabled flag — when the proxy_pass lands, flipping enabled is then sufficient, and the content-type assertion is what stops the SPA fallback from reporting a dead API as LIVE."
+      "enabled": true,
+      "note": "ENABLED 2026-08-26 (OTH-2026-00019) after the deployment was independently verified in production. The catalog API is public at https://store.ssangyong.autos/api/health, on its own additive vhost with a Let's Encrypt certificate (CN=store.ssangyong.autos, valid to 2026-11-24). It returns 200 application/json with status ok, read_only true and real catalog counts. This probe pointed at https://ssangyong.autos/api/health until 2026-08-26; that apex target was always wrong — the apex is the frozen LEGACY site, answers every unmatched path 200 text/html from an SPA fallback, and carries its own live /api/catalog.php that must never be shadowed (OTH-2026-00017). expect_content_type application/json plus expect_body_substring \"read_only\":true are the two guards that matter: the first stops an SPA fallback reporting a dead API as LIVE — the original sya-api lesson, and the reason the six-day outage was invisible — and the second proves the process actually reached PostgreSQL rather than merely answering. This is the public counterpart of sya-api-loopback, which watches the same service at its origin; both are needed, because the loopback probe stays green if the vhost or certificate breaks and this one stays green only while the whole public path works. NOTE for whoever reads a DOWN here: the upstream is GET-only and answers HEAD with 405 by design. The monitor always issues GET, so that is not a false-DOWN risk here, but it is why a hand-run `curl -I` against this URL looks broken when nothing is.",
+      "expect_body_substring": "\"read_only\":true"
     },
     {
       "id": "sya-api-loopback",
