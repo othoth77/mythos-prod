@@ -1,6 +1,6 @@
 {
-  "review_id": "REVIEW-2026-08-26-008",
-  "timestamp": "2026-08-26T15:18:46.166Z",
+  "review_id": "REVIEW-2026-08-26-007",
+  "timestamp": "2026-08-26T15:17:47.926Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "git@github.com:othoth77/mythos-prod.git",
@@ -3292,14 +3292,6 @@
       "title": "Produce authorized exports for OTH Knowledge Track B",
       "detail": "Takeout / Gemini / NotebookLM, per docs/OTH_TRACK_B_READINESS.md §3.",
       "depends_on": "NEXT-OTHK-STORE"
-    },
-    {
-      "id": "NEXT-STATUS-DISCLOSURE-REVIEW",
-      "priority": "P2",
-      "order": 2,
-      "title": "Decide whether the public Status Center should mask infrastructure detail, as OTHMODE reports now do",
-      "detail": "On 2026-08-26 the owner decided that OTHMODE Task Reports, on becoming public, should have infrastructure detail masked for anonymous readers (host paths, sudo grants, internal listeners, hostname). The Status Center has been public since 2026-08-20 and carries the same class of detail: the hostname appears 12 times and absolute host paths 23 times in the published current.json. This is pre-existing convention, not a new exposure, and it is NOT obviously wrong — the Status Center is an evidence-citing instrument, and a path or a host IS the evidence, so masking it would degrade the thing it exists to do. That tension is the decision: apply the same masking for consistency, accept the disclosure as the cost of citable evidence, or mask only the narrowest subset (sudo grants and backup gaps). Recorded rather than acted on, because scrubbing two dozen evidence references is a content decision with owner-visible impact and would be pointless if done piecemeal.",
-      "depends_on": null
     }
   ],
   "do_not_reopen": [
@@ -5263,7 +5255,7 @@
       "authority": "historical evidence only — reconcile before trusting"
     }
   ],
-  "previous_review": "REVIEW-2026-08-26-007",
+  "previous_review": "REVIEW-2026-08-26-006",
   "changes": {
     "added": [],
     "completed": [],
