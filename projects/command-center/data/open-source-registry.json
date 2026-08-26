@@ -21,16 +21,20 @@
       "name": "Graphify",
       "source": "github+pypi",
       "repository": "Graphify-Labs/graphify (PyPI package: graphifyy)",
-      "version": "v8 branch at verification; pinned version recorded at install time",
-      "license": "Apache-2.0 AND MIT (dual)",
+      "version": "graphifyy 0.9.50 (PyPI, installed 2026-08-26)",
+      "license": "Apache-2.0 (License-Expression verified from the installed package metadata)",
       "purpose": "Turns codebases/docs into local queryable knowledge graphs for AI assistants (deterministic AST parsing, ~40 languages, no LLM calls for code).",
-      "integration_method": "external tool: installed per-workstation/host via `uv tool install graphifyy` and registered with Claude Code (`graphify install`); OTHMODE documents usage via the mythos-graphify skill. Local mode preferred. OTHMODE does NOT depend on it for basic operation and builds no graph engine of its own.",
-      "status": "APPROVED",
-      "dependencies": ["python >= 3.10 (per upstream)", "tree-sitter (bundled upstream)"],
+      "integration_method": "installed on the production VPS as the deploy user in an isolated venv (~/.local/share/graphify-venv, symlinked to ~/.local/bin/graphify); vendor Claude skill registered at ~/.claude/skills/graphify via `graphify install --platform claude`; first real graph built from projects/command-center (299 nodes / 818 edges, deterministic AST only, no LLM, no API key) at ~/oth-graphs/graphify-out/graph.json and queried via `graphify explain`. OTHMODE runtime has zero dependency on it (graceful absence); generated graphify-out/ is gitignored.",
+      "status": "INTEGRATED",
+      "dependencies": [
+        "python >= 3.10 (per upstream)",
+        "tree-sitter (bundled upstream)"
+      ],
       "maintenance": "actively maintained (110k+ stars; verified 2026-08-26)",
-      "security": "runs locally; no network required for code analysis; doc/PDF semantic extraction calls the user-configured API backend — keep it pointed at approved providers only",
-      "othmode_usage": "code/project/knowledge/evolution relationship graphs (operator + Claude Code capability)",
-      "verified_at": "2026-08-26"
+      "security": "runs locally in a per-user venv; deterministic AST extraction used exclusively (no network, no API keys read); semantic extraction not enabled; graph outputs stored outside Git",
+      "othmode_usage": "code/project/knowledge/evolution relationship graphs — vendor skill (implementation) + repo skill `graphify` (policy/boundary); recorded in Health as an optional capability",
+      "verified_at": "2026-08-26",
+      "name_collision_note": "the vendor skill and the repo policy skill share the name `graphify` by design: the repo skill (project scope) carries only the OTHMODE boundary rules and defers execution to the vendor skill (user scope) — resolved as MERGE in docs/SKILLS_EVOLUTION.md"
     },
     {
       "name": "Evolver Claude Code Plugin",
@@ -139,5 +143,6 @@
       "othmode_usage": "the mcc database (commands, library, usage events)",
       "verified_at": "2026-08-26"
     }
-  ]
+  ],
+  "final_review": "2026-08-26 final Search First re-check: every manually built capability (evolution store, sessions, detectors, export) was re-searched against GitHub/PyPI/npm/MCP/Anthropic Skills; no maintained project matched the constraints (zero-dependency Node, fail-closed store semantics, no-exec runtime, GPL exclusion) better than the ~1.5k lines built — verdicts recorded per record above; no dependency added to inflate the registry."
 }

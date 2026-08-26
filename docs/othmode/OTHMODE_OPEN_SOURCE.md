@@ -49,3 +49,11 @@ Rules: a record is created by the Search First procedure, not ad hoc; REJECTED r
 ## 4. Current-repo precedent
 
 The repository already practices restraint that OTHMODE inherits: MCC-1 has exactly one dependency (`pg`); oth-knowledge and the orchestrator have zero. New dependencies remain exceptional and reviewed (validation dimension "dependencies", [OTHMODE_EVOLUTION.md](OTHMODE_EVOLUTION.md) §9).
+
+---
+
+## 5. Final integration state (2026-08-26, OTHMODE-100)
+
+- **Graphify: INTEGRATED.** `graphifyy` 0.9.50 (Apache-2.0, verified from installed package metadata) in an isolated venv on the production VPS (deploy user); vendor Claude skill registered user-scope; first real graph built from `projects/command-center` (299 nodes / 818 edges, deterministic AST, zero LLM/API-key use) and queried via `graphify explain`/`path`. OTHMODE runtime keeps zero dependency on it; Health lists it as an optional capability (file-presence check only — no execution); `graphify-out/` is gitignored. Name collision with the repo policy skill resolved as MERGE (policy vs implementation scopes) in `docs/SKILLS_EVOLUTION.md`.
+- **Final Search First re-check** ran over every manually built capability (store, sessions, detectors, export); no maintained project matched the zero-dependency/fail-closed/no-exec/GPL-exclusion constraints better than what was built. Recorded in the registry's `final_review` field. No dependency was added to inflate the registry.
+

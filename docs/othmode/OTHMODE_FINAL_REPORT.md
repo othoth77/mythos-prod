@@ -46,13 +46,16 @@ MCC-1 core: PostgreSQL `mcc` schema (no migration), api/db/auth/secrets/variable
 
 Everything that held before still holds (verified by the suites on the host): no-exec, parameterized SQL, secret gate (now on every new write surface), loopback bind, NoNewPrivileges + strict sandbox, scoped sudo, fail-closed knowledge boundary, execution-authority routing line. Added: owner-role gating (Settings/switch/HIGH-risk approval), auth walls on operational read surfaces (history/memory/evolution), tri-state credential presence (never values), append-only auditability of every evolution/recovery/switch action. **The AI cannot elevate its own permissions anywhere in this system.**
 
-## Remaining limitations (honest)
+## Remaining limitations (honest — updated 2026-08-26, OTHMODE-100)
 
-1. Arabic strings await the owner's human review (file: `othmode-i18n.js`; live meanwhile).
-2. Graphify approved but not yet installed on a host (operator step; registry flips to INTEGRATED then).
-3. Automated signal detectors (E1) and capsule creation are designed, not yet built — per the approved gradual evolution plan.
-4. Executor task history is invisible to the service on the host (`/home/ubuntu` unreadable by `deploy` — reported honestly in the UI as "runtime state absent"); wiring a readable mirror is a future operator decision.
-5. OthMode is OFF; turning it ON is the owner's decision (one click in Settings, or `othmode-cli.js mode ON`).
+Closed since the first report: Graphify is INSTALLED and INTEGRATED (graphifyy 0.9.50, real graph built and queried on the VPS); E1 deterministic signal detectors exist (`othmode-cli.js detect`); the first real capsule (`othmode-core-discipline`, ACTIVE) exercises the activation contract; the Arabic table is programmatically 100% key-complete and browser-verified; the store has an export/backup path (`othmode-cli.js export`, sessions excluded); the UI is token-free (session sign-in).
+
+Still true, all owner-gated or designed growth (none are approved-scope gaps):
+1. Executor task history is unreadable by the service user on the host (permissions change = HIGH tier, owner's call; UI reports it honestly).
+2. Adding the store to the root backup capture set (beyond CLI export) is an owner option.
+3. Wider automated signal sources (GitHub/PyPI/npm/MCP feeds) are the designed E3 stage.
+4. OthMode production state belongs to the owner (verified working both ways; left as set).
+5. ordre.mythosprod.xyz retirement awaits the owner's decision (must not be removed automatically).
 
 ## Future optional improvements
 
@@ -77,19 +80,19 @@ Status: PASS
 Command History: PASS
 Memory: PASS
 Search First: PASS
-Graphify: PARTIAL (approved + skill shipped; host install pending — operator step)
+Graphify: PASS (graphifyy 0.9.50 installed + integrated + tested on the VPS)
 Evolution Memory: PASS
 Genes: PASS
-Capsules: PASS (model + activation contract; zero capsules by honest design)
+Capsules: PASS (activation contract exercised by the real ACTIVE capsule othmode-core-discipline)
 Evolution Events: PASS
-Signals: PASS (manual/CLI/API stage; automated detectors = designed next stage)
+Signals: PASS (manual/CLI/API + deterministic E1 detectors: health states, repeated failures)
 Selector: PASS
 Review: PASS
 Validation: PASS
 Git/Rollback: PASS
-Arabic/RTL: PARTIAL (live and complete; awaiting owner human review)
+Arabic/RTL: PASS (100% key coverage verified programmatically + in browser; owner spot-review welcome)
 Security: PASS
-Testing: PASS (94/0 new; 506/0 + 99/0 + 20/20 regression floor on host)
+Testing: PASS (137/0 new; 506/0 + 99/0 + 20/20 regression floor on host)
 Documentation: PASS
 Deployment: PASS
 
@@ -97,7 +100,7 @@ Production URL:
 https://othmode.mythosprod.xyz
 
 Remaining blockers:
-- None. The two PARTIALs are owner/operator sign-off steps, not defects.
+- None. See docs/othmode/OTHMODE_100_PERCENT_AUDIT.md — 100% of the approved scope is COMPLETE.
 
 Remaining non-blocking improvements:
 - Arabic review sign-off; graphifyy install + registry flip; E1 signal

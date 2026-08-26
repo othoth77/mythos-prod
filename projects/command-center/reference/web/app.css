@@ -735,6 +735,12 @@ kbd {
     gap: 16px;
     overflow-x: auto;
     padding: 10px 12px;
+    /* A grid item's implicit min-width:auto would size this to its full
+       nav-strip content (900px+ with the OTHMODE groups) and hand the
+       whole PAGE a horizontal scrollbar. min-width:0 keeps the scroll
+       inside the strip — the page body never scrolls sideways (LTR and
+       RTL both). */
+    min-width: 0;
   }
 
   .sidebar-group + .sidebar-group { margin-top: 0; }

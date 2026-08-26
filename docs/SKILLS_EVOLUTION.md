@@ -97,3 +97,15 @@ established owner/delegator pattern:
 
 Lifecycle note: these skills were added by reviewed Git change (this branch),
 consistent with `mythos-skill-evolution` — skills never self-modify.
+
+---
+
+## OTHMODE-100 (2026-08-26) — graphify vendor skill installed; MERGE recorded
+
+`graphifyy` 0.9.50 (Apache-2.0) is installed on the production VPS and its
+vendor skill registered user-scope (`~/.claude/skills/graphify`). The repo
+skill `graphify` keeps the same name on purpose and is now policy-only,
+deferring execution to the vendor skill (owner of graph building/querying).
+Resolution: MERGE — one capability, implementation owned by the vendor skill,
+boundary rules owned by the repo skill. No duplicate capability exists.
+

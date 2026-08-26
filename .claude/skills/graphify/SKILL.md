@@ -5,6 +5,17 @@ description: OTHMODE Graphify — use the Graphify open-source tool (PyPI graphi
 
 # graphify
 
+## Scope note (MERGE resolution, 2026-08-26)
+
+The Graphify project ships its own Claude skill, installed user-scope on the
+production VPS (`~/.claude/skills/graphify`, via `graphify install --platform
+claude`, package `graphifyy` 0.9.50, Apache-2.0). That vendor skill is the
+IMPLEMENTATION — it builds and queries graphs. THIS repo-scope skill is the
+POLICY layer only: it records the OTHMODE boundary rules below and defers all
+execution to the vendor skill where installed. The shared name is deliberate
+(same capability, two scopes); the overlap audit lives in
+`docs/SKILLS_EVOLUTION.md`.
+
 ## What this skill does
 
 Applies the approved Graphify decision (Open Source Registry record
