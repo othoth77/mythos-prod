@@ -13,7 +13,8 @@
 // acting by definition — the store records who.
 //
 // Usage:
-//   node othmode-cli.js mode [ON|OFF]
+//   node othmode-cli.js mode                    availability (always READY)
+//   node othmode-cli.js activation "<text>"      is this text an activation?
 //   node othmode-cli.js signal <source> "<description>" [dedup_key]
 //   node othmode-cli.js signals
 //   node othmode-cli.js event "<title>" <LOW|MEDIUM|HIGH> [gene_type]
@@ -45,14 +46,19 @@ function fail(msg) { console.error('ERROR: ' + msg); process.exit(1); }
 
 try {
   if (cmd === 'mode') {
+    // The global ON/OFF switch is gone (activation-model change,
+    // 2026-08-26). OTHMODE is always available; a single Claude command
+    // activates it by containing the standalone keyword "othmode".
     if (args[1] === 'ON' || args[1] === 'OFF') {
-      out(store.setMode(args[1], actor));
-      var ev = evolution.createEvent({ title: 'OthMode switched ' + args[1] + ' (CLI)', risk_tier: 'LOW', trigger: 'operator CLI' }, actor);
-      evolution.addStage(ev.id, { stage: 'RESULT', data: { outcome: 'APPLIED' } }, actor, 'owner');
-    } else {
-      out(store.getMode());
+      fail('the global OthMode switch no longer exists. OTHMODE is always available; write "othmode" inside a Claude command to activate it for that command only.');
     }
-  } else if (cmd === 'signal') {
+    out(require('../reference/othmode/activation.js').availability());
+  } else if (cmd === 'activation') {
+    // Deterministic check: is this command text an OTHMODE activation?
+    if (args[1] === undefined) fail('usage: activation "<command text>"');
+    var act = require('../reference/othmode/activation.js');
+    out({ text_checked: true, activated: act.isActivated(args[1]), classification: act.classify(args[1]) });
+  } else if (cmd === 'signal') {  } else if (cmd === 'signal') {
     if (!args[1] || !args[2]) fail('usage: signal <source> "<description>" [dedup_key]');
     out(evolution.recordSignal({ source: args[1], description: args[2], dedup_key: args[3] }, actor));
   } else if (cmd === 'signals') {
@@ -72,7 +78,7 @@ try {
     if (!args[1] || !args[2]) fail('usage: recovery <component> <STEP> ["note"] [STATE]');
     out(healthMod.recordRecoveryStep({ component: args[1], step: args[2], note: args[3], state: args[4] }, actor));
   } else if (cmd === 'store-status') {
-    out({ root: store.root(), provisioned: store.provisioned(), mode: store.getMode() });
+    out({ root: store.root(), provisioned: store.provisioned(), availability: require('../reference/othmode/activation.js').availability().status });
   } else if (cmd === 'detect') {
     // Deterministic E1 detectors (health states + repeated execution
     // failures). No database on the CLI path: the library source is

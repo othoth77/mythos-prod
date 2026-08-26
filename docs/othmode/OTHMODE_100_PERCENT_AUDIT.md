@@ -24,7 +24,7 @@ Method: every approved requirement from `docs/othmode/` was checked against the 
 | Item | Verdict | Evidence |
 |---|---|---|
 | Search First | **COMPLETE** | `search-first` skill (8-source order, Adopt/Extend/Compose/Connect/Build, Build-needs-evidence); enforced structurally in the Selector (CREATE without evidence refused — suite-tested); final re-search recorded in the registry |
-| OthMode ON/OFF | **COMPLETE** | Owner-only switch, fail-closed, CLAUDE.md contract, flips recorded as events; verified ON→OFF live on prod; production state left as the owner set it (OFF at audit time) — not changed by testing |
+| OthMode activation | **COMPLETE** | Model changed by owner order (2026-08-26): the global switch is REMOVED; OTHMODE is always READY and activates per command via the standalone `othmode` keyword (deterministic tokenizer in activation.js; case-insensitive; compounds like `othmodel`/`myothmode`/`othmode-test` never activate). Both paths verified: keyword → OTHMODE contract, no keyword → normal Claude. Keyword grants no permission (tested) |
 | Permissions | **COMPLETE** | Role matrix (owner routes 403 for editors — tested); session + bearer identities share one role logic |
 
 ## EVOLUTION

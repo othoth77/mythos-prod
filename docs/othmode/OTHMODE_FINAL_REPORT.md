@@ -25,7 +25,7 @@ MCC-1 core: PostgreSQL `mcc` schema (no migration), api/db/auth/secrets/variable
 - `reference/othmode/` (8 modules): read models, health+recovery, unified history, memory bridge, evolution layer, store, routes — all fail-soft/fail-closed by design, all no-exec.
 - The OTHMODE store: append-only JSONL + content-addressed evidence at `/home/deploy/oth-evolution-store` (0700, outside Git, fail-closed when absent).
 - Evolution: signals (dedup/threshold/dispositions) → selector (KEEP-first preference) → risk-tiered review (HIGH = owner-only approval) → PASS/FAIL validation (8 dimensions, gated on review) → terminal results → git rollback records. GEP-compatible genes/capsules in Git (2 evidence-linked genes seeded; 0 capsules — honestly empty).
-- OthMode ON/OFF: owner-only switch, instruction contract in CLAUDE.md, never an interceptor; every flip is an evolution event.
+- OthMode activation (model changed 2026-08-26): the global switch is removed; OTHMODE is always READY and activates per command via the standalone `othmode` keyword (activation.js; keyword grants no permission). Normal Claude is the default without the keyword.
 - Operator CLI (`othmode-cli.js`), Open Source Registry, 6 skills, `tests/othmode-2-platform-test.js` (94 assertions).
 
 ## External projects — exact record
@@ -54,7 +54,7 @@ Still true, all owner-gated or designed growth (none are approved-scope gaps):
 1. Executor task history is unreadable by the service user on the host (permissions change = HIGH tier, owner's call; UI reports it honestly).
 2. Adding the store to the root backup capture set (beyond CLI export) is an owner option.
 3. Wider automated signal sources (GitHub/PyPI/npm/MCP feeds) are the designed E3 stage.
-4. OthMode production state belongs to the owner (verified working both ways; left as set).
+4. (superseded 2026-08-26) The global OthMode switch was removed: OTHMODE is always available; per-command `othmode` keyword activates it; normal Claude is the default.
 5. ordre.mythosprod.xyz retirement awaits the owner's decision (must not be removed automatically).
 
 ## Future optional improvements

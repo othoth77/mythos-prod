@@ -101,3 +101,16 @@ Keep the executor's proven model as the canonical provider architecture:
 ## 6. Deployment shape (target, not executed)
 
 Same pattern as today: one Node user service + nginx vhost + `mythos-deploy` target with health gate and rollback. The `ordre` target either keeps its name (serving the OTHMODE app) or a new `othmode` target/host is added — owner decision. Status Center remains PROTECTED and outside `mythos-deploy` scope.
+
+---
+
+## ACTIVATION MODEL CHANGE (2026-08-26, supersedes the ON/OFF sections above)
+
+The global OthMode ON/OFF switch described in this document was REMOVED by owner order. The current model:
+
+- **OTHMODE is always available** — installed, healthy, READY; no global operating mode exists.
+- **Activation is per command**: a Claude command activates OTHMODE only when it contains the standalone keyword `othmode` (case-insensitive; never as part of another word — `othmodel`, `myothmode`, `othmode-test` do not activate). Rule implemented once, in `projects/command-center/reference/othmode/activation.js`; checkable via `POST /api/othmode/activation` and `othmode-cli.js activation "<text>"`.
+- **Without the keyword, Claude behaves normally** — no Search First, no OTHMODE skill/memory routing, no OTHMODE command policies, no evolution recording for that command.
+- Only explicitly activated operations are OTHMODE commands in OTHMODE-specific history/context; evolution events are recorded only for activated operations whose actions actually qualify.
+- The keyword selects the control contract ONLY. It grants no permission: session/bearer authentication, roles, owner gates, the secret gate and all boundaries are evaluated unchanged.
+- `GET /api/othmode/mode` remains as a read-only availability report (`READY` + trilingual hint); its POST is gone and no replacement toggle exists anywhere.

@@ -54,14 +54,9 @@
     'oth.nav.evolution': 'Evolution',
     'oth.nav.settings': 'Settings',
 
-    'oth.mode.on': 'OthMode ON',
-    'oth.mode.off': 'OthMode OFF',
-    'oth.mode.on_desc': 'Claude entry points are instructed to operate through OTHMODE: commands, skills, memory, Search First, history and evolution recording.',
-    'oth.mode.off_desc': 'Claude operates normally. OTHMODE stays readable but imposes nothing.',
-    'oth.mode.switch_confirm': 'Switch OthMode? This changes the instruction contract for Claude entry points. It is a configuration flag, never a technical interceptor.',
-    'oth.mode.not_provisioned': 'The OTHMODE store is not provisioned on this host, so the switch reads as OFF (fail-closed). Provisioning is an operator step.',
-    'oth.mode.owner_only': 'Only the owner role can change this switch.',
 
+    'oth.mode.ready': 'OTHMODE READY',
+    'oth.mode.always_hint': "OTHMODE is always available. Write 'othmode' in a Claude command to activate it for that command only. Without the keyword, Claude behaves normally.",
     'oth.state.ACTIVE': 'Active',
     'oth.state.DEGRADED': 'Degraded',
     'oth.state.FAILED': 'Failed',
@@ -152,7 +147,7 @@
     'oth.evo.disposition': 'Disposition',
 
     'oth.settings.title': 'Settings',
-    'oth.settings.sub': 'Owner-role surface. The AI can never modify roles, tokens, execution profiles or the OthMode switch.',
+    'oth.settings.sub': 'The AI can never modify roles, tokens or execution profiles. OTHMODE activation is per command — there is nothing to switch here.',
     'oth.settings.oss': 'Open Source Registry',
     'oth.settings.oss_sub': 'Search First evidence: every external project considered, adopted or rejected. License is verified before a project becomes INTEGRATED; rejected records are kept to avoid re-evaluating dead ends.',
     'oth.settings.oss_empty': 'The registry file is not readable.',
@@ -161,7 +156,7 @@
 
     'oth.dash.health': 'System health',
     'oth.dash.reviews': 'Open evolution reviews',
-    'oth.dash.mode': 'OthMode',
+    'oth.dash.mode': 'OTHMODE',
     'oth.dash.open': 'Open',
 
     'oth.common.loading': 'Loading…',
@@ -192,14 +187,9 @@
     'oth.nav.evolution': 'Évolution',
     'oth.nav.settings': 'Réglages',
 
-    'oth.mode.on': 'OthMode ACTIVÉ',
-    'oth.mode.off': 'OthMode DÉSACTIVÉ',
-    'oth.mode.on_desc': 'Les points d’entrée Claude reçoivent l’instruction d’opérer via OTHMODE : commandes, skills, mémoire, Search First, historique et enregistrement d’évolution.',
-    'oth.mode.off_desc': 'Claude fonctionne normalement. OTHMODE reste lisible mais n’impose rien.',
-    'oth.mode.switch_confirm': 'Basculer OthMode ? Cela change le contrat d’instruction des points d’entrée Claude. C’est un drapeau de configuration, jamais un intercepteur technique.',
-    'oth.mode.not_provisioned': 'Le store OTHMODE n’est pas provisionné sur cet hôte : l’interrupteur se lit DÉSACTIVÉ (fail-closed). Le provisionnement est une étape opérateur.',
-    'oth.mode.owner_only': 'Seul le rôle owner peut changer cet interrupteur.',
 
+    'oth.mode.ready': 'OTHMODE PRÊT',
+    'oth.mode.always_hint': 'OTHMODE est toujours disponible. Écrivez « othmode » dans une commande Claude pour l’activer pour cette commande uniquement. Sans le mot-clé, Claude fonctionne normalement.',
     'oth.state.ACTIVE': 'Actif',
     'oth.state.DEGRADED': 'Dégradé',
     'oth.state.FAILED': 'En panne',
@@ -290,7 +280,7 @@
     'oth.evo.disposition': 'Disposition',
 
     'oth.settings.title': 'Réglages',
-    'oth.settings.sub': 'Surface du rôle owner. L’IA ne peut jamais modifier les rôles, les jetons, les profils d’exécution ni l’interrupteur OthMode.',
+    'oth.settings.sub': 'L’IA ne peut jamais modifier les rôles, les jetons ni les profils d’exécution. L’activation d’OTHMODE se fait par commande — il n’y a rien à basculer ici.',
     'oth.settings.oss': 'Registre Open Source',
     'oth.settings.oss_sub': 'Preuves Search First : chaque projet externe considéré, adopté ou rejeté. La licence est vérifiée avant l’état INTEGRATED ; les rejets sont conservés pour ne pas réévaluer les impasses.',
     'oth.settings.oss_empty': 'Le fichier de registre n’est pas lisible.',
@@ -299,7 +289,7 @@
 
     'oth.dash.health': 'Santé du système',
     'oth.dash.reviews': 'Revues d’évolution ouvertes',
-    'oth.dash.mode': 'OthMode',
+    'oth.dash.mode': 'OTHMODE',
     'oth.dash.open': 'Ouvrir',
 
     'oth.common.loading': 'Chargement…',
@@ -518,14 +508,9 @@
     'oth.nav.evolution': 'التطوّر',
     'oth.nav.settings': 'الإعدادات',
 
-    'oth.mode.on': 'OthMode مفعّل',
-    'oth.mode.off': 'OthMode متوقّف',
-    'oth.mode.on_desc': 'نقاط دخول Claude تتلقّى تعليمات بالعمل عبر OTHMODE: الأوامر، المهارات، الذاكرة، «البحث أولاً»، السجلّ وتسجيل التطوّر.',
-    'oth.mode.off_desc': 'Claude يعمل بشكل عادي. يبقى OTHMODE قابلاً للقراءة دون أن يفرض شيئاً.',
-    'oth.mode.switch_confirm': 'تبديل OthMode؟ هذا يغيّر عقد التعليمات لنقاط دخول Claude. إنه إعداد فقط، وليس اعتراضاً تقنياً.',
-    'oth.mode.not_provisioned': 'مخزن OTHMODE غير مهيّأ على هذا الخادم، لذلك يُقرأ المفتاح متوقّفاً (إغلاق آمن). تهيئته خطوة يقوم بها المشغّل.',
-    'oth.mode.owner_only': 'دور المالك وحده يستطيع تغيير هذا المفتاح.',
 
+    'oth.mode.ready': 'OTHMODE جاهزة',
+    'oth.mode.always_hint': 'OTHMODE متاحة دائماً. اكتب othmode داخل أمر Claude لتفعيلها لهذا الأمر فقط. بدون هذه الكلمة، يعمل Claude بشكل عادي.',
     'oth.state.ACTIVE': 'نشِط',
     'oth.state.DEGRADED': 'متدهور',
     'oth.state.FAILED': 'متعطّل',
@@ -616,7 +601,7 @@
     'oth.evo.disposition': 'التصنيف',
 
     'oth.settings.title': 'الإعدادات',
-    'oth.settings.sub': 'شاشة دور المالك. لا يستطيع الذكاء الاصطناعي أبداً تعديل الأدوار أو الرموز أو ملفات صلاحيات التنفيذ أو مفتاح OthMode.',
+    'oth.settings.sub': 'لا يستطيع الذكاء الاصطناعي أبداً تعديل الأدوار أو الرموز أو ملفات صلاحيات التنفيذ. تفعيل OTHMODE يتمّ لكل أمر على حدة — لا يوجد شيء للتبديل هنا.',
     'oth.settings.oss': 'سجلّ المصادر المفتوحة',
     'oth.settings.oss_sub': 'أدلّة «البحث أولاً»: كل مشروع خارجي دُرس أو اعتُمد أو رُفض. تُتحقَّق الرخصة قبل حالة INTEGRATED؛ وتُحفَظ المرفوضات حتى لا تُقيَّم الطرق المسدودة مرتين.',
     'oth.settings.oss_empty': 'ملف السجلّ غير قابل للقراءة.',
@@ -625,7 +610,7 @@
 
     'oth.dash.health': 'صحة النظام',
     'oth.dash.reviews': 'مراجعات تطوّر مفتوحة',
-    'oth.dash.mode': 'OthMode',
+    'oth.dash.mode': 'OTHMODE',
     'oth.dash.open': 'فتح',
 
     'oth.common.loading': 'جارٍ التحميل…',

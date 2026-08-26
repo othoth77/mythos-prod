@@ -38,7 +38,7 @@ The interface never asks for, sees, or stores a credential:
 
 ### 2.1 Invariant
 
-> **AI must never be able to elevate its own permissions.** Concretely: no OTHMODE API writable by an AI session may modify roles, tokens, execution profiles, provider execution authority, review-tier rules, or the OthMode switch. Those change only via owner-authenticated UI actions or reviewed Git changes.
+> **AI must never be able to elevate its own permissions.** Concretely: no OTHMODE API writable by an AI session may modify roles, tokens, execution profiles, provider execution authority, or review-tier rules. Those change only via owner-authenticated UI actions or reviewed Git changes. (The former global OthMode switch is removed entirely — activation is per command via the standalone `othmode` keyword, which selects a control contract and grants no permission of any kind.)
 
 ### 2.2 Per-area requirements
 
@@ -58,5 +58,5 @@ The interface never asks for, sees, or stores a credential:
 ### 2.3 Threat notes for implementation review
 
 - Stored commands/memory/evidence are attacker-influenceable *text* rendered to humans and consumed by AI: keep the no-execution rule absolute, escape all rendering, and treat store content as data, never instructions, in AI prompts (label injected context).
-- The OthMode switch is instruction-layer: it must never be represented as a security control in docs or UI.
+- OTHMODE activation is instruction-layer (per-command keyword): it must never be represented as a security control in docs or UI, and the keyword must never influence authentication or authorization.
 - New read surfaces (Memory, Evolution, History) may expose sensitive operational detail: they get at least viewer-token gating, unlike the public command library reads.

@@ -43,16 +43,11 @@ section('store — fail-closed without provisioning');
   process.env.OTHMODE_STORE_ROOT = path.join(os.tmpdir(), 'othmode-absent-' + process.pid);
   var store = require('../projects/command-center/reference/othmode/store.js');
   ok(store.provisioned() === false, 'absent root reports unprovisioned');
-  var mode = store.getMode();
-  ok(mode.mode === 'OFF' && mode.provisioned === false, 'OthMode reads OFF fail-closed');
   var threw = false;
   try { store.appendRecord('evolution', { type: 'signal' }); } catch (e) { threw = e.code === 'OTHMODE_STORE_ABSENT'; }
   ok(threw, 'append without a store throws OTHMODE_STORE_ABSENT');
   var read = store.readStream('evolution');
   ok(read.provisioned === false && read.rows.length === 0, 'read without a store is empty with a reason');
-  threw = false;
-  try { store.setMode('ON', 'test'); } catch (e) { threw = e.code === 'OTHMODE_STORE_ABSENT'; }
-  ok(threw, 'switch without a store refuses');
 }
 
 // ---------------------------------------------------------------------------
@@ -72,11 +67,8 @@ var store = require('../projects/command-center/reference/othmode/store.js');
   ok(store.getEvidence(hash) === 'evidence body', 'evidence reads back verbatim');
   ok(store.getEvidence('zz') === null, 'malformed evidence hash returns null, never a path read');
 
-  var set = store.setMode('ON', 'owner');
-  ok(set.mode === 'ON' && store.getMode().mode === 'ON', 'switch persists ON');
-  ok(store.getMode().changed_by === 'owner', 'switch records the actor');
-  store.setMode('OFF', 'owner');
-  ok(store.getMode().mode === 'OFF', 'switch persists OFF');
+  ok(typeof store.setMode === 'undefined' && typeof store.getMode === 'undefined',
+    'the global OthMode switch is fully removed from the store (no hidden toggle)');
 }
 
 // ---------------------------------------------------------------------------
@@ -291,8 +283,12 @@ function finishAsync() {
     };
   }
 
-  var modePost = findRoute('POST', '/api/othmode/mode');
-  ok(modePost && modePost.role === 'owner', 'mode switch route is owner-gated');
+  ok(findRoute('POST', '/api/othmode/mode') === undefined, 'the mode POST route is gone — no global switch, no replacement toggle');
+  var modeGet = findRoute('GET', '/api/othmode/mode');
+  var resAv = fakeRes();
+  modeGet.handler({}, resAv, null, {}, {});
+  ok(resAv.statusCode === 200 && resAv.body.status === 'READY', '/api/othmode/mode reports permanent availability (READY)');
+  ok(resAv.body.hint_ar && resAv.body.hint_fr && resAv.body.hint_en, 'availability carries the three-language activation hint');
 
   var signalPost = findRoute('POST', '/api/othmode/evolution/signals');
   var res1 = fakeRes();
@@ -344,6 +340,38 @@ function finishAsync() {
     var src = fs.readFileSync(path.join(refDir, f), 'utf8');
     ok(!/child_process|\beval\s*\(|new\s+Function/.test(src), f + ' contains no exec/eval');
   });
+
+  runActivationTests();
+}
+
+// ---------------------------------------------------------------------------
+function runActivationTests() {
+  section('activation — the per-command keyword rule (spec cases 1-9)');
+  var act = require('../projects/command-center/reference/othmode/activation.js');
+
+  // 1-3: explicit keyword, any casing → OTHMODE
+  ok(act.isActivated('othmode test') === true, '1: "othmode test" activates');
+  ok(act.isActivated('OTHMODE test') === true, '2: "OTHMODE test" activates');
+  ok(act.isActivated('OthMode test') === true, '3: "OthMode test" activates');
+  // 4-5: no keyword → normal Claude
+  ok(act.isActivated('test') === false, '4: "test" stays normal');
+  ok(act.isActivated('build this feature') === false, '5: "build this feature" stays normal');
+  // 6-7: substrings/compounds never activate
+  ok(act.isActivated('myothmode test') === false, '6: "myothmode test" stays normal');
+  ok(act.isActivated('othmodel test') === false, '7: "othmodel test" stays normal');
+  ok(act.isActivated('othmode-test') === false, 'compound "othmode-test" stays normal (per spec)');
+  // keyword anywhere in the command, wrapped in prose punctuation, still counts
+  ok(act.isActivated('analyse this, othmode, then report') === true, 'mid-sentence "othmode," activates');
+  ok(act.isActivated('(othmode) recherche une solution') === true, 'parenthesised keyword activates');
+  ok(act.isActivated('') === false && act.isActivated(null) === false, 'empty/null input never activates');
+  // 8-9: history/context classification
+  ok(act.classify('othmode analyse ce projet') === 'othmode', '8: OTHMODE command classified as othmode');
+  ok(act.classify('analyse ce projet') === 'normal', '9: normal command never classified as othmode');
+  // availability is stateless and permanent
+  ok(act.availability().status === 'READY' && act.availability().keyword === 'othmode', 'availability is READY with the keyword documented');
+  // 10: the keyword grants nothing — role logic is untouched by activation
+  var routesMod = require('../projects/command-center/reference/othmode/routes.js');
+  ok(routesMod.roleOf(null) === null, '10: no identity stays no identity, keyword or not (activation grants no permission)');
 
   runCompletionTests();
 }

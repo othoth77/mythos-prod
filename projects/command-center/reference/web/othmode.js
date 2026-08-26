@@ -142,8 +142,9 @@
     strip.appendChild(reviewCard);
 
     A.api('/othmode/mode').then(function (m) {
-      modeCard.lastChild.textContent = t(m.mode === 'ON' ? 'oth.mode.on' : 'oth.mode.off');
-      modeCard.classList.add(m.mode === 'ON' ? 'is-on' : 'is-off');
+      // Availability report, not a state: always READY by design.
+      modeCard.lastChild.textContent = m.status === 'READY' ? t('oth.mode.ready') : '—';
+      modeCard.classList.add('is-on');
     }).catch(function () { modeCard.lastChild.textContent = '—'; });
 
     A.api('/othmode/health').then(function (hv) {
@@ -612,45 +613,20 @@
       A.api('/othmode/mode'),
       A.api('/othmode/oss-registry').catch(function () { return { records: [] }; })
     ]).then(function (r) {
-      var mode = r[0], oss = r[1];
-      var isOn = mode.mode === 'ON';
+      var oss = r[1];
 
-      var switchButton = el('button.btn.' + (isOn ? 'btn-danger' : 'btn-primary'), {
-        type: 'button',
-        text: isOn ? t('oth.mode.off') : t('oth.mode.on'),
-        disabled: !mode.provisioned,
-        onclick: function () {
-          A.openDialog({
-            title: t('oth.dash.mode'),
-            subtitle: t('oth.mode.switch_confirm'),
-            body: [el('div.callout.callout-info', { text: t(isOn ? 'oth.mode.off_desc' : 'oth.mode.on_desc') })],
-            confirmLabel: isOn ? t('oth.mode.off') : t('oth.mode.on'),
-            confirmClass: isOn ? 'btn-danger' : 'btn-primary',
-            onConfirm: function () {
-              A.api('/othmode/mode', { method: 'POST', body: { mode: isOn ? 'OFF' : 'ON' } }).then(function () {
-                A.closeDialog();
-                A.rerender();
-              }).catch(function (err) {
-                A.closeDialog();
-                if (err.status === 403) A.toast(t('oth.mode.owner_only'), 'error');
-                else A.reportError(err);
-              });
-            }
-          });
-        }
-      });
-
+      // No switch, no toggle, no hidden state: OTHMODE is always
+      // available, and one Claude command activates it by containing the
+      // standalone keyword "othmode". This block only STATES that rule.
       A.mount(el('div', {}, [
         pageHead('oth.settings.title', 'oth.settings.sub'),
         el('div.detail-block', {}, [
-          el('h2.block-title', { text: t('oth.dash.mode') }),
+          el('h2.block-title', { text: 'OTHMODE' }),
           el('div.card-meta', {}, [
-            el('span.badge.' + (isOn ? 'badge-safety-SAFE' : 'badge-uses'), { text: t(isOn ? 'oth.mode.on' : 'oth.mode.off') }),
-            mode.changed_at ? el('span.badge', { text: A.formatDateTime(mode.changed_at) + (mode.changed_by ? ' · ' + mode.changed_by : '') }) : null
+            el('span.badge.badge-safety-SAFE', { text: t('oth.mode.ready') })
           ]),
-          el('p.prose', { text: t(isOn ? 'oth.mode.on_desc' : 'oth.mode.off_desc') }),
-          mode.provisioned ? null : el('div.callout.callout-warn', { text: t('oth.mode.not_provisioned') }),
-          switchButton
+          el('p.prose', { text: t('oth.mode.always_hint') }),
+          el('pre.command-body', { text: 'othmode <your command>' })
         ]),
         el('div.detail-block', {}, [
           el('h2.block-title', { text: t('oth.settings.oss') }),
