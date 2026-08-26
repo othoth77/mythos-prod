@@ -1,0 +1,99 @@
+# SSANGYONG.AUTOS storefront — user-level systemd unit (SYA-DEPLOY-1)
+#
+# THIS IS THE UNIT ACTUALLY DEPLOYED. Installed at
+# ~/.config/systemd/user/ssangyong-storefront.service and run by the `deploy`
+# user's own systemd manager, made durable across logout and reboot by
+# `loginctl enable-linger deploy` (which polkit permitted for the user's own
+# account — no root, no sudo, no privilege escalation).
+#
+# This file is the SOURCE. Until 2026-08-26 the unit existed only on the host
+# with no reviewed copy in the repository, which is how the defect below
+# survived ten days: there was nothing to review. Install with
+#     install -m 0644 projects/ssangyong-autos/deploy/ssangyong-storefront.user.service \
+#       ~/.config/systemd/user/ssangyong-storefront.service
+#     systemctl --user daemon-reload && systemctl --user restart ssangyong-storefront
+# Edit here, never on the host.
+#
+# Why user scope rather than /etc/systemd/system: `deploy` cannot write
+# /etc/systemd/system, and its sudo grant is exactly three commands
+# (`nginx -t`, `systemctl reload nginx`, `certbot`). That sudoers policy is a
+# deliberate operator decision. A user unit achieves the same durable
+# supervision — auto-restart, boot start, journald logging — without working
+# around it.
+#
+# Serves BOTH the storefront and its read-only catalog API from one process on
+# loopback, which is what migration-plan §22 option 3 makes possible: page and
+# data share an origin, so the API needs no public exposure of its own.
+#
+# Hardening note: the system-scope equivalent additionally sets
+# IPAddressAllow/Deny. Those require cgroup delegation that user scope does not
+# grant, so they are omitted here rather than silently ineffective. The binding
+# itself is the real control: api.js listens on 127.0.0.1 only, never 0.0.0.0.
+#
+# ProtectKernelTunables and ProtectClock are absent, and that is not an
+# oversight. Each makes systemd drop capabilities from the bounding set, which
+# an unprivileged user manager on this host may not do. With either present the
+# service never spawns —
+#     Failed to drop capabilities: Operation not permitted
+#     Failed at step CAPABILITIES spawning /usr/bin/node
+#     status=218/CAPABILITIES
+# — bisected during MCC-1 deployment, whose unit header named THIS unit as
+# still carrying the defect. It did, for ten days: from 2026-08-16 17:23 until
+# 2026-08-26, through 67,256 restarts at five-second intervals, with nothing
+# ever listening on 127.0.0.1:3011. A directive that prevents the service from
+# starting protects nothing.
+#
+# MemoryDenyWriteExecute is absent for a different and equally hard reason: V8
+# is a JIT. It maps memory writable and then executable to emit baseline code,
+# so MDWE makes node die at the first hot function with
+#     # Fatal error ... Check failed: 12 == (*__errno_location ())
+#     v8::internal::baseline::BaselineCompiler::Build
+# — a crash that appears only under load, not at startup. MDWE is incompatible
+# with running node; it is not a trade-off that can be tuned.
+#
+# What remains is the hardening set MCC-1 runs green with, and every other
+# control this unit already had is retained unchanged.
+
+[Unit]
+Description=SSANGYONG.AUTOS storefront and read-only catalog API
+Documentation=https://github.com/othoth77/mythos-prod
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/deploy/projects/mythos-prod
+
+# Credentials live outside the git worktree, mode 0600, never echoed.
+EnvironmentFile=/home/deploy/deployments/ssangyong-autos-storefront/.env
+
+ExecStart=/usr/bin/node /home/deploy/projects/mythos-prod/projects/ssangyong-autos/reference/api.js
+
+Restart=on-failure
+RestartSec=5s
+
+# --- Hardening -------------------------------------------------------------
+# This process is a read-only catalog server. It writes nothing, anywhere:
+# db.js opens every PostgreSQL connection with default_transaction_read_only=on,
+# and the filesystem is locked to match, so sandbox and database agree.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectControlGroups=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @obsolete
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+# Nothing writable: the service has nothing to write.
+ReadWritePaths=
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ssangyong-storefront
+
+[Install]
+WantedBy=default.target
