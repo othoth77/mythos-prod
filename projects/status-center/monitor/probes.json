@@ -80,15 +80,28 @@
     },
     {
       "id": "othmode-api",
-      "name": "othmode.mythosprod.xyz Task Reports API (authenticated)",
+      "name": "othmode.mythosprod.xyz Task Reports API (public read)",
       "type": "https",
       "url": "https://othmode.mythosprod.xyz/api/othmode/tasks",
+      "expect_status": [
+        200
+      ],
+      "expect_body_substring": "\"tasks\"",
+      "expect_content_type": "application/json",
+      "enabled": true,
+      "note": "This probe expected 401 until 7252de2 (2026-08-26) deliberately made the Task Reports a PUBLIC READ. The expectation was not updated with the release, so from 15:13Z the probe reported a false DOWN against a healthy service. 200 carrying a JSON body with \"tasks\" is the healthy state now: the route exists, is served by the current release, and answers with no credential. 404 remains the stale-process signature and still drives DOWN — expect_body_substring is set rather than status alone so that an empty or catch-all 200 cannot false-green (the sya-api lesson). This probe no longer asserts anything about authentication; that assertion moved to `othmode-authwall`, which is the only reason relaxing this one is safe."
+    },
+    {
+      "id": "othmode-authwall",
+      "name": "othmode.mythosprod.xyz authenticated API (auth wall)",
+      "type": "https",
+      "url": "https://othmode.mythosprod.xyz/api/othmode/evolution/events",
       "expect_status": [
         401
       ],
       "expect_content_type": "application/json",
       "enabled": true,
-      "note": "401 IS the healthy state: the route exists and refuses unauthenticated access. 404 means the service is running code older than the Task Reports release (exactly how the stale-process condition was caught on 2026-08-26); 200 would mean the auth wall is gone. Either way the probe goes DOWN."
+      "note": "401 IS the healthy state. This probe exists so that opening the read surface did not silently retire the auth-wall check `othmode-api` used to carry. /api/othmode/evolution/events genuinely still requires a session — it is the same endpoint tests/othmode-2-platform-test.js uses as its no-credential probe, so the monitor and the suite assert the same guarantee from opposite sides. A 200 here means an unauthenticated caller reached an administrative endpoint: a real security regression, and it must page. 404 means the running process is older than the evolution release. GET only — the monitor never issues a write; the separate guarantee that no POST route is public is asserted statically in the suite, never probed against production."
     },
     {
       "id": "status-center",
@@ -135,7 +148,20 @@
       ],
       "expect_content_type": "application/json",
       "enabled": false,
-      "note": "RETIRED — not pending. Verified on-host 2026-08-22: there is no SYA API to probe. The ssangyong.autos vhost is a static root with try_files and carries no /api proxy_pass, ssangyong-storefront.service is inactive, and /api/health, / and an invented nonsense path all return the byte-identical storefront index (md5 1d7337e470ed06d91c965cba40c7dad1). The catalog API is absent, not merely unhealthy, so NOT_MONITORED is the accurate state for a system that no longer exists. Keep expect_content_type alongside the disabled flag: if the API is ever restored, flipping enabled is then sufficient, and the content-type assertion is what stops the SPA fallback from reporting a dead API as LIVE. Re-enable only when a real JSON endpoint exists."
+      "note": "RETIRED AT THIS URL — still not pending, but the reason narrowed on 2026-08-26. The original finding (on-host 2026-08-22) was that /api/health, / and an invented nonsense path all returned the byte-identical storefront index (md5 1d7337e470ed06d91c965cba40c7dad1), because the ssangyong.autos vhost is a static root with try_files and carries no /api proxy_pass, and because ssangyong-storefront.service was inactive. HALF OF THAT IS NOW FIXED: OTH-2026-00015 ended the service's 218/CAPABILITIES crash loop and the catalog API is live and serving real JSON on 127.0.0.1:3011 — watched by `sya-api-loopback`. What remains is exactly the missing nginx /api proxy_pass, which needs root and is tracked in BLOCKER-SYA-API-DOWN alongside BLOCKER-SYA-NGINX-DRIFT. This probe therefore stays DISABLED: the PUBLIC endpoint it names still does not exist, and enabling it would put a DOWN on the board for a root-gated route rather than for a broken service. Keep expect_content_type alongside the disabled flag — when the proxy_pass lands, flipping enabled is then sufficient, and the content-type assertion is what stops the SPA fallback from reporting a dead API as LIVE."
+    },
+    {
+      "id": "sya-api-loopback",
+      "name": "SYA catalog API (loopback origin)",
+      "type": "https",
+      "url": "http://127.0.0.1:3011/api/health",
+      "expect_status": [
+        200
+      ],
+      "expect_body_substring": "\"read_only\":true",
+      "expect_content_type": "application/json",
+      "enabled": true,
+      "note": "ADDED 2026-08-26 (OTH-2026-00015). This service was dead for ten days — 2026-08-16 17:23 to 2026-08-26 15:5x, 67,275 restarts at five-second intervals, nothing ever listening — and NOTHING WATCHED IT. The only probe that named it pointed at the public URL, where an nginx catch-all answers 200 text/html for every path, so the outage was invisible by construction. This probe closes that gap at the layer that actually exists: the origin the service binds to. Loopback is the same precedent the `database` probe already uses, and it is also proof the API is not publicly exposed on its own port. expect_body_substring pins \"read_only\":true rather than merely \"status\" — it proves the process reached PostgreSQL and computed a real health document, so a half-initialised server cannot report LIVE. This does NOT prove the public /api route works; that is `sya-api`'s job and stays blocked on the missing nginx proxy_pass."
     },
     {
       "id": "database",
