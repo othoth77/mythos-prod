@@ -1,7 +1,7 @@
 {
   "registry_version": "1.0.0",
   "curated_at": "2026-08-26",
-  "curation_note": "Also refreshed 2026-08-26: data/pr-ledger.json re-captured from the GitHub API (56 -> 90 PRs, #1-#90; 8 open, 78 merged, 4 closed-unmerged), correcting six entries that the 2026-08-20 snapshot still recorded as open (#53-#56 merged, #23 and #52 closed unmerged) and carrying curator notes across by PR number. PROJECT-COMMAND-CENTER updated against host evidence: its 'latest merged revision pending redeploy' caveat is closed (service restarted 2026-08-26 at aa4ca2d, no command-center code change since), and its relationship to OTHMODE is now stated — one Node process on 127.0.0.1:3021 serving both hostnames. Updated 2026-08-26 on the production VPS (deploy@vps-4722f0a9): added PROJECT-OTHMODE with five evidence records after the OTHMODE Task Reports release was merged (aa4ca2d), deployed and operator-verified first-hand on the host — the registry had carried no OTHMODE entry at all, which is why earlier re-syncs reported zero content change. Closed ACTION-STC2-INSTALL / NEXT-STC2-INSTALL against their own stated criteria (timer active and refreshing; published app.js byte-identical to the repository copy, carrying the live panel and the Arabic layer). Two genuinely outstanding items found while curating were recorded rather than left implicit: NEXT-STATUS-PUBLISH (the repository holds two unpublished reviews; the live site is behind because nothing published them, not because nothing re-synced) and NEXT-OTHMODE-MONITOR (othmode.mythosprod.xyz is not a monitored component). No percentage was invented: every OTHMODE dimension is recorded as a status with a note. Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
+  "curation_note": "NEXT-OTHMODE-MONITOR closed 2026-08-26 after production verification: othmode.mythosprod.xyz and its Task Reports API are now monitored components of the existing STC-2 monitor (14 components live, both OTHMODE probes LIVE). Reconciliation pass 2026-08-26 (later the same day): closed three next_actions whose blockers were already DONE and whose live criteria were re-verified first-hand — NEXT-OTHK-STORE, NEXT-MOS-DEPLOY, NEXT-HUB-DEPLOY (evidence EV-STALE-RECONCILE-0826) — and marked ACTION-MOS-DEPLOY and ACTION-HUB-DNS DONE to match their own blockers. Added othmode.mythosprod.xyz to the existing STC-2 probe registry rather than building a second monitor (EV-OTHMODE-MONITOR-PROBE). Nothing was closed to make the board look finished: NEXT-STATUS-PUBLISH stays open because the live site is still unpublished, and every remaining owner decision is untouched. Also refreshed 2026-08-26: data/pr-ledger.json re-captured from the GitHub API (56 -> 90 PRs, #1-#90; 8 open, 78 merged, 4 closed-unmerged), correcting six entries that the 2026-08-20 snapshot still recorded as open (#53-#56 merged, #23 and #52 closed unmerged) and carrying curator notes across by PR number. PROJECT-COMMAND-CENTER updated against host evidence: its 'latest merged revision pending redeploy' caveat is closed (service restarted 2026-08-26 at aa4ca2d, no command-center code change since), and its relationship to OTHMODE is now stated — one Node process on 127.0.0.1:3021 serving both hostnames. Updated 2026-08-26 on the production VPS (deploy@vps-4722f0a9): added PROJECT-OTHMODE with five evidence records after the OTHMODE Task Reports release was merged (aa4ca2d), deployed and operator-verified first-hand on the host — the registry had carried no OTHMODE entry at all, which is why earlier re-syncs reported zero content change. Closed ACTION-STC2-INSTALL / NEXT-STC2-INSTALL against their own stated criteria (timer active and refreshing; published app.js byte-identical to the repository copy, carrying the live panel and the Arabic layer). Two genuinely outstanding items found while curating were recorded rather than left implicit: NEXT-STATUS-PUBLISH (the repository holds two unpublished reviews; the live site is behind because nothing published them, not because nothing re-synced) and NEXT-OTHMODE-MONITOR (othmode.mythosprod.xyz is not a monitored component). No percentage was invented: every OTHMODE dimension is recorded as a status with a note. Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
   "source_hierarchy": [
     {
       "source": "Current GitHub code (othoth77/mythos-prod main)",
@@ -591,6 +591,20 @@
       "reference": "/home/deploy/oth-evolution-store/tasks/records.jsonl on vps-4722f0a9, 2026-08-26",
       "date": "2026-08-26",
       "note": "Persistent Task Report stream live in the existing OTHMODE store (0700 root, records file 0600 deploy:deploy, append-only, outside Git). Three reports prepared off-host during the blocked runs were imported through the official CLI path and are readable through the authenticated API and as the fourth source of the unified Command History."
+    },
+    {
+      "id": "EV-STALE-RECONCILE-0826",
+      "type": "vps",
+      "reference": "live criteria re-probed from vps-4722f0a9, 2026-08-26",
+      "date": "2026-08-26",
+      "note": "Three next_actions were still open although their blockers were already DONE. Each was re-verified first-hand against its OWN documented unblock criteria before closing. MOS-v2 (RUNBOOK Phase B): /login -> 200, / -> 302, /api/health -> 401 — exactly as specified; monitor reports os-console LIVE. Hub apex: mythosprod.xyz -> 200 and www.mythosprod.xyz -> 200; monitor reports hub-apex LIVE. OTH Knowledge store: /home/deploy/othk-store is 0700 deploy:deploy holding meta.json + records.jsonl, and projects/mythos-ai-executor/config/knowledge.json has enabled=true with store_root=/home/deploy/othk-store. Nothing was closed on assumption."
+    },
+    {
+      "id": "EV-OTHMODE-MONITOR-PROBE",
+      "type": "file",
+      "reference": "projects/status-center/monitor/probes.json",
+      "date": "2026-08-26",
+      "note": "othmode.mythosprod.xyz added to the EXISTING STC-2 probe registry (no second monitoring system): `othmode` checks the surface (expect 200/301/302, text/html) and `othmode-api` checks the Task Reports API (expect exactly 401, application/json) so that a 404 — the stale-process signature — or a missing auth wall both drive the probe DOWN. The monitor unit runs from the repository working directory, so the timer picks these up on its next ~5-minute tick with no root action. VERIFIED IN PRODUCTION 2026-08-26T14:15:49Z: the root-run timer picked the probes up from the repository working directory on its next tick with no root action — live-status.json now carries 14 components (was 12), othmode LIVE http=200 TLS 89d and othmode-api LIVE http=401 TLS 89d."
     }
   ],
   "repositories": [
@@ -2867,22 +2881,22 @@
     },
     {
       "id": "ACTION-MOS-DEPLOY",
-      "status": "OWNER_ACTION",
-      "what": "Deploy the MOS-v2 console",
+      "status": "DONE",
+      "what": "Deploy the MOS-v2 console — COMPLETED (live; verified 2026-08-26 against the RUNBOOK Phase B criteria)",
       "why": "Code-complete, security-audited, regression-gated — dark only for lack of the operator run.",
       "impact": "os.mythosprod.xyz live with goals, approvals, mission control.",
       "required_input": "New MOS_CONSOLE_SECRET (0600), root for relay units and nginx.",
-      "expected_result": "Login 200, unauthenticated health 401, missions dispatchable.",
+      "expected_result": "ACHIEVED and re-verified 2026-08-26: /login -> 200, / -> 302, /api/health -> 401 unauthenticated, exactly the documented criteria; the STC-2 monitor reports os-console LIVE.",
       "procedure": "projects/mythos-os-console/deploy/relay/RUNBOOK.md."
     },
     {
       "id": "ACTION-HUB-DNS",
-      "status": "OWNER_ACTION",
-      "what": "Create apex DNS and deploy the mythosprod.xyz hub",
+      "status": "DONE",
+      "what": "Create apex DNS and deploy the mythosprod.xyz hub — COMPLETED (apex and www serving; verified 2026-08-26)",
       "why": "The master-brand page is built; the apex currently misroutes to darhijama.tn.",
       "impact": "Public ecosystem hub live.",
       "required_input": "Apex + www A records → 51.68.226.211.",
-      "expected_result": "https://mythosprod.xyz/ serving the hub with valid TLS.",
+      "expected_result": "ACHIEVED and re-verified 2026-08-26: https://mythosprod.xyz/ -> 200 and https://www.mythosprod.xyz/ -> 200; the STC-2 monitor reports hub-apex LIVE.",
       "procedure": "sites/mythosprod.xyz/DEPLOYMENT.md."
     },
     {
@@ -2908,52 +2922,20 @@
   ],
   "next_actions": [
     {
-      "id": "NEXT-OTHK-STORE",
-      "priority": "P0",
-      "order": 1,
-      "title": "Provision /home/deploy/othk-store and activate config/knowledge.json",
-      "detail": "The next open live gate. The read-only VPS gate and the docker fix are verified GREEN on-host; live knowledge activation is the first genuine owner block — store location is a pending owner decision and provisioning + authorized exports are owner-only by architecture (docs/PRIVATE_STORE_ARCHITECTURE.md). Set enabled=true + an absolute out-of-repo store_root after provisioning.",
-      "depends_on": null
-    },
-    {
       "id": "NEXT-STATUS-PUBLISH",
       "priority": "P1",
-      "order": 2,
+      "order": 1,
       "title": "Publish the pending Status Center reviews to production",
       "detail": "The repository holds REVIEW-2026-08-26-001 (and the never-published REVIEW-2026-08-22-001) while https://status.mythosprod.xyz/ still serves REVIEW-2026-08-21-001. The gap was never a missing re-sync — it is a missing publish. Root-only by design: `sudo bash scripts/deploy-status-center.sh` from the repository checkout (idempotent, strictly additive, fail-closed, --rollback available). mythos-deploy refuses target `status` as PROTECTED/owner-controlled, and /var/www/status.mythosprod.xyz is not writable by `deploy`.",
       "depends_on": null
     },
     {
-      "id": "NEXT-MOS-DEPLOY",
-      "priority": "P1",
-      "order": 3,
-      "title": "Execute the MOS-v2 Phase-B deployment runbook",
-      "detail": "New secret, relay units, deploy.sh, nginx reload — console goes live at os.mythosprod.xyz.",
-      "depends_on": null
-    },
-    {
       "id": "NEXT-EXPORTS",
       "priority": "P2",
-      "order": 4,
+      "order": 2,
       "title": "Produce authorized exports for OTH Knowledge Track B",
       "detail": "Takeout / Gemini / NotebookLM, per docs/OTH_TRACK_B_READINESS.md §3.",
       "depends_on": "NEXT-OTHK-STORE"
-    },
-    {
-      "id": "NEXT-HUB-DEPLOY",
-      "priority": "P2",
-      "order": 5,
-      "title": "Create apex DNS and deploy the mythosprod.xyz hub",
-      "detail": "Fixes the darhijama.tn misroute and publishes the master-brand page.",
-      "depends_on": null
-    },
-    {
-      "id": "NEXT-OTHMODE-MONITOR",
-      "priority": "P2",
-      "order": 6,
-      "title": "Add othmode.mythosprod.xyz to the STC-2 monitor probe registry",
-      "detail": "The STC-2 monitor watches 12 components and othmode.mythosprod.xyz is not among them, although it is a live production surface carrying the Task Report record. Adding a probe (alongside the existing `ordre` entry, same process and port) would put OTHMODE under the same LIVE/DEGRADED/DOWN reporting as every other surface. Requires a monitor config change plus a root publish.",
-      "depends_on": "NEXT-STATUS-PUBLISH"
     }
   ],
   "do_not_reopen": [
