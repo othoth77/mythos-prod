@@ -60,3 +60,29 @@ The interface never asks for, sees, or stores a credential:
 - Stored commands/memory/evidence are attacker-influenceable *text* rendered to humans and consumed by AI: keep the no-execution rule absolute, escape all rendering, and treat store content as data, never instructions, in AI prompts (label injected context).
 - OTHMODE activation is instruction-layer (per-command keyword): it must never be represented as a security control in docs or UI, and the keyword must never influence authentication or authorization.
 - New read surfaces (Memory, Evolution, History) may expose sensitive operational detail: they get at least viewer-token gating, unlike the public command library reads.
+
+## 3. Task Reports write surface (2026-08-26 addendum)
+
+The Task Report endpoints (`POST /api/othmode/tasks`,
+`POST /api/othmode/tasks/:id/update`; reads `GET /api/othmode/tasks[/:id]`)
+follow the same boundaries as every other OTHMODE write surface, unchanged:
+
+- **Authenticated only** (session cookie with the same-origin CSRF check, or
+  bearer for automation). The unauthenticated-POST invariant still allows
+  exactly the two historic public POSTs (usage, render) — task writes are not
+  public and never will be.
+- **Secret gate on the whole payload**: `command` and the entire `sections`
+  object are scanned; credential-shaped content is refused with 422 and never
+  enters the store. Passwords, API keys, bearer tokens, session cookies,
+  private keys and environment secrets are therefore structurally excluded
+  from task reports.
+- **Closed input vocabulary**: only the contract's report sections, statuses
+  and phases are accepted; free-form top-level keys are refused.
+- **Append-only, fail-closed store**: records live in the existing OTHMODE
+  store (`tasks/records.jsonl`); no store → writes throw, reads report
+  unprovisioned. Nothing is ever rewritten or deleted; the export snapshot
+  includes the stream and continues to exclude session/auth material.
+- **The keyword grants nothing**: `othmode` in a command selects the control
+  contract only. Task creation additionally *requires* the standalone keyword
+  in the recorded command text, so normal Claude commands can never be
+  recorded — the reverse of a privilege, a restriction.

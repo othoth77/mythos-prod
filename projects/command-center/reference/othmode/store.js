@@ -48,7 +48,8 @@ function filePath(name) { return path.join(root(), name); }
 
 var STREAMS = {
   evolution: 'evolution/events.jsonl',
-  recovery: 'recovery/records.jsonl'
+  recovery: 'recovery/records.jsonl',
+  tasks: 'tasks/records.jsonl'
 };
 
 function appendRecord(stream, record) {
