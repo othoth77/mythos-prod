@@ -99,40 +99,6 @@ function getEvidence(hash) {
   return res.ok ? res.data : null;
 }
 
-// ---------------------------------------------------------------------------
-// The OthMode switch. ON means Claude entry points are instructed to
-// operate through OTHMODE conventions; OFF means Claude operates normally.
-// This is an instruction/configuration contract, NOT an interceptor: the
-// value is a flag that prompts and tooling read. It can therefore never be
-// a single point of failure — an absent store simply reads as OFF.
-// ---------------------------------------------------------------------------
-
-var CONFIG_FILE = 'config/othmode.json';
-
-function getMode() {
-  if (!provisioned()) {
-    return { mode: 'OFF', provisioned: false, reason: 'store not provisioned — OthMode reads as OFF (fail-closed)', changed_at: null, changed_by: null };
-  }
-  var res = resolve.readJson(filePath(CONFIG_FILE));
-  if (!res.ok) return { mode: 'OFF', provisioned: true, reason: 'no switch record yet — defaults to OFF', changed_at: null, changed_by: null };
-  var mode = res.data.mode === 'ON' ? 'ON' : 'OFF';
-  return { mode: mode, provisioned: true, reason: null, changed_at: res.data.changed_at || null, changed_by: res.data.changed_by || null };
-}
-
-function setMode(mode, actor) {
-  if (mode !== 'ON' && mode !== 'OFF') throw new Error('mode must be ON or OFF');
-  if (!provisioned()) throw storeError('cannot switch OthMode without a provisioned store');
-  var target = filePath(CONFIG_FILE);
-  fs.mkdirSync(path.dirname(target), { recursive: true, mode: 448 });
-  var payload = { mode: mode, changed_at: new Date().toISOString(), changed_by: String(actor || 'unknown') };
-  // Atomic replace — the switch is the one mutable file in the store, and
-  // its full change history is recorded as evolution events by the caller.
-  var tmp = target + '.tmp.' + process.pid;
-  fs.writeFileSync(tmp, JSON.stringify(payload, null, 2), { encoding: 'utf8', mode: 384 });
-  fs.renameSync(tmp, target);
-  return payload;
-}
-
 module.exports = {
   provisioned: provisioned,
   root: root,
@@ -140,8 +106,6 @@ module.exports = {
   readStream: readStream,
   putEvidence: putEvidence,
   getEvidence: getEvidence,
-  getMode: getMode,
-  setMode: setMode,
   newId: newId,
   LINE_CAP_DEFAULT: LINE_CAP_DEFAULT
 };

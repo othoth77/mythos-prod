@@ -6,8 +6,9 @@
 // Mounted by api.js next to the MCC routes, under the same server, auth
 // and secret gate. Route contract matches api.js ROUTES with one addition:
 // `role: 'owner'` marks endpoints only the owner identity may call
-// (Settings, the OthMode switch, HIGH-risk review approval enforcement
-// happens inside evolution.addStage with the caller's role).
+// (none are currently routed — the mechanism stays for future owner
+// surfaces; HIGH-risk review approval enforcement happens inside
+// evolution.addStage with the caller's role).
 //
 // Read endpoints for the new surfaces require a valid token (`auth: true`):
 // unlike the public command library, memory/evolution/history expose
@@ -24,6 +25,7 @@ var memory = require('./memory.js');
 var evolution = require('./evolution.js');
 var store = require('./store.js');
 var sessions = require('./sessions.js');
+var activation = require('./activation.js');
 
 function sendJson(res, status, body) {
   res.writeHead(status, {
@@ -236,21 +238,26 @@ function buildRoutes(db, auth) {
       return sendJson(res, 200, reg.ok ? reg.data : { error: 'registry ' + reg.reason, records: [] });
     } },
 
-    // ── OthMode switch + settings ────────────────────────────────────────
+    // ── OTHMODE availability + per-command activation ────────────────────
+    // There is NO global switch any more. OTHMODE is always available;
+    // a command activates it by containing the standalone keyword
+    // "othmode" (activation.js is the single source of that rule). The
+    // old /api/othmode/mode path is kept as a read-only availability
+    // report so nothing that watched it breaks; its POST is gone — there
+    // is deliberately no state to write.
     { method: 'GET', auth: false, pattern: /^\/api\/othmode\/mode$/, handler: function (req, res) {
-      return sendJson(res, 200, store.getMode());
+      return sendJson(res, 200, activation.availability());
     } },
-    { method: 'POST', auth: true, role: 'owner', pattern: /^\/api\/othmode\/mode$/, handler: function (req, res, m, q, body) {
-      try {
-        var mode = body && body.mode === 'ON' ? 'ON' : (body && body.mode === 'OFF' ? 'OFF' : null);
-        if (!mode) return sendJson(res, 400, { error: 'mode must be ON or OFF' });
-        var identity = auth.identityFromRequest(req);
-        var payload = store.setMode(mode, identity);
-        // The switch flip is itself an observable evolution event.
-        var ev = evolution.createEvent({ title: 'OthMode switched ' + mode, risk_tier: 'LOW', trigger: 'owner settings action' }, identity);
-        evolution.addStage(ev.id, { stage: 'RESULT', data: { outcome: 'APPLIED' } }, identity, 'owner');
-        return sendJson(res, 200, payload);
-      } catch (e) { return inputError(res, e); }
+    // Deterministic activation check for tooling and tests. Stores
+    // nothing, grants nothing: the keyword selects a control contract,
+    // never a permission.
+    { method: 'POST', auth: false, pattern: /^\/api\/othmode\/activation$/, handler: function (req, res, m, q, body) {
+      var text = body && typeof body.text === 'string' ? body.text : '';
+      return sendJson(res, 200, {
+        activated: activation.isActivated(text),
+        classification: activation.classify(text),
+        keyword: activation.KEYWORD
+      });
     } }
   ];
 }

@@ -6,6 +6,13 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Changed — OTHMODE-ACT-1 — per-command activation replaces the global switch (2026-08-26)
+
+- **The global OthMode ON/OFF switch is removed.** OTHMODE is now permanently available (READY) and activates **per command**: a Claude command that contains the standalone keyword `othmode` (case-insensitive; never as part of another word — `othmodel`, `myothmode`, `othmode-test` do not activate) runs through the OTHMODE control contract (Search First → Reuse → Adapt → Connect → Build Last, skills, memory, evolution recording). Without the keyword, Claude behaves normally — nothing OTHMODE-specific is invoked or recorded.
+- One deterministic rule in `reference/othmode/activation.js`; checkable via `POST /api/othmode/activation` and `othmode-cli.js activation "<text>"`. `GET /api/othmode/mode` now reports availability (READY + EN/FR/AR hint); its POST is gone and no replacement toggle exists. Settings shows the READY panel; the dashboard card shows OTHMODE READY. CLAUDE.md carries the new contract.
+- The keyword grants no permission: session/bearer auth, roles, owner gates, CSRF, the secret gate and every boundary are unchanged (re-verified). Suite: 151/0 including the spec's fourteen activation/permission cases.
+
+
 ### Added — OTHMODE-100 — approved scope completed to 100% (2026-08-26)
 
 - **Graphify INTEGRATED**: graphifyy 0.9.50 (Apache-2.0) installed in an isolated venv on the production VPS; vendor Claude skill registered; first real knowledge graph built from projects/command-center (299 nodes / 818 edges, deterministic AST, no LLM) and queried via the CLI; Health lists it as an optional capability (presence check only); graphify-out/ gitignored; repo policy skill merged with the vendor skill (one capability, two scopes).

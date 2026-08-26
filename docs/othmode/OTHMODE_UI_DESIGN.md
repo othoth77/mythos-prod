@@ -37,7 +37,7 @@ Sidebar (grouped)
 10. **Command History** — unified timeline (command, timestamp, duration, status, result, evidence link, next action), filterable by source (library/executor/orchestrator), project, status.
 11. **Memory** — search over oth-knowledge (read-first); result cards show provenance/trust class; banner when the store is absent (fail-closed = normal state). Ingestion explicitly "operator CLI only".
 12. **Evolution** — one screen, tabs: **Events** (timeline with stage chips TRIGGER…RESULT) · **Genes** · **Capsules** · **Signals** (with dispositions) · **Review queue** (risk tiers, approval state) · **Validation** (PASS/FAIL records) · **Rollback** (applied evolutions + rollback points, git SHAs).
-13. **Settings** — OthMode ON/OFF (owner role, confirmation dialog), language (EN/FR/AR), theme, token/role management link, open-source registry table.
+13. **Settings** — OTHMODE availability panel (always READY; explains the per-command `othmode` keyword — no switch, no toggle; changed 2026-08-26), language (EN/FR/AR), theme, open-source registry table.
 
 Global **Search** overlays everything (existing `/` shortcut; extended to search commands, skills, tools, providers, projects, memory, history).
 
