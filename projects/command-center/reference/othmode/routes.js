@@ -250,8 +250,11 @@ function buildRoutes(db, auth) {
     } },
     // Deterministic activation check for tooling and tests. Stores
     // nothing, grants nothing: the keyword selects a control contract,
-    // never a permission.
-    { method: 'POST', auth: false, pattern: /^\/api\/othmode\/activation$/, handler: function (req, res, m, q, body) {
+    // never a permission. AUTHENTICATED on purpose — the MCC security
+    // invariant allows exactly two unauthenticated POST routes (usage,
+    // render) and this must not become a third; credential-free checks
+    // use the CLI (`othmode-cli.js activation`) instead.
+    { method: 'POST', auth: true, pattern: /^\/api\/othmode\/activation$/, handler: function (req, res, m, q, body) {
       var text = body && typeof body.text === 'string' ? body.text : '';
       return sendJson(res, 200, {
         activated: activation.isActivated(text),
