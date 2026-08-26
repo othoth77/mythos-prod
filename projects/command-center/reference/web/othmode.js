@@ -156,7 +156,7 @@
 
     function modeCardNoop() { /* layout hook kept deliberately inert */ }
 
-    if (A.state.token) {
+    if (A.state.identity) {
       A.api('/othmode/evolution/events').then(function (ev) {
         var open = (ev.events || []).filter(function (e) {
           return !e.terminal && (e.risk_tier !== 'LOW') && e.review_decision !== 'APPROVED' && e.review_decision !== 'REJECTED';

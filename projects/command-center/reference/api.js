@@ -1356,16 +1356,35 @@ function createServer() {
 
     Promise.resolve().then(async function () {
       if (route.auth) {
-        var identity = auth.identityFromRequest(req);
-        if (!identity) {
+        var ctx = auth.authContext(req);
+        if (!ctx.identity) {
           // 401 with no WWW-Authenticate challenge: a browser basic-auth
-          // dialog would be misleading, the token is pasted in the UI.
+          // dialog would be misleading; the UI explains the login link.
           throw httpError(401, 'authentication required for this operation');
+        }
+        // A session cookie is AMBIENT authority — the browser attaches it
+        // to any request it makes, including one a hostile page triggers.
+        // So a cookie-authenticated WRITE must additionally prove it came
+        // from this origin. SameSite=Strict already blocks cross-site
+        // sends in modern browsers; this server-side check makes the
+        // guarantee not depend on browser behaviour. Bearer requests are
+        // exempt: a bearer token is explicit per-request authority that no
+        // cross-site page can attach.
+        if (ctx.via === 'cookie' && req.method !== 'GET' && req.method !== 'HEAD') {
+          var origin = req.headers.origin;
+          var fetchSite = req.headers['sec-fetch-site'];
+          var host = req.headers.host;
+          var sameOrigin =
+            (typeof origin === 'string' && host && origin.replace(/^https?:\/\//, '') === host) ||
+            fetchSite === 'same-origin';
+          if (!sameOrigin) {
+            throw httpError(403, 'cross-origin write refused (session-cookie requests must be same-origin)');
+          }
         }
         // Role-gated routes (OTHMODE settings and the OthMode switch): the
         // owner identity is the owner role; every other identity is an
-        // editor. A valid token with the wrong role is a 403, not a 401.
-        if (route.role && othmodeRoutes.roleOf(identity) !== route.role) {
+        // editor. A valid credential with the wrong role is a 403, not 401.
+        if (route.role && othmodeRoutes.roleOf(ctx.identity) !== route.role) {
           throw httpError(403, 'this operation requires the ' + route.role + ' role');
         }
       }

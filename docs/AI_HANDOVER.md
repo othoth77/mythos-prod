@@ -1,7 +1,9 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-08-26 UTC
-**From:** OTHMODE-2 — **OTHMODE PLATFORM LIVE.** ordre.mythos (MCC-1) adapted into the OTHMODE control platform and deployed to https://othmode.mythosprod.xyz (TLS, health 200, mythos-deploy `othmode` target with lastgood `dd0c731`). Full detail: `docs/othmode/OTHMODE_FINAL_AUDIT.md` + `OTHMODE_FINAL_REPORT.md`. Previous entry (VPS-ADMIN-FINAL) preserved below.
+**Last updated:** 2026-08-26 UTC (OTHMODE-AUTH-1 appended below the OTHMODE-2 entry header)
+**From:** OTHMODE-AUTH-1 — **token-free browser sign-in live.** The OTHMODE UI never asks for an Access Token: one-time login link (`node projects/command-center/cli/othmode-cli.js login-link` on the host, single-use, 15-min TTL) → HttpOnly/Secure/SameSite=Strict 90-day session cookie; hashes only server-side; CSRF same-origin check on cookie writes; logout + revoke-sessions; bearer path preserved for automation; legacy localStorage token scrubbed on load. Suite 120/0; MCC/governance/MOS-v2 floors green. Owner: mint your own link over SSH (one command), open it once per browser. Details: docs/othmode/OTHMODE_SECURITY.md §2.4. Previous entry (OTHMODE-2) follows.
+
+**Previous:** OTHMODE-2 — **OTHMODE PLATFORM LIVE.** ordre.mythos (MCC-1) adapted into the OTHMODE control platform and deployed to https://othmode.mythosprod.xyz (TLS, health 200, mythos-deploy `othmode` target with lastgood `dd0c731`). Full detail: `docs/othmode/OTHMODE_FINAL_AUDIT.md` + `OTHMODE_FINAL_REPORT.md`. Previous entry (VPS-ADMIN-FINAL) preserved below.
 
 ## OTHMODE-2 — platform implementation deployed (2026-08-26)
 

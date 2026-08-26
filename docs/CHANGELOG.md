@@ -6,6 +6,13 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Changed — OTHMODE-AUTH-1 — token-free browser sign-in (2026-08-26)
+
+- **The UI no longer asks for an Access Token, ever.** The paste-a-token dialog and the `mcc.token` localStorage workflow are gone (existing browsers are scrubbed on next load). Sign-in is a one-time login link minted on the host (`othmode-cli.js login-link`, single use, 15-min expiry) exchanged server-side for a 90-day `HttpOnly; Secure; SameSite=Strict` session cookie — page JavaScript can never read it, and only sha256 hashes of codes/session ids are stored (OTHMODE store, 0600, fail-closed).
+- **Nothing was weakened:** all writes still authenticate server-side; owner-role gates and HIGH-risk evolution approval unchanged; the secret gate untouched; cookie-authenticated writes additionally require same-origin proof (server-side CSRF check); `POST /api/othmode/logout` + `revoke-sessions` burn sessions. Bearer tokens (`MCC_ADMIN_TOKENS`) remain valid for API/automation — just not part of any interface.
+- Suite grows to **120 assertions** incl. a live HTTP section: code exchange, single-use burn, HttpOnly/Secure/SameSite flags, cookie auth, foreign-Origin 403, logout, 401 walls.
+
+
 ### Added — OTHMODE-2 — the OTHMODE control platform, live at othmode.mythosprod.xyz (2026-08-26)
 
 - **ordre.mythos (MCC-1) adapted into OTHMODE** — one platform UI (EN/FR/AR + RTL, light/dark, 12 screens) over Commands, Saved Commands, Skills (31 across both registries), Tools, Providers (Claude PRIMARY; execution-authority boundary surfaced), Projects, Health (live STC-2 monitor aggregation + DETECT→…→UPDATE_STATUS recovery records), Status (read-only — the Status Center stays the execution truth), unified Command History (library/executor/orchestrator), Memory (read-first through the fail-closed oth-knowledge boundary) and the controlled Evolution layer.
