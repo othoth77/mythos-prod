@@ -21,6 +21,8 @@
 //   node othmode-cli.js events
 //   node othmode-cli.js recovery <component> <STEP> ["note"] [STATE]
 //   node othmode-cli.js store-status
+//   node othmode-cli.js detect                  run deterministic signal detectors
+//   node othmode-cli.js export [dest-dir]       snapshot the store for backup
 //   node othmode-cli.js login-link [identity]   one-time browser sign-in URL
 //   node othmode-cli.js sessions                count active sessions/codes
 //   node othmode-cli.js revoke-sessions         sign every browser out
@@ -71,6 +73,52 @@ try {
     out(healthMod.recordRecoveryStep({ component: args[1], step: args[2], note: args[3], state: args[4] }, actor));
   } else if (cmd === 'store-status') {
     out({ root: store.root(), provisioned: store.provisioned(), mode: store.getMode() });
+  } else if (cmd === 'detect') {
+    // Deterministic E1 detectors (health states + repeated execution
+    // failures). No database on the CLI path: the library source is
+    // covered by the service; the file-backed sources are what the
+    // detectors need. Findings fold by dedup_key; disposition stays NOTED.
+    var detect = require('../reference/othmode/detect.js');
+    var stubDb = { query: function () { return Promise.reject(new Error('cli: no db')); } };
+    detect.run(stubDb, actor).then(function (r) { out(r); }).catch(function (e) { fail(e.message); });
+  } else if (cmd === 'export') {
+    // Backup/recovery for the OTHMODE store: copies the append-only
+    // streams and the switch config — with a manifest of sha256 sums —
+    // into a timestamped snapshot directory. SESSIONS ARE DELIBERATELY
+    // EXCLUDED: session hashes are auth material, not evolution history,
+    // and a restored backup must never resurrect old sign-ins.
+    var fsx = require('fs');
+    var pathx = require('path');
+    var cryptox = require('crypto');
+    if (!store.provisioned()) fail('store not provisioned — nothing to export');
+    var destRoot = args[1] || pathx.join(os.homedir(), 'mythos-backups', 'othmode-store');
+    var stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    var dest = pathx.join(destRoot, stamp);
+    var items = ['evolution/events.jsonl', 'recovery/records.jsonl', 'config/othmode.json'];
+    var manifest = { exported_at: new Date().toISOString(), source: store.root(), files: {} };
+    fsx.mkdirSync(dest, { recursive: true, mode: 448 });
+    items.forEach(function (rel) {
+      var src = pathx.join(store.root(), rel);
+      var body;
+      try { body = fsx.readFileSync(src); } catch (e) { return; } // absent stream = nothing yet
+      var target = pathx.join(dest, rel.replace(/\//g, '__'));
+      fsx.writeFileSync(target, body, { mode: 384 });
+      manifest.files[rel] = { sha256: cryptox.createHash('sha256').update(body).digest('hex'), bytes: body.length };
+    });
+    // Evidence objects: content-addressed, copied verbatim.
+    var evDir = pathx.join(store.root(), 'evolution', 'evidence');
+    var evOut = pathx.join(dest, 'evidence');
+    try {
+      var names = fsx.readdirSync(evDir);
+      fsx.mkdirSync(evOut, { recursive: true, mode: 448 });
+      names.forEach(function (n) {
+        if (!/^[0-9a-f]{64}$/.test(n)) return;
+        fsx.copyFileSync(pathx.join(evDir, n), pathx.join(evOut, n));
+      });
+      manifest.evidence_objects = names.length;
+    } catch (e) { manifest.evidence_objects = 0; }
+    fsx.writeFileSync(pathx.join(dest, 'manifest.json'), JSON.stringify(manifest, null, 2), { mode: 384 });
+    out({ exported_to: dest, files: Object.keys(manifest.files), evidence_objects: manifest.evidence_objects });
   } else if (cmd === 'login-link') {
     // Token-free browser sign-in: prints a ONE-TIME URL (15-minute TTL).
     // Open it once in the browser that should stay signed in; the code is

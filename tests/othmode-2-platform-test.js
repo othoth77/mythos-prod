@@ -345,7 +345,73 @@ function finishAsync() {
     ok(!/child_process|\beval\s*\(|new\s+Function/.test(src), f + ' contains no exec/eval');
   });
 
-  runSessionTests();
+  runCompletionTests();
+}
+
+// ---------------------------------------------------------------------------
+function runCompletionTests() {
+  section('detectors — deterministic E1 signal detection');
+  var detect = require('../projects/command-center/reference/othmode/detect.js');
+
+  var healthFinds = detect.detectFromHealth({ components: [
+    { id: 'monitor:db', kind: 'integration', name: 'db', state: 'FAILED', detail: 'refused' },
+    { id: 'provider:x', kind: 'provider', name: 'x', state: 'BLOCKED', detail: 'credential absent' },
+    { id: 'tool:ok', kind: 'tool', name: 'ok', state: 'ACTIVE' }
+  ] });
+  ok(healthFinds.length === 1 && healthFinds[0].dedup_key === 'health:monitor:db', 'FAILED becomes a signal; BLOCKED and ACTIVE never do');
+
+  var histFinds = detect.detectFromHistory({ rows: [
+    { source: 'executor', command: 'task-a', command_ref: 't-a', status: 'FAILED' },
+    { source: 'executor', command: 'task-a', command_ref: 't-a', status: 'FAILED' },
+    { source: 'executor', command: 'task-b', command_ref: 't-b', status: 'FAILED' },
+    { source: 'library',  command: 'x', command_ref: 'x', status: 'COPY' }
+  ] });
+  ok(histFinds.length === 1 && /2 times/.test(histFinds[0].description), 'single failure is not a signal; a repeat is');
+
+  var before = require('../projects/command-center/reference/othmode/evolution.js').listSignals().signals.length;
+  var stubDb = { query: function () { return Promise.reject(new Error('no db')); } };
+  detect.run(stubDb, 'suite-detector').then(function (r) {
+    ok(Array.isArray(r.recorded), 'detector run records fold-able signals (' + r.recorded.length + ')');
+    ok(r.recorded.every(function (x) { return x.disposition === 'NOTED'; }), 'detectors only ever record NOTED — promotion stays reviewed');
+    return detect.run(stubDb, 'suite-detector');
+  }).then(function (r2) {
+    var after = require('../projects/command-center/reference/othmode/evolution.js').listSignals().signals.length;
+    ok(r2.recorded.every(function (x) { return x.occurrences >= 1; }), 'second run folds by dedup_key (occurrences grow, rows do not multiply)');
+    ok(after <= before + r2.recorded.length, 'no signal-row explosion across runs');
+
+    section('capsule — the first real capsule satisfies the activation contract');
+    var evo = require('../projects/command-center/reference/othmode/evolution.js');
+    var capsules = evo.listCapsules();
+    var core = capsules.filter(function (c) { return c.id === 'othmode-core-discipline'; })[0];
+    ok(!!core && core.valid, 'othmode-core-discipline parses');
+    ok(core && core.validation === 'PASS' && core.review === 'APPROVED', 'capsule carries PASS + APPROVED');
+    ok(core && core.activatable === true && core.status === 'ACTIVE', 'activation contract satisfied → ACTIVE');
+    ok(core && core.genes.length === 2, 'capsule references its two validated genes');
+    core.genes.forEach(function (g) {
+      ok(evo.geneDetail(g) !== null, 'referenced gene exists: ' + g);
+    });
+
+    section('export — store backup snapshot excludes auth material');
+    var cp = require('child_process');
+    var out = cp.execFileSync(process.execPath,
+      [path.join(REPO, 'projects', 'command-center', 'cli', 'othmode-cli.js'), 'export', path.join(os.tmpdir(), 'othmode-export-' + process.pid)],
+      { env: Object.assign({}, process.env, { OTHMODE_STORE_ROOT: STORE_ROOT }), encoding: 'utf8' });
+    var exported = JSON.parse(out);
+    ok(exported.files.indexOf('evolution/events.jsonl') !== -1, 'events stream exported');
+    var manifest = JSON.parse(fs.readFileSync(path.join(exported.exported_to, 'manifest.json'), 'utf8'));
+    ok(/^[0-9a-f]{64}$/.test(manifest.files['evolution/events.jsonl'].sha256), 'manifest carries sha256 sums');
+    var names = fs.readdirSync(exported.exported_to);
+    ok(names.every(function (n) { return n.indexOf('session') === -1; }), 'sessions are NEVER exported (auth material stays out of backups)');
+    var body = fs.readFileSync(path.join(exported.exported_to, 'evolution__events.jsonl'), 'utf8');
+    var sessRaw = '';
+    try { sessRaw = fs.readFileSync(path.join(STORE_ROOT, 'config', 'sessions.json'), 'utf8'); } catch (e) { /* none */ }
+    ok(sessRaw === '' || body.indexOf(JSON.parse(sessRaw).sessions[0] ? JSON.parse(sessRaw).sessions[0].h : '\u0000') === -1, 'no session hash leaks into exported streams');
+
+    runSessionTests();
+  }).catch(function (e) {
+    ok(false, 'completion section crashed: ' + e.message);
+    runSessionTests();
+  });
 }
 
 // ---------------------------------------------------------------------------

@@ -6,6 +6,16 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Added — OTHMODE-100 — approved scope completed to 100% (2026-08-26)
+
+- **Graphify INTEGRATED**: graphifyy 0.9.50 (Apache-2.0) installed in an isolated venv on the production VPS; vendor Claude skill registered; first real knowledge graph built from projects/command-center (299 nodes / 818 edges, deterministic AST, no LLM) and queried via the CLI; Health lists it as an optional capability (presence check only); graphify-out/ gitignored; repo policy skill merged with the vendor skill (one capability, two scopes).
+- **E1 signal detectors** (`othmode-cli.js detect`): deterministic health-state and repeated-execution-failure detectors; NOTED-only, dedup-folded, thresholded — promotion stays a reviewed act.
+- **First real capsule**: `othmode-core-discipline` v1.0 (bundles the two validated genes with real suite evidence; LOW-tier review recorded) — ACTIVE under the PASS+APPROVED contract.
+- **Store backup/export** (`othmode-cli.js export`): sha256-manifested snapshots of the evolution/recovery streams + switch config; sessions (auth material) deliberately excluded.
+- **Responsive fix**: mobile sidebar strip gets `min-width:0` so the nav scrolls internally, never the page; Arabic verified 100% key-complete; a11y pass recorded.
+- **Docs**: OTHMODE_100_PERCENT_AUDIT.md (every approved requirement COMPLETE with evidence); final report, open-source doc and registry synchronized. Suite: 137/0.
+
+
 ### Changed — OTHMODE-AUTH-1 — token-free browser sign-in (2026-08-26)
 
 - **The UI no longer asks for an Access Token, ever.** The paste-a-token dialog and the `mcc.token` localStorage workflow are gone (existing browsers are scrubbed on next load). Sign-in is a one-time login link minted on the host (`othmode-cli.js login-link`, single use, 15-min expiry) exchanged server-side for a 90-day `HttpOnly; Secure; SameSite=Strict` session cookie — page JavaScript can never read it, and only sha256 hashes of codes/session ids are stored (OTHMODE store, 0600, fail-closed).

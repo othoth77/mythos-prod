@@ -74,12 +74,24 @@ function toolComponents() {
 
 function othmodeComponents() {
   var provisioned = store.provisioned();
-  return [{
+  var components = [{
     id: 'othmode:evolution-store', kind: 'evolution', name: 'Evolution store',
     state: provisioned ? 'ACTIVE' : 'BLOCKED',
     detail: provisioned ? store.root() : 'not provisioned (fail-closed; a normal, reportable state)',
     latency_ms: null
   }];
+  // Graphify is an OPTIONAL capability (OTHMODE never depends on it): the
+  // presence check is a pure file-existence test — no execution, per the
+  // no-exec rule. Absent installs show BLOCKED with an explanatory detail,
+  // never a red FAILED, because absence is a configuration state.
+  var graphifyBin = process.env.OTHMODE_GRAPHIFY_BIN || '/home/deploy/.local/bin/graphify';
+  components.push({
+    id: 'othmode:graphify', kind: 'tool', name: 'Graphify (optional)',
+    state: resolve.exists(graphifyBin) ? 'ACTIVE' : 'BLOCKED',
+    detail: resolve.exists(graphifyBin) ? graphifyBin : 'optional capability — not installed on this host',
+    latency_ms: null
+  });
+  return components;
 }
 
 function overview() {
