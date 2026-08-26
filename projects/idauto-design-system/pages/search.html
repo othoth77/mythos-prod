@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IDauto — Recherche de véhicule</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="../tokens/tokens.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+<a class="ida-skip-link" href="#main">Aller au contenu</a>
+<p id="ida-live" class="ida-sr-only" role="status" aria-live="polite"></p>
+
+<header class="ida-nav">
+  <div class="ida-container ida-nav-inner">
+    <a class="ida-wordmark" href="index.html" aria-label="IDauto — accueil">
+      <span class="ida-wordmark-id" aria-hidden="true">ID</span><span>auto</span>
+    </a>
+    <nav aria-label="Navigation principale">
+      <ul class="ida-nav-links">
+        <li><a href="index.html">Vérifier</a></li>
+        <li><a href="search.html" aria-current="page">Recherche</a></li>
+        <li><a href="passport.html">Passeport</a></li>
+        <li><a href="components.html">Design System</a></li>
+        <li><button type="button" class="ida-btn ida-btn--ghost ida-btn--sm" data-theme-toggle aria-label="Basculer le thème clair ou sombre">◐</button></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="ida-container" style="padding-block: var(--ida-space-6);">
+  <div class="ida-stack-lg">
+
+    <div class="ida-stack">
+      <h1 class="ida-h2">Recherche</h1>
+      <p class="ida-muted">Par plaque ou par IVID. <span class="ida-specimen">SPÉCIMEN</span> — résultats de démonstration du Design System.</p>
+    </div>
+
+    <form class="ida-grid ida-grid-2" action="search.html" method="get">
+      <div class="ida-field">
+        <label for="q-plate">Plaque</label>
+        <input class="ida-input ida-id" id="q-plate" name="plate" placeholder="220 TU 4518" autocomplete="off">
+        <p class="ida-hint">Format tunisien — série puis numéro.</p>
+      </div>
+      <div class="ida-field">
+        <label for="q-ivid">IVID</label>
+        <input class="ida-input ida-id" id="q-ivid" name="ivid" placeholder="IVID…" autocomplete="off">
+        <p class="ida-hint">L'identifiant IDauto imprimé sur le QR du véhicule.</p>
+      </div>
+      <div>
+        <button type="submit" class="ida-btn ida-btn--primary">Rechercher</button>
+      </div>
+    </form>
+
+    <section aria-labelledby="results-title" class="ida-stack">
+      <h2 id="results-title" class="ida-h4">Résultats <span class="ida-specimen">SPÉCIMEN</span></h2>
+
+      <a class="ida-vehicle-card" href="passport.html" style="text-decoration:none;">
+        <span class="ida-plate ida-plate--sm"><span>220</span><span class="ida-plate-word">تونس</span><span>4518</span></span>
+        <span class="ida-vehicle-meta">
+          <span class="ida-vehicle-name">Berline compacte — spécimen</span><br>
+          <span class="ida-caption">Première observation 2024 · Gouvernorat de Tunis</span>
+        </span>
+        <span class="ida-seal ida-seal--verified"><span class="ida-seal-dot" aria-hidden="true"></span>Identité vérifiée</span>
+      </a>
+
+      <a class="ida-vehicle-card" href="passport.html" style="text-decoration:none;">
+        <span class="ida-plate ida-plate--sm"><span>87</span><span class="ida-plate-word">تونس</span><span>1023</span></span>
+        <span class="ida-vehicle-meta">
+          <span class="ida-vehicle-name">Utilitaire léger — spécimen</span><br>
+          <span class="ida-caption">Fiche créée par observation · en cours de revue</span>
+        </span>
+        <span class="ida-seal ida-seal--pending"><span class="ida-seal-dot" aria-hidden="true"></span>Vérification en cours</span>
+      </a>
+
+      <div class="ida-empty ida-stack">
+        <p class="ida-h4" style="color: var(--ida-text);">Aucun autre résultat</p>
+        <p class="ida-small">Une plaque inconnue d'IDauto peut être proposée à l'enregistrement — la fiche naît d'une observation, jamais d'une invention.</p>
+        <p><a class="ida-btn ida-btn--secondary" href="index.html">Proposer une observation</a></p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="ida-footer">
+  <div class="ida-container ida-footer-inner">
+    <p>IDauto — protocole ouvert d'identité et d'historique des véhicules.</p>
+    <p class="ida-caption">Pages du Design System — données affichées&nbsp;: <span class="ida-specimen">SPÉCIMEN</span></p>
+  </div>
+</footer>
+
+<script src="../js/plate.js"></script>
+<script src="../js/ui.js"></script>
+</body>
+</html>
