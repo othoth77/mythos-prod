@@ -668,6 +668,27 @@
       "reference": "projects/infrastructure/ops/offhost-backup.js",
       "date": "2026-08-26",
       "note": "Finding from the first restore test, recorded so it does not cost someone time during a real recovery. The restored media set contains manifest.json and media/ but NOT checksums.sha256, even though media-backup/manifest.json names it under integrity.checksums_file with its sha256. That looks like a gap and is not one. offhost-backup.js mediaEntries() reads checksums.sha256 as the INDEX of what to ship and folds every one of its 71 hashes into the top-level off-host manifest, which is what restore-verify checks against; the file itself is therefore redundant as an object and is deliberately not pushed. Integrity off-host does not depend on it. A human performing a manual recovery without the tool should verify against the restored manifest.json, not look for checksums.sha256 — recorded in ops/backup/README.md §4."
+    },
+    {
+      "id": "EV-SYA-NGINX-NOT-DRIFT",
+      "type": "file",
+      "reference": "projects/ssangyong-autos/deploy/nginx-ssangyong-storefront.conf",
+      "date": "2026-08-26",
+      "note": "CORRECTION (OTH-2026-00017). The recorded '101 changed lines' between the repo nginx file and /etc/nginx/sites-enabled/ssangyong.autos is a CATEGORY ERROR, not drift, and the derived question 'which copy is authoritative' is malformed: neither file is a copy of the other. They are vhosts for two DIFFERENT hostnames. The repo file is a never-installed TEMPLATE whose server_name is the literal placeholder __STOREFRONT_HOST__; its own header states 'NOT INSTALLED, and NOT INSTALLABLE AS-IS' and warns 'THIS FILE MUST NOT BE APPLIED TO THE APEX ssangyong.autos', because the apex serves the legacy site that migration-plan §21 freezes. Verified on-host: /var/www/ssangyong.autos holds a live legacy site with 13 PHP files, so applying the template to the apex would take it down exactly as the header warns. The installed apex vhost is 48 lines of static root + try_files + PHP-FPM + Certbot TLS and contains no proxy_pass at all. A 101-line diff between a 48-line legacy apex and a 72-line storefront template is simply the two files being unrelated."
+    },
+    {
+      "id": "EV-SYA-APEX-API-LIVE",
+      "type": "vps",
+      "reference": "https://ssangyong.autos/api/catalog.php probed from vps-4722f0a9, 2026-08-26",
+      "date": "2026-08-26",
+      "note": "HAZARD IN A PREVIOUSLY RECORDED INSTRUCTION, found and corrected here. BLOCKER-SYA-API-DOWN's required_input, as written by OTH-2026-00015, said to add an /api proxy_pass to 127.0.0.1:3011 in the apex vhost. The apex ALREADY SERVES A LIVE /api: /var/www/ssangyong.autos/api/catalog.php returns 200 application/json, 1992 bytes, right now. A blanket `location ~ ^/api/ { proxy_pass http://127.0.0.1:3011; }` on that vhost would shadow it and break the legacy storefront's own data path. The instruction was written from the stale drift framing and is corrected in the blocker. Note also that /api/ itself returns 403 (directory listing denied) while /api/catalog.php returns real JSON — the endpoint is a specific file, not a route tree, which is precisely why a regex location would capture more than intended."
+    },
+    {
+      "id": "EV-SYA-DEPLOY-RECOVERED-FROM-STASH",
+      "type": "file",
+      "reference": "projects/ssangyong-autos/deploy/",
+      "date": "2026-08-26",
+      "note": "Three SYA deploy artifacts existed ONLY inside a git stash's untracked-files commit (stash@{0}^3, 'On main: VPS-local-work-before-M12-sync-2026-08-19') and in no branch anywhere. AGENTS.md §7 is explicit that work must not be left in a stash, and a single `git stash drop` would have destroyed them. ssangyong-storefront.user.service was already re-created from the live host by OTH-2026-00015; the other two are recovered here. nginx-ssangyong-storefront.conf was recovered byte-identical (git hash-object ff46cc65127d8553f6a170c888f505a629af33ec, 72 lines, matching the handover's count). The system-scope unit was recovered WITH ONE CORRECTION: MemoryDenyWriteExecute removed, because it is scope-independent and incompatible with V8's JIT — committing it unchanged would have handed the next operator the same trap that kept the user-scope sibling dead for ten days, except failing under load rather than at startup. Neither file contains a credential; both carry only paths, of the same class already public in this repository."
     }
   ],
   "repositories": [
@@ -2805,19 +2826,21 @@
     },
     {
       "id": "BLOCKER-SYA-NGINX-DRIFT",
-      "title": "ssangyong.autos nginx drift (101 lines)",
+      "title": "SUPERSEDED: the \"101-line nginx drift\" is a category error; the real gate is that the storefront hostname was never decided",
       "type": "configuration",
       "project": "PROJECT-SSANGYONG",
       "priority": "P2",
       "status": "OWNER_ACTION",
       "owner": "Owner",
-      "impact": "Repo and installed vhost disagree; a future deploy could clobber the live TLS key path.",
-      "required_input": "Decision: which copy is authoritative.",
-      "unblock": "Reconcile the chosen direction, commit the result.",
+      "impact": "WAS RECORDED AS: the repo nginx file and the installed apex vhost diverge by 101 lines, so which is authoritative is an owner decision. THAT FRAMING IS WRONG. The two files are vhosts for different hostnames, not two versions of one file: the repo file is a never-installed template with the literal placeholder __STOREFRONT_HOST__ as its server_name, and the installed file is the legacy apex. There is no drift to reconcile and no authority to assign. What is real, and what the template's own header says, is that THE STOREFRONT'S PUBLIC HOSTNAME HAS NEVER BEEN DECIDED in any document in this repository, and choosing it is an owner decision because it is the product's public identity.",
+      "required_input": "Decide the storefront's public hostname (for example storefront.ssangyong.autos or shop.ssangyong.autos), following the established pattern of n8n.ssangyong.autos on this host. NOT a decision about which config copy wins — that question does not exist.",
+      "unblock": "Once the hostname is chosen: substitute it for __STOREFRONT_HOST__, add the DNS A record, install the template to /etc/nginx/sites-available/<host> and symlink it (root), `sudo nginx -t`, `sudo systemctl reload nginx`, then `certbot --nginx -d <host>` which writes the TLS lines itself. DO NOT apply this template to the apex ssangyong.autos: that name serves the legacy site (13 PHP files under /var/www/ssangyong.autos) which migration-plan §21 freezes, and pointing it at the storefront upstream would take that site down.",
       "created": "2026-08-17",
-      "last_checked": "2026-08-20",
+      "last_checked": "2026-08-26",
       "evidence": [
-        "EV-SYA-DRIFT"
+        "EV-SYA-DRIFT",
+        "EV-SYA-NGINX-NOT-DRIFT",
+        "EV-SYA-DEPLOY-RECOVERED-FROM-STASH"
       ]
     },
     {
@@ -2865,8 +2888,8 @@
       "status": "BLOCKED",
       "owner": "Operator",
       "impact": "WAS: ssangyong-storefront.service (a USER unit) had never started since 2026-08-16 — hardened SYSTEM-unit directives it cannot apply in user scope made systemd fail at the CAPABILITIES step, 67,256 restarts, nothing on 127.0.0.1:3011. THAT HALF IS FIXED (OTH-2026-00015, no root used): the service is active, listening, and serving real catalog JSON on 127.0.0.1:3011, and sya-api-loopback now watches it. REMAINS: the ssangyong.autos vhost is a static root with try_files and carries no /api proxy_pass, so the catalog API is unreachable from the public site — https://ssangyong.autos/api/health still answers 200 text/html from the SPA fallback. The storefront HTML has always been served by nginx and is unaffected; what is missing is the data path. This is now a routing gap, not a dead service.",
-      "required_input": "Root. Add an /api proxy_pass to 127.0.0.1:3011 in /etc/nginx/sites-enabled/ssangyong.autos. deploy's sudo grant covers `nginx -t` and `systemctl reload nginx` but NOT editing the vhost, so the edit itself cannot be done from a deploy session.",
-      "unblock": "Reconcile with BLOCKER-SYA-NGINX-DRIFT first — the installed vhost is 101 lines diverged from deploy/nginx-ssangyong-storefront.conf, so adding a location block to the installed copy without resolving the drift would widen it. Preferred order: resolve the drift, add the /api location, `sudo nginx -t`, `sudo systemctl reload nginx`, then flip sya-api to enabled:true in probes.json — its expect_content_type is already in place, so it will refuse to false-green on the SPA fallback.",
+      "required_input": "Root, plus the hostname decision in BLOCKER-SYA-NGINX-DRIFT. CORRECTED 2026-08-26 (OTH-2026-00017): the previous wording — add an /api proxy_pass to the apex vhost — was HAZARDOUS. The apex already serves a live /api/catalog.php returning 200 application/json, and a `location ~ ^/api/` proxy there would shadow it and break the legacy storefront's data path.",
+      "unblock": "Do NOT patch the apex. The correct route is the one the project already designed and this task recovered: projects/ssangyong-autos/deploy/nginx-ssangyong-storefront.conf is a complete storefront vhost that ALREADY CONTAINS the /api proxy_pass to 127.0.0.1:3011, a dedicated `location = /api/health`, and `limit_except GET HEAD { deny all; }` so write verbs are refused at the edge. It needs only a hostname. So the remaining work on this P0 is not nginx surgery — it is the owner naming the storefront, after which the template installs cleanly on its own vhost and the apex is never touched. Then flip sya-api in probes.json to enabled:true, retargeted at the new host; its expect_content_type guard is already in place so it cannot false-green on an SPA fallback.",
       "created": "2026-08-22",
       "last_checked": "2026-08-26",
       "note_verified": "On-host 2026-08-22: NRestarts=2830 and climbing, status=218/CAPABILITIES every 5s, 21458 journal failures. ss shows nothing on :3011.",
@@ -2874,7 +2897,9 @@
         "EV-SYA-API-DOWN",
         "EV-SYA-API-RESTORED-LOOPBACK",
         "EV-SYA-UNIT-IN-REPO",
-        "EV-SYA-API-MONITORED"
+        "EV-SYA-API-MONITORED",
+        "EV-SYA-APEX-API-LIVE",
+        "EV-SYA-NGINX-NOT-DRIFT"
       ]
     },
     {
