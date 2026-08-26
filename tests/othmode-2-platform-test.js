@@ -335,6 +335,11 @@ function finishAsync() {
 
   section('no-exec discipline in the new runtime modules');
   var refDir = path.join(REPO, 'projects', 'command-center', 'reference', 'othmode');
+  ['othmode.js', 'othmode-i18n.js'].forEach(function (f) {
+    var src = fs.readFileSync(path.join(REPO, 'projects', 'command-center', 'reference', 'web', f), 'utf8');
+    ok(!/child_process|eval\s*\(|new\s+Function/.test(src), f + ' contains no exec/eval');
+    ok(!/\.innerHTML\s*=|\.outerHTML\s*=|insertAdjacentHTML|document\.write/.test(src), f + ' never assigns markup from strings');
+  });
   fs.readdirSync(refDir).forEach(function (f) {
     var src = fs.readFileSync(path.join(refDir, f), 'utf8');
     ok(!/child_process|\beval\s*\(|new\s+Function/.test(src), f + ' contains no exec/eval');
