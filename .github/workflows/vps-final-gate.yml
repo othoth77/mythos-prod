@@ -141,3 +141,313 @@ jobs:
               exit 1
             fi
           fi
+
+  # ===================================================================
+  # BRANCH-ONLY DIAGNOSTIC — not proposed for main.
+  #
+  # Identifies the untracked entries under
+  # projects/infrastructure/github-runner/ in the deploy checkout at
+  # /home/deploy/projects/mythos-prod, before any production sync.
+  #
+  # HARD CONSTRAINTS (owner order, 2026-08-21): no deploy, pull, reset,
+  # stash, delete or chown; nothing on the VPS is modified. Only
+  # metadata is read — names, owners, modes, sizes, timestamps and
+  # file(1) types. File CONTENTS are NEVER printed: this job contains
+  # no cat/head/tail/grep of any target file, by construction.
+  #
+  # The runner is mythos-runner (NoNewPrivileges, no sudo,
+  # ProtectHome=read-only) and CANNOT become deploy. Every probe exits 0
+  # and reports EACCES explicitly, so a DAC denial is recorded as the
+  # finding rather than failing the gate.
+  # ===================================================================
+  diagnose:
+    name: Deploy-checkout dirty-tree diagnostic (read-only, branch-only)
+    needs: smoke
+    runs-on: [self-hosted, mythos-vps]
+    timeout-minutes: 10
+    steps:
+      - name: Identity and reachability
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          echo "hostname:  $(hostname)"
+          echo "identity:  $(id -un) uid=$(id -u) groups=$(id -nG)"
+          echo "target:    $R"
+          echo
+          echo "--- path chain (stat only, no contents) ---"
+          for p in /home /home/deploy /home/deploy/projects "$R" "$R/.git" \
+                   "$R/projects/infrastructure/github-runner"; do
+            out="$(stat -c '%A %U:%G %n' "$p" 2>&1)" \
+              && echo "  $out" || echo "  UNREADABLE $p -> $out"
+          done
+          echo
+          if [ -r "$R" ] && [ -x "$R" ]; then
+            echo "READABLE: proceeding with the probes."
+          else
+            echo "EACCES: mythos-runner cannot traverse the deploy checkout."
+            echo "That is the expected DAC boundary, not a fault."
+          fi
+          exit 0
+
+      - name: 1of6 — full untracked paths
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          echo '=== FULL UNTRACKED PATHS ==='
+          git -C "$R" -c safe.directory="$R" status --short -uall \
+            -- projects/infrastructure/github-runner/ 2>&1
+          echo "(exit=$?)"; exit 0
+
+      - name: 2of6 — owners and timestamps
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          D="$R/projects/infrastructure/github-runner"
+          echo '=== OWNERS / TIMESTAMPS ==='
+          ls -la --time-style=full-iso "$D" 2>&1
+          echo
+          echo '--- entries newer than .git/HEAD ---'
+          find "$D" -newer "$R/.git/HEAD" \
+            -printf '%TY-%Tm-%Td %TH:%TM  %10s  %u:%g  %p\n' 2>&1 | sort
+          echo "(exit=$?)"; exit 0
+
+      - name: 3of6 — file types (type only, never contents)
+        run: |
+          set +e
+          D=/home/deploy/projects/mythos-prod/projects/infrastructure/github-runner
+          echo '=== FILE TYPES ==='
+          find "$D" -type f ! -path '*/.git/*' -exec file {} \; 2>&1
+          echo "(exit=$?)"; exit 0
+
+      - name: 4of6 — credential/runtime NAMES ONLY (contents never read)
+        run: |
+          set +e
+          D=/home/deploy/projects/mythos-prod/projects/infrastructure/github-runner
+          echo '=== CREDENTIAL/RUNTIME NAMES ONLY ==='
+          echo '(-ls prints mode, owner, size, mtime, name — no contents)'
+          find "$D" \( -name '.credentials*' -o -name '.runner' \
+                       -o -name '*.env' -o -name '*token*' \
+                       -o -name '*.tar.gz' \) -ls 2>&1
+          echo "(exit=$?)"; exit 0
+
+      - name: 5of6 — tracked runner files unmodified?
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          echo '=== TRACKED RUNNER FILES ==='
+          git -C "$R" -c safe.directory="$R" status --short \
+            -- 'projects/infrastructure/github-runner/*.sh' \
+               'projects/infrastructure/github-runner/*.service' 2>&1
+          echo "(empty above = all three tracked files unmodified)"
+          exit 0
+
+      - name: 6of6 — repository state
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          echo '=== REPOSITORY STATE ==='
+          echo -n 'HEAD:        '; git -C "$R" -c safe.directory="$R" rev-parse HEAD 2>&1
+          echo -n 'origin/main: '; git -C "$R" -c safe.directory="$R" rev-parse origin/main 2>&1
+          echo -n 'branch:      '; git -C "$R" -c safe.directory="$R" branch --show-current 2>&1
+          echo
+          echo '--- full short status (paths only) ---'
+          git -C "$R" -c safe.directory="$R" status --short 2>&1
+          exit 0
+
+  # ===================================================================
+  # BRANCH-ONLY REDACTION-SAFE PROBE — not proposed for main.
+  #
+  # Characterises the single untracked artifact
+  #   projects/infrastructure/github-runner/tener|runsvc.sh|run.sh'
+  # WITHOUT ever emitting its contents.
+  #
+  # Every content test below is an EXIT-STATUS test (grep -q). No
+  # matched text, no line, no byte of the file is ever printed. The
+  # only content-derived values emitted are a SHA-256 digest, counts,
+  # and YES/NO booleans. There is no cat/head/tail/sed/awk, and no
+  # grep without -q, anywhere in this job.
+  #
+  # Identity: mythos-runner (unprivileged). The file is world-readable
+  # (0644 root:root) so an unprivileged read suffices; no privilege is
+  # requested or needed. This job cannot and does not modify anything.
+  # ===================================================================
+  probe:
+    name: Untracked artifact — redaction-safe characterisation (branch-only)
+    needs: smoke
+    runs-on: [self-hosted, mythos-vps]
+    timeout-minutes: 10
+    steps:
+      - name: Characterise without disclosing
+        run: |
+          set +e
+          D=/home/deploy/projects/mythos-prod/projects/infrastructure/github-runner
+          F="$D/tener|runsvc.sh|run.sh'"
+
+          echo "probe identity: $(id -un) uid=$(id -u) (unprivileged; NOT root)"
+          echo
+
+          if [ ! -e "$F" ]; then
+            echo "RESULT: file no longer present at the recorded path."
+            exit 0
+          fi
+          if [ ! -r "$F" ]; then
+            echo "RESULT: present but unreadable by this identity (EACCES)."
+            ls -ld --time-style=full-iso "$F" 2>&1
+            exit 0
+          fi
+
+          echo '=== 7. MODE / OWNERSHIP ==='
+          stat -c 'mode=%A (%a)  owner=%U:%G  size=%s  mtime=%y  inode=%i  links=%h' "$F" 2>&1
+          echo -n 'ACL present: '; case "$(ls -ld "$F" | cut -c11)" in '+') echo YES;; *) echo NO;; esac
+          echo
+
+          echo '=== 1-3. DIGEST AND COUNTS ==='
+          echo "sha256:     $(sha256sum "$F" | cut -d' ' -f1)"
+          echo "bytes:      $(wc -c < "$F")"
+          echo "lines(\\n):  $(wc -l < "$F")"
+          echo "words:      $(wc -w < "$F")"
+          echo -n "trailing newline: "; [ -n "$(tail -c1 "$F" | tr -d '\n')" ] && echo NO || echo YES
+          echo
+
+          # --- boolean helper: prints ONLY the label and YES/NO ---
+          b() { printf '  %-46s ' "$1"; shift; grep -qaE "$*" "$F" && echo YES || echo NO; }
+
+          echo '=== 4. CREDENTIAL / TOKEN-SHAPED PATTERNS ==='
+          b 'GitHub PAT/app token prefix (ghp_/gho_/ghs_)' 'gh[pousr]_[A-Za-z0-9]{20,}'
+          b 'long opaque alnum run (>=32)'                 '[A-Za-z0-9]{32,}'
+          b 'hex digest run (>=40)'                        '[0-9a-fA-F]{40,}'
+          b 'base64-ish run (>=32 with +/=)'               '[A-Za-z0-9+/]{32,}={0,2}'
+          b 'PEM private key header'                       'BEGIN [A-Z ]*PRIVATE KEY'
+          b 'Bearer / Authorization header'                'Bearer |Authorization:'
+          b 'secret-ish keyword'                           '(token|secret|password|passwd|credential|api[_-]?key)'
+          echo
+
+          echo '=== 5. GITHUB RUNNER REGISTRATION CREDENTIALS ==='
+          b 'RUNNER_TOKEN assignment'                      'RUNNER_TOKEN'
+          b 'runner credential filenames (.credentials/.runner)' '\.credentials|\.runner'
+          b 'config.sh --token / registration invocation'  'config\.sh|--token|--url .*github\.com'
+          b 'runner registration endpoint'                 'actions/runners/registration-token|api\.github\.com'
+          echo
+
+          echo '=== 6. RUNNER-MODIFYING SHELL COMMANDS ==='
+          b 'destructive removal (rm -rf / -r)'            'rm[[:space:]]+-[a-zA-Z]*[rf]'
+          b 'ownership/permission change (chown/chmod/setfacl)' 'chown|chmod|setfacl|gpasswd|usermod'
+          b 'service control (systemctl/svc.sh)'           'systemctl|svc\.sh|service '
+          b 'runner path reference (/opt/mythos-gh-runner)' '/opt/mythos-gh-runner'
+          b 'network fetch (curl/wget)'                    'curl |wget '
+          b 'archive extraction (tar)'                     'tar[[:space:]]+-?[xz]'
+          echo
+
+          echo '=== STRUCTURAL SHAPE (supports/refutes the shell-accident theory) ==='
+          b 'starts as a script (#! shebang anywhere)'      '^#!'
+          b 'looks like a find/grep pattern fragment'       'maintener|runsvc\.sh|run\.sh'
+          b 'contains pipe characters'                      '\|'
+          b 'contains an error/usage message'               '(No such file|not found|Usage:|command not found|Permission denied)'
+          echo
+          echo 'NOTE: every line above is an exit-status test. No file content was emitted.'
+          exit 0
+
+  # ===================================================================
+  # BRANCH-ONLY POST-FAILURE DIAGNOSIS — not proposed for main.
+  #
+  # Diagnoses the reported failure
+  #   git@github.com: Permission denied (publickey)
+  # during an attempted `mythos-deploy deploy os`.
+  #
+  # STRICTLY READ-ONLY. No retry, no key generation, no credential,
+  # deploy, backup or nginx change; nothing is installed, started or
+  # written. Only: git remote/status/rev-parse/reflog reads, file
+  # existence + digest comparisons, and systemd list queries. Remote
+  # URLs are printed because they are configuration, not secrets; no
+  # key material, token or credential file is ever read.
+  # ===================================================================
+  postfail:
+    name: Post-failure diagnosis (read-only, branch-only)
+    needs: smoke
+    runs-on: [self-hosted, mythos-vps]
+    timeout-minutes: 10
+    steps:
+      - name: A — repository state and remotes
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          G="git -C $R -c safe.directory=$R"
+          echo '=== REMOTES (URLs are config, not secrets) ==='
+          $G remote -v 2>&1
+          echo
+          echo '=== STATUS --porcelain (empty = clean) ==='
+          $G status --porcelain 2>&1
+          echo '--- end status ---'
+          echo
+          echo -n 'HEAD:        '; $G rev-parse HEAD 2>&1
+          echo -n 'origin/main: '; $G rev-parse origin/main 2>&1
+          echo -n 'branch:      '; $G branch --show-current 2>&1
+          echo
+          echo '=== url.insteadOf rewrites (would turn https into ssh) ==='
+          $G config --get-regexp 'url\..*\.insteadof' 2>&1 || echo '(none in repo config)'
+          git config --global --get-regexp 'url\..*\.insteadof' 2>&1 || echo '(none in this identity global config)'
+          exit 0
+
+      - name: B — did HEAD move? (reflog, read-only)
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          G="git -C $R -c safe.directory=$R"
+          echo '=== HEAD REFLOG (last 12) ==='
+          $G reflog --date=iso -12 2>&1
+          echo
+          echo '=== FETCH_HEAD / ORIG_HEAD mtimes ==='
+          for f in .git/FETCH_HEAD .git/ORIG_HEAD .git/HEAD; do
+            stat -c '%y  %n' "$R/$f" 2>&1
+          done
+          exit 0
+
+      - name: C — installed mythos-deploy vs committed copy (drift check)
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          I=/usr/local/sbin/mythos-deploy
+          echo '=== INSTALLED TOOL ==='
+          stat -c 'mode=%A owner=%U:%G size=%s mtime=%y  %n' "$I" 2>&1
+          echo -n 'installed sha256: '; sha256sum "$I" 2>&1 | cut -d' ' -f1
+          echo -n 'committed sha256: '; sha256sum "$R/ops/vps-admin/mythos-deploy" 2>&1 | cut -d' ' -f1
+          echo
+          echo '(equal digests = no drift; differing = the running tool is NOT the committed one)'
+          exit 0
+
+      - name: D — deploy audit trail and state (read-only)
+        run: |
+          set +e
+          echo '=== /var/log/mythos-deploy.log (last 25 lines) ==='
+          tail -n 25 /var/log/mythos-deploy.log 2>&1
+          echo
+          echo '=== /var/lib/mythos-deploy ==='
+          ls -la --time-style=full-iso /var/lib/mythos-deploy 2>&1
+          exit 0
+
+      - name: E — backup units present? (query only, nothing started)
+        run: |
+          set +e
+          echo '=== backup unit files on disk ==='
+          ls -la /etc/systemd/system/mythos-backup* /etc/systemd/system/mythos-restore* 2>&1
+          echo
+          echo '=== timer state (list only) ==='
+          systemctl list-timers 'mythos-backup*' 'mythos-restore*' --no-pager 2>&1
+          exit 0
+
+      - name: F — committed backup chain contains no git (source assertion)
+        run: |
+          set +e
+          R=/home/deploy/projects/mythos-prod
+          for f in ops/backup/install.sh ops/backup/mythos-backup-run.sh \
+                   projects/infrastructure/ops/offhost-backup.js \
+                   projects/infrastructure/ops/adapters/s3-compatible.js; do
+            printf '  %-58s ' "$f"
+            if [ -r "$R/$f" ]; then
+              grep -qaE '(^|[^a-zA-Z])git([^a-zA-Z]|$)|github\.com' "$R/$f" \
+                && echo 'CONTAINS git/github reference' || echo 'no git/github reference'
+            else
+              echo 'UNREADABLE'
+            fi
+          done
+          exit 0
