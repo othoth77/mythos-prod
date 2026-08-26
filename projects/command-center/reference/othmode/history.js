@@ -3,10 +3,12 @@
 // OTHMODE — unified Command History read model
 // projects/command-center/reference/othmode/history.js
 //
-// ONE timeline over THREE existing sources; no fourth event store:
+// ONE timeline over FOUR existing sources; no separate task database:
 //   library      — mcc_usage_events (this application's own database)
 //   executor     — /home/ubuntu/mythos-ai-executor/tasks/*/status.json
 //   orchestrator — /home/deploy/mythos-orchestrator/tasks/*/status.json
+//   othmode      — OTHMODE Task Reports (tasks.js over the OTHMODE store;
+//                  the persistent record of every othmode-activated command)
 //
 // The sources keep writing their own stores; this module only reads and
 // merges. File sources fail SOFT: on a host without executor state the
@@ -17,6 +19,7 @@
 
 var path = require('path');
 var resolve = require('./resolve.js');
+var tasks = require('./tasks.js');
 
 // db is injected (the api layer passes the real pool; tests pass a stub)
 // so this module never creates its own database dependency.
@@ -91,8 +94,13 @@ async function unified(db, options) {
   var lib = await libraryRows(db, limit);
   var exec = taskRows(resolve.executorTasksDir(), 'executor', limit);
   var orch = taskRows(resolve.orchestratorTasksDir(), 'orchestrator', limit);
+  // OTHMODE Task Reports fail SOFT here like every other source: an
+  // unprovisioned store is a reported state, never a crash or a blank lie.
+  var oth;
+  try { oth = tasks.historyRows(limit); }
+  catch (e) { oth = { available: false, reason: e.message, rows: [] }; }
 
-  var rows = lib.rows.concat(exec.rows).concat(orch.rows);
+  var rows = lib.rows.concat(exec.rows).concat(orch.rows).concat(oth.rows);
 
   if (opts.source) rows = rows.filter(function (r) { return r.source === opts.source; });
   if (opts.status) rows = rows.filter(function (r) { return String(r.status).toUpperCase() === String(opts.status).toUpperCase(); });
@@ -112,7 +120,8 @@ async function unified(db, options) {
     sources: {
       library: lib.available ? 'loaded' : (lib.reason || 'unavailable'),
       executor: exec.available ? 'loaded' : (exec.reason || 'unavailable'),
-      orchestrator: orch.available ? 'loaded' : (orch.reason || 'unavailable')
+      orchestrator: orch.available ? 'loaded' : (orch.reason || 'unavailable'),
+      othmode: oth.available ? 'loaded' : (oth.reason || 'unavailable')
     }
   };
 }
