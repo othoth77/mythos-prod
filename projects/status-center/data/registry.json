@@ -651,9 +651,9 @@
     {
       "id": "EV-SYA-API-MONITORED",
       "type": "file",
-      "reference": "projects/status-center/monitor/probes.json — sya-api-loopback",
+      "reference": "projects/status-center/monitor/probes.json",
       "date": "2026-08-26",
-      "note": "The second reason the outage lasted ten days: nothing watched this service. The only probe naming it (sya-api) pointed at the public URL, where an nginx catch-all answers 200 text/html for every path, so the outage was invisible by construction and the probe shipped disabled precisely because of that. New probe sya-api-loopback watches the origin the service actually binds to — http://127.0.0.1:3011/api/health, expect 200 + application/json + body substring \"read_only\":true so a half-initialised server that never reached PostgreSQL cannot report LIVE. Loopback probing is the precedent the database probe already set, and it doubles as proof the API is not publicly exposed on its own port. Verified LIVE in the collector dry run and in production. sya-api itself stays disabled: the public endpoint it names still does not exist."
+      "note": "Probe id sya-api-loopback. The second reason the outage lasted ten days: nothing watched this service. The only probe naming it (sya-api) pointed at the public URL, where an nginx catch-all answers 200 text/html for every path, so the outage was invisible by construction and the probe shipped disabled precisely because of that. New probe sya-api-loopback watches the origin the service actually binds to — http://127.0.0.1:3011/api/health, expect 200 + application/json + body substring \"read_only\":true so a half-initialised server that never reached PostgreSQL cannot report LIVE. Loopback probing is the precedent the database probe already set, and it doubles as proof the API is not publicly exposed on its own port. Verified LIVE in the collector dry run and in production. sya-api itself stays disabled: the public endpoint it names still does not exist."
     }
   ],
   "repositories": [
