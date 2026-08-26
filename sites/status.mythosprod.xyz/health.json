@@ -2,9 +2,9 @@
   "application": "mythos-status-center",
   "version": "1.0.0",
   "status": "ok",
-  "review_id": "REVIEW-2026-08-22-001",
-  "review_timestamp": "2026-08-22T18:04:51.015Z",
-  "data_timestamp": "2026-08-22T18:04:51.015Z",
-  "repository_head": "f1afe86193aba85782323c08c137549a902b2f35",
-  "last_review": "REVIEW-2026-08-22-001"
+  "review_id": "REVIEW-2026-08-26-002",
+  "review_timestamp": "2026-08-26T13:51:03.860Z",
+  "data_timestamp": "2026-08-26T13:51:03.860Z",
+  "repository_head": "a78de5ac46f2c22b234ff65992baa98084ebd997",
+  "last_review": "REVIEW-2026-08-26-002"
 }

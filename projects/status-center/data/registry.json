@@ -1,7 +1,7 @@
 {
   "registry_version": "1.0.0",
-  "curated_at": "2026-08-22",
-  "curation_note": "Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
+  "curated_at": "2026-08-26",
+  "curation_note": "Updated 2026-08-26 on the production VPS (deploy@vps-4722f0a9): added PROJECT-OTHMODE with five evidence records after the OTHMODE Task Reports release was merged (aa4ca2d), deployed and operator-verified first-hand on the host — the registry had carried no OTHMODE entry at all, which is why earlier re-syncs reported zero content change. Closed ACTION-STC2-INSTALL / NEXT-STC2-INSTALL against their own stated criteria (timer active and refreshing; published app.js byte-identical to the repository copy, carrying the live panel and the Arabic layer). Two genuinely outstanding items found while curating were recorded rather than left implicit: NEXT-STATUS-PUBLISH (the repository holds two unpublished reviews; the live site is behind because nothing published them, not because nothing re-synced) and NEXT-OTHMODE-MONITOR (othmode.mythosprod.xyz is not a monitored component). No percentage was invented: every OTHMODE dimension is recorded as a status with a note. Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
   "source_hierarchy": [
     {
       "source": "Current GitHub code (othoth77/mythos-prod main)",
@@ -549,6 +549,41 @@
       "reference": ".github/workflows/vps-final-gate.yml — knowledge configuration step",
       "date": "2026-08-21",
       "note": "Verification defect corrected: the step required projects/oth-knowledge/config/knowledge.json (a path that does not exist) and hid the error behind `|| echo`, so it verified nothing and always passed. It now reads the active projects/mythos-ai-executor/config/knowledge.json and asserts enabled === true and store_root === \"/home/deploy/othk-store\", failing closed on a missing, unparseable or de-activated config. OTH-KNOWLEDGE architecture unchanged. Suite vps-final-gate-knowledge 22/0. The corrected gate has not been dispatched on the self-hosted runner from this session."
+    },
+    {
+      "id": "EV-OTHMODE-TASKS-MERGE",
+      "type": "commit",
+      "reference": "aa4ca2d",
+      "date": "2026-08-26",
+      "note": "Merge of PR #89 into main — OTHMODE Task Reports. Every othmode-activated command becomes a persistent Task Report; full detail lives in OTHMODE and the chat reply is a short receipt only. Fast-forward over 711dbb2, 17 files, +1036/-13, no security control weakened and no existing test modified. Deployed to production the same day; cleanup of the imported pending files followed in bed5031."
+    },
+    {
+      "id": "EV-OTHMODE-TASKS-CODE",
+      "type": "file",
+      "reference": "projects/command-center/reference/othmode/tasks.js",
+      "date": "2026-08-26",
+      "note": "Task Report writer/read model over the append-only OTHMODE store (tasks/records.jsonl): created RUNNING, finished in exactly one terminal status (COMPLETED/FAILED/BLOCKED/CANCELLED/REJECTED), closed 13-section report vocabulary, fail-closed when the store is absent. The writer refuses command text that is not an othmode activation, so a normal Claude command can never become a task."
+    },
+    {
+      "id": "EV-OTHMODE-TASKS-TEST",
+      "type": "test",
+      "reference": "tests/othmode-3-tasks-test.js",
+      "date": "2026-08-26",
+      "note": "OTHMODE-3 suite: 68 passed / 0 failed on the production host at aa4ca2d. Covers the activation contract cases, fail-closed store, lifecycle and terminal statuses, section persistence, Command History as fourth source, route auth flags and the secret gate, the CLI create/update/show/import paths, and the UI/i18n/no-exec static guarantees. Regression floor re-run the same day: othmode-2 152/0, governance invariant 99/0."
+    },
+    {
+      "id": "EV-OTHMODE-LIVE",
+      "type": "vps",
+      "reference": "othmode.mythosprod.xyz probed from vps-4722f0a9, 2026-08-26",
+      "date": "2026-08-26",
+      "note": "Live and operator-verified after the Task Reports deployment. GET / -> 200. GET /api/othmode/tasks -> 401 unauthenticated (it returned 404 before the service restart, which is exactly how a stale process was detected). Authenticated probe over loopback returned 200 with 3 imported task records and a full report body; the verification session was revoked immediately. Served by mythos-command-center.service (systemd --user, deploy) on 127.0.0.1:3021 behind nginx."
+    },
+    {
+      "id": "EV-OTHMODE-STORE",
+      "type": "vps",
+      "reference": "/home/deploy/oth-evolution-store/tasks/records.jsonl on vps-4722f0a9, 2026-08-26",
+      "date": "2026-08-26",
+      "note": "Persistent Task Report stream live in the existing OTHMODE store (0700 root, records file 0600 deploy:deploy, append-only, outside Git). Three reports prepared off-host during the blocked runs were imported through the official CLI path and are readable through the authenticated API and as the fourth source of the unified Command History."
     }
   ],
   "repositories": [
@@ -831,6 +866,44 @@
         "EV-PR-47",
         "EV-PR-48",
         "EV-CC-SIMPLIFY"
+      ]
+    },
+    {
+      "id": "PROJECT-OTHMODE",
+      "name": "OTHMODE (othmode.mythosprod.xyz)",
+      "executive": true,
+      "purpose": "The OTHMODE control platform: the per-command control contract for Claude work on Mythos. A command activates it only when it contains the standalone keyword `othmode`; activation selects a control contract and grants no permission of any kind. Surfaces the command library, skills, tools, providers, memory, the Evolution layer and — since 2026-08-26 — a persistent Task Report for every activated command, readable as the fourth source of the unified Command History.",
+      "status": "DONE",
+      "maturity": "PRODUCTION_VERIFIED",
+      "repository": "othoth77/mythos-prod",
+      "last_change": "2026-08-26 (PR #89 Task Reports merged aa4ca2d, deployed and operator-verified; pending imports cleaned up in bed5031)",
+      "blocker": null,
+      "next_action": "None required for the platform. Outstanding around it: othmode.mythosprod.xyz is not yet a monitored component in the STC-2 probe registry (NEXT-OTHMODE-MONITOR).",
+      "headline": "Live at https://othmode.mythosprod.xyz since 2026-08-26 (Task Reports). Built over the MCC-1 runtime rather than as a second system: same process on 127.0.0.1:3021, same auth, CSRF and secret gate, no new event store. Task Reports add an append-only tasks/records.jsonl stream to the existing OTHMODE store and a fourth source to the existing Command History. Suite othmode-3 68/0, othmode-2 152/0 on the production host. Per-command activation replaced the global switch in PR #87; the keyword confers no privilege.",
+      "dimensions": {
+        "implementation": {
+          "status": "DONE",
+          "note": "tasks.js writer/read model, 4 authenticated API routes, CLI task show/create/update/import, Command History integration, EN/FR/AR UI with zero key gaps"
+        },
+        "tests": {
+          "status": "DONE",
+          "note": "othmode-3 68/0 · othmode-2 152/0 · governance 99/0 (host, 2026-08-26); no existing test modified by the change"
+        },
+        "deployment": {
+          "status": "DONE",
+          "note": "deployed via the audited mythos-deploy othmode target at aa4ca2d; the app is a systemd --user unit, so the service restart is a separate deploy-user step that mythos-deploy deliberately cannot perform"
+        },
+        "production": {
+          "status": "DONE",
+          "note": "operator-verified 2026-08-26: health 200, /api/othmode/tasks 401 unauthenticated, 3 real Task Reports imported and readable through the API and Command History"
+        }
+      },
+      "evidence": [
+        "EV-OTHMODE-TASKS-MERGE",
+        "EV-OTHMODE-TASKS-CODE",
+        "EV-OTHMODE-TASKS-TEST",
+        "EV-OTHMODE-LIVE",
+        "EV-OTHMODE-STORE"
       ]
     },
     {
@@ -2816,30 +2889,30 @@
     },
     {
       "id": "ACTION-STC2-INSTALL",
-      "status": "OWNER_ACTION",
-      "what": "Install the STC-2 monitor timer and re-sync the Status Center content",
+      "status": "DONE",
+      "what": "Install the STC-2 monitor timer and re-sync the Status Center content — COMPLETED (timer installed and running; monitor panel and Arabic layer published and live)",
       "why": "The Status Center currently publishes a snapshot; real service monitoring only starts once the timer runs on the host, and the Arabic layer only appears once the site content is re-synced.",
       "impact": "Turns the Status Center from a published record into live monitoring (LIVE/DEGRADED/DOWN/NOT_MONITORED with latency, HTTP status and TLS expiry) and publishes the Arabic explanation layer.",
       "required_input": "Root shell on the VPS.",
-      "expected_result": "systemctl status mythos-status-monitor.timer active; /data/live-status.json refreshed within 5 minutes; the page shows the live panel and the Arabic layer.",
+      "expected_result": "ACHIEVED and verified on the host 2026-08-26: mythos-status-monitor.timer active on a ~5-minute cadence (last run 13:43:34Z), /var/www/status.mythosprod.xyz/data/live-status.json refreshing with 12 probed components (10 LIVE, 1 DEGRADED, 1 NOT_MONITORED), and the published assets/app.js is byte-identical to the repository copy and carries both the live panel and the Arabic layer.",
       "procedure": "projects/status-center/monitor/README.md (install.sh) then sites/status.mythosprod.xyz/DEPLOYMENT.md §1 content sync."
     }
   ],
   "next_actions": [
     {
-      "id": "NEXT-STC2-INSTALL",
-      "priority": "P1",
+      "id": "NEXT-OTHK-STORE",
+      "priority": "P0",
       "order": 1,
-      "title": "Install the STC-2 monitor timer and sync the refreshed Status Center content",
-      "detail": "Root-only on the VPS: run projects/status-center/monitor/install.sh (systemd service + 5-minute timer writing /var/www/status.mythosprod.xyz/data/live-status.json), then re-sync sites/status.mythosprod.xyz/ per DEPLOYMENT.md so the published page carries the Arabic layer and the live panel. Until then the live panel correctly reports absent monitor data and the page serves a published snapshot.",
+      "title": "Provision /home/deploy/othk-store and activate config/knowledge.json",
+      "detail": "The next open live gate. The read-only VPS gate and the docker fix are verified GREEN on-host; live knowledge activation is the first genuine owner block — store location is a pending owner decision and provisioning + authorized exports are owner-only by architecture (docs/PRIVATE_STORE_ARCHITECTURE.md). Set enabled=true + an absolute out-of-repo store_root after provisioning.",
       "depends_on": null
     },
     {
-      "id": "NEXT-OTHK-STORE",
-      "priority": "P0",
+      "id": "NEXT-STATUS-PUBLISH",
+      "priority": "P1",
       "order": 2,
-      "title": "Provision /home/deploy/othk-store and activate config/knowledge.json",
-      "detail": "The next open live gate. The read-only VPS gate and the docker fix are verified GREEN on-host; live knowledge activation is the first genuine owner block — store location is a pending owner decision and provisioning + authorized exports are owner-only by architecture (docs/PRIVATE_STORE_ARCHITECTURE.md). Set enabled=true + an absolute out-of-repo store_root after provisioning.",
+      "title": "Publish the pending Status Center reviews to production",
+      "detail": "The repository holds REVIEW-2026-08-26-001 (and the never-published REVIEW-2026-08-22-001) while https://status.mythosprod.xyz/ still serves REVIEW-2026-08-21-001. The gap was never a missing re-sync — it is a missing publish. Root-only by design: `sudo bash scripts/deploy-status-center.sh` from the repository checkout (idempotent, strictly additive, fail-closed, --rollback available). mythos-deploy refuses target `status` as PROTECTED/owner-controlled, and /var/www/status.mythosprod.xyz is not writable by `deploy`.",
       "depends_on": null
     },
     {
@@ -2865,6 +2938,14 @@
       "title": "Create apex DNS and deploy the mythosprod.xyz hub",
       "detail": "Fixes the darhijama.tn misroute and publishes the master-brand page.",
       "depends_on": null
+    },
+    {
+      "id": "NEXT-OTHMODE-MONITOR",
+      "priority": "P2",
+      "order": 6,
+      "title": "Add othmode.mythosprod.xyz to the STC-2 monitor probe registry",
+      "detail": "The STC-2 monitor watches 12 components and othmode.mythosprod.xyz is not among them, although it is a live production surface carrying the Task Report record. Adding a probe (alongside the existing `ordre` entry, same process and port) would put OTHMODE under the same LIVE/DEGRADED/DOWN reporting as every other surface. Requires a monitor config change plus a root publish.",
+      "depends_on": "NEXT-STATUS-PUBLISH"
     }
   ],
   "do_not_reopen": [
