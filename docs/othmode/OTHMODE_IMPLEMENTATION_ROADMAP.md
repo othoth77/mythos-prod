@@ -1,6 +1,6 @@
 # OTHMODE — Implementation Roadmap
 
-Phase 1 design. Implementation starts only after owner approval of the audit.
+Phase 1 design — EXECUTED 2026-08-26 (owner implementation order). Phases 0-5 delivered plus the manual stage of Phase 6 and the skills/registry work of Phase 7; see [OTHMODE_FINAL_AUDIT.md](OTHMODE_FINAL_AUDIT.md) for the exact state of each item.
 Master document: [OTHMODE_AUDIT_AND_DESIGN.md](OTHMODE_AUDIT_AND_DESIGN.md)
 
 **بالعربية باختصار:** خطة التنفيذ مرتّبة على مراحل صغيرة، كل مرحلة تُختبر وتُوثَّق وتُغلق قبل التالية — نفس أسلوب العمل المعتمد في المستودع. قبل البدء نحتاج قراراتك المذكورة في آخر الوثيقة.

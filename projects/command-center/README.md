@@ -1,9 +1,22 @@
-# MYTHOS AI COMMAND CENTER
+# OTHMODE — Mythos control platform
 
-**Command Library for Mythos OS, Claude, Codex and AI Agents**
+**Commands · Skills · Tools · Providers · Projects · Health · Status · History · Memory · Evolution**
 
-Stage MCC-1 · serves `ordre.mythosprod.xyz` · full architecture in
-[`docs/MYTHOS_COMMAND_CENTER_ARCHITECTURE.md`](../../docs/MYTHOS_COMMAND_CENTER_ARCHITECTURE.md)
+Stage OTHMODE-2 (formerly MCC-1, the MYTHOS AI COMMAND CENTER) · serves
+**`othmode.mythosprod.xyz`** (canonical) and `ordre.mythosprod.xyz`
+(recoverable legacy host, same process) · MCC architecture in
+[`docs/MYTHOS_COMMAND_CENTER_ARCHITECTURE.md`](../../docs/MYTHOS_COMMAND_CENTER_ARCHITECTURE.md) ·
+OTHMODE design + final audit in [`docs/othmode/`](../../docs/othmode/)
+
+The command library below is unchanged and remains the LIBRARY core.
+OTHMODE adds, in `reference/othmode/`: unified read models over the
+existing engines (skills, tools, providers, projects), health aggregation
+with recovery records, unified command history, a read-first memory bridge
+through the oth-knowledge boundary, the controlled Evolution layer with an
+append-only store outside Git (`/home/deploy/oth-evolution-store`,
+fail-closed when absent), the owner-only OthMode ON/OFF switch, and the
+operator CLI `cli/othmode-cli.js`. Suite:
+`node tests/othmode-2-platform-test.js` (no database needed).
 
 A searchable, permanent library of the commands used to build and operate Mythos. Find a
 command, understand it, copy it, adapt it, note what you learned, and see which ones you
