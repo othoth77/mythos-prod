@@ -3,7 +3,7 @@
 **Product:** SsangYong Parts
 **Domain:** ssangyong.autos
 **Repository:** othoth77/mythos-prod (`projects/ssangyong-autos/`)
-**Current stage:** SYA-SHOP-1 — storefront consuming the catalog API natively (2026-08-16)
+**Current stage:** SYA-SHOP-2 — storefront redesigned as a professional parts-commerce UI (2026-08-26)
 **Consumption architecture:** migration plan §22 **option 3 ratified 2026-08-16** — new storefront consumes the catalog natively; legacy site untouched, retired later
 **Authoritative state record:** `docs/AI_HANDOVER.md`
 
@@ -135,12 +135,43 @@ changed.
 
 ---
 
-## The storefront (SYA-SHOP-1)
+## The storefront (SYA-SHOP-1, redesigned in SYA-SHOP-2)
 
 The consumer ratified option 3 calls for. Served by the same process as the API
 at `/`, so page and data share an origin and the API needs no public exposure of
 its own. Same no-build-step, no-framework convention as
 `projects/idauto/reference/admin.html` — plain HTML, one stylesheet, one script.
+
+**SYA-SHOP-2 (2026-08-26)** rebuilt the UI as a real parts-commerce platform on
+a design system branched from the MYTHOS token ARCHITECTURE
+(`docs/design/DESIGN_TOKENS.md` — three tiers, 4px spacing scale, measured
+contrast, one scarce accent) with this project's own identity (technical slate +
+signal orange, light-first, per A-006 project independence):
+
+- **Home** — hero with three discovery modes (vehicle finder, OEM reference,
+  browse), model cards, brand strip, data-honest trust blocks, assistance CTA.
+- **Catalogue** — PLP with vehicle / availability / brand filters, sort
+  (`price_asc`/`price_desc`/`recent`), grid/list toggle, mobile filter drawer,
+  and an empty state that always offers a recovery path.
+- **Product** — gallery, buy panel, OE references, specs, fitment table with a
+  data-backed *"Compatible avec votre véhicule"* badge (the ?model/?motor
+  context survives into the product URL and is compared against catalogue ids,
+  never guessed).
+- **Models / Assistance** views, breadcrumbs, SEO metadata, skip link, focus
+  states, 44px touch targets.
+- **WhatsApp is architected but gated**: the catalogue holds no contact number
+  and none is invented. Every WhatsApp control ships hidden behind
+  `CONTACT.whatsapp = ''` at the top of `shop-ui.js`; the owner sets the real
+  number there and every CTA (floating button, product, empty state,
+  assistance) activates with context-prefilled messages.
+- **No category tree** — deliberately. `database/schema.sql` §6 still holds:
+  the scraped categories tab is a crawl frontier, not application data, so
+  discovery is vehicle-first + OEM reference + brand, which the catalog truly
+  supports.
+
+The API gained three additive, whitelisted features for this stage —
+`GET /api/availabilities`, `?availability=` and `?sort=` on `/api/products`
+(default order unchanged).
 
 | Route | Serves |
 |---|---|

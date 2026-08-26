@@ -1,7 +1,12 @@
 'use strict';
 // =====================================================
-// MYTHOS — SSANGYONG.AUTOS Stage SYA-SHOP-1 tests
+// MYTHOS — SSANGYONG.AUTOS storefront tests (SYA-SHOP-1, extended for SYA-SHOP-2)
 // tests/sya-shop-1-storefront-test.js
+//
+// SYA-SHOP-2 redesigned the storefront into a real parts-commerce UI (home /
+// catalogue / product / models / assistance views, availability + sort,
+// gated WhatsApp); this suite grew with it and keeps every SYA-SHOP-1
+// security guarantee.
 //
 // The storefront ratified as migration-plan §22 option 3. Like the SYA-API-1
 // suite this is deliberately NOT offline: it serves the real assets from the
@@ -123,20 +128,43 @@ function get(p) { return request('GET', p); }
   ok(/<html lang="fr">/.test(html), 'The document declares lang="fr" — the storefront is French');
 
   console.log('\n4. Live UI behaviour — shop-ui.js driven against the real catalog');
-  var dom = makeDom(html, origin);
+  // SYA-SHOP-2: `/` with no parameters is the HOME view (hero + models +
+  // brands + trust); the catalogue PLP is ?view=cat or any filter/search.
+  var home = makeDom(html, origin);
+  vm.runInNewContext(uiSrc, home.context, { filename: 'shop-ui.js' });
+  await home.settle();
+
+  ok(home.byId('state-message').textContent === '', 'After first render the status line is cleared (no error state)');
+  ok(home.byId('view-home').hidden === false, '`/` renders the home view');
+  ok(home.byId('view-catalogue').hidden === true, 'The catalogue view stays hidden on home');
+  ok(home.byId('home-model-grid').children.length === 17,
+     'Home "Votre SsangYong" grid shows one card per live vehicle model (17)');
+  ok(home.byId('home-brand-strip').children.length >= 1, 'Home brand strip is populated');
+  ok(/pièces référencées/.test(home.byId('hero-counts').textContent), 'Hero reports live counts from /api/health');
+  ok(/pièces référencées/.test(home.byId('footer-counts').textContent), 'Footer reports live counts from /api/health');
+  // WhatsApp is architected but GATED: no number exists in the catalogue, so
+  // none may be invented — every WhatsApp control must stay hidden until the
+  // owner sets CONTACT.whatsapp.
+  ok(/whatsapp:\s*''/.test(uiSrc), 'CONTACT.whatsapp ships empty — no invented phone number');
+  ok(home.byId('wa-float').hidden === true && home.byId('help-whatsapp').hidden === true,
+     'WhatsApp controls are hidden while the owner has not provided a number');
+
+  var dom = makeDom(html, origin, '?view=cat');
   vm.runInNewContext(uiSrc, dom.context, { filename: 'shop-ui.js' });
   await dom.settle();
 
-  ok(dom.byId('state-message').textContent === '', 'After first render the status line is cleared (no error state)');
+  ok(dom.byId('view-catalogue').hidden === false, '?view=cat renders the catalogue view');
   ok(dom.byId('product-grid').children.length === 24,
      'The default catalogue renders one card per returned product (24 = the storefront page size)');
   ok(/346 pièces/.test(dom.byId('results-count').textContent),
      'Result count reports the full live catalog (346), including the 2 "updated" rows');
-  ok(/pièces référencées/.test(dom.byId('footer-counts').textContent), 'Footer reports live counts from /api/health');
   // The harness starts every element empty, so this counts only what the UI
   // appended — the static "Tous les modèles" option from shop.html is not here.
   ok(dom.byId('filter-model').children.length === 17, 'Model filter is populated with all 17 live vehicle models');
   ok(dom.byId('filter-brands').children.length >= 1, 'Brand facet is populated');
+  ok(dom.byId('filter-availability').children.length >= 1,
+     'Availability facet is populated from /api/availabilities');
+  ok(dom.byId('empty-state').hidden === true, 'The empty state stays hidden when results exist');
 
   var firstCard = dom.byId('product-grid').children[0];
   var priceText = dom.textOf(firstCard, 'price');
@@ -179,15 +207,21 @@ function get(p) { return request('GET', p); }
      'shop-ui.js never assigns innerHTML — scraped catalog text cannot become markup');
   ok(!/mysql|mariadb|catalog\.php|\/var\/www/i.test(code),
      'The storefront reaches no legacy system (migration plan §21 freeze, §22 option 3 as ratified)');
-  ok(!/https?:\/\//.test(code.replace(/fetch\(path/, '')),
-     'Every fetch is a same-origin relative path — no third-party endpoint is contacted');
+  // The one URL constant allowed in the source is the WhatsApp navigation
+  // base (a link target, not a fetch destination), and it must appear exactly
+  // once, as that constant.
+  var codeNoWa = code.replace("var WA_BASE = 'https://wa.me/';", '');
+  ok(!/https?:\/\//.test(codeNoWa.replace(/fetch\(path/, '')),
+     'Apart from the wa.me link base, no URL appears — every fetch is a same-origin relative path');
+  ok((code.match(/https?:\/\//g) || []).length === 1,
+     'The wa.me base is the single URL constant in the file');
   ok(!/localStorage|sessionStorage|document\.cookie/.test(code),
      'The storefront stores nothing in the browser — no cookie, no web storage');
 
   await new Promise(function (r) { server.close(r); });
   await db.closePool();
 
-  console.log('\nStage SYA-SHOP-1 (storefront): ' + pass + ' passed, ' + fail + ' failed');
+  console.log('\nStage SYA-SHOP-2 (storefront redesign): ' + pass + ' passed, ' + fail + ' failed');
   console.log('NOT covered here (no browser): CSS layout, real event dispatch, image loading.');
   process.exit(fail ? 1 : 0);
 })().catch(function (err) {
