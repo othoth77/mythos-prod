@@ -1,6 +1,6 @@
 {
-  "review_id": "REVIEW-2026-08-26-004",
-  "timestamp": "2026-08-26T14:16:14.929Z",
+  "review_id": "REVIEW-2026-08-26-003",
+  "timestamp": "2026-08-26T13:59:43.117Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "git@github.com:othoth77/mythos-prod.git",
@@ -8,26 +8,21 @@
     "pr_ledger_captured_at": "2026-08-26T13:58:00Z",
     "repo_snapshot_captured_at": "2026-08-20T10:20:00Z",
     "documents_checked": 24,
-    "evidence_checked": 83
+    "evidence_checked": 81
   },
   "git": {
     "collected": true,
-    "head": "7ee79551c11bc724a9c351c6d82b6385a1e64603",
+    "head": "aa90211cd006e58fa5cf4eff9b51f53e5c7e8ab5",
     "branch": "main",
-    "origin_main": "7ee79551c11bc724a9c351c6d82b6385a1e64603",
+    "origin_main": "aa90211cd006e58fa5cf4eff9b51f53e5c7e8ab5",
     "remote_url": "git@github.com:othoth77/mythos-prod.git",
     "worktree_clean": false,
     "last_commit": {
-      "hash": "7ee79551c11bc724a9c351c6d82b6385a1e64603",
-      "date": "2026-08-26T14:00:12Z",
-      "subject": "chore(status-center): refresh pr-ledger; update PROJECT-COMMAND-CENTER"
+      "hash": "aa90211cd006e58fa5cf4eff9b51f53e5c7e8ab5",
+      "date": "2026-08-26T13:52:19Z",
+      "subject": "feat(status-center): curate OTHMODE into the registry; close STC-2 install"
     },
     "recent_commits": [
-      {
-        "hash": "7ee7955",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): refresh pr-ledger; update PROJECT-COMMAND-CENTER"
-      },
       {
         "hash": "aa90211",
         "date": "2026-08-26",
@@ -1022,6 +1017,11 @@
         "hash": "7424862",
         "date": "2026-08-19",
         "subject": "Merge origin/main (17f05fc) into the MOS-v2 M-01 auth branch"
+      },
+      {
+        "hash": "17f05fc",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #35 from othoth77/claude/gate-closure-record"
       }
     ],
     "commit_count": null,
@@ -3243,22 +3243,22 @@
     },
     {
       "id": "ACTION-MOS-DEPLOY",
-      "status": "DONE",
-      "what": "Deploy the MOS-v2 console — COMPLETED (live; verified 2026-08-26 against the RUNBOOK Phase B criteria)",
+      "status": "OWNER_ACTION",
+      "what": "Deploy the MOS-v2 console",
       "why": "Code-complete, security-audited, regression-gated — dark only for lack of the operator run.",
       "impact": "os.mythosprod.xyz live with goals, approvals, mission control.",
       "required_input": "New MOS_CONSOLE_SECRET (0600), root for relay units and nginx.",
-      "expected_result": "ACHIEVED and re-verified 2026-08-26: /login -> 200, / -> 302, /api/health -> 401 unauthenticated, exactly the documented criteria; the STC-2 monitor reports os-console LIVE.",
+      "expected_result": "Login 200, unauthenticated health 401, missions dispatchable.",
       "procedure": "projects/mythos-os-console/deploy/relay/RUNBOOK.md."
     },
     {
       "id": "ACTION-HUB-DNS",
-      "status": "DONE",
-      "what": "Create apex DNS and deploy the mythosprod.xyz hub — COMPLETED (apex and www serving; verified 2026-08-26)",
+      "status": "OWNER_ACTION",
+      "what": "Create apex DNS and deploy the mythosprod.xyz hub",
       "why": "The master-brand page is built; the apex currently misroutes to darhijama.tn.",
       "impact": "Public ecosystem hub live.",
       "required_input": "Apex + www A records → 51.68.226.211.",
-      "expected_result": "ACHIEVED and re-verified 2026-08-26: https://mythosprod.xyz/ -> 200 and https://www.mythosprod.xyz/ -> 200; the STC-2 monitor reports hub-apex LIVE.",
+      "expected_result": "https://mythosprod.xyz/ serving the hub with valid TLS.",
       "procedure": "sites/mythosprod.xyz/DEPLOYMENT.md."
     },
     {
@@ -3284,20 +3284,52 @@
   ],
   "next_actions": [
     {
+      "id": "NEXT-OTHK-STORE",
+      "priority": "P0",
+      "order": 1,
+      "title": "Provision /home/deploy/othk-store and activate config/knowledge.json",
+      "detail": "The next open live gate. The read-only VPS gate and the docker fix are verified GREEN on-host; live knowledge activation is the first genuine owner block — store location is a pending owner decision and provisioning + authorized exports are owner-only by architecture (docs/PRIVATE_STORE_ARCHITECTURE.md). Set enabled=true + an absolute out-of-repo store_root after provisioning.",
+      "depends_on": null
+    },
+    {
       "id": "NEXT-STATUS-PUBLISH",
       "priority": "P1",
-      "order": 1,
+      "order": 2,
       "title": "Publish the pending Status Center reviews to production",
       "detail": "The repository holds REVIEW-2026-08-26-001 (and the never-published REVIEW-2026-08-22-001) while https://status.mythosprod.xyz/ still serves REVIEW-2026-08-21-001. The gap was never a missing re-sync — it is a missing publish. Root-only by design: `sudo bash scripts/deploy-status-center.sh` from the repository checkout (idempotent, strictly additive, fail-closed, --rollback available). mythos-deploy refuses target `status` as PROTECTED/owner-controlled, and /var/www/status.mythosprod.xyz is not writable by `deploy`.",
       "depends_on": null
     },
     {
+      "id": "NEXT-MOS-DEPLOY",
+      "priority": "P1",
+      "order": 3,
+      "title": "Execute the MOS-v2 Phase-B deployment runbook",
+      "detail": "New secret, relay units, deploy.sh, nginx reload — console goes live at os.mythosprod.xyz.",
+      "depends_on": null
+    },
+    {
       "id": "NEXT-EXPORTS",
       "priority": "P2",
-      "order": 2,
+      "order": 4,
       "title": "Produce authorized exports for OTH Knowledge Track B",
       "detail": "Takeout / Gemini / NotebookLM, per docs/OTH_TRACK_B_READINESS.md §3.",
       "depends_on": "NEXT-OTHK-STORE"
+    },
+    {
+      "id": "NEXT-HUB-DEPLOY",
+      "priority": "P2",
+      "order": 5,
+      "title": "Create apex DNS and deploy the mythosprod.xyz hub",
+      "detail": "Fixes the darhijama.tn misroute and publishes the master-brand page.",
+      "depends_on": null
+    },
+    {
+      "id": "NEXT-OTHMODE-MONITOR",
+      "priority": "P2",
+      "order": 6,
+      "title": "Add othmode.mythosprod.xyz to the STC-2 monitor probe registry",
+      "detail": "The STC-2 monitor watches 12 components and othmode.mythosprod.xyz is not among them, although it is a live production surface carrying the Task Report record. Adding a probe (alongside the existing `ordre` entry, same process and port) would put OTHMODE under the same LIVE/DEGRADED/DOWN reporting as every other surface. Requires a monitor config change plus a root publish.",
+      "depends_on": "NEXT-STATUS-PUBLISH"
     }
   ],
   "do_not_reopen": [
@@ -4384,22 +4416,6 @@
       "date": "2026-08-26",
       "note": "Persistent Task Report stream live in the existing OTHMODE store (0700 root, records file 0600 deploy:deploy, append-only, outside Git). Three reports prepared off-host during the blocked runs were imported through the official CLI path and are readable through the authenticated API and as the fourth source of the unified Command History.",
       "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-STALE-RECONCILE-0826",
-      "type": "vps",
-      "reference": "live criteria re-probed from vps-4722f0a9, 2026-08-26",
-      "date": "2026-08-26",
-      "note": "Three next_actions were still open although their blockers were already DONE. Each was re-verified first-hand against its OWN documented unblock criteria before closing. MOS-v2 (RUNBOOK Phase B): /login -> 200, / -> 302, /api/health -> 401 — exactly as specified; monitor reports os-console LIVE. Hub apex: mythosprod.xyz -> 200 and www.mythosprod.xyz -> 200; monitor reports hub-apex LIVE. OTH Knowledge store: /home/deploy/othk-store is 0700 deploy:deploy holding meta.json + records.jsonl, and projects/mythos-ai-executor/config/knowledge.json has enabled=true with store_root=/home/deploy/othk-store. Nothing was closed on assumption.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-OTHMODE-MONITOR-PROBE",
-      "type": "file",
-      "reference": "projects/status-center/monitor/probes.json",
-      "date": "2026-08-26",
-      "note": "othmode.mythosprod.xyz added to the EXISTING STC-2 probe registry (no second monitoring system): `othmode` checks the surface (expect 200/301/302, text/html) and `othmode-api` checks the Task Reports API (expect exactly 401, application/json) so that a 404 — the stale-process signature — or a missing auth wall both drive the probe DOWN. The monitor unit runs from the repository working directory, so the timer picks these up on its next ~5-minute tick with no root action. VERIFIED IN PRODUCTION 2026-08-26T14:15:49Z: the root-run timer picked the probes up from the repository working directory on its next tick with no root action — live-status.json now carries 14 components (was 12), othmode LIVE http=200 TLS 89d and othmode-api LIVE http=401 TLS 89d.",
-      "evidence_status": "VERIFIED"
     }
   ],
   "prs": [
@@ -5229,7 +5245,7 @@
       "authority": "historical evidence only — reconcile before trusting"
     }
   ],
-  "previous_review": "REVIEW-2026-08-26-003",
+  "previous_review": "REVIEW-2026-08-26-002",
   "changes": {
     "added": [],
     "completed": [],
