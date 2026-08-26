@@ -689,6 +689,20 @@
       "reference": "projects/ssangyong-autos/deploy/",
       "date": "2026-08-26",
       "note": "Three SYA deploy artifacts existed ONLY inside a git stash's untracked-files commit (stash@{0}^3, 'On main: VPS-local-work-before-M12-sync-2026-08-19') and in no branch anywhere. AGENTS.md §7 is explicit that work must not be left in a stash, and a single `git stash drop` would have destroyed them. ssangyong-storefront.user.service was already re-created from the live host by OTH-2026-00015; the other two are recovered here. nginx-ssangyong-storefront.conf was recovered byte-identical (git hash-object ff46cc65127d8553f6a170c888f505a629af33ec, 72 lines, matching the handover's count). The system-scope unit was recovered WITH ONE CORRECTION: MemoryDenyWriteExecute removed, because it is scope-independent and incompatible with V8's JIT — committing it unchanged would have handed the next operator the same trap that kept the user-scope sibling dead for ten days, except failing under load rather than at startup. Neither file contains a credential; both carry only paths, of the same class already public in this repository."
+    },
+    {
+      "id": "EV-SYA-STOREFRONT-HOSTNAME-DECIDED",
+      "type": "operator-report",
+      "reference": "owner instruction, 2026-08-26 — \"using store.ssangyong.autos as the approved public hostname\"",
+      "date": "2026-08-26",
+      "note": "The decision BLOCKER-SYA-NGINX-DRIFT was actually waiting on, made by the owner: the storefront's public hostname is store.ssangyong.autos. It had been undecided since 2026-08-16, and OTH-2026-00017 established it was the only real gate once the recorded '101-line drift' was shown to be a category error. VERIFIED ON-HOST the same day: store.ssangyong.autos already has a real A record — not a wildcard, since an invented sibling name resolves to nothing — pointing at 51.68.226.211, which is this host. So DNS was never a blocker for this name. Its CURRENT behaviour was measured before any change: with no vhost claiming it, the name falls through to the nginx default and returns 301 to https://darhijama.tn/ while presenting the darhijama.tn certificate (CN=darhijama.tn, SAN darhijama.tn + www). That is precisely the default-vhost fallback condition BLOCKER-STATUS-DNS recorded for status.mythosprod.xyz before 2026-08-20, which is why this task reused that deployment's proven shape rather than inventing one."
+    },
+    {
+      "id": "EV-SYA-STOREFRONT-DEPLOY-SCRIPT",
+      "type": "file",
+      "reference": "scripts/deploy-sya-storefront.sh",
+      "date": "2026-08-26",
+      "note": "The approved deployment path for the remaining half of BLOCKER-SYA-API-DOWN, modelled directly on scripts/deploy-status-center.sh — the script that performed this same operation for status.mythosprod.xyz on 2026-08-20 and is the proven pattern on this host. Same shape: preflight, additive vhost, certbot, smoke tests, regression checks, fail-closed throughout, with --rollback. Deliberate differences, each earned by a finding from this session's earlier tasks: (1) it does NOT embed the vhost body — it renders projects/ssangyong-autos/deploy/nginx-ssangyong-storefront.conf and substitutes the hostname, so there is one source for the config and one for the name and they cannot drift, which is the failure OTH-2026-00017 spent a task unpicking; (2) it refuses to run unless something is listening on 127.0.0.1:3011 AND that upstream's /api/health already returns status ok, because publishing a vhost in front of a dead upstream would put a 502 on a public hostname — the OTH-2026-00015 lesson; (3) its regression step hashes the legacy apex vhost before and after and fails if it changed, then proves https://ssangyong.autos/ and its own live /api/catalog.php are still answering with JSON, because OTH-2026-00017 found a recorded instruction that would have shadowed exactly that endpoint; (4) its smoke tests assert the P0's real acceptance criteria rather than mere reachability — application/json content-type, \"status\":\"ok\", \"read_only\":true proving a genuine PostgreSQL read, and a POST to /api/health refused 403 at the edge by limit_except. VALIDATED AS FAR AS AN UNPRIVILEGED SESSION CAN: bash -n clean; the rendered vhost passes `nginx -t` offline in a self-contained test config ('syntax is ok' — the only residual error is bind() to :80 being denied to a non-root user, which is the test harness, not the config); placeholder substitution verified to leave zero occurrences; server_name and proxy_pass verified present in the rendered output. NOT RUN. Installing a vhost requires root and deploy's sudo grant is exactly `nginx -t`, `systemctl reload nginx`, `certbot`. Note that `certbot --nginx` could technically be used to write nginx configuration through that grant; it was deliberately NOT used that way, because the sudoers policy is a recorded operator decision and routing around it would defeat the boundary rather than respect it."
     }
   ],
   "repositories": [
@@ -2826,21 +2840,23 @@
     },
     {
       "id": "BLOCKER-SYA-NGINX-DRIFT",
-      "title": "SUPERSEDED: the \"101-line nginx drift\" is a category error; the real gate is that the storefront hostname was never decided",
+      "title": "RESOLVED: storefront hostname decided (store.ssangyong.autos); the recorded \"101-line drift\" was a category error",
       "type": "configuration",
       "project": "PROJECT-SSANGYONG",
       "priority": "P2",
-      "status": "OWNER_ACTION",
+      "status": "DONE",
       "owner": "Owner",
       "impact": "WAS RECORDED AS: the repo nginx file and the installed apex vhost diverge by 101 lines, so which is authoritative is an owner decision. THAT FRAMING IS WRONG. The two files are vhosts for different hostnames, not two versions of one file: the repo file is a never-installed template with the literal placeholder __STOREFRONT_HOST__ as its server_name, and the installed file is the legacy apex. There is no drift to reconcile and no authority to assign. What is real, and what the template's own header says, is that THE STOREFRONT'S PUBLIC HOSTNAME HAS NEVER BEEN DECIDED in any document in this repository, and choosing it is an owner decision because it is the product's public identity.",
-      "required_input": "Decide the storefront's public hostname (for example storefront.ssangyong.autos or shop.ssangyong.autos), following the established pattern of n8n.ssangyong.autos on this host. NOT a decision about which config copy wins — that question does not exist.",
-      "unblock": "Once the hostname is chosen: substitute it for __STOREFRONT_HOST__, add the DNS A record, install the template to /etc/nginx/sites-available/<host> and symlink it (root), `sudo nginx -t`, `sudo systemctl reload nginx`, then `certbot --nginx -d <host>` which writes the TLS lines itself. DO NOT apply this template to the apex ssangyong.autos: that name serves the legacy site (13 PHP files under /var/www/ssangyong.autos) which migration-plan §21 freezes, and pointing it at the storefront upstream would take that site down.",
+      "required_input": "None — resolved.",
+      "unblock": "RESOLVED 2026-08-26 in two steps. OTH-2026-00017 established that the recorded drift was a category error — the two files are vhosts for different hostnames, not two copies — and that the only real gate was the undecided storefront hostname. The owner then decided it: store.ssangyong.autos. The template keeps its __STOREFRONT_HOST__ placeholder on purpose; the decided name lives once, in scripts/deploy-sya-storefront.sh.",
       "created": "2026-08-17",
       "last_checked": "2026-08-26",
       "evidence": [
         "EV-SYA-DRIFT",
         "EV-SYA-NGINX-NOT-DRIFT",
-        "EV-SYA-DEPLOY-RECOVERED-FROM-STASH"
+        "EV-SYA-DEPLOY-RECOVERED-FROM-STASH",
+        "EV-SYA-STOREFRONT-HOSTNAME-DECIDED",
+        "EV-SYA-STOREFRONT-DEPLOY-SCRIPT"
       ]
     },
     {
@@ -2881,15 +2897,15 @@
     },
     {
       "id": "BLOCKER-SYA-API-DOWN",
-      "title": "SYA catalog API: service RESTORED 2026-08-26; public /api route still absent (nginx proxy_pass, needs root)",
+      "title": "SYA catalog API: service restored and deployment prepared; one root run of scripts/deploy-sya-storefront.sh remains",
       "type": "infrastructure",
       "project": "PROJECT-SSANGYONG-AUTOS",
       "priority": "P0",
       "status": "BLOCKED",
       "owner": "Operator",
-      "impact": "WAS: ssangyong-storefront.service (a USER unit) had never started since 2026-08-16 — hardened SYSTEM-unit directives it cannot apply in user scope made systemd fail at the CAPABILITIES step, 67,256 restarts, nothing on 127.0.0.1:3011. THAT HALF IS FIXED (OTH-2026-00015, no root used): the service is active, listening, and serving real catalog JSON on 127.0.0.1:3011, and sya-api-loopback now watches it. REMAINS: the ssangyong.autos vhost is a static root with try_files and carries no /api proxy_pass, so the catalog API is unreachable from the public site — https://ssangyong.autos/api/health still answers 200 text/html from the SPA fallback. The storefront HTML has always been served by nginx and is unaffected; what is missing is the data path. This is now a routing gap, not a dead service.",
-      "required_input": "Root, plus the hostname decision in BLOCKER-SYA-NGINX-DRIFT. CORRECTED 2026-08-26 (OTH-2026-00017): the previous wording — add an /api proxy_pass to the apex vhost — was HAZARDOUS. The apex already serves a live /api/catalog.php returning 200 application/json, and a `location ~ ^/api/` proxy there would shadow it and break the legacy storefront's data path.",
-      "unblock": "Do NOT patch the apex. The correct route is the one the project already designed and this task recovered: projects/ssangyong-autos/deploy/nginx-ssangyong-storefront.conf is a complete storefront vhost that ALREADY CONTAINS the /api proxy_pass to 127.0.0.1:3011, a dedicated `location = /api/health`, and `limit_except GET HEAD { deny all; }` so write verbs are refused at the edge. It needs only a hostname. So the remaining work on this P0 is not nginx surgery — it is the owner naming the storefront, after which the template installs cleanly on its own vhost and the apex is never touched. Then flip sya-api in probes.json to enabled:true, retargeted at the new host; its expect_content_type guard is already in place so it cannot false-green on an SPA fallback.",
+      "impact": "WAS: the service had never started since 2026-08-16 (67,256 restarts, nothing on 127.0.0.1:3011). OTH-2026-00015 fixed that and the API has served real catalog JSON on loopback continuously since 2026-08-26T15:54:38Z, watched by sya-api-loopback. REMAINS: it is not reachable from the public internet. store.ssangyong.autos resolves to this host but no vhost claims it, so it falls through to the nginx default and 301s to darhijama.tn. Everything needed to close this is now written, validated and committed; what is missing is a single root-run command.",
+      "required_input": "One root run: `sudo bash scripts/deploy-sya-storefront.sh` from /home/deploy/projects/mythos-prod. deploy's sudo grant (`nginx -t`, `systemctl reload nginx`, `certbot`) does not permit writing /etc/nginx, which is why the execution layer cannot finish this itself. The script is additive, idempotent, fail-closed and carries --rollback; it refuses to proceed unless the upstream is already healthy, and it verifies the legacy apex is byte-identical afterwards.",
+      "unblock": "Run the script. On success it prints the two remaining deploy-side steps: flip sya-api to enabled:true in projects/status-center/monitor/probes.json (already retargeted to https://store.ssangyong.autos/api/health, with expect_content_type and expect_body_substring \"read_only\":true guarding against an SPA-fallback false-green), then run node projects/status-center/bin/review.js. If any check fails the script exits non-zero, tells you not to report the API as live, and gives the rollback command. DO NOT hand-install the vhost or patch the apex: the apex serves the frozen legacy site and its own live /api/catalog.php.",
       "created": "2026-08-22",
       "last_checked": "2026-08-26",
       "note_verified": "On-host 2026-08-22: NRestarts=2830 and climbing, status=218/CAPABILITIES every 5s, 21458 journal failures. ss shows nothing on :3011.",
@@ -2899,7 +2915,9 @@
         "EV-SYA-UNIT-IN-REPO",
         "EV-SYA-API-MONITORED",
         "EV-SYA-APEX-API-LIVE",
-        "EV-SYA-NGINX-NOT-DRIFT"
+        "EV-SYA-NGINX-NOT-DRIFT",
+        "EV-SYA-STOREFRONT-HOSTNAME-DECIDED",
+        "EV-SYA-STOREFRONT-DEPLOY-SCRIPT"
       ]
     },
     {

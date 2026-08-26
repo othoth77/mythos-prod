@@ -48,8 +48,12 @@ var silent = probes.filter(function (p) {
 check('every disabled probe explains itself in a note', silent.length === 0,
   silent.map(function (p) { return p.id; }).join(','));
 
+// PENDING/AFTER were added 2026-08-26: a probe may also be disabled because
+// the thing it watches is real and approved but not deployed yet, which is
+// sya-api's state since the storefront hostname was decided. The guarantee is
+// unchanged — a disabled probe must name a disposition, never go quiet.
 var vague = probes.filter(function (p) {
-  return !p.enabled && !/RETIRED|OPERATOR|blocked|absent|not exist/i.test(p.note || '');
+  return !p.enabled && !/RETIRED|OPERATOR|blocked|absent|not exist|pending|AFTER/i.test(p.note || '');
 });
 check('a disabled probe states a disposition (retired / blocked / operator action)',
   vague.length === 0, vague.map(function (p) { return p.id; }).join(','));
@@ -99,9 +103,22 @@ console.log('§5 SYA API retirement is documented, not assumed');
 var sya = byId('sya-api');
 check('sya-api probe is retained for the record', !!sya);
 check('sya-api is disabled', !!sya && sya.enabled === false);
-check('sya-api is documented as RETIRED', !!sya && /RETIRED/.test(sya.note || ''));
-check('retirement cites on-host evidence',
-  !!sya && /byte-identical|no \/api proxy_pass|try_files/i.test(sya.note || ''));
+// Until 2026-08-26 these asserted the probe was documented as RETIRED, which
+// was true while there was no catalog API at all. It is no longer true:
+// OTH-2026-00015 restored the service, OTH-2026-00018 gave it an approved
+// public hostname (store.ssangyong.autos) and a deployment script. The probe
+// is now disabled pending a root deploy, and the assertions moved with the
+// fact rather than being deleted — what they protect is that a disabled probe
+// states a checkable disposition, not that the disposition is any one word.
+check('sya-api documents the deployment it is waiting on',
+  !!sya && /pending|AFTER/i.test(sya.note || '') &&
+  /deploy-sya-storefront\.sh/.test(sya.note || ''));
+check('the disposition cites what was verified, not just an intention',
+  !!sya && /darhijama|SPA fallback|catalog\.php|default/i.test(sya.note || ''));
+// The apex must never be the target again: it answers 200 text/html for every
+// unmatched path and carries its own live /api/catalog.php (OTH-2026-00017).
+check('sya-api no longer points at the legacy apex',
+  !!sya && !/^https:\/\/(www\.)?ssangyong\.autos\//.test(sya.url || ''));
 check('the SPA-fallback guard is retained for any future restore',
   !!sya && sya.expect_content_type === 'application/json');
 

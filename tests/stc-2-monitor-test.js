@@ -272,12 +272,28 @@ async function run() {
   });
   // database was unconfirmed when this assertion was written; the port it
   // was waiting on (127.0.0.1:5432) is now published and verified, so it is
-  // enabled and the pin moved to sya-api alone. sya-api stays disabled
-  // because the API is retired, not because it is unconfirmed — that
-  // distinction is asserted in tests/monitor-coverage-test.js.
-  check('retired endpoint ships disabled and documented (sya-api)',
-    shipped.probes.find(function (p) { return p.id === 'sya-api'; }).enabled === false &&
-    /RETIRED/.test(shipped.probes.find(function (p) { return p.id === 'sya-api'; }).note || ''));
+  // enabled and the pin moved to sya-api alone.
+  //
+  // What this assertion protects has not changed — a probe may only ship
+  // disabled for a WRITTEN reason, never silently — but the reason itself
+  // changed on 2026-08-26 and the wording moved with it. sya-api was
+  // "RETIRED" while there was no catalog API at all; OTH-2026-00015 brought
+  // the service back and OTH-2026-00018 gave it an approved public hostname,
+  // so it is now disabled pending a root deployment. Matching the literal
+  // word RETIRED would have quietly stopped testing anything true.
+  var syaApiProbe = shipped.probes.find(function (p) { return p.id === 'sya-api'; });
+  check('sya-api ships disabled for a documented reason',
+    syaApiProbe.enabled === false && (syaApiProbe.note || '').length > 80);
+  // The apex is the LEGACY site and answers 200 text/html for every unmatched
+  // path; pointing a catalog-API probe there is what made the outage
+  // invisible for six days, and proxying /api there would shadow the apex's
+  // own live catalog endpoint (OTH-2026-00017). The probe must never go back.
+  check('sya-api does not target the legacy apex',
+    !/^https:\/\/(www\.)?ssangyong\.autos\//.test(syaApiProbe.url));
+  check('sya-api cannot false-green on an SPA fallback when it is enabled',
+    syaApiProbe.expect_content_type === 'application/json' &&
+    typeof syaApiProbe.expect_body_substring === 'string' &&
+    syaApiProbe.expect_body_substring.length > 0);
   check('the confirmed database endpoint is enabled',
     shipped.probes.find(function (p) { return p.id === 'database'; }).enabled === true);
   // OTHMODE read/write split (7252de2 made the Task Reports a public read).
