@@ -1,7 +1,7 @@
 # OTHMODE — Audit and Design (Phase 1)
 
 **Date:** 2026-08-25 · **Repository:** `othoth77/mythos-prod` · **Phase:** AUDIT → ANALYZE → DESIGN → DOCUMENT → PREPARE
-**Status of this phase:** design only. Nothing was implemented, migrated, deleted, or deployed.
+**Status of this phase:** design only (historical). **Phase 2 is IMPLEMENTED AND DEPLOYED** — see [OTHMODE_FINAL_AUDIT.md](OTHMODE_FINAL_AUDIT.md) and [OTHMODE_FINAL_REPORT.md](OTHMODE_FINAL_REPORT.md). Production: https://othmode.mythosprod.xyz
 
 Supporting documents (same directory):
 [Architecture](OTHMODE_ARCHITECTURE.md) · [UI Design + Design System](OTHMODE_UI_DESIGN.md) · [Evolution](OTHMODE_EVOLUTION.md) · [Open Source](OTHMODE_OPEN_SOURCE.md) · [Security](OTHMODE_SECURITY.md) · [Roadmap](OTHMODE_IMPLEMENTATION_ROADMAP.md) · [Design preview](preview/index.html)

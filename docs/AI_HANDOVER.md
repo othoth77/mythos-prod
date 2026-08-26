@@ -1,5 +1,29 @@
 # Mythos OS — AI Handover
 
+**Last updated:** 2026-08-26 UTC
+**From:** OTHMODE-2 — **OTHMODE PLATFORM LIVE.** ordre.mythos (MCC-1) adapted into the OTHMODE control platform and deployed to https://othmode.mythosprod.xyz (TLS, health 200, mythos-deploy `othmode` target with lastgood `dd0c731`). Full detail: `docs/othmode/OTHMODE_FINAL_AUDIT.md` + `OTHMODE_FINAL_REPORT.md`. Previous entry (VPS-ADMIN-FINAL) preserved below.
+
+## OTHMODE-2 — platform implementation deployed (2026-08-26)
+
+### Stage
+
+Owner order: implement the approved OTHMODE design (docs/othmode/) completely — integrate, test, harden, deploy. PRs #81 + #82 merged to main (`ccb697b`, `dd0c731`).
+
+- **Status: LIVE.** https://othmode.mythosprod.xyz (canonical) · ordre.mythosprod.xyz untouched, 200, recoverable legacy (same process, port 3021).
+- **What shipped:** OTHMODE shell over MCC-1 (12 screens, EN/FR/AR + RTL, light/dark); unified read models (31 skills across both registries, 10 tools, 3 providers — Claude PRIMARY/EXECUTION AUTHORITY, 21 projects); health aggregation over the live STC-2 monitor (26 components) + recovery records (DETECT→…→UPDATE_STATUS); read-only Status view (Status Center stays the truth); unified command history (library/executor/orchestrator, honest per-source availability); memory read-first through the fail-closed oth-knowledge boundary; full Evolution layer (append-only store at `/home/deploy/oth-evolution-store` 0700, signals w/ dedup+thresholds, selector KEEP→…→CREATE, risk-tiered review — HIGH approval is owner-only, PASS/FAIL validation gated on review, git rollback records); OthMode ON/OFF (owner-only, fail-closed, CLAUDE.md instruction contract — currently **OFF**); 6 new skills (preflight/postflight/session-handoff/status-sync/search-first[MIT-adapted]/graphify); Open Source Registry (9 live-verified records; @evomap/evolver engine REJECTED on GPL grounds, GEP shapes adopted); operator CLI `othmode-cli.js`.
+- **Gates (first-hand on the production host at dd0c731):** othmode-2 suite 94/0 · MCC 506/0 (incl. no-exec source assertions) · governance invariant 99/0 · MOS-v2 regression 20/20 · nginx -t clean · deploy via `mythos-deploy deploy othmode` SUCCESS after health 200.
+- **Live verification:** real evolution event recorded end-to-end on production (SELECTION: EXTEND → VALIDATION: PASS → RESULT: APPLIED); OthMode ON→OFF cycled via CLI (both flips recorded as events); auth walls 401/403 verified; public payloads scanned clean of secret shapes.
+- **Host changes (root, audited):** nginx vhost `othmode.mythosprod.xyz` installed + certbot ECDSA cert (exp. 2026-11-24); `/usr/local/sbin/mythos-deploy` reinstalled from repo (adds `othmode` target); MCC user unit updated (ReadWritePaths = the evolution store only); `.env` gains OTHMODE_STORE_ROOT + OTHMODE_PROVIDER_HOME (no secrets touched).
+
+### Owner next steps
+
+1. **Arabic review:** read the AR strings in `projects/command-center/reference/web/othmode-i18n.js` (live already; corrections are one-line edits).
+2. **OthMode ON** when ready: Settings → switch (owner token), or `node projects/command-center/cli/othmode-cli.js mode ON` as deploy.
+3. **Graphify install (optional):** `uv tool install graphifyy` where wanted, then flip its registry record APPROVED→INTEGRATED with the pinned version.
+4. **ordre retirement:** decide after a comfort period (nothing needs to change until then).
+5. Workstation `mythos-prod-gate/` clone: its unique work is on main; delete locally if no longer wanted.
+
+
 **Last updated:** 2026-08-22 UTC
 **From:** CLOSURE-2026-08-22 — **HOST CLOSURE ATTEMPTED; HOST NOT CLOSED, PRODUCTION NOT VERIFIED — the reason is a real outage: the SYA catalog API has been down since 2026-08-16.** `ssangyong-storefront.service` (a USER unit) has never started — `status=218/CAPABILITIES`, NRestarts 2975, nothing on `127.0.0.1:3011` — because it carries hardened SYSTEM-unit directives an unprivileged user manager cannot apply. nginx catch-all serves the storefront HTML, so the site looks up while the API is dead, answering `200 text/html` on `/api/health` — exactly why a status-only probe never caught it. Delivered this session: B2/B3/B4 gate-reliability fixes (`99ef70b`), B8 swap visibility (`33696dc`) and threshold (`f1afe86`), B9 registry re-verification (`d32b47f`). Four blockers cleared on real on-host evidence; two recorded rather than closed (BLOCKER-SYA-API-DOWN P0, BLOCKER-BACKUP-RESTORE-UNPROVEN P2). Gates green: production-sync-audit 24/0, stc-1 73/0, stc-2 77/0, stc-ar 50/0, hub-dashboard 50/0, **OTH-KNOWLEDGE live gate LIVE PASS 52/0 exit 0**. Security boundary re-verified unchanged. Monitoring now reports `vps-resources DEGRADED "swap 100% used"` truthfully, but `sya-api` stays NOT_MONITORED, so the P0 outage is still invisible to it. Full entry below; previous entries preserved.
 
