@@ -171,12 +171,34 @@ function fakeRes() {
   };
 }
 
-['GET /api/othmode/tasks', 'GET /api/othmode/tasks/OTH-2026-00001',
- 'POST /api/othmode/tasks', 'POST /api/othmode/tasks/OTH-2026-00001/update'].forEach(function (spec) {
+// READS ARE PUBLIC, WRITES ARE NOT. Command History and the Task Reports are
+// the operational record and are readable with no session at all; every
+// mutation stays authenticated and secret-gated. These two lists are the
+// contract — a route moving between them is a security change, and this test
+// is what makes that impossible to do quietly.
+['GET /api/othmode/history', 'GET /api/othmode/tasks',
+ 'GET /api/othmode/tasks/OTH-2026-00001'].forEach(function (spec) {
   var parts = spec.split(' ');
   var route = findRoute(parts[0], parts[1]);
-  ok(!!route && route.auth === true, '26. ' + spec + ' exists and requires authentication');
+  ok(!!route && route.auth === false, '26. ' + spec + ' is PUBLIC (no session required)');
 });
+['POST /api/othmode/tasks', 'POST /api/othmode/tasks/OTH-2026-00001/update'].forEach(function (spec) {
+  var parts = spec.split(' ');
+  var route = findRoute(parts[0], parts[1]);
+  ok(!!route && route.auth === true, '26b. ' + spec + ' still REQUIRES authentication');
+});
+// Nothing else may have become public as a side effect: the write and
+// admin surface is enumerated and must remain fully authenticated.
+['POST /api/othmode/evolution/signals', 'POST /api/othmode/evolution/events',
+ 'POST /api/othmode/recovery'].forEach(function (spec) {
+  var parts = spec.split(' ');
+  var route = findRoute(parts[0], parts[1]);
+  if (route) ok(route.auth === true, '26c. ' + spec + ' remains authenticated');
+});
+{
+  var publicWrites = routes.filter(function (r) { return r.method === 'POST' && r.auth === false; });
+  ok(publicWrites.length === 0, '26d. no POST route is public — the write surface is fully closed');
+}
 
 {
   var resSecret = fakeRes();
@@ -267,7 +289,64 @@ function runCliTests() {
   var exported = JSON.parse(cli(['export', path.join(os.tmpdir(), 'othmode3-export-' + process.pid)]));
   ok(exported.files.indexOf('tasks/records.jsonl') !== -1, 'task stream included in store export/backup');
 
+  runPublicReadTests();
   runStaticTests();
+}
+
+// ---------------------------------------------------------------------------
+function runPublicReadTests() {
+  section('public read — anonymous access is allowed but redacted');
+  var tRoot = tmpRoot('public');
+  process.env.OTHMODE_STORE_ROOT = tRoot;
+  delete require.cache[require.resolve('../projects/command-center/reference/othmode/tasks.js')];
+  delete require.cache[require.resolve('../projects/command-center/reference/othmode/store.js')];
+  var tk = require('../projects/command-center/reference/othmode/tasks.js');
+
+  // A report carrying exactly the infrastructure detail these reports really do
+  // carry — this is the shape the redactor exists for.
+  var made = tk.createTask({
+    command: 'othmode publish check',
+    project: 'command-center',
+    sections: {
+      evidence: {
+        sudo: 'deploy: (root) NOPASSWD: /usr/sbin/nginx -t, /usr/bin/certbot',
+        store: '/home/deploy/oth-evolution-store/tasks/records.jsonl is 0600',
+        service: 'listening on 127.0.0.1:3021, MainPID 112861 on vps-4722f0a9',
+        commit: 'aa4ca2d verified; see https://othmode.mythosprod.xyz/'
+      }
+    }
+  }, 'operator:deploy');
+
+  var verbatim = tk.getTask(made.id);
+  var pub = tk.publicTask(verbatim);
+  var pubBlob = JSON.stringify(pub);
+
+  ok(pub.redacted === true, '31. the public projection marks itself redacted');
+  ok(Object.keys(verbatim).every(function (k) { return k in pub; }),
+    '32. redaction preserves record SHAPE — no field disappears from the public view');
+  ok(pubBlob.indexOf('NOPASSWD') === -1, '33. sudo grants are not published');
+  ok(pubBlob.indexOf('/home/deploy') === -1, '34. absolute host paths are not published');
+  ok(pubBlob.indexOf('127.0.0.1') === -1, '35. internal listeners are not published');
+  ok(pubBlob.indexOf('vps-4722f0a9') === -1, '36. the hostname is not published');
+  ok(pubBlob.indexOf('112861') === -1, '37. process identifiers are not published');
+  // Redaction must not destroy what makes a report worth reading.
+  ok(pubBlob.indexOf('aa4ca2d') !== -1, '38. git SHAs survive redaction (reports stay citable)');
+  ok(pubBlob.indexOf('https://othmode.mythosprod.xyz/') !== -1, '39. public URLs survive redaction');
+  ok(pub.status === verbatim.status && pub.id === verbatim.id,
+    '40. status and id are identical in the public view');
+
+  // The authenticated reader is handed the record untouched.
+  ok(JSON.stringify(verbatim).indexOf('NOPASSWD') !== -1,
+    '41. an AUTHENTICATED reader still sees the unredacted record');
+  ok(verbatim.redacted === undefined, '42. the stored record is never mutated by publishing');
+
+  // Append-only is intact: publishing added no update/delete path.
+  var store = require('../projects/command-center/reference/othmode/store.js');
+  ok(typeof store.updateRecord !== 'function' && typeof store.deleteRecord !== 'function',
+    '43. the store still has no update or delete — publishing did not add one');
+
+  process.env.OTHMODE_STORE_ROOT = '';
+  delete process.env.OTHMODE_STORE_ROOT;
 }
 
 // ---------------------------------------------------------------------------
@@ -283,6 +362,35 @@ function runStaticTests() {
   var titleCount = i18nSrc.split("'oth.task.title'").length - 1;
   ok(titleCount === 3, '32/33. task strings present in EN, FR and AR (' + titleCount + ' locales)');
   ok(i18nSrc.indexOf('مهمّة OTHMODE') !== -1, 'Arabic task title present');
+
+  // ── Command History is a PUBLIC page ───────────────────────────────────
+  // It must not render an access/modification prompt, and must not tell the
+  // reader a session is needed — because one is not. These assertions read
+  // the shipped source, so they fail if either ever comes back.
+  {
+    var histCatch = /\}\)\.catch\(function \(\) \{ publicErrorView\('oth\.history\.title'/;
+    var taskCatch = /\}\)\.catch\(function \(\) \{ publicErrorView\('oth\.task\.title'/;
+    ok(histCatch.test(othmodeJs), '44. Command History uses the public error view (never the auth one)');
+    ok(taskCatch.test(othmodeJs), '45. the task report view uses the public error view');
+    var pubView = othmodeJs.slice(othmodeJs.indexOf('function publicErrorView'));
+    pubView = pubView.slice(0, pubView.indexOf('function emptyState'));
+    ok(pubView.indexOf('openAuthDialog') === -1,
+      '46. no modification-access button is rendered on the public views');
+    ok(pubView.indexOf('auth_needed') === -1,
+      '47. no "requires a connected session" warning is rendered on the public views');
+    ok(pubView.indexOf("t('auth.title')") === -1,
+      '48. the sign-in button label never appears on the public views');
+    // The note that IS shown states a fact about the page; it must never be
+    // phrased as a login requirement.
+    var noteCount = i18nSrc.split("'oth.history.public_note'").length - 1;
+    ok(noteCount === 3, '49. the public-view note exists in EN, FR and AR (' + noteCount + ' locales)');
+    ok(othmodeJs.indexOf("t('oth.history.public_note')") !== -1,
+      '50. Command History renders the public-view note');
+    ok(i18nSrc.indexOf('عرض عام') !== -1, '51. Arabic public-view note present');
+    // errorView (used by the screens that DO need a session) is untouched.
+    ok(othmodeJs.indexOf('function errorView') !== -1 && othmodeJs.indexOf('openAuthDialog') !== -1,
+      '52. the authenticated screens keep their sign-in path — nothing else was weakened');
+  }
 
   ['othmode.js', 'othmode-i18n.js'].forEach(function (f) {
     var src = fs.readFileSync(path.join(webDir, f), 'utf8');

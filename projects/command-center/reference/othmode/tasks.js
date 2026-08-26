@@ -272,6 +272,86 @@ function historyRows(limit) {
   return { available: true, reason: null, rows: rows.slice(0, limit || 50) };
 }
 
+// ---------------------------------------------------------------------------
+// PUBLIC READ PROJECTION
+//
+// Command History and Task Reports are readable without a session. The store
+// itself is APPEND-ONLY — there is no update and no delete anywhere in this
+// module — so a report cannot be edited after the fact to make it safe to
+// publish. The projection therefore happens on READ, and only for callers
+// with no identity: an authenticated reader always gets the record verbatim.
+//
+// What is masked is deliberately narrow. These reports are operational
+// narrative, and over-redaction would leave a public page that says nothing.
+// Credentials never reach the store at all — the write path's secret gate
+// already refuses them — so this is not a secret filter. It masks the
+// INFRASTRUCTURE MAP that the narrative unavoidably contains: which
+// filesystem paths exist, which account may escalate to what, where services
+// listen internally, and what this host is called. Individually harmless;
+// published together they are a reconnaissance aid.
+//
+// The redaction is applied to strings only, recursively, and never changes
+// the shape of a record: every field a UI or API consumer expects is still
+// present, so the public view degrades in detail, never in structure.
+// ---------------------------------------------------------------------------
+var REDACTIONS = [
+  // Absolute host paths (longest-first so /home/x/... is masked whole).
+  [/\/(?:home|var|etc|run|srv|opt|usr\/local)\/[A-Za-z0-9._\-\/]*/g, '/[redacted-path]'],
+  // sudo grants — the single most useful line for an attacker.
+  [/\(root\)\s*NOPASSWD:[^"'\n]*/g, '[redacted: host permission detail]'],
+  [/NOPASSWD/g, '[redacted]'],
+  // Internal listeners.
+  [/\b(?:127\.0\.0\.1|localhost|0\.0\.0\.0)(?::\d+)?/g, '[redacted-endpoint]'],
+  // This host's name and process identifiers.
+  [/\bvps-[a-z0-9]+\b/gi, '[redacted-host]'],
+  [/\b(?:MainPID|PID|pid)\s*[=:]?\s*\d{2,}/g, 'pid [redacted]'],
+  // Local account names, including in "operator:<user>" actors.
+  [/\b(operator|user):(?:deploy|ubuntu|root|www-data|mythosadmin)\b/g, '$1:[redacted]'],
+  [/\bUID\s*\d{3,}\b/g, 'UID [redacted]']
+];
+
+function redactString(s) {
+  var out = String(s);
+  for (var i = 0; i < REDACTIONS.length; i++) {
+    out = out.replace(REDACTIONS[i][0], REDACTIONS[i][1]);
+  }
+  return out;
+}
+
+function redactValue(v) {
+  if (typeof v === 'string') return redactString(v);
+  if (Array.isArray(v)) return v.map(redactValue);
+  if (v && typeof v === 'object') {
+    var o = {};
+    Object.keys(v).forEach(function (k) { o[k] = redactValue(v[k]); });
+    return o;
+  }
+  return v;
+}
+
+// publicTask(task) — the anonymous view of one report. Returns null for null
+// so callers can pass a missing task straight through.
+function publicTask(task) {
+  if (!task) return task;
+  var out = redactValue(task);
+  out.redacted = true;
+  return out;
+}
+
+function publicTasks(list) {
+  if (!list) return list;
+  var out = Object.assign({}, list);
+  if (Array.isArray(out.tasks)) out.tasks = out.tasks.map(publicTask);
+  return out;
+}
+
+function publicHistoryRows(result) {
+  if (!result) return result;
+  var out = Object.assign({}, result);
+  if (Array.isArray(out.rows)) out.rows = out.rows.map(redactValue);
+  return out;
+}
+
 module.exports = {
   STATUSES: STATUSES,
   TERMINAL_STATUSES: TERMINAL_STATUSES,
@@ -281,5 +361,9 @@ module.exports = {
   updateTask: updateTask,
   listTasks: listTasks,
   getTask: getTask,
-  historyRows: historyRows
+  historyRows: historyRows,
+  publicTask: publicTask,
+  publicTasks: publicTasks,
+  publicHistoryRows: publicHistoryRows,
+  redactString: redactString
 };

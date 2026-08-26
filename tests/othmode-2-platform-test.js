@@ -554,9 +554,30 @@ function runHttpTests() {
         { source: 'manual', description: 'bearer write', dedup_key: 'csrf:3' });
     }).then(function (res) {
       ok(res.status === 201, 'bearer path unchanged (no CSRF requirement, explicit credential)');
+      // /api/othmode/history is deliberately PUBLIC now, so it can no longer
+      // serve as the "no credential" probe. Use an endpoint that genuinely
+      // still requires a session — the guarantee under test is unchanged.
+      return request('GET', '/api/othmode/evolution/events', {});
+    }).then(function (res) {
+      ok(res.status === 401, 'no credential at all → 401 preserved (authenticated endpoint)');
       return request('GET', '/api/othmode/history', {});
     }).then(function (res) {
-      ok(res.status === 401, 'no credential at all → 401 preserved');
+      ok(res.status === 200, 'PUBLIC READ: unauthenticated GET /history succeeds over real HTTP');
+      var body = JSON.parse(res.body || '{}');
+      ok(!/NOPASSWD|\/home\/deploy|127\.0\.0\.1/.test(JSON.stringify(body)),
+        'PUBLIC READ: the anonymous history payload carries no infrastructure detail');
+      return request('GET', '/api/othmode/tasks', {});
+    }).then(function (res) {
+      ok(res.status === 200, 'PUBLIC READ: unauthenticated GET /tasks succeeds over real HTTP');
+      return request('POST', '/api/othmode/tasks',
+        { 'content-type': 'application/json', 'sec-fetch-site': 'same-origin' },
+        { command: 'othmode anonymous write attempt' });
+    }).then(function (res) {
+      ok(res.status === 401, 'WRITES STAY CLOSED: unauthenticated POST /tasks → 401');
+      return request('POST', '/api/othmode/tasks/OTH-2026-00001/update',
+        { 'content-type': 'application/json', 'sec-fetch-site': 'same-origin' }, { status: 'COMPLETED' });
+    }).then(function (res) {
+      ok(res.status === 401, 'WRITES STAY CLOSED: unauthenticated POST task update → 401');
       return request('POST', '/api/othmode/logout', { cookie: cookie, 'sec-fetch-site': 'same-origin' });
     }).then(function (res) {
       ok(res.status === 200 && /Max-Age=0/.test(String(res.headers['set-cookie'])), 'logout clears the cookie');

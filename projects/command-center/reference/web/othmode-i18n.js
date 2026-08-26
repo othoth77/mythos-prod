@@ -109,6 +109,7 @@
     'oth.status.unavailable': 'The Status Center data is not readable from this host. Use the link below.',
 
     'oth.history.title': 'Command History',
+    'oth.history.public_note': 'Public view. Reports are readable by anyone; infrastructure detail (paths, permissions, internal addresses) is masked.',
     'oth.history.sub': 'One timeline over four sources — OTHMODE tasks, the library, the executor and the orchestrator. Each source keeps writing its own store.',
     'oth.history.source': 'Source',
     'oth.history.duration': 'Duration',
@@ -259,6 +260,7 @@
     'oth.status.unavailable': 'Les données du Status Center ne sont pas lisibles depuis cet hôte. Utilisez le lien ci-dessous.',
 
     'oth.history.title': 'Historique des commandes',
+    'oth.history.public_note': 'Vue publique. Les rapports sont lisibles par tous ; le détail d’infrastructure (chemins, permissions, adresses internes) est masqué.',
     'oth.history.sub': 'Une seule chronologie sur quatre sources — les tâches OTHMODE, la bibliothèque, l’exécuteur et l’orchestrateur. Chaque source continue d’écrire son propre store.',
     'oth.history.source': 'Source',
     'oth.history.duration': 'Durée',
@@ -597,6 +599,7 @@
     'oth.status.unavailable': 'بيانات مركز الحالة غير قابلة للقراءة من هذا الخادم. استعمل الرابط أدناه.',
 
     'oth.history.title': 'سجلّ الأوامر',
+    'oth.history.public_note': 'عرض عام. التقارير متاحة للجميع؛ وتفاصيل البنية التحتية (المسارات والصلاحيات والعناوين الداخلية) مُخفاة.',
     'oth.history.sub': 'خطّ زمني واحد فوق أربعة مصادر — مهام OTHMODE والمكتبة والمنفّذ والمنسّق. كل مصدر يستمرّ في الكتابة في مخزنه الخاص.',
     'oth.history.source': 'المصدر',
     'oth.history.duration': 'المدّة',
