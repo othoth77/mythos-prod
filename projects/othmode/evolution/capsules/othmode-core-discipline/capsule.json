@@ -1,0 +1,26 @@
+{
+  "id": "othmode-core-discipline",
+  "version": "1.0",
+  "title": "OTHMODE core operating discipline",
+  "status": "ACTIVE",
+  "genes": ["quota-wait-over-fallback", "targeted-test-scope"],
+  "context": "The two behavioural rules every Mythos execution path already follows, packaged so a provider prompt, a skill, or a future evolution can reference them as one validated unit instead of rediscovering them. Created on real need: the OTHMODE Phase 2/AUTH releases applied both rules end-to-end and their reuse surface (executor prompt template, postflight skill, validation runner) is now concrete.",
+  "instructions": "When executing: a task whose provider holds execution authority waits for quota (WAITING_FOR_QUOTA) and never falls back across the authority line. When validating: select targeted suites from projects/meta/test-impact-map.json, establish the baseline failure count before blaming a change, run the full suite only when shared code changed, report exact counts — 0 new failures is the floor.",
+  "tools": ["projects/meta/test-impact-map.json", "projects/mythos-ai-executor/config/router.json"],
+  "validation": "PASS",
+  "validation_detail": {
+    "dimensions": { "functional": "PASS", "regression": "PASS", "scope": "PASS" },
+    "evidence": [
+      "tests/othmode-2-platform-test.js — 120/0 (2026-08-26), gene model + activation contract exercised",
+      "tests/mythos-ai-executor-test.js — quota/resume behaviour (regression floor)",
+      "on-host regression 2026-08-26: MCC 506/0, governance 99/0, MOS-v2 20/20 at dd0c731/276318e"
+    ]
+  },
+  "review": "APPROVED",
+  "review_detail": {
+    "tier": "LOW",
+    "rationale": "Packages two already-VALIDATED genes that document existing production behaviour; introduces no behavioural change. LOW tier per docs/othmode/OTHMODE_EVOLUTION.md §8; approved through the reviewed Git change that adds this file (PR on claude/othmode-100).",
+    "actor": "claude (LOW-tier AI review, recorded); Git merge is the human-visible checkpoint"
+  },
+  "gep_note": "Field shapes follow the GEP gene/capsule concepts (id/version/genes/context/instructions/validation/evidence) without importing GPL engine code; deviations: validation_detail/review_detail are OTHMODE's explicit PASS+APPROVED activation contract."
+}

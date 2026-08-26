@@ -1,9 +1,22 @@
-# MYTHOS AI COMMAND CENTER
+# OTHMODE — Mythos control platform
 
-**Command Library for Mythos OS, Claude, Codex and AI Agents**
+**Commands · Skills · Tools · Providers · Projects · Health · Status · History · Memory · Evolution**
 
-Stage MCC-1 · serves `ordre.mythosprod.xyz` · full architecture in
-[`docs/MYTHOS_COMMAND_CENTER_ARCHITECTURE.md`](../../docs/MYTHOS_COMMAND_CENTER_ARCHITECTURE.md)
+Stage OTHMODE-2 (formerly MCC-1, the MYTHOS AI COMMAND CENTER) · serves
+**`othmode.mythosprod.xyz`** (canonical) and `ordre.mythosprod.xyz`
+(recoverable legacy host, same process) · MCC architecture in
+[`docs/MYTHOS_COMMAND_CENTER_ARCHITECTURE.md`](../../docs/MYTHOS_COMMAND_CENTER_ARCHITECTURE.md) ·
+OTHMODE design + final audit in [`docs/othmode/`](../../docs/othmode/)
+
+The command library below is unchanged and remains the LIBRARY core.
+OTHMODE adds, in `reference/othmode/`: unified read models over the
+existing engines (skills, tools, providers, projects), health aggregation
+with recovery records, unified command history, a read-first memory bridge
+through the oth-knowledge boundary, the controlled Evolution layer with an
+append-only store outside Git (`/home/deploy/oth-evolution-store`,
+fail-closed when absent), the owner-only OthMode ON/OFF switch, and the
+operator CLI `cli/othmode-cli.js`. Suite:
+`node tests/othmode-2-platform-test.js` (no database needed).
 
 A searchable, permanent library of the commands used to build and operate Mythos. Find a
 command, understand it, copy it, adapt it, note what you learned, and see which ones you
@@ -76,10 +89,23 @@ Existing commands are skipped, never overwritten. Use `--force-update` to overwr
 
 ## Editing access
 
-Reading and copying need no token. Editing does: click **Read-only** in the header and
-paste the token from
-`/home/deploy/deployments/mythos-command-center/.env` (`MCC_ADMIN_TOKENS`). It is stored in
-`localStorage` and sent only as an `Authorization: Bearer` header to this origin.
+Reading and copying are open. Editing needs a signed-in browser session — **nothing is
+ever typed or pasted into the UI**:
+
+```bash
+node projects/command-center/cli/othmode-cli.js login-link
+```
+
+run on the host prints a one-time URL (single use, 15-minute expiry). Open it once in the
+browser that should stay signed in; the server exchanges it for a 90-day session delivered
+as an `HttpOnly; Secure; SameSite=Strict` cookie. Only sha256 hashes of codes and session
+ids are stored (in the OTHMODE store, 0600); page JavaScript can never read the cookie,
+and no credential exists in `localStorage`, the page source, or any API response.
+`othmode-cli.js sessions` counts active sessions; `revoke-sessions` signs every browser
+out. Cookie-authenticated writes additionally require same-origin proof (CSRF check).
+
+`MCC_ADMIN_TOKENS` bearer tokens remain valid for the API (CLI, agents, automation) —
+they are simply no longer part of any interface workflow.
 
 ## Never store a credential here
 

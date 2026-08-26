@@ -6,6 +6,41 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Changed — OTHMODE-ACT-1 — per-command activation replaces the global switch (2026-08-26)
+
+- **The global OthMode ON/OFF switch is removed.** OTHMODE is now permanently available (READY) and activates **per command**: a Claude command that contains the standalone keyword `othmode` (case-insensitive; never as part of another word — `othmodel`, `myothmode`, `othmode-test` do not activate) runs through the OTHMODE control contract (Search First → Reuse → Adapt → Connect → Build Last, skills, memory, evolution recording). Without the keyword, Claude behaves normally — nothing OTHMODE-specific is invoked or recorded.
+- One deterministic rule in `reference/othmode/activation.js`; checkable via `POST /api/othmode/activation` and `othmode-cli.js activation "<text>"`. `GET /api/othmode/mode` now reports availability (READY + EN/FR/AR hint); its POST is gone and no replacement toggle exists. Settings shows the READY panel; the dashboard card shows OTHMODE READY. CLAUDE.md carries the new contract.
+- The keyword grants no permission: session/bearer auth, roles, owner gates, CSRF, the secret gate and every boundary are unchanged (re-verified). Suite: 151/0 including the spec's fourteen activation/permission cases.
+
+
+### Added — OTHMODE-100 — approved scope completed to 100% (2026-08-26)
+
+- **Graphify INTEGRATED**: graphifyy 0.9.50 (Apache-2.0) installed in an isolated venv on the production VPS; vendor Claude skill registered; first real knowledge graph built from projects/command-center (299 nodes / 818 edges, deterministic AST, no LLM) and queried via the CLI; Health lists it as an optional capability (presence check only); graphify-out/ gitignored; repo policy skill merged with the vendor skill (one capability, two scopes).
+- **E1 signal detectors** (`othmode-cli.js detect`): deterministic health-state and repeated-execution-failure detectors; NOTED-only, dedup-folded, thresholded — promotion stays a reviewed act.
+- **First real capsule**: `othmode-core-discipline` v1.0 (bundles the two validated genes with real suite evidence; LOW-tier review recorded) — ACTIVE under the PASS+APPROVED contract.
+- **Store backup/export** (`othmode-cli.js export`): sha256-manifested snapshots of the evolution/recovery streams + switch config; sessions (auth material) deliberately excluded.
+- **Responsive fix**: mobile sidebar strip gets `min-width:0` so the nav scrolls internally, never the page; Arabic verified 100% key-complete; a11y pass recorded.
+- **Docs**: OTHMODE_100_PERCENT_AUDIT.md (every approved requirement COMPLETE with evidence); final report, open-source doc and registry synchronized. Suite: 137/0.
+
+
+### Changed — OTHMODE-AUTH-1 — token-free browser sign-in (2026-08-26)
+
+- **The UI no longer asks for an Access Token, ever.** The paste-a-token dialog and the `mcc.token` localStorage workflow are gone (existing browsers are scrubbed on next load). Sign-in is a one-time login link minted on the host (`othmode-cli.js login-link`, single use, 15-min expiry) exchanged server-side for a 90-day `HttpOnly; Secure; SameSite=Strict` session cookie — page JavaScript can never read it, and only sha256 hashes of codes/session ids are stored (OTHMODE store, 0600, fail-closed).
+- **Nothing was weakened:** all writes still authenticate server-side; owner-role gates and HIGH-risk evolution approval unchanged; the secret gate untouched; cookie-authenticated writes additionally require same-origin proof (server-side CSRF check); `POST /api/othmode/logout` + `revoke-sessions` burn sessions. Bearer tokens (`MCC_ADMIN_TOKENS`) remain valid for API/automation — just not part of any interface.
+- Suite grows to **120 assertions** incl. a live HTTP section: code exchange, single-use burn, HttpOnly/Secure/SameSite flags, cookie auth, foreign-Origin 403, logout, 401 walls.
+
+
+### Added — OTHMODE-2 — the OTHMODE control platform, live at othmode.mythosprod.xyz (2026-08-26)
+
+- **ordre.mythos (MCC-1) adapted into OTHMODE** — one platform UI (EN/FR/AR + RTL, light/dark, 12 screens) over Commands, Saved Commands, Skills (31 across both registries), Tools, Providers (Claude PRIMARY; execution-authority boundary surfaced), Projects, Health (live STC-2 monitor aggregation + DETECT→…→UPDATE_STATUS recovery records), Status (read-only — the Status Center stays the execution truth), unified Command History (library/executor/orchestrator), Memory (read-first through the fail-closed oth-knowledge boundary) and the controlled Evolution layer.
+- **Evolution foundation** — append-only store outside Git (`/home/deploy/oth-evolution-store`, fail-closed when absent); signals with dedup/thresholds and NOTED/WATCH/CANDIDATE dispositions; selector with the KEEP→EXTEND→MERGE→REPLACE→DEPRECATE→CREATE preference; risk-tiered review (HIGH approval is owner-only — the AI can never approve its own high-risk change); PASS/FAIL validation gated on review; git rollback records; GEP-compatible genes (2 seeded, evidence-linked) and the capsule activation contract (PASS + APPROVED). No EvoMap dependency; @evomap/evolver engine code rejected on GPL grounds (recorded).
+- **OthMode ON/OFF** — owner-only switch (currently OFF), fail-closed, instruction contract in CLAUDE.md, every flip recorded as an evolution event; operator CLI `projects/command-center/cli/othmode-cli.js`.
+- **Six skills** (KEEP→EXTEND consolidation; Skill Creator not needed): `preflight`, `postflight`, `session-handoff`, `status-sync`, `search-first` (adapted from shimo4228/search-first, MIT), `graphify` (use Graphify — never build a graph engine). Registries updated.
+- **Open Source Registry** — Git-curated, live-verified, served at `/api/othmode/oss-registry`; REJECTED records kept.
+- **Deployment** — nginx vhost + certbot cert for othmode.mythosprod.xyz; `othmode` target in mythos-deploy (lastgood `dd0c731`); MCC unit sandbox narrowed to exactly one writable path; ordre.mythosprod.xyz untouched as the recoverable legacy host.
+- **Tests** — `tests/othmode-2-platform-test.js` 94/0; regression floor on the production host: MCC 506/0, governance 99/0, MOS-v2 20/20. No new runtime dependency. (PRs #81, #82; docs in `docs/othmode/`.)
+
+
 ### Changed — CLOSURE-2026-08-22 — host closure attempted on the VPS; production NOT verified (2026-08-22)
 
 - **Swap alerting enabled (B8 policy).** `vps-resources` now carries `swap_warn_pct: 90`. The host sits at **2.0/2.0 GiB swap used, 152 KiB free**, with 146 MiB RAM free, so the probe moves **LIVE → DEGRADED "swap 100% used"** — truthfully. Mythos services are not the cause: the three user units total ~41 MB RSS / ~23 MB swap, all below their own peaks with zero restarts. The load is interactive desktop/browser sessions, n8n, `omniroute` and jellyfin; the largest swap holders are `omniroute` (427 MB), `mysqld` (373 MB) and `mariadbd` (91 MB).

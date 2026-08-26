@@ -28,7 +28,11 @@
 
   var state = {
     route: { name: 'dashboard', params: {} },
-    token: null,
+    // Authentication is an HttpOnly session cookie set by the one-time
+    // login link (GET /auth/<code>). This code never sees a credential:
+    // no token field, no Authorization header, no secret in storage.
+    // `identity` is the server's answer to GET /api/session — a name,
+    // not a secret.
     identity: null,
     categories: [],
     projects: [],
@@ -41,9 +45,16 @@
     filters: {}
   };
 
-  var TOKEN_KEY = 'mcc.token';
   var THEME_KEY = 'mcc.theme';
   var LOCALE_KEY = 'mcc.locale';
+
+  // ── OTHMODE extension points ──────────────────────────────────────────
+  // othmode.js registers additional hash routes, a replacement sidebar and
+  // dashboard extras through window.MccApp (exported at the bottom of this
+  // file). The core library screens stay exactly as they were; extensions
+  // can only ADD screens and re-render chrome — they cannot reach into a
+  // command's rendering path, so the XSS/no-exec guarantees are unchanged.
+  var extensions = { routes: {}, sidebar: null, dashboardExtras: null };
 
   // ── DOM helpers ───────────────────────────────────────────────────────
 
@@ -124,8 +135,8 @@
     var opts = options || {};
     var headers = { 'Accept': 'application/json' };
     if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
-    if (state.token) headers['Authorization'] = 'Bearer ' + state.token;
-
+    // No Authorization header: the HttpOnly session cookie (if signed
+    // in) is attached by the browser itself and is invisible here.
     return fetch('/api' + path, {
       method: opts.method || 'GET',
       headers: headers,
@@ -287,7 +298,7 @@
   // ── Favorites ─────────────────────────────────────────────────────────
 
   function toggleFavorite(command, onDone) {
-    if (!state.token) {
+    if (!state.identity) {
       toast(t('auth.required'), 'error');
       openAuthDialog();
       return;
@@ -427,6 +438,7 @@
           el('h1.page-title', { text: t('app.title') }),
           el('p.page-sub', { text: t('app.subtitle') })
         ]),
+        extensions.dashboardExtras ? extensions.dashboardExtras() : null,
         section('section.quick_actions', quickActions),
         section('section.most_used', cardGrid(data.most_used)),
         data.favorites.length ? section('section.favorites', cardGrid(data.favorites)) : null,
@@ -951,7 +963,7 @@
         el('div.page-head', {}, [
           el('h1.page-title', { text: isNew ? t('action.new_command') : t('action.edit') + ' — ' + command.title })
         ]),
-        !state.token ? el('div.callout.callout-warn', { text: t('auth.required') }) : null,
+        !state.identity ? el('div.callout.callout-warn', { text: t('auth.required') }) : null,
         form,
         actions
       ]));
@@ -1217,7 +1229,7 @@
   }
 
   function openNoteDialog(command) {
-    if (!state.token) {
+    if (!state.identity) {
       toast(t('auth.required'), 'error');
       openAuthDialog();
       return;
@@ -1254,46 +1266,39 @@
     });
   }
 
+  // Sign-in status dialog. There is nothing to type here on purpose: the
+  // owner requirement is that the UI never asks for a pasted token. Signed
+  // out, it explains the one-time login link; signed in, it shows the
+  // identity and offers sign-out (which burns the server-side session).
   function openAuthDialog() {
-    var input = el('input', { type: 'password', value: state.token || '' });
-    // type=password so the token is not shoulder-surfable or captured by a
-    // screenshot; it is stored in localStorage, never sent anywhere but
-    // this origin's Authorization header.
+    if (state.identity) {
+      openDialog({
+        title: t('auth.title'),
+        subtitle: t('auth.signed_in') + ' ' + state.identity,
+        body: [el('div.callout.callout-info', { text: t('auth.session_note') })],
+        confirmLabel: t('auth.signout'),
+        confirmClass: 'btn-danger',
+        onConfirm: function () {
+          api('/othmode/logout', { method: 'POST', body: {} }).catch(function () { return null; }).then(function () {
+            state.identity = null;
+            closeDialog();
+            updateAuthButton();
+            toast(t('auth.signed_out'), 'ok');
+            renderRoute();
+          });
+        }
+      });
+      return;
+    }
     openDialog({
       title: t('auth.title'),
       subtitle: t('auth.explain'),
       body: [
-        el('div.form-row', {}, [el('label', { text: t('auth.token') }), input])
+        el('div.callout.callout-info', { text: t('auth.signin_hint') }),
+        el('pre.command-body', { text: 'node projects/command-center/cli/othmode-cli.js login-link' })
       ],
-      confirmLabel: t('auth.save'),
-      extraActions: [
-        state.token ? el('button.btn.btn-ghost', {
-          type: 'button', text: t('auth.forget'),
-          onclick: function () {
-            state.token = null;
-            state.identity = null;
-            try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* private mode */ }
-            updateAuthButton();
-            closeDialog();
-          }
-        }) : null
-      ],
-      onConfirm: function () {
-        var candidate = input.value.trim();
-        if (!candidate) return;
-        var previous = state.token;
-        state.token = candidate;
-        api('/session').then(function (payload) {
-          state.identity = payload.identity;
-          try { localStorage.setItem(TOKEN_KEY, candidate); } catch (e) { /* private mode */ }
-          updateAuthButton();
-          closeDialog();
-          toast(t('auth.signed_in') + ' ' + payload.identity, 'ok');
-        }).catch(function () {
-          state.token = previous;
-          toast(t('auth.invalid'), 'error');
-        });
-      }
+      confirmLabel: t('action.close'),
+      onConfirm: closeDialog
     });
   }
 
@@ -1306,6 +1311,13 @@
 
   function renderSidebar() {
     var sidebar = clear(document.getElementById('sidebar'));
+
+    // An extension (othmode.js) may own the whole sidebar. It receives the
+    // same primitives this function uses, so its items behave identically.
+    if (extensions.sidebar) {
+      extensions.sidebar(sidebar, { el: el, navigate: navigate, state: state, shortcutRow: shortcutRow });
+      return;
+    }
 
     function navItem(labelKey, hash, routeName, count) {
       return el('button.nav-item', {
@@ -1402,7 +1414,10 @@
       'edit':      function () { state.route = { name: 'library' };   renderEditor(parsed.segments[1]); }
     };
 
-    (routes[head] || routes[''])();
+    var handler = routes[head] || extensions.routes[head];
+    if (handler === routes[head] && handler) handler();
+    else if (extensions.routes[head]) { state.route = { name: head }; extensions.routes[head](parsed.segments, parsed.params); }
+    else routes['']();
     renderSidebar();
 
     // Keep the search box showing the query it produced, so refining a
@@ -1539,7 +1554,10 @@
     installSearch();
     installShortcuts();
 
-    try { state.token = localStorage.getItem(TOKEN_KEY); } catch (e) { state.token = null; }
+    // Migration hygiene: earlier releases kept the bearer token in
+    // localStorage under 'mcc.token'. The token workflow is gone; scrub
+    // the key so no credential lingers in any browser that used it.
+    try { localStorage.removeItem('mcc.token'); } catch (e) { /* private mode */ }
 
     // Taxonomy is loaded once and reused by the sidebar, the filters and
     // the editor, so switching views does not re-fetch it.
@@ -1552,17 +1570,13 @@
       state.projects = results[1].projects;
       state.tags = results[2].tags;
 
-      if (state.token) {
-        return api('/session').then(function (payload) {
-          state.identity = payload.identity;
-        }).catch(function () {
-          // A token that is no longer valid is dropped rather than left to
-          // fail every write with a confusing 401.
-          state.token = null;
-          try { localStorage.removeItem(TOKEN_KEY); } catch (e) { /* private mode */ }
-        });
-      }
-      return null;
+      // The session cookie (if any) answers for us; signed-out is not an
+      // error, just read-only.
+      return api('/session').then(function (payload) {
+        state.identity = payload.identity;
+      }).catch(function () {
+        state.identity = null;
+      });
     }).then(function () {
       updateAuthButton();
       renderRoute();
@@ -1573,6 +1587,31 @@
 
     window.addEventListener('hashchange', renderRoute);
   }
+
+  // ── Extension surface (consumed by othmode.js) ────────────────────────
+  window.MccApp = {
+    el: el,
+    clear: clear,
+    api: api,
+    mount: mount,
+    section: section,
+    cardGrid: cardGrid,
+    navigate: navigate,
+    state: state,
+    toast: toast,
+    openDialog: openDialog,
+    closeDialog: closeDialog,
+    openAuthDialog: openAuthDialog,
+    formatDate: formatDate,
+    formatDateTime: formatDateTime,
+    reportError: reportError,
+    registerRoutes: function (map) {
+      Object.keys(map).forEach(function (key) { extensions.routes[key] = map[key]; });
+    },
+    registerSidebar: function (fn) { extensions.sidebar = fn; },
+    registerDashboardExtras: function (fn) { extensions.dashboardExtras = fn; },
+    rerender: function () { renderRoute(); }
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);

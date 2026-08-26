@@ -1,0 +1,467 @@
+<title>OTHMODE Design Preview</title>
+<style>
+  :root{
+    --oth-bg:#f6f7f9; --oth-elev:#ffffff; --oth-sunken:#eceef2; --oth-code:#f4f5f7;
+    --oth-border:#dfe3e8; --oth-border-strong:#c6ccd4;
+    --oth-text:#14181f; --oth-muted:#5b6472; --oth-faint:#8a929e;
+    --oth-accent:#4f46e5; --oth-accent-hover:#4338ca; --oth-accent-soft:#eef0fe; --oth-accent-text:#ffffff;
+    --oth-ok:#087443; --oth-ok-soft:#e3f5eb;
+    --oth-warn:#96590a; --oth-warn-soft:#fdf1dc;
+    --oth-danger:#b3261e; --oth-danger-soft:#fdeceb;
+    --oth-blocked:#6b21a8; --oth-blocked-soft:#f3e8ff;
+    --oth-radius:10px; --oth-radius-sm:6px;
+    --oth-shadow:0 1px 2px rgba(16,24,40,.06),0 4px 12px rgba(16,24,40,.05);
+    --font-ui:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --font-mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --oth-bg:#0e1116; --oth-elev:#161b22; --oth-sunken:#0a0d12; --oth-code:#0d1117;
+      --oth-border:#262c36; --oth-border-strong:#39414d;
+      --oth-text:#e6edf3; --oth-muted:#9aa5b1; --oth-faint:#6e7781;
+      --oth-accent:#7c73ff; --oth-accent-hover:#9189ff; --oth-accent-soft:#1e1b3a;
+      --oth-ok:#3fb27f; --oth-ok-soft:#0f2a1e;
+      --oth-warn:#d9a441; --oth-warn-soft:#2a2113;
+      --oth-danger:#e5726b; --oth-danger-soft:#2d1514;
+      --oth-blocked:#c084fc; --oth-blocked-soft:#231333;
+      --oth-shadow:0 1px 2px rgba(0,0,0,.4),0 4px 12px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"]{
+    --oth-bg:#0e1116; --oth-elev:#161b22; --oth-sunken:#0a0d12; --oth-code:#0d1117;
+    --oth-border:#262c36; --oth-border-strong:#39414d;
+    --oth-text:#e6edf3; --oth-muted:#9aa5b1; --oth-faint:#6e7781;
+    --oth-accent:#7c73ff; --oth-accent-hover:#9189ff; --oth-accent-soft:#1e1b3a;
+    --oth-ok:#3fb27f; --oth-ok-soft:#0f2a1e;
+    --oth-warn:#d9a441; --oth-warn-soft:#2a2113;
+    --oth-danger:#e5726b; --oth-danger-soft:#2d1514;
+    --oth-blocked:#c084fc; --oth-blocked-soft:#231333;
+    --oth-shadow:0 1px 2px rgba(0,0,0,.4),0 4px 12px rgba(0,0,0,.3);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--oth-bg);color:var(--oth-text);font-family:var(--font-ui);font-size:14px;line-height:1.5}
+  .preview-banner{background:var(--oth-warn-soft);color:var(--oth-warn);border-bottom:1px solid var(--oth-border);
+    padding:6px 16px;font-size:12px;font-weight:600;letter-spacing:.02em;text-align:center}
+  header.app{height:60px;display:flex;align-items:center;gap:16px;padding:0 16px;background:var(--oth-elev);
+    border-bottom:1px solid var(--oth-border);position:sticky;top:0;z-index:5}
+  .wordmark{font-weight:800;letter-spacing:.08em;font-size:16px}
+  .wordmark .oth{color:var(--oth-accent)}
+  .wordmark small{display:block;font-weight:400;letter-spacing:0;font-size:11px;color:var(--oth-muted)}
+  .search{flex:1;max-width:520px;position:relative}
+  .search input{width:100%;padding:8px 12px;border:1px solid var(--oth-border);border-radius:var(--oth-radius-sm);
+    background:var(--oth-bg);color:var(--oth-text);font:inherit}
+  .search .kbd{position:absolute;right:8px;top:7px}
+  .kbd{font-family:var(--font-mono);font-size:11px;border:1px solid var(--oth-border-strong);border-radius:4px;
+    padding:1px 5px;color:var(--oth-faint);background:var(--oth-elev)}
+  .hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .mode-pill{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;border-radius:999px;
+    background:var(--oth-ok-soft);color:var(--oth-ok);font-weight:700;font-size:12px;letter-spacing:.04em}
+  .mode-pill .dot{width:8px;height:8px;border-radius:50%;background:var(--oth-ok)}
+  .btn{font:inherit;padding:7px 12px;border-radius:var(--oth-radius-sm);border:1px solid var(--oth-border-strong);
+    background:var(--oth-elev);color:var(--oth-text);cursor:pointer}
+  .btn:hover{border-color:var(--oth-accent)}
+  .btn:focus-visible,.nav-item:focus-visible{outline:2px solid var(--oth-accent);outline-offset:2px}
+  .btn-primary{background:var(--oth-accent);border-color:var(--oth-accent);color:var(--oth-accent-text)}
+  .btn-primary:hover{background:var(--oth-accent-hover)}
+  .layout{display:flex;min-height:calc(100vh - 92px)}
+  nav.sidebar{width:232px;flex:none;background:var(--oth-elev);border-right:1px solid var(--oth-border);padding:12px 0}
+  .nav-group{margin:14px 0 4px;padding:0 16px;font-size:10.5px;font-weight:700;letter-spacing:.09em;color:var(--oth-faint)}
+  .nav-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;border:0;background:none;color:var(--oth-muted);
+    font:inherit;padding:7px 16px;cursor:pointer;border-left:3px solid transparent}
+  .nav-item:hover{color:var(--oth-text)}
+  .nav-item.active{background:var(--oth-accent-soft);color:var(--oth-accent);border-left-color:var(--oth-accent);font-weight:600}
+  .nav-item .cnt{margin-left:auto;font-size:11px;color:var(--oth-faint);font-variant-numeric:tabular-nums}
+  main{flex:1;padding:24px;min-width:0}
+  .screen{display:none;max-width:1060px;margin:0 auto}
+  .screen.active{display:block}
+  h1{font-size:20px;margin:0 0 4px;text-wrap:balance}
+  .sub{color:var(--oth-muted);margin:0 0 20px}
+  h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--oth-faint);margin:26px 0 10px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+  .card{background:var(--oth-elev);border:1px solid var(--oth-border);border-radius:var(--oth-radius);
+    padding:14px;box-shadow:var(--oth-shadow)}
+  .card h3{margin:0 0 4px;font-size:14px}
+  .card p{margin:0;color:var(--oth-muted);font-size:12.5px}
+  .stat{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums}
+  .stat small{font-size:12px;color:var(--oth-muted);font-weight:400}
+  .chip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:600;white-space:nowrap}
+  .chip::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+  .chip.ok{background:var(--oth-ok-soft);color:var(--oth-ok)}
+  .chip.warn{background:var(--oth-warn-soft);color:var(--oth-warn)}
+  .chip.danger{background:var(--oth-danger-soft);color:var(--oth-danger)}
+  .chip.blocked{background:var(--oth-blocked-soft);color:var(--oth-blocked)}
+  .chip.neutral{background:var(--oth-sunken);color:var(--oth-muted)}
+  .chip.accent{background:var(--oth-accent-soft);color:var(--oth-accent)}
+  .tablewrap{overflow-x:auto;background:var(--oth-elev);border:1px solid var(--oth-border);border-radius:var(--oth-radius)}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--oth-faint);text-align:left}
+  th,td{padding:9px 14px;border-bottom:1px solid var(--oth-border);white-space:nowrap}
+  tr:last-child td{border-bottom:0}
+  td.wrap{white-space:normal;min-width:220px}
+  code,.mono{font-family:var(--font-mono);font-size:12.5px}
+  code{background:var(--oth-code);border:1px solid var(--oth-border);border-radius:4px;padding:1px 5px}
+  .cmd{background:var(--oth-code);border:1px solid var(--oth-border);border-radius:var(--oth-radius-sm);
+    padding:10px 12px;font-family:var(--font-mono);font-size:12.5px;overflow-x:auto}
+  .cmd .var{color:var(--oth-accent);font-weight:600}
+  .empty{border:1px dashed var(--oth-border-strong);border-radius:var(--oth-radius);padding:28px;text-align:center;color:var(--oth-muted)}
+  .empty strong{display:block;color:var(--oth-text);margin-bottom:4px}
+  .banner{display:flex;gap:10px;align-items:flex-start;border-radius:var(--oth-radius-sm);padding:10px 14px;font-size:13px;margin:0 0 16px}
+  .banner.warn{background:var(--oth-warn-soft);color:var(--oth-warn)}
+  .banner.info{background:var(--oth-accent-soft);color:var(--oth-accent)}
+  .tabs{display:flex;gap:2px;border-bottom:1px solid var(--oth-border);margin:0 0 16px;flex-wrap:wrap}
+  .tab{font:inherit;border:0;background:none;color:var(--oth-muted);padding:8px 14px;cursor:pointer;
+    border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab.active{color:var(--oth-accent);border-bottom-color:var(--oth-accent);font-weight:600}
+  .stage-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .stage{font-size:11px;padding:2px 8px;border-radius:4px;background:var(--oth-sunken);color:var(--oth-muted)}
+  .stage.done{background:var(--oth-ok-soft);color:var(--oth-ok)}
+  .stage.now{background:var(--oth-accent-soft);color:var(--oth-accent);font-weight:700}
+  .stage.stop{background:var(--oth-danger-soft);color:var(--oth-danger);font-weight:700}
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  footer.app{padding:14px 24px;color:var(--oth-faint);font-size:12px;border-top:1px solid var(--oth-border);background:var(--oth-elev)}
+  @media (max-width:900px){
+    .layout{flex-direction:column}
+    nav.sidebar{width:100%;display:flex;overflow-x:auto;padding:0;border-right:0;border-bottom:1px solid var(--oth-border)}
+    .nav-group{display:none}
+    .nav-item{white-space:nowrap;border-left:0;border-bottom:3px solid transparent;padding:10px 12px}
+    .nav-item.active{border-bottom-color:var(--oth-accent)}
+    .two-col{grid-template-columns:1fr}
+    .search{display:none}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .screen.active{animation:fade .18s ease}
+    @keyframes fade{from{opacity:.4;transform:translateY(3px)}to{opacity:1;transform:none}}
+  }
+</style>
+
+<div class="preview-banner">DESIGN PREVIEW — Phase 1 visual artifact only. No real data, no functionality. · معاينة تصميم فقط — لا وظائف حقيقية</div>
+
+<header class="app">
+  <div class="wordmark"><span class="oth">OTH</span>MODE<small>Mythos control platform</small></div>
+  <div class="search"><input type="text" placeholder="Search commands, skills, tools, providers, projects, memory…" aria-label="Global search"><span class="kbd">/</span></div>
+  <div class="hdr-right">
+    <span class="mode-pill"><span class="dot"></span>OthMode ON</span>
+    <button class="btn" id="lang">EN · FR · عربي</button>
+    <button class="btn" id="theme">◐ Theme</button>
+    <button class="btn">Read-only</button>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="sidebar" aria-label="Modules">
+    <div class="nav-group">OVERVIEW</div>
+    <button class="nav-item active" data-s="dashboard">Dashboard</button>
+    <div class="nav-group">LIBRARY</div>
+    <button class="nav-item" data-s="commands">Commands<span class="cnt">24</span></button>
+    <button class="nav-item" data-s="saved">Saved Commands<span class="cnt">9</span></button>
+    <div class="nav-group">CAPABILITIES</div>
+    <button class="nav-item" data-s="skills">Skills<span class="cnt">25</span></button>
+    <button class="nav-item" data-s="tools">Tools<span class="cnt">6</span></button>
+    <button class="nav-item" data-s="providers">Providers<span class="cnt">4</span></button>
+    <div class="nav-group">OPERATIONS</div>
+    <button class="nav-item" data-s="projects">Projects<span class="cnt">17</span></button>
+    <button class="nav-item" data-s="health">Health</button>
+    <button class="nav-item" data-s="status">Status</button>
+    <button class="nav-item" data-s="history">Command History</button>
+    <div class="nav-group">INTELLIGENCE</div>
+    <button class="nav-item" data-s="memory">Memory</button>
+    <button class="nav-item" data-s="evolution">Evolution</button>
+    <div class="nav-group">SYSTEM</div>
+    <button class="nav-item" data-s="settings">Settings</button>
+  </nav>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section class="screen active" id="s-dashboard">
+      <h1>Dashboard</h1>
+      <p class="sub">Everything important at a glance. Each tile links into its module.</p>
+      <div class="cards">
+        <div class="card"><h3>System health</h3><div class="stat">11<small> / 13 ACTIVE</small></div><p><span class="chip warn">1 DEGRADED</span> <span class="chip danger">1 FAILED</span></p></div>
+        <div class="card"><h3>Commands run today</h3><div class="stat">14</div><p>Across library, executor and orchestrator</p></div>
+        <div class="card"><h3>Open evolution reviews</h3><div class="stat">2</div><p>1 high-risk awaiting owner approval</p></div>
+        <div class="card"><h3>Active project</h3><h3 class="mono">othmode-phase-1</h3><p>Next action: owner review of the audit</p></div>
+      </div>
+      <h2>Recent command history</h2>
+      <div class="tablewrap"><table>
+        <tr><th>Command</th><th>Source</th><th>When</th><th>Duration</th><th>Status</th></tr>
+        <tr><td class="mono">node tests/mcc-1-command-center-test.js</td><td>executor</td><td>10:41</td><td>38 s</td><td><span class="chip ok">COMPLETED</span></td></tr>
+        <tr><td class="mono">sudo mythos-deploy preflight ordre</td><td>library</td><td>10:12</td><td>—</td><td><span class="chip ok">COPIED</span></td></tr>
+        <tr><td class="mono">othk-cli search "deploy channel"</td><td>library</td><td>09:58</td><td>—</td><td><span class="chip ok">COPIED</span></td></tr>
+        <tr><td class="mono">task t-20260820150659-sm69d6</td><td>orchestrator</td><td>08:30</td><td>21 min</td><td><span class="chip warn">WAITING_FOR_QUOTA</span></td></tr>
+      </table></div>
+      <h2>Most used commands</h2>
+      <div class="cards">
+        <div class="card"><h3 class="mono">git status -sb</h3><p>Repository · used 31×</p></div>
+        <div class="card"><h3 class="mono">mythos-deploy deploy <span class="var">{{TARGET}}</span></h3><p>Deployment · used 18×</p></div>
+        <div class="card"><h3 class="mono">systemctl --user status</h3><p>VPS · used 12×</p></div>
+      </div>
+    </section>
+
+    <!-- COMMANDS -->
+    <section class="screen" id="s-commands">
+      <h1>Commands</h1>
+      <p class="sub">The existing Command Center library, rebranded. A command is text: displayed, searched, filled in, copied — <strong>never executed here</strong>.</p>
+      <div class="tablewrap"><table>
+        <tr><th>Command</th><th>Category</th><th>Safety</th><th>Version</th><th></th></tr>
+        <tr><td class="mono">ssh -i ~/.ssh/mythosadmin_ed25519 mythosadmin@<span class="var">{{VPS_HOST}}</span></td><td>VPS access</td><td><span class="chip ok">SAFE</span></td><td class="mono">2.1</td><td><button class="btn">Copy</button></td></tr>
+        <tr><td class="mono">sudo mythos-deploy rollback <span class="var">{{TARGET}}</span></td><td>Deployment</td><td><span class="chip warn">CAUTION</span></td><td class="mono">1.4</td><td><button class="btn">Copy</button></td></tr>
+        <tr><td class="mono">node projects/status-center/bin/review.js --dry-run</td><td>Status</td><td><span class="chip ok">SAFE</span></td><td class="mono">1.0</td><td><button class="btn">Copy</button></td></tr>
+        <tr><td class="mono">git push --force</td><td>Repository</td><td><span class="chip danger">DANGEROUS</span></td><td class="mono">1.0</td><td><button class="btn">Copy</button></td></tr>
+      </table></div>
+      <h2>Command detail (pattern)</h2>
+      <div class="card">
+        <h3 class="mono">sudo mythos-deploy deploy <span class="var">{{TARGET}}</span> <span class="var">{{REF}}</span></h3>
+        <p>Deploys a target through the health-gated channel: git → nginx -t → reload → health → rollback-on-fail.</p>
+        <div class="cmd" style="margin-top:10px">sudo mythos-deploy deploy <span class="var">ordre</span> <span class="var">main</span></div>
+        <p style="margin-top:10px"><span class="chip accent">2 variables</span> <span class="chip neutral">3 versions</span> <span class="chip neutral">2 notes</span></p>
+      </div>
+    </section>
+
+    <!-- SAVED -->
+    <section class="screen" id="s-saved">
+      <h1>Saved Commands</h1>
+      <p class="sub">Favorites, templates and notes — your personal layer over the library.</p>
+      <div class="cards">
+        <div class="card"><h3>★ Deploy ordre safely</h3><p>Template · preflight → deploy → status, 3 steps</p></div>
+        <div class="card"><h3>★ VPS morning check</h3><p>Template · status all + monitor output, 2 steps</p></div>
+        <div class="card"><h3>Note — rollback leaves detached HEAD</h3><p>On <span class="mono">mythos-deploy rollback</span> · return with deploy main</p></div>
+      </div>
+      <h2>Documentation workflows</h2>
+      <div class="banner info">Workflows here are <strong>documentation</strong> (ordered command lists to read and copy). Execution workflows live in n8n, in the Mythos OS layer.</div>
+      <div class="card"><h3>Release a status review</h3><p>4 documented steps · engine → verify → publish → announce</p></div>
+    </section>
+
+    <!-- SKILLS -->
+    <section class="screen" id="s-skills">
+      <h1>Skills</h1>
+      <p class="sub">One view over both registries: 20 Claude skills (<code>.claude/skills/</code>) and 5 executor skills. Lifecycle changes go through reviewed Git changes.</p>
+      <div class="tablewrap"><table>
+        <tr><th>Skill</th><th>Registry</th><th>Status</th><th class="wrap">Purpose</th></tr>
+        <tr><td class="mono">mythos-skill-router</td><td>claude</td><td><span class="chip ok">ACTIVE</span></td><td class="wrap">Rank capabilities for a normalised intent</td></tr>
+        <tr><td class="mono">mythos-skill-guard</td><td>claude</td><td><span class="chip ok">ACTIVE</span></td><td class="wrap">ALLOW / DENY / REQUIRE_APPROVAL per invocation</td></tr>
+        <tr><td class="mono">mythos-skill-evolution</td><td>claude</td><td><span class="chip ok">ACTIVE</span></td><td class="wrap">Skill-registry lifecycle — never self-modifying</td></tr>
+        <tr><td class="mono">security-audit</td><td>executor</td><td><span class="chip ok">ACTIVE</span></td><td class="wrap">Traced security defects in mission scope</td></tr>
+        <tr><td class="mono">preflight</td><td>planned</td><td><span class="chip neutral">DESIGNED</span></td><td class="wrap">Consolidates existing preflight checks (Phase 7)</td></tr>
+        <tr><td class="mono">search-first</td><td>planned</td><td><span class="chip neutral">DESIGNED</span></td><td class="wrap">SEARCH → REUSE → ADAPT → CONNECT → BUILD LAST</td></tr>
+      </table></div>
+    </section>
+
+    <!-- TOOLS -->
+    <section class="screen" id="s-tools">
+      <h1>Tools</h1>
+      <p class="sub">The typed tool registry (executor <code>config/tools.json</code>), read-only, with live health chips.</p>
+      <div class="tablewrap"><table>
+        <tr><th>Tool</th><th>Policy class</th><th>Risk</th><th>Provider</th><th>Health</th></tr>
+        <tr><td class="mono">git.read</td><td>READ</td><td>low</td><td>builtin</td><td><span class="chip ok">ACTIVE</span></td></tr>
+        <tr><td class="mono">filesystem.read</td><td>READ</td><td>low</td><td>builtin</td><td><span class="chip ok">ACTIVE</span></td></tr>
+        <tr><td class="mono">web.search</td><td>READ</td><td>low</td><td>external</td><td><span class="chip warn">DEGRADED</span></td></tr>
+      </table></div>
+      <div class="banner warn"><strong>web.search DEGRADED</strong> — 3 timeouts in the last hour. A recovery record was opened in Health. Dependent screens stay usable.</div>
+    </section>
+
+    <!-- PROVIDERS -->
+    <section class="screen" id="s-providers">
+      <h1>Providers</h1>
+      <p class="sub">Claude is primary by registry data, not by code. Execution authority is the security line — fallback never crosses it. Credential values never appear here.</p>
+      <div class="cards">
+        <div class="card"><h3>Claude (claude-code) <span class="chip accent">PRIMARY</span></h3><p><span class="chip danger">EXECUTION AUTHORITY</span></p><p style="margin-top:8px">Credential: present · Health: <span class="chip ok">ACTIVE</span></p></div>
+        <div class="card"><h3>OmniRoute (openai-compat)</h3><p><span class="chip neutral">ADVISORY</span></p><p style="margin-top:8px">Credential: present · Health: <span class="chip ok">ACTIVE</span></p></div>
+        <div class="card"><h3>Gemini</h3><p><span class="chip neutral">ADVISORY</span></p><p style="margin-top:8px">Credential: <strong>absent</strong> · Health: <span class="chip blocked">BLOCKED</span></p></div>
+        <div class="card"><h3>DeepSeek</h3><p><span class="chip neutral">ADVISORY</span></p><p style="margin-top:8px">Registered architecturally · <span class="chip neutral">DISABLED</span></p></div>
+      </div>
+      <div class="banner info">Routing: execution tasks wait for quota (<span class="mono">WAITING_FOR_QUOTA</span>) rather than falling back — always correct. Advisory tasks may fall back between advisory providers.</div>
+    </section>
+
+    <!-- PROJECTS -->
+    <section class="screen" id="s-projects">
+      <h1>Projects</h1>
+      <p class="sub">The unified registry, read from <code>projects/meta/</code>. Edits remain Git changes.</p>
+      <div class="tablewrap"><table>
+        <tr><th>Project</th><th>State</th><th class="wrap">Current task</th><th class="wrap">Next action</th></tr>
+        <tr><td class="mono">command-center</td><td><span class="chip ok">ACTIVE</span></td><td class="wrap">Serving ordre.mythosprod.xyz</td><td class="wrap">OTHMODE transformation (awaiting approval)</td></tr>
+        <tr><td class="mono">oth-knowledge</td><td><span class="chip ok">ACTIVE</span></td><td class="wrap">Live store on VPS, executor boundary enabled</td><td class="wrap">Memory UI (Phase 4)</td></tr>
+        <tr><td class="mono">status-center</td><td><span class="chip ok">ACTIVE</span></td><td class="wrap">STC-2 live monitoring + Arabic layer</td><td class="wrap">—</td></tr>
+        <tr><td class="mono">mythos-ai-executor</td><td><span class="chip ok">ACTIVE</span></td><td class="wrap">Autonomous execution via n8n</td><td class="wrap">—</td></tr>
+        <tr><td class="mono">erp (legacy app)</td><td><span class="chip neutral">PRESERVED</span></td><td class="wrap">Static preservation mode</td><td class="wrap">Out of OTHMODE scope</td></tr>
+      </table></div>
+    </section>
+
+    <!-- HEALTH -->
+    <section class="screen" id="s-health">
+      <h1>Health</h1>
+      <p class="sub">Tools, providers, integrations, projects and evolution components — six states, one recovery process.</p>
+      <div class="cards">
+        <div class="card"><h3>nginx / sites</h3><p><span class="chip ok">ACTIVE</span> 14 vhosts, checksums verified</p></div>
+        <div class="card"><h3>postgres</h3><p><span class="chip ok">ACTIVE</span> probe proves DB, not just proxy</p></div>
+        <div class="card"><h3>web.search tool</h3><p><span class="chip warn">DEGRADED</span> timeouts rising</p></div>
+        <div class="card"><h3>gemini provider</h3><p><span class="chip blocked">BLOCKED</span> credential absent</p></div>
+        <div class="card"><h3>swap headroom</h3><p><span class="chip ok">ACTIVE</span> alert at 90%</p></div>
+        <div class="card"><h3>evolution store</h3><p><span class="chip neutral">NOT PROVISIONED</span> fail-closed = normal</p></div>
+      </div>
+      <h2>Recovery in progress — web.search</h2>
+      <div class="card"><div class="stage-row">
+        <span class="stage done">DETECT</span><span class="stage done">NOTIFY</span><span class="stage now">SEARCH</span><span class="stage">COMPARE</span><span class="stage">SELECT</span><span class="stage">REPLACE</span><span class="stage">TEST</span><span class="stage">UPDATE STATUS</span>
+      </div><p style="margin-top:10px;color:var(--oth-muted)">Searching for an alternative search backend (Search First registry consulted). Opened 11:02 by monitor.</p></div>
+    </section>
+
+    <!-- STATUS -->
+    <section class="screen" id="s-status">
+      <h1>Status</h1>
+      <p class="sub">Read-only view. <strong>Execution truth lives in the Status Center</strong> (status.mythosprod.xyz, owner-controlled) — OTHMODE never writes it.</p>
+      <div class="card">
+        <h3>Latest review — 2026-08-22-review-001</h3>
+        <p>Append-only snapshot · evidence-verified · Arabic explanation layer included</p>
+        <p style="margin-top:8px"><span class="chip ok">PRODUCTION CLOSED</span> <span class="chip neutral">B9: 2 real blockers recorded</span></p>
+        <p style="margin-top:8px"><button class="btn">Open in Status Center ↗</button></p>
+      </div>
+    </section>
+
+    <!-- HISTORY -->
+    <section class="screen" id="s-history">
+      <h1>Command History</h1>
+      <p class="sub">One timeline over three sources: library usage events, executor tasks, orchestrator tasks. Each source keeps writing its own store.</p>
+      <div class="tablewrap"><table>
+        <tr><th>Command</th><th>Timestamp</th><th>Duration</th><th>Status</th><th class="wrap">Result</th><th>Evidence</th><th class="wrap">Next action</th></tr>
+        <tr><td class="mono">governance suite</td><td class="mono">2026-08-25 10:41</td><td class="mono">38 s</td><td><span class="chip ok">COMPLETED</span></td><td class="wrap">99 / 0 assertions</td><td><code>events.log#1042</code></td><td class="wrap">—</td></tr>
+        <tr><td class="mono">deploy tv db2909a</td><td class="mono">2026-08-20 17:02</td><td class="mono">41 s</td><td><span class="chip ok">COMPLETED</span></td><td class="wrap">health 302, SUCCESS after health only</td><td><code>mythos-deploy.log</code></td><td class="wrap">—</td></tr>
+        <tr><td class="mono">task sm69d6</td><td class="mono">2026-08-25 08:30</td><td class="mono">21 min</td><td><span class="chip warn">WAITING_FOR_QUOTA</span></td><td class="wrap">parked; same session resumes</td><td><code>checkpoint.json</code></td><td class="wrap">auto-resume at window reopen</td></tr>
+        <tr><td class="mono">branch push 1e4a1ee</td><td class="mono">2026-08-19 22:10</td><td class="mono">—</td><td><span class="chip danger">REFUSED</span></td><td class="wrap">governance denied unapproved mission branch</td><td><code>relay log</code></td><td class="wrap">boundary working as designed</td></tr>
+      </table></div>
+    </section>
+
+    <!-- MEMORY -->
+    <section class="screen" id="s-memory">
+      <h1>Memory</h1>
+      <p class="sub">Read-first search over the OTH Knowledge store. Ingestion and curation stay on the operator CLI — there is no write path here.</p>
+      <div class="search" style="max-width:640px;margin-bottom:16px"><input type="text" placeholder="Search knowledge… e.g. deploy channel, admin path, backup"></div>
+      <div class="cards">
+        <div class="card"><h3>VPS admin path</h3><p>mythosadmin key → scoped sudo mythos-deploy · closed 2026-08-20</p><p style="margin-top:8px"><span class="chip ok">VERIFIED</span> <span class="chip neutral">infrastructure</span></p></div>
+        <div class="card"><h3>Rollback semantics</h3><p>rollback → detached HEAD at lastgood; return with deploy main</p><p style="margin-top:8px"><span class="chip ok">VERIFIED</span> <span class="chip neutral">operations</span></p></div>
+        <div class="card"><h3>CRLF validation gotcha</h3><p>Run suites on an LF clone in a Linux container — CRLF causes false failures</p><p style="margin-top:8px"><span class="chip accent">DECISION</span> <span class="chip neutral">testing</span></p></div>
+      </div>
+      <div class="banner info" style="margin-top:16px">Store: <code>/home/deploy/othk-store</code> · <span class="chip ok">ACTIVE</span> · fail-closed if absent (a disabled layer is a normal, reportable state).</div>
+    </section>
+
+    <!-- EVOLUTION -->
+    <section class="screen" id="s-evolution">
+      <h1>Evolution</h1>
+      <p class="sub">Observable · reviewable · validated · versioned · reversible. No uncontrolled self-modification. Git is the rollback mechanism.</p>
+      <div class="tabs">
+        <button class="tab active" data-t="events">Events</button>
+        <button class="tab" data-t="genes">Genes</button>
+        <button class="tab" data-t="capsules">Capsules</button>
+        <button class="tab" data-t="signals">Signals</button>
+        <button class="tab" data-t="review">Review</button>
+        <button class="tab" data-t="validation">Validation</button>
+        <button class="tab" data-t="rollback">Rollback</button>
+      </div>
+      <div class="t-pane" id="t-events">
+        <div class="card" style="margin-bottom:12px">
+          <h3>EV-0002 — routing strategy: prefer targeted test scope</h3>
+          <div class="stage-row" style="margin-top:8px">
+            <span class="stage done">TRIGGER</span><span class="stage done">SIGNAL</span><span class="stage done">CANDIDATE</span><span class="stage done">SELECTION: EXTEND</span><span class="stage now">REVIEW (medium)</span><span class="stage">VALIDATION</span><span class="stage">RESULT</span>
+          </div>
+          <p style="margin-top:8px;color:var(--oth-muted)">Rollback point <code>afd266d</code> · evidence 3 objects · awaiting owner ACK</p>
+        </div>
+        <div class="card">
+          <h3>EV-0001 — prompt strategy wording</h3>
+          <div class="stage-row" style="margin-top:8px">
+            <span class="stage done">TRIGGER</span><span class="stage done">SIGNAL</span><span class="stage done">CANDIDATE</span><span class="stage done">SELECTION: KEEP</span><span class="stage stop">RESULT: REJECTED_AT_SELECTION</span>
+          </div>
+          <p style="margin-top:8px;color:var(--oth-muted)">A stopped event is a complete, honest record. Failed evolutions are never deleted.</p>
+        </div>
+      </div>
+      <div class="t-pane" id="t-genes" hidden>
+        <div class="tablewrap"><table>
+          <tr><th>Gene</th><th>Type</th><th>Version</th><th>Status</th></tr>
+          <tr><td class="mono">targeted-test-scope</td><td>validation-rule</td><td class="mono">1.1</td><td><span class="chip ok">VALIDATED</span></td></tr>
+          <tr><td class="mono">quota-wait-over-fallback</td><td>routing-strategy</td><td class="mono">1.0</td><td><span class="chip ok">VALIDATED</span></td></tr>
+        </table></div>
+      </div>
+      <div class="t-pane" id="t-capsules" hidden>
+        <div class="empty"><strong>No capsules yet</strong>A capsule is installable only when its validation is PASS and its review is APPROVED. Capsules follow the GEP format where suitable.</div>
+      </div>
+      <div class="t-pane" id="t-signals" hidden>
+        <div class="tablewrap"><table>
+          <tr><th class="wrap">Signal</th><th>Source</th><th>Disposition</th></tr>
+          <tr><td class="wrap">web.search: 3 timeouts / hour</td><td>tool failures</td><td><span class="chip accent">CANDIDATE</span></td></tr>
+          <tr><td class="wrap">Same targeted-test pattern succeeded 5×</td><td>repeated success</td><td><span class="chip warn">WATCH</span></td></tr>
+          <tr><td class="wrap">One flaky assertion in stc-2 suite</td><td>repeated failures</td><td><span class="chip neutral">NOTED</span></td></tr>
+        </table></div>
+        <div class="banner info" style="margin-top:12px">Not every signal produces an evolution. Only CANDIDATE enters the Selector.</div>
+      </div>
+      <div class="t-pane" id="t-review" hidden>
+        <div class="card"><h3>EV-0002 · medium risk</h3><p>AI review complete. Applied only after explicit owner ACK.</p><p style="margin-top:8px"><button class="btn btn-primary">Approve</button> <button class="btn">Reject</button></p></div>
+        <div class="banner warn" style="margin-top:12px">High-risk changes (permissions, providers with execution authority, validation rules, deploy) require <strong>human approval before validation runs</strong>. The AI can never approve its own high-tier change.</div>
+      </div>
+      <div class="t-pane" id="t-validation" hidden>
+        <div class="tablewrap"><table>
+          <tr><th>Candidate</th><th>Regression</th><th>Security</th><th>Scope</th><th>Result</th></tr>
+          <tr><td class="mono">targeted-test-scope 1.1</td><td>0 new failures</td><td>clean</td><td>declared paths only</td><td><span class="chip ok">PASS</span></td></tr>
+          <tr><td class="mono">targeted-test-scope 1.0</td><td>2 new failures</td><td>clean</td><td>ok</td><td><span class="chip danger">FAIL</span></td></tr>
+        </table></div>
+        <p style="margin-top:10px;color:var(--oth-muted)">FAIL is terminal for that version. A fix is a new version and a new validation.</p>
+      </div>
+      <div class="t-pane" id="t-rollback" hidden>
+        <div class="tablewrap"><table>
+          <tr><th>Applied evolution</th><th>Rollback point</th><th>Observed</th><th>Decision</th></tr>
+          <tr><td class="mono">quota-wait-over-fallback 1.0</td><td class="mono">db2909a</td><td>14 days</td><td><span class="chip ok">KEEP</span></td></tr>
+        </table></div>
+        <p style="margin-top:10px;color:var(--oth-muted)">BEFORE → CHANGE → TEST → COMMIT → OBSERVE → KEEP / ROLLBACK. A rollback is itself a recorded event.</p>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="screen" id="s-settings">
+      <h1>Settings</h1>
+      <p class="sub">Owner-role surface. The AI can never modify roles, tokens, execution profiles or this switch.</p>
+      <div class="two-col">
+        <div class="card">
+          <h3>OthMode</h3>
+          <p>ON — Claude routes through OTHMODE: commands, skills, memory, Search First, history and evolution recording.<br>OFF — Claude operates normally. OTHMODE stays readable.</p>
+          <p style="margin-top:10px"><span class="mode-pill"><span class="dot"></span>ON</span> <button class="btn">Turn OFF…</button></p>
+        </div>
+        <div class="card">
+          <h3>Language / اللغة</h3>
+          <p>English · Français · العربية (RTL mirrors the whole interface; the mechanism is already wired in i18n).</p>
+        </div>
+      </div>
+      <h2>Open source registry (Search First)</h2>
+      <div class="tablewrap"><table>
+        <tr><th>Project</th><th>Use</th><th>Status</th><th>License</th></tr>
+        <tr><td>Graphify</td><td>Graphs (use as-is)</td><td><span class="chip accent">APPROVED</span></td><td class="mono">TO-VERIFY</td></tr>
+        <tr><td>GEP</td><td>Evolution format</td><td><span class="chip accent">APPROVED</span></td><td class="mono">TO-VERIFY</td></tr>
+        <tr><td>Evolver</td><td>Architecture reference</td><td><span class="chip accent">APPROVED</span></td><td class="mono">TO-VERIFY</td></tr>
+        <tr><td>Search-First</td><td>Policy basis</td><td><span class="chip accent">APPROVED</span></td><td class="mono">TO-VERIFY</td></tr>
+      </table></div>
+      <p style="margin-top:10px;color:var(--oth-muted)">License is mandatory before a project can become INTEGRATED. REJECTED records are kept — they prevent re-evaluating dead ends.</p>
+    </section>
+  </main>
+</div>
+
+<footer class="app">OTHMODE design preview · Phase 1 audit deliverable · othoth77/mythos-prod · docs/othmode/</footer>
+
+<script>
+  // Preview-only navigation: shows/hides static mock screens. No data, no network, no functionality.
+  document.querySelectorAll('.nav-item').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.nav-item').forEach(function(x){x.classList.remove('active')});
+      document.querySelectorAll('.screen').forEach(function(x){x.classList.remove('active')});
+      b.classList.add('active');
+      document.getElementById('s-'+b.dataset.s).classList.add('active');
+    });
+  });
+  document.querySelectorAll('.tab').forEach(function(b){
+    b.addEventListener('click',function(){
+      document.querySelectorAll('.tab').forEach(function(x){x.classList.remove('active')});
+      document.querySelectorAll('.t-pane').forEach(function(x){x.hidden=true});
+      b.classList.add('active');
+      document.getElementById('t-'+b.dataset.t).hidden=false;
+    });
+  });
+  document.getElementById('theme').addEventListener('click',function(){
+    var r=document.documentElement,cur=r.getAttribute('data-theme');
+    var dark=cur? cur==='dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.setAttribute('data-theme',dark?'light':'dark');
+  });
+</script>

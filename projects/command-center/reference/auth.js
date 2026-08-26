@@ -89,8 +89,45 @@ function tokenFromRequest(req) {
   return match ? match[1].trim() : null;
 }
 
+// Session-cookie support (OTHMODE token-free UI): the browser carries an
+// HttpOnly `oth_session` cookie minted by the one-time-login exchange
+// (reference/othmode/sessions.js). The cookie VALUE is a random id whose
+// hash is stored server-side; nothing about it reaches page JavaScript.
+// Lazy-required to keep this module dependency-free for bearer-only use.
+var _sessions = null;
+function sessionsLib() {
+  if (_sessions === null) _sessions = require('./othmode/sessions.js');
+  return _sessions;
+}
+
+function sessionIdFromRequest(req) {
+  var header = req && req.headers ? req.headers.cookie : null;
+  if (!header || typeof header !== 'string') return null;
+  var parts = header.split(';');
+  for (var i = 0; i < parts.length; i++) {
+    var pair = parts[i].trim();
+    if (pair.indexOf('oth_session=') === 0) return pair.slice('oth_session='.length);
+  }
+  return null;
+}
+
+// Full authentication context. Bearer wins when both are present (it is
+// the explicit, per-request credential); the cookie is the browser's
+// ambient path. `via` lets api.js apply the CSRF same-origin check to
+// cookie-authenticated writes only.
+function authContext(req) {
+  var bearer = resolveIdentity(tokenFromRequest(req));
+  if (bearer) return { identity: bearer, via: 'bearer' };
+  var sessionId = sessionIdFromRequest(req);
+  if (sessionId) {
+    var identity = sessionsLib().identityForSession(sessionId);
+    if (identity) return { identity: identity, via: 'cookie' };
+  }
+  return { identity: null, via: null };
+}
+
 function identityFromRequest(req) {
-  return resolveIdentity(tokenFromRequest(req));
+  return authContext(req).identity;
 }
 
 // True when no token is configured at all. The server refuses to start in
@@ -109,6 +146,8 @@ module.exports = {
   resolveIdentity: resolveIdentity,
   tokenFromRequest: tokenFromRequest,
   identityFromRequest: identityFromRequest,
+  authContext: authContext,
+  sessionIdFromRequest: sessionIdFromRequest,
   isUnconfigured: isUnconfigured,
   clearTokenCache: clearTokenCache
 };

@@ -175,14 +175,14 @@
       'variables.none': 'This command has no placeholders.',
 
       'auth.title': 'Editing access',
-      'auth.explain': 'Reading and copying need no token. Editing the library does.',
-      'auth.token': 'Access token',
-      'auth.save': 'Save token',
-      'auth.forget': 'Forget token',
+      'auth.explain': 'Reading and copying are open. Editing needs a signed-in session — nothing to type or paste.',
+      'auth.signin_hint': 'Sign in by opening a one-time login link in this browser. The operator mints it on the server with the command below; the link works once and expires in 15 minutes.',
+      'auth.session_note': 'This browser is signed in through a secure session cookie. No token is stored in the page or in browser storage.',
+      'auth.signout': 'Sign out on this browser',
       'auth.signed_in': 'Editing enabled as',
       'auth.signed_out': 'Read-only',
-      'auth.required': 'An access token is required to edit the library.',
-      'auth.invalid': 'That token was not accepted.',
+      'auth.required': 'Editing needs a signed-in session. Open your one-time login link in this browser.',
+      'auth.invalid': 'That sign-in was not accepted.',
 
       'warn.destructive.title': 'Destructive command',
       'warn.destructive.body': 'This command is classified DESTRUCTIVE. It can permanently remove or overwrite data. Read it in full before running it anywhere.',
@@ -362,14 +362,14 @@
       'variables.none': 'Cette commande n’a pas de variables.',
 
       'auth.title': 'Accès en modification',
-      'auth.explain': 'Lire et copier ne demandent aucun jeton. Modifier la bibliothèque, si.',
-      'auth.token': 'Jeton d’accès',
-      'auth.save': 'Enregistrer le jeton',
-      'auth.forget': 'Oublier le jeton',
+      'auth.explain': 'Lire et copier sont ouverts. Modifier demande une session connectée — rien à saisir ni à coller.',
+      'auth.signin_hint': 'Connectez-vous en ouvrant un lien de connexion à usage unique dans ce navigateur. L’opérateur le génère sur le serveur avec la commande ci-dessous ; le lien fonctionne une fois et expire en 15 minutes.',
+      'auth.session_note': 'Ce navigateur est connecté via un cookie de session sécurisé. Aucun jeton n’est stocké dans la page ni dans le navigateur.',
+      'auth.signout': 'Se déconnecter sur ce navigateur',
       'auth.signed_in': 'Modification activée en tant que',
       'auth.signed_out': 'Lecture seule',
-      'auth.required': 'Un jeton d’accès est requis pour modifier la bibliothèque.',
-      'auth.invalid': 'Ce jeton a été refusé.',
+      'auth.required': 'Modifier demande une session connectée. Ouvrez votre lien de connexion à usage unique dans ce navigateur.',
+      'auth.invalid': 'Cette connexion a été refusée.',
 
       'warn.destructive.title': 'Commande destructive',
       'warn.destructive.body': 'Cette commande est classée DESTRUCTIVE. Elle peut supprimer ou écraser des données définitivement. Lisez-la en entier avant de l’exécuter où que ce soit.',
@@ -451,6 +451,24 @@
     return category.name_en || category.name_fr || '';
   }
 
+  // Merge additional strings into a locale's table (creating the table for
+  // a locale that only existed as registry metadata, e.g. Arabic). Used by
+  // othmode-i18n.js — the OTHMODE strings and the reviewed Arabic layer
+  // ship as their own file instead of growing this one indefinitely.
+  function extend(code, table) {
+    if (!STRINGS[code]) STRINGS[code] = {};
+    Object.keys(table || {}).forEach(function (key) { STRINGS[code][key] = table[key]; });
+  }
+
+  // Flip a registered locale to enabled once its table is actually loaded.
+  // Arabic stays disabled until othmode-i18n.js has extended it — the
+  // original rule stands: never offer a locale whose strings are absent.
+  function enableLocale(code) {
+    for (var i = 0; i < LOCALES.length; i++) {
+      if (LOCALES[i].code === code) LOCALES[i].enabled = true;
+    }
+  }
+
   global.MccI18n = {
     t: t,
     setLocale: setLocale,
@@ -458,7 +476,9 @@
     locales: LOCALES,
     availableLocales: function () { return LOCALES.filter(function (l) { return l.enabled; }); },
     categoryName: categoryName,
-    dir: function () { return localeMeta(current).dir; }
+    dir: function () { return localeMeta(current).dir; },
+    extend: extend,
+    enableLocale: enableLocale
   };
 
 }(window));
