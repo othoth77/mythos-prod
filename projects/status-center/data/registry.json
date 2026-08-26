@@ -654,6 +654,20 @@
       "reference": "projects/status-center/monitor/probes.json",
       "date": "2026-08-26",
       "note": "Probe id sya-api-loopback. The second reason the outage lasted ten days: nothing watched this service. The only probe naming it (sya-api) pointed at the public URL, where an nginx catch-all answers 200 text/html for every path, so the outage was invisible by construction and the probe shipped disabled precisely because of that. New probe sya-api-loopback watches the origin the service actually binds to — http://127.0.0.1:3011/api/health, expect 200 + application/json + body substring \"read_only\":true so a half-initialised server that never reached PostgreSQL cannot report LIVE. Loopback probing is the precedent the database probe already set, and it doubles as proof the API is not publicly exposed on its own port. Verified LIVE in the collector dry run and in production. sya-api itself stays disabled: the public endpoint it names still does not exist."
+    },
+    {
+      "id": "EV-BACKUP-RESTORE-PROVEN",
+      "type": "vps",
+      "reference": "bash ops/backup/mythos-backup-run.sh restore-test on vps-4722f0a9, 2026-08-26T18:51:28Z (OTH-2026-00016)",
+      "date": "2026-08-26",
+      "note": "FIRST RESTORE EVER PERFORMED ON THIS HOST. Ran the exact command mythos-restore-test.service executes, as deploy, with no root. Exit 0 in 18 s. A --dry-run against the tool was executed first and wrote nothing. Restored 73 objects / 315,499 bytes from the off-host remote into the throwaway destination staging/restore-test-20260826T185128Z: the PostgreSQL dump idauto-20260826T033037Z.dump plus 71 content-addressed media objects and the media manifest. INDEPENDENTLY RE-VERIFIED after the tool reported clean, by recomputing sha256 and size for all 73 objects against the manifest outside the tool that produced it: 73/73 match, 0 mismatched, 0 missing. The restored dump is byte-identical to the on-host source (sha256 739ea65782a1f9b48cb3bae69cb606faeaaaa1899181ee7d25852d1684a41603) and carries the PostgreSQL custom-format magic PGDMP, archive version 1.14. Since mythos-backup-capture.sh line 252 refuses to produce a dump that fails `pg_restore --list`, byte-identity to that artifact carries the validation forward: capture validated it, the remote returned it unchanged, and the restore reproduced it exactly. LIMITATION, stated rather than glossed: `pg_restore --list` could not be re-run against the RESTORED copy from this session, because pg_restore is not installed on the host and deploy is deliberately outside the docker group. What is proven is that a complete, uncorrupted, structurally valid backup set can be retrieved from off-host storage and reassembled on this machine. What is still not proven is a full load of that dump into a live PostgreSQL instance — that needs docker or a postgresql-client install and is a separate, larger exercise. The scheduled unit mythos-restore-test.service itself still shows no execution record; its timer next fires 2026-09-01 and will now be a repeat of a known-good path rather than a first attempt. Nothing was deleted, locally or remotely: the tool structurally refuses deletion and retention is report-only."
+    },
+    {
+      "id": "EV-BACKUP-CHECKSUMS-BY-DESIGN",
+      "type": "file",
+      "reference": "projects/infrastructure/ops/offhost-backup.js",
+      "date": "2026-08-26",
+      "note": "Finding from the first restore test, recorded so it does not cost someone time during a real recovery. The restored media set contains manifest.json and media/ but NOT checksums.sha256, even though media-backup/manifest.json names it under integrity.checksums_file with its sha256. That looks like a gap and is not one. offhost-backup.js mediaEntries() reads checksums.sha256 as the INDEX of what to ship and folds every one of its 71 hashes into the top-level off-host manifest, which is what restore-verify checks against; the file itself is therefore redundant as an object and is deliberately not pushed. Integrity off-host does not depend on it. A human performing a manual recovery without the tool should verify against the restored manifest.json, not look for checksums.sha256 — recorded in ops/backup/README.md §4."
     }
   ],
   "repositories": [
@@ -2865,20 +2879,22 @@
     },
     {
       "id": "BLOCKER-BACKUP-RESTORE-UNPROVEN",
-      "title": "Restore-from-backup never exercised on this host",
+      "title": "RESOLVED: restore-from-backup exercised and independently verified on this host (2026-08-26)",
       "type": "infrastructure",
       "project": "PROJECT-SECURITY",
       "priority": "P2",
-      "status": "OWNER_ACTION",
+      "status": "DONE",
       "owner": "Operator",
-      "impact": "Backups are created and verified off-host, but no restore has ever been performed. Backup integrity is proven; recoverability is not.",
-      "required_input": "One run of the restore test.",
-      "unblock": "As deploy: bash ops/backup/mythos-backup-run.sh restore-test (the service is User=deploy). Or as root: systemctl start mythos-restore-test.service. Check disk headroom first — / is at 73%.",
+      "impact": "Was: backups were created and verified off-host, but no restore had ever been performed — integrity proven, recoverability not. Now: a complete set has been retrieved from off-host storage and reassembled on this host, with all 73 objects independently re-hashed outside the tool that produced them. Recoverability of the backup SET is demonstrated. Loading the restored dump into a live PostgreSQL instance remains unexercised and is tracked as its own, narrower gap rather than folded into this one.",
+      "required_input": "None — resolved.",
+      "unblock": "RESOLVED 2026-08-26 by OTH-2026-00016: `bash ops/backup/mythos-backup-run.sh restore-test` as deploy, no root, exit 0 in 18 s, preceded by a clean --dry-run that wrote nothing. 73/73 objects re-verified independently. The monthly timer next fires 2026-09-01 and now repeats a proven path.",
       "created": "2026-08-22",
-      "last_checked": "2026-08-22",
+      "last_checked": "2026-08-26",
       "note_verified": "On-host 2026-08-22: journalctl for mythos-restore-test.service returns \"No entries\"; timer next fires 2026-09-01.",
       "evidence": [
-        "EV-BACKUP-SCHEDULE-LIVE"
+        "EV-BACKUP-SCHEDULE-LIVE",
+        "EV-BACKUP-RESTORE-PROVEN",
+        "EV-BACKUP-CHECKSUMS-BY-DESIGN"
       ]
     }
   ],
