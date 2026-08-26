@@ -1,0 +1,18 @@
+{
+  "id": "targeted-test-scope",
+  "type": "validation-rule",
+  "version": "1.0",
+  "status": "VALIDATED",
+  "title": "Targeted tests first; full suite only when justified; baseline before calling a failure new",
+  "origin_event": null,
+  "origin_note": "Codifies the existing repository discipline: .claude/skills/mythos-test-intelligence/SKILL.md and the executor testing skill (projects/mythos-ai-executor/skills/testing.md). Recorded as a gene so the OTHMODE validation runner applies one written rule.",
+  "validation": {
+    "result": "PASS",
+    "evidence": [
+      ".claude/skills/mythos-test-intelligence/SKILL.md",
+      "projects/mythos-ai-executor/skills/testing.md",
+      "projects/meta/test-impact-map.json — the change→suite mapping this rule relies on"
+    ]
+  },
+  "review": { "tier": "LOW", "decision": "APPROVED", "note": "documents existing validated behaviour; no behavioural change" }
+}

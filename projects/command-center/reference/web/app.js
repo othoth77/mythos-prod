@@ -45,6 +45,14 @@
   var THEME_KEY = 'mcc.theme';
   var LOCALE_KEY = 'mcc.locale';
 
+  // ── OTHMODE extension points ──────────────────────────────────────────
+  // othmode.js registers additional hash routes, a replacement sidebar and
+  // dashboard extras through window.MccApp (exported at the bottom of this
+  // file). The core library screens stay exactly as they were; extensions
+  // can only ADD screens and re-render chrome — they cannot reach into a
+  // command's rendering path, so the XSS/no-exec guarantees are unchanged.
+  var extensions = { routes: {}, sidebar: null, dashboardExtras: null };
+
   // ── DOM helpers ───────────────────────────────────────────────────────
 
   // el('div.card', { onclick: fn }, [children | 'text'])
@@ -427,6 +435,7 @@
           el('h1.page-title', { text: t('app.title') }),
           el('p.page-sub', { text: t('app.subtitle') })
         ]),
+        extensions.dashboardExtras ? extensions.dashboardExtras() : null,
         section('section.quick_actions', quickActions),
         section('section.most_used', cardGrid(data.most_used)),
         data.favorites.length ? section('section.favorites', cardGrid(data.favorites)) : null,
@@ -1307,6 +1316,13 @@
   function renderSidebar() {
     var sidebar = clear(document.getElementById('sidebar'));
 
+    // An extension (othmode.js) may own the whole sidebar. It receives the
+    // same primitives this function uses, so its items behave identically.
+    if (extensions.sidebar) {
+      extensions.sidebar(sidebar, { el: el, navigate: navigate, state: state, shortcutRow: shortcutRow });
+      return;
+    }
+
     function navItem(labelKey, hash, routeName, count) {
       return el('button.nav-item', {
         type: 'button',
@@ -1402,7 +1418,10 @@
       'edit':      function () { state.route = { name: 'library' };   renderEditor(parsed.segments[1]); }
     };
 
-    (routes[head] || routes[''])();
+    var handler = routes[head] || extensions.routes[head];
+    if (handler === routes[head] && handler) handler();
+    else if (extensions.routes[head]) { state.route = { name: head }; extensions.routes[head](parsed.segments, parsed.params); }
+    else routes['']();
     renderSidebar();
 
     // Keep the search box showing the query it produced, so refining a
@@ -1573,6 +1592,31 @@
 
     window.addEventListener('hashchange', renderRoute);
   }
+
+  // ── Extension surface (consumed by othmode.js) ────────────────────────
+  window.MccApp = {
+    el: el,
+    clear: clear,
+    api: api,
+    mount: mount,
+    section: section,
+    cardGrid: cardGrid,
+    navigate: navigate,
+    state: state,
+    toast: toast,
+    openDialog: openDialog,
+    closeDialog: closeDialog,
+    openAuthDialog: openAuthDialog,
+    formatDate: formatDate,
+    formatDateTime: formatDateTime,
+    reportError: reportError,
+    registerRoutes: function (map) {
+      Object.keys(map).forEach(function (key) { extensions.routes[key] = map[key]; });
+    },
+    registerSidebar: function (fn) { extensions.sidebar = fn; },
+    registerDashboardExtras: function (fn) { extensions.dashboardExtras = fn; },
+    rerender: function () { renderRoute(); }
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);

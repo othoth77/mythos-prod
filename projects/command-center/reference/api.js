@@ -54,6 +54,9 @@ var auth = require('./auth.js');
 var secrets = require('./secrets.js');
 var variables = require('./variables.js');
 var versioning = require('./versioning.js');
+// OTHMODE modules — read models over the existing engines plus the
+// evolution/recovery store. Same server, same auth, same secret gate.
+var othmodeRoutes = require('./othmode/routes.js');
 
 var DEFAULT_LIMIT = 50;
 var MAX_LIMIT = 200;
@@ -1257,7 +1260,9 @@ var WEB_ASSETS = {
   '/index.html': { file: 'index.html', contentType: 'text/html; charset=utf-8' },
   '/app.css': { file: 'app.css', contentType: 'text/css; charset=utf-8' },
   '/app.js': { file: 'app.js', contentType: 'application/javascript; charset=utf-8' },
-  '/i18n.js': { file: 'i18n.js', contentType: 'application/javascript; charset=utf-8' }
+  '/i18n.js': { file: 'i18n.js', contentType: 'application/javascript; charset=utf-8' },
+  '/othmode-i18n.js': { file: 'othmode-i18n.js', contentType: 'application/javascript; charset=utf-8' },
+  '/othmode.js': { file: 'othmode.js', contentType: 'application/javascript; charset=utf-8' }
 };
 
 // No inline script, no inline style, no external origin. The front end is
@@ -1327,7 +1332,7 @@ var ROUTES = [
   { method: 'GET',   auth: true,  pattern: /^\/api\/session$/,                      handler: function (req, res) {
       return sendJson(res, 200, { identity: auth.identityFromRequest(req) });
   } }
-];
+].concat(othmodeRoutes.buildRoutes(db, auth));
 
 function createServer() {
   return http.createServer(function (req, res) {
@@ -1356,6 +1361,12 @@ function createServer() {
           // 401 with no WWW-Authenticate challenge: a browser basic-auth
           // dialog would be misleading, the token is pasted in the UI.
           throw httpError(401, 'authentication required for this operation');
+        }
+        // Role-gated routes (OTHMODE settings and the OthMode switch): the
+        // owner identity is the owner role; every other identity is an
+        // editor. A valid token with the wrong role is a 403, not a 401.
+        if (route.role && othmodeRoutes.roleOf(identity) !== route.role) {
+          throw httpError(403, 'this operation requires the ' + route.role + ' role');
         }
       }
       var body = {};
