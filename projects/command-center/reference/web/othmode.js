@@ -47,6 +47,25 @@
     ]));
   }
 
+  // Command History and Task Reports are PUBLIC READS. They can never answer
+  // 401, so an "access / modification" prompt on those pages would be both
+  // dead code and a lie about what the reader needs. This view therefore
+  // offers only Refresh — no auth callout, no sign-in button, ever, whatever
+  // the error was. errorView() is untouched and still guards every screen
+  // that genuinely does require a session.
+  function publicErrorView(titleKey, subKey) {
+    A.mount(el('div', {}, [
+      pageHead(titleKey, subKey),
+      el('div.callout.callout-danger', {}, [
+        el('span', { text: t('oth.common.error') })
+      ]),
+      el('button.btn', {
+        type: 'button', text: t('oth.common.refresh'),
+        onclick: function () { A.rerender(); }
+      })
+    ]));
+  }
+
   function emptyState(msgKey) {
     return el('div.empty', { text: t(msgKey) });
   }
@@ -403,6 +422,9 @@
       }
       A.mount(el('div', {}, [
         pageHead('oth.history.title', 'oth.history.sub'),
+        // Stated as a fact about the page, never as a prompt to sign in:
+        // this history is public and no reader needs a session for it.
+        el('p.page-sub.mono', { text: t('oth.history.public_note') }),
         sourceNotes.length ? el('div.callout.callout-warn', { text: sourceNotes.join(' · ') }) : null,
         el('div.filter-bar', {}, [filterSelect()]),
         data.rows.length ? table(
@@ -427,7 +449,7 @@
           })
         ) : emptyState('oth.history.empty')
       ]));
-    }).catch(function (err) { errorView('oth.history.title', 'oth.history.sub', err); });
+    }).catch(function () { publicErrorView('oth.history.title', 'oth.history.sub'); });
   }
 
   // One OTHMODE Task Report: the summary is immediately readable (status,
@@ -491,7 +513,7 @@
           el('h2.block-title', { text: t('oth.task.sections') })
         ].concat(sectionBlocks.length ? sectionBlocks : [emptyState('section.empty')]))
       ]));
-    }).catch(function (err) { errorView('oth.task.title', null, err); });
+    }).catch(function () { publicErrorView('oth.task.title', null); });
   }
 
   function renderMemory(segments, params) {

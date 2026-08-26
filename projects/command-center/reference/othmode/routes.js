@@ -173,8 +173,23 @@ function buildRoutes(db, auth) {
     } },
 
     // ── Unified command history ──────────────────────────────────────────
-    { method: 'GET', auth: true, pattern: /^\/api\/othmode\/history$/, handler: async function (req, res, m, q) {
-      return sendJson(res, 200, await history.unified(db, q));
+    // PUBLIC READ. The history and the Task Reports below are the operational
+    // record of this platform and are readable without a session, so the work
+    // can be cited and reviewed by someone who holds no credential at all.
+    // Reading is public; WRITING is not — every POST below stays authenticated
+    // and secret-gated exactly as before, and nothing about the activation
+    // rule, the auth model or any other endpoint changes.
+    //
+    // An anonymous caller gets the record through tasks.publicHistoryRows /
+    // tasks.publicTask, which mask the infrastructure detail the narrative
+    // unavoidably carries (host paths, sudo grants, internal listeners, host
+    // and process identifiers). The store is append-only — records cannot be
+    // rewritten to be publishable — so the projection has to happen here, on
+    // read. An authenticated reader is handed the record verbatim.
+    { method: 'GET', auth: false, pattern: /^\/api\/othmode\/history$/, handler: async function (req, res, m, q) {
+      var result = await history.unified(db, q);
+      if (!auth.identityFromRequest(req)) result = tasks.publicHistoryRows(result);
+      return sendJson(res, 200, result);
     } },
 
     // ── OTHMODE Task Reports (persistent operational record) ─────────────
@@ -183,12 +198,16 @@ function buildRoutes(db, auth) {
     // short receipt only. Writes are authenticated and secret-gated like
     // every other OTHMODE write; the writer itself refuses normal Claude
     // commands (no standalone keyword → no task, ever).
-    { method: 'GET', auth: true, pattern: /^\/api\/othmode\/tasks$/, handler: function (req, res, m, q) {
-      return sendJson(res, 200, tasks.listTasks(q));
+    { method: 'GET', auth: false, pattern: /^\/api\/othmode\/tasks$/, handler: function (req, res, m, q) {
+      var list = tasks.listTasks(q);
+      if (!auth.identityFromRequest(req)) list = tasks.publicTasks(list);
+      return sendJson(res, 200, list);
     } },
-    { method: 'GET', auth: true, pattern: /^\/api\/othmode\/tasks\/([^/]+)$/, handler: function (req, res, m) {
+    { method: 'GET', auth: false, pattern: /^\/api\/othmode\/tasks\/([^/]+)$/, handler: function (req, res, m) {
       var task = tasks.getTask(decodeURIComponent(m[1]));
-      return task ? sendJson(res, 200, { task: task }) : sendJson(res, 404, { error: 'not found' });
+      if (!task) return sendJson(res, 404, { error: 'not found' });
+      if (!auth.identityFromRequest(req)) task = tasks.publicTask(task);
+      return sendJson(res, 200, { task: task });
     } },
     { method: 'POST', auth: true, pattern: /^\/api\/othmode\/tasks$/, handler: function (req, res, m, q, body) {
       if (!enforceNoSecrets(res, body)) return;

@@ -1,7 +1,7 @@
 {
   "registry_version": "1.0.0",
   "curated_at": "2026-08-26",
-  "curation_note": "NEXT-OTHMODE-MONITOR closed 2026-08-26 after production verification: othmode.mythosprod.xyz and its Task Reports API are now monitored components of the existing STC-2 monitor (14 components live, both OTHMODE probes LIVE). Reconciliation pass 2026-08-26 (later the same day): closed three next_actions whose blockers were already DONE and whose live criteria were re-verified first-hand — NEXT-OTHK-STORE, NEXT-MOS-DEPLOY, NEXT-HUB-DEPLOY (evidence EV-STALE-RECONCILE-0826) — and marked ACTION-MOS-DEPLOY and ACTION-HUB-DNS DONE to match their own blockers. Added othmode.mythosprod.xyz to the existing STC-2 probe registry rather than building a second monitor (EV-OTHMODE-MONITOR-PROBE). Nothing was closed to make the board look finished: NEXT-STATUS-PUBLISH stays open because the live site is still unpublished, and every remaining owner decision is untouched. Also refreshed 2026-08-26: data/pr-ledger.json re-captured from the GitHub API (56 -> 90 PRs, #1-#90; 8 open, 78 merged, 4 closed-unmerged), correcting six entries that the 2026-08-20 snapshot still recorded as open (#53-#56 merged, #23 and #52 closed unmerged) and carrying curator notes across by PR number. PROJECT-COMMAND-CENTER updated against host evidence: its 'latest merged revision pending redeploy' caveat is closed (service restarted 2026-08-26 at aa4ca2d, no command-center code change since), and its relationship to OTHMODE is now stated — one Node process on 127.0.0.1:3021 serving both hostnames. Updated 2026-08-26 on the production VPS (deploy@vps-4722f0a9): added PROJECT-OTHMODE with five evidence records after the OTHMODE Task Reports release was merged (aa4ca2d), deployed and operator-verified first-hand on the host — the registry had carried no OTHMODE entry at all, which is why earlier re-syncs reported zero content change. Closed ACTION-STC2-INSTALL / NEXT-STC2-INSTALL against their own stated criteria (timer active and refreshing; published app.js byte-identical to the repository copy, carrying the live panel and the Arabic layer). Two genuinely outstanding items found while curating were recorded rather than left implicit: NEXT-STATUS-PUBLISH (the repository holds two unpublished reviews; the live site is behind because nothing published them, not because nothing re-synced) and NEXT-OTHMODE-MONITOR (othmode.mythosprod.xyz is not a monitored component). No percentage was invented: every OTHMODE dimension is recorded as a status with a note. Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
+  "curation_note": "Also recorded 2026-08-26: NEXT-STATUS-DISCLOSURE-REVIEW — the public Status Center carries the same class of infrastructure detail that OTHMODE reports now mask, which is a consistency question for the owner rather than something to fix piecemeal. Re-sync 2026-08-26T15:17Z: recorded a genuine platform change — OTHMODE Command History and Task Reports became publicly readable at 7252de2, redacted for anonymous callers, with the write surface verified still closed. PROJECT-OTHMODE headline, last_change, production dimension and evidence updated (EV-OTHMODE-PUBLIC-HISTORY, EV-OTHMODE-PUBLIC-VERIFIED). No other project or action changed; NEXT-EXPORTS remains the sole open owner decision. Re-sync 2026-08-26T14:38Z: no status changed. The only genuine new fact is that the publish-wipes-monitor-state fix was exercised by a real publish and held — monitor runtime state and the apex Hub feed both survived intact, which is the regression check the fix existed for. Recorded against EV-PUBLISH-WIPES-MONITOR-STATE. The board is otherwise steady: every execution-layer action is closed and NEXT-EXPORTS remains the sole owner decision. Re-sync 2026-08-26 after the owner published: NEXT-STATUS-PUBLISH closed — the live Status Center now serves REVIEW-2026-08-26-004 and matches the repository on every counted dimension (EV-STATUS-PUBLISHED-0826). The publish also exposed a real defect, now fixed: rsync --delete wiped the monitor's runtime state out of the shared docroot, taking the live panel and — via an nginx alias — the apex Hub's /api/status.json to 404, and permanently destroying data/live-history/ (EV-PUBLISH-WIPES-MONITOR-STATE). NEXT-OTHMODE-MONITOR closed 2026-08-26 after production verification: othmode.mythosprod.xyz and its Task Reports API are now monitored components of the existing STC-2 monitor (14 components live, both OTHMODE probes LIVE). Reconciliation pass 2026-08-26 (later the same day): closed three next_actions whose blockers were already DONE and whose live criteria were re-verified first-hand — NEXT-OTHK-STORE, NEXT-MOS-DEPLOY, NEXT-HUB-DEPLOY (evidence EV-STALE-RECONCILE-0826) — and marked ACTION-MOS-DEPLOY and ACTION-HUB-DNS DONE to match their own blockers. Added othmode.mythosprod.xyz to the existing STC-2 probe registry rather than building a second monitor (EV-OTHMODE-MONITOR-PROBE). Nothing was closed to make the board look finished: NEXT-STATUS-PUBLISH stays open because the live site is still unpublished, and every remaining owner decision is untouched. Also refreshed 2026-08-26: data/pr-ledger.json re-captured from the GitHub API (56 -> 90 PRs, #1-#90; 8 open, 78 merged, 4 closed-unmerged), correcting six entries that the 2026-08-20 snapshot still recorded as open (#53-#56 merged, #23 and #52 closed unmerged) and carrying curator notes across by PR number. PROJECT-COMMAND-CENTER updated against host evidence: its 'latest merged revision pending redeploy' caveat is closed (service restarted 2026-08-26 at aa4ca2d, no command-center code change since), and its relationship to OTHMODE is now stated — one Node process on 127.0.0.1:3021 serving both hostnames. Updated 2026-08-26 on the production VPS (deploy@vps-4722f0a9): added PROJECT-OTHMODE with five evidence records after the OTHMODE Task Reports release was merged (aa4ca2d), deployed and operator-verified first-hand on the host — the registry had carried no OTHMODE entry at all, which is why earlier re-syncs reported zero content change. Closed ACTION-STC2-INSTALL / NEXT-STC2-INSTALL against their own stated criteria (timer active and refreshing; published app.js byte-identical to the repository copy, carrying the live panel and the Arabic layer). Two genuinely outstanding items found while curating were recorded rather than left implicit: NEXT-STATUS-PUBLISH (the repository holds two unpublished reviews; the live site is behind because nothing published them, not because nothing re-synced) and NEXT-OTHMODE-MONITOR (othmode.mythosprod.xyz is not a monitored component). No percentage was invented: every OTHMODE dimension is recorded as a status with a note. Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
   "source_hierarchy": [
     {
       "source": "Current GitHub code (othoth77/mythos-prod main)",
@@ -604,7 +604,56 @@
       "type": "file",
       "reference": "projects/status-center/monitor/probes.json",
       "date": "2026-08-26",
-      "note": "othmode.mythosprod.xyz added to the EXISTING STC-2 probe registry (no second monitoring system): `othmode` checks the surface (expect 200/301/302, text/html) and `othmode-api` checks the Task Reports API (expect exactly 401, application/json) so that a 404 — the stale-process signature — or a missing auth wall both drive the probe DOWN. The monitor unit runs from the repository working directory, so the timer picks these up on its next ~5-minute tick with no root action. VERIFIED IN PRODUCTION 2026-08-26T14:15:49Z: the root-run timer picked the probes up from the repository working directory on its next tick with no root action — live-status.json now carries 14 components (was 12), othmode LIVE http=200 TLS 89d and othmode-api LIVE http=401 TLS 89d."
+      "note": "othmode.mythosprod.xyz added to the EXISTING STC-2 probe registry (no second monitoring system): `othmode` checks the surface (expect 200/301/302, text/html) and `othmode-api` checks the Task Reports API. The monitor unit runs from the repository working directory, so the timer picks probe edits up on its next ~5-minute tick with no root action. VERIFIED IN PRODUCTION 2026-08-26T14:15:49Z: live-status.json carried 14 components (was 12), othmode LIVE http=200 and othmode-api LIVE http=401. CORRECTED 2026-08-26 (OTH-2026-00014): `othmode-api` originally expected exactly 401, which was correct until 7252de2 deliberately made the Task Reports a PUBLIC READ. The probe expectation did not ship with that release, so from 15:13:39Z the Status Center reported othmode-api DOWN — `unexpected HTTP 200 (expected 401)` — against a service that was healthy and behaving exactly as designed. This was a false DOWN on the surface that is meant to be execution truth, and it is the first recorded instance of a probe outliving the contract it asserts. The expectation is now 200 plus expect_body_substring \"tasks\" (status alone could false-green on a catch-all — the sya-api lesson) and application/json. Because relaxing it would otherwise have silently retired the auth-wall assertion, a NEW probe `othmode-authwall` now holds that assertion on its own: GET /api/othmode/evolution/events, expect exactly 401 — the same endpoint tests/othmode-2-platform-test.js uses as its no-credential probe, so the monitor and the suite assert one guarantee from opposite sides. No monitor code changed; both probes are GET-only and the monitor still never writes to production. VERIFIED IN PRODUCTION 2026-08-26T15:40:19Z at 7064215: the root-run timer picked the corrected registry up from the repository working directory on its next tick with no root action — live-status.json now carries 15 components (was 14) and reports DOWN=0, with othmode-api LIVE http=200 and othmode-authwall LIVE http=401. The two remaining non-LIVE components are unchanged and already recorded: vps-resources DEGRADED (OTH-2026-00010 diagnosis, OTH-2026-00011 owner action) and sya-api NOT_MONITORED (retired)."
+    },
+    {
+      "id": "EV-STATUS-PUBLISHED-0826",
+      "type": "deployment",
+      "reference": "https://status.mythosprod.xyz/ published by the owner, 2026-08-26",
+      "date": "2026-08-26",
+      "note": "Publication VERIFIED from the host: live data/current.json returns REVIEW-2026-08-26-004 and matches the repository byte-for-byte on every counted dimension — 23 projects, 90 PRs, 83 evidence items; PROJECT-OTHMODE live as DONE/PRODUCTION_VERIFIED; PROJECT-COMMAND-CENTER last_change 2026-08-26; ACTION-STC2-INSTALL, ACTION-MOS-DEPLOY and ACTION-HUB-DNS all DONE; all 11 snapshots present in the live reviews index; published assets/app.js byte-identical to the repository copy; Arabic layer live; site and health.json both 200. NEXT-STATUS-PUBLISH is satisfied. Second publish 2026-08-26T14:32Z shipped REVIEW-2026-08-26-005: live and repository now agree on 23 projects, 85 evidence items and a single open next_action (NEXT-EXPORTS)."
+    },
+    {
+      "id": "EV-PUBLISH-WIPES-MONITOR-STATE",
+      "type": "vps",
+      "reference": "scripts/deploy-status-center.sh rsync --delete, observed on vps-4722f0a9 2026-08-26T14:16Z",
+      "date": "2026-08-26",
+      "note": "DEFECT FOUND AND FIXED. The publish ran `rsync -a --delete` into the docroot excluding only DEPLOYMENT.md and README.md, but the STC-2 monitor writes its runtime state into that SAME docroot (data/live-status.json, data/live-history/) and that state is not in Git. The publish therefore deleted both. Blast radius was wider than the Status Center: the apex Hub serves /api/status.json as an nginx alias onto exactly that file, so a Status Center publish took the Hub's status feed on mythosprod.xyz to 404 as well — cross-domain impact from a site-local publish. live-status.json was recreated by the monitor's next tick (14:31:17Z, live panel back to 200, 14 components) but data/live-history/ — the per-month state JSONL and alerts.jsonl accumulated since 2026-08-22 — is permanently lost: /var/www is in no backup set. Fixed by adding `--exclude data/live-status.json --exclude data/live-history` to the rsync, with the reasoning recorded in the script. The fix takes effect on the next publish; the script is run from the repository, so no separate installation step is needed. FIX VERIFIED IN PRODUCTION 2026-08-26T14:36Z: the owner published again, this time running the corrected script, and the monitor's runtime state survived — data/live-status.json stayed 200 straight through the publish, data/live-history/ retained 2026-08.jsonl plus alerts.jsonl, the retained history_tail still carries the 14:31:17Z sample recorded BEFORE the publish (depth 2, not reset to 1), and the apex Hub's /api/status.json never left 200. The defect is closed: found, fixed at source, and confirmed by the regression it was written to prevent."
+    },
+    {
+      "id": "EV-OTHMODE-PUBLIC-HISTORY",
+      "type": "commit",
+      "reference": "7252de2",
+      "date": "2026-08-26",
+      "note": "Command History and every OTHMODE Task Report became readable with no session, login link or token. Reads made public: GET /api/othmode/history, /api/othmode/tasks, /api/othmode/tasks/:id. Writes unchanged and still authenticated + secret-gated, with a new assertion proving NO POST route is public so the write surface cannot open by accident. Because the OTHMODE store is append-only — records cannot be rewritten to be publishable — anonymous readers are served through a READ-side projection that masks the infrastructure detail operational narrative unavoidably carries (host paths, sudo grants, internal listeners, hostname, PIDs, account names) while preserving record shape and everything that makes a report citable: git SHAs, review ids, statuses and public URLs. An authenticated reader still receives every record verbatim and the stored record is never mutated. Gates: othmode-3 94/0 (was 68), othmode-2 157/0 (was 152), governance 99/0, MOS-v2 SUCCESS, othk-0 89/0."
+    },
+    {
+      "id": "EV-OTHMODE-PUBLIC-VERIFIED",
+      "type": "vps",
+      "reference": "othmode.mythosprod.xyz probed anonymously from vps-4722f0a9, 2026-08-26",
+      "date": "2026-08-26",
+      "note": "Verified in production with no credential: / 200, /api/othmode/history 200, /api/othmode/tasks 200, and a real report (OTH-2026-00011) returned 200 with redacted=true, all 13 sections intact and the narrative still readable. Leak probes for sudo grants, /home paths, loopback listeners, the hostname and /etc/sudoers all came back clean. Write surface re-confirmed closed in the same pass: unauthenticated POST /api/othmode/tasks and POST /api/othmode/evolution/signals both 401. UI verified live in EN, FR and AR; no access/modification button and no session warning render on the public pages."
+    },
+    {
+      "id": "EV-SYA-API-RESTORED-LOOPBACK",
+      "type": "vps",
+      "reference": "systemctl --user restart ssangyong-storefront on vps-4722f0a9, 2026-08-26 (OTH-2026-00015)",
+      "date": "2026-08-26",
+      "note": "The ten-day 218/CAPABILITIES crash loop is over. Before: ActiveState=activating (auto-restart), ExecMainStatus=218, NRestarts=67256 and climbing every 5s since 2026-08-16 17:23, nothing on 127.0.0.1:3011. After removing exactly three directives — ProtectKernelTunables, ProtectClock, MemoryDenyWriteExecute — from the deploy-owned user unit: ActiveState=active, SubState=running, ExecMainStatus=0, NRestarts=0, and ss -ltn shows LISTEN 127.0.0.1:3011. The API serves real data, not a stub: http://127.0.0.1:3011/api/health returns 200 application/json with {\"status\":\"ok\",\"database\":\"ssangyong_autos\",\"read_only\":true,\"counts\":{\"products\":346,\"vehicle_models\":17,\"vehicle_motorizations\":63,...}}, which proves the process reached PostgreSQL. No root was used: the unit is deploy-owned under ~/.config/systemd/user/. The three removed directives are the exact set MCC-1 bisected and named this unit for; what remains is MCC-1's hardening set, which runs green, and every other control on the unit is retained. THE PUBLIC ROUTE IS STILL MISSING: the ssangyong.autos vhost has no /api proxy_pass, so https://ssangyong.autos/api/health still answers 200 text/html from the SPA fallback. That half needs root and keeps BLOCKER-SYA-API-DOWN open."
+    },
+    {
+      "id": "EV-SYA-UNIT-IN-REPO",
+      "type": "file",
+      "reference": "projects/ssangyong-autos/deploy/ssangyong-storefront.user.service",
+      "date": "2026-08-26",
+      "note": "Root cause of the DURATION, recorded separately from the root cause of the failure. The unit existed only at ~/.config/systemd/user/ssangyong-storefront.service with no reviewed copy anywhere in the repository, so there was nothing to review and nothing a diff could catch — the defect survived ten days in a file no gate ever read. The unit is now committed as source, following the convention its own sibling already used (projects/command-center/deploy/mythos-command-center.user.service), the installed copy is byte-identical (md5 55b6358f2a62b4e03369646274cce450), and the header carries the install command so the next edit happens in the repo rather than on the host."
+    },
+    {
+      "id": "EV-SYA-API-MONITORED",
+      "type": "file",
+      "reference": "projects/status-center/monitor/probes.json",
+      "date": "2026-08-26",
+      "note": "Probe id sya-api-loopback. The second reason the outage lasted ten days: nothing watched this service. The only probe naming it (sya-api) pointed at the public URL, where an nginx catch-all answers 200 text/html for every path, so the outage was invisible by construction and the probe shipped disabled precisely because of that. New probe sya-api-loopback watches the origin the service actually binds to — http://127.0.0.1:3011/api/health, expect 200 + application/json + body substring \"read_only\":true so a half-initialised server that never reached PostgreSQL cannot report LIVE. Loopback probing is the precedent the database probe already set, and it doubles as proof the API is not publicly exposed on its own port. Verified LIVE in the collector dry run and in production. sya-api itself stays disabled: the public endpoint it names still does not exist."
     }
   ],
   "repositories": [
@@ -898,10 +947,10 @@
       "status": "DONE",
       "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-08-26 (PR #89 Task Reports merged aa4ca2d, deployed and operator-verified; pending imports cleaned up in bed5031)",
+      "last_change": "2026-08-26 (Command History and Task Reports made publicly readable, redacted for anonymous callers — 7252de2)",
       "blocker": null,
       "next_action": "None required for the platform. Outstanding around it: othmode.mythosprod.xyz is not yet a monitored component in the STC-2 probe registry (NEXT-OTHMODE-MONITOR).",
-      "headline": "Live at https://othmode.mythosprod.xyz since 2026-08-26 (Task Reports). Built over the MCC-1 runtime rather than as a second system: same process on 127.0.0.1:3021, same auth, CSRF and secret gate, no new event store. Task Reports add an append-only tasks/records.jsonl stream to the existing OTHMODE store and a fourth source to the existing Command History. Suite othmode-3 68/0, othmode-2 152/0 on the production host. Per-command activation replaced the global switch in PR #87; the keyword confers no privilege.",
+      "headline": "Live at https://othmode.mythosprod.xyz since 2026-08-26. Built over the MCC-1 runtime rather than as a second system: one process on a single loopback port, same auth, CSRF and secret gate, no new event store. Task Reports add an append-only tasks/records.jsonl stream to the existing OTHMODE store and a fourth source to the existing Command History. As of 7252de2 the Command History and every Task Report are PUBLIC READS — no session, login link or token — while every write stays authenticated and secret-gated; anonymous readers get the full narrative with infrastructure detail masked by a read-side projection, since the append-only store cannot be rewritten to be publishable. Suites othmode-3 94/0 and othmode-2 157/0 on the production host. Per-command activation replaced the global switch in PR #87; the keyword confers no privilege.",
       "dimensions": {
         "implementation": {
           "status": "DONE",
@@ -917,7 +966,7 @@
         },
         "production": {
           "status": "DONE",
-          "note": "operator-verified 2026-08-26: health 200, /api/othmode/tasks 401 unauthenticated, 3 real Task Reports imported and readable through the API and Command History"
+          "note": "operator-verified 2026-08-26: health 200, Task Reports live, and the public read path verified anonymously end to end with the write surface confirmed still closed (401)"
         }
       },
       "evidence": [
@@ -925,7 +974,9 @@
         "EV-OTHMODE-TASKS-CODE",
         "EV-OTHMODE-TASKS-TEST",
         "EV-OTHMODE-LIVE",
-        "EV-OTHMODE-STORE"
+        "EV-OTHMODE-STORE",
+        "EV-OTHMODE-PUBLIC-HISTORY",
+        "EV-OTHMODE-PUBLIC-VERIFIED"
       ]
     },
     {
@@ -2793,20 +2844,23 @@
     },
     {
       "id": "BLOCKER-SYA-API-DOWN",
-      "title": "SYA catalog API down since 2026-08-16 (218/CAPABILITIES crash loop)",
+      "title": "SYA catalog API: service RESTORED 2026-08-26; public /api route still absent (nginx proxy_pass, needs root)",
       "type": "infrastructure",
       "project": "PROJECT-SSANGYONG-AUTOS",
       "priority": "P0",
       "status": "BLOCKED",
       "owner": "Operator",
-      "impact": "ssangyong-storefront.service (USER unit) has never started since 2026-08-16: hardened system-unit directives it cannot apply in user scope make systemd fail at the CAPABILITIES step. Nothing listens on 127.0.0.1:3011. The storefront HTML is served by nginx, so the site looks up while the catalog API is dead. This is a live production outage.",
-      "required_input": "Edit /home/deploy/.config/systemd/user/ssangyong-storefront.service as deploy (NO root needed) and restart the user unit.",
-      "unblock": "Remove ProtectKernelTunables, ProtectClock and MemoryDenyWriteExecute, per the bisected reasoning already recorded in mythos-command-center.service and docs/AI_HANDOVER.md. That leaves a hardening set identical to MCC-1, which runs green. Then: systemctl --user daemon-reload && systemctl --user restart ssangyong-storefront.",
+      "impact": "WAS: ssangyong-storefront.service (a USER unit) had never started since 2026-08-16 — hardened SYSTEM-unit directives it cannot apply in user scope made systemd fail at the CAPABILITIES step, 67,256 restarts, nothing on 127.0.0.1:3011. THAT HALF IS FIXED (OTH-2026-00015, no root used): the service is active, listening, and serving real catalog JSON on 127.0.0.1:3011, and sya-api-loopback now watches it. REMAINS: the ssangyong.autos vhost is a static root with try_files and carries no /api proxy_pass, so the catalog API is unreachable from the public site — https://ssangyong.autos/api/health still answers 200 text/html from the SPA fallback. The storefront HTML has always been served by nginx and is unaffected; what is missing is the data path. This is now a routing gap, not a dead service.",
+      "required_input": "Root. Add an /api proxy_pass to 127.0.0.1:3011 in /etc/nginx/sites-enabled/ssangyong.autos. deploy's sudo grant covers `nginx -t` and `systemctl reload nginx` but NOT editing the vhost, so the edit itself cannot be done from a deploy session.",
+      "unblock": "Reconcile with BLOCKER-SYA-NGINX-DRIFT first — the installed vhost is 101 lines diverged from deploy/nginx-ssangyong-storefront.conf, so adding a location block to the installed copy without resolving the drift would widen it. Preferred order: resolve the drift, add the /api location, `sudo nginx -t`, `sudo systemctl reload nginx`, then flip sya-api to enabled:true in probes.json — its expect_content_type is already in place, so it will refuse to false-green on the SPA fallback.",
       "created": "2026-08-22",
-      "last_checked": "2026-08-22",
+      "last_checked": "2026-08-26",
       "note_verified": "On-host 2026-08-22: NRestarts=2830 and climbing, status=218/CAPABILITIES every 5s, 21458 journal failures. ss shows nothing on :3011.",
       "evidence": [
-        "EV-SYA-API-DOWN"
+        "EV-SYA-API-DOWN",
+        "EV-SYA-API-RESTORED-LOOPBACK",
+        "EV-SYA-UNIT-IN-REPO",
+        "EV-SYA-API-MONITORED"
       ]
     },
     {
@@ -2922,20 +2976,20 @@
   ],
   "next_actions": [
     {
-      "id": "NEXT-STATUS-PUBLISH",
-      "priority": "P1",
-      "order": 1,
-      "title": "Publish the pending Status Center reviews to production",
-      "detail": "The repository holds REVIEW-2026-08-26-001 (and the never-published REVIEW-2026-08-22-001) while https://status.mythosprod.xyz/ still serves REVIEW-2026-08-21-001. The gap was never a missing re-sync — it is a missing publish. Root-only by design: `sudo bash scripts/deploy-status-center.sh` from the repository checkout (idempotent, strictly additive, fail-closed, --rollback available). mythos-deploy refuses target `status` as PROTECTED/owner-controlled, and /var/www/status.mythosprod.xyz is not writable by `deploy`.",
-      "depends_on": null
-    },
-    {
       "id": "NEXT-EXPORTS",
       "priority": "P2",
-      "order": 2,
+      "order": 1,
       "title": "Produce authorized exports for OTH Knowledge Track B",
       "detail": "Takeout / Gemini / NotebookLM, per docs/OTH_TRACK_B_READINESS.md §3.",
       "depends_on": "NEXT-OTHK-STORE"
+    },
+    {
+      "id": "NEXT-STATUS-DISCLOSURE-REVIEW",
+      "priority": "P2",
+      "order": 2,
+      "title": "Decide whether the public Status Center should mask infrastructure detail, as OTHMODE reports now do",
+      "detail": "On 2026-08-26 the owner decided that OTHMODE Task Reports, on becoming public, should have infrastructure detail masked for anonymous readers (host paths, sudo grants, internal listeners, hostname). The Status Center has been public since 2026-08-20 and carries the same class of detail: the hostname appears 12 times and absolute host paths 23 times in the published current.json. This is pre-existing convention, not a new exposure, and it is NOT obviously wrong — the Status Center is an evidence-citing instrument, and a path or a host IS the evidence, so masking it would degrade the thing it exists to do. That tension is the decision: apply the same masking for consistency, accept the disclosure as the cost of citable evidence, or mask only the narrowest subset (sudo grants and backup gaps). Recorded rather than acted on, because scrubbing two dozen evidence references is a content decision with owner-visible impact and would be pointless if done piecemeal.",
+      "depends_on": null
     }
   ],
   "do_not_reopen": [

@@ -1,6 +1,6 @@
 {
-  "review_id": "REVIEW-2026-08-26-011",
-  "timestamp": "2026-08-26T15:58:50.543Z",
+  "review_id": "REVIEW-2026-08-26-009",
+  "timestamp": "2026-08-26T15:42:42.159Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "git@github.com:othoth77/mythos-prod.git",
@@ -8,31 +8,21 @@
     "pr_ledger_captured_at": "2026-08-26T13:58:00Z",
     "repo_snapshot_captured_at": "2026-08-20T10:20:00Z",
     "documents_checked": 24,
-    "evidence_checked": 90
+    "evidence_checked": 87
   },
   "git": {
     "collected": true,
-    "head": "85fbaaf2109a25464b054871b969731abbd761aa",
+    "head": "7064215b82c5aa62b1f5b33c755f087708d48c29",
     "branch": "main",
-    "origin_main": "85fbaaf2109a25464b054871b969731abbd761aa",
+    "origin_main": "7064215b82c5aa62b1f5b33c755f087708d48c29",
     "remote_url": "git@github.com:othoth77/mythos-prod.git",
     "worktree_clean": false,
     "last_commit": {
-      "hash": "85fbaaf2109a25464b054871b969731abbd761aa",
-      "date": "2026-08-26T15:57:29Z",
-      "subject": "fix(sya): end the ten-day 218/CAPABILITIES crash loop; commit the unit; watch it"
+      "hash": "7064215b82c5aa62b1f5b33c755f087708d48c29",
+      "date": "2026-08-26T15:40:25Z",
+      "subject": "fix(status-center): othmode-api probe outlived its contract; split read from auth wall"
     },
     "recent_commits": [
-      {
-        "hash": "85fbaaf",
-        "date": "2026-08-26",
-        "subject": "fix(sya): end the ten-day 218/CAPABILITIES crash loop; commit the unit; watch it"
-      },
-      {
-        "hash": "242af81",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): re-sync — probe correction verified in production"
-      },
       {
         "hash": "7064215",
         "date": "2026-08-26",
@@ -1022,6 +1012,16 @@
         "hash": "835e82d",
         "date": "2026-08-19",
         "subject": "Merge origin/main (0595834) into MOS-v2 M-02 branch"
+      },
+      {
+        "hash": "0595834",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #32 from othoth77/claude/mos-v2-nginx-contract-qawqxn"
+      },
+      {
+        "hash": "a1cb16c",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (1621c17) into MOS-v2 M-03 branch"
       }
     ],
     "commit_count": null,
@@ -3157,23 +3157,20 @@
     },
     {
       "id": "BLOCKER-SYA-API-DOWN",
-      "title": "SYA catalog API: service RESTORED 2026-08-26; public /api route still absent (nginx proxy_pass, needs root)",
+      "title": "SYA catalog API down since 2026-08-16 (218/CAPABILITIES crash loop)",
       "type": "infrastructure",
       "project": "PROJECT-SSANGYONG-AUTOS",
       "priority": "P0",
       "status": "BLOCKED",
       "owner": "Operator",
-      "impact": "WAS: ssangyong-storefront.service (a USER unit) had never started since 2026-08-16 — hardened SYSTEM-unit directives it cannot apply in user scope made systemd fail at the CAPABILITIES step, 67,256 restarts, nothing on 127.0.0.1:3011. THAT HALF IS FIXED (OTH-2026-00015, no root used): the service is active, listening, and serving real catalog JSON on 127.0.0.1:3011, and sya-api-loopback now watches it. REMAINS: the ssangyong.autos vhost is a static root with try_files and carries no /api proxy_pass, so the catalog API is unreachable from the public site — https://ssangyong.autos/api/health still answers 200 text/html from the SPA fallback. The storefront HTML has always been served by nginx and is unaffected; what is missing is the data path. This is now a routing gap, not a dead service.",
-      "required_input": "Root. Add an /api proxy_pass to 127.0.0.1:3011 in /etc/nginx/sites-enabled/ssangyong.autos. deploy's sudo grant covers `nginx -t` and `systemctl reload nginx` but NOT editing the vhost, so the edit itself cannot be done from a deploy session.",
-      "unblock": "Reconcile with BLOCKER-SYA-NGINX-DRIFT first — the installed vhost is 101 lines diverged from deploy/nginx-ssangyong-storefront.conf, so adding a location block to the installed copy without resolving the drift would widen it. Preferred order: resolve the drift, add the /api location, `sudo nginx -t`, `sudo systemctl reload nginx`, then flip sya-api to enabled:true in probes.json — its expect_content_type is already in place, so it will refuse to false-green on the SPA fallback.",
+      "impact": "ssangyong-storefront.service (USER unit) has never started since 2026-08-16: hardened system-unit directives it cannot apply in user scope make systemd fail at the CAPABILITIES step. Nothing listens on 127.0.0.1:3011. The storefront HTML is served by nginx, so the site looks up while the catalog API is dead. This is a live production outage.",
+      "required_input": "Edit /home/deploy/.config/systemd/user/ssangyong-storefront.service as deploy (NO root needed) and restart the user unit.",
+      "unblock": "Remove ProtectKernelTunables, ProtectClock and MemoryDenyWriteExecute, per the bisected reasoning already recorded in mythos-command-center.service and docs/AI_HANDOVER.md. That leaves a hardening set identical to MCC-1, which runs green. Then: systemctl --user daemon-reload && systemctl --user restart ssangyong-storefront.",
       "created": "2026-08-22",
-      "last_checked": "2026-08-26",
+      "last_checked": "2026-08-22",
       "note_verified": "On-host 2026-08-22: NRestarts=2830 and climbing, status=218/CAPABILITIES every 5s, 21458 journal failures. ss shows nothing on :3011.",
       "evidence": [
-        "EV-SYA-API-DOWN",
-        "EV-SYA-API-RESTORED-LOOPBACK",
-        "EV-SYA-UNIT-IN-REPO",
-        "EV-SYA-API-MONITORED"
+        "EV-SYA-API-DOWN"
       ]
     },
     {
@@ -4437,30 +4434,6 @@
       "date": "2026-08-26",
       "note": "Verified in production with no credential: / 200, /api/othmode/history 200, /api/othmode/tasks 200, and a real report (OTH-2026-00011) returned 200 with redacted=true, all 13 sections intact and the narrative still readable. Leak probes for sudo grants, /home paths, loopback listeners, the hostname and /etc/sudoers all came back clean. Write surface re-confirmed closed in the same pass: unauthenticated POST /api/othmode/tasks and POST /api/othmode/evolution/signals both 401. UI verified live in EN, FR and AR; no access/modification button and no session warning render on the public pages.",
       "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-SYA-API-RESTORED-LOOPBACK",
-      "type": "vps",
-      "reference": "systemctl --user restart ssangyong-storefront on vps-4722f0a9, 2026-08-26 (OTH-2026-00015)",
-      "date": "2026-08-26",
-      "note": "The ten-day 218/CAPABILITIES crash loop is over. Before: ActiveState=activating (auto-restart), ExecMainStatus=218, NRestarts=67256 and climbing every 5s since 2026-08-16 17:23, nothing on 127.0.0.1:3011. After removing exactly three directives — ProtectKernelTunables, ProtectClock, MemoryDenyWriteExecute — from the deploy-owned user unit: ActiveState=active, SubState=running, ExecMainStatus=0, NRestarts=0, and ss -ltn shows LISTEN 127.0.0.1:3011. The API serves real data, not a stub: http://127.0.0.1:3011/api/health returns 200 application/json with {\"status\":\"ok\",\"database\":\"ssangyong_autos\",\"read_only\":true,\"counts\":{\"products\":346,\"vehicle_models\":17,\"vehicle_motorizations\":63,...}}, which proves the process reached PostgreSQL. No root was used: the unit is deploy-owned under ~/.config/systemd/user/. The three removed directives are the exact set MCC-1 bisected and named this unit for; what remains is MCC-1's hardening set, which runs green, and every other control on the unit is retained. THE PUBLIC ROUTE IS STILL MISSING: the ssangyong.autos vhost has no /api proxy_pass, so https://ssangyong.autos/api/health still answers 200 text/html from the SPA fallback. That half needs root and keeps BLOCKER-SYA-API-DOWN open.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-SYA-UNIT-IN-REPO",
-      "type": "file",
-      "reference": "projects/ssangyong-autos/deploy/ssangyong-storefront.user.service",
-      "date": "2026-08-26",
-      "note": "Root cause of the DURATION, recorded separately from the root cause of the failure. The unit existed only at ~/.config/systemd/user/ssangyong-storefront.service with no reviewed copy anywhere in the repository, so there was nothing to review and nothing a diff could catch — the defect survived ten days in a file no gate ever read. The unit is now committed as source, following the convention its own sibling already used (projects/command-center/deploy/mythos-command-center.user.service), the installed copy is byte-identical (md5 55b6358f2a62b4e03369646274cce450), and the header carries the install command so the next edit happens in the repo rather than on the host.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-SYA-API-MONITORED",
-      "type": "file",
-      "reference": "projects/status-center/monitor/probes.json",
-      "date": "2026-08-26",
-      "note": "Probe id sya-api-loopback. The second reason the outage lasted ten days: nothing watched this service. The only probe naming it (sya-api) pointed at the public URL, where an nginx catch-all answers 200 text/html for every path, so the outage was invisible by construction and the probe shipped disabled precisely because of that. New probe sya-api-loopback watches the origin the service actually binds to — http://127.0.0.1:3011/api/health, expect 200 + application/json + body substring \"read_only\":true so a half-initialised server that never reached PostgreSQL cannot report LIVE. Loopback probing is the precedent the database probe already set, and it doubles as proof the API is not publicly exposed on its own port. Verified LIVE in the collector dry run and in production. sya-api itself stays disabled: the public endpoint it names still does not exist.",
-      "evidence_status": "VERIFIED"
     }
   ],
   "prs": [
@@ -5290,7 +5263,7 @@
       "authority": "historical evidence only — reconcile before trusting"
     }
   ],
-  "previous_review": "REVIEW-2026-08-26-010",
+  "previous_review": "REVIEW-2026-08-26-008",
   "changes": {
     "added": [],
     "completed": [],
