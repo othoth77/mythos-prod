@@ -114,3 +114,44 @@ The global OthMode ON/OFF switch described in this document was REMOVED by owner
 - Only explicitly activated operations are OTHMODE commands in OTHMODE-specific history/context; evolution events are recorded only for activated operations whose actions actually qualify.
 - The keyword selects the control contract ONLY. It grants no permission: session/bearer authentication, roles, owner gates, the secret gate and all boundaries are evaluated unchanged.
 - `GET /api/othmode/mode` remains as a read-only availability report (`READY` + trilingual hint); its POST is gone and no replacement toggle exists anywhere.
+
+## TASK REPORTS — the persistent operational record (2026-08-26)
+
+Every command explicitly activated with the standalone keyword `othmode` is an
+**OTHMODE Task**. No OTHMODE operation may disappear without a persistent
+record — a run that never reached execution is still recorded (BLOCKED,
+REJECTED, CANCELLED…).
+
+- **Where the record lives:** the existing OTHMODE store (append-only JSONL,
+  `tasks/records.jsonl`, same fail-closed contract as the evolution stream).
+  There is deliberately NO second history database: tasks surface as the
+  fourth source of the existing unified Command History
+  (`GET /api/othmode/history`, source `othmode`), and the Command History UI
+  is where reports are read (list → open a task → summary first, technical
+  sections progressively).
+- **Lifecycle (simple, no workflow engine):** created `RUNNING` at
+  activation; phases `PREFLIGHT → SEARCH → PLAN → EXECUTION → VALIDATION →
+  DEPLOYMENT → VERIFICATION`; finished in exactly one terminal status:
+  `COMPLETED | FAILED | BLOCKED | CANCELLED | REJECTED`. A terminal task
+  refuses further updates — a correction is a new task.
+- **Report sections (closed list):** `preflight, status_center, search_first,
+  capabilities, execution, changes, git, validation, deployment, evidence,
+  problems, outcome, evolution`. Status Center stays the execution truth:
+  reachable → its reference is recorded; unreachable → `UNREACHABLE` with the
+  safe reason, never a stale snapshot as substitute.
+- **API:** `GET/POST /api/othmode/tasks`, `GET /api/othmode/tasks/:id`,
+  `POST /api/othmode/tasks/:id/update` — all authenticated, all behind the
+  secret gate (whole payload scanned; credential-shaped content is refused).
+  The writer itself refuses non-activated command text, so a normal Claude
+  command can never become a task.
+- **CLI:** `othmode-cli.js tasks | task show|create|update|import` — the
+  no-HTTP path, including `task import <file.json>` for reports prepared in
+  environments that cannot reach OTHMODE (pending imports live in
+  `projects/command-center/data/pending-task-imports/`; ids are always
+  assigned by the store on import). The store export includes the task stream.
+- **Claude receipt rule:** the FULL report belongs in OTHMODE; the Claude
+  conversation carries only a short receipt (result, one or two sentences,
+  Task ID, report reference, next action).
+- **Evolution:** a task is not automatically an evolution event; when the
+  existing Evolution rules qualify the operation, the task's `evolution`
+  section references the event id, and only then.

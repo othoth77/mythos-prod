@@ -375,6 +375,10 @@
   }
 
   function renderHistory(segments, params) {
+    // #/history/task/<id> — one OTHMODE Task Report, opened from the list.
+    if (segments[1] === 'task' && segments[2]) {
+      return renderTaskDetail(decodeURIComponent(segments[2]));
+    }
     loadingView('oth.history.title', 'oth.history.sub');
     var qs = [];
     ['source', 'status', 'project', 'q'].forEach(function (k) {
@@ -392,7 +396,7 @@
             A.navigate('#/history' + (select.value ? '?source=' + select.value : ''));
           }
         });
-        [['', t('oth.history.source')], ['library', 'library'], ['executor', 'executor'], ['orchestrator', 'orchestrator']].forEach(function (o) {
+        [['', t('oth.history.source')], ['othmode', 'othmode'], ['library', 'library'], ['executor', 'executor'], ['orchestrator', 'orchestrator']].forEach(function (o) {
           select.appendChild(el('option', { value: o[0], text: o[1], selected: (params && params.source || '') === o[0] }));
         });
         return select;
@@ -404,8 +408,15 @@
         data.rows.length ? table(
           [t('field.body'), t('oth.history.source'), t('meta.created'), t('oth.history.duration'), t('field.status'), t('oth.history.result'), t('oth.history.next_action')],
           data.rows.map(function (r) {
+            // An OTHMODE task row opens its full persistent report.
+            var commandCell = r.source === 'othmode'
+              ? el('button.btn.btn-sm.btn-ghost.mono.oth-cell-wrap', {
+                  type: 'button', text: r.command_ref + ' · ' + r.command,
+                  onclick: function () { A.navigate('#/history/task/' + encodeURIComponent(r.command_ref)); }
+                })
+              : el('span.mono.oth-cell-wrap', { text: r.command });
             return [
-              el('span.mono.oth-cell-wrap', { text: r.command }),
+              commandCell,
               r.source,
               r.timestamp ? A.formatDateTime(r.timestamp) : '—',
               fmtDuration(r.duration_ms),
@@ -417,6 +428,70 @@
         ) : emptyState('oth.history.empty')
       ]));
     }).catch(function (err) { errorView('oth.history.title', 'oth.history.sub', err); });
+  }
+
+  // One OTHMODE Task Report: the summary is immediately readable (status,
+  // lifecycle, result, next action); the technical sections open
+  // progressively below it. All text through textContent, as everywhere.
+  function renderTaskDetail(id) {
+    loadingView('oth.task.title', null);
+    A.api('/othmode/tasks/' + encodeURIComponent(id)).then(function (data) {
+      var task = data.task;
+      var lifecycle = ['PREFLIGHT', 'SEARCH', 'PLAN', 'EXECUTION', 'VALIDATION', 'DEPLOYMENT', 'VERIFICATION', 'COMPLETED'];
+      var reached = lifecycle.indexOf(task.phase);
+      var stopped = task.terminal && task.status !== 'COMPLETED';
+
+      var outcome = task.sections && task.sections.outcome;
+      var result = typeof outcome === 'string' ? outcome
+        : (outcome && (outcome.final_result || outcome.result)) || null;
+      var nextAction = outcome && typeof outcome === 'object' ? (outcome.next_action || null) : null;
+
+      var sectionBlocks = [];
+      Object.keys(task.sections || {}).forEach(function (key, idx) {
+        var value = task.sections[key];
+        var body = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+        var labelKey = 'oth.task.sec.' + key;
+        var label = t(labelKey) === labelKey ? key.replace(/_/g, ' ') : t(labelKey);
+        sectionBlocks.push(el('details.oth-task-section', { open: idx === 0 ? 'open' : null }, [
+          el('summary', { text: label }),
+          el('pre.command-body', { text: body })
+        ]));
+      });
+
+      A.mount(el('div.detail', {}, [
+        el('button.btn.btn-sm.btn-ghost', { type: 'button', text: '← ' + t('action.back'), onclick: function () { A.navigate('#/history'); } }),
+        el('div.detail-head', {}, [
+          el('h1.detail-title.mono', { text: task.id }),
+          el('div.detail-badges', {}, [
+            stateChip(task.status),
+            el('span.badge', { text: t('oth.task.phase') + ': ' + task.phase }),
+            task.evolution_ref ? el('span.badge.mono', { text: 'evolution: ' + task.evolution_ref } ) : null
+          ])
+        ]),
+        el('pre.command-body', { text: task.command }),
+        el('div.note-meta', {}, [
+          el('span', { text: task.started_at ? A.formatDateTime(task.started_at) : '—' }),
+          el('span', { text: fmtDuration(task.duration_ms) }),
+          el('span', { text: task.actor || '—' }),
+          task.project ? el('span.mono', { text: task.project }) : null
+        ]),
+        el('div.oth-stage-row', {}, lifecycle.map(function (name, i) {
+          var cls = '';
+          if (reached >= 0 && i <= reached) cls = (stopped && i === reached) ? '.is-stop' : '.is-done';
+          if (stopped && i === (reached >= 0 ? reached : 0)) cls = '.is-stop';
+          return el('span.oth-stage' + cls, { text: name });
+        })),
+        el('div.detail-block', {}, [
+          el('h2.block-title', { text: t('oth.task.result') }),
+          el('p.prose', { text: result || '—' }),
+          nextAction ? el('h2.block-title', { text: t('oth.history.next_action') }) : null,
+          nextAction ? el('p.prose', { text: nextAction }) : null
+        ]),
+        el('div.detail-block', {}, [
+          el('h2.block-title', { text: t('oth.task.sections') })
+        ].concat(sectionBlocks.length ? sectionBlocks : [emptyState('section.empty')]))
+      ]));
+    }).catch(function (err) { errorView('oth.task.title', null, err); });
   }
 
   function renderMemory(segments, params) {
