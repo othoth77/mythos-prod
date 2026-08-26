@@ -847,3 +847,15 @@ kbd {
 }
 .oth-tab:hover { color: var(--text); }
 .oth-tab.is-active { color: var(--accent); border-block-end-color: var(--accent); font-weight: 600; }
+
+/* OTHMODE Task Report — progressive disclosure of the full report */
+.oth-task-section {
+  border: 1px solid var(--border); border-radius: 8px;
+  margin-block-end: 10px; overflow: hidden;
+}
+.oth-task-section > summary {
+  cursor: pointer; padding: 9px 14px; font-size: 13px; font-weight: 600;
+  background: var(--bg-sunken); user-select: none;
+}
+.oth-task-section[open] > summary { border-block-end: 1px solid var(--border); }
+.oth-task-section > pre { margin: 0; border: 0; border-radius: 0; }
