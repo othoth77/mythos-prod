@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IDauto — L'identité numérique du véhicule</title>
+  <meta name="description" content="IDauto donne à chaque véhicule une identité numérique vérifiable : plaque, IVID, passeport et historique tracé par des preuves.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Production: self-host these faces (SIL OFL) — see docs/DESIGN_SYSTEM.md §Typographie -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="../tokens/tokens.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+<a class="ida-skip-link" href="#main">Aller au contenu</a>
+<p id="ida-live" class="ida-sr-only" role="status" aria-live="polite"></p>
+
+<header class="ida-nav">
+  <div class="ida-container ida-nav-inner">
+    <a class="ida-wordmark" href="index.html" aria-label="IDauto — accueil">
+      <span class="ida-wordmark-id" aria-hidden="true">ID</span><span>auto</span>
+    </a>
+    <nav aria-label="Navigation principale">
+      <ul class="ida-nav-links">
+        <li><a href="index.html" aria-current="page">Vérifier</a></li>
+        <li><a href="search.html">Recherche</a></li>
+        <li><a href="passport.html">Passeport</a></li>
+        <li><a href="components.html">Design System</a></li>
+        <li><button type="button" class="ida-btn ida-btn--ghost ida-btn--sm" data-theme-toggle aria-label="Basculer le thème clair ou sombre">◐</button></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- 1. Identity statement -->
+  <section class="ida-container" style="padding-block: var(--ida-space-7) var(--ida-space-6); text-align: center;">
+    <div class="ida-stack">
+      <h1 style="max-width: 22ch; margin-inline: auto;">Chaque véhicule possède une identité. IDauto la rend vérifiable.</h1>
+      <p class="ida-muted" style="max-width: 52ch; margin-inline: auto;">
+        Une plaque, un identifiant IVID, un passeport numérique : l'historique du véhicule,
+        tracé par des sources et des preuves — jamais par des promesses.
+      </p>
+    </div>
+  </section>
+
+  <!-- 2. Plate verification — the first functional object -->
+  <section class="ida-container" aria-labelledby="verif-title">
+    <div class="ida-card ida-card--raised ida-trame" style="text-align: center; padding-block: var(--ida-space-6);">
+      <div class="ida-stack-lg">
+        <h2 id="verif-title" class="ida-h3">Vérifier un véhicule par sa plaque</h2>
+        <form class="ida-search" action="search.html" method="get" data-plate-form>
+          <div class="ida-plate-input" data-plate-format="tn-serie" data-state="empty" role="group" aria-labelledby="verif-title" aria-describedby="plate-hint">
+            <label class="ida-sr-only" for="plate-serie">Série de la plaque (1 à 3 chiffres)</label>
+            <input class="ida-plate-serie" id="plate-serie" name="serie" inputmode="numeric" autocomplete="off" maxlength="3" placeholder="000">
+            <span class="ida-plate-word" aria-hidden="true">تونس</span>
+            <label class="ida-sr-only" for="plate-numero">Numéro de la plaque (1 à 4 chiffres)</label>
+            <input class="ida-plate-numero" id="plate-numero" name="numero" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="0000">
+          </div>
+          <p id="plate-hint" class="ida-caption">Plaque tunisienne — série puis numéro. Exemple&nbsp;: 220&nbsp;<bdi>تونس</bdi>&nbsp;4518</p>
+          <p class="ida-error-msg" data-plate-error hidden></p>
+          <div class="ida-search-actions">
+            <button type="submit" class="ida-btn ida-btn--primary">Consulter l'identité</button>
+          </div>
+        </form>
+
+        <!-- 3. QR / IVID alternatives -->
+        <div>
+          <p class="ida-label" style="margin-block-end: var(--ida-space-3);">Autres accès</p>
+          <div class="ida-search-actions">
+            <a class="ida-btn ida-btn--secondary" href="passport.html">Scanner un QR IDauto</a>
+            <a class="ida-btn ida-btn--secondary" href="search.html">Saisir un IVID</a>
+          </div>
+          <p class="ida-caption" style="margin-block-start: var(--ida-space-3);">
+            Le QR d'un véhicule encode uniquement son IVID — jamais sa plaque.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Vehicle Passport explanation -->
+  <section class="ida-container" style="padding-block: var(--ida-space-7);" aria-labelledby="passport-expl">
+    <div class="ida-stack-lg">
+      <h2 id="passport-expl" class="ida-h3" style="text-align:center;">Le Passeport Véhicule IDauto</h2>
+      <div class="ida-grid ida-grid-3">
+        <div class="ida-card ida-stack">
+          <p class="ida-label">Identité</p>
+          <h3 class="ida-h4">Un identifiant stable&nbsp;: l'IVID</h3>
+          <p class="ida-small ida-muted">Le véhicule reçoit un identifiant canonique et opaque, indépendant de sa plaque et de ses propriétaires successifs.</p>
+        </div>
+        <div class="ida-card ida-stack">
+          <p class="ida-label">Preuves</p>
+          <h3 class="ida-h4">Des faits adossés à des sources</h3>
+          <p class="ida-small ida-muted">Chaque fait du passeport cite sa source et son niveau de vérification. Ce qui n'est pas prouvé est affiché comme tel — jamais maquillé.</p>
+        </div>
+        <div class="ida-card ida-stack">
+          <p class="ida-label">Traçabilité</p>
+          <h3 class="ida-h4">Un historique en points de contrôle</h3>
+          <p class="ida-small ida-muted">Immatriculations, contrôles, interventions, transferts&nbsp;: la chronologie du véhicule se lit comme une ligne de repères datés.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="ida-footer">
+  <div class="ida-container ida-footer-inner">
+    <p>IDauto — protocole ouvert d'identité et d'historique des véhicules.</p>
+    <p class="ida-caption">Pages du Design System — données affichées&nbsp;: <span class="ida-specimen">SPÉCIMEN</span></p>
+  </div>
+</footer>
+
+<script src="../js/plate.js"></script>
+<script src="../js/ui.js"></script>
+<script>
+  (function () {
+    var form = document.querySelector("[data-plate-form]");
+    var plateEl = form.querySelector(".ida-plate-input");
+    var errEl = form.querySelector("[data-plate-error]");
+    var api = IdaPlate.enhance(plateEl, {
+      onChange: function () { errEl.hidden = true; }
+    });
+    form.addEventListener("submit", function (e) {
+      var res = api.validate();
+      if (!res.valid) {
+        e.preventDefault();
+        api.setState(res.complete ? "invalid" : "invalid");
+        errEl.textContent = "Plaque incomplète ou invalide — série (1 à 3 chiffres) puis numéro (1 à 4 chiffres).";
+        errEl.hidden = false;
+        var firstBad = Object.keys(res.errors)[0];
+        var input = plateEl.querySelector(".ida-plate-" + firstBad);
+        if (input) input.focus();
+      }
+    });
+  })();
+</script>
+</body>
+</html>

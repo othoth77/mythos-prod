@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IDauto — Passeport Véhicule</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="../tokens/tokens.css">
+  <link rel="stylesheet" href="../css/base.css">
+  <link rel="stylesheet" href="../css/components.css">
+</head>
+<body>
+<a class="ida-skip-link" href="#main">Aller au contenu</a>
+<p id="ida-live" class="ida-sr-only" role="status" aria-live="polite"></p>
+
+<header class="ida-nav">
+  <div class="ida-container ida-nav-inner">
+    <a class="ida-wordmark" href="index.html" aria-label="IDauto — accueil">
+      <span class="ida-wordmark-id" aria-hidden="true">ID</span><span>auto</span>
+    </a>
+    <nav aria-label="Navigation principale">
+      <ul class="ida-nav-links">
+        <li><a href="index.html">Vérifier</a></li>
+        <li><a href="search.html">Recherche</a></li>
+        <li><a href="passport.html" aria-current="page">Passeport</a></li>
+        <li><a href="components.html">Design System</a></li>
+        <li><button type="button" class="ida-btn ida-btn--ghost ida-btn--sm" data-theme-toggle aria-label="Basculer le thème clair ou sombre">◐</button></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="ida-container" style="padding-block: var(--ida-space-6); max-width: 880px;">
+  <div class="ida-stack-lg">
+
+    <p><span class="ida-specimen">SPÉCIMEN</span> <span class="ida-caption">— Passeport de démonstration du Design System. Aucune donnée réelle.</span></p>
+
+    <!-- Le Passeport — un document numérique de confiance -->
+    <article class="ida-passport" aria-labelledby="pp-title">
+
+      <header class="ida-passport-header ida-trame">
+        <div class="ida-stack" style="min-width: 0;">
+          <p class="ida-label">Passeport Véhicule IDauto</p>
+          <h1 id="pp-title" class="ida-h3">Berline compacte — spécimen</h1>
+          <p class="ida-ivid"><span>IVID</span><span>SPEC-0000-0000-DEMO</span>
+            <button type="button" class="ida-ivid-copy" data-copy="SPEC-0000-0000-DEMO" data-copy-done="IVID copié" aria-label="Copier l'IVID">⧉</button>
+          </p>
+          <p class="ida-trust">
+            <span class="ida-trust-marks" aria-hidden="true">
+              <span class="ida-trust-mark ida-trust-mark--on"></span>
+              <span class="ida-trust-mark ida-trust-mark--on"></span>
+              <span class="ida-trust-mark ida-trust-mark--on"></span>
+              <span class="ida-trust-mark"></span>
+            </span>
+            <span class="ida-trust-level">T2</span>
+            <span class="ida-small">Faits vérifiés multi-sources</span>
+          </p>
+        </div>
+        <div class="ida-stack" style="text-align: center;">
+          <span class="ida-plate"><span>220</span><span class="ida-plate-word">تونس</span><span>4518</span></span>
+          <span class="ida-seal ida-seal--verified"><span class="ida-seal-dot" aria-hidden="true"></span>Identité vérifiée</span>
+        </div>
+      </header>
+
+      <!-- Identité technique -->
+      <section class="ida-passport-section" aria-labelledby="sec-identite">
+        <h2 id="sec-identite" class="ida-label">Identité technique</h2>
+        <dl class="ida-passport-facts">
+          <div><dt>Immatriculation</dt><dd class="ida-id">220 <bdi>تونس</bdi> 4518</dd></div>
+          <div><dt>Marque / modèle</dt><dd>Spécimen SC-3</dd></div>
+          <div><dt>Énergie</dt><dd>Essence</dd></div>
+          <div><dt>Première observation</dt><dd class="ida-id">2024-03-11</dd></div>
+          <div><dt>Gouvernorat</dt><dd>Tunis</dd></div>
+          <div><dt>Statut de fiche</dt><dd><span class="ida-status ida-status--verified">Vérifiée</span></dd></div>
+        </dl>
+      </section>
+
+      <!-- Historique -->
+      <section class="ida-passport-section" aria-labelledby="sec-historique">
+        <h2 id="sec-historique" class="ida-label">Historique — points de contrôle</h2>
+        <ol class="ida-timeline">
+          <li class="ida-event ida-event--verified">
+            <p class="ida-event-date">2026-05-02</p>
+            <p class="ida-event-title">Contrôle technique périodique</p>
+            <p class="ida-small ida-muted">Résultat favorable, sans contre-visite.</p>
+            <p class="ida-event-meta">
+              <span class="ida-status ida-status--verified">Vérifié</span>
+              <span class="ida-evidence-source">SOURCE · centre de contrôle agréé</span>
+              <span class="ida-caption">2 preuves jointes</span>
+            </p>
+          </li>
+          <li class="ida-event ida-event--verified">
+            <p class="ida-event-date">2025-11-18</p>
+            <p class="ida-event-title">Intervention atelier — freinage</p>
+            <p class="ida-small ida-muted">Remplacement plaquettes et disques avant.</p>
+            <p class="ida-event-meta">
+              <span class="ida-status ida-status--verified">Vérifié</span>
+              <span class="ida-evidence-source">SOURCE · atelier partenaire</span>
+              <span class="ida-caption">1 preuve jointe</span>
+            </p>
+          </li>
+          <li class="ida-event ida-event--pending">
+            <p class="ida-event-date">2025-06-30</p>
+            <p class="ida-event-title">Relevé kilométrique déclaré</p>
+            <p class="ida-small ida-muted">Déclaration en attente de recoupement.</p>
+            <p class="ida-event-meta">
+              <span class="ida-status ida-status--pending">En revue</span>
+              <span class="ida-evidence-source">SOURCE · déclaration propriétaire</span>
+            </p>
+          </li>
+          <li class="ida-event ida-event--anomaly">
+            <p class="ida-event-date">2025-02-14</p>
+            <p class="ida-event-title">Incohérence kilométrique signalée</p>
+            <p class="ida-small ida-muted">Relevé inférieur au précédent — écart soumis à vérification.</p>
+            <p class="ida-event-meta">
+              <span class="ida-status ida-status--anomaly">Anomalie</span>
+              <span class="ida-evidence-source">SOURCE · recoupement IDauto</span>
+            </p>
+          </li>
+          <li class="ida-event ida-event--verified">
+            <p class="ida-event-date">2024-03-11</p>
+            <p class="ida-event-title">Création de la fiche par observation</p>
+            <p class="ida-small ida-muted">Première observation tracée — naissance de l'identité IDauto.</p>
+            <p class="ida-event-meta">
+              <span class="ida-status ida-status--verified">Vérifié</span>
+              <span class="ida-evidence-source">SOURCE · capture IDauto</span>
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <!-- Preuves & documents -->
+      <section class="ida-passport-section" aria-labelledby="sec-preuves">
+        <h2 id="sec-preuves" class="ida-label">Preuves et documents</h2>
+        <div class="ida-grid ida-grid-2">
+          <div class="ida-evidence">
+            <span class="ida-evidence-icon" aria-hidden="true">▤</span>
+            <div class="ida-stack" style="--ida-space-4: var(--ida-space-1);">
+              <p style="font-weight: var(--ida-weight-medium);">Rapport de contrôle technique</p>
+              <p class="ida-evidence-source">SOURCE · centre agréé — 2026-05-02</p>
+              <p><span class="ida-status ida-status--verified">Vérifié</span></p>
+            </div>
+          </div>
+          <div class="ida-evidence">
+            <span class="ida-evidence-icon" aria-hidden="true">▤</span>
+            <div class="ida-stack" style="--ida-space-4: var(--ida-space-1);">
+              <p style="font-weight: var(--ida-weight-medium);">Facture d'intervention — freinage</p>
+              <p class="ida-evidence-source">SOURCE · atelier partenaire — 2025-11-18</p>
+              <p><span class="ida-status ida-status--verified">Vérifié</span></p>
+            </div>
+          </div>
+          <div class="ida-evidence ida-evidence--pending">
+            <span class="ida-evidence-icon" aria-hidden="true">▤</span>
+            <div class="ida-stack" style="--ida-space-4: var(--ida-space-1);">
+              <p style="font-weight: var(--ida-weight-medium);">Scan carte grise (sans données personnelles)</p>
+              <p class="ida-evidence-source">SOURCE · capture — 2024-03-11</p>
+              <p><span class="ida-status ida-status--pending">En revue</span></p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Propriété -->
+      <section class="ida-passport-section" aria-labelledby="sec-propriete">
+        <h2 id="sec-propriete" class="ida-label">Événements de propriété</h2>
+        <div class="ida-table-wrap">
+          <table class="ida-table">
+            <caption class="ida-sr-only">Événements de propriété du véhicule spécimen</caption>
+            <thead>
+              <tr><th scope="col">Date</th><th scope="col">Événement</th><th scope="col">Statut</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="ida-id">2025-09-03</td>
+                <td>Transfert de propriété enregistré</td>
+                <td><span class="ida-status ida-status--verified">Vérifié</span></td>
+              </tr>
+              <tr>
+                <td class="ida-id">2024-03-11</td>
+                <td>Premier détenteur observé</td>
+                <td><span class="ida-status ida-status--neutral">Observé</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="ida-caption" style="margin-block-start: var(--ida-space-3);">
+          IDauto trace les événements, pas les personnes&nbsp;: aucune donnée personnelle n'apparaît dans le passeport.
+        </p>
+      </section>
+
+      <!-- Accès public -->
+      <section class="ida-passport-section" aria-labelledby="sec-acces">
+        <h2 id="sec-acces" class="ida-label">Accès public</h2>
+        <div style="display:flex; flex-wrap:wrap; gap: var(--ida-space-5); align-items:center;">
+          <figure class="ida-qr" style="margin:0;">
+            <div class="ida-qr-zone" role="img" aria-label="Emplacement du QR du véhicule, généré par IDauto à l'émission de l'IVID">
+              QR généré à l'émission de l'IVID
+            </div>
+            <figcaption class="ida-qr-caption">IVID · SPEC-0000-0000-DEMO</figcaption>
+          </figure>
+          <p class="ida-small ida-muted" style="max-width: 40ch;">
+            Le QR encode uniquement l'IVID. La consultation publique par plaque reste
+            soumise aux règles d'accès du protocole.
+          </p>
+        </div>
+      </section>
+    </article>
+  </div>
+</main>
+
+<footer class="ida-footer">
+  <div class="ida-container ida-footer-inner">
+    <p>IDauto — protocole ouvert d'identité et d'historique des véhicules.</p>
+    <p class="ida-caption">Pages du Design System — données affichées&nbsp;: <span class="ida-specimen">SPÉCIMEN</span></p>
+  </div>
+</footer>
+
+<script src="../js/plate.js"></script>
+<script src="../js/ui.js"></script>
+</body>
+</html>
