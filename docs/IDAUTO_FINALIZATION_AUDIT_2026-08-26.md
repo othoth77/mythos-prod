@@ -84,7 +84,7 @@ From `docs/IDA4_READINESS_AUDIT.md` on `ida4-option-c`, re-checked against the c
 | A — Real authentication | **BLOCKED → IDA-7** | No user table, no credential store by design; admin bearer stub is test-guarded as "not authentication". A5 owner decision **DECIDED**: Option C (zero-account surface) approved |
 | B — Legal review | **BLOCKED (external)** | L01–L16 all **OPEN** in `IDA4_LEGAL_GATE_MATRIX.md`; zero legal evidence on file; counsel package ready (`IDA4_LEGAL_REVIEW_PACKAGE.md`) |
 | Citizen-facing write path | **NOT STARTED (by rule)** | Requires A + B; prohibited until then |
-| QR / IVID public resolution | **IMPLEMENTED — PR #6 merged 2026-08-26; deployed per IDA-SHIP-1** *(updated 2026-08-27)* | 128/0 suite; IVID-only, plate never resolvable anonymously |
+| QR / IVID public resolution | **IMPLEMENTED — PR #6 merged 2026-08-26; ship runbook in place (IDA-SHIP-1)** *(updated 2026-08-27; live state of idauto.tn not verifiable from this container)* | 128/0 suite; IVID-only, plate never resolvable anonymously |
 | Ownership transfer / fraud controls | **NOT STARTED** | Later IDA stages |
 | Erasure / tombstone | **SPECIFIED, not implemented** | Recorded in legal package |
 | Audit trail | **DONE** (write API) | ida-2d 39/0 atomic audit logging |
