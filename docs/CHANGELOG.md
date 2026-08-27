@@ -6,6 +6,10 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Added — IDAUTO-FINAL-AUDIT — IDauto finalization audit, verified off-host (2026-08-26)
+
+- **`docs/IDAUTO_FINALIZATION_AUDIT_2026-08-26.md`** — the ordered end-to-end IDauto finalization, executed as a first-hand verification audit (read-only toward `othoth77/idauto`; this session holds no write access there). Canonical repo re-verified by real execution in a clean environment: `main` @ `0044d57` **15 suites / 812 assertions / 0 failures**; open PR #6 (`ida4-option-c`, Option C: IVID issuance + IVID-only public passport surface) **16 suites / 941 / 0**, conflict-free with `main`. Mythos side re-verified green the same session: identity contract 157/0 (pins byte-identical), othk-0/1/2/2w/3 (89/30/97/42/63, all 0 failed), MOS-v2 PASS. OTH-K2/K2-W — the ordre's named priority — confirmed already complete (PRs #43/#44, production live-gate 52/0 on 2026-08-22); nothing repository-executable remains on Track A. Dependency/license inventory: `pg` + 13 transitives, all MIT/ISC; no new dependency introduced. Verdicts: ENGINEERING COMPLETE for the authorised scope once PR #6 merges; PRODUCTION NOT READY (no deployment, restore unproven, B1/B2/B3 open); CITIZEN-FACING NOT READY (L01–L16 OPEN — external legal gate). All remaining blockers are external to engineering and enumerated with owners in the audit.
+
 ### Changed — OTHMODE-ACT-1 — per-command activation replaces the global switch (2026-08-26)
 
 - **The global OthMode ON/OFF switch is removed.** OTHMODE is now permanently available (READY) and activates **per command**: a Claude command that contains the standalone keyword `othmode` (case-insensitive; never as part of another word — `othmodel`, `myothmode`, `othmode-test` do not activate) runs through the OTHMODE control contract (Search First → Reuse → Adapt → Connect → Build Last, skills, memory, evolution recording). Without the keyword, Claude behaves normally — nothing OTHMODE-specific is invoked or recorded.
