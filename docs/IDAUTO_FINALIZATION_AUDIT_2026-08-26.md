@@ -26,7 +26,7 @@ State of `othoth77/idauto` at audit time:
 | Ref | Commit | State |
 |---|---|---|
 | `main` | `0044d57` | Contains merged PRs #1–#5: migrated baseline, protocol vocabularies, IDA-4 readiness audit, IDA-4 gate-free foundation (IVID library, passport assembly, threat model), gate-closure (legal matrix L01–L16 + readiness recheck) |
-| `ida4-option-c` (**PR #6, OPEN**) | `615f11a` | Option C implementation: IVID issuance, `GET /public/passport/:ivid` (IVID-only, no plate path, no PII), authenticated `GET /api/passport/:ivid`, rate-limit bucket + kill-switch, SQL `access_scope='public'` defense-in-depth, fact-key deny-list. Opus review APPROVE-WITH-FINDINGS with all 11 findings fixed on the branch; revised A5-PLATE owner ruling implemented. `main` is fully contained in it — **no merge conflict** |
+| `ida4-option-c` (PR #6 — **MERGED 2026-08-26**, `33557f0`; state below is as audited on the open branch) | `615f11a` | Option C implementation: IVID issuance, `GET /public/passport/:ivid` (IVID-only, no plate path, no PII), authenticated `GET /api/passport/:ivid`, rate-limit bucket + kill-switch, SQL `access_scope='public'` defense-in-depth, fact-key deny-list. Opus review APPROVE-WITH-FINDINGS with all 11 findings fixed on the branch; revised A5-PLATE owner ruling implemented. `main` is fully contained in it — **no merge conflict** |
 
 ## 2. Test verification — executed first-hand (2026-08-26)
 
@@ -84,7 +84,7 @@ From `docs/IDA4_READINESS_AUDIT.md` on `ida4-option-c`, re-checked against the c
 | A — Real authentication | **BLOCKED → IDA-7** | No user table, no credential store by design; admin bearer stub is test-guarded as "not authentication". A5 owner decision **DECIDED**: Option C (zero-account surface) approved |
 | B — Legal review | **BLOCKED (external)** | L01–L16 all **OPEN** in `IDA4_LEGAL_GATE_MATRIX.md`; zero legal evidence on file; counsel package ready (`IDA4_LEGAL_REVIEW_PACKAGE.md`) |
 | Citizen-facing write path | **NOT STARTED (by rule)** | Requires A + B; prohibited until then |
-| QR / IVID public resolution | **IMPLEMENTED on PR #6, unmerged, undeployed** | 128/0 suite; IVID-only, plate never resolvable anonymously |
+| QR / IVID public resolution | **IMPLEMENTED — PR #6 merged 2026-08-26; deployed per IDA-SHIP-1** *(updated 2026-08-27)* | 128/0 suite; IVID-only, plate never resolvable anonymously |
 | Ownership transfer / fraud controls | **NOT STARTED** | Later IDA stages |
 | Erasure / tombstone | **SPECIFIED, not implemented** | Recorded in legal package |
 | Audit trail | **DONE** (write API) | ida-2d 39/0 atomic audit logging |
@@ -109,7 +109,7 @@ evidence and pre-public review, not on engineering volume.
 | AUTHENTICATION | **BLOCKED → IDA-7** | deliberate: W3C DID/VC primitives; no homemade crypto; Option C removes the account requirement for the approved public sub-surface |
 | SECURITY | **PARTIAL** | threat model + Opus review + deny-list/rate-limit/kill-switch on PR #6; no SBOM/CI vulnerability scanning in idauto yet (1 direct dep, all-MIT/ISC tree audited manually this session) |
 | BACKUP | **DONE** *(updated 2026-08-27)* | code + off-host gate green; **restore proven on the host** — mythos-prod `4d71bee` (2026-08-26 18:55 UTC, after this audit's first pass): `mythos-backup-run.sh restore-test` as deploy, exit 0, 73/73 objects sha256-verified incl. the `idauto` PostgreSQL dump byte-identical to source. BLOCKER-BACKUP-RESTORE-UNPROVEN closed on evidence |
-| API | **PARTIAL** | IDA-2C/2D + private ingest + public passport surface (PR #6, unmerged); nothing deployed |
+| API | **DONE for the authorised scope** *(updated 2026-08-27)* | IDA-2C/2D + private ingest + public passport surface — PR #6 merged; citizen UI shipped (PR #7, IDA-SHIP-1); V1 personal keyless surface merged (PR #9, 2026-08-27) |
 | TESTS | **DONE** | 941/0 on PR #6 head; 0 unexplained skips; vacuity-guarded (§4 vacuity gap closed by 350792b; fixture-emptiness guards present) |
 | MOS-v2 | **PASS** | this session |
 | IDA-4 | **PARTIAL** | gate-free foundation + Option C implemented; citizen-facing NO |
@@ -118,10 +118,10 @@ evidence and pre-public review, not on engineering volume.
 
 ## 7. Category separation (ordre §16)
 
-- **ENGINEERING COMPLETE** — **YES for the authorised scope**, once PR #6 is merged: every
-  stage the owner has authorised (through Option C) is implemented, reviewed, and green.
-  Merging PR #6 is the single remaining repository action, and it requires idauto write
-  access this session does not have.
+- **ENGINEERING COMPLETE** — **YES for the authorised scope** *(updated 2026-08-27)*:
+  PR #6 was merged on 2026-08-26 (`33557f0`), followed by the citizen Design System UI
+  (PR #7), the production runbook (PR #8, IDA-SHIP-1) and the owner-ordered V1 personal
+  keyless surface (PR #9, merged 2026-08-27 — 17 suites / 1293 / 0, browser QA 64/0).
 - **PRODUCTION READY** — **NO**: no IDauto deployment, no SBOM/vuln CI; the restore test
   is now proven (`4d71bee`, 2026-08-27 update) and no longer blocks.
 - **CITIZEN-FACING READY** — **NO**: legal gates L06/L07/L09/L16 (and 12 more) OPEN;
@@ -129,8 +129,8 @@ evidence and pre-public review, not on engineering volume.
 
 ## 8. Remaining blockers — every one external to this session
 
-1. **Merge idauto PR #6** (`ida4-option-c`) — owner or a session with `othoth77/idauto`
-   write access. Verified conflict-free and 941/0 here.
+1. ~~Merge idauto PR #6~~ — **CLOSED**: merged 2026-08-26 (`33557f0`), followed by
+   PRs #7/#8/#9 (citizen UI, ship runbook, V1 personal keyless surface).
 2. **Legal review** — counsel answers L01–L16 from the prepared package (blocks any
    citizen-facing surface; four items block IDA-4 directly).
 3. ~~Host restore test~~ — **CLOSED 2026-08-26** on the host (mythos-prod `4d71bee`): real
