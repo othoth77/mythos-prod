@@ -272,12 +272,33 @@ async function run() {
   });
   // database was unconfirmed when this assertion was written; the port it
   // was waiting on (127.0.0.1:5432) is now published and verified, so it is
-  // enabled and the pin moved to sya-api alone. sya-api stays disabled
-  // because the API is retired, not because it is unconfirmed — that
-  // distinction is asserted in tests/monitor-coverage-test.js.
-  check('retired endpoint ships disabled and documented (sya-api)',
-    shipped.probes.find(function (p) { return p.id === 'sya-api'; }).enabled === false &&
-    /RETIRED/.test(shipped.probes.find(function (p) { return p.id === 'sya-api'; }).note || ''));
+  // enabled and the pin moved to sya-api alone.
+  //
+  // This assertion has now moved twice in one day, and the reason is the point:
+  // it tracks a real thing that really changed. It read "documented as RETIRED"
+  // while there was no catalog API; then "ships disabled for a documented
+  // reason" once OTH-2026-00015 restored the service and OTH-2026-00018 gave it
+  // an approved hostname; and now the deployment has landed and the probe is
+  // ENABLED and green in production (OTH-2026-00019). Each time, what is
+  // protected stayed the same — this probe must watch the real public catalog
+  // API and must never be able to report a dead one as LIVE — and only the
+  // subject state moved. Freezing any of the earlier wordings would have left a
+  // green assertion testing something that had stopped being true.
+  var syaApiProbe = shipped.probes.find(function (p) { return p.id === 'sya-api'; });
+  check('sya-api is enabled now that the public API is deployed',
+    syaApiProbe.enabled === true);
+  check('sya-api watches the storefront host, not the apex or the origin',
+    /^https:\/\/store\.ssangyong\.autos\//.test(syaApiProbe.url));
+  // The apex is the LEGACY site and answers 200 text/html for every unmatched
+  // path; pointing a catalog-API probe there is what made the outage
+  // invisible for six days, and proxying /api there would shadow the apex's
+  // own live catalog endpoint (OTH-2026-00017). The probe must never go back.
+  check('sya-api does not target the legacy apex',
+    !/^https:\/\/(www\.)?ssangyong\.autos\//.test(syaApiProbe.url));
+  check('sya-api cannot false-green on an SPA fallback when it is enabled',
+    syaApiProbe.expect_content_type === 'application/json' &&
+    typeof syaApiProbe.expect_body_substring === 'string' &&
+    syaApiProbe.expect_body_substring.length > 0);
   check('the confirmed database endpoint is enabled',
     shipped.probes.find(function (p) { return p.id === 'database'; }).enabled === true);
   // OTHMODE read/write split (7252de2 made the Task Reports a public read).
