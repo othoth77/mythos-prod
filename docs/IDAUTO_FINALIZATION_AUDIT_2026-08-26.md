@@ -88,7 +88,7 @@ From `docs/IDA4_READINESS_AUDIT.md` on `ida4-option-c`, re-checked against the c
 | Ownership transfer / fraud controls | **NOT STARTED** | Later IDA stages |
 | Erasure / tombstone | **SPECIFIED, not implemented** | Recorded in legal package |
 | Audit trail | **DONE** (write API) | ida-2d 39/0 atomic audit logging |
-| Backup | **PARTIAL** | Off-host backup code + gate 35/0 (R2/SigV4); **restore never executed on the host** (`BLOCKER-BACKUP-RESTORE-UNPROVEN`, mythos-prod registry) — gate stays open per the "restore-tested or not valid" rule |
+| Backup | **DONE** *(updated 2026-08-27)* | Off-host backup code + gate 35/0 (R2/SigV4); **restore proven on the host 2026-08-26 18:55 UTC** (mythos-prod `4d71bee`): 73/73 objects sha256-verified, `idauto` dump byte-identical to source; `BLOCKER-BACKUP-RESTORE-UNPROVEN` closed on evidence |
 | Public API | **NOT DEPLOYED** | `PUBLIC_ENDPOINT_READY_TO_IMPLEMENT = NO` |
 
 `CITIZEN_FACING_IDA4_READY` = **NO** — unchanged, and correctly so: it is gated on legal
@@ -108,13 +108,13 @@ evidence and pre-public review, not on engineering volume.
 | OTHMODE | **DONE** | per-command activation live (PRs #85–#87); suites green |
 | AUTHENTICATION | **BLOCKED → IDA-7** | deliberate: W3C DID/VC primitives; no homemade crypto; Option C removes the account requirement for the approved public sub-surface |
 | SECURITY | **PARTIAL** | threat model + Opus review + deny-list/rate-limit/kill-switch on PR #6; no SBOM/CI vulnerability scanning in idauto yet (1 direct dep, all-MIT/ISC tree audited manually this session) |
-| BACKUP | **PARTIAL** | code + off-host gate green; **host restore test never run** |
+| BACKUP | **DONE** *(updated 2026-08-27)* | code + off-host gate green; **restore proven on the host** — mythos-prod `4d71bee` (2026-08-26 18:55 UTC, after this audit's first pass): `mythos-backup-run.sh restore-test` as deploy, exit 0, 73/73 objects sha256-verified incl. the `idauto` PostgreSQL dump byte-identical to source. BLOCKER-BACKUP-RESTORE-UNPROVEN closed on evidence |
 | API | **PARTIAL** | IDA-2C/2D + private ingest + public passport surface (PR #6, unmerged); nothing deployed |
 | TESTS | **DONE** | 941/0 on PR #6 head; 0 unexplained skips; vacuity-guarded (§4 vacuity gap closed by 350792b; fixture-emptiness guards present) |
 | MOS-v2 | **PASS** | this session |
 | IDA-4 | **PARTIAL** | gate-free foundation + Option C implemented; citizen-facing NO |
 | LEGAL GATES | **BLOCKED (external)** | L01–L16 OPEN; owner/counsel action |
-| PRODUCTION READINESS | **NOT READY** | nothing deployed; owner gates B1/B2/B3 open; restore unproven |
+| PRODUCTION READINESS | **NOT READY** | nothing deployed (IDauto); restore now proven (`4d71bee`); deployment authorization still an owner gate |
 
 ## 7. Category separation (ordre §16)
 
@@ -122,8 +122,8 @@ evidence and pre-public review, not on engineering volume.
   stage the owner has authorised (through Option C) is implemented, reviewed, and green.
   Merging PR #6 is the single remaining repository action, and it requires idauto write
   access this session does not have.
-- **PRODUCTION READY** — **NO**: no deployment, restore test unproven, no SBOM/vuln CI,
-  owner gates B1/B2/B3 open.
+- **PRODUCTION READY** — **NO**: no IDauto deployment, no SBOM/vuln CI; the restore test
+  is now proven (`4d71bee`, 2026-08-27 update) and no longer blocks.
 - **CITIZEN-FACING READY** — **NO**: legal gates L06/L07/L09/L16 (and 12 more) OPEN;
   pre-public review not performed. This is a legal/owner boundary, not an engineering one.
 
@@ -133,8 +133,8 @@ evidence and pre-public review, not on engineering volume.
    write access. Verified conflict-free and 941/0 here.
 2. **Legal review** — counsel answers L01–L16 from the prepared package (blocks any
    citizen-facing surface; four items block IDA-4 directly).
-3. **Host restore test** — run `ops/backup` restore-test on the VPS; backup gate stays open
-   until a real restoration succeeds.
+3. ~~Host restore test~~ — **CLOSED 2026-08-26** on the host (mythos-prod `4d71bee`): real
+   restoration succeeded and was independently checksum-verified.
 4. **OTH Track B** — owner data exports + private-store provisioning.
 5. **Deployment authorization** — IDA-2 Phase B / Option C deployment is explicitly not
    authorised; owner decision.

@@ -160,6 +160,26 @@ against the manifest by the tool, isolated from every live path. The
 operator may prune old `restore-test-*` directories manually; the
 scheduled jobs never delete anything, locally or remotely.
 
+**First exercised 2026-08-26** (OTH-2026-00016), as `deploy`, no root:
+73 objects / 315,499 bytes retrieved from off-host and reassembled in 18 s,
+then re-hashed independently of the tool that produced them — 73/73 match.
+Two things a restore operator should know, learned from that run:
+
+- **`checksums.sha256` is absent from the restored media set, by design.**
+  `media-backup/manifest.json` names it under `integrity.checksums_file`,
+  so its absence looks like a gap. It is not. `offhost-backup.js`
+  `mediaEntries()` reads that file as the *index* of what to ship and folds
+  every hash into the top-level off-host manifest, which is what
+  `restore-verify` checks against. Verify a manual recovery against the
+  restored `manifest.json`; do not go looking for `checksums.sha256`.
+- **What is proven, and what is not.** The set can be retrieved intact and
+  the dump is byte-identical to one that passed `pg_restore --list` at
+  capture (`mythos-backup-capture.sh` refuses to emit a dump that fails
+  it), carrying that validation forward. *Loading* the dump into a live
+  PostgreSQL instance is still unexercised: `pg_restore` is not installed
+  on this host and `deploy` is deliberately outside the docker group, so
+  it needs either a `postgresql-client` install or a root/docker path.
+
 ## 5. Evidence & tests
 
 `tests/backup-scheduler-test.js` validates: script syntax and fail-closed

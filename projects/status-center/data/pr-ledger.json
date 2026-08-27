@@ -1,456 +1,810 @@
 {
-  "captured_at": "2026-08-20T11:20:00Z",
-  "capture_method": "GitHub API listing of othoth77/mythos-prod pull requests (state=all), captured during the STC-1 audit session. Refresh by re-running the same listing and rewriting this file; the review engine records the capture date with every snapshot.",
+  "captured_at": "2026-08-26T13:58:00Z",
+  "capture_method": "GitHub API listing of othoth77/mythos-prod pull requests (state=all), refreshed 2026-08-26 from the production VPS via `gh pr list --state all --limit 300`. Curator notes carried over by PR number. Refresh by re-running the same listing and rewriting this file; the review engine records the capture date with every snapshot.",
   "repository": "othoth77/mythos-prod",
   "prs": [
     {
-      "number": 56,
-      "title": "STATUS-RT: root-cause status.mythosprod.xyz → darhijama.tn redirect + operator-ready fix",
+      "number": 90,
+      "title": "IDauto Design System — foundation « Encre & Papier, scellé de vert »",
       "state": "open",
       "merged": false,
+      "created_at": "2026-08-26",
+      "branch": "claude/idauto-design-system-lllzpz"
+    },
+    {
+      "number": 89,
+      "title": "feat(othmode): Task Reports — persistent record for every othmode-activated command",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-26",
+      "branch": "claude/first-othmode-operation-u8vzq0",
+      "merged_at": "2026-08-26"
+    },
+    {
+      "number": 88,
+      "title": "docs(idauto): finalization audit — off-host verification of both repositories",
+      "state": "open",
+      "merged": false,
+      "created_at": "2026-08-26",
+      "branch": "claude/idauto-finalization-9866s0"
+    },
+    {
+      "number": 87,
+      "title": "OTHMODE — activation endpoint auth fix (preserve the two-public-POSTs invariant)",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-26",
+      "branch": "claude/othmode-activation-model",
+      "merged_at": "2026-08-26"
+    },
+    {
+      "number": 86,
+      "title": "OTHMODE — per-command activation model (remove the global ON/OFF switch)",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-26",
+      "branch": "claude/othmode-activation-model",
+      "merged_at": "2026-08-26"
+    },
+    {
+      "number": 85,
+      "title": "OTHMODE-100 — approved scope completed to 100%",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-26",
+      "branch": "claude/othmode-100",
+      "merged_at": "2026-08-26"
+    },
+    {
+      "number": 84,
+      "title": "OTHMODE — token-free browser sign-in (remove the Access Token UI workflow)",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-26",
+      "branch": "claude/othmode-tokenfree-auth",
+      "merged_at": "2026-08-26"
+    },
+    {
+      "number": 83,
+      "title": "OTHMODE — closure docs (final audit + final report + handover/changelog sync)",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-26",
+      "branch": "claude/othmode-implementation",
+      "merged_at": "2026-08-26"
+    },
+    {
+      "number": 82,
+      "title": "OTHMODE — deployment fixes (service sandbox + credential tri-state)",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-26",
+      "branch": "claude/othmode-implementation",
+      "merged_at": "2026-08-26"
+    },
+    {
+      "number": 81,
+      "title": "OTHMODE — Phase 2: platform implementation (ordre.mythos → othmode.mythos)",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-26",
+      "branch": "claude/othmode-implementation",
+      "merged_at": "2026-08-26"
+    },
+    {
+      "number": 80,
+      "title": "erp: prepare the preserved erp.mythosprod.xyz route (not deployed)",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-22",
+      "branch": "feat/erp-preservation",
+      "merged_at": "2026-08-22"
+    },
+    {
+      "number": 79,
+      "title": "test(backup): pin the PR #75 capture hardening",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-22",
+      "branch": "feat/backup-regression-tests",
+      "merged_at": "2026-08-22"
+    },
+    {
+      "number": 78,
+      "title": "monitor: close the database and SYA-API blind spots",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-22",
+      "branch": "feat/monitoring-coverage",
+      "merged_at": "2026-08-22"
+    },
+    {
+      "number": 77,
+      "title": "hub: make mythosprod.xyz the Mythos Hub Dashboard",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-22",
+      "branch": "feat/hub-dashboard",
+      "merged_at": "2026-08-22"
+    },
+    {
+      "number": 76,
+      "title": "hub: serve mythosprod.xyz as the platform entry point",
+      "state": "closed",
+      "merged": false,
+      "created_at": "2026-08-22",
+      "branch": "hub-apex-platform-entry-point",
+      "closed_at": "2026-08-22"
+    },
+    {
+      "number": 75,
+      "title": "backup: add production capture service and finalize R2 backup flow",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-22",
+      "branch": "backup-production-capture-finalize",
+      "merged_at": "2026-08-22"
+    },
+    {
+      "number": 74,
+      "title": "VPS runner repair verification + read-only host diagnostics (branch-only workflow jobs)",
+      "state": "open",
+      "merged": false,
+      "created_at": "2026-08-21",
+      "branch": "claude/vps-runner-repair-verify-99dnde"
+    },
+    {
+      "number": 73,
+      "title": "Production Closure Execution — STEP 1 VERIFIED (c353334)",
+      "state": "open",
+      "merged": false,
+      "created_at": "2026-08-21",
+      "branch": "claude/mythos-prod-closure-ftc08p"
+    },
+    {
+      "number": 72,
+      "title": "docs(closure): post-merge amendment + final closure attempt at c353334",
+      "state": "open",
+      "merged": false,
+      "created_at": "2026-08-21",
+      "branch": "claude/mythos-3month-audit-2drfk0"
+    },
+    {
+      "number": 71,
+      "title": "docs: STC2 Status Center closure evidence (backup dump step withdrawn — superseded by PR #75)",
+      "state": "open",
+      "merged": false,
+      "created_at": "2026-08-21",
+      "branch": "claude/status-center-stc2-update-73v1oo"
+    },
+    {
+      "number": 70,
+      "title": "STC2-AR-GATE: Status Center to current state — STC-2 + Arabic integrated, Arabic completed over the live panel, knowledge gate fixed",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-21",
+      "branch": "claude/status-center-stc2-update-73v1oo",
+      "merged_at": "2026-08-21"
+    },
+    {
+      "number": 69,
+      "title": "docs(handover): v1.0 tag route — retarget to 7fffa2f, create via GitHub UI",
+      "state": "open",
+      "merged": false,
+      "created_at": "2026-08-21",
+      "branch": "claude/vps-final-gate-dispatch-rt9u6g"
+    },
+    {
+      "number": 68,
+      "title": "test(othk): add host-runtime posture (§H) to the canonical live gate + closure handover entries",
+      "state": "open",
+      "merged": false,
+      "created_at": "2026-08-21",
+      "branch": "claude/mythos-final-closure-6iejno"
+    },
+    {
+      "number": 67,
+      "title": "docs(handover): closure amendments — live VPS Final Gate SUCCESS at c9e5430; tag-push constraint recorded",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-21",
+      "branch": "claude/mythos-os-final-completion-rztwwk",
+      "merged_at": "2026-08-21"
+    },
+    {
+      "number": 66,
+      "title": "Audit → post-audit execution → production-closure record (backups, STC-2 monitoring, sync audit, runner repair)",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-21",
+      "branch": "claude/mythos-3month-audit-2drfk0",
+      "merged_at": "2026-08-21"
+    },
+    {
+      "number": 65,
+      "title": "docs(handover): MYTHOS-OS-FINAL-CLOSURE — final validation green, release freeze mythos-os-v1.0",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-21",
+      "branch": "claude/mythos-os-final-completion-rztwwk",
+      "merged_at": "2026-08-21"
+    },
+    {
+      "number": 64,
+      "title": "OTHK-LIVE-GATE: canonical OTH-KNOWLEDGE Live Gate (host-aware; on-host run = LIVE PASS)",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-21",
+      "branch": "claude/oth-knowledge-live-gate-tzrjk5",
+      "merged_at": "2026-08-21"
+    },
+    {
+      "number": 63,
+      "title": "OTH-KNOWLEDGE LIVE ACTIVATION: executor knowledge layer enabled on the canonical VPS store",
+      "state": "closed",
+      "merged": true,
       "created_at": "2026-08-20",
-      "branch": "claude/status-center-routing-fix-ah002u"
+      "branch": "claude/othk-live-activation",
+      "merged_at": "2026-08-21"
+    },
+    {
+      "number": 62,
+      "title": "fix(runner): deliver registration-token fix (3c53612) to main — completes the corrected provisioning installer",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-20",
+      "branch": "claude/vps-runner-provisioning-perms-xbbao2",
+      "merged_at": "2026-08-20"
+    },
+    {
+      "number": 61,
+      "title": "fix(runner): registration token never reached config.sh — runuser env inheritance",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-20",
+      "branch": "claude/mythos-vps-runner-finalize-5rapsk",
+      "merged_at": "2026-08-20"
+    },
+    {
+      "number": 60,
+      "title": "fix(vps): prevent sudoers alias collision during bootstrap",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-20",
+      "branch": "fix/vps-admin-sudoers-alias-collision",
+      "merged_at": "2026-08-20"
+    },
+    {
+      "number": 59,
+      "title": "fix(vps): make admin bootstrap independent of /tmp staging",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-20",
+      "branch": "fix/vps-bootstrap-no-tmp-dependency",
+      "merged_at": "2026-08-20"
+    },
+    {
+      "number": 58,
+      "title": "STC-AR: simple-Arabic explanations under every Status Center explanation",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-20",
+      "branch": "claude/status-center-routing-fix-ah002u",
+      "merged_at": "2026-08-21"
+    },
+    {
+      "number": 57,
+      "title": "STC follow-up: merge record + one-command VPS deployment script (deploy-status-center.sh)",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-20",
+      "branch": "claude/mythos-status-center-stoqv2",
+      "merged_at": "2026-08-20"
+    },
+    {
+      "number": 56,
+      "title": "STATUS-RT: root-cause status.mythosprod.xyz → darhijama.tn redirect + operator-ready fix",
+      "state": "closed",
+      "merged": true,
+      "created_at": "2026-08-20",
+      "branch": "claude/status-center-routing-fix-ah002u",
+      "merged_at": "2026-08-20"
     },
     {
       "number": 55,
       "title": "fix(runner): temp-dir ownership for unprivileged extraction + rerun-safe provisioning (fixes PR #53 live-install failure)",
-      "state": "open",
-      "merged": false,
+      "state": "closed",
+      "merged": true,
       "created_at": "2026-08-20",
-      "branch": "claude/vps-runner-provisioning-perms-xbbao2"
+      "branch": "claude/vps-runner-provisioning-perms-xbbao2",
+      "merged_at": "2026-08-20"
     },
     {
       "number": 54,
       "title": "STC-1 — MYTHOS Status Center: evidence model, review engine, immutable history, design-system UI",
-      "state": "open",
-      "merged": false,
+      "state": "closed",
+      "merged": true,
       "created_at": "2026-08-20",
-      "branch": "claude/mythos-status-center-stoqv2"
+      "branch": "claude/mythos-status-center-stoqv2",
+      "merged_at": "2026-08-20"
     },
     {
       "number": 53,
       "title": "FINAL LIVE GATE: self-hosted VPS runner package (least-privilege provisioning + read-only gate workflow)",
-      "state": "open",
-      "merged": false,
+      "state": "closed",
+      "merged": true,
       "created_at": "2026-08-20",
-      "branch": "claude/mythos-vps-runner-finalize-5rapsk"
+      "branch": "claude/mythos-vps-runner-finalize-5rapsk",
+      "merged_at": "2026-08-20"
     },
     {
       "number": 52,
       "title": "docs(handover): OTH-K3 MERGED record (PR #45 → main b6e52d5)",
-      "state": "open",
+      "state": "closed",
       "merged": false,
       "created_at": "2026-08-20",
-      "branch": "claude/oth-knowledge-master-completion-wxuh6z"
+      "branch": "claude/oth-knowledge-master-completion-wxuh6z",
+      "closed_at": "2026-08-21"
     },
     {
       "number": 51,
-      "title": "VPS-PATH handover: no restorable execution path from AI environment",
+      "title": "VPS-PATH handover: no restorable execution path from AI environment — mechanisms categorized, minimum operator actions documented",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-20",
-      "branch": "claude/mythos-os-integration-validation-5fv45z"
+      "created_at": "2026-08-20",
+      "branch": "claude/mythos-os-integration-validation-5fv45z",
+      "merged_at": "2026-08-20"
     },
     {
       "number": 50,
-      "title": "INT-VPS-GATE handover: blocked at VPS preflight",
+      "title": "INT-VPS-GATE handover: blocked at VPS preflight — access evidence and operator actions recorded",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-20",
-      "branch": "claude/mythos-os-integration-validation-5fv45z"
+      "created_at": "2026-08-20",
+      "branch": "claude/mythos-os-integration-validation-5fv45z",
+      "merged_at": "2026-08-20"
     },
     {
       "number": 49,
-      "title": "INT-GATE handover: PR #48 closure, full final suite green incl. MCC-1",
+      "title": "INT-GATE handover: PR #48 closure, full final suite green incl. MCC-1, VPS blockers recorded",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-20",
-      "branch": "claude/mythos-os-integration-validation-5fv45z"
+      "created_at": "2026-08-20",
+      "branch": "claude/mythos-os-integration-validation-5fv45z",
+      "merged_at": "2026-08-20"
     },
     {
       "number": 48,
       "title": "INT-E2E: end-to-end mission-lifecycle validation + automatic mission title rule",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-20",
-      "branch": "claude/mythos-os-integration-validation-5fv45z"
+      "created_at": "2026-08-20",
+      "branch": "claude/mythos-os-integration-validation-5fv45z",
+      "merged_at": "2026-08-20"
     },
     {
       "number": 47,
       "title": "feat(command-center): simplified mission creation — auto title, auto routing, copy mission report",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-20",
-      "branch": "claude/command-center-auto-title-slat0z"
+      "created_at": "2026-08-20",
+      "branch": "claude/command-center-auto-title-slat0z",
+      "merged_at": "2026-08-20"
     },
     {
       "number": 46,
       "title": "security: isolate governance key from mission executor (AOL v1 closure)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/mythos-prod-aol-v1-closure-hq9f0x"
+      "created_at": "2026-08-19",
+      "branch": "claude/mythos-prod-aol-v1-closure-hq9f0x",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 45,
       "title": "OTH-K3 — knowledge trust model, private-store architecture, Track B readiness, operator ops scripts",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-20",
-      "branch": "claude/oth-knowledge-master-completion-wxuh6z"
+      "created_at": "2026-08-19",
+      "branch": "claude/oth-knowledge-master-completion-wxuh6z",
+      "merged_at": "2026-08-20"
     },
     {
       "number": 44,
-      "title": "OTH-K2-W: executor-side knowledge-service wiring",
+      "title": "OTH-K2-W: executor-side knowledge-service wiring (AI Operating Layer ↔ OTH Knowledge)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/oth-k2-repo-execution-ul5dsl"
+      "created_at": "2026-08-19",
+      "branch": "claude/oth-k2-repo-execution-ul5dsl",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 43,
-      "title": "OTH-K2: real-data knowledge integration",
+      "title": "OTH-K2: real-data knowledge integration — importers, dedup, temporal, provenance audit, AI-layer service boundary",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/oth-knowledge-mission-05buds"
+      "created_at": "2026-08-19",
+      "branch": "claude/oth-knowledge-mission-05buds",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 42,
-      "title": "OTH-K1: provider-agnostic knowledge operating layer",
+      "title": "OTH-K1: provider-agnostic knowledge operating layer (model, store, provenance, conflicts, hybrid search, evaluation) + infrastructure knowledge",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/oth-knowledge-mission-05buds"
+      "created_at": "2026-08-19",
+      "branch": "claude/oth-knowledge-mission-05buds",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 41,
       "title": "docs: consolidate deployment readiness + evidence the blocker (STAGE 5)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/mythos-stage5-deploy-readiness"
+      "created_at": "2026-08-19",
+      "branch": "claude/mythos-stage5-deploy-readiness",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 40,
       "title": "feat(sites): build the mythosprod.xyz ecosystem hub (AUTO-13)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/mythos-auto13-hub"
+      "created_at": "2026-08-19",
+      "branch": "claude/mythos-auto13-hub",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 39,
-      "title": "MOS-v2 finalization: M-04 → M-11",
+      "title": "MOS-v2 finalization: M-04 → M-11 (execution profiles, model catalog, mission control, safety, regression, goal/approval, decomposition, auto-routing)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/mos-v2-finalization-2k9zki"
+      "created_at": "2026-08-19",
+      "branch": "claude/mos-v2-finalization-2k9zki",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 38,
       "title": "Complete MIG-3 + fix both sweep findings (AUTO-12)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/mythos-auto12-mig3-a11y"
+      "created_at": "2026-08-19",
+      "branch": "claude/mythos-auto12-mig3-a11y",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 37,
       "title": "Execute MIG-2 via role separation — no type shrinking (AUTO-11)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/mythos-auto11-mig2"
+      "created_at": "2026-08-19",
+      "branch": "claude/mythos-auto11-mig2",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 36,
       "title": "C-006 executed: mythos.css reconciled, red suite restored to green (AUTO-10)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/mythos-auto10-c006"
+      "created_at": "2026-08-19",
+      "branch": "claude/mythos-auto10-c006",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 35,
       "title": "docs: gate-closure record — PR stack merged, gates formally classified",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/gate-closure-record"
+      "created_at": "2026-08-19",
+      "branch": "claude/gate-closure-record",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 34,
       "title": "MOS-v2 M-01 — server-side authentication for Mythos OS Console",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/mos-v2-server-auth-tmh065"
+      "created_at": "2026-08-19",
+      "branch": "claude/mos-v2-server-auth-tmh065",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 33,
       "title": "Mythos OS Console: deploy-owned relay + operator runbook (MOS-v2 M-02)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/mos-v2-m02-relay-81ppf8"
+      "created_at": "2026-08-19",
+      "branch": "claude/mos-v2-m02-relay-81ppf8",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 32,
       "title": "MOS-v2 M-03: Fix nginx client_max_body_size for mission dispatch",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/mos-v2-nginx-contract-qawqxn"
+      "created_at": "2026-08-19",
+      "branch": "claude/mos-v2-nginx-contract-qawqxn",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 31,
       "title": "MIG-3 partial execution, MIG-4 checked and blocked (AUTO-9)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/mythos-auto9-mig3-mig4"
+      "created_at": "2026-08-19",
+      "branch": "claude/mythos-auto9-mig3-mig4",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 30,
       "title": "Document MIG-2 attempt and rollback on a real regression (AUTO-8)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/mythos-auto8-mig2-rollback"
+      "created_at": "2026-08-19",
+      "branch": "claude/mythos-auto8-mig2-rollback",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 29,
       "title": "Execute MIG-1: the Mythos Gold migration (AUTO-7)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/mythos-auto7-mig1-gold"
+      "created_at": "2026-08-19",
+      "branch": "claude/mythos-auto7-mig1-gold",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 28,
       "title": "Final consistency pass, O-002/006/007 re-checked, blocker matrix",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/mythos-final-consistency-pass"
+      "created_at": "2026-08-18",
+      "branch": "claude/mythos-final-consistency-pass",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 27,
       "title": "Local visual-regression tooling, MIG-1/MIG-2 rescoped (AUTO-6)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/mythos-auto6-visual-verify"
+      "created_at": "2026-08-18",
+      "branch": "claude/mythos-auto6-visual-verify",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 26,
       "title": "Resolve GRID-2: prose measure 48ch supersedes 68ch (AUTO-5)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/mythos-auto5-grid2"
+      "created_at": "2026-08-18",
+      "branch": "claude/mythos-auto5-grid2",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 25,
       "title": "Self-host real fonts, close TYPE-2, narrow GRID-2 (AUTO-4)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/mythos-auto4-font-hosting"
+      "created_at": "2026-08-18",
+      "branch": "claude/mythos-auto4-font-hosting",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 24,
-      "title": "oth-knowledge: engineering memory promoted to othoth77/oth-knowledge",
+      "title": "oth-knowledge: engineering memory promoted to othoth77/oth-knowledge; pointer + handover entry",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/oth-knowledge-memory-system-ad1sa3"
+      "created_at": "2026-08-18",
+      "branch": "claude/oth-knowledge-memory-system-ad1sa3",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 23,
       "title": "mandate item 9: self-hosted font files sourced; GRID-2 measured (AUTO-4)",
-      "state": "open",
+      "state": "closed",
       "merged": false,
       "created_at": "2026-08-18",
       "branch": "claude/mythos-deployment-auth-0d1wvz",
+      "closed_at": "2026-08-21",
       "note": "Stale draft — superseded by PR #25 (AUTO-4 delivered). Candidate for closure."
     },
     {
       "number": 22,
-      "title": "docs(handover): full autonomous mandate continuation complete",
+      "title": "docs(handover): full autonomous mandate continuation complete, stopping at evidenced blockers",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/handover-mandate-pass-complete"
+      "created_at": "2026-08-18",
+      "branch": "claude/handover-mandate-pass-complete",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 21,
       "title": "mandate items 6-8: design system consolidation, readiness audit, migration plans",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/consolidation-audit-migration-plans"
+      "created_at": "2026-08-18",
+      "branch": "claude/consolidation-audit-migration-plans",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 20,
-      "title": "mandate item 5: 1I design prototypes",
+      "title": "mandate item 5: 1I design prototypes (7 static, standalone HTML files)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/1i-design-prototypes"
+      "created_at": "2026-08-18",
+      "branch": "claude/1i-design-prototypes",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 19,
       "title": "docs(handover): AUTO-3 decision sweep recorded",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/handover-auto3"
+      "created_at": "2026-08-18",
+      "branch": "claude/handover-auto3",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 18,
-      "title": "mandate item 4: decision sweep resolves eighteen open items (AUTO-3)",
+      "title": "mandate item 4: decision sweep resolves eighteen open items (AUTO-3), generates the token artifact",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/decision-sweep-auto3"
+      "created_at": "2026-08-18",
+      "branch": "claude/decision-sweep-auto3",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 17,
       "title": "mandate: LOGO-2 resolved (AUTO-1), LOGO-1 narrowed, C-006 canonical system decided (AUTO-2)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/full-mandate-pass-1-logo2-c006"
+      "created_at": "2026-08-18",
+      "branch": "claude/full-mandate-pass-1-logo2-c006",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 16,
-      "title": "ID Auto extraction complete — othoth77/idauto is the sole canonical implementation",
+      "title": "ID Auto extraction complete — legacy tree removed; othoth77/idauto is the sole canonical implementation",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/idauto-source-cleanup-post-publication"
+      "created_at": "2026-08-18",
+      "branch": "claude/idauto-source-cleanup-post-publication",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 15,
-      "title": "MOS-1.2 — deploy.sh with hard gates",
+      "title": "MOS-1.2 — deploy.sh with hard gates, and an honest correction to §10.2 step 2",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/mythos-os-dashboard-audit-y4174m"
+      "created_at": "2026-08-18",
+      "branch": "claude/mythos-os-dashboard-audit-y4174m",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 14,
       "title": "[SUPERSEDED by #16] ID Auto standalone migration — record and staged tree",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-19",
-      "branch": "claude/idauto-standalone-migration-ejyl27"
+      "created_at": "2026-08-18",
+      "branch": "claude/idauto-standalone-migration-ejyl27",
+      "merged_at": "2026-08-19"
     },
     {
       "number": 13,
       "title": "docs(idauto): evolve toward Open Vehicle Identity Protocol",
       "state": "closed",
       "merged": false,
-      "closed_at": "2026-08-18",
-      "branch": "agent/idauto-open-protocol-strategy-20260818"
+      "created_at": "2026-08-18",
+      "branch": "agent/idauto-open-protocol-strategy-20260818",
+      "closed_at": "2026-08-18"
     },
     {
       "number": 12,
       "title": "MOS-1 — MYTHOS OS Command Center, built on the existing brand system",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/mythos-os-dashboard-audit-y4174m"
+      "created_at": "2026-08-18",
+      "branch": "claude/mythos-os-dashboard-audit-y4174m",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 11,
       "title": "design(stage 1): Mythos brand foundation — recovery through public ecosystem architecture",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-18",
-      "branch": "claude/mythos-master-brand-design-c3vy6b"
+      "created_at": "2026-08-18",
+      "branch": "claude/mythos-master-brand-design-c3vy6b",
+      "merged_at": "2026-08-18"
     },
     {
       "number": 10,
       "title": "refactor(automation): share read-only connector helpers",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-08",
-      "branch": "refactor/automation-connector-shared-helpers"
+      "created_at": "2026-08-08",
+      "branch": "refactor/automation-connector-shared-helpers",
+      "merged_at": "2026-08-08"
     },
     {
       "number": 9,
       "title": "refactor(runtime): remove stale duplicate function ownership",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-08",
-      "branch": "fix/runtime-duplicate-function-ownership"
+      "created_at": "2026-08-08",
+      "branch": "fix/runtime-duplicate-function-ownership",
+      "merged_at": "2026-08-08"
     },
     {
       "number": 8,
-      "title": "feat(automation): INF-CF-AUTO-0 Cloudflare Read-Only Connector",
+      "title": "feat(automation): INF-CF-AUTO-0 Cloudflare Read-Only Connector (reference implementation)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-08",
-      "branch": "feat/inf-cf-auto-0-readonly-connector"
+      "created_at": "2026-08-08",
+      "branch": "feat/inf-cf-auto-0-readonly-connector",
+      "merged_at": "2026-08-08"
     },
     {
       "number": 7,
-      "title": "feat(automation): INF-OVH-API-0 OVH Read-Only Connector",
+      "title": "feat(automation): INF-OVH-API-0 OVH Read-Only Connector (reference implementation)",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-07",
-      "branch": "feat/inf-ovh-api-0-readonly-connector"
+      "created_at": "2026-08-07",
+      "branch": "feat/inf-ovh-api-0-readonly-connector",
+      "merged_at": "2026-08-07"
     },
     {
       "number": 6,
       "title": "feat(devx): Mythos Development Acceleration MVP",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-07",
-      "branch": "feat/devx-0-development-acceleration"
+      "created_at": "2026-08-07",
+      "branch": "feat/devx-0-development-acceleration",
+      "merged_at": "2026-08-07"
     },
     {
       "number": 5,
       "title": "docs(research): Mythos Research Intelligence free-first foundation",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-08",
-      "branch": "docs/research-intelligence-foundation"
+      "created_at": "2026-08-07",
+      "branch": "docs/research-intelligence-foundation",
+      "merged_at": "2026-08-08"
     },
     {
       "number": 4,
       "title": "Mythos Personal Intelligence & Skills Platform — MPI-0 Foundation + Finalization",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-07",
-      "branch": "feat/mythos-personal-intelligence"
+      "created_at": "2026-08-07",
+      "branch": "feat/mythos-personal-intelligence",
+      "merged_at": "2026-08-07"
     },
     {
       "number": 3,
       "title": "docs(cloudflare): prepare authoritative DNS export intake",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-06",
-      "branch": "docs/cloudflare-zone-export-intake"
+      "created_at": "2026-08-06",
+      "branch": "docs/cloudflare-zone-export-intake",
+      "merged_at": "2026-08-06"
     },
     {
       "number": 2,
       "title": "docs(cloudflare): inventory Mythos domain portfolio",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-06",
-      "branch": "docs/cloudflare-domain-inventory"
+      "created_at": "2026-08-06",
+      "branch": "docs/cloudflare-domain-inventory",
+      "merged_at": "2026-08-06"
     },
     {
       "number": 1,
       "title": "docs(cloudflare): establish edge security foundation",
       "state": "closed",
       "merged": true,
-      "merged_at": "2026-08-05",
-      "branch": "docs/cloudflare-foundation"
+      "created_at": "2026-08-05",
+      "branch": "docs/cloudflare-foundation",
+      "merged_at": "2026-08-05"
     }
   ]
 }

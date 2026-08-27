@@ -1,118 +1,28 @@
 {
-  "review_id": "REVIEW-2026-08-26-015",
-  "timestamp": "2026-08-26T20:08:04.263Z",
+  "review_id": "REVIEW-2026-08-26-001",
+  "timestamp": "2026-08-26T13:32:02.656Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "git@github.com:othoth77/mythos-prod.git",
     "registry": "projects/status-center/data/registry.json",
-    "pr_ledger_captured_at": "2026-08-26T13:58:00Z",
+    "pr_ledger_captured_at": "2026-08-20T11:20:00Z",
     "repo_snapshot_captured_at": "2026-08-20T10:20:00Z",
     "documents_checked": 24,
-    "evidence_checked": 99
+    "evidence_checked": 75
   },
   "git": {
     "collected": true,
-    "head": "182539768ec9c044257029b611cd76e0c86446f9",
+    "head": "bed5031b7396945481be19954dcfafb421449d2e",
     "branch": "main",
-    "origin_main": "182539768ec9c044257029b611cd76e0c86446f9",
+    "origin_main": "bed5031b7396945481be19954dcfafb421449d2e",
     "remote_url": "git@github.com:othoth77/mythos-prod.git",
     "worktree_clean": true,
     "last_commit": {
-      "hash": "182539768ec9c044257029b611cd76e0c86446f9",
-      "date": "2026-08-26T20:07:56Z",
-      "subject": "feat(sya): P0 closed — catalog API live and verified; fix the script that cried failure"
+      "hash": "bed5031b7396945481be19954dcfafb421449d2e",
+      "date": "2026-08-26T11:57:16Z",
+      "subject": "chore(othmode): import the three pending Task Reports on the host; remove the temporary files"
     },
     "recent_commits": [
-      {
-        "hash": "1825397",
-        "date": "2026-08-26",
-        "subject": "feat(sya): P0 closed — catalog API live and verified; fix the script that cried failure"
-      },
-      {
-        "hash": "5663a43",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): re-sync — storefront hostname decided, deployment prepared"
-      },
-      {
-        "hash": "64d3c6d",
-        "date": "2026-08-26",
-        "subject": "feat(sya): storefront hostname decided; prepare the approved deployment for the P0"
-      },
-      {
-        "hash": "9e5ce53",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): re-sync — SYA nginx correction recorded"
-      },
-      {
-        "hash": "a90b22b",
-        "date": "2026-08-26",
-        "subject": "fix(sya): the \"101-line nginx drift\" is a category error; correct a hazardous instruction"
-      },
-      {
-        "hash": "4d71bee",
-        "date": "2026-08-26",
-        "subject": "feat(backup): first restore ever performed on this host; recoverability proven"
-      },
-      {
-        "hash": "dab453f",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): re-sync — SYA service restoration verified in production"
-      },
-      {
-        "hash": "85fbaaf",
-        "date": "2026-08-26",
-        "subject": "fix(sya): end the ten-day 218/CAPABILITIES crash loop; commit the unit; watch it"
-      },
-      {
-        "hash": "242af81",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): re-sync — probe correction verified in production"
-      },
-      {
-        "hash": "7064215",
-        "date": "2026-08-26",
-        "subject": "fix(status-center): othmode-api probe outlived its contract; split read from auth wall"
-      },
-      {
-        "hash": "5f4028a",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): re-sync — record the public Command History change"
-      },
-      {
-        "hash": "7252de2",
-        "date": "2026-08-26",
-        "subject": "feat(othmode): Command History and Task Reports are public reads, redacted"
-      },
-      {
-        "hash": "c8b7a70",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): re-sync — publish-wipes-monitor-state fix verified in production"
-      },
-      {
-        "hash": "1c0c031",
-        "date": "2026-08-26",
-        "subject": "fix(status-center): publish no longer wipes monitor runtime state; close NEXT-STATUS-PUBLISH"
-      },
-      {
-        "hash": "7903e08",
-        "date": "2026-08-26",
-        "subject": "feat(status-center): monitor OTHMODE; close three stale next_actions"
-      },
-      {
-        "hash": "7ee7955",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): refresh pr-ledger; update PROJECT-COMMAND-CENTER"
-      },
-      {
-        "hash": "aa90211",
-        "date": "2026-08-26",
-        "subject": "feat(status-center): curate OTHMODE into the registry; close STC-2 install"
-      },
-      {
-        "hash": "a78de5a",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): re-sync — REVIEW-2026-08-26-001 at bed5031"
-      },
       {
         "hash": "bed5031",
         "date": "2026-08-26",
@@ -1022,6 +932,96 @@
         "hash": "8a7fee6",
         "date": "2026-08-19",
         "subject": "Merge pull request #38 from othoth77/claude/mythos-auto12-mig3-a11y"
+      },
+      {
+        "hash": "c2e2999",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-prod): complete MIG-3 + fix both sweep findings (AUTO-12)"
+      },
+      {
+        "hash": "02aae4a",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #37 from othoth77/claude/mythos-auto11-mig2"
+      },
+      {
+        "hash": "2b707af",
+        "date": "2026-08-19",
+        "subject": "Merge remote-tracking branch 'origin/main' into claude/mythos-auto11-mig2"
+      },
+      {
+        "hash": "5c0f961",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-prod): execute MIG-2 via role separation (AUTO-11)"
+      },
+      {
+        "hash": "0e75846",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #33 from othoth77/claude/mos-v2-m02-relay-81ppf8"
+      },
+      {
+        "hash": "7b0af43",
+        "date": "2026-08-19",
+        "subject": "docs: restore AI_HANDOVER header lines lost in auto-merge"
+      },
+      {
+        "hash": "835e82d",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (0595834) into MOS-v2 M-02 branch"
+      },
+      {
+        "hash": "0595834",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #32 from othoth77/claude/mos-v2-nginx-contract-qawqxn"
+      },
+      {
+        "hash": "a1cb16c",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (1621c17) into MOS-v2 M-03 branch"
+      },
+      {
+        "hash": "1621c17",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #34 from othoth77/claude/mos-v2-server-auth-tmh065"
+      },
+      {
+        "hash": "6b9050c",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (4e3c890) into MOS-v2 M-01 branch"
+      },
+      {
+        "hash": "4e3c890",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #36 from othoth77/claude/mythos-auto10-c006"
+      },
+      {
+        "hash": "4daf4fd",
+        "date": "2026-08-19",
+        "subject": "docs(design): add specialist audit reports -- public projects + responsive sweep"
+      },
+      {
+        "hash": "47d2b66",
+        "date": "2026-08-19",
+        "subject": "fix(mythos-os-console): execute C-006 -- reconcile mythos.css, restore green suite (AUTO-10)"
+      },
+      {
+        "hash": "7424862",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (17f05fc) into the MOS-v2 M-01 auth branch"
+      },
+      {
+        "hash": "17f05fc",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #35 from othoth77/claude/gate-closure-record"
+      },
+      {
+        "hash": "befdf7a",
+        "date": "2026-08-19",
+        "subject": "docs: gate-closure record — PR stack merged, gates formally classified"
+      },
+      {
+        "hash": "9932a0e",
+        "date": "2026-08-19",
+        "subject": "fix(mythos-os-console): deploy relay chief-review fixes (MOS-v2 M-02 round 2)"
       }
     ],
     "commit_count": null,
@@ -1112,14 +1112,14 @@
       "id": "PROJECT-COMMAND-CENTER",
       "name": "Command Center (MCC · ordre.mythosprod.xyz)",
       "executive": true,
-      "purpose": "Mission dispatch surface: create missions (auto-title, auto-routing), execution profiles, mission reports, one-click report copy. 13-table mcc schema, no DELETE route, never executes stored commands. Since 2026-08-26 it is also the runtime OTHMODE is built over — the same Node process on 127.0.0.1:3021 serves both ordre.mythosprod.xyz (MCC) and othmode.mythosprod.xyz (OTHMODE); see PROJECT-OTHMODE.",
+      "purpose": "Mission dispatch surface: create missions (auto-title, auto-routing), execution profiles, mission reports, one-click report copy. 13-table mcc schema, no DELETE route, never executes stored commands.",
       "status": "DONE",
       "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-08-26 (service redeployed at aa4ca2d and restarted; MCC code itself unchanged since PR #47/#48 — the revision gap is closed)",
+      "last_change": "2026-08-20 (PR #47 simplification merged 70d3e71)",
       "blocker": null,
-      "next_action": "None required. MCC-2 is planned, not started. The previously recorded redeploy gap is closed: the running service now serves the current repository revision.",
-      "headline": "Live over HTTPS since 2026-08-17 (Let's Encrypt, TLS 81 days remaining as probed 2026-08-26), suite 506/0. Mission creation simplified 2026-08-20: title derives automatically, routing is automatic, mission report copies in one click. E2E lifecycle proven 54/0. The MCC-1 runtime was adapted rather than duplicated to carry OTHMODE — one process, two hostnames, shared auth/CSRF/secret-gate — so OTHMODE's Task Reports added no second application and no second event store.",
+      "next_action": "None required. MCC-2 is planned, not started. Live redeploy of the PR #47/#48 revision is an operator step.",
+      "headline": "Live over HTTPS since 2026-08-17 (Let's Encrypt valid to 2026-11-15), suite 506/0. Mission creation simplified 2026-08-20: title derives automatically, routing is automatic, mission report copies in one click. E2E lifecycle proven 54/0.",
       "dimensions": {
         "implementation": {
           "percent": 100,
@@ -1131,60 +1131,19 @@
         },
         "deployment": {
           "status": "DONE",
-          "note": "live at ordre.mythosprod.xyz (operator-verified 2026-08-17); running revision brought current 2026-08-26 (restart at aa4ca2d) — the earlier 'pending redeploy' caveat no longer applies"
+          "note": "live at ordre.mythosprod.xyz (operator-verified 2026-08-17); latest merged revision pending redeploy"
         },
         "production": {
           "status": "DONE",
-          "note": "real missions dispatched and completed through it (e.g. t-20260820075238); monitor reports ordre LIVE continuously through 2026-08-26"
+          "note": "real missions dispatched and completed through it (e.g. t-20260820075238)"
         }
       },
       "evidence": [
         "EV-MCC-LIVE",
-        "EV-MCC-CURRENT",
         "EV-MCC-TEST",
         "EV-PR-47",
         "EV-PR-48",
         "EV-CC-SIMPLIFY"
-      ]
-    },
-    {
-      "id": "PROJECT-OTHMODE",
-      "name": "OTHMODE (othmode.mythosprod.xyz)",
-      "executive": true,
-      "purpose": "The OTHMODE control platform: the per-command control contract for Claude work on Mythos. A command activates it only when it contains the standalone keyword `othmode`; activation selects a control contract and grants no permission of any kind. Surfaces the command library, skills, tools, providers, memory, the Evolution layer and — since 2026-08-26 — a persistent Task Report for every activated command, readable as the fourth source of the unified Command History.",
-      "status": "DONE",
-      "maturity": "PRODUCTION_VERIFIED",
-      "repository": "othoth77/mythos-prod",
-      "last_change": "2026-08-26 (Command History and Task Reports made publicly readable, redacted for anonymous callers — 7252de2)",
-      "blocker": null,
-      "next_action": "None required for the platform. Outstanding around it: othmode.mythosprod.xyz is not yet a monitored component in the STC-2 probe registry (NEXT-OTHMODE-MONITOR).",
-      "headline": "Live at https://othmode.mythosprod.xyz since 2026-08-26. Built over the MCC-1 runtime rather than as a second system: one process on a single loopback port, same auth, CSRF and secret gate, no new event store. Task Reports add an append-only tasks/records.jsonl stream to the existing OTHMODE store and a fourth source to the existing Command History. As of 7252de2 the Command History and every Task Report are PUBLIC READS — no session, login link or token — while every write stays authenticated and secret-gated; anonymous readers get the full narrative with infrastructure detail masked by a read-side projection, since the append-only store cannot be rewritten to be publishable. Suites othmode-3 94/0 and othmode-2 157/0 on the production host. Per-command activation replaced the global switch in PR #87; the keyword confers no privilege.",
-      "dimensions": {
-        "implementation": {
-          "status": "DONE",
-          "note": "tasks.js writer/read model, 4 authenticated API routes, CLI task show/create/update/import, Command History integration, EN/FR/AR UI with zero key gaps"
-        },
-        "tests": {
-          "status": "DONE",
-          "note": "othmode-3 68/0 · othmode-2 152/0 · governance 99/0 (host, 2026-08-26); no existing test modified by the change"
-        },
-        "deployment": {
-          "status": "DONE",
-          "note": "deployed via the audited mythos-deploy othmode target at aa4ca2d; the app is a systemd --user unit, so the service restart is a separate deploy-user step that mythos-deploy deliberately cannot perform"
-        },
-        "production": {
-          "status": "DONE",
-          "note": "operator-verified 2026-08-26: health 200, Task Reports live, and the public read path verified anonymously end to end with the write surface confirmed still closed (401)"
-        }
-      },
-      "evidence": [
-        "EV-OTHMODE-TASKS-MERGE",
-        "EV-OTHMODE-TASKS-CODE",
-        "EV-OTHMODE-TASKS-TEST",
-        "EV-OTHMODE-LIVE",
-        "EV-OTHMODE-STORE",
-        "EV-OTHMODE-PUBLIC-HISTORY",
-        "EV-OTHMODE-PUBLIC-VERIFIED"
       ]
     },
     {
@@ -3104,23 +3063,19 @@
     },
     {
       "id": "BLOCKER-SYA-NGINX-DRIFT",
-      "title": "RESOLVED: storefront hostname decided (store.ssangyong.autos); the recorded \"101-line drift\" was a category error",
+      "title": "ssangyong.autos nginx drift (101 lines)",
       "type": "configuration",
       "project": "PROJECT-SSANGYONG",
       "priority": "P2",
-      "status": "DONE",
+      "status": "OWNER_ACTION",
       "owner": "Owner",
-      "impact": "WAS RECORDED AS: the repo nginx file and the installed apex vhost diverge by 101 lines, so which is authoritative is an owner decision. THAT FRAMING IS WRONG. The two files are vhosts for different hostnames, not two versions of one file: the repo file is a never-installed template with the literal placeholder __STOREFRONT_HOST__ as its server_name, and the installed file is the legacy apex. There is no drift to reconcile and no authority to assign. What is real, and what the template's own header says, is that THE STOREFRONT'S PUBLIC HOSTNAME HAS NEVER BEEN DECIDED in any document in this repository, and choosing it is an owner decision because it is the product's public identity.",
-      "required_input": "None — resolved.",
-      "unblock": "RESOLVED 2026-08-26 in two steps. OTH-2026-00017 established that the recorded drift was a category error — the two files are vhosts for different hostnames, not two copies — and that the only real gate was the undecided storefront hostname. The owner then decided it: store.ssangyong.autos. The template keeps its __STOREFRONT_HOST__ placeholder on purpose; the decided name lives once, in scripts/deploy-sya-storefront.sh.",
+      "impact": "Repo and installed vhost disagree; a future deploy could clobber the live TLS key path.",
+      "required_input": "Decision: which copy is authoritative.",
+      "unblock": "Reconcile the chosen direction, commit the result.",
       "created": "2026-08-17",
-      "last_checked": "2026-08-26",
+      "last_checked": "2026-08-20",
       "evidence": [
-        "EV-SYA-DRIFT",
-        "EV-SYA-NGINX-NOT-DRIFT",
-        "EV-SYA-DEPLOY-RECOVERED-FROM-STASH",
-        "EV-SYA-STOREFRONT-HOSTNAME-DECIDED",
-        "EV-SYA-STOREFRONT-DEPLOY-SCRIPT"
+        "EV-SYA-DRIFT"
       ]
     },
     {
@@ -3161,49 +3116,38 @@
     },
     {
       "id": "BLOCKER-SYA-API-DOWN",
-      "title": "RESOLVED: SYA catalog API live at https://store.ssangyong.autos/api/health (2026-08-26)",
+      "title": "SYA catalog API down since 2026-08-16 (218/CAPABILITIES crash loop)",
       "type": "infrastructure",
       "project": "PROJECT-SSANGYONG-AUTOS",
       "priority": "P0",
-      "status": "DONE",
+      "status": "BLOCKED",
       "owner": "Operator",
-      "impact": "Was: a live production outage from 2026-08-16 17:23. The service had never started (67,256 restarts at 218/CAPABILITIES, nothing on 127.0.0.1:3011) and there was no public route to it, while an nginx catch-all made the apex answer 200 text/html for /api/health so the outage was invisible to monitoring. Now: the service has run continuously since 2026-08-26T15:54:38Z with NRestarts=0, and its catalog API is public at https://store.ssangyong.autos/api/health over TLS, returning real data. The frozen legacy apex is untouched and its own /api/catalog.php still serves. Both the origin and the public path are monitored, by sya-api-loopback and sya-api respectively.",
-      "required_input": "None — resolved.",
-      "unblock": "RESOLVED across four tasks: OTH-2026-00015 ended the crash loop by removing three systemd directives an unprivileged user manager cannot apply (no root needed, and the diagnosis already existed in MCC-1's unit header); OTH-2026-00017 found the recorded '101-line nginx drift' was a category error, corrected an instruction that would have shadowed the apex's live /api/catalog.php, and recovered the storefront vhost from a git stash where a single `stash drop` would have destroyed it; OTH-2026-00018 took the owner's hostname decision and prepared scripts/deploy-sya-storefront.sh on the proven deploy-status-center.sh pattern; the owner ran it at 2026-08-26T20:01Z and OTH-2026-00019 verified the result independently and enabled the public probe.",
+      "impact": "ssangyong-storefront.service (USER unit) has never started since 2026-08-16: hardened system-unit directives it cannot apply in user scope make systemd fail at the CAPABILITIES step. Nothing listens on 127.0.0.1:3011. The storefront HTML is served by nginx, so the site looks up while the catalog API is dead. This is a live production outage.",
+      "required_input": "Edit /home/deploy/.config/systemd/user/ssangyong-storefront.service as deploy (NO root needed) and restart the user unit.",
+      "unblock": "Remove ProtectKernelTunables, ProtectClock and MemoryDenyWriteExecute, per the bisected reasoning already recorded in mythos-command-center.service and docs/AI_HANDOVER.md. That leaves a hardening set identical to MCC-1, which runs green. Then: systemctl --user daemon-reload && systemctl --user restart ssangyong-storefront.",
       "created": "2026-08-22",
-      "last_checked": "2026-08-26",
+      "last_checked": "2026-08-22",
       "note_verified": "On-host 2026-08-22: NRestarts=2830 and climbing, status=218/CAPABILITIES every 5s, 21458 journal failures. ss shows nothing on :3011.",
       "evidence": [
-        "EV-SYA-API-DOWN",
-        "EV-SYA-API-RESTORED-LOOPBACK",
-        "EV-SYA-UNIT-IN-REPO",
-        "EV-SYA-API-MONITORED",
-        "EV-SYA-APEX-API-LIVE",
-        "EV-SYA-NGINX-NOT-DRIFT",
-        "EV-SYA-STOREFRONT-HOSTNAME-DECIDED",
-        "EV-SYA-STOREFRONT-DEPLOY-SCRIPT",
-        "EV-SYA-API-PUBLIC-VERIFIED",
-        "EV-SYA-DEPLOY-SMOKE-DEFECT"
+        "EV-SYA-API-DOWN"
       ]
     },
     {
       "id": "BLOCKER-BACKUP-RESTORE-UNPROVEN",
-      "title": "RESOLVED: restore-from-backup exercised and independently verified on this host (2026-08-26)",
+      "title": "Restore-from-backup never exercised on this host",
       "type": "infrastructure",
       "project": "PROJECT-SECURITY",
       "priority": "P2",
-      "status": "DONE",
+      "status": "OWNER_ACTION",
       "owner": "Operator",
-      "impact": "Was: backups were created and verified off-host, but no restore had ever been performed — integrity proven, recoverability not. Now: a complete set has been retrieved from off-host storage and reassembled on this host, with all 73 objects independently re-hashed outside the tool that produced them. Recoverability of the backup SET is demonstrated. Loading the restored dump into a live PostgreSQL instance remains unexercised and is tracked as its own, narrower gap rather than folded into this one.",
-      "required_input": "None — resolved.",
-      "unblock": "RESOLVED 2026-08-26 by OTH-2026-00016: `bash ops/backup/mythos-backup-run.sh restore-test` as deploy, no root, exit 0 in 18 s, preceded by a clean --dry-run that wrote nothing. 73/73 objects re-verified independently. The monthly timer next fires 2026-09-01 and now repeats a proven path.",
+      "impact": "Backups are created and verified off-host, but no restore has ever been performed. Backup integrity is proven; recoverability is not.",
+      "required_input": "One run of the restore test.",
+      "unblock": "As deploy: bash ops/backup/mythos-backup-run.sh restore-test (the service is User=deploy). Or as root: systemctl start mythos-restore-test.service. Check disk headroom first — / is at 73%.",
       "created": "2026-08-22",
-      "last_checked": "2026-08-26",
+      "last_checked": "2026-08-22",
       "note_verified": "On-host 2026-08-22: journalctl for mythos-restore-test.service returns \"No entries\"; timer next fires 2026-09-01.",
       "evidence": [
-        "EV-BACKUP-SCHEDULE-LIVE",
-        "EV-BACKUP-RESTORE-PROVEN",
-        "EV-BACKUP-CHECKSUMS-BY-DESIGN"
+        "EV-BACKUP-SCHEDULE-LIVE"
       ]
     }
   ],
@@ -3260,22 +3204,22 @@
     },
     {
       "id": "ACTION-MOS-DEPLOY",
-      "status": "DONE",
-      "what": "Deploy the MOS-v2 console — COMPLETED (live; verified 2026-08-26 against the RUNBOOK Phase B criteria)",
+      "status": "OWNER_ACTION",
+      "what": "Deploy the MOS-v2 console",
       "why": "Code-complete, security-audited, regression-gated — dark only for lack of the operator run.",
       "impact": "os.mythosprod.xyz live with goals, approvals, mission control.",
       "required_input": "New MOS_CONSOLE_SECRET (0600), root for relay units and nginx.",
-      "expected_result": "ACHIEVED and re-verified 2026-08-26: /login -> 200, / -> 302, /api/health -> 401 unauthenticated, exactly the documented criteria; the STC-2 monitor reports os-console LIVE.",
+      "expected_result": "Login 200, unauthenticated health 401, missions dispatchable.",
       "procedure": "projects/mythos-os-console/deploy/relay/RUNBOOK.md."
     },
     {
       "id": "ACTION-HUB-DNS",
-      "status": "DONE",
-      "what": "Create apex DNS and deploy the mythosprod.xyz hub — COMPLETED (apex and www serving; verified 2026-08-26)",
+      "status": "OWNER_ACTION",
+      "what": "Create apex DNS and deploy the mythosprod.xyz hub",
       "why": "The master-brand page is built; the apex currently misroutes to darhijama.tn.",
       "impact": "Public ecosystem hub live.",
       "required_input": "Apex + www A records → 51.68.226.211.",
-      "expected_result": "ACHIEVED and re-verified 2026-08-26: https://mythosprod.xyz/ -> 200 and https://www.mythosprod.xyz/ -> 200; the STC-2 monitor reports hub-apex LIVE.",
+      "expected_result": "https://mythosprod.xyz/ serving the hub with valid TLS.",
       "procedure": "sites/mythosprod.xyz/DEPLOYMENT.md."
     },
     {
@@ -3290,30 +3234,54 @@
     },
     {
       "id": "ACTION-STC2-INSTALL",
-      "status": "DONE",
-      "what": "Install the STC-2 monitor timer and re-sync the Status Center content — COMPLETED (timer installed and running; monitor panel and Arabic layer published and live)",
+      "status": "OWNER_ACTION",
+      "what": "Install the STC-2 monitor timer and re-sync the Status Center content",
       "why": "The Status Center currently publishes a snapshot; real service monitoring only starts once the timer runs on the host, and the Arabic layer only appears once the site content is re-synced.",
       "impact": "Turns the Status Center from a published record into live monitoring (LIVE/DEGRADED/DOWN/NOT_MONITORED with latency, HTTP status and TLS expiry) and publishes the Arabic explanation layer.",
       "required_input": "Root shell on the VPS.",
-      "expected_result": "ACHIEVED and verified on the host 2026-08-26: mythos-status-monitor.timer active on a ~5-minute cadence (last run 13:43:34Z), /var/www/status.mythosprod.xyz/data/live-status.json refreshing with 12 probed components (10 LIVE, 1 DEGRADED, 1 NOT_MONITORED), and the published assets/app.js is byte-identical to the repository copy and carries both the live panel and the Arabic layer.",
+      "expected_result": "systemctl status mythos-status-monitor.timer active; /data/live-status.json refreshed within 5 minutes; the page shows the live panel and the Arabic layer.",
       "procedure": "projects/status-center/monitor/README.md (install.sh) then sites/status.mythosprod.xyz/DEPLOYMENT.md §1 content sync."
     }
   ],
   "next_actions": [
     {
+      "id": "NEXT-STC2-INSTALL",
+      "priority": "P1",
+      "order": 1,
+      "title": "Install the STC-2 monitor timer and sync the refreshed Status Center content",
+      "detail": "Root-only on the VPS: run projects/status-center/monitor/install.sh (systemd service + 5-minute timer writing /var/www/status.mythosprod.xyz/data/live-status.json), then re-sync sites/status.mythosprod.xyz/ per DEPLOYMENT.md so the published page carries the Arabic layer and the live panel. Until then the live panel correctly reports absent monitor data and the page serves a published snapshot.",
+      "depends_on": null
+    },
+    {
+      "id": "NEXT-OTHK-STORE",
+      "priority": "P0",
+      "order": 2,
+      "title": "Provision /home/deploy/othk-store and activate config/knowledge.json",
+      "detail": "The next open live gate. The read-only VPS gate and the docker fix are verified GREEN on-host; live knowledge activation is the first genuine owner block — store location is a pending owner decision and provisioning + authorized exports are owner-only by architecture (docs/PRIVATE_STORE_ARCHITECTURE.md). Set enabled=true + an absolute out-of-repo store_root after provisioning.",
+      "depends_on": null
+    },
+    {
+      "id": "NEXT-MOS-DEPLOY",
+      "priority": "P1",
+      "order": 3,
+      "title": "Execute the MOS-v2 Phase-B deployment runbook",
+      "detail": "New secret, relay units, deploy.sh, nginx reload — console goes live at os.mythosprod.xyz.",
+      "depends_on": null
+    },
+    {
       "id": "NEXT-EXPORTS",
       "priority": "P2",
-      "order": 1,
+      "order": 4,
       "title": "Produce authorized exports for OTH Knowledge Track B",
       "detail": "Takeout / Gemini / NotebookLM, per docs/OTH_TRACK_B_READINESS.md §3.",
       "depends_on": "NEXT-OTHK-STORE"
     },
     {
-      "id": "NEXT-STATUS-DISCLOSURE-REVIEW",
+      "id": "NEXT-HUB-DEPLOY",
       "priority": "P2",
-      "order": 2,
-      "title": "Decide whether the public Status Center should mask infrastructure detail, as OTHMODE reports now do",
-      "detail": "On 2026-08-26 the owner decided that OTHMODE Task Reports, on becoming public, should have infrastructure detail masked for anonymous readers (host paths, sudo grants, internal listeners, hostname). The Status Center has been public since 2026-08-20 and carries the same class of detail: the hostname appears 12 times and absolute host paths 23 times in the published current.json. This is pre-existing convention, not a new exposure, and it is NOT obviously wrong — the Status Center is an evidence-citing instrument, and a path or a host IS the evidence, so masking it would degrade the thing it exists to do. That tension is the decision: apply the same masking for consistency, accept the disclosure as the cost of citable evidence, or mask only the narrowest subset (sudo grants and backup gaps). Recorded rather than acted on, because scrubbing two dozen evidence references is a content decision with owner-visible impact and would be pointless if done piecemeal.",
+      "order": 5,
+      "title": "Create apex DNS and deploy the mythosprod.xyz hub",
+      "detail": "Fixes the darhijama.tn misroute and publishes the master-brand page.",
       "depends_on": null
     }
   ],
@@ -3835,7 +3803,7 @@
       "date": "2026-08-20",
       "note": "VPS-PATH: no restorable execution path from AI environment",
       "evidence_status": "VERIFIED",
-      "evidence_note": "VPS-PATH handover: no restorable execution path from AI environment — mechanisms categorized, minimum operator actions documented (closed, merged)"
+      "evidence_note": "VPS-PATH handover: no restorable execution path from AI environment (closed, merged)"
     },
     {
       "id": "EV-PR-53",
@@ -3844,7 +3812,7 @@
       "date": "2026-08-20",
       "note": "OPEN draft: self-hosted VPS runner package proposal (final live gate)",
       "evidence_status": "VERIFIED",
-      "evidence_note": "FINAL LIVE GATE: self-hosted VPS runner package (least-privilege provisioning + read-only gate workflow) (closed, merged)"
+      "evidence_note": "FINAL LIVE GATE: self-hosted VPS runner package (least-privilege provisioning + read-only gate workflow) (open)"
     },
     {
       "id": "EV-PR-54",
@@ -3853,7 +3821,7 @@
       "date": "2026-08-20",
       "note": "OPEN draft: STC-1 Status Center delivery (branch claude/mythos-status-center-stoqv2, commit 6195bf4)",
       "evidence_status": "VERIFIED",
-      "evidence_note": "STC-1 — MYTHOS Status Center: evidence model, review engine, immutable history, design-system UI (closed, merged)"
+      "evidence_note": "STC-1 — MYTHOS Status Center: evidence model, review engine, immutable history, design-system UI (open)"
     },
     {
       "id": "EV-PR-55",
@@ -3862,7 +3830,7 @@
       "date": "2026-08-20",
       "note": "OPEN draft: runner provisioning fix — its title records that a live install of the PR #53 runner package was attempted and failed on temp-dir ownership; provisioning is actively iterating",
       "evidence_status": "VERIFIED",
-      "evidence_note": "fix(runner): temp-dir ownership for unprivileged extraction + rerun-safe provisioning (fixes PR #53 live-install failure) (closed, merged)"
+      "evidence_note": "fix(runner): temp-dir ownership for unprivileged extraction + rerun-safe provisioning (fixes PR #53 live-install failure) (open)"
     },
     {
       "id": "EV-PR-39",
@@ -3871,7 +3839,7 @@
       "date": "2026-08-19",
       "note": "MOS-v2 finalization M-04..M-11",
       "evidence_status": "VERIFIED",
-      "evidence_note": "MOS-v2 finalization: M-04 → M-11 (execution profiles, model catalog, mission control, safety, regression, goal/approval, decomposition, auto-routing) (closed, merged)"
+      "evidence_note": "MOS-v2 finalization: M-04 → M-11 (closed, merged)"
     },
     {
       "id": "EV-PR-34",
@@ -3898,7 +3866,7 @@
       "date": "2026-08-19",
       "note": "OTH-K1 knowledge operating layer",
       "evidence_status": "VERIFIED",
-      "evidence_note": "OTH-K1: provider-agnostic knowledge operating layer (model, store, provenance, conflicts, hybrid search, evaluation) + infrastructure knowledge (closed, merged)"
+      "evidence_note": "OTH-K1: provider-agnostic knowledge operating layer (closed, merged)"
     },
     {
       "id": "EV-PR-43",
@@ -3907,7 +3875,7 @@
       "date": "2026-08-19",
       "note": "OTH-K2 real-data knowledge integration (Track A)",
       "evidence_status": "VERIFIED",
-      "evidence_note": "OTH-K2: real-data knowledge integration — importers, dedup, temporal, provenance audit, AI-layer service boundary (closed, merged)"
+      "evidence_note": "OTH-K2: real-data knowledge integration (closed, merged)"
     },
     {
       "id": "EV-PR-44",
@@ -3916,7 +3884,7 @@
       "date": "2026-08-19",
       "note": "OTH-K2-W executor-side knowledge wiring, ships disabled",
       "evidence_status": "VERIFIED",
-      "evidence_note": "OTH-K2-W: executor-side knowledge-service wiring (AI Operating Layer ↔ OTH Knowledge) (closed, merged)"
+      "evidence_note": "OTH-K2-W: executor-side knowledge-service wiring (closed, merged)"
     },
     {
       "id": "EV-PR-16",
@@ -3925,7 +3893,7 @@
       "date": "2026-08-19",
       "note": "ID Auto extraction complete — othoth77/idauto is sole canonical implementation",
       "evidence_status": "VERIFIED",
-      "evidence_note": "ID Auto extraction complete — legacy tree removed; othoth77/idauto is the sole canonical implementation (closed, merged)"
+      "evidence_note": "ID Auto extraction complete — othoth77/idauto is the sole canonical implementation (closed, merged)"
     },
     {
       "id": "EV-PR-12",
@@ -4031,14 +3999,6 @@
       "reference": "https://ordre.mythosprod.xyz (MCC-1-VERIFY)",
       "date": "2026-08-17",
       "note": "Live over HTTPS; DNS → 51.68.226.211; Let's Encrypt valid to 2026-11-15; suite 506/0. Recorded operator verification of 2026-08-17 — not re-checkable from this environment.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-MCC-CURRENT",
-      "type": "vps",
-      "reference": "ordre.mythosprod.xyz + mythos-command-center.service on vps-4722f0a9, 2026-08-26",
-      "date": "2026-08-26",
-      "note": "The 'latest merged revision pending redeploy' caveat is RESOLVED. mythos-command-center.service (systemd --user, deploy) was restarted 2026-08-26 11:50:36Z and now serves the repository state at aa4ca2d; `git diff aa4ca2d..HEAD -- projects/command-center/` shows no code change since (only the three imported pending-task JSON files were removed). ordre.mythosprod.xyz probed 200; the STC-2 monitor reports it LIVE, 118ms, TLS 81 days. Note that ordre and othmode are the SAME process on 127.0.0.1:3021 — one runtime, two hostnames.",
       "evidence_status": "RECORDED"
     },
     {
@@ -4288,7 +4248,7 @@
       "date": "2026-08-20",
       "note": "OPEN draft (STATUS-RT, parallel session): routing diagnosis — origin nginx default-vhost fallback; DNS correct; Cloudflare not in path; DarHijama innocent. Diagnosis + runbook adopted into the STC branch; its placeholder page superseded by PR #54.",
       "evidence_status": "VERIFIED",
-      "evidence_note": "STATUS-RT: root-cause status.mythosprod.xyz → darhijama.tn redirect + operator-ready fix (closed, merged)"
+      "evidence_note": "STATUS-RT: root-cause status.mythosprod.xyz → darhijama.tn redirect + operator-ready fix (open)"
     },
     {
       "id": "EV-AUDIT-ROUTING",
@@ -4341,18 +4301,20 @@
     {
       "id": "EV-STC2-MONITOR",
       "type": "file",
-      "reference": "projects/status-center/monitor/",
+      "reference": "projects/status-center/monitor/ (collector, probes.json, systemd timer, install.sh)",
       "date": "2026-08-21",
-      "note": "STC-2 live monitoring implemented and tested in the repository: HTTPS/TCP/resource/backup-health probes, LIVE/DEGRADED/DOWN/NOT_MONITORED with latency, HTTP status, TLS days remaining and error detail, append-only JSONL history, state-transition alerts, atomic data/live-status.json, 5-minute systemd timer, fail-closed (a probe that cannot run is DOWN or NOT_MONITORED, never green). Suite stc-2 54/0. NOT installed on the VPS — no timer has been observed running, so the live panel currently reports absent monitor data by design. Covers the whole monitor directory: collector, probes.json, systemd service + 5-minute timer, and install.sh. (Reference corrected 2026-08-26: it previously held the prose list \"projects/status-center/monitor/ (collector, probes.json, systemd timer, install.sh)\", which the engine's existsSync check could not resolve, so this record read NOT_VERIFIED although every file listed exists.)",
-      "evidence_status": "VERIFIED"
+      "note": "STC-2 live monitoring implemented and tested in the repository: HTTPS/TCP/resource/backup-health probes, LIVE/DEGRADED/DOWN/NOT_MONITORED with latency, HTTP status, TLS days remaining and error detail, append-only JSONL history, state-transition alerts, atomic data/live-status.json, 5-minute systemd timer, fail-closed (a probe that cannot run is DOWN or NOT_MONITORED, never green). Suite stc-2 54/0. NOT installed on the VPS — no timer has been observed running, so the live panel currently reports absent monitor data by design.",
+      "evidence_status": "NOT_VERIFIED",
+      "evidence_note": "file not found at projects/status-center/monitor/ (collector, probes.json, systemd timer, install.sh)"
     },
     {
       "id": "EV-STC-AR",
       "type": "file",
-      "reference": "sites/status.mythosprod.xyz/assets/app.css",
+      "reference": "sites/status.mythosprod.xyz/index.html + assets/app.js + assets/app.css (.simple-ar layer)",
       "date": "2026-08-21",
-      "note": "Simple-Arabic explanation layer complete: secondary RTL Arabic under the primary English across the review record, plus the STC-2 live panel (four live states, stale-snapshot warning, absent-monitor note, state legend) and a page-level explanation of what the Status Center is, that statuses come from evidence and real checks, where the last-verified time is shown, and that a stale snapshot is not a live verification. English untouched; identifiers, domains, hashes and numbers are never translated. Suite stc-ar 50/0. Built in the repository — not yet re-deployed to the VPS. The Arabic layer spans index.html, assets/app.js and assets/app.css; app.css carries the .simple-ar rules (8 occurrences) and is used here as the single checkable path. (Reference corrected 2026-08-26: it previously held the prose list \"sites/status.mythosprod.xyz/index.html + assets/app.js + assets/app.css (.simple-ar layer)\", which the engine's existsSync check could not resolve, so this record read NOT_VERIFIED although every file listed exists.)",
-      "evidence_status": "VERIFIED"
+      "note": "Simple-Arabic explanation layer complete: secondary RTL Arabic under the primary English across the review record, plus the STC-2 live panel (four live states, stale-snapshot warning, absent-monitor note, state legend) and a page-level explanation of what the Status Center is, that statuses come from evidence and real checks, where the last-verified time is shown, and that a stale snapshot is not a live verification. English untouched; identifiers, domains, hashes and numbers are never translated. Suite stc-ar 50/0. Built in the repository — not yet re-deployed to the VPS.",
+      "evidence_status": "NOT_VERIFIED",
+      "evidence_note": "file not found at sites/status.mythosprod.xyz/index.html + assets/app.js + assets/app.css (.simple-ar layer)"
     },
     {
       "id": "EV-GATE-KNOWLEDGE-FIX",
@@ -4361,995 +4323,457 @@
       "date": "2026-08-21",
       "note": "Verification defect corrected: the step required projects/oth-knowledge/config/knowledge.json (a path that does not exist) and hid the error behind `|| echo`, so it verified nothing and always passed. It now reads the active projects/mythos-ai-executor/config/knowledge.json and asserts enabled === true and store_root === \"/home/deploy/othk-store\", failing closed on a missing, unparseable or de-activated config. OTH-KNOWLEDGE architecture unchanged. Suite vps-final-gate-knowledge 22/0. The corrected gate has not been dispatched on the self-hosted runner from this session.",
       "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-OTHMODE-TASKS-MERGE",
-      "type": "commit",
-      "reference": "aa4ca2d",
-      "date": "2026-08-26",
-      "note": "Merge of PR #89 into main — OTHMODE Task Reports. Every othmode-activated command becomes a persistent Task Report; full detail lives in OTHMODE and the chat reply is a short receipt only. Fast-forward over 711dbb2, 17 files, +1036/-13, no security control weakened and no existing test modified. Deployed to production the same day; cleanup of the imported pending files followed in bed5031.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-OTHMODE-TASKS-CODE",
-      "type": "file",
-      "reference": "projects/command-center/reference/othmode/tasks.js",
-      "date": "2026-08-26",
-      "note": "Task Report writer/read model over the append-only OTHMODE store (tasks/records.jsonl): created RUNNING, finished in exactly one terminal status (COMPLETED/FAILED/BLOCKED/CANCELLED/REJECTED), closed 13-section report vocabulary, fail-closed when the store is absent. The writer refuses command text that is not an othmode activation, so a normal Claude command can never become a task.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-OTHMODE-TASKS-TEST",
-      "type": "test",
-      "reference": "tests/othmode-3-tasks-test.js",
-      "date": "2026-08-26",
-      "note": "OTHMODE-3 suite: 68 passed / 0 failed on the production host at aa4ca2d. Covers the activation contract cases, fail-closed store, lifecycle and terminal statuses, section persistence, Command History as fourth source, route auth flags and the secret gate, the CLI create/update/show/import paths, and the UI/i18n/no-exec static guarantees. Regression floor re-run the same day: othmode-2 152/0, governance invariant 99/0.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-OTHMODE-LIVE",
-      "type": "vps",
-      "reference": "othmode.mythosprod.xyz probed from vps-4722f0a9, 2026-08-26",
-      "date": "2026-08-26",
-      "note": "Live and operator-verified after the Task Reports deployment. GET / -> 200. GET /api/othmode/tasks -> 401 unauthenticated (it returned 404 before the service restart, which is exactly how a stale process was detected). Authenticated probe over loopback returned 200 with 3 imported task records and a full report body; the verification session was revoked immediately. Served by mythos-command-center.service (systemd --user, deploy) on 127.0.0.1:3021 behind nginx.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-OTHMODE-STORE",
-      "type": "vps",
-      "reference": "/home/deploy/oth-evolution-store/tasks/records.jsonl on vps-4722f0a9, 2026-08-26",
-      "date": "2026-08-26",
-      "note": "Persistent Task Report stream live in the existing OTHMODE store (0700 root, records file 0600 deploy:deploy, append-only, outside Git). Three reports prepared off-host during the blocked runs were imported through the official CLI path and are readable through the authenticated API and as the fourth source of the unified Command History.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-STALE-RECONCILE-0826",
-      "type": "vps",
-      "reference": "live criteria re-probed from vps-4722f0a9, 2026-08-26",
-      "date": "2026-08-26",
-      "note": "Three next_actions were still open although their blockers were already DONE. Each was re-verified first-hand against its OWN documented unblock criteria before closing. MOS-v2 (RUNBOOK Phase B): /login -> 200, / -> 302, /api/health -> 401 — exactly as specified; monitor reports os-console LIVE. Hub apex: mythosprod.xyz -> 200 and www.mythosprod.xyz -> 200; monitor reports hub-apex LIVE. OTH Knowledge store: /home/deploy/othk-store is 0700 deploy:deploy holding meta.json + records.jsonl, and projects/mythos-ai-executor/config/knowledge.json has enabled=true with store_root=/home/deploy/othk-store. Nothing was closed on assumption.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-OTHMODE-MONITOR-PROBE",
-      "type": "file",
-      "reference": "projects/status-center/monitor/probes.json",
-      "date": "2026-08-26",
-      "note": "othmode.mythosprod.xyz added to the EXISTING STC-2 probe registry (no second monitoring system): `othmode` checks the surface (expect 200/301/302, text/html) and `othmode-api` checks the Task Reports API. The monitor unit runs from the repository working directory, so the timer picks probe edits up on its next ~5-minute tick with no root action. VERIFIED IN PRODUCTION 2026-08-26T14:15:49Z: live-status.json carried 14 components (was 12), othmode LIVE http=200 and othmode-api LIVE http=401. CORRECTED 2026-08-26 (OTH-2026-00014): `othmode-api` originally expected exactly 401, which was correct until 7252de2 deliberately made the Task Reports a PUBLIC READ. The probe expectation did not ship with that release, so from 15:13:39Z the Status Center reported othmode-api DOWN — `unexpected HTTP 200 (expected 401)` — against a service that was healthy and behaving exactly as designed. This was a false DOWN on the surface that is meant to be execution truth, and it is the first recorded instance of a probe outliving the contract it asserts. The expectation is now 200 plus expect_body_substring \"tasks\" (status alone could false-green on a catch-all — the sya-api lesson) and application/json. Because relaxing it would otherwise have silently retired the auth-wall assertion, a NEW probe `othmode-authwall` now holds that assertion on its own: GET /api/othmode/evolution/events, expect exactly 401 — the same endpoint tests/othmode-2-platform-test.js uses as its no-credential probe, so the monitor and the suite assert one guarantee from opposite sides. No monitor code changed; both probes are GET-only and the monitor still never writes to production. VERIFIED IN PRODUCTION 2026-08-26T15:40:19Z at 7064215: the root-run timer picked the corrected registry up from the repository working directory on its next tick with no root action — live-status.json now carries 15 components (was 14) and reports DOWN=0, with othmode-api LIVE http=200 and othmode-authwall LIVE http=401. The two remaining non-LIVE components are unchanged and already recorded: vps-resources DEGRADED (OTH-2026-00010 diagnosis, OTH-2026-00011 owner action) and sya-api NOT_MONITORED (retired).",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-STATUS-PUBLISHED-0826",
-      "type": "deployment",
-      "reference": "https://status.mythosprod.xyz/ published by the owner, 2026-08-26",
-      "date": "2026-08-26",
-      "note": "Publication VERIFIED from the host: live data/current.json returns REVIEW-2026-08-26-004 and matches the repository byte-for-byte on every counted dimension — 23 projects, 90 PRs, 83 evidence items; PROJECT-OTHMODE live as DONE/PRODUCTION_VERIFIED; PROJECT-COMMAND-CENTER last_change 2026-08-26; ACTION-STC2-INSTALL, ACTION-MOS-DEPLOY and ACTION-HUB-DNS all DONE; all 11 snapshots present in the live reviews index; published assets/app.js byte-identical to the repository copy; Arabic layer live; site and health.json both 200. NEXT-STATUS-PUBLISH is satisfied. Second publish 2026-08-26T14:32Z shipped REVIEW-2026-08-26-005: live and repository now agree on 23 projects, 85 evidence items and a single open next_action (NEXT-EXPORTS).",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-PUBLISH-WIPES-MONITOR-STATE",
-      "type": "vps",
-      "reference": "scripts/deploy-status-center.sh rsync --delete, observed on vps-4722f0a9 2026-08-26T14:16Z",
-      "date": "2026-08-26",
-      "note": "DEFECT FOUND AND FIXED. The publish ran `rsync -a --delete` into the docroot excluding only DEPLOYMENT.md and README.md, but the STC-2 monitor writes its runtime state into that SAME docroot (data/live-status.json, data/live-history/) and that state is not in Git. The publish therefore deleted both. Blast radius was wider than the Status Center: the apex Hub serves /api/status.json as an nginx alias onto exactly that file, so a Status Center publish took the Hub's status feed on mythosprod.xyz to 404 as well — cross-domain impact from a site-local publish. live-status.json was recreated by the monitor's next tick (14:31:17Z, live panel back to 200, 14 components) but data/live-history/ — the per-month state JSONL and alerts.jsonl accumulated since 2026-08-22 — is permanently lost: /var/www is in no backup set. Fixed by adding `--exclude data/live-status.json --exclude data/live-history` to the rsync, with the reasoning recorded in the script. The fix takes effect on the next publish; the script is run from the repository, so no separate installation step is needed. FIX VERIFIED IN PRODUCTION 2026-08-26T14:36Z: the owner published again, this time running the corrected script, and the monitor's runtime state survived — data/live-status.json stayed 200 straight through the publish, data/live-history/ retained 2026-08.jsonl plus alerts.jsonl, the retained history_tail still carries the 14:31:17Z sample recorded BEFORE the publish (depth 2, not reset to 1), and the apex Hub's /api/status.json never left 200. The defect is closed: found, fixed at source, and confirmed by the regression it was written to prevent.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-OTHMODE-PUBLIC-HISTORY",
-      "type": "commit",
-      "reference": "7252de2",
-      "date": "2026-08-26",
-      "note": "Command History and every OTHMODE Task Report became readable with no session, login link or token. Reads made public: GET /api/othmode/history, /api/othmode/tasks, /api/othmode/tasks/:id. Writes unchanged and still authenticated + secret-gated, with a new assertion proving NO POST route is public so the write surface cannot open by accident. Because the OTHMODE store is append-only — records cannot be rewritten to be publishable — anonymous readers are served through a READ-side projection that masks the infrastructure detail operational narrative unavoidably carries (host paths, sudo grants, internal listeners, hostname, PIDs, account names) while preserving record shape and everything that makes a report citable: git SHAs, review ids, statuses and public URLs. An authenticated reader still receives every record verbatim and the stored record is never mutated. Gates: othmode-3 94/0 (was 68), othmode-2 157/0 (was 152), governance 99/0, MOS-v2 SUCCESS, othk-0 89/0.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-OTHMODE-PUBLIC-VERIFIED",
-      "type": "vps",
-      "reference": "othmode.mythosprod.xyz probed anonymously from vps-4722f0a9, 2026-08-26",
-      "date": "2026-08-26",
-      "note": "Verified in production with no credential: / 200, /api/othmode/history 200, /api/othmode/tasks 200, and a real report (OTH-2026-00011) returned 200 with redacted=true, all 13 sections intact and the narrative still readable. Leak probes for sudo grants, /home paths, loopback listeners, the hostname and /etc/sudoers all came back clean. Write surface re-confirmed closed in the same pass: unauthenticated POST /api/othmode/tasks and POST /api/othmode/evolution/signals both 401. UI verified live in EN, FR and AR; no access/modification button and no session warning render on the public pages.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-SYA-API-RESTORED-LOOPBACK",
-      "type": "vps",
-      "reference": "systemctl --user restart ssangyong-storefront on vps-4722f0a9, 2026-08-26 (OTH-2026-00015)",
-      "date": "2026-08-26",
-      "note": "The ten-day 218/CAPABILITIES crash loop is over. Before: ActiveState=activating (auto-restart), ExecMainStatus=218, NRestarts=67256 and climbing every 5s since 2026-08-16 17:23, nothing on 127.0.0.1:3011. After removing exactly three directives — ProtectKernelTunables, ProtectClock, MemoryDenyWriteExecute — from the deploy-owned user unit: ActiveState=active, SubState=running, ExecMainStatus=0, NRestarts=0, and ss -ltn shows LISTEN 127.0.0.1:3011. The API serves real data, not a stub: http://127.0.0.1:3011/api/health returns 200 application/json with {\"status\":\"ok\",\"database\":\"ssangyong_autos\",\"read_only\":true,\"counts\":{\"products\":346,\"vehicle_models\":17,\"vehicle_motorizations\":63,...}}, which proves the process reached PostgreSQL. No root was used: the unit is deploy-owned under ~/.config/systemd/user/. The three removed directives are the exact set MCC-1 bisected and named this unit for; what remains is MCC-1's hardening set, which runs green, and every other control on the unit is retained. THE PUBLIC ROUTE IS STILL MISSING: the ssangyong.autos vhost has no /api proxy_pass, so https://ssangyong.autos/api/health still answers 200 text/html from the SPA fallback. That half needs root and keeps BLOCKER-SYA-API-DOWN open.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-SYA-UNIT-IN-REPO",
-      "type": "file",
-      "reference": "projects/ssangyong-autos/deploy/ssangyong-storefront.user.service",
-      "date": "2026-08-26",
-      "note": "Root cause of the DURATION, recorded separately from the root cause of the failure. The unit existed only at ~/.config/systemd/user/ssangyong-storefront.service with no reviewed copy anywhere in the repository, so there was nothing to review and nothing a diff could catch — the defect survived ten days in a file no gate ever read. The unit is now committed as source, following the convention its own sibling already used (projects/command-center/deploy/mythos-command-center.user.service), the installed copy is byte-identical (md5 55b6358f2a62b4e03369646274cce450), and the header carries the install command so the next edit happens in the repo rather than on the host.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-SYA-API-MONITORED",
-      "type": "file",
-      "reference": "projects/status-center/monitor/probes.json",
-      "date": "2026-08-26",
-      "note": "Probe id sya-api-loopback. The second reason the outage lasted ten days: nothing watched this service. The only probe naming it (sya-api) pointed at the public URL, where an nginx catch-all answers 200 text/html for every path, so the outage was invisible by construction and the probe shipped disabled precisely because of that. New probe sya-api-loopback watches the origin the service actually binds to — http://127.0.0.1:3011/api/health, expect 200 + application/json + body substring \"read_only\":true so a half-initialised server that never reached PostgreSQL cannot report LIVE. Loopback probing is the precedent the database probe already set, and it doubles as proof the API is not publicly exposed on its own port. Verified LIVE in the collector dry run and in production. sya-api itself stays disabled: the public endpoint it names still does not exist.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-BACKUP-RESTORE-PROVEN",
-      "type": "vps",
-      "reference": "bash ops/backup/mythos-backup-run.sh restore-test on vps-4722f0a9, 2026-08-26T18:51:28Z (OTH-2026-00016)",
-      "date": "2026-08-26",
-      "note": "FIRST RESTORE EVER PERFORMED ON THIS HOST. Ran the exact command mythos-restore-test.service executes, as deploy, with no root. Exit 0 in 18 s. A --dry-run against the tool was executed first and wrote nothing. Restored 73 objects / 315,499 bytes from the off-host remote into the throwaway destination staging/restore-test-20260826T185128Z: the PostgreSQL dump idauto-20260826T033037Z.dump plus 71 content-addressed media objects and the media manifest. INDEPENDENTLY RE-VERIFIED after the tool reported clean, by recomputing sha256 and size for all 73 objects against the manifest outside the tool that produced it: 73/73 match, 0 mismatched, 0 missing. The restored dump is byte-identical to the on-host source (sha256 739ea65782a1f9b48cb3bae69cb606faeaaaa1899181ee7d25852d1684a41603) and carries the PostgreSQL custom-format magic PGDMP, archive version 1.14. Since mythos-backup-capture.sh line 252 refuses to produce a dump that fails `pg_restore --list`, byte-identity to that artifact carries the validation forward: capture validated it, the remote returned it unchanged, and the restore reproduced it exactly. LIMITATION, stated rather than glossed: `pg_restore --list` could not be re-run against the RESTORED copy from this session, because pg_restore is not installed on the host and deploy is deliberately outside the docker group. What is proven is that a complete, uncorrupted, structurally valid backup set can be retrieved from off-host storage and reassembled on this machine. What is still not proven is a full load of that dump into a live PostgreSQL instance — that needs docker or a postgresql-client install and is a separate, larger exercise. The scheduled unit mythos-restore-test.service itself still shows no execution record; its timer next fires 2026-09-01 and will now be a repeat of a known-good path rather than a first attempt. Nothing was deleted, locally or remotely: the tool structurally refuses deletion and retention is report-only.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-BACKUP-CHECKSUMS-BY-DESIGN",
-      "type": "file",
-      "reference": "projects/infrastructure/ops/offhost-backup.js",
-      "date": "2026-08-26",
-      "note": "Finding from the first restore test, recorded so it does not cost someone time during a real recovery. The restored media set contains manifest.json and media/ but NOT checksums.sha256, even though media-backup/manifest.json names it under integrity.checksums_file with its sha256. That looks like a gap and is not one. offhost-backup.js mediaEntries() reads checksums.sha256 as the INDEX of what to ship and folds every one of its 71 hashes into the top-level off-host manifest, which is what restore-verify checks against; the file itself is therefore redundant as an object and is deliberately not pushed. Integrity off-host does not depend on it. A human performing a manual recovery without the tool should verify against the restored manifest.json, not look for checksums.sha256 — recorded in ops/backup/README.md §4.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-SYA-NGINX-NOT-DRIFT",
-      "type": "file",
-      "reference": "projects/ssangyong-autos/deploy/nginx-ssangyong-storefront.conf",
-      "date": "2026-08-26",
-      "note": "CORRECTION (OTH-2026-00017). The recorded '101 changed lines' between the repo nginx file and /etc/nginx/sites-enabled/ssangyong.autos is a CATEGORY ERROR, not drift, and the derived question 'which copy is authoritative' is malformed: neither file is a copy of the other. They are vhosts for two DIFFERENT hostnames. The repo file is a never-installed TEMPLATE whose server_name is the literal placeholder __STOREFRONT_HOST__; its own header states 'NOT INSTALLED, and NOT INSTALLABLE AS-IS' and warns 'THIS FILE MUST NOT BE APPLIED TO THE APEX ssangyong.autos', because the apex serves the legacy site that migration-plan §21 freezes. Verified on-host: /var/www/ssangyong.autos holds a live legacy site with 13 PHP files, so applying the template to the apex would take it down exactly as the header warns. The installed apex vhost is 48 lines of static root + try_files + PHP-FPM + Certbot TLS and contains no proxy_pass at all. A 101-line diff between a 48-line legacy apex and a 72-line storefront template is simply the two files being unrelated.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-SYA-APEX-API-LIVE",
-      "type": "vps",
-      "reference": "https://ssangyong.autos/api/catalog.php probed from vps-4722f0a9, 2026-08-26",
-      "date": "2026-08-26",
-      "note": "HAZARD IN A PREVIOUSLY RECORDED INSTRUCTION, found and corrected here. BLOCKER-SYA-API-DOWN's required_input, as written by OTH-2026-00015, said to add an /api proxy_pass to 127.0.0.1:3011 in the apex vhost. The apex ALREADY SERVES A LIVE /api: /var/www/ssangyong.autos/api/catalog.php returns 200 application/json, 1992 bytes, right now. A blanket `location ~ ^/api/ { proxy_pass http://127.0.0.1:3011; }` on that vhost would shadow it and break the legacy storefront's own data path. The instruction was written from the stale drift framing and is corrected in the blocker. Note also that /api/ itself returns 403 (directory listing denied) while /api/catalog.php returns real JSON — the endpoint is a specific file, not a route tree, which is precisely why a regex location would capture more than intended.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-SYA-DEPLOY-RECOVERED-FROM-STASH",
-      "type": "file",
-      "reference": "projects/ssangyong-autos/deploy/",
-      "date": "2026-08-26",
-      "note": "Three SYA deploy artifacts existed ONLY inside a git stash's untracked-files commit (stash@{0}^3, 'On main: VPS-local-work-before-M12-sync-2026-08-19') and in no branch anywhere. AGENTS.md §7 is explicit that work must not be left in a stash, and a single `git stash drop` would have destroyed them. ssangyong-storefront.user.service was already re-created from the live host by OTH-2026-00015; the other two are recovered here. nginx-ssangyong-storefront.conf was recovered byte-identical (git hash-object ff46cc65127d8553f6a170c888f505a629af33ec, 72 lines, matching the handover's count). The system-scope unit was recovered WITH ONE CORRECTION: MemoryDenyWriteExecute removed, because it is scope-independent and incompatible with V8's JIT — committing it unchanged would have handed the next operator the same trap that kept the user-scope sibling dead for ten days, except failing under load rather than at startup. Neither file contains a credential; both carry only paths, of the same class already public in this repository.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-SYA-STOREFRONT-HOSTNAME-DECIDED",
-      "type": "operator-report",
-      "reference": "owner instruction, 2026-08-26 — \"using store.ssangyong.autos as the approved public hostname\"",
-      "date": "2026-08-26",
-      "note": "The decision BLOCKER-SYA-NGINX-DRIFT was actually waiting on, made by the owner: the storefront's public hostname is store.ssangyong.autos. It had been undecided since 2026-08-16, and OTH-2026-00017 established it was the only real gate once the recorded '101-line drift' was shown to be a category error. VERIFIED ON-HOST the same day: store.ssangyong.autos already has a real A record — not a wildcard, since an invented sibling name resolves to nothing — pointing at 51.68.226.211, which is this host. So DNS was never a blocker for this name. Its CURRENT behaviour was measured before any change: with no vhost claiming it, the name falls through to the nginx default and returns 301 to https://darhijama.tn/ while presenting the darhijama.tn certificate (CN=darhijama.tn, SAN darhijama.tn + www). That is precisely the default-vhost fallback condition BLOCKER-STATUS-DNS recorded for status.mythosprod.xyz before 2026-08-20, which is why this task reused that deployment's proven shape rather than inventing one.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-SYA-STOREFRONT-DEPLOY-SCRIPT",
-      "type": "file",
-      "reference": "scripts/deploy-sya-storefront.sh",
-      "date": "2026-08-26",
-      "note": "The approved deployment path for the remaining half of BLOCKER-SYA-API-DOWN, modelled directly on scripts/deploy-status-center.sh — the script that performed this same operation for status.mythosprod.xyz on 2026-08-20 and is the proven pattern on this host. Same shape: preflight, additive vhost, certbot, smoke tests, regression checks, fail-closed throughout, with --rollback. Deliberate differences, each earned by a finding from this session's earlier tasks: (1) it does NOT embed the vhost body — it renders projects/ssangyong-autos/deploy/nginx-ssangyong-storefront.conf and substitutes the hostname, so there is one source for the config and one for the name and they cannot drift, which is the failure OTH-2026-00017 spent a task unpicking; (2) it refuses to run unless something is listening on 127.0.0.1:3011 AND that upstream's /api/health already returns status ok, because publishing a vhost in front of a dead upstream would put a 502 on a public hostname — the OTH-2026-00015 lesson; (3) its regression step hashes the legacy apex vhost before and after and fails if it changed, then proves https://ssangyong.autos/ and its own live /api/catalog.php are still answering with JSON, because OTH-2026-00017 found a recorded instruction that would have shadowed exactly that endpoint; (4) its smoke tests assert the P0's real acceptance criteria rather than mere reachability — application/json content-type, \"status\":\"ok\", \"read_only\":true proving a genuine PostgreSQL read, and a POST to /api/health refused 403 at the edge by limit_except. VALIDATED AS FAR AS AN UNPRIVILEGED SESSION CAN: bash -n clean; the rendered vhost passes `nginx -t` offline in a self-contained test config ('syntax is ok' — the only residual error is bind() to :80 being denied to a non-root user, which is the test harness, not the config); placeholder substitution verified to leave zero occurrences; server_name and proxy_pass verified present in the rendered output. NOT RUN. Installing a vhost requires root and deploy's sudo grant is exactly `nginx -t`, `systemctl reload nginx`, `certbot`. Note that `certbot --nginx` could technically be used to write nginx configuration through that grant; it was deliberately NOT used that way, because the sudoers policy is a recorded operator decision and routing around it would defeat the boundary rather than respect it.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-SYA-API-PUBLIC-VERIFIED",
-      "type": "deployment",
-      "reference": "https://store.ssangyong.autos/api/health verified from vps-4722f0a9, 2026-08-26 (OTH-2026-00019)",
-      "date": "2026-08-26",
-      "note": "THE P0 IS CLOSED. The owner ran scripts/deploy-sya-storefront.sh at 20:01Z and the catalog API is publicly reachable for the first time since 2026-08-16. Verified INDEPENDENTLY of the script, because the script's own report could not be trusted (see EV-SYA-DEPLOY-SMOKE-DEFECT). Installed vhost /etc/nginx/sites-available/store.ssangyong.autos is the committed template rendered, plus certbot's standard rewrite and nothing else — diffed line by line against a local render of the repository source. Certificate CN=store.ssangyong.autos, issuer Let's Encrypt YE1, notBefore 2026-08-26T19:03:16Z, notAfter 2026-11-24T19:03:15Z, SAN exactly store.ssangyong.autos; ACME validation visible in the vhost's own access log at 20:01:40-41Z. ACCEPTANCE, 11 checks run by hand: GET / 200; HTTP 301 to this host's own HTTPS rather than darhijama.tn; no darhijama.tn anywhere in the redirect chain; /api/health 200 application/json with status ok, read_only true and real catalog counts; storefront HTML served; HSTS present; X-Frame-Options DENY present; POST to an /api/ path refused 403 at the edge; POST /api/health refused 405 by the upstream. REGRESSION, all clean: the legacy apex vhost file mtime is still 2026-07-09T01:39:12Z and its size unchanged, https://ssangyong.autos/ 200, and its own https://ssangyong.autos/api/catalog.php still 200 application/json — NOT shadowed, which was the specific hazard OTH-2026-00017 identified. www.ssangyong.autos, n8n.ssangyong.autos, darhijama.tn, status.mythosprod.xyz, othmode.mythosprod.xyz and mythosprod.xyz all still 200. sya-api is now ENABLED and reports LIVE http=200 TLS 89d, so the board carries no NOT_MONITORED entry for the first time.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-SYA-DEPLOY-SMOKE-DEFECT",
-      "type": "file",
-      "reference": "scripts/deploy-sya-storefront.sh",
-      "date": "2026-08-26",
-      "note": "THE DEPLOYMENT SCRIPT REPORTED FAILURE ON A DEPLOYMENT THAT SUCCEEDED, and the defect was mine (OTH-2026-00018 wrote it, OTH-2026-00019 found and fixed it). Its step-5 smoke tests used `curl -I`. The upstream is GET-only and answers HEAD with 405 by design, so the primary 'HTTPS 200' check failed against a healthy site. Proven from the vhost's own access log, which records the script's probes from 51.68.226.211 at 20:01:52Z: HEAD / 405, three times. A second check was worse than wrong — it read Content-Type from the HEAD 405 response, which is also application/json, so it PASSED for entirely the wrong reason and would have false-greened a broken API. A third asserted POST /api/health returns 403 at the edge; it returns 405, because an exact-match nginx location beats a regex one and `location = /api/health` did not inherit the `limit_except` from `location ~ ^/api/`. FIXED: every probe is now a GET using `-D- -o /dev/null` so the checks read the headers users actually get; the write-refusal property is asserted twice and separately — 403 at the edge on a regex-governed /api/ path, and 403-or-405 on /api/health — so neither can hide the other; and a redirect-target check was added. The template now repeats limit_except inside the exact-match block so future installs refuse writes uniformly at the edge. THE LIVE VHOST STILL LACKS THAT LINE: writes to /api/health are refused by the upstream's 405 rather than by nginx, one layer later than every other path. That is a defence-in-depth gap, not an exposure — the request is still refused and nothing is written — and closing it needs a root edit, because this script deliberately never rewrites a certbot-managed vhost.",
-      "evidence_status": "VERIFIED"
     }
   ],
   "prs": [
     {
-      "number": 90,
-      "title": "IDauto Design System — foundation « Encre & Papier, scellé de vert »",
-      "state": "open",
-      "merged": false,
-      "created_at": "2026-08-26",
-      "branch": "claude/idauto-design-system-lllzpz"
-    },
-    {
-      "number": 89,
-      "title": "feat(othmode): Task Reports — persistent record for every othmode-activated command",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-26",
-      "branch": "claude/first-othmode-operation-u8vzq0",
-      "merged_at": "2026-08-26"
-    },
-    {
-      "number": 88,
-      "title": "docs(idauto): finalization audit — off-host verification of both repositories",
-      "state": "open",
-      "merged": false,
-      "created_at": "2026-08-26",
-      "branch": "claude/idauto-finalization-9866s0"
-    },
-    {
-      "number": 87,
-      "title": "OTHMODE — activation endpoint auth fix (preserve the two-public-POSTs invariant)",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-26",
-      "branch": "claude/othmode-activation-model",
-      "merged_at": "2026-08-26"
-    },
-    {
-      "number": 86,
-      "title": "OTHMODE — per-command activation model (remove the global ON/OFF switch)",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-26",
-      "branch": "claude/othmode-activation-model",
-      "merged_at": "2026-08-26"
-    },
-    {
-      "number": 85,
-      "title": "OTHMODE-100 — approved scope completed to 100%",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-26",
-      "branch": "claude/othmode-100",
-      "merged_at": "2026-08-26"
-    },
-    {
-      "number": 84,
-      "title": "OTHMODE — token-free browser sign-in (remove the Access Token UI workflow)",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-26",
-      "branch": "claude/othmode-tokenfree-auth",
-      "merged_at": "2026-08-26"
-    },
-    {
-      "number": 83,
-      "title": "OTHMODE — closure docs (final audit + final report + handover/changelog sync)",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-26",
-      "branch": "claude/othmode-implementation",
-      "merged_at": "2026-08-26"
-    },
-    {
-      "number": 82,
-      "title": "OTHMODE — deployment fixes (service sandbox + credential tri-state)",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-26",
-      "branch": "claude/othmode-implementation",
-      "merged_at": "2026-08-26"
-    },
-    {
-      "number": 81,
-      "title": "OTHMODE — Phase 2: platform implementation (ordre.mythos → othmode.mythos)",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-26",
-      "branch": "claude/othmode-implementation",
-      "merged_at": "2026-08-26"
-    },
-    {
-      "number": 80,
-      "title": "erp: prepare the preserved erp.mythosprod.xyz route (not deployed)",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-22",
-      "branch": "feat/erp-preservation",
-      "merged_at": "2026-08-22"
-    },
-    {
-      "number": 79,
-      "title": "test(backup): pin the PR #75 capture hardening",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-22",
-      "branch": "feat/backup-regression-tests",
-      "merged_at": "2026-08-22"
-    },
-    {
-      "number": 78,
-      "title": "monitor: close the database and SYA-API blind spots",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-22",
-      "branch": "feat/monitoring-coverage",
-      "merged_at": "2026-08-22"
-    },
-    {
-      "number": 77,
-      "title": "hub: make mythosprod.xyz the Mythos Hub Dashboard",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-22",
-      "branch": "feat/hub-dashboard",
-      "merged_at": "2026-08-22"
-    },
-    {
-      "number": 76,
-      "title": "hub: serve mythosprod.xyz as the platform entry point",
-      "state": "closed",
-      "merged": false,
-      "created_at": "2026-08-22",
-      "branch": "hub-apex-platform-entry-point",
-      "closed_at": "2026-08-22"
-    },
-    {
-      "number": 75,
-      "title": "backup: add production capture service and finalize R2 backup flow",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-22",
-      "branch": "backup-production-capture-finalize",
-      "merged_at": "2026-08-22"
-    },
-    {
-      "number": 74,
-      "title": "VPS runner repair verification + read-only host diagnostics (branch-only workflow jobs)",
-      "state": "open",
-      "merged": false,
-      "created_at": "2026-08-21",
-      "branch": "claude/vps-runner-repair-verify-99dnde"
-    },
-    {
-      "number": 73,
-      "title": "Production Closure Execution — STEP 1 VERIFIED (c353334)",
-      "state": "open",
-      "merged": false,
-      "created_at": "2026-08-21",
-      "branch": "claude/mythos-prod-closure-ftc08p"
-    },
-    {
-      "number": 72,
-      "title": "docs(closure): post-merge amendment + final closure attempt at c353334",
-      "state": "open",
-      "merged": false,
-      "created_at": "2026-08-21",
-      "branch": "claude/mythos-3month-audit-2drfk0"
-    },
-    {
-      "number": 71,
-      "title": "docs: STC2 Status Center closure evidence (backup dump step withdrawn — superseded by PR #75)",
-      "state": "open",
-      "merged": false,
-      "created_at": "2026-08-21",
-      "branch": "claude/status-center-stc2-update-73v1oo"
-    },
-    {
-      "number": 70,
-      "title": "STC2-AR-GATE: Status Center to current state — STC-2 + Arabic integrated, Arabic completed over the live panel, knowledge gate fixed",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-21",
-      "branch": "claude/status-center-stc2-update-73v1oo",
-      "merged_at": "2026-08-21"
-    },
-    {
-      "number": 69,
-      "title": "docs(handover): v1.0 tag route — retarget to 7fffa2f, create via GitHub UI",
-      "state": "open",
-      "merged": false,
-      "created_at": "2026-08-21",
-      "branch": "claude/vps-final-gate-dispatch-rt9u6g"
-    },
-    {
-      "number": 68,
-      "title": "test(othk): add host-runtime posture (§H) to the canonical live gate + closure handover entries",
-      "state": "open",
-      "merged": false,
-      "created_at": "2026-08-21",
-      "branch": "claude/mythos-final-closure-6iejno"
-    },
-    {
-      "number": 67,
-      "title": "docs(handover): closure amendments — live VPS Final Gate SUCCESS at c9e5430; tag-push constraint recorded",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-21",
-      "branch": "claude/mythos-os-final-completion-rztwwk",
-      "merged_at": "2026-08-21"
-    },
-    {
-      "number": 66,
-      "title": "Audit → post-audit execution → production-closure record (backups, STC-2 monitoring, sync audit, runner repair)",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-21",
-      "branch": "claude/mythos-3month-audit-2drfk0",
-      "merged_at": "2026-08-21"
-    },
-    {
-      "number": 65,
-      "title": "docs(handover): MYTHOS-OS-FINAL-CLOSURE — final validation green, release freeze mythos-os-v1.0",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-21",
-      "branch": "claude/mythos-os-final-completion-rztwwk",
-      "merged_at": "2026-08-21"
-    },
-    {
-      "number": 64,
-      "title": "OTHK-LIVE-GATE: canonical OTH-KNOWLEDGE Live Gate (host-aware; on-host run = LIVE PASS)",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-21",
-      "branch": "claude/oth-knowledge-live-gate-tzrjk5",
-      "merged_at": "2026-08-21"
-    },
-    {
-      "number": 63,
-      "title": "OTH-KNOWLEDGE LIVE ACTIVATION: executor knowledge layer enabled on the canonical VPS store",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-20",
-      "branch": "claude/othk-live-activation",
-      "merged_at": "2026-08-21"
-    },
-    {
-      "number": 62,
-      "title": "fix(runner): deliver registration-token fix (3c53612) to main — completes the corrected provisioning installer",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-20",
-      "branch": "claude/vps-runner-provisioning-perms-xbbao2",
-      "merged_at": "2026-08-20"
-    },
-    {
-      "number": 61,
-      "title": "fix(runner): registration token never reached config.sh — runuser env inheritance",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-20",
-      "branch": "claude/mythos-vps-runner-finalize-5rapsk",
-      "merged_at": "2026-08-20"
-    },
-    {
-      "number": 60,
-      "title": "fix(vps): prevent sudoers alias collision during bootstrap",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-20",
-      "branch": "fix/vps-admin-sudoers-alias-collision",
-      "merged_at": "2026-08-20"
-    },
-    {
-      "number": 59,
-      "title": "fix(vps): make admin bootstrap independent of /tmp staging",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-20",
-      "branch": "fix/vps-bootstrap-no-tmp-dependency",
-      "merged_at": "2026-08-20"
-    },
-    {
-      "number": 58,
-      "title": "STC-AR: simple-Arabic explanations under every Status Center explanation",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-20",
-      "branch": "claude/status-center-routing-fix-ah002u",
-      "merged_at": "2026-08-21"
-    },
-    {
-      "number": 57,
-      "title": "STC follow-up: merge record + one-command VPS deployment script (deploy-status-center.sh)",
-      "state": "closed",
-      "merged": true,
-      "created_at": "2026-08-20",
-      "branch": "claude/mythos-status-center-stoqv2",
-      "merged_at": "2026-08-20"
-    },
-    {
       "number": 56,
       "title": "STATUS-RT: root-cause status.mythosprod.xyz → darhijama.tn redirect + operator-ready fix",
-      "state": "closed",
-      "merged": true,
+      "state": "open",
+      "merged": false,
       "created_at": "2026-08-20",
-      "branch": "claude/status-center-routing-fix-ah002u",
-      "merged_at": "2026-08-20"
+      "branch": "claude/status-center-routing-fix-ah002u"
     },
     {
       "number": 55,
       "title": "fix(runner): temp-dir ownership for unprivileged extraction + rerun-safe provisioning (fixes PR #53 live-install failure)",
-      "state": "closed",
-      "merged": true,
+      "state": "open",
+      "merged": false,
       "created_at": "2026-08-20",
-      "branch": "claude/vps-runner-provisioning-perms-xbbao2",
-      "merged_at": "2026-08-20"
+      "branch": "claude/vps-runner-provisioning-perms-xbbao2"
     },
     {
       "number": 54,
       "title": "STC-1 — MYTHOS Status Center: evidence model, review engine, immutable history, design-system UI",
-      "state": "closed",
-      "merged": true,
+      "state": "open",
+      "merged": false,
       "created_at": "2026-08-20",
-      "branch": "claude/mythos-status-center-stoqv2",
-      "merged_at": "2026-08-20"
+      "branch": "claude/mythos-status-center-stoqv2"
     },
     {
       "number": 53,
       "title": "FINAL LIVE GATE: self-hosted VPS runner package (least-privilege provisioning + read-only gate workflow)",
-      "state": "closed",
-      "merged": true,
+      "state": "open",
+      "merged": false,
       "created_at": "2026-08-20",
-      "branch": "claude/mythos-vps-runner-finalize-5rapsk",
-      "merged_at": "2026-08-20"
+      "branch": "claude/mythos-vps-runner-finalize-5rapsk"
     },
     {
       "number": 52,
       "title": "docs(handover): OTH-K3 MERGED record (PR #45 → main b6e52d5)",
-      "state": "closed",
+      "state": "open",
       "merged": false,
       "created_at": "2026-08-20",
-      "branch": "claude/oth-knowledge-master-completion-wxuh6z",
-      "closed_at": "2026-08-21"
+      "branch": "claude/oth-knowledge-master-completion-wxuh6z"
     },
     {
       "number": 51,
-      "title": "VPS-PATH handover: no restorable execution path from AI environment — mechanisms categorized, minimum operator actions documented",
+      "title": "VPS-PATH handover: no restorable execution path from AI environment",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-20",
-      "branch": "claude/mythos-os-integration-validation-5fv45z",
-      "merged_at": "2026-08-20"
+      "merged_at": "2026-08-20",
+      "branch": "claude/mythos-os-integration-validation-5fv45z"
     },
     {
       "number": 50,
-      "title": "INT-VPS-GATE handover: blocked at VPS preflight — access evidence and operator actions recorded",
+      "title": "INT-VPS-GATE handover: blocked at VPS preflight",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-20",
-      "branch": "claude/mythos-os-integration-validation-5fv45z",
-      "merged_at": "2026-08-20"
+      "merged_at": "2026-08-20",
+      "branch": "claude/mythos-os-integration-validation-5fv45z"
     },
     {
       "number": 49,
-      "title": "INT-GATE handover: PR #48 closure, full final suite green incl. MCC-1, VPS blockers recorded",
+      "title": "INT-GATE handover: PR #48 closure, full final suite green incl. MCC-1",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-20",
-      "branch": "claude/mythos-os-integration-validation-5fv45z",
-      "merged_at": "2026-08-20"
+      "merged_at": "2026-08-20",
+      "branch": "claude/mythos-os-integration-validation-5fv45z"
     },
     {
       "number": 48,
       "title": "INT-E2E: end-to-end mission-lifecycle validation + automatic mission title rule",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-20",
-      "branch": "claude/mythos-os-integration-validation-5fv45z",
-      "merged_at": "2026-08-20"
+      "merged_at": "2026-08-20",
+      "branch": "claude/mythos-os-integration-validation-5fv45z"
     },
     {
       "number": 47,
       "title": "feat(command-center): simplified mission creation — auto title, auto routing, copy mission report",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-20",
-      "branch": "claude/command-center-auto-title-slat0z",
-      "merged_at": "2026-08-20"
+      "merged_at": "2026-08-20",
+      "branch": "claude/command-center-auto-title-slat0z"
     },
     {
       "number": 46,
       "title": "security: isolate governance key from mission executor (AOL v1 closure)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/mythos-prod-aol-v1-closure-hq9f0x",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-prod-aol-v1-closure-hq9f0x"
     },
     {
       "number": 45,
       "title": "OTH-K3 — knowledge trust model, private-store architecture, Track B readiness, operator ops scripts",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/oth-knowledge-master-completion-wxuh6z",
-      "merged_at": "2026-08-20"
+      "merged_at": "2026-08-20",
+      "branch": "claude/oth-knowledge-master-completion-wxuh6z"
     },
     {
       "number": 44,
-      "title": "OTH-K2-W: executor-side knowledge-service wiring (AI Operating Layer ↔ OTH Knowledge)",
+      "title": "OTH-K2-W: executor-side knowledge-service wiring",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/oth-k2-repo-execution-ul5dsl",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/oth-k2-repo-execution-ul5dsl"
     },
     {
       "number": 43,
-      "title": "OTH-K2: real-data knowledge integration — importers, dedup, temporal, provenance audit, AI-layer service boundary",
+      "title": "OTH-K2: real-data knowledge integration",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/oth-knowledge-mission-05buds",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/oth-knowledge-mission-05buds"
     },
     {
       "number": 42,
-      "title": "OTH-K1: provider-agnostic knowledge operating layer (model, store, provenance, conflicts, hybrid search, evaluation) + infrastructure knowledge",
+      "title": "OTH-K1: provider-agnostic knowledge operating layer",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/oth-knowledge-mission-05buds",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/oth-knowledge-mission-05buds"
     },
     {
       "number": 41,
       "title": "docs: consolidate deployment readiness + evidence the blocker (STAGE 5)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/mythos-stage5-deploy-readiness",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-stage5-deploy-readiness"
     },
     {
       "number": 40,
       "title": "feat(sites): build the mythosprod.xyz ecosystem hub (AUTO-13)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/mythos-auto13-hub",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto13-hub"
     },
     {
       "number": 39,
-      "title": "MOS-v2 finalization: M-04 → M-11 (execution profiles, model catalog, mission control, safety, regression, goal/approval, decomposition, auto-routing)",
+      "title": "MOS-v2 finalization: M-04 → M-11",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/mos-v2-finalization-2k9zki",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/mos-v2-finalization-2k9zki"
     },
     {
       "number": 38,
       "title": "Complete MIG-3 + fix both sweep findings (AUTO-12)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/mythos-auto12-mig3-a11y",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto12-mig3-a11y"
     },
     {
       "number": 37,
       "title": "Execute MIG-2 via role separation — no type shrinking (AUTO-11)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/mythos-auto11-mig2",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto11-mig2"
     },
     {
       "number": 36,
       "title": "C-006 executed: mythos.css reconciled, red suite restored to green (AUTO-10)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/mythos-auto10-c006",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto10-c006"
     },
     {
       "number": 35,
       "title": "docs: gate-closure record — PR stack merged, gates formally classified",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/gate-closure-record",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/gate-closure-record"
     },
     {
       "number": 34,
       "title": "MOS-v2 M-01 — server-side authentication for Mythos OS Console",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/mos-v2-server-auth-tmh065",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/mos-v2-server-auth-tmh065"
     },
     {
       "number": 33,
       "title": "Mythos OS Console: deploy-owned relay + operator runbook (MOS-v2 M-02)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/mos-v2-m02-relay-81ppf8",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/mos-v2-m02-relay-81ppf8"
     },
     {
       "number": 32,
       "title": "MOS-v2 M-03: Fix nginx client_max_body_size for mission dispatch",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/mos-v2-nginx-contract-qawqxn",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/mos-v2-nginx-contract-qawqxn"
     },
     {
       "number": 31,
       "title": "MIG-3 partial execution, MIG-4 checked and blocked (AUTO-9)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/mythos-auto9-mig3-mig4",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto9-mig3-mig4"
     },
     {
       "number": 30,
       "title": "Document MIG-2 attempt and rollback on a real regression (AUTO-8)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/mythos-auto8-mig2-rollback",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto8-mig2-rollback"
     },
     {
       "number": 29,
       "title": "Execute MIG-1: the Mythos Gold migration (AUTO-7)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-19",
-      "branch": "claude/mythos-auto7-mig1-gold",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/mythos-auto7-mig1-gold"
     },
     {
       "number": 28,
       "title": "Final consistency pass, O-002/006/007 re-checked, blocker matrix",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/mythos-final-consistency-pass",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-final-consistency-pass"
     },
     {
       "number": 27,
       "title": "Local visual-regression tooling, MIG-1/MIG-2 rescoped (AUTO-6)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/mythos-auto6-visual-verify",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-auto6-visual-verify"
     },
     {
       "number": 26,
       "title": "Resolve GRID-2: prose measure 48ch supersedes 68ch (AUTO-5)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/mythos-auto5-grid2",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-auto5-grid2"
     },
     {
       "number": 25,
       "title": "Self-host real fonts, close TYPE-2, narrow GRID-2 (AUTO-4)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/mythos-auto4-font-hosting",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-auto4-font-hosting"
     },
     {
       "number": 24,
-      "title": "oth-knowledge: engineering memory promoted to othoth77/oth-knowledge; pointer + handover entry",
+      "title": "oth-knowledge: engineering memory promoted to othoth77/oth-knowledge",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/oth-knowledge-memory-system-ad1sa3",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/oth-knowledge-memory-system-ad1sa3"
     },
     {
       "number": 23,
       "title": "mandate item 9: self-hosted font files sourced; GRID-2 measured (AUTO-4)",
-      "state": "closed",
+      "state": "open",
       "merged": false,
       "created_at": "2026-08-18",
       "branch": "claude/mythos-deployment-auth-0d1wvz",
-      "closed_at": "2026-08-21",
       "note": "Stale draft — superseded by PR #25 (AUTO-4 delivered). Candidate for closure."
     },
     {
       "number": 22,
-      "title": "docs(handover): full autonomous mandate continuation complete, stopping at evidenced blockers",
+      "title": "docs(handover): full autonomous mandate continuation complete",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/handover-mandate-pass-complete",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/handover-mandate-pass-complete"
     },
     {
       "number": 21,
       "title": "mandate items 6-8: design system consolidation, readiness audit, migration plans",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/consolidation-audit-migration-plans",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/consolidation-audit-migration-plans"
     },
     {
       "number": 20,
-      "title": "mandate item 5: 1I design prototypes (7 static, standalone HTML files)",
+      "title": "mandate item 5: 1I design prototypes",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/1i-design-prototypes",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/1i-design-prototypes"
     },
     {
       "number": 19,
       "title": "docs(handover): AUTO-3 decision sweep recorded",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/handover-auto3",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/handover-auto3"
     },
     {
       "number": 18,
-      "title": "mandate item 4: decision sweep resolves eighteen open items (AUTO-3), generates the token artifact",
+      "title": "mandate item 4: decision sweep resolves eighteen open items (AUTO-3)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/decision-sweep-auto3",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/decision-sweep-auto3"
     },
     {
       "number": 17,
       "title": "mandate: LOGO-2 resolved (AUTO-1), LOGO-1 narrowed, C-006 canonical system decided (AUTO-2)",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/full-mandate-pass-1-logo2-c006",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/full-mandate-pass-1-logo2-c006"
     },
     {
       "number": 16,
-      "title": "ID Auto extraction complete — legacy tree removed; othoth77/idauto is the sole canonical implementation",
+      "title": "ID Auto extraction complete — othoth77/idauto is the sole canonical implementation",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/idauto-source-cleanup-post-publication",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/idauto-source-cleanup-post-publication"
     },
     {
       "number": 15,
-      "title": "MOS-1.2 — deploy.sh with hard gates, and an honest correction to §10.2 step 2",
+      "title": "MOS-1.2 — deploy.sh with hard gates",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/mythos-os-dashboard-audit-y4174m",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-os-dashboard-audit-y4174m"
     },
     {
       "number": 14,
       "title": "[SUPERSEDED by #16] ID Auto standalone migration — record and staged tree",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/idauto-standalone-migration-ejyl27",
-      "merged_at": "2026-08-19"
+      "merged_at": "2026-08-19",
+      "branch": "claude/idauto-standalone-migration-ejyl27"
     },
     {
       "number": 13,
       "title": "docs(idauto): evolve toward Open Vehicle Identity Protocol",
       "state": "closed",
       "merged": false,
-      "created_at": "2026-08-18",
-      "branch": "agent/idauto-open-protocol-strategy-20260818",
-      "closed_at": "2026-08-18"
+      "closed_at": "2026-08-18",
+      "branch": "agent/idauto-open-protocol-strategy-20260818"
     },
     {
       "number": 12,
       "title": "MOS-1 — MYTHOS OS Command Center, built on the existing brand system",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/mythos-os-dashboard-audit-y4174m",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-os-dashboard-audit-y4174m"
     },
     {
       "number": 11,
       "title": "design(stage 1): Mythos brand foundation — recovery through public ecosystem architecture",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-18",
-      "branch": "claude/mythos-master-brand-design-c3vy6b",
-      "merged_at": "2026-08-18"
+      "merged_at": "2026-08-18",
+      "branch": "claude/mythos-master-brand-design-c3vy6b"
     },
     {
       "number": 10,
       "title": "refactor(automation): share read-only connector helpers",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-08",
-      "branch": "refactor/automation-connector-shared-helpers",
-      "merged_at": "2026-08-08"
+      "merged_at": "2026-08-08",
+      "branch": "refactor/automation-connector-shared-helpers"
     },
     {
       "number": 9,
       "title": "refactor(runtime): remove stale duplicate function ownership",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-08",
-      "branch": "fix/runtime-duplicate-function-ownership",
-      "merged_at": "2026-08-08"
+      "merged_at": "2026-08-08",
+      "branch": "fix/runtime-duplicate-function-ownership"
     },
     {
       "number": 8,
-      "title": "feat(automation): INF-CF-AUTO-0 Cloudflare Read-Only Connector (reference implementation)",
+      "title": "feat(automation): INF-CF-AUTO-0 Cloudflare Read-Only Connector",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-08",
-      "branch": "feat/inf-cf-auto-0-readonly-connector",
-      "merged_at": "2026-08-08"
+      "merged_at": "2026-08-08",
+      "branch": "feat/inf-cf-auto-0-readonly-connector"
     },
     {
       "number": 7,
-      "title": "feat(automation): INF-OVH-API-0 OVH Read-Only Connector (reference implementation)",
+      "title": "feat(automation): INF-OVH-API-0 OVH Read-Only Connector",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-07",
-      "branch": "feat/inf-ovh-api-0-readonly-connector",
-      "merged_at": "2026-08-07"
+      "merged_at": "2026-08-07",
+      "branch": "feat/inf-ovh-api-0-readonly-connector"
     },
     {
       "number": 6,
       "title": "feat(devx): Mythos Development Acceleration MVP",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-07",
-      "branch": "feat/devx-0-development-acceleration",
-      "merged_at": "2026-08-07"
+      "merged_at": "2026-08-07",
+      "branch": "feat/devx-0-development-acceleration"
     },
     {
       "number": 5,
       "title": "docs(research): Mythos Research Intelligence free-first foundation",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-07",
-      "branch": "docs/research-intelligence-foundation",
-      "merged_at": "2026-08-08"
+      "merged_at": "2026-08-08",
+      "branch": "docs/research-intelligence-foundation"
     },
     {
       "number": 4,
       "title": "Mythos Personal Intelligence & Skills Platform — MPI-0 Foundation + Finalization",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-07",
-      "branch": "feat/mythos-personal-intelligence",
-      "merged_at": "2026-08-07"
+      "merged_at": "2026-08-07",
+      "branch": "feat/mythos-personal-intelligence"
     },
     {
       "number": 3,
       "title": "docs(cloudflare): prepare authoritative DNS export intake",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-06",
-      "branch": "docs/cloudflare-zone-export-intake",
-      "merged_at": "2026-08-06"
+      "merged_at": "2026-08-06",
+      "branch": "docs/cloudflare-zone-export-intake"
     },
     {
       "number": 2,
       "title": "docs(cloudflare): inventory Mythos domain portfolio",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-06",
-      "branch": "docs/cloudflare-domain-inventory",
-      "merged_at": "2026-08-06"
+      "merged_at": "2026-08-06",
+      "branch": "docs/cloudflare-domain-inventory"
     },
     {
       "number": 1,
       "title": "docs(cloudflare): establish edge security foundation",
       "state": "closed",
       "merged": true,
-      "created_at": "2026-08-05",
-      "branch": "docs/cloudflare-foundation",
-      "merged_at": "2026-08-05"
+      "merged_at": "2026-08-05",
+      "branch": "docs/cloudflare-foundation"
     }
   ],
   "source_hierarchy": [
@@ -5374,7 +4798,7 @@
       "authority": "historical evidence only — reconcile before trusting"
     }
   ],
-  "previous_review": "REVIEW-2026-08-26-014",
+  "previous_review": "REVIEW-2026-08-22-001",
   "changes": {
     "added": [],
     "completed": [],

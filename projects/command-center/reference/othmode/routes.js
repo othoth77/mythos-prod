@@ -26,6 +26,7 @@ var evolution = require('./evolution.js');
 var store = require('./store.js');
 var sessions = require('./sessions.js');
 var activation = require('./activation.js');
+var tasks = require('./tasks.js');
 
 function sendJson(res, status, body) {
   res.writeHead(status, {
@@ -37,7 +38,7 @@ function sendJson(res, status, body) {
 }
 
 function inputError(res, err) {
-  if (err && (err.code === 'OTHMODE_EVOLUTION_INPUT' || err.code === 'OTHMODE_HEALTH_INPUT')) {
+  if (err && (err.code === 'OTHMODE_EVOLUTION_INPUT' || err.code === 'OTHMODE_HEALTH_INPUT' || err.code === 'OTHMODE_TASK_INPUT')) {
     return sendJson(res, 400, { error: err.message });
   }
   if (err && err.code === 'OTHMODE_STORE_ABSENT') {
@@ -59,6 +60,10 @@ function enforceNoSecrets(res, body) {
   });
   if (body && Array.isArray(body.evidence_texts)) fields.evidence = body.evidence_texts.join('\n');
   if (body && body.data) fields.data = JSON.stringify(body.data);
+  // Task Reports carry structured sections: scan the WHOLE payload — a
+  // credential must not enter the persistent record through any field.
+  if (body && body.sections) fields.sections = JSON.stringify(body.sections);
+  if (body && typeof body.command === 'string') fields.command = body.command;
   var report = secrets.scan(fields);
   if (report.blocked) {
     sendJson(res, 422, {
@@ -168,8 +173,51 @@ function buildRoutes(db, auth) {
     } },
 
     // ── Unified command history ──────────────────────────────────────────
-    { method: 'GET', auth: true, pattern: /^\/api\/othmode\/history$/, handler: async function (req, res, m, q) {
-      return sendJson(res, 200, await history.unified(db, q));
+    // PUBLIC READ. The history and the Task Reports below are the operational
+    // record of this platform and are readable without a session, so the work
+    // can be cited and reviewed by someone who holds no credential at all.
+    // Reading is public; WRITING is not — every POST below stays authenticated
+    // and secret-gated exactly as before, and nothing about the activation
+    // rule, the auth model or any other endpoint changes.
+    //
+    // An anonymous caller gets the record through tasks.publicHistoryRows /
+    // tasks.publicTask, which mask the infrastructure detail the narrative
+    // unavoidably carries (host paths, sudo grants, internal listeners, host
+    // and process identifiers). The store is append-only — records cannot be
+    // rewritten to be publishable — so the projection has to happen here, on
+    // read. An authenticated reader is handed the record verbatim.
+    { method: 'GET', auth: false, pattern: /^\/api\/othmode\/history$/, handler: async function (req, res, m, q) {
+      var result = await history.unified(db, q);
+      if (!auth.identityFromRequest(req)) result = tasks.publicHistoryRows(result);
+      return sendJson(res, 200, result);
+    } },
+
+    // ── OTHMODE Task Reports (persistent operational record) ─────────────
+    // Every othmode-activated command is a task: created RUNNING, finished
+    // in one terminal status. Full detail lives HERE; Claude replies with a
+    // short receipt only. Writes are authenticated and secret-gated like
+    // every other OTHMODE write; the writer itself refuses normal Claude
+    // commands (no standalone keyword → no task, ever).
+    { method: 'GET', auth: false, pattern: /^\/api\/othmode\/tasks$/, handler: function (req, res, m, q) {
+      var list = tasks.listTasks(q);
+      if (!auth.identityFromRequest(req)) list = tasks.publicTasks(list);
+      return sendJson(res, 200, list);
+    } },
+    { method: 'GET', auth: false, pattern: /^\/api\/othmode\/tasks\/([^/]+)$/, handler: function (req, res, m) {
+      var task = tasks.getTask(decodeURIComponent(m[1]));
+      if (!task) return sendJson(res, 404, { error: 'not found' });
+      if (!auth.identityFromRequest(req)) task = tasks.publicTask(task);
+      return sendJson(res, 200, { task: task });
+    } },
+    { method: 'POST', auth: true, pattern: /^\/api\/othmode\/tasks$/, handler: function (req, res, m, q, body) {
+      if (!enforceNoSecrets(res, body)) return;
+      try { return sendJson(res, 201, { task: tasks.createTask(body || {}, auth.identityFromRequest(req)) }); }
+      catch (e) { return inputError(res, e); }
+    } },
+    { method: 'POST', auth: true, pattern: /^\/api\/othmode\/tasks\/([^/]+)\/update$/, handler: function (req, res, m, q, body) {
+      if (!enforceNoSecrets(res, body)) return;
+      try { return sendJson(res, 201, { task: tasks.updateTask(decodeURIComponent(m[1]), body || {}, auth.identityFromRequest(req)) }); }
+      catch (e) { return inputError(res, e); }
     } },
 
     // ── Memory (read-first; ingestion stays on the operator CLI) ─────────

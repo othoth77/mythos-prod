@@ -48,8 +48,12 @@ var silent = probes.filter(function (p) {
 check('every disabled probe explains itself in a note', silent.length === 0,
   silent.map(function (p) { return p.id; }).join(','));
 
+// PENDING/AFTER were added 2026-08-26: a probe may also be disabled because
+// the thing it watches is real and approved but not deployed yet, which is
+// sya-api's state since the storefront hostname was decided. The guarantee is
+// unchanged — a disabled probe must name a disposition, never go quiet.
 var vague = probes.filter(function (p) {
-  return !p.enabled && !/RETIRED|OPERATOR|blocked|absent|not exist/i.test(p.note || '');
+  return !p.enabled && !/RETIRED|OPERATOR|blocked|absent|not exist|pending|AFTER/i.test(p.note || '');
 });
 check('a disabled probe states a disposition (retired / blocked / operator action)',
   vague.length === 0, vague.map(function (p) { return p.id; }).join(','));
@@ -98,10 +102,31 @@ console.log('§5 SYA API retirement is documented, not assumed');
 
 var sya = byId('sya-api');
 check('sya-api probe is retained for the record', !!sya);
-check('sya-api is disabled', !!sya && sya.enabled === false);
-check('sya-api is documented as RETIRED', !!sya && /RETIRED/.test(sya.note || ''));
-check('retirement cites on-host evidence',
-  !!sya && /byte-identical|no \/api proxy_pass|try_files/i.test(sya.note || ''));
+// Was 'sya-api is disabled' until 2026-08-26T20:01Z, when the owner ran
+// scripts/deploy-sya-storefront.sh and the catalog API became publicly
+// reachable for the first time since 2026-08-16. OTH-2026-00019 verified that
+// independently before flipping the probe, so this now asserts the end state
+// the whole P0 was working toward rather than a waiting condition.
+check('sya-api is enabled — the public catalog API is deployed',
+  !!sya && sya.enabled === true);
+// The origin probe must not be the only thing watching this service: it stays
+// green if the vhost or the certificate breaks. Both layers are required.
+var syaLoop = byId('sya-api-loopback');
+check('the origin is watched too, independently of the public path',
+  !!syaLoop && syaLoop.enabled === true && /127\.0\.0\.1:3011/.test(syaLoop.url || ''));
+// These asserted "documented as RETIRED", then "documents the deployment it is
+// waiting on", and now the deployment has happened. The probe's note must still
+// carry its history — why the apex was the wrong target, and why the
+// content-type guard exists — because that is what stops someone repointing it
+// back at ssangyong.autos and re-creating the six-day invisible outage.
+check('the note still records why the apex was never a valid target',
+  !!sya && /darhijama|SPA fallback|catalog\.php|apex/i.test(sya.note || ''));
+check('the note explains what the two guards prove',
+  !!sya && /read_only|PostgreSQL/i.test(sya.note || ''));
+// The apex must never be the target again: it answers 200 text/html for every
+// unmatched path and carries its own live /api/catalog.php (OTH-2026-00017).
+check('sya-api no longer points at the legacy apex',
+  !!sya && !/^https:\/\/(www\.)?ssangyong\.autos\//.test(sya.url || ''));
 check('the SPA-fallback guard is retained for any future restore',
   !!sya && sya.expect_content_type === 'application/json');
 

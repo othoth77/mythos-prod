@@ -21,6 +21,14 @@
 //   node othmode-cli.js stage <event-id> <STAGE> '<json data>'
 //   node othmode-cli.js events
 //   node othmode-cli.js recovery <component> <STEP> ["note"] [STATE]
+//   node othmode-cli.js tasks                   list OTHMODE Task Reports
+//   node othmode-cli.js task show <id>          one full task report
+//   node othmode-cli.js task create '<json>'    create (status RUNNING unless given)
+//   node othmode-cli.js task update <id> '<json>'  advance phase/status/sections
+//   node othmode-cli.js task import <file.json> record a task prepared off-host
+//                                               (e.g. a BLOCKED run from an
+//                                               environment that cannot reach
+//                                               OTHMODE; the id is assigned here)
 //   node othmode-cli.js store-status
 //   node othmode-cli.js detect                  run deterministic signal detectors
 //   node othmode-cli.js export [dest-dir]       snapshot the store for backup
@@ -58,7 +66,7 @@ try {
     if (args[1] === undefined) fail('usage: activation "<command text>"');
     var act = require('../reference/othmode/activation.js');
     out({ text_checked: true, activated: act.isActivated(args[1]), classification: act.classify(args[1]) });
-  } else if (cmd === 'signal') {  } else if (cmd === 'signal') {
+  } else if (cmd === 'signal') {
     if (!args[1] || !args[2]) fail('usage: signal <source> "<description>" [dedup_key]');
     out(evolution.recordSignal({ source: args[1], description: args[2], dedup_key: args[3] }, actor));
   } else if (cmd === 'signals') {
@@ -74,6 +82,34 @@ try {
     out(evolution.addStage(args[1], { stage: args[2], data: data }, actor, 'owner'));
   } else if (cmd === 'events') {
     out(evolution.listEvents());
+  } else if (cmd === 'tasks') {
+    out(require('../reference/othmode/tasks.js').listTasks({ limit: args[1] || 50 }));
+  } else if (cmd === 'task') {
+    // The persistent Task Report path without the HTTP layer — usable when
+    // the service is down (a BLOCKED task still gets recorded), and the
+    // import path for reports prepared in environments that cannot reach
+    // OTHMODE at all. The CLI actor is a human at the host keyboard.
+    var tasksMod = require('../reference/othmode/tasks.js');
+    var sub = args[1];
+    if (sub === 'show') {
+      if (!args[2]) fail('usage: task show <id>');
+      var shown = tasksMod.getTask(args[2]);
+      if (!shown) fail('unknown task: ' + args[2]);
+      out(shown);
+    } else if (sub === 'create') {
+      if (!args[2]) fail('usage: task create \'<json>\'');
+      out(tasksMod.createTask(JSON.parse(args[2]), actor));
+    } else if (sub === 'update') {
+      if (!args[2] || !args[3]) fail('usage: task update <id> \'<json>\'');
+      out(tasksMod.updateTask(args[2], JSON.parse(args[3]), actor));
+    } else if (sub === 'import') {
+      if (!args[2]) fail('usage: task import <file.json>');
+      var imported = JSON.parse(require('fs').readFileSync(args[2], 'utf8'));
+      delete imported.id; // ids are assigned by THIS store, never carried in
+      out(tasksMod.createTask(imported, actor + ' (import)'));
+    } else {
+      fail('usage: task <show|create|update|import> …');
+    }
   } else if (cmd === 'recovery') {
     if (!args[1] || !args[2]) fail('usage: recovery <component> <STEP> ["note"] [STATE]');
     out(healthMod.recordRecoveryStep({ component: args[1], step: args[2], note: args[3], state: args[4] }, actor));
@@ -100,7 +136,7 @@ try {
     var destRoot = args[1] || pathx.join(os.homedir(), 'mythos-backups', 'othmode-store');
     var stamp = new Date().toISOString().replace(/[:.]/g, '-');
     var dest = pathx.join(destRoot, stamp);
-    var items = ['evolution/events.jsonl', 'recovery/records.jsonl', 'config/othmode.json'];
+    var items = ['evolution/events.jsonl', 'recovery/records.jsonl', 'tasks/records.jsonl', 'config/othmode.json'];
     var manifest = { exported_at: new Date().toISOString(), source: store.root(), files: {} };
     fsx.mkdirSync(dest, { recursive: true, mode: 448 });
     items.forEach(function (rel) {

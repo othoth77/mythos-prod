@@ -1,6 +1,6 @@
 {
-  "review_id": "REVIEW-2026-08-26-015",
-  "timestamp": "2026-08-26T20:08:04.263Z",
+  "review_id": "REVIEW-2026-08-26-007",
+  "timestamp": "2026-08-26T15:17:47.926Z",
   "engine_version": "1.0.0",
   "audited_sources": {
     "repository": "git@github.com:othoth77/mythos-prod.git",
@@ -8,76 +8,21 @@
     "pr_ledger_captured_at": "2026-08-26T13:58:00Z",
     "repo_snapshot_captured_at": "2026-08-20T10:20:00Z",
     "documents_checked": 24,
-    "evidence_checked": 99
+    "evidence_checked": 87
   },
   "git": {
     "collected": true,
-    "head": "182539768ec9c044257029b611cd76e0c86446f9",
+    "head": "7252de2e83cdc3adee564e4369c414f374ddee14",
     "branch": "main",
-    "origin_main": "182539768ec9c044257029b611cd76e0c86446f9",
+    "origin_main": "7252de2e83cdc3adee564e4369c414f374ddee14",
     "remote_url": "git@github.com:othoth77/mythos-prod.git",
-    "worktree_clean": true,
+    "worktree_clean": false,
     "last_commit": {
-      "hash": "182539768ec9c044257029b611cd76e0c86446f9",
-      "date": "2026-08-26T20:07:56Z",
-      "subject": "feat(sya): P0 closed — catalog API live and verified; fix the script that cried failure"
+      "hash": "7252de2e83cdc3adee564e4369c414f374ddee14",
+      "date": "2026-08-26T15:13:23Z",
+      "subject": "feat(othmode): Command History and Task Reports are public reads, redacted"
     },
     "recent_commits": [
-      {
-        "hash": "1825397",
-        "date": "2026-08-26",
-        "subject": "feat(sya): P0 closed — catalog API live and verified; fix the script that cried failure"
-      },
-      {
-        "hash": "5663a43",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): re-sync — storefront hostname decided, deployment prepared"
-      },
-      {
-        "hash": "64d3c6d",
-        "date": "2026-08-26",
-        "subject": "feat(sya): storefront hostname decided; prepare the approved deployment for the P0"
-      },
-      {
-        "hash": "9e5ce53",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): re-sync — SYA nginx correction recorded"
-      },
-      {
-        "hash": "a90b22b",
-        "date": "2026-08-26",
-        "subject": "fix(sya): the \"101-line nginx drift\" is a category error; correct a hazardous instruction"
-      },
-      {
-        "hash": "4d71bee",
-        "date": "2026-08-26",
-        "subject": "feat(backup): first restore ever performed on this host; recoverability proven"
-      },
-      {
-        "hash": "dab453f",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): re-sync — SYA service restoration verified in production"
-      },
-      {
-        "hash": "85fbaaf",
-        "date": "2026-08-26",
-        "subject": "fix(sya): end the ten-day 218/CAPABILITIES crash loop; commit the unit; watch it"
-      },
-      {
-        "hash": "242af81",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): re-sync — probe correction verified in production"
-      },
-      {
-        "hash": "7064215",
-        "date": "2026-08-26",
-        "subject": "fix(status-center): othmode-api probe outlived its contract; split read from auth wall"
-      },
-      {
-        "hash": "5f4028a",
-        "date": "2026-08-26",
-        "subject": "chore(status-center): re-sync — record the public Command History change"
-      },
       {
         "hash": "7252de2",
         "date": "2026-08-26",
@@ -1022,6 +967,61 @@
         "hash": "8a7fee6",
         "date": "2026-08-19",
         "subject": "Merge pull request #38 from othoth77/claude/mythos-auto12-mig3-a11y"
+      },
+      {
+        "hash": "c2e2999",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-prod): complete MIG-3 + fix both sweep findings (AUTO-12)"
+      },
+      {
+        "hash": "02aae4a",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #37 from othoth77/claude/mythos-auto11-mig2"
+      },
+      {
+        "hash": "2b707af",
+        "date": "2026-08-19",
+        "subject": "Merge remote-tracking branch 'origin/main' into claude/mythos-auto11-mig2"
+      },
+      {
+        "hash": "5c0f961",
+        "date": "2026-08-19",
+        "subject": "feat(mythos-prod): execute MIG-2 via role separation (AUTO-11)"
+      },
+      {
+        "hash": "0e75846",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #33 from othoth77/claude/mos-v2-m02-relay-81ppf8"
+      },
+      {
+        "hash": "7b0af43",
+        "date": "2026-08-19",
+        "subject": "docs: restore AI_HANDOVER header lines lost in auto-merge"
+      },
+      {
+        "hash": "835e82d",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (0595834) into MOS-v2 M-02 branch"
+      },
+      {
+        "hash": "0595834",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #32 from othoth77/claude/mos-v2-nginx-contract-qawqxn"
+      },
+      {
+        "hash": "a1cb16c",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (1621c17) into MOS-v2 M-03 branch"
+      },
+      {
+        "hash": "1621c17",
+        "date": "2026-08-19",
+        "subject": "Merge pull request #34 from othoth77/claude/mos-v2-server-auth-tmh065"
+      },
+      {
+        "hash": "6b9050c",
+        "date": "2026-08-19",
+        "subject": "Merge origin/main (4e3c890) into MOS-v2 M-01 branch"
       }
     ],
     "commit_count": null,
@@ -3104,23 +3104,19 @@
     },
     {
       "id": "BLOCKER-SYA-NGINX-DRIFT",
-      "title": "RESOLVED: storefront hostname decided (store.ssangyong.autos); the recorded \"101-line drift\" was a category error",
+      "title": "ssangyong.autos nginx drift (101 lines)",
       "type": "configuration",
       "project": "PROJECT-SSANGYONG",
       "priority": "P2",
-      "status": "DONE",
+      "status": "OWNER_ACTION",
       "owner": "Owner",
-      "impact": "WAS RECORDED AS: the repo nginx file and the installed apex vhost diverge by 101 lines, so which is authoritative is an owner decision. THAT FRAMING IS WRONG. The two files are vhosts for different hostnames, not two versions of one file: the repo file is a never-installed template with the literal placeholder __STOREFRONT_HOST__ as its server_name, and the installed file is the legacy apex. There is no drift to reconcile and no authority to assign. What is real, and what the template's own header says, is that THE STOREFRONT'S PUBLIC HOSTNAME HAS NEVER BEEN DECIDED in any document in this repository, and choosing it is an owner decision because it is the product's public identity.",
-      "required_input": "None — resolved.",
-      "unblock": "RESOLVED 2026-08-26 in two steps. OTH-2026-00017 established that the recorded drift was a category error — the two files are vhosts for different hostnames, not two copies — and that the only real gate was the undecided storefront hostname. The owner then decided it: store.ssangyong.autos. The template keeps its __STOREFRONT_HOST__ placeholder on purpose; the decided name lives once, in scripts/deploy-sya-storefront.sh.",
+      "impact": "Repo and installed vhost disagree; a future deploy could clobber the live TLS key path.",
+      "required_input": "Decision: which copy is authoritative.",
+      "unblock": "Reconcile the chosen direction, commit the result.",
       "created": "2026-08-17",
-      "last_checked": "2026-08-26",
+      "last_checked": "2026-08-20",
       "evidence": [
-        "EV-SYA-DRIFT",
-        "EV-SYA-NGINX-NOT-DRIFT",
-        "EV-SYA-DEPLOY-RECOVERED-FROM-STASH",
-        "EV-SYA-STOREFRONT-HOSTNAME-DECIDED",
-        "EV-SYA-STOREFRONT-DEPLOY-SCRIPT"
+        "EV-SYA-DRIFT"
       ]
     },
     {
@@ -3161,49 +3157,38 @@
     },
     {
       "id": "BLOCKER-SYA-API-DOWN",
-      "title": "RESOLVED: SYA catalog API live at https://store.ssangyong.autos/api/health (2026-08-26)",
+      "title": "SYA catalog API down since 2026-08-16 (218/CAPABILITIES crash loop)",
       "type": "infrastructure",
       "project": "PROJECT-SSANGYONG-AUTOS",
       "priority": "P0",
-      "status": "DONE",
+      "status": "BLOCKED",
       "owner": "Operator",
-      "impact": "Was: a live production outage from 2026-08-16 17:23. The service had never started (67,256 restarts at 218/CAPABILITIES, nothing on 127.0.0.1:3011) and there was no public route to it, while an nginx catch-all made the apex answer 200 text/html for /api/health so the outage was invisible to monitoring. Now: the service has run continuously since 2026-08-26T15:54:38Z with NRestarts=0, and its catalog API is public at https://store.ssangyong.autos/api/health over TLS, returning real data. The frozen legacy apex is untouched and its own /api/catalog.php still serves. Both the origin and the public path are monitored, by sya-api-loopback and sya-api respectively.",
-      "required_input": "None — resolved.",
-      "unblock": "RESOLVED across four tasks: OTH-2026-00015 ended the crash loop by removing three systemd directives an unprivileged user manager cannot apply (no root needed, and the diagnosis already existed in MCC-1's unit header); OTH-2026-00017 found the recorded '101-line nginx drift' was a category error, corrected an instruction that would have shadowed the apex's live /api/catalog.php, and recovered the storefront vhost from a git stash where a single `stash drop` would have destroyed it; OTH-2026-00018 took the owner's hostname decision and prepared scripts/deploy-sya-storefront.sh on the proven deploy-status-center.sh pattern; the owner ran it at 2026-08-26T20:01Z and OTH-2026-00019 verified the result independently and enabled the public probe.",
+      "impact": "ssangyong-storefront.service (USER unit) has never started since 2026-08-16: hardened system-unit directives it cannot apply in user scope make systemd fail at the CAPABILITIES step. Nothing listens on 127.0.0.1:3011. The storefront HTML is served by nginx, so the site looks up while the catalog API is dead. This is a live production outage.",
+      "required_input": "Edit /home/deploy/.config/systemd/user/ssangyong-storefront.service as deploy (NO root needed) and restart the user unit.",
+      "unblock": "Remove ProtectKernelTunables, ProtectClock and MemoryDenyWriteExecute, per the bisected reasoning already recorded in mythos-command-center.service and docs/AI_HANDOVER.md. That leaves a hardening set identical to MCC-1, which runs green. Then: systemctl --user daemon-reload && systemctl --user restart ssangyong-storefront.",
       "created": "2026-08-22",
-      "last_checked": "2026-08-26",
+      "last_checked": "2026-08-22",
       "note_verified": "On-host 2026-08-22: NRestarts=2830 and climbing, status=218/CAPABILITIES every 5s, 21458 journal failures. ss shows nothing on :3011.",
       "evidence": [
-        "EV-SYA-API-DOWN",
-        "EV-SYA-API-RESTORED-LOOPBACK",
-        "EV-SYA-UNIT-IN-REPO",
-        "EV-SYA-API-MONITORED",
-        "EV-SYA-APEX-API-LIVE",
-        "EV-SYA-NGINX-NOT-DRIFT",
-        "EV-SYA-STOREFRONT-HOSTNAME-DECIDED",
-        "EV-SYA-STOREFRONT-DEPLOY-SCRIPT",
-        "EV-SYA-API-PUBLIC-VERIFIED",
-        "EV-SYA-DEPLOY-SMOKE-DEFECT"
+        "EV-SYA-API-DOWN"
       ]
     },
     {
       "id": "BLOCKER-BACKUP-RESTORE-UNPROVEN",
-      "title": "RESOLVED: restore-from-backup exercised and independently verified on this host (2026-08-26)",
+      "title": "Restore-from-backup never exercised on this host",
       "type": "infrastructure",
       "project": "PROJECT-SECURITY",
       "priority": "P2",
-      "status": "DONE",
+      "status": "OWNER_ACTION",
       "owner": "Operator",
-      "impact": "Was: backups were created and verified off-host, but no restore had ever been performed — integrity proven, recoverability not. Now: a complete set has been retrieved from off-host storage and reassembled on this host, with all 73 objects independently re-hashed outside the tool that produced them. Recoverability of the backup SET is demonstrated. Loading the restored dump into a live PostgreSQL instance remains unexercised and is tracked as its own, narrower gap rather than folded into this one.",
-      "required_input": "None — resolved.",
-      "unblock": "RESOLVED 2026-08-26 by OTH-2026-00016: `bash ops/backup/mythos-backup-run.sh restore-test` as deploy, no root, exit 0 in 18 s, preceded by a clean --dry-run that wrote nothing. 73/73 objects re-verified independently. The monthly timer next fires 2026-09-01 and now repeats a proven path.",
+      "impact": "Backups are created and verified off-host, but no restore has ever been performed. Backup integrity is proven; recoverability is not.",
+      "required_input": "One run of the restore test.",
+      "unblock": "As deploy: bash ops/backup/mythos-backup-run.sh restore-test (the service is User=deploy). Or as root: systemctl start mythos-restore-test.service. Check disk headroom first — / is at 73%.",
       "created": "2026-08-22",
-      "last_checked": "2026-08-26",
+      "last_checked": "2026-08-22",
       "note_verified": "On-host 2026-08-22: journalctl for mythos-restore-test.service returns \"No entries\"; timer next fires 2026-09-01.",
       "evidence": [
-        "EV-BACKUP-SCHEDULE-LIVE",
-        "EV-BACKUP-RESTORE-PROVEN",
-        "EV-BACKUP-CHECKSUMS-BY-DESIGN"
+        "EV-BACKUP-SCHEDULE-LIVE"
       ]
     }
   ],
@@ -3307,14 +3292,6 @@
       "title": "Produce authorized exports for OTH Knowledge Track B",
       "detail": "Takeout / Gemini / NotebookLM, per docs/OTH_TRACK_B_READINESS.md §3.",
       "depends_on": "NEXT-OTHK-STORE"
-    },
-    {
-      "id": "NEXT-STATUS-DISCLOSURE-REVIEW",
-      "priority": "P2",
-      "order": 2,
-      "title": "Decide whether the public Status Center should mask infrastructure detail, as OTHMODE reports now do",
-      "detail": "On 2026-08-26 the owner decided that OTHMODE Task Reports, on becoming public, should have infrastructure detail masked for anonymous readers (host paths, sudo grants, internal listeners, hostname). The Status Center has been public since 2026-08-20 and carries the same class of detail: the hostname appears 12 times and absolute host paths 23 times in the published current.json. This is pre-existing convention, not a new exposure, and it is NOT obviously wrong — the Status Center is an evidence-citing instrument, and a path or a host IS the evidence, so masking it would degrade the thing it exists to do. That tension is the decision: apply the same masking for consistency, accept the disclosure as the cost of citable evidence, or mask only the narrowest subset (sudo grants and backup gaps). Recorded rather than acted on, because scrubbing two dozen evidence references is a content decision with owner-visible impact and would be pointless if done piecemeal.",
-      "depends_on": null
     }
   ],
   "do_not_reopen": [
@@ -4415,7 +4392,7 @@
       "type": "file",
       "reference": "projects/status-center/monitor/probes.json",
       "date": "2026-08-26",
-      "note": "othmode.mythosprod.xyz added to the EXISTING STC-2 probe registry (no second monitoring system): `othmode` checks the surface (expect 200/301/302, text/html) and `othmode-api` checks the Task Reports API. The monitor unit runs from the repository working directory, so the timer picks probe edits up on its next ~5-minute tick with no root action. VERIFIED IN PRODUCTION 2026-08-26T14:15:49Z: live-status.json carried 14 components (was 12), othmode LIVE http=200 and othmode-api LIVE http=401. CORRECTED 2026-08-26 (OTH-2026-00014): `othmode-api` originally expected exactly 401, which was correct until 7252de2 deliberately made the Task Reports a PUBLIC READ. The probe expectation did not ship with that release, so from 15:13:39Z the Status Center reported othmode-api DOWN — `unexpected HTTP 200 (expected 401)` — against a service that was healthy and behaving exactly as designed. This was a false DOWN on the surface that is meant to be execution truth, and it is the first recorded instance of a probe outliving the contract it asserts. The expectation is now 200 plus expect_body_substring \"tasks\" (status alone could false-green on a catch-all — the sya-api lesson) and application/json. Because relaxing it would otherwise have silently retired the auth-wall assertion, a NEW probe `othmode-authwall` now holds that assertion on its own: GET /api/othmode/evolution/events, expect exactly 401 — the same endpoint tests/othmode-2-platform-test.js uses as its no-credential probe, so the monitor and the suite assert one guarantee from opposite sides. No monitor code changed; both probes are GET-only and the monitor still never writes to production. VERIFIED IN PRODUCTION 2026-08-26T15:40:19Z at 7064215: the root-run timer picked the corrected registry up from the repository working directory on its next tick with no root action — live-status.json now carries 15 components (was 14) and reports DOWN=0, with othmode-api LIVE http=200 and othmode-authwall LIVE http=401. The two remaining non-LIVE components are unchanged and already recorded: vps-resources DEGRADED (OTH-2026-00010 diagnosis, OTH-2026-00011 owner action) and sya-api NOT_MONITORED (retired).",
+      "note": "othmode.mythosprod.xyz added to the EXISTING STC-2 probe registry (no second monitoring system): `othmode` checks the surface (expect 200/301/302, text/html) and `othmode-api` checks the Task Reports API (expect exactly 401, application/json) so that a 404 — the stale-process signature — or a missing auth wall both drive the probe DOWN. The monitor unit runs from the repository working directory, so the timer picks these up on its next ~5-minute tick with no root action. VERIFIED IN PRODUCTION 2026-08-26T14:15:49Z: the root-run timer picked the probes up from the repository working directory on its next tick with no root action — live-status.json now carries 14 components (was 12), othmode LIVE http=200 TLS 89d and othmode-api LIVE http=401 TLS 89d.",
       "evidence_status": "VERIFIED"
     },
     {
@@ -4449,102 +4426,6 @@
       "date": "2026-08-26",
       "note": "Verified in production with no credential: / 200, /api/othmode/history 200, /api/othmode/tasks 200, and a real report (OTH-2026-00011) returned 200 with redacted=true, all 13 sections intact and the narrative still readable. Leak probes for sudo grants, /home paths, loopback listeners, the hostname and /etc/sudoers all came back clean. Write surface re-confirmed closed in the same pass: unauthenticated POST /api/othmode/tasks and POST /api/othmode/evolution/signals both 401. UI verified live in EN, FR and AR; no access/modification button and no session warning render on the public pages.",
       "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-SYA-API-RESTORED-LOOPBACK",
-      "type": "vps",
-      "reference": "systemctl --user restart ssangyong-storefront on vps-4722f0a9, 2026-08-26 (OTH-2026-00015)",
-      "date": "2026-08-26",
-      "note": "The ten-day 218/CAPABILITIES crash loop is over. Before: ActiveState=activating (auto-restart), ExecMainStatus=218, NRestarts=67256 and climbing every 5s since 2026-08-16 17:23, nothing on 127.0.0.1:3011. After removing exactly three directives — ProtectKernelTunables, ProtectClock, MemoryDenyWriteExecute — from the deploy-owned user unit: ActiveState=active, SubState=running, ExecMainStatus=0, NRestarts=0, and ss -ltn shows LISTEN 127.0.0.1:3011. The API serves real data, not a stub: http://127.0.0.1:3011/api/health returns 200 application/json with {\"status\":\"ok\",\"database\":\"ssangyong_autos\",\"read_only\":true,\"counts\":{\"products\":346,\"vehicle_models\":17,\"vehicle_motorizations\":63,...}}, which proves the process reached PostgreSQL. No root was used: the unit is deploy-owned under ~/.config/systemd/user/. The three removed directives are the exact set MCC-1 bisected and named this unit for; what remains is MCC-1's hardening set, which runs green, and every other control on the unit is retained. THE PUBLIC ROUTE IS STILL MISSING: the ssangyong.autos vhost has no /api proxy_pass, so https://ssangyong.autos/api/health still answers 200 text/html from the SPA fallback. That half needs root and keeps BLOCKER-SYA-API-DOWN open.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-SYA-UNIT-IN-REPO",
-      "type": "file",
-      "reference": "projects/ssangyong-autos/deploy/ssangyong-storefront.user.service",
-      "date": "2026-08-26",
-      "note": "Root cause of the DURATION, recorded separately from the root cause of the failure. The unit existed only at ~/.config/systemd/user/ssangyong-storefront.service with no reviewed copy anywhere in the repository, so there was nothing to review and nothing a diff could catch — the defect survived ten days in a file no gate ever read. The unit is now committed as source, following the convention its own sibling already used (projects/command-center/deploy/mythos-command-center.user.service), the installed copy is byte-identical (md5 55b6358f2a62b4e03369646274cce450), and the header carries the install command so the next edit happens in the repo rather than on the host.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-SYA-API-MONITORED",
-      "type": "file",
-      "reference": "projects/status-center/monitor/probes.json",
-      "date": "2026-08-26",
-      "note": "Probe id sya-api-loopback. The second reason the outage lasted ten days: nothing watched this service. The only probe naming it (sya-api) pointed at the public URL, where an nginx catch-all answers 200 text/html for every path, so the outage was invisible by construction and the probe shipped disabled precisely because of that. New probe sya-api-loopback watches the origin the service actually binds to — http://127.0.0.1:3011/api/health, expect 200 + application/json + body substring \"read_only\":true so a half-initialised server that never reached PostgreSQL cannot report LIVE. Loopback probing is the precedent the database probe already set, and it doubles as proof the API is not publicly exposed on its own port. Verified LIVE in the collector dry run and in production. sya-api itself stays disabled: the public endpoint it names still does not exist.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-BACKUP-RESTORE-PROVEN",
-      "type": "vps",
-      "reference": "bash ops/backup/mythos-backup-run.sh restore-test on vps-4722f0a9, 2026-08-26T18:51:28Z (OTH-2026-00016)",
-      "date": "2026-08-26",
-      "note": "FIRST RESTORE EVER PERFORMED ON THIS HOST. Ran the exact command mythos-restore-test.service executes, as deploy, with no root. Exit 0 in 18 s. A --dry-run against the tool was executed first and wrote nothing. Restored 73 objects / 315,499 bytes from the off-host remote into the throwaway destination staging/restore-test-20260826T185128Z: the PostgreSQL dump idauto-20260826T033037Z.dump plus 71 content-addressed media objects and the media manifest. INDEPENDENTLY RE-VERIFIED after the tool reported clean, by recomputing sha256 and size for all 73 objects against the manifest outside the tool that produced it: 73/73 match, 0 mismatched, 0 missing. The restored dump is byte-identical to the on-host source (sha256 739ea65782a1f9b48cb3bae69cb606faeaaaa1899181ee7d25852d1684a41603) and carries the PostgreSQL custom-format magic PGDMP, archive version 1.14. Since mythos-backup-capture.sh line 252 refuses to produce a dump that fails `pg_restore --list`, byte-identity to that artifact carries the validation forward: capture validated it, the remote returned it unchanged, and the restore reproduced it exactly. LIMITATION, stated rather than glossed: `pg_restore --list` could not be re-run against the RESTORED copy from this session, because pg_restore is not installed on the host and deploy is deliberately outside the docker group. What is proven is that a complete, uncorrupted, structurally valid backup set can be retrieved from off-host storage and reassembled on this machine. What is still not proven is a full load of that dump into a live PostgreSQL instance — that needs docker or a postgresql-client install and is a separate, larger exercise. The scheduled unit mythos-restore-test.service itself still shows no execution record; its timer next fires 2026-09-01 and will now be a repeat of a known-good path rather than a first attempt. Nothing was deleted, locally or remotely: the tool structurally refuses deletion and retention is report-only.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-BACKUP-CHECKSUMS-BY-DESIGN",
-      "type": "file",
-      "reference": "projects/infrastructure/ops/offhost-backup.js",
-      "date": "2026-08-26",
-      "note": "Finding from the first restore test, recorded so it does not cost someone time during a real recovery. The restored media set contains manifest.json and media/ but NOT checksums.sha256, even though media-backup/manifest.json names it under integrity.checksums_file with its sha256. That looks like a gap and is not one. offhost-backup.js mediaEntries() reads checksums.sha256 as the INDEX of what to ship and folds every one of its 71 hashes into the top-level off-host manifest, which is what restore-verify checks against; the file itself is therefore redundant as an object and is deliberately not pushed. Integrity off-host does not depend on it. A human performing a manual recovery without the tool should verify against the restored manifest.json, not look for checksums.sha256 — recorded in ops/backup/README.md §4.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-SYA-NGINX-NOT-DRIFT",
-      "type": "file",
-      "reference": "projects/ssangyong-autos/deploy/nginx-ssangyong-storefront.conf",
-      "date": "2026-08-26",
-      "note": "CORRECTION (OTH-2026-00017). The recorded '101 changed lines' between the repo nginx file and /etc/nginx/sites-enabled/ssangyong.autos is a CATEGORY ERROR, not drift, and the derived question 'which copy is authoritative' is malformed: neither file is a copy of the other. They are vhosts for two DIFFERENT hostnames. The repo file is a never-installed TEMPLATE whose server_name is the literal placeholder __STOREFRONT_HOST__; its own header states 'NOT INSTALLED, and NOT INSTALLABLE AS-IS' and warns 'THIS FILE MUST NOT BE APPLIED TO THE APEX ssangyong.autos', because the apex serves the legacy site that migration-plan §21 freezes. Verified on-host: /var/www/ssangyong.autos holds a live legacy site with 13 PHP files, so applying the template to the apex would take it down exactly as the header warns. The installed apex vhost is 48 lines of static root + try_files + PHP-FPM + Certbot TLS and contains no proxy_pass at all. A 101-line diff between a 48-line legacy apex and a 72-line storefront template is simply the two files being unrelated.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-SYA-APEX-API-LIVE",
-      "type": "vps",
-      "reference": "https://ssangyong.autos/api/catalog.php probed from vps-4722f0a9, 2026-08-26",
-      "date": "2026-08-26",
-      "note": "HAZARD IN A PREVIOUSLY RECORDED INSTRUCTION, found and corrected here. BLOCKER-SYA-API-DOWN's required_input, as written by OTH-2026-00015, said to add an /api proxy_pass to 127.0.0.1:3011 in the apex vhost. The apex ALREADY SERVES A LIVE /api: /var/www/ssangyong.autos/api/catalog.php returns 200 application/json, 1992 bytes, right now. A blanket `location ~ ^/api/ { proxy_pass http://127.0.0.1:3011; }` on that vhost would shadow it and break the legacy storefront's own data path. The instruction was written from the stale drift framing and is corrected in the blocker. Note also that /api/ itself returns 403 (directory listing denied) while /api/catalog.php returns real JSON — the endpoint is a specific file, not a route tree, which is precisely why a regex location would capture more than intended.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-SYA-DEPLOY-RECOVERED-FROM-STASH",
-      "type": "file",
-      "reference": "projects/ssangyong-autos/deploy/",
-      "date": "2026-08-26",
-      "note": "Three SYA deploy artifacts existed ONLY inside a git stash's untracked-files commit (stash@{0}^3, 'On main: VPS-local-work-before-M12-sync-2026-08-19') and in no branch anywhere. AGENTS.md §7 is explicit that work must not be left in a stash, and a single `git stash drop` would have destroyed them. ssangyong-storefront.user.service was already re-created from the live host by OTH-2026-00015; the other two are recovered here. nginx-ssangyong-storefront.conf was recovered byte-identical (git hash-object ff46cc65127d8553f6a170c888f505a629af33ec, 72 lines, matching the handover's count). The system-scope unit was recovered WITH ONE CORRECTION: MemoryDenyWriteExecute removed, because it is scope-independent and incompatible with V8's JIT — committing it unchanged would have handed the next operator the same trap that kept the user-scope sibling dead for ten days, except failing under load rather than at startup. Neither file contains a credential; both carry only paths, of the same class already public in this repository.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-SYA-STOREFRONT-HOSTNAME-DECIDED",
-      "type": "operator-report",
-      "reference": "owner instruction, 2026-08-26 — \"using store.ssangyong.autos as the approved public hostname\"",
-      "date": "2026-08-26",
-      "note": "The decision BLOCKER-SYA-NGINX-DRIFT was actually waiting on, made by the owner: the storefront's public hostname is store.ssangyong.autos. It had been undecided since 2026-08-16, and OTH-2026-00017 established it was the only real gate once the recorded '101-line drift' was shown to be a category error. VERIFIED ON-HOST the same day: store.ssangyong.autos already has a real A record — not a wildcard, since an invented sibling name resolves to nothing — pointing at 51.68.226.211, which is this host. So DNS was never a blocker for this name. Its CURRENT behaviour was measured before any change: with no vhost claiming it, the name falls through to the nginx default and returns 301 to https://darhijama.tn/ while presenting the darhijama.tn certificate (CN=darhijama.tn, SAN darhijama.tn + www). That is precisely the default-vhost fallback condition BLOCKER-STATUS-DNS recorded for status.mythosprod.xyz before 2026-08-20, which is why this task reused that deployment's proven shape rather than inventing one.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-SYA-STOREFRONT-DEPLOY-SCRIPT",
-      "type": "file",
-      "reference": "scripts/deploy-sya-storefront.sh",
-      "date": "2026-08-26",
-      "note": "The approved deployment path for the remaining half of BLOCKER-SYA-API-DOWN, modelled directly on scripts/deploy-status-center.sh — the script that performed this same operation for status.mythosprod.xyz on 2026-08-20 and is the proven pattern on this host. Same shape: preflight, additive vhost, certbot, smoke tests, regression checks, fail-closed throughout, with --rollback. Deliberate differences, each earned by a finding from this session's earlier tasks: (1) it does NOT embed the vhost body — it renders projects/ssangyong-autos/deploy/nginx-ssangyong-storefront.conf and substitutes the hostname, so there is one source for the config and one for the name and they cannot drift, which is the failure OTH-2026-00017 spent a task unpicking; (2) it refuses to run unless something is listening on 127.0.0.1:3011 AND that upstream's /api/health already returns status ok, because publishing a vhost in front of a dead upstream would put a 502 on a public hostname — the OTH-2026-00015 lesson; (3) its regression step hashes the legacy apex vhost before and after and fails if it changed, then proves https://ssangyong.autos/ and its own live /api/catalog.php are still answering with JSON, because OTH-2026-00017 found a recorded instruction that would have shadowed exactly that endpoint; (4) its smoke tests assert the P0's real acceptance criteria rather than mere reachability — application/json content-type, \"status\":\"ok\", \"read_only\":true proving a genuine PostgreSQL read, and a POST to /api/health refused 403 at the edge by limit_except. VALIDATED AS FAR AS AN UNPRIVILEGED SESSION CAN: bash -n clean; the rendered vhost passes `nginx -t` offline in a self-contained test config ('syntax is ok' — the only residual error is bind() to :80 being denied to a non-root user, which is the test harness, not the config); placeholder substitution verified to leave zero occurrences; server_name and proxy_pass verified present in the rendered output. NOT RUN. Installing a vhost requires root and deploy's sudo grant is exactly `nginx -t`, `systemctl reload nginx`, `certbot`. Note that `certbot --nginx` could technically be used to write nginx configuration through that grant; it was deliberately NOT used that way, because the sudoers policy is a recorded operator decision and routing around it would defeat the boundary rather than respect it.",
-      "evidence_status": "VERIFIED"
-    },
-    {
-      "id": "EV-SYA-API-PUBLIC-VERIFIED",
-      "type": "deployment",
-      "reference": "https://store.ssangyong.autos/api/health verified from vps-4722f0a9, 2026-08-26 (OTH-2026-00019)",
-      "date": "2026-08-26",
-      "note": "THE P0 IS CLOSED. The owner ran scripts/deploy-sya-storefront.sh at 20:01Z and the catalog API is publicly reachable for the first time since 2026-08-16. Verified INDEPENDENTLY of the script, because the script's own report could not be trusted (see EV-SYA-DEPLOY-SMOKE-DEFECT). Installed vhost /etc/nginx/sites-available/store.ssangyong.autos is the committed template rendered, plus certbot's standard rewrite and nothing else — diffed line by line against a local render of the repository source. Certificate CN=store.ssangyong.autos, issuer Let's Encrypt YE1, notBefore 2026-08-26T19:03:16Z, notAfter 2026-11-24T19:03:15Z, SAN exactly store.ssangyong.autos; ACME validation visible in the vhost's own access log at 20:01:40-41Z. ACCEPTANCE, 11 checks run by hand: GET / 200; HTTP 301 to this host's own HTTPS rather than darhijama.tn; no darhijama.tn anywhere in the redirect chain; /api/health 200 application/json with status ok, read_only true and real catalog counts; storefront HTML served; HSTS present; X-Frame-Options DENY present; POST to an /api/ path refused 403 at the edge; POST /api/health refused 405 by the upstream. REGRESSION, all clean: the legacy apex vhost file mtime is still 2026-07-09T01:39:12Z and its size unchanged, https://ssangyong.autos/ 200, and its own https://ssangyong.autos/api/catalog.php still 200 application/json — NOT shadowed, which was the specific hazard OTH-2026-00017 identified. www.ssangyong.autos, n8n.ssangyong.autos, darhijama.tn, status.mythosprod.xyz, othmode.mythosprod.xyz and mythosprod.xyz all still 200. sya-api is now ENABLED and reports LIVE http=200 TLS 89d, so the board carries no NOT_MONITORED entry for the first time.",
-      "evidence_status": "RECORDED"
-    },
-    {
-      "id": "EV-SYA-DEPLOY-SMOKE-DEFECT",
-      "type": "file",
-      "reference": "scripts/deploy-sya-storefront.sh",
-      "date": "2026-08-26",
-      "note": "THE DEPLOYMENT SCRIPT REPORTED FAILURE ON A DEPLOYMENT THAT SUCCEEDED, and the defect was mine (OTH-2026-00018 wrote it, OTH-2026-00019 found and fixed it). Its step-5 smoke tests used `curl -I`. The upstream is GET-only and answers HEAD with 405 by design, so the primary 'HTTPS 200' check failed against a healthy site. Proven from the vhost's own access log, which records the script's probes from 51.68.226.211 at 20:01:52Z: HEAD / 405, three times. A second check was worse than wrong — it read Content-Type from the HEAD 405 response, which is also application/json, so it PASSED for entirely the wrong reason and would have false-greened a broken API. A third asserted POST /api/health returns 403 at the edge; it returns 405, because an exact-match nginx location beats a regex one and `location = /api/health` did not inherit the `limit_except` from `location ~ ^/api/`. FIXED: every probe is now a GET using `-D- -o /dev/null` so the checks read the headers users actually get; the write-refusal property is asserted twice and separately — 403 at the edge on a regex-governed /api/ path, and 403-or-405 on /api/health — so neither can hide the other; and a redirect-target check was added. The template now repeats limit_except inside the exact-match block so future installs refuse writes uniformly at the edge. THE LIVE VHOST STILL LACKS THAT LINE: writes to /api/health are refused by the upstream's 405 rather than by nginx, one layer later than every other path. That is a defence-in-depth gap, not an exposure — the request is still refused and nothing is written — and closing it needs a root edit, because this script deliberately never rewrites a certbot-managed vhost.",
-      "evidence_status": "VERIFIED"
     }
   ],
   "prs": [
@@ -5374,7 +5255,7 @@
       "authority": "historical evidence only — reconcile before trusting"
     }
   ],
-  "previous_review": "REVIEW-2026-08-26-014",
+  "previous_review": "REVIEW-2026-08-26-006",
   "changes": {
     "added": [],
     "completed": [],
