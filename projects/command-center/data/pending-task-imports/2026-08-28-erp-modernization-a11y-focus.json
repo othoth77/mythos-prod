@@ -33,30 +33,37 @@
       "audit_finding": "Only inputs/selects/textareas had focus styling; buttons, nav items, links and clickable cards had NO keyboard focus indicator and many controls set outline:none -> WCAG 2.4.7 Level AA failure across the whole ERP. prefers-reduced-motion (A-018) was already present and adequate — left untouched (KEEP)."
     },
     "changes": {
-      "modified": [
-        "css/main.css (+43 lines: additive :focus-visible focus-ring layer for all interactive controls; no existing token/selector changed)"
-      ],
-      "added": [
-        "tests/a11y-focus-visible-test.js (33 assertions incl. a regression guard pinning all 20 D-001 :root tokens)"
-      ]
+      "summary": "Continuous accessibility + dead-code modernization of the live ERP under the new System Design; every change additive/behaviour-preserving, tested, browser-verified.",
+      "css_main": "+focus-visible ring layer (A-016/WCAG 2.4.7) for all interactive controls; +.skip-link (WCAG 2.4.1); +--danger-dim token (completes D-001 pairing). No pinned :root token value changed.",
+      "index_html": "+skip-to-content link; <main id=main-content tabindex=-1>; sidebar <nav aria-label>; alt on 3 static <img>.",
+      "js_runtime": "removed dead applyOmMissionType() stub from app.js (shadowed by mission-orders.js); aria-current='page' on active nav in router.js + app.js.",
+      "js_images": "alt text on every generated <img> (rappels, redaction, camera, documentation, devis, invoices, mission-orders).",
+      "tests": "tests/a11y-focus-visible-test.js (41/0, incl. img-alt + aria-current + token guards + D-001 drift guard); runtime-duplicate-cleanup-0 strengthened to 28/0."
     },
     "git": {
-      "commit": "2703221c4466c6244d1be47a9180fb36187ad99a",
       "branch": "claude/mythos-erp-modernization-l1ptyo",
       "pr": "othoth77/mythos-prod#93",
-      "remote_head_note": "verify origin/<branch> == the task-record commit after push"
+      "commits": [
+        "889e8f3 app-fresh+addLine",
+        "2703221 focus-visible",
+        "8e0f8f0 skip-link+danger-dim",
+        "312cd31 applyOmMissionType",
+        "faadc71 aria-current",
+        "4580adc img-alt"
+      ],
+      "head_note": "verify origin/<branch> after final push"
     },
     "validation": {
-      "browser": "headless Chromium: real keyboard Tab -> activeElement computed 'outline: 2px solid rgb(217,164,65)'; programmatic .focus() draws NO ring (pointer users unaffected) — confirms keyboard-only :focus-visible behaviour.",
-      "a11y-focus-visible": "33/0 (new)",
-      "mos-1-console (brand drift contract)": "1438/0 — pinned :root palette intact",
-      "mos-v2-regression-gate": "PASS, 0 new failures (1 known pre-existing orchestration-core failure)",
-      "runtime-duplicate-cleanup-0": "26/0 (prior commit in this branch)",
-      "app-boot": "clean, 0 new console errors"
+      "a11y-focus-visible": "41/0 (new)",
+      "browser_headless_chromium": "focus ring on keyboard Tab; skip link reveal+activation moves focus to #main-content; aria-current tracks active nav (exactly 1); 0 page errors; boot clean",
+      "mos-1-console_brand_drift": "1438/0 (pinned :root palette intact)",
+      "runtime-duplicate-cleanup-0": "28/0",
+      "stage4m/stage4l/stage4ag": "76/0 / 59/0 / 44/0",
+      "mos-v2-regression-gate": "PASS, 0 new failures"
     },
     "deployment": "NONE. Deployment is a separate host step; not performed, not authorized from this environment.",
     "problems": "The literal 'rebuild the entire ERP in one pass' remains a program of work, not a single safe turn: css/main.css :root is a tested cross-product contract, and the app is a client-side localStorage SPA (no server DB to migrate). Delivered a coherent, verified, additive System-Design increment (accessibility) rather than an unverifiable mass rewrite, per the owner's own 'do not blindly rewrite / preserve what works / test and verify' bar.",
-    "outcome": "Keyboard focus accessibility (A-016 / WCAG 2.4.7) now applied across the live ERP; brand contract preserved; tests + browser verification green. Reversible. NEXT: Continuation (each a separate verified slice): migrate form/table/button components to consume semantic tokens where it does NOT disturb the pinned :root contract; audit contrast of the older status hues; extend the design-token layer to the live app only if the cross-product drift test is evolved in lockstep with the console.",
+    "outcome": "Live ERP accessibility materially advanced (keyboard focus, bypass-blocks, landmarks, aria-current, image alt) and dead-duplicate landmines removed, all under the approved System Design, with the cross-product brand contract preserved and every change verified. DEFERRED (need owner input, not blindly executed): (1) adopting the WCAG-verified status hues (green/blue/today/purple) is a visible identity change across two products and needs a visual sign-off + lockstep console update; (2) real authentication/RBAC is an architectural stage, not a safe autonomous edit (auth is currently client-side with a hardcoded hash in js/auth.js); (3) form-label association audit and empty/loading/error-state consistency need per-module functional verification with data.",
     "evolution": "No Evolution capsule — a single additive accessibility slice does not meet the existing signal/outcome thresholds."
   },
   "evidence_texts": [
