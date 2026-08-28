@@ -418,11 +418,11 @@ function calcDevisTotals() {
 
   // TVA variable selon le champ d'entrée
   const tvaPercent = parseFloat(document.getElementById('dev-tva-percent')?.value || 7);
-  const tva = totalHT * (tvaPercent / 100);
-
   // Timbre fiscal : montant modifiable (séparé du cachet)
   const timbre = parseFloat(document.getElementById('dev-timbre-amount')?.value || 0);
-  const totalTTC = totalHT + tva + timbre;
+  const _t = MythosFinance.vatTotals(totalHT, tvaPercent, timbre);
+  const tva = _t.tvaAmt;
+  const totalTTC = _t.ttc;
 
   document.getElementById('dev-total-ht').value = totalHT.toFixed(3);
   document.getElementById('dev-total-ttc').value = totalTTC.toFixed(3);

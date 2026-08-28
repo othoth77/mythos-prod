@@ -26,7 +26,7 @@ function sandbox(overrides){
     updateInvoicePaymentModeVisibility:function(){state.paymentUpdates=(state.paymentUpdates||0)+1;},showView:function(v){state.views.push(v);},updateSidebarStats:function(){state.sidebar++;},alert:function(v){state.alerts.push(v);},confirm:function(){return true;},
     console:{log:function(){},warn:function(){},error:function(){}},Date:Date,Array:Array,Object:Object,String:String,Number:Number,Math:Math,parseInt:parseInt,Infinity:Infinity
   };
-  Object.assign(sb,overrides||{});return vm.createContext(sb);
+  Object.assign(sb,overrides||{});var __ctx=vm.createContext(sb);vm.runInContext(fs.readFileSync(path.join(BASE,'js/shared/financial-calc.js'),'utf8'),__ctx);return __ctx;
 }
 function load(sb,f){vm.runInContext(fs.readFileSync(path.join(BASE,f),'utf8'),sb);}
 

@@ -172,12 +172,12 @@ function calcTotals() {
   const ht = lines.reduce((sum, line) => sum + line.qty * line.pu, 0);
   const isSans = document.getElementById('f-type')?.value === 'sans_tva';
   const tvaRate = isSans ? 0 : num(document.getElementById('f-tva')?.value);
-  const tvaAmt = ht * tvaRate / 100;
   const timbre = isSans ? 0 : num(document.getElementById('f-timbre-amount')?.value || 1);
-  document.getElementById('t-ht').textContent = fmtMoney(ht);
-  document.getElementById('t-tva').textContent = fmtMoney(tvaAmt);
-  document.getElementById('t-timbre').textContent = fmtMoney(timbre);
-  document.getElementById('t-ttc').textContent = fmtMoney(ht + tvaAmt + timbre);
+  const t = MythosFinance.vatTotals(ht, tvaRate, timbre);
+  document.getElementById('t-ht').textContent = fmtMoney(t.ht);
+  document.getElementById('t-tva').textContent = fmtMoney(t.tvaAmt);
+  document.getElementById('t-timbre').textContent = fmtMoney(t.timbre);
+  document.getElementById('t-ttc').textContent = fmtMoney(t.ttc);
 }
 
 function saveInvoice() {
@@ -195,8 +195,9 @@ function saveInvoice() {
   const ht = lines.reduce((sum, line) => sum + line.qty * line.pu, 0);
   const isSans = type === 'sans_tva';
   const tva = isSans ? 0 : num(document.getElementById('f-tva').value);
-  const tvaAmt = ht * tva / 100;
   const timbre = isSans ? 0 : num(document.getElementById('f-timbre-amount')?.value || 1);
+  const _t = MythosFinance.vatTotals(ht, tva, timbre);
+  const tvaAmt = _t.tvaAmt;
   const invoice = {
     id: editId || 'inv_' + Date.now(),
     type,
@@ -210,7 +211,7 @@ function saveInvoice() {
     tvaAmt,
     timbre,
     ht,
-    ttc: ht + tvaAmt + timbre,
+    ttc: _t.ttc,
     status,
     paymentMode: status === 'paid' ? paymentMode : ''
   };
