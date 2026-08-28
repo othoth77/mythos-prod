@@ -116,6 +116,10 @@ imgFiles.forEach(function (rel) {
 ok(imgOffenders.length === 0, 'no <img> without alt across the shell and generators (' +
    (imgOffenders.length ? imgOffenders.join(' | ') : 'all covered') + ')');
 
+console.log('\n8d. Keyboard: Escape closes the top modal (WCAG 2.1.1)');
+ok(/function closeTopModalOnEscape/.test(appSrc) && /addEventListener\('keydown', closeTopModalOnEscape\)/.test(appSrc),
+   'an Escape-key handler closes the top-most open modal, registered globally');
+
 console.log('\n9. Stylesheet integrity');
 ok(css.split('{').length === css.split('}').length, 'main.css braces are balanced');
 

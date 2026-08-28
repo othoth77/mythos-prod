@@ -705,6 +705,18 @@ function closeModalFromOutsideClick(event) {
   }
 }
 
+// Keyboard parity with the backdrop click above (WCAG 2.1.1): Escape closes
+// the top-most open modal, using the same close mechanism (hide the overlay).
+function closeTopModalOnEscape(event) {
+  if (event.key !== 'Escape') return;
+  var open = Array.prototype.filter.call(
+    document.querySelectorAll('.modal-overlay'),
+    function (m) { return m.style.display !== 'none' && getComputedStyle(m).display !== 'none'; }
+  );
+  if (!open.length) return;
+  open[open.length - 1].style.display = 'none';
+}
+
 // ── SANITIZE INPUT ──
 // [utils.js] sanitizeInput
 
@@ -876,6 +888,7 @@ const _origShowViewForLogs = showView;
 
 document.addEventListener('DOMContentLoaded', bootstrapStableApp);
 document.addEventListener('click', closeModalFromOutsideClick);
+document.addEventListener('keydown', closeTopModalOnEscape);
 
 // ── Gestion rotation / arrière-plan / retour cache mobile ────────────
 // Sur iOS/Android, pageshow se déclenche aussi quand la page revient
