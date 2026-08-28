@@ -84,6 +84,24 @@ sqlite3 /var/lib/erp-backend/erp.db \
 Compare against the source counts. **Do not delete the browser localStorage** —
 keep it for rollback until acceptance is complete (§5, §8).
 
+## F.1 [HOST] Invoice recovery/staging import (owner's recovery review)
+Import ALL recovered candidates into the SEPARATE `mp_invoices_recovery` staging
+collection (never touches official invoices; nothing deduplicated or deleted;
+017/018 protected). Back up first (§F), then:
+```bash
+sudo -u www-data ERP_DB_PATH=/var/lib/erp-backend/erp.db \
+  php cli/import-recovery.php <path>/COMPLETE_INVOICE_REVIEW_ASSESSED.json <admin-username>
+sudo -u www-data ERP_DB_PATH=/var/lib/erp-backend/erp.db \
+  php cli/verify-recovery.php            # 001-018 represented; 007/008 both preserved
+```
+Every field is preserved verbatim (id, number, financials, dates, client, lines,
+status, source, provenance, duplicateCandidate, assessment) and tagged
+`recoveryStatus=RECOVERY_REVIEW`. Review later in `tools/recovery-review.html`
+(shows N°/Date/Client/Amount/Source/Original ID/Recovery status; mark
+KEEP/DELETE/MERGE — non-destructive). Verified in-repo on a synthetic fixture:
+`tests/recovery-test.sh` 14/0. **Do not delete the browser localStorage** until
+you have reviewed and accepted the recovery set.
+
 ## G. [HOST] nginx vhost (§10, §12) — no PHP exec in uploads, no secret exposure
 Install `deploy/nginx-erp-backend.conf` (already isolates `public/` as the only
 root, routes only `/index.php` to FPM, `return 404` for any other `.php`, denies

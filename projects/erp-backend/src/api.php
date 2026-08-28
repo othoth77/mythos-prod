@@ -23,6 +23,10 @@ const ERP_FIXED_KEYS = [
     'mp_backup_versions','mp_restore_meta','mp_taches','mp_vehicules',
     'mp_rappels','mp_rappel_types','mp_repertoire_contacts','mp_repertoire_imports',
     'mp_appels','mp_validated_inscriptions','mp_call_script','mp_sheet_webhook_url',
+    // Dedicated recovery/staging dataset — separate from official mp_invoices, so
+    // recovered candidates never overwrite live invoices (017/018) and stay
+    // distinguishable (each carries recoveryStatus RECOVERY_REVIEW).
+    'mp_invoices_recovery',
 ];
 
 function key_valid(string $key): bool {
