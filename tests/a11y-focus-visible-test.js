@@ -10,11 +10,12 @@
 // live app had for buttons, nav items, links and cards (only inputs had
 // any focus treatment, and many controls set `outline: none`).
 //
-// This layer is PURELY ADDITIVE. css/main.css's :root D-001 token block is
-// a cross-product brand contract (mirrored and drift-tested by
-// tests/mos-1-console-test.js) — this test also guards that none of those
-// 20 tokens changed value, so the accessibility work cannot have quietly
-// touched the pinned palette.
+// css/main.css's :root D-001 token block is a cross-product brand contract
+// (mirrored and drift-tested by tests/mos-1-console-test.js). This test pins
+// each token's CURRENT value as a drift guard: the brand values (gold, inks,
+// text, danger) are unchanged; the four status hues (green/blue/today/purple)
+// were intentionally adopted from the owner-approved COLOR_SYSTEM.md values
+// (WCAG-verified), in lockstep with the console mirror.
 //
 // Run with: node tests/a11y-focus-visible-test.js
 // =====================================================
@@ -60,7 +61,7 @@ ok(css.indexOf(':focus-visible') >= 0 && css.indexOf(':focus-visible {') >= 0,
 console.log('\n5. Reduced-motion preference still honoured (A-018, unchanged)');
 ok(/@media \(prefers-reduced-motion: reduce\)/.test(css), 'prefers-reduced-motion block is preserved');
 
-console.log('\n6. Regression guard: the pinned :root D-001 tokens are unchanged');
+console.log('\n6. Drift guard: :root D-001 tokens hold their current values');
 var rootBlock = (css.match(/:root\s*\{[\s\S]*?\}/) || [''])[0];
 function tok(name) {
   var m = new RegExp('--' + name + ':\\s*([^;]+);').exec(rootBlock);
@@ -70,11 +71,11 @@ var EXPECTED = {
   'bg': '#0e0e0e', 'surface': '#161616', 'card': '#1d1d1d', 'border': '#2a2a2a',
   'gold': '#D9A441', 'gold-light': '#EBCE99', 'gold-dim': 'rgba(217,164,65,0.12)',
   'text': '#e8e4dc', 'muted': '#A8A498', 'danger': '#F1706A',
-  'green': '#2ecc71', 'green-dim': 'rgba(46,204,113,0.12)',
-  'blue': '#5dade2', 'blue-dim': 'rgba(93,173,226,0.12)',
-  'today': '#e67e22', 'today-dim': 'rgba(230,126,34,0.12)',
+  'green': '#4ADE80', 'green-dim': 'rgba(74,222,128,0.12)',
+  'blue': '#7DC4EA', 'blue-dim': 'rgba(125,196,234,0.12)',
+  'today': '#F0A342', 'today-dim': 'rgba(240,163,66,0.12)',
   'past': '#7A776C', 'past-dim': 'rgba(122,119,108,0.12)',
-  'purple': '#9b59b6', 'purple-dim': 'rgba(155,89,182,0.12)'
+  'purple': '#B98BD0', 'purple-dim': 'rgba(185,139,208,0.12)'
 };
 Object.keys(EXPECTED).forEach(function (name) {
   ok(tok(name) === EXPECTED[name],
