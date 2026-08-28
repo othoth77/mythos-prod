@@ -81,7 +81,20 @@ Object.keys(EXPECTED).forEach(function (name) {
      'D-001 --' + name + ' still ' + EXPECTED[name] + ' (got: ' + tok(name) + ')');
 });
 
-console.log('\n7. Stylesheet integrity');
+console.log('\n7. Bypass Blocks — skip-to-content link (WCAG 2.4.1)');
+var html = fs.readFileSync(path.join(BASE, 'index.html'), 'utf8');
+ok(/<a class="skip-link" href="#main-content">/.test(html), 'a skip-to-content link exists in the app shell');
+ok(/id="main-content"/.test(html) && /<main[^>]*id="main-content"[^>]*tabindex="-1"/.test(html),
+   'the <main> landmark carries id="main-content" and is focusable as the skip target');
+ok(/\.skip-link\s*\{[\s\S]*?position:\s*absolute/.test(css) && /\.skip-link:focus\s*\{[\s\S]*?top:\s*8px/.test(css),
+   'the skip link is visually hidden until it receives keyboard focus');
+ok(/id="sidebar-nav"[^>]*aria-label=/.test(html), 'the sidebar nav landmark has an accessible name');
+
+console.log('\n8. Design-token completeness — --danger-dim (D-001 pairing)');
+ok(/--danger-dim:\s*rgba\(241,112,106,0\.12\)/.test(rootBlock),
+   '--danger-dim completes the universal solid+12% pairing (matches the console mirror)');
+
+console.log('\n9. Stylesheet integrity');
 ok(css.split('{').length === css.split('}').length, 'main.css braces are balanced');
 
 console.log('\nA11Y-FOCUS-VISIBLE: ' + pass + ' passed, ' + fail + ' failed');

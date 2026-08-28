@@ -49,6 +49,7 @@
 <body>
 <!-- ✅ Authentification supprimée - localhost uniquement -->
 <div class="app" id="main-app" style="display:none">
+  <a class="skip-link" href="#main-content">Aller au contenu principal</a>
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
       <div class="logo">
@@ -56,7 +57,7 @@
         <div><span>Gestionnaire d'événement</span></div>
       </div>
     </div>
-    <nav class="nav sidebar-menu" id="sidebar-nav">
+    <nav class="nav sidebar-menu" id="sidebar-nav" aria-label="Navigation principale">
       <div class="nav-section">Dashboard</div>
       <button class="nav-btn active" onclick="showView('dashboard')" id="nav-dashboard"><span class="ico">&#8962;</span> Dashboard</button>
       <button class="nav-btn" onclick="showView('tache')" id="nav-tache"><span class="ico">📋</span> Mes T&acirc;ches</button>
@@ -105,7 +106,7 @@
     D&eacute;connexion
   </button>
 
-  <main class="main main-content">
+  <main class="main main-content" id="main-content" tabindex="-1">
     <!-- DASHBOARD -->
     <div class="view active" id="view-dashboard">
       <!-- HEADER -->

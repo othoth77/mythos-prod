@@ -9,6 +9,7 @@
     --text: #e8e4dc;
     --muted: #A8A498;
     --danger: #F1706A;
+    --danger-dim: rgba(241,112,106,0.12); /* completes the universal solid+12% pairing (was the one D-001 gap); matches the console mirror */
     --green: #2ecc71;
     --green-dim: rgba(46,204,113,0.12);
     --blue: #5dade2;
@@ -688,4 +689,30 @@ summary:focus-visible,
 .nav-btn:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: -3px;
+}
+
+/* WCAG 2.4.1 (Bypass Blocks): a keyboard/screen-reader user can jump past
+   the fixed sidebar straight to the main content. Visually hidden until it
+   receives keyboard focus, then it reveals as a gold pill at top-left.
+   Reuses the brand gold and the focus-ring idiom above. Additive. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -60px;
+  z-index: 2000;
+  padding: 10px 16px;
+  background: var(--gold);
+  color: #0e0e0e;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 6px;
+  text-decoration: none;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  transition: top 0.18s ease;
+}
+.skip-link:focus {
+  top: 8px;
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
