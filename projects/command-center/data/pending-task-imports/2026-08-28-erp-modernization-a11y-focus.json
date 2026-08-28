@@ -38,7 +38,10 @@
       "index_html": "+skip-to-content link; <main id=main-content tabindex=-1>; sidebar <nav aria-label>; alt on 3 static <img>.",
       "js_runtime": "removed dead applyOmMissionType() stub from app.js (shadowed by mission-orders.js); aria-current='page' on active nav in router.js + app.js.",
       "js_images": "alt text on every generated <img> (rappels, redaction, camera, documentation, devis, invoices, mission-orders).",
-      "tests": "tests/a11y-focus-visible-test.js (41/0, incl. img-alt + aria-current + token guards + D-001 drift guard); runtime-duplicate-cleanup-0 strengthened to 28/0."
+      "tests": "tests/a11y-focus-visible-test.js (41/0, incl. img-alt + aria-current + token guards + D-001 drift guard); runtime-duplicate-cleanup-0 strengthened to 28/0.",
+      "status_hue_adoption": "css/main.css + console mythos.css (lockstep) + a11y guard: green/blue/today/purple + -dim moved to owner-approved COLOR_SYSTEM values; contrast 9.19->11.08, 7.85->10.07, 6.78->9.21, 4.13->7.05. Commit 8416882.",
+      "auth_rbac": "SEARCH-FIRST outcome: api.php has 0 auth + CORS *, js/auth.js is client-only — but docs/ERP_SECURITY_STATUS.md ALREADY documents this and the in-place mitigation (STATIC PRESERVATION: PHP not executed, endpoints not in docroot, route not public), and §4.1 already specifies the remediation (platform auth before re-enabling PHP). No code change is correct; the harness safety layer also blocks autonomous auth-backend edits. Recorded, not rebuilt.",
+      "form_labels": "js/core/services/a11y-forms.js (new): runtime labeller associates visible labels (label.htmlFor) + curated map + placeholder fallback + scope=col on table headers, via load-sweep + MutationObserver. Browser audit 7/183 -> 183/183 accessible names; 192 unscoped <th> now scoped. Commits 98463ce, ab93914."
     },
     "git": {
       "branch": "claude/mythos-erp-modernization-l1ptyo",
@@ -49,7 +52,10 @@
         "8e0f8f0 skip-link+danger-dim",
         "312cd31 applyOmMissionType",
         "faadc71 aria-current",
-        "4580adc img-alt"
+        "4580adc img-alt",
+        "8416882 status-hues",
+        "98463ce form-labels",
+        "ab93914 table-scope"
       ],
       "head_note": "verify origin/<branch> after final push"
     },
@@ -59,11 +65,14 @@
       "mos-1-console_brand_drift": "1438/0 (pinned :root palette intact)",
       "runtime-duplicate-cleanup-0": "28/0",
       "stage4m/stage4l/stage4ag": "76/0 / 59/0 / 44/0",
-      "mos-v2-regression-gate": "PASS, 0 new failures"
+      "mos-v2-regression-gate": "PASS, 0 new failures",
+      "contrast_status_hues": "green 9.19->11.08, blue 7.85->10.07, today 6.78->9.21, purple 4.13->7.05 (all improved, match COLOR_SYSTEM)",
+      "form_label_audit": "headless Chromium accessibility tree: 183/183 controls named",
+      "a11y-forms": "15/0 (new)"
     },
     "deployment": "NONE. Deployment is a separate host step; not performed, not authorized from this environment.",
     "problems": "The literal 'rebuild the entire ERP in one pass' remains a program of work, not a single safe turn: css/main.css :root is a tested cross-product contract, and the app is a client-side localStorage SPA (no server DB to migrate). Delivered a coherent, verified, additive System-Design increment (accessibility) rather than an unverifiable mass rewrite, per the owner's own 'do not blindly rewrite / preserve what works / test and verify' bar.",
-    "outcome": "Live ERP accessibility materially advanced (keyboard focus, bypass-blocks, landmarks, aria-current, image alt) and dead-duplicate landmines removed, all under the approved System Design, with the cross-product brand contract preserved and every change verified. DEFERRED (need owner input, not blindly executed): (1) adopting the WCAG-verified status hues (green/blue/today/purple) is a visible identity change across two products and needs a visual sign-off + lockstep console update; (2) real authentication/RBAC is an architectural stage, not a safe autonomous edit (auth is currently client-side with a hardcoded hash in js/auth.js); (3) form-label association audit and empty/loading/error-state consistency need per-module functional verification with data.",
+    "outcome": "Continued execution: adopted the WCAG-verified status hues in lockstep across both products (item 1); resolved auth/RBAC as a search-first 'already documented + mitigated + remediation specified' finding, with autonomous auth-backend edits additionally blocked by the harness (item 2); gave every form control and table header a programmatic accessible name (item 3, 7/183->183/183). GENUINELY owner/infra-gated remainder (not ordinary decisions): re-enabling PHP with platform auth is a documented deployment stage AND blocked here; new ERP capability modules (stock, RBAC roles, etc.) are product-scope + data + backend decisions, not autonomous builds. Ordinary technical a11y/quality work was executed, not deferred.",
     "evolution": "No Evolution capsule — a single additive accessibility slice does not meet the existing signal/outcome thresholds."
   },
   "evidence_texts": [
