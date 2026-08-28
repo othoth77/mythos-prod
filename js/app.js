@@ -211,7 +211,8 @@ function setOmTimeQuick(time) {
   }
 }
 
-function applyOmMissionType() {}
+// applyOmMissionType -> js/shared/mission-orders.js (owns the real
+// implementation; this empty stub was a dead duplicate shadowed at runtime)
 
 
 // ── OM FUNCTIONS → js/shared/mission-orders.js ──

@@ -42,6 +42,8 @@ ok(countFunctionDefs(app, 'addOmPerson') === 0, 'app.js has zero addOmPerson def
 ok(countFunctionDefs(app, 'cancelOM') === 0, 'app.js has zero cancelOM definitions');
 ok(countFunctionDefs(moSrc, 'addOmPerson') === 1, 'mission-orders.js has exactly one addOmPerson definition');
 ok(countFunctionDefs(moSrc, 'cancelOM') === 1, 'mission-orders.js has exactly one cancelOM definition');
+ok(countFunctionDefs(app, 'applyOmMissionType') === 0, 'app.js has zero applyOmMissionType definitions (the dead empty stub is removed)');
+ok(countFunctionDefs(moSrc, 'applyOmMissionType') === 1, 'mission-orders.js has exactly one applyOmMissionType definition');
 
 console.log('\n7. Comments do not count as active definitions');
 ok(app.indexOf('editInvoice, deleteInvoice') >= 0, 'app.js carries an ownership comment, not a reimplementation');
