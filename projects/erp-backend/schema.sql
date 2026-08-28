@@ -96,6 +96,13 @@ CREATE TABLE IF NOT EXISTS login_attempts (
   ok        INTEGER NOT NULL DEFAULT 0
 );
 
+-- Schema versioning (§16): every applied migration recorded, so the schema
+-- state is reproducible and never depends on a hand-edited production DB.
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  version     TEXT PRIMARY KEY,
+  applied_at  TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_sessions_user   ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_ts        ON audit_log(ts);
 CREATE INDEX IF NOT EXISTS idx_attempts_lookup ON login_attempts(username, ip, ts);

@@ -93,9 +93,22 @@ cd projects/erp-backend
 php tests/unit-test.php            # 13/0  — pure logic (no server)
 bash tests/security-test.sh       # 24/0  — §17 security matrix (php -S + curl)
 bash tests/migration-test.sh      # 11/0  — §7 localStorage→DB migration
+bash tests/backup-test.sh         #  8/0  — §17 backup/restore round-trip
 # frontend↔backend end-to-end (needs Playwright + chromium):
 PLAYWRIGHT_PATH=<path> bash tests/e2e/run-e2e.sh   # 19/0
 ```
+Total: **75 checks** across the backend and its frontend integration.
+
+**Schema versioning (§16):** `schema_migrations` records each applied migration
+(`001-initial`); `migrate()` is idempotent. Add a migration id to the list in
+`src/db.php` for each future schema change — the state is never hand-edited.
+
+**Backup / restore (§17):** `cli/backup.php` takes a consistent `VACUUM INTO`
+snapshot + copies uploads + writes a sha-256 manifest; `cli/restore.php` verifies
+every checksum before restoring and fails closed on tampering. This is the
+DB-specific **capture primitive** that the existing off-host pipeline
+(`ops/backup/`, `offhost-backup.js`) carries — not a competing off-host system.
+`tests/backup-test.sh` proves a real disaster→restore round-trip.
 
 ## 5. Security verification (§17) — all covered by tests/security-test.sh
 
