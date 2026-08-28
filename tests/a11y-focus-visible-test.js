@@ -1,0 +1,88 @@
+'use strict';
+// =====================================================
+// A11Y-FOCUS-VISIBLE — keyboard focus indicator for the live application
+// tests/a11y-focus-visible-test.js
+//
+// Applies the owner-approved System Design (A-016 "focus is never removed",
+// docs/design/RESPONSIVE_ACCESSIBILITY_MOTION.md) to css/main.css: every
+// interactive control gets a visible, brand-gold keyboard focus ring via
+// :focus-visible, closing a WCAG 2.4.7 (Focus Visible, Level AA) gap the
+// live app had for buttons, nav items, links and cards (only inputs had
+// any focus treatment, and many controls set `outline: none`).
+//
+// This layer is PURELY ADDITIVE. css/main.css's :root D-001 token block is
+// a cross-product brand contract (mirrored and drift-tested by
+// tests/mos-1-console-test.js) — this test also guards that none of those
+// 20 tokens changed value, so the accessibility work cannot have quietly
+// touched the pinned palette.
+//
+// Run with: node tests/a11y-focus-visible-test.js
+// =====================================================
+
+var fs = require('fs');
+var path = require('path');
+var BASE = path.join(__dirname, '..');
+var pass = 0, fail = 0;
+
+function ok(v, l) { if (v) { pass++; console.log('  PASS ' + l); } else { fail++; console.log('  FAIL ' + l); } }
+
+var css = fs.readFileSync(path.join(BASE, 'css', 'main.css'), 'utf8');
+
+console.log('\n1. A keyboard focus ring exists (WCAG 2.4.7 / A-016)');
+ok(/:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--gold\)/.test(css),
+   'a bare :focus-visible rule draws a 2px gold outline');
+ok(/button:focus-visible/.test(css), 'buttons get a :focus-visible ring');
+ok(/a:focus-visible/.test(css), 'links get a :focus-visible ring');
+ok(/\.btn:focus-visible/.test(css) && /\.btn-gold:focus-visible/.test(css),
+   'the recovered .btn family gets a :focus-visible ring');
+ok(/input:focus-visible/.test(css) && /select:focus-visible/.test(css) && /textarea:focus-visible/.test(css),
+   'form controls get a keyboard :focus-visible ring in addition to their existing :focus styling');
+ok(/\[onclick\]:focus-visible/.test(css) && /\[role="button"\]:focus-visible/.test(css) && /\[tabindex\]:focus-visible/.test(css),
+   'onclick / role=button / tabindex interactive elements get a ring');
+ok(/\.entity-card:focus-visible/.test(css) && /\.invoice-card:focus-visible/.test(css),
+   'clickable entity/invoice cards get a ring');
+
+console.log('\n2. The focus ring is token-based (no off-brand colour introduced)');
+// Every :focus-visible outline must use the --gold token, never a raw hex.
+var fvBlock = (css.match(/:focus-visible\s*\{[^}]*\}/g) || []).join('\n') +
+              (css.match(/[^\n]*:focus-visible[\s\S]*?\}/g) || []).join('\n');
+ok(/var\(--gold\)/.test(fvBlock), 'focus rings compose from the --gold design token');
+ok(!/#[0-9a-fA-F]{3,8}\b/.test(fvBlock), 'no raw hex colour is introduced by the focus layer');
+
+console.log('\n3. Overflow-hidden sidebar handled (nav ring not clipped)');
+ok(/\.nav-btn:focus-visible\s*\{[^}]*outline-offset:\s*-3px/.test(css),
+   'the nav ring is drawn inside the control so the overflow:hidden sidebar cannot clip it');
+
+console.log('\n4. Keyboard-only: pointer users keep the quiet surfaces');
+ok(css.indexOf(':focus-visible') >= 0 && css.indexOf(':focus-visible {') >= 0,
+   'the layer keys off :focus-visible (pointer focus stays unchanged), not :focus');
+
+console.log('\n5. Reduced-motion preference still honoured (A-018, unchanged)');
+ok(/@media \(prefers-reduced-motion: reduce\)/.test(css), 'prefers-reduced-motion block is preserved');
+
+console.log('\n6. Regression guard: the pinned :root D-001 tokens are unchanged');
+var rootBlock = (css.match(/:root\s*\{[\s\S]*?\}/) || [''])[0];
+function tok(name) {
+  var m = new RegExp('--' + name + ':\\s*([^;]+);').exec(rootBlock);
+  return m ? m[1].trim() : null;
+}
+var EXPECTED = {
+  'bg': '#0e0e0e', 'surface': '#161616', 'card': '#1d1d1d', 'border': '#2a2a2a',
+  'gold': '#D9A441', 'gold-light': '#EBCE99', 'gold-dim': 'rgba(217,164,65,0.12)',
+  'text': '#e8e4dc', 'muted': '#A8A498', 'danger': '#F1706A',
+  'green': '#2ecc71', 'green-dim': 'rgba(46,204,113,0.12)',
+  'blue': '#5dade2', 'blue-dim': 'rgba(93,173,226,0.12)',
+  'today': '#e67e22', 'today-dim': 'rgba(230,126,34,0.12)',
+  'past': '#7A776C', 'past-dim': 'rgba(122,119,108,0.12)',
+  'purple': '#9b59b6', 'purple-dim': 'rgba(155,89,182,0.12)'
+};
+Object.keys(EXPECTED).forEach(function (name) {
+  ok(tok(name) === EXPECTED[name],
+     'D-001 --' + name + ' still ' + EXPECTED[name] + ' (got: ' + tok(name) + ')');
+});
+
+console.log('\n7. Stylesheet integrity');
+ok(css.split('{').length === css.split('}').length, 'main.css braces are balanced');
+
+console.log('\nA11Y-FOCUS-VISIBLE: ' + pass + ' passed, ' + fail + ' failed');
+process.exit(fail ? 1 : 0);

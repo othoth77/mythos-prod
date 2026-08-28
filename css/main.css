@@ -646,3 +646,46 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* A-016 (owner-approved): focus is never removed. Keyboard users get a
+   visible, high-contrast ring on every interactive control. Uses the brand
+   gold (--gold #D9A441 -- 8.59:1 on the dark ground, far above WCAG 2.2's
+   3:1 minimum for non-text UI). ':focus-visible' keeps the ring keyboard-
+   only, so pointer users keep the quiet surfaces the many 'outline: none'
+   rules were added to give them -- while keyboard access is restored across
+   buttons, nav items, links, cards and controls the app previously left
+   with no focus indicator at all (closes a WCAG 2.4.7 Level AA gap). Purely
+   additive: no existing design token or selector is modified. Recovered
+   from the mythos-os-console pattern (--mythos-focus-ring, A-016) and
+   applied to the live application. */
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible,
+[onclick]:focus-visible,
+.btn:focus-visible,
+.btn-gold:focus-visible,
+.btn-outline:focus-visible,
+.btn-danger:focus-visible,
+.btn-sm:focus-visible,
+.entity-card:focus-visible,
+.invoice-card:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+/* The sidebar is 'overflow: hidden', which would clip an outward ring on a
+   full-width nav item; draw this ring just inside the control so it never
+   clips and still reads clearly. Hover and active states are untouched. */
+.nav-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: -3px;
+}
