@@ -187,9 +187,9 @@ function removePersonRow(btn) {
 
 // addOmPerson → js/shared/mission-orders.js
 
-function addLine() {
-  alert('Fonctionnalité en développement');
-}
+// addLine, removeLine, getLines → js/shared/invoices.js
+// (the legacy "Fonctionnalité en développement" stub was a dead duplicate:
+//  invoices.js loads after app.js and owns the working implementation)
 
 function setOmDateQuick(offsetDays) {
   const d = new Date();

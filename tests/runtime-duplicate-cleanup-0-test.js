@@ -34,6 +34,8 @@ ok(countFunctionDefs(app, 'editInvoice') === 0, 'app.js has zero editInvoice def
 ok(countFunctionDefs(app, 'deleteInvoice') === 0, 'app.js has zero deleteInvoice definitions');
 ok(countFunctionDefs(invoicesSrc, 'editInvoice') === 1, 'invoices.js has exactly one editInvoice definition');
 ok(countFunctionDefs(invoicesSrc, 'deleteInvoice') === 1, 'invoices.js has exactly one deleteInvoice definition');
+ok(countFunctionDefs(app, 'addLine') === 0, 'app.js has zero addLine definitions (the dead "Fonctionnalité en développement" stub is removed)');
+ok(countFunctionDefs(invoicesSrc, 'addLine') === 1, 'invoices.js has exactly one addLine definition');
 
 console.log('\n5-6. Mission-order ownership: canonical in mission-orders.js');
 ok(countFunctionDefs(app, 'addOmPerson') === 0, 'app.js has zero addOmPerson definitions');
