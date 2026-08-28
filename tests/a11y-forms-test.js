@@ -40,6 +40,10 @@ ok(/KNOWN_LABELS/.test(svc), 'a curated id -> name map exists for filters/file-i
 console.log('\n3. Dynamically-rendered controls are covered too');
 ok(/MutationObserver/.test(svc), 'a MutationObserver labels controls added after load');
 
+console.log('\n3b. Table column headers get scope=col (WCAG 1.3.1)');
+ok(/thead th:not\(\[scope\]\)/.test(svc) && /setAttribute\('scope', 'col'\)/.test(svc),
+   'the service adds scope=col to unscoped <thead> headers, static and dynamic');
+
 console.log('\n4. The service is registered in the app shell');
 var html = fs.readFileSync(path.join(BASE, 'index.html'), 'utf8');
 ok(/<script src="js\/core\/services\/a11y-forms\.js/.test(html), 'index.html loads the service');

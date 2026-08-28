@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════
-// MYTHOS OS — Form accessibility service (progressive enhancement)
+// MYTHOS OS — Accessibility service: form labels + table headers (progressive enhancement)
 // js/core/services/a11y-forms.js
 //
 // Closes a WCAG 1.3.1 / 3.3.2 / 4.1.2 gap: across the app, form controls
@@ -80,10 +80,20 @@
     if (ph) el.setAttribute('aria-label', ph);
   }
 
+  // WCAG 1.3.1: table column headers need scope="col" so a screen reader can
+  // announce each cell's column. The app's generated tables use <thead><th>
+  // with no scope; add it where missing.
+  function enhanceTables(root) {
+    if (!root.querySelectorAll) return;
+    var ths = root.querySelectorAll('thead th:not([scope])');
+    for (var i = 0; i < ths.length; i++) ths[i].setAttribute('scope', 'col');
+  }
+
   function sweep(root) {
     if (!root || !root.querySelectorAll) return;
     var list = root.querySelectorAll('input, select, textarea');
     for (var i = 0; i < list.length; i++) labelControl(list[i]);
+    enhanceTables(root);
   }
 
   function watch() {
