@@ -121,6 +121,11 @@ console.log('\n8d. Keyboard: Escape closes the top modal (WCAG 2.1.1)');
 ok(/function closeTopModalOnEscape/.test(appSrc) && /addEventListener\('keydown', closeTopModalOnEscape\)/.test(appSrc),
    'an Escape-key handler closes the top-most open modal, registered globally');
 
+console.log('\n8e. Status messages are announced (WCAG 4.1.3 live region)');
+var notif = fs.readFileSync(path.join(BASE, 'js', 'core', 'services', 'notifications.js'), 'utf8');
+ok(/aria-live/.test(notif) && /role', 'status'/.test(notif) && /function _announce/.test(notif),
+   'the notification service announces toasts via a persistent aria-live region');
+
 console.log('\n9. Stylesheet integrity');
 ok(css.split('{').length === css.split('}').length, 'main.css braces are balanced');
 
