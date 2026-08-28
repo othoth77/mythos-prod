@@ -1,0 +1,30 @@
+{
+  "command": "OTHMODE — DEPLOYMENT / ERP ACCESS DIAGNOSTIC: diagnose why https://erp.mythosprod.xyz returns 403, then apply the smallest safe fix",
+  "status": "BLOCKED",
+  "phase": "DEPLOYMENT",
+  "project": "mythos-os",
+  "source": "claude-code-remote/claude/mythos-erp-modernization-l1ptyo",
+  "sections": {
+    "preflight": {
+      "environment": "Claude Code remote sandbox — no SSH/host access to the production VPS; outbound egress via agent proxy.",
+      "read": ["sites/erp.mythosprod.xyz/DEPLOYMENT.md", "docs/ERP_SECURITY_STATUS.md", "projects/status-center/monitor/probes.json", "api.php"]
+    },
+    "status_center": "UNREACHABLE — the agent egress gateway denies CONNECT to erp.mythosprod.xyz:443 (recentRelayFailures: connect_rejected 403). status/othmode.mythosprod.xyz also blocked. First-hand origin probe impossible from here.",
+    "execution": {
+      "diagnosis": "The 403 is INTENTIONAL, not a fault. Per docs/ERP_SECURITY_STATUS.md (Applied 2026-08-22, first-hand on-host measurement): the erp.mythosprod.xyz nginx vhost runs in STATIC PRESERVATION mode with 'allow 127.0.0.1; allow ::1; deny all;' — every non-loopback request returns 403 (measured: public iface 51.68.226.211 -> 403; localhost -> 200; all .php -> 404). Compounded by Blocker A: no public DNS A record exists (dig +short erp.mythosprod.xyz A -> empty), so the host is only reachable by direct IP / Host-header. The erp probe is absent from probes.json, consistent with no public go-live.",
+      "classification": "SERVER (deliberate nginx deny-all access control) + DNS (no A record). NOT application, NOT Cloudflare, NOT file/dir permissions, NOT a broken deployment.",
+      "why_locked": "The ERP's PHP write endpoints are unauthenticated and upload.php derives the stored file extension from the client-supplied filename -> unauthenticated RCE if served under a PHP-executing docroot. Static mode (PHP disabled + deny-all + no DNS) is the documented mitigation."
+    },
+    "problems": "The requested fix (make erp.mythosprod.xyz publicly serve the ERP) is a GATED action that must NOT and CANNOT be performed here: (1) it requires removing the deny-all guard + adding public DNS + TLS — Level-3 production security + DNS ops, owner-approval-only (AGENTS.md §25.3/§15); (2) DEPLOYMENT.md §5 forbids public serving until four security remediations are done (auth on write endpoints, server-side upload extension allow-list, path/$docId sanitisation, no PHP execution in upload dirs) — none are done; (3) no host access from this sandbox (no SSH; egress proxy blocks the origin). Opening it would re-expose the documented RCE.",
+    "changes": "NONE to production or ERP code (per the order: do not change production config until cause identified; the safe fix here is no change). No placeholder page, no blind redeploy.",
+    "deployment": "Deployed content (per DEPLOYMENT.md) is a COPY of the repo tree (index.html, js, css, assets, data, manifest) under /var/www/erp.mythosprod.xyz, PHP files deliberately excluded. Exact deployed commit not verifiable from this sandbox (no host access).",
+    "outcome": "Cause identified with first-hand on-host evidence: SERVER deny-all + DNS-absent, deliberate and security-gated. No safe autonomous fix exists in this environment. Path to public serving: owner DNS approval + the DEPLOYMENT.md §5 security remediations (chief: platform auth in front of write endpoints, the infra-gated item already tracked) + host access — all owner/infra actions.",
+    "evolution": "No Evolution capsule — a blocked read-only diagnostic does not qualify."
+  },
+  "evidence_texts": [
+    "agent proxy status: recentRelayFailures host erp.mythosprod.xyz:443 connect_rejected 'gateway answered 403 to CONNECT'",
+    "docs/ERP_SECURITY_STATUS.md §2.1: 'Any request from the public interface (51.68.226.211) -> 403'; localhost -> 200; .php -> 404",
+    "sites/erp.mythosprod.xyz/DEPLOYMENT.md §1: 'dig +short erp.mythosprod.xyz A -> (empty)'; §5 lists 4 remediations required before dynamic serving",
+    "probes.json: no 'erp' probe present (no public go-live)"
+  ]
+}
