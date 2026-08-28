@@ -86,12 +86,15 @@ deploy/nginx-erp-backend.conf   gated vhost
 deploy/.env.example      environment template (no secrets)
 ```
 
-## 4. Run the tests (in this repo, no host needed)
+## 4. Run the tests (in this repo)
 
 ```bash
 cd projects/erp-backend
-php tests/unit-test.php            # 13/0
-bash tests/security-test.sh        # 24/0
+php tests/unit-test.php            # 13/0  — pure logic (no server)
+bash tests/security-test.sh       # 24/0  — §17 security matrix (php -S + curl)
+bash tests/migration-test.sh      # 11/0  — §7 localStorage→DB migration
+# frontend↔backend end-to-end (needs Playwright + chromium):
+PLAYWRIGHT_PATH=<path> bash tests/e2e/run-e2e.sh   # 19/0
 ```
 
 ## 5. Security verification (§17) — all covered by tests/security-test.sh
@@ -103,13 +106,30 @@ invalidates · audit rows created · DB transactions · session id stored as has
 only · CORS restricted · security headers set · login rate-limited. **No secret
 is committed** (passwords come from env/stdin; the DB and uploads live off-repo).
 
-## 6. Frontend transition (§15, incremental — not done here)
+## 6. Frontend integration — `js/core/secure-client.js` (built, DORMANT)
 
-The frontend's server sync (`js/core/api.js`, today pointed at the disabled
-`api.php`) changes only its base URL + adds `credentials: 'include'` and the
-`X-CSRF-Token` header from `/auth/login`. Collection reads/writes keep the same
-shape. A login screen replaces the client-side `js/auth.js` gate. This is a
-follow-up frontend stage, gated behind deployment.
+The integration layer exists and is **verified end-to-end**, but is **inert by
+default** so the live app (localStorage + legacy sync) is byte-for-byte
+unchanged until the backend is deployed. `window.MythosSecure` provides
+`login/logout/me/getCollection/putCollection/upload` (credentials included,
+CSRF header on writes, typed errors) and an `applyRbac()` UX helper (server
+stays authoritative). It activates only when enabled:
+
+```js
+localStorage.setItem('mythos_secure_backend', '1');
+localStorage.setItem('mythos_secure_base', 'https://<backend-origin>');
+```
+
+`tests/e2e/run-e2e.sh` drives this real client against the real backend in a
+headless browser through the full scenario (§19): 3-role login, read/create/
+update, upload, RBAC UX enable/disable, server-authoritative 403 for a viewer
+write, logout invalidation, and session + data persistence across reload —
+**19/0, zero uncaught JS errors**.
+
+The remaining transition (routing the app's `STORE`/`sync` reads/writes through
+`MythosSecure` once the flag is on, and a login screen replacing the
+client-side `js/auth.js` gate) is wired module-by-module during the deployment
+stage — kept off the live app until then.
 
 ## 7. Deployment (§18) — owner + host, only after §5 passes on the host
 
