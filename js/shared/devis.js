@@ -446,7 +446,7 @@ function buildDevisHTML(dev) {
 
   return `<div style="background:#fff;color:#000;width:794px;min-height:1123px;padding:16mm 18mm;box-sizing:border-box;font-family:Arial,sans-serif;font-size:14px;line-height:1.4;display:flex;flex-direction:column;">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;border-bottom:1px solid #000;padding-bottom:16px;margin-bottom:20px;">
-      <img src="${logoSrc}" style="width:160px;max-height:80px;object-fit:contain;">
+      <img alt="Logo de la société" src="${logoSrc}" style="width:160px;max-height:80px;object-fit:contain;">
       <div style="text-align:right;">
         <div style="font-size:32px;font-weight:900;color:#000;letter-spacing:1px;">DEVIS</div>
         <div style="font-size:11px;margin-top:6px;color:#333;"><b>N°:</b> ${esc(dev.num)} &nbsp; <b>Date:</b> ${formatDate(dev.date)}</div>
@@ -494,7 +494,7 @@ function buildDevisHTML(dev) {
     <div style="margin-bottom:20px;display:grid;grid-template-columns:1fr;gap:16px;font-size:11px;">
       <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:10px;margin-right:80px;">
         <div style="font-weight:900;color:#000;margin-bottom:8px;">Signature et Cachet</div>
-        ${dev.addStamp ? `<img src="${getStampSVGFor(dev.societeId)}" style="height:90px;width:auto;transform:rotate(-3deg);opacity:0.85;filter:drop-shadow(1px 1px 2px rgba(30,64,175,0.3)) blur(0.3px);">` : ''}
+        ${dev.addStamp ? `<img alt="" src="${getStampSVGFor(dev.societeId)}" style="height:90px;width:auto;transform:rotate(-3deg);opacity:0.85;filter:drop-shadow(1px 1px 2px rgba(30,64,175,0.3)) blur(0.3px);">` : ''}
       </div>
     </div>
     <div style="margin-top:auto;padding-top:14px;border-top:1px solid #000;font-size:9px;line-height:1.6;text-align:center;color:#000;">

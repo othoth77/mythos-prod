@@ -102,6 +102,20 @@ ok(/setAttribute\('aria-current', 'page'\)/.test(routerSrc) && /removeAttribute\
 ok(/setAttribute\('aria-current', 'page'\)/.test(appSrc) && /removeAttribute\('aria-current'\)/.test(appSrc),
    'the app.js logs nav path keeps aria-current consistent');
 
+console.log('\n8c. Non-text content — every <img> has an alt attribute (WCAG 1.1.1)');
+var imgFiles = ['index.html', 'js/rappels.js', 'js/redaction.js', 'js/shared/camera.js',
+  'js/shared/documentation.js', 'js/shared/devis.js', 'js/shared/invoices.js',
+  'js/shared/mission-orders.js'];
+var imgOffenders = [];
+imgFiles.forEach(function (rel) {
+  var src = fs.readFileSync(path.join(BASE, rel), 'utf8');
+  (src.match(/<img\b[^>]*>/g) || []).forEach(function (tag) {
+    if (!/\balt\s*=/.test(tag)) imgOffenders.push(rel + ': ' + tag.slice(0, 50));
+  });
+});
+ok(imgOffenders.length === 0, 'no <img> without alt across the shell and generators (' +
+   (imgOffenders.length ? imgOffenders.join(' | ') : 'all covered') + ')');
+
 console.log('\n9. Stylesheet integrity');
 ok(css.split('{').length === css.split('}').length, 'main.css braces are balanced');
 

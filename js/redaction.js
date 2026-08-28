@@ -1114,7 +1114,7 @@ function _rdBuildOverlayWindow(title, tpl, values, imgUrl, autoprint, zooms, col
   html += '<button class="bp" onclick="window.print()">&#128424; Imprimer</button>';
   html += '<button class="bc" onclick="window.close()">Fermer</button>';
   html += '</div>';
-  html += '<div class="page" id="pg"><img id="docimg" style="width:100%;display:block;">' + fieldsHtml + '</div>';
+  html += '<div class="page" id="pg"><img id="docimg" alt="Document" style="width:100%;display:block;">' + fieldsHtml + '</div>';
 
   if (autoprint) {
     html += '<scr'+'ipt>function _doPrint(){'

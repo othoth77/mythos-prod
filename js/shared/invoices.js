@@ -301,7 +301,7 @@ function buildInvoiceHTML(inv) {
   const rows = (inv.lines || []).map(line => `<tr style="height:32px;background:#fff;"><td style="padding:10px 8px;border:1px solid #000;">${esc(line.desc)}</td><td style="text-align:center;padding:10px 8px;border:1px solid #000;">${line.qty}</td><td style="text-align:center;padding:10px 8px;border:1px solid #000;">${esc(line.unit || '')}</td><td style="text-align:right;padding:10px 8px;border:1px solid #000;">${fmtMoney(line.pu)}</td><td style="text-align:right;padding:10px 8px;border:1px solid #000;">${fmtMoney(num(line.qty) * num(line.pu))}</td></tr>`).join('');
   return `<div style="background:#fff;color:#000;width:794px;min-height:1123px;padding:16mm 18mm;box-sizing:border-box;font-family:Arial,sans-serif;font-size:14px;line-height:1.4;display:flex;flex-direction:column;">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;border-bottom:1px solid #000;padding-bottom:16px;margin-bottom:20px;">
-      <img src="${MYTHOS_PRINT_LOGO_SRC}" style="width:160px;max-height:80px;object-fit:contain;">
+      <img alt="Logo de la société" src="${MYTHOS_PRINT_LOGO_SRC}" style="width:160px;max-height:80px;object-fit:contain;">
       <div style="text-align:right;">
         <div style="font-size:32px;font-weight:900;color:#000;letter-spacing:1px;">FACTURE</div>
         <div style="font-size:11px;margin-top:6px;color:#333;"><b>N°:</b> ${esc(inv.num)} &nbsp; <b>Date:</b> ${formatDate(inv.date)}</div>
@@ -349,7 +349,7 @@ function buildInvoiceHTML(inv) {
     <div style="margin-bottom:20px;display:grid;grid-template-columns:1fr;gap:16px;font-size:11px;">
       <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:10px;margin-right:80px;">
         <div style="font-weight:900;color:#000;margin-bottom:8px;">Signature et Cachet</div>
-        ${inv.addStamp ? `<img src="${getStampSVG()}" style="height:90px;width:auto;transform:rotate(-3deg);opacity:0.85;filter:drop-shadow(1px 1px 2px rgba(30,64,175,0.3)) blur(0.3px);">` : ''}
+        ${inv.addStamp ? `<img alt="" src="${getStampSVG()}" style="height:90px;width:auto;transform:rotate(-3deg);opacity:0.85;filter:drop-shadow(1px 1px 2px rgba(30,64,175,0.3)) blur(0.3px);">` : ''}
       </div>
     </div>
     <div style="margin-top:auto;padding-top:14px;border-top:1px solid #000;font-size:9px;line-height:1.6;text-align:center;color:#000;">
