@@ -860,11 +860,11 @@ const _origShowViewForLogs = showView;
   window.showView = function(viewName) {
     if (viewName === 'logs') {
       document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
-      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => { el.classList.remove('active'); el.removeAttribute('aria-current'); });
       const target = document.getElementById('view-logs');
       if (target) target.classList.add('active');
       const nav = document.getElementById('nav-logs');
-      if (nav) nav.classList.add('active');
+      if (nav) { nav.classList.add('active'); nav.setAttribute('aria-current', 'page'); }
       renderLogs();
       updateSidebarStats();
       location.hash = 'logs';

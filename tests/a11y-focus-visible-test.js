@@ -94,6 +94,14 @@ console.log('\n8. Design-token completeness — --danger-dim (D-001 pairing)');
 ok(/--danger-dim:\s*rgba\(241,112,106,0\.12\)/.test(rootBlock),
    '--danger-dim completes the universal solid+12% pairing (matches the console mirror)');
 
+console.log('\n8b. Active navigation exposes aria-current (SR "you are here")');
+var routerSrc = fs.readFileSync(path.join(BASE, 'js', 'core', 'router.js'), 'utf8');
+var appSrc = fs.readFileSync(path.join(BASE, 'js', 'app.js'), 'utf8');
+ok(/setAttribute\('aria-current', 'page'\)/.test(routerSrc) && /removeAttribute\('aria-current'\)/.test(routerSrc),
+   'core router.js sets aria-current="page" on the active nav and clears it from the rest');
+ok(/setAttribute\('aria-current', 'page'\)/.test(appSrc) && /removeAttribute\('aria-current'\)/.test(appSrc),
+   'the app.js logs nav path keeps aria-current consistent');
+
 console.log('\n9. Stylesheet integrity');
 ok(css.split('{').length === css.split('}').length, 'main.css braces are balanced');
 
