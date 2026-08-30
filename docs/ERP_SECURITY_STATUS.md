@@ -196,3 +196,55 @@ Nothing was migrated, moved or deleted at any point.
   `upload.php`, `cleanup.php`, `manifest.json`, 72 `js/` files, 8 `css/` files.
 - The docroot is a **copy**. The source was never modified — the repository
   reported 0 dirty paths throughout.
+
+---
+
+## 5. Stage 6 — security status of the NEW ERP (2026-08-23)
+
+The sections above describe the **legacy** ERP, which remains in static
+preservation mode and unchanged: still loopback-only, still 403 in public,
+still zero `.php` files, still zero uncommitted `fastcgi_pass` directives.
+
+This section is about the replacement, which is a different system.
+
+### 5.1 How the Stage 1 findings were answered
+
+| Stage 1 finding | Answer in the new ERP |
+|---|---|
+| Arbitrary file write → RCE via `upload.php` | No upload endpoint exists yet. When it is built, documents are content-addressed and stored **outside any docroot**; the `documents` row cannot be created through the generic API at all, because `storage_key` belongs to the upload path |
+| Path traversal on the JSON store | No file store. PostgreSQL, parameterised queries, no user-supplied path reaches a filesystem call |
+| 15 of 16 endpoints required nothing | One request boundary that authenticates, resolves the tenant, gates the module, authorizes, validates, executes and audits. A handler that skips a step is not expressible |
+| Authentication in `js/auth.js`, in the browser | Server-side sessions, scrypt at OWASP parameters, `__Host-` cookie, CSRF on every unsafe verb, lockout, IP throttling, a 200 ms response floor closing the timing oracle |
+| No audit log anywhere | 29-action taxonomy enforced by a database CHECK; append-only for the application role, which holds INSERT and SELECT and neither UPDATE nor DELETE |
+| No authorization model | 6 roles, 31 permissions, deny-by-default, resolved per `(user, tenant)` |
+
+### 5.2 Tenant isolation
+
+Enforced by PostgreSQL Row-Level Security, not by application filtering. The
+fail-closed property is the point: with no tenant context, every policy is NULL
+and **no rows are visible**. Verified directly — the application role with no
+tenant set counts zero clients.
+
+### 5.3 Evidence
+
+- `tests/erp-acceptance-test.js` — 79 assertions, two tenants, five users,
+  real PostgreSQL, real HTTP.
+- `tests/erp-security-test.js` — 59 assertions: SQL injection, mass assignment,
+  IDOR, session replay, CSRF, privilege escalation, oversized and malformed
+  input, response headers, error leakage, database least privilege.
+- **12 injected security defects, 12 caught** — after the suite was fixed to
+  test tenant forging itself rather than relying on the acceptance suite.
+- `tests/erp-4-auth-test.js` — 118 assertions, 34/34 mutation defects caught.
+
+### 5.4 Open items
+
+- **Document upload is not implemented.** The generic create route for
+  `documents` is deliberately not mounted rather than left able to insert a row
+  pointing at no blob. Upload validation, MIME sniffing and content-addressed
+  storage remain to be built and audited.
+- **No MFA.** The schema carries `mfa_secret` and `mfa_enabled` and the audit
+  taxonomy has the events; the flow is not built.
+- **`erp_owner` bypasses RLS by ownership.** It is the migration and restore
+  identity and must never be the application's credential.
+- **Not exposed.** None of the above is reachable from the internet: the new
+  ERP has never been deployed, and the legacy vhost still denies all.

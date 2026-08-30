@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mythos ERP</title>
+<meta name="description" content="Mythos ERP - module de gestion de l'ecosysteme Mythos. Maquette Stage 2 : structure et design system uniquement.">
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" type="image/svg+xml" href="assets/mythos-favicon.svg">
+<meta name="theme-color" content="#0E0E0D">
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="assets/tokens.css">
+<link rel="stylesheet" href="assets/erp.css">
+<script src="assets/erp.js" defer></script>
+</head>
+<body>
+<a class="skip-link" href="#main">Aller au contenu</a>
+<div class="app">
+
+  <nav class="rail" aria-label="Navigation des modules">
+    <div class="rail-brand">
+      <a class="wordmark" href="https://mythosprod.xyz/">MYTHOS</a>
+      <span class="unit">ERP</span>
+    </div>
+    <a href="#/dashboard" data-module="dashboard"><span class="glyph" aria-hidden="true">▦</span><span>Tableau de bord</span></a>
+    <a href="#/clients" data-module="clients"><span class="glyph" aria-hidden="true">●</span><span>Clients</span></a>
+    <a href="#/projects" data-module="projects"><span class="glyph" aria-hidden="true">▲</span><span>Projets</span></a>
+    <a href="#/planning" data-module="planning"><span class="glyph" aria-hidden="true">◔</span><span>Planning</span></a>
+    <a href="#/production" data-module="production"><span class="glyph" aria-hidden="true">◆</span><span>Production</span></a>
+    <a href="#/finance" data-module="finance"><span class="glyph" aria-hidden="true">■</span><span>Finance</span></a>
+    <a href="#/documents" data-module="documents"><span class="glyph" aria-hidden="true">▬</span><span>Documents</span></a>
+    <a href="#/reports" data-module="reports"><span class="glyph" aria-hidden="true">◧</span><span>Rapports</span></a>
+    <a href="#/settings" data-module="settings"><span class="glyph" aria-hidden="true">⚙</span><span>Parametres</span></a>
+    <a href="#/inventory" data-module="inventory"><span class="glyph" aria-hidden="true">▤</span><span>Inventaire</span></a>
+    <div class="rail-foot">
+      <span class="badge mock">Maquette Stage&nbsp;2</span>
+    </div>
+  </nav>
+
+  <header class="topbar">
+    <h1 id="topbar-title">Tableau de bord</h1>
+    <div class="topbar-tools">
+      <span class="badge info">Donnees non connectees</span>
+      <a class="btn btn-secondary btn-sm" href="https://mythosprod.xyz/">Hub</a>
+      <button type="button" class="btn btn-primary btn-sm" data-stage3>S'identifier</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <p id="route-live" class="sr-only" aria-live="polite"></p>
+
+    <div class="notice">
+      <strong>Maquette de structure.</strong> Stage&nbsp;2 livre le design system et
+      l'ossature des modules. Aucune donnee n'est lue ni ecrite, aucun endpoint
+      n'est connecte, et PHP reste desactive. Les valeurs affichees sont
+      volontairement vides plutot que simulees.
+    </div>
+
+    <section class="view" id="view-dashboard" data-active="true" data-title="Tableau de bord">
+      <div class="view-head">
+        <p class="view-kicker">Vue d'ensemble</p>
+        <h2>Tableau de bord</h2>
+        <p>Les chiffres proviendront du Stage&nbsp;3. Aucune valeur n'est inventee ici.</p>
+      </div>
+      <div class="grid cols-4">
+        <article class="card stat">
+          <span class="stat-label">Clients actifs</span>
+          <span class="stat-value">—</span>
+          <span class="stat-sub">en attente du Stage 3</span>
+        </article>
+        <article class="card stat">
+          <span class="stat-label">Projets en cours</span>
+          <span class="stat-value">—</span>
+          <span class="stat-sub">en attente du Stage 3</span>
+        </article>
+        <article class="card stat">
+          <span class="stat-label">Factures ouvertes</span>
+          <span class="stat-value">—</span>
+          <span class="stat-sub">en attente du Stage 3</span>
+        </article>
+        <article class="card stat">
+          <span class="stat-label">Tresorerie</span>
+          <span class="stat-value">—</span>
+          <span class="stat-sub">en attente du Stage 3</span>
+        </article>
+      </div>
+
+      <div class="grid cols-2" style="margin-top: 24px">
+        <article class="card">
+          <div class="card-head"><h3>Activite recente</h3><span class="badge mock">Vide</span></div>
+          <div class="empty">
+            <strong>Aucune activite a afficher</strong>
+            Le journal d'audit est introduit au Stage&nbsp;4 (F10). Il n'existe pas encore.
+          </div>
+        </article>
+        <article class="card">
+          <div class="card-head"><h3>Echeances</h3><span class="badge mock">Vide</span></div>
+          <div class="empty">
+            <strong>Aucune echeance</strong>
+            Connecte au Stage&nbsp;3, une fois le magasin de donnees choisi.
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="view" id="view-clients" data-active="false" data-title="Clients">
+      <div class="view-head">
+        <p class="view-kicker">Repertoire</p>
+        <h2>Clients</h2>
+        <p>Consolide clients, contacts et representations (3 modules existants).</p>
+      </div>
+
+      <div class="card" style="margin-bottom: 24px">
+        <div class="card-head">
+          <h3>Filtres</h3>
+          <button type="button" class="btn btn-primary btn-sm" data-stage3>Nouveau</button>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="clients-q">Rechercher</label>
+            <input class="input" id="clients-q" type="text" placeholder="Nom, reference, mot-cle" data-stage3>
+          </div>
+          <div class="field">
+            <label for="clients-status">Statut</label>
+            <select class="select" id="clients-status" data-stage3>
+              <option>Tous</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th scope="col">Reference</th><th scope="col">Libelle</th><th scope="col">Statut</th><th scope="col" class="num">Montant</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4">
+              <div class="empty">
+                <strong>Aucune donnee connectee</strong>
+                Ce tableau prendra ses lignes du magasin de donnees choisi au Stage&nbsp;0,
+                via l'API authentifiee du Stage&nbsp;4.
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="view" id="view-projects" data-active="false" data-title="Projets">
+      <div class="view-head">
+        <p class="view-kicker">Missions</p>
+        <h2>Projets</h2>
+        <p>Consolide ordres de mission, contrats et inscriptions.</p>
+      </div>
+
+      <div class="card" style="margin-bottom: 24px">
+        <div class="card-head">
+          <h3>Filtres</h3>
+          <button type="button" class="btn btn-primary btn-sm" data-stage3>Nouveau</button>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="projects-q">Rechercher</label>
+            <input class="input" id="projects-q" type="text" placeholder="Nom, reference, mot-cle" data-stage3>
+          </div>
+          <div class="field">
+            <label for="projects-status">Statut</label>
+            <select class="select" id="projects-status" data-stage3>
+              <option>Tous</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th scope="col">Reference</th><th scope="col">Libelle</th><th scope="col">Statut</th><th scope="col" class="num">Montant</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4">
+              <div class="empty">
+                <strong>Aucune donnee connectee</strong>
+                Ce tableau prendra ses lignes du magasin de donnees choisi au Stage&nbsp;0,
+                via l'API authentifiee du Stage&nbsp;4.
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="view" id="view-planning" data-active="false" data-title="Planning">
+      <div class="view-head">
+        <p class="view-kicker">Calendrier</p>
+        <h2>Planning</h2>
+        <p>Consolide calendrier, RDV et planning (4 modules existants).</p>
+      </div>
+
+      <div class="card" style="margin-bottom: 24px">
+        <div class="card-head">
+          <h3>Filtres</h3>
+          <button type="button" class="btn btn-primary btn-sm" data-stage3>Nouveau</button>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="planning-q">Rechercher</label>
+            <input class="input" id="planning-q" type="text" placeholder="Nom, reference, mot-cle" data-stage3>
+          </div>
+          <div class="field">
+            <label for="planning-status">Statut</label>
+            <select class="select" id="planning-status" data-stage3>
+              <option>Tous</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th scope="col">Reference</th><th scope="col">Libelle</th><th scope="col">Statut</th><th scope="col" class="num">Montant</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4">
+              <div class="empty">
+                <strong>Aucune donnee connectee</strong>
+                Ce tableau prendra ses lignes du magasin de donnees choisi au Stage&nbsp;0,
+                via l'API authentifiee du Stage&nbsp;4.
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="view" id="view-production" data-active="false" data-title="Production">
+      <div class="view-head">
+        <p class="view-kicker">Spectacles</p>
+        <h2>Production</h2>
+        <p>Production, calculateur de spectacle et natures.</p>
+      </div>
+
+      <div class="card" style="margin-bottom: 24px">
+        <div class="card-head">
+          <h3>Filtres</h3>
+          <button type="button" class="btn btn-primary btn-sm" data-stage3>Nouveau</button>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="production-q">Rechercher</label>
+            <input class="input" id="production-q" type="text" placeholder="Nom, reference, mot-cle" data-stage3>
+          </div>
+          <div class="field">
+            <label for="production-status">Statut</label>
+            <select class="select" id="production-status" data-stage3>
+              <option>Tous</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th scope="col">Reference</th><th scope="col">Libelle</th><th scope="col">Statut</th><th scope="col" class="num">Montant</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4">
+              <div class="empty">
+                <strong>Aucune donnee connectee</strong>
+                Ce tableau prendra ses lignes du magasin de donnees choisi au Stage&nbsp;0,
+                via l'API authentifiee du Stage&nbsp;4.
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="view" id="view-finance" data-active="false" data-title="Finance">
+      <div class="view-head">
+        <p class="view-kicker">Comptabilite</p>
+        <h2>Finance</h2>
+        <p>Le plus large : 10 modules existants (factures, devis, banque, caisse, TVA, achats, depenses, fournisseurs, rapports).</p>
+      </div>
+
+      <div class="card" style="margin-bottom: 24px">
+        <div class="card-head">
+          <h3>Filtres</h3>
+          <button type="button" class="btn btn-primary btn-sm" data-stage3>Nouveau</button>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="finance-q">Rechercher</label>
+            <input class="input" id="finance-q" type="text" placeholder="Nom, reference, mot-cle" data-stage3>
+          </div>
+          <div class="field">
+            <label for="finance-status">Statut</label>
+            <select class="select" id="finance-status" data-stage3>
+              <option>Tous</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th scope="col">Reference</th><th scope="col">Libelle</th><th scope="col">Statut</th><th scope="col" class="num">Montant</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4">
+              <div class="empty">
+                <strong>Aucune donnee connectee</strong>
+                Ce tableau prendra ses lignes du magasin de donnees choisi au Stage&nbsp;0,
+                via l'API authentifiee du Stage&nbsp;4.
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="view" id="view-documents" data-active="false" data-title="Documents">
+      <div class="view-head">
+        <p class="view-kicker">Fichiers</p>
+        <h2>Documents</h2>
+        <p>Documentation, camera et sauvegardes. Stockage isole hors racine web (F4).</p>
+      </div>
+
+      <div class="card" style="margin-bottom: 24px">
+        <div class="card-head">
+          <h3>Filtres</h3>
+          <button type="button" class="btn btn-primary btn-sm" data-stage3>Nouveau</button>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="documents-q">Rechercher</label>
+            <input class="input" id="documents-q" type="text" placeholder="Nom, reference, mot-cle" data-stage3>
+          </div>
+          <div class="field">
+            <label for="documents-status">Statut</label>
+            <select class="select" id="documents-status" data-stage3>
+              <option>Tous</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th scope="col">Reference</th><th scope="col">Libelle</th><th scope="col">Statut</th><th scope="col" class="num">Montant</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4">
+              <div class="empty">
+                <strong>Aucune donnee connectee</strong>
+                Ce tableau prendra ses lignes du magasin de donnees choisi au Stage&nbsp;0,
+                via l'API authentifiee du Stage&nbsp;4.
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="view" id="view-reports" data-active="false" data-title="Rapports">
+      <div class="view-head">
+        <p class="view-kicker">Analyses</p>
+        <h2>Rapports</h2>
+        <p>Rapports comptables et tableau statistique.</p>
+      </div>
+
+      <div class="card" style="margin-bottom: 24px">
+        <div class="card-head">
+          <h3>Filtres</h3>
+          <button type="button" class="btn btn-primary btn-sm" data-stage3>Nouveau</button>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="reports-q">Rechercher</label>
+            <input class="input" id="reports-q" type="text" placeholder="Nom, reference, mot-cle" data-stage3>
+          </div>
+          <div class="field">
+            <label for="reports-status">Statut</label>
+            <select class="select" id="reports-status" data-stage3>
+              <option>Tous</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th scope="col">Reference</th><th scope="col">Libelle</th><th scope="col">Statut</th><th scope="col" class="num">Montant</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4">
+              <div class="empty">
+                <strong>Aucune donnee connectee</strong>
+                Ce tableau prendra ses lignes du magasin de donnees choisi au Stage&nbsp;0,
+                via l'API authentifiee du Stage&nbsp;4.
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="view" id="view-settings" data-active="false" data-title="Parametres">
+      <div class="view-head">
+        <p class="view-kicker">Configuration</p>
+        <h2>Parametres</h2>
+        <p>Collaborateurs, natures, roles et permissions (Stage 4).</p>
+      </div>
+
+      <div class="card" style="margin-bottom: 24px">
+        <div class="card-head">
+          <h3>Filtres</h3>
+          <button type="button" class="btn btn-primary btn-sm" data-stage3>Nouveau</button>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="settings-q">Rechercher</label>
+            <input class="input" id="settings-q" type="text" placeholder="Nom, reference, mot-cle" data-stage3>
+          </div>
+          <div class="field">
+            <label for="settings-status">Statut</label>
+            <select class="select" id="settings-status" data-stage3>
+              <option>Tous</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th scope="col">Reference</th><th scope="col">Libelle</th><th scope="col">Statut</th><th scope="col" class="num">Montant</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4">
+              <div class="empty">
+                <strong>Aucune donnee connectee</strong>
+                Ce tableau prendra ses lignes du magasin de donnees choisi au Stage&nbsp;0,
+                via l'API authentifiee du Stage&nbsp;4.
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="view" id="view-inventory" data-active="false" data-title="Inventaire">
+      <div class="view-head">
+        <p class="view-kicker">Stock</p>
+        <h2>Inventaire</h2>
+        <p>Seul module entierement nouveau : aucun equivalent existant.</p>
+      </div>
+
+      <div class="card" style="margin-bottom: 24px">
+        <div class="card-head">
+          <h3>Filtres</h3>
+          <button type="button" class="btn btn-primary btn-sm" data-stage3>Nouveau</button>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="inventory-q">Rechercher</label>
+            <input class="input" id="inventory-q" type="text" placeholder="Nom, reference, mot-cle" data-stage3>
+          </div>
+          <div class="field">
+            <label for="inventory-status">Statut</label>
+            <select class="select" id="inventory-status" data-stage3>
+              <option>Tous</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th scope="col">Reference</th><th scope="col">Libelle</th><th scope="col">Statut</th><th scope="col" class="num">Montant</th></tr>
+          </thead>
+          <tbody>
+            <tr><td colspan="4">
+              <div class="empty">
+                <strong>Aucune donnee connectee</strong>
+                Ce tableau prendra ses lignes du magasin de donnees choisi au Stage&nbsp;0,
+                via l'API authentifiee du Stage&nbsp;4.
+              </div>
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>
