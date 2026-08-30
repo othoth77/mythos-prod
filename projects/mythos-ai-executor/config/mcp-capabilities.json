@@ -9,6 +9,22 @@
         "create_review_comment": { "description": "Post a review comment on a pull request." }
       },
       "required_execution_profiles": ["repo-read", "repo-write"]
+    },
+    "oth-knowledge": {
+      "enabled": false,
+      "description": "Read-only OTH Knowledge access, served by scripts/othk-serve.js over loopback with a bearer token. Declared here so a future OTH MCP client inherits THIS authorization model instead of inventing a second one; no connection detail belongs in this registry by design. Ships disabled: the facade is implemented and tested but not deployed, and enabling it is an owner decision recorded in Git. There is deliberately no write tool — OTH Knowledge ingestion and curation stay on the operator CLI path (projects/oth-knowledge/cli/othk-cli.js), which is what keeps a model-authored statement from ever becoming curated knowledge without a human.",
+      "tools": {
+        "search": { "description": "Search curated knowledge. Bounded query and result count; returns records with provenance, never raw archive content." },
+        "retrieve": { "description": "Fetch one knowledge record by id, with its version history and quarantine state." },
+        "provenance": { "description": "Return the provenance chain of one record: source class, collection, reference, capture and truth times." },
+        "evidence": { "description": "Return the evidence records supporting one claim or fact." },
+        "history": { "description": "Return the version history of one record. Append-only; corrections supersede rather than erase." },
+        "entity": { "description": "Look up an entity by name and list the records linked to it." },
+        "contradictions": { "description": "List registered contradictions awaiting human resolution." },
+        "stats": { "description": "Return record counts by kind. No content." },
+        "audit": { "description": "Return the provenance audit summary, including quarantined records." }
+      },
+      "required_execution_profiles": ["repo-read"]
     }
   }
 }

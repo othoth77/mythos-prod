@@ -537,6 +537,27 @@ Status Center remains the live execution/health authority where integrated.
 
 Do not make OTHMODE, OTH Knowledge, or OTH MCP a competing execution-status database.
 
+## Reconciliation engine — this IS the ecosystem's recon layer
+
+**Status:** IMPLEMENTED · **Evidence:** VERIFIED
+
+`projects/status-center/lib/engine.js` already performs full reconciliation, and it owns nothing — it reads. `runReview()` combines verifiable git facts, the curated evidence registry, the PR ledger and document reconciliation, then compares against the previous immutable snapshot:
+
+- `verifyEvidence()` — evidence collection and verification
+- `reconcileDocuments()` — verifies each classified document exists and surfaces conflicts
+- `discoverRepositories()` — compares the account snapshot against the curated registry; anything present but unclassified becomes `NEW_DISCOVERY`. **Nothing is silently classified.**
+- `compareReviews()` — change detection across immutable, append-only snapshots
+
+Vocabularies it owns: `DISCOVERY_CLASS` (ACTIVE · FOUNDATION · OWNER_DIRECTION · FUTURE_CONCEPT · ARCHIVED · UNKNOWN · NEW_DISCOVERY) and a nine-rung `MATURITY` ladder from IDEA to PRODUCTION_VERIFIED.
+
+**Canonical rule: do not build a separate reconnaissance or reconciliation component.** A "MYTHOS RECON" would duplicate this engine. Extend it, or feed it.
+
+## Discovery feeder
+
+**Status:** IMPLEMENTED · `scripts/status-snapshot.js`
+
+`data/repo-snapshot.json` is the input `discoverRepositories()` compares against. Until 2026-08-30 nothing wrote it — the file asked to be refreshed by hand and had gone stale, so `NEW_DISCOVERY` could not fire. `scripts/status-snapshot.js` writes that one file from the authorized `gh` session, in the schema the engine already reads, and does nothing else. It is not a source of truth: the registry remains the curated layer, and a discovered repository still requires human classification.
+
 ---
 
 # 17. EVOLUTION SYSTEM

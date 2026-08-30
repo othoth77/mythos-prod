@@ -1,0 +1,98 @@
+{
+  "title": "MYTHOS RECON + MCP integration — reconciliation before implementation",
+  "command": "MASTER CONTINUATION — MYTHOS RECON + MCP INTEGRATION (othmode-activated)",
+  "status": "COMPLETED",
+  "started_at": "2026-08-30T20:00:00Z",
+  "finished_at": "2026-08-30T20:45:00Z",
+  "preflight": {
+    "activation": "activated:true, classification:othmode (verified via othmode-cli.js activation)",
+    "branch_at_start": "vps/oth-mcp-20260830",
+    "note": "Branch state was NOT re-verified before implementation began. This directly caused the duplicate recorded under problems."
+  },
+  "status_center": {
+    "reference": "projects/status-center — review engine inspected and reused",
+    "reachable": true,
+    "suites": "stc-1 73/0, stc-2 86/0, stc-ar 50/0 — green after the snapshot refresh"
+  },
+  "search_first": {
+    "verdict_summary": "REUSE for recon and knowledge facade; BUILD only the missing discovery feeder and one capability declaration",
+    "findings": [
+      {
+        "capability": "MYTHOS RECON (discover/compare/classify/reconcile)",
+        "verdict": "REUSE",
+        "evidence": "projects/status-center/lib/engine.js runReview() already performs full reconciliation: verifyEvidence, reconcileDocuments (surfaces conflicts), discoverRepositories (emits NEW_DISCOVERY, nothing silently classified), compareReviews. Owns DISCOVERY_CLASS and a 9-rung MATURITY ladder, and is read-only over the repository.",
+        "action": "Did not build MYTHOS RECON. Documented the engine in the System Index."
+      },
+      {
+        "capability": "MCP capability authorization",
+        "verdict": "REUSE",
+        "evidence": "projects/mythos-ai-executor/lib/mcp-capabilities.js (from 3bbee990) is fail-closed, rejects endpoint/url keys by presence, wired at executor.js:169 and rendered at executor.js:267.",
+        "action": "Extended its config only. No second authorization system."
+      },
+      {
+        "capability": "OTH Knowledge network facade",
+        "verdict": "ALREADY EXISTS — CONSOLIDATE",
+        "evidence": "projects/oth-knowledge/service/othk-http.js plus projects/oth-mcp/server.js exist on this branch (commit 0b6b1d2), created concurrently with this session, with tests othk-5-http-facade (44) and othk-6-mcp-server (36).",
+        "action": "Discarded the duplicate facade this task had written. See problems."
+      },
+      {
+        "capability": "Status Center discovery feeder",
+        "verdict": "BUILD",
+        "evidence": "data/repo-snapshot.json is the input discoverRepositories() reads. Its own capture_method asked for manual refresh and no script in the repository wrote it. Captured 2026-08-20, stale by 10 days, so NEW_DISCOVERY could not fire.",
+        "action": "Built scripts/status-snapshot.js — one file, existing schema, nothing else."
+      }
+    ]
+  },
+  "capabilities": {
+    "declared": "config/mcp-capabilities.json gains an oth-knowledge server with 9 read tools, enabled:false, required_execution_profiles:[repo-read]",
+    "authorization_owner": "lib/mcp-capabilities.js — unchanged",
+    "write_tools": "none — ingestion and curation stay on othk-cli, which is what keeps model-authored statements out of curated knowledge"
+  },
+  "changes": {
+    "created": [
+      "scripts/status-snapshot.js — Status Center discovery feeder"
+    ],
+    "modified": [
+      "projects/mythos-ai-executor/config/mcp-capabilities.json — oth-knowledge declaration (branch previously had only the github server)",
+      "projects/status-center/data/repo-snapshot.json — refreshed 2026-08-20 -> 2026-08-30, 23 -> 24 repositories",
+      "docs/MYTHOS_SYSTEM_INDEX.md — recorded the Status Center reconciliation engine and its feeder"
+    ],
+    "discarded_as_duplicate": [
+      "scripts/othk-serve.js — duplicated projects/oth-knowledge/service/othk-http.js",
+      "tests/othk-5-facade-test.js — collided with tests/othk-5-http-facade-test.js"
+    ]
+  },
+  "git": {
+    "branch": "vps/oth-mcp-20260830",
+    "protected_refs_untouched": "origin/main and origin/feat/erp-redesign unchanged; no force push; no history rewrite; no merge to main"
+  },
+  "validation": {
+    "othk_suites": "othk-0 89/0, othk-1 30/0, othk-2 97/0, othk-3 63/0, othk-4 90/0, othk-5-http-facade 44/0, othk-6-mcp-server 36/0 = 449 passed, 0 failed",
+    "status_center": "stc-1 73/0, stc-2 86/0, stc-ar 50/0 = 209 passed, 0 failed",
+    "registry_fail_closed": "verified — adding a url key is rejected by design; an unknown tool field is rejected",
+    "feeder_effect": "review engine dry-run now reports 'New repo discoveries: 1' (othoth77/spy), previously impossible",
+    "known_environment_failures": "tests/mythos-ai-executor-test.js and tests/mos-1-console-test.js error on this Windows host (TASK_SCHEMA_INVALID root.working_directory; console authenticated undefined). Verified identical with the change reverted — pre-existing environment failures, not regressions. Authoritative validation requires an LF clone on Linux."
+  },
+  "deployment": {
+    "status": "IMPLEMENTED BUT NOT DEPLOYED",
+    "detail": "Nothing deployed, no service restarted, no production configuration changed. The oth-knowledge capability declaration ships enabled:false; enabling it is an owner decision."
+  },
+  "problems": [
+    {
+      "severity": "HIGH",
+      "problem": "A duplicate OTH Knowledge HTTP facade and a colliding test file were written before the branch state was re-checked. An equivalent implementation already existed on the working branch, committed concurrently.",
+      "root_cause": "Implementation began without re-running branch/status inspection at the start of the build phase; the working directory had moved to vps/oth-mcp-20260830.",
+      "resolution": "Both files removed. Consolidated onto the existing implementation, which is committed, better placed and accompanied by an MCP server. Existing suites re-run and green.",
+      "lesson": "Re-verify branch and working-tree state immediately before implementing, not only at session start."
+    },
+    {
+      "severity": "MEDIUM",
+      "problem": "projects/oth-mcp/server.js declares its own TOOLS array and does not consult lib/mcp-capabilities.js.",
+      "assessment": "Not a duplicate authorization system — the registry governs which tools an executor skill may name, while the server's TOOLS is the client-facing surface. They are different concerns.",
+      "resolution": "Recorded, not refactored. Rewiring freshly written, tested code discovered late in the session was judged the riskier action.",
+      "status": "UNRESOLVED — owner decision"
+    }
+  ],
+  "outcome": "Reconciliation prevented three of four candidate components from being built. MYTHOS RECON was not built because the Status Center review engine already is that layer. The knowledge facade was not built twice — the duplicate was withdrawn. Only the genuinely missing discovery feeder and one capability declaration were added.",
+  "next_action": "Owner decisions: (1) classify othoth77/spy, now surfacing as NEW_DISCOVERY; (2) decide whether oth-mcp/server.js should consult lib/mcp-capabilities.js; (3) enable the oth-knowledge capability declaration when the facade is deployed."
+}
