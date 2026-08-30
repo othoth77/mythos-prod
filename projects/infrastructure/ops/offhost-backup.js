@@ -224,7 +224,10 @@ function regenerate(dir, dryRun) {
     o.sha256 = fileHash(p);
   });
   old.database.dump_sha256 = old.objects[0].sha256;
-  old.media.manifest_sha256 = old.objects[1].sha256;
+  // A database-only manifest (see buildManifest()) carries no `media` key and
+  // has no second object to re-checksum here. This branch was missing until
+  // the database-only path existed; the media-bearing branch is unchanged.
+  if (old.media) old.media.manifest_sha256 = old.objects[1].sha256;
   if (!dryRun) write(path.join(dir, 'manifest.json'), JSON.stringify(old, null, 2) + '\n');
   return old;
 }
