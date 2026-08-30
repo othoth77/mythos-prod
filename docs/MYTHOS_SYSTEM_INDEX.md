@@ -213,13 +213,31 @@ Existing boundary:
 - `projects/oth-knowledge/lib/api.js`
 - OTHMODE read-first bridge: `projects/command-center/reference/othmode/memory.js`
 
-## Network gap discovered by independent audit
+## Network boundary — gap CLOSED; facade DEPLOYED, MCP server not
 
-**Status:** VERIFIED audit finding
+**Status:** facade ACTIVE · MCP server IMPLEMENTED, NOT DEPLOYED · **Evidence:** VERIFIED on the host 2026-08-30 21:20 UTC
 
-OTH Knowledge has internal APIs/services but no confirmed general network facade suitable as the shared external boundary for ChatGPT / MCP clients.
+The gap the independent audit named — internal APIs and a CLI, but nothing on the network — is closed in code:
 
-This is one of the smallest structural gaps remaining for OTH MCP.
+- `projects/oth-knowledge/service/othk-http.js` — read-only HTTP facade over `lib/knowledge-service.js`, the boundary that already has no mutator. GET only; every other method is refused before routing. Binds loopback; bearer token required, `/health` open so a probe needs no credential. A missing store is a reportable 503, never an attempt to create one.
+- `projects/oth-mcp/server.js` — the MCP interface layer over that facade and the existing OTHMODE and executor APIs.
+
+Tested: `tests/othk-5-http-facade-test.js` (44) and `tests/othk-6-mcp-server-test.js` (36).
+
+### Runtime state, verified on the host
+
+| | |
+|---|---|
+| Facade | **DEPLOYED** — `oth-knowledge-http.service`, a `deploy`-user unit running `~/oth-mcp/projects/oth-knowledge/service/othk-http.js` |
+| Bind | `127.0.0.1:8150` **only** — confirmed by `ss` and by an external probe that cannot reach it |
+| Exposure | **none** — referenced by no nginx vhost; port 8150 is unreachable from the internet |
+| Auth | enforced — `/health` answers 200 without a token by design, `/stats` answers 401 |
+| MCP server | **NOT DEPLOYED** — no unit, no unit file, no process |
+| Capability entry | `config/mcp-capabilities.json` `oth-knowledge` ships `enabled: false` |
+
+Public exposure remains an owner decision. The facade is loopback-only and must stay behind an authenticated boundary; nothing about the MCP work has opened a network surface.
+
+Ingestion and curation remain on `othk-cli`. The facade declares **no write tool**, which is what keeps a model-authored statement from becoming curated knowledge without a human.
 
 ---
 
