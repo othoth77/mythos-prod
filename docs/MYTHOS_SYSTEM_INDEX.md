@@ -1022,6 +1022,34 @@ Audit snapshot reported:
 
 This is an operational risk to production services and was not represented in the original system index.
 
+### Update 2026-08-30 21:00 UTC — disk risk RESOLVED · **Evidence: VERIFIED on-host as root**
+
+The filesystem risk escalated to **100% full (0 bytes free)** on 2026-08-30, then was recovered.
+
+- root filesystem: **61% used, 29 GB free of 72 GB** (was 98% at the start of the recovery). **27.6 GB reclaimed.** Inodes 11% — never a constraint.
+- swap: still **2.0 GB / 2.0 GB**, but this is **not** active memory pressure — `vmstat` shows **si/so = 0** in steady state, `vm.swappiness=10`, ~2.0 GiB available RAM. These are cold pages parked during the disk-full episode. **Deliberately not resized:** draining swap needs 2 GB of free RAM the host does not comfortably have.
+
+Principal causes and dispositions:
+
+| Consumer | Size | Disposition |
+|---|---|---|
+| `/var/log/syslog` | 14 GB | reclaimed — 90% of it written in **one 63-minute burst** by the SPY descriptor leak, whose fix (`othoth77/spy` @ `5cab760`, test `89fd8c8`) was verified in code *and* at runtime (**12 fds**, vs 1,024 when leaking) **before** any cleanup |
+| n8n pre-vacuum backup | 6.2 GB | **100% empty pages**; proven to hold **0 rows** absent from the live DB; preserved losslessly via `VACUUM INTO` to **2.06 MB** (SHA-256 of all 112 tables identical) rather than deleted |
+| caches (VS Code servers, Chrome/Claude/Chromium, snap, apt, codex tmp) | ~5.2 GB | removed — regenerable only |
+
+**Two unbounded-logging config gaps closed:** `/etc/logrotate.d/rsyslog` had **no size ceiling** (weekly rotation gave a burst six days of headroom) — now `maxsize 500M`; `journald` was uncapped at 1.7 GB — now `SystemMaxUse=500M` / `SystemKeepFree=2G`, currently 381 MB.
+
+**Preserved deliberately:** all Docker volumes and images (the ~1.46 GB of "dangling" volumes are real PostgreSQL clusters and a Coolify staging MySQL volume — unverified data, not waste; and the `<none>`-tagged image `3d0f7584ed7d` is *actively in use* by `idauto-postgres`, so a blanket prune would have been unsafe), the unique pre-Coolify backup in `/root/backups`, Course Intelligence source data and authenticated profiles, Playwright browsers, and `/swapfile`.
+
+**Verified after:** all 20 containers healthy, SPY HTTP 200, rsyslog/journald active, syslog growth back to ~5 MB/day, no missing volumes or project files.
+
+**Open risks surfaced (not storage-caused, still outstanding):**
+1. **`mythos_erp` DB backup capture is failing** on a config/script key mismatch (`MYTHOS_BACKUP_STAGE_ROOT` unrecognised). It broke ~7.5 h *before* the recovery and **still fails after the disk was freed** — so it is a defect, not a capacity symptom. File/media backups still run daily.
+2. **n8n has no off-host backup** — `mythos-backup-db` covers `mythos_erp` only; the live n8n DB exists solely in the `n8n_n8n_data` Docker volume.
+3. `mythos-git-push` fails on a diverged `main` plus a governance DENY — unrelated to storage.
+
+Full evidence: `docs/worklogs/2026-08-30-2100-vps-storage-recovery.md`.
+
 ## Local machine risk
 
 Audit snapshot reported the disk holding the real `oth.db` at approximately **92% full**.
