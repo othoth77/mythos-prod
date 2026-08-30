@@ -260,7 +260,7 @@ Do not create another memory store until this boundary is fully consolidated.
 # 7. CRITICAL DISCOVERY — REAL `oth.db`
 
 **Status:** CRITICAL / VERIFIED by independent local-machine audit  
-**Location reported:** `Desktop\oth-master\data\oth.db`
+**Location reported:** `Desktop\\oth-master\\data\\oth.db`
 
 Independent audit discovered a real local OTH database approximately **29.8 MB** containing approximately:
 
@@ -1158,7 +1158,7 @@ The following must remain explicit until directly reconciled:
 3. Exact deployment/ownership status of AI Budget Manager.
 4. Exact scope and production readiness of MPI schemas/CLIs.
 5. Recovery possibility for lost prompt-versioning source.
-6. Exact branch/repository/path and merge suitability of the 28-commit secure ERP backend.
+6. Exact branch/repository/path and merge suitability of the secure ERP backend.
 7. Exact inventory and purpose of the 7 n8n workflows.
 8. Exact network boundary required for OTH Knowledge and OTH Master.
 9. Current VPS disk/swap state after the audit snapshot.
@@ -1212,3 +1212,239 @@ Search → Verify → Reuse → Extend → Connect → Build Last
 The current ecosystem already contains substantial implementations, runtime services, databases, registries, execution engines, knowledge infrastructure, security boundaries, business modules, data collection patterns, AI workflows, and operational tooling.
 
 The primary engineering objective is now **preservation, integration, consolidation, canonical ownership, and reuse** — not uncontrolled parallel rebuilding.
+
+---
+
+# 50. PRE-EXECUTION RECONCILIATION PROTOCOL
+
+**Status:** CANONICAL OPERATING RULE
+
+Before any major implementation, the executor must first determine what already exists and reconcile it against the requested objective.
+
+Required discovery surfaces:
+
+```text
+GitHub
+Local machine
+VPS / runtime
+Branches
+Commits
+Worklogs
+MYTHOS_SYSTEM_INDEX
+Existing code
+Existing APIs
+Existing databases
+Existing MCP foundation
+Existing Skills
+Existing security controls
+Registries / ledgers
+Deployment state
+```
+
+Required classification:
+
+```text
+EXISTS
+IN PROGRESS
+IMPLEMENTED BUT NOT DEPLOYED
+DUPLICATE
+CONFLICT
+LEGACY
+REUSABLE
+MISSING
+UNKNOWN
+```
+
+Required decision vocabulary:
+
+```text
+REUSE
+EXTEND
+CONSOLIDATE
+RECOVER
+ADAPT
+ARCHIVE
+BUILD
+```
+
+The default is **not BUILD**. Building is the last option after evidence shows that reuse, extension, consolidation, recovery, or adaptation cannot satisfy the requirement.
+
+This protocol exists specifically to prevent duplicate MCPs, memories, identity systems, executors, task systems, registries, APIs, and other competing sources of truth.
+
+---
+
+# 51. PROGRESSIVE MYTHOS RECON
+
+**Status:** CANONICAL DESIGN DECISION
+
+MYTHOS RECON must not perform a full deep audit on every task. It must use progressive depth to minimize token consumption, latency, and unnecessary access.
+
+```text
+Task
+ ↓
+QUICK RECON
+ ↓
+Relevant index / latest worklog / current status / recent Git state
+ ↓
+Is there evidence of overlap, conflict, historical work, security impact,
+or an unknown boundary?
+ ├── NO  → proceed with the normal execution path
+ └── YES → TARGETED RECON
+               ↓
+          relevant files / branches / commits / APIs / runtime
+               ↓
+          unresolved architecture or security issue?
+           ├── NO  → execute
+           └── YES → DEEP RECON
+```
+
+## Token-efficiency rules
+
+- Prefer metadata, registries, indexes, Git graphs, hashes, status, and manifests before reading large source bodies.
+- Narrow the search surface from the task's affected components before opening unrelated repositories or runtime areas.
+- Use LLM reasoning on the evidence set, not on indiscriminately collected raw data.
+- Escalate from Quick → Targeted → Deep only when evidence justifies it.
+- Cache or reuse verified inventory where safe; detect drift instead of rebuilding the inventory from zero.
+
+MYTHOS RECON is an integration/reconciliation layer. It is not a new source of truth, memory database, identity system, execution engine, or authorization system.
+
+---
+
+# 52. CANONICAL ECOSYSTEM REGISTRY — PLANNED FOUNDATION FOR RECON
+
+**Status:** PLANNED / to be derived from verified existing sources
+
+Before implementing a standalone registry, inspect all existing registries and ledgers and consolidate where possible.
+
+The intended machine-readable index should make these dimensions discoverable without requiring a full repository reread:
+
+```text
+PROJECTS
+COMPONENTS
+SERVICES
+APIs
+DATABASES
+SKILLS
+MCP CAPABILITIES
+PROVIDERS
+REPOSITORIES
+BRANCHES
+RUNTIME LOCATIONS
+OWNERSHIP
+SOURCE OF TRUTH
+READ INTERFACE
+WRITE OWNER
+EXECUTION AUTHORITY
+SECURITY BOUNDARY
+DEPENDENCIES
+DEPLOYMENT STATUS
+HISTORICAL IMPLEMENTATIONS
+LEGACY / REPLACEMENT RELATIONSHIPS
+```
+
+The registry must be derived from evidence and must not become a competing source of truth.
+
+The preferred evolution is:
+
+```text
+Existing registries / ledgers
+        ↓
+Canonical reconciled inventory
+        ↓
+Automated refresh / drift detection
+        ↓
+MYTHOS RECON
+```
+
+Do not create multiple parallel registries merely to support RECON.
+
+---
+
+# 53. RECON + MCP IMPLEMENTATION RULE
+
+MYTHOS RECON must be established before broad OTH MCP expansion when the implementation task requires architectural discovery.
+
+The target relationship is:
+
+```text
+ChatGPT / MCP Client
+        ↓
+OTH MCP
+        ↓
+Existing governed capabilities
+        ↓
+MYTHOS RECON when discovery is required
+        ↓
+Canonical services / OTH Knowledge / OTH Master / OTHMODE / Executor
+```
+
+OTH MCP must remain thin and must reuse the existing fail-closed MCP authorization foundation.
+
+MYTHOS RECON must improve visibility and decision quality without acquiring ownership of the systems it inspects.
+
+---
+
+# 54. DOCUMENTATION CONTINUITY RULE
+
+This index is the canonical **current-state memory for architecture and reuse**, not a chronological diary.
+
+Use:
+
+```text
+MYTHOS_SYSTEM_INDEX.md
+= current verified architecture + ownership + reusable prior art + open boundaries
+
+docs/worklogs/
+= chronological execution history for major executions
+```
+
+When a new architectural decision supersedes an old one, update this index rather than creating another permanent architecture document unless a separate artifact is genuinely required.
+
+When a major execution occurs, record its execution history in `docs/worklogs/` and update this index only for durable current-state changes.
+
+Never maintain a permanent duplicate report archive on the local PC.
+
+---
+
+# 55. OPERATING RULE — RECON BEFORE BUILD
+
+For every future major task:
+
+```text
+REQUEST
+  ↓
+QUICK RECON
+  ↓
+IDENTIFY AFFECTED COMPONENTS
+  ↓
+CHECK CANONICAL OWNER
+  ↓
+CHECK EXISTING IMPLEMENTATIONS
+  ↓
+CHECK HISTORICAL / UNMERGED WORK
+  ↓
+CHECK DUPLICATES / CONFLICTS
+  ↓
+CHECK SECURITY / AUTHORITY BOUNDARIES
+  ↓
+DECIDE
+  ├── REUSE
+  ├── EXTEND
+  ├── CONSOLIDATE
+  ├── RECOVER
+  ├── ADAPT
+  ├── ARCHIVE
+  └── BUILD LAST
+  ↓
+IMPLEMENT
+  ↓
+TEST
+  ↓
+SECURITY REVIEW
+  ↓
+UPDATE INDEX
+  ↓
+GITHUB WORKLOG
+```
+
+This rule is part of the canonical MYTHOS operating model and should be preserved across future execution agents and sessions.
