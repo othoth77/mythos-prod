@@ -136,6 +136,7 @@ function main() {
       conversations_considered: rows.length,
       conversations_extracted: 0, conversations_skipped: 0,
       conversations_refused: 0, conversations_failed: 0,
+      conversations_not_renderable: 0,
       messages_processed: 0, messages_rendered: 0, messages_not_rendered: 0,
       statements_selected: 0, claims_created: 0, evidence_created: 0,
       facts_created: 0,
@@ -180,6 +181,25 @@ function main() {
       report.totals.statements_selected += sel.statements.length;
       if (sel.truncated) report.totals.truncated_conversations++;
 
+      // A conversation the selector could not see at all is NOT processed:
+      // no marker, no artifact, nothing persisted, and it stays eligible for
+      // a later run. Recorded with enough metadata to retry.
+      if (sel.messages_rendered === 0) {
+        entry.status = 'not-renderable';
+        entry.error_code = 'CONV_NOT_RENDERABLE';
+        entry.retry = {
+          conversation_id: row.source_id, provider: row.source_provider,
+          message_count: messages.length,
+          first_message_chars: messages.length ? String(messages[0].content || '').length : 0,
+          input_cap_chars: selector.MAX_INPUT_CHARS,
+          reason: 'first message exceeds the selector input cap; raise the cap or render in chunks',
+        };
+        report.totals.conversations_not_renderable++;
+        report.errors.push({ conversation_id: row.source_id, code: 'CONV_NOT_RENDERABLE', message: entry.retry.reason });
+        report.conversations.push(entry);
+        continue;
+      }
+
       const bytes = conversationArtifact(row, messages);
       report.totals.input_chars += bytes.length;
 
@@ -205,6 +225,7 @@ function main() {
         conversation_id: row.source_id,
         collection: 'oth-db',
         message_count: messages.length,
+        messages_rendered: sel.messages_rendered,
         statements: sel.statements,
         selector: sel.selector,
       });

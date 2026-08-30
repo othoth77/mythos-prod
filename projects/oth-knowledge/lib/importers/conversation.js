@@ -88,9 +88,24 @@ function validateStatements(statements, messageCount) {
 //   input.observed_at?     ISO — conversation truth time (source_created_at)
 //   input.collection?      default 'oth-db'
 //   input.message_count?   integer, for position bounds checking
+//   input.messages_rendered? integer — how many messages the selector could
+//                          actually see. 0 means the conversation was never
+//                          examined, so it must NOT be marked processed.
 //   input.selector?        { model, version } — recorded on the marker, never on claims
 function importConversation(store, classes, input) {
   if (!input || !Buffer.isBuffer(input.bytes)) throw fail('OTHK_CONV_INPUT', 'bytes required');
+
+  // A conversation whose first message alone exceeds the selector's input
+  // cap renders zero messages. Nothing was examined, so writing an
+  // extraction marker would retire it permanently on a non-result. Refuse
+  // before anything is persisted; the conversation stays eligible for a
+  // later run with a larger cap or a chunked renderer.
+  if (input.messages_rendered !== undefined
+      && (!Number.isInteger(input.messages_rendered) || input.messages_rendered < 1)) {
+    throw fail('OTHK_CONV_NOT_RENDERABLE',
+      'zero messages were rendered for conversation ' + String(input.conversation_id).slice(0, 80)
+      + '; nothing was examined, so no extraction marker is written and the conversation remains eligible for reprocessing');
+  }
   if (typeof input.captured_at !== 'string' || !input.captured_at) throw fail('OTHK_CONV_INPUT', 'captured_at required');
   if (SUPPORTED_CLASSES.indexOf(input.source_class) === -1) {
     throw fail('OTHK_CONV_INPUT', 'source_class must be one of: ' + SUPPORTED_CLASSES.join('|'));

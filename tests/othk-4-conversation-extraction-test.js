@@ -333,6 +333,45 @@ console.log('\nI. truncation and identity posture');
   ok(factCount(S) === 0, 'F2f: zero facts after the identity-posture run');
 }
 
+console.log('\nJ. zero-render regression — a conversation nobody could read is NOT retired');
+{
+  const S = storeLib.openStore(tmpRoot());
+  const call = (rendered) => conv.importConversation(S, CLASSES, {
+    bytes: artifactBytes('conv-500'), filename: 'conv-500.json', captured_at: CAP, observed_at: OBS,
+    source_class: 'claude', conversation_id: 'conv-500', collection: 'oth-db',
+    message_count: 3, messages_rendered: rendered, statements: statements(),
+  });
+
+  expectError(() => call(0), /OTHK_CONV_NOT_RENDERABLE/, 'J1: zero rendered messages refused');
+  ok(S.stats().records === 0, 'J2: nothing persisted — no artifact, no document, no chunk');
+  ok(S.allRecords({ kind: 'derived' }).length === 0, 'J3: NO extraction marker written');
+  ok(conv.alreadyExtracted(S, { source_class: 'claude', source_collection: 'oth-db', conversation_id: 'conv-500' }) === null,
+    'J4: the conversation is still eligible for reprocessing');
+  ok(factCount(S) === 0, 'F2g: zero facts after a not-renderable refusal');
+
+  // The retry path: once the conversation can be rendered, it processes normally.
+  const r = call(3);
+  ok(r.claims === 2, 'J5: retry succeeds once messages can be rendered');
+  ok(S.allRecords({ kind: 'derived' }).length === 1, 'J6: the marker is written only on a real result');
+  ok(conv.alreadyExtracted(S, { source_class: 'claude', source_collection: 'oth-db', conversation_id: 'conv-500' }) !== null,
+    'J7: only now is the conversation marked processed');
+
+  // Backwards compatible: callers that do not report a render count still work.
+  const S2 = storeLib.openStore(tmpRoot());
+  const r2 = conv.importConversation(S2, CLASSES, {
+    bytes: artifactBytes('conv-501'), filename: 'conv-501.json', captured_at: CAP,
+    source_class: 'claude', conversation_id: 'conv-501', collection: 'oth-db',
+    message_count: 3, statements: statements(),
+  });
+  ok(r2.claims === 2, 'J8: messages_rendered is optional — omitting it is unchanged behaviour');
+  expectError(() => conv.importConversation(S2, CLASSES, {
+    bytes: artifactBytes('conv-502'), filename: 'conv-502.json', captured_at: CAP,
+    source_class: 'claude', conversation_id: 'conv-502', collection: 'oth-db',
+    message_count: 3, messages_rendered: -1, statements: statements(),
+  }), /OTHK_CONV_NOT_RENDERABLE/, 'J9: a negative render count is refused too');
+  ok(factCount(S2) === 0, 'F2h: zero facts after the retry path');
+}
+
 console.log('');
 console.log('othk-4: ' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);
