@@ -86,6 +86,48 @@ function mediaEntries(mediaDir) {
 
 function buildManifest(opts) {
   var db = discoverDb(opts.dbDir);
+  // Database-only capture set: no media store to reconcile against (e.g. a
+  // plain-relational service like mythos_erp, which has no content-addressed
+  // media of any kind). Every function downstream of this one — stage,
+  // verifyLocal, push, verifyRemote, restoreVerify, retention — already
+  // operates generically over manifest.objects/created_at_utc and does not
+  // reference media unless the manifest itself carries a `media` key
+  // (verifyLocal's consistency check is already `m.database && m.media &&
+  // ...`), so this is the only branch point the media-optional case needs.
+  // The media-present path below is completely unchanged.
+  if (!opts.mediaDir) {
+    var dbTimeOnly = new Date(opts.databaseCapturedAt || fs.statSync(db).mtime).toISOString();
+    var dbRelOnly = 'database/' + path.basename(db);
+    var dbObjOnly = {
+      rel: dbRelOnly,
+      sha256: fileHash(db),
+      size: fs.statSync(db).size
+    };
+    return {
+      format_version: FORMAT_VERSION,
+      created_at_utc: new Date(opts.now || Date.now()).toISOString(),
+      tool_version: TOOL_VERSION,
+      source_host_identifier: String(opts.host || os.hostname()),
+      database: {
+        dump_filename: path.basename(db),
+        dump_sha256: dbObjOnly.sha256
+      },
+      capture: {
+        order: [ 'database' ],
+        database_captured_at_utc: dbTimeOnly,
+        separately_captured: false
+      },
+      consistency: {
+        state: 'CONSISTENT',
+        claim: 'database-only capture; no media component'
+      },
+      objects: [ {
+        path: dbObjOnly.rel,
+        sha256: dbObjOnly.sha256,
+        size: dbObjOnly.size
+      } ]
+    };
+  }
   var mmPath = path.join(opts.mediaDir, 'manifest.json');
   var mm = readJson(mmPath);
   var entries = mediaEntries(opts.mediaDir);
