@@ -1466,3 +1466,50 @@ GITHUB WORKLOG
 ```
 
 This rule is part of the canonical MYTHOS operating model and should be preserved across future execution agents and sessions.
+
+---
+
+# 56. SECURITY HARDENING — DEFERRED BY OWNER DECISION
+
+**Status:** CANONICAL OPERATING DECISION · recorded 2026-08-30 · **must survive future executions**
+
+Security hardening is **deliberately deferred** to a dedicated future mission. It is not backlog and not an oversight: the owner decided that the ecosystem's security posture is to be addressed as one comprehensive audit-and-harden operation, not as scattered single-port fixes made opportunistically during unrelated work.
+
+## Standing rules until that mission begins
+
+1. Do not expose a new public service merely for convenience.
+2. Do not weaken authentication or authorization.
+3. Do not move sensitive personal data to the VPS merely to simplify integration.
+4. Do not disable fail-closed security controls.
+5. Do not make opportunistic security changes during unrelated work.
+6. Record newly discovered security risks here and in the execution worklog — **leave remediation to the dedicated mission**, unless immediate action is required to prevent active damage.
+
+A future execution that "helpfully" fixes one of the items below is violating this decision, not improving the system.
+
+## Known risk register — RISKS, not work items
+
+Recorded so they are not rediscovered as if new. None is scheduled; none is to be remediated outside the dedicated mission.
+
+| # | Risk | Evidence | Class |
+|---|---|---|---|
+| S-1 | Coolify management surface reachable from the internet on port 8000 over **plain HTTP**, serving a login redirect — management credentials would cross the network unencrypted | external probe → `302` to `/login`, `Server: nginx` | HIGH |
+| S-2 | Root desktop reachable on port 6082. Authentication is enforced (`401` over TLS), but the surface is a root desktop | external probe → `401` | HIGH |
+| S-3 | Ports 6001 (`200`) and 6002 (`404`) bound to `0.0.0.0` and publicly reachable; owning services **not identified** from the `deploy` channel | `ss -tlnp`, external probe | MEDIUM — needs identification before classification |
+| S-4 | n8n has **no verified off-host backup** — no n8n directory exists under the backup root | `ls ~/mythos-backups` | MEDIUM |
+| S-5 | Legacy ERP docroot gated at the server while its own config asserts a stale "no DNS record" premise | vhost comments vs live resolution | MEDIUM |
+| S-6 | Existing backup-chain failures **must remain fail-closed** — the database chain correctly refuses on an unprovisioned target. Do not create the database, relax the preflight, or fake a green status to silence it | `backup-health-db.json` `last_success_at: ""` | CONTROL TO PRESERVE |
+
+**Verified as correctly closed and to be kept that way:** OTH Knowledge facade (`8150`) and AI Executor (`8130`) are loopback-only and unreachable externally; the MCP capability registry rejects `endpoint`/`url` keys by construction; knowledge writes remain on the operator CLI; `mythosadmin` holds a six-command sudo allowlist; `deploy` is excluded from the docker group.
+
+## Shape of the future mission
+
+```text
+FULL SECURITY RECON → THREAT MODEL → EXPOSURE INVENTORY →
+AUTHORIZATION REVIEW → NETWORK REVIEW → DATA/SECRET REVIEW →
+BACKUP/RECOVERY REVIEW → HARDENING → PENETRATION-STYLE VALIDATION →
+REGRESSION TEST → FINAL SECURITY AUDIT → GITHUB EXECUTION REPORT
+```
+
+Scope covers the OS, SSH, users and privileges, root access, firewall, exposed ports, Coolify, nginx/TLS, authentication, CORS, public management interfaces, Docker and container isolation, MCP exposure, the OTH Knowledge facade, OTHMODE, Mythos OS, databases, backups, R2/off-host storage, secrets and environment variables, API keys, GitHub repositories/permissions/Actions, dependency and supply-chain risk, log leakage, filesystem permissions, network segmentation, monitoring and alerting, recovery and disaster-recovery procedures, credential rotation, and least-privilege boundaries.
+
+**No new security subsystem is to be created.** The mission consolidates and hardens the controls MYTHOS already has, under the same principle as everything else: SEARCH FIRST → RECONCILE → REUSE → HARDEN EXISTING → BUILD ONLY IF ACTUALLY MISSING.

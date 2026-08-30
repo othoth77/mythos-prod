@@ -1,0 +1,54 @@
+{
+  "title": "Security hardening deferred to a dedicated mission — decision recorded",
+  "command": "SECURITY HARDENING DEFERRED — OTH / MYTHOS (othmode-activated)",
+  "status": "COMPLETED",
+  "started_at": "2026-08-30T21:35:00Z",
+  "finished_at": "2026-08-30T21:45:00Z",
+  "preflight": {
+    "activation": "activated (standalone OTHMODE present in the command)",
+    "branch": "vps/oth-mcp-20260830",
+    "nature": "documentation-only; an owner decision was recorded, no system was changed"
+  },
+  "status_center": {
+    "reference": "no Status Center write — this decision is an index-level operating rule, not an execution-status change",
+    "reachable": true
+  },
+  "search_first": {
+    "verdict": "EXTEND",
+    "evidence": "The index carried no dedicated security section (sections ran to 55) and the individual risks appeared only scattered across unrelated sections. Extended the index with one consolidated section rather than creating a security subsystem, per the explicit instruction not to build one.",
+    "duplication_check": "grep confirmed exactly one '# 56. SECURITY HARDENING' heading and no pre-existing deferral section added by concurrent work"
+  },
+  "capabilities": {
+    "changed": "none",
+    "note": "No authorization, authentication or fail-closed control was touched. No port opened, no service exposed, no credential handled."
+  },
+  "changes": {
+    "created": [
+      "projects/command-center/data/pending-task-imports/2026-08-30-security-hardening-deferred.json"
+    ],
+    "modified": [
+      "docs/MYTHOS_SYSTEM_INDEX.md — new section 56 recording the deferral decision, six standing rules, a six-item known-risk register, the controls to preserve, and the future mission's scope and sequence"
+    ],
+    "remediation_performed": "NONE — deliberately. Remediation belongs to the dedicated security mission."
+  },
+  "git": {
+    "branch": "vps/oth-mcp-20260830",
+    "protected_refs": "origin/main and origin/feat/erp-redesign untouched; no force push; no merge to main"
+  },
+  "validation": {
+    "privacy_review": "0 credential-, token- or email-shaped strings in the addition; risks described by class and evidence type, never by secret value",
+    "duplication": "single section heading confirmed; risks previously scattered are now consolidated without removing their original context",
+    "tests": "not re-run — the change is documentation only and touches no executable path"
+  },
+  "deployment": {
+    "status": "NOT APPLICABLE",
+    "detail": "Nothing deployed, restarted or reconfigured."
+  },
+  "problems": [],
+  "evolution": {
+    "qualifies": false,
+    "reason": "Recording an owner operating decision is not an evolution event under the existing rules; no signal, gene or capsule applies."
+  },
+  "outcome": "Security hardening is now a recorded canonical operating decision rather than an implicit backlog. Six known risks (Coolify plain-HTTP management surface, root desktop exposure, two unidentified public ports, n8n lacking off-host backup, stale ERP exposure premise) are registered as RISKS, explicitly not as work items. The fail-closed database backup chain is recorded as a control to preserve, with an explicit prohibition on provisioning the database or relaxing the preflight to silence it. A future execution that opportunistically fixes one of these is violating the decision.",
+  "next_action": "None in this stream. The dedicated security mission runs the recorded sequence: FULL SECURITY RECON -> THREAT MODEL -> EXPOSURE INVENTORY -> AUTHORIZATION REVIEW -> NETWORK REVIEW -> DATA/SECRET REVIEW -> BACKUP/RECOVERY REVIEW -> HARDENING -> PENETRATION-STYLE VALIDATION -> REGRESSION TEST -> FINAL SECURITY AUDIT -> GITHUB EXECUTION REPORT."
+}
