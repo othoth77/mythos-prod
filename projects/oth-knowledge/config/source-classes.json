@@ -20,6 +20,21 @@
       "title": "NotebookLM notebooks and sources",
       "policy": "content"
     },
+    "claude": {
+      "title": "Claude conversation exports",
+      "policy": "content",
+      "notes": "Chat export archived in OTH Master (oth.db, source_provider='claude'). Statements extracted from these conversations enter as CLAIMS asserted by 'claude:user' or 'claude:assistant' — never as facts. Trust tier is model-output even for user turns, because the provenance is an export and not a verified owner report."
+    },
+    "deepseek": {
+      "title": "DeepSeek conversation exports",
+      "policy": "content",
+      "notes": "Chat export archived in OTH Master (oth.db, source_provider='deepseek'). Same claim-only rule as the claude class."
+    },
+    "chatgpt": {
+      "title": "ChatGPT conversation exports",
+      "policy": "content",
+      "notes": "Registered ahead of use. No ChatGPT export has been imported into oth.db as of 2026-08-30, and adapters/chatgpt has not been validated against a real export. Same claim-only rule as the claude class."
+    },
     "google-other": {
       "title": "Other Google data discovered during ingestion",
       "policy": "content",
