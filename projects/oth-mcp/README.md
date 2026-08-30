@@ -89,7 +89,7 @@ client runs it **over SSH** — no new public port, no new attack surface:
     "oth": {
       "command": "ssh",
       "args": ["deploy@51.68.226.211",
-               "node", "/home/deploy/projects/mythos-prod/projects/oth-mcp/server.js"]
+               "/home/deploy/deployments/oth-mcp/oth-mcp-stdio.sh"]
     }
   }
 }
@@ -97,6 +97,31 @@ client runs it **over SSH** — no new public port, no new attack surface:
 
 Tokens live in the `deploy` environment on the host, never in the client
 config.
+
+### Why a launcher and not `node server.js`
+
+`ssh host command` runs a **non-interactive** shell, so `~/.bashrc` returns
+before exporting anything — the per-upstream tokens would never reach the
+process, and every credentialed tool would report its upstream unavailable.
+`deployments/oth-mcp/oth-mcp-stdio.sh` sources them from a 0600 env file
+beside it and `exec`s the server on the same stdio. It opens no port and
+grants no authority; it is the same runtime-config pattern the
+`oth-knowledge-http` deployment already uses.
+
+### Deployed paths (verified 2026-08-30)
+
+| | Path |
+|---|---|
+| Server | `/home/deploy/oth-mcp/projects/oth-mcp/server.js` |
+| Launcher | `/home/deploy/deployments/oth-mcp/oth-mcp-stdio.sh` (0750, `deploy`) |
+| Environment | `/home/deploy/deployments/oth-mcp/.env` (0600, `deploy`, never committed) |
+
+The server lives in the `/home/deploy/oth-mcp` worktree, which is checked out
+at the branch that carries it — the same worktree the running
+`oth-knowledge-http.service` executes from. It is **not** under
+`/home/deploy/projects/mythos-prod`: that worktree tracks `main`, which does
+not carry `projects/oth-mcp`. Pointing a client there yields "Cannot find
+module".
 
 ## Why no `@modelcontextprotocol/sdk`
 

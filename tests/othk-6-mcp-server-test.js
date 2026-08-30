@@ -117,10 +117,21 @@ function listen(server) {
 
   // Knowledge is configured; every other upstream is deliberately NOT, so
   // the unavailable path is exercised against a real absence.
+  //
+  // The URLs are pinned to a closed port, not left at their defaults. OTHMODE
+  // declares requiresToken:false (its read model is served with auth:false),
+  // so clearing its token no longer makes it unavailable — on a host where
+  // OTHMODE is actually running, the default URL would answer 200 and section
+  // E would assert fail-closed behaviour against a live upstream. Port 9 is
+  // the discard port: reserved, never served, so "unavailable" means the same
+  // thing on a developer laptop and on the deployment host.
+  const CLOSED = 'http://127.0.0.1:9';
   const client = startClient({
     OTH_MCP_KNOWLEDGE_URL: kbUrl,
     OTH_MCP_KNOWLEDGE_TOKEN: TOKEN,
+    OTH_MCP_OTHMODE_URL: CLOSED,
     OTH_MCP_OTHMODE_TOKEN: '',
+    OTH_MCP_EXECUTOR_URL: CLOSED,
     OTH_MCP_EXECUTOR_TOKEN: '',
   });
 

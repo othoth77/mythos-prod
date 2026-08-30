@@ -212,13 +212,22 @@ Existing boundary:
 - `projects/oth-knowledge/lib/api.js`
 - OTHMODE read-first bridge: `projects/command-center/reference/othmode/memory.js`
 
-## Network gap discovered by independent audit
+## Network gap discovered by independent audit — CLOSED 2026-08-30
 
-**Status:** VERIFIED audit finding
+**Status:** VERIFIED — gap closed, facade deployed and running
 
-OTH Knowledge has internal APIs/services but no confirmed general network facade suitable as the shared external boundary for ChatGPT / MCP clients.
+OTH Knowledge had internal APIs/services but no network facade suitable as the shared boundary for MCP clients. That gap is closed.
 
-This is one of the smallest structural gaps remaining for OTH MCP.
+```text
+projects/oth-knowledge/service/othk-http.js      the facade (read-only)
+oth-knowledge-http.service                       systemd USER unit, user `deploy`
+127.0.0.1:8150                                   loopback only — no public exposure
+/home/deploy/othk-store                          the store it serves
+```
+
+Verified on the host 2026-08-30: `/health` reports `store_available: true` and `read_only: true`; an unauthenticated read answers **401**; `POST` answers **405** before routing, so a write path cannot be added by accident; a missing store is a **503**, never an invented empty answer. The facade serves `lib/knowledge-service.js` only — the provider-neutral read boundary — so ingestion and curation stay on `othk-cli`.
+
+It has no access to `oth.db`, which is not on this host.
 
 ---
 
@@ -408,6 +417,26 @@ Canonical rule:
 OTH MCP must reuse existing capability authorization.
 It must not introduce a parallel permissions system.
 ```
+
+## Reconciliation 2026-08-30 — the two layers face opposite directions
+
+**Status:** VERIFIED by reading both implementations
+
+The rule above was written before `projects/oth-mcp/server.js` existed, and reads as though one layer should call the other. It should not. They govern different directions of traffic:
+
+| | `projects/mythos-ai-executor/lib/mcp-capabilities.js` | `projects/oth-mcp/server.js` |
+|---|---|---|
+| Direction | **outbound** — MYTHOS as MCP *client* | **inbound** — MYTHOS as MCP *server* |
+| Governs | which `server.tool` names a skill running under an execution profile may name | which of its own 7 read tools an external client may call |
+| Holds | no network code, no client, no credentials — its own header says so | one `GET`, per-upstream token, no other verb |
+| Registry today | `config/mcp-capabilities.json`: one server (`github`), `enabled: false`, no credential on the host | a closed `TOOLS` array; `tools/call` on an unlisted name returns `No such tool` |
+
+Wiring `mcp-capabilities.js` into the server would not add a boundary — it decides nothing about inbound tools — and would couple a governed config-time registry to a process that must stay thin. **The separation is intentional; no wiring was performed.** `mcp-capabilities.js` remains the already-governed list for the future outbound client, exactly as its header states.
+
+Both fail closed, independently and for their own direction:
+
+- inbound — an unknown tool name is rejected, and version 1 exposes **no** write tool; verified against the running server with the official MCP Inspector, and by raw JSON-RPC that bypasses the client's own tool check.
+- outbound — an invalid registry disables capability resolution entirely, and any `endpoint`/`url` key at any depth is rejected by its presence.
 
 ---
 
