@@ -10,6 +10,7 @@ This index is not itself runtime truth. It records verified findings and clearly
 
 **Initial research snapshot:** 2026-08-30  
 **Independent ecosystem audit incorporated:** 2026-08-30  
+**Execution mission incorporated:** 2026-08-30 — OTH MCP and the OTH Knowledge read-only facade built, tested and running (§41); SPY connection-leak incident diagnosed and fixed (§44).  
 **Primary repository:** `othoth77/mythos-prod`  
 **Default branch:** `main`
 
