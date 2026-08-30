@@ -891,46 +891,59 @@ Resolve boundaries; do not add another store by default.
 
 ---
 
-# 41. MCP DESIGN — UPDATED AFTER INDEPENDENT AUDIT
+# 41. OTH MCP — BUILT AND RUNNING (was: design)
 
-The future OTH MCP must be a **thin integration layer**, not a new platform.
+**Status:** ACTIVE / read-only
+**Evidence:** VERIFIED — driven over SSH against production on 2026-08-30
 
-Target:
+The structural gap this section previously described as "still needed" has been closed. Both components exist, are tested, and are running.
 
-```text
-ChatGPT / Claude / other MCP client
-              ↓
-           OTH MCP
-              ↓
- existing canonical services / registries
+## 41.1 OTH Knowledge read-only HTTP facade
+
+**Location:** `projects/oth-knowledge/service/othk-http.js`
+**Runtime:** `oth-knowledge-http.service` (deploy user unit), `127.0.0.1:8150`, **not published by any nginx vhost**
+**Status:** ACTIVE · **Evidence:** VERIFIED — 37 records served from `~/othk-store`
+
+The one thing every audit named: OTH Knowledge had a CLI and an in-process JS API, so nothing on the network could read it. It now serves `lib/knowledge-service.js` — which was already the provider-neutral read boundary — over HTTP.
+
+- Every route is GET. `POST/PUT/PATCH/DELETE` are refused **405 before routing**, so a write cannot be added by accident.
+- Bearer token, constant-time comparison; `/health` open so a probe needs no credential.
+- A missing store is a reported **503**, never an attempt to create one. `openStore()` is lazy and would otherwise answer "0 records" where the truthful answer is "there is no store here" — the same guard OTHMODE's memory bridge applies before opening the same service.
+
+Routes: `/health` `/stats` `/search` `/records/:id` `/records/:id/{provenance,evidence,history,trust}` `/entities` `/contradictions` `/current-state` `/audit`
+
+## 41.2 OTH MCP server
+
+**Location:** `projects/oth-mcp/server.js` · **README:** `projects/oth-mcp/README.md`
+**Transport:** JSON-RPC 2.0 over stdio, **dependency-free**
+**Status:** ACTIVE / READ-ONLY · **Evidence:** VERIFIED end to end
+
+Seven tools, each naming the system that owns its data:
+
+| Tool | Owner | Verified live |
+|---|---|---|
+| `knowledge_search` | OTH Knowledge | 3 hits from the real store |
+| `knowledge_get` | OTH Knowledge | record + provenance / evidence / history |
+| `project_context` | `projects/meta` via OTHMODE | 21 projects |
+| `capability_registry` | OTHMODE read model | 31 skills |
+| `execution_status` | Mythos AI Executor | 11 tasks |
+| `execution_report` | Mythos AI Executor | structured task report |
+| `system_health` | Status Center | LIVE 19 / DOWN 1 |
+
+**Transport decision — no new public port.** Every upstream binds loopback, and MCP speaks stdio, so the client runs the server **over SSH**:
+
+```json
+{ "mcpServers": { "oth": { "command": "ssh",
+    "args": ["deploy@51.68.226.211", "/home/deploy/bin/oth-mcp"] } } }
 ```
 
-The independent audit materially reduces the required MCP scope:
+The launcher reads each upstream's own credential from a 0600 file on the host. **The client never holds a MYTHOS token**, and no port was added to the public surface.
 
-- execution already has HTTP/REST paths
-- ChatGPT→Claude patterns already exist
-- n8n workflows already exist
-- MCP capability authorization already exists
-- OTHMODE registries already exist
-- OTH Knowledge internal API already exists
+**Dependency decision, measured:** `@modelcontextprotocol/sdk` installs **91 packages / 24 MB** (express, hono, cors, jose, OAuth/SSE) to provide, for a stdio server, the same three methods this file implements. Not proportionate in front of personal knowledge, in a repository whose `oth-knowledge` and `mythos-ai-executor` cores carry no dependencies. Revisit if HTTP/SSE transport, OAuth or resource subscriptions are ever needed. Recorded with evidence in the README.
 
-## Smallest structural gap
+**Write boundary:** version 1 is read-only *by construction* — the only upstream verb in the source is `GET`. Execution, curation and evolution keep their existing gates (executor policy + deny-by-default budget, `othk-cli` curation, OTHMODE owner-only HIGH-risk approval). A write increment must route **through** those gates, never around them.
 
-A network-facing facade/adapter is still needed for knowledge/context systems that do not expose the required shared network boundary.
-
-Likely pattern:
-
-```text
-OTH MCP
-  ↓
-existing MCP capability authorization
-  ↓
-thin HTTP/service adapter
-  ↓
-OTH Knowledge existing API/service
-```
-
-OTH Master may require a separate thin adapter according to its final canonical role.
+**Tests:** `tests/othk-5-http-facade-test.js` (44) · `tests/othk-6-mcp-server-test.js` (36, drives the server over stdio as a real client).
 
 ## MCP must NOT create
 
@@ -1013,14 +1026,51 @@ Most nodes already exist. The work is primarily **integration and boundary conso
 
 ## VPS resource pressure
 
-**Status:** OPERATIONAL RISK / VERIFIED by audit
+**Status:** OPERATIONAL RISK / VERIFIED
 
-Audit snapshot reported:
+- swap: **2.0 GB / 2.0 GB consumed (100%)** — unchanged
+- root filesystem: **98% used** (was 83%; reached **100%, 0 bytes free** on 2026-08-30)
 
-- swap: **2.0 GB / 2.0 GB consumed (100%)**
-- root filesystem: approximately **83% used**
+## 2026-08-30 disk-full incident — cause found and fixed
 
-This is an operational risk to production services and was not represented in the original system index.
+**Status:** CAUSE FIXED · **residual cleanup needs root** · **Evidence:** VERIFIED
+
+The host reached 100% disk. `/var/log/syslog` alone was **14 GB**, grown in a single day (the previous day's rotated file is 132 MB).
+
+Cause chain, verified end to end:
+
+1. SPY (`spy.service`) kept one SQLite connection per thread and registered every connection it ever handed out, draining the registry only at shutdown.
+2. `scheduler._tick()` builds a **fresh `ThreadPoolExecutor` on every tick**, and Starlette runs SPY's 31 sync endpoints on anyio's own worker threads. Those threads end constantly, each leaving a connection open — two file descriptors, the database and its WAL.
+3. Measured on the live process: **508 handles to `spy.db` + 508 to `spy.db-wal` = 1,016 of a 1,024 limit.**
+4. At the limit, asyncio's `_accept_connection` caught `EMFILE`, logged a full traceback and retried immediately — several times per millisecond.
+5. That filled the disk, which then stopped `mythos-status-monitor`, `sysstat-collect`, the root-side backup capture and the GitHub delivery relay.
+
+**Fixed** in `othoth77/spy` (`master` @ `89fd8c8`): `db.py` records the owning thread and reaps connections whose thread has ended; `scheduler.py` closes in a `finally` around each source run, mirroring `discovery.py`. Deployed and verified — the process now holds **12** file descriptors where it held 1,024. `tests/test_db_connections.py` adds 9 assertions; the SPY suite is **386 passed, 0 failed**.
+
+**Still requires root:** `/var/log/syslog` is 14 GB and owned `syslog:adm`. `deploy` cannot truncate it and it is outside the `mythosadmin` sudo allowlist. Safe one-liner for the owner:
+
+```bash
+sudo truncate -s 0 /var/log/syslog
+```
+
+rsyslog keeps the same inode and continues writing. That reclaims ~14 GB of a 72 GB disk. The leak that produced it is closed, so it will not regrow.
+
+## External attack surface — measured from outside the host
+
+**Status:** HIGH / VERIFIED by external connection test on 2026-08-30
+
+| Port | Reachable from the internet | What it is |
+|---|---|---|
+| 22, 80, 443 | ✅ open | SSH, nginx — expected |
+| **8000** | ✅ open | **Coolify dashboard, direct** — bypasses the `panel.mythosprod.xyz` TLS vhost |
+| **6001** | ✅ open | **Soketi (Coolify realtime), answers 200 unauthenticated with `Access-Control-Allow-Origin: *`** |
+| **6002** | ✅ open | Coolify websocket/terminal companion |
+| **6082** | ✅ open | root noVNC — auth-gated (401), but a **root desktop** on the public internet |
+| 631 | filtered | CUPS — listening on `0.0.0.0` but not reachable |
+
+The Coolify stack publishes 8000/6001/6002 on all interfaces from Docker, which is why they do not appear in `nginx/sites-enabled` and why `deploy` cannot see the owning processes. Constraining them is a root/Docker action.
+
+**The new components add nothing here:** the OTH Knowledge facade binds `127.0.0.1:8150` and is referenced by no nginx site, and OTH MCP travels over SSH — **no port was added to the public surface.**
 
 ## Local machine risk
 
