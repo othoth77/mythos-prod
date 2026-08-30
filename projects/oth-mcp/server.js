@@ -56,6 +56,13 @@ var UPSTREAMS = {
     owner: 'OTHMODE (Command Center)',
     base: process.env.OTH_MCP_OTHMODE_URL || 'http://127.0.0.1:3021',
     token: process.env.OTH_MCP_OTHMODE_TOKEN || null,
+    // OTHMODE's read model (projects, skills, tools, providers, health,
+    // status, history) is served with auth:false by its own route table —
+    // verified against the running service. Demanding a token here would
+    // add no security and would only break a working public read; the real
+    // boundary for these routes is host access. A token IS sent when one is
+    // configured, so an authenticated route works the day it is exposed.
+    requiresToken: false,
     note: 'control plane read model: projects, skills, tools, providers, health, history',
   },
   executor: {
@@ -67,7 +74,8 @@ var UPSTREAMS = {
   status: {
     owner: 'Status Center',
     base: process.env.OTH_MCP_STATUS_URL || 'https://status.mythosprod.xyz',
-    token: null, // public by design
+    token: null,
+    requiresToken: false, // published health data, public by design
     note: 'observability: probes, health, review snapshots',
   },
 };
@@ -80,7 +88,7 @@ function upstreamGet(key, pathAndQuery) {
   return new Promise(function (resolve, reject) {
     var up = UPSTREAMS[key];
     if (!up) return reject(fail('UPSTREAM_UNKNOWN', 'unknown upstream: ' + key));
-    if (up.token === null && key !== 'status') {
+    if (up.requiresToken !== false && !up.token) {
       return reject(fail('UPSTREAM_UNCONFIGURED',
         up.owner + ' has no token configured on this host; set OTH_MCP_' + key.toUpperCase() + '_TOKEN'));
     }
