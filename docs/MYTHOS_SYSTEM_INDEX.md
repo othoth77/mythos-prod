@@ -2,145 +2,166 @@
 
 ## Purpose
 
-This document is the canonical **inventory and reuse index** for the systems, engines, architectures, registries, modules, protocols, and proven patterns already created across the MYTHOS ecosystem.
+This document is the canonical **inventory and reuse index** for systems, engines, runtimes, architectures, registries, modules, protocols, infrastructure, and proven patterns already created across the MYTHOS / OTH ecosystem.
 
-Its purpose is simple:
+> **Before building anything new: discover what already exists, identify its canonical owner, verify its real status, and reuse / extend / connect it before creating a duplicate.**
 
-> **Before building anything new, find what already exists, identify its owner, determine whether it is implemented or only designed, and reuse/extend/connect it before creating a duplicate.**
+This index is not itself runtime truth. It records verified findings and clearly marks findings that still require direct verification.
 
-This is an inventory, not a replacement for the implementation documents or source code.
-
-**Research snapshot:** 2026-08-30
-**Primary repository:** `othoth77/mythos-prod`
+**Initial research snapshot:** 2026-08-30  
+**Independent ecosystem audit incorporated:** 2026-08-30  
+**Primary repository:** `othoth77/mythos-prod`  
 **Default branch:** `main`
 
 ---
 
-# 1. SYSTEM MAP
+# 1. EVIDENCE AND STATUS RULES
+
+## Evidence classes
+
+- **VERIFIED** — directly confirmed from code, runtime, database, service, tests, logs, or infrastructure.
+- **PARTIALLY VERIFIED** — meaningful evidence exists, but part of the claim still needs direct confirmation.
+- **DESIGNED** — architecture/specification exists; runtime implementation is not established.
+- **INFERRED** — conclusion derived from evidence but not directly proven.
+- **UNVERIFIED** — known/referenced but not directly accessible or confirmed.
+
+## Implementation status
+
+| Status | Meaning |
+|---|---|
+| ACTIVE | Running operational implementation |
+| IMPLEMENTED | Code exists and is usable/tested |
+| FOUNDATION | Partial implementation / platform foundation |
+| DESIGNED | Architecture/spec exists; runtime incomplete |
+| CONCEPT | Idea/specification only |
+| EXTERNAL | Canonical implementation is another repository/system |
+| LEGACY | Existing implementation retained as a reuse source |
+| UNKNOWN | Not sufficiently verified |
+
+Never promote `DESIGNED`, `INFERRED`, `UNVERIFIED`, or `UNKNOWN` without direct evidence.
+
+---
+
+# 2. SOURCE-OF-TRUTH PRIORITY
+
+When sources disagree, use this order:
 
 ```text
-HUMAN
-  │
-  ▼
-OTHMODE
-  │  control / discovery / history / governance / evolution
-  │
-  ├── OTH Knowledge
-  │     evidence / claims / facts / provenance / trust / temporal knowledge
-  │
-  ├── Project Meta
-  │     portfolio / ledger / current context / stages / baselines
-  │
-  ├── Status Center
-  │     execution truth / health / recovery
-  │
-  ├── AI Executor
-  │     persistent autonomous execution / resume / provider routing
-  │
-  ├── Orchestrator
-  │     delegation / verification / worker orchestration
-  │
-  └── Mythos OS
-        kernel / identity / tenancy / entities / relationships / files / modules
+1. Current runtime behavior
+2. Current source code
+3. Current production verification
+4. Current database/service state
+5. Current tests
+6. Current registries / ledgers
+7. Latest audit / handover
+8. Current architecture documents
+9. Older documentation
+10. Historical conversations / design notes
+```
 
-Supporting layers:
+A README, blueprint, registry snapshot, or old audit must never override newer runtime evidence.
 
-MPI / Personal Intelligence
-  context / skills / guard / intent / learning / domain intelligence
+---
 
+# 3. CURRENT SYSTEM MAP
+
+```text
+                         HUMAN
+                           │
+                           ▼
+                       OTHMODE
+          control / discovery / history /
+          governance / evolution / visibility
+                           │
+       ┌───────────────────┼────────────────────┐
+       ▼                   ▼                    ▼
+ OTH Knowledge        Project Meta        Status Center
+ evidence/knowledge   governance          execution truth
+       │
+       ▼
+ Context / Evidence
+       │
+       ▼
+ Personal Intelligence / future AI Gateway
+       │
+       ├──────── Advisory Providers
+       │
+       └──────── Execution Providers
+                    │
+          ┌─────────┴─────────┐
+          ▼                   ▼
+    Orchestrator         AI Executor
+ delegation/verify     persistent execution
+                              │
+                              ▼
+                           Claude
+                              │
+                              ▼
+                       Project Repositories
+                              │
+                              ▼
+                           Report
+                              │
+                              ▼
+                       Curation / Evidence
+                              │
+                              ▼
+                       OTH Knowledge
+```
+
+Supporting platform:
+
+```text
+Mythos OS Kernel
+├── Identity
+├── Tenancy
+├── Universal Entity Model
+├── Relationships
+├── Files
+├── Modules
+└── Permissions
+```
+
+External workflow/integration boundary:
+
+```text
+n8n / HTTP / webhooks
+```
+
+Personal archive/context boundary:
+
+```text
 OTH Master
-  personal context / archive / conversations / projects / interoperability
-
-Data Intelligence
-  collection / monitoring / change detection / events / evidence
-
-Domain systems
-  Mythos Prod / Notre Jour / ID Auto / SsangYong / SPY / AgriBee / etc.
 ```
 
 ---
 
-# 2. CANONICAL RULES
+# 4. OTHMODE — CONTROL PLANE
 
-## 2.1 One owner per capability
-
-A capability must have one canonical writer/owner. Other systems should consume it through an interface, read model, or adapter.
-
-## 2.2 Read before write
-
-Control surfaces such as OTHMODE should expose existing authoritative stores rather than create parallel stores.
-
-## 2.3 Search First
-
-The repository already contains the `search-first` skill and policy:
-
-`SEARCH → REUSE → ADAPT → CONNECT → BUILD LAST`
-
-Required search order:
-
-1. Current repository
-2. Existing MYTHOS components/tools/skills
-3. Anthropic Skills
-4. MCP ecosystem
-5. GitHub / open source
-6. PyPI / npm
-7. n8n ecosystem
-8. Existing APIs/templates
-
-Verdicts:
-
-- Adopt
-- Extend
-- Compose
-- Connect
-- Build
-
-`Build` requires evidence that a suitable existing solution does not exist.
-
-Source: `.claude/skills/search-first/SKILL.md`
-
----
-
-# 3. CONTROL PLANE — OTHMODE
-
-**Status:** ACTIVE / production
-
+**Status:** ACTIVE / production  
+**Evidence:** VERIFIED  
 **Production:** `othmode.mythosprod.xyz`
 
-OTHMODE is the main operational control surface over existing MYTHOS engines. It was adapted from the existing Command Center rather than rewritten.
+OTHMODE is the main operational control surface over existing MYTHOS engines. It was adapted from Command Center rather than rewritten.
 
-## Existing capabilities
+Existing capabilities include:
 
-- Commands
-- Saved Commands
-- Skills
-- Tools
-- Providers
-- Projects
-- Health
-- Status
+- Commands / Saved Commands
+- Skills / Tools / Providers / Projects
+- Health / Status
 - Command History
-- Memory
+- Memory read bridge
 - Search First
 - Evolution Memory
-- Genes
-- Capsules
-- Evolution Events
-- Signals
-- Selector
-- Review
-- Validation
-- Git/Rollback
+- Genes / Capsules / Signals
+- Selector / Review / Validation
+- Git / Rollback
 - Security
-- Arabic / French / English
-- RTL
-- Responsive UI
+- multilingual / RTL / responsive UI
 
-## Important architecture rule
+Canonical rule: **OTHMODE controls and exposes; it must not silently duplicate underlying engines.**
 
-OTHMODE is primarily a **control/read/governance surface**. It must not become a second implementation of the underlying engines.
-
-## Evidence
+Evidence paths:
 
 - `docs/othmode/OTHMODE_100_PERCENT_AUDIT.md`
 - `docs/othmode/OTHMODE_FINAL_REPORT.md`
@@ -148,187 +169,170 @@ OTHMODE is primarily a **control/read/governance surface**. It must not become a
 
 ---
 
-# 4. KNOWLEDGE — OTH KNOWLEDGE
+# 5. OTH KNOWLEDGE — STRUCTURED KNOWLEDGE / EVIDENCE
 
-**Status:** IMPLEMENTED
-
+**Status:** IMPLEMENTED  
+**Evidence:** VERIFIED  
 **Location:** `projects/oth-knowledge/`
 
-This is the structured knowledge/evidence layer.
-
-## Core model
+Core model includes:
 
 ```text
-source
-artifact
- document
-chunk
-entity
-fact
-claim
-observation
-event
-relationship
-evidence
-derived
+source / artifact / document / chunk / entity
+fact / claim / observation / event / relationship
+evidence / derived
 ```
 
-## Capabilities
+Capabilities include:
 
-- Content-addressed artifacts
-- Append-only storage
-- Exact search
-- Lexical/BM25 search
-- Vector interface
-- Hybrid search
-- Provenance
-- Evidence references
-- Trust assessment
-- Contradiction detection
-- Temporal state
-- History lookup
-- Versioning
-- Conflict handling
-- Validation
-- Export
-- CLI
-
-## Important semantic rule
-
-AI output is not automatically a fact. Imported conversations and generated material retain their source/provenance and can be represented as claims/observations.
-
-## Importers already implemented
-
-- Google Takeout
-- Gemini export
-- NotebookLM notes
+- content-addressed artifacts
+- append-only storage
+- exact / BM25 / vector-interface / hybrid search
+- provenance and evidence
+- trust assessment
+- contradiction detection
+- temporal state / history
+- versioning / conflicts
+- validation / export / CLI
+- Google Takeout importer
+- Gemini importer
+- NotebookLM importer
 - Google Contacts metadata-only importer
 
-Google Contacts is deliberately fail-closed and metadata-only; contact names, phone numbers, emails and addresses are not persisted by that importer.
+Critical semantic rule:
 
-## Canonical boundary
+```text
+AI output != fact
+worker report = claim until verified/curated
+```
 
-OTHMODE already exposes OTH Knowledge through a read-first memory bridge. Do not create a second memory store inside OTHMODE.
+Existing boundary:
 
-## Evidence
-
-- `projects/oth-knowledge/README.md`
 - `projects/oth-knowledge/lib/knowledge-service.js`
-- `projects/oth-knowledge/lib/importers/`
-- `projects/command-center/reference/othmode/memory.js`
+- `projects/oth-knowledge/lib/api.js`
+- OTHMODE read-first bridge: `projects/command-center/reference/othmode/memory.js`
+
+## Network gap discovered by independent audit
+
+**Status:** VERIFIED audit finding
+
+OTH Knowledge has internal APIs/services but no confirmed general network facade suitable as the shared external boundary for ChatGPT / MCP clients.
+
+This is one of the smallest structural gaps remaining for OTH MCP.
 
 ---
 
-# 5. PERSONAL CONTEXT — OTH MASTER
+# 6. OTH MASTER — PERSONAL CONTEXT / ARCHIVE
 
-**Status:** EXISTING SYSTEM / SEPARATE ROLE
+**Status:** EXISTING SYSTEM / separate role  
+**Repository:** `othoth77/oth-master`
 
-Repository: `othoth77/oth-master`
+Existing concepts:
 
-OTH Master was designed as a provider-agnostic personal context/archive layer.
-
-## Existing concepts
-
-- Conversations
-- Memories
-- Projects
-- Sources
-- Sync
+- conversations
+- memories
+- projects
+- sources
+- sync
 - CLI
-- Interoperability
-- Context export
-- Personal archive
+- context export
+- provider interoperability
+- personal archive
 
-## Architectural boundary
-
-OTH Master and OTH Knowledge must not silently become duplicate stores.
-
-Working distinction:
+Working boundary:
 
 ```text
 OTH Master
-= personal context / archive / conversation continuity
+= personal context / conversation continuity / archive
 
 OTH Knowledge
 = structured knowledge / evidence / provenance / temporal knowledge
 
 Mythos OS
-= platform entities / tenancy / files / modules
+= platform identity / entities / tenancy / files / modules
 ```
 
-The exact integration contract remains an architectural consolidation item and must be decided before adding another memory implementation.
+Do not create another memory store until this boundary is fully consolidated.
 
 ---
 
-# 6. MYTHOS OS — PLATFORM KERNEL
+# 7. CRITICAL DISCOVERY — REAL `oth.db`
 
-**Status:** ACTIVE DEVELOPMENT / implemented foundation
+**Status:** CRITICAL / VERIFIED by independent local-machine audit  
+**Location reported:** `Desktop\oth-master\data\oth.db`
 
-Repository: `othoth77/mythos-os`
+Independent audit discovered a real local OTH database approximately **29.8 MB** containing approximately:
 
-## Implemented kernel areas
+- 1,306 conversations
+- 7,733 messages
+- 1,968 people
+- 256 organizations
+
+The audit reports verified imports from Claude, DeepSeek, and Google Contacts.
+
+The same audit reported that the VPS canonical store observed during the audit was only about **21 KB**.
+
+## Consequence
+
+The real accumulated personal/context data exists, but the canonical deployment/data-placement decision is unresolved.
+
+## Risk
+
+The audit reported this database as local-only, without a confirmed off-host backup, on a disk approximately 92% full and planned for decommission.
+
+**Do not migrate, overwrite, or merge this database automatically. Preserve first; reconcile second.**
+
+---
+
+# 8. MYTHOS OS — PLATFORM KERNEL
+
+**Status:** ACTIVE DEVELOPMENT / implemented foundation  
+**Repository:** `othoth77/mythos-os`
+
+Implemented foundation includes:
 
 - Identity
 - Tenancy
 - Universal Entity Model
 - Entity relationships
 - Files / attachments
-- Module kernel foundation
+- Module Kernel foundation
 - Permissions foundation
 
-## UEM
+Do not create independent identity systems inside domain modules when UEM can own identity.
 
-The Entity spine is designed around shared entity identity and concrete entity types.
+Existing module concepts include:
 
-Examples of future/possible entity types include:
+- `ModuleManifest`
+- `ManifestReader`
+- `ManifestRegistry`
+- `ModuleKernel`
+- `ModuleDependencyValidator`
+- Nwidart integration
 
-- Person
-- Company
-- Vehicle
-- Project
-- Conversation
-- Decision
-- Other domain entities
-
-Do not create independent identity systems inside domain modules when the entity kernel can own the identity.
-
-## Module Kernel
-
-Existing concepts include:
-
-- ModuleManifest
-- ManifestReader
-- ManifestRegistry
-- ModuleKernel
-- ModuleDependencyValidator
-- Nwidart module integration
-
-## Files
-
-Existing abstraction includes:
+Files foundation includes:
 
 - Attachment
 - FileStore
 - AttachmentPolicy
 - entity ownership
 - tenant isolation
-- policy enforcement
-
-## Evidence
-
-- `mythos-os` repository
-- `projects/mythos-core/`
-- `projects/mythos-core/contracts/`
 
 ---
 
-# 7. MYTHOS PERSONAL INTELLIGENCE — MPI
+# 9. MYTHOS PERSONAL INTELLIGENCE — MPI
 
-**Status:** FOUNDATION / architecture + reference implementation; not equivalent to full production runtime
+**Previous classification:** FOUNDATION / design/reference implementation  
+**Updated classification:** PARTIALLY IMPLEMENTED; production scope still requires verification  
+**Evidence:** independent audit + existing repository evidence
 
-Location in `mythos-prod`: `projects/personal-intelligence/`
+The independent audit found more implementation than the previous index recorded:
 
-## Designed capabilities
+- two PostgreSQL schemas
+- three CLIs
+- existing personal-intelligence code/reference implementations
+
+Architecture includes:
 
 ```text
 Global Intelligence
@@ -344,49 +348,34 @@ Global Intelligence
 → Learning
 ```
 
-Existing/reference concepts include:
-
-- Context assembler
-- Scope
-- Intent routing
-- Skills
-- Guards
-- Learning
-- Domain packs
-
-## Important rule
-
-MPI is a source of architecture and reference implementation. Do not claim an MPI feature is production merely because its design/spec exists.
+Do not describe MPI as merely design-only anymore. Also do not describe the entire MPI vision as production until each runtime path is verified.
 
 ---
 
-# 8. AI EXECUTION — MYTHOS AI EXECUTOR
+# 10. AI EXECUTION — MYTHOS AI EXECUTOR
 
-**Status:** IMPLEMENTED / production-oriented runtime
+**Status:** IMPLEMENTED / production-oriented runtime  
+**Evidence:** VERIFIED
 
 Location: `projects/mythos-ai-executor/`
 
-## Responsibilities
+Responsibilities:
 
-- Persistent task queue
+- persistent task queue
 - Claude Code headless execution
-- Provider selection
-- Skill/tool policy
-- Quota handling
-- Retry
-- Resume
-- Waiting for quota
-- Task reporting
-- Checkpoints
+- provider selection
+- skills/tools policy
+- quota handling
+- retry / resume
+- `WAITING_FOR_QUOTA`
+- task reports
+- checkpoints
 - Git integration
-- Validation
+- validation
 - n8n boundary
+- REST/HTTP execution surface reported by independent audit
 
-## Critical behavior
-
-Quota is represented as a waiting state rather than automatically turning a recoverable quota condition into a permanent failure.
-
-## Registry sources
+Canonical registries:
 
 - `config/agents.json`
 - `config/router.json`
@@ -394,85 +383,135 @@ Quota is represented as a waiting state rather than automatically turning a reco
 - `config/tools.json`
 - `config/mcp-capabilities.json`
 
-Do not create another provider, skill, or tool registry without an explicit architectural decision.
+Do not build another execution engine or provider/tool/skill registry for MCP.
 
 ---
 
-# 9. DELEGATION / VERIFICATION — MYTHOS ORCHESTRATOR
+# 11. MCP AUTHORIZATION CAPABILITY ALREADY EXISTS
 
-**Status:** IMPLEMENTED / existing runtime
+**Status:** IMPLEMENTED  
+**Evidence:** VERIFIED by independent audit
 
-Location: `projects/mythos-orchestrator/`
+The audit identified an existing fail-closed MCP authorization/capability layer:
 
-## Responsibilities
+```text
+lib/mcp-capabilities.js
+```
 
-- Delegation
-- Worker execution
-- Provider abstraction
-- Result collection
+The exact repository-relative location must remain tied to the audited implementation when integrating.
+
+Purpose: prevent a future MCP client from inventing a second authorization model.
+
+Canonical rule:
+
+```text
+OTH MCP must reuse existing capability authorization.
+It must not introduce a parallel permissions system.
+```
+
+---
+
+# 12. MYTHOS ORCHESTRATOR — DELEGATION / VERIFICATION
+
+**Status:** IMPLEMENTED  
+**Evidence:** VERIFIED
+
+Responsibilities:
+
+- delegation
+- worker execution
+- provider abstraction
+- result collection
 - Git integration
-- Verification
-- Redaction
-- Reporting
+- verification
+- redaction
+- reporting
 
-## Key principle
-
-Worker reports are not final truth. Verification re-derives relevant state from authoritative evidence such as Git.
-
-This gives the ecosystem a useful distinction:
+Key principle:
 
 ```text
 worker report = claim
-verification = evidence
+Git / authoritative verification = evidence
 ```
 
-Do not duplicate this verifier inside another orchestration layer.
+Do not duplicate this verifier in OTH MCP or another orchestration layer.
 
 ---
 
-# 10. OTHMODE REGISTRIES — UNIFIED READ MODEL
+# 13. CHATGPT → CLAUDE LOOP ALREADY EXISTS
 
-`projects/command-center/reference/othmode/registries.js` already aggregates the authoritative registries.
+**Status:** EXISTING IN MULTIPLE FORMS  
+**Evidence:** VERIFIED by independent audit
 
-## Skills
+The independent audit found the intended architect/builder loop already represented twice:
+
+## Path A — Mythos OS `.ai/`
+
+```text
+Architect = ChatGPT
+Builder   = Claude
+```
+
+## Path B — HTTP / automation path
+
+```text
+Client
+↓
+Executor REST API
+↓
+n8n workflows
+↓
+MOS Console relay / execution path
+↓
+Claude / executor
+```
+
+The audit reported **7 n8n workflows** participating in the existing automation environment.
+
+Consequence: the future OTH MCP should connect to this capability, not rebuild ChatGPT→Claude orchestration from zero.
+
+---
+
+# 14. OTHMODE REGISTRIES — UNIFIED READ MODEL
+
+`projects/command-center/reference/othmode/registries.js` already aggregates authoritative registries.
+
+Skills:
 
 ```text
 .claude/skills/
-+
-projects/mythos-ai-executor/config/skills.json
++ executor/config/skills.json
 ```
 
-## Tools
+Tools:
 
 ```text
-projects/mythos-ai-executor/config/tools.json
-+
-config/mcp-capabilities.json
+executor/config/tools.json
++ mcp capabilities
 ```
 
-## Providers
+Providers:
 
 ```text
-projects/mythos-ai-executor/config/agents.json
-+
-config/router.json
+executor/config/agents.json
++ executor/config/router.json
 ```
 
-## Projects
+Projects:
 
 ```text
 projects/meta/
 ```
 
-The purpose is to present one read model without creating a third store.
+Do not create a new MCP registry.
 
 ---
 
-# 11. PROJECT INTELLIGENCE
+# 15. PROJECT INTELLIGENCE
 
 **Status:** IMPLEMENTED tooling
 
-Existing components include:
+Canonical components include:
 
 - `projects/meta/portfolio-registry.json`
 - `projects/meta/project-ledger.json`
@@ -485,42 +524,25 @@ Existing components include:
 - `scripts/project-intelligence.js`
 - `scripts/mythos-stage.js`
 
-## Capabilities
-
-- Project inventory
-- Current stage
-- Stage lifecycle
-- Dependencies
-- Baselines
-- Test impact
-- Development lanes
-- Ledger validation
-- Portfolio status
-- Current context
-
-## Important rule
-
-`projects/meta` is the current project-governance registry for the MYTHOS repository. Do not create another project registry merely to support a new interface.
+Capabilities include project inventory, stages, dependencies, baselines, test impact, lanes, validation, portfolio state, and current context.
 
 ---
 
-# 12. STATUS CENTER
+# 16. STATUS CENTER
 
 **Status:** EXISTING / execution truth
 
-Status Center is the authoritative source for live execution state and health information where integrated.
+Status Center remains the live execution/health authority where integrated.
 
-OTHMODE reads from it and explicitly treats it as execution truth.
-
-Do not turn OTHMODE, Knowledge, or a future MCP into a competing execution-status database.
+Do not make OTHMODE, OTH Knowledge, or OTH MCP a competing execution-status database.
 
 ---
 
-# 13. EVOLUTION SYSTEM
+# 17. EVOLUTION SYSTEM
 
 **Status:** IMPLEMENTED inside OTHMODE
 
-Existing components include:
+Includes:
 
 - Evolution Store
 - Signals
@@ -531,406 +553,205 @@ Existing components include:
 - Genes
 - Capsules
 - Git rollback records
-- Append-only evidence
+- append-only evidence
 
-## Rules
-
-- KEEP-first preference
-- Search First evidence influences selection
-- HIGH-risk approval is owner-only
-- AI cannot approve its own high-risk change
-- Validation is gated by review
-- Terminal evolution results are immutable
-- Rollback is recorded as an event
-
-Do not build a separate evolution engine for another AI interface.
+Do not create a second evolution engine.
 
 ---
 
-# 14. HANDOFF / CONTINUITY
+# 18. HANDOFF / CONTINUITY
 
-**Status:** ARCHITECTURE + in-repo discipline
+**Status:** ARCHITECTURE + existing operational discipline
 
-Existing handoff concepts include:
+Existing handoff concepts include goal, context version, state summary, decisions, open decisions, next steps, blockers, artifacts, confidence, and budget.
 
-- Goal
-- Context version
-- State summary
-- Decisions
-- Open decisions
-- Next steps
-- Blockers
-- Artifacts
-- Confidence
-- Budget
-
-The handoff pattern is intended to allow work to move between AI workers and humans without copying entire memories or conversations.
-
-Existing source of discipline:
-
-- `session-handoff` / AI handover documentation
-- Mythos OS Agent Handoff architecture
-
-Do not invent a second incompatible handoff format.
+Reuse the existing handoff model rather than inventing an incompatible MCP handoff format.
 
 ---
 
-# 15. CONTEXT RECONSTRUCTION
+# 19. CONTEXT RECONSTRUCTION
 
 **Status:** ARCHITECTURE / reference design
 
-The existing design reconstructs working context from authoritative sources such as:
+Designed to reconstruct context from authoritative sources including Entity, Published Memory, Decision Registry, Timeline, Goals, Procedures, Lessons, Relationships, Last Handoff, Preferences, and Tenancy.
 
-- Entity
-- Published Memory
-- Decision Registry
-- Timeline
-- Goals
-- Procedures
-- Lessons
-- Relationships
-- Last Handoff
-- Preferences
-- Tenancy
-
-This is a design foundation for future Personal Intelligence / AI Gateway work.
-
-It should consume canonical stores rather than create a duplicate context database.
+It must consume canonical stores rather than create another context database.
 
 ---
 
-# 16. AI GATEWAY
+# 20. AI GATEWAY
 
-**Status:** DESIGNED / not equivalent to a complete production runtime
+**Status:** DESIGNED / partially represented by current executor/provider infrastructure
 
-Existing architecture covers:
+Architecture includes provider routing, model registry, prompt versioning, cost tracking, sensitivity, fallback, caching, HITL, and permission levels.
 
-- Provider routing
-- Model registry
-- Prompt versioning
-- Cost tracking
-- Sensitivity gate
-- Fallback
-- Caching
-- Human-in-the-loop
-- Permission levels
-
-Decision levels include concepts such as:
-
-- Autonomous
-- Approval required
-- Suggestion only
-- Forbidden
-
-The existing AI Gateway design should be treated as the target platform abstraction, while current provider execution remains in the existing executor/provider registry until migration is explicitly implemented.
+Current execution authority remains with existing executor/provider infrastructure until explicit migration.
 
 ---
 
-# 17. AI WORKFORCE
+# 21. PROMPT VERSIONING — IMPORTANT LOST IMPLEMENTATION
+
+**Status:** PREVIOUSLY EXECUTED / CODE CURRENTLY NOT RECOVERED  
+**Evidence:** VERIFIED by independent audit
+
+The audit found evidence that prompt versioning had actually run, but the implementation was never committed and was no longer present on the inspected disk.
+
+Classification:
+
+```text
+Capability existed operationally
+Implementation source currently missing
+Documentation/index previously understated this history
+```
+
+Action class: **INVESTIGATE / RECOVER IF POSSIBLE**, not blindly rebuild.
+
+---
+
+# 22. AI WORKFORCE
 
 **Status:** DESIGNED
 
-Existing architecture defines specialized AI roles such as:
+Specialized roles include management, research, developer, architect, marketing, finance, legal, knowledge, production, logistics, and reviewer concepts.
 
-- CEO / management
-- Research
-- Developer
-- Architect
-- Marketing
-- Finance
-- Legal
-- Knowledge
-- Production
-- Logistics
-- Reviewer
-
-It also defines worker identity, competencies, performance, quality, cost, speed, rework, success rate, and confidence calibration.
-
-This is architecture, not a claim that every worker exists as a production service.
+Do not claim every worker exists as a production service.
 
 ---
 
-# 18. AI CONSTITUTION
+# 23. AI CONSTITUTION
 
 **Status:** DESIGNED / policy architecture
 
-Existing principles include:
+Principles include:
 
 - Memory belongs to MYTHOS
 - Truth is earned
-- Human-in-the-loop
-- Data sensitivity
-- Tenancy
-- Budget controls
-- Least privilege
-- Attribution
-- Separation of duties
-- Record the reason
-- Continuity
-- Defer when uncertain
-
-Enforcement is intended through platform boundaries such as AI Gateway, service accounts, budget management and audit.
+- HITL
+- data sensitivity
+- tenancy
+- budget controls
+- least privilege
+- attribution
+- separation of duties
+- record the reason
+- continuity
+- defer when uncertain
 
 ---
 
-# 19. AI BUDGET MANAGER
+# 24. AI BUDGET MANAGER
 
-**Status:** DESIGNED
+**Previous classification:** DESIGNED  
+**Updated classification:** IMPLEMENTED COMPONENT / runtime integration verified by independent audit
 
-Existing architecture covers:
+The independent audit found approximately **1,008 LOC** and live `/budget` endpoints.
 
-- Daily budget
-- Weekly budget
-- Monthly budget
-- Project budget
-- Worker/role budget
-- Rolling windows
-- Projected spend
-- Remaining headroom
-- Cost estimation
-- Caching
-- Batching
-- Model right-sizing
+Existing capabilities/design cover:
 
-Do not confuse this design with an already-deployed budget runtime.
+- daily / weekly / monthly budget
+- project / worker / role budgets
+- rolling windows
+- projected spend
+- remaining headroom
+- cost estimation
+- caching / batching
+- model right-sizing
 
----
-
-# 20. MYTHOS PROD — EXISTING BUSINESS RUNTIME
-
-**Status:** EXISTING / mature legacy production system
-
-The legacy Mythos Prod runtime contains proven business modules and infrastructure patterns.
-
-## Existing business areas include
-
-- Invoices
-- Quotes / Devis
-- Contracts
-- Clients
-- Collaborators
-- Mission orders
-- Appointments
-- Representations
-- Accounting
-- Bank
-- Cash
-- Expenses
-- Purchases
-- Suppliers
-- TVA
-- Reports
-- Contacts
-- Google Contacts
-- Tasks
-- Reminders
-- Document drafting
-- Inscription
-- Call management
-- Documentation
-- Camera
-- Statistics
-- Calendar
-- Dashboard
-
-## Runtime/platform patterns
-
-- Plugin architecture
-- Storage
-- Sync
-- Router
-- API
-- Platform shell
-- Plugin SDK
-- Search
-- Calendar
-- Widgets
-- Notifications
-- Dialogs
-- Dashboard
-
-This is a source of **proven domain implementation** and must be mined/reused before rebuilding equivalent business functionality in Mythos OS.
+This component must no longer be treated as design-only. Exact production ownership and deployment state should still be checked before making it the global canonical budget authority.
 
 ---
 
-# 21. MYTHOS PROD — SYNC ENGINE
+# 25. MYTHOS PROD — EXISTING BUSINESS RUNTIME
+
+**Status:** MATURE LEGACY / proven domain implementation
+
+Existing business areas include invoices, quotes, contracts, clients, collaborators, mission orders, appointments, representations, accounting, bank, cash, expenses, purchases, suppliers, TVA, reports, contacts, Google Contacts, tasks, reminders, document drafting, registration, calls, documentation, camera, statistics, calendar, and dashboard.
+
+Runtime/platform patterns include plugin architecture, storage, sync, router, API, platform shell, Plugin SDK, search, calendar, widgets, notifications, dialogs, and dashboard.
+
+Mine/reuse this domain implementation before rebuilding equivalent Mythos OS modules.
+
+---
+
+# 26. SECURE ERP BACKEND — UNMERGED BRANCH DISCOVERY
+
+**Status:** HIGH-VALUE FORGOTTEN ASSET / VERIFIED by independent audit
+
+The independent audit discovered a secure ERP backend on an **unmerged branch approximately 28 commits ahead**.
+
+Reported capabilities include:
+
+- authentication
+- RBAC
+- audit
+- tests
+- runbook
+- rollback procedures
+
+This is a critical reuse candidate.
+
+Rule: **do not rebuild equivalent ERP backend functionality until this branch has been reviewed and classified for merge/reuse/migration.**
+
+---
+
+# 27. MYTHOS PROD SYNC ENGINE
 
 **Status:** PROVEN IMPLEMENTATION
 
-Existing sync patterns include:
-
-- Merge by ID
-- Incremental updates
-- Tombstones
-- Pending writes
-- Crash recovery
-- Backup
-- Server aggregation
-
-Important rule:
+Patterns include merge-by-ID, incremental updates, tombstones, pending writes, crash recovery, backup, and server aggregation.
 
 ```text
 merge by id
 never replace a collection wholesale
 ```
 
-This is reusable architecture for future local-first modules.
-
 ---
 
-# 22. MYTHOS PROD — PLUGIN SDK
+# 28. MYTHOS PROD PLUGIN SDK
 
 **Status:** PROVEN IMPLEMENTATION
 
-Existing SDK concepts include:
+Prior art includes menus, routes, storage, widgets, permissions, settings, search, calendar, and dashboard definitions.
 
-- Menu definitions
-- Routes
-- Storage
-- Widgets
-- Permissions
-- Settings
-- Search
-- Calendar
-- Dashboard
-
-It provides prior art for the Mythos OS module system.
+Reuse as prior art for Mythos OS modules.
 
 ---
 
-# 23. NOTRE JOUR
+# 29. NOTRE JOUR
 
-Repository: `othoth77/notrejour`
+**Status:** EXISTING modular product architecture  
+**Repository:** `othoth77/notrejour`
 
-**Status:** EXISTING modular product architecture
-
-Existing module concepts include:
-
-- AI
-- Admin
-- API
-- Guestbook
-- Invitations
-- Landing
-- Media
-- Notifications
-- Orders
-- RSVP
-- Singles
-- Templates
-- Timeline
-
-Architecture patterns include:
-
-- Controllers
-- Services
-- Repositories
-- Eloquent
-- Policies
-- Events
-- Shared contracts
-- Feature flags
-
-This repository is a source of reusable modular-product architecture and domain patterns.
+Reusable patterns include controllers, services, repositories, policies, events, shared contracts, feature flags, modular domains, media, invitations, orders, timeline, notifications, API, and AI modules.
 
 ---
 
-# 24. DATA COLLECTION FOUNDATION
-
-## SsangYong collection
+# 30. DATA COLLECTION FOUNDATION / SSANGYONG
 
 **Status:** DESIGN + proven implementation patterns
 
-Existing concepts include:
+Capabilities/patterns include source registry, project registry, collection engine, raw snapshots, parsing, validation, normalization, provenance, deduplication, change detection, retry, rate limiting, scheduling, and monitoring.
 
-- Source registry
-- Project registry
-- Collection engine
-- Raw snapshots
-- Parsing
-- Validation
-- Normalization
-- Provenance
-- Deduplication
-- Change detection
-- Retry
-- Rate limiting
-- Scheduling
-- Monitoring
-
-Core principle:
+Core rule:
 
 > One engine, many configurations and adapters.
 
-Do not build a separate scraper framework for every source.
-
 ---
 
-# 25. SPY — COMPETITOR / SOURCE INTELLIGENCE
+# 31. SPY
 
 **Status:** IMPLEMENTED V1
 
-Existing flow:
-
-```text
-Competitors
-→ Sources
-→ Monitoring
-→ Collection
-→ Change detection
-→ Events
-→ Today
-→ Insights
-```
-
-Existing proven patterns include:
-
-- SQLite
-- FastAPI
-- Scheduler
-- Runner
-- Collection engines
-- Observation/event model
-- Hashing
-- Idempotency
-- Retry
-- Rate limiting
-- Concurrency protection
-- Crash recovery
-- Partial-run protection
-
-This is reusable prior art for monitoring and data intelligence.
+Reusable patterns include SQLite, FastAPI, scheduler, runner, collection engines, observations/events, hashing, idempotency, retry, rate limiting, concurrency protection, crash recovery, and partial-run protection.
 
 ---
 
-# 26. ID AUTO
+# 32. ID AUTO
 
-Repository: `othoth77/idauto`
+**Status:** ACTIVE external canonical repository  
+**Repository:** `othoth77/idauto`
 
-**Status:** ACTIVE external canonical repository
-
-Existing concepts include:
-
-- Vehicle identity
-- Digital vehicle passport
-- Evidence
-- Trust ladder
-- Issuer
-- Verification
-- Audit
-- Content-addressed media
-- Community ingestion
-- Rate limiting
-- Review queues
-- Backup/restore
-- Immutable events
-- Provenance
-- Confidence
-- Supersession
-
-The ID Auto identity contract is consumed by Mythos Core through pinned protocol artifacts.
-
-Reusable patterns:
+Reusable model:
 
 ```text
 identity
@@ -938,276 +759,125 @@ identity
 + issuer
 + confidence
 + verification
-+ event
++ immutable event
++ provenance
 + audit
 ```
 
-These patterns are broader than automotive and should be reused where appropriate.
+Do not duplicate vehicle identity/evidence infrastructure in dependent automotive projects.
 
 ---
 
-# 27. AUTOMOTIVE PLATFORM
+# 33. AUTOMOTIVE PLATFORM
 
-Existing architecture tracks:
+Tracks or has designed Mythos Automotive, ID Auto, Atelier Network, Fixpert pilot, AutoCheck Standard, Parts Network, SsangYong Parts, AutoValeur, and automotive domain intelligence.
 
-- Mythos Automotive umbrella
-- ID Auto
-- Atelier Network
-- Fixpert pilot
-- AutoCheck Standard
-- Parts Network
-- SsangYong Parts
-- AutoValeur
-- Automotive Workshop domain pack
-
-Important distinction:
-
-- Generic platforms are not the same as individual pilots.
-- A domain concept is not automatically a deployed product.
-- External repositories must remain canonical where the registry says so.
+Generic platforms must remain distinct from individual pilots/products.
 
 ---
 
-# 28. AUTO VALEUR
+# 34. RESEARCH INTELLIGENCE
 
-**Status:** FOUNDATION
+**Status:** DESIGNED / foundation
 
-Existing stages include the foundation and the planned public calculator MVP.
+Architecture includes Intent Architect, Skill Router, Research Gateway, official sources, SearXNG, external providers, trust/freshness, citation normalization, cache, and context compilation.
 
-Dependency: ID Auto.
-
-Do not duplicate vehicle identity/evidence infrastructure here.
+Reuse this design before creating another research engine.
 
 ---
 
-# 29. ATELIER NETWORK
+# 35. AUTOMATION / N8N / OPERATIONS
 
-**Status:** FOUNDATION / architecture
+**Status:** FOUNDATION + EXISTING ACTIVE WORKFLOWS
 
-Generic multi-workshop platform.
+Architecture includes provider connectors, read-only safety, snapshots, approval, execution, verification, rollback, audit, and health.
 
-Fixpert is documented as a pilot designation, not the platform itself.
+Independent audit additionally found **7 n8n workflows** participating in the current ChatGPT/Claude/executor ecosystem.
 
-Dependency includes ID Auto.
-
----
-
-# 30. RESEARCH INTELLIGENCE
-
-**Status:** DESIGNED / foundation, not full production runtime
-
-Existing architecture includes:
-
-```text
-Intent Architect
-→ Skill Router
-→ Research Web
-→ Research Gateway
-→ Official Sources
-→ SearXNG
-→ external search providers
-→ Trust / Freshness
-→ Citation Normalizer
-→ Cache
-→ Context Compiler
-```
-
-The design should be reused when implementing research capabilities instead of starting another research engine.
+n8n is an integration/workflow boundary, not the canonical owner of execution truth.
 
 ---
 
-# 31. AUTOMATION & OPERATIONS
-
-**Status:** FOUNDATION / partial implementation
-
-Existing architecture includes:
-
-- Provider connectors
-- Read-only safety
-- Snapshots
-- Approval
-- Execution
-- Verification
-- Rollback
-- Audit
-- Health
-
-Existing connector foundation includes Cloudflare and OVH patterns.
-
-n8n remains an integration/workflow boundary, not the owner of MYTHOS execution truth.
-
----
-
-# 32. MYTHOS OS CONSOLE
-
-Repository area: `projects/mythos-os-console/`
+# 36. MYTHOS OS CONSOLE
 
 **Status:** EXISTING console implementation / architecture source
 
-Existing capabilities include:
+Capabilities include authentication boundary, upstream adapter, module registry, router, rendering, design system, accessibility/contrast validation, visual verification, and deployment preflight.
 
-- Authentication boundary
-- Upstream adapter
-- Module registry
-- Router
-- Render functions
-- Design system
-- Accessibility/contrast validation
-- Visual verification
-- Deployment preflight
-
-The console design system was reused by OTHMODE rather than creating an unrelated visual system.
+Its design system influenced OTHMODE.
 
 ---
 
-# 33. KNOWLEDGEVAULT / MASTER BLUEPRINT ARCHIVE
+# 37. KNOWLEDGEVAULT / MASTER BLUEPRINT ARCHIVE
 
-Repository: `othoth77/knowledgevault-kms`
+**Repository:** `othoth77/knowledgevault-kms`
 
-This repository contains important architecture history and master designs for:
+Contains architecture history for Mythos OS, AI, Daily Operating System, Data Collection, Platform Kernel/Structure, implementation plans, Event Bus, Module Registry, backup/restore, and security.
 
-- Mythos OS
-- AI architecture
-- Daily Operating System
-- Data Collection Foundation
-- Platform Kernel
-- Platform Structure
-- Implementation Master Plan
-- Event Bus
-- Module Registry
-- Backup/restore
-- Security
-
-It is a **design/history source**, not automatically the current runtime truth.
-
-When conflicts exist, prefer current code, current registries, current tests, and the latest audits.
+Treat as design/history, not automatic runtime truth.
 
 ---
 
-# 34. DAILY OPERATING SYSTEM DESIGN
+# 38. DAILY OPERATING SYSTEM DESIGN
 
-Existing design principles include:
-
-- Morning briefing
-- Open threads
-- Priorities
-- Pending decisions
-- Calendar
-- Capture once
-- Voice notes
-- Meetings
-- Invoice/contract context
-- Research
-- Photos
-- Daily review
-- Weekly review
-- Monthly review
-- Decision reasons
-- Cross-project learning
-
-This describes desired operating behavior and should inform future product integration.
+Existing behavior design includes morning briefing, open threads, priorities, pending decisions, calendar, capture-once, voice notes, meetings, invoice/contract context, research, photos, daily/weekly/monthly review, decision reasons, and cross-project learning.
 
 ---
 
-# 35. DOMAIN / BUSINESS PROJECTS OUTSIDE THE CORE
+# 39. DOMAIN PROJECTS
 
-The wider ecosystem also contains or has contained projects such as:
+The wider ecosystem includes or has included AgriBee, Oudhna Services, Uthina Chess, Dar Hijama, ClassePro/Prof Manager, Festival, SsangYong Parts, Fixpert, Notre Jour, ID Auto, and other pilots/products.
 
-- AgriBee / النحلة الفلاحة
-- Oudhna Services
-- Uthina Chess
-- Dar Hijama
-- ClassePro / Prof Manager
-- Festival
-- SsangYong Parts
-- Fixpert
-- Notre Jour
-- ID Auto
-
-These should be treated as domain products or pilots, not automatically promoted to platform primitives.
-
-When a reusable capability is discovered inside one of them, extract the pattern rather than duplicating the whole product.
+Extract reusable patterns without promoting every domain product to a platform primitive.
 
 ---
 
-# 36. CURRENT STATUS LEGEND
+# 40. DUPLICATION WATCHLIST
 
-Use these labels when extending this index:
-
-| Status | Meaning |
-|---|---|
-| ACTIVE | Running/operational implementation |
-| IMPLEMENTED | Code exists and is usable/tested, but may not be the primary production surface |
-| FOUNDATION | Partial implementation / platform foundation |
-| DESIGNED | Architecture/spec exists; runtime is not complete |
-| CONCEPT | Idea/specification only |
-| EXTERNAL | Canonical implementation lives in another repository |
-| LEGACY | Existing implementation retained as a reuse source |
-| UNKNOWN | Not sufficiently verified |
-
-Never upgrade `DESIGNED`, `CONCEPT`, or `UNKNOWN` to `ACTIVE` without direct evidence.
-
----
-
-# 37. DUPLICATION WATCHLIST
-
-These are the areas where duplicate systems are most likely to appear.
-
-## Memory
+## Memory / context
 
 ```text
 OTH Master
 OTH Knowledge
 MPI
-Mythos Intelligence
+Mythos Intelligence designs
 ```
-
-Resolve boundaries before adding another memory database.
 
 ## Projects
 
 ```text
 OTH Master projects
 projects/meta
-OTH Knowledge project documentation
+OTH Knowledge project docs
 Mythos OS project entities
 OTHMODE project read model
 ```
-
-Use the correct layer; do not create another registry.
 
 ## Execution
 
 ```text
 Mythos Orchestrator
 Mythos AI Executor
-OTHMODE task/control layer
-future Mythos AI Gateway
+OTHMODE task/control
+future AI Gateway
 ```
-
-Keep delegation, execution, control and provider abstraction separate.
 
 ## Skills
 
 ```text
 .claude/skills
-executor/config/skills.json
+executor skills registry
 OTHMODE unified read model
 MPI skill architecture
 ```
 
-Do not create another authoritative skills store.
-
 ## Providers
 
 ```text
-executor agents.json
-executor router.json
-OTHMODE providers read model
+executor agents/router
+OTHMODE provider read model
 future AI Gateway
 ```
-
-Do not create a third provider registry.
 
 ## Files
 
@@ -1217,130 +887,256 @@ OTH Knowledge artifacts
 OTH Master / Vault concepts
 ```
 
-Separate binary ownership from knowledge artifacts and personal archive semantics.
+Resolve boundaries; do not add another store by default.
 
 ---
 
-# 38. MCP DESIGN RULE
+# 41. MCP DESIGN — UPDATED AFTER INDEPENDENT AUDIT
 
-Any future OTH MCP should be a **thin integration layer**, not a new platform.
+The future OTH MCP must be a **thin integration layer**, not a new platform.
 
-Expected pattern:
+Target:
 
 ```text
-AI Client
-  ↓
-OTH MCP
-  ↓
-canonical existing service/registry
+ChatGPT / Claude / other MCP client
+              ↓
+           OTH MCP
+              ↓
+ existing canonical services / registries
 ```
 
-Potential read operations include:
+The independent audit materially reduces the required MCP scope:
 
-- project context
-- project status
-- project registry
-- search memory
-- memory/provenance
-- history
-- skills
-- tools
-- providers
-- capabilities
-- task status
-- handoff
+- execution already has HTTP/REST paths
+- ChatGPT→Claude patterns already exist
+- n8n workflows already exist
+- MCP capability authorization already exists
+- OTHMODE registries already exist
+- OTH Knowledge internal API already exists
 
-Potential write operations must route to the existing owner of that capability and respect the existing security/approval model.
+## Smallest structural gap
 
-The MCP must not create:
+A network-facing facade/adapter is still needed for knowledge/context systems that do not expose the required shared network boundary.
+
+Likely pattern:
+
+```text
+OTH MCP
+  ↓
+existing MCP capability authorization
+  ↓
+thin HTTP/service adapter
+  ↓
+OTH Knowledge existing API/service
+```
+
+OTH Master may require a separate thin adapter according to its final canonical role.
+
+## MCP must NOT create
 
 - another memory database
 - another project database
 - another task engine
 - another skills registry
 - another provider registry
+- another authorization system
 - another evolution engine
 - another identity system
 - another provenance system
+- another execution engine
 
 ---
 
-# 39. SOURCE-OF-TRUTH PRIORITY
+# 42. REPORT → KNOWLEDGE BOUNDARY
 
-When documents disagree, use this order:
+**Status:** DELIBERATELY GATED
+
+The desired loop is not:
 
 ```text
-1. Current runtime behavior
-2. Current source code
-3. Current production verification
-4. Current tests
-5. Current registries / ledgers
-6. Latest audit / handover
-7. Current architecture documents
-8. Older documentation
-9. Historical conversation/design notes
+Claude report → blindly write permanent memory
 ```
 
-Historical designs remain valuable for reuse, but they do not override current implementation evidence.
+Use:
+
+```text
+Claude
+↓
+Report
+↓
+claim / proposal
+↓
+curation / verification gate
+↓
+OTH Knowledge
+↓
+next context / next task
+```
+
+This preserves the existing evidence/trust model and prevents AI output from silently becoming canonical fact.
 
 ---
 
-# 40. VERIFICATION GAPS
+# 43. TARGET CROSS-AI LOOP
 
-Some historical/referenced files could not be retrieved directly during the 2026-08-30 index research. They must not be treated as verified current content until checked from a complete clone or corrected repository path.
+The integration target is:
 
-Examples encountered:
+```text
+ChatGPT
+↓
+OTH MCP
+↓
+OTH Knowledge / OTH Master context
+↓
+OTHMODE
+↓
+AI Executor / Orchestrator
+↓
+Claude
+↓
+Mythos OS / target project
+↓
+Report
+↓
+Curation / Verification
+↓
+OTH Knowledge
+↓
+Next Task
+```
 
-- older README variants
-- some architecture review files
-- some repository paths referenced by other documents
-
-The existence of a reference is recorded here, but its current implementation status must remain unverified until directly checked.
+Most nodes already exist. The work is primarily **integration and boundary consolidation**, not greenfield construction.
 
 ---
 
-# 41. MAINTENANCE RULE
+# 44. INFRASTRUCTURE FINDINGS FROM INDEPENDENT AUDIT
 
-This index should be updated whenever a new major capability is:
+## VPS resource pressure
 
-- implemented
-- moved
-- deprecated
-- made canonical
-- replaced
-- connected to another system
+**Status:** OPERATIONAL RISK / VERIFIED by audit
 
-Every new project or major module should declare:
+Audit snapshot reported:
+
+- swap: **2.0 GB / 2.0 GB consumed (100%)**
+- root filesystem: approximately **83% used**
+
+This is an operational risk to production services and was not represented in the original system index.
+
+## Local machine risk
+
+Audit snapshot reported the disk holding the real `oth.db` at approximately **92% full**.
+
+These are runtime facts from the audit snapshot, not permanent architectural properties. Recheck before remediation.
+
+---
+
+# 45. FORGOTTEN / UNDER-DOCUMENTED ASSETS
+
+Current high-value discoveries that were absent or understated in the previous index:
+
+| Asset | Audit status | Importance | Reuse action |
+|---|---|---:|---|
+| Real 29.8 MB `oth.db` | VERIFIED | CRITICAL | Preserve / back up / reconcile |
+| MCP capability authorization | VERIFIED | CRITICAL | REUSE |
+| Existing ChatGPT→Claude `.ai/` loop | VERIFIED | HIGH | REUSE / CONNECT |
+| Executor REST/HTTP path | VERIFIED | HIGH | REUSE / CONNECT |
+| 7 n8n workflows | VERIFIED | HIGH | AUDIT / REUSE |
+| AI Budget Manager runtime | VERIFIED | HIGH | REUSE / consolidate ownership |
+| MPI PostgreSQL schemas + CLIs | VERIFIED | HIGH | RECLASSIFY / REUSE |
+| Prompt versioning historical implementation | VERIFIED history | MEDIUM/HIGH | INVESTIGATE / recover |
+| Secure ERP backend unmerged branch | VERIFIED | CRITICAL | REVIEW BEFORE REBUILD |
+
+---
+
+# 46. THINGS THAT MUST NOT BE REBUILT WITHOUT REVIEW
+
+```text
+OTHMODE control plane
+OTH Knowledge engine
+OTH Master archive/context system
+MCP capability authorization
+Project Meta registry
+Project Intelligence / stage tooling
+Skills registry
+Tools registry
+Provider registry
+AI Executor
+Mythos Orchestrator
+Task/report history
+Evolution system
+Trust/provenance/conflict/temporal knowledge
+Mythos OS identity/entity/files/module kernel
+Mythos Prod business modules
+Mythos Prod sync/plugin patterns
+SPY monitoring/event patterns
+ID Auto evidence/event/trust patterns
+existing n8n execution workflows
+secure ERP backend branch
+AI Budget Manager
+```
+
+---
+
+# 47. OPEN VERIFICATION ITEMS
+
+The following must remain explicit until directly reconciled:
+
+1. Exact canonical relationship between local `oth.db`, OTH Master, OTH Knowledge, and the small VPS store.
+2. Backup state and recovery plan for the real local `oth.db`.
+3. Exact deployment/ownership status of AI Budget Manager.
+4. Exact scope and production readiness of MPI schemas/CLIs.
+5. Recovery possibility for lost prompt-versioning source.
+6. Exact branch/repository/path and merge suitability of the 28-commit secure ERP backend.
+7. Exact inventory and purpose of the 7 n8n workflows.
+8. Exact network boundary required for OTH Knowledge and OTH Master.
+9. Current VPS disk/swap state after the audit snapshot.
+10. Any local-only or VPS-only assets not yet represented in GitHub.
+
+Unverified does not mean nonexistent.
+
+---
+
+# 48. MAINTENANCE CONTRACT
+
+Update this index whenever a major capability is implemented, moved, deprecated, made canonical, replaced, discovered, or connected.
+
+Every major capability should eventually declare:
 
 ```text
 Capability
-Owner
+Canonical owner
 Repository
 Exact path
+Runtime location
 Status
+Evidence class
 Source of truth
 Read interface
 Write owner
+Execution authority
+Approval boundary
 Existing implementation reused
-Why new code is necessary (if any)
-Tests/evidence
+Tests / evidence
+Backup / recovery owner where relevant
 ```
+
+Any future ecosystem audit should compare **GitHub + local machine + VPS/runtime + domains/services**, not GitHub alone.
 
 ---
 
-# 42. FINAL PRINCIPLE
+# 49. FINAL PRINCIPLE
 
 ```text
-DO NOT ASK:
+DO NOT ASK FIRST:
 "What should we build?"
 
-ASK FIRST:
-"What do we already have that solves this?"
+ASK:
+"What do we actually have today?"
 
 THEN:
-Adopt → Extend → Compose → Connect → Build
+Search → Verify → Reuse → Extend → Connect → Build Last
 ```
 
-The MYTHOS ecosystem already contains substantial implementations, reference architectures, domain modules, registries, execution engines, knowledge infrastructure, security boundaries, data collection patterns, and operational tooling.
+The current ecosystem already contains substantial implementations, runtime services, databases, registries, execution engines, knowledge infrastructure, security boundaries, business modules, data collection patterns, AI workflows, and operational tooling.
 
-The primary engineering objective is therefore **integration, consolidation and reuse**, not uncontrolled parallel rebuilding.
+The primary engineering objective is now **preservation, integration, consolidation, canonical ownership, and reuse** — not uncontrolled parallel rebuilding.
