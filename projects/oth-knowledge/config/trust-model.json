@@ -11,6 +11,9 @@
     "external-provider": { "tier": "imported",            "stale_after_days": 365 },
     "google-contacts":   { "tier": "metadata-only",       "stale_after_days": 730 },
     "gemini":            { "tier": "model-output",        "stale_after_days": 365 },
-    "notebooklm":        { "tier": "model-output",        "stale_after_days": 365 }
+    "notebooklm":        { "tier": "model-output",        "stale_after_days": 365 },
+    "claude":            { "tier": "model-output",        "stale_after_days": 365 },
+    "deepseek":          { "tier": "model-output",        "stale_after_days": 365 },
+    "chatgpt":           { "tier": "model-output",        "stale_after_days": 365 }
   }
 }
