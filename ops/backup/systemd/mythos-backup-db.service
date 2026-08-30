@@ -1,0 +1,21 @@
+[Unit]
+Description=Mythos scheduled off-host backup — database-only, mythos_erp (stage, verify, push, verify-remote)
+Documentation=file:/home/deploy/projects/mythos-prod/ops/backup/README.md
+After=network-online.target
+Wants=network-online.target
+# Same reasoning as mythos-backup.service: the dump is root-only (docker exec),
+# the capture unit produces it, this unit consumes it unprivileged. A failed
+# capture must stop this backup rather than let it stage a stale input.
+Requires=mythos-backup-capture-db.service
+After=mythos-backup-capture-db.service
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+WorkingDirectory=/home/deploy/projects/mythos-prod
+ExecStart=/usr/bin/env bash /home/deploy/projects/mythos-prod/ops/backup/mythos-backup-run-db.sh backup
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+PrivateTmp=yes

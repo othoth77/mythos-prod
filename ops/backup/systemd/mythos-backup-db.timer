@@ -1,0 +1,13 @@
+[Unit]
+Description=Daily Mythos off-host backup — database-only, mythos_erp
+
+[Timer]
+# Offset 30 minutes from mythos-backup.timer (03:30) so the two independent
+# pipelines never contend for docker/network at the same instant.
+OnCalendar=*-*-* 04:00:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+Unit=mythos-backup-db.service
+
+[Install]
+WantedBy=timers.target

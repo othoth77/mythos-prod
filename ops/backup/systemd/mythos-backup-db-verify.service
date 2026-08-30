@@ -1,0 +1,16 @@
+[Unit]
+Description=Mythos off-host backup remote verification (read-only) — database-only, mythos_erp
+Documentation=file:/home/deploy/projects/mythos-prod/ops/backup/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+WorkingDirectory=/home/deploy/projects/mythos-prod
+ExecStart=/usr/bin/env bash /home/deploy/projects/mythos-prod/ops/backup/mythos-backup-run-db.sh verify
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+PrivateTmp=yes

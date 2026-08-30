@@ -1,0 +1,21 @@
+[Unit]
+Description=Mythos backup capture (root-side, database-only — mythos_erp)
+Documentation=file:/home/deploy/projects/mythos-prod/ops/backup/README.md
+After=docker.service
+Requires=docker.service
+Before=mythos-backup-db.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/mythos-backup-capture-db
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectControlGroups=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+RestrictRealtime=yes
+LockPersonality=yes
+ReadWritePaths=-/var/backups/mythos-db -/home/deploy/mythos-backups

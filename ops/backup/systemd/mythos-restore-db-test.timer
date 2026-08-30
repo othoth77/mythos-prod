@@ -1,0 +1,11 @@
+[Unit]
+Description=Monthly Mythos restore test — database-only, mythos_erp (isolated destination, never live paths)
+
+[Timer]
+OnCalendar=*-*-01 05:30:00 UTC
+RandomizedDelaySec=1800
+Persistent=true
+Unit=mythos-restore-db-test.service
+
+[Install]
+WantedBy=timers.target

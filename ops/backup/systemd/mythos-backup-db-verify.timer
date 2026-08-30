@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Mythos off-host backup verification (read-only) — database-only, mythos_erp
+
+[Timer]
+OnCalendar=*-*-* 15:30:00 UTC
+RandomizedDelaySec=900
+Persistent=true
+Unit=mythos-backup-db-verify.service
+
+[Install]
+WantedBy=timers.target
