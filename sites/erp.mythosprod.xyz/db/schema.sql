@@ -34,7 +34,12 @@ CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END $$;
 
-CREATE TABLE schema_migrations (
+-- IF NOT EXISTS because api/migrations/migrate.js creates this table itself
+-- before it applies the first migration, with an identical definition. Without
+-- it the runner and this file collide and schema.sql can never be applied by
+-- the runner at all. Declared here as well so the file stays applicable on its
+-- own, e.g. into a throwaway instance with psql -f.
+CREATE TABLE IF NOT EXISTS schema_migrations (
     version      text PRIMARY KEY,
     applied_at   timestamptz NOT NULL DEFAULT now(),
     checksum     text NOT NULL

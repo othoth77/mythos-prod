@@ -194,6 +194,57 @@
       "degraded_hours": 50,
       "enabled": true,
       "note": "Reads the health record written by ops/backup/mythos-backup-run.sh. A missing record is DOWN, never unknown-green."
+    },
+    {
+      "id": "idauto-site",
+      "name": "idauto.tn (IDauto citizen site)",
+      "type": "https",
+      "url": "https://idauto.tn/",
+      "expect_status": [
+        200
+      ],
+      "expect_body_substring": "L'identité numérique de votre véhicule",
+      "expect_content_type": "text/html",
+      "enabled": true,
+      "note": "ADDED 2026-08-27 (IDA-SHIP-1, docs/PRODUCTION_RUNBOOK.md §3.7). Until this deploy, idauto.tn had no vhost of its own and fell through to the dar-hijama server block, which answered 301 to https://darhijama.tn/ — a status-only probe expecting 2xx/3xx would have called that LIVE. expect_content_type text/html AND a body substring from web/citizen/index.html are what make this probe mean 'the IDauto process answered', not 'some nginx block answered'. That is the sya-api lesson applied before the outage instead of after it. GET only: reference/api.js's citizen asset map is GET-keyed and HEAD on / falls through to requireAuth() and returns 401 application/json — so a hand-run `curl -I https://idauto.tn/` looks broken when nothing is. The monitor always issues GET."
+    },
+    {
+      "id": "idauto-public-passport",
+      "name": "idauto.tn public passport surface (unauthenticated route)",
+      "type": "https",
+      "url": "https://idauto.tn/public/passport/ivid:1:ABCDEFGHJKMNPQRS:TU",
+      "expect_status": [
+        404
+      ],
+      "expect_body_substring": "not found",
+      "expect_content_type": "application/json",
+      "enabled": true,
+      "note": "ADDED 2026-08-27 (IDA-SHIP-1). 404 IS the healthy state. The URL carries a DELIBERATELY MALFORMED IVID — 'U' is not in the Crockford alphabet reference/ivid.js accepts — so it is rejected at the route's format gate with zero database touch, before the per-IP rate limiter. That is what makes this probe safe to run every five minutes: it cannot consume the public-resolution rate-limit budget and so can never report a false DOWN from a 429. Database liveness is the `database` probe's job, not this one's. What this proves that idauto-site cannot: the unauthenticated /public/passport route is reaching reference/api.js's handlePublicPassportRoute() and answering in the A5-PLATE shape — a JSON 404 byte-identical to the one an unknown-but-well-formed IVID gets, so the surface leaks no existence signal. 401 here would mean the route stopped being served without auth (a routing or phase-gate regression); text/html would mean an nginx catch-all answered for a dead upstream. Note that a 404 alone does NOT distinguish the public_resolution phase gate being ON from being OFF — with the gate off this route answers an identical 404 by design. Read this probe together with idauto-site."
+    },
+    {
+      "id": "idauto-authwall",
+      "name": "idauto.tn private API (auth wall)",
+      "type": "https",
+      "url": "https://idauto.tn/api/vehicles",
+      "expect_status": [
+        401
+      ],
+      "expect_content_type": "application/json",
+      "enabled": true,
+      "note": "ADDED 2026-08-27 (IDA-SHIP-1). 401 IS the healthy state, same precedent as othmode-authwall. /api/vehicles sits behind reference/api.js's requireAuth(), which gates the entire ROUTES table; GET /public/passport/:ivid is the one intentionally unauthenticated route and it is watched separately. A 200 here means an unauthenticated caller reached the administrative write surface of a public citizen service: a real security regression, and it must page. GET only — the monitor never issues a write."
+    },
+    {
+      "id": "idauto-api-loopback",
+      "name": "IDauto API (loopback origin, 127.0.0.1:3001)",
+      "type": "https",
+      "url": "http://127.0.0.1:3001/",
+      "expect_status": [
+        200
+      ],
+      "expect_body_substring": "L'identité numérique de votre véhicule",
+      "expect_content_type": "text/html",
+      "enabled": true,
+      "note": "ADDED 2026-08-27 (IDA-SHIP-1). Watches the layer the service actually binds to, the same precedent as sya-api-loopback: idauto-site stays green only while the whole public path works, and this one stays green only while the process itself does — so a DOWN here with idauto-site green is nginx or TLS, and the reverse is the unit. Loopback-only, which also proves port 3001 is not publicly exposed. reference/api.js listens on 127.0.0.1 exclusively, never 0.0.0.0."
     }
   ]
 }

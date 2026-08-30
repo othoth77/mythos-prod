@@ -52,8 +52,8 @@ ALLOWED_ROOTS="/var/backups/mythos /home/deploy/mythos-backups /home/deploy/depl
 # Keys this file recognises. The last three belong to the deploy-side pipeline
 # and are accepted-but-unused here, so the two sides can keep sharing one file.
 CONFIG_KEYS="MYTHOS_BACKUP_DB_DIR MYTHOS_BACKUP_MEDIA_DIR MYTHOS_BACKUP_MEDIA_SOURCE\
- MYTHOS_BACKUP_DB_CONTAINER MYTHOS_BACKUP_DB_ARCHIVE MYTHOS_BACKUP_STAGE_ROOT\
- MYTHOS_BACKUP_PREFIX MYTHOS_BACKUP_HEALTH_FILE"
+ MYTHOS_BACKUP_DB_CONTAINER MYTHOS_BACKUP_DB_NAME MYTHOS_BACKUP_DB_ARCHIVE\
+ MYTHOS_BACKUP_STAGE_ROOT MYTHOS_BACKUP_PREFIX MYTHOS_BACKUP_HEALTH_FILE"
 
 say()  { echo "$LOG_PREFIX $*"; }
 # `date +%3N` is not honoured everywhere (it can emit full nanoseconds), and the
@@ -155,6 +155,21 @@ for v in MYTHOS_BACKUP_DB_DIR MYTHOS_BACKUP_MEDIA_DIR MYTHOS_BACKUP_MEDIA_SOURCE
 done
 
 CONTAINER="${CFG[MYTHOS_BACKUP_DB_CONTAINER]:-idauto-postgres}"
+# IDA-SHIP-1, 2026-08-27: which database inside that container is the backed-up
+# one. Empty (the default, and the behaviour before this key existed) means the
+# container's own $POSTGRES_DB, exactly as before. It is set because
+# idauto-postgres now holds more than one database: `idauto` is the pre-ship
+# development database, and `idauto_production` is what idauto.tn actually
+# serves. Dumping $POSTGRES_DB would have kept backing up the wrong one, and
+# silently — the dump would still be valid, still verify, still restore, and
+# still contain none of production. It is never interpolated into the
+# in-container shell: it is passed as an environment variable and expanded
+# there, so a config value cannot become container-side shell syntax.
+DB_NAME="${CFG[MYTHOS_BACKUP_DB_NAME]:-}"
+case "$DB_NAME" in
+  '') : ;;
+  *[!A-Za-z0-9_]*) fail "unacceptable database name: $DB_NAME" ;;
+esac
 ARCHIVE="${CFG[MYTHOS_BACKUP_DB_ARCHIVE]:-/var/backups/mythos}"
 SRC="${CFG[MYTHOS_BACKUP_MEDIA_SOURCE]}"
 SET_DIR="${CFG[MYTHOS_BACKUP_MEDIA_DIR]}"
@@ -217,8 +232,8 @@ TS="$(date -u +%Y%m%dT%H%M%SZ)"
 # offhost-backup.js checks these against the media set and refuses a set whose
 # numbers disagree ("media-row consistency failure").
 SNAP="$(mktemp)"; TMP_FILES+=("$SNAP")
-"$DOCKER" exec -i "$CONTAINER" sh -c \
-  'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAXq -v ON_ERROR_STOP=1' > "$SNAP" <<'SQL' \
+"$DOCKER" exec -i -e "MYTHOS_TARGET_DB=$DB_NAME" "$CONTAINER" sh -c \
+  'psql -U "$POSTGRES_USER" -d "${MYTHOS_TARGET_DB:-$POSTGRES_DB}" -tAXq -v ON_ERROR_STOP=1' > "$SNAP" <<'SQL' \
   || fail "database metadata snapshot failed"
 BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SELECT 'ROWS|' || count(*) || '|' || count(DISTINCT object_key) FROM idauto_observation_media;
@@ -243,8 +258,9 @@ say "database metadata: rows=$ROW_COUNT distinct_object_keys=$DISTINCT_KEYS"
 # --- 2. Database dump, in-container (runbook §D) -----------------------------
 DUMP_NAME="idauto-$TS.dump"
 DUMP_PART="$ARCHIVE/.$DUMP_NAME.part"; TMP_FILES+=("$DUMP_PART")
-say "dumping $CONTAINER with in-container pg_dump -Fc"
-"$DOCKER" exec "$CONTAINER" sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' > "$DUMP_PART" \
+say "dumping $CONTAINER db=${DB_NAME:-<container POSTGRES_DB>} with in-container pg_dump -Fc"
+"$DOCKER" exec -e "MYTHOS_TARGET_DB=$DB_NAME" "$CONTAINER" \
+  sh -c 'pg_dump -U "$POSTGRES_USER" -d "${MYTHOS_TARGET_DB:-$POSTGRES_DB}" -Fc' > "$DUMP_PART" \
   || fail "pg_dump failed (see the source container; never retry with weakened flags)"
 [ -s "$DUMP_PART" ] || fail "pg_dump produced an empty dump"
 
