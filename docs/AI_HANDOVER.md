@@ -1,5 +1,112 @@
 # Mythos OS — AI Handover
 
+**Last updated:** 2026-09-01 00:05 UTC
+**From:** MCP-KNOWLEDGE-1 — **the Extraction Result → Knowledge Store gap is BLOCKED on three owner decisions; it was NOT worked around.** Investigated all three, implemented none of them, and fixed one real defect found while verifying the last leg: `knowledge_get` on a missing record reported "did not return JSON" instead of NOT_FOUND. Commit `395e966`, pushed; remote HEAD `395e966`, 0 ahead / 0 behind. othk-6 52 → 58; **1048 tests green, 0 failed. No paid API call.** Detail: this entry + `docs/worklogs/2026-08-31-2340-mcp-budget-surface-and-run-preservation.md`.
+
+## MCP-KNOWLEDGE-1 — promotion investigated, BLOCKED, one defect fixed (2026-09-01)
+
+### Stage outcome
+
+The remaining pipeline gap is **Extraction Result → Canonical Knowledge Store → MCP → knowledge_search**. All three named blockers were investigated to root cause. **None could be resolved without an owner decision**, so none was forced. What follows is evidence, not opinion.
+
+- **Commit:** `395e96610fb7e0c75effe7335272dbfed00b1b44`
+- **Remote HEAD:** `395e96610fb7e0c75effe7335272dbfed00b1b44` — verified, 0 ahead / 0 behind
+- **Branch:** `vps/extraction-advisory-wiring-20260831` (carries `47f58d2`, `5dbe30d`, `395e966`)
+
+### BLOCKER 1 — budget ledger scope: OWNER DECISION REQUIRED
+
+Root cause is **two installations, not one misconfiguration**:
+
+| | `ubuntu` | `deploy` |
+|---|---|---|
+| Executor user unit installed | yes | yes |
+| Linger | yes | yes |
+| Service state | **inactive / disabled** | **active, serving :8130** |
+| Ledger root (`os.homedir()`) | `/home/ubuntu/mythos-ai-executor/…` | `/home/deploy/mythos-ai-executor/…` |
+| Holds the `oth-extraction` entries | **yes — 3 SETTLED, $0.03 of $0.10** | no — `configured: false` |
+
+The paid run was a **direct script invocation as `ubuntu`**, not a daemon task, so it used `ubuntu`'s ledger. The daemon runs as `deploy`.
+
+**Why this is not unambiguous.** The unit header and `deploy/install.sh` both state the service user is **`ubuntu`** ("Run as the service user (ubuntu)"). Production actually runs as **`deploy`**. Documentation and reality disagree about which account is canonical, and `docs/MYTHOS_BUDGET_LEDGER.md` never addresses POSIX-account scope at all — it documents identity as "project + period" and guarantees "two parallel tasks cannot overspend", a guarantee enforced by an `O_EXCL` lock **inside one ledger directory**. Two ledgers therefore mean **two independent allowances**, which contradicts that guarantee.
+
+**Every candidate fix crosses a forbidden line:** a shared `MYTHOS_EXECUTOR_HOME` needs a new shared directory and group (host change), an edit to `~/.config/mythos-ai-executor/executor.env` (**`.env` change — forbidden**), and a restart of the live executor serving :8130 (**production change — forbidden**). Choosing the canonical account also moves a credential: the advisory key lives under `ubuntu`.
+
+**No regression tests were added for this.** Tests asserting the current behaviour would cement the hazard as expected, and tests asserting the desired behaviour cannot pass until the design is chosen. Encoding either would be worse than leaving it visible.
+
+**Decision needed:** which account is canonical, and is governed spend **project-global** (one shared ledger root) or **per-account**? Until then the hazard is bounded — grant and entries share one account, so no overspend is possible today.
+
+### BLOCKER 2 — merge to `main`: BLOCKED, RISK OF LOSING WORK
+
+`main` is **itself divergent**, entirely independently of the MCP work:
+
+```
+local main (90d9ffe)  vs  origin/main (30c7774)   →   ahead 14, behind 4
+plus 3 uncommitted files in /home/deploy/projects/mythos-prod:
+  ops/backup/mythos-backup-capture.sh · projects/status-center/monitor/probes.json
+  sites/erp.mythosprod.xyz/db/schema.sql          (known to be deployed truth)
+```
+
+The 14 unpushed local commits are a whole **ERP multi-tenant engine + backup pipeline** line of work (`419b2dd`, `907b901`, `b073989`, …) unrelated to MCP. Merging into `main` while `main` is divergent in both directions, with production-truth files uncommitted, is exactly the "risks losing work" stop condition. `gh` is not installed on this host, so a PR could not be opened from here either.
+
+This branch itself is clean: merge-base with `origin/main` is `7065265`, **1 behind / 13 ahead**, no conflict expected once `main` is reconciled.
+
+**Decision needed:** reconcile `main` first (owner), then merge this branch by PR.
+
+### BLOCKER 3 — knowledge promotion: NO MECHANISM EXISTS
+
+Verified by reading the code, not assumed:
+
+- `othk-cli.js` commands are `ingest`, `import-takeout`, `import-gemini`, `import-notebooklm`, `import-contacts-metadata`, `seed`, `search`, `export`, `validate`, `stats`. **There is no promote / merge / import-store command.**
+- `lib/store.js` exports `openStore`, `Store`, `FORMAT_VERSION` only. **No merge function exists anywhere in `oth-knowledge`.**
+- `seed` is explicitly "the authorised path for **owner-reported** structured knowledge" and creates `entities/facts/observations/events/evidence` — **it cannot create a claim.** Using it would convert claims into another record kind, changing exactly what must not change.
+
+The run store is a coherent **14-record graph** — `source, artifact, document, 4 chunks, 3 claims, 3 evidence, 1 derived` (the idempotency marker) — so promotion means moving the graph, not 3 claims. The canonical store `/home/deploy/othk-store` holds 37 records and **has never held a claim** (`source 2, entity 7, observation 7, fact 12, evidence 8, event 1`).
+
+The only three ways to promote today are: invent a writer into the canonical store (forbidden — new storage, bypasses curation), use `seed` (changes the record kind), or re-run extraction against the canonical store (**a paid DeepSeek call** — forbidden). All three were refused.
+
+**Decision needed:** authorise a reviewed claim-promotion capability (an `othk-cli` verb that copies a run store's graph into the canonical store, preserving ids, provenance, evidence links and the derived marker for idempotency), or accept the claims staying out of canon.
+
+### Defect found and FIXED
+
+Verifying the last leg surfaced a real fault in `projects/oth-mcp/server.js`. The knowledge facade answers **HTTP 200 with the JSON literal `null`** for an absent record, and `JSON.parse('null') === null`, so the single `json === null` check could not distinguish an empty payload from a parse failure — a missing record was reported as *"OTH Knowledge did not return JSON"*. A failure that misidentifies itself is worse than a loud one. A `parseFailed` flag now separates them: malformed body → `UPSTREAM_BAD_JSON`, empty payload → `UPSTREAM_NOT_FOUND`, both still naming the owner. Verified live through the deployed launcher.
+
+### Verification performed (read-only, free)
+
+Through the **deployed** MCP launcher over stdio:
+
+```
+tools/list           8 tools
+knowledge_search "backup"        5 hits — entity / observation / fact
+knowledge_search kind=claim      0 hits   (claims are not in canon — the gap, confirmed)
+knowledge_get <the 3 claim ids>  UPSTREAM_NOT_FOUND (correct after the fix)
+budget_status oth-extraction     configured:false — BLOCKER 1, surfaced honestly
+```
+
+The MCP → knowledge_search leg **works**; only the promotion step is missing.
+
+### Tests
+
+```
+othk-6-mcp-server 58 (was 52) · othk-0 89 · othk-1 30 · othk-2 97 · othk-2w 42
+othk-3 63 · othk-4 90 · othk-5 44 · othk-7 51 · budget-ledger 121
+ai-executor 264 · governance-invariant 99
+──────────────────────────────────────────────────────────────────────
+1048 passed, 0 failed, 0 regressions
+```
+
+### Exact next stage
+
+Three owner decisions, in this order — none is repository work:
+
+1. **Budget scope** — canonical account + project-global vs per-account ledger. Blocks any larger paid pilot.
+2. **Reconcile `main`** (14 ahead / 4 behind + 3 uncommitted production-truth files), then merge this branch by PR.
+3. **Authorise a claim-promotion capability**, then promote the 14-record run graph from `/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/` into `/home/deploy/othk-store`, and re-run the read-only verification above — at which point `knowledge_search kind=claim` returns the 3 claims and the pipeline is closed end to end.
+
+Only after (1): the remaining four conversations, ~$0.01 each against the **$0.07** remaining.
+
+---
+
+
 **Last updated:** 2026-08-31 23:55 UTC
 **From:** MCP-BUDGET-1 — **OTH MCP budget surface COMPLETE; the proven paid extraction is now recorded in Git.** `budget_status` added to `projects/oth-mcp/server.js` (7 → 8 read-only tools), routing to the read the executor already serves — `GET /budget/<project>[/history|/reservations]` — with no second tally, no new provider abstraction and no verb but GET. othk-6 36 → 52; 1042 tests green across 12 suites, 0 regressions. **No paid API call was made.** Commit `47f58d2`, pushed; remote HEAD `47f58d2`, 0 ahead / 0 behind. Detail: `docs/worklogs/2026-08-31-2340-mcp-budget-surface-and-run-preservation.md`.
 
