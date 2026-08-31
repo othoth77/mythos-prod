@@ -37,6 +37,8 @@ const { spawnSync } = require('child_process');
 const BASE = path.join(__dirname, '..');
 const ingest = require(path.join(BASE, 'projects', 'oth-knowledge', 'lib', 'ingest.js'));
 const AGENTS_PATH = path.join(BASE, 'projects', 'mythos-ai-executor', 'config', 'agents.json');
+const PROVIDER_PATH = path.join(BASE, 'projects', 'mythos-ai-executor', 'providers', 'openai-compat.js');
+const BUDGET_PATH = path.join(BASE, 'projects', 'mythos-ai-executor', 'core', 'budget.js');
 
 const SELECTOR_VERSION = 'othdb-select/1.0.0';
 const MAX_INPUT_CHARS = 32000;
@@ -46,6 +48,23 @@ const MAX_STATEMENT_CHARS = 2000;
 const DEFAULT_TIMEOUT_MS = 120000;
 const ROLES = ['user', 'assistant'];
 const OUTPUT_FIELDS = ['statement', 'role_source', 'message_position'];
+
+// The advisory model. Same DeepSeek V4 Pro already reachable through the
+// OmniRoute gateway (the `oth-coding` alias); named here rather than read
+// from any other tool's configuration, so nothing else has to change and
+// nothing else breaks if this default moves.
+const DEFAULT_ADVISORY_MODEL = 'openrouter/deepseek/deepseek-v4-pro';
+const DEFAULT_BUDGET_PROJECT = 'mythos-prod';
+const SAFE_RESERVATION_ID = /^[A-Za-z0-9._:-]{1,120}$/;
+
+// The selector's own framing, replacing the executor's report-shaped system
+// prompt. Overriding it is why providers/openai-compat.js grew an optional
+// systemPrompt: its default asks for a trailing mythos_report block, and this
+// contract is "exactly ONE fenced json block". Two instructions, one reply.
+const SELECTOR_SYSTEM_PROMPT =
+  'You select durable knowledge statements from an archived conversation. '
+  + 'You analyse only: you never execute, never persist and never assert. '
+  + 'Answer with exactly one fenced json block and no other text.';
 
 function fail(code, msg) { const e = new Error(code + ': ' + msg); e.code = code; return e; }
 
@@ -123,17 +142,112 @@ function runScriptTransport(prompt, timeoutMs) {
   return String(r.stdout || '');
 }
 
-// Transport B — the advisory provider. No credential exists on this host
-// today, so this path fails closed rather than inventing a fallback.
-function runProviderTransport(agentId) {
-  resolveAdvisoryAgent(agentId);
-  const keyFile = process.env.MYTHOS_ADVISORY_KEY_FILE;
-  const baseUrl = process.env.MYTHOS_ADVISORY_BASE_URL;
-  if (!keyFile || !baseUrl) {
-    throw fail('SELECTOR_UNAVAILABLE',
-      'advisory provider needs MYTHOS_ADVISORY_KEY_FILE and MYTHOS_ADVISORY_BASE_URL; neither is set (no fallback)');
+// Transport B — the advisory provider, through the EXISTING adapter
+// projects/mythos-ai-executor/providers/openai-compat.js. No second HTTP
+// client, no second credential path, no new provider: the adapter already
+// owns the endpoint, the key file, the timeout and the response shape, and
+// it is permanently executionAuthority:false.
+//
+// SPEND IS GOVERNED, ALWAYS, IN THIS ORDER:
+//
+//   reserve  →  AI call  →  settle        (the call completed and billed)
+//   reserve  →  AI call  →  release       (the call never billed)
+//
+// There is no path that reaches the provider without a prior allow, and no
+// path that leaves a reservation dangling. An unknown cost is NOT zero: the
+// estimate must be stated explicitly or the request is refused before any
+// network activity, matching core/budget.js's own rule.
+function resolveProviderModule(opts) {
+  if (opts && opts.provider) return opts.provider;          // injected in tests
+  try { return require(PROVIDER_PATH); }
+  catch (e) { throw fail('SELECTOR_UNAVAILABLE', 'advisory provider adapter unreadable'); }
+}
+
+function resolveBudgetModule(opts) {
+  if (opts && opts.budget) return opts.budget;              // injected in tests
+  try { return require(BUDGET_PATH); }
+  catch (e) { throw fail('SELECTOR_BUDGET_UNAVAILABLE', 'budget module unreadable; spending fails closed'); }
+}
+
+// Reads the cost estimate the caller must state. Never defaults to zero.
+function costEstimateOf(opts) {
+  const raw = (opts && opts.costEstimateUsd !== undefined && opts.costEstimateUsd !== null)
+    ? opts.costEstimateUsd : process.env.MYTHOS_SELECTOR_COST_ESTIMATE_USD;
+  if (raw === undefined || raw === null || raw === '') {
+    throw fail('SELECTOR_BUDGET_REFUSED',
+      'a cost estimate is required before any advisory call; set opts.costEstimateUsd or '
+      + 'MYTHOS_SELECTOR_COST_ESTIMATE_USD (an unknown cost is never treated as zero)');
   }
-  throw fail('SELECTOR_UNAVAILABLE', 'advisory provider transport is not wired in this version; use MYTHOS_SELECTOR_SCRIPT');
+  const n = typeof raw === 'number' ? raw : Number(raw);
+  if (!isFinite(n) || n < 0) throw fail('SELECTOR_BUDGET_REFUSED', 'cost estimate must be a finite non-negative number');
+  return n;
+}
+
+async function runProviderTransport(prompt, opts) {
+  opts = opts || {};
+  const agentId = opts.agent || 'omniroute-advisory';
+  const agent = resolveAdvisoryAgent(agentId);          // guarantee 1, unchanged
+  const providerMod = resolveProviderModule(opts);
+  const budget = resolveBudgetModule(opts);
+
+  const reservationId = opts.reservationId;
+  if (!reservationId || !SAFE_RESERVATION_ID.test(String(reservationId))) {
+    throw fail('SELECTOR_BUDGET_REFUSED',
+      'a stable reservation_id is required so a retry cannot be billed twice');
+  }
+  const project = opts.budgetProject || process.env.MYTHOS_SELECTOR_BUDGET_PROJECT || DEFAULT_BUDGET_PROJECT;
+  const amount = costEstimateOf(opts);
+  const model = opts.model || process.env.MYTHOS_SELECTOR_MODEL || DEFAULT_ADVISORY_MODEL;
+
+  // ---- reserve. Nothing has touched the network yet. -------------------
+  const decision = budget.reserve({
+    project, reservation_id: reservationId, amount, cost_basis: 'estimated',
+    provider: agent.provider || 'openai-compat', agent: agentId,
+  });
+  if (!decision || decision.decision !== 'allow') {
+    throw fail('SELECTOR_BUDGET_DENIED',
+      'budget refused this selection for project "' + project + '": '
+      + String((decision && decision.reason) || 'no decision').slice(0, 200));
+  }
+
+  // ---- the AI call ------------------------------------------------------
+  let outcome;
+  try {
+    outcome = await providerMod.run(
+      { model, timeout_seconds: Math.ceil((opts.timeoutMs || DEFAULT_TIMEOUT_MS) / 1000) },
+      prompt, null, null,
+      { keyFile: opts.keyFile, baseUrl: opts.baseUrl, systemPrompt: SELECTOR_SYSTEM_PROMPT }
+    );
+  } catch (e) {
+    // The adapter resolves rather than rejects, so this is a defect, not a
+    // billed call. Return the hold.
+    budget.release({ project, reservation_id: reservationId, reason: 'advisory call threw before completing' });
+    throw fail('SELECTOR_UNAVAILABLE', 'advisory provider failed: ' + String(e.message || 'unknown').slice(0, 160));
+  }
+
+  if (!outcome || outcome.exit_code !== 0 || (outcome.parsed && outcome.parsed.is_error)) {
+    // No successful completion ⇒ nothing was billed ⇒ the hold is returned.
+    budget.release({ project, reservation_id: reservationId, reason: 'advisory call did not complete successfully' });
+    const detail = String((outcome && outcome.stderr) || (outcome && outcome.parsed && outcome.parsed.result) || 'no response').slice(0, 200);
+    throw fail('SELECTOR_UNAVAILABLE', agent.provider + ' did not complete: ' + detail);
+  }
+
+  // ---- settle. The completion happened, so the spend is real even if the
+  // text turns out to be unusable — the money left before we could judge it.
+  const settled = budget.settle({
+    project, reservation_id: reservationId, actual_amount: amount, cost_basis: 'estimated',
+  });
+
+  return {
+    text: String((outcome.parsed && outcome.parsed.result) || ''),
+    spend: {
+      project, reservation_id: reservationId, currency: 'USD',
+      estimated_amount: amount, settled: !!(settled && settled.ok),
+      usage: outcome.usage || null,
+    },
+    model,
+    duration_ms: outcome.duration_ms || null,
+  };
 }
 
 // ----------------------------------------------------------------- parse
@@ -181,10 +295,10 @@ function parseSelectorOutput(text) {
 // selectStatements(conversation, opts) -> { statements, truncated, messages_rendered, selector }
 //   conversation: { title, messages: [{ position, role, content }] }
 // Throws typed SELECTOR_* errors. Never persists, never executes.
-function selectStatements(conversation, opts) {
-  opts = opts || {};
+// Shared by both entry points, so a gate can never apply to one and not the
+// other. Returns the prompt, or throws before anything reaches a transport.
+function prepareSelection(conversation, opts) {
   if (!conversation || !Array.isArray(conversation.messages)) throw fail('SELECTOR_INPUT', 'conversation.messages required');
-
   const rendered = renderConversation(conversation);
 
   // Secret gate BEFORE the call — reject, never redact. Same detector the
@@ -192,34 +306,77 @@ function selectStatements(conversation, opts) {
   const inHits = ingest.detectSecretShapes(rendered.text);
   if (inHits.length) throw fail('SELECTOR_SECRET_REFUSED', 'conversation matches secret shapes: ' + inHits.join(', '));
 
-  const transport = opts.transport || (process.env.MYTHOS_SELECTOR_SCRIPT ? 'script' : 'provider');
-  const timeoutMs = opts.timeoutMs || DEFAULT_TIMEOUT_MS;
-  const prompt = INSTRUCTIONS + '\n\n---\n\n' + rendered.text;
+  return { rendered, prompt: INSTRUCTIONS + '\n\n---\n\n' + rendered.text };
+}
 
-  let raw;
-  if (transport === 'script') raw = runScriptTransport(prompt, timeoutMs);
-  else raw = runProviderTransport(opts.agent || 'omniroute-advisory');
-
+function finishSelection(raw, rendered, opts, transport, extra) {
   // Secret gate on the way out too.
   const outHits = ingest.detectSecretShapes(raw);
   if (outHits.length) throw fail('SELECTOR_SECRET_REFUSED', 'selector output matches secret shapes: ' + outHits.join(', '));
 
   const statements = parseSelectorOutput(raw);
-  return {
+  const result = {
     statements,
     truncated: rendered.truncated,
     messages_rendered: rendered.messages_rendered,
     selector: {
       version: SELECTOR_VERSION,
       transport,
-      model: opts.model || process.env.MYTHOS_SELECTOR_MODEL || null,
+      model: (extra && extra.model) || opts.model || process.env.MYTHOS_SELECTOR_MODEL || null,
       agent: transport === 'provider' ? (opts.agent || 'omniroute-advisory') : null,
     },
   };
+  if (extra && extra.spend) result.spend = extra.spend;
+  return result;
+}
+
+function transportOf(opts) {
+  return opts.transport || (process.env.MYTHOS_SELECTOR_SCRIPT ? 'script' : 'provider');
+}
+
+// SYNCHRONOUS entry point — the script transport only.
+//
+// It deliberately does NOT reach the advisory provider. An HTTP call cannot
+// be made synchronously, and returning a Promise here would silently turn a
+// throwing contract into a resolving one: a caller doing `try { select() }`
+// would stop seeing refusals. So the provider is refused here, by name, and
+// selectStatementsAsync() is the governed path. This keeps the fail-closed
+// answer identical on every host, whether or not a credential happens to be
+// readable by the current account.
+function selectStatements(conversation, opts) {
+  opts = opts || {};
+  const transport = transportOf(opts);
+  const { rendered, prompt } = prepareSelection(conversation, opts);
+
+  if (transport !== 'script') {
+    throw fail('SELECTOR_UNAVAILABLE',
+      'the advisory provider is asynchronous and budget-governed; call selectStatementsAsync() '
+      + '(this synchronous path serves MYTHOS_SELECTOR_SCRIPT only, and never spends)');
+  }
+  const raw = runScriptTransport(prompt, opts.timeoutMs || DEFAULT_TIMEOUT_MS);
+  return finishSelection(raw, rendered, opts, transport, null);
+}
+
+// ASYNCHRONOUS entry point — the governed advisory path, and the only code
+// in this repository that can cause an extraction to spend money. Every gate
+// of the synchronous path applies unchanged; budget wraps the call itself.
+async function selectStatementsAsync(conversation, opts) {
+  opts = opts || {};
+  const transport = transportOf(opts);
+  const { rendered, prompt } = prepareSelection(conversation, opts);
+
+  if (transport === 'script') {
+    const raw = runScriptTransport(prompt, opts.timeoutMs || DEFAULT_TIMEOUT_MS);
+    return finishSelection(raw, rendered, opts, transport, null);
+  }
+  const out = await runProviderTransport(prompt, opts);
+  return finishSelection(out.text, rendered, opts, transport, { spend: out.spend, model: out.model });
 }
 
 module.exports = {
   SELECTOR_VERSION, MAX_INPUT_CHARS, MAX_OUTPUT_BYTES, MAX_STATEMENTS,
   MAX_STATEMENT_CHARS, DEFAULT_TIMEOUT_MS, OUTPUT_FIELDS, INSTRUCTIONS,
-  renderConversation, resolveAdvisoryAgent, parseSelectorOutput, selectStatements,
+  DEFAULT_ADVISORY_MODEL, DEFAULT_BUDGET_PROJECT, SELECTOR_SYSTEM_PROMPT,
+  renderConversation, resolveAdvisoryAgent, parseSelectorOutput,
+  selectStatements, selectStatementsAsync,
 };

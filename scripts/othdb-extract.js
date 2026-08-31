@@ -111,7 +111,7 @@ function conversationArtifact(row, messages) {
   }, null, 2), 'utf8');
 }
 
-function main() {
+async function main() {
   const args = parseArgs(process.argv.slice(2));
   const startedAt = new Date().toISOString();
   const t0 = Date.now();
@@ -142,6 +142,8 @@ function main() {
       facts_created: 0,
       truncated_conversations: 0, secret_refusals: 0,
       malformed_outputs: 0, input_chars: 0,
+      advisory_calls_settled: 0, spend_settled_usd: 0,
+      budget_denied: 0,
     },
     errors: [],
   };
@@ -168,10 +170,22 @@ function main() {
       const messages = loadMessages(db, row.id);
       report.totals.messages_processed += messages.length;
 
-      const sel = selector.selectStatements(
+      // The advisory path is asynchronous and budget-governed. The
+      // reservation id is derived from the conversation, so a retry of the
+      // same conversation reuses one reservation and can never be billed
+      // twice — the same stability rule the extraction marker follows.
+      const sel = await selector.selectStatementsAsync(
         { title: row.title, messages },
-        { model: process.env.MYTHOS_SELECTOR_MODEL || null }
+        {
+          model: process.env.MYTHOS_SELECTOR_MODEL || null,
+          reservationId: 'othdb-select-' + String(row.source_id).replace(/[^A-Za-z0-9._:-]/g, '-').slice(0, 90),
+        }
       );
+      if (sel.spend) {
+        entry.spend = sel.spend;
+        report.totals.spend_settled_usd += (sel.spend.settled ? sel.spend.estimated_amount : 0);
+        report.totals.advisory_calls_settled += (sel.spend.settled ? 1 : 0);
+      }
       entry.messages_rendered = sel.messages_rendered;
       entry.truncated = sel.truncated;
       entry.statements_selected = sel.statements.length;
@@ -245,6 +259,7 @@ function main() {
       entry.error = String(e.message || '').slice(0, 300);
       if (code === 'SELECTOR_SECRET_REFUSED') report.totals.secret_refusals++;
       if (code === 'SELECTOR_OUTPUT_INVALID') report.totals.malformed_outputs++;
+      if (code === 'SELECTOR_BUDGET_DENIED' || code === 'SELECTOR_BUDGET_REFUSED') report.totals.budget_denied++;
       if (entry.status === 'refused') report.totals.conversations_refused++;
       else report.totals.conversations_failed++;
       report.errors.push({ conversation_id: row.source_id, code, message: entry.error });
@@ -268,5 +283,11 @@ function main() {
   process.exit(report.errors.length ? 1 : 0);
 }
 
-if (require.main === module) main();
+if (require.main === module) {
+  main().catch((e) => {
+    // A failure of the run itself, not of one conversation. Message only.
+    process.stderr.write('othdb-extract failed: ' + String((e && e.message) || e).slice(0, 300) + '\n');
+    process.exit(2);
+  });
+}
 module.exports = { parseArgs, listConversations, conversationArtifact };
