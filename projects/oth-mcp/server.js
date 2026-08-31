@@ -113,13 +113,22 @@ function upstreamGet(key, pathAndQuery) {
         res.on('end', function () {
           if (tooBig) return reject(fail('UPSTREAM_TOO_LARGE', up.owner + ' response exceeded ' + MAX_RESPONSE_BYTES + ' bytes'));
           var body = Buffer.concat(chunks).toString('utf8');
+          // A parse FAILURE and a body that is legitimately the JSON literal
+          // `null` are different facts and must not share an error. The
+          // knowledge facade answers 200 with `null` for a record that does
+          // not exist; reporting that as "did not return JSON" names the
+          // wrong cause, and a failure that misidentifies itself is worse
+          // than a loud one. The flag is what separates them — `json` alone
+          // cannot, because JSON.parse('null') === null.
           var json = null;
-          try { json = JSON.parse(body); } catch (e) { /* reported below */ }
+          var parseFailed = false;
+          try { json = JSON.parse(body); } catch (e) { parseFailed = true; }
           if (res.statusCode >= 400) {
             return reject(fail('UPSTREAM_' + res.statusCode,
               up.owner + ' answered ' + res.statusCode + (json && json.error ? ': ' + json.error : '')));
           }
-          if (json === null) return reject(fail('UPSTREAM_BAD_JSON', up.owner + ' did not return JSON'));
+          if (parseFailed) return reject(fail('UPSTREAM_BAD_JSON', up.owner + ' did not return JSON'));
+          if (json === null) return reject(fail('UPSTREAM_NOT_FOUND', up.owner + ' has no record for that request'));
           resolve(json);
         });
       }

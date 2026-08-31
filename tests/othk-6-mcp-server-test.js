@@ -343,6 +343,40 @@ function listen(server) {
     ok(!/remaining/.test(b.result.content[0].text), 'H3: no spend position is invented when the ledger cannot be read');
   }
 
+
+  console.log('\nI. a missing record and a broken upstream are different failures');
+  {
+    // The knowledge facade answers 200 with the JSON literal `null` for a
+    // record that does not exist. JSON.parse('null') === null, so a naive
+    // check cannot tell that apart from a parse failure — and reporting a
+    // missing record as "did not return JSON" names the wrong cause.
+    const miss = await client.call('tools/call', { name: 'knowledge_get', arguments: { id: 'claim-does-not-exist-0000' } });
+    ok(miss.result && miss.result.isError, 'I1: a missing record is an explicit error');
+    ok(/UPSTREAM_NOT_FOUND/.test(miss.result.content[0].text), 'I2: it is reported as NOT_FOUND, not as bad JSON');
+    ok(/Knowledge/i.test(miss.result.content[0].text), 'I3: the error still names the owning system');
+    ok(!/did not return JSON/.test(miss.result.content[0].text), 'I4: the wrong cause is not named');
+
+    // A genuinely malformed body must still be reported as malformed.
+    const broken = await listen(http.createServer((req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end('{ this is not json');
+    }));
+    const bclient = startClient({
+      OTH_MCP_KNOWLEDGE_URL: 'http://127.0.0.1:' + broken.address().port,
+      OTH_MCP_KNOWLEDGE_TOKEN: TOKEN,
+      OTH_MCP_OTHMODE_URL: CLOSED, OTH_MCP_OTHMODE_TOKEN: '',
+      OTH_MCP_EXECUTOR_URL: CLOSED, OTH_MCP_EXECUTOR_TOKEN: '',
+    });
+    await bclient.call('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'k6-broken', version: '1' } });
+    bclient.notify('notifications/initialized');
+    const bad = await bclient.call('tools/call', { name: 'knowledge_get', arguments: { id: 'anything' } });
+    ok(bad.result && bad.result.isError && /UPSTREAM_BAD_JSON/.test(bad.result.content[0].text),
+      'I5: a malformed body is still reported as bad JSON');
+    ok(!/UPSTREAM_NOT_FOUND/.test(bad.result.content[0].text), 'I6: a parse failure is never reported as a missing record');
+    bclient.stop();
+    await new Promise((r) => broken.close(r));
+  }
+
   client.stop();
   await new Promise((r) => kb.close(r));
 
