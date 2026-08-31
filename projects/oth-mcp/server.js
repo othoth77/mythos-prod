@@ -251,6 +251,39 @@ var TOOLS = [
     },
   },
   {
+    name: 'budget_status',
+    owner: 'Mythos AI Executor',
+    description:
+      'The governed spend position of one project: limit, reserved, spent and remaining, or its settled '
+      + 'history, or its open reservations. Budget is the gate every paid AI action must pass, and this is '
+      + 'the executor\'s OWN ledger read back \u2014 not a second tally. `configured: false` means the project has '
+      + 'no grant and every spend request for it is DENIED; a zero limit is a real answer, never a missing one. '
+      + 'The reading is scoped to the ledger the answering executor owns, so it is that executor\'s truth and '
+      + 'not necessarily every account\'s. Read-only \u2014 limits change only by a reviewed commit to '
+      + 'config/budgets.json, which this server cannot make.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project: { type: 'string', description: 'Project id, e.g. oth-extraction.' },
+        view: { type: 'string', description: 'Optional: "history" (settled entries) or "reservations" (open holds). Omit for the current position.' },
+      },
+      required: ['project'],
+    },
+    run: function (p) {
+      var project = q(p, 'project', { required: true, max: 64 });
+      // The executor's own project grammar, mirrored rather than loosened, so a
+      // name this server accepts is exactly a name that route accepts. It also
+      // makes traversal unrepresentable: no dot and no slash can appear.
+      if (!/^[a-z0-9][a-z0-9-]{1,63}$/.test(project)) {
+        throw fail('TOOL_INPUT', 'project must match [a-z0-9][a-z0-9-]{1,63}');
+      }
+      var view = q(p, 'view', { max: 20 });
+      var allowed = { history: 1, reservations: 1 };
+      if (view && !allowed[view]) throw fail('TOOL_INPUT', 'view must be history or reservations');
+      return upstreamGet('executor', '/budget/' + project + (view ? '/' + view : ''));
+    },
+  },
+  {
     name: 'system_health',
     owner: 'Status Center',
     description:

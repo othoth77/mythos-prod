@@ -23,7 +23,7 @@ It stores nothing. Every tool resolves to a system that already owns the data,
 over an interface that already exists. **If a tool cannot name the system it
 routes to, it does not belong here.**
 
-## Tools (7, all read-only)
+## Tools (8, all read-only)
 
 | Tool | Owner | Returns |
 |---|---|---|
@@ -33,6 +33,7 @@ routes to, it does not belong here.**
 | `capability_registry` | OTHMODE unified read model | skills · tools · providers |
 | `execution_status` | Mythos AI Executor | tasks, or one task |
 | `execution_report` | Mythos AI Executor | a completed task's structured report |
+| `budget_status` | Mythos AI Executor | governed spend: position, history, open reservations |
 | `system_health` | Status Center | live estate health |
 
 ## The write boundary
@@ -54,6 +55,27 @@ A future write increment must route **through** those gates, never around
 them. Adding a tool that bypasses one would defeat the reason this server is
 thin.
 
+## Why budget is readable but not writable
+
+Budget is the gate every paid AI action must pass, and it was the one
+mandatory invariant with no MCP surface: a client could see tasks and reports
+but not whether spend was inside its limit. `budget_status` closes that by
+routing to the executor's **existing** `GET /budget/<project>[/history|/reservations]`
+— the same read the executor already serves, with no second tally computed
+here. The executor has no budget mutation route at all; limits change only by
+a reviewed commit to `config/budgets.json`.
+
+Two honesty rules the tool keeps:
+
+- `configured: false` with `limit: 0` is a **real answer** — no grant, every
+  spend request denied. A client must be able to tell that from "the tool
+  could not find out", so an unreachable executor is an explicit error that
+  names the owner and returns no spend position at all.
+- The reading is **scoped to the ledger the answering executor owns**.
+  `lib/state.js` roots the ledger at `os.homedir()`, so a run performed under
+  a different POSIX account keeps its own ledger, and this tool reports the
+  executor's truth rather than a merged one it would have to invent.
+
 ## Semantic contract given to every client
 
 The `initialize` response states it, so a client cannot miss it:
@@ -74,7 +96,7 @@ OTH_MCP_KNOWLEDGE_TOKEN   required for knowledge_* tools
 OTH_MCP_OTHMODE_URL       default http://127.0.0.1:3021
 OTH_MCP_OTHMODE_TOKEN     required for project_context, capability_registry
 OTH_MCP_EXECUTOR_URL      default http://127.0.0.1:8130
-OTH_MCP_EXECUTOR_TOKEN    required for execution_*
+OTH_MCP_EXECUTOR_TOKEN    required for execution_* and budget_status
 OTH_MCP_STATUS_URL        default https://status.mythosprod.xyz (public)
 ```
 
@@ -153,5 +175,5 @@ decision should flip.
 
 ```bash
 node tests/othk-5-http-facade-test.js   # the OTH Knowledge facade  (44)
-node tests/othk-6-mcp-server-test.js    # this server, over stdio   (36)
+node tests/othk-6-mcp-server-test.js    # this server, over stdio   (52)
 ```

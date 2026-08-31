@@ -22,6 +22,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawn } = require('child_process');
+const http = require('http');
 
 const BASE = path.join(__dirname, '..');
 const OTHK = path.join(BASE, 'projects', 'oth-knowledge');
@@ -254,6 +255,92 @@ function listen(server) {
     const search = await client.call('tools/call', { name: 'knowledge_search', arguments: { query: 'loopback' } });
     ok(JSON.stringify(search.result).indexOf(TOKEN) === -1, 'F2: tool results never contain an upstream token');
     ok(client.stderr().indexOf(TOKEN) === -1, 'F3: nothing logs the token to stderr');
+  }
+
+
+  console.log('\nG. budget_status \u2014 the governed spend gate, read-only');
+  {
+    // G routes to a STUB executor rather than the real one: the assertion is
+    // that this server builds the executor's own path and returns the owner's
+    // answer unaltered. Standing up a stub also proves the positive path
+    // without depending on a live executor or on any project's real ledger.
+    const seen = [];
+    const stub = http.createServer((req, res) => {
+      seen.push({ method: req.method, url: req.url, auth: req.headers.authorization || '' });
+      const m = /^\/budget\/([a-z0-9][a-z0-9-]{1,63})(\/history|\/reservations)?$/.exec(req.url);
+      if (req.method !== 'GET') { res.writeHead(405); return res.end('{}'); }
+      if (!m) { res.writeHead(404, { 'content-type': 'application/json' }); return res.end(JSON.stringify({ error: 'not found' })); }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      if (m[2] === '/history') return res.end(JSON.stringify({ project: m[1], entries: [] }));
+      if (m[2] === '/reservations') return res.end(JSON.stringify({ project: m[1], summary: {}, reservations: [] }));
+      res.end(JSON.stringify({ project: m[1], limit: 0, reserved: 0, spent: 0, remaining: 0, configured: false }));
+    });
+    await listen(stub);
+    const stubUrl = 'http://127.0.0.1:' + stub.address().port;
+    const bclient = startClient({
+      OTH_MCP_KNOWLEDGE_URL: kbUrl,
+      OTH_MCP_KNOWLEDGE_TOKEN: TOKEN,
+      OTH_MCP_OTHMODE_URL: CLOSED,
+      OTH_MCP_OTHMODE_TOKEN: '',
+      OTH_MCP_EXECUTOR_URL: stubUrl,
+      OTH_MCP_EXECUTOR_TOKEN: TOKEN,
+    });
+    await bclient.call('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'k6-budget', version: '1' } });
+    bclient.notify('notifications/initialized');
+
+    ok(toolNames.indexOf('budget_status') !== -1, 'G1: budget_status is advertised to clients');
+
+    const st = await bclient.call('tools/call', { name: 'budget_status', arguments: { project: 'oth-extraction' } });
+    const body = st.result && !st.result.isError && JSON.parse(st.result.content[0].text);
+    ok(body && body.project === 'oth-extraction', 'G2: the executor\'s budget position is returned end to end');
+    ok(seen.some((r) => r.url === '/budget/oth-extraction' && r.method === 'GET'),
+      'G3: the executor\'s own route is called, with GET');
+
+    // configured:false is a real answer. A client must be able to tell "no
+    // grant, every spend denied" from "the tool could not find out".
+    ok(body && body.configured === false && body.limit === 0,
+      'G4: an unconfigured project reports deny-by-default rather than an absence');
+
+    const hist = await bclient.call('tools/call', { name: 'budget_status', arguments: { project: 'oth-extraction', view: 'history' } });
+    ok(hist.result && !hist.result.isError && seen.some((r) => r.url === '/budget/oth-extraction/history'),
+      'G5: view=history reaches the history route');
+
+    const resv = await bclient.call('tools/call', { name: 'budget_status', arguments: { project: 'oth-extraction', view: 'reservations' } });
+    ok(resv.result && !resv.result.isError && seen.some((r) => r.url === '/budget/oth-extraction/reservations'),
+      'G6: view=reservations reaches the reservations route');
+
+    // Traversal is not merely rejected upstream — it is unrepresentable here.
+    const trav = await bclient.call('tools/call', { name: 'budget_status', arguments: { project: '../../etc/passwd' } });
+    ok(trav.result && trav.result.isError && /TOOL_INPUT/.test(trav.result.content[0].text),
+      'G7: a traversal-shaped project is refused before any upstream call');
+    ok(!seen.some((r) => /passwd|\.\./.test(r.url)), 'G8: nothing traversal-shaped ever reached the executor');
+
+    const badView = await bclient.call('tools/call', { name: 'budget_status', arguments: { project: 'oth-extraction', view: 'secrets' } });
+    ok(badView.result && badView.result.isError, 'G9: an unaccepted view is refused');
+
+    const noProj = await bclient.call('tools/call', { name: 'budget_status', arguments: {} });
+    ok(noProj.result && noProj.result.isError && /required/i.test(noProj.result.content[0].text),
+      'G10: a missing project is an explicit error');
+
+    const upper = await bclient.call('tools/call', { name: 'budget_status', arguments: { project: 'OTH-Extraction' } });
+    ok(upper.result && upper.result.isError, 'G11: the executor\'s project grammar is mirrored, not loosened');
+
+    ok(JSON.stringify(st.result).indexOf(TOKEN) === -1, 'G12: a budget reading never carries the executor token');
+
+    // No mutation route exists on the executor, and none is reachable here.
+    ok(!seen.some((r) => r.method !== 'GET'), 'G13: budget_status issues no verb but GET');
+
+    bclient.stop();
+    await new Promise((r) => stub.close(r));
+  }
+
+  console.log('\nH. budget_status fails closed when the executor is unavailable');
+  {
+    const b = await client.call('tools/call', { name: 'budget_status', arguments: { project: 'oth-extraction' } });
+    ok(b.result && b.result.isError, 'H1: an unavailable executor is an explicit error');
+    ok(/Executor/i.test(b.result.content[0].text), 'H2: the error names the owning system');
+    // The dangerous failure is a budget read that invents headroom.
+    ok(!/remaining/.test(b.result.content[0].text), 'H3: no spend position is invented when the ledger cannot be read');
   }
 
   client.stop();

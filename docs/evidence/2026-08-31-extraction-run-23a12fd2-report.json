@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0.0",
+  "tool": "othdb-extract/1.0.0",
+  "selector_version": "othdb-select/1.0.0",
+  "importer_version": "conversation/1.0.0",
+  "started_at": "2026-08-31T21:25:37.085Z",
+  "dry_run": false,
+  "source_db": "oth.db",
+  "store_root": "/tmp/othk-extraction-run-20260831",
+  "limit": 1,
+  "conversations": [
+    {
+      "conversation_id": "23a12fd2-eb75-4b86-9e48-7ee2704ccf31",
+      "provider": "deepseek",
+      "message_count": 4,
+      "source_created_at": "2025-01-05T19:08:57.655Z",
+      "status": "extracted",
+      "spend": {
+        "project": "oth-extraction",
+        "reservation_id": "othdb-select-23a12fd2-eb75-4b86-9e48-7ee2704ccf31",
+        "currency": "USD",
+        "estimated_amount": 0.01,
+        "settled": true,
+        "usage": {
+          "prompt_tokens": 1232,
+          "completion_tokens": 1913,
+          "total_tokens": 3145,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0,
+            "audio_tokens": 0,
+            "video_tokens": 0
+          },
+          "completion_tokens_details": {
+            "reasoning_tokens": 1756,
+            "image_tokens": 0,
+            "audio_tokens": 0
+          }
+        },
+        "usage_tokens": 3145
+      },
+      "messages_rendered": 4,
+      "truncated": false,
+      "statements_selected": 3,
+      "selector": {
+        "version": "othdb-select/1.0.0",
+        "transport": "provider",
+        "model": "openrouter/deepseek/deepseek-v4-pro",
+        "agent": "omniroute-advisory"
+      },
+      "artifact": "artifact-5251375604566243",
+      "document": "document-460722a951859043",
+      "chunks": 4,
+      "claims": 3,
+      "evidence": 3,
+      "marker": "derived-4870e582ab3b2971",
+      "claim_ids": [
+        "claim-5d59076fa2833cf0",
+        "claim-8ed7e0ce83a671e2",
+        "claim-b3a530fa9963c03e"
+      ]
+    }
+  ],
+  "totals": {
+    "conversations_considered": 1,
+    "conversations_extracted": 1,
+    "conversations_skipped": 0,
+    "conversations_refused": 0,
+    "conversations_failed": 0,
+    "conversations_not_renderable": 0,
+    "messages_processed": 4,
+    "messages_rendered": 4,
+    "messages_not_rendered": 0,
+    "statements_selected": 3,
+    "claims_created": 3,
+    "evidence_created": 3,
+    "facts_created": 0,
+    "truncated_conversations": 0,
+    "secret_refusals": 0,
+    "malformed_outputs": 0,
+    "input_chars": 5283,
+    "advisory_calls_settled": 1,
+    "spend_settled_usd": 0.01,
+    "budget_denied": 0
+  },
+  "errors": [],
+  "store_fact_records_total": 0,
+  "finished_at": "2026-08-31T21:26:10.231Z",
+  "duration_ms": 33139,
+  "estimated_input_tokens": 1321
+}
