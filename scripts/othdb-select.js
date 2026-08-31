@@ -232,18 +232,42 @@ async function runProviderTransport(prompt, opts) {
     throw fail('SELECTOR_UNAVAILABLE', agent.provider + ' did not complete: ' + detail);
   }
 
-  // ---- settle. The completion happened, so the spend is real even if the
+  // A status below 400 is NOT proof that a completion happened. On
+  // 2026-08-31 the gateway answered without error while its egress leg was
+  // refusing connections: no tokens were consumed, yet a settle on
+  // exit_code alone recorded a spend that never occurred. Settling needs
+  // POSITIVE evidence — reported token usage, or actual returned text.
+  // Anything else is released, so a phantom call costs nothing and the
+  // ledger keeps telling the truth.
+  const text = String((outcome.parsed && outcome.parsed.result) || '');
+  const usage = outcome.usage || null;
+  const usageTokens = usage
+    ? Number(usage.total_tokens || usage.completion_tokens || usage.prompt_tokens || 0)
+    : 0;
+  const completed = usageTokens > 0 || text.trim().length > 0;
+
+  if (!completed) {
+    budget.release({
+      project, reservation_id: reservationId,
+      reason: 'no evidence of a completion: the provider reported neither token usage nor any text',
+    });
+    throw fail('SELECTOR_NO_COMPLETION',
+      agent.provider + ' answered without a completion — no token usage and no text. '
+      + 'Nothing was billed and the reservation was released.');
+  }
+
+  // ---- settle. A completion is evidenced, so the spend is real even if the
   // text turns out to be unusable — the money left before we could judge it.
   const settled = budget.settle({
     project, reservation_id: reservationId, actual_amount: amount, cost_basis: 'estimated',
   });
 
   return {
-    text: String((outcome.parsed && outcome.parsed.result) || ''),
+    text,
     spend: {
       project, reservation_id: reservationId, currency: 'USD',
       estimated_amount: amount, settled: !!(settled && settled.ok),
-      usage: outcome.usage || null,
+      usage, usage_tokens: usageTokens,
     },
     model,
     duration_ms: outcome.duration_ms || null,

@@ -179,6 +179,42 @@ console.log('\nH. every pre-existing guarantee still applies on the async path')
     /SELECTOR_REFUSED/, 'H8: the model still cannot name confidence — it cannot widen its own trust');
 }
 
+console.log('\nK. settle requires EVIDENCE of a completion (regression, 2026-08-31)');
+{
+  // Exactly the shape the gateway returned while its egress leg refused
+  // connections: status below 400, no error flag, no usage, no text.
+  const b = fakeBudget();
+  const phantom = { exit_code: 0, parsed: { is_error: false, result: '' }, usage: null, duration_ms: 12000 };
+  await expectError(() => selector.selectStatementsAsync(CONV, Object.assign({}, base, { budget: b, provider: fakeProvider(phantom) })),
+    /SELECTOR_NO_COMPLETION/, 'K1: a reply with no usage and no text is NOT a completion');
+  ok(b.calls.some((c) => c[0] === 'release'), 'K2: the reservation is RELEASED — a phantom call costs nothing');
+  ok(!b.calls.some((c) => c[0] === 'settle'), 'K3: nothing is settled, so the ledger keeps telling the truth');
+
+  const b2 = fakeBudget();
+  const whitespace = { exit_code: 0, parsed: { is_error: false, result: '   \n  ' }, usage: null };
+  await expectError(() => selector.selectStatementsAsync(CONV, Object.assign({}, base, { budget: b2, provider: fakeProvider(whitespace) })),
+    /SELECTOR_NO_COMPLETION/, 'K4: whitespace-only text is not evidence either');
+  ok(b2.calls.some((c) => c[0] === 'release'), 'K5: released');
+
+  // Usage alone is enough evidence that tokens were billed, even if the text
+  // is then unusable: the money left, so it must be settled.
+  const b3 = fakeBudget();
+  const billedButJunk = { exit_code: 0, parsed: { is_error: false, result: 'prose, no fenced block' }, usage: { total_tokens: 88 } };
+  await expectError(() => selector.selectStatementsAsync(CONV, Object.assign({}, base, { budget: b3, provider: fakeProvider(billedButJunk) })),
+    /SELECTOR_OUTPUT_INVALID/, 'K6: billed-but-unusable output is still refused');
+  ok(b3.calls.some((c) => c[0] === 'settle'), 'K7: and still SETTLED — tokens were consumed');
+
+  const b4 = fakeBudget();
+  const usageOnly = { exit_code: 0, parsed: { is_error: false, result: '' }, usage: { total_tokens: 5 } };
+  await expectError(() => selector.selectStatementsAsync(CONV, Object.assign({}, base, { budget: b4, provider: fakeProvider(usageOnly) })),
+    /SELECTOR_OUTPUT_INVALID/, 'K8: reported usage with empty text counts as billed');
+  ok(b4.calls.some((c) => c[0] === 'settle'), 'K9: settled on usage evidence alone');
+
+  const b5 = fakeBudget();
+  const res = await selector.selectStatementsAsync(CONV, Object.assign({}, base, { budget: b5, provider: fakeProvider(okOutcome) }));
+  ok(res.spend.usage_tokens === 120, 'K10: usage_tokens is reported from the gateway, never invented');
+}
+
 console.log('\nI. the synchronous path never spends');
 {
   const prev = process.env.MYTHOS_SELECTOR_SCRIPT;
