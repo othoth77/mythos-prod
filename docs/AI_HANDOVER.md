@@ -1,5 +1,89 @@
 # Mythos OS — AI Handover
 
+**Last updated:** 2026-08-31 23:55 UTC
+**From:** MCP-BUDGET-1 — **OTH MCP budget surface COMPLETE; the proven paid extraction is now recorded in Git.** `budget_status` added to `projects/oth-mcp/server.js` (7 → 8 read-only tools), routing to the read the executor already serves — `GET /budget/<project>[/history|/reservations]` — with no second tally, no new provider abstraction and no verb but GET. othk-6 36 → 52; 1042 tests green across 12 suites, 0 regressions. **No paid API call was made.** Commit `47f58d2`, pushed; remote HEAD `47f58d2`, 0 ahead / 0 behind. Detail: `docs/worklogs/2026-08-31-2340-mcp-budget-surface-and-run-preservation.md`.
+
+## MCP-BUDGET-1 — governed budget read + run preservation (2026-08-31)
+
+### Stage completed
+
+Continue and complete the MCP implementation from the verified state. The MCP
+server itself was found **complete and already validated** (deployed
+2026-08-30, exercised by the official MCP Inspector against live upstreams);
+it was not rebuilt. One genuine gap was closed, and Git was corrected about
+what had actually happened.
+
+- **Commit:** `47f58d2a125c0432e0a1a4b897b65ef79e1d540b`
+- **Branch:** `vps/extraction-advisory-wiring-20260831`
+- **Remote HEAD:** `47f58d2a125c0432e0a1a4b897b65ef79e1d540b` — verified after push, **0 ahead / 0 behind, no divergence**
+- **Worktree:** `/home/deploy/oth-mcp` (authoritative; `projects/oth-mcp` is **not** on `main`)
+
+### What was implemented
+
+`budget_status` — the governed spend position of a project (limit, reserved,
+spent, remaining), its settled history, or its open reservations. Budget is
+the gate every paid AI action must pass and was the only mandatory invariant
+with no MCP surface. It extends the existing `TOOLS` array over the existing
+`upstreamGet`; the executor's own project grammar `^[a-z0-9][a-z0-9-]{1,63}$`
+is mirrored rather than loosened, making traversal unrepresentable.
+
+Asserted, not assumed: `configured: false` with `limit: 0` is a **real**
+answer (no grant → every spend denied), and an unreachable executor yields an
+explicit error naming the owner with **no spend position at all**.
+
+### The paid run Git did not know about
+
+The previous worklog stated the paid test was not re-run and egress was
+blocked. The owner cleared `proxy_enabled`, and the run succeeded:
+
+```
+source_id  23a12fd2-eb75-4b86-9e48-7ee2704ccf31
+provider   openrouter/deepseek/deepseek-v4-pro
+usage      prompt 1232 · completion 1913 · reasoning 1756 · total 3145
+result     3 claims · 3 evidence · 0 facts
+spend      $0.01 SETTLED   ·   oth-extraction: spent 0.03 of 0.10, remaining 0.07
+```
+
+Report committed at `docs/evidence/2026-08-31-extraction-run-23a12fd2-report.json`
+(ids, counts, usage, spend only — no conversation content, no credential).
+The run store was preserved off `/tmp` at
+`/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/`, verified byte-identical.
+
+### Tests
+
+```
+othk-6-mcp-server  52 (was 36)  ·  othk-0  89  ·  othk-1  30  ·  othk-2  97
+othk-2w  42  ·  othk-3  63  ·  othk-4  90  ·  othk-5  44  ·  othk-7  51
+mythos-budget-ledger 121  ·  mythos-ai-executor 264  ·  governance-invariant 99
+──────────────────────────────────────────────────────────────────────────
+1042 passed, 0 failed, 0 regressions
+```
+
+### Remaining blockers — all owner decisions, none repository
+
+1. **`os.homedir()`-scoped budget ledger.** `lib/state.js:38` roots the ledger
+   at the running account's home. The extraction ran as `ubuntu`; the executor
+   daemon runs as `deploy`, so `GET /budget/oth-extraction` reports
+   `configured: false` while the real ledger holds `$0.03`. It cannot cause an
+   overspend today (grant and entries share one account) but a cumulative limit
+   is only cumulative within one account. **Settle before any larger pilot.**
+2. **Branch not merged.** The deployed executor runs from the `main` worktree,
+   which carries neither the `oth-extraction` grant nor `projects/oth-mcp`.
+   Fail-closed (it denies), but the MCP path stays worktree-dependent.
+3. **The 3 proven claims are not in the canonical store**, so they are not
+   reachable via `knowledge_search`. Promotion is curation, and curation is
+   operator-only through `othk-cli` — deliberately not done here.
+
+### Exact next stage
+
+Owner decides (1) the ledger scope, (2) the merge to `main`, (3) curation of
+the 3 claims via `othk-cli` — which completes Extraction → Knowledge → MCP end
+to end. Only then the remaining four conversations, ~$0.01 each against the
+$0.07 remaining.
+
+---
+
+
 **Last updated:** 2026-08-26 UTC
 **From:** OTHMODE-TASKS-1 — **Task Reports implemented (owner's FINAL OPERATIONAL CONTRACT); NOT YET DEPLOYED — deploy + imports are host steps.** Every othmode-activated command is now a persistent OTHMODE Task: `RUNNING` → exactly one of `COMPLETED/FAILED/BLOCKED/CANCELLED/REJECTED`, full report (preflight, Status Center ref or `UNREACHABLE`, Search First, capabilities, changes, Git, validation, deployment, problems, outcome, optional evolution ref) in the existing OTHMODE store (`tasks/records.jsonl`, append-only, fail-closed), surfaced as the FOURTH source of the existing unified Command History (`/api/othmode/tasks*` authenticated + secret-gated; UI: history filter + `#/history/task/<id>` detail, EN/FR/AR; CLI: `task show|create|update|import`, `tasks`). Writer refuses non-activated commands — normal Claude can never create a task. FULL REPORT → OTHMODE, SHORT RECEIPT → chat (CLAUDE.md updated). Also fixed a pre-existing `othmode-cli.js signal` dead-branch bug (silent no-op). Suites here: othmode-3 68/0 (new), othmode-2 141/0, governance 99/0, MOS-v2 20/20, othk-0 89/0 (MCC DB suite = host deploy gate). **Host TODO:** `git pull` → `sudo mythos-deploy deploy othmode` → `othmode-cli.js task import` the two files in `projects/command-center/data/pending-task-imports/` (the BLOCKED first real operation — Status Center unreachable from the Claude Code environment, network policy — and this implementation run, BLOCKED at DEPLOYMENT), then delete them; optionally allowlist `status.`/`othmode.mythosprod.xyz` in the Claude Code environment so future othmode runs can read execution truth live. Previous: OTHMODE-ACT-1 below.
 **Previous:** OTHMODE-ACT-1 — **activation model changed by owner order.** No global OthMode switch any more: OTHMODE is always READY; a Claude command activates it ONLY when it contains the standalone keyword `othmode` (case-insensitive; compounds never activate). Without the keyword → normal Claude, nothing OTHMODE-specific invoked or recorded. Rule: `reference/othmode/activation.js` (+ `POST /api/othmode/activation`, `othmode-cli.js activation`); `/api/othmode/mode` = read-only READY report (POST removed); Settings/dashboard show READY; CLAUDE.md contract rewritten. Keyword grants no permission — auth/roles/gates unchanged, suite 151/0, regression floor green. Previous: OTHMODE-100 — **approved OTHMODE scope 100% COMPLETE** (docs/othmode/OTHMODE_100_PERCENT_AUDIT.md). Closed this pass: Graphify installed+integrated+tested on the VPS (graphifyy 0.9.50, venv, vendor skill, real 299-node graph); E1 deterministic signal detectors (`othmode-cli.js detect`); first real ACTIVE capsule (othmode-core-discipline); store export/backup path (sessions excluded); Arabic verified 100% key-complete; mobile sidebar overflow fix; OSS registry finalized (Graphify INTEGRATED + final Search First re-check). Suite 137/0; host regression floor green; deployed via mythos-deploy (health-gated). Owner-gated notes (not gaps): executor-history host permissions, store in root backup set, E3 signal sources, OthMode production state, ordre retirement. Previous: OTHMODE-AUTH-1 — **token-free browser sign-in live.** The OTHMODE UI never asks for an Access Token: one-time login link (`node projects/command-center/cli/othmode-cli.js login-link` on the host, single-use, 15-min TTL) → HttpOnly/Secure/SameSite=Strict 90-day session cookie; hashes only server-side; CSRF same-origin check on cookie writes; logout + revoke-sessions; bearer path preserved for automation; legacy localStorage token scrubbed on load. Suite 120/0; MCC/governance/MOS-v2 floors green. Owner: mint your own link over SSH (one command), open it once per browser. Details: docs/othmode/OTHMODE_SECURITY.md §2.4. Previous entry (OTHMODE-2) follows.
