@@ -1,6 +1,172 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-09-01 UTC
+**From:** MISSION-FINAL Stage C — **security baseline hardened; three genuine production defects found and fixed; full 133-suite sweep classified. One blocker remains: the owner-only governance approval.**
+
+## MISSION-FINAL Stage C — security, ERP and backup (2026-09-01)
+
+### C1 — Coolify was publicly reachable over plaintext (FIXED)
+
+Docker installs its DNAT/FORWARD rules ahead of ufw and `DOCKER-USER` was
+**empty**, so `coolify`'s `0.0.0.0:8000` publish was reachable from the internet
+even though `8000/tcp` is **not** in ufw's allow list — ufw's own configuration
+said closed, Docker silently overrode it.
+
+Proven before changing anything, from a container on the same FORWARD path
+external traffic takes: `51.68.226.211:8000/api/health -> 200`.
+
+`panel.mythosprod.xyz` already proxies `127.0.0.1:8000` with TLS, so the raw
+bind was redundant *and* a plaintext bypass of that front. Host traffic to
+`127.0.0.1:8000` routes via `OUTPUT` and never traverses `FORWARD`, so a
+`DOCKER-USER` drop cannot affect it.
+
+After: external `000` (blocked, 7 packets dropped) · nginx upstream `200` ·
+`https://panel.mythosprod.xyz` `200` · coolify container running/healthy ·
+**no container restarted**. Persisted by `mythos-docker-firewall.service`
+(idempotent, `After=docker.service`, enabled). Rollback:
+`/var/log/mythos-mission/iptables-before-20260901.rules`.
+
+### C2 — private conversation archive was world-readable in /tmp (FIXED)
+
+`/tmp/oth.db` — 1306 private conversations, and the irreplaceable source for
+the remaining extractions — was `root:root 0644` on a host with several
+concurrent agent sessions, on a path that does not survive reboot.
+
+Preserved to `/home/ubuntu/othk-archive/oth.db` (`ubuntu:ubuntu 0600`), verified
+**byte-identical** (`sha256 0dea76b4f2804abb…`), `pragma integrity_check = ok`,
+1306 conversations readable. The `/tmp` original was **not deleted**
+(irreversible, another session may reference it); its mode was reduced
+`0644 -> 0640 root:ubuntu`.
+
+### C3 — PostgreSQL `trust` and the Docker socket: inspected, deliberately NOT changed
+
+`trust` is **not** an exposure and **is** load-bearing. Measured:
+host -> published `127.0.0.1:5432` demands a password (`scram-sha-256` applies);
+another container cannot reach it at all. The `trust` lines scope to the
+*container's own* loopback. And `ops/backup/mythos-backup-capture.sh` runs
+`docker exec … pg_dump -U "$POSTGRES_USER"` **with no PGPASSWORD** — requiring a
+password would have broken the production backup pipeline.
+
+Docker socket: `docker` group **empty**, no TCP socket on 2375/2376, socket
+`root:docker 0660`, and exactly one container mounts it (`coolify-sentinel`,
+which requires it). No change.
+
+Recorded, not silently accepted: `coolify-realtime` 6001/6002 remain publicly
+reachable over plaintext, but are **explicitly ufw-allowed** (deliberate
+operator config) and the Coolify UI opens them from the browser — rebinding
+without first proxying them would break the UI. Full reasoning in
+`docs/MYTHOS_SECURITY_HARDENING_2026-09-01.md`.
+
+### C4 — ERP could not create an invoice (FIXED in source; ONE live statement outstanding)
+
+The ERP acceptance suite reaches §3 and fails: `permission denied for table
+invoice_lines`. `modules/invoices.js` `replaceLines()` deletes an invoice's
+lines before re-inserting, but the schema grants `erp_app` only
+SELECT/INSERT/UPDATE under the documented rule *"deliberately no DELETE:
+retirement is deleted_at"*.
+
+That rule protects **business records**. `invoice_lines` is not one: it is a
+pure child of its invoice and has **no `deleted_at` column**, so the rule cannot
+express "this line is gone", and `totals()` sums every line row with no
+`deleted_at` filter — soft-deleting would silently corrupt the invoice total.
+PostgreSQL checks the privilege before discovering there is nothing to delete,
+so even a CREATE fails.
+
+`schema.sql` now documents and grants the single narrowest exception. **The
+matching statement still has to be applied to the live database** (see blocker
+list below). No other table gains DELETE; `audit_log` keeps its explicit REVOKE.
+
+### C5 — mythos_erp had NO working backup (FIXED)
+
+Two independent fail-closed contradictions meant the database-only pipeline had
+never taken a dump:
+
+1. `CONFIG_KEYS` omitted the three keys used by the unprivileged stage
+   (`STAGE_ROOT`, `PREFIX`, `HEALTH_FILE`). Both stages read the same operator
+   config and `install-db.sh` writes all eight, so every run died at
+   *"config line 6 declares an unrecognised key"*.
+2. `ALLOWED_ROOTS` omitted `/var/backups/mythos-db` — this pipeline's own
+   archive root, created by `install-db.sh` and asserted as deliberately
+   distinct by `backup-install-db-test`. It is not a subpath of
+   `/var/backups/mythos`, so the script **rejected its own default**.
+
+7 backup suites green (66/39/26/45/27/48/35, 0 failed), then the real units ran:
+
+```
+capture      -> mythos_erp-20260901T104602Z.dump (153089 bytes, sha256 7fcec465…)
+backup-db    -> stage, manifest, verify-local, push, verify-remote: "completed clean"
+verify       -> "verify completed clean"
+restore-test -> "restore-test completed clean"
+```
+
+All three previously-failed `mythos_erp` units are now clean.
+
+### Tests — full 133-suite sweep, classified
+
+`108 passed / 25 failed` in the sweep; 4 of those failures were then fixed by
+installing `personal-intelligence`'s declared-but-missing `pg` dependency, so
+the standing position is **112 passed / 21 failed**. **No failure is a
+regression from this mission's work** — `git diff --name-only origin/main..HEAD`
+touches 33 files and **zero** of them are skills, `stage*`, `sya*` or `mpi-0`
+inputs.
+
+| Class | Count | Evidence |
+|---|---|---|
+| Browser-context suites run under bare node | 13 | `document.addEventListener is not a function`, `localStorage`/`_memCache` undefined. `core-test` fails **identically on `origin/main`**. |
+| DB-credential gated | 3 | `erp-acceptance`, `erp-security` (blocked on C4's live grant), `mcc-1` ("Missing required environment variable(s)") |
+| Refuses to run by design | 1 | `mos-e2e-lifecycle`: *"Run this suite only in an isolated container."* |
+| Pre-existing registry drift | 1 | `mpi-0`: 20 registered vs 26 on-disk skills. Fixing it would mean inventing registry entries, so it was not faked. |
+| Credential gated, deliberately not run | 1 | `mpi-4-openrouter` — would spend money |
+| Known P0 outage, pre-dates mission | 2 | `sya-api-1`, `sya-shop-1` (BLOCKER-SYA-API-DOWN, recorded 2026-08-22) |
+
+### Production verification
+
+`mythos-git-push.service` is **no longer failed** (Stage A cleared it). All
+endpoints 200: apex, `panel`, `othmode`, `status`. Executor and
+`oth-knowledge-http` user units active. Upstreams listening on 8130/8150/3021/20128.
+Only remaining failed unit is `user@105` = **lightdm**, the desktop display
+manager — not a MYTHOS service.
+
+### Extraction readiness — prepared, validated, NOT run
+
+- All five conversations confirmed present in the archive as `source_id`, in the
+  exact deterministic order the mission states (rows 1-5). `23a12fd2` is row 1
+  and is the completed one. Remaining: `922c9705` (10 msgs), `acc1379e` (4),
+  `a6b7d65f` (4), `cb9df0c9` (26).
+- `budget_status oth-extraction` through the real MCP now reports
+  `configured: true, limit 0.1, remaining 0.1, stale_reservations 0` for period
+  `2026-09-01` — it reported `configured: false, limit 0` before the Stage B
+  merge and an executor restart, which would have fail-closed every run.
+- **Ledger architecture verified sound.** The advisory credential is at
+  `/home/ubuntu/.config/mythos-ai-executor/advisory.env`; `deploy` holds **no**
+  OpenRouter credential, so the deploy side **cannot spend**. Ubuntu stays
+  canonical, nothing was moved, and there is no duplicate spending path.
+- Pipeline exercised end to end **for free** by running the extractor against
+  the already-extracted conversation: the idempotency marker short-circuits
+  before the model call — `conversations_skipped: 1`,
+  `advisory_calls_settled: 0`, `spend_settled_usd: 0`.
+- **`--dry-run` was NOT used on conversations 2-5.** `selectStatementsAsync()`
+  at `othdb-extract.js:177` runs *before* the dry-run branch at line 220, so a
+  dry run on an un-extracted conversation is a real paid call.
+
+**No paid API call was made at any point in this mission. Spend: $0.00.**
+
+### Delivery
+
+`main` still carries the unapproved protected commit, so it cannot be pushed.
+The non-protected work was delivered through the **governed relay** on
+`refs/heads/mythos/security-hardening-20260901`, which the relay evaluates and
+approved (`governance: ok (0 protected commit(s), all approved)`).
+
+### Blockers
+
+1. **Owner-only governance approval** (see Stage B) — the single mission blocker.
+2. Dependent on nothing else: the live `GRANT DELETE ON invoice_lines TO
+   erp_app;` statement, which the execution environment declined to run against
+   the production database.
+
+
+**Last updated:** 2026-09-01 UTC
 **From:** MISSION-FINAL Stage B — **MCP/Knowledge/Extraction merged into `main`; all suites green; delivery BLOCKED on one owner-only governance approval.**
 
 ## MISSION-FINAL Stage B — MCP/Knowledge/Extraction integrated (2026-09-01)
