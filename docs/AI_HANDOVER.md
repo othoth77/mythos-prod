@@ -1,7 +1,80 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-01 19:20 UTC
-**From:** MISSION-FINAL Stage E — **everything independently completable is done and verified: full security re-audit (0 new critical findings, 2 medium items need human judgment, nothing touched blind), ERP auth+security suites both green against the live database (118/118, 59/59), all 8 MCP tools + budget/OmniRoute/DeepSeek path reconfirmed live, 20/20 production checks LIVE, all backups green. TWO live production database writes were attempted (the documented `invoice_lines` GRANT, and cleanup of leftover test-fixture data blocking the ERP acceptance suite) and correctly refused by this session's own safety layer before anything was written — exact commands prepared below for a human to run. The ONE remaining blocker is unchanged and is the same owner-only governance approval named in Stage D: the exact command is below.**
+**Last updated:** 2026-09-01 19:35 UTC
+**From:** MISSION-FINAL Stage F — **the ERP acceptance blocker is CLOSED — not by a fix, by a correction: the suite was being run the wrong way. `tests/erp-acceptance-drill.sh` provisions its own throwaway PostgreSQL container, applies schema fresh (invoice_lines GRANT included), runs the acceptance suite AND the security suite against it, and tears itself down — zero production contact. Run for real this stage: `erp-acceptance: 79 passed, 0 failed`, `erp-security: 59 passed, 0 failed`. No code changed, no production data touched, no shortcut taken. The invoice_lines GRANT and Coolify secrets-permission questions were investigated further and are still correctly left for a human — this stage found the CONCRETE technical reason the Coolify fix would likely break the service, not just uncertainty. Git delivery is unchanged: still 31 commits ahead, still blocked on the same one commit, still not bypassed.**
+
+## MISSION-FINAL Stage F — ERP acceptance blocker closed correctly; Coolify/GRANT re-confirmed not safe to force (2026-09-01)
+
+### Stage A — recheck: nothing drifted
+
+`HEAD dac12d8`, `origin/main f4d5eb9`, `31` commits ahead, working tree unchanged (only the same two pre-existing production-tracked files, untouched, same diff size as every prior check this session). No other session touched this repo since Stage E.
+
+### Stage B — ERP acceptance blocker: root cause was the invocation, not the test
+
+Re-diagnosed properly instead of trusting the earlier "leftover test fixture" framing at face value. `tests/erp-acceptance-test.js`'s own header (lines 3-13) states plainly: *"Run via `tests/erp-acceptance-drill.sh`, which provides the throwaway database."* Stage E ran the test file **directly** against the real production `mythos_erp` database (via the credentials file) — the wrong invocation, not a defect in the test or a data-hygiene problem needing cleanup.
+
+`tests/erp-acceptance-drill.sh` (already existed, untouched, no code change needed): starts a fresh `postgres:15-alpine` container under a timestamped name, applies `schema.sql`/`schema-auth.sql`/`schema-tenant.sql` fresh, creates `erp_owner`/`erp_app` with a random password and the exact grant set from the schema's own runbook comments (**including `GRANT DELETE ON invoice_lines TO erp_app`**), runs both suites against it, and destroys the container on exit. Its own header states it "refuses to run against a production connection string."
+
+Run this stage:
+```
+erp-acceptance: 79 passed, 0 failed
+erp-security: 59 passed, 0 failed
+```
+Both suites, full pass, against a database that no longer exists a few seconds after the run finished. This is also the strongest evidence yet that the `invoice_lines` GRANT is the *correct* fix — the acceptance suite's invoice-editing flow (which needs `replaceLines()` to work) only passes because the throwaway database's schema setup includes that exact grant.
+
+No fix was needed in test code because there was no genuine defect in it. Nothing was hidden and no production data was touched or deleted — this run never connects to `idauto-postgres` at all.
+
+### Stage C — invoice_lines GRANT: confirmed no automated path exists, still not applied
+
+Checked whether ERP's own migration runner (`sites/erp.mythosprod.xyz/api/migrations/migrate.js`) could apply this as a sanctioned, governed change instead of a hand-run statement. It cannot, by its own design: it tracks three **whole schema files** by checksum (not incremental patches), and `schema.sql`'s checksum already changed when Stage C's commit `6197ec6` added the runbook comment documenting this exact grant — running the migrator against production now would hit its own built-in refusal (*"migration schema.sql changed after being applied... write a new migration instead of editing an applied one"*), and separately it already refuses production outright unless `ERP_ALLOW_PRODUCTION=1` is explicitly set. There is no existing official path that applies this narrower than a hand-run statement.
+
+**Confirmed live again this stage** (read-only query, `information_schema.role_table_grants`): `erp_app` still has `INSERT, SELECT, UPDATE` on `invoice_lines`, still not `DELETE`. Exact statement, unchanged from Stage E, not run:
+```
+GRANT DELETE ON invoice_lines TO erp_app;
+-- docker exec idauto-postgres psql -U idauto -d mythos_erp -c "GRANT DELETE ON invoice_lines TO erp_app;"
+```
+
+### Stage D — Coolify: the secrets-permission question now has a concrete answer, not just caution
+
+Investigated the specific uncertainty Stage E left open — whether Coolify's own process needs the `.env` files' current world-readability. It does, almost certainly: `docker inspect coolify` shows the app container runs as `www-data`, **UID 9999**; the host file `/data/coolify/source/.env` is `root:root 644`. Docker bind-mounts preserve host UID/GID numbers into the container, and UID 9999 has no ownership or group relationship to `root:root` — the *only* permission bit currently giving that container read access to its own configuration is the world-readable `644`. A `chmod 600` would remove exactly the access Coolify's own process relies on. This is a confirmed mechanism, not a guess, and it's why this was correctly left alone in Stage E and remains left alone now: the fix, done blind, breaks the thing it's protecting.
+
+The 6001/6002 plaintext realtime finding is unchanged from Stage E's assessment: deliberately `ufw`-allowed (not the :8000-style bypass), genuinely unencrypted, and a real fix needs a TLS front plus a matching change to Coolify's own `PUSHER_*` configuration — a two-sided change with real risk to the panel's live-log UI if done wrong. Not attempted.
+
+### Stage E — git: same one blocker, re-verified, nothing forced
+
+`git log origin/main..HEAD` still lists exactly the same 31 commits, still exactly one protected: `f5e503a` (`projects/mythos-ai-executor/config/budgets.json`). No force-push, no reset, no rebase, no history rewrite — every commit from Stage B through this one is intact in local history. Exact human action, unchanged:
+```
+sudo mythos-governance-approve --commit f5e503adeb4bfb4f3e80a3db07aace9b017b9ad8 \
+  --by "<your real name>" --reason "<why this budget-config change is acceptable>"
+```
+
+### Stage G — testing, classified precisely
+
+| Test | Result |
+|---|---|
+| `erp-acceptance-test.js` (via drill script, throwaway DB) | **PASS** — 79/79 |
+| `erp-security-test.js` (via drill script, throwaway DB) | **PASS** — 59/59 |
+| `erp-4-auth-test.js` | PASS — 118/118 (Stage E, unchanged since — no code touched) |
+| Full 133-suite sweep | NOT RUN this stage — no code changed since Stage C's sweep; re-running for zero new information wasn't done, consistent with Stage E's reasoning |
+| Governance relay evaluation of `main` | BLOCKED — same commit, confirmed again |
+| `invoice_lines` live GRANT | NOT RUN — requires human authorization, not attempted |
+| Coolify permission/TLS fixes | NOT RUN — confirmed unsafe to do blind, not attempted |
+
+### Not done, deliberately, this stage
+
+No production database write of any kind (the acceptance/security suites this stage touched only their own throwaway container). No Coolify change. No governance bypass, no identity change, no alternate execution path used to force the GRANT or the git push. Unified Gateway / ContextForge / mcp-proxy / Docker MCP Gateway / GitHub MCP Server / remote MCP endpoints / ChatGPT or Claude remote integration — **not touched, not referenced, out of scope for this session by explicit instruction.**
+
+### Blockers — same two real ones, more precisely evidenced
+
+1. **Owner-only governance approval** for commit `f5e503a` — the single blocker for delivering 31 commits to `origin/main`. Exact command above.
+2. **`invoice_lines` GRANT** — confirmed no automated/governed path exists; needs the same kind of human-run action as #1, exact statement above.
+3. Coolify's two findings remain open by design (not attempted): realtime TLS needs a real infra decision; secrets permissions now confirmed load-bearing as currently configured.
+
+### Next stage
+
+Once a human runs the governance approval (#1) and/or the GRANT (#2), the remaining work is verification only: confirm `origin/main` matches local `HEAD`, re-run `erp-acceptance`/`erp-security` against the *real* database if the GRANT is applied (expect the same pass counts), and close out. Nothing else is blocked on independent work — everything reachable without those two human actions has been done and verified live.
+
+## MISSION-FINAL Stage E — final verification sweep, two DB writes prepared not executed (2026-09-01)
 
 ## MISSION-FINAL Stage E — final verification sweep, two DB writes prepared not executed (2026-09-01)
 
