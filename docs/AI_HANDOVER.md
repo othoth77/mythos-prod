@@ -1,7 +1,190 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-01 19:35 UTC
-**From:** MISSION-FINAL Stage F — **the ERP acceptance blocker is CLOSED — not by a fix, by a correction: the suite was being run the wrong way. `tests/erp-acceptance-drill.sh` provisions its own throwaway PostgreSQL container, applies schema fresh (invoice_lines GRANT included), runs the acceptance suite AND the security suite against it, and tears itself down — zero production contact. Run for real this stage: `erp-acceptance: 79 passed, 0 failed`, `erp-security: 59 passed, 0 failed`. No code changed, no production data touched, no shortcut taken. The invoice_lines GRANT and Coolify secrets-permission questions were investigated further and are still correctly left for a human — this stage found the CONCRETE technical reason the Coolify fix would likely break the service, not just uncertainty. Git delivery is unchanged: still 31 commits ahead, still blocked on the same one commit, still not bypassed.**
+**Last updated:** 2026-09-01 20:45 UTC
+**From:** MYTHOS-VAULT-0 — **the MYTHOS Vault architecture is documented and delivered to GitHub as `mythos/vault-architecture-20260901` (`7f7773d`), verified present on the remote.** Documentation only: no secret manager was deployed, no credential was created, copied, moved, read or rotated, no production file mode or service was changed, and no Gateway file was touched. `main` is UNCHANGED and still 32 commits ahead of `origin/main`, still DENIED by the same single governance blocker (`f5e503a`, budgets.json) that MISSION-FINAL Stage F left open — that blocker was neither bypassed nor worked around, which is why this stage was delivered on a namespaced mission branch through the sanctioned relay instead. The previous stage's content is preserved below.
+
+## MYTHOS-VAULT-0 — MYTHOS Vault architecture documented (2026-09-01)
+
+### What was asked, and what was delivered
+
+Add the MYTHOS Vault component — the centralized secure secrets and integrations
+layer — to the repository as **documentation/architecture only**, following the
+existing documentation structure, preserving all completed work, on the persistent
+VPS worktree, with GitHub as the source of truth.
+
+Delivered:
+
+| File | Change |
+|---|---|
+| `docs/MYTHOS_VAULT_ARCHITECTURE.md` | **new** — 319-line architecture decision record |
+| `docs/MYTHOS_SYSTEM_INDEX.md` | **+1 section** — `# 20A. MYTHOS VAULT`, inserted adjacent to `# 20. AI GATEWAY`, no renumbering of any existing section |
+| `docs/AI_HANDOVER.md` | this entry |
+
+Nothing else was staged. `git add` was given explicit paths on every call; `git add .`
+was never run.
+
+### Where the work was done — worktree, not the shared checkout
+
+`docs/AI_HANDOVER.md` already records that the shared checkout
+`/home/deploy/projects/mythos-prod` is reset to `main` by `mythos-ai-executor` and
+that branch work there is not durable. A dedicated worktree was created for this
+stage and the shared checkout was left untouched:
+
+```
+/home/deploy/worktrees/mythos-vault   [mythos/vault-architecture-20260901]  (from main @ b7ea66a)
+```
+
+The two pre-existing production-tracked dirty files on the shared checkout
+(`ops/backup/mythos-backup-capture.sh`, `projects/status-center/monitor/probes.json`)
+were **not** touched, staged, stashed, reset or checked out. They are unchanged and
+still dirty, exactly as MISSION-FINAL Stage F left them.
+
+### What the document decides, and what it deliberately does not
+
+Frozen — a later backend choice cannot reopen any of these:
+
+- **reference model** — every component holds `cred_<uuidv7>`, never a value. This
+  **generalises** the existing metadata-only `aut_secret_references` rule from the
+  Automation track platform-wide; it does not replace, migrate or supersede that
+  table, and `AUTOMATION_SECURITY_AND_SECRETS.md` remains binding and unmodified.
+- **grant model** — `subject x credential x capability (use | read | manage)` with an
+  expiry. AI agents are first-class subjects with their own grants and audit trail;
+  `manage` is never granted to one.
+- **agent rule** — brokered by default: Vault performs the authenticated action and
+  returns the result, so the value never enters an agent's context. `read` is a
+  narrow, justified, separately-audited exception rather than a convenience.
+- **lifecycle** (`active` / `expiring` / `expired` / `revoked` / `compromised`) and
+  **audit**, including denials.
+
+Deferred as explicit owner decisions, with the reason recorded for each: the backend
+itself (HashiCorp Vault / OpenBao / Infisical), encryption-at-rest and key custody,
+unseal and disaster recovery, break-glass access, OAuth refresh flows, multi-tenant
+isolation.
+
+**Permanent carve-out:** `/etc/mythos/governance.key` never moves into Vault. A
+credential layer must not be able to authorise its own modification — that is the
+whole point of the existing cage.
+
+### Section 2 is evidence, not projection — and no value was read
+
+The current-state topology in the document was built **entirely from `ls` metadata**
+— file names, ownership and modes. No credential value was read, printed, copied or
+logged at any point in this stage. It records nine independent hand-maintained
+credential locations across `/home/deploy/.ssh`, `/home/deploy/.config/mythos`,
+`/home/deploy/deployments/mythos-gateway`, `/etc/mythos` and `/data/coolify` — each
+defensible in isolation, with no inventory, no expiry and no revocation path between
+them. A tree-wide search for `.env`, `*.env`, `*credentials*` and `*.key` (excluding
+`node_modules`) returned nothing: the repository is clean and that is the property
+Vault exists to make structural.
+
+Two already-recorded platform bugs are named as instances of the same class —
+the advisory-provider credential placed under `ubuntu` while its daemon runs as
+`deploy`, and the `os.homedir()`-scoped budget ledger reporting `configured:false`
+for grants it cannot see. Home-directory placement makes the consuming identity
+implicit; the grant model makes it explicit.
+
+### Gateway: described as a boundary, not modified
+
+The Gateway implementation is on the unmerged branch `feat/mythos-gateway`
+(`d287b97`) and is **not on `main`**; the document says so explicitly rather than
+implying merged code. The three owner-gated steps (bind a GitHub credential, issue
+per-client tokens, reload nginx) are **untouched** — two of them are named in the
+document as blocked precisely because there is nowhere correct to put a credential,
+which is the case for doing Vault before publishing the Gateway, not a reason to do
+either now.
+
+### Tests
+
+Docs-only change, so a targeted static/structural set was run in the worktree rather
+than the full 133-suite sweep. **The full sweep was deliberately NOT run:** it
+executes `tests/*.js` directly, which includes `erp-acceptance-test.js` — the exact
+wrong invocation that MISSION-FINAL Stage F diagnosed as hitting the production
+`mythos_erp` database instead of the throwaway container. Re-running it against
+production to test a documentation commit would have repeated a known mistake for
+zero information.
+
+| Suite | Result |
+|---|---|
+| `monitor-coverage-test.js` | **PASS** — 40/40 |
+| `backup-hardening-test.js` | **PASS** — 66/66, 1 skipped |
+| `devx-2-impact-map-integrity-test.js` | **PASS** — 7/7 |
+| `vps-final-gate-knowledge-test.js` | **PASS** — 22/22 |
+| `mpi-0-finalization-governance-test.js` | 33 passed, **3 failed** — **PRE-EXISTING** |
+| `core-test.js` | **ERROR** — **PRE-EXISTING** |
+
+Both failures were re-run on the unmodified shared checkout at baseline `b7ea66a` and
+reproduce **identically** there. Neither is caused by this change, and neither was
+fixed by it (out of scope for a documentation stage):
+
+- `mpi-0-finalization-governance-test.js` — skills registry drift: registry entry
+  count (20) does not match the on-disk skill directory count (26), so
+  "every on-disk skill directory is registered" and the
+  `scripts/project-intelligence.js validate` consistency check both fail. This is a
+  real, open data-integrity gap in the skills registry, unrelated to Vault.
+- `core-test.js` — `ReferenceError: _memCache is not defined` at `tests/core-test.js:35`,
+  thrown from the suite's own `cleanup()` before any assertion runs. A defect in the
+  test file itself, not in the code under test.
+
+### Delivery — pushed, verified, and the main blocker NOT bypassed
+
+Delivered through the sanctioned root relay `mythos-git-push` (fast-forward only,
+governance-verified, identity-pinned). No direct `git push`, no force, no reset, no
+rebase, no history rewrite.
+
+**Commit:** `7f7773d7be7bc9e59eb3013e6ce0e7307c9017e6`
+**Branch:** `mythos/vault-architecture-20260901` (from `main` @ `b7ea66a`)
+**Remote HEAD:** `7f7773d7be7bc9e59eb3013e6ce0e7307c9017e6` — **VERIFIED** by
+`git ls-remote origin refs/heads/mythos/vault-architecture-20260901`, equal after push.
+**Governance verdict for this branch:** `governance: ok (0 protected commit(s), all approved)`
+— the commit touches only `docs/`, no protected path.
+**Relay summary:** `mission branches: pushed=1 skipped=0 denied=1`
+
+**`main` was NOT delivered, and that is correct.** `origin/main` is still
+`f4d5eb94239cf739a334cc96dbb8874ba4f9913a`; local `main` is still 32 commits ahead
+and unchanged by this stage. The relay denied it for the same single reason
+MISSION-FINAL Stage F recorded:
+
+```
+GOVERNANCE DENY f5e503adeb4b touches projects/mythos-ai-executor/config/budgets.json
+                             with no valid approval
+```
+
+This stage did not bypass it, did not attempt to work around it, and did not touch
+`main`. Publishing on a namespaced mission branch is the relay's own sanctioned path
+for exactly this situation — it makes the work durable on GitHub without merging
+anything and without weakening the cage. Pushing a mission branch does not merge it;
+review and merge to `main` remain a human decision.
+
+The unrelated mission branch `mythos/m-msy4a8iz-f2673d/tk-msy4a8j0-f1b3c5` was also
+denied by the same relay run (it touches `agents.json` / `agent-registry.js`). That
+denial is pre-existing, belongs to the autonomous loop, and was not created,
+investigated or acted on by this stage.
+
+### Human actions still required (unchanged — none created by this stage)
+
+```
+# 1. unblock main delivery (still the same single commit)
+sudo mythos-governance-approve --commit f5e503adeb4bfb4f3e80a3db07aace9b017b9ad8 \
+  --by "<your real name>" --reason "<why this budget-config change is acceptable>"
+
+# 2. merge this documentation branch into main when reviewed
+#    github.com/othoth77/mythos-prod -> mythos/vault-architecture-20260901
+```
+
+### Next stage
+
+**MYTHOS-VAULT-1 — the metadata-only credential inventory**
+(`MYTHOS_VAULT_ARCHITECTURE.md` §10 step 1). It records every credential in §2.2 as a
+reference — provider, purpose, owner, environment, status, expiry — and **moves no
+value**, so it needs no backend and carries no risk to a running service. It is the
+one step that delivers most of the answerability benefit before any owner decision is
+required, and it is deliberately ordered ahead of the backend choice rather than
+after it.
+
+Blocked behind an owner decision, and not to be started without one: choosing and
+deploying a secret backend, and the three Gateway credential steps.
+
+---
 
 ## MISSION-FINAL Stage F — ERP acceptance blocker closed correctly; Coolify/GRANT re-confirmed not safe to force (2026-09-01)
 
