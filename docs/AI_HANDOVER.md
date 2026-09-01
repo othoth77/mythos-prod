@@ -1,5 +1,75 @@
 # Mythos OS — AI Handover
 
+**Last updated:** 2026-09-01 08:20 UTC
+**From:** MCP-PROMOTE-4 — **the facade restart FIXED the caching gap MCP-PROMOTE-3 diagnosed — `knowledge_get` now resolves all 3 claims with provenance and evidence intact, and the canonical store validates clean at 51 records — but `knowledge_search kind=claim` still returns 0 hits, for a second, previously-latent reason: `lib/search.js`'s tokenizer is Latin-only and silently drops all-Arabic-script text from the index. NOT COMPLETE end to end.** No paid API call. Original extraction run confirmed byte-identical/untouched throughout. Temporary inbox still deliberately RETAINED — cleanup remains gated on full verification, which still has not passed, now for a different reason than before.
+
+## MCP-PROMOTE-4 — facade restart verified, search blocked by a Unicode tokenizer gap (2026-09-01)
+
+### Context
+
+Continuation of MCP-PROMOTE-3, which left one predicted next step: restart `oth-knowledge-http.service` so the facade would stop serving its stale, pre-promotion (37-record) in-memory snapshot. That restart, and full re-verification, is what this entry covers.
+
+### STEP 1 — service restart: PASS
+
+Before: `Active: active (running) since 2026-08-31 23:26:44`, PID 406577, `/stats` reporting **37 records / seq 38** — independently confirmed stale against the on-disk store (51 unique live records, computed by resolving `records.jsonl`'s append-only `seq`/`supersedes`/`deleted` envelope semantics by hand before touching anything).
+
+```
+systemctl --user restart oth-knowledge-http.service   # as deploy
+```
+
+After: `Active: active (running) since 2026-09-01 08:13:59`, new PID 1551483, no startup error, `/health` → `"store_available": true`. `.env` (`OTHK_STORE_ROOT=/home/deploy/othk-store`) was only **read**, never modified.
+
+### STEP 2 — MCP read-only verification (real stdio session, not the raw HTTP facade)
+
+**A. `tools/list` — PASS.** Exactly 8 tools, none write-shaped: `knowledge_search`, `knowledge_get`, `project_context`, `capability_registry`, `execution_status`, `execution_report`, `budget_status`, `system_health`.
+
+**B. `knowledge_search` `kind=claim` — FAIL.** 0 hits, not 3. **This is not the MCP-PROMOTE-3 caching bug** — the restart fixed that (`/stats` now correctly reports 51/seq 52, matching disk exactly, kind-for-kind). Proven not-a-caching-issue with a control query: `search?kind=fact&q=deployment` returns correct, relevant, sensibly-scored hits against pre-existing English-language `fact` records through the same restarted process. Root cause, traced to source: `projects/oth-knowledge/lib/search.js`'s `tokenize()` —
+
+```js
+String(text).toLowerCase().normalize('NFKD')
+  .replace(/[̀-ͯ]/g, '')
+  .split(/[^a-z0-9]+/)          // <- Arabic is not [a-z0-9]; NFKD does not
+  .filter(t => t.length > 1)    //    decompose Arabic into Latin
+```
+
+All three claims' `statement` text is pure Arabic (this run's source content is a beekeeping-advice conversation, e.g. `claim-8ed7e0ce83a671e2`: "يتم حصاد العسل عادة في نهاية موسم التزهير."). Tokenizing them yields an **empty array**, and `buildIndex()` explicitly skips zero-token documents (`if (!tokens.length) continue;`) — the claims are never added to the search index at all, independent of query content, restart state, or cache freshness. A previously-latent, general-purpose defect: any future non-Latin-script content (Arabic, Hebrew, Cyrillic-as-non-transliterated, CJK, etc.) will silently fail to index the same way. **Out of scope to fix here** — explicitly excluded ("do not modify application code").
+
+**C. `knowledge_get` — PASS, 3/3.** All three ids (`claim-5d59076fa2833cf0`, `claim-8ed7e0ce83a671e2`, `claim-b3a530fa9963c03e`) resolve via the direct `/records/:id` path (unrelated to search/tokenization). `include=provenance` returns intact `source_class: deepseek`, `source_collection: oth-db`, `source_reference: .../23a12fd2-eb75-4b86-9e48-7ee2704ccf31#msg-3`, `captured_at`, `observed_at`, `artifact_ref` for all three. `include=evidence` resolves each claim's `evidence-*` record, and each evidence record's `records[]` resolves to the real `document-460722a951859043` — no dangling reference.
+
+**D. Canonical store — PASS.** `othk-cli validate` → `{"ok": true, "problems": [], "records": 51}`. `stats` → 51 records, `seq: 52`, kind breakdown (`source:3 entity:7 observation:7 fact:12 evidence:11 event:1 artifact:1 document:1 chunk:4 claim:3 derived:1`) matches the hand-computed canonical set exactly. No corruption, no unexpected records.
+
+### STEP 3 — idempotency dry-run: PASS
+
+```
+othk-cli promote-run /home/deploy/othk-promotion-inbox/20260831-23a12fd2 --dry-run
+-> {"dry_run": true, "would_add": 0, "already_promoted": 14, "blobs_to_copy": 0, "record_ids": []}
+```
+
+Confirms the real promotion is idempotent on this exact data: re-running it would add nothing.
+
+### STEP 4 — cleanup: SKIPPED, deliberately
+
+The task's own gate is "cleanup ONLY if all previous verification succeeds." Verification did not fully succeed — B failed. The temporary inbox at `/home/deploy/othk-promotion-inbox/20260831-23a12fd2` (with its `u:ubuntu:rwx` ACL) is **retained**, unchanged from MCP-PROMOTE-3. The original source run at `/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/` was re-verified byte-for-byte untouched (every file's mtime still `2026-08-31 21:26:10`, identical throughout this session).
+
+### Not done, deliberately
+
+No paid API call (DeepSeek/OpenRouter/any provider), no extraction re-run, no OmniRoute/Docker/`.env`/database/`main`/ERP/budget-architecture change, no application-code change (the tokenizer defect above was diagnosed, not fixed), no permission change outside what MCP-PROMOTE-3 already granted on the temporary inbox.
+
+### Remaining blockers
+
+1. **Search tokenizer excludes non-Latin scripts — the new, immediate blocker.** `lib/search.js:tokenize()` needs a Unicode-aware split (e.g. `\p{L}`/`\p{N}` with the `u` regex flag, or an explicit non-Latin path) before `knowledge_search` can ever return these — or any future non-Latin — claims. This is an application-code change and needs owner authorization; it was intentionally not attempted here.
+2. **Temporary inbox retained**, now blocked on (1) rather than the facade restart (which is done). Cleanup command is unchanged from MCP-PROMOTE-3: `setfacl -b /home/deploy/othk-promotion-inbox && rm -rf /home/deploy/othk-promotion-inbox`.
+3. **Budget ledger scope** — unchanged, owner decision.
+4. **`main`/ERP divergence** — unchanged, owner decision.
+
+### Exact next stage
+
+1. Owner authorizes a `lib/search.js` tokenizer fix for non-Latin scripts (separate, application-code task).
+2. Re-verify `knowledge_search kind=claim` returns the 3 claims through MCP.
+3. Only then: clean up the temporary inbox and mark this pipeline complete end to end.
+
+---
+
 **Last updated:** 2026-09-01 01:55 UTC
 **From:** MCP-PROMOTE-3 — **the promotion SUCCEEDED: 14 records are permanently in the canonical store (37 → 51), including the 3 claims, verified at the store layer. But MCP still cannot see them, so this is NOT end-to-end completion.** The running `oth-knowledge-http` facade caches the store in memory at first open and has no reload route; it started 23:26:42, the store changed 01:49:23, so it serves a stale 37-record snapshot. Only a process restart would pick the records up — a production service change that is out of scope here. **No paid API call. Source run byte-identical and untouched. Temporary inbox deliberately RETAINED (cleanup is gated on full verification, which did not pass).**
 
