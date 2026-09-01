@@ -1,7 +1,64 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-01 UTC
-**From:** MISSION-FINAL Stage C — **security baseline hardened; three genuine production defects found and fixed; full 133-suite sweep classified. One blocker remains: the owner-only governance approval.**
+**Last updated:** 2026-09-01 18:00 UTC
+**From:** MISSION-FINAL Stage D — **all 5 archive conversations now extracted and promoted (57 claims, 224 canonical records, validated clean); MCP -> Knowledge -> Extraction confirmed end to end through the real deployed path. Security (C1/C3) and ERP (C4) were found already resolved/investigated by Stage C and were deliberately NOT re-touched or pushed further, per explicit owner direction this stage. One blocker remains, unchanged: the owner-only governance approval for `main`.**
+
+## MISSION-FINAL Stage D — remaining extractions run, full pipeline verified end to end (2026-09-01)
+
+### Why this stage started from a fresh premise check, not from Stage C's text
+
+Before spending anything, this stage re-verified rather than trusted three of Stage C/B's claims, live:
+
+- **ERP "approved for main"** — not supported by the evidence. `ERP_SECURITY_STATUS.md` itself states the new ERP "has never been deployed... not exposed," open items remain (no MFA, `erp_owner` bypasses RLS, upload unimplemented), and no PR/review record exists anywhere. Owner decision this stage: **treat as still pending — do not push or expose.** Nothing further was done to ERP; C4's live `GRANT DELETE ON invoice_lines TO erp_app;` statement remains unapplied, exactly as Stage C left it.
+- **Docker socket / Postgres trust** — Stage C's C3 finding (trust scopes to container-local loopback only; socket is mounted in exactly one container, `coolify-sentinel`, which requires it; changing either would break real things) was independently re-derived from scratch this stage before being trusted, then accepted as correct and **not reopened**. Owner decision this stage: investigate first, propose before touching — and since Stage C's own investigation already reached a sound, evidence-backed conclusion, redoing or "fixing" it further would only risk contradicting correct, tested work. No change made.
+- **"4 remaining conversations" as a scoped batch** — confirmed real this time (not assumed): `SELECT ... FROM conversations WHERE source_provider='deepseek' ORDER BY source_created_at ASC LIMIT 6` against `/home/ubuntu/othk-archive/oth.db` (read-only) returns exactly `23a12fd2` (already done), then `922c9705`, `acc1379e`, `a6b7d65f`, `cb9df0c9` in that order — matching Stage B's list exactly. Confirmed genuinely deterministic, not an artifact of the extractor's default `--limit 5`.
+- **Budget** — live-checked before spending anything: `budget_status oth-extraction` through the real MCP reported `limit 0.1, remaining 0.1` for `2026-09-01` (DAY-scoped, resets daily — 2026-08-31's $0.03 does not reduce today's grant). OmniRoute egress checked for the `ECONNREFUSED 127.0.0.1:20132` pattern that caused the one earlier failed test: zero occurrences in the 24h before this stage, own memory confirms these are non-fatal `ProxyFetch` retries that do not block real completions.
+
+### The four extractions — real, one at a time, verified before the next
+
+Run as `ubuntu` (the only account holding the OpenRouter credential — `deploy` genuinely cannot spend, confirmed again this stage), against `/home/ubuntu/othk-archive/oth.db`, via `node scripts/othdb-extract.js --db ... --store /tmp/othk-extraction-run-<id> --conversation <full-uuid> --limit 1`, with `MYTHOS_SELECTOR_BUDGET_PROJECT=oth-extraction` and `MYTHOS_SELECTOR_COST_ESTIMATE_USD=0.01` set explicitly (the selector fail-closed refuses an unestimated call — first attempt on conversation 1 hit exactly that refusal, $0 spent, before the estimate was set). Each run's real `usage.total_tokens` and `settled` status were read directly from its own report before moving to promotion; each promotion was dry-run before being applied; the store was `validate`d after every promotion.
+
+| Conversation | Messages | Tokens (real) | Settled | Claims | Evidence | Promoted total (running) |
+|---|---|---|---|---|---|---|
+| `922c9705-…` | 10 | 14,297 | $0.01 | 20 | 20 | 110 records |
+| `acc1379e-…` | 4 | 1,470 | $0.01 | 10 | 10 | 136 records |
+| `a6b7d65f-…` | 4 | 2,717 | $0.01 | 8 | 8 | 162 records |
+| `cb9df0c9-…` | 26 | 9,421 | $0.01 | 16 | 16 | 224 records |
+
+Every promotion used the same MCP-PROMOTE-3-proven inbox pattern (`deploy`-owned `/home/deploy/othk-promotion-inbox`, `setfacl -m u:ubuntu:rwx`, `ubuntu` copies its run store in, `deploy` runs `promote-run --dry-run` then `promote-run`), and the inbox was emptied after each round — nothing retained past this stage, no lingering ACL.
+
+**Canonical store, final: 224 records** (`source:3 entity:7 observation:7 fact:12 evidence:65 event:1 artifact:5 document:5 chunk:57 claim:57 derived:5`), `validate` -> `{"ok": true, "problems": [], "records": 224}` after every one of the four promotions, not just the last.
+
+**Total real spend this stage: $0.04** (4 x $0.01, all SETTLED, zero stale reservations) — verified directly from `/home/ubuntu/mythos-ai-executor/orchestration/budgets/oth-extraction__DAY__2026-09-01.json`, the ledger that actually enforces spend (the MCP `budget_status` tool, run through `deploy`'s stdio process, still reads `deploy`'s own empty ledger and reports a misleading `remaining: 0.1` — this is the same per-account observability gap Stage B named and left open; it is **not** a double-spend risk, because `deploy` holds no credential and genuinely cannot spend, only an inability to *check* the real balance through the deployed MCP tool). **Remaining today: $0.06 of $0.10.**
+
+**All five archive conversations are now extracted.** No further extraction work remains against this archive at this budget.
+
+### MCP -> Knowledge -> Extraction, verified end to end (real stdio session, post-restart)
+
+`oth-knowledge-http.service` restarted (as `deploy`, existing `systemctl --user` procedure — required because it caches the store at process start; same restart pattern used in Stage/MCP-SEARCH-2). Confirmed:
+
+- `/health` -> `store_available: true`; `/stats` -> **224 records**, matching the promoted total exactly.
+- `tools/list` -> still exactly 8 tools, none write-shaped.
+- `knowledge_search` (`query: "النحل العسل تغذية bee farming honey", kind: claim, limit: 50`) -> **35 hits**, spanning all five conversations by id (spot-checked: one hit id traced back to each of the five `report.json` claim lists). The multilingual tokenizer fix (MCP-SEARCH-1/2) holds at the full 57-claim scale, not just the original 3.
+- `knowledge_get` — spot-checked one claim per conversation (5/5), all resolve with provenance.
+- `othk-cli validate` -> ok, 224 records, 0 problems.
+
+### Tests
+
+Re-ran the suites most directly relevant to what changed (store *content*, not code — no `.js` file was touched this stage): `othk-4` (conversation extraction) 90/90, `othk-8` (promotion) 45/45, `othk-9` (multilingual search) 36/36 — all green, offline/synthetic-fixture suites, unaffected by and unaffecting the real store. Stage C's full 133-suite sweep is not re-run here since nothing in `main`'s code changed this stage; its classification stands.
+
+### Not done, deliberately, per explicit owner direction this stage
+
+- ERP: left exactly as Stage C left it. Not pushed, not exposed, live `GRANT` not applied.
+- Security (Docker socket, Postgres trust, Coolify): not reopened — Stage C's investigation and fixes stand.
+- No code change, no `.env` change, no database schema/permission change, no Docker/systemd change beyond the one already-established `oth-knowledge-http.service` restart.
+- No second promotion of an already-promoted conversation; no `--dry-run` misused as a free check (confirmed again this stage: `selectStatementsAsync()` runs before the dry-run branch, so there is no free validation path — every real attempt genuinely spends).
+
+### Blockers — unchanged from Stage C
+
+1. **Owner-only governance approval** — still the single blocker for delivering `main` to `origin/main`. This stage's only change to `main` is this documentation entry (no code, so not itself expected to touch a protected path), but it sits on top of `main`'s existing unapproved protected commit and will queue behind the same gate. `mythos-git-push.timer` is live and will pick it up automatically; no push was forced or attempted manually.
+2. Dependent on nothing else: C4's live `GRANT DELETE ON invoice_lines TO erp_app;` statement, still unapplied by design (declined again this stage, consistent with "never touch ERP" direction).
+3. The per-account budget-ledger observability gap (deploy-side MCP `budget_status` cannot see ubuntu's real ledger) remains open. Not a safety issue — deploy cannot spend — but real balance must still be checked via the ledger file directly, as this stage did, until (if ever) that's worth a code change of its own (which would itself be a protected-path change needing the same governance approval).
 
 ## MISSION-FINAL Stage C — security, ERP and backup (2026-09-01)
 
