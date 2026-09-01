@@ -43,7 +43,16 @@ LOG_PREFIX="[mythos-backup-capture-db]"
 # Same allowlist discipline as mythos-backup-capture.sh, and the same reason:
 # the operator config chooses WHERE inside these roots, never whether to
 # leave them.
-ALLOWED_ROOTS="/var/backups/mythos /home/deploy/mythos-backups /home/deploy/deployments"
+# /var/backups/mythos-db is the database-only pipeline's OWN archive root, kept
+# deliberately distinct from the full set's /var/backups/mythos: install-db.sh
+# creates it (0700 root) and backup-install-db-test asserts the separation. It
+# was missing here, and since /var/backups/mythos-db is NOT a subpath of
+# /var/backups/mythos, this script rejected its own default value on line ~146 —
+# the allowlist contradicted the installer, so the mythos_erp capture could
+# never run. Listing it fixes the contradiction without widening anything:
+# these are still four explicit roots, and each configured path is still
+# checked against them individually by require_safe_path.
+ALLOWED_ROOTS="/var/backups/mythos /var/backups/mythos-db /home/deploy/mythos-backups /home/deploy/deployments"
 
 # This script's own key set. MYTHOS_BACKUP_DB_NAME is REQUIRED here, not
 # optional: unlike mythos-backup-capture.sh (where an empty value falls back
@@ -51,8 +60,21 @@ ALLOWED_ROOTS="/var/backups/mythos /home/deploy/mythos-backups /home/deploy/depl
 # behaviour), this script's entire purpose is "dump the ONE database named
 # here" — there is no sensible default for a tool whose reason to exist is
 # picking a specific database out of a container that may hold several.
+# The last three are consumed by the UNPRIVILEGED pipeline stage
+# (mythos-backup-run-db.sh), not by this root-side capture, but both stages read
+# the SAME operator config file, and this parser fails closed on any key it does
+# not recognise. Omitting them made the database-only pipeline unrunnable:
+# install-db.sh writes all eight keys, so every scheduled run died at
+# "config line 6 declares an unrecognised key: MYTHOS_BACKUP_STAGE_ROOT" before
+# taking a single dump. The non-database capture (mythos-backup-capture.sh)
+# already recognises exactly these three for exactly this reason.
+#
+# Recognising a key is NOT the same as trusting it: this script still reads only
+# the five it uses, and each of those is still path-allowlisted individually
+# below, so the hardening properties are unchanged.
 CONFIG_KEYS="MYTHOS_BACKUP_DB_DIR MYTHOS_BACKUP_DB_CONTAINER MYTHOS_BACKUP_DB_NAME\
- MYTHOS_BACKUP_DB_ARCHIVE MYTHOS_BACKUP_DUMP_PREFIX"
+ MYTHOS_BACKUP_DB_ARCHIVE MYTHOS_BACKUP_DUMP_PREFIX\
+ MYTHOS_BACKUP_STAGE_ROOT MYTHOS_BACKUP_PREFIX MYTHOS_BACKUP_HEALTH_FILE"
 
 say()  { echo "$LOG_PREFIX $*"; }
 fail() { echo "$LOG_PREFIX ERROR: $*" >&2; exit 1; }
