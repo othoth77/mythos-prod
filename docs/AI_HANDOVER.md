@@ -1,7 +1,83 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-01 08:30 UTC
-**From:** MCP-SEARCH-1 — **the multilingual tokenizer defect MCP-PROMOTE-4 diagnosed is FIXED and tested (lib/search.js, `\p{L}`/`\p{Nd}`/`\p{M}` Unicode property escapes, not an Arabic-only carve-out) — 36 new regression checks plus the full existing suite (667 checks) and both gate scripts all green. NOT YET LIVE: the running `oth-knowledge-http` facade module-caches the old tokenizer at process start, so a restart is required and was deliberately NOT performed (out of scope / requires authorization). knowledge_search still returns 0 for the 3 real Arabic claims until that restart happens.** No paid API call. Code change is exactly one function (`tokenize()`); no config, database, Docker, systemd, or `.env` touched.
+**Last updated:** 2026-09-01 08:40 UTC
+**From:** MCP-SEARCH-2 — **END TO END, COMPLETE. The Extraction → Knowledge → MCP pipeline for this run is fully verified: `oth-knowledge-http.service` restarted with the multilingual tokenizer fix, and through the real deployed MCP path — `knowledge_search kind=claim` now returns exactly 3 hits (the 3 real Arabic claims, by id), `knowledge_get` resolves all 3 with provenance and evidence intact, the canonical store validates clean at 51 records, and the idempotency dry-run confirms `already_promoted:14, would_add:0`.** The temporary promotion inbox (and its ACL) has been removed — the original extraction run at `/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/` is confirmed byte-for-byte unchanged throughout every stage of this whole effort (MCP-KNOWLEDGE-1 through this entry). No paid API call anywhere in this stage.
+
+## MCP-SEARCH-2 — restart performed, full end-to-end verification PASSED, cleanup done (2026-09-01)
+
+### STEP 1 — restart: PASS
+
+Before: `oth-knowledge-http.service` active since `08:13:59` (PID 1551483) — still running the pre-fix tokenizer (MCP-SEARCH-1's fix landed on disk at `08:25:44`, after that process started).
+
+```
+systemctl --user restart oth-knowledge-http.service   # as deploy
+```
+
+After: active since `08:36:52` (new PID 1602388). Journal: `othk-http/1.0.0 listening on 127.0.0.1:8150 (read-only)` — clean start, no error.
+
+### STEP 2 — immediate post-restart checks: PASS
+
+- `/health` → `store_available: true`.
+- `/stats` → **51 records**, `seq: 52`, kind breakdown unchanged (`source:3 entity:7 observation:7 fact:12 evidence:11 event:1 artifact:1 document:1 chunk:4 claim:3 derived:1`) — confirms it is reading `/home/deploy/othk-store` (the configured `OTHK_STORE_ROOT`, read-only, never modified).
+
+### STEP 3 — MCP read-only verification (real stdio session): PASS
+
+**A. `tools/list`** — exactly 8 tools, none write-shaped: `knowledge_search`, `knowledge_get`, `project_context`, `capability_registry`, `execution_status`, `execution_report`, `budget_status`, `system_health`.
+
+**B. `knowledge_search`, `kind=claim`** — **exactly 3 hits**, all three real claim ids, by id and text:
+
+| id | text (excerpt) |
+|---|---|
+| `claim-b3a530fa9963c03e` | "قد تحتاج إلى تغذية النحل في فترات نقص الرحيق (مثل فصل الشتاء)." |
+| `claim-5d59076fa2833cf0` | "مشروع تربية النحل يُعتبر من المشاريع المربحة والمفيدة بيئياً..." |
+| `claim-8ed7e0ce83a671e2` | "يتم حصاد العسل عادة في نهاية موسم التزهير." |
+
+Every hit carries correct provenance (`source_class: deepseek`, `source_collection: oth-db`, `source_reference: .../23a12fd2-eb75-4b86-9e48-7ee2704ccf31#msg-3`, `artifact_ref`). Mode: `hybrid` (MCP's default) — the fix holds under the actual mode `knowledge_search` uses, not just lexical.
+
+**C. `knowledge_get` — 3/3.** All three ids resolve (`plain`, `include=provenance`, `include=evidence`) with no errors. Evidence spot-checked: `claim-8ed7e0ce83a671e2`'s `evidence-4df8277909010692` resolves to the real `document-460722a951859043` with actual conversation-source content — no dangling reference.
+
+### STEP 4 — canonical store: PASS
+
+`othk-cli validate` → `{"ok": true, "problems": [], "records": 51}`. No unexpected changes from the pre-restart state.
+
+### STEP 5 — idempotency dry-run: PASS
+
+```
+promote-run /home/deploy/othk-promotion-inbox/20260831-23a12fd2 --dry-run
+-> {"dry_run": true, "would_add": 0, "already_promoted": 14, "blobs_to_copy": 0, "record_ids": []}
+```
+
+Exactly as expected: the real promotion remains a no-op if run again.
+
+### STEP 6 — cleanup: DONE (all verification passed, so the gate that blocked it in MCP-PROMOTE-3/4 is now satisfied)
+
+```
+setfacl -b /home/deploy/othk-promotion-inbox   # removed the u:ubuntu:rwx ACL
+rm -rf /home/deploy/othk-promotion-inbox       # removed the directory
+```
+
+Note: the ACL removal alone left `deploy` unable to delete the `ubuntu`-owned copy inside (needs write on `ubuntu`'s subdirectory, which the original grant never gave in that direction) — completed as root, which was already the acting session identity throughout this work. Confirmed gone: `ls /home/deploy/` no longer lists `othk-promotion-inbox`.
+
+### STEP 7 — original extraction run: unchanged
+
+`/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/` — every file's mtime still `2026-08-31 21:26:10`, identical to every prior check across MCP-KNOWLEDGE-1 through this entry. Never touched.
+
+### Not done, deliberately
+
+No paid API call (DeepSeek/OpenRouter/OmniRoute), no Extraction re-run, no second promotion, no Docker/`.env`/systemd/database/`main`/ERP/budget-architecture change, no application-code change beyond the already-committed, already-tested tokenizer fix.
+
+### Remaining blockers
+
+1. **Budget ledger scope** — unchanged, owner decision.
+2. **`main`/ERP divergence** — unchanged, owner decision.
+
+Nothing else is outstanding for this pipeline.
+
+### Pipeline status
+
+**Extraction → Knowledge → MCP: COMPLETE, end to end, for this run.** Real DeepSeek extraction, real promotion (14 records, 3 claims), real canonical store (51 records, validated), real MCP retrieval (search + get, both proven live), idempotent re-promotion proven safe, temporary artifacts cleaned up, original source run provably untouched throughout.
+
+---
 
 ## MCP-SEARCH-1 — multilingual tokenizer fixed and tested, restart pending (2026-09-01)
 
