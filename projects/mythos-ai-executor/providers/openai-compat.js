@@ -29,6 +29,23 @@ var DEFAULT_BASE_URL = process.env.MYTHOS_ADVISORY_BASE_URL || 'http://127.0.0.1
 var DEFAULT_KEY_FILE = process.env.MYTHOS_ADVISORY_KEY_FILE ||
   (process.env.HOME || '/home/ubuntu') + '/.config/mythos-ai-executor/advisory.env';
 
+// Gateway-side context optimization. OmniRoute owns the ONLY compression
+// layer on this path: the `othmode-headroom` combo runs the lossless
+// headroom (SmartCrusher tabular) engine first, then RTK, then Caveman.
+// The executor deliberately does NOT compress before sending — a second
+// compressor would double-process the same text (see core/context.js,
+// which does relevance retrieval and budgeting only, never compression).
+//
+// Provider flexibility is preserved: this is a named combo, not a model or
+// provider binding, and MYTHOS_OMNIROUTE_COMPRESSION overrides it —
+// set it to 'off' to send uncompressed, which is how the before/after
+// token measurement is taken.
+var COMPRESSION_COMBO = process.env.MYTHOS_OMNIROUTE_COMPRESSION || 'othmode-headroom';
+
+// Advisory model default. Overridable per task (task.model) and per host
+// (env), so OTHMODE is never pinned to one model.
+var DEFAULT_MODEL = process.env.MYTHOS_ADVISORY_MODEL || 'gpt-4o-mini';
+
 // Reads MYTHOS_ADVISORY_API_KEY=... from the referenced env file.
 // Returns null when unavailable — the provider then reports itself
 // unavailable instead of failing mid-task.
@@ -72,7 +89,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
     }
     var endpoint = url.parse(baseUrl.replace(/\/$/, '') + '/chat/completions');
     var payload = JSON.stringify({
-      model: task.model || 'gpt-4o-mini',
+      model: task.model || DEFAULT_MODEL,
       // OmniRoute streams SSE chunks unless told otherwise; this client
       // parses one JSON body, so streaming must be explicitly off.
       // (Verified against OmniRoute 3.8.49 during the first real mission.)
@@ -91,7 +108,9 @@ function run(task, prompt, _sessionId, _mode, opts) {
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(payload),
-        'Authorization': 'Bearer ' + key
+        'Authorization': 'Bearer ' + key,
+        // Selects the gateway compression pipeline for this request.
+        'x-omniroute-compression': COMPRESSION_COMBO
       },
       timeout: (task.timeout_seconds || 300) * 1000
     }, function (res) {
@@ -108,11 +127,18 @@ function run(task, prompt, _sessionId, _mode, opts) {
           isError = true;
           text = 'HTTP ' + res.statusCode + ': unparseable provider response';
         }
+        // What the gateway actually applied, echoed back as
+        // `<mode>; source=<source>`. Recorded so token savings are
+        // measured from the gateway's own accounting rather than
+        // asserted. `usage` is the provider's post-compression count.
+        var applied = res.headers['x-omniroute-compression'] || null;
         resolve({
           exit_code: isError ? 1 : 0, signal: null, timed_out: false,
           duration_ms: Date.now() - started,
           stdout: '', stderr: isError ? String(text).slice(0, 2000) : '',
           parsed: { is_error: isError, result: text || '' },
+          compression: { requested: COMPRESSION_COMBO, applied: applied },
+          usage: (function () { try { return JSON.parse(body).usage || null; } catch (e) { return null; } })(),
           session_id: null, started_pid: null
         });
       });
@@ -137,5 +163,7 @@ module.exports = {
   version: version,
   available: available,
   run: run,
+  COMPRESSION_COMBO: COMPRESSION_COMBO,
+  DEFAULT_MODEL: DEFAULT_MODEL,
   executionAuthority: false  // advisory only, permanently
 };
