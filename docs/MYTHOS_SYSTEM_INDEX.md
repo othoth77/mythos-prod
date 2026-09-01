@@ -212,13 +212,22 @@ Existing boundary:
 - `projects/oth-knowledge/lib/api.js`
 - OTHMODE read-first bridge: `projects/command-center/reference/othmode/memory.js`
 
-## Network gap discovered by independent audit
+## Network gap discovered by independent audit — CLOSED 2026-08-30
 
-**Status:** VERIFIED audit finding
+**Status:** VERIFIED — gap closed, facade deployed and running
 
-OTH Knowledge has internal APIs/services but no confirmed general network facade suitable as the shared external boundary for ChatGPT / MCP clients.
+OTH Knowledge had internal APIs/services but no network facade suitable as the shared boundary for MCP clients. That gap is closed.
 
-This is one of the smallest structural gaps remaining for OTH MCP.
+```text
+projects/oth-knowledge/service/othk-http.js      the facade (read-only)
+oth-knowledge-http.service                       systemd USER unit, user `deploy`
+127.0.0.1:8150                                   loopback only — no public exposure
+/home/deploy/othk-store                          the store it serves
+```
+
+Verified on the host 2026-08-30: `/health` reports `store_available: true` and `read_only: true`; an unauthenticated read answers **401**; `POST` answers **405** before routing, so a write path cannot be added by accident; a missing store is a **503**, never an invented empty answer. The facade serves `lib/knowledge-service.js` only — the provider-neutral read boundary — so ingestion and curation stay on `othk-cli`.
+
+It has no access to `oth.db`, which is not on this host.
 
 ---
 
@@ -408,6 +417,26 @@ Canonical rule:
 OTH MCP must reuse existing capability authorization.
 It must not introduce a parallel permissions system.
 ```
+
+## Reconciliation 2026-08-30 — the two layers face opposite directions
+
+**Status:** VERIFIED by reading both implementations
+
+The rule above was written before `projects/oth-mcp/server.js` existed, and reads as though one layer should call the other. It should not. They govern different directions of traffic:
+
+| | `projects/mythos-ai-executor/lib/mcp-capabilities.js` | `projects/oth-mcp/server.js` |
+|---|---|---|
+| Direction | **outbound** — MYTHOS as MCP *client* | **inbound** — MYTHOS as MCP *server* |
+| Governs | which `server.tool` names a skill running under an execution profile may name | which of its own 7 read tools an external client may call |
+| Holds | no network code, no client, no credentials — its own header says so | one `GET`, per-upstream token, no other verb |
+| Registry today | `config/mcp-capabilities.json`: one server (`github`), `enabled: false`, no credential on the host | a closed `TOOLS` array; `tools/call` on an unlisted name returns `No such tool` |
+
+Wiring `mcp-capabilities.js` into the server would not add a boundary — it decides nothing about inbound tools — and would couple a governed config-time registry to a process that must stay thin. **The separation is intentional; no wiring was performed.** `mcp-capabilities.js` remains the already-governed list for the future outbound client, exactly as its header states.
+
+Both fail closed, independently and for their own direction:
+
+- inbound — an unknown tool name is rejected, and version 1 exposes **no** write tool; verified against the running server with the official MCP Inspector, and by raw JSON-RPC that bypasses the client's own tool check.
+- outbound — an invalid registry disables capability resolution entirely, and any `endpoint`/`url` key at any depth is rejected by its presence.
 
 ---
 
@@ -658,6 +687,49 @@ Existing capabilities/design cover:
 - model right-sizing
 
 This component must no longer be treated as design-only. Exact production ownership and deployment state should still be checked before making it the global canonical budget authority.
+
+## Verified on the host, 2026-08-30
+
+`projects/mythos-ai-executor/core/budget.js` + `config/budgets.json` are live and **deny-by-default**, asked of the code rather than the file:
+
+```text
+mythos-prod    -> deny   project "mythos-prod" has no configured spending budget (limit 0 USD)
+budget-sandbox -> allow  reserved 0.01 USD; remaining 9.99   (sandbox namespace, reservation released)
+```
+
+`mythos-prod` carries `daily_limit`, `request_limit` and `mission_limit` all at **0**. Raising any of them is an owner decision recorded in Git.
+
+**Gap:** `reserve()` is called only by `mythos-ai-executor/server.js`, `service/governance-verify.js`, `core/self-improve.js` and `core/domain.js`. **The Extraction path calls no budget module at all**, so a paid model call from Extraction would spend outside the ledger — not by defeating the control, but by never meeting it. See §24A.
+
+---
+
+# 24A. EXTRACTION — REAL AI READINESS
+
+**Status:** BLOCKED — SAFETY
+**Evidence:** VERIFIED on the host 2026-08-30; full record in `docs/worklogs/2026-08-30-2358-real-ai-extraction-validation.md`
+
+The Extraction MVP (`scripts/othdb-select.js`, `scripts/othdb-extract.js`, `projects/oth-knowledge/lib/importers/conversation.js`) is implemented and tested — 90 assertions, zero-fact compliance asserted eight times — but **has never run against a real model.** Four blockers, each verified live:
+
+| # | Blocker | Class | Evidence |
+|---|---|---|---|
+| 1 | Advisory transport is an **unimplemented stub** | engineering | `runProviderTransport()` throws `SELECTOR_UNAVAILABLE` unconditionally — reproduced with a valid credential and a reachable gateway |
+| 2 | Extraction has **no budget integration**; `mythos-prod` budget is 0 | safety | §24 above |
+| 3 | Owner authorization to ingest archive content **is still open** | safety | prior record §23 |
+| 4 | The five baseline conversations are **not on this host and have no recorded identifiers** | availability | `find / -name oth.db` → nothing; identifiers deliberately withheld as private |
+
+**A real advisory provider IS available** — this corrects the prior record, which reported none:
+
+```text
+agent       omniroute-advisory   provider openai-compat   execution_authority: false, enabled: true
+gateway     OmniRoute  http://127.0.0.1:20128/v1  (loopback)   GET /v1/models -> 200, 1002 models
+credential  $HOME/.config/mythos-ai-executor/advisory.env, 0600
+```
+
+The credential is provisioned under `ubuntu`; the executor runs as `deploy`, and the adapter resolves its key file from `$HOME` — so `available()` is `true` for one account and `false` for the other. Both prior statements were true of their own account.
+
+`claude-code` is refused at the selector, proven not assumed: `SELECTOR_REFUSED: agent claude-code claims execution authority; advisory-only agents may select`.
+
+**Canonical rule:** Extraction proposes **claims**, never facts, and never promotes them. Attaching a model through `MYTHOS_SELECTOR_SCRIPT` (Transport A) would bypass `resolveAdvisoryAgent()` — the registry gate lives only on Transport B. **Wire Transport B to the existing `providers/openai-compat.js`; do not attach a model through the script hook, and do not add a second HTTP client.**
 
 ---
 

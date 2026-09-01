@@ -70,6 +70,585 @@ governance control working as designed and is unrelated to this stage.
 
 Stage B — verify MCP, Knowledge, Executor and the Ubuntu canonical budget
 ledger using free/local checks only, before any paid extraction.
+**Last updated:** 2026-09-01 08:40 UTC
+**From:** MCP-SEARCH-2 — **END TO END, COMPLETE. The Extraction → Knowledge → MCP pipeline for this run is fully verified: `oth-knowledge-http.service` restarted with the multilingual tokenizer fix, and through the real deployed MCP path — `knowledge_search kind=claim` now returns exactly 3 hits (the 3 real Arabic claims, by id), `knowledge_get` resolves all 3 with provenance and evidence intact, the canonical store validates clean at 51 records, and the idempotency dry-run confirms `already_promoted:14, would_add:0`.** The temporary promotion inbox (and its ACL) has been removed — the original extraction run at `/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/` is confirmed byte-for-byte unchanged throughout every stage of this whole effort (MCP-KNOWLEDGE-1 through this entry). No paid API call anywhere in this stage.
+
+## MCP-SEARCH-2 — restart performed, full end-to-end verification PASSED, cleanup done (2026-09-01)
+
+### STEP 1 — restart: PASS
+
+Before: `oth-knowledge-http.service` active since `08:13:59` (PID 1551483) — still running the pre-fix tokenizer (MCP-SEARCH-1's fix landed on disk at `08:25:44`, after that process started).
+
+```
+systemctl --user restart oth-knowledge-http.service   # as deploy
+```
+
+After: active since `08:36:52` (new PID 1602388). Journal: `othk-http/1.0.0 listening on 127.0.0.1:8150 (read-only)` — clean start, no error.
+
+### STEP 2 — immediate post-restart checks: PASS
+
+- `/health` → `store_available: true`.
+- `/stats` → **51 records**, `seq: 52`, kind breakdown unchanged (`source:3 entity:7 observation:7 fact:12 evidence:11 event:1 artifact:1 document:1 chunk:4 claim:3 derived:1`) — confirms it is reading `/home/deploy/othk-store` (the configured `OTHK_STORE_ROOT`, read-only, never modified).
+
+### STEP 3 — MCP read-only verification (real stdio session): PASS
+
+**A. `tools/list`** — exactly 8 tools, none write-shaped: `knowledge_search`, `knowledge_get`, `project_context`, `capability_registry`, `execution_status`, `execution_report`, `budget_status`, `system_health`.
+
+**B. `knowledge_search`, `kind=claim`** — **exactly 3 hits**, all three real claim ids, by id and text:
+
+| id | text (excerpt) |
+|---|---|
+| `claim-b3a530fa9963c03e` | "قد تحتاج إلى تغذية النحل في فترات نقص الرحيق (مثل فصل الشتاء)." |
+| `claim-5d59076fa2833cf0` | "مشروع تربية النحل يُعتبر من المشاريع المربحة والمفيدة بيئياً..." |
+| `claim-8ed7e0ce83a671e2` | "يتم حصاد العسل عادة في نهاية موسم التزهير." |
+
+Every hit carries correct provenance (`source_class: deepseek`, `source_collection: oth-db`, `source_reference: .../23a12fd2-eb75-4b86-9e48-7ee2704ccf31#msg-3`, `artifact_ref`). Mode: `hybrid` (MCP's default) — the fix holds under the actual mode `knowledge_search` uses, not just lexical.
+
+**C. `knowledge_get` — 3/3.** All three ids resolve (`plain`, `include=provenance`, `include=evidence`) with no errors. Evidence spot-checked: `claim-8ed7e0ce83a671e2`'s `evidence-4df8277909010692` resolves to the real `document-460722a951859043` with actual conversation-source content — no dangling reference.
+
+### STEP 4 — canonical store: PASS
+
+`othk-cli validate` → `{"ok": true, "problems": [], "records": 51}`. No unexpected changes from the pre-restart state.
+
+### STEP 5 — idempotency dry-run: PASS
+
+```
+promote-run /home/deploy/othk-promotion-inbox/20260831-23a12fd2 --dry-run
+-> {"dry_run": true, "would_add": 0, "already_promoted": 14, "blobs_to_copy": 0, "record_ids": []}
+```
+
+Exactly as expected: the real promotion remains a no-op if run again.
+
+### STEP 6 — cleanup: DONE (all verification passed, so the gate that blocked it in MCP-PROMOTE-3/4 is now satisfied)
+
+```
+setfacl -b /home/deploy/othk-promotion-inbox   # removed the u:ubuntu:rwx ACL
+rm -rf /home/deploy/othk-promotion-inbox       # removed the directory
+```
+
+Note: the ACL removal alone left `deploy` unable to delete the `ubuntu`-owned copy inside (needs write on `ubuntu`'s subdirectory, which the original grant never gave in that direction) — completed as root, which was already the acting session identity throughout this work. Confirmed gone: `ls /home/deploy/` no longer lists `othk-promotion-inbox`.
+
+### STEP 7 — original extraction run: unchanged
+
+`/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/` — every file's mtime still `2026-08-31 21:26:10`, identical to every prior check across MCP-KNOWLEDGE-1 through this entry. Never touched.
+
+### Not done, deliberately
+
+No paid API call (DeepSeek/OpenRouter/OmniRoute), no Extraction re-run, no second promotion, no Docker/`.env`/systemd/database/`main`/ERP/budget-architecture change, no application-code change beyond the already-committed, already-tested tokenizer fix.
+
+### Remaining blockers
+
+1. **Budget ledger scope** — unchanged, owner decision.
+2. **`main`/ERP divergence** — unchanged, owner decision.
+
+Nothing else is outstanding for this pipeline.
+
+### Pipeline status
+
+**Extraction → Knowledge → MCP: COMPLETE, end to end, for this run.** Real DeepSeek extraction, real promotion (14 records, 3 claims), real canonical store (51 records, validated), real MCP retrieval (search + get, both proven live), idempotent re-promotion proven safe, temporary artifacts cleaned up, original source run provably untouched throughout.
+
+---
+
+## MCP-SEARCH-1 — multilingual tokenizer fixed and tested, restart pending (2026-09-01)
+
+### Root cause (confirmed in MCP-PROMOTE-4, fixed here)
+
+`lib/search.js`'s `tokenize()` split text on `/[^a-z0-9]+/` — Latin letters and ASCII digits only. All-Arabic-script text (the three real promoted claims) tokenized to an empty array; `buildIndex()` explicitly skips zero-token documents, so those records were never added to the search index at all, independent of query, cache state, or restart. `knowledge_get` (a different, non-search lookup-by-id code path) resolved the same records fine throughout, which is what isolated the defect to this one function.
+
+### Fix
+
+```js
+function tokenize(text) {
+  return String(text)
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .split(/[^\p{L}\p{Nd}]+/u)
+    .filter((t) => t.length > 1);
+}
+```
+
+`\p{L}` (Letter) / `\p{Nd}` (Decimal Number) / `\p{M}` (Mark, i.e. combining diacritics) are standard Unicode general-category property escapes — script-agnostic by construction, not a hard-coded Arabic range. The same one rule that already covered ASCII now covers Arabic, French accents, Cyrillic, digits in any script, etc., with no per-script branch. Confirmed byte-identical tokenizer output for every ASCII/English fixture in `tests/othk-1-search-test.js`'s corpus before vs after (Latin/ASCII is a strict subset of `\p{L}`/`\p{Nd}`). `tokenize()`'s only other two callers — `knowledge-service.js`'s entity-name folding and `dedup.js`'s near-duplicate shingling — are fixed symmetrically, with no additional code, since both call the same function.
+
+### Tests
+
+`tests/othk-9-multilingual-search-test.js`, 36 checks, fully offline, synthetic/temp-store fixtures only (never `/home/deploy/othk-store`):
+
+- Arabic, French (incl. accents), English, mixed-script tokenization and end-to-end lexical/hybrid retrieval
+- Arabic-Indic digits preserved (not silently dropped)
+- Arabic and Latin punctuation split without destroying adjacent words
+- Arabic diacritics (tashkeel) fold to the same token as the undiacritized form
+- empty / whitespace-only / punctuation-only / null / undefined input — no crash
+- an ASCII regression oracle comparing every output token-for-token against the pre-fix implementation
+- §4: the exact statement text of the three real promoted claims (not the real records) as fixture content in a throwaway store — all three become retrievable by a `kind=claim` lexical query, the literal scenario that was broken
+
+Full suite run once: `othk-0` through `othk-9` (667 checks), `othk-live-gate.js` (52 checks, **LIVE PASS**, checked against the real configured private store read-only), `vps-final-gate-knowledge-test.js` (22 checks) — all green, 0 failures. `othk-1-search-test.js`'s measured eval thresholds (recall/MRR) are unchanged (lexical recall@5=1, hybrid recall@5=1).
+
+### Verified untouched throughout
+
+- Real canonical store (`/home/deploy/othk-store/records.jsonl`) — mtime unchanged (01:49:23, the MCP-PROMOTE-3 write)
+- Original extraction run (`/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/`) — every file's mtime unchanged (2026-08-31 21:26:10)
+- Temporary promotion inbox — unchanged, still retained
+- No paid API call, no `.env`/Docker/systemd/database change, only `lib/search.js` + one new test file touched (`git status`/`git diff` verified before commit)
+
+### Why this is not yet live
+
+`oth-knowledge-http.service`'s `serviceHolder()` requires `knowledge-service.js` (which requires `search.js`) once, at process start, and Node caches that module in memory for the life of the process. The running facade started `2026-09-01 08:13:59`; `search.js` was edited `08:25:44` — 12 minutes later. The fix is on disk and fully tested, but the live process is still executing the pre-fix tokenizer.
+
+**Restart required:** `oth-knowledge-http.service` (user unit, `deploy`), via `systemctl --user restart oth-knowledge-http.service` — the same command and procedure used for the MCP-PROMOTE-4 restart. **Expected effect:** `knowledge_search kind=claim` starts returning the 3 real Arabic claims through MCP, matching what `tests/othk-9-multilingual-search-test.js` §4 already proves against synthetic fixtures of the same text. **Not performed here** — this task's instructions required stopping before restarting and reporting instead.
+
+### Remaining blockers
+
+1. **Facade restart — the only remaining step for end-to-end completion.** Owner authorization needed for `systemctl --user restart oth-knowledge-http.service`.
+2. **Temporary inbox retained**, unchanged since MCP-PROMOTE-3. Cleanup remains gated on full verification (restart + `knowledge_search` re-check) passing.
+3. **Budget ledger scope** — unchanged, owner decision.
+4. **`main`/ERP divergence** — unchanged, owner decision.
+
+### Exact next stage
+
+1. Owner authorizes `systemctl --user restart oth-knowledge-http.service`.
+2. Re-verify through the real MCP stdio path: `knowledge_search kind=claim` must return the 3 claims (`claim-5d59076fa2833cf0`, `claim-8ed7e0ce83a671e2`, `claim-b3a530fa9963c03e`); `knowledge_get` for all three (already passing, re-confirm).
+3. Re-run `promote-run --dry-run` against the retained inbox (already `would_add:0, already_promoted:14` — expect unchanged).
+4. Only then: clean up the temporary inbox and mark the pipeline complete end to end.
+
+---
+
+## MCP-PROMOTE-4 — facade restart verified, search blocked by a Unicode tokenizer gap (2026-09-01)
+
+### Context
+
+Continuation of MCP-PROMOTE-3, which left one predicted next step: restart `oth-knowledge-http.service` so the facade would stop serving its stale, pre-promotion (37-record) in-memory snapshot. That restart, and full re-verification, is what this entry covers.
+
+### STEP 1 — service restart: PASS
+
+Before: `Active: active (running) since 2026-08-31 23:26:44`, PID 406577, `/stats` reporting **37 records / seq 38** — independently confirmed stale against the on-disk store (51 unique live records, computed by resolving `records.jsonl`'s append-only `seq`/`supersedes`/`deleted` envelope semantics by hand before touching anything).
+
+```
+systemctl --user restart oth-knowledge-http.service   # as deploy
+```
+
+After: `Active: active (running) since 2026-09-01 08:13:59`, new PID 1551483, no startup error, `/health` → `"store_available": true`. `.env` (`OTHK_STORE_ROOT=/home/deploy/othk-store`) was only **read**, never modified.
+
+### STEP 2 — MCP read-only verification (real stdio session, not the raw HTTP facade)
+
+**A. `tools/list` — PASS.** Exactly 8 tools, none write-shaped: `knowledge_search`, `knowledge_get`, `project_context`, `capability_registry`, `execution_status`, `execution_report`, `budget_status`, `system_health`.
+
+**B. `knowledge_search` `kind=claim` — FAIL.** 0 hits, not 3. **This is not the MCP-PROMOTE-3 caching bug** — the restart fixed that (`/stats` now correctly reports 51/seq 52, matching disk exactly, kind-for-kind). Proven not-a-caching-issue with a control query: `search?kind=fact&q=deployment` returns correct, relevant, sensibly-scored hits against pre-existing English-language `fact` records through the same restarted process. Root cause, traced to source: `projects/oth-knowledge/lib/search.js`'s `tokenize()` —
+
+```js
+String(text).toLowerCase().normalize('NFKD')
+  .replace(/[̀-ͯ]/g, '')
+  .split(/[^a-z0-9]+/)          // <- Arabic is not [a-z0-9]; NFKD does not
+  .filter(t => t.length > 1)    //    decompose Arabic into Latin
+```
+
+All three claims' `statement` text is pure Arabic (this run's source content is a beekeeping-advice conversation, e.g. `claim-8ed7e0ce83a671e2`: "يتم حصاد العسل عادة في نهاية موسم التزهير."). Tokenizing them yields an **empty array**, and `buildIndex()` explicitly skips zero-token documents (`if (!tokens.length) continue;`) — the claims are never added to the search index at all, independent of query content, restart state, or cache freshness. A previously-latent, general-purpose defect: any future non-Latin-script content (Arabic, Hebrew, Cyrillic-as-non-transliterated, CJK, etc.) will silently fail to index the same way. **Out of scope to fix here** — explicitly excluded ("do not modify application code").
+
+**C. `knowledge_get` — PASS, 3/3.** All three ids (`claim-5d59076fa2833cf0`, `claim-8ed7e0ce83a671e2`, `claim-b3a530fa9963c03e`) resolve via the direct `/records/:id` path (unrelated to search/tokenization). `include=provenance` returns intact `source_class: deepseek`, `source_collection: oth-db`, `source_reference: .../23a12fd2-eb75-4b86-9e48-7ee2704ccf31#msg-3`, `captured_at`, `observed_at`, `artifact_ref` for all three. `include=evidence` resolves each claim's `evidence-*` record, and each evidence record's `records[]` resolves to the real `document-460722a951859043` — no dangling reference.
+
+**D. Canonical store — PASS.** `othk-cli validate` → `{"ok": true, "problems": [], "records": 51}`. `stats` → 51 records, `seq: 52`, kind breakdown (`source:3 entity:7 observation:7 fact:12 evidence:11 event:1 artifact:1 document:1 chunk:4 claim:3 derived:1`) matches the hand-computed canonical set exactly. No corruption, no unexpected records.
+
+### STEP 3 — idempotency dry-run: PASS
+
+```
+othk-cli promote-run /home/deploy/othk-promotion-inbox/20260831-23a12fd2 --dry-run
+-> {"dry_run": true, "would_add": 0, "already_promoted": 14, "blobs_to_copy": 0, "record_ids": []}
+```
+
+Confirms the real promotion is idempotent on this exact data: re-running it would add nothing.
+
+### STEP 4 — cleanup: SKIPPED, deliberately
+
+The task's own gate is "cleanup ONLY if all previous verification succeeds." Verification did not fully succeed — B failed. The temporary inbox at `/home/deploy/othk-promotion-inbox/20260831-23a12fd2` (with its `u:ubuntu:rwx` ACL) is **retained**, unchanged from MCP-PROMOTE-3. The original source run at `/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/` was re-verified byte-for-byte untouched (every file's mtime still `2026-08-31 21:26:10`, identical throughout this session).
+
+### Not done, deliberately
+
+No paid API call (DeepSeek/OpenRouter/any provider), no extraction re-run, no OmniRoute/Docker/`.env`/database/`main`/ERP/budget-architecture change, no application-code change (the tokenizer defect above was diagnosed, not fixed), no permission change outside what MCP-PROMOTE-3 already granted on the temporary inbox.
+
+### Remaining blockers
+
+1. **Search tokenizer excludes non-Latin scripts — the new, immediate blocker.** `lib/search.js:tokenize()` needs a Unicode-aware split (e.g. `\p{L}`/`\p{N}` with the `u` regex flag, or an explicit non-Latin path) before `knowledge_search` can ever return these — or any future non-Latin — claims. This is an application-code change and needs owner authorization; it was intentionally not attempted here.
+2. **Temporary inbox retained**, now blocked on (1) rather than the facade restart (which is done). Cleanup command is unchanged from MCP-PROMOTE-3: `setfacl -b /home/deploy/othk-promotion-inbox && rm -rf /home/deploy/othk-promotion-inbox`.
+3. **Budget ledger scope** — unchanged, owner decision.
+4. **`main`/ERP divergence** — unchanged, owner decision.
+
+### Exact next stage
+
+1. Owner authorizes a `lib/search.js` tokenizer fix for non-Latin scripts (separate, application-code task).
+2. Re-verify `knowledge_search kind=claim` returns the 3 claims through MCP.
+3. Only then: clean up the temporary inbox and mark this pipeline complete end to end.
+
+---
+
+**Last updated:** 2026-09-01 01:55 UTC
+**From:** MCP-PROMOTE-3 — **the promotion SUCCEEDED: 14 records are permanently in the canonical store (37 → 51), including the 3 claims, verified at the store layer. But MCP still cannot see them, so this is NOT end-to-end completion.** The running `oth-knowledge-http` facade caches the store in memory at first open and has no reload route; it started 23:26:42, the store changed 01:49:23, so it serves a stale 37-record snapshot. Only a process restart would pick the records up — a production service change that is out of scope here. **No paid API call. Source run byte-identical and untouched. Temporary inbox deliberately RETAINED (cleanup is gated on full verification, which did not pass).**
+
+## MCP-PROMOTE-3 — real promotion done on disk, MCP visibility BLOCKED (2026-09-01)
+
+### What was done
+
+One-time promotion via a temporary `deploy`-owned handoff inbox, exactly as designed in MCP-PROMOTE-2's investigation. No traversal was granted on `/home/ubuntu`, no ACL was placed on the canonical store, no ownership changed, and root was not used for the promotion.
+
+```
+1. deploy:  mkdir /home/deploy/othk-promotion-inbox (0700), setfacl -m u:ubuntu:rwx on THAT DIRECTORY ONLY
+2. ubuntu:  cp -r  (NOT -a)  the run into the inbox; then chmod 755 on the COPY only
+3. deploy:  promote-run --dry-run   -> would_add: 14, already_promoted: 0
+4. deploy:  promote-run             -> added: 14
+```
+
+`cp -r` still carried the source directory's `0700` onto the copy, so `deploy` initially could not read it — resolved by relaxing the **copy** (which `ubuntu` owns) to `0755`; the source stayed `0700` throughout. The inbox's own `0700` remains the real gate.
+
+### Promotion result — verified at the store layer
+
+```
+before  37 records   source 2 · entity 7 · observation 7 · fact 12 · evidence 8 · event 1
+after   51 records   + source 1 · artifact 1 · document 1 · chunk 4 · claim 3 · evidence 3 · derived 1
+```
+
+- `validate` → `{"ok": true, "problems": [], "records": 51}`
+- The **3 claims** are present, each `asserted_by: deepseek:assistant`, provenance `deepseek/oth-db`, `source_reference` tracing to `23a12fd2-eb75-4b86-9e48-7ee2704ccf31#msg-3`, `artifact_ref` present.
+- The **3 evidence** records each resolve: target claim exists, and the referenced `document-460722a951859043` exists.
+- Artifact blob present in canonical (`byte_size` 5283), content-addressed.
+- **`fact` count unchanged at 12** — extraction created no fact, as designed.
+- **Pre-existing records provably untouched:** the first 38 lines of `records.jsonl` hash to `262511b7…`, byte-identical to the whole-file hash taken before promotion. All 14 new envelopes are `version 1, supersedes null, deleted false` — pure appends, nothing superseded or overwritten.
+
+### Why MCP verification FAILED — and it is not the promotion's fault
+
+```
+facade /stats (running service)   37 records   <- stale
+disk truth (fresh open)           51 records   <- correct
+facade process started            2026-08-31 23:26:42
+store last modified               2026-09-01 01:49:23
+```
+
+`projects/oth-knowledge/service/othk-http.js`'s `serviceHolder()` memoises the store: `if (svc) return { ok: true, svc: svc }`. `store.js`'s `openStore()` reads `records.jsonl` into an in-memory index **once**. There is **no reload route and no cache invalidation** anywhere in the facade. Its own comment — "a later provisioning is picked up without a restart" — covers the store *appearing*, not the store *changing*.
+
+So through MCP: `knowledge_search kind=claim` → **0 hits**; `knowledge_get` on all three ids → `UPSTREAM_NOT_FOUND`. `tools/list` still returns the correct 8 tools and **no write tool is exposed** (verified).
+
+**This is a genuine, previously-undocumented architectural gap**: the curation path (`othk-cli`, operator-only, writes to disk) and the read path (facade → MCP, long-lived process) share a store format that has no change-notification between them. Any curation performed while the facade runs is invisible until it restarts. That affects every existing write verb (`ingest`, `seed`, `import-*`), not just `promote-run`.
+
+### Not done, deliberately
+
+- **The facade was NOT restarted.** That is a production service change, excluded from this task's scope and from every prior stage's constraints. It is the single action that would complete end-to-end verification.
+- **The temporary inbox was NOT cleaned up.** Cleanup was explicitly gated on all verification succeeding. Retaining it also preserves the exact artifact for a post-restart re-verification (a re-run should report `already_promoted: 14`, proving idempotency on real data).
+- No paid API call, no extraction re-run, no OmniRoute/OpenRouter/DeepSeek contact, no `.env`/Docker/systemd/database change, no `main` merge, no ERP work, no budget-config change.
+
+### Remaining blockers
+
+1. **Facade cache — the immediate blocker.** `oth-knowledge-http.service` (user unit, `deploy`) must restart before MCP can see the promoted claims. Needs owner authorization for a production service restart. Options worth deciding at the same time: accept restart-after-curation as the operating procedure, or add a reload/invalidate path (a code change, out of scope here).
+2. **Temporary inbox retained** at `/home/deploy/othk-promotion-inbox/20260831-23a12fd2` with a `u:ubuntu:rwx` ACL on the inbox directory. It holds a copy of personal conversation content and should be removed (`setfacl -b` + `rm -rf`) once verification completes.
+3. **Budget ledger scope** — unchanged, owner decision.
+4. **`main`/ERP divergence** — unchanged, owner decision.
+
+### Exact next stage
+
+1. Owner authorizes: `systemctl --user restart oth-knowledge-http.service` (as `deploy`).
+2. Re-verify read-only through the deployed MCP: `knowledge_search kind=claim` must return the 3 claims; `knowledge_get` must succeed for `claim-5d59076fa2833cf0`, `claim-8ed7e0ce83a671e2`, `claim-b3a530fa9963c03e`.
+3. Optionally re-run `promote-run --dry-run` against the retained inbox — expect `already_promoted: 14, would_add: 0`.
+4. Then clean up: `setfacl -b /home/deploy/othk-promotion-inbox && rm -rf /home/deploy/othk-promotion-inbox`.
+5. Only after step 2 passes may the pipeline be described as complete end to end.
+
+---
+
+
+**Last updated:** 2026-09-01 01:00 UTC
+**From:** MCP-PROMOTE-2 — **the real promotion did NOT run. The dry-run's own STOP condition ("unexpected record count") caught a permission boundary before any write was attempted.** `would_add:0` where 14 was expected — not a promotion decision, a silent inability to read the source at all. No code changed, no commit needed for the mechanism (it behaved correctly by refusing to lie about a store it could not see); this entry only. **No paid API call, no write to either store, no file touched.**
+
+## MCP-PROMOTE-2 — real promotion BLOCKED at dry-run (2026-09-01)
+
+### What happened
+
+Ran exactly the specified dry-run:
+
+```
+node projects/oth-knowledge/cli/othk-cli.js --store /home/deploy/othk-store \
+  promote-run /home/ubuntu/othk-extraction-runs/20260831-23a12fd2/ --dry-run
+```
+
+Result: `{"dry_run":true,"would_add":0,"already_promoted":0,"blobs_to_copy":0,"record_ids":[]}` — no error, but wrong. Expected 14 records (source, artifact, document, 4 chunks, 3 claims, 3 evidence, 1 derived marker); got zero of either fresh or already-promoted.
+
+### Root cause — verified, not guessed
+
+```
+/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/   0700 ubuntu:ubuntu
+/home/deploy/othk-store/                                0700 deploy:deploy
+```
+
+Both stores are **owner-only**, in opposite directions. The command was run as `deploy` (the account that owns the canonical store and the account the deployed MCP/executor run as). `deploy` has **zero access** to `ubuntu`'s directory — confirmed directly: `sudo -u deploy cat .../records.jsonl` → `Permission denied`; `sudo -u deploy ls .../20260831-23a12fd2/` → `Permission denied`. The reverse is equally true: `sudo -u ubuntu` has no access to `/home/deploy/othk-store` either.
+
+**Why this produced `0` instead of an error:** `store.js`'s `_load()` calls `fs.existsSync(this.logPath)` and treats `false` as "no store yet, start empty" — `existsSync` swallows a permission-denied stat and returns `false` exactly as it would for a genuinely missing path. `deploy` opening the run store therefore sees a **silently empty store**, not a permission error. `promoteRun()` then correctly reports 0 fresh / 0 already-promoted for an empty input — the promotion logic itself behaved exactly as designed; it was never given the real data to look at.
+
+### Why this stopped here rather than being routed around
+
+This is the *same* two-account access boundary already recorded as Blocker 1 in `MCP-KNOWLEDGE-1` (budget ledger), now shown to affect knowledge promotion too. The `deploy`/`ubuntu` split is either a deliberate security separation or an installation accident — that determination was explicitly out of scope for this stage, and the mission's own stop condition ("unexpected record count") was written for exactly this situation. Running as `root` (available in this environment) would bypass both permission boundaries, but would leave any newly-created files (e.g. new blob objects, if any were needed) owned by `root` inside an otherwise `deploy`-owned canonical store — an ownership inconsistency introduced without authorization, in a store whose entire access model is "owner-only." That was not done.
+
+### Verified afterward — nothing moved
+
+```
+canonical store  /home/deploy/othk-store         37 records, unchanged (verify: ok)
+real run         .../20260831-23a12fd2/records.jsonl   mtime unchanged (2026-08-31T21:26:10Z)
+```
+
+### Not done, and correctly not done
+
+Steps 2 (real promotion), 3 (post-promotion verification), and 4 (MCP knowledge_search/knowledge_get of the 3 claims) were **not performed** — there was nothing valid to promote after Step 1 stopped. No paid API call. No `.env`/Docker/systemd/database/OmniRoute/`main`/ERP/budget-config change.
+
+### Remaining blockers
+
+1. **The `deploy`/`ubuntu` permission boundary now blocks two independent things**: the budget ledger read (Blocker 1, prior entry) and knowledge promotion (this entry). Both need the same owner decision: which account is canonical, or an explicit, authorized cross-account grant (e.g. an ACL) for a promotion operator to read one and write the other.
+2. `main`/ERP divergence — unchanged, still an owner product-direction decision.
+3. The real 3 claims are still outside the canonical store — the mechanism is proven correct against fixtures (`othk-8`, 45/45) and now proven to fail SAFELY rather than falsely on the real data; it has not yet succeeded against the real data.
+
+### Exact next stage
+
+Owner decides how the promotion operator should reach both directories — e.g. run `promote-run` as whichever single account can be granted read access to the run store and write access to the canonical store (a `setfacl` grant, or performing the operation as an account already trusted with both), then re-run the same dry-run command verbatim. It should report exactly `would_add: 14` with the expected `byKind` breakdown before any real promotion is attempted again.
+
+---
+
+
+**Last updated:** 2026-09-01 00:35 UTC
+**From:** MCP-PROMOTE-1 — **the promotion mechanism identified in MCP-KNOWLEDGE-1's Blocker 3 is implemented, tested and pushed. The real proven run was deliberately NOT promoted yet.** New `othk-cli.js promote-run <run-store-root> [--dry-run]`, backed by `projects/oth-knowledge/lib/promote.js` — no new storage, every write goes through the existing `appendRecord()`/`putObject()`. Commit `4f54363`, pushed; remote HEAD `4f54363`, 0 ahead / 0 behind. othk-8 (new): 45/45. All othk suites + full 125-file suite run once: 101/125 pass, the 24 that don't are pre-existing and untouched by this change. **No paid API call.** Detail: this entry.
+
+## MCP-PROMOTE-1 — extraction-run promotion mechanism (2026-09-01)
+
+### Scope
+
+Implemented ONLY Blocker 3 from MCP-KNOWLEDGE-1's read-only investigation. Blockers 1 (budget ledger scope) and 2 (`main`/ERP divergence) are untouched — both remain owner decisions, exactly as reported.
+
+- **Commit:** `4f5436367bbc9f37782926f85b877e8d31fe8ae9`
+- **Remote HEAD:** `4f5436367bbc9f37782926f85b877e8d31fe8ae9` — verified, 0 ahead / 0 behind
+- **Branch:** `vps/extraction-advisory-wiring-20260831`
+
+### What was implemented
+
+`projects/oth-knowledge/lib/promote.js` — two functions, `planPromotion()` (pure analysis, never writes) and `promoteRun()` (calls the same plan before making a single write, so dry-run and the real write can never assess a batch differently):
+
+1. **Pre-flight:** runs the run store's own `verify()`; refuses (`OTHK_PROMOTE_INVALID_RUN`) before touching canonical at all.
+2. **Referential closure:** the same reference fields `store.verify()` already enumerates (document/chunk/relationship/evidence/derived), **extended with `entity_ids`** — `model.js` validates its shape but `verify()` never checks it referentially. A run can pass its own `verify()` while a claim's `entity_ids` points at nothing; `promote.js` catches this (test D proves the gap first, then proves the fix).
+3. **Conflict check:** same id, different content (excluding `written_at`, which isn't part of the record payload) → the whole batch refused, fail closed, canonical never overwritten. Same id, identical content → skipped as already-promoted.
+4. **Order + write:** only after the full batch passes every check — a refusal never leaves a partial promotion. Blobs copied via the store's existing content-addressed dedup; records appended via `appendRecord()` in dependency order, never with `allowNewVersion`.
+5. **Post-flight:** canonical `verify()` again — catches corruption that pre-dates this call too, not just what it wrote (proven by test H).
+
+`othk-cli.js promote-run <run-store-root> [--dry-run]` — operator-only exactly like every other command in the file; the boundary is filesystem write access to the canonical store, nothing new is added. Verified live against throwaway fixtures: dry-run creates no `records.jsonl`, no `objects/` directory; a real run then an idempotent re-run; `validate` clean afterward.
+
+### Tests
+
+```
+othk-8-promotion (new)   45 passed, 0 failed
+othk-0/1/2/2w/3/4/5/6/7  green, unchanged (609 passed)
+full suite (125 files, run once)   101 pass / 24 fail
+```
+
+The 24 failures are pre-existing and unrelated to this change — verified, not assumed: `Cannot find module 'pg'` (no `node_modules` in this worktree, 10 files), the documented DOM-dependent `stage*` chain, `mos-e2e-lifecycle`'s deliberate self-protecting refusal, and unrelated genuine assertion failures (`mpi-0`, etc.). One entry, `mythos-orchestrator-0-test.js`, failed only because this session's own 60s-per-file harness timeout killed a long-running suite — re-run standalone it passes **156/0**. **Zero of the 24 touch `oth-knowledge`, `promote.js`, or `othk-cli.js`.**
+
+### What was deliberately NOT done
+
+- The real proven run at `/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/` was **not promoted** — its `records.jsonl` mtime is unchanged from before this stage. Promotion of the real 3 claims is the next stage, not this one.
+- Budget ledger scope (Blocker 1) and `main`/ERP divergence (Blocker 2) — untouched, both remain owner decisions.
+- No `.env`, Docker, systemd, database, OmniRoute, or production change. No paid API call.
+
+### Remaining blockers
+
+1. **Budget ledger scope** (unchanged from MCP-KNOWLEDGE-1) — two executor installations, documentation says `ubuntu`, production runs as `deploy`.
+2. **`main`/ERP divergence** (unchanged) — `origin/main` deletes the ERP multi-tenant engine that local `main`'s 14 unpushed commits independently build; a substantive product-direction conflict, not a merge-mechanics one.
+3. **The real 3 claims are still outside the canonical store.** The mechanism to promote them now exists and is tested, but promotion itself has not been run against `/home/deploy/othk-store`.
+
+### Exact next stage
+
+Promote the real run: `node projects/oth-knowledge/cli/othk-cli.js --store /home/deploy/othk-store promote-run /home/ubuntu/othk-extraction-runs/20260831-23a12fd2/ --dry-run` first (review the plan), then without `--dry-run`. Re-run the read-only MCP verification (`knowledge_search kind=claim` should return 3 hits; `knowledge_get` on the 3 claim ids should succeed). Commit nothing code-side — this is a data operation against `/home/deploy/othk-store`, not a Git change — but record the outcome in a worklog and this handover. No paid API call is required for any of this.
+
+---
+
+
+**Last updated:** 2026-09-01 00:05 UTC
+**From:** MCP-KNOWLEDGE-1 — **the Extraction Result → Knowledge Store gap is BLOCKED on three owner decisions; it was NOT worked around.** Investigated all three, implemented none of them, and fixed one real defect found while verifying the last leg: `knowledge_get` on a missing record reported "did not return JSON" instead of NOT_FOUND. Commit `395e966`, pushed; remote HEAD `395e966`, 0 ahead / 0 behind. othk-6 52 → 58; **1048 tests green, 0 failed. No paid API call.** Detail: this entry + `docs/worklogs/2026-08-31-2340-mcp-budget-surface-and-run-preservation.md`.
+
+## MCP-KNOWLEDGE-1 — promotion investigated, BLOCKED, one defect fixed (2026-09-01)
+
+### Stage outcome
+
+The remaining pipeline gap is **Extraction Result → Canonical Knowledge Store → MCP → knowledge_search**. All three named blockers were investigated to root cause. **None could be resolved without an owner decision**, so none was forced. What follows is evidence, not opinion.
+
+- **Commit:** `395e96610fb7e0c75effe7335272dbfed00b1b44`
+- **Remote HEAD:** `395e96610fb7e0c75effe7335272dbfed00b1b44` — verified, 0 ahead / 0 behind
+- **Branch:** `vps/extraction-advisory-wiring-20260831` (carries `47f58d2`, `5dbe30d`, `395e966`)
+
+### BLOCKER 1 — budget ledger scope: OWNER DECISION REQUIRED
+
+Root cause is **two installations, not one misconfiguration**:
+
+| | `ubuntu` | `deploy` |
+|---|---|---|
+| Executor user unit installed | yes | yes |
+| Linger | yes | yes |
+| Service state | **inactive / disabled** | **active, serving :8130** |
+| Ledger root (`os.homedir()`) | `/home/ubuntu/mythos-ai-executor/…` | `/home/deploy/mythos-ai-executor/…` |
+| Holds the `oth-extraction` entries | **yes — 3 SETTLED, $0.03 of $0.10** | no — `configured: false` |
+
+The paid run was a **direct script invocation as `ubuntu`**, not a daemon task, so it used `ubuntu`'s ledger. The daemon runs as `deploy`.
+
+**Why this is not unambiguous.** The unit header and `deploy/install.sh` both state the service user is **`ubuntu`** ("Run as the service user (ubuntu)"). Production actually runs as **`deploy`**. Documentation and reality disagree about which account is canonical, and `docs/MYTHOS_BUDGET_LEDGER.md` never addresses POSIX-account scope at all — it documents identity as "project + period" and guarantees "two parallel tasks cannot overspend", a guarantee enforced by an `O_EXCL` lock **inside one ledger directory**. Two ledgers therefore mean **two independent allowances**, which contradicts that guarantee.
+
+**Every candidate fix crosses a forbidden line:** a shared `MYTHOS_EXECUTOR_HOME` needs a new shared directory and group (host change), an edit to `~/.config/mythos-ai-executor/executor.env` (**`.env` change — forbidden**), and a restart of the live executor serving :8130 (**production change — forbidden**). Choosing the canonical account also moves a credential: the advisory key lives under `ubuntu`.
+
+**No regression tests were added for this.** Tests asserting the current behaviour would cement the hazard as expected, and tests asserting the desired behaviour cannot pass until the design is chosen. Encoding either would be worse than leaving it visible.
+
+**Decision needed:** which account is canonical, and is governed spend **project-global** (one shared ledger root) or **per-account**? Until then the hazard is bounded — grant and entries share one account, so no overspend is possible today.
+
+### BLOCKER 2 — merge to `main`: BLOCKED, RISK OF LOSING WORK
+
+`main` is **itself divergent**, entirely independently of the MCP work:
+
+```
+local main (90d9ffe)  vs  origin/main (30c7774)   →   ahead 14, behind 4
+plus 3 uncommitted files in /home/deploy/projects/mythos-prod:
+  ops/backup/mythos-backup-capture.sh · projects/status-center/monitor/probes.json
+  sites/erp.mythosprod.xyz/db/schema.sql          (known to be deployed truth)
+```
+
+The 14 unpushed local commits are a whole **ERP multi-tenant engine + backup pipeline** line of work (`419b2dd`, `907b901`, `b073989`, …) unrelated to MCP. Merging into `main` while `main` is divergent in both directions, with production-truth files uncommitted, is exactly the "risks losing work" stop condition. `gh` is not installed on this host, so a PR could not be opened from here either.
+
+This branch itself is clean: merge-base with `origin/main` is `7065265`, **1 behind / 13 ahead**, no conflict expected once `main` is reconciled.
+
+**Decision needed:** reconcile `main` first (owner), then merge this branch by PR.
+
+### BLOCKER 3 — knowledge promotion: NO MECHANISM EXISTS
+
+Verified by reading the code, not assumed:
+
+- `othk-cli.js` commands are `ingest`, `import-takeout`, `import-gemini`, `import-notebooklm`, `import-contacts-metadata`, `seed`, `search`, `export`, `validate`, `stats`. **There is no promote / merge / import-store command.**
+- `lib/store.js` exports `openStore`, `Store`, `FORMAT_VERSION` only. **No merge function exists anywhere in `oth-knowledge`.**
+- `seed` is explicitly "the authorised path for **owner-reported** structured knowledge" and creates `entities/facts/observations/events/evidence` — **it cannot create a claim.** Using it would convert claims into another record kind, changing exactly what must not change.
+
+The run store is a coherent **14-record graph** — `source, artifact, document, 4 chunks, 3 claims, 3 evidence, 1 derived` (the idempotency marker) — so promotion means moving the graph, not 3 claims. The canonical store `/home/deploy/othk-store` holds 37 records and **has never held a claim** (`source 2, entity 7, observation 7, fact 12, evidence 8, event 1`).
+
+The only three ways to promote today are: invent a writer into the canonical store (forbidden — new storage, bypasses curation), use `seed` (changes the record kind), or re-run extraction against the canonical store (**a paid DeepSeek call** — forbidden). All three were refused.
+
+**Decision needed:** authorise a reviewed claim-promotion capability (an `othk-cli` verb that copies a run store's graph into the canonical store, preserving ids, provenance, evidence links and the derived marker for idempotency), or accept the claims staying out of canon.
+
+### Defect found and FIXED
+
+Verifying the last leg surfaced a real fault in `projects/oth-mcp/server.js`. The knowledge facade answers **HTTP 200 with the JSON literal `null`** for an absent record, and `JSON.parse('null') === null`, so the single `json === null` check could not distinguish an empty payload from a parse failure — a missing record was reported as *"OTH Knowledge did not return JSON"*. A failure that misidentifies itself is worse than a loud one. A `parseFailed` flag now separates them: malformed body → `UPSTREAM_BAD_JSON`, empty payload → `UPSTREAM_NOT_FOUND`, both still naming the owner. Verified live through the deployed launcher.
+
+### Verification performed (read-only, free)
+
+Through the **deployed** MCP launcher over stdio:
+
+```
+tools/list           8 tools
+knowledge_search "backup"        5 hits — entity / observation / fact
+knowledge_search kind=claim      0 hits   (claims are not in canon — the gap, confirmed)
+knowledge_get <the 3 claim ids>  UPSTREAM_NOT_FOUND (correct after the fix)
+budget_status oth-extraction     configured:false — BLOCKER 1, surfaced honestly
+```
+
+The MCP → knowledge_search leg **works**; only the promotion step is missing.
+
+### Tests
+
+```
+othk-6-mcp-server 58 (was 52) · othk-0 89 · othk-1 30 · othk-2 97 · othk-2w 42
+othk-3 63 · othk-4 90 · othk-5 44 · othk-7 51 · budget-ledger 121
+ai-executor 264 · governance-invariant 99
+──────────────────────────────────────────────────────────────────────
+1048 passed, 0 failed, 0 regressions
+```
+
+### Exact next stage
+
+Three owner decisions, in this order — none is repository work:
+
+1. **Budget scope** — canonical account + project-global vs per-account ledger. Blocks any larger paid pilot.
+2. **Reconcile `main`** (14 ahead / 4 behind + 3 uncommitted production-truth files), then merge this branch by PR.
+3. **Authorise a claim-promotion capability**, then promote the 14-record run graph from `/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/` into `/home/deploy/othk-store`, and re-run the read-only verification above — at which point `knowledge_search kind=claim` returns the 3 claims and the pipeline is closed end to end.
+
+Only after (1): the remaining four conversations, ~$0.01 each against the **$0.07** remaining.
+
+---
+
+
+**Last updated:** 2026-08-31 23:55 UTC
+**From:** MCP-BUDGET-1 — **OTH MCP budget surface COMPLETE; the proven paid extraction is now recorded in Git.** `budget_status` added to `projects/oth-mcp/server.js` (7 → 8 read-only tools), routing to the read the executor already serves — `GET /budget/<project>[/history|/reservations]` — with no second tally, no new provider abstraction and no verb but GET. othk-6 36 → 52; 1042 tests green across 12 suites, 0 regressions. **No paid API call was made.** Commit `47f58d2`, pushed; remote HEAD `47f58d2`, 0 ahead / 0 behind. Detail: `docs/worklogs/2026-08-31-2340-mcp-budget-surface-and-run-preservation.md`.
+
+## MCP-BUDGET-1 — governed budget read + run preservation (2026-08-31)
+
+### Stage completed
+
+Continue and complete the MCP implementation from the verified state. The MCP
+server itself was found **complete and already validated** (deployed
+2026-08-30, exercised by the official MCP Inspector against live upstreams);
+it was not rebuilt. One genuine gap was closed, and Git was corrected about
+what had actually happened.
+
+- **Commit:** `47f58d2a125c0432e0a1a4b897b65ef79e1d540b`
+- **Branch:** `vps/extraction-advisory-wiring-20260831`
+- **Remote HEAD:** `47f58d2a125c0432e0a1a4b897b65ef79e1d540b` — verified after push, **0 ahead / 0 behind, no divergence**
+- **Worktree:** `/home/deploy/oth-mcp` (authoritative; `projects/oth-mcp` is **not** on `main`)
+
+### What was implemented
+
+`budget_status` — the governed spend position of a project (limit, reserved,
+spent, remaining), its settled history, or its open reservations. Budget is
+the gate every paid AI action must pass and was the only mandatory invariant
+with no MCP surface. It extends the existing `TOOLS` array over the existing
+`upstreamGet`; the executor's own project grammar `^[a-z0-9][a-z0-9-]{1,63}$`
+is mirrored rather than loosened, making traversal unrepresentable.
+
+Asserted, not assumed: `configured: false` with `limit: 0` is a **real**
+answer (no grant → every spend denied), and an unreachable executor yields an
+explicit error naming the owner with **no spend position at all**.
+
+### The paid run Git did not know about
+
+The previous worklog stated the paid test was not re-run and egress was
+blocked. The owner cleared `proxy_enabled`, and the run succeeded:
+
+```
+source_id  23a12fd2-eb75-4b86-9e48-7ee2704ccf31
+provider   openrouter/deepseek/deepseek-v4-pro
+usage      prompt 1232 · completion 1913 · reasoning 1756 · total 3145
+result     3 claims · 3 evidence · 0 facts
+spend      $0.01 SETTLED   ·   oth-extraction: spent 0.03 of 0.10, remaining 0.07
+```
+
+Report committed at `docs/evidence/2026-08-31-extraction-run-23a12fd2-report.json`
+(ids, counts, usage, spend only — no conversation content, no credential).
+The run store was preserved off `/tmp` at
+`/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/`, verified byte-identical.
+
+### Tests
+
+```
+othk-6-mcp-server  52 (was 36)  ·  othk-0  89  ·  othk-1  30  ·  othk-2  97
+othk-2w  42  ·  othk-3  63  ·  othk-4  90  ·  othk-5  44  ·  othk-7  51
+mythos-budget-ledger 121  ·  mythos-ai-executor 264  ·  governance-invariant 99
+──────────────────────────────────────────────────────────────────────────
+1042 passed, 0 failed, 0 regressions
+```
+
+### Remaining blockers — all owner decisions, none repository
+
+1. **`os.homedir()`-scoped budget ledger.** `lib/state.js:38` roots the ledger
+   at the running account's home. The extraction ran as `ubuntu`; the executor
+   daemon runs as `deploy`, so `GET /budget/oth-extraction` reports
+   `configured: false` while the real ledger holds `$0.03`. It cannot cause an
+   overspend today (grant and entries share one account) but a cumulative limit
+   is only cumulative within one account. **Settle before any larger pilot.**
+2. **Branch not merged.** The deployed executor runs from the `main` worktree,
+   which carries neither the `oth-extraction` grant nor `projects/oth-mcp`.
+   Fail-closed (it denies), but the MCP path stays worktree-dependent.
+3. **The 3 proven claims are not in the canonical store**, so they are not
+   reachable via `knowledge_search`. Promotion is curation, and curation is
+   operator-only through `othk-cli` — deliberately not done here.
+
+### Exact next stage
+
+Owner decides (1) the ledger scope, (2) the merge to `main`, (3) curation of
+the 3 claims via `othk-cli` — which completes Extraction → Knowledge → MCP end
+to end. Only then the remaining four conversations, ~$0.01 each against the
+$0.07 remaining.
+
+---
 
 
 **Last updated:** 2026-08-26 UTC

@@ -24,6 +24,14 @@
       "mission_limit": 0,
       "note": "Zero by owner default: the orchestration project performs no paid external actions. Raising any of these is an owner decision recorded in Git."
     },
+    "oth-extraction": {
+      "currency": "USD",
+      "timezone": "Europe/Paris",
+      "daily_limit": 0.10,
+      "request_limit": 0.10,
+      "mission_limit": 0.10,
+      "note": "Owner grant, 2026-08-31: $0.10 for the first real advisory connectivity test of the Extraction selector against DeepSeek V4 Pro via OmniRoute. Deliberately a SEPARATE project rather than raising mythos-prod, which stays at zero: this grant authorises extraction selection and nothing else, and revoking it is one edit that cannot affect any other spend. All three scopes mirror the granted cap exactly; no sub-limit was invented."
+    },
     "budget-sandbox": {
       "currency": "USD",
       "timezone": "Europe/Paris",

@@ -71,9 +71,21 @@ function version() { return 'openai-compat/1'; }
 // { exit_code, parsed: {result, is_error}, stdout, stderr, duration_ms }.
 // The shape mirrors the claude-code outcome so executor.js handles both
 // uniformly, but there is no session, no pid and no shell.
+// The executor's advisory framing. Callers that are NOT producing an
+// executor report may override it via opts.systemPrompt — the selector does,
+// because this text asks for a trailing mythos_report block and the selector
+// contract is "exactly ONE fenced json block". Two conflicting instructions
+// would make the reply non-deterministic. Nothing else about the request
+// changes, and every existing caller keeps this exact string.
+var DEFAULT_SYSTEM_PROMPT =
+  'You are an advisory reviewer for Mythos OS. You analyse and report; you cannot execute anything. '
+  + 'End with a fenced json block containing {"mythos_report": true, "status": "completed", "summary": "..."}.';
+
 function run(task, prompt, _sessionId, _mode, opts) {
   opts = opts || {};
   var baseUrl = opts.baseUrl || task.base_url || DEFAULT_BASE_URL;
+  var systemPrompt = typeof opts.systemPrompt === 'string' && opts.systemPrompt.trim()
+    ? opts.systemPrompt : DEFAULT_SYSTEM_PROMPT;
   var key = loadKey(opts.keyFile);
   var started = Date.now();
 
@@ -95,7 +107,7 @@ function run(task, prompt, _sessionId, _mode, opts) {
       // (Verified against OmniRoute 3.8.49 during the first real mission.)
       stream: false,
       messages: [
-        { role: 'system', content: 'You are an advisory reviewer for Mythos OS. You analyse and report; you cannot execute anything. End with a fenced json block containing {"mythos_report": true, "status": "completed", "summary": "..."}.' },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt }
       ]
     });
@@ -165,5 +177,6 @@ module.exports = {
   run: run,
   COMPRESSION_COMBO: COMPRESSION_COMBO,
   DEFAULT_MODEL: DEFAULT_MODEL,
+  DEFAULT_SYSTEM_PROMPT: DEFAULT_SYSTEM_PROMPT,
   executionAuthority: false  // advisory only, permanently
 };
