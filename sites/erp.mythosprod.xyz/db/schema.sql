@@ -34,7 +34,12 @@ CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN NEW.updated_at = now(); RETURN NEW; END $$;
 
-CREATE TABLE schema_migrations (
+-- IF NOT EXISTS because api/migrations/migrate.js creates this table itself
+-- before it applies the first migration, with an identical definition. Without
+-- it the runner and this file collide and schema.sql can never be applied by
+-- the runner at all. Declared here as well so the file stays applicable on its
+-- own, e.g. into a throwaway instance with psql -f.
+CREATE TABLE IF NOT EXISTS schema_migrations (
     version      text PRIMARY KEY,
     applied_at   timestamptz NOT NULL DEFAULT now(),
     checksum     text NOT NULL
@@ -460,6 +465,18 @@ END $$;
 --   GRANT USAGE ON SCHEMA public TO erp_app;
 --   GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO erp_app;
 --   -- deliberately no DELETE: retirement is deleted_at, and audit_log is append-only
+--   -- ONE exception, and only one: invoice_lines.
+--   -- The no-DELETE rule protects BUSINESS RECORDS, which retire by setting
+--   -- deleted_at. invoice_lines is not one of those: it is a pure child of its
+--   -- invoice and has NO deleted_at column, so the rule cannot even express
+--   -- "this line is gone". modules/invoices.js replaceLines() rewrites an
+--   -- invoice's lines by deleting and re-inserting them, and totals() sums every
+--   -- line row with no deleted_at filter -- so soft-deleting a line would
+--   -- silently corrupt the invoice total. Without this grant the engine cannot
+--   -- create an invoice at all: the acceptance suite fails with "permission
+--   -- denied for table invoice_lines" even on a create, because PostgreSQL
+--   -- checks the privilege before discovering there is nothing to delete.
+--   GRANT DELETE ON invoice_lines TO erp_app;
 --   REVOKE UPDATE, DELETE ON audit_log FROM erp_app;
 --   GRANT INSERT, SELECT ON audit_log TO erp_app;
 --   GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO erp_app;
