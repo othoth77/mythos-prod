@@ -1,0 +1,87 @@
+# MYTHOS Gateway — IBM ContextForge in front of the MCP servers MYTHOS
+# already runs. It federates; it does not replace. Nothing in this file
+# grants the gateway authority over the host.
+#
+# Deployed from /home/deploy/deployments/mythos-gateway/ with the secrets in
+# contextforge.env (0600, never committed). This file is the source of truth
+# for the topology; that file is the source of truth for the credentials.
+services:
+  contextforge:
+    # Pinned by digest: `latest` is a moving tag and this is production.
+    image: ghcr.io/ibm/mcp-context-forge@sha256:89c3df1d31ed3c9eeabe720f26b632d03abf53fba8b041e2542b2f2d0c2832c7
+    container_name: mythos-contextforge
+    restart: unless-stopped
+    env_file:
+      - ./contextforge.env
+    # Loopback only. The public door is nginx, which terminates TLS and
+    # forwards /gateway/. No port of this container reaches the internet.
+    ports:
+      - "127.0.0.1:4444:4444"
+    networks:
+      - mythos-gateway_net
+    volumes:
+      # The whole persistent state of the gateway: one SQLite file. Rollback
+      # is `docker compose down` plus deleting this directory.
+      - ./data:/app/data
+    # No docker socket. The gateway never needs to speak to the daemon, and
+    # a container that can reach /var/run/docker.sock is root on the host.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "10001:10001"
+    # Memory is the scarce resource on this host. A ceiling makes the gateway
+    # the first thing the kernel reclaims from, never a production service.
+    mem_limit: 768m
+    memswap_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:4444/health', timeout=5).status==200 else 1)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # The OFFICIAL GitHub MCP server, second instance, write-capable.
+  # The existing `mythos-github-mcp` on 127.0.0.1:8082 is read-only and is
+  # deliberately left running and untouched: this one is additive.
+  #
+  # It carries NO credential of its own. The official server accepts the
+  # caller's bearer token per request, so the GitHub PAT lives only in
+  # ContextForge's encrypted store and never in a container environment, a
+  # compose file, an image layer or a log line.
+  github-mcp-rw:
+    image: ghcr.io/github/github-mcp-server
+    container_name: mythos-github-mcp-rw
+    restart: unless-stopped
+    networks:
+      - mythos-gateway_net
+    # No published port. Only ContextForge, on the same private network,
+    # can reach it — it is not on loopback and not on the internet.
+    entrypoint: ["/server/github-mcp-server"]
+    command:
+      - http
+      - --listen-host
+      - "0.0.0.0"
+      - --port
+      - "8082"
+      - --toolsets
+      - default,actions,git,code_security,labels,discussions
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 256m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  mythos-gateway_net:
+    external: true
