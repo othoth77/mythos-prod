@@ -26,12 +26,38 @@ function textOf(rec) {
 }
 
 // Unicode-folded tokenization.
+//
+// FIX (2026-09-01): the previous split pattern was /[^a-z0-9]+/ \u2014 Latin
+// letters and ASCII digits only. Any script outside that set (Arabic,
+// Cyrillic, CJK, ...) produced zero tokens for zero-token documents,
+// buildIndex()'s `if (!tokens.length) continue;` then dropped the record
+// from the index entirely, and it became permanently unsearchable
+// regardless of query. Confirmed against three real promoted Arabic
+// claims (MCP-PROMOTE-4): `knowledge_search kind=claim` returned 0 hits
+// while `knowledge_get` (a different, non-search code path) resolved them
+// fine, proving the store and provenance were intact and the defect was
+// isolated to this function.
+//
+// FIX, not a workaround: \p{L} (Unicode "Letter") and \p{Nd} (Unicode
+// "Decimal Number") are standard Unicode general-category property
+// escapes \u2014 not a hard-coded Arabic range \u2014 so this covers Arabic,
+// French-accented Latin, and any other script's letters/digits the same
+// way it already covered plain ASCII, with no per-script branch.
+//
+// \p{M} ("Mark", combining marks) after NFKD folds BOTH Latin accents
+// (\u00e9 \u2192 e + a now-separate combining acute, which \p{M} then strips) AND
+// Arabic diacritics/tashkeel (also combining marks under Unicode, just a
+// different block) in the same single step \u2014 again one general rule, not
+// two script-specific ones. Verified against every ASCII/English input in
+// tests/othk-1-search-test.js's corpus: byte-identical output to the
+// pre-fix tokenizer (Latin/ASCII is a strict subset of \p{L}/\p{Nd}, so
+// nothing that used to tokenize as a "word character" stops being one).
 function tokenize(text) {
   return String(text)
     .toLowerCase()
     .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .split(/[^a-z0-9]+/)
+    .replace(/\p{M}/gu, '')
+    .split(/[^\p{L}\p{Nd}]+/u)
     .filter((t) => t.length > 1);
 }
 
