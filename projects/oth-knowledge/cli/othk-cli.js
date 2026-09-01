@@ -14,6 +14,16 @@
 //   node othk-cli.js --store <root> export [--kind k] [--class c] [--history] [--out file]
 //   node othk-cli.js --store <root> validate
 //   node othk-cli.js --store <root> stats
+//   node othk-cli.js --store <root> promote-run <run-store-root> [--dry-run]
+//
+// promote-run moves a completed extraction run's record graph into <root>
+// via lib/promote.js: pre-flight verification of the run store, referential
+// closure against <root> and the batch itself, a fail-closed conflict check
+// (never overwrites an existing canonical record), then appendRecord()/
+// putObject() -- the same primitives every other command here already
+// uses. Operator-only like every command in this file: the boundary is
+// filesystem write access to <root>, nothing new is added. --dry-run
+// performs the same analysis and writes nothing.
 //
 // Exit codes: 0 ok · 1 failure · 2 usage.
 // Output prints ids, hashes and scores — never full stored bodies —
@@ -25,10 +35,11 @@ const fs = require('fs');
 const path = require('path');
 const api = require('../lib/api.js');
 const seedLib = require('../lib/seed.js');
+const promoteLib = require('../lib/promote.js');
 
 function usage(msg) {
   if (msg) console.error('usage error: ' + msg);
-  console.error('usage: othk-cli.js --store <root> <ingest|seed|search|export|validate|stats> ...');
+  console.error('usage: othk-cli.js --store <root> <ingest|seed|search|export|validate|stats|promote-run> ...');
   process.exit(2);
 }
 
@@ -122,6 +133,12 @@ function main() {
     if (!res.ok) process.exit(1);
   } else if (cmd === 'stats') {
     console.log(JSON.stringify(kb.stats(), null, 2));
+  } else if (cmd === 'promote-run') {
+    const runPath = args._[1];
+    if (!runPath || typeof runPath !== 'string') usage('promote-run <run-store-root> [--dry-run]');
+    const runKb = api.open(runPath);
+    const res = promoteLib.promoteRun(runKb.store, kb.store, { dryRun: args['dry-run'] === true });
+    console.log(JSON.stringify(res, null, 2));
   } else {
     usage('unknown command ' + cmd);
   }
