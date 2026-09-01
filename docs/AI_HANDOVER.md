@@ -1,5 +1,76 @@
 # Mythos OS — AI Handover
 
+**Last updated:** 2026-09-01 01:55 UTC
+**From:** MCP-PROMOTE-3 — **the promotion SUCCEEDED: 14 records are permanently in the canonical store (37 → 51), including the 3 claims, verified at the store layer. But MCP still cannot see them, so this is NOT end-to-end completion.** The running `oth-knowledge-http` facade caches the store in memory at first open and has no reload route; it started 23:26:42, the store changed 01:49:23, so it serves a stale 37-record snapshot. Only a process restart would pick the records up — a production service change that is out of scope here. **No paid API call. Source run byte-identical and untouched. Temporary inbox deliberately RETAINED (cleanup is gated on full verification, which did not pass).**
+
+## MCP-PROMOTE-3 — real promotion done on disk, MCP visibility BLOCKED (2026-09-01)
+
+### What was done
+
+One-time promotion via a temporary `deploy`-owned handoff inbox, exactly as designed in MCP-PROMOTE-2's investigation. No traversal was granted on `/home/ubuntu`, no ACL was placed on the canonical store, no ownership changed, and root was not used for the promotion.
+
+```
+1. deploy:  mkdir /home/deploy/othk-promotion-inbox (0700), setfacl -m u:ubuntu:rwx on THAT DIRECTORY ONLY
+2. ubuntu:  cp -r  (NOT -a)  the run into the inbox; then chmod 755 on the COPY only
+3. deploy:  promote-run --dry-run   -> would_add: 14, already_promoted: 0
+4. deploy:  promote-run             -> added: 14
+```
+
+`cp -r` still carried the source directory's `0700` onto the copy, so `deploy` initially could not read it — resolved by relaxing the **copy** (which `ubuntu` owns) to `0755`; the source stayed `0700` throughout. The inbox's own `0700` remains the real gate.
+
+### Promotion result — verified at the store layer
+
+```
+before  37 records   source 2 · entity 7 · observation 7 · fact 12 · evidence 8 · event 1
+after   51 records   + source 1 · artifact 1 · document 1 · chunk 4 · claim 3 · evidence 3 · derived 1
+```
+
+- `validate` → `{"ok": true, "problems": [], "records": 51}`
+- The **3 claims** are present, each `asserted_by: deepseek:assistant`, provenance `deepseek/oth-db`, `source_reference` tracing to `23a12fd2-eb75-4b86-9e48-7ee2704ccf31#msg-3`, `artifact_ref` present.
+- The **3 evidence** records each resolve: target claim exists, and the referenced `document-460722a951859043` exists.
+- Artifact blob present in canonical (`byte_size` 5283), content-addressed.
+- **`fact` count unchanged at 12** — extraction created no fact, as designed.
+- **Pre-existing records provably untouched:** the first 38 lines of `records.jsonl` hash to `262511b7…`, byte-identical to the whole-file hash taken before promotion. All 14 new envelopes are `version 1, supersedes null, deleted false` — pure appends, nothing superseded or overwritten.
+
+### Why MCP verification FAILED — and it is not the promotion's fault
+
+```
+facade /stats (running service)   37 records   <- stale
+disk truth (fresh open)           51 records   <- correct
+facade process started            2026-08-31 23:26:42
+store last modified               2026-09-01 01:49:23
+```
+
+`projects/oth-knowledge/service/othk-http.js`'s `serviceHolder()` memoises the store: `if (svc) return { ok: true, svc: svc }`. `store.js`'s `openStore()` reads `records.jsonl` into an in-memory index **once**. There is **no reload route and no cache invalidation** anywhere in the facade. Its own comment — "a later provisioning is picked up without a restart" — covers the store *appearing*, not the store *changing*.
+
+So through MCP: `knowledge_search kind=claim` → **0 hits**; `knowledge_get` on all three ids → `UPSTREAM_NOT_FOUND`. `tools/list` still returns the correct 8 tools and **no write tool is exposed** (verified).
+
+**This is a genuine, previously-undocumented architectural gap**: the curation path (`othk-cli`, operator-only, writes to disk) and the read path (facade → MCP, long-lived process) share a store format that has no change-notification between them. Any curation performed while the facade runs is invisible until it restarts. That affects every existing write verb (`ingest`, `seed`, `import-*`), not just `promote-run`.
+
+### Not done, deliberately
+
+- **The facade was NOT restarted.** That is a production service change, excluded from this task's scope and from every prior stage's constraints. It is the single action that would complete end-to-end verification.
+- **The temporary inbox was NOT cleaned up.** Cleanup was explicitly gated on all verification succeeding. Retaining it also preserves the exact artifact for a post-restart re-verification (a re-run should report `already_promoted: 14`, proving idempotency on real data).
+- No paid API call, no extraction re-run, no OmniRoute/OpenRouter/DeepSeek contact, no `.env`/Docker/systemd/database change, no `main` merge, no ERP work, no budget-config change.
+
+### Remaining blockers
+
+1. **Facade cache — the immediate blocker.** `oth-knowledge-http.service` (user unit, `deploy`) must restart before MCP can see the promoted claims. Needs owner authorization for a production service restart. Options worth deciding at the same time: accept restart-after-curation as the operating procedure, or add a reload/invalidate path (a code change, out of scope here).
+2. **Temporary inbox retained** at `/home/deploy/othk-promotion-inbox/20260831-23a12fd2` with a `u:ubuntu:rwx` ACL on the inbox directory. It holds a copy of personal conversation content and should be removed (`setfacl -b` + `rm -rf`) once verification completes.
+3. **Budget ledger scope** — unchanged, owner decision.
+4. **`main`/ERP divergence** — unchanged, owner decision.
+
+### Exact next stage
+
+1. Owner authorizes: `systemctl --user restart oth-knowledge-http.service` (as `deploy`).
+2. Re-verify read-only through the deployed MCP: `knowledge_search kind=claim` must return the 3 claims; `knowledge_get` must succeed for `claim-5d59076fa2833cf0`, `claim-8ed7e0ce83a671e2`, `claim-b3a530fa9963c03e`.
+3. Optionally re-run `promote-run --dry-run` against the retained inbox — expect `already_promoted: 14, would_add: 0`.
+4. Then clean up: `setfacl -b /home/deploy/othk-promotion-inbox && rm -rf /home/deploy/othk-promotion-inbox`.
+5. Only after step 2 passes may the pipeline be described as complete end to end.
+
+---
+
+
 **Last updated:** 2026-09-01 01:00 UTC
 **From:** MCP-PROMOTE-2 — **the real promotion did NOT run. The dry-run's own STOP condition ("unexpected record count") caught a permission boundary before any write was attempted.** `would_add:0` where 14 was expected — not a promotion decision, a silent inability to read the source at all. No code changed, no commit needed for the mechanism (it behaved correctly by refusing to lie about a store it could not see); this entry only. **No paid API call, no write to either store, no file touched.**
 
