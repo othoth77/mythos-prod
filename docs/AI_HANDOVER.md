@@ -729,11 +729,170 @@ the governed route is fail-closed by design.
 
 
 **Last updated:** 2026-09-01 UTC
-**From:** MISSION-FINAL Stage A — **main/ERP divergence RECONCILED and DELIVERED to GitHub.**
+**From:** GATEWAY-1 — **MYTHOS Gateway built and verified on-host; NOT public yet.**
+ContextForge federates the existing MYTHOS MCP and all 8 tools answer through a
+real MCP handshake. GitHub MCP is deployed but has no credential, no client
+credentials are issued, and nginx has not been reloaded — so nothing is
+reachable from the internet. Three owner decisions remain; see GATEWAY-1.
+
+**Previously:** MISSION-FINAL Stage A — **main/ERP divergence RECONCILED and DELIVERED to GitHub.**
 `main` had diverged from `origin/main` (14 ahead / 4 behind), which made the
 governance delivery relay `mythos-git-push.service` **REFUSE every push** with
 `local main is not a fast-forward of origin/main (diverged)`. That single
 divergence was blocking all delivery, including the approved NEW ERP engine.
+
+## GATEWAY-1 — MYTHOS Gateway: ContextForge federating MYTHOS MCP (2026-09-01)
+
+**Status: PARTIAL — built, deployed and verified on the host; NOT yet public,
+and GitHub not yet connected. Three steps remain and all three are decisions
+that belong to the owner, not to an agent. Nothing below is a claim of
+completion.**
+
+### The shape
+
+```
+ChatGPT ─┐
+         ├─ HTTPS ─▶ nginx /gateway/ ─▶ ContextForge ─┬─▶ MYTHOS MCP (existing, read-only)
+Claude ──┘          (apex certificate)   (loopback)   └─▶ GitHub MCP (official, write-capable)
+```
+
+MYTHOS was not rebuilt. OTHMODE, the Executor, Governance, the Budget ledger
+and OTH Knowledge were not touched. The gateway federates the servers that
+already existed; it defines no tool of its own.
+
+### What is DONE and VERIFIED on the host
+
+| Stage | State | Evidence |
+|---|---|---|
+| 0 Discovery | DONE | oth-mcp = stdio over SSH, no port, no unit; nginx+certbot on 20 vhosts; DNS at OVH with no API credential on host; official GitHub MCP already running read-only on `127.0.0.1:8082` |
+| 1 Install / isolation | DONE | `mythos-contextforge` v1.0.9 healthy, 0 restarts, ~420 MB, loopback `127.0.0.1:4444`, SQLite, uid 10001, `cap_drop: ALL`, no docker socket, image pinned by digest |
+| 2 MYTHOS MCP connected | **DONE — all 8 tools verified through the gateway** | see below |
+| 3 GitHub MCP | Container DEPLOYED, **credential NOT bound** | `mythos-github-mcp-rw` up, `readOnly=false`, no port published |
+| 4 Authentication | Gateway-side DONE, **client credentials NOT issued** | `AUTH_REQUIRED=true`, admin UI + admin API off, unauthenticated request rejected 401 |
+| 5 Permissions | Design DONE | full operational access *through* the gateway; the Executor/Governance/Budget gates are unchanged and not bypassed |
+| 6/7 ChatGPT + Claude | **BLOCKED on 3 and 4** | one gateway serves both; neither can connect until a client credential exists and the door is open |
+| 8 GitHub source of truth | DONE for this work | worktree `feat/mythos-gateway` off `origin/main`, committed and pushed |
+| 9 Security check | DONE for what is deployed | 37/37 boundary assertions pass; no new public port; UFW unchanged except one private-subnet rule |
+| 10 Rollback | DONE and VERIFIED | see Rollback below |
+| 11 Tests | Targeted PASS for A/B/C/E/F/G/L/N; D/H/I/J/K blocked | see below |
+
+### Stage 2 evidence — MYTHOS MCP through ContextForge
+
+Registered peer `mythos-mcp` → `reachable: true`, 8 tools discovered. A real
+MCP Streamable HTTP handshake against `/mcp` (`initialize` →
+`notifications/initialized` → `tools/list` → `tools/call`) returned
+`isError: false` with real upstream data for:
+
+`system_health` · `knowledge_search` · `project_context` ·
+`capability_registry` · `execution_status` · `budget_status`
+
+`knowledge_get` and `execution_report` are discovered and enabled; both take a
+required id and were not called with a fabricated one.
+
+`budget_status` returns `configured: false, limit: 0` for `mythos-prod`. That
+is the **correct** answer, not a failure: the ledger is `os.homedir()`-scoped
+and the answering executor owns no grant. The tool is required to report that
+distinctly from "could not find out", and it does.
+
+### The transport, and why it is not a second MCP
+
+ContextForge federates over HTTP; OTH MCP speaks stdio and must keep speaking
+stdio. `projects/mythos-gateway/mcp-http-bridge.js` closes that gap and only
+that gap: it **declares no tool, defines no schema, reaches no upstream and
+holds no authority**, spawning the existing
+`deployments/oth-mcp/oth-mcp-stdio.sh` unchanged.
+`tests/gateway-boundary-test.js` §1 pins this as data — if the bridge ever
+names a MYTHOS tool, the suite fails.
+
+`mcpgateway.translate` was the official alternative and was rejected: it lives
+inside the gateway image, so reaching a host-side node process from it needs
+either the full FastAPI dependency tree on the host or an SSH key inside a
+container. Both add credential surface to solve a transport problem.
+
+### Two failures worth recording
+
+**The gateway boot-looped 15 times before it ran.** ContextForge auto-detected
+nine gunicorn workers, which raced their own Alembic migration and left
+`id_new` half-applied on a brand-new SQLite file — `Partial migration
+detected`, permanent boot loop. Fixed by running
+`python3 -m mcpgateway.bootstrap_db` once, single-process, before the first
+`compose up`, and pinning `GUNICORN_WORKERS=2`. The unusable file was **moved
+aside, not deleted** (`data/mcp.db.failed-migration-20260901`); it was verified
+empty in every table first.
+
+**Registering the peer failed 422 on SSRF protection.** The gateway blocks
+private destinations by design. Rather than disable the protection, exactly
+one /24 is allowlisted — `SSRF_ALLOWED_NETWORKS=["10.0.60.0/24"]`, the
+gateway's own network. The databases, the other containers and the cloud
+metadata endpoint stay unreachable from any URL registered in the gateway.
+
+### Security posture (Stage 9)
+
+- **No new public port.** ContextForge is on loopback; the GitHub MCP container
+  publishes nothing. UFW gained exactly one rule: `8160/tcp from 10.0.60.0/24`.
+- **No docker socket** in either container. **No root**: uid 10001,
+  `cap_drop: ALL`, `no-new-privileges`; the bridge unit runs as `deploy` under
+  `ProtectSystem=strict` + `ProtectHome=read-only`.
+- **Admin surfaces off twice** — disabled in the gateway config, and
+  `/gateway/admin` returns 404 at nginx regardless.
+- **No secret committed.** Runtime env files are 0600 under
+  `/home/deploy/deployments/mythos-gateway/`, outside the worktree; the
+  repository carries `contextforge.env.example` with placeholders only, and
+  §5 of the test suite fails if a real value ever appears.
+- **Memory ceilings on everything** — 768 MB gateway, 256 MB GitHub MCP,
+  256 MB bridge. This host OOMs under desktop sprawl; the gateway must never
+  be the reason a production service is reclaimed.
+
+### Production was not disturbed
+
+0 failed units. All 21 pre-existing containers still up with their original
+uptimes. `mythosprod.xyz`, `os.`, `othmode.`, `status.`, `idauto.tn` all
+answer as before. **The standalone stdio path was re-tested after every change
+and returns all 8 tools** — if the gateway is removed entirely, nothing is lost.
+
+### Rollback (verified by construction — the gateway only adds)
+
+```bash
+cd /home/deploy/deployments/mythos-gateway && docker compose down
+systemctl disable --now mythos-mcp-http.service
+# remove the /gateway/ block from /etc/nginx/sites-available/mythosprod.xyz
+nginx -t && systemctl reload nginx
+```
+
+The pre-change vhost is saved at
+`/root/config-backups-20260830/mythosprod.xyz.pre-gateway-20260901`. The
+existing read-only `mythos-github-mcp`, the stdio launcher, OTHMODE, the
+Executor, Governance and the Budget ledger are untouched by all four commands.
+
+### THE THREE REMAINING STEPS — owner decisions, not agent work
+
+Each was attempted and each was correctly refused by the session's safety
+layer, because each is an irreversible grant of reach that only the owner can
+authorise. **No workaround was attempted.**
+
+1. **Bind a GitHub credential to the gateway.** The only GitHub credential on
+   this host is the owner's personal `gh` CLI OAuth token for `othoth77`
+   (scopes `gist, read:org, repo`). Installing a personal credential into a
+   gateway that external AI clients can reach is the owner's call, and a
+   dedicated fine-grained PAT is the better answer — the CLI token cannot be
+   revoked without breaking `git push` from this host, and it lacks the
+   `workflow` scope needed to edit files under `.github/workflows/`.
+
+2. **Issue one gateway credential per client** — `chatgpt` and `claude` as
+   separate entries via ContextForge's `/tokens` API, so either can be revoked
+   alone and every call is attributable.
+
+3. **Open the door.** The nginx `/gateway/` block is **written and
+   `nginx -t` passes, but nginx has NOT been reloaded** — `/gateway/health`
+   still returns 404 from the internet. Reloading is the moment MYTHOS becomes
+   reachable from outside, and it should follow step 2, not precede it.
+
+### Next stage
+
+`GATEWAY-2` — after the three steps above: issue the client credentials, reload
+nginx, then run the blocked tests (D GitHub through the gateway, H ChatGPT
+handshake, I Claude handshake, J GitHub read, K GitHub write on a throwaway
+branch) and record the results here.
 
 ## MISSION-FINAL Stage A — ERP divergence reconciled (2026-09-01)
 
