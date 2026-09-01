@@ -139,6 +139,13 @@ rebase, no history rewrite.
 — the commit touches only `docs/`, no protected path.
 **Relay summary:** `mission branches: pushed=1 skipped=0 denied=1`
 
+**Branch tip vs. recorded commit.** `7f7773d` above is the *documentation* commit —
+the thing this stage produced. This handover entry is a second commit on the same
+branch, delivered by a second relay run that was verified the same way, so the
+branch tip on GitHub is one commit ahead of `7f7773d`. Read `7f7773d` as "the Vault
+architecture", not as "the branch tip"; `git ls-remote origin
+refs/heads/mythos/vault-architecture-20260901` is authoritative for the tip.
+
 **`main` was NOT delivered, and that is correct.** `origin/main` is still
 `f4d5eb94239cf739a334cc96dbb8874ba4f9913a`; local `main` is still 32 commits ahead
 and unchanged by this stage. The relay denied it for the same single reason
