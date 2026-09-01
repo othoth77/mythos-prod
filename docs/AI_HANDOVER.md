@@ -1,6 +1,147 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-09-01 UTC
+**From:** MISSION-FINAL Stage B — **MCP/Knowledge/Extraction merged into `main`; all suites green; delivery BLOCKED on one owner-only governance approval.**
+
+## MISSION-FINAL Stage B — MCP/Knowledge/Extraction integrated (2026-09-01)
+
+### What changed and why
+
+Merged `vps/extraction-advisory-wiring-20260831` into `main` (`19252ac`,
+`--no-ff`). This brings onto `main`: `projects/oth-mcp/server.js`, the
+oth-knowledge conversation importer, `lib/promote.js`, the multilingual
+tokenizer in `lib/search.js`, the HTTP facade, `scripts/othdb-extract.js`
+and `othdb-select.js`, the othk-4..othk-9 suites, and the owner's
+`oth-extraction` budget grant.
+
+**Why it mattered operationally.** The running executor
+(PID 407100, user `deploy`) serves config from
+`/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/config/budgets.json`
+— the `main` checkout. The `$0.10` `oth-extraction` grant existed **only on
+the feature branch**, so on the deployed path the project was absent from
+the config. Measured first-hand through the real MCP:
+
+```
+budget_status oth-extraction -> period 2026-09-01, limit 0, configured false,
+                                entry_count 0, stale_reservations 0
+```
+
+Per the config's own rule ("a project absent from this file has NO budget,
+which means every spend request for it is denied"), every governed extraction
+would have been refused. That is correct fail-closed behaviour, and it is the
+real reason the remaining four extractions could not simply be run.
+
+### Conflict resolution
+
+One conflict: `docs/AI_HANDOVER.md`, both sides prepending entries. Resolved
+**additively** — both entry sets kept, only the three conflict markers removed.
+No content from either side was discarded.
+
+### Tests — 13 suites, 0 failures
+
+| Suite | Result |
+|---|---|
+| othk-0 knowledge core | 89 passed, 0 failed |
+| othk-1 search | pass |
+| othk-2 importers | 97 passed, 0 failed |
+| othk-2w executor wiring | pass |
+| othk-3 trust | 63 passed, 0 failed |
+| othk-4 conversation extraction | 90 passed, 0 failed |
+| othk-5 HTTP facade | pass |
+| othk-6 MCP server | 58 passed, 0 failed |
+| othk-7 advisory transport | pass |
+| othk-8 promotion | pass |
+| othk-9 multilingual search | pass |
+| mythos-budget-ledger | 121 passed, 0 failed |
+| mythos-governance-invariant | 99 passed, 0 failed |
+
+No regressions from either merge.
+
+### Live MCP verification (deployed path, over the real stdio launcher)
+
+`/home/deploy/deployments/oth-mcp/oth-mcp-stdio.sh`, 8 tools, all read-shaped,
+**no write-shaped tool present**: `knowledge_search`, `knowledge_get`,
+`project_context`, `capability_registry`, `execution_status`,
+`execution_report`, `budget_status`, `system_health`.
+
+- `knowledge_search "extraction"` — returns the real DeepSeek claim
+  `claim-5d59076fa2833cf0` with provenance
+  `deepseek/oth-db/23a12fd2-…#msg-3` and `artifact_ref othk://sha256/507d95ef…`.
+- `knowledge_search "النحل"` (Arabic) — returns Arabic chunks with provenance;
+  the multilingual tokenizer works on the deployed path.
+- `knowledge_get claim-5d59076fa2833cf0` — resolves with full provenance,
+  `captured_at`, `observed_at`, artifact ref and version history.
+- `system_health` — 19 LIVE, 1 DEGRADED, 0 DOWN, 0 NOT_MONITORED.
+- `project_context` — 21 projects.
+
+**Note on the MCP transport:** the server exits on stdin EOF before an async
+upstream call resolves, so a batched probe that closes stdin immediately gets
+only the synchronous replies. Holding stdin open returns every response. This
+is a probing caveat, not a defect — a real MCP client holds the pipe open.
+
+### Canonical store
+
+`/home/deploy/othk-store/records.jsonl` = **52 records** (the mission brief
+said 51; the store was written again at 2026-09-01 01:49 by the MCP-SEARCH-2
+session). Ledger `oth-extraction__DAY__2026-08-31.json`: 3 entries, **all
+SETTLED at $0.01**, spent $0.03, **zero stale RESERVED**.
+
+### BLOCKER — owner-only governance approval required
+
+Delivery of `main` is DENIED by the root-owned delivery verifier:
+
+```
+GOVERNANCE DENY f5e503adeb4b touches
+  projects/mythos-ai-executor/config/budgets.json with no valid approval
+DENIED: main holds an unapproved protected change; not delivered (recorded)
+```
+
+`f5e503a` ("chore(budget): record the $0.10 extraction grant") is a
+**pre-existing** commit authored on the feature branch on 2026-08-31; it was
+never deliverable. Merging it to `main` surfaced that.
+
+This is **not** something an agent may resolve. `/usr/local/bin/mythos-governance-approve`
+refuses by construction:
+
+```
+if (/^(claude|agent|automation|bot|system|n8n|mythos)\b/i.test(by.trim()))
+  die('--by must name a HUMAN. An automated identity cannot approve a
+       governance change.', 2);
+```
+
+The verifier's stated properties are explicit: *"A COMMIT MESSAGE IS NOT AN
+APPROVAL"*, *"CHAT IS NOT AN APPROVAL"*. Every existing approval in the store
+was granted by the human owner. Passing a human name would be forging the
+record this control exists to protect, so it was not done.
+
+**Owner action — one command:**
+
+```
+sudo mythos-governance-approve --commit f5e503adeb4b \
+  --by "Othman Haddad" \
+  --reason "Confirm the $0.10 oth-extraction budget grant for the DeepSeek V4 Pro extraction runs"
+```
+
+Then `sudo systemctl start mythos-git-push.service` delivers `main`.
+
+### State at end of stage
+
+- Local `main`: `19252ac` (contains Stage A + this merge).
+- Remote `origin/main`: `f4d5eb9` (Stage A delivered; this merge held back).
+- Rollback tags: `mission/pre-merge-20260901` (`90d9ffe`),
+  `mission/pre-mcp-merge-20260901`.
+- Working tree: only the 3 pre-existing production-truth modifications.
+- **No paid API call was made in this stage.**
+
+### Next stage
+
+Stage C — security baseline (Coolify exposure, Docker socket, PostgreSQL
+trust), which is independent of the approval blocker. The four remaining paid
+extractions stay blocked until the grant is approved and effective, because
+the governed route is fail-closed by design.
+
+
+**Last updated:** 2026-09-01 UTC
 **From:** MISSION-FINAL Stage A — **main/ERP divergence RECONCILED and DELIVERED to GitHub.**
 `main` had diverged from `origin/main` (14 ahead / 4 behind), which made the
 governance delivery relay `mythos-git-push.service` **REFUSE every push** with
