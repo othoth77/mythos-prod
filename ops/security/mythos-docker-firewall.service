@@ -1,0 +1,12 @@
+[Unit]
+Description=Mythos DOCKER-USER hardening (close Docker's ufw bypass for Coolify)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/mythos-docker-firewall
+
+[Install]
+WantedBy=multi-user.target
