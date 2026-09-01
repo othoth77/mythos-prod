@@ -1,5 +1,77 @@
 # Mythos OS — AI Handover
 
+**Last updated:** 2026-09-01 UTC
+**From:** MISSION-FINAL Stage A — **main/ERP divergence RECONCILED and DELIVERED to GitHub.**
+`main` had diverged from `origin/main` (14 ahead / 4 behind), which made the
+governance delivery relay `mythos-git-push.service` **REFUSE every push** with
+`local main is not a fast-forward of origin/main (diverged)`. That single
+divergence was blocking all delivery, including the approved NEW ERP engine.
+
+## MISSION-FINAL Stage A — ERP divergence reconciled (2026-09-01)
+
+### What changed and why
+
+- Merged `origin/main` into `main` with `--no-ff` (commit `9891962`).
+- **No rebase, no reset, no force-push, no branch deletion.**
+- Local side preserved: the approved NEW ERP engine (`419b2dd`, merge of
+  `feat/erp-redesign`) and the `mythos_erp` database-only backup coverage
+  (`3d91ae0`, `fa461f5`, `90d9ffe`).
+- Remote side absorbed: `docs/MYTHOS_SYSTEM_INDEX.md`,
+  `docs/OTHMODE_COMPRESSION_PIPELINE.md`, the othmode token-optimization
+  pipeline change to `providers/openai-compat.js`, and its test.
+
+### Safety evidence gathered BEFORE the merge
+
+- The two sides changed **disjoint file sets** — `comm -12` over both diff
+  file lists returned empty.
+- `git merge-tree --write-tree main origin/main` produced a tree with **no
+  conflicts** (exit 0).
+- None of the 4 incoming commits touched the 3 uncommitted production files
+  (`ops/backup/mythos-backup-capture.sh`,
+  `projects/status-center/monitor/probes.json`,
+  `sites/erp.mythosprod.xyz/db/schema.sql`). Those files are deployed truth
+  and remain **modified and intact** after the merge.
+- No `.git/index.lock`; last git activity in the shared checkout was
+  2026-08-30, so no concurrent session was mid-operation.
+
+### Rollback information
+
+- Pre-merge `main` tagged `mission/pre-merge-20260901` = `90d9ffe`.
+- Pre-merge `origin/main` = `30c7774`.
+- Recorded in `/var/log/mythos-mission/rollback.txt`.
+
+### Delivery
+
+Pushed through the **governed relay** (`systemctl start mythos-git-push.service`),
+not by bypassing it. Relay output: `governance: ok (0 protected commit(s), all
+approved)` then `30c7774..9891962  main -> main`.
+
+### Verification
+
+- `git ls-remote origin main` -> `9891962158e28b0204dadccb5bf46a35a8be86a9`
+- local `main` -> `9891962158e28b0204dadccb5bf46a35a8be86a9` (identical)
+- `git branch -r --contains 419b2dd` -> `origin/main` (ERP is on GitHub)
+- `systemctl is-failed mythos-git-push.service` -> `inactive` (no longer failed)
+
+### Still denied by governance (correct, not a regression)
+
+Mission branch `mythos/m-msy4a8iz-f2673d/tk-msy4a8j0-f1b3c5` remains DENIED:
+commit `1e4a1ee37486` touches `projects/mythos-ai-executor/config/agents.json`
+and `core/agent-registry.js` with no valid approval. This is the fail-closed
+governance control working as designed and is unrelated to this stage.
+
+### Commit / HEAD
+
+- Commit: `9891962158e28b0204dadccb5bf46a35a8be86a9`
+- Remote HEAD: `9891962158e28b0204dadccb5bf46a35a8be86a9`
+- Working tree: 3 pre-existing production-truth modifications, unchanged.
+
+### Next stage
+
+Stage B — verify MCP, Knowledge, Executor and the Ubuntu canonical budget
+ledger using free/local checks only, before any paid extraction.
+
+
 **Last updated:** 2026-08-26 UTC
 **From:** OTHMODE-TASKS-1 — **Task Reports implemented (owner's FINAL OPERATIONAL CONTRACT); NOT YET DEPLOYED — deploy + imports are host steps.** Every othmode-activated command is now a persistent OTHMODE Task: `RUNNING` → exactly one of `COMPLETED/FAILED/BLOCKED/CANCELLED/REJECTED`, full report (preflight, Status Center ref or `UNREACHABLE`, Search First, capabilities, changes, Git, validation, deployment, problems, outcome, optional evolution ref) in the existing OTHMODE store (`tasks/records.jsonl`, append-only, fail-closed), surfaced as the FOURTH source of the existing unified Command History (`/api/othmode/tasks*` authenticated + secret-gated; UI: history filter + `#/history/task/<id>` detail, EN/FR/AR; CLI: `task show|create|update|import`, `tasks`). Writer refuses non-activated commands — normal Claude can never create a task. FULL REPORT → OTHMODE, SHORT RECEIPT → chat (CLAUDE.md updated). Also fixed a pre-existing `othmode-cli.js signal` dead-branch bug (silent no-op). Suites here: othmode-3 68/0 (new), othmode-2 141/0, governance 99/0, MOS-v2 20/20, othk-0 89/0 (MCC DB suite = host deploy gate). **Host TODO:** `git pull` → `sudo mythos-deploy deploy othmode` → `othmode-cli.js task import` the two files in `projects/command-center/data/pending-task-imports/` (the BLOCKED first real operation — Status Center unreachable from the Claude Code environment, network policy — and this implementation run, BLOCKED at DEPLOYMENT), then delete them; optionally allowlist `status.`/`othmode.mythosprod.xyz` in the Claude Code environment so future othmode runs can read execution truth live. Previous: OTHMODE-ACT-1 below.
 **Previous:** OTHMODE-ACT-1 — **activation model changed by owner order.** No global OthMode switch any more: OTHMODE is always READY; a Claude command activates it ONLY when it contains the standalone keyword `othmode` (case-insensitive; compounds never activate). Without the keyword → normal Claude, nothing OTHMODE-specific invoked or recorded. Rule: `reference/othmode/activation.js` (+ `POST /api/othmode/activation`, `othmode-cli.js activation`); `/api/othmode/mode` = read-only READY report (POST removed); Settings/dashboard show READY; CLAUDE.md contract rewritten. Keyword grants no permission — auth/roles/gates unchanged, suite 151/0, regression floor green. Previous: OTHMODE-100 — **approved OTHMODE scope 100% COMPLETE** (docs/othmode/OTHMODE_100_PERCENT_AUDIT.md). Closed this pass: Graphify installed+integrated+tested on the VPS (graphifyy 0.9.50, venv, vendor skill, real 299-node graph); E1 deterministic signal detectors (`othmode-cli.js detect`); first real ACTIVE capsule (othmode-core-discipline); store export/backup path (sessions excluded); Arabic verified 100% key-complete; mobile sidebar overflow fix; OSS registry finalized (Graphify INTEGRATED + final Search First re-check). Suite 137/0; host regression floor green; deployed via mythos-deploy (health-gated). Owner-gated notes (not gaps): executor-history host permissions, store in root backup set, E3 signal sources, OthMode production state, ordre retirement. Previous: OTHMODE-AUTH-1 — **token-free browser sign-in live.** The OTHMODE UI never asks for an Access Token: one-time login link (`node projects/command-center/cli/othmode-cli.js login-link` on the host, single-use, 15-min TTL) → HttpOnly/Secure/SameSite=Strict 90-day session cookie; hashes only server-side; CSRF same-origin check on cookie writes; logout + revoke-sessions; bearer path preserved for automation; legacy localStorage token scrubbed on load. Suite 120/0; MCC/governance/MOS-v2 floors green. Owner: mint your own link over SSH (one command), open it once per browser. Details: docs/othmode/OTHMODE_SECURITY.md §2.4. Previous entry (OTHMODE-2) follows.
