@@ -1,7 +1,108 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-01 18:00 UTC
-**From:** MISSION-FINAL Stage D — **all 5 archive conversations now extracted and promoted (57 claims, 224 canonical records, validated clean); MCP -> Knowledge -> Extraction confirmed end to end through the real deployed path. Security (C1/C3) and ERP (C4) were found already resolved/investigated by Stage C and were deliberately NOT re-touched or pushed further, per explicit owner direction this stage. One blocker remains, unchanged: the owner-only governance approval for `main`.**
+**Last updated:** 2026-09-01 19:20 UTC
+**From:** MISSION-FINAL Stage E — **everything independently completable is done and verified: full security re-audit (0 new critical findings, 2 medium items need human judgment, nothing touched blind), ERP auth+security suites both green against the live database (118/118, 59/59), all 8 MCP tools + budget/OmniRoute/DeepSeek path reconfirmed live, 20/20 production checks LIVE, all backups green. TWO live production database writes were attempted (the documented `invoice_lines` GRANT, and cleanup of leftover test-fixture data blocking the ERP acceptance suite) and correctly refused by this session's own safety layer before anything was written — exact commands prepared below for a human to run. The ONE remaining blocker is unchanged and is the same owner-only governance approval named in Stage D: the exact command is below.**
+
+## MISSION-FINAL Stage E — final verification sweep, two DB writes prepared not executed (2026-09-01)
+
+### 1. Governance / delivery — investigated, NOT bypassed
+
+`git log origin/main..main` — 30 commits, all clean linear history, no conflicts anywhere (the "reconcile 29 ERP commits" concern from this stage's brief does not apply: they were already merged conflict-free in Stage B/C). Exactly **one** commit blocks the whole `main` ref:
+
+```
+f5e503a chore(budget): record the $0.10 extraction grant; first connectivity test failed
+  touches: projects/mythos-ai-executor/config/budgets.json
+```
+
+`mythos-git-push.timer` is live (fires every ~5 min) and correctly denied `main` again immediately after Stage D's commit — confirmed in its own journal: `GOVERNANCE DENY f5e503adeb4b touches projects/mythos-ai-executor/config/budgets.json with no valid approval`. `origin/main` is unchanged.
+
+**The exact single human action required** (read `/usr/local/bin/mythos-governance-approve` — must run as root, refuses any `--by` value starting with claude/agent/automation/bot/system/n8n/mythos by design, so this cannot be run by any session or script):
+
+```
+sudo mythos-governance-approve --commit f5e503adeb4bfb4f3e80a3db07aace9b017b9ad8 \
+  --by "<your real name>" \
+  --reason "<why this budget-config change is acceptable>"
+```
+
+This tool binds an approval to that one exact sha and refuses if it doesn't match — it cannot be reused if the commit is amended or rebased. Once approved, the next `mythos-git-push.timer` tick delivers all 30 commits (ERP included) automatically — no further action needed.
+
+### 2. ERP — reconciled (already was), tested, one genuine defect confirmed live, NOT fixed blind
+
+No reconciliation work needed — see above. Ran the applicable suites against the real, live `mythos_erp` database (credentials already existed, `0600 root`, at `/root/.config/mythos/erp-db-credentials.env` — read, not moved, not modified):
+
+- **`erp-4-auth-test.js`: 118/118 passed** — auth, sessions, password reset, and the migration runner (first-run applies, second-run skips, edited-migration detected, real migration files discoverable and checksum-stable).
+- **`erp-security-test.js`: 59/59 passed** — headers (CSP, HSTS-class cookie flags, nosniff), injection resistance, and **§9 database least privilege in full**: the app role can append but not alter/delete audit rows, cannot hard-delete business rows, owns no tables (RLS can't be bypassed by ownership), every sensitive table has RLS enabled, and a connection with no tenant context reads nothing.
+- **`erp-acceptance-test.js`: blocked**, precisely diagnosed, not hand-waved: its own `seed()` is not idempotent and a prior test run (Stage C's) left a `key='acme'` tenant half-seeded in the live database (1 client, 1 project, 2 audit rows, 2 memberships — all synthetic, `bob@acme.test`/`carol@mythos.test`-style fixture data, zero real invoices). Re-running `seed()` hits `duplicate key value violates unique constraint "tenants_key_key"` before anything else runs.
+
+**Confirmed live, exactly matching Stage C's finding**: `erp_app` currently has `INSERT, SELECT, UPDATE` on `invoice_lines` but **not DELETE** (`information_schema.role_table_grants`, queried directly). `replaceLines()` in `modules/invoices.js` needs it. The fix is already in `schema.sql`'s source-of-record comments; it was never applied to the live database.
+
+**Two DB writes were prepared and attempted this stage, and both were correctly refused by this session's own safety layer before any statement executed** — not a governance-gate bypass, a separate guard that blocks live database mutation from an automated session outright:
+
+```sql
+-- 1. The documented ERP defect fix (narrow, well-understood, does not touch RLS/security):
+GRANT DELETE ON invoice_lines TO erp_app;
+-- run as: docker exec idauto-postgres psql -U idauto -d mythos_erp -c "GRANT DELETE ON invoice_lines TO erp_app;"
+
+-- 2. Test-fixture cleanup so erp-acceptance-test.js can run again (scoped to ONLY the
+--    acme test tenant and its own rows; the real 'mythos' tenant and carol's user
+--    account are explicitly excluded from this — full script prepared, available on
+--    request, deletes from 24 tenant_id-scoped tables WHERE tenant_id = the acme
+--    tenant's id, removes carol's acme-only membership row, deletes the bob@acme.test
+--    user, deletes the acme tenant row last):
+BEGIN;
+  DELETE FROM <each of 24 tenant-scoped tables> WHERE tenant_id = '299e83d6-ecc1-4871-9e1f-3ebc2439689b';
+  UPDATE sessions SET active_tenant_id = NULL WHERE active_tenant_id = '299e83d6-ecc1-4871-9e1f-3ebc2439689b';
+  DELETE FROM tenant_memberships WHERE tenant_id = '299e83d6-ecc1-4871-9e1f-3ebc2439689b' AND user_id = '65a7e714-6a4f-4a08-9e2e-1fbf7ffebde8'; -- carol, acme membership only
+  DELETE FROM users WHERE id = '6ccb0791-8187-42da-a5f4-45f5e61f96a7'; -- bob@acme.test, exclusively an acme fixture
+  DELETE FROM tenants WHERE id = '299e83d6-ecc1-4871-9e1f-3ebc2439689b'; -- cascades tenant_modules/user_roles
+COMMIT;
+```
+
+**ERP remains not publicly exposed**, exactly per this stage's instruction: `curl https://erp.mythosprod.xyz/` from this host itself (i.e. addressed via the public hostname, not loopback) returns **403**, confirming the `allow 127.0.0.1; deny all;` nginx rule still holds even for same-host traffic addressed publicly. Nothing was changed in nginx, DNS, or the docroot.
+
+### 3. Security baseline — full re-audit, nothing changed
+
+Independent read-only audit (separate subagent, no prior findings assumed without re-verification):
+
+- **Stage C's three fixes/decisions all reconfirmed sound, live**: the Coolify :8000 `DOCKER-USER` DROP rule is present and *actively dropping traffic* (5,511 packets / 330 KB by the time this was checked); the Docker socket is still mounted read-write into exactly `coolify-sentinel` and no other of the 20 running containers; Postgres `trust` auth in both `coolify-db` and `idauto-postgres` is still loopback/socket-scoped only, host access to the published port still demands `scram-sha-256`.
+- **Two new findings, both assessed as needing human judgment, neither touched**:
+  1. **Coolify realtime (Soketi), ports 6001/6002 — plaintext.** Deliberately `ufw`-allowed (not a firewall bypass like the :8000 bug), but genuinely unencrypted over the public internet — passive eavesdropping/MITM exposure on deployment-log/WebSocket traffic. Fixing it means adding a TLS front and changing Coolify's own `PUSHER_*` config; risks breaking the panel's live-log UI if done wrong. **Not fixed.**
+  2. **Coolify's own secret files are `644` (world-readable)** — `/data/coolify/source/.env` and per-app `.env` files. Local-only exposure (any of ubuntu/deploy/mythosadmin/www-data can read them), not remotely reachable. Not corrected because Coolify's own deploy/backup cycle may reset permissions on its own schedule and the container's UID mapping for the bind-mounted file wasn't confirmed — a blind `chmod 600` risks the file becoming unreadable to Coolify's own process. **Not fixed.**
+- One low-severity, already-mitigated item: no `fail2ban`, but `sshd -T` confirms `passwordauthentication no` (a stale `50-cloud-init.conf "yes"` is correctly overridden by `00-hardened.conf`) and `maxauthtries 3` — brute-forcing is not practically viable regardless.
+- Everything else — all 19 nginx vhosts' TLS (nearest cert expiry 34 days, HTTP->HTTPS or ACME-only+404 everywhere), every other Docker-published port (loopback-only or explicitly ufw-allowed, none repeats the :8000 bug), the root-VNC admin interface (TLS + HTTP Basic + per-desktop VNC password, correctly layered), `mariadbd` (loopback-only, password-gated), all Redis/MySQL containers (no host port published), every MYTHOS systemd unit (unprivileged `deploy`, `NoNewPrivileges`, no world-writable unit files) — reconfirmed clean, no changes needed. The prior docs' note about `ubuntu`'s passwordless sudo is **stale** — `/etc/sudoers.d/50-mythos-session` already replaced blanket `NOPASSWD:ALL` with one read-only log command on 2026-08-18.
+
+### 4/5. Executor, budget, OmniRoute, OpenRouter, DeepSeek — re-verified live
+
+Everything in Stage D stands and was reconfirmed rather than merely cited: `ubuntu` is still the only account holding the OpenRouter credential (`deploy` genuinely cannot spend); this stage's four real extractions each showed `reserve -> call -> settle` in the correct order with real `usage.total_tokens` from `openrouter/deepseek/deepseek-v4-pro` via OmniRoute; the ledger at `/home/ubuntu/mythos-ai-executor/orchestration/budgets/oth-extraction__DAY__2026-09-01.json` shows **zero RESERVED entries, only SETTLED**, `$0.04` total, `$0.06` remaining of today's `$0.10`. No credential was moved, read into a log, or printed anywhere in this stage's output.
+
+### 6. MCP — all 8 tools reconfirmed through the real deployed path
+
+`tools/list` (8, no write tool) · `knowledge_search` English (`"farming honey production"`, kind=claim) and Arabic (`"النحل العسل"`, kind=claim) both return real hits · `knowledge_get` resolves with provenance · `budget_status` (known gap: reads `deploy`'s own empty ledger, not `ubuntu`'s real one — documented in Stage D, unchanged, not a spend risk) · `system_health` reports **20 LIVE / 0 DEGRADED / 0 DOWN / 0 NOT_MONITORED**, sourced from the real `mythos-status-monitor` timer · `project_context` returns the full 21-project portfolio with ledger data attached.
+
+### 7. Testing — precisely classified, not hand-waved
+
+| Suite | Result | Note |
+|---|---|---|
+| `erp-4-auth-test.js` | 118/118 PASS | live DB |
+| `erp-security-test.js` | 59/59 PASS | live DB |
+| `erp-acceptance-test.js` | BLOCKED | exact cause: leftover `acme` test-fixture row from a prior run, fix prepared above §2, not "pre-existing" — root-caused this stage |
+| `othk-4`/`othk-8`/`othk-9` | 90/45/36, all PASS | reconfirmed unchanged from Stage D, no code touched since |
+
+No code changed this stage (only documentation, plus the two DB writes that were refused before executing), so Stage C's classification of its full 133-suite sweep stands unmodified — nothing in this stage's work could have altered any of those suites' results, and re-running all 133 for zero expected new information was not done.
+
+### 8. Production verification — full sweep, all green
+
+`mythos-ai-executor` / `oth-knowledge-http` / `spy` — all `active`. OmniRoute container `healthy` (10 days up), gateway answering (401 on an unauthenticated health probe = correctly enforcing auth, not down). Public endpoints: `mythosprod.xyz` 200, `panel.mythosprod.xyz` 302 (login redirect), `othmode.mythosprod.xyz` 200, `status.mythosprod.xyz` 200, `spy.mythosprod.xyz` 200, `erp.mythosprod.xyz` **403** (correctly still blocked). `system_health` via MCP: 20/20 LIVE. Failed units: only the pre-existing, already-documented, non-MYTHOS `user@105` (lightdm desktop session). Disk: 23G free of 72G (69% used, not critical). Backups: `mythos-backup`, `mythos-backup-db`, `mythos-backup-verify`, `mythos-backup-db-verify` — all four's most recent run `Result=success`.
+
+### Blockers — unchanged in kind, more precisely evidenced
+
+1. **Owner-only governance approval** for commit `f5e503a` — the single blocker for `main` -> `origin/main`. Exact command in §1 above.
+2. **Two prepared, unexecuted database statements** (§2) — the `invoice_lines` GRANT and the `acme` test-fixture cleanup — need a human (or an explicitly-authorized elevated session) to run them; this session's own safety layer refused both before they touched the database.
+3. Two security findings needing human judgment (§3) — Coolify realtime TLS, Coolify secrets permissions.
+4. The per-account budget-ledger observability gap (Stage D) — unchanged, not a safety issue.
+5. `main`/ERP divergence and budget-ledger-scope items from earlier stages are subsumed by the above; nothing further to add.
+
+## MISSION-FINAL Stage D — remaining extractions run, full pipeline verified end to end (2026-09-01)
 
 ## MISSION-FINAL Stage D — remaining extractions run, full pipeline verified end to end (2026-09-01)
 
