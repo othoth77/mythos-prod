@@ -1,7 +1,71 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-01 08:20 UTC
-**From:** MCP-PROMOTE-4 — **the facade restart FIXED the caching gap MCP-PROMOTE-3 diagnosed — `knowledge_get` now resolves all 3 claims with provenance and evidence intact, and the canonical store validates clean at 51 records — but `knowledge_search kind=claim` still returns 0 hits, for a second, previously-latent reason: `lib/search.js`'s tokenizer is Latin-only and silently drops all-Arabic-script text from the index. NOT COMPLETE end to end.** No paid API call. Original extraction run confirmed byte-identical/untouched throughout. Temporary inbox still deliberately RETAINED — cleanup remains gated on full verification, which still has not passed, now for a different reason than before.
+**Last updated:** 2026-09-01 08:30 UTC
+**From:** MCP-SEARCH-1 — **the multilingual tokenizer defect MCP-PROMOTE-4 diagnosed is FIXED and tested (lib/search.js, `\p{L}`/`\p{Nd}`/`\p{M}` Unicode property escapes, not an Arabic-only carve-out) — 36 new regression checks plus the full existing suite (667 checks) and both gate scripts all green. NOT YET LIVE: the running `oth-knowledge-http` facade module-caches the old tokenizer at process start, so a restart is required and was deliberately NOT performed (out of scope / requires authorization). knowledge_search still returns 0 for the 3 real Arabic claims until that restart happens.** No paid API call. Code change is exactly one function (`tokenize()`); no config, database, Docker, systemd, or `.env` touched.
+
+## MCP-SEARCH-1 — multilingual tokenizer fixed and tested, restart pending (2026-09-01)
+
+### Root cause (confirmed in MCP-PROMOTE-4, fixed here)
+
+`lib/search.js`'s `tokenize()` split text on `/[^a-z0-9]+/` — Latin letters and ASCII digits only. All-Arabic-script text (the three real promoted claims) tokenized to an empty array; `buildIndex()` explicitly skips zero-token documents, so those records were never added to the search index at all, independent of query, cache state, or restart. `knowledge_get` (a different, non-search lookup-by-id code path) resolved the same records fine throughout, which is what isolated the defect to this one function.
+
+### Fix
+
+```js
+function tokenize(text) {
+  return String(text)
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/\p{M}/gu, '')
+    .split(/[^\p{L}\p{Nd}]+/u)
+    .filter((t) => t.length > 1);
+}
+```
+
+`\p{L}` (Letter) / `\p{Nd}` (Decimal Number) / `\p{M}` (Mark, i.e. combining diacritics) are standard Unicode general-category property escapes — script-agnostic by construction, not a hard-coded Arabic range. The same one rule that already covered ASCII now covers Arabic, French accents, Cyrillic, digits in any script, etc., with no per-script branch. Confirmed byte-identical tokenizer output for every ASCII/English fixture in `tests/othk-1-search-test.js`'s corpus before vs after (Latin/ASCII is a strict subset of `\p{L}`/`\p{Nd}`). `tokenize()`'s only other two callers — `knowledge-service.js`'s entity-name folding and `dedup.js`'s near-duplicate shingling — are fixed symmetrically, with no additional code, since both call the same function.
+
+### Tests
+
+`tests/othk-9-multilingual-search-test.js`, 36 checks, fully offline, synthetic/temp-store fixtures only (never `/home/deploy/othk-store`):
+
+- Arabic, French (incl. accents), English, mixed-script tokenization and end-to-end lexical/hybrid retrieval
+- Arabic-Indic digits preserved (not silently dropped)
+- Arabic and Latin punctuation split without destroying adjacent words
+- Arabic diacritics (tashkeel) fold to the same token as the undiacritized form
+- empty / whitespace-only / punctuation-only / null / undefined input — no crash
+- an ASCII regression oracle comparing every output token-for-token against the pre-fix implementation
+- §4: the exact statement text of the three real promoted claims (not the real records) as fixture content in a throwaway store — all three become retrievable by a `kind=claim` lexical query, the literal scenario that was broken
+
+Full suite run once: `othk-0` through `othk-9` (667 checks), `othk-live-gate.js` (52 checks, **LIVE PASS**, checked against the real configured private store read-only), `vps-final-gate-knowledge-test.js` (22 checks) — all green, 0 failures. `othk-1-search-test.js`'s measured eval thresholds (recall/MRR) are unchanged (lexical recall@5=1, hybrid recall@5=1).
+
+### Verified untouched throughout
+
+- Real canonical store (`/home/deploy/othk-store/records.jsonl`) — mtime unchanged (01:49:23, the MCP-PROMOTE-3 write)
+- Original extraction run (`/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/`) — every file's mtime unchanged (2026-08-31 21:26:10)
+- Temporary promotion inbox — unchanged, still retained
+- No paid API call, no `.env`/Docker/systemd/database change, only `lib/search.js` + one new test file touched (`git status`/`git diff` verified before commit)
+
+### Why this is not yet live
+
+`oth-knowledge-http.service`'s `serviceHolder()` requires `knowledge-service.js` (which requires `search.js`) once, at process start, and Node caches that module in memory for the life of the process. The running facade started `2026-09-01 08:13:59`; `search.js` was edited `08:25:44` — 12 minutes later. The fix is on disk and fully tested, but the live process is still executing the pre-fix tokenizer.
+
+**Restart required:** `oth-knowledge-http.service` (user unit, `deploy`), via `systemctl --user restart oth-knowledge-http.service` — the same command and procedure used for the MCP-PROMOTE-4 restart. **Expected effect:** `knowledge_search kind=claim` starts returning the 3 real Arabic claims through MCP, matching what `tests/othk-9-multilingual-search-test.js` §4 already proves against synthetic fixtures of the same text. **Not performed here** — this task's instructions required stopping before restarting and reporting instead.
+
+### Remaining blockers
+
+1. **Facade restart — the only remaining step for end-to-end completion.** Owner authorization needed for `systemctl --user restart oth-knowledge-http.service`.
+2. **Temporary inbox retained**, unchanged since MCP-PROMOTE-3. Cleanup remains gated on full verification (restart + `knowledge_search` re-check) passing.
+3. **Budget ledger scope** — unchanged, owner decision.
+4. **`main`/ERP divergence** — unchanged, owner decision.
+
+### Exact next stage
+
+1. Owner authorizes `systemctl --user restart oth-knowledge-http.service`.
+2. Re-verify through the real MCP stdio path: `knowledge_search kind=claim` must return the 3 claims (`claim-5d59076fa2833cf0`, `claim-8ed7e0ce83a671e2`, `claim-b3a530fa9963c03e`); `knowledge_get` for all three (already passing, re-confirm).
+3. Re-run `promote-run --dry-run` against the retained inbox (already `would_add:0, already_promoted:14` — expect unchanged).
+4. Only then: clean up the temporary inbox and mark the pipeline complete end to end.
+
+---
 
 ## MCP-PROMOTE-4 — facade restart verified, search blocked by a Unicode tokenizer gap (2026-09-01)
 
