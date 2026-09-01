@@ -1,5 +1,59 @@
 # Mythos OS — AI Handover
 
+**Last updated:** 2026-09-01 00:35 UTC
+**From:** MCP-PROMOTE-1 — **the promotion mechanism identified in MCP-KNOWLEDGE-1's Blocker 3 is implemented, tested and pushed. The real proven run was deliberately NOT promoted yet.** New `othk-cli.js promote-run <run-store-root> [--dry-run]`, backed by `projects/oth-knowledge/lib/promote.js` — no new storage, every write goes through the existing `appendRecord()`/`putObject()`. Commit `4f54363`, pushed; remote HEAD `4f54363`, 0 ahead / 0 behind. othk-8 (new): 45/45. All othk suites + full 125-file suite run once: 101/125 pass, the 24 that don't are pre-existing and untouched by this change. **No paid API call.** Detail: this entry.
+
+## MCP-PROMOTE-1 — extraction-run promotion mechanism (2026-09-01)
+
+### Scope
+
+Implemented ONLY Blocker 3 from MCP-KNOWLEDGE-1's read-only investigation. Blockers 1 (budget ledger scope) and 2 (`main`/ERP divergence) are untouched — both remain owner decisions, exactly as reported.
+
+- **Commit:** `4f5436367bbc9f37782926f85b877e8d31fe8ae9`
+- **Remote HEAD:** `4f5436367bbc9f37782926f85b877e8d31fe8ae9` — verified, 0 ahead / 0 behind
+- **Branch:** `vps/extraction-advisory-wiring-20260831`
+
+### What was implemented
+
+`projects/oth-knowledge/lib/promote.js` — two functions, `planPromotion()` (pure analysis, never writes) and `promoteRun()` (calls the same plan before making a single write, so dry-run and the real write can never assess a batch differently):
+
+1. **Pre-flight:** runs the run store's own `verify()`; refuses (`OTHK_PROMOTE_INVALID_RUN`) before touching canonical at all.
+2. **Referential closure:** the same reference fields `store.verify()` already enumerates (document/chunk/relationship/evidence/derived), **extended with `entity_ids`** — `model.js` validates its shape but `verify()` never checks it referentially. A run can pass its own `verify()` while a claim's `entity_ids` points at nothing; `promote.js` catches this (test D proves the gap first, then proves the fix).
+3. **Conflict check:** same id, different content (excluding `written_at`, which isn't part of the record payload) → the whole batch refused, fail closed, canonical never overwritten. Same id, identical content → skipped as already-promoted.
+4. **Order + write:** only after the full batch passes every check — a refusal never leaves a partial promotion. Blobs copied via the store's existing content-addressed dedup; records appended via `appendRecord()` in dependency order, never with `allowNewVersion`.
+5. **Post-flight:** canonical `verify()` again — catches corruption that pre-dates this call too, not just what it wrote (proven by test H).
+
+`othk-cli.js promote-run <run-store-root> [--dry-run]` — operator-only exactly like every other command in the file; the boundary is filesystem write access to the canonical store, nothing new is added. Verified live against throwaway fixtures: dry-run creates no `records.jsonl`, no `objects/` directory; a real run then an idempotent re-run; `validate` clean afterward.
+
+### Tests
+
+```
+othk-8-promotion (new)   45 passed, 0 failed
+othk-0/1/2/2w/3/4/5/6/7  green, unchanged (609 passed)
+full suite (125 files, run once)   101 pass / 24 fail
+```
+
+The 24 failures are pre-existing and unrelated to this change — verified, not assumed: `Cannot find module 'pg'` (no `node_modules` in this worktree, 10 files), the documented DOM-dependent `stage*` chain, `mos-e2e-lifecycle`'s deliberate self-protecting refusal, and unrelated genuine assertion failures (`mpi-0`, etc.). One entry, `mythos-orchestrator-0-test.js`, failed only because this session's own 60s-per-file harness timeout killed a long-running suite — re-run standalone it passes **156/0**. **Zero of the 24 touch `oth-knowledge`, `promote.js`, or `othk-cli.js`.**
+
+### What was deliberately NOT done
+
+- The real proven run at `/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/` was **not promoted** — its `records.jsonl` mtime is unchanged from before this stage. Promotion of the real 3 claims is the next stage, not this one.
+- Budget ledger scope (Blocker 1) and `main`/ERP divergence (Blocker 2) — untouched, both remain owner decisions.
+- No `.env`, Docker, systemd, database, OmniRoute, or production change. No paid API call.
+
+### Remaining blockers
+
+1. **Budget ledger scope** (unchanged from MCP-KNOWLEDGE-1) — two executor installations, documentation says `ubuntu`, production runs as `deploy`.
+2. **`main`/ERP divergence** (unchanged) — `origin/main` deletes the ERP multi-tenant engine that local `main`'s 14 unpushed commits independently build; a substantive product-direction conflict, not a merge-mechanics one.
+3. **The real 3 claims are still outside the canonical store.** The mechanism to promote them now exists and is tested, but promotion itself has not been run against `/home/deploy/othk-store`.
+
+### Exact next stage
+
+Promote the real run: `node projects/oth-knowledge/cli/othk-cli.js --store /home/deploy/othk-store promote-run /home/ubuntu/othk-extraction-runs/20260831-23a12fd2/ --dry-run` first (review the plan), then without `--dry-run`. Re-run the read-only MCP verification (`knowledge_search kind=claim` should return 3 hits; `knowledge_get` on the 3 claim ids should succeed). Commit nothing code-side — this is a data operation against `/home/deploy/othk-store`, not a Git change — but record the outcome in a worklog and this handover. No paid API call is required for any of this.
+
+---
+
+
 **Last updated:** 2026-09-01 00:05 UTC
 **From:** MCP-KNOWLEDGE-1 — **the Extraction Result → Knowledge Store gap is BLOCKED on three owner decisions; it was NOT worked around.** Investigated all three, implemented none of them, and fixed one real defect found while verifying the last leg: `knowledge_get` on a missing record reported "did not return JSON" instead of NOT_FOUND. Commit `395e966`, pushed; remote HEAD `395e966`, 0 ahead / 0 behind. othk-6 52 → 58; **1048 tests green, 0 failed. No paid API call.** Detail: this entry + `docs/worklogs/2026-08-31-2340-mcp-budget-surface-and-run-preservation.md`.
 
