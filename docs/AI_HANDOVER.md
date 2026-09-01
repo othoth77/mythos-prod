@@ -1,5 +1,60 @@
 # Mythos OS — AI Handover
 
+**Last updated:** 2026-09-01 01:00 UTC
+**From:** MCP-PROMOTE-2 — **the real promotion did NOT run. The dry-run's own STOP condition ("unexpected record count") caught a permission boundary before any write was attempted.** `would_add:0` where 14 was expected — not a promotion decision, a silent inability to read the source at all. No code changed, no commit needed for the mechanism (it behaved correctly by refusing to lie about a store it could not see); this entry only. **No paid API call, no write to either store, no file touched.**
+
+## MCP-PROMOTE-2 — real promotion BLOCKED at dry-run (2026-09-01)
+
+### What happened
+
+Ran exactly the specified dry-run:
+
+```
+node projects/oth-knowledge/cli/othk-cli.js --store /home/deploy/othk-store \
+  promote-run /home/ubuntu/othk-extraction-runs/20260831-23a12fd2/ --dry-run
+```
+
+Result: `{"dry_run":true,"would_add":0,"already_promoted":0,"blobs_to_copy":0,"record_ids":[]}` — no error, but wrong. Expected 14 records (source, artifact, document, 4 chunks, 3 claims, 3 evidence, 1 derived marker); got zero of either fresh or already-promoted.
+
+### Root cause — verified, not guessed
+
+```
+/home/ubuntu/othk-extraction-runs/20260831-23a12fd2/   0700 ubuntu:ubuntu
+/home/deploy/othk-store/                                0700 deploy:deploy
+```
+
+Both stores are **owner-only**, in opposite directions. The command was run as `deploy` (the account that owns the canonical store and the account the deployed MCP/executor run as). `deploy` has **zero access** to `ubuntu`'s directory — confirmed directly: `sudo -u deploy cat .../records.jsonl` → `Permission denied`; `sudo -u deploy ls .../20260831-23a12fd2/` → `Permission denied`. The reverse is equally true: `sudo -u ubuntu` has no access to `/home/deploy/othk-store` either.
+
+**Why this produced `0` instead of an error:** `store.js`'s `_load()` calls `fs.existsSync(this.logPath)` and treats `false` as "no store yet, start empty" — `existsSync` swallows a permission-denied stat and returns `false` exactly as it would for a genuinely missing path. `deploy` opening the run store therefore sees a **silently empty store**, not a permission error. `promoteRun()` then correctly reports 0 fresh / 0 already-promoted for an empty input — the promotion logic itself behaved exactly as designed; it was never given the real data to look at.
+
+### Why this stopped here rather than being routed around
+
+This is the *same* two-account access boundary already recorded as Blocker 1 in `MCP-KNOWLEDGE-1` (budget ledger), now shown to affect knowledge promotion too. The `deploy`/`ubuntu` split is either a deliberate security separation or an installation accident — that determination was explicitly out of scope for this stage, and the mission's own stop condition ("unexpected record count") was written for exactly this situation. Running as `root` (available in this environment) would bypass both permission boundaries, but would leave any newly-created files (e.g. new blob objects, if any were needed) owned by `root` inside an otherwise `deploy`-owned canonical store — an ownership inconsistency introduced without authorization, in a store whose entire access model is "owner-only." That was not done.
+
+### Verified afterward — nothing moved
+
+```
+canonical store  /home/deploy/othk-store         37 records, unchanged (verify: ok)
+real run         .../20260831-23a12fd2/records.jsonl   mtime unchanged (2026-08-31T21:26:10Z)
+```
+
+### Not done, and correctly not done
+
+Steps 2 (real promotion), 3 (post-promotion verification), and 4 (MCP knowledge_search/knowledge_get of the 3 claims) were **not performed** — there was nothing valid to promote after Step 1 stopped. No paid API call. No `.env`/Docker/systemd/database/OmniRoute/`main`/ERP/budget-config change.
+
+### Remaining blockers
+
+1. **The `deploy`/`ubuntu` permission boundary now blocks two independent things**: the budget ledger read (Blocker 1, prior entry) and knowledge promotion (this entry). Both need the same owner decision: which account is canonical, or an explicit, authorized cross-account grant (e.g. an ACL) for a promotion operator to read one and write the other.
+2. `main`/ERP divergence — unchanged, still an owner product-direction decision.
+3. The real 3 claims are still outside the canonical store — the mechanism is proven correct against fixtures (`othk-8`, 45/45) and now proven to fail SAFELY rather than falsely on the real data; it has not yet succeeded against the real data.
+
+### Exact next stage
+
+Owner decides how the promotion operator should reach both directories — e.g. run `promote-run` as whichever single account can be granted read access to the run store and write access to the canonical store (a `setfacl` grant, or performing the operation as an account already trusted with both), then re-run the same dry-run command verbatim. It should report exactly `would_add: 14` with the expected `byKind` breakdown before any real promotion is attempted again.
+
+---
+
+
 **Last updated:** 2026-09-01 00:35 UTC
 **From:** MCP-PROMOTE-1 — **the promotion mechanism identified in MCP-KNOWLEDGE-1's Blocker 3 is implemented, tested and pushed. The real proven run was deliberately NOT promoted yet.** New `othk-cli.js promote-run <run-store-root> [--dry-run]`, backed by `projects/oth-knowledge/lib/promote.js` — no new storage, every write goes through the existing `appendRecord()`/`putObject()`. Commit `4f54363`, pushed; remote HEAD `4f54363`, 0 ahead / 0 behind. othk-8 (new): 45/45. All othk suites + full 125-file suite run once: 101/125 pass, the 24 that don't are pre-existing and untouched by this change. **No paid API call.** Detail: this entry.
 
