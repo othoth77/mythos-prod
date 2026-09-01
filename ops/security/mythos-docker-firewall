@@ -1,0 +1,35 @@
+#!/bin/bash
+# Mythos — DOCKER-USER hardening.
+#
+# Docker inserts its DNAT/FORWARD rules ahead of ufw, so a container published
+# on 0.0.0.0 is reachable from the internet even when ufw does not allow the
+# port. DOCKER-USER is the one chain Docker guarantees it will not overwrite,
+# and it is the supported place to put this.
+#
+# Coolify's admin UI is published as 0.0.0.0:8000 but is ALSO proxied by
+# nginx at https://panel.mythosprod.xyz -> 127.0.0.1:8000 with TLS. The raw
+# public bind is therefore redundant and is a plaintext bypass of that front.
+#
+# Host-originated traffic (nginx -> 127.0.0.1:8000) is routed via OUTPUT and
+# never traverses FORWARD, so anything arriving in DOCKER-USER for original
+# destination port 8000 is by definition NOT the host. Dropping it closes the
+# public path and leaves the TLS front untouched.
+#
+# Idempotent: safe to run repeatedly.
+set -euo pipefail
+
+COMMENT="mythos: Coolify UI reachable only via panel.mythosprod.xyz TLS front"
+
+ensure_drop_8000 () {
+  if ! iptables -C DOCKER-USER -p tcp -m conntrack --ctstate NEW --ctorigdstport 8000 \
+       -m comment --comment "$COMMENT" -j DROP 2>/dev/null; then
+    iptables -I DOCKER-USER 1 -p tcp -m conntrack --ctstate NEW --ctorigdstport 8000 \
+       -m comment --comment "$COMMENT" -j DROP
+    echo "mythos-docker-firewall: installed DROP for original dst port 8000"
+  else
+    echo "mythos-docker-firewall: rule already present"
+  fi
+}
+
+iptables -L DOCKER-USER -n >/dev/null 2>&1 || { echo "DOCKER-USER absent (docker not up?)" >&2; exit 0; }
+ensure_drop_8000
