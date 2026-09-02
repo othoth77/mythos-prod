@@ -28,7 +28,7 @@
     "التحقق من إزالة البيانات القديمة المضللة.",
     "التحقق من عدم كسر monitor أو health endpoint."
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-02T22:34:19.628Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #95 https://github.com/othoth77/mythos-prod/issues/95 — \"تحديث MYTHOS Status Center بالكامل وربطه بمصدر الحقيقة\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[تسليم إلزامي]\n- تنفيذ العمل بالكامل، وليس مجرد تقديم تقرير أو اقتراحات.\n- GitHub هو Source of Truth.\n- بعد اكتمال العمل والتحقق منه: commit ثم push.\n- تسجيل commit hash وremote HEAD ونتائج الاختبارات والخطوة التالية في `docs/AI_HANDOVER.md`.\n\n[bridge / claude]\nهذه Issue من نوع TASK ومطلوب أن يلتقطها الـBridge ويمررها إلى Claude للتنفيذ. يجب على Claude تنفيذ المهمة من المستودع، ثم توثيق النتيجة وإغلاق الـTASK فقط بعد اكتمال التحقق والتسليم.",
@@ -65,5 +65,28 @@
       ],
       "removed": []
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260902223426-ipld9w",
+    "othmode_task_id": "OTH-2026-00025",
+    "execution_profile": "repo-read",
+    "expected_delivery": "report",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-95",
+    "branch": "mythos/gh/gh-issue-95",
+    "base_commit": "dc45ff1d6c5deffda6861e97f4c7d751bdf244bf",
+    "claimed_at": "2026-09-02T22:34:26.725Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "b8dc99b621864636d2e30b538a67733d22c98d072ce8566a0ad2036ac0b05360",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-02T22:34:26.726Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-02T22:34:26.771Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260902223426-ipld9w queued; OTHMODE OTH-2026-00025"
+    }
+  ]
 }
