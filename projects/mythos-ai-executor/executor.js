@@ -29,6 +29,7 @@ var reporting = require('./lib/report');
 var skills = require('./lib/skills');
 var mcpCapabilities = require('./lib/mcp-capabilities');
 var modelPolicy = require('./lib/model-policy');
+var resourceGuard = require('./lib/resource-guard');
 
 var schema = require('../mythos-orchestrator/lib/schema');
 var redact = require('../mythos-orchestrator/lib/redact');
@@ -700,6 +701,91 @@ function summaries() {
   });
 }
 
+// --- Resource Guard admission (gh-issue-101) ---------------------------------
+//
+// Host memory pressure is an ADMISSION concern, never a kill switch: the
+// guard only decides whether a NEW task may start. Everything already
+// admitted — recovery, quota resumption, retries — is a continuation and
+// stays exempt, so in-flight work remains resumable and no task is ever
+// lost or killed because the host got tight. A blocked task simply stays
+// QUEUED and is picked up on a later tick, exactly like a task waiting on
+// capacity.
+//
+// Read lazily (not captured at load) so an operator can flip the kill
+// switch by restarting with MYTHOS_RESOURCE_GUARD=off, and so tests can
+// drive the gate deterministically from fixtures.
+function guardEnabled() {
+  return String(process.env.MYTHOS_RESOURCE_GUARD || 'on').toLowerCase() !== 'off';
+}
+
+function guardOptions() {
+  return {
+    state_path: path.join(state.root(), 'resource-guard.json'),
+    alerts_path: path.join(state.root(), 'resource-guard-alerts.jsonl')
+  };
+}
+
+var ADMIT_ANYWAY = { admit: true, level: 'DISABLED', reason: null, signals: null };
+
+// Fresh reading (one tick = one sample). Returns the guard status plus the
+// transition/alert, or null when the guard is off or the read failed —
+// fail-open is deliberate: the guard must never become a new way for the
+// executor to stop working.
+function guardSample() {
+  if (!guardEnabled()) return null;
+  try { return resourceGuard.sample(guardOptions()); } catch (e) { return null; }
+}
+
+// Cheap reading for out-of-band admission (dispatchTask/drainQueue): reuses
+// the tick's sample while it is fresh.
+function guardGate(status) {
+  if (!guardEnabled()) return ADMIT_ANYWAY;
+  try {
+    return resourceGuard.admission(status || resourceGuard.current(guardOptions()));
+  } catch (e) { return ADMIT_ANYWAY; }
+}
+
+// One durable dispatch_deferred event per task per cooldown window. The
+// decision itself is re-evaluated every tick, but writing an event every
+// 15s for the whole length of a pressure episode would bury the task's own
+// history — "no alert loops" applies to the event log too.
+var DEFER_EVENT_COOLDOWN_MS = 10 * 60 * 1000;
+var LAST_DEFER_EVENT = Object.create(null);
+
+function noteDeferred(taskId, gate, now) {
+  var last = LAST_DEFER_EVENT[taskId];
+  if (last && (now - last) < DEFER_EVENT_COOLDOWN_MS) return false;
+  // Bounded: an entry older than the cooldown can no longer suppress
+  // anything, so it is dropped rather than accumulated for the lifetime of
+  // the daemon.
+  Object.keys(LAST_DEFER_EVENT).forEach(function (id) {
+    if ((now - LAST_DEFER_EVENT[id]) >= DEFER_EVENT_COOLDOWN_MS) delete LAST_DEFER_EVENT[id];
+  });
+  LAST_DEFER_EVENT[taskId] = now;
+  try {
+    state.appendEvent(taskId, 'dispatch_deferred', {
+      reason: 'resource_pressure',
+      resource_level: gate.level,
+      signals: gate.signals || null,
+      status: 'QUEUED'
+    });
+  } catch (e) { /* telemetry must never break admission */ }
+  return true;
+}
+
+// Alerts leave through the existing orchestrator notification path, which
+// is already fire-and-forget (a missing or failing notify.sh cannot affect
+// control flow). The WhatsApp channel is NOT wired here: on this branch
+// bridge/notify/whatsapp.js does not exist, and merging that sibling line
+// is an owner decision (see docs/AI_HANDOVER.md). Every alert is durably
+// appended to resource-guard-alerts.jsonl by the guard itself, so a later
+// sender can deliver from the ledger without losing history.
+function guardNotify(result) {
+  if (!result || !result.alert) return;
+  notify('resource_' + String(result.alert.kind).toLowerCase(), 'resource-guard',
+    resourceGuard.describe(result));
+}
+
 // Tasks created by the orchestration core are driven BY the core: it
 // dispatches, validates, retries and cancels them. The daemon must not
 // also pick them up, or both would race for the same task (whoever wins
@@ -717,6 +803,18 @@ function tick(now) {
   now = now || Date.now();
   var all = summaries();
   var actions = [];
+
+  // Resource Guard: one sample per tick. Sampling is unconditional (the
+  // state machine needs a regular cadence to confirm and to recover), the
+  // gate below is what actually enforces anything.
+  var guard = guardSample();
+  if (guard && guard.changed) {
+    guardNotify(guard);
+    actions.push({
+      action: 'resource_state', from: guard.transition.from, to: guard.transition.to,
+      reason: guard.transition.reason, alert_sent: guard.transition.alert_sent
+    });
+  }
 
   // 1. Convert interrupted RUNNING tasks (dead pid) into immediate retries.
   // Core-owned tasks are skipped: the core owns their recovery.
@@ -763,6 +861,20 @@ function tick(now) {
       return pw !== 0 ? pw : String(a.created_at).localeCompare(String(b.created_at));
     });
   if (queued.length) {
+    // THE admission point for daemon-owned work — n8n intake AND the
+    // GitHub bridge (requested_by='github-bridge'), which never passes
+    // through dispatchTask/drainQueue and would otherwise be admitted
+    // straight into a host that is running out of memory.
+    var gate = guardGate(guard);
+    if (!gate.admit) {
+      var logged = noteDeferred(queued[0].task_id, gate, now);
+      actions.push({
+        action: 'dispatch_deferred', task_id: queued[0].task_id,
+        reason: gate.reason, resource_level: gate.level,
+        queued: queued.length, event_logged: logged
+      });
+      return Promise.resolve(actions);
+    }
     actions.push({ action: 'start', task_id: queued[0].task_id });
     return runTask(queued[0].task_id).then(function () { return actions; });
   }
@@ -858,6 +970,19 @@ function dispatchTask(taskId) {
   }
 
   var running = runningCount();
+
+  // Host safety is checked before capacity: a free slot on a host that is
+  // out of memory is not a slot. The task stays QUEUED and drains later.
+  var gate = guardGate();
+  if (!gate.admit) {
+    noteDeferred(taskId, gate, Date.now());
+    return Promise.resolve({
+      task_id: taskId, dispatched: false, queued: true,
+      reason: gate.reason, resource_level: gate.level,
+      running: running, max_parallel: MAX_PARALLEL
+    });
+  }
+
   if (running >= MAX_PARALLEL) {
     state.appendEvent(taskId, 'dispatch_deferred', { running: running, max_parallel: MAX_PARALLEL });
     return Promise.resolve({
@@ -883,6 +1008,16 @@ function drainQueue() {
   DRAINING = true;
   try {
     while (runningCount() < MAX_PARALLEL) {
+      // Re-read per iteration: a pressure episode that starts mid-drain
+      // must stop the drain, not merely the next drain.
+      var gate = guardGate();
+      if (!gate.admit) {
+        var blocked = summaries().filter(function (s) {
+          return s.status === 'QUEUED' && s.requested_by === 'mos-console';
+        });
+        if (blocked.length) noteDeferred(blocked[0].task_id, gate, Date.now());
+        break;
+      }
       var candidates = summaries().filter(function (s) {
         return s.status === 'QUEUED' && s.requested_by === 'mos-console';
       }).sort(function (a, b) {
@@ -897,6 +1032,25 @@ function drainQueue() {
   } finally {
     DRAINING = false;
   }
+}
+
+// Read-only view of the guard for operators and for bin/mythos-resource-guard.
+function resourceGuardStatus() {
+  if (!guardEnabled()) {
+    return { enabled: false, level: 'DISABLED', admit: true, signals: null, since: null, last_transition: null };
+  }
+  var status;
+  try { status = resourceGuard.current(guardOptions()); } catch (e) { status = null; }
+  var gate = resourceGuard.admission(status);
+  var st = (status && status.state) || {};
+  return {
+    enabled: true,
+    level: gate.level,
+    admit: gate.admit,
+    signals: (status && status.signals) || null,
+    since: st.since || null,
+    last_transition: (st.history && st.history.length) ? st.history[st.history.length - 1] : null
+  };
 }
 
 function dispatcherStatus() {
@@ -1001,10 +1155,23 @@ function daemon(intervalMs) {
     busy = true;
     tick().then(function (actions) {
       busy = false;
-      var meaningful = actions.filter(function (a) { return a.action !== 'idle'; });
+      // Timer-driven re-drain. drainQueue was edge-triggered only (it ran
+      // when a run settled), so a console queue held back by capacity OR by
+      // resource pressure with nothing running had no event left to restart
+      // it — the queue would sit still until someone dispatched by hand.
+      // One call per daemon step is what makes "tasks resume after
+      // RECOVERED" true without any new status or timer.
+      try { drainQueue(); } catch (e) { /* best-effort, never fatal */ }
+      // A deferral whose event was inside its cooldown is a repeat of a
+      // decision already logged; the tick return value still reports it,
+      // the journal does not repeat it every 15s for hours.
+      var meaningful = actions.filter(function (a) {
+        return a.action !== 'idle' && a.event_logged !== false;
+      });
       if (meaningful.length) console.log(JSON.stringify({ ts: new Date().toISOString(), tick: meaningful }));
     }).catch(function (err) {
       busy = false;
+      try { drainQueue(); } catch (e) { /* best-effort, never fatal */ }
       console.error(JSON.stringify({ ts: new Date().toISOString(), tick_error: redact.redact(err.message) }));
     });
   }
@@ -1042,5 +1209,9 @@ module.exports = {
   dispatchTask: dispatchTask,
   drainQueue: drainQueue,
   dispatcherStatus: dispatcherStatus,
+  // Deliberately NOT folded into dispatcherStatus(): the console asserts
+  // that view's exact key set, and host health is a separate concern from
+  // dispatch capacity.
+  resourceGuardStatus: resourceGuardStatus,
   MAX_PARALLEL: MAX_PARALLEL
 };

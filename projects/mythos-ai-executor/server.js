@@ -18,6 +18,7 @@
 //   POST /tasks/<id>/dispatch       capacity-gated dispatch (MOS-3A; console
 //                                   missions go through this, not /resume)
 //   GET  /dispatcher                dispatcher capacity/queue status
+//   GET  /resource-guard            host memory pressure state (gh-issue-101)
 //   POST /tasks/<id>/cancel         cooperative cancel (SIGTERM if running)
 //   POST /events/n8n-error          n8n failure-handler sink (logged, notified)
 //   POST /route                     MOS-v2 M-11: governed auto-routing —
@@ -198,6 +199,12 @@ function handler(req, res, token) {
 
   if (req.method === 'GET' && url === '/dispatcher') {
     return send(res, 200, executor.dispatcherStatus());
+  }
+
+  // Read-only: level, the sample behind it, and whether admission is open.
+  // Kept off /dispatcher because the console asserts that view's exact keys.
+  if (req.method === 'GET' && url === '/resource-guard') {
+    return send(res, 200, executor.resourceGuardStatus());
   }
 
   if ((m = /^\/tasks\/([a-z0-9-]{8,64})\/cancel$/.exec(url)) && req.method === 'POST') {
