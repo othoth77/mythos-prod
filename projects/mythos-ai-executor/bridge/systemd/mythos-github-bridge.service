@@ -1,0 +1,24 @@
+# MYTHOS GitHub control bridge — systemd USER unit for `deploy` (the executor's
+# user). One tick per activation; the timer below drives it. Rootless, no
+# credential: the bridge reads/commits Git as deploy and never pushes — the
+# root relay (mythos-git-push.timer) delivers refs/heads/mythos/*.
+#
+# Install (as deploy):
+#   mkdir -p ~/.config/systemd/user
+#   cp projects/mythos-ai-executor/bridge/systemd/mythos-github-bridge.{service,timer} ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now mythos-github-bridge.timer
+#
+# Until the bridge code is on `main`, MYTHOS_BRIDGE_BIN points at the mission
+# worktree; switch it (or drop the override) once main carries the bridge.
+[Unit]
+Description=MYTHOS GitHub control bridge (one tick)
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=MYTHOS_BRIDGE_BIN=/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bin/mythos-github-bridge
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/sh -c 'exec /usr/bin/node "$MYTHOS_BRIDGE_BIN" tick'
+WorkingDirectory=%h
+NoNewPrivileges=true
+TimeoutStartSec=600

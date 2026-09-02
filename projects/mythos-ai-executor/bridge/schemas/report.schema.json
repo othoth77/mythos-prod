@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MYTHOS control REPORT (mythos-control/1)",
+  "description": "One report file at control/reports/<task_id>.json on the control branch, written ONLY by the bridge when a task reaches a terminal state (COMPLETED, FAILED, BLOCKED, CANCELLED). A markdown twin (<task_id>.md) is rendered from it. No secrets: every value passes the shared redaction before it is written.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "protocol",
+    "task_id",
+    "status",
+    "summary",
+    "files_changed",
+    "commits",
+    "tests",
+    "validation",
+    "problems",
+    "risks",
+    "next_recommended_action",
+    "completed_at",
+    "execution",
+    "delivery"
+  ],
+  "properties": {
+    "protocol": { "type": "string", "enum": ["mythos-control/1"] },
+    "task_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$" },
+    "status": { "type": "string", "enum": ["COMPLETED", "BLOCKED", "FAILED", "CANCELLED"] },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 20000 },
+    "files_changed": { "type": "array", "items": { "type": "string", "maxLength": 400 } },
+    "commits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sha", "subject", "branch", "on_origin"],
+        "properties": {
+          "sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+          "subject": { "type": "string", "maxLength": 300 },
+          "branch": { "type": "string", "maxLength": 200 },
+          "on_origin": { "type": "boolean" }
+        }
+      }
+    },
+    "tests": { "type": "array", "items": { "type": "string", "maxLength": 1000 } },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["git_verified", "remote_head", "report_problems", "required_checks"],
+      "properties": {
+        "git_verified": { "type": ["boolean", "null"] },
+        "remote_head": { "type": ["string", "null"] },
+        "report_problems": { "type": "array", "items": { "type": "string", "maxLength": 1000 } },
+        "required_checks": { "type": "array", "items": { "type": "string", "maxLength": 300 } }
+      }
+    },
+    "problems": { "type": "array", "items": { "type": "string", "maxLength": 2000 } },
+    "risks": { "type": "array", "items": { "type": "string", "maxLength": 2000 } },
+    "next_recommended_action": { "type": "string", "maxLength": 4000 },
+    "completed_at": { "type": "string", "minLength": 20, "maxLength": 40 },
+    "execution": { "type": "object" },
+    "delivery": { "type": "object" }
+  }
+}
