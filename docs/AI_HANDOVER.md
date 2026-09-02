@@ -1,7 +1,7 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-02 00:40 UTC
-**From:** MCP-ECOSYSTEM-1 — **the MYTHOS MCP ecosystem is inventoried, completed where completion was possible without an owner decision, verified against the running host, and delivered on `mythos/mcp-ecosystem-20260901`.** Estate registry + availability check + permission matrix + Vault inventory + OTHMODE discovery fix + the executor's governed MCP invoke with audit. 167/0 new assertions, 0 regressions (37/0 · 58/0 · 264/0 · 141/0). Live: the check reports the estate OK; a real handshake through ContextForge and ten governed calls against production behaved exactly as the matrix says. **Not complete by the mission's own gate** — four owner-gated items remain (below), and `main` is still undeliverable, so the executor route, the OTHMODE fix and the probes are verified but not live.
+**Last updated:** 2026-09-02 01:45 UTC
+**From:** MCP-ECOSYSTEM-1 — **the MYTHOS MCP ecosystem is inventoried, completed where completion was possible without an owner decision, verified against the running host, and committed on `mythos/mcp-ecosystem-20260901` (`d9e5c54`) — delivery to GitHub is DENIED by governance on two path-pattern hits and awaits two owner approvals (exact commands below); nothing was pushed around the cage.** Estate registry + availability check + permission matrix + Vault inventory + OTHMODE discovery fix + the executor's governed MCP invoke with audit. 167/0 new assertions, 0 regressions (37/0 · 58/0 · 264/0 · 141/0). Live: the check reports the estate OK; a real handshake through ContextForge and ten governed calls against production behaved exactly as the matrix says. **Not complete by the mission's own gate** — four owner-gated items remain (below), and `main` is still undeliverable, so the executor route, the OTHMODE fix and the probes are verified but not live.
 
 **Previously:** MYTHOS-VAULT-0 — Vault architecture documented and delivered (`mythos/vault-architecture-20260901`, `7f7773d`).
 
@@ -53,9 +53,30 @@ The deploy user manager `user@1001.service` was OOM-killed **twice** (22:16 and 
 
 INSTALLED: `deployments/mythos-gateway/mcp-registry-check.sh` (identical to repo) and a real snapshot `mcp-registry-status.json` (00:24 UTC). NOT INSTALLED (root refused): the check timer, the OOM drop-in. NOT LIVE (`main` is the deployed checkout and is undeliverable): executor `/mcp/invoke`, the OTHMODE fix and `/api/othmode/mcp`, the two probes — each verified from the worktree against the live host. The SSH stdio path, the bridge and ContextForge are untouched and re-verified.
 
-### Commit hash · remote HEAD
+### Commit hash · remote HEAD · push status
 
-Recorded in the follow-up entry below this one after the relay delivers the branch (the relay evaluates `main..tip` for `mythos/*`; nothing here touches a protected path). `origin/main` at the time of writing: `f4d5eb9`; local `main`: `b7ea66a` (32 ahead, blocked on `f5e503a`).
+| | |
+|---|---|
+| Branch | `mythos/mcp-ecosystem-20260901` |
+| Commit | **`d9e5c541e73239e6159ef30c13fef661377f9851`** (`d9e5c54`) — the ecosystem work, 24 files |
+| Follow-up | the docs commit recording this section (see `git log`) |
+| Merged in | `1684f44` (merge of `feat/mythos-gateway` `d287b97`), on top of `22494de` (Vault ADR) on top of local `main` `b7ea66a` |
+| Remote | `git@github.com:othoth77/mythos-prod.git` |
+| Remote HEAD | `refs/heads/main` = `f4d5eb94239cf739a334cc96dbb8874ba4f9913a` (unchanged) |
+| Push status | **NOT DELIVERED — governance DENY, not bypassed.** The relay (`mythos-git-push.timer`, 01:23 UTC) evaluated `main..tip` and refused: `GOVERNANCE DENY d9e5c541e732 touches projects/mythos-vault/credential-inventory.json` (pattern `/credential/i`) and `GOVERNANCE DENY d287b974a91d touches projects/mythos-gateway/contextforge.env.example` (pattern `/\.env(\.|$)/i`). Both files carry no value (loader- and test-asserted; the `.env.example` is placeholders only), but the cage keys on the path and is right to ask a human. No direct push was made — a raw push as `deploy` would bypass the cage, and `feat/*` re-labelling would too. |
+
+**Exact owner action to deliver (run as root, then the next relay tick pushes the branch):**
+
+```
+sudo mythos-governance-approve --commit d9e5c541e73239e6159ef30c13fef661377f9851 \
+  --by "<your real name>" --reason "MCP-ECOSYSTEM-1: metadata-only Vault credential inventory (no value; validated)"
+sudo mythos-governance-approve --commit d287b974a91d25d191907755a48e0babf41f5389 \
+  --by "<your real name>" --reason "GATEWAY-1: contextforge.env.example carries placeholders only (test §5 asserts it)"
+sudo systemctl start mythos-git-push.service
+git ls-remote origin refs/heads/mythos/mcp-ecosystem-20260901   # expect the tip
+```
+
+Note for whoever runs it: `d287b97` is already on GitHub as `feat/mythos-gateway`; the relay still evaluates it because local `main` does not contain it. Approving it here approves exactly that sha, nothing else.
 
 ### Unresolved — owner decisions, in order of leverage
 
