@@ -1,0 +1,85 @@
+{
+  "_comment": "Claude model selection policy (Issue #100). EXPLICIT WINS: a task that names a model gets exactly that model or is refused — never a substitute. ABSENT MEANS CHOSEN, NEVER INHERITED: when a task names no model the executor picks haiku/sonnet/opus from the deterministic signal table below and always passes --model, so the Claude CLI's own ambient default (today: the fable family) is never what runs. Fable is auto_selectable:false everywhere: it runs only when a task asks for it by name. `model` values are the ONLY strings that ever reach the --model argv position; an inbound task can never pass a string through, it can only select a key that already exists here.",
+  "version": "1.0.0",
+  "catalog": {
+    "haiku": {
+      "model": "claude-haiku-4-5",
+      "tier": "fast",
+      "display_name": "Haiku 4.5",
+      "aliases": ["haiku", "haiku 4.5", "haiku 4-5", "claude-haiku-4-5", "fast", "سريع"],
+      "auto_selectable": true,
+      "enabled": true
+    },
+    "sonnet": {
+      "model": "claude-sonnet-5",
+      "tier": "balanced",
+      "display_name": "Sonnet 5",
+      "aliases": ["sonnet", "sonnet 5", "claude-sonnet-5", "balanced"],
+      "auto_selectable": true,
+      "enabled": true
+    },
+    "opus": {
+      "model": "claude-opus-5",
+      "tier": "deep",
+      "display_name": "Opus 5",
+      "aliases": ["opus", "opus 5", "claude-opus-5", "deep"],
+      "auto_selectable": true,
+      "enabled": true
+    },
+    "fable-5": {
+      "model": "claude-fable-5",
+      "tier": "special",
+      "display_name": "Fable 5",
+      "aliases": ["fable", "fable 5", "claude-fable-5"],
+      "auto_selectable": false,
+      "enabled": true
+    },
+    "fable-5.1": {
+      "model": "claude-fable-5-1",
+      "tier": "special",
+      "display_name": "Fable 5.1",
+      "aliases": ["fable 5.1", "fable-5.1", "fable 5-1", "claude-fable-5-1"],
+      "auto_selectable": false,
+      "enabled": false,
+      "disabled_reason": "not offered by the installed Claude CLI (2.1.251 ships fable only as claude-fable-5); set enabled:true here — no code change — once `claude --model claude-fable-5-1` is accepted on this host"
+    }
+  },
+  "auto": {
+    "_comment": "Signals are additive integers. Every contributing signal is recorded on the task and in the model_selected event, so a choice is always explainable. Terms are plain lowercase substrings (never regexes) and are deliberately chosen NOT to occur in the GitHub bridge's own instruction boilerplate — tests/model-selection-policy-test.js pins that.",
+    "tiers": { "fast": "haiku", "balanced": "sonnet", "deep": "opus" },
+    "thresholds": { "fast_max_score": 1, "deep_min_score": 7 },
+    "signals": {
+      "execution_profile": { "repo-read": 0, "repo-test": 1, "repo-write": 2, "autonomous": 3, "deploy": 3 },
+      "task_category": { "investigate": 0, "review": 0, "test": 1, "document": 1, "implement": 3 },
+      "priority": { "low": -1, "normal": 0, "high": 1 },
+      "instruction_length": [
+        { "min_chars": 12000, "score": 2 },
+        { "min_chars": 6000, "score": 1 }
+      ],
+      "complexity_terms": {
+        "per_hit": 1,
+        "max": 3,
+        "terms": [
+          "architecture", "architectural", "refactor", "migration", "migrate",
+          "concurrency", "race condition", "deadlock", "security", "vulnerability",
+          "encryption", "cryptograph", "protocol", "redesign", "rewrite",
+          "performance", "optimisation", "optimization", "scalability", "distributed",
+          "memory leak", "root cause", "algorithm", "schema",
+          "معمارية", "بنية", "هيكلة", "ترحيل", "أمان", "ثغرة", "تشفير",
+          "بروتوكول", "خوارزمية", "أداء", "تعقيد", "إعادة تصميم"
+        ]
+      },
+      "simplicity_terms": {
+        "per_hit": -1,
+        "max": -2,
+        "terms": [
+          "typo", "spelling", "rename", "whitespace", "formatting",
+          "bump version", "changelog entry", "one-line", "trivial",
+          "إملائ", "مطبعي", "إعادة تسمية", "تنسيق", "بسيط"
+        ]
+      },
+      "constraints_count": { "min": 6, "score": 1 },
+      "required_tests_count": { "min": 3, "score": 1 }
+    }
+  }
+}

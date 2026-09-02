@@ -41,9 +41,13 @@
 //      of title+body, so an unchanged invalid Issue is answered once.
 //
 // What this file deliberately does NOT do: run anything, push, merge, touch
-// main, honour provider/model/path/tool/credential selection from an Issue
-// (requested_action is the only lever, exactly as in the task protocol),
-// or execute an Issue that lacks the `task` label or is closed.
+// main, honour provider/path/tool/credential selection from an Issue
+// (requested_action is the only privilege lever, exactly as in the task
+// protocol), or execute an Issue that lacks the `task` label or is closed.
+// `Model:` (Issue #100) is the one other value an Issue may set: it selects
+// a key in the server-side catalog (config/model-policy.json) and is
+// rejected at intake if unknown — it never travels on as a raw string, and
+// it changes nothing about what the run is allowed to do.
 // =====================================================
 
 var fs = require('fs');
@@ -57,6 +61,7 @@ var EXEC_ROOT = path.join(__dirname, '..');
 var bridge = require('./github-bridge');
 var state = require(path.join(EXEC_ROOT, 'lib', 'state'));
 var redact = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'redact'));
+var modelPolicy = require(path.join(EXEC_ROOT, 'lib', 'model-policy'));
 
 var BY = 'github-issues';
 var MARKER_PREFIX = '<!-- mythos-control ';
@@ -288,9 +293,10 @@ var SECTION_ALIASES = {
   priority: ['priority', 'الأولوية'],
   depends_on: ['depends on', 'depends_on', 'depends-on', 'dependencies', 'يعتمد على', 'الاعتماديات'],
   timeout: ['timeout', 'timeout seconds', 'timeout_seconds', 'المهلة'],
-  max_turns: ['max turns', 'max_turns', 'max-turns']
+  max_turns: ['max turns', 'max_turns', 'max-turns'],
+  model: ['model', 'claude model', 'النموذج', 'نموذج']
 };
-var SCALAR_KEYS = ['action', 'priority', 'depends_on', 'timeout', 'max_turns'];
+var SCALAR_KEYS = ['action', 'priority', 'depends_on', 'timeout', 'max_turns', 'model'];
 var ACTION_SYNONYMS = {
   investigate: 'investigate', investigation: 'investigate', analyse: 'investigate', analyze: 'investigate', 'تحقيق': 'investigate',
   review: 'review', 'مراجعة': 'review',
@@ -397,6 +403,26 @@ function pickDepends(sections) {
   return out.filter(function (x, i) { return out.indexOf(x) === i; });
 }
 
+// Issue #100 — `Model: Sonnet` (or a `model:<x>` label) is OPTIONAL. When an
+// Issue names one it is honoured exactly; when it names none the field stays
+// absent and the executor scores the task itself. An unrecognised value is an
+// intake error listing the accepted ones — never a silent substitution, and
+// never a raw string travelling on to the CLI.
+function pickModel(issue, sections, errors) {
+  var fromLabel = labelNames(issue).map(function (l) { var m = /^model:(.+)$/i.exec(l); return m ? m[1] : null; }).filter(Boolean)[0];
+  var fromBody = sections.model && sections.model.length ? String(sections.model[0]) : null;
+  var raw = fromLabel || fromBody;
+  if (!raw || !String(raw).trim()) return null;
+  var resolved = modelPolicy.resolveExplicit(raw);
+  if (!resolved.ok) {
+    errors.push('Model: ' + resolved.error);
+    return null;
+  }
+  // Stored canonically (the catalog key), so the control file reads the same
+  // whether the Issue said "opus", "Opus 5" or "claude-opus-5".
+  return resolved.key;
+}
+
 function pickInt(sections, key, min, max) {
   if (!sections[key] || !sections[key].length) return null;
   var n = parseInt(String(sections[key][0]).replace(/[^0-9]/g, ''), 10);
@@ -449,6 +475,8 @@ function issueToTask(cfg, issue, attempt) {
   if (timeout) task.timeout_seconds = timeout;
   var turns = pickInt(sections, 'max_turns', 1, 500);
   if (turns) task.max_turns = turns;
+  var model = pickModel(issue, sections, errors);
+  if (model) task.model = model;
   task.notes = short(notesParts.join('\n\n'), 4000);
   task.source = {
     kind: 'github-issue',
@@ -533,6 +561,10 @@ function createdBody(cfg, task) {
       ['Status', '**PENDING** — scheduled; the bridge claims it on its next tick and execution starts in the executor'],
       ['Action', '`' + task.requested_action + '` → execution profile `' + bridge.PROFILE_BY_ACTION[task.requested_action] + '`' + (task.requested_action === 'investigate' || task.requested_action === 'review' || task.requested_action === 'test' ? ' (read-only: findings only, no commits)' : ' (may commit on `mythos/gh/' + task.task_id + '`; never merged to main automatically)')],
       ['Priority', task.priority],
+      ['Model', task.model
+        ? '`' + task.model + '` (requested in the Issue — honoured as written)'
+        : 'automatic — the executor scores this task and picks Haiku, Sonnet or Opus; the report names the model and the reason. Add `Model: ' +
+          modelPolicy.allowedLabels().join(' | ') + '` to pin one'],
       ['Depends on', task.depends_on && task.depends_on.length ? task.depends_on.map(function (d) { return '`' + d + '`'; }).join(', ') : '—'],
       ['Scope items', String(task.scope.length)],
       ['Validation items', String(task.validation_requirements.length)]

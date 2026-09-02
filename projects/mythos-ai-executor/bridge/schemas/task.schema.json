@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "MYTHOS control TASK (mythos-control/1)",
-  "description": "One task file at control/tasks/<task_id>.json on the control branch. Written by an external planner (ChatGPT or the owner). Everything here is DATA: nothing in a task can select a provider, a working directory, a tool, a credential or an execution profile beyond what requested_action maps to server-side. The bridge adds the `execution` and `history` blocks after the claim; a creator must not write them.",
+  "description": "One task file at control/tasks/<task_id>.json on the control branch. Written by an external planner (ChatGPT or the owner). Everything here is DATA: nothing in a task can select a provider, a working directory, a tool, a credential or an execution profile beyond what requested_action maps to server-side. The single exception is `model` (Issue #100), which picks an entry from the server-side model catalog and carries no authority of any kind. The bridge adds the `execution` and `history` blocks after the claim; a creator must not write them.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -46,6 +46,11 @@
     "timeout_seconds": { "type": "integer", "minimum": 60, "maximum": 21600 },
     "max_turns": { "type": ["integer", "null"], "minimum": 1, "maximum": 500 },
     "notes": { "type": "string", "maxLength": 4000 },
+    "model": {
+      "type": ["string", "null"],
+      "maxLength": 40,
+      "description": "Optional. Names the Claude model this task must run on (Haiku | Sonnet | Opus | Fable 5 | Fable 5.1, or a full id such as claude-sonnet-5). Omit it and the executor scores the task and picks haiku/sonnet/opus itself — fable is never chosen automatically. This is the ONE selection a task may make, and it selects a key in config/model-policy.json rather than supplying a string: an unknown or unavailable value is refused, never substituted. It grants no authority — provider, execution profile, working directory, tools, MCP capabilities and credentials all remain server-side decisions."
+    },
     "source": {
       "type": "object",
       "description": "Origin of the task when an adapter converted it from another surface (today: a GitHub Issue, written by bridge/github-issues.js). Informational for the executor; the adapter records its Issue notifications under `notifications`. A planner writing tasks by hand omits it.",
