@@ -1,0 +1,21 @@
+{
+  "number": 95,
+  "id": 5328434506,
+  "node_id": "I_kwDOTnlaF88AAAABPZl1Sg",
+  "html_url": "https://github.com/othoth77/mythos-prod/issues/95",
+  "title": "TASK: تحديث MYTHOS Status Center بالكامل وربطه بمصدر الحقيقة",
+  "body": "## الهدف\nتحديث MYTHOS Status Center على https://status.mythosprod.xyz/ بحيث يعكس الوضع الحقيقي الحالي لمنظومة MYTHOS، وليس البيانات القديمة.\n\n## المطلوب\n\n- اعتبار GitHub ومحتوى المستودعات المعتمدة Source of Truth.\n- اكتشاف جميع مشاريع MYTHOS الحالية وإضافة المشاريع الجديدة المفقودة من Status Center.\n- مراجعة كل مشروع موجود: الوجود، النشاط، الحالة الفعلية، المنجز، قيد التنفيذ، المتوقف، والخطوة التالية.\n- إعادة حساب نسب التقدم من الأدلة الفعلية الموجودة في repositories والملفات والcommits والاختبارات.\n- عدم اختراع أي نسبة. عند عدم توفر أدلة كافية استخدم `NOT CALCULABLE` بدلاً من رقم تقديري.\n- مراجعة وتحديث Live Services وInfrastructure وExecution Paths وBlockers وOwner Actions وNext Actions وTimeline/History وWhat Changed وCompleted/Do Not Reopen وDocument Reconciliation وRepository Discovery وReview History.\n- إزالة أو إخفاء المعلومات التقنية القديمة أو غير المفيدة في النظرة اليومية، مع إبقاء المعلومات التشغيلية المهمة.\n- جعل Status Center بسيطة وواضحة: ماذا لدينا الآن؟ أين وصل كل مشروع؟ ما الذي يعمل؟ ما الذي توقف؟ ما الذي يحتاج تدخلاً؟ وما الخطوة التالية؟\n- مراجعة آلية توليد وتحديث `data/current.json` والـmonitor/review pipeline وتحديد سبب عدم التحديث وإصلاحه.\n- إضافة آلية موثوقة لاكتشاف المشاريع الجديدة مستقبلاً حتى لا تختفي من Status Center.\n- الحفاظ على مصدر بيانات مركزي واحد للصفحة.\n- عدم إعادة بناء أي جزء مكتمل إلا إذا أثبت التدقيق أنه أصبح خاطئاً أو غير صالح.\n\n## التحقق النهائي\n\nبعد التنفيذ:\n\n1. تشغيل الاختبارات اللازمة.\n2. التحقق من أن Status Center تعرض البيانات الجديدة فعلياً.\n3. التحقق من ظهور المشاريع الجديدة.\n4. التحقق من أن نسب التقدم مبنية على الأدلة.\n5. التحقق من إزالة البيانات القديمة المضللة.\n6. التحقق من عدم كسر monitor أو health endpoint.\n\n## تسليم إلزامي\n\n- تنفيذ العمل بالكامل، وليس مجرد تقديم تقرير أو اقتراحات.\n- GitHub هو Source of Truth.\n- بعد اكتمال العمل والتحقق منه: commit ثم push.\n- تسجيل commit hash وremote HEAD ونتائج الاختبارات والخطوة التالية في `docs/AI_HANDOVER.md`.\n\n## Bridge / Claude\n\nهذه Issue من نوع TASK ومطلوب أن يلتقطها الـBridge ويمررها إلى Claude للتنفيذ. يجب على Claude تنفيذ المهمة من المستودع، ثم توثيق النتيجة وإغلاق الـTASK فقط بعد اكتمال التحقق والتسليم.",
+  "state": "open",
+  "labels": [
+    {
+      "name": "task"
+    }
+  ],
+  "user": {
+    "login": "othoth77"
+  },
+  "created_at": "2026-09-02T19:42:39Z",
+  "updated_at": "2026-09-02T19:42:39Z",
+  "comments": 0,
+  "_fixture_note": "Real public payload of othoth77/mythos-prod#95 captured 2026-09-02 (trimmed to the fields the adapter reads). Used ONLY to test discovery/parsing; the suite never executes it."
+}

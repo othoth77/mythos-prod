@@ -1,0 +1,23 @@
+# MYTHOS GitHub Issues intake — drop-in for the deploy user unit mythos-github-bridge.service.
+#
+# Install (as deploy, an OWNER step — it binds a credential to a timer):
+#   mkdir -p ~/.config/systemd/user/mythos-github-bridge.service.d
+#   cp projects/mythos-ai-executor/bridge/systemd/mythos-github-bridge.service.d/issues.conf.example \
+#      ~/.config/systemd/user/mythos-github-bridge.service.d/issues.conf
+#   systemctl --user daemon-reload      # the existing 2-minute timer now runs `tick` with the Issues phases
+#
+# The token is the Vault reference cred_github_gateway (fine-grained PAT, deploy-owned 0600 file),
+# bound BY REFERENCE exactly like the executor's github-mcp-rw.conf: no copy of the value exists.
+# The adapter reads MYTHOS_GITHUB_MCP_RW_TOKEN from the environment and never logs, writes or forwards it.
+# The PAT needs `issues: read/write` on othoth77/mythos-prod (comments, labels, optional close).
+#
+# ROLLBACK: rm this file, systemctl --user daemon-reload. The bridge keeps working on planner-written tasks.
+[Service]
+Environment=MYTHOS_ISSUES_ENABLED=1
+EnvironmentFile=/home/deploy/deployments/mythos-gateway/github-mcp-rw.env
+# Optional policy knobs (defaults shown):
+#Environment=MYTHOS_ISSUES_LABEL=task
+#Environment=MYTHOS_ISSUES_RERUN_LABEL=rerun
+#Environment=MYTHOS_ISSUES_DEFAULT_ACTION=investigate
+#Environment=MYTHOS_ISSUES_CLOSE_ON_COMPLETED=0
+#Environment=MYTHOS_ISSUES_MAX_PER_TICK=20

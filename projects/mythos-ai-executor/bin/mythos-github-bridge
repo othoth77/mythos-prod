@@ -11,6 +11,14 @@
 //   mythos-github-bridge validate <file>     validate a task file offline (exit 1 when invalid)
 //   mythos-github-bridge instruction <file>  print the instruction the executor would receive
 //
+// GitHub Issues intake (bridge/github-issues.js; needs a token in the env, see docs/MYTHOS_GITHUB_ISSUES.md):
+//   mythos-github-bridge issues-tick [--dry-run] [--only N[,M]] [--no-bridge]
+//                                            intake (Issue → PENDING task) → bridge tick → notify (Issue comments)
+//   mythos-github-bridge issues-status        Issue ⇄ task ⇄ executor ⇄ report relation from the control branch
+//   mythos-github-bridge issues-parse <issue.json | N>
+//                                            offline: what task an Issue payload (file, or number fetched read-only) would become
+//   `tick` runs the issues phases too when MYTHOS_ISSUES_ENABLED=1 (the deploy timer drop-in sets it).
+//
 // Runs as the executor's user (deploy): it shares the executor store by
 // requiring the executor module directly, exactly like bin/mythos-ai-executor
 // enqueue does. No token, no network credential — Git over the deploy SSH
@@ -30,15 +38,48 @@ function out(v) { process.stdout.write(JSON.stringify(v, null, 2) + '\n'); }
 function die(msg, code) { process.stderr.write(msg + '\n'); process.exit(code === undefined ? 1 : code); }
 
 function executor() { return require('../executor'); }
+function issues() { return require('../bridge/github-issues'); }
+function fail(e) { die(String(e && e.message || e)); }
+function onlyArg() {
+  var i = argv.indexOf('--only');
+  if (i !== -1 && argv[i + 1]) process.env.MYTHOS_ISSUES_ONLY = argv[i + 1];
+  return process.env.MYTHOS_ISSUES_ONLY || '';
+}
 
 switch (cmd) {
   case 'init':
     out(bridge.init());
     break;
   case 'tick': {
+    if (process.env.MYTHOS_ISSUES_ENABLED === '1') {
+      issues().issuesTick(executor(), { forceIndex: argv.indexOf('--index') !== -1, only: onlyArg() }).then(function (r) { out(r); process.exit(r.ok ? 0 : 2); }, fail);
+      break;
+    }
     var r = bridge.tick(executor(), { forceIndex: argv.indexOf('--index') !== -1 });
     out(r);
     process.exit(r.ok ? 0 : 2);
+    break;
+  }
+  case 'issues-tick': {
+    onlyArg();
+    issues().issuesTick(executor(), { dryRun: argv.indexOf('--dry-run') !== -1, skipBridge: argv.indexOf('--no-bridge') !== -1, forceIndex: argv.indexOf('--index') !== -1 })
+      .then(function (r) { out(r); process.exit(r.ok ? 0 : 2); }, fail);
+    break;
+  }
+  case 'issues-status':
+    out(issues().status());
+    break;
+  case 'issues-parse': {
+    if (!arg) die('usage: mythos-github-bridge issues-parse <issue.json | issue-number>');
+    var mod = issues();
+    var icfg = mod.config();
+    var payload = /^\d+$/.test(arg) ? null : JSON.parse(fs.readFileSync(arg, 'utf8'));
+    var p = payload ? Promise.resolve(payload) : mod.createClient(icfg, mod.readToken(), { dryRun: true }).getIssue(parseInt(arg, 10));
+    p.then(function (issue) {
+      var conv = mod.issueToTask(icfg, issue, 1);
+      out({ issue: issue.number, title: issue.title, state: issue.state, labels: (issue.labels || []).map(function (l) { return l.name || l; }), valid: !!conv.task, errors: conv.errors, task: conv.task || conv.candidate });
+      process.exit(conv.task ? 0 : 1);
+    }, fail);
     break;
   }
   case 'daemon':
@@ -67,5 +108,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('usage: mythos-github-bridge <init|tick|daemon|status|validate <file>|instruction <file>>');
+    die('usage: mythos-github-bridge <init|tick|daemon|status|validate <file>|instruction <file>|issues-tick|issues-status|issues-parse <file|N>>');
 }

@@ -188,6 +188,13 @@ delete the drop-in and `systemctl --user daemon-reload`.
 
 The smoke record `OTH-2026-00022` predates F2 and is the case F2 detects: it was closed by the session with no sections; its evidence is on `control/reports/gh-20260902-bridge-smoke-01.json`.
 
+## 12c. GitHub Issues intake (2026-09-02)
+
+`bridge/github-issues.js` turns open Issues labelled `task` into `control/tasks/gh-issue-<n>.json` (PENDING, with a
+`source` block — the only schema addition) and posts created/claimed/report comments from the control files. The
+bridge is unchanged; `tick` runs the Issues phases only when `MYTHOS_ISSUES_ENABLED=1` (deploy drop-in with the
+token file bound by reference). Spec, Issue format and security: `docs/MYTHOS_GITHUB_ISSUES.md`.
+
 ## 13. Honest limits
 
 - Latency: claim within ~2 min, visible on GitHub after the next relay tick (≤5 min); report likewise.

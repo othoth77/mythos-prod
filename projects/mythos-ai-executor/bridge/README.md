@@ -166,3 +166,11 @@ Raw read URL pattern (private repo → authenticated):
   branch plus the executor store. A PENDING task whose executor record already
   exists is re-claimed, not re-run. A claimed task whose executor record is
   gone becomes BLOCKED — it is never silently executed twice.
+
+## Tasks that come from GitHub Issues
+
+An Issue labelled `task` (open) is converted by the Issues adapter (`bridge/github-issues.js`) into
+`control/tasks/gh-issue-<n>.json` with the same protocol plus an informational `source` block
+(`kind: github-issue`, `issue_number`, `issue_url`, ids, `attempt`, `notifications` = the comment ids the adapter
+posted). The bridge treats such a task exactly like a planner-written one; the adapter reports back on the Issue
+from the task/report files (never the other way round). How to write such an Issue: `docs/MYTHOS_GITHUB_ISSUES.md`.
