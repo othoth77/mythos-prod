@@ -44,7 +44,30 @@
     "Perform one controlled real WhatsApp smoke test only after automated tests pass.",
     "Verify deployment/restart recovery and create the normal GitHub REPORT with commit SHA, tests, risks and delivery status."
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-02T19:00:00Z",
-  "created_by": "chatgpt"
+  "created_by": "chatgpt",
+  "execution": {
+    "executor_task_id": "t-20260902195620-d89com",
+    "othmode_task_id": "OTH-2026-00024",
+    "execution_profile": "repo-write",
+    "expected_delivery": "commit",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-20260902-wa-bridge-notify-01",
+    "branch": "mythos/gh/gh-20260902-wa-bridge-notify-01",
+    "base_commit": "ccedcbc508505f351e59306941fbf61a3218cbbf",
+    "claimed_at": "2026-09-02T19:56:20.893Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "8d7c750b3460c0baa92466c0d4e4751dbbf6fb95dda7fc03cf567c697ced6c50",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-02T19:56:20.894Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-02T19:56:20.928Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260902195620-d89com queued; OTHMODE OTH-2026-00024"
+    }
+  ]
 }
