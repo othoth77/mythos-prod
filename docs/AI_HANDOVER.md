@@ -1,11 +1,71 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-02 08:00 UTC
-**From:** MCP-ECOSYSTEM-1b — **re-verification of the MCP ecosystem against the running host (all suites green, real gateway handshake, governed invokes behaving as the matrix says), `main` merged into the branch with the `probes.json` conflict resolved (22 probes), tip `aa18a69`; delivery still DENIED by governance on the same two shas — owner approval is the only remaining step before the branch reaches GitHub.**
+**Last updated:** 2026-09-02 08:45 UTC
+**From:** MCP-ECOSYSTEM-1c — **the three governance approvals are GRANTED and `mythos/mcp-ecosystem-20260901` is on GitHub (`b069585`); the reconciliation merge into `main` was refused by the agent permission layer and was not worked around, so the executor route, the OTHMODE fix and the MCP probes are verified (all suites green, real gateway handshake, governed invokes per matrix) but STILL NOT LIVE — one operator merge + two service restarts remain (exact commands below).**
+
+**Previously:** MCP-ECOSYSTEM-1b — **re-verification of the MCP ecosystem against the running host (all suites green, real gateway handshake, governed invokes behaving as the matrix says), `main` merged into the branch with the `probes.json` conflict resolved (22 probes), tip `aa18a69`; delivery still DENIED by governance on the same two shas — owner approval is the only remaining step before the branch reaches GitHub.**
 
 **Previously:** MCP-ECOSYSTEM-1 — **the MYTHOS MCP ecosystem is inventoried, completed where completion was possible without an owner decision, verified against the running host, and committed on `mythos/mcp-ecosystem-20260901` (`d9e5c54`) — delivery to GitHub is DENIED by governance on two path-pattern hits and awaits two owner approvals (exact commands below); nothing was pushed around the cage.** Estate registry + availability check + permission matrix + Vault inventory + OTHMODE discovery fix + the executor's governed MCP invoke with audit. 167/0 new assertions, 0 regressions (37/0 · 58/0 · 264/0 · 141/0). Live: the check reports the estate OK; a real handshake through ContextForge and ten governed calls against production behaved exactly as the matrix says. **Not complete by the mission's own gate** — four owner-gated items remain (below), and `main` is still undeliverable, so the executor route, the OTHMODE fix and the probes are verified but not live.
 
 **Previously:** MYTHOS-VAULT-0 — Vault architecture documented and delivered (`mythos/vault-architecture-20260901`, `7f7773d`).
+
+## MCP-ECOSYSTEM-1c — approvals confirmed, branch on GitHub, `main` merge BLOCKED by the agent permission layer (2026-09-02 08:29–08:45 UTC)
+
+### State found on the host (nothing assumed)
+| | |
+|---|---|
+| Governance | the three approvals from `docs/MCP_COMPLETION_NEXT_ACTIONS.md` are **GRANTED** (08:10 UTC, `decided_by` Othman Haddad, `sudo_user` root): `ga-mtjtgkqk-031072` → `d9e5c54` (`credential-inventory.json`), `ga-mtjtgsv1-510565` → `d287b97` (`contextforge.env.example`), `ga-mtjth0jq-e2693c` → `f5e503a` (`budgets.json`). `audit.log` carries all three; `forged.json` is empty. |
+| Branch | `mythos/mcp-ecosystem-20260901` is **on origin at `b069585`** (relay delivered it after the approvals; the 08:11 and 08:17 DENIED lines predate that tick). |
+| `main` | local `63aec2c`, `origin/main` `c3cda69` (owner push, one docs file) → **33 ahead / 1 behind**; the relay REFUSES `main` as diverged every 5 min (unit `failed`, timer running). `git merge-tree --write-tree` is **conflict-free** for both `main`+`origin/main` and `main`+`b069585`. |
+| Other relay noise | `mythos/m-msy4a8iz-f2673d/tk-msy4a8j0-f1b3c5` (`1e4a1ee`, 2026-08-18 autopilot task branch touching `agents.json`/`agent-registry.js`) is DENIED each tick — pre-existing, unrelated to MCP, not touched. |
+| Host | 4 other Claude sessions resident; the shared checkout's reflog shows no activity since `63aec2c` (07:06 UTC); tree clean. |
+
+### What this session did NOT do — and why
+The reconciliation merge on the shared checkout (`sudo -u deploy git -C /home/deploy/projects/mythos-prod merge --no-ff origin/main …`)
+was **refused by the agent permission layer** (twice: combined and single-command form). It was not worked around: no rebase, no reset,
+no raw push, no temp-worktree trick. Consequently the MCP branch was **not merged into `main`**, the executor and command-center were
+**not restarted** (nothing new to load), and the executor route / OTHMODE view / MCP probes are **still not live** — the deployed daemon
+answers `GET /mcp/registry` **404** with a valid bearer (old route table) and OTHMODE `GET /api/othmode/mcp` **404**, exactly as before.
+
+### Verification performed (branch tip `b069585`, as `deploy`, 08:33–08:38 UTC)
+| Check | Result |
+|---|---|
+| `tests/mcp-ecosystem-test.js` | **167 / 0** |
+| `gateway-boundary` · `othk-6` · `mythos-ai-executor` · `othmode-2` · `stc-2-monitor` · `monitor-coverage` | 37/0 · 58/0 · 264/0 · 141/0 · 86/0 · 40/0 |
+| `mcp-registry-check` (live, 08:35 UTC, snapshot rewritten) | OK — oth-mcp ONLINE 8/8 · mythos-mcp-http ONLINE 8/8 · contextforge ONLINE 8 federated (finding: `cred_contextforge_executor_client` absent) · github-mcp-rw UNAUTHORIZED/disabled · github-mcp-readonly UNAUTHORIZED/disabled · context7 ONLINE 2/2 disabled — `{ONLINE:4, UNAUTHORIZED:2, enabled:3, disabled:3}` |
+| `vault-inventory-check` (deploy) | 20 checked, 20 ok, 0 drift, 3 unknowable (root/ubuntu-owned) |
+| ContextForge real handshake (admin JWT via `cfadmin.sh`, `Accept: application/json, text/event-stream`, never printed) | `initialize` ✓ (`mcp-streamable-http 1.29.0`) · `tools/list` **8** · `tools/call mythos-mcp-system-health` real Status Center data (52 KB, `isError:false`) · unknown tool `isError:true` · `/tokens` **0** · `/gateways` 1 (`mythos-mcp`) · `/servers` 0 |
+| Security boundaries | gateway loopback `/health` 200, `/mcp` no-cred 401, `/admin` 401 · public `/gateway/health` 200, `/gateway/mcp` 401, `/gateway/tools` 401, `/gateway/admin` **404** · bridge 8160 `/health` 200, `/mcp` no-token 401 · executor `/mcp/registry` and `/mcp/invoke` no-bearer 401, `/health` 200 |
+| Governed invoke (module `lib/mcp-invoke.js`, bridge token by reference inside a deploy shell, audit to a scratch file, removed after) | `oth-mcp.system_health` OK · `oth-mcp.capability_registry` OK · `mythos-mcp-http.knowledge_search` OK · `mythos-mcp-http.budget_status {project}` OK · `github-mcp-rw.get_me` → `MCP_SERVER_DISABLED` 409 · `contextforge.system_health` → `MCP_CREDENTIAL_UNAVAILABLE` 503 · `oth-mcp.knowledge_write` → `MCP_TOOL_UNREGISTERED` 404 · secret-shaped argument → `MCP_INPUT` 400 · unknown server → `MCP_SERVER_UNREGISTERED` 404 · **`mythos-mcp-http` with no bridge token in the environment → `MCP_CREDENTIAL_UNAVAILABLE` 503** (this is the deployed daemon's state, see below) |
+| Audit | 11 lines, 0600 deploy, every entry carries actor/agent/subject/server/tool/authorization/execution/error; `findSecretKinds` = **none** |
+| Route-level closed field set | `server.js` rejects any field outside `server, tool, arguments, task_id, approval_id, requested_by` with `UNEXPECTED_FIELD` 400 (the module itself ignores extras — the HTTP wall is the boundary) |
+| OTHMODE live `tools()` (`main` code) | still emits the bogus `mcp:servers` row — the fix lands only with the merge |
+| Status Center live probes | 20 probes, none `mcp-*` — the two MCP probes land only with the merge |
+
+### Credential note for the deployed daemon (owner decision, not taken)
+`~deploy/.config/mythos-ai-executor/executor.env` holds only `MYTHOS_EXECUTOR_TOKEN`. After the merge, executor invokes against
+`mythos-mcp-http` will answer **503 `MCP_CREDENTIAL_UNAVAILABLE`** (fail-closed, audited) until the owner binds
+`cred_mcp_http_bridge_token` (`MYTHOS_MCP_HTTP_TOKEN`, from `deployments/mythos-gateway/mcp-http.env`) into that environment file.
+`oth-mcp.*` (stdio launcher, no credential) will work from the daemon as-is. Nothing was copied.
+
+### Exact next action (operator shell, as `deploy`; merge-only, no rebase, no reset)
+```
+cd /home/deploy/projects/mythos-prod
+sudo -u deploy git merge --no-ff origin/main -m "Merge origin/main (c3cda69) into main"
+sudo -u deploy git merge --no-ff origin/mythos/mcp-ecosystem-20260901 -m "Merge mythos/mcp-ecosystem-20260901 into main — MCP-ECOSYSTEM-1 (approvals ga-mtjtgkqk-031072, ga-mtjtgsv1-510565, ga-mtjth0jq-e2693c)"
+sudo -u deploy XDG_RUNTIME_DIR=/run/user/1001 systemctl --user restart mythos-ai-executor.service mythos-command-center.service
+sudo systemctl start mythos-status-monitor.service
+sudo systemctl start mythos-git-push.service && sudo -u deploy git ls-remote origin refs/heads/main refs/heads/mythos/mcp-ecosystem-20260901
+```
+Then expect: executor `GET /mcp/registry` with bearer **200** (6 servers, metadata only) · OTHMODE `GET /api/othmode/mcp` **200** and
+`/api/othmode/tools` without `mcp:servers` · `live-status.json` containing `mcp-bridge-loopback` + `mcp-gateway-loopback` ·
+`origin/main` = the second merge commit · relay unit back to success. Only the three merge/restart lines are new; every commit in
+`origin/main..main` is either already on an origin branch or one of the three approved shas.
+
+### Owner items (unchanged from 1b, plus the merge above)
+1. install `ops/oom/user@1001.service.d/oom.conf` · 2. bind a GitHub machine credential (`cred_github_gateway`) then enable `github-mcp-rw` ·
+3. issue gateway client tokens incl. `cred_contextforge_executor_client` · 4. gateway is already public (unattended nginx restart) — confirm or roll back ·
+5. bind `cred_mcp_http_bridge_token` to the executor environment (above) · 6. install `mythos-mcp-registry-check.timer` · 7. decide the two orphan containers (8082, 8083).
 
 ## MCP-ECOSYSTEM-1b — re-verification, merge with main, delivery state (2026-09-02 07:45–08:00 UTC)
 
