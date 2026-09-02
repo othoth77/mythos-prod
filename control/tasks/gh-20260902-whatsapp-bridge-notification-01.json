@@ -1,0 +1,50 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-20260902-whatsapp-bridge-notification-01",
+  "project": "mythos-prod",
+  "objective": "Implement a safe WhatsApp notification layer for the existing MYTHOS GitHub Bridge. When a task reaches a terminal report state, the Bridge must send a single WhatsApp notification through a provider adapter. This task is ONLY for Bridge notifications and must not implement MYTHOS AUTO WhatsApp functionality.",
+  "scope": [
+    "Inspect the existing GitHub Bridge and integrate a notification adapter without changing its execution semantics.",
+    "Evaluate the previously identified self-hosted projects Evolution API, WAHA, MultiWA and WaSphere and select the safest appropriate provider for this narrow notification use case.",
+    "Prefer Evolution API if inspection confirms it is the best fit, but do not assume the choice without evaluation.",
+    "Keep the provider behind an adapter so a future migration to official WhatsApp Business Cloud API does not require rewriting the Bridge.",
+    "Send notifications for COMPLETED, FAILED, BLOCKED and HUMAN_APPROVAL only.",
+    "Implement durable idempotency so repeated Bridge polling, restart or concurrent ticks cannot duplicate successful notifications.",
+    "Ensure WhatsApp failure never changes the actual GitHub task/report status or breaks the Bridge.",
+    "Use secure environment/secret configuration and never commit or log WhatsApp credentials.",
+    "Add automated tests using mocks and perform one controlled real smoke test only after all automated tests pass.",
+    "Integrate safely with the existing Bridge service/timer and document configuration, security, retry and rollback behavior."
+  ],
+  "constraints": [
+    "Do NOT implement MYTHOS AUTO WhatsApp/customer-chat functionality; this task is only the first Bridge notification layer.",
+    "Do NOT rebuild or redesign MCP, ContextForge, OTHMODE or the existing AI Executor.",
+    "Do NOT touch AUTOS-0, SPY, n8n or unrelated projects.",
+    "Do NOT change protected governance policy or bypass the existing governance relay.",
+    "Do NOT expose, commit or print API keys, access tokens, passwords, QR/session credentials, authorization headers or other secrets.",
+    "Do NOT use blind git add .; stage only explicitly intended files.",
+    "Do NOT push directly with raw git push; use the existing MYTHOS governance relay.",
+    "Do NOT send real WhatsApp messages during automated tests.",
+    "WhatsApp must be disabled by default until explicitly configured and enabled.",
+    "Prefer private/local networking for the WhatsApp provider; do not expose it publicly unless strictly required.",
+    "Keep the deployment lightweight because the VPS has previously shown severe swap pressure.",
+    "Use the existing MYTHOS storage/configuration conventions where possible; do not add an unnecessary database.",
+    "Preserve existing green test suites and existing Bridge/OTHMODE/Executor semantics."
+  ],
+  "priority": "normal",
+  "requested_action": "implement",
+  "validation_requirements": [
+    "Validate the provider choice and document why it is appropriate.",
+    "Test COMPLETED, FAILED, BLOCKED and HUMAN_APPROVAL notifications.",
+    "Verify PENDING and non-terminal states do not trigger notifications.",
+    "Verify duplicate polling and concurrent ticks result in at most one successful notification.",
+    "Verify failed delivery is retryable and does not alter task status.",
+    "Verify restart/recovery does not duplicate successful delivery.",
+    "Verify secrets are absent from Git, logs, reports and test output.",
+    "Run the relevant existing Bridge, OTHMODE, Executor and governance tests plus the new notification tests.",
+    "Perform one controlled real WhatsApp smoke test only after automated tests pass.",
+    "Verify deployment/restart recovery and create the normal GitHub REPORT with commit SHA, tests, risks and delivery status."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-02T19:00:00Z",
+  "created_by": "chatgpt"
+}
