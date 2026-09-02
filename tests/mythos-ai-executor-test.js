@@ -1370,8 +1370,8 @@ chain = chain.then(function () {
   // (16) github MCP fails closed: server_disabled, no credential exists.
   // -------------------------------------------------------------------
   var ghResolveRepoRead = mcpLib.resolveCapabilities(ghSkill, 'repo-read');
-  ok(ghResolveRepoRead.allowed.length === 4 && ghResolveRepoRead.denied_reason === null && ghResolveRepoRead.allowed.indexOf('github.create_branch') !== -1,
-    'M-12(16): github-review resolves its 4 declared tools (incl. create_branch, CONTROLLED at invoke time) — the github server is enabled by the owner (2026-09-02); the credential itself never reaches the task');
+  ok(ghResolveRepoRead.allowed.length === 3 && ghResolveRepoRead.denied_reason === null && ghResolveRepoRead.allowed.indexOf('github.pull_request_review_write') !== -1 && ghResolveRepoRead.allowed.indexOf('github.create_branch') === -1,
+    'M-12(16): github-review resolves its 3 review tools (pull_request_review_write CONTROLLED at invoke time; create_branch withdrawn after the 2b proof) — the github server is enabled by the owner (2026-09-02); the credential itself never reaches the task');
   ok(mcpLib.DEFAULT_REGISTRY.servers.github.enabled === true, 'M-12(16): the production mcp-capabilities.json has github enabled (owner decision, MCP-ECOSYSTEM-2b)');
   var ghDisabledReg = JSON.parse(JSON.stringify(mcpLib.DEFAULT_REGISTRY)); ghDisabledReg.servers.github.enabled = false;
   ok(mcpLib.resolveCapabilities(ghSkill, 'repo-read', ghDisabledReg).allowed.length === 0 && mcpLib.resolveCapabilities(ghSkill, 'repo-read', ghDisabledReg).denied_reason === 'server_disabled',

@@ -2,19 +2,16 @@
   "servers": {
     "github": {
       "enabled": true,
-      "description": "GitHub PR/review operations through github-mcp-rw. Enabled by the owner on 2026-09-02 (MCP-ECOSYSTEM-2b) once cred_github_gateway became active in the Vault inventory; the credential is resolved by reference in lib/mcp-invoke.js and never reaches a task. Flip this flag to disable the outbound half again.",
+      "description": "GitHub pull-request review through github-mcp-rw, v1.10.1 tool names. Enabled by the owner on 2026-09-02; the credential is resolved by reference in lib/mcp-invoke.js and never reaches a task. create_branch was declared for the MCP-ECOSYSTEM-2b proof only and withdrawn on 2026-09-02 (least privilege: a review skill does not create branches). Flip enabled to disable the outbound half again.",
       "tools": {
         "list_pull_requests": {
-          "description": "List open pull requests for a repository."
+          "description": "List pull requests for a repository (github.read)."
         },
-        "get_pull_request_diff": {
-          "description": "Fetch the diff for a single pull request."
+        "pull_request_read": {
+          "description": "Read one pull request: details, diff, files, comments, reviews, status (github.read; consolidated v1.10.1 name)."
         },
-        "create_review_comment": {
-          "description": "Post a review comment on a pull request."
-        },
-        "create_branch": {
-          "description": "Create a branch from an existing ref. github.write in the permission matrix: CONTROLLED for the executor, so a call needs a GRANTED, unconsumed approval (mcp:github.write). Added 2026-09-02 (MCP-ECOSYSTEM-2b, owner option 1) as the reversible write for the governed end-to-end proof; the branch is removed by hand afterwards because delete_* stays DENY."
+        "pull_request_review_write": {
+          "description": "Create, add comments to, or submit a pull request review (github.pull_request, CONTROLLED: needs a GRANTED approval mcp:github.pull_request at invoke time)."
         }
       },
       "required_execution_profiles": [

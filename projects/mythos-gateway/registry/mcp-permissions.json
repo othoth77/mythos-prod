@@ -9,57 +9,251 @@
   },
   "default": "DENY",
   "capabilities": {
-    "mythos.read":         { "decision": "ALLOW",      "description": "read MYTHOS state through oth-mcp (knowledge, portfolio, capabilities, execution truth, budget, health)" },
-    "external.read":       { "decision": "ALLOW",      "description": "read-only third-party reference (documentation servers)" },
-    "github.read":         { "decision": "ALLOW",      "description": "read repositories, issues, pull requests, workflow runs, code scanning" },
-    "github.issue":        { "decision": "ALLOW",      "description": "create or comment on issues and labels" },
-    "github.write":        { "decision": "CONTROLLED", "description": "push files, create branches, repositories, gists" },
-    "github.pull_request": { "decision": "CONTROLLED", "description": "open, update or review a pull request" },
-    "github.actions":      { "decision": "CONTROLLED", "description": "run, re-run or cancel a workflow" },
-    "github.merge":        { "decision": "CONTROLLED", "description": "merge a pull request — protected paths remain governed by the delivery relay regardless" },
-    "vault.read":          { "decision": "CONTROLLED", "description": "return a credential VALUE to a subject (MYTHOS_VAULT_ARCHITECTURE §6: the narrow, justified exception)" },
-    "infrastructure":      { "decision": "RESTRICTED", "description": "host, container, DNS, firewall or service changes" },
-    "destructive":         { "decision": "DENY",       "description": "delete a repository, a branch, a run log, a workflow — irreversible on a third party" }
+    "mythos.read": {
+      "decision": "ALLOW",
+      "description": "read MYTHOS state through oth-mcp (knowledge, portfolio, capabilities, execution truth, budget, health)"
+    },
+    "external.read": {
+      "decision": "ALLOW",
+      "description": "read-only third-party reference (documentation servers)"
+    },
+    "github.read": {
+      "decision": "ALLOW",
+      "description": "read repositories, issues, pull requests, workflow runs, code scanning"
+    },
+    "github.issue": {
+      "decision": "ALLOW",
+      "description": "create or comment on issues and labels"
+    },
+    "github.write": {
+      "decision": "CONTROLLED",
+      "description": "push files, create branches, repositories, gists"
+    },
+    "github.pull_request": {
+      "decision": "CONTROLLED",
+      "description": "open, update or review a pull request"
+    },
+    "github.actions": {
+      "decision": "CONTROLLED",
+      "description": "run, re-run or cancel a workflow"
+    },
+    "github.merge": {
+      "decision": "CONTROLLED",
+      "description": "merge a pull request — protected paths remain governed by the delivery relay regardless"
+    },
+    "vault.read": {
+      "decision": "CONTROLLED",
+      "description": "return a credential VALUE to a subject (MYTHOS_VAULT_ARCHITECTURE §6: the narrow, justified exception)"
+    },
+    "infrastructure": {
+      "decision": "RESTRICTED",
+      "description": "host, container, DNS, firewall or service changes"
+    },
+    "destructive": {
+      "decision": "DENY",
+      "description": "delete a repository, a branch, a run log, a workflow — irreversible on a third party"
+    }
   },
   "tool_classes": [
-    { "server": "oth-mcp",             "tools": ["*"],                                                                                          "capability": "mythos.read" },
-    { "server": "mythos-mcp-http",     "tools": ["*"],                                                                                          "capability": "mythos.read" },
-    { "server": "contextforge",        "tools": ["mythos-mcp-*", "system_health", "knowledge_*", "project_context", "capability_registry", "execution_*", "budget_status"], "capability": "mythos.read" },
-    { "server": "context7",            "tools": ["*"],                                                                                          "capability": "external.read" },
-    { "server": "github-mcp-readonly", "tools": ["*"],                                                                                          "capability": "github.read" },
-    { "server": "github-mcp-rw",       "tools": ["delete_*"],                                                                                   "capability": "destructive", "note": "first, so no later glob can reclassify a delete" },
-    { "server": "github-mcp-rw",       "tools": ["merge_pull_request"],                                                                         "capability": "github.merge" },
-    { "server": "github-mcp-rw",       "tools": ["create_pull_request", "update_pull_request", "update_pull_request_branch", "create_pending_pull_request_review", "add_comment_to_pending_review", "submit_pending_pull_request_review", "create_and_submit_pull_request_review", "request_copilot_review"], "capability": "github.pull_request" },
-    { "server": "github-mcp-rw",       "tools": ["create_issue", "update_issue", "add_issue_comment", "add_sub_issue", "remove_sub_issue", "reprioritize_sub_issue", "assign_copilot_to_issue", "create_label", "update_label", "add_labels_to_issue", "remove_labels_from_issue"], "capability": "github.issue" },
-    { "server": "github-mcp-rw",       "tools": ["push_files", "create_or_update_file", "create_branch", "create_repository", "fork_repository", "create_gist", "update_gist", "create_discussion", "add_discussion_comment"], "capability": "github.write" },
-    { "server": "github-mcp-rw",       "tools": ["run_workflow", "rerun_workflow_run", "rerun_failed_jobs", "cancel_workflow_run"],              "capability": "github.actions" },
-    { "server": "github-mcp-rw",       "tools": ["get_*", "list_*", "search_*", "download_*", "issue_read", "pull_request_read", "get_me"],     "capability": "github.read" }
+    {
+      "server": "oth-mcp",
+      "tools": [
+        "*"
+      ],
+      "capability": "mythos.read"
+    },
+    {
+      "server": "mythos-mcp-http",
+      "tools": [
+        "*"
+      ],
+      "capability": "mythos.read"
+    },
+    {
+      "server": "contextforge",
+      "tools": [
+        "mythos-mcp-*",
+        "system_health",
+        "knowledge_*",
+        "project_context",
+        "capability_registry",
+        "execution_*",
+        "budget_status"
+      ],
+      "capability": "mythos.read"
+    },
+    {
+      "server": "context7",
+      "tools": [
+        "*"
+      ],
+      "capability": "external.read"
+    },
+    {
+      "server": "github-mcp-readonly",
+      "tools": [
+        "*"
+      ],
+      "capability": "github.read"
+    },
+    {
+      "server": "github-mcp-rw",
+      "tools": [
+        "delete_*"
+      ],
+      "capability": "destructive",
+      "note": "first, so no later glob can reclassify a delete"
+    },
+    {
+      "server": "github-mcp-rw",
+      "tools": [
+        "merge_pull_request"
+      ],
+      "capability": "github.merge"
+    },
+    {
+      "server": "github-mcp-rw",
+      "tools": [
+        "create_pull_request",
+        "update_pull_request",
+        "update_pull_request_branch",
+        "create_pending_pull_request_review",
+        "add_comment_to_pending_review",
+        "submit_pending_pull_request_review",
+        "create_and_submit_pull_request_review",
+        "request_copilot_review",
+        "pull_request_review_write",
+        "add_reply_to_pull_request_comment"
+      ],
+      "capability": "github.pull_request"
+    },
+    {
+      "server": "github-mcp-rw",
+      "tools": [
+        "create_issue",
+        "update_issue",
+        "add_issue_comment",
+        "add_sub_issue",
+        "remove_sub_issue",
+        "reprioritize_sub_issue",
+        "assign_copilot_to_issue",
+        "create_label",
+        "update_label",
+        "add_labels_to_issue",
+        "remove_labels_from_issue",
+        "issue_write",
+        "label_write",
+        "sub_issue_write"
+      ],
+      "capability": "github.issue"
+    },
+    {
+      "server": "github-mcp-rw",
+      "tools": [
+        "push_files",
+        "create_or_update_file",
+        "create_branch",
+        "create_repository",
+        "fork_repository",
+        "create_gist",
+        "update_gist",
+        "create_discussion",
+        "add_discussion_comment",
+        "discussion_comment_write"
+      ],
+      "capability": "github.write"
+    },
+    {
+      "server": "github-mcp-rw",
+      "tools": [
+        "run_workflow",
+        "rerun_workflow_run",
+        "rerun_failed_jobs",
+        "cancel_workflow_run",
+        "actions_run_trigger"
+      ],
+      "capability": "github.actions"
+    },
+    {
+      "server": "github-mcp-rw",
+      "tools": [
+        "get_*",
+        "list_*",
+        "search_*",
+        "download_*",
+        "issue_read",
+        "pull_request_read",
+        "get_me",
+        "actions_get",
+        "actions_list"
+      ],
+      "capability": "github.read"
+    }
   ],
   "subjects": {
     "executor": {
       "description": "mythos-ai-executor governed invoke (bearer holder on 127.0.0.1:8130) — the only subject that executes on MYTHOS' behalf",
       "human": false,
-      "grants": { "mythos.read": "ALLOW", "external.read": "ALLOW", "github.read": "ALLOW", "github.issue": "ALLOW", "github.write": "CONTROLLED", "github.pull_request": "CONTROLLED", "github.actions": "CONTROLLED", "github.merge": "DENY", "vault.read": "DENY", "infrastructure": "DENY", "destructive": "DENY" }
+      "grants": {
+        "mythos.read": "ALLOW",
+        "external.read": "ALLOW",
+        "github.read": "ALLOW",
+        "github.issue": "ALLOW",
+        "github.write": "CONTROLLED",
+        "github.pull_request": "CONTROLLED",
+        "github.actions": "CONTROLLED",
+        "github.merge": "DENY",
+        "vault.read": "DENY",
+        "infrastructure": "DENY",
+        "destructive": "DENY"
+      }
     },
     "othmode": {
       "description": "the OTHMODE read model — computes the `authorized` flag it publishes; it never executes",
       "human": false,
-      "grants": { "mythos.read": "ALLOW" }
+      "grants": {
+        "mythos.read": "ALLOW"
+      }
     },
     "claude": {
       "description": "Claude as a remote gateway client (credential not yet issued — owner decision #2)",
       "human": false,
-      "grants": { "mythos.read": "ALLOW", "external.read": "ALLOW", "github.read": "ALLOW", "github.issue": "ALLOW", "github.write": "CONTROLLED", "github.pull_request": "CONTROLLED", "github.actions": "CONTROLLED", "github.merge": "CONTROLLED" }
+      "grants": {
+        "mythos.read": "ALLOW",
+        "external.read": "ALLOW",
+        "github.read": "ALLOW",
+        "github.issue": "ALLOW",
+        "github.write": "CONTROLLED",
+        "github.pull_request": "CONTROLLED",
+        "github.actions": "CONTROLLED",
+        "github.merge": "CONTROLLED"
+      }
     },
     "chatgpt": {
       "description": "ChatGPT as a remote gateway client (credential not yet issued — owner decision #2)",
       "human": false,
-      "grants": { "mythos.read": "ALLOW", "external.read": "ALLOW", "github.read": "ALLOW", "github.issue": "CONTROLLED" }
+      "grants": {
+        "mythos.read": "ALLOW",
+        "external.read": "ALLOW",
+        "github.read": "ALLOW",
+        "github.issue": "CONTROLLED"
+      }
     },
     "owner": {
       "description": "the human owner, acting through an authenticated session",
       "human": true,
-      "grants": { "mythos.read": "ALLOW", "external.read": "ALLOW", "github.read": "ALLOW", "github.issue": "ALLOW", "github.write": "ALLOW", "github.pull_request": "ALLOW", "github.actions": "ALLOW", "github.merge": "ALLOW", "vault.read": "CONTROLLED", "infrastructure": "ALLOW" }
+      "grants": {
+        "mythos.read": "ALLOW",
+        "external.read": "ALLOW",
+        "github.read": "ALLOW",
+        "github.issue": "ALLOW",
+        "github.write": "ALLOW",
+        "github.pull_request": "ALLOW",
+        "github.actions": "ALLOW",
+        "github.merge": "ALLOW",
+        "vault.read": "CONTROLLED",
+        "infrastructure": "ALLOW"
+      }
     },
     "anonymous": {
       "description": "no authenticated identity",
