@@ -1,8 +1,74 @@
 # Mythos OS — AI Handover
 
 **Last updated:** 2026-09-02 16:20 UTC
-**From:** MCP-GATEWAY-CLAUDE-AUTH — **diagnosed, no change made (owner chose the client-side fix). Claude's remote MCP client reached `https://mythosprod.xyz/gateway/mcp` with the token but sent `Authorization: <token>` WITHOUT the `Bearer` scheme; ContextForge's CSRF middleware treats a scheme-less Authorization header as an ambient credential and answers **403 `CSRF_TOKEN_INVALID`** (log: `CSRF token missing for POST /mcp`). The same request with `Bearer <token>` → 200. Fix: enter the connector's auth value as `Bearer <token>`. The optional nginx map (bare JWT → `Bearer`) was prepared, refused to the agent by the permission layer, and then withdrawn on the owner's decision.**
+**From:** MCP-OAUTH-BRIDGE — **Claude Web can now add MYTHOS MCP as a custom connector with real OAuth 2.1 + PKCE: `https://mythosprod.xyz/mcp` is a second door onto the existing ContextForge, fronted by `mcp-auth-proxy` v1.4.0 (RFC 9728/8414/7591/7636/8707) with a single-identity Dex OIDC issuer at `/dex` and a private Redis replay store. `/gateway/` and ContextForge itself are UNCHANGED. Headless Claude-shaped e2e: 29/29 (discovery → DCR → PKCE authorize → consent → Dex login → token → initialize → tools/list (8) → system-health call → refresh rotation → replay/tamper/redirect-abuse rejections), green again after a full stack restart. Claude Web itself (from the owner's browser, via Anthropic's cloud) registered (`POST /register` 201) and reached the consent page and the Dex login. ONE owner step remains: enter the Dex owner password (`deployments/mythos-mcp-auth/OWNER-LOGIN.txt`, 0600) in that login page, then the connector `MYTHOS MCP (OAuth)` shows the 8 tools. Branch `mythos/mcp-oauth-bridge-20260902` (delivered by the relay).**
 **Previously:** MCP-ECOSYSTEM — OFFICIALLY CLOSED (2026-09-02 15:55 UTC). **Final verification, read-only, all green: `main` = `origin/main` = `13cd622` (clean; the last approved inventory commit `fb8f1be` is an ancestor; verifier ok over the whole stage range). Services: executor active (15:07:52, NRestarts 0), command-center active (08:56:30), bridge active as the SYSTEM unit `mythos-mcp-http.service` (User=deploy, PID 4170095), ContextForge healthy, github-mcp-rw up with `--exclude-tools delete_file`; `/health` 200 on executor, bridge and gateway. Registry check `ok:true` — 5 ONLINE, 0 DEGRADED, 0 findings, 0 drift, 0 credential findings. Gateway: `/gateway/mcp` 401 without a token, `/gateway/admin` 404; ChatGPT and Claude identities each list 8 tools and call `system_health` successfully; token roster = 3 active (executor, claude, chatgpt-v2) + 1 revoked orphan. Deployed executor: 4 governed reads OK on all four paths, `create_branch` refused `MCP_APPROVAL_REQUIRED`, `delete_file` refused `MCP_DENIED`; audit 55 lines, 0600, 0 secret shapes. Inventory 22/22, 0 drift.**
+
+## MCP-OAUTH-BRIDGE — OAuth 2.1 bridge for Claude Web in front of the MYTHOS Gateway (2026-09-02 16:45–17:15 UTC)
+
+**Why:** Claude's custom connectors use OAuth from Anthropic's cloud; ContextForge 1.0.9 is not an
+authorization server, and the static-token path had already broken once (MCP-GATEWAY-CLAUDE-AUTH). The
+owner ordered a ready-made OAuth 2.1 proxy (`github.com/babs/mcp-auth-proxy`) in front of the gateway.
+
+### Architecture deployed
+
+```
+Claude Web ──OAuth 2.1+PKCE──▶ nginx mythosprod.xyz (TLS, existing cert)
+   /mcp /authorize /token /register /consent /callback /.well-known/oauth-*  ──▶ mythos-mcp-auth-proxy 127.0.0.1:8180
+   /dex/                                                                     ──▶ mythos-dex 127.0.0.1:5556 (OIDC, ONE owner identity)
+   /gateway/  (UNCHANGED)                                                    ──▶ mythos-contextforge 127.0.0.1:4444
+mcp-auth-proxy ──Bearer <dedicated ContextForge client token>──▶ mythos-contextforge:4444/mcp (via mythos-gateway_net) ──▶ MYTHOS MCP tools
+mcp-auth-proxy ──▶ mcp-auth-redis (private net 10.0.61.0/24, password, no port)
+```
+
+| Item | Value |
+|---|---|
+| Public URL for Claude Web | `https://mythosprod.xyz/mcp` (Streamable HTTP; auth "Always required", client "register automatically (DCR)") |
+| OAuth provider | mcp-auth-proxy 1.4.0 as the AS; identity from **Dex v2.45.0** (issuer `https://mythosprod.xyz/dex`, password DB, exactly one static user = the owner, no connectors). Chosen because no OIDC IdP existed and a public IdP (Google/GitHub) would admit *any* account: the proxy authorises by groups, not by email. ≈ 8 MB RSS. |
+| Scopes | none (`scopes_supported: []`); authorisation = the owner is logged in. Tool permissions stay in ContextForge: identity `mcp-auth-proxy@mythosprod.xyz`, role `mythos-executor-client` (tools.read + tools.execute), token id `ec667c3b…`, 365 d, file `deployments/mythos-mcp-auth/contextforge-upstream.env` (0600). Never reaches Claude. |
+| Containers added | `mythos-mcp-auth-proxy` (ghcr.io/babs/mcp-auth-proxy:1.4.0@sha256:246e268c…), `mythos-dex` (ghcr.io/dexidp/dex:v2.45.0@sha256:b8469881…), `mcp-auth-redis` (redis:7-alpine@sha256:ff02b58f…) — all digest-pinned, non-root (65532/10003/10002), cap_drop ALL, no-new-privileges, read-only rootfs, mem caps 128/128/64 MB; network `mythos-mcp-auth_net`; proxy also joins `mythos-gateway_net` |
+| Host files | `/home/deploy/deployments/mythos-mcp-auth/` (compose, `dex/config.yaml`, `redis/redis.conf` uid 10002 0400, `mcp-auth-proxy.env` / `dex.env` / `contextforge-upstream.env` / `OWNER-LOGIN.txt` all deploy 0600, `data/`), `/etc/nginx/conf.d/mythos-mcp-auth-limits.conf`, `/etc/nginx/snippets/mythos-mcp-auth{,-proxy,-dex}.conf`, one `include` line in `/etc/nginx/sites-available/mythosprod.xyz` (backup `…bak-pre-mcp-auth-<ts>`) |
+| Repository | `projects/mythos-mcp-auth/` (README, compose, dex config, nginx snippets, env templates named to stay outside the governance patterns, `bin/install.sh`, `bin/oauth-e2e-test.py`) |
+
+### Security controls
+HTTPS only · PKCE S256 required · strict `state` · `resource` (RFC 8707) bound into tokens · AES-GCM sealed
+tokens audience-bound to the base URL (1 h access / 7 d refresh, rotation + reuse detection, code replay revokes the
+family) · Redis single-use codes/consent/state · redirect_uri validated against the sealed registration ·
+consent page with CSP `default-src 'none'; form-action 'self'` · per-IP limits in the proxy AND nginx
+(`limit_req`, status 429; Dex login 20 r/min/IP) · `TRUSTED_PROXY_CIDRS=10.0.61.1/32` (nginx only) ·
+`Authorization`/`Cookie`/`X-Forwarded-*`/`X-User-*` stripped before the upstream hop, `X-User-Sub`/`X-User-Email`
+injected for audit · structured logs with `request_id`, 0 token shapes in proxy/Dex logs · Dex compose env writes
+the bcrypt hash with `$$` (compose interpolates `$`) · no secret in git (staged diff scanned: only the 3 image digests).
+
+### Test results
+| # | Test | Result |
+|---|---|---|
+| 1 | `/gateway/health` | 200 |
+| 2 | `/gateway/mcp` without token | 401 (unchanged); proxy access token on `/gateway/mcp` → 401 (doors are independent) |
+| 3 | discovery (`/.well-known/oauth-protected-resource[/mcp]`, `/.well-known/oauth-authorization-server[/mcp]`) | 200, issuer/resource correct; also fetched by Anthropic (`python-httpx/0.28.1`) and from the owner's Windows browser |
+| 4–7 | authorize → consent → Dex login → callback → token (PKCE S256, state, resource) | 200; wrong verifier 400; code replay 400 + family revoked; refresh rotation ok, old refresh 429 |
+| 8–11 | initialize / tools/list / tools/call `mythos-mcp-system-health` over Streamable HTTP | 200 / 8 tools / 200 with monitor JSON |
+| 12–13 | tampered token / no token | 401 + `WWW-Authenticate … resource_metadata=` |
+| 14 | unregistered `redirect_uri` | 400, no redirect to it; no PKCE / no state → refused |
+| 15 | nginx `limit_req` | fires (first run tripped it: bursts raised, status 429) |
+| 16 | `docker compose restart` (all three) | healthz 200, 0 error lines, e2e 29/29 again; RSS 7/8/4 MB |
+| 17 | internet-facing | Anthropic cloud: `POST /mcp` 401 → discovery 200 → `POST /register` 201 → owner's browser on `/authorize` 200 (consent) |
+| Claude Web | connector `MYTHOS MCP (OAuth)` created (auth "Toujours requis — Détecté", client "DCR — Détecté"), Connect → proxy consent → Approve → Dex login page | **stops at the owner's password** (never typed by an agent) |
+
+### Owner steps
+1. Read `sudo cat /home/deploy/deployments/mythos-mcp-auth/OWNER-LOGIN.txt`, open Claude → Paramètres → Connecteurs →
+   `MYTHOS MCP (OAuth)` → Connecter → Approve & sign in → enter the e-mail/password → tools appear (try `mythos-mcp-system-health`).
+2. Rotate that password (instructions in the file). Optional: delete the old static-token connector `MYTHOS MCP` in Claude.
+3. Later, optional: merge `mythos/mcp-oauth-bridge-20260902` into `main` from an operator shell.
+
+### Rollback
+`cd /home/deploy/deployments/mythos-mcp-auth && docker compose down`; remove the `include snippets/mythos-mcp-auth.conf;` line
+(or restore `mythosprod.xyz.bak-pre-mcp-auth-<ts>`), `rm /etc/nginx/conf.d/mythos-mcp-auth-limits.conf /etc/nginx/snippets/mythos-mcp-auth*.conf`,
+`nginx -t && systemctl reload nginx`; revoke token `ec667c3b…` in ContextForge (`cfadmin.sh`). `/gateway/` never depended on any of it.
+
+**Not touched:** AUTOS, SPY, n8n, GitHub MCP, ContextForge config/tokens/auth, the `/gateway/` route, other vhosts.
+
+**Previously:** MCP-GATEWAY-CLAUDE-AUTH — **diagnosed, no change made (owner chose the client-side fix). Claude's remote MCP client reached `https://mythosprod.xyz/gateway/mcp` with the token but sent `Authorization: <token>` WITHOUT the `Bearer` scheme; ContextForge's CSRF middleware treats a scheme-less Authorization header as an ambient credential and answers **403 `CSRF_TOKEN_INVALID`** (log: `CSRF token missing for POST /mcp`). The same request with `Bearer <token>` → 200. Fix: enter the connector's auth value as `Bearer <token>`. The optional nginx map (bare JWT → `Bearer`) was prepared, refused to the agent by the permission layer, and then withdrawn on the owner's decision.**
 
 ## MCP-GATEWAY-CLAUDE-AUTH — Claude remote MCP: 403 explained; client-side fix chosen (2026-09-02 16:00–16:20 UTC)
 
