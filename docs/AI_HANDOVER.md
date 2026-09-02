@@ -19114,3 +19114,13 @@ automated catalogue/price/compatibility collection without written authorisation
 inactive; Coolify realtime :6001/:6002 published on 0.0.0.0.
 
 **Nothing modified:** SPY, n8n, databases, services, production configuration. No product code written.
+
+## MYTHOS-AUTOS-FOUNDATION-1 — Phase 0b + Phase 1 closure (2026-09-02)
+
+Closure report `docs/MYTHOS_AUTOS_PHASE1_CLOSURE_2026-09-02.md`; source legal register
+`docs/SPY_SOURCE_LEGAL_REGISTER_2026-09-02.md`; proposed SPY backup package `ops/spy-backup/` (dry-run OK as deploy,
+units NOT installed); dated amendments in `AUTOMOTIVE_DATA_GOVERNANCE.md`, `AUTOMOTIVE_INTEGRATION_CONTRACTS.md`,
+`AUTOMOTIVE_ARCHITECTURE.md`. First on-host copies taken: `mythos-backups/{spy-db,ssangyong-db,legacy-ssangyong}/`.
+`main` still 33/0 (owner approval of f5e503a pending); `d9e5c54` (MCP-ECOSYSTEM-1) is on no remote — approve;
+`tk-msy4a8j0` stale — leave. Coolify 6001/6002 are ufw-ALLOWED and public — RESTRICT plan §4.1. fail2ban absent,
+SSH key-only — plan §4.2. Nothing in SPY, n8n, Docker, ufw, sshd or any database was modified.

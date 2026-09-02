@@ -1,7 +1,7 @@
 # Mythos Automotive — Integration Contracts
 
 **Stage:** ATN-0 Atelier Network Foundation and Ecosystem Consistency Amendment (amends MAE-0)
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-05 · **Amended:** 2026-09-02 (see Amendment rows; historical text retained)
 **Repository:** othoth77/mythos-prod
 
 ---
@@ -21,6 +21,7 @@ These rules apply to every integration between products in the Mythos Automotive
 | Provenance travels with data | Source ID, source type, trust level, and snapshot timestamp travel with every cross-boundary datum |
 | Contracts are versioned | Every integration contract carries a version; breaking changes require a new major version |
 | External systems: authorised feed only | Marketplace and official data by authorised API or feed — never scraping |
+| *Amendment 2026-09-02* | *Scope clarification: this rule binds **MYTHOS AUTOS** — AUTOS itself never crawls or scrapes any external site. **SPY** (`spy.mythosprod.xyz`, repo `othoth77/spy`) is a separate system whose market observation and crawling are governed by its own source legal register (`docs/SPY_SOURCE_LEGAL_REGISTER_2026-09-02.md`); AUTOS consumes SPY only through the read interfaces I1–I5 defined in `MYTHOS_AUTOS_FOUNDATION_2026-09-02.md` §J, with no shared database. SPY crawling is separate from AUTOS. Depth extraction of autopart.tn remains disabled until written authorisation exists (legal item L1).* |
 | Idempotency on commands | Every command API requires an idempotency key |
 | Source and correlation_id required | Every event envelope includes a source product, correlation_id, and event version |
 | Failed events are observable | Failed event delivery goes to a dead-letter state with review tooling |

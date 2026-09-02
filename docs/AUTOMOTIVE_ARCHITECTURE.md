@@ -86,6 +86,7 @@ Mythos Automotive Portfolio
 | Vehicle observation | ID Auto |
 | Vehicle fact | ID Auto |
 | Vehicle taxonomy (make/model/variant/fuel/body_type) | ID Auto |
+| *Amendment 2026-09-02:* Vehicle **Type** (catalog / compatibility identity) | **MYTHOS AUTOS** — see `MYTHOS_AUTOS_FOUNDATION_2026-09-02.md` §H; ID Auto keeps Vehicle **Instance** identity (IVID) and instance summary fields only |
 | Smart Gate observation record | ID Auto |
 | Workshop organisation registry | Atelier Network |
 | Workshop registry (brands, sites) | Atelier Network |

@@ -1,0 +1,12 @@
+# PROPOSED — daily at 03:10 UTC, before mythos-backup.timer (03:30) so a later
+# off-host push step can include the fresh copy.
+[Unit]
+Description=Run the MYTHOS SPY backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:10:00 UTC
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

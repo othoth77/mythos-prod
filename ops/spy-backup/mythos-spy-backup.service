@@ -1,0 +1,23 @@
+# PROPOSED — MYTHOS SPY backup (system unit running as deploy, like mythos-backup-db.service).
+# Install (root):  install -m 0644 ops/spy-backup/mythos-spy-backup.{service,timer} /etc/systemd/system/
+#                  systemctl daemon-reload && systemctl enable --now mythos-spy-backup.timer
+[Unit]
+Description=MYTHOS SPY database + snapshots backup (online SQLite backup API)
+Documentation=file:///home/deploy/projects/mythos-prod/ops/spy-backup/README.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+ExecStart=/usr/bin/env bash /home/deploy/projects/mythos-prod/ops/spy-backup/mythos-spy-backup.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/deploy/mythos-backups
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+MemoryMax=256M

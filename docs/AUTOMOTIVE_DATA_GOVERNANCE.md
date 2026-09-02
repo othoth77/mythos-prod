@@ -1,7 +1,7 @@
 # Mythos Automotive — Data Governance
 
 **Stage:** ATN-0 Atelier Network Foundation and Ecosystem Consistency Amendment (amends MAE-0)
-**Last updated:** 2026-08-05
+**Last updated:** 2026-08-05 · **Amended:** 2026-09-02 (see AMENDMENT notes; historical text retained)
 **Repository:** othoth77/mythos-prod
 
 ---
@@ -96,6 +96,7 @@ Note: Fixpert's `fixpert` PostgreSQL schema is documented by reference in this r
 | Data entity | Owner |
 |-------------|-------|
 | Canonical part_id | Parts Network |
+| *Amendment 2026-09-02* | *"Parts Network" is a module of MYTHOS AUTOS, not an external owner: **MYTHOS AUTOS is the single Reference Authority** for `part_id`, OEM / manufacturer / aftermarket / supplier references, aliases and cross-references, products, compatibility, suppliers and offers (`MYTHOS_AUTOS_FOUNDATION_2026-09-02.md` §I). SPY observes references and never defines canonical ones.* |
 | OEM and alternative part references | Parts Network |
 | Vehicle fitment/compatibility catalogue | Parts Network |
 | Brands and categories | Parts Network |
@@ -346,6 +347,8 @@ A raw Smart Gate camera frame is `mythos_private` — ID Auto owns it; only the 
 ## 8. Vehicle Taxonomy Authority
 
 **ID Auto is the authoritative source for the vehicle taxonomy used across the ecosystem.**
+> **AMENDMENT 2026-09-02 (MYTHOS-AUTOS-FOUNDATION-0 / Phase 1 closure).** The statement above is **SUPERSEDED** for the catalog side by `docs/MYTHOS_AUTOS_FOUNDATION_2026-09-02.md` §H: **Vehicle Type** (make / model / generation / motorization / years / fuel / power — the catalog and compatibility identity) is owned by **MYTHOS AUTOS**. **ID Auto keeps Vehicle Instance identity (IVID)** and its instance summary fields (`make, model, variant, year, body_type, fuel_type, category_code`); it does not become the catalog taxonomy authority. The Instance → Type link (`vehicle_instance_type_link`) lives in AUTOS. The historical text is kept unchanged below for the record.
+
 
 The taxonomy includes: make, model, variant, fuel_type, body_type, category.
 
