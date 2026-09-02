@@ -56,7 +56,7 @@ Rules the bridge enforces (an invalid task is never executed; it gets a
 
 | Field | Rule |
 |---|---|
-| `task_id` | lowercase `a-z 0-9 -`, 6–40 chars, unique forever, equals the file name; ids containing `credential`, `secret`, `.env`, `.ssh`, `sudoers` are refused |
+| `task_id` | lowercase `a-z 0-9 -`, 6–64 chars, unique forever, equals the file name; ids containing `credential`, `secret`, `.env`, `.ssh`, `sudoers` are refused |
 | `project` | must be the project this bridge serves (`mythos-prod`) |
 | `objective` | 10–8000 chars; this is **data** for the executing agent, never a command to the bridge |
 | `scope`, `constraints`, `validation_requirements` | arrays of strings (≤300 / ≤1000 / ≤300 chars each) |

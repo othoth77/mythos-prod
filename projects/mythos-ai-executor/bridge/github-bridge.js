@@ -61,7 +61,7 @@ var REPORT_SCHEMA = JSON.parse(fs.readFileSync(path.join(__dirname, 'schemas', '
 
 var PROTOCOL = 'mythos-control/1';
 var BY = 'github-bridge';
-var TASK_ID_RE = /^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$/;
+var TASK_ID_RE = /^[a-z0-9][a-z0-9-]{4,62}[a-z0-9]$/;
 // A task id becomes a file name and a branch name. Names that would trip
 // the root-owned governance path patterns (credential / secret / .env /
 // .ssh / sudoers) are refused so a control commit can never be DENIED by
@@ -346,7 +346,7 @@ function validateTask(cfg, task, file) {
   if (!task || typeof task !== 'object' || Array.isArray(task)) return ['task is not a JSON object'];
   var check = schema.validate(task, TASK_SCHEMA);
   if (!check.valid) errors = errors.concat(check.errors);
-  if (!isValidTaskId(task.task_id)) errors.push('task_id is not an acceptable id (lowercase a-z 0-9 -, 6-40 chars, no governance words)');
+  if (!isValidTaskId(task.task_id)) errors.push('task_id is not an acceptable id (lowercase a-z 0-9 -, 6-64 chars, no governance words)');
   if (file && task.task_id && file !== task.task_id + '.json') errors.push('file name must be <task_id>.json (got ' + file + ')');
   if (task.project !== cfg.project) errors.push('project "' + String(task.project).slice(0, 40) + '" is not served by this bridge (expected ' + cfg.project + ')');
   if (!PROFILE_BY_ACTION[task.requested_action]) errors.push('requested_action is not one of ' + Object.keys(PROFILE_BY_ACTION).join(', '));

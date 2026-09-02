@@ -65,7 +65,7 @@ Optional: `depends_on[]`, `timeout_seconds` (60–21600), `max_turns`, `notes`. 
 Never selectable from GitHub: provider, model, working directory, tools, MCP servers, skills, credentials,
 the `autonomous` or `deploy` profiles. A task naming any of them fails schema validation (`additionalProperties:false`).
 A task carrying a secret shape is rejected and the rewritten file is redacted. `task_id` must be lowercase
-`[a-z0-9-]`, 6–40 chars, equal to the file name, and must not contain `credential|secret|.env|.ssh|sudoers`.
+`[a-z0-9-]`, 6–64 chars, equal to the file name, and must not contain `credential|secret|.env|.ssh|sudoers`.
 
 ## 5. REPORT protocol
 

@@ -133,6 +133,25 @@ ok(bridge.validateTask(cfg, mkTask('gh-unit-0005', { project: 'mythos-prod' }), 
 ok(bridge.validateTask(cfg, mkTask('gh-unit-0006', { notes: 'token ghp_abcdefghijklmnopqrstuvwxyz123456' }), 'gh-unit-0006.json').some(function (e) { return /secret shape/.test(e); }), 'validate: secret shape refused');
 ok(bridge.validateTask(cfg, mkTask('gh-unit-0007', { working_directory: '/x' }), 'gh-unit-0007.json').some(function (e) { return /additional|not allowed|unknown/i.test(e); }), 'validate: unknown field (working_directory) refused');
 ok(bridge.validateTask(cfg, mkTask('gh-unit-0008', { depends_on: ['gh-unit-0008'] }), 'gh-unit-0008.json').some(function (e) { return /depend on itself/.test(e); }), 'validate: self-dependency refused');
+
+// --- task_id length: 6–64 chars (limit raised from 40 on 2026-09-02) --------------------------------------
+var id41 = 'gh-len41-' + 'a'.repeat(32);                        // 41 chars
+var id43 = 'gh-20260902-whatsapp-bridge-notification-01';       // 43 chars — the shape the 40 limit refused
+var id64 = 'gh-len64-' + 'b'.repeat(55);                        // 64 chars — the new maximum
+var id65 = 'gh-len65-' + 'c'.repeat(56);                        // 65 chars — one past the maximum
+ok(id41.length === 41 && id43.length === 43 && id64.length === 64 && id65.length === 65, 'task_id length: fixtures are 41 / 43 / 64 / 65 chars');
+ok(bridge.isValidTaskId(id41) && bridge.isValidTaskId(id43) && bridge.isValidTaskId(id64), 'task_id length: 41, 43 and 64-char ids are acceptable');
+ok(!bridge.isValidTaskId(id65), 'task_id length: a 65-char id is not acceptable');
+ok(bridge.validateTask(cfg, mkTask(id41), id41 + '.json').length === 0, 'validate: 41-char task_id passes schema + id check');
+ok(bridge.validateTask(cfg, mkTask(id43), id43 + '.json').length === 0, 'validate: 43-char task_id passes schema + id check');
+ok(bridge.validateTask(cfg, mkTask(id64), id64 + '.json').length === 0, 'validate: 64-char task_id passes schema + id check');
+var e65 = bridge.validateTask(cfg, mkTask(id65), id65 + '.json');
+ok(e65.some(function (e) { return /maxLength 64/.test(e); }) && e65.some(function (e) { return /6-64 chars/.test(e); }), 'validate: 65-char task_id is refused by the schema (maxLength 64) and by the id check');
+ok(bridge.validateTask(cfg, mkTask('gh-unit-0010', { depends_on: [id64] }), 'gh-unit-0010.json').length === 0, 'validate: depends_on accepts a 64-char id');
+ok(bridge.validateTask(cfg, mkTask('gh-unit-0011', { depends_on: [id65] }), 'gh-unit-0011.json').some(function (e) { return /depends_on/.test(e); }), 'validate: depends_on refuses a 65-char id');
+// A task id also becomes the executor stage `github:<id>`, which the executor's own schema caps.
+var execTaskSchema = readJson(path.join(EXEC, 'schemas', 'task.schema.json'));
+ok(('github:' + id64).length <= execTaskSchema.properties.stage.maxLength, 'executor: `github:` + a 64-char id fits the executor stage maxLength (' + execTaskSchema.properties.stage.maxLength + ')');
 var instr = bridge.buildInstruction(cfg, mkTask('gh-unit-0009'), { othmode_task_id: 'OTH-2026-00001', worktree: '/w', branch: 'mythos/gh/gh-unit-0009', base_commit: 'abc' });
 ok(/^othmode /.test(instr), 'instruction: opens with the standalone othmode keyword');
 ok(instr.indexOf('OTH-2026-00001') !== -1 && instr.indexOf('Never run `git push`') !== -1, 'instruction: names the OTHMODE record and forbids push');
@@ -314,6 +333,16 @@ runExecutorTicks(2).then(function () {
     ok(/CLOSED PREMATURELY/.test(taskOnDisk('gh-test-0011').history.slice(-1)[0].note), 'F2 premature: task history says so');
     ok(othTasks.getTask(t11.execution.othmode_task_id).status === 'COMPLETED', 'F2 premature: append-only record untouched');
   });
+}).then(function () {
+  // --- 7c. a 64-char task_id travels end to end: claim, executor stage, branch ------------------------------
+  plannerWrite(id64 + '.json', mkTask(id64));
+  var r7e = bridge.tick(executor);
+  var claim64 = actionsOf(r7e, 'claim');
+  ok(claim64.length === 1 && claim64[0].task_id === id64 && actionsOf(r7e, 'reject_invalid').length === 0, 'task_id 64: claimed, not rejected');
+  var t64 = taskOnDisk(id64);
+  ok(t64.status === 'CLAIMED' && t64.execution.branch === 'mythos/gh/' + id64, 'task_id 64: task file CLAIMED on branch mythos/gh/<64-char id>');
+  var et64 = state.readJSON(t64.execution.executor_task_id, 'task.json');
+  ok(et64.stage === 'github:' + id64 && et64.stage.length === 71, 'task_id 64: executor task carries stage github:<id> (71 chars, within the executor limit)');
 }).then(function () {
   // --- 8. process lock -------------------------------------------------------------------------------
   fs.writeFileSync(path.join(process.env.MYTHOS_BRIDGE_HOME, 'bridge.lock'), String(process.ppid));

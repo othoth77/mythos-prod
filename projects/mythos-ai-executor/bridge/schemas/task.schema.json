@@ -23,8 +23,8 @@
     "task_id": {
       "type": "string",
       "minLength": 6,
-      "maxLength": 40,
-      "pattern": "^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$"
+      "maxLength": 64,
+      "pattern": "^[a-z0-9][a-z0-9-]{4,62}[a-z0-9]$"
     },
     "project": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9-]*$" },
     "objective": { "type": "string", "minLength": 10, "maxLength": 8000 },
@@ -42,7 +42,7 @@
     },
     "created_at": { "type": "string", "minLength": 20, "maxLength": 40 },
     "created_by": { "type": "string", "minLength": 1, "maxLength": 64 },
-    "depends_on": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$" } },
+    "depends_on": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{4,62}[a-z0-9]$" } },
     "timeout_seconds": { "type": "integer", "minimum": 60, "maximum": 21600 },
     "max_turns": { "type": ["integer", "null"], "minimum": 1, "maximum": 500 },
     "notes": { "type": "string", "maxLength": 4000 },

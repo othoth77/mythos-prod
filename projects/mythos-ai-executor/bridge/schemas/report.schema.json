@@ -22,7 +22,7 @@
   ],
   "properties": {
     "protocol": { "type": "string", "enum": ["mythos-control/1"] },
-    "task_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$" },
+    "task_id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{4,62}[a-z0-9]$" },
     "status": { "type": "string", "enum": ["COMPLETED", "BLOCKED", "FAILED", "CANCELLED"] },
     "summary": { "type": "string", "minLength": 1, "maxLength": 20000 },
     "files_changed": { "type": "array", "items": { "type": "string", "maxLength": 400 } },
