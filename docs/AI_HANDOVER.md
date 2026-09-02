@@ -48,6 +48,22 @@ sudo systemctl start mythos-git-push.service && git -C /home/deploy/projects/myt
 ```
 To make the executor route, the OTHMODE fix and the probes live: approve `f5e503a` as well, merge this branch into `main` (fast-forward is now possible: the branch contains `main`), then restart `mythos-ai-executor`, `mythos-command-center` and let `mythos-status-monitor.timer` pick up the probes.
 
+### 07:52 UTC — `origin/main` moved under the branch (owner push), relay now REFUSES `main` as diverged
+
+At 07:52:29 UTC `origin/main` advanced from `f4d5eb9` to **`c3cda69`** ("docs: add MCP ecosystem completion execution handover",
+author `othoth77`, one new file `docs/MCP_COMPLETION_NEXT_ACTIONS.md`) — pushed directly, not through the relay. Local
+`main` (`63aec2c`) is now **33 ahead / 1 behind**, and the relay log reads `REFUSED: local main is not a fast-forward of
+origin/main (diverged); manual resolution required` (the unit exits failed each tick; the timer keeps running). A
+dry-run `git merge-tree main origin/main` is **conflict-free**. Not merged by this session: an operator was logged in on
+the host at the time and the standing rule is merge-only, by a human, on the shared checkout. Exact reconciliation, as
+`deploy`, no rebase/reset:
+```
+cd /home/deploy/projects/mythos-prod && sudo -u deploy git merge --no-ff origin/main -m "Merge origin/main (c3cda69) into main"
+```
+Then the three approvals in `docs/MCP_COMPLETION_NEXT_ACTIONS.md` (they match the commands above). Two of that
+document's expectations are already stale: the MCP branch tip is `32e2446` (not `ad811e4`; it now contains `main`
+`63aec2c` and the resolved `probes.json`), and after the merge `origin/main` will land on the new merge commit, not `b7ea66a`.
+
 ## MCP-ECOSYSTEM-1 — inventory, registry, authorization, governed execution, audit (2026-09-02)
 
 ### Read this first
