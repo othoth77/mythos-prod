@@ -269,7 +269,7 @@ async function run() {
     ok(real.valid && Object.keys(real.servers).length === 6, 'six servers registered (' + Object.keys(real.servers).length + ')');
     ok(real.valid && real.servers['oth-mcp'].tools.length === 8, 'oth-mcp declares its 8 tools');
     ok(real.valid && registryLib.declaredTools(real.servers, 'mythos-mcp-http').length === 8, 'the bridge relays oth-mcp\'s 8 tools without declaring any');
-    ok(real.valid && real.servers['github-mcp-rw'].tools.length === 58 && real.servers['github-mcp-rw'].tools.indexOf('delete_file') !== -1, 'github-mcp-rw declares the 58 measured v1.10.1 tools (drift is reported from now on)');
+    ok(real.valid && real.servers['github-mcp-rw'].tools.length === 57 && real.servers['github-mcp-rw'].tools.indexOf('delete_file') === -1 && real.servers['github-mcp-rw'].tools.indexOf('create_branch') !== -1, 'github-mcp-rw declares the 57 measured v1.10.1 tools — delete_file excluded at the container (drift is reported from now on)');
     ok(real.valid && real.servers['github-mcp-rw'].enabled === true && /2026-09-02/.test(real.servers['github-mcp-rw'].enabled_note), 'github-mcp-rw is enabled by the owner (2026-09-02, credential bound by reference)');
     ok(real.valid && typeof real.servers['contextforge'].public === 'boolean' && typeof real.servers['contextforge'].note === 'string' && /measured/i.test(real.servers['contextforge'].note), 'the gateway records whether it is public, with the measurement that says so');
 

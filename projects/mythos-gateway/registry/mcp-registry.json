@@ -149,7 +149,6 @@
         "create_or_update_file",
         "create_pull_request",
         "create_repository",
-        "delete_file",
         "discussion_comment_write",
         "fork_repository",
         "get_code_scanning_alert",
@@ -197,7 +196,7 @@
         "update_pull_request",
         "update_pull_request_branch"
       ],
-      "tools_note": "the 58 tools github-mcp-server v1.10.1 exposes with toolsets default,actions,git,code_security,labels,discussions — measured by mcp-registry-check on 2026-09-02 and declared here so drift is reported; classified by registry/mcp-permissions.json (delete_* is destructive and DENIED by hard floor; delete_file is exposed by the image and stays a policy finding until the owner narrows the container toolsets)",
+      "tools_note": "the 57 tools github-mcp-server v1.10.1 exposes with toolsets default,actions,git,code_security,labels,discussions and --exclude-tools delete_file (MCP-ECOSYSTEM-4) — measured on 2026-09-02 and declared so drift is reported; classified by registry/mcp-permissions.json (delete_* stays destructive/DENY by hard floor even if a future image exposes one again)",
       "write_capable": true,
       "enabled": true,
       "enabled_note": "ENABLED by the owner on 2026-09-02 (MCP-ECOSYSTEM-2b) after cred_github_gateway became active in the Vault inventory. Disabling it again is one flag here; the credential is revoked at GitHub, never by editing this file.",

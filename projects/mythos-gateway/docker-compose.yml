@@ -71,6 +71,11 @@ services:
       - "8082"
       - --toolsets
       - default,actions,git,code_security,labels,discussions
+      # MCP-ECOSYSTEM-4 (2026-09-02): the only tool the permission matrix denies by hard
+      # floor that this image exposes. Excluded at the source so the registry check can
+      # be ONLINE without weakening the checker; every other tool stays as declared.
+      - --exclude-tools
+      - delete_file
     security_opt:
       - no-new-privileges:true
     cap_drop:
