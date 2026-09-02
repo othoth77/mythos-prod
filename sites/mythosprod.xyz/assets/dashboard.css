@@ -103,7 +103,8 @@ header.site .gesture {
 }
 
 /* ---- Page intro -------------------------------------------------------- */
-.page-intro { padding: var(--mythos-space-9) 0 var(--mythos-space-7); }
+.page-intro { padding: var(--mythos-space-9) var(--mythos-space-6) var(--mythos-space-7); }
+@media (min-width: 600px) { .page-intro { padding-left: var(--mythos-space-7); padding-right: var(--mythos-space-7); } }
 .page-intro h1 {
   font-family: var(--mythos-font-display); font-weight: var(--mythos-weight-semibold);
   font-size: clamp(31px, 4.4vw, 44px); line-height: 1.06; letter-spacing: -0.02em;
