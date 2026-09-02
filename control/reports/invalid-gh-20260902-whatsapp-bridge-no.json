@@ -1,0 +1,32 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "invalid-gh-20260902-whatsapp-bridge-no",
+  "status": "FAILED",
+  "summary": "Task gh-20260902-whatsapp-bridge-notification-01.json was rejected by validation and was not executed.",
+  "files_changed": [],
+  "commits": [],
+  "tests": [],
+  "validation": {
+    "git_verified": null,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [
+    "root.task_id: string does not match required pattern",
+    "root.task_id: string longer than maxLength 40",
+    "task_id is not an acceptable id (lowercase a-z 0-9 -, 6-40 chars, no governance words)"
+  ],
+  "risks": [],
+  "next_recommended_action": "Create a corrected task under a NEW task_id (task ids are single-use).",
+  "completed_at": "2026-09-02T19:28:09.148Z",
+  "execution": {
+    "task_hash": "616f2061fda1599e90cba4c485edb681db799e7ac2c0c94c32ce5311ca5909f1",
+    "source_file": "gh-20260902-whatsapp-bridge-notification-01.json"
+  },
+  "delivery": {
+    "branch": null,
+    "commits_on_origin": null,
+    "note": "nothing executed"
+  }
+}
