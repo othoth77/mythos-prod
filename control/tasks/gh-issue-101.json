@@ -22,7 +22,7 @@
     "commit SHA + remote HEAD + قائمة الملفات المتغيرة.",
     "لا merge إلى main."
   ],
-  "status": "IN_PROGRESS",
+  "status": "BLOCKED",
   "created_at": "2026-09-02T23:02:29.465Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #101 https://github.com/othoth77/mythos-prod/issues/101 — \"MYTHOS Resource Guard — تنفيذ الحماية الفعلية للـRAM وSWAP\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\nهذه TASK تنفيذية مبنية مباشرة على نتائج التحقيق في **#99**. لا تعِد التحقيق من الصفر.\n\nتم بالفعل تثبيت حماية `user@1001.service` على الـVPS بنجاح:\n`OOMScoreAdjust=0`.\n\n[التصميم المطلوب]\n1. اعتمد على نتائج #99 والـcomponents الموجودة بالفعل؛ **EXTEND لا REBUILD**.\n2. استخدم `MemAvailable` وPSI وتغيّر OOM kills كإشارات أساسية للحالة.\n3. **لا تستخدم نسبة SWAP وحدها كـtrigger** لأن SWAP الحالية مرتفعة بشكل دائم ويمكن أن تجعل النظام في CRITICAL دائماً.\n4. استعمل الـcapacity gate الموجود في `executor.js` و`dispatch_deferred` لتأجيل المهام الجديدة بدلاً من اختراع مسار آخر.\n5. الحالات:\n   - `NORMAL`\n   - `WARNING`\n   - `CRITICAL`\n   - `RECOVERED`\n6. استخدم hysteresis + cooldown لمنع الانتقال المتكرر والتنبيهات المتكررة.\n7. عند الضغط:\n   - لا تبدأ مهام AI جديدة إذا كانت الحالة تمنع ذلك.\n   - المهام الجديدة تُؤجل بشكل آمن وتبقى قابلة للاستئناف.\n   - لا تقتل عمليات عشوائياً.\n8. احمِ الخدمات الأساسية، واستفد من cgroups v2 / systemd delegation الموجودين فعلياً بدلاً من بناء OOM kille…\n\n[مهم جداً — model selection]\nهذه TASK يجب أن تمر عبر سياسة اختيار النموذج الجديدة في **Issue #100**:\n- إذا لم يوجد `Model:` صريح، اختر تلقائياً الأنسب بين Haiku / Sonnet / Opus حسب تعقيد المهمة.\n- لا تستخدم Fable تلقائياً.\n- لا تضف `Model:` إلى هذه المهمة؛ نريد اختبار السياسة الافتراضية الجديدة.\n\n[قيود صارمة]\n- لا AUTOS-0.\n- لا SPY/n8n ولا مشاريع السيارات.\n- لا إعادة بناء GitHub Bridge أو MCP.\n- لا تغييرات غير مرتبطة.\n- لا أسرار في Git أو logs أو reports.\n- لا WhatsApp test messages حقيقية متكررة؛ إن كان smoke test حقيقياً ضرورياً فمرة واحدة فقط وبعد التأكد من سلامة المسار.\n- لا merge إلى `main` تلقائياً.\n- لا kill عشوائي للـprocesses.\n- إذا كانت خطوة تتطلب صلاحيات root أو موارد غير كافية، توقف `BLOCKED/HUMAN_APPROVAL` وسجّل المطلوب بدلاً من تجاوز الحماية.\n\n[مرجع التحقيق]\nIssue #99: Resource Guard investigation.\n\n[المطلوب في التقرير]\nاشرح باختصار:\n1. ماذا بُني فعلياً.\n2. كيف يقرر NORMAL/WARNING/CRITICAL/RECOVERED.\n3. كيف يؤجل TASKs.\n4. كيف يحمي الخدمات الأساسية.\n5. كيف يعمل WhatsApp كقناة تنبيه مستقلة.\n6. نتائج simulation والاختبارات.\n7. commit SHA وremote HEAD.\n8. أي شيء يحتاج موافقة المالك.",
@@ -78,9 +78,10 @@
     "claimed_at": "2026-09-02T23:02:34.349Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "3b8fea77d01a9dfc15b0e7093c6e66fa6ce8be86bec5ad0fe3adc5f0b0a42cd3",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-02T23:19:52.170Z",
-    "claude_session_id": "8d3dea4d-72cb-487d-bebf-d415e0cdfb29"
+    "executor_status": "BLOCKED",
+    "updated_at": "2026-09-02T23:26:22.603Z",
+    "claude_session_id": "8d3dea4d-72cb-487d-bebf-d415e0cdfb29",
+    "report_file": "control/reports/gh-issue-101.json"
   },
   "history": [
     {
@@ -96,6 +97,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-02T23:26:21.128Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended BLOCKED; building report"
+    },
+    {
+      "at": "2026-09-02T23:26:22.603Z",
+      "from": "VALIDATING",
+      "to": "BLOCKED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 13 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

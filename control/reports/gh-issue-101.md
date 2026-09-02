@@ -1,0 +1,65 @@
+# Report gh-issue-101 — BLOCKED
+
+| Field | Value |
+|---|---|
+| Completed | 2026-09-02T23:26:22.569Z |
+| Executor task | `t-20260902230234-ab117r` |
+| OTHMODE task | `OTH-2026-00029` |
+| Profile | repo-read |
+| Branch | `mythos/gh/gh-issue-101` |
+| Commits on origin | null |
+| Git verified | null |
+
+## Summary
+
+gh-issue-101 asks for the Resource Guard to be IMPLEMENTED, but control/tasks/gh-issue-101.json carries requested_action=investigate and execution_profile=repo-read, which the non-negotiable bridge constraints define as no file edits and no commits; the harness enforced it independently (Write disabled, all node execution refused), so no Resource Guard was built, no test was run, and the tree is clean at dc45ff1 with zero commits. The investigation that was possible went materially beyond #99. Verified on the live host: #99 blocker (a) is now CLOSED — /etc/systemd/system/user@1001.service.d/oom.conf is installed with OOMScoreAdjust=0, matching the Issue note. Verified the design premise empirically: MemAvailable 2575120 kB (2515 MiB), PSI memory some avg60=0.00, vmstat oom_kill=1323 (identical to #99's reading ~2.5h earlier, so the kill rate is currently zero) while swap is 97.0% used (SwapFree 126744 of 4194296 kB) — a swap-percentage trigger would sit in CRITICAL on a provably healthy host, exactly as the Issue forbids. Manual replay of /opt/mythos-memwatch/memwatch.log (901 samples, 2-min cadence, 2026-09-01T17:21:42Z to 2026-09-02T23:20:21Z, fixed-format and directly parseable) across the 2026-09-01 outage shows psi60 rising 0.95 -> 36.74 (22:10:01) -> 60.21 -> 70.91 with avail crossing below 700M at the same sample, and oom_kills moving only afterwards (984 -> 985 at 22:16 -> 995 at 22:18), giving roughly 6.7 minutes of lead time before the 22:16:42 mass kill; swap was 100% throughout that window AND through the healthy hours preceding it, so it has zero discriminative power. Three defects were found in #99's recommended implementation shape. (1) The capacity gate it names does not cover this task class: drainQueue() filters requested_by==='mos-console' (executor.js:840,860) while the bridge creates tasks as 'github-bridge' (bridge/github-bridge.js:67,594), so bridge tasks are admitted by tick() step 4 (executor.js:712-721) which calls runTask() with no capacity check and no dispatch_deferred — a predicate added only to dispatchTask() would be a no-op for GitHub-issue tasks; the gate must also go into tick() step 4, while tick steps 1-3 (recovery, quota resume, retry) stay exempt so in-flight work remains resumable. (2) drainQueue() is edge-triggered only (settle hooks at :791,:799,:873,:876; no timer), so pressure-blocking with nothing running would stall console missions permanently and break the 'resume after RECOVERED' requirement; the fix is one drainQueue() call inside the existing 15s daemon step (:943-964). (3) The WhatsApp layer is not on this branch at all: bridge/notify/whatsapp.js exists only at b37491f, and git merge-base dc45ff1 b37491f = ccedcbc = b37491f^, making it a sibling line whose tree also DELETES bridge/github-issues.js and tests/mythos-github-issues-test.js — the adapter that created this task — so integrating them is a real merge decision, not a fast-forward. Read from source, its KINDS are fenced by KEY_RE=/^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]__(?:COMPLETED|FAILED|BLOCKED|HUMAN_APPROVAL)$/ where ledgerKey() throws on any other kind and listEntries() silently drops non-matching files, buildMessage() is REPORT-shaped (reads execution/delivery/commits/files_changed/tests/next_recommended_action and hardcodes a control/reports footer), and MARK has no glyph for the new kinds; its two-phase sync-enqueue/async-flush design with an O_EXCL per-key lock, lease reclaim and delivered_to de-dup is nevertheless the correct thing to extend, since it already provides the 'WhatsApp failure breaks nothing', 'no alert loops' and restart-safety properties. Also established: tick() is already serialised to one concurrent daemon task (executor.js:690 returns busy), so MAX_PARALLEL (default 5, clamped 1-8 via MYTHOS_MAX_PARALLEL, executor.js:59-65) governs only the console path and #99's five-concurrent-sessions risk is narrower than stated; and executor.js is NOT in PROTECTED_PATHS (service/governance-verify.js:82-108) so the gate needs no governance approval, whereas projects/mythos-ai-executor/service/ IS protected, so the MemoryLow=/MemoryHigh= systemd work does. Proposed thresholds derived from the replay, for the implement run: signals MemAvailable, PSI some avg60 and oom_kill delta only, swap in the message body but never a trigger; CRITICAL enter avail<=700M OR psi60>=30 OR oom_kill delta>0, exit avail>=1100M AND psi60<=10 AND no kills; WARNING enter avail<=1200M OR psi60>=5, exit avail>=1600M AND psi60<=2; confirm 2 samples to escalate (~4 min) and 5 to de-escalate (~10 min); RECOVERED emitted once on the degraded->NORMAL edge; alert cooldown >=30 min per kind on top of the ledger's one-entry-per-key de-dup. Applied by hand to the recorded history these enter CRITICAL at 22:10:01 (6.7 min before the kill) and never enter CRITICAL across the last ~40 minutes of current telemetry. Deferral stays on the existing path: emit dispatch_deferred with reason resource_pressure and leave the task QUEUED — no new status, no process killed. OTHMODE record OTH-2026-00029 could not be advanced in-flight: the othmode-cli is unrunnable under this profile and the pending-task-imports fallback requires Write, so the Status Center reference is UNREACHABLE.
+
+## Commits
+
+- none
+
+## Files changed
+
+- none
+
+## Tests
+
+- required validation suite (13 checks): NOT RUN — every check validates a running Resource Guard that requested_action=investigate forbids creating; no test is claimed as passed
+- executor/bridge/monitor regression baseline: NOT RUN — all node execution is refused under execution_profile=repo-read; the dc45ff1 baseline is unverified in this run
+- programmatic dry-run/replay harness: NOT RUN — Write is disabled, so no scratch script could be created and `node -e` is refused; the replay below was done by direct inspection instead
+- manual replay of /opt/mythos-memwatch/memwatch.log over the 2026-09-01 22:04-22:30 outage window: verified by inspection — psi60 0.95 -> 36.74 -> 60.21 -> 70.91, avail 758M -> 596M -> 447M, oom_kills 984 -> 985 -> 995; ~6.7 min lead time from the psi60>=30 crossing to the 22:16:42 kill
+- manual replay of the current window (2026-09-02 22:40-23:20): verified by inspection — avail 2465-2835M, psi60 0.00, oom_kills flat at 1323, swap 97%; confirms swap% has no discriminative power
+- live host memory/PSI/OOM read via /proc/meminfo, /proc/pressure/memory, /proc/vmstat: verified — MemAvailable 2575120 kB, SwapFree 126744/4194296 kB (97.0% used), PSI some avg10/60/300 all 0.00, oom_kill 1323
+- #99 blocker (a) installation check: verified CLOSED — /etc/systemd/system/user@1001.service.d/oom.conf present with OOMScoreAdjust=0
+- WhatsApp layer ancestry check via git merge-base: verified — merge-base(dc45ff1, b37491f) = ccedcbc = b37491f^, so b37491f is a sibling, not an ancestor; its diff vs dc45ff1 deletes bridge/github-issues.js and tests/mythos-github-issues-test.js
+- WhatsApp kind fence check by reading b37491f:bridge/notify/whatsapp.js: verified — KINDS and KEY_RE exclude WARNING/CRITICAL/RECOVERED; ledgerKey() throws and listEntries() drops them
+- admission-path check by reading executor.js and bridge/github-bridge.js: verified — bridge tasks (requested_by='github-bridge') bypass dispatchTask/drainQueue/MAX_PARALLEL and enter via tick() step 4 (executor.js:712-721)
+- drainQueue trigger check via callsite grep: verified edge-triggered only (:791, :799, :873, :876); no timer-driven re-drain exists
+- governance path check against service/governance-verify.js PROTECTED_PATHS: verified — executor.js is NOT protected; projects/mythos-ai-executor/service/, lib/state.js, core/events.js, core/store.js ARE
+- worktree cleanliness check via git status --porcelain: verified clean, HEAD == origin/mythos/gh/gh-issue-101 == dc45ff1 (no edits, no commits, as the read-only profile requires)
+
+## Validation
+
+- required checks: Resource Guard يعمل فعلياً.; اكتشاف الضغط يعمل.; المهام الجديدة تُمنع/تؤجل عند الحالة الحرجة.; المهام تستأنف بعد RECOVERED.; الخدمات الأساسية محمية.; لا توجد alert loops.; WhatsApp فاشله لا يكسر أي جزء من النظام.; dry-run/replay التاريخي ناجح.; restart/recovery ناجح.; اختبارات regression ذات الصلة ناجحة.; لا secrets.; commit SHA + remote HEAD + قائمة الملفات المتغيرة.; لا merge إلى main.
+- remote head: dc45ff1d6c5deffda6861e97f4c7d751bdf244bf
+- report problems: none
+
+## Problems
+
+- none
+
+## Risks
+
+- The Resource Guard still does not exist. The host currently has 2515 MiB available with zero OOM kills and PSI 0.00, so there is no active emergency, but nothing prevents a repeat of the 2026-09-01 pressure episode from admitting new AI tasks into it.
+- OWNER DECISION REQUIRED — branch integration: the WhatsApp notify layer (b37491f, mythos/gh/gh-20260902-wa-bridge-notify-01) and the GitHub Issues adapter (dc45ff1 line) are divergent siblings off ccedcbc, and b37491f's tree deletes bridge/github-issues.js plus its 462-line test file. The guard cannot use WhatsApp until someone decides how these two lines merge. Neither is merged to main.
+- OWNER APPROVAL REQUIRED — essential-service protection: MemoryLow= on the eight production units and MemoryHigh= on the AI units are systemd changes under projects/mythos-ai-executor/service/ (governance-protected) and ~deploy/.config/systemd/user/ (outside the repo). No agent may install them.
+- OWNER DECISION REQUIRED — WhatsApp kind extension: emitting WARNING/CRITICAL/RECOVERED means either widening KINDS/KEY_RE/MARK and adding a non-REPORT buildGuardMessage(), or standing up a sibling ledger reusing providers/evolution. Extending the fenced regex is a deliberate widening of a deliberately narrow scope fence.
+- The dominant consumer remains outside MYTHOS control: session-1915.scope holds ~2.1-2.5 GB of root agent sessions against user@1001.service at ~1.2 GB and mythos-ai-executor.service at ~0.7 GB. A guard confined to the deploy user cannot reclaim it and would defer MYTHOS tasks for pressure MYTHOS did not cause.
+- The proposed thresholds were validated by hand against ~30 hours of telemetry containing exactly one severe episode. A single episode is thin evidence for hysteresis tuning; the implement run must execute the programmatic replay over the full log before any enforcing action is enabled.
+- #99's interim mitigation MYTHOS_MAX_PARALLEL=2 is weaker than it appears: tick() already serialises daemon-owned work to one task (executor.js:690), so the variable only constrains the mos-console path.
+- OTHMODE OTH-2026-00029 was not advanced in-flight (CLI unrunnable, Write disabled), so the Status Center has no record of this run beyond the control report the bridge writes.
+- Model policy note (Issue #100): no explicit Model: was given, so the default policy applied; this was routed to an Opus-class model on complexity grounds (cross-branch architectural analysis with safety implications) and Fable was not used automatically.
+
+## Next recommended action
+
+Owner: re-open this as a NEW GitHub Issue carrying `Action: implement` (or label `action:implement`) — this task cannot legally edit files, and re-running it unchanged will block again. Scope the implement Issue to: (1) a resource-state module using MemAvailable + PSI some avg60 + oom_kill delta only, never swap%, with the hysteresis and cooldown values validated above; (2) the admission predicate wired into BOTH executor.js tick() step 4 (:712-721) and dispatchTask() (:806), emitting the existing dispatch_deferred event with reason 'resource_pressure' and leaving tasks QUEUED, with tick steps 1-3 left exempt so in-flight work stays resumable; (3) one drainQueue() call added to the daemon step (:943-964) so the console queue re-drains after RECOVERED; (4) a programmatic replay over the full /opt/mythos-memwatch/memwatch.log before any enforcing action is enabled. Before that Issue is filed, the owner must first decide the b37491f / dc45ff1 branch integration, because the WhatsApp alert channel is unreachable from this branch until it is resolved. The systemd MemoryLow=/MemoryHigh= work stays a separate owner-executed change under governance approval.
