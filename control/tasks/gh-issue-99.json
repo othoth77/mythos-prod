@@ -33,7 +33,7 @@
     "لا توجد secrets في Git/logs/reports.",
     "جميع الاختبارات ذات الصلة ناجحة."
   ],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-02T22:42:59.761Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #99 https://github.com/othoth77/mythos-prod/issues/99 — \"MYTHOS Resource Guard — حماية RAM وSWAP مع تنبيهات WhatsApp\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[قيود صارمة]\n- لا تبدأ AUTOS-0.\n- لا تلمس SPY أو n8n أو مشاريع السيارات.\n- لا تعِد بناء GitHub Bridge.\n- لا تغيّر منطق GitHub Issues → Bridge إلا إذا كان ذلك ضروريًا مباشرةً لحماية الموارد، وبأقل تغيير ممكن.\n- لا ترسل رسائل WhatsApp تجريبية حقيقية أثناء هذه المهمة إلا إذا كان ذلك ضروريًا ومصرحًا به ضمن الاختبارات؛ لا ترسل رسائل متكررة.\n- لا تكشف أي secrets في Git أو logs أو reports.\n- لا تدمج التغيير في `main` تلقائيًا.\n- لا تستخدم OOM killer مخصصًا أو kill عشوائيًا قبل وجود سياسة حماية واختبارات واضحة.\n- إذا كانت موارد VPS غير كافية لتنفيذ أي خطوة بأمان، توقف BLOCKED وسجّل السبب والحل المقترح.\n\n[مراجع تقنية]\n- EarlyOOM: https://github.com/rfjakob/earlyoom\n- systemd-oomd / PSI: استخدم المراجع الرسمية المناسبة أثناء الدراسة والتنفيذ.\n- طبقة WhatsApp الحالية: المهمة السابقة `gh-20260902-wa-bridge-notify-01` وcommit `b37491f9b839a29e2706632ddf07c0f804985702`.\n\nهذه TASK مستقلة عن TASK #97. المطلوب أن يمر مسارها عبر GitHub Issues → Bridge → Executor → Claude، ثم يضع Claude التقرير في نفس الـIssue عند الانتهاء.",
@@ -89,9 +89,10 @@
     "claimed_at": "2026-09-02T22:43:06.543Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "056e76e147c16680aa5cfda7647d04e3bf30b45dba7ef5ced669c47b7d1c5378",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-02T22:45:10.901Z",
-    "claude_session_id": "0cd24d2a-df79-47ed-ad8b-5c5772f15d80"
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-02T22:49:32.431Z",
+    "claude_session_id": "0cd24d2a-df79-47ed-ad8b-5c5772f15d80",
+    "report_file": "control/reports/gh-issue-99.json"
   },
   "history": [
     {
@@ -107,6 +108,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-02T22:49:30.989Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-02T22:49:32.431Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 7 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
