@@ -1,0 +1,28 @@
+{
+  "protocol": "mythos-control/1",
+  "generated_at": "2026-09-02T18:04:53.060Z",
+  "generated_by": "github-bridge@vps-4722f0a9",
+  "branch": "mythos/control",
+  "project": "mythos-prod",
+  "counts": {
+    "PENDING": 0,
+    "CLAIMED": 0,
+    "IN_PROGRESS": 0,
+    "VALIDATING": 0,
+    "COMPLETED": 0,
+    "BLOCKED": 0,
+    "FAILED": 0,
+    "CANCELLED": 0
+  },
+  "pending": [],
+  "active": [],
+  "awaiting_review": [],
+  "tasks": [],
+  "notes": [],
+  "how_to": {
+    "create_task": "Add control/tasks/<task_id>.json (schema: control/schemas/task.schema.json) with status PENDING on branch mythos/control.",
+    "read_report": "control/reports/<task_id>.json (and .md) appears when the task reaches COMPLETED, BLOCKED, FAILED or CANCELLED.",
+    "cancel_task": "Set status to CANCELLED in the task file while it is PENDING, CLAIMED or IN_PROGRESS.",
+    "protocol_doc": "control/README.md"
+  }
+}
