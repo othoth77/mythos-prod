@@ -1,0 +1,91 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS Resource Guard — CLI
+// projects/mythos-ai-executor/bin/mythos-resource-guard
+//
+//   mythos-resource-guard status              current level, sample and admission decision
+//   mythos-resource-guard sample              take one live sample (advances the state machine)
+//   mythos-resource-guard replay <log> [--transitions] [--json]
+//                                             replay recorded /opt/mythos-memwatch telemetry
+//                                             through the PRODUCTION decision function
+//
+// `replay` is the validation harness the guard's thresholds were tuned
+// against: it drives lib/resource-guard.js evaluate() — the same code the
+// daemon runs — over historical samples, so what is checked against the
+// 2026-09-01 outage is the shipped decision logic, not a model of it.
+// It reads only; it never writes state and never touches a task.
+// =====================================================
+
+var fs = require('fs');
+var path = require('path');
+
+var EXEC = path.join(__dirname, '..');
+var guard = require(path.join(EXEC, 'lib', 'resource-guard'));
+var executor = require(path.join(EXEC, 'executor'));
+
+var argv = process.argv.slice(2);
+var cmd = argv[0];
+
+function out(v) { console.log(JSON.stringify(v, null, 2)); }
+
+function usage(code) {
+  console.error('usage: mythos-resource-guard status | sample | replay <memwatch.log> [--transitions] [--json]');
+  process.exit(code);
+}
+
+if (cmd === 'status') {
+  out(executor.resourceGuardStatus());
+  process.exit(0);
+}
+
+if (cmd === 'sample') {
+  var r = guard.sample({
+    state_path: path.join(require(path.join(EXEC, 'lib', 'state')).root(), 'resource-guard.json'),
+    alerts_path: path.join(require(path.join(EXEC, 'lib', 'state')).root(), 'resource-guard-alerts.jsonl')
+  });
+  out({ level: r.level, changed: r.changed, transition: r.transition, alert: r.alert, signals: r.signals });
+  process.exit(0);
+}
+
+if (cmd === 'replay') {
+  var file = argv[1];
+  if (!file) usage(2);
+  var text;
+  try { text = fs.readFileSync(file, 'utf8'); }
+  catch (e) { console.error('cannot read ' + file + ': ' + e.message); process.exit(2); }
+
+  var samples = guard.parseMemwatchLog(text);
+  if (!samples.length) { console.error('no parseable samples in ' + file); process.exit(2); }
+
+  var result = guard.replay(samples);
+  var swapPct = samples.map(function (s) { return s.swap_used_pct; }).filter(function (v) { return typeof v === 'number'; });
+  var summary = {
+    file: file,
+    samples: result.samples,
+    window: { from: new Date(samples[0].at).toISOString(), to: new Date(samples[samples.length - 1].at).toISOString() },
+    level_counts: result.level_counts,
+    transitions: result.transitions.length,
+    final_level: result.final.level,
+    // Evidence for the "swap is never a trigger" rule: the same window
+    // that produced these transitions was at this swap usage throughout.
+    swap_used_pct: swapPct.length ? { min: Math.min.apply(null, swapPct), max: Math.max.apply(null, swapPct) } : null
+  };
+
+  if (argv.indexOf('--json') >= 0) { out({ summary: summary, transitions: result.transitions }); process.exit(0); }
+
+  out(summary);
+  if (argv.indexOf('--transitions') >= 0) {
+    result.transitions.forEach(function (t) {
+      console.log([t.at, t.from + ' -> ' + t.to, 'reason=' + t.reason,
+        'alert=' + (t.alert_sent ? t.alert_kind : (t.alert_suppressed ? t.alert_kind + '(suppressed:' + t.alert_suppressed + ')' : 'none')),
+        'avail=' + t.sample.mem_available_mib + 'M',
+        'psi60=' + t.sample.psi_some_avg60,
+        'oom_kills=' + t.sample.oom_kill + '(+' + t.sample.oom_kill_delta + ')',
+        'swap=' + t.sample.swap_used_pct + '%'].join('  '));
+    });
+  }
+  process.exit(0);
+}
+
+usage(cmd ? 2 : 1);
