@@ -932,7 +932,26 @@ function tick(executor, opts) {
       // Claimed (or otherwise bridge-touched) task: the executor's word.
       if (!isValidTaskId(t.task_id) || e.file !== t.task_id + '.json') return;
       if (TERMINAL.indexOf(t.status) !== -1 && t.status !== 'CANCELLED') {
-        if (!fs.existsSync(reportFile(cfg, t.task_id, 'json')) && claimed) finishTask(cfg, t, t.status, { executor_status: t.execution.executor_status }, changed);
+        if (!fs.existsSync(reportFile(cfg, t.task_id, 'json')) && claimed) {
+          finishTask(cfg, t, t.status, { executor_status: t.execution.executor_status }, changed);
+          return;
+        }
+        // Delivery follow-up: the relay pushes the task branch AFTER the
+        // report was written, so re-measure `on_origin` until every commit
+        // is confirmed on GitHub, then record it once. Measured, never claimed.
+        if (claimed) {
+          var rep = readJsonFile(reportFile(cfg, t.task_id, 'json'));
+          if (rep && rep.delivery && rep.delivery.commits_on_origin === false) {
+            var fresh = commitsOnBranch(cfg, t.execution);
+            if (fresh.length && fresh.every(function (c) { return c.on_origin; })) {
+              rep.commits = fresh;
+              rep.delivery.commits_on_origin = true;
+              rep.delivery.confirmed_on_origin_at = nowIso();
+              writeReport(cfg, rep).forEach(function (f) { changed.push(f); });
+              actions.push({ action: 'delivery_confirmed', task_id: t.task_id, commits: fresh.length });
+            }
+          }
+        }
         return;
       }
       if (!claimed) return; // validation-failed record; nothing to track
