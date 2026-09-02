@@ -628,7 +628,7 @@ async function run() {
   {
     var real = inventoryLib.loadInventory(path.join(VAULT, 'credential-inventory.json'));
     ok(real.valid && real.list.length >= 19, 'the shipped inventory is valid with ' + real.list.length + ' entries');
-    ok(real.valid && real.credentials['cred_github_gateway'].status === 'absent' && real.credentials['cred_github_gateway'].location === null, 'the gateway GitHub credential is recorded absent (owner decision)');
+    ok(real.valid && real.credentials['cred_github_gateway'].status === 'active' && real.credentials['cred_github_gateway'].env_var === 'MYTHOS_GITHUB_MCP_RW_TOKEN' && /github-mcp-rw\.env$/.test(real.credentials['cred_github_gateway'].location), 'the gateway GitHub credential is recorded active by reference (owner decision #1, 2026-09-02)');
     ok(real.valid && real.excluded.some(function (x) { return /governance\.key/.test(x.location); }), 'the governance key is excluded by name, not forgotten');
     ok(inventoryLib.envVarFor(real, 'cred_mcp_http_bridge_token') === 'MYTHOS_MCP_HTTP_TOKEN', 'a reference resolves to an env var NAME');
     ok(inventoryLib.valueFromEnv(real, 'cred_mcp_http_bridge_token', {}) === null, 'a reference resolves to null when the environment does not carry it');
