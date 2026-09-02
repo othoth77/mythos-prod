@@ -1,0 +1,100 @@
+# MYTHOS MCP OAuth bridge — OAuth 2.1 + PKCE authorization server in front of
+# the existing MYTHOS Gateway (ContextForge), so Claude Web can connect as a
+# custom connector. Nothing here modifies the gateway: the proxy is a client
+# of it, holding one dedicated ContextForge client token as its upstream
+# credential (contextforge-upstream.env, 0600), exactly like any other client.
+#
+#   Claude Web ──OAuth 2.1/PKCE──▶ nginx ──▶ mcp-auth-proxy ──Bearer──▶ ContextForge ──▶ MYTHOS MCP tools
+#                                        └──▶ dex (OIDC, one owner identity)
+#
+# Deployed from /home/deploy/deployments/mythos-mcp-auth/ (secrets beside it,
+# never committed). Repository copy: projects/mythos-mcp-auth/.
+services:
+  redis:
+    # Replay store: single-use codes, refresh-rotation reuse detection.
+    image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
+    container_name: mcp-auth-redis
+    restart: unless-stopped
+    command: ["redis-server", "/etc/redis/redis.conf"]
+    user: "10002:10002"
+    volumes:
+      - ./redis/redis.conf:/etc/redis/redis.conf:ro
+      - ./data/redis:/data
+    networks:
+      - mythos-mcp-auth_net
+    # No published port: only the proxy, on this private network, can reach it.
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    mem_limit: 64m
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$(sed -n 's/^requirepass //p' /etc/redis/redis.conf)\" --no-auth-warning ping | grep -q PONG"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging: { driver: json-file, options: { max-size: "5m", max-file: "2" } }
+
+  dex:
+    # OIDC identity provider: ONE static owner identity, local password DB,
+    # no external connectors, no admin surface. Reachable from the internet
+    # only through nginx at https://mythosprod.xyz/dex/.
+    image: ghcr.io/dexidp/dex:v2.45.0@sha256:b8469881d3cb3a73001506f0d3aaefecb9c45d2311c1e0f405d8ac538316c59d
+    container_name: mythos-dex
+    restart: unless-stopped
+    command: ["dex", "serve", "/etc/dex/config.yaml"]
+    user: "10003:10003"
+    env_file: [./dex.env]
+    volumes:
+      - ./dex/config.yaml:/etc/dex/config.yaml:ro
+      - ./data/dex:/var/dex
+    ports:
+      - "127.0.0.1:5556:5556"
+    networks:
+      - mythos-mcp-auth_net
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    read_only: true
+    tmpfs: ["/tmp"]
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5556/dex/healthz || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+  mcp-auth-proxy:
+    image: ghcr.io/babs/mcp-auth-proxy:1.4.0@sha256:246e268cececb634470ee15943787be88c7487e89f479062606c5bf2c3ad8a09
+    container_name: mythos-mcp-auth-proxy
+    restart: unless-stopped
+    env_file: [./mcp-auth-proxy.env]
+    ports:
+      - "127.0.0.1:8180:8080"
+    networks:
+      - mythos-mcp-auth_net
+      # The upstream: ContextForge on its own private network. Joining it
+      # changes nothing in the gateway's deployment.
+      - mythos-gateway_net
+    depends_on:
+      redis: { condition: service_healthy }
+      dex: { condition: service_started }
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    read_only: true
+    mem_limit: 128m
+    # Distroless image: no shell, so no container healthcheck. Liveness is
+    # probed from the host at http://127.0.0.1:8180/healthz.
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
+
+networks:
+  mythos-mcp-auth_net:
+    name: mythos-mcp-auth_net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.0.61.0/24
+          gateway: 10.0.61.1
+  mythos-gateway_net:
+    external: true

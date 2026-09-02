@@ -1,0 +1,4 @@
+# Dex runtime environment — template. Live file: deployments/mythos-mcp-auth/dex.env (0600).
+# Read by docker compose (env_file), which interpolates "$": the bcrypt hash is written with "$$".
+DEX_CLIENT_SECRET=<generated: same value as OIDC_CLIENT_SECRET>
+DEX_OWNER_PASSWORD_HASH=<bcrypt hash of the owner password, "$" doubled>

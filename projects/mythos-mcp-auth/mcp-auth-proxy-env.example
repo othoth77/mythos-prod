@@ -1,0 +1,31 @@
+# mcp-auth-proxy runtime environment — template. The live file is
+# /home/deploy/deployments/mythos-mcp-auth/mcp-auth-proxy.env (deploy, 0600).
+# Every value marked <generated> is produced by bin/install.sh and never committed.
+OIDC_ISSUER_URL=https://mythosprod.xyz/dex
+OIDC_CLIENT_ID=mythos-mcp-auth-proxy
+OIDC_CLIENT_SECRET=<generated: same value as DEX_CLIENT_SECRET>
+PROXY_BASE_URL=https://mythosprod.xyz
+UPSTREAM_MCP_URL=http://mythos-contextforge:4444/mcp
+TOKEN_SIGNING_SECRET=<generated: 64 chars, AES-GCM key>
+REDIS_URL=redis://:<generated>@mcp-auth-redis:6379/0
+# The proxy's own upstream identity: a dedicated ContextForge client token
+# (identity mcp-auth-proxy@mythosprod.xyz) issued by
+# projects/mythos-gateway/bin/cf-issue-client-token.sh. Never a human's token.
+UPSTREAM_AUTHORIZATION_HEADER=Bearer <ContextForge client token>
+MCP_RESOURCE_NAME=MYTHOS MCP
+# nginx is the only peer whose X-Forwarded-For is trusted (docker bridge gateway).
+TRUSTED_PROXY_CIDRS=10.0.61.1/32
+TRUSTED_PROXY_HEADER=X-Forwarded-For
+PROD_MODE=true
+PKCE_REQUIRED=true
+RENDER_CONSENT_PAGE=true
+RATE_LIMIT_ENABLED=true
+REDIS_REQUIRED=true
+IDP_EXCHANGE_RATE_PER_SEC=5
+IDP_EXCHANGE_BURST=10
+MCP_PER_SUBJECT_CONCURRENCY=8
+CLIENT_REGISTRATION_TTL=720h
+ACCESS_LOG_SKIP_RE=^/healthz$
+LISTEN_ADDR=:8080
+METRICS_ADDR=127.0.0.1:9090
+LOG_LEVEL=info

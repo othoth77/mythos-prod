@@ -1,0 +1,52 @@
+# Dex — minimal OIDC identity provider for the MYTHOS MCP OAuth bridge.
+# ONE identity (the owner), password DB only, no external connectors.
+# Secrets are NOT in this file: the client secret and the password hash are
+# read from the environment (dex.env, 0600) via secretEnv / hashFromEnv.
+issuer: https://mythosprod.xyz/dex
+
+storage:
+  type: sqlite3
+  config:
+    file: /var/dex/dex.db
+
+web:
+  http: 0.0.0.0:5556
+
+# Interaction with the browser only ever happens through nginx (TLS).
+frontend:
+  issuer: MYTHOS
+  theme: light
+
+expiry:
+  idTokens: "5m"
+  authRequests: "10m"
+  signingKeys: "6h"
+  refreshTokens:
+    disableRotation: false
+    validIfNotUsedFor: "24h"
+    absoluteLifetime: "168h"
+
+oauth2:
+  # The proxy already renders its own consent page; a second one on Dex adds
+  # nothing. Only the local password connector exists.
+  skipApprovalScreen: true
+  passwordConnector: local
+  responseTypes: ["code"]
+
+logger:
+  level: info
+  format: json
+
+staticClients:
+  - id: mythos-mcp-auth-proxy
+    name: MYTHOS MCP Auth Proxy
+    secretEnv: DEX_CLIENT_SECRET
+    redirectURIs:
+      - https://mythosprod.xyz/callback
+
+enablePasswordDB: true
+staticPasswords:
+  - email: "othmanhaddad@gmail.com"
+    hashFromEnv: DEX_OWNER_PASSWORD_HASH
+    username: owner
+    userID: "8f0c2d5e-5a4b-4c1e-9b2a-mythos-owner-01"
