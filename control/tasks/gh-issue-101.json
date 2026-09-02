@@ -1,0 +1,63 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-101",
+  "project": "mythos-prod",
+  "objective": "تنفيذ **MYTHOS Resource Guard** فعلياً لحماية الـVPS ومنع تشغيل مهام AI جديدة عندما تصبح الموارد غير آمنة، مع الحفاظ على الخدمات الأساسية، وإرسال التنبيهات عبر طبقة WhatsApp الموجودة كقناة تنبيه فقط.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "validation_requirements": [
+    "Resource Guard يعمل فعلياً.",
+    "اكتشاف الضغط يعمل.",
+    "المهام الجديدة تُمنع/تؤجل عند الحالة الحرجة.",
+    "المهام تستأنف بعد RECOVERED.",
+    "الخدمات الأساسية محمية.",
+    "لا توجد alert loops.",
+    "WhatsApp فاشله لا يكسر أي جزء من النظام.",
+    "dry-run/replay التاريخي ناجح.",
+    "restart/recovery ناجح.",
+    "اختبارات regression ذات الصلة ناجحة.",
+    "لا secrets.",
+    "commit SHA + remote HEAD + قائمة الملفات المتغيرة.",
+    "لا merge إلى main."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-02T23:02:29.465Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #101 https://github.com/othoth77/mythos-prod/issues/101 — \"MYTHOS Resource Guard — تنفيذ الحماية الفعلية للـRAM وSWAP\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\nهذه TASK تنفيذية مبنية مباشرة على نتائج التحقيق في **#99**. لا تعِد التحقيق من الصفر.\n\nتم بالفعل تثبيت حماية `user@1001.service` على الـVPS بنجاح:\n`OOMScoreAdjust=0`.\n\n[التصميم المطلوب]\n1. اعتمد على نتائج #99 والـcomponents الموجودة بالفعل؛ **EXTEND لا REBUILD**.\n2. استخدم `MemAvailable` وPSI وتغيّر OOM kills كإشارات أساسية للحالة.\n3. **لا تستخدم نسبة SWAP وحدها كـtrigger** لأن SWAP الحالية مرتفعة بشكل دائم ويمكن أن تجعل النظام في CRITICAL دائماً.\n4. استعمل الـcapacity gate الموجود في `executor.js` و`dispatch_deferred` لتأجيل المهام الجديدة بدلاً من اختراع مسار آخر.\n5. الحالات:\n   - `NORMAL`\n   - `WARNING`\n   - `CRITICAL`\n   - `RECOVERED`\n6. استخدم hysteresis + cooldown لمنع الانتقال المتكرر والتنبيهات المتكررة.\n7. عند الضغط:\n   - لا تبدأ مهام AI جديدة إذا كانت الحالة تمنع ذلك.\n   - المهام الجديدة تُؤجل بشكل آمن وتبقى قابلة للاستئناف.\n   - لا تقتل عمليات عشوائياً.\n8. احمِ الخدمات الأساسية، واستفد من cgroups v2 / systemd delegation الموجودين فعلياً بدلاً من بناء OOM kille…\n\n[مهم جداً — model selection]\nهذه TASK يجب أن تمر عبر سياسة اختيار النموذج الجديدة في **Issue #100**:\n- إذا لم يوجد `Model:` صريح، اختر تلقائياً الأنسب بين Haiku / Sonnet / Opus حسب تعقيد المهمة.\n- لا تستخدم Fable تلقائياً.\n- لا تضف `Model:` إلى هذه المهمة؛ نريد اختبار السياسة الافتراضية الجديدة.\n\n[قيود صارمة]\n- لا AUTOS-0.\n- لا SPY/n8n ولا مشاريع السيارات.\n- لا إعادة بناء GitHub Bridge أو MCP.\n- لا تغييرات غير مرتبطة.\n- لا أسرار في Git أو logs أو reports.\n- لا WhatsApp test messages حقيقية متكررة؛ إن كان smoke test حقيقياً ضرورياً فمرة واحدة فقط وبعد التأكد من سلامة المسار.\n- لا merge إلى `main` تلقائياً.\n- لا kill عشوائي للـprocesses.\n- إذا كانت خطوة تتطلب صلاحيات root أو موارد غير كافية، توقف `BLOCKED/HUMAN_APPROVAL` وسجّل المطلوب بدلاً من تجاوز الحماية.\n\n[مرجع التحقيق]\nIssue #99: Resource Guard investigation.\n\n[المطلوب في التقرير]\nاشرح باختصار:\n1. ماذا بُني فعلياً.\n2. كيف يقرر NORMAL/WARNING/CRITICAL/RECOVERED.\n3. كيف يؤجل TASKs.\n4. كيف يحمي الخدمات الأساسية.\n5. كيف يعمل WhatsApp كقناة تنبيه مستقلة.\n6. نتائج simulation والاختبارات.\n7. commit SHA وremote HEAD.\n8. أي شيء يحتاج موافقة المالك.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 101,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/101",
+    "issue_id": 5330157992,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPbPBqA",
+    "issue_title": "TASK: MYTHOS Resource Guard — تنفيذ الحماية الفعلية للـRAM وSWAP",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-02T23:02:19Z",
+    "issue_updated_at": "2026-09-02T23:02:19Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "d31d6ded2a42193659055f52d038edf170a5eac6f273cf56556bcc592ddcd94c",
+    "attempt": 1,
+    "rerun_of": null,
+    "converted_at": "2026-09-02T23:02:29.466Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5517623387,
+        "url": "https://github.com/othoth77/mythos-prod/issues/101#issuecomment-5517623387",
+        "at": "2026-09-02T23:02:30.506Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
