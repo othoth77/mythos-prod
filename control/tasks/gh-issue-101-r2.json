@@ -1,0 +1,53 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-101-r2",
+  "project": "mythos-prod",
+  "objective": "MYTHOS Resource Guard — تنفيذ الحماية الفعلية للـRAM وSWAP",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-02T23:34:59.451Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #101 https://github.com/othoth77/mythos-prod/issues/101 — \"MYTHOS Resource Guard — تنفيذ الحماية الفعلية للـRAM وSWAP\"\n\n[re-run — implement only]\nنفّذ الآن Resource Guard فعلياً اعتماداً على نتائج التحقيق السابقة في نفس Issue، ولا تعِد التحقيق من الصفر.\n\n**إلزامي:**\n- requested_action=implement\n- execution_profile=repo-write\n- لا تحوّل المهمة إلى investigate أو repo-read.\n- لا تضف Model:؛ استخدم سياسة Model Selection من #100 تلقائياً.\n\n[التنفيذ]\n1. استخدم MemAvailable + PSI memory some avg60 + delta في oom_kill كإشارات أساسية. SWAP للعرض فقط وليس trigger.\n2. الحالات: NORMAL / WARNING / CRITICAL / RECOVERED.\n3. thresholds المقترحة من التحقيق:\n   - CRITICAL enter: MemAvailable <=700 MiB أو PSI avg60 >=30 أو oom_kill delta >0.\n   - CRITICAL exit: MemAvailable >=1100 MiB و PSI avg60 <=10 ولا توجد kills جديدة.\n   - WARNING enter: MemAvailable <=1200 MiB أو PSI avg60 >=5.\n   - WARNING exit: MemAvailable >=1600 MiB و PSI avg60 <=2.\n   - escalation confirmation: عينتان (~4 دقائق).\n   - recovery/de-escalation: 5 عينات (~10 دقائق).\n   - RECOVERED مرة واحدة عند degraded → NORMAL.\n   - alert cooldown >=30 دقيقة لكل kind.\n4. أصلح admission path الخاص بـ requested_by=github-bridge؛ لا تعتمد فقط على dispatchTask/drainQueue الحاليين لأن التحقيق …\n\n[git / النتيجة]\n- لا merge إلى main.\n- commit + push إلى branch المهمة فقط بعد نجاح التنفيذ.\n- سجّل SHA وremote HEAD والملفات والاختبارات في AI_HANDOVER.\n- لا تستخدم git add . بشكل أعمى.\n- عند النجاح: COMPLETED + تقرير كامل.\n- عند الحاجة إلى root/صلاحية غير متاحة: HUMAN_APPROVAL/BLOCKED مع المطلوب بدقة.\n\n[ممنوع اللمس]\nAUTOS-0، SPY، n8n، مشاريع السيارات، MCP/ContextForge، OAuth، وأي مشروع غير متعلق بـResource Guard.\n\n**مهم:** التحقيق السابق في #101 هو أساس التنفيذ. لا تعتبره بديلاً عن التنفيذ والاختبارات.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 101,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/101",
+    "issue_id": 5330157992,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPbPBqA",
+    "issue_title": "TASK: MYTHOS Resource Guard — تنفيذ الحماية الفعلية للـRAM وSWAP",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-02T23:02:19Z",
+    "issue_updated_at": "2026-09-02T23:33:44Z",
+    "issue_labels": [
+      "task",
+      "mythos:human-approval",
+      "rerun"
+    ],
+    "content_sha256": "b8b13bb83cc4055f54bc4074d16a25ff2e66fc85971b6075cc720df2bd4fa7c6",
+    "attempt": 2,
+    "rerun_of": "gh-issue-101",
+    "converted_at": "2026-09-02T23:34:59.453Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5517981761,
+        "url": "https://github.com/othoth77/mythos-prod/issues/101#issuecomment-5517981761",
+        "at": "2026-09-02T23:35:00.252Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:human-approval"
+      ]
+    }
+  }
+}
