@@ -1,7 +1,9 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-02 09:00 UTC
-**From:** MCP-ECOSYSTEM-1e — **the MYTHOS MCP ecosystem is DEPLOYED: `main` = `c63d987` on GitHub, executor and command-center restarted, executor `/mcp/invoke` + `/mcp/registry`, OTHMODE `/api/othmode/mcp` and the two MCP probes verified live end to end (7 suites green: 167/37/58/264/157/86/40). Remaining items are owner credentials/tokens/timers only.**
+**Last updated:** 2026-09-02 09:12 UTC
+**From:** MCP-ECOSYSTEM-2a — **the MCP HTTP bridge is reachable from the deployed executor: `cred_mcp_http_bridge_token` bound by reference (systemd drop-in → the same 0600 file, no copy), executor restarted alone, three real HTTP MCP invokes OK with audit, zero literal-token occurrences anywhere; the inventory update is committed on the branch (`a73473f`) and awaits one owner approval.**
+
+**Previously:** MCP-ECOSYSTEM-1e — **the MYTHOS MCP ecosystem is DEPLOYED: `main` = `c63d987` on GitHub, executor and command-center restarted, executor `/mcp/invoke` + `/mcp/registry`, OTHMODE `/api/othmode/mcp` and the two MCP probes verified live end to end (7 suites green: 167/37/58/264/157/86/40). Remaining items are owner credentials/tokens/timers only.**
 
 **Previously:** MCP-ECOSYSTEM-1d — **`main` is reconciled with `origin/main` and delivered (`bf1c4e6` on GitHub); the MCP branch is still NOT merged into `main` — that one merge (refused to the agent by the permission layer) plus two service restarts are all that remain before the executor route, the OTHMODE fix and the MCP probes go live (exact commands below).**
 
@@ -12,6 +14,57 @@
 **Previously:** MCP-ECOSYSTEM-1 — **the MYTHOS MCP ecosystem is inventoried, completed where completion was possible without an owner decision, verified against the running host, and committed on `mythos/mcp-ecosystem-20260901` (`d9e5c54`) — delivery to GitHub is DENIED by governance on two path-pattern hits and awaits two owner approvals (exact commands below); nothing was pushed around the cage.** Estate registry + availability check + permission matrix + Vault inventory + OTHMODE discovery fix + the executor's governed MCP invoke with audit. 167/0 new assertions, 0 regressions (37/0 · 58/0 · 264/0 · 141/0). Live: the check reports the estate OK; a real handshake through ContextForge and ten governed calls against production behaved exactly as the matrix says. **Not complete by the mission's own gate** — four owner-gated items remain (below), and `main` is still undeliverable, so the executor route, the OTHMODE fix and the probes are verified but not live.
 
 **Previously:** MYTHOS-VAULT-0 — Vault architecture documented and delivered (`mythos/vault-architecture-20260901`, `7f7773d`).
+
+## MCP-ECOSYSTEM-2a — bridge credential bound to the executor by reference; real HTTP MCP invokes verified (2026-09-02 09:05–09:10 UTC)
+
+### What was bound, and how (Vault design: reference, not copy)
+`~deploy/.config/systemd/user/mythos-ai-executor.service.d/mcp-http.conf` (deploy 0644, comment + one line) adds
+`EnvironmentFile=/home/deploy/deployments/mythos-gateway/mcp-http.env` to the executor unit — the **same 0600 deploy-owned file** that is
+the inventory `location` of `cred_mcp_http_bridge_token` and that the bridge and `mcp-registry-check` already read. No value was copied,
+printed or written anywhere; `lib/mcp-invoke.js` resolves the reference by the inventory's `env_var` and nulls it once the transport holds it.
+`daemon-reload` + restart of **the executor only** (PID 290167, 09:05 UTC, `NRestarts=0`); the bridge (PID 4170095, 06:51 UTC) and the
+command-center (08:56 UTC) were not touched. The daemon's environment now carries the five `MYTHOS_*` names (checked by name only).
+Rotation remains "rotate the file"; the executor restart is now part of that procedure (inventory updated, below).
+
+### Real end-to-end HTTP MCP invokes through the deployed `POST /mcp/invoke` (bearer inside a deploy shell)
+| Call | Result |
+|---|---|
+| `mythos-mcp-http.knowledge_search {query}` | **200 OK**, 29 ms, real Knowledge results (20 KB) |
+| `mythos-mcp-http.budget_status {project}` (2nd call — token retained across calls) | **200 OK**, 96 ms |
+| `mythos-mcp-http.system_health` (3rd call) | **200 OK**, 23 ms, real Status Center data (55 KB) |
+| `budget_status` without `project` | 502 `MCP_TOOL_ERROR` (the tool's own `TOOL_INPUT`, correct) |
+| `mythos-mcp-http.knowledge_write` (undeclared) | 404 `MCP_TOOL_UNREGISTERED` |
+| secret-shaped argument | 400 `MCP_INPUT` (refused before any call; not written) |
+| `contextforge.system_health` | 503 `MCP_CREDENTIAL_UNAVAILABLE` — `cred_contextforge_executor_client` still absent (owner item) |
+| `github-mcp-rw.get_me` | 409 `MCP_SERVER_DISABLED` |
+| extra field `credential` | 400 `UNEXPECTED_FIELD` |
+| no bearer | 401 |
+| `GET /mcp/registry` | bridge entry shows `credential_ref: cred_mcp_http_bridge_token` only; no env var name, no value |
+
+### Audit and leak boundaries
+Live `mcp-audit.jsonl` (0600 deploy) grew to 26 lines; the eight new entries carry actor `mcp-2a-e2e`, `action=mythos.read`,
+`target=streamable-http:mythos-mcp-http`, `authorization ALLOW/mythos.read` on the bridge calls, and the exact refusal code on each
+failure. `findSecretKinds` over the whole log = none. **Literal-token occurrence count = 0** in: the three successful responses,
+`GET /mcp/registry`, the public OTHMODE `/api/othmode/mcp`, the audit log, `events.log`, and the executor's journal since 09:00
+(the long strings flagged by a coarse regex were file paths and one sha). Bridge `/mcp` without token still 401; registry check still
+OK `{ONLINE:4, UNAUTHORIZED:2}`. OTHMODE's view keeps `executable:false` for bridge tools by design — that flag describes the read
+model's own (credential-less) ability, not the executor's.
+
+### Inventory (governance-gated, NOT delivered)
+The executor is now a fourth consumer of `cred_mcp_http_bridge_token`, so the metadata-only inventory was updated — `purpose`,
+`consumers` (+ the drop-in, marked "reference, no copy"), `rotation_policy` (+ restart the executor) — validated
+(`vault-inventory-check` 20/20, `mcp-ecosystem` 167/0, no secret shape in the diff) and committed **on the branch**
+`mythos/mcp-ecosystem-20260901` as **`a73473f`** (branch fast-forwarded to `648d164` first) so that the relay's evaluation of the
+protected path `projects/mythos-vault/credential-inventory.json` (`/credential/i`) cannot block `main`. It WILL be DENIED until:
+```
+sudo mythos-governance-approve --commit a73473fbd919ecf489e2fa4e7a80c78b97584ade --by "Othman Haddad" --reason "MCP-ECOSYSTEM-2a: inventory records the executor as a consumer of cred_mcp_http_bridge_token (metadata only)"
+```
+then the relay pushes the branch and an operator merges it into `main` (`git merge --ff-only origin/mythos/mcp-ecosystem-20260901`, clean).
+
+### Owner items now
+1. approve `a73473f` (above) · 2. GitHub machine credential → enable `github-mcp-rw` · 3. gateway client tokens incl. `cred_contextforge_executor_client` ·
+4. gateway public — confirm or roll back · 5. root installs: `mythos-mcp-registry-check.timer`, `ops/oom` drop-in · 6. orphan containers (8082, 8083).
+Next: `MCP-ECOSYSTEM-2b` — one CONTROLLED call end to end (approval → invoke → audit) once item 3 exists.
 
 ## MCP-ECOSYSTEM-1e — MCP ecosystem DEPLOYED on `main`, live end-to-end verified (2026-09-02 08:56–08:59 UTC)
 
