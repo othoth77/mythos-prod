@@ -15,7 +15,7 @@
   "priority": "normal",
   "requested_action": "implement",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-02T22:53:49.569Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #100 https://github.com/othoth77/mythos-prod/issues/100 — \"Claude Model Selection Policy — اختيار النموذج الأنسب تلقائياً\"\n\n[1. بدون تحديد model]\nإذا لم يحتوي الـTASK على `Model:` صريحاً، يجب أن يختار Executor تلقائياً **النموذج الأنسب للمهمة** من:\n- Haiku: للمهام البسيطة والسريعة.\n- Sonnet: لمعظم مهام التنفيذ.\n- Opus: للمهام المعقدة جداً والتي تحتاج reasoning أعمق.\n\n**Sonnet ليس اختياراً ثابتاً عند غياب Model؛ المطلوب اختيار تلقائي ذكي حسب طبيعة المهمة.**\n\n[2. عند تحديد model صراحةً]\nيجب احترام الاختيار وعدم استبداله:\n- `Model: Sonnet` → Sonnet\n- `Model: Opus` → Opus\n- `Model: Haiku` → Haiku\n- `Model: Fable 5` → Fable 5\n- `Model: Fable 5.1` → Fable 5.1\n\n[3. fable]\nحالياً التنفيذ التلقائي يشغّل Fable 5.1. المطلوب إلغاء ذلك كـdefault.\nFable يجب أن يعمل فقط عندما يطلبه الـTASK صراحةً (`Model: Fable 5` أو `Model: Fable 5.1`).\n\n[المطلوب من claude]\n- راجع مسار اختيار النموذج الحالي بالكامل قبل التعديل.\n- حدد أين يتم تشغيل Fable 5.1 حالياً.\n- صمم ونفذ Model Selection Policy واضحة وقابلة للاختبار.\n- لا تكسر مسار GitHub Issues → Bridge → Executor الحالي.\n- لا تعيد بناء MCP أو Bridge من الصفر.\n- يجب أن تكون قيمة `Model:` اختيارية.\n- يجب أن تكون آلية الاختيار التلقائي قابلة للتفسير والتسجيل في التقرير، دون تسجيل أسرار.\n- حافظ على governance والحماية الحالية.\n- اختبر الحالات الخمس الصريحة + حالات الاختيار التلقائي.\n- اختبر أن غياب `Model:` لا يؤدي إلى Fable تلقائياً.\n- اختبر restart/recovery إن كان المسار المتأثر يستخدم state أو services.\n- حدّث docs/AI_HANDOVER.md بما تم تغييره ونتائج الاختبارات.\n\n[القاعدة النهائية]\n`TASK Model explicit` → نفّذ النموذج المطلوب.\n`TASK Model absent` → اختر الأنسب تلقائياً بين Haiku/Sonnet/Opus.\n`Fable` → فقط بطلب صريح.\n\n[report requirements]\nأرجع تقريراً يوضح:\n- مكان وآلية الاختيار الحالية والجديدة.\n- القواعد النهائية للاختيار التلقائي.\n- كل الملفات التي تغيرت.\n- نتائج الاختبارات كاملة.\n- commit SHA وremote HEAD.\n- أي قيود أو قرارات تحتاج موافقة المالك.",
@@ -71,8 +71,9 @@
     "claimed_at": "2026-09-02T22:53:54.652Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "a5ffcf4527b8f716f1d94853003d53c6c025a40ef578ec87ecd5c2a9f0343465",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-02T22:53:54.653Z"
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-02T22:56:01.088Z",
+    "claude_session_id": "7bab65e6-64a7-41b2-8be4-df830db1aa03"
   },
   "history": [
     {
@@ -81,6 +82,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260902225354-12dm0a queued; OTHMODE OTH-2026-00028"
+    },
+    {
+      "at": "2026-09-02T22:56:01.087Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
