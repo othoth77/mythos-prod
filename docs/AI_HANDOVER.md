@@ -1,7 +1,53 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-02 09:40 UTC
-**From:** GOV-APPROVAL-GROUP-delivery — **DELIVERED and INSTALLED: `origin/main` = `fe3f743` carries the approve-tool group fix (`7873e94`, approval `ga-mtjwf68b-368509`) AND the MCP-ECOSYSTEM-2a inventory commit (`a73473f`, approval `ga-mtjvu6ex-df615c`, merged via `fe3f743` because `main` was no longer a fast-forward of the MCP branch); the two root-owned copies under `/usr/local` are byte-identical to `main`; the installed tool verified in a temp store writes `root:mythos-gov 0640` and the relay identity accepts it; 111/0. MCP-ECOSYSTEM-2a delivery is CLOSED; nothing needed restarting.**
+**Last updated:** 2026-09-02 11:30 UTC
+**From:** MCP-ECOSYSTEM-2b-prep — **PREPARED, NOTHING DELIVERED: the owner generated a dedicated GitHub PAT and wrote it as `deploy 0600` to `deployments/mythos-gateway/github-mcp-rw.env` (`read -s`, umask 077, verified HTTP 200 by header from the file); the Vault inventory now records `cred_github_gateway` ACTIVE by reference (`MYTHOS_GITHUB_MCP_RW_TOKEN`) on `mythos/mcp-ecosystem-2b-20260902` (`0c41227`, local, unpushed, verifier dry-run DENY on exactly the inventory path → ONE owner approval); `github-mcp-rw` is still DISABLED, the executor drop-in is written but NOT installed, no ContextForge peer, no approval in the executor store, no invoke made. 20/20 · 167/0 · 37/0 · 264/0.**
+**Previously:** GOV-APPROVAL-GROUP-delivery — **DELIVERED and INSTALLED: `origin/main` = `fe3f743` carries the approve-tool group fix (`7873e94`, approval `ga-mtjwf68b-368509`) AND the MCP-ECOSYSTEM-2a inventory commit (`a73473f`, approval `ga-mtjvu6ex-df615c`, merged via `fe3f743` because `main` was no longer a fast-forward of the MCP branch); the two root-owned copies under `/usr/local` are byte-identical to `main`; the installed tool verified in a temp store writes `root:mythos-gov 0640` and the relay identity accepts it; 111/0. MCP-ECOSYSTEM-2a delivery is CLOSED; nothing needed restarting.**
+
+## MCP-ECOSYSTEM-2b-prep — GitHub credential in the Vault by reference; everything else staged behind owner decisions (2026-09-02 11:10–11:30 UTC)
+
+**What the owner did (outside the agent).** Generated a dedicated fine-grained PAT for `github-mcp-rw` and wrote it with
+`sudo -u deploy bash -c 'umask 077; read -rs …; printf "MYTHOS_GITHUB_MCP_RW_TOKEN=%s\n" "$T" > …/github-mcp-rw.env'` — the value never passed
+through argv, history or a log — then verified it by header from the file: `GET https://api.github.com/user` → **200**. Agent-side the file was
+only `stat`ed: `deploy:deploy 600`, 121 bytes, one `MYTHOS_GITHUB_MCP_RW_TOKEN=` line (name grep only).
+
+**What this session prepared.**
+
+| Item | State |
+|---|---|
+| Inventory | `cred_github_gateway`: `status active`, `location` the file above, `0600 deploy`, `env_var MYTHOS_GITHUB_MCP_RW_TOKEN`, consumers (container per-request bearer; executor drop-in — not installed; ContextForge peer — not registered), rotation policy, note recording owner decision #1. `vault-inventory-check` **20/20, 0 drift** (the new entry `present 0600 deploy`). No secret shape in the diff (`findSecretKinds` = []). |
+| Test §I | The assertion that pinned "recorded absent (owner decision)" now pins "active by reference (owner decision #1, 2026-09-02)". |
+| Commit | **`0c41227`** on `mythos/mcp-ecosystem-2b-20260902` (worktree `/home/deploy/worktrees/mcp-ecosystem-2b`, base `origin/main` = `10653ec`), **local, unpushed**. Installed verifier as the relay identity: `GOVERNANCE DENY 0c41227 … credential-inventory.json with no valid approval` — exactly the one protected path. |
+| Suites (worktree, as `deploy`) | `mcp-ecosystem` 167/0 · `gateway-boundary` 37/0 · `mythos-ai-executor` 264/0. |
+| Executor drop-in | `github-mcp-rw.conf` (`EnvironmentFile=` the same 0600 file — reference, no copy; mirrors 2a's `mcp-http.conf`) written to the session scratchpad only. **Not installed**, executor not restarted: the executor must not hold a write credential for a server the owner has not enabled. |
+| Registry | `github-mcp-rw.enabled` still **false**; `auth.note` still says the credential does not exist (stale once the inventory lands — fix it in the enabling commit). |
+| ContextForge | 0 client tokens, 1 peer (`mythos-mcp`), no GitHub peer. The gateway path for ChatGPT/Claude is a separate owner step and is not needed for 2b (the executor reaches `10.0.60.3:8082` directly; host → container `POST /mcp` without bearer = 401, reachable). |
+| Executor approval store | no `approvals/` directory yet; a CONTROLLED call needs one GRANTED record with `action_class mcp:<capability>`, `decided_by` a human, < 24 h old, consumed once (`lib/mcp-invoke.js verifyApproval`). |
+
+**Denied to the agent this session (classifier), not worked around:** listing variable names in `~deploy/.config/mythos*`, counting rows in ContextForge's
+token tables, and the pre-flight `github-mcp-rw.get_me` invoke (last measured 09:18 UTC: 409 `MCP_SERVER_DISABLED`; the registry file is unchanged since).
+
+### Exact owner sequence (in order; A is the only governance approval)
+```
+# A. approve + deliver the inventory commit (root)
+sudo mythos-governance-approve --commit 0c412270929b9fff2917bf7ca505de4df35d3541 --by "Othman Haddad" --reason "MCP-ECOSYSTEM-2b: inventory records cred_github_gateway active by reference (metadata only; PAT written by the owner, verified 200)"
+sudo systemctl start mythos-git-push.service
+sudo -u deploy git -C /home/deploy/projects/mythos-prod merge --ff-only origin/mythos/mcp-ecosystem-2b-20260902
+sudo systemctl start mythos-git-push.service
+# B. say "enable github-mcp-rw" — an agent then flips registry enabled:true + notes + the "ships disabled" test line on the same branch (not a protected path), you review, relay delivers
+# C. bind the reference to the executor (deploy; one drop-in, executor-only restart)
+install -o deploy -g deploy -m 0644 <scratchpad>/2b/github-mcp-rw.conf ~deploy/.config/systemd/user/mythos-ai-executor.service.d/github-mcp-rw.conf
+systemctl --user daemon-reload && systemctl --user restart mythos-ai-executor.service
+# D. one CONTROLLED approval, decided by you (deploy shell; prints the approval id)
+cd /home/deploy/projects/mythos-prod/projects/mythos-ai-executor && node -e 'var pe=require("./core/policy-engine");var a=pe.requestApproval("executor","mcp:github.write","MCP-ECOSYSTEM-2b: one controlled create_branch end to end","mythos-prod");pe.decideApproval(a.id,true,"Othman Haddad");console.log(a.id)'
+```
+Then the agent makes the ONE call: `POST /mcp/invoke {server:"github-mcp-rw", tool:"create_branch", arguments:{owner, repo, branch:"mcp-2b-controlled-<ts>", from_branch:"main"}, approval_id, requested_by:"mcp-2b-e2e"}`
+on a repository **you name** (least-impact reversible write under `github.write`; the branch is deleted by hand afterwards — `delete_*` is DENY by hard floor,
+correctly), expects 200, then proves consumption (same `approval_id` again → 403 `MCP_APPROVAL_INVALID … already consumed`), reads the audit line
+(`authorization CONTROLLED`, `approval consumed_by` = audit id, `findSecretKinds` none, literal-token occurrences 0) and closes 2b in this file.
+
+**Not done, by instruction:** `github-mcp-rw` not enabled, nothing pushed, nothing installed under `/usr/local` or `~deploy/.config`, no service restarted,
+no ContextForge change, no SPY/n8n/AUTOS. The credential value was never read by any agent command.
 
 **Previously:** GOV-APPROVAL-GROUP — **the approve-tool defect behind the ga-mtjvu6ex-df615c stall is fixed at source on `mythos/governance-approval-group-20260902` (`7873e94`): approvals are now written `root:mythos-gov 0640` (gid from `/etc/group`, fatal if the group is missing, temp-name + rename), and the verifier names an unreadable approval on stderr while still denying; 111/0 as `deploy`; the commit touches `service/` (protected) and awaits ONE owner approval, then the relay, then install of the two root-owned copies (exact commands below). Nothing is installed or pushed yet.**
 
