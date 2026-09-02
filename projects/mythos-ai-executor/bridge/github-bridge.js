@@ -123,6 +123,24 @@ function config() {
   };
 }
 
+// F3 — user guard. The bridge shares the executor's store (task queue,
+// worktrees, claims cache, lock) by running as the executor's user. Run as
+// anyone else it would queue tasks in a store the daemon never reads and
+// commit claims that can only degrade to BLOCKED. Refuse, loudly.
+var EXPECTED_USER_DEFAULT = 'deploy';
+
+function userGuard() {
+  var expected = process.env.MYTHOS_BRIDGE_USER || EXPECTED_USER_DEFAULT;
+  var actual;
+  try { actual = os.userInfo().username; } catch (e) { actual = String(process.getuid ? process.getuid() : 'unknown'); }
+  if (actual !== expected) {
+    throw new Error('BRIDGE_WRONG_USER: the bridge must run as "' + expected + '" (the executor user, whose store is ' +
+      state.root() + '); it is running as "' + actual + '". Run it via `sudo -u ' + expected + '` or the ' +
+      'mythos-github-bridge user timer. MYTHOS_BRIDGE_USER exists for isolated test fixtures only.');
+  }
+  return actual;
+}
+
 // --- Small helpers -------------------------------------------------------------
 
 function nowIso() { return new Date().toISOString(); }
@@ -363,7 +381,9 @@ function buildInstruction(cfg, task, exec) {
     'This task was created in GitHub (branch ' + cfg.branch + ', ' + cfg.prefix + '/tasks/' + task.task_id + '.json) by ' +
       task.created_by + ' and dispatched by the MYTHOS GitHub bridge. Your OTHMODE Task record already exists: ' +
       (exec.othmode_task_id || '(none — OTHMODE store unavailable; record nothing)') +
-      '. Update that record (`node projects/command-center/cli/othmode-cli.js task update <id> \'<json>\'`); do NOT create a second one.',
+      '. You MAY advance its `phase` and add `sections`/`evidence_texts` with `node projects/command-center/cli/othmode-cli.js task update <id> \'<json>\'`, ' +
+      'but you MUST NOT set a terminal `status` (COMPLETED/FAILED/BLOCKED/CANCELLED/REJECTED) and MUST NOT create a second record: ' +
+      'the bridge is the only component that closes this record, after it has verified your commits and tests against Git. Your structured final report block is the evidence it uses.',
     '',
     '## Objective',
     '',
@@ -430,28 +450,51 @@ function othmodeCreate(cfg, task, exec) {
   }
 }
 
+// F2 — the bridge is the ONLY closer of an OTHMODE record. The executing
+// session may advance phase and add sections; the terminal status and the
+// evidence sections (outcome, git, validation, tests, problems/risks) are
+// written here, from Git-verified data. A record the session closed early
+// cannot be amended (the store is append-only and refuses updates after a
+// terminal status), so that case is detected and reported as a problem on
+// the GitHub REPORT — the evidence then lives there, and the gap is visible.
+// Section names are the closed OTHMODE set (tasks.js SECTIONS): tests live
+// under `validation` and `evidence`, changed files under `changes`.
+function othmodeSections(status, report) {
+  return {
+    outcome: { status: status, summary: report.summary, next_action: report.next_recommended_action, completed_at: report.completed_at, closed_by: BY },
+    git: { commits: report.commits, delivery: report.delivery, branch: report.execution.branch, base_commit: report.execution.base_commit },
+    changes: { files_changed: report.files_changed },
+    validation: { required_checks: report.validation.required_checks, tests: report.tests, git_verified: report.validation.git_verified, remote_head: report.validation.remote_head, report_problems: report.validation.report_problems },
+    evidence: { tests: report.tests, report_file: 'control/reports/' + report.task_id + '.json', executor_report: report.execution.executor_task_id ? 'executor store report.json for ' + report.execution.executor_task_id : null },
+    problems: { problems: report.problems, risks: report.risks },
+    execution: { executor_task_id: report.execution.executor_task_id, execution_profile: report.execution.execution_profile, claude_session_id: report.execution.claude_session_id, retries: report.execution.retries, quota_waits: report.execution.quota_waits, cost_usd: report.execution.cost_usd }
+  };
+}
+
 function othmodeFinish(id, status, report) {
-  if (!id) return { updated: false, reason: 'no OTHMODE record' };
+  if (!id) return { updated: false, premature: false, reason: 'no OTHMODE record' };
   var mod = othmodeModule();
-  if (!mod) return { updated: false, reason: 'module unavailable' };
+  if (!mod) return { updated: false, premature: false, reason: 'module unavailable' };
   var map = { COMPLETED: 'COMPLETED', FAILED: 'FAILED', BLOCKED: 'BLOCKED', CANCELLED: 'CANCELLED' };
   try {
     var current = mod.getTask(id);
-    if (current && current.terminal) return { updated: false, reason: 'already ' + current.status + ' (closed by the session)' };
+    if (!current) return { updated: false, premature: false, reason: 'record ' + id + ' not found' };
+    if (current.terminal) {
+      return {
+        updated: false, premature: true,
+        reason: 'OTHMODE record ' + id + ' was closed ' + current.status + ' by the executing session before the bridge verified the result; ' +
+          'the store is append-only, so outcome/git/validation/tests evidence could not be added there and is recorded in this REPORT only'
+      };
+    }
     mod.updateTask(id, {
       status: map[status] || 'FAILED',
       phase: 'COMPLETED',
       finished_at: report.completed_at,
-      sections: {
-        outcome: { status: status, summary: report.summary, next_action: report.next_recommended_action },
-        git: { commits: report.commits, files_changed: report.files_changed, delivery: report.delivery },
-        validation: { tests: report.tests, validation: report.validation },
-        problems: { problems: report.problems, risks: report.risks }
-      }
+      sections: othmodeSections(status, report)
     }, BY);
-    return { updated: true };
+    return { updated: true, premature: false };
   } catch (e) {
-    return { updated: false, reason: String(e.message).slice(0, 200) };
+    return { updated: false, premature: false, reason: String(e.message).slice(0, 200) };
   }
 }
 
@@ -459,12 +502,35 @@ function othmodeFinish(id, status, report) {
 
 function taskBranch(id) { return 'mythos/gh/' + id; }
 
+// F1 — push guard. The executing session runs with `Bash(git:*)` and the
+// deploy SSH identity, so a raw `git push` from the task worktree would
+// bypass the governance relay. Each task worktree therefore gets a
+// worktree-scoped push URL that no transport can use; `fetch` keeps the
+// real URL. This is a guard against instructed or accidental pushes, not
+// a hard floor (the floor is lib/policy.js, owner-approved); it applies
+// only to task worktrees, never to the shared checkout or its config.
+var NO_PUSH_URL = 'no_push://governance-relay-only';
+
+function applyPushGuard(cfg, dir) {
+  var ext = git(cfg.repo, ['config', '--get', 'extensions.worktreeConfig']);
+  if (!ext.ok || ext.out !== 'true') {
+    var en = git(cfg.repo, ['config', 'extensions.worktreeConfig', 'true']);
+    if (!en.ok) throw new Error('PUSH_GUARD_FAILED: cannot enable extensions.worktreeConfig: ' + en.error);
+  }
+  var set = git(dir, ['config', '--worktree', 'remote.' + cfg.remote + '.pushurl', NO_PUSH_URL]);
+  if (!set.ok) throw new Error('PUSH_GUARD_FAILED: ' + set.error);
+  var check = git(dir, ['remote', 'get-url', '--push', cfg.remote]);
+  if (!check.ok || check.out !== NO_PUSH_URL) throw new Error('PUSH_GUARD_FAILED: push url is ' + (check.out || check.error));
+  return true;
+}
+
 function ensureTaskWorktree(cfg, id) {
   var dir = path.join(cfg.taskWorktrees, id);
   var branch = taskBranch(id);
   if (fs.existsSync(dir)) {
     var head = git(dir, ['rev-parse', '--abbrev-ref', 'HEAD']);
     if (head.ok && head.out === branch) {
+      applyPushGuard(cfg, dir);
       return { dir: dir, branch: branch, base: git(dir, ['merge-base', branch, cfg.baseRef]).out || git(dir, ['rev-parse', 'HEAD']).out, reused: true };
     }
     throw new Error('WORKTREE_CONFLICT: ' + dir + ' exists with branch ' + (head.out || '?'));
@@ -480,6 +546,7 @@ function ensureTaskWorktree(cfg, id) {
     ? git(cfg.repo, ['worktree', 'add', dir, branch])
     : git(cfg.repo, ['worktree', 'add', '-b', branch, dir, base.out]);
   if (!add.ok) throw new Error('WORKTREE_ADD_FAILED: ' + add.error);
+  applyPushGuard(cfg, dir);
   return { dir: dir, branch: branch, base: existing.ok ? git(dir, ['merge-base', branch, base.out]).out : base.out, reused: false };
 }
 
@@ -815,9 +882,16 @@ function finishTask(cfg, task, finalStatus, opts, changed) {
     log('report_failed', { task_id: task.task_id, error: e.message });
     return;
   }
-  var files = writeReport(cfg, report);
   var oth = othmodeFinish(task.execution && task.execution.othmode_task_id, finalStatus, report);
-  pushHistory(task, 'VALIDATING', finalStatus, 'report written (' + report.commits.length + ' commit(s), ' + report.tests.length + ' test line(s)); OTHMODE ' + (oth.updated ? 'closed' : 'not updated: ' + oth.reason));
+  if (oth.premature) {
+    // Detected early closure: the evidence is kept on the REPORT and the gap
+    // is a recorded problem, never a silent one.
+    report.problems = uniq(report.problems.concat(['othmode: ' + oth.reason]));
+  }
+  report.execution.othmode_closed_by_bridge = oth.updated === true;
+  var files = writeReport(cfg, report);
+  pushHistory(task, 'VALIDATING', finalStatus, 'report written (' + report.commits.length + ' commit(s), ' + report.tests.length + ' test line(s)); OTHMODE ' +
+    (oth.updated ? 'closed by the bridge' : (oth.premature ? 'CLOSED PREMATURELY by the session (recorded as a problem)' : 'not updated: ' + oth.reason)));
   task.status = finalStatus;
   task.execution = task.execution || {};
   task.execution.executor_status = (opts && opts.executor_status) || null;
@@ -832,6 +906,7 @@ function finishTask(cfg, task, finalStatus, opts, changed) {
 
 function tick(executor, opts) {
   opts = opts || {};
+  try { userGuard(); } catch (e) { return { ok: false, reason: e.message }; }
   var cfg = config();
   var lock = acquireLock(cfg);
   if (!lock) return { ok: false, reason: 'another bridge process holds the lock' };
@@ -1025,6 +1100,7 @@ function tick(executor, opts) {
 
 function init(opts) {
   opts = opts || {};
+  userGuard();
   var cfg = config();
   var dir = cfg.controlDir;
   if (!fs.existsSync(dir)) {
@@ -1104,6 +1180,7 @@ function status() {
 }
 
 function daemon(executor) {
+  userGuard();
   var cfg = config();
   var stopping = false;
   var busy = false;
@@ -1134,6 +1211,10 @@ module.exports = {
   PROFILE_BY_ACTION: PROFILE_BY_ACTION,
   STATUS_MAP: STATUS_MAP,
   config: config,
+  userGuard: userGuard,
+  applyPushGuard: applyPushGuard,
+  NO_PUSH_URL: NO_PUSH_URL,
+  othmodeFinish: othmodeFinish,
   paths: paths,
   isValidTaskId: isValidTaskId,
   validateTask: validateTask,

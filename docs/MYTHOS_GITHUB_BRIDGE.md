@@ -2,7 +2,7 @@
 
 **Stage:** MYTHOS-GITHUB-BRIDGE-0 (2026-09-02)
 **Code:** `projects/mythos-ai-executor/bridge/github-bridge.js`, CLI `projects/mythos-ai-executor/bin/mythos-github-bridge`
-**Suite:** `tests/mythos-github-bridge-test.js` (offline, mock provider, throwaway origin — 76 checks)
+**Suite:** `tests/mythos-github-bridge-test.js` (offline, mock provider, throwaway origin — 97 checks)
 **Channel:** branch `mythos/control` of `othoth77/mythos-prod`, directory `control/` (protocol copy in `control/README.md`)
 
 GitHub is the shared source of truth and the task/report channel between an
@@ -178,10 +178,21 @@ Until `main` carries the bridge, the unit runs the binary from the mission workt
 `~/.config/systemd/user/mythos-github-bridge.service.d/worktree.conf` (`MYTHOS_BRIDGE_BIN`). After the merge,
 delete the drop-in and `systemctl --user daemon-reload`.
 
+## 12b. Pre-merge review fixes (2026-09-02, F1–F3)
+
+| Fix | What changed | Test |
+|---|---|---|
+| **F1 push guard** | `ensureTaskWorktree` → `applyPushGuard`: enables `extensions.worktreeConfig` on the repository once, then sets `remote.origin.pushurl = no_push://governance-relay-only` **in the task worktree's own config** (`git config --worktree`). Push from a task worktree fails at transport level; fetch/ls-remote use the real URL; the shared checkout and the control worktree keep their push URL (the relay reads refs and needs nothing from them). A guard, not a hard floor: `git -c remote.origin.pushurl=… push` or an explicit URL still needs the protected `lib/policy.js` change (owner approval) to be impossible. | push fails, nothing lands on origin, fetch works, main checkout unchanged |
+| **F2 OTHMODE closure** | The instruction now forbids the session from setting a terminal status; `othmodeFinish` is the sole closer and writes `outcome`, `git`, `changes`, `validation` (with tests), `evidence`, `problems` (with risks) and `execution` sections from the Git-verified report. A record the session closed early is detected (append-only store refuses the update); the REPORT then carries `problems: ["othmode: … closed … by the executing session before the bridge verified …"]`, `execution.othmode_closed_by_bridge: false`, and the task history says `CLOSED PREMATURELY`. | closure sections present; premature closure detected |
+| **F3 user guard** | `userGuard()` at `tick`, `init`, `daemon`: refuses unless the process user is the executor user (`deploy`; `MYTHOS_BRIDGE_USER` only for isolated fixtures) with `BRIDGE_WRONG_USER: …`. | tick returns the error, init throws |
+
+The smoke record `OTH-2026-00022` predates F2 and is the case F2 detects: it was closed by the session with no sections; its evidence is on `control/reports/gh-20260902-bridge-smoke-01.json`.
+
 ## 13. Honest limits
 
 - Latency: claim within ~2 min, visible on GitHub after the next relay tick (≤5 min); report likewise.
 - One bridge per repository; a second host running a bridge against the same branch would race on claims (the relay's fast-forward rule turns that into a skipped push, never a corrupted branch).
 - Task branches accumulate under `refs/heads/mythos/gh/`; pruning merged/abandoned branches and worktrees is a human housekeeping step (`git worktree remove`, branch delete) — the bridge never deletes.
 - The control branch is public to anyone with repository access; the bridge redacts what it writes, but a planner who pastes a secret into a task has already put it in GitHub history (the task is rejected, and the rewritten file is redacted).
+- The push guard is worktree-scoped configuration; a session that deliberately overrides it (`-c remote.origin.pushurl`, explicit URL) is stopped only by the protected policy layer — recommended owner change: disallow `Bash(git push:*)` in `repo-write`/`repo-test`.
 - A `document`/`implement` task whose agent forgets to commit ends COMPLETED with `validation.report_problems: ["delivery expected a commit but the report claims none"]` — visible, not hidden.

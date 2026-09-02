@@ -30,6 +30,9 @@ process.env.MYTHOS_BRIDGE_CONTROL_DIR = path.join(FIX, 'control');
 process.env.MYTHOS_BRIDGE_TASK_WORKTREES = path.join(FIX, 'wt');
 process.env.MYTHOS_BRIDGE_HOME = path.join(FIX, 'home', 'bridge');
 process.env.MYTHOS_BRIDGE_PROVIDER = 'mock';
+// F3: the suite is user-agnostic (it may run as deploy or as a CI user); the
+// guard itself is exercised explicitly below by pointing it at another name.
+process.env.MYTHOS_BRIDGE_USER = os.userInfo().username;
 process.env.OTHMODE_STORE_ROOT = path.join(FIX, 'othstore');
 fs.mkdirSync(process.env.OTHMODE_STORE_ROOT, { recursive: true, mode: 0o700 });
 delete process.env.MYTHOS_MOCK_SCRIPT;
@@ -38,6 +41,7 @@ var executor = require(path.join(EXEC, 'executor'));
 var state = require(path.join(EXEC, 'lib', 'state'));
 var bridge = require(path.join(EXEC, 'bridge', 'github-bridge'));
 var othTasks = require(path.join(BASE, 'projects', 'command-center', 'reference', 'othmode', 'tasks.js'));
+var mockProvider = require(path.join(EXEC, 'providers', 'mock'));
 
 var passed = 0, failed = 0, failures = [];
 function ok(cond, name) { if (cond) passed++; else { failed++; failures.push(name); console.error('FAIL: ' + name); } }
@@ -132,6 +136,20 @@ ok(bridge.validateTask(cfg, mkTask('gh-unit-0008', { depends_on: ['gh-unit-0008'
 var instr = bridge.buildInstruction(cfg, mkTask('gh-unit-0009'), { othmode_task_id: 'OTH-2026-00001', worktree: '/w', branch: 'mythos/gh/gh-unit-0009', base_commit: 'abc' });
 ok(/^othmode /.test(instr), 'instruction: opens with the standalone othmode keyword');
 ok(instr.indexOf('OTH-2026-00001') !== -1 && instr.indexOf('Never run `git push`') !== -1, 'instruction: names the OTHMODE record and forbids push');
+ok(/MUST NOT set a terminal `status`/.test(instr) && /bridge is the only component that closes/.test(instr), 'instruction (F2): session may not close the OTHMODE record');
+
+// --- F3: user guard --------------------------------------------------------------------
+(function () {
+  var saved = process.env.MYTHOS_BRIDGE_USER;
+  process.env.MYTHOS_BRIDGE_USER = 'someone-else';
+  var r = bridge.tick(executor);
+  ok(r.ok === false && /BRIDGE_WRONG_USER/.test(r.reason) && /someone-else/.test(r.reason), 'user guard (F3): tick refuses to run as the wrong user with a clear error');
+  var threw = false;
+  try { bridge.init(); } catch (e) { threw = /BRIDGE_WRONG_USER/.test(e.message); }
+  ok(threw, 'user guard (F3): init refuses as the wrong user');
+  process.env.MYTHOS_BRIDGE_USER = saved;
+  ok(bridge.userGuard() === saved, 'user guard (F3): passes for the executor user');
+})();
 
 // --- 1. task → claim ------------------------------------------------------------------
 plannerWrite('gh-test-0001.json', mkTask('gh-test-0001'));
@@ -150,6 +168,16 @@ ok(et1.working_directory === path.join(FIX, 'wt', 'gh-test-0001') && et1.branch 
 ok(/^othmode /.test(et1.instruction) && et1.report_to_git === false, 'tick1: instruction is an OTHMODE activation; executor report stays out of main');
 ok(git(et1.working_directory, ['rev-parse', '--abbrev-ref', 'HEAD']) === 'mythos/gh/gh-test-0001', 'tick1: worktree really is on the task branch');
 ok(state.readStatus(e1[0]).status === 'QUEUED', 'tick1: executor task QUEUED (bridge never runs it)');
+// F1: push guard on the task worktree — push impossible, fetch intact, shared checkout untouched.
+ok(git(et1.working_directory, ['remote', 'get-url', '--push', 'origin']) === bridge.NO_PUSH_URL, 'push guard (F1): task worktree push url is the no-push target');
+ok(git(et1.working_directory, ['remote', 'get-url', 'origin']) === ORIGIN, 'push guard (F1): task worktree fetch url is the real origin');
+var pushTry = cp.spawnSync('git', ['push', 'origin', 'HEAD:refs/heads/mythos/gh/should-never-land'], { cwd: et1.working_directory, encoding: 'utf8' });
+ok(pushTry.status !== 0 && /no_push/.test(pushTry.stderr), 'push guard (F1): git push from the task worktree fails');
+ok(cp.spawnSync('git', ['ls-remote', '--heads', ORIGIN, 'mythos/gh/should-never-land'], { encoding: 'utf8' }).stdout.trim() === '', 'push guard (F1): nothing landed on origin');
+ok(cp.spawnSync('git', ['fetch', 'origin'], { cwd: et1.working_directory }).status === 0, 'push guard (F1): git fetch from the task worktree still works');
+ok(git(REPO, ['remote', 'get-url', '--push', 'origin']) === ORIGIN, 'push guard (F1): the main checkout push url is unchanged');
+ok(git(REPO, ['config', '--get', 'extensions.worktreeConfig']) === 'true', 'push guard (F1): extensions.worktreeConfig enabled once on the repository');
+ok(git(cfg.controlDir, ['remote', 'get-url', '--push', 'origin']) === ORIGIN, 'push guard (F1): the control worktree is not guarded (the relay reads its ref; it never pushes itself)');
 ok(typeof t1.execution.othmode_task_id === 'string' && /^OTH-/.test(t1.execution.othmode_task_id), 'tick1: OTHMODE Task record opened');
 var oth1 = othTasks.getTask(t1.execution.othmode_task_id);
 ok(oth1 && oth1.status === 'RUNNING' && oth1.source.indexOf('github-bridge') === 0, 'tick1: OTHMODE record RUNNING with github-bridge source');
@@ -210,6 +238,10 @@ runExecutorTicks(2).then(function () {
   ok(fs.existsSync(path.join(cfg.controlDir, 'control', 'reports', 'gh-test-0001.md')), 'tick3: markdown twin written');
   var oth1b = othTasks.getTask(t1.execution.othmode_task_id);
   ok(oth1b.status === 'COMPLETED' && oth1b.terminal === true, 'tick3: OTHMODE record closed COMPLETED');
+  var sec = Object.keys(oth1b.sections || {});
+  ok(['outcome', 'git', 'changes', 'validation', 'evidence', 'problems', 'execution'].every(function (k) { return sec.indexOf(k) !== -1; }), 'F2: bridge closure carries outcome/git/changes/validation/evidence/problems/execution sections');
+  ok(oth1b.sections.validation.tests[0] === 'mock: pass' && oth1b.sections.outcome.status === 'COMPLETED' && oth1b.sections.outcome.closed_by === 'github-bridge', 'F2: OTHMODE evidence matches the report and names the bridge as closer');
+  ok(rep1.execution.othmode_closed_by_bridge === true && rep1.problems.length === 0, 'F2: report records the bridge as the closer');
   var idx3 = readJson(path.join(cfg.controlDir, 'control', 'state.json'));
   ok(idx3.awaiting_review.length === 2 && idx3.counts.COMPLETED === 2, 'tick3: state.json awaiting_review has both');
   var r3b = bridge.tick(executor);
@@ -265,6 +297,24 @@ runExecutorTicks(2).then(function () {
   ok(taskOnDisk('gh-test-0010').status === 'BLOCKED' && /NOT re-executed/.test(reportOnDisk('gh-test-0010').summary), 'tick7: report says it was not re-executed');
   ok(executorTasksFor('gh-test-0010').length === 0, 'tick7: no new executor task was created');
 
+  // --- 7b. F2: session closes the OTHMODE record early → detected, evidence on the REPORT ------------------
+  plannerWrite('gh-test-0011.json', mkTask('gh-test-0011'));
+  var r7c = bridge.tick(executor);
+  var t11 = taskOnDisk('gh-test-0011');
+  ok(actionsOf(r7c, 'claim').length === 1 && /^OTH-/.test(t11.execution.othmode_task_id), 'F2 premature: claimed with an OTHMODE record');
+  othTasks.updateTask(t11.execution.othmode_task_id, { status: 'COMPLETED' }, 'operator:session'); // the session misbehaves
+  mockProvider.reset();
+  process.env.MYTHOS_MOCK_SCRIPT = JSON.stringify([{ kind: 'success', summary: 'mock run three' }]);
+  return executor.tick().then(function () {
+    var r7d = bridge.tick(executor);
+    ok(actionsOf(r7d, 'finish').length === 1, 'F2 premature: task finished');
+    var rep11 = reportOnDisk('gh-test-0011');
+    ok(rep11.status === 'COMPLETED' && rep11.execution.othmode_closed_by_bridge === false, 'F2 premature: bridge did not (could not) close the record');
+    ok(rep11.problems.some(function (p) { return /^othmode: .*closed COMPLETED by the executing session before the bridge verified/.test(p); }), 'F2 premature: early closure recorded as a problem on the REPORT');
+    ok(/CLOSED PREMATURELY/.test(taskOnDisk('gh-test-0011').history.slice(-1)[0].note), 'F2 premature: task history says so');
+    ok(othTasks.getTask(t11.execution.othmode_task_id).status === 'COMPLETED', 'F2 premature: append-only record untouched');
+  });
+}).then(function () {
   // --- 8. process lock -------------------------------------------------------------------------------
   fs.writeFileSync(path.join(process.env.MYTHOS_BRIDGE_HOME, 'bridge.lock'), String(process.ppid));
   var r8 = bridge.tick(executor);
