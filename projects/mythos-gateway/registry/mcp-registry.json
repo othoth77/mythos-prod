@@ -90,7 +90,7 @@
         "required": true,
         "scheme": "jwt",
         "credential": "cred_contextforge_executor_client",
-        "note": "AUTH_REQUIRED=true on every path. A CLIENT presents an issued gateway token; none has been issued to any client, including the executor (owner decision #2), so every governed call through the gateway fails closed with MCP_CREDENTIAL_UNAVAILABLE until one exists."
+        "note": "AUTH_REQUIRED=true on every path. The executor presents cred_contextforge_executor_client (issued 2026-09-02 to the dedicated non-admin identity executor@mythosprod.xyz, scope tools.read+tools.execute, MCP-ECOSYSTEM-3); it is resolved by env var NAME from the daemon environment and never returned to a caller. ChatGPT/Claude client tokens remain unissued (owner decision)."
       },
       "credentials": [
         "cred_contextforge_jwt_secret",
