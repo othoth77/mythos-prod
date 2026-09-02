@@ -38,10 +38,40 @@ var STORE_DIR = process.env.MYTHOS_GOV_STORE || '/var/lib/mythos/governance/appr
 var AUDIT_LOG = process.env.MYTHOS_GOV_AUDIT || '/var/lib/mythos/governance/audit.log';
 var REPO = process.env.MYTHOS_REPO || '/home/deploy/projects/mythos-prod';
 var VERIFIER = process.env.MYTHOS_GOV_VERIFIER || '/usr/local/lib/mythos/governance-verify.js';
+// The group the relay PROCESS carries (SupplementaryGroups= in
+// mythos-git-push.service). Fixed on purpose: it is the identity model the
+// verifier documents, not a per-run choice.
+var GOV_GROUP = 'mythos-gov';
+var GROUP_FILE = '/etc/group';
 
 function die(msg, code) {
   process.stderr.write('mythos-governance-approve: ' + msg + '\n');
   process.exit(code === undefined ? 1 : code);
+}
+
+// The relay verifies as `deploy` + SupplementaryGroups=mythos-gov — never as
+// root. A record left root:root is therefore INVISIBLE to the one process that
+// has to read it: loadApprovals() hits EACCES and treats the approval as
+// absent, and the push is denied "with no valid approval" although the owner
+// did approve (observed 2026-09-02, ga-mtjvu6ex-df615c, fixed by a manual
+// chgrp). The gid is read from /etc/group directly: os.userInfo() only
+// describes the caller, and the caller here is root. A missing group is fatal
+// BEFORE anything is signed, written or audited — an approval nobody can read
+// must not exist.
+function resolveGroupGid(name) {
+  var text;
+  try {
+    text = fs.readFileSync(GROUP_FILE, 'utf8');
+  } catch (e) {
+    die('cannot read ' + GROUP_FILE + ' to resolve group ' + name + ': ' + e.code, 2);
+  }
+  var lines = text.split('\n');
+  for (var i = 0; i < lines.length; i++) {
+    var f = lines[i].split(':');
+    if (f[0] === name && /^\d+$/.test(f[2] || '')) return parseInt(f[2], 10);
+  }
+  die('group ' + name + ' does not exist in ' + GROUP_FILE + '. The relay could never read an ' +
+      'approval written without it, so none is written. Run mythos-governance-harden.sh first.', 2);
 }
 
 function arg(name) {
@@ -137,6 +167,9 @@ if (!protectedFiles.length) {
       'and creating one would be a standing grant for nothing.');
 }
 
+// Resolved before signing: a failure here has no side effect.
+var govGid = resolveGroupGid(GOV_GROUP);
+
 var key;
 try {
   key = fs.readFileSync(KEY_FILE);
@@ -159,7 +192,19 @@ approval.sig = verifier.sign(approval, key);
 
 fs.mkdirSync(STORE_DIR, { recursive: true, mode: 0o750 });
 var out = path.join(STORE_DIR, approval.approval_id + '.json');
-fs.writeFileSync(out, JSON.stringify(approval, null, 2) + '\n', { mode: 0o640 });
+// Written under a name the verifier ignores (no .json suffix), re-grouped to
+// root:mythos-gov 0640, then renamed into place: the relay never observes a
+// record it cannot read, and a failed chown leaves no record at all.
+var tmp = out + '.tmp';
+try {
+  fs.writeFileSync(tmp, JSON.stringify(approval, null, 2) + '\n', { mode: 0o640 });
+  fs.chownSync(tmp, 0, govGid);
+  fs.chmodSync(tmp, 0o640);   // the mode passed to writeFileSync is subject to umask
+  fs.renameSync(tmp, out);
+} catch (e) {
+  try { fs.unlinkSync(tmp); } catch (e2) { /* nothing to clean */ }
+  die('could not persist the approval as root:' + GOV_GROUP + ' 0640: ' + e.message);
+}
 
 audit({
   ts: approval.created_at, action: 'GRANTED', approval_id: approval.approval_id,
@@ -171,3 +216,4 @@ process.stdout.write('approved ' + approval.approval_id + '\n');
 process.stdout.write('  commit : ' + full + '\n');
 process.stdout.write('  paths  : ' + approval.paths.join(', ') + '\n');
 process.stdout.write('  by     : ' + approval.decided_by + '\n');
+process.stdout.write('  file   : ' + out + ' (root:' + GOV_GROUP + ' 0640)\n');

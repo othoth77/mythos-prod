@@ -159,8 +159,19 @@ function loadApprovals() {
   return fs.readdirSync(STORE_DIR)
     .filter(function (f) { return /\.json$/.test(f); })
     .map(function (f) {
-      try { return JSON.parse(fs.readFileSync(path.join(STORE_DIR, f), 'utf8')); }
-      catch (e) { return null; }
+      var file = path.join(STORE_DIR, f);
+      try {
+        return JSON.parse(fs.readFileSync(file, 'utf8'));
+      } catch (e) {
+        // Still treated as ABSENT (fail closed) — but say so. A record the
+        // relay cannot read is indistinguishable from no record, and that
+        // silence turned a granted approval into "no valid approval" on
+        // 2026-09-02 (ga-mtjvu6ex-df615c, written root:root by the approve
+        // tool). A diagnostic on stderr only: never an error, never permission.
+        process.stderr.write('governance: approval file ' + file + ' ignored (' +
+          (e.code || e.name || 'unreadable') + ': ' + String(e.message).slice(0, 160) + ')\n');
+        return null;
+      }
     })
     .filter(Boolean);
 }

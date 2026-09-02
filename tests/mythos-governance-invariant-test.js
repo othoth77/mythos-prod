@@ -396,6 +396,70 @@ console.log('\n10. APPROVALS PERSIST AND ARE HUMAN-ONLY BY CONSTRUCTION');
 })();
 
 // ===========================================================================
+console.log('\n10B. AN APPROVAL IS WRITTEN READABLE BY THE RELAY IDENTITY');
+// ===========================================================================
+// 2026-09-02: ga-mtjvu6ex-df615c was GRANTED by the owner and still denied at
+// delivery. The approve tool had written the record root:root 0640; the relay
+// (deploy + SupplementaryGroups=mythos-gov) could not open it, and the
+// verifier's silent catch turned EACCES into "no valid approval". Both halves
+// are pinned here: the tool re-groups the record, the verifier says what it
+// cannot read — and still denies, because an unreadable record is never
+// permission.
+(function () {
+  var toolPath = path.join(EXEC, 'service', 'mythos-governance-approve.js');
+  var tool = fs.readFileSync(toolPath, 'utf8');
+  ok(/fs\.chownSync\(\s*\w+\s*,\s*0\s*,\s*govGid\s*\)/.test(tool),
+    'group: the record is re-owned to root:<mythos-gov gid> after writing');
+  ok(/var GOV_GROUP = 'mythos-gov'/.test(tool) && /var GROUP_FILE = '\/etc\/group'/.test(tool),
+    'group: the gid is resolved from /etc/group for the fixed mythos-gov group');
+  ok(/die\('group ' \+ name \+ ' does not exist in ' \+ GROUP_FILE/.test(tool),
+    'group: a missing mythos-gov group is fatal, not silently skipped');
+  ok(tool.indexOf('resolveGroupGid(GOV_GROUP)') !== -1 &&
+     tool.indexOf('resolveGroupGid(GOV_GROUP)') < tool.indexOf('verifier.sign(approval, key)'),
+    'group: the gid is resolved BEFORE the approval is signed or written (no side effect on failure)');
+  ok(/fs\.renameSync\(tmp, out\)/.test(tool) &&
+     tool.indexOf('fs.chownSync(tmp, 0, govGid)') < tool.indexOf('fs.renameSync(tmp, out)'),
+    'group: the record is re-grouped under a non-.json name and only then renamed into place');
+  ok(/fs\.chmodSync\(tmp, 0o640\)/.test(tool),
+    'group: the final mode is 0640 regardless of umask');
+
+  // Root-only stays root-only — exercised for real, not by regex.
+  if (typeof process.getuid === 'function' && process.getuid() !== 0) {
+    var r = cp.spawnSync(process.execPath, [toolPath, '--commit', 'HEAD', '--by', 'Some Human',
+      '--reason', 'a sentence long enough to pass'], { encoding: 'utf8', env: process.env });
+    ok(r.status === 2 && /must run as root/.test(r.stderr),
+      'group: a non-root caller is refused before any group or file logic runs');
+  } else {
+    ok(true, 'group: (suite running as root) the non-root refusal is not exercised in-process');
+  }
+
+  var repo = makeRepo('unreadable');
+  var base = git(repo, ['rev-parse', 'HEAD']).trim();
+  var sha = commitFile(repo, 'projects/mythos-ai-executor/core/budget.js', '// x\n', 'chore: budget');
+  var a = grant(sha, ['projects/mythos-ai-executor/core/budget.js']);
+  var file = path.join(STORE, a.approval_id + '.json');
+  ok(verifier.verify(repo, base + '..HEAD').allowed === true,
+    'unreadable: the readable record permits delivery (control)');
+  var asRoot = typeof process.getuid === 'function' && process.getuid() === 0;
+  if (asRoot) fs.writeFileSync(file, '{ not json\n');   // root ignores modes; break the content instead
+  else fs.chmodSync(file, 0o000);                        // the real failure: EACCES
+  var run = cp.spawnSync(process.execPath,
+    [path.join(EXEC, 'service', 'governance-verify.js'), 'verify',
+     '--repo', repo, '--range', base + '..HEAD', '--ref', 'test'],
+    { encoding: 'utf8', env: process.env });
+  ok(run.status === 3,
+    'unreadable: an approval the verifier cannot read still DENIES delivery');
+  ok(run.stderr.indexOf('governance: approval file ' + file + ' ignored (') !== -1,
+    'unreadable: the verifier names the unreadable approval file on stderr');
+  ok(asRoot ? /SyntaxError/.test(run.stderr) : /EACCES/.test(run.stderr),
+    'unreadable: the diagnostic carries the failure reason');
+  ok(/GOVERNANCE DENY/.test(run.stderr),
+    'unreadable: the diagnostic never replaces the denial');
+  if (!asRoot) fs.chmodSync(file, 0o600);
+  clearStore();
+})();
+
+// ===========================================================================
 console.log('\n11. THE SESSION USER CANNOT REACH THE REAL KEY OR STORE');
 // ===========================================================================
 (function () {
