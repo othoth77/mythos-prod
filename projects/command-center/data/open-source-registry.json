@@ -142,6 +142,26 @@
       "security": "parameterized queries only; search_path pinned",
       "othmode_usage": "the mcc database (commands, library, usage events)",
       "verified_at": "2026-08-26"
+    },
+    {
+      "name": "WhatsApp notification transport for the MYTHOS GitHub bridge (Evolution API / WAHA / MultiWA / WaSphere)",
+      "source": "github (self-hosted WhatsApp gateways)",
+      "repository": "candidates evaluated: Evolution API, WAHA, MultiWA, WaSphere",
+      "version": "TO-VERIFY",
+      "license": "TO-VERIFY for all four candidates",
+      "purpose": "Deliver one outbound plain-text message when a GitHub control task reaches COMPLETED, FAILED, BLOCKED or the bridge blocked-for-a-human condition.",
+      "integration_method": "NOT vendored and NOT deployed in this stage. What was built is the adapter boundary: projects/mythos-ai-executor/bridge/notify/{whatsapp.js,http-json.js,providers/evolution.js}. Evolution API is implemented as the default adapter (POST /message/sendText/{instance}, apikey header) and is selected at runtime by MYTHOS_BRIDGE_WHATSAPP_PROVIDER; the layer is disabled unless explicitly configured and enabled. Node core only, no npm dependency, no database (the executor store convention is reused for the idempotency ledger).",
+      "status": "PROVISIONAL",
+      "dependencies": [
+        "a self-hosted WhatsApp gateway reachable on a private network (not deployed)"
+      ],
+      "maintenance": "TO-VERIFY — this run had no outbound network access (WebFetch/WebSearch unavailable, direct HTTPS blocked), so upstream maintenance, licence, release cadence and memory footprint could NOT be live-verified for any of the four candidates.",
+      "security": "credential read at send time from a 0600 file, never stored/logged/echoed; gateway host must be loopback/RFC1918/single-label unless MYTHOS_BRIDGE_WHATSAPP_ALLOW_PUBLIC=1; every message passes the shared redaction; recipients and instance names validated against injection. Proven by tests/mythos-bridge-whatsapp-notify-test.js (116 checks, no real message sent).",
+      "othmode_usage": "GitHub bridge terminal-state notifications only. Explicitly NOT MYTHOS AUTO WhatsApp / customer chat; the adapter implements sendText and nothing else.",
+      "verified_at": null,
+      "verdict": "BUILD the adapter boundary (about 400 lines, no dependency) + ADOPT Evolution API as the default runtime provider, PROVISIONALLY. Search First evidence: no existing MYTHOS component sends WhatsApp; the nearest reusable pattern is the orchestrator ntfy notify() boundary (projects/mythos-orchestrator/runner.js), whose always-non-fatal semantics were adopted and strengthened into a two-phase enqueue/flush design. MultiWA and WaSphere could not be identified as maintained projects without network access and are therefore not eligible to be a default. The decision is deliberately cheap to reverse: a second provider is a new file plus one line in the PROVIDERS map, with github-bridge.js unchanged.",
+      "before_deployment": "A networked session MUST live-verify licence, maintenance status and real memory footprint for the chosen provider, and MUST re-open the choice if the footprint is incompatible with this VPS (measured 2026-09-02: swap 4095/4095 MiB used, ~425 MiB RAM free, no Docker access for the deploy user). Then perform the single controlled real smoke test: mythos-github-bridge notify-test --confirm.",
+      "documentation": "docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md"
     }
   ],
   "final_review": "2026-08-26 final Search First re-check: every manually built capability (evolution store, sessions, detectors, export) was re-searched against GitHub/PyPI/npm/MCP/Anthropic Skills; no maintained project matched the constraints (zero-dependency Node, fail-closed store semantics, no-exec runtime, GPL exclusion) better than the ~1.5k lines built — verdicts recorded per record above; no dependency added to inflate the registry."
