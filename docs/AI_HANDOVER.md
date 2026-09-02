@@ -19088,3 +19088,29 @@ dependencies must be enabled.
   DarHijama's containerised MySQL. Unaudited.
 - The shared checkout `/home/deploy/projects/mythos-prod` is reset to `main` by
   `mythos-ai-executor`. **Branch work there is not durable — use a worktree.**
+
+---
+
+## MYTHOS-AUTOS-FOUNDATION-0 — Foundation package, Git reconciliation, architecture lock (2026-09-02)
+
+**Deliverable:** `docs/MYTHOS_AUTOS_FOUNDATION_2026-09-02.md` (sections A–W: Git reconciliation, repository state,
+32-commit and uncommitted-file classification, preservation map, ecosystem architecture, ownership matrix,
+Vehicle Type / Vehicle Instance, Part / Reference / Product, SPY contract I1–I5, OTH contract, SPY data model,
+n8n map, SsangYong map, provenance, Build/Buy/Reuse, security, backup, watchdog, legal register, roadmap,
+acceptance criteria, not-yet list). Branch `mythos/autos-foundation-20260902`, worktree
+`/home/deploy/worktrees/autos-foundation`, delivered by the relay.
+
+**Git facts:** all 32 local-only `main` commits were already on `origin/mythos/vault-architecture-20260901`.
+`main` is blocked only by governance on `f5e503a` (`budgets.json`). The three dirty files (backup-capture.sh,
+probes.json, dashboard.css — all byte-identical to what is deployed) are committed as `63aec2c`. Owner action
+to finish reconciliation: `sudo mythos-governance-approve --commit f5e503adeb4bfb4f3e80a3db07aace9b017b9ad8 …`.
+
+**Corrections to the mission brief:** 3 uncommitted files, not 2; SPY watchdog is a lingering user unit that
+survives reboot (not detached); `spy.db` is 40 MB total, not +40 MB/day; SPY has 7.7k LOC; `sitemap-products-2.xml`
+exists (8,164 URLs → frontier 53,164) and is unregistered; catalog join is 333/346 across both sitemaps.
+
+**Highest-risk findings:** `spy.db` and `ssangyong_autos` (PG) are in NO backup; autopart.tn robots.txt prohibits
+automated catalogue/price/compatibility collection without written authorisation (legal register L1); fail2ban
+inactive; Coolify realtime :6001/:6002 published on 0.0.0.0.
+
+**Nothing modified:** SPY, n8n, databases, services, production configuration. No product code written.
