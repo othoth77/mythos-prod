@@ -1,7 +1,43 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-02 14:45 UTC
-**From:** MCP-ECOSYSTEM-2b-call — **the governed CONTROLLED path is PROVEN end to end on the deployed executor (approval → invoke → audit → consumption → refusal on re-use), but the GitHub side effect did NOT happen: `create_branch` on `othoth77/telegram-bot` returned the tool's own 403 `Resource not accessible by personal access token` — the fine-grained PAT carries `contents=read` only on that repository. Approval `ap-mtk76i8m-c1ffe4` is consumed (by design, before the transport), no branch exists (`branches` = `[main]`), audit 37 lines / 0 secret shapes. 2b's governance gate is CLOSED; the one visible write remains an owner item: grant the PAT `Contents: write` on `telegram-bot`, issue ONE new approval, one retry. Suites 167/0 · 37/0 · 265/0 · 157/0 · 111/0, inventory 20/20.**
+**Last updated:** 2026-09-02 14:55 UTC
+**From:** MCP-ECOSYSTEM-2b-CLOSED — **the single CONTROLLED call SUCCEEDED on the deployed executor: `create_branch` → branch `mcp-2b-controlled-20260902T145000Z` exists on `othoth77/telegram-bot` at main's commit `e02ed36` (verified read-only on GitHub); approval `ap-mtk7q33n-ea2af5` consumed by audit `mcpa-mtk7suq8-cada5c` (authorization CONTROLLED, approved_by Othman Haddad, execution OK 1083 ms); re-use → 403 `MCP_APPROVAL_INVALID`, no approval → 403 `MCP_APPROVAL_REQUIRED`; audit 40 lines, 0 secret shapes; suites 167/0 · 37/0 · 265/0 · 157/0 · 111/0; inventory 20/20. The MCP-ECOSYSTEM completion gate (one CONTROLLED call end to end: approval → invoke → audit) is MET. The branch is left in place for the owner to delete by hand (`delete_*` is DENY by hard floor). Remaining owner items are hygiene, listed below.**
+**Previously:** MCP-ECOSYSTEM-2b-call — **the governed CONTROLLED path is PROVEN end to end on the deployed executor (approval → invoke → audit → consumption → refusal on re-use), but the GitHub side effect did NOT happen: `create_branch` on `othoth77/telegram-bot` returned the tool's own 403 `Resource not accessible by personal access token` — the fine-grained PAT carries `contents=read` only on that repository. Approval `ap-mtk76i8m-c1ffe4` is consumed (by design, before the transport), no branch exists (`branches` = `[main]`), audit 37 lines / 0 secret shapes. 2b's governance gate is CLOSED; the one visible write remains an owner item: grant the PAT `Contents: write` on `telegram-bot`, issue ONE new approval, one retry. Suites 167/0 · 37/0 · 265/0 · 157/0 · 111/0, inventory 20/20.**
+
+## MCP-ECOSYSTEM-2b — CLOSED: one controlled GitHub write, governed end to end (2026-09-02 14:45–14:55 UTC)
+
+### Precondition (owner, on GitHub)
+The fine-grained PAT was re-scoped to `Contents: Read and write` on `othoth77/telegram-bot`; the 0600 file on this host did not change. Verified by header from the file: `GET /repos` 200 (`push:true`), `GET git/ref/heads/main` 200, and a no-side-effect write probe (`POST git/refs` with an all-zero sha) answered **422 "Object does not exist"** with `x-accepted-github-permissions: contents=write` — the permission gate now passes; only the invalid sha was refused. Approval **`ap-mtk7q33n-ea2af5`** created as `deploy` on the owner's explicit in-session instruction (`decided_by "Othman Haddad"`, reason binds the branch name and task).
+
+### The call and its proofs (deployed executor PID 995484, bearer inside a deploy shell)
+| # | Request | Result | Audit |
+|---|---|---|---|
+| 1 | `create_branch {othoth77/telegram-bot, mcp-2b-controlled-20260902T145000Z, from main}`, `task_id t-20260902142726-0nsvhy`, `approval_id ap-mtk7q33n-ea2af5` | **200 OK**, 1.09 s | **`mcpa-mtk7suq8-cada5c`** 14:52:04 UTC: `authorization {CONTROLLED, github.write, approved_by "Othman Haddad"}`, `execution {ok true, status OK, latency 1083 ms}`, `error null` |
+| GitHub (read-only, PAT by header) | `GET branches/mcp-2b-controlled-20260902T145000Z` | **200**, sha `e02ed363…` = `main`'s sha; `branches = [main, mcp-2b-controlled-20260902T145000Z]` | — |
+| 2 | same tool, different branch name, the SAME approval | **403 `MCP_APPROVAL_INVALID`** "already consumed by mcpa-mtk7suq8-cada5c" | `mcpa-mtk7t9z1-923286` DENIED, 3 ms |
+| 3 | same, no approval | **403 `MCP_APPROVAL_REQUIRED`** | `mcpa-mtk7t9zs-657933` DENIED |
+
+Approval record: `consumed_at 14:52:04.883Z`, `consumed_by mcpa-mtk7suq8-cada5c`. Nothing else was created on GitHub (the two refused attempts named a branch that does not exist).
+
+### Boundaries
+`findSecretKinds` over the whole audit log = `[]`; literal GitHub token shapes: 0 in the audit log + ledger events + task files, 0 in the executor journal since the 14:22 restart; 0 in every HTTP response. No agent command read the value at any point in 2b.
+
+### Final suites on `main` (`c4a6755`, as `deploy`)
+`mcp-ecosystem` 167/0 · `gateway-boundary` 37/0 · `mythos-ai-executor` 265/0 · `othmode-2` 157/0 · `mythos-governance-invariant` 111/0 · `vault-inventory-check` 20/20, 0 drift.
+
+### What 2b established, in one paragraph
+A write to a third-party system by the platform's execution engine now requires, in order: a registered and owner-enabled server; a matrix decision (CONTROLLED); a task whose skill and profile resolved that exact tool; a GRANTED approval decided by a human, spent once and only once; a credential resolved by NAME from the daemon's own environment and never returned; a bounded transport; and an audit line for every outcome including every refusal. Each of those was exercised for real today, and the credential's own scope on GitHub proved to be the final boundary (the earlier attempt failed there, as designed, and spent its approval).
+
+### Owner items remaining (hygiene; none blocks anything)
+1. Delete branch `mcp-2b-controlled-20260902T145000Z` on `othoth77/telegram-bot` by hand (the executor cannot: `delete_*` is DENY).
+2. `registry/mcp-permissions.json`: name the 9 v1.10.1 tools (`actions_get/list` → `github.read`, `actions_run_trigger` → `github.actions`, `issue_write`/`label_write`/`sub_issue_write` → `github.issue`, `pull_request_review_write`/`add_reply_to_pull_request_comment` → `github.pull_request`, `discussion_comment_write` → `github.write`) so `mcp-registry-check` returns `ok:true`; `delete_file` stays flagged unless the container's toolsets drop `git`.
+3. `cred_contextforge_executor_client` (gateway path for ChatGPT/Claude; not needed by the executor).
+4. Re-own or un-sticky the 14 ubuntu-owned files in 6 sticky directories (delivery trap).
+5. Stale root-ledger approval `ap-mtk71iv5-45177e` under `/root/mythos-ai-executor/` (harmless residue).
+6. Decide whether `create_branch` stays in the `github-review` skill now that the proof is done, or moves to a dedicated skill.
+
+**Next stage, if any:** `MCP-ECOSYSTEM-3` — matrix hygiene (item 2) + the gateway client path (item 3). Nothing in SPY, n8n or AUTOS was touched by any 2b session.
+
 **Previously:** MCP-ECOSYSTEM-2b-deploy — **LIVE on `main` = `c3ea75d` (origin = local, clean): `github-mcp-rw` enabled, `github.create_branch` declared; deployed checker launcher refreshed from `main` (byte-identical); executor drop-in `github-mcp-rw.conf` installed and the executor ALONE restarted (PID 995484, 14:22:07 UTC, NRestarts 0, `/health` 200, three EnvironmentFiles by name); production check: 4 ONLINE, github-mcp-rw DEGRADED (bearer handshake, 58 tools, the 10 known matrix findings), `ok:false` as predicted; executor `/mcp/registry` shows `github-mcp-rw` enabled with `credential_ref cred_github_gateway`, governed by `github`; zero token shapes anywhere. Remaining for the single controlled call: owner names the repository, agent creates the `github-review` task (`repo-write`), owner creates ONE GRANTED `mcp:github.write` approval, agent invokes once. No GitHub write made, no approval created.**
 
 ## MCP-ECOSYSTEM-2b-call — one CONTROLLED call, fully governed, refused by GitHub's permission model (2026-09-02 14:27–14:45 UTC)
