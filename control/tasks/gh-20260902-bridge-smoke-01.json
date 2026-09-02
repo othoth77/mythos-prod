@@ -1,0 +1,16 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-20260902-bridge-smoke-01",
+  "project": "mythos-prod",
+  "objective": "End-to-end smoke test of the GitHub control bridge. Create the file docs/GITHUB_BRIDGE_SMOKE.md containing three lines: this task id (gh-20260902-bridge-smoke-01), the output of 'git rev-parse HEAD' taken before your change, and the current UTC time. Commit it on the current branch with the exact message 'smoke(github-bridge): gh-20260902-bridge-smoke-01'. Do nothing else.",
+  "scope": ["docs/GITHUB_BRIDGE_SMOKE.md"],
+  "constraints": ["Touch only docs/GITHUB_BRIDGE_SMOKE.md", "Exactly one commit", "No push, no deploy, no other file, no service restart"],
+  "priority": "normal",
+  "requested_action": "implement",
+  "validation_requirements": ["git status --porcelain is empty after the commit", "node --check projects/mythos-ai-executor/executor.js"],
+  "status": "PENDING",
+  "created_at": "2026-09-02T18:05:32Z",
+  "created_by": "chatgpt-smoke",
+  "timeout_seconds": 1500,
+  "max_turns": 40
+}
