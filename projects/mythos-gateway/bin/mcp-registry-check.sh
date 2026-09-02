@@ -1,8 +1,8 @@
 #!/bin/bash
 # MYTHOS MCP registry check — launcher.
 #
-# The checker authenticates with at most three values: the bridge bearer
-# and the gateway admin email + password. They live in the 0600 env files
+# The checker authenticates with at most four values: the bridge bearer,
+# the GitHub bearer (since MCP-ECOSYSTEM-2b) and the gateway admin email + password. They live in the 0600 env files
 # beside the deployment and this launcher exports ONLY those names into
 # the checker's environment before exec'ing it. Nothing is echoed and
 # nothing else from those files is exported. Same pattern, same reason as
@@ -16,6 +16,9 @@ OUT=${MYTHOS_MCP_STATUS_FILE:-$DEPLOY/mcp-registry-status.json}
 pick() { grep -oP "(?<=^$2=).*" "$1" 2>/dev/null | head -1 || true; }
 if [ -r "$DEPLOY/mcp-http.env" ]; then
   v=$(pick "$DEPLOY/mcp-http.env" MYTHOS_MCP_HTTP_TOKEN); [ -n "$v" ] && export MYTHOS_MCP_HTTP_TOKEN="$v"
+fi
+if [ -r "$DEPLOY/github-mcp-rw.env" ]; then
+  v=$(pick "$DEPLOY/github-mcp-rw.env" MYTHOS_GITHUB_MCP_RW_TOKEN); [ -n "$v" ] && export MYTHOS_GITHUB_MCP_RW_TOKEN="$v"
 fi
 if [ -r "$DEPLOY/contextforge.env" ]; then
   for k in PLATFORM_ADMIN_EMAIL PLATFORM_ADMIN_PASSWORD; do

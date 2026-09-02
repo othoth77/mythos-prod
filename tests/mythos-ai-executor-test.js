@@ -1370,9 +1370,12 @@ chain = chain.then(function () {
   // (16) github MCP fails closed: server_disabled, no credential exists.
   // -------------------------------------------------------------------
   var ghResolveRepoRead = mcpLib.resolveCapabilities(ghSkill, 'repo-read');
-  ok(ghResolveRepoRead.allowed.length === 0 && ghResolveRepoRead.denied_reason === 'server_disabled',
-    'M-12(16): github-review resolves empty with server_disabled — the github server ships enabled:false, no credential exists');
-  ok(mcpLib.DEFAULT_REGISTRY.servers.github.enabled === false, 'M-12(16): the production mcp-capabilities.json ships github disabled by default');
+  ok(ghResolveRepoRead.allowed.length === 3 && ghResolveRepoRead.denied_reason === null,
+    'M-12(16): github-review resolves its 3 declared tools — the github server is enabled by the owner (2026-09-02); the credential itself never reaches the task');
+  ok(mcpLib.DEFAULT_REGISTRY.servers.github.enabled === true, 'M-12(16): the production mcp-capabilities.json has github enabled (owner decision, MCP-ECOSYSTEM-2b)');
+  var ghDisabledReg = JSON.parse(JSON.stringify(mcpLib.DEFAULT_REGISTRY)); ghDisabledReg.servers.github.enabled = false;
+  ok(mcpLib.resolveCapabilities(ghSkill, 'repo-read', ghDisabledReg).allowed.length === 0 && mcpLib.resolveCapabilities(ghSkill, 'repo-read', ghDisabledReg).denied_reason === 'server_disabled',
+    'M-12(16): with the flag off again, resolution fails closed with server_disabled');
 
   // -------------------------------------------------------------------
   // (18) no credential-shaped string anywhere in skill/mcp output.

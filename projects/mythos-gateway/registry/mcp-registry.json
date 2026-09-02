@@ -126,7 +126,7 @@
         "required": true,
         "scheme": "bearer-per-request",
         "credential": "cred_github_gateway",
-        "note": "the credential reference exists; the credential does not (owner decision #1)"
+        "note": "cred_github_gateway is active in the Vault inventory (owner decision #1, 2026-09-02); the executor resolves it by env var NAME from its own environment and presents it per request. The container still holds nothing."
       },
       "credentials": [],
       "toolsets": [
@@ -140,8 +140,8 @@
       "tools": [],
       "tools_note": "discovered at check time; classified by registry/mcp-permissions.json — delete_* is destructive and DENIED by hard floor",
       "write_capable": true,
-      "enabled": false,
-      "enabled_note": "stays disabled until cred_github_gateway is active in the Vault inventory; enabling it is the owner's call, never an agent's",
+      "enabled": true,
+      "enabled_note": "ENABLED by the owner on 2026-09-02 (MCP-ECOSYSTEM-2b) after cred_github_gateway became active in the Vault inventory. Disabling it again is one flag here; the credential is revoked at GitHub, never by editing this file.",
       "consumers": [],
       "outbound_capability_server": "github"
     },

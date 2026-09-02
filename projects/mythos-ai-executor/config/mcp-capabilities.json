@@ -1,14 +1,23 @@
 {
   "servers": {
     "github": {
-      "enabled": false,
-      "description": "GitHub PR/review operations. No credential exists on this host; ships disabled until an owner decision provisions one and flips this flag — never invent or assume a credential.",
+      "enabled": true,
+      "description": "GitHub PR/review operations through github-mcp-rw. Enabled by the owner on 2026-09-02 (MCP-ECOSYSTEM-2b) once cred_github_gateway became active in the Vault inventory; the credential is resolved by reference in lib/mcp-invoke.js and never reaches a task. Flip this flag to disable the outbound half again.",
       "tools": {
-        "list_pull_requests": { "description": "List open pull requests for a repository." },
-        "get_pull_request_diff": { "description": "Fetch the diff for a single pull request." },
-        "create_review_comment": { "description": "Post a review comment on a pull request." }
+        "list_pull_requests": {
+          "description": "List open pull requests for a repository."
+        },
+        "get_pull_request_diff": {
+          "description": "Fetch the diff for a single pull request."
+        },
+        "create_review_comment": {
+          "description": "Post a review comment on a pull request."
+        }
       },
-      "required_execution_profiles": ["repo-read", "repo-write"]
+      "required_execution_profiles": [
+        "repo-read",
+        "repo-write"
+      ]
     }
   }
 }
