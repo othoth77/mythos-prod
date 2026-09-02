@@ -1,0 +1,32 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-20260902-chatgpt-safe-test-01",
+  "project": "mythos-prod",
+  "objective": "Verify end-to-end communication from the GitHub control branch to OTHMODE/Claude and back to a GitHub REPORT, without modifying any project source, configuration, service, credential, or production state.",
+  "scope": [
+    "Read and validate the task protocol and bridge routing only",
+    "Execute only the minimum safe test needed to prove task claim, execution, validation, and report delivery",
+    "Return a report documenting the communication path and verification results"
+  ],
+  "constraints": [
+    "DO NOT modify, create, delete, or commit any project source or configuration files",
+    "DO NOT modify services, systemd units, timers, MCP configuration, credentials, secrets, environment files, or production state",
+    "DO NOT push directly to any repository branch",
+    "DO NOT merge anything",
+    "DO NOT touch AUTOS-0, SPY, n8n, or unrelated projects",
+    "If any requested or incidental action would be sensitive, stop that action and mark it for HUMAN_APPROVAL; continue only with independent non-sensitive verification work",
+    "Keep all test artifacts isolated to the bridge task mechanism and do not alter main"
+  ],
+  "priority": "low",
+  "requested_action": "test",
+  "validation_requirements": [
+    "Task is claimed exactly once",
+    "Execution occurs through the existing OTHMODE/AI Executor path",
+    "No protected or production state is modified",
+    "A GitHub REPORT is produced with the final status and evidence",
+    "Report identifies any blocked or approval-required action without attempting to bypass it"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-02T18:45:00Z",
+  "created_by": "chatgpt"
+}
