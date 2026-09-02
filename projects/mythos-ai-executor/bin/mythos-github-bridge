@@ -1,0 +1,71 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS GitHub control bridge — CLI
+// projects/mythos-ai-executor/bin/mythos-github-bridge
+//
+//   mythos-github-bridge init                bootstrap the control branch worktree (idempotent)
+//   mythos-github-bridge tick                one pass: sync, claim, progress, report, commit
+//   mythos-github-bridge daemon              loop `tick` every MYTHOS_BRIDGE_INTERVAL_MS (120 s)
+//   mythos-github-bridge status              local view of the control branch and executor state
+//   mythos-github-bridge validate <file>     validate a task file offline (exit 1 when invalid)
+//   mythos-github-bridge instruction <file>  print the instruction the executor would receive
+//
+// Runs as the executor's user (deploy): it shares the executor store by
+// requiring the executor module directly, exactly like bin/mythos-ai-executor
+// enqueue does. No token, no network credential — Git over the deploy SSH
+// identity is the only transport, and delivery is the root relay.
+// =====================================================
+
+var fs = require('fs');
+var path = require('path');
+
+var bridge = require('../bridge/github-bridge');
+
+var argv = process.argv.slice(2);
+var cmd = argv[0];
+var arg = argv[1];
+
+function out(v) { process.stdout.write(JSON.stringify(v, null, 2) + '\n'); }
+function die(msg, code) { process.stderr.write(msg + '\n'); process.exit(code === undefined ? 1 : code); }
+
+function executor() { return require('../executor'); }
+
+switch (cmd) {
+  case 'init':
+    out(bridge.init());
+    break;
+  case 'tick': {
+    var r = bridge.tick(executor(), { forceIndex: argv.indexOf('--index') !== -1 });
+    out(r);
+    process.exit(r.ok ? 0 : 2);
+    break;
+  }
+  case 'daemon':
+    bridge.daemon(executor());
+    break;
+  case 'status':
+    out(bridge.status());
+    break;
+  case 'validate': {
+    if (!arg) die('usage: mythos-github-bridge validate <task.json>');
+    var task;
+    try { task = JSON.parse(fs.readFileSync(arg, 'utf8')); } catch (e) { die('invalid JSON: ' + e.message); }
+    var errors = bridge.validateTask(bridge.config(), task, path.basename(arg));
+    out({ valid: errors.length === 0, errors: errors, profile: errors.length ? null : bridge.PROFILE_BY_ACTION[task.requested_action] });
+    process.exit(errors.length ? 1 : 0);
+    break;
+  }
+  case 'instruction': {
+    if (!arg) die('usage: mythos-github-bridge instruction <task.json>');
+    var t = JSON.parse(fs.readFileSync(arg, 'utf8'));
+    var cfg = bridge.config();
+    process.stdout.write(bridge.buildInstruction(cfg, t, {
+      othmode_task_id: 'OTH-XXXX-XXXXX', worktree: path.join(cfg.taskWorktrees, t.task_id),
+      branch: 'mythos/gh/' + t.task_id, base_commit: '(origin/main at claim time)'
+    }) + '\n');
+    break;
+  }
+  default:
+    die('usage: mythos-github-bridge <init|tick|daemon|status|validate <file>|instruction <file>>');
+}

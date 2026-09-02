@@ -1,0 +1,11 @@
+[Unit]
+Description=MYTHOS GitHub control bridge — poll the control branch every 2 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=15s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
