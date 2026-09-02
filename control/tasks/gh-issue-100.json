@@ -1,0 +1,56 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-100",
+  "project": "mythos-prod",
+  "objective": "تعديل طريقة اختيار نموذج Claude عند وصول TASK من GitHub Issues → Bridge → Executor.",
+  "scope": [],
+  "constraints": [
+    "لا AUTOS-0.",
+    "لا SPY/n8n.",
+    "لا تغييرات في المشاريع غير المتعلقة.",
+    "لا أسرار أو tokens في Git أو logs أو reports.",
+    "لا merge تلقائي إلى main.",
+    "لا تغيير في Resource Guard إلا إذا كان ضرورياً مباشرةً لهذه السياسة؛ وإن ظهر تعارض، أوقف المهمة واذكره في التقرير."
+  ],
+  "priority": "normal",
+  "requested_action": "implement",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-02T22:53:49.569Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #100 https://github.com/othoth77/mythos-prod/issues/100 — \"Claude Model Selection Policy — اختيار النموذج الأنسب تلقائياً\"\n\n[1. بدون تحديد model]\nإذا لم يحتوي الـTASK على `Model:` صريحاً، يجب أن يختار Executor تلقائياً **النموذج الأنسب للمهمة** من:\n- Haiku: للمهام البسيطة والسريعة.\n- Sonnet: لمعظم مهام التنفيذ.\n- Opus: للمهام المعقدة جداً والتي تحتاج reasoning أعمق.\n\n**Sonnet ليس اختياراً ثابتاً عند غياب Model؛ المطلوب اختيار تلقائي ذكي حسب طبيعة المهمة.**\n\n[2. عند تحديد model صراحةً]\nيجب احترام الاختيار وعدم استبداله:\n- `Model: Sonnet` → Sonnet\n- `Model: Opus` → Opus\n- `Model: Haiku` → Haiku\n- `Model: Fable 5` → Fable 5\n- `Model: Fable 5.1` → Fable 5.1\n\n[3. fable]\nحالياً التنفيذ التلقائي يشغّل Fable 5.1. المطلوب إلغاء ذلك كـdefault.\nFable يجب أن يعمل فقط عندما يطلبه الـTASK صراحةً (`Model: Fable 5` أو `Model: Fable 5.1`).\n\n[المطلوب من claude]\n- راجع مسار اختيار النموذج الحالي بالكامل قبل التعديل.\n- حدد أين يتم تشغيل Fable 5.1 حالياً.\n- صمم ونفذ Model Selection Policy واضحة وقابلة للاختبار.\n- لا تكسر مسار GitHub Issues → Bridge → Executor الحالي.\n- لا تعيد بناء MCP أو Bridge من الصفر.\n- يجب أن تكون قيمة `Model:` اختيارية.\n- يجب أن تكون آلية الاختيار التلقائي قابلة للتفسير والتسجيل في التقرير، دون تسجيل أسرار.\n- حافظ على governance والحماية الحالية.\n- اختبر الحالات الخمس الصريحة + حالات الاختيار التلقائي.\n- اختبر أن غياب `Model:` لا يؤدي إلى Fable تلقائياً.\n- اختبر restart/recovery إن كان المسار المتأثر يستخدم state أو services.\n- حدّث docs/AI_HANDOVER.md بما تم تغييره ونتائج الاختبارات.\n\n[القاعدة النهائية]\n`TASK Model explicit` → نفّذ النموذج المطلوب.\n`TASK Model absent` → اختر الأنسب تلقائياً بين Haiku/Sonnet/Opus.\n`Fable` → فقط بطلب صريح.\n\n[report requirements]\nأرجع تقريراً يوضح:\n- مكان وآلية الاختيار الحالية والجديدة.\n- القواعد النهائية للاختيار التلقائي.\n- كل الملفات التي تغيرت.\n- نتائج الاختبارات كاملة.\n- commit SHA وremote HEAD.\n- أي قيود أو قرارات تحتاج موافقة المالك.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 100,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/100",
+    "issue_id": 5330097549,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPbLVjQ",
+    "issue_title": "TASK: Claude Model Selection Policy — اختيار النموذج الأنسب تلقائياً",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-02T22:53:07Z",
+    "issue_updated_at": "2026-09-02T22:53:07Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "4f0e3c7ea67727636c6b2ece08971d479a49ac0622d0aa59f506c7a4e68f3ef4",
+    "attempt": 1,
+    "rerun_of": null,
+    "converted_at": "2026-09-02T22:53:49.571Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5517550078,
+        "url": "https://github.com/othoth77/mythos-prod/issues/100#issuecomment-5517550078",
+        "at": "2026-09-02T22:53:50.736Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
