@@ -1,0 +1,61 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-103",
+  "project": "mythos-prod",
+  "objective": "إصلاح آلية إعادة تشغيل المهام القادمة من GitHub Issues حتى تعمل فعلياً عند طلب `rerun`.",
+  "scope": [
+    "مراجعة مسار GitHub Issue → Bridge → TASK.",
+    "إصلاح آلية `rerun` بحيث تعديل/طلب إعادة التشغيل ينشئ **TASK جديدة مستقلة** ولا يعيد استخدام TASK السابقة.",
+    "الحفاظ على نفس Issue كواجهة للمهمة.",
+    "عند نجاح الالتقاط يجب أن يظهر في الـIssue تعليق جديد يوضح أن TASK جديدة تم إنشاؤها، ثم `CLAIMED` مع executor task ID جديد.",
+    "منع تحويل rerun مرة أخرى إلى `investigate/repo-read` إذا كانت المهمة الأصلية المطلوبة تنفيذية.",
+    "احترام `Action: implement` و`execution_profile=repo-write` عند إعادة تشغيل #101.",
+    "الحفاظ على منع التكرار وعدم إنشاء مهام متعددة لنفس طلب rerun.",
+    "إضافة اختبارات تغطي: rerun لمهمة مكتملة/متوقفة، إنشاء TASK جديدة، عدم إعادة استخدام task ID القديم، وعدم فقدان الطلب إذا كانت الـBridge تعمل أثناء التغيير.",
+    "لا تقم بتشغيل Resource Guard نفسه ضمن هذه المهمة؛ هذه المهمة فقط لإصلاح آلية rerun.",
+    "لا تلمس AUTOS-0 أو SPY أو n8n أو MCP/ContextForge أو OAuth أو مشاريع غير مرتبطة.",
+    "لا Merge إلى `main` تلقائياً."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-02T23:41:29.433Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #103 https://github.com/othoth77/mythos-prod/issues/103 — \"إصلاح Rerun في GitHub Issues → Bridge → Claude\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[المشكلة الحالية]\nIssue #101 تم تعديلها وإضافة `rerun`، لكن الـBridge لم ينشئ TASK جديدة. بقي التنفيذ القديم فقط، وبالتالي لم يبدأ Claude من جديد.\n\n[بعد الإصلاح]\nلا تنفذ rerun لـ#101 داخل هذه المهمة. المطلوب أولاً إصلاح الآلية واختبارها بشكل آمن، ثم نستخدم #101 كتجربة حقيقية منفصلة.\n\n[التسليم]\nأعد تقريراً يوضح ما تم إصلاحه، الاختبارات، commit/branch، وكيف سنجري تجربة #101 بعد ذلك.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 103,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/103",
+    "issue_id": 5330423435,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPbfOiw",
+    "issue_title": "TASK: إصلاح Rerun في GitHub Issues → Bridge → Claude",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-02T23:41:18Z",
+    "issue_updated_at": "2026-09-02T23:41:18Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "83d9ba48a7ef286664791c6090936f650211b9b3bb5342f2650bd812abb70d06",
+    "attempt": 1,
+    "rerun_of": null,
+    "converted_at": "2026-09-02T23:41:29.434Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5518053392,
+        "url": "https://github.com/othoth77/mythos-prod/issues/103#issuecomment-5518053392",
+        "at": "2026-09-02T23:41:30.263Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
