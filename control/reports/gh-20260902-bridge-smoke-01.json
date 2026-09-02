@@ -1,0 +1,58 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-20260902-bridge-smoke-01",
+  "status": "COMPLETED",
+  "summary": "Created docs/GITHUB_BRIDGE_SMOKE.md containing three lines — the task id gh-20260902-bridge-smoke-01, the pre-change HEAD 2d3c68f9399ff2d0a0fb5a90e7ea0e99ab3b64d7, and the UTC timestamp 2026-09-02T18:06:24Z — and committed it as the single commit 8a748454b35b4327a51760e7ba5372848d7841d8 on branch mythos/gh/gh-20260902-bridge-smoke-01 with the exact message 'smoke(github-bridge): gh-20260902-bridge-smoke-01'. No other file was touched, nothing was pushed, deployed or restarted. Both required checks pass: the worktree is clean after the commit and node --check on projects/mythos-ai-executor/executor.js succeeds. The pre-existing OTHMODE task record OTH-2026-00022 was updated in place to COMPLETED with the full structured report; no second record was created.",
+  "files_changed": [
+    "docs/GITHUB_BRIDGE_SMOKE.md"
+  ],
+  "commits": [
+    {
+      "sha": "8a748454b35b4327a51760e7ba5372848d7841d8",
+      "subject": "smoke(github-bridge): gh-20260902-bridge-smoke-01",
+      "branch": "mythos/gh/gh-20260902-bridge-smoke-01",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "git status --porcelain after commit: empty (pass)",
+    "node --check projects/mythos-ai-executor/executor.js: OK (pass)"
+  ],
+  "validation": {
+    "git_verified": true,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": [
+      "git status --porcelain is empty after the commit",
+      "node --check projects/mythos-ai-executor/executor.js"
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "Branch is not yet on origin: delivery depends on the governance relay (mythos-git-push.timer) fast-forwarding it, which this task must not do itself, so remote_head is unverifiable from here."
+  ],
+  "next_recommended_action": "Let mythos-git-push.timer fast-forward mythos/gh/gh-20260902-bridge-smoke-01 to origin, then confirm the bridge wrote the control report for gh-20260902-bridge-smoke-01 on branch mythos/control.",
+  "completed_at": "2026-09-02T18:07:34.650Z",
+  "execution": {
+    "executor_task_id": "t-20260902180610-c9x5d6",
+    "othmode_task_id": "OTH-2026-00022",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "default",
+    "claude_session_id": "c1c511fe-4074-4c84-8490-aa5aea4fb1ca",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-02T18:06:12.690Z",
+    "ended_at": "2026-09-02T18:07:00.694Z",
+    "retries": 0,
+    "quota_waits": 0,
+    "cost_usd": 0.45130549999999997,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-20260902-bridge-smoke-01",
+    "branch": "mythos/gh/gh-20260902-bridge-smoke-01",
+    "base_commit": "2d3c68f9399ff2d0a0fb5a90e7ea0e99ab3b64d7"
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-20260902-bridge-smoke-01",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
