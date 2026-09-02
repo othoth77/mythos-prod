@@ -1,19 +1,19 @@
 # MYTHOS control — current state
 
-Generated 2026-09-02T18:53:25.125Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-02T18:57:50.259Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
 | PENDING | 0 |
 | CLAIMED | 0 |
-| IN_PROGRESS | 1 |
+| IN_PROGRESS | 0 |
 | VALIDATING | 0 |
-| COMPLETED | 1 |
+| COMPLETED | 2 |
 | BLOCKED | 0 |
 | FAILED | 0 |
 | CANCELLED | 0 |
 
 | Task | Status | Action | Priority | Created | Updated | Executor task | Report |
 |---|---|---|---|---|---|---|---|
-| `gh-20260902-chatgpt-safe-test-01` | **IN_PROGRESS** | test | low | 2026-09-02T18:45:00Z | 2026-09-02T18:53:25.117Z | `t-20260902185120-7k6vik` | — |
+| `gh-20260902-chatgpt-safe-test-01` | **COMPLETED** | test | low | 2026-09-02T18:45:00Z | 2026-09-02T18:57:50.250Z | `t-20260902185120-7k6vik` | `control/reports/gh-20260902-chatgpt-safe-test-01.json` |
 | `gh-20260902-bridge-smoke-01` | **COMPLETED** | implement | normal | 2026-09-02T18:05:32Z | 2026-09-02T18:07:34.687Z | `t-20260902180610-c9x5d6` | `control/reports/gh-20260902-bridge-smoke-01.json` |

@@ -26,7 +26,7 @@
     "A GitHub REPORT is produced with the final status and evidence",
     "Report identifies any blocked or approval-required action without attempting to bypass it"
   ],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-02T18:45:00Z",
   "created_by": "chatgpt",
   "execution": {
@@ -40,9 +40,10 @@
     "claimed_at": "2026-09-02T18:51:20.898Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "acaf8d73d8b89802543849287f96b22bef6d50844b74a5d6bf68c4cff2c2cf22",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-02T18:53:25.119Z",
-    "claude_session_id": "f6fac5ed-b3fa-4a11-b517-07fe8d7826b4"
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-02T18:57:50.250Z",
+    "claude_session_id": "f6fac5ed-b3fa-4a11-b517-07fe8d7826b4",
+    "report_file": "control/reports/gh-20260902-chatgpt-safe-test-01.json"
   },
   "history": [
     {
@@ -58,6 +59,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-02T18:57:48.880Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-02T18:57:50.250Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 10 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
