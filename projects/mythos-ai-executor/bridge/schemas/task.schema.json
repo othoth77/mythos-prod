@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "MYTHOS control TASK (mythos-control/1)",
-  "description": "One task file at control/tasks/<task_id>.json on the control branch. Written by an external planner (ChatGPT or the owner). Everything here is DATA: nothing in a task can select a provider, a working directory, a tool, a credential or an execution profile beyond what requested_action maps to server-side. The bridge adds the `execution` and `history` blocks after the claim; a creator must not write them. The optional `source` block records the surface a task was converted from (GitHub Issue) and is written by the adapter, not by the executor.",
+  "description": "One task file at control/tasks/<task_id>.json on the control branch. Written by an external planner (ChatGPT or the owner). Everything here is DATA: nothing in a task can select a provider, a working directory, a tool, a credential or an execution profile beyond what requested_action maps to server-side. The bridge adds the `execution` and `history` blocks after the claim; a creator must not write them.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,238 +19,62 @@
     "created_by"
   ],
   "properties": {
-    "protocol": {
-      "type": "string",
-      "enum": [
-        "mythos-control/1"
-      ]
-    },
+    "protocol": { "type": "string", "enum": ["mythos-control/1"] },
     "task_id": {
       "type": "string",
       "minLength": 6,
       "maxLength": 40,
       "pattern": "^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$"
     },
-    "project": {
-      "type": "string",
-      "minLength": 2,
-      "maxLength": 64,
-      "pattern": "^[a-z0-9][a-z0-9-]*$"
-    },
-    "objective": {
-      "type": "string",
-      "minLength": 10,
-      "maxLength": 8000
-    },
-    "scope": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 300
-      }
-    },
-    "constraints": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 1000
-      }
-    },
-    "priority": {
-      "type": "string",
-      "enum": [
-        "low",
-        "normal",
-        "high"
-      ]
-    },
+    "project": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "objective": { "type": "string", "minLength": 10, "maxLength": 8000 },
+    "scope": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
+    "constraints": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 1000 } },
+    "priority": { "type": "string", "enum": ["low", "normal", "high"] },
     "requested_action": {
       "type": "string",
-      "enum": [
-        "investigate",
-        "review",
-        "test",
-        "document",
-        "implement"
-      ]
+      "enum": ["investigate", "review", "test", "document", "implement"]
     },
-    "validation_requirements": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "minLength": 1,
-        "maxLength": 300
-      }
-    },
+    "validation_requirements": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
     "status": {
       "type": "string",
-      "enum": [
-        "PENDING",
-        "CLAIMED",
-        "IN_PROGRESS",
-        "VALIDATING",
-        "COMPLETED",
-        "BLOCKED",
-        "FAILED",
-        "CANCELLED"
-      ]
+      "enum": ["PENDING", "CLAIMED", "IN_PROGRESS", "VALIDATING", "COMPLETED", "BLOCKED", "FAILED", "CANCELLED"]
     },
-    "created_at": {
-      "type": "string",
-      "minLength": 20,
-      "maxLength": 40
-    },
-    "created_by": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 64
-    },
-    "depends_on": {
-      "type": "array",
-      "items": {
-        "type": "string",
-        "pattern": "^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$"
-      }
-    },
-    "timeout_seconds": {
-      "type": "integer",
-      "minimum": 60,
-      "maximum": 21600
-    },
-    "max_turns": {
-      "type": [
-        "integer",
-        "null"
-      ],
-      "minimum": 1,
-      "maximum": 500
-    },
-    "notes": {
-      "type": "string",
-      "maxLength": 4000
-    },
-    "execution": {
-      "type": "object"
-    },
-    "history": {
-      "type": "array",
-      "items": {
-        "type": "object"
-      }
-    },
+    "created_at": { "type": "string", "minLength": 20, "maxLength": 40 },
+    "created_by": { "type": "string", "minLength": 1, "maxLength": 64 },
+    "depends_on": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$" } },
+    "timeout_seconds": { "type": "integer", "minimum": 60, "maximum": 21600 },
+    "max_turns": { "type": ["integer", "null"], "minimum": 1, "maximum": 500 },
+    "notes": { "type": "string", "maxLength": 4000 },
     "source": {
       "type": "object",
       "description": "Origin of the task when an adapter converted it from another surface (today: a GitHub Issue, written by bridge/github-issues.js). Informational for the executor; the adapter records its Issue notifications under `notifications`. A planner writing tasks by hand omits it.",
       "additionalProperties": false,
-      "required": [
-        "kind"
-      ],
+      "required": ["kind"],
       "properties": {
-        "kind": {
-          "type": "string",
-          "enum": [
-            "github-issue"
-          ]
-        },
-        "repo": {
-          "type": "string",
-          "maxLength": 200
-        },
-        "issue_number": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "issue_url": {
-          "type": "string",
-          "maxLength": 400
-        },
-        "issue_id": {
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "issue_node_id": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "maxLength": 100
-        },
-        "issue_title": {
-          "type": "string",
-          "maxLength": 300
-        },
-        "issue_author": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "maxLength": 100
-        },
-        "issue_created_at": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "maxLength": 40
-        },
-        "issue_updated_at": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "maxLength": 40
-        },
-        "issue_labels": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "maxLength": 100
-          }
-        },
-        "issue_state": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "maxLength": 20
-        },
-        "content_sha256": {
-          "type": "string",
-          "maxLength": 64
-        },
-        "attempt": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "rerun_of": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "maxLength": 40
-        },
-        "converted_at": {
-          "type": "string",
-          "maxLength": 40
-        },
-        "converted_by": {
-          "type": "string",
-          "maxLength": 40
-        },
-        "notifications": {
-          "type": "object"
-        },
-        "labels": {
-          "type": "object"
-        },
-        "cancelled_from_issue": {
-          "type": "object"
-        }
+        "kind": { "type": "string", "enum": ["github-issue"] },
+        "repo": { "type": "string", "maxLength": 200 },
+        "issue_number": { "type": "integer", "minimum": 1 },
+        "issue_url": { "type": "string", "maxLength": 400 },
+        "issue_id": { "type": ["integer", "null"] },
+        "issue_node_id": { "type": ["string", "null"], "maxLength": 100 },
+        "issue_title": { "type": "string", "maxLength": 300 },
+        "issue_author": { "type": ["string", "null"], "maxLength": 100 },
+        "issue_created_at": { "type": ["string", "null"], "maxLength": 40 },
+        "issue_updated_at": { "type": ["string", "null"], "maxLength": 40 },
+        "issue_labels": { "type": "array", "items": { "type": "string", "maxLength": 100 } },
+        "issue_state": { "type": ["string", "null"], "maxLength": 20 },
+        "content_sha256": { "type": "string", "maxLength": 64 },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "rerun_of": { "type": ["string", "null"], "maxLength": 40 },
+        "converted_at": { "type": "string", "maxLength": 40 },
+        "converted_by": { "type": "string", "maxLength": 40 },
+        "notifications": { "type": "object" },
+        "labels": { "type": "object" },
+        "cancelled_from_issue": { "type": "object" }
       }
-    }
+    },
+    "execution": { "type": "object" },
+    "history": { "type": "array", "items": { "type": "object" } }
   }
 }
