@@ -220,12 +220,12 @@ Read the arrows as **authority**: a call that skips a layer is an unauthorized c
 | Component | State |
 |---|---|
 | `deployments/mythos-gateway/mcp-registry-check.sh` | **INSTALLED** (identical to the repo copy) |
-| `deployments/mythos-gateway/mcp-registry-status.json` | **WRITTEN** by a real run at 00:24 UTC; refreshed only when the check runs |
+| `deployments/mythos-gateway/mcp-registry-status.json` | **WRITTEN** by a real run at 00:24 UTC; rewritten by the re-verification run at 07:47 UTC (same result); refreshed only when the check runs |
 | `mythos-mcp-registry-check.timer` | **NOT INSTALLED** — root write under `/etc/systemd` refused; owner action (README) |
 | `ops/oom` user-manager drop-in | **NOT INSTALLED** — same refusal; production went down twice during this session for exactly this reason and was restarted by hand both times |
 | executor `POST /mcp/invoke` | **NOT LIVE** — the daemon runs from `main`; verified by direct invocation of the same module as `deploy` |
 | OTHMODE `tools()` fix + `/api/othmode/mcp` | **NOT LIVE** — same reason (`main`); verified in the worktree against the live snapshot |
-| monitor probes | **NOT LIVE** — `main`, and `probes.json` on `main`'s working tree is itself uncommitted production truth (idauto probes) that must be reconciled first |
+| monitor probes | **NOT LIVE** — `main`; the idauto probes were committed on `main` (`63aec2c`) and `main` was merged into this branch (`aa18a69`) resolving the `probes.json` conflict — 22 probes, stc-2 86/0 |
 | everything pre-existing | unchanged and re-verified |
 | gateway exposure | **PUBLIC since ~06:36 UTC 2026-09-02** — nginx restarted outside this session and applied the existing `/gateway/` block; measured: health 200, every other path 401 without credential, admin 404, 0 client tokens (nothing invokable from outside) |
 | GitHub delivery | **DENIED by governance, not bypassed** — commit `d9e5c541e732` (`credential-inventory.json` matches `/credential/i`) and `d287b974a91d` (`contextforge.env.example` matches `/\.env(\.|$)/i`) need `mythos-governance-approve`; commands in `docs/AI_HANDOVER.md`. Remote HEAD `main` = `f4d5eb9`, branch absent from origin |

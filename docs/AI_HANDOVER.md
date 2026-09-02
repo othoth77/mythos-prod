@@ -1,9 +1,52 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-02 07:05 UTC
-**From:** MCP-ECOSYSTEM-1 — **the MYTHOS MCP ecosystem is inventoried, completed where completion was possible without an owner decision, verified against the running host, and committed on `mythos/mcp-ecosystem-20260901` (`d9e5c54`) — delivery to GitHub is DENIED by governance on two path-pattern hits and awaits two owner approvals (exact commands below); nothing was pushed around the cage.** Estate registry + availability check + permission matrix + Vault inventory + OTHMODE discovery fix + the executor's governed MCP invoke with audit. 167/0 new assertions, 0 regressions (37/0 · 58/0 · 264/0 · 141/0). Live: the check reports the estate OK; a real handshake through ContextForge and ten governed calls against production behaved exactly as the matrix says. **Not complete by the mission's own gate** — four owner-gated items remain (below), and `main` is still undeliverable, so the executor route, the OTHMODE fix and the probes are verified but not live.
+**Last updated:** 2026-09-02 08:00 UTC
+**From:** MCP-ECOSYSTEM-1b — **re-verification of the MCP ecosystem against the running host (all suites green, real gateway handshake, governed invokes behaving as the matrix says), `main` merged into the branch with the `probes.json` conflict resolved (22 probes), tip `aa18a69`; delivery still DENIED by governance on the same two shas — owner approval is the only remaining step before the branch reaches GitHub.**
+
+**Previously:** MCP-ECOSYSTEM-1 — **the MYTHOS MCP ecosystem is inventoried, completed where completion was possible without an owner decision, verified against the running host, and committed on `mythos/mcp-ecosystem-20260901` (`d9e5c54`) — delivery to GitHub is DENIED by governance on two path-pattern hits and awaits two owner approvals (exact commands below); nothing was pushed around the cage.** Estate registry + availability check + permission matrix + Vault inventory + OTHMODE discovery fix + the executor's governed MCP invoke with audit. 167/0 new assertions, 0 regressions (37/0 · 58/0 · 264/0 · 141/0). Live: the check reports the estate OK; a real handshake through ContextForge and ten governed calls against production behaved exactly as the matrix says. **Not complete by the mission's own gate** — four owner-gated items remain (below), and `main` is still undeliverable, so the executor route, the OTHMODE fix and the probes are verified but not live.
 
 **Previously:** MYTHOS-VAULT-0 — Vault architecture documented and delivered (`mythos/vault-architecture-20260901`, `7f7773d`).
+
+## MCP-ECOSYSTEM-1b — re-verification, merge with main, delivery state (2026-09-02 07:45–08:00 UTC)
+
+### What was found
+The branch already contained the complete MCP-ECOSYSTEM-1 work (`d9e5c54`) plus two later docs commits
+(`b45550e`, `ad811e4`). Nothing was rebuilt. One real delivery blocker existed: `projects/status-center/monitor/probes.json`
+conflicted between `main` (`63aec2c`, the four idauto.tn probes) and this branch (the two MCP probes) — a plain
+merge would have failed. Resolved by merging `main` into the branch (`aa18a69`, no rebase) with all 22 probes kept.
+
+### Verification on the host, as `deploy` (fresh, this session)
+| Check | Result |
+|---|---|
+| `tests/mcp-ecosystem-test.js` | **167 / 0** (before and after the merge) |
+| `gateway-boundary` · `othk-6` · `mythos-ai-executor` · `othmode-2` | 37/0 · 58/0 · 264/0 · 141/0 |
+| `stc-2-monitor` · `monitor-coverage` (merged probes) | 86/0 · 40/0 |
+| `bin/mcp-registry-check` (live, 07:47 UTC, snapshot rewritten) | OK — oth-mcp ONLINE 8/8 · mythos-mcp-http ONLINE 8/8 · contextforge ONLINE (8 federated; finding: `cred_contextforge_executor_client` absent) · github-mcp-rw UNAUTHORIZED/disabled · github-mcp-readonly UNAUTHORIZED/disabled · context7 ONLINE 2/2 disabled |
+| `bin/vault-inventory-check` (deploy) | 20 checked, 0 drift, 3 unknowable (root/ubuntu-owned files) |
+| `credential-inventory.json` content review | 20 entries, keys = id/provider/purpose/environment/owner/location/expected_mode/expected_owner/env_var/consumers/status/dates/rotation_policy/copies_of/note; no `value|secret|token|password` key; every string ≥40 chars is a filesystem path; **metadata only — CONFIRMED** |
+| ContextForge real handshake (loopback, admin JWT via `cfadmin.sh`, never printed) | `initialize` ✓ (`mcp-streamable-http 1.29.0`) · `tools/list` 8 ✓ · `tools/call mythos-mcp-system-health` real data ✓ · unknown tool `isError:true` ✓ · `/tokens` **0** · peers 1 (`mythos-mcp`) · virtual servers 0 |
+| Public surface | `https://mythosprod.xyz/gateway/health` 200 · `POST /gateway/mcp` without credential **401** · `/gateway/docs` 401 |
+| Governed invoke (`lib/mcp-invoke.js`, bridge token resolved by reference inside a deploy shell, audit to a scratch file, removed after) | `oth-mcp.system_health` OK 355 ms · `mythos-mcp-http.knowledge_search` OK 362 ms · `mythos-mcp-http.budget_status {project}` OK 211 ms (without `project` the tool itself answers `TOOL_INPUT` → `MCP_TOOL_ERROR` 502, correct) · `oth-mcp.knowledge_write` → `MCP_TOOL_UNREGISTERED` 404 · `github-mcp-rw.get_me` → `MCP_SERVER_DISABLED` 409 · `contextforge.system_health` → `MCP_CREDENTIAL_UNAVAILABLE` 503 · secret-shaped argument → `MCP_INPUT` 400; audit 7 lines, 0 secret shapes |
+| OTHMODE discovery (worktree code, live snapshot) | 8 `oth-mcp.*` tools registered/available/healthy/authorized/executable = true; `mcp:github` rows present; public view leak scan (paths/URLs/tokens) = none |
+| systemd units for the check | `systemd-analyze verify` clean; `User=deploy`, `ReadWritePaths=/home/deploy/deployments/mythos-gateway` |
+
+### Deployment state (unchanged by this session)
+Live: bridge, ContextForge (public health, 401 wall), registry-check script + snapshot. **Not live** (deployed processes run from `main`): executor `/mcp/invoke` (answers 401 today = old route table, bearer wall), OTHMODE `/api/othmode/mcp` (404), the two MCP probes. Not installed (root): check timer, OOM drop-in.
+
+### Commit · remote HEAD · push status
+| | |
+|---|---|
+| Branch tip | **`aa18a69`** (merge of `main` `63aec2c`) on `mythos/mcp-ecosystem-20260901`; 9 ahead / 0 behind `main` |
+| Remote | `refs/heads/main` = `f4d5eb9`; branch **absent from origin** |
+| Push | **DENIED by governance, not bypassed** — the relay evaluates `main..aa18a69` and hits exactly two shas: `d9e5c541e73239e6159ef30c13fef661377f9851` (`credential-inventory.json`, `/credential/i`) and `d287b974a91d25d191907755a48e0babf41f5389` (`contextforge.env.example`, `/\.env(\.|$)/i`). No other commit in the range touches a protected path (re-scanned after the merge). |
+
+Owner action (unchanged, run as root; the next relay tick then pushes the branch):
+```
+sudo mythos-governance-approve --commit d9e5c541e73239e6159ef30c13fef661377f9851 --by "Othman Haddad" --reason "MCP-ECOSYSTEM-1: metadata-only Vault credential inventory, reviewed 2026-09-02"
+sudo mythos-governance-approve --commit d287b974a91d25d191907755a48e0babf41f5389 --by "Othman Haddad" --reason "GATEWAY-1: contextforge.env.example is placeholders only"
+sudo systemctl start mythos-git-push.service && git -C /home/deploy/projects/mythos-prod ls-remote origin refs/heads/mythos/mcp-ecosystem-20260901
+```
+To make the executor route, the OTHMODE fix and the probes live: approve `f5e503a` as well, merge this branch into `main` (fast-forward is now possible: the branch contains `main`), then restart `mythos-ai-executor`, `mythos-command-center` and let `mythos-status-monitor.timer` pick up the probes.
 
 ## MCP-ECOSYSTEM-1 — inventory, registry, authorization, governed execution, audit (2026-09-02)
 
