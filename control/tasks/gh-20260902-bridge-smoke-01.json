@@ -3,14 +3,46 @@
   "task_id": "gh-20260902-bridge-smoke-01",
   "project": "mythos-prod",
   "objective": "End-to-end smoke test of the GitHub control bridge. Create the file docs/GITHUB_BRIDGE_SMOKE.md containing three lines: this task id (gh-20260902-bridge-smoke-01), the output of 'git rev-parse HEAD' taken before your change, and the current UTC time. Commit it on the current branch with the exact message 'smoke(github-bridge): gh-20260902-bridge-smoke-01'. Do nothing else.",
-  "scope": ["docs/GITHUB_BRIDGE_SMOKE.md"],
-  "constraints": ["Touch only docs/GITHUB_BRIDGE_SMOKE.md", "Exactly one commit", "No push, no deploy, no other file, no service restart"],
+  "scope": [
+    "docs/GITHUB_BRIDGE_SMOKE.md"
+  ],
+  "constraints": [
+    "Touch only docs/GITHUB_BRIDGE_SMOKE.md",
+    "Exactly one commit",
+    "No push, no deploy, no other file, no service restart"
+  ],
   "priority": "normal",
   "requested_action": "implement",
-  "validation_requirements": ["git status --porcelain is empty after the commit", "node --check projects/mythos-ai-executor/executor.js"],
-  "status": "PENDING",
+  "validation_requirements": [
+    "git status --porcelain is empty after the commit",
+    "node --check projects/mythos-ai-executor/executor.js"
+  ],
+  "status": "CLAIMED",
   "created_at": "2026-09-02T18:05:32Z",
   "created_by": "chatgpt-smoke",
   "timeout_seconds": 1500,
-  "max_turns": 40
+  "max_turns": 40,
+  "execution": {
+    "executor_task_id": "t-20260902180610-c9x5d6",
+    "othmode_task_id": "OTH-2026-00022",
+    "execution_profile": "repo-write",
+    "expected_delivery": "commit",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-20260902-bridge-smoke-01",
+    "branch": "mythos/gh/gh-20260902-bridge-smoke-01",
+    "base_commit": "2d3c68f9399ff2d0a0fb5a90e7ea0e99ab3b64d7",
+    "claimed_at": "2026-09-02T18:06:10.949Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "e51c40feba3cedcc155964184a94f76893e327e600fe0eea225a31e4bf61e593",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-02T18:06:10.950Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-02T18:06:10.974Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260902180610-c9x5d6 queued; OTHMODE OTH-2026-00022"
+    }
+  ]
 }
