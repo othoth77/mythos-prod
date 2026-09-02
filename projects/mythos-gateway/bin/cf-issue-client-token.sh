@@ -26,13 +26,18 @@ unset PW
 RID=$(api GET /v1/rbac/roles | python3 -c 'import sys,json;d=json.load(sys.stdin);r=d if isinstance(d,list) else d.get("roles",d);print(next((x["id"] for x in r if x.get("name")==sys.argv[1]),""))' "$ROLE")
 [ -n "$RID" ] || { echo "role $ROLE not found" >&2; exit 1; }
 api POST "/v1/rbac/users/$IDENTITY/roles" --data "{\"role_id\":\"$RID\",\"scope\":\"global\"}" >/dev/null || true
-# token -> file, never stdout
-api POST /v1/tokens --data "$(python3 -c 'import json,sys;print(json.dumps({"name":sys.argv[1],"description":"MYTHOS Gateway client token for "+sys.argv[2]+" (Vault reference; value lives only in "+sys.argv[3]+")","expires_in_days":int(sys.argv[4]),"user_email":sys.argv[2],"tags":["mythos","gateway-client","vault-reference"]}))' "$TNAME" "$IDENTITY" "$OUT" "$DAYS")" \
- | python3 - "$OUT" "$IDENTITY" "$TNAME" <<'PY'
+# token -> file, never stdout. The API response goes to a 0600 temp file first (a heredoc
+# script cannot also read a pipe on stdin — the bug in the first revision), then is shredded.
+RESP=$(mktemp); trap 'shred -u "$RESP" 2>/dev/null || rm -f "$RESP"' EXIT
+api POST /v1/tokens --data "$(python3 -c 'import json,sys;print(json.dumps({"name":sys.argv[1],"description":"MYTHOS Gateway client token for "+sys.argv[2]+" (Vault reference; value lives only in "+sys.argv[3]+")","expires_in_days":int(sys.argv[4]),"user_email":sys.argv[2],"tags":["mythos","gateway-client","vault-reference"]}))' "$TNAME" "$IDENTITY" "$OUT" "$DAYS")" > "$RESP"
+python3 - "$RESP" "$OUT" "$IDENTITY" "$TNAME" <<'PY'
 import sys,json,os
-d=json.load(sys.stdin); tok=d.get('access_token')
+resp,out,ident,name=sys.argv[1:5]
+try: d=json.load(open(resp))
+except Exception as e: print('token not issued: non-JSON response (%s)' % e, file=sys.stderr); sys.exit(1)
+tok=d.get('access_token')
 if not tok: print('token not issued:', d.get('detail') or {k:v for k,v in d.items() if k!='access_token'}, file=sys.stderr); sys.exit(1)
-out,ident,name=sys.argv[1:4]; meta=d.get('token') or {}
+meta=d.get('token') or {}
 fd=os.open(out, os.O_WRONLY|os.O_CREAT|os.O_EXCL, 0o600)
 with os.fdopen(fd,'w') as f:
     f.write('# MYTHOS Gateway client token for %s (identity %s, token id %s, expires %s). Paste into the client once; never copy elsewhere.\n' % (name, ident, meta.get('id'), meta.get('expires_at')))
