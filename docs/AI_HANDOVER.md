@@ -1,7 +1,9 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-02 09:12 UTC
-**From:** MCP-ECOSYSTEM-2a — **the MCP HTTP bridge is reachable from the deployed executor: `cred_mcp_http_bridge_token` bound by reference (systemd drop-in → the same 0600 file, no copy), executor restarted alone, three real HTTP MCP invokes OK with audit, zero literal-token occurrences anywhere; the inventory update is committed on the branch (`a73473f`) and awaits one owner approval.**
+**Last updated:** 2026-09-02 09:22 UTC
+**From:** MCP-ECOSYSTEM-2a-delivery — **owner approval of `a73473f` recorded (`ga-mtjvu6ex-df615c`); the relay cannot read it because the approve tool wrote the file `root:root` — one `chgrp mythos-gov` (refused to the agent) + relay + ff-merge remain; final MCP verification of the deployed estate is green (stdio + bridge invokes 200, boundaries per matrix, zero token occurrences).**
+
+**Previously:** MCP-ECOSYSTEM-2a — **the MCP HTTP bridge is reachable from the deployed executor: `cred_mcp_http_bridge_token` bound by reference (systemd drop-in → the same 0600 file, no copy), executor restarted alone, three real HTTP MCP invokes OK with audit, zero literal-token occurrences anywhere; the inventory update is committed on the branch (`a73473f`) and awaits one owner approval.**
 
 **Previously:** MCP-ECOSYSTEM-1e — **the MYTHOS MCP ecosystem is DEPLOYED: `main` = `c63d987` on GitHub, executor and command-center restarted, executor `/mcp/invoke` + `/mcp/registry`, OTHMODE `/api/othmode/mcp` and the two MCP probes verified live end to end (7 suites green: 167/37/58/264/157/86/40). Remaining items are owner credentials/tokens/timers only.**
 
@@ -14,6 +16,37 @@
 **Previously:** MCP-ECOSYSTEM-1 — **the MYTHOS MCP ecosystem is inventoried, completed where completion was possible without an owner decision, verified against the running host, and committed on `mythos/mcp-ecosystem-20260901` (`d9e5c54`) — delivery to GitHub is DENIED by governance on two path-pattern hits and awaits two owner approvals (exact commands below); nothing was pushed around the cage.** Estate registry + availability check + permission matrix + Vault inventory + OTHMODE discovery fix + the executor's governed MCP invoke with audit. 167/0 new assertions, 0 regressions (37/0 · 58/0 · 264/0 · 141/0). Live: the check reports the estate OK; a real handshake through ContextForge and ten governed calls against production behaved exactly as the matrix says. **Not complete by the mission's own gate** — four owner-gated items remain (below), and `main` is still undeliverable, so the executor route, the OTHMODE fix and the probes are verified but not live.
 
 **Previously:** MYTHOS-VAULT-0 — Vault architecture documented and delivered (`mythos/vault-architecture-20260901`, `7f7773d`).
+
+## MCP-ECOSYSTEM-2a-delivery — owner approval recorded; branch delivery blocked by the approval file's group, not by governance (2026-09-02 09:17–09:22 UTC)
+
+| | |
+|---|---|
+| Approval | The owner approved `a73473f` in session; recorded with the tool as **`ga-mtjvu6ex-df615c`** (GRANTED, `decided_by` Othman Haddad, signed, in `audit.log` at 09:17:11 UTC, paths = `projects/mythos-vault/credential-inventory.json`). |
+| Why the relay still says DENIED | `mythos-governance-approve` writes the record as **`root:root` 0640**; the relay verifies as `deploy` + `SupplementaryGroups=mythos-gov` and `loadApprovals()` swallows the `EACCES` (`catch → null`), so the approval is invisible to it → "no valid approval". The three 08:10 approvals only worked because someone re-grouped them by hand at 08:20 (ctime ≠ mtime). This session's `chgrp mythos-gov` on the new file was refused by the agent permission layer; not worked around. |
+| Remote | `origin/main` = `756a0b8` (0/0, clean); branch still `0d1b788` on origin, `a73473f` local. |
+
+### Exact operator action (root; content untouched, signature unaffected)
+```
+sudo chgrp mythos-gov /var/lib/mythos/governance/approvals/ga-mtjvu6ex-df615c.json
+sudo systemctl start mythos-git-push.service
+sudo -u deploy git -C /home/deploy/projects/mythos-prod merge --ff-only origin/mythos/mcp-ecosystem-20260901
+sudo systemctl start mythos-git-push.service && sudo -u deploy git -C /home/deploy/projects/mythos-prod ls-remote origin refs/heads/main
+```
+Nothing needs restarting for this commit (metadata only). Defect to fix under governance later: the approve tool should `chownSync(out, 0, <mythos-gov gid>)` after writing (`projects/mythos-ai-executor/service/mythos-governance-approve.js`, a protected path).
+
+### Final MCP verification (09:18 UTC, deployed processes, all live)
+| Area | Result |
+|---|---|
+| Registry / Health | check OK `{ONLINE:4, UNAUTHORIZED:2, enabled:3, disabled:3}`; Status Center 22 probes incl. `mcp-bridge-loopback`, `mcp-gateway-loopback` LIVE |
+| Vault | inventory check 20/20, 0 drift |
+| Servers via executor `POST /mcp/invoke` | `oth-mcp.system_health` 200 (stdio) · `mythos-mcp-http.knowledge_search` 200 · `mythos-mcp-http.budget_status {project}` 200 |
+| Authorization / failure boundaries | contextforge 503 `MCP_CREDENTIAL_UNAVAILABLE` (client token absent) · github-mcp-rw 409 disabled · secret-shaped input 400 · extra field 400 `UNEXPECTED_FIELD` · no bearer 401 on both routes |
+| Audit | 34 lines, 0600, `findSecretKinds` none, literal bridge-token occurrences 0 (also 0 in every response and in the public OTHMODE view) |
+| Discovery | OTHMODE `/api/othmode/mcp` public 200; `mcp:servers` row gone |
+| Gateway | public health 200, `/gateway/mcp` 401, admin 404; ContextForge `tools/list` 8, client tokens 0; bridge `/mcp` no-token 401 |
+| Services | executor PID 290167 · command-center PID 269662 (NRestarts 0) · bridge active · ContextForge healthy |
+
+Owner items after this: 2. GitHub machine credential → enable `github-mcp-rw` · 3. gateway client tokens incl. `cred_contextforge_executor_client` · 4. gateway public — confirm/roll back · 5. root installs (check timer, OOM drop-in) · 6. orphan containers. Next stage `MCP-ECOSYSTEM-2b`: one CONTROLLED call end to end once item 3 exists.
 
 ## MCP-ECOSYSTEM-2a — bridge credential bound to the executor by reference; real HTTP MCP invokes verified (2026-09-02 09:05–09:10 UTC)
 
