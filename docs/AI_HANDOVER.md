@@ -1,7 +1,26 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-02 11:40 UTC
-**From:** MCP-ECOSYSTEM-2b-enable — **`github-mcp-rw` ENABLED on the branch by owner decision (`7529563`, both halves: registry + outbound capability config; checker launcher exports the GitHub bearer by name; tests re-pinned; 167/0 · 37/0 · 265/0 · 141/0; no protected path). Inventory commit `0c41227` was approved (`ga-mtk0ffkt-f8ef40`), relayed and merged: `origin/main` = `de2ef0d`. Live from the branch: github-mcp-rw reachable with the bearer (79 ms, 58 tools), DEGRADED by design — 9 unclassified v1.10.1 tool names + `delete_file` exposed, all DENY to the executor. Still NOT done: branch not merged to `main`, executor drop-in not installed, deployed launcher not refreshed, no CONTROLLED approval, no invoke.**
+**Last updated:** 2026-09-02 11:50 UTC
+**From:** MCP-ECOSYSTEM-2b-option1 — **`github.create_branch` declared for `github-review` (`0624aab`, local on `mythos/mcp-ecosystem-2b-20260902`, NOT relayed — awaiting the owner's review): capability config + skill + skill text + tests; policy classifies it `github.write` and authorizes the executor CONTROLLED; 167/0 · 265/0 · 141/0 · 1438/0; no protected path. Branch on GitHub is still `ad13f52`; `origin/main` = `de2ef0d`. Still NOT done: merge to `main`, executor drop-in, deployed launcher, GRANTED approval, the invoke.**
+**Previously:** MCP-ECOSYSTEM-2b-enable — **`github-mcp-rw` ENABLED on the branch by owner decision (`7529563`, both halves: registry + outbound capability config; checker launcher exports the GitHub bearer by name; tests re-pinned; 167/0 · 37/0 · 265/0 · 141/0; no protected path). Inventory commit `0c41227` was approved (`ga-mtk0ffkt-f8ef40`), relayed and merged: `origin/main` = `de2ef0d`. Live from the branch: github-mcp-rw reachable with the bearer (79 ms, 58 tools), DEGRADED by design — 9 unclassified v1.10.1 tool names + `delete_file` exposed, all DENY to the executor. Still NOT done: branch not merged to `main`, executor drop-in not installed, deployed launcher not refreshed, no CONTROLLED approval, no invoke.**
+
+## MCP-ECOSYSTEM-2b-option1 — create_branch declared, resolvable, still CONTROLLED (2026-09-02 11:40–11:50 UTC)
+
+| | |
+|---|---|
+| Commit | **`0624aab`** (local, unpushed by instruction — the owner reviews first): `config/mcp-capabilities.json` `github.tools.create_branch` · `config/skills.json` `github-review.allowed_mcp_tools` += `github.create_branch` (one line) · `skills/github-review.md` new section "Branch creation is governed, not free" · tests re-pinned (4 tools; M-12(16) asserts `github.create_branch` resolved). |
+| Policy | `classify(github-mcp-rw, create_branch)` → `github.write`; `authorize(executor, …)` → CONTROLLED, `requires_approval: true`. `resolveCapabilities(github-review, repo-write)` → 4 tools; under `autonomous` → `profile_incompatible` (unchanged). |
+| Suites | `mcp-ecosystem` 167/0 · `mythos-ai-executor` 265/0 · `othmode-2` 141/0 · `mos-1-console` 1438/0. `findSecretKinds` on the diff = []. Verifier as relay identity over `origin/main..HEAD`: 0 protected commits. |
+
+### What the single controlled call will need (in order; nothing below is done)
+1. Owner: review `0624aab`; then `sudo systemctl start mythos-git-push.service` (no approval needed — no protected path) and `merge --ff-only origin/mythos/mcp-ecosystem-2b-20260902` into `main` + relay.
+2. Deploy shell: refresh the deployed launcher from `main`, install the executor drop-in `github-mcp-rw.conf`, `daemon-reload`, restart the executor only.
+3. A task under `github-review` with profile `repo-write` (so `task.json` carries `mcp_capabilities: [..., "github.create_branch"]`) — the executor's intake resolves this; the agent creates it through the executor API and names the repository the owner chooses.
+4. Owner: one GRANTED approval in the executor store, `action_class mcp:github.write`, `decided_by` a human (`requestApproval` → `decideApproval`, one-liner in the 2b-prep section).
+5. Agent: `POST /mcp/invoke {server:"github-mcp-rw", tool:"create_branch", arguments:{owner, repo, branch:"mcp-2b-controlled-<ts>", from_branch:"main"}, task_id, approval_id, requested_by:"mcp-2b-e2e"}` → 200; re-use of the approval → 403 consumed; audit line CONTROLLED with `approved_by`; zero token occurrences; then the owner deletes the branch by hand.
+
+**Not done, by instruction:** not relayed, not merged, no GitHub write, no approval created, nothing installed or restarted.
+
 **Previously:** MCP-ECOSYSTEM-2b-prep — **PREPARED, NOTHING DELIVERED: the owner generated a dedicated GitHub PAT and wrote it as `deploy 0600` to `deployments/mythos-gateway/github-mcp-rw.env` (`read -s`, umask 077, verified HTTP 200 by header from the file); the Vault inventory now records `cred_github_gateway` ACTIVE by reference (`MYTHOS_GITHUB_MCP_RW_TOKEN`) on `mythos/mcp-ecosystem-2b-20260902` (`0c41227`, local, unpushed, verifier dry-run DENY on exactly the inventory path → ONE owner approval); `github-mcp-rw` is still DISABLED, the executor drop-in is written but NOT installed, no ContextForge peer, no approval in the executor store, no invoke made. 20/20 · 167/0 · 37/0 · 264/0.**
 
 ## MCP-ECOSYSTEM-2b-enable — github-mcp-rw enabled on the branch; the outbound half too; checker measures it live (2026-09-02 11:30–11:40 UTC)
