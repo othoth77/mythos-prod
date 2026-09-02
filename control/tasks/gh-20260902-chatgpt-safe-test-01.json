@@ -26,7 +26,30 @@
     "A GitHub REPORT is produced with the final status and evidence",
     "Report identifies any blocked or approval-required action without attempting to bypass it"
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-02T18:45:00Z",
-  "created_by": "chatgpt"
+  "created_by": "chatgpt",
+  "execution": {
+    "executor_task_id": "t-20260902185120-7k6vik",
+    "othmode_task_id": "OTH-2026-00023",
+    "execution_profile": "repo-test",
+    "expected_delivery": "report",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-20260902-chatgpt-safe-test-01",
+    "branch": "mythos/gh/gh-20260902-chatgpt-safe-test-01",
+    "base_commit": "d9479a16242afc1f287fbc7fa1b027404026cb09",
+    "claimed_at": "2026-09-02T18:51:20.898Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "acaf8d73d8b89802543849287f96b22bef6d50844b74a5d6bf68c4cff2c2cf22",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-02T18:51:20.899Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-02T18:51:20.926Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260902185120-7k6vik queued; OTHMODE OTH-2026-00023"
+    }
+  ]
 }
