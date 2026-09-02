@@ -11,7 +11,7 @@
       "sha": "8a748454b35b4327a51760e7ba5372848d7841d8",
       "subject": "smoke(github-bridge): gh-20260902-bridge-smoke-01",
       "branch": "mythos/gh/gh-20260902-bridge-smoke-01",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -52,7 +52,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-20260902-bridge-smoke-01",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-02T18:08:33.161Z"
   }
 }

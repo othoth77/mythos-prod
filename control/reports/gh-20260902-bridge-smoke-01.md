@@ -7,7 +7,7 @@
 | OTHMODE task | `OTH-2026-00022` |
 | Profile | repo-write |
 | Branch | `mythos/gh/gh-20260902-bridge-smoke-01` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | true |
 
 ## Summary
@@ -16,7 +16,7 @@ Created docs/GITHUB_BRIDGE_SMOKE.md containing three lines — the task id gh-20
 
 ## Commits
 
-- `8a748454b35b4327a51760e7ba5372848d7841d8` smoke(github-bridge): gh-20260902-bridge-smoke-01 (awaiting relay)
+- `8a748454b35b4327a51760e7ba5372848d7841d8` smoke(github-bridge): gh-20260902-bridge-smoke-01 (on origin)
 
 ## Files changed
 
