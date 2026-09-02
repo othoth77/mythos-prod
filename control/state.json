@@ -1,30 +1,29 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-02T22:43:01.530Z",
+  "generated_at": "2026-09-02T22:43:06.560Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
-    "PENDING": 1,
-    "CLAIMED": 0,
-    "IN_PROGRESS": 1,
+    "PENDING": 0,
+    "CLAIMED": 1,
+    "IN_PROGRESS": 0,
     "VALIDATING": 0,
     "COMPLETED": 4,
-    "BLOCKED": 0,
+    "BLOCKED": 1,
     "FAILED": 0,
     "CANCELLED": 0
   },
-  "pending": [
-    "gh-issue-99"
-  ],
+  "pending": [],
   "active": [
-    "gh-issue-97"
+    "gh-issue-99"
   ],
   "awaiting_review": [
     "gh-20260902-bridge-smoke-01",
     "gh-20260902-chatgpt-safe-test-01",
     "gh-20260902-wa-bridge-notify-01",
-    "gh-issue-95"
+    "gh-issue-95",
+    "gh-issue-97"
   ],
   "tasks": [
     {
@@ -90,16 +89,16 @@
     },
     {
       "task_id": "gh-issue-97",
-      "status": "IN_PROGRESS",
+      "status": "BLOCKED",
       "priority": "normal",
       "requested_action": "investigate",
       "created_at": "2026-09-02T22:34:21.352Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-02T22:40:52.174Z",
+      "updated_at": "2026-09-02T22:43:04.917Z",
       "executor_task_id": "t-20260902223428-31m0o4",
       "branch": "mythos/gh/gh-issue-97",
       "task_file": "control/tasks/gh-issue-97.json",
-      "report_file": null,
+      "report_file": "control/reports/gh-issue-97.json",
       "source": {
         "kind": "github-issue",
         "issue_number": 97,
@@ -109,14 +108,14 @@
     },
     {
       "task_id": "gh-issue-99",
-      "status": "PENDING",
+      "status": "CLAIMED",
       "priority": "normal",
       "requested_action": "investigate",
       "created_at": "2026-09-02T22:42:59.761Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-02T22:42:59.761Z",
-      "executor_task_id": null,
-      "branch": null,
+      "updated_at": "2026-09-02T22:43:06.557Z",
+      "executor_task_id": "t-20260902224306-vaqeia",
+      "branch": "mythos/gh/gh-issue-99",
       "task_file": "control/tasks/gh-issue-99.json",
       "report_file": null,
       "source": {
