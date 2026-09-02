@@ -7,7 +7,7 @@
 | OTHMODE task | `OTH-2026-00024` |
 | Profile | repo-write |
 | Branch | `mythos/gh/gh-20260902-wa-bridge-notify-01` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -16,7 +16,7 @@ Implemented a WhatsApp notification layer for the existing MYTHOS GitHub Bridge,
 
 ## Commits
 
-- `b37491f9b839a29e2706632ddf07c0f804985702` feat(github-bridge): WhatsApp notification layer behind a provider adapter (awaiting relay)
+- `b37491f9b839a29e2706632ddf07c0f804985702` feat(github-bridge): WhatsApp notification layer behind a provider adapter (on origin)
 
 ## Files changed
 
