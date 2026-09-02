@@ -40,6 +40,10 @@
 //     record is gone (host or store loss): that task is BLOCKED for a human,
 //     because "never silently execute twice" outranks "always finish".
 //
+// GitHub Issues intake: bridge/github-issues.js converts Issues labelled
+// `task` into control/tasks files and reports back on the Issue; the bridge
+// itself is unchanged by that layer (a task from an Issue carries `source`).
+//
 // State of record: the control branch on GitHub. Local files under
 // MYTHOS_EXECUTOR_HOME/bridge/ are a cache for crash recovery between
 // "executor task created" and "claim committed" — never the authority.
@@ -379,7 +383,7 @@ function buildInstruction(cfg, task, exec) {
     'othmode — GitHub control task ' + task.task_id + ' (project ' + task.project + ', requested_action ' + task.requested_action + ').',
     '',
     'This task was created in GitHub (branch ' + cfg.branch + ', ' + cfg.prefix + '/tasks/' + task.task_id + '.json) by ' +
-      task.created_by + ' and dispatched by the MYTHOS GitHub bridge. Your OTHMODE Task record already exists: ' +
+      task.created_by + (task.source && task.source.kind === 'github-issue' && task.source.issue_url ? ' from GitHub Issue #' + task.source.issue_number + ' (' + task.source.issue_url + '; the Issue is the human interface — do not edit or comment on it, the adapter reports there from the control files)' : '') + ' and dispatched by the MYTHOS GitHub bridge. Your OTHMODE Task record already exists: ' +
       (exec.othmode_task_id || '(none — OTHMODE store unavailable; record nothing)') +
       '. You MAY advance its `phase` and add `sections`/`evidence_texts` with `node projects/command-center/cli/othmode-cli.js task update <id> \'<json>\'`, ' +
       'but you MUST NOT set a terminal `status` (COMPLETED/FAILED/BLOCKED/CANCELLED/REJECTED) and MUST NOT create a second record: ' +
@@ -803,7 +807,11 @@ function writeIndex(cfg, tasksById, extras) {
       executor_task_id: t.execution ? (t.execution.executor_task_id || null) : null,
       branch: t.execution ? (t.execution.branch || null) : null,
       task_file: cfg.prefix + '/tasks/' + id + '.json',
-      report_file: hasReport ? cfg.prefix + '/reports/' + id + '.json' : null
+      report_file: hasReport ? cfg.prefix + '/reports/' + id + '.json' : null,
+      // Origin of the task when it was converted from a GitHub Issue (github-issues.js);
+      // null for planner-written tasks. The relation Issue ⇄ task ⇄ executor ⇄ report
+      // is readable from this one row.
+      source: t.source && typeof t.source === 'object' ? { kind: t.source.kind || null, issue_number: t.source.issue_number || null, issue_url: t.source.issue_url || null, issue_state: t.source.issue_state || null } : null
     };
   });
   var idx = {
@@ -1212,6 +1220,16 @@ module.exports = {
   STATUS_MAP: STATUS_MAP,
   config: config,
   userGuard: userGuard,
+  acquireLock: acquireLock,
+  releaseLock: releaseLock,
+  log: log,
+  nowIso: nowIso,
+  readJsonFile: readJsonFile,
+  taskFile: taskFile,
+  reportFile: reportFile,
+  listTaskFiles: listTaskFiles,
+  loadTask: loadTask,
+  saveTask: saveTask,
   applyPushGuard: applyPushGuard,
   NO_PUSH_URL: NO_PUSH_URL,
   othmodeFinish: othmodeFinish,
