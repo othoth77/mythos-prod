@@ -28,7 +28,7 @@
     "التحقق من إزالة البيانات القديمة المضللة.",
     "التحقق من عدم كسر monitor أو health endpoint."
   ],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-02T22:34:19.628Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #95 https://github.com/othoth77/mythos-prod/issues/95 — \"تحديث MYTHOS Status Center بالكامل وربطه بمصدر الحقيقة\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[تسليم إلزامي]\n- تنفيذ العمل بالكامل، وليس مجرد تقديم تقرير أو اقتراحات.\n- GitHub هو Source of Truth.\n- بعد اكتمال العمل والتحقق منه: commit ثم push.\n- تسجيل commit hash وremote HEAD ونتائج الاختبارات والخطوة التالية في `docs/AI_HANDOVER.md`.\n\n[bridge / claude]\nهذه Issue من نوع TASK ومطلوب أن يلتقطها الـBridge ويمررها إلى Claude للتنفيذ. يجب على Claude تنفيذ المهمة من المستودع، ثم توثيق النتيجة وإغلاق الـTASK فقط بعد اكتمال التحقق والتسليم.",
@@ -84,9 +84,10 @@
     "claimed_at": "2026-09-02T22:34:26.725Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "b8dc99b621864636d2e30b538a67733d22c98d072ce8566a0ad2036ac0b05360",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-02T22:36:30.889Z",
-    "claude_session_id": "663295ba-b732-48cf-a7b1-eec1734e8d06"
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-02T22:40:52.170Z",
+    "claude_session_id": "663295ba-b732-48cf-a7b1-eec1734e8d06",
+    "report_file": "control/reports/gh-issue-95.json"
   },
   "history": [
     {
@@ -102,6 +103,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-02T22:40:50.611Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-02T22:40:52.170Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 5 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

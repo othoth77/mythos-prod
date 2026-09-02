@@ -26,7 +26,7 @@
     "لا تأثير سلبي على Bridge أو OTHMODE.",
     "تسجيل commit SHA وremote HEAD ونتائج الاختبارات في `docs/AI_HANDOVER.md`."
   ],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-02T22:34:21.352Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #97 https://github.com/othoth77/mythos-prod/issues/97 — \"نشر واختبار إشعارات WhatsApp للـGitHub Bridge\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[قيود صارمة]\n- لا تبدأ AUTOS-0.\n- لا تلمس SPY أو n8n أو مشاريع السيارات.\n- لا تعِد بناء طبقة GitHub Bridge السابقة؛ استخدم الكود الموجود في `gh-20260902-wa-bridge-notify-01`.\n- لا ترسل أي رسالة WhatsApp حقيقية إلا في اختبار واحد متعمد بعد اجتياز الفحوصات.\n- لا تكشف أي secret في التقرير أو GitHub.\n- لا تدمج التغيير في `main` تلقائيًا؛ الدمج قرار بشري منفصل.\n- إذا كانت موارد VPS غير كافية، **توقف بأمان** وسجّل BLOCKED مع السبب والحل المقترح بدل المخاطرة باستقرار النظام.\n\n[المرجع]\nالسابق: `gh-20260902-wa-bridge-notify-01`\nCommit: `b37491f9b839a29e2706632ddf07c0f804985702`\n\nهذه Issue يجب أن يلتقطها GitHub Issues → Bridge → Claude وينفذها فعليًا، ثم يضع التقرير في نفس الـIssue عند اكتمال التنفيذ.",
@@ -82,8 +82,9 @@
     "claimed_at": "2026-09-02T22:34:28.433Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "4baf5fc0e7f4f7ed042ebc9f9bb0565fc42d388e3cd54f4dc6034dbfde0db843",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-02T22:34:28.433Z"
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-02T22:40:52.174Z",
+    "claude_session_id": "fc704f7f-3e68-47ec-8258-8239d367aa18"
   },
   "history": [
     {
@@ -92,6 +93,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260902223428-31m0o4 queued; OTHMODE OTH-2026-00026"
+    },
+    {
+      "at": "2026-09-02T22:40:52.174Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
