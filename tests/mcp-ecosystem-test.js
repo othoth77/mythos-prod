@@ -270,7 +270,7 @@ async function run() {
     ok(real.valid && real.servers['oth-mcp'].tools.length === 8, 'oth-mcp declares its 8 tools');
     ok(real.valid && registryLib.declaredTools(real.servers, 'mythos-mcp-http').length === 8, 'the bridge relays oth-mcp\'s 8 tools without declaring any');
     ok(real.valid && real.servers['github-mcp-rw'].enabled === false, 'github-mcp-rw ships disabled (no credential bound)');
-    ok(real.valid && real.servers['contextforge'].public === false, 'the gateway records that it is not public');
+    ok(real.valid && typeof real.servers['contextforge'].public === 'boolean' && typeof real.servers['contextforge'].note === 'string' && /measured/i.test(real.servers['contextforge'].note), 'the gateway records whether it is public, with the measurement that says so');
 
     var fx = registryLib.loadRegistry(REG);
     ok(fx.valid, 'the fixture registry is valid: ' + (fx.reason || 'ok'));
@@ -583,6 +583,9 @@ async function run() {
   section('H. OTHMODE discovery — five states, nothing leaks');
   {
     var registries = require(path.join(OTHMODE, 'registries.js'));
+    // A real snapshot may exist at the production default; "no snapshot"
+    // must be an explicit absent path, not an assumption about the host.
+    process.env.OTHMODE_MCP_STATUS_FILE = path.join(FIX, 'no-such-snapshot.json');
     var t = registries.tools();
     ok(t.sources.mcp_capabilities === 'loaded' && t.sources.mcp_registry === 'loaded', 'both MCP sources load (' + JSON.stringify(t.sources) + ')');
     ok(!t.tools.some(function (x) { return x.id === 'mcp:servers'; }), 'the bogus mcp:servers row is gone');

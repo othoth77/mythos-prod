@@ -1,6 +1,6 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-02 01:45 UTC
+**Last updated:** 2026-09-02 07:05 UTC
 **From:** MCP-ECOSYSTEM-1 — **the MYTHOS MCP ecosystem is inventoried, completed where completion was possible without an owner decision, verified against the running host, and committed on `mythos/mcp-ecosystem-20260901` (`d9e5c54`) — delivery to GitHub is DENIED by governance on two path-pattern hits and awaits two owner approvals (exact commands below); nothing was pushed around the cage.** Estate registry + availability check + permission matrix + Vault inventory + OTHMODE discovery fix + the executor's governed MCP invoke with audit. 167/0 new assertions, 0 regressions (37/0 · 58/0 · 264/0 · 141/0). Live: the check reports the estate OK; a real handshake through ContextForge and ten governed calls against production behaved exactly as the matrix says. **Not complete by the mission's own gate** — four owner-gated items remain (below), and `main` is still undeliverable, so the executor route, the OTHMODE fix and the probes are verified but not live.
 
 **Previously:** MYTHOS-VAULT-0 — Vault architecture documented and delivered (`mythos/vault-architecture-20260901`, `7f7773d`).
@@ -77,6 +77,10 @@ git ls-remote origin refs/heads/mythos/mcp-ecosystem-20260901   # expect the tip
 ```
 
 Note for whoever runs it: `d287b97` is already on GitHub as `feat/mythos-gateway`; the relay still evaluates it because local `main` does not contain it. Approving it here approves exactly that sha, nothing else.
+
+### Change observed on the host after the work (2026-09-02 ~06:36 UTC) — the gateway is PUBLIC
+
+`nginx.service` was **started** twice (06:36:24 and 06:51:48 UTC, journal) — not by this session: `apt-daily-upgrade.service` ran at 06:34:46 and the unattended package upgrade restarted ssh, nginx and the VNC stack. The `/gateway/` block had been sitting in the enabled vhost since GATEWAY-1, so the restart applied it: `https://mythosprod.xyz/gateway/health` now answers **200** (it was 404 all session). Measured immediately after: `/gateway/mcp` (POST, no credential) **401**, `/gateway/docs` 401, `/gateway/version` 401, `/gateway/tools` 401, `/gateway/admin` and `/gateway/admin/` **404**. ContextForge still holds **0 client tokens**, 1 peer, 0 virtual servers — so the door is open but nobody has a key; nothing can be invoked from the internet. The registry now records `contextforge.public: true` with this measurement. Owner decision #4 in the list below is therefore *taken by circumstance*, ahead of #2 and #3; if that order was not intended, the rollback is the one in `projects/mythos-gateway/README.md` (remove the block, `nginx -t`, reload). Host memory pressure also eased in the same window (4 agent sessions, 3.7 GB available, load 0.8).
 
 ### Unresolved — owner decisions, in order of leverage
 

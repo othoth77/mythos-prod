@@ -227,6 +227,7 @@ Read the arrows as **authority**: a call that skips a layer is an unauthorized c
 | OTHMODE `tools()` fix + `/api/othmode/mcp` | **NOT LIVE** — same reason (`main`); verified in the worktree against the live snapshot |
 | monitor probes | **NOT LIVE** — `main`, and `probes.json` on `main`'s working tree is itself uncommitted production truth (idauto probes) that must be reconciled first |
 | everything pre-existing | unchanged and re-verified |
+| gateway exposure | **PUBLIC since ~06:36 UTC 2026-09-02** — nginx restarted outside this session and applied the existing `/gateway/` block; measured: health 200, every other path 401 without credential, admin 404, 0 client tokens (nothing invokable from outside) |
 | GitHub delivery | **DENIED by governance, not bypassed** — commit `d9e5c541e732` (`credential-inventory.json` matches `/credential/i`) and `d287b974a91d` (`contextforge.env.example` matches `/\.env(\.|$)/i`) need `mythos-governance-approve`; commands in `docs/AI_HANDOVER.md`. Remote HEAD `main` = `f4d5eb9`, branch absent from origin |
 
 ### 6.5 NOT VERIFIED

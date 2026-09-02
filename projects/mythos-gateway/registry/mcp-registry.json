@@ -104,10 +104,10 @@
       "tools_note": "federated — discovered from peers at check time",
       "write_capable": false,
       "enabled": true,
-      "public": false,
+      "public": true,
       "consumers": [],
       "outbound_capability_server": null,
-      "note": "public: false records that nginx has not been reloaded — /gateway/ answers 404 from the internet by the owner's decision",
+      "note": "public: true since 2026-09-02 ~06:36 UTC — nginx was restarted (not by the MCP-ECOSYSTEM-1 session) and applied the /gateway/ block already present in the vhost. Measured after: /gateway/health 200; /gateway/mcp, /docs, /version, /tools 401 without a credential; /gateway/admin 404. Zero client tokens exist, so nothing can be invoked from the internet until the owner issues one.",
       "admin_credential": "cred_contextforge_platform_admin"
     },
     "github-mcp-rw": {
