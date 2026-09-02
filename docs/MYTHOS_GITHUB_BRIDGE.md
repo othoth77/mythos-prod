@@ -52,7 +52,7 @@ The control branch is an **orphan** branch: it carries only `control/`. Raw read
 
 Required: `protocol` (`mythos-control/1`), `task_id`, `project`, `objective`, `scope[]`, `constraints[]`,
 `priority` (`low|normal|high`), `requested_action`, `validation_requirements[]`, `status`, `created_at`, `created_by`.
-Optional: `depends_on[]`, `timeout_seconds` (60–21600), `max_turns`, `notes`. Bridge-owned: `execution`, `history`.
+Optional: `depends_on[]`, `timeout_seconds` (60–21600), `max_turns`, `notes`, `model`. Bridge-owned: `execution`, `history`.
 
 `requested_action` is the only execution lever and it is closed:
 
@@ -62,7 +62,20 @@ Optional: `depends_on[]`, `timeout_seconds` (60–21600), `max_turns`, `notes`. 
 | `test` | `repo-test` | report |
 | `document`, `implement` | `repo-write` (acceptEdits, git allowed, no sudo) | commit on `mythos/gh/<id>` |
 
-Never selectable from GitHub: provider, model, working directory, tools, MCP servers, skills, credentials,
+`model` (optional, Issue #100) is the one other value a task may set, and it is a *choice among
+server-side entries*, not a string that travels to the CLI:
+
+| `Model:` in the task / Issue | runs on | notes |
+|---|---|---|
+| `Haiku`, `Sonnet`, `Opus`, `Fable 5` (also `claude-sonnet-5`, `Sonnet 5`, `opus`…) | exactly that model | honoured as written, never substituted |
+| `Fable 5.1` | — | refused at intake: not offered by the installed Claude CLI; flip `enabled` in `config/model-policy.json` when it is |
+| anything else | — | refused at intake with the accepted values |
+| *absent* | `haiku` / `sonnet` / `opus` chosen by `lib/model-policy.js` | the scored signals and the resulting model are on the task record, in the `model_selected` event, and in the REPORT |
+
+Fable is `auto_selectable: false`: no scoring path can reach it, so it runs only when a task names it.
+The executor always passes `--model`, so the Claude CLI's own ambient default is never what runs.
+
+Never selectable from GitHub: provider, working directory, tools, MCP servers, skills, credentials,
 the `autonomous` or `deploy` profiles. A task naming any of them fails schema validation (`additionalProperties:false`).
 A task carrying a secret shape is rejected and the rewritten file is redacted. `task_id` must be lowercase
 `[a-z0-9-]`, 6–40 chars, equal to the file name, and must not contain `credential|secret|.env|.ssh|sudoers`.

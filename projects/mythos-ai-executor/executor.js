@@ -28,6 +28,7 @@ var policy = require('./lib/policy');
 var reporting = require('./lib/report');
 var skills = require('./lib/skills');
 var mcpCapabilities = require('./lib/mcp-capabilities');
+var modelPolicy = require('./lib/model-policy');
 
 var schema = require('../mythos-orchestrator/lib/schema');
 var redact = require('../mythos-orchestrator/lib/redact');
@@ -106,6 +107,43 @@ function createTask(input) {
   var isExecution = providerImpl.executionAuthority === true ||
     (provider === 'mock'); // mock stands in for the execution provider in tests
 
+  // Advisory providers NEVER get a working directory or an execution
+  // profile — they reason, they do not act (mission §9). Resolved before
+  // the record because the model policy scores against this profile.
+  var executionProfile = isExecution ? (input.execution_profile || policy.DEFAULT_PROFILE) : null;
+
+  // Issue #100 — model selection. Only the Claude execution provider is
+  // governed here: openai-compat and gemini carry THEIR OWN model names
+  // (config/agents.json), a Claude model id would be meaningless there, and
+  // the test-only mock never launches anything at all.
+  // For claude-code the choice is always made — explicitly honoured, or
+  // scored — so `--model` is always passed and the CLI's ambient default
+  // (the fable family) can never become this system's default by omission.
+  var modelChoice = null;
+  var fallbackModel = input.fallback_model || null;
+  if (provider === 'claude-code') {
+    modelChoice = modelPolicy.selectModel({
+      requested: input.model,
+      execution_profile: executionProfile,
+      task_category: input.task_category,
+      priority: input.priority || 'normal',
+      instruction: input.instruction,
+      constraints: input.constraints,
+      required_tests: input.required_tests
+    });
+    if (!modelChoice.ok) {
+      throw new Error('MODEL_NOT_ALLOWED: ' + modelChoice.error +
+        ' — a named model is never silently replaced by another one');
+    }
+    if (input.fallback_model) {
+      // The fallback also lands in argv, so it passes the same allow-list.
+      // It is never chosen automatically: no fallback means no --fallback-model.
+      var fb = modelPolicy.resolveExplicit(input.fallback_model);
+      if (!fb.ok) throw new Error('FALLBACK_MODEL_NOT_ALLOWED: ' + fb.error);
+      fallbackModel = fb.model;
+    }
+  }
+
   var task = {
     schema_version: '1.0.0',
     task_id: newTaskId(),
@@ -117,11 +155,11 @@ function createTask(input) {
     requested_by: input.requested_by || 'n8n',
     mode: input.mode || 'autonomous',
     provider: provider,
-    model: input.model || null,
-    fallback_model: input.fallback_model || null,
-    // Advisory providers NEVER get a working directory or an execution
-    // profile — they reason, they do not act (mission §9).
-    execution_profile: isExecution ? (input.execution_profile || policy.DEFAULT_PROFILE) : null,
+    model: modelChoice ? modelChoice.model : (input.model || null),
+    fallback_model: fallbackModel,
+    model_selection_mode: modelChoice ? modelChoice.mode : null,
+    model_selection_reason: modelChoice ? modelChoice.reason : null,
+    execution_profile: executionProfile,
     working_directory: isExecution ? (input.working_directory || projectCfg.path) : null,
     repository: projectCfg.repository || null,
     branch: input.branch || projectCfg.default_branch || null,
@@ -198,6 +236,15 @@ function createTask(input) {
     skill_id: task.skill_id, skill_version: task.skill_version,
     skill_selection_reason: task.skill_selection_reason
   });
+  // Issue #100: the model choice is auditable on its own, with every signal
+  // that produced it — a run must always be able to answer "why this model?".
+  if (modelChoice) {
+    state.appendEvent(task.task_id, 'model_selected', {
+      model: task.model, key: modelChoice.key, mode: modelChoice.mode,
+      requested: modelChoice.requested, score: modelChoice.score,
+      signals: modelChoice.signals, policy_source: modelPolicy.DEFAULT_LOADED.source
+    });
+  }
   state.appendEvent(task.task_id, 'mcp_capabilities_resolved', {
     allowed: task.mcp_capabilities, denied_reason: mcpResolved.denied_reason
   });

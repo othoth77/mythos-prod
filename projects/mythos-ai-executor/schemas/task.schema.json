@@ -96,6 +96,24 @@
       ],
       "maxLength": 100
     },
+    "model_selection_mode": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "explicit",
+        "auto",
+        null
+      ]
+    },
+    "model_selection_reason": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 300
+    },
     "execution_profile": {
       "type": [
         "string",

@@ -17,6 +17,11 @@
 //     --allowedTools / --disallowedTools
 //     --fallback-model <model>      automatic fallback when overloaded
 //
+// Model (Issue #100): never inherited from the CLI. lib/model-policy.js
+// decides — the task's explicit `Model:` if it named one, otherwise a
+// scored choice between haiku/sonnet/opus — and buildArgs always emits
+// --model, so `fable` runs only when a task asks for it by name.
+//
 // Session persistence (mission §6): the first run of a task pins a fresh
 // UUID via --session-id and records it; every continuation uses --resume
 // with that same id, so quota pauses, crashes and reboots all come back
@@ -31,6 +36,7 @@ var cp = require('child_process');
 var crypto = require('crypto');
 
 var policy = require('../lib/policy');
+var modelPolicy = require('../lib/model-policy');
 
 var PROVIDER_ID = 'claude-code';
 var DEFAULT_BIN = process.env.MYTHOS_CLAUDE_BIN || 'claude';
@@ -62,7 +68,17 @@ function buildArgs(task, sessionId, mode) {
     args.push('--session-id', sessionId);
   }
   args = args.concat(policy.claudeArgsForProfile(task.execution_profile));
-  if (task.model) args.push('--model', task.model);
+  // Issue #100: --model is ALWAYS passed. executor.createTask has already
+  // resolved one (explicit request or scored choice); this fallback covers
+  // records created before that policy existed and any caller that builds a
+  // task by hand. Omitting the flag would hand the choice to the CLI's own
+  // ambient default (today: the fable family), which must never happen
+  // without a task asking for it by name.
+  args.push('--model', task.model || modelPolicy.selectModel({
+    execution_profile: task.execution_profile, task_category: task.task_category,
+    priority: task.priority, instruction: task.instruction,
+    constraints: task.constraints, required_tests: task.required_tests
+  }).model);
   if (task.fallback_model) args.push('--fallback-model', task.fallback_model);
   if (task.max_turns) args.push('--max-turns', String(task.max_turns));
   return args;

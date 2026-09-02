@@ -33,9 +33,14 @@
 //     execution path; the daemon picks the queued task up on its own tick);
 //   - it never pushes (delivery is the root relay, so the governance cage
 //     applies to every control commit exactly like any other commit);
-//   - it never honours provider / model / working_directory / tool / MCP /
+//   - it never honours provider / working_directory / tool / MCP /
 //     credential selection from a task file: requested_action maps to an
-//     execution profile server-side, and everything else is data;
+//     execution profile server-side, and everything else is data. The one
+//     thing a task MAY choose (Issue #100) is `model`: it selects an entry
+//     in the server-side catalog (config/model-policy.json), the executor
+//     refuses an unknown or unavailable one rather than substituting, and
+//     the choice grants no authority. A task that names none gets the model
+//     lib/model-policy.js scores for it — never the CLI's own default;
 //   - it never re-executes a task whose claim exists but whose executor
 //     record is gone (host or store loss): that task is BLOCKED for a human,
 //     because "never silently execute twice" outranks "always finish".
@@ -57,6 +62,7 @@ var crypto = require('crypto');
 
 var EXEC_ROOT = path.join(__dirname, '..');
 var state = require(path.join(EXEC_ROOT, 'lib', 'state'));
+var modelPolicy = require(path.join(EXEC_ROOT, 'lib', 'model-policy'));
 var schema = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'schema'));
 var redact = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'redact'));
 
@@ -339,7 +345,7 @@ function saveTask(cfg, task) {
 function taskFingerprint(task) {
   var copy = {};
   ['task_id', 'project', 'objective', 'scope', 'constraints', 'priority', 'requested_action',
-    'validation_requirements', 'created_at', 'created_by', 'depends_on', 'timeout_seconds', 'max_turns', 'notes']
+    'validation_requirements', 'created_at', 'created_by', 'depends_on', 'timeout_seconds', 'max_turns', 'notes', 'model']
     .forEach(function (k) { if (task[k] !== undefined) copy[k] = task[k]; });
   return sha256(JSON.stringify(copy));
 }
@@ -361,6 +367,12 @@ function validateTask(cfg, task, file) {
     errors.push('status "' + String(task.status).slice(0, 20) + '" cannot be set by the creator (only PENDING or CANCELLED)');
   }
   if (Array.isArray(task.depends_on) && task.depends_on.indexOf(task.task_id) !== -1) errors.push('a task cannot depend on itself');
+  // Issue #100: an unusable `model` is caught here, where the reason reaches
+  // the creator on the Issue, instead of throwing inside executor.createTask.
+  if (task.model !== undefined && task.model !== null && String(task.model).trim() !== '') {
+    var m = modelPolicy.resolveExplicit(task.model);
+    if (!m.ok) errors.push('model: ' + m.error);
+  }
   var secretKinds = redact.findSecretKinds(JSON.stringify(task));
   if (secretKinds.length) errors.push('task carries a secret shape (' + secretKinds.join(', ') + ') — credentials never travel in tasks');
   return errors;
@@ -471,7 +483,7 @@ function othmodeSections(status, report) {
     validation: { required_checks: report.validation.required_checks, tests: report.tests, git_verified: report.validation.git_verified, remote_head: report.validation.remote_head, report_problems: report.validation.report_problems },
     evidence: { tests: report.tests, report_file: 'control/reports/' + report.task_id + '.json', executor_report: report.execution.executor_task_id ? 'executor store report.json for ' + report.execution.executor_task_id : null },
     problems: { problems: report.problems, risks: report.risks },
-    execution: { executor_task_id: report.execution.executor_task_id, execution_profile: report.execution.execution_profile, claude_session_id: report.execution.claude_session_id, retries: report.execution.retries, quota_waits: report.execution.quota_waits, cost_usd: report.execution.cost_usd }
+    execution: { executor_task_id: report.execution.executor_task_id, execution_profile: report.execution.execution_profile, claude_session_id: report.execution.claude_session_id, retries: report.execution.retries, quota_waits: report.execution.quota_waits, cost_usd: report.execution.cost_usd, model: report.execution.model, model_selection_reason: report.execution.model_selection_reason }
   };
 }
 
@@ -602,6 +614,9 @@ function claimTask(cfg, executor, entry, tasksById) {
       // executor itself allows it (tests); production units never set that.
       provider: process.env.MYTHOS_EXECUTOR_ALLOW_MOCK === '1' && process.env.MYTHOS_BRIDGE_PROVIDER === 'mock' ? 'mock' : 'claude-code',
       execution_profile: exec.execution_profile,
+      // Optional (Issue #100). Absent → executor.createTask scores the task
+      // and chooses haiku/sonnet/opus; present → that model or a refusal.
+      model: task.model || null,
       working_directory: wt.dir,
       branch: wt.branch,
       task_category: task.requested_action,
@@ -705,6 +720,11 @@ function buildReport(cfg, task, finalStatus, opts) {
       execution_profile: exec.execution_profile || null,
       provider: etask ? etask.provider : null,
       model: etask ? (etask.model || 'default') : null,
+      // Issue #100: which model ran, and why — a report must be able to
+      // answer that without reading the executor store.
+      model_requested: task.model || null,
+      model_selection_mode: etask ? (etask.model_selection_mode || null) : null,
+      model_selection_reason: etask ? (etask.model_selection_reason || null) : null,
       claude_session_id: estatus ? estatus.claude_session_id : null,
       executor_status: estatus ? estatus.status : null,
       started_at: estatus ? (estatus.started_at || null) : null,
@@ -737,6 +757,8 @@ function renderReportMarkdown(report) {
   l.push('| Executor task | `' + (report.execution.executor_task_id || '—') + '` |');
   l.push('| OTHMODE task | `' + (report.execution.othmode_task_id || '—') + '` |');
   l.push('| Profile | ' + (report.execution.execution_profile || '—') + ' |');
+  l.push('| Model | `' + (report.execution.model || '—') + '` (' +
+    (report.execution.model_selection_reason || report.execution.model_selection_mode || 'no selection recorded') + ') |');
   l.push('| Branch | `' + (report.delivery.branch || '—') + '` |');
   l.push('| Commits on origin | ' + String(report.delivery.commits_on_origin) + ' |');
   l.push('| Git verified | ' + String(report.validation.git_verified) + ' |');

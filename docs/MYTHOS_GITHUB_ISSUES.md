@@ -58,6 +58,7 @@ Priority: normal           (low | normal | high)
 Depends on: #94, gh-20260902-bridge-smoke-01
 Timeout: 3600              (seconds, 60–21600)
 Max turns: 60
+Model: Sonnet              (optional: Haiku | Sonnet | Opus | Fable 5 — omit it and the executor chooses)
 ```
 
 Rules the adapter applies (they are the bridge's rules, reused):
@@ -69,14 +70,17 @@ Rules the adapter applies (they are the bridge's rules, reused):
 | no Objective section | the text before the first heading is the objective; failing that, the title (min 10 chars) |
 | `Action` missing | **`investigate` (read-only)** — the created comment says so. Add `Action: implement` (or label `action:implement`) for write tasks |
 | `Action: deploy` or any other value | rejected with a comment; nothing runs (the action set is closed, see bridge §4) |
+| `Model:` present (`Model: Opus`, `النموذج: Sonnet`, or label `model:opus`) | that model runs, never a substitute. Unknown or unavailable (today: `Fable 5.1`) → rejected with the accepted list |
+| `Model:` missing | the executor scores the task and picks Haiku, Sonnet or Opus; Fable is never chosen automatically. The created comment says so, and the report names the model and the reason |
 | secret-shaped string anywhere (token, key, password=…, DB URL…) | rejected with a comment that names the kind, never the value; no task file; label `mythos:invalid` |
 | `Depends on: #N` | maps to `gh-issue-N`; the bridge does not claim the task until that task is COMPLETED |
 | one Issue → one task | `gh-issue-<n>`. To run again after a fix, add the label `rerun` → `gh-issue-<n>-r2` (label is consumed) |
 | closing the Issue / removing `task` while active | the task is set CANCELLED (executor task cancelled by the bridge); a CANCELLED comment follows |
 | an edited *rejected* Issue | re-evaluated (rejections are keyed by the content hash) |
 
-Task ids, projects, `execution`/`history` blocks, provider/model/paths/tools/credentials: never taken from an Issue.
-`requested_action` is the only lever, exactly as in the task protocol.
+Task ids, projects, `execution`/`history` blocks, provider/paths/tools/credentials: never taken from an Issue.
+`requested_action` is the only privilege lever, exactly as in the task protocol. `Model:` selects an entry in
+the server-side catalog (`config/model-policy.json`) and grants nothing.
 
 ## 2. What the Issue receives
 
