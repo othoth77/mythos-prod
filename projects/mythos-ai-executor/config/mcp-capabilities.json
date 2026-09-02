@@ -12,6 +12,9 @@
         },
         "create_review_comment": {
           "description": "Post a review comment on a pull request."
+        },
+        "create_branch": {
+          "description": "Create a branch from an existing ref. github.write in the permission matrix: CONTROLLED for the executor, so a call needs a GRANTED, unconsumed approval (mcp:github.write). Added 2026-09-02 (MCP-ECOSYSTEM-2b, owner option 1) as the reversible write for the governed end-to-end proof; the branch is removed by hand afterwards because delete_* stays DENY."
         }
       },
       "required_execution_profiles": [

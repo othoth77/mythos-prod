@@ -47,7 +47,7 @@
     "instruction_source": "github-review.md",
     "required_capabilities": [],
     "allowed_mcp_servers": ["github"],
-    "allowed_mcp_tools": ["github.list_pull_requests", "github.get_pull_request_diff", "github.create_review_comment"],
+    "allowed_mcp_tools": ["github.list_pull_requests", "github.get_pull_request_diff", "github.create_review_comment", "github.create_branch"],
     "compatible_execution_profiles": ["repo-read", "repo-write"],
     "enabled": true
   },

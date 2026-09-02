@@ -590,7 +590,7 @@ async function run() {
     ok(t.sources.mcp_capabilities === 'loaded' && t.sources.mcp_registry === 'loaded', 'both MCP sources load (' + JSON.stringify(t.sources) + ')');
     ok(!t.tools.some(function (x) { return x.id === 'mcp:servers'; }), 'the bogus mcp:servers row is gone');
     var gh = t.tools.filter(function (x) { return x.id === 'mcp:github'; })[0];
-    ok(gh && gh.source === 'mcp-capabilities' && gh.capabilities.length === 3 && gh.enabled === true && gh.direction === 'outbound', 'the outbound github capability server is rendered with its 3 tools and enabled:true (owner, 2026-09-02)');
+    ok(gh && gh.source === 'mcp-capabilities' && gh.capabilities.length === 4 && gh.enabled === true && gh.direction === 'outbound', 'the outbound github capability server is rendered with its 4 tools and enabled:true (owner, 2026-09-02)');
     var ks = t.tools.filter(function (x) { return x.id === 'oth-mcp.knowledge_search'; })[0];
     ok(ks && ks.source === 'mcp-registry' && ks.registered === true && ks.authorized === true && ks.policy_class === 'ALLOW', 'oth-mcp.knowledge_search is registered and authorized for othmode');
     ok(ks && ks.available === null && ks.healthy === null && ks.executable === null, 'without a snapshot the measured states are null, never guessed');
