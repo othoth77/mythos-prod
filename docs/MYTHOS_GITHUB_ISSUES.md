@@ -119,7 +119,7 @@ rerun, close policy, secret rejection (no secret in any request, comment, tree, 
 ## 4. Security
 
 - **No token in Git, logs, comments or child processes.** The PAT is read from the environment
-  (`MYTHOS_GITHUB_ISSUES_TOKEN` or `MYTHOS_GITHUB_MCP_RW_TOKEN`) or a KEY=VALUE file named by
+  (`MYTHOS_GITHUB_ISSUES_TOKEN`, preferred, or `MYTHOS_GITHUB_MCP_RW_TOKEN`) or a KEY=VALUE file named by
   `MYTHOS_GITHUB_ISSUES_TOKEN_FILE`; held in a closure; every log line and comment body passes the shared
   `redact` (belt: `safeBody` drops any line the redaction still flags). The systemd drop-in binds the deploy-owned
   0600 file **by reference** (`bridge/systemd/mythos-github-bridge.service.d/issues.conf.example`).
@@ -148,6 +148,14 @@ bridge behaves exactly as before. **Order of deployment matters:** the adapter w
 bridge's task schema must know (same commit), so enable the drop-in only after `main` carries this change.
 
 ## 6. Honest limits
+
+- **Owner step before the write path is live:** the only GitHub credential on the host (`cred_github_gateway`,
+  `github-mcp-rw.env`) can read Issues but gets **HTTP 403 on comments and labels** (verified 2026-09-02 on the smoke
+  Issue #96; creating #96 worked only because public repositories allow permissionless issue creation). A
+  fine-grained PAT with `Issues: Read and write` is required — recommended as a dedicated credential
+  `cred_github_issues` in `/home/deploy/deployments/mythos-gateway/github-issues.env`
+  (`MYTHOS_GITHUB_ISSUES_TOKEN=…`, 0600, written with `read -s` under `umask 077`, never argv). The read path
+  (listing, parsing, dry-run) and the full pipeline offline are verified; the live comment path is not until then.
 
 - The GitHub side is polled (2 min), not webhook-driven; a new Issue waits up to one tick.
 - Labels are best-effort cosmetics (a failed label call is logged, the comment is the record).

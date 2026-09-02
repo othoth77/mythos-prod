@@ -6,15 +6,19 @@
 #      ~/.config/systemd/user/mythos-github-bridge.service.d/issues.conf
 #   systemctl --user daemon-reload      # the existing 2-minute timer now runs `tick` with the Issues phases
 #
-# The token is the Vault reference cred_github_gateway (fine-grained PAT, deploy-owned 0600 file),
-# bound BY REFERENCE exactly like the executor's github-mcp-rw.conf: no copy of the value exists.
-# The adapter reads MYTHOS_GITHUB_MCP_RW_TOKEN from the environment and never logs, writes or forwards it.
-# The PAT needs `issues: read/write` on othoth77/mythos-prod (comments, labels, optional close).
+# The token is a fine-grained PAT with `Issues: Read and write` on othoth77/mythos-prod (comments, labels,
+# optional close), kept in a deploy-owned 0600 KEY=VALUE file and bound BY REFERENCE (no copy of the value).
+# Recommended: a dedicated credential (Vault id cred_github_issues) in
+#   /home/deploy/deployments/mythos-gateway/github-issues.env   containing   MYTHOS_GITHUB_ISSUES_TOKEN=<pat>
+# Verified 2026-09-02: the existing cred_github_gateway PAT (github-mcp-rw.env, MYTHOS_GITHUB_MCP_RW_TOKEN) can
+# READ Issues but gets HTTP 403 on comments and labels — it lacks Issues write; do not reuse it unless its
+# permissions are extended. The adapter reads MYTHOS_GITHUB_ISSUES_TOKEN (preferred) or
+# MYTHOS_GITHUB_MCP_RW_TOKEN from the environment and never logs, writes or forwards it.
 #
 # ROLLBACK: rm this file, systemctl --user daemon-reload. The bridge keeps working on planner-written tasks.
 [Service]
 Environment=MYTHOS_ISSUES_ENABLED=1
-EnvironmentFile=/home/deploy/deployments/mythos-gateway/github-mcp-rw.env
+EnvironmentFile=/home/deploy/deployments/mythos-gateway/github-issues.env
 # Optional policy knobs (defaults shown):
 #Environment=MYTHOS_ISSUES_LABEL=task
 #Environment=MYTHOS_ISSUES_RERUN_LABEL=rerun
