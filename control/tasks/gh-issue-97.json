@@ -62,6 +62,16 @@
         "at": "2026-09-02T22:34:33.503Z",
         "existed": false,
         "executor_task_id": "t-20260902223428-31m0o4"
+      },
+      "report": {
+        "comment_id": 5517457121,
+        "url": "https://github.com/othoth77/mythos-prod/issues/97#issuecomment-5517457121",
+        "at": "2026-09-02T22:43:07.481Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-97.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -69,7 +79,8 @@
         "mythos:queued"
       ],
       "removed": []
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260902223428-31m0o4",
