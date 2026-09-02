@@ -60,6 +60,7 @@ var path = require('path');
 
 var executor = require('./executor');
 var state = require('./lib/state');
+var mcpInvoke = require('./lib/mcp-invoke');
 var redact = require('../mythos-orchestrator/lib/redact');
 
 var DEFAULT_PORT = parseInt(process.env.MYTHOS_EXECUTOR_PORT || '8130', 10);
@@ -225,6 +226,38 @@ function handler(req, res, token) {
   // provider this executor cannot actually run (checked against the real
   // PROVIDERS map, so a registered-but-unimplemented or unconfigured
   // provider such as gemini can never be returned as routable).
+  // MCP-ECOSYSTEM-1: governed MCP invocation. The executor is the only
+  // execution engine; an agent asks it to call a tool and it decides —
+  // estate registry → permission matrix → M-12 capability gate → declared
+  // tool set → Vault reference — then calls, verifies, audits and returns
+  // the content. The caller never sees a credential. The subject is the
+  // executor itself; `requested_by` is recorded, not trusted. The body is
+  // a closed set of fields: anything else is refused, like every other
+  // write on this API.
+  if (req.method === 'POST' && url === '/mcp/invoke') {
+    var INVOKE_FIELDS = ['server', 'tool', 'arguments', 'task_id', 'approval_id', 'requested_by'];
+    return readBody(req).then(function (body) {
+      var payload;
+      try { payload = JSON.parse(body || '{}'); } catch (e) { return send(res, 400, { error: 'INVALID_JSON' }); }
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return send(res, 400, { error: 'INVALID_BODY' });
+      var unexpected = Object.keys(payload).filter(function (k) { return INVOKE_FIELDS.indexOf(k) === -1; });
+      if (unexpected.length) return send(res, 400, { error: 'UNEXPECTED_FIELD', fields: unexpected });
+      return mcpInvoke.invoke(payload).then(function (out) {
+        var status = out.http_status || (out.ok ? 200 : 500);
+        delete out.http_status;
+        send(res, status, out);
+      });
+    }).catch(function (err) {
+      send(res, err.message === 'BODY_TOO_LARGE' ? 413 : 500, { error: String(err.message || 'error').slice(0, 200) });
+    });
+  }
+
+  // The registry the executor consults, joined with the latest measured
+  // snapshot when the registry check has written one. Metadata only.
+  if (req.method === 'GET' && url === '/mcp/registry') {
+    return send(res, 200, mcpInvoke.describeRegistry());
+  }
+
   if (req.method === 'POST' && url === '/route') {
     var routeCore;
     try {

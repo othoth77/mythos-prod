@@ -1,0 +1,34 @@
+# MYTHOS MCP registry check — measures what registry/mcp-registry.json
+# claims and writes the snapshot OTHMODE joins onto it. Oneshot, run by
+# the matching timer. Runs as deploy: the account that owns the launcher,
+# the env files and the snapshot directory. Nothing else is writable.
+[Unit]
+Description=MYTHOS MCP registry check (measured availability of every registered MCP server)
+Documentation=file:///home/deploy/projects/mythos-prod/projects/mythos-gateway/README.md
+After=network-online.target mythos-mcp-http.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+ExecStart=/bin/bash /home/deploy/deployments/mythos-gateway/mcp-registry-check.sh --quiet
+TimeoutStartSec=180
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/deploy/deployments/mythos-gateway
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+MemoryMax=192M
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mythos-mcp-registry-check

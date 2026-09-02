@@ -1,7 +1,79 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-01 20:45 UTC
-**From:** MYTHOS-VAULT-0 — **the MYTHOS Vault architecture is documented and delivered to GitHub as `mythos/vault-architecture-20260901` (`7f7773d`), verified present on the remote.** Documentation only: no secret manager was deployed, no credential was created, copied, moved, read or rotated, no production file mode or service was changed, and no Gateway file was touched. `main` is UNCHANGED and still 32 commits ahead of `origin/main`, still DENIED by the same single governance blocker (`f5e503a`, budgets.json) that MISSION-FINAL Stage F left open — that blocker was neither bypassed nor worked around, which is why this stage was delivered on a namespaced mission branch through the sanctioned relay instead. The previous stage's content is preserved below.
+**Last updated:** 2026-09-02 00:40 UTC
+**From:** MCP-ECOSYSTEM-1 — **the MYTHOS MCP ecosystem is inventoried, completed where completion was possible without an owner decision, verified against the running host, and delivered on `mythos/mcp-ecosystem-20260901`.** Estate registry + availability check + permission matrix + Vault inventory + OTHMODE discovery fix + the executor's governed MCP invoke with audit. 167/0 new assertions, 0 regressions (37/0 · 58/0 · 264/0 · 141/0). Live: the check reports the estate OK; a real handshake through ContextForge and ten governed calls against production behaved exactly as the matrix says. **Not complete by the mission's own gate** — four owner-gated items remain (below), and `main` is still undeliverable, so the executor route, the OTHMODE fix and the probes are verified but not live.
+
+**Previously:** MYTHOS-VAULT-0 — Vault architecture documented and delivered (`mythos/vault-architecture-20260901`, `7f7773d`).
+
+## MCP-ECOSYSTEM-1 — inventory, registry, authorization, governed execution, audit (2026-09-02)
+
+### Read this first
+
+`docs/MYTHOS_MCP_ECOSYSTEM.md` is the complete record — the component inventory with
+classes (§1), the gap analysis (§2), the target architecture (§3), the implementation
+table (§6.1), every verification with its numbers (§6.2), the security review (§6.3),
+the precise deployment state (§6.4) and the NOT VERIFIED list (§6.5). This entry is the
+handover summary; do not repeat the investigation.
+
+### Architecture (as built, adapted to what existed)
+
+```
+OthMode / agents ─▶ MYTHOS MCP Gateway (ContextForge, loopback, NOT public)
+                        ├─ registry/mcp-registry.json      what exists      (cred_… references, never values)
+                        ├─ registry/mcp-permissions.json   what is allowed  (subject × capability → ALLOW/CONTROLLED/RESTRICTED/DENY)
+                        └─ bin/mcp-registry-check          what is up       (ONLINE/DEGRADED/OFFLINE/UNAUTHORIZED/ERROR → snapshot)
+                    ─▶ oth-mcp (stdio, 8 read tools)  ─▶ Knowledge :8150 · OTHMODE :3021 · Executor :8130 · Status Center
+                    ─▶ github-mcp-rw (write-capable, DISABLED: no credential)
+Executor POST /mcp/invoke — the ONLY place MYTHOS calls a tool:
+   registry → matrix → M-12 capability gate → declared tools → Vault reference → call → verify → audit (mcp-audit.jsonl)
+OTHMODE /api/othmode/mcp + /api/othmode/tools — registered · available · healthy · authorized · executable
+Vault projects/mythos-vault/credential-inventory.json — 20 references, metadata only (ADR §10 step 1)
+```
+
+### Completed work — modified and new components
+
+- **New:** `projects/mythos-gateway/{registry/mcp-registry.json, registry/mcp-permissions.json, lib/mcp-registry.js, lib/mcp-policy.js, lib/mcp-client.js, bin/mcp-registry-check, bin/mcp-registry-check.sh, systemd/mythos-mcp-registry-check.{service,timer}}`, `projects/mythos-vault/{credential-inventory.json, lib/inventory.js, bin/vault-inventory-check}`, `projects/mythos-ai-executor/lib/mcp-invoke.js`, `tests/mcp-ecosystem-test.js`, `ops/oom/`, `docs/MYTHOS_MCP_ECOSYSTEM.md`.
+- **Modified:** `projects/mythos-ai-executor/server.js` (+`POST /mcp/invoke`, +`GET /mcp/registry`, bearer-gated, closed field set), `projects/command-center/reference/othmode/registries.js` (`tools()` fixed — it misread `mcp-capabilities.json` and emitted a bogus `mcp:servers` row, verified live — and extended with the estate registry + snapshot; new `mcp()` view), `routes.js` (+`GET /api/othmode/mcp`), `projects/status-center/monitor/probes.json` (+`mcp-bridge-loopback`, +`mcp-gateway-loopback`), `projects/mythos-gateway/README.md`, `docs/MYTHOS_SYSTEM_INDEX.md` (MCP-ECOSYSTEM-1 section before §42).
+- **Merged into this branch:** `feat/mythos-gateway` (`d287b97`) and `mythos/vault-architecture-20260901` (`22494de`) — one branch now carries the whole ecosystem.
+- **Unchanged on purpose:** `projects/oth-mcp/server.js` (still exposes no write tool), `mcp-http-bridge.js` (still a pure transport — `gateway-boundary` 37/0), `lib/mcp-capabilities.js`, the ContextForge deployment, every production service.
+
+### Tests (all run as `deploy` on the host)
+
+`mcp-ecosystem` **167/0** · `gateway-boundary` 37/0 · `othk-6` 58/0 · `mythos-ai-executor` 264/0 · `othmode-2` 141/0. The full 133-suite sweep was NOT run (it reaches the production ERP database — see the standing trap).
+
+### Security checks
+
+Recorded in `MYTHOS_MCP_ECOSYSTEM.md` §6.3. Headline: no secret value anywhere new (loaders refuse values and secret shapes; snapshot, audit, views scanned clean; branch diff scanned — 0 literal tokens); subject fixed server-side; admin credential can never be a client identity; `destructive` cannot be raised; no new port, socket, sudo, docker or database access.
+
+### Production incident during this session (not MCP code — read before anything else)
+
+The deploy user manager `user@1001.service` was OOM-killed **twice** (22:16 and ~00:05 UTC), taking every deploy production service down each time (OTHMODE, executor, knowledge, idauto-api, os-console, spy, storefront). Cause: the manager kept `OOMScoreAdjust=100` while the 2026-09-01 drop-ins protected only the services under it; `Restart=no`. Recovered both times with `systemctl start user@1001.service`. **Prevention is an owner action** — `ops/oom/README.md` (the agent permission layer refuses the `/etc/systemd` write). The pressure source is unchanged: ~18 root agent sessions holding ~3.5 GB, swap 100 %, load average up to 93 on 4 cores.
+
+### Deployment status
+
+INSTALLED: `deployments/mythos-gateway/mcp-registry-check.sh` (identical to repo) and a real snapshot `mcp-registry-status.json` (00:24 UTC). NOT INSTALLED (root refused): the check timer, the OOM drop-in. NOT LIVE (`main` is the deployed checkout and is undeliverable): executor `/mcp/invoke`, the OTHMODE fix and `/api/othmode/mcp`, the two probes — each verified from the worktree against the live host. The SSH stdio path, the bridge and ContextForge are untouched and re-verified.
+
+### Commit hash · remote HEAD
+
+Recorded in the follow-up entry below this one after the relay delivers the branch (the relay evaluates `main..tip` for `mythos/*`; nothing here touches a protected path). `origin/main` at the time of writing: `f4d5eb9`; local `main`: `b7ea66a` (32 ahead, blocked on `f5e503a`).
+
+### Unresolved — owner decisions, in order of leverage
+
+1. **Install `ops/oom/user@1001.service.d/oom.conf`** (30 seconds; stops production dying with the manager) and reduce agent-session sprawl.
+2. **Bind a dedicated GitHub machine credential** → inventory `cred_github_gateway` active → flip `github-mcp-rw.enabled` in the registry (and `github.enabled` in `mcp-capabilities.json` for the outbound half).
+3. **Issue gateway client tokens** (`chatgpt`, `claude`, and `cred_contextforge_executor_client` for the executor) via ContextForge `/tokens`.
+4. **Reload nginx** — the moment `/gateway/` is public. Do 2–3 first.
+5. Approve `f5e503a` so `main` delivers (then restart the executor and command-center to make the route, the fix and the probes live; reconcile the dirty `probes.json` first).
+6. Install the check timer (`projects/mythos-gateway/README.md`, "Running the check").
+7. Decide the two orphan containers (`mythos-github-mcp` 8082, `mythos-context7` 8083).
+
+### NOT VERIFIED
+
+Off-host consumers of the two orphan containers; github-mcp-rw's tool set under a real credential; the timer under systemd confinement; the deployed (`main`) processes serving the new routes/views.
+
+### Next phase
+
+`MCP-ECOSYSTEM-2`: after owner items 1–3, enable `github-mcp-rw`, run the check (expect ONLINE with the documented tool names classified), issue the executor its client token, exercise one CONTROLLED call end to end (approval → invoke → audit), then open the door (4). The completion gate cannot be declared before that.
 
 ## MYTHOS-VAULT-0 — MYTHOS Vault architecture documented (2026-09-01)
 

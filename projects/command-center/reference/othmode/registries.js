@@ -101,7 +101,84 @@ function skillDetail(id) {
 
 // ---------------------------------------------------------------------------
 // Tools — executor config/tools.json + config/mcp-capabilities.json
+// (outbound governance, shape {servers:{name:{enabled,tools,…}}}) + the
+// estate MCP registry (projects/mythos-gateway/registry/mcp-registry.json)
+// joined with the latest MEASURED snapshot written by
+// projects/mythos-gateway/bin/mcp-registry-check.
+//
+// Five states, never conflated (MCP-ECOSYSTEM-1):
+//   registered   named in a registry file
+//   available    the last check discovered the tool on a live server
+//   healthy      that server's last measured status was ONLINE
+//   authorized   the permission matrix answers ALLOW/CONTROLLED for the
+//                `othmode` subject — the read model's own row, not anyone
+//                else's; the executor computes its own before acting
+//   executable   all four, and the server needs no credential this read
+//                model would have to hold (it holds none)
+// Absent snapshot ⇒ the three measured flags are null ("not tracked"),
+// the same tri-state rule credential_present follows below.
 // ---------------------------------------------------------------------------
+
+function mcpStatusFile() {
+  return process.env.OTHMODE_MCP_STATUS_FILE || '/home/deploy/deployments/mythos-gateway/mcp-registry-status.json';
+}
+
+// The gateway's own loaders are the single validator of these files. They
+// are required by path (not duplicated) and their absence on an older
+// checkout is a reportable state, not a crash.
+function gatewayLib(name) {
+  try { return require(resolve.repoPath('projects', 'mythos-gateway', 'lib', name + '.js')); }
+  catch (e) { return null; }
+}
+
+function mcpView() {
+  var regLib = gatewayLib('mcp-registry');
+  var polLib = gatewayLib('mcp-policy');
+  var sources = { mcp_registry: 'absent', mcp_permissions: 'absent', mcp_status: 'absent' };
+  if (!regLib || !polLib) {
+    sources.mcp_registry = 'gateway libraries absent on this checkout';
+    return { total: 0, servers: [], checked_at: null, sources: sources };
+  }
+  var registry = regLib.loadRegistry(resolve.repoPath('projects', 'mythos-gateway', 'registry', 'mcp-registry.json'));
+  var perms = polLib.loadPermissions(resolve.repoPath('projects', 'mythos-gateway', 'registry', 'mcp-permissions.json'));
+  sources.mcp_registry = registry.valid ? 'loaded' : ('invalid: ' + registry.reason);
+  sources.mcp_permissions = perms.valid ? 'loaded' : ('invalid: ' + perms.reason);
+  var snap = resolve.cachedJson(mcpStatusFile());
+  var snapshot = snap.ok && snap.data && snap.data.servers ? snap.data : null;
+  sources.mcp_status = snapshot ? 'loaded' : (snap.reason || 'absent');
+  var servers = [];
+  if (registry.valid) {
+    Object.keys(registry.servers).forEach(function (name) {
+      var s = registry.servers[name];
+      var m = snapshot && snapshot.servers[name] ? snapshot.servers[name] : null;
+      var healthy = m ? m.status === 'ONLINE' : null;
+      var needsHeldCredential = !!(s.auth && s.auth.required && s.auth.scheme !== 'host-access');
+      var tools = regLib.declaredTools(registry.servers, name).map(function (t) {
+        var d = polLib.authorize(perms.valid ? perms.policy : null, { subject: 'othmode', server: name, tool: t });
+        var available = m ? m.tools_discovered.indexOf(t) !== -1 : null;
+        var authorized = d.decision === 'ALLOW' || d.decision === 'CONTROLLED';
+        var executable = (available === null || healthy === null) ? null
+          : (s.enabled && available && healthy && authorized && !needsHeldCredential);
+        return { name: t, capability: d.capability, decision: d.decision, requires_approval: d.requires_approval,
+          registered: true, available: available, healthy: healthy, authorized: authorized, executable: executable };
+      });
+      servers.push({
+        name: name, purpose: s.purpose, direction: s.direction, transport: s.transport.kind, version: s.version || null,
+        enabled: s.enabled, enabled_note: s.enabled_note || null, write_capable: s.write_capable, public: s.public === true,
+        auth_required: !!(s.auth && s.auth.required), auth_scheme: s.auth ? s.auth.scheme : null,
+        credential_ref: s.auth && s.auth.credential ? s.auth.credential : null,
+        relays: s.relays || null, peers: s.peers || [], consumers: s.consumers,
+        governed_by_capabilities: s.outbound_capability_server || null,
+        status: m ? m.status : null, reachable: m ? m.reachable : null,
+        tools_discovered: m ? m.tools_discovered.length : null,
+        drift: m ? m.drift : null, findings: m ? (m.policy_findings || []).concat(m.credential_findings || []) : null,
+        tools: tools
+      });
+    });
+  }
+  return { total: servers.length, servers: servers, checked_at: snapshot ? snapshot.generated_at : null,
+    checked_ok: snapshot ? snapshot.ok === true : null, sources: sources };
+}
 
 function tools() {
   var toolsRes = resolve.cachedJson(resolve.repoPath('projects', 'mythos-ai-executor', 'config', 'tools.json'));
@@ -121,28 +198,59 @@ function tools() {
       });
     });
   }
-  if (mcpRes.ok && mcpRes.data && typeof mcpRes.data === 'object') {
-    // The MCP capability registry maps server → capability descriptors.
-    Object.keys(mcpRes.data).forEach(function (server) {
-      var entry = mcpRes.data[server];
-      if (!entry || typeof entry !== 'object' || server === 'description') return;
+  // The outbound capability registry is {servers:{<server>:{enabled,
+  // description, tools:{<tool>:{description}}, required_execution_profiles}}}
+  // — lib/mcp-capabilities.js validates it; this only renders it.
+  var mcpServers = mcpRes.ok && mcpRes.data && mcpRes.data.servers && typeof mcpRes.data.servers === 'object'
+    ? mcpRes.data.servers : null;
+  if (mcpServers) {
+    Object.keys(mcpServers).forEach(function (server) {
+      var entry = mcpServers[server];
+      if (!entry || typeof entry !== 'object') return;
       out.push({
         id: 'mcp:' + server,
         source: 'mcp-capabilities',
+        direction: 'outbound',
         version: null,
-        capabilities: Array.isArray(entry.capabilities) ? entry.capabilities : [],
-        policy_class: entry.policy_class || null,
-        risk: entry.risk || null,
-        provider: 'mcp'
+        capabilities: entry.tools && typeof entry.tools === 'object' ? Object.keys(entry.tools) : [],
+        policy_class: null,
+        risk: null,
+        provider: 'mcp',
+        enabled: entry.enabled === true,
+        required_execution_profiles: Array.isArray(entry.required_execution_profiles) ? entry.required_execution_profiles : []
       });
     });
   }
+  var mcp = mcpView();
+  mcp.servers.forEach(function (srv) {
+    srv.tools.forEach(function (t) {
+      out.push({
+        id: srv.name + '.' + t.name,
+        source: 'mcp-registry',
+        direction: srv.direction,
+        version: srv.version,
+        capabilities: t.capability ? [t.capability] : [],
+        policy_class: t.decision,
+        risk: srv.write_capable ? 'high' : 'low',
+        provider: 'mcp',
+        server: srv.name,
+        enabled: srv.enabled,
+        registered: t.registered,
+        available: t.available,
+        healthy: t.healthy,
+        authorized: t.authorized,
+        executable: t.executable
+      });
+    });
+  });
   return {
     total: out.length,
     tools: out,
     sources: {
       tools_json: toolsRes.ok ? 'loaded' : (toolsRes.reason || 'absent'),
-      mcp_capabilities: mcpRes.ok ? 'loaded' : (mcpRes.reason || 'absent')
+      mcp_capabilities: mcpServers ? 'loaded' : (mcpRes.ok ? 'unexpected shape' : (mcpRes.reason || 'absent')),
+      mcp_registry: mcp.sources.mcp_registry,
+      mcp_status: mcp.sources.mcp_status
     }
   };
 }
@@ -267,6 +375,7 @@ module.exports = {
   skills: skills,
   skillDetail: skillDetail,
   tools: tools,
+  mcp: mcpView,
   providers: providers,
   projects: projects,
   parseSkillFrontmatter: parseSkillFrontmatter

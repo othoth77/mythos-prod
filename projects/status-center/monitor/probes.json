@@ -194,6 +194,32 @@
       "degraded_hours": 50,
       "enabled": true,
       "note": "Reads the health record written by ops/backup/mythos-backup-run.sh. A missing record is DOWN, never unknown-green."
+    },
+    {
+      "id": "mcp-bridge-loopback",
+      "name": "MYTHOS MCP HTTP bridge (loopback origin)",
+      "type": "https",
+      "url": "http://127.0.0.1:8160/health",
+      "expect_status": [
+        200
+      ],
+      "expect_body_substring": "\"service\":\"mythos-mcp-http\"",
+      "expect_content_type": "application/json",
+      "enabled": true,
+      "note": "ADDED 2026-09-01 (MCP-ECOSYSTEM-1). The bridge is the only path by which ContextForge reaches the OTH MCP; if it is down the gateway's every MYTHOS tool is down while the gateway itself still answers healthy. Liveness only, by the bridge's own design (/health states the process is up, never that an upstream is): the per-server truth is measured by projects/mythos-gateway/bin/mcp-registry-check and published to OTHMODE at /api/othmode/mcp. Loopback, unauthenticated, GET — the same precedent as sya-api-loopback."
+    },
+    {
+      "id": "mcp-gateway-loopback",
+      "name": "MYTHOS MCP Gateway — ContextForge (loopback origin)",
+      "type": "https",
+      "url": "http://127.0.0.1:4444/health",
+      "expect_status": [
+        200
+      ],
+      "expect_body_substring": "\"status\":\"healthy\"",
+      "expect_content_type": "application/json",
+      "enabled": true,
+      "note": "ADDED 2026-09-01 (MCP-ECOSYSTEM-1). The gateway binds loopback only and its public path (/gateway/) is deliberately not open, so the origin is the only place it can be observed. /health is the container's own healthcheck endpoint and is unauthenticated by ContextForge's design. Federation state (peers reachable, tools discovered) is not probed here — that is the registry check's job — so a healthy gateway with an unreachable peer shows LIVE here and DEGRADED in OTHMODE's MCP view, which is the honest split."
     }
   ]
 }

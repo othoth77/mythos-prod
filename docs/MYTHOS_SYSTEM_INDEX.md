@@ -1069,6 +1069,32 @@ OTH Master may require a separate thin adapter according to its final canonical 
 
 ---
 
+## MCP-ECOSYSTEM-1 — the estate registry, the matrix, the measurement (2026-09-02)
+
+**Status:** IMPLEMENTED on `mythos/mcp-ecosystem-20260901`; see
+`docs/MYTHOS_MCP_ECOSYSTEM.md` for the inventory, the gap analysis, the target
+architecture and the verification record.
+
+```text
+OthMode / agents ──▶ MYTHOS MCP Gateway (ContextForge) ──▶ oth-mcp (read) · github-mcp-rw (disabled, no credential)
+                          │
+        registry/mcp-registry.json      what exists      (metadata; credentials by cred_… reference)
+        registry/mcp-permissions.json   what is allowed  (subject × capability → ALLOW/CONTROLLED/RESTRICTED/DENY)
+        bin/mcp-registry-check          what is up       (ONLINE/DEGRADED/OFFLINE/UNAUTHORIZED/ERROR → snapshot)
+                          │
+        OTHMODE /api/othmode/mcp        registered · available · healthy · authorized · executable
+        Executor POST /mcp/invoke       the ONLY place MYTHOS calls an MCP tool: registry → matrix →
+                                        M-12 capability gate → Vault reference → call → verify → audit
+        MYTHOS Vault inventory          projects/mythos-vault/credential-inventory.json (§10 step 1, metadata only)
+```
+
+Nothing in §41's "must NOT create" list was created: the registry indexes the
+existing runtime registries (ContextForge, `mcp-capabilities.json`), the
+matrix is verified against the existing enforcement points, the execution
+path is the Executor's, discovery is OTHMODE's read model.
+
+---
+
 # 42. REPORT → KNOWLEDGE BOUNDARY
 
 **Status:** DELIBERATELY GATED
