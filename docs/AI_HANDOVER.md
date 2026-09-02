@@ -1,7 +1,9 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-02 09:22 UTC
-**From:** MCP-ECOSYSTEM-2a-delivery — **owner approval of `a73473f` recorded (`ga-mtjvu6ex-df615c`); the relay cannot read it because the approve tool wrote the file `root:root` — one `chgrp mythos-gov` (refused to the agent) + relay + ff-merge remain; final MCP verification of the deployed estate is green (stdio + bridge invokes 200, boundaries per matrix, zero token occurrences).**
+**Last updated:** 2026-09-02 09:30 UTC
+**From:** GOV-APPROVAL-GROUP — **the approve-tool defect behind the ga-mtjvu6ex-df615c stall is fixed at source on `mythos/governance-approval-group-20260902` (`7873e94`): approvals are now written `root:mythos-gov 0640` (gid from `/etc/group`, fatal if the group is missing, temp-name + rename), and the verifier names an unreadable approval on stderr while still denying; 111/0 as `deploy`; the commit touches `service/` (protected) and awaits ONE owner approval, then the relay, then install of the two root-owned copies (exact commands below). Nothing is installed or pushed yet.**
+
+**Previously:** MCP-ECOSYSTEM-2a-delivery — **owner approval of `a73473f` recorded (`ga-mtjvu6ex-df615c`); the relay cannot read it because the approve tool wrote the file `root:root` — one `chgrp mythos-gov` (refused to the agent) + relay + ff-merge remain; final MCP verification of the deployed estate is green (stdio + bridge invokes 200, boundaries per matrix, zero token occurrences).**
 
 **Previously:** MCP-ECOSYSTEM-2a — **the MCP HTTP bridge is reachable from the deployed executor: `cred_mcp_http_bridge_token` bound by reference (systemd drop-in → the same 0600 file, no copy), executor restarted alone, three real HTTP MCP invokes OK with audit, zero literal-token occurrences anywhere; the inventory update is committed on the branch (`a73473f`) and awaits one owner approval.**
 
@@ -16,6 +18,40 @@
 **Previously:** MCP-ECOSYSTEM-1 — **the MYTHOS MCP ecosystem is inventoried, completed where completion was possible without an owner decision, verified against the running host, and committed on `mythos/mcp-ecosystem-20260901` (`d9e5c54`) — delivery to GitHub is DENIED by governance on two path-pattern hits and awaits two owner approvals (exact commands below); nothing was pushed around the cage.** Estate registry + availability check + permission matrix + Vault inventory + OTHMODE discovery fix + the executor's governed MCP invoke with audit. 167/0 new assertions, 0 regressions (37/0 · 58/0 · 264/0 · 141/0). Live: the check reports the estate OK; a real handshake through ContextForge and ten governed calls against production behaved exactly as the matrix says. **Not complete by the mission's own gate** — four owner-gated items remain (below), and `main` is still undeliverable, so the executor route, the OTHMODE fix and the probes are verified but not live.
 
 **Previously:** MYTHOS-VAULT-0 — Vault architecture documented and delivered (`mythos/vault-architecture-20260901`, `7f7773d`).
+
+## GOV-APPROVAL-GROUP — approve tool writes records the relay can read; verifier names what it cannot read (2026-09-02 09:23–09:30 UTC)
+
+**Defect (observed 09:17 UTC on `ga-mtjvu6ex-df615c`).** `mythos-governance-approve` wrote each record with `writeFileSync(..., { mode: 0o640 })` and never changed the group, so files landed `root:root`. The relay verifies as `deploy` + `SupplementaryGroups=mythos-gov`; `loadApprovals()` caught the `EACCES` and returned `null`, so a GRANTED approval was reported as "no valid approval" until an operator ran `chgrp mythos-gov` by hand (the 08:10 approvals had also been re-grouped manually). Confirmed on the host before the fix: every readable record is `root:mythos-gov`, the stalled one alone is `root:root`; the installed copies were byte-identical to the repository source.
+
+**Fix — `7873e94` on `mythos/governance-approval-group-20260902` (worktree `/home/deploy/worktrees/governance-approval-group`, base `origin/main` = `eef6a27`).**
+
+| File | Change |
+|---|---|
+| `projects/mythos-ai-executor/service/mythos-governance-approve.js` | `resolveGroupGid('mythos-gov')` parses `/etc/group` (no `os.userInfo`, which only knows the caller) and is called BEFORE signing, so a missing group dies with exit 2 and no side effect. The record is written as `<id>.json.tmp` (a name the verifier ignores), `chownSync(tmp, 0, gid)`, `chmodSync(0o640)` (umask-proof), then `renameSync` into place; any failure unlinks the temp file and dies. The audit append is unchanged. Output now prints the file and its ownership. |
+| `projects/mythos-ai-executor/service/governance-verify.js` | `loadApprovals()` still treats an unreadable/unparseable file as absent (fail closed) but writes `governance: approval file <path> ignored (<code>: <message>)` to stderr, which the relay's `gov_check` passes to the journal. |
+| `tests/mythos-governance-invariant-test.js` | New section 10B (12 assertions): chown to the resolved gid, `/etc/group` source, fatal missing group, gid-before-sign ordering, temp-name-then-rename ordering, 0640, the non-root refusal exercised by really spawning the tool, and the verifier's diagnostic + continued DENY on an unreadable record (EACCES as non-root, parse failure as root). |
+
+**Validation.** `sudo -u deploy node tests/mythos-governance-invariant-test.js` → 111 passed, 0 failed. Root run of the NEW tool against a temporary key/store/repo (never the live store): record produced `root:mythos-gov 0640`, `runuser -u deploy -G mythos-gov` verify → `governance: ok`; after `chgrp root` on that record the same verify printed the new stderr line and exited 3 (DENY). Dry-run of the INSTALLED verifier as the relay identity over `origin/main..7873e94` → DENY on exactly `projects/mythos-ai-executor/service/governance-verify.js`, `projects/mythos-ai-executor/service/mythos-governance-approve.js` (the test file is not protected), which is the set the approval below covers.
+
+### Exact operator action (root)
+```
+# 1. approve the fix (binds to this one sha and these two paths)
+sudo mythos-governance-approve --commit 7873e94781083a24b0b119fa733af21dd0070e44 --by "Othman Haddad" --reason "GOV-APPROVAL-GROUP: approve tool must write records root:mythos-gov so the relay can read them; verifier names unreadable approvals; fixes the ga-mtjvu6ex-df615c stall"
+# NOTE: this approval is written by the OLD installed tool and will itself land root:root — re-group it once:
+sudo chgrp mythos-gov /var/lib/mythos/governance/approvals/<new-approval-id>.json
+# 2. deliver the branch, then fast-forward main
+sudo systemctl start mythos-git-push.service
+sudo -u deploy git -C /home/deploy/projects/mythos-prod merge --ff-only origin/mythos/governance-approval-group-20260902
+sudo systemctl start mythos-git-push.service
+# 3. install the two root-owned copies from the merged main (idempotent; also re-groups any stray approval files)
+sudo bash /home/deploy/projects/mythos-prod/projects/mythos-ai-executor/service/mythos-governance-harden.sh
+#    or, minimally:
+#    sudo install -o root -g root -m 0755 /home/deploy/projects/mythos-prod/projects/mythos-ai-executor/service/mythos-governance-approve.js /usr/local/bin/mythos-governance-approve
+#    sudo install -o root -g root -m 0644 /home/deploy/projects/mythos-prod/projects/mythos-ai-executor/service/governance-verify.js /usr/local/lib/mythos/governance-verify.js
+```
+The still-pending MCP-ECOSYSTEM-2a action (`chgrp` on `ga-mtjvu6ex-df615c.json`, relay, ff-merge) is unchanged and independent; the harden script in step 3 re-groups that file too.
+
+**Not done / out of scope.** Nothing installed to `/usr/local`, nothing pushed (the relay delivers `refs/heads/mythos/*` only after approval), no change to SPY, n8n, the relay script or the units. The one-off `forged.json` (2 bytes, `root:root 0664`, 2026-08-19) in the live store is a test remnant; harmless (parses to `{}` → covers nothing) and left alone.
 
 ## MCP-ECOSYSTEM-2a-delivery — owner approval recorded; branch delivery blocked by the approval file's group, not by governance (2026-09-02 09:17–09:22 UTC)
 
