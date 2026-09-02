@@ -1,7 +1,42 @@
 # Mythos OS — AI Handover
 
-**Last updated:** 2026-09-02 15:30 UTC
-**From:** MCP-ECOSYSTEM-3-CLOSED — **boundaries 1 and 2 cleared by the owner and verified: gateway RBAC role `mythos-executor-client` (tools.read+tools.execute) assigned to `executor@mythosprod.xyz`; inventory commit `f59db19` approved (`ga-mtk8xf5t-58011d`), relayed, merged into `main` as `d130a78`, relayed (`origin/main` = `d130a78`, clean). Deployed executor `POST /mcp/invoke contextforge.mythos-mcp-system-health` → **200 OK** (audit `mcpa-mtk91h74-846d32`, ALLOW/mythos.read, 214 ms, 57 KB real data, 0 token shapes). Production check: `contextforge` ONLINE with cred findings `[]`, `github-mcp-rw` DEGRADED by the single designed `delete_file` finding (drift 0/0), everything else ONLINE; inventory 20/20. MCP is OPERATIONAL on every decided path (stdio, bridge, gateway, GitHub write-capable) with governance and audit; the only open item is boundary 3 — the `delete_file` / ONLINE decision — plus ChatGPT/Claude gateway client tokens, both owner decisions.**
+**Last updated:** 2026-09-02 15:45 UTC
+**From:** MCP-ECOSYSTEM-4-prep — **decision for the last registry finding: exclude `delete_file` at the container (`--exclude-tools delete_file`, supported by github-mcp-server v1.10.1) — safest because it removes the denied tool at the source and changes no policy or checker rule. Prepared on `mythos/mcp-ecosystem-4-20260902` (`635d2f2`): compose flag, registry declares 57 tools, test re-pinned, and `bin/cf-issue-client-token.sh` (the executor-credential pattern made repeatable for the ChatGPT/Claude gateway clients). NOTHING executed on the host: the container is NOT recreated (owner action, exact command below), no client token issued, nothing relayed. Until the container is recreated the production check shows `github-mcp-rw` DEGRADED. 168/0 · 37/0; no protected path.**
+**Previously:** MCP-ECOSYSTEM-3-CLOSED — **boundaries 1 and 2 cleared by the owner and verified: gateway RBAC role `mythos-executor-client` (tools.read+tools.execute) assigned to `executor@mythosprod.xyz`; inventory commit `f59db19` approved (`ga-mtk8xf5t-58011d`), relayed, merged into `main` as `d130a78`, relayed (`origin/main` = `d130a78`, clean). Deployed executor `POST /mcp/invoke contextforge.mythos-mcp-system-health` → **200 OK** (audit `mcpa-mtk91h74-846d32`, ALLOW/mythos.read, 214 ms, 57 KB real data, 0 token shapes). Production check: `contextforge` ONLINE with cred findings `[]`, `github-mcp-rw` DEGRADED by the single designed `delete_file` finding (drift 0/0), everything else ONLINE; inventory 20/20. MCP is OPERATIONAL on every decided path (stdio, bridge, gateway, GitHub write-capable) with governance and audit; the only open item is boundary 3 — the `delete_file` / ONLINE decision — plus ChatGPT/Claude gateway client tokens, both owner decisions.**
+
+## MCP-ECOSYSTEM-4-prep — delete_file excluded at the source; client-token helper (2026-09-02 15:35–15:45 UTC)
+
+### Decision (safest of the three options)
+`docker exec mythos-github-mcp-rw /server/github-mcp-server http --help` shows `--exclude-tools` (and `--tools`, `--read-only`). Excluding exactly `delete_file` removes the one hard-floor-DENY tool the image exposes, keeps the 57 others as declared, and leaves the matrix and the checker untouched — no policy is weakened to get green. Rejected: teaching the checker to ignore DENY tools (weakens a control), dropping the `repos` toolset (would remove `create_branch`/`push_files`), accepting DEGRADED forever (alert noise).
+
+### Branch `mythos/mcp-ecosystem-4-20260902` — `635d2f2` (no protected path; verifier ok)
+| File | Change |
+|---|---|
+| `projects/mythos-gateway/docker-compose.yml` | `github-mcp-rw.command` += `--exclude-tools delete_file` (commented). Inert until the container is recreated. |
+| `registry/mcp-registry.json` | `github-mcp-rw.tools` = 57 (delete_file removed), note updated. |
+| `tests/mcp-ecosystem-test.js` | pins 57, no `delete_file`, `create_branch` present. |
+| `projects/mythos-gateway/bin/cf-issue-client-token.sh` (new, 0755) | `cf-issue-client-token.sh <identity-email> <token-name> <out-file>` — creates the non-admin identity, assigns the tools-only role by name (`CF_CLIENT_ROLE`, default `mythos-executor-client`), issues a 365-day token (`CF_TOKEN_DAYS`) and writes it `0600 O_EXCL` to `<out-file>`; prints only ids/expiry/permissions; refuses to overwrite. |
+
+### Exact owner sequence (in order)
+```
+# 1. deliver + land the branch (no approval needed)
+sudo systemctl start mythos-git-push.service
+sudo -u deploy git -C /home/deploy/projects/mythos-prod merge --ff-only origin/mythos/mcp-ecosystem-4-20260902 && sudo systemctl start mythos-git-push.service
+# 2. deploy the compose change and recreate ONLY the github-mcp-rw container (infrastructure; a few seconds of unavailability for that server only)
+sudo -u deploy install -m 0644 /home/deploy/projects/mythos-prod/projects/mythos-gateway/docker-compose.yml /home/deploy/deployments/mythos-gateway/docker-compose.yml
+sudo -u deploy docker compose -f /home/deploy/deployments/mythos-gateway/docker-compose.yml up -d --no-deps --force-recreate github-mcp-rw
+# 3. verify (the agent does this on request): production check -> github-mcp-rw ONLINE, 57 tools, drift 0/0, findings 0, ok:true
+sudo -u deploy bash /home/deploy/deployments/mythos-gateway/mcp-registry-check.sh --quiet; echo exit=$?
+# 4. gateway client tokens (when the public gateway is to be used) — one per client, nothing printed
+sudo -u deploy /home/deploy/projects/mythos-prod/projects/mythos-gateway/bin/cf-issue-client-token.sh chatgpt@mythosprod.xyz mythos-chatgpt /home/deploy/deployments/mythos-gateway/contextforge-chatgpt.env
+sudo -u deploy /home/deploy/projects/mythos-prod/projects/mythos-gateway/bin/cf-issue-client-token.sh claude@mythosprod.xyz  mythos-claude  /home/deploy/deployments/mythos-gateway/contextforge-claude.env
+#    read each file yourself to paste the value into the client (Authorization: Bearer … against https://mythosprod.xyz/gateway/mcp);
+#    the agent then records cred_contextforge_chatgpt_client / cred_contextforge_claude_client in the inventory (protected -> one approval).
+```
+Every built-in gateway role carrying `tools.execute` is team-scoped and wider; the global `mythos-executor-client` role (tools.read+tools.execute) is the least-privilege client role on this gateway and is reused for clients on purpose. The public gateway exposes only `/gateway/mcp` (401 without a token); admin is 404 at nginx.
+
+**Not done, by instruction:** nothing relayed, container not recreated, no client token issued, no inventory change, `main` not merged.
+
 **Previously:** MCP-ECOSYSTEM-3 — **post-2b hardening: DONE on the host — 2b test branch deleted (204, `telegram-bot` = `[main]`), the 14 ubuntu-owned files + 5 sticky dirs re-owned to `deploy` (0 trapped files, git clean), stale root-ledger approval removed, ContextForge executor identity `executor@mythosprod.xyz` (non-admin) + 365-day token provisioned straight into `contextforge-executor.env` (deploy 0600, never printed), drop-in installed, executor ALONE restarted (PID 1099740, 15:07:52 UTC). DONE on branches — `mythos/mcp-ecosystem-3-20260902` (`c2ac852`, no protected path): 9 v1.10.1 tools classified, 58 measured tools declared (drift 0), github-review final policy (review tools only, real names, create_branch withdrawn), registry note; `mythos/mcp-ecosystem-3-vault-20260902` (`f59db19`, protected: inventory records `cred_contextforge_executor_client` active by reference). THREE OWNER BOUNDARIES: (1) gateway RBAC — the identity's default role lacks `tools.execute`, and creating/assigning the minimal role was refused to the agent twice (exact 2 commands below), so gateway invokes answer `Access denied` until then; (2) approve `f59db19`; (3) `github-mcp-rw` stays DEGRADED by exactly one designed finding (`delete_file` exposed) — ONLINE needs a container-toolset decision. Suites 168/0 · 37/0 · 265/0 · 141/0 · 1438/0; inventory 20/20.**
 
 ## MCP-ECOSYSTEM-3-CLOSED — gateway path live through the deployed executor (2026-09-02 15:20–15:30 UTC)
