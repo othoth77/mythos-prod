@@ -146,6 +146,19 @@ Raw read URL pattern (private repo → authenticated):
   there, never pushed raw.
 - The bridge never runs a provider and never pushes. It creates executor tasks
   and reads executor state; the executor daemon remains the single executor.
+- Every task worktree carries a **push guard**: its `remote.origin.pushurl` is a
+  worktree-scoped non-transport (`no_push://governance-relay-only`), so an
+  executing session cannot `git push` from it even if instructed to; `fetch`
+  keeps the real URL and the shared checkout is untouched. Delivery is only ever
+  the governance relay. (Guard, not hard floor: the floor is the executor's
+  protected policy layer.)
+- The bridge is the **only** component that closes a task's OTHMODE record. The
+  executing session may advance the phase and add sections, never a terminal
+  status. If a session closes the record early, the bridge detects it, keeps the
+  evidence on the REPORT and records the gap under `problems`.
+- The bridge refuses to run as any user other than the executor's user
+  (`BRIDGE_WRONG_USER`), so tasks can never be queued in a store the daemon
+  does not read.
 - Duplicate execution is prevented four times over: the GitHub claim in the task
   file, an executor-store marker (`stage: github:<id>`), a local claims cache
   for the window between "queued" and "claim committed", and a process lock.
