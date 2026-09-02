@@ -90,7 +90,7 @@
         "required": true,
         "scheme": "jwt",
         "credential": "cred_contextforge_executor_client",
-        "note": "AUTH_REQUIRED=true on every path. The executor presents cred_contextforge_executor_client (issued 2026-09-02 to the dedicated non-admin identity executor@mythosprod.xyz, scope tools.read+tools.execute, MCP-ECOSYSTEM-3); it is resolved by env var NAME from the daemon environment and never returned to a caller. ChatGPT/Claude client tokens remain unissued (owner decision)."
+        "note": "AUTH_REQUIRED=true on every path. Three CLIENT credentials exist, each a dedicated non-admin identity with the tools-only role (tools.read+tools.execute): the executor (cred_contextforge_executor_client, resolved by env var NAME in the daemon environment), ChatGPT (cred_contextforge_chatgpt_client) and Claude (cred_contextforge_claude_client) — issued 2026-09-02 (MCP-ECOSYSTEM-3/5) with bin/cf-issue-client-token.sh; values live only in their 0600 files."
       },
       "credentials": [
         "cred_contextforge_jwt_secret",
@@ -105,7 +105,11 @@
       "write_capable": false,
       "enabled": true,
       "public": true,
-      "consumers": [],
+      "consumers": [
+        "mythos-ai-executor (cred_contextforge_executor_client)",
+        "ChatGPT (cred_contextforge_chatgpt_client, public path)",
+        "Claude (cred_contextforge_claude_client, public path)"
+      ],
       "outbound_capability_server": null,
       "note": "public: true since 2026-09-02 ~06:36 UTC — nginx was restarted (not by the MCP-ECOSYSTEM-1 session) and applied the /gateway/ block already present in the vhost. Measured after: /gateway/health 200; /gateway/mcp, /docs, /version, /tools 401 without a credential; /gateway/admin 404. Zero client tokens exist, so nothing can be invoked from the internet until the owner issues one.",
       "admin_credential": "cred_contextforge_platform_admin"
