@@ -17,7 +17,7 @@
     "git status --porcelain is empty after the commit",
     "node --check projects/mythos-ai-executor/executor.js"
   ],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-02T18:05:32Z",
   "created_by": "chatgpt-smoke",
   "timeout_seconds": 1500,
@@ -33,8 +33,9 @@
     "claimed_at": "2026-09-02T18:06:10.949Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "e51c40feba3cedcc155964184a94f76893e327e600fe0eea225a31e4bf61e593",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-02T18:06:10.950Z"
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-02T18:06:58.224Z",
+    "claude_session_id": "c1c511fe-4074-4c84-8490-aa5aea4fb1ca"
   },
   "history": [
     {
@@ -43,6 +44,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260902180610-c9x5d6 queued; OTHMODE OTH-2026-00022"
+    },
+    {
+      "at": "2026-09-02T18:06:58.223Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
