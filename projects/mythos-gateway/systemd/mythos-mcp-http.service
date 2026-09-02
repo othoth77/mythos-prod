@@ -1,0 +1,42 @@
+# MYTHOS MCP HTTP bridge — Streamable HTTP transport in front of the existing
+# stdio OTH MCP. Loopback only; the SSH stdio path stays the standalone route
+# and is untouched by this unit.
+[Unit]
+Description=MYTHOS MCP HTTP bridge (loopback transport for OTH MCP stdio)
+Documentation=file:///home/deploy/oth-mcp/projects/mythos-gateway/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+EnvironmentFile=/home/deploy/deployments/mythos-gateway/mcp-http.env
+ExecStart=/usr/bin/node /home/deploy/deployments/mythos-gateway/mcp-http-bridge.js
+Restart=on-failure
+RestartSec=5s
+
+# The bridge spawns the launcher, which spawns node. It needs no privilege
+# beyond that, and no write access anywhere.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+MemoryMax=256M
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mythos-mcp-http
+
+[Install]
+WantedBy=multi-user.target

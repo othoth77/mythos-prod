@@ -618,6 +618,56 @@ Current execution authority remains with existing executor/provider infrastructu
 
 ---
 
+# 20A. MYTHOS VAULT — CENTRAL CREDENTIAL / INTEGRATIONS LAYER
+
+**Status:** DESIGNED — architecture only, no runtime footprint
+**Evidence:** VERIFIED for the current-state credential topology (file names, ownership and modes inspected directly, 2026-09-01); DESIGNED for the layer itself
+**Canonical owner:** `docs/MYTHOS_VAULT_ARCHITECTURE.md`
+**Governing policy:** `docs/AUTOMATION_SECURITY_AND_SECRETS.md` (not superseded — Vault implements it)
+
+The centralized secure secrets and integrations layer: one governed home for credentials, API keys, tokens and OAuth secrets, with per-subject grants, lifecycle (status / expiry / rotation / revocation) and audit.
+
+```text
+MYTHOS Portal → MYTHOS Identity & Trust → MYTHOS Vault → GitHub / Google / Meta / WhatsApp / AI / OVH / Cloudflare
+```
+
+Frozen by the decision record; a backend choice cannot reopen them:
+
+```text
+reference model   components hold cred_<uuidv7>, never a value
+grant model       subject x credential x capability (use | read | manage) + expiry
+agent rule        BROKERED by default — a value is never returned to an AI agent
+```
+
+Verified current state it answers to: **nine independent hand-maintained credential
+locations** across `/home/deploy/.ssh`, `/home/deploy/.config/mythos`,
+`/home/deploy/deployments/mythos-gateway`, `/etc/mythos` and `/data/coolify` — each
+defensible alone, with no inventory, no expiry and no revocation path between them.
+The repository itself is clean (no committed secret) and must stay that way.
+
+**Explicitly NOT done and NOT authorised by the design stage:** no secret manager
+deployed (HashiCorp Vault / OpenBao / Infisical all deferred to an owner decision),
+no credential created, moved, read or rotated, no production file mode or service
+changed.
+
+**Permanent carve-out:** `/etc/mythos/governance.key` never moves into Vault — a
+credential layer must not be able to authorise its own modification.
+
+**Reuse before building:** `aut_secret_references`
+(`projects/automation/database/control-plane-schema.sql`) is the existing
+metadata-only secret record and is **generalised, not replaced**. The Vault
+reference model is that table's pattern applied platform-wide.
+
+**Relationship to §20 AI GATEWAY:** Vault is the credential layer the Gateway is
+waiting on — the Gateway's unbound GitHub credential and unissued per-client tokens
+are both blocked on having somewhere correct to put a credential. Gateway code lives
+on the unmerged branch `feat/mythos-gateway`, not on `main`.
+
+**Next step available without a new owner decision:** the metadata-only inventory
+(`MYTHOS_VAULT_ARCHITECTURE.md` §10 step 1) — records what exists, moves no value.
+
+---
+
 # 21. PROMPT VERSIONING — IMPORTANT LOST IMPLEMENTATION
 
 **Status:** PREVIOUSLY EXECUTED / CODE CURRENTLY NOT RECOVERED  
@@ -1016,6 +1066,32 @@ OTH Master may require a separate thin adapter according to its final canonical 
 - another identity system
 - another provenance system
 - another execution engine
+
+---
+
+## MCP-ECOSYSTEM-1 — the estate registry, the matrix, the measurement (2026-09-02)
+
+**Status:** IMPLEMENTED on `mythos/mcp-ecosystem-20260901`; see
+`docs/MYTHOS_MCP_ECOSYSTEM.md` for the inventory, the gap analysis, the target
+architecture and the verification record.
+
+```text
+OthMode / agents ──▶ MYTHOS MCP Gateway (ContextForge) ──▶ oth-mcp (read) · github-mcp-rw (disabled, no credential)
+                          │
+        registry/mcp-registry.json      what exists      (metadata; credentials by cred_… reference)
+        registry/mcp-permissions.json   what is allowed  (subject × capability → ALLOW/CONTROLLED/RESTRICTED/DENY)
+        bin/mcp-registry-check          what is up       (ONLINE/DEGRADED/OFFLINE/UNAUTHORIZED/ERROR → snapshot)
+                          │
+        OTHMODE /api/othmode/mcp        registered · available · healthy · authorized · executable
+        Executor POST /mcp/invoke       the ONLY place MYTHOS calls an MCP tool: registry → matrix →
+                                        M-12 capability gate → Vault reference → call → verify → audit
+        MYTHOS Vault inventory          projects/mythos-vault/credential-inventory.json (§10 step 1, metadata only)
+```
+
+Nothing in §41's "must NOT create" list was created: the registry indexes the
+existing runtime registries (ContextForge, `mcp-capabilities.json`), the
+matrix is verified against the existing enforcement points, the execution
+path is the Executor's, discovery is OTHMODE's read model.
 
 ---
 

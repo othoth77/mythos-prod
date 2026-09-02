@@ -1,0 +1,202 @@
+{
+  "schema_version": "1.0.0",
+  "note": "MYTHOS estate MCP registry — METADATA ONLY. Names every MCP server MYTHOS runs or consumes: purpose, direction, transport, authentication requirement, declared tools, enabled state, consumers. No value may appear here — a credential is named by its Vault reference (cred_…, see projects/mythos-vault/credential-inventory.json) and lib/mcp-registry.js refuses the file if a key that names a secret holds anything else, or if any secret-shaped string appears anywhere. Registration is a CLAIM: bin/mcp-registry-check measures availability and writes the snapshot OTHMODE reads. The runtime registries stay authoritative for their own direction — ContextForge for what the gateway serves, projects/mythos-ai-executor/config/mcp-capabilities.json for what a skill may name outbound. This file indexes both; it replaces neither.",
+  "servers": {
+    "oth-mcp": {
+      "purpose": "Controlled READ interface over existing MYTHOS capabilities: knowledge, project portfolio, capability registry, execution truth, budget position, estate health. Stores nothing; every tool resolves to the system that owns the data.",
+      "owner": "MYTHOS — projects/oth-mcp",
+      "direction": "inbound",
+      "transport": {
+        "kind": "stdio",
+        "launcher": "/home/deploy/deployments/oth-mcp/oth-mcp-stdio.sh"
+      },
+      "source": "projects/oth-mcp/server.js",
+      "version": "1.0.0",
+      "protocol_version": "2024-11-05",
+      "auth": {
+        "required": false,
+        "scheme": "host-access",
+        "credential": null,
+        "note": "reached over SSH as deploy or spawned by the bridge; the process holds no credential of its own — each upstream is reached with that upstream's own bearer"
+      },
+      "credentials": [
+        "cred_othk_http_token",
+        "cred_executor_token"
+      ],
+      "tools": [
+        "knowledge_search",
+        "knowledge_get",
+        "project_context",
+        "capability_registry",
+        "execution_status",
+        "execution_report",
+        "budget_status",
+        "system_health"
+      ],
+      "write_capable": false,
+      "enabled": true,
+      "consumers": [
+        "mythos-mcp-http",
+        "ssh stdio clients (Claude Code, Inspector)"
+      ],
+      "outbound_capability_server": null
+    },
+    "mythos-mcp-http": {
+      "purpose": "Streamable HTTP transport in front of oth-mcp so ContextForge can federate it. Declares no tool of its own; every answer is produced by oth-mcp and relayed unmodified.",
+      "owner": "MYTHOS — projects/mythos-gateway",
+      "direction": "inbound",
+      "transport": {
+        "kind": "streamable-http",
+        "url": "http://127.0.0.1:8160/mcp",
+        "health_url": "http://127.0.0.1:8160/health",
+        "gateway_url": "http://10.0.60.1:8160/mcp"
+      },
+      "source": "projects/mythos-gateway/mcp-http-bridge.js",
+      "version": "1.0.0",
+      "protocol_version": "2024-11-05",
+      "auth": {
+        "required": true,
+        "scheme": "bearer",
+        "credential": "cred_mcp_http_bridge_token",
+        "note": "one bearer, held by ContextForge; a client without it is refused 401 before any relay"
+      },
+      "credentials": [],
+      "tools": [],
+      "tools_note": "relayed — the declared set is oth-mcp's",
+      "relays": "oth-mcp",
+      "write_capable": false,
+      "enabled": true,
+      "consumers": [
+        "contextforge"
+      ],
+      "outbound_capability_server": null,
+      "gateway_name": "mythos-mcp"
+    },
+    "contextforge": {
+      "purpose": "MYTHOS MCP Gateway — one HTTPS door for remote clients: federation of the servers above, per-client authentication, runtime registry, metrics.",
+      "owner": "MYTHOS — projects/mythos-gateway (IBM ContextForge, image pinned by digest)",
+      "direction": "gateway",
+      "transport": {
+        "kind": "gateway-http",
+        "url": "http://127.0.0.1:4444",
+        "health_url": "http://127.0.0.1:4444/health",
+        "mcp_url": "http://127.0.0.1:4444/mcp",
+        "public_url": "https://mythosprod.xyz/gateway/"
+      },
+      "source": "projects/mythos-gateway/docker-compose.yml",
+      "version": "1.0.9",
+      "protocol_version": "2025-11-25",
+      "auth": {
+        "required": true,
+        "scheme": "jwt",
+        "credential": "cred_contextforge_executor_client",
+        "note": "AUTH_REQUIRED=true on every path. A CLIENT presents an issued gateway token; none has been issued to any client, including the executor (owner decision #2), so every governed call through the gateway fails closed with MCP_CREDENTIAL_UNAVAILABLE until one exists."
+      },
+      "credentials": [
+        "cred_contextforge_jwt_secret",
+        "cred_contextforge_auth_encryption",
+        "cred_contextforge_platform_admin"
+      ],
+      "peers": [
+        "mythos-mcp-http"
+      ],
+      "tools": [],
+      "tools_note": "federated — discovered from peers at check time",
+      "write_capable": false,
+      "enabled": true,
+      "public": true,
+      "consumers": [],
+      "outbound_capability_server": null,
+      "note": "public: true since 2026-09-02 ~06:36 UTC — nginx was restarted (not by the MCP-ECOSYSTEM-1 session) and applied the /gateway/ block already present in the vhost. Measured after: /gateway/health 200; /gateway/mcp, /docs, /version, /tools 401 without a credential; /gateway/admin 404. Zero client tokens exist, so nothing can be invoked from the internet until the owner issues one.",
+      "admin_credential": "cred_contextforge_platform_admin"
+    },
+    "github-mcp-rw": {
+      "purpose": "The official GitHub MCP server, write-capable, reachable only from the gateway network. Carries no credential of its own: the caller's bearer is forwarded per request.",
+      "owner": "GitHub (ghcr.io/github/github-mcp-server) — deployed by projects/mythos-gateway",
+      "direction": "outbound",
+      "transport": {
+        "kind": "streamable-http",
+        "url": "http://10.0.60.3:8082/mcp",
+        "health_url": null
+      },
+      "source": "projects/mythos-gateway/docker-compose.yml",
+      "version": "v1.10.1",
+      "protocol_version": "2025-03-26",
+      "auth": {
+        "required": true,
+        "scheme": "bearer-per-request",
+        "credential": "cred_github_gateway",
+        "note": "the credential reference exists; the credential does not (owner decision #1)"
+      },
+      "credentials": [],
+      "toolsets": [
+        "default",
+        "actions",
+        "git",
+        "code_security",
+        "labels",
+        "discussions"
+      ],
+      "tools": [],
+      "tools_note": "discovered at check time; classified by registry/mcp-permissions.json — delete_* is destructive and DENIED by hard floor",
+      "write_capable": true,
+      "enabled": false,
+      "enabled_note": "stays disabled until cred_github_gateway is active in the Vault inventory; enabling it is the owner's call, never an agent's",
+      "consumers": [],
+      "outbound_capability_server": "github"
+    },
+    "github-mcp-readonly": {
+      "purpose": "A second, read-only instance of the official GitHub MCP server on loopback, hand-started on 2026-08-24 outside any compose project.",
+      "owner": "unknown — no source in the repository",
+      "direction": "outbound",
+      "transport": {
+        "kind": "streamable-http",
+        "url": "http://127.0.0.1:8082/mcp",
+        "health_url": null
+      },
+      "source": null,
+      "version": "v1.10.1",
+      "auth": {
+        "required": true,
+        "scheme": "bearer-per-request",
+        "credential": null,
+        "note": "no credential in its environment; a caller must supply one per request"
+      },
+      "credentials": [],
+      "tools": [],
+      "write_capable": false,
+      "enabled": false,
+      "enabled_note": "ORPHAN CANDIDATE — no consumer found in the repository, in any agent configuration, or in any deployment file. Retirement is an owner decision; it is registered so it stops being invisible.",
+      "consumers": [],
+      "outbound_capability_server": null
+    },
+    "context7": {
+      "purpose": "Context7 documentation MCP (mcp/context7 image) on loopback, hand-started on 2026-08-24 outside any compose project.",
+      "owner": "unknown — no source in the repository",
+      "direction": "outbound",
+      "transport": {
+        "kind": "streamable-http",
+        "url": "http://127.0.0.1:8083/mcp",
+        "health_url": null
+      },
+      "source": null,
+      "version": null,
+      "auth": {
+        "required": false,
+        "scheme": "none",
+        "credential": null
+      },
+      "credentials": [],
+      "tools": [
+        "resolve-library-id",
+        "get-library-docs"
+      ],
+      "write_capable": false,
+      "enabled": false,
+      "enabled_note": "ORPHAN CANDIDATE — same finding as github-mcp-readonly.",
+      "consumers": [],
+      "outbound_capability_server": null,
+      "tools_note": "discovered live 2026-09-01 and declared so the check can tell drift from the known set"
+    }
+  }
+}

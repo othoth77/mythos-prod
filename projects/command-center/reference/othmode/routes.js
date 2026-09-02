@@ -286,6 +286,15 @@ function buildRoutes(db, auth) {
       return sendJson(res, 200, reg.ok ? reg.data : { error: 'registry ' + reg.reason, records: [] });
     } },
 
+    // MCP-ECOSYSTEM-1: the estate MCP view — every registered server, the
+    // tools each declares and the five measured states per tool
+    // (registered / available / healthy / authorized / executable). Public
+    // like the other registries and redacted like them: transport KIND,
+    // never a path, a URL or a credential — reference ids only.
+    { method: 'GET', auth: false, pattern: /^\/api\/othmode\/mcp$/, handler: function (req, res) {
+      return sendJson(res, 200, registries.mcp());
+    } },
+
     // ── OTHMODE availability + per-command activation ────────────────────
     // There is NO global switch any more. OTHMODE is always available;
     // a command activates it by containing the standalone keyword

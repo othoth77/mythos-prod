@@ -1,0 +1,370 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS MCP registry check — registration is a claim; this measures it
+// projects/mythos-gateway/bin/mcp-registry-check
+//   [--registry f] [--permissions f] [--inventory f] [--out f] [--json]
+//   [--server name] [--timeout ms] [--quiet]
+//
+// For every server in the estate registry it performs the check its
+// transport allows — a real MCP handshake (initialize → tools/list) over
+// stdio or Streamable HTTP, a liveness read plus the runtime registry for
+// the gateway — and reports exactly one status:
+//
+//   ONLINE        answered the handshake; every declared tool was discovered
+//   DEGRADED      answered, but drifted (declared ≠ discovered), a peer is
+//                 unreachable, or the permission matrix denies a tool it exposes
+//   OFFLINE       nothing is listening / the process cannot start
+//   UNAUTHORIZED  reachable, but refused this checker's credential (or the
+//                 checker holds none) — a distinct fact from OFFLINE
+//   ERROR         answered something that is not MCP, or timed out
+//
+// Disabled servers are measured too (a disabled server that is up is
+// worth knowing) but never fail the run; `ok` is "every ENABLED server is
+// ONLINE". The snapshot is what OTHMODE's read model joins onto the
+// registry so an agent sees measured availability, not the claim.
+//
+// Credentials reach this process ONLY as environment variables named by
+// the Vault inventory (valueFromEnv). They are used for one request each
+// and never written into the snapshot, the table or an error message.
+// =====================================================
+
+var fs = require('fs');
+var os = require('os');
+var path = require('path');
+var http = require('http');
+var https = require('https');
+var URL = require('url').URL;
+
+var registryLib = require('../lib/mcp-registry');
+var policyLib = require('../lib/mcp-policy');
+var clientLib = require('../lib/mcp-client');
+var inventoryLib = require('../../mythos-vault/lib/inventory');
+
+var VERSION = '1.0.0';
+
+function parseArgs(argv) {
+  var out = { registry: null, permissions: null, inventory: null, out: null, json: false, server: null, timeout: 15000, quiet: false };
+  for (var i = 0; i < argv.length; i++) {
+    var a = argv[i];
+    if (a === '--registry') out.registry = argv[++i];
+    else if (a === '--permissions') out.permissions = argv[++i];
+    else if (a === '--inventory') out.inventory = argv[++i];
+    else if (a === '--out') out.out = argv[++i];
+    else if (a === '--json') out.json = true;
+    else if (a === '--server') out.server = argv[++i];
+    else if (a === '--timeout') out.timeout = parseInt(argv[++i], 10) || out.timeout;
+    else if (a === '--quiet') out.quiet = true;
+    else if (a === '--help' || a === '-h') {
+      console.log('usage: mcp-registry-check [--registry f] [--permissions f] [--inventory f] [--out f] [--json] [--server name] [--timeout ms] [--quiet]');
+      process.exit(0);
+    } else { console.error('unknown argument ' + a); process.exit(2); }
+  }
+  return out;
+}
+
+// ------------------------------------------------------------ http helpers
+
+function httpJson(method, urlText, opts) {
+  opts = opts || {};
+  return new Promise(function (resolve, reject) {
+    var url = new URL(urlText);
+    var mod = url.protocol === 'https:' ? https : http;
+    var body = opts.body !== undefined ? JSON.stringify(opts.body) : null;
+    var headers = { Accept: 'application/json' };
+    if (body !== null) { headers['Content-Type'] = 'application/json'; headers['Content-Length'] = Buffer.byteLength(body); }
+    if (opts.bearer) headers.Authorization = 'Bearer ' + opts.bearer;
+    var started = Date.now();
+    var req = mod.request({ method: method, hostname: url.hostname, port: url.port || (url.protocol === 'https:' ? 443 : 80),
+      path: url.pathname + url.search, headers: headers, timeout: opts.timeoutMs || 10000 }, function (res) {
+      var chunks = []; var size = 0;
+      res.on('data', function (c) { size += c.length; if (size <= 512 * 1024) chunks.push(c); else res.destroy(); });
+      res.on('end', function () {
+        var text = Buffer.concat(chunks).toString('utf8');
+        var json = null;
+        try { json = JSON.parse(text); } catch (e) { json = null; }
+        resolve({ status: res.statusCode, json: json, text: text, latency_ms: Date.now() - started });
+      });
+      res.on('error', function (e) { reject(Object.assign(new Error(e.message), { code: 'MCP_UNREACHABLE' })); });
+    });
+    req.on('timeout', function () { req.destroy(); reject(Object.assign(new Error('timeout'), { code: 'MCP_TIMEOUT' })); });
+    req.on('error', function (e) { reject(Object.assign(new Error(e.code || e.message), { code: 'MCP_UNREACHABLE' })); });
+    if (body !== null) req.write(body);
+    req.end();
+  });
+}
+
+function compare(declared, discovered) {
+  var d = {}; declared.forEach(function (t) { d[t] = true; });
+  var f = {}; discovered.forEach(function (t) { f[t] = true; });
+  return {
+    missing: declared.filter(function (t) { return !f[t]; }),
+    extra: discovered.filter(function (t) { return !d[t]; })
+  };
+}
+
+function policyFindings(policy, name, server, discovered) {
+  var findings = [];
+  if (!policy) return findings;
+  discovered.forEach(function (tool) {
+    var cls = policyLib.classify(policy, name, tool);
+    if (!cls) { findings.push('unclassified tool ' + tool + ' (denied by default until a rule names it)'); return; }
+    if (cls.ceiling === 'DENY' && server.enabled) findings.push('tool ' + tool + ' is ' + cls.capability + ' (DENY) yet exposed on an enabled server');
+  });
+  return findings;
+}
+
+function errorStatus(err) {
+  var c = err && err.code;
+  if (c === clientLib.CODES.UNAUTHORIZED) return 'UNAUTHORIZED';
+  if (c === clientLib.CODES.UNREACHABLE || c === clientLib.CODES.TRANSPORT_CLOSED) return 'OFFLINE';
+  return 'ERROR';
+}
+
+function base(name, s) {
+  return {
+    name: name, enabled: s.enabled, direction: s.direction, transport: s.transport.kind, write_capable: s.write_capable,
+    status: null, reachable: false, checked_via: null, latency_ms: null,
+    tools_declared: [], tools_discovered: [], drift: { missing: [], extra: [] },
+    policy_findings: [], credential_findings: [], error: null, note: null
+  };
+}
+
+// ------------------------------------------------------------- the checks
+
+function checkStdio(name, s, ctx) {
+  var out = base(name, s);
+  out.tools_declared = registryLib.declaredTools(ctx.servers, name);
+  out.checked_via = 'stdio handshake';
+  try { fs.accessSync(s.transport.launcher, fs.constants.R_OK); }
+  catch (e) {
+    out.status = e.code === 'ENOENT' ? 'OFFLINE' : 'ERROR';
+    out.error = 'launcher ' + (e.code === 'ENOENT' ? 'missing' : 'not readable by ' + ctx.user) + ': ' + e.code;
+    return Promise.resolve(out);
+  }
+  var started = Date.now();
+  var client = clientLib.createStdioClient({ command: '/bin/bash', args: [s.transport.launcher], timeoutMs: ctx.timeout });
+  return client.initialize({ name: 'mcp-registry-check', version: VERSION })
+    .then(function () { return client.listTools(); })
+    .then(function (tools) {
+      out.reachable = true;
+      out.latency_ms = Date.now() - started;
+      out.tools_discovered = tools.map(function (t) { return t.name; });
+      out.drift = compare(out.tools_declared, out.tools_discovered);
+      out.policy_findings = policyFindings(ctx.policy, name, s, out.tools_discovered);
+      out.status = (out.drift.missing.length || out.drift.extra.length || out.policy_findings.length) ? 'DEGRADED' : 'ONLINE';
+    })
+    .catch(function (err) {
+      out.status = errorStatus(err);
+      out.error = (err.code || 'ERROR') + ': ' + String(err.message).slice(0, 200);
+    })
+    .then(function () { return client.close(); })
+    .then(function () { return out; });
+}
+
+function checkHttp(name, s, ctx) {
+  var out = base(name, s);
+  out.tools_declared = registryLib.declaredTools(ctx.servers, name);
+  var token = s.auth && s.auth.credential ? ctx.tokenFor(s.auth.credential) : null;
+  if (s.auth && s.auth.required && s.auth.credential && !token) out.credential_findings.push('checker holds no value for ' + s.auth.credential + ' in its environment');
+  var health = s.transport.health_url
+    ? httpJson('GET', s.transport.health_url, { timeoutMs: ctx.timeout }).then(function (r) {
+      out.reachable = true;
+      if (r.status !== 200) out.note = 'health answered ' + r.status;
+    })
+    : Promise.resolve();
+  return health.then(function () {
+    var started = Date.now();
+    var client = clientLib.createHttpClient({ url: s.transport.url, token: token, timeoutMs: ctx.timeout });
+    out.checked_via = token ? 'streamable-http handshake (bearer)' : 'streamable-http handshake (no credential)';
+    return client.initialize({ name: 'mcp-registry-check', version: VERSION })
+      .then(function () { return client.listTools(); })
+      .then(function (tools) {
+        out.reachable = true;
+        out.latency_ms = Date.now() - started;
+        out.tools_discovered = tools.map(function (t) { return t.name; });
+        out.drift = compare(out.tools_declared, out.tools_discovered);
+        out.policy_findings = policyFindings(ctx.policy, name, s, out.tools_discovered);
+        out.status = (out.drift.missing.length || out.drift.extra.length || out.policy_findings.length || out.note) ? 'DEGRADED' : 'ONLINE';
+      })
+      .catch(function (err) {
+        out.status = errorStatus(err);
+        if (out.status === 'UNAUTHORIZED') out.reachable = true;
+        out.error = (err.code || 'ERROR') + ': ' + String(err.message).slice(0, 200);
+      })
+      .then(function () { return client.close(); })
+      .then(function () { return out; });
+  }).catch(function (err) {
+    out.status = err.code === 'MCP_TIMEOUT' ? 'ERROR' : 'OFFLINE';
+    out.error = (err.code || 'ERROR') + ': health ' + String(err.message).slice(0, 200);
+    return out;
+  });
+}
+
+function checkGateway(name, s, ctx) {
+  var out = base(name, s);
+  out.peers = {};
+  out.federated_tools = 0;
+  var email = process.env.PLATFORM_ADMIN_EMAIL || null;
+  var password = s.admin_credential ? ctx.tokenFor(s.admin_credential) : null;
+  return httpJson('GET', s.transport.health_url || s.transport.url + '/health', { timeoutMs: ctx.timeout })
+    .then(function (r) {
+      out.reachable = true;
+      out.latency_ms = r.latency_ms;
+      var healthy = r.status === 200 && r.json && (r.json.status === 'healthy' || r.json.status === 'ok');
+      if (!healthy) { out.status = 'DEGRADED'; out.note = 'health answered ' + r.status; }
+      if (!email || !password) {
+        out.checked_via = 'liveness only';
+        out.credential_findings.push('checker holds no gateway admin credential (' + (s.admin_credential || 'none declared') + '); peers not verified');
+        out.status = out.status || 'UNAUTHORIZED';
+        return out;
+      }
+      out.checked_via = 'liveness + admin api';
+      return httpJson('POST', s.transport.url + '/auth/login', { body: { email: email, password: password }, timeoutMs: ctx.timeout })
+        .then(function (login) {
+          var jwt = login.json && (login.json.access_token || login.json.token);
+          if (login.status !== 200 || !jwt) { out.status = 'UNAUTHORIZED'; out.error = 'admin login refused (' + login.status + ')'; return out; }
+          return Promise.all([
+            httpJson('GET', s.transport.url + '/gateways', { bearer: jwt, timeoutMs: ctx.timeout }),
+            httpJson('GET', s.transport.url + '/tools', { bearer: jwt, timeoutMs: ctx.timeout })
+          ]).then(function (res) {
+            var peers = Array.isArray(res[0].json) ? res[0].json : [];
+            var tools = Array.isArray(res[1].json) ? res[1].json : [];
+            (s.peers || []).forEach(function (p) {
+              // A peer may be registered in the gateway under its own name
+              // (registry field gateway_name); the registry key is ours.
+              var peerServer = ctx.servers[p] || {};
+              var gwName = peerServer.gateway_name || p;
+              var rec = peers.filter(function (g) { return g.name === gwName || g.slug === gwName || g.name === p || g.slug === p; })[0];
+              out.peers[p] = rec ? { registered: true, enabled: rec.enabled !== false, reachable: rec.reachable === true } : { registered: false, enabled: false, reachable: false };
+            });
+            out.federated_tools = tools.length;
+            out.tools_discovered = tools.map(function (t) { return t.original_name || t.originalName || t.name; });
+            out.policy_findings = policyFindings(ctx.policy, name, s, tools.map(function (t) { return t.name; }));
+            var peerProblem = Object.keys(out.peers).some(function (p) { return !out.peers[p].reachable; });
+            var degraded = peerProblem || !tools.length || out.policy_findings.length || out.note;
+            out.status = degraded ? 'DEGRADED' : 'ONLINE';
+            if (peerProblem) out.error = 'a registered peer is not reachable from the gateway';
+            return out;
+          });
+        });
+    })
+    .catch(function (err) {
+      out.status = err.code === 'MCP_TIMEOUT' ? 'ERROR' : 'OFFLINE';
+      out.error = (err.code || 'ERROR') + ': ' + String(err.message).slice(0, 200);
+      return out;
+    });
+}
+
+function checkServer(name, s, ctx) {
+  if (s.transport.kind === 'stdio') return checkStdio(name, s, ctx);
+  if (s.transport.kind === 'gateway-http') return checkGateway(name, s, ctx);
+  return checkHttp(name, s, ctx);
+}
+
+// ------------------------------------------------------------------- main
+
+function writeAtomic(file, text) {
+  var tmp = file + '.tmp-' + process.pid;
+  fs.writeFileSync(tmp, text, { encoding: 'utf8', mode: 0o640 });
+  fs.renameSync(tmp, file);
+}
+
+function main() {
+  var args = parseArgs(process.argv.slice(2));
+  var registry = registryLib.loadRegistry(args.registry);
+  if (!registry.valid) {
+    console.error('mcp-registry-check: registry invalid — ' + registry.reason);
+    process.exit(2);
+  }
+  var perms = policyLib.loadPermissions(args.permissions);
+  var inventory = inventoryLib.loadInventory(args.inventory);
+  var ctx = {
+    servers: registry.servers,
+    policy: perms.valid ? perms.policy : null,
+    timeout: args.timeout,
+    user: (function () { try { return os.userInfo().username; } catch (e) { return 'unknown'; } })(),
+    tokenFor: function (ref) { return inventoryLib.valueFromEnv(inventory, ref); }
+  };
+  var names = Object.keys(registry.servers).filter(function (n) { return !args.server || n === args.server; });
+  if (!names.length) { console.error('mcp-registry-check: no such server ' + args.server); process.exit(2); }
+
+  // Sequential on purpose: this host is memory-constrained and a stdio
+  // check spawns a process.
+  var results = {};
+  var chain = Promise.resolve();
+  names.forEach(function (n) {
+    chain = chain.then(function () { return checkServer(n, registry.servers[n], ctx); }).then(function (r) {
+      // Credential references the server CONSUMES must be inventoried and not absent.
+      (registry.servers[n].credentials || []).concat(registry.servers[n].auth && registry.servers[n].auth.credential ? [registry.servers[n].auth.credential] : []).forEach(function (ref) {
+        var c = inventory.valid ? inventory.credentials[ref] : null;
+        if (!c) r.credential_findings.push(ref + ' is not in the Vault inventory');
+        else if (c.status !== 'active' && registry.servers[n].enabled) r.credential_findings.push(ref + ' is ' + c.status);
+      });
+      results[n] = r;
+    });
+  });
+  chain.then(function () {
+    // A --server run measures one server; the snapshot describes the estate.
+    // Merge into the previous snapshot so the other servers keep their last
+    // measurement (with its own timestamp) instead of vanishing.
+    var previous = null;
+    if (args.out && args.server) {
+      try { previous = JSON.parse(fs.readFileSync(path.resolve(args.out), 'utf8')); } catch (e) { previous = null; }
+    }
+    var all = {};
+    if (previous && previous.servers) {
+      Object.keys(previous.servers).forEach(function (n) {
+        if (registry.servers[n]) all[n] = Object.assign({}, previous.servers[n], { checked_at: previous.servers[n].checked_at || previous.generated_at });
+      });
+    }
+    var now = new Date().toISOString();
+    names.forEach(function (n) { all[n] = Object.assign({}, results[n], { checked_at: now }); });
+    var summary = { ONLINE: 0, DEGRADED: 0, OFFLINE: 0, UNAUTHORIZED: 0, ERROR: 0, enabled: 0, disabled: 0 };
+    var ok = true;
+    Object.keys(all).forEach(function (n) {
+      var r = all[n];
+      summary[r.status] = (summary[r.status] || 0) + 1;
+      if (r.enabled) { summary.enabled++; if (r.status !== 'ONLINE') ok = false; } else summary.disabled++;
+    });
+    var snapshot = {
+      schema_version: '1.0.0',
+      checker: 'mcp-registry-check/' + VERSION,
+      generated_at: now,
+      host: os.hostname(),
+      checked_as: ctx.user,
+      registry: registry.path,
+      registry_valid: true,
+      permissions_valid: perms.valid,
+      permissions_reason: perms.valid ? null : perms.reason,
+      inventory_valid: inventory.valid,
+      inventory_reason: inventory.valid ? null : inventory.reason,
+      servers: all,
+      summary: summary,
+      ok: ok
+    };
+    if (args.out) writeAtomic(path.resolve(args.out), JSON.stringify(snapshot, null, 2) + '\n');
+    if (args.json) process.stdout.write(JSON.stringify(snapshot, null, 2) + '\n');
+    if (!args.quiet) {
+      names.forEach(function (n) {
+        var r = results[n];
+        console.error('  ' + String(r.status).padEnd(13) + n.padEnd(22) + (r.enabled ? 'enabled ' : 'disabled') +
+          '  tools ' + r.tools_discovered.length + '/' + r.tools_declared.length +
+          (r.latency_ms !== null ? '  ' + r.latency_ms + 'ms' : '') +
+          (r.error ? '  ' + r.error : '') +
+          (r.drift.missing.length ? '  missing:' + r.drift.missing.join(',') : '') +
+          (r.drift.extra.length ? '  extra:' + r.drift.extra.join(',') : '') +
+          (r.policy_findings.length ? '  policy:' + r.policy_findings.join(' | ') : '') +
+          (r.credential_findings.length ? '  credentials:' + r.credential_findings.join(' | ') : ''));
+      });
+      console.error('mcp-registry-check: ' + (ok ? 'OK' : 'NOT OK') + ' — ' + JSON.stringify(summary) + (args.out ? ' → ' + args.out : ''));
+    }
+    process.exit(ok ? 0 : 1);
+  }).catch(function (err) {
+    console.error('mcp-registry-check: internal error ' + (err && err.stack || err));
+    process.exit(2);
+  });
+}
+
+if (require.main === module) main();
+module.exports = { compare: compare, policyFindings: policyFindings, VERSION: VERSION };

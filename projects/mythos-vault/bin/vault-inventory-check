@@ -1,0 +1,58 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS Vault — inventory check
+// projects/mythos-vault/bin/vault-inventory-check [--inventory f] [--out f] [--json] [--quiet]
+//
+// Verifies the credential inventory against the host by stat() only:
+// does each recorded file exist, is it owned by whom the inventory says,
+// is its mode no wider than expected, is anything past expires_at. It
+// never opens a listed file, so it can be run by any account: what that
+// account may not look at is reported as unknowable, not as absent.
+//
+// Exit 0 when nothing drifted, 1 on drift, 2 when the inventory itself is
+// invalid (fail closed: a malformed inventory verifies nothing).
+// =====================================================
+var fs = require('fs');
+var path = require('path');
+var inventoryLib = require('../lib/inventory');
+
+function parseArgs(argv) {
+  var out = { inventory: null, out: null, json: false, quiet: false };
+  for (var i = 0; i < argv.length; i++) {
+    var a = argv[i];
+    if (a === '--inventory') out.inventory = argv[++i];
+    else if (a === '--out') out.out = argv[++i];
+    else if (a === '--json') out.json = true;
+    else if (a === '--quiet') out.quiet = true;
+    else if (a === '--help' || a === '-h') { console.log('usage: vault-inventory-check [--inventory file] [--out file] [--json] [--quiet]'); process.exit(0); }
+    else { console.error('unknown argument ' + a); process.exit(2); }
+  }
+  return out;
+}
+
+function writeAtomic(file, text) {
+  var tmp = file + '.tmp-' + process.pid;
+  fs.writeFileSync(tmp, text, { encoding: 'utf8', mode: 0o640 });
+  fs.renameSync(tmp, file);
+}
+
+var args = parseArgs(process.argv.slice(2));
+var inv = inventoryLib.loadInventory(args.inventory);
+if (!inv.valid) {
+  console.error('vault-inventory-check: inventory invalid — ' + inv.reason);
+  process.exit(2);
+}
+var report = inventoryLib.checkInventory(inv);
+if (args.out) writeAtomic(path.resolve(args.out), JSON.stringify(report, null, 2) + '\n');
+if (args.json) process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+if (!args.quiet) {
+  report.results.forEach(function (r) {
+    var state = r.exists === null ? 'UNKNOWABLE' : (r.exists ? 'present' : 'absent');
+    console.error('  ' + (r.ok ? 'ok   ' : 'DRIFT') + ' ' + r.id.padEnd(36) + ' ' + state.padEnd(10) +
+      (r.mode_actual ? ' ' + r.mode_actual + ' ' + r.owner_actual : '') + (r.drift.length ? ' — ' + r.drift.join('; ') : ''));
+  });
+  console.error('vault-inventory-check: ' + report.summary.checked + ' checked, ' + report.summary.ok + ' ok, ' +
+    report.summary.drift + ' drift, ' + report.summary.unknowable + ' unknowable (as ' + report.checked_as + ')');
+}
+process.exit(report.ok ? 0 : 1);

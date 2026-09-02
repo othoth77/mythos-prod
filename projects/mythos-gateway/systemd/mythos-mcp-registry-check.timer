@@ -1,0 +1,14 @@
+# Every five minutes: often enough that OTHMODE's `available` / `healthy`
+# flags are never older than the Status Center's own probes, rare enough
+# that the stdio check (one spawned process) is invisible on this host.
+[Unit]
+Description=Run the MYTHOS MCP registry check every 5 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30
+Unit=mythos-mcp-registry-check.service
+
+[Install]
+WantedBy=timers.target
