@@ -1,0 +1,70 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-116",
+  "project": "mythos-prod",
+  "objective": "تنفيذ إصلاح جذري ومعمّق لمعمارية GitHub Bridge / Action Resolution بحيث لا يمكن أن تضيع قيمة `Action: implement` بين GitHub Issue → Bridge Runtime → Control Task → Executor → Claude/Fable، ولا يمكن أن ينفصل `requested_action` عن `execution_profile`.\n\nهذه المهمة هي **Root Architecture Fix** وليست workaround لـ#115 أو #111.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "validation_requirements": [
+    "`Action: implement` يصل إلى `requested_action=implement`.",
+    "`execution_profile=repo-write` بشكل حتمي.",
+    "explicit current Action يتغلب على inherited/default.",
+    "rerun semantics سليمة.",
+    "mismatch يوقف التنفيذ قبل provider.",
+    "runtime/source mismatch تم فحصه وإثبات نتيجته.",
+    "structured report contract يعمل للنجاح والفشل/الحظر.",
+    "كل الاختبارات المطلوبة خضراء.",
+    "commit + branch + base SHA موثقة.",
+    "PR فعلي قابل للـmerge."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-03T09:27:19.858Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #116 https://github.com/othoth77/mythos-prod/issues/116 — \"Bridge Action Resolution v2 — Root Architecture Fix\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[السياق والأدلة]\n- Issue #113 أصلحت parser ليتعامل مع bullet/numbered prefixes، لكن runtime ما زال أنشأ #114 و#115 كـ `investigate → repo-read` رغم وجود `Action: implement`.\n- #115 حالياً قيد التنفيذ ويجب اعتباره evidence input، وليس افتراض أن السبب parser فقط.\n- يجب فحص كامل المسار: GitHub Issue → runtime Bridge checkout/ref → issue parsing → action resolution → control task JSON → execution profile → executor dispatch → provider/model selection → structured report.\n- يجب تحديد هل يوجد stale checkout/ref أو parser ثانٍ أو adapter أو fallback يعيد `implement` إلى `investigate`.\n\n[1. action resolution engine موحّد]\nإنشاء/إعادة تنظيم طبقة واحدة مسؤولة عن القرار النهائي:\n1. explicit Action في الـIssue الحالي — أعلى أولوية.\n2. `action:<x>` label إذا كان مدعوماً.\n3. inherited Action من rerun السابق إذا لم يوجد explicit Action حالي.\n4. default Action فقط إذا لم يوجد أي مصدر أعلى.\n\nيجب تسجيل مصدر القرار، وليس فقط قيمته.\n\nالحد الأدنى المقترح للـresolved record:\n```json\n{\n  \"requested_action\": \"implement\",\n  \"execution_profile\": \"repo-write\",\n  \"action_source\": \"explicit_issue\",\n  \"action_raw\": \"implement\"\n}\n```\n\n[2. action/profile invariant]\nاجعل العلاقة بين Action وexecution profile contract مغلقاً وغير قابل للانحراف:\n- investigate → repo-read\n- review → repo-read\n- test → repo-read أو profile الاختبار المعتمد حالياً\n- document → repo-write\n- implement → repo-write\n\nإذا ظهر mismatch مثل:\n`requested_action=implement` + `execution_profile=repo-read`\nفيجب رفض المهمة قبل تشغيل provider وإرجاع خطأ تشخيصي واضح مثل `ACTION_PROFILE_MISMATCH`.\n\n[3. rerun semantics]\nتحقق من:\n- rerun بدون Action → يرث Action السابق فقط إذا كان مثبتاً فعلاً.\n- rerun مع Action جديد → Action الجديد يتغلب على inheritance.\n- لا يتم فقدان scope/constraints/validation/report requirements.\n- لا يتم تغيير Action بصمت أثناء إعادة parsing.\n- لا يمكن أن يتحول implement إلى investigate بسبب default fallback.\n\n[4. runtime/source-of-truth diagnosis]\nافحص بصرامة:\n- أي checkout/ref يستخدمه GitHub Bridge runtime فعلياً.\n- هل `main` يحتوي #113 أم أن timer/runtime يعمل من snapshot قديم.\n- loading/config path.\n- duplicate parser أو adapter.\n- أي fallback في `github-issues.js`, `github-bridge.js`, executor/task creation أو task normalization.\n- أي cache/state يمكن أن يحتفظ بـ`investigate` القديم.\n\nإذا كان هناك mismatch بين GitHub main والكود الذي يستخدمه runtime، أثبته بالأدلة ولا تنفذ VPS/systemd ضمن هذه المهمة.\n\n[5. provider boundary]\nتحقق أن القرار النهائي يصل للـExecutor/provider دون إعادة تفسير.\n- `implement` يجب أن يصل إلى repo-write.\n- provider يجب ألا يطلب approval لمجرد أن المهمة repo-write ومسموح بها ضمن governance.\n- protected/destructive operations تبقى خاضعة للـgovernance والapproval.\n- لا تعطِ Claude/Fable صلاحيات أوسع من المطلوب.\n\n[6. structured report contract]\nاجعل التقرير النهائي جزءاً من contract وليس best-effort:\n- `mythos_report=true`\n- requested_action\n- execution_profile\n- action_source\n- root cause\n- files changed\n- tests\n- commit SHA\n- branch\n- base SHA\n- PR URL إن تم إنشاؤه\n- blockers/approval reason إن توقفت المهمة.\n\nحتى عند BLOCKED يجب إنتاج structured report إذا كان provider قد بدأ التنفيذ، ما لم يوجد عائق تقني يمنع ذلك؛ وفي هذه الحالة يجب تسجيل سبب واضح من executor نفسه.\n\n[7. state machine / durable attempt integrity]\nراجع حالات PENDING → CLAIMED → RUNNING → COMPLETED/BLOCKED/FAILED/CANCELLED، وتأكد أن Action Resolution يحدث مرة واحدة في بداية الـattempt ويصبح immutable داخل الـattempt.\n\nلا تسمح بأن تؤدي إعادة polling أو rerun أو stale state إلى تغيير القرار داخل attempt نشط.\n\n[8. idempotency وfencing]\nاستفد من الأنماط الهندسية القوية في Temporal / Hatchet / Trigger.dev / Svix / BullMQ / webhook-delivery، لكن **لا تضف أي runtime dependency خارجية**.\nطبّق فقط …",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 116,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/116",
+    "issue_id": 5334793680,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPfp90A",
+    "issue_title": "TASK: Bridge Action Resolution v2 — Root Architecture Fix",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T09:26:22Z",
+    "issue_updated_at": "2026-09-03T09:26:22Z",
+    "issue_labels": [
+      "task",
+      "mythos:human-approval"
+    ],
+    "content_sha256": "5aeb057df443a22b0e32dcc4e378fddc3d9dfc4e568a890e143f8fcc1174dcf2",
+    "attempt": 1,
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "converted_at": "2026-09-03T09:27:19.859Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5523589577,
+        "url": "https://github.com/othoth77/mythos-prod/issues/116#issuecomment-5523589577",
+        "at": "2026-09-03T09:27:20.785Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:human-approval"
+      ]
+    }
+  }
+}
