@@ -1,5 +1,27 @@
 # AI Handover
 
+## HOSTOPS-2R-FIX — the group-membership activation gap closed (GitHub issue #132, 2026-09-03)
+
+**Objective.** HOSTOPS-2R's own activation instructions said `deploy`'s new
+`mythos-hostops` group membership "needs a fresh login session (or restart the executor's
+user manager)" — that turned out to be the actual production blocker. Live symptoms:
+`deploy` was already listed in `getent group mythos-hostops`, the socket was `0660
+root:mythos-hostops` and listening, `mythos-ai-executor.service` had been restarted on the
+new code, yet `/hostops/run` still hit `EACCES` on `/run/mythos-hostops/hostops.sock`. A
+manual `SupplementaryGroups=mythos-hostops` drop-in on the executor unit made it worse:
+`status=216/GROUP` (systemd.exec(5): that directive has no effect on `--user` units, whose
+manager lacks `CAP_SETGID`). That drop-in was removed before this fix; it is never
+reintroduced.
+
+| Item | State |
+|---|---|
+| Branch | `mythos/gh/gh-issue-132` over `85cbf90` (`origin/main`). Delivery by the governance relay; **not merged**. |
+| Root cause | `usermod -aG mythos-hostops deploy` edits `/etc/group` only — it does not update the supplementary groups of any already-running process, including `user@<uid>.service` (the root system unit that forks `deploy`'s `systemd --user` manager and everything under it). Restarting `mythos-ai-executor.service` alone restarts a *child* of that still-stale manager, so it inherits the old group list, not a fresh read of `/etc/group`. |
+| Fix | New `ops/hostops/refresh-group-membership.sh`, called by `install-hostops.sh` right after the `usermod -aG` calls. Restarts `user@<uid>.service` (root, system-unit territory) for any user whose manager is already active — a fresh `systemd --user` fork re-reads `/etc/group` at that moment. Idempotent/non-disruptive: a user with no active manager (fresh install, or `dagu`, a nologin system account) is simply skipped, not an error. No socket unit, daemon, helper, or adapter code touched; `NoNewPrivileges=true` on the executor untouched. |
+| Tests | `tests/mythos-hostops-group-refresh-test.js` (new, **10/0**): the script run against a stub `systemctl`/`id` (no root/systemd needed) proves an active manager is restarted and an inactive one is left alone; asserts no unit file in the tree declares `SupplementaryGroups=`; asserts `NoNewPrivileges=true` is unchanged; asserts the installer wires the refresh in after group grant, for both `deploy` and `dagu`. All prior HostOps suites re-verified green: daemon 14/0, executor adapter 36/0. |
+| Owner activation | Re-run `sudo bash ops/hostops/install-hostops.sh` on the already-installed host — idempotent, now includes the group refresh, so no logout/login/reboot is required. Then `systemctl --user restart mythos-ai-executor` (as `deploy`) and verify per `docs/MYTHOS_HOSTOPS_INTERFACE.md` HOSTOPS-2R-FIX addendum. |
+| Not done (by session) | No root install performed from this execution session — the installer/systemd/group changes are owner-only per this repository's rules, and this session cannot touch the live VPS. |
+
 ## HOSTOPS-2R — Executor → HostOps fixed to a Unix socket boundary (GitHub issue #130, 2026-09-03)
 
 **Objective.** HOSTOPS-1's `sudo -n mythos-hostops` boundary call, made from inside
