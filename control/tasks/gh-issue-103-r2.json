@@ -10,7 +10,7 @@
   "validation_requirements": [
     "Add tests covering the four defects, including COMPLETED/BLOCKED reruns, independent task IDs, interrupted tick between label removal and commit, Action inheritance, section preservation, and rerun while previous attempt is active. Run the relevant bridge/executor/governance tests and report exact …"
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T00:07:19.435Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #103 https://github.com/othoth77/mythos-prod/issues/103 — \"إصلاح Rerun في GitHub Issues → Bridge → Claude\"\n\n[re-run — implement only]\n**Action: implement**\n\nThis is an owner-approved rerun of Issue #103 after the investigation. Create a NEW independent TASK (`gh-issue-103-r2`) with `requested_action=implement` and `execution_profile=repo-write`. Do not reuse the previous task `gh-issue-103`.\n\n[fix the four confirmed defects]\n1. Prevent loss of the `rerun` request: consume/remove the rerun label only after the control commit succeeds; preserve the request if the tick dies before commit.\n2. On attempt >1, if the new Issue body has no explicit Action, inherit the previous attempt's `requested_action` instead of silently defaulting to `investigate`.\n3. On rerun, preserve/inherit previously structured `scope`, `constraints`, and `validation_requirements` when the edited body leaves them empty or uses unrecognised headings.\n4. Add clear Issue-side feedback for already-converted and rerun-deferred-while-active cases, with marker-keyed comments and no spam.\n\n[scope rules]\n- Use the prior #103 investigation as the basis; do not repeat it unnecessarily.\n- Do NOT rerun #101 inside this task; `gh-issue-101-r2` remains a separate live execution.\n- No AUTOS-0, SPY, n8n, MCP/ContextForge, OAuth, or unrelated projects.\n- No secrets.\n- No merge to `main`; commit/push only the new task branch through normal governance.\n- No blind `git add .`.\n\n[completion]\nReturn a full REPORT with changed files, tests, commit SHA, branch, and any blockers. Keep this Issue open until the rerun is completed and verified.",
@@ -52,5 +52,28 @@
         "mythos:human-approval"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903000725-ln6pla",
+    "othmode_task_id": "OTH-2026-00032",
+    "execution_profile": "repo-write",
+    "expected_delivery": "commit",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-103-r2",
+    "branch": "mythos/gh/gh-issue-103-r2",
+    "base_commit": "e0e22d492f6d78d5e39d3e3f68db83b6244512ec",
+    "claimed_at": "2026-09-03T00:07:25.297Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "3e18589f0bb62c1149b3f676ee16526c53215988255aecb3d8e70961eb13697b",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T00:07:25.297Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T00:07:25.319Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903000725-ln6pla queued; OTHMODE OTH-2026-00032"
+    }
+  ]
 }
