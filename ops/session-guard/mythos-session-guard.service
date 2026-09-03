@@ -1,0 +1,61 @@
+[Unit]
+# MYTHOS Session Guard — Claude Desktop Remote session lifecycle (GitHub Issue #144)
+#
+# WHY ROOT. /root/.claude/remote/srv/<rev>/server --serve forks one ccd-cli
+# process per Desktop Remote session and never reaps it. Those processes are
+# root-owned, so nothing running as `deploy` can reclaim them. This unit is
+# the only component that may, and it may only signal processes that
+# session-guard.js positively classified as such.
+#
+# WHY THIS PATH. Root must not execute code from the deploy-writable
+# repository checkout. install-session-guard.sh copies exactly two files
+# (session-guard.js and the runner) into /usr/local/lib/mythos-session-guard,
+# root:root, and this unit runs that copy. Re-run the installer after
+# merging a change to either file.
+#
+# DEFAULT POSTURE IS OBSERVE: without
+# /var/lib/mythos-session-guard/session-guard.enabled the runner tracks,
+# plans and logs, and signals nothing. Enabling and rolling back are both
+# one file operation — see ops/session-guard/README.md.
+Description=MYTHOS Claude Desktop Remote session guard (oneshot)
+Documentation=file:///usr/local/share/doc/mythos/MYTHOS_SESSION_GUARD.md
+After=network.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecStart=/usr/bin/node /usr/local/lib/mythos-session-guard/mythos-session-guard-run.js
+TimeoutStartSec=120
+
+# A guard that cannot be the reason production runs out of memory.
+MemoryMax=192M
+CPUQuota=25%
+Nice=10
+OOMScoreAdjust=500
+
+# The guard reads /proc and writes one state directory. It needs nothing
+# else, so it is given nothing else. SIGKILL/SIGTERM to other processes is
+# a capability of uid 0, not of the filesystem, and is deliberately
+# retained — it is the unit's entire purpose.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/var/lib/mythos-session-guard
+StateDirectory=mythos-session-guard
+StateDirectoryMode=0700
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+LockPersonality=true
+SystemCallArchitectures=native
+CapabilityBoundingSet=CAP_KILL
+AmbientCapabilities=
+
+# Deliberately no [Install] section: this unit is driven ONLY by
+# mythos-session-guard.timer. `systemctl enable` on the service would be a
+# mistake, and there is nothing here for it to enable.

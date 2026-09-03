@@ -1,0 +1,206 @@
+{
+  "captured_at": "2026-09-03T20:12:00Z",
+  "host": "mythos production VPS",
+  "note": "Live /proc capture behind GitHub Issue #144, kept as the classification regression. argv truncated to 280 chars; every UUID replaced with a deterministic placeholder; the remote-server --token-file name redacted; the capture command and its shell excluded. Only claude-related processes (kind != other) are kept.",
+  "uptime_seconds": 1060438,
+  "processes": [
+    {
+      "pid": 1126370,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 251,
+      "cpu_ticks": 6145,
+      "start_ticks": 105835942,
+      "comm": "2.1.258",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.258 --output-format stream-json --verbose --input-format stream-json --effort medium --model claude-fable-5-1 --permission-prompt-tool stdio --allowedTools mcp__computer-use,mcp__ccd_session__spawn_task,mcp__ccd_session__dismiss_task,mcp__ccd_sess"
+    },
+    {
+      "pid": 1177504,
+      "ppid": 688556,
+      "uid": 1001,
+      "rss_mib": 319,
+      "cpu_ticks": 3608,
+      "start_ticks": 105955692,
+      "comm": "claude",
+      "expected_kind": "executor",
+      "cmdline": "claude -p --output-format json --session-id 00000000-0000-4000-8000-100000000001 --permission-mode acceptEdits --allowedTools Read,Grep,Glob,Write,Edit,NotebookEdit,Bash(git:*),Bash(node:*),Bash(npm:*),Bash(npx:*),Bash(ls:*),Bash(rg:*),Bash(mkdir:*),Bash(wc:*),Bash(diff:*),Bash(c"
+    },
+    {
+      "pid": 1207687,
+      "ppid": 1207623,
+      "uid": 0,
+      "rss_mib": 6,
+      "cpu_ticks": 3,
+      "start_ticks": 106032333,
+      "comm": "server",
+      "expected_kind": "remote-server",
+      "cmdline": "/root/.claude/remote/srv/678bbae5ba2ee1eafde6cc120282a77fbafc81eb/server --bridge --socket /root/.claude/remote/run/a69b2801/rpc.sock"
+    },
+    {
+      "pid": 1576437,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 172,
+      "cpu_ticks": 196812,
+      "start_ticks": 96746808,
+      "comm": "2.1.255",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.255 --output-format stream-json --verbose --input-format stream-json --effort medium --model claude-fable-5-1 --permission-prompt-tool stdio --resume=00000000-0000-4000-8000-100000000002 --allowedTools mcp__computer-use,mcp__ccd_session__spawn_tas"
+    },
+    {
+      "pid": 1637306,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 139,
+      "cpu_ticks": 109760,
+      "start_ticks": 96894638,
+      "comm": "2.1.255",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.255 --output-format stream-json --verbose --input-format stream-json --effort high --model claude-fable-5-1 --permission-prompt-tool stdio --resume=00000000-0000-4000-8000-100000000003 --allowedTools mcp__computer-use,mcp__ccd_session__spawn_task,"
+    },
+    {
+      "pid": 167164,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 274,
+      "cpu_ticks": 72743,
+      "start_ticks": 103512851,
+      "comm": "2.1.258",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.258 --output-format stream-json --verbose --input-format stream-json --effort medium --model claude-fable-5-1 --permission-prompt-tool stdio --allowedTools mcp__computer-use,mcp__ccd_session__spawn_task,mcp__ccd_session__dismiss_task,mcp__ccd_sess"
+    },
+    {
+      "pid": 1750122,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 168,
+      "cpu_ticks": 193396,
+      "start_ticks": 97189366,
+      "comm": "2.1.255",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.255 --output-format stream-json --verbose --input-format stream-json --effort medium --model claude-fable-5-1 --permission-prompt-tool stdio --allowedTools mcp__computer-use,mcp__ccd_session__spawn_task,mcp__ccd_session__dismiss_task,mcp__ccd_sess"
+    },
+    {
+      "pid": 1765673,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 156,
+      "cpu_ticks": 193308,
+      "start_ticks": 97228954,
+      "comm": "2.1.255",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.255 --output-format stream-json --verbose --input-format stream-json --effort medium --model claude-fable-5-1 --permission-prompt-tool stdio --allowedTools mcp__computer-use,mcp__ccd_session__spawn_task,mcp__ccd_session__dismiss_task,mcp__ccd_sess"
+    },
+    {
+      "pid": 1809536,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 138,
+      "cpu_ticks": 104529,
+      "start_ticks": 97308468,
+      "comm": "2.1.255",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.255 --output-format stream-json --verbose --input-format stream-json --effort medium --model claude-fable-5-1 --permission-prompt-tool stdio --resume=00000000-0000-4000-8000-100000000004 --allowedTools mcp__computer-use,mcp__ccd_session__spawn_tas"
+    },
+    {
+      "pid": 326509,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 158,
+      "cpu_ticks": 268637,
+      "start_ticks": 93442629,
+      "comm": "2.1.255",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.255 --output-format stream-json --verbose --input-format stream-json --effort high --model claude-fable-5-1 --permission-prompt-tool stdio --allowedTools mcp__computer-use,mcp__ccd_session__spawn_task,mcp__ccd_session__dismiss_task,mcp__ccd_sessio"
+    },
+    {
+      "pid": 3523488,
+      "ppid": 1,
+      "uid": 0,
+      "rss_mib": 37,
+      "cpu_ticks": 4031,
+      "start_ticks": 90818374,
+      "comm": "server",
+      "expected_kind": "remote-server",
+      "cmdline": "/root/.claude/remote/srv/7d193f89fc02cf1035a391245312e34ad419f63e/server --serve --socket /root/.claude/remote/run/a69b2801/rpc.sock --token-file /root/.claude/remote/run/a69b2801/token.REDACTED"
+    },
+    {
+      "pid": 3830504,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 211,
+      "cpu_ticks": 88866,
+      "start_ticks": 102365317,
+      "comm": "2.1.258",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.258 --output-format stream-json --verbose --input-format stream-json --effort medium --model claude-fable-5-1 --permission-prompt-tool stdio --allowedTools mcp__computer-use,mcp__ccd_session__spawn_task,mcp__ccd_session__dismiss_task,mcp__ccd_sess"
+    },
+    {
+      "pid": 402465,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 184,
+      "cpu_ticks": 300648,
+      "start_ticks": 93644228,
+      "comm": "2.1.255",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.255 --output-format stream-json --verbose --input-format stream-json --effort medium --model claude-fable-5-1 --permission-prompt-tool stdio --allowedTools mcp__computer-use,mcp__ccd_session__spawn_task,mcp__ccd_session__dismiss_task,mcp__ccd_sess"
+    },
+    {
+      "pid": 4180876,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 135,
+      "cpu_ticks": 158073,
+      "start_ticks": 92570422,
+      "comm": "2.1.255",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.255 --output-format stream-json --verbose --input-format stream-json --effort medium --model claude-opus-5 --permission-prompt-tool stdio --resume=00000000-0000-4000-8000-100000000005 --allowedTools mcp__computer-use,mcp__ccd_session__spawn_task,m"
+    },
+    {
+      "pid": 4181501,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 169,
+      "cpu_ticks": 282980,
+      "start_ticks": 92571944,
+      "comm": "2.1.255",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.255 --output-format stream-json --verbose --input-format stream-json --effort high --model claude-fable-5-1 --permission-prompt-tool stdio --resume=00000000-0000-4000-8000-100000000006 --allowedTools mcp__computer-use,mcp__ccd_session__spawn_task,"
+    },
+    {
+      "pid": 4182049,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 203,
+      "cpu_ticks": 343846,
+      "start_ticks": 92573401,
+      "comm": "2.1.255",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.255 --output-format stream-json --verbose --input-format stream-json --effort high --model claude-fable-5-1 --permission-prompt-tool stdio --allowedTools mcp__computer-use,mcp__ccd_session__spawn_task,mcp__ccd_session__dismiss_task,mcp__ccd_sessio"
+    },
+    {
+      "pid": 688556,
+      "ppid": 688488,
+      "uid": 1001,
+      "rss_mib": 73,
+      "cpu_ticks": 3116,
+      "start_ticks": 104792471,
+      "comm": "node",
+      "expected_kind": "executor",
+      "cmdline": "/usr/bin/node /home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bin/mythos-ai-executor serve"
+    },
+    {
+      "pid": 744724,
+      "ppid": 3523488,
+      "uid": 0,
+      "rss_mib": 259,
+      "cpu_ticks": 30744,
+      "start_ticks": 104928217,
+      "comm": "2.1.258",
+      "expected_kind": "remote-session",
+      "cmdline": "/root/.claude/remote/ccd-cli/2.1.258 --output-format stream-json --verbose --input-format stream-json --effort medium --model claude-fable-5-1 --permission-prompt-tool stdio --allowedTools mcp__computer-use,mcp__ccd_session__spawn_task,mcp__ccd_session__dismiss_task,mcp__ccd_sess"
+    }
+  ]
+}
