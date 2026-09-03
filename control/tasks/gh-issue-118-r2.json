@@ -136,6 +136,16 @@
         "at": "2026-09-03T10:59:37.370Z",
         "existed": false,
         "executor_task_id": "t-20260903105935-j13m7h"
+      },
+      "report": {
+        "comment_id": 5524941639,
+        "url": "https://github.com/othoth77/mythos-prod/issues/118#issuecomment-5524941639",
+        "at": "2026-09-03T11:22:14.256Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "control_status": "COMPLETED",
+        "report_file": "control/reports/gh-issue-118-r2.json",
+        "commits_on_origin": false
       }
     },
     "labels": {
@@ -145,7 +155,8 @@
       "removed": [
         "mythos:completed"
       ]
-    }
+    },
+    "issue_state": "COMPLETED"
   },
   "execution": {
     "executor_task_id": "t-20260903105935-j13m7h",
