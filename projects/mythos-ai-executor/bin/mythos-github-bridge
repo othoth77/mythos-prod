@@ -91,9 +91,13 @@ switch (cmd) {
     out(bridge.trail(arg));
     break;
   }
-  case 'runtime':
-    out(bridge.runtimeIdentity(bridge.config()));
+  case 'runtime': {
+    var rcfg = bridge.config();
+    var rid = bridge.runtimeIdentity(rcfg);
+    rid.gate = bridge.runtimeGate(rid, rcfg);
+    out(rid);
     break;
+  }
   case 'resolve': {
     if (!arg) die('usage: mythos-github-bridge resolve <issue.json | issue-number | -> (stdin)');
     var eng = bridge.engine;

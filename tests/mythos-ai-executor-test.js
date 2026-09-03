@@ -154,7 +154,55 @@ function eventsOf(taskId) {
   ok(quota.quotaResumeAt(null, 0, now) === now + quota.QUOTA_BACKOFF_MS[0], 'quota: no reset → first backoff');
   ok(quota.quotaResumeAt(null, 99, now) === now + quota.QUOTA_BACKOFF_MS[quota.QUOTA_BACKOFF_MS.length - 1],
     'quota: backoff is capped, never unbounded');
-  ok(quota.retryDelayMs(0) === 60000 && quota.retryDelayMs(2) === 16 * 60000, 'quota: retry backoff 1m/16m');
+  // Issue #118 §5 — retry policy: exponential schedule, capped, with jitter
+  // that never undercuts the base step; the random source is injectable.
+  ok(quota.retryBaseDelayMs(0) === 60000 && quota.retryBaseDelayMs(2) === 16 * 60000, 'quota: retry base schedule 1m/16m');
+  ok(quota.retryBaseDelayMs(3) === quota.RETRY_MAX_MS && quota.retryBaseDelayMs(50) === quota.RETRY_MAX_MS, 'quota: retry schedule capped at RETRY_MAX_MS');
+  ok(quota.retryDelayMs(0, 0) === 60000, 'quota: jitter r=0 → exactly the base step');
+  ok(quota.retryDelayMs(0, 0.999) === Math.round(60000 + 0.999 * 30000), 'quota: jitter r→1 → base + half a step');
+  ok(quota.retryDelayMs(1, function () { return 0.5; }) === 4 * 60000 + 60000, 'quota: injectable random function honoured');
+  ok(quota.retryDelayMs(0, 7) === 60000 && quota.retryDelayMs(0, -1) === 60000, 'quota: out-of-range random falls back to the base');
+  var spread = 0;
+  for (var j = 0; j < 50; j++) {
+    var d = quota.retryDelayMs(1);
+    ok(d >= 4 * 60000 && d <= 6 * 60000, 'quota: default jitter within [base, 1.5×base]');
+    if (d !== 4 * 60000) spread++;
+  }
+  ok(spread > 0, 'quota: default jitter actually varies');
+
+  // Issue #118 §5 — failure categories: transient vs permanent vs governance
+  // vs permission vs human, each with an explicit retry policy.
+  ok(quota.categorize('API Error: 529 overloaded_error') === 'transient', 'categorize: overloaded → transient');
+  ok(quota.categorize('commit refused: path is governance-protected') === 'governance', 'categorize: governance-protected → governance');
+  ok(quota.categorize('write to control/ denied by policy') === 'governance', 'categorize: denied by policy → governance');
+  ok(quota.categorize('GOVERNANCE_DENIED: relay refused the push') === 'governance', 'categorize: GOVERNANCE_DENIED code → governance');
+  ok(quota.categorize('Edit tool denied: permission required') === 'permission', 'categorize: permission required → permission');
+  ok(quota.categorize('EACCES: permission denied, open /etc/x') === 'permission', 'categorize: EACCES → permission');
+  ok(quota.categorize('Credit balance is too low') === 'human', 'categorize: billing → human');
+  ok(quota.categorize('segfault in module') === 'permanent', 'categorize: unknown → permanent');
+  ok(quota.categorize('usage limit reached|1935689600') === 'quota', 'categorize: quota still first');
+  ok(quota.categorize('permission denied by governance policy') === 'governance', 'categorize: governance wins over permission');
+  ok(quota.categorize('ECONNRESET: permission denied') === 'permission', 'categorize: permission wins over transient');
+  ok(quota.CATEGORIES.indexOf('governance') !== -1 && quota.CATEGORIES.indexOf('permission') !== -1, 'categorize: governance/permission are first-class categories');
+
+  var co = quota.classifyOutcome('governance relay refused: protected path');
+  ok(co.category === 'governance' && co.kind === 'blocked' && co.code === 'GOVERNANCE_DENIED' && co.retryable === false, 'classifyOutcome: governance → blocked/GOVERNANCE_DENIED, not retryable');
+  ok(co.policy && co.policy.retry === false, 'classifyOutcome: governance policy says no retry');
+  co = quota.classifyOutcome('tool call denied: permission required');
+  ok(co.category === 'permission' && co.kind === 'blocked' && co.code === 'PERMISSION_DENIED' && co.retryable === false, 'classifyOutcome: permission → blocked/PERMISSION_DENIED');
+  co = quota.classifyOutcome('ECONNRESET');
+  ok(co.category === 'transient' && co.kind === 'transient' && co.retryable === true && co.policy.retry === true, 'classifyOutcome: transient is retryable');
+  co = quota.classifyOutcome('', { timed_out: true });
+  ok(co.category === 'transient' && co.retryable === true, 'classifyOutcome: timeout is transient');
+  co = quota.classifyOutcome('boom');
+  ok(co.category === 'permanent' && co.kind === 'fatal' && co.code === 'PROVIDER_FAILED' && co.retryable === false, 'classifyOutcome: permanent → fatal/PROVIDER_FAILED');
+  ok(quota.classifyFailureDetail('protected path').category === 'governance' && quota.classifyFailureDetail('protected path').kind === 'blocked', 'classifyFailureDetail: carries category');
+  ok(quota.classifyFailure('protected path') === 'blocked', 'classifyFailure: governance maps to the legacy blocked kind');
+  ok(quota.classifyBlockedReport('BLOCKED: file is governance-protected') === 'GOVERNANCE_DENIED', 'classifyBlockedReport: governance');
+  ok(quota.classifyBlockedReport('BLOCKED: permission required to edit') === 'PERMISSION_DENIED', 'classifyBlockedReport: permission');
+  ok(quota.classifyBlockedReport('BLOCKED: need a decision on the API shape') === 'HUMAN_APPROVAL', 'classifyBlockedReport: default human approval');
+  ok(quota.RETRY_POLICY.governance.retry === false && quota.RETRY_POLICY.permission.retry === false && quota.RETRY_POLICY.transient.retry === true,
+    'RETRY_POLICY: governance/permission never auto-retried, transient is');
 })();
 
 // ---------------------------------------------------------------------------
@@ -1584,6 +1632,74 @@ chain = chain.then(function () {
     return executor.runTask(tf.task_id).then(function (st) {
       var rep = state.readJSON(tf.task_id, 'report.json');
       ok(st.status === 'FAILED' && rep.structured.status === 'failed' && rep.blocker.code === 'PROVIDER_FAILED' && /permanent failure/.test(rep.blocker.reason), 'fatal: structured report with PROVIDER_FAILED');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// gh-issue-118 §5/§7/§10 — the retry policy is durable and observable: every
+// failure is classified once (transient / permanent / governance / permission
+// / human), the classification and the backoff figures live on status.json,
+// every transition names its reason, and governance denials are never retried.
+// ---------------------------------------------------------------------------
+chain = chain.then(function () {
+  setScript([{ kind: 'transient', text: 'API Error: 529 overloaded_error' }]);
+  var t = mkTask({ stage: 'RETRY-POLICY-T', max_retries: 3, attempt_id: 'gh-rp#1' });
+  return executor.runTask(t.task_id).then(function (st) {
+    ok(st.status === 'WAITING_RETRY' && st.last_failure && st.last_failure.category === 'transient' && st.last_failure.retryable === true && st.last_failure.code === null,
+      'retry-policy: transient failure classified on status.last_failure (no terminal code yet)');
+    var rb = st.retry_backoff;
+    ok(rb && rb.attempt === 1 && rb.max_retries === 3 && rb.base_ms === quota.RETRY_BASE_MS && rb.delay_ms >= rb.base_ms && rb.delay_ms <= 1.5 * rb.base_ms && rb.max_ms === quota.RETRY_MAX_MS,
+      'retry-policy: retry_backoff records attempt/base/delay (with jitter) durably');
+    ok(Math.abs(Date.parse(st.retry_at) - (Date.parse(st.updated_at) + rb.delay_ms)) < 5000, 'retry-policy: retry_at is the recorded delay from the transition');
+    ok(/transient/.test(st.transition_reason) && /retry 1\/3/.test(st.transition_reason), 'retry-policy: transition_reason explains the wait');
+    var ev = eventsOf(t.task_id);
+    var fc = ev.filter(function (e) { return e.event === 'failure_classified'; })[0];
+    ok(fc && fc.category === 'transient' && fc.retryable === true, 'retry-policy: failure_classified event in the audit trail');
+    var tr = ev.filter(function (e) { return e.event === 'transition' && e.to === 'WAITING_RETRY'; })[0];
+    ok(tr && /transient/.test(tr.reason), 'retry-policy: the transition event carries the reason');
+    var tf = ev.filter(function (e) { return e.event === 'transient_failure'; })[0];
+    ok(tf && tf.max_retries === 3 && tf.delay_ms === rb.delay_ms, 'retry-policy: transient_failure event records the schedule');
+  }).then(function () {
+    // Governance denial text from the provider: BLOCKED GOVERNANCE_DENIED, never retried, even with retries left.
+    setScript([{ kind: 'fatal', text: 'commit refused: control/tasks is governance-protected (GOVERNANCE_DENIED)' }]);
+    var tg = mkTask({ stage: 'RETRY-POLICY-G', max_retries: 3, attempt_id: 'gh-rp#2' });
+    return executor.runTask(tg.task_id).then(function (st) {
+      var rep = state.readJSON(tg.task_id, 'report.json');
+      ok(st.status === 'BLOCKED' && st.retry_count === 0, 'retry-policy: governance denial → BLOCKED with zero retries');
+      ok(st.last_failure && st.last_failure.category === 'governance' && st.last_failure.retryable === false && st.last_failure.code === 'GOVERNANCE_DENIED',
+        'retry-policy: governance category recorded on status');
+      ok(rep && rep.blocker && rep.blocker.code === 'GOVERNANCE_DENIED' && rep.blocker.category === 'governance' && rep.blocker.retryable === false,
+        'retry-policy: structured report blocker GOVERNANCE_DENIED / governance');
+      ok(/governance/.test(st.transition_reason) && /GOVERNANCE_DENIED/.test(st.transition_reason), 'retry-policy: transition reason names governance');
+      ok(/re-scope|rule|rerun/.test(st.next_action), 'retry-policy: next_action is a governance decision, not a retry');
+      var fc = eventsOf(tg.task_id).filter(function (e) { return e.event === 'failure_classified'; })[0];
+      ok(fc && fc.category === 'governance' && fc.retryable === false, 'retry-policy: governance classification in the audit trail');
+    });
+  }).then(function () {
+    // A blocked structured report whose text is a governance refusal gets the governance code, not HUMAN_APPROVAL.
+    setScript([{ kind: 'malformed', text: 'stopping\n```json\n{"mythos_report": true, "status": "blocked", "summary": "governance-protected path: .github/workflows must not be edited", "tests": [], "commit": null}\n```' }]);
+    var tb = mkTask({ stage: 'RETRY-POLICY-B', attempt_id: 'gh-rp#3' });
+    return executor.runTask(tb.task_id).then(function (st) {
+      var rep = state.readJSON(tb.task_id, 'report.json');
+      ok(st.status === 'BLOCKED' && rep.blocker.code === 'GOVERNANCE_DENIED' && rep.blocker.retryable === false, 'retry-policy: blocked report naming a protected path → GOVERNANCE_DENIED');
+    });
+  }).then(function () {
+    // Permanent failure with retries left: FAILED, classified permanent, reason recorded.
+    setScript([{ kind: 'fatal', text: 'segfault in module' }]);
+    var tp = mkTask({ stage: 'RETRY-POLICY-P', max_retries: 3, attempt_id: 'gh-rp#4' });
+    return executor.runTask(tp.task_id).then(function (st) {
+      ok(st.status === 'FAILED' && st.last_failure.category === 'permanent' && st.last_failure.retryable === false && /permanent failure/.test(st.transition_reason),
+        'retry-policy: permanent failure recorded with its reason, no retry');
+    });
+  }).then(function () {
+    // Exhausted retries record the policy figures on the blocker.
+    setScript([{ kind: 'transient', text: 'ECONNRESET' }]);
+    var te = mkTask({ stage: 'RETRY-POLICY-E', max_retries: 0, attempt_id: 'gh-rp#5' });
+    return executor.runTask(te.task_id).then(function (st) {
+      var rep = state.readJSON(te.task_id, 'report.json');
+      ok(st.status === 'FAILED' && rep.blocker && rep.blocker.category === 'transient' && /exhausted|max_retries|retries/.test(rep.blocker.reason + ' ' + st.transition_reason),
+        'retry-policy: retries exhausted → FAILED with the transient category and the exhaustion reason');
     });
   });
 });

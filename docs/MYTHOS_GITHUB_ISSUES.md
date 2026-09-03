@@ -159,6 +159,14 @@ read empty. Both paths silently produced `requested_action=investigate → repo-
   carry `fence` and `lease`. The bridge records its `runtime_identity` (checkout, branch, HEAD) on every claim and
   report — `RUNTIME_IDENTITY_UNVERIFIED` / `RUNTIME_STALE_CHECKOUT` / `RUNTIME_IDENTITY_MISMATCH` are stated, not hidden
   (`MYTHOS_BRIDGE_EXPECTED_HEAD`, `MYTHOS_BRIDGE_STRICT_RUNTIME=1` refuses claims on mismatch).
+- Reliability round 2 (gh-issue-118-r2, `docs/MYTHOS_GITHUB_BRIDGE.md` §12e): an UNVERIFIED or MISMATCHED
+  runtime never claims by default (deferral with `runtime:<code>`, opt-out `MYTHOS_BRIDGE_ALLOW_UNVERIFIED_RUNTIME=1`);
+  an expired claim lease is recorded once and never re-run; every provider failure is classified
+  (transient / permanent / governance / permission / human) with a durable retry decision — governance and permission
+  denials are `BLOCKED` with `GOVERNANCE_DENIED` / `PERMISSION_DENIED` and never retried automatically, transient
+  failures back off exponentially with jitter up to `max_retries`. A rerun whose previous attempt was *defaulted*
+  (no Action stated then either) is defaulted again, not marked "inherited"; the refused candidate and its reason
+  are on `source.resolution.action_candidates` and in the notes.
 
 ## 4. Security
 

@@ -599,8 +599,15 @@ async function run() {
   var c9 = actionsOf(rB.phases.intake, 'create').filter(function (a) { return a.issue === 9; })[0];
   ok(c9 && c9.task_id === 'gh-issue-9-r2' && taskOnDisk('gh-issue-9-r2') && taskOnDisk('gh-issue-9').status === 'BLOCKED',
     'rerun BLOCKED: a BLOCKED attempt reruns into gh-issue-9-r2 and the blocked record is untouched');
-  ok(taskOnDisk('gh-issue-9-r2').requested_action === taskOnDisk('gh-issue-9').requested_action && taskOnDisk('gh-issue-9-r2').source.inherited.requested_action === true,
-    'rerun BLOCKED: the unedited body still states no Action, so attempt 1\'s action is inherited');
+  // gh-issue-118 §3: attempt 1 never DECIDED an action (it was defaulted), so
+  // the rerun is defaulted again rather than dressed up as "inherited"; the
+  // ineligible candidate and its reason stay in the resolution trail.
+  var t9r2 = taskOnDisk('gh-issue-9-r2');
+  ok(taskOnDisk('gh-issue-9').action_source === 'default' && t9r2.requested_action === taskOnDisk('gh-issue-9').requested_action && t9r2.action_source === 'default' && t9r2.source.inherited.requested_action === false,
+    'rerun BLOCKED: the unedited body still states no Action and attempt 1 was defaulted → defaulted again, not "inherited"');
+  var ign9 = (t9r2.source.resolution.action_candidates || []).filter(function (c) { return c.source === 'inherited_previous_attempt'; })[0];
+  ok(ign9 && ign9.eligible === false && /defaulted, not decided/.test(ign9.ignored_reason) && /not inherited: previous attempt gh-issue-9 was defaulted/.test(t9r2.notes),
+    'rerun BLOCKED: the refused inheritance is recorded on the resolution and in the notes');
 
   // The whole point of A: no rerun request was ever silently dropped.
   var reruns = ['gh-issue-1-r2', 'gh-issue-9-r2', 'gh-issue-20-r2', 'gh-issue-21-r2', 'gh-issue-23-r2'];

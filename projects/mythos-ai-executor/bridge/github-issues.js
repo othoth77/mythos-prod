@@ -525,6 +525,7 @@ function issueToTask(cfg, issue, attempt, previous) {
     (act.action_source === 'inherited_previous_attempt' ? ': inherited from ' + previous.task_id + ' ("' + act.requested_action + '") because this rerun body states no Action. State `Action: <x>` (or a label `action:<x>`) to change it.' : '') +
     (act.action_source === 'default' ? ': defaulted to "' + act.requested_action + '" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).' : '') +
     (act.conflict ? ' — other candidates ignored: ' + act.conflict : '') +
+    (act.candidates || []).filter(function (c) { return c.eligible === false; }).map(function (c) { return ' — not inherited: ' + short(c.ignored_reason, 160); }).join('') +
     (profile ? ' → execution profile ' + profile : ''));
   if (model.model_key) {
     notesParts.push('model: ' + model.model_key + ' — source ' + model.model_source + ' (written as "' + short(model.model_raw, 40) + '")' +
@@ -602,7 +603,11 @@ function issueToTask(cfg, issue, attempt, previous) {
       action_raw: act.action_raw,
       action_source: act.action_source,
       action_conflict: act.conflict,
-      action_candidates: act.candidates.map(function (c) { return { source: c.source, raw: short(c.raw, 60), action: c.action, form: c.form || null, line: c.line || null }; }),
+      action_candidates: act.candidates.map(function (c) {
+        var row = { source: c.source, raw: short(c.raw, 60), action: c.action, form: c.form || null, line: c.line || null };
+        if (c.eligible === false) { row.eligible = false; row.ignored_reason = short(c.ignored_reason, 200); }
+        return row;
+      }),
       execution_profile: profile,
       expected_delivery: act.requested_action ? engine.deliveryFor(act.requested_action) : null,
       model_key: model.model_key,

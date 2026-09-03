@@ -337,6 +337,8 @@ function blockBeforeProvider(task, taskId, blocker) {
   var status = state.transition(taskId, 'BLOCKED', {
     pid: null, ended_at: new Date().toISOString(),
     last_error: blocker.code + ': ' + String(blocker.reason).slice(0, 400),
+    last_failure: { category: 'governance', code: blocker.code, retryable: false, timed_out: false, classified_at: new Date().toISOString() },
+    transition_reason: 'preflight invariant ' + blocker.code + ' — refused before any provider started; never retried automatically',
     next_action: blocker.code + ' — refused before the provider started: ' + String(blocker.reason).slice(0, 300)
   });
   var structured = reporting.synthesize({
@@ -665,7 +667,7 @@ function handleSuccess(task, taskId, outcome, parsed) {
   var blocker = null;
   if (report && report.status === 'blocked') {
     var text = [report.summary, report.next_stage].concat(report.residual_risks || []).join('\n');
-    var code = quota.isPermissionDenied(text) ? 'PERMISSION_DENIED' : (/governance|protected path|DENIED/i.test(text) ? 'GOVERNANCE_DENIED' : 'HUMAN_APPROVAL');
+    var code = quota.classifyBlockedReport(text);
     blocker = engine.blocker(code, { reason: String(report.summary || '').slice(0, 800), task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
   } else if (report && report.status === 'failed') {
     blocker = engine.blocker('PROVIDER_FAILED', { reason: String(report.summary || '').slice(0, 800), task_id: taskId, attempt_id: task.attempt_id || null });
@@ -730,9 +732,14 @@ function handleFailure(task, taskId, outcome, mode, opts) {
     return runTaskCore(taskId, { _recreated: true });
   }
 
-  var detail = outcome.timed_out ? { kind: 'transient', code: null } : quota.classifyFailureDetail(text);
+  // ONE classification decides the retry policy (lib/quota.js): the category
+  // is durable on status.json and in events.log, so "why was / wasn't this
+  // retried?" is answered from the record, not from re-reading stderr.
+  var detail = quota.classifyOutcome(text, { timed_out: !!outcome.timed_out });
   var kind = detail.kind;
   var now = Date.now();
+  var lastFailure = { category: detail.category, code: detail.code, retryable: detail.retryable, timed_out: !!outcome.timed_out, classified_at: new Date(now).toISOString() };
+  state.appendEvent(taskId, 'failure_classified', { category: detail.category, kind: kind, code: detail.code, retryable: detail.retryable, timed_out: !!outcome.timed_out, retry_policy: detail.policy.strategy });
 
   if (kind === 'quota') {
     // CORE REQUIREMENT (mission §7): not a failure. Same session resumes.
@@ -748,7 +755,9 @@ function handleFailure(task, taskId, outcome, mode, opts) {
         resume_after: new Date(resumeAfter).toISOString()
       },
       next_action: 'automatic resume of session after ' + new Date(resumeAfter).toISOString(),
-      last_error: 'quota exhausted'
+      last_error: 'quota exhausted',
+      last_failure: lastFailure,
+      transition_reason: 'quota exhausted — not a failure; the same session resumes after the window'
     });
     writeCheckpoint(task, updated, {
       current_step: 'waiting_for_quota',
@@ -764,24 +773,32 @@ function handleFailure(task, taskId, outcome, mode, opts) {
 
   if (kind === 'transient') {
     var retryCount = (status.retry_count || 0) + 1;
-    if (retryCount > (task.max_retries === undefined ? 3 : task.max_retries)) {
+    var maxRetries = task.max_retries === undefined ? 3 : task.max_retries;
+    if (retryCount > maxRetries) {
       var failed = state.transition(taskId, 'FAILED', {
         pid: null, retry_count: retryCount, ended_at: new Date().toISOString(),
         last_error: 'transient failures exceeded max_retries: ' + tailOf(text.trim(), 300),
+        last_failure: lastFailure,
+        transition_reason: 'transient failure #' + retryCount + ' exceeds max_retries=' + maxRetries + ' — the bounded retry budget is spent',
         next_action: 'inspect logs; re-queue explicitly if appropriate'
       });
-      state.appendEvent(taskId, 'retries_exhausted', { retry_count: retryCount, status: 'FAILED' });
-      writeFailureReport(task, taskId, failed, 'failed', engine.blocker('PROVIDER_FAILED', { reason: 'transient failures exceeded max_retries (' + retryCount + '): ' + tailOf(text.trim(), 300), task_id: taskId, attempt_id: task.attempt_id || null, retries: retryCount }));
+      state.appendEvent(taskId, 'retries_exhausted', { retry_count: retryCount, max_retries: maxRetries, status: 'FAILED' });
+      writeFailureReport(task, taskId, failed, 'failed', engine.blocker('PROVIDER_FAILED', { reason: 'transient failures exceeded max_retries (' + retryCount + '): ' + tailOf(text.trim(), 300), task_id: taskId, attempt_id: task.attempt_id || null, retries: retryCount, category: 'transient' }));
       notify('task_failed', task.stage, taskId + ' FAILED after ' + retryCount + ' retries');
       return failed;
     }
-    var retryAt = new Date(now + quota.retryDelayMs(retryCount - 1)).toISOString();
+    var baseMs = quota.retryBaseDelayMs(retryCount - 1);
+    var delayMs = quota.retryDelayMs(retryCount - 1);
+    var retryAt = new Date(now + delayMs).toISOString();
     var waiting = state.transition(taskId, 'WAITING_RETRY', {
       pid: null, retry_count: retryCount, retry_at: retryAt,
       last_error: tailOf(text.trim(), 300),
+      last_failure: lastFailure,
+      retry_backoff: { attempt: retryCount, max_retries: maxRetries, base_ms: baseMs, delay_ms: delayMs, jitter: 'additive', max_ms: quota.RETRY_MAX_MS },
+      transition_reason: (outcome.timed_out ? 'provider timed out' : 'transient provider/network failure') + ' — retry ' + retryCount + '/' + maxRetries + ' after ' + delayMs + ' ms (base ' + baseMs + ' ms, additive jitter)',
       next_action: 'automatic retry after ' + retryAt
     });
-    state.appendEvent(taskId, 'transient_failure', { retry_count: retryCount, retry_at: retryAt, status: 'WAITING_RETRY' });
+    state.appendEvent(taskId, 'transient_failure', { retry_count: retryCount, max_retries: maxRetries, retry_at: retryAt, base_ms: baseMs, delay_ms: delayMs, timed_out: !!outcome.timed_out, status: 'WAITING_RETRY' });
     return waiting;
   }
 
@@ -789,14 +806,20 @@ function handleFailure(task, taskId, outcome, mode, opts) {
   var final = state.transition(taskId, terminal, {
     pid: null, ended_at: new Date().toISOString(),
     last_error: tailOf(text.trim(), 500),
+    last_failure: lastFailure,
+    transition_reason: detail.category + ' failure (' + detail.code + ') — ' + detail.policy.strategy,
     next_action: terminal === 'BLOCKED'
-      ? 'genuine human blocker — resolve credential/authorization and re-queue'
+      ? (detail.category === 'governance'
+        ? 'governance denial — re-scope the task or the owner changes the rule, then rerun (never retried automatically)'
+        : detail.category === 'permission'
+          ? 'permission denial — a human grants the operation or the task is re-scoped, then rerun (never retried automatically)'
+          : 'genuine human blocker — resolve credential/authorization and re-queue')
       : 'permanent failure — inspect stderr.log'
   });
   writeCheckpoint(task, final, { current_step: terminal.toLowerCase() });
-  var fb = engine.blocker(detail.code || (terminal === 'BLOCKED' ? 'PROVIDER_BLOCKED' : 'PROVIDER_FAILED'), { reason: tailOf(text.trim(), 500), task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
+  var fb = engine.blocker(detail.code || (terminal === 'BLOCKED' ? 'PROVIDER_BLOCKED' : 'PROVIDER_FAILED'), { reason: tailOf(text.trim(), 500), category: detail.category, task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
   writeFailureReport(task, taskId, final, terminal.toLowerCase(), fb);
-  state.appendEvent(taskId, kind + '_failure', { status: terminal, code: fb.code });
+  state.appendEvent(taskId, kind + '_failure', { status: terminal, code: fb.code, category: detail.category });
   notify('task_failed', task.stage, taskId + ' ' + terminal);
   return final;
 }

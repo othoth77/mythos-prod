@@ -473,6 +473,62 @@ runExecutorTicks(2).then(function () {
     ok(repK.runtime_identity && repK.runtime_identity.code === 'RUNTIME_IDENTITY_UNVERIFIED', 'V: the report carries RUNTIME_IDENTITY_UNVERIFIED');
   }
 
+  // W — gh-issue-118 §9: the runtime gate (pure). An unverifiable or
+  // mismatched runtime never claims; a merely stale checkout claims unless
+  // strict. The decision is data, so the tick, the log and the CLI agree.
+  var gcfg = bridge.config();
+  var gUnv = { code: 'RUNTIME_IDENTITY_UNVERIFIED', reason: 'cannot resolve the git checkout/HEAD of /x' };
+  var gW = bridge.runtimeGate(gUnv, gcfg);
+  ok(gW.claims_allowed === false && gW.code === 'RUNTIME_IDENTITY_UNVERIFIED' && /no new claims/.test(gW.reason) && gW.mode === 'default', 'W: RUNTIME_IDENTITY_UNVERIFIED refuses claims by default');
+  process.env.MYTHOS_BRIDGE_ALLOW_UNVERIFIED_RUNTIME = '1';
+  var gW2 = bridge.runtimeGate(gUnv, bridge.config());
+  ok(gW2.claims_allowed === true && /MYTHOS_BRIDGE_ALLOW_UNVERIFIED_RUNTIME=1/.test(gW2.reason), 'W: MYTHOS_BRIDGE_ALLOW_UNVERIFIED_RUNTIME=1 is the explicit, recorded opt-out');
+  delete process.env.MYTHOS_BRIDGE_ALLOW_UNVERIFIED_RUNTIME;
+  ok(bridge.runtimeGate({ code: 'RUNTIME_IDENTITY_MISMATCH', reason: 'running from aaaa but expected bbbb' }, bridge.config()).claims_allowed === false, 'W: RUNTIME_IDENTITY_MISMATCH refuses claims even without strict mode');
+  var gStale = { code: 'RUNTIME_STALE_CHECKOUT', reason: 'behind origin/main' };
+  ok(bridge.runtimeGate(gStale, bridge.config()).claims_allowed === true, 'W: RUNTIME_STALE_CHECKOUT alone keeps claiming (deploy lag must not stall the channel)');
+  process.env.MYTHOS_BRIDGE_STRICT_RUNTIME = '1';
+  var gW3 = bridge.runtimeGate(gStale, bridge.config());
+  ok(gW3.claims_allowed === false && gW3.mode === 'strict' && /MYTHOS_BRIDGE_STRICT_RUNTIME=1/.test(gW3.reason), 'W: strict mode refuses a stale checkout, naming the switch');
+  delete process.env.MYTHOS_BRIDGE_STRICT_RUNTIME;
+  ok(bridge.runtimeGate({ code: null }, bridge.config()).claims_allowed === true && bridge.runtimeGate(null, bridge.config()).claims_allowed === true, 'W: a verified runtime claims');
+  if (rt.verified) {
+    // The tick applies the gate: a mismatch (no strict mode) defers with the reason on the action and in the bridge log.
+    process.env.MYTHOS_BRIDGE_EXPECTED_HEAD = 'cafef00dcafef00dcafef00dcafef00dcafef00d';
+    plannerWrite('gh-inv-0006.json', mkTask('gh-inv-0006', { objective: 'Must not be claimed by a mismatched runtime, strict or not.' }));
+    var rW = bridge.tick(executor);
+    var dW = actionsOf(rW, 'defer').filter(function (a) { return a.task_id === 'gh-inv-0006'; })[0];
+    ok(dW && dW.reason === 'runtime:RUNTIME_IDENTITY_MISMATCH' && /no new claims/.test(dW.detail) && executorTasksFor('gh-inv-0006').length === 0,
+      'W: tick defers with reason runtime:RUNTIME_IDENTITY_MISMATCH without MYTHOS_BRIDGE_STRICT_RUNTIME');
+    var rtW = actionsOf(rW, 'runtime')[0];
+    ok(rtW && rtW.claims_allowed === false && rtW.gate_mode === 'default', 'W: the runtime action on the tick shows claims_allowed=false');
+    var blog = fs.readFileSync(path.join(process.env.MYTHOS_BRIDGE_HOME, 'events.log'), 'utf8');
+    ok(/"bridge":"claim_deferred"/.test(blog) && /gh-inv-0006/.test(blog) && /runtime:RUNTIME_IDENTITY_MISMATCH/.test(blog), 'W: claim_deferred is in the durable bridge log with the reason');
+    delete process.env.MYTHOS_BRIDGE_EXPECTED_HEAD;
+    var rW2 = bridge.tick(executor);
+    ok(actionsOf(rW2, 'claim').some(function (a) { return a.task_id === 'gh-inv-0006'; }), 'W: the first verifying tick claims it');
+    var cliGate = cp.spawnSync(process.execPath, [path.join(EXEC, 'bin', 'mythos-github-bridge'), 'runtime'], { env: process.env, encoding: 'utf8' });
+    ok(cliGate.status === 0 && /"gate"/.test(cliGate.stdout) && /"claims_allowed": true/.test(cliGate.stdout), 'W: the runtime CLI prints the gate decision');
+
+    // X — gh-issue-118 §4: lease expiry is observed once, recorded on the
+    // task and in the log, and never turns into a re-claim or a second run.
+    relay();
+    var leased = JSON.parse(plannerRead('tasks/gh-inv-0006.json'));
+    ok(leased.execution.lease && leased.execution.lease.expires_at && leased.execution.lease.fence === leased.execution.fence, 'X: the claim carries a lease with an expiry and the claim fence');
+    leased.execution.lease.expires_at = new Date(Date.now() - 5 * 60000).toISOString();
+    plannerWrite('gh-inv-0006.json', leased, 'test: age the lease of gh-inv-0006');
+    var rX = bridge.tick(executor);
+    var lx = actionsOf(rX, 'lease_expired');
+    ok(lx.length === 1 && lx[0].task_id === 'gh-inv-0006' && lx[0].executor_status === 'QUEUED', 'X: an expired lease on a non-terminal attempt is reported as lease_expired');
+    var tX = taskOnDisk('gh-inv-0006');
+    ok(tX.execution.lease.expired_noted_at && tX.execution.lease.expired_executor_status === 'QUEUED' && tX.history.some(function (h) { return /^LEASE_EXPIRED:/.test(h.note) && /not re-claimed or re-run/.test(h.note); }),
+      'X: the expiry is durable on the task (expired_noted_at + history note)');
+    ok(executorTasksFor('gh-inv-0006').length === 1 && actionsOf(rX, 'claim').every(function (a) { return a.task_id !== 'gh-inv-0006'; }), 'X: no re-claim, no second executor task');
+    var rX2 = bridge.tick(executor);
+    ok(actionsOf(rX2, 'lease_expired').length === 0 && taskOnDisk('gh-inv-0006').execution.lease.expired_noted_at === tX.execution.lease.expired_noted_at, 'X: observed exactly once');
+    ok(/"bridge":"lease_expired"/.test(fs.readFileSync(path.join(process.env.MYTHOS_BRIDGE_HOME, 'events.log'), 'utf8')), 'X: lease_expired is in the durable bridge log');
+  }
+
   // Trail — the whole chain is reconstructible from durable records.
   var tr = bridge.trail('gh-inv-0002');
   var stages = tr.events.map(function (e) { return e.stage; });

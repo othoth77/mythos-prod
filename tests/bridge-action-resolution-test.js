@@ -80,7 +80,7 @@ ok(act('Action: implement\nAction: review').requested_action === 'implement' && 
   'the first explicit statement wins; a second explicit one is not a conflict of sources');
 
 // --- Precedence: explicit current > label > inherited > default -----------------------------------
-var prev = { task_id: 'gh-issue-1', requested_action: 'implement' };
+var prev = { task_id: 'gh-issue-1', requested_action: 'implement', action_source: 'explicit_current_issue' };
 ok(act('## Objective\nx', { previous: prev }).action_source === 'inherited_previous_attempt' && act('## Objective\nx', { previous: prev }).requested_action === 'implement',
   'rerun without Action inherits the previous attempt (H)');
 ok(act('Action: review', { previous: prev }).requested_action === 'review' && act('Action: review', { previous: prev }).action_source === 'explicit_current_issue',
@@ -95,6 +95,27 @@ ok(act('## Objective\nx').action_source === 'default' && act('## Objective\nx').
 ok(act('## Objective\nx', { previous: { task_id: 'p', requested_action: 'deploy' } }).action_source === 'default', 'an invalid previous action is never inherited');
 var cands = act('Action: review', { labels: ['action:implement'], previous: prev }).candidates;
 ok(cands.map(function (c) { return c.source; }).join('>') === 'explicit_current_issue>action_label>inherited_previous_attempt>default', 'candidates are listed in precedence order');
+// gh-issue-118 §3 — a rerun inherits a DECISION, never a default: the
+// previous attempt that itself fell back to the default (nothing was stated
+// then either) cannot make the new attempt look decided.
+var prevDefaulted = { task_id: 'gh-issue-2', requested_action: 'investigate', action_source: 'default' };
+var rd = act('## Objective\nx', { previous: prevDefaulted, defaultAction: 'review' });
+ok(rd.action_source === 'default' && rd.requested_action === 'review', 'a defaulted previous attempt is not inherited — the current default applies');
+var rdInh = rd.candidates.filter(function (c) { return c.source === 'inherited_previous_attempt'; })[0];
+ok(rdInh && rdInh.eligible === false && /defaulted, not decided/.test(rdInh.ignored_reason) && rdInh.previous_source === 'default' && rdInh.from === 'gh-issue-2',
+  'the ineligible inherited candidate stays in the trail with the reason');
+ok(rd.conflict === null, 'an ineligible candidate is not a conflict');
+var prevDecided = { task_id: 'gh-issue-3', requested_action: 'implement', action_source: 'explicit_current_issue' };
+var rdi = act('## Objective\nx', { previous: prevDecided });
+ok(rdi.action_source === 'inherited_previous_attempt' && rdi.requested_action === 'implement' && rdi.candidates.filter(function (c) { return c.source === 'inherited_previous_attempt'; })[0].eligible === true,
+  'a decided previous attempt (explicit) is inherited');
+ok(act('## Objective\nx', { previous: { task_id: 'gh-issue-4', requested_action: 'document', action_source: 'action_label' } }).requested_action === 'document', 'a label-decided previous attempt is inherited');
+ok(act('## Objective\nx', { previous: { task_id: 'gh-issue-5', requested_action: 'test', action_source: 'inherited_previous_attempt' } }).requested_action === 'test', 'an inherited decision keeps inheriting across reruns');
+ok(act('Action: review', { previous: prevDefaulted }).action_source === 'explicit_current_issue' && act('Action: review', { previous: prevDefaulted }).requested_action === 'review',
+  'an explicit current Action still wins over a defaulted previous attempt');
+var rdLegacy = act('## Objective\nx', { previous: { task_id: 'gh-issue-6', requested_action: 'investigate' } });
+ok(rdLegacy.action_source === 'default' && /no action_source/.test(rdLegacy.candidates.filter(function (c) { return c.source === 'inherited_previous_attempt'; })[0].ignored_reason),
+  'a pre-engine record with no action_source (unknown provenance) is not inherited');
 
 // --- The real bodies that failed live -------------------------------------------------------------
 [111, 114, 117, 118].forEach(function (n) {

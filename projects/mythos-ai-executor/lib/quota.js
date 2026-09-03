@@ -59,18 +59,31 @@ var BLOCKED_PATTERNS = [
   /OAuth token has expired/i
 ];
 
-// Permission / governance denials from the headless CLI or the relay. They
-// are BLOCKED (a human grants, or the task is re-scoped) and they carry a
-// code so the bridge can classify the retry policy without pattern matching
-// again: none of these is ever retried automatically.
+// Permission denials from the headless CLI (a tool call, edit or command the
+// permission mode refused, or an approval prompt nobody could answer). They
+// are BLOCKED (a human grants, or the task is re-scoped) and carry the code
+// PERMISSION_DENIED: never retried automatically.
 var PERMISSION_PATTERNS = [
   /permission (?:denied|required|prompt)/i,
   /requires? approval/i,
   /(?:tool|command|edit|write) .{0,40}(?:was |is )?(?:denied|not allowed|refused)/i,
-  /denied by (?:policy|governance)/i,
   /\bDENIED\b/,
-  /protected path/i,
   /EACCES/
+];
+
+// Governance denials: MYTHOS's own rules refused the operation (protected
+// path, policy, the relay, a control-commit scope, an invariant). Distinct
+// from a CLI permission prompt because the fix is a decision (re-scope the
+// task or the owner changes the rule), never a grant — and, like every
+// blocker, never a retry. Checked BEFORE the permission patterns because a
+// governance refusal is usually also worded as a denial.
+var GOVERNANCE_PATTERNS = [
+  /denied by (?:policy|governance)/i,
+  /governance[- ]protected/i,
+  /governance (?:relay |policy )?(?:refused|denied|rejected|blocked)/i,
+  /protected path/i,
+  /PROTECTED_PATH|GOVERNANCE_DENIED|CONTROL_COMMIT_SCOPE|ACTION_PROFILE_MISMATCH|ATTEMPT_SNAPSHOT_MUTATED/,
+  /(?:push|commit) (?:to|on) .{0,40}(?:refused|rejected|forbidden|not allowed)/i
 ];
 
 function matchAny(patterns, text) {
@@ -84,29 +97,76 @@ function matchAny(patterns, text) {
 function isQuota(text) { return matchAny(QUOTA_PATTERNS, text); }
 function isTransient(text) { return matchAny(TRANSIENT_PATTERNS, text); }
 function isBlocked(text) { return matchAny(BLOCKED_PATTERNS, text); }
-
-// Classifies a finished provider run. `text` should combine the structured
-// result message and raw stderr/stdout tails. Precedence: quota > blocked >
-// transient > fatal. Success is decided by the caller from the structured
-// result, never here.
 function isPermissionDenied(text) { return matchAny(PERMISSION_PATTERNS, text); }
+function isGovernanceDenied(text) { return matchAny(GOVERNANCE_PATTERNS, text); }
 
-function classifyFailure(text) {
+// --- Outcome classification (the single decision) ------------------------------
+//
+// Every failed provider run is one of six CATEGORIES. The category decides
+// the retry policy; the code is what the structured report and the Issue
+// carry. Precedence: quota > governance > permission > human > transient >
+// permanent — a quota message often also says "limit", a governance refusal
+// is usually worded as a denial, and a permanent error may mention a 5xx in
+// passing. Success is decided by the caller from the structured result,
+// never here.
+//
+//   category    kind        code                retry
+//   quota       quota       —                   resume the SAME session after the window
+//   transient   transient   —                   exponential backoff + jitter, bounded by max_retries
+//   permission  blocked     PERMISSION_DENIED   never (a human grants or re-scopes)
+//   governance  blocked     GOVERNANCE_DENIED   never (a decision, not a grant)
+//   human       blocked     PROVIDER_BLOCKED    never (billing / credential / account)
+//   permanent   fatal       PROVIDER_FAILED     never (inspect, re-queue explicitly)
+//
+// Patterns from Temporal / Hatchet / Trigger.dev / Svix: classify before
+// retrying, retry only what a retry can change, back off with jitter, cap
+// the attempts — implemented locally, no runtime dependency.
+var CATEGORIES = ['quota', 'transient', 'permission', 'governance', 'human', 'permanent'];
+var KIND_BY_CATEGORY = { quota: 'quota', transient: 'transient', permission: 'blocked', governance: 'blocked', human: 'blocked', permanent: 'fatal' };
+var CODE_BY_CATEGORY = { quota: null, transient: null, permission: 'PERMISSION_DENIED', governance: 'GOVERNANCE_DENIED', human: 'PROVIDER_BLOCKED', permanent: 'PROVIDER_FAILED' };
+
+function categorize(text) {
   if (isQuota(text)) return 'quota';
-  if (isBlocked(text) || isPermissionDenied(text)) return 'blocked';
+  if (isGovernanceDenied(text)) return 'governance';
+  if (isPermissionDenied(text)) return 'permission';
+  if (isBlocked(text)) return 'human';
   if (isTransient(text)) return 'transient';
-  return 'fatal';
+  return 'permanent';
 }
 
+// { category, kind, code, retryable, policy } — `retryable` means the
+// executor itself will try again (quota resume or transient backoff); every
+// blocker category is false and is surfaced for a human/rerun instead.
+function classifyOutcome(text, opts) {
+  opts = opts || {};
+  var category = opts.timed_out ? 'transient' : categorize(text);
+  return {
+    category: category,
+    kind: KIND_BY_CATEGORY[category],
+    code: CODE_BY_CATEGORY[category],
+    retryable: category === 'quota' || category === 'transient',
+    policy: RETRY_POLICY[category]
+  };
+}
+
+// Kept for callers that only need the coarse kind. Precedence is the same.
+function classifyFailure(text) { return KIND_BY_CATEGORY[categorize(text)]; }
+
 // Same decision, plus the blocker code the structured report carries.
-// { kind, code }  — code is null for quota/transient (they are continuations,
-// not blockers).
+// { kind, code, category }  — code is null for quota/transient (they are
+// continuations, not blockers).
 function classifyFailureDetail(text) {
-  var kind = classifyFailure(text);
-  var code = null;
-  if (kind === 'blocked') code = isPermissionDenied(text) && !isBlocked(text) ? 'PERMISSION_DENIED' : 'PROVIDER_BLOCKED';
-  if (kind === 'fatal') code = 'PROVIDER_FAILED';
-  return { kind: kind, code: code };
+  var c = classifyOutcome(text);
+  return { kind: c.kind, code: c.code, category: c.category };
+}
+
+// A provider that ENDED CLEANLY with a `status: blocked` report: which kind
+// of blocker is it? The report text decides — governance first, then a
+// permission grant, otherwise a genuine owner decision (HUMAN_APPROVAL).
+function classifyBlockedReport(text) {
+  if (isGovernanceDenied(text)) return 'GOVERNANCE_DENIED';
+  if (isPermissionDenied(text)) return 'PERMISSION_DENIED';
+  return 'HUMAN_APPROVAL';
 }
 
 // --- Reset-time extraction -------------------------------------------------
@@ -169,28 +229,69 @@ function quotaResumeAt(resetAtMs, waits, nowMs) {
   return nowMs + QUOTA_BACKOFF_MS[idx];
 }
 
-// Bounded exponential backoff for transient failures: 1m, 4m, 16m — then the
-// task fails rather than looping forever (mission §8 forbids infinite retry).
+// Bounded exponential backoff for transient failures: 1m, 4m, 16m (capped at
+// RETRY_MAX_MS) — then the task fails rather than looping forever (mission §8
+// forbids infinite retry). The scheduled delay carries ADDITIVE JITTER —
+// never shorter than the base step, up to half a step longer — so a fleet of
+// tasks that failed on the same outage does not retry in lock-step against
+// the same provider while a provider that asked for a minute still gets its
+// minute; the pure schedule stays available as retryBaseDelayMs() for callers
+// that need the deterministic figure (reports, tests).
 var RETRY_BASE_MS = 60 * 1000;
 var RETRY_FACTOR = 4;
+var RETRY_MAX_MS = 30 * 60 * 1000;
 
-function retryDelayMs(retryCount) {
-  return RETRY_BASE_MS * Math.pow(RETRY_FACTOR, Math.max(0, retryCount));
+function retryBaseDelayMs(retryCount) {
+  return Math.min(RETRY_MAX_MS, RETRY_BASE_MS * Math.pow(RETRY_FACTOR, Math.max(0, retryCount)));
 }
+
+// `random` (0 ≤ r < 1) is injectable so the schedule is testable; it defaults
+// to Math.random. The result is always within [base, 1.5 × base], where base
+// is itself capped at RETRY_MAX_MS.
+function retryDelayMs(retryCount, random) {
+  var base = retryBaseDelayMs(retryCount);
+  var r = typeof random === 'function' ? random() : (typeof random === 'number' ? random : Math.random());
+  if (!(r >= 0 && r < 1)) r = 0;
+  return Math.round(base + r * (base / 2));
+}
+
+// The policy per category, as data — recorded on the task status and printed
+// in the docs, so the answer to "will this be retried, and when?" is never
+// implied by code paths alone.
+var RETRY_POLICY = {
+  quota: { retry: true, strategy: 'resume same session after the quota window (RESET_GRACE_MS after the stated reset, else QUOTA_BACKOFF_MS steps)', max_attempts: null },
+  transient: { retry: true, strategy: 'exponential backoff with additive jitter', base_ms: RETRY_BASE_MS, factor: RETRY_FACTOR, max_ms: RETRY_MAX_MS, jitter: 'additive (delay in [base, 1.5 × base])', max_attempts: 'task.max_retries' },
+  permission: { retry: false, strategy: 'BLOCKED PERMISSION_DENIED — a human grants or the task is re-scoped, then `rerun`' },
+  governance: { retry: false, strategy: 'BLOCKED GOVERNANCE_DENIED — a decision (re-scope, or the owner changes the rule), then `rerun`' },
+  human: { retry: false, strategy: 'BLOCKED PROVIDER_BLOCKED — billing / credential / account, resolved by a human' },
+  permanent: { retry: false, strategy: 'FAILED PROVIDER_FAILED — inspect stderr.log, re-queue explicitly' }
+};
 
 module.exports = {
   QUOTA_PATTERNS: QUOTA_PATTERNS,
   TRANSIENT_PATTERNS: TRANSIENT_PATTERNS,
   BLOCKED_PATTERNS: BLOCKED_PATTERNS,
+  PERMISSION_PATTERNS: PERMISSION_PATTERNS,
+  GOVERNANCE_PATTERNS: GOVERNANCE_PATTERNS,
+  CATEGORIES: CATEGORIES,
+  RETRY_POLICY: RETRY_POLICY,
   isQuota: isQuota,
   isTransient: isTransient,
   isBlocked: isBlocked,
+  isPermissionDenied: isPermissionDenied,
+  isGovernanceDenied: isGovernanceDenied,
+  categorize: categorize,
+  classifyOutcome: classifyOutcome,
   classifyFailure: classifyFailure,
   classifyFailureDetail: classifyFailureDetail,
-  isPermissionDenied: isPermissionDenied,
+  classifyBlockedReport: classifyBlockedReport,
   parseResetTime: parseResetTime,
   quotaResumeAt: quotaResumeAt,
+  retryBaseDelayMs: retryBaseDelayMs,
   retryDelayMs: retryDelayMs,
   RESET_GRACE_MS: RESET_GRACE_MS,
-  QUOTA_BACKOFF_MS: QUOTA_BACKOFF_MS
+  QUOTA_BACKOFF_MS: QUOTA_BACKOFF_MS,
+  RETRY_BASE_MS: RETRY_BASE_MS,
+  RETRY_FACTOR: RETRY_FACTOR,
+  RETRY_MAX_MS: RETRY_MAX_MS
 };
