@@ -10,7 +10,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-03T14:39:59.947Z",
   "created_by": "github-issue:othoth77",
   "model": "sonnet",
@@ -158,8 +158,8 @@
     "claimed_at": "2026-09-03T14:40:05.896Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "a63bdbddce47d3ddde8660f5ebd257ed2c86ac8ab81a6c894396d058990f08d9",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-03T14:40:05.898Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-03T14:41:11.264Z",
     "snapshot_sha256": "43431584ee3f6e609e8966759a02aa0da9d94489bd2e4563eae4db328f502b75",
     "fence": 602,
     "lease": {
@@ -187,7 +187,8 @@
       "measured_at": "2026-09-03T14:40:04.152Z"
     },
     "model": "claude-sonnet-5",
-    "model_selection_mode": "explicit"
+    "model_selection_mode": "explicit",
+    "claude_session_id": "dda7dda4-57b3-4038-808e-9b530839239b"
   },
   "history": [
     {
@@ -196,6 +197,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260903144005-klqhhs queued; OTHMODE OTH-2026-00058; action implement (explicit_current_issue) → repo-write; model claude-sonnet-5; fence 602"
+    },
+    {
+      "at": "2026-09-03T14:41:11.264Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
