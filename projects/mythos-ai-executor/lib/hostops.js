@@ -102,10 +102,14 @@ function refusal(code, message, extra) {
 // Bounded per-task record: events.log line + hostops.json (last N), joined
 // to the root ledger by audit_id. status.json is never touched here —
 // transition() stays the single status chokepoint.
+// Returns null (no task id), true (recorded) or false (record failed or the
+// task is unknown) — the caller attaches this to the outcome as
+// `task_recorded`, so a missing executor-side trace is visible, never
+// silent; the root-owned ledger still holds the event via audit_id.
 function record(taskId, entry) {
-  if (!taskId) return;
+  if (!taskId) return null;
   try {
-    if (!state.readStatus(taskId)) return;
+    if (!state.readStatus(taskId)) return false;
     state.appendEvent(taskId, 'hostops_invoked', {
       operation: entry.operation, outcome: entry.outcome, code: entry.code || null,
       audit_id: entry.audit_id || null, hostops_exit: entry.hostops_exit === undefined ? null : entry.hostops_exit
@@ -114,7 +118,8 @@ function record(taskId, entry) {
     list.push(entry);
     if (list.length > MAX_TASK_RECORDS) list = list.slice(list.length - MAX_TASK_RECORDS);
     state.writeJSON(taskId, 'hostops.json', list);
-  } catch (e) { /* the record must never break the call */ }
+    return true;
+  } catch (e) { return false; /* the record must never break the call */ }
 }
 
 // invoke(payload[, opts]) -> normalized result object (never throws).
@@ -177,7 +182,7 @@ function invoke(payload, opts) {
   var gate = (opts.guardGate || defaultGuardGate)();
   if (!gate.admit) {
     var deferred = refusal('RESOURCE_PRESSURE', 'resource guard refuses admission (level ' + gate.level + ')', { operation: op.__name, resource_level: gate.level, deferred: true });
-    record(ids.task_id, { at: new Date().toISOString(), operation: op.__name, outcome: 'deferred', code: 'RESOURCE_PRESSURE', resource_level: gate.level });
+    deferred.task_recorded = record(ids.task_id, { at: new Date().toISOString(), operation: op.__name, outcome: 'deferred', code: 'RESOURCE_PRESSURE', resource_level: gate.level });
     return deferred;
   }
 
@@ -207,10 +212,15 @@ function invoke(payload, opts) {
       outcome = r.status === 0
         ? refusal('HOSTOPS_MALFORMED', 'the boundary exited 0 without a parseable JSON body', { operation: op.__name })
         : refusal('HOSTOPS_UNAVAILABLE', 'the boundary refused before running (exit ' + r.status + ')', { operation: op.__name, detail: tail });
+    } else if (r.status === 0 && body.ok === true && !(typeof body.audit_id === 'string' && body.audit_id)) {
+      // PR #127 review: the helper audit_id is what joins the executor
+      // record, the bridge REPORT and the root-owned ledger. A "success"
+      // without one would be untraceable — refuse it rather than record it.
+      outcome = refusal('HOSTOPS_MALFORMED', 'the boundary reported success without an audit id; result withheld as untraceable', { operation: op.__name, hostops_exit: 0 });
     } else if (r.status === 0 && body.ok === true) {
       outcome = {
         ok: true, version: VERSION, operation: op.__name, class: 'READ',
-        audit_id: body.audit_id || null, dagu_run_id: null,
+        audit_id: body.audit_id, dagu_run_id: null,
         result: body.result === undefined ? null : body.result,
         hostops_exit: 0, duration_ms: Date.now() - startedAt, http_status: 200,
         task: { task_id: ids.task_id || null, othmode_task_id: ids.othmode_task_id || null, github_task_id: ids.github_task_id || null }
@@ -229,7 +239,7 @@ function invoke(payload, opts) {
     }
   }
 
-  record(ids.task_id, {
+  outcome.task_recorded = record(ids.task_id, {
     at: new Date().toISOString(), operation: op.__name, outcome: outcome.ok ? 'ok' : 'failed',
     code: outcome.ok ? null : outcome.code, audit_id: outcome.audit_id || null,
     hostops_exit: outcome.hostops_exit === undefined ? null : outcome.hostops_exit,

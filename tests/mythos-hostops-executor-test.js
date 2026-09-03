@@ -287,5 +287,77 @@ t('installed root boundary intact (0700 root:root helper, 0440 sudoers)', functi
   assert.strictEqual(su.uid, 0); assert.strictEqual(su.mode & 511, 288);
 });
 
+// ---- PR #127 review hardening -------------------------------------------
+t('review: a helper success WITHOUT an audit_id is refused as untraceable', function () {
+  var sp = function () { return { status: 0, stdout: JSON.stringify({ ok: true, result: { x: 1 } }), stderr: '' }; };
+  var r = hostops.invoke({ operation: 'health' }, { guardGate: ADMIT, spawn: sp });
+  assert.strictEqual(r.ok, false);
+  assert.strictEqual(r.code, 'HOSTOPS_MALFORMED');
+  var sp2 = function () { return { status: 0, stdout: JSON.stringify({ ok: true, audit_id: '', result: {} }), stderr: '' }; };
+  assert.strictEqual(hostops.invoke({ operation: 'health' }, { guardGate: ADMIT, spawn: sp2 }).code, 'HOSTOPS_MALFORMED');
+});
+t('review: task_recorded surfaces recording state (true / false / null), never silent', function () {
+  mkTask('t-hostops-tr-1');
+  var ok = hostops.invoke({ operation: 'health', task_id: 't-hostops-tr-1' }, { guardGate: ADMIT, spawn: okSpawn([]) });
+  assert.strictEqual(ok.task_recorded, true);
+  var unknown = hostops.invoke({ operation: 'health', task_id: 't-hostops-does-not-exist' }, { guardGate: ADMIT, spawn: okSpawn([]) });
+  assert.strictEqual(unknown.ok, true, 'the READ result itself still returns (root ledger traces it)');
+  assert.strictEqual(unknown.task_recorded, false, 'but the missing executor-side record is visible');
+  var noTask = hostops.invoke({ operation: 'health' }, { guardGate: ADMIT, spawn: okSpawn([]) });
+  assert.strictEqual(noTask.task_recorded, null);
+  var deferred = hostops.invoke({ operation: 'health', task_id: 't-hostops-tr-1' }, { guardGate: DENY, spawn: okSpawn([]) });
+  assert.strictEqual(deferred.task_recorded, true, 'deferrals are recorded too');
+});
+
+// ---- PR #127 review: the exact sudo boundary ----------------------------
+function sudoersInvariants(file) {
+  var text = fs.readFileSync(file, 'utf8');
+  var rules = text.split('\n').filter(function (l) { return /^[a-z]+ +ALL *=/.test(l.trim()); });
+  assert.ok(rules.length === 1, file + ' has exactly one grant line');
+  var aliases = text.split('\n').filter(function (l) { return /^Cmnd_Alias/.test(l.trim()); });
+  aliases.forEach(function (l) {
+    var cmds = l.split('=')[1].split(',');
+    cmds.forEach(function (c) {
+      assert.ok(/^ *\/usr\/local\/sbin\/mythos-hostops( \*)? *$/.test(c), file + ': only the helper binary, got "' + c.trim() + '"');
+    });
+  });
+  ['NOPASSWD: ALL', 'NOPASSWD:ALL', '(ALL)', '/bin/sh', '/bin/bash', '/usr/bin/docker', '/usr/bin/systemctl', '/usr/bin/node', 'sudoedit'].forEach(function (bad) {
+    assert.ok(text.indexOf(bad) === -1, file + ' must not contain "' + bad + '"');
+  });
+}
+t('review: repo sudoers fragments grant the helper binary and nothing else', function () {
+  sudoersInvariants(path.join(__dirname, '..', 'ops', 'hostops', '60-dagu-hostops'));
+  sudoersInvariants(path.join(__dirname, '..', 'ops', 'hostops', '61-deploy-hostops'));
+});
+t('review: installed sudoers keep deploy away from docker/systemctl/shell', function () {
+  // The live grants for deploy must stay: the helper rule (when installed)
+  // plus the pre-existing scoped nginx/certbot rules — never docker, a
+  // shell, an interpreter, or unrestricted systemctl.
+  var dir = '/etc/sudoers.d';
+  var files;
+  try { files = fs.readdirSync(dir); } catch (e) { return; }
+  files.forEach(function (f) {
+    var text;
+    try { text = fs.readFileSync(path.join(dir, f), 'utf8'); } catch (e) { return; /* 0440 root-only when not root */ }
+    text.split('\n').forEach(function (l) {
+      if (!/^deploy +ALL *=/.test(l.trim())) return;
+      assert.ok(l.indexOf('NOPASSWD: ALL') === -1 && !/ALL *$/.test(l.trim()), f + ': no blanket grant for deploy');
+      ['/usr/bin/docker', '/bin/sh', '/bin/bash', '/usr/bin/node', 'sudoedit'].forEach(function (bad) {
+        assert.ok(l.indexOf(bad) === -1, f + ': deploy must not reach ' + bad);
+      });
+      // systemctl only in the exact pre-existing scoped form
+      if (l.indexOf('systemctl') !== -1) {
+        assert.ok(l.indexOf('systemctl reload nginx') !== -1, f + ': systemctl only as the scoped nginx reload');
+      }
+    });
+  });
+});
+t('review: adapter helper path matches the sudoers-granted path exactly', function () {
+  var src = fs.readFileSync(require.resolve('../projects/mythos-ai-executor/lib/hostops'), 'utf8');
+  assert.ok(src.indexOf("var HELPER = '/usr/local/sbin/mythos-hostops';") !== -1);
+  var frag = fs.readFileSync(path.join(__dirname, '..', 'ops', 'hostops', '61-deploy-hostops'), 'utf8');
+  assert.ok(frag.indexOf('/usr/local/sbin/mythos-hostops') !== -1);
+});
+
 console.log('\nhostops executor adapter: ' + pass + ' passed, ' + fail + ' failed');
 process.exit(fail ? 1 : 0);
