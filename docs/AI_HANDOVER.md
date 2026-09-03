@@ -1,5 +1,58 @@
 # AI Handover
 
+## gh-issue-141 — WhatsApp provider deployment verification, BLOCKED on swap/root (2026-09-03 19:07–19:35 UTC)
+
+**Objective.** GitHub Issue #141 asked to finish the remaining, deliberately-deferred part of
+#126 (`docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md` §7.1/§10): pick a WhatsApp provider after real
+verification, deploy it on a private network, configure credentials outside Git, then run
+`notify-status` and one real `notify-test --confirm`. The task's own constraints required
+**not** re-implementing #126's code and required a BLOCKED status (no bypass) if VPS
+permissions were unavailable.
+
+**What changed on the host since #126.** `deploy` is now in the `docker` group (`id`:
+`uid=1001(deploy) groups=...,986(docker),...`) — container access that was denied during #126
+is available now.
+
+**What has not changed, and is the actual blocker.** `free -m`: swap `4094/4095` MiB used,
+~231 MiB RAM free — essentially the same fully-consumed state #126 recorded (`4095/4095`, ~425
+MiB free). This host is a shared production VPS running ~19 containers, including Coolify,
+n8n, Jellyfin, the `dar-hijama` production app, `idauto-postgres`, and the MCP/dex auth stack —
+not an isolated deployment target. Remediating swap (adding swap space, applying
+`MemoryHigh=`/`MemoryLow=` to services — the exact owner actions #126 already recorded as
+outstanding) requires root; `sudo -n -l` was refused by this session's own sandbox permission
+policy before any command could run. Deploying a new provider stack (Evolution API's own
+documented footprint includes Postgres+Redis; even WAHA is not zero-cost) under ~231 MiB free
+RAM and exhausted swap risks an OOM cascade against real production services, which is a
+Level 3 action under `AGENTS.md` §25.3 (production deployment — never automatic, requires
+explicit owner approval) — this run cannot self-grant that under the current risk.
+
+**Read-only verification performed (no deployment attempted, no notification code touched):**
+
+- `docker ps` — no `evolution`/`waha`/`whatsapp` container exists on the host; nothing is
+  deployed.
+- `node bin/mythos-github-bridge notify-config` — `enabled: false`, 4 problems (`BASE_URL`,
+  `INSTANCE`, `TO`, credential all unset). Matches the documented disabled-by-default state.
+- `node bin/mythos-github-bridge notify-status` — ledger empty, all counts `0`. Matches the
+  documented state; idempotency has nothing to prove yet because nothing has ever been sent.
+- No bug or defect found in the notify layer; per the task's own constraint, it was not
+  modified.
+- `notify-test --confirm` was **not** run: it is documented (§7.1) as the step that follows a
+  deployed, configured provider, and running it against an unconfigured provider proves
+  nothing.
+
+**Status: BLOCKED**, recorded on OTHMODE task `OTH-2026-00065` (phase `VALIDATION`, `problems`
+and `outcome` sections — this session does not close the task record; the bridge does).
+Required to unblock, one of:
+
+1. Root/privileged VPS access to remediate swap pressure (add swap, apply
+   `MemoryHigh=`/`MemoryLow=` to existing services) so a provider can be deployed without
+   endangering the other production services on this host; or
+2. Explicit owner authorization to deploy despite the current memory state; or
+3. A separate, isolated host for the WhatsApp provider, decoupling it from this shared VPS.
+
+No files were changed, no commit was made, no provider was deployed, and the notification
+layer's code and documented DISABLED default are unchanged from #126.
+
 ## HOSTOPS-2R — Executor → HostOps fixed to a Unix socket boundary (GitHub issue #130, 2026-09-03)
 
 **Objective.** HOSTOPS-1's `sudo -n mythos-hostops` boundary call, made from inside
