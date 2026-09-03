@@ -38,6 +38,13 @@ delete process.env.MYTHOS_MOCK_SCRIPT;
 // credential on one machine and not another would stop being
 // deterministic. Read once, at provider load, so it must be set first.
 process.env.MYTHOS_ADVISORY_KEY_FILE = path.join(FIXTURES, 'no-advisory-credential.env');
+// gh-issue-101: this suite asserts dispatch/tick decisions, which the
+// Resource Guard is entitled to override when the HOST is short of memory.
+// That would make the suite depend on the machine's mood, so the guard is
+// switched off here; its own behaviour — including these same admission
+// paths under pressure — is covered deterministically against fixture
+// /proc files in tests/resource-guard-test.js.
+process.env.MYTHOS_RESOURCE_GUARD = 'off';
 
 var executor = require(path.join(EXEC, 'executor'));
 var state = require(path.join(EXEC, 'lib', 'state'));

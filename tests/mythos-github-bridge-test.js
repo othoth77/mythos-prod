@@ -24,6 +24,12 @@ fs.mkdirSync(FIX, { recursive: true });
 process.env.MYTHOS_EXECUTOR_HOME = path.join(FIX, 'home');
 process.env.MYTHOS_EXECUTOR_ALLOW_MOCK = '1';
 process.env.MYTHOS_ADVISORY_KEY_FILE = path.join(FIX, 'no-advisory-credential.env');
+// gh-issue-101: this suite drives executor.tick() and expects bridge tasks
+// to start; the Resource Guard is entitled to defer exactly those starts
+// when the HOST is short of memory, which would make the suite depend on
+// the machine's mood. Guard behaviour is covered deterministically in
+// tests/resource-guard-test.js.
+process.env.MYTHOS_RESOURCE_GUARD = 'off';
 process.env.MYTHOS_BRIDGE_PROJECT = 'executor-selftest';
 process.env.MYTHOS_BRIDGE_REPO = path.join(FIX, 'repo');
 process.env.MYTHOS_BRIDGE_CONTROL_DIR = path.join(FIX, 'control');
