@@ -12,7 +12,7 @@
 | Runtime | `d69e0abc34de` on `main` |
 | Model | `claude-sonnet-5` (explicit:sonnet (requested "sonnet")) |
 | Branch | `mythos/gh/gh-issue-125` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Fixed the one remaining PR #124 review note: writeEntry() in projects/mythos-ai-
 
 ## Commits
 
-- `b03d69d6cdc24b4d14f9430022b313795c446ce0` fix(bridge): make writeEntry() actually fsync-backed, matching its own comment (gh-issue-125) (awaiting relay)
+- `b03d69d6cdc24b4d14f9430022b313795c446ce0` fix(bridge): make writeEntry() actually fsync-backed, matching its own comment (gh-issue-125) (on origin)
 - `a3082892814f8b8282d6593481b25a6b29ac09f5` fix(bridge): PR #122 review fixes — WhatsApp notify task_id 64-char ledger key, at-least-once delivery honesty (gh-issue-123) (on origin)
 - `d8eb8931cf0adca94e2d4f7746884e3b27664e03` feat(github-bridge): reapply WhatsApp notification layer onto current main (gh-issue-111-r5) (on origin)
 
