@@ -12,7 +12,7 @@
 | Runtime | `41823e9ec755` on `main` |
 | Model | `claude-fable-5-1` (explicit:fable-5.1 (requested "fable-5.1")) |
 | Branch | `mythos/gh/gh-issue-118-r2` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ gh-issue-118-r2: on top of PR #119, added a durable retry policy (transient/perm
 
 ## Commits
 
-- `106d1c732483c0863b14dd478986ca3a40e08c55` fix(bridge): retry policy, runtime gate, lease expiry, decided-only inheritance (gh-issue-118-r2) (awaiting relay)
+- `106d1c732483c0863b14dd478986ca3a40e08c55` fix(bridge): retry policy, runtime gate, lease expiry, decided-only inheritance (gh-issue-118-r2) (on origin)
 
 ## Files changed
 

@@ -103,7 +103,7 @@
       "sha": "106d1c732483c0863b14dd478986ca3a40e08c55",
       "subject": "fix(bridge): retry policy, runtime gate, lease expiry, decided-only inheritance (gh-issue-118-r2)",
       "branch": "mythos/gh/gh-issue-118-r2",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -169,7 +169,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-118-r2",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-03T11:28:02.551Z"
   }
 }
