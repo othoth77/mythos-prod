@@ -10,7 +10,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T15:06:50.043Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #130 https://github.com/othoth77/mythos-prod/issues/130 — \"HOSTOPS-2R: fix Executor to HostOps path with Unix socket boundary\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[required implementation]\n1. Replace the current Executor-side sudo invocation with a local root-owned Unix socket boundary:\n   - `mythos-hostops.socket`\n   - `mythos-hostops.service`\n   - local socket under `/run/mythos-hostops/`\n   - socket access limited to `deploy` and `dagu`\n   - verify caller identity with `SO_PEERCRED`; never trust a caller-supplied identity field\n2. The root service must invoke the existing `/usr/local/sbin/mythos-hostops` helper directly with a fixed argument array and no shell.\n3. Keep the existing helper as the sole HostOps security boundary and preserve its audit behavior.\n4. Change `projects/mythos-ai-executor/lib/hostops.js` to use the Unix socket and preserve the existing governance order, including Resource Guard admission before socket access.\n5. Preserve all existing failure semantics including unavailable, timeout, malformed response, missing audit id, and task-recorded behavior.\n6. Remove the obsolete deploy sudo path from the installer and documentation.\n7. Keep the Executor hardening unchanged, especially `NoNewPrivileges=true`.\n8. Add/update focused tests proving peer-credential authorization, no sudo/shell/docker/systemctl in the Executor path, READ-only enforcement, audit-id enforcement, Resource Guard ordering, and unavailable-service behavior.\n9. Run the required focused suites and the established MYTHOS regression suites.\n10. Update the relevant HostOps documentation and `docs/AI_HANDOVER.md`.\n\n[security constraints]\n- Do not weaken or remove `NoNewPrivileges=true`.\n- Do not add unrestricted privilege escalation.\n- Do not expose Docker socket to Executor, Dagu, or Claude.\n- Do not add WRITE, RESTART, or DEPLOY operations.\n- Do not change Resource Guard, Governance, MCP, Model Selection, or GitHub Bridge semantics.\n\n[scope exclusions]\nDo not touch Evolution/WhatsApp, AUTOS-0, SPY, n8n, or unrelated projects.\nDo not expose Dagu beyond its existing loopback binding.\nDo not perform manual VPS changes from the execution session.\nDo not merge to main.\nDo not use `git add .`.\n\n[delivery]\nUse a dedicated branch from the latest `origin/main`, verify the implementation and tests, deliver through the normal governance relay, and leave the branch ready for PR review. Provide a structured report with commit, tests, risks, and exact owner-only installation steps if systemd root units must be installed.",
@@ -119,5 +119,64 @@
       ],
       "removed": []
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903150655-cny29l",
+    "othmode_task_id": "OTH-2026-00059",
+    "attempt_id": "gh-issue-130#1",
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "expected_delivery": "commit",
+    "model_key": null,
+    "model_requested": null,
+    "model_source": "none",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-130",
+    "branch": "mythos/gh/gh-issue-130",
+    "base_commit": "718741b86da955f68b731e8e0aefe1a6846bd50e",
+    "claimed_at": "2026-09-03T15:06:54.988Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "ba869fe7d6081e4925971ed7e8eadbeca652ff70d634079a482a849d85e2b885",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T15:06:54.988Z",
+    "snapshot_sha256": "11f0ed7128abfb2e8f2e36154e06da714585e7f2c7319d4ed61176839d015802",
+    "fence": 671,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:433400",
+      "fence": 671,
+      "acquired_at": "2026-09-03T15:06:54.988Z",
+      "expires_at": "2026-09-03T16:36:54.988Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "718741b86da955f68b731e8e0aefe1a6846bd50e",
+      "branch": "main",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "718741b86da955f68b731e8e0aefe1a6846bd50e",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-03T15:06:53.235Z"
+    },
+    "model": "claude-sonnet-5",
+    "model_selection_mode": "auto"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T15:06:55.023Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903150655-cny29l queued; OTHMODE OTH-2026-00059; action implement (explicit_current_issue) → repo-write; model claude-sonnet-5; fence 671"
+    }
+  ]
 }
