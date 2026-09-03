@@ -12,7 +12,7 @@
 | Runtime | `ff9f71b51e41` on `main` |
 | Model | `claude-sonnet-5` (auto:balanced→sonnet score=4 [execution_profile:repo-write+2 task_category:implement+3 simplicity_terms(بسيط)-1]) |
 | Branch | `mythos/gh/gh-issue-140` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Recurated the Status Center registry to close out the gh-issue-95 audit: fixed t
 
 ## Commits
 
-- `24acd340ce20f2edb40ed90093a203ffbda8f6d0` fix(status-center): recurate registry, add monorepo discovery (gh-issue-140) (awaiting relay)
+- `24acd340ce20f2edb40ed90093a203ffbda8f6d0` fix(status-center): recurate registry, add monorepo discovery (gh-issue-140) (on origin)
 
 ## Files changed
 
