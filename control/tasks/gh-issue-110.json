@@ -1,0 +1,70 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-110",
+  "project": "mythos-prod",
+  "objective": "تنفيذ ما أوصى به Issue #109: إعادة تطبيق طبقة إشعارات WhatsApp الموجودة في `b37491f9b839a29e2706632ddf07c0f804985702` فوق أحدث `origin/main`، حل التعارضات، وتشغيل الاختبارات ثم فتح PR جديد **mergeable** إلى `main`.",
+  "scope": [
+    "ابدأ من أحدث `origin/main` وليس من فرع #108 المتعارض.",
+    "أعد تطبيق تغييرات WhatsApp السابقة فوق `main` الحالي.",
+    "عند التعارض، احتفظ بالتغييرات الأحدث في `main` لـ Resource Guard وModel Policy وBridge Timer وGitHub Issues/Rerun، وادمج فقط ما يلزم لإعادة WhatsApp Bridge notification layer.",
+    "حافظ على التصميم السابق: Bridge-only terminal notifications، durable ledger/idempotency، delivery خارج `tick()`، وEvolution adapter كخيار provisional فقط.",
+    "لا توسّع النطاق إلى MYTHOS AUTO/customer chat.",
+    "ممنوع AUTOS-0، SPY، n8n، أو أي مشروع غير متعلق بهذه المهمة.",
+    "لا تنشر Evolution API في هذه المهمة ولا ترسل أي WhatsApp حقيقي.",
+    "لا تغيّر Resource Guard thresholds/code، Model Selection Policy، أو Bridge Timer behavior إلا بقدر الضرورة التقنية لحل التعارض والمحافظة على التكامل.",
+    "شغّل على الأقل: `mythos-bridge-whatsapp-notify-test.js`, GitHub Bridge suite, Executor suite, Governance suite، وأي tests خاصة بالتكامل المتأثر.",
+    "لا أسرار في Git أو logs أو reports، ولا `git add .`.",
+    "سجّل الملفات، نتائج الاختبارات، base/head SHA، وcommit SHA في التقرير و`docs/AI_HANDOVER.md` وفق النمط المعتمد.",
+    "أنشئ فرعًا نظيفًا وPR جديدًا إلى `main`. **لا تدمج PR تلقائيًا**.",
+    "إذا بقي PR غير mergeable أو ظهرت اختبارات فاشلة، توقف وسجّل السبب بدل تجاوز المشكلة."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T02:42:49.440Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #110 https://github.com/othoth77/mythos-prod/issues/110 — \"تنفيذ دمج WhatsApp Bridge فوق أحدث main وإنشاء PR قابل للدمج\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[المصدر]\n- Previous WhatsApp implementation: `b37491f9b839a29e2706632ddf07c0f804985702`\n- Conflicted PR: #108\n- Investigation: #109\n- Target: `main`\n\n[النتيجة المطلوبة]\nPR جديد قابل للدمج إلى `main` يحتوي فقط على طبقة WhatsApp Bridge السابقة بعد حل التعارضات، مع تقرير COMPLETED يذكر SHA والاختبارات والملفات المتأثرة.\n\n[ملاحظة]\nالـVPS تم إرجاعه إلى clean بعد `git merge --abort`. لا حاجة لأي تعديل يدوي على الـVPS في هذه المهمة.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 110,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/110",
+    "issue_id": 5331553243,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPckL2w",
+    "issue_title": "TASK: تنفيذ دمج WhatsApp Bridge فوق أحدث main وإنشاء PR قابل للدمج",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T02:42:27Z",
+    "issue_updated_at": "2026-09-03T02:42:27Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "2468a62642dddfde6576aacc032bf8649a164d4258d558f0a7bf1d164e191dd4",
+    "attempt": 1,
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "converted_at": "2026-09-03T02:42:49.441Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5519527934,
+        "url": "https://github.com/othoth77/mythos-prod/issues/110#issuecomment-5519527934",
+        "at": "2026-09-03T02:42:50.465Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
