@@ -10,7 +10,7 @@
   "validation_requirements": [
     "Add tests covering the four defects, including COMPLETED/BLOCKED reruns, independent task IDs, interrupted tick between label removal and commit, Action inheritance, section preservation, and rerun while previous attempt is active. Run the relevant bridge/executor/governance tests and report exact …"
   ],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-03T00:07:19.435Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #103 https://github.com/othoth77/mythos-prod/issues/103 — \"إصلاح Rerun في GitHub Issues → Bridge → Claude\"\n\n[re-run — implement only]\n**Action: implement**\n\nThis is an owner-approved rerun of Issue #103 after the investigation. Create a NEW independent TASK (`gh-issue-103-r2`) with `requested_action=implement` and `execution_profile=repo-write`. Do not reuse the previous task `gh-issue-103`.\n\n[fix the four confirmed defects]\n1. Prevent loss of the `rerun` request: consume/remove the rerun label only after the control commit succeeds; preserve the request if the tick dies before commit.\n2. On attempt >1, if the new Issue body has no explicit Action, inherit the previous attempt's `requested_action` instead of silently defaulting to `investigate`.\n3. On rerun, preserve/inherit previously structured `scope`, `constraints`, and `validation_requirements` when the edited body leaves them empty or uses unrecognised headings.\n4. Add clear Issue-side feedback for already-converted and rerun-deferred-while-active cases, with marker-keyed comments and no spam.\n\n[scope rules]\n- Use the prior #103 investigation as the basis; do not repeat it unnecessarily.\n- Do NOT rerun #101 inside this task; `gh-issue-101-r2` remains a separate live execution.\n- No AUTOS-0, SPY, n8n, MCP/ContextForge, OAuth, or unrelated projects.\n- No secrets.\n- No merge to `main`; commit/push only the new task branch through normal governance.\n- No blind `git add .`.\n\n[completion]\nReturn a full REPORT with changed files, tests, commit SHA, branch, and any blockers. Keep this Issue open until the rerun is completed and verified.",
@@ -71,9 +71,10 @@
     "claimed_at": "2026-09-03T00:07:25.297Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "3e18589f0bb62c1149b3f676ee16526c53215988255aecb3d8e70961eb13697b",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-03T00:09:30.744Z",
-    "claude_session_id": "64a80cf0-d6eb-4a80-866c-46b142a97eac"
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-03T00:20:12.219Z",
+    "claude_session_id": "64a80cf0-d6eb-4a80-866c-46b142a97eac",
+    "report_file": "control/reports/gh-issue-103-r2.json"
   },
   "history": [
     {
@@ -89,6 +90,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-03T00:20:10.909Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-03T00:20:12.219Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (1 commit(s), 6 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
