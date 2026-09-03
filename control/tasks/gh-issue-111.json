@@ -1,0 +1,56 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-111",
+  "project": "mythos-prod",
+  "objective": "تنفيذ دمج طبقة WhatsApp Bridge الموجودة في `b37491f9b839a29e2706632ddf07c0f804985702` فوق أحدث `origin/main`، حل التعارضات، تشغيل الاختبارات، ثم إنشاء PR جديد قابل للدمج إلى `main`.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T02:48:39.375Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #111 https://github.com/othoth77/mythos-prod/issues/111 — \"تنفيذ WhatsApp Bridge وإنشاء PR — repo-write\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n- Investigation #109 حدّد التعارضات.\n- Implementation attempt #110 تم حظره لأن provider لم ينتج `mythos_report`، كما أن الـtask حُوّل إلى repo-read بدل repo-write.\n- PR #108 كان متعارضًا.\n\n[التنفيذ الإلزامي]\n1. استخدم أحدث `origin/main` كقاعدة.\n2. أعد تطبيق WhatsApp notification layer فقط من `b37491f`.\n3. حل التعارضات مع الحفاظ على أحدث تغييرات main، خصوصًا GitHub Issues/Rerun وModel Policy وResource Guard وBridge Timer.\n4. النطاق: GitHub Bridge terminal notifications فقط.\n5. يجب إنشاء commit فعلي وفرع نظيف ثم PR جديد إلى `main`.\n6. لا Merge تلقائيًا.\n7. شغّل WhatsApp notification tests + GitHub Bridge + Executor + Governance وأي اختبارات تكامل متأثرة.\n8. لا AUTOS-0، SPY، n8n، MYTHOS AUTO/customer chat.\n9. لا نشر Evolution API ولا إرسال WhatsApp حقيقي في هذه المهمة.\n10. لا تغييرات على Resource Guard thresholds أو Model Policy أو Timer إلا ما يلزم للتكامل.\n11. لا أسرار ولا `git add .`.\n12. التقرير النهائي يجب أن يحتوي على `mythos_report` structured block، commit SHA، branch، base SHA، الملفات،…\n\n[النتيجة]\nPR جديد mergeable يحتوي فقط على WhatsApp Bridge layer بعد حل التعارضات، مع تقرير COMPLETED واضح.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 111,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/111",
+    "issue_id": 5331588568,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPcmV2A",
+    "issue_title": "TASK: تنفيذ WhatsApp Bridge وإنشاء PR — repo-write",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T02:48:01Z",
+    "issue_updated_at": "2026-09-03T02:48:01Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "ab9bef85478b0a8774a029209eb7cd4175e4c5389657733637b70ca372066496",
+    "attempt": 1,
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "converted_at": "2026-09-03T02:48:39.376Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5519575201,
+        "url": "https://github.com/othoth77/mythos-prod/issues/111#issuecomment-5519575201",
+        "at": "2026-09-03T02:48:40.461Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
