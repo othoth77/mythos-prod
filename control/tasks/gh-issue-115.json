@@ -8,7 +8,7 @@
   "priority": "normal",
   "requested_action": "investigate",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-03T09:09:49.609Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #115 https://github.com/othoth77/mythos-prod/issues/115 — \"إصلاح Bridge Runtime Action Routing قبل Architecture Upgrade\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[الدليل الحالي]\nIssue #114 يحتوي صراحةً على `Action: implement`، لكن الـBridge أنشأ `gh-issue-114` كـ `investigate → repo-read`. هذا يعني أن المشكلة ما زالت موجودة في مسار الـruntime أو في طبقة استخراج/تطبيع Action رغم إصلاح #113.\n\n[التنفيذ الإلزامي]\n1. تتبع المسار الكامل من GitHub Issue إلى `requested_action` داخل Bridge.\n2. تحديد أين تضيع قيمة `implement` أو يتم استبدالها بـ`investigate`.\n3. إصلاح السبب الجذري، وليس إضافة workaround خاص بـ#114.\n4. ضمان الأولوية:\n   **explicit Action الحالي > inherited Action > default Action**.\n5. تأكيد أن `Action: implement` ينتج `requested_action=implement` و`execution_profile=repo-write`.\n6. إضافة regression tests تحاكي الحالة الحقيقية التي فشلت في #114، بما فيها bullet/section formatting وrerun/inheritance.\n7. شغّل GitHub Issues + Bridge + Executor + Governance tests، وأي اختبارات مباشرة متأثرة.\n8. أنشئ commit وفرع نظيف وPR إلى `main`.\n9. لا Merge تلقائيًا.\n\n[قيود صارمة]\n- لا تنفذ #111 أو WhatsApp.\n- لا تستخدم أو تدمج `b37491f`.\n- لا Evolution API أو إرسال WhatsApp.\n- لا AUTOS-0.\n- لا SPY ولا n8n.\n- لا MYTHOS AUTO/customer chat.\n- لا Resource Guard thresholds.\n- لا Model Policy إلا إذا ثبت أنه جزء مباشر من سبب Action routing.\n- لا systemd/VPS/deployment.\n- لا أسرار.\n- لا blind `git add .`.\n- لا تغييرات خارج Bridge ومسار Action/Rerun والاختبارات والوثائق اللازمة.\n\n[مهم]\nهذه المهمة **لا تفترض** أن المشكلة في parser فقط. افحص أيضاً مصدر/فرع الكود الذي يستخدمه الـBridge runtime، loading/config path، stale checkout/ref، وأي adapter بين GitHub Issue وcontrol task. إذا كان هناك mismatch بين الكود الموجود على `main` والكود الذي يعمل به الـBridge، أثبته في التقرير ولا تقم بتغيير VPS/systemd ضمن هذه المهمة.\n\n[التقرير]\nيجب أن يحتوي على `mythos_report` structured block، root cause، الملفات المتغيرة، الاختبارات، commit SHA، branch، base SHA، PR URL، وأي سبب يمنع التحقق الحي من runtime.",
@@ -74,8 +74,9 @@
     "claimed_at": "2026-09-03T09:09:55.790Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "d082565024ccf91638e62a6ace65512e7cf20fa1ba4d1f4312fc7416d0b3d835",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-03T09:09:55.790Z"
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-03T09:12:12.315Z",
+    "claude_session_id": "a3701457-919d-484f-bbb2-6fe6f998a6e8"
   },
   "history": [
     {
@@ -84,6 +85,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260903090955-9kdbxg queued; OTHMODE OTH-2026-00048"
+    },
+    {
+      "at": "2026-09-03T09:12:12.315Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }

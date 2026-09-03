@@ -1,0 +1,51 @@
+# Report gh-issue-114 — COMPLETED
+
+| Field | Value |
+|---|---|
+| Completed | 2026-09-03T09:12:12.267Z |
+| Executor task | `t-20260903090735-wwupgm` |
+| OTHMODE task | `OTH-2026-00047` |
+| Profile | repo-read |
+| Model | `claude-sonnet-5` (auto:balanced→sonnet score=3 [complexity_terms(architecture,concurrency,بنية)+3]) |
+| Branch | `mythos/gh/gh-issue-114` |
+| Commits on origin | null |
+| Git verified | null |
+
+## Summary
+
+Read-only architectural review of the MYTHOS GitHub Bridge (github-bridge.js, github-issues.js) and its executor/quota layer, benchmarked against durable-execution/queue/webhook patterns (Temporal, Hatchet, Trigger.dev, Svix, BullMQ, webhook-delivery-style DLQ). requested_action=investigate closed the run to the repo-read profile — no files edited, no commits, no PR. Key result: the Action-resolution precedence rule the mission emphasized (explicit Issue Action > inherited from previous attempt > default) is already correctly implemented in bridge/github-issues.js pickAction() (lines 394-410), along with a 5-layer idempotency/duplicate-prevention scheme, versioned rerun attempts with full history[], quota/transient/blocked/fatal retry classification with bounded exponential backoff, dead-pid recovery, a worktree push-guard, and an at-least-once delivery-confirmation loop for the governance relay. Four safe, small, additive improvements were identified and are NOT yet implemented (recorded as findings for a follow-up requested_action=implement task): (1) add jitter to lib/quota.js retryDelayMs/QUOTA_BACKOFF_MS to avoid synchronized retry storms after a shared Anthropic API outage; (2) wire the existing but production-unused opts.claimLimit into bin/mythos-github-bridge / the systemd unit (e.g. MYTHOS_BRIDGE_CLAIM_LIMIT) so a burst of PENDING tasks doesn't create N git worktrees in a single tick; (3) add an age-based staleness check to acquireLock() in github-bridge.js — today only pid-liveness is checked, so a wedged-but-alive bridge process holds the lock forever with no operator signal; (4) escalate (problem/risk entry + distinct Issue comment) when a report's delivery.commits_on_origin stays false past a reasonable threshold, instead of polling silently forever. Three pattern families were considered and explicitly rejected: Temporal/Hatchet-style distributed worker lease+heartbeat (architecture is single-bridge/single-executor by design — 'exactly one bridge instance per repository' is already a documented invariant), a Redis-backed external queue broker (forbidden by the mission's no-new-runtime-dependency constraint and unnecessary at this scale), and an automatic DLQ replay subsystem (the existing terminal-report + explicit rerun-label model already gives human-triggered, context-inheriting replay; silent auto-replay would violate the bridge's own 'never silently execute twice' invariant). Test suites (tests/mythos-github-bridge-test.js, tests/mythos-github-issues-test.js) were NOT executed in this session — Bash execution of `node` required interactive approval unavailable in this headless investigate run — so no test result can be claimed; docs/MYTHOS_GITHUB_BRIDGE.md records the suite as 97 checks passing as of the 2026-09-02 stage, which is the last verified baseline.
+
+## Commits
+
+- none
+
+## Files changed
+
+- none
+
+## Tests
+
+- node --check on github-bridge.js / github-issues.js: NOT RUN — Bash required approval unavailable in this headless repo-read session
+- tests/mythos-github-bridge-test.js: NOT RUN — same restriction; last documented result (docs/MYTHOS_GITHUB_BRIDGE.md) is 97/97 passing as of 2026-09-02
+- tests/mythos-github-issues-test.js: NOT RUN — same restriction
+- Static source review of bridge/github-bridge.js (1275 lines, full read), bridge/github-issues.js (1108 lines, full read), executor.js retry/quota sections, lib/quota.js (full read): completed
+
+## Validation
+
+- required checks: none
+- remote head: —
+- report problems: none
+
+## Problems
+
+- none
+
+## Risks
+
+- This report's findings are based on static reading only; the four recommended fixes (jitter, claim-limit wiring, lock staleness, delivery-staleness escalation) have not been exercised against the actual test suite and should be validated with tests/mythos-github-bridge-test.js + tests/mythos-github-issues-test.js in the follow-up implement task before merge.
+- OTHMODE record OTH-2026-00047 could not be advanced (phase/sections) from this session because `node projects/command-center/cli/othmode-cli.js task update` requires Bash approval unavailable here; the bridge should close it directly from this structured report.
+- Test-suite health (97/97) is asserted from documentation dated 2026-09-02, not re-verified in this session — treat as last-known-good, not current.
+
+## Next recommended action
+
+Open a new control task with requested_action=implement (or document) scoped narrowly to the 4 P1 findings above (jitter in lib/quota.js; MYTHOS_BRIDGE_CLAIM_LIMIT wiring in bin/mythos-github-bridge + systemd drop-in; lock-age staleness check in acquireLock(); delivery-staleness escalation in the tick() delivery-follow-up branch), each with its own regression test added to tests/mythos-github-bridge-test.js, full bridge+issues+executor+governance-invariant suites run to 0 failures, then a PR opened from mythos/gh/<new-task-id> for review.

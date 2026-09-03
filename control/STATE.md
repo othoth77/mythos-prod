@@ -1,14 +1,14 @@
 # MYTHOS control — current state
 
-Generated 2026-09-03T09:09:59.728Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-03T09:12:12.322Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
 | PENDING | 0 |
-| CLAIMED | 1 |
+| CLAIMED | 0 |
 | IN_PROGRESS | 1 |
 | VALIDATING | 0 |
-| COMPLETED | 12 |
+| COMPLETED | 13 |
 | BLOCKED | 13 |
 | FAILED | 0 |
 | CANCELLED | 0 |
@@ -18,8 +18,8 @@ Generated 2026-09-03T09:09:59.728Z by the bridge on branch `mythos/control` (pro
 | `gh-issue-99` | **COMPLETED** | investigate | normal | 2026-09-02T22:42:59.761Z | 2026-09-02T22:49:32.431Z | `t-20260902224306-vaqeia` | `control/reports/gh-issue-99.json` |
 | `gh-issue-97` | **BLOCKED** | investigate | normal | 2026-09-02T22:34:21.352Z | 2026-09-02T22:43:04.917Z | `t-20260902223428-31m0o4` | `control/reports/gh-issue-97.json` |
 | `gh-issue-95` | **COMPLETED** | investigate | normal | 2026-09-02T22:34:19.628Z | 2026-09-02T22:40:52.170Z | `t-20260902223426-ipld9w` | `control/reports/gh-issue-95.json` |
-| `gh-issue-115` | **CLAIMED** | investigate | normal | 2026-09-03T09:09:49.609Z | 2026-09-03T09:09:55.824Z | `t-20260903090955-9kdbxg` | — |
-| `gh-issue-114` | **IN_PROGRESS** | investigate | normal | 2026-09-03T09:07:29.599Z | 2026-09-03T09:08:41.010Z | `t-20260903090735-wwupgm` | — |
+| `gh-issue-115` | **IN_PROGRESS** | investigate | normal | 2026-09-03T09:09:49.609Z | 2026-09-03T09:12:12.315Z | `t-20260903090955-9kdbxg` | — |
+| `gh-issue-114` | **COMPLETED** | investigate | normal | 2026-09-03T09:07:29.599Z | 2026-09-03T09:12:12.310Z | `t-20260903090735-wwupgm` | `control/reports/gh-issue-114.json` |
 | `gh-issue-112` | **COMPLETED** | implement | normal | 2026-09-03T03:02:29.420Z | 2026-09-03T03:14:02.443Z | `t-20260903030234-2x43ix` | `control/reports/gh-issue-112.json` |
 | `gh-issue-111-r4` | **BLOCKED** | investigate | normal | 2026-09-03T06:56:50.022Z | 2026-09-03T07:01:32.273Z | `t-20260903065656-ita4rr` | `control/reports/gh-issue-111-r4.json` |
 | `gh-issue-111-r3` | **BLOCKED** | investigate | normal | 2026-09-03T03:24:29.392Z | 2026-09-03T03:30:22.203Z | `t-20260903032435-vbnlsh` | `control/reports/gh-issue-111-r3.json` |
