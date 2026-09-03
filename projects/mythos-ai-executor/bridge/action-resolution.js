@@ -272,12 +272,23 @@ function resolveAction(input) {
   if (fromLabel) candidates.push({ source: 'action_label', raw: fromLabel, action: normalizeAction(fromLabel) });
   var prev = input.previous && typeof input.previous === 'object' ? input.previous : null;
   if (prev && prev.requested_action && PROFILE_BY_ACTION[prev.requested_action]) {
-    candidates.push({ source: 'inherited_previous_attempt', raw: prev.requested_action, action: prev.requested_action, from: prev.task_id || null });
+    // Only a DECIDED action is inheritable. A previous attempt that fell back
+    // to the default never decided anything: carrying it forward as
+    // "inherited" would dress a non-decision up as one (and pin a rerun to a
+    // stale default if the configured default ever changes). A record with
+    // no action_source at all (pre-engine parser, which defaulted silently)
+    // is of unknown provenance and is not inherited either. Both are listed
+    // for the audit trail but can never win.
+    var prevSource = prev.action_source || null;
+    var prevDecided = !!prevSource && prevSource !== 'default';
+    candidates.push({ source: 'inherited_previous_attempt', raw: prev.requested_action, action: prev.requested_action, from: prev.task_id || null,
+      previous_source: prevSource, eligible: prevDecided,
+      ignored_reason: prevDecided ? null : 'previous attempt ' + (prev.task_id || '') + (prevSource ? ' was defaulted, not decided — a default is not inherited' : ' records no action_source (pre-engine parser) — unknown provenance is not inherited') });
   }
   var def = input.defaultAction || 'investigate';
   candidates.push({ source: 'default', raw: def, action: normalizeAction(def) || def });
 
-  var winner = candidates[0];
+  var winner = candidates.filter(function (c) { return c.eligible !== false; })[0];
   var out = {
     requested_action: winner.action || null,
     action_raw: winner.raw,
@@ -288,7 +299,7 @@ function resolveAction(input) {
   };
   // A conflict is a DIFFERENT source that would have decided otherwise; a
   // second statement in the same body is not (the first one simply wins).
-  var others = candidates.filter(function (c) { return c !== winner && c.source !== winner.source && c.source !== 'default' && c.action && c.action !== winner.action; });
+  var others = candidates.filter(function (c) { return c !== winner && c.eligible !== false && c.source !== winner.source && c.source !== 'default' && c.action && c.action !== winner.action; });
   if (others.length) {
     out.conflict = others.map(function (c) { return c.source + '=' + c.action; }).join(', ');
   }

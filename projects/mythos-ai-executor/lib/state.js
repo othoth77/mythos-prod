@@ -188,7 +188,11 @@ function transition(taskId, to, fields) {
   status.updated_at = new Date().toISOString();
   Object.keys(fields || {}).forEach(function (k) { status[k] = fields[k]; });
   writeJSON(taskId, 'status.json', status);
-  appendEvent(taskId, 'transition', { from: from, to: to });
+  // `transition_reason`, when a caller states one, is the durable answer to
+  // "why did this task move?" — on the status record and on the event.
+  var ev = { from: from, to: to };
+  if (fields && typeof fields.transition_reason === 'string' && fields.transition_reason) ev.reason = fields.transition_reason;
+  appendEvent(taskId, 'transition', ev);
   return status;
 }
 

@@ -236,6 +236,67 @@ claim, stale worker, structured report on COMPLETED/BLOCKED/permission denial, r
 `## Action: implement` + `## Model: Fable 5.1` → `requested_action=implement` → `repo-write` → `claude-fable-5-1` →
 provider → report).
 
+## 12e. Reliability round 2 — retry policy, runtime gate, lease expiry, inheritance rule (2026-09-03, gh-issue-118-r2)
+
+Second pass over Issue #118 on top of 12d. Reference patterns only (Temporal retry policies, Hatchet leases,
+Trigger.dev idempotency, Svix delivery classification); **no external runtime or dependency**.
+
+**Retry policy (executor, `lib/quota.js`).** Every provider failure is classified ONCE into a category, and the
+category — not the stderr text — decides what happens next. The decision is durable: `status.last_failure
+{category, code, retryable, timed_out, classified_at}`, `status.retry_backoff {attempt, max_retries, base_ms,
+delay_ms, jitter, max_ms}` (transient only), `status.transition_reason`, plus a `failure_classified` event and a
+`reason` on every `transition` event in `events.log`. The bridge copies `last_failure` / `retry_backoff` /
+`transition_reason` into the report's `execution` block.
+
+| Category | Detected by | State | Code | Retry |
+|---|---|---|---|---|
+| `quota` | usage/session limit | `WAITING_FOR_QUOTA` | — | same session resumes after the window (`RESET_GRACE_MS` after the stated reset, else `QUOTA_BACKOFF_MS` steps) |
+| `transient` | 429/5xx/overloaded/network/timeout | `WAITING_RETRY` | — | exponential backoff `60 s × 4^n` capped at 30 min, **additive jitter** (`[base, 1.5 × base]`), bounded by `task.max_retries` (default 3); then `FAILED PROVIDER_FAILED` |
+| `permission` | `permission denied/required`, tool/command denied, `EACCES` | `BLOCKED` | `PERMISSION_DENIED` | **never automatic** — a human grants or the task is re-scoped, then `rerun` |
+| `governance` | `denied by policy/governance`, `governance-protected`, `protected path`, relay refusal, `ACTION_PROFILE_MISMATCH` / `ATTEMPT_SNAPSHOT_MUTATED` / `GOVERNANCE_DENIED` | `BLOCKED` | `GOVERNANCE_DENIED` | **never automatic** — a decision (re-scope, or the owner changes the rule), then `rerun` |
+| `human` | billing, credential, `/login` | `BLOCKED` | `PROVIDER_BLOCKED` | never automatic |
+| `permanent` | everything else | `FAILED` | `PROVIDER_FAILED` | never automatic; inspect `stderr.log`, re-queue explicitly |
+
+Precedence when a message matches several: quota > governance > permission > human > transient > permanent. A
+blocked structured report (`status: "blocked"`) is coded the same way (`classifyBlockedReport`: governance text →
+`GOVERNANCE_DENIED`, permission text → `PERMISSION_DENIED`, else `HUMAN_APPROVAL`). Preflight refusals
+(`ACTION_PROFILE_MISMATCH`, `MODEL_UNAVAILABLE`, `ATTEMPT_SNAPSHOT_MUTATED`) are recorded as `governance` with
+`transition_reason: "preflight invariant <code> — refused before any provider started; never retried automatically"`.
+The whole policy is exported as data (`quota.RETRY_POLICY`) so the docs and the code cannot drift silently.
+
+**Runtime gate (bridge, `runtimeGate(runtime, cfg)`).** Pure function of the measured runtime identity and the
+configuration; its result is on every tick (`runtime` action: `claims_allowed`, `gate_mode`), in the bridge log
+(`runtime_identity`, `claim_deferred`) and in `mythos-github-bridge runtime` (`gate` block).
+
+| Runtime code | Default | `MYTHOS_BRIDGE_STRICT_RUNTIME=1` |
+|---|---|---|
+| `RUNTIME_IDENTITY_UNVERIFIED` (cannot resolve checkout/HEAD) | **no new claims** — unless `MYTHOS_BRIDGE_ALLOW_UNVERIFIED_RUNTIME=1`, which is itself recorded on the claim | no new claims |
+| `RUNTIME_IDENTITY_MISMATCH` (`MYTHOS_BRIDGE_EXPECTED_HEAD` names another HEAD) | **no new claims** | no new claims |
+| `RUNTIME_STALE_CHECKOUT` (behind `origin/main`, normal between a merge and the restart) | claims continue, recorded on each claim/report | no new claims |
+
+A refusal is a deferral, never a terminal state: the task stays PENDING with `defer {reason: "runtime:<code>",
+detail}` on the tick and is claimed by the first tick whose runtime verifies. Progress/report phases continue
+regardless (an unverifiable bridge may still deliver reports of attempts it already owns).
+
+**Lease expiry (bridge).** Every claim carries `execution.lease {owner, fence, acquired_at, expires_at}`
+(`timeout_seconds` + `MYTHOS_BRIDGE_LEASE_GRACE_MS`). When a non-terminal attempt outlives it, the progress phase
+records it ONCE — `lease.expired_noted_at`, `lease.expired_executor_status`, a `LEASE_EXPIRED: …` history note, a
+`lease_expired` log line and tick action — and does **not** re-claim or re-run: the executor owns recovery of its
+own run (`INTERRUPTED → WAITING_RETRY`, quota resume). No duplicate execution can be born from an overrun.
+
+**Inheritance rule (engine).** A rerun inherits a *decision*, never a default: the `inherited_previous_attempt`
+candidate is `eligible: false` (with `ignored_reason`, kept in `source.resolution.action_candidates` and in the
+task notes) when the previous attempt's `action_source` was `default` or absent (pre-engine record, unknown
+provenance). The rerun then takes the configured default again, marked `action_source: "default"` — it never
+looks decided when nothing was ever decided. Explicit `Action:` / `action:<x>` label in the current Issue still win.
+
+Tests added: executor suite (categories, precedence, backoff bounds/cap/injected jitter, `RETRY_POLICY`, durable
+`last_failure`/`retry_backoff`/`transition_reason`, `failure_classified` event, governance text → BLOCKED
+`GOVERNANCE_DENIED` with zero retries, permanent and exhausted paths), bridge suite (cases W: `runtimeGate` and
+the tick's `runtime:RUNTIME_IDENTITY_MISMATCH` deferral + log; X: lease expiry observed once, no re-claim),
+engine suite (defaulted / unknown-provenance previous attempts are not inherited; decided ones are), Issues suite
+(rerun of a defaulted attempt is defaulted again with the reason recorded).
+
 ## 13. Honest limits
 
 - Latency: claim within ~1 min, visible on GitHub after the next relay tick (≤5 min); report likewise.

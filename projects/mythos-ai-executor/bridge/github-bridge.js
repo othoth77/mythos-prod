@@ -139,8 +139,47 @@ function config() {
     // commit is a runtime identity mismatch; MYTHOS_BRIDGE_STRICT_RUNTIME=1
     // additionally refuses new claims until it is fixed.
     expectedHead: process.env.MYTHOS_BRIDGE_EXPECTED_HEAD || null,
-    strictRuntime: process.env.MYTHOS_BRIDGE_STRICT_RUNTIME === '1'
+    strictRuntime: process.env.MYTHOS_BRIDGE_STRICT_RUNTIME === '1',
+    // A bridge whose own checkout cannot be identified (or contradicts the
+    // configured HEAD) makes no new claims — a task must never run on code
+    // nobody can name. MYTHOS_BRIDGE_ALLOW_UNVERIFIED_RUNTIME=1 is the
+    // explicit opt-out for an installation outside a git checkout.
+    allowUnverifiedRuntime: process.env.MYTHOS_BRIDGE_ALLOW_UNVERIFIED_RUNTIME === '1'
   };
+}
+
+// Pure: runtime identity + configuration → may this tick claim new tasks?
+// { claims_allowed, code, reason, mode }
+//
+//   RUNTIME_IDENTITY_UNVERIFIED  refuse (unless allowUnverifiedRuntime)
+//   RUNTIME_IDENTITY_MISMATCH    refuse — the operator named the HEAD that must run
+//   RUNTIME_STALE_CHECKOUT       allow, noted on every claim and report; refuse under
+//                                strictRuntime (a deployed service is legitimately
+//                                behind origin/main between a merge and its restart,
+//                                so this alone must not stall the channel)
+//
+// A refusal is a deferral, not a terminal state: the task stays PENDING with
+// the reason on the tick, in the bridge log and in the STATE.md notes, and
+// is claimed by the first tick whose runtime verifies.
+function runtimeGate(runtime, cfg) {
+  cfg = cfg || config();
+  runtime = runtime || {};
+  var out = { claims_allowed: true, code: runtime.code || null, reason: runtime.reason || null, mode: cfg.strictRuntime ? 'strict' : 'default' };
+  if (!runtime.code) return out;
+  if (runtime.code === engine.BLOCKER_CODES.RUNTIME_IDENTITY_UNVERIFIED) {
+    out.claims_allowed = cfg.allowUnverifiedRuntime === true;
+    out.reason = (out.claims_allowed ? 'MYTHOS_BRIDGE_ALLOW_UNVERIFIED_RUNTIME=1: claiming from an unverifiable checkout — ' : 'no new claims: the running bridge cannot prove which checkout/commit it is — ') + (runtime.reason || '');
+    return out;
+  }
+  if (runtime.code === 'RUNTIME_IDENTITY_MISMATCH') {
+    out.claims_allowed = false;
+    out.reason = 'no new claims: ' + (runtime.reason || 'runtime identity mismatch');
+    return out;
+  }
+  // RUNTIME_STALE_CHECKOUT (or any future advisory code)
+  out.claims_allowed = !cfg.strictRuntime;
+  out.reason = (out.claims_allowed ? 'claims continue (recorded on each claim/report): ' : 'MYTHOS_BRIDGE_STRICT_RUNTIME=1: no new claims until the runtime identity is fixed — ') + (runtime.reason || '');
+  return out;
 }
 
 // --- Runtime identity (which code is actually running) ---------------------------------
@@ -992,6 +1031,9 @@ function buildReport(cfg, task, finalStatus, opts) {
       started_at: estatus ? (estatus.started_at || null) : null,
       ended_at: estatus ? (estatus.ended_at || null) : null,
       retries: estatus ? (estatus.retry_count || 0) : 0,
+      last_failure: estatus && estatus.last_failure ? estatus.last_failure : null,
+      retry_backoff: estatus && estatus.retry_backoff ? estatus.retry_backoff : null,
+      transition_reason: estatus ? (estatus.transition_reason || null) : null,
       quota_waits: estatus && estatus.quota_state ? (estatus.quota_state.waits || 0) : 0,
       cost_usd: estatus ? (estatus.cost_usd || null) : null,
       worktree: exec.worktree || null,
@@ -1219,13 +1261,15 @@ function tick(executor, opts) {
     actions.push({ action: 'sync', result: sync });
     heartbeatLock(cfg);
     var claimsAllowed = sync.ok;
+    var deferReason = sync.ok ? null : 'sync';
     if (!sync.ok) notes.push('control branch not reconciled: ' + sync.reason + ' — no new claims this tick');
     var runtime = runtimeIdentity(cfg);
-    actions.push({ action: 'runtime', head: runtime.head, branch: runtime.branch, code: runtime.code, verified: runtime.verified, stale: runtime.stale });
+    var gate = runtimeGate(runtime, cfg);
+    actions.push({ action: 'runtime', head: runtime.head, branch: runtime.branch, code: runtime.code, verified: runtime.verified, stale: runtime.stale, claims_allowed: gate.claims_allowed, gate_mode: gate.mode });
     if (runtime.code) {
-      notes.push('runtime identity: ' + runtime.code + ' — ' + runtime.reason);
-      log('runtime_identity', { code: runtime.code, reason: runtime.reason, head: runtime.head, branch: runtime.branch, checkout: runtime.checkout, strict: cfg.strictRuntime });
-      if (cfg.strictRuntime) { claimsAllowed = false; notes.push('MYTHOS_BRIDGE_STRICT_RUNTIME=1: no new claims until the runtime identity is fixed'); }
+      notes.push('runtime identity: ' + runtime.code + ' — ' + gate.reason);
+      log('runtime_identity', { code: runtime.code, reason: runtime.reason, head: runtime.head, branch: runtime.branch, checkout: runtime.checkout, strict: cfg.strictRuntime, claims_allowed: gate.claims_allowed, gate: gate.reason });
+      if (!gate.claims_allowed && claimsAllowed) { claimsAllowed = false; deferReason = 'runtime:' + runtime.code; }
     }
 
     var changed = [];
@@ -1296,7 +1340,11 @@ function tick(executor, opts) {
           return;
         }
         // Valid PENDING task.
-        if (!claimsAllowed) { actions.push({ action: 'defer', task_id: t.task_id, reason: 'sync' }); return; }
+        if (!claimsAllowed) {
+          actions.push({ action: 'defer', task_id: t.task_id, reason: deferReason, detail: deferReason === 'sync' ? sync.reason : gate.reason });
+          if (deferReason !== 'sync') log('claim_deferred', { task_id: t.task_id, reason: deferReason, detail: gate.reason, runtime_head: runtime.head });
+          return;
+        }
         if (opts.claimLimit !== undefined && actions.filter(function (a) { return a.action === 'claim'; }).length >= opts.claimLimit) {
           actions.push({ action: 'defer', task_id: t.task_id, reason: 'claim limit' });
           return;
@@ -1412,6 +1460,24 @@ function tick(executor, opts) {
           : 'ATTEMPT_SNAPSHOT_MUTATED: the decision fields (action/profile/model/inputs) were edited after the claim; the executor keeps and re-verifies the snapshot it was given — the edit is NOT obeyed');
         t.execution.drift_noted = true;
         if (!snap.ok) t.execution.snapshot_mutated = { at: nowIso(), expected: t.execution.snapshot_sha256, observed: snap.sha256 };
+        dirty = true;
+      }
+      // Lease check: a claim whose lease (executor timeout + grace) has run out
+      // while the executor still reports it non-terminal is recorded ONCE —
+      // with the executor's own state — and never silently re-claimed or
+      // re-executed. Recovery of the run itself belongs to the executor
+      // (INTERRUPTED → WAITING_RETRY, quota resume); the bridge only makes
+      // the overrun visible on the task, the log and the index.
+      var lease = t.execution.lease;
+      if (lease && lease.expires_at && !lease.expired_noted_at && Date.parse(lease.expires_at) < Date.now()) {
+        var overrun = Math.round((Date.now() - Date.parse(lease.expires_at)) / 60000);
+        lease.expired_noted_at = nowIso();
+        lease.expired_executor_status = st.status;
+        pushHistory(t, t.status, t.status, 'LEASE_EXPIRED: claim lease ' + lease.expires_at + ' passed ' + overrun + ' min ago while the executor reports ' + st.status +
+          (st.retry_at ? ' (retry_at ' + st.retry_at + ')' : '') + (st.quota_state && st.quota_state.resume_after ? ' (quota resume ' + st.quota_state.resume_after + ')' : '') +
+          ' — the attempt is not re-claimed or re-run; the executor owns its recovery');
+        log('lease_expired', { task_id: t.task_id, attempt_id: t.execution.attempt_id, executor_task_id: eid, executor_status: st.status, expires_at: lease.expires_at, overrun_min: overrun, fence: t.execution.fence });
+        actions.push({ action: 'lease_expired', task_id: t.task_id, executor_status: st.status, expires_at: lease.expires_at });
         dirty = true;
       }
       if (mapped !== t.status || t.execution.executor_status !== st.status) {
@@ -1612,6 +1678,7 @@ module.exports = {
   STATUS_MAP: STATUS_MAP,
   engine: engine,
   runtimeIdentity: runtimeIdentity,
+  runtimeGate: runtimeGate,
   preflight: preflight,
   attemptIdOf: attemptIdOf,
   heartbeatLock: heartbeatLock,
