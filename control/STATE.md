@@ -1,12 +1,12 @@
 # MYTHOS control — current state
 
-Generated 2026-09-03T01:20:27.220Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-03T01:22:30.690Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
 | PENDING | 0 |
-| CLAIMED | 1 |
-| IN_PROGRESS | 0 |
+| CLAIMED | 0 |
+| IN_PROGRESS | 1 |
 | VALIDATING | 0 |
 | COMPLETED | 9 |
 | BLOCKED | 3 |
@@ -18,7 +18,7 @@ Generated 2026-09-03T01:20:27.220Z by the bridge on branch `mythos/control` (pro
 | `gh-issue-99` | **COMPLETED** | investigate | normal | 2026-09-02T22:42:59.761Z | 2026-09-02T22:49:32.431Z | `t-20260902224306-vaqeia` | `control/reports/gh-issue-99.json` |
 | `gh-issue-97` | **BLOCKED** | investigate | normal | 2026-09-02T22:34:21.352Z | 2026-09-02T22:43:04.917Z | `t-20260902223428-31m0o4` | `control/reports/gh-issue-97.json` |
 | `gh-issue-95` | **COMPLETED** | investigate | normal | 2026-09-02T22:34:19.628Z | 2026-09-02T22:40:52.170Z | `t-20260902223426-ipld9w` | `control/reports/gh-issue-95.json` |
-| `gh-issue-106` | **CLAIMED** | implement | normal | 2026-09-03T01:20:19.404Z | 2026-09-03T01:20:24.529Z | `t-20260903012024-zqrxaq` | — |
+| `gh-issue-106` | **IN_PROGRESS** | implement | normal | 2026-09-03T01:20:19.404Z | 2026-09-03T01:22:30.685Z | `t-20260903012024-zqrxaq` | — |
 | `gh-issue-103-r2` | **COMPLETED** | implement | normal | 2026-09-03T00:07:19.435Z | 2026-09-03T00:20:12.219Z | `t-20260903000725-ln6pla` | `control/reports/gh-issue-103-r2.json` |
 | `gh-issue-103` | **BLOCKED** | investigate | normal | 2026-09-02T23:41:29.433Z | 2026-09-03T00:03:02.331Z | `t-20260902234133-hwh6xe` | `control/reports/gh-issue-103.json` |
 | `gh-issue-101-r3` | **COMPLETED** | implement | normal | 2026-09-03T00:46:09.459Z | 2026-09-03T01:00:52.048Z | `t-20260903004615-6aibdz` | `control/reports/gh-issue-101-r3.json` |
