@@ -1,0 +1,149 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-140",
+  "project": "mythos-prod",
+  "objective": "إتمام التنفيذ الفعلي لمتطلبات Issue #95 بعد أن أثبت التدقيق السابق أن #95 كانت تحقيقاً فقط ولم تُنفذ التحديثات المطلوبة.",
+  "scope": [
+    "تحديث Status Center من GitHub/repositories/commits/tests كمصدر حقيقة.",
+    "إعادة curating للـregistry وإضافة المشاريع الحالية المفقودة، بما فيها مشاريع `projects/*` التي لا يكتشفها المسار الحالي.",
+    "تصحيح الحالات القديمة/المضللة، خصوصاً PROJECT-AI-ORCHESTRATION.",
+    "إعادة حساب نسب التقدم بالأدلة فقط؛ استخدم `NOT CALCULABLE` عند غياب الأدلة.",
+    "تحديث `data/current.json` وباقي بيانات Status Center اللازمة.",
+    "إصلاح/تفعيل review pipeline بحيث لا تبقى البيانات القديمة دون تحديث.",
+    "إضافة آلية موثوقة لاكتشاف المشاريع الجديدة مستقبلاً، بما في ذلك monorepo discovery.",
+    "تبسيط العرض وإخفاء التفاصيل التقنية القديمة غير المفيدة يومياً مع إبقاء المعلومات التشغيلية المهمة.",
+    "تشغيل اختبارات Status Center والتحقق من عدم كسر monitor/health endpoints.",
+    "التحقق من البيانات المنشورة فعلياً بعد التنفيذ.",
+    "commit ثم push وفق Governance، وتسجيل commit hash وremote HEAD والاختبارات والخطوة التالية في `docs/AI_HANDOVER.md`."
+  ],
+  "constraints": [
+    "GitHub هو Source of Truth.",
+    "لا إعادة بناء لأجزاء سليمة دون دليل.",
+    "لا اختراع لنسب أو حالات.",
+    "لا manual VPS bypass ولا auto-merge.",
+    "يجب أن يلتقط الـBridge المهمة ويمررها إلى Claude للتنفيذ."
+  ],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T19:04:49.691Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #140 https://github.com/othoth77/mythos-prod/issues/140 — \"إتمام تنفيذ وتحديث MYTHOS Status Center بعد تدقيق #95\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[المرجع]\n- Issue الأصلية: #95\n- التدقيق السابق: مراجعة Status Center الحالية ومشاكل registry/current.json/review pipeline/discovery/publication.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 140,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/140",
+    "issue_id": 5340409516,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPlAurA",
+    "issue_title": "TASK: إتمام تنفيذ وتحديث MYTHOS Status Center بعد تدقيق #95",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T19:04:24Z",
+    "issue_updated_at": "2026-09-03T19:04:24Z",
+    "issue_labels": [
+      "task",
+      "action:implement"
+    ],
+    "content_sha256": "29808f215f783ee84aa46b3733a446daee0b7df493f0462cdefe3f9d9aa58f8e",
+    "attempt": 1,
+    "attempt_id": "gh-issue-140#1",
+    "idempotency_key": "cbae2fb796a5cc49cb3bdedb314a04f272867d4cbe80a59f1399ad867b785b4f",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "heading_block",
+          "line": 29
+        },
+        {
+          "source": "action_label",
+          "raw": "implement",
+          "action": "implement",
+          "form": null,
+          "line": null
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-03T19:04:49.692Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-03T19:04:49.692Z",
+        "event": "issue_received",
+        "reason": "open Issue #140 with label task",
+        "content_sha256": "29808f215f783ee84aa46b3733a446daee0b7df493f0462cdefe3f9d9aa58f8e"
+      },
+      {
+        "at": "2026-09-03T19:04:49.692Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-03T19:04:49.692Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-03T19:04:49.692Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-03T19:04:51.879Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-140.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-03T19:04:49.692Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5530725557,
+        "url": "https://github.com/othoth77/mythos-prod/issues/140#issuecomment-5530725557",
+        "at": "2026-09-03T19:04:50.498Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
