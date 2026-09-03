@@ -1,0 +1,47 @@
+# MYTHOS -- HOSTOPS-2R: the root daemon that invokes the mythos-hostops
+# helper on behalf of callers verified by mythos-hostops.socket + this
+# daemon's own SO_PEERCRED check (ops/hostops/mythos-hostops-daemon.py).
+#
+# This is a SEPARATE process tree, started directly by systemd (PID 1),
+# never a child of mythos-ai-executor.service -- so the executor's
+# NoNewPrivileges=true (never weakened) does not apply here and is not
+# affected by this unit existing. This unit carries its own hardening
+# instead, scoped so the helper's subprocesses (docker/systemctl status
+# calls, /proc reads, the audit append) keep working:
+#   - ProtectHome=read-only, not "true": the file-read and resource-guard
+#     verbs read under /home/deploy/{deployments,projects} and the guard
+#     state file; only writes there are (rightly) blocked.
+#   - ReadWritePaths grants exactly the helper's one write target, the
+#     audit ledger directory.
+#   - No MemoryDenyWriteExecute: the helper is a Node process (V8 needs
+#     W^X-toggling JIT pages); that seccomp filter is inherited by children
+#     across exec() and would break it.
+#
+# Install (owner): see ops/hostops/install-hostops.sh.
+
+[Unit]
+Description=MYTHOS hostops boundary daemon (root, socket-activated; HOSTOPS-2R)
+Requires=mythos-hostops.socket
+After=mythos-hostops.socket
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/sbin/mythos-hostops-daemon
+User=root
+Group=root
+UMask=0077
+Restart=on-failure
+RestartSec=2
+
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ProtectControlGroups=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/mythos/hostops
+
+[Install]
+WantedBy=multi-user.target

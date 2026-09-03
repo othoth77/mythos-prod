@@ -1,8 +1,15 @@
 #!/usr/bin/env bash
-# MYTHOS — owner installer for the mythos-hostops v0.1 READ-ONLY boundary.
+# MYTHOS — owner installer for the mythos-hostops boundary.
 # Run as root from the repository checkout:  bash ops/hostops/install-hostops.sh
-# Idempotent. Installs NOTHING beyond: the dagu system user, the helper,
-# the allowlist copy, the audit directory and the one sudoers rule.
+# Idempotent. Installs: the dagu system user, the helper, the allowlist
+# copy, the audit directory, the dagu sudo rule (manual/owner verification
+# only, unrelated to the Executor path), and — HOSTOPS-2R (GitHub issue
+# #130) — the mythos-hostops group, the root socket daemon and its
+# systemd socket + service units. The Executor's own sudo path is GONE:
+# mythos-ai-executor.service runs with NoNewPrivileges=true, which makes
+# `sudo` unable to gain root from inside it no matter what sudoers grants,
+# so HOSTOPS-1's `61-deploy-hostops` rule never actually worked in
+# production. The socket boundary replaces it; see docs/MYTHOS_HOSTOPS_INTERFACE.md.
 set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo "must run as root" >&2; exit 1; }
 REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -10,7 +17,8 @@ REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 # 1. dedicated system identity (no shell, no home login, no groups)
 id dagu >/dev/null 2>&1 || useradd --system --shell /usr/sbin/nologin --home-dir /var/lib/mythos/hostops --no-create-home dagu
 
-# 2. root-owned helper (0700 root:root — dagu reaches it only through sudo)
+# 2. root-owned helper (0700 root:root — reached only through sudo (dagu,
+#    manual/owner use) or the root socket daemon (deploy, the Executor))
 install -o root -g root -m 0700 "$REPO_DIR/ops/hostops/mythos-hostops.js" /usr/local/sbin/mythos-hostops
 
 # 3. root-owned allowlist copy (0644 root:root; the helper refuses it if not root-owned)
@@ -20,16 +28,39 @@ install -o root -g root -m 0644 "$REPO_DIR/ops/dagu-poc/hostops-allowlist.json" 
 # 4. audit home (root-only; the helper runs as root and fails closed without it)
 install -d -o root -g root -m 0700 /var/lib/mythos/hostops
 
-# 5. the one sudo rule — validated BEFORE install, never NOPASSWD:ALL
+# 5. dagu's sudo rule — manual/owner verification path only (validated
+#    BEFORE install, never NOPASSWD:ALL). Unrelated to the Executor: dagu is
+#    not wired into the READ path (HOSTOPS-1 decision) and this rule is not
+#    reached by any hardened service's process tree.
 visudo -cf "$REPO_DIR/ops/hostops/60-dagu-hostops"
 install -o root -g root -m 0440 "$REPO_DIR/ops/hostops/60-dagu-hostops" /etc/sudoers.d/60-dagu-hostops
 
-# 6. HOSTOPS-1: the executor identity (deploy) gets the same single-binary rule
-visudo -cf "$REPO_DIR/ops/hostops/61-deploy-hostops"
-install -o root -g root -m 0440 "$REPO_DIR/ops/hostops/61-deploy-hostops" /etc/sudoers.d/61-deploy-hostops
+# 6. HOSTOPS-2R: the socket access group. Membership, not sudoers, is what
+#    lets `deploy` (the Executor identity) and `dagu` reach the boundary now.
+groupadd -f mythos-hostops
+usermod -aG mythos-hostops deploy
+usermod -aG mythos-hostops dagu
+
+# 7. HOSTOPS-2R: the root socket daemon (0700 root:root — invoked only by
+#    systemd; never reachable via sudo, never a child of the Executor).
+install -o root -g root -m 0700 "$REPO_DIR/ops/hostops/mythos-hostops-daemon.py" /usr/local/sbin/mythos-hostops-daemon
+
+# 8. HOSTOPS-2R: the socket + service units. The socket unit owns
+#    /run/mythos-hostops (RuntimeDirectory=) and the socket file's
+#    permissions; only the socket is enabled — it starts the service on
+#    first connection.
+install -o root -g root -m 0644 "$REPO_DIR/ops/hostops/mythos-hostops.socket" /etc/systemd/system/mythos-hostops.socket
+install -o root -g root -m 0644 "$REPO_DIR/ops/hostops/mythos-hostops.service" /etc/systemd/system/mythos-hostops.service
+systemctl daemon-reload
+systemctl enable --now mythos-hostops.socket
 
 echo "installed: /usr/local/sbin/mythos-hostops (0700 root:root)"
+echo "installed: /usr/local/sbin/mythos-hostops-daemon (0700 root:root)"
 echo "installed: /etc/mythos/hostops-allowlist.json (0644 root:root)"
-echo "installed: /etc/sudoers.d/60-dagu-hostops + 61-deploy-hostops (0440)"
+echo "installed: /etc/sudoers.d/60-dagu-hostops (0440, dagu manual/owner path only)"
+echo "installed: mythos-hostops.socket + mythos-hostops.service (HOSTOPS-2R boundary)"
+echo "group:     mythos-hostops ($(getent group mythos-hostops))"
 echo "user:      dagu ($(id dagu))"
-echo "verify:    sudo -u dagu sudo /usr/local/sbin/mythos-hostops health"
+echo "verify:    sudo -u dagu sudo /usr/local/sbin/mythos-hostops health   # dagu, manual sudo path"
+echo "verify:    curl -s -H \"Authorization: Bearer \$TOKEN\" -X POST http://127.0.0.1:8130/hostops/run -d '{\"operation\":\"health\"}'   # deploy, via the Executor's socket path"
+echo "verify:    journalctl -u mythos-hostops -n 50   # daemon startup + SO_PEERCRED-verified connections"
