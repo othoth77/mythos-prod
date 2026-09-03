@@ -1,0 +1,51 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-106-r4",
+  "status": "BLOCKED",
+  "summary": "Objective requires updating the shared VPS checkout to main and restarting mythos-ai-executor.service to activate Resource Guard live. This is a production-deployment action that the task's own bridge constraints explicitly forbid (\"never touch the shared checkout /home/deploy/projects/mythos-prod or any other worktree\") and that AGENTS.md gates at Level 3 (owner approval only, never automatic). The prior handover already lists this restart as pending owner action. No code was changed and no commit was made; OTHMODE task OTH-2026-00038 was updated (phase EXECUTION) with the full blocker analysis and evidence, without setting a terminal status.",
+  "files_changed": [],
+  "commits": [],
+  "tests": [],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "7f33f9239771348b44786a3f3508b1f9e33335f4",
+    "report_problems": [
+      "delivery expected a commit but the report claims none"
+    ],
+    "required_checks": []
+  },
+  "problems": [
+    "delivery expected a commit but the report claims none"
+  ],
+  "risks": [
+    "Resource Guard from PR #105 remains un-deployed to the live VPS service until an owner-authorized, properly-scoped deployment task (with SSH/systemctl access and out-of-worktree authorization) performs the update+restart+live-verification steps."
+  ],
+  "next_recommended_action": "Owner (or a task explicitly authorised for VPS deployment outside this worktree's scope) performs: update /home/deploy/projects/mythos-prod to main, restart mythos-ai-executor.service, and verify live Resource Guard/Executor/Bridge health — then record that evidence.",
+  "completed_at": "2026-09-03T02:13:42.290Z",
+  "execution": {
+    "executor_task_id": "t-20260903021015-21liim",
+    "othmode_task_id": "OTH-2026-00038",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": null,
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]",
+    "claude_session_id": "d824515f-ae5f-47f6-bb30-8d9297a18bea",
+    "executor_status": "BLOCKED",
+    "started_at": "2026-09-03T02:10:21.487Z",
+    "ended_at": "2026-09-03T02:12:57.085Z",
+    "retries": 0,
+    "quota_waits": 0,
+    "cost_usd": 0.6819589999999998,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-106-r4",
+    "branch": "mythos/gh/gh-issue-106-r4",
+    "base_commit": "7f33f9239771348b44786a3f3508b1f9e33335f4",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-106-r4",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}

@@ -8,7 +8,7 @@
   "priority": "normal",
   "requested_action": "implement",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "BLOCKED",
   "created_at": "2026-09-03T02:10:09.530Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #106 https://github.com/othoth77/mythos-prod/issues/106 — \"تفعيل MYTHOS Resource Guard على الـVPS والتحقق الحي\"",
@@ -72,9 +72,10 @@
     "claimed_at": "2026-09-03T02:10:15.018Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "abb928028342227f835526fa64541e87146a6f69227d8bcb99294289e4ae8cae",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-03T02:11:20.875Z",
-    "claude_session_id": "d824515f-ae5f-47f6-bb30-8d9297a18bea"
+    "executor_status": "BLOCKED",
+    "updated_at": "2026-09-03T02:13:42.326Z",
+    "claude_session_id": "d824515f-ae5f-47f6-bb30-8d9297a18bea",
+    "report_file": "control/reports/gh-issue-106-r4.json"
   },
   "history": [
     {
@@ -90,6 +91,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-03T02:13:40.967Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended BLOCKED; building report"
+    },
+    {
+      "at": "2026-09-03T02:13:42.325Z",
+      "from": "VALIDATING",
+      "to": "BLOCKED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 0 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
