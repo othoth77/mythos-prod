@@ -1,0 +1,56 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-103-r2",
+  "project": "mythos-prod",
+  "objective": "إصلاح Rerun في GitHub Issues → Bridge → Claude",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "validation_requirements": [
+    "Add tests covering the four defects, including COMPLETED/BLOCKED reruns, independent task IDs, interrupted tick between label removal and commit, Action inheritance, section preservation, and rerun while previous attempt is active. Run the relevant bridge/executor/governance tests and report exact …"
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-03T00:07:19.435Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #103 https://github.com/othoth77/mythos-prod/issues/103 — \"إصلاح Rerun في GitHub Issues → Bridge → Claude\"\n\n[re-run — implement only]\n**Action: implement**\n\nThis is an owner-approved rerun of Issue #103 after the investigation. Create a NEW independent TASK (`gh-issue-103-r2`) with `requested_action=implement` and `execution_profile=repo-write`. Do not reuse the previous task `gh-issue-103`.\n\n[fix the four confirmed defects]\n1. Prevent loss of the `rerun` request: consume/remove the rerun label only after the control commit succeeds; preserve the request if the tick dies before commit.\n2. On attempt >1, if the new Issue body has no explicit Action, inherit the previous attempt's `requested_action` instead of silently defaulting to `investigate`.\n3. On rerun, preserve/inherit previously structured `scope`, `constraints`, and `validation_requirements` when the edited body leaves them empty or uses unrecognised headings.\n4. Add clear Issue-side feedback for already-converted and rerun-deferred-while-active cases, with marker-keyed comments and no spam.\n\n[scope rules]\n- Use the prior #103 investigation as the basis; do not repeat it unnecessarily.\n- Do NOT rerun #101 inside this task; `gh-issue-101-r2` remains a separate live execution.\n- No AUTOS-0, SPY, n8n, MCP/ContextForge, OAuth, or unrelated projects.\n- No secrets.\n- No merge to `main`; commit/push only the new task branch through normal governance.\n- No blind `git add .`.\n\n[completion]\nReturn a full REPORT with changed files, tests, commit SHA, branch, and any blockers. Keep this Issue open until the rerun is completed and verified.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 103,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/103",
+    "issue_id": 5330423435,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPbfOiw",
+    "issue_title": "TASK: إصلاح Rerun في GitHub Issues → Bridge → Claude",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-02T23:41:18Z",
+    "issue_updated_at": "2026-09-03T00:05:40Z",
+    "issue_labels": [
+      "task",
+      "mythos:human-approval",
+      "rerun",
+      "action:implement"
+    ],
+    "content_sha256": "16a3bd34994c9c629faeda0c7a4d43339eb3ae8df177bdcae0ac9d1a1ec1b210",
+    "attempt": 2,
+    "rerun_of": "gh-issue-103",
+    "converted_at": "2026-09-03T00:07:19.436Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5518267193,
+        "url": "https://github.com/othoth77/mythos-prod/issues/103#issuecomment-5518267193",
+        "at": "2026-09-03T00:07:20.273Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:human-approval"
+      ]
+    }
+  }
+}
