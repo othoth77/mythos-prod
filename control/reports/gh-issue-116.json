@@ -1,0 +1,67 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-116",
+  "status": "COMPLETED",
+  "summary": "Read-only investigation of GitHub Bridge Action Resolution (github-issues.js, github-bridge.js) at base commit 88869a92 (== origin/main). Found two concrete, statically-verified parser defects distinct from #113's bullet-prefix fix: (1) pickAction/pickPriority/pickModel/pickInt read only sections.<key>[0], which is a blank line (falsy) when a scalar field is written as a heading followed by a blank line before its value (GitHub Issue Forms style) or as a markdown table row (no colon) — both silently drop an intended explicit Action to default/inherited; (2) notes/objective text is truncated (short() at 2000/4000/8000 chars), observable directly in this task's own truncated prompt, though this does not affect Action resolution since the scalar-field scan runs pre-truncation. Could not confirm which mechanism (if either) explains #114/#115 specifically, or verify the production runtime's actual checkout HEAD, because Bash execution of node/git-outside-worktree and gh/WebFetch network calls all required interactive approval unavailable in this headless investigate session -- the same restriction gh-issue-114's investigate run hit. Action/execution_profile cannot diverge today by construction (profile is always freshly derived server-side from requested_action at claim time; no ACTION_PROFILE_MISMATCH failure mode exists to trigger). Rerun precedence (explicit > inherited > default) and per-attempt immutability of the action/profile decision are correctly implemented as read, matching #114's independent conclusion. Evidence flagged for the mission owner: gh-issue-115's claim that Issue #114 explicitly stated Action: implement is contradicted by gh-issue-114.json's own intake notes (written by the current parser), and gh-issue-116 itself carries no Action:/action:<x> label either -- recommend resolving this via gh api against the live issue bodies once network-approved Bash is available, before assuming the parser is at fault for these specific three issues.",
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "static full read of projects/mythos-ai-executor/bridge/github-issues.js (1108 lines) and github-bridge.js (1275 lines): completed",
+    "node -e (splitSections/pickAction trace): NOT RUN — Bash execution of node required interactive approval unavailable in this headless investigate session",
+    "gh api / WebFetch against Issue #114, #115, #116 raw bodies: NOT RUN — same restriction",
+    "git -C /home/deploy/projects/mythos-prod rev-parse HEAD (runtime checkout verification): NOT RUN — same restriction",
+    "tests/mythos-github-issues-test.js, tests/mythos-github-bridge-test.js: NOT RUN — read-only investigate profile has no execution rights; last documented baseline is 97/97 passing as of 2026-09-02 per docs/MYTHOS_GITHUB_BRIDGE.md, not re-verified here"
+  ],
+  "validation": {
+    "git_verified": null,
+    "remote_head": "88869a92ef63cc5e044044811d91a86f045365e5",
+    "report_problems": [],
+    "required_checks": [
+      "`Action: implement` يصل إلى `requested_action=implement`.",
+      "`execution_profile=repo-write` بشكل حتمي.",
+      "explicit current Action يتغلب على inherited/default.",
+      "rerun semantics سليمة.",
+      "mismatch يوقف التنفيذ قبل provider.",
+      "runtime/source mismatch تم فحصه وإثبات نتيجته.",
+      "structured report contract يعمل للنجاح والفشل/الحظر.",
+      "كل الاختبارات المطلوبة خضراء.",
+      "commit + branch + base SHA موثقة.",
+      "PR فعلي قابل للـmerge."
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "Root cause of the #114/#115 symptom is not conclusively proven -- two plausible code defects were confirmed by static trace, but whether they (or simply the owner filing new issues instead of using the rerun label, each correctly defaulting) actually explain #114/#115 needs the live issue body, unavailable in this sandbox",
+    "gh-issue-115 is still IN_PROGRESS and must be reconciled with this report before any implement follow-up is scoped, per the mission's own instruction to treat it as evidence input",
+    "Production runtime checkout identity (main vs. a stale snapshot) is unverified from this environment and needs a session with elevated Bash/network approval",
+    "notes/objective truncation (short() caps) causes real information loss for elaborate multi-item issue specs, independent of the Action-resolution question"
+  ],
+  "next_recommended_action": "Await gh-issue-115's completion, then dispatch a scoped Action: implement task to (1) fix scalar-field extraction in splitSections/pickAction/pickPriority/pickModel/pickInt (skip blank continuation lines, support table-row key:value syntax), (2) add action_source/action_raw as structured task fields, (3) raise/remove the notes/objective truncation caps, (4) add regression tests for both confirmed parser defects plus a rerun scenario, and (5) verify the real #114/#115 issue bodies via gh api before finalizing the root-cause writeup.",
+  "completed_at": "2026-09-03T09:36:42.240Z",
+  "execution": {
+    "executor_task_id": "t-20260903092725-cr0mpe",
+    "othmode_task_id": "OTH-2026-00049",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": null,
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=5 [instruction_length>=6000+1 complexity_terms(architecture,root cause,معمارية)+3 required_tests>=3+1]",
+    "claude_session_id": "9e1bdd53-bc4a-4061-be83-42126aa2cb98",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-03T09:29:18.898Z",
+    "ended_at": "2026-09-03T09:35:46.479Z",
+    "retries": 0,
+    "quota_waits": 0,
+    "cost_usd": 1.1281927999999999,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-116",
+    "branch": "mythos/gh/gh-issue-116",
+    "base_commit": "88869a92ef63cc5e044044811d91a86f045365e5",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-116",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
