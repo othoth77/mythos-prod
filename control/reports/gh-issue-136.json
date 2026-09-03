@@ -1,0 +1,143 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-136",
+  "attempt_id": "gh-issue-136#1",
+  "status": "COMPLETED",
+  "summary": "Proved the real E2E HostOps health path end-to-end with no manual steps: this session's live executor task record (t-20260903183430-fgkm01) was used to call lib/hostops.js invoke({operation:'health'}) in-process, which passed through the real allowlist/governance/Resource-Guard gates and connected to the actual production Unix socket /run/mythos-hostops/hostops.sock served by the root mythos-hostops-daemon.py, returning ok:true, class:READ, audit_id hostops-mtlv9tgk-d31e02, hostops_exit:0, correlated in tasks/t-20260903183430-fgkm01/hostops.json to othmode_task_id=OTH-2026-00061 and github_task_id=gh-issue-136. WRITE/RESTART/DEPLOY were structurally unreachable since invoke() enforces class==READ before the socket is touched. All targeted tests passed and no production code needed to change since the HOSTOPS-2R path already worked live; OTHMODE task OTH-2026-00061 was updated (non-terminal) with the full evidence.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": "Sonnet 5",
+    "model_key": "sonnet",
+    "model": "claude-sonnet-5",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "base_sha": "417aec7f9ec1e6fba05e09ab78c0a65e09701d51",
+    "branch": "mythos/gh/gh-issue-136",
+    "commit_sha": null
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-03T18:34:30.238Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Proved the real E2E HostOps health path end-to-end with no manual steps: this session's live executor task record (t-20260903183430-fgkm01) was used to call lib/hostops.js invoke({operation:'health'}) in-process, which passed through the real allowlist/governance/Resource-Guard gates and connected to the actual production Unix socket /run/mythos-hostops/hostops.sock served by the root mythos-hostops-daemon.py, returning ok:true, class:READ, audit_id hostops-mtlv9tgk-d31e02, hostops_exit:0, correlated in tasks/t-20260903183430-fgkm01/hostops.json to othmode_task_id=OTH-2026-00061 and github_task_id=gh-issue-136. WRITE/RESTART/DEPLOY were structurally unreachable since invoke() enforces class==READ before the socket is touched. All targeted tests passed and no production code needed to change since the HOSTOPS-2R path already worked live; OTHMODE task OTH-2026-00061 was updated (non-terminal) with the full evidence.",
+    "tests": [
+      "tests/mythos-hostops-daemon-test.js: 14/0",
+      "tests/mythos-hostops-executor-test.js: 36/0",
+      "tests/mythos-github-bridge-test.js: 150/0",
+      "tests/mythos-governance-invariant-test.js: 111/0",
+      "tests/mythos-ai-executor-test.js: 390/0"
+    ],
+    "commit": null,
+    "remote_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "files_changed": [],
+    "residual_risks": [
+      "Worktree base 417aec7 is 2 commits behind origin/main ff9f71b; mythos-github-bridge-test.js reports RUNTIME_STALE_CHECKOUT for this checkout (non-strict, claims still allowed) — unrelated to this task's objective",
+      "hostops.invoke() task_recorded=true depended on this session's own live executor task state existing; a caller without a real task_id would still get ok:true but task_recorded:false (by design, non-blocking)"
+    ],
+    "next_stage": "None required for gh-issue-136's HostOps E2E objective — path is proven live. If desired, a separate task could rebase a fresh worktree onto origin/main ff9f71b to drop the RUNTIME_STALE_CHECKOUT note, but that is unrelated to this issue's scope."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "tests/mythos-hostops-daemon-test.js: 14/0",
+    "tests/mythos-hostops-executor-test.js: 36/0",
+    "tests/mythos-github-bridge-test.js: 150/0",
+    "tests/mythos-governance-invariant-test.js: 111/0",
+    "tests/mythos-ai-executor-test.js: 390/0"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "417aec7f9ec1e6fba05e09ab78c0a65e09701d51",
+    "report_problems": [
+      "delivery expected a commit but the report claims none"
+    ],
+    "required_checks": []
+  },
+  "problems": [
+    "delivery expected a commit but the report claims none"
+  ],
+  "risks": [
+    "Worktree base 417aec7 is 2 commits behind origin/main ff9f71b; mythos-github-bridge-test.js reports RUNTIME_STALE_CHECKOUT for this checkout (non-strict, claims still allowed) — unrelated to this task's objective",
+    "hostops.invoke() task_recorded=true depended on this session's own live executor task state existing; a caller without a real task_id would still get ok:true but task_recorded:false (by design, non-blocking)"
+  ],
+  "next_recommended_action": "None required for gh-issue-136's HostOps E2E objective — path is proven live. If desired, a separate task could rebase a fresh worktree onto origin/main ff9f71b to drop the RUNTIME_STALE_CHECKOUT note, but that is unrelated to this issue's scope.",
+  "completed_at": "2026-09-03T18:39:20.666Z",
+  "execution": {
+    "executor_task_id": "t-20260903183430-fgkm01",
+    "othmode_task_id": "OTH-2026-00061",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": "Sonnet 5",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-136#1",
+    "fence": 1079,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:942068",
+      "fence": 1079,
+      "acquired_at": "2026-09-03T18:34:30.413Z",
+      "expires_at": "2026-09-03T20:04:30.413Z"
+    },
+    "snapshot_sha256": "ff861b8df1328fe7cf842028a127c28864e703fc1b6e251302943d25d9962389",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "claude_session_id": "70d73d3e-4fb5-4cc5-b825-97de7664a5f9",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-03T18:34:34.931Z",
+    "ended_at": "2026-09-03T18:38:53.541Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": [
+      {
+        "at": "2026-09-03T18:36:53.752Z",
+        "operation": "host.health.check",
+        "outcome": "ok",
+        "code": null,
+        "audit_id": "hostops-mtlv9tgk-d31e02",
+        "hostops_exit": 0,
+        "othmode_task_id": "OTH-2026-00061",
+        "github_task_id": "gh-issue-136",
+        "dagu_run_id": null,
+        "duration_ms": 216
+      }
+    ],
+    "quota_waits": 0,
+    "cost_usd": 1.1371768,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-136",
+    "branch": "mythos/gh/gh-issue-136",
+    "base_commit": "417aec7f9ec1e6fba05e09ab78c0a65e09701d51",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-136",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
