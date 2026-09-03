@@ -138,6 +138,16 @@
         "at": "2026-09-03T12:10:46.829Z",
         "existed": false,
         "executor_task_id": "t-20260903121045-pdghsy"
+      },
+      "report": {
+        "comment_id": 5525631626,
+        "url": "https://github.com/othoth77/mythos-prod/issues/123#issuecomment-5525631626",
+        "at": "2026-09-03T12:18:33.631Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "control_status": "COMPLETED",
+        "report_file": "control/reports/gh-issue-123.json",
+        "commits_on_origin": false
       }
     },
     "labels": {
@@ -147,7 +157,8 @@
       "removed": [
         "mythos:human-approval"
       ]
-    }
+    },
+    "issue_state": "COMPLETED"
   },
   "execution": {
     "executor_task_id": "t-20260903121045-pdghsy",
