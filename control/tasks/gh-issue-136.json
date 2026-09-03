@@ -1,0 +1,140 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-136",
+  "project": "mythos-prod",
+  "objective": "إثبات المسار الكامل الحقيقي بدون أي Copy/Paste يدوي للـHostOps:\nGitHub TASK → Bridge → OTHMODE/Governance → AI Executor → HostOps Unix socket → root HostOps daemon → health → REPORT.",
+  "scope": [
+    "استخدم latest origin/main الذي يحتوي HOSTOPS-2R / PR #131 وPR #135.",
+    "نفّذ مهمة READ-only واحدة فقط للعملية `health` عبر المسار المحكوم من GitHub Bridge/Executor/HostOps.",
+    "يجب أن تكون النتيجة `ok:true` و`class: READ` مع `audit_id` غير فارغ و`hostops_exit: 0`.",
+    "يجب تسجيل OTHMODE/GitHub/executor correlation في التقرير.",
+    "تحقق أن المسار لم ينفذ WRITE أو RESTART أو DEPLOY.",
+    "شغّل الاختبارات المركزة ذات الصلة (HostOps boundary / Executor / Bridge / Governance) بدون تعديل غير ضروري.",
+    "أرسل تقريرًا منظمًا `mythos_report` يوضح التنفيذ والنتيجة والاختبارات والـcommit إن وُجد."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T18:04:09.447Z",
+  "created_by": "github-issue:othoth77",
+  "model": "sonnet",
+  "model_raw": "Sonnet 5",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #136 https://github.com/othoth77/mythos-prod/issues/136 — \"E2E HostOps health عبر GitHub Bridge — retry\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\nmodel: sonnet — source explicit_current_issue (written as \"Sonnet 5\")\n\n[strict exclusions]\n- لا WRITE / RESTART / DEPLOY.\n- لا Evolution API أو WhatsApp.\n- لا AUTOS-0، لا SPY، لا n8n.\n- لا تغييرات Resource Guard أو Governance أو MCP architecture.\n- لا أسرار داخل TASK أو REPORT.\n- لا `git add .`.\n- لا merge تلقائي.\n- لا تغييرات production code إلا إذا كانت ضرورية مباشرة لإتمام E2E proof؛ وإذا كان المسار الحالي يعمل، لا تغيّر الكود.\n\n[completion]\nلا تعتبر المهمة مكتملة إلا إذا ثبت المسار E2E الحقيقي من GitHub Bridge حتى HostOps وأُعيد REPORT نهائي منظم. إذا تعذر التنفيذ، توقف وأبلغ BLOCKED مع السبب الدقيق دون workaround يدوي.\n\n[previous attempt]\nIssue #133 كانت محاولة سابقة فشلت فقط بسبب `Model: auto`. هذه TASK مستقلة ولا تحتاج إلى تعديل أو إعادة فتح #133.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 136,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/136",
+    "issue_id": 5339852855,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPkewNw",
+    "issue_title": "TASK: E2E HostOps health عبر GitHub Bridge — retry",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T18:03:55Z",
+    "issue_updated_at": "2026-09-03T18:03:55Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "e62091e0c862266f80a1898cfbcf0aa3948025cedcf55a660d2831fca47585f3",
+    "attempt": 1,
+    "attempt_id": "gh-issue-136#1",
+    "idempotency_key": "0082c89666c384805c9ac601a85da16b56635a36942900c8f2f21d1e891515b0",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "inline",
+          "line": 1
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": "sonnet",
+      "model_id": "claude-sonnet-5",
+      "model_raw": "Sonnet 5",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:sonnet (requested \"Sonnet 5\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-03T18:04:09.448Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-03T18:04:09.448Z",
+        "event": "issue_received",
+        "reason": "open Issue #136 with label task",
+        "content_sha256": "e62091e0c862266f80a1898cfbcf0aa3948025cedcf55a660d2831fca47585f3"
+      },
+      {
+        "at": "2026-09-03T18:04:09.448Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-03T18:04:09.448Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-03T18:04:09.448Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → sonnet (available)"
+      },
+      {
+        "at": "2026-09-03T18:04:11.206Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-136.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-03T18:04:09.448Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5529973856,
+        "url": "https://github.com/othoth77/mythos-prod/issues/136#issuecomment-5529973856",
+        "at": "2026-09-03T18:04:10.365Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
