@@ -21,7 +21,7 @@
   "action_raw": "implement",
   "action_source": "action_label",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-03T21:04:59.712Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #147 https://github.com/othoth77/mythos-prod/issues/147 — \"تقوية WhatsApp Provider ودراسة بديل أخف من Evolution API\"\n\nrequested_action: implement — source action_label (written as \"implement\") → execution profile repo-write\n\n[المراجع]\n- #146 — إعادة تنفيذ WhatsApp Provider، انتهت BLOCKED بسبب ضغط VPS وصلاحيات النشر.\n- #141 — المحاولة السابقة.\n- #126 — أصل تكامل WhatsApp.\n- #124 — PR WhatsApp Bridge.\n\n[معيار القرار]\n- إذا ثبت أن Provider جاهز وخفيف ومتوافق وآمن: جهّز مساراً واضحاً لاستبداله أو تشغيله خلف الـadapter، لكن لا تعمل auto-merge ولا نشر إنتاجي تلقائياً.\n- إذا لم يوجد بديل أفضل بشكل مثبت: حافظ على Evolution API الحالي واقترح تقوية العزل وإدارة الموارد بدلاً من استبداله.\n- لا تعتبر مشكلة VPS محلولة بمجرد تغيير الكود؛ يجب إثبات أن الحل يقلل المخاطر فعلياً.\n\n[الحوكمة]\nالتنفيذ حصراً عبر:\nGitHub → Bridge → OTHMODE/Governance → Executor/Claude → Relay.\n\nلا manual bypass، لا auto-merge، ولا تجاوز لصلاحيات VPS. لا تعاود تنفيذ #126 من الصفر.",
@@ -158,8 +158,8 @@
     "claimed_at": "2026-09-03T21:05:03.336Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "7db651e76cebea7a3b6bd3cb9ad6a8855362b7de1c92d3763e885dce7aebd3d0",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-03T21:06:20.305Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-03T21:26:10.616Z",
     "snapshot_sha256": "b32179247f7c1847a15df109cc025a9b899ab5688e4233e9a2056238de1d28f0",
     "fence": 1457,
     "lease": {
@@ -188,7 +188,8 @@
     },
     "model": "claude-opus-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "c70c9b86-3eee-4c48-90ce-3f13d364ad4f"
+    "claude_session_id": "c70c9b86-3eee-4c48-90ce-3f13d364ad4f",
+    "report_file": "control/reports/gh-issue-147.json"
   },
   "history": [
     {
@@ -204,6 +205,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-03T21:26:10.026Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-03T21:26:10.616Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (1 commit(s), 12 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
