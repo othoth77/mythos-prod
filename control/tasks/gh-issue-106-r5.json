@@ -52,6 +52,16 @@
         "at": "2026-09-03T02:18:26.340Z",
         "existed": false,
         "executor_task_id": "t-20260903021824-ibkpu1"
+      },
+      "report": {
+        "comment_id": 5519364421,
+        "url": "https://github.com/othoth77/mythos-prod/issues/106#issuecomment-5519364421",
+        "at": "2026-09-03T02:23:03.404Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-106-r5.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -59,7 +69,8 @@
         "mythos:queued"
       ],
       "removed": []
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260903021824-ibkpu1",
