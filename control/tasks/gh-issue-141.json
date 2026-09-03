@@ -26,7 +26,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "BLOCKED",
   "created_at": "2026-09-03T19:07:19.465Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #141 https://github.com/othoth77/mythos-prod/issues/141 — \"إتمام نشر WhatsApp Provider والتحقق النهائي بعد #126\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[المرجع]\n- Issue الأصلية: #126\n- PR WhatsApp Bridge: #124\n- الكود والـnotification layer موجودان ومتحققان.",
@@ -170,8 +170,8 @@
     "claimed_at": "2026-09-03T19:07:22.602Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "617edeb76819d5865dd061555b1d98e66fe173c82ef39d683f9f46094cb3e801",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-03T19:21:40.820Z",
+    "executor_status": "BLOCKED",
+    "updated_at": "2026-09-03T19:25:20.772Z",
     "snapshot_sha256": "1df298a72b190303a258aedb421f14b66891ffb76c28401458aeb8fdd51a5263",
     "fence": 1160,
     "lease": {
@@ -200,7 +200,13 @@
     },
     "model": "claude-sonnet-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "a8533128-78e2-4cd6-a811-49fc77706580"
+    "claude_session_id": "a8533128-78e2-4cd6-a811-49fc77706580",
+    "blocker": {
+      "code": "HUMAN_APPROVAL",
+      "reason": "Verified current VPS state for gh-issue-141: docker access for deploy is now available (fixed since #126), but swap remains fully consumed (~231MB RAM free) on a shared production host running ~19 real containers, and this session's sandbox policy denies sudo/root outright — there is no path available to this run to remediate the memory pressure or to safely deploy a provider stack without risking OOM against real production services. No provider was deployed, no notification code was touched (v",
+      "retryable": false
+    },
+    "report_file": "control/reports/gh-issue-141.json"
   },
   "history": [
     {
@@ -216,6 +222,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-03T19:25:20.199Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended BLOCKED; building report"
+    },
+    {
+      "at": "2026-09-03T19:25:20.772Z",
+      "from": "VALIDATING",
+      "to": "BLOCKED",
+      "by": "github-bridge",
+      "note": "report written (1 commit(s), 3 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

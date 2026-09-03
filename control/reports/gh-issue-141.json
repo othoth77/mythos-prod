@@ -1,0 +1,147 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-141",
+  "attempt_id": "gh-issue-141#1",
+  "status": "BLOCKED",
+  "summary": "Verified current VPS state for gh-issue-141: docker access for deploy is now available (fixed since #126), but swap remains fully consumed (~231MB RAM free) on a shared production host running ~19 real containers, and this session's sandbox policy denies sudo/root outright — there is no path available to this run to remediate the memory pressure or to safely deploy a provider stack without risking OOM against real production services. No provider was deployed, no notification code was touched (verified unchanged/correct via notify-config and notify-status), and notify-test --confirm was not run since there is nothing configured to test. Documented findings in docs/AI_HANDOVER.md and recorded them on OTHMODE task OTH-2026-00065 (phase VALIDATION, problems/outcome sections) without setting a terminal status.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-sonnet-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]",
+    "base_sha": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "branch": "mythos/gh/gh-issue-141",
+    "commit_sha": "422f4a3b4cec48140da8a7cd451ab348d3d60d58"
+  },
+  "blocker": {
+    "code": "HUMAN_APPROVAL",
+    "retryable": false,
+    "at": "2026-09-03T19:24:33.475Z",
+    "reason": "Verified current VPS state for gh-issue-141: docker access for deploy is now available (fixed since #126), but swap remains fully consumed (~231MB RAM free) on a shared production host running ~19 real containers, and this session's sandbox policy denies sudo/root outright — there is no path available to this run to remediate the memory pressure or to safely deploy a provider stack without risking OOM against real production services. No provider was deployed, no notification code was touched (verified unchanged/correct via notify-config and notify-status), and notify-test --confirm was not run since there is nothing configured to test. Documented findings in docs/AI_HANDOVER.md and recorded them on OTHMODE task OTH-2026-00065 (phase VALIDATION, problems/outcome sections) without setting a",
+    "task_id": "t-20260903190722-jb9tlt",
+    "attempt_id": "gh-issue-141#1",
+    "requested_action": "implement",
+    "execution_profile": "repo-write",
+    "model": "claude-sonnet-5"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-03T19:07:21.710Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "blocked",
+    "summary": "Verified current VPS state for gh-issue-141: docker access for deploy is now available (fixed since #126), but swap remains fully consumed (~231MB RAM free) on a shared production host running ~19 real containers, and this session's sandbox policy denies sudo/root outright — there is no path available to this run to remediate the memory pressure or to safely deploy a provider stack without risking OOM against real production services. No provider was deployed, no notification code was touched (verified unchanged/correct via notify-config and notify-status), and notify-test --confirm was not run since there is nothing configured to test. Documented findings in docs/AI_HANDOVER.md and recorded them on OTHMODE task OTH-2026-00065 (phase VALIDATION, problems/outcome sections) without setting a terminal status.",
+    "tests": [
+      "docker ps: no evolution/waha/whatsapp container (manual check, pass)",
+      "notify-config: enabled=false, expected problems only (manual check, pass)",
+      "notify-status: ledger empty, 0 entries (manual check, pass)"
+    ],
+    "commit": "422f4a3b4cec48140da8a7cd451ab348d3d60d58",
+    "remote_head": null,
+    "files_changed": [
+      "docs/AI_HANDOVER.md"
+    ],
+    "residual_risks": [
+      "Swap is fully consumed on a production VPS; any future privileged session must remediate this (add swap and/or apply MemoryHigh=/MemoryLow= to existing services) before attempting a WhatsApp provider deployment.",
+      "Provider choice (Evolution API) remains PROVISIONAL/TO-VERIFY per #126 — not re-verified this run since deployment did not proceed.",
+      "No WhatsApp smoke test has ever been sent; #126's residual risk is unchanged."
+    ],
+    "next_stage": "Owner decision required: (1) grant root/privileged VPS access to remediate swap pressure, or (2) explicitly authorize deploying a provider despite current memory state, or (3) provide an isolated host for the WhatsApp provider. Only then: live-verify provider choice, deploy on a private network, configure credentials outside Git per docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §4.1, run notify-status, then notify-test --confirm once."
+  },
+  "files_changed": [
+    "docs/AI_HANDOVER.md"
+  ],
+  "commits": [
+    {
+      "sha": "422f4a3b4cec48140da8a7cd451ab348d3d60d58",
+      "subject": "docs(handover): gh-issue-141 WhatsApp provider deployment BLOCKED on swap/root",
+      "branch": "mythos/gh/gh-issue-141",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "docker ps: no evolution/waha/whatsapp container (manual check, pass)",
+    "notify-config: enabled=false, expected problems only (manual check, pass)",
+    "notify-status: ledger empty, 0 entries (manual check, pass)"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [
+    "HUMAN_APPROVAL: Verified current VPS state for gh-issue-141: docker access for deploy is now available (fixed since #126), but swap remains fully consumed (~231MB RAM free) on a shared production host running ~19 real containers, and this session's sandbox policy denies sudo/root outright — there is no path available to this run to remediate the memory pressure or to safely deploy a provider stack without risking OOM against real production services. No provider was deployed, no notification code was touched (verified unchanged/correct via notify-config and notify-status), and notify-test --confirm was not run since there is nothing configured to test. Documented findings in docs/AI_HANDOVER.md and recorded them on OTHMODE task OTH-2026-00065 (phase VALIDATION, problems/outcome sections) without setting a"
+  ],
+  "risks": [
+    "Swap is fully consumed on a production VPS; any future privileged session must remediate this (add swap and/or apply MemoryHigh=/MemoryLow= to existing services) before attempting a WhatsApp provider deployment.",
+    "Provider choice (Evolution API) remains PROVISIONAL/TO-VERIFY per #126 — not re-verified this run since deployment did not proceed.",
+    "No WhatsApp smoke test has ever been sent; #126's residual risk is unchanged."
+  ],
+  "next_recommended_action": "Owner decision required: (1) grant root/privileged VPS access to remediate swap pressure, or (2) explicitly authorize deploying a provider despite current memory state, or (3) provide an isolated host for the WhatsApp provider. Only then: live-verify provider choice, deploy on a private network, configure credentials outside Git per docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §4.1, run notify-status, then notify-test --confirm once.",
+  "completed_at": "2026-09-03T19:25:20.708Z",
+  "execution": {
+    "executor_task_id": "t-20260903190722-jb9tlt",
+    "othmode_task_id": "OTH-2026-00065",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-141#1",
+    "fence": 1160,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1029942",
+      "fence": 1160,
+      "acquired_at": "2026-09-03T19:07:22.602Z",
+      "expires_at": "2026-09-03T20:37:22.602Z"
+    },
+    "snapshot_sha256": "1df298a72b190303a258aedb421f14b66891ffb76c28401458aeb8fdd51a5263",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]",
+    "claude_session_id": "a8533128-78e2-4cd6-a811-49fc77706580",
+    "executor_status": "BLOCKED",
+    "started_at": "2026-09-03T19:21:21.126Z",
+    "ended_at": "2026-09-03T19:24:33.475Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.8370324,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-141",
+    "branch": "mythos/gh/gh-issue-141",
+    "base_commit": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-141",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
