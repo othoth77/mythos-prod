@@ -25,7 +25,7 @@
   "priority": "normal",
   "requested_action": "implement",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T03:02:29.420Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #112 https://github.com/othoth77/mythos-prod/issues/112 — \"إصلاح GitHub Issue Action Routing وStructured Report\"\n\n[المشكلة المثبتة]\nفي `gh-issue-111-r2` كان نص المهمة يحتوي على Objective تنفيذي، لكن control task تم إنشاؤه بـ `requested_action: investigate`، وبالتالي أصبح `execution_profile: repo-read` و`mcp_capabilities: []`. Claude حاول تنفيذ merge لكنه توقف عند طلب approval، ثم لم يُنتج `mythos_report`، فصُنفت المهمة BLOCKED.\n\n[ممنوع]\n- لا تنفيذ WhatsApp أو دمج `b37491f` في هذه المهمة.\n- لا نشر Evolution API ولا إرسال WhatsApp.\n- لا AUTOS-0.\n- لا SPY/n8n.\n- لا MYTHOS AUTO/customer chat.\n- لا Resource Guard threshold changes.\n- لا Model Policy changes إلا إذا ظهر خلل مباشر وضروري في dispatch؛ عندها توقف واذكر السبب.\n- لا تغييرات على systemd أو VPS services.\n- لا أسرار أو credentials أو `.env`.\n- لا `git add .`.\n- لا merge إلى main ولا auto-merge.\n\n[التحقق النهائي المطلوب]\nيجب أن يحتوي التقرير على:\n- status\n- requested_action قبل/بعد\n- execution_profile قبل/بعد\n- سبب الخلل\n- الملفات المعدلة\n- commit SHA\n- base SHA\n- الاختبارات ونتائجها\n- تأكيد عدم لمس WhatsApp/Resource Guard/Model Policy/AUTOS-0/SPY/n8n\n- `mythos_report` structured block صالح.\n\n[النتيجة المطلوبة]\nPR نظيف وقابل للدمج يعالج أصل مشكلة Action Routing وStructured Report، بحيث يمكن بعد دمجه إعادة تنفيذ مهمة WhatsApp #111 بصيغة `Action: implement` دون الوقوع في نفس الحلقة.",
@@ -72,5 +72,28 @@
         "mythos:human-approval"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903030234-2x43ix",
+    "othmode_task_id": "OTH-2026-00044",
+    "execution_profile": "repo-write",
+    "expected_delivery": "commit",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-112",
+    "branch": "mythos/gh/gh-issue-112",
+    "base_commit": "5ada6f0f7bb241c0e7009e840a6e1ee2c6567e55",
+    "claimed_at": "2026-09-03T03:02:34.504Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "73f395db1c01b351681de7c00716271c93010134e625b619ecadf0a4283ef04c",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T03:02:34.504Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T03:02:34.530Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903030234-2x43ix queued; OTHMODE OTH-2026-00044"
+    }
+  ]
 }
