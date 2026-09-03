@@ -1,0 +1,166 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-132",
+  "attempt_id": "gh-issue-132#1",
+  "status": "COMPLETED",
+  "summary": "Diagnosed the live HOSTOPS-2R production activation gap: usermod -aG mythos-hostops deploy only edits /etc/group and never refreshes the supplementary groups of deploy's already-running systemd --user manager (user@<uid>.service), so mythos-ai-executor.service kept hitting EACCES on /run/mythos-hostops/hostops.sock even with group membership granted and the executor unit itself restarted. The prior manual SupplementaryGroups=mythos-hostops drop-in failed with status=216/GROUP because that directive is documented (systemd.exec(5)) as having no effect on --user units, whose unprivileged manager lacks CAP_SETGID. Added ops/hostops/refresh-group-membership.sh, wired into install-hostops.sh right after the usermod -aG calls, which restarts user@<uid>.service (a root system unit) only for a user whose manager is already active — idempotent, non-disruptive, no reboot/logout needed. No changes to the socket unit, the root daemon, the helper, or lib/hostops.js; NoNewPrivileges=true on the executor is untouched throughout. Updated docs/MYTHOS_HOSTOPS_INTERFACE.md (HOSTOPS-2R-FIX addendum with revised owner activation steps), docs/AI_HANDOVER.md and docs/CHANGELOG.md. Added tests/mythos-hostops-group-refresh-test.js (10/0) proving the mechanism against a stubbed systemctl/id and asserting SupplementaryGroups= appears nowhere in the tree. Could not perform the actual root install or live socket connection test from this sandboxed execution session (no VPS/root access here, and the bridge constraints forbid manually changing the VPS from this session) — that is the documented owner-only next step.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": "Sonnet",
+    "model_key": "sonnet",
+    "model": "claude-sonnet-5",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "base_sha": "85cbf9067f6cddc801146f4beb1b04ceddb8bc1e",
+    "branch": "mythos/gh/gh-issue-132",
+    "commit_sha": "eebb4b12db69a3f4ecf68e3357442ea398beaa63"
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "85cbf9067f6cddc801146f4beb1b04ceddb8bc1e",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "85cbf9067f6cddc801146f4beb1b04ceddb8bc1e",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-03T16:07:12.155Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Diagnosed the live HOSTOPS-2R production activation gap: usermod -aG mythos-hostops deploy only edits /etc/group and never refreshes the supplementary groups of deploy's already-running systemd --user manager (user@<uid>.service), so mythos-ai-executor.service kept hitting EACCES on /run/mythos-hostops/hostops.sock even with group membership granted and the executor unit itself restarted. The prior manual SupplementaryGroups=mythos-hostops drop-in failed with status=216/GROUP because that directive is documented (systemd.exec(5)) as having no effect on --user units, whose unprivileged manager lacks CAP_SETGID. Added ops/hostops/refresh-group-membership.sh, wired into install-hostops.sh right after the usermod -aG calls, which restarts user@<uid>.service (a root system unit) only for a user whose manager is already active — idempotent, non-disruptive, no reboot/logout needed. No changes to the socket unit, the root daemon, the helper, or lib/hostops.js; NoNewPrivileges=true on the executor is untouched throughout. Updated docs/MYTHOS_HOSTOPS_INTERFACE.md (HOSTOPS-2R-FIX addendum with revised owner activation steps), docs/AI_HANDOVER.md and docs/CHANGELOG.md. Added tests/mythos-hostops-group-refresh-test.js (10/0) proving the mechanism against a stubbed systemctl/id and asserting SupplementaryGroups= appears nowhere in the tree. Could not perform the actual root install or live socket connection test from this sandboxed execution session (no VPS/root access here, and the bridge constraints forbid manually changing the VPS from this session) — that is the documented owner-only next step.",
+    "tests": [
+      "tests/mythos-hostops-group-refresh-test.js: 10/0 (new)",
+      "tests/mythos-hostops-daemon-test.js: 14/0",
+      "tests/mythos-hostops-executor-test.js: 36/0",
+      "tests/mythos-hostops-test.js: 39/0/2 skip",
+      "tests/dagu-hostops-allowlist-test.js: 7/0",
+      "tests/mythos-ai-executor-test.js: 390/0",
+      "tests/mythos-governance-invariant-test.js: 111/0",
+      "tests/resource-guard-test.js: 91/0",
+      "tests/mythos-github-bridge-test.js: 150/0"
+    ],
+    "commit": "eebb4b12db69a3f4ecf68e3357442ea398beaa63",
+    "remote_head": "85cbf9067f6cddc801146f4beb1b04ceddb8bc1e",
+    "files_changed": [
+      "ops/hostops/refresh-group-membership.sh",
+      "ops/hostops/install-hostops.sh",
+      "tests/mythos-hostops-group-refresh-test.js",
+      "docs/MYTHOS_HOSTOPS_INTERFACE.md",
+      "docs/AI_HANDOVER.md",
+      "docs/CHANGELOG.md"
+    ],
+    "residual_risks": [
+      "Not verified against the actual live VPS (no root/systemd access from this execution session) — owner must run `sudo bash ops/hostops/install-hostops.sh` and verify per the HOSTOPS-2R-FIX addendum before this is considered production-proven.",
+      "Restarting user@<uid>.service stops and restarts every systemd --user unit deploy currently has running (not just mythos-ai-executor) — expected and necessary, but the owner should be aware of the blast radius when re-running the installer on a host with other deploy user services active.",
+      "The fix assumes deploy's login session uses the standard PID-1-managed user@<uid>.service pattern (true for lingering/systemd-managed sessions on this host per prior HOSTOPS-2R notes); an unusual session-management setup could behave differently."
+    ],
+    "next_stage": "Owner: merge via governance relay, then re-run `sudo bash ops/hostops/install-hostops.sh` on the VPS (idempotent) and verify via the curl/journalctl checks in docs/MYTHOS_HOSTOPS_INTERFACE.md's HOSTOPS-2R-FIX addendum."
+  },
+  "files_changed": [
+    "ops/hostops/refresh-group-membership.sh",
+    "ops/hostops/install-hostops.sh",
+    "tests/mythos-hostops-group-refresh-test.js",
+    "docs/MYTHOS_HOSTOPS_INTERFACE.md",
+    "docs/AI_HANDOVER.md",
+    "docs/CHANGELOG.md"
+  ],
+  "commits": [
+    {
+      "sha": "eebb4b12db69a3f4ecf68e3357442ea398beaa63",
+      "subject": "fix(hostops): HOSTOPS-2R-FIX — refresh deploy/dagu systemd --user manager so socket group membership actually activates",
+      "branch": "mythos/gh/gh-issue-132",
+      "on_origin": true
+    }
+  ],
+  "tests": [
+    "tests/mythos-hostops-group-refresh-test.js: 10/0 (new)",
+    "tests/mythos-hostops-daemon-test.js: 14/0",
+    "tests/mythos-hostops-executor-test.js: 36/0",
+    "tests/mythos-hostops-test.js: 39/0/2 skip",
+    "tests/dagu-hostops-allowlist-test.js: 7/0",
+    "tests/mythos-ai-executor-test.js: 390/0",
+    "tests/mythos-governance-invariant-test.js: 111/0",
+    "tests/resource-guard-test.js: 91/0",
+    "tests/mythos-github-bridge-test.js: 150/0"
+  ],
+  "validation": {
+    "git_verified": true,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": [
+      "Executor starts normally as a deploy USER service with `NoNewPrivileges=true`.",
+      "Executor `/hostops/run` health reaches the Unix socket successfully.",
+      "Root daemon is socket-activated and logs an authorized `SO_PEERCRED` connection.",
+      "A real READ-only `health` call returns `ok: true` and an audit id.",
+      "No sudo is used by the Executor path.",
+      "No Docker socket is exposed to Executor or Dagu.",
+      "No WRITE/RESTART/DEPLOY capability is introduced.",
+      "Existing Resource Guard, Governance, MCP, Model Selection, GitHub Bridge and unrelated project semantics remain unchanged."
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "Not verified against the actual live VPS (no root/systemd access from this execution session) — owner must run `sudo bash ops/hostops/install-hostops.sh` and verify per the HOSTOPS-2R-FIX addendum before this is considered production-proven.",
+    "Restarting user@<uid>.service stops and restarts every systemd --user unit deploy currently has running (not just mythos-ai-executor) — expected and necessary, but the owner should be aware of the blast radius when re-running the installer on a host with other deploy user services active.",
+    "The fix assumes deploy's login session uses the standard PID-1-managed user@<uid>.service pattern (true for lingering/systemd-managed sessions on this host per prior HOSTOPS-2R notes); an unusual session-management setup could behave differently."
+  ],
+  "next_recommended_action": "Owner: merge via governance relay, then re-run `sudo bash ops/hostops/install-hostops.sh` on the VPS (idempotent) and verify via the curl/journalctl checks in docs/MYTHOS_HOSTOPS_INTERFACE.md's HOSTOPS-2R-FIX addendum.",
+  "completed_at": "2026-09-03T17:42:59.568Z",
+  "execution": {
+    "executor_task_id": "t-20260903160713-a8bbyt",
+    "othmode_task_id": "OTH-2026-00060",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": "Sonnet",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-132#1",
+    "fence": 827,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:579968",
+      "fence": 827,
+      "acquired_at": "2026-09-03T16:07:13.044Z",
+      "expires_at": "2026-09-03T17:37:13.044Z"
+    },
+    "snapshot_sha256": "4c01a01e1bd9ce45a36b51123ad74b9b72b86da2599a003cd22493584fe42c97",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "claude_session_id": "fda3f638-6601-43de-a9f8-fb552c138ad6",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-03T16:53:01.341Z",
+    "ended_at": "2026-09-03T17:03:02.241Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 1.9987978000000006,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-132",
+    "branch": "mythos/gh/gh-issue-132",
+    "base_commit": "85cbf9067f6cddc801146f4beb1b04ceddb8bc1e",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-132",
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
