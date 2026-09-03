@@ -1,0 +1,144 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-132",
+  "project": "mythos-prod",
+  "objective": "Fix the remaining production activation problem in HOSTOPS-2R: `mythos-ai-executor.service` is a deploy-owned systemd USER service with `NoNewPrivileges=true`, while the root-owned `mythos-hostops.socket` is `0660 root:mythos-hostops`. The deploy user is a member of `mythos-hostops`, but the current user manager/process does not receive the supplementary group, and `SupplementaryGroups=mythos-hostops` causes systemd user service startup failure `216/GROUP`.\n\nCurrent live state already established:\n- repository main is `85cbf90` and contains HOSTOPS-2R\n- `/run/mythos-hostops/hostops.sock` exists and listens\n- socket is `0660 root:mythos-hostops`\n- `deploy` is a member of `mythos-hostops` (GID 1003)\n- Executor runs as deploy USER service\n- `NoNewPrivileges=true` must remain unchanged\n- after restarting on the new code, Executor reached the new HostOps path but got `EACCES /run/mythos-hostops/hostops.sock`\n- adding a manual `SupplementaryGroups=mythos-hostops` drop-in caused `status=216/GROUP`; that manual drop-in has been removed and Executor is currently stopped pending a safe fix",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "Executor starts normally as a deploy USER service with `NoNewPrivileges=true`.",
+    "Executor `/hostops/run` health reaches the Unix socket successfully.",
+    "Root daemon is socket-activated and logs an authorized `SO_PEERCRED` connection.",
+    "A real READ-only `health` call returns `ok: true` and an audit id.",
+    "No sudo is used by the Executor path.",
+    "No Docker socket is exposed to Executor or Dagu.",
+    "No WRITE/RESTART/DEPLOY capability is introduced.",
+    "Existing Resource Guard, Governance, MCP, Model Selection, GitHub Bridge and unrelated project semantics remain unchanged."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-03T16:07:09.009Z",
+  "created_by": "github-issue:othoth77",
+  "model": "sonnet",
+  "model_raw": "Sonnet",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #132 https://github.com/othoth77/mythos-prod/issues/132 — \"HOSTOPS-2R-FIX: Executor access to HostOps socket without weakening hardening\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\nmodel: sonnet — source explicit_current_issue (written as \"Sonnet\")\n\n[required implementation]\n1. Investigate the correct systemd/user-service-safe authorization mechanism for the existing Unix socket boundary.\n2. Make the Executor able to connect to the root-owned HostOps socket as `deploy` without sudo, setuid, Docker socket access, or disabling `NoNewPrivileges=true`.\n3. Preserve the two independent security gates:\n   - socket filesystem permissions\n   - daemon `SO_PEERCRED` authorization\n4. Keep the root daemon invoking `/usr/local/sbin/mythos-hostops` with fixed argv and no shell.\n5. Preserve Resource Guard admission before HostOps socket access.\n6. Preserve all existing failure semantics and audit-id enforcement.\n7. Update the installer/systemd unit/docs/tests as needed so a clean owner installation produces the working configuration. Do not rely on an undocumented manual VPS workaround.\n8. Ensure the solution works for both intended authorized callers (`deploy` and `dagu`) and does not broaden access to arbitrary users/processes.\n9. Add focused regression coverage for the actual authorization mechanism and the `NoNewPrivileges=true` constraint. Include a test proving the previous `SupplementaryGroups`/`216/GROUP` workaround is not required.\n10. Run focused HostOps daemon/executor suites plus established MYTHOS regression suites and provide a structured `mythos_report`.\n\n[strict exclusions]\n- Do not modify Evolution/WhatsApp deployment.\n- Do not touch AUTOS-0, SPY, n8n, or unrelated projects.\n- Do not weaken/remove `NoNewPrivileges=true`.\n- Do not add unrestricted privilege escalation.\n- Do not manually change the VPS from the execution session.\n- Do not merge to main.\n- Do not use `git add .`.\n- Do not expose credentials, tokens, or secret values in code, issue comments, logs, or report.\n\n[delivery]\nUse a dedicated branch from the latest `origin/main`. Verify implementation and tests. Deliver through the normal governance relay and leave the branch ready for PR review. Report exact owner-only installation/activation steps if root systemd changes are required. Stop and report BLOCKED if the safe architecture cannot be proven without weakening the stated security constraints.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 132,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/132",
+    "issue_id": 5338763433,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPjcQqQ",
+    "issue_title": "HOSTOPS-2R-FIX: Executor access to HostOps socket without weakening hardening",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T16:05:57Z",
+    "issue_updated_at": "2026-09-03T16:05:57Z",
+    "issue_labels": [
+      "task",
+      "mythos:human-approval"
+    ],
+    "content_sha256": "f4044cfe9ee1cc5e7bf1b6ba980df918eda922c65a0909277fbcfeafab41ccbb",
+    "attempt": 1,
+    "attempt_id": "gh-issue-132#1",
+    "idempotency_key": "16160b2446df79b8a3d2e93055b890b6a4416aa57e24bcd56c9027f75a81da39",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "heading_inline",
+          "line": 1
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": "sonnet",
+      "model_id": "claude-sonnet-5",
+      "model_raw": "Sonnet",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:sonnet (requested \"Sonnet\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-03T16:07:09.010Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-03T16:07:09.010Z",
+        "event": "issue_received",
+        "reason": "open Issue #132 with label task",
+        "content_sha256": "f4044cfe9ee1cc5e7bf1b6ba980df918eda922c65a0909277fbcfeafab41ccbb"
+      },
+      {
+        "at": "2026-09-03T16:07:09.010Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-03T16:07:09.010Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-03T16:07:09.010Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → sonnet (available)"
+      },
+      {
+        "at": "2026-09-03T16:07:11.518Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-132.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-03T16:07:09.010Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5528533168,
+        "url": "https://github.com/othoth77/mythos-prod/issues/132#issuecomment-5528533168",
+        "at": "2026-09-03T16:07:09.884Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:human-approval"
+      ]
+    }
+  }
+}
