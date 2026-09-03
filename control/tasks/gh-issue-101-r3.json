@@ -46,6 +46,16 @@
         "at": "2026-09-03T00:46:17.444Z",
         "existed": false,
         "executor_task_id": "t-20260903004615-6aibdz"
+      },
+      "report": {
+        "comment_id": 5518700916,
+        "url": "https://github.com/othoth77/mythos-prod/issues/101#issuecomment-5518700916",
+        "at": "2026-09-03T01:00:53.290Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "control_status": "COMPLETED",
+        "report_file": "control/reports/gh-issue-101-r3.json",
+        "commits_on_origin": true
       }
     },
     "labels": {
@@ -55,7 +65,8 @@
       "removed": [
         "mythos:completed"
       ]
-    }
+    },
+    "issue_state": "COMPLETED"
   },
   "execution": {
     "executor_task_id": "t-20260903004615-6aibdz",
