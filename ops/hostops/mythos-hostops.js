@@ -23,10 +23,15 @@
 //     edited to relax it, v0.1 executes READ verbs only.
 //   * fail-closed audit — a successful operation whose audit record cannot
 //     be written is reported as a failure. READ-only, so blocking is safe.
-//   * caller boundary — under sudo, only SUDO_USER=dagu is accepted.
-//     Direct invocation by root (the owner, or a root test run) is allowed.
-//     Environment overrides (MYTHOS_HOSTOPS_HOME / _ALLOWLIST, dev/test
-//     only) are IGNORED whenever the process was reached through sudo.
+//   * caller boundary — SUDO_USER must be one of ALLOWED_SUDO_CALLERS.
+//     This file does not care HOW that variable was set: real `sudo`
+//     (dagu's manual/owner verification path, 60-dagu-hostops) and the
+//     HOSTOPS-2R root socket daemon (ops/hostops/mythos-hostops-daemon.py,
+//     `deploy` — the Executor's path, after its own independent SO_PEERCRED
+//     check) both set it the same way before invoking this file directly.
+//     Direct invocation by root (the owner, or a root test run) with
+//     SUDO_USER unset is allowed. Environment overrides (MYTHOS_HOSTOPS_HOME
+//     / _ALLOWLIST, dev/test only) are IGNORED whenever SUDO_USER is set.
 //
 // Exit codes: 0 ok · 2 validation refused · 3 caller refused ·
 //             4 execution failed · 5 audit unavailable
@@ -38,6 +43,8 @@ var cp = require('child_process');
 var crypto = require('crypto');
 
 var VERSION = '0.1.1';
+// Set by real `sudo` (dagu) or by the HOSTOPS-2R root socket daemon after
+// its own SO_PEERCRED verification (deploy) — see the file header.
 var SUDO_USER = process.env.SUDO_USER || null;
 var UNDER_SUDO = !!SUDO_USER;
 var ALLOWED_SUDO_CALLERS = ['dagu', 'deploy'];

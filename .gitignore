@@ -33,3 +33,7 @@ projects/oth-knowledge/data/
 
 # Graphify generated graphs are runtime artifacts, never source (graphify skill rule)
 graphify-out/
+
+# Python bytecode cache (ops/hostops/mythos-hostops-daemon.py, HOSTOPS-2R)
+__pycache__/
+*.pyc

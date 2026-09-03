@@ -1,0 +1,25 @@
+# MYTHOS -- HOSTOPS-2R: the Unix domain socket boundary between the
+# `deploy`/`dagu` identities and the root-owned mythos-hostops-daemon.
+#
+# Socket file permissions are the FIRST gate: 0660, root:mythos-hostops --
+# only root and members of that group can even connect(). The daemon's own
+# SO_PEERCRED check (mythos-hostops-daemon.py) is the SECOND, independent
+# gate, so a permissions misconfiguration alone cannot grant access.
+#
+# Install (owner): see ops/hostops/install-hostops.sh, which also creates
+# the `mythos-hostops` group and adds `deploy` and `dagu` to it.
+
+[Unit]
+Description=MYTHOS hostops boundary — Unix domain socket (HOSTOPS-2R)
+
+[Socket]
+RuntimeDirectory=mythos-hostops
+RuntimeDirectoryMode=0755
+ListenStream=/run/mythos-hostops/hostops.sock
+SocketMode=0660
+SocketUser=root
+SocketGroup=mythos-hostops
+RemoveOnStop=true
+
+[Install]
+WantedBy=sockets.target

@@ -266,22 +266,24 @@ function handler(req, res, token) {
     return send(res, 200, mcpInvoke.describeRegistry());
   }
 
-  // HOSTOPS-1: governed READ-ONLY host operation through the installed
-  // root-owned boundary (docs/MYTHOS_HOSTOPS_INTERFACE.md). Same shape as
-  // /mcp/invoke: the executor is the subject, the body is a closed field
-  // set, and lib/hostops.js decides — allowlist -> class READ -> argument
-  // validation -> Resource Guard admission -> sudo -n mythos-hostops with
-  // an argument array (no shell) -> verified JSON -> task record. Bearer
-  // required like every non-/health endpoint; profiles keep denying
-  // Bash(sudo:*), so this route is the ONLY path from a task to the helper.
+  // HOSTOPS-1/HOSTOPS-2R: governed READ-ONLY host operation through the
+  // installed root-owned boundary (docs/MYTHOS_HOSTOPS_INTERFACE.md). Same
+  // shape as /mcp/invoke: the executor is the subject, the body is a closed
+  // field set, and lib/hostops.js decides — allowlist -> class READ ->
+  // argument validation -> Resource Guard admission -> a Unix socket call
+  // to the root-owned mythos-hostops-daemon (SO_PEERCRED-verified, no sudo,
+  // no shell) -> verified JSON -> task record. Bearer required like every
+  // non-/health endpoint; profiles keep denying Bash(sudo:*), so this route
+  // is the ONLY path from a task to the helper.
   if (req.method === 'POST' && url === '/hostops/run') {
     return readBody(req).then(function (body) {
       var payload;
       try { payload = JSON.parse(body || '{}'); } catch (e) { return send(res, 400, { error: 'INVALID_JSON' }); }
-      var out = hostops.invoke(payload);
-      var status = out.http_status || (out.ok ? 200 : 500);
-      delete out.http_status;
-      send(res, status, out);
+      return hostops.invoke(payload).then(function (out) {
+        var status = out.http_status || (out.ok ? 200 : 500);
+        delete out.http_status;
+        send(res, status, out);
+      });
     }).catch(function (err) {
       send(res, err.message === 'BODY_TOO_LARGE' ? 413 : 500, { error: String(err.message || 'error').slice(0, 200) });
     });

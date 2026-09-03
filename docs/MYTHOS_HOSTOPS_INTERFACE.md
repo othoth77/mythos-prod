@@ -155,10 +155,117 @@ workflows (approval gates, per-step retries, rollback handlers), where `dagu_run
 become real; until then it is carried as `null` by design. The Dagu PoC itself is untouched:
 loopback `127.0.0.1:8095`, basic auth, MCP endpoint unused by agents.
 
-**Activation (owner).** The live daemon runs from `main` and gains the routes only after
-merge + executor restart. The deploy→helper path additionally needs, once:
-`sudo bash ops/hostops/install-hostops.sh` from this branch — it reinstalls the helper at
-v0.1.1 (caller list `dagu, deploy`) and adds `/etc/sudoers.d/61-deploy-hostops`
-(deploy → exactly the helper binary, visudo-validated). Until then the adapter's live
-calls return `HOSTOPS_UNAVAILABLE` ("a password is required"), which is the tested,
-fail-safe behaviour.
+**Activation (owner, superseded by HOSTOPS-2R below).** The live daemon runs from `main`
+and gains the routes only after merge + executor restart. The original deploy→helper
+activation step (`sudo bash ops/hostops/install-hostops.sh` installing
+`/etc/sudoers.d/61-deploy-hostops`) never worked in production — see the addendum — and
+that sudoers fragment no longer exists. Use the HOSTOPS-2R activation steps instead.
+
+---
+
+# HOSTOPS-2R addendum — the Unix socket boundary (2026-09-03, GitHub issue #130)
+
+**The bug.** `mythos-ai-executor.service` runs with `NoNewPrivileges=true` — load-bearing,
+never weakened (docs/MYTHOS_AI_EXECUTOR_ARCHITECTURE.md). Under that flag the kernel
+ignores the setuid bit on `exec()` for every child of the hardened process, so the
+HOSTOPS-1 boundary call — `spawnSync('/usr/bin/sudo', ['-n', HELPER, verb, ...])`, run
+from *inside* the executor — could never actually reach root, no matter what sudoers
+granted. In production this was silently non-functional: every real `/hostops/run` call
+returned `HOSTOPS_UNAVAILABLE` ("a password is required"). `61-deploy-hostops` is deleted;
+it never worked and cannot be made to work without weakening `NoNewPrivileges`, which is
+not an option.
+
+**The fix.** Move the privilege boundary out of the executor's process tree entirely.
+Two new systemd units (`ops/hostops/mythos-hostops.socket` +
+`ops/hostops/mythos-hostops.service`) run a small root daemon
+(`ops/hostops/mythos-hostops-daemon.py`) started directly by systemd (PID 1) — never a
+child of the hardened executor, so `NoNewPrivileges=true` on the executor is completely
+unaffected by this change and remains exactly as before. The executor reaches
+root-mediated state purely by *connecting to a local Unix socket*, which needs no
+privilege escalation at all.
+
+**Two independent identity gates**, neither of which trusts anything the client sends:
+
+1. **Socket file permissions** — `/run/mythos-hostops/hostops.sock` is `0660 root:mythos-hostops`
+   (`SocketUser=root SocketGroup=mythos-hostops SocketMode=0660` in the `.socket` unit).
+   Only root and members of the `mythos-hostops` group — `deploy` (the Executor identity)
+   and `dagu` — can even `connect()`.
+2. **`SO_PEERCRED`** — the daemon additionally calls `getsockopt(SOL_SOCKET, SO_PEERCRED)`
+   on every accepted connection and resolves the kernel-reported `uid` against `deploy`,
+   `dagu` and `root` via `pwd.getpwuid`. There is no identity field anywhere in the request
+   body; the request is `{verb, args, task_id, othmode_task_id, github_task_id}` only. A
+   uid that resolves to neither is refused (`HOSTOPS_CALLER_REFUSED`) before the request is
+   even parsed.
+
+**The helper is unchanged and remains the sole authority.** The daemon does not
+re-implement or duplicate any of the allowlist/class/argument/audit logic in
+`mythos-hostops.js` — it invokes that SAME root-owned binary directly:
+`subprocess.run(['/usr/local/sbin/mythos-hostops', verb, '--flag', 'value', ...],
+shell=False, env={'PATH': ..., 'SUDO_USER': caller})`. `SUDO_USER` is the helper's
+existing caller-boundary signal (`ALLOWED_SUDO_CALLERS = ['dagu', 'deploy']`, unchanged);
+the helper does not care whether it was set by real `sudo` (dagu's still-installed manual
+path, `60-dagu-hostops`) or by this daemon after its own peer-credential check. When the
+peer is root, `SUDO_USER` is omitted, matching the helper's pre-existing "root may call it
+directly" owner path.
+
+**Wire protocol** (private, same host, `AF_UNIX` only — not a public API). One
+newline-terminated JSON object each direction, then the daemon closes the connection:
+```
+request  {"verb": str, "args": {str:str}, "task_id": str|null,
+          "othmode_task_id": str|null, "github_task_id": str|null}
+response {"status": int, "stdout": str, "stderr": str}      — the helper ran; its own
+                                                                exit code / stdout / stderr,
+                                                                verified exactly as before
+        | {"error": {"code": str, "message": str}}           — the boundary itself refused
+                                                                or could not answer
+```
+`lib/hostops.js`'s outcome-normalization logic is unchanged: it still checks `body.ok`,
+requires a non-empty `audit_id` on success, and maps helper exit codes 2/3/4/5 to
+`HOSTOPS_REFUSED`/`HOSTOPS_CALLER_REFUSED`/`HOSTOPS_EXEC_FAILED`/`HOSTOPS_AUDIT_UNAVAILABLE`
+— only how the raw `{status, stdout, stderr}` triple is obtained changed, from a
+`spawnSync` return value to a socket round trip. `invoke()` now returns a **Promise**
+(a socket call is inherently async); `server.js`'s `/hostops/run` route awaits it the same
+way it already awaited `mcpInvoke.invoke()`.
+
+**Failure semantics, preserved.** Socket missing or nothing listening (`ENOENT`/
+`ECONNREFUSED`) → `HOSTOPS_UNAVAILABLE`, exactly like "sudoers not installed" before.
+Client-side round-trip timeout (20 s, unchanged) → `HOSTOPS_TIMEOUT`. Helper exit 0 with
+unparseable stdout → `HOSTOPS_MALFORMED`. Helper success without a non-empty `audit_id` →
+`HOSTOPS_MALFORMED` (PR #127 hardening, unchanged). The daemon's own `SO_PEERCRED`
+rejection maps to `HOSTOPS_CALLER_REFUSED` — the same code the helper's own exit-3 refusal
+already produced, since both mean "this caller is not authorized," just at different
+layers. Resource Guard admission still happens before the socket is touched at all — the
+adapter's governance order (closed fields → identity → allowlist → class READ → argument
+validation → Resource Guard → the boundary) is untouched.
+
+**Why Python for the daemon, in an otherwise all-Node ops/ tree.** `SO_PEERCRED` has no
+public Node.js API without a native addon; adding a compiled dependency to a root-owned
+security boundary — or reaching for network package installation from an autonomous
+session — was rejected. Python's stdlib `socket` module supports `SO_PEERCRED` directly on
+Linux; the daemon is ~250 lines of stdlib-only Python with no third-party dependency at
+all. It still invokes the unmodified Node helper as a subprocess, `shell=False`, fixed argv.
+
+**Dagu.** Still not in the READ path (HOSTOPS-1 decision, unchanged) — nothing calls the
+socket on Dagu's behalf. `dagu` is included in the `mythos-hostops` group and the daemon's
+allowed-uid set from day one anyway, so the boundary needs no further change on the day
+Dagu graduates into an automated caller.
+
+**Activation (owner, in order).**
+1. Merge this branch through review.
+2. `sudo bash ops/hostops/install-hostops.sh` from the merged checkout — reinstalls the
+   helper (unchanged), creates the `mythos-hostops` group, adds `deploy` and `dagu` to it,
+   installs `/usr/local/sbin/mythos-hostops-daemon` (0700 root:root), installs
+   `mythos-hostops.socket` + `mythos-hostops.service` to `/etc/systemd/system/`, and runs
+   `systemctl enable --now mythos-hostops.socket` (the service starts on first connection).
+3. `deploy`'s new group membership needs a fresh login session (or restart the executor's
+   user manager) to take effect: `systemctl --user restart mythos-ai-executor` after the
+   `deploy` shell/session that owns it has picked up the new group, or reboot if unsure.
+4. Restart `mythos-ai-executor` (deploy user unit) so the daemon serves the routes.
+5. Verify: `curl -s -H "Authorization: Bearer $T" -X POST http://127.0.0.1:8130/hostops/run -d '{"operation":"health"}'`
+   returns `ok:true` with an audit id; `journalctl -u mythos-hostops -n 50` shows the
+   daemon started and the SO_PEERCRED-verified connection; `sudo -u dagu sudo
+   /usr/local/sbin/mythos-hostops health` still answers directly (dagu's manual path,
+   unchanged). If the hardened service unit fails to start, `journalctl -u mythos-hostops`
+   will show which `ProtectSystem=strict`/`ReadWritePaths=` directive needs loosening —
+   the failure mode is the daemon not starting, which the executor already reports as the
+   pre-existing, tested `HOSTOPS_UNAVAILABLE` outcome, never a fallback to sudo or a shell.

@@ -6,6 +6,13 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Fixed — HOSTOPS-2R — Executor → HostOps boundary actually reaches root now (GitHub issue #130, 2026-09-03)
+
+- **The HOSTOPS-1 boundary (`sudo -n mythos-hostops`, called from inside `mythos-ai-executor.service`) was silently non-functional in production.** That service runs `NoNewPrivileges=true` (load-bearing, never weakened); under that flag the kernel ignores the setuid bit on `exec()` for every child of the hardened process, so `sudo` could never actually gain root there. Every real `/hostops/run` call returned `HOSTOPS_UNAVAILABLE`.
+- **Fix: the privilege boundary moved out of the executor's process tree.** A new root daemon (`ops/hostops/mythos-hostops-daemon.py`, socket-activated via `mythos-hostops.socket` + `mythos-hostops.service`) is started directly by systemd, never a child of the executor — `NoNewPrivileges=true` on the executor is completely unaffected. The executor reaches it by connecting to a local Unix socket, gated by file permissions (`0660 root:mythos-hostops`, new group) and independently by the daemon's own `SO_PEERCRED` check (kernel-reported uid, never a client-supplied field). The daemon invokes the same unmodified root-owned helper directly, fixed argv, `shell=False` — the helper remains the sole allowlist/class/argument/audit authority.
+- The obsolete `ops/hostops/61-deploy-hostops` sudoers fragment (never functional) is deleted. `lib/hostops.js`'s `invoke()` is now Promise-returning; all existing failure codes and the governed order (allowlist → class READ → argument validation → Resource Guard admission before the boundary) are unchanged. Details: `docs/MYTHOS_HOSTOPS_INTERFACE.md` HOSTOPS-2R addendum. Suite: adapter 36/0 (new), daemon 14/0 (new, real socket + real SO_PEERCRED), all prior HostOps/regression suites re-verified green.
+
+
 ### Changed — OTHMODE-ACT-1 — per-command activation replaces the global switch (2026-08-26)
 
 - **The global OthMode ON/OFF switch is removed.** OTHMODE is now permanently available (READY) and activates **per command**: a Claude command that contains the standalone keyword `othmode` (case-insensitive; never as part of another word — `othmodel`, `myothmode`, `othmode-test` do not activate) runs through the OTHMODE control contract (Search First → Reuse → Adapt → Connect → Build Last, skills, memory, evolution recording). Without the keyword, Claude behaves normally — nothing OTHMODE-specific is invoked or recorded.
