@@ -1,0 +1,190 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS Session Guard — CLI  (GitHub Issue #144)
+// projects/mythos-ai-executor/bin/mythos-session-guard
+//
+//   mythos-session-guard inventory            classified process view (read-only)
+//   mythos-session-guard status               counts, concurrency, memory level, admission
+//   mythos-session-guard plan                 what enforcement WOULD do, and why (read-only)
+//   mythos-session-guard observe              one tracking sample; advances idle history, never signals
+//   mythos-session-guard enforce --yes        apply the plan (SIGTERM, escalating to SIGKILL)
+//   mythos-session-guard ledger [-n N]        tail the lifecycle ledger
+//
+// `plan` and `observe` are the safe commands and the default posture:
+// nothing is ever signalled unless `enforce --yes` runs AND enforcement is
+// enabled by the operator marker (or MYTHOS_SESSION_GUARD=on).
+//
+//   enable   : touch ~/.mythos-ai-executor/session-guard.enabled
+//   rollback : rm    ~/.mythos-ai-executor/session-guard.enabled
+//   hard off : MYTHOS_SESSION_GUARD=off  (overrides the marker)
+//
+// Only `enforce` may signal. Every other command is strictly read-only,
+// except `observe`/`enforce` which write the guard's own state and ledger.
+// =====================================================
+
+var fs = require('fs');
+var path = require('path');
+
+var EXEC = path.join(__dirname, '..');
+var guard = require(path.join(EXEC, 'lib', 'session-guard'));
+var state = require(path.join(EXEC, 'lib', 'state'));
+
+var argv = process.argv.slice(2);
+var cmd = argv[0];
+
+function flag(name) { return argv.indexOf(name) >= 0; }
+
+function optNum(name, dflt) {
+  var i = argv.indexOf(name);
+  if (i < 0 || i + 1 >= argv.length) return dflt;
+  var n = parseInt(argv[i + 1], 10);
+  return isNaN(n) ? dflt : n;
+}
+
+function out(v) { console.log(JSON.stringify(v, null, 2)); }
+
+function usage(code) {
+  console.error('usage: mythos-session-guard inventory | status | plan | observe | enforce --yes | ledger [-n N]');
+  console.error('       [--max-sessions N] [--idle-seconds N] [--max-terminations N] [--no-escalate] [--json]');
+  process.exit(code);
+}
+
+// The memory-pressure input comes from the EXISTING Resource Guard, never
+// from a second memory reader: one signal source, one set of thresholds.
+// It is read fail-soft — if the Resource Guard is unavailable we proceed at
+// NORMAL, which only ever makes this guard LESS eager (the pressure path
+// lowers the idle threshold).
+function pressureLevel() {
+  try {
+    var rg = require(path.join(EXEC, 'lib', 'resource-guard'));
+    var status = rg.current({ state_path: path.join(state.root(), 'resource-guard.json') });
+    return (status && status.level) || 'NORMAL';
+  } catch (e) { return 'NORMAL'; }
+}
+
+function baseConfig(extra) {
+  var home = state.root();
+  var cfg = {
+    state_path: path.join(home, 'session-guard.json'),
+    ledger_path: path.join(home, 'session-guard.jsonl'),
+    enable_marker_path: path.join(home, 'session-guard.enabled'),
+    pressure_level: pressureLevel()
+  };
+  var maxSessions = optNum('--max-sessions', null);
+  if (maxSessions !== null) cfg.max_sessions = maxSessions;
+  var idle = optNum('--idle-seconds', null);
+  if (idle !== null) cfg.idle_seconds = idle;
+  var maxTerm = optNum('--max-terminations', null);
+  if (maxTerm !== null) cfg.max_terminations_per_run = maxTerm;
+  if (flag('--no-escalate')) cfg.escalate = false;
+  Object.keys(extra || {}).forEach(function (k) { cfg[k] = extra[k]; });
+  return cfg;
+}
+
+if (!cmd || flag('--help') || flag('-h')) usage(cmd ? 0 : 2);
+
+if (cmd === 'inventory') {
+  var cfgI = baseConfig({});
+  var inv = guard.inventory(guard.scan(cfgI), cfgI);
+  out({
+    at: new Date(inv.at).toISOString(),
+    error: inv.error,
+    counts: {
+      remote_sessions: inv.sessions.length,
+      remote_servers: inv.servers.length,
+      executor_processes: inv.executor.length,
+      scanned: inv.items.length
+    },
+    // The executor processes are listed so an operator can SEE that they
+    // were classified as protected, not merely trusted to be absent.
+    executor_processes: inv.executor.map(function (i) {
+      return { pid: i.pid, uid: i.uid, rss_mib: i.rss_mib, kind: i.kind, cmdline: i.cmdline.slice(0, 120) };
+    }),
+    remote_servers: inv.servers.map(function (i) {
+      return { pid: i.pid, uid: i.uid, rss_mib: i.rss_mib, children: i.children, cmdline: i.cmdline.slice(0, 120) };
+    }),
+    remote_sessions: inv.sessions.map(function (i) {
+      return {
+        pid: i.pid, ppid: i.ppid, uid: i.uid, rss_mib: i.rss_mib,
+        children: i.children, parent_is_server: i.parent_is_server,
+        session_ref: i.session_ref,
+        transcript_mtime: i.transcript_mtime_ms ? new Date(i.transcript_mtime_ms).toISOString() : null,
+        age_seconds: guard.ageSeconds(i, inv.uptime_seconds, guard.config(cfgI)),
+        cmdline: i.cmdline.slice(0, 120)
+      };
+    })
+  });
+  process.exit(0);
+}
+
+if (cmd === 'status' || cmd === 'plan' || cmd === 'observe') {
+  // All three run the same cycle with enforcement OFF. `status` and `plan`
+  // differ only in how much of it they print.
+  var cfgP = baseConfig({ enforce: false });
+  var r = guard.run(cfgP);
+  if (cmd === 'plan') { out(r.plan); process.exit(r.ok ? 0 : 1); }
+  if (cmd === 'observe') { out({ ok: r.ok, events: r.events, counts: r.plan.counts }); process.exit(r.ok ? 0 : 1); }
+  var rep = guard.report(r);
+  rep.enforcement = guard.enforcementEnabled(cfgP);
+  out(rep);
+  process.exit(r.ok ? 0 : 1);
+}
+
+if (cmd === 'enforce') {
+  var cfgE = baseConfig({});
+  var enabled = guard.enforcementEnabled(cfgE);
+  if (!flag('--yes')) {
+    console.error('refusing to enforce without --yes (this signals processes). Use `plan` to see what it would do.');
+    out({ enforced: false, refused: 'missing_--yes', enforcement: enabled });
+    process.exit(3);
+  }
+  if (!enabled.enabled) {
+    // NOT an error. Without the marker this still runs the full cycle
+    // with enforcement off, so idle history accumulates and an operator
+    // can watch what enforcement WOULD do before enabling it. This is
+    // what makes the timer safe to install before the decision to enforce
+    // is taken, and `rm` on the marker an instant rollback to this mode.
+    console.error('enforcement not enabled (' + enabled.reason + ') — running in observe mode.');
+    console.error('enable: touch ' + cfgE.enable_marker_path + '   rollback: rm that file');
+    cfgE.enforce = false;
+    var ro = guard.run(cfgE);
+    out({
+      enforced: false, mode: 'observe', ok: ro.ok, enforcement: enabled,
+      counts: ro.plan.counts, concurrency: ro.plan.concurrency,
+      would_terminate: ro.plan.actions, vetoes: ro.plan.vetoes
+    });
+    process.exit(ro.ok ? 0 : 1);
+  }
+  cfgE.enforce = true;
+  var re = guard.run(cfgE);
+  out({
+    enforced: true,
+    ok: re.ok,
+    counts: re.plan.counts,
+    concurrency: re.plan.concurrency,
+    pressure_level: re.plan.pressure_level,
+    results: re.results,
+    vetoes: re.plan.vetoes
+  });
+  process.exit(re.ok ? 0 : 1);
+}
+
+if (cmd === 'ledger') {
+  var n = optNum('-n', 40);
+  var p = path.join(state.root(), 'session-guard.jsonl');
+  var text;
+  try { text = fs.readFileSync(p, 'utf8'); }
+  catch (e) { console.error('no ledger at ' + p); process.exit(2); }
+  var lines = text.split('\n').filter(Boolean).slice(-n);
+  if (flag('--json')) { out(lines.map(function (l) { try { return JSON.parse(l); } catch (e) { return { raw: l }; } })); process.exit(0); }
+  lines.forEach(function (l) {
+    var e;
+    try { e = JSON.parse(l); } catch (err) { console.log(l); return; }
+    console.log([e.at, e.event, 'pid=' + e.pid, e.signal ? 'sig=' + e.signal : '', e.reason ? 'reason=' + e.reason : '', e.outcome ? 'outcome=' + e.outcome : '']
+      .filter(Boolean).join('  '));
+  });
+  process.exit(0);
+}
+
+usage(2);
