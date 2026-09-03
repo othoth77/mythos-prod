@@ -12,7 +12,7 @@
 | Runtime | `ff9f71b51e41` on `main` |
 | Model | `claude-sonnet-5` (explicit:sonnet (requested "sonnet")) |
 | Branch | `mythos/gh/gh-issue-142` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ gh-issue-128's remaining requirement (one live governed HostOps READ health call
 
 ## Commits
 
-- `ad67ab60f54f59b20110bb627b959cb29fa56d1b` docs(hostops): reconcile gh-issue-128 against HOSTOPS-2R/2R-FIX — READ path proven live (gh-issue-142) (awaiting relay)
+- `ad67ab60f54f59b20110bb627b959cb29fa56d1b` docs(hostops): reconcile gh-issue-128 against HOSTOPS-2R/2R-FIX — READ path proven live (gh-issue-142) (on origin)
 
 ## Files changed
 

@@ -68,7 +68,7 @@
       "sha": "ad67ab60f54f59b20110bb627b959cb29fa56d1b",
       "subject": "docs(hostops): reconcile gh-issue-128 against HOSTOPS-2R/2R-FIX — READ path proven live (gh-issue-142)",
       "branch": "mythos/gh/gh-issue-142",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -129,7 +129,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-142",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-03T19:33:40.752Z"
   }
 }
