@@ -1,0 +1,140 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-138",
+  "project": "mythos-prod",
+  "objective": "إتمام إصلاح آلية Rerun في GitHub Issues → Bridge → OTHMODE → Executor بناءً على نتائج التحقيق السابق في #103. هذه المهمة تنفيذية وليست Investigation.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T18:47:39.522Z",
+  "created_by": "github-issue:othoth77",
+  "model": "sonnet",
+  "model_raw": "claude-sonnet-5",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #138 https://github.com/othoth77/mythos-prod/issues/138 — \"إتمام إصلاح Rerun في GitHub Issues → Bridge → OTHMODE → Executor\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\nmodel: sonnet — source explicit_current_issue (written as \"claude-sonnet-5\")\n\n[source]\nPrevious issue: #103\nPrevious finding: التحقيق أثبت أن rerun يعمل في بعض الحالات، لكنه كشف 4 عيوب حقيقية لم يتم إصلاحها.\n\n[a — rerun label durability]\nإصلاح الحالة التي يتم فيها حذف `rerun` label قبل تسجيل/commit حالة الـ rerun. إذا توقف الـ Bridge أو حدث exception بين إزالة الـ label والـ commit، يجب ألا يضيع طلب rerun، ويجب أن تكون العملية durable وقابلة للاستئناف.\n\n[b — action inheritance]\nعند `attempt > 1`، إذا لم يحتوي Issue body الجديد على `Action:` صريح، يجب توريث `requested_action` من الـ attempt السابق بدل الرجوع تلقائيًا إلى `investigate`.\n\n[c — preserve structured task data]\nعند rerun بعد تعديل Issue body، يجب عدم فقدان البيانات المنظمة الموجودة في task السابق، خصوصًا:\n- `scope`\n- `constraints`\n- `validation_requirements`\n\nيجب دمج البيانات الجديدة مع السابقة بطريقة آمنة بدل إسقاطها بسبب إعادة parsing.\n\n[d — issue-side feedback]\nإضافة feedback واضح على GitHub Issue عندما:\n1. يكون الـ Issue قد تم تحويله بالفعل.\n2. يتم تأجيل rerun بسبب وجود attempt نشط.\n3. يتم رفض/تأجيل rerun لأي سبب آخر.\n\n[rerun identity]\nيجب أن يكون التنفيذ الجديد مستقلًا:\n- `gh-issue-103-r2`\n- `attempt: 2`\n- `rerun_of: gh-issue-103`\n\nولا يجوز إعادة استخدام task ID السابق.\n\n[required regression tests]\nأضف أو حدّث اختبارات تغطي على الأقل:\n1. successful rerun\n2. blocked rerun\n3. independent task ID generation\n4. interruption between rerun-label removal and control commit\n5. Action inheritance when Action is absent from the new body\n6. preservation of `scope`\n7. preservation of `constraints`\n8. preservation of `validation_requirements`\n9. active-attempt rerun deferral\n10. GitHub Issue feedback for converted/deferred rerun states\n\nشغّل الاختبارات المرتبطة فعليًا بالـ Bridge وtask conversion/rerun.\n\n[execution rules]\n- نفّذ الإصلاحات فعليًا في repository؛ لا تكتفِ بالتحقيق.\n- لا تستخدم manual workaround خارج GitHub/Bridge/Executor.\n- لا تعدّل production VPS يدويًا.\n- لا تتجاوز Governance أو OTHMODE.\n- لا تغلق Issue إلا إذا كان ذلك جزءًا من السلوك المعتمد.\n\n[verification / completion criteria]\nلا تعتبر المهمة COMPLETED إلا عند وجود:\n- الإصلاحات A-D في الكود.\n- Regression tests موجودة وتمر.\n- Git working tree نظيف.\n- commit واضح ومحدد للمهمة.\n- push إلى remote.\n- تسجيل commit hash وremote HEAD.\n- تحديث `docs/AI_HANDOVER.md`.\n- final REPORT يربط بوضوح: GitHub Issue → Bridge → OTHMODE → Executor → commit → tests.\n\nيجب أن يتضمن التقرير النهائي: status، Executor task ID، OTHMODE ID، `gh-issue-103-r2`، commit hash، remote HEAD، test results، وGitHub/OTHMODE/Executor correlation.\n\nإذا حدث blocker حقيقي، أوقف التنفيذ عند نقطة آمنة وأصدر REPORT بالحالة `BLOCKED` مع السبب الدقيق، دون الادعاء بأن المهمة مكتملة.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 138,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/138",
+    "issue_id": 5340251430,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPk3FJg",
+    "issue_title": "TASK: إتمام إصلاح Rerun في GitHub Issues → Bridge → OTHMODE → Executor",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T18:47:02Z",
+    "issue_updated_at": "2026-09-03T18:47:02Z",
+    "issue_labels": [
+      "task",
+      "action:implement"
+    ],
+    "content_sha256": "7547a0046ea6f4ec5e3bd0305fb12c50efba60732af01432d85637949cc15fc7",
+    "attempt": 1,
+    "attempt_id": "gh-issue-138#1",
+    "idempotency_key": "c0357c1d068c4f2aebb402f633a9e0509a9f1f927199bef97d25aa029a84afb1",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "heading_block",
+          "line": 5
+        },
+        {
+          "source": "action_label",
+          "raw": "implement",
+          "action": "implement",
+          "form": null,
+          "line": null
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": "sonnet",
+      "model_id": "claude-sonnet-5",
+      "model_raw": "claude-sonnet-5",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:sonnet (requested \"claude-sonnet-5\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-03T18:47:39.522Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-03T18:47:39.522Z",
+        "event": "issue_received",
+        "reason": "open Issue #138 with label task",
+        "content_sha256": "7547a0046ea6f4ec5e3bd0305fb12c50efba60732af01432d85637949cc15fc7"
+      },
+      {
+        "at": "2026-09-03T18:47:39.522Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-03T18:47:39.523Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-03T18:47:39.523Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → sonnet (available)"
+      },
+      {
+        "at": "2026-09-03T18:47:41.255Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-138.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-03T18:47:39.523Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5530516942,
+        "url": "https://github.com/othoth77/mythos-prod/issues/138#issuecomment-5530516942",
+        "at": "2026-09-03T18:47:40.437Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
