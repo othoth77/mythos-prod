@@ -1,0 +1,145 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-141-r3",
+  "attempt_id": "gh-issue-141-r3#3",
+  "status": "BLOCKED",
+  "summary": "Verified the remaining #126 deployment work rather than re-implementing it: Docker access is now present, but swap is still 100% consumed on this shared multi-tenant production VPS (also running live client workloads), credential/systemd-dropin paths are outside this sandbox's reach, and WhatsApp pairing requires a one-time human QR scan that no session can perform. #126's notification code and tests are re-verified intact and unchanged. Documented findings in docs/AI_HANDOVER.md and committed; no notification-layer code was modified.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-sonnet-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]",
+    "base_sha": "5482db8c2dae846b3b213be724b62564d4f20b0f",
+    "branch": "mythos/gh/gh-issue-141-r3",
+    "commit_sha": "308d359e384cedd52ae7be4547fd315ee1920901"
+  },
+  "blocker": {
+    "code": "HUMAN_APPROVAL",
+    "retryable": false,
+    "at": "2026-09-03T20:55:37.614Z",
+    "reason": "Verified the remaining #126 deployment work rather than re-implementing it: Docker access is now present, but swap is still 100% consumed on this shared multi-tenant production VPS (also running live client workloads), credential/systemd-dropin paths are outside this sandbox's reach, and WhatsApp pairing requires a one-time human QR scan that no session can perform. #126's notification code and tests are re-verified intact and unchanged. Documented findings in docs/AI_HANDOVER.md and committed; no notification-layer code was modified.",
+    "task_id": "t-20260903205125-xzihn2",
+    "attempt_id": "gh-issue-141-r3#3",
+    "requested_action": "implement",
+    "execution_profile": "repo-write",
+    "model": "claude-sonnet-5"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "5482db8c2dae846b3b213be724b62564d4f20b0f",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "5482db8c2dae846b3b213be724b62564d4f20b0f",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-03T20:51:24.198Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "blocked",
+    "summary": "Verified the remaining #126 deployment work rather than re-implementing it: Docker access is now present, but swap is still 100% consumed on this shared multi-tenant production VPS (also running live client workloads), credential/systemd-dropin paths are outside this sandbox's reach, and WhatsApp pairing requires a one-time human QR scan that no session can perform. #126's notification code and tests are re-verified intact and unchanged. Documented findings in docs/AI_HANDOVER.md and committed; no notification-layer code was modified.",
+    "tests": [
+      "mythos-github-bridge notify-config: clean, disabled as expected, no regression",
+      "mythos-github-bridge notify-status: clean, 0 ledger entries, no regression"
+    ],
+    "commit": "308d359e384cedd52ae7be4547fd315ee1920901",
+    "remote_head": null,
+    "files_changed": [
+      "docs/AI_HANDOVER.md"
+    ],
+    "residual_risks": [
+      "Swap remains 100% consumed on a shared production host running other tenants' live services - deploying any new stateful gateway here without owner sizing/approval risks OOM pressure on those tenants",
+      "Provider choice (Evolution API) is still PROVISIONAL per #126 - not live-verified against upstream licence/maintenance/footprint data",
+      "A leftover 'evolution-inspect' container (created, never started, no resource limits) is left on the host from a prior attempt at this task - harmless but should be removed or reused deliberately, not left to accumulate across future attempts"
+    ],
+    "next_stage": "Owner decision required: (1) authorize provider deployment on this VPS or choose a separate host given swap/tenant risk; (2) as root, provision the credential file and systemd drop-in per docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §4.1 and start the provider bound to a private network; (3) pair the WhatsApp number by scanning the provider's QR code by hand - one-time, human-only; (4) run notify-config (expect empty problems) then notify-test --confirm once - the code path is already built and tested, nothing further to implement."
+  },
+  "files_changed": [
+    "docs/AI_HANDOVER.md"
+  ],
+  "commits": [
+    {
+      "sha": "308d359e384cedd52ae7be4547fd315ee1920901",
+      "subject": "docs(handover): record gh-issue-141 WhatsApp provider deployment as blocked",
+      "branch": "mythos/gh/gh-issue-141-r3",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "mythos-github-bridge notify-config: clean, disabled as expected, no regression",
+    "mythos-github-bridge notify-status: clean, 0 ledger entries, no regression"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "5482db8c2dae846b3b213be724b62564d4f20b0f",
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [
+    "HUMAN_APPROVAL: Verified the remaining #126 deployment work rather than re-implementing it: Docker access is now present, but swap is still 100% consumed on this shared multi-tenant production VPS (also running live client workloads), credential/systemd-dropin paths are outside this sandbox's reach, and WhatsApp pairing requires a one-time human QR scan that no session can perform. #126's notification code and tests are re-verified intact and unchanged. Documented findings in docs/AI_HANDOVER.md and committed; no notification-layer code was modified."
+  ],
+  "risks": [
+    "Swap remains 100% consumed on a shared production host running other tenants' live services - deploying any new stateful gateway here without owner sizing/approval risks OOM pressure on those tenants",
+    "Provider choice (Evolution API) is still PROVISIONAL per #126 - not live-verified against upstream licence/maintenance/footprint data",
+    "A leftover 'evolution-inspect' container (created, never started, no resource limits) is left on the host from a prior attempt at this task - harmless but should be removed or reused deliberately, not left to accumulate across future attempts"
+  ],
+  "next_recommended_action": "Owner decision required: (1) authorize provider deployment on this VPS or choose a separate host given swap/tenant risk; (2) as root, provision the credential file and systemd drop-in per docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §4.1 and start the provider bound to a private network; (3) pair the WhatsApp number by scanning the provider's QR code by hand - one-time, human-only; (4) run notify-config (expect empty problems) then notify-test --confirm once - the code path is already built and tested, nothing further to implement.",
+  "completed_at": "2026-09-03T20:56:10.665Z",
+  "execution": {
+    "executor_task_id": "t-20260903205125-xzihn2",
+    "othmode_task_id": "OTH-2026-00069",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-141-r3#3",
+    "fence": 1424,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1286127",
+      "fence": 1424,
+      "acquired_at": "2026-09-03T20:51:25.393Z",
+      "expires_at": "2026-09-03T22:21:25.393Z"
+    },
+    "snapshot_sha256": "2f9460282ea0f29601cbefc56d10a058f2c1213829abe3e5590ec027455b689b",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]",
+    "claude_session_id": "167eac0f-5722-45ea-a81a-0ed6b99a2c59",
+    "executor_status": "BLOCKED",
+    "started_at": "2026-09-03T20:51:38.548Z",
+    "ended_at": "2026-09-03T20:55:37.615Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.8316198000000001,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-141-r3",
+    "branch": "mythos/gh/gh-issue-141-r3",
+    "base_commit": "5482db8c2dae846b3b213be724b62564d4f20b0f",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-141-r3",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
