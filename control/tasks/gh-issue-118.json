@@ -8,7 +8,7 @@
   "priority": "normal",
   "requested_action": "investigate",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T09:57:39.544Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #118 https://github.com/othoth77/mythos-prod/issues/118 — \"Bridge Reliability & Action Resolution — استلهام Temporal Hatchet Trigger.dev Svix\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[المشاريع المرجعية]\n- Temporal: durable execution, workflow state, retries, recovery, deterministic execution.\n- Hatchet: durable task queue, checkpoints, retries/replays, priority, concurrency/fairness, task routing.\n- Trigger.dev: durable AI workflows, retries, queues, idempotency, checkpointing, human-in-the-loop, observability.\n- Svix: reliable delivery, retry attempts, idempotency, request/message identity.\n\nاستخدم هذه المشاريع كمراجع تصميم فقط، ولا تضف Temporal/Hatchet/Trigger.dev/Svix كخدمات runtime إلى MYTHOS إلا إذا أثبتت الدراسة أن ذلك ضروري وضمن نطاق المهمة؛ الافتراضي هو implementation محلي خفيف داخل MYTHOS.\n\n[المطلوب — إصلاح جذري]\n1. **Action Resolution Engine** موحد ووحيد المصدر:\n   - explicit current Issue > action label > inherited rerun action > default.\n   - دعم كل صيغ Markdown الواقعية: `Action: implement`, heading/value، blank-line continuation، table rows، bullets/numbers.\n   - حفظ `action_raw` و`action_source` و`requested_action`.\n2. **Action/Profile invariant**:\n   - implement → repo-write\n   - document → repo-write\n   - investigate/review/test → repo-read/relevant profile.\n   - أي mismatch يوقف المهمة قبل provider بخطأ `ACTION_PROFILE_MISMATCH` واضح ومسجل.\n3. **Durable Attempt State**:\n   - كل محاولة لها action/profile/model/inputs ثابتة وغير قابلة للتغيير أثناء التنفيذ.\n   - لا يمكن لـrerun أن يرث قرارًا خاطئًا أو يضيع scope/constraints/validation.\n4. **Idempotency + fencing/lease**:\n   - منع duplicate …\n\n[معيار النجاح]\nإنشاء implementation فعلي على branch نظيف فوق أحدث `origin/main`، commit حقيقي، اختبارات خضراء، ثم Governance Relay وPR إلى `main` بدون merge تلقائي.\n\nيجب أن يثبت E2E أن Issue فيها `Action: implement` تصل إلى:\n`requested_action=implement → execution_profile=repo-write → provider`.\nوأي mismatch يجب رفضه قبل provider.\n\n[fable 5.1]\nيجب محاولة استخدام Fable 5.1 تحديدًا. إذا كان غير متاح، ممنوع الاستبدال الصامت؛ سجّل blocker وmodel الفعلي.\n\n[ممنوع]\n- WhatsApp / Evolution API / b37491f.\n- AUTOS-0.\n- SPY / n8n.\n- MYTHOS AUTO/customer chat.\n- Resource Guard threshold changes.\n- Model Policy changes إلا إذا ثبت ارتباط مباشر.\n- systemd/VPS/restart/deployment.\n- secrets/credentials.\n- `git add .`.\n- governance bypass.\n- merge إلى main تلقائيًا.\n- إدخال dependency/runtime service خارجي دون إثبات ضرورة وموافقة صريحة.",
@@ -55,5 +55,28 @@
         "mythos:human-approval"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903095744-n6y933",
+    "othmode_task_id": "OTH-2026-00051",
+    "execution_profile": "repo-read",
+    "expected_delivery": "report",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-118",
+    "branch": "mythos/gh/gh-issue-118",
+    "base_commit": "88869a92ef63cc5e044044811d91a86f045365e5",
+    "claimed_at": "2026-09-03T09:57:44.646Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "4ea4298edb80376bc9279c93aa8eb1ba2dde9cc6188527357c997ae2e3f6d887",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T09:57:44.646Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T09:57:44.685Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903095744-n6y933 queued; OTHMODE OTH-2026-00051"
+    }
+  ]
 }
