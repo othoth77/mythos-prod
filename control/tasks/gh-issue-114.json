@@ -8,7 +8,7 @@
   "priority": "normal",
   "requested_action": "investigate",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T09:07:29.599Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #114 https://github.com/othoth77/mythos-prod/issues/114 — \"Bridge Architecture Upgrade — بحث وتنفيذ هندسي\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[مشاريع مرجعية]\nادرس عند الحاجة:\n- Temporal — durable execution / workflow state / recovery\n- Hatchet — task queue / priority / fairness / retries / replay\n- Trigger.dev — AI workflows / human approval / idempotency / observability\n- Svix Webhooks — delivery reliability / idempotency / retries\n- BullMQ — queue / concurrency / delayed jobs / retries\n- webhook-delivery — DLQ / backoff / jitter / deterministic delivery tests\n\nلا نريد إدخال أي framework خارجي كـdependency في هذه المرحلة؛ المطلوب اقتباس patterns فقط بما يناسب بنية MYTHOS الحالية.\n\n[نطاق البحث والتنفيذ]\n1. مراجعة architecture الحالية للـBridge ومسار:\n   GitHub Issue → Action Resolution → Claim → OTHMODE → Executor → Claude → Structured Report → GitHub.\n2. تحديد نقاط الضعف الفعلية، خصوصاً:\n   - Action resolution وrerun precedence\n   - durable attempt state\n   - idempotency / duplicate prevention\n   - claim / lease / stale worker protection\n   - retry classification + backoff/jitter\n   - failed tasks / DLQ\n   - priority/fairness\n   - structured event/history\n   - report/delivery reliability\n3. مقارنة هذه النقاط بالـpatterns المرجعية واختيار ما يمكن تطبيقه محلياً بدون بنية تحتية جديدة.\n4. تنفيذ فقط التحسينات التي تثبت فائدتها وتبقى ضمن Bridge.\n5. إضافة regression/integration tests لكل سلوك جديد.\n6. الحفاظ على التوافق مع GitHub Issues/Rerun، Model Policy، Resource Guard، OTHMODE، Executor وG…\n\n[مبدأ الأولوية المهم]\nفي Action Resolution:\n\n**explicit Action في الـIssue الحالي > inherited Action من المحاولة السابقة > default Action**\n\nوالـinheritance لا يحدث إلا عند غياب Action صريح في الـIssue الحالي.\n\n[قيود صارمة]\n- لا WhatsApp / Evolution API / b37491f.\n- لا AUTOS-0.\n- لا SPY ولا n8n.\n- لا MYTHOS AUTO/customer chat.\n- لا تغيير Resource Guard thresholds.\n- لا تغيير Model Policy إلا إذا كان ضرورياً مباشرةً لاختبارات Bridge.\n- لا systemd/VPS/deployment.\n- لا أسرار أو credentials.\n- لا blind `git add .`.\n- لا حذف/تجاوز اختبارات قائمة.\n- لا تغييرات خارج Bridge والاختبارات والوثائق اللازمة.\n- لا إدخال Temporal/Hatchet/BullMQ أو أي خدمة خارجية كـruntime dependency.\n\n[الاختبارات الإلزامية]\nشغّل الاختبارات المتأثرة، وعلى الأقل:\n- GitHub Issues\n- GitHub Bridge\n- Executor\n- Governance invariants\n- أي tests جديدة للـAction/Rerun/Idempotency/Retry/Lease التي يتم تنفيذها.\n\nيجب أن تكون النتيجة 0 failures قبل إنشاء PR.\n\n[التقرير الإلزامي]\nيجب أن يحتوي التقرير النهائي على `mythos_report` structured block ويتضمن:\n- executive summary\n- findings مرتبة حسب الأولوية\n- patterns التي تم اعتمادها ولماذا\n- patterns التي تم رفضها ولماذا\n- الملفات المتغيرة\n- الاختبارات ونتائجها\n- commit SHA\n- branch\n- base SHA\n- PR URL\n- المخاطر المتبقية\n- next recommended step\n\nإذا لم يكن تنفيذ تحسين معين آمناً أو واضحاً، لا تخمّن ولا توسّع النطاق؛ سجله كـfinding مع توصية منفصلة.",
@@ -55,5 +55,28 @@
         "mythos:human-approval"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903090735-wwupgm",
+    "othmode_task_id": "OTH-2026-00047",
+    "execution_profile": "repo-read",
+    "expected_delivery": "report",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-114",
+    "branch": "mythos/gh/gh-issue-114",
+    "base_commit": "88869a92ef63cc5e044044811d91a86f045365e5",
+    "claimed_at": "2026-09-03T09:07:35.406Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "6c8abe8af3868f4a36a11c9a56ec869af62a5c02a6c360de2c5b70b6ff3e534c",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T09:07:35.407Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T09:07:35.433Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903090735-wwupgm queued; OTHMODE OTH-2026-00047"
+    }
+  ]
 }
