@@ -145,6 +145,12 @@
         "control_status": "COMPLETED",
         "report_file": "control/reports/gh-issue-142.json",
         "commits_on_origin": false
+      },
+      "delivered": {
+        "comment_id": 5531065823,
+        "url": "https://github.com/othoth77/mythos-prod/issues/142#issuecomment-5531065823",
+        "at": "2026-09-03T19:33:41.711Z",
+        "existed": false
       }
     },
     "labels": {
