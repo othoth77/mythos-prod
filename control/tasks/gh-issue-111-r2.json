@@ -8,7 +8,7 @@
   "priority": "normal",
   "requested_action": "investigate",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T02:51:59.715Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #111 https://github.com/othoth77/mythos-prod/issues/111 — \"تنفيذ WhatsApp Bridge وإنشاء PR — repo-write\"\n\nrequested_action inherited from gh-issue-111 (\"investigate\") because this rerun body states no Action. State `Action: <x>` (or a label `action:<x>`) to change it.\n\n- Investigation #109 حدّد التعارضات.\n- Implementation attempt #110 حُظر بسبب تحويل المهمة إلى repo-read وعدم وجود structured report.\n- Attempt #111 حُظر لأن Bridge لم يلتقط Action: implement صراحةً وحوّلها إلى repo-read.\n- PR #108 كان متعارضًا.\n\n[التنفيذ الإلزامي]\n1. استخدم أحدث `origin/main` كقاعدة.\n2. أعد تطبيق WhatsApp notification layer فقط من `b37491f`.\n3. حل التعارضات مع الحفاظ على أحدث تغييرات main، خصوصًا GitHub Issues/Rerun وModel Policy وResource Guard وBridge Timer.\n4. النطاق: GitHub Bridge terminal notifications فقط.\n5. يجب إنشاء commit فعلي وفرع نظيف ثم PR جديد إلى `main`.\n6. لا Merge تلقائيًا.\n7. شغّل WhatsApp notification tests + GitHub Bridge + Executor + Governance وأي اختبارات تكامل متأثرة.\n8. لا AUTOS-0، SPY، n8n، MYTHOS AUTO/customer chat.\n9. لا نشر Evolution API ولا إرسال WhatsApp حقيقي في هذه المهمة.\n10. لا تغييرات على Resource Guard thresholds أو Model Policy أو Timer إلا ما يلزم للتكامل.\n11. لا أسرار ولا `git add .`.\n12. التقرير النهائي يجب أن يحتوي على `mythos_report` structured block، commit SHA، branch، base SHA، الملفات،…\n\n[النتيجة]\nPR جديد mergeable يحتوي فقط على WhatsApp Bridge layer بعد حل التعارضات، مع تقرير COMPLETED واضح.",
@@ -53,5 +53,28 @@
       ],
       "removed": []
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903025205-ys6nsj",
+    "othmode_task_id": "OTH-2026-00043",
+    "execution_profile": "repo-read",
+    "expected_delivery": "report",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-111-r2",
+    "branch": "mythos/gh/gh-issue-111-r2",
+    "base_commit": "5ada6f0f7bb241c0e7009e840a6e1ee2c6567e55",
+    "claimed_at": "2026-09-03T02:52:05.090Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "3331e624a01dd8098752b4ccb7034bb303983fd242c9cb61bb3e4b2f5bfd2631",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T02:52:05.091Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T02:52:05.122Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903025205-ys6nsj queued; OTHMODE OTH-2026-00043"
+    }
+  ]
 }
