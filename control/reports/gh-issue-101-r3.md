@@ -1,0 +1,73 @@
+# Report gh-issue-101-r3 — COMPLETED
+
+| Field | Value |
+|---|---|
+| Completed | 2026-09-03T01:00:51.999Z |
+| Executor task | `t-20260903004615-6aibdz` |
+| OTHMODE task | `OTH-2026-00033` |
+| Profile | repo-write |
+| Branch | `mythos/gh/gh-issue-101-r3` |
+| Commits on origin | true |
+| Git verified | true |
+
+## Summary
+
+Delivered the MYTHOS Resource Guard on branch mythos/gh/gh-issue-101-r3. Attempt r2 had already implemented and validated this work on origin/mythos/gh/gh-issue-101-r2 but it was never merged to main, so per the issue's 'implement only, build on the prior investigation' instruction I replayed that identical tree onto the current base df8e285 (which carries the gh-issue-103 Issue-adapter merge) rather than rebuilding it. The cherry-pick was conflict-free — gh-issue-103 touched only bridge/github-issues.js and its own suite, disjoint from every Resource Guard path — and git diff of all Resource Guard files against the r2 delivery is empty. lib/resource-guard.js reads MemAvailable (/proc/meminfo), PSI memory some avg60 (/proc/pressure/memory) and the oom_kill delta (/proc/vmstat) and drives NORMAL/WARNING/CRITICAL with RECOVERED as the one-shot alert on the degraded->NORMAL edge; swap is carried in every sample for display and read by no threshold. Thresholds are exactly those the issue specified (CRITICAL enter <=700M || psi60>=30 || kill delta>0, exit >=1100M && <=10 && no kills; WARNING enter <=1200M || >=5, exit >=1600M && <=2), with 2-sample escalation, 5-sample de-escalation and a 30-min per-kind alert cooldown; an oom_kill delta escalates on the first sample because a kill is a confirmed event, while leaving CRITICAL still costs the full 5 samples. Enforcement is admission only — nothing is killed and no status was invented: the gate sits in executor.js tick() step 4 (the admission path requested_by='github-bridge' actually uses, which the investigation found ungated), in dispatchTask() before the capacity check, and inside drainQueue() per iteration; tick() steps 1-3 stay exempt so in-flight work remains resumable, and a refused task stays QUEUED with one dispatch_deferred/reason=resource_pressure event per 10 minutes. drainQueue() is now also called once per daemon step, fixing the edge-trigger-only defect so the queue re-drains after recovery without a manual re-queue. Everything fails open (unreadable /proc, corrupt state or unwritable store admit; 5 blind samples release a degraded level) and MYTHOS_RESOURCE_GUARD=off disables the layer. All validation was re-run from scratch on this base, nothing reused as previously verified: seven suites plus the MOS-v2 gate all green, a live host sample (NORMAL at 2424 MiB, PSI 0.00, swap 96% — the healthy-at-high-swap case, admitted), and a 945-sample replay of the production decision function over real /opt/mythos-memwatch telemetry that reproduces the 2026-09-01 outage as CRITICAL 21:03 -> 02:16 covering the 22:16-22:18 mass kill, with admission already closed before every kill burst. One process note: the relay pushed my first two commits mid-run, so my subsequent history rewrite (improving the implementation commit message with the r3 numbers) broke fast-forward; I reset back onto the pushed head and recorded the message correction in a third commit's handover text instead of rewriting published history. No governance-protected path was touched and no git push was performed by me — the governance relay delivered all three commits, confirmed on origin.
+
+## Commits
+
+- `487582a070f4ca655cc390083ad61d0529678b5d` docs(resource-guard): correct the gh-issue-101 handover to the r3 evidence (on origin)
+- `56d7b41e3787590d38c8fd81cd71d826fe056f32` docs(resource-guard): handover for gh-issue-101 — Resource Guard live in 19e3d8a (on origin)
+- `c5f3a356bbcfae6acc22aa92056afd5814950dec` feat(executor): MYTHOS Resource Guard — memory-pressure admission control (on origin)
+
+## Files changed
+
+- `projects/mythos-ai-executor/lib/resource-guard.js`
+- `projects/mythos-ai-executor/bin/mythos-resource-guard`
+- `projects/mythos-ai-executor/executor.js`
+- `projects/mythos-ai-executor/server.js`
+- `tests/resource-guard-test.js`
+- `tests/fixtures/resource-guard/memwatch-outage.txt`
+- `tests/fixtures/resource-guard/memwatch-healthy.txt`
+- `tests/mythos-ai-executor-test.js`
+- `tests/mythos-github-bridge-test.js`
+- `docs/MYTHOS_RESOURCE_GUARD.md`
+- `docs/AI_HANDOVER.md`
+
+## Tests
+
+- tests/resource-guard-test.js (new): 91 passed, 0 failed
+- tests/mythos-ai-executor-test.js: 265 passed, 0 failed
+- tests/mythos-github-bridge-test.js: 97 passed, 0 failed
+- tests/mythos-github-issues-test.js: 139 passed, 0 failed
+- tests/model-selection-policy-test.js: 75 passed, 0 failed
+- tests/mos-1-console-test.js: 1438 passed, 0 failed
+- tests/mos-v2-regression-test.js: PASS (4 suites, 20/20 areas, 0 new failures)
+- node --check on lib/resource-guard.js, executor.js, server.js, bin/mythos-resource-guard: clean
+- historical replay of /opt/mythos-memwatch/memwatch.log (945 samples, 2026-09-01T17:21 -> 2026-09-03T00:50) through the production evaluate(): 10 transitions, NORMAL 754 / WARNING 13 / CRITICAL 178, CRITICAL 2026-09-01T21:03 -> 2026-09-02T02:16 covering the mass kill, final NORMAL, swap 54.3-100% throughout and never a trigger
+- live host sample via lib/resource-guard.js sample() (isolated store): NORMAL, avail 2424 MiB, psi60 0.00, swap 96.0%, admit=true
+- cherry-pick fidelity: git diff dad5385a..HEAD over all Resource Guard paths is empty
+
+## Validation
+
+- required checks: none
+- remote head: 487582a070f4ca655cc390083ad61d0529678b5d
+- report problems: none
+
+## Problems
+
+- none
+
+## Risks
+
+- NOT DEPLOYED: the running mythos-ai-executor.service keeps its previous behaviour until this branch is merged to main and the service restarts. All three commits are on origin/mythos/gh/gh-issue-101-r3 only.
+- Commit c5f3a35's message is r2's verbatim text and quotes r2's evidence (911-sample replay, github-issues 102/0). It reached origin before it could be amended and the relay is fast-forward only, so the correction lives in docs/AI_HANDOVER.md (commit 487582a) rather than in rewritten history. The r3 numbers in this report and in the handover supersede it.
+- OWNER DECISION - WhatsApp: bridge/notify/whatsapp.js exists only on sibling branch b37491f, whose tree also deletes bridge/github-issues.js. Until that merge is decided there is no WhatsApp delivery; alerts are durable in resource-guard-alerts.jsonl so nothing is lost, but its KINDS/KEY_RE fence would also need widening for WARNING/CRITICAL/RECOVERED.
+- OWNER APPROVAL - essential-service protection (MemoryLow= on production units, MemoryHigh= on AI units) lives under projects/mythos-ai-executor/service/ (governance-protected) and ~deploy/.config/systemd/user/; no agent may install it. The guard therefore stops MYTHOS from adding pressure but cannot decide who loses memory first.
+- The dominant memory consumer is outside MYTHOS control (root agent session scopes at 2-2.5 GB vs the executor's ~0.5-0.7 GB), so MYTHOS work can be deferred for pressure MYTHOS did not cause - the replay contains one such ~5h CRITICAL stretch on 2026-09-01.
+- Thresholds were tuned against ~31h of telemetry containing one severe episode; they are exercised by the committed fixtures, but a second episode may justify re-tuning.
+- tests/mythos-ai-executor-test.js and tests/mythos-github-bridge-test.js set MYTHOS_RESOURCE_GUARD=off so their dispatch assertions do not depend on the host's live memory; guard behaviour on those same paths is covered deterministically in tests/resource-guard-test.js.
+
+## Next recommended action
+
+Owner merges mythos/gh/gh-issue-101-r3 (487582a) to main and restarts mythos-ai-executor.service to activate the guard on the running host; separately decide the b37491f WhatsApp branch integration and install the systemd MemoryLow=/MemoryHigh= essential-service protection.
