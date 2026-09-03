@@ -1,0 +1,135 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-147",
+  "project": "mythos-prod",
+  "objective": "تقوية مسار WhatsApp في MYTHOS ومعالجة سبب التعطل الحالي، مع دراسة مشاريع جاهزة أخف من Evolution API قبل أي استبدال.",
+  "scope": [
+    "مراجعة تصميم WhatsApp Provider الحالي والـadapter/notification layer وتحديد نقاط الضعف التي يمكن تقويتها دون إعادة البناء من الصفر.",
+    "تقييم مشاريع جاهزة مناسبة، خصوصاً حلول WhatsApp Gateway/Provider خفيفة الموارد، ومقارنتها بالـEvolution API الحالي من حيث استهلاك الذاكرة، الاعتمادية، الاستمرارية بعد restart، API compatibility، الأمان، persistence، وملاءمتها لـMYTHOS.",
+    "التحقق من خيار خفيف مثل `wa-evolution` كمشروع مرشح، وعدم اعتماده أو إدخاله إلى الإنتاج لمجرد أنه مرشح.",
+    "تحديد هل يمكن تشغيل Provider أخف على نفس الـVPS دون المخاطرة بالخدمات الحالية، مع تقدير واقعي للموارد المطلوبة.",
+    "تصميم/تنفيذ طبقة Adapter تجعل MYTHOS غير مرتبط بمزوّد WhatsApp واحد، مع الحفاظ على الـnotification layer الحالية وعدم تغييرها إلا عند وجود خلل مثبت.",
+    "إضافة حماية واضحة من فشل Provider، restart، duplicate sending، وانقطاع الاتصال، حسب ما تسمح به البنية الحالية.",
+    "إعداد Prototype أو اختبارات محلية/معزولة إذا كان ذلك ممكناً دون الحاجة إلى نشر إنتاجي.",
+    "لا تقم بأي نشر إنتاجي أو تغييرات مدمرة على VPS في هذه المهمة إذا كانت الصلاحيات أو الموارد غير كافية.",
+    "لا تضع credentials داخل Git.",
+    "تحديث `docs/AI_HANDOVER.md` بالتحليل، الخيار المقترح، الاختبارات، commit، remote HEAD، والقرار/الخطوة التالية."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "action_label",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T21:04:59.712Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #147 https://github.com/othoth77/mythos-prod/issues/147 — \"تقوية WhatsApp Provider ودراسة بديل أخف من Evolution API\"\n\nrequested_action: implement — source action_label (written as \"implement\") → execution profile repo-write\n\n[المراجع]\n- #146 — إعادة تنفيذ WhatsApp Provider، انتهت BLOCKED بسبب ضغط VPS وصلاحيات النشر.\n- #141 — المحاولة السابقة.\n- #126 — أصل تكامل WhatsApp.\n- #124 — PR WhatsApp Bridge.\n\n[معيار القرار]\n- إذا ثبت أن Provider جاهز وخفيف ومتوافق وآمن: جهّز مساراً واضحاً لاستبداله أو تشغيله خلف الـadapter، لكن لا تعمل auto-merge ولا نشر إنتاجي تلقائياً.\n- إذا لم يوجد بديل أفضل بشكل مثبت: حافظ على Evolution API الحالي واقترح تقوية العزل وإدارة الموارد بدلاً من استبداله.\n- لا تعتبر مشكلة VPS محلولة بمجرد تغيير الكود؛ يجب إثبات أن الحل يقلل المخاطر فعلياً.\n\n[الحوكمة]\nالتنفيذ حصراً عبر:\nGitHub → Bridge → OTHMODE/Governance → Executor/Claude → Relay.\n\nلا manual bypass، لا auto-merge، ولا تجاوز لصلاحيات VPS. لا تعاود تنفيذ #126 من الصفر.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 147,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/147",
+    "issue_id": 5341458327,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPmAvlw",
+    "issue_title": "TASK: تقوية WhatsApp Provider ودراسة بديل أخف من Evolution API",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T21:04:21Z",
+    "issue_updated_at": "2026-09-03T21:04:21Z",
+    "issue_labels": [
+      "task",
+      "action:implement"
+    ],
+    "content_sha256": "60642c7a3637961161e17df88c8e59e9f5a8a85c28e6610c62cf4f26c5c4cc84",
+    "attempt": 1,
+    "attempt_id": "gh-issue-147#1",
+    "idempotency_key": "ec7be9e7e7019cbfc9729ed818ef6969d968768dd1ad0dd4a698fee503e714b8",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "action_label",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "action_label",
+          "raw": "implement",
+          "action": "implement",
+          "form": null,
+          "line": null
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-03T21:04:59.713Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-03T21:04:59.713Z",
+        "event": "issue_received",
+        "reason": "open Issue #147 with label task",
+        "content_sha256": "60642c7a3637961161e17df88c8e59e9f5a8a85c28e6610c62cf4f26c5c4cc84"
+      },
+      {
+        "at": "2026-09-03T21:04:59.713Z",
+        "event": "action_resolved",
+        "reason": "action_label → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-03T21:04:59.713Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-03T21:04:59.713Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-03T21:05:01.424Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-147.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-03T21:04:59.713Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5532122390,
+        "url": "https://github.com/othoth77/mythos-prod/issues/147#issuecomment-5532122390",
+        "at": "2026-09-03T21:05:00.584Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
