@@ -12,7 +12,7 @@
 | Runtime | `d69e0abc34de` on `main` |
 | Model | `claude-haiku-4-5` (explicit:haiku (requested "haiku")) |
 | Branch | `mythos/gh/gh-issue-121` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | true |
 
 ## Summary
@@ -21,7 +21,7 @@ GitHub Issue #121 Bridge action routing E2E test verified successfully. Bridge c
 
 ## Commits
 
-- `cd452369b90f33489165a6248ebeb18dd6eca149` test(bridge): E2E marker for action routing verification (gh-issue-121) (awaiting relay)
+- `cd452369b90f33489165a6248ebeb18dd6eca149` test(bridge): E2E marker for action routing verification (gh-issue-121) (on origin)
 
 ## Files changed
 

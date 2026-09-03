@@ -62,7 +62,7 @@
       "sha": "cd452369b90f33489165a6248ebeb18dd6eca149",
       "subject": "test(bridge): E2E marker for action routing verification (gh-issue-121)",
       "branch": "mythos/gh/gh-issue-121",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -118,7 +118,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-121",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-03T11:48:32.351Z"
   }
 }
