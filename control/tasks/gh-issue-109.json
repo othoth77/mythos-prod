@@ -19,7 +19,7 @@
   "priority": "normal",
   "requested_action": "investigate",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T02:36:59.472Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #109 https://github.com/othoth77/mythos-prod/issues/109 — \"حل تعارض WhatsApp Bridge وإعادة تجهيز PR للدمج\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[المصدر]\n- WhatsApp notification layer: `b37491f9b839a29e2706632ddf07c0f804985702`\n- PR الحالي المتعارض: #108\n- الهدف: `main`\n\n[النتيجة المطلوبة]\nPR جديد **mergeable** إلى `main` يحتوي فقط على طبقة WhatsApp Bridge السابقة بعد حل التعارضات، مع تقرير واضح يذكر الملفات المتأثرة والاختبارات والـSHA.\n\n[ملاحظة]\nالـVPS الآن clean بعد `git merge --abort`، لذلك لا حاجة لأي تعديل يدوي على الـVPS في هذه المهمة.",
@@ -63,5 +63,28 @@
       ],
       "removed": []
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903023704-os01sv",
+    "othmode_task_id": "OTH-2026-00040",
+    "execution_profile": "repo-read",
+    "expected_delivery": "report",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-109",
+    "branch": "mythos/gh/gh-issue-109",
+    "base_commit": "5ada6f0f7bb241c0e7009e840a6e1ee2c6567e55",
+    "claimed_at": "2026-09-03T02:37:04.097Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "1648817ab8e43aba6eb8b9ce152ba5c55e45da34856f462b539865145c8443c0",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T02:37:04.098Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T02:37:04.126Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903023704-os01sv queued; OTHMODE OTH-2026-00040"
+    }
+  ]
 }
