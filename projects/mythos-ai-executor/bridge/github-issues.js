@@ -52,7 +52,18 @@
 // `Model:` (Issue #100) is the one other value an Issue may set: it selects
 // a key in the server-side catalog (config/model-policy.json) and is
 // rejected at intake if unknown — it never travels on as a raw string, and
-// it changes nothing about what the run is allowed to do.
+// it changes nothing about what the run is allowed to do. A KNOWN but
+// disabled model is kept as written (task.model = its key) and the bridge
+// stops the attempt as MODEL_UNAVAILABLE before any provider starts: an
+// explicit choice is never quietly replaced by another model.
+//
+// Action / Model resolution (gh-issue-111/114/117/118 root cause): every
+// scalar field is read by bridge/action-resolution.js extractFields(), which
+// understands `Key: value`, bulleted/numbered/bold variants, `## Key: value`
+// headings, `## Key` followed by the value after any number of blank lines,
+// and `| Key | value |` table rows. The decision (requested_action,
+// action_raw, action_source; model, model_raw, model_source) is recorded on
+// the task so it can be audited without re-parsing the Issue.
 // =====================================================
 
 var fs = require('fs');
@@ -67,6 +78,9 @@ var bridge = require('./github-bridge');
 var state = require(path.join(EXEC_ROOT, 'lib', 'state'));
 var redact = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'redact'));
 var modelPolicy = require(path.join(EXEC_ROOT, 'lib', 'model-policy'));
+// ONE engine decides requested_action / execution_profile / model for every
+// surface (Issue, task file, executor). This adapter never re-implements it.
+var engine = require('./action-resolution');
 
 var BY = 'github-issues';
 var MARKER_PREFIX = '<!-- mythos-control ';
@@ -302,13 +316,14 @@ var SECTION_ALIASES = {
   model: ['model', 'claude model', 'النموذج', 'نموذج']
 };
 var SCALAR_KEYS = ['action', 'priority', 'depends_on', 'timeout', 'max_turns', 'model'];
-var ACTION_SYNONYMS = {
-  investigate: 'investigate', investigation: 'investigate', analyse: 'investigate', analyze: 'investigate', 'تحقيق': 'investigate',
-  review: 'review', 'مراجعة': 'review',
-  test: 'test', testing: 'test', 'اختبار': 'test',
-  document: 'document', docs: 'document', documentation: 'document', 'توثيق': 'document',
-  implement: 'implement', implementation: 'implement', build: 'implement', fix: 'implement', 'تنفيذ': 'implement'
-};
+
+// Size limits applied to Issue-derived text. They exist so a task file stays
+// a reviewable record and the executor prompt stays within its schema — NOT
+// to shorten a mission silently: every cut is recorded in `source.truncated`
+// (field, original length, kept length) and announced in the created
+// comment, so lost text is always visible. Long objectives/notes/scope of
+// executive Issues (#117: 17 scope items, #118: 4 KB body) fit untouched.
+var LIMITS = { objective: 20000, notes: 16000, item: 2000, other: 6000, title: 300 };
 
 function normKey(s) {
   return String(s || '').trim().replace(/^[#*_\s]+|[*_:\s]+$/g, '').replace(/\s+/g, ' ').toLowerCase();
@@ -341,10 +356,19 @@ function splitSections(body) {
   String(body || '').replace(/\r\n/g, '\n').split('\n').forEach(function (line) {
     var stripped = line.replace(BULLET_PREFIX_RE, '');
     var h = /^\s{0,3}#{1,6}\s*(.+?)\s*#*\s*$/.exec(line);
-    var b = !h && /^\s{0,3}\*\*([^*]+)\*\*\s*:?\s*(.*)$/.exec(stripped);
-    var c = !h && !b && /^\s{0,3}([^\s:][^:]{0,40}?)\s*:\s*(.*)$/.exec(stripped);
+    var tr = !h && /^\s*\|\s*([^|]+?)\s*\|\s*([^|]*?)\s*\|/.exec(line);
+    var b = !h && !tr && /^\s{0,3}\*\*([^*]+)\*\*\s*:?\s*(.*)$/.exec(stripped);
+    var c = !h && !tr && !b && /^\s{0,3}([^\s:|][^:|]{0,40}?)\s*[:：]\s*(.*)$/.exec(stripped);
     var name = null, rest = '';
-    if (h) { name = h[1]; }
+    if (h) {
+      name = h[1];
+      // `## Action: implement` / `## Objective: ship it` — a heading that
+      // carries its value inline. Before this the whole text was looked up
+      // as one unknown heading and fell into `_other:` (gh-issue-117/118).
+      var hc = /^([^:：]{1,40}?)\s*[:：]\s*(.*)$/.exec(name);
+      if (hc && sectionFor(hc[1])) { name = hc[1]; rest = hc[2]; }
+    }
+    else if (tr) { if (sectionFor(tr[1])) { name = tr[1]; rest = tr[2]; } }
     else if (b) { name = b[1]; rest = b[2]; }
     else if (c) { name = c[1]; rest = c[2]; }
     var sec = name ? sectionFor(name) : null;
@@ -355,11 +379,12 @@ function splitSections(body) {
       sections[current] = sections[current] || [];
       return;
     }
-    if (sec && (h || b || SCALAR_KEYS.indexOf(sec) !== -1 || !rest || c)) {
+    if (sec && (h || tr || b || SCALAR_KEYS.indexOf(sec) !== -1 || !rest || c)) {
       if (SCALAR_KEYS.indexOf(sec) !== -1 && rest) {
         sections[sec] = (sections[sec] || []).concat([rest]);
         return;
       }
+      if (tr && rest) { sections[sec] = (sections[sec] || []).concat([rest]); return; }
       current = sec;
       sections[current] = sections[current] || [];
       if (rest) sections[current].push(rest);
@@ -380,7 +405,7 @@ function listItems(lines) {
     else if (!hasBullets && l.trim()) items.push(l.trim());
     else if (hasBullets && l.trim() && items.length && /^\s{2,}/.test(l)) items[items.length - 1] += ' ' + l.trim();
   });
-  return items.filter(Boolean).map(function (s) { return short(s, 300); });
+  return items.filter(Boolean).map(function (s) { return short(s, LIMITS.item); });
 }
 
 function textOf(lines, max) {
@@ -391,34 +416,31 @@ function labelNames(issue) {
   return (issue.labels || []).map(function (l) { return typeof l === 'string' ? l : l.name; }).filter(Boolean);
 }
 
-// An explicit `Action:` (body) or `action:<x>` (label) always wins. On a rerun
-// (attempt > 1) with no explicit action the PREVIOUS attempt's requested_action
-// is inherited rather than the safe default: an Issue that was executive on
-// attempt 1 must not silently become read-only on attempt 2 because the edited
-// body no longer repeats the heading. Only a first attempt falls back to
-// cfg.defaultAction. Inheritance never RAISES privilege beyond what the Issue
-// already ran at — it reproduces the previous attempt's own action.
-function pickAction(cfg, issue, sections, previous) {
-  var fromLabel = labelNames(issue).map(function (l) { var m = /^action:(.+)$/i.exec(l); return m ? m[1].toLowerCase() : null; }).filter(Boolean)[0];
-  var fromBody = sections.action && sections.action.length ? normKey(sections.action[0]) : null;
-  var raw = fromLabel || fromBody;
-  if (raw) return { action: ACTION_SYNONYMS[raw] || raw, explicit: true, inherited: false };
-  if (previous && previous.requested_action && bridge.PROFILE_BY_ACTION[previous.requested_action]) {
-    return { action: previous.requested_action, explicit: false, inherited: true };
-  }
-  return { action: ACTION_SYNONYMS[cfg.defaultAction] || cfg.defaultAction, explicit: false, inherited: false };
+// requested_action, model and the other scalars come from the engine's
+// field extraction over the RAW body (every accepted form), never from
+// `sections.<key>[0]` — that access returned "" for `## Action` followed by
+// a blank line and never saw `## Action: implement` at all. Precedence and
+// the recorded decision (action_raw / action_source) live in
+// bridge/action-resolution.js; see that file for the rules.
+function pickAction(cfg, issue, fields, previous) {
+  return engine.resolveAction({ fields: fields, labels: labelNames(issue), previous: previous, defaultAction: cfg.defaultAction });
 }
 
-function pickPriority(issue, sections) {
-  var fromLabel = labelNames(issue).map(function (l) { var m = /^priority:(low|normal|high)$/i.exec(l); return m ? m[1].toLowerCase() : null; }).filter(Boolean)[0];
-  var fromBody = sections.priority && sections.priority.length ? normKey(sections.priority[0]) : null;
-  var p = fromLabel || fromBody || 'normal';
+function scalar(fields, key) {
+  var f = engine.firstField(fields, key);
+  return f ? f.raw : null;
+}
+
+function pickPriority(issue, fields) {
+  var fromLabel = engine.labelValue(labelNames(issue), 'priority');
+  var fromBody = scalar(fields, 'priority');
+  var p = normKey(fromLabel || fromBody || 'normal');
   return ['low', 'normal', 'high'].indexOf(p) === -1 ? 'normal' : p;
 }
 
-function pickDepends(sections) {
+function pickDepends(fields) {
   var out = [];
-  (sections.depends_on || []).join(',').split(/[,\s]+/).forEach(function (tok) {
+  (fields.depends_on || []).map(function (f) { return f.raw; }).join(',').split(/[,\s]+/).forEach(function (tok) {
     tok = tok.trim().replace(/^[-*]\s*/, '');
     if (!tok) return;
     var m = /^#?(\d+)$/.exec(tok);
@@ -428,29 +450,23 @@ function pickDepends(sections) {
   return out.filter(function (x, i) { return out.indexOf(x) === i; });
 }
 
-// Issue #100 — `Model: Sonnet` (or a `model:<x>` label) is OPTIONAL. When an
-// Issue names one it is honoured exactly; when it names none the field stays
-// absent and the executor scores the task itself. An unrecognised value is an
-// intake error listing the accepted ones — never a silent substitution, and
-// never a raw string travelling on to the CLI.
-function pickModel(issue, sections, errors) {
-  var fromLabel = labelNames(issue).map(function (l) { var m = /^model:(.+)$/i.exec(l); return m ? m[1] : null; }).filter(Boolean)[0];
-  var fromBody = sections.model && sections.model.length ? String(sections.model[0]) : null;
-  var raw = fromLabel || fromBody;
-  if (!raw || !String(raw).trim()) return null;
-  var resolved = modelPolicy.resolveExplicit(raw);
-  if (!resolved.ok) {
-    errors.push('Model: ' + resolved.error);
-    return null;
-  }
-  // Stored canonically (the catalog key), so the control file reads the same
-  // whether the Issue said "opus", "Opus 5" or "claude-opus-5".
-  return resolved.key;
+// Issue #100 — `Model: Sonnet` (or a `model:<x>` label) is OPTIONAL and, on a
+// rerun that names none, inherited from the previous attempt like every other
+// decision. A name the catalog does not know is an intake error listing the
+// accepted ones (a typo must not run on a guessed model). A name the catalog
+// knows but has disabled is KEPT (task.model = its key, model_source recorded)
+// and the bridge stops the attempt as MODEL_UNAVAILABLE at claim time — never
+// a silent substitution, never a raw string travelling on to the CLI.
+function pickModel(issue, fields, previous, errors) {
+  var r = engine.resolveModel({ fields: fields, labels: labelNames(issue), previous: previous, policy: modelPolicy });
+  if (r.error) errors.push(r.error);
+  return r;
 }
 
-function pickInt(sections, key, min, max) {
-  if (!sections[key] || !sections[key].length) return null;
-  var n = parseInt(String(sections[key][0]).replace(/[^0-9]/g, ''), 10);
+function pickInt(fields, key, min, max) {
+  var raw = scalar(fields, key);
+  if (!raw) return null;
+  var n = parseInt(String(raw).replace(/[^0-9]/g, ''), 10);
   if (!(n >= min && n <= max)) return null;
   return n;
 }
@@ -465,16 +481,25 @@ function issueToTask(cfg, issue, attempt, previous) {
   var title = String(issue.title || '').replace(/^\s*TASK\s*[:：-]\s*/i, '').trim();
   var body = String(issue.body || '');
   var errors = [];
+  var truncated = [];
+  function cut(field, text, max) {
+    var t = String(text == null ? '' : text);
+    if (t.length <= max) return t;
+    truncated.push({ field: field, original_length: t.length, kept_length: max });
+    return t.slice(0, max - 1) + '…';
+  }
   var secretKinds = redact.findSecretKinds(title + '\n' + body);
   if (secretKinds.length) {
     return { task: null, errors: ['Issue carries a secret-shaped string (' + secretKinds.join(', ') + '). Credentials never travel in tasks: rotate it and open a new Issue.'], secret: true };
   }
   var sections = splitSections(body);
-  var objective = textOf(sections.objective, 8000) || textOf(sections._preamble, 8000) || title;
+  var fields = engine.extractFields(body);
+  var objective = cut('objective', (sections.objective || []).join('\n').replace(/\n{3,}/g, '\n\n').trim() || (sections._preamble || []).join('\n').replace(/\n{3,}/g, '\n\n').trim() || title, LIMITS.objective);
   if (objective.length < 10) errors.push('objective is too short (add an "Objective" section or a descriptive title)');
-  var act = pickAction(cfg, issue, sections, previous);
-  if (!bridge.PROFILE_BY_ACTION[act.action]) errors.push('Action "' + short(act.action, 30) + '" is not one of ' + Object.keys(bridge.PROFILE_BY_ACTION).join(', '));
+  var act = pickAction(cfg, issue, fields, previous);
+  if (act.error) errors.push(act.error);
   var taskId = issueTaskId(n, attempt);
+  var attemptId = taskId + '#' + attempt;
 
   // A rerun re-parses the CURRENT body. When an edited body drops a structured
   // section — or heads it with a wording the aliases do not know, so it lands in
@@ -482,7 +507,7 @@ function issueToTask(cfg, issue, attempt, previous) {
   // attempt would run with less definition than the one it repeats. Any section
   // the new body leaves empty is therefore inherited from the previous attempt.
   // The objective is deliberately NOT inherited: it is what a rerun edits.
-  var inherited = { requested_action: !!act.inherited, scope: false, constraints: false, validation_requirements: false };
+  var inherited = { requested_action: act.action_source === 'inherited_previous_attempt', model: false, scope: false, constraints: false, validation_requirements: false };
   var scope = listItems(sections.scope);
   var constraints = listItems(sections.constraints);
   var validation = listItems(sections.validation);
@@ -491,22 +516,29 @@ function issueToTask(cfg, issue, attempt, previous) {
     if (!constraints.length && Array.isArray(previous.constraints) && previous.constraints.length) { constraints = previous.constraints.slice(); inherited.constraints = true; }
     if (!validation.length && Array.isArray(previous.validation_requirements) && previous.validation_requirements.length) { validation = previous.validation_requirements.slice(); inherited.validation_requirements = true; }
   }
+  var model = pickModel(issue, fields, previous, errors);
+  inherited.model = model.model_source === 'inherited_previous_attempt';
+  var profile = act.requested_action ? engine.profileFor(act.requested_action) : null;
 
   var notesParts = ['Source: GitHub Issue #' + n + ' ' + issue.html_url + (title ? ' — "' + short(title, 200) + '"' : '')];
-  if (act.inherited) {
-    notesParts.push('requested_action inherited from ' + previous.task_id + ' ("' + act.action + '") because this rerun body states no Action. State `Action: <x>` (or a label `action:<x>`) to change it.');
-  } else if (!act.explicit) {
-    notesParts.push('requested_action defaulted to "' + cfg.defaultAction + '" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).');
+  notesParts.push('requested_action: ' + (act.requested_action || '(invalid)') + ' — source ' + act.action_source + ' (written as "' + short(act.action_raw, 40) + '")' +
+    (act.action_source === 'inherited_previous_attempt' ? ': inherited from ' + previous.task_id + ' ("' + act.requested_action + '") because this rerun body states no Action. State `Action: <x>` (or a label `action:<x>`) to change it.' : '') +
+    (act.action_source === 'default' ? ': defaulted to "' + act.requested_action + '" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).' : '') +
+    (act.conflict ? ' — other candidates ignored: ' + act.conflict : '') +
+    (profile ? ' → execution profile ' + profile : ''));
+  if (model.model_key) {
+    notesParts.push('model: ' + model.model_key + ' — source ' + model.model_source + ' (written as "' + short(model.model_raw, 40) + '")' +
+      (model.available ? '' : '. NOT AVAILABLE on this host: the attempt will stop as MODEL_UNAVAILABLE before any provider starts; it is never substituted.'));
   }
-  var inheritedSections = Object.keys(inherited).filter(function (k) { return k !== 'requested_action' && inherited[k]; });
+  var inheritedSections = Object.keys(inherited).filter(function (k) { return k !== 'requested_action' && k !== 'model' && inherited[k]; });
   if (inheritedSections.length) {
     notesParts.push('Inherited from ' + previous.task_id + ' because this body left them empty: ' + inheritedSections.join(', ') + '. Restate a section under a recognised heading to replace it.');
   }
-  var notes = textOf(sections.notes, 2000);
+  var notes = (sections.notes || []).join('\n').replace(/\n{3,}/g, '\n\n').trim();
   if (notes) notesParts.push(notes);
   Object.keys(sections).filter(function (k) { return k.indexOf('_other:') === 0; }).forEach(function (k) {
-    var txt = textOf(sections[k], 800);
-    if (txt) notesParts.push('[' + k.slice(7) + ']\n' + txt);
+    var txt = (sections[k] || []).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+    if (txt) notesParts.push('[' + k.slice(7) + ']\n' + cut('notes[' + k.slice(7) + ']', txt, LIMITS.other));
   });
   var task = {
     protocol: bridge.PROTOCOL,
@@ -515,22 +547,33 @@ function issueToTask(cfg, issue, attempt, previous) {
     objective: objective,
     scope: scope,
     constraints: constraints,
-    priority: pickPriority(issue, sections),
-    requested_action: act.action,
+    priority: pickPriority(issue, fields),
+    requested_action: act.requested_action || String(act.action_raw || '').slice(0, 30),
+    action_raw: short(act.action_raw == null ? '' : act.action_raw, 100),
+    action_source: act.action_source,
     validation_requirements: validation,
     status: 'PENDING',
     created_at: nowIso(),
     created_by: short('github-issue:' + ((issue.user && issue.user.login) || 'unknown'), 64)
   };
-  var deps = pickDepends(sections);
+  var deps = pickDepends(fields);
   if (deps.length) task.depends_on = deps.filter(function (d) { return d !== taskId; });
-  var timeout = pickInt(sections, 'timeout', 60, 21600);
+  var timeout = pickInt(fields, 'timeout', 60, 21600);
   if (timeout) task.timeout_seconds = timeout;
-  var turns = pickInt(sections, 'max_turns', 1, 500);
+  var turns = pickInt(fields, 'max_turns', 1, 500);
   if (turns) task.max_turns = turns;
-  var model = pickModel(issue, sections, errors);
-  if (model) task.model = model;
-  task.notes = short(notesParts.join('\n\n'), 4000);
+  if (model.model_key) {
+    task.model = model.model_key;
+    task.model_raw = short(model.model_raw, 100);
+    task.model_source = model.model_source;
+  }
+  task.notes = cut('notes', notesParts.join('\n\n'), LIMITS.notes);
+  if (truncated.length) {
+    var note = 'TRUNCATED (limits: objective ' + LIMITS.objective + ', notes ' + LIMITS.notes + ', list item ' + LIMITS.item + ' chars): ' +
+      truncated.map(function (t) { return t.field + ' ' + t.original_length + '→' + t.kept_length; }).join(', ') + '. The full text is on the Issue.';
+    task.notes = task.notes.length + note.length + 2 <= LIMITS.notes ? task.notes + '\n\n' + note : task.notes.slice(0, LIMITS.notes - note.length - 3) + '…\n\n' + note;
+  }
+  var contentHash = sha256(String(issue.title || '') + '\n' + body);
   task.source = {
     kind: 'github-issue',
     repo: cfg.repo,
@@ -538,22 +581,53 @@ function issueToTask(cfg, issue, attempt, previous) {
     issue_url: issue.html_url,
     issue_id: issue.id || null,
     issue_node_id: issue.node_id || null,
-    issue_title: short(issue.title || '', 300),
+    issue_title: short(issue.title || '', LIMITS.title),
     issue_author: (issue.user && issue.user.login) || null,
     issue_created_at: issue.created_at || null,
     issue_updated_at: issue.updated_at || null,
     issue_labels: labelNames(issue).slice(0, 20),
-    content_sha256: sha256(String(issue.title || '') + '\n' + body),
+    content_sha256: contentHash,
     attempt: attempt,
+    attempt_id: attemptId,
+    // One key per (repo, issue, attempt, content): a duplicate delivery of the
+    // same Issue state — a second webhook, a repeated listing page, a tick that
+    // died after posting — resolves to the same task, never a second one.
+    idempotency_key: engine.idempotencyKey([cfg.repo, '#', n, '@', attempt, ':', contentHash]),
     rerun_of: previous ? previous.task_id : (attempt > 1 ? issueTaskId(n, attempt - 1) : null),
     inherited_from: previous ? previous.task_id : null,
     inherited: inherited,
+    // The audited decision, as the engine made it (candidates in precedence order).
+    resolution: {
+      requested_action: act.requested_action,
+      action_raw: act.action_raw,
+      action_source: act.action_source,
+      action_conflict: act.conflict,
+      action_candidates: act.candidates.map(function (c) { return { source: c.source, raw: short(c.raw, 60), action: c.action, form: c.form || null, line: c.line || null }; }),
+      execution_profile: profile,
+      expected_delivery: act.requested_action ? engine.deliveryFor(act.requested_action) : null,
+      model_key: model.model_key,
+      model_id: model.model_id,
+      model_raw: model.model_raw,
+      model_source: model.model_source,
+      model_available: model.available,
+      model_reason: model.reason,
+      available_models: model.available_models,
+      resolved_at: nowIso(),
+      resolved_by: 'bridge/action-resolution.js'
+    },
+    truncated: truncated,
+    events: [
+      { at: nowIso(), event: 'issue_received', reason: 'open Issue #' + n + ' with label ' + cfg.label + (attempt > 1 ? ' and label ' + cfg.rerunLabel + ' (attempt ' + attempt + ')' : ''), content_sha256: contentHash },
+      { at: nowIso(), event: 'action_resolved', reason: act.action_source + ' → ' + (act.requested_action || 'invalid') + ' (raw "' + short(act.action_raw, 40) + '")' },
+      { at: nowIso(), event: 'profile_resolved', reason: (act.requested_action || '?') + ' → ' + (profile || 'none') + ' (server-side map)' },
+      { at: nowIso(), event: 'model_resolved', reason: model.model_key ? model.model_source + ' → ' + model.model_key + (model.available ? ' (available)' : ' (NOT available)') : 'none named — executor scores the task' }
+    ],
     converted_at: nowIso(),
     converted_by: BY,
     notifications: {}
   };
   errors = errors.concat(bridge.validateTask(cfg.bridge, task, taskId + '.json'));
-  return { task: errors.length ? null : task, errors: errors, candidate: task, secret: false };
+  return { task: errors.length ? null : task, errors: errors, candidate: task, secret: false, resolution: task.source.resolution };
 }
 
 // --- Issue comments ---------------------------------------------------------------
@@ -609,14 +683,16 @@ function createdBody(cfg, task) {
   var rel = cfg.bridge.prefix + '/tasks/' + task.task_id + '.json';
   var src = task.source || {};
   var inh = src.inherited || {};
+  var res = src.resolution || {};
   var inheritedFields = Object.keys(inh).filter(function (k) { return inh[k]; });
   var rows = [
       ['Task file', '[' + rel + '](' + controlFileUrl(cfg, rel) + ') on branch `' + cfg.bridge.branch + '`'],
       ['Status', '**PENDING** — scheduled; the bridge claims it on its next tick and execution starts in the executor'],
-      ['Action', '`' + task.requested_action + '` → execution profile `' + bridge.PROFILE_BY_ACTION[task.requested_action] + '`' + (task.requested_action === 'investigate' || task.requested_action === 'review' || task.requested_action === 'test' ? ' (read-only: findings only, no commits)' : ' (may commit on `mythos/gh/' + task.task_id + '`; never merged to main automatically)') + (inh.requested_action ? ' — **inherited** from `' + src.inherited_from + '` (this body states no Action)' : '')],
+      ['Action', '`' + task.requested_action + '` → execution profile `' + engine.profileFor(task.requested_action) + '`' + (task.requested_action === 'investigate' || task.requested_action === 'review' || task.requested_action === 'test' ? ' (read-only: findings only, no commits)' : ' (may commit on `mythos/gh/' + task.task_id + '`; never merged to main automatically)') + (inh.requested_action ? ' — **inherited** from `' + src.inherited_from + '` (this body states no Action)' : '')],
+      ['Action source', '`' + (task.action_source || 'task_file') + '`' + (task.action_raw ? ' — written as `' + task.action_raw + '`' : '') + (res.action_conflict ? ' (ignored: ' + res.action_conflict + ')' : '')],
       ['Priority', task.priority],
       ['Model', task.model
-        ? '`' + task.model + '` (requested in the Issue — honoured as written)'
+        ? '`' + task.model + '` (' + (task.model_source || 'requested') + ', written as `' + (task.model_raw || task.model) + '`' + (res.model_available === false ? ') — **NOT available on this host**: the attempt will stop as `MODEL_UNAVAILABLE` before any provider starts; it is never replaced by another model' : ' — honoured as written, never substituted)')
         : 'automatic — the executor scores this task and picks Haiku, Sonnet or Opus; the report names the model and the reason. Add `Model: ' +
           modelPolicy.allowedLabels().join(' | ') + '` to pin one'],
       ['Depends on', task.depends_on && task.depends_on.length ? task.depends_on.map(function (d) { return '`' + d + '`'; }).join(', ') : '—'],
@@ -636,6 +712,10 @@ function createdBody(cfg, task) {
     lines.push('This rerun body left ' + inheritedFields.join(', ') + ' unstated, so ' + (inheritedFields.length === 1 ? 'it was' : 'they were') +
       ' **inherited from `' + src.inherited_from + '`** rather than dropped or defaulted. Restate a section under a recognised heading (`Objective`, `Scope`, `Constraints`, `Validation`, `Action`) to replace it.', '');
   }
+  if (Array.isArray(src.truncated) && src.truncated.length) {
+    lines.push('**Some text was truncated** to fit the task record: ' + src.truncated.map(function (t) { return '`' + t.field + '` ' + t.original_length + '→' + t.kept_length + ' chars'; }).join(', ') +
+      '. The Issue keeps the full text; the executor receives the truncated record.', '');
+  }
   lines.push('The task and report files on `' + cfg.bridge.branch + '` are the source of truth; this Issue is the interface. ' +
     'Closing the Issue (or removing the `' + cfg.label + '` label) while the task is active cancels it. ' +
     'Editing this Issue does NOT re-run it; to run it again after a change, add the label `' + cfg.rerunLabel + '`.');
@@ -652,10 +732,13 @@ function claimedBody(cfg, task) {
       ['Status', '**' + task.status + '**' + (ex.executor_status ? ' (executor ' + ex.executor_status + ')' : '')],
       ['executor_task_id', '`' + (ex.executor_task_id || '—') + '`'],
       ['OTHMODE record', '`' + (ex.othmode_task_id || '—') + '`'],
-      ['Execution profile', '`' + (ex.execution_profile || '—') + '`'],
+      ['Action', '`' + task.requested_action + '` (source `' + (ex.action_source || task.action_source || 'task_file') + '`) → profile `' + (ex.execution_profile || '—') + '`'],
+      ['Model', '`' + (ex.model || 'automatic') + '`' + (ex.model_requested ? ' (requested `' + ex.model_requested + '`)' : '')],
+      ['Attempt', '`' + (ex.attempt_id || task.task_id + '#1') + '`'],
       ['Branch', '`' + (ex.branch || '—') + '`'],
       ['Base commit', '`' + short(ex.base_commit || '—', 12) + '`'],
-      ['Claimed at', ex.claimed_at || '—']
+      ['Claimed at', ex.claimed_at || '—'],
+      ['Runtime', ex.runtime ? '`' + short(ex.runtime.head || '?', 12) + '` on `' + (ex.runtime.branch || '?') + '`' + (ex.runtime.code ? ' **' + ex.runtime.code + '**' : '') : '—']
     ]),
     '',
     'Progress is tracked in `' + cfg.bridge.prefix + '/state.json`; the result will be posted here when the report exists.'
@@ -664,6 +747,14 @@ function claimedBody(cfg, task) {
 
 function issueStateOf(task, report) {
   if (!report) return task.status;
+  if (report.status === 'BLOCKED' && report.blocker && report.blocker.code) {
+    // A classified blocker is authoritative: a permission / governance /
+    // owner-decision stop needs a human; a resolution stop (profile mismatch,
+    // unavailable model, mutated attempt) is a BLOCKED fact to fix and rerun.
+    var code = String(report.blocker.code);
+    if (code === 'HUMAN_APPROVAL' || code === 'GOVERNANCE_DENIED' || code === 'PERMISSION_DENIED') return 'HUMAN_APPROVAL';
+    if (code === 'ACTION_PROFILE_MISMATCH' || code === 'MODEL_UNAVAILABLE' || code === 'ATTEMPT_SNAPSHOT_MUTATED' || code === 'STALE_WORKER') return 'BLOCKED';
+  }
   if (report.status === 'BLOCKED') {
     var text = [report.summary, report.next_recommended_action].concat(report.problems || []).join('\n');
     if (APPROVAL_RE.test(text)) return 'HUMAN_APPROVAL';
@@ -674,6 +765,7 @@ function issueStateOf(task, report) {
 function reportBody(cfg, task, report, issueState) {
   var rel = cfg.bridge.prefix + '/reports/' + task.task_id + '.json';
   var ex = (report && report.execution) || task.execution || {};
+  var res = (report && report.resolution) || (task.source && task.source.resolution) || {};
   var commits = (report && report.commits) || [];
   var headline = {
     COMPLETED: 'COMPLETED', FAILED: 'FAILED — stays open', BLOCKED: 'BLOCKED — stays open, needs a human',
@@ -688,7 +780,10 @@ function reportBody(cfg, task, report, issueState) {
       ['Report', report ? '[' + rel + '](' + controlFileUrl(cfg, rel) + ')' + ' · [markdown](' + controlFileUrl(cfg, rel.replace(/\.json$/, '.md')) + ')' : '— (no report: cancelled before execution)'],
       ['executor_task_id', '`' + (ex.executor_task_id || '—') + '`'],
       ['OTHMODE record', '`' + (ex.othmode_task_id || '—') + '`'],
-      ['Branch', '`' + (ex.branch || '—') + '`'],
+      ['Action', '`' + (res.requested_action || task.requested_action || '—') + '` (source `' + (res.action_source || task.action_source || 'task_file') + '`' + (res.action_raw || task.action_raw ? ', written as `' + (res.action_raw || task.action_raw) + '`' : '') + ') → profile `' + (res.execution_profile || ex.execution_profile || '—') + '`'],
+      ['Model', '`' + (ex.model || '—') + '`' + (ex.model_requested ? ' (requested `' + ex.model_requested + '`' + (ex.model_source ? ' via ' + ex.model_source : '') + ')' : ' (' + (ex.model_selection_reason || 'automatic') + ')')],
+      ['Blocker', report && report.blocker ? '`' + report.blocker.code + '` — ' + short(report.blocker.reason || '', 400) + (report.blocker.retryable === false ? ' (not retried automatically)' : '') : '—'],
+      ['Branch', '`' + (ex.branch || '—') + '` @ `' + short(ex.base_commit || '—', 12) + '`'],
       ['Commits on origin', report && report.delivery ? String(report.delivery.commits_on_origin) : '—'],
       ['Git verified', report && report.validation ? String(report.validation.git_verified) : '—'],
       ['Completed at', (report && report.completed_at) || '—']
@@ -823,7 +918,17 @@ async function intake(cfg, client, opts) {
   var sync = bridge.syncControl(cfg.bridge);
   actions.push({ action: 'sync', result: sync });
   if (!sync.ok) { actions.push({ action: 'defer_all', reason: sync.reason }); return { ok: true, actions: actions }; }
-  var issues = (await client.listTaskIssues()).filter(function (i) { return !i.pull_request && i.state === 'open'; });
+  var listed = (await client.listTaskIssues()).filter(function (i) { return !i.pull_request && i.state === 'open'; });
+  // Duplicate event protection: GitHub can return the same Issue twice across
+  // pages (a list that shifts while it is paged) and a replayed delivery is a
+  // duplicate by definition. One Issue number is handled once per tick; the
+  // deterministic task id + idempotency key catch the rest across ticks.
+  var seen = {};
+  var issues = listed.filter(function (i) {
+    if (seen[i.number]) { actions.push({ action: 'duplicate_event_ignored', issue: i.number }); return false; }
+    seen[i.number] = true;
+    return true;
+  });
   if (cfg.only.length) issues = issues.filter(function (i) { return cfg.only.indexOf(i.number) !== -1; });
   var idx = loadIssueTasks(cfg);
   var newTasks = [];
@@ -874,7 +979,7 @@ async function intake(cfg, client, opts) {
       var hash = sha256(String(issue.title || '') + '\n' + String(issue.body || ''));
       var rej = await postOnce(client, n, { issue: n, event: 'rejected', hash: hash.slice(0, 16) }, rejectedBody(cfg, issue, conv.errors, hash, conv.secret));
       if (!rej.existed) await setStatusLabel(cfg, client, issue, 'INVALID');
-      actions.push({ action: 'rejected', issue: n, errors: conv.errors, comment: rej, secret: conv.secret });
+      actions.push({ action: 'rejected', issue: n, errors: conv.errors, comment: rej, secret: conv.secret, resolution: conv.resolution || null });
       log('rejected', { issue: n, errors: conv.errors, existed: rej.existed });
       continue;
     }
@@ -893,8 +998,9 @@ async function intake(cfg, client, opts) {
     if (attempt > 1) pendingRerunLabel.push(n);
     newTasks.push(task);
     converted++;
-    actions.push({ action: 'create', issue: n, task_id: task.task_id, attempt: attempt, comment: cm });
-    log('created', { issue: n, task_id: task.task_id, attempt: attempt, requested_action: task.requested_action });
+    task.source.events.push({ at: nowIso(), event: 'task_created', reason: 'control/tasks/' + task.task_id + '.json PENDING; created comment ' + (cm.existed ? 'adopted' : 'posted') });
+    actions.push({ action: 'create', issue: n, task_id: task.task_id, attempt: attempt, comment: cm, requested_action: task.requested_action, action_source: task.action_source, model: task.model || null });
+    log('created', { issue: n, task_id: task.task_id, attempt: attempt, requested_action: task.requested_action, action_source: task.action_source, action_raw: task.action_raw, execution_profile: engine.profileFor(task.requested_action), model: task.model || null, model_source: task.model_source || null });
   }
   if (newTasks.length) {
     var msg = 'control: issues → ' + newTasks.map(function (t) { return t.task_id + ' (#' + t.source.issue_number + ')'; }).join(', ').slice(0, 180);
@@ -1068,6 +1174,9 @@ function status() {
         var rep = TERMINAL.indexOf(t.status) !== -1 ? reportFor(cfg, t.task_id) : null;
         return {
           issue: n, issue_url: t.source ? t.source.issue_url : null, task_id: t.task_id, status: t.status,
+          requested_action: t.requested_action, action_source: t.action_source || null, action_raw: t.action_raw || null,
+          execution_profile: t.execution ? (t.execution.execution_profile || null) : engine.profileFor(t.requested_action),
+          model: t.model || null, model_source: t.model_source || null,
           issue_state: t.source && t.source.issue_state ? t.source.issue_state : (rep ? issueStateOf(t, rep) : t.status),
           executor_task_id: t.execution ? t.execution.executor_task_id || null : null,
           report_file: rep ? cfg.bridge.prefix + '/reports/' + t.task_id + '.json' : null,
@@ -1085,7 +1194,9 @@ module.exports = {
   config: config,
   readToken: readToken,
   createClient: createClient,
+  LIMITS: LIMITS,
   splitSections: splitSections,
+  extractFields: engine.extractFields,
   issueToTask: issueToTask,
   issueTaskId: issueTaskId,
   parseIssueTaskId: parseIssueTaskId,

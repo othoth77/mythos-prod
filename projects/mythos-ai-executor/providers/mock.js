@@ -26,6 +26,7 @@ var PROVIDER_ID = 'mock';
 var callCount = 0;
 
 function reset() { callCount = 0; }
+function calls() { return callCount; }
 
 function version() { return 'mock/1'; }
 function available() { return true; }
@@ -135,6 +136,7 @@ module.exports = {
   newSessionId: newSessionId,
   run: run,
   reset: reset,
+  calls: calls,
   isMissingSession: isMissingSession,
   executionAuthority: false
 };

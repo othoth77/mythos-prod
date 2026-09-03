@@ -10,6 +10,10 @@
 //   mythos-github-bridge status              local view of the control branch and executor state
 //   mythos-github-bridge validate <file>     validate a task file offline (exit 1 when invalid)
 //   mythos-github-bridge instruction <file>  print the instruction the executor would receive
+//   mythos-github-bridge trail <task_id>     audit trail: Issue received → Action/Profile/Model resolved → created →
+//                                            claimed → provider started/finished → report → GitHub updated
+//   mythos-github-bridge runtime             which checkout/branch/HEAD this bridge binary actually runs from
+//   mythos-github-bridge resolve <issue.json | N | ->   offline: the engine's Action/Model decision for an Issue payload
 //
 // GitHub Issues intake (bridge/github-issues.js; needs a token in the env, see docs/MYTHOS_GITHUB_ISSUES.md):
 //   mythos-github-bridge issues-tick [--dry-run] [--only N[,M]] [--no-bridge]
@@ -82,6 +86,31 @@ switch (cmd) {
     }, fail);
     break;
   }
+  case 'trail': {
+    if (!arg) die('usage: mythos-github-bridge trail <task_id>');
+    out(bridge.trail(arg));
+    break;
+  }
+  case 'runtime':
+    out(bridge.runtimeIdentity(bridge.config()));
+    break;
+  case 'resolve': {
+    if (!arg) die('usage: mythos-github-bridge resolve <issue.json | issue-number | -> (stdin)');
+    var eng = bridge.engine;
+    var modelPolicy = require('../lib/model-policy');
+    var src = arg === '-' ? Promise.resolve(JSON.parse(fs.readFileSync(0, 'utf8')))
+      : (/^\d+$/.test(arg) ? issues().createClient(issues().config(), issues().readToken(), { dryRun: true }).getIssue(parseInt(arg, 10)) : Promise.resolve(JSON.parse(fs.readFileSync(arg, 'utf8'))));
+    src.then(function (issue) {
+      var body = typeof issue === 'string' ? issue : String(issue.body || '');
+      var labels = typeof issue === 'string' ? [] : (issue.labels || []);
+      var fields = eng.extractFields(body);
+      var a = eng.resolveAction({ fields: fields, labels: labels });
+      var m = eng.resolveModel({ fields: fields, labels: labels, policy: modelPolicy });
+      out({ fields: fields, action: a, execution_profile: a.requested_action ? eng.profileFor(a.requested_action) : null, model: m });
+      process.exit(a.error ? 1 : 0);
+    }, fail);
+    break;
+  }
   case 'daemon':
     bridge.daemon(executor());
     break;
@@ -108,5 +137,5 @@ switch (cmd) {
     break;
   }
   default:
-    die('usage: mythos-github-bridge <init|tick|daemon|status|validate <file>|instruction <file>|issues-tick|issues-status|issues-parse <file|N>>');
+    die('usage: mythos-github-bridge <init|tick|daemon|status|validate <file>|instruction <file>|trail <task_id>|runtime|resolve <file|N|->|issues-tick|issues-status|issues-parse <file|N>>');
 }

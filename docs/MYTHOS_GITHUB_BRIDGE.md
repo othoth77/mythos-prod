@@ -208,6 +208,34 @@ The smoke record `OTH-2026-00022` predates F2 and is the case F2 detects: it was
 bridge is unchanged; `tick` runs the Issues phases only when `MYTHOS_ISSUES_ENABLED=1` (deploy drop-in with the
 token file bound by reference). Spec, Issue format and security: `docs/MYTHOS_GITHUB_ISSUES.md`.
 
+## 12d. Action resolution v2 — invariant, immutable attempts, fencing, trail (2026-09-03)
+
+`bridge/action-resolution.js` is now the single owner of `PROFILE_BY_ACTION` (the bridge re-exports it) and of
+the decision record. What changed in the bridge itself:
+
+| Point | Behaviour |
+|---|---|
+| Claim preflight | before any worktree/OTHMODE/executor: `ACTION_PROFILE_MISMATCH` (a recovered executor record with another profile) and `MODEL_UNAVAILABLE` (explicit model the host cannot run) end the task BLOCKED with a structured report and **no executor task**; not retried automatically |
+| `execution` block | adds `attempt_id`, `action_source`, `action_raw`, `expected_profile`, `model_key`, `model_requested`, `model_source`, `model`, `snapshot_sha256`, `fence`, `lease`, `runtime` |
+| Executor task | receives `task_category` (= action), `action_source`, `action_raw`, `attempt_id`; `executor.createTask` asserts the invariant and seals `snapshot_sha256`; `runTask` re-checks snapshot, invariant and model availability before spawning the provider |
+| Report | adds `attempt_id`, `resolution`, `blocker`, `runtime_identity`, `structured_report`; markdown shows Attempt / Action / Blocker / Runtime |
+| Lock | JSON record with `fence` (monotonic, `bridge/fence.json`), heartbeat, stale takeover after `MYTHOS_BRIDGE_LOCK_STALE_MS` (15 min); `commitControl` refuses a fenced-out worker (`STALE_WORKER`); legacy bare-pid locks still respected |
+| Runtime identity | measured from the module path (`git rev-parse --show-toplevel/HEAD`), on every tick, claim and report; `MYTHOS_BRIDGE_EXPECTED_HEAD` / `MYTHOS_BRIDGE_STRICT_RUNTIME=1` |
+| CLI | `trail <task_id>`, `runtime`, `resolve <issue.json\|N\|->` |
+
+Task-schema additions (creator-visible, all optional): `action_raw`, `action_source`, `model_raw`, `model_source`;
+`source.attempt_id`, `source.idempotency_key`, `source.resolution`, `source.truncated`, `source.events`.
+Limits raised with explicit accounting: objective 20 000, notes 16 000, list items 2 000 chars (executor
+instruction 64 000). Deployment order: adapter and bridge ship together on `main`; an older bridge would reject the
+new optional fields, so do not run a mixed pair.
+
+Tests: `tests/bridge-action-resolution-test.js` (engine), plus new sections in the bridge, Issues and executor suites
+(cases A–V of the mission: every Action form, precedence, rerun inheritance/override, `implement → repo-write`,
+`ACTION_PROFILE_MISMATCH`, explicit Fable 5.1, `MODEL_UNAVAILABLE`, long objective/notes, duplicate event, duplicate
+claim, stale worker, structured report on COMPLETED/BLOCKED/permission denial, runtime identity mismatch, E2E
+`## Action: implement` + `## Model: Fable 5.1` → `requested_action=implement` → `repo-write` → `claude-fable-5-1` →
+provider → report).
+
 ## 13. Honest limits
 
 - Latency: claim within ~1 min, visible on GitHub after the next relay tick (≤5 min); report likewise.

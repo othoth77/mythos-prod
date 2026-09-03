@@ -1464,6 +1464,134 @@ chain = chain.then(function () {
 });
 
 // ---------------------------------------------------------------------------
+// 30. Action → profile invariant, attempt immutability, model availability,
+//     structured report on EVERY outcome (gh-issue-111/114/117/118 root fix)
+// ---------------------------------------------------------------------------
+chain = chain.then(function () {
+  var engine = require(path.join(EXEC, 'bridge', 'action-resolution'));
+  var modelPolicy = require(path.join(EXEC, 'lib', 'model-policy'));
+
+  // K — the invariant at creation: implement may only be created under repo-write.
+  throws(function () { mkTask({ task_category: 'implement', execution_profile: 'repo-read', attempt_id: 'gh-x#1' }); }, /ACTION_PROFILE_MISMATCH/,
+    'invariant: createTask refuses implement + repo-read');
+  throws(function () { mkTask({ task_category: 'investigate', execution_profile: 'repo-write' }); }, /ACTION_PROFILE_MISMATCH/,
+    'invariant: createTask refuses investigate + repo-write');
+  var okTask = mkTask({ task_category: 'implement', execution_profile: 'repo-write', action_source: 'explicit_current_issue', action_raw: 'implement', attempt_id: 'gh-ok#1' });
+  ok(okTask.execution_profile === 'repo-write' && okTask.action_source === 'explicit_current_issue' && okTask.action_raw === 'implement' && okTask.attempt_id === 'gh-ok#1' && /^[0-9a-f]{64}$/.test(okTask.snapshot_sha256),
+    'invariant: implement + repo-write is created with the decision fields and a sealed snapshot (J)');
+  ok(mkTask({ task_category: 'coding', execution_profile: 'repo-read' }).execution_profile === 'repo-read', 'invariant: categories outside the closed action set are not constrained');
+
+  // K at run time — the durable record is tampered with after creation: the
+  // provider must NOT start; the task ends BLOCKED with a structured report.
+  setScript([{ kind: 'success', summary: 'must never run' }]);
+  var tampered = mkTask({ task_category: 'implement', execution_profile: 'repo-write', attempt_id: 'gh-tamper#1' });
+  var rec = state.readJSON(tampered.task_id, 'task.json');
+  rec.execution_profile = 'repo-read';
+  state.writeJSON(tampered.task_id, 'task.json', rec);
+  var calls0 = mockCalls();
+  return executor.runTask(tampered.task_id).then(function (st) {
+    ok(st.status === 'BLOCKED' && /ATTEMPT_SNAPSHOT_MUTATED|ACTION_PROFILE_MISMATCH/.test(st.next_action), 'preflight: a mutated attempt is BLOCKED before the provider (' + st.next_action.slice(0, 60) + ')');
+    ok(mockCalls() === calls0, 'preflight: the provider was NOT invoked');
+    var rep = state.readJSON(tampered.task_id, 'report.json');
+    ok(rep && rep.report === null && rep.structured && rep.structured.mythos_report === true && rep.structured.synthesized === true && rep.structured.status === 'blocked',
+      'preflight: a structured (synthesised) mythos_report exists even though no provider ran');
+    ok(rep.blocker && /ATTEMPT_SNAPSHOT_MUTATED|ACTION_PROFILE_MISMATCH/.test(rep.blocker.code) && rep.blocker.retryable === false && rep.structured.attempt_id === 'gh-tamper#1' && rep.structured.requested_action === 'implement',
+      'preflight: blocker code, retryable:false, attempt_id and requested_action are on the report');
+    var ev = fs.readFileSync(state.taskFile(tampered.task_id, 'events.log'), 'utf8');
+    ok(/preflight_blocked/.test(ev) && !/provider_launch.*provider_launch/.test(ev), 'preflight: the refusal is an event in the trail');
+
+    // Mismatch alone (snapshot rewritten to match): still refused by the invariant.
+    var t2 = mkTask({ task_category: 'implement', execution_profile: 'repo-write', attempt_id: 'gh-mismatch#1' });
+    var r2 = state.readJSON(t2.task_id, 'task.json');
+    r2.execution_profile = 'repo-read';
+    r2.snapshot_sha256 = engine.attemptSnapshot({ task_id: r2.task_id, attempt_id: r2.attempt_id, requested_action: r2.task_category, action_raw: r2.action_raw, action_source: r2.action_source, execution_profile: r2.execution_profile, model: r2.model, instruction: r2.instruction, constraints: r2.constraints, required_tests: r2.required_tests, working_directory: r2.working_directory, branch: r2.branch });
+    state.writeJSON(t2.task_id, 'task.json', r2);
+    var pre = executor.preflightBlocker(r2);
+    ok(pre && pre.code === 'ACTION_PROFILE_MISMATCH' && pre.expected_profile === 'repo-write' && pre.actual_profile === 'repo-read' && pre.attempt_id === 'gh-mismatch#1',
+      'preflight: implement + repo-read is ACTION_PROFILE_MISMATCH with expected/actual/attempt_id (K)');
+    return executor.runTask(t2.task_id).then(function (st2) {
+      ok(st2.status === 'BLOCKED' && /ACTION_PROFILE_MISMATCH/.test(st2.last_error) && mockCalls() === calls0, 'preflight: ACTION_PROFILE_MISMATCH stops the task before the provider');
+    });
+  }).then(function () {
+    // M — an explicitly requested model that this host cannot run at launch time.
+    var entry = modelPolicy.DEFAULT_LOADED.policy.catalog['fable-5.1'];
+    var saved = entry.enabled;
+    var tm = mkTask({ model: 'Fable 5.1', task_category: 'implement', execution_profile: 'repo-write', attempt_id: 'gh-model#1' });
+    ok(tm.model === 'claude-fable-5-1' && tm.model_selection_mode === 'explicit', 'model: "Fable 5.1" is honoured at creation while enabled');
+    entry.enabled = false;
+    setScript([{ kind: 'success', summary: 'must never run on a substitute' }]);
+    var calls1 = mockCalls();
+    return executor.runTask(tm.task_id).then(function (st) {
+      entry.enabled = saved;
+      ok(st.status === 'BLOCKED' && /MODEL_UNAVAILABLE/.test(st.last_error) && mockCalls() === calls1, 'MODEL_UNAVAILABLE: a model disabled after creation blocks the launch, no provider, no substitute (M)');
+      var rep = state.readJSON(tm.task_id, 'report.json');
+      ok(rep.blocker.code === 'MODEL_UNAVAILABLE' && rep.blocker.requested_model === 'claude-fable-5-1' && rep.blocker.actual_model === null && Array.isArray(rep.blocker.available_models) && rep.blocker.available_models.indexOf('Fable 5.1') === -1 && /not available/.test(rep.blocker.reason),
+        'MODEL_UNAVAILABLE: requested_model / available_models / actual_model / reason are on the structured report');
+      ok(rep.structured.model === 'claude-fable-5-1' && rep.structured.status === 'blocked', 'MODEL_UNAVAILABLE: the report still names the requested model, never a substitute');
+    });
+  }).then(function () {
+    // L — explicit Fable 5.1 reaches the provider argv exactly.
+    var claude = require(path.join(EXEC, 'providers', 'claude-code'));
+    var tl = mkTask({ model: 'Fable 5.1', task_category: 'implement', execution_profile: 'repo-write' });
+    var args = claude.buildArgs(tl, 'sid', 'start');
+    ok(args[args.indexOf('--model') + 1] === 'claude-fable-5-1', 'explicit Fable 5.1 → --model claude-fable-5-1 (L)');
+
+    // S — COMPLETED carries a structured report with the decision fields.
+    setScript([{ kind: 'success', summary: 'structured on completed' }]);
+    var ts = mkTask({ task_category: 'implement', execution_profile: 'repo-write', action_source: 'explicit_current_issue', action_raw: 'implement', attempt_id: 'gh-s#1', branch: 'mythos/gh/gh-s' });
+    return executor.runTask(ts.task_id).then(function (st) {
+      var rep = state.readJSON(ts.task_id, 'report.json');
+      ok(st.status === 'COMPLETED' && rep.report && rep.structured && rep.structured.mythos_report === true && !rep.structured.synthesized,
+        'structured report on COMPLETED: the provider\'s own block is kept (S)');
+      ok(rep.structured.task_id === ts.task_id && rep.structured.attempt_id === 'gh-s#1' && rep.structured.requested_action === 'implement' && rep.structured.action_source === 'explicit_current_issue' && rep.structured.action_raw === 'implement' &&
+         rep.structured.execution_profile === 'repo-write' && rep.structured.branch === 'mythos/gh/gh-s' && rep.structured.model && rep.blocker === null,
+        'structured report on COMPLETED: task_id/attempt_id/action/source/raw/profile/model/branch are present');
+    });
+  }).then(function () {
+    // T — a provider that reports blocked (owner decision) → structured + HUMAN_APPROVAL blocker.
+    // 'malformed' replays the text verbatim (the 'success' kind appends its own completed block, which would win as the last one).
+    setScript([{ kind: 'malformed', text: 'stopping\n```json\n{"mythos_report": true, "status": "blocked", "summary": "owner decision required: merge strategy", "tests": [], "commit": null}\n```' }]);
+    var tb = mkTask({ task_category: 'implement', execution_profile: 'repo-write', attempt_id: 'gh-t#1' });
+    return executor.runTask(tb.task_id).then(function (st) {
+      var rep = state.readJSON(tb.task_id, 'report.json');
+      ok(st.status === 'BLOCKED' && rep.structured.status === 'blocked' && rep.blocker && rep.blocker.code === 'HUMAN_APPROVAL' && rep.blocker.retryable === false,
+        'structured report on BLOCKED: blocker HUMAN_APPROVAL, not retried (T)');
+    });
+  }).then(function () {
+    // U — a permission denial from the provider (no report block at all).
+    setScript([{ kind: 'blocked', text: 'Permission denied: Write requires approval in headless mode' }]);
+    var tu = mkTask({ task_category: 'implement', execution_profile: 'repo-write', attempt_id: 'gh-u#1' });
+    return executor.runTask(tu.task_id).then(function (st) {
+      var rep = state.readJSON(tu.task_id, 'report.json');
+      ok(st.status === 'BLOCKED' && st.retry_count === 0, 'permission denial: BLOCKED, never retried (U)');
+      ok(rep && rep.structured && rep.structured.synthesized === true && rep.blocker.code === 'PERMISSION_DENIED' && /Permission denied/.test(rep.blocker.reason) && rep.structured.attempt_id === 'gh-u#1',
+        'permission denial: a synthesised structured report names PERMISSION_DENIED and the denied operation');
+      ok(/PERMISSION_DENIED/.test(fs.readFileSync(state.taskFile(tu.task_id, 'report.md'), 'utf8')), 'permission denial: the markdown report names the code');
+    });
+  }).then(function () {
+    // A run that "succeeded" without a report block still gets a structured one with the diagnosis.
+    setScript([{ kind: 'malformed', text: 'I did things but forgot the block' }]);
+    var tn = mkTask({ task_category: 'investigate', execution_profile: 'repo-read', attempt_id: 'gh-n#1' });
+    return executor.runTask(tn.task_id).then(function (st) {
+      var rep = state.readJSON(tn.task_id, 'report.json');
+      ok(st.status === 'BLOCKED' && rep.report === null && rep.structured.synthesized === true && rep.blocker.code === 'NO_STRUCTURED_REPORT' && /no fenced/.test(rep.structured.diagnosis) && /forgot the block/.test(rep.structured.diagnosis),
+        'no report block: NO_STRUCTURED_REPORT with the exact diagnosis on a synthesised structured report');
+    });
+  }).then(function () {
+    // Fatal failure and retries-exhausted end in a structured report too.
+    setScript([{ kind: 'fatal', text: 'segfault-ish permanent failure' }]);
+    var tf = mkTask({ max_retries: 3, attempt_id: 'gh-f#1' });
+    return executor.runTask(tf.task_id).then(function (st) {
+      var rep = state.readJSON(tf.task_id, 'report.json');
+      ok(st.status === 'FAILED' && rep.structured.status === 'failed' && rep.blocker.code === 'PROVIDER_FAILED' && /permanent failure/.test(rep.blocker.reason), 'fatal: structured report with PROVIDER_FAILED');
+    });
+  });
+});
+
+// The mock provider counts invocations; the preflight tests assert it was not called.
+function mockCalls() { return mockProvider.calls ? mockProvider.calls() : -1; }
+
+// ---------------------------------------------------------------------------
 chain.then(function () {
   fs.rmSync(FIXTURES, { recursive: true, force: true });
   console.log('\n' + passed + ' passed, ' + failed + ' failed');

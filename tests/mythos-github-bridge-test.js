@@ -343,6 +343,149 @@ runExecutorTicks(2).then(function () {
   var threw = false;
   try { bridge.commitControl(cfg, ['README.md'], 'x'); } catch (e) { threw = /CONTROL_COMMIT_SCOPE/.test(e.message); }
   ok(threw, 'scope: staging outside control/ is refused');
+}).then(function () {
+  // --- 11. Action → profile invariant at the bridge (gh-issue-111/114/117/118) ------------------------
+  var engine = bridge.engine;
+  ok(bridge.PROFILE_BY_ACTION === engine.PROFILE_BY_ACTION, 'invariant: the bridge re-exports the engine\'s map — one source of truth');
+  // J — a planner task with implement lands on repo-write with the decision recorded.
+  plannerWrite('gh-inv-0001.json', mkTask('gh-inv-0001', { requested_action: 'implement', action_source: 'explicit_current_issue', action_raw: 'IMPLEMENT', objective: 'Implement the invariant smoke change on the task branch.' }));
+  var rJ = bridge.tick(executor);
+  var tJ = taskOnDisk('gh-inv-0001');
+  ok(actionsOf(rJ, 'claim').length === 1 && tJ.execution.execution_profile === 'repo-write' && tJ.execution.expected_profile === 'repo-write' && tJ.execution.action_source === 'explicit_current_issue' && tJ.execution.action_raw === 'IMPLEMENT' && tJ.execution.attempt_id === 'gh-inv-0001#1',
+    'J: implement → repo-write, action_source/action_raw/attempt_id recorded on the claim');
+  var eJ = state.readJSON(tJ.execution.executor_task_id, 'task.json');
+  ok(eJ.execution_profile === 'repo-write' && eJ.task_category === 'implement' && eJ.action_source === 'explicit_current_issue' && eJ.attempt_id === 'gh-inv-0001#1' && /^[0-9a-f]{64}$/.test(eJ.snapshot_sha256) && /source explicit_current_issue, written "IMPLEMENT"/.test(eJ.instruction),
+    'J: the executor task carries the same decision, a sealed snapshot, and the instruction states the source');
+  ok(typeof tJ.execution.fence === 'number' && tJ.execution.lease && tJ.execution.lease.fence === tJ.execution.fence && Date.parse(tJ.execution.lease.expires_at) > Date.now() && /^[0-9a-f]{64}$/.test(tJ.execution.snapshot_sha256),
+    'J: the claim carries a fence token, a lease and the attempt snapshot');
+  ok(tJ.execution.runtime && typeof tJ.execution.runtime.verified === 'boolean' && tJ.execution.runtime.module.indexOf('github-bridge.js') !== -1, 'J: the claim records the runtime identity of the bridge that made it');
+
+  // K — crash-recovery finds an executor record whose profile contradicts the action → BLOCKED, no run.
+  plannerWrite('gh-inv-0002.json', mkTask('gh-inv-0002', { requested_action: 'implement', objective: 'Implement something but the recovered record says repo-read.' }));
+  var wrong = executor.createTask({
+    project: 'executor-selftest', stage: 'github:gh-inv-0002', instruction: 'othmode stale record with the wrong profile', priority: 'normal',
+    requested_by: 'github-bridge', provider: 'mock', execution_profile: 'repo-read', working_directory: path.join(FIX, 'wt', 'gh-inv-0002'),
+    branch: 'mythos/gh/gh-inv-0002', expected_delivery: 'report', report_to_git: false
+  });
+  var rK = bridge.tick(executor);
+  var bK = actionsOf(rK, 'blocked_preflight')[0];
+  ok(bK && bK.task_id === 'gh-inv-0002' && bK.code === 'ACTION_PROFILE_MISMATCH' && actionsOf(rK, 'claim').every(function (a) { return a.task_id !== 'gh-inv-0002'; }),
+    'K: implement + a repo-read executor record → ACTION_PROFILE_MISMATCH, not claimed');
+  var tK = taskOnDisk('gh-inv-0002');
+  var repK = reportOnDisk('gh-inv-0002');
+  ok(tK.status === 'BLOCKED' && tK.execution.blocker.code === 'ACTION_PROFILE_MISMATCH' && tK.execution.executor_task_id === null, 'K: task BLOCKED with the blocker on the execution block, no executor task bound');
+  ok(repK && repK.status === 'BLOCKED' && repK.blocker.code === 'ACTION_PROFILE_MISMATCH' && repK.blocker.expected_profile === 'repo-write' && repK.blocker.actual_profile === 'repo-read' && repK.blocker.attempt_id === 'gh-inv-0002#1' && repK.blocker.retryable === false,
+    'K: the report carries requested_action/expected/actual/attempt_id and retryable:false');
+  ok(repK.structured_report && repK.structured_report.mythos_report === true && repK.structured_report.synthesized === true && repK.structured_report.status === 'blocked' && repK.resolution.requested_action === 'implement' && repK.resolution.expected_profile === 'repo-write',
+    'K: a structured mythos_report exists although nothing executed');
+  ok(state.readStatus(wrong.task_id).status === 'QUEUED' && executorTasksFor('gh-inv-0002').length === 1, 'K: the contradicting record was neither run nor duplicated');
+  ok(/ACTION_PROFILE_MISMATCH/.test(fs.readFileSync(path.join(cfg.controlDir, 'control', 'reports', 'gh-inv-0002.md'), 'utf8')), 'K: the markdown report names the code');
+  var rK2 = bridge.tick(executor);
+  ok(actionsOf(rK2, 'blocked_preflight').length === 0 && actionsOf(rK2, 'claim').every(function (a) { return a.task_id !== 'gh-inv-0002'; }), 'K: a non-retryable blocker is not retried on the next tick');
+
+  // M — MODEL_UNAVAILABLE at the bridge, before any executor task.
+  var modelPolicy = require(path.join(EXEC, 'lib', 'model-policy'));
+  var f51 = modelPolicy.DEFAULT_LOADED.policy.catalog['fable-5.1'];
+  var savedEnabled = f51.enabled;
+  plannerWrite('gh-inv-0003.json', mkTask('gh-inv-0003', { requested_action: 'implement', model: 'Fable 5.1', model_raw: 'Fable 5.1', model_source: 'explicit_current_issue', objective: 'Implement with an explicit model that this host cannot run.' }));
+  f51.enabled = false;
+  var rM = bridge.tick(executor);
+  f51.enabled = savedEnabled;
+  var bM = actionsOf(rM, 'blocked_preflight')[0];
+  ok(bM && bM.task_id === 'gh-inv-0003' && bM.code === 'MODEL_UNAVAILABLE', 'M: an explicit unavailable model → MODEL_UNAVAILABLE at claim');
+  var repM = reportOnDisk('gh-inv-0003');
+  ok(repM && repM.blocker.code === 'MODEL_UNAVAILABLE' && repM.blocker.requested_model === 'Fable 5.1' && repM.blocker.model_id === 'claude-fable-5-1' && repM.blocker.actual_model === null && repM.blocker.available_models.indexOf('Fable 5.1') === -1 && /NOT replaced/.test(repM.blocker.reason),
+    'M: requested_model / available_models / actual_model / reason are on the report');
+  ok(executorTasksFor('gh-inv-0003').length === 0 && repM.resolution.model_requested === 'Fable 5.1' && repM.resolution.model_source === 'explicit_current_issue' && repM.execution.model === null,
+    'M: no executor task, no substitute model, the request stays visible');
+
+  // L — the same task runs once the model is available: explicit Fable 5.1 reaches the executor.
+  plannerWrite('gh-inv-0004.json', mkTask('gh-inv-0004', { requested_action: 'implement', model: 'Fable 5.1', model_raw: 'Fable 5.1', model_source: 'explicit_current_issue', objective: 'Implement with an explicit Fable 5.1 while the host serves it.' }));
+  var rL = bridge.tick(executor);
+  var tL = taskOnDisk('gh-inv-0004');
+  ok(actionsOf(rL, 'claim').some(function (a) { return a.task_id === 'gh-inv-0004' && a.model === 'claude-fable-5-1'; }) && tL.execution.model === 'claude-fable-5-1' && tL.execution.model_key === 'fable-5.1' && tL.execution.model_requested === 'Fable 5.1' && tL.execution.model_source === 'explicit_current_issue',
+    'L: explicit Fable 5.1 → executor model claude-fable-5-1, requested/source recorded');
+  ok(state.readJSON(tL.execution.executor_task_id, 'task.json').model === 'claude-fable-5-1', 'L: the executor record pins claude-fable-5-1');
+
+  // Q — duplicate claim: claiming an already-claimed task again binds the same executor task.
+  var entryQ = { task: JSON.parse(JSON.stringify(tL)), file: 'gh-inv-0004.json' };
+  entryQ.task.status = 'PENDING';
+  delete entryQ.task.execution; delete entryQ.task.history;
+  var byId = {};
+  var cQ = (function () { var lock = bridge.acquireLock(cfg); try { return require(path.join(EXEC, 'bridge', 'github-bridge')).tick === bridge.tick ? bridge.tick(executor) : null; } finally { bridge.releaseLock(lock); } })();
+  ok(executorTasksFor('gh-inv-0004').length === 1 && cQ && actionsOf(cQ, 'claim').every(function (a) { return a.task_id !== 'gh-inv-0004'; }), 'Q: a second tick never claims an already-claimed task twice');
+  fs.rmSync(path.join(process.env.MYTHOS_BRIDGE_HOME, 'claims.json'), { force: true });
+  var pf = bridge.preflight(cfg, tL, state.readJSON(tL.execution.executor_task_id, 'task.json'));
+  ok(pf === null, 'Q: preflight accepts re-binding to the existing, consistent executor record');
+  ok(bridge.findExecutorTask(cfg, 'gh-inv-0004') === tL.execution.executor_task_id, 'Q: after the cache is lost, the executor store scan still finds the one record (no duplicate on recovery)');
+
+  // R — stale worker / fencing.
+  var lockA = bridge.acquireLock(cfg);
+  var fenceA = bridge.currentFence();
+  ok(lockA && typeof fenceA === 'number' && bridge.readLock(lockA).fence === fenceA && bridge.readLock(lockA).pid === process.pid, 'R: acquiring the lock issues a fence token');
+  ok(bridge.assertLockOwned(cfg).owned === true, 'R: the owner passes the fencing check');
+  // A newer worker takes the lock over (the old owner is "hung": heartbeat too old).
+  var held = bridge.readLock(lockA);
+  held.heartbeat_at = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  fs.writeFileSync(lockA, JSON.stringify(held));
+  var savedStale = process.env.MYTHOS_BRIDGE_LOCK_STALE_MS;
+  process.env.MYTHOS_BRIDGE_LOCK_STALE_MS = '1000';
+  var cfgFresh = bridge.config();
+  // Simulate the takeover exactly as acquireLock does it, from "another process".
+  var fenceB = fenceA + 1;
+  fs.writeFileSync(lockA, JSON.stringify({ pid: process.ppid, host: 'other', fence: fenceB, acquired_at: new Date().toISOString(), heartbeat_at: new Date().toISOString() }));
+  var stale = null;
+  try { bridge.commitControl(cfgFresh, ['control/state.json'], 'stale worker must not land'); } catch (e) { stale = e; }
+  ok(stale && stale.code === 'STALE_WORKER' && /STALE_WORKER/.test(stale.message) && /fence/.test(stale.message), 'R: a fenced-out worker cannot commit to the control branch');
+  ok(bridge.heartbeatLock(cfgFresh) === false, 'R: a fenced-out worker cannot heartbeat the lock either');
+  bridge.releaseLock(lockA);
+  ok(fs.existsSync(lockA) && bridge.readLock(lockA).fence === fenceB, 'R: releasing does not delete a lock a newer worker owns');
+  // The newer worker's lock, with a dead pid, is taken over by the next acquirer.
+  fs.writeFileSync(lockA, JSON.stringify({ pid: 999999, host: 'other', fence: fenceB, acquired_at: new Date().toISOString(), heartbeat_at: new Date().toISOString() }));
+  var lockC = bridge.acquireLock(cfgFresh);
+  ok(lockC && bridge.currentFence() > fenceB, 'R: a lock held by a dead process is taken over with a higher fence');
+  bridge.releaseLock(lockC);
+  // A live, fresh lock is respected (legacy bare-pid format included).
+  fs.writeFileSync(lockA, String(process.ppid));
+  ok(bridge.acquireLock(cfgFresh) === null, 'R: a live legacy (bare pid) lock is still respected');
+  fs.unlinkSync(lockA);
+  if (savedStale === undefined) delete process.env.MYTHOS_BRIDGE_LOCK_STALE_MS; else process.env.MYTHOS_BRIDGE_LOCK_STALE_MS = savedStale;
+
+  // V — runtime identity mismatch / stale runtime.
+  var rt = bridge.runtimeIdentity(cfg);
+  ok(rt && typeof rt.verified === 'boolean' && rt.module.indexOf('github-bridge.js') !== -1 && rt.host && rt.measured_at, 'V: runtime identity is measured from the module location');
+  if (rt.verified) {
+    process.env.MYTHOS_BRIDGE_EXPECTED_HEAD = 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef';
+    var rtM = bridge.runtimeIdentity(bridge.config());
+    ok(rtM.code === 'RUNTIME_IDENTITY_MISMATCH' && rtM.stale === true && /deadbeefdead/.test(rtM.reason), 'V: a checkout other than the expected HEAD is RUNTIME_IDENTITY_MISMATCH');
+    process.env.MYTHOS_BRIDGE_STRICT_RUNTIME = '1';
+    plannerWrite('gh-inv-0005.json', mkTask('gh-inv-0005', { objective: 'Must not be claimed by a stale runtime under strict mode.' }));
+    var rV = bridge.tick(executor);
+    ok(actionsOf(rV, 'runtime')[0].code === 'RUNTIME_IDENTITY_MISMATCH' && actionsOf(rV, 'defer').some(function (a) { return a.task_id === 'gh-inv-0005'; }) && executorTasksFor('gh-inv-0005').length === 0,
+      'V: strict mode refuses new claims on a runtime identity mismatch (deferred, not run)');
+    delete process.env.MYTHOS_BRIDGE_STRICT_RUNTIME;
+    delete process.env.MYTHOS_BRIDGE_EXPECTED_HEAD;
+    var rV2 = bridge.tick(executor);
+    ok(actionsOf(rV2, 'claim').some(function (a) { return a.task_id === 'gh-inv-0005'; }), 'V: once the identity matches again the task is claimed');
+    ok(taskOnDisk('gh-inv-0005').execution.runtime.head === rt.head && taskOnDisk('gh-inv-0005').execution.runtime.verified === true, 'V: the claim records the verified HEAD');
+  } else {
+    ok(rt.code === 'RUNTIME_IDENTITY_UNVERIFIED' && /cannot resolve/.test(rt.reason), 'V: an unresolvable checkout is reported as RUNTIME_IDENTITY_UNVERIFIED, never as success (' + rt.reason.slice(0, 60) + ')');
+    ok(repK.runtime_identity && repK.runtime_identity.code === 'RUNTIME_IDENTITY_UNVERIFIED', 'V: the report carries RUNTIME_IDENTITY_UNVERIFIED');
+  }
+
+  // Trail — the whole chain is reconstructible from durable records.
+  var tr = bridge.trail('gh-inv-0002');
+  var stages = tr.events.map(function (e) { return e.stage; });
+  ok(tr.found && tr.decision.requested_action === 'implement' && tr.decision.blocker.code === 'ACTION_PROFILE_MISMATCH' && stages.indexOf('report_generated') !== -1 && stages.indexOf('task_created') !== -1,
+    'trail: a blocked task shows created → blocked decision → report with reasons (' + stages.join(',') + ')');
+  var trJ = bridge.trail('gh-inv-0001');
+  var sJ = trJ.events.map(function (e) { return e.stage; });
+  ok(sJ.indexOf('task_claimed') !== -1 && sJ.indexOf('executor_task_created') !== -1 && sJ.indexOf('model_selected') !== -1 && trJ.events.every(function (e) { return e.source; }),
+    'trail: a claimed task shows claimed → executor created → model selected, each with its source record (' + sJ.join(',') + ')');
+  var cli = cp.spawnSync(process.execPath, [path.join(EXEC, 'bin', 'mythos-github-bridge'), 'trail', 'gh-inv-0002'], { env: process.env, encoding: 'utf8' });
+  ok(cli.status === 0 && /ACTION_PROFILE_MISMATCH/.test(cli.stdout) && /report_generated/.test(cli.stdout), 'trail: the CLI prints it');
+  var cliRt = cp.spawnSync(process.execPath, [path.join(EXEC, 'bin', 'mythos-github-bridge'), 'runtime'], { env: process.env, encoding: 'utf8' });
+  ok(cliRt.status === 0 && /"module"/.test(cliRt.stdout) && /"verified"/.test(cliRt.stdout), 'runtime: the CLI prints the identity');
 }).catch(function (e) {
   ok(false, 'unexpected error: ' + (e && e.stack || e));
 }).then(function () {

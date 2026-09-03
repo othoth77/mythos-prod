@@ -80,7 +80,20 @@ EXPLICIT.forEach(function (pair) {
 });
 // The fifth case. Fable 5.1 is a known request the installed CLI cannot
 // serve: it is REFUSED by name rather than silently downgraded to Fable 5.
-var f51 = mp.selectModel({ requested: 'Fable 5.1' });
+// Fable 5.1 is enabled in the catalog since 2026-09-03 (verified on this host:
+// `claude --model claude-fable-5-1` is served by claude-fable-5-1). An explicit
+// request therefore resolves to it; the "unavailable" semantics are pinned on
+// a DISABLED copy of the entry (never a substitute, refused by name).
+var f51live = mp.selectModel({ requested: 'Fable 5.1' });
+ok(f51live.ok && f51live.model === 'claude-fable-5-1' && f51live.mode === 'explicit',
+  'explicit: "Fable 5.1" resolves to claude-fable-5-1 now that the host serves it (' + (f51live.ok ? f51live.model : f51live.error.slice(0, 60)) + ')');
+function withFable51Disabled(fn) {
+  var entry = mp.DEFAULT_LOADED.policy.catalog['fable-5.1'];
+  var saved = entry.enabled;
+  entry.enabled = false;
+  try { return fn(); } finally { entry.enabled = saved; }
+}
+var f51 = withFable51Disabled(function () { return mp.selectModel({ requested: 'Fable 5.1' }); });
 ok(!f51.ok && /Fable 5\.1/.test(f51.error) && /not available/.test(f51.error),
   'explicit: "Fable 5.1" is refused by name, never substituted (' + (f51.ok ? f51.model : f51.error.slice(0, 60)) + ')');
 
@@ -208,7 +221,11 @@ ok(explicitTask.model === 'claude-opus-5' && explicitTask.model_selection_mode =
 var fableTask = mk({ model: 'Fable 5' });
 ok(fableTask.model === 'claude-fable-5' && fableTask.model_selection_mode === 'explicit',
   'createTask: fable runs when — and only when — the task asks for it by name');
-throws(function () { mk({ model: 'Fable 5.1' }); }, /MODEL_NOT_ALLOWED/, 'createTask: an unavailable model is refused, not substituted');
+withFable51Disabled(function () {
+  throws(function () { mk({ model: 'Fable 5.1' }); }, /MODEL_NOT_ALLOWED/, 'createTask: an unavailable model is refused, not substituted');
+});
+var live51 = mk({ model: 'Fable 5.1' });
+ok(live51.model === 'claude-fable-5-1' && live51.model_selection_mode === 'explicit', 'createTask: "Fable 5.1" is honoured exactly while the host serves it (' + live51.model + ')');
 throws(function () { mk({ model: 'gpt-4o' }); }, /MODEL_NOT_ALLOWED/, 'createTask: an unknown model is refused');
 throws(function () { mk({ model: 'sonnet', fallback_model: 'gpt-4o' }); }, /FALLBACK_MODEL_NOT_ALLOWED/, 'createTask: the fallback model passes the same allow-list');
 var withFallback = mk({ model: 'sonnet', fallback_model: 'Haiku' });
@@ -259,8 +276,17 @@ ok(bridge.validateTask(bcfg, ctask({}), 'gh-model-0001.json').length === 0, 'bri
 ok(bridge.validateTask(bcfg, ctask({ model: 'opus' }), 'gh-model-0001.json').length === 0, 'bridge: a task naming opus is valid');
 var badModelErrors = bridge.validateTask(bcfg, ctask({ model: 'gpt-4o' }), 'gh-model-0001.json');
 ok(badModelErrors.some(function (e) { return /^model: /.test(e); }), 'bridge: an unknown model is a validation error the creator can read');
-ok(bridge.validateTask(bcfg, ctask({ model: 'Fable 5.1' }), 'gh-model-0001.json').some(function (e) { return /not available/.test(e); }),
-  'bridge: an unavailable model is refused at the bridge, before any execution');
+// A KNOWN but disabled model passes validation on purpose: the explicit choice
+// is kept on the task and the claim stops it as MODEL_UNAVAILABLE (structured
+// report, no executor task) instead of a validation FAILED — see preflight().
+withFable51Disabled(function () {
+  ok(bridge.validateTask(bcfg, ctask({ model: 'Fable 5.1' }), 'gh-model-0001.json').length === 0,
+    'bridge: a known-but-unavailable model is not a validation error (it becomes a MODEL_UNAVAILABLE blocker at claim)');
+  var pf = bridge.preflight(bcfg, ctask({ model: 'Fable 5.1', model_raw: 'Fable 5.1', model_source: 'explicit_current_issue' }), null);
+  ok(pf && pf.code === 'MODEL_UNAVAILABLE' && pf.retryable === false && pf.requested_model === 'Fable 5.1' && pf.model_id === 'claude-fable-5-1' && pf.actual_model === null && Array.isArray(pf.available_models) && pf.available_models.indexOf('Fable 5.1') === -1,
+    'bridge: an unavailable model is refused at the bridge, before any execution (MODEL_UNAVAILABLE, requested/available/actual recorded)');
+});
+ok(bridge.preflight(bcfg, ctask({ model: 'Fable 5.1' }), null) === null, 'bridge: the same task passes preflight while the host serves Fable 5.1');
 ok(bridge.taskFingerprint(ctask({ model: 'opus' })) !== bridge.taskFingerprint(ctask({})),
   'bridge: changing the model changes the task fingerprint (drift is visible)');
 
@@ -302,8 +328,15 @@ ok(iLabel.task && iLabel.task.model === 'haiku', 'intake: label model:haiku is h
 var iFable = issues.issueToTask(icfg, issue(OBJ + '\nModel: Fable 5\n'), 1);
 ok(iFable.task && iFable.task.model === 'fable-5', 'intake: "Model: Fable 5" is accepted (explicit request)');
 var iF51 = issues.issueToTask(icfg, issue(OBJ + '\nModel: Fable 5.1\n'), 1);
-ok(!iF51.task && iF51.errors.some(function (e) { return /^Model: /.test(e) && /not available/.test(e); }),
-  'intake: "Model: Fable 5.1" is rejected on the Issue with the reason');
+ok(iF51.task && iF51.task.model === 'fable-5.1' && iF51.task.model_raw === 'Fable 5.1' && iF51.task.model_source === 'explicit_current_issue',
+  'intake: "Model: Fable 5.1" is kept explicitly (key fable-5.1, raw + source recorded)');
+withFable51Disabled(function () {
+  var iF51d = issues.issueToTask(icfg, issue(OBJ + '\nModel: Fable 5.1\n'), 1);
+  ok(iF51d.task && iF51d.task.model === 'fable-5.1' && iF51d.task.source.resolution.model_available === false && /NOT AVAILABLE/.test(iF51d.task.notes) && /MODEL_UNAVAILABLE/.test(iF51d.task.notes),
+    'intake: a known-but-unavailable "Model: Fable 5.1" is still recorded as written and flagged for MODEL_UNAVAILABLE — never substituted, never silently dropped');
+});
+var iTypo = issues.issueToTask(icfg, issue(OBJ + '\nModel: gpt-4o\n'), 1);
+ok(!iTypo.task && iTypo.errors.some(function (e) { return /^Model: unknown model/.test(e); }), 'intake: an unknown model name is still rejected on the Issue with the accepted list');
 var iBad = issues.issueToTask(icfg, issue(OBJ + '\nModel: gpt-4o\n'), 1);
 ok(!iBad.task && iBad.errors.some(function (e) { return /accepted values/.test(e); }),
   'intake: an unknown model is rejected with the accepted values');

@@ -38,7 +38,10 @@
 var fs = require('fs');
 var path = require('path');
 
-var DEFAULT_POLICY_PATH = path.join(__dirname, '..', 'config', 'model-policy.json');
+// MYTHOS_MODEL_POLICY_FILE exists for test fixtures (a catalog with a model
+// disabled, to prove the MODEL_UNAVAILABLE path) — production units never set
+// it and the file it names is validated exactly like the default one.
+var DEFAULT_POLICY_PATH = process.env.MYTHOS_MODEL_POLICY_FILE || path.join(__dirname, '..', 'config', 'model-policy.json');
 
 // A model string is passed straight to `claude --model <value>`. Anything
 // that could be read as another argument, or that carries whitespace, is
@@ -249,6 +252,26 @@ function allowedLabels(policy) {
     .map(function (k) { return policy.catalog[k].display_name || k; });
 }
 
+// Human-facing list of what can actually RUN here (enabled entries only) —
+// what a MODEL_UNAVAILABLE blocker reports as `available_models`.
+function availableLabels(policy) { return allowedLabels(policy); }
+
+// Resolves a request to its catalog entry WITHOUT judging availability:
+// { key, model, display_name, enabled, disabled_reason } or null when the
+// name is unknown. The action-resolution engine uses this to keep an explicit
+// request explicit (task.model = the key) even when the entry is disabled,
+// so the bridge can stop the task as MODEL_UNAVAILABLE instead of the intake
+// rejecting it as if it were a typo.
+function lookupKey(requested, policy) {
+  policy = activePolicy(policy);
+  var norm = normalizeRequest(requested);
+  if (!norm) return null;
+  var key = aliasIndex(policy)[norm];
+  if (!key) return null;
+  var entry = policy.catalog[key];
+  return { key: key, model: entry.model, display_name: entry.display_name || key, enabled: entry.enabled === true, disabled_reason: entry.disabled_reason || null };
+}
+
 // Resolves ONE explicitly requested model. Returns
 // { ok:true, key, model, entry } or { ok:false, error, allowed }.
 function resolveExplicit(requested, policy) {
@@ -400,6 +423,8 @@ module.exports = {
   loadPolicy: loadPolicy,
   normalizeRequest: normalizeRequest,
   allowedLabels: allowedLabels,
+  availableLabels: availableLabels,
+  lookupKey: lookupKey,
   resolveExplicit: resolveExplicit,
   scoreTask: scoreTask,
   autoSelect: autoSelect,

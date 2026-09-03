@@ -1,0 +1,21 @@
+{
+  "number": 117,
+  "id": 5334993628,
+  "node_id": "I_kwDOTnlaF88AAAABPf2K3A",
+  "html_url": "https://github.com/othoth77/mythos-prod/issues/117",
+  "title": "TASK: Bridge Action Resolution v2 — Root Implementation",
+  "body": "## Action: implement\n## Model: Fable 5.1\n\n## الهدف\nتنفيذ الإصلاح الجذري لـ GitHub Bridge Action Resolution اعتمادًا على نتائج Investigation #116، وليس إنشاء workaround جديد.\n\n## المطلوب\n1. تتبع المسار الكامل GitHub Issue → Bridge → control task → Executor → Claude وإثبات مصدر القرار الفعلي للـAction.\n2. إصلاح استخراج الحقول في `github-issues.js` بحيث يدعم:\n   - `Action: implement`\n   - `## Action: implement`\n   - `## Action` ثم قيمة في السطر التالي حتى مع blank line.\n   - Markdown table rows.\n   - bullet/numbered prefixes.\n3. تطبيق precedence صارمة: explicit current Issue > action label > inherited rerun action > default.\n4. تسجيل `action_source` و`action_raw` في task record/report بحيث يمكن معرفة لماذا اختير Action معين.\n5. فرض invariant: `implement → repo-write` ورفض أي mismatch قبل تشغيل provider مع خطأ واضح مثل `ACTION_PROFILE_MISMATCH`.\n6. ضمان أن rerun لا يفقد Action أو scope أو constraints أو validation، مع immutable action/profile لكل attempt.\n7. معالجة truncation في `notes/objective` التي أثبت #116 أنها تسبب فقدان معلومات في المهام الطويلة.\n8. إضافة اختبارات regression شاملة لكل حالات Action أعلاه، rerun/inheritance، mismatch، missing/invalid Action، وstructured report عند BLOCKED.\n9. التحقق من runtime/source-of-truth للـBridge بما يثبت أن الكود الذي يعالج Issues هو أحدث `main` وليس stale checkout/ref أو parser مكرر.\n10. تشغيل الاختبارات ذات الصلة: GitHub Issues, Bridge, Executor, Governance، وكل اختبارات جديدة متأثرة.\n11. إنشاء branch نظيف فوق أحدث `origin/main`، commit فعلي، وتسليم عبر Governance Relay ثم PR إلى `main`.\n12. لا Merge تلقائيًا.\n\n## Fable 5.1\nيجب محاولة التنفيذ باستخدام **Fable 5.1** تحديدًا. إذا كان غير متاح في البيئة، لا يتم استبداله بصمت؛ يجب تسجيل blocker واسم النموذج الفعلي المستخدم في التقرير.\n\n## التقرير الإلزامي\nيجب أن يحتوي التقرير النهائي على `mythos_report` structured block، والـAction الفعلي ومصدره، execution profile، model، runtime/base SHA، الملفات، الاختبارات، commit SHA، branch، PR، وأي blockers أو مخاطر.\n\n## الاستثناءات الصارمة\n- لا WhatsApp / Evolution API / `b37491f`.\n- لا AUTOS-0.\n- لا SPY أو n8n.\n- لا MYTHOS AUTO/customer chat.\n- لا Resource Guard thresholds.\n- لا Model Policy إلا إذا أثبت التنفيذ أن المشكلة مرتبطة مباشرة بالـdispatch/model selection.\n- لا systemd أو VPS deployment/restart.\n- لا أسرار أو credentials.\n- لا `git add .`.\n- لا تجاوز Governance Relay.\n- لا تغييرات غير مرتبطة.\n\n## معيار النجاح\nيجب أن يثبت التنفيذ أن Issue تحتوي صراحة على `Action: implement` تصل إلى `requested_action=implement` و`execution_profile=repo-write`، وأن أي mismatch يُرفض قبل provider، وأن rerun يحافظ على القرار والمحتوى، مع tests خضراء وcommit وPR قابل للدمج.\n",
+  "state": "open",
+  "created_at": "2026-09-03T09:46:32Z",
+  "updated_at": "2026-09-03T10:08:14Z",
+  "labels": [
+    {
+      "name": "task"
+    }
+  ],
+  "user": {
+    "login": "othoth77"
+  },
+  "comments": 3,
+  "_captured": "2026-09-03 via GET /repos/othoth77/mythos-prod/issues/117 (public); reduced to the fields the adapter reads. Regression fixture for the Action/Model resolution root cause."
+}

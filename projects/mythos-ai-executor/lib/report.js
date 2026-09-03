@@ -133,8 +133,55 @@ function renderMarkdown(task, status, report, extras) {
   return redact.redact(lines.join('\n'));
 }
 
+// A structured report for a run that ended WITHOUT a usable provider block —
+// or that never reached the provider (a preflight blocker such as
+// ACTION_PROFILE_MISMATCH / MODEL_UNAVAILABLE). "provider produced no
+// structured report" is never the whole story: the diagnosis, the decision
+// the attempt ran under and the exact next action are recorded in the same
+// shape the provider would have used, marked synthesized:true so nobody can
+// mistake it for the agent's own words.
+//
+// Field list (the minimum every mythos_report carries from here on):
+//   status, task_id, attempt_id, requested_action, action_raw, action_source,
+//   execution_profile, model, branch, base_sha, commit, files_changed, tests,
+//   blocker { code, reason, retryable, ... }, next_stage, summary
+function synthesize(input) {
+  input = input || {};
+  var st = String(input.status || 'blocked').toLowerCase();
+  if (VALID_REPORT_STATUS.indexOf(st) === -1) st = 'blocked';
+  var blocker = input.blocker || null;
+  var summary = input.summary || (blocker ? blocker.code + ': ' + (blocker.reason || '') : 'no summary');
+  return {
+    mythos_report: true,
+    synthesized: true,
+    synthesized_by: input.synthesized_by || 'executor',
+    status: st,
+    task_id: input.task_id || null,
+    attempt_id: input.attempt_id || null,
+    requested_action: input.requested_action || null,
+    action_raw: input.action_raw || null,
+    action_source: input.action_source || null,
+    execution_profile: input.execution_profile || null,
+    model: input.model || null,
+    branch: input.branch || null,
+    base_sha: input.base_sha || null,
+    commit: input.commit || null,
+    remote_head: input.remote_head || null,
+    files_changed: Array.isArray(input.files_changed) ? input.files_changed : [],
+    tests: Array.isArray(input.tests) ? input.tests : [],
+    residual_risks: Array.isArray(input.residual_risks) ? input.residual_risks : [],
+    blocker: blocker,
+    diagnosis: input.diagnosis || null,
+    summary: String(summary).slice(0, 20000),
+    next_stage: input.next_stage || (blocker && blocker.retryable === false
+      ? 'fix the cause (' + blocker.code + ') and add the `rerun` label / re-queue explicitly — this blocker is never retried automatically'
+      : 'review this report')
+  };
+}
+
 module.exports = {
   extractReport: extractReport,
+  synthesize: synthesize,
   validateReport: validateReport,
   renderMarkdown: renderMarkdown,
   VALID_REPORT_STATUS: VALID_REPORT_STATUS

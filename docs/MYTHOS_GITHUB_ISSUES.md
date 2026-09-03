@@ -68,11 +68,12 @@ Rules the adapter applies (they are the bridge's rules, reused):
 | label `task` **and** state open | anything else is never converted (PRs are ignored even with the label) |
 | headings | English or Arabic: Objective/الهدف, Scope/المطلوب/النطاق, Constraints/القيود, Validation/التحقق/التحقق النهائي, Notes/ملاحظات. `## Heading`, `**Heading**` or `Heading:` all work; unknown headings go to `notes` |
 | no Objective section | the text before the first heading is the objective; failing that, the title (min 10 chars) |
+| `Action` written in ANY of these forms | `Action: implement`, `- Action: implement`, `1. Action: implement`, `**Action:** implement`, `## Action: implement`, `## Action` followed by the value on a later line (blank lines allowed, bold/backticks allowed), `\| Action \| implement \|` table rows, any case (`ACTION: IMPLEMENT`), Arabic `الإجراء:`. One parser (`bridge/action-resolution.js` `extractFields`) reads all of them; fenced code blocks are ignored. **Precedence: explicit Action in the current body > `action:<x>` label > inherited from the previous attempt (rerun) > default.** The task records `requested_action`, `action_raw` (as written) and `action_source` (`explicit_current_issue` \| `action_label` \| `inherited_previous_attempt` \| `default`), plus the full candidate list under `source.resolution` |
 | `Action` missing, first attempt | **`investigate` (read-only)** — the created comment says so. Add `Action: implement` (or label `action:implement`) for write tasks |
 | `Action` missing, **rerun** (attempt > 1) | **inherited from the previous attempt**, never re-defaulted: an Issue that ran `implement` does not silently become read-only because the edited body no longer repeats the heading. The created comment and `notes` say what was inherited and from which attempt |
 | `Scope` / `Constraints` / `Validation` empty on a **rerun** | inherited from the previous attempt (including when the new body heads them with wordings the aliases do not know, so they parsed as prose). The objective is never inherited — it is what a rerun edits |
 | `Action: deploy` or any other value | rejected with a comment; nothing runs (the action set is closed, see bridge §4) |
-| `Model:` present (`Model: Opus`, `النموذج: Sonnet`, or label `model:opus`) | that model runs, never a substitute. Unknown or unavailable (today: `Fable 5.1`) → rejected with the accepted list |
+| `Model:` present (`Model: Opus`, `## Model: Fable 5.1`, `النموذج: Sonnet`, or label `model:opus`) | that model runs, never a substitute; `model_raw` / `model_source` are recorded. Unknown name → rejected with the accepted list. Known but **not available on this host** → the task is created with the explicit choice kept and the bridge stops it at claim as **`MODEL_UNAVAILABLE`** (BLOCKED, structured report naming requested / available / actual model, no executor task, never retried automatically) — it is never replaced by Haiku/Sonnet/Opus. `Fable 5.1` is available on this host since 2026-09-03 (verified `claude --model claude-fable-5-1`) |
 | `Model:` missing | the executor scores the task and picks Haiku, Sonnet or Opus; Fable is never chosen automatically. The created comment says so, and the report names the model and the reason |
 | secret-shaped string anywhere (token, key, password=…, DB URL…) | rejected with a comment that names the kind, never the value; no task file; label `mythos:invalid` |
 | `Depends on: #N` | maps to `gh-issue-N`; the bridge does not claim the task until that task is COMPLETED |
@@ -129,6 +130,36 @@ commit (the request survives), Action inheritance, section inheritance, rerun de
 attempt is active, stale-edit feedback, close policy, secret rejection (no secret in any request, comment, tree,
 history or log), dry-run, `--only`, wrong user, missing token, shared lock, main byte-for-byte untouched.
 
+## 3b. Action → profile invariant, immutable attempts, audit trail (2026-09-03, root fix for #111/#114/#117/#118)
+
+Root cause of those Issues: `## Action: implement` was looked up as one unknown heading (`action: implement`) and fell
+into notes; `## Action` + blank line + `**implement**` put `""` first in `sections.action` and `sections.action[0]`
+read empty. Both paths silently produced `requested_action=investigate → repo-read`. Fixed by ONE engine:
+
+- `requested_action → execution_profile` is a closed map owned by `bridge/action-resolution.js` (`implement`/`document`
+  → `repo-write`, `investigate`/`review` → `repo-read`, `test` → `repo-test`). It is asserted at claim, at
+  `executor.createTask` and again immediately before the provider is spawned; a mismatch is **`ACTION_PROFILE_MISMATCH`**
+  (BLOCKED, structured report with `requested_action`, `expected_profile`, `actual_profile`, `task_id`, `attempt_id`;
+  no provider; never retried automatically).
+- Every attempt is immutable: the claim seals `execution.snapshot_sha256` over action / profile / model / inputs, and the
+  executor re-verifies its own copy before every launch (**`ATTEMPT_SNAPSHOT_MUTATED`**). Rerun = a new attempt id
+  (`gh-issue-<n>-r<k>`, `attempt_id` `gh-issue-<n>-r<k>#k`) that inherits only what the new body leaves unstated.
+- Every executed attempt ends with a structured `mythos_report`: the provider's block, or an executor-synthesised one
+  (`synthesized:true`) carrying the diagnosis and a `blocker` (`NO_STRUCTURED_REPORT`, `PERMISSION_DENIED`,
+  `GOVERNANCE_DENIED`, `HUMAN_APPROVAL`, `PROVIDER_BLOCKED`, `PROVIDER_FAILED`, `MODEL_UNAVAILABLE`,
+  `ACTION_PROFILE_MISMATCH`). The control report carries `attempt_id`, `resolution`, `blocker`, `runtime_identity`,
+  `structured_report`; the Issue comment shows Action (+source), Model, Blocker.
+- Trail: `mythos-github-bridge trail <task_id>` rebuilds Issue received → Action/Profile/Model resolved → created →
+  claimed → provider started/finished → report → GitHub updated from the task file (`source.events`, `history`), the
+  executor `events.log` and the report. `mythos-github-bridge resolve <issue.json|N|->` prints the engine decision offline.
+- Text limits are explicit and recorded: objective 20 000, notes 16 000, list items 2 000 chars; any cut is listed in
+  `source.truncated` and in the created comment — never silent.
+- Idempotency/fencing: a duplicate Issue in one listing is handled once (`duplicate_event_ignored`); the bridge lock
+  carries a fence token with heartbeat/stale takeover, and a fenced-out worker cannot commit (`STALE_WORKER`); claims
+  carry `fence` and `lease`. The bridge records its `runtime_identity` (checkout, branch, HEAD) on every claim and
+  report — `RUNTIME_IDENTITY_UNVERIFIED` / `RUNTIME_STALE_CHECKOUT` / `RUNTIME_IDENTITY_MISMATCH` are stated, not hidden
+  (`MYTHOS_BRIDGE_EXPECTED_HEAD`, `MYTHOS_BRIDGE_STRICT_RUNTIME=1` refuses claims on mismatch).
+
 ## 4. Security
 
 - **No token in Git, logs, comments or child processes.** The PAT is read from the environment
@@ -175,3 +206,6 @@ bridge's task schema must know (same commit), so enable the drop-in only after `
 - Issue #95 as written asks for `implement`-class work but states no `Action`, so it would run read-only
   (`investigate`) and report; the owner adds `Action: implement` (or label `action:implement`) before enabling
   the timer if the write run is intended.
+- Regression fixtures for the 2026-09-03 root fix: `tests/fixtures/github-issues/issue-{111,114,117,118}.json`
+  (captured public payloads) are asserted to resolve to `implement` → `repo-write` (and `Fable 5.1` for #117/#118)
+  by `tests/bridge-action-resolution-test.js` and the Issues suite.
