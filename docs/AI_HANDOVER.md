@@ -1,5 +1,37 @@
 # AI Handover
 
+## HOSTOPS-READONLY-0 — mythos-hostops v0.1 READ-ONLY security boundary (2026-09-03 14:05–14:25 UTC)
+
+**Objective.** Implement and validate the root-owned boundary the Dagu assessment made a condition
+(`docs/MYTHOS_DAGU_HOST_OPERATIONS.md` §7): Executor → mythos-hostops → READ-only host operations.
+Six READ verbs only; no write, restart, deploy, shell, Docker mutation or production change.
+
+| Item | State |
+|---|---|
+| Branch | `mythos/hostops-readonly-20260903` (worktree `/home/deploy/worktrees/hostops-readonly`) over `0ed68a1` (latest `origin/main`). Carries the DAGU-HOSTOPS-0 files verbatim from `96528d6` (allowlist, doc, ops/dagu-poc, its test) so it is self-contained; delivery by the governance relay; **not merged**. |
+| Implementation | `ops/hostops/mythos-hostops.js` (→ `/usr/local/sbin/mythos-hostops`, 0700 root:root): verbs `health`, `docker-status`, `docker-logs`, `systemd-status`, `file-read`, `resource-guard` from `ops/dagu-poc/hostops-allowlist.json` (single authorization model — the helper adds no operation and executes READ class only, refusing WRITE/RESTART/DEPLOY verbs BY NAME with their class). No shell anywhere: `spawnSync` with fixed absolute binaries and argument arrays; anchored allowlist regex + metacharacter net + per-verb hard rules (file-read: normalized path, no `..`, realpath confined to `/home/deploy/{deployments,projects}`, regular files, size cap, secret-shaped basenames refused — including `*.env`, caught by the suite as a real bug and fixed). `resource-guard` verb OBSERVES only (reads /proc + the guard state file read-only, never samples/advances the machine). |
+| Security model | caller gate: under sudo only `SUDO_USER=dagu` (exit 3); env overrides ignored under sudo; installed allowlist refused unless root-owned and not group/other-writable; audit JSONL per invocation (refusals included) in `/var/lib/mythos/hostops/`, **fail closed** — an unauditable success is withheld (exit 5). Sudoers: `ops/hostops/60-dagu-hostops` grants `dagu` exactly the helper binary, `visudo -cf` clean. Interface contract for the future executor `lib/hostops.js`: `docs/MYTHOS_HOSTOPS_INTERFACE.md` (request/authorization/validation/execution/result/audit/failure; exit-code → task-status mapping). No `POST /hostops/run` yet, by design. |
+| Tests | `tests/mythos-hostops-test.js`: as root **39/0 (2 skip: fail-closed-audit not reproducible as root; install pending)**, as deploy **39/0 (2 skip: docker probe; install pending)** — combined, 14 of the 15 mission points proven, point 12 (installed ownership) waits for the owner install. Existing suites re-run as deploy on this tree: resource-guard **91/0** · executor **390/0** · github-bridge **150/0** · action-resolution **88/0** · model-selection **81/0** · governance-invariant **111/0** · unattended-policy **53/0** · mcp-ecosystem **168/0** · dagu-hostops-allowlist **7/0**. |
+| Untouched | Resource Guard, Model Selection, MCP, GitHub Bridge, WhatsApp branch, Dagu PoC (still loopback 127.0.0.1:8095, basic auth), all production services; Docker socket exposed to nobody new. |
+| **BLOCKED — owner root action** | The permission layer refused `bash ops/hostops/install-hostops.sh` (root install), as expected. Owner runs, from the repo checkout after fetching this branch: `sudo bash ops/hostops/install-hostops.sh` (creates the `dagu` system user; installs the helper 0700 root:root, the allowlist copy 0644 root:root at `/etc/mythos/hostops-allowlist.json`, the audit dir 0700, and `/etc/sudoers.d/60-dagu-hostops` 0440 after `visudo -cf`). Then verify: `sudo -u dagu sudo /usr/local/sbin/mythos-hostops health` and re-run `node tests/mythos-hostops-test.js` (point 12 turns green). |
+
+## DAGU-HOSTOPS-0 — Dagu Host Control PoC and integration assessment (2026-09-03 13:20–13:45 UTC)
+
+**Objective.** Determine whether Dagu can be the controlled host-operations layer under GitHub → Bridge → OTHMODE →
+Executor, without replacing any of them and without giving Claude root. Inspect → research → isolated PoC → design.
+Full record: `docs/MYTHOS_DAGU_HOST_OPERATIONS.md`.
+
+| Item | State |
+|---|---|
+| Branch | `mythos/dagu-hostops-poc-20260903` (worktree `/home/deploy/worktrees/dagu-hostops`) over `0ed68a1` (`origin/main`). Docs + `ops/dagu-poc/` + one test only; no executor, bridge, OTHMODE, policy, guard, MCP or service file touched. Delivery by the governance relay; **not merged**. |
+| Dagu | v2.16.2 (released 2026-09-02, `github.com/dagucloud/dagu`, sha256-verified tarball). Community mode: basic auth works; **audit logs, RBAC and API keys are Pro-licence** (verified against the running API). Approval steps, retry, logs, event log, MCP endpoint all work in community. |
+| PoC | `/home/deploy/dagu-poc` (outside the repo), deploy-user unit `dagu-poc.service`, `127.0.0.1:8095`, basic auth, `write_dags: false`, `MemoryMax=256M`, `NoNewPrivileges`. Tests 1–11 PASS (start, read-only, Docker inspect, bounded container, systemd status, logs, failure+handler, retry 3rd-attempt success, graceful+SIGKILL recovery, MYTHOS health through Dagu, approval gate with required input). Idle 30–34 MiB, peak 149 MiB; Resource Guard `NORMAL` throughout; `oom_kill` unchanged (1323). |
+| Key finding | Processes under the deploy user manager (Dagu **and the live executor**) carry groups `100 1001` only — no Docker socket. User units cannot add `SupplementaryGroups`. Docker/root delegation is therefore owner-only (system unit or root-owned helper), which is the intended boundary. Tests 3/4 passed only under a root-delegated transient unit granting the `docker` group to one invocation. |
+| Security design | Dagu never receives the socket or sudo; a root-owned `mythos-hostops` helper (pattern of `mythos-logs`) enforces `ops/dagu-poc/hostops-allowlist.json` (READ none / WRITE+RESTART governance / DEPLOY owner / DESTRUCTIVE never); `tests/dagu-hostops-allowlist-test.js` 7/0. |
+| Tests (as deploy, unmodified code) | resource-guard 91/0 · executor 390/0 · github-bridge 150/0 · action-resolution 88/0 · model-selection 81/0 · governance-invariant 111/0 · unattended-policy 53/0 · mcp-ecosystem 168/0 · allowlist 7/0. |
+| Refused by the permission layer | `/etc/systemd/system/dagu-poc.service` (system unit). Fallback = deploy user unit. Owner items for production: `dagu` system user + unit, `60-dagu-hostops` sudoers line, the helper itself. |
+| Decision | **RECOMMEND** as orchestration layer, conditional on the helper; next step = owner review, then a helper skeleton with the six READ verbs only. |
+
 ## gh-issue-118-r2 — Bridge reliability round 2: retry policy, runtime gate, lease expiry, inheritance rule (2026-09-03 10:59–11:25 UTC)
 
 **Objective (GitHub Issue #118, rerun as `implement`, executor task `t-20260903105935-j13m7h`, OTHMODE OTH-2026-00052).**

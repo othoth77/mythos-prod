@@ -1,0 +1,9 @@
+description: "TEST 4 — harmless, bounded, throwaway container (no network, 32M, --rm, local image only)"
+type: chain
+steps:
+  - name: run-throwaway
+    run: docker run --rm --pull=never --network none --memory 32m --cpus 0.5 --name dagu-poc-t04 redis:7-alpine sh -c 'echo "hello from throwaway container $(hostname)"'
+  - name: verify-removed
+    run: |
+      if docker ps -a --format '{{.Names}}' | grep -qx dagu-poc-t04; then echo "container still present"; exit 1; fi
+      echo "throwaway container removed"

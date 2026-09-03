@@ -1,0 +1,24 @@
+# MYTHOS Dagu PoC — isolated host-operations orchestrator (proof of concept).
+# Loopback only (127.0.0.1:8095), basic auth, all paths under /home/deploy/dagu-poc.
+# Deploy-user unit: no root, no privilege escalation. Removable with:
+#   systemctl --user disable --now dagu-poc && rm ~/.config/systemd/user/dagu-poc.service
+[Unit]
+Description=Dagu PoC (MYTHOS host operations layer evaluation)
+Documentation=https://docs.dagu.sh/
+
+[Service]
+Type=simple
+WorkingDirectory=/home/deploy/dagu-poc
+Environment=HOME=/home/deploy
+Environment=DAGU_COORDINATOR_ENABLED=false
+ExecStart=/home/deploy/dagu-poc/bin/dagu start-all --config /home/deploy/dagu-poc/etc/config.yaml
+Restart=on-failure
+RestartSec=5s
+MemoryMax=256M
+MemoryHigh=192M
+TasksMax=256
+NoNewPrivileges=true
+OOMScoreAdjust=300
+
+[Install]
+WantedBy=default.target

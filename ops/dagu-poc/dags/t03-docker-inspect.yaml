@@ -1,0 +1,11 @@
+description: "TEST 3 — inspect Docker state without changing anything"
+type: chain
+steps:
+  - name: docker-version
+    run: docker version --format 'server={{.Server.Version}} client={{.Client.Version}}'
+  - name: containers
+    run: docker ps --format 'table {{.Names}}\t{{.Status}}'
+  - name: networks
+    run: docker network ls --format '{{.Name}}\t{{.Driver}}'
+  - name: contextforge-health
+    run: docker inspect --format '{{.Name}} {{.State.Status}} {{.State.Health.Status}}' mythos-contextforge
