@@ -128,6 +128,16 @@
         "at": "2026-09-03T14:40:07.206Z",
         "existed": false,
         "executor_task_id": "t-20260903144005-klqhhs"
+      },
+      "report": {
+        "comment_id": 5527488074,
+        "url": "https://github.com/othoth77/mythos-prod/issues/128#issuecomment-5527488074",
+        "at": "2026-09-03T14:44:43.565Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-128.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -137,7 +147,8 @@
       "removed": [
         "mythos:human-approval"
       ]
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260903144005-klqhhs",
