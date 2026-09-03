@@ -1,0 +1,49 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-111-r2",
+  "status": "BLOCKED",
+  "summary": "provider produced no structured report — review stdout.log",
+  "files_changed": [],
+  "commits": [],
+  "tests": [],
+  "validation": {
+    "git_verified": null,
+    "remote_head": null,
+    "report_problems": [
+      "no mythos_report block found in provider output"
+    ],
+    "required_checks": []
+  },
+  "problems": [
+    "no mythos_report block found in provider output"
+  ],
+  "risks": [],
+  "next_recommended_action": "provider produced no structured report — review stdout.log",
+  "completed_at": "2026-09-03T02:54:22.120Z",
+  "execution": {
+    "executor_task_id": "t-20260903025205-ys6nsj",
+    "othmode_task_id": "OTH-2026-00043",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-haiku-4-5",
+    "model_requested": null,
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:fast→haiku score=0 [no signals]",
+    "claude_session_id": "0b70cffb-97a3-4894-9eec-3cc7a3592d73",
+    "executor_status": "BLOCKED",
+    "started_at": "2026-09-03T02:52:07.520Z",
+    "ended_at": "2026-09-03T02:53:48.694Z",
+    "retries": 0,
+    "quota_waits": 0,
+    "cost_usd": 0.21396779999999999,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-111-r2",
+    "branch": "mythos/gh/gh-issue-111-r2",
+    "base_commit": "5ada6f0f7bb241c0e7009e840a6e1ee2c6567e55",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-111-r2",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
