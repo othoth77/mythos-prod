@@ -8,7 +8,7 @@
   "priority": "normal",
   "requested_action": "investigate",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-03T02:48:39.375Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #111 https://github.com/othoth77/mythos-prod/issues/111 — \"تنفيذ WhatsApp Bridge وإنشاء PR — repo-write\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n- Investigation #109 حدّد التعارضات.\n- Implementation attempt #110 تم حظره لأن provider لم ينتج `mythos_report`، كما أن الـtask حُوّل إلى repo-read بدل repo-write.\n- PR #108 كان متعارضًا.\n\n[التنفيذ الإلزامي]\n1. استخدم أحدث `origin/main` كقاعدة.\n2. أعد تطبيق WhatsApp notification layer فقط من `b37491f`.\n3. حل التعارضات مع الحفاظ على أحدث تغييرات main، خصوصًا GitHub Issues/Rerun وModel Policy وResource Guard وBridge Timer.\n4. النطاق: GitHub Bridge terminal notifications فقط.\n5. يجب إنشاء commit فعلي وفرع نظيف ثم PR جديد إلى `main`.\n6. لا Merge تلقائيًا.\n7. شغّل WhatsApp notification tests + GitHub Bridge + Executor + Governance وأي اختبارات تكامل متأثرة.\n8. لا AUTOS-0، SPY، n8n، MYTHOS AUTO/customer chat.\n9. لا نشر Evolution API ولا إرسال WhatsApp حقيقي في هذه المهمة.\n10. لا تغييرات على Resource Guard thresholds أو Model Policy أو Timer إلا ما يلزم للتكامل.\n11. لا أسرار ولا `git add .`.\n12. التقرير النهائي يجب أن يحتوي على `mythos_report` structured block، commit SHA، branch، base SHA، الملفات،…\n\n[النتيجة]\nPR جديد mergeable يحتوي فقط على WhatsApp Bridge layer بعد حل التعارضات، مع تقرير COMPLETED واضح.",
@@ -71,8 +71,9 @@
     "claimed_at": "2026-09-03T02:48:44.071Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "932bcf88229558ac55809c8fa5d7cfb9d38246b83e6bc11d8e9f482bb135b7f1",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-03T02:48:44.072Z"
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-03T02:49:44.426Z",
+    "claude_session_id": "c821eb93-8f54-4629-885b-119724826829"
   },
   "history": [
     {
@@ -81,6 +82,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260903024844-gz6w77 queued; OTHMODE OTH-2026-00042"
+    },
+    {
+      "at": "2026-09-03T02:49:44.426Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
