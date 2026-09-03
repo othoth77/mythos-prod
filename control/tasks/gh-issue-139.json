@@ -1,0 +1,146 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-139",
+  "project": "mythos-prod",
+  "objective": "إتمام الجزء المتبقي بعد #138: ضمان وصول commit الخاص بالمهمة إلى remote والتحقق النهائي من أن إصلاح Rerun موجود على origin ويمكن اعتماده.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "remote commit موجود فعليًا.",
+    "Git verification ناجح.",
+    "الإصلاحات A-D مازالت موجودة على origin/main أو الـ branch المعتمد.",
+    "الاختبارات السابقة مازالت صالحة ولا حاجة لإعادة تشغيلها إلا إذا تطلب التحقق ذلك.",
+    "توثيق النتيجة في final REPORT."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-03T18:54:59.693Z",
+  "created_by": "github-issue:othoth77",
+  "model": "sonnet",
+  "model_raw": "claude-sonnet-5",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #139 https://github.com/othoth77/mythos-prod/issues/139 — \"إتمام تسليم والتحقق من إصلاح Rerun بعد #138\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\nmodel: sonnet — source explicit_current_issue (written as \"claude-sonnet-5\")\n\n[source]\nPrevious task: #138\nPrevious implementation: #103-r2 / PR #104\nPrevious verification commit: `163158e107fd7b73995b721beb48b706e6bab19c`\n\n[required work]\n1. تحقق من حالة branch `mythos/gh/gh-issue-138` والـ commit `163158e107fd7b73995b721beb48b706e6bab19c`.\n2. أكمل delivery عبر المسار الرسمي Governance/relay فقط إذا كان commit مازال غير موجود على remote.\n3. لا تعِد تنفيذ إصلاحات A-D إذا كانت موجودة بالفعل.\n4. لا تعدّل production VPS يدويًا.\n5. لا تتجاوز Governance أو OTHMODE.\n6. لا تعمل merge إلى `main` تلقائيًا.\n7. تحقق أن origin يحتوي على commit المطلوب وأن branch/task state متسقة.\n\n[completion criteria]\nلا تعتبر المهمة COMPLETED إلا عند وجود:\n- status: COMPLETED\n- Executor task ID\n- OTHMODE ID\n- commit hash وremote HEAD\n- Git verification\n- confirmation أن delivery تم بنجاح أو أن commit كان موجودًا أصلًا\n- GitHub → OTHMODE → Executor correlation\n\nإذا كان الـ relay هو المسؤول عن push ولا يمكن تنفيذ delivery من خلال هذه المهمة، لا تستخدم workaround؛ أصدر BLOCKED مع السبب الدقيق وما ينتظر من Governance relay.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 139,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/139",
+    "issue_id": 5340313926,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPk65Rg",
+    "issue_title": "TASK: إتمام تسليم والتحقق من إصلاح Rerun بعد #138",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T18:54:06Z",
+    "issue_updated_at": "2026-09-03T18:54:06Z",
+    "issue_labels": [
+      "task",
+      "action:implement"
+    ],
+    "content_sha256": "3c5fbbe256fe868e6e229cb20eaf59123f44dd861da41da66f21ec1a0c544022",
+    "attempt": 1,
+    "attempt_id": "gh-issue-139#1",
+    "idempotency_key": "800d4a9f94875a528757c5ed3d55320d640ede322f13bf7441ed60042298ad4b",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "heading_block",
+          "line": 5
+        },
+        {
+          "source": "action_label",
+          "raw": "implement",
+          "action": "implement",
+          "form": null,
+          "line": null
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": "sonnet",
+      "model_id": "claude-sonnet-5",
+      "model_raw": "claude-sonnet-5",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:sonnet (requested \"claude-sonnet-5\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-03T18:54:59.693Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-03T18:54:59.693Z",
+        "event": "issue_received",
+        "reason": "open Issue #139 with label task",
+        "content_sha256": "3c5fbbe256fe868e6e229cb20eaf59123f44dd861da41da66f21ec1a0c544022"
+      },
+      {
+        "at": "2026-09-03T18:54:59.693Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-03T18:54:59.693Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-03T18:54:59.693Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → sonnet (available)"
+      },
+      {
+        "at": "2026-09-03T18:55:01.273Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-139.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-03T18:54:59.693Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5530604269,
+        "url": "https://github.com/othoth77/mythos-prod/issues/139#issuecomment-5530604269",
+        "at": "2026-09-03T18:55:00.560Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
