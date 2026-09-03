@@ -8,7 +8,7 @@
 | Profile | repo-write |
 | Model | `claude-sonnet-5` (auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]) |
 | Branch | `mythos/gh/gh-issue-112` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -17,7 +17,7 @@ Root-caused gh-issue-111's routing failure to a real parser bug: bridge/github-i
 
 ## Commits
 
-- `365a6a61eee1a590f960944bfa4f060c1953fd60` fix(github-issues): honour a bulleted Action field; diagnose missing structured reports (awaiting relay)
+- `365a6a61eee1a590f960944bfa4f060c1953fd60` fix(github-issues): honour a bulleted Action field; diagnose missing structured reports (on origin)
 
 ## Files changed
 

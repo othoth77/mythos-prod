@@ -16,7 +16,7 @@
       "sha": "365a6a61eee1a590f960944bfa4f060c1953fd60",
       "subject": "fix(github-issues): honour a bulleted Action field; diagnose missing structured reports",
       "branch": "mythos/gh/gh-issue-112",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -64,7 +64,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-112",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-03T03:16:22.250Z"
   }
 }
