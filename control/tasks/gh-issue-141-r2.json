@@ -151,6 +151,16 @@
         "at": "2026-09-03T19:48:55.869Z",
         "existed": false,
         "executor_task_id": "t-20260903194854-n3ds57"
+      },
+      "report": {
+        "comment_id": 5531313524,
+        "url": "https://github.com/othoth77/mythos-prod/issues/141#issuecomment-5531313524",
+        "at": "2026-09-03T19:54:51.980Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-141-r2.json",
+        "commits_on_origin": false
       }
     },
     "labels": {
@@ -160,7 +170,8 @@
       "removed": [
         "mythos:human-approval"
       ]
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260903194854-n3ds57",
