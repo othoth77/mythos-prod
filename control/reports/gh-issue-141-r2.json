@@ -1,0 +1,149 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-141-r2",
+  "attempt_id": "gh-issue-141-r2#2",
+  "status": "BLOCKED",
+  "summary": "Rerun of GitHub Issue #141 confirms the same blocker r1 found (422f4a3, OTH-2026-00065): deploying a WhatsApp provider is a Level 3 production-deployment action (AGENTS.md §25.3) that this session cannot self-authorize, independent of the Resource Guard's healthy admission signal, and sudo is now explicitly denied at the tool layer. A pre-existing evolution-inspect Docker container from a prior investigation was found and left untouched. Also newly documented: both realistic providers (Evolution API/WAHA or the WhatsApp Business Cloud API) require a human-performed pairing/verification step regardless of permissions. No code was changed and nothing was deployed; only docs/AI_HANDOVER.md was updated (commit 9c98dd9) and OTHMODE task OTH-2026-00067 advanced to phase VALIDATION with full evidence.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-sonnet-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]",
+    "base_sha": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "branch": "mythos/gh/gh-issue-141-r2",
+    "commit_sha": "9c98dd92fc58837be56ac11fcb5c4b6fb01b457d"
+  },
+  "blocker": {
+    "code": "HUMAN_APPROVAL",
+    "retryable": false,
+    "at": "2026-09-03T19:54:21.897Z",
+    "reason": "Rerun of GitHub Issue #141 confirms the same blocker r1 found (422f4a3, OTH-2026-00065): deploying a WhatsApp provider is a Level 3 production-deployment action (AGENTS.md §25.3) that this session cannot self-authorize, independent of the Resource Guard's healthy admission signal, and sudo is now explicitly denied at the tool layer. A pre-existing evolution-inspect Docker container from a prior investigation was found and left untouched. Also newly documented: both realistic providers (Evolution API/WAHA or the WhatsApp Business Cloud API) require a human-performed pairing/verification step regardless of permissions. No code was changed and nothing was deployed; only docs/AI_HANDOVER.md was updated (commit 9c98dd9) and OTHMODE task OTH-2026-00067 advanced to phase VALIDATION with full evid",
+    "task_id": "t-20260903194854-n3ds57",
+    "attempt_id": "gh-issue-141-r2#2",
+    "requested_action": "implement",
+    "execution_profile": "repo-write",
+    "model": "claude-sonnet-5"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-03T19:48:53.402Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "blocked",
+    "summary": "Rerun of GitHub Issue #141 confirms the same blocker r1 found (422f4a3, OTH-2026-00065): deploying a WhatsApp provider is a Level 3 production-deployment action (AGENTS.md §25.3) that this session cannot self-authorize, independent of the Resource Guard's healthy admission signal, and sudo is now explicitly denied at the tool layer. A pre-existing evolution-inspect Docker container from a prior investigation was found and left untouched. Also newly documented: both realistic providers (Evolution API/WAHA or the WhatsApp Business Cloud API) require a human-performed pairing/verification step regardless of permissions. No code was changed and nothing was deployed; only docs/AI_HANDOVER.md was updated (commit 9c98dd9) and OTHMODE task OTH-2026-00067 advanced to phase VALIDATION with full evidence.",
+    "tests": [
+      "tests/mythos-bridge-whatsapp-notify-test.js: 131 passed, 0 failed",
+      "node bin/mythos-github-bridge notify-config: enabled=false, 4 problems (unchanged from #126)",
+      "node bin/mythos-github-bridge notify-status: ledger empty, all counts 0",
+      "node bin/mythos-resource-guard status: level=NORMAL admit=true"
+    ],
+    "commit": "9c98dd9",
+    "remote_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "files_changed": [
+      "docs/AI_HANDOVER.md"
+    ],
+    "residual_risks": [
+      "Swap remains fully consumed on this shared production VPS; deploying any new heavy service without root-level remediation still risks other tenants' workloads.",
+      "The WhatsApp provider question cannot be closed by any future agent session either, until a human performs the QR-scan or Meta Business API credential step.",
+      "A pre-existing evolution-inspect (Created, not started) container from an earlier session remains on the host, untouched by this run."
+    ],
+    "next_stage": "Owner decision required: (1) grant root + explicit Level 3 deployment authorization to remediate swap and deploy on this shared host, or (2) authorize and personally perform deployment + human pairing step, or (3) provision an isolated host for the WhatsApp provider. Until one of these, gh-issue-141 stays BLOCKED and should not be rerun without new authorization."
+  },
+  "files_changed": [
+    "docs/AI_HANDOVER.md"
+  ],
+  "commits": [
+    {
+      "sha": "9c98dd92fc58837be56ac11fcb5c4b6fb01b457d",
+      "subject": "docs(handover): gh-issue-141-r2 WhatsApp provider deployment re-verified, still BLOCKED (Level 3)",
+      "branch": "mythos/gh/gh-issue-141-r2",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "tests/mythos-bridge-whatsapp-notify-test.js: 131 passed, 0 failed",
+    "node bin/mythos-github-bridge notify-config: enabled=false, 4 problems (unchanged from #126)",
+    "node bin/mythos-github-bridge notify-status: ledger empty, all counts 0",
+    "node bin/mythos-resource-guard status: level=NORMAL admit=true"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [
+    "HUMAN_APPROVAL: Rerun of GitHub Issue #141 confirms the same blocker r1 found (422f4a3, OTH-2026-00065): deploying a WhatsApp provider is a Level 3 production-deployment action (AGENTS.md §25.3) that this session cannot self-authorize, independent of the Resource Guard's healthy admission signal, and sudo is now explicitly denied at the tool layer. A pre-existing evolution-inspect Docker container from a prior investigation was found and left untouched. Also newly documented: both realistic providers (Evolution API/WAHA or the WhatsApp Business Cloud API) require a human-performed pairing/verification step regardless of permissions. No code was changed and nothing was deployed; only docs/AI_HANDOVER.md was updated (commit 9c98dd9) and OTHMODE task OTH-2026-00067 advanced to phase VALIDATION with full evid"
+  ],
+  "risks": [
+    "Swap remains fully consumed on this shared production VPS; deploying any new heavy service without root-level remediation still risks other tenants' workloads.",
+    "The WhatsApp provider question cannot be closed by any future agent session either, until a human performs the QR-scan or Meta Business API credential step.",
+    "A pre-existing evolution-inspect (Created, not started) container from an earlier session remains on the host, untouched by this run."
+  ],
+  "next_recommended_action": "Owner decision required: (1) grant root + explicit Level 3 deployment authorization to remediate swap and deploy on this shared host, or (2) authorize and personally perform deployment + human pairing step, or (3) provision an isolated host for the WhatsApp provider. Until one of these, gh-issue-141 stays BLOCKED and should not be rerun without new authorization.",
+  "completed_at": "2026-09-03T19:54:50.843Z",
+  "execution": {
+    "executor_task_id": "t-20260903194854-n3ds57",
+    "othmode_task_id": "OTH-2026-00067",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-141-r2#2",
+    "fence": 1265,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1131964",
+      "fence": 1265,
+      "acquired_at": "2026-09-03T19:48:54.396Z",
+      "expires_at": "2026-09-03T21:18:54.396Z"
+    },
+    "snapshot_sha256": "ad2c0e7c6ee40c049a4d382a29db0de1c5a0c605c7e5f5d34027c906b02fb2d0",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]",
+    "claude_session_id": "d13810c3-1900-4e88-b957-a5c6e912e290",
+    "executor_status": "BLOCKED",
+    "started_at": "2026-09-03T19:49:06.805Z",
+    "ended_at": "2026-09-03T19:54:21.898Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 1.6116273999999997,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-141-r2",
+    "branch": "mythos/gh/gh-issue-141-r2",
+    "base_commit": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-141-r2",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
