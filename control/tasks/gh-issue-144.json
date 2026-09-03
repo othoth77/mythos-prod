@@ -21,7 +21,7 @@
     "Commit + push عبر المسار المعتمد، مع تسجيل commit hash وremote HEAD ونتائج الاختبارات.",
     "بعد التنفيذ: فتح PR طبيعي إلى `main`؛ لا auto-merge."
   ],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-03T20:06:39.589Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #144 https://github.com/othoth77/mythos-prod/issues/144 — \"Claude Session Lifecycle/Guard — منع تراكم جلسات Claude وحماية ذاكرة الإنتاج\"\n\nrequested_action: implement — source action_label (written as \"implement\") → execution profile repo-write\n\n[السبب الجذري المؤكد]\nجلسات `ccd-cli` الـ15 الحالية ليست من Executor أو Bridge. هي أبناء مباشرون لخادم Claude Desktop Remote (`/root/.claude/remote/srv/server --serve`). الخادم يغلق اتصال العميل بعد الخمول لكنه لا ينهي عملية الجلسة، ولا يوجد حالياً idle-timeout أو حد صارم لعدد الجلسات. منذ 30 أغسطس أُطلقت 47 جلسة، سُجل خروج 15 فقط، بينما بقيت جلسات قديمة حية؛ الوضع الحالي وصل إلى 15 جلسة متزامنة.\n\n[1. session lifecycle guard]\n- اكتشاف وتتبع جلسات Claude/`ccd-cli` التي يملكها remote server.\n- ربط كل جلسة بـ PID والـparent والـtranscript/هوية الجلسة عندما يكون ذلك ممكناً.\n- تعريف حالة الجلسة: active / idle / orphaned / terminating.\n- إضافة cleanup آمن للجلسات التي تجاوزت idle threshold متفقاً عليه.\n- SIGTERM أولاً، مع escalation آمن فقط عند الحاجة.\n- عدم إنهاء جلسة لها نشاط حقيقي، child process مهم، أو اتصال/حالة عمل محمية.\n\n[2. concurrency guard]\n- حد آمن افتراضي مقترح: 6 جلسات متزامنة، مع سقف صارم configurable لا يتجاوز 8 دون قرار مالك واضح.\n- منع/تأجيل إنشاء جلسات جديدة عند بلوغ السقف أو عند وجود ضغط ذاكرة.\n\n[3. memory guard]\n- حماية الخدمات الإنتاجية من تراكم جلسات Claude.\n- استخدام حدود/آليات systemd أو ما يعادلها فقط إذا كانت متوافقة مع Governance والبيئة الحالية.\n- لا يجوز أن يؤدي الـGuard إلى OOM غير متحكم فيه للخدمات الإنتاجية.\n\n[4. observability]\n- تسجيل إنشاء/إنهاء الجلسات وسبب الإنهاء والـPID والعمر وحالة cleanup.\n- metrics/health أو تقرير واضح يبين عدد الجلسات active/idle/orphaned.\n- توثيق السلوك في `docs/AI_HANDOVER.md`.\n\n[متطلبات الأمان والحوكمة]\n- لا `git add .`.\n- لا auto-merge.\n- لا تعديل أسرار أو credentials.\n- لا إعادة تصميم Bridge/Governance/OTHMODE بلا حاجة.\n- لا تغيير خدمات الإنتاج غير المتعلقة بالمشكلة.\n- لا قتل جلسات حالية كجزء من هذا التنفيذ قبل وجود guard واختبارات وآلية rollback واضحة.\n- لا إنشاء systemd timer يقتل العمليات بشكل أعمى؛ يجب أن تكون شروط الإنهاء evidence-based وقابلة للتدقيق.\n- لا اعتبار Swap نفسها سبباً جذرياً؛ امتلاؤها أثر تاريخي لتراكم الصفحات، بينما الهدف هو منع تراكم العمليات.\n\n[الاختبارات المطلوبة]\n- unit/integration tests لدورة حياة الجلسة.\n- اختبار idle cleanup مع جلسة mock/fixture.\n- اختبار عدم إنهاء الجلسة النشطة.\n- اختبار concurrency limit.\n- اختبار memory-pressure guard.\n- اختبار crash/orphan cleanup.\n- اختبار عدم التأثير على Executor Claude subprocesses التي تعمل تحت المستخدم `deploy`.\n- إثبات أن الخدمات الإنتاجية لا تتأثر.\n- تشغيل الاختبارات الموجودة ذات الصلة وعدم إعادة تنفيذ اختبارات غير مرتبطة دون سبب.\n\n[ملاحظة منفصلة]\nهناك ملاحظة أخرى في Executor حول `Failed at step GROUP`; لا تدخل ضمن نطاق هذه المهمة إلا إذا أثبت التشخيص أنها جزء مباشر من lifecycle المشكلة. otherwise سجلها كملاحظة منفصلة فقط.",
@@ -158,8 +158,8 @@
     "claimed_at": "2026-09-03T20:06:42.995Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "6d2effd038d0c866bcd2a87ce549ca81b71bd6585776326b80c90a9a76056cf0",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-03T20:08:00.284Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-03T20:33:40.708Z",
     "snapshot_sha256": "4cd8de0d72e7b53647f40254dad47b83257f92c2182b137b445058c28c3946ed",
     "fence": 1310,
     "lease": {
@@ -188,7 +188,8 @@
     },
     "model": "claude-opus-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "fe5ba816-a97a-44c4-b743-9e9a3c587a15"
+    "claude_session_id": "fe5ba816-a97a-44c4-b743-9e9a3c587a15",
+    "report_file": "control/reports/gh-issue-144.json"
   },
   "history": [
     {
@@ -204,6 +205,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-03T20:33:40.147Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-03T20:33:40.708Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (1 commit(s), 8 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
