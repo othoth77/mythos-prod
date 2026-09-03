@@ -63,7 +63,10 @@ var PROVIDERS = { evolution: evolution };
 
 var KINDS = ['COMPLETED', 'FAILED', 'BLOCKED', 'HUMAN_APPROVAL'];
 var LEDGER_STATES = ['PENDING', 'SENDING', 'SENT', 'EXHAUSTED'];
-var KEY_RE = /^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]__(?:COMPLETED|FAILED|BLOCKED|HUMAN_APPROVAL)$/;
+// task_id is 6-64 chars (github-bridge.js TASK_ID_RE); the ledger key must
+// accept every valid task_id or a notification silently vanishes in
+// onReport()'s try/catch for any task_id over the old 40-char cap.
+var KEY_RE = /^[a-z0-9][a-z0-9-]{4,62}[a-z0-9]__(?:COMPLETED|FAILED|BLOCKED|HUMAN_APPROVAL)$/;
 
 var MAX_MESSAGE = 3500;          // WhatsApp text limit is ~4096; stay well under
 var MAX_SUMMARY = 700;
@@ -455,6 +458,19 @@ function deliverEntry(cfg, entry, provider, apiKey) {
   fresh.updated_at = new Date().toISOString();
   writeEntry(cfg, fresh);
 
+  // Each recipient is written to the ledger the instant its own send is
+  // acknowledged, not batched until every recipient in this attempt is
+  // done. That is the whole difference between "at-least-once" and a
+  // duplicate: batching the write left a window where the provider had
+  // already accepted the message for recipient N but a crash before the
+  // *next* recipient's promise settled would lose that fact, and a
+  // reclaimed retry would re-send to N. Writing immediately shrinks the
+  // unavoidable risk window to the time between the provider's ACK and this
+  // synchronous fsync-backed rename — as small as a single-host ledger can
+  // make it without provider-side idempotency keys (Evolution API's
+  // sendText has none; see docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §6). This
+  // is at-least-once delivery with best-effort de-duplication, not a proven
+  // exactly-once guarantee.
   var results = [];
   var chain = Promise.resolve();
   targets.forEach(function (to) {
@@ -469,7 +485,11 @@ function deliverEntry(cfg, entry, provider, apiKey) {
         apiVersion: cfg.apiVersion
       }).then(function (r) {
         results.push({ ok: !!r.ok, status: r.status || null, provider_message_id: r.provider_message_id || null, error: r.error ? redact.redact(String(r.error)).slice(0, 300) : null });
-        if (r.ok) fresh.delivered_to = (fresh.delivered_to || []).concat([to]);
+        if (r.ok) {
+          fresh.delivered_to = (fresh.delivered_to || []).concat([to]);
+          fresh.updated_at = new Date().toISOString();
+          writeEntry(cfg, fresh);
+        }
       });
     });
   });

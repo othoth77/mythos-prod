@@ -278,12 +278,28 @@ Key: `<task_id>__<KIND>`. States:
 | `EXHAUSTED` | `MAX_ATTEMPTS` reached | never attempted again; visible in `notify-status` |
 
 - **Backoff:** `BACKOFF_MS × 2^(attempt-1)`, capped at 30 minutes.
-- **Partial delivery:** each recipient that succeeded is appended to
-  `delivered_to`; a retry sends only to the ones that have not.
+- **Partial delivery:** each recipient that succeeded is written to
+  `delivered_to` **immediately**, right after that recipient's own send is
+  acknowledged — not batched until the whole attempt (every recipient)
+  finishes. A retry sends only to the ones not yet in `delivered_to`.
 - **Crash mid-send:** the entry is marked `SENDING` on disk *before* the
   request. After a restart, `reclaimStale()` requeues it only if the owning
   pid is gone and the lease expired. A `SENT` entry is never touched, so a
-  crash *after* a successful send cannot produce a duplicate.
+  crash after every recipient has already been durably recorded cannot
+  produce a duplicate.
+- **The actual guarantee is at-least-once, not exactly-once.** There is an
+  irreducible window between the provider acknowledging a message and the
+  synchronous ledger write that records it: a process crash inside that one
+  synchronous write — not before the provider ACK, not after the write
+  returns — can still leave a delivered recipient absent from
+  `delivered_to`, and a reclaimed retry would then re-send to it once.
+  Evolution API's `sendText` has no idempotency-key parameter (see §3.5 /
+  `providers/evolution.js`), so this module cannot ask the provider to
+  de-duplicate on its side; closing this last window would require
+  provider-side idempotency support that does not exist today. Do not
+  describe this layer as exactly-once in any report, doc or message — it is
+  at-least-once delivery with best-effort de-duplication, and the window
+  above is the reason.
 - **Concurrency:** `O_EXCL` lock per key. A lock is considered stale only
   when its holder is demonstrably not running (age alone is not enough — a
   slow provider is not a dead process, and stealing a live claim is exactly
@@ -291,6 +307,12 @@ Key: `<task_id>__<KIND>`. States:
 - **Retention:** `SENT` entries are never pruned. They are the durable proof
   that a task was already notified; deleting one is the only way to make the
   system send a second message for the same task.
+- **task_id length:** the ledger key is `<task_id>__<KIND>`; the key pattern
+  accepts the full 6–64 char `task_id` range that `github-bridge.js`
+  (`TASK_ID_RE`) accepts. A task_id the bridge accepts but the ledger key
+  pattern rejected would previously leave `onReport()` silently queuing
+  nothing (its try/catch swallows the `NOTIFY_KEY_INVALID` error) — a
+  64-char task_id is a regression case in the test suite (§8, row 13).
 
 ---
 
@@ -350,6 +372,8 @@ passing.** No real WhatsApp message is sent: the far end is a local
 | 10 | a real bridge tick: `COMPLETED` and `HUMAN_APPROVAL` end to end; a failing gateway leaves the TASK and REPORT **byte-identical** and produces no control commit |
 | 11 | the credential appears in no file, log, report or committed tree; a secret shape in an untrusted summary is redacted out of the message |
 | 12 | the adapter contract, and refusal of injecting recipients/instance names |
+| 13 | task_id length: a 64-char id (the bridge's own max) reaches the ledger and is delivered; a 65-char id is refused by `ledgerKey()` |
+| 14 | the crash/failure window: a recipient's success is durable on disk before the rest of the attempt finishes; a simulated crash + reclaim retries only the recipient still missing, never re-sending to one already recorded |
 
 Existing suites re-run and still green:
 

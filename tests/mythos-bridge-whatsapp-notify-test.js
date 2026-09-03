@@ -70,8 +70,11 @@ function readJson(f) { return JSON.parse(fs.readFileSync(f, 'utf8')); }
 // --- the fake Evolution API gateway ------------------------------------------------
 
 var received = [];
-// `status` drives the next response; `failFor` fails only that recipient.
-var gateway = { status: 200, body: '{"key":{"id":"MOCK-MSG-1"},"status":"PENDING"}', failFor: null };
+// `status` drives the next response; `failFor` fails only that recipient;
+// `delayFor` = { to, ms } holds the response to one recipient open so a
+// test can observe ledger state while a sibling recipient's request is
+// still in flight (the crash-window regression, section 13).
+var gateway = { status: 200, body: '{"key":{"id":"MOCK-MSG-1"},"status":"PENDING"}', failFor: null, delayFor: null };
 
 var server = http.createServer(function (req, res) {
   var chunks = [];
@@ -81,14 +84,21 @@ var server = http.createServer(function (req, res) {
     var body = null;
     try { body = JSON.parse(raw); } catch (e) { /* recorded as null */ }
     received.push({ method: req.method, url: req.url, apikey: req.headers.apikey || null, contentType: req.headers['content-type'] || null, body: body });
-    var failThis = gateway.status !== 200 || (gateway.failFor && body && body.number === gateway.failFor);
-    if (failThis) {
-      res.writeHead(gateway.status === 200 ? 500 : gateway.status, { 'content-type': 'application/json' });
-      res.end('{"error":"fixture refused this message"}');
-      return;
+    var respond = function () {
+      var failThis = gateway.status !== 200 || (gateway.failFor && body && body.number === gateway.failFor);
+      if (failThis) {
+        res.writeHead(gateway.status === 200 ? 500 : gateway.status, { 'content-type': 'application/json' });
+        res.end('{"error":"fixture refused this message"}');
+        return;
+      }
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(gateway.body);
+    };
+    if (gateway.delayFor && body && body.number === gateway.delayFor.to) {
+      setTimeout(respond, gateway.delayFor.ms);
+    } else {
+      respond();
     }
-    res.writeHead(200, { 'content-type': 'application/json' });
-    res.end(gateway.body);
   });
 });
 
@@ -98,7 +108,7 @@ function entriesByKey() {
   whatsapp.listEntries(whatsapp.config()).forEach(function (e) { m[e.key] = e; });
   return m;
 }
-function resetGateway() { received.length = 0; gateway.status = 200; gateway.failFor = null; }
+function resetGateway() { received.length = 0; gateway.status = 200; gateway.failFor = null; gateway.delayFor = null; }
 
 // A REPORT exactly as buildReport() produces one.
 function mkReport(id, status, over) {
@@ -612,6 +622,86 @@ function run() {
         ok(rs[1].ok === false && /credential missing/.test(rs[1].error), 'adapter: a missing credential is refused, not sent as an empty header');
         ok(rs[2].ok === false && /TRANSPORT/.test(rs[2].error), 'adapter: an unreachable gateway resolves as a failure, it never throws');
         ok(rs.every(function (r) { return String(r.error).indexOf('k') === -1 || !/apiKey|apikey/.test(String(r.error)); }), 'adapter: errors never echo the credential');
+      });
+    })
+    .then(function () {
+      // ================================================================
+      // 13. task_id length — a 64-char id (the bridge's own max, raised
+      //     from 40 to 64 in 82bea23) must reach the ledger, not vanish
+      //     into onReport()'s silent try/catch
+      // ================================================================
+      resetGateway();
+      var id64 = 'gh-wa-len64-' + 'b'.repeat(52);                 // 64 chars
+      var id65 = 'gh-wa-len65-' + 'c'.repeat(53);                 // 65 chars — over the bridge's own cap
+      ok(id64.length === 64 && id65.length === 65, 'task_id length: fixtures are 64 and 65 chars');
+      ok(whatsapp.ledgerKey(id64, 'COMPLETED') === id64 + '__COMPLETED', 'task_id length: ledgerKey() accepts a 64-char task_id');
+      var q64 = whatsapp.onReport(mkReport(id64, 'COMPLETED'), {});
+      ok(q64.queued === true && q64.key === id64 + '__COMPLETED', 'task_id length: a 64-char task_id queues a notification instead of silently vanishing');
+      return whatsapp.flush().then(function () {
+        var e = whatsapp.readEntry(whatsapp.config(), id64 + '__COMPLETED');
+        ok(e && e.state === 'SENT', 'task_id length: the 64-char id\'s notification is delivered');
+        ok(received.some(function (r) { return r.body && r.body.text.indexOf(id64) !== -1; }), 'task_id length: the delivered message names the 64-char task');
+        // 65 chars is one past the bridge's own maximum (github-bridge.js
+        // TASK_ID_RE); the ledger key must refuse it explicitly rather than
+        // accept a shape the rest of the control protocol never produces.
+        ok((function () { try { whatsapp.ledgerKey(id65, 'COMPLETED'); return false; } catch (e2) { return /NOTIFY_KEY_INVALID/.test(e2.message); } })(),
+          'task_id length: a 65-char task_id (over the bridge\'s own max) is refused by ledgerKey()');
+      });
+    })
+    .then(function () {
+      // ================================================================
+      // 14. Crash/failure window — a recipient's success is durable the
+      //     instant the provider acknowledges it, not batched until the
+      //     whole delivery attempt (every recipient) finishes. This is the
+      //     gap that used to let a crash between two recipients' sends
+      //     cause a duplicate to the one that had already succeeded.
+      // ================================================================
+      resetGateway();
+      process.env.MYTHOS_BRIDGE_WHATSAPP_TO = '21620000091,21620000092';
+      var slow = '21620000092';
+      gateway.delayFor = { to: slow, ms: 250 };
+      whatsapp.onReport(mkReport('gh-wa-crashwin-01', 'COMPLETED'), {});
+      var f9 = path.join(ledgerDir(), 'gh-wa-crashwin-01__COMPLETED.json');
+      var flushPromise = whatsapp.flush();
+      // While the second recipient's request is still held open by the
+      // fixture, the first recipient's success must already be on disk —
+      // proving the write is per-recipient, not deferred to the end of the
+      // attempt. Before this fix, the ledger would still show
+      // delivered_to: [] here, and a crash in exactly this window would
+      // have caused a duplicate send to the first recipient on the next
+      // retry.
+      return new Promise(function (resolve) { setTimeout(resolve, 90); }).then(function () {
+        var mid = readJson(f9);
+        ok(mid.state === 'SENDING' && mid.delivered_to.indexOf('21620000091') !== -1,
+          'crash-window: the first recipient is durably recorded on disk while the second recipient\'s request is still in flight');
+        gateway.delayFor = null;
+        return flushPromise;
+      }).then(function () {
+        var e = entriesByKey()['gh-wa-crashwin-01__COMPLETED'];
+        ok(e.state === 'SENT' && e.delivered_to.length === 2, 'crash-window: both recipients are eventually recorded SENT');
+        var toFirst = received.filter(function (r) { return r.body.number === '21620000091'; }).length;
+        ok(toFirst === 1, 'crash-window: the recipient recorded mid-attempt is never re-sent, even after the attempt continues past it');
+        // Now actually simulate the crash: force the entry back to the
+        // in-flight shape a crash between the two writes would have left
+        // (SENDING, only the first recipient in delivered_to, stale lease)
+        // and confirm the reclaim + retry path sends only to the recipient
+        // still missing — never a second message to the one already durable.
+        resetGateway();
+        var e2 = readJson(f9);
+        e2.state = 'SENDING';
+        e2.delivered_to = ['21620000091'];
+        e2.sending_pid = 999999;                                   // not a running pid
+        e2.updated_at = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+        fs.writeFileSync(f9, JSON.stringify(e2, null, 2));
+        ok(whatsapp.reclaimStale(whatsapp.config()) === 1, 'crash-window: the simulated crash leaves a reclaimable SENDING claim');
+        return whatsapp.flush();
+      }).then(function () {
+        var e = entriesByKey()['gh-wa-crashwin-01__COMPLETED'];
+        ok(e.state === 'SENT' && e.delivered_to.length === 2, 'crash-window: the reclaimed retry completes delivery');
+        var toFirst = received.filter(function (r) { return r.body.number === '21620000091'; }).length;
+        var toSecond = received.filter(function (r) { return r.body.number === '21620000092'; }).length;
+        ok(toFirst === 0 && toSecond === 1, 'crash-window: reclaim-and-retry re-sends only to the recipient missing from delivered_to, never the one already recorded');
+        process.env.MYTHOS_BRIDGE_WHATSAPP_TO = '21620000000';
       });
     })
     .catch(function (e) {
