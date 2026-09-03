@@ -1,0 +1,135 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-126",
+  "project": "mythos-prod",
+  "objective": "تفعيل طبقة WhatsApp Bridge التي أصبحت في `main` بعد Merge PR #124، ثم نشر/تهيئة مزود WhatsApp مناسب (Evolution API مبدئيًا) وإجراء smoke test حقيقي واحد فقط.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T12:47:19.534Z",
+  "created_by": "github-issue:othoth77",
+  "model": "sonnet",
+  "model_raw": "Sonnet",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #126 https://github.com/othoth77/mythos-prod/issues/126 — \"نشر WhatsApp Bridge وربط Evolution API وإجراء أول smoke test\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\nmodel: sonnet — source explicit_current_issue (written as \"Sonnet\")\n\n[التنفيذ الإلزامي]\n1. استخدم أحدث `origin/main` الذي يحتوي Merge PR #124.\n2. تحقق من WhatsApp Bridge وتهيئته دون تعديل منطق الإرسال إلا إذا كان ضروريًا للتشغيل.\n3. نشر Evolution API أو مزود مكافئ فقط إذا كانت موارد الـVPS كافية؛ إذا لم تكن كافية توقف وسجّل BLOCKED.\n4. حفظ credentials/secrets خارج Git وبصلاحيات آمنة، وعدم إظهارها في التقرير.\n5. إعداد `notify-config` للـBridge فقط.\n6. تنفيذ **اختبار WhatsApp حقيقي واحد فقط** باستخدام آلية `notify-test --confirm` أو المسار المعتمد في الكود، ثم التحقق من وصول الرسالة.\n7. اختبار failure isolation وrestart/recovery للمزود والـBridge دون التأثير على Executor أو Resource Guard.\n8. تشغيل اختبارات WhatsApp notification + GitHub Bridge + Executor + Governance وأي اختبارات مباشرة متأثرة.\n9. تسجيل الأدلة والنتيجة في `mythos_report` structured block.\n\n[قيود صارمة]\n- لا AUTOS-0.\n- لا SPY ولا n8n.\n- لا MYTHOS AUTO/customer chat.\n- لا تغييرات Resource Guard thresholds.\n- لا تغييرات Model Policy.\n- لا أسرار داخل Git أو التقرير.\n- لا `git add .`.\n- لا إرسال أكثر من رسالة WhatsApp حقيقية واحدة في smoke test.\n- لا merge جديد إلى main داخل المهمة.\n- إذا كانت موارد VPS غير آمنة أو deployment غير ممكن: STOP وREPORT BLOCKED بدل المخاطرة باستقرار النظام.\n\n[النتيجة المطلوبة]\nWhatsApp Bridge عامل ومربوط بمزود فعلي، مع smoke test حقيقي موثق، أو تقرير BLOCKED واضح يحدد السبب دون تغيير غير ضروري.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 126,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/126",
+    "issue_id": 5336800649,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPhkdiQ",
+    "issue_title": "TASK: نشر WhatsApp Bridge وربط Evolution API وإجراء أول smoke test",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T12:46:26Z",
+    "issue_updated_at": "2026-09-03T12:46:26Z",
+    "issue_labels": [
+      "task",
+      "mythos:human-approval"
+    ],
+    "content_sha256": "aebc5c9581fa80767f9dff401043f03a5847742c0ff9f6150a040e6697b25199",
+    "attempt": 1,
+    "attempt_id": "gh-issue-126#1",
+    "idempotency_key": "1719ae1351e9c198fc24dd86ef2d9e79877e64b9c40031fd6586afa71936b34d",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "heading_inline",
+          "line": 1
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": "sonnet",
+      "model_id": "claude-sonnet-5",
+      "model_raw": "Sonnet",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:sonnet (requested \"Sonnet\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-03T12:47:19.535Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-03T12:47:19.535Z",
+        "event": "issue_received",
+        "reason": "open Issue #126 with label task",
+        "content_sha256": "aebc5c9581fa80767f9dff401043f03a5847742c0ff9f6150a040e6697b25199"
+      },
+      {
+        "at": "2026-09-03T12:47:19.535Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-03T12:47:19.535Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-03T12:47:19.535Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → sonnet (available)"
+      },
+      {
+        "at": "2026-09-03T12:47:22.327Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-126.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-03T12:47:19.535Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5525991135,
+        "url": "https://github.com/othoth77/mythos-prod/issues/126#issuecomment-5525991135",
+        "at": "2026-09-03T12:47:20.490Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:human-approval"
+      ]
+    }
+  }
+}
