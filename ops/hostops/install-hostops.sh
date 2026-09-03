@@ -24,8 +24,12 @@ install -d -o root -g root -m 0700 /var/lib/mythos/hostops
 visudo -cf "$REPO_DIR/ops/hostops/60-dagu-hostops"
 install -o root -g root -m 0440 "$REPO_DIR/ops/hostops/60-dagu-hostops" /etc/sudoers.d/60-dagu-hostops
 
+# 6. HOSTOPS-1: the executor identity (deploy) gets the same single-binary rule
+visudo -cf "$REPO_DIR/ops/hostops/61-deploy-hostops"
+install -o root -g root -m 0440 "$REPO_DIR/ops/hostops/61-deploy-hostops" /etc/sudoers.d/61-deploy-hostops
+
 echo "installed: /usr/local/sbin/mythos-hostops (0700 root:root)"
 echo "installed: /etc/mythos/hostops-allowlist.json (0644 root:root)"
-echo "installed: /etc/sudoers.d/60-dagu-hostops (0440)"
+echo "installed: /etc/sudoers.d/60-dagu-hostops + 61-deploy-hostops (0440)"
 echo "user:      dagu ($(id dagu))"
 echo "verify:    sudo -u dagu sudo /usr/local/sbin/mythos-hostops health"

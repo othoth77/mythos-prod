@@ -196,11 +196,13 @@ t('11a unauthorized sudo caller rejected before anything runs', function () {
   assert.strictEqual(r.code, 3);
   assert.strictEqual(r.body.error.code, 'CALLER_NOT_ALLOWED');
 });
-t('11b sudo caller dagu passes the caller gate', function () {
-  var r = call(['nonsense-verb'], { SUDO_USER: 'dagu' });
-  // reaches validation (2), not the caller gate (3)
-  assert.strictEqual(r.code, 2);
-  assert.strictEqual(r.body.error.code, 'UNKNOWN_OPERATION');
+t('11b sudo callers dagu and deploy pass the caller gate (v0.1.1)', function () {
+  ['dagu', 'deploy'].forEach(function (u) {
+    var r = call(['nonsense-verb'], { SUDO_USER: u });
+    // reaches validation (2), not the caller gate (3)
+    assert.strictEqual(r.code, 2, u);
+    assert.strictEqual(r.body.error.code, 'UNKNOWN_OPERATION', u);
+  });
 });
 t('11c env overrides are ignored under sudo (audit path pinned)', function () {
   var r = call(['health'], { SUDO_USER: 'dagu', MYTHOS_HOSTOPS_HOME: TMP });

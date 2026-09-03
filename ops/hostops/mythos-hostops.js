@@ -37,10 +37,10 @@ var path = require('path');
 var cp = require('child_process');
 var crypto = require('crypto');
 
-var VERSION = '0.1.0';
+var VERSION = '0.1.1';
 var SUDO_USER = process.env.SUDO_USER || null;
 var UNDER_SUDO = !!SUDO_USER;
-var ALLOWED_SUDO_CALLERS = ['dagu'];
+var ALLOWED_SUDO_CALLERS = ['dagu', 'deploy'];
 
 var INSTALLED_ALLOWLIST = '/etc/mythos/hostops-allowlist.json';
 var INSTALLED_HOME = '/var/lib/mythos/hostops';

@@ -1,0 +1,11 @@
+# MYTHOS — HOSTOPS-1: the executor's identity (deploy) may reach EXACTLY the
+# root-owned, argument-validating boundary — never a shell, docker or
+# systemctl. Companion to 60-dagu-hostops; the helper additionally checks
+# SUDO_USER against its own caller list (dagu, deploy as of v0.1.1).
+#
+# Install (owner): visudo -cf ops/hostops/61-deploy-hostops
+#                  install -o root -g root -m 0440 ops/hostops/61-deploy-hostops /etc/sudoers.d/61-deploy-hostops
+
+Cmnd_Alias DEPLOY_HOSTOPS_RO = /usr/local/sbin/mythos-hostops, /usr/local/sbin/mythos-hostops *
+
+deploy ALL=(root) NOPASSWD: DEPLOY_HOSTOPS_RO

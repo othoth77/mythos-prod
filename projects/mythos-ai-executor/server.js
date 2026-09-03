@@ -62,6 +62,7 @@ var path = require('path');
 var executor = require('./executor');
 var state = require('./lib/state');
 var mcpInvoke = require('./lib/mcp-invoke');
+var hostops = require('./lib/hostops');
 var redact = require('../mythos-orchestrator/lib/redact');
 
 var DEFAULT_PORT = parseInt(process.env.MYTHOS_EXECUTOR_PORT || '8130', 10);
@@ -263,6 +264,32 @@ function handler(req, res, token) {
   // snapshot when the registry check has written one. Metadata only.
   if (req.method === 'GET' && url === '/mcp/registry') {
     return send(res, 200, mcpInvoke.describeRegistry());
+  }
+
+  // HOSTOPS-1: governed READ-ONLY host operation through the installed
+  // root-owned boundary (docs/MYTHOS_HOSTOPS_INTERFACE.md). Same shape as
+  // /mcp/invoke: the executor is the subject, the body is a closed field
+  // set, and lib/hostops.js decides — allowlist -> class READ -> argument
+  // validation -> Resource Guard admission -> sudo -n mythos-hostops with
+  // an argument array (no shell) -> verified JSON -> task record. Bearer
+  // required like every non-/health endpoint; profiles keep denying
+  // Bash(sudo:*), so this route is the ONLY path from a task to the helper.
+  if (req.method === 'POST' && url === '/hostops/run') {
+    return readBody(req).then(function (body) {
+      var payload;
+      try { payload = JSON.parse(body || '{}'); } catch (e) { return send(res, 400, { error: 'INVALID_JSON' }); }
+      var out = hostops.invoke(payload);
+      var status = out.http_status || (out.ok ? 200 : 500);
+      delete out.http_status;
+      send(res, status, out);
+    }).catch(function (err) {
+      send(res, err.message === 'BODY_TOO_LARGE' ? 413 : 500, { error: String(err.message || 'error').slice(0, 200) });
+    });
+  }
+
+  // What the hostops path can do, straight from the allowlist. Metadata only.
+  if (req.method === 'GET' && url === '/hostops/registry') {
+    return send(res, 200, hostops.describe());
   }
 
   if (req.method === 'POST' && url === '/route') {

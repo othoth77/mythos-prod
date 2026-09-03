@@ -104,3 +104,61 @@ governance `audit.log`.
 No WRITE/RESTART/DEPLOY execution, no approval consumption, no Dagu API calls, no executor
 route, no secrets handling of any kind (secret-shaped files are refused even inside the
 approved trees). Those arrive only after this boundary is installed and owner-verified.
+
+---
+
+# HOSTOPS-1 addendum — the implemented Executor adapter (2026-09-03)
+
+The contract above is now implemented by `projects/mythos-ai-executor/lib/hostops.js` and
+two routes on the executor API (bearer-gated like every non-`/health` endpoint):
+
+* `POST /hostops/run` — body is a closed field set
+  `{operation, arguments, task_id, othmode_task_id, github_task_id, requested_by}`;
+  anything else is refused. The response is the adapter's normalized result; the HTTP
+  status comes from the outcome code (200 ok · 400 input/args · 403 class or caller ·
+  404 unknown operation · 502 exec/malformed · 503 pressure/unavailable/audit · 504 timeout).
+* `GET /hostops/registry` — the READ operations as declared by the allowlist. Metadata only.
+
+Why a route at all: every execution profile denies `Bash(sudo:*)`, so an AI-spawned command
+can never reach the helper — the daemon route is the only path from a task to the boundary,
+exactly as `POST /mcp/invoke` is for MCP tools. The adapter decides in this order (asserted
+by `tests/mythos-hostops-executor-test.js`):
+
+```
+closed fields → identity validation → allowlist lookup → class READ (governance as declared)
+  → argument validation (+ path normal form) → Resource Guard admission (deferred, recorded,
+  nothing spawned under CRITICAL) → spawnSync /usr/bin/sudo -n /usr/local/sbin/mythos-hostops
+  <verb> <flag array> → verify single JSON body against the exit code → task record
+```
+
+Outcome normalization: helper exit 2 → `HOSTOPS_REFUSED` (policy outcome, never retried),
+3 → `HOSTOPS_CALLER_REFUSED`, 4 → `HOSTOPS_EXEC_FAILED` (ordinary failure taxonomy),
+5 → `HOSTOPS_AUDIT_UNAVAILABLE` (blocked material), spawn `ENOENT`/`sudo -n` refusal →
+`HOSTOPS_UNAVAILABLE`, timeout → `HOSTOPS_TIMEOUT`, exit 0 without a parseable JSON body →
+`HOSTOPS_MALFORMED` — never a silent success, and never any fallback to a shell, docker or
+systemctl.
+
+**Record.** With a `task_id`, every outcome (refusals and deferrals included) appends a
+`hostops_invoked` event to the task's `events.log` and a bounded entry to the task file
+`hostops.json` `{at, operation, outcome, code, audit_id, hostops_exit, othmode_task_id,
+github_task_id, dagu_run_id, duration_ms}`. The bridge REPORT's `execution` block now
+carries that list additively as `execution.hostops`, so GitHub REPORT ↔ executor events ↔
+root-owned ledger all join on `audit_id`. `status.json` is never touched — `transition()`
+remains the single status chokepoint.
+
+**The Dagu decision (mission HOSTOPS-1 architectural question).** Dagu is NOT in the READ
+path. A single READ verb is one helper call; inserting Dagu would add a service credential,
+a run lifecycle, ~100 ms→seconds of latency and a failure mode while enforcing nothing the
+helper does not already enforce — the boundary, not the orchestrator, is the security
+model. Dagu remains the orchestration layer for the future multi-step WRITE/DEPLOY
+workflows (approval gates, per-step retries, rollback handlers), where `dagu_run_id` will
+become real; until then it is carried as `null` by design. The Dagu PoC itself is untouched:
+loopback `127.0.0.1:8095`, basic auth, MCP endpoint unused by agents.
+
+**Activation (owner).** The live daemon runs from `main` and gains the routes only after
+merge + executor restart. The deploy→helper path additionally needs, once:
+`sudo bash ops/hostops/install-hostops.sh` from this branch — it reinstalls the helper at
+v0.1.1 (caller list `dagu, deploy`) and adds `/etc/sudoers.d/61-deploy-hostops`
+(deploy → exactly the helper binary, visudo-validated). Until then the adapter's live
+calls return `HOSTOPS_UNAVAILABLE` ("a password is required"), which is the tested,
+fail-safe behaviour.

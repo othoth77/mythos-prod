@@ -1,5 +1,23 @@
 # AI Handover
 
+## HOSTOPS-1 — Executor → mythos-hostops governed READ integration (2026-09-03 14:35–15:05 UTC)
+
+**Objective.** First real MYTHOS integration of the installed READ-ONLY boundary: Executor → Governance →
+Resource Guard → mythos-hostops, READ-only, no new authorization model, smallest wiring consistent with the
+existing architecture. Contract + addendum: `docs/MYTHOS_HOSTOPS_INTERFACE.md`.
+
+| Item | State |
+|---|---|
+| Branch | `mythos/hostops-executor-20260903` (worktree `/home/deploy/worktrees/hostops-executor`) over `3e4b765` (= `origin/main` 0ed68a1 + HOSTOPS-READONLY-0, whose install the owner completed and verified 40/0/1). Delivery by the governance relay; **not merged**. |
+| Adapter | `projects/mythos-ai-executor/lib/hostops.js`: closed field set → identity validation → allowlist lookup (installed `/etc/mythos/hostops-allowlist.json`, repo fallback) → class READ enforced (WRITE/RESTART/DEPLOY refused by name with class, spawn never reached) → argument regex + metacharacter net + path normal form → **Resource Guard admission** (same options and fail-open posture as `guardGate()`; CRITICAL ⇒ deferred, recorded, nothing spawned) → `spawnSync /usr/bin/sudo -n /usr/local/sbin/mythos-hostops <verb> <flag array>` (no shell anywhere, no fallback of any kind) → single-JSON-body verification against the exit code → normalized outcome with `audit_id`, `hostops_exit`, `dagu_run_id: null`. Kill switch `MYTHOS_HOSTOPS=off`. |
+| Wiring | `server.js`: `POST /hostops/run` + `GET /hostops/registry`, bearer-gated after `authorized()` exactly like `/mcp/invoke` — the only path from a task to the helper, because every enabled profile denies `Bash(sudo:*)` (asserted). Task record: `hostops_invoked` event + bounded task file `hostops.json` (never `status.json` — `transition()` stays the chokepoint). `github-bridge.js`: one additive field, `execution.hostops` from that file in the REPORT (join on `audit_id`); no semantics change. |
+| Dagu decision | **Dagu is NOT in the READ path** (documented in the addendum + asserted: the adapter contains no Dagu/network client). One READ verb = one helper call; Dagu adds credential/lifecycle/latency and enforces nothing extra. Dagu stays the orchestration layer for future multi-step WRITE/DEPLOY workflows. PoC untouched, still loopback `127.0.0.1:8095`. |
+| Helper v0.1.1 | `ops/hostops/mythos-hostops.js`: caller list `['dagu','deploy']` (the executor identity is the intended client); new `ops/hostops/61-deploy-hostops` sudoers fragment (deploy → exactly the helper, visudo-validated); installer updated to install both. Installed copy on the host is still v0.1.0 — reinstall is the owner activation step. |
+| Tests | new `tests/mythos-hostops-executor-test.js` **29/0** as deploy (10 failure behaviours incl. guard-before-spawn ordering, governance-before-spawn, identity propagation, audit_id propagation, no-shell invariant, status.json untouched, root boundary intact, Dagu loopback). Existing suites on this tree (as deploy): hostops boundary **39/0** (2 env skips) · allowlist 7/0 · resource-guard 91/0 · executor 390/0 · github-bridge 150/0 · action-resolution 88/0 · model-selection 81/0 · governance-invariant 111/0 · unattended-policy 53/0 · mcp-ecosystem 168/0. Live boundary proof (installed v0.1.0 via `dagu`): `health` ok with audit id + task id; `file-write` refused `OPERATION_NOT_READ`. |
+| Resource | before 2052 MiB avail / PSI 0.00 / oom 1323 → after ≈1990 MiB / PSI 0.00 / oom 1323; guard NORMAL throughout; Dagu PoC idle ~41 MiB; no Resource Guard threshold or policy touched. |
+| Owner activation (in order) | 1) merge this branch through review; 2) `sudo bash ops/hostops/install-hostops.sh` from the merged checkout (helper v0.1.1 + `61-deploy-hostops`); 3) restart `mythos-ai-executor` (deploy user unit) so the daemon serves the routes; 4) verify: `curl -s -H "Authorization: Bearer $T" -X POST http://127.0.0.1:8130/hostops/run -d '{"operation":"health"}'` returns `ok:true` with an audit id, and `sudo -u deploy sudo -n /usr/local/sbin/mythos-hostops health` answers directly. |
+| Not done (by design) | No WRITE/RESTART/DEPLOY, no approval consumption, no Evolution deploy, no Dagu client, no WhatsApp, no public exposure. |
+
 ## HOSTOPS-READONLY-0 — mythos-hostops v0.1 READ-ONLY security boundary (2026-09-03 14:05–14:25 UTC)
 
 **Objective.** Implement and validate the root-owned boundary the Dagu assessment made a condition
