@@ -53,6 +53,16 @@
         "at": "2026-09-03T01:59:31.476Z",
         "existed": false,
         "executor_task_id": "t-20260903015928-5vunt8"
+      },
+      "report": {
+        "comment_id": 5519198222,
+        "url": "https://github.com/othoth77/mythos-prod/issues/106#issuecomment-5519198222",
+        "at": "2026-09-03T02:03:43.534Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-106-r3.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -62,7 +72,8 @@
       "removed": [
         "mythos:human-approval"
       ]
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260903015928-5vunt8",
