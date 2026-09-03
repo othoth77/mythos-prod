@@ -704,6 +704,35 @@ function run() {
         process.env.MYTHOS_BRIDGE_WHATSAPP_TO = '21620000000';
       });
     })
+    .then(function () {
+      // ================================================================
+      // 15. writeEntry() durability — the ledger write that backs every
+      //     claim above ("durable on disk", "synchronous fsync-then-rename")
+      //     must actually fsync, not just write-then-rename and trust the
+      //     OS page cache to flush eventually. Spy on fs.fsyncSync so this
+      //     fails loudly if a future edit removes the fsync call while
+      //     leaving the surrounding prose untouched.
+      // ================================================================
+      resetGateway();
+      var fsyncedFds = [];
+      var originalFsyncSync = fs.fsyncSync;
+      fs.fsyncSync = function (fd) {
+        fsyncedFds.push(fd);
+        return originalFsyncSync.call(fs, fd);
+      };
+      try {
+        whatsapp.onReport(mkReport('gh-wa-fsync-01', 'COMPLETED'), {});
+      } finally {
+        fs.fsyncSync = originalFsyncSync;
+      }
+      ok(fsyncedFds.length >= 1, 'writeEntry: fsync is actually called when a ledger entry is written, not merely claimed in comments');
+      var f10 = path.join(ledgerDir(), 'gh-wa-fsync-01__COMPLETED.json');
+      ok(fs.existsSync(f10) && readJson(f10).key === 'gh-wa-fsync-01__COMPLETED', 'writeEntry: the fsynced entry is readable at its final (post-rename) path');
+      // No leftover .tmp-<pid> file: the rename happened after the fsync,
+      // not instead of it.
+      var leftoverTmp = fs.readdirSync(ledgerDir()).filter(function (n) { return /\.tmp-/.test(n); });
+      ok(leftoverTmp.length === 0, 'writeEntry: no temp file is left behind once the fsync + rename completes');
+    })
     .catch(function (e) {
       ok(false, 'unexpected error: ' + (e && e.stack || e));
     })

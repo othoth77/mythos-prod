@@ -289,12 +289,31 @@ function readEntry(cfg, key) {
   try { return JSON.parse(fs.readFileSync(entryFile(cfg, key), 'utf8')); } catch (e) { return null; }
 }
 
+// Best-effort: fsync the directory entry so the rename itself survives a
+// crash, not just the file's bytes. Not every platform allows opening a
+// directory for reading (notably Windows) or fsyncing it once open, so a
+// failure here is swallowed — the fsync on the file's own fd above already
+// guarantees the entry's bytes are on disk before the rename is attempted.
+function fsyncDir(dir) {
+  var fd;
+  try { fd = fs.openSync(dir, 'r'); } catch (e) { return; }
+  try { fs.fsyncSync(fd); } catch (e) { /* not fsync-able on this platform */ }
+  try { fs.closeSync(fd); } catch (e) { /* already closed */ }
+}
+
 function writeEntry(cfg, entry) {
-  ensureLedger(cfg);
+  var dir = ensureLedger(cfg);
   var file = entryFile(cfg, entry.key);
   var tmp = file + '.tmp-' + process.pid;
-  fs.writeFileSync(tmp, JSON.stringify(entry, null, 2) + '\n', { mode: 0o600 });
+  var fd = fs.openSync(tmp, 'w', 0o600);
+  try {
+    fs.writeSync(fd, JSON.stringify(entry, null, 2) + '\n');
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
   fs.renameSync(tmp, file);
+  fsyncDir(dir);
   return entry;
 }
 
@@ -466,10 +485,13 @@ function deliverEntry(cfg, entry, provider, apiKey) {
   // *next* recipient's promise settled would lose that fact, and a
   // reclaimed retry would re-send to N. Writing immediately shrinks the
   // unavoidable risk window to the time between the provider's ACK and this
-  // synchronous fsync-backed rename — as small as a single-host ledger can
-  // make it without provider-side idempotency keys (Evolution API's
-  // sendText has none; see docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §6). This
-  // is at-least-once delivery with best-effort de-duplication, not a proven
+  // write's synchronous fsync-then-rename (writeEntry() fsyncs the tmp
+  // file's own fd before the rename, and best-effort fsyncs the ledger
+  // directory after it, so the recorded fact is on disk, not just handed to
+  // the OS's page cache) — as small as a single-host ledger can make it
+  // without provider-side idempotency keys (Evolution API's sendText has
+  // none; see docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §6). This is
+  // at-least-once delivery with best-effort de-duplication, not a proven
   // exactly-once guarantee.
   var results = [];
   var chain = Promise.resolve();
