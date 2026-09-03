@@ -10,7 +10,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T12:47:19.534Z",
   "created_by": "github-issue:othoth77",
   "model": "sonnet",
@@ -131,5 +131,64 @@
         "mythos:human-approval"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903124725-j2n9t0",
+    "othmode_task_id": "OTH-2026-00057",
+    "attempt_id": "gh-issue-126#1",
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "expected_delivery": "commit",
+    "model_key": "sonnet",
+    "model_requested": "Sonnet",
+    "model_source": "explicit_current_issue",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-126",
+    "branch": "mythos/gh/gh-issue-126",
+    "base_commit": "0ed68a1c8095551fbe672b739020227e21795196",
+    "claimed_at": "2026-09-03T12:47:25.523Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "5102c149dc031cadcc86cb96a0aabbf1576ab30df78d3e7680829a624dd6f6e0",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T12:47:25.524Z",
+    "snapshot_sha256": "2a5e79b43f7464af943df4efe6d9b481c7f50f94e08569448efd885de7ae7eec",
+    "fence": 311,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:86882",
+      "fence": 311,
+      "acquired_at": "2026-09-03T12:47:25.523Z",
+      "expires_at": "2026-09-03T14:17:25.523Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+      "branch": "main",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "0ed68a1c8095551fbe672b739020227e21795196",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": true,
+      "code": "RUNTIME_STALE_CHECKOUT",
+      "reason": "checkout HEAD d69e0abc34de is behind origin/main 0ed68a1c8095 — the running bridge is older than what is delivered",
+      "measured_at": "2026-09-03T12:47:23.759Z"
+    },
+    "model": "claude-sonnet-5",
+    "model_selection_mode": "explicit"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T12:47:25.557Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903124725-j2n9t0 queued; OTHMODE OTH-2026-00057; action implement (explicit_current_issue) → repo-write; model claude-sonnet-5; fence 311"
+    }
+  ]
 }
