@@ -1,0 +1,60 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-106-r3",
+  "project": "mythos-prod",
+  "objective": "تفعيل النسخة المدمجة من MYTHOS Resource Guard فعليًا على الـVPS ثم التحقق منها حيًا.\n\nنفّذ فقط ما يلي:\n1. استخدم main الحالي الذي يحتوي على PR #105 المدموج.\n2. حدّث نسخة المشروع على الـVPS إلى main.\n3. أعد تشغيل `mythos-ai-executor.service` فقط لتطبيق النسخة الجديدة.\n4. تحقق أن الخدمة عادت للعمل بنجاح وأنها تستخدم Resource Guard الجديد.\n5. نفّذ فحصًا حيًا للـResource Guard وتأكد من الحالة الحالية، وقابلية قبول المهام عند الحالة الصحية.\n6. تحقق من عدم وجود خطأ أو regression في Executor/Bridge بعد إعادة التشغيل.\n7. سجّل الأدلة والنتائج في REPORT، ولا تعتبر المهمة مكتملة دون تحقق فعلي بعد restart.\n\nقيود صارمة:\n- لا تلمس AUTOS-0.\n- لا تلمس SPY أو n8n.\n- لا تلمس WhatsApp أو Evolution API.\n- لا تغيّر thresholds أو كود Resource Guard في هذه المهمة.\n- لا تغيّر إعدادات systemd الخاصة MemoryLow/MemoryHigh؛ هذه مرحلة منفصلة.\n- لا تكشف أي credentials/tokens/secrets.\n- لا تستخدم git add . بشكل أعمى.\n- لا تعمل merge إضافي إلى main.\n- إذا فشل التحديث أو restart أو ظهرت مشكلة في الخدمة، توقف وسجّل السبب بدل إجراء إصلاحات جانبية.\n\nValidation المطلوبة:\n- main HEAD المستخدم على الـVPS.\n- service active/running بعد restart.\n- Resource Guard live status/sample.\n- Executor health.\n- Bridge health أو smoke check آمن بدون إنشاء مهمة إنتاجية جديدة.\n- أي logs/errors ذات صلة.\n\nبعد التنفيذ: أعد تقريرًا واضحًا يتضمن task ID، OTHMODE ID، Claude session، الأوامر/الإجراءات المنفذة، النتائج، وأي blocker. لا تعتبر أي نتيجة من الذاكرة السابقة دليلًا كافيًا؛ يجب أن تكون القراءة بعد restart.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T01:59:19.601Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #106 https://github.com/othoth77/mythos-prod/issues/106 — \"تفعيل MYTHOS Resource Guard على الـVPS والتحقق الحي\"",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 106,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/106",
+    "issue_id": 5331020315,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPcDqGw",
+    "issue_title": "TASK: تفعيل MYTHOS Resource Guard على الـVPS والتحقق الحي",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T01:18:20Z",
+    "issue_updated_at": "2026-09-03T01:57:37Z",
+    "issue_labels": [
+      "task",
+      "mythos:human-approval",
+      "rerun"
+    ],
+    "content_sha256": "890d811476bfe0740b602fa9cbfa7d9f6f4a821cbff2edfcb33fbd8a4bfcaaff",
+    "attempt": 3,
+    "rerun_of": "gh-issue-106-r2",
+    "inherited_from": "gh-issue-106-r2",
+    "inherited": {
+      "requested_action": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "converted_at": "2026-09-03T01:59:19.603Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5519164274,
+        "url": "https://github.com/othoth77/mythos-prod/issues/106#issuecomment-5519164274",
+        "at": "2026-09-03T01:59:21.301Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:human-approval"
+      ]
+    }
+  }
+}

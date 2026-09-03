@@ -1,0 +1,56 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-107",
+  "project": "mythos-prod",
+  "objective": "تغيير polling الخاص بـ MYTHOS GitHub Bridge من كل دقيقتين إلى كل دقيقة واحدة.\n\nنفّذ فقط:\n1. حدّد ملف systemd timer/config الرسمي الخاص بـ `mythos-github-bridge.timer` في Source of Truth.\n2. غيّر الـinterval من 2 minutes إلى 1 minute فقط.\n3. حافظ على نفس الخدمة، الأمر، المستخدم، والـdependencies.\n4. حدّث أي documentation/test ثابت يعتمد صراحة على 2 minutes إذا كان ذلك ضروريًا.\n5. اختبر صحة الـtimer/config.\n6. لا تغيّر Bridge logic أو Executor أو Resource Guard أو WhatsApp أو AUTOS-0 أو SPY أو n8n.\n7. لا تستخدم git add . بشكل أعمى.\n8. لا تعمل merge إلى main تلقائيًا.\n9. بعد التنفيذ أعد REPORT واضحًا مع الملفات، الاختبارات، والـcommit.\n\nملاحظة: المطلوب هو 1 minute، وليس تشغيلًا أكثر من مرة في الدقيقة. لا تغيّر أي polling آخر في MYTHOS.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T01:59:22.891Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #107 https://github.com/othoth77/mythos-prod/issues/107 — \"تغيير GitHub Bridge Timer إلى دقيقة واحدة\"",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 107,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/107",
+    "issue_id": 5331264791,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPcSlFw",
+    "issue_title": "TASK: تغيير GitHub Bridge Timer إلى دقيقة واحدة",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T01:58:49Z",
+    "issue_updated_at": "2026-09-03T01:58:49Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "7acda602e28d7aa79d5f6dc61e86e64382d65b5619689e25f40cb80a102f1f70",
+    "attempt": 1,
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "converted_at": "2026-09-03T01:59:22.892Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5519164620,
+        "url": "https://github.com/othoth77/mythos-prod/issues/107#issuecomment-5519164620",
+        "at": "2026-09-03T01:59:23.687Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
