@@ -221,6 +221,18 @@ function eventsOf(taskId) {
   var bare = '{"mythos_report": true, "status": "completed", "summary": "bare"}';
   ok(reporting.extractReport(bare).report.summary === 'bare', 'report: bare object accepted');
   ok(reporting.validateReport({ mythos_report: true }).length >= 2, 'report: validation flags missing fields');
+
+  // gh-issue-112: a missing report must give a PRECISE, diagnosable reason —
+  // not just "absent" — so a human or a rerun can act on it.
+  var empty = reporting.extractReport('');
+  ok(empty.report === null && /no final message text/.test(empty.error), 'report/diagnosis: empty output names itself, not a generic failure (' + empty.error + ')');
+  var noFence = reporting.extractReport('I could not finish: the merge tool call was denied under this profile.');
+  ok(noFence.report === null && /no fenced/.test(noFence.error) && /merge tool call was denied/.test(noFence.error),
+    'report/diagnosis: no-fence case quotes the provider\'s actual final words, not just "absent" (' + noFence.error + ')');
+  var badJson = reporting.extractReport('```json\nnot actually json {{\n```');
+  ok(badJson.report === null && /none parsed as valid JSON/.test(badJson.error), 'report/diagnosis: an unparsable fence is distinguished from a missing one (' + badJson.error + ')');
+  var wrongFlag = reporting.extractReport('```json\n{"status": "completed", "summary": "forgot the flag"}\n```');
+  ok(wrongFlag.report === null && /none declared "mythos_report": true/.test(wrongFlag.error), 'report/diagnosis: a fence that forgot mythos_report:true is distinguished from no fence at all (' + wrongFlag.error + ')');
 })();
 
 // ---------------------------------------------------------------------------
@@ -381,8 +393,12 @@ chain = chain.then(function () {
   return executor.runTask(t.task_id).then(function (st) {
     ok(st.status === 'BLOCKED', 'malformed: missing report block → BLOCKED');
     ok(/no structured report/.test(st.next_action), 'malformed: next action explains why');
+    // gh-issue-112: the reason must be diagnosable, not just "absent" — it
+    // should name the failure shape and quote what the provider actually said.
+    ok(/no fenced/.test(st.next_action) && /forgot the report block/.test(st.next_action),
+      'malformed: next action names the exact failure shape and quotes the provider (' + st.next_action + ')');
     var rep = state.readJSON(t.task_id, 'report.json');
-    ok(rep.report === null && rep.problems.length > 0, 'malformed: problems recorded');
+    ok(rep.report === null && rep.problems.length > 0 && /no fenced/.test(rep.problems.join(' ')), 'malformed: diagnosable problem recorded on the report file');
   });
 });
 

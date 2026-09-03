@@ -60,6 +60,15 @@ without checking the remote.
 
 ## Mandatory final report
 
+This report is REQUIRED even when the task did not go as planned. If a tool
+call is denied, a command needs approval you cannot get, you decide the task
+cannot proceed, or you stop for any other reason — do not just explain in
+prose and end the turn. Your LAST action must still be a final message
+carrying the json block below, with `"status": "blocked"` (or `"failed"`)
+and a `summary` that names exactly what was denied or could not proceed.
+A run that stops without this block is indistinguishable from one that
+crashed, and is recorded as BLOCKED with no diagnosable reason.
+
 End your FINAL message with exactly one fenced json block of this shape
 (no secrets, real values only — never invent a commit hash):
 

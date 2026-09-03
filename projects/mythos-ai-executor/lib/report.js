@@ -16,11 +16,21 @@
 
 var redact = require('../../mythos-orchestrator/lib/redact');
 
+function tailSnippet(text, n) {
+  var t = String(text || '').trim().replace(/\s+/g, ' ');
+  return t.length > n ? '…' + t.slice(t.length - n) : t;
+}
+
 // Pulls every fenced json block out of a text and returns the parsed
-// objects that declare themselves a mythos report.
+// objects that declare themselves a mythos report. The error string is
+// surfaced verbatim as far as report.problems / the Issue comment (mission
+// gh-issue-112: a missing report must give a precise, diagnosable reason,
+// never just "no structured report" with nothing to act on) — so it always
+// names WHICH of the possible failure shapes happened and includes a tail
+// of what the provider actually said.
 function extractReport(text) {
-  if (typeof text !== 'string' || !text) {
-    return { report: null, error: 'empty provider output' };
+  if (typeof text !== 'string' || !text || !text.trim()) {
+    return { report: null, error: 'the provider ended with no final message text at all (empty result)' };
   }
   var fences = [];
   var re = /```(?:json[^\n]*)\n([\s\S]*?)```/g;
@@ -31,15 +41,22 @@ function extractReport(text) {
     var trimmed = text.trim();
     if (trimmed[0] === '{' && trimmed[trimmed.length - 1] === '}') fences.push(trimmed);
   }
+  if (!fences.length) {
+    return { report: null, error: 'no fenced ```json block (or bare JSON object) in the final message — last 200 chars: "' + tailSnippet(text, 200) + '"' };
+  }
   var candidates = [];
+  var parseFailures = 0;
   fences.forEach(function (block) {
     try {
       var obj = JSON.parse(block);
       if (obj && obj.mythos_report === true) candidates.push(obj);
-    } catch (e) { /* not JSON — keep scanning */ }
+    } catch (e) { parseFailures++; }
   });
   if (!candidates.length) {
-    return { report: null, error: 'no mythos_report block found in provider output' };
+    if (parseFailures === fences.length) {
+      return { report: null, error: fences.length + ' fenced json block(s) found but none parsed as valid JSON — last 200 chars: "' + tailSnippet(text, 200) + '"' };
+    }
+    return { report: null, error: fences.length + ' fenced json block(s) found but none declared "mythos_report": true — last 200 chars: "' + tailSnippet(text, 200) + '"' };
   }
   // The last report block wins: providers sometimes emit a draft first.
   return { report: candidates[candidates.length - 1], error: null };

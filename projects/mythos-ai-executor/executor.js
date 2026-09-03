@@ -555,7 +555,10 @@ function handleSuccess(task, taskId, outcome, parsed) {
   if (report && report.status === 'blocked') { finalState = 'BLOCKED'; nextAction = 'owner decision required: ' + (report.summary || ''); }
   // A "successful" run that produced no usable report is not a clean
   // completion — it lands BLOCKED for review rather than silently green.
-  if (!report) { finalState = 'BLOCKED'; nextAction = 'provider produced no structured report — review stdout.log'; }
+  // The reason names the exact failure shape (extractReport's diagnosis),
+  // not just "no structured report", so a rerun or a human can act on it
+  // instead of opening stdout.log to guess (gh-issue-112).
+  if (!report) { finalState = 'BLOCKED'; nextAction = 'provider produced no structured report: ' + (extracted.error || 'unknown reason') + ' — review stdout.log'; }
 
   var status = state.transition(taskId, finalState, {
     ended_at: new Date().toISOString(),
