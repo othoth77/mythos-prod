@@ -1,0 +1,137 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-128",
+  "attempt_id": "gh-issue-128#1",
+  "status": "BLOCKED",
+  "summary": "Verified the merged HostOps/Dagu READ integration from origin/main 718741b: executor /health and Dagu PoC /api/v1/health are both live and healthy, and Dagu is confirmed by design (docs/MYTHOS_HOSTOPS_INTERFACE.md) to not sit in the READ path, so there was nothing to 'activate' there. The one required live READ-only POST /hostops/run health call through the Executor's bearer-gated route failed with HTTP 503 HOSTOPS_UNAVAILABLE: sudo refused because mythos-ai-executor.service sets NoNewPrivileges=true, a load-bearing kernel-level control documented in the unit file itself, which unconditionally blocks any sudo child process the daemon spawns -- independent of the sudoers/allowlist config, which is otherwise correct. This is a structural conflict between HOSTOPS-1's sudo-based adapter design and the executor's own hardening, present since PR #127 merged. All three focused HostOps/Dagu test suites pass (they mock the spawn call and never exercised the real hardened daemon, which is why this wasn't caught before). Fixing it requires relaxing a governance-protected security control, which is out of scope for this READ-only verification task, so per the mission's own safety clause this is reported BLOCKED rather than improvised. No file was edited and no commit was made.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": "Sonnet",
+    "model_key": "sonnet",
+    "model": "claude-sonnet-5",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "base_sha": "718741b86da955f68b731e8e0aefe1a6846bd50e",
+    "branch": "mythos/gh/gh-issue-128",
+    "commit_sha": null
+  },
+  "blocker": {
+    "code": "GOVERNANCE_DENIED",
+    "retryable": false,
+    "at": "2026-09-03T14:44:00.684Z",
+    "reason": "Verified the merged HostOps/Dagu READ integration from origin/main 718741b: executor /health and Dagu PoC /api/v1/health are both live and healthy, and Dagu is confirmed by design (docs/MYTHOS_HOSTOPS_INTERFACE.md) to not sit in the READ path, so there was nothing to 'activate' there. The one required live READ-only POST /hostops/run health call through the Executor's bearer-gated route failed with HTTP 503 HOSTOPS_UNAVAILABLE: sudo refused because mythos-ai-executor.service sets NoNewPrivileges=true, a load-bearing kernel-level control documented in the unit file itself, which unconditionally blocks any sudo child process the daemon spawns -- independent of the sudoers/allowlist config, which is otherwise correct. This is a structural conflict between HOSTOPS-1's sudo-based adapter design",
+    "task_id": "t-20260903144005-klqhhs",
+    "attempt_id": "gh-issue-128#1",
+    "requested_action": "implement",
+    "execution_profile": "repo-write",
+    "model": "claude-sonnet-5"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "718741b86da955f68b731e8e0aefe1a6846bd50e",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "718741b86da955f68b731e8e0aefe1a6846bd50e",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-03T14:40:04.152Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "blocked",
+    "summary": "Verified the merged HostOps/Dagu READ integration from origin/main 718741b: executor /health and Dagu PoC /api/v1/health are both live and healthy, and Dagu is confirmed by design (docs/MYTHOS_HOSTOPS_INTERFACE.md) to not sit in the READ path, so there was nothing to 'activate' there. The one required live READ-only POST /hostops/run health call through the Executor's bearer-gated route failed with HTTP 503 HOSTOPS_UNAVAILABLE: sudo refused because mythos-ai-executor.service sets NoNewPrivileges=true, a load-bearing kernel-level control documented in the unit file itself, which unconditionally blocks any sudo child process the daemon spawns -- independent of the sudoers/allowlist config, which is otherwise correct. This is a structural conflict between HOSTOPS-1's sudo-based adapter design and the executor's own hardening, present since PR #127 merged. All three focused HostOps/Dagu test suites pass (they mock the spawn call and never exercised the real hardened daemon, which is why this wasn't caught before). Fixing it requires relaxing a governance-protected security control, which is out of scope for this READ-only verification task, so per the mission's own safety clause this is reported BLOCKED rather than improvised. No file was edited and no commit was made.",
+    "tests": [
+      "tests/mythos-hostops-executor-test.js: 34 passed, 0 failed",
+      "tests/mythos-hostops-test.js: 40 passed, 0 failed, 1 skipped",
+      "tests/dagu-hostops-allowlist-test.js: 7 passed, 0 failed"
+    ],
+    "commit": null,
+    "remote_head": "718741b86da955f68b731e8e0aefe1a6846bd50e",
+    "files_changed": [],
+    "residual_risks": [
+      "The Executor->hostops READ path is unusable in production as currently deployed: any live call through the daemon will return HOSTOPS_UNAVAILABLE until NoNewPrivileges is addressed by an owner decision (relax it, or change the escalation mechanism away from sudo).",
+      "This gap is invisible to the existing test suites because they inject/mock the spawn call rather than exercising the real systemd-confined process -- future HostOps work should add a live/integration-style check against the deployed unit, not just mocked adapter tests."
+    ],
+    "next_stage": "Owner decision required: either relax NoNewPrivileges on projects/mythos-ai-executor/service/mythos-ai-executor.service for this one escalation path (a security-boundary change, level 3 / owner approval per AGENTS.md 25.3), or redesign the hostops escalation mechanism to not require sudo from inside the hardened daemon (e.g. a separate unprivileged-to-privileged relay). Either is an architecture/governance decision outside this task's read-only-verification scope."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "tests/mythos-hostops-executor-test.js: 34 passed, 0 failed",
+    "tests/mythos-hostops-test.js: 40 passed, 0 failed, 1 skipped",
+    "tests/dagu-hostops-allowlist-test.js: 7 passed, 0 failed"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": null,
+    "report_problems": [
+      "delivery expected a commit but the report claims none"
+    ],
+    "required_checks": []
+  },
+  "problems": [
+    "delivery expected a commit but the report claims none",
+    "GOVERNANCE_DENIED: Verified the merged HostOps/Dagu READ integration from origin/main 718741b: executor /health and Dagu PoC /api/v1/health are both live and healthy, and Dagu is confirmed by design (docs/MYTHOS_HOSTOPS_INTERFACE.md) to not sit in the READ path, so there was nothing to 'activate' there. The one required live READ-only POST /hostops/run health call through the Executor's bearer-gated route failed with HTTP 503 HOSTOPS_UNAVAILABLE: sudo refused because mythos-ai-executor.service sets NoNewPrivileges=true, a load-bearing kernel-level control documented in the unit file itself, which unconditionally blocks any sudo child process the daemon spawns -- independent of the sudoers/allowlist config, which is otherwise correct. This is a structural conflict between HOSTOPS-1's sudo-based adapter design"
+  ],
+  "risks": [
+    "The Executor->hostops READ path is unusable in production as currently deployed: any live call through the daemon will return HOSTOPS_UNAVAILABLE until NoNewPrivileges is addressed by an owner decision (relax it, or change the escalation mechanism away from sudo).",
+    "This gap is invisible to the existing test suites because they inject/mock the spawn call rather than exercising the real systemd-confined process -- future HostOps work should add a live/integration-style check against the deployed unit, not just mocked adapter tests."
+  ],
+  "next_recommended_action": "Owner decision required: either relax NoNewPrivileges on projects/mythos-ai-executor/service/mythos-ai-executor.service for this one escalation path (a security-boundary change, level 3 / owner approval per AGENTS.md 25.3), or redesign the hostops escalation mechanism to not require sudo from inside the hardened daemon (e.g. a separate unprivileged-to-privileged relay). Either is an architecture/governance decision outside this task's read-only-verification scope.",
+  "completed_at": "2026-09-03T14:44:42.475Z",
+  "execution": {
+    "executor_task_id": "t-20260903144005-klqhhs",
+    "othmode_task_id": "OTH-2026-00058",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": "Sonnet",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-128#1",
+    "fence": 602,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:370183",
+      "fence": 602,
+      "acquired_at": "2026-09-03T14:40:05.896Z",
+      "expires_at": "2026-09-03T16:10:05.896Z"
+    },
+    "snapshot_sha256": "43431584ee3f6e609e8966759a02aa0da9d94489bd2e4563eae4db328f502b75",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "claude_session_id": "dda7dda4-57b3-4038-808e-9b530839239b",
+    "executor_status": "BLOCKED",
+    "started_at": "2026-09-03T14:40:05.958Z",
+    "ended_at": "2026-09-03T14:44:00.684Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 1.1481797999999999,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-128",
+    "branch": "mythos/gh/gh-issue-128",
+    "base_commit": "718741b86da955f68b731e8e0aefe1a6846bd50e",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-128",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
