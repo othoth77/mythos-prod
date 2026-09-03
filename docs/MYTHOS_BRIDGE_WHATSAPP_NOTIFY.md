@@ -1,10 +1,19 @@
 # MYTHOS GitHub bridge — WhatsApp notification layer
 
-**Stage:** `gh-20260902-wa-bridge-notify-01` (2026-09-02)
-**Code:** `projects/mythos-ai-executor/bridge/notify/` (`whatsapp.js`, `http-json.js`, `providers/evolution.js`)
+**Stage:** `gh-20260902-wa-bridge-notify-01` (2026-09-02), hardened by `gh-issue-147` (2026-09-03)
+**Code:** `projects/mythos-ai-executor/bridge/notify/` (`whatsapp.js`, `http-json.js`, `providers/evolution.js`, `providers/generic.js`)
 **Wiring:** `projects/mythos-ai-executor/bridge/github-bridge.js` (2 call sites), CLI `bin/mythos-github-bridge`
-**Suite:** `tests/mythos-bridge-whatsapp-notify-test.js` — 116 checks, offline, no real message
+**Suites:** `tests/mythos-bridge-whatsapp-notify-test.js` — 131 checks · `tests/mythos-bridge-whatsapp-resilience-test.js` — 95 checks. Both offline, no real message.
 **Default state:** **DISABLED.** Nothing is sent, no ledger is created, no request is made, until it is explicitly configured *and* `MYTHOS_BRIDGE_WHATSAPP_ENABLED=1`.
+
+> **gh-issue-147 changed four things** (rationale, evidence and the provider
+> decision: `docs/MYTHOS_WHATSAPP_PROVIDER_STRATEGY.md`):
+> the Issues-mode `tick` now flushes (it never did — §4.2); a provider
+> circuit breaker and a flush wall-clock budget bound the cost of a dead
+> gateway (§6.1, §6.2); readiness is split into queue scope and delivery
+> scope so a transient credential-read failure delays a notification instead
+> of destroying it (§6.3); and `providers/generic.js` makes a different HTTP
+> gateway a configuration change rather than a new file (§3.6).
 
 > **Scope fence.** This is the *bridge notification* layer only: one outbound
 > text when a control task reaches a state a human must know about. It is
@@ -153,8 +162,50 @@ module.exports = {
     // MUST NOT throw on an HTTP error status
     // MUST NOT return or log the credential
     // MUST NOT retry internally — retry and idempotency belong to the ledger
+  configProblems(options),      // OPTIONAL: static config faults, names only
 };
 ```
+
+`sendText` also receives `options` — the selected provider's configuration
+block, or `null`. An adapter that needs no configuration (`evolution`)
+ignores it.
+
+### 3.6 `providers/generic.js` — a different gateway without a new file
+
+Every HTTP WhatsApp gateway in this class differs in exactly four things: the
+URL path, the auth header, the JSON body field names, and where the message
+id sits in the response. `generic` takes all four as configuration, so
+pointing MYTHOS at `wa-evolution`, WAHA or an in-house relay is an
+environment change, not a code change, a review and a deploy.
+
+```ini
+MYTHOS_BRIDGE_WHATSAPP_PROVIDER=generic
+MYTHOS_BRIDGE_WHATSAPP_GENERIC_PATH=/api/v1/sessions/{instance}/messages
+MYTHOS_BRIDGE_WHATSAPP_GENERIC_AUTH_HEADER=authorization
+MYTHOS_BRIDGE_WHATSAPP_GENERIC_AUTH_PREFIX=Bearer␣
+MYTHOS_BRIDGE_WHATSAPP_GENERIC_BODY={"chatId":"{{to}}","text":"{{text}}"}
+MYTHOS_BRIDGE_WHATSAPP_GENERIC_ID_PATH=result.messageId
+```
+
+Its defaults reproduce the Evolution shape byte for byte — the suite sends
+through both adapters to the same recorder and compares the URL and the body
+— so it is a proven-equivalent drop-in, not a guess.
+
+**Template safety.** The body template is JSON-**parsed first** and
+`{{to}}` / `{{text}}` / `{{instance}}` are substituted into the already-parsed
+*values*. Untrusted text therefore lands in a string slot and is re-escaped on
+the way out: it cannot add a JSON key, and a placeholder arriving inside
+untrusted text is not re-expanded (single pass over the template). String
+substitution into raw JSON text would be a template-injection hole and is not
+used. Path templates are validated against a closed alphabet with the
+substituted values URL-encoded; the header *name* is validated; the header
+*value* is the credential and is never described, returned or logged. A
+static configuration fault is a **queue-scope** readiness problem, so a
+broken template queues nothing rather than failing at send time.
+
+`generic` is not more powerful than any other adapter: `sendText` only, the
+private-network fence still applies, and the customer-chat scope fence is
+unchanged.
 
 ---
 
@@ -180,6 +231,11 @@ value below appears in any log, report, ledger entry or CLI output.**
 | `MYTHOS_BRIDGE_WHATSAPP_BACKOFF_MS` | `60000` | base backoff; doubles per attempt, capped at 30 min |
 | `MYTHOS_BRIDGE_WHATSAPP_LEASE_MS` | `120000` | after this, an abandoned in-flight claim may be reclaimed |
 | `MYTHOS_BRIDGE_WHATSAPP_FLUSH_LIMIT` | `5` | deliveries per flush; keeps `tick` well inside `TimeoutStartSec=600`. A backlog drains over following ticks. |
+| `MYTHOS_BRIDGE_WHATSAPP_FLUSH_BUDGET_MS` | `60000` | wall-clock ceiling for one whole flush (§6.2) |
+| `MYTHOS_BRIDGE_WHATSAPP_BREAKER` | *(on)* | `off` disables the provider circuit breaker entirely |
+| `MYTHOS_BRIDGE_WHATSAPP_BREAKER_THRESHOLD` | `3` | consecutive provider-level failures before the circuit opens |
+| `MYTHOS_BRIDGE_WHATSAPP_BREAKER_COOLDOWN_MS` | `300000` | first cooldown; doubles per consecutive open, capped at 30 min |
+| `MYTHOS_BRIDGE_WHATSAPP_GENERIC_*` | Evolution shape | `PATH`, `AUTH_HEADER`, `AUTH_PREFIX`, `BODY`, `ID_PATH` — only read when `PROVIDER=generic` (§3.6) |
 | `MYTHOS_BRIDGE_WHATSAPP_HOME` | `$MYTHOS_BRIDGE_HOME/notify` | ledger location |
 
 ### 4.1 Installing the credential (host, as `deploy`)
@@ -213,7 +269,20 @@ and is **not** in the repository. No unit file in Git changes.
 
 None of the existing units change. `mythos-github-bridge.timer` fires
 `mythos-github-bridge tick` every 2 minutes, and `tick` now flushes due
-notifications **after** the tick has returned, before exiting. Nothing about
+notifications **after** the tick has returned, before exiting — **in both of
+its branches**.
+
+> **Defect fixed in gh-issue-147.** `tick` takes an early branch when
+> `MYTHOS_ISSUES_ENABLED=1` — the mode the deploy timer drop-in sets, and
+> therefore the only mode production actually runs — and that branch never
+> called `flushNotifications()`. Every terminal task wrote its ledger entry
+> and nothing ever delivered it: the layer was inert in production while the
+> `daemon` and non-Issues paths, which the suite exercised, worked fine. Both
+> branches now flush, with the same ordering guarantee and the same rule that
+> a WhatsApp outcome never changes the command's exit code. Regression guard:
+> `tests/mythos-bridge-whatsapp-resilience-test.js` §7.
+
+Nothing about
 `Type=oneshot`, `TimeoutStartSec=600` or the tick's exit code changes: a
 WhatsApp failure never alters the exit code, by design. In `daemon` mode the
 flush runs on its own guard, so a slow gateway delays the next *notification*
@@ -307,6 +376,10 @@ Key: `<task_id>__<KIND>`. States:
 - **Retention:** `SENT` entries are never pruned. They are the durable proof
   that a task was already notified; deleting one is the only way to make the
   system send a second message for the same task.
+- **`SENT` means every recipient is in `delivered_to`** — not "the last
+  attempt had no failure". The two differ as soon as an attempt can end
+  early (§6.2), and deriving `SENT` from the second would mark an entry
+  delivered whose remaining recipients were never contacted.
 - **task_id length:** the ledger key is `<task_id>__<KIND>`; the key pattern
   accepts the full 6–64 char `task_id` range that `github-bridge.js`
   (`TASK_ID_RE`) accepts. A task_id the bridge accepts but the ledger key
@@ -316,14 +389,76 @@ Key: `<task_id>__<KIND>`. States:
 
 ---
 
+## 6.1 Provider circuit breaker
+
+`tick` waits for the flush before it exits. Without a breaker, a gateway that
+is down or hung cost every tick `FLUSH_LIMIT × recipients × TIMEOUT_MS` — 150 s
+of a 120 s interval on the defaults with two recipients — **and** consumed one
+of `MAX_ATTEMPTS` on every queued notification, so a long outage did not delay
+the messages, it destroyed them (`EXHAUSTED`, never sent).
+
+After `BREAKER_THRESHOLD` consecutive **provider-level** failures the circuit
+opens for `BREAKER_COOLDOWN_MS`, doubling per consecutive open, capped at 30
+minutes. While open a flush touches nothing: zero requests, zero attempts
+consumed, every entry left `PENDING`. On expiry it is half-open and lets
+**exactly one** entry through as a probe — success closes it, failure re-opens
+it with a doubled cooldown. The circuit is re-checked between entries inside a
+single flush, so the first flush of an outage costs `THRESHOLD` timeouts, not
+one per due entry.
+
+- **A 4xx never opens it.** That is the gateway rejecting *this message*, not
+  an outage. Only a transport error, a timeout, or a 5xx counts.
+- **It fails closed.** A missing, unreadable or corrupt breaker file reads as
+  "closed", i.e. *towards* attempting delivery — it can never silently
+  suppress a notification.
+- **Nothing is lost.** No attempt is consumed while it is open, so an outage
+  postpones notifications instead of exhausting them.
+- Kill switch `MYTHOS_BRIDGE_WHATSAPP_BREAKER=off` restores the exact previous
+  behaviour. State lives in `$MYTHOS_BRIDGE_WHATSAPP_HOME/breaker.json`.
+
+## 6.2 Flush wall-clock budget
+
+`FLUSH_BUDGET_MS` (default 60 s) bounds one whole flush, checked **between
+entries and between recipients**, so one entry with many recipients cannot
+consume the tick on its own. Work that does not fit stays `PENDING` and due
+immediately. A budget cut **consumes no attempt** — it is a local scheduling
+decision, not a delivery failure — and is reported as `deferred`, never as
+`failed`. A gateway so slow that a flush can never fit leaves entries
+`PENDING` indefinitely; that is visible in `notify-status` and is the intended
+trade.
+
+## 6.3 Queue scope vs delivery scope
+
+- **queue scope** — provider registration, gateway address and the
+  private-network fence, instance name, recipients, adapter configuration.
+  All come from the same drop-in and stay wrong until a human fixes them, so
+  refusing to queue on them is unchanged (a non-private gateway still queues
+  **nothing**, §5.2).
+- **delivery scope** — the credential, and only the credential: the one input
+  read from the filesystem at send time and therefore the one that can fail
+  transiently.
+
+A REPORT is written once and never revisited, so `onReport()` was the only
+moment a notification could ever be created. Requiring the credential there
+meant an unreadable `0600` file destroyed the notification permanently. It is
+now re-read on every flush, where being unreadable costs a retry.
+
+---
+
 ## 7. Operating
 
 ```bash
 mythos-github-bridge notify-config    # configuration + readiness problems (no secrets)
 mythos-github-bridge notify-status    # the ledger: states, attempts, errors (no message bodies)
 mythos-github-bridge notify-flush     # deliver due notifications now; safe to repeat
+mythos-github-bridge notify-breaker-reset    # close the circuit after a gateway repair; sends nothing
 mythos-github-bridge notify-test --confirm   # ONE real smoke-test message (human only)
 ```
+
+`notify-config` and `notify-status` both report the circuit's state,
+`notify-config` additionally separates `problems` (all of them) from
+`queue_problems` (the subset that would stop a notification being queued at
+all).
 
 `notify-flush` is safe to run at any time and as often as you like — the
 ledger makes it idempotent.
@@ -353,7 +488,7 @@ the real send is the documented first step of the deployment task.
 
 ## 8. Tests
 
-`node tests/mythos-bridge-whatsapp-notify-test.js` — **116 checks, all
+`node tests/mythos-bridge-whatsapp-notify-test.js` — **131 checks, all
 passing.** No real WhatsApp message is sent: the far end is a local
 `http.createServer` on `127.0.0.1` that records every request, while the
 **real** adapter and the **real** HTTP path are exercised.
@@ -374,6 +509,26 @@ passing.** No real WhatsApp message is sent: the far end is a local
 | 12 | the adapter contract, and refusal of injecting recipients/instance names |
 | 13 | task_id length: a 64-char id (the bridge's own max) reaches the ledger and is delivered; a 65-char id is refused by `ledgerKey()` |
 | 14 | the crash/failure window: a recipient's success is durable on disk before the rest of the attempt finishes; a simulated crash + reclaim retries only the recipient still missing, never re-sending to one already recorded |
+
+This suite runs with `MYTHOS_BRIDGE_WHATSAPP_BREAKER=off`, deliberately:
+sections 7–9 drive the gateway into repeated failures to prove retry, backoff,
+exhaustion and reclaim, which is exactly the condition the breaker
+short-circuits. Leaving it on would make the suite test the breaker instead of
+what it is for.
+
+`node tests/mythos-bridge-whatsapp-resilience-test.js` — **95 checks, all
+passing**, same offline discipline, covering what gh-issue-147 added:
+
+| Section | Covers |
+|---|---|
+| 1 | every registered adapter satisfies one contract: id, requirements, `describe()` with exactly one capability and no credential, recipient validation, and `ok:false` instead of a throw for an unusable call |
+| 2 | `generic` reproduces the Evolution URL and body byte for byte by default; a custom path/header/body/id-path drives a different gateway shape; hostile text cannot inject a JSON key and a placeholder inside untrusted text is not re-expanded; a broken template/path/header is refused and queues nothing |
+| 3 | end-to-end delivery through a **non-default** provider, and a second flush that sends nothing — idempotency belongs to the ledger, not the provider |
+| 4 | the breaker: an outage costs exactly `THRESHOLD` requests, remaining entries are skipped inside the same flush and consume no attempt; while open a flush reaches the gateway zero times; a 4xx never opens it; half-open sends exactly one probe; a failed probe doubles the cooldown; `notify-breaker-reset` closes it without sending; `BREAKER=off`; a corrupt breaker file fails closed |
+| 5 | the budget: a slow gateway cuts the flush inside its budget, the entry stays `PENDING` (not `SENT`), no attempt is consumed, the next flush completes it and every recipient receives exactly one message; the budget also bounds the number of entries |
+| 6 | an unreadable credential queues the notification instead of losing it, consumes no attempt, and delivers once repaired; the non-private-gateway fence still queues nothing |
+| 7 | regression guard: both `tick` branches call `flushNotifications()`, and `notify-breaker-reset` is exposed |
+| 8 | the credential appears in no ledger entry, breaker file, `notify-config` or `notify-status` |
 
 Existing suites re-run and still green:
 
@@ -410,8 +565,11 @@ Three levels, cheapest first — all reversible, none touching Git history:
 ## 10. Residual risks
 
 - **The provider is not yet chosen against live upstream data.** §3.3 is
-  explicitly `TO-VERIFY`. The decision is provisional and the adapter
-  boundary is what makes it cheap to change.
+  explicitly `TO-VERIFY`, and gh-issue-147 could not verify it either (no
+  outbound research capability in that run — including for `wa-evolution`).
+  The decision is provisional and the adapter boundary, now including the
+  configuration-driven `generic` adapter, is what makes it cheap to change.
+  Full analysis and the replacement gate: `docs/MYTHOS_WHATSAPP_PROVIDER_STRATEGY.md`.
 - **The real smoke test has not been performed** (§7.1). Everything up to
   the socket is proven against a real HTTP server; the WhatsApp side is not.
 - **Deploying any provider on this host is currently risky**: swap is fully
