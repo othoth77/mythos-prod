@@ -12,7 +12,7 @@
 | Runtime | `ff9f71b51e41` on `main` |
 | Model | `claude-sonnet-5` (auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]) |
 | Branch | `mythos/gh/gh-issue-141` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Verified current VPS state for gh-issue-141: docker access for deploy is now ava
 
 ## Commits
 
-- `422f4a3b4cec48140da8a7cd451ab348d3d60d58` docs(handover): gh-issue-141 WhatsApp provider deployment BLOCKED on swap/root (awaiting relay)
+- `422f4a3b4cec48140da8a7cd451ab348d3d60d58` docs(handover): gh-issue-141 WhatsApp provider deployment BLOCKED on swap/root (on origin)
 
 ## Files changed
 
