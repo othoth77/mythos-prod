@@ -323,17 +323,26 @@ function sectionFor(name) {
   return null;
 }
 
+// A field written as a list item (`- Action: implement`, `* Model: opus`) is
+// as common as a bare `Key: value` line and MUST resolve the same way — a
+// bulleted `Action:` that silently fails to parse is indistinguishable from
+// no Action at all, which is exactly how an executive Issue fell back to the
+// safe (read-only) default with no error to explain why (gh-issue-112).
+var BULLET_PREFIX_RE = /^\s{0,3}(?:[-*+•]|\d+[.)])\s+/;
+
 // Splits a body into named sections. Headings (`## Objective`, `Objective:`,
 // `**Objective**`) open a section; scalar keys also accept `Key: value` on
-// one line anywhere in the body. Text before the first heading is the
-// preamble (used as the objective when no objective section exists).
+// one line anywhere in the body, including as a single bulleted item. Text
+// before the first heading is the preamble (used as the objective when no
+// objective section exists).
 function splitSections(body) {
   var sections = { _preamble: [] };
   var current = '_preamble';
   String(body || '').replace(/\r\n/g, '\n').split('\n').forEach(function (line) {
+    var stripped = line.replace(BULLET_PREFIX_RE, '');
     var h = /^\s{0,3}#{1,6}\s*(.+?)\s*#*\s*$/.exec(line);
-    var b = !h && /^\s{0,3}\*\*([^*]+)\*\*\s*:?\s*(.*)$/.exec(line);
-    var c = !h && !b && /^\s{0,3}([^\s:][^:]{0,40}?)\s*:\s*(.*)$/.exec(line);
+    var b = !h && /^\s{0,3}\*\*([^*]+)\*\*\s*:?\s*(.*)$/.exec(stripped);
+    var c = !h && !b && /^\s{0,3}([^\s:][^:]{0,40}?)\s*:\s*(.*)$/.exec(stripped);
     var name = null, rest = '';
     if (h) { name = h[1]; }
     else if (b) { name = b[1]; rest = b[2]; }

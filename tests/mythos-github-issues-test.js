@@ -208,6 +208,27 @@ async function run() {
   ok(!cSec.task && cSec.secret === true && cSec.errors.join(' ').indexOf(LEAK) === -1 && /github-token/.test(cSec.errors[0]), 'parse: secret-bearing body refused, kind named, value never echoed');
   ok(issues.issueToTask(cfg, { number: 905, title: 'TASK: pad', body: 'Objective: fine objective here.\nworking_directory: /etc', html_url: 'u', user: { login: 'x' }, labels: [] }, 1).task.objective.indexOf('working_directory') !== -1, 'parse: unknown keys are just text, never task fields');
 
+  // gh-issue-112: `Action:` written as a single bulleted field — as common a
+  // style as a bare `Key: value` line — must resolve to requested_action
+  // exactly like the non-bulleted form; before the fix it silently fell
+  // through to the safe default with no error (indistinguishable from an
+  // Issue that never stated an Action at all).
+  var cBullet = issues.issueToTask(cfg, { number: 906, title: 'TASK: bulleted action', body: '## Objective\nLand the fix.\n\n- Action: implement\n- Priority: high\n', html_url: 'u', user: { login: 'x' }, labels: [{ name: 'task' }] }, 1);
+  ok(cBullet.task && cBullet.task.requested_action === 'implement' && cBullet.task.priority === 'high' && !/defaulted/.test(cBullet.task.notes),
+    'parse: bulleted "- Action: implement" is honoured exactly like an unbulleted line (got ' + (cBullet.task ? cBullet.task.requested_action : cBullet.errors.join('; ')) + ')');
+  var cBulletStar = issues.issueToTask(cfg, { number: 907, title: 'TASK: bulleted action star', body: 'Objective: land the widget fix.\n\n* Action: implement\n', html_url: 'u', user: { login: 'x' }, labels: [{ name: 'task' }] }, 1);
+  ok(cBulletStar.task && cBulletStar.task.requested_action === 'implement', 'parse: "* Action: implement" (asterisk bullet) is honoured too');
+
+  // gh-issue-112 reproduction: attempt 1 fell back to "investigate" (no
+  // Action stated, or lost to a parser gap). A rerun whose body NOW states
+  // `Action: implement` explicitly must win outright — never stay pinned to
+  // the wrong inherited default just because a previous attempt had it.
+  var wrongPrevious = { task_id: 'gh-issue-950', requested_action: 'investigate', scope: [], constraints: [], validation_requirements: [] };
+  var cCorrected = issues.issueToTask(cfg, { number: 950, title: 'TASK: corrected rerun', body: '## Objective\nMerge the WhatsApp bridge layer and open a PR.\n\nAction: implement\n', html_url: 'u', user: { login: 'x' }, labels: [{ name: 'task' }, { name: 'rerun' }] }, 2, wrongPrevious);
+  ok(cCorrected.task && cCorrected.task.requested_action === 'implement' && cCorrected.task.source.inherited.requested_action === false,
+    'parse: an explicit Action on a rerun overrides a wrongly-inherited default, and is recorded as explicit, not inherited (got ' + (cCorrected.task ? cCorrected.task.requested_action : cCorrected.errors.join('; ')) + ')');
+  ok(!/inherited/.test(cCorrected.task.notes) && !/defaulted/.test(cCorrected.task.notes), 'parse: the corrected rerun\'s notes say neither "inherited" nor "defaulted" for Action');
+
   // --- 1. Issue → PENDING task → created comment ----------------------------------------
   addIssue(1, { body: EN_BODY, title: 'TASK: read the fixture' });
   addIssue(2, { body: '## Objective\nAdd a smoke file and commit it on the task branch.\n\nAction: implement\n\n## Validation\n- git status clean after commit', title: 'TASK: implement smoke' });
