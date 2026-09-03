@@ -1,7 +1,7 @@
 {
-  "registry_version": "1.0.0",
-  "curated_at": "2026-08-26",
-  "curation_note": "Also recorded 2026-08-26: NEXT-STATUS-DISCLOSURE-REVIEW — the public Status Center carries the same class of infrastructure detail that OTHMODE reports now mask, which is a consistency question for the owner rather than something to fix piecemeal. Re-sync 2026-08-26T15:17Z: recorded a genuine platform change — OTHMODE Command History and Task Reports became publicly readable at 7252de2, redacted for anonymous callers, with the write surface verified still closed. PROJECT-OTHMODE headline, last_change, production dimension and evidence updated (EV-OTHMODE-PUBLIC-HISTORY, EV-OTHMODE-PUBLIC-VERIFIED). No other project or action changed; NEXT-EXPORTS remains the sole open owner decision. Re-sync 2026-08-26T14:38Z: no status changed. The only genuine new fact is that the publish-wipes-monitor-state fix was exercised by a real publish and held — monitor runtime state and the apex Hub feed both survived intact, which is the regression check the fix existed for. Recorded against EV-PUBLISH-WIPES-MONITOR-STATE. The board is otherwise steady: every execution-layer action is closed and NEXT-EXPORTS remains the sole owner decision. Re-sync 2026-08-26 after the owner published: NEXT-STATUS-PUBLISH closed — the live Status Center now serves REVIEW-2026-08-26-004 and matches the repository on every counted dimension (EV-STATUS-PUBLISHED-0826). The publish also exposed a real defect, now fixed: rsync --delete wiped the monitor's runtime state out of the shared docroot, taking the live panel and — via an nginx alias — the apex Hub's /api/status.json to 404, and permanently destroying data/live-history/ (EV-PUBLISH-WIPES-MONITOR-STATE). NEXT-OTHMODE-MONITOR closed 2026-08-26 after production verification: othmode.mythosprod.xyz and its Task Reports API are now monitored components of the existing STC-2 monitor (14 components live, both OTHMODE probes LIVE). Reconciliation pass 2026-08-26 (later the same day): closed three next_actions whose blockers were already DONE and whose live criteria were re-verified first-hand — NEXT-OTHK-STORE, NEXT-MOS-DEPLOY, NEXT-HUB-DEPLOY (evidence EV-STALE-RECONCILE-0826) — and marked ACTION-MOS-DEPLOY and ACTION-HUB-DNS DONE to match their own blockers. Added othmode.mythosprod.xyz to the existing STC-2 probe registry rather than building a second monitor (EV-OTHMODE-MONITOR-PROBE). Nothing was closed to make the board look finished: NEXT-STATUS-PUBLISH stays open because the live site is still unpublished, and every remaining owner decision is untouched. Also refreshed 2026-08-26: data/pr-ledger.json re-captured from the GitHub API (56 -> 90 PRs, #1-#90; 8 open, 78 merged, 4 closed-unmerged), correcting six entries that the 2026-08-20 snapshot still recorded as open (#53-#56 merged, #23 and #52 closed unmerged) and carrying curator notes across by PR number. PROJECT-COMMAND-CENTER updated against host evidence: its 'latest merged revision pending redeploy' caveat is closed (service restarted 2026-08-26 at aa4ca2d, no command-center code change since), and its relationship to OTHMODE is now stated — one Node process on 127.0.0.1:3021 serving both hostnames. Updated 2026-08-26 on the production VPS (deploy@vps-4722f0a9): added PROJECT-OTHMODE with five evidence records after the OTHMODE Task Reports release was merged (aa4ca2d), deployed and operator-verified first-hand on the host — the registry had carried no OTHMODE entry at all, which is why earlier re-syncs reported zero content change. Closed ACTION-STC2-INSTALL / NEXT-STC2-INSTALL against their own stated criteria (timer active and refreshing; published app.js byte-identical to the repository copy, carrying the live panel and the Arabic layer). Two genuinely outstanding items found while curating were recorded rather than left implicit: NEXT-STATUS-PUBLISH (the repository holds two unpublished reviews; the live site is behind because nothing published them, not because nothing re-synced) and NEXT-OTHMODE-MONITOR (othmode.mythosprod.xyz is not a monitored component). No percentage was invented: every OTHMODE dimension is recorded as a status with a note. Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
+  "registry_version": "1.1.0",
+  "curated_at": "2026-09-03",
+  "curation_note": "Re-sync 2026-09-03 (gh-issue-140, completing the gh-issue-95 audit): fixed the stale PROJECT-AI-ORCHESTRATION entry, which had read \"v1 COMPLETE AND CLOSED 2026-08-19\" for ten days and roughly a dozen delivered bridge/executor stages without being touched (GitHub Issues intake, model-selection policy, Resource Guard, bridge retry/quota policy, the HostOps read-only boundary) — the entry now states both facts: v1 is still closed as scoped, AND the same component has kept evolving since, all on unmerged branches (EV-AI-ORCH-EVOLUTION-0903). Added four projects/* directories the account-level repository-discovery path structurally cannot see because they are inside this monorepo, not separate GitHub repositories: PROJECT-MYTHOS-GATEWAY, PROJECT-MYTHOS-ORCHESTRATOR, PROJECT-MYTHOS-VAULT, PROJECT-OTH-MCP — found by listing every projects/* directory and checking which ones no existing project purpose/evidence text actually covered (4 of 21 did not; the other 17 already did, confirmed against git log and each project's own purpose text, and now carry a new `directories` field recording that mapping explicitly instead of leaving it implicit). Added a matching monorepo project-discovery function to the review engine (lib/engine.js discoverMonorepoProjects) so a future undeclared projects/* directory surfaces as a discovery requiring classification, the same guarantee discoverRepositories already gives for GitHub account repositories — closing the \"monorepo discovery\" gap named in gh-issue-140. No percentage invented anywhere in this pass: two new dimensions are NOT_CALCULABLE with a stated reason, one is IN_PROGRESS with a status only. Also recorded 2026-08-26: NEXT-STATUS-DISCLOSURE-REVIEW — the public Status Center carries the same class of infrastructure detail that OTHMODE reports now mask, which is a consistency question for the owner rather than something to fix piecemeal. Re-sync 2026-08-26T15:17Z: recorded a genuine platform change — OTHMODE Command History and Task Reports became publicly readable at 7252de2, redacted for anonymous callers, with the write surface verified still closed. PROJECT-OTHMODE headline, last_change, production dimension and evidence updated (EV-OTHMODE-PUBLIC-HISTORY, EV-OTHMODE-PUBLIC-VERIFIED). No other project or action changed; NEXT-EXPORTS remains the sole open owner decision. Re-sync 2026-08-26T14:38Z: no status changed. The only genuine new fact is that the publish-wipes-monitor-state fix was exercised by a real publish and held — monitor runtime state and the apex Hub feed both survived intact, which is the regression check the fix existed for. Recorded against EV-PUBLISH-WIPES-MONITOR-STATE. The board is otherwise steady: every execution-layer action is closed and NEXT-EXPORTS remains the sole owner decision. Re-sync 2026-08-26 after the owner published: NEXT-STATUS-PUBLISH closed — the live Status Center now serves REVIEW-2026-08-26-004 and matches the repository on every counted dimension (EV-STATUS-PUBLISHED-0826). The publish also exposed a real defect, now fixed: rsync --delete wiped the monitor's runtime state out of the shared docroot, taking the live panel and — via an nginx alias — the apex Hub's /api/status.json to 404, and permanently destroying data/live-history/ (EV-PUBLISH-WIPES-MONITOR-STATE). NEXT-OTHMODE-MONITOR closed 2026-08-26 after production verification: othmode.mythosprod.xyz and its Task Reports API are now monitored components of the existing STC-2 monitor (14 components live, both OTHMODE probes LIVE). Reconciliation pass 2026-08-26 (later the same day): closed three next_actions whose blockers were already DONE and whose live criteria were re-verified first-hand — NEXT-OTHK-STORE, NEXT-MOS-DEPLOY, NEXT-HUB-DEPLOY (evidence EV-STALE-RECONCILE-0826) — and marked ACTION-MOS-DEPLOY and ACTION-HUB-DNS DONE to match their own blockers. Added othmode.mythosprod.xyz to the existing STC-2 probe registry rather than building a second monitor (EV-OTHMODE-MONITOR-PROBE). Nothing was closed to make the board look finished: NEXT-STATUS-PUBLISH stays open because the live site is still unpublished, and every remaining owner decision is untouched. Also refreshed 2026-08-26: data/pr-ledger.json re-captured from the GitHub API (56 -> 90 PRs, #1-#90; 8 open, 78 merged, 4 closed-unmerged), correcting six entries that the 2026-08-20 snapshot still recorded as open (#53-#56 merged, #23 and #52 closed unmerged) and carrying curator notes across by PR number. PROJECT-COMMAND-CENTER updated against host evidence: its 'latest merged revision pending redeploy' caveat is closed (service restarted 2026-08-26 at aa4ca2d, no command-center code change since), and its relationship to OTHMODE is now stated — one Node process on 127.0.0.1:3021 serving both hostnames. Updated 2026-08-26 on the production VPS (deploy@vps-4722f0a9): added PROJECT-OTHMODE with five evidence records after the OTHMODE Task Reports release was merged (aa4ca2d), deployed and operator-verified first-hand on the host — the registry had carried no OTHMODE entry at all, which is why earlier re-syncs reported zero content change. Closed ACTION-STC2-INSTALL / NEXT-STC2-INSTALL against their own stated criteria (timer active and refreshing; published app.js byte-identical to the repository copy, carrying the live panel and the Arabic layer). Two genuinely outstanding items found while curating were recorded rather than left implicit: NEXT-STATUS-PUBLISH (the repository holds two unpublished reviews; the live site is behind because nothing published them, not because nothing re-synced) and NEXT-OTHMODE-MONITOR (othmode.mythosprod.xyz is not a monitored component). No percentage was invented: every OTHMODE dimension is recorded as a status with a note. Updated 2026-08-22 from the production VPS (deploy@vps-4722f0a9) after the real on-host OTH-KNOWLEDGE acceptance run: node tests/othk-live-gate.js --require-live → exit 0, VERDICT: LIVE PASS, 52 passed / 0 failed at ef91aa0a7083b9869b293a53030ce40ade4ad5a2. Only what that run actually proves was moved — the store/provisioning/deployment/production-verification dimensions and BLOCKER-OTHK-STORE. Track B real data remains OWNER_ACTION and PROJECT-OTH-KNOWLEDGE keeps status OWNER_ACTION for exactly that reason. Curated from a full audit on 2026-08-20: complete read of docs/AI_HANDOVER.md (15,892 lines), docs/ reconciliation, full git history (668 commits, repo born 2026-07-29), all 53 PRs, and the GitHub repository inventory. Every entry cites evidence; the review engine re-verifies what it can and marks the rest RECORDED.",
   "source_hierarchy": [
     {
       "source": "Current GitHub code (othoth77/mythos-prod main)",
@@ -717,6 +717,76 @@
       "reference": "scripts/deploy-sya-storefront.sh",
       "date": "2026-08-26",
       "note": "THE DEPLOYMENT SCRIPT REPORTED FAILURE ON A DEPLOYMENT THAT SUCCEEDED, and the defect was mine (OTH-2026-00018 wrote it, OTH-2026-00019 found and fixed it). Its step-5 smoke tests used `curl -I`. The upstream is GET-only and answers HEAD with 405 by design, so the primary 'HTTPS 200' check failed against a healthy site. Proven from the vhost's own access log, which records the script's probes from 51.68.226.211 at 20:01:52Z: HEAD / 405, three times. A second check was worse than wrong — it read Content-Type from the HEAD 405 response, which is also application/json, so it PASSED for entirely the wrong reason and would have false-greened a broken API. A third asserted POST /api/health returns 403 at the edge; it returns 405, because an exact-match nginx location beats a regex one and `location = /api/health` did not inherit the `limit_except` from `location ~ ^/api/`. FIXED: every probe is now a GET using `-D- -o /dev/null` so the checks read the headers users actually get; the write-refusal property is asserted twice and separately — 403 at the edge on a regex-governed /api/ path, and 403-or-405 on /api/health — so neither can hide the other; and a redirect-target check was added. The template now repeats limit_except inside the exact-match block so future installs refuse writes uniformly at the edge. THE LIVE VHOST STILL LACKS THAT LINE: writes to /api/health are refused by the upstream's 405 rather than by nginx, one layer later than every other path. That is a defence-in-depth gap, not an exposure — the request is still refused and nothing is written — and closing it needs a root edit, because this script deliberately never rewrites a certbot-managed vhost."
+    },
+    {
+      "id": "EV-MCP-ECOSYSTEM-DOC",
+      "type": "document",
+      "reference": "docs/MYTHOS_MCP_ECOSYSTEM.md",
+      "date": "2026-09-02",
+      "note": "MCP-ECOSYSTEM-1: full inventory, gap analysis and Phase 3-9 implementation record for the estate MCP registry, permission matrix, governed invoke, Vault credential-inventory metadata layer and OTHMODE MCP discovery fix. Verified on the production host 2026-09-02 00:14-00:26 UTC (component table, §6.2-6.4)."
+    },
+    {
+      "id": "EV-GATEWAY-BOUNDARY-TEST-0903",
+      "type": "test",
+      "reference": "tests/gateway-boundary-test.js",
+      "date": "2026-09-03",
+      "note": "Re-run this session (gh-issue-140): 37 passed / 0 failed. Covers the MCP HTTP bridge and ContextForge gateway boundary (bearer auth, no secret in the compose file or env example, runtime env files outside the worktree)."
+    },
+    {
+      "id": "EV-OTHMCP-TEST-0903",
+      "type": "test",
+      "reference": "tests/othk-6-mcp-server-test.js",
+      "date": "2026-09-03",
+      "note": "Re-run this session (gh-issue-140): 58 passed / 0 failed. OTH MCP server.js — 8 read-only tools, error-cause fidelity, malformed-body handling."
+    },
+    {
+      "id": "EV-MCP-ECOSYSTEM-TEST-0903",
+      "type": "test",
+      "reference": "tests/mcp-ecosystem-test.js",
+      "date": "2026-09-03",
+      "note": "Re-run this session (gh-issue-140): 168 passed / 0 failed, sections A-J: estate registry, registry check, permission matrix, governed invoke, executor route, OTHMODE discovery, Vault inventory (stat-only), and the no-secret/no-write boundary assertions."
+    },
+    {
+      "id": "EV-ORCHESTRATOR-TEST-RECORDED",
+      "type": "test",
+      "reference": "tests/mythos-orchestrator-0-test.js",
+      "date": "2026-09-02",
+      "note": "RECORDED result, not re-run this session: 156 passed / 0 failed per docs/AI_HANDOVER.md and docs/MOS_V2_M08_REGRESSION.md. Re-run attempted during the gh-issue-140 recuration and exceeded this sandbox's command timeout; the underlying code (projects/mythos-orchestrator/) has no commit since 2026-08-15, so the prior result is reused per AGENTS.md §8 (unchanged base commit)."
+    },
+    {
+      "id": "EV-ORCHESTRATION-CORE-TEST-RECORDED",
+      "type": "test",
+      "reference": "tests/mythos-orchestration-core-test.js",
+      "date": "2026-08-20",
+      "note": "RECORDED: 255 passed / 2 failed per docs/MOS_V2_M08_REGRESSION.md. The 2 failures are documented as pre-existing, expected VPS-only systemd checks that cannot run in a sandbox — not a regression."
+    },
+    {
+      "id": "EV-VAULT-INVENTORY-FILE",
+      "type": "file",
+      "reference": "projects/mythos-vault/credential-inventory.json",
+      "date": "2026-09-02",
+      "note": "Vault Architecture ADR §10 step 1 (metadata-only credential inventory): 20 references, 1 exclusion (governance key). bin/vault-inventory-check is stat-only and never opens a listed file. No credential backend chosen yet — recorded as an open owner decision, not invented as done."
+    },
+    {
+      "id": "EV-AI-ORCH-EVOLUTION-0903",
+      "type": "document",
+      "reference": "docs/AI_HANDOVER.md",
+      "date": "2026-09-03",
+      "note": "Post-v1 evolution of the AI Operating Layer, all delivered to feature branches via the governance relay and NOT YET merged to main: MYTHOS-GITHUB-ISSUES-0 (GitHub Issues as the official task intake), gh-issue-100 (Claude model selection policy), gh-issue-101 (Resource Guard admission gate), gh-issue-118-r2 (bridge retry/quota policy, runtime identity gate, lease-expiry recording, action inheritance rule), DAGU-HOSTOPS-0 / HOSTOPS-READONLY-0 / HOSTOPS-1 / HOSTOPS-2R (a root-owned, read-only host-operations boundary reached over a Unix socket, replacing a silently non-functional sudo path). Each stage carries its own test suite and handover entry; none of this work changes the v1 scope closure recorded in EV-MVP-COMPLETE / EV-PR-46, and none of it is claimed as merged or deployed until origin/main and a service restart confirm it."
+    },
+    {
+      "id": "EV-BRIDGE-PUSH-GUARD-COMMIT",
+      "type": "commit",
+      "reference": "b9a1e6c",
+      "date": "2026-09-03",
+      "note": "fix(bridge): F1 push guard proves the complete effective push url set (gh-issue-136). Merged to main."
+    },
+    {
+      "id": "EV-BRIDGE-TIMER-ONESHOT-COMMIT",
+      "type": "commit",
+      "reference": "cc41fd7",
+      "date": "2026-09-03",
+      "note": "fix(github-bridge): timer re-arms after every oneshot tick (gh-issue-134). Merged to main."
     }
   ],
   "repositories": [
@@ -961,6 +1031,9 @@
         "EV-M12",
         "EV-MOSV2-GATE",
         "EV-E2E-TEST"
+      ],
+      "directories": [
+        "projects/mythos-os-console"
       ]
     },
     {
@@ -1000,6 +1073,9 @@
         "EV-PR-47",
         "EV-PR-48",
         "EV-CC-SIMPLIFY"
+      ],
+      "directories": [
+        "projects/command-center"
       ]
     },
     {
@@ -1040,6 +1116,10 @@
         "EV-OTHMODE-STORE",
         "EV-OTHMODE-PUBLIC-HISTORY",
         "EV-OTHMODE-PUBLIC-VERIFIED"
+      ],
+      "directories": [
+        "projects/othmode",
+        "projects/command-center"
       ]
     },
     {
@@ -1091,6 +1171,9 @@
         "EV-OTHK-TESTS",
         "EV-TRACKB",
         "EV-PRIVATE-STORE"
+      ],
+      "directories": [
+        "projects/oth-knowledge"
       ]
     },
     {
@@ -1129,6 +1212,9 @@
         "EV-MPI-APPLY",
         "EV-MPI-BACKUP",
         "EV-K2-DISCOVERY"
+      ],
+      "directories": [
+        "projects/personal-intelligence"
       ]
     },
     {
@@ -1169,6 +1255,9 @@
         "EV-PR-16",
         "EV-IDA-MIGRATION",
         "EV-IDA-BOUNDARY"
+      ],
+      "directories": [
+        "projects/mythos-core"
       ]
     },
     {
@@ -1193,6 +1282,9 @@
       },
       "evidence": [
         "EV-REPO-SNAPSHOT"
+      ],
+      "directories": [
+        "projects/automotive"
       ]
     },
     {
@@ -1217,6 +1309,9 @@
       },
       "evidence": [
         "EV-REPO-SNAPSHOT"
+      ],
+      "directories": [
+        "projects/atelier-network"
       ]
     },
     {
@@ -1241,6 +1336,9 @@
       },
       "evidence": [
         "EV-REPO-SNAPSHOT"
+      ],
+      "directories": [
+        "projects/autovaleur"
       ]
     },
     {
@@ -1271,6 +1369,9 @@
       "evidence": [
         "EV-SYA-DEPLOY",
         "EV-SYA-DRIFT"
+      ],
+      "directories": [
+        "projects/ssangyong-autos"
       ]
     },
     {
@@ -1299,6 +1400,9 @@
       "evidence": [
         "EV-AUTOMATION-GATES",
         "EV-CF-INVENTORY"
+      ],
+      "directories": [
+        "projects/automation"
       ]
     },
     {
@@ -1388,6 +1492,9 @@
         "EV-PR-51",
         "EV-PR-53",
         "EV-VPS-GOV-ONHOST"
+      ],
+      "directories": [
+        "projects/infrastructure"
       ]
     },
     {
@@ -1475,10 +1582,10 @@
       "status": "DONE",
       "maturity": "PRODUCTION_VERIFIED",
       "repository": "othoth77/mythos-prod",
-      "last_change": "2026-08-19 (AOL v1 closure, PR #46)",
+      "last_change": "2026-09-03 (HOSTOPS-2R, GitHub issue #130 — most recent bridge/executor work; not yet merged to main)",
       "blocker": "MAOL-1 (multi-tenant operating layer) NOT AUTHORISED — entry gates O-MAOL-1..10 open. This is a deliberate stop, not a defect.",
-      "next_action": "None until the owner opens MAOL-1 (providers/DPAs, budget model, residency).",
-      "headline": "v1 COMPLETE AND CLOSED: executor deployed and proven on the VPS (real overlapping missions), Orchestration Core 2A–2M, budget ledger, crash-safe leases, autonomous loop that completed real missions unattended — 19 capabilities, 1,020 assertions, zero failures. Frozen state after the governance incident was resolved by the hardening closure.",
+      "next_action": "Owner merge decision on the accumulated unmerged branches (see docs/AI_HANDOVER.md for the exact branch list); until merged, the running mythos-ai-executor.service keeps its pre-evolution behaviour. MAOL-1 remains separately NOT AUTHORISED.",
+      "headline": "v1 COMPLETE AND CLOSED 2026-08-19 (frozen scope: executor deployed and proven on the VPS, Orchestration Core 2A-2M, budget ledger, crash-safe leases, autonomous loop — 19 capabilities, 1,020 assertions). SINCE THEN the same executor/bridge has kept evolving on feature branches, not yet merged: GitHub Issues is now the task intake, a model-selection policy, a resource-admission guard, a bridge retry/quota policy and a read-only HostOps boundary have all been implemented and tested (see EV-AI-ORCH-EVOLUTION-0903). The 2026-08-19 \"closed\" language previously stood alone here and read as if nothing had moved since — it had not been updated in this registry across ten days and roughly a dozen delivered stages.",
       "dimensions": {
         "implementation": {
           "percent": 100,
@@ -1492,13 +1599,23 @@
         "maol_phase_1": {
           "status": "NOT_STARTED",
           "note": "not authorised"
+        },
+        "post_v1_evolution": {
+          "status": "IN_PROGRESS",
+          "note": "Not a percentage: an open-ended sequence of bridge/executor stages, each individually tested and each on its own unmerged branch. See EV-AI-ORCH-EVOLUTION-0903."
         }
       },
       "evidence": [
         "EV-EXEC-DEPLOYED",
         "EV-MVP-COMPLETE",
         "EV-MAOL-SPEC",
-        "EV-PR-46"
+        "EV-PR-46",
+        "EV-AI-ORCH-EVOLUTION-0903",
+        "EV-BRIDGE-PUSH-GUARD-COMMIT",
+        "EV-BRIDGE-TIMER-ONESHOT-COMMIT"
+      ],
+      "directories": [
+        "projects/mythos-ai-executor"
       ]
     },
     {
@@ -1592,6 +1709,9 @@
         "EV-STC-LIVE",
         "EV-STC2-MONITOR",
         "EV-STC-AR"
+      ],
+      "directories": [
+        "projects/status-center"
       ]
     },
     {
@@ -1647,6 +1767,10 @@
       },
       "evidence": [
         "EV-REPO-SNAPSHOT"
+      ],
+      "directories": [
+        "projects/devx",
+        "projects/meta"
       ]
     },
     {
@@ -1671,6 +1795,9 @@
       },
       "evidence": [
         "EV-REPO-SNAPSHOT"
+      ],
+      "directories": [
+        "projects/research-intelligence"
       ]
     },
     {
@@ -1692,6 +1819,121 @@
       },
       "evidence": [
         "EV-OFFHOST"
+      ]
+    },
+    {
+      "id": "PROJECT-MYTHOS-GATEWAY",
+      "name": "MYTHOS Gateway (ContextForge + MCP HTTP bridge)",
+      "executive": false,
+      "purpose": "One HTTPS door in front of the MCP servers MYTHOS runs: ContextForge federation/auth/registry, the Streamable-HTTP bridge in front of OTH MCP, the estate MCP registry, the registry-availability check, and the permission matrix. Federates existing servers; replaces none of them.",
+      "status": "READY",
+      "maturity": "DEPLOYED",
+      "repository": "othoth77/mythos-prod",
+      "directories": [
+        "projects/mythos-gateway"
+      ],
+      "last_change": "2026-09-02 (MCP-ECOSYSTEM-1, Phases 3-9)",
+      "blocker": "Owner decisions only, recorded in docs/MYTHOS_MCP_ECOSYSTEM.md §5: no GitHub machine credential bound to the write-capable GitHub MCP peer (stays disabled by design), no per-client gateway token issued yet (chatgpt/claude), the registry-check systemd timer and the OOM drop-in were refused by the permission layer as root-only writes.",
+      "next_action": "Owner: bind cred_github_gateway, issue client tokens via ContextForge /tokens, install the mythos-mcp-registry-check timer.",
+      "headline": "Built and verified on the production host: the bridge and ContextForge are ONLINE on loopback, the gateway has been reachable at /gateway/ since ~2026-09-02 06:36 UTC (nginx reload happened outside this session), a real MCP handshake through ContextForge returned live Status Center data, and the estate registry/permission matrix/audit log all exist and were exercised end to end. Zero client tokens are issued, so nothing external can actually call through it yet.",
+      "dimensions": {
+        "implementation": {
+          "percent": "NOT_CALCULABLE",
+          "basis": "NOT_AVAILABLE",
+          "note": "No stage list recorded; see the component table in docs/MYTHOS_MCP_ECOSYSTEM.md §1.1 for per-part state instead of one invented number."
+        },
+        "production": {
+          "status": "READY",
+          "note": "Public since 2026-09-02; 0 issued client credentials (see blocker)."
+        }
+      },
+      "evidence": [
+        "EV-MCP-ECOSYSTEM-DOC",
+        "EV-GATEWAY-BOUNDARY-TEST-0903",
+        "EV-MCP-ECOSYSTEM-TEST-0903"
+      ]
+    },
+    {
+      "id": "PROJECT-MYTHOS-ORCHESTRATOR",
+      "name": "Mythos Orchestrator (Claude/Codex delegation runtime)",
+      "executive": false,
+      "purpose": "Provider-neutral delegation runtime so Claude can hand bulk implementation work to a worker provider (today Codex) while remaining the accountable orchestrator: task -> provider -> result -> Git verification -> report. Distinct from the executor's own internal Orchestration Core (budget/leases/campaigns).",
+      "status": "READY",
+      "maturity": "TESTED",
+      "repository": "othoth77/mythos-prod",
+      "directories": [
+        "projects/mythos-orchestrator"
+      ],
+      "last_change": "2026-08-15 (notify.sh / phone-setup.sh hardening — no code change since)",
+      "blocker": "None recorded; governed by AGENTS.md §25 (Claude decides what to delegate, verifies every result against Git, never accepts an unverified claim).",
+      "next_action": "None open; used as-needed for delegated implementation work.",
+      "headline": "Router, runner, verifier and the Codex provider adapter are implemented and tested; the verifier re-derives every claim from Git rather than trusting the worker's own report. No dedicated systemd service — it runs inline inside a Claude session, so \"deployed\" does not apply the way it does to a daemon.",
+      "dimensions": {
+        "implementation": {
+          "percent": "NOT_CALCULABLE",
+          "basis": "NOT_AVAILABLE",
+          "note": "No stage list recorded for this component; test suites are the available evidence."
+        }
+      },
+      "evidence": [
+        "EV-ORCHESTRATOR-TEST-RECORDED",
+        "EV-ORCHESTRATION-CORE-TEST-RECORDED"
+      ]
+    },
+    {
+      "id": "PROJECT-MYTHOS-VAULT",
+      "name": "MYTHOS Vault (credential inventory layer)",
+      "executive": false,
+      "purpose": "Central, evidence-based credential inventory: which secret exists, where its value actually lives (env file / systemd drop-in), its expected owner and file mode, referenced by cred_... id from every other registry so nothing else names a raw secret. No backend chosen yet — this is ADR §10 step 1 only.",
+      "status": "OWNER_ACTION",
+      "maturity": "RUNTIME_IMPLEMENTED",
+      "repository": "othoth77/mythos-prod",
+      "directories": [
+        "projects/mythos-vault"
+      ],
+      "last_change": "2026-09-02 (MCP-ECOSYSTEM-1 Phase 5)",
+      "blocker": "No credential backend chosen (docs/MYTHOS_VAULT_ARCHITECTURE.md is a design document; today every value still lives in a 0600 env file or systemd drop-in, referenced by id only, never brokered).",
+      "next_action": "Owner: choose and stand up the Vault backend the ADR proposes; until then the inventory stays metadata-only by design.",
+      "headline": "credential-inventory.json + bin/vault-inventory-check exist and were verified: 20 references checked, 0 drift, stat-only (the checker never opens a listed file's contents). This is the metadata layer the ADR names as the only step allowed without a new owner decision — nothing more is claimed.",
+      "dimensions": {
+        "implementation": {
+          "percent": "NOT_CALCULABLE",
+          "basis": "NOT_AVAILABLE",
+          "note": "ADR names a multi-step plan; only step 1 has a stage list entry so far."
+        }
+      },
+      "evidence": [
+        "EV-VAULT-INVENTORY-FILE",
+        "EV-MCP-ECOSYSTEM-DOC",
+        "EV-MCP-ECOSYSTEM-TEST-0903"
+      ]
+    },
+    {
+      "id": "PROJECT-OTH-MCP",
+      "name": "OTH MCP server (governed read interface)",
+      "executive": false,
+      "purpose": "The controlled read-only interface over existing MYTHOS capabilities for AI clients: 8 tools resolving to OTH Knowledge, OTHMODE, the AI Executor and Status Center. Holds no data or authority of its own; every tool must name the system it routes to.",
+      "status": "DONE",
+      "maturity": "PRODUCTION_VERIFIED",
+      "repository": "othoth77/mythos-prod",
+      "directories": [
+        "projects/oth-mcp"
+      ],
+      "last_change": "2026-08-31 (a missing-record vs. broken-upstream distinction fix)",
+      "blocker": "None — read-only by design, v1 scope complete.",
+      "next_action": "None open for v1. A write tool is explicitly out of scope.",
+      "headline": "ONLINE and verified live on the production host: tools/list returns 8, system_health / budget_status / capability_registry all answered with real data through a real MCP handshake via ContextForge. Reached today over stdio (SSH) and over the Streamable-HTTP bridge; no client is yet configured on-host to call it automatically (no consumer misses anything — the interface is exercised, nothing consumes it unattended).",
+      "dimensions": {
+        "implementation": {
+          "percent": 100,
+          "basis": "CALCULATED",
+          "note": "v1 scope (8 read-only tools) complete and deployed"
+        }
+      },
+      "evidence": [
+        "EV-OTHMCP-TEST-0903",
+        "EV-MCP-ECOSYSTEM-DOC",
+        "EV-MCP-ECOSYSTEM-TEST-0903"
       ]
     }
   ],

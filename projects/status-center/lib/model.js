@@ -161,6 +161,11 @@ function validateRegistry(reg) {
     need(isMaturity(p.maturity), 'project ' + p.id + ' bad maturity: ' + p.maturity);
     need(typeof p.name === 'string' && p.name.length > 0, 'project ' + p.id + ' missing name');
     need(typeof p.purpose === 'string' && p.purpose.length > 0, 'project ' + p.id + ' missing purpose');
+    if (p.directories !== undefined) {
+      need(Array.isArray(p.directories) && p.directories.every(function (d) {
+        return typeof d === 'string' && /^projects\//.test(d);
+      }), 'project ' + p.id + ' bad directories (must be an array of "projects/..." paths)');
+    }
     checkEvidenceRefs(p, 'project ' + p.id);
     (p.dimensions ? Object.keys(p.dimensions) : []).forEach(function (k) {
       const d = p.dimensions[k];
