@@ -12,7 +12,7 @@
 | Runtime | `ff9f71b51e41` on `main` |
 | Model | `claude-sonnet-5` (explicit:sonnet (requested "sonnet")) |
 | Branch | `mythos/gh/gh-issue-139` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Verified gh-issue-138's Rerun-fix verification commit (163158e) reached origin: 
 
 ## Commits
 
-- `3d759a16a53a14a433d798e136a72a3cf8ba5647` docs(github-issues): confirm gh-issue-138 rerun-fix verification commit delivered to origin (gh-issue-139) (awaiting relay)
+- `3d759a16a53a14a433d798e136a72a3cf8ba5647` docs(github-issues): confirm gh-issue-138 rerun-fix verification commit delivered to origin (gh-issue-139) (on origin)
 
 ## Files changed
 

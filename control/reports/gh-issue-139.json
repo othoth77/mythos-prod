@@ -65,7 +65,7 @@
       "sha": "3d759a16a53a14a433d798e136a72a3cf8ba5647",
       "subject": "docs(github-issues): confirm gh-issue-138 rerun-fix verification commit delivered to origin (gh-issue-139)",
       "branch": "mythos/gh/gh-issue-139",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -129,7 +129,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-139",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-03T19:01:20.617Z"
   }
 }
