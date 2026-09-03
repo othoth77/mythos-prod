@@ -12,7 +12,7 @@
 | Runtime | `5482db8c2dae` on `main` |
 | Model | `claude-sonnet-5` (auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]) |
 | Branch | `mythos/gh/gh-issue-146` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Re-verified issue #146 (an independent re-run of #141, whose prior verification 
 
 ## Commits
 
-- `c31bfbb73cb6bd47d02055ece764ef14fbf15022` docs(handover): gh-issue-146 WhatsApp provider deployment re-verified, still BLOCKED (awaiting relay)
+- `c31bfbb73cb6bd47d02055ece764ef14fbf15022` docs(handover): gh-issue-146 WhatsApp provider deployment re-verified, still BLOCKED (on origin)
 
 ## Files changed
 

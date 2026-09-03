@@ -78,7 +78,7 @@
       "sha": "c31bfbb73cb6bd47d02055ece764ef14fbf15022",
       "subject": "docs(handover): gh-issue-146 WhatsApp provider deployment re-verified, still BLOCKED",
       "branch": "mythos/gh/gh-issue-146",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -141,7 +141,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-146",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-03T21:03:40.789Z"
   }
 }
