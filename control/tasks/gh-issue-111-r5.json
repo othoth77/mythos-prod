@@ -20,7 +20,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T11:49:39.774Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #111 https://github.com/othoth77/mythos-prod/issues/111 — \"تنفيذ WhatsApp Bridge وإنشاء PR — repo-write\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") — not inherited: previous attempt gh-issue-111-r4 records no action_source (pre-engine parser) — unknown provenance is not inherited → execution profile repo-write\n\n- Investigation #109 حدّد التعارضات.\n- Implementation attempt #110 حُظر بسبب تحويل المهمة إلى repo-read وعدم وجود structured report.\n- Attempt #111 حُظر لأن Bridge لم يلتقط Action: implement صراحةً وحوّلها إلى repo-read.\n- PR #108 كان متعارضًا.\n\n[التنفيذ الإلزامي]\n1. استخدم أحدث `origin/main` كقاعدة.\n2. أعد تطبيق WhatsApp notification layer فقط من `b37491f`.\n3. حل التعارضات مع الحفاظ على أحدث تغييرات main، خصوصًا GitHub Issues/Rerun وModel Policy وResource Guard وBridge Timer.\n\n[النتيجة]\nPR جديد mergeable يحتوي فقط على WhatsApp Bridge layer بعد حل التعارضات، مع تقرير COMPLETED واضح.",
@@ -142,5 +142,64 @@
         "mythos:human-approval"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903114946-2w7m3q",
+    "othmode_task_id": "OTH-2026-00054",
+    "attempt_id": "gh-issue-111-r5#5",
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "expected_delivery": "commit",
+    "model_key": null,
+    "model_requested": null,
+    "model_source": "none",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-111-r5",
+    "branch": "mythos/gh/gh-issue-111-r5",
+    "base_commit": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "claimed_at": "2026-09-03T11:49:46.264Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "3924903e809983df0070d501f74808dca5eecd4591ca148749f589aa228acb53",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T11:49:46.265Z",
+    "snapshot_sha256": "52b59028c246613d03b2a2ebf88af938694b8f40e00f730e6e7e992ca6c27652",
+    "fence": 161,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:4125467",
+      "fence": 161,
+      "acquired_at": "2026-09-03T11:49:46.264Z",
+      "expires_at": "2026-09-03T13:19:46.264Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+      "branch": "main",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-03T11:49:44.571Z"
+    },
+    "model": "claude-sonnet-5",
+    "model_selection_mode": "auto"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T11:49:46.323Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903114946-2w7m3q queued; OTHMODE OTH-2026-00054; action implement (explicit_current_issue) → repo-write; model claude-sonnet-5; fence 161"
+    }
+  ]
 }
