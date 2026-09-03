@@ -7,7 +7,7 @@
 | OTHMODE task | `OTH-2026-00032` |
 | Profile | repo-write |
 | Branch | `mythos/gh/gh-issue-103-r2` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -16,7 +16,7 @@ Fixed the four latent rerun defects confirmed by the read-only #103 investigatio
 
 ## Commits
 
-- `7bc40caa00b6ae469b94a3ae4c4299af462fadda` fix(github-issues): make Issue reruns lossless — label after commit, action/section inheritance, Issue-side feedback (awaiting relay)
+- `7bc40caa00b6ae469b94a3ae4c4299af462fadda` fix(github-issues): make Issue reruns lossless — label after commit, action/section inheritance, Issue-side feedback (on origin)
 
 ## Files changed
 

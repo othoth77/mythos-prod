@@ -14,7 +14,7 @@
       "sha": "7bc40caa00b6ae469b94a3ae4c4299af462fadda",
       "subject": "fix(github-issues): make Issue reruns lossless — label after commit, action/section inheritance, Issue-side feedback",
       "branch": "mythos/gh/gh-issue-103-r2",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -64,7 +64,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-103-r2",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-03T00:22:22.142Z"
   }
 }
