@@ -161,6 +161,12 @@
         "control_status": "BLOCKED",
         "report_file": "control/reports/gh-issue-141-r2.json",
         "commits_on_origin": false
+      },
+      "delivered": {
+        "comment_id": 5531329020,
+        "url": "https://github.com/othoth77/mythos-prod/issues/141#issuecomment-5531329020",
+        "at": "2026-09-03T19:56:12.222Z",
+        "existed": false
       }
     },
     "labels": {
