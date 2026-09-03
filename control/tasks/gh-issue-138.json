@@ -135,6 +135,16 @@
         "at": "2026-09-03T18:47:44.212Z",
         "existed": false,
         "executor_task_id": "t-20260903184742-ha8ofh"
+      },
+      "report": {
+        "comment_id": 5530560650,
+        "url": "https://github.com/othoth77/mythos-prod/issues/138#issuecomment-5530560650",
+        "at": "2026-09-03T18:51:22.013Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "control_status": "COMPLETED",
+        "report_file": "control/reports/gh-issue-138.json",
+        "commits_on_origin": false
       }
     },
     "labels": {
@@ -142,7 +152,8 @@
         "mythos:queued"
       ],
       "removed": []
-    }
+    },
+    "issue_state": "COMPLETED"
   },
   "execution": {
     "executor_task_id": "t-20260903184742-ha8ofh",
