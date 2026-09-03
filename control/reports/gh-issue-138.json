@@ -69,7 +69,7 @@
       "sha": "163158e107fd7b73995b721beb48b706e6bab19c",
       "subject": "docs(github-issues): verify gh-issue-138 rerun fix (A-D) already delivered by gh-issue-103-r2",
       "branch": "mythos/gh/gh-issue-138",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -131,7 +131,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-138",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-03T18:56:21.022Z"
   }
 }

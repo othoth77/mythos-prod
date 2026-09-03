@@ -12,7 +12,7 @@
 | Runtime | `ff9f71b51e41` on `main` |
 | Model | `claude-sonnet-5` (explicit:sonnet (requested "sonnet")) |
 | Branch | `mythos/gh/gh-issue-138` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ GitHub Issue #138 restated the 4 rerun defects (A-D) from the #103 investigation
 
 ## Commits
 
-- `163158e107fd7b73995b721beb48b706e6bab19c` docs(github-issues): verify gh-issue-138 rerun fix (A-D) already delivered by gh-issue-103-r2 (awaiting relay)
+- `163158e107fd7b73995b721beb48b706e6bab19c` docs(github-issues): verify gh-issue-138 rerun fix (A-D) already delivered by gh-issue-103-r2 (on origin)
 
 ## Files changed
 
