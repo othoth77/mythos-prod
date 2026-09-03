@@ -57,6 +57,11 @@
     "next_recommended_action": { "type": "string", "maxLength": 4000 },
     "completed_at": { "type": "string", "minLength": 20, "maxLength": 40 },
     "execution": { "type": "object" },
-    "delivery": { "type": "object" }
+    "delivery": { "type": "object" },
+    "attempt_id": { "type": ["string", "null"], "maxLength": 48 },
+    "resolution": { "type": "object", "description": "requested_action, action_raw, action_source, execution_profile, expected_profile, model_requested, model_key, model, model_source — the decision the attempt ran under." },
+    "blocker": { "type": ["object", "null"], "description": "Present when the attempt stopped on a classified blocker: { code, reason, retryable, ... } — ACTION_PROFILE_MISMATCH, MODEL_UNAVAILABLE, ATTEMPT_SNAPSHOT_MUTATED, PERMISSION_DENIED, GOVERNANCE_DENIED, HUMAN_APPROVAL, NO_STRUCTURED_REPORT, PROVIDER_BLOCKED, PROVIDER_FAILED, STALE_WORKER. None of these is retried automatically." },
+    "runtime_identity": { "type": ["object", "null"], "description": "Which bridge code produced this report: checkout, branch, HEAD, dirty, verified. verified:false means RUNTIME_IDENTITY_UNVERIFIED." },
+    "structured_report": { "type": ["object", "null"], "description": "The provider's mythos_report block, or the executor-synthesised one (synthesized:true) when the provider ended without a usable block — always present for an executed attempt." }
   }
 }

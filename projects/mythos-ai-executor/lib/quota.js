@@ -59,6 +59,20 @@ var BLOCKED_PATTERNS = [
   /OAuth token has expired/i
 ];
 
+// Permission / governance denials from the headless CLI or the relay. They
+// are BLOCKED (a human grants, or the task is re-scoped) and they carry a
+// code so the bridge can classify the retry policy without pattern matching
+// again: none of these is ever retried automatically.
+var PERMISSION_PATTERNS = [
+  /permission (?:denied|required|prompt)/i,
+  /requires? approval/i,
+  /(?:tool|command|edit|write) .{0,40}(?:was |is )?(?:denied|not allowed|refused)/i,
+  /denied by (?:policy|governance)/i,
+  /\bDENIED\b/,
+  /protected path/i,
+  /EACCES/
+];
+
 function matchAny(patterns, text) {
   if (typeof text !== 'string' || !text) return false;
   for (var i = 0; i < patterns.length; i++) {
@@ -75,11 +89,24 @@ function isBlocked(text) { return matchAny(BLOCKED_PATTERNS, text); }
 // result message and raw stderr/stdout tails. Precedence: quota > blocked >
 // transient > fatal. Success is decided by the caller from the structured
 // result, never here.
+function isPermissionDenied(text) { return matchAny(PERMISSION_PATTERNS, text); }
+
 function classifyFailure(text) {
   if (isQuota(text)) return 'quota';
-  if (isBlocked(text)) return 'blocked';
+  if (isBlocked(text) || isPermissionDenied(text)) return 'blocked';
   if (isTransient(text)) return 'transient';
   return 'fatal';
+}
+
+// Same decision, plus the blocker code the structured report carries.
+// { kind, code }  — code is null for quota/transient (they are continuations,
+// not blockers).
+function classifyFailureDetail(text) {
+  var kind = classifyFailure(text);
+  var code = null;
+  if (kind === 'blocked') code = isPermissionDenied(text) && !isBlocked(text) ? 'PERMISSION_DENIED' : 'PROVIDER_BLOCKED';
+  if (kind === 'fatal') code = 'PROVIDER_FAILED';
+  return { kind: kind, code: code };
 }
 
 // --- Reset-time extraction -------------------------------------------------
@@ -159,6 +186,8 @@ module.exports = {
   isTransient: isTransient,
   isBlocked: isBlocked,
   classifyFailure: classifyFailure,
+  classifyFailureDetail: classifyFailureDetail,
+  isPermissionDenied: isPermissionDenied,
   parseResetTime: parseResetTime,
   quotaResumeAt: quotaResumeAt,
   retryDelayMs: retryDelayMs,

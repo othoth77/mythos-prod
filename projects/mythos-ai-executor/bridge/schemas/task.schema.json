@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "MYTHOS control TASK (mythos-control/1)",
-  "description": "One task file at control/tasks/<task_id>.json on the control branch. Written by an external planner (ChatGPT or the owner). Everything here is DATA: nothing in a task can select a provider, a working directory, a tool, a credential or an execution profile beyond what requested_action maps to server-side. The single exception is `model` (Issue #100), which picks an entry from the server-side model catalog and carries no authority of any kind. The bridge adds the `execution` and `history` blocks after the claim; a creator must not write them.",
+  "description": "One task file at control/tasks/<task_id>.json on the control branch. Written by an external planner (ChatGPT or the owner). Everything here is DATA: nothing in a task can select a provider, a working directory, a tool, a credential or an execution profile beyond what requested_action maps to server-side. The single exception is `model` (Issue #100), which picks an entry from the server-side model catalog and carries no authority of any kind. requested_action maps to an execution profile server-side (bridge/action-resolution.js); the bridge refuses any attempt whose profile does not match that map (ACTION_PROFILE_MISMATCH) and any explicitly named model that is not available (MODEL_UNAVAILABLE) BEFORE a provider starts — never a silent substitution. The bridge adds the `execution` and `history` blocks after the claim; a creator must not write them.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -27,15 +27,15 @@
       "pattern": "^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$"
     },
     "project": { "type": "string", "minLength": 2, "maxLength": 64, "pattern": "^[a-z0-9][a-z0-9-]*$" },
-    "objective": { "type": "string", "minLength": 10, "maxLength": 8000 },
-    "scope": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
-    "constraints": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 1000 } },
+    "objective": { "type": "string", "minLength": 10, "maxLength": 20000 },
+    "scope": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 2000 } },
+    "constraints": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 2000 } },
     "priority": { "type": "string", "enum": ["low", "normal", "high"] },
     "requested_action": {
       "type": "string",
       "enum": ["investigate", "review", "test", "document", "implement"]
     },
-    "validation_requirements": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 300 } },
+    "validation_requirements": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 2000 } },
     "status": {
       "type": "string",
       "enum": ["PENDING", "CLAIMED", "IN_PROGRESS", "VALIDATING", "COMPLETED", "BLOCKED", "FAILED", "CANCELLED"]
@@ -45,7 +45,11 @@
     "depends_on": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{4,38}[a-z0-9]$" } },
     "timeout_seconds": { "type": "integer", "minimum": 60, "maximum": 21600 },
     "max_turns": { "type": ["integer", "null"], "minimum": 1, "maximum": 500 },
-    "notes": { "type": "string", "maxLength": 4000 },
+    "notes": { "type": "string", "maxLength": 16000 },
+    "action_raw": { "type": ["string", "null"], "maxLength": 100, "description": "The Action exactly as the creator wrote it (before normalisation), recorded by bridge/action-resolution.js so the decision can be audited without re-parsing the Issue." },
+    "action_source": { "type": ["string", "null"], "enum": ["explicit_current_issue", "action_label", "inherited_previous_attempt", "default", "task_file", null], "description": "Where requested_action came from, in precedence order: explicit Action in the current Issue body > action:<x> label > inherited from the previous attempt (rerun only) > configured default. A planner-written task file may omit it (the bridge records task_file)." },
+    "model_raw": { "type": ["string", "null"], "maxLength": 100, "description": "The Model exactly as written (e.g. \"Fable 5.1\"); `model` holds the catalog key it resolved to." },
+    "model_source": { "type": ["string", "null"], "enum": ["explicit_current_issue", "model_label", "inherited_previous_attempt", "task_file", "none", null] },
     "model": {
       "type": ["string", "null"],
       "maxLength": 40,
@@ -71,6 +75,11 @@
         "issue_state": { "type": ["string", "null"], "maxLength": 20 },
         "content_sha256": { "type": "string", "maxLength": 64 },
         "attempt": { "type": "integer", "minimum": 1 },
+        "attempt_id": { "type": ["string", "null"], "maxLength": 48 },
+        "idempotency_key": { "type": ["string", "null"], "maxLength": 64 },
+        "resolution": { "type": "object", "description": "The engine's decision record: requested_action / action_raw / action_source / candidates, execution_profile, model_key / model_raw / model_source / model_available." },
+        "truncated": { "type": "array", "items": { "type": "object" } },
+        "events": { "type": "array", "items": { "type": "object" } },
         "rerun_of": { "type": ["string", "null"], "maxLength": 40 },
         "inherited_from": { "type": ["string", "null"], "maxLength": 40 },
         "inherited": { "type": "object" },

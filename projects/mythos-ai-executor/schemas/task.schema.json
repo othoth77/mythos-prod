@@ -46,7 +46,7 @@
     "instruction": {
       "type": "string",
       "minLength": 1,
-      "maxLength": 20000
+      "maxLength": 64000
     },
     "priority": {
       "type": "string",
@@ -229,6 +229,34 @@
         "pattern": "^[a-z0-9_-]+\\.[a-z0-9_-]+$",
         "maxLength": 120
       }
+    },
+    "action_source": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 40
+    },
+    "action_raw": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 100
+    },
+    "attempt_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 64
+    },
+    "snapshot_sha256": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "pattern": "^[0-9a-f]{64}$"
     }
   }
 }

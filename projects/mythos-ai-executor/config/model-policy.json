@@ -40,8 +40,8 @@
       "display_name": "Fable 5.1",
       "aliases": ["fable 5.1", "fable-5.1", "fable 5-1", "claude-fable-5-1"],
       "auto_selectable": false,
-      "enabled": false,
-      "disabled_reason": "not offered by the installed Claude CLI (2.1.251 ships fable only as claude-fable-5); set enabled:true here — no code change — once `claude --model claude-fable-5-1` is accepted on this host"
+      "enabled": true,
+      "verified": "2026-09-03 on this host: `claude -p --output-format json --model claude-fable-5-1` (Claude Code 2.1.251) returned is_error:false with modelUsage keyed claude-fable-5-1 — the earlier 'not offered by the installed CLI' note was stale. Still auto_selectable:false: it runs only when a task names it."
     }
   },
   "auto": {

@@ -30,6 +30,9 @@ var skills = require('./lib/skills');
 var mcpCapabilities = require('./lib/mcp-capabilities');
 var modelPolicy = require('./lib/model-policy');
 var resourceGuard = require('./lib/resource-guard');
+// requested_action → execution_profile invariant and attempt immutability
+// (shared with the GitHub bridge and the Issues adapter — one engine).
+var engine = require('./bridge/action-resolution');
 
 var schema = require('../mythos-orchestrator/lib/schema');
 var redact = require('../mythos-orchestrator/lib/redact');
@@ -113,6 +116,16 @@ function createTask(input) {
   // the record because the model policy scores against this profile.
   var executionProfile = isExecution ? (input.execution_profile || policy.DEFAULT_PROFILE) : null;
 
+  // ACTION_PROFILE_MISMATCH — the central invariant. A task whose category is
+  // one of the closed bridge actions (investigate/review/test/document/
+  // implement) may only be created under the profile that action maps to.
+  // Refused here, before anything persists, so no provider can ever start an
+  // `implement` under repo-read (gh-issue-111/114/117/118) or an
+  // `investigate` under repo-write.
+  if (isExecution && input.task_category && engine.PROFILE_BY_ACTION[input.task_category]) {
+    engine.assertActionProfile(input.task_category, executionProfile, { task_id: input.attempt_id || input.stage || null, attempt_id: input.attempt_id || null });
+  }
+
   // Issue #100 — model selection. Only the Claude execution provider is
   // governed here: openai-compat and gemini carry THEIR OWN model names
   // (config/agents.json), a Claude model id would be meaningless there, and
@@ -122,7 +135,9 @@ function createTask(input) {
   // (the fable family) can never become this system's default by omission.
   var modelChoice = null;
   var fallbackModel = input.fallback_model || null;
-  if (provider === 'claude-code') {
+  // The mock stands in for the execution provider in tests and resolves the
+  // model the same way, so an explicit `Model:` is exercised end to end.
+  if (provider === 'claude-code' || provider === 'mock') {
     modelChoice = modelPolicy.selectModel({
       requested: input.model,
       execution_profile: executionProfile,
@@ -165,6 +180,9 @@ function createTask(input) {
     repository: projectCfg.repository || null,
     branch: input.branch || projectCfg.default_branch || null,
     task_category: input.task_category || null,
+    action_source: input.action_source || null,
+    action_raw: input.action_raw || null,
+    attempt_id: input.attempt_id || null,
     required_tests: input.required_tests || [],
     constraints: input.constraints || [],
     expected_delivery: input.expected_delivery || 'report',
@@ -175,6 +193,10 @@ function createTask(input) {
   };
 
   if (!task.instruction.trim()) throw new Error('INVALID_TASK: instruction is empty');
+
+  // The immutable decision of this attempt, sealed at creation and re-verified
+  // before every provider launch (ATTEMPT_SNAPSHOT_MUTATED).
+  task.snapshot_sha256 = attemptSnapshotOf(task);
 
   // Fail closed on disabled profiles before anything persists.
   if (task.execution_profile) policy.getProfile(task.execution_profile);
@@ -259,6 +281,79 @@ function createTask(input) {
     });
   }
   return task;
+}
+
+function attemptSnapshotOf(task) {
+  return engine.attemptSnapshot({
+    task_id: task.task_id, attempt_id: task.attempt_id || null, requested_action: task.task_category || null,
+    action_raw: task.action_raw || null, action_source: task.action_source || null,
+    execution_profile: task.execution_profile || null, model: task.model || null, instruction: task.instruction,
+    constraints: task.constraints || [], required_tests: task.required_tests || [],
+    working_directory: task.working_directory || null, branch: task.branch || null
+  });
+}
+
+// Everything that must hold BEFORE a provider process is spawned — checked on
+// the durable task.json, on every start AND every resume. Returns null or a
+// blocker { code, reason, retryable:false, ... }.
+function preflightBlocker(task) {
+  if (task.snapshot_sha256) {
+    var snap = engine.checkSnapshot({
+      task_id: task.task_id, attempt_id: task.attempt_id || null, requested_action: task.task_category || null,
+      action_raw: task.action_raw || null, action_source: task.action_source || null,
+      execution_profile: task.execution_profile || null, model: task.model || null, instruction: task.instruction,
+      constraints: task.constraints || [], required_tests: task.required_tests || [],
+      working_directory: task.working_directory || null, branch: task.branch || null
+    }, task.snapshot_sha256);
+    if (!snap.ok) {
+      return engine.blocker(snap.code, { reason: snap.reason, expected: snap.expected, observed: snap.sha256, task_id: task.task_id, attempt_id: task.attempt_id || null,
+        requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
+    }
+  }
+  if (task.task_category && engine.PROFILE_BY_ACTION[task.task_category]) {
+    var c = engine.checkActionProfile(task.task_category, task.execution_profile);
+    if (!c.ok) {
+      return engine.blocker(c.code, { reason: c.reason, requested_action: task.task_category, action_raw: task.action_raw || null, action_source: task.action_source || null,
+        execution_profile: task.execution_profile || null, expected_profile: c.expected_profile, actual_profile: c.actual_profile, task_id: task.task_id, attempt_id: task.attempt_id || null });
+    }
+  }
+  if ((task.provider === 'claude-code' || task.provider === 'mock') && task.model) {
+    var hit = modelPolicy.lookupKey(task.model);
+    if (!hit || !hit.enabled) {
+      return engine.blocker(engine.BLOCKER_CODES.MODEL_UNAVAILABLE, {
+        reason: 'model "' + task.model + '" ' + (hit ? 'is not available on this host: ' + (hit.disabled_reason || 'disabled in config/model-policy.json') : 'is not in the model catalog on this host') + ' — it was NOT replaced by another model',
+        requested_model: task.model, model_key: hit ? hit.key : null, actual_model: null, available_models: modelPolicy.availableLabels(),
+        task_id: task.task_id, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null
+      });
+    }
+  }
+  return null;
+}
+
+// Stops a RUNNING task on a preflight blocker: BLOCKED, with a structured
+// (synthesised) mythos_report on report.json — so the bridge and the Issue
+// see the exact code and reason — and NO provider process.
+function blockBeforeProvider(task, taskId, blocker) {
+  var status = state.transition(taskId, 'BLOCKED', {
+    pid: null, ended_at: new Date().toISOString(),
+    last_error: blocker.code + ': ' + String(blocker.reason).slice(0, 400),
+    next_action: blocker.code + ' — refused before the provider started: ' + String(blocker.reason).slice(0, 300)
+  });
+  var structured = reporting.synthesize({
+    status: 'blocked', task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null,
+    action_raw: task.action_raw || null, action_source: task.action_source || null, execution_profile: task.execution_profile || null,
+    model: task.model || null, branch: task.branch || null, blocker: blocker,
+    summary: blocker.code + ': ' + blocker.reason + ' No provider process was started.'
+  });
+  state.writeJSON(taskId, 'report.json', {
+    task_id: taskId, report: null, structured: structured, blocker: blocker,
+    problems: [blocker.code + ': ' + String(blocker.reason).slice(0, 800)], git: { git_verified: null, remote_head: null, report_problems: [] }, provider_result_tail: ''
+  });
+  state.writeText(taskId, 'report.md', reporting.renderMarkdown(task, status, structured, { report_problems: [blocker.code] }));
+  writeCheckpoint(task, status, { current_step: 'preflight_blocked', next_action: status.next_action });
+  state.appendEvent(taskId, 'preflight_blocked', Object.assign({ status: 'BLOCKED' }, blocker));
+  notify('task_failed', task.stage, taskId + ' BLOCKED ' + blocker.code);
+  return status;
 }
 
 // --- Checkpointing (mission §15) ---------------------------------------------
@@ -520,6 +615,11 @@ function runTaskCore(taskId, opts) {
     resumeNote = 'The previous session could not be resumed (missing session). This is a FRESH session: the previous checkpoint and report above are your only continuity — trust Git over memory.';
   }
 
+  // Invariant gate: nothing below this line runs for an attempt whose
+  // decision is inconsistent, mutated or unrunnable on this host.
+  var pre = preflightBlocker(task);
+  if (pre) return Promise.resolve(blockBeforeProvider(task, taskId, pre));
+
   var prompt = buildPrompt(task, status, resumeNote);
   state.writeText(taskId, 'prompt.md', prompt);
 
@@ -560,6 +660,23 @@ function handleSuccess(task, taskId, outcome, parsed) {
   // instead of opening stdout.log to guess (gh-issue-112).
   if (!report) { finalState = 'BLOCKED'; nextAction = 'provider produced no structured report: ' + (extracted.error || 'unknown reason') + ' — review stdout.log'; }
 
+  // A structured report ALWAYS exists from here on: the provider's own, or a
+  // synthesised one carrying the diagnosis (never a bare "no report").
+  var blocker = null;
+  if (report && report.status === 'blocked') {
+    var text = [report.summary, report.next_stage].concat(report.residual_risks || []).join('\n');
+    var code = quota.isPermissionDenied(text) ? 'PERMISSION_DENIED' : (/governance|protected path|DENIED/i.test(text) ? 'GOVERNANCE_DENIED' : 'HUMAN_APPROVAL');
+    blocker = engine.blocker(code, { reason: String(report.summary || '').slice(0, 800), task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
+  } else if (report && report.status === 'failed') {
+    blocker = engine.blocker('PROVIDER_FAILED', { reason: String(report.summary || '').slice(0, 800), task_id: taskId, attempt_id: task.attempt_id || null });
+  } else if (!report) {
+    blocker = engine.blocker('NO_STRUCTURED_REPORT', { reason: extracted.error || 'unknown reason', task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
+  }
+  var structured = report ? Object.assign({}, report, { task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, action_raw: task.action_raw || null, action_source: task.action_source || null, execution_profile: task.execution_profile || null, model: task.model || null, branch: task.branch || null, blocker: blocker })
+    : reporting.synthesize({ status: 'blocked', task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, action_raw: task.action_raw || null, action_source: task.action_source || null,
+        execution_profile: task.execution_profile || null, model: task.model || null, branch: task.branch || null, blocker: blocker, diagnosis: extracted.error,
+        summary: 'The provider ended without a usable mythos_report block: ' + (extracted.error || 'unknown reason'), next_stage: nextAction });
+
   var status = state.transition(taskId, finalState, {
     ended_at: new Date().toISOString(),
     pid: null,
@@ -570,10 +687,10 @@ function handleSuccess(task, taskId, outcome, parsed) {
   });
 
   state.writeJSON(taskId, 'report.json', {
-    task_id: taskId, report: report, problems: extras.report_problems,
+    task_id: taskId, report: report, structured: structured, blocker: blocker, problems: extras.report_problems,
     git: extras, provider_result_tail: tailOf(resultText, 4000)
   });
-  var md = reporting.renderMarkdown(task, status, report, extras);
+  var md = reporting.renderMarkdown(task, status, report || structured, extras);
   state.writeText(taskId, 'report.md', md);
   writeCheckpoint(task, status, {
     current_step: 'done', completed_steps: ['provider_run', 'report'],
@@ -613,7 +730,8 @@ function handleFailure(task, taskId, outcome, mode, opts) {
     return runTaskCore(taskId, { _recreated: true });
   }
 
-  var kind = outcome.timed_out ? 'transient' : quota.classifyFailure(text);
+  var detail = outcome.timed_out ? { kind: 'transient', code: null } : quota.classifyFailureDetail(text);
+  var kind = detail.kind;
   var now = Date.now();
 
   if (kind === 'quota') {
@@ -653,6 +771,7 @@ function handleFailure(task, taskId, outcome, mode, opts) {
         next_action: 'inspect logs; re-queue explicitly if appropriate'
       });
       state.appendEvent(taskId, 'retries_exhausted', { retry_count: retryCount, status: 'FAILED' });
+      writeFailureReport(task, taskId, failed, 'failed', engine.blocker('PROVIDER_FAILED', { reason: 'transient failures exceeded max_retries (' + retryCount + '): ' + tailOf(text.trim(), 300), task_id: taskId, attempt_id: task.attempt_id || null, retries: retryCount }));
       notify('task_failed', task.stage, taskId + ' FAILED after ' + retryCount + ' retries');
       return failed;
     }
@@ -675,9 +794,28 @@ function handleFailure(task, taskId, outcome, mode, opts) {
       : 'permanent failure — inspect stderr.log'
   });
   writeCheckpoint(task, final, { current_step: terminal.toLowerCase() });
-  state.appendEvent(taskId, kind + '_failure', { status: terminal });
+  var fb = engine.blocker(detail.code || (terminal === 'BLOCKED' ? 'PROVIDER_BLOCKED' : 'PROVIDER_FAILED'), { reason: tailOf(text.trim(), 500), task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null, execution_profile: task.execution_profile || null, model: task.model || null });
+  writeFailureReport(task, taskId, final, terminal.toLowerCase(), fb);
+  state.appendEvent(taskId, kind + '_failure', { status: terminal, code: fb.code });
   notify('task_failed', task.stage, taskId + ' ' + terminal);
   return final;
+}
+
+// A provider that died (denied, blocked, fatal, retries exhausted) still ends
+// in a structured report: synthesised, marked as such, carrying the blocker.
+function writeFailureReport(task, taskId, status, reportStatus, blocker) {
+  var structured = reporting.synthesize({
+    status: reportStatus, task_id: taskId, attempt_id: task.attempt_id || null, requested_action: task.task_category || null,
+    action_raw: task.action_raw || null, action_source: task.action_source || null, execution_profile: task.execution_profile || null,
+    model: task.model || null, branch: task.branch || null, blocker: blocker,
+    summary: 'The provider did not complete: ' + blocker.code + ' — ' + String(blocker.reason || '').slice(0, 1500)
+  });
+  state.writeJSON(taskId, 'report.json', {
+    task_id: taskId, report: null, structured: structured, blocker: blocker,
+    problems: [blocker.code + ': ' + String(blocker.reason || '').slice(0, 800)],
+    git: { git_verified: null, remote_head: null, report_problems: [] }, provider_result_tail: ''
+  });
+  state.writeText(taskId, 'report.md', reporting.renderMarkdown(task, status, structured, { report_problems: [blocker.code] }));
 }
 
 // --- Daemon loop ------------------------------------------------------------------
@@ -1205,6 +1343,7 @@ module.exports = {
   health: health,
   daemon: daemon,
   writeCheckpoint: writeCheckpoint,
+  preflightBlocker: preflightBlocker,
   verifyGit: verifyGit,
   commitReportToGit: commitReportToGit,
   sshEnv: sshEnv,

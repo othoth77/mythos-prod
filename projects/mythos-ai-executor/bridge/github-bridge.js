@@ -63,6 +63,11 @@ var crypto = require('crypto');
 var EXEC_ROOT = path.join(__dirname, '..');
 var state = require(path.join(EXEC_ROOT, 'lib', 'state'));
 var modelPolicy = require(path.join(EXEC_ROOT, 'lib', 'model-policy'));
+var reporting = require(path.join(EXEC_ROOT, 'lib', 'report'));
+// THE action/profile/model decision engine (shared with the Issues adapter and
+// the executor). PROFILE_BY_ACTION is re-exported from here for callers that
+// imported it from the bridge; the map itself has exactly one home.
+var engine = require('./action-resolution');
 var schema = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'schema'));
 var redact = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'redact'));
 
@@ -86,17 +91,10 @@ var CREATOR_STATUSES = ['PENDING', 'CANCELLED'];
 
 // requested_action → execution profile. Server-side and closed: a task can
 // never name a profile, and `autonomous` / `deploy` are not reachable from
-// GitHub at all (deploy is disabled in lib/policy.js regardless).
-var PROFILE_BY_ACTION = {
-  investigate: 'repo-read',
-  review: 'repo-read',
-  test: 'repo-test',
-  document: 'repo-write',
-  implement: 'repo-write'
-};
-var DELIVERY_BY_ACTION = {
-  investigate: 'report', review: 'report', test: 'report', document: 'commit', implement: 'commit'
-};
+// GitHub at all (deploy is disabled in lib/policy.js regardless). Owned by
+// bridge/action-resolution.js; enforced there as ACTION_PROFILE_MISMATCH.
+var PROFILE_BY_ACTION = engine.PROFILE_BY_ACTION;
+var DELIVERY_BY_ACTION = engine.DELIVERY_BY_ACTION;
 
 // executor status → control status
 var STATUS_MAP = {
@@ -129,8 +127,67 @@ function config() {
     home: process.env.MYTHOS_BRIDGE_HOME || path.join(executorHome, 'bridge'),
     author: 'MYTHOS GitHub Bridge <bridge@mythosprod.xyz>',
     claimedBy: BY + '@' + os.hostname(),
-    intervalMs: parseInt(process.env.MYTHOS_BRIDGE_INTERVAL_MS || '120000', 10)
+    intervalMs: parseInt(process.env.MYTHOS_BRIDGE_INTERVAL_MS || '120000', 10),
+    // A bridge lock whose owner stopped heart-beating for this long is taken
+    // over (fenced) even if its pid still exists — a hung tick must not stall
+    // the channel forever, and the fenced-out worker can no longer commit.
+    lockStaleMs: parseInt(process.env.MYTHOS_BRIDGE_LOCK_STALE_MS || String(15 * 60 * 1000), 10),
+    // Claim lease grace beyond the executor timeout (informational on the
+    // task file: a lease past expiry is reported, never silently re-claimed).
+    leaseGraceMs: parseInt(process.env.MYTHOS_BRIDGE_LEASE_GRACE_MS || String(30 * 60 * 1000), 10),
+    // With MYTHOS_BRIDGE_EXPECTED_HEAD set, a checkout whose HEAD is not that
+    // commit is a runtime identity mismatch; MYTHOS_BRIDGE_STRICT_RUNTIME=1
+    // additionally refuses new claims until it is fixed.
+    expectedHead: process.env.MYTHOS_BRIDGE_EXPECTED_HEAD || null,
+    strictRuntime: process.env.MYTHOS_BRIDGE_STRICT_RUNTIME === '1'
   };
+}
+
+// --- Runtime identity (which code is actually running) ---------------------------------
+//
+// A report that cannot say which checkout, branch and commit produced it is
+// not evidence. This is measured from the module's own location (never from
+// configuration), so a bridge started from a stale worktree or a duplicate
+// installation identifies itself as such on every claim and every report.
+function runtimeIdentity(cfg) {
+  cfg = cfg || config();
+  var dir = __dirname;
+  var top = git(dir, ['rev-parse', '--show-toplevel']);
+  var head = git(dir, ['rev-parse', 'HEAD']);
+  var branch = git(dir, ['rev-parse', '--abbrev-ref', 'HEAD']);
+  var dirty = top.ok ? git(dir, ['status', '--porcelain', '--', path.join(top.out, 'projects', 'mythos-ai-executor')]) : { ok: false, out: '' };
+  var base = git(dir, ['rev-parse', '--verify', '--quiet', cfg.baseRef]);
+  var out = {
+    module: __filename,
+    checkout: top.ok ? top.out : null,
+    head: head.ok ? head.out : null,
+    branch: branch.ok ? branch.out : null,
+    dirty_files: dirty.ok && dirty.out ? dirty.out.split('\n').filter(Boolean).length : 0,
+    base_ref: cfg.baseRef,
+    base_ref_head: base.ok ? base.out : null,
+    expected_head: cfg.expectedHead,
+    host: os.hostname(),
+    user: (function () { try { return os.userInfo().username; } catch (e) { return null; } })(),
+    node: process.version,
+    verified: !!(top.ok && head.ok),
+    stale: false,
+    code: null,
+    reason: null,
+    measured_at: nowIso()
+  };
+  if (!out.verified) {
+    out.code = engine.BLOCKER_CODES.RUNTIME_IDENTITY_UNVERIFIED;
+    out.reason = 'cannot resolve the git checkout/HEAD of ' + dir + ': ' + (top.error || head.error || 'unknown');
+  } else if (cfg.expectedHead && out.head.indexOf(cfg.expectedHead) !== 0) {
+    out.stale = true;
+    out.code = 'RUNTIME_IDENTITY_MISMATCH';
+    out.reason = 'running from ' + out.head.slice(0, 12) + ' on ' + out.branch + ' but MYTHOS_BRIDGE_EXPECTED_HEAD=' + cfg.expectedHead.slice(0, 12);
+  } else if (base.ok && base.out !== out.head && git(dir, ['merge-base', '--is-ancestor', out.head, base.out]).ok) {
+    out.stale = true;
+    out.code = 'RUNTIME_STALE_CHECKOUT';
+    out.reason = 'checkout HEAD ' + out.head.slice(0, 12) + ' is behind ' + cfg.baseRef + ' ' + base.out.slice(0, 12) + ' — the running bridge is older than what is delivered';
+  }
+  return out;
 }
 
 // F3 — user guard. The bridge shares the executor's store (task queue,
@@ -223,20 +280,92 @@ function paths(cfg) {
 function taskFile(cfg, id) { return path.join(paths(cfg).tasks, id + '.json'); }
 function reportFile(cfg, id, ext) { return path.join(paths(cfg).reports, id + '.' + (ext || 'json')); }
 
-// --- Lock (one bridge process per store) -----------------------------------------------
+// --- Lock, lease and fencing (one bridge process per store) --------------------------------
+//
+// The lock is the claim lease for a tick. It carries a monotonically
+// increasing FENCE token (cfg.home/fence.json). A lock whose owner is dead or
+// has not heart-beaten within lockStaleMs is taken over with a higher fence;
+// the fenced-out worker's later commitControl() calls are refused
+// (STALE_WORKER), so a hung or resumed old tick can never write over a newer
+// one. Pattern borrowed from Temporal/Hatchet worker leases; no dependency.
+var CURRENT_LOCK = null; // { file, pid, fence }
+
+function lockFile(cfg) { return path.join(cfg.home, 'bridge.lock'); }
+function fenceFile(cfg) { return path.join(cfg.home, 'fence.json'); }
+
+function readLock(file) {
+  if (!fs.existsSync(file)) return null;
+  var raw = fs.readFileSync(file, 'utf8').trim();
+  if (/^\d+$/.test(raw)) return { pid: parseInt(raw, 10), fence: 0, legacy: true, acquired_at: null, heartbeat_at: null, host: null };
+  try { var j = JSON.parse(raw); return j && typeof j === 'object' ? j : null; } catch (e) { return null; }
+}
+
+// Strictly greater than both the persisted counter AND the fence on the lock
+// being taken over, so a fenced-out worker can never hold the highest token.
+function nextFence(cfg, atLeast) {
+  var f = fenceFile(cfg);
+  var cur = 0;
+  try { cur = parseInt((readJsonFile(f) || {}).fence, 10) || 0; } catch (e) { cur = 0; }
+  var next = Math.max(cur, parseInt(atLeast, 10) || 0) + 1;
+  writeAtomic(f, JSON.stringify({ fence: next, updated_at: nowIso(), by: process.pid }) + '\n');
+  return next;
+}
 
 function acquireLock(cfg) {
   fs.mkdirSync(cfg.home, { recursive: true, mode: 0o700 });
-  var lock = path.join(cfg.home, 'bridge.lock');
-  if (fs.existsSync(lock)) {
-    var old = parseInt(fs.readFileSync(lock, 'utf8'), 10);
-    if (state.processAlive(old) && old !== process.pid) return null;
+  var file = lockFile(cfg);
+  var held = readLock(file);
+  if (held && held.pid !== process.pid) {
+    var alive = state.processAlive(held.pid);
+    var beat = Date.parse(held.heartbeat_at || held.acquired_at || '');
+    var age = isFinite(beat) ? Date.now() - beat : null;
+    var stale = !alive || (age !== null && age > cfg.lockStaleMs);
+    if (!stale) return null;
+    log('lock_takeover', { previous_pid: held.pid, previous_fence: held.fence || 0, alive: alive, age_ms: age, reason: alive ? 'heartbeat older than lockStaleMs' : 'owner process gone' });
   }
-  fs.writeFileSync(lock, String(process.pid), { mode: 0o600 });
-  return lock;
+  var fence = nextFence(cfg, held ? held.fence : 0);
+  var rec = { pid: process.pid, host: os.hostname(), fence: fence, acquired_at: nowIso(), heartbeat_at: nowIso() };
+  fs.writeFileSync(file, JSON.stringify(rec), { mode: 0o600 });
+  CURRENT_LOCK = { file: file, pid: process.pid, fence: fence };
+  return file;
 }
 
-function releaseLock(lock) { try { if (lock) fs.unlinkSync(lock); } catch (e) { /* gone */ } }
+function heartbeatLock(cfg) {
+  if (!CURRENT_LOCK) return false;
+  var held = readLock(CURRENT_LOCK.file);
+  if (!held || held.pid !== process.pid || held.fence !== CURRENT_LOCK.fence) return false;
+  held.heartbeat_at = nowIso();
+  fs.writeFileSync(CURRENT_LOCK.file, JSON.stringify(held), { mode: 0o600 });
+  return true;
+}
+
+// Throws STALE_WORKER when this process once held the lock but has been
+// fenced out since (a newer worker took it over). A process that never
+// locked (init, offline tooling) is not fenced.
+function assertLockOwned(cfg) {
+  if (!CURRENT_LOCK) return { owned: null, fence: null };
+  var held = readLock(CURRENT_LOCK.file);
+  if (!held || held.pid !== process.pid || held.fence !== CURRENT_LOCK.fence) {
+    var e = new Error('STALE_WORKER: this bridge process (pid ' + process.pid + ', fence ' + CURRENT_LOCK.fence + ') no longer holds the bridge lock (' +
+      (held ? 'now pid ' + held.pid + ', fence ' + held.fence : 'lock released') + ') — refusing to commit');
+    e.code = engine.BLOCKER_CODES.STALE_WORKER;
+    throw e;
+  }
+  return { owned: true, fence: CURRENT_LOCK.fence };
+}
+
+function currentFence() { return CURRENT_LOCK ? CURRENT_LOCK.fence : null; }
+
+function releaseLock(lock) {
+  try {
+    if (lock) {
+      var held = readLock(lock);
+      // Never delete a lock a newer worker now owns.
+      if (!held || held.pid === process.pid) fs.unlinkSync(lock);
+    }
+  } catch (e) { /* gone */ }
+  if (CURRENT_LOCK && CURRENT_LOCK.file === lock) CURRENT_LOCK = null;
+}
 
 // --- Claims cache (crash recovery only; GitHub is the record) ----------------------------
 
@@ -308,6 +437,7 @@ function commitControl(cfg, files, message) {
       throw new Error('CONTROL_COMMIT_SCOPE: refusing to stage ' + r);
     }
   });
+  assertLockOwned(cfg);
   var add = git(dir, ['add', '--'].concat(rel));
   if (!add.ok) throw new Error('git add failed: ' + add.error);
   var staged = git(dir, ['diff', '--cached', '--quiet']);
@@ -316,7 +446,7 @@ function commitControl(cfg, files, message) {
     'commit', '--quiet', '-m', message]);
   if (!commit.ok) throw new Error('git commit failed: ' + commit.error);
   var head = git(dir, ['rev-parse', 'HEAD']).out;
-  log('control_commit', { commit: head, files: rel, message: message.split('\n')[0] });
+  log('control_commit', { commit: head, files: rel, message: message.split('\n')[0], fence: currentFence() });
   return { committed: true, commit: head };
 }
 
@@ -344,8 +474,8 @@ function saveTask(cfg, task) {
 // claimed task is noticed (and ignored) rather than silently executed.
 function taskFingerprint(task) {
   var copy = {};
-  ['task_id', 'project', 'objective', 'scope', 'constraints', 'priority', 'requested_action',
-    'validation_requirements', 'created_at', 'created_by', 'depends_on', 'timeout_seconds', 'max_turns', 'notes', 'model']
+  ['task_id', 'project', 'objective', 'scope', 'constraints', 'priority', 'requested_action', 'action_raw', 'action_source',
+    'validation_requirements', 'created_at', 'created_by', 'depends_on', 'timeout_seconds', 'max_turns', 'notes', 'model', 'model_raw', 'model_source']
     .forEach(function (k) { if (task[k] !== undefined) copy[k] = task[k]; });
   return sha256(JSON.stringify(copy));
 }
@@ -370,9 +500,12 @@ function validateTask(cfg, task, file) {
   // Issue #100: an unusable `model` is caught here, where the reason reaches
   // the creator on the Issue, instead of throwing inside executor.createTask.
   if (task.model !== undefined && task.model !== null && String(task.model).trim() !== '') {
-    var m = modelPolicy.resolveExplicit(task.model);
-    if (!m.ok) errors.push('model: ' + m.error);
+    // Unknown name → the creator made a typo: refuse with the accepted list.
+    // Known but disabled → keep the explicit choice; the claim stops the
+    // attempt as MODEL_UNAVAILABLE (never a substitute), see preflight().
+    if (!modelPolicy.lookupKey(task.model)) errors.push('model: ' + modelPolicy.resolveExplicit(task.model).error);
   }
+  if (task.action_source && engine.ACTION_SOURCES.indexOf(task.action_source) === -1) errors.push('action_source is not one of ' + engine.ACTION_SOURCES.join(', '));
   var secretKinds = redact.findSecretKinds(JSON.stringify(task));
   if (secretKinds.length) errors.push('task carries a secret shape (' + secretKinds.join(', ') + ') — credentials never travel in tasks');
   return errors;
@@ -392,7 +525,8 @@ function bullets(list, empty) {
 // updates it instead of creating a second one.
 function buildInstruction(cfg, task, exec) {
   return [
-    'othmode — GitHub control task ' + task.task_id + ' (project ' + task.project + ', requested_action ' + task.requested_action + ').',
+    'othmode — GitHub control task ' + task.task_id + ' (project ' + task.project + ', requested_action ' + task.requested_action +
+      ' [source ' + (task.action_source || 'task_file') + (task.action_raw ? ', written "' + task.action_raw + '"' : '') + '] → execution profile ' + (exec.execution_profile || engine.profileFor(task.requested_action)) + ').',
     '',
     'This task was created in GitHub (branch ' + cfg.branch + ', ' + cfg.prefix + '/tasks/' + task.task_id + '.json) by ' +
       task.created_by + (task.source && task.source.kind === 'github-issue' && task.source.issue_url ? ' from GitHub Issue #' + task.source.issue_number + ' (' + task.source.issue_url + '; the Issue is the human interface — do not edit or comment on it, the adapter reports there from the control files)' : '') + ' and dispatched by the MYTHOS GitHub bridge. Your OTHMODE Task record already exists: ' +
@@ -452,7 +586,11 @@ function othmodeCreate(cfg, task, exec) {
         preflight: {
           origin: 'GitHub control task (' + PROTOCOL + ') created by ' + task.created_by + ' at ' + task.created_at,
           requested_action: task.requested_action,
+          action_source: task.action_source || 'task_file',
+          action_raw: task.action_raw || null,
           execution_profile: exec.execution_profile,
+          attempt_id: exec.attempt_id || null,
+          model: task.model || null,
           executor_task_id: exec.executor_task_id || null,
           worktree: exec.worktree,
           branch: exec.branch,
@@ -574,18 +712,78 @@ function pushHistory(task, from, to, note) {
   if (task.history.length > 60) task.history = task.history.slice(-60);
 }
 
-function claimTask(cfg, executor, entry, tasksById) {
+function attemptIdOf(task) {
+  var src = task.source && typeof task.source === 'object' ? task.source : {};
+  if (src.attempt_id) return src.attempt_id;
+  return task.task_id + '#' + (src.attempt || 1);
+}
+
+// Everything that must be true BEFORE an executor task exists — evaluated on
+// the durable task file, never on a provider's output. Returns null when the
+// attempt may run, or a blocker { code, reason, retryable:false, ... }.
+//
+//   ACTION_PROFILE_MISMATCH  the executor record found for this task (crash
+//                            recovery) carries a profile other than the one
+//                            requested_action maps to;
+//   MODEL_UNAVAILABLE        the task names a model the catalog knows but
+//                            this host cannot run — it is never replaced.
+function preflight(cfg, task, existingExecTask) {
+  var attemptId = attemptIdOf(task);
+  var expected = engine.profileFor(task.requested_action);
+  var check = engine.checkActionProfile(task.requested_action, existingExecTask ? existingExecTask.execution_profile : expected);
+  if (!check.ok) {
+    return engine.blocker(check.code, {
+      reason: check.reason, requested_action: task.requested_action, action_raw: task.action_raw || null, action_source: task.action_source || 'task_file',
+      execution_profile: check.actual_profile, expected_profile: check.expected_profile, actual_profile: check.actual_profile,
+      task_id: task.task_id, attempt_id: attemptId, executor_task_id: existingExecTask ? existingExecTask.task_id : null
+    });
+  }
+  if (task.model !== undefined && task.model !== null && String(task.model).trim() !== '') {
+    var hit = modelPolicy.lookupKey(task.model);
+    if (!hit || !hit.enabled) {
+      return engine.blocker(engine.BLOCKER_CODES.MODEL_UNAVAILABLE, {
+        reason: hit
+          ? 'model "' + hit.display_name + '" (' + hit.model + ') was requested explicitly (' + (task.model_source || 'task_file') + ', written "' + (task.model_raw || task.model) + '") but is not available on this host: ' + (hit.disabled_reason || 'disabled in config/model-policy.json') + '. It was NOT replaced by another model.'
+          : 'model "' + String(task.model).slice(0, 40) + '" is not in the catalog on this host. It was NOT replaced by another model.',
+        requested_model: task.model_raw || task.model, model_key: hit ? hit.key : null, model_id: hit ? hit.model : null, model_source: task.model_source || 'task_file',
+        available_models: modelPolicy.availableLabels(), actual_model: null,
+        requested_action: task.requested_action, execution_profile: expected, task_id: task.task_id, attempt_id: attemptId
+      });
+    }
+  }
+  return null;
+}
+
+function claimTask(cfg, executor, entry, tasksById, runtime) {
   var task = entry.task;
   var id = task.task_id;
   var cache = readClaims(cfg);
   var existingId = findExecutorTask(cfg, id);
+  var existingTask = existingId ? state.readJSON(existingId, 'task.json') : null;
+  var attemptId = attemptIdOf(task);
+  var expectedProfile = engine.profileFor(task.requested_action);
+
+  // Invariant gate — before a worktree, before an OTHMODE record, before the
+  // executor: an attempt that cannot run under its own decision does not start.
+  var block = preflight(cfg, task, existingTask);
+  if (block) return { blocked: block };
+
   var wt = ensureTaskWorktree(cfg, id);
   var exec = task.execution && typeof task.execution === 'object' ? task.execution : {};
+  var modelHit = task.model ? modelPolicy.lookupKey(task.model) : null;
   exec = {
     executor_task_id: existingId || null,
     othmode_task_id: (cache[id] && cache[id].othmode_task_id) || exec.othmode_task_id || null,
-    execution_profile: PROFILE_BY_ACTION[task.requested_action],
+    attempt_id: attemptId,
+    requested_action: task.requested_action,
+    action_raw: task.action_raw || null,
+    action_source: task.action_source || 'task_file',
+    execution_profile: expectedProfile,
+    expected_profile: expectedProfile,
     expected_delivery: DELIVERY_BY_ACTION[task.requested_action],
+    model_key: modelHit ? modelHit.key : null,
+    model_requested: task.model_raw || task.model || null,
+    model_source: task.model ? (task.model_source || 'task_file') : 'none',
     worktree: wt.dir,
     branch: wt.branch,
     base_commit: wt.base,
@@ -595,6 +793,22 @@ function claimTask(cfg, executor, entry, tasksById) {
     executor_status: 'QUEUED',
     updated_at: nowIso()
   };
+  // The immutable decision of THIS attempt. Re-checked by the executor before
+  // the provider starts (ATTEMPT_SNAPSHOT_MUTATED) and by the bridge on every
+  // progress tick; a later edit of the control file can be noticed, never obeyed.
+  exec.snapshot_sha256 = engine.attemptSnapshot({
+    task_id: id, attempt_id: attemptId, requested_action: task.requested_action, action_raw: task.action_raw || null, action_source: exec.action_source,
+    execution_profile: exec.execution_profile, model: task.model || null, objective: task.objective, scope: task.scope, constraints: task.constraints,
+    validation_requirements: task.validation_requirements, notes: task.notes || null
+  });
+  exec.fence = currentFence();
+  exec.lease = {
+    owner: cfg.claimedBy + ':' + process.pid,
+    fence: exec.fence,
+    acquired_at: exec.claimed_at,
+    expires_at: new Date(Date.parse(exec.claimed_at) + ((task.timeout_seconds || 3600) * 1000) + cfg.leaseGraceMs).toISOString()
+  };
+  exec.runtime = runtime || runtimeIdentity(cfg);
 
   var recovered = !!existingId;
   if (!existingId) {
@@ -603,6 +817,10 @@ function claimTask(cfg, executor, entry, tasksById) {
       exec.othmode_task_id = oth.id;
       if (oth.problem) exec.othmode_problem = oth.problem;
     }
+    // The invariant, asserted at the exact point the profile leaves this
+    // process. Throws ACTION_PROFILE_MISMATCH — it cannot be caught into a
+    // provider start.
+    engine.assertActionProfile(task.requested_action, exec.execution_profile, { task_id: id, attempt_id: attemptId });
     var created = executor.createTask({
       project: task.project,
       stage: 'github:' + id,
@@ -620,6 +838,9 @@ function claimTask(cfg, executor, entry, tasksById) {
       working_directory: wt.dir,
       branch: wt.branch,
       task_category: task.requested_action,
+      action_source: exec.action_source,
+      action_raw: task.action_raw || null,
+      attempt_id: attemptId,
       required_tests: task.validation_requirements,
       constraints: task.constraints,
       expected_delivery: exec.expected_delivery,
@@ -629,23 +850,31 @@ function claimTask(cfg, executor, entry, tasksById) {
       max_turns: task.max_turns || null
     });
     exec.executor_task_id = created.task_id;
+    exec.model = created.model || null;
+    exec.model_selection_mode = created.model_selection_mode || null;
     // Cache immediately: if the process dies before the commit below, the
     // next tick finds this and re-claims instead of re-creating.
-    cache[id] = { executor_task_id: created.task_id, othmode_task_id: exec.othmode_task_id, claimed_at: exec.claimed_at };
+    cache[id] = { executor_task_id: created.task_id, othmode_task_id: exec.othmode_task_id, claimed_at: exec.claimed_at, fence: exec.fence, attempt_id: attemptId };
     writeClaims(cfg, cache);
-  } else if (!cache[id]) {
-    cache[id] = { executor_task_id: existingId, othmode_task_id: exec.othmode_task_id, claimed_at: exec.claimed_at };
-    writeClaims(cfg, cache);
+  } else {
+    exec.model = existingTask ? (existingTask.model || null) : null;
+    if (!cache[id]) {
+      cache[id] = { executor_task_id: existingId, othmode_task_id: exec.othmode_task_id, claimed_at: exec.claimed_at, fence: exec.fence, attempt_id: attemptId };
+      writeClaims(cfg, cache);
+    }
   }
 
   task.execution = exec;
-  pushHistory(task, 'PENDING', 'CLAIMED', recovered
+  pushHistory(task, 'PENDING', 'CLAIMED', (recovered
     ? 'recovered: executor task ' + exec.executor_task_id + ' already existed (claim commit was lost)'
-    : 'executor task ' + exec.executor_task_id + ' queued; OTHMODE ' + (exec.othmode_task_id || 'n/a'));
+    : 'executor task ' + exec.executor_task_id + ' queued; OTHMODE ' + (exec.othmode_task_id || 'n/a')) +
+    '; action ' + task.requested_action + ' (' + exec.action_source + ') → ' + exec.execution_profile + '; model ' + (exec.model || 'auto') + '; fence ' + exec.fence);
   task.status = 'CLAIMED';
   saveTask(cfg, task);
   tasksById[id] = task;
-  log('claimed', { task_id: id, executor_task_id: exec.executor_task_id, othmode_task_id: exec.othmode_task_id, recovered: recovered, worktree: wt.dir });
+  log('claimed', { task_id: id, attempt_id: attemptId, executor_task_id: exec.executor_task_id, othmode_task_id: exec.othmode_task_id, recovered: recovered, worktree: wt.dir,
+    requested_action: task.requested_action, action_source: exec.action_source, action_raw: task.action_raw || null, execution_profile: exec.execution_profile,
+    model: exec.model || null, model_requested: exec.model_requested, fence: exec.fence, runtime_head: exec.runtime ? exec.runtime.head : null, runtime_code: exec.runtime ? exec.runtime.code : null });
   return { file: taskFile(cfg, id), recovered: recovered };
 }
 
@@ -688,19 +917,45 @@ function buildReport(cfg, task, finalStatus, opts) {
   var etask = eid ? state.readJSON(eid, 'task.json') : null;
   var estatus = eid ? state.readStatus(eid) : null;
   var erep = eid ? state.readJSON(eid, 'report.json') : null;
-  var r = (erep && erep.report) || {};
+  // The provider's own block when it produced one, else the executor's
+  // synthesised one (same shape, synthesized:true): a report ALWAYS exists.
+  var structured = (erep && (erep.report || erep.structured)) || opts.structured_report || null;
+  var r = structured || {};
   var gitx = (erep && erep.git) || {};
   var problems = [].concat(opts.problems || [], (erep && erep.problems) || []);
+  var blocker = opts.blocker || (erep && erep.blocker) || (structured && structured.blocker) || null;
+  if (blocker && blocker.code) problems.push(blocker.code + ': ' + String(blocker.reason || '').slice(0, 800));
   if (estatus && estatus.last_error) problems.push('executor: ' + String(estatus.last_error).slice(0, 500));
   var commits = commitsOnBranch(cfg, exec);
   var files = uniq([].concat(Array.isArray(r.files_changed) ? r.files_changed : [], changedFiles(exec)));
   var summary = r.summary || opts.summary ||
     (estatus ? (estatus.next_action || 'executor ended ' + estatus.status) : 'no execution record');
+  var runtime = exec.runtime || runtimeIdentity(cfg);
   var report = {
     protocol: PROTOCOL,
     task_id: task.task_id,
+    attempt_id: exec.attempt_id || attemptIdOf(task),
     status: finalStatus,
     summary: String(summary).slice(0, 20000),
+    resolution: {
+      requested_action: task.requested_action,
+      action_raw: task.action_raw || null,
+      action_source: exec.action_source || task.action_source || 'task_file',
+      execution_profile: exec.execution_profile || null,
+      expected_profile: engine.profileFor(task.requested_action),
+      model_requested: task.model_raw || task.model || null,
+      model_key: exec.model_key || null,
+      model: etask ? (etask.model || null) : (exec.model || null),
+      model_source: exec.model_source || task.model_source || (task.model ? 'task_file' : 'none'),
+      model_selection_mode: etask ? (etask.model_selection_mode || null) : null,
+      model_selection_reason: etask ? (etask.model_selection_reason || null) : null,
+      base_sha: exec.base_commit || null,
+      branch: exec.branch || null,
+      commit_sha: commits.length ? commits[commits.length - 1].sha : null
+    },
+    blocker: blocker,
+    runtime_identity: runtime,
+    structured_report: structured,
     files_changed: files.map(String),
     commits: commits,
     tests: (Array.isArray(r.tests) ? r.tests : []).map(function (t) { return typeof t === 'string' ? t : JSON.stringify(t); }),
@@ -722,7 +977,14 @@ function buildReport(cfg, task, finalStatus, opts) {
       model: etask ? (etask.model || 'default') : null,
       // Issue #100: which model ran, and why — a report must be able to
       // answer that without reading the executor store.
-      model_requested: task.model || null,
+      model_requested: task.model_raw || task.model || null,
+      model_source: exec.model_source || (task.model ? 'task_file' : 'none'),
+      action_source: exec.action_source || task.action_source || 'task_file',
+      action_raw: task.action_raw || null,
+      attempt_id: exec.attempt_id || null,
+      fence: exec.fence === undefined ? null : exec.fence,
+      lease: exec.lease || null,
+      snapshot_sha256: exec.snapshot_sha256 || null,
       model_selection_mode: etask ? (etask.model_selection_mode || null) : null,
       model_selection_reason: etask ? (etask.model_selection_reason || null) : null,
       claude_session_id: estatus ? estatus.claude_session_id : null,
@@ -756,7 +1018,11 @@ function renderReportMarkdown(report) {
   l.push('| Completed | ' + report.completed_at + ' |');
   l.push('| Executor task | `' + (report.execution.executor_task_id || '—') + '` |');
   l.push('| OTHMODE task | `' + (report.execution.othmode_task_id || '—') + '` |');
+  l.push('| Attempt | `' + (report.attempt_id || '—') + '` |');
+  l.push('| Action | ' + (report.resolution ? report.resolution.requested_action + ' (source ' + report.resolution.action_source + (report.resolution.action_raw ? ', written "' + report.resolution.action_raw + '"' : '') + ')' : '—') + ' |');
   l.push('| Profile | ' + (report.execution.execution_profile || '—') + ' |');
+  l.push('| Blocker | ' + (report.blocker ? '`' + report.blocker.code + '` ' + String(report.blocker.reason || '').replace(/\|/g, '\\|').slice(0, 300) : '—') + ' |');
+  l.push('| Runtime | ' + (report.runtime_identity ? '`' + String(report.runtime_identity.head || '?').slice(0, 12) + '` on `' + (report.runtime_identity.branch || '?') + '`' + (report.runtime_identity.code ? ' **' + report.runtime_identity.code + '**' : '') : 'RUNTIME_IDENTITY_UNVERIFIED') + ' |');
   l.push('| Model | `' + (report.execution.model || '—') + '` (' +
     (report.execution.model_selection_reason || report.execution.model_selection_mode || 'no selection recorded') + ') |');
   l.push('| Branch | `' + (report.delivery.branch || '—') + '` |');
@@ -823,6 +1089,10 @@ function writeIndex(cfg, tasksById, extras) {
       status: t.status,
       priority: t.priority,
       requested_action: t.requested_action,
+      action_source: t.action_source || null,
+      execution_profile: t.execution ? (t.execution.execution_profile || null) : null,
+      model: t.execution ? (t.execution.model || null) : (t.model || null),
+      blocker: t.execution && t.execution.blocker ? t.execution.blocker.code : null,
       created_at: t.created_at,
       created_by: t.created_by,
       updated_at: lastHist ? lastHist.at : t.created_at,
@@ -925,13 +1195,15 @@ function finishTask(cfg, task, finalStatus, opts, changed) {
   task.status = finalStatus;
   task.execution = task.execution || {};
   task.execution.executor_status = (opts && opts.executor_status) || null;
+  if (report.blocker) task.execution.blocker = { code: report.blocker.code, reason: String(report.blocker.reason || '').slice(0, 500), retryable: report.blocker.retryable === true };
   task.execution.report_file = cfg.prefix + '/reports/' + task.task_id + '.json';
   task.execution.updated_at = nowIso();
   delete task.execution.validation_problem;
   saveTask(cfg, task);
   changed.push(taskFile(cfg, task.task_id));
   files.forEach(function (f) { changed.push(f); });
-  log('finished', { task_id: task.task_id, status: finalStatus, executor_task_id: task.execution.executor_task_id, commits: report.commits.length });
+  log('finished', { task_id: task.task_id, status: finalStatus, executor_task_id: task.execution.executor_task_id, commits: report.commits.length,
+    blocker: report.blocker ? report.blocker.code : null, requested_action: task.requested_action, execution_profile: task.execution.execution_profile || null, model: report.execution.model || null });
 }
 
 function tick(executor, opts) {
@@ -945,8 +1217,16 @@ function tick(executor, opts) {
   try {
     var sync = syncControl(cfg);
     actions.push({ action: 'sync', result: sync });
+    heartbeatLock(cfg);
     var claimsAllowed = sync.ok;
     if (!sync.ok) notes.push('control branch not reconciled: ' + sync.reason + ' — no new claims this tick');
+    var runtime = runtimeIdentity(cfg);
+    actions.push({ action: 'runtime', head: runtime.head, branch: runtime.branch, code: runtime.code, verified: runtime.verified, stale: runtime.stale });
+    if (runtime.code) {
+      notes.push('runtime identity: ' + runtime.code + ' — ' + runtime.reason);
+      log('runtime_identity', { code: runtime.code, reason: runtime.reason, head: runtime.head, branch: runtime.branch, checkout: runtime.checkout, strict: cfg.strictRuntime });
+      if (cfg.strictRuntime) { claimsAllowed = false; notes.push('MYTHOS_BRIDGE_STRICT_RUNTIME=1: no new claims until the runtime identity is fixed'); }
+    }
 
     var changed = [];
     var tasksById = {};
@@ -1024,9 +1304,36 @@ function tick(executor, opts) {
         var unmet = (t.depends_on || []).filter(function (d) { return !tasksById[d] || tasksById[d].status !== 'COMPLETED'; });
         if (unmet.length) { actions.push({ action: 'wait_dependencies', task_id: t.task_id, unmet: unmet }); return; }
         try {
-          var c = claimTask(cfg, executor, e, tasksById);
+          var c = claimTask(cfg, executor, e, tasksById, runtime);
+          if (c.blocked) {
+            // The decision cannot run: BLOCKED with a structured report and no
+            // executor task, no worktree, no provider. Never retried by itself.
+            var b = c.blocked;
+            t.execution = { attempt_id: b.attempt_id, requested_action: t.requested_action, action_source: t.action_source || 'task_file', action_raw: t.action_raw || null,
+              execution_profile: b.execution_profile || engine.profileFor(t.requested_action), expected_profile: b.expected_profile || engine.profileFor(t.requested_action),
+              model_requested: b.requested_model || t.model || null, model_source: t.model_source || (t.model ? 'task_file' : 'none'), executor_task_id: null, runtime: runtime, fence: currentFence(), claimed_by: cfg.claimedBy, updated_at: nowIso() };
+            pushHistory(t, 'PENDING', 'BLOCKED', b.code + ': ' + String(b.reason).slice(0, 600));
+            finishTask(cfg, t, 'BLOCKED', {
+              executor_status: null, blocker: b,
+              summary: b.code + ' — ' + b.reason + ' Nothing was executed.',
+              problems: [],
+              structured_report: reporting.synthesize({ status: 'blocked', synthesized_by: 'github-bridge', task_id: t.task_id, attempt_id: b.attempt_id,
+                requested_action: t.requested_action, action_raw: t.action_raw || null, action_source: t.action_source || 'task_file',
+                execution_profile: b.execution_profile || null, model: null, blocker: b, summary: b.code + ': ' + b.reason,
+                next_stage: b.code === 'MODEL_UNAVAILABLE'
+                  ? 'either enable the model on this host (config/model-policy.json) or state another `Model:` explicitly, then add the `rerun` label — the request is never substituted'
+                  : 'fix the action/profile decision (see resolution) and add the `rerun` label; this blocker is never retried automatically' }),
+              next: b.code === 'MODEL_UNAVAILABLE'
+                ? 'Human decision: enable ' + (b.model_id || b.requested_model) + ' on this host or choose one of: ' + (b.available_models || []).join(', ') + '. Then add the `rerun` label.'
+                : 'Human decision: the attempt\'s action/profile decision is inconsistent (' + b.reason + '). Fix and add the `rerun` label.'
+            }, changed);
+            tasksById[t.task_id] = t;
+            actions.push({ action: 'blocked_preflight', task_id: t.task_id, code: b.code, reason: String(b.reason).slice(0, 300) });
+            log('blocked_preflight', { task_id: t.task_id, attempt_id: b.attempt_id, code: b.code, reason: b.reason, requested_action: t.requested_action, execution_profile: b.execution_profile || null, expected_profile: b.expected_profile || null, actual_profile: b.actual_profile || null, requested_model: b.requested_model || null, available_models: b.available_models || null });
+            return;
+          }
           changed.push(c.file);
-          actions.push({ action: 'claim', task_id: t.task_id, executor_task_id: t.execution.executor_task_id, recovered: c.recovered });
+          actions.push({ action: 'claim', task_id: t.task_id, executor_task_id: t.execution.executor_task_id, recovered: c.recovered, attempt_id: t.execution.attempt_id, requested_action: t.requested_action, action_source: t.execution.action_source, execution_profile: t.execution.execution_profile, model: t.execution.model || null, fence: t.execution.fence });
         } catch (err) {
           log('claim_failed', { task_id: t.task_id, error: err.message });
           actions.push({ action: 'claim_failed', task_id: t.task_id, error: String(err.message).slice(0, 300) });
@@ -1095,8 +1402,16 @@ function tick(executor, opts) {
       var fp = taskFingerprint(t);
       var dirty = false;
       if (t.execution.fingerprint && fp !== t.execution.fingerprint && !t.execution.drift_noted) {
-        pushHistory(t, t.status, t.status, 'task edited after claim; the executor keeps the snapshot it was given');
+        var snap = t.execution.snapshot_sha256 ? engine.checkSnapshot({
+          task_id: t.task_id, attempt_id: t.execution.attempt_id, requested_action: t.requested_action, action_raw: t.action_raw || null, action_source: t.execution.action_source,
+          execution_profile: t.execution.execution_profile, model: t.model || null, objective: t.objective, scope: t.scope, constraints: t.constraints,
+          validation_requirements: t.validation_requirements, notes: t.notes || null
+        }, t.execution.snapshot_sha256) : { ok: true };
+        pushHistory(t, t.status, t.status, snap.ok
+          ? 'task edited after claim; the executor keeps the snapshot it was given'
+          : 'ATTEMPT_SNAPSHOT_MUTATED: the decision fields (action/profile/model/inputs) were edited after the claim; the executor keeps and re-verifies the snapshot it was given — the edit is NOT obeyed');
         t.execution.drift_noted = true;
+        if (!snap.ok) t.execution.snapshot_mutated = { at: nowIso(), expected: t.execution.snapshot_sha256, observed: snap.sha256 };
         dirty = true;
       }
       if (mapped !== t.status || t.execution.executor_status !== st.status) {
@@ -1185,7 +1500,11 @@ function init(opts) {
   // The index is regenerated only when absent: init must be idempotent, and
   // every tick that changes something regenerates it anyway.
   if (!fs.existsSync(p.stateJson)) writeIndex(cfg, tasksById, {}).forEach(function (f) { files.push(f); });
-  var commit = commitControl(cfg, files, 'control: bootstrap ' + PROTOCOL + ' channel (schemas, README, state index)');
+  var lock = acquireLock(cfg);
+  if (!lock) throw new Error('another bridge process holds the lock');
+  try {
+    var commit = commitControl(cfg, files, 'control: bootstrap ' + PROTOCOL + ' channel (schemas, README, state index)');
+  } finally { releaseLock(lock); }
   return { control_dir: dir, branch: cfg.branch, commit: commit };
 }
 
@@ -1207,6 +1526,56 @@ function status() {
     });
   }
   return out;
+}
+
+// --- Audit trail (reconstructed from durable records, no guessing) ----------------------------
+//
+// Issue received → Action resolved → Profile resolved → Model resolved → Task
+// created → Task claimed → Provider started → Provider finished → Report
+// generated → GitHub updated. Every entry names its source record and reason.
+function trail(taskId, cfgIn) {
+  var cfg = cfgIn || config();
+  var e = fs.existsSync(taskFile(cfg, taskId)) ? loadTask(cfg, taskId + '.json') : null;
+  var t = e && e.task;
+  if (!t) return { task_id: taskId, found: false, events: [] };
+  var out = [];
+  function add(at, stage, reason, src, extra) { out.push(Object.assign({ at: at || null, stage: stage, reason: reason || null, source: src }, extra || {})); }
+  var s = t.source || {};
+  (s.events || []).forEach(function (ev) { add(ev.at, ev.event, ev.reason, 'control/tasks/' + taskId + '.json#source.events'); });
+  if (!s.events || !s.events.length) add(t.created_at, 'task_created', 'written by ' + t.created_by, 'control/tasks/' + taskId + '.json');
+  (t.history || []).forEach(function (h) {
+    var stage = h.to === 'CLAIMED' ? 'task_claimed' : (h.to === 'VALIDATING' ? 'report_building' : (['COMPLETED', 'FAILED', 'BLOCKED', 'CANCELLED'].indexOf(h.to) !== -1 ? 'report_generated' : 'status_' + String(h.to).toLowerCase()));
+    add(h.at, stage, (h.from || '?') + ' → ' + h.to + (h.note ? ': ' + h.note : ''), 'control/tasks/' + taskId + '.json#history', { by: h.by });
+  });
+  var ex = t.execution || {};
+  if (ex.executor_task_id) {
+    var raw = state.readText(ex.executor_task_id, 'events.log');
+    String(raw || '').split('\n').filter(Boolean).forEach(function (line) {
+      var ev; try { ev = JSON.parse(line); } catch (err) { return; }
+      var map = { created: 'executor_task_created', model_selected: 'model_selected', provider_launch: 'provider_started', finished: 'provider_finished', preflight_blocked: 'provider_refused',
+        quota_exhausted: 'provider_paused_quota', transient_failure: 'provider_retry_scheduled', blocked_failure: 'provider_finished', fatal_failure: 'provider_finished', retries_exhausted: 'provider_finished', transition: null };
+      var stage = map[ev.event] === undefined ? 'executor_' + ev.event : map[ev.event];
+      if (!stage) return;
+      var reason = ev.event === 'model_selected' ? (ev.mode + ' → ' + ev.model + (ev.requested ? ' (requested ' + ev.requested + ')' : '')) :
+        ev.event === 'preflight_blocked' ? (ev.code + ': ' + (ev.reason || '')) :
+        ev.event === 'finished' ? ('status ' + ev.status) : (ev.status ? 'status ' + ev.status : null);
+      add(ev.ts || ev.at || null, stage, reason, 'executor:' + ex.executor_task_id + '/events.log', { event: ev.event });
+    });
+  }
+  var rep = readJsonFile(reportFile(cfg, taskId, 'json'));
+  if (rep) add(rep.completed_at, 'report_generated', rep.status + (rep.blocker ? ' ' + rep.blocker.code : ''), 'control/reports/' + taskId + '.json');
+  var nf = s.notifications || {};
+  ['created', 'claimed', 'report', 'delivered'].forEach(function (k) {
+    if (nf[k] && nf[k].at) add(nf[k].at, 'github_updated', k + ' comment ' + (nf[k].existed ? 'adopted' : 'posted') + (nf[k].status ? ' (' + nf[k].status + ')' : ''), 'control/tasks/' + taskId + '.json#source.notifications.' + k);
+  });
+  out.sort(function (a, b) { return String(a.at || '').localeCompare(String(b.at || '')); });
+  return {
+    task_id: taskId, found: true, status: t.status, attempt_id: ex.attempt_id || attemptIdOf(t),
+    decision: { requested_action: t.requested_action, action_raw: t.action_raw || null, action_source: ex.action_source || t.action_source || 'task_file', execution_profile: ex.execution_profile || engine.profileFor(t.requested_action),
+      model: ex.model || null, model_requested: ex.model_requested || t.model || null, model_source: ex.model_source || t.model_source || null, blocker: ex.blocker || (rep && rep.blocker) || null },
+    runtime: ex.runtime || null,
+    events: out
+  };
 }
 
 function daemon(executor) {
@@ -1239,7 +1608,17 @@ module.exports = {
   TASK_STATUSES: TASK_STATUSES,
   TERMINAL: TERMINAL,
   PROFILE_BY_ACTION: PROFILE_BY_ACTION,
+  DELIVERY_BY_ACTION: DELIVERY_BY_ACTION,
   STATUS_MAP: STATUS_MAP,
+  engine: engine,
+  runtimeIdentity: runtimeIdentity,
+  preflight: preflight,
+  attemptIdOf: attemptIdOf,
+  heartbeatLock: heartbeatLock,
+  assertLockOwned: assertLockOwned,
+  currentFence: currentFence,
+  readLock: readLock,
+  trail: trail,
   config: config,
   userGuard: userGuard,
   acquireLock: acquireLock,

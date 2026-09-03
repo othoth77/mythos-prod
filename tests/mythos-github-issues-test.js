@@ -227,7 +227,7 @@ async function run() {
   var cCorrected = issues.issueToTask(cfg, { number: 950, title: 'TASK: corrected rerun', body: '## Objective\nMerge the WhatsApp bridge layer and open a PR.\n\nAction: implement\n', html_url: 'u', user: { login: 'x' }, labels: [{ name: 'task' }, { name: 'rerun' }] }, 2, wrongPrevious);
   ok(cCorrected.task && cCorrected.task.requested_action === 'implement' && cCorrected.task.source.inherited.requested_action === false,
     'parse: an explicit Action on a rerun overrides a wrongly-inherited default, and is recorded as explicit, not inherited (got ' + (cCorrected.task ? cCorrected.task.requested_action : cCorrected.errors.join('; ')) + ')');
-  ok(!/inherited/.test(cCorrected.task.notes) && !/defaulted/.test(cCorrected.task.notes), 'parse: the corrected rerun\'s notes say neither "inherited" nor "defaulted" for Action');
+  ok(!/inherited from/.test(cCorrected.task.notes) && !/defaulted to/.test(cCorrected.task.notes) && /source explicit_current_issue/.test(cCorrected.task.notes), 'parse: the corrected rerun\'s notes say neither "inherited from" nor "defaulted to" for Action — they name the explicit source');
 
   // --- 1. Issue → PENDING task → created comment ----------------------------------------
   addIssue(1, { body: EN_BODY, title: 'TASK: read the fixture' });
@@ -606,6 +606,137 @@ async function run() {
   var reruns = ['gh-issue-1-r2', 'gh-issue-9-r2', 'gh-issue-20-r2', 'gh-issue-21-r2', 'gh-issue-23-r2'];
   ok(reruns.every(function (id) { return !!taskOnDisk(id); }), 'rerun: every rerun label applied in this suite produced its own task file (' + reruns.filter(function (id) { return !taskOnDisk(id); }).join(',') + ')');
   ok(reruns.every(function (id) { var t = taskOnDisk(id); return t.source.attempt === 2 && t.source.rerun_of === id.replace('-r2', ''); }), 'rerun: every rerun records attempt 2 and links its predecessor');
+
+  // --- 10c. Action / Model resolution root fix (gh-issue-111/114/117/118) -------------------------------
+  function fixture(n) { return readJson(path.join(__dirname, 'fixtures', 'github-issues', 'issue-' + n + '.json')); }
+  // The four live bodies, through the real intake conversion.
+  [111, 114, 117, 118].forEach(function (n) {
+    var fx = fixture(n);
+    var conv = issues.issueToTask(cfg, Object.assign({}, fx, { number: 700 + n, html_url: 'https://github.example.test/fixture-org/fixture-repo/issues/' + (700 + n) }), 1);
+    ok(conv.task && conv.task.requested_action === 'implement' && conv.task.action_source === 'explicit_current_issue' && conv.task.action_raw === 'implement' && conv.task.source.resolution.execution_profile === 'repo-write',
+      'regression #' + n + ': intake → requested_action=implement / explicit_current_issue / repo-write (got ' + (conv.task ? conv.task.requested_action + '/' + conv.task.action_source : conv.errors.join('; ')) + ')');
+    ok(conv.task && !/defaulted/.test(conv.task.notes) && !/inherited/.test(conv.task.notes.split('\n\n')[1]), 'regression #' + n + ': the notes state the explicit source, not a default');
+  });
+  var c117 = issues.issueToTask(cfg, Object.assign({}, fixture(117), { number: 817, html_url: 'https://github.example.test/fixture-org/fixture-repo/issues/817' }), 1);
+  ok(c117.task && c117.task.model === 'fable-5.1' && c117.task.model_raw === 'Fable 5.1' && c117.task.model_source === 'explicit_current_issue' && c117.task.source.resolution.model_id === 'claude-fable-5-1',
+    'regression #117: "## Model: Fable 5.1" → model fable-5.1 kept explicitly');
+  ok(c117.task && c117.task.scope.length === 17 && c117.task.scope.every(function (x) { return x.length <= issues.LIMITS.item; }) && c117.task.source.truncated.length === 0,
+    'regression #117: all 17 scope items survive intact (no silent truncation)');
+  ok(c117.task && c117.task.source.events.map(function (e) { return e.event; }).join('>') === 'issue_received>action_resolved>profile_resolved>model_resolved' && /explicit_current_issue → implement/.test(c117.task.source.events[1].reason),
+    'regression #117: the decision trail is on the task (issue_received → action → profile → model)');
+  ok(c117.task && c117.task.source.idempotency_key && c117.task.source.attempt_id === 'gh-issue-817#1' && c117.task.source.resolution.action_candidates[0].form === 'heading_inline',
+    'regression #117: idempotency key, attempt_id and the matched form are recorded');
+
+  // Every form, through intake (A–I, tables, bold, case).
+  var FORMS = { A: 'Action: implement', B: '- Action: implement', C: '## Action: implement', D: '## Action\n\nimplement', D2: '## Action\n\n\n**implement**', E: '| Field | Value |\n|---|---|\n| Action | implement |', F: 'ACTION: IMPLEMENT', G: '**Action:** implement', H: '   action:   implement   ', I: 'Action: `implement`', N: '1. Action: implement' };
+  Object.keys(FORMS).forEach(function (k, idx) {
+    var n = 720 + idx;
+    var conv = issues.issueToTask(cfg, addIssue(n, { body: '## Objective\nImplement the widget for form ' + k + '.\n\n' + FORMS[k] + '\n\n## Scope\n- src/widget.js\n' }), 1);
+    ok(conv.task && conv.task.requested_action === 'implement' && conv.task.action_source === 'explicit_current_issue' && conv.task.scope.length === 1 && conv.task.scope[0] === 'src/widget.js',
+      'form ' + k + ' (' + JSON.stringify(FORMS[k]).slice(0, 30) + ') → implement/explicit, sections intact (got ' + (conv.task ? conv.task.requested_action + '/' + conv.task.action_source + '/' + conv.task.scope.length : conv.errors.join('; ')) + ')');
+    delete store.issues[n];
+  });
+  // Section headings with inline values no longer fall into notes.
+  var cInline = issues.issueToTask(cfg, addIssue(740, { body: '## Objective: ship the inline heading form\n## Scope: src/a.js\n## Action: document\n' }), 1);
+  ok(cInline.task && /ship the inline heading form/.test(cInline.task.objective) && cInline.task.scope[0] === 'src/a.js' && cInline.task.requested_action === 'document' && !/\[objective/.test(cInline.task.notes),
+    'inline heading values (## Objective: …, ## Scope: …) land in their sections, not in notes');
+  delete store.issues[740];
+
+  // N/O — long objective and long notes are kept, and any cut is recorded, never silent.
+  var longObj = new Array(120).fill('This objective sentence is deliberately long enough to matter for the mission text.').join(' ');
+  var longNotes = new Array(60).fill('- a note line that carries constraints the executor must not lose').join('\n');
+  var cLong = issues.issueToTask(cfg, addIssue(741, { body: '## Objective\n' + longObj + '\n\n## Notes\n' + longNotes + '\n\nAction: implement\n' }), 1);
+  ok(cLong.task && cLong.task.objective.length === longObj.length && cLong.task.notes.length > 3500 && cLong.task.source.truncated.length === 0 && cLong.task.requested_action === 'implement',
+    'N/O: a ' + longObj.length + '-char objective and ' + longNotes.length + '-char notes survive intact (limits ' + issues.LIMITS.objective + '/' + issues.LIMITS.notes + ')');
+  var hugeObj = new Array(400).fill(longObj).join(' ');
+  var cHuge = issues.issueToTask(cfg, addIssue(742, { body: '## Objective\n' + hugeObj + '\n\nAction: implement\n' }), 1);
+  ok(cHuge.task && cHuge.task.objective.length === issues.LIMITS.objective && cHuge.task.source.truncated[0].field === 'objective' && cHuge.task.source.truncated[0].original_length === hugeObj.length && /TRUNCATED/.test(cHuge.task.notes),
+    'N: an objective beyond the limit is cut AND the cut is recorded on the task (source.truncated + notes)');
+  ok(/truncated/i.test(issues.createdBody(cfg, cHuge.task)), 'N: the created comment announces the truncation');
+  delete store.issues[741]; delete store.issues[742];
+
+  // P — duplicate GitHub event: the same Issue listed twice in one tick → one task.
+  addIssue(750, { title: 'TASK: duplicated delivery', body: '## Objective\nReport the HEAD commit; delivered twice.\n\nAction: investigate\n' });
+  var dupClient = Object.assign({}, client, { listTaskIssues: function () { return Promise.resolve([store.issues[750], Object.assign({}, store.issues[750])]); } });
+  var rP = await issues.intake(cfg, dupClient, {});
+  ok(actionsOf(rP, 'create').filter(function (a) { return a.issue === 750; }).length === 1 && actionsOf(rP, 'duplicate_event_ignored').length === 1 && taskOnDisk('gh-issue-750') && markedComments(750, 'created').length === 1,
+    'P: a duplicate event in one listing creates exactly one task and one comment');
+  var rP2 = await issues.intake(cfg, dupClient, {});
+  ok(actionsOf(rP2, 'create').length === 0 && actionsOf(rP2, 'already_converted').filter(function (a) { return a.issue === 750; }).length === 1 && taskOnDisk('gh-issue-750').source.idempotency_key,
+    'P: a replay on the next tick is idempotent (already_converted, same key)');
+
+  // G / I — rerun with a NEW explicit Action beats inheritance; H — rerun without one inherits.
+  addIssue(751, { title: 'TASK: rerun precedence', body: '## Objective\nFirst attempt is executive.\n\nAction: implement\n\n## Scope\n- src/x.js\n' });
+  await full();
+  ok(await drain(), 'precedence: attempt 1 of #751 drained');
+  await full();
+  ok(taskOnDisk('gh-issue-751').requested_action === 'implement' && taskOnDisk('gh-issue-751').status === 'COMPLETED', 'precedence: attempt 1 ran as implement');
+  store.issues[751].body = '## Objective\nSecond attempt: only look, do not change anything.\n\n## Action\n\nreview\n';
+  store.issues[751].labels.push({ name: 'rerun' });
+  await full();
+  var t751r2 = taskOnDisk('gh-issue-751-r2');
+  ok(t751r2 && t751r2.requested_action === 'review' && t751r2.action_source === 'explicit_current_issue' && t751r2.source.inherited.requested_action === false && t751r2.source.resolution.action_conflict === 'inherited_previous_attempt=implement',
+    'I/G: a rerun with a new explicit Action (heading block form) wins over the inherited implement, and the ignored candidate is recorded');
+  ok(t751r2.scope.length === 1 && t751r2.source.inherited.scope === true, 'I: sections the rerun body omits are still inherited');
+  ok(await drain(), 'precedence: attempt 2 drained');
+  await full();
+  store.issues[751].body = '## Objective\nThird attempt states nothing about Action.\n';
+  store.issues[751].labels.push({ name: 'rerun' });
+  await full();
+  var t751r3 = taskOnDisk('gh-issue-751-r3');
+  ok(t751r3 && t751r3.requested_action === 'review' && t751r3.action_source === 'inherited_previous_attempt' && t751r3.action_raw === 'review' && /inherited from gh-issue-751-r2 \("review"\)/.test(t751r3.notes),
+    'H: a rerun without an Action inherits the PREVIOUS attempt\'s decision (review, not the original implement)');
+
+  // E2E — `## Action: implement` + `## Model: Fable 5.1` → implement → repo-write → Fable 5.1 → provider → report.
+  addIssue(760, Object.assign({}, fixture(118), { number: 760, id: 5760, node_id: 'I_760', html_url: 'https://github.example.test/fixture-org/fixture-repo/issues/760', labels: [{ name: 'task' }], comments: 0 }));
+  var rE2E = await full();
+  var t760 = taskOnDisk('gh-issue-760');
+  ok(t760 && t760.requested_action === 'implement' && t760.action_source === 'explicit_current_issue' && t760.model === 'fable-5.1' && t760.model_source === 'explicit_current_issue',
+    'E2E: #118 body → requested_action=implement, model=fable-5.1 (explicit)');
+  ok(t760.status !== 'PENDING' && t760.execution && t760.execution.execution_profile === 'repo-write' && t760.execution.model === 'claude-fable-5-1' && t760.execution.attempt_id === 'gh-issue-760#1',
+    'E2E: claimed → execution_profile=repo-write, model=claude-fable-5-1');
+  var e760 = state.readJSON(t760.execution.executor_task_id, 'task.json');
+  ok(e760.execution_profile === 'repo-write' && e760.task_category === 'implement' && e760.model === 'claude-fable-5-1' && e760.action_source === 'explicit_current_issue',
+    'E2E: the executor task (what the provider runs under) is repo-write + implement + claude-fable-5-1');
+  var created760 = markedComments(760, 'created')[0];
+  ok(created760 && /`implement` → execution profile `repo-write`/.test(created760.body) && /explicit_current_issue/.test(created760.body) && /fable-5\.1/.test(created760.body) && !/automatic/.test(created760.body.split('| Model |')[1].split('\n')[0]),
+    'E2E: the created comment states implement → repo-write, the source, and the pinned model');
+  ok(await drain(), 'E2E: executor ran the attempt');
+  await full();
+  var rep760 = reportOnDisk('gh-issue-760');
+  ok(rep760 && rep760.status === 'COMPLETED' && rep760.resolution.requested_action === 'implement' && rep760.resolution.execution_profile === 'repo-write' && rep760.resolution.model === 'claude-fable-5-1' && rep760.resolution.model_requested === 'Fable 5.1' && rep760.execution.model === 'claude-fable-5-1' && rep760.attempt_id === 'gh-issue-760#1' && rep760.structured_report && rep760.structured_report.mythos_report === true,
+    'E2E: the report proves implement / repo-write / claude-fable-5-1 / attempt_id with a structured mythos_report');
+  var rc760 = markedComments(760, 'report')[0];
+  ok(rc760 && /COMPLETED/.test(rc760.body) && /`implement`/.test(rc760.body) && /repo-write/.test(rc760.body) && /claude-fable-5-1/.test(rc760.body), 'E2E: the Issue report comment shows action, profile and model');
+
+  // M — the same Issue while Fable 5.1 is unavailable: BLOCKED MODEL_UNAVAILABLE, no substitute, structured report, Issue told.
+  var modelPolicy = require(path.join(EXEC, 'lib', 'model-policy'));
+  var f51 = modelPolicy.DEFAULT_LOADED.policy.catalog['fable-5.1'];
+  var savedEnabled = f51.enabled;
+  f51.enabled = false;
+  addIssue(761, Object.assign({}, fixture(117), { number: 761, id: 5761, node_id: 'I_761', html_url: 'https://github.example.test/fixture-org/fixture-repo/issues/761', labels: [{ name: 'task' }], comments: 0 }));
+  var rM = await full();
+  f51.enabled = savedEnabled;
+  var t761 = taskOnDisk('gh-issue-761');
+  ok(actionsOf(rM.phases.intake, 'create').some(function (a) { return a.issue === 761; }) && t761 && t761.model === 'fable-5.1' && t761.source.resolution.model_available === false,
+    'M: the Issue is accepted with its explicit model recorded as unavailable (not rejected as a typo)');
+  ok(t761.status === 'BLOCKED' && t761.execution.blocker.code === 'MODEL_UNAVAILABLE' && t761.execution.executor_task_id === null && executorTasksFor('gh-issue-761').length === 0,
+    'M: the claim stops as MODEL_UNAVAILABLE — no executor task, nothing ran');
+  var rep761 = reportOnDisk('gh-issue-761');
+  ok(rep761 && rep761.blocker.code === 'MODEL_UNAVAILABLE' && rep761.blocker.requested_model === 'Fable 5.1' && rep761.blocker.actual_model === null && rep761.blocker.available_models.length > 0 && rep761.structured_report.synthesized === true && rep761.resolution.requested_action === 'implement' && rep761.resolution.execution_profile === 'repo-write',
+    'M: the report names requested/available/actual model and keeps implement → repo-write');
+  var rc761 = markedComments(761, 'report')[0];
+  ok(rc761 && /BLOCKED/.test(rc761.body) && /MODEL_UNAVAILABLE/.test(rc761.body) && /not retried automatically/.test(rc761.body) && issues.issueStateOf(t761, rep761) === 'BLOCKED',
+    'M: the Issue is told MODEL_UNAVAILABLE (BLOCKED, not HUMAN_APPROVAL, not retried)');
+  var cr761 = markedComments(761, 'created')[0];
+  ok(cr761 && /NOT available/.test(cr761.body) && /MODEL_UNAVAILABLE/.test(cr761.body), 'M: the created comment already warned that the model is unavailable');
+
+  // status / CLI surfaces carry the decision.
+  var stRow = issues.status().issues.filter(function (r) { return r.task_id === 'gh-issue-760'; })[0];
+  ok(stRow && stRow.requested_action === 'implement' && stRow.action_source === 'explicit_current_issue' && stRow.execution_profile === 'repo-write' && stRow.model === 'fable-5.1', 'status: rows carry action/source/profile/model');
+  var resolveCli = cp.spawnSync(process.execPath, [path.join(EXEC, 'bin', 'mythos-github-bridge'), 'resolve', path.join(__dirname, 'fixtures', 'github-issues', 'issue-118.json')], { env: process.env, encoding: 'utf8' });
+  var resolved = null; try { resolved = JSON.parse(resolveCli.stdout); } catch (e) { resolved = null; }
+  ok(resolveCli.status === 0 && resolved && resolved.action.requested_action === 'implement' && resolved.execution_profile === 'repo-write' && resolved.model.model_key === 'fable-5.1', 'cli: resolve prints the engine decision for the #118 fixture');
 
   // --- 11. main untouched, control-only commits ---------------------------------------------------------
   ok(git(REPO, ['rev-parse', 'main']) === MAIN_AT_START && git(ORIGIN, ['rev-parse', 'main']) === ORIGIN_MAIN_AT_START, 'main: local and origin main are byte-for-byte where they started');
