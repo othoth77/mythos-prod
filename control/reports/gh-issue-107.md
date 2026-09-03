@@ -8,7 +8,7 @@
 | Profile | repo-write |
 | Model | `claude-sonnet-5` (auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]) |
 | Branch | `mythos/gh/gh-issue-107` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -17,7 +17,7 @@ Changed the MYTHOS GitHub bridge's systemd user timer (source of truth: projects
 
 ## Commits
 
-- `5ada6f0f7bb241c0e7009e840a6e1ee2c6567e55` fix(github-bridge): poll control branch every 1 minute instead of 2 (awaiting relay)
+- `5ada6f0f7bb241c0e7009e840a6e1ee2c6567e55` fix(github-bridge): poll control branch every 1 minute instead of 2 (on origin)
 
 ## Files changed
 
