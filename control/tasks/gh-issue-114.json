@@ -1,0 +1,59 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-114",
+  "project": "mythos-prod",
+  "objective": "إجراء مراجعة هندسية عميقة للـGitHub Bridge الحالي واستخراج أفضل patterns من مشاريع orchestration / queue / webhook قوية، ثم تنفيذ التحسينات الآمنة والمباشرة داخل MYTHOS Bridge وإنشاء PR قابل للمراجعة.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T09:07:29.599Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #114 https://github.com/othoth77/mythos-prod/issues/114 — \"Bridge Architecture Upgrade — بحث وتنفيذ هندسي\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[مشاريع مرجعية]\nادرس عند الحاجة:\n- Temporal — durable execution / workflow state / recovery\n- Hatchet — task queue / priority / fairness / retries / replay\n- Trigger.dev — AI workflows / human approval / idempotency / observability\n- Svix Webhooks — delivery reliability / idempotency / retries\n- BullMQ — queue / concurrency / delayed jobs / retries\n- webhook-delivery — DLQ / backoff / jitter / deterministic delivery tests\n\nلا نريد إدخال أي framework خارجي كـdependency في هذه المرحلة؛ المطلوب اقتباس patterns فقط بما يناسب بنية MYTHOS الحالية.\n\n[نطاق البحث والتنفيذ]\n1. مراجعة architecture الحالية للـBridge ومسار:\n   GitHub Issue → Action Resolution → Claim → OTHMODE → Executor → Claude → Structured Report → GitHub.\n2. تحديد نقاط الضعف الفعلية، خصوصاً:\n   - Action resolution وrerun precedence\n   - durable attempt state\n   - idempotency / duplicate prevention\n   - claim / lease / stale worker protection\n   - retry classification + backoff/jitter\n   - failed tasks / DLQ\n   - priority/fairness\n   - structured event/history\n   - report/delivery reliability\n3. مقارنة هذه النقاط بالـpatterns المرجعية واختيار ما يمكن تطبيقه محلياً بدون بنية تحتية جديدة.\n4. تنفيذ فقط التحسينات التي تثبت فائدتها وتبقى ضمن Bridge.\n5. إضافة regression/integration tests لكل سلوك جديد.\n6. الحفاظ على التوافق مع GitHub Issues/Rerun، Model Policy، Resource Guard، OTHMODE، Executor وG…\n\n[مبدأ الأولوية المهم]\nفي Action Resolution:\n\n**explicit Action في الـIssue الحالي > inherited Action من المحاولة السابقة > default Action**\n\nوالـinheritance لا يحدث إلا عند غياب Action صريح في الـIssue الحالي.\n\n[قيود صارمة]\n- لا WhatsApp / Evolution API / b37491f.\n- لا AUTOS-0.\n- لا SPY ولا n8n.\n- لا MYTHOS AUTO/customer chat.\n- لا تغيير Resource Guard thresholds.\n- لا تغيير Model Policy إلا إذا كان ضرورياً مباشرةً لاختبارات Bridge.\n- لا systemd/VPS/deployment.\n- لا أسرار أو credentials.\n- لا blind `git add .`.\n- لا حذف/تجاوز اختبارات قائمة.\n- لا تغييرات خارج Bridge والاختبارات والوثائق اللازمة.\n- لا إدخال Temporal/Hatchet/BullMQ أو أي خدمة خارجية كـruntime dependency.\n\n[الاختبارات الإلزامية]\nشغّل الاختبارات المتأثرة، وعلى الأقل:\n- GitHub Issues\n- GitHub Bridge\n- Executor\n- Governance invariants\n- أي tests جديدة للـAction/Rerun/Idempotency/Retry/Lease التي يتم تنفيذها.\n\nيجب أن تكون النتيجة 0 failures قبل إنشاء PR.\n\n[التقرير الإلزامي]\nيجب أن يحتوي التقرير النهائي على `mythos_report` structured block ويتضمن:\n- executive summary\n- findings مرتبة حسب الأولوية\n- patterns التي تم اعتمادها ولماذا\n- patterns التي تم رفضها ولماذا\n- الملفات المتغيرة\n- الاختبارات ونتائجها\n- commit SHA\n- branch\n- base SHA\n- PR URL\n- المخاطر المتبقية\n- next recommended step\n\nإذا لم يكن تنفيذ تحسين معين آمناً أو واضحاً، لا تخمّن ولا توسّع النطاق؛ سجله كـfinding مع توصية منفصلة.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 114,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/114",
+    "issue_id": 5334597299,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPfd-sw",
+    "issue_title": "TASK: Bridge Architecture Upgrade — بحث وتنفيذ هندسي",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T09:06:38Z",
+    "issue_updated_at": "2026-09-03T09:06:38Z",
+    "issue_labels": [
+      "task",
+      "mythos:human-approval"
+    ],
+    "content_sha256": "eb676e401267dd4385102b9b93ec3b69cdadebe0128843a7d32202095c48d070",
+    "attempt": 1,
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "converted_at": "2026-09-03T09:07:29.600Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5523346262,
+        "url": "https://github.com/othoth77/mythos-prod/issues/114#issuecomment-5523346262",
+        "at": "2026-09-03T09:07:30.665Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:human-approval"
+      ]
+    }
+  }
+}
