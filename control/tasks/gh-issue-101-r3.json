@@ -8,7 +8,7 @@
   "priority": "normal",
   "requested_action": "implement",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-03T00:46:09.459Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #101 https://github.com/othoth77/mythos-prod/issues/101 — \"MYTHOS Resource Guard — تنفيذ الحماية الفعلية للـRAM وSWAP\"\n\n[re-run — implement only]\nنفّذ الآن Resource Guard فعلياً اعتماداً على نتائج التحقيق السابقة في نفس Issue، ولا تعِد التحقيق من الصفر.\n\n**إلزامي:**\n- requested_action=implement\n- execution_profile=repo-write\n- لا تحوّل المهمة إلى investigate أو repo-read.\n- لا تضف Model:؛ استخدم سياسة Model Selection من #100 تلقائياً.\n\n[التنفيذ]\n1. استخدم MemAvailable + PSI memory some avg60 + delta في oom_kill كإشارات أساسية. SWAP للعرض فقط وليس trigger.\n2. الحالات: NORMAL / WARNING / CRITICAL / RECOVERED.\n3. thresholds المقترحة من التحقيق:\n   - CRITICAL enter: MemAvailable <=700 MiB أو PSI avg60 >=30 أو oom_kill delta >0.\n   - CRITICAL exit: MemAvailable >=1100 MiB و PSI avg60 <=10 ولا توجد kills جديدة.\n   - WARNING enter: MemAvailable <=1200 MiB أو PSI avg60 >=5.\n   - WARNING exit: MemAvailable >=1600 MiB و PSI avg60 <=2.\n   - escalation confirmation: عينتان (~4 دقائق).\n   - recovery/de-escalation: 5 عينات (~10 دقائق).\n   - RECOVERED مرة واحدة عند degraded → NORMAL.\n   - alert cooldown >=30 دقيقة لكل kind.\n4. أصلح admission path الخاص بـ requested_by=github-bridge؛ لا تعتمد فقط على dispatchTask/drainQueue الحاليين لأن التحقيق …\n\n[git / النتيجة]\n- لا merge إلى main.\n- commit + push إلى branch المهمة فقط بعد نجاح التنفيذ.\n- سجّل SHA وremote HEAD والملفات والاختبارات في AI_HANDOVER.\n- لا تستخدم git add . بشكل أعمى.\n- عند النجاح: COMPLETED + تقرير كامل.\n- عند الحاجة إلى root/صلاحية غير متاحة: HUMAN_APPROVAL/BLOCKED مع المطلوب بدقة.\n\n[ممنوع اللمس]\nAUTOS-0، SPY، n8n، مشاريع السيارات، MCP/ContextForge، OAuth، وأي مشروع غير متعلق بـResource Guard.\n\n**مهم:** التحقيق السابق في #101 هو أساس التنفيذ. لا تعتبره بديلاً عن التنفيذ والاختبارات.",
@@ -68,8 +68,9 @@
     "claimed_at": "2026-09-03T00:46:15.912Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "32c51b15e2c5e54e366f46dceaa3d009196d2af36cc2b15104c8ff94175e9599",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-03T00:46:15.913Z"
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-03T00:48:17.414Z",
+    "claude_session_id": "03b3a252-6c78-4667-a720-2f3682ec347e"
   },
   "history": [
     {
@@ -78,6 +79,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260903004615-6aibdz queued; OTHMODE OTH-2026-00033"
+    },
+    {
+      "at": "2026-09-03T00:48:17.414Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
