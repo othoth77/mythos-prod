@@ -1,0 +1,49 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-118",
+  "status": "COMPLETED",
+  "summary": "GitHub Bridge Action Resolution is mostly correct and durable. The intake → claim → execute → report flow properly parses Action from Issue labels/body/rerun inheritance and enforces the action→profile invariant at executor level. Key gaps: (1) raw action text and source (label vs. body vs. inherited) are not persisted for audit; (2) no explicit ACTION_PROFILE_MISMATCH gate in the bridge itself (relies on executor); (3) real write path blocked on missing GitHub credential. All timing, idempotency, and attempt state preservation are sound.",
+  "files_changed": [],
+  "commits": [],
+  "tests": [],
+  "validation": {
+    "git_verified": null,
+    "remote_head": "88869a92ef63cc5e044044811d91a86f045365e5",
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [],
+  "risks": [
+    "action_raw and action_source fields not persisted — no audit trail of user's original action text vs. normalized canonical value",
+    "ACTION_PROFILE_MISMATCH not gated at bridge level — relies on downstream executor enforcement",
+    "GitHub token missing for live write path — Issue comments and labels cannot be posted until owner installs fine-grained PAT"
+  ],
+  "next_recommended_action": "Implementation phase: (1) add action_raw and action_source to task schema, (2) add explicit mismatch blocker before executor.createTask, (3) install GitHub Issues credential, (4) run E2E smoke test with implement/investigate actions",
+  "completed_at": "2026-09-03T10:10:32.563Z",
+  "execution": {
+    "executor_task_id": "t-20260903095744-n6y933",
+    "othmode_task_id": "OTH-2026-00051",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-haiku-4-5",
+    "model_requested": null,
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:fast→haiku score=1 [complexity_terms(concurrency)+1]",
+    "claude_session_id": "27733d7d-0656-45a4-8081-1bceb40528c1",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-03T10:07:49.977Z",
+    "ended_at": "2026-09-03T10:09:28.798Z",
+    "retries": 0,
+    "quota_waits": 0,
+    "cost_usd": 0.3055305,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-118",
+    "branch": "mythos/gh/gh-issue-118",
+    "base_commit": "88869a92ef63cc5e044044811d91a86f045365e5",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-118",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
