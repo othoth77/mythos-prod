@@ -1,5 +1,27 @@
 # AI Handover
 
+## WA-DEPLOY-VERIFY-1 — WhatsApp provider deployment verification, blocked (GitHub issue #141, 2026-09-03)
+
+**Objective.** Issue #141 asked to finish the remaining, non-code part of #126: resolve the VPS
+permission/swap blockers #126 documented, pick and deploy a WhatsApp provider on a private network,
+provision credentials outside Git, and run `notify-test --confirm` once with a real message. This is
+a verification pass only — #126's code and notification layer (`docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md`)
+were not re-implemented or modified.
+
+| Item | State |
+|---|---|
+| Branch | `mythos/gh/gh-issue-141-r3` over `5482db8` (`origin/main`), worktree `/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-141-r3`. Delivery by the governance relay; not merged. |
+| Docker access | **Now present**, unlike the #126 assessment: `deploy` is in the `docker` group and `docker ps` succeeds. This VPS is a **shared multi-tenant production host** — also running `dar-hijama-production-*` (a live client app), Coolify, n8n, Jellyfin, idauto, and MCP proxy containers, not just Mythos infrastructure. |
+| Swap/memory | **Still 100% consumed** (`free -m`: Swap 4095/4095 MiB used), unchanged since #126's 2026-09-02 measurement. `MemAvailable` reads 1735/7746 MiB (reclaimable cache counted), which may or may not be enough headroom for a minimal Evolution API stack — that is a risk judgment call affecting other tenants' live production services, not a fact this session can settle unilaterally. |
+| No root | `sudo -n true` was denied in this session. Swap remediation and credential file placement both plausibly need root or at least an owner-controlled path outside this sandbox. |
+| Sandbox scope | This session's tools are structurally restricted to the worktree directory — `~/mythos-ai-executor/secrets/` and `~/.config/systemd/user/mythos-github-bridge.service.d/` (the exact paths §4.1 of the WhatsApp doc specifies for credentials/config) are outside what this session can read or write, by design. |
+| Stray artifact found | A container named `evolution-inspect` (`evoapicloud/evolution-api:latest`, created earlier today, state `created`, never started, no memory limit, no port bindings, no env beyond image defaults) — left from an earlier attempt at this same task. It is an image-inspection artifact only, not a deployment attempt; consumes no resources in `created` state. Left in place for continuity; harmless. |
+| Notification layer re-verified | `notify-config` and `notify-status` both run clean: still `enabled: false`, 0 ledger entries, all four expected `problems` (no base URL / instance / recipients / credential). No regression from #126. |
+| Why BLOCKED | Three independent blockers, not one: (1) starting a new stateful gateway on a swap-exhausted, multi-tenant production host is a Level 3 production-deployment decision (AGENTS.md §25.3) requiring explicit owner authorization — the blast radius extends to other tenants' live services, not just Mythos; (2) credential/config provisioning is structurally outside this sandbox's reach; (3) WhatsApp pairing requires a human to scan a QR code with a physical phone once — no autonomous session, with any permission level, can perform that step. (2) and (3) hold regardless of how (1) is resolved. |
+| Tests | `node projects/mythos-ai-executor/bin/mythos-github-bridge notify-config` and `notify-status` run (read-only, no state change) — both clean, matching #126's documented DISABLED default. No suite re-run: no code changed. |
+| Changed files | `docs/AI_HANDOVER.md` only (this entry). |
+| Owner action required, in order | 1) Decide whether to deploy a WhatsApp provider on this shared VPS now (given swap/memory pressure and other tenants) or provision a separate host; 2) if here: as root, `install -m 700 -d ~/mythos-ai-executor/secrets` + the credential file + the systemd drop-in per `docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md` §4.1, start the provider container on a private network binding (loopback/RFC1918 only, per §5.2); 3) pair the WhatsApp number by scanning the provider's QR code on a phone — one-time, human-only, cannot be delegated; 4) once paired and the drop-in is live, run `mythos-github-bridge notify-config` (problems must be empty) then `notify-test --confirm` — the code path is already built and tested, nothing else to implement. |
+
 ## SESSION-GUARD-1 — Claude Desktop Remote session lifecycle guard (GitHub issue #144, 2026-09-03)
 
 **Objective.** Stop the unbounded accumulation of Claude Desktop Remote sessions on this VPS and
