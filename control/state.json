@@ -1,12 +1,12 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-03T19:08:41.602Z",
+  "generated_at": "2026-09-03T19:08:43.201Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
-    "PENDING": 1,
-    "CLAIMED": 1,
+    "PENDING": 0,
+    "CLAIMED": 2,
     "IN_PROGRESS": 1,
     "VALIDATING": 0,
     "COMPLETED": 25,
@@ -14,12 +14,11 @@
     "FAILED": 0,
     "CANCELLED": 0
   },
-  "pending": [
-    "gh-issue-142"
-  ],
+  "pending": [],
   "active": [
     "gh-issue-140",
-    "gh-issue-141"
+    "gh-issue-141",
+    "gh-issue-142"
   ],
   "awaiting_review": [
     "gh-20260902-bridge-smoke-01",
@@ -996,18 +995,18 @@
     },
     {
       "task_id": "gh-issue-142",
-      "status": "PENDING",
+      "status": "CLAIMED",
       "priority": "normal",
       "requested_action": "implement",
       "action_source": "explicit_current_issue",
-      "execution_profile": null,
-      "model": "sonnet",
+      "execution_profile": "repo-write",
+      "model": "claude-sonnet-5",
       "blocker": null,
       "created_at": "2026-09-03T19:08:39.695Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-03T19:08:39.695Z",
-      "executor_task_id": null,
-      "branch": null,
+      "updated_at": "2026-09-03T19:08:43.197Z",
+      "executor_task_id": "t-20260903190843-ymczkb",
+      "branch": "mythos/gh/gh-issue-142",
       "task_file": "control/tasks/gh-issue-142.json",
       "report_file": null,
       "source": {
