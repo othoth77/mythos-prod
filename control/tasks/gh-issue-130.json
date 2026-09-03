@@ -1,0 +1,123 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-130",
+  "project": "mythos-prod",
+  "objective": "Fix the production Executor to HostOps READ path while keeping `NoNewPrivileges=true` on `mythos-ai-executor.service`.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T15:06:50.043Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #130 https://github.com/othoth77/mythos-prod/issues/130 — \"HOSTOPS-2R: fix Executor to HostOps path with Unix socket boundary\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[required implementation]\n1. Replace the current Executor-side sudo invocation with a local root-owned Unix socket boundary:\n   - `mythos-hostops.socket`\n   - `mythos-hostops.service`\n   - local socket under `/run/mythos-hostops/`\n   - socket access limited to `deploy` and `dagu`\n   - verify caller identity with `SO_PEERCRED`; never trust a caller-supplied identity field\n2. The root service must invoke the existing `/usr/local/sbin/mythos-hostops` helper directly with a fixed argument array and no shell.\n3. Keep the existing helper as the sole HostOps security boundary and preserve its audit behavior.\n4. Change `projects/mythos-ai-executor/lib/hostops.js` to use the Unix socket and preserve the existing governance order, including Resource Guard admission before socket access.\n5. Preserve all existing failure semantics including unavailable, timeout, malformed response, missing audit id, and task-recorded behavior.\n6. Remove the obsolete deploy sudo path from the installer and documentation.\n7. Keep the Executor hardening unchanged, especially `NoNewPrivileges=true`.\n8. Add/update focused tests proving peer-credential authorization, no sudo/shell/docker/systemctl in the Executor path, READ-only enforcement, audit-id enforcement, Resource Guard ordering, and unavailable-service behavior.\n9. Run the required focused suites and the established MYTHOS regression suites.\n10. Update the relevant HostOps documentation and `docs/AI_HANDOVER.md`.\n\n[security constraints]\n- Do not weaken or remove `NoNewPrivileges=true`.\n- Do not add unrestricted privilege escalation.\n- Do not expose Docker socket to Executor, Dagu, or Claude.\n- Do not add WRITE, RESTART, or DEPLOY operations.\n- Do not change Resource Guard, Governance, MCP, Model Selection, or GitHub Bridge semantics.\n\n[scope exclusions]\nDo not touch Evolution/WhatsApp, AUTOS-0, SPY, n8n, or unrelated projects.\nDo not expose Dagu beyond its existing loopback binding.\nDo not perform manual VPS changes from the execution session.\nDo not merge to main.\nDo not use `git add .`.\n\n[delivery]\nUse a dedicated branch from the latest `origin/main`, verify the implementation and tests, deliver through the normal governance relay, and leave the branch ready for PR review. Provide a structured report with commit, tests, risks, and exact owner-only installation steps if systemd root units must be installed.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 130,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/130",
+    "issue_id": 5338192891,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPi5b-w",
+    "issue_title": "HOSTOPS-2R: fix Executor to HostOps path with Unix socket boundary",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T15:05:50Z",
+    "issue_updated_at": "2026-09-03T15:05:50Z",
+    "issue_labels": [
+      "task"
+    ],
+    "content_sha256": "4a5365d28f527a3944b5561fba100a99c65dde7bae9adeb06e0668cf1dc33300",
+    "attempt": 1,
+    "attempt_id": "gh-issue-130#1",
+    "idempotency_key": "35dc53208144b986cd57b0cf40d8a670f959f3603aae65981a5d643ccb4015e8",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "heading_inline",
+          "line": 1
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-03T15:06:50.044Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-03T15:06:50.044Z",
+        "event": "issue_received",
+        "reason": "open Issue #130 with label task",
+        "content_sha256": "4a5365d28f527a3944b5561fba100a99c65dde7bae9adeb06e0668cf1dc33300"
+      },
+      {
+        "at": "2026-09-03T15:06:50.044Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-03T15:06:50.044Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-03T15:06:50.044Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-03T15:06:51.835Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-130.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-03T15:06:50.044Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5527765592,
+        "url": "https://github.com/othoth77/mythos-prod/issues/130#issuecomment-5527765592",
+        "at": "2026-09-03T15:06:51.121Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
