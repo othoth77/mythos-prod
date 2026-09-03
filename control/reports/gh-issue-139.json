@@ -1,0 +1,135 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-139",
+  "attempt_id": "gh-issue-139#1",
+  "status": "COMPLETED",
+  "summary": "Verified gh-issue-138's Rerun-fix verification commit (163158e) reached origin: it was missing from origin/mythos/gh/gh-issue-138 at task start, but no push was run by this session per the bridge constraints — a subsequent git fetch confirmed the mythos-git-push governance relay had already fast-forward delivered it (origin/mythos/gh/gh-issue-138 == 163158e, origin/mythos/control == local tip 1f4464b). Re-verified fixes A-D are still present on origin/main via PR #104 (df8e285, ancestor commit 7bc40ca): rerun-label consumed only after control commit, action_source inheritance, scope/constraints/validation_requirements inheritance, and rerunDeferredBody/staleEditBody/rejectedBody all intact in bridge/github-issues.js. No source or test changes were needed. Documented the verification in docs/AI_HANDOVER.md and committed locally; OTHMODE task OTH-2026-00063 updated to phase VERIFICATION with git/validation/outcome evidence (status left RUNNING for the bridge to close).",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": "claude-sonnet-5",
+    "model_key": "sonnet",
+    "model": "claude-sonnet-5",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "base_sha": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "branch": "mythos/gh/gh-issue-139",
+    "commit_sha": "3d759a16a53a14a433d798e136a72a3cf8ba5647"
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-03T18:55:01.907Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Verified gh-issue-138's Rerun-fix verification commit (163158e) reached origin: it was missing from origin/mythos/gh/gh-issue-138 at task start, but no push was run by this session per the bridge constraints — a subsequent git fetch confirmed the mythos-git-push governance relay had already fast-forward delivered it (origin/mythos/gh/gh-issue-138 == 163158e, origin/mythos/control == local tip 1f4464b). Re-verified fixes A-D are still present on origin/main via PR #104 (df8e285, ancestor commit 7bc40ca): rerun-label consumed only after control commit, action_source inheritance, scope/constraints/validation_requirements inheritance, and rerunDeferredBody/staleEditBody/rejectedBody all intact in bridge/github-issues.js. No source or test changes were needed. Documented the verification in docs/AI_HANDOVER.md and committed locally; OTHMODE task OTH-2026-00063 updated to phase VERIFICATION with git/validation/outcome evidence (status left RUNNING for the bridge to close).",
+    "tests": [
+      "node --check bridge/github-issues.js: pass (syntax only, no source changed)",
+      "previous suites (issues 193/0, bridge 150/0, action-resolution 88/0, executor 390/0) not re-run — no code changed since gh-issue-138 recorded them"
+    ],
+    "commit": "3d759a16a53a14a433d798e136a72a3cf8ba5647",
+    "remote_head": "origin/mythos/gh/gh-issue-138 == 163158e107fd7b73995b721beb48b706e6bab19c (this task's own commit 3d759a1 is local-only, pending the same relay)",
+    "files_changed": [
+      "docs/AI_HANDOVER.md"
+    ],
+    "residual_risks": [
+      "This task's own commit (3d759a1) has not yet been observed on origin — it depends on the same mythos-git-push relay tick that already delivered 163158e; if the relay is later found stuck, that would need separate diagnosis outside this task's sandbox (systemctl/journalctl are blocked from this worktree)."
+    ],
+    "next_stage": "None required from this task. Bridge/relay: confirm 3d759a1 lands on origin/mythos/gh/gh-issue-139 on its next tick, then close OTH-2026-00063 and the GitHub Issue #139 correlation."
+  },
+  "files_changed": [
+    "docs/AI_HANDOVER.md"
+  ],
+  "commits": [
+    {
+      "sha": "3d759a16a53a14a433d798e136a72a3cf8ba5647",
+      "subject": "docs(github-issues): confirm gh-issue-138 rerun-fix verification commit delivered to origin (gh-issue-139)",
+      "branch": "mythos/gh/gh-issue-139",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "node --check bridge/github-issues.js: pass (syntax only, no source changed)",
+    "previous suites (issues 193/0, bridge 150/0, action-resolution 88/0, executor 390/0) not re-run — no code changed since gh-issue-138 recorded them"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "report_problems": [],
+    "required_checks": [
+      "remote commit موجود فعليًا.",
+      "Git verification ناجح.",
+      "الإصلاحات A-D مازالت موجودة على origin/main أو الـ branch المعتمد.",
+      "الاختبارات السابقة مازالت صالحة ولا حاجة لإعادة تشغيلها إلا إذا تطلب التحقق ذلك.",
+      "توثيق النتيجة في final REPORT."
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "This task's own commit (3d759a1) has not yet been observed on origin — it depends on the same mythos-git-push relay tick that already delivered 163158e; if the relay is later found stuck, that would need separate diagnosis outside this task's sandbox (systemctl/journalctl are blocked from this worktree)."
+  ],
+  "next_recommended_action": "None required from this task. Bridge/relay: confirm 3d759a1 lands on origin/mythos/gh/gh-issue-139 on its next tick, then close OTH-2026-00063 and the GitHub Issue #139 correlation.",
+  "completed_at": "2026-09-03T18:58:50.561Z",
+  "execution": {
+    "executor_task_id": "t-20260903185503-fko5r2",
+    "othmode_task_id": "OTH-2026-00063",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": "claude-sonnet-5",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-139#1",
+    "fence": 1130,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1000103",
+      "fence": 1130,
+      "acquired_at": "2026-09-03T18:55:03.346Z",
+      "expires_at": "2026-09-03T20:25:03.346Z"
+    },
+    "snapshot_sha256": "578e80d66d5aed0900183913b7bea85e187f9133635bc83af811b85edeaebebd",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "claude_session_id": "dbc32410-b1b1-454a-b63a-3ee2b4d8eb2f",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-03T18:55:05.428Z",
+    "ended_at": "2026-09-03T18:58:16.494Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.9050962,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-139",
+    "branch": "mythos/gh/gh-issue-139",
+    "base_commit": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-139",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
