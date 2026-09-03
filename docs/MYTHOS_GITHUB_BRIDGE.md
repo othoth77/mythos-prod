@@ -297,6 +297,26 @@ the tick's `runtime:RUNTIME_IDENTITY_MISMATCH` deferral + log; X: lease expiry o
 engine suite (defaulted / unknown-provenance previous attempts are not inherited; decided ones are), Issues suite
 (rerun of a defaulted attempt is defaulted again with the reason recorded).
 
+## 12f. WhatsApp notifications (2026-09-02, stage `gh-20260902-wa-bridge-notify-01`)
+
+An optional notification sink bolted to the side of the bridge. **Disabled by default**; full documentation
+in [`docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md`](MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md).
+
+| Aspect | Behaviour |
+|---|---|
+| Trigger | a terminal REPORT with status `COMPLETED`, `FAILED` or `BLOCKED`. `CANCELLED` and every non-terminal state notify nothing. |
+| `HUMAN_APPROVAL` | the notification kind for the bridge's existing blocked-for-a-human condition (claim exists, executor record gone). It is a *notification* concept only — the control status stays `BLOCKED` and `mythos-control/1` is unchanged. |
+| Execution semantics | untouched. `finishTask()` only appends a durable ledger entry (local, synchronous, no network); delivery happens in `flushNotifications()` **after** `tick()` has returned. A gateway outage leaves the TASK and REPORT byte-identical and produces no control commit. |
+| Provider | behind an adapter (`bridge/notify/providers/evolution.js`). Migrating to WAHA or the official WhatsApp Business Cloud API is a new file plus one line in the `PROVIDERS` map — `github-bridge.js` does not change. |
+| Idempotency | durable ledger keyed `<task_id>__<KIND>` under `$MYTHOS_BRIDGE_HOME/notify/ledger/`, `O_EXCL` lock per key. Duplicate polling, concurrent ticks, concurrent processes and restarts all yield at most one successful message per recipient. |
+| Secrets | credential read at send time from a `0600` file; never in the ledger, logs, reports, messages or CLI output. Gateway must be on a private network unless explicitly overridden. |
+| CLI | `notify-config`, `notify-status`, `notify-flush`, `notify-test --confirm` (the only real-message path, human-invoked only). |
+| Tests | `tests/mythos-bridge-whatsapp-notify-test.js` — 116 checks against a local fake gateway; no real message. |
+
+Not done in this stage: the provider itself is **not deployed** and the one real smoke test is **not performed**
+(no provider on the host, no Docker access for `deploy`, swap fully consumed). Both are the first steps of the
+separate deployment task.
+
 ## 13. Honest limits
 
 - Latency: claim within ~1 min, visible on GitHub after the next relay tick (≤5 min); report likewise.
@@ -305,3 +325,4 @@ engine suite (defaulted / unknown-provenance previous attempts are not inherited
 - The control branch is public to anyone with repository access; the bridge redacts what it writes, but a planner who pastes a secret into a task has already put it in GitHub history (the task is rejected, and the rewritten file is redacted).
 - The push guard is worktree-scoped configuration; a session that deliberately overrides it (`-c remote.origin.pushurl`, explicit URL) is stopped only by the protected policy layer — recommended owner change: disallow `Bash(git push:*)` in `repo-write`/`repo-test`.
 - A `document`/`implement` task whose agent forgets to commit ends COMPLETED with `validation.report_problems: ["delivery expected a commit but the report claims none"]` — visible, not hidden.
+- WhatsApp notifications (§12c) are configured but unproven end to end: no provider is deployed, so the real send has never happened. The provider choice itself is provisional — it was made without outbound network access and its upstream facts are marked `TO-VERIFY`.

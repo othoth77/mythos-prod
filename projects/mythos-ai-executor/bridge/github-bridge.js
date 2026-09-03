@@ -70,6 +70,10 @@ var reporting = require(path.join(EXEC_ROOT, 'lib', 'report'));
 var engine = require('./action-resolution');
 var schema = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'schema'));
 var redact = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'redact'));
+// Notification sink. It is enqueue-only inside the tick (synchronous, local,
+// no network) and delivers out of band from flushNotifications(), so no
+// provider outage can reach the execution path. Disabled unless configured.
+var whatsapp = require(path.join(__dirname, 'notify', 'whatsapp'));
 
 var TASK_SCHEMA = JSON.parse(fs.readFileSync(path.join(__dirname, 'schemas', 'task.schema.json'), 'utf8'));
 var REPORT_SCHEMA = JSON.parse(fs.readFileSync(path.join(__dirname, 'schemas', 'report.schema.json'), 'utf8'));
@@ -1232,6 +1236,18 @@ function finishTask(cfg, task, finalStatus, opts, changed) {
   }
   report.execution.othmode_closed_by_bridge = oth.updated === true;
   var files = writeReport(cfg, report);
+  // The REPORT is on disk and the task status is decided BEFORE a
+  // notification exists. This call only appends a durable ledger entry (or
+  // does nothing at all when WhatsApp is disabled or already notified for
+  // this task+kind); the message itself leaves the host later, from
+  // flushNotifications(). Nothing here can change `finalStatus`.
+  var notified = { queued: false, skipped: 'notification layer unavailable' };
+  try {
+    notified = whatsapp.onReport(report, { human_approval: !!(opts && opts.human_approval) });
+  } catch (e) {
+    notified = { queued: false, error: String(e && e.message).slice(0, 200) };
+  }
+  if (notified.queued || notified.error) log('whatsapp_queued', { task_id: task.task_id, result: notified });
   pushHistory(task, 'VALIDATING', finalStatus, 'report written (' + report.commits.length + ' commit(s), ' + report.tests.length + ' test line(s)); OTHMODE ' +
     (oth.updated ? 'closed by the bridge' : (oth.premature ? 'CLOSED PREMATURELY by the session (recorded as a problem)' : 'not updated: ' + oth.reason)));
   task.status = finalStatus;
@@ -1433,7 +1449,10 @@ function tick(executor, opts) {
           executor_status: null,
           summary: 'The claim for this task exists but the executor record ' + eid + ' is missing on this host (store or host loss). The task was NOT re-executed.',
           problems: ['executor record missing: ' + eid],
-          next: 'A human decides: create a new task (new task_id) to redo the work, or mark this one CANCELLED.'
+          next: 'A human decides: create a new task (new task_id) to redo the work, or mark this one CANCELLED.',
+          // The one bridge state that stops for a person rather than for a
+          // machine: notified as HUMAN_APPROVAL, not as an ordinary BLOCKED.
+          human_approval: true
         }, changed);
         actions.push({ action: 'blocked_missing_executor', task_id: t.task_id });
         return;
@@ -1505,6 +1524,29 @@ function tick(executor, opts) {
   } finally {
     releaseLock(lock);
   }
+}
+
+// --- Notification delivery (strictly out of band) ---------------------------------------------
+
+// Runs AFTER tick() has already returned: the control branch is committed,
+// every status is decided, and nothing that happens here can change any of
+// it. Always resolves — a rejection would be a way for a WhatsApp outage to
+// reach the caller, which is exactly what this layer must not do.
+function flushNotifications(opts) {
+  var promise;
+  try {
+    promise = whatsapp.flush(opts);
+  } catch (e) {
+    return Promise.resolve({ ok: false, error: String(e && e.message).slice(0, 300) });
+  }
+  return promise.then(function (r) {
+    if (r && (r.attempted || r.reclaimed || r.problems || r.error)) log('whatsapp_flush', r);
+    return r;
+  }, function (e) {
+    var r = { ok: false, error: String(e && e.message).slice(0, 300) };
+    log('whatsapp_flush', r);
+    return r;
+  });
 }
 
 // --- Bootstrap of the control branch (idempotent) -------------------------------------------------
@@ -1649,6 +1691,7 @@ function daemon(executor) {
   var cfg = config();
   var stopping = false;
   var busy = false;
+  var flushing = false;
   function step() {
     if (stopping || busy) return;
     busy = true;
@@ -1660,6 +1703,13 @@ function daemon(executor) {
       console.error(JSON.stringify({ ts: nowIso(), tick_error: redact.redact(e.message) }));
     }
     busy = false;
+    // The tick is over; only now may anything reach a WhatsApp gateway, and
+    // it runs on its own guard so a slow provider delays the next
+    // NOTIFICATION attempt and never the next tick.
+    if (!flushing) {
+      flushing = true;
+      flushNotifications().then(function () { flushing = false; }, function () { flushing = false; });
+    }
   }
   var timer = setInterval(step, cfg.intervalMs);
   step();
@@ -1716,5 +1766,7 @@ module.exports = {
   tick: tick,
   init: init,
   status: status,
-  daemon: daemon
+  daemon: daemon,
+  whatsapp: whatsapp,
+  flushNotifications: flushNotifications
 };
