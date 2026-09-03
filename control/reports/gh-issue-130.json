@@ -109,7 +109,7 @@
       "sha": "8c8ab41cb64a5f893b42ea7fecd70066689d8d83",
       "subject": "fix(hostops): HOSTOPS-2R — Executor -> HostOps boundary via Unix socket, NoNewPrivileges intact",
       "branch": "mythos/gh/gh-issue-130",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -180,7 +180,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-130",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-03T15:33:42.733Z"
   }
 }

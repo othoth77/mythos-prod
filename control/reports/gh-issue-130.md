@@ -12,7 +12,7 @@
 | Runtime | `718741b86da9` on `main` |
 | Model | `claude-sonnet-5` (auto:balanced→sonnet score=6 [execution_profile:repo-write+2 task_category:implement+3 complexity_terms(security)+1]) |
 | Branch | `mythos/gh/gh-issue-130` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Fixed GitHub issue #130 (HOSTOPS-2R): the HOSTOPS-1 Executor->HostOps boundary (
 
 ## Commits
 
-- `8c8ab41cb64a5f893b42ea7fecd70066689d8d83` fix(hostops): HOSTOPS-2R — Executor -> HostOps boundary via Unix socket, NoNewPrivileges intact (awaiting relay)
+- `8c8ab41cb64a5f893b42ea7fecd70066689d8d83` fix(hostops): HOSTOPS-2R — Executor -> HostOps boundary via Unix socket, NoNewPrivileges intact (on origin)
 
 ## Files changed
 
