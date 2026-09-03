@@ -22,7 +22,7 @@
   "priority": "normal",
   "requested_action": "investigate",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-03T02:42:49.440Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #110 https://github.com/othoth77/mythos-prod/issues/110 — \"تنفيذ دمج WhatsApp Bridge فوق أحدث main وإنشاء PR قابل للدمج\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[المصدر]\n- Previous WhatsApp implementation: `b37491f9b839a29e2706632ddf07c0f804985702`\n- Conflicted PR: #108\n- Investigation: #109\n- Target: `main`\n\n[النتيجة المطلوبة]\nPR جديد قابل للدمج إلى `main` يحتوي فقط على طبقة WhatsApp Bridge السابقة بعد حل التعارضات، مع تقرير COMPLETED يذكر SHA والاختبارات والملفات المتأثرة.\n\n[ملاحظة]\nالـVPS تم إرجاعه إلى clean بعد `git merge --abort`. لا حاجة لأي تعديل يدوي على الـVPS في هذه المهمة.",
@@ -85,8 +85,9 @@
     "claimed_at": "2026-09-03T02:42:54.006Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "a7519adc0498cd9951ed4b9c438463fe56e32fdf2fc8d40959563275876f77fe",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-03T02:42:54.007Z"
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-03T02:44:00.951Z",
+    "claude_session_id": "ab73acb5-deff-40ef-986d-2be26de87229"
   },
   "history": [
     {
@@ -95,6 +96,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260903024254-lsvcat queued; OTHMODE OTH-2026-00041"
+    },
+    {
+      "at": "2026-09-03T02:44:00.951Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
