@@ -1,11 +1,11 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-03T19:56:12.540Z",
+  "generated_at": "2026-09-03T20:06:41.248Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
-    "PENDING": 0,
+    "PENDING": 1,
     "CLAIMED": 0,
     "IN_PROGRESS": 0,
     "VALIDATING": 0,
@@ -14,7 +14,9 @@
     "FAILED": 0,
     "CANCELLED": 0
   },
-  "pending": [],
+  "pending": [
+    "gh-issue-144"
+  ],
   "active": [],
   "awaiting_review": [
     "gh-20260902-bridge-smoke-01",
@@ -1037,6 +1039,29 @@
         "issue_number": 142,
         "issue_url": "https://github.com/othoth77/mythos-prod/issues/142",
         "issue_state": "COMPLETED"
+      }
+    },
+    {
+      "task_id": "gh-issue-144",
+      "status": "PENDING",
+      "priority": "normal",
+      "requested_action": "implement",
+      "action_source": "action_label",
+      "execution_profile": null,
+      "model": null,
+      "blocker": null,
+      "created_at": "2026-09-03T20:06:39.589Z",
+      "created_by": "github-issue:othoth77",
+      "updated_at": "2026-09-03T20:06:39.589Z",
+      "executor_task_id": null,
+      "branch": null,
+      "task_file": "control/tasks/gh-issue-144.json",
+      "report_file": null,
+      "source": {
+        "kind": "github-issue",
+        "issue_number": 144,
+        "issue_url": "https://github.com/othoth77/mythos-prod/issues/144",
+        "issue_state": null
       }
     },
     {
