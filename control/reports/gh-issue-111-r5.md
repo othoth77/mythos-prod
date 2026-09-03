@@ -12,7 +12,7 @@
 | Runtime | `d69e0abc34de` on `main` |
 | Model | `claude-sonnet-5` (auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]) |
 | Branch | `mythos/gh/gh-issue-111-r5` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Cherry-picked b37491f9b839a29e2706632ddf07c0f804985702 (WhatsApp notification la
 
 ## Commits
 
-- `d8eb8931cf0adca94e2d4f7746884e3b27664e03` feat(github-bridge): reapply WhatsApp notification layer onto current main (gh-issue-111-r5) (awaiting relay)
+- `d8eb8931cf0adca94e2d4f7746884e3b27664e03` feat(github-bridge): reapply WhatsApp notification layer onto current main (gh-issue-111-r5) (on origin)
 
 ## Files changed
 
