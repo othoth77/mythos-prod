@@ -8,7 +8,7 @@
   "priority": "normal",
   "requested_action": "implement",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-03T02:10:09.530Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #106 https://github.com/othoth77/mythos-prod/issues/106 — \"تفعيل MYTHOS Resource Guard على الـVPS والتحقق الحي\"",
@@ -72,8 +72,9 @@
     "claimed_at": "2026-09-03T02:10:15.018Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "abb928028342227f835526fa64541e87146a6f69227d8bcb99294289e4ae8cae",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-03T02:10:15.019Z"
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-03T02:11:20.875Z",
+    "claude_session_id": "d824515f-ae5f-47f6-bb30-8d9297a18bea"
   },
   "history": [
     {
@@ -82,6 +83,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260903021015-21liim queued; OTHMODE OTH-2026-00038"
+    },
+    {
+      "at": "2026-09-03T02:11:20.874Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
