@@ -1,0 +1,63 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-107",
+  "status": "COMPLETED",
+  "summary": "Changed the MYTHOS GitHub bridge's systemd user timer (source of truth: projects/mythos-ai-executor/bridge/systemd/mythos-github-bridge.timer) from a 2-minute to a 1-minute poll interval (OnBootSec/OnUnitActiveSec), keeping the same service, ExecStart command, user, and dependencies unchanged, and synced the docs that explicitly stated the old 2-minute cadence (docs/MYTHOS_GITHUB_BRIDGE.md, docs/MYTHOS_GITHUB_ISSUES.md). Verified with the bridge, issues, and governance-invariant test suites, all passing, and committed on the task branch.",
+  "files_changed": [
+    "projects/mythos-ai-executor/bridge/systemd/mythos-github-bridge.timer",
+    "docs/MYTHOS_GITHUB_BRIDGE.md",
+    "docs/MYTHOS_GITHUB_ISSUES.md"
+  ],
+  "commits": [
+    {
+      "sha": "5ada6f0f7bb241c0e7009e840a6e1ee2c6567e55",
+      "subject": "fix(github-bridge): poll control branch every 1 minute instead of 2",
+      "branch": "mythos/gh/gh-issue-107",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "node tests/mythos-github-bridge-test.js: 97 passed, 0 failed",
+    "node tests/mythos-github-issues-test.js: 139 passed, 0 failed",
+    "node tests/mythos-governance-invariant-test.js: 111 passed, 0 failed"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "7f33f9239771348b44786a3f3508b1f9e33335f4",
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [],
+  "risks": [
+    "The live deployed unit under ~deploy/.config/systemd/user/ (host filesystem, outside this worktree/repo scope) was not touched by this session and must be redeployed/reloaded by the operator (systemctl --user daemon-reload && systemctl --user restart mythos-github-bridge.timer) for the new interval to take effect in production.",
+    "systemd-analyze verify could not be run in this sandboxed session (required approval unavailable headlessly); syntax was validated by inspection and by the fact the file format is unchanged apart from the two time values."
+  ],
+  "next_recommended_action": "Operator/relay: merge branch when reviewed, then redeploy the updated timer unit on the host (daemon-reload + restart) to activate the 1-minute cadence.",
+  "completed_at": "2026-09-03T02:05:51.969Z",
+  "execution": {
+    "executor_task_id": "t-20260903015929-n39a1g",
+    "othmode_task_id": "OTH-2026-00037",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": null,
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]",
+    "claude_session_id": "d0a58bb0-cd29-4dba-b7ab-b0d57f69d24f",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-03T02:02:51.285Z",
+    "ended_at": "2026-09-03T02:05:15.079Z",
+    "retries": 0,
+    "quota_waits": 0,
+    "cost_usd": 0.6456301999999999,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-107",
+    "branch": "mythos/gh/gh-issue-107",
+    "base_commit": "7f33f9239771348b44786a3f3508b1f9e33335f4",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-107",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
