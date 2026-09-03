@@ -1,0 +1,124 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-121",
+  "attempt_id": "gh-issue-121#1",
+  "status": "COMPLETED",
+  "summary": "GitHub Issue #121 Bridge action routing E2E test verified successfully. Bridge correctly routed Action: implement → repo-write execution profile. Created tests/bridge-action-routing-e2e-marker.txt containing a single line proof of test passage. Committed with proper attribution on branch mythos/gh/gh-issue-121. The fix from PR #120 is working: Bridge receives the explicit requested_action from the GitHub Issue, routes it to repo-write profile, and executor acts on it.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": "Haiku",
+    "model_key": "haiku",
+    "model": "claude-haiku-4-5",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:haiku (requested \"haiku\")",
+    "base_sha": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "branch": "mythos/gh/gh-issue-121",
+    "commit_sha": "cd452369b90f33489165a6248ebeb18dd6eca149"
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-03T11:45:03.282Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "GitHub Issue #121 Bridge action routing E2E test verified successfully. Bridge correctly routed Action: implement → repo-write execution profile. Created tests/bridge-action-routing-e2e-marker.txt containing a single line proof of test passage. Committed with proper attribution on branch mythos/gh/gh-issue-121. The fix from PR #120 is working: Bridge receives the explicit requested_action from the GitHub Issue, routes it to repo-write profile, and executor acts on it.",
+    "tests": [
+      "bridge-action-routing-e2e: PASSED"
+    ],
+    "commit": "cd452369b90f33489165a6248ebeb18dd6eca149",
+    "remote_head": null,
+    "files_changed": [
+      "tests/bridge-action-routing-e2e-marker.txt"
+    ],
+    "residual_risks": [],
+    "next_stage": "Bridge governance relay (mythos-git-push.timer) will fast-forward the commit to origin. Issue #121 will be marked completed via control file. No manual push required — worktree delivery is complete."
+  },
+  "files_changed": [
+    "tests/bridge-action-routing-e2e-marker.txt"
+  ],
+  "commits": [
+    {
+      "sha": "cd452369b90f33489165a6248ebeb18dd6eca149",
+      "subject": "test(bridge): E2E marker for action routing verification (gh-issue-121)",
+      "branch": "mythos/gh/gh-issue-121",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "bridge-action-routing-e2e: PASSED"
+  ],
+  "validation": {
+    "git_verified": true,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": [
+      "النجاح الحقيقي هو أن GitHub Bridge يعلن صراحةً `Action implement → repo-write` وأن Claude ينفذ المهمة ويعيد structured report مع branch وcommit وtests. إذا فشل أي جزء، لا تخفِ الفشل ولا تعتبره نجاحًا."
+    ]
+  },
+  "problems": [],
+  "risks": [],
+  "next_recommended_action": "Bridge governance relay (mythos-git-push.timer) will fast-forward the commit to origin. Issue #121 will be marked completed via control file. No manual push required — worktree delivery is complete.",
+  "completed_at": "2026-09-03T11:46:12.501Z",
+  "execution": {
+    "executor_task_id": "t-20260903114504-neb5e3",
+    "othmode_task_id": "OTH-2026-00053",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-haiku-4-5",
+    "model_requested": "Haiku",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-121#1",
+    "fence": 149,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:4114288",
+      "fence": 149,
+      "acquired_at": "2026-09-03T11:45:04.862Z",
+      "expires_at": "2026-09-03T13:15:04.862Z"
+    },
+    "snapshot_sha256": "f3d26aa1f93abe1e02b778059fb2ac921c7c68d494771c6a9d79ba7d013bd80a",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:haiku (requested \"haiku\")",
+    "claude_session_id": "074c83e2-9460-4f47-b906-f17c41f680f3",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-03T11:45:15.303Z",
+    "ended_at": "2026-09-03T11:45:50.476Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "quota_waits": 0,
+    "cost_usd": 0.10415780000000001,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-121",
+    "branch": "mythos/gh/gh-issue-121",
+    "base_commit": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-121",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
