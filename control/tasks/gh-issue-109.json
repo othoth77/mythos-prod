@@ -19,7 +19,7 @@
   "priority": "normal",
   "requested_action": "investigate",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-03T02:36:59.472Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #109 https://github.com/othoth77/mythos-prod/issues/109 — \"حل تعارض WhatsApp Bridge وإعادة تجهيز PR للدمج\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[المصدر]\n- WhatsApp notification layer: `b37491f9b839a29e2706632ddf07c0f804985702`\n- PR الحالي المتعارض: #108\n- الهدف: `main`\n\n[النتيجة المطلوبة]\nPR جديد **mergeable** إلى `main` يحتوي فقط على طبقة WhatsApp Bridge السابقة بعد حل التعارضات، مع تقرير واضح يذكر الملفات المتأثرة والاختبارات والـSHA.\n\n[ملاحظة]\nالـVPS الآن clean بعد `git merge --abort`، لذلك لا حاجة لأي تعديل يدوي على الـVPS في هذه المهمة.",
@@ -82,9 +82,10 @@
     "claimed_at": "2026-09-03T02:37:04.097Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "1648817ab8e43aba6eb8b9ce152ba5c55e45da34856f462b539865145c8443c0",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-03T02:38:10.915Z",
-    "claude_session_id": "f6dbe60b-b498-4bff-8ab6-ac7af7caccf4"
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-03T02:39:22.279Z",
+    "claude_session_id": "f6dbe60b-b498-4bff-8ab6-ac7af7caccf4",
+    "report_file": "control/reports/gh-issue-109.json"
   },
   "history": [
     {
@@ -100,6 +101,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-03T02:39:20.996Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-03T02:39:22.279Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 4 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
