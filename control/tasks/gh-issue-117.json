@@ -70,6 +70,16 @@
         "at": "2026-09-03T09:47:16.543Z",
         "existed": false,
         "executor_task_id": "t-20260903094715-v3tjkx"
+      },
+      "report": {
+        "comment_id": 5524076981,
+        "url": "https://github.com/othoth77/mythos-prod/issues/117#issuecomment-5524076981",
+        "at": "2026-09-03T10:08:13.401Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-117.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -79,7 +89,8 @@
       "removed": [
         "mythos:human-approval"
       ]
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260903094715-v3tjkx",
