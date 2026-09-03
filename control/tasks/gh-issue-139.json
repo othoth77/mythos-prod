@@ -16,7 +16,7 @@
     "الاختبارات السابقة مازالت صالحة ولا حاجة لإعادة تشغيلها إلا إذا تطلب التحقق ذلك.",
     "توثيق النتيجة في final REPORT."
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T18:54:59.693Z",
   "created_by": "github-issue:othoth77",
   "model": "sonnet",
@@ -142,5 +142,64 @@
       ],
       "removed": []
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903185503-fko5r2",
+    "othmode_task_id": "OTH-2026-00063",
+    "attempt_id": "gh-issue-139#1",
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "expected_delivery": "commit",
+    "model_key": "sonnet",
+    "model_requested": "claude-sonnet-5",
+    "model_source": "explicit_current_issue",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-139",
+    "branch": "mythos/gh/gh-issue-139",
+    "base_commit": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "claimed_at": "2026-09-03T18:55:03.346Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "18801d7607fa891c1840b5dd2a4c3412dd5f5e263a3dc39405f0ccdbe5bb0e46",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T18:55:03.347Z",
+    "snapshot_sha256": "578e80d66d5aed0900183913b7bea85e187f9133635bc83af811b85edeaebebd",
+    "fence": 1130,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1000103",
+      "fence": 1130,
+      "acquired_at": "2026-09-03T18:55:03.346Z",
+      "expires_at": "2026-09-03T20:25:03.346Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+      "branch": "main",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-03T18:55:01.907Z"
+    },
+    "model": "claude-sonnet-5",
+    "model_selection_mode": "explicit"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T18:55:03.396Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903185503-fko5r2 queued; OTHMODE OTH-2026-00063; action implement (explicit_current_issue) → repo-write; model claude-sonnet-5; fence 1130"
+    }
+  ]
 }
