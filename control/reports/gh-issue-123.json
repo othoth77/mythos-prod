@@ -84,7 +84,7 @@
       "sha": "a3082892814f8b8282d6593481b25a6b29ac09f5",
       "subject": "fix(bridge): PR #122 review fixes — WhatsApp notify task_id 64-char ledger key, at-least-once delivery honesty (gh-issue-123)",
       "branch": "mythos/gh/gh-issue-123",
-      "on_origin": false
+      "on_origin": true
     },
     {
       "sha": "d8eb8931cf0adca94e2d4f7746884e3b27664e03",
@@ -155,7 +155,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-123",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-03T12:20:52.516Z"
   }
 }
