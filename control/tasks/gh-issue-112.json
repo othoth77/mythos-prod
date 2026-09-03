@@ -69,6 +69,16 @@
         "at": "2026-09-03T03:02:36.216Z",
         "existed": false,
         "executor_task_id": "t-20260903030234-2x43ix"
+      },
+      "report": {
+        "comment_id": 5519778125,
+        "url": "https://github.com/othoth77/mythos-prod/issues/112#issuecomment-5519778125",
+        "at": "2026-09-03T03:14:03.963Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "control_status": "COMPLETED",
+        "report_file": "control/reports/gh-issue-112.json",
+        "commits_on_origin": false
       }
     },
     "labels": {
@@ -78,7 +88,8 @@
       "removed": [
         "mythos:human-approval"
       ]
-    }
+    },
+    "issue_state": "COMPLETED"
   },
   "execution": {
     "executor_task_id": "t-20260903030234-2x43ix",
