@@ -12,7 +12,7 @@
 | Runtime | `ff9f71b51e41` on `main` |
 | Model | `claude-sonnet-5` (auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]) |
 | Branch | `mythos/gh/gh-issue-141-r2` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Rerun of GitHub Issue #141 confirms the same blocker r1 found (422f4a3, OTH-2026
 
 ## Commits
 
-- `9c98dd92fc58837be56ac11fcb5c4b6fb01b457d` docs(handover): gh-issue-141-r2 WhatsApp provider deployment re-verified, still BLOCKED (Level 3) (awaiting relay)
+- `9c98dd92fc58837be56ac11fcb5c4b6fb01b457d` docs(handover): gh-issue-141-r2 WhatsApp provider deployment re-verified, still BLOCKED (Level 3) (on origin)
 
 ## Files changed
 
