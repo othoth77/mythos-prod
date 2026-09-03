@@ -20,7 +20,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-03T11:49:39.774Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #111 https://github.com/othoth77/mythos-prod/issues/111 — \"تنفيذ WhatsApp Bridge وإنشاء PR — repo-write\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") — not inherited: previous attempt gh-issue-111-r4 records no action_source (pre-engine parser) — unknown provenance is not inherited → execution profile repo-write\n\n- Investigation #109 حدّد التعارضات.\n- Implementation attempt #110 حُظر بسبب تحويل المهمة إلى repo-read وعدم وجود structured report.\n- Attempt #111 حُظر لأن Bridge لم يلتقط Action: implement صراحةً وحوّلها إلى repo-read.\n- PR #108 كان متعارضًا.\n\n[التنفيذ الإلزامي]\n1. استخدم أحدث `origin/main` كقاعدة.\n2. أعد تطبيق WhatsApp notification layer فقط من `b37491f`.\n3. حل التعارضات مع الحفاظ على أحدث تغييرات main، خصوصًا GitHub Issues/Rerun وModel Policy وResource Guard وBridge Timer.\n\n[النتيجة]\nPR جديد mergeable يحتوي فقط على WhatsApp Bridge layer بعد حل التعارضات، مع تقرير COMPLETED واضح.",
@@ -169,8 +169,8 @@
     "claimed_at": "2026-09-03T11:49:46.264Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "3924903e809983df0070d501f74808dca5eecd4591ca148749f589aa228acb53",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-03T11:50:51.228Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-03T11:55:32.399Z",
     "snapshot_sha256": "52b59028c246613d03b2a2ebf88af938694b8f40e00f730e6e7e992ca6c27652",
     "fence": 161,
     "lease": {
@@ -199,7 +199,8 @@
     },
     "model": "claude-sonnet-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "7ef1fefd-8205-48d2-8499-6d71259c4337"
+    "claude_session_id": "7ef1fefd-8205-48d2-8499-6d71259c4337",
+    "report_file": "control/reports/gh-issue-111-r5.json"
   },
   "history": [
     {
@@ -215,6 +216,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-03T11:55:30.953Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-03T11:55:32.398Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (1 commit(s), 9 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
