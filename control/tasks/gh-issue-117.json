@@ -26,7 +26,7 @@
   "priority": "normal",
   "requested_action": "investigate",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T09:47:09.664Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #117 https://github.com/othoth77/mythos-prod/issues/117 — \"Bridge Action Resolution v2 — Root Implementation\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[fable 5.1]\nيجب محاولة التنفيذ باستخدام **Fable 5.1** تحديدًا. إذا كان غير متاح في البيئة، لا يتم استبداله بصمت؛ يجب تسجيل blocker واسم النموذج الفعلي المستخدم في التقرير.\n\n[التقرير الإلزامي]\nيجب أن يحتوي التقرير النهائي على `mythos_report` structured block، والـAction الفعلي ومصدره، execution profile، model، runtime/base SHA، الملفات، الاختبارات، commit SHA، branch، PR، وأي blockers أو مخاطر.\n\n[الاستثناءات الصارمة]\n- لا WhatsApp / Evolution API / `b37491f`.\n- لا AUTOS-0.\n- لا SPY أو n8n.\n- لا MYTHOS AUTO/customer chat.\n- لا Resource Guard thresholds.\n- لا Model Policy إلا إذا أثبت التنفيذ أن المشكلة مرتبطة مباشرة بالـdispatch/model selection.\n- لا systemd أو VPS deployment/restart.\n- لا أسرار أو credentials.\n- لا `git add .`.\n- لا تجاوز Governance Relay.\n- لا تغييرات غير مرتبطة.\n\n[معيار النجاح]\nيجب أن يثبت التنفيذ أن Issue تحتوي صراحة على `Action: implement` تصل إلى `requested_action=implement` و`execution_profile=repo-write`، وأن أي mismatch يُرفض قبل provider، وأن rerun يحافظ على القرار والمحتوى، مع tests خضراء وcommit وPR قابل للدمج.",
@@ -73,5 +73,28 @@
         "mythos:human-approval"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903094715-v3tjkx",
+    "othmode_task_id": "OTH-2026-00050",
+    "execution_profile": "repo-read",
+    "expected_delivery": "report",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-117",
+    "branch": "mythos/gh/gh-issue-117",
+    "base_commit": "88869a92ef63cc5e044044811d91a86f045365e5",
+    "claimed_at": "2026-09-03T09:47:15.173Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "9a50e4ecb1e7f7b1d7b8a4cb7fb690731c596a5ceb34489d81355412cb6159b3",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T09:47:15.174Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T09:47:15.213Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903094715-v3tjkx queued; OTHMODE OTH-2026-00050"
+    }
+  ]
 }
