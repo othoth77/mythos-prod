@@ -1,0 +1,161 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-123",
+  "attempt_id": "gh-issue-123#1",
+  "status": "COMPLETED",
+  "summary": "Fixed the two review notes on PR #122 (mythos/gh/gh-issue-111-r5, the WhatsApp Bridge notification layer). (1) Task ID compatibility: whatsapp.js's ledger-key regex still capped task_id at 40 chars after github-bridge.js's own TASK_ID_RE was raised to 6-64 chars in 82bea23; any task_id 41-64 chars silently vanished because onReport()'s try/catch swallowed the NOTIFY_KEY_INVALID error with no visible failure anywhere. Raised the ledger key pattern to match. (2) Delivery idempotency/crash safety: deliverEntry() only wrote delivered_to to the ledger once, after every recipient in a batch had settled, leaving a real window where a crash between two recipients' sends could lose a recipient's already-acknowledged success and cause a duplicate on the reclaimed retry — while the docs claimed a crash after success 'cannot produce a duplicate,' which was false. delivered_to (and updated_at) is now written immediately after each recipient's send is acknowledged, shrinking the unavoidable risk window to one synchronous write; since Evolution API's sendText has no idempotency-key parameter, exactly-once cannot be proven, so the docs were corrected to state at-least-once delivery with best-effort de-duplication instead of overclaiming. My task branch (based on d69e0abc, same base as PR #122's branch) fast-forward-merged origin/mythos/gh/gh-issue-111-r5 (d8eb893, PR #122's tip) to get the actual code, then applied the fixes plus 12 new regression checks — a 64-char task_id reaching the ledger and delivering (and a 65-char id still refused), and a crash-window test that holds one recipient's HTTP response open to observe the sibling recipient's success durable on disk mid-attempt, then simulates the crash/reclaim path and confirms the already-recorded recipient is never re-sent. I verified both new tests actually catch the underlying bugs by re-running them against the pre-fix code (the 64-char test failed as expected: NOTIFY_KEY_INVALID) before restoring the fix. No control/ files touched, no provider deployed, no real WhatsApp message sent, no merge to main.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": "Sonnet",
+    "model_key": "sonnet",
+    "model": "claude-sonnet-5",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "base_sha": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "branch": "mythos/gh/gh-issue-123",
+    "commit_sha": "d8eb8931cf0adca94e2d4f7746884e3b27664e03"
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-03T12:10:43.958Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Fixed the two review notes on PR #122 (mythos/gh/gh-issue-111-r5, the WhatsApp Bridge notification layer). (1) Task ID compatibility: whatsapp.js's ledger-key regex still capped task_id at 40 chars after github-bridge.js's own TASK_ID_RE was raised to 6-64 chars in 82bea23; any task_id 41-64 chars silently vanished because onReport()'s try/catch swallowed the NOTIFY_KEY_INVALID error with no visible failure anywhere. Raised the ledger key pattern to match. (2) Delivery idempotency/crash safety: deliverEntry() only wrote delivered_to to the ledger once, after every recipient in a batch had settled, leaving a real window where a crash between two recipients' sends could lose a recipient's already-acknowledged success and cause a duplicate on the reclaimed retry — while the docs claimed a crash after success 'cannot produce a duplicate,' which was false. delivered_to (and updated_at) is now written immediately after each recipient's send is acknowledged, shrinking the unavoidable risk window to one synchronous write; since Evolution API's sendText has no idempotency-key parameter, exactly-once cannot be proven, so the docs were corrected to state at-least-once delivery with best-effort de-duplication instead of overclaiming. My task branch (based on d69e0abc, same base as PR #122's branch) fast-forward-merged origin/mythos/gh/gh-issue-111-r5 (d8eb893, PR #122's tip) to get the actual code, then applied the fixes plus 12 new regression checks — a 64-char task_id reaching the ledger and delivering (and a 65-char id still refused), and a crash-window test that holds one recipient's HTTP response open to observe the sibling recipient's success durable on disk mid-attempt, then simulates the crash/reclaim path and confirms the already-recorded recipient is never re-sent. I verified both new tests actually catch the underlying bugs by re-running them against the pre-fix code (the 64-char test failed as expected: NOTIFY_KEY_INVALID) before restoring the fix. No control/ files touched, no provider deployed, no real WhatsApp message sent, no merge to main.",
+    "tests": [
+      "tests/mythos-bridge-whatsapp-notify-test.js: 128 passed, 0 failed (116 existing + 12 new)",
+      "tests/mythos-github-bridge-test.js: 150 passed, 0 failed",
+      "tests/mythos-ai-executor-test.js: 390 passed, 0 failed",
+      "tests/mythos-github-issues-test.js: 193 passed, 0 failed",
+      "tests/bridge-action-resolution-test.js: 88 passed, 0 failed",
+      "tests/mythos-governance-invariant-test.js: 111 passed, 0 failed",
+      "node --check: clean on whatsapp.js and the test file",
+      "regression-test sanity check: new 64-char task_id test fails against pre-fix code (NOTIFY_KEY_INVALID), passes after restoring the fix"
+    ],
+    "commit": "a3082892814f8b8282d6593481b25a6b29ac09f5",
+    "remote_head": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "files_changed": [
+      "projects/mythos-ai-executor/bridge/notify/whatsapp.js",
+      "tests/mythos-bridge-whatsapp-notify-test.js",
+      "docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md"
+    ],
+    "residual_risks": [
+      "Exactly-once delivery is still not achievable with the Evolution API adapter (no idempotency-key parameter); the residual crash window is now a single synchronous ledger write, documented honestly as at-least-once, not eliminated.",
+      "PR #122's branch (mythos/gh/gh-issue-111-r5) was not itself modified — this commit sits on my task branch on top of a fast-forward merge of that branch's tip; the governance relay/bridge is responsible for reconciling this with PR #122 (per the bridge constraint to work only on mythos/gh/gh-issue-123).",
+      "WhatsApp provider (Evolution API) remains undeployed; the layer stays fully inert (MYTHOS_BRIDGE_WHATSAPP_ENABLED unset) as before — unchanged by this task."
+    ],
+    "next_stage": "Governance relay delivers commit a308289 to origin/mythos/gh/gh-issue-123; the bridge verifies it against Git and tests, reconciles it with PR #122, and closes OTHMODE task OTH-2026-00055 with a terminal status."
+  },
+  "files_changed": [
+    "projects/mythos-ai-executor/bridge/notify/whatsapp.js",
+    "tests/mythos-bridge-whatsapp-notify-test.js",
+    "docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md",
+    "docs/AI_HANDOVER.md",
+    "docs/MYTHOS_GITHUB_BRIDGE.md",
+    "projects/command-center/data/open-source-registry.json",
+    "projects/mythos-ai-executor/bin/mythos-github-bridge",
+    "projects/mythos-ai-executor/bridge/github-bridge.js",
+    "projects/mythos-ai-executor/bridge/notify/http-json.js",
+    "projects/mythos-ai-executor/bridge/notify/providers/evolution.js"
+  ],
+  "commits": [
+    {
+      "sha": "a3082892814f8b8282d6593481b25a6b29ac09f5",
+      "subject": "fix(bridge): PR #122 review fixes — WhatsApp notify task_id 64-char ledger key, at-least-once delivery honesty (gh-issue-123)",
+      "branch": "mythos/gh/gh-issue-123",
+      "on_origin": false
+    },
+    {
+      "sha": "d8eb8931cf0adca94e2d4f7746884e3b27664e03",
+      "subject": "feat(github-bridge): reapply WhatsApp notification layer onto current main (gh-issue-111-r5)",
+      "branch": "mythos/gh/gh-issue-123",
+      "on_origin": true
+    }
+  ],
+  "tests": [
+    "tests/mythos-bridge-whatsapp-notify-test.js: 128 passed, 0 failed (116 existing + 12 new)",
+    "tests/mythos-github-bridge-test.js: 150 passed, 0 failed",
+    "tests/mythos-ai-executor-test.js: 390 passed, 0 failed",
+    "tests/mythos-github-issues-test.js: 193 passed, 0 failed",
+    "tests/bridge-action-resolution-test.js: 88 passed, 0 failed",
+    "tests/mythos-governance-invariant-test.js: 111 passed, 0 failed",
+    "node --check: clean on whatsapp.js and the test file",
+    "regression-test sanity check: new 64-char task_id test fails against pre-fix code (NOTIFY_KEY_INVALID), passes after restoring the fix"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "d8eb8931cf0adca94e2d4f7746884e3b27664e03",
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [],
+  "risks": [
+    "Exactly-once delivery is still not achievable with the Evolution API adapter (no idempotency-key parameter); the residual crash window is now a single synchronous ledger write, documented honestly as at-least-once, not eliminated.",
+    "PR #122's branch (mythos/gh/gh-issue-111-r5) was not itself modified — this commit sits on my task branch on top of a fast-forward merge of that branch's tip; the governance relay/bridge is responsible for reconciling this with PR #122 (per the bridge constraint to work only on mythos/gh/gh-issue-123).",
+    "WhatsApp provider (Evolution API) remains undeployed; the layer stays fully inert (MYTHOS_BRIDGE_WHATSAPP_ENABLED unset) as before — unchanged by this task."
+  ],
+  "next_recommended_action": "Governance relay delivers commit a308289 to origin/mythos/gh/gh-issue-123; the bridge verifies it against Git and tests, reconciles it with PR #122, and closes OTHMODE task OTH-2026-00055 with a terminal status.",
+  "completed_at": "2026-09-03T12:18:32.536Z",
+  "execution": {
+    "executor_task_id": "t-20260903121045-pdghsy",
+    "othmode_task_id": "OTH-2026-00055",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": "Sonnet",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-123#1",
+    "fence": 215,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:4182350",
+      "fence": 215,
+      "acquired_at": "2026-09-03T12:10:45.551Z",
+      "expires_at": "2026-09-03T13:40:45.551Z"
+    },
+    "snapshot_sha256": "3e64556e1886d205ccd1e44a1399a4c051233f89185139ebfe1dd6403e7c7009",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "claude_session_id": "9609a91d-b97d-4893-8bca-1126ffa1324c",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-03T12:10:45.952Z",
+    "ended_at": "2026-09-03T12:18:16.571Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "quota_waits": 0,
+    "cost_usd": 2.7439590000000003,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-123",
+    "branch": "mythos/gh/gh-issue-123",
+    "base_commit": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-123",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
