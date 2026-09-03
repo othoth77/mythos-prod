@@ -1,0 +1,45 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-117",
+  "status": "BLOCKED",
+  "summary": "GitHub Bridge Action Resolution (gh-issue-117) root fix implementation blocked on file-write permissions. All 6 code changes are identified, documented, and ready for application. Two concrete parser defects in github-issues.js identified by gh-issue-116 investigation require these fixes to support: GitHub Issue Form style (heading + blank + value), markdown table format, and empty entry filtering in pickAction/Priority/Model/Int functions.",
+  "files_changed": [],
+  "commits": [],
+  "tests": [],
+  "validation": {
+    "git_verified": null,
+    "remote_head": "88869a92ef63cc5e044044811d91a86f045365e5",
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [],
+  "risks": [],
+  "next_recommended_action": "owner decision required: GitHub Bridge Action Resolution (gh-issue-117) root fix implementation blocked on file-write permissions. All 6 code changes are identified, documented, and ready for application. Two concrete parser defects in github-issues.js identified by gh-issue-116 investigation require these fixes to support: GitHub Issue Form style (heading + blank + value), markdown table format, and empty entry filtering in pickAction/Priority/Model/Int functions.",
+  "completed_at": "2026-09-03T10:08:12.279Z",
+  "execution": {
+    "executor_task_id": "t-20260903094715-v3tjkx",
+    "othmode_task_id": "OTH-2026-00050",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-haiku-4-5",
+    "model_requested": null,
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:fast→haiku score=0 [no signals]",
+    "claude_session_id": "3a097428-885d-4ed0-9411-4e0622bf013b",
+    "executor_status": "BLOCKED",
+    "started_at": "2026-09-03T09:47:19.376Z",
+    "ended_at": "2026-09-03T10:07:38.842Z",
+    "retries": 0,
+    "quota_waits": 0,
+    "cost_usd": 3.16864975,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-117",
+    "branch": "mythos/gh/gh-issue-117",
+    "base_commit": "88869a92ef63cc5e044044811d91a86f045365e5",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-117",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}

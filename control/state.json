@@ -1,22 +1,21 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-03T09:57:48.067Z",
+  "generated_at": "2026-09-03T10:08:12.312Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
     "PENDING": 0,
-    "CLAIMED": 1,
+    "CLAIMED": 0,
     "IN_PROGRESS": 1,
     "VALIDATING": 0,
     "COMPLETED": 14,
-    "BLOCKED": 14,
+    "BLOCKED": 15,
     "FAILED": 0,
     "CANCELLED": 0
   },
   "pending": [],
   "active": [
-    "gh-issue-117",
     "gh-issue-118"
   ],
   "awaiting_review": [
@@ -45,6 +44,7 @@
     "gh-issue-114",
     "gh-issue-115",
     "gh-issue-116",
+    "gh-issue-117",
     "gh-issue-95",
     "gh-issue-97",
     "gh-issue-99"
@@ -512,16 +512,16 @@
     },
     {
       "task_id": "gh-issue-117",
-      "status": "IN_PROGRESS",
+      "status": "BLOCKED",
       "priority": "normal",
       "requested_action": "investigate",
       "created_at": "2026-09-03T09:47:09.664Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-03T09:48:21.219Z",
+      "updated_at": "2026-09-03T10:08:12.308Z",
       "executor_task_id": "t-20260903094715-v3tjkx",
       "branch": "mythos/gh/gh-issue-117",
       "task_file": "control/tasks/gh-issue-117.json",
-      "report_file": null,
+      "report_file": "control/reports/gh-issue-117.json",
       "source": {
         "kind": "github-issue",
         "issue_number": 117,
@@ -531,12 +531,12 @@
     },
     {
       "task_id": "gh-issue-118",
-      "status": "CLAIMED",
+      "status": "IN_PROGRESS",
       "priority": "normal",
       "requested_action": "investigate",
       "created_at": "2026-09-03T09:57:39.544Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-03T09:57:44.685Z",
+      "updated_at": "2026-09-03T10:08:12.310Z",
       "executor_task_id": "t-20260903095744-n6y933",
       "branch": "mythos/gh/gh-issue-118",
       "task_file": "control/tasks/gh-issue-118.json",
