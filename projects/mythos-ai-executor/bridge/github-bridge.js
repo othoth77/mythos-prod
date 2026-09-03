@@ -708,17 +708,76 @@ function taskBranch(id) { return 'mythos/gh/' + id; }
 // only to task worktrees, never to the shared checkout or its config.
 var NO_PUSH_URL = 'no_push://governance-relay-only';
 
+// Effective push URL set of a remote in `cwd`, in git's own order and after
+// url.*.insteadOf rewriting — exactly what `git push` would use.
+function effectivePushUrls(cwd, remote) {
+  var r = git(cwd, ['remote', 'get-url', '--push', '--all', remote]);
+  if (!r.ok) return { ok: false, urls: [], error: r.error };
+  return { ok: true, urls: r.out.split('\n').map(function (l) { return l.trim(); }).filter(Boolean) };
+}
+
+// F1 push guard. Git's remote.<r>.pushurl is MULTI-VALUED and additive across
+// config scopes: a worktree-scoped no-push value does not hide a repository-
+// level one (the relay legitimately keeps remote.origin.pushurl = SSH on the
+// shared checkout since 2026-09-03), and `git push` would deliver to every
+// value. The guard therefore (1) requires the worktree scope to carry exactly
+// the no-push URL and nothing else — anything else is tampering and is
+// refused, never silently repaired; (2) neutralises every push URL inherited
+// from outer scopes with a worktree-scoped url.<no_push>.insteadOf rewrite, so
+// the inherited value cannot be pushed to from this worktree while the shared
+// checkout keeps it untouched; (3) proves the result on the COMPLETE effective
+// set (`git remote get-url --push --all`), not on the first entry, and that the
+// fetch URL is unchanged. Any deviation throws PUSH_GUARD_FAILED.
 function applyPushGuard(cfg, dir) {
+  var r = cfg.remote;
+  var key = 'remote.' + r + '.pushurl';
   var ext = git(cfg.repo, ['config', '--get', 'extensions.worktreeConfig']);
   if (!ext.ok || ext.out !== 'true') {
     var en = git(cfg.repo, ['config', 'extensions.worktreeConfig', 'true']);
     if (!en.ok) throw new Error('PUSH_GUARD_FAILED: cannot enable extensions.worktreeConfig: ' + en.error);
   }
-  var set = git(dir, ['config', '--worktree', 'remote.' + cfg.remote + '.pushurl', NO_PUSH_URL]);
-  if (!set.ok) throw new Error('PUSH_GUARD_FAILED: ' + set.error);
-  var check = git(dir, ['remote', 'get-url', '--push', cfg.remote]);
-  if (!check.ok || check.out !== NO_PUSH_URL) throw new Error('PUSH_GUARD_FAILED: push url is ' + (check.out || check.error));
-  return true;
+  // (1) worktree scope: exactly [NO_PUSH_URL]
+  var wt = git(dir, ['config', '--worktree', '--get-all', key]);
+  var wtUrls = wt.ok ? wt.out.split('\n').map(function (l) { return l.trim(); }).filter(Boolean) : [];
+  if (wtUrls.length === 0) {
+    var set = git(dir, ['config', '--worktree', key, NO_PUSH_URL]);
+    if (!set.ok) throw new Error('PUSH_GUARD_FAILED: ' + set.error);
+    wtUrls = [NO_PUSH_URL];
+  }
+  var foreignWt = wtUrls.filter(function (u) { return u !== NO_PUSH_URL; });
+  if (foreignWt.length || wtUrls.length !== 1) {
+    throw new Error('PUSH_GUARD_FAILED: unexpected worktree-level push url(s) ' + JSON.stringify(wtUrls) + ' (expected exactly ' + NO_PUSH_URL + ')');
+  }
+  // (2) neutralise push URLs inherited from repository/global/system scope
+  var fetchUrl = git(dir, ['remote', 'get-url', r]);
+  if (!fetchUrl.ok || !fetchUrl.out) throw new Error('PUSH_GUARD_FAILED: cannot read fetch url: ' + fetchUrl.error);
+  var all = git(dir, ['config', '--show-origin', '--get-all', key]);
+  var inherited = [];
+  (all.ok ? all.out.split('\n') : []).forEach(function (line) {
+    var i = line.indexOf('\t');
+    if (i < 0) return;
+    var origin = line.slice(0, i), value = line.slice(i + 1).trim();
+    if (!value || value === NO_PUSH_URL) return;
+    if (/config\.worktree$/.test(origin)) return; // refused above; defensive
+    if (inherited.indexOf(value) < 0) inherited.push(value);
+  });
+  var aliasKey = 'url.' + NO_PUSH_URL + '.insteadOf';
+  git(dir, ['config', '--worktree', '--unset-all', aliasKey]); // idempotent re-apply
+  inherited.forEach(function (u) {
+    if (u === fetchUrl.out) {
+      throw new Error('PUSH_GUARD_FAILED: inherited push url equals the fetch url (' + u + '); cannot isolate without breaking fetch');
+    }
+    var add = git(dir, ['config', '--worktree', '--add', aliasKey, u]);
+    if (!add.ok) throw new Error('PUSH_GUARD_FAILED: cannot neutralise inherited push url ' + u + ': ' + add.error);
+  });
+  // (3) prove the complete effective set and the fetch url
+  var eff = effectivePushUrls(dir, r);
+  if (!eff.ok || eff.urls.length === 0) throw new Error('PUSH_GUARD_FAILED: cannot read effective push urls: ' + (eff.error || 'empty'));
+  var bad = eff.urls.filter(function (u) { return u !== NO_PUSH_URL; });
+  if (bad.length) throw new Error('PUSH_GUARD_FAILED: effective push url(s) ' + JSON.stringify(bad) + ' (expected only ' + NO_PUSH_URL + ')');
+  var fetchAfter = git(dir, ['remote', 'get-url', r]);
+  if (!fetchAfter.ok || fetchAfter.out !== fetchUrl.out) throw new Error('PUSH_GUARD_FAILED: fetch url changed by the guard (' + fetchAfter.out + ')');
+  return { ok: true, push_urls: eff.urls, neutralised: inherited, fetch_url: fetchUrl.out };
 }
 
 function ensureTaskWorktree(cfg, id) {
@@ -1752,6 +1811,7 @@ module.exports = {
   loadTask: loadTask,
   saveTask: saveTask,
   applyPushGuard: applyPushGuard,
+  effectivePushUrls: effectivePushUrls,
   NO_PUSH_URL: NO_PUSH_URL,
   othmodeFinish: othmodeFinish,
   paths: paths,

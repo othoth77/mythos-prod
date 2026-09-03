@@ -221,6 +221,18 @@ systemctl --user daemon-reload && systemctl --user restart mythos-github-bridge.
 systemctl --user show mythos-github-bridge.timer -p SubState,NextElapseUSecMonotonic   # waiting / ~1min
 ```
 
+## 12a2. F1 push guard vs. multi-valued pushurl (2026-09-03, gh-issue-136)
+
+`remote.<r>.pushurl` is multi-valued and additive across config scopes. Since the delivery relay keeps a
+repository-level `remote.origin.pushurl = git@github.com:…` on the shared checkout, a task worktree's worktree-scoped
+`no_push://governance-relay-only` no longer hides it: `git push` would deliver to both, and the old guard's
+`git remote get-url --push origin` (first entry only) reported the SSH url → `PUSH_GUARD_FAILED` on every claim of
+`gh-issue-136`. `applyPushGuard` now: (1) requires the worktree scope to hold exactly the no-push url — any other
+worktree-level value is refused, never repaired; (2) neutralises every inherited push url with a worktree-scoped
+`url.no_push://governance-relay-only.insteadOf=<url>` rewrite (refused if that url is also the fetch url); (3) proves
+the COMPLETE effective set via `git remote get-url --push --all` and that the fetch url is unchanged. The shared
+checkout keeps its SSH pushurl untouched. Tests: `tests/mythos-bridge-push-guard-test.js`.
+
 ## 12b. Pre-merge review fixes (2026-09-02, F1–F3)
 
 | Fix | What changed | Test |
