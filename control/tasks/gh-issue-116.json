@@ -19,7 +19,7 @@
     "commit + branch + base SHA موثقة.",
     "PR فعلي قابل للـmerge."
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T09:27:19.858Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #116 https://github.com/othoth77/mythos-prod/issues/116 — \"Bridge Action Resolution v2 — Root Architecture Fix\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[السياق والأدلة]\n- Issue #113 أصلحت parser ليتعامل مع bullet/numbered prefixes، لكن runtime ما زال أنشأ #114 و#115 كـ `investigate → repo-read` رغم وجود `Action: implement`.\n- #115 حالياً قيد التنفيذ ويجب اعتباره evidence input، وليس افتراض أن السبب parser فقط.\n- يجب فحص كامل المسار: GitHub Issue → runtime Bridge checkout/ref → issue parsing → action resolution → control task JSON → execution profile → executor dispatch → provider/model selection → structured report.\n- يجب تحديد هل يوجد stale checkout/ref أو parser ثانٍ أو adapter أو fallback يعيد `implement` إلى `investigate`.\n\n[1. action resolution engine موحّد]\nإنشاء/إعادة تنظيم طبقة واحدة مسؤولة عن القرار النهائي:\n1. explicit Action في الـIssue الحالي — أعلى أولوية.\n2. `action:<x>` label إذا كان مدعوماً.\n3. inherited Action من rerun السابق إذا لم يوجد explicit Action حالي.\n4. default Action فقط إذا لم يوجد أي مصدر أعلى.\n\nيجب تسجيل مصدر القرار، وليس فقط قيمته.\n\nالحد الأدنى المقترح للـresolved record:\n```json\n{\n  \"requested_action\": \"implement\",\n  \"execution_profile\": \"repo-write\",\n  \"action_source\": \"explicit_issue\",\n  \"action_raw\": \"implement\"\n}\n```\n\n[2. action/profile invariant]\nاجعل العلاقة بين Action وexecution profile contract مغلقاً وغير قابل للانحراف:\n- investigate → repo-read\n- review → repo-read\n- test → repo-read أو profile الاختبار المعتمد حالياً\n- document → repo-write\n- implement → repo-write\n\nإذا ظهر mismatch مثل:\n`requested_action=implement` + `execution_profile=repo-read`\nفيجب رفض المهمة قبل تشغيل provider وإرجاع خطأ تشخيصي واضح مثل `ACTION_PROFILE_MISMATCH`.\n\n[3. rerun semantics]\nتحقق من:\n- rerun بدون Action → يرث Action السابق فقط إذا كان مثبتاً فعلاً.\n- rerun مع Action جديد → Action الجديد يتغلب على inheritance.\n- لا يتم فقدان scope/constraints/validation/report requirements.\n- لا يتم تغيير Action بصمت أثناء إعادة parsing.\n- لا يمكن أن يتحول implement إلى investigate بسبب default fallback.\n\n[4. runtime/source-of-truth diagnosis]\nافحص بصرامة:\n- أي checkout/ref يستخدمه GitHub Bridge runtime فعلياً.\n- هل `main` يحتوي #113 أم أن timer/runtime يعمل من snapshot قديم.\n- loading/config path.\n- duplicate parser أو adapter.\n- أي fallback في `github-issues.js`, `github-bridge.js`, executor/task creation أو task normalization.\n- أي cache/state يمكن أن يحتفظ بـ`investigate` القديم.\n\nإذا كان هناك mismatch بين GitHub main والكود الذي يستخدمه runtime، أثبته بالأدلة ولا تنفذ VPS/systemd ضمن هذه المهمة.\n\n[5. provider boundary]\nتحقق أن القرار النهائي يصل للـExecutor/provider دون إعادة تفسير.\n- `implement` يجب أن يصل إلى repo-write.\n- provider يجب ألا يطلب approval لمجرد أن المهمة repo-write ومسموح بها ضمن governance.\n- protected/destructive operations تبقى خاضعة للـgovernance والapproval.\n- لا تعطِ Claude/Fable صلاحيات أوسع من المطلوب.\n\n[6. structured report contract]\nاجعل التقرير النهائي جزءاً من contract وليس best-effort:\n- `mythos_report=true`\n- requested_action\n- execution_profile\n- action_source\n- root cause\n- files changed\n- tests\n- commit SHA\n- branch\n- base SHA\n- PR URL إن تم إنشاؤه\n- blockers/approval reason إن توقفت المهمة.\n\nحتى عند BLOCKED يجب إنتاج structured report إذا كان provider قد بدأ التنفيذ، ما لم يوجد عائق تقني يمنع ذلك؛ وفي هذه الحالة يجب تسجيل سبب واضح من executor نفسه.\n\n[7. state machine / durable attempt integrity]\nراجع حالات PENDING → CLAIMED → RUNNING → COMPLETED/BLOCKED/FAILED/CANCELLED، وتأكد أن Action Resolution يحدث مرة واحدة في بداية الـattempt ويصبح immutable داخل الـattempt.\n\nلا تسمح بأن تؤدي إعادة polling أو rerun أو stale state إلى تغيير القرار داخل attempt نشط.\n\n[8. idempotency وfencing]\nاستفد من الأنماط الهندسية القوية في Temporal / Hatchet / Trigger.dev / Svix / BullMQ / webhook-delivery، لكن **لا تضف أي runtime dependency خارجية**.\nطبّق فقط …",
@@ -66,5 +66,28 @@
         "mythos:human-approval"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903092725-cr0mpe",
+    "othmode_task_id": "OTH-2026-00049",
+    "execution_profile": "repo-read",
+    "expected_delivery": "report",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-116",
+    "branch": "mythos/gh/gh-issue-116",
+    "base_commit": "88869a92ef63cc5e044044811d91a86f045365e5",
+    "claimed_at": "2026-09-03T09:27:25.484Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "2c45bda4628cc097edc331df40623c5e65544b4b7c93878f41a321e037dfe7cc",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T09:27:25.484Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T09:27:25.512Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903092725-cr0mpe queued; OTHMODE OTH-2026-00049"
+    }
+  ]
 }

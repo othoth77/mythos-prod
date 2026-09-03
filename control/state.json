@@ -1,12 +1,12 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-03T09:27:22.330Z",
+  "generated_at": "2026-09-03T09:27:25.515Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
-    "PENDING": 1,
-    "CLAIMED": 0,
+    "PENDING": 0,
+    "CLAIMED": 1,
     "IN_PROGRESS": 1,
     "VALIDATING": 0,
     "COMPLETED": 13,
@@ -14,11 +14,10 @@
     "FAILED": 0,
     "CANCELLED": 0
   },
-  "pending": [
-    "gh-issue-116"
-  ],
+  "pending": [],
   "active": [
-    "gh-issue-115"
+    "gh-issue-115",
+    "gh-issue-116"
   ],
   "awaiting_review": [
     "gh-20260902-bridge-smoke-01",
@@ -492,14 +491,14 @@
     },
     {
       "task_id": "gh-issue-116",
-      "status": "PENDING",
+      "status": "CLAIMED",
       "priority": "normal",
       "requested_action": "investigate",
       "created_at": "2026-09-03T09:27:19.858Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-03T09:27:19.858Z",
-      "executor_task_id": null,
-      "branch": null,
+      "updated_at": "2026-09-03T09:27:25.512Z",
+      "executor_task_id": "t-20260903092725-cr0mpe",
+      "branch": "mythos/gh/gh-issue-116",
       "task_file": "control/tasks/gh-issue-116.json",
       "report_file": null,
       "source": {
