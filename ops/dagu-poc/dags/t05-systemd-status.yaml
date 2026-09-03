@@ -1,0 +1,11 @@
+description: "TEST 5 — controlled systemd status (read-only, unprivileged)"
+type: chain
+env:
+  - XDG_RUNTIME_DIR=/run/user/1001
+steps:
+  - name: system-units
+    run: systemctl is-active docker.service nginx.service ssh.service mythos-memwatch.service mythos-mcp-http.service
+  - name: memwatch-detail
+    run: systemctl status mythos-memwatch.service --no-pager -n 0
+  - name: deploy-user-units
+    run: systemctl --user is-active mythos-ai-executor.service mythos-command-center.service idauto-api.service

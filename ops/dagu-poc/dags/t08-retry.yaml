@@ -1,0 +1,18 @@
+description: "TEST 8 — step fails twice then succeeds; retry_policy must recover it"
+type: chain
+env:
+  - COUNTER=/home/deploy/dagu-poc/data/t08-counter
+steps:
+  - name: reset
+    run: rm -f "$COUNTER"
+  - name: flaky
+    retry_policy:
+      limit: 3
+      interval_sec: 2
+    run: |
+      n=$(cat "$COUNTER" 2>/dev/null || echo 0); n=$((n+1)); echo "$n" > "$COUNTER"
+      echo "attempt $n"
+      if [ "$n" -lt 3 ]; then echo "simulated transient failure"; exit 1; fi
+      echo "succeeded on attempt $n"
+  - name: report
+    run: echo "attempts used=$(cat "$COUNTER")"; rm -f "$COUNTER"

@@ -1,0 +1,13 @@
+description: "TEST 11 — approval gate: the plan step runs, the DAG pauses, and the RESTART-class step only runs after an explicit human approval (nothing real is restarted)"
+type: chain
+steps:
+  - name: plan
+    run: echo "PLAN — would restart a service; pausing for human approval"
+    approval:
+      prompt: "Approve the simulated restart? Provide approval_ref (MYTHOS governance approval id)."
+      input: [approval_ref]
+      required: [approval_ref]
+  - name: gated-restart
+    run: echo "APPROVED with approval_ref=$approval_ref — simulated restart executed (no real service touched)"
+  - name: verify
+    run: echo "verification after the approved step"
