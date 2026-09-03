@@ -63,6 +63,16 @@
         "at": "2026-09-03T09:27:28.122Z",
         "existed": false,
         "executor_task_id": "t-20260903092725-cr0mpe"
+      },
+      "report": {
+        "comment_id": 5523703480,
+        "url": "https://github.com/othoth77/mythos-prod/issues/116#issuecomment-5523703480",
+        "at": "2026-09-03T09:36:43.706Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "control_status": "COMPLETED",
+        "report_file": "control/reports/gh-issue-116.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -72,7 +82,8 @@
       "removed": [
         "mythos:human-approval"
       ]
-    }
+    },
+    "issue_state": "COMPLETED"
   },
   "execution": {
     "executor_task_id": "t-20260903092725-cr0mpe",
