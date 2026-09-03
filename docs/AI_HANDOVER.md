@@ -1,5 +1,25 @@
 # AI Handover
 
+## gh-issue-138 — Rerun fix (A-D) verified already delivered by gh-issue-103-r2; no code gap found (2026-09-03)
+
+**Objective (GitHub Issue #138, executor task `t-20260903184742-ha8ofh`, OTHMODE `OTH-2026-00062`).**
+Issue #138 asks to "complete" the Rerun-mechanism fix (GitHub Issues → Bridge → OTHMODE → Executor)
+for the 4 real defects (A rerun-label durability, B action inheritance, C preservation of
+`scope`/`constraints`/`validation_requirements`, D Issue-side feedback) that the investigation in
+Issue #103 (attempt 1) found unfixed, quoting `gh-issue-103-r2` / `attempt: 2` / `rerun_of: gh-issue-103`
+as the expected rerun identity — literally the shape of the fix that already shipped.
+
+| Item | State |
+|---|---|
+| Branch | `mythos/gh/gh-issue-138` over `ff9f71b` (`origin/main`). Delivery by the governance relay; **not merged**. |
+| Root cause of the duplicate ask | `bridge/github-issues.js` already received all four fixes in PR #104 (`mythos/gh/gh-issue-103-r2`, implementation commit `7bc40ca`, merged to main at `df8e285`), which is an ancestor of this branch's base (`ff9f71b`). Issue #138's body is the original #103 investigation text; by the time this task ran, its four items were no longer open. |
+| Verification performed | Line-by-line re-audit of `bridge/github-issues.js` against each of A-D (not a re-read of the PR #104 handover entry alone): **A** — the `rerun` label is removed only after `saveAndCommit(...).committed === true` (`~L998-1032`); a tick that dies earlier leaves the label and the file untouched, proven by a `SIMULATED_TICK_DEATH` regression. **B** — `issueToTask`'s `act.action_source === 'inherited_previous_attempt'` path inherits the prior attempt's `requested_action` only when the new body states no `Action` (`~L504-537`), never defaults to `investigate` on a rerun. **C** — `scope`/`constraints`/`validation_requirements` are individually inherited from `previous` when the new body leaves that section empty (`~L510-518`), recorded in `task.source.inherited` and named in the created comment. **D** — `staleEditBody` (already converted + edited since), `rerunDeferredBody` (rerun requested while the previous attempt is still ACTIVE, label kept), and `rejectedBody` (any other rejection, e.g. a rerun body that fails validation) are all implemented and posted through `postOnce` (idempotent via the hidden marker). |
+| Required regression tests (10 scenarios from the Issue) | All already present in `tests/mythos-github-issues-test.js` (`rerun/A`-`rerun/D` blocks, ~L474-615): successful rerun (#1 → `gh-issue-1-r2`), blocked rerun (#9 → `gh-issue-9-r2`), independent task-id generation (`reruns.every(...)` assertion), interruption between label removal and control commit (#23, `SIMULATED_TICK_DEATH`), Action inheritance when absent (#20 r2), preservation of `scope`/`constraints`/`validation_requirements` (#20 r2), active-attempt rerun deferral (#21), and GitHub Issue feedback for converted/deferred rerun states (`stale_edit` on #25, `rerun_deferred` on #21). No test gap found; none added. |
+| Tests actually run this session (as deploy, offline, mock provider) | `tests/mythos-github-issues-test.js` **193/0** · `tests/mythos-github-bridge-test.js` **150/0** · `tests/bridge-action-resolution-test.js` **88/0** · `tests/mythos-ai-executor-test.js` **390/0** · `node --check` on `bridge/github-issues.js`. |
+| Files changed this session | `docs/AI_HANDOVER.md` only (this entry). No source or test file needed a change — the objective was already met on `origin/main` before this task started. |
+| Correlation | GitHub Issue #138 → control task `control/tasks/gh-issue-138.json` (github-bridge) → OTHMODE `OTH-2026-00062` (phase advanced to `VERIFICATION`, validation section records the finding) → Executor task `t-20260903184742-ha8ofh` → this commit. |
+| Not done (by design) | No push (governance relay delivers via `mythos-git-push.timer`, fast-forward only); no code change (none required); Issue #138 itself was not edited or commented on — the bridge/adapter's own report is the Issue-facing record. |
+
 ## HOSTOPS-2R — Executor → HostOps fixed to a Unix socket boundary (GitHub issue #130, 2026-09-03)
 
 **Objective.** HOSTOPS-1's `sudo -n mythos-hostops` boundary call, made from inside
