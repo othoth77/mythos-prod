@@ -53,6 +53,16 @@
         "at": "2026-09-03T01:35:37.565Z",
         "existed": false,
         "executor_task_id": "t-20260903013535-nudtuo"
+      },
+      "report": {
+        "comment_id": 5519008713,
+        "url": "https://github.com/othoth77/mythos-prod/issues/106#issuecomment-5519008713",
+        "at": "2026-09-03T01:39:53.704Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-106-r2.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -62,7 +72,8 @@
       "removed": [
         "mythos:blocked"
       ]
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260903013535-nudtuo",
