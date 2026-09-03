@@ -19,7 +19,7 @@
   "validation_requirements": [
     "النجاح الحقيقي هو أن GitHub Bridge يعلن صراحةً `Action implement → repo-write` وأن Claude ينفذ المهمة ويعيد structured report مع branch وcommit وtests. إذا فشل أي جزء، لا تخفِ الفشل ولا تعتبره نجاحًا."
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T11:44:59.684Z",
   "created_by": "github-issue:othoth77",
   "model": "haiku",
@@ -140,5 +140,64 @@
         "mythos:human-approval"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903114504-neb5e3",
+    "othmode_task_id": "OTH-2026-00053",
+    "attempt_id": "gh-issue-121#1",
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "expected_delivery": "commit",
+    "model_key": "haiku",
+    "model_requested": "Haiku",
+    "model_source": "explicit_current_issue",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-121",
+    "branch": "mythos/gh/gh-issue-121",
+    "base_commit": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "claimed_at": "2026-09-03T11:45:04.862Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "bb203b53655fa40ae6890263ad7cc63e2853340467dcb57782ab3317eaa4e113",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T11:45:04.864Z",
+    "snapshot_sha256": "f3d26aa1f93abe1e02b778059fb2ac921c7c68d494771c6a9d79ba7d013bd80a",
+    "fence": 149,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:4114288",
+      "fence": 149,
+      "acquired_at": "2026-09-03T11:45:04.862Z",
+      "expires_at": "2026-09-03T13:15:04.862Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+      "branch": "main",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-03T11:45:03.282Z"
+    },
+    "model": "claude-haiku-4-5",
+    "model_selection_mode": "explicit"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T11:45:04.899Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903114504-neb5e3 queued; OTHMODE OTH-2026-00053; action implement (explicit_current_issue) → repo-write; model claude-haiku-4-5; fence 149"
+    }
+  ]
 }
