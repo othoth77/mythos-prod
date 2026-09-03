@@ -56,6 +56,16 @@
         "at": "2026-09-02T23:41:35.639Z",
         "existed": false,
         "executor_task_id": "t-20260902234133-hwh6xe"
+      },
+      "report": {
+        "comment_id": 5518230331,
+        "url": "https://github.com/othoth77/mythos-prod/issues/103#issuecomment-5518230331",
+        "at": "2026-09-03T00:03:03.348Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-103.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -63,7 +73,8 @@
         "mythos:queued"
       ],
       "removed": []
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260902234133-hwh6xe",
