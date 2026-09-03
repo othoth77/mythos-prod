@@ -1,0 +1,77 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-117",
+  "project": "mythos-prod",
+  "objective": "تنفيذ الإصلاح الجذري لـ GitHub Bridge Action Resolution اعتمادًا على نتائج Investigation #116، وليس إنشاء workaround جديد.",
+  "scope": [
+    "تتبع المسار الكامل GitHub Issue → Bridge → control task → Executor → Claude وإثبات مصدر القرار الفعلي للـAction.",
+    "إصلاح استخراج الحقول في `github-issues.js` بحيث يدعم:",
+    "`Action: implement`",
+    "`## Action: implement`",
+    "`## Action` ثم قيمة في السطر التالي حتى مع blank line.",
+    "Markdown table rows.",
+    "bullet/numbered prefixes.",
+    "تطبيق precedence صارمة: explicit current Issue > action label > inherited rerun action > default.",
+    "تسجيل `action_source` و`action_raw` في task record/report بحيث يمكن معرفة لماذا اختير Action معين.",
+    "فرض invariant: `implement → repo-write` ورفض أي mismatch قبل تشغيل provider مع خطأ واضح مثل `ACTION_PROFILE_MISMATCH`.",
+    "ضمان أن rerun لا يفقد Action أو scope أو constraints أو validation، مع immutable action/profile لكل attempt.",
+    "معالجة truncation في `notes/objective` التي أثبت #116 أنها تسبب فقدان معلومات في المهام الطويلة.",
+    "إضافة اختبارات regression شاملة لكل حالات Action أعلاه، rerun/inheritance، mismatch، missing/invalid Action، وstructured report عند BLOCKED.",
+    "التحقق من runtime/source-of-truth للـBridge بما يثبت أن الكود الذي يعالج Issues هو أحدث `main` وليس stale checkout/ref أو parser مكرر.",
+    "تشغيل الاختبارات ذات الصلة: GitHub Issues, Bridge, Executor, Governance، وكل اختبارات جديدة متأثرة.",
+    "إنشاء branch نظيف فوق أحدث `origin/main`، commit فعلي، وتسليم عبر Governance Relay ثم PR إلى `main`.",
+    "لا Merge تلقائيًا."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T09:47:09.664Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #117 https://github.com/othoth77/mythos-prod/issues/117 — \"Bridge Action Resolution v2 — Root Implementation\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[fable 5.1]\nيجب محاولة التنفيذ باستخدام **Fable 5.1** تحديدًا. إذا كان غير متاح في البيئة، لا يتم استبداله بصمت؛ يجب تسجيل blocker واسم النموذج الفعلي المستخدم في التقرير.\n\n[التقرير الإلزامي]\nيجب أن يحتوي التقرير النهائي على `mythos_report` structured block، والـAction الفعلي ومصدره، execution profile، model، runtime/base SHA، الملفات، الاختبارات، commit SHA، branch، PR، وأي blockers أو مخاطر.\n\n[الاستثناءات الصارمة]\n- لا WhatsApp / Evolution API / `b37491f`.\n- لا AUTOS-0.\n- لا SPY أو n8n.\n- لا MYTHOS AUTO/customer chat.\n- لا Resource Guard thresholds.\n- لا Model Policy إلا إذا أثبت التنفيذ أن المشكلة مرتبطة مباشرة بالـdispatch/model selection.\n- لا systemd أو VPS deployment/restart.\n- لا أسرار أو credentials.\n- لا `git add .`.\n- لا تجاوز Governance Relay.\n- لا تغييرات غير مرتبطة.\n\n[معيار النجاح]\nيجب أن يثبت التنفيذ أن Issue تحتوي صراحة على `Action: implement` تصل إلى `requested_action=implement` و`execution_profile=repo-write`، وأن أي mismatch يُرفض قبل provider، وأن rerun يحافظ على القرار والمحتوى، مع tests خضراء وcommit وPR قابل للدمج.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 117,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/117",
+    "issue_id": 5334993628,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPf2K3A",
+    "issue_title": "TASK: Bridge Action Resolution v2 — Root Implementation",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T09:46:32Z",
+    "issue_updated_at": "2026-09-03T09:46:32Z",
+    "issue_labels": [
+      "task",
+      "mythos:human-approval"
+    ],
+    "content_sha256": "a829baf0eb5522d57fbd34d6cbf89bacff9e7fa2e8a002dc26536d5380f138e9",
+    "attempt": 1,
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "converted_at": "2026-09-03T09:47:09.665Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5523826406,
+        "url": "https://github.com/othoth77/mythos-prod/issues/117#issuecomment-5523826406",
+        "at": "2026-09-03T09:47:10.671Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:human-approval"
+      ]
+    }
+  }
+}
