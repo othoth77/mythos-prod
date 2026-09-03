@@ -27,7 +27,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T20:57:19.593Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #146 https://github.com/othoth77/mythos-prod/issues/146 — \"إعادة تنفيذ WhatsApp Provider بعد #141\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[المرجع]\n- Issue السابقة: #141\n- Issue الأصلية: #126\n- PR WhatsApp Bridge: #124",
@@ -144,5 +144,64 @@
       ],
       "removed": []
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903205723-unj7gu",
+    "othmode_task_id": "OTH-2026-00070",
+    "attempt_id": "gh-issue-146#1",
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "expected_delivery": "commit",
+    "model_key": null,
+    "model_requested": null,
+    "model_source": "none",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-146",
+    "branch": "mythos/gh/gh-issue-146",
+    "base_commit": "5482db8c2dae846b3b213be724b62564d4f20b0f",
+    "claimed_at": "2026-09-03T20:57:23.555Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "658967a85b8f48c60cb14bef040534594509f9dd94545c43f2653d5bd217c12c",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T20:57:23.556Z",
+    "snapshot_sha256": "6b7dd74cfb9925c7dc30e00a719c42be2dabb397e29bbf307e09852239201743",
+    "fence": 1439,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1300573",
+      "fence": 1439,
+      "acquired_at": "2026-09-03T20:57:23.555Z",
+      "expires_at": "2026-09-03T22:27:23.555Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "5482db8c2dae846b3b213be724b62564d4f20b0f",
+      "branch": "main",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "5482db8c2dae846b3b213be724b62564d4f20b0f",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-03T20:57:22.037Z"
+    },
+    "model": "claude-sonnet-5",
+    "model_selection_mode": "auto"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T20:57:23.598Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903205723-unj7gu queued; OTHMODE OTH-2026-00070; action implement (explicit_current_issue) → repo-write; model claude-sonnet-5; fence 1439"
+    }
+  ]
 }
