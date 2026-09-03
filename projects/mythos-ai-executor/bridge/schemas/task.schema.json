@@ -72,6 +72,8 @@
         "content_sha256": { "type": "string", "maxLength": 64 },
         "attempt": { "type": "integer", "minimum": 1 },
         "rerun_of": { "type": ["string", "null"], "maxLength": 40 },
+        "inherited_from": { "type": ["string", "null"], "maxLength": 40 },
+        "inherited": { "type": "object" },
         "converted_at": { "type": "string", "maxLength": 40 },
         "converted_by": { "type": "string", "maxLength": 40 },
         "notifications": { "type": "object" },

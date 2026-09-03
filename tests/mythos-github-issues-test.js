@@ -39,6 +39,12 @@ process.env.OTHMODE_STORE_ROOT = path.join(FIX, 'othstore');
 process.env.MYTHOS_ISSUES_REPO = 'fixture-org/fixture-repo';
 process.env.MYTHOS_GITHUB_ISSUES_TOKEN = TOKEN;
 process.env.MYTHOS_GITHUB_WEB_URL = 'https://github.example.test';
+// readToken() falls back to MYTHOS_GITHUB_MCP_RW_TOKEN. On a host where the
+// bridge service environment exports it (the executor VPS), an inherited real
+// token would make the "no token" guard case pass for the wrong reason — and
+// would be a real token in a test process. The suite brings its own.
+delete process.env.MYTHOS_GITHUB_MCP_RW_TOKEN;
+delete process.env.MYTHOS_GITHUB_ISSUES_TOKEN_FILE;
 delete process.env.MYTHOS_ISSUES_CLOSE_ON_COMPLETED;
 delete process.env.MYTHOS_ISSUES_ONLY;
 delete process.env.MYTHOS_MOCK_SCRIPT;
@@ -443,6 +449,142 @@ async function run() {
   ok(st.token_present === true && row && row.issue_state === 'HUMAN_APPROVAL' && row.executor_task_id && row.report_file === 'control/reports/gh-issue-10.json' && row.notifications.indexOf('report') !== -1, 'status: Issue ⇄ task ⇄ executor ⇄ report relation is readable');
   var stCli = cp.spawnSync(process.execPath, [path.join(EXEC, 'bin', 'mythos-github-bridge'), 'issues-status'], { env: process.env, encoding: 'utf8' });
   ok(stCli.status === 0 && /gh-issue-1-r2/.test(stCli.stdout) && stCli.stdout.indexOf(TOKEN) === -1, 'cli: issues-status prints the relation and never the token');
+
+  // --- 10b. rerun defects (Issue #103): loss, downgrade, field loss, silence ------------------------
+  // Attempt 1 of #20 is fully specified and executive; it runs to COMPLETED.
+  addIssue(20, { title: 'TASK: rerun inheritance', body: [
+    '## Objective', 'Land the widget fix and commit it on the task branch.', '',
+    'Action: implement', '',
+    '## Scope', '- src/widget.js', '- nothing else', '',
+    '## Constraints', '- no network', '- no secrets', '',
+    '## Validation', '- the suite is green', '- git status clean'
+  ].join('\n') });
+  await full();
+  ok(await drain(), 'rerun/setup: executor queue drained so #20 attempt 1 can finish');
+  await full();
+  var t20 = taskOnDisk('gh-issue-20');
+  ok(t20 && t20.status === 'COMPLETED' && t20.requested_action === 'implement' && t20.scope.length === 2 && t20.constraints.length === 2 && t20.validation_requirements.length === 2,
+    'rerun/setup: #20 attempt 1 is COMPLETED, implement, 2 scope / 2 constraints / 2 validation');
+  var t20snapshot = JSON.stringify({ id: t20.task_id, obj: t20.objective, created: t20.created_at, status: t20.status, ex: t20.execution.executor_task_id, attempt: t20.source.attempt });
+
+  // The rerun body states NO Action and heads its sections with wordings the
+  // aliases do not know — exactly what produced gh-issue-101-r2's empty task.
+  store.issues[20].body = [
+    '## Objective', 'Rerun after the review: land the corrected widget fix.', '',
+    '## What must happen', '- redo it properly', '',
+    '## How we know it worked', '- it works'
+  ].join('\n');
+  store.issues[20].labels.push({ name: 'rerun' });
+  var r10b = await full();
+  var c20 = actionsOf(r10b.phases.intake, 'create').filter(function (a) { return a.issue === 20; })[0];
+  var t20r2 = taskOnDisk('gh-issue-20-r2');
+  ok(c20 && c20.task_id === 'gh-issue-20-r2' && c20.attempt === 2 && t20r2, 'rerun COMPLETED: a COMPLETED attempt reruns into gh-issue-20-r2');
+  // B — the executive action is inherited, never silently downgraded.
+  ok(t20r2.requested_action === 'implement' && t20r2.source.inherited.requested_action === true && /inherited from gh-issue-20 \("implement"\)/.test(t20r2.notes),
+    'rerun/B: a rerun body with no Action inherits implement from attempt 1 instead of defaulting to investigate (got ' + t20r2.requested_action + ')');
+  ok(!/defaulted to "investigate"/.test(t20r2.notes), 'rerun/B: the inherited rerun is never described as defaulted');
+  // C — structured sections survive an edited body with unrecognised headings.
+  ok(t20r2.scope.join('|') === t20.scope.join('|') && t20r2.constraints.join('|') === t20.constraints.join('|') && t20r2.validation_requirements.join('|') === t20.validation_requirements.join('|'),
+    'rerun/C: scope/constraints/validation are inherited when the new body uses unrecognised headings (got ' + t20r2.scope.length + '/' + t20r2.constraints.length + '/' + t20r2.validation_requirements.length + ')');
+  ok(t20r2.source.inherited.scope === true && t20r2.source.inherited.constraints === true && t20r2.source.inherited.validation_requirements === true && t20r2.source.inherited_from === 'gh-issue-20',
+    'rerun/C: the task file records which fields were inherited and from where');
+  ok(t20r2.objective.indexOf('Rerun after the review') !== -1 && t20r2.objective.indexOf('Land the widget fix') === -1,
+    'rerun/C: the objective is NOT inherited — a rerun re-reads what the body now says');
+  var cc20 = markedComments(20, 'created').filter(function (c) { return /gh-issue-20-r2/.test(c.body); })[0];
+  ok(cc20 && /inherited/i.test(cc20.body) && /rerun of `gh-issue-20`/.test(cc20.body) && /requested_action|Action/.test(cc20.body),
+    'rerun/C: the created comment states what was inherited and from which attempt');
+  // Independent task ids: attempt 1 is a separate, untouched record.
+  var t20after = taskOnDisk('gh-issue-20');
+  ok(t20r2.task_id !== t20.task_id && t20r2.source.rerun_of === 'gh-issue-20' &&
+     JSON.stringify({ id: t20after.task_id, obj: t20after.objective, created: t20after.created_at, status: t20after.status, ex: t20after.execution.executor_task_id, attempt: t20after.source.attempt }) === t20snapshot,
+    'rerun/ids: the rerun is a NEW independent task id and attempt 1 is byte-identical in every field that matters');
+  ok(reportOnDisk('gh-issue-20') && !reportOnDisk('gh-issue-20-r2'), 'rerun/ids: attempt 1 keeps its own report; the rerun has none yet');
+  ok(labelsOf(20).indexOf('rerun') === -1 && actionsOf(r10b.phases.intake, 'rerun_label_consumed').length === 1, 'rerun/A: the label is consumed once the control commit succeeded');
+
+  // A — a tick that dies BEFORE the control commit must not eat the request.
+  addIssue(23, { title: 'TASK: interrupted rerun', body: '## Objective\nReport the HEAD commit of the fixture repository.\n\n## Scope\n- git metadata\n' });
+  await full();
+  ok(await drain(), 'rerun/A: queue drained so #23 attempt 1 can finish');
+  await full();
+  ok(taskOnDisk('gh-issue-23').status === 'COMPLETED', 'rerun/A: #23 attempt 1 COMPLETED');
+  store.issues[23].labels.push({ name: 'rerun' });
+  addIssue(24, { title: 'TASK: explodes during intake', body: '## Objective\nThis Issue makes the tick throw after #23 was handled.\n' });
+  // #23 is converted first, then #24 raises — the tick dies before saveAndCommit.
+  var boom = Object.assign({}, client, {
+    listTaskIssues: function () { return Promise.resolve([store.issues[23], store.issues[24]]); },
+    listComments: function (n) { if (Number(n) === 24) return Promise.reject(new Error('SIMULATED_TICK_DEATH')); return client.listComments(n); }
+  });
+  var died = null;
+  try { await issues.intake(cfg, boom, {}); } catch (e) { died = e.message; }
+  ok(/SIMULATED_TICK_DEATH/.test(died || ''), 'rerun/A: the intake tick really died before its commit (' + (died || 'it did not throw') + ')');
+  ok(!taskOnDisk('gh-issue-23-r2'), 'rerun/A: the interrupted tick wrote no task file');
+  ok(labelsOf(23).indexOf('rerun') !== -1, 'rerun/A: the rerun label SURVIVES a tick that died before the control commit (the request is not lost)');
+  ok(markedComments(23, 'created').filter(function (c) { return /gh-issue-23-r2/.test(c.body); }).length === 1, 'rerun/A: the created comment for the lost attempt was already posted');
+  var rA = await full();
+  var cA = actionsOf(rA.phases.intake, 'create').filter(function (a) { return a.issue === 23; })[0];
+  ok(cA && cA.task_id === 'gh-issue-23-r2' && cA.comment.existed === true && taskOnDisk('gh-issue-23-r2'),
+    'rerun/A: the next tick honours the surviving request and ADOPTS the comment it had already posted');
+  ok(markedComments(23, 'created').filter(function (c) { return /gh-issue-23-r2/.test(c.body); }).length === 1 && labelsOf(23).indexOf('rerun') === -1,
+    'rerun/A: exactly one created comment for the attempt, label consumed only now');
+
+  // D — a rerun asked for while the previous attempt is still running.
+  addIssue(21, { title: 'TASK: rerun while active', body: '## Objective\nStay running while a rerun is requested on top of it.\n' });
+  await full();
+  var t21 = taskOnDisk('gh-issue-21');
+  ok(t21 && ['PENDING', 'CLAIMED', 'IN_PROGRESS', 'VALIDATING'].indexOf(t21.status) !== -1, 'rerun/D: #21 attempt 1 is still ACTIVE (' + t21.status + ')');
+  store.issues[21].labels.push({ name: 'rerun' });
+  var rD = await full();
+  var dfr = actionsOf(rD.phases.intake, 'rerun_deferred').filter(function (a) { return a.issue === 21; })[0];
+  ok(dfr && dfr.task_id === 'gh-issue-21' && !taskOnDisk('gh-issue-21-r2'), 'rerun/D: a rerun requested while attempt 1 runs is deferred, not created');
+  ok(labelsOf(21).indexOf('rerun') !== -1, 'rerun/D: the deferred request keeps its label — it is honoured later, not dropped');
+  var dc21 = markedComments(21, 'rerun_deferred')[0];
+  ok(dc21 && /Rerun deferred/.test(dc21.body) && /still running/.test(dc21.body) && /kept/.test(dc21.body) && /gh-issue-21-r2/.test(dc21.body),
+    'rerun/D: one comment says the rerun is deferred, the label was kept, and names the task it will become');
+  await full();
+  var rD2 = await full();
+  ok(markedComments(21, 'rerun_deferred').length === 1 && !taskOnDisk('gh-issue-21-r2') && actionsOf(rD2.phases.intake, 'rerun_deferred').length >= 1,
+    'rerun/D: deferring across further ticks never spams a second comment');
+  ok(await drain(), 'rerun/D: queue drained so #21 attempt 1 reaches a terminal status');
+  await full();
+  var rD3 = await full();
+  ok(taskOnDisk('gh-issue-21-r2') && actionsOf(rD3.phases.intake, 'create').filter(function (a) { return a.issue === 21; }).length === 1 && labelsOf(21).indexOf('rerun') === -1,
+    'rerun/D: once attempt 1 is terminal the kept request converts on the next tick and only then consumes the label');
+
+  // D — an Issue edited after conversion, with no rerun asked for.
+  addIssue(25, { title: 'TASK: edited without rerun', body: '## Objective\nReport the fixture HEAD; this body will be edited afterwards.\n' });
+  await full();
+  ok(taskOnDisk('gh-issue-25') && markedComments(25, 'stale_edit').length === 0, 'rerun/D: a freshly converted Issue gets no stale-edit comment');
+  var quietBefore = markedComments(1, 'stale_edit').length + markedComments(2, 'stale_edit').length;
+  store.issues[25].body = '## Objective\nActually, report the fixture branch list instead. I expect this to run.\n';
+  var rE = await full();
+  var ac25 = actionsOf(rE.phases.intake, 'already_converted').filter(function (a) { return a.issue === 25; })[0];
+  var se25 = markedComments(25, 'stale_edit')[0];
+  ok(ac25 && ac25.edited === true && se25 && /did not start anything/.test(se25.body) && /add the label `rerun`/.test(se25.body) && /gh-issue-25-r2/.test(se25.body),
+    'rerun/D: editing a converted Issue answers once — the edit ran nothing, and it names the label that would');
+  ok(!taskOnDisk('gh-issue-25-r2'), 'rerun/D: the stale-edit answer creates no task by itself');
+  await full();
+  var rE2 = await full();
+  ok(markedComments(25, 'stale_edit').length === 1 && actionsOf(rE2.phases.intake, 'already_converted').filter(function (a) { return a.issue === 25; })[0].edited === true,
+    'rerun/D: the same unchanged edit is answered exactly once (hash-keyed, no spam)');
+  store.issues[25].body = '## Objective\nThird wording; a genuinely different edit deserves its own answer.\n';
+  await full();
+  ok(markedComments(25, 'stale_edit').length === 2, 'rerun/D: a genuinely different edit gets its own answer');
+  ok(markedComments(1, 'stale_edit').length + markedComments(2, 'stale_edit').length === quietBefore,
+    'rerun/D: unedited already-converted Issues stay silent — no comment on the steady state');
+
+  // Rerun from a non-COMPLETED terminal status.
+  store.issues[9].labels.push({ name: 'rerun' });
+  var rB = await full();
+  var c9 = actionsOf(rB.phases.intake, 'create').filter(function (a) { return a.issue === 9; })[0];
+  ok(c9 && c9.task_id === 'gh-issue-9-r2' && taskOnDisk('gh-issue-9-r2') && taskOnDisk('gh-issue-9').status === 'BLOCKED',
+    'rerun BLOCKED: a BLOCKED attempt reruns into gh-issue-9-r2 and the blocked record is untouched');
+  ok(taskOnDisk('gh-issue-9-r2').requested_action === taskOnDisk('gh-issue-9').requested_action && taskOnDisk('gh-issue-9-r2').source.inherited.requested_action === true,
+    'rerun BLOCKED: the unedited body still states no Action, so attempt 1\'s action is inherited');
+
+  // The whole point of A: no rerun request was ever silently dropped.
+  var reruns = ['gh-issue-1-r2', 'gh-issue-9-r2', 'gh-issue-20-r2', 'gh-issue-21-r2', 'gh-issue-23-r2'];
+  ok(reruns.every(function (id) { return !!taskOnDisk(id); }), 'rerun: every rerun label applied in this suite produced its own task file (' + reruns.filter(function (id) { return !taskOnDisk(id); }).join(',') + ')');
+  ok(reruns.every(function (id) { var t = taskOnDisk(id); return t.source.attempt === 2 && t.source.rerun_of === id.replace('-r2', ''); }), 'rerun: every rerun records attempt 2 and links its predecessor');
 
   // --- 11. main untouched, control-only commits ---------------------------------------------------------
   ok(git(REPO, ['rev-parse', 'main']) === MAIN_AT_START && git(ORIGIN, ['rev-parse', 'main']) === ORIGIN_MAIN_AT_START, 'main: local and origin main are byte-for-byte where they started');
