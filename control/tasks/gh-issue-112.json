@@ -1,0 +1,76 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-112",
+  "project": "mythos-prod",
+  "objective": "إصلاح المسار GitHub Issue → Bridge → Executor → Claude حتى يتم احترام `Action: implement` فعليًا، ولا تتحول مهام التنفيذ إلى `investigate/repo-read`، وتبقى إعادة التشغيل lossless، ويُستخرج `mythos_report` بشكل موثوق.",
+  "scope": [
+    "فحص مسار تحويل GitHub Issue إلى `control/tasks/*.json` وتحديد سبب تجاهل/فقدان `Action: implement` في Issue #111.",
+    "إصلاح parser/adapter بحيث تكون `Action: implement` الصريحة في body هي المصدر الصحيح لـ `requested_action`.",
+    "دعم الصيغة المعتمدة `Action: <x>` وكذلك `action:<x>` إذا كانت مدعومة حاليًا، مع validation صارم للقيم المسموحة.",
+    "الحفاظ على إصلاحات rerun lossless الموجودة في PR #104: لا تفقد Action/section/scope/constraints عند rerun، ولا ترث `investigate` إذا كانت المحاولة الأصلية خاطئة بسبب parser bug وتم تصحيح الـIssue.",
+    "التأكد أن `implement` يتحول إلى `repo-write` وأن capabilities/skill المناسبة تُمنح له وفق السياسة الحالية.",
+    "فحص structured report path والتأكد أن Claude لا ينتهي بـ success/blocked بدون محاولة استخراج `mythos_report` واضحة، وأن فشل التقرير يعطي سببًا دقيقًا وقابلًا للتشخيص.",
+    "لا تعطيل `report_to_git` كحل التفافي؛ يجب الحفاظ على مسار التقرير الرسمي.",
+    "إضافة اختبارات regression تغطي على الأقل:",
+    "Action: implement → requested_action=implement → repo-write.",
+    "action:implement → نفس النتيجة إن كانت صيغة مدعومة.",
+    "rerun لا يفقد Action الصحيح.",
+    "Issue body بلا Action لا يتحول إلى implement تلقائيًا.",
+    "provider output يحتوي mythos_report → extraction ناجح.",
+    "provider output لا يحتوي mythos_report → BLOCKED مع سبب واضح.",
+    "تشغيل الاختبارات المتأثرة: GitHub Issues/Bridge + Executor + Governance + أي suite خاصة بالreport/parser.",
+    "إنشاء commit فعلي وفرع نظيف وPR قابل للدمج إلى `main`."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T03:02:29.420Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #112 https://github.com/othoth77/mythos-prod/issues/112 — \"إصلاح GitHub Issue Action Routing وStructured Report\"\n\n[المشكلة المثبتة]\nفي `gh-issue-111-r2` كان نص المهمة يحتوي على Objective تنفيذي، لكن control task تم إنشاؤه بـ `requested_action: investigate`، وبالتالي أصبح `execution_profile: repo-read` و`mcp_capabilities: []`. Claude حاول تنفيذ merge لكنه توقف عند طلب approval، ثم لم يُنتج `mythos_report`، فصُنفت المهمة BLOCKED.\n\n[ممنوع]\n- لا تنفيذ WhatsApp أو دمج `b37491f` في هذه المهمة.\n- لا نشر Evolution API ولا إرسال WhatsApp.\n- لا AUTOS-0.\n- لا SPY/n8n.\n- لا MYTHOS AUTO/customer chat.\n- لا Resource Guard threshold changes.\n- لا Model Policy changes إلا إذا ظهر خلل مباشر وضروري في dispatch؛ عندها توقف واذكر السبب.\n- لا تغييرات على systemd أو VPS services.\n- لا أسرار أو credentials أو `.env`.\n- لا `git add .`.\n- لا merge إلى main ولا auto-merge.\n\n[التحقق النهائي المطلوب]\nيجب أن يحتوي التقرير على:\n- status\n- requested_action قبل/بعد\n- execution_profile قبل/بعد\n- سبب الخلل\n- الملفات المعدلة\n- commit SHA\n- base SHA\n- الاختبارات ونتائجها\n- تأكيد عدم لمس WhatsApp/Resource Guard/Model Policy/AUTOS-0/SPY/n8n\n- `mythos_report` structured block صالح.\n\n[النتيجة المطلوبة]\nPR نظيف وقابل للدمج يعالج أصل مشكلة Action Routing وStructured Report، بحيث يمكن بعد دمجه إعادة تنفيذ مهمة WhatsApp #111 بصيغة `Action: implement` دون الوقوع في نفس الحلقة.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 112,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/112",
+    "issue_id": 5331680009,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPcr7CQ",
+    "issue_title": "TASK: إصلاح GitHub Issue Action Routing وStructured Report",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T03:02:01Z",
+    "issue_updated_at": "2026-09-03T03:02:01Z",
+    "issue_labels": [
+      "task",
+      "mythos:human-approval"
+    ],
+    "content_sha256": "207514370974ac07ecd867fac60bc67d4126844cfcba553cf00a36e76a0844c4",
+    "attempt": 1,
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "converted_at": "2026-09-03T03:02:29.421Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5519686869,
+        "url": "https://github.com/othoth77/mythos-prod/issues/112#issuecomment-5519686869",
+        "at": "2026-09-03T03:02:30.259Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:human-approval"
+      ]
+    }
+  }
+}
