@@ -1,0 +1,160 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-125",
+  "attempt_id": "gh-issue-125#1",
+  "status": "COMPLETED",
+  "summary": "Fixed the one remaining PR #124 review note: writeEntry() in projects/mythos-ai-executor/bridge/notify/whatsapp.js was claimed (in a comment in deliverEntry()) to be a 'synchronous fsync-backed rename' but never called fsync anywhere — it was a plain writeFileSync + renameSync. Rather than weaken the claim, I made it true: writeEntry() now opens the tmp file directly, writes and fsyncs its fd before renameSync, then best-effort fsyncs the ledger directory afterward (swallowed on platforms like Windows that don't support directory fsync). The at-least-once + best-effort-deduplication delivery guarantee is unchanged and not strengthened. Added a regression test that spies on fs.fsyncSync to prove writeEntry() actually invokes it, confirms no leftover .tmp-<pid> file survives, and confirms the entry reads back correctly post-rename. Since this worktree's branch (mythos/gh/gh-issue-125) started from d69e0ab and didn't yet contain the WhatsApp bridge code, and PR #124's actual branch tip (mythos/gh/gh-issue-123 @ a308289) is a direct linear descendant of that same d69e0ab base, I fast-forwarded this branch to a308289 first (no push) so the new commit sits cleanly on PR #124's path. Ran the whatsapp-notify, github-bridge, executor, and governance-invariant suites plus bridge-action-resolution — all green. mpi-0-finalization-governance-test.js has 3 pre-existing failures (skills-registry on-disk drift, unrelated to this change) which I confirmed were already present before my change by stashing it and re-running.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": "Sonnet",
+    "model_key": "sonnet",
+    "model": "claude-sonnet-5",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "base_sha": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "branch": "mythos/gh/gh-issue-125",
+    "commit_sha": "d8eb8931cf0adca94e2d4f7746884e3b27664e03"
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-03T12:33:43.578Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Fixed the one remaining PR #124 review note: writeEntry() in projects/mythos-ai-executor/bridge/notify/whatsapp.js was claimed (in a comment in deliverEntry()) to be a 'synchronous fsync-backed rename' but never called fsync anywhere — it was a plain writeFileSync + renameSync. Rather than weaken the claim, I made it true: writeEntry() now opens the tmp file directly, writes and fsyncs its fd before renameSync, then best-effort fsyncs the ledger directory afterward (swallowed on platforms like Windows that don't support directory fsync). The at-least-once + best-effort-deduplication delivery guarantee is unchanged and not strengthened. Added a regression test that spies on fs.fsyncSync to prove writeEntry() actually invokes it, confirms no leftover .tmp-<pid> file survives, and confirms the entry reads back correctly post-rename. Since this worktree's branch (mythos/gh/gh-issue-125) started from d69e0ab and didn't yet contain the WhatsApp bridge code, and PR #124's actual branch tip (mythos/gh/gh-issue-123 @ a308289) is a direct linear descendant of that same d69e0ab base, I fast-forwarded this branch to a308289 first (no push) so the new commit sits cleanly on PR #124's path. Ran the whatsapp-notify, github-bridge, executor, and governance-invariant suites plus bridge-action-resolution — all green. mpi-0-finalization-governance-test.js has 3 pre-existing failures (skills-registry on-disk drift, unrelated to this change) which I confirmed were already present before my change by stashing it and re-running.",
+    "tests": [
+      "tests/mythos-bridge-whatsapp-notify-test.js: 131 passed, 0 failed",
+      "tests/mythos-github-bridge-test.js: 150 passed, 0 failed",
+      "tests/mythos-ai-executor-test.js: 390 passed, 0 failed",
+      "tests/mythos-governance-invariant-test.js: 111 passed, 0 failed",
+      "tests/bridge-action-resolution-test.js: 88 passed, 0 failed",
+      "tests/mpi-0-finalization-governance-test.js: 33 passed, 3 failed (pre-existing, unrelated skills-registry drift; verified present on pre-fix baseline too)"
+    ],
+    "commit": "b03d69d",
+    "remote_head": null,
+    "files_changed": [
+      "projects/mythos-ai-executor/bridge/notify/whatsapp.js",
+      "tests/mythos-bridge-whatsapp-notify-test.js"
+    ],
+    "residual_risks": [
+      "Directory fsync is best-effort and silently swallowed on platforms that don't support opening/fsyncing a directory fd (e.g. Windows) — the file's own fsync before rename still guarantees the bytes are on disk in that case, but the rename's own durability is not proven there.",
+      "This worktree's branch was fast-forwarded onto PR #124's branch tip (a308289) rather than started from it; the governance relay / bridge should confirm this lands correctly against the actual PR #124 head before merge."
+    ],
+    "next_stage": "Bridge/governance relay verifies commit b03d69d against PR #124 (mythos/gh/gh-issue-123) and closes OTH-2026-00056; no further action expected from this task unless another review note surfaces."
+  },
+  "files_changed": [
+    "projects/mythos-ai-executor/bridge/notify/whatsapp.js",
+    "tests/mythos-bridge-whatsapp-notify-test.js",
+    "docs/AI_HANDOVER.md",
+    "docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md",
+    "docs/MYTHOS_GITHUB_BRIDGE.md",
+    "projects/command-center/data/open-source-registry.json",
+    "projects/mythos-ai-executor/bin/mythos-github-bridge",
+    "projects/mythos-ai-executor/bridge/github-bridge.js",
+    "projects/mythos-ai-executor/bridge/notify/http-json.js",
+    "projects/mythos-ai-executor/bridge/notify/providers/evolution.js"
+  ],
+  "commits": [
+    {
+      "sha": "b03d69d6cdc24b4d14f9430022b313795c446ce0",
+      "subject": "fix(bridge): make writeEntry() actually fsync-backed, matching its own comment (gh-issue-125)",
+      "branch": "mythos/gh/gh-issue-125",
+      "on_origin": false
+    },
+    {
+      "sha": "a3082892814f8b8282d6593481b25a6b29ac09f5",
+      "subject": "fix(bridge): PR #122 review fixes — WhatsApp notify task_id 64-char ledger key, at-least-once delivery honesty (gh-issue-123)",
+      "branch": "mythos/gh/gh-issue-125",
+      "on_origin": true
+    },
+    {
+      "sha": "d8eb8931cf0adca94e2d4f7746884e3b27664e03",
+      "subject": "feat(github-bridge): reapply WhatsApp notification layer onto current main (gh-issue-111-r5)",
+      "branch": "mythos/gh/gh-issue-125",
+      "on_origin": true
+    }
+  ],
+  "tests": [
+    "tests/mythos-bridge-whatsapp-notify-test.js: 131 passed, 0 failed",
+    "tests/mythos-github-bridge-test.js: 150 passed, 0 failed",
+    "tests/mythos-ai-executor-test.js: 390 passed, 0 failed",
+    "tests/mythos-governance-invariant-test.js: 111 passed, 0 failed",
+    "tests/bridge-action-resolution-test.js: 88 passed, 0 failed",
+    "tests/mpi-0-finalization-governance-test.js: 33 passed, 3 failed (pre-existing, unrelated skills-registry drift; verified present on pre-fix baseline too)"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "a3082892814f8b8282d6593481b25a6b29ac09f5",
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [],
+  "risks": [
+    "Directory fsync is best-effort and silently swallowed on platforms that don't support opening/fsyncing a directory fd (e.g. Windows) — the file's own fsync before rename still guarantees the bytes are on disk in that case, but the rename's own durability is not proven there.",
+    "This worktree's branch was fast-forwarded onto PR #124's branch tip (a308289) rather than started from it; the governance relay / bridge should confirm this lands correctly against the actual PR #124 head before merge."
+  ],
+  "next_recommended_action": "Bridge/governance relay verifies commit b03d69d against PR #124 (mythos/gh/gh-issue-123) and closes OTH-2026-00056; no further action expected from this task unless another review note surfaces.",
+  "completed_at": "2026-09-03T12:39:12.494Z",
+  "execution": {
+    "executor_task_id": "t-20260903123345-yjzccr",
+    "othmode_task_id": "OTH-2026-00056",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": "Sonnet",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-125#1",
+    "fence": 275,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:50789",
+      "fence": 275,
+      "acquired_at": "2026-09-03T12:33:45.325Z",
+      "expires_at": "2026-09-03T14:03:45.325Z"
+    },
+    "snapshot_sha256": "b5e7ba5dae3d8d30a5021a7c494fc7a44a61c64579521312afceacc5d61db9be",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "claude_session_id": "59fdad69-0714-4ea9-82b7-fd39094e670f",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-03T12:33:47.117Z",
+    "ended_at": "2026-09-03T12:38:34.379Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "quota_waits": 0,
+    "cost_usd": 1.4224526,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-125",
+    "branch": "mythos/gh/gh-issue-125",
+    "base_commit": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-125",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
