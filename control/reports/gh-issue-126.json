@@ -1,0 +1,140 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-126",
+  "attempt_id": "gh-issue-126#1",
+  "status": "BLOCKED",
+  "summary": "The WhatsApp Bridge notification layer merged via PR #124 is verified intact and correct on origin/main (0ed68a1c8095): all four required suites re-run green (mythos-bridge-whatsapp-notify-test 131/0, mythos-github-bridge-test 150/0, mythos-ai-executor-test 390/0, mythos-governance-invariant-test 111/0). However, the objective's core deliverable — deploying Evolution API (or an equivalent provider) and running one real WhatsApp smoke test — cannot proceed: the deploy user has no Docker access (permission denied on /var/run/docker.sock, confirmed again this session) and no sudo/root path is reachable from this session (sudo itself is denied by session policy). This is the identical wall the prior session (gh-20260902-wa-bridge-notify-01) already documented in docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md; nothing has changed to unblock it. Resource Guard itself reports NORMAL (2548 MiB available, PSI 0), so memory is not the blocker — permissions are. Per the task's own instructions ('if VPS resources are unsafe or deployment is not possible: STOP and report BLOCKED'), no deployment, no notify-config with placeholder values, and no smoke test were attempted. No repository files were changed; the OTHMODE task record OTH-2026-00057 was updated with full evidence (phase=DEPLOYMENT, validation/deployment/problems/outcome sections).",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": "Sonnet",
+    "model_key": "sonnet",
+    "model": "claude-sonnet-5",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "base_sha": "0ed68a1c8095551fbe672b739020227e21795196",
+    "branch": "mythos/gh/gh-issue-126",
+    "commit_sha": null
+  },
+  "blocker": {
+    "code": "PERMISSION_DENIED",
+    "retryable": false,
+    "at": "2026-09-03T12:50:41.184Z",
+    "reason": "The WhatsApp Bridge notification layer merged via PR #124 is verified intact and correct on origin/main (0ed68a1c8095): all four required suites re-run green (mythos-bridge-whatsapp-notify-test 131/0, mythos-github-bridge-test 150/0, mythos-ai-executor-test 390/0, mythos-governance-invariant-test 111/0). However, the objective's core deliverable — deploying Evolution API (or an equivalent provider) and running one real WhatsApp smoke test — cannot proceed: the deploy user has no Docker access (permission denied on /var/run/docker.sock, confirmed again this session) and no sudo/root path is reachable from this session (sudo itself is denied by session policy). This is the identical wall the prior session (gh-20260902-wa-bridge-notify-01) already documented in docs/MYTHOS_BRIDGE_WHATSAPP_NOT",
+    "task_id": "t-20260903124725-j2n9t0",
+    "attempt_id": "gh-issue-126#1",
+    "requested_action": "implement",
+    "execution_profile": "repo-write",
+    "model": "claude-sonnet-5"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "d69e0abc34decc37ba4a6fba680ba80f5bf6bff1",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "0ed68a1c8095551fbe672b739020227e21795196",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD d69e0abc34de is behind origin/main 0ed68a1c8095 — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-03T12:47:23.759Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "blocked",
+    "summary": "The WhatsApp Bridge notification layer merged via PR #124 is verified intact and correct on origin/main (0ed68a1c8095): all four required suites re-run green (mythos-bridge-whatsapp-notify-test 131/0, mythos-github-bridge-test 150/0, mythos-ai-executor-test 390/0, mythos-governance-invariant-test 111/0). However, the objective's core deliverable — deploying Evolution API (or an equivalent provider) and running one real WhatsApp smoke test — cannot proceed: the deploy user has no Docker access (permission denied on /var/run/docker.sock, confirmed again this session) and no sudo/root path is reachable from this session (sudo itself is denied by session policy). This is the identical wall the prior session (gh-20260902-wa-bridge-notify-01) already documented in docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md; nothing has changed to unblock it. Resource Guard itself reports NORMAL (2548 MiB available, PSI 0), so memory is not the blocker — permissions are. Per the task's own instructions ('if VPS resources are unsafe or deployment is not possible: STOP and report BLOCKED'), no deployment, no notify-config with placeholder values, and no smoke test were attempted. No repository files were changed; the OTHMODE task record OTH-2026-00057 was updated with full evidence (phase=DEPLOYMENT, validation/deployment/problems/outcome sections).",
+    "tests": [
+      "tests/mythos-bridge-whatsapp-notify-test.js: 131 passed, 0 failed",
+      "tests/mythos-github-bridge-test.js: 150 passed, 0 failed",
+      "tests/mythos-ai-executor-test.js: 390 passed, 0 failed",
+      "tests/mythos-governance-invariant-test.js: 111 passed, 0 failed"
+    ],
+    "commit": null,
+    "remote_head": "0ed68a1c8095551fbe672b739020227e21795196",
+    "files_changed": [],
+    "residual_risks": [
+      "Evolution API (or equivalent) remains undeployed; the notification layer stays disabled by default and no real message has ever been sent.",
+      "No privileged (Docker-group or root) session was available to this agent to provision a provider container, and the sandbox denies sudo outright.",
+      "The provider choice recorded in docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §3.3 is still TO-VERIFY against live upstream data (no outbound web access in this session either)."
+    ],
+    "next_stage": "Owner action required: with Docker-group membership or root, deploy Evolution API (or a chosen equivalent) per docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §4.1, install the credential file (0600) and the systemd drop-in. Only then should a follow-up task run `notify-config` (expect empty problems), `notify-test --confirm` (the one real smoke test), `notify-status`, and the failure-isolation/restart tests called for in the objective."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "tests/mythos-bridge-whatsapp-notify-test.js: 131 passed, 0 failed",
+    "tests/mythos-github-bridge-test.js: 150 passed, 0 failed",
+    "tests/mythos-ai-executor-test.js: 390 passed, 0 failed",
+    "tests/mythos-governance-invariant-test.js: 111 passed, 0 failed"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": null,
+    "report_problems": [
+      "delivery expected a commit but the report claims none"
+    ],
+    "required_checks": []
+  },
+  "problems": [
+    "delivery expected a commit but the report claims none",
+    "PERMISSION_DENIED: The WhatsApp Bridge notification layer merged via PR #124 is verified intact and correct on origin/main (0ed68a1c8095): all four required suites re-run green (mythos-bridge-whatsapp-notify-test 131/0, mythos-github-bridge-test 150/0, mythos-ai-executor-test 390/0, mythos-governance-invariant-test 111/0). However, the objective's core deliverable — deploying Evolution API (or an equivalent provider) and running one real WhatsApp smoke test — cannot proceed: the deploy user has no Docker access (permission denied on /var/run/docker.sock, confirmed again this session) and no sudo/root path is reachable from this session (sudo itself is denied by session policy). This is the identical wall the prior session (gh-20260902-wa-bridge-notify-01) already documented in docs/MYTHOS_BRIDGE_WHATSAPP_NOT"
+  ],
+  "risks": [
+    "Evolution API (or equivalent) remains undeployed; the notification layer stays disabled by default and no real message has ever been sent.",
+    "No privileged (Docker-group or root) session was available to this agent to provision a provider container, and the sandbox denies sudo outright.",
+    "The provider choice recorded in docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §3.3 is still TO-VERIFY against live upstream data (no outbound web access in this session either)."
+  ],
+  "next_recommended_action": "Owner action required: with Docker-group membership or root, deploy Evolution API (or a chosen equivalent) per docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §4.1, install the credential file (0600) and the systemd drop-in. Only then should a follow-up task run `notify-config` (expect empty problems), `notify-test --confirm` (the one real smoke test), `notify-status`, and the failure-isolation/restart tests called for in the objective.",
+  "completed_at": "2026-09-03T12:51:52.431Z",
+  "execution": {
+    "executor_task_id": "t-20260903124725-j2n9t0",
+    "othmode_task_id": "OTH-2026-00057",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": "Sonnet",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-126#1",
+    "fence": 311,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:86882",
+      "fence": 311,
+      "acquired_at": "2026-09-03T12:47:25.523Z",
+      "expires_at": "2026-09-03T14:17:25.523Z"
+    },
+    "snapshot_sha256": "2a5e79b43f7464af943df4efe6d9b481c7f50f94e08569448efd885de7ae7eec",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "claude_session_id": "0e2dee2b-b11e-405c-8139-6be991c28342",
+    "executor_status": "BLOCKED",
+    "started_at": "2026-09-03T12:47:32.473Z",
+    "ended_at": "2026-09-03T12:50:41.185Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "quota_waits": 0,
+    "cost_usd": 0.9659338,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-126",
+    "branch": "mythos/gh/gh-issue-126",
+    "base_commit": "0ed68a1c8095551fbe672b739020227e21795196",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-126",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}

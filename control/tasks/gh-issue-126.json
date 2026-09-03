@@ -10,7 +10,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "BLOCKED",
   "created_at": "2026-09-03T12:47:19.534Z",
   "created_by": "github-issue:othoth77",
   "model": "sonnet",
@@ -158,8 +158,8 @@
     "claimed_at": "2026-09-03T12:47:25.523Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "5102c149dc031cadcc86cb96a0aabbf1576ab30df78d3e7680829a624dd6f6e0",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-03T12:48:31.287Z",
+    "executor_status": "BLOCKED",
+    "updated_at": "2026-09-03T12:51:52.493Z",
     "snapshot_sha256": "2a5e79b43f7464af943df4efe6d9b481c7f50f94e08569448efd885de7ae7eec",
     "fence": 311,
     "lease": {
@@ -188,7 +188,13 @@
     },
     "model": "claude-sonnet-5",
     "model_selection_mode": "explicit",
-    "claude_session_id": "0e2dee2b-b11e-405c-8139-6be991c28342"
+    "claude_session_id": "0e2dee2b-b11e-405c-8139-6be991c28342",
+    "blocker": {
+      "code": "PERMISSION_DENIED",
+      "reason": "The WhatsApp Bridge notification layer merged via PR #124 is verified intact and correct on origin/main (0ed68a1c8095): all four required suites re-run green (mythos-bridge-whatsapp-notify-test 131/0, mythos-github-bridge-test 150/0, mythos-ai-executor-test 390/0, mythos-governance-invariant-test 111/0). However, the objective's core deliverable — deploying Evolution API (or an equivalent provider) and running one real WhatsApp smoke test — cannot proceed: the deploy user has no Docker access (p",
+      "retryable": false
+    },
+    "report_file": "control/reports/gh-issue-126.json"
   },
   "history": [
     {
@@ -204,6 +210,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-03T12:51:51.177Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended BLOCKED; building report"
+    },
+    {
+      "at": "2026-09-03T12:51:52.493Z",
+      "from": "VALIDATING",
+      "to": "BLOCKED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 4 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
