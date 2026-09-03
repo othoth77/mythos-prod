@@ -1,0 +1,144 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-121",
+  "project": "mythos-prod",
+  "objective": "اختبار حي وآمن فقط للتأكد أن إصلاح Bridge بعد PR #120 يعمل فعليًا على الـVPS.",
+  "scope": [
+    "يجب أن يقرأ Bridge هذا الـIssue كـ `requested_action=implement`.",
+    "يجب أن تكون `execution_profile=repo-write`.",
+    "يجب أن يصل القرار الصحيح إلى Executor/Claude.",
+    "تنفيذ تغيير صغير وآمن داخل worktree الخاص بالمهمة فقط.",
+    "إنشاء commit في فرع المهمة ثم التقرير المنظم `mythos_report`.",
+    "لا Merge إلى main."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "النجاح الحقيقي هو أن GitHub Bridge يعلن صراحةً `Action implement → repo-write` وأن Claude ينفذ المهمة ويعيد structured report مع branch وcommit وtests. إذا فشل أي جزء، لا تخفِ الفشل ولا تعتبره نجاحًا."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-03T11:44:59.684Z",
+  "created_by": "github-issue:othoth77",
+  "model": "haiku",
+  "model_raw": "Haiku",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #121 https://github.com/othoth77/mythos-prod/issues/121 — \"Safe E2E — Verify Action implement → repo-write routing\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\nmodel: haiku — source explicit_current_issue (written as \"Haiku\")\n\n[الاختبار]\nأنشئ ملف اختبار واحد فقط داخل نطاق task worktree باسم `tests/bridge-action-routing-e2e-marker.txt` يحتوي على سطر واحد يثبت أن الاختبار مرّ، ثم commit.\n\n[strict exclusions]\n- لا تعديل على main.\n- لا WhatsApp / Evolution API.\n- لا AUTOS-0.\n- لا SPY/n8n.\n- لا MYTHOS AUTO.\n- لا systemd/VPS configuration.\n- لا secrets.\n- لا `git add .`.\n- لا تغييرات إنتاجية أخرى.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 121,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/121",
+    "issue_id": 5336145572,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPg8epA",
+    "issue_title": "TASK: Safe E2E — Verify Action implement → repo-write routing",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T11:44:38Z",
+    "issue_updated_at": "2026-09-03T11:44:38Z",
+    "issue_labels": [
+      "task",
+      "mythos:human-approval"
+    ],
+    "content_sha256": "285687e4f45fba1b405023cc032adac53067fd4b9e360eaa0c698475b35d1315",
+    "attempt": 1,
+    "attempt_id": "gh-issue-121#1",
+    "idempotency_key": "23d98a1e23559a68bcf50879aa02d0a986e363a4f1647b058a4d1f105b33fff4",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "heading_inline",
+          "line": 1
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": "haiku",
+      "model_id": "claude-haiku-4-5",
+      "model_raw": "Haiku",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:haiku (requested \"Haiku\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-03T11:44:59.684Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-03T11:44:59.684Z",
+        "event": "issue_received",
+        "reason": "open Issue #121 with label task",
+        "content_sha256": "285687e4f45fba1b405023cc032adac53067fd4b9e360eaa0c698475b35d1315"
+      },
+      {
+        "at": "2026-09-03T11:44:59.684Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-03T11:44:59.684Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-03T11:44:59.684Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → haiku (available)"
+      },
+      {
+        "at": "2026-09-03T11:45:01.893Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-121.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-03T11:44:59.684Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5525215218,
+        "url": "https://github.com/othoth77/mythos-prod/issues/121#issuecomment-5525215218",
+        "at": "2026-09-03T11:45:00.537Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:human-approval"
+      ]
+    }
+  }
+}
