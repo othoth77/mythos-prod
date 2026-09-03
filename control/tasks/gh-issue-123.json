@@ -1,0 +1,145 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-123",
+  "project": "mythos-prod",
+  "objective": "إصلاح ملاحظتي المراجعة على PR #122 قبل الدمج، مع الحفاظ على نطاق WhatsApp Bridge notification layer فقط.",
+  "scope": [],
+  "constraints": [
+    "لا deploy لـ Evolution API.",
+    "لا real WhatsApp message.",
+    "لا AUTOS-0، SPY/n8n، MYTHOS AUTO/customer chat.",
+    "لا Resource Guard thresholds ولا Model Policy إلا إذا كان إصلاحًا مباشرًا وضروريًا جدًا.",
+    "لا systemd/VPS changes.",
+    "لا secrets.",
+    "لا `git add .`.",
+    "لا تعديل يدوي لـ `control/`.",
+    "لا merge تلقائي إلى main."
+  ],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T12:10:39.557Z",
+  "created_by": "github-issue:othoth77",
+  "model": "sonnet",
+  "model_raw": "Sonnet",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #123 https://github.com/othoth77/mythos-prod/issues/123 — \"إصلاح WhatsApp Bridge — Task ID 64 + delivery idempotency\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\nmodel: sonnet — source explicit_current_issue (written as \"Sonnet\")\n\n[الإصلاحات الإلزامية]\n1. **Task ID compatibility:** تحديث notification ledger/key validation لتدعم كامل الحد الأقصى الحالي لـ `task_id` وهو 64 حرفًا، مع اختبارات regression تشمل ID بطول 64.\n2. **Delivery idempotency / crash safety:** راجع واصلح مسار `SENDING → SENT` بحيث لا يدّعي exactly-once delivery بصورة غير مضمونة. صمّم ضمانًا صحيحًا ومحدودًا ضمن provider الحالي/ledger: خصوصًا crash/failure window بعد نجاح provider وقبل تسجيل النتيجة. إذا كان exactly-once غير قابل للضمان بدون idempotency key/provider support، لا تخفِ ذلك: غيّر التصميم/التوثيق إلى at-least-once مع deduplication best-effort أو استخدم provider-side idempotency إن كان مدعومًا ومثبتًا محليًا. لا تدّعي ضمانًا أقوى من الواقع.\n3. أضف regression tests للحالات: task_id 64 chars، concurrent flush، crash/restart window أو محاكاة failure بعد provider success وقبل ledger update، وعدم تكرار الرسالة إن كان الضمان المدعوم يحقق ذلك.\n4. حدّث docs لتطابق الضمان الفعلي، بدون مبالغة في exactly-once.\n5. أبقِ PR #122 كمسار العمل؛ لا تنشئ merge إلى main.\n6. شغّل WhatsApp notification tests + GitHub Bridge + Executor + GitHub Issues + Action Resolution + Governance، وأي اختبارات مباشرة متأثرة.\n\n[النتيجة المطلوبة]\nCommit نظيف فوق أحدث main/PR #122، branch واضح، structured `mythos_report`، قائمة الملفات والاختبارات والـcommit SHA، مع إبقاء PR #122 جاهزًا للمراجعة بعد الإصلاح.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 123,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/123",
+    "issue_id": 5336404843,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPhMTaw",
+    "issue_title": "TASK: إصلاح WhatsApp Bridge — Task ID 64 + delivery idempotency",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T12:09:33Z",
+    "issue_updated_at": "2026-09-03T12:09:33Z",
+    "issue_labels": [
+      "task",
+      "mythos:human-approval"
+    ],
+    "content_sha256": "d24121b54c4fea53bf405af5a96f2ecd9480616d570143ac35262d47bd6286d1",
+    "attempt": 1,
+    "attempt_id": "gh-issue-123#1",
+    "idempotency_key": "9698bf51dd39e8a68af54508b69e13325570df599462dd64ce230fc410c6a949",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "heading_inline",
+          "line": 1
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": "sonnet",
+      "model_id": "claude-sonnet-5",
+      "model_raw": "Sonnet",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:sonnet (requested \"Sonnet\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-03T12:10:39.559Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-03T12:10:39.559Z",
+        "event": "issue_received",
+        "reason": "open Issue #123 with label task",
+        "content_sha256": "d24121b54c4fea53bf405af5a96f2ecd9480616d570143ac35262d47bd6286d1"
+      },
+      {
+        "at": "2026-09-03T12:10:39.559Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-03T12:10:39.559Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-03T12:10:39.559Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → sonnet (available)"
+      },
+      {
+        "at": "2026-09-03T12:10:42.529Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-123.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-03T12:10:39.559Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5525523345,
+        "url": "https://github.com/othoth77/mythos-prod/issues/123#issuecomment-5525523345",
+        "at": "2026-09-03T12:10:40.793Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:human-approval"
+      ]
+    }
+  }
+}
