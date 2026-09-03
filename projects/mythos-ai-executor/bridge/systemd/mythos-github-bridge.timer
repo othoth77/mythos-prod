@@ -1,11 +1,26 @@
+# MYTHOS GitHub control bridge — polling timer for the Type=oneshot service.
+#
+# Schedule design (gh-issue-134, 2026-09-03):
+#   OnBootSec=1min          first tick after boot; also fires immediately on any
+#                           later timer (re)start because the mark is in the past
+#   OnUnitInactiveSec=1min  re-arm 1 min after each oneshot tick FINISHES, so the
+#                           chain never overlaps and never depends on ActiveEnter
+#   AccuracySec=15s         keep the cadence close to 1 minute
+#
+# Persistent= is deliberately NOT set. It only has meaning for OnCalendar=, but it
+# still makes systemd load the last-trigger stamp on start; with the stamp present
+# the already-elapsed OnBootSec mark is disabled as "one-time, fired" and the
+# unit-relative base does not exist yet in a fresh user manager, so the timer sits
+# at SubState=elapsed / NextElapse=infinity and the bridge stops polling. That is
+# exactly what happened after user@1001 restarted on 2026-09-03 16:52:59 UTC.
+# Test: tests/mythos-github-bridge-timer-test.js
 [Unit]
 Description=MYTHOS GitHub control bridge — poll the control branch every 1 minute
 
 [Timer]
 OnBootSec=1min
-OnUnitActiveSec=1min
+OnUnitInactiveSec=1min
 AccuracySec=15s
-Persistent=true
 
 [Install]
 WantedBy=timers.target
