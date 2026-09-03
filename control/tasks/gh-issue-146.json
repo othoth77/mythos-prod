@@ -27,7 +27,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-03T20:57:19.593Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #146 https://github.com/othoth77/mythos-prod/issues/146 — \"إعادة تنفيذ WhatsApp Provider بعد #141\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[المرجع]\n- Issue السابقة: #141\n- Issue الأصلية: #126\n- PR WhatsApp Bridge: #124",
@@ -171,8 +171,8 @@
     "claimed_at": "2026-09-03T20:57:23.555Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "658967a85b8f48c60cb14bef040534594509f9dd94545c43f2653d5bd217c12c",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-03T20:57:23.556Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-03T20:58:40.953Z",
     "snapshot_sha256": "6b7dd74cfb9925c7dc30e00a719c42be2dabb397e29bbf307e09852239201743",
     "fence": 1439,
     "lease": {
@@ -200,7 +200,8 @@
       "measured_at": "2026-09-03T20:57:22.037Z"
     },
     "model": "claude-sonnet-5",
-    "model_selection_mode": "auto"
+    "model_selection_mode": "auto",
+    "claude_session_id": "a33e1fc2-9ac9-4ada-b28f-0a4f307756e9"
   },
   "history": [
     {
@@ -209,6 +210,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260903205723-unj7gu queued; OTHMODE OTH-2026-00070; action implement (explicit_current_issue) → repo-write; model claude-sonnet-5; fence 1439"
+    },
+    {
+      "at": "2026-09-03T20:58:40.953Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }

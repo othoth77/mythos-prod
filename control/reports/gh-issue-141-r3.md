@@ -12,7 +12,7 @@
 | Runtime | `5482db8c2dae` on `main` |
 | Model | `claude-sonnet-5` (auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]) |
 | Branch | `mythos/gh/gh-issue-141-r3` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Verified the remaining #126 deployment work rather than re-implementing it: Dock
 
 ## Commits
 
-- `308d359e384cedd52ae7be4547fd315ee1920901` docs(handover): record gh-issue-141 WhatsApp provider deployment as blocked (awaiting relay)
+- `308d359e384cedd52ae7be4547fd315ee1920901` docs(handover): record gh-issue-141 WhatsApp provider deployment as blocked (on origin)
 
 ## Files changed
 
