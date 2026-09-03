@@ -1,0 +1,137 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-138",
+  "attempt_id": "gh-issue-138#1",
+  "status": "COMPLETED",
+  "summary": "GitHub Issue #138 restated the 4 rerun defects (A-D) from the #103 investigation, but they were already fixed and merged by PR #104 (mythos/gh/gh-issue-103-r2, commit 7bc40ca, merge df8e285), an ancestor of this branch's base ff9f71b. Re-audited bridge/github-issues.js against each of A (label consumed only after commitControl succeeds), B (action inherited from previous attempt, never defaulted), C (scope/constraints/validation_requirements inherited when the new body omits them), and D (staleEditBody/rerunDeferredBody/rejectedBody Issue-side feedback) and confirmed all are implemented. All 10 required regression scenarios already exist in tests/mythos-github-issues-test.js and pass. Recorded the verification in docs/AI_HANDOVER.md and in OTHMODE task OTH-2026-00062 (phase VERIFICATION), and committed the doc-only change. No code or test change was required since the objective was already satisfied on origin/main before this task started.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": "claude-sonnet-5",
+    "model_key": "sonnet",
+    "model": "claude-sonnet-5",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "base_sha": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "branch": "mythos/gh/gh-issue-138",
+    "commit_sha": "163158e107fd7b73995b721beb48b706e6bab19c"
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-03T18:47:41.896Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "GitHub Issue #138 restated the 4 rerun defects (A-D) from the #103 investigation, but they were already fixed and merged by PR #104 (mythos/gh/gh-issue-103-r2, commit 7bc40ca, merge df8e285), an ancestor of this branch's base ff9f71b. Re-audited bridge/github-issues.js against each of A (label consumed only after commitControl succeeds), B (action inherited from previous attempt, never defaulted), C (scope/constraints/validation_requirements inherited when the new body omits them), and D (staleEditBody/rerunDeferredBody/rejectedBody Issue-side feedback) and confirmed all are implemented. All 10 required regression scenarios already exist in tests/mythos-github-issues-test.js and pass. Recorded the verification in docs/AI_HANDOVER.md and in OTHMODE task OTH-2026-00062 (phase VERIFICATION), and committed the doc-only change. No code or test change was required since the objective was already satisfied on origin/main before this task started.",
+    "tests": [
+      "tests/mythos-github-issues-test.js: 193 passed, 0 failed",
+      "tests/mythos-github-bridge-test.js: 150 passed, 0 failed",
+      "tests/bridge-action-resolution-test.js: 88 passed, 0 failed",
+      "tests/mythos-ai-executor-test.js: 390 passed, 0 failed",
+      "node --check bridge/github-issues.js: ok"
+    ],
+    "commit": "163158e107fd7b73995b721beb48b706e6bab19c",
+    "remote_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "files_changed": [
+      "docs/AI_HANDOVER.md"
+    ],
+    "residual_risks": [
+      "None new. Residual risk already documented for the underlying fix (gh-issue-103-r2): failure classification / label removal is best-effort logged, not itself retried, though a surviving label always re-converts on the next tick.",
+      "Delivery (push to origin) is performed by the governance relay (mythos-git-push.timer, fast-forward only), not by this task — remote_head above is the pre-commit origin/main; this commit is local to the branch pending relay pickup."
+    ],
+    "next_stage": "None required for this Issue — await the governance relay to deliver 163158e to origin/mythos/gh/gh-issue-138; no further code work identified against Issue #138's stated objective."
+  },
+  "files_changed": [
+    "docs/AI_HANDOVER.md"
+  ],
+  "commits": [
+    {
+      "sha": "163158e107fd7b73995b721beb48b706e6bab19c",
+      "subject": "docs(github-issues): verify gh-issue-138 rerun fix (A-D) already delivered by gh-issue-103-r2",
+      "branch": "mythos/gh/gh-issue-138",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "tests/mythos-github-issues-test.js: 193 passed, 0 failed",
+    "tests/mythos-github-bridge-test.js: 150 passed, 0 failed",
+    "tests/bridge-action-resolution-test.js: 88 passed, 0 failed",
+    "tests/mythos-ai-executor-test.js: 390 passed, 0 failed",
+    "node --check bridge/github-issues.js: ok"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [],
+  "risks": [
+    "None new. Residual risk already documented for the underlying fix (gh-issue-103-r2): failure classification / label removal is best-effort logged, not itself retried, though a surviving label always re-converts on the next tick.",
+    "Delivery (push to origin) is performed by the governance relay (mythos-git-push.timer, fast-forward only), not by this task — remote_head above is the pre-commit origin/main; this commit is local to the branch pending relay pickup."
+  ],
+  "next_recommended_action": "None required for this Issue — await the governance relay to deliver 163158e to origin/mythos/gh/gh-issue-138; no further code work identified against Issue #138's stated objective.",
+  "completed_at": "2026-09-03T18:51:20.690Z",
+  "execution": {
+    "executor_task_id": "t-20260903184742-ha8ofh",
+    "othmode_task_id": "OTH-2026-00062",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": "claude-sonnet-5",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-138#1",
+    "fence": 1112,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:976156",
+      "fence": 1112,
+      "acquired_at": "2026-09-03T18:47:42.830Z",
+      "expires_at": "2026-09-03T20:17:42.830Z"
+    },
+    "snapshot_sha256": "69e9ad5bbc1cbd3851d5d22bef936cc0aadfb64dae210f81b73257a5ee23edaa",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:sonnet (requested \"sonnet\")",
+    "claude_session_id": "ba91dccb-9287-4f8c-9a3b-b54ab44e34d1",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-03T18:47:50.276Z",
+    "ended_at": "2026-09-03T18:51:17.735Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.9600351999999999,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-138",
+    "branch": "mythos/gh/gh-issue-138",
+    "base_commit": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-138",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}

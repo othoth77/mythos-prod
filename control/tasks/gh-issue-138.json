@@ -10,7 +10,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-03T18:47:39.522Z",
   "created_by": "github-issue:othoth77",
   "model": "sonnet",
@@ -163,8 +163,8 @@
     "claimed_at": "2026-09-03T18:47:42.830Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "c3650df3f7f43fb7fc2d2b04da2304c64247b57d35c8dbbcbfa2904107336a4a",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-03T18:49:00.337Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-03T18:51:20.736Z",
     "snapshot_sha256": "69e9ad5bbc1cbd3851d5d22bef936cc0aadfb64dae210f81b73257a5ee23edaa",
     "fence": 1112,
     "lease": {
@@ -193,7 +193,8 @@
     },
     "model": "claude-sonnet-5",
     "model_selection_mode": "explicit",
-    "claude_session_id": "ba91dccb-9287-4f8c-9a3b-b54ab44e34d1"
+    "claude_session_id": "ba91dccb-9287-4f8c-9a3b-b54ab44e34d1",
+    "report_file": "control/reports/gh-issue-138.json"
   },
   "history": [
     {
@@ -209,6 +210,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-03T18:51:20.143Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-03T18:51:20.736Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (1 commit(s), 5 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
