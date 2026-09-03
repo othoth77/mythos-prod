@@ -14,6 +14,10 @@
 //                                            claimed → provider started/finished → report → GitHub updated
 //   mythos-github-bridge runtime             which checkout/branch/HEAD this bridge binary actually runs from
 //   mythos-github-bridge resolve <issue.json | N | ->   offline: the engine's Action/Model decision for an Issue payload
+//   mythos-github-bridge notify-config       WhatsApp notification configuration + readiness (no secrets)
+//   mythos-github-bridge notify-status       the notification ledger (states, attempts, errors)
+//   mythos-github-bridge notify-flush        deliver due notifications now (retry path, safe to repeat)
+//   mythos-github-bridge notify-test --confirm   send ONE real smoke-test message (human-invoked only)
 //
 // GitHub Issues intake (bridge/github-issues.js; needs a token in the env, see docs/MYTHOS_GITHUB_ISSUES.md):
 //   mythos-github-bridge issues-tick [--dry-run] [--only N[,M]] [--no-bridge]
@@ -60,8 +64,14 @@ switch (cmd) {
       break;
     }
     var r = bridge.tick(executor(), { forceIndex: argv.indexOf('--index') !== -1 });
-    out(r);
-    process.exit(r.ok ? 0 : 2);
+    // Notifications are delivered only after the tick has fully returned,
+    // and their outcome never changes this command's exit code: a WhatsApp
+    // failure is not a bridge failure.
+    bridge.flushNotifications().then(function (n) {
+      r.notifications = n;
+      out(r);
+      process.exit(r.ok ? 0 : 2);
+    });
     break;
   }
   case 'issues-tick': {
@@ -140,6 +150,30 @@ switch (cmd) {
     }) + '\n');
     break;
   }
+  case 'notify-config':
+    out(bridge.whatsapp.describe());
+    break;
+  case 'notify-status':
+    out(bridge.whatsapp.ledgerStatus());
+    break;
+  case 'notify-flush':
+    bridge.flushNotifications().then(function (n) { out(n); process.exit(n && n.ok === false ? 2 : 0); });
+    break;
+  case 'notify-test': {
+    // The single controlled real message of this stage. It is never invoked
+    // by a tick, a timer or a test suite: only by a human, explicitly, and
+    // only after the automated suites are green.
+    if (argv.indexOf('--confirm') === -1) {
+      die('notify-test sends a REAL WhatsApp message to every configured recipient.\n' +
+        'Check `mythos-github-bridge notify-config` first, then re-run with --confirm.');
+    }
+    bridge.whatsapp.smokeTest().then(function (res) {
+      out(res);
+      process.exit(res.ok ? 0 : 2);
+    });
+    break;
+  }
   default:
-    die('usage: mythos-github-bridge <init|tick|daemon|status|validate <file>|instruction <file>|trail <task_id>|runtime|resolve <file|N|->|issues-tick|issues-status|issues-parse <file|N>>');
+    die('usage: mythos-github-bridge <init|tick|daemon|status|validate <file>|instruction <file>|trail <task_id>|runtime|resolve <file|N|->|issues-tick|issues-status|issues-parse <file|N>|' +
+      'notify-config|notify-status|notify-flush|notify-test --confirm>');
 }
