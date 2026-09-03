@@ -1,5 +1,87 @@
 # AI Handover
 
+## gh-issue-141-r2 — WhatsApp provider deployment re-verification, still BLOCKED on Level 3 (2026-09-03 19:49–19:57 UTC)
+
+**Objective.** Rerun of GitHub Issue #141 (`gh-issue-141`, attempt r1, `422f4a3`, OTH-2026-00065,
+BLOCKED) — finish the deliberately-deferred part of #126
+(`docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md` §7.1/§10): verified provider choice, deployed on a
+private network, credentials outside Git, `notify-status`, one real `notify-test --confirm`,
+idempotency/restart-isolation check. The task's own constraints again required **not**
+re-implementing #126's code, and a BLOCKED status (no bypass) if VPS permissions remained
+unavailable. OTHMODE task `OTH-2026-00067` (phase `VALIDATION`, `problems`/`outcome`/`evidence`
+recorded there — this session does not close the task record).
+
+**What is unchanged from r1.** `id`: `deploy` is still in the `docker` group (container access
+confirmed again: `docker ps`/`docker images` both work). `free -m`: swap `4095/4095` MiB used
+(100%) — the same fully-consumed state #126 and r1 both recorded. This remains a shared
+production VPS running ~19 real containers (Coolify, n8n, Jellyfin, `dar-hijama` production app,
+`idauto-postgres`, the MCP/dex auth stack). `node bin/mythos-resource-guard status` reports
+`level: NORMAL`, `admit: true` (`mem_available_mib: 1936`, `psi_some_avg60: 0`,
+`oom_kill_delta: 0`) — the Resource Guard signal that gates *admitting new AI tasks* is healthy,
+but that signal answers a different question than the one this stage needs: whether it is safe to
+**stand up a new, unreviewed production service** on a host already carrying other tenants'
+workloads. `sudo -n -l` was not merely refused by a downstream command — this session's tool
+layer **denied the Bash call outright** (`Permission to use Bash with command "sudo -n -l" has
+been denied`), a stronger and more explicit signal than r1's "refused before any command could
+run": root/privileged remediation is categorically unavailable to this session, not just unlucky.
+
+**New observation this run.** A container named `evolution-inspect`
+(`evoapicloud/evolution-api:latest`, image `966625532...`) exists on the host in `Created` state
+(never started, no logs, no env configured), timestamped ~7 hours before this run — evidence of
+prior manual/owner investigation of the same candidate #126 already selected provisionally. It
+was **left untouched**: starting it would itself be the Level 3 deployment action this run
+cannot self-authorize, and removing another session's artifact without knowing its purpose is not
+this task's call either.
+
+**Why this is still BLOCKED, restated precisely.** The blocker is not primarily the swap number —
+it is `AGENTS.md` §25.3: "Level 3 — production deployment, ... never executes automatically under
+any routing decision or override." Standing up a new Docker service (Evolution API's documented
+footprint includes Postgres+Redis in a full deployment; even a minimal single-container profile
+adds real memory to a host already at 100% swap) reachable from the bridge is production
+deployment by definition, regardless of the Resource Guard's admission verdict for unrelated AI
+tasks. No permission this session holds — and none it was granted for this run — authorizes that
+action; `sudo` is explicitly refused at the tool layer, confirming there is no path to escalate
+even if the swap state were resolved first. Separately and independently: both realistic providers
+require a **human-performed pairing step** that cannot be executed by any agent regardless of
+host permissions — Evolution API/WAHA require scanning a WhatsApp QR code with a physical phone
+tied to a real WhatsApp account, and the official WhatsApp Business Cloud API requires a human to
+complete Meta Business/App verification and issue an access token via the Meta dashboard. Even a
+fully-authorized, resource-healthy deployment would still stop at that step for a human.
+
+**Read-only verification performed (no deployment attempted, no notification code touched, no
+existing container started/stopped/removed):**
+
+- `docker ps` / `docker images` — confirms Docker access, confirms `evolution-inspect`
+  (created, not running) is the only WhatsApp-related artifact on the host; no `waha` container.
+- `node bin/mythos-github-bridge notify-config` — `enabled: false`, same 4 problems (`BASE_URL`,
+  `INSTANCE`, `TO`, credential all unset). Matches the documented disabled-by-default state.
+- `node bin/mythos-github-bridge notify-status` — ledger empty, all counts `0`. Idempotency has
+  nothing to prove yet because nothing has ever been sent; the ledger's idempotency/crash-recovery
+  guarantees remain proven only at the code level (below).
+- `node tests/mythos-bridge-whatsapp-notify-test.js` — **131 passed, 0 failed** (offline, no real
+  message; grew from the 116 recorded in #126, unrelated to this run). No regression, no code
+  changed.
+- `notify-test --confirm` was **not** run — it is documented (§7.1) as the step that follows a
+  deployed, configured, human-paired provider; running it now would prove nothing and there is no
+  base URL/instance/credential configured to target.
+- No bug or defect found in the notify layer; per the task's own constraint, it was not modified.
+
+**Status: BLOCKED** (recorded on OTHMODE task `OTH-2026-00067`, phase `VALIDATION`). Required to
+unblock, still one of the same three paths r1 recorded, now with the pairing step made explicit:
+
+1. Root/privileged VPS access to remediate swap pressure **and** explicit owner authorization to
+   deploy a new production service on this shared host (Level 3 cannot be self-granted even with
+   root); or
+2. Explicit owner authorization to deploy despite the current memory state, performed by (or with)
+   the owner directly, including the human WhatsApp pairing step (QR scan or Meta Business API
+   credential issuance) neither this nor any future agent session can perform; or
+3. A separate, isolated host for the WhatsApp provider, decoupling it from this shared VPS — still
+   requiring the same human pairing step once provisioned.
+
+No files were changed other than this documentation entry, no commit touches code, no provider
+was deployed or started, and the notification layer's code and documented DISABLED default are
+unchanged from #126/r1.
+
 ## HOSTOPS-2R — Executor → HostOps fixed to a Unix socket boundary (GitHub issue #130, 2026-09-03)
 
 **Objective.** HOSTOPS-1's `sudo -n mythos-hostops` boundary call, made from inside
