@@ -1,15 +1,15 @@
 # MYTHOS control — current state
 
-Generated 2026-09-02T23:56:35.719Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-03T00:03:02.338Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
 | PENDING | 0 |
 | CLAIMED | 0 |
-| IN_PROGRESS | 1 |
+| IN_PROGRESS | 0 |
 | VALIDATING | 0 |
 | COMPLETED | 7 |
-| BLOCKED | 2 |
+| BLOCKED | 3 |
 | FAILED | 0 |
 | CANCELLED | 0 |
 
@@ -18,7 +18,7 @@ Generated 2026-09-02T23:56:35.719Z by the bridge on branch `mythos/control` (pro
 | `gh-issue-99` | **COMPLETED** | investigate | normal | 2026-09-02T22:42:59.761Z | 2026-09-02T22:49:32.431Z | `t-20260902224306-vaqeia` | `control/reports/gh-issue-99.json` |
 | `gh-issue-97` | **BLOCKED** | investigate | normal | 2026-09-02T22:34:21.352Z | 2026-09-02T22:43:04.917Z | `t-20260902223428-31m0o4` | `control/reports/gh-issue-97.json` |
 | `gh-issue-95` | **COMPLETED** | investigate | normal | 2026-09-02T22:34:19.628Z | 2026-09-02T22:40:52.170Z | `t-20260902223426-ipld9w` | `control/reports/gh-issue-95.json` |
-| `gh-issue-103` | **IN_PROGRESS** | investigate | normal | 2026-09-02T23:41:29.433Z | 2026-09-02T23:56:32.159Z | `t-20260902234133-hwh6xe` | — |
+| `gh-issue-103` | **BLOCKED** | investigate | normal | 2026-09-02T23:41:29.433Z | 2026-09-03T00:03:02.331Z | `t-20260902234133-hwh6xe` | `control/reports/gh-issue-103.json` |
 | `gh-issue-101-r2` | **COMPLETED** | implement | normal | 2026-09-02T23:34:59.451Z | 2026-09-02T23:56:32.155Z | `t-20260902233505-abdgit` | `control/reports/gh-issue-101-r2.json` |
 | `gh-issue-101` | **BLOCKED** | investigate | normal | 2026-09-02T23:02:29.465Z | 2026-09-02T23:26:22.603Z | `t-20260902230234-ab117r` | `control/reports/gh-issue-101.json` |
 | `gh-issue-100` | **COMPLETED** | implement | normal | 2026-09-02T22:53:49.569Z | 2026-09-02T23:19:52.166Z | `t-20260902225354-12dm0a` | `control/reports/gh-issue-100.json` |

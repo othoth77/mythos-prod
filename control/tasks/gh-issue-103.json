@@ -20,7 +20,7 @@
   "priority": "normal",
   "requested_action": "investigate",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "BLOCKED",
   "created_at": "2026-09-02T23:41:29.433Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #103 https://github.com/othoth77/mythos-prod/issues/103 — \"إصلاح Rerun في GitHub Issues → Bridge → Claude\"\n\nrequested_action defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).\n\n[المشكلة الحالية]\nIssue #101 تم تعديلها وإضافة `rerun`، لكن الـBridge لم ينشئ TASK جديدة. بقي التنفيذ القديم فقط، وبالتالي لم يبدأ Claude من جديد.\n\n[بعد الإصلاح]\nلا تنفذ rerun لـ#101 داخل هذه المهمة. المطلوب أولاً إصلاح الآلية واختبارها بشكل آمن، ثم نستخدم #101 كتجربة حقيقية منفصلة.\n\n[التسليم]\nأعد تقريراً يوضح ما تم إصلاحه، الاختبارات، commit/branch، وكيف سنجري تجربة #101 بعد ذلك.",
@@ -76,9 +76,10 @@
     "claimed_at": "2026-09-02T23:41:33.955Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "4500e6c3f94a7cab608ab04040253061356efd73edbba4a772abcd87eaf91463",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-02T23:56:32.159Z",
-    "claude_session_id": "74c5e84f-fce3-48cf-9f52-beeca3950f40"
+    "executor_status": "BLOCKED",
+    "updated_at": "2026-09-03T00:03:02.331Z",
+    "claude_session_id": "74c5e84f-fce3-48cf-9f52-beeca3950f40",
+    "report_file": "control/reports/gh-issue-103.json"
   },
   "history": [
     {
@@ -94,6 +95,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-03T00:03:00.925Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended BLOCKED; building report"
+    },
+    {
+      "at": "2026-09-03T00:03:02.331Z",
+      "from": "VALIDATING",
+      "to": "BLOCKED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 1 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
