@@ -68,13 +68,17 @@ Rules the adapter applies (they are the bridge's rules, reused):
 | label `task` **and** state open | anything else is never converted (PRs are ignored even with the label) |
 | headings | English or Arabic: Objective/الهدف, Scope/المطلوب/النطاق, Constraints/القيود, Validation/التحقق/التحقق النهائي, Notes/ملاحظات. `## Heading`, `**Heading**` or `Heading:` all work; unknown headings go to `notes` |
 | no Objective section | the text before the first heading is the objective; failing that, the title (min 10 chars) |
-| `Action` missing | **`investigate` (read-only)** — the created comment says so. Add `Action: implement` (or label `action:implement`) for write tasks |
+| `Action` missing, first attempt | **`investigate` (read-only)** — the created comment says so. Add `Action: implement` (or label `action:implement`) for write tasks |
+| `Action` missing, **rerun** (attempt > 1) | **inherited from the previous attempt**, never re-defaulted: an Issue that ran `implement` does not silently become read-only because the edited body no longer repeats the heading. The created comment and `notes` say what was inherited and from which attempt |
+| `Scope` / `Constraints` / `Validation` empty on a **rerun** | inherited from the previous attempt (including when the new body heads them with wordings the aliases do not know, so they parsed as prose). The objective is never inherited — it is what a rerun edits |
 | `Action: deploy` or any other value | rejected with a comment; nothing runs (the action set is closed, see bridge §4) |
 | `Model:` present (`Model: Opus`, `النموذج: Sonnet`, or label `model:opus`) | that model runs, never a substitute. Unknown or unavailable (today: `Fable 5.1`) → rejected with the accepted list |
 | `Model:` missing | the executor scores the task and picks Haiku, Sonnet or Opus; Fable is never chosen automatically. The created comment says so, and the report names the model and the reason |
 | secret-shaped string anywhere (token, key, password=…, DB URL…) | rejected with a comment that names the kind, never the value; no task file; label `mythos:invalid` |
 | `Depends on: #N` | maps to `gh-issue-N`; the bridge does not claim the task until that task is COMPLETED |
-| one Issue → one task | `gh-issue-<n>`. To run again after a fix, add the label `rerun` → `gh-issue-<n>-r2` (label is consumed) |
+| one Issue → one task | `gh-issue-<n>`. To run again after a fix, add the label `rerun` → `gh-issue-<n>-r2`, a NEW independent task; the previous attempt and its report are never touched |
+| `rerun` while the previous attempt is still ACTIVE | deferred, **label kept**: two attempts of one Issue never run at once. One `rerun_deferred` comment says so, and the request converts on the first tick after that attempt reaches a terminal status |
+| the `rerun` label itself | it IS the request, so it is consumed **only after** the control commit carrying the new attempt succeeds. A tick that dies before that commit leaves the label in place and the rerun survives |
 | closing the Issue / removing `task` while active | the task is set CANCELLED (executor task cancelled by the bridge); a CANCELLED comment follows |
 | an edited *rejected* Issue | re-evaluated (rejections are keyed by the content hash) |
 
@@ -90,6 +94,8 @@ the server-side catalog (`config/model-policy.json`) and grants nothing.
 | claimed | first tick after the bridge claimed | executor_task_id, OTHMODE id, profile, branch, base commit | `mythos:in-progress` |
 | report | report file exists | status, summary, files changed, tests, commits (SHA, on origin?), problems, risks, next action, report link | `mythos:completed` / `failed` / `blocked` / `human-approval` / `cancelled` |
 | delivered | bridge confirmed every commit on origin | commit list | — |
+| rerun_deferred | `rerun` asked for while the previous attempt is still ACTIVE | which attempt is running, that the label was kept, and the task id the rerun will become. One per running attempt | — |
+| stale_edit | the Issue was edited after conversion and no `rerun` was asked for | that the edit started nothing, that a task is a snapshot, and the label that would run the new text. Keyed by the sha256 of the new content: one per distinct edit, none for an unchanged Issue | — |
 
 Every comment starts with a hidden marker `<!-- mythos-control task_id=… event=… -->`; the adapter reads the
 Issue's comments before posting and adopts an existing marker instead of posting again.
@@ -112,13 +118,16 @@ human did. Merging a task branch to `main` is never automatic (bridge §5).
 | died after posting the comment, before the commit | next tick finds the marker on the Issue → adopts the comment id, writes the file once |
 | control worktree destroyed | `mythos-github-bridge init` rebuilds it from origin; all relations come back from the files |
 | bridge cache (`claims.json`) lost | nothing changes (GitHub is the record) |
-| Issue edited after conversion | ignored (the task carries the snapshot); use `rerun` for a new attempt |
+| Issue edited after conversion | no new attempt (the task carries the snapshot), but the edit is **answered once** with a `stale_edit` comment naming the `rerun` label; use `rerun` for a new attempt |
+| died between consuming a `rerun` label and the commit | cannot happen: the label is removed only after `commitControl` reports `committed`. A tick that dies earlier leaves the label, and the next tick re-creates the same attempt, adopting the `created` comment it had already posted |
 | GitHub API down / 5xx | the phase returns `ok:false`, nothing is written; retried next tick |
 
-Tested: `tests/mythos-github-issues-test.js` — 102 checks incl. the real #95 payload, concurrent intakes,
+Tested: `tests/mythos-github-issues-test.js` — 139 checks incl. the real #95 payload, concurrent intakes,
 restart from origin, crash between comment and commit, FAILED/BLOCKED/HUMAN_APPROVAL/CANCELLED, dependency wait,
-rerun, close policy, secret rejection (no secret in any request, comment, tree, history or log), dry-run,
-`--only`, wrong user, missing token, shared lock, main byte-for-byte untouched.
+rerun of a COMPLETED and of a BLOCKED attempt, independent rerun task ids, a tick killed before the control
+commit (the request survives), Action inheritance, section inheritance, rerun deferred while the previous
+attempt is active, stale-edit feedback, close policy, secret rejection (no secret in any request, comment, tree,
+history or log), dry-run, `--only`, wrong user, missing token, shared lock, main byte-for-byte untouched.
 
 ## 4. Security
 

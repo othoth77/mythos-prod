@@ -38,7 +38,12 @@
 //      instead of posting again (covers a crash between "posted" and
 //      "recorded on the control branch");
 //   4. rejections (invalid / secret-bearing Issues) are keyed by the sha256
-//      of title+body, so an unchanged invalid Issue is answered once.
+//      of title+body, so an unchanged invalid Issue is answered once;
+//   5. the `rerun` label IS the rerun request, so it is consumed only after the
+//      control commit that carries the new attempt succeeds. A tick that dies
+//      before that commit leaves the label in place and the request survives.
+//      A rerun asked for while the previous attempt is still ACTIVE keeps the
+//      label too and is honoured on the first tick after that attempt ends.
 //
 // What this file deliberately does NOT do: run anything, push, merge, touch
 // main, honour provider/path/tool/credential selection from an Issue
@@ -377,11 +382,22 @@ function labelNames(issue) {
   return (issue.labels || []).map(function (l) { return typeof l === 'string' ? l : l.name; }).filter(Boolean);
 }
 
-function pickAction(cfg, issue, sections) {
+// An explicit `Action:` (body) or `action:<x>` (label) always wins. On a rerun
+// (attempt > 1) with no explicit action the PREVIOUS attempt's requested_action
+// is inherited rather than the safe default: an Issue that was executive on
+// attempt 1 must not silently become read-only on attempt 2 because the edited
+// body no longer repeats the heading. Only a first attempt falls back to
+// cfg.defaultAction. Inheritance never RAISES privilege beyond what the Issue
+// already ran at — it reproduces the previous attempt's own action.
+function pickAction(cfg, issue, sections, previous) {
   var fromLabel = labelNames(issue).map(function (l) { var m = /^action:(.+)$/i.exec(l); return m ? m[1].toLowerCase() : null; }).filter(Boolean)[0];
   var fromBody = sections.action && sections.action.length ? normKey(sections.action[0]) : null;
-  var raw = fromLabel || fromBody || cfg.defaultAction;
-  return { action: ACTION_SYNONYMS[raw] || raw, explicit: !!(fromLabel || fromBody) };
+  var raw = fromLabel || fromBody;
+  if (raw) return { action: ACTION_SYNONYMS[raw] || raw, explicit: true, inherited: false };
+  if (previous && previous.requested_action && bridge.PROFILE_BY_ACTION[previous.requested_action]) {
+    return { action: previous.requested_action, explicit: false, inherited: true };
+  }
+  return { action: ACTION_SYNONYMS[cfg.defaultAction] || cfg.defaultAction, explicit: false, inherited: false };
 }
 
 function pickPriority(issue, sections) {
@@ -431,8 +447,11 @@ function pickInt(sections, key, min, max) {
 }
 
 // Pure: Issue payload → { task, errors }. Never throws on user content.
-function issueToTask(cfg, issue, attempt) {
+// `previous` is the preceding attempt's task object on a rerun (attempt > 1);
+// it is the ONLY source of inheritance and is ignored on a first attempt.
+function issueToTask(cfg, issue, attempt, previous) {
   attempt = attempt || 1;
+  previous = (attempt > 1 && previous && typeof previous === 'object') ? previous : null;
   var n = issue.number;
   var title = String(issue.title || '').replace(/^\s*TASK\s*[:：-]\s*/i, '').trim();
   var body = String(issue.body || '');
@@ -444,11 +463,36 @@ function issueToTask(cfg, issue, attempt) {
   var sections = splitSections(body);
   var objective = textOf(sections.objective, 8000) || textOf(sections._preamble, 8000) || title;
   if (objective.length < 10) errors.push('objective is too short (add an "Objective" section or a descriptive title)');
-  var act = pickAction(cfg, issue, sections);
+  var act = pickAction(cfg, issue, sections, previous);
   if (!bridge.PROFILE_BY_ACTION[act.action]) errors.push('Action "' + short(act.action, 30) + '" is not one of ' + Object.keys(bridge.PROFILE_BY_ACTION).join(', '));
   var taskId = issueTaskId(n, attempt);
+
+  // A rerun re-parses the CURRENT body. When an edited body drops a structured
+  // section — or heads it with a wording the aliases do not know, so it lands in
+  // `_other:` and becomes prose — the section would come back empty and the
+  // attempt would run with less definition than the one it repeats. Any section
+  // the new body leaves empty is therefore inherited from the previous attempt.
+  // The objective is deliberately NOT inherited: it is what a rerun edits.
+  var inherited = { requested_action: !!act.inherited, scope: false, constraints: false, validation_requirements: false };
+  var scope = listItems(sections.scope);
+  var constraints = listItems(sections.constraints);
+  var validation = listItems(sections.validation);
+  if (previous) {
+    if (!scope.length && Array.isArray(previous.scope) && previous.scope.length) { scope = previous.scope.slice(); inherited.scope = true; }
+    if (!constraints.length && Array.isArray(previous.constraints) && previous.constraints.length) { constraints = previous.constraints.slice(); inherited.constraints = true; }
+    if (!validation.length && Array.isArray(previous.validation_requirements) && previous.validation_requirements.length) { validation = previous.validation_requirements.slice(); inherited.validation_requirements = true; }
+  }
+
   var notesParts = ['Source: GitHub Issue #' + n + ' ' + issue.html_url + (title ? ' — "' + short(title, 200) + '"' : '')];
-  if (!act.explicit) notesParts.push('requested_action defaulted to "' + cfg.defaultAction + '" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).');
+  if (act.inherited) {
+    notesParts.push('requested_action inherited from ' + previous.task_id + ' ("' + act.action + '") because this rerun body states no Action. State `Action: <x>` (or a label `action:<x>`) to change it.');
+  } else if (!act.explicit) {
+    notesParts.push('requested_action defaulted to "' + cfg.defaultAction + '" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`).');
+  }
+  var inheritedSections = Object.keys(inherited).filter(function (k) { return k !== 'requested_action' && inherited[k]; });
+  if (inheritedSections.length) {
+    notesParts.push('Inherited from ' + previous.task_id + ' because this body left them empty: ' + inheritedSections.join(', ') + '. Restate a section under a recognised heading to replace it.');
+  }
   var notes = textOf(sections.notes, 2000);
   if (notes) notesParts.push(notes);
   Object.keys(sections).filter(function (k) { return k.indexOf('_other:') === 0; }).forEach(function (k) {
@@ -460,11 +504,11 @@ function issueToTask(cfg, issue, attempt) {
     task_id: taskId,
     project: cfg.bridge.project,
     objective: objective,
-    scope: listItems(sections.scope),
-    constraints: listItems(sections.constraints),
+    scope: scope,
+    constraints: constraints,
     priority: pickPriority(issue, sections),
     requested_action: act.action,
-    validation_requirements: listItems(sections.validation),
+    validation_requirements: validation,
     status: 'PENDING',
     created_at: nowIso(),
     created_by: short('github-issue:' + ((issue.user && issue.user.login) || 'unknown'), 64)
@@ -492,7 +536,9 @@ function issueToTask(cfg, issue, attempt) {
     issue_labels: labelNames(issue).slice(0, 20),
     content_sha256: sha256(String(issue.title || '') + '\n' + body),
     attempt: attempt,
-    rerun_of: attempt > 1 ? issueTaskId(n, attempt - 1) : null,
+    rerun_of: previous ? previous.task_id : (attempt > 1 ? issueTaskId(n, attempt - 1) : null),
+    inherited_from: previous ? previous.task_id : null,
+    inherited: inherited,
     converted_at: nowIso(),
     converted_by: BY,
     notifications: {}
@@ -552,28 +598,39 @@ function safeBody(text) {
 
 function createdBody(cfg, task) {
   var rel = cfg.bridge.prefix + '/tasks/' + task.task_id + '.json';
-  return [
-    marker({ task_id: task.task_id, event: 'created' }),
-    '### MYTHOS TASK created — `' + task.task_id + '`',
-    '',
-    table([
+  var src = task.source || {};
+  var inh = src.inherited || {};
+  var inheritedFields = Object.keys(inh).filter(function (k) { return inh[k]; });
+  var rows = [
       ['Task file', '[' + rel + '](' + controlFileUrl(cfg, rel) + ') on branch `' + cfg.bridge.branch + '`'],
       ['Status', '**PENDING** — scheduled; the bridge claims it on its next tick and execution starts in the executor'],
-      ['Action', '`' + task.requested_action + '` → execution profile `' + bridge.PROFILE_BY_ACTION[task.requested_action] + '`' + (task.requested_action === 'investigate' || task.requested_action === 'review' || task.requested_action === 'test' ? ' (read-only: findings only, no commits)' : ' (may commit on `mythos/gh/' + task.task_id + '`; never merged to main automatically)')],
+      ['Action', '`' + task.requested_action + '` → execution profile `' + bridge.PROFILE_BY_ACTION[task.requested_action] + '`' + (task.requested_action === 'investigate' || task.requested_action === 'review' || task.requested_action === 'test' ? ' (read-only: findings only, no commits)' : ' (may commit on `mythos/gh/' + task.task_id + '`; never merged to main automatically)') + (inh.requested_action ? ' — **inherited** from `' + src.inherited_from + '` (this body states no Action)' : '')],
       ['Priority', task.priority],
       ['Model', task.model
         ? '`' + task.model + '` (requested in the Issue — honoured as written)'
         : 'automatic — the executor scores this task and picks Haiku, Sonnet or Opus; the report names the model and the reason. Add `Model: ' +
           modelPolicy.allowedLabels().join(' | ') + '` to pin one'],
       ['Depends on', task.depends_on && task.depends_on.length ? task.depends_on.map(function (d) { return '`' + d + '`'; }).join(', ') : '—'],
-      ['Scope items', String(task.scope.length)],
-      ['Validation items', String(task.validation_requirements.length)]
-    ]),
+      ['Scope items', String(task.scope.length) + (inh.scope ? ' (inherited)' : '')],
+      ['Constraints', String(task.constraints.length) + (inh.constraints ? ' (inherited)' : '')],
+      ['Validation items', String(task.validation_requirements.length) + (inh.validation_requirements ? ' (inherited)' : '')]
+  ];
+  if (src.rerun_of) rows.splice(1, 0, ['Attempt', String(src.attempt) + ' — rerun of `' + src.rerun_of + '` (that task is untouched)']);
+  var lines = [
+    marker({ task_id: task.task_id, event: 'created' }),
+    '### MYTHOS TASK created — `' + task.task_id + '`',
     '',
-    'The task and report files on `' + cfg.bridge.branch + '` are the source of truth; this Issue is the interface. ' +
-      'Closing the Issue (or removing the `' + cfg.label + '` label) while the task is active cancels it. ' +
-      'This Issue was converted once; to run it again after a change, add the label `' + cfg.rerunLabel + '`.'
-  ].join('\n');
+    table(rows),
+    ''
+  ];
+  if (inheritedFields.length) {
+    lines.push('This rerun body left ' + inheritedFields.join(', ') + ' unstated, so ' + (inheritedFields.length === 1 ? 'it was' : 'they were') +
+      ' **inherited from `' + src.inherited_from + '`** rather than dropped or defaulted. Restate a section under a recognised heading (`Objective`, `Scope`, `Constraints`, `Validation`, `Action`) to replace it.', '');
+  }
+  lines.push('The task and report files on `' + cfg.bridge.branch + '` are the source of truth; this Issue is the interface. ' +
+    'Closing the Issue (or removing the `' + cfg.label + '` label) while the task is active cancels it. ' +
+    'Editing this Issue does NOT re-run it; to run it again after a change, add the label `' + cfg.rerunLabel + '`.');
+  return lines.join('\n');
 }
 
 function claimedBody(cfg, task) {
@@ -657,6 +714,49 @@ function deliveredBody(cfg, task, report) {
   ].join('\n');
 }
 
+// A rerun was asked for while the previous attempt is still running. The label
+// is NOT consumed — the request stays pending and converts as soon as that
+// attempt reaches a terminal status. Keyed by the running task_id, so a rerun
+// deferred across twenty ticks produces exactly one comment.
+function rerunDeferredBody(cfg, latest) {
+  var src = latest.source || {};
+  return [
+    marker({ task_id: latest.task_id, event: 'rerun_deferred' }),
+    '### Rerun deferred — attempt ' + (src.attempt || 1) + ' (`' + latest.task_id + '`) is still running',
+    '',
+    table([
+      ['Running task', '`' + latest.task_id + '`'],
+      ['Control status', '**' + latest.status + '**'],
+      ['executor_task_id', '`' + ((latest.execution && latest.execution.executor_task_id) || '—') + '`']
+    ]),
+    '',
+    'The `' + cfg.rerunLabel + '` label has been **kept**: nothing was lost. The rerun is created automatically as a new task ' +
+      '(`' + issueTaskId(src.issue_number || 0, (src.attempt || 1) + 1) + '`) on the first tick after `' + latest.task_id + '` reaches ' +
+      'COMPLETED, FAILED, BLOCKED or CANCELLED. Two attempts of the same Issue never run at once. ' +
+      'To abandon the running attempt instead, close the Issue or remove the `' + cfg.label + '` label.'
+  ].join('\n');
+}
+
+// An Issue was edited after it had already been converted, and no rerun was
+// asked for. Editing is not a re-run trigger — saying nothing here is what
+// makes a working adapter look broken. Keyed by the sha256 of the NEW content,
+// so one comment per distinct edit and none for an unchanged Issue.
+function staleEditBody(cfg, latest, hash) {
+  var src = latest.source || {};
+  return [
+    marker({ issue: src.issue_number, event: 'stale_edit', hash: hash.slice(0, 16) }),
+    '### This edit did not start anything',
+    '',
+    'This Issue was already converted to `' + latest.task_id + '` (attempt ' + (src.attempt || 1) + ', control status **' + latest.status + '**), ' +
+      'and its text has changed since. A task is a **snapshot**: the running or finished attempt keeps the text it was created from, ' +
+      'and an edit alone never creates a new one.',
+    '',
+    'To run the current text, add the label `' + cfg.rerunLabel + '`. That creates a NEW independent task ' +
+      '(`' + issueTaskId(src.issue_number || 0, (src.attempt || 1) + 1) + '`) and leaves `' + latest.task_id + '` and its report untouched. ' +
+      'A rerun body that omits `Action`, `Scope`, `Constraints` or `Validation` inherits them from this attempt rather than losing them.'
+  ].join('\n');
+}
+
 function rejectedBody(cfg, issue, errors, hash, secret) {
   return [
     marker({ issue: issue.number, event: 'rejected', hash: hash.slice(0, 16) }),
@@ -718,6 +818,7 @@ async function intake(cfg, client, opts) {
   if (cfg.only.length) issues = issues.filter(function (i) { return cfg.only.indexOf(i.number) !== -1; });
   var idx = loadIssueTasks(cfg);
   var newTasks = [];
+  var pendingRerunLabel = [];
   var converted = 0;
   for (var k = 0; k < issues.length; k++) {
     var issue = issues[k];
@@ -726,14 +827,40 @@ async function intake(cfg, client, opts) {
     var existing = idx.byIssue[n] || [];
     var latest = existing.length ? existing[existing.length - 1] : null;
     var attempt = 1;
+    var previous = null;
     if (latest) {
       var wantsRerun = labelNames(issue).indexOf(cfg.rerunLabel) !== -1;
-      if (ACTIVE.indexOf(latest.status) !== -1 || !wantsRerun) { actions.push({ action: 'already_converted', issue: n, task_id: latest.task_id, status: latest.status }); continue; }
+      var stillActive = ACTIVE.indexOf(latest.status) !== -1;
+      var contentHash = sha256(String(issue.title || '') + '\n' + String(issue.body || ''));
+      if (wantsRerun && stillActive) {
+        // Two attempts of one Issue never run at once. The label is the request
+        // and stays on the Issue until it is honoured; say so once, or a working
+        // deferral is indistinguishable from a lost one.
+        if (opts.dryRun) { actions.push({ action: 'would_defer_rerun', issue: n, task_id: latest.task_id, status: latest.status }); continue; }
+        var dc = await postOnce(client, n, { task_id: latest.task_id, event: 'rerun_deferred' }, rerunDeferredBody(cfg, latest));
+        actions.push({ action: 'rerun_deferred', issue: n, task_id: latest.task_id, status: latest.status, comment: dc });
+        log('rerun_deferred', { issue: n, task_id: latest.task_id, status: latest.status, existed: dc.existed });
+        continue;
+      }
+      if (!wantsRerun) {
+        // Steady state: nothing to do and nothing to say. The exception is an
+        // Issue edited since its attempt was created — that is a user who
+        // expects something to happen, so answer that edit exactly once.
+        var edited = !!(latest.source && latest.source.content_sha256 && latest.source.content_sha256 !== contentHash);
+        var se = null;
+        if (edited && !opts.dryRun) {
+          se = await postOnce(client, n, { issue: n, event: 'stale_edit', hash: contentHash.slice(0, 16) }, staleEditBody(cfg, latest, contentHash));
+        }
+        actions.push({ action: 'already_converted', issue: n, task_id: latest.task_id, status: latest.status, edited: edited, comment: se });
+        log('already_converted', { issue: n, task_id: latest.task_id, status: latest.status, edited: edited, notified: !!(se && !se.existed) });
+        continue;
+      }
+      previous = latest;
       var p = parseIssueTaskId(latest.task_id);
       attempt = ((p && p.attempt) || existing.length) + 1;
     }
     if (converted >= cfg.maxIssuesPerTick) { actions.push({ action: 'defer', issue: n, reason: 'per-tick limit' }); continue; }
-    var conv = issueToTask(cfg, issue, attempt);
+    var conv = issueToTask(cfg, issue, attempt, previous);
     if (!conv.task) {
       var hash = sha256(String(issue.title || '') + '\n' + String(issue.body || ''));
       var rej = await postOnce(client, n, { issue: n, event: 'rejected', hash: hash.slice(0, 16) }, rejectedBody(cfg, issue, conv.errors, hash, conv.secret));
@@ -749,7 +876,12 @@ async function intake(cfg, client, opts) {
     var cm = await postOnce(client, n, { task_id: task.task_id, event: 'created' }, createdBody(cfg, task));
     task.source.notifications.created = { comment_id: cm.comment_id, url: cm.url, at: nowIso(), existed: cm.existed };
     task.source.labels = await setStatusLabel(cfg, client, issue, 'PENDING');
-    if (attempt > 1) { try { await client.removeLabel(n, cfg.rerunLabel); } catch (e) { log('rerun_label_not_removed', { issue: n, error: short(e.message, 200) }); } }
+    // The rerun label is the REQUEST, not a bookkeeping flag: it is consumed
+    // only after the control commit below reports committed=true. A tick that
+    // dies here (timeout, OOM, an exception raised by a later Issue) leaves the
+    // label in place, so the next tick sees the request again and re-creates the
+    // same attempt — adopting the "created" comment it already posted.
+    if (attempt > 1) pendingRerunLabel.push(n);
     newTasks.push(task);
     converted++;
     actions.push({ action: 'create', issue: n, task_id: task.task_id, attempt: attempt, comment: cm });
@@ -757,7 +889,28 @@ async function intake(cfg, client, opts) {
   }
   if (newTasks.length) {
     var msg = 'control: issues → ' + newTasks.map(function (t) { return t.task_id + ' (#' + t.source.issue_number + ')'; }).join(', ').slice(0, 180);
-    actions.push({ action: 'commit', result: saveAndCommit(cfg, newTasks, [], msg + '\n\nWritten by the MYTHOS GitHub Issues adapter (' + cfg.bridge.claimedBy + '). Delivery: governance relay.', opts) });
+    var committed = saveAndCommit(cfg, newTasks, [], msg + '\n\nWritten by the MYTHOS GitHub Issues adapter (' + cfg.bridge.claimedBy + '). Delivery: governance relay.', opts);
+    actions.push({ action: 'commit', result: committed });
+    if (pendingRerunLabel.length) {
+      if (committed && committed.committed) {
+        for (var c = 0; c < pendingRerunLabel.length; c++) {
+          var rn = pendingRerunLabel[c];
+          try {
+            await client.removeLabel(rn, cfg.rerunLabel);
+            actions.push({ action: 'rerun_label_consumed', issue: rn, commit: committed.commit });
+          } catch (e) {
+            // Worst case the label survives a committed rerun: the next tick
+            // sees the request, finds the attempt already on disk and defers or
+            // creates the next one. Never the other way round.
+            log('rerun_label_not_removed', { issue: rn, error: short(e.message, 200) });
+            actions.push({ action: 'rerun_label_not_removed', issue: rn, error: short(e.message, 200) });
+          }
+        }
+      } else {
+        log('rerun_label_kept', { issues: pendingRerunLabel, reason: (committed && committed.reason) || 'control commit not confirmed' });
+        actions.push({ action: 'rerun_label_kept', issues: pendingRerunLabel, reason: (committed && committed.reason) || 'control commit not confirmed' });
+      }
+    }
   }
   return { ok: true, actions: actions };
 }
@@ -935,6 +1088,8 @@ module.exports = {
   claimedBody: claimedBody,
   reportBody: reportBody,
   rejectedBody: rejectedBody,
+  rerunDeferredBody: rerunDeferredBody,
+  staleEditBody: staleEditBody,
   safeBody: safeBody,
   intake: intake,
   notify: notify,
