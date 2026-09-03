@@ -1,0 +1,173 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-140",
+  "attempt_id": "gh-issue-140#1",
+  "status": "COMPLETED",
+  "summary": "Recurated the Status Center registry to close out the gh-issue-95 audit: fixed the stale PROJECT-AI-ORCHESTRATION entry (unchanged 10 days across ~12 delivered stages), added 4 registry projects for projects/* directories the old discovery path could never see (mythos-gateway, mythos-orchestrator, mythos-vault, oth-mcp), added a monorepo project-discovery function to lib/engine.js mirroring the existing GitHub-repository discovery, ran the review engine for real and verified the published site data, and updated docs/ROADMAP.md and docs/AI_HANDOVER.md. No percentage or status was invented anywhere; every new claim cites evidence that is either independently file/test-verifiable or explicitly RECORDED against a named document. Committed locally on the assigned branch; not pushed (delivery is the governance relay) and not deployed (separate owner action).",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-sonnet-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=4 [execution_profile:repo-write+2 task_category:implement+3 simplicity_terms(بسيط)-1]",
+    "base_sha": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "branch": "mythos/gh/gh-issue-140",
+    "commit_sha": "24acd340ce20f2edb40ed90093a203ffbda8f6d0"
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-03T19:04:52.526Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Recurated the Status Center registry to close out the gh-issue-95 audit: fixed the stale PROJECT-AI-ORCHESTRATION entry (unchanged 10 days across ~12 delivered stages), added 4 registry projects for projects/* directories the old discovery path could never see (mythos-gateway, mythos-orchestrator, mythos-vault, oth-mcp), added a monorepo project-discovery function to lib/engine.js mirroring the existing GitHub-repository discovery, ran the review engine for real and verified the published site data, and updated docs/ROADMAP.md and docs/AI_HANDOVER.md. No percentage or status was invented anywhere; every new claim cites evidence that is either independently file/test-verifiable or explicitly RECORDED against a named document. Committed locally on the assigned branch; not pushed (delivery is the governance relay) and not deployed (separate owner action).",
+    "tests": [
+      "tests/stc-1-status-center-test.js: 81 passed / 0 failed (was 73/0)",
+      "tests/stc-2-monitor-test.js: 86 passed / 0 failed",
+      "tests/stc-ar-arabic-layer-test.js: 50 passed / 0 failed",
+      "tests/gateway-boundary-test.js: 37 passed / 0 failed (fresh run)",
+      "tests/othk-6-mcp-server-test.js: 58 passed / 0 failed (fresh run)",
+      "tests/mcp-ecosystem-test.js: 168 passed / 0 failed (fresh run)",
+      "node --check on all changed .js files: clean",
+      "model.validateRegistry(registry.json): 0 errors",
+      "tests/mythos-orchestrator-0-test.js and tests/mythos-orchestration-core-test.js: reused prior recorded results (156/0 and 255/2), not re-run — attempted, exceeded sandbox command timeout; underlying code unchanged since 2026-08-15"
+    ],
+    "commit": "24acd340ce20f2edb40ed90093a203ffbda8f6d0",
+    "remote_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "files_changed": [
+      "docs/AI_HANDOVER.md",
+      "docs/ROADMAP.md",
+      "projects/status-center/bin/review.js",
+      "projects/status-center/data/registry.json",
+      "projects/status-center/lib/engine.js",
+      "projects/status-center/lib/model.js",
+      "sites/status.mythosprod.xyz/assets/app.js",
+      "sites/status.mythosprod.xyz/data/current.json",
+      "sites/status.mythosprod.xyz/data/reviews-index.json",
+      "sites/status.mythosprod.xyz/health.json",
+      "sites/status.mythosprod.xyz/reviews/2026/2026-09-03-review-001.json",
+      "tests/stc-1-status-center-test.js"
+    ],
+    "residual_risks": [
+      "othoth77/spy GitHub-repo discovery remains unclassified (owner decision; needs network-verified inspection this sandbox cannot perform)",
+      "repo-snapshot.json (GitHub account repo list) not refreshed this session — network calls are gated in this sandbox; unchanged since 2026-09-02",
+      "No live VPS/HTTPS re-verification of status.mythosprod.xyz was possible from this environment; publication was verified only against the repository's own site files",
+      "mythos-orchestrator-0 and mythos-orchestration-core suites were reused from a prior recorded run, not re-executed this session (sandbox timeout)",
+      "Deployment of this review to the live site (scripts/deploy-status-center.sh) is a separate owner action, not performed here"
+    ],
+    "next_stage": "Owner: classify othoth77/spy in the registry, decide the accumulated unmerged AI-Orchestration branches named in EV-AI-ORCH-EVOLUTION-0903, then run scripts/deploy-status-center.sh once ready to replace the stale live snapshot."
+  },
+  "files_changed": [
+    "docs/AI_HANDOVER.md",
+    "docs/ROADMAP.md",
+    "projects/status-center/bin/review.js",
+    "projects/status-center/data/registry.json",
+    "projects/status-center/lib/engine.js",
+    "projects/status-center/lib/model.js",
+    "sites/status.mythosprod.xyz/assets/app.js",
+    "sites/status.mythosprod.xyz/data/current.json",
+    "sites/status.mythosprod.xyz/data/reviews-index.json",
+    "sites/status.mythosprod.xyz/health.json",
+    "sites/status.mythosprod.xyz/reviews/2026/2026-09-03-review-001.json",
+    "tests/stc-1-status-center-test.js"
+  ],
+  "commits": [
+    {
+      "sha": "24acd340ce20f2edb40ed90093a203ffbda8f6d0",
+      "subject": "fix(status-center): recurate registry, add monorepo discovery (gh-issue-140)",
+      "branch": "mythos/gh/gh-issue-140",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "tests/stc-1-status-center-test.js: 81 passed / 0 failed (was 73/0)",
+    "tests/stc-2-monitor-test.js: 86 passed / 0 failed",
+    "tests/stc-ar-arabic-layer-test.js: 50 passed / 0 failed",
+    "tests/gateway-boundary-test.js: 37 passed / 0 failed (fresh run)",
+    "tests/othk-6-mcp-server-test.js: 58 passed / 0 failed (fresh run)",
+    "tests/mcp-ecosystem-test.js: 168 passed / 0 failed (fresh run)",
+    "node --check on all changed .js files: clean",
+    "model.validateRegistry(registry.json): 0 errors",
+    "tests/mythos-orchestrator-0-test.js and tests/mythos-orchestration-core-test.js: reused prior recorded results (156/0 and 255/2), not re-run — attempted, exceeded sandbox command timeout; underlying code unchanged since 2026-08-15"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [],
+  "risks": [
+    "othoth77/spy GitHub-repo discovery remains unclassified (owner decision; needs network-verified inspection this sandbox cannot perform)",
+    "repo-snapshot.json (GitHub account repo list) not refreshed this session — network calls are gated in this sandbox; unchanged since 2026-09-02",
+    "No live VPS/HTTPS re-verification of status.mythosprod.xyz was possible from this environment; publication was verified only against the repository's own site files",
+    "mythos-orchestrator-0 and mythos-orchestration-core suites were reused from a prior recorded run, not re-executed this session (sandbox timeout)",
+    "Deployment of this review to the live site (scripts/deploy-status-center.sh) is a separate owner action, not performed here"
+  ],
+  "next_recommended_action": "Owner: classify othoth77/spy in the registry, decide the accumulated unmerged AI-Orchestration branches named in EV-AI-ORCH-EVOLUTION-0903, then run scripts/deploy-status-center.sh once ready to replace the stale live snapshot.",
+  "completed_at": "2026-09-03T19:21:40.737Z",
+  "execution": {
+    "executor_task_id": "t-20260903190453-mtw6r5",
+    "othmode_task_id": "OTH-2026-00064",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-140#1",
+    "fence": 1154,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1023463",
+      "fence": 1154,
+      "acquired_at": "2026-09-03T19:04:53.485Z",
+      "expires_at": "2026-09-03T20:34:53.485Z"
+    },
+    "snapshot_sha256": "1a97b547bdeb5c82addb750a86dc21aef48220916a7e27ac13a400024664c9f8",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=4 [execution_profile:repo-write+2 task_category:implement+3 simplicity_terms(بسيط)-1]",
+    "claude_session_id": "66c8478e-5268-467d-926a-214350424d50",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-03T19:05:05.698Z",
+    "ended_at": "2026-09-03T19:21:08.798Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 4.229548999999998,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-140",
+    "branch": "mythos/gh/gh-issue-140",
+    "base_commit": "ff9f71b51e419959c8400c1cecbb5684d3ce633a",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-140",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}

@@ -28,7 +28,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-03T19:04:49.691Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #140 https://github.com/othoth77/mythos-prod/issues/140 — \"إتمام تنفيذ وتحديث MYTHOS Status Center بعد تدقيق #95\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[المرجع]\n- Issue الأصلية: #95\n- التدقيق السابق: مراجعة Status Center الحالية ومشاكل registry/current.json/review pipeline/discovery/publication.",
@@ -172,8 +172,8 @@
     "claimed_at": "2026-09-03T19:04:53.485Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "3cbe935c3dead909ed58c1661a950353780e37b2020670b4e31adbafc8424932",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-03T19:06:10.435Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-03T19:21:40.816Z",
     "snapshot_sha256": "1a97b547bdeb5c82addb750a86dc21aef48220916a7e27ac13a400024664c9f8",
     "fence": 1154,
     "lease": {
@@ -202,7 +202,8 @@
     },
     "model": "claude-sonnet-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "66c8478e-5268-467d-926a-214350424d50"
+    "claude_session_id": "66c8478e-5268-467d-926a-214350424d50",
+    "report_file": "control/reports/gh-issue-140.json"
   },
   "history": [
     {
@@ -218,6 +219,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-03T19:21:40.231Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-03T19:21:40.816Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (1 commit(s), 9 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
