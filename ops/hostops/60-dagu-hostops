@@ -1,0 +1,14 @@
+# MYTHOS — the ONLY sudo grant the `dagu` identity holds.
+#
+# One root-owned, argument-validating binary; never a shell, an interpreter,
+# a file copier, docker, or systemctl. The helper itself validates every
+# verb and argument against /etc/mythos/hostops-allowlist.json and refuses
+# everything that is not a READ operation (v0.1).
+#
+# Install (owner): visudo -cf ops/hostops/60-dagu-hostops
+#                  install -o root -g root -m 0440 ops/hostops/60-dagu-hostops /etc/sudoers.d/60-dagu-hostops
+# Alias namespaced to avoid collisions with other fragments on this host.
+
+Cmnd_Alias DAGU_HOSTOPS_RO = /usr/local/sbin/mythos-hostops, /usr/local/sbin/mythos-hostops *
+
+dagu ALL=(root) NOPASSWD: DAGU_HOSTOPS_RO

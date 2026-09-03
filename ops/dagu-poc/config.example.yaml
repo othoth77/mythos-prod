@@ -1,0 +1,29 @@
+# MYTHOS Dagu PoC — isolated, loopback-only, single-user basic auth.
+# Paths are pinned under /home/deploy/dagu-poc; nothing outside is touched.
+host: 127.0.0.1
+port: 8095
+headless: false
+debug: false
+log_format: json
+access_log_mode: all
+check_updates: false
+tz: UTC
+paths:
+  dags_dir: /home/deploy/dagu-poc/dags
+  data_dir: /home/deploy/dagu-poc/data
+  log_dir: /home/deploy/dagu-poc/logs
+auth:
+  mode: basic
+  basic:
+    username: mythos-poc
+    password: "<generate: openssl rand -hex 24 — never commit the real value>"
+permissions:
+  write_dags: false   # DAGs come only from files on disk; UI/API/MCP cannot create or edit them
+  run_dags: true
+audit:
+  enabled: true
+  retention_days: 30
+terminal:
+  enabled: false
+metrics: private
+default_execution_mode: local

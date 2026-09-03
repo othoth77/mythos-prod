@@ -1,0 +1,13 @@
+description: "TEST 2 — read-only host commands (no state change)"
+type: chain
+steps:
+  - name: os
+    run: uname -a && cat /etc/os-release | head -2
+  - name: uptime
+    run: uptime && nproc
+  - name: memory
+    run: free -m && head -1 /proc/pressure/memory
+  - name: disk
+    run: df -h / | tail -1
+  - name: identity
+    run: id && echo "cwd=$(pwd)"

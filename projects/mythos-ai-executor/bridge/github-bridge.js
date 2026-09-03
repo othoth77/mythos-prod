@@ -1038,6 +1038,9 @@ function buildReport(cfg, task, finalStatus, opts) {
       last_failure: estatus && estatus.last_failure ? estatus.last_failure : null,
       retry_backoff: estatus && estatus.retry_backoff ? estatus.retry_backoff : null,
       transition_reason: estatus ? (estatus.transition_reason || null) : null,
+      // HOSTOPS-1: host operations performed for this task, joined to the
+      // root-owned ledger by audit_id. Additive; absent when none ran.
+      hostops: (eid && state.readJSON(eid, 'hostops.json')) || null,
       quota_waits: estatus && estatus.quota_state ? (estatus.quota_state.waits || 0) : 0,
       cost_usd: estatus ? (estatus.cost_usd || null) : null,
       worktree: exec.worktree || null,

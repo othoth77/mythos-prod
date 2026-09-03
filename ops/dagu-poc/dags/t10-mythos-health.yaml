@@ -1,0 +1,13 @@
+description: "TEST 10 — existing MYTHOS services remain healthy (loopback GETs only)"
+type: graph
+steps:
+  - name: executor
+    run: curl -sf -m 5 http://127.0.0.1:8130/health | head -c 200
+  - name: knowledge
+    run: curl -sf -m 5 http://127.0.0.1:8150/health | head -c 200
+  - name: mcp-http
+    run: curl -sf -m 5 http://127.0.0.1:8160/health | head -c 200
+  - name: contextforge
+    run: curl -s -m 5 -o /dev/null -w '%{http_code}\n' http://127.0.0.1:4444/health | grep -E '^(200|401|403)$'
+  - name: resource-guard
+    run: cd /home/deploy/projects/mythos-prod && node projects/mythos-ai-executor/bin/mythos-resource-guard status | head -5

@@ -1,0 +1,12 @@
+description: "TEST 7 — deliberately failing step; the run must be reported FAILED and the failure handler must fire"
+type: chain
+handler_on:
+  failure:
+    run: echo "handler_on.failure fired for run $DAG_RUN_ID"
+steps:
+  - name: ok-step
+    run: echo "this step succeeds"
+  - name: failing-step
+    run: echo "about to fail on purpose" && exit 3
+  - name: never-runs
+    run: echo "must not run"
