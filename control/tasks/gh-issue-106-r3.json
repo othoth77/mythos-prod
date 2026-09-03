@@ -8,7 +8,7 @@
   "priority": "normal",
   "requested_action": "implement",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T01:59:19.601Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #106 https://github.com/othoth77/mythos-prod/issues/106 — \"تفعيل MYTHOS Resource Guard على الـVPS والتحقق الحي\"",
@@ -56,5 +56,28 @@
         "mythos:human-approval"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903015928-5vunt8",
+    "othmode_task_id": "OTH-2026-00036",
+    "execution_profile": "repo-write",
+    "expected_delivery": "commit",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-106-r3",
+    "branch": "mythos/gh/gh-issue-106-r3",
+    "base_commit": "7f33f9239771348b44786a3f3508b1f9e33335f4",
+    "claimed_at": "2026-09-03T01:59:28.152Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "225faee2f1c4b93aa15cf35564089c4b964f8e9c801fcb9671a6fca770c36918",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T01:59:28.153Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T01:59:28.194Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903015928-5vunt8 queued; OTHMODE OTH-2026-00036"
+    }
+  ]
 }

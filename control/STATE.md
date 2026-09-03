@@ -1,11 +1,11 @@
 # MYTHOS control — current state
 
-Generated 2026-09-03T01:59:24.385Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-03T01:59:29.879Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
-| PENDING | 2 |
-| CLAIMED | 0 |
+| PENDING | 0 |
+| CLAIMED | 2 |
 | IN_PROGRESS | 0 |
 | VALIDATING | 0 |
 | COMPLETED | 9 |
@@ -18,8 +18,8 @@ Generated 2026-09-03T01:59:24.385Z by the bridge on branch `mythos/control` (pro
 | `gh-issue-99` | **COMPLETED** | investigate | normal | 2026-09-02T22:42:59.761Z | 2026-09-02T22:49:32.431Z | `t-20260902224306-vaqeia` | `control/reports/gh-issue-99.json` |
 | `gh-issue-97` | **BLOCKED** | investigate | normal | 2026-09-02T22:34:21.352Z | 2026-09-02T22:43:04.917Z | `t-20260902223428-31m0o4` | `control/reports/gh-issue-97.json` |
 | `gh-issue-95` | **COMPLETED** | investigate | normal | 2026-09-02T22:34:19.628Z | 2026-09-02T22:40:52.170Z | `t-20260902223426-ipld9w` | `control/reports/gh-issue-95.json` |
-| `gh-issue-107` | **PENDING** | implement | normal | 2026-09-03T01:59:22.891Z | 2026-09-03T01:59:22.891Z | `—` | — |
-| `gh-issue-106-r3` | **PENDING** | implement | normal | 2026-09-03T01:59:19.601Z | 2026-09-03T01:59:19.601Z | `—` | — |
+| `gh-issue-107` | **CLAIMED** | implement | normal | 2026-09-03T01:59:22.891Z | 2026-09-03T01:59:29.876Z | `t-20260903015929-n39a1g` | — |
+| `gh-issue-106-r3` | **CLAIMED** | implement | normal | 2026-09-03T01:59:19.601Z | 2026-09-03T01:59:28.194Z | `t-20260903015928-5vunt8` | — |
 | `gh-issue-106-r2` | **BLOCKED** | implement | normal | 2026-09-03T01:35:29.332Z | 2026-09-03T01:39:52.258Z | `t-20260903013535-nudtuo` | `control/reports/gh-issue-106-r2.json` |
 | `gh-issue-106` | **BLOCKED** | implement | normal | 2026-09-03T01:20:19.404Z | 2026-09-03T01:26:52.121Z | `t-20260903012024-zqrxaq` | `control/reports/gh-issue-106.json` |
 | `gh-issue-103-r2` | **COMPLETED** | implement | normal | 2026-09-03T00:07:19.435Z | 2026-09-03T00:20:12.219Z | `t-20260903000725-ln6pla` | `control/reports/gh-issue-103-r2.json` |

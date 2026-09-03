@@ -8,7 +8,7 @@
   "priority": "normal",
   "requested_action": "implement",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-03T01:59:22.891Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #107 https://github.com/othoth77/mythos-prod/issues/107 — \"تغيير GitHub Bridge Timer إلى دقيقة واحدة\"",
@@ -52,5 +52,28 @@
       ],
       "removed": []
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260903015929-n39a1g",
+    "othmode_task_id": "OTH-2026-00037",
+    "execution_profile": "repo-write",
+    "expected_delivery": "commit",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-107",
+    "branch": "mythos/gh/gh-issue-107",
+    "base_commit": "7f33f9239771348b44786a3f3508b1f9e33335f4",
+    "claimed_at": "2026-09-03T01:59:29.865Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "a6c9d8b3486e6f51843c641726af15bc8e200c2e1785510879e6e4c481c20d40",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-03T01:59:29.866Z"
+  },
+  "history": [
+    {
+      "at": "2026-09-03T01:59:29.876Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260903015929-n39a1g queued; OTHMODE OTH-2026-00037"
+    }
+  ]
 }
