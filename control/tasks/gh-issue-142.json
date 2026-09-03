@@ -1,0 +1,140 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-142",
+  "project": "mythos-prod",
+  "objective": "إكمال الجزء المتبقي من #128 فقط بعد التحقق من الحالة الحالية، دون إعادة تنفيذ ما تم إنجازه لاحقًا في HostOps/E2E.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-03T19:08:39.695Z",
+  "created_by": "github-issue:othoth77",
+  "model": "sonnet",
+  "model_raw": "Sonnet",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #142 https://github.com/othoth77/mythos-prod/issues/142 — \"إكمال تفعيل HostOps READ بعد #128 والتحقق الحي النهائي\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\nmodel: sonnet — source explicit_current_issue (written as \"Sonnet\")\n\n[required execution]\n1. اقرأ الحالة الحالية لـ #128 وما تم إنجازه في HostOps لاحقًا، وخاصة نتائج E2E، وحدد ما إذا كان المطلوب مازال ناقصًا فعلًا.\n2. تحقق من أن المسار governed Executor → HostOps READ يعمل حاليًا باستخدام الحالة/الكود الموجودين على `origin/main`.\n3. إذا كان اختبار READ-only حي نهائي مازال ناقصًا، نفّذ اختبار `health` واحد فقط عبر المسار المحكوم.\n4. يجب أن تكون النتيجة `ok:true`، class=`READ`، مع `audit_id` غير فارغ.\n5. تحقق صراحة من عدم تنفيذ WRITE/RESTART/DEPLOY.\n6. شغّل اختبارات HostOps/Executor/Dagu المركزة المناسبة وسجّل أعداد pass/fail الدقيقة.\n7. إذا كانت نتائج #136 أو عمل لاحق قد حققت متطلبات #128 بالكامل، لا تعِد التنفيذ بلا داعٍ؛ قدّم evidence-based reconciliation واعتبر #128 قابلة للإغلاق.\n8. إن بقي blocker حقيقي، حدده بدقة ولا تغيّر security boundary أو architecture دون موافقة صريحة.\n9. أنشئ `mythos_report` واضحًا يضم execution path، النتيجة، audit_id (identifier فقط)، الاختبارات، والـblocker إن وجد.\n10. عند وجود تغييرات فعلية فقط: commit + push عبر Governance/Relay، وتحديث `docs/AI_HANDOVER.md` بالـcommit hash وremote HEAD والاختبارات والخطوة التالية.\n\n[strict exclusions]\n- No WRITE, RESTART, or DEPLOY operations.\n- No WhatsApp/Evolution API work.\n- No AUTOS-0.\n- No SPY.\n- No n8n changes/jobs.\n- No Resource Guard policy/threshold changes.\n- No Governance redesign.\n- No MCP architecture changes.\n- No credentials/secrets in GitHub, logs, or report.\n- No `git add .`.\n- No auto-merge.\n- No manual VPS bypass.\n- Do not modify unrelated files or production services.\n\n[completion criteria]\nCOMPLETED only if the current evidence proves the intended governed READ-only HostOps health path is operational and the focused tests pass, or if later verified work already proves all #128 requirements and the reconciliation is documented. Otherwise report BLOCKED with precise evidence and the exact owner action required.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 142,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/142",
+    "issue_id": 5340442636,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPlCwDA",
+    "issue_title": "TASK: إكمال تفعيل HostOps READ بعد #128 والتحقق الحي النهائي",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-03T19:08:06Z",
+    "issue_updated_at": "2026-09-03T19:08:06Z",
+    "issue_labels": [
+      "task",
+      "action:implement"
+    ],
+    "content_sha256": "194d61d16eb03bc694acafec189241fd2f8a00bac1a42cf1c071b5f6369857a5",
+    "attempt": 1,
+    "attempt_id": "gh-issue-142#1",
+    "idempotency_key": "2a797a7115f7304937e27f3f1b731c94fff80b3f2afc7eebca9f2edc3cffbba9",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "inline",
+          "line": 1
+        },
+        {
+          "source": "action_label",
+          "raw": "implement",
+          "action": "implement",
+          "form": null,
+          "line": null
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": "sonnet",
+      "model_id": "claude-sonnet-5",
+      "model_raw": "Sonnet",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:sonnet (requested \"Sonnet\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-03T19:08:39.696Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-03T19:08:39.696Z",
+        "event": "issue_received",
+        "reason": "open Issue #142 with label task",
+        "content_sha256": "194d61d16eb03bc694acafec189241fd2f8a00bac1a42cf1c071b5f6369857a5"
+      },
+      {
+        "at": "2026-09-03T19:08:39.696Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-03T19:08:39.696Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-03T19:08:39.696Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → sonnet (available)"
+      },
+      {
+        "at": "2026-09-03T19:08:41.577Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-142.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-03T19:08:39.696Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5530772243,
+        "url": "https://github.com/othoth77/mythos-prod/issues/142#issuecomment-5530772243",
+        "at": "2026-09-03T19:08:40.714Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}

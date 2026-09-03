@@ -1,11 +1,11 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-03T19:07:25.899Z",
+  "generated_at": "2026-09-03T19:08:41.602Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
-    "PENDING": 0,
+    "PENDING": 1,
     "CLAIMED": 1,
     "IN_PROGRESS": 1,
     "VALIDATING": 0,
@@ -14,7 +14,9 @@
     "FAILED": 0,
     "CANCELLED": 0
   },
-  "pending": [],
+  "pending": [
+    "gh-issue-142"
+  ],
   "active": [
     "gh-issue-140",
     "gh-issue-141"
@@ -989,6 +991,29 @@
         "kind": "github-issue",
         "issue_number": 141,
         "issue_url": "https://github.com/othoth77/mythos-prod/issues/141",
+        "issue_state": null
+      }
+    },
+    {
+      "task_id": "gh-issue-142",
+      "status": "PENDING",
+      "priority": "normal",
+      "requested_action": "implement",
+      "action_source": "explicit_current_issue",
+      "execution_profile": null,
+      "model": "sonnet",
+      "blocker": null,
+      "created_at": "2026-09-03T19:08:39.695Z",
+      "created_by": "github-issue:othoth77",
+      "updated_at": "2026-09-03T19:08:39.695Z",
+      "executor_task_id": null,
+      "branch": null,
+      "task_file": "control/tasks/gh-issue-142.json",
+      "report_file": null,
+      "source": {
+        "kind": "github-issue",
+        "issue_number": 142,
+        "issue_url": "https://github.com/othoth77/mythos-prod/issues/142",
         "issue_state": null
       }
     },
