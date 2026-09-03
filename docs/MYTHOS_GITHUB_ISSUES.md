@@ -155,7 +155,7 @@ node projects/mythos-ai-executor/bin/mythos-github-bridge issues-tick --only 96 
 node projects/mythos-ai-executor/bin/mythos-github-bridge issues-status              # Issue ⇄ task ⇄ executor ⇄ report
 ```
 
-The deploy timer (`mythos-github-bridge.timer`, every 2 min) runs `tick`; with the drop-in
+The deploy timer (`mythos-github-bridge.timer`, every 1 min) runs `tick`; with the drop-in
 (`MYTHOS_ISSUES_ENABLED=1` + token file) that same `tick` runs intake → bridge → notify. Without the drop-in the
 bridge behaves exactly as before. **Order of deployment matters:** the adapter writes a `source` block that the
 bridge's task schema must know (same commit), so enable the drop-in only after `main` carries this change.
@@ -170,7 +170,7 @@ bridge's task schema must know (same commit), so enable the drop-in only after `
   (`MYTHOS_GITHUB_ISSUES_TOKEN=…`, 0600, written with `read -s` under `umask 077`, never argv). The read path
   (listing, parsing, dry-run) and the full pipeline offline are verified; the live comment path is not until then.
 
-- The GitHub side is polled (2 min), not webhook-driven; a new Issue waits up to one tick.
+- The GitHub side is polled (1 min), not webhook-driven; a new Issue waits up to one tick.
 - Labels are best-effort cosmetics (a failed label call is logged, the comment is the record).
 - Issue #95 as written asks for `implement`-class work but states no `Action`, so it would run read-only
   (`investigate`) and report; the owner adds `Action: implement` (or label `action:implement`) before enabling

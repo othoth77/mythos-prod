@@ -32,7 +32,7 @@ ChatGPT → GitHub (control/tasks/<id>.json) → bridge → OTHMODE Task record 
 - `bridge/schemas/task.schema.json`, `bridge/schemas/report.schema.json` — the two contracts (copied to `control/schemas/` on the branch).
 - `bridge/README.md` — the protocol as published to planners (`control/README.md`).
 - `bin/mythos-github-bridge` — `init | tick | daemon | status | validate <file> | instruction <file>`.
-- `bridge/systemd/mythos-github-bridge.{service,timer}` — user units for `deploy`, one tick every 2 minutes.
+- `bridge/systemd/mythos-github-bridge.{service,timer}` — user units for `deploy`, one tick every 1 minute.
 - `tests/mythos-github-bridge-test.js`.
 
 ## 3. GitHub paths
@@ -140,7 +140,7 @@ Everything is re-derivable from GitHub + the executor store; `/tmp` is never use
 
 ## 9. How Fable/Claude consumes tasks
 
-The bridge tick (`deploy`, every 2 min) validates the task, opens OTHMODE record `OTH-…`, creates
+The bridge tick (`deploy`, every 1 min) validates the task, opens OTHMODE record `OTH-…`, creates
 `~deploy/mythos-ai-executor/worktrees/gh/<id>` on branch `mythos/gh/<id>` from `origin/main`, and calls
 `executor.createTask({ stage:'github:<id>', instruction, execution_profile, working_directory, branch, expected_delivery, report_to_git:false, … })`.
 The executor daemon starts it on its next 15-second tick: `claude -p --session-id … --permission-mode … --allowedTools …`
@@ -154,7 +154,7 @@ The session ends with the mandatory `mythos_report` JSON block; the executor per
 2. Read `control/reports/<id>.json` for each task awaiting review.
 3. Write `control/tasks/<new_id>.json` (status `PENDING`) on branch `mythos/control` — GitHub web UI
    ("Add file" with the branch selected), the REST contents API (`PUT /repos/othoth77/mythos-prod/contents/control/tasks/<id>.json` with `"branch":"mythos/control"`), or any GitHub write tool.
-4. Wait ~2 min for the claim, ~5 more for the relay to show it on GitHub, then poll for the report.
+4. Wait ~1 min for the claim, ~5 more for the relay to show it on GitHub, then poll for the report.
 5. To withdraw: set `status` to `CANCELLED` in the task file. Never edit other fields of a claimed task (the executor keeps the snapshot it was given; the bridge notes the drift once).
 
 No MCP access is needed from ChatGPT: the channel is plain files on a branch.
@@ -210,7 +210,7 @@ token file bound by reference). Spec, Issue format and security: `docs/MYTHOS_GI
 
 ## 13. Honest limits
 
-- Latency: claim within ~2 min, visible on GitHub after the next relay tick (≤5 min); report likewise.
+- Latency: claim within ~1 min, visible on GitHub after the next relay tick (≤5 min); report likewise.
 - One bridge per repository; a second host running a bridge against the same branch would race on claims (the relay's fast-forward rule turns that into a skipped push, never a corrupted branch).
 - Task branches accumulate under `refs/heads/mythos/gh/`; pruning merged/abandoned branches and worktrees is a human housekeeping step (`git worktree remove`, branch delete) — the bridge never deletes.
 - The control branch is public to anyone with repository access; the bridge redacts what it writes, but a planner who pastes a secret into a task has already put it in GitHub history (the task is rejected, and the rewritten file is redacted).
