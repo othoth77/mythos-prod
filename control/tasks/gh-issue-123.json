@@ -20,7 +20,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-03T12:10:39.557Z",
   "created_by": "github-issue:othoth77",
   "model": "sonnet",
@@ -168,8 +168,8 @@
     "claimed_at": "2026-09-03T12:10:45.551Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "a6b4c7eadfbcd651154090978fb8b08e06d3a3836904b6a452aaa9c4027c4528",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-03T12:10:45.551Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-03T12:11:50.994Z",
     "snapshot_sha256": "3e64556e1886d205ccd1e44a1399a4c051233f89185139ebfe1dd6403e7c7009",
     "fence": 215,
     "lease": {
@@ -197,7 +197,8 @@
       "measured_at": "2026-09-03T12:10:43.958Z"
     },
     "model": "claude-sonnet-5",
-    "model_selection_mode": "explicit"
+    "model_selection_mode": "explicit",
+    "claude_session_id": "9609a91d-b97d-4893-8bca-1126ffa1324c"
   },
   "history": [
     {
@@ -206,6 +207,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260903121045-pdghsy queued; OTHMODE OTH-2026-00055; action implement (explicit_current_issue) → repo-write; model claude-sonnet-5; fence 215"
+    },
+    {
+      "at": "2026-09-03T12:11:50.994Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
