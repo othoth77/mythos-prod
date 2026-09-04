@@ -155,6 +155,16 @@
         "at": "2026-09-04T20:52:54.648Z",
         "existed": false,
         "executor_task_id": "t-20260904205253-8yl808"
+      },
+      "report": {
+        "comment_id": 5546466166,
+        "url": "https://github.com/othoth77/mythos-prod/issues/170#issuecomment-5546466166",
+        "at": "2026-09-04T21:08:11.715Z",
+        "existed": false,
+        "status": "HUMAN_APPROVAL",
+        "control_status": "BLOCKED",
+        "report_file": "control/reports/gh-issue-170.json",
+        "commits_on_origin": false
       }
     },
     "labels": {
@@ -164,7 +174,8 @@
       "removed": [
         "mythos:in-progress"
       ]
-    }
+    },
+    "issue_state": "HUMAN_APPROVAL"
   },
   "execution": {
     "executor_task_id": "t-20260904205253-8yl808",
