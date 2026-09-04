@@ -23,7 +23,7 @@
     "[ ] `docs/AI_HANDOVER.md` contains production activation evidence.",
     "[ ] Verification changes are committed and pushed through the normal governance relay."
   ],
-  "status": "IN_PROGRESS",
+  "status": "BLOCKED",
   "created_at": "2026-09-04T12:30:10.002Z",
   "created_by": "github-issue:othoth77",
   "model": "fable-5.1",
@@ -171,8 +171,8 @@
     "claimed_at": "2026-09-04T12:30:13.677Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "398597e1ca6e46dd7d2c0108c474970f20bbe35ad83b0334cc3b7e099e92b062",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-04T12:31:21.198Z",
+    "executor_status": "BLOCKED",
+    "updated_at": "2026-09-04T12:40:51.682Z",
     "snapshot_sha256": "c60b7ba918a8e15da6813517df0f118e261318c73457469d2cf34109ef7861cc",
     "fence": 3833,
     "lease": {
@@ -201,7 +201,13 @@
     },
     "model": "claude-fable-5-1",
     "model_selection_mode": "explicit",
-    "claude_session_id": "fc3dea40-2032-4a45-9901-befa3a1ef324"
+    "claude_session_id": "fc3dea40-2032-4a45-9901-befa3a1ef324",
+    "blocker": {
+      "code": "HUMAN_APPROVAL",
+      "reason": "Verified the merged trust gate at 5b995e9: both ledgers present, scanners resolve, skill-trust-cli verify → VERIFY OK (31/31 ACCEPT), offline suite 130/0 plus othmode-2 147/0, othmode-3 94/0, mcp-ecosystem 168/0, executor 390/0, gate enforcement demonstrated offline with the real ledger, baseline 4/4 re-checked, no MYTHOS_SKILL_TRUST bypass in any production env. Production activation itself could not be executed: the runtime checkout /home/deploy/projects/mythos-prod is stale at 4ffb8d2 and can",
+      "retryable": false
+    },
+    "report_file": "control/reports/gh-issue-156.json"
   },
   "history": [
     {
@@ -217,6 +223,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-04T12:40:50.988Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended BLOCKED; building report"
+    },
+    {
+      "at": "2026-09-04T12:40:51.682Z",
+      "from": "VALIDATING",
+      "to": "BLOCKED",
+      "by": "github-bridge",
+      "note": "report written (1 commit(s), 13 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
