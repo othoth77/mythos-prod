@@ -12,7 +12,7 @@
   "validation_requirements": [
     "Production is considered ACTIVE only when the merged commit is deployed, both required services are healthy, trust verification passes, the trust API/read model is live, and the executor gate is confirmed active without bypass."
   ],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-04T12:22:49.833Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #155 https://github.com/othoth77/mythos-prod/issues/155 — \"PROD — Activate OTHMODE Skill Trust Gate after merge #154\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[required execution]\n1. Verify production checkout is on `main` and contains merge commit `5b995e9562df5cbf1603a571eb3bdb891460fca3`.\n2. Verify `projects/command-center/data/skill-trust.json` and `projects/mythos-ai-executor/config/skill-trust.json` are present and `skill-trust-cli.js verify` returns `VERIFY OK`.\n3. Run the offline trust suite and relevant regression suites exactly as documented in `docs/OTHMODE_SKILL_TRUST.md` / `docs/AI_HANDOVER.md`.\n4. Restart ONLY the production services required to load the merged code:\n   - `mythos-ai-executor`\n   - `mythos-command-center.service`\n   Do not restart unrelated services.\n5. Verify both services are active/healthy after restart.\n6. Verify OTHMODE trust read model/API is live and returns the expected trust data.\n7. Verify the executor actually enforces the gate: an untrusted/STALE/REVIEW/BLOCK skill must not be selectable/rendered; do not disable `MYTHOS_SKILL_TRUST` in production.\n8. Verify the production configuration has no trust bypass enabled.\n9. Record exact commands, service status, test results, commit SHA, and production verification in `docs/AI_HANDOVER.md`.\n10. Commit and push the production verification/handover update to the appropriate `mythos/*` branch through the existing governance relay. Do not modify protected governance paths.\n\n[safety]\n- This task is activation/verification only.\n- Do NOT deploy a WhatsApp gateway.\n- Do NOT enable Semgrep if the host memory constraints make it unsafe.\n- Do NOT alter the Skill trust policy during activation.\n- Do NOT use `MYTHOS_SKILL_TRUST=off` in production.\n- If a verification fails, stop before declaring production active and report the exact blocker.",
@@ -143,8 +143,8 @@
     "claimed_at": "2026-09-04T12:22:53.973Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "ca09e9817b4231217e1deb153b01e422371118fe7e5aa9eb733aff3736337378",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-04T12:24:11.076Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-04T12:25:21.430Z",
     "snapshot_sha256": "8ce008f703debd3d718549b6fd09030d916907d8a8f23b599af9edeb02f7d2a2",
     "fence": 3815,
     "lease": {
@@ -173,7 +173,8 @@
     },
     "model": "claude-haiku-4-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "755717c1-da48-4531-a461-e111e6ed90dc"
+    "claude_session_id": "755717c1-da48-4531-a461-e111e6ed90dc",
+    "report_file": "control/reports/gh-issue-155.json"
   },
   "history": [
     {
@@ -189,6 +190,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-04T12:25:20.884Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-04T12:25:21.430Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 8 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

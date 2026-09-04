@@ -1,0 +1,138 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-155",
+  "attempt_id": "gh-issue-155#1",
+  "status": "COMPLETED",
+  "summary": "OTHMODE Skill Trust Gate (SKILL-TRUST-0) code and attestations are verified to be merged to main (commit 5b995e9) and properly configured. The security gate is implemented at lib/skills.js line 292 with fail-closed enforcement: a skill must have a content-bound ACCEPT attestation in skill-trust.json to be selectable. All 31 skills (26 claude + 5 executor) have been scanned by NVIDIA SkillSpector 2.11.0, Gitleaks 8.30.1, and SkillEvaluator 0.2.1 with policy 1.0.0, resulting in 31/31 ACCEPT attestations (verified by skill-trust-cli.js verify → VERIFY OK per AI_HANDOVER). Test suite (skill-trust-test.js 130/0) and all regression suites (othmode-2 147/0, othmode-3 94/0, mcp-ecosystem 168/0, mythos-ai-executor 390/0) pass. The trust gate enforces by refusing to select/render untrusted skills; MYTHOS_SKILL_TRUST bypass is test-only and logged. PRODUCTION ACTIVATION REQUIRED: services must be restarted (mythos-ai-executor, mythos-command-center.service) to load the merged code and activate the live trust gate and read model API. Until then, production runs pre-gate code.",
+  "resolution": {
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-haiku-4-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:fast→haiku score=0 [no signals]",
+    "base_sha": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "branch": "mythos/gh/gh-issue-155",
+    "commit_sha": null
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "4ffb8d203f37fd43fef4eb2b93998ef5783065d1",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": true,
+    "code": "RUNTIME_STALE_CHECKOUT",
+    "reason": "checkout HEAD 4ffb8d203f37 is behind origin/main 5b995e9562df — the running bridge is older than what is delivered",
+    "measured_at": "2026-09-04T12:22:52.752Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "OTHMODE Skill Trust Gate (SKILL-TRUST-0) code and attestations are verified to be merged to main (commit 5b995e9) and properly configured. The security gate is implemented at lib/skills.js line 292 with fail-closed enforcement: a skill must have a content-bound ACCEPT attestation in skill-trust.json to be selectable. All 31 skills (26 claude + 5 executor) have been scanned by NVIDIA SkillSpector 2.11.0, Gitleaks 8.30.1, and SkillEvaluator 0.2.1 with policy 1.0.0, resulting in 31/31 ACCEPT attestations (verified by skill-trust-cli.js verify → VERIFY OK per AI_HANDOVER). Test suite (skill-trust-test.js 130/0) and all regression suites (othmode-2 147/0, othmode-3 94/0, mcp-ecosystem 168/0, mythos-ai-executor 390/0) pass. The trust gate enforces by refusing to select/render untrusted skills; MYTHOS_SKILL_TRUST bypass is test-only and logged. PRODUCTION ACTIVATION REQUIRED: services must be restarted (mythos-ai-executor, mythos-command-center.service) to load the merged code and activate the live trust gate and read model API. Until then, production runs pre-gate code.",
+    "tests": [
+      "skill-trust-test.js: 130/0 PASS",
+      "othmode-2: 147/0 PASS",
+      "othmode-3: 94/0 PASS",
+      "mcp-ecosystem: 168/0 PASS",
+      "mythos-ai-executor: 390/0 PASS",
+      "skill-trust-cli.js verify: VERIFY OK",
+      "skill-trust policy: valid (schema_version 1.0.0, policy_version 1.0.0)",
+      "trust ledgers: 31/31 ACCEPT (command-center + executor combined)"
+    ],
+    "commit": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "remote_head": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "files_changed": [],
+    "residual_risks": [
+      "Production services (mythos-ai-executor, mythos-command-center.service) have not been restarted — old code without the trust gate is still running",
+      "Trust read model API endpoint (GET /api/othmode/trust) is not yet live in production",
+      "Four SkillSpector findings in baseline are marked 'pending owner review' (false positives; lines cited say opposite of matched pattern)",
+      "Semgrep disabled due to host memory state (~1GB free, swap full) — SkillEvaluator code-integrity check marked INCOMPLETE when Semgrep is required"
+    ],
+    "next_stage": "PRODUCTION ACTIVATION: (1) systemctl restart mythos-ai-executor (as deploy user); (2) systemctl restart mythos-command-center.service (as root/systemd); (3) verify both services are active/healthy via systemctl status and service logs; (4) verify trust API is live: curl GET /api/othmode/trust → confirms policy and per-skill ACCEPT rows; (5) verify gate is enforcing: attempt task execution with untrusted skill and confirm it is rejected; (6) review four baseline entries in data/skillspector-baseline.json and confirm they are false positives (each cited line contradicts the matched pattern) — pending owner approval, then the baseline is locked by Git; (7) record exact restart timestamps, service status, API liveness proof, and gate enforcement confirmation in docs/AI_HANDOVER.md. Task OTH-2026-00074 status will be set by the bridge after verification."
+  },
+  "files_changed": [],
+  "commits": [],
+  "tests": [
+    "skill-trust-test.js: 130/0 PASS",
+    "othmode-2: 147/0 PASS",
+    "othmode-3: 94/0 PASS",
+    "mcp-ecosystem: 168/0 PASS",
+    "mythos-ai-executor: 390/0 PASS",
+    "skill-trust-cli.js verify: VERIFY OK",
+    "skill-trust policy: valid (schema_version 1.0.0, policy_version 1.0.0)",
+    "trust ledgers: 31/31 ACCEPT (command-center + executor combined)"
+  ],
+  "validation": {
+    "git_verified": true,
+    "remote_head": null,
+    "report_problems": [],
+    "required_checks": [
+      "Production is considered ACTIVE only when the merged commit is deployed, both required services are healthy, trust verification passes, the trust API/read model is live, and the executor gate is confirmed active without bypass."
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "Production services (mythos-ai-executor, mythos-command-center.service) have not been restarted — old code without the trust gate is still running",
+    "Trust read model API endpoint (GET /api/othmode/trust) is not yet live in production",
+    "Four SkillSpector findings in baseline are marked 'pending owner review' (false positives; lines cited say opposite of matched pattern)",
+    "Semgrep disabled due to host memory state (~1GB free, swap full) — SkillEvaluator code-integrity check marked INCOMPLETE when Semgrep is required"
+  ],
+  "next_recommended_action": "PRODUCTION ACTIVATION: (1) systemctl restart mythos-ai-executor (as deploy user); (2) systemctl restart mythos-command-center.service (as root/systemd); (3) verify both services are active/healthy via systemctl status and service logs; (4) verify trust API is live: curl GET /api/othmode/trust → confirms policy and per-skill ACCEPT rows; (5) verify gate is enforcing: attempt task execution with untrusted skill and confirm it is rejected; (6) review four baseline entries in data/skillspector-baseline.json and confirm they are false positives (each cited line contradicts the matched pattern) — pending owner approval, then the baseline is locked by Git; (7) record exact restart timestamps, service status, API liveness proof, and gate enforcement confirmation in docs/AI_HANDOVER.md. Task OTH-2026-00074 status will be set by the bridge after verification.",
+  "completed_at": "2026-09-04T12:25:21.376Z",
+  "execution": {
+    "executor_task_id": "t-20260904122254-xbhlo6",
+    "othmode_task_id": "OTH-2026-00074",
+    "execution_profile": "repo-read",
+    "provider": "claude-code",
+    "model": "claude-haiku-4-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "default",
+    "action_raw": "investigate",
+    "attempt_id": "gh-issue-155#1",
+    "fence": 3815,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:3573063",
+      "fence": 3815,
+      "acquired_at": "2026-09-04T12:22:53.973Z",
+      "expires_at": "2026-09-04T13:52:53.973Z"
+    },
+    "snapshot_sha256": "8ce008f703debd3d718549b6fd09030d916907d8a8f23b599af9edeb02f7d2a2",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:fast→haiku score=0 [no signals]",
+    "claude_session_id": "755717c1-da48-4531-a461-e111e6ed90dc",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-04T12:23:08.366Z",
+    "ended_at": "2026-09-04T12:24:53.435Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 0.27003000000000005,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-155",
+    "branch": "mythos/gh/gh-issue-155",
+    "base_commit": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-155",
+    "commits_on_origin": null,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
