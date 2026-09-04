@@ -25,7 +25,7 @@
   "validation_requirements": [
     "Production is ACTIVE only if the merged commit is present, both required services are healthy, trust verification passes, the trust API/read model is live, and the executor gate is confirmed active without bypass."
   ],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-04T19:39:59.644Z",
   "created_by": "github-issue:othoth77",
   "model": "fable-5.1",
@@ -191,8 +191,8 @@
     "claimed_at": "2026-09-04T19:40:06.151Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "09308fe93f8132c59ccc3316574a8a54dedd715f5af1e17f952f0277ad5717e6",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-04T19:40:06.151Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-04T19:51:51.669Z",
     "snapshot_sha256": "e0dd1c6bbe172404a667f87787eafa0e2f69f70913fb5458a126203d602a3449",
     "fence": 4585,
     "lease": {
@@ -220,7 +220,8 @@
       "measured_at": "2026-09-04T19:40:04.642Z"
     },
     "model": "claude-fable-5-1",
-    "model_selection_mode": "explicit"
+    "model_selection_mode": "explicit",
+    "claude_session_id": "9a0068ed-9664-4b85-ac9b-18416df886b2"
   },
   "history": [
     {
@@ -229,6 +230,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260904194006-1507x1 queued; OTHMODE OTH-2026-00122; action implement (explicit_current_issue) → repo-write; model claude-fable-5-1; fence 4585"
+    },
+    {
+      "at": "2026-09-04T19:51:51.669Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
