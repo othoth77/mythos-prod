@@ -1,0 +1,15 @@
+# Candidate production fix for the QR pairing failure (Baileys 7.0.0-rc.9
+# ignores <notification type="companion_reg_refresh">; upstream
+# WhiskeySockets/Baileys PR #2765, ported in patches/baileys-7.0.0-rc.9-pr2765).
+#
+# Applies ONLY when passed explicitly:
+#   docker compose --env-file ~/mythos-ai-executor/secrets/evolution-compose.env \
+#     -f docker-compose.yml -f docker-compose.pr2765.override.yml up -d evolution-api
+# Rollback = the same command WITHOUT this file (the image is untouched; the
+# two bind mounts are the whole change). Re-creating evolution-api is the only
+# restart involved; evolution-postgres, the bridge and the executor are not touched.
+services:
+  evolution-api:
+    volumes:
+      - ./patches/baileys-7.0.0-rc.9-pr2765/Socket/socket.js:/evolution/node_modules/baileys/lib/Socket/socket.js:ro
+      - ./patches/baileys-7.0.0-rc.9-pr2765/Utils/companion-reg-refresh.js:/evolution/node_modules/baileys/lib/Utils/companion-reg-refresh.js:ro
