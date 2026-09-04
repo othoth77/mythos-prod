@@ -1,0 +1,148 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-156",
+  "project": "mythos-prod",
+  "objective": "Execute the production activation of the already-merged OTHMODE Skill Trust Gate. Issue #155 was previously handled as `investigate` / `repo-read`; this task is explicitly an implementation/deployment execution task.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implementation",
+  "action_source": "action_label",
+  "validation_requirements": [
+    "[ ] Runtime is deployed at merge commit `5b995e9562df5cbf1603a571eb3bdb891460fca3` or an exact descendant on `main`.",
+    "[ ] Both trust ledgers exist and verify successfully.",
+    "[ ] Offline trust and relevant regression suites pass.",
+    "[ ] `mythos-ai-executor` is active/healthy after restart.",
+    "[ ] `mythos-command-center.service` is active/healthy after restart.",
+    "[ ] `/api/othmode/trust` is live and returns expected trust data.",
+    "[ ] Executor trust enforcement is confirmed in production.",
+    "[ ] No production trust bypass is enabled.",
+    "[ ] No unrelated services were restarted.",
+    "[ ] No WhatsApp gateway deployment occurred.",
+    "[ ] `docs/AI_HANDOVER.md` contains production activation evidence.",
+    "[ ] Verification changes are committed and pushed through the normal governance relay."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-04T12:30:10.002Z",
+  "created_by": "github-issue:othoth77",
+  "model": "fable-5.1",
+  "model_raw": "Fable 5.1",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #156 https://github.com/othoth77/mythos-prod/issues/156 — \"OTHMODE Production Activation — Execute #155 with Fable 5.1\"\n\nrequested_action: implement — source action_label (written as \"implementation\") → execution profile repo-write\n\nmodel: fable-5.1 — source explicit_current_issue (written as \"Fable 5.1\")\n\n[execution profile]\n**implementation** — this task is authorized to perform the required production activation and verification steps below.\n\n[source of truth]\n- OTHMODE Skill Trust Gate merged to `main` as `5b995e9562df5cbf1603a571eb3bdb891460fca3`.\n- Existing design and activation requirements: `docs/OTHMODE_SKILL_TRUST.md` and `docs/AI_HANDOVER.md`.\n- Previous investigation: #155 confirmed code/config/tests are ready but production services were NOT restarted.\n\n[required execution]\n1. Verify production checkout is on `main` and contains merge commit `5b995e9562df5cbf1603a571eb3bdb891460fca3`.\n2. If runtime checkout is stale, reconcile it to the merged `main` commit using the existing production/governance deployment mechanism. Do not bypass governance or modify protected governance paths.\n3. Verify:\n   - `projects/command-center/data/skill-trust.json`\n   - `projects/mythos-ai-executor/config/skill-trust.json`\n   - `skill-trust-cli.js verify` → `VERIFY OK`\n4. Run the documented offline trust suite and relevant regression suites. Do not use `MYTHOS_SKILL_TRUST=off` in production.\n5. Restart ONLY these production services:\n   - `mythos-ai-executor`\n   - `mythos-command-center.service`\n   Do not restart unrelated services.\n6. Verify both services are active/healthy after restart and inspect relevant logs for startup/runtime errors.\n7. Verify `GET /api/othmode/trust` is live in production and returns the expected policy and trust data.\n8. Verify the executor enforces the trust gate: an untrusted, STALE, REVIEW, or BLOCK skill must not be selectable/rendered.\n9. Verify production has no `MYTHOS_SKILL_TRUST=off` bypass enabled.\n10. Do NOT deploy or modify the WhatsApp gateway.\n11. Do NOT enable Semgrep if host memory constraints make it unsafe. Do not alter the existing trust policy during activation.\n12. Review the four existing SkillSpector baseline entries as part of verification. Do not change the baseline unless the evidence requires it; if owner approval is required, record that explicitly.\n13. Record exact commands, timestamps, service states, commit SHA, API verification, gate verification, and any blocker in `docs/AI_HANDOVER.md`.\n14. Commit and push the production verification/handover update through the existing `mythos/*` governance relay. Do not modify protected governance paths.\n15. Only mark this task completed when production is genuinely active and all acceptance criteria below are verified.\n\n[failure rule]\nIf any required verification fails, do not claim production active. Record the exact blocker and stop before making unrelated changes.\n\n[final report format]\nSEARCHED / VERIFIED / EXECUTED / REUSED / CHANGED / TESTS / SERVICES / API / GATE ENFORCEMENT / COMMIT / REMOTE HEAD / BLOCKERS / FINAL STATUS.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 156,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/156",
+    "issue_id": 5348073791,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPsUhPw",
+    "issue_title": "TASK: OTHMODE Production Activation — Execute #155 with Fable 5.1",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-04T12:29:23Z",
+    "issue_updated_at": "2026-09-04T12:29:23Z",
+    "issue_labels": [
+      "task",
+      "action:implementation",
+      "othmode",
+      "production"
+    ],
+    "content_sha256": "2e316a2c4cecc82fade1de3a7338a7cc22c91e9612e2627c6484a0eda02a3e4e",
+    "attempt": 1,
+    "attempt_id": "gh-issue-156#1",
+    "idempotency_key": "b7c8d2ebba4e763b87c5fcb0ca539bb795d321c03558e21e04842f3156fcf3d1",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implementation",
+      "action_source": "action_label",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "action_label",
+          "raw": "implementation",
+          "action": "implement",
+          "form": null,
+          "line": null
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": "fable-5.1",
+      "model_id": "claude-fable-5-1",
+      "model_raw": "Fable 5.1",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:fable-5.1 (requested \"Fable 5.1\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-04T12:30:10.003Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-04T12:30:10.003Z",
+        "event": "issue_received",
+        "reason": "open Issue #156 with label task",
+        "content_sha256": "2e316a2c4cecc82fade1de3a7338a7cc22c91e9612e2627c6484a0eda02a3e4e"
+      },
+      {
+        "at": "2026-09-04T12:30:10.003Z",
+        "event": "action_resolved",
+        "reason": "action_label → implement (raw \"implementation\")"
+      },
+      {
+        "at": "2026-09-04T12:30:10.003Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-04T12:30:10.003Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → fable-5.1 (available)"
+      },
+      {
+        "at": "2026-09-04T12:30:11.752Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-156.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-04T12:30:10.003Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5540445391,
+        "url": "https://github.com/othoth77/mythos-prod/issues/156#issuecomment-5540445391",
+        "at": "2026-09-04T12:30:10.992Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
