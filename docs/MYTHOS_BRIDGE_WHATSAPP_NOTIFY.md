@@ -3,7 +3,7 @@
 **Stage:** `gh-20260902-wa-bridge-notify-01` (2026-09-02), hardened by `gh-issue-147` (2026-09-03)
 **Code:** `projects/mythos-ai-executor/bridge/notify/` (`whatsapp.js`, `http-json.js`, `providers/evolution.js`, `providers/generic.js`)
 **Wiring:** `projects/mythos-ai-executor/bridge/github-bridge.js` (2 call sites), CLI `bin/mythos-github-bridge`
-**Suites:** `tests/mythos-bridge-whatsapp-notify-test.js` — 131 checks · `tests/mythos-bridge-whatsapp-resilience-test.js` — 95 checks. Both offline, no real message.
+**Suites:** `tests/mythos-bridge-whatsapp-notify-test.js` — 131 checks · `tests/mythos-bridge-whatsapp-resilience-test.js` — 101 checks. Both offline, no real message.
 **Default state:** **DISABLED.** Nothing is sent, no ledger is created, no request is made, until it is explicitly configured *and* `MYTHOS_BRIDGE_WHATSAPP_ENABLED=1`.
 
 > **gh-issue-147 changed four things** (rationale, evidence and the provider
@@ -116,20 +116,20 @@ input to the decision: the *provider* matters far less than the *coupling*.
 
 ### 3.3 Candidate comparison
 
-**Verification status — read this before trusting the table.** This run had
-**no outbound network access** (`WebFetch`/`WebSearch` unavailable, direct
-HTTPS blocked by the sandbox), so upstream facts about the four candidates —
-current maintenance, licence, release cadence, memory footprint — could
-**not** be live-verified. They are marked `TO-VERIFY` and are recorded that
-way in the Open Source Registry too. The columns that *are* verified are the
-ones derived from this repository and this host.
+**Verification status.** The table below is the 2026-09-02 design-time view
+and was written without network access. **Every upstream fact was live-verified
+on 2026-09-04 (WA-PROVIDER-2)** — the authoritative, sourced table is
+`docs/MYTHOS_WHATSAPP_PROVIDER_STRATEGY.md` §3.2, and the Open Source Registry
+record carries the same data with `verified_at: 2026-09-04`. Where the two
+disagree, the strategy document wins.
 
 | Candidate | Fit for "one outbound text" | Weight | Licence / maintenance | Status |
 |---|---|---|---|---|
-| **Evolution API** | good — a documented single-endpoint text send (`POST /message/sendText/{instance}`) with a simple `apikey` header | heaviest of the four in its full deployment (API + Postgres + Redis); a minimal single-instance deployment is much smaller | TO-VERIFY | **selected as the default adapter** |
-| **WAHA** | good — comparable single-endpoint send | lighter minimal profile than a full Evolution stack | TO-VERIFY (core/plus licensing split needs confirming) | viable alternative, **not implemented** |
-| **MultiWA** | unknown | unknown | TO-VERIFY — could not be identified as a maintained project without network access | **not selected**: an unverifiable dependency cannot be the default |
-| **WaSphere** | unknown | unknown | TO-VERIFY — same | **not selected**: same |
+| **Evolution API** | good — a documented single-endpoint text send (`POST /message/sendText/{instance}`) with a simple `apikey` header | heaviest: vendor minimum "at least 2GB of available RAM", PostgreSQL/MySQL + Redis, 4-container compose; image 389 MB compressed (already pulled on this host) | **verified 2026-09-04:** Apache-2.0 **plus a usage-notification condition** (a visible "Evolution API is being utilized" notice for administrators is required if deployed); last stable release 2025-12-05 | **selected as the default adapter** |
+| **wa-evolution** | identical to Evolution byte for byte (`providers/evolution.js` drives it unchanged) | lightest: 9.6 MB image, one static Go binary, embedded SQLite, no services | **verified 2026-09-04:** MIT; 0 stars, one author, from-scratch protocol stack (`wa-go`), two months old | light candidate for the measurement gate — **owner risk decision**, not deployed |
+| **WAHA** | good — `POST /api/sendText`, `X-Api-Key`, `{session, chatId, text}`, id at `id` | image 1,156 MB (Chromium inside); NOWEB/GOWS engines run without a browser — no vendor RAM figure, measure it | **verified 2026-09-04:** Apache-2.0, no Core/Plus split since 2026.6.1, monthly releases | viable alternative, driven by `generic` with four environment variables — **not deployed** |
+| **MultiWA** | multi-engine, multi-tenant gateway — more than the requirement | not lighter than the three above | **identified 2026-09-04:** `ribato22/MultiWA`, MIT, 28 ★ | **not shortlisted** |
+| **WaSphere** | same class | same | **identified 2026-09-04:** `wasphere/wasphere`, MIT, 49 ★ | **not shortlisted** |
 
 ### 3.4 Verdict
 
@@ -516,7 +516,7 @@ exhaustion and reclaim, which is exactly the condition the breaker
 short-circuits. Leaving it on would make the suite test the breaker instead of
 what it is for.
 
-`node tests/mythos-bridge-whatsapp-resilience-test.js` — **95 checks, all
+`node tests/mythos-bridge-whatsapp-resilience-test.js` — **101 checks, all
 passing**, same offline discipline, covering what gh-issue-147 added:
 
 | Section | Covers |
@@ -564,11 +564,13 @@ Three levels, cheapest first — all reversible, none touching Git history:
 
 ## 10. Residual risks
 
-- **The provider is not yet chosen against live upstream data.** §3.3 is
-  explicitly `TO-VERIFY`, and gh-issue-147 could not verify it either (no
-  outbound research capability in that run — including for `wa-evolution`).
-  The decision is provisional and the adapter boundary, now including the
-  configuration-driven `generic` adapter, is what makes it cheap to change.
+- **The provider is verified upstream but not measured on this host.**
+  WA-PROVIDER-2 (2026-09-04) live-verified licence, maintenance, footprint
+  claims and send contracts for Evolution API, wa-evolution and WAHA and
+  shortlisted WAHA (NOWEB/GOWS) and wa-evolution for the measurement gate; the
+  decision stays provisional until one of them has run a week under a memory
+  cap here. The adapter boundary, including the configuration-driven
+  `generic` adapter, is what keeps that change cheap.
   Full analysis and the replacement gate: `docs/MYTHOS_WHATSAPP_PROVIDER_STRATEGY.md`.
 - **The real smoke test has not been performed** (§7.1). Everything up to
   the socket is proven against a real HTTP server; the WhatsApp side is not.

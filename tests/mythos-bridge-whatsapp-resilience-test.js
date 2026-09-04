@@ -225,6 +225,49 @@ function run() {
 
   // =================================================================
   // 3. End to end through a non-default provider
+  .then(function () {
+    section('generic-waha');
+    // The WAHA mapping documented in docs/MYTHOS_WHATSAPP_PROVIDER_STRATEGY.md
+    // §3.2 (live-verified upstream 2026-09-04: POST /api/sendText, header
+    // X-Api-Key, body {session, chatId "<msisdn>@c.us", text}, WAMessage with a
+    // top-level `id`) must be drivable by `generic` with NO code change. If
+    // generic.js ever stops substituting inside a string value, or stops
+    // reading a top-level id, this is where it shows.
+    var opts = {
+      path: '/api/sendText',
+      authHeader: 'X-Api-Key',
+      bodyTemplate: '{"session":"{{instance}}","chatId":"{{to}}@c.us","text":"{{text}}"}',
+      idPath: 'id'
+    };
+    gateway.body = '{"id":"true_21620000001@c.us_3EB0A1B2","timestamp":1756990000,"from":"mythos-bridge","fromMe":true,"body":"hello WAHA","ack":1}';
+    return generic.sendText({ baseUrl: BASE_URL, instance: 'mythos-bridge', apiKey: API_KEY, to: '21620000001', text: 'hello WAHA', options: opts })
+      .then(function (r) {
+        ok(received.length === 1 && received[0].url === '/api/sendText', 'waha mapping: the documented endpoint is used');
+        ok(received[0].headers['x-api-key'] === API_KEY && received[0].headers.apikey === undefined, 'waha mapping: the credential travels as X-Api-Key only');
+        var b = received[0].body;
+        ok(b && b.session === 'mythos-bridge' && b.chatId === '21620000001@c.us' && b.text === 'hello WAHA',
+          'waha mapping: session, chatId with the @c.us suffix composed inside the template, and text are all substituted');
+        ok(r.ok === true && r.provider_message_id === 'true_21620000001@c.us_3EB0A1B2', 'waha mapping: the WAMessage top-level id is recorded as the provider message id');
+        gateway.body = '{"key":{"id":"MOCK-1"},"status":"PENDING"}';
+      });
+  })
+  .then(function () {
+    section('evolution-wa-evolution');
+    // wa-evolution (live-verified 2026-09-04, internal/api/messages.go) answers
+    // the same request with HTTP 201 and {key:{remoteJid,fromMe,id},status}.
+    // The existing Evolution adapter must accept that reply unchanged.
+    gateway.status = 201;
+    gateway.body = '{"key":{"remoteJid":"21620000001@s.whatsapp.net","fromMe":true,"id":"3EB0WAEVO01"},"status":"PENDING"}';
+    return evolution.sendText({ baseUrl: BASE_URL, instance: 'mythos-bridge', apiKey: API_KEY, to: '21620000001', text: 'hello wa-evolution' })
+      .then(function (r) {
+        ok(received.length === 1 && received[0].url === '/message/sendText/mythos-bridge' && received[0].headers.apikey === API_KEY,
+          'wa-evolution: the Evolution adapter sends the byte-identical request it already sends');
+        ok(r.ok === true && r.provider_message_id === '3EB0WAEVO01', 'wa-evolution: a 201 + key.id reply is accepted by the Evolution adapter unchanged');
+        gateway.status = 200;
+        gateway.body = '{"key":{"id":"MOCK-1"},"status":"PENDING"}';
+      });
+  })
+
   // =================================================================
   .then(function () {
     section('generic-e2e', {
