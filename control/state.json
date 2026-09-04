@@ -1,15 +1,15 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-04T19:28:04.283Z",
+  "generated_at": "2026-09-04T19:38:41.459Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
     "PENDING": 1,
-    "CLAIMED": 1,
+    "CLAIMED": 0,
     "IN_PROGRESS": 1,
     "VALIDATING": 0,
-    "COMPLETED": 36,
+    "COMPLETED": 37,
     "BLOCKED": 23,
     "FAILED": 0,
     "CANCELLED": 0
@@ -18,8 +18,7 @@
     "gh-issue-164"
   ],
   "active": [
-    "gh-issue-162-r2",
-    "gh-issue-167"
+    "gh-issue-162-r2"
   ],
   "awaiting_review": [
     "gh-20260902-bridge-smoke-01",
@@ -78,6 +77,7 @@
     "gh-issue-160",
     "gh-issue-161",
     "gh-issue-162",
+    "gh-issue-167",
     "gh-issue-95",
     "gh-issue-97",
     "gh-issue-99"
@@ -1358,7 +1358,7 @@
     },
     {
       "task_id": "gh-issue-162-r2",
-      "status": "CLAIMED",
+      "status": "IN_PROGRESS",
       "priority": "normal",
       "requested_action": "implement",
       "action_source": "explicit_current_issue",
@@ -1367,7 +1367,7 @@
       "blocker": null,
       "created_at": "2026-09-04T19:27:55.281Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-04T19:28:00.539Z",
+      "updated_at": "2026-09-04T19:38:41.452Z",
       "executor_task_id": "t-20260904192800-j4tpvf",
       "branch": "mythos/gh/gh-issue-162-r2",
       "task_file": "control/tasks/gh-issue-162-r2.json",
@@ -1404,7 +1404,7 @@
     },
     {
       "task_id": "gh-issue-167",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "priority": "normal",
       "requested_action": "implement",
       "action_source": "explicit_current_issue",
@@ -1413,11 +1413,11 @@
       "blocker": null,
       "created_at": "2026-09-04T19:13:31.961Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-04T19:26:48.403Z",
+      "updated_at": "2026-09-04T19:38:41.441Z",
       "executor_task_id": "t-20260904191409-oto4m0",
       "branch": "mythos/gh/gh-issue-167",
       "task_file": "control/tasks/gh-issue-167.json",
-      "report_file": null,
+      "report_file": "control/reports/gh-issue-167.json",
       "source": {
         "kind": "github-issue",
         "issue_number": 167,
@@ -1495,7 +1495,9 @@
       }
     }
   ],
-  "notes": [],
+  "notes": [
+    "runtime identity: RUNTIME_STALE_CHECKOUT — claims continue (recorded on each claim/report): checkout HEAD 5b995e9562df is behind origin/main b7b1382c37a3 — the running bridge is older than what is delivered"
+  ],
   "how_to": {
     "create_task": "Add control/tasks/<task_id>.json (schema: control/schemas/task.schema.json) with status PENDING on branch mythos/control.",
     "read_report": "control/reports/<task_id>.json (and .md) appears when the task reaches COMPLETED, BLOCKED, FAILED or CANCELLED.",
