@@ -10,7 +10,7 @@
   "action_raw": "implementation",
   "action_source": "action_label",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-04T10:31:40.010Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #153 https://github.com/othoth77/mythos-prod/issues/153 — \"Bridge Verification — Read Only\"\n\nrequested_action: implement — source action_label (written as \"implementation\") → execution profile repo-write\n\n[execution]\nThe Bridge MUST pick up this TASK through the normal governed workflow and perform the verification itself.\n\n[verify]\n- Checkout/commit identity is exactly `4ffb8d203f37fd43fef4eb2b93998ef5783065d1`.\n- Working tree is clean.\n- Bridge entrypoint and relevant modules load successfully.\n- Action Resolution / Bridge paths introduced or affected by the merged changes load successfully.\n- WhatsApp resilience/provider modules are present and load successfully where applicable.\n- Run safe, non-mutating tests, dry-runs, status checks, or diagnostics required to establish operational readiness.\n- Confirm the Bridge can reach the expected code path without claiming or executing a real production TASK.\n\n[safety boundary]\n- READ-ONLY / NO-OP verification only.\n- **NO WhatsApp message and NO provider delivery call.**\n- **NO real TASK claim, lease, dispatch, or execution.**\n- **NO production/runtime state mutation.**\n- **NO systemd/service/process restart.**\n- **NO lifecycle activation.**\n- No `git reset --hard`, `git clean`, force push, stash, or other destructive Git operation.\n- If a required check would mutate state, STOP and report instead of performing it.\n\n[deliverable]\nProduce a `BRIDGE VERIFICATION REPORT` in the task evidence containing:\n- verified commit SHA\n- Bridge/modules checked\n- exact checks/tests/diagnostics executed\n- PASS/FAIL per check\n- proof that no WhatsApp/provider delivery occurred\n- proof that no production/runtime state changed\n- proof that no restart occurred\n- final verdict: `BRIDGE VERIFIED — SAFE` or `BRIDGE VERIFICATION FAILED`\n\n[important]\nCompletion of this TASK does **not** authorize an Executor restart, lifecycle activation, deployment, merge, or any other production change. Those remain separate decisions.\n\nIf any precondition is unsafe or ambiguous, STOP safely and return the evidence; do not self-repair.",
@@ -147,8 +147,8 @@
     "claimed_at": "2026-09-04T10:31:43.828Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "c583f3a156b2070b4a31ed0b0c4b5b15ad83a64d6a76f6dbfb2a0c8c621d157f",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-04T10:31:43.829Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-04T10:33:00.730Z",
     "snapshot_sha256": "528c1a241c7b310515706e2d63c6ac14efa0e6d258df401ae0910e7aa5d111a5",
     "fence": 3530,
     "lease": {
@@ -176,7 +176,8 @@
       "measured_at": "2026-09-04T10:31:42.745Z"
     },
     "model": "claude-sonnet-5",
-    "model_selection_mode": "auto"
+    "model_selection_mode": "auto",
+    "claude_session_id": "fc84b395-c2ea-4356-ad66-4b5c9d9f4fd0"
   },
   "history": [
     {
@@ -185,6 +186,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260904103143-qtoyc0 queued; OTHMODE OTH-2026-00073; action implement (action_label) → repo-write; model claude-sonnet-5; fence 3530"
+    },
+    {
+      "at": "2026-09-04T10:33:00.730Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
