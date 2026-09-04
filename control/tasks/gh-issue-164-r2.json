@@ -27,7 +27,7 @@
     "Delivery ledger and idempotency are verified, and exact evidence is recorded in `docs/AI_HANDOVER.md`.",
     "If the environment lacks the required production configuration or test recipient, leave the task BLOCKED with the exact missing prerequisite."
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-04T20:41:09.545Z",
   "created_by": "github-issue:othoth77",
   "model": "fable-5.1",
@@ -169,5 +169,64 @@
         "mythos:cancelled"
       ]
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260904204114-zny5n8",
+    "othmode_task_id": "OTH-2026-00168",
+    "attempt_id": "gh-issue-164-r2#2",
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "expected_delivery": "commit",
+    "model_key": "fable-5.1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-164-r2",
+    "branch": "mythos/gh/gh-issue-164-r2",
+    "base_commit": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+    "claimed_at": "2026-09-04T20:41:14.275Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "71c295e256d33ffada96701a69c2eaa19a91c8450fad15a2ec791a31bb1c8fa9",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-04T20:41:14.276Z",
+    "snapshot_sha256": "ca0e48748ef6e2ca387103e087c5849ee27361ca2852a48682631a0e772711de",
+    "fence": 4741,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:261624",
+      "fence": 4741,
+      "acquired_at": "2026-09-04T20:41:14.275Z",
+      "expires_at": "2026-09-04T22:11:14.275Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+      "branch": "main",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-04T20:41:13.314Z"
+    },
+    "model": "claude-fable-5-1",
+    "model_selection_mode": "explicit"
+  },
+  "history": [
+    {
+      "at": "2026-09-04T20:41:14.313Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260904204114-zny5n8 queued; OTHMODE OTH-2026-00168; action implement (explicit_current_issue) → repo-write; model claude-fable-5-1; fence 4741"
+    }
+  ]
 }
