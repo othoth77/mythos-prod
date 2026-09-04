@@ -1,0 +1,5348 @@
+{
+  "schema_version": "1.0.0",
+  "policy_version": "1.0.0",
+  "generated_at": "2026-09-04T12:08:35.005Z",
+  "note": "OTHMODE skill trust ledger — one CURRENT attestation per skill, bound to the skill content by sha256. Written only by projects/command-center/cli/skill-trust-cli.js after NVIDIA SkillSpector, Gitleaks and NVIDIA SkillEvaluator have scanned the exact bytes; verified by the executor (lib/skill-trust.js) before a skill may be selected or rendered. Edit by rescanning, never by hand.",
+  "skills": {
+    "graphify": {
+      "id": "graphify",
+      "registry": "claude",
+      "source_path": ".claude/skills/graphify",
+      "version": null,
+      "content_sha256": "7e1c080109e2b80ff687f740592290f9fa848a43aa618218af5ec753012519cb",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:04:31.194Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 11,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 14
+          }
+        }
+      },
+      "findings_recorded": 14,
+      "findings_total": 14,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-change-impact": {
+      "id": "mythos-change-impact",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-change-impact",
+      "version": null,
+      "content_sha256": "6db073e826e9f3b2e3bfe58e86ad41d784d7dfa163c1af6bc67a2dc0be540113",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:04:40.579Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 11,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 14
+          }
+        }
+      },
+      "findings_recorded": 14,
+      "findings_total": 14,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-client-360": {
+      "id": "mythos-client-360",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-client-360",
+      "version": null,
+      "content_sha256": "b0d6b9396ba01c7c4563d5caa7c2ab93715380bb890cd5e11b055c127e9608c4",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:04:49.907Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 12,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 15
+          }
+        }
+      },
+      "findings_recorded": 15,
+      "findings_total": 15,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-context-assembler": {
+      "id": "mythos-context-assembler",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-context-assembler",
+      "version": null,
+      "content_sha256": "bb0121a2e360cf14b6e9c6360a7c329b31e3ae668fbfd7909a838ffbd70b9ca4",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:04:59.609Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 11,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 14
+          }
+        }
+      },
+      "findings_recorded": 14,
+      "findings_total": 14,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-doc-sync": {
+      "id": "mythos-doc-sync",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-doc-sync",
+      "version": null,
+      "content_sha256": "beeb21be090ffd5859332e0d200c4718d099953a253cc3cf2bc8dbd1fd0f37d1",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:05:09.649Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 10,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 13
+          }
+        }
+      },
+      "findings_recorded": 13,
+      "findings_total": 13,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-document-intelligence": {
+      "id": "mythos-document-intelligence",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-document-intelligence",
+      "version": null,
+      "content_sha256": "f7e2ee84250ea945b67e6c5fa7671685b279f72bfc540a2c504c794362c1858c",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:05:19.002Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 1,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 11,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 14
+          }
+        }
+      },
+      "findings_recorded": 14,
+      "findings_total": 14,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-error-doctor": {
+      "id": "mythos-error-doctor",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-error-doctor",
+      "version": null,
+      "content_sha256": "49c2584ef17cca6413234abc07e827325b67a6befee7964b34b08aa3dc4ffac2",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:05:28.516Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 9,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 12
+          }
+        }
+      },
+      "findings_recorded": 12,
+      "findings_total": 12,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-intent-architect": {
+      "id": "mythos-intent-architect",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-intent-architect",
+      "version": null,
+      "content_sha256": "46e1f3f045842e615bfa3b5b9b9847fac0f02420f5a5ba098cd967cf1153a3c0",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:05:37.363Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 12,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 15
+          }
+        }
+      },
+      "findings_recorded": 15,
+      "findings_total": 15,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-invoice-intelligence": {
+      "id": "mythos-invoice-intelligence",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-invoice-intelligence",
+      "version": null,
+      "content_sha256": "41befb67a3dc10c0626feafcb6bd226b9c1c91008917f6b2893561802c5998ae",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:05:46.220Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 12,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 15
+          }
+        }
+      },
+      "findings_recorded": 15,
+      "findings_total": 15,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-migration": {
+      "id": "mythos-migration",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-migration",
+      "version": null,
+      "content_sha256": "ef2c17da843d3e4e001fdc88b5751eaa16b69f1f0a920c830c9fbb667f80c16a",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:05:55.391Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 10,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 13
+          }
+        }
+      },
+      "findings_recorded": 13,
+      "findings_total": 13,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-personal-learning": {
+      "id": "mythos-personal-learning",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-personal-learning",
+      "version": null,
+      "content_sha256": "5d9c122e53374ce9e61ff9669ca0a4163942a90b5b8f0a1dcc5c2504002d5c15",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:06:04.546Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 11,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 14
+          }
+        }
+      },
+      "findings_recorded": 14,
+      "findings_total": 14,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-project-context": {
+      "id": "mythos-project-context",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-project-context",
+      "version": null,
+      "content_sha256": "f9e61132b342471dd086e945dad3e8eb6e0cf56a455438b87b662c83397cfbbe",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:06:14.047Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 11,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 14
+          }
+        }
+      },
+      "findings_recorded": 14,
+      "findings_total": 14,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-project-history": {
+      "id": "mythos-project-history",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-project-history",
+      "version": null,
+      "content_sha256": "28044770bb0a41a80282f50d9bf695b763889d1e2e005e8a0f6ff3681f95fad6",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:06:23.754Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 10,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 13
+          }
+        }
+      },
+      "findings_recorded": 13,
+      "findings_total": 13,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-repo-guardian": {
+      "id": "mythos-repo-guardian",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-repo-guardian",
+      "version": null,
+      "content_sha256": "d8084e1b28e53643f4a87ddbf8b78527b868d83ce8dee463d9ed9f564b120360",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:06:33.880Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 11,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 14
+          }
+        }
+      },
+      "findings_recorded": 14,
+      "findings_total": 14,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-safe-change": {
+      "id": "mythos-safe-change",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-safe-change",
+      "version": null,
+      "content_sha256": "9570097bebfc38d6c7ecb2207c116d1539d7a07e368c15f7d0c12b8db5d705ec",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:06:43.603Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 9,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 12
+          }
+        }
+      },
+      "findings_recorded": 12,
+      "findings_total": 12,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-skill-evolution": {
+      "id": "mythos-skill-evolution",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-skill-evolution",
+      "version": null,
+      "content_sha256": "e017a350f8d58548181f93cd22877740e576deb8d005ec92fa6c49d3f39c6ba4",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:06:55.494Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 8,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 11
+          }
+        }
+      },
+      "findings_recorded": 11,
+      "findings_total": 11,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-skill-guard": {
+      "id": "mythos-skill-guard",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-skill-guard",
+      "version": null,
+      "content_sha256": "80d9025b64638e792f18e3b38d7d239ec45eecb64edfb26a3d947e971168c8df",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:07:05.972Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 11,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 14
+          }
+        }
+      },
+      "findings_recorded": 14,
+      "findings_total": 14,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-skill-router": {
+      "id": "mythos-skill-router",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-skill-router",
+      "version": null,
+      "content_sha256": "197349191b128626d267b2d8ed3d918006840489209462245707ceaedc693241",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:07:14.905Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 9,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 12
+          }
+        }
+      },
+      "findings_recorded": 12,
+      "findings_total": 12,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-smart-data-entry": {
+      "id": "mythos-smart-data-entry",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-smart-data-entry",
+      "version": null,
+      "content_sha256": "a904094e235af210bb9595da54cca537da20db7ac95e2a92337e4e6d56d1bcc0",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:07:24.394Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 12,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 15
+          }
+        }
+      },
+      "findings_recorded": 15,
+      "findings_total": 15,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-superposer": {
+      "id": "mythos-superposer",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-superposer",
+      "version": null,
+      "content_sha256": "6259d987cbf25b8bbf8d65cbb8ea0719324f87b0875a2416ad21ab7bb80af60d",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:07:33.896Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 9,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 12
+          }
+        }
+      },
+      "findings_recorded": 12,
+      "findings_total": 12,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "mythos-test-intelligence": {
+      "id": "mythos-test-intelligence",
+      "registry": "claude",
+      "source_path": ".claude/skills/mythos-test-intelligence",
+      "version": null,
+      "content_sha256": "b130b41157d58d8e2bb5d07a021f300bba87b2aec863ec698c7ab01c72ab8302",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:07:43.715Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 9,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 12
+          }
+        }
+      },
+      "findings_recorded": 12,
+      "findings_total": 12,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "postflight": {
+      "id": "postflight",
+      "registry": "claude",
+      "source_path": ".claude/skills/postflight",
+      "version": null,
+      "content_sha256": "a1ead836ac690288d428bc156afeaaecf5834a2e81a030973db932eb917c4335",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:07:53.352Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 10,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 13
+          }
+        }
+      },
+      "findings_recorded": 13,
+      "findings_total": 13,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "preflight": {
+      "id": "preflight",
+      "registry": "claude",
+      "source_path": ".claude/skills/preflight",
+      "version": null,
+      "content_sha256": "fa6c9af3a09a71e4dde43a3891af76d49ecfb002c71216975b51f20f9a445c21",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:08:03.849Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 1,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 11,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 14
+          }
+        }
+      },
+      "findings_recorded": 14,
+      "findings_total": 14,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "search-first": {
+      "id": "search-first",
+      "registry": "claude",
+      "source_path": ".claude/skills/search-first",
+      "version": null,
+      "content_sha256": "c61a7e663633becbb36eba8d9339b84828953be6e0f6fab5f494a3be8d4d0a9a",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:08:14.702Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 11,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 14
+          }
+        }
+      },
+      "findings_recorded": 14,
+      "findings_total": 14,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "session-handoff": {
+      "id": "session-handoff",
+      "registry": "claude",
+      "source_path": ".claude/skills/session-handoff",
+      "version": null,
+      "content_sha256": "1c088921cd16165f3fdb6ff4983b5476340a592d39f2a5ff2c87a48f1998c6be",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:08:25.187Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 11,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 14
+          }
+        }
+      },
+      "findings_recorded": 14,
+      "findings_total": 14,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    },
+    "status-sync": {
+      "id": "status-sync",
+      "registry": "claude",
+      "source_path": ".claude/skills/status-sync",
+      "version": null,
+      "content_sha256": "f0e5a54ed5ce1a2fe0db71e5e307b6563f899816afbbac388e84a8fa26a63602",
+      "decision": "ACCEPT",
+      "reasons": [
+        "skillspector: CAUTION downgraded to ACCEPT — score 0, no issues, partial only for reference_unresolved"
+      ],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:08:35.000Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "CAUTION",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "partial",
+            "is_complete": false,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [
+              "reference_unresolved"
+            ],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 3,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "passed",
+                "findings": 9,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 12
+          }
+        }
+      },
+      "findings_recorded": 12,
+      "findings_total": 12,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "body_recommended_section",
+          "category": "SCHEMA",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "author_missing",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_correctness",
+          "category": "QUALITY",
+          "severity": "MEDIUM",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_discoverability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "quality_reliability",
+          "category": "QUALITY",
+          "severity": "LOW",
+          "file": "SKILL.md",
+          "line": null
+        }
+      ]
+    }
+  }
+}

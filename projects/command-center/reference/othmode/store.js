@@ -49,7 +49,10 @@ function filePath(name) { return path.join(root(), name); }
 var STREAMS = {
   evolution: 'evolution/events.jsonl',
   recovery: 'recovery/records.jsonl',
-  tasks: 'tasks/records.jsonl'
+  tasks: 'tasks/records.jsonl',
+  // SKILL-TRUST-0: every scan ever run (skill, hash, scanners, decision).
+  // The Git ledgers hold the CURRENT attestation; this stream is the history.
+  trust: 'trust/records.jsonl'
 };
 
 function appendRecord(stream, record) {

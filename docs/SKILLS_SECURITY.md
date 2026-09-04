@@ -43,6 +43,12 @@ A learned or explicit user preference may change *how* a permitted action is pre
 
 ---
 
+## 4b. Supply-chain trust of the skill itself (SKILL-TRUST-0, 2026-09-04)
+
+Guard (§2) decides whether a *permitted* skill may act for a given user. It says nothing about whether the skill's own text and scripts are safe to hand to a model. That is the Security / Trust Gate: every skill in `.claude/skills/` and in the executor registry is scanned by NVIDIA SkillSpector, Gitleaks and NVIDIA SkillEvaluator Tier 1, the results are folded by the OTHMODE policy into `ACCEPT / REVIEW / BLOCK`, and the decision is bound to the skill's content hash in a Git-tracked ledger. The executor's `lib/skills.js` injects a runtime skill only with a matching `ACCEPT`; an edit, a version bump or a widened MCP allowance makes the attestation `STALE` until a rescan. Learning and Guard can never raise this decision either — it is upstream of both. Specification and operations: `docs/OTHMODE_SKILL_TRUST.md`.
+
+---
+
 ## 5. Data Classification
 
 Every resource a skill touches carries an implicit or explicit data classification (e.g. public, organisation-internal, personal, financial, regulated). Guard takes `dataClassification` as a direct input and never resolves a regulated/financial classification below `REQUIRE_APPROVAL`, independent of the underlying permission decision (see `projects/personal-intelligence/reference/guard.js`). Automation level is a separate, earlier check — it is validated upstream at `GATE_CHECK` (`docs/AUTOMATION_ARCHITECTURE.md` §3) before Guard is ever invoked, not re-evaluated inside Guard itself.

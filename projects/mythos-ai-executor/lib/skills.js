@@ -19,15 +19,29 @@
 // happen to validate — a registry is one unit, not a bag of independent
 // entries. selectSkill on an invalid registry returns no skill; the
 // mission still runs (missions never depend on the skill layer to exist).
+//
+// SECURITY / TRUST GATE (SKILL-TRUST-0): a validated registry entry is
+// NECESSARY, not sufficient. A skill is selectable and renderable only
+// while lib/skill-trust.js finds a content-bound ACCEPT attestation for it
+// in config/skill-trust.json — written by the OTHMODE control plane after
+// NVIDIA SkillSpector, Gitleaks and NVIDIA SkillEvaluator have scanned the
+// exact bytes on disk and the OTHMODE policy said ACCEPT. Anything else
+// (no ledger, no entry, REVIEW, BLOCK, a hash that no longer matches the
+// file) makes the skill UNTRUSTED: it stays in the registry, is reported
+// with its status, and is never injected into a prompt. Per-skill, not
+// per-registry: an untrusted skill does not darken its neighbours, because
+// the attestation is the operator's decision about THAT skill.
 // =====================================================
 
 var fs = require('fs');
 var path = require('path');
 
 var policy = require('./policy');
+var trustLib = require('./skill-trust');
 
 var DEFAULT_REGISTRY_PATH = path.join(__dirname, '..', 'config', 'skills.json');
 var DEFAULT_SKILLS_DIR = path.join(__dirname, '..', 'skills');
+var DEFAULT_LEDGER_PATH = trustLib.DEFAULT_LEDGER_PATH;
 
 // The Phase-1 injection budget (PART 3 of the mission). A constant, not a
 // tunable: the truncation boundary must be the exact same number every
@@ -189,31 +203,76 @@ function cacheInstructionBodies(skills, skillsDir) {
 // { valid: false, skills: {}, reason } — with the reason logged once here
 // so an operator sees WHY the skills layer is dark, and callers simply get
 // "no skills available" rather than a crash.
-function loadRegistry(registryPath, skillsDir) {
+// Trust evaluation happens ONCE, here, against the same cached bytes the
+// prompt builder will inject (security review #1 made the body a load-time
+// snapshot; the hash is taken from that snapshot, so what was attested is
+// what is rendered). Returns id → verify() result. With enforcement
+// disabled (offline suites only) every skill is marked trusted with an
+// explicit 'BYPASS' status so a report can never mistake it for ACCEPT.
+function evaluateTrust(skills, bodies, ledgerPath) {
+  var out = Object.create(null);
+  var bypass = trustLib.enforcementDisabled();
+  var ledger = bypass ? null : trustLib.loadLedger(ledgerPath);
+  if (bypass) console.error('[mythos-ai-executor] WARNING: MYTHOS_SKILL_TRUST=off — skill trust gate bypassed (test mode)');
+  Object.keys(skills).forEach(function (id) {
+    if (bypass) { out[id] = { trusted: true, status: 'BYPASS', reason: 'MYTHOS_SKILL_TRUST=off', entry: null }; return; }
+    var body = bodies[id];
+    var hash = trustLib.hashExecutorSkill(skills[id], body);
+    out[id] = trustLib.verify(ledger, { id: id, registry: 'executor', content_sha256: hash });
+  });
+  return { trust: out, ledger: ledger };
+}
+
+function loadRegistry(registryPath, skillsDir, ledgerPath) {
   registryPath = registryPath || DEFAULT_REGISTRY_PATH;
   skillsDir = skillsDir || DEFAULT_SKILLS_DIR;
+  ledgerPath = ledgerPath || DEFAULT_LEDGER_PATH;
   var raw;
   try {
     raw = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
   } catch (e) {
     var readReason = 'registry unreadable or not valid JSON: ' + e.message;
     console.error('[mythos-ai-executor] skills layer disabled: ' + readReason);
-    return { valid: false, skills: {}, reason: readReason, skillsDir: skillsDir };
+    return { valid: false, skills: {}, reason: readReason, skillsDir: skillsDir, trust: {}, ledger: null };
   }
   var result = validateRegistryObject(raw, policy.profileNames());
   if (!result.valid) {
     console.error('[mythos-ai-executor] skills layer disabled: ' + result.reason);
-    return { valid: false, skills: {}, reason: result.reason, skillsDir: skillsDir };
+    return { valid: false, skills: {}, reason: result.reason, skillsDir: skillsDir, trust: {}, ledger: null };
   }
   var bodies = cacheInstructionBodies(result.skills, skillsDir);
-  return { valid: true, skills: result.skills, bodies: bodies, reason: null, skillsDir: skillsDir };
+  var evaluated = evaluateTrust(result.skills, bodies, ledgerPath);
+  Object.keys(evaluated.trust).forEach(function (id) {
+    if (!evaluated.trust[id].trusted) {
+      console.error('[mythos-ai-executor] skill ' + id + ' UNTRUSTED (' + evaluated.trust[id].status + '): ' + evaluated.trust[id].reason);
+    }
+  });
+  return { valid: true, skills: result.skills, bodies: bodies, reason: null, skillsDir: skillsDir,
+    trust: evaluated.trust, ledger: evaluated.ledger, ledgerPath: ledgerPath };
 }
 
 var DEFAULT_REGISTRY = loadRegistry();
 
+// The gate, in one place. A registry loaded before this stage (no `trust`
+// map) is treated as untrusted too — there is no legacy pass-through.
+function isTrusted(registry, id) {
+  return !!(registry && registry.trust && registry.trust[id] && registry.trust[id].trusted === true);
+}
+
+function trustStatus(id, registry) {
+  registry = registry || DEFAULT_REGISTRY;
+  if (!registry || !registry.trust || !registry.trust[id]) return { trusted: false, status: 'UNATTESTED', reason: 'no trust evaluation' };
+  var t = registry.trust[id];
+  return { trusted: t.trusted, status: t.status, reason: t.reason };
+}
+
+// getSkill is what buildPrompt consults on EVERY run and resume. Returning
+// null for an untrusted skill is what turns an attestation lapse into
+// '(no skill instructions active)' — fail closed, mission still runs.
 function getSkill(id, registry) {
   registry = registry || DEFAULT_REGISTRY;
   if (!registry.valid || !id) return null;
+  if (!isTrusted(registry, id)) return null;
   return registry.skills[id] || null;
 }
 
@@ -226,18 +285,25 @@ var KEYWORD_RULES = [
   { id: 'github-review', re: /github.*(review|pr)|pull request/ }
 ];
 
+// "Usable" = enabled in the registry AND trusted by the ledger. Selection
+// never sees an untrusted skill; it falls through exactly as a disabled
+// one does, with the reason recorded on the task.
+function usable(registry, s) {
+  return !!(s && s.enabled && isTrusted(registry, s.id));
+}
+
 function enabledSkillForCategory(registry, category) {
   var ids = Object.keys(registry.skills);
   for (var i = 0; i < ids.length; i++) {
     var s = registry.skills[ids[i]];
-    if (s.enabled && s.categories.indexOf(category) !== -1) return s;
+    if (usable(registry, s) && s.categories.indexOf(category) !== -1) return s;
   }
   return null;
 }
 
 function genericFallback(registry) {
   var g = registry.skills.generic;
-  return (g && g.enabled) ? g : null;
+  return usable(registry, g) ? g : null;
 }
 
 function selectSkill(input, registry) {
@@ -265,12 +331,15 @@ function selectSkill(input, registry) {
     if (KEYWORD_RULES[i].re.test(text)) { ruleId = KEYWORD_RULES[i].id; break; }
   }
   var candidate = registry.skills[ruleId];
-  if (candidate && candidate.enabled) return { skill: candidate, reason: 'keyword_rule:' + ruleId };
+  if (usable(registry, candidate)) return { skill: candidate, reason: 'keyword_rule:' + ruleId };
 
   var fallback2 = genericFallback(registry);
+  var why = (candidate && candidate.enabled && !isTrusted(registry, ruleId))
+    ? 'untrusted_skill_fallback_generic:' + ruleId + ':' + trustStatus(ruleId, registry).status
+    : 'disabled_skill_fallback_generic:' + ruleId;
   return {
     skill: fallback2,
-    reason: fallback2 ? 'disabled_skill_fallback_generic:' + ruleId : 'no_skill_available'
+    reason: fallback2 ? why : 'no_skill_available'
   };
 }
 
@@ -291,6 +360,12 @@ function renderSkillSection(skill, opts, registry) {
   var text;
   if (typeof opts.body === 'string') {
     text = opts.body;                                  // pure unit override
+  } else if (registry.trust && Object.prototype.hasOwnProperty.call(registry.trust, skill.id) && !isTrusted(registry, skill.id)) {
+    // Defence in depth for the trust gate: a caller holding a skill object
+    // from before an attestation lapsed still cannot render it. (A skill the
+    // registry has never seen is not "untrusted" here — it simply has no
+    // cached body and renders null below unless a test passes skillsDir.)
+    return null;
   } else if (opts.skillsDir) {
     // Ad-hoc / test render from an explicit dir — contained, fresh. The
     // PRODUCTION path (executor.js) never passes skillsDir, so it never
@@ -346,6 +421,7 @@ function listForApi(registry) {
     var s = registry.skills[id];
     var out = {};
     LIST_FIELDS.forEach(function (f) { out[f] = s[f]; });
+    out.trust = trustStatus(id, registry);
     return out;
   });
 }
@@ -353,6 +429,8 @@ function listForApi(registry) {
 module.exports = {
   DEFAULT_REGISTRY_PATH: DEFAULT_REGISTRY_PATH,
   DEFAULT_SKILLS_DIR: DEFAULT_SKILLS_DIR,
+  DEFAULT_LEDGER_PATH: DEFAULT_LEDGER_PATH,
+  trustStatus: trustStatus,
   SKILL_SECTION_BUDGET: SKILL_SECTION_BUDGET,
   TRUNCATION_MARKER: TRUNCATION_MARKER,
   validateRegistryObject: validateRegistryObject,

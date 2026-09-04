@@ -1,0 +1,558 @@
+{
+  "schema_version": "1.0.0",
+  "policy_version": "1.0.0",
+  "generated_at": "2026-09-04T12:09:25.602Z",
+  "note": "OTHMODE skill trust ledger — one CURRENT attestation per skill, bound to the skill content by sha256. Written only by projects/command-center/cli/skill-trust-cli.js after NVIDIA SkillSpector, Gitleaks and NVIDIA SkillEvaluator have scanned the exact bytes; verified by the executor (lib/skill-trust.js) before a skill may be selected or rendered. Edit by rescanning, never by hand.",
+  "skills": {
+    "frontend": {
+      "id": "frontend",
+      "registry": "executor",
+      "source_path": "projects/mythos-ai-executor/config/skills.json#frontend",
+      "version": "1.0.0",
+      "content_sha256": "ec76ede55451390654421b046750dd4fae75349d7802cdfe0ab8d830c5c67ec3",
+      "decision": "ACCEPT",
+      "reasons": [],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:08:45.088Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "SAFE",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "complete",
+            "is_complete": true,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 1,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "failed",
+                "findings": 1,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 2
+          }
+        }
+      },
+      "findings_recorded": 2,
+      "findings_total": 2,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "skill_discovery",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "frontend.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "skill_discovery",
+          "category": "QUALITY",
+          "severity": "HIGH",
+          "file": "frontend.md",
+          "line": null
+        }
+      ]
+    },
+    "generic": {
+      "id": "generic",
+      "registry": "executor",
+      "source_path": "projects/mythos-ai-executor/config/skills.json#generic",
+      "version": "1.0.0",
+      "content_sha256": "ab7b0c5229c6586af7dfe2905e5540127810f418294d03314a73e2953bc49dae",
+      "decision": "ACCEPT",
+      "reasons": [],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:08:55.023Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "SAFE",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 1,
+            "llm_requested": false,
+            "completeness": "complete",
+            "is_complete": true,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 1,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "failed",
+                "findings": 1,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 2
+          }
+        }
+      },
+      "findings_recorded": 2,
+      "findings_total": 2,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "skill_discovery",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "generic.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "skill_discovery",
+          "category": "QUALITY",
+          "severity": "HIGH",
+          "file": "generic.md",
+          "line": null
+        }
+      ]
+    },
+    "github-review": {
+      "id": "github-review",
+      "registry": "executor",
+      "source_path": "projects/mythos-ai-executor/config/skills.json#github-review",
+      "version": "1.0.0",
+      "content_sha256": "9ebedfde6c6be5ca4d80b903a8ac71e969065edbe2c2f36ab63e741b56a36fd3",
+      "decision": "ACCEPT",
+      "reasons": [],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:09:05.462Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "SAFE",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 1,
+            "llm_requested": false,
+            "completeness": "complete",
+            "is_complete": true,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 1,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "failed",
+                "findings": 1,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 2
+          }
+        }
+      },
+      "findings_recorded": 2,
+      "findings_total": 2,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "skill_discovery",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "github-review.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "skill_discovery",
+          "category": "QUALITY",
+          "severity": "HIGH",
+          "file": "github-review.md",
+          "line": null
+        }
+      ]
+    },
+    "security-audit": {
+      "id": "security-audit",
+      "registry": "executor",
+      "source_path": "projects/mythos-ai-executor/config/skills.json#security-audit",
+      "version": "1.0.0",
+      "content_sha256": "7c450c31a21c35749d06f1be6bd1db0c3460187f1462faeb217f1e5ace0bbf9e",
+      "decision": "ACCEPT",
+      "reasons": [],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:09:15.566Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "SAFE",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "complete",
+            "is_complete": true,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 1,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "failed",
+                "findings": 1,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 2
+          }
+        }
+      },
+      "findings_recorded": 2,
+      "findings_total": 2,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "skill_discovery",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "security-audit.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "skill_discovery",
+          "category": "QUALITY",
+          "severity": "HIGH",
+          "file": "security-audit.md",
+          "line": null
+        }
+      ]
+    },
+    "testing": {
+      "id": "testing",
+      "registry": "executor",
+      "source_path": "projects/mythos-ai-executor/config/skills.json#testing",
+      "version": "1.0.0",
+      "content_sha256": "914e34e82acadaae33347444aaf9feca42fe186b51baf980c3fab2b93df7d740",
+      "decision": "ACCEPT",
+      "reasons": [],
+      "per_scanner": {
+        "skillspector": "ACCEPT",
+        "gitleaks": "ACCEPT",
+        "skillevaluator": "ACCEPT"
+      },
+      "scanned_at": "2026-09-04T12:09:25.600Z",
+      "scanned_by": "operator:deploy",
+      "runner_version": "1.0.0",
+      "policy_version": "1.0.0",
+      "scanners": {
+        "skillspector": {
+          "version": "2.11.0",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "risk_score": 0,
+            "severity": "LOW",
+            "recommendation": "SAFE",
+            "max_issue_severity": "NONE",
+            "issues": 0,
+            "suppressed": 0,
+            "llm_requested": false,
+            "completeness": "complete",
+            "is_complete": true,
+            "uninspected_files": 0,
+            "partially_inspected_files": 0,
+            "partial_reasons": [],
+            "has_executable_scripts": false
+          }
+        },
+        "gitleaks": {
+          "version": "8.30.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "findings": 0
+          }
+        },
+        "skillevaluator": {
+          "version": "0.2.1",
+          "status": "ok",
+          "reason": null,
+          "summary": {
+            "overall_status": "failed",
+            "incomplete_scans": [],
+            "checks": {
+              "Schema & Repository Governance": {
+                "status": "failed",
+                "findings": 1,
+                "incomplete": []
+              },
+              "PII Scan": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "License Compliance": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "Unicode Smuggling Detection": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              },
+              "QUALITY": {
+                "status": "failed",
+                "findings": 1,
+                "incomplete": []
+              },
+              "SCRIPT_LINT": {
+                "status": "passed",
+                "findings": 0,
+                "incomplete": []
+              }
+            },
+            "findings": 2
+          }
+        }
+      },
+      "findings_recorded": 2,
+      "findings_total": 2,
+      "findings": [
+        {
+          "scanner": "skillevaluator",
+          "id": "skill_discovery",
+          "category": "SCHEMA",
+          "severity": "HIGH",
+          "file": "testing.md",
+          "line": null
+        },
+        {
+          "scanner": "skillevaluator",
+          "id": "skill_discovery",
+          "category": "QUALITY",
+          "severity": "HIGH",
+          "file": "testing.md",
+          "line": null
+        }
+      ]
+    }
+  }
+}

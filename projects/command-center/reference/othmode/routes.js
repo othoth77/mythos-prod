@@ -294,6 +294,24 @@ function buildRoutes(db, auth) {
     { method: 'GET', auth: false, pattern: /^\/api\/othmode\/mcp$/, handler: function (req, res) {
       return sendJson(res, 200, registries.mcp());
     } },
+    // SKILL-TRUST-0: the Security / Trust Gate overview — policy state, the
+    // per-skill trust rows (both registries) and the per-server MCP
+    // decisions. Public read like the registries it summarises; it writes
+    // nothing (attestation is an operator CLI + Git diff, never an API).
+    { method: 'GET', auth: false, pattern: /^\/api\/othmode\/trust$/, handler: function (req, res) {
+      var sk = registries.skills();
+      var mc = registries.mcp();
+      return sendJson(res, 200, {
+        policy: sk.trust_policy,
+        skills: { total: sk.total, summary: sk.trust_summary, rows: sk.skills.map(function (s) {
+          return { id: s.id, registry: s.registry, version: s.version, status: s.status, trust: s.trust };
+        }) },
+        mcp: { total: mc.total, summary: mc.trust_summary, checked_at: mc.checked_at, rows: mc.servers.map(function (s) {
+          return { name: s.name, enabled: s.enabled, status: s.status, trust: s.trust };
+        }) },
+        principle: 'No scan is not safe. Scanner failure is not safe. Unknown is REVIEW. DO_NOT_INSTALL is BLOCK.'
+      });
+    } },
 
     // ── OTHMODE availability + per-command activation ────────────────────
     // There is NO global switch any more. OTHMODE is always available;
