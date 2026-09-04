@@ -1,12 +1,12 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-04T19:13:34.521Z",
+  "generated_at": "2026-09-04T19:14:10.076Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
-    "PENDING": 2,
-    "CLAIMED": 1,
+    "PENDING": 1,
+    "CLAIMED": 2,
     "IN_PROGRESS": 0,
     "VALIDATING": 0,
     "COMPLETED": 36,
@@ -15,11 +15,11 @@
     "CANCELLED": 0
   },
   "pending": [
-    "gh-issue-164",
-    "gh-issue-167"
+    "gh-issue-164"
   ],
   "active": [
-    "gh-issue-162"
+    "gh-issue-162",
+    "gh-issue-167"
   ],
   "awaiting_review": [
     "gh-20260902-bridge-smoke-01",
@@ -1380,18 +1380,18 @@
     },
     {
       "task_id": "gh-issue-167",
-      "status": "PENDING",
+      "status": "CLAIMED",
       "priority": "normal",
       "requested_action": "implement",
       "action_source": "explicit_current_issue",
-      "execution_profile": null,
-      "model": "fable-5.1",
+      "execution_profile": "repo-write",
+      "model": "claude-fable-5-1",
       "blocker": null,
       "created_at": "2026-09-04T19:13:31.961Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-04T19:13:31.961Z",
-      "executor_task_id": null,
-      "branch": null,
+      "updated_at": "2026-09-04T19:14:10.040Z",
+      "executor_task_id": "t-20260904191409-oto4m0",
+      "branch": "mythos/gh/gh-issue-167",
       "task_file": "control/tasks/gh-issue-167.json",
       "report_file": null,
       "source": {
@@ -1471,7 +1471,9 @@
       }
     }
   ],
-  "notes": [],
+  "notes": [
+    "runtime identity: RUNTIME_STALE_CHECKOUT — claims continue (recorded on each claim/report): checkout HEAD 5b995e9562df is behind origin/main b7b1382c37a3 — the running bridge is older than what is delivered"
+  ],
   "how_to": {
     "create_task": "Add control/tasks/<task_id>.json (schema: control/schemas/task.schema.json) with status PENDING on branch mythos/control.",
     "read_report": "control/reports/<task_id>.json (and .md) appears when the task reaches COMPLETED, BLOCKED, FAILED or CANCELLED.",
