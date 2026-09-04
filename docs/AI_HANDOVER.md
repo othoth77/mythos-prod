@@ -54,6 +54,40 @@ reference implementation exercised offline; `gh` is not installed on the host so
 **Next stage.** Owner review + merge → install steps 1–3 → 2–3 days of observe → enable cleanup, then the
 guard marker → PC agent pilot behind an SSH tunnel with `allow_close:false` first.
 
+## gh-issue-142 — gh-issue-128 reconciled by evidence: the governed READ path is live (2026-09-03)
+
+**Objective (GitHub Issue #142).** Finish whatever remained of #128 — but only after checking whether HOSTOPS-2R
+(#130) and HOSTOPS-2R-FIX (#132) already closed it, instead of re-running work already done.
+
+| Item | State |
+|---|---|
+| Prior state | #128 (attempt 1) reported **BLOCKED**: the required single live `POST /hostops/run {operation:health}` call returned `HOSTOPS_UNAVAILABLE` because the HOSTOPS-1 sudo boundary can never work under the executor's `NoNewPrivileges=true`. #130 (HOSTOPS-2R, `8c8ab41`, **merged to main**, confirmed ancestor of current `origin/main` `ff9f71b`) fixed the design with a root socket-activated daemon outside the executor's process tree. #132 (HOSTOPS-2R-FIX, `eebb4b1`, delivered on `mythos/gh/gh-issue-132`, **not yet merged to main**) fixed the one remaining production gap: `usermod -aG` alone never refreshes an already-running `systemd --user` manager's groups, so `deploy`'s manager needed `user@<uid>.service` restarted before the socket was reachable. |
+| Live re-verification (this task) | `id deploy` on the live host now shows group `mythos-hostops` (1003) present — the group-refresh gap #132 diagnosed is already applied on this host. One live `POST /hostops/run {operation:health}` call was made through the running `mythos-ai-executor.service` (127.0.0.1:8130, bearer token read locally from the 0600 `executor.env`, never printed or persisted): **`ok:true`, `operation: host.health.check`, `class: READ`, `audit_id: hostops-mtlx0zuw-284786`, `hostops_exit: 0`**. This is the exact deliverable #128 asked for, now proven against the code currently on `origin/main` plus the host's already-applied group-refresh state. No WRITE/RESTART/DEPLOY verb was invoked; class-based refusal of those verbs is structurally enforced and covered by the passing suites below. |
+| Reconciliation | **#128 is evidence-closable.** Nothing needed re-implementing — the fix already exists on `origin/main` (#130) and the one missing production-activation step (#132's group refresh) is already in effect on the live host, even though #132's branch itself is not yet merged. Merging #132 to main is an owner decision, unchanged by this task. |
+| Tests (as deploy, this worktree, no code changed) | `tests/mythos-hostops-executor-test.js` **36/0** · `tests/mythos-hostops-test.js` **39/0, 2 skipped** · `tests/mythos-hostops-daemon-test.js` **14/0** · `tests/dagu-hostops-allowlist-test.js` **7/0**. |
+| Files changed | `docs/AI_HANDOVER.md` only (this entry). No code, no `control/`, no protected path. |
+| Owner action still open | Merge `mythos/gh/gh-issue-132` to main so the group-refresh script and its docs are not left stranded on a branch while already active in production. |
+## HOSTOPS-2R-FIX — the group-membership activation gap closed (GitHub issue #132, 2026-09-03)
+
+**Objective.** HOSTOPS-2R's own activation instructions said `deploy`'s new
+`mythos-hostops` group membership "needs a fresh login session (or restart the executor's
+user manager)" — that turned out to be the actual production blocker. Live symptoms:
+`deploy` was already listed in `getent group mythos-hostops`, the socket was `0660
+root:mythos-hostops` and listening, `mythos-ai-executor.service` had been restarted on the
+new code, yet `/hostops/run` still hit `EACCES` on `/run/mythos-hostops/hostops.sock`. A
+manual `SupplementaryGroups=mythos-hostops` drop-in on the executor unit made it worse:
+`status=216/GROUP` (systemd.exec(5): that directive has no effect on `--user` units, whose
+manager lacks `CAP_SETGID`). That drop-in was removed before this fix; it is never
+reintroduced.
+
+| Item | State |
+|---|---|
+| Branch | `mythos/gh/gh-issue-132` over `85cbf90` (`origin/main`). Delivery by the governance relay; **not merged**. |
+| Root cause | `usermod -aG mythos-hostops deploy` edits `/etc/group` only — it does not update the supplementary groups of any already-running process, including `user@<uid>.service` (the root system unit that forks `deploy`'s `systemd --user` manager and everything under it). Restarting `mythos-ai-executor.service` alone restarts a *child* of that still-stale manager, so it inherits the old group list, not a fresh read of `/etc/group`. |
+| Fix | New `ops/hostops/refresh-group-membership.sh`, called by `install-hostops.sh` right after the `usermod -aG` calls. Restarts `user@<uid>.service` (root, system-unit territory) for any user whose manager is already active — a fresh `systemd --user` fork re-reads `/etc/group` at that moment. Idempotent/non-disruptive: a user with no active manager (fresh install, or `dagu`, a nologin system account) is simply skipped, not an error. No socket unit, daemon, helper, or adapter code touched; `NoNewPrivileges=true` on the executor untouched. |
+| Tests | `tests/mythos-hostops-group-refresh-test.js` (new, **10/0**): the script run against a stub `systemctl`/`id` (no root/systemd needed) proves an active manager is restarted and an inactive one is left alone; asserts no unit file in the tree declares `SupplementaryGroups=`; asserts `NoNewPrivileges=true` is unchanged; asserts the installer wires the refresh in after group grant, for both `deploy` and `dagu`. All prior HostOps suites re-verified green: daemon 14/0, executor adapter 36/0. |
+| Owner activation | Re-run `sudo bash ops/hostops/install-hostops.sh` on the already-installed host — idempotent, now includes the group refresh, so no logout/login/reboot is required. Then `systemctl --user restart mythos-ai-executor` (as `deploy`) and verify per `docs/MYTHOS_HOSTOPS_INTERFACE.md` HOSTOPS-2R-FIX addendum. |
+| Not done (by session) | No root install performed from this execution session — the installer/systemd/group changes are owner-only per this repository's rules, and this session cannot touch the live VPS. |
 ## SESSION-GUARD-1 — Claude Desktop Remote session lifecycle guard (GitHub issue #144, 2026-09-03)
 
 **Objective.** Stop the unbounded accumulation of Claude Desktop Remote sessions on this VPS and
