@@ -1,5 +1,34 @@
 # AI Handover
 
+> **Before starting a broad audit, read `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`.** It contains the latest verified audit baseline and prevents repeated expensive repository-wide investigation.
+
+## AUDIT KNOWLEDGE BASE — 2026-09-04
+
+Durable findings of the 2026-09-04 master backlog audit (Fable 5.1), condensed so the next execution starts from a verified baseline. Full compact version: `docs/AUDIT_KNOWLEDGE_BASE_2026-09-04.md`. Labels: VERIFIED / NOT VERIFIED / BLOCKED / OWNER ACTION / HUMAN MERGE REQUIRED.
+
+| Finding | State | Label |
+|---|---|---|
+| `origin/main` at audit end | `b6d4c6b` = PR #159 merged 19:46 UTC (before: `b7b1382` PRs #163/#166; `5b995e9` PR #154) | VERIFIED |
+| PR #159 (EXEC-ARCH-0) | Merged. Contains `7e0278b`+`425fe52` (#161 approval_ref verification), `75f8832` (merge of main), `30f5bb4` (worktree-GC pid fix). Was MERGEABLE/CLEAN at `30f5bb4` when handed to the owner | VERIFIED |
+| #161 approval_ref | `ops/dagu/bin/mythos-restart-approval` + `approval-verify` step in `executor-restart.yaml`: real GRANTED human approval bound to checkout HEAD, single-use, 24 h; fake/missing/mismatched/reused/revoked/expired refs rejected; unmeasurable HEAD or absent store fails closed; restart step cannot run otherwise. Built by the bridge executor (Opus 5), reviewed and re-tested here | VERIFIED (dagu suite 31/0) |
+| Worktree-GC safety bug | `ps -o pid=` padding made every pid shorter than 7 digits invisible → in-use worktree classed `SAFE_MERGED_UNUSED`. Fixed in `30f5bb4` (`tr -d ' '`), IN_USE test made race-free. Passed before only when the child pid was 7 digits | VERIFIED |
+| PR #168 | `mythos/backlog-reconcile-20260904`: eight relay-delivered handover branches merged, master table, Autopilot explanation; refreshed with `b6d4c6b` as `1a95f5b` (docs only) | HUMAN MERGE REQUIRED |
+| Production Executor checkout | `5b995e9` on `main`, behind origin (docs/tests + Dagu/#161 files); bridge logs `RUNTIME_STALE_CHECKOUT` each tick; executor daemon started 12:46 UTC from that HEAD | VERIFIED; sync = OWNER ACTION |
+| Skill Trust | ACTIVE (owner deployed/restarted 12:44–12:46; trust API 200, 31/31 ACCEPT, no `MYTHOS_SKILL_TRUST=off`) | VERIFIED |
+| Resource Guard | ACTIVE in the daemon, real transitions and `dispatch_deferred` today, thresholds untouched; no samples while a task RUNS; alerts go to ntfy not WhatsApp (#99 scope unbuilt) | VERIFIED |
+| Session Guard | timer active since 09-03, observe mode (marker absent), 0 kills; installed copy = PR #145 not f78c496; unit OOM-killed 12× at MemoryMax=192M | VERIFIED; reinstall/enable = OWNER ACTION |
+| Bridge | 1-min timer live (67 s), runs from checkout, Action Resolution Engine live; relay `mythos-git-push.timer` healthy (ff-only; DENIES an old 2026-08-18 mission branch on protected paths — pre-existing) | VERIFIED |
+| Dagu / restart | Dagu 2.16.2 PoC binary only, **not a service**; restart flow needs synced checkout + Dagu service + GRANTED `hostops:executor.restart` approval | BLOCKED → OWNER ACTION |
+| WhatsApp | Code complete in main (Evolution default; WAHA/wa-evolution candidates). Production: no gateway, no `MYTHOS_BRIDGE_WHATSAPP_*` config, no designated recipient, 0 notifications ever; QR pairing human; Evolution 2 GB RAM minimum unmet | VERIFIED; deployment = OWNER ACTION |
+| #164 | Bridge cannot claim: `required_tests[0]` > 300 chars, bold `Action:`/`Model:` lines unparsed | BLOCKED (Issue body edit) |
+| #167 | Owner's fresh Skill-Trust verification task, claimed as Fable 5.1 implement/repo-write (`t-20260904191409-oto4m0`), RUNNING at audit end; must not run concurrently with #162 (BLOCKED HUMAN_APPROVAL; r2 queued); not complete without its own report | NOT VERIFIED (in flight) |
+| Status Center | code merged (#143); served copy stale (REVIEW-2026-08-26-005 vs REVIEW-2026-09-03-001); review engine has no schedule | VERIFIED; publish = OWNER ACTION |
+| HostOps | READ boundary live and audited; residue `/etc/sudoers.d/61-deploy-hostops` on host; daemon logs nothing to journal | VERIFIED; residue = OWNER ACTION |
+| Tests | dagu 31/0, action-resolution 88/0, model-policy 81/0, resource-guard 91/0, session-guard 277/0, timer 16/0, push-guard 23/0, wa-notify 131/0, wa-resilience 95/0, hostops 38/1 (env), stc-1 80/1 (host-local) — all as deploy, sequential | VERIFIED |
+| Pre-existing / environmental failures | hostops #15 when guard ≠ NORMAL; stc-1 untracked `projects/idauto/`; DOM suites under Node 22; stage4w highlight; root-run git tests → "dubious ownership" | VERIFIED |
+| Owner actions remaining | merge #168; close PR #108 + Issues in main/superseded; ff checkout; governed restart; install Dagu service; publish Status Center; session-guard reinstall + enable decision + MemoryMax; WhatsApp gateway/config/recipient then #164; remove sudoers residue | OWNER ACTION |
+| Safety constraints learned | checkout = deployment (never reset/clean/add . there, never ff as agent); one `sudo -u deploy git` action per call; edit deploy files in place; suites one at a time with `timeout`; IN_USE test failures are real; no WhatsApp sends; `Action:`/`Model:` plain lines and ≤300-char validation strings for bridge tasks; Dagu step approval ≠ authorization | VERIFIED |
+
 ## BACKLOG-RECONCILE-0 — Master backlog reconciliation, GitHub Issues #95–#167 (2026-09-04, Fable 5.1)
 
 **Objective.** Audit every open task Issue against `origin/main` (`b7b1382`), open PRs, branches, control reports and live runtime; finish the real work that was missing; deliver what was implemented but never proposed; and say, per task, exactly what human action remains. Executed from `/root` on the VPS; production checkout `/home/deploy/projects/mythos-prod` stayed on `5b995e9` (it is fast-forwarded only by the owner / `mythos-deploy`), no service restarted, no marker created, no WhatsApp message sent, no threshold changed.
