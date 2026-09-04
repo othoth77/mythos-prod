@@ -1,5 +1,52 @@
 # AI Handover
 
+## DOC-SIMPLE-0 — Simple explanation for every MYTHOS system (GitHub issue #160, 2026-09-04)
+
+**Objective (GitHub Issue #160).** Make the MYTHOS architecture understandable to a non-technical owner:
+every major system/component gets a short, plain-language explanation alongside its existing technical
+description. Documentation-only — no runtime behavior, architecture, permission, service, timer, or
+production state changed.
+
+| Item | State |
+|---|---|
+| Branch | `mythos/gh/gh-issue-160` over `5b995e9` (`origin/main`), worktree `/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-160`. Delivery by the governance relay; **not merged, no auto-merge**. |
+| Scope | Two files: this entry and `docs/MYTHOS_EXECUTION_ARCHITECTURE.md` §7. No code, no `control/`, no protected path touched. |
+| Dependency note | `docs/MYTHOS_EXECUTION_ARCHITECTURE.md` (EXEC-ARCH-0, PR #159) did not yet exist on this branch's base (`5b995e9`) — PR #159 is not merged to `main`. Its sections 1–6 were carried over unchanged from `mythos/execution-architecture-20260904` (`6b5a94b`) so §7 could be added to the canonical doc rather than forking a second one. When PR #159 merges, expect a routine doc-merge reconciliation on this file (same pattern already described in EXEC-ARCH-0 §1) — not a content disagreement. |
+| Terminology | One architecture, one set of names — matches EXEC-ARCH-0 §4 exactly (GitHub → Bridge → OTHMODE → Claude Code → worktree/branch → PR → human merge → Dagu maintenance). No second architecture or recurring-operations mechanism introduced. |
+| Preserved invariant | Executor restart stays a paused, human-approved Dagu step (`approval_ref` required) and is **never** scheduled or automatic — restated explicitly in the table below and in the architecture doc's §7 row. |
+
+### Simple explanation — non-technical
+
+Every major MYTHOS system, in one line each — for the project owner, not for engineers. Full technical
+detail lives in `docs/MYTHOS_EXECUTION_ARCHITECTURE.md` (§7 there is the same table).
+
+| System | Simple explanation |
+|---|---|
+| GitHub | The official project notebook — where the project's real history and decisions are kept. |
+| Bridge | The messenger — receives the task and passes it through the approved path. |
+| OTHMODE | The guard/manager — checks the task and makes sure it follows the project rules. |
+| Claude Code | The worker — performs the approved work. |
+| Worktree | A temporary workshop — a separate safe place where one task is worked on without disturbing the main project. |
+| PR | The review request — shows what was changed and asks for human review. |
+| Human Merge | The final human decision — only the owner decides what becomes part of main. |
+| Dagu | The scheduler/organizer — handles safe repetitive maintenance at scheduled times. |
+| Resource Guard | The resource/energy guard — prevents the system from consuming more resources than allowed. |
+| Drift Check | The matching meter — checks whether what is running matches what the project says should be running. |
+| Git Sync | Synchronization — brings the project copy up to date safely without replacing work destructively. |
+| Worktree GC | The cleanup worker — identifies old temporary workshops that are safe to remove, subject to the project's safety rules. |
+| Executor Restart | Restarting the worker — used when new code needs the running worker to reload; this remains a separate human-approved action. No automatic restart exists. |
+| Skill Trust | Tool trust check — verifies that an automation skill is allowed to perform the requested kind of work. |
+| MCP Trust | External-door trust check — verifies that connected external tools/services are trusted before they are used. |
+| Lifecycle | The task life record — keeps track of where a task is in its journey from start to completion. |
+| Status Center | The dashboard — gives the owner a simple view of what is happening and the current state of the project. |
+
+**Tests.** Documentation-only change; no test suite covers prose content. Consistency verified by hand:
+same 17 rows in both files, terminology matches EXEC-ARCH-0 §4/§5, no new architecture or timer named,
+executor-restart-is-manual invariant present in both files.
+
+**Next stage.** Owner review + merge. When PR #159 (EXEC-ARCH-0) merges independently, reconcile
+`docs/MYTHOS_EXECUTION_ARCHITECTURE.md` sections 1–6 against `main`'s version and keep this branch's §7.
+
 ## SKILL-TRUST-0 — Skill & MCP Security / Trust Gate (2026-09-04)
 
 **Objective.** Integrate a strong Agent-Skill / MCP scanning and trust layer into OTHMODE with the least custom code, under SEARCH → REUSE → ADAPT → TEST → BUILD ONLY WHAT IS MISSING. Design and operations: `docs/OTHMODE_SKILL_TRUST.md`.

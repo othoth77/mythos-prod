@@ -6,6 +6,11 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Added — DOC-SIMPLE-0 — Simple explanation for every MYTHOS system (GitHub issue #160, 2026-09-04)
+
+- **Every major system in the execution architecture now has a one-line, non-technical explanation** alongside its existing technical description, so a non-technical owner can read `docs/AI_HANDOVER.md` or `docs/MYTHOS_EXECUTION_ARCHITECTURE.md` and understand what GitHub, Bridge, OTHMODE, Claude Code, Worktree, PR, Human Merge, Dagu, Resource Guard, Drift Check, Git Sync, Worktree GC, Executor Restart, Skill Trust, MCP Trust, Lifecycle, and Status Center each do.
+- Documentation-only; no runtime, permission, service, or timer behavior changed. The no-automatic-Executor-restart invariant is explicitly restated, not altered.
+
 ### Added — SKILL-TRUST-0 — Skill & MCP Security / Trust Gate (2026-09-04)
 
 - **No skill reaches execution without a content-bound ACCEPT attestation.** `projects/mythos-ai-executor/lib/skills.js` now treats a registry entry as necessary, not sufficient: a skill is selectable and renderable only while `lib/skill-trust.js` finds an `ACCEPT` in `config/skill-trust.json` whose sha256 matches the registry entry + instruction bytes on disk. Anything else — no ledger, no entry, `REVIEW`, `BLOCK`, or a changed file (`STALE`) — falls through exactly like a disabled skill, with the trust status recorded in the task's selection reason. Missions never depend on the skill layer, so nothing blocks; nothing untrusted is injected. Bypass only via `MYTHOS_SKILL_TRUST=off` (offline suites; logged).
