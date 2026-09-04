@@ -1,0 +1,25 @@
+# MYTHOS Autopilot — systemd USER unit for `deploy` (the executor's user).
+# One bounded reconciliation cycle per activation; the timer drives it.
+# A fresh process per tick, like the bridge, so the autopilot always runs the
+# code of the CURRENT checkout — it can never be the stale runtime it audits.
+#
+# Rootless: no sudo, no credential. `systemctl --user restart` of the executor
+# (a deploy user unit) is reachable from here without privilege, and only ever
+# runs through lib/autopilot/restart.js (approval-gated, single attempt).
+#
+# Install (as deploy):  bash ops/autopilot/install-autopilot.sh
+# Rollback:             systemctl --user disable --now mythos-autopilot.timer
+# Kill switch:          Environment=MYTHOS_AUTOPILOT=off (drop-in) — observe only
+[Unit]
+Description=MYTHOS Autopilot — safe reconciler (one tick)
+After=network-online.target
+
+[Service]
+Type=oneshot
+Environment=MYTHOS_AUTOPILOT_BIN=/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bin/mythos-autopilot
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+ExecStart=/bin/sh -c 'exec /usr/bin/node "$MYTHOS_AUTOPILOT_BIN" tick'
+WorkingDirectory=%h
+NoNewPrivileges=true
+TimeoutStartSec=300

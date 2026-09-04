@@ -271,6 +271,15 @@
       "expect_content_type": "application/json",
       "enabled": true,
       "note": "ADDED 2026-09-01 (MCP-ECOSYSTEM-1). The gateway binds loopback only and its public path (/gateway/) is deliberately not open, so the origin is the only place it can be observed. /health is the container's own healthcheck endpoint and is unauthenticated by ContextForge's design. Federation state (peers reachable, tools discovered) is not probed here — that is the registry check's job — so a healthy gateway with an unreachable peer shows LIVE here and DEGRADED in OTHMODE's MCP view, which is the honest split."
+    },
+    {
+      "id": "autopilot-state",
+      "name": "MYTHOS Autopilot (deployment / runtime / tasks / worktrees reconciliation state)",
+      "type": "autopilot-state",
+      "path": "/home/deploy/mythos-ai-executor/autopilot/state.json",
+      "max_age_seconds": 900,
+      "enabled": true,
+      "note": "Reads the unified operational state written by mythos-autopilot tick (deploy user timer, every 2 min). LIVE = checkout equals origin/main and the running executor loaded it; DEGRADED = drifted (sync pending or EXECUTOR_RESTART_REQUIRED) or stuck tasks; DOWN = blocked (diverged/dirty checkout, source unverifiable); NOT_MONITORED = no fresh state (timer not installed). The monitor unit has ReadOnlyPaths=/home/deploy, which is all this probe needs."
     }
   ]
 }

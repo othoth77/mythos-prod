@@ -270,6 +270,27 @@ function probeBackupHealth(p) {
   }
 }
 
+// autopilot-state: reads the unified operational state written by the
+// MYTHOS Autopilot (projects/mythos-ai-executor/lib/autopilot/status.js).
+// DEPLOYMENT CURRENT → LIVE, DRIFTED → DEGRADED, BLOCKED → DOWN; a missing or
+// stale file is NOT_MONITORED (never silent green). Read-only.
+function probeAutopilotState(p) {
+  return new Promise(function (resolve) {
+    var maxAge = (p.max_age_seconds || 900) * 1000;
+    var raw;
+    try { raw = fs.readFileSync(p.path, 'utf8'); }
+    catch (e) { return resolve({ state: 'NOT_MONITORED', error: 'state file unreadable: ' + (e.code || e.message) }); }
+    var st;
+    try { st = JSON.parse(raw); } catch (e) { return resolve({ state: 'DOWN', error: 'state file is not JSON' }); }
+    var age = Date.now() - Date.parse(st.measured_at || 0);
+    if (isNaN(age) || age > maxAge) return resolve({ state: 'NOT_MONITORED', error: 'state older than ' + (maxAge / 1000) + 's', detail: { measured_at: st.measured_at || null } });
+    var dep = st.DEPLOYMENT && st.DEPLOYMENT.state;
+    var state = dep === 'CURRENT' ? 'LIVE' : (dep === 'DRIFTED' ? 'DEGRADED' : 'DOWN');
+    if (state === 'LIVE' && st.TASKS && st.TASKS.state === 'STUCK') state = 'DEGRADED';
+    resolve({ state: state, detail: { deployment: dep, drift: st.RUNTIME && st.RUNTIME.drift, executor: st.EXECUTOR && st.EXECUTOR.state, bridge: st.BRIDGE && st.BRIDGE.state, tasks: st.TASKS && st.TASKS.state, worktrees: st.WORKTREES && st.WORKTREES.state, resource: st.RESOURCE && st.RESOURCE.level, next_action: st.DEPLOYMENT && st.DEPLOYMENT.next_action ? st.DEPLOYMENT.next_action.text : null } });
+  });
+}
+
 function runProbe(p, defaults) {
   if (p.enabled === false) {
     return Promise.resolve({ state: 'NOT_MONITORED', error: null, note: p.note || null });
@@ -279,6 +300,7 @@ function runProbe(p, defaults) {
   else if (p.type === 'tcp') exec = probeTcp(p, defaults);
   else if (p.type === 'resources') exec = probeResources(p);
   else if (p.type === 'backup-health') exec = probeBackupHealth(p);
+  else if (p.type === 'autopilot-state') exec = probeAutopilotState(p);
   else exec = Promise.resolve({ state: 'DOWN', error: 'unknown probe type: ' + p.type });
   return exec.then(function (r) {
     if (['LIVE', 'DEGRADED', 'DOWN', 'NOT_MONITORED'].indexOf(r.state) < 0) {
@@ -412,6 +434,7 @@ module.exports = {
   runProbe: runProbe,
   probeTcp: probeTcp,
   probeBackupHealth: probeBackupHealth,
+  probeAutopilotState: probeAutopilotState,
   probeResources: probeResources,
   historyTail: historyTail,
   MONITOR_VERSION: MONITOR_VERSION

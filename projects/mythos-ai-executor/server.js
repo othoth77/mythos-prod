@@ -253,6 +253,18 @@ function handler(req, res, token) {
   // --- Execution lifecycle (task / execution / session, correlated) ---------
   // Read-only views. No route here closes a session: cleanup is the
   // executor daemon's tick plus the root Session Guard, both marker-gated.
+  // Autopilot: the unified operational state written by the last autopilot
+  // tick (lib/autopilot/status.js). Read-only; 404 until a tick has run.
+  if (req.method === 'GET' && url === '/autopilot') {
+    var apState = null;
+    try { apState = require('./lib/autopilot').readState(); } catch (e) { apState = null; }
+    return apState ? send(res, 200, apState) : send(res, 404, { error: 'no autopilot state yet', hint: 'run mythos-autopilot tick' });
+  }
+  if (req.method === 'GET' && url === '/autopilot/ledger') {
+    var apTail = [];
+    try { apTail = require('./lib/autopilot').ledgerTail(parseInt(query.n || '50', 10)); } catch (e) { apTail = []; }
+    return send(res, 200, { entries: apTail });
+  }
   if (req.method === 'GET' && url === '/lifecycle') return send(res, 200, lifecycle.status({ host: query.host !== '0' }));
   if (req.method === 'GET' && url === '/lifecycle/host') return send(res, 200, lifecycle.hostView());
   if ((m = /^\/lifecycle\/(executions|sessions|tasks)\/([A-Za-z0-9][A-Za-z0-9._:-]{2,95})$/.exec(url)) && req.method === 'GET') {

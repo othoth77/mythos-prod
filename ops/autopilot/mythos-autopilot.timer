@@ -1,0 +1,15 @@
+# MYTHOS Autopilot — polling timer for the Type=oneshot service.
+# Same schedule design as the bridge timer (gh-issue-134): OnBootSec +
+# OnUnitInactiveSec, AccuracySec, and NO Persistent= (a stamp file would park
+# the timer at NextElapse=infinity after a user-manager restart — see
+# bridge/systemd/mythos-github-bridge.timer and its regression test).
+[Unit]
+Description=MYTHOS Autopilot — reconcile every 2 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=2min
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target

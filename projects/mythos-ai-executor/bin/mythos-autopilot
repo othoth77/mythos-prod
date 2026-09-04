@@ -1,0 +1,121 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS Autopilot — operator CLI
+// projects/mythos-ai-executor/bin/mythos-autopilot
+//
+//   mythos-autopilot status                         unified operational state (last tick, or measured now with --now)
+//   mythos-autopilot tick [--dry-run]               one bounded cycle (mutations only where markers exist)
+//   mythos-autopilot drift                          SOURCE / CODE / BRIDGE / EXECUTOR identities + verdict
+//   mythos-autopilot sync [--apply]                 inspect + plan the fast-forward; --apply performs it (ff-only)
+//   mythos-autopilot restart status                 open request, approvals, policy
+//   mythos-autopilot restart approve <sha> --by "<human>" --reason "<why>"
+//   mythos-autopilot restart reject <sha> [--by ..] [--reason ..]
+//   mythos-autopilot restart apply [--sha <sha>]    governed restart of an APPROVED request
+//   mythos-autopilot watchdog                       stuck / overdue / orphaned task findings
+//   mythos-autopilot worktrees [--apply]            classify worktrees + branches; --apply removes AUTO ones
+//   mythos-autopilot tests [--base origin/main] [--run] [--full] [--continue] [--out file]   change-aware selection / run (STOP on first failure unless --continue)
+//   mythos-autopilot evidence [--tests file] [--md] collect delivery evidence from git + artifacts
+//   mythos-autopilot map                            regenerate the test impact map (stdout)
+//   mythos-autopilot ledger [-n N]                  audit tail
+//
+// Mutations: `sync --apply`, `worktrees --apply`, `restart apply` and a
+// `tick` with markers present. Everything else is read-only.
+// =====================================================
+
+var path = require('path');
+var fs = require('fs');
+
+var EXEC = path.join(__dirname, '..');
+var REPO = path.resolve(EXEC, '..', '..');
+var A = require(path.join(EXEC, 'lib', 'autopilot'));
+
+var argv = process.argv.slice(2);
+var cmd = argv[0], sub = argv[1];
+function flag(n) { return argv.indexOf(n) >= 0; }
+function opt(n, d) { var i = argv.indexOf(n); return i >= 0 && i + 1 < argv.length ? argv[i + 1] : d; }
+function out(v) { console.log(JSON.stringify(v, null, 2)); }
+function die(msg, code) { console.error(msg); process.exit(code === undefined ? 1 : code); }
+function usage() { die('usage: mythos-autopilot status|tick|drift|sync|restart|watchdog|worktrees|tests|evidence|map|ledger (see header)', 2); }
+
+function exitOn(p) { p.then(function (v) { out(v); }).catch(function (e) { die('AUTOPILOT_ERROR: ' + e.message, 4); }); }
+
+switch (cmd) {
+  case 'status': {
+    if (flag('--now')) { exitOn(A.tick({ apply: false }).then(function (s) { return s.state; })); break; }
+    var st = A.readState();
+    if (!st) die('no state yet: run `mythos-autopilot tick` (or --now)', 1);
+    out(st); break;
+  }
+  case 'tick': exitOn(A.tick({ apply: !flag('--dry-run') })); break;
+  case 'drift': exitOn(A.detectDrift(A.gitConfig()).then(function (d) { delete d.inspection; return d; })); break;
+  case 'sync': {
+    var cfg = A.gitConfig();
+    var rec = A.gitReconcile.reconcile(cfg, { apply: flag('--apply') });
+    out(rec);
+    process.exit(rec.decision === 'BLOCKED' ? 3 : 0);
+    break;
+  }
+  case 'restart': {
+    var R = A.root();
+    if (sub === 'status') { out(A.restart.status(R)); break; }
+    if (sub === 'approve') {
+      var sha = argv[2];
+      if (!sha || sha.indexOf('--') === 0) die('usage: restart approve <sha> --by "<human>" --reason "<why>"', 2);
+      var r = A.restart.approve(R, sha, { by: opt('--by'), reason: opt('--reason') });
+      out(r); process.exit(r.ok ? 0 : 3); break;
+    }
+    if (sub === 'reject') { var rj = A.restart.reject(R, argv[2], { by: opt('--by'), reason: opt('--reason') }); out(rj); process.exit(rj.ok ? 0 : 3); break; }
+    if (sub === 'apply') {
+      var open = opt('--sha') ? { expected_sha: opt('--sha') } : A.restart.openRequest(R);
+      if (!open) die('no open restart request', 1);
+      var cfg2 = A.gitConfig();
+      exitOn(A.restart.apply(R, { expected_sha: open.expected_sha, detect: function () { return A.detectDrift(cfg2); }, restartFn: A.defaultRestartFn, executor_home: A.executorHome(), state: require(path.join(EXEC, 'lib', 'state')), approval_auto: A.restart.autoPolicy(R) }).then(function (res) { if (!res.ok) process.exitCode = 3; return res; }));
+      break;
+    }
+    usage(); break;
+  }
+  case 'watchdog': { var bi = A.bridgeInputs(); out(A.watchdog.scan({ claims: bi.claims, bridge_tasks: bi.tasks, dry_run: true })); break; }
+  case 'worktrees': {
+    var bi2 = A.bridgeInputs();
+    var state = require(path.join(EXEC, 'lib', 'state'));
+    var wcfg = { repo: A.gitConfig().repo, task_root: process.env.MYTHOS_BRIDGE_TASK_WORKTREES || path.join(A.executorHome(), 'worktrees', 'gh'), claims: bi2.claims, status_of: function (id) { try { return state.readStatus(id); } catch (e) { return null; } }, live_cwds: A.liveCwds() };
+    var plan = A.worktrees.plan(wcfg);
+    if (flag('--apply')) { var ap = A.worktrees.apply(wcfg, plan, { apply: true }); out({ plan_summary: plan.summary, applied: ap }); }
+    else if (flag('--full')) out(plan);
+    else out({ measured_at: plan.measured_at, origin_main: plan.origin_main, state: plan.state, summary: plan.summary, worktrees: plan.worktrees.map(function (w) { return { path: w.path, branch: w.branch, decision: w.decision, code: w.code, merged: w.merged, on_origin: w.on_origin, unique_commits: w.unique_commits, clean: w.clean, active_task: w.active_task }; }), branches: plan.branches.filter(function (b) { return b.decision !== 'DEFER'; }) });
+    break;
+  }
+  case 'tests': {
+    var git = A.gitReconcile.defaultGit;
+    var cwd = process.cwd();
+    var top = git(cwd, ['rev-parse', '--show-toplevel']);
+    var repoRoot = top.ok ? top.out : REPO;
+    var map = A.testImpact.buildMap(repoRoot);
+    var base = opt('--base', 'origin/main');
+    var changed = A.testImpact.changedFiles(git, repoRoot, base);
+    var sel = A.testImpact.select(map, changed);
+    var suites = sel.suites.map(function (s) { return s.suite; });
+    if (flag('--full') || sel.full) suites = Object.keys(map.suites).filter(function (s) { return !map.suites[s].excluded; });
+    var result = { base: base, changed: changed, selection: sel, suites_to_run: suites, mode: (flag('--full') || sel.full) ? 'FULL' : 'TARGETED' };
+    if (!flag('--run')) { out(result); break; }
+    var run = A.testImpact.run(repoRoot, suites, { stop_on_fail: !flag('--continue'), log: function (r) { console.error((r.ok ? 'PASS ' : 'FAIL ') + r.suite + ' ' + (r.passed === null ? '' : r.passed + '/' + r.failed) + ' (' + r.duration_ms + 'ms)'); } });
+    result.run = run;
+    if (opt('--out')) fs.writeFileSync(opt('--out'), JSON.stringify(result, null, 2) + '\n');
+    out({ mode: result.mode, ok: run.ok, ran: run.ran, requested: run.requested, stopped_at: run.stopped_at, results: run.results.map(function (r) { return { suite: r.suite, ok: r.ok, passed: r.passed, failed: r.failed }; }) });
+    process.exit(run.ok ? 0 : 3);
+    break;
+  }
+  case 'evidence': {
+    exitOn(A.detectDrift(A.gitConfig()).then(function (d) {
+      delete d.inspection;
+      var ev = A.evidence.collect({ cwd: process.cwd(), tests_file: opt('--tests'), drift: d });
+      if (flag('--md')) { console.log(A.evidence.renderMarkdown(ev)); process.exit(0); }
+      return ev;
+    }));
+    break;
+  }
+  case 'map': out(A.testImpact.buildMap(REPO)); break;
+  case 'ledger': out(A.ledgerTail(parseInt(opt('-n', '50'), 10))); break;
+  default: usage();
+}
