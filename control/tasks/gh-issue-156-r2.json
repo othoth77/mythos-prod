@@ -23,7 +23,7 @@
     "[ ] `docs/AI_HANDOVER.md` contains production activation evidence.",
     "[ ] Verification changes are committed and pushed through the normal governance relay."
   ],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-04T13:05:40.069Z",
   "created_by": "github-issue:othoth77",
   "model": "fable-5.1",
@@ -182,8 +182,8 @@
     "claimed_at": "2026-09-04T13:05:45.477Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "960262f1c02a6f2a5719e73e2a3fe9a47b9d7eac43c1ef976a024707d2041f77",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-04T13:05:45.477Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-04T13:07:01.809Z",
     "snapshot_sha256": "be9f53ecdcd2291d272f506f3ed3f9c6d0abeb4d7f32fa6feab6de67605867b6",
     "fence": 3923,
     "lease": {
@@ -211,7 +211,8 @@
       "measured_at": "2026-09-04T13:05:44.295Z"
     },
     "model": "claude-fable-5-1",
-    "model_selection_mode": "explicit"
+    "model_selection_mode": "explicit",
+    "claude_session_id": "87046deb-b09a-457a-9db2-5a052304a446"
   },
   "history": [
     {
@@ -220,6 +221,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260904130545-xs3643 queued; OTHMODE OTH-2026-00076; action implement (action_label) → repo-write; model claude-fable-5-1; fence 3923"
+    },
+    {
+      "at": "2026-09-04T13:07:01.809Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }

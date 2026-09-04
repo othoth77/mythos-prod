@@ -1,12 +1,12 @@
 # MYTHOS control — current state
 
-Generated 2026-09-04T13:05:48.311Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-04T13:07:01.828Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
 | PENDING | 0 |
-| CLAIMED | 1 |
-| IN_PROGRESS | 0 |
+| CLAIMED | 0 |
+| IN_PROGRESS | 1 |
 | VALIDATING | 0 |
 | COMPLETED | 32 |
 | BLOCKED | 22 |
@@ -18,7 +18,7 @@ Generated 2026-09-04T13:05:48.311Z by the bridge on branch `mythos/control` (pro
 | `gh-issue-99` | **COMPLETED** | investigate | normal | 2026-09-02T22:42:59.761Z | 2026-09-02T22:49:32.431Z | `t-20260902224306-vaqeia` | `control/reports/gh-issue-99.json` |
 | `gh-issue-97` | **BLOCKED** | investigate | normal | 2026-09-02T22:34:21.352Z | 2026-09-02T22:43:04.917Z | `t-20260902223428-31m0o4` | `control/reports/gh-issue-97.json` |
 | `gh-issue-95` | **COMPLETED** | investigate | normal | 2026-09-02T22:34:19.628Z | 2026-09-02T22:40:52.170Z | `t-20260902223426-ipld9w` | `control/reports/gh-issue-95.json` |
-| `gh-issue-156-r2` | **CLAIMED** | implement | normal | 2026-09-04T13:05:40.069Z | 2026-09-04T13:05:45.528Z | `t-20260904130545-xs3643` | — |
+| `gh-issue-156-r2` | **IN_PROGRESS** | implement | normal | 2026-09-04T13:05:40.069Z | 2026-09-04T13:07:01.809Z | `t-20260904130545-xs3643` | — |
 | `gh-issue-156` | **BLOCKED** | implement | normal | 2026-09-04T12:30:10.002Z | 2026-09-04T12:40:51.682Z | `t-20260904123013-2yu4v5` | `control/reports/gh-issue-156.json` |
 | `gh-issue-155` | **COMPLETED** | investigate | normal | 2026-09-04T12:22:49.833Z | 2026-09-04T12:25:21.430Z | `t-20260904122254-xbhlo6` | `control/reports/gh-issue-155.json` |
 | `gh-issue-153` | **COMPLETED** | implement | normal | 2026-09-04T10:31:40.010Z | 2026-09-04T10:36:30.740Z | `t-20260904103143-qtoyc0` | `control/reports/gh-issue-153.json` |
