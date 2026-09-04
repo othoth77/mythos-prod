@@ -12,7 +12,7 @@
 | Runtime | `5b995e9562df` on `main` |
 | Model | `claude-fable-5-1` (explicit:fable-5.1 (requested "fable-5.1")) |
 | Branch | `mythos/gh/gh-issue-156-r2` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Production activation of the OTHMODE Skill Trust Gate verified ACTIVE. The runti
 
 ## Commits
 
-- `8116a835e1b4b02c756c015707612ac8f27cad95` docs(handover): gh-issue-156-r2 — OTHMODE Skill Trust Gate production activation verified ACTIVE at 5b995e9 (awaiting relay)
+- `8116a835e1b4b02c756c015707612ac8f27cad95` docs(handover): gh-issue-156-r2 — OTHMODE Skill Trust Gate production activation verified ACTIVE at 5b995e9 (on origin)
 
 ## Files changed
 
