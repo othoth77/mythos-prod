@@ -115,6 +115,16 @@
         "at": "2026-09-04T12:22:55.390Z",
         "existed": false,
         "executor_task_id": "t-20260904122254-xbhlo6"
+      },
+      "report": {
+        "comment_id": 5540393162,
+        "url": "https://github.com/othoth77/mythos-prod/issues/155#issuecomment-5540393162",
+        "at": "2026-09-04T12:25:22.483Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "control_status": "COMPLETED",
+        "report_file": "control/reports/gh-issue-155.json",
+        "commits_on_origin": null
       }
     },
     "labels": {
@@ -122,7 +132,8 @@
         "mythos:queued"
       ],
       "removed": []
-    }
+    },
+    "issue_state": "COMPLETED"
   },
   "execution": {
     "executor_task_id": "t-20260904122254-xbhlo6",
