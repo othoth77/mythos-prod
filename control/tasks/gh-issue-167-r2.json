@@ -25,7 +25,7 @@
   "validation_requirements": [
     "Production is ACTIVE only if the merged commit is present, both required services are healthy, trust verification passes, the trust API/read model is live, and the executor gate is confirmed active without bypass."
   ],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-04T19:39:59.644Z",
   "created_by": "github-issue:othoth77",
   "model": "fable-5.1",
@@ -191,8 +191,8 @@
     "claimed_at": "2026-09-04T19:40:06.151Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "09308fe93f8132c59ccc3316574a8a54dedd715f5af1e17f952f0277ad5717e6",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-04T19:51:51.669Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-04T20:01:20.959Z",
     "snapshot_sha256": "e0dd1c6bbe172404a667f87787eafa0e2f69f70913fb5458a126203d602a3449",
     "fence": 4585,
     "lease": {
@@ -221,7 +221,8 @@
     },
     "model": "claude-fable-5-1",
     "model_selection_mode": "explicit",
-    "claude_session_id": "9a0068ed-9664-4b85-ac9b-18416df886b2"
+    "claude_session_id": "9a0068ed-9664-4b85-ac9b-18416df886b2",
+    "report_file": "control/reports/gh-issue-167-r2.json"
   },
   "history": [
     {
@@ -237,6 +238,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-04T20:01:20.399Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-04T20:01:20.959Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (1 commit(s), 12 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
