@@ -1,0 +1,170 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-162-r2",
+  "project": "mythos-prod",
+  "objective": "Execute the already-approved production activation of the merged OTHMODE Skill Trust Gate from PR #154.",
+  "scope": [
+    "Verify production checkout is on `main` and contains merge commit `5b995e9562df5cbf1603a571eb3bdb891460fca3`.",
+    "Verify both Skill Trust configuration files exist and `skill-trust-cli.js verify` returns `VERIFY OK`.",
+    "Run the documented offline trust suite and relevant regression tests.",
+    "Restart ONLY the services required to load the merged code:",
+    "`mythos-ai-executor`",
+    "`mythos-command-center.service`",
+    "Verify both services are active/healthy after restart.",
+    "Verify the OTHMODE trust read model/API returns expected trust data.",
+    "Verify the executor enforces the trust gate: untrusted/STALE/REVIEW/BLOCK skills cannot be selected/rendered.",
+    "Verify there is no production trust bypass and do NOT use `MYTHOS_SKILL_TRUST=off`.",
+    "Record exact evidence in `docs/AI_HANDOVER.md`.",
+    "Commit and push the verification/handover update through the existing governed relay. Do not merge automatically."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implementation",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "Production is ACTIVE only if the merged commit is present, both required services are healthy, trust verification passes, the trust API/read model is live, and the executor gate is confirmed active without bypass."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-04T19:27:55.281Z",
+  "created_by": "github-issue:othoth77",
+  "model": "fable-5.1",
+  "model_raw": "Fable 5.1",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #162 https://github.com/othoth77/mythos-prod/issues/162 — \"Owner-approved OTHMODE Skill Trust production activation — Fable 5.1\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implementation\") — not inherited: previous attempt gh-issue-162 was defaulted, not decided — a default is not inherited → execution profile repo-write\n\nmodel: fable-5.1 — source explicit_current_issue (written as \"Fable 5.1\")\n\n[owner approval]\n**Owner: othoth77 — APPROVED**\n\nThis task is explicitly authorized by the project owner to proceed with production activation/verification.\n\n[execution pin]\n**Model: Fable 5.1**\n**Action: implementation**\n**Execution profile: implementation / governed production activation**\n\nThe earlier automatic `investigate → repo-read` attempt is not the intended execution. The rerun must execute this task as an implementation/activation task with Fable 5.1.\n\n[safety]\n- This is activation + verification only.\n- No WhatsApp gateway deployment or real provider calls.\n- Do not enable Semgrep if unsafe for host memory.\n- Do not alter Skill Trust policy.\n- Do not restart unrelated services.\n- If any prerequisite or verification fails, STOP and report the exact blocker instead of declaring production active.\n- No destructive Git operations.\n\n[important]\nThis is owner authorization to execute the task, NOT authorization to bypass governance or Human Merge. Production activation must still follow the existing sanctioned workflow.\n\n[reference]\nParent task: #155 — PROD — Activate OTHMODE Skill Trust Gate after merge #154\nExecution request: use Fable 5.1.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 162,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/162",
+    "issue_id": 5351230601,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPvVMiQ",
+    "issue_title": "TASK: Owner-approved OTHMODE Skill Trust production activation — Fable 5.1",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-04T17:41:07Z",
+    "issue_updated_at": "2026-09-04T19:26:50Z",
+    "issue_labels": [
+      "task",
+      "mythos:human-approval",
+      "rerun",
+      "action:implementation",
+      "othmode",
+      "production"
+    ],
+    "content_sha256": "4005838b2ce8d2e3e5a306c667de8d9357a4579381e4713107e316808639b021",
+    "attempt": 2,
+    "attempt_id": "gh-issue-162-r2#2",
+    "idempotency_key": "0ed3441ed7f80f902d0d25b1a93d7ea081755f95c389cda8b973233be200cbe6",
+    "rerun_of": "gh-issue-162",
+    "inherited_from": "gh-issue-162",
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implementation",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implementation",
+          "action": "implement",
+          "form": "inline",
+          "line": 11
+        },
+        {
+          "source": "action_label",
+          "raw": "implementation",
+          "action": "implement",
+          "form": null,
+          "line": null
+        },
+        {
+          "source": "inherited_previous_attempt",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null,
+          "eligible": false,
+          "ignored_reason": "previous attempt gh-issue-162 was defaulted, not decided — a default is not inherited"
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": "fable-5.1",
+      "model_id": "claude-fable-5-1",
+      "model_raw": "Fable 5.1",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:fable-5.1 (requested \"Fable 5.1\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-04T19:27:55.281Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-04T19:27:55.281Z",
+        "event": "issue_received",
+        "reason": "open Issue #162 with label task and label rerun (attempt 2)",
+        "content_sha256": "4005838b2ce8d2e3e5a306c667de8d9357a4579381e4713107e316808639b021"
+      },
+      {
+        "at": "2026-09-04T19:27:55.281Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implementation\")"
+      },
+      {
+        "at": "2026-09-04T19:27:55.281Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-04T19:27:55.281Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → fable-5.1 (available)"
+      },
+      {
+        "at": "2026-09-04T19:27:57.626Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-162-r2.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-04T19:27:55.281Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5545485780,
+        "url": "https://github.com/othoth77/mythos-prod/issues/162#issuecomment-5545485780",
+        "at": "2026-09-04T19:27:56.083Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:human-approval"
+      ]
+    }
+  }
+}
