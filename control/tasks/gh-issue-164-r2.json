@@ -27,7 +27,7 @@
     "Delivery ledger and idempotency are verified, and exact evidence is recorded in `docs/AI_HANDOVER.md`.",
     "If the environment lacks the required production configuration or test recipient, leave the task BLOCKED with the exact missing prerequisite."
   ],
-  "status": "IN_PROGRESS",
+  "status": "BLOCKED",
   "created_at": "2026-09-04T20:41:09.545Z",
   "created_by": "github-issue:othoth77",
   "model": "fable-5.1",
@@ -196,8 +196,8 @@
     "claimed_at": "2026-09-04T20:41:14.275Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "71c295e256d33ffada96701a69c2eaa19a91c8450fad15a2ec791a31bb1c8fa9",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-04T20:42:20.574Z",
+    "executor_status": "BLOCKED",
+    "updated_at": "2026-09-04T20:48:10.938Z",
     "snapshot_sha256": "ca0e48748ef6e2ca387103e087c5849ee27361ca2852a48682631a0e772711de",
     "fence": 4741,
     "lease": {
@@ -226,7 +226,13 @@
     },
     "model": "claude-fable-5-1",
     "model_selection_mode": "explicit",
-    "claude_session_id": "1804fafa-f90a-4fa9-b004-100028dbcbc1"
+    "claude_session_id": "1804fafa-f90a-4fa9-b004-100028dbcbc1",
+    "blocker": {
+      "code": "HUMAN_APPROVAL",
+      "reason": "Verified PR #163 (merge e94d1b0 = 5b995e9 + 3ac4644) is in origin/main and live in the production checkout (e3a19a3 = origin/main); Evolution remains the default adapter (providers: evolution, generic); resilience 101/0 and notify 131/0 suites pass at HEAD. Read-only production inspection: notify-config shows enabled=false, no base URL/instance/credential, recipients_configured=0; the production bridge events.log (58,984 lines) has zero whatsapp_* events and the delivery ledger is empty (0 entri",
+      "retryable": false
+    },
+    "report_file": "control/reports/gh-issue-164-r2.json"
   },
   "history": [
     {
@@ -242,6 +248,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-04T20:48:10.390Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended BLOCKED; building report"
+    },
+    {
+      "at": "2026-09-04T20:48:10.937Z",
+      "from": "VALIDATING",
+      "to": "BLOCKED",
+      "by": "github-bridge",
+      "note": "report written (1 commit(s), 9 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }

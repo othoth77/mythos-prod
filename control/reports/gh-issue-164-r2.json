@@ -1,0 +1,166 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-164-r2",
+  "attempt_id": "gh-issue-164-r2#2",
+  "status": "BLOCKED",
+  "summary": "Verified PR #163 (merge e94d1b0 = 5b995e9 + 3ac4644) is in origin/main and live in the production checkout (e3a19a3 = origin/main); Evolution remains the default adapter (providers: evolution, generic); resilience 101/0 and notify 131/0 suites pass at HEAD. Read-only production inspection: notify-config shows enabled=false, no base URL/instance/credential, recipients_configured=0; the production bridge events.log (58,984 lines) has zero whatsapp_* events and the delivery ledger is empty (0 entries), proving the layer is disabled in the service; no WhatsApp gateway listens on any loopback port (8080 refused, no Evolution/WAHA signature elsewhere); no designated test recipient and no activation approval exist. The service drop-in and secrets directory could not be read directly (outside the sandbox; systemctl show required an unavailable approval). Per the task rule, stopped: no gateway deployed, no credential created/read, no config changed, no restart, no message sent, no smoke test. Recorded exact state and the five owner prerequisites in docs/AI_HANDOVER.md; OTHMODE task OTH-2026-00168 advanced to phase VERIFICATION with evidence, status left RUNNING for the bridge. Committed locally as 8f496fc; delivery is the relay's (no push performed).",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+    "branch": "mythos/gh/gh-issue-164-r2",
+    "commit_sha": "8f496fc43698e74ecf2879a48047bfb841d50aa6"
+  },
+  "blocker": {
+    "code": "HUMAN_APPROVAL",
+    "retryable": false,
+    "at": "2026-09-04T20:47:23.911Z",
+    "reason": "Verified PR #163 (merge e94d1b0 = 5b995e9 + 3ac4644) is in origin/main and live in the production checkout (e3a19a3 = origin/main); Evolution remains the default adapter (providers: evolution, generic); resilience 101/0 and notify 131/0 suites pass at HEAD. Read-only production inspection: notify-config shows enabled=false, no base URL/instance/credential, recipients_configured=0; the production bridge events.log (58,984 lines) has zero whatsapp_* events and the delivery ledger is empty (0 entries), proving the layer is disabled in the service; no WhatsApp gateway listens on any loopback port (8080 refused, no Evolution/WAHA signature elsewhere); no designated test recipient and no activation approval exist. The service drop-in and secrets directory could not be read directly (outside the ",
+    "task_id": "t-20260904204114-zny5n8",
+    "attempt_id": "gh-issue-164-r2#2",
+    "requested_action": "implement",
+    "execution_profile": "repo-write",
+    "model": "claude-fable-5-1"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-04T20:41:13.314Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "blocked",
+    "summary": "Verified PR #163 (merge e94d1b0 = 5b995e9 + 3ac4644) is in origin/main and live in the production checkout (e3a19a3 = origin/main); Evolution remains the default adapter (providers: evolution, generic); resilience 101/0 and notify 131/0 suites pass at HEAD. Read-only production inspection: notify-config shows enabled=false, no base URL/instance/credential, recipients_configured=0; the production bridge events.log (58,984 lines) has zero whatsapp_* events and the delivery ledger is empty (0 entries), proving the layer is disabled in the service; no WhatsApp gateway listens on any loopback port (8080 refused, no Evolution/WAHA signature elsewhere); no designated test recipient and no activation approval exist. The service drop-in and secrets directory could not be read directly (outside the sandbox; systemctl show required an unavailable approval). Per the task rule, stopped: no gateway deployed, no credential created/read, no config changed, no restart, no message sent, no smoke test. Recorded exact state and the five owner prerequisites in docs/AI_HANDOVER.md; OTHMODE task OTH-2026-00168 advanced to phase VERIFICATION with evidence, status left RUNNING for the bridge. Committed locally as 8f496fc; delivery is the relay's (no push performed).",
+    "tests": [
+      "tests/mythos-bridge-whatsapp-resilience-test.js: 101 passed, 0 failed",
+      "tests/mythos-bridge-whatsapp-notify-test.js: 131 passed, 0 failed",
+      "git merge-base --is-ancestor 3ac4644 origin/main: yes (PR #163 in main)",
+      "production checkout HEAD: e3a19a3 = origin/main",
+      "mythos-github-bridge notify-config: enabled=false, recipients_configured=0, credential_present=[REDACTED]], 4 readiness problems",
+      "mythos-github-bridge notify-status: 0 ledger entries (before and after suites), breaker closed",
+      "bridge events.log: 0 whatsapp_* events / 58984 lines",
+      "loopback gateway probe: no Evolution/WAHA/wa-evolution listener",
+      "controlled smoke test: NOT PERFORMED (no designated recipient, no gateway, no config)"
+    ],
+    "commit": "8f496fc43698e74ecf2879a48047bfb841d50aa6",
+    "remote_head": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+    "files_changed": [
+      "docs/AI_HANDOVER.md"
+    ],
+    "residual_risks": [
+      "Service environment (systemd drop-in) and ~/mythos-ai-executor/secrets/ not read directly; disabled state inferred from the production bridge log and empty ledger",
+      "Docker containers could not be enumerated as deploy; gateway absence is based on listening ports only",
+      "WhatsApp production remains NOT ACTIVE until the owner supplies gateway, credential+config, designated test recipient, QR pairing and activation approval",
+      "Commit 8f496fc awaits the governance relay (mythos-git-push.timer); remote branch still at base e3a19a3 at report time"
+    ],
+    "next_stage": "Owner: deploy one private gateway (Evolution default or shortlisted candidate via generic), install ~/mythos-ai-executor/secrets/evolution.key + the MYTHOS_BRIDGE_WHATSAPP_* drop-in per docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §4.1 with a designated test recipient, pair the instance by QR, grant activation approval; then re-run #164 (notify-config problems must be empty, notify-test --confirm once, notify-status unchanged)."
+  },
+  "files_changed": [
+    "docs/AI_HANDOVER.md"
+  ],
+  "commits": [
+    {
+      "sha": "8f496fc43698e74ecf2879a48047bfb841d50aa6",
+      "subject": "docs(handover): gh-issue-164-r2 — WhatsApp production activation verified BLOCKED, nothing to activate",
+      "branch": "mythos/gh/gh-issue-164-r2",
+      "on_origin": true
+    }
+  ],
+  "tests": [
+    "tests/mythos-bridge-whatsapp-resilience-test.js: 101 passed, 0 failed",
+    "tests/mythos-bridge-whatsapp-notify-test.js: 131 passed, 0 failed",
+    "git merge-base --is-ancestor 3ac4644 origin/main: yes (PR #163 in main)",
+    "production checkout HEAD: e3a19a3 = origin/main",
+    "mythos-github-bridge notify-config: enabled=false, recipients_configured=0, credential_present=[REDACTED]], 4 readiness problems",
+    "mythos-github-bridge notify-status: 0 ledger entries (before and after suites), breaker closed",
+    "bridge events.log: 0 whatsapp_* events / 58984 lines",
+    "loopback gateway probe: no Evolution/WAHA/wa-evolution listener",
+    "controlled smoke test: NOT PERFORMED (no designated recipient, no gateway, no config)"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+    "report_problems": [],
+    "required_checks": [
+      "WhatsApp is COMPLETE only if the intended provider configuration is verified/activated through governance.",
+      "A controlled smoke test succeeds only when an already-configured, explicitly designated test recipient exists.",
+      "Delivery ledger and idempotency are verified, and exact evidence is recorded in `docs/AI_HANDOVER.md`.",
+      "If the environment lacks the required production configuration or test recipient, leave the task BLOCKED with the exact missing prerequisite."
+    ]
+  },
+  "problems": [
+    "HUMAN_APPROVAL: Verified PR #163 (merge e94d1b0 = 5b995e9 + 3ac4644) is in origin/main and live in the production checkout (e3a19a3 = origin/main); Evolution remains the default adapter (providers: evolution, generic); resilience 101/0 and notify 131/0 suites pass at HEAD. Read-only production inspection: notify-config shows enabled=false, no base URL/instance/credential, recipients_configured=0; the production bridge events.log (58,984 lines) has zero whatsapp_* events and the delivery ledger is empty (0 entries), proving the layer is disabled in the service; no WhatsApp gateway listens on any loopback port (8080 refused, no Evolution/WAHA signature elsewhere); no designated test recipient and no activation approval exist. The service drop-in and secrets directory could not be read directly (outside the "
+  ],
+  "risks": [
+    "Service environment (systemd drop-in) and ~/mythos-ai-executor/secrets/ not read directly; disabled state inferred from the production bridge log and empty ledger",
+    "Docker containers could not be enumerated as deploy; gateway absence is based on listening ports only",
+    "WhatsApp production remains NOT ACTIVE until the owner supplies gateway, credential+config, designated test recipient, QR pairing and activation approval",
+    "Commit 8f496fc awaits the governance relay (mythos-git-push.timer); remote branch still at base e3a19a3 at report time"
+  ],
+  "next_recommended_action": "Owner: deploy one private gateway (Evolution default or shortlisted candidate via generic), install ~/mythos-ai-executor/secrets/evolution.key + the MYTHOS_BRIDGE_WHATSAPP_* drop-in per docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §4.1 with a designated test recipient, pair the instance by QR, grant activation approval; then re-run #164 (notify-config problems must be empty, notify-test --confirm once, notify-status unchanged).",
+  "completed_at": "2026-09-04T20:48:10.874Z",
+  "execution": {
+    "executor_task_id": "t-20260904204114-zny5n8",
+    "othmode_task_id": "OTH-2026-00168",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-164-r2#2",
+    "fence": 4741,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:261624",
+      "fence": 4741,
+      "acquired_at": "2026-09-04T20:41:14.275Z",
+      "expires_at": "2026-09-04T22:11:14.275Z"
+    },
+    "snapshot_sha256": "ca0e48748ef6e2ca387103e087c5849ee27361ca2852a48682631a0e772711de",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "1804fafa-f90a-4fa9-b004-100028dbcbc1",
+    "executor_status": "BLOCKED",
+    "started_at": "2026-09-04T20:41:24.849Z",
+    "ended_at": "2026-09-04T20:47:23.911Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 3.2086260000000006,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-164-r2",
+    "branch": "mythos/gh/gh-issue-164-r2",
+    "base_commit": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-164-r2",
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
