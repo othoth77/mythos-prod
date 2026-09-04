@@ -1,6 +1,6 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-04T19:14:10.076Z",
+  "generated_at": "2026-09-04T19:16:19.177Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
@@ -1343,7 +1343,7 @@
       "blocker": null,
       "created_at": "2026-09-04T17:43:58.437Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-04T17:45:28.667Z",
+      "updated_at": "2026-09-04T19:16:09.116Z",
       "executor_task_id": "t-20260904174515-oinn8z",
       "branch": "mythos/gh/gh-issue-162",
       "task_file": "control/tasks/gh-issue-162.json",
