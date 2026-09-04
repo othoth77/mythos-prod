@@ -1,0 +1,182 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-170",
+  "attempt_id": "gh-issue-170#1",
+  "status": "BLOCKED",
+  "summary": "The repo-write side of #170 is done and committed: ops/whatsapp/evolution/{docker-compose.yml (Evolution API + Postgres, API on 127.0.0.1 only, Postgres unpublished, mem/pid caps, key and DB password as required env-file variables), bridge-dropin.conf.example (all MYTHOS_BRIDGE_WHATSAPP_* set, one placeholder recipient, credential from the 0600 file, ENABLED deliberately absent), verify.js (read-only readiness verifier: bridge problems, key file mode, gateway version, instance connectionState, sending flag — two GETs, never a POST, never prints the key), README.md (owner runbook, activation as a separate approved step)}, tests/whatsapp-gateway-verify-test.js 24/0, and a WA-GATEWAY-PREP entry in docs/AI_HANDOVER.md with the measured host state. The task's validation requirements that need the host could not be met from this run and are blocked on the owner: starting the gateway is a Level 3 host deploy on the shared multi-tenant VPS and docker inspect/run require an approval this non-interactive session cannot obtain; ~/mythos-ai-executor/secrets/ and ~/.config/systemd/user/mythos-github-bridge.service.d/ are outside the session's allowlist (ls refused by the tool layer) and sudo is denied; QR pairing needs a human with the phone; no outbound network to re-verify the image tag. Host memory measured: MemAvailable 3298/7746 MiB, swap 3041/4095 MiB used (better than #146, still not the resolved state the gate asks for). notify-config unchanged (enabled false, 0 recipients, no credential). No message sent, no container started, no service restarted, no secret created or printed.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implement",
+    "action_source": "explicit_current_issue",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+    "branch": "mythos/gh/gh-issue-170",
+    "commit_sha": "e4fb2d99295c8ce1754fe6dd388cb3b0d41e1928"
+  },
+  "blocker": {
+    "code": "PERMISSION_DENIED",
+    "retryable": false,
+    "at": "2026-09-04T21:08:02.269Z",
+    "reason": "The repo-write side of #170 is done and committed: ops/whatsapp/evolution/{docker-compose.yml (Evolution API + Postgres, API on 127.0.0.1 only, Postgres unpublished, mem/pid caps, key and DB password as required env-file variables), bridge-dropin.conf.example (all MYTHOS_BRIDGE_WHATSAPP_* set, one placeholder recipient, credential from the 0600 file, ENABLED deliberately absent), verify.js (read-only readiness verifier: bridge problems, key file mode, gateway version, instance connectionState, sending flag — two GETs, never a POST, never prints the key), README.md (owner runbook, activation as a separate approved step)}, tests/whatsapp-gateway-verify-test.js 24/0, and a WA-GATEWAY-PREP entry in docs/AI_HANDOVER.md with the measured host state. The task's validation requirements that need t",
+    "task_id": "t-20260904205253-8yl808",
+    "attempt_id": "gh-issue-170#1",
+    "requested_action": "implement",
+    "execution_profile": "repo-write",
+    "model": "claude-fable-5-1"
+  },
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-04T20:52:52.453Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "blocked",
+    "summary": "The repo-write side of #170 is done and committed: ops/whatsapp/evolution/{docker-compose.yml (Evolution API + Postgres, API on 127.0.0.1 only, Postgres unpublished, mem/pid caps, key and DB password as required env-file variables), bridge-dropin.conf.example (all MYTHOS_BRIDGE_WHATSAPP_* set, one placeholder recipient, credential from the 0600 file, ENABLED deliberately absent), verify.js (read-only readiness verifier: bridge problems, key file mode, gateway version, instance connectionState, sending flag — two GETs, never a POST, never prints the key), README.md (owner runbook, activation as a separate approved step)}, tests/whatsapp-gateway-verify-test.js 24/0, and a WA-GATEWAY-PREP entry in docs/AI_HANDOVER.md with the measured host state. The task's validation requirements that need the host could not be met from this run and are blocked on the owner: starting the gateway is a Level 3 host deploy on the shared multi-tenant VPS and docker inspect/run require an approval this non-interactive session cannot obtain; ~/mythos-ai-executor/secrets/ and ~/.config/systemd/user/mythos-github-bridge.service.d/ are outside the session's allowlist (ls refused by the tool layer) and sudo is denied; QR pairing needs a human with the phone; no outbound network to re-verify the image tag. Host memory measured: MemAvailable 3298/7746 MiB, swap 3041/4095 MiB used (better than #146, still not the resolved state the gate asks for). notify-config unchanged (enabled false, 0 recipients, no credential). No message sent, no container started, no service restarted, no secret created or printed.",
+    "tests": [
+      "tests/whatsapp-gateway-verify-test.js: 24 passed, 0 failed (loopback stub; 0 non-GET requests; apikey header correct on every GET; key absent from all output)",
+      "node --check ops/whatsapp/evolution/verify.js: ok",
+      "docker-compose.yml YAML parse (yaml module): ok — loopback publish, Postgres unpublished, caps, ${EVOLUTION_API_KEY=[REDACTED]]} interpolation confirmed; `docker compose config` not run (requires approval)",
+      "mythos-github-bridge notify-config (read-only): enabled false, provider evolution, 0 recipients, credential absent — unchanged",
+      "Gateway reachable from production: NOT MET (not deployable from this profile)",
+      "Credential/config validated: NOT MET (path outside sandbox; creation scripted, verifier checks mode only)",
+      "Test recipient configured: NOT MET (template placeholder for the owner)",
+      "QR pairing complete / instance ready: NOT MET (human-only; verifier detects state open)",
+      "No message sent without activation approval: MET (0 sends, 0 POSTs, ENABLED never set)"
+    ],
+    "commit": "e4fb2d99295c8ce1754fe6dd388cb3b0d41e1928",
+    "remote_head": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+    "files_changed": [
+      "ops/whatsapp/evolution/docker-compose.yml",
+      "ops/whatsapp/evolution/bridge-dropin.conf.example",
+      "ops/whatsapp/evolution/verify.js",
+      "ops/whatsapp/evolution/README.md",
+      "tests/whatsapp-gateway-verify-test.js",
+      "docs/AI_HANDOVER.md"
+    ],
+    "residual_risks": [
+      "remote_head is the branch's current origin head (base e3a19a3); commit e4fb2d9 is delivered by mythos-git-push.timer, not verified on origin at report time",
+      "evoapicloud/evolution-api:v2.3.7 tag not live-verified from this session (no network); runbook step 3 checks it with docker manifest inspect before up",
+      "Stack capped at ~1 GB total vs vendor's 2 GB minimum; first `compose up` is the owner's smoke test, no agent has ever run it",
+      "Healthcheck assumes wget in the Evolution image (node-alpine base); switch to node -e if the container reports unhealthy while answering",
+      "Gate step 3 (measure footprint under caps for a week) still owed before activation; host swap is 74% used on a shared multi-tenant VPS",
+      "Stray evolution-inspect container (state created) left untouched"
+    ],
+    "next_stage": "Owner on the host, in ops/whatsapp/evolution/README.md order: §2 credential (0600, outside Git) → §3 docker compose --env-file up (host-deploy approval, free -m first) → §4 instance create + QR scan → connectionState open → §5 drop-in 20-whatsapp.conf with one MSISDN and ENABLED off, daemon-reload → §6 notify-config (problems []) + node ops/whatsapp/evolution/verify.js (READY_FOR_ACTIVATION_REVIEW) pasted as evidence; then §7 activation (ENABLED=1 + notify-test --confirm) = #164 rerun, only with the recorded activation approval"
+  },
+  "files_changed": [
+    "ops/whatsapp/evolution/docker-compose.yml",
+    "ops/whatsapp/evolution/bridge-dropin.conf.example",
+    "ops/whatsapp/evolution/verify.js",
+    "ops/whatsapp/evolution/README.md",
+    "tests/whatsapp-gateway-verify-test.js",
+    "docs/AI_HANDOVER.md"
+  ],
+  "commits": [
+    {
+      "sha": "e4fb2d99295c8ce1754fe6dd388cb3b0d41e1928",
+      "subject": "ops(whatsapp): owner-run provisioning kit for the private Evolution gateway (gh-issue-170)",
+      "branch": "mythos/gh/gh-issue-170",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "tests/whatsapp-gateway-verify-test.js: 24 passed, 0 failed (loopback stub; 0 non-GET requests; apikey header correct on every GET; key absent from all output)",
+    "node --check ops/whatsapp/evolution/verify.js: ok",
+    "docker-compose.yml YAML parse (yaml module): ok — loopback publish, Postgres unpublished, caps, ${EVOLUTION_API_KEY=[REDACTED]]} interpolation confirmed; `docker compose config` not run (requires approval)",
+    "mythos-github-bridge notify-config (read-only): enabled false, provider evolution, 0 recipients, credential absent — unchanged",
+    "Gateway reachable from production: NOT MET (not deployable from this profile)",
+    "Credential/config validated: NOT MET (path outside sandbox; creation scripted, verifier checks mode only)",
+    "Test recipient configured: NOT MET (template placeholder for the owner)",
+    "QR pairing complete / instance ready: NOT MET (human-only; verifier detects state open)",
+    "No message sent without activation approval: MET (0 sends, 0 POSTs, ENABLED never set)"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+    "report_problems": [],
+    "required_checks": [
+      "Gateway exists and is reachable from production.",
+      "Credential/config is present and validated without exposing secrets.",
+      "Test recipient is configured.",
+      "QR pairing is complete and instance is ready.",
+      "notify-config reports no blocking configuration problems.",
+      "No message is sent without explicit activation approval."
+    ]
+  },
+  "problems": [
+    "PERMISSION_DENIED: The repo-write side of #170 is done and committed: ops/whatsapp/evolution/{docker-compose.yml (Evolution API + Postgres, API on 127.0.0.1 only, Postgres unpublished, mem/pid caps, key and DB password as required env-file variables), bridge-dropin.conf.example (all MYTHOS_BRIDGE_WHATSAPP_* set, one placeholder recipient, credential from the 0600 file, ENABLED deliberately absent), verify.js (read-only readiness verifier: bridge problems, key file mode, gateway version, instance connectionState, sending flag — two GETs, never a POST, never prints the key), README.md (owner runbook, activation as a separate approved step)}, tests/whatsapp-gateway-verify-test.js 24/0, and a WA-GATEWAY-PREP entry in docs/AI_HANDOVER.md with the measured host state. The task's validation requirements that need t"
+  ],
+  "risks": [
+    "remote_head is the branch's current origin head (base e3a19a3); commit e4fb2d9 is delivered by mythos-git-push.timer, not verified on origin at report time",
+    "evoapicloud/evolution-api:v2.3.7 tag not live-verified from this session (no network); runbook step 3 checks it with docker manifest inspect before up",
+    "Stack capped at ~1 GB total vs vendor's 2 GB minimum; first `compose up` is the owner's smoke test, no agent has ever run it",
+    "Healthcheck assumes wget in the Evolution image (node-alpine base); switch to node -e if the container reports unhealthy while answering",
+    "Gate step 3 (measure footprint under caps for a week) still owed before activation; host swap is 74% used on a shared multi-tenant VPS",
+    "Stray evolution-inspect container (state created) left untouched"
+  ],
+  "next_recommended_action": "Owner on the host, in ops/whatsapp/evolution/README.md order: §2 credential (0600, outside Git) → §3 docker compose --env-file up (host-deploy approval, free -m first) → §4 instance create + QR scan → connectionState open → §5 drop-in 20-whatsapp.conf with one MSISDN and ENABLED off, daemon-reload → §6 notify-config (problems []) + node ops/whatsapp/evolution/verify.js (READY_FOR_ACTIVATION_REVIEW) pasted as evidence; then §7 activation (ENABLED=1 + notify-test --confirm) = #164 rerun, only with the recorded activation approval",
+  "completed_at": "2026-09-04T21:08:10.628Z",
+  "execution": {
+    "executor_task_id": "t-20260904205253-8yl808",
+    "othmode_task_id": "OTH-2026-00169",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "explicit_current_issue",
+    "action_raw": "implement",
+    "attempt_id": "gh-issue-170#1",
+    "fence": 4771,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:290222",
+      "fence": 4771,
+      "acquired_at": "2026-09-04T20:52:53.437Z",
+      "expires_at": "2026-09-04T22:22:53.437Z"
+    },
+    "snapshot_sha256": "48b8786ede5711d59a9068abe12b354893eb2b5c890dd09e6a4c07e8fe976528",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "a28b4282-7d57-4d35-8442-e8d2be8e7f20",
+    "executor_status": "BLOCKED",
+    "started_at": "2026-09-04T20:52:55.139Z",
+    "ended_at": "2026-09-04T21:08:02.269Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 5.810977,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-170",
+    "branch": "mythos/gh/gh-issue-170",
+    "base_commit": "e3a19a3ad1c8aa12ee91c41228c50c9841b0e2be",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-170",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
