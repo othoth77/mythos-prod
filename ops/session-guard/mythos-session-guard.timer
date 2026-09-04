@@ -1,0 +1,27 @@
+[Unit]
+# Drives mythos-session-guard.service (GitHub Issue #144).
+#
+# Cadence reasoning. Every tick is one /proc scan of a few hundred
+# processes — microseconds — and the guard's decisions are deliberately
+# slow: the default idle timeout is an hour and the SIGTERM -> SIGKILL
+# grace is two minutes. Five minutes is fast enough that a SIGTERM is
+# escalated promptly and an orphan is reclaimed within its grace window,
+# and slow enough that the tracking history stays cheap.
+#
+# This timer is safe to install before the decision to enforce is taken:
+# without the enable marker the runner only observes. See
+# ops/session-guard/README.md.
+Description=Run the MYTHOS Claude Desktop Remote session guard every 5 minutes
+Documentation=file:///usr/local/share/doc/mythos/MYTHOS_SESSION_GUARD.md
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=5min
+AccuracySec=30s
+# The guard's idle clocks are wall-clock based, so a missed run is caught
+# up by the next tick, not replayed.
+Persistent=false
+Unit=mythos-session-guard.service
+
+[Install]
+WantedBy=timers.target

@@ -30,6 +30,10 @@ var skills = require('./lib/skills');
 var mcpCapabilities = require('./lib/mcp-capabilities');
 var modelPolicy = require('./lib/model-policy');
 var resourceGuard = require('./lib/resource-guard');
+// Execution lifecycle registry (task / execution / session are three
+// states, not one). Every call below is best-effort: a registry problem
+// must never change what happens to a task.
+var lifecycle = require('./lib/lifecycle');
 // requested_action → execution_profile invariant and attempt immutability
 // (shared with the GitHub bridge and the Issues adapter — one engine).
 var engine = require('./bridge/action-resolution');
@@ -607,6 +611,11 @@ function runTaskCore(taskId, opts) {
     provider: task.provider, model: task.model, mode: mode, status: 'RUNNING'
   });
   if (mode === 'start') notify('task_started', task.stage, taskId + ' ' + task.project);
+  var ghStage = /^github:([a-z0-9][a-z0-9-]{4,62}[a-z0-9])$/.exec(String(task.stage || ''));
+  lifecycle.emit({ type: 'EXECUTION_CREATED', execution_id: executionId, task_id: taskId, correlation_id: ghStage ? ghStage[1] : null,
+    agent: task.provider, provider: task.provider, location: 'VPS', cwd: task.working_directory || null, source: 'executor',
+    evidence: { mode: mode, requested_by: task.requested_by || null, stage: String(task.stage || '').slice(0, 80) } });
+  lifecycle.emit({ type: 'EXECUTION_DISPATCHED', execution_id: executionId, task_id: taskId, location: 'VPS', source: 'executor' });
 
   var resumeNote = null;
   if (mode === 'resume') {
@@ -629,9 +638,17 @@ function runTaskCore(taskId, opts) {
     var st = state.readStatus(taskId);
     st.pid = childPid;
     state.writeJSON(taskId, 'status.json', st);
+    lifecycle.emit({ type: 'SESSION_STARTED', execution_id: executionId, task_id: taskId, session_id: sessionId, pid: childPid || null,
+      proc_start: procStartTicks(childPid), cwd: task.working_directory || null, location: 'VPS', agent: task.provider, provider: task.provider,
+      source: 'executor', evidence: { mode: mode } });
   }).then(function (outcome) {
     state.writeText(taskId, 'stdout.log', outcome.stdout || '');
     state.writeText(taskId, 'stderr.log', outcome.stderr || '');
+    // The provider's child has exited: that IS the session end for a headless
+    // run, with the process-gone proof in hand. The task's outcome is decided
+    // below, separately — a closed session says nothing about it.
+    lifecycle.emit({ type: 'SESSION_END', execution_id: executionId, task_id: taskId, session_id: outcome.session_id || sessionId, process_gone: true,
+      end_reason: outcome.timed_out ? 'timeout' : (outcome.signal ? 'signal:' + outcome.signal : 'exit:' + outcome.exit_code), location: 'VPS', source: 'executor' });
 
     var parsed = outcome.parsed;
     var succeeded = parsed && parsed.is_error === false && !outcome.timed_out && outcome.exit_code === 0;
@@ -639,6 +656,15 @@ function runTaskCore(taskId, opts) {
     if (succeeded) return handleSuccess(task, taskId, outcome, parsed);
     return handleFailure(task, taskId, outcome, mode, opts);
   });
+}
+
+// Kernel start ticks of a pid: the identity a recycled pid cannot fake.
+function procStartTicks(pid) {
+  try {
+    var stat = fs.readFileSync('/proc/' + pid + '/stat', 'utf8');
+    var rest = stat.slice(stat.lastIndexOf(')') + 1).trim().split(/\s+/);
+    return rest[19] || null;
+  } catch (e) { return null; }
 }
 
 function handleSuccess(task, taskId, outcome, parsed) {
@@ -708,6 +734,16 @@ function handleSuccess(task, taskId, outcome, parsed) {
   });
   notify(finalState === 'COMPLETED' ? 'task_completed' : 'task_failed', task.stage,
     taskId + ' ' + finalState + (delivery.commit ? ' report@' + String(delivery.commit).slice(0, 7) : ''));
+  lifecycle.emit({ type: 'TASK_COMPLETED', execution_id: status.execution_id, task_id: taskId, session_id: outcome.session_id || null,
+    report_status: finalState.toLowerCase(), location: 'VPS', source: 'executor' });
+  // A bridge-owned task gets its REPORT_SUBMITTED from the bridge when the
+  // control report is on the GitHub channel. Every other task's report of
+  // record is the executor's own report.json (and its git commit when
+  // report_to_git is on), so the executor submits that itself.
+  if (task.requested_by !== 'github-bridge') {
+    lifecycle.emit({ type: 'REPORT_SUBMITTED', execution_id: status.execution_id, task_id: taskId, report_status: finalState.toLowerCase(),
+      report_ref: delivery.commit ? 'git:' + String(delivery.commit).slice(0, 12) : 'executor:report.json', location: 'VPS', source: 'executor' });
+  }
   return state.readStatus(taskId);
 }
 
@@ -783,6 +819,8 @@ function handleFailure(task, taskId, outcome, mode, opts) {
         next_action: 'inspect logs; re-queue explicitly if appropriate'
       });
       state.appendEvent(taskId, 'retries_exhausted', { retry_count: retryCount, max_retries: maxRetries, status: 'FAILED' });
+      lifecycle.emit({ type: 'EXECUTION_FAILED', execution_id: failed.execution_id, task_id: taskId, task_state: 'FAILED', reason: 'transient failures exceeded max_retries', location: 'VPS', source: 'executor' });
+      if (task.requested_by !== 'github-bridge') lifecycle.emit({ type: 'REPORT_SUBMITTED', execution_id: failed.execution_id, task_id: taskId, report_status: 'failed', report_ref: 'executor:report.json', location: 'VPS', source: 'executor' });
       writeFailureReport(task, taskId, failed, 'failed', engine.blocker('PROVIDER_FAILED', { reason: 'transient failures exceeded max_retries (' + retryCount + '): ' + tailOf(text.trim(), 300), task_id: taskId, attempt_id: task.attempt_id || null, retries: retryCount, category: 'transient' }));
       notify('task_failed', task.stage, taskId + ' FAILED after ' + retryCount + ' retries');
       return failed;
@@ -821,6 +859,10 @@ function handleFailure(task, taskId, outcome, mode, opts) {
   writeFailureReport(task, taskId, final, terminal.toLowerCase(), fb);
   state.appendEvent(taskId, kind + '_failure', { status: terminal, code: fb.code, category: detail.category });
   notify('task_failed', task.stage, taskId + ' ' + terminal);
+  lifecycle.emit({ type: 'EXECUTION_FAILED', execution_id: final.execution_id, task_id: taskId, task_state: terminal, reason: (fb.code || terminal) + ': ' + String(fb.reason || '').slice(0, 120), location: 'VPS', source: 'executor' });
+  if (task.requested_by !== 'github-bridge') {
+    lifecycle.emit({ type: 'REPORT_SUBMITTED', execution_id: final.execution_id, task_id: taskId, report_status: terminal.toLowerCase(), report_ref: 'executor:report.json', location: 'VPS', source: 'executor' });
+  }
   return final;
 }
 
@@ -1217,6 +1259,32 @@ function resourceGuardStatus() {
   };
 }
 
+// Read-only view of the Session Guard (gh-issue-144) for operators and for
+// bin/mythos-session-guard. STRICTLY observational: it calls snapshot(),
+// which never writes the guard's state and never signals a process, so
+// polling this route can neither advance an idle clock nor race the
+// enforcing process. The executor itself never terminates a Desktop Remote
+// session — that is the enforcing unit's job, and only when the operator
+// has enabled it.
+function sessionGuardStatus() {
+  var sg;
+  try { sg = require('./lib/session-guard'); } catch (e) { return { available: false, reason: 'module_unavailable' }; }
+  var cfg = {
+    state_path: path.join(state.root(), 'session-guard.json'),
+    enable_marker_path: path.join(state.root(), 'session-guard.enabled'),
+    // The executor observes the SAME memory signal the Resource Guard
+    // already owns; it never reads /proc/meminfo a second time.
+    pressure_level: resourceGuardStatus().level
+  };
+  var snap;
+  try { snap = sg.snapshot(cfg); } catch (e) { return { available: false, reason: 'snapshot_failed' }; }
+  var rep = sg.report(snap);
+  rep.available = true;
+  rep.enforcement = sg.enforcementEnabled(cfg);
+  rep.tracked_sessions = snap.state_tracked;
+  return rep;
+}
+
 function dispatcherStatus() {
   return {
     running: runningCount(),
@@ -1319,6 +1387,11 @@ function daemon(intervalMs) {
     busy = true;
     tick().then(function (actions) {
       busy = false;
+      // Lifecycle housekeeping: inbox → recovery → post-report verification →
+      // cleanup phases. Self-throttled to once a minute inside tick(); it
+      // never signals a root-owned session (that is delegated to the root
+      // Session Guard) and never blocks the executor's own step.
+      try { var lc = lifecycle.tick(); if (lc && !lc.skipped && ((lc.verified && lc.verified.checked.length) || (lc.cleanup && lc.cleanup.actions.length) || lc.recovered.length)) console.log(JSON.stringify({ ts: new Date().toISOString(), lifecycle: { verified: lc.verified.checked.length, cleanup: lc.cleanup.actions, recovered: lc.recovered } })); } catch (e) { /* best-effort */ }
       // Timer-driven re-drain. drainQueue was edge-triggered only (it ran
       // when a run settled), so a console queue held back by capacity OR by
       // resource pressure with nothing running had no event left to restart
@@ -1378,5 +1451,8 @@ module.exports = {
   // that view's exact key set, and host health is a separate concern from
   // dispatch capacity.
   resourceGuardStatus: resourceGuardStatus,
+  sessionGuardStatus: sessionGuardStatus,
+  lifecycleStatus: function (opts) { return lifecycle.status(opts); },
+  lifecycle: lifecycle,
   MAX_PARALLEL: MAX_PARALLEL
 };

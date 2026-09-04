@@ -5,11 +5,14 @@
 # copy, the audit directory, the dagu sudo rule (manual/owner verification
 # only, unrelated to the Executor path), and — HOSTOPS-2R (GitHub issue
 # #130) — the mythos-hostops group, the root socket daemon and its
-# systemd socket + service units. The Executor's own sudo path is GONE:
-# mythos-ai-executor.service runs with NoNewPrivileges=true, which makes
-# `sudo` unable to gain root from inside it no matter what sudoers grants,
-# so HOSTOPS-1's `61-deploy-hostops` rule never actually worked in
-# production. The socket boundary replaces it; see docs/MYTHOS_HOSTOPS_INTERFACE.md.
+# systemd socket + service units, and — HOSTOPS-2R-FIX (GitHub issue #132)
+# — a refresh of `deploy`/`dagu`'s already-running systemd --user manager
+# so the new group membership actually takes effect without a reboot or
+# fresh login. The Executor's own sudo path is GONE: mythos-ai-executor.service
+# runs with NoNewPrivileges=true, which makes `sudo` unable to gain root
+# from inside it no matter what sudoers grants, so HOSTOPS-1's
+# `61-deploy-hostops` rule never actually worked in production. The socket
+# boundary replaces it; see docs/MYTHOS_HOSTOPS_INTERFACE.md.
 set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo "must run as root" >&2; exit 1; }
 REPO_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -41,6 +44,16 @@ groupadd -f mythos-hostops
 usermod -aG mythos-hostops deploy
 usermod -aG mythos-hostops dagu
 
+# 6b. HOSTOPS-2R-FIX (GitHub issue #132): `usermod -aG` above does not
+#     update the supplementary groups of an already-running systemd --user
+#     manager (or anything under it, e.g. mythos-ai-executor.service) —
+#     only a restart of the manager's own system unit (user@<uid>.service,
+#     root-only) does. Without this, a clean owner install on a host where
+#     `deploy` already has an active session would leave the Executor
+#     seeing EACCES on the socket until an unrelated reboot or logout.
+#     Idempotent: a no-op for a user with no active manager yet.
+bash "$REPO_DIR/ops/hostops/refresh-group-membership.sh" deploy dagu
+
 # 7. HOSTOPS-2R: the root socket daemon (0700 root:root — invoked only by
 #    systemd; never reachable via sudo, never a child of the Executor).
 install -o root -g root -m 0700 "$REPO_DIR/ops/hostops/mythos-hostops-daemon.py" /usr/local/sbin/mythos-hostops-daemon
@@ -61,6 +74,7 @@ echo "installed: /etc/sudoers.d/60-dagu-hostops (0440, dagu manual/owner path on
 echo "installed: mythos-hostops.socket + mythos-hostops.service (HOSTOPS-2R boundary)"
 echo "group:     mythos-hostops ($(getent group mythos-hostops))"
 echo "user:      dagu ($(id dagu))"
+echo "refreshed: deploy/dagu systemd --user manager (if already running) — HOSTOPS-2R-FIX, GitHub issue #132"
 echo "verify:    sudo -u dagu sudo /usr/local/sbin/mythos-hostops health   # dagu, manual sudo path"
 echo "verify:    curl -s -H \"Authorization: Bearer \$TOKEN\" -X POST http://127.0.0.1:8130/hostops/run -d '{\"operation\":\"health\"}'   # deploy, via the Executor's socket path"
 echo "verify:    journalctl -u mythos-hostops -n 50   # daemon startup + SO_PEERCRED-verified connections"

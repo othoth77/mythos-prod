@@ -19,6 +19,9 @@
 //                                   missions go through this, not /resume)
 //   GET  /dispatcher                dispatcher capacity/queue status
 //   GET  /resource-guard            host memory pressure state (gh-issue-101)
+//   GET  /session-guard             Claude Desktop Remote session lifecycle
+//                                   counts + planned reclamation (gh-issue-144,
+//                                   read-only: never signals, never mutates)
 //   POST /tasks/<id>/cancel         cooperative cancel (SIGTERM if running)
 //   POST /events/n8n-error          n8n failure-handler sink (logged, notified)
 //   POST /route                     MOS-v2 M-11: governed auto-routing —
@@ -64,6 +67,37 @@ var state = require('./lib/state');
 var mcpInvoke = require('./lib/mcp-invoke');
 var hostops = require('./lib/hostops');
 var redact = require('../mythos-orchestrator/lib/redact');
+var lifecycle = require('./lib/lifecycle');
+
+// --- Lifecycle relay authentication ---------------------------------------------
+// A PC agent relays lifecycle EVIDENCE (never commands) to POST /lifecycle/events.
+// Bearer auth is required like every route; on top of it the body must be
+// HMAC-signed with a secret shared with the agent and the timestamp must be
+// fresh, so a captured request cannot be replayed later (the registry also
+// drops duplicate event ids). Without a configured secret the route refuses:
+// relay ingest is opt-in.
+var RELAY_SECRET_FILE = process.env.MYTHOS_LIFECYCLE_RELAY_SECRET_FILE ||
+  path.join(process.env.HOME || '/home/ubuntu', '.config', 'mythos-ai-executor', 'lifecycle-relay.secret');
+var RELAY_SKEW_MS = 10 * 60 * 1000;
+
+function relaySecret() {
+  if (process.env.MYTHOS_LIFECYCLE_RELAY_SECRET) return process.env.MYTHOS_LIFECYCLE_RELAY_SECRET;
+  try { return fs.readFileSync(RELAY_SECRET_FILE, 'utf8').trim() || null; } catch (e) { return null; }
+}
+
+function relayAuthorized(req, rawBody) {
+  var secret = relaySecret();
+  if (!secret) return { ok: false, reason: 'relay_not_configured' };
+  var ts = String(req.headers['x-mythos-timestamp'] || '');
+  var sig = String(req.headers['x-mythos-signature'] || '');
+  if (!/^\d{10,16}$/.test(ts)) return { ok: false, reason: 'timestamp_missing' };
+  if (Math.abs(Date.now() - parseInt(ts, 10)) > RELAY_SKEW_MS) return { ok: false, reason: 'timestamp_skew' };
+  var m = /^sha256=([0-9a-f]{64})$/.exec(sig);
+  if (!m) return { ok: false, reason: 'signature_missing' };
+  var expected = crypto.createHmac('sha256', secret).update(ts + '.' + rawBody).digest('hex');
+  if (!crypto.timingSafeEqual(Buffer.from(m[1], 'hex'), Buffer.from(expected, 'hex'))) return { ok: false, reason: 'signature_mismatch' };
+  return { ok: true };
+}
 
 var DEFAULT_PORT = parseInt(process.env.MYTHOS_EXECUTOR_PORT || '8130', 10);
 var DEFAULT_BINDS = (process.env.MYTHOS_EXECUTOR_BIND || '127.0.0.1,172.18.0.1').split(',');
@@ -206,6 +240,66 @@ function handler(req, res, token) {
   // Kept off /dispatcher because the console asserts that view's exact keys.
   if (req.method === 'GET' && url === '/resource-guard') {
     return send(res, 200, executor.resourceGuardStatus());
+  }
+
+  // Read-only: how many Claude Desktop Remote sessions are active / idle /
+  // orphaned, how much memory they hold, and what the guard WOULD reclaim.
+  // Observational only — this route never signals a process and never
+  // advances the guard's state (executor.sessionGuardStatus -> snapshot()).
+  if (req.method === 'GET' && url === '/session-guard') {
+    return send(res, 200, executor.sessionGuardStatus());
+  }
+
+  // --- Execution lifecycle (task / execution / session, correlated) ---------
+  // Read-only views. No route here closes a session: cleanup is the
+  // executor daemon's tick plus the root Session Guard, both marker-gated.
+  if (req.method === 'GET' && url === '/lifecycle') return send(res, 200, lifecycle.status({ host: query.host !== '0' }));
+  if (req.method === 'GET' && url === '/lifecycle/host') return send(res, 200, lifecycle.hostView());
+  if ((m = /^\/lifecycle\/(executions|sessions|tasks)\/([A-Za-z0-9][A-Za-z0-9._:-]{2,95})$/.exec(url)) && req.method === 'GET') {
+    var ex = lifecycle.explain(m[2]);
+    if (!ex.execution && !ex.session) return send(res, 404, { error: 'unknown ' + m[1].slice(0, -1) });
+    return send(res, 200, ex);
+  }
+  // PC relay ingest: evidence only. Event types are restricted to what a
+  // remote observer can legitimately report; location is forced to PC and
+  // the source is stamped, so a relay can never impersonate a local
+  // component or inject a close.
+  if (req.method === 'POST' && url === '/lifecycle/events') {
+    return readBody(req).then(function (body) {
+      var auth = relayAuthorized(req, body);
+      if (!auth.ok) return send(res, 403, { error: 'relay_unauthorized', reason: auth.reason });
+      var payload = JSON.parse(body || '{}');
+      var events = Array.isArray(payload.events) ? payload.events : (Array.isArray(payload) ? payload : [payload]);
+      if (events.length > 100) return send(res, 413, { error: 'too_many_events' });
+      var results = events.map(function (ev) {
+        if (!ev || typeof ev !== 'object') return { ok: false, error: 'not_an_object' };
+        if (lifecycle.model.RELAY_EVENTS.indexOf(ev.type) < 0) return { ok: false, error: 'event_not_allowed_from_relay:' + String(ev.type).slice(0, 40) };
+        var clean = Object.assign({}, ev, { location: 'PC', source: 'http-relay' + (ev.source ? ':' + String(ev.source).slice(0, 40) : ''), agent: ev.agent || 'claude-code', provider: ev.provider || 'claude-code' });
+        var r = lifecycle.emit(clean);
+        return { ok: r.ok, duplicate: r.duplicate === true, error: r.error || null, execution_id: r.execution ? r.execution.execution_id : null };
+      });
+      send(res, 200, { accepted: results.filter(function (r) { return r.ok && !r.duplicate; }).length, results: results });
+    }).catch(function (err) { send(res, 400, { error: redact.redact(err.message) }); });
+  }
+  // The PC agent's outbox: requests THIS host makes of it (register an
+  // execution, request a close). Read + ack; nothing executes here.
+  if (req.method === 'GET' && url === '/lifecycle/outbox/PC') {
+    return readBody(req).then(function (body) {
+      var auth = relayAuthorized(req, body || '');
+      if (!auth.ok) return send(res, 403, { error: 'relay_unauthorized', reason: auth.reason });
+      send(res, 200, { requests: lifecycle.registry.listOutbox(lifecycle.registryConfig(), 'PC') });
+    });
+  }
+  if (req.method === 'POST' && url === '/lifecycle/outbox/PC/ack') {
+    return readBody(req).then(function (body) {
+      var auth = relayAuthorized(req, body);
+      if (!auth.ok) return send(res, 403, { error: 'relay_unauthorized', reason: auth.reason });
+      var p = JSON.parse(body || '{}');
+      if (!p.request_id || !/^[0-9a-f]{16}$/.test(String(p.request_id))) return send(res, 400, { error: 'request_id required' });
+      var done = lifecycle.registry.ackOutbox(lifecycle.registryConfig(), 'PC', String(p.request_id));
+      lifecycle.registry.appendLedger(lifecycle.registryConfig(), [{ at: new Date().toISOString(), kind: 'outbox_ack', location: 'PC', request_id: String(p.request_id), result: String(p.result || '').slice(0, 80), acked: done }]);
+      send(res, 200, { acked: done });
+    }).catch(function (err) { send(res, 400, { error: redact.redact(err.message) }); });
   }
 
   if ((m = /^\/tasks\/([a-z0-9-]{8,64})\/cancel$/.exec(url)) && req.method === 'POST') {
