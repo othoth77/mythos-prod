@@ -10,7 +10,7 @@
   "action_raw": "implement",
   "action_source": "explicit_current_issue",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-04T08:10:10.069Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #148 https://github.com/othoth77/mythos-prod/issues/148 — \"HostOps Delivery Reconciliation — #132 + #142\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[132 — hostops-2r-fix]\n- العثور على الـcommit / branch الموجود فعلياً والتحقق من أن implementation موجود.\n- عدم إعادة بناء الحل إذا كان الـcommit موجوداً.\n- التحقق من المتطلبات الأمنية الأساسية:\n  - `NoNewPrivileges=true`\n  - Unix socket boundary\n  - `SO_PEERCRED`\n  - Resource Guard ordering\n  - عدم استخدام sudo / docker كحل التفافي\n  - عدم وجود WRITE / RESTART / DEPLOY عبر المسار\n- التحقق من tests / report / evidence.\n- إذا كان الـcommit موجوداً لكن لا يوجد PR: تجهيز / إنشاء PR طبيعي إلى `main`.\n- إذا كان موجوداً بالفعل على `main`: اعتباره delivered وتسجيل ذلك.\n- إذا ظهر gap حقيقي في implementation: لا تعِد البناء تلقائياً؛ سجّل الـblocker بشكل منفصل.\n\n[142 — hostops read final verification]\n- عدم إعادة تنفيذ E2E إذا كانت الأدلة الحالية تثبت نجاحه.\n- التحقق من الأدلة الحالية، بما فيها:\n  - `ok:true`\n  - class `READ`\n  - non-empty `audit_id`\n  - `hostops_exit=0`\n  - عدم استدعاء WRITE / RESTART / DEPLOY\n- مطابقة GitHub → OTHMODE → Executor → HostOps → report.\n- التحقق من commit / branch / remote state.\n- إذا كانت متطلبات #142 مثبتة بواسطة #136 أو العمل اللاحق، تتم reconciliation بدلاً من rerun.\n- إذا كان commit موجوداً على remote ولا يوجد PR: تجهيز / إنشاء PR طبيعي.\n- إذا كان على `main`: تسجيل delivery complete.\n\n[delivery flow]\n`GitHub → Verify Existing Work → Reconcile Evidence → Identify Delivery Gap Only → Governance/Relay → PR → Human Review → Human Merge`\n\n[required classification]\nأنشئ نتيجة واضحة لكل مهمة:\n- `DELIVERED`\n- `PR_READY`\n- `ALREADY_ON_MAIN`\n- `BLOCKED`\n\nمع جدول:\n\n| Task | Existing implementation | Evidence | Commit | Remote | PR | Action |\n|---|---|---|---|---|---|---|\n| #132 | | | | | | |\n| #142 | | | | | | |\n\n[hard prohibitions]\n- لا تعِد تنفيذ #132 أو #142 من الصفر.\n- لا تعيد تشغيل E2E بدون حاجة مثبتة.\n- لا manual VPS bypass.\n- لا WRITE / RESTART / DEPLOY.\n- لا تعديل WhatsApp.\n- لا تعديل Status Center / #140.\n- لا تغيير Resource Guard thresholds.\n- لا تغيير MCP / Governance architecture.\n- لا manual control edits.\n- لا `git add .`.\n- لا auto-merge.\n- لا تغلق المهمة بدون evidence.\n\n[scope isolation]\nخارج النطاق:\n- #140 / PR #143\n- WhatsApp #141 / #146 / #147\n- #101 / #103\n- AUTOS-0\n- SPY\n- n8n\n- مشاريع السيارات الأخرى\n\n[git / governance requirements]\nإذا تطلب الأمر تغييراً فعلياً:\n1. dedicated branch.\n2. sync مع آخر `origin/main`.\n3. commit واضح ومحدود.\n4. push عبر المسار المعتمد / Relay.\n5. PR طبيعي إلى `main`.\n6. لا auto-merge.\n\n[completion criteria]\n- التحقق الفعلي من حالة #132 و#142.\n- عدم إعادة أي عمل مكتمل بلا سبب.\n- تحديد أي delivery gap بدقة.\n- إنشاء / تجهيز PR فقط عند الحاجة.\n- عدم auto-merge.\n- تحديث `docs/AI_HANDOVER.md` عند وجود تغيير فعلي، مع SHA / branch / base / remote / tests / next action.\n- إنتاج `mythos_report` نهائي يوضح النتيجة لكل مهمة.",
@@ -147,8 +147,8 @@
     "claimed_at": "2026-09-04T08:10:13.529Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "ad2594ca5c1f5671943b15d84f9eb1083889a46cb6c68ea9ee9e3097fe4a6852",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-04T08:11:20.945Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-04T08:18:21.252Z",
     "snapshot_sha256": "15a0a2f741b98e5f5116caf4168e068151330f07adb13c83ec22f4eb7929167b",
     "fence": 3167,
     "lease": {
@@ -177,7 +177,8 @@
     },
     "model": "claude-sonnet-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "11659509-2e75-4e68-b42b-57e28eccc41a"
+    "claude_session_id": "11659509-2e75-4e68-b42b-57e28eccc41a",
+    "report_file": "control/reports/gh-issue-148.json"
   },
   "history": [
     {
@@ -193,6 +194,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-04T08:18:20.639Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-04T08:18:21.252Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (1 commit(s), 2 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
