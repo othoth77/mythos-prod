@@ -1,0 +1,120 @@
+# MYTHOS WhatsApp gateway — Evolution API, private, capped, single instance.
+# ops/whatsapp/evolution/docker-compose.yml
+#
+# Owner-operated. Nothing here is started by an agent: bringing this stack up
+# on the shared production VPS is a Level 3 host operation (AGENTS.md §25.3)
+# and follows the gate in docs/MYTHOS_WHATSAPP_PROVIDER_STRATEGY.md §6.
+# Runbook: ops/whatsapp/evolution/README.md.
+#
+# Fences that this file enforces by construction:
+#   - the API is published on 127.0.0.1 only (§5.2 of the notify doc: the
+#     bridge refuses a non-private gateway host without ALLOW_PUBLIC=1);
+#   - Postgres is never published; it lives on the private compose network;
+#   - hard memory / pid caps, so a runaway gateway cannot take the other
+#     tenants of this host down with it;
+#   - the API key and the database password come from the environment the
+#     owner passes with `--env-file` (a 0600 file OUTSIDE Git) and appear in
+#     no file of this repository;
+#   - Redis is deliberately omitted (CACHE_LOCAL_ENABLED): one instance,
+#     one recipient, no fan-out — the vendor's 4-container layout buys nothing
+#     here and the host is under swap pressure. Message bodies are not
+#     persisted either (DATABASE_SAVE_DATA_* off): the bridge only sends.
+#
+# Variables (all from --env-file, see README §2):
+#   EVOLUTION_API_KEY        required — the global `apikey`; the same value goes
+#                            into ~/mythos-ai-executor/secrets/evolution.key
+#   EVOLUTION_DB_PASSWORD    required — Postgres password, internal only
+#   EVOLUTION_IMAGE          optional — default is the last stable tag verified
+#                            by WA-PROVIDER-2 (2026-09-04); confirm it still
+#                            resolves before `up` (README §3)
+#   EVOLUTION_BIND_PORT      optional — loopback port, default 8080
+
+name: mythos-whatsapp-evolution
+
+services:
+  evolution-api:
+    image: ${EVOLUTION_IMAGE:-evoapicloud/evolution-api:v2.3.7}
+    container_name: evolution-api
+    restart: unless-stopped
+    depends_on:
+      evolution-postgres:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:${EVOLUTION_BIND_PORT:-8080}:8080"
+    environment:
+      SERVER_URL: "http://127.0.0.1:${EVOLUTION_BIND_PORT:-8080}"
+      AUTHENTICATION_API_KEY: "${EVOLUTION_API_KEY:?EVOLUTION_API_KEY missing — pass it with --env-file, never inline}"
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "false"
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: "postgresql"
+      DATABASE_CONNECTION_URI: "postgresql://evolution:${EVOLUTION_DB_PASSWORD:?EVOLUTION_DB_PASSWORD missing}@evolution-postgres:5432/evolution?schema=public"
+      DATABASE_CONNECTION_CLIENT_NAME: "mythos-bridge"
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "false"
+      DATABASE_SAVE_MESSAGE_UPDATE: "false"
+      DATABASE_SAVE_DATA_CONTACTS: "false"
+      DATABASE_SAVE_DATA_CHATS: "false"
+      DATABASE_SAVE_DATA_LABELS: "false"
+      DATABASE_SAVE_DATA_HISTORIC: "false"
+      CACHE_REDIS_ENABLED: "false"
+      CACHE_LOCAL_ENABLED: "true"
+      DEL_INSTANCE: "false"
+      QRCODE_LIMIT: "30"
+      WEBHOOK_GLOBAL_ENABLED: "false"
+      LOG_LEVEL: "ERROR,WARN"
+      LOG_BAILEYS: "error"
+      LANGUAGE: "en"
+      CONFIG_SESSION_PHONE_CLIENT: "MYTHOS bridge"
+      CONFIG_SESSION_PHONE_NAME: "Chrome"
+    volumes:
+      - evolution_instances:/evolution/instances
+    networks:
+      - evolution-private
+    mem_limit: 768m
+    memswap_limit: 768m
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  evolution-postgres:
+    image: postgres:16-alpine
+    container_name: evolution-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "evolution"
+      POSTGRES_USER: "evolution"
+      POSTGRES_PASSWORD: "${EVOLUTION_DB_PASSWORD:?EVOLUTION_DB_PASSWORD missing}"
+    volumes:
+      - evolution_pgdata:/var/lib/postgresql/data
+    networks:
+      - evolution-private
+    mem_limit: 256m
+    memswap_limit: 256m
+    pids_limit: 128
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evolution -d evolution"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+networks:
+  evolution-private:
+    driver: bridge
+
+volumes:
+  evolution_instances:
+  evolution_pgdata:

@@ -1,0 +1,38 @@
+# MYTHOS GitHub bridge — WhatsApp drop-in TEMPLATE (sending DISABLED).
+# ops/whatsapp/evolution/bridge-dropin.conf.example
+#
+# Install target (host, as deploy — outside Git, never committed):
+#   ~/.config/systemd/user/mythos-github-bridge.service.d/20-whatsapp.conf
+# then: systemctl --user daemon-reload
+#
+# This template configures everything the bridge needs to VALIDATE the
+# gateway (notify-config → problems: []) while sending stays off:
+# MYTHOS_BRIDGE_WHATSAPP_ENABLED is deliberately absent, so no ledger entry is
+# written and no request ever leaves the host. Activation is a separate,
+# explicitly approved step (README §7): add the ENABLED=1 line, reload, then
+# the single human-invoked `notify-test --confirm`.
+#
+# Reference: docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md §4 (all variables) and §4.1.
+
+[Service]
+# Adapter. `evolution` is the default and the only one that needs no
+# GENERIC_* mapping; keep it explicit so a future default change is harmless.
+Environment=MYTHOS_BRIDGE_WHATSAPP_PROVIDER=evolution
+
+# Gateway — loopback only. Must match EVOLUTION_BIND_PORT of the compose stack.
+Environment=MYTHOS_BRIDGE_WHATSAPP_BASE_URL=http://127.0.0.1:8080
+
+# Evolution instance name, created by README §4. Alphabet: [A-Za-z0-9][A-Za-z0-9._-]{0,63}
+Environment=MYTHOS_BRIDGE_WHATSAPP_INSTANCE=mythos-bridge
+
+# The ONE designated test recipient: MSISDN, digits only, country code first,
+# no "+", no spaces (e.g. 216XXXXXXXX). Exactly one number until activation
+# is approved; add more only by a later, separate decision.
+Environment=MYTHOS_BRIDGE_WHATSAPP_TO=REPLACE_WITH_DIGITS_ONLY_MSISDN
+
+# Credential: 0600 file holding the same value as EVOLUTION_API_KEY. Preferred
+# over MYTHOS_BRIDGE_WHATSAPP_API_KEY (an env value is inherited by children).
+Environment=MYTHOS_BRIDGE_WHATSAPP_API_KEY_FILE=%h/mythos-ai-executor/secrets/evolution.key
+
+# ---- ACTIVATION (do NOT uncomment without the recorded approval) ----------
+# Environment=MYTHOS_BRIDGE_WHATSAPP_ENABLED=1
