@@ -1,0 +1,15 @@
+{"t":"2026-09-04T23:37:30.149Z","ev":"start","variant":"prhead","mode":"live","version":[2,3000,1046865705],"node":"v24.11.1","hasMe":false,"baileys":"/evolution/h/baileys-pr","qrTimeout":200000}
+{"t":"2026-09-04T23:37:30.152Z","ev":"connect","attempt":1}
+{"t":"2026-09-04T23:37:31.114Z","ev":"qr","n":1,"ref":"https://wa.m…","advTail":"VHOH3yg=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:40:51.275Z","ev":"qr","n":2,"ref":"https://wa.m…","advTail":"VHOH3yg=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:41:01.150Z","ev":"close","code":428,"msg":"Connection Terminated by Server","qrEmitted":2,"advRotated":false,"hasMe":false}
+{"t":"2026-09-04T23:41:01.150Z","ev":"reconnect","reason":"QR refs exhausted / server closed; fresh refs"}
+{"t":"2026-09-04T23:41:03.153Z","ev":"connect","attempt":2}
+{"t":"2026-09-04T23:41:03.709Z","ev":"qr","n":1,"ref":"https://wa.m…","advTail":"VHOH3yg=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:44:23.794Z","ev":"qr","n":2,"ref":"https://wa.m…","advTail":"VHOH3yg=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:44:33.857Z","ev":"close","code":428,"msg":"Connection Terminated by Server","qrEmitted":2,"advRotated":false,"hasMe":false}
+{"t":"2026-09-04T23:44:33.857Z","ev":"reconnect","reason":"QR refs exhausted / server closed; fresh refs"}
+{"t":"2026-09-04T23:44:35.861Z","ev":"connect","attempt":3}
+{"t":"2026-09-04T23:44:36.428Z","ev":"qr","n":1,"ref":"https://wa.m…","advTail":"VHOH3yg=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:47:56.481Z","ev":"qr","n":2,"ref":"https://wa.m…","advTail":"VHOH3yg=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:48:06.538Z","ev":"close","code":428,"msg":"Connection Terminated by Server","qrEmitted":2,"advRotated":false,"hasMe":false}

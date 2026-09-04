@@ -247,3 +247,14 @@ test. If scan #3 shows the stanza never arrives here, no implementation is
 
 ### Production change justified?
 **No.** Nothing has paired in isolation yet; the override stays unapplied.
+
+## 10. Live scan #3 — exact PR head (rc14 + 4f263f0), 23:37:30–23:48:06 UTC — INCONCLUSIVE / pairing not established
+
+Three connections, one ref held for 200 s each. Server→client frames for the
+whole run: 3 × `pair-device`, 18 × ping results, 14 × server `urn:xmpp:ping`,
+3 × `<xmlstreamend/>` at +210 s. `companion_reg_refresh`: **not received**.
+`pair-success`: **not received**. Open connection: **no**. Adv secret unchanged
+(`VHOH3yg=`), no `creds.update`, no ack sent. The stream closed without any
+scan-related event in all three connections. Whether a scan reached the
+server inside the window cannot be determined from the companion side.
+Test stopped; no further scan or retry started. Production change: not justified.
