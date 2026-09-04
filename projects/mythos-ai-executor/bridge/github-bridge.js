@@ -74,6 +74,10 @@ var redact = require(path.join(EXEC_ROOT, '..', 'mythos-orchestrator', 'lib', 'r
 // no network) and delivers out of band from flushNotifications(), so no
 // provider outage can reach the execution path. Disabled unless configured.
 var whatsapp = require(path.join(__dirname, 'notify', 'whatsapp'));
+// Execution lifecycle: the bridge links the executor task to its GitHub
+// Issue/control id at claim time and records REPORT_SUBMITTED when the
+// control report exists. Evidence only — it never closes anything.
+var lifecycle = require(path.join(EXEC_ROOT, 'lib', 'lifecycle'));
 
 var TASK_SCHEMA = JSON.parse(fs.readFileSync(path.join(__dirname, 'schemas', 'task.schema.json'), 'utf8'));
 var REPORT_SCHEMA = JSON.parse(fs.readFileSync(path.join(__dirname, 'schemas', 'report.schema.json'), 'utf8'));
@@ -953,6 +957,9 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
     });
     exec.executor_task_id = created.task_id;
     exec.model = created.model || null;
+    lifecycle.linkTask(created.task_id, { correlation_id: id, control_task_id: id, othmode_task_id: exec.othmode_task_id || null,
+      github_issue: task.source && task.source.kind === 'github-issue' ? task.source.issue_number : null,
+      issue_url: task.source && task.source.issue_url ? task.source.issue_url : null });
     exec.model_selection_mode = created.model_selection_mode || null;
     // Cache immediately: if the process dies before the commit below, the
     // next tick finds this and re-claims instead of re-creating.
@@ -960,6 +967,8 @@ function claimTask(cfg, executor, entry, tasksById, runtime) {
     writeClaims(cfg, cache);
   } else {
     exec.model = existingTask ? (existingTask.model || null) : null;
+    lifecycle.linkTask(existingId, { correlation_id: id, control_task_id: id, othmode_task_id: exec.othmode_task_id || null,
+      github_issue: task.source && task.source.kind === 'github-issue' ? task.source.issue_number : null });
     if (!cache[id]) {
       cache[id] = { executor_task_id: existingId, othmode_task_id: exec.othmode_task_id, claimed_at: exec.claimed_at, fence: exec.fence, attempt_id: attemptId };
       writeClaims(cfg, cache);
@@ -1324,6 +1333,11 @@ function finishTask(cfg, task, finalStatus, opts, changed) {
   files.forEach(function (f) { changed.push(f); });
   log('finished', { task_id: task.task_id, status: finalStatus, executor_task_id: task.execution.executor_task_id, commits: report.commits.length,
     blocker: report.blocker ? report.blocker.code : null, requested_action: task.requested_action, execution_profile: task.execution.execution_profile || null, model: report.execution.model || null });
+  if (task.execution.executor_task_id) {
+    lifecycle.emit({ type: 'REPORT_SUBMITTED', task_id: task.execution.executor_task_id, correlation_id: task.task_id, report_status: finalStatus.toLowerCase(),
+      report_ref: cfg.prefix + '/reports/' + task.task_id + '.json', github_issue: task.source && task.source.kind === 'github-issue' ? task.source.issue_number : null,
+      location: 'VPS', source: 'github-bridge', evidence: { commits: report.commits.length, branch: task.execution.branch || null } });
+  }
 }
 
 function tick(executor, opts) {

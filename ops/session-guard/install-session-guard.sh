@@ -52,6 +52,18 @@ echo "==> code"
 install -d -m 0755 -o root -g root "$LIB"
 install -m 0644 -o root -g root "$GUARD_LIB"                    "$LIB/session-guard.js"
 install -m 0755 -o root -g root "$HERE/mythos-session-guard-run.js" "$LIB/mythos-session-guard-run.js"
+# Execution Lifecycle: the runner consults the deploy-owned registry and
+# exports a host snapshot (pid ↔ session uuid ↔ turn state) through
+# runtime-vps.js, installed beside it. Optional: an absent file means the
+# guard behaves exactly as before.
+RUNTIME_VPS="$REPO/projects/mythos-ai-executor/lib/lifecycle/runtime-vps.js"
+if [ -f "$RUNTIME_VPS" ]; then
+  install -m 0644 -o root -g root "$RUNTIME_VPS" "$LIB/runtime-vps.js"
+fi
+
+echo "==> lifecycle snapshot directory (root writes, deploy reads)"
+DEPLOY_GID="$(getent group deploy | cut -d: -f3 || true)"
+install -d -m 0750 -o root -g "${DEPLOY_GID:-0}" /var/lib/mythos/lifecycle
 
 echo "==> state directory (enforcement stays OFF: no enable marker is created)"
 install -d -m 0700 -o root -g root "$STATE"

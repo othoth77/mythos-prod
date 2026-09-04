@@ -47,6 +47,14 @@ var path = require('path');
 var guard = require('./session-guard');
 
 var HOME = process.env.MYTHOS_SESSION_GUARD_HOME || '/var/lib/mythos-session-guard';
+// Execution Lifecycle registry (deploy-owned, read-only from here) and the
+// host snapshot this runner exports for non-root readers. Both optional:
+// an absent registry changes nothing, and the snapshot is skipped when its
+// directory is not writable (the unit must grant /var/lib/mythos/lifecycle).
+var LIFECYCLE = process.env.MYTHOS_SESSION_GUARD_LIFECYCLE || '/home/deploy/mythos-ai-executor/lifecycle';
+var SNAPSHOT = process.env.MYTHOS_LIFECYCLE_SNAPSHOT || '/var/lib/mythos/lifecycle/host-sessions.json';
+var vpsRuntime = null;
+try { vpsRuntime = require('./runtime-vps'); } catch (e) { vpsRuntime = null; }
 var RG_STATE = process.env.MYTHOS_SESSION_GUARD_RG_STATE ||
   '/home/deploy/.mythos-ai-executor/resource-guard.json';
 // How stale the Resource Guard's state may be and still be believed. The
@@ -79,7 +87,8 @@ function main() {
     state_path: path.join(HOME, 'session-guard.json'),
     ledger_path: path.join(HOME, 'session-guard.jsonl'),
     enable_marker_path: path.join(HOME, 'session-guard.enabled'),
-    pressure_level: pressureLevel()
+    pressure_level: pressureLevel(),
+    lifecycle_registry: fs.existsSync(LIFECYCLE) ? LIFECYCLE : null
   };
   var max = intEnv('MYTHOS_SESSION_GUARD_MAX');
   if (max !== null) cfg.max_sessions = max;
@@ -90,6 +99,26 @@ function main() {
 
   var enabled = guard.enforcementEnabled(cfg);
   cfg.enforce = enabled.enabled;
+
+  // Host snapshot FIRST: pid ↔ session uuid ↔ transcript turn state. Ids
+  // and timestamps only — no argv, no transcript content. Written for the
+  // deploy-side lifecycle and handed to this very plan as the transcript-
+  // turn idle evidence (an idle ccd-cli still burns CPU, so without it the
+  // CPU clock never clears).
+  var snapshot = { written: false, sessions: null };
+  if (vpsRuntime) {
+    try {
+      var snap = vpsRuntime.snapshot({ snapshot_path: SNAPSHOT });
+      snapshot.sessions = snap.sessions.length;
+      if (!snap.denied) {
+        cfg.lifecycle_snapshot = snap;
+        if (vpsRuntime.writeSnapshot({ snapshot_path: SNAPSHOT }, snap)) {
+          snapshot.written = true;
+          try { var owner = fs.statSync(LIFECYCLE); fs.chownSync(SNAPSHOT, 0, owner.gid); } catch (e) { /* group handoff best effort */ }
+        }
+      }
+    } catch (e) { snapshot.error = String(e && e.message).slice(0, 80); }
+  }
 
   var r = guard.run(cfg);
   var rep = guard.report(r);
@@ -105,6 +134,8 @@ function main() {
     resident_mib: rep.resident_mib,
     pressure_level: rep.pressure_level,
     over_limit: rep.concurrency ? rep.concurrency.over_limit : null,
+    lifecycle: rep.lifecycle || null,
+    snapshot: snapshot,
     sessions_over_by: rep.concurrency ? rep.concurrency.over_by : null,
     planned: rep.planned_terminations,
     applied: (r.results || []).filter(function (x) { return x.applied; })

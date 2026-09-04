@@ -44,6 +44,10 @@ PrivateDevices=true
 ProtectHome=read-only
 ProtectSystem=strict
 ReadWritePaths=/var/lib/mythos-session-guard
+# The Execution Lifecycle host snapshot (ids, pids, turn state — no content)
+# is the one file this root unit writes for the deploy-side lifecycle to
+# read. The registry itself, under /home/deploy, stays read-only here.
+ReadWritePaths=/var/lib/mythos/lifecycle
 StateDirectory=mythos-session-guard
 StateDirectoryMode=0700
 ProtectKernelTunables=true

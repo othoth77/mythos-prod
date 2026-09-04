@@ -1,0 +1,105 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS Execution Lifecycle — operator CLI
+// projects/mythos-ai-executor/bin/mythos-lifecycle
+//
+//   mythos-lifecycle status                         counts, enforcement, policy, host view
+//   mythos-lifecycle host                            every agent process/session on this host, classified
+//   mythos-lifecycle executions [--state S]          execution records
+//   mythos-lifecycle sessions [--open]               session records
+//   mythos-lifecycle explain <execution|session|task id>   "why is it open / why was it closed"
+//   mythos-lifecycle ledger [-n N] [--id X]          the audit ledger
+//   mythos-lifecycle tick [--snapshot]               one bounded cycle: inbox → recover → verify → cleanup (dry-run unless enabled)
+//   mythos-lifecycle verify                          verification pass only
+//   mythos-lifecycle cleanup plan                    what cleanup WOULD do, and every veto
+//   mythos-lifecycle cleanup enforce --yes           one enforcing cycle (requires the enable marker)
+//   mythos-lifecycle force-close <session_id> --confirm --reason "..."   last resort; needs policy.json force_kill_enabled
+//   mythos-lifecycle ingest                          drain the inbox only
+//   mythos-lifecycle emit '<json>'                   record a local event (never a close)
+//   mythos-lifecycle snapshot                        write the host snapshot (root) for non-root readers
+//
+// Nothing here signals a process except `cleanup enforce --yes` and
+// `force-close`, and both are gated by the enable marker and the policy.
+// =====================================================
+
+var path = require('path');
+
+var EXEC = path.join(__dirname, '..');
+var L = require(path.join(EXEC, 'lib', 'lifecycle'));
+
+var argv = process.argv.slice(2);
+var cmd = argv[0];
+function flag(n) { return argv.indexOf(n) >= 0; }
+function opt(n, d) { var i = argv.indexOf(n); return i >= 0 && i + 1 < argv.length ? argv[i + 1] : d; }
+function out(v) { console.log(JSON.stringify(v, null, 2)); }
+function usage(code) {
+  console.error('usage: mythos-lifecycle status | host | executions [--state S] | sessions [--open] | explain <id> | ledger [-n N] [--id X]');
+  console.error('       | tick [--snapshot] | verify | cleanup plan | cleanup enforce --yes | force-close <session_id> --confirm --reason R');
+  console.error('       | ingest | emit <json> | snapshot');
+  process.exit(code);
+}
+
+var reg = L.registryConfig();
+
+switch (cmd) {
+  case 'status': out(L.status()); break;
+  case 'host': out(L.hostView()); break;
+  case 'executions': {
+    var st = opt('--state', null);
+    var list = L.registry.listExecutions(reg).filter(function (e) { return !st || e.task_state === st || e.execution_state === st || e.session_state === st; });
+    out(list.map(function (e) { return { execution_id: e.execution_id, task_id: e.task_id, github_issue: e.github_issue, location: e.location, session_id: e.session_id, pid: e.pid,
+      task_state: e.task_state, execution_state: e.execution_state, session_state: e.session_state, report_submitted_at: e.report_submitted_at, session_closed_at: e.session_closed_at, last_event: e.last_event, last_event_at: e.last_event_at, verification: e.verification }; }));
+    break;
+  }
+  case 'sessions': {
+    var open = flag('--open');
+    out(L.registry.listSessions(reg).filter(function (s) { return !open || s.state !== 'CLOSED'; }).map(function (s) {
+      return { session_id: s.session_id, execution_id: s.execution_id, task_id: s.task_id, location: s.location, host: s.host, pid: s.pid, state: s.state, close_phase: s.close_phase, close_phase_since: s.close_phase_since, last_activity_at: s.last_activity_at, last_event: s.last_event, cwd: s.cwd };
+    }));
+    break;
+  }
+  case 'explain': if (!argv[1]) usage(2); out(L.explain(argv[1])); break;
+  case 'ledger': {
+    var n = parseInt(opt('-n', '50'), 10);
+    var id = opt('--id', null);
+    out(id ? L.registry.ledgerFor(reg, id, n) : L.registry.ledgerTail(reg, n));
+    break;
+  }
+  case 'tick': out(L.tick({ force: true, snapshot: flag('--snapshot') })); break;
+  case 'verify': out(L.verify.run(reg, L.runtimes(), L.runtimeOpts(reg), { now: Date.now() })); break;
+  case 'ingest': out(L.registry.drainInbox(reg)); break;
+  case 'snapshot': {
+    var ro = L.runtimeOpts(reg).VPS;
+    var snap = L.vpsRuntime.snapshot(ro);
+    out({ written: !snap.denied && L.vpsRuntime.writeSnapshot(ro, snap), denied: snap.denied, sessions: snap.sessions.length, path: ro.snapshot_path });
+    break;
+  }
+  case 'cleanup': {
+    var sub = argv[1];
+    if (sub === 'plan') {
+      out(L.cleanup.run(reg, L.runtimes(), L.runtimeOpts(reg), { now: Date.now(), policy: L.policyFromEnv(), enforcement: { enabled: false, reason: 'plan' } }, function () { throw new Error('plan never signals'); }));
+    } else if (sub === 'enforce') {
+      if (!flag('--yes')) { console.error('refusing: cleanup enforce requires --yes'); process.exit(2); }
+      var enf = L.enforcement();
+      if (!enf.enabled) console.error('enforcement not enabled (' + enf.reason + '): running the cycle in dry-run');
+      out(L.cleanup.run(reg, L.runtimes(), L.runtimeOpts(reg), { now: Date.now(), policy: L.policyFromEnv(), enforcement: enf }));
+    } else usage(2);
+    break;
+  }
+  case 'force-close': {
+    var sid = argv[1];
+    if (!sid) usage(2);
+    out(L.cleanup.forceClose(reg, L.runtimes(), L.runtimeOpts(reg), sid, { confirm: flag('--confirm'), reason: opt('--reason', null), policy: L.policyFromEnv(), enforcement: L.enforcement(), operator: process.env.USER || null }));
+    break;
+  }
+  case 'emit': {
+    var ev;
+    try { ev = JSON.parse(argv[1] || ''); } catch (e) { console.error('emit needs a JSON event'); process.exit(2); }
+    if (['SESSION_CLOSE_REQUESTED', 'SESSION_CLOSED', 'SESSION_CLOSE_FAILED', 'EXECUTION_VERIFIED'].indexOf(ev.type) >= 0) { console.error('refusing: ' + ev.type + ' is produced by the system, not by the operator'); process.exit(2); }
+    ev.source = 'cli:' + (process.env.USER || 'operator');
+    out(L.emit(ev));
+    break;
+  }
+  default: usage(cmd ? 2 : 0);
+}
