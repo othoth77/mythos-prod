@@ -1,0 +1,173 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-164-r2",
+  "project": "mythos-prod",
+  "objective": "Finish the remaining WhatsApp production work after PR #163 was merged.",
+  "scope": [
+    "Verify production `main` contains the merged WhatsApp provider-verification changes from PR #163.",
+    "Verify Evolution API remains the default provider and existing resilience/idempotency/queue behavior is intact.",
+    "Inspect the existing production WhatsApp configuration read-only first.",
+    "If the intended Evolution API configuration is already present and governance permits activation, activate ONLY the existing intended configuration through the sanctioned OTHMODE/Governance workflow.",
+    "Do NOT deploy a second gateway/provider. WAHA and wa-evolution remain candidates only.",
+    "Do NOT invent or expose a recipient. A real smoke test is allowed only when an already-configured, explicitly designated test recipient is available.",
+    "If a valid test recipient and required production configuration are available, perform one controlled smoke test and verify delivery ledger, idempotency, terminal notification state, and error handling.",
+    "If credentials, provider endpoint, designated test recipient, or governance authorization required for activation are missing, STOP and report the exact blocker. Do not fabricate a test or modify credentials.",
+    "No unrelated service restart. Restart only a WhatsApp-specific service if the existing governed procedure explicitly requires it and approval is satisfied.",
+    "Record exact production state and evidence in `docs/AI_HANDOVER.md`.",
+    "Commit/push handover through the existing governed relay. No auto-merge."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [
+    "WhatsApp is COMPLETE only if the intended provider configuration is verified/activated through governance.",
+    "A controlled smoke test succeeds only when an already-configured, explicitly designated test recipient exists.",
+    "Delivery ledger and idempotency are verified, and exact evidence is recorded in `docs/AI_HANDOVER.md`.",
+    "If the environment lacks the required production configuration or test recipient, leave the task BLOCKED with the exact missing prerequisite."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-04T20:41:09.545Z",
+  "created_by": "github-issue:othoth77",
+  "model": "fable-5.1",
+  "model_raw": "Fable 5.1",
+  "model_source": "explicit_current_issue",
+  "notes": "Source: GitHub Issue #164 https://github.com/othoth77/mythos-prod/issues/164 — \"WhatsApp production activation and controlled smoke test — Fable 5.1\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") — not inherited: previous attempt gh-issue-164 was defaulted, not decided — a default is not inherited → execution profile repo-write\n\nmodel: fable-5.1 — source explicit_current_issue (written as \"Fable 5.1\")\n\n[owner direction]\n**Owner: othoth77 — PROCEED**\n\nExecute through the existing governed path using **Fable 5.1**. Human decisions remain required where the policy requires them.\n\n[safety]\n- No credential creation/change.\n- No customer-data exposure.\n- No mass/bulk messages.\n- No second gateway deployment.\n- No `MYTHOS_SKILL_TRUST=off` or unrelated policy bypass.\n- No destructive Git operations.\n- If any prerequisite fails, stop and report instead of declaring WhatsApp production active.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 164,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/164",
+    "issue_id": 5351276055,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPvX-Fw",
+    "issue_title": "TASK: WhatsApp production activation and controlled smoke test — Fable 5.1",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-04T17:46:29Z",
+    "issue_updated_at": "2026-09-04T20:40:54Z",
+    "issue_labels": [
+      "task",
+      "rerun",
+      "action:implementation",
+      "othmode",
+      "production",
+      "whatsapp",
+      "mythos:cancelled"
+    ],
+    "content_sha256": "ae5aa40a96560faa81788bc07ad15a292fa3ddbc151c825bc3c83968aad8eaa3",
+    "attempt": 2,
+    "attempt_id": "gh-issue-164-r2#2",
+    "idempotency_key": "2c5dbab1eae8889fa0dec35e43b30dc19c8efd4979133d999574e8fcbfdb0d6f",
+    "rerun_of": "gh-issue-164",
+    "inherited_from": "gh-issue-164",
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "inline",
+          "line": 10
+        },
+        {
+          "source": "action_label",
+          "raw": "implementation",
+          "action": "implement",
+          "form": null,
+          "line": null
+        },
+        {
+          "source": "inherited_previous_attempt",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null,
+          "eligible": false,
+          "ignored_reason": "previous attempt gh-issue-164 was defaulted, not decided — a default is not inherited"
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": "fable-5.1",
+      "model_id": "claude-fable-5-1",
+      "model_raw": "Fable 5.1",
+      "model_source": "explicit_current_issue",
+      "model_available": true,
+      "model_reason": "explicit:fable-5.1 (requested \"Fable 5.1\" via explicit_current_issue)",
+      "available_models": [
+        "Haiku 4.5",
+        "Sonnet 5",
+        "Opus 5",
+        "Fable 5",
+        "Fable 5.1"
+      ],
+      "resolved_at": "2026-09-04T20:41:09.546Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-04T20:41:09.546Z",
+        "event": "issue_received",
+        "reason": "open Issue #164 with label task and label rerun (attempt 2)",
+        "content_sha256": "ae5aa40a96560faa81788bc07ad15a292fa3ddbc151c825bc3c83968aad8eaa3"
+      },
+      {
+        "at": "2026-09-04T20:41:09.546Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-04T20:41:09.546Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-04T20:41:09.546Z",
+        "event": "model_resolved",
+        "reason": "explicit_current_issue → fable-5.1 (available)"
+      },
+      {
+        "at": "2026-09-04T20:41:11.891Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-164-r2.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-04T20:41:09.546Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5546209594,
+        "url": "https://github.com/othoth77/mythos-prod/issues/164#issuecomment-5546209594",
+        "at": "2026-09-04T20:41:10.543Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": [
+        "mythos:cancelled"
+      ]
+    }
+  }
+}
