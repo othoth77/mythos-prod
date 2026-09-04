@@ -234,6 +234,29 @@ reintroduced.
 | Tests | `tests/mythos-hostops-group-refresh-test.js` (new, **10/0**): the script run against a stub `systemctl`/`id` (no root/systemd needed) proves an active manager is restarted and an inactive one is left alone; asserts no unit file in the tree declares `SupplementaryGroups=`; asserts `NoNewPrivileges=true` is unchanged; asserts the installer wires the refresh in after group grant, for both `deploy` and `dagu`. All prior HostOps suites re-verified green: daemon 14/0, executor adapter 36/0. |
 | Owner activation | Re-run `sudo bash ops/hostops/install-hostops.sh` on the already-installed host — idempotent, now includes the group refresh, so no logout/login/reboot is required. Then `systemctl --user restart mythos-ai-executor` (as `deploy`) and verify per `docs/MYTHOS_HOSTOPS_INTERFACE.md` HOSTOPS-2R-FIX addendum. |
 | Not done (by session) | No root install performed from this execution session — the installer/systemd/group changes are owner-only per this repository's rules, and this session cannot touch the live VPS. |
+
+## gh-issue-148 — Delivery/Reconciliation for #132 and #142: both PR-ready, neither merged (GitHub issue #148, 2026-09-04)
+
+**Objective.** Reconcile #132 (HOSTOPS-2R-FIX) and #142 (HOSTOPS read-path final verification) against
+work already done, without re-implementing or re-running proven work — identify exactly what is
+implemented, what is pushed, and what only remains for delivery (PR / reconciliation).
+
+| Task | Existing implementation | Evidence | Commit | Remote | PR | Action |
+|---|---|---|---|---|---|---|
+| #132 | `ops/hostops/refresh-group-membership.sh` + installer wiring, fixes the systemd `--user` manager group-refresh gap left by HOSTOPS-2R (#130, already on `main`) | `tests/mythos-hostops-group-refresh-test.js` 10/0 (per branch's own handover entry; asserts `NoNewPrivileges=true` unchanged and no `SupplementaryGroups=` anywhere) | `eebb4b1` on `mythos/gh/gh-issue-132` (base `85cbf90`) | pushed to `origin` | none open | **PR_READY** |
+| #142 | Docs-only reconciliation: #128's remaining requirement (one live governed READ call) is satisfied by evidence, not re-implementation | Recorded in-branch: `ok:true`, `class: READ`, `audit_id: hostops-mtlx0zuw-284786`, `hostops_exit: 0`, no WRITE/RESTART/DEPLOY verb invoked | `ad67ab6` on `mythos/gh/gh-issue-142` (base `ff9f71b`) | pushed to `origin` | none open | **PR_READY** |
+
+| Item | State |
+|---|---|
+| Method | Git-only reconciliation, no code re-implementation, no E2E rerun (this task's own hard prohibitions). `git ls-remote origin refs/pull/*/head` shows no open PR head at any commit in either branch's history. `git merge-base` + `git merge-tree` of both branches against current `origin/main` (`5482db8`) show a **clean auto-merge on every code and doc file** except one trivial, non-overlapping `docs/AI_HANDOVER.md` append-point conflict each (both branches, like this one, prepend a new section at the same line) — resolvable by keeping both sections, not a real conflict. |
+| #132 security check | Read the full diff and test file: no `sudo`/`docker` bypass introduced, the script only restarts `user@<uid>.service` (a root system unit, not a hostops verb) to force a fresh `/etc/group` read, `NoNewPrivileges=true` on the executor is asserted unchanged, and the earlier `SupplementaryGroups=` (`216/GROUP`) workaround is asserted absent from every unit file in the tree. No WRITE/RESTART/DEPLOY path added. |
+| #142 evidence check | The branch's own commit message and `docs/AI_HANDOVER.md` entry already record the exact deliverable #142/#128 required — a live `POST /hostops/run {operation:health}` returning `ok:true`, `class: READ`, a non-empty `audit_id`, `hostops_exit: 0` — through the code already on `origin/main` (`#130`, `8c8ab41`, confirmed ancestor) plus #132's not-yet-merged fix, which the live host already carries per that entry. Nothing here needed re-running. |
+| Gap | Both branches are pushed and complete, but **not merged to `main`** and **no PR is open for either** (verified, not assumed). Opening the PR requires no new push (commits already on `origin`) — only `gh pr create` (or the GitHub UI), which is not something this session performed: it is an owner/relay step in the delivery flow (`… → Governance/Relay → PR → Human Review → Human Merge`), and this sandboxed autonomous run has no approved path to call the GitHub API or `gh` CLI directly. |
+| Recommended PR (owner/relay) | #132: `gh pr create --base main --head mythos/gh/gh-issue-132 --title "fix(hostops): HOSTOPS-2R-FIX — refresh deploy/dagu systemd --user manager (gh-issue-132)"`. #142: `gh pr create --base main --head mythos/gh/gh-issue-142 --title "docs(hostops): reconcile gh-issue-128 against HOSTOPS-2R/2R-FIX (gh-issue-142)"`. Both will show the same one-line `docs/AI_HANDOVER.md` conflict on GitHub, trivially resolved by the human merger keeping both prepended sections; no other file conflicts. |
+| Not done (by design) | No re-implementation of #132 or #142. No E2E rerun. No manual VPS action. No change to WhatsApp, Status Center (#140), Resource Guard thresholds, MCP/Governance architecture, or `control/`. No `git add .`. No auto-merge. No PR actually created (blocked, see above — reported as the delivery gap, not silently skipped). |
+| Files changed (this task) | `docs/AI_HANDOVER.md` only, on `mythos/gh/gh-issue-148`. |
+| Next stage | Owner or relay opens the two PRs above against `main` (`gh pr create`); human review; human merge. Nothing else is pending on #132 or #142 beyond that. |
+
 ## SESSION-GUARD-1 — Claude Desktop Remote session lifecycle guard (GitHub issue #144, 2026-09-03)
 
 **Objective.** Stop the unbounded accumulation of Claude Desktop Remote sessions on this VPS and
