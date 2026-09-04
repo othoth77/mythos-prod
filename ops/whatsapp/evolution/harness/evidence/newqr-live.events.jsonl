@@ -1,0 +1,32 @@
+{"t":"2026-09-04T23:19:00.618Z","ev":"start","variant":"newqr","mode":"live","version":[2,3000,1046865705],"node":"v24.11.1","hasMe":false}
+{"t":"2026-09-04T23:19:00.621Z","ev":"connect","attempt":1}
+{"t":"2026-09-04T23:19:01.500Z","ev":"qr","n":1,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:19:46.585Z","ev":"qr","n":2,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:20:31.609Z","ev":"qr","n":3,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:21:16.666Z","ev":"qr","n":4,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:22:01.719Z","ev":"qr","n":5,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:22:31.363Z","ev":"close","code":428,"msg":"Connection Terminated by Server","qrEmitted":5,"advRotated":false,"hasMe":false}
+{"t":"2026-09-04T23:22:31.364Z","ev":"reconnect","reason":"QR refs exhausted / server closed; fresh refs"}
+{"t":"2026-09-04T23:22:33.367Z","ev":"connect","attempt":2}
+{"t":"2026-09-04T23:22:34.061Z","ev":"qr","n":1,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:23:19.095Z","ev":"qr","n":2,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:24:04.124Z","ev":"qr","n":3,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:24:49.158Z","ev":"qr","n":4,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:25:34.185Z","ev":"qr","n":5,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:26:03.983Z","ev":"close","code":428,"msg":"Connection Terminated by Server","qrEmitted":5,"advRotated":false,"hasMe":false}
+{"t":"2026-09-04T23:26:03.985Z","ev":"reconnect","reason":"QR refs exhausted / server closed; fresh refs"}
+{"t":"2026-09-04T23:26:05.987Z","ev":"connect","attempt":3}
+{"t":"2026-09-04T23:26:06.506Z","ev":"qr","n":1,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:26:51.560Z","ev":"qr","n":2,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:27:36.599Z","ev":"qr","n":3,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:28:21.650Z","ev":"qr","n":4,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:29:06.676Z","ev":"qr","n":5,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:29:36.480Z","ev":"close","code":428,"msg":"Connection Terminated by Server","qrEmitted":5,"advRotated":false,"hasMe":false}
+{"t":"2026-09-04T23:29:36.481Z","ev":"reconnect","reason":"QR refs exhausted / server closed; fresh refs"}
+{"t":"2026-09-04T23:29:38.484Z","ev":"connect","attempt":4}
+{"t":"2026-09-04T23:29:39.036Z","ev":"qr","n":1,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:30:24.076Z","ev":"qr","n":2,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:31:09.102Z","ev":"qr","n":3,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:31:54.137Z","ev":"qr","n":4,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:32:39.177Z","ev":"qr","n":5,"ref":"https://wa.m…","advTail":"v9B40l0=","sameRefNewAdv":false}
+{"t":"2026-09-04T23:33:09.001Z","ev":"close","code":428,"msg":"Connection Terminated by Server","qrEmitted":5,"advRotated":false,"hasMe":false}

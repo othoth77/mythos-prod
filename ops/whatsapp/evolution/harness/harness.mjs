@@ -3,8 +3,11 @@
 // and every dependency are byte-identical to production. No Evolution API, no
 // Postgres, no webhook, no bridge. Never sends a message: only the pairing
 // handshake is exercised. Usage (args): --variant baseline|patched --mode mock|live
-import makeWASocket, { useMultiFileAuthState, fetchLatestBaileysVersion, DisconnectReason } from 'baileys';
-import { binaryNodeToString } from '/evolution/node_modules/baileys/lib/WABinary/index.js';
+// BAILEYS_PATH lets a variant load a different build (e.g. the PR #2765 head built from source)
+const BAILEYS_ROOT = process.env.BAILEYS_PATH || '/evolution/node_modules/baileys';
+const B = await import(`${BAILEYS_ROOT}/lib/index.js`);
+const makeWASocket = B.default || B.makeWASocket; const { useMultiFileAuthState, fetchLatestBaileysVersion, DisconnectReason } = B;
+const { binaryNodeToString } = await import(`${BAILEYS_ROOT}/lib/WABinary/index.js`);
 import pino from 'pino';
 import QRCode from 'qrcode';
 import qrTerminal from 'qrcode-terminal';
@@ -21,7 +24,7 @@ const say = (o) => { const line = JSON.stringify({ t: new Date().toISOString(), 
 
 const { state, saveCreds } = await useMultiFileAuthState(`${OUT}/auth-${variant}-${mode}`);
 const version = process.env.WA_VERSION ? process.env.WA_VERSION.split('.').map(Number) : (await fetchLatestBaileysVersion()).version;
-say({ ev: 'start', variant, mode, version, node: process.version, hasMe: !!state.creds.me });
+say({ ev: 'start', variant, mode, version, node: process.version, hasMe: !!state.creds.me, baileys: BAILEYS_ROOT, qrTimeout: Number(process.env.QR_TIMEOUT || 45000) });
 
 let sock; let attempts = 0; const MAX_ATTEMPTS = Number(process.env.MAX_ATTEMPTS || 4);
 function connect() {
@@ -33,7 +36,7 @@ sock = makeWASocket({
   logger,
   printQRInTerminal: false,
   browser: ['MYTHOS bridge', 'Chrome', '7.0.0-30-generic'], // same as production
-  qrTimeout: 45000,           // same as Evolution v2.3.7
+  qrTimeout: Number(process.env.QR_TIMEOUT || 45000), // 45 s = Evolution v2.3.7; raise for a wider scan window
   keepAliveIntervalMs: 30000, // same as Evolution v2.3.7
   connectTimeoutMs: 30000,
   syncFullHistory: false,
