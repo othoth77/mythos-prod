@@ -25,7 +25,7 @@
   "validation_requirements": [
     "Production is ACTIVE only if the merged commit is present, both required services are healthy, trust verification passes, the trust API/read model is live, and the executor gate is confirmed active without bypass."
   ],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-04T17:43:58.437Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #162 https://github.com/othoth77/mythos-prod/issues/162 — \"Owner-approved OTHMODE Skill Trust production activation — Fable 5.1\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[owner approval]\n**Owner: othoth77 — APPROVED**\n\nThis task is explicitly authorized by the project owner to proceed with production activation/verification.\n\n[safety]\n- This is activation + verification only.\n- No WhatsApp gateway deployment or real provider calls.\n- Do not enable Semgrep if unsafe for host memory.\n- Do not alter Skill Trust policy.\n- Do not restart unrelated services.\n- If any prerequisite or verification fails, STOP and report the exact blocker instead of declaring production active.\n- No destructive Git operations.\n\n[important]\nThis is owner authorization to execute the task, NOT authorization to bypass governance or Human Merge. Production activation must still follow the existing sanctioned workflow.\n\n[reference]\nParent task: #155 — PROD — Activate OTHMODE Skill Trust Gate after merge #154\nExecution request: use Fable 5.1.",
@@ -156,8 +156,8 @@
     "claimed_at": "2026-09-04T17:45:14.001Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "9c142a5e6ea7024667f18853598cea5de2c962e177aeb8a214e94b0cbc7454d2",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-04T17:45:14.053Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-04T19:24:21.265Z",
     "snapshot_sha256": "8bcf60234a298ea2deb091003b654d79a031ec7a68eb002b6d5d2e02953628ff",
     "fence": 4453,
     "lease": {
@@ -187,7 +187,8 @@
       "measured_at": "2026-09-04T17:44:23.200Z"
     },
     "model": "claude-haiku-4-5",
-    "model_selection_mode": "auto"
+    "model_selection_mode": "auto",
+    "claude_session_id": "a777384b-fb22-4011-8291-a998db8319cb"
   },
   "history": [
     {
@@ -203,6 +204,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "LEASE_EXPIRED: claim lease 2026-09-04T19:15:14.001Z passed 1 min ago while the executor reports QUEUED — the attempt is not re-claimed or re-run; the executor owns its recovery"
+    },
+    {
+      "at": "2026-09-04T19:24:21.265Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
