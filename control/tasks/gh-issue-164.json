@@ -24,7 +24,7 @@
   "validation_requirements": [
     "WhatsApp is COMPLETE only if the intended provider configuration is verified/activated through governance, a controlled smoke test succeeds when an explicitly designated test recipient exists, delivery/idempotency are verified, and exact evidence is recorded. If the environment lacks the required production configuration or test recipient, leave the task blocked with the exact missing prerequisite."
   ],
-  "status": "PENDING",
+  "status": "CANCELLED",
   "created_at": "2026-09-04T17:48:00.419Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #164 https://github.com/othoth77/mythos-prod/issues/164 — \"WhatsApp production activation and controlled smoke test — Fable 5.1\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[owner direction]\n**Owner: othoth77 — PROCEED**\n\nExecute through the existing governed path using Fable 5.1. Human decisions remain required where the policy requires them.\n\n[safety]\n- No credential creation/change.\n- No customer-data exposure.\n- No mass/bulk messages.\n- No second gateway deployment.\n- No `MYTHOS_SKILL_TRUST=off` or unrelated policy bypass.\n- No destructive Git operations.\n- If any prerequisite fails, stop and report instead of declaring WhatsApp production active.",
@@ -128,6 +128,10 @@
         "mythos:queued"
       ],
       "removed": []
+    },
+    "cancelled_from_issue": {
+      "at": "2026-09-04T20:33:00.865Z",
+      "reason": "label removed"
     }
   }
 }
