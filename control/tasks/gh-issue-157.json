@@ -1,0 +1,124 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-157",
+  "project": "mythos-prod",
+  "objective": "Diagnose why the MYTHOS governance Git relay is not delivering the branch to `origin`, as currently awaited by the Fable execution for #156, and restore relay delivery if it is safely possible.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implementation",
+  "action_source": "action_label",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-04T13:11:57.063Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #157 https://github.com/othoth77/mythos-prod/issues/157 — \"Diagnose and Restore MYTHOS Git Relay Delivery\"\n\nrequested_action: implement — source action_label (written as \"implementation\") → execution profile repo-write\n\nFable is currently waiting on: `Wait for the relay to deliver the branch to origin`.\nThe relevant branch is `mythos/gh/gh-issue-156`.\nIssue #156 has already been given the `rerun` label and should not be blocked by a missing relay delivery.\n\n[required execution]\n1. Inspect the existing MYTHOS governance relay configuration, service/timer state, recent relay logs, and denied/governance logs.\n2. Determine exactly what relay mechanism is responsible for delivering `mythos/*` branches to `origin`.\n3. Verify whether the relay is running, waiting, failed, or blocked.\n4. If it is stopped or failed, restart/recover ONLY the existing relay mechanism using its documented governance procedure. Do not invent a new relay or bypass governance.\n5. Verify that `mythos/gh/gh-issue-156` is delivered to `origin`.\n6. Do not modify application code, OTHMODE policy, production services, or WhatsApp.\n7. Do not force-push or bypass protected governance controls.\n8. Record exact commands, service/timer state, relevant logs, branch delivery result, and any blocker.\n9. Commit/push any required documentation change through the normal governance relay if appropriate.\n\n[success criteria]\n- Relay mechanism identified.\n- Relay state explained.\n- If needed, relay recovered using the existing mechanism.\n- `mythos/gh/gh-issue-156` confirmed on `origin`.\n- No unrelated services or application code changed.\n\n[final report]\nSEARCHED / VERIFIED / EXECUTED / REUSED / CHANGED / RELAY STATUS / BRANCH DELIVERY / BLOCKERS / FINAL STATUS.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 157,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/157",
+    "issue_id": 5348479205,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPstQ5Q",
+    "issue_title": "TASK: Diagnose and Restore MYTHOS Git Relay Delivery",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-04T13:11:23Z",
+    "issue_updated_at": "2026-09-04T13:11:23Z",
+    "issue_labels": [
+      "task",
+      "action:implementation"
+    ],
+    "content_sha256": "c4472fc22b4f79584920d26ab74e7759d3465fd3d84ac3fb8b6787e068e662fd",
+    "attempt": 1,
+    "attempt_id": "gh-issue-157#1",
+    "idempotency_key": "70e4d69993b369748d842d7cf7a9c0314035866995724322aadcc909ce692372",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implementation",
+      "action_source": "action_label",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "action_label",
+          "raw": "implementation",
+          "action": "implement",
+          "form": null,
+          "line": null
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-04T13:11:57.064Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-04T13:11:57.064Z",
+        "event": "issue_received",
+        "reason": "open Issue #157 with label task",
+        "content_sha256": "c4472fc22b4f79584920d26ab74e7759d3465fd3d84ac3fb8b6787e068e662fd"
+      },
+      {
+        "at": "2026-09-04T13:11:57.065Z",
+        "event": "action_resolved",
+        "reason": "action_label → implement (raw \"implementation\")"
+      },
+      {
+        "at": "2026-09-04T13:11:57.065Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-04T13:11:57.065Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-04T13:11:59.274Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-157.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-04T13:11:57.065Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5540926950,
+        "url": "https://github.com/othoth77/mythos-prod/issues/157#issuecomment-5540926950",
+        "at": "2026-09-04T13:11:58.442Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
