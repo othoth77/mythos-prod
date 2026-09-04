@@ -1,5 +1,18 @@
 # AI Handover
 
+## gh-issue-142 — gh-issue-128 reconciled by evidence: the governed READ path is live (2026-09-03)
+
+**Objective (GitHub Issue #142).** Finish whatever remained of #128 — but only after checking whether HOSTOPS-2R
+(#130) and HOSTOPS-2R-FIX (#132) already closed it, instead of re-running work already done.
+
+| Item | State |
+|---|---|
+| Prior state | #128 (attempt 1) reported **BLOCKED**: the required single live `POST /hostops/run {operation:health}` call returned `HOSTOPS_UNAVAILABLE` because the HOSTOPS-1 sudo boundary can never work under the executor's `NoNewPrivileges=true`. #130 (HOSTOPS-2R, `8c8ab41`, **merged to main**, confirmed ancestor of current `origin/main` `ff9f71b`) fixed the design with a root socket-activated daemon outside the executor's process tree. #132 (HOSTOPS-2R-FIX, `eebb4b1`, delivered on `mythos/gh/gh-issue-132`, **not yet merged to main**) fixed the one remaining production gap: `usermod -aG` alone never refreshes an already-running `systemd --user` manager's groups, so `deploy`'s manager needed `user@<uid>.service` restarted before the socket was reachable. |
+| Live re-verification (this task) | `id deploy` on the live host now shows group `mythos-hostops` (1003) present — the group-refresh gap #132 diagnosed is already applied on this host. One live `POST /hostops/run {operation:health}` call was made through the running `mythos-ai-executor.service` (127.0.0.1:8130, bearer token read locally from the 0600 `executor.env`, never printed or persisted): **`ok:true`, `operation: host.health.check`, `class: READ`, `audit_id: hostops-mtlx0zuw-284786`, `hostops_exit: 0`**. This is the exact deliverable #128 asked for, now proven against the code currently on `origin/main` plus the host's already-applied group-refresh state. No WRITE/RESTART/DEPLOY verb was invoked; class-based refusal of those verbs is structurally enforced and covered by the passing suites below. |
+| Reconciliation | **#128 is evidence-closable.** Nothing needed re-implementing — the fix already exists on `origin/main` (#130) and the one missing production-activation step (#132's group refresh) is already in effect on the live host, even though #132's branch itself is not yet merged. Merging #132 to main is an owner decision, unchanged by this task. |
+| Tests (as deploy, this worktree, no code changed) | `tests/mythos-hostops-executor-test.js` **36/0** · `tests/mythos-hostops-test.js` **39/0, 2 skipped** · `tests/mythos-hostops-daemon-test.js` **14/0** · `tests/dagu-hostops-allowlist-test.js` **7/0**. |
+| Files changed | `docs/AI_HANDOVER.md` only (this entry). No code, no `control/`, no protected path. |
+| Owner action still open | Merge `mythos/gh/gh-issue-132` to main so the group-refresh script and its docs are not left stranded on a branch while already active in production. |
 ## HOSTOPS-2R-FIX — the group-membership activation gap closed (GitHub issue #132, 2026-09-03)
 
 **Objective.** HOSTOPS-2R's own activation instructions said `deploy`'s new
