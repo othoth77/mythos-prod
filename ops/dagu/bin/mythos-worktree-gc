@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# =====================================================
+# MYTHOS — safe removal of finished bridge task worktrees and their local
+# branches. ops/dagu/bin/mythos-worktree-gc
+#
+# AUTOPILOT-0 §1 M10 measured 85 worktrees / 50 task branches never removed.
+# This is the ~80-line shell equivalent of lib/autopilot/worktrees.js, run by
+# Dagu (ops/dagu/maintenance/worktree-gc.yaml). Dry-run by default.
+#
+# A worktree is removable ONLY when all hold (re-checked per item at apply):
+#   * it is not the primary checkout and not locked
+#   * its branch is in the task namespace (default mythos/gh/)
+#   * its HEAD is an ancestor of origin/main (merged, therefore zero unique commits)
+#   * its tree is completely clean (tracked and untracked)
+#   * no process of the same user has its cwd inside it
+#   * its directory is older than --min-age-hours (default 24)
+# Removal = `git worktree remove` (no --force) + `git branch -d` (never -D).
+# Remote branches are never touched. At most --max (default 5) per run.
+# Everything else is KEEP with a reason. Never rm -rf.
+#
+# usage: mythos-worktree-gc <repo> [--apply] [--max N] [--min-age-hours H]
+#                                  [--namespace mythos/gh/] [--no-fetch]
+# output: one JSON line per worktree + a summary line; exit 0
+# =====================================================
+set -u
+REPO=""; APPLY=0; MAX=5; MINH=24; NS="mythos/gh/"; FETCH=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --apply) APPLY=1 ;;
+    --max) MAX=$2; shift ;;
+    --min-age-hours) MINH=$2; shift ;;
+    --namespace) NS=$2; shift ;;
+    --no-fetch) FETCH=0 ;;
+    -*) echo "usage: mythos-worktree-gc <repo> [--apply] [--max N] [--min-age-hours H] [--namespace ns/]" >&2; exit 64 ;;
+    *) REPO=$1 ;;
+  esac; shift
+done
+[ -n "$REPO" ] || { echo "usage: mythos-worktree-gc <repo> [--apply]" >&2; exit 64; }
+export GIT_TERMINAL_PROMPT=0 GIT_OPTIONAL_LOCKS=0
+g() { git -C "$REPO" -c core.hooksPath=/var/empty "$@"; }
+[ "$FETCH" = 1 ] && g fetch --quiet origin main 2>/dev/null
+MAIN=$(g rev-parse refs/remotes/origin/main 2>/dev/null) || { echo '{"summary":true,"error":"origin/main unresolved"}'; exit 2; }
+PRIMARY=$(g rev-parse --show-toplevel)
+row() { printf '{"path":"%s","branch":"%s","decision":"%s","reason":"%s"}\n' "$1" "$2" "$3" "$4"; }
+# cwds of THIS user's processes, read once per run (foreign users' cwds are
+# unreadable anyway, and walking all of /proc can block on a stuck mount)
+CWDS=$(ls -ld $(ps -u "$(id -u)" -o pid= 2>/dev/null | sed 's|.*|/proc/&/cwd|') 2>/dev/null | sed -n 's/.* -> //p')
+in_use() { # a same-user process has its cwd inside the path
+  local c; while IFS= read -r c; do
+    [ -n "$c" ] || continue
+    case "$c" in "$1"|"$1"/*) return 0 ;; esac
+  done <<< "$CWDS"; return 1
+}
+classify() { # sets DECISION REASON
+  local wt=$1 br=$2 head=$3 locked=$4
+  DECISION=KEEP
+  if [ "$wt" = "$PRIMARY" ]; then REASON=PRIMARY_CHECKOUT; return; fi
+  if [ "$locked" = 1 ]; then REASON=LOCKED; return; fi
+  if [ ! -d "$wt" ]; then REASON=PATH_MISSING; return; fi
+  case "$br" in "$NS"*) ;; *) REASON=NOT_TASK_NAMESPACE; return ;; esac
+  g merge-base --is-ancestor "$head" "$MAIN" 2>/dev/null || { REASON=NOT_MERGED; return; }
+  [ -z "$(git -C "$wt" status --porcelain 2>/dev/null)" ] || { REASON=DIRTY; return; }
+  in_use "$wt" && { REASON=IN_USE; return; }
+  local age=$(( ( $(date +%s) - $(stat -c %Y "$wt") ) / 3600 ))
+  [ "$age" -ge "$MINH" ] || { REASON=TOO_RECENT; return; }
+  DECISION=REMOVE; REASON=SAFE_MERGED_UNUSED
+}
+removed=0; removable=0; kept=0
+wt=""; br=""; head=""; locked=0
+flush() {
+  [ -n "$wt" ] || return
+  classify "$wt" "$br" "$head" "$locked"
+  if [ "$DECISION" = REMOVE ]; then
+    removable=$((removable+1))
+    if [ "$APPLY" = 1 ] && [ "$removed" -lt "$MAX" ]; then
+      classify "$wt" "$br" "$head" "$locked"   # re-verify immediately before mutating
+      if [ "$DECISION" = REMOVE ] && g worktree remove "$wt" >/dev/null 2>&1; then
+        if g branch -d "$br" >/dev/null 2>&1; then row "$wt" "$br" REMOVED "$REASON"; else row "$wt" "$br" REMOVED_WORKTREE_ONLY BRANCH_NOT_DELETED; fi
+        removed=$((removed+1))
+      else row "$wt" "$br" KEEP "${REASON}_AT_APPLY"; fi
+    else row "$wt" "$br" WOULD_REMOVE "$REASON"; fi
+  else kept=$((kept+1)); row "$wt" "$br" KEEP "$REASON"; fi
+  wt=""; br=""; head=""; locked=0
+}
+while IFS= read -r line; do
+  case "$line" in
+    "worktree "*) flush; wt=${line#worktree } ;;
+    "HEAD "*) head=${line#HEAD } ;;
+    "branch refs/heads/"*) br=${line#branch refs/heads/} ;;
+    "detached") br="(detached)" ;;
+    "locked"*) locked=1 ;;
+    "") ;;
+  esac
+done < <(g worktree list --porcelain; echo)
+flush
+printf '{"summary":true,"apply":%s,"removable":%s,"removed":%s,"kept":%s,"max":%s,"min_age_hours":%s,"namespace":"%s"}\n' "$APPLY" "$removable" "$removed" "$kept" "$MAX" "$MINH" "$NS"
+exit 0

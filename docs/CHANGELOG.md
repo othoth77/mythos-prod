@@ -6,6 +6,15 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Changed — EXEC-ARCH-0 — One execution architecture; PR #158 superseded (2026-09-04)
+
+- **Decision (Search First, live-verified):** Claude Code headless (`providers/claude-code.js`) stays the single execution engine; OpenHands 1.16, mini-SWE-agent v2, SWE-agent and Goose evaluated and REJECTED (API-key-only credential model, Docker/RAM footprint on a swap-full host, headless always-approve, a parallel runtime outside Skill Trust / MCP governance). Dagu 2.16.2 SELECTED as the one scheduler for recurring host maintenance. Records in `projects/command-center/data/open-source-registry.json`; rationale in `docs/MYTHOS_EXECUTION_ARCHITECTURE.md`.
+- **PR #158 root cause:** conflicts only in `docs/AI_HANDOVER.md` / `docs/CHANGELOG.md` against PR #154; the PR itself added a fourth recurring-operations mechanism (2,902 lines, an eleventh timer). Superseded, not rebased.
+- **Added:** `ops/dagu/bin/{mythos-git-sync,mythos-drift-check,mythos-worktree-gc}` (dry-run by default, ff-only / read-only / no `--force`), `ops/dagu/maintenance/{git-sync-main,drift-check,executor-restart,worktree-gc}.yaml` (Resource Guard first step, single queue, restart never scheduled and gated by Dagu step approval with `approval_ref`), `ops/dagu/README.md`, `tests/dagu-maintenance-test.js`.
+- **Adapted from #158:** `executor.js` reports `code_identity` (checkout, HEAD, branch, pid, start time) in `GET /health`, so drift is measured, not inferred from the reflog.
+- **Not carried:** `lib/autopilot/*`, `bin/mythos-autopilot`, the autopilot service/timer, `/autopilot*` routes, the `autopilot-state` probe.
+- Production untouched; Dagu service installation is the one owner step.
+
 ### Added — SKILL-TRUST-0 — Skill & MCP Security / Trust Gate (2026-09-04)
 
 - **No skill reaches execution without a content-bound ACCEPT attestation.** `projects/mythos-ai-executor/lib/skills.js` now treats a registry entry as necessary, not sufficient: a skill is selectable and renderable only while `lib/skill-trust.js` finds an `ACCEPT` in `config/skill-trust.json` whose sha256 matches the registry entry + instruction bytes on disk. Anything else — no ledger, no entry, `REVIEW`, `BLOCK`, or a changed file (`STALE`) — falls through exactly like a disabled skill, with the trust status recorded in the task's selection reason. Missions never depend on the skill layer, so nothing blocks; nothing untrusted is injected. Bypass only via `MYTHOS_SKILL_TRUST=off` (offline suites; logged).

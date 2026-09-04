@@ -268,7 +268,117 @@
       "othmode_usage": "none - evaluated only, per the SKILL-TRUST-0 mandate",
       "verified_at": "2026-09-04",
       "verdict": "DEFER. SkillSpector covers the single-skill surface today; revisit if cross-skill privilege analysis becomes a requirement (the one thing it does that SkillSpector does not)."
+    },
+    {
+      "name": "Claude Code (headless, `claude -p`)",
+      "source": "npm / Anthropic",
+      "repository": "anthropics/claude-code",
+      "version": "2.1.251 installed for `deploy` and `ubuntu` (verified `claude --version` 2026-09-04)",
+      "license": "proprietary Anthropic CLI (binary distributed via npm; usage under the Anthropic subscription/API terms)",
+      "purpose": "The MYTHOS execution engine: headless agent loop with repository tools, --permission-mode / --allowedTools policy, --session-id/--resume continuity, native MCP client, skills (SKILL.md) injection, --model pinning.",
+      "integration_method": "already integrated since MYTHOS-AI-EXECUTOR-0: projects/mythos-ai-executor/providers/claude-code.js (the ONLY provider with executionAuthority) + lib/policy.js profiles + lib/skills.js / lib/skill-trust.js + lib/mcp-invoke.js; bridge creates one worktree + branch mythos/gh/<id> per task; quota/retry/interrupted lifecycle in executor.js; EXEC-LIFECYCLE-0 registry.",
+      "status": "INTEGRATED",
+      "dependencies": [],
+      "maintenance": "vendor-maintained (Anthropic), frequent releases; the host CLI moved 2.1.233 → 2.1.251 during 2026-09",
+      "security": "runs rootless under NoNewPrivileges=true as deploy; profiles deny Bash(sudo:*); execution surface stripped from advisory providers at createTask; Skill Trust attestation gates every injected skill; MCP governance via lib/mcp-invoke.js + OTHMODE trust/mcp.js; uses the CLI's own subscription credentials — no API key on the host.",
+      "othmode_usage": "Execution layer under OTHMODE (Trust / Policy / Approval / Skill Trust / MCP Trust / audit). OTHMODE never executes; Claude Code never authorises.",
+      "verified_at": "2026-09-04",
+      "verdict": "SELECT (EXEC-ARCH-0, 2026-09-04). Re-evaluated against OpenHands, mini-SWE-agent, SWE-agent and Goose: it is the only mature engine that (a) runs on the credentials already on the host, (b) exposes the permission-mode / tool allow-list / MCP / skills surface that Skill Trust and MCP governance are built on, (c) needs no Docker and no extra RAM on a host with <1 GiB available and swap full. One engine; nothing parallel."
+    },
+    {
+      "name": "OpenHands (ex OpenDevin)",
+      "source": "github / pypi / ghcr",
+      "repository": "OpenHands/OpenHands",
+      "version": "1.16.0 (docs.openhands.dev, verified 2026-09-04)",
+      "license": "MIT",
+      "purpose": "Self-hosted autonomous coding agent platform: agent server + Docker sandbox runtime + web UI/CLI, GitHub/Slack/Linear automations, bring-your-own-model via API key.",
+      "integration_method": "NOT integrated.",
+      "status": "REJECTED",
+      "dependencies": [
+        "Docker (all installation methods, per local-setup docs)",
+        "Python 3.12 / uv",
+        "LLM API key (Anthropic console key; no subscription/CLI auth)"
+      ],
+      "maintenance": "very active (86k stars, 8.1k commits, status beta; verified 2026-09-04)",
+      "security": "headless mode is hard-wired to `always-approve` — every action auto-approved, `--llm-approve` unavailable (docs headless-mode page); sandbox needs the Docker socket from the agent process (root-equivalent) or runs unsandboxed on the host filesystem.",
+      "othmode_usage": "none",
+      "verified_at": "2026-09-04",
+      "verdict": "REJECT as the MYTHOS engine: (1) needs Docker + several GiB headroom — host measured 725 MiB available, swap 4095/4095, Resource Guard WARNING→CRITICAL during this stage; (2) API-key only — would add a second credential model beside the Claude Code subscription; (3) headless = always-approve, so OTHMODE approval, Skill Trust and MCP governance would sit OUTSIDE the loop instead of inside it; (4) a second execution architecture beside the working executor/bridge. Pattern noted: none needed — the executor already has queue, sessions, retries, worktrees."
+    },
+    {
+      "name": "mini-SWE-agent",
+      "source": "github / pypi",
+      "repository": "SWE-agent/mini-swe-agent",
+      "version": "v2 (main, 1,022 commits; verified 2026-09-04)",
+      "license": "MIT",
+      "purpose": "~100-line research harness: bash-only agent loop over LiteLLM models, local/docker/podman/singularity/bubblewrap environments, trajectory browser, SWE-bench batch runner.",
+      "integration_method": "NOT integrated.",
+      "status": "REJECTED",
+      "dependencies": [
+        "Python + litellm",
+        "LLM API key (Anthropic key via LiteLLM)"
+      ],
+      "maintenance": "active (primary development focus of the SWE-agent team; verified 2026-09-04)",
+      "security": "bash-only tool with no permission modes, no tool allow/deny list, no MCP client, no skills — a policy layer would have to be built around it from scratch.",
+      "othmode_usage": "none",
+      "verified_at": "2026-09-04",
+      "verdict": "REJECT as the MYTHOS engine: it is a transparent benchmark harness, not an operational runtime — no session resume, no quota lifecycle, no MCP, no skills, API-key only. Adopting it would rebuild lib/policy.js, skill injection, Skill Trust enforcement and MCP governance around a second engine. Nothing reused; nothing to adapt (the executor already owns the loop's lifecycle)."
+    },
+    {
+      "name": "SWE-agent",
+      "source": "github",
+      "repository": "SWE-agent/SWE-agent",
+      "version": "1.x (20.2k stars; upstream states mini-swe-agent is now the primary focus; verified 2026-09-04)",
+      "license": "MIT",
+      "purpose": "Agent-Computer-Interface coding agent (YAML-configured tools), GitHub issue mode, batch mode, EnIGMA CTF mode; LiteLLM backends.",
+      "integration_method": "NOT integrated.",
+      "status": "REJECTED",
+      "dependencies": [
+        "Docker for its default environments",
+        "Python",
+        "LLM API key"
+      ],
+      "maintenance": "maintained, but superseded by mini-swe-agent per its own README (verified 2026-09-04)",
+      "security": "same class as mini-swe-agent: API-key runtime, no MCP/skills/permission-mode surface for OTHMODE to govern.",
+      "othmode_usage": "none",
+      "verified_at": "2026-09-04",
+      "verdict": "REJECT — superseded upstream by mini-swe-agent, which is itself rejected above; same credential and governance-surface objections, heavier."
+    },
+    {
+      "name": "Goose (Block / Agentic AI Foundation)",
+      "source": "github",
+      "repository": "block/goose",
+      "version": "2026 (Rust; moved to the Linux Foundation's Agentic AI Foundation 2026-04-07 per press coverage; verified 2026-09-04 via search, not installed)",
+      "license": "Apache-2.0",
+      "purpose": "Extensible agent runtime with MCP-native extensions, desktop app + CLI + embeddable API, bring-your-own-model.",
+      "integration_method": "NOT integrated.",
+      "status": "REJECTED",
+      "dependencies": [
+        "LLM API key",
+        "Rust binary"
+      ],
+      "maintenance": "active (foundation-governed)",
+      "security": "MCP-native, but a second runtime with its own extension trust model beside OTHMODE's Skill Trust / MCP Trust.",
+      "othmode_usage": "none",
+      "verified_at": "2026-09-04",
+      "verdict": "REJECT — closest alternative on MCP support, but API-key only and a parallel runtime to the Claude Code engine already governed by OTHMODE; no capability gap justified a second engine. Recorded so it is not re-evaluated without a new reason."
+    },
+    {
+      "name": "Dagu",
+      "source": "github (release tarball, sha256-verified)",
+      "repository": "dagucloud/dagu",
+      "version": "v2.16.2 (2026-09-02); PoC binary at /home/deploy/dagu-poc/bin/dagu",
+      "license": "MIT",
+      "purpose": "Single-binary workflow engine: YAML DAGs pinned on disk (write_dags:false), cron schedule, queues (max_active_runs), per-step retry_policy, step approval gates (run → pause → POST approve with required inputs), run history + per-step logs, loopback API/MCP.",
+      "integration_method": "EXEC-ARCH-0: ops/dagu/maintenance/*.yaml (git-sync-main, drift-check, executor-restart, worktree-gc) over ops/dagu/bin/{mythos-git-sync,mythos-drift-check,mythos-worktree-gc}; each DAG's first step is the Resource Guard admission. DAGU-HOSTOPS-0 (docs/MYTHOS_DAGU_HOST_OPERATIONS.md) already RECOMMENDED it as the host-operations orchestration layer; this stage makes it the ONE scheduler for recurring maintenance instead of a bespoke reconciler (PR #158).",
+      "status": "APPROVED",
+      "dependencies": [],
+      "maintenance": "active (release 2 days before verification); 30–34 MiB RSS idle measured in the PoC",
+      "security": "no privilege model of its own — runs as deploy under a user unit with NoNewPrivileges=true, MemoryMax=256M; DAGs come only from files in Git; the maintenance DAGs contain no sudo/docker/force/reset (asserted by tests/dagu-maintenance-test.js); Dagu Pro features (audit log, RBAC) not required.",
+      "othmode_usage": "Host-ops scheduling + approval-gate capability under OTHMODE policy; OTHMODE still owns the approval record (approval_ref is a required input of the gated step).",
+      "verified_at": "2026-09-04",
+      "verdict": "SELECT for recurring host maintenance (ADOPT). Installation as a deploy-user service is the one owner step (ops/dagu/README.md); until then the DAGs are exercised by `dagu start` from the PoC binary and by the test suite."
     }
   ],
-  "final_review": "2026-08-26 final Search First re-check: every manually built capability (evolution store, sessions, detectors, export) was re-searched against GitHub/PyPI/npm/MCP/Anthropic Skills; no maintained project matched the constraints (zero-dependency Node, fail-closed store semantics, no-exec runtime, GPL exclusion) better than the ~1.5k lines built — verdicts recorded per record above; no dependency added to inflate the registry. || 2026-09-04 SKILL-TRUST-0 Search First: skill/MCP security tooling re-searched (GitHub, PyPI, npm; NVIDIA first). Reused SkillSpector + SkillEvaluator Tier 1 + Gitleaks; deferred Semgrep (host memory) and SkillGuard; rejected the stale mcp-scan fork and snyk/agent-scan (data egress + external account). Built only adapters, a deterministic policy, content-bound ledgers and the executor gate (see docs/OTHMODE_SKILL_TRUST.md)."
+  "final_review": "2026-08-26 final Search First re-check: every manually built capability (evolution store, sessions, detectors, export) was re-searched against GitHub/PyPI/npm/MCP/Anthropic Skills; no maintained project matched the constraints (zero-dependency Node, fail-closed store semantics, no-exec runtime, GPL exclusion) better than the ~1.5k lines built — verdicts recorded per record above; no dependency added to inflate the registry. || 2026-09-04 SKILL-TRUST-0 Search First: skill/MCP security tooling re-searched (GitHub, PyPI, npm; NVIDIA first). Reused SkillSpector + SkillEvaluator Tier 1 + Gitleaks; deferred Semgrep (host memory) and SkillGuard; rejected the stale mcp-scan fork and snyk/agent-scan (data egress + external account). Built only adapters, a deterministic policy, content-bound ledgers and the executor gate (see docs/OTHMODE_SKILL_TRUST.md). || 2026-09-04 EXEC-ARCH-0 Search First: execution engines re-searched (OpenHands 1.16, mini-SWE-agent v2, SWE-agent, Goose) against the integrated Claude Code headless engine — all four REJECTED (API-key-only credential model, Docker/RAM footprint on a swap-full host, headless always-approve, and a parallel runtime that would bypass Skill Trust / MCP governance); Claude Code SELECTED as the single engine; Dagu SELECTED as the single scheduler for recurring host maintenance, superseding the bespoke autopilot reconciler of PR #158."
 }

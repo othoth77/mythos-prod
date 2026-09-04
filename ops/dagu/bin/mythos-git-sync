@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# =====================================================
+# MYTHOS — fast-forward-only sync of a checkout to its remote branch
+# ops/dagu/bin/mythos-git-sync
+#
+# The one recurring hand operation measured in AUTOPILOT-0 §1 (M1: 12 hand
+# fast-forwards of the shared checkout in 48 h) as ~60 lines of shell,
+# scheduled by Dagu (ops/dagu/maintenance/git-sync-main.yaml) instead of by a
+# bespoke reconciler + timer. Runs as the checkout's owner, never root.
+#
+# Dry-run by default: prints WOULD_FAST_FORWARD and changes nothing. --apply
+# performs `git merge --ff-only <sha>` only when EVERY condition holds:
+#   expected branch · no in-progress git operation · tracked tree clean ·
+#   fetch succeeded · HEAD is an ancestor of the target · target re-verified
+#   immediately before the merge · HEAD == target afterwards.
+# Anything else is BLOCKED with a code and exit 2. merge/rebase/reset/clean/
+# stash/force do not exist in this file and must never be added.
+#
+# usage: mythos-git-sync <repo> [--apply] [--branch main] [--remote origin]
+# output: one JSON object on stdout; exit 0 = synchronized / fast-forwarded /
+#         would fast-forward, 2 = BLOCKED, 64 = usage.
+# =====================================================
+set -u
+REPO=""; APPLY=0; BRANCH=main; REMOTE=origin
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --apply) APPLY=1 ;;
+    --branch) BRANCH=$2; shift ;;
+    --remote) REMOTE=$2; shift ;;
+    -*) echo "usage: mythos-git-sync <repo> [--apply] [--branch <b>] [--remote <r>]" >&2; exit 64 ;;
+    *) REPO=$1 ;;
+  esac; shift
+done
+[ -n "$REPO" ] || { echo "usage: mythos-git-sync <repo> [--apply]" >&2; exit 64; }
+export GIT_TERMINAL_PROMPT=0 GIT_OPTIONAL_LOCKS=0
+g() { git -C "$REPO" -c core.hooksPath=/var/empty "$@"; }
+j() { printf '{"result":"%s","code":"%s","repo":"%s","branch":"%s","head":"%s","target":"%s","apply":%s,"at":"%s"}\n' "$1" "$2" "$REPO" "$BRANCH" "${HEAD:-}" "${TARGET:-}" "$APPLY" "$(date -u +%FT%TZ)"; }
+blocked() { j BLOCKED "$1"; exit 2; }
+
+g rev-parse --is-inside-work-tree >/dev/null 2>&1 || blocked WRONG_REPOSITORY
+CUR=$(g rev-parse --abbrev-ref HEAD 2>/dev/null) || blocked WRONG_REPOSITORY
+[ "$CUR" = "$BRANCH" ] || blocked WRONG_BRANCH
+GITDIR=$(g rev-parse --absolute-git-dir)
+for f in MERGE_HEAD CHERRY_PICK_HEAD REVERT_HEAD BISECT_LOG rebase-merge rebase-apply; do
+  [ -e "$GITDIR/$f" ] && blocked GIT_OPERATION_IN_PROGRESS
+done
+[ -z "$(g status --porcelain --untracked-files=no 2>/dev/null)" ] || blocked DIRTY_CHECKOUT
+g fetch --quiet "$REMOTE" "$BRANCH" 2>/dev/null || blocked FETCH_FAILED
+HEAD=$(g rev-parse "refs/heads/$BRANCH") || blocked TARGET_UNVERIFIED
+TARGET=$(g rev-parse "refs/remotes/$REMOTE/$BRANCH") || blocked TARGET_UNVERIFIED
+case "$HEAD$TARGET" in *[!0-9a-f]*) blocked TARGET_UNVERIFIED ;; esac
+[ ${#HEAD} -eq 40 ] && [ ${#TARGET} -eq 40 ] || blocked TARGET_UNVERIFIED
+if [ "$HEAD" = "$TARGET" ]; then j ALREADY_SYNCHRONIZED NOOP; exit 0; fi
+if ! g merge-base --is-ancestor "$HEAD" "$TARGET"; then
+  if g merge-base --is-ancestor "$TARGET" "$HEAD"; then blocked LOCAL_AHEAD; else blocked DIVERGED; fi
+fi
+[ "$APPLY" = 1 ] || { j WOULD_FAST_FORWARD DRY_RUN; exit 0; }
+# re-verify the target immediately before mutating (the remote may have moved)
+NOW=$(g rev-parse "refs/remotes/$REMOTE/$BRANCH"); [ "$NOW" = "$TARGET" ] || blocked TARGET_MOVED
+g merge --ff-only --quiet "$TARGET" >/dev/null 2>&1 || blocked FF_FAILED
+AFTER=$(g rev-parse "refs/heads/$BRANCH")
+[ "$AFTER" = "$TARGET" ] || blocked POST_SYNC_VERIFY_FAILED
+j FAST_FORWARD APPLIED; exit 0
