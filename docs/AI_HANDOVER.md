@@ -324,6 +324,26 @@ as the expected rerun identity — literally the shape of the fix that already s
 | Correlation | GitHub Issue #138 → control task `control/tasks/gh-issue-138.json` (github-bridge) → OTHMODE `OTH-2026-00062` (phase advanced to `VERIFICATION`, validation section records the finding) → Executor task `t-20260903184742-ha8ofh` → this commit. |
 | Not done (by design) | No push (governance relay delivers via `mythos-git-push.timer`, fast-forward only); no code change (none required); Issue #138 itself was not edited or commented on — the bridge/adapter's own report is the Issue-facing record. |
 
+## gh-issue-139 — gh-issue-138 delivery confirmed on origin; no further action needed (2026-09-03)
+
+**Objective (GitHub Issue #139, executor task `t-20260903185503-fko5r2`, OTHMODE `OTH-2026-00063`).**
+Issue #139 asked to finish what #138 left open: prove the #138 verification commit
+(`163158e107fd7b73995b721beb48b706e6bab19c`, "verify gh-issue-138 rerun fix (A-D) already
+delivered by gh-issue-103-r2") actually reached `origin`, since the mission's own report can only
+say it committed locally — delivery is the governance relay's job (`mythos-git-push.timer`,
+fast-forward only), not the mission's.
+
+| Item | State |
+|---|---|
+| State at task start | `163158e` existed locally on `mythos/gh/gh-issue-138` (worktree `/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-138`) but `origin/mythos/gh/gh-issue-138` was still at `ff9f71b` — one commit behind. `origin/mythos/control` was also behind the local `mythos/control` tip (stuck at the `progress gh-issue-138` control commit, missing `finish`/`issues ←` and the `issues ← gh-issue-139` dispatch). |
+| Delivery mechanism observed | Confirmed by reading `projects/mythos-ai-executor/service/mythos-git-push.sh`: the relay runs against the **shared checkout** `/home/deploy/projects/mythos-prod`, but branch refs are shared across all linked worktrees of the same repo (this worktree's `.git` points at `/home/deploy/projects/mythos-prod/.git/worktrees/gh-issue-139`), so `mythos/gh/gh-issue-138` was visible to the relay's `refs/heads/mythos/*` sweep without any action from this task. |
+| Resolution | No push was run by this session (forbidden by the bridge constraints). A re-fetch of `origin` a few minutes into this task showed the relay had already delivered it: `origin/mythos/gh/gh-issue-138` == `163158e`, `origin/mythos/control` == local tip (`1f4464b`). Fast-forward, no governance denial. |
+| Fixes A-D re-verified present | `origin/main` contains PR #104 (`df8e285`, `mythos/gh/gh-issue-103-r2`, impl `7bc40ca`) as an ancestor; `bridge/github-issues.js` on `origin/main` still has the label-consumed-after-commit rerun logic, `action_source === 'inherited_previous_attempt'` inheritance, per-field `scope`/`constraints`/`validation_requirements` inheritance, and `rerunDeferredBody`/`staleEditBody`/`rejectedBody`. No code change made — none was needed. |
+| Tests | Not re-run: no source changed since the 193/0 · 150/0 · 88/0 · 390/0 suites recorded by the `gh-issue-138` task, and this task's own change is docs-only. `node --check` on `bridge/github-issues.js` passes. |
+| Files changed this session | `docs/AI_HANDOVER.md` only (this entry). |
+| Correlation | GitHub Issue #139 → `control/tasks/gh-issue-139.json` (github-bridge) → OTHMODE `OTH-2026-00063` → Executor task `t-20260903185503-fko5r2` → this commit; confirms delivery of GitHub Issue #138 → `control/tasks/gh-issue-138.json` → OTHMODE `OTH-2026-00062` → Executor task `t-20260903184742-ha8ofh` → commit `163158e`. |
+| Not done (by design) | No push (relay-only delivery, and it had already run); no merge to `main`; Issue #139 itself was not edited or commented on. |
+
 ## HOSTOPS-2R — Executor → HostOps fixed to a Unix socket boundary (GitHub issue #130, 2026-09-03)
 
 **Objective.** HOSTOPS-1's `sudo -n mythos-hostops` boundary call, made from inside
