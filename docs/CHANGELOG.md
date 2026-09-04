@@ -6,6 +6,24 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Fixed — EXEC-ARCH-0 follow-up — the executor restart is authorised by a record, not by a string (GitHub issue #161, 2026-09-04)
+
+- **fix(worktree-gc, EXEC-ARCH-0 / PR #159, 2026-09-04):** `mythos-worktree-gc` stripped no padding from `ps -o pid=`, so short pids were never scanned and an in-use worktree could be classified `SAFE_MERGED_UNUSED`; fixed, IN_USE test made race-free (31/0). PR #159 now includes GH #161 (approval_ref verification) and is merged with main `b7b1382`.
+- **The gap:** in PR #159 the `executor-restart` DAG relied on Dagu's own step approval, whose contract is only that the required input `approval_ref` is *present*. Dagu's approval identity in community edition is a shared basic credential, so that credential plus any label — `APP-FAKE` — reached `systemctl --user restart mythos-ai-executor.service`.
+- **Added:** `ops/dagu/bin/mythos-restart-approval` (`request · grant · deny · revoke · verify · list`) over the **existing** executor policy-engine approval entity — the same record `lib/mcp-invoke.js` requires for CONTROLLED MCP tools, as prescribed by `docs/MYTHOS_DAGU_HOST_OPERATIONS.md` §12. No second governance system, no change to the policy engine, the store, or any governance-protected path.
+- **Changed:** `ops/dagu/maintenance/executor-restart.yaml` gains an `approval-verify` step between the gate and the restart; `type: chain` means the restart cannot run when it fails. `verify` exits 0 only for a well-formed `ap-…` id that exists, carries `action_class` `hostops:executor.restart`, is bound to the checkout HEAD being restarted onto, is `GRANTED`, not revoked, decided by a human name within 24 h, and never consumed — then consumes it, so one approval buys one attempt. Unmeasurable HEAD or unwritable store is a fail-closed error, never an authorisation.
+- **Unchanged:** the architecture (`GitHub → Bridge → OTHMODE → Claude Code → PR → human merge`, Dagu as the scheduler) and every other restart gate — Resource Guard, zero `RUNNING` tasks, `--require-restart` drift gate, post-restart identity verification.
+- Tests: `tests/dagu-maintenance-test.js` 22/0 → **31/0**, including a chain simulation that runs the shipped YAML's own commands against a **stubbed** `systemctl` to prove an invalid approval never reaches it. Production not restarted, nothing installed or enabled.
+
+### Changed — EXEC-ARCH-0 — One execution architecture; PR #158 superseded (2026-09-04)
+
+- **Decision (Search First, live-verified):** Claude Code headless (`providers/claude-code.js`) stays the single execution engine; OpenHands 1.16, mini-SWE-agent v2, SWE-agent and Goose evaluated and REJECTED (API-key-only credential model, Docker/RAM footprint on a swap-full host, headless always-approve, a parallel runtime outside Skill Trust / MCP governance). Dagu 2.16.2 SELECTED as the one scheduler for recurring host maintenance. Records in `projects/command-center/data/open-source-registry.json`; rationale in `docs/MYTHOS_EXECUTION_ARCHITECTURE.md`.
+- **PR #158 root cause:** conflicts only in `docs/AI_HANDOVER.md` / `docs/CHANGELOG.md` against PR #154; the PR itself added a fourth recurring-operations mechanism (2,902 lines, an eleventh timer). Superseded, not rebased.
+- **Added:** `ops/dagu/bin/{mythos-git-sync,mythos-drift-check,mythos-worktree-gc}` (dry-run by default, ff-only / read-only / no `--force`), `ops/dagu/maintenance/{git-sync-main,drift-check,executor-restart,worktree-gc}.yaml` (Resource Guard first step, single queue, restart never scheduled and gated by Dagu step approval with `approval_ref`), `ops/dagu/README.md`, `tests/dagu-maintenance-test.js`.
+- **Adapted from #158:** `executor.js` reports `code_identity` (checkout, HEAD, branch, pid, start time) in `GET /health`, so drift is measured, not inferred from the reflog.
+- **Not carried:** `lib/autopilot/*`, `bin/mythos-autopilot`, the autopilot service/timer, `/autopilot*` routes, the `autopilot-state` probe.
+- Production untouched; Dagu service installation is the one owner step.
+
 ### Added — SKILL-TRUST-0 — Skill & MCP Security / Trust Gate (2026-09-04)
 
 - **No skill reaches execution without a content-bound ACCEPT attestation.** `projects/mythos-ai-executor/lib/skills.js` now treats a registry entry as necessary, not sufficient: a skill is selectable and renderable only while `lib/skill-trust.js` finds an `ACCEPT` in `config/skill-trust.json` whose sha256 matches the registry entry + instruction bytes on disk. Anything else — no ledger, no entry, `REVIEW`, `BLOCK`, or a changed file (`STALE`) — falls through exactly like a disabled skill, with the trust status recorded in the task's selection reason. Missions never depend on the skill layer, so nothing blocks; nothing untrusted is injected. Bypass only via `MYTHOS_SKILL_TRUST=off` (offline suites; logged).

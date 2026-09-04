@@ -1315,6 +1315,30 @@ function runTask(taskId, opts) {
 
 var healthCache = { at: 0, claude: null };
 
+// --- Code identity of THIS process ------------------------------------------
+//
+// The bridge measures its identity per tick (a fresh process). The executor is
+// a long-lived daemon: what it runs is what the checkout held when it STARTED,
+// which is not what the checkout holds after a fast-forward. Measured once,
+// from this module's own location (never from configuration), and reported in
+// GET /health as `code_identity` so ops/dagu/bin/mythos-drift-check can say
+// EXECUTOR_RESTART_REQUIRED from a measurement instead of a reflog guess.
+var CODE_IDENTITY = (function () {
+  var out = { head: null, branch: null, checkout: null, measured_at: new Date().toISOString(), started_at: new Date(Date.now() - process.uptime() * 1000).toISOString(), pid: process.pid, verified: false, reason: null };
+  try {
+    var cp = require('child_process');
+    var run = function (args) { var r = cp.spawnSync('git', ['-c', 'core.hooksPath=/var/empty'].concat(args), { cwd: __dirname, encoding: 'utf8', timeout: 5000, env: Object.assign({}, process.env, { GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' }) }); return r.status === 0 ? String(r.stdout).trim() : null; };
+    out.checkout = run(['rev-parse', '--show-toplevel']);
+    out.head = run(['rev-parse', 'HEAD']);
+    out.branch = run(['rev-parse', '--abbrev-ref', 'HEAD']);
+    out.verified = !!(out.checkout && out.head && /^[0-9a-f]{40}$/.test(out.head));
+    if (!out.verified) out.reason = 'cannot resolve the git checkout/HEAD of ' + __dirname;
+  } catch (e) { out.reason = String(e.message).slice(0, 200); }
+  return out;
+})();
+
+function codeIdentity() { return CODE_IDENTITY; }
+
 function httpProbe(urlStr, timeoutMs) {
   return new Promise(function (resolve) {
     var http = require('http');
@@ -1354,7 +1378,7 @@ function health() {
       queue: counts
     };
     var ok = storeOk && !!healthCache.claude && probes[0].ok;
-    return { ok: ok, time: new Date().toISOString(), checks: checks };
+    return { ok: ok, time: new Date().toISOString(), checks: checks, code_identity: CODE_IDENTITY };
   });
 }
 
@@ -1429,6 +1453,7 @@ function daemon(intervalMs) {
 }
 
 module.exports = {
+  codeIdentity: codeIdentity,
   PROVIDERS: PROVIDERS,
   PROJECTS: PROJECTS,
   createTask: createTask,
