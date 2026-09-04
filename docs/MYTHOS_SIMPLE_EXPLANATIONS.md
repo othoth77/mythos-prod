@@ -22,6 +22,7 @@
 | **MCP Trust** | The external-door trust check: it verifies whether an external MCP connection is acceptable under the current trust rules. |
 | **Lifecycle** | The task life record: it keeps track of where work is in its allowed journey and what state it is currently in. |
 | **Status Center** | The dashboard: it gives the owner a simple view of the project's current health, progress, and important status. |
+| **Autopilot** | Doing safe, repetitive chores automatically. In MYTHOS this is not a separate robot: the same governed flow (Dagu schedules, OTHMODE checks, a human approves anything risky such as a restart). The earlier stand-alone Autopilot (PR #158) was retired in favour of that flow. |
 
 ## How they fit together
 
@@ -29,7 +30,7 @@ In simple terms:
 
 **GitHub records the task → Bridge carries it → OTHMODE checks it → Claude Code does the work → Tests check it → PR asks for review → Human Merge decides → `main` becomes the official result.**
 
-Operational helpers such as Dagu, Resource Guard, Drift Check, Git Sync, Worktree GC, Skill Trust, MCP Trust, Lifecycle, and Status Center support that flow without replacing the human approval points.
+Operational helpers such as Dagu, Autopilot, Resource Guard, Drift Check, Git Sync, Worktree GC, Skill Trust, MCP Trust, Lifecycle, and Status Center support that flow without replacing the human approval points.
 
 ## Important rule
 
