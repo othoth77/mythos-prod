@@ -25,7 +25,7 @@
   "validation_requirements": [
     "Production is ACTIVE only if the merged commit is present, both required services are healthy, trust verification passes, the trust API/read model is live, and the executor gate is confirmed active without bypass."
   ],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-04T17:43:58.437Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #162 https://github.com/othoth77/mythos-prod/issues/162 — \"Owner-approved OTHMODE Skill Trust production activation — Fable 5.1\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[owner approval]\n**Owner: othoth77 — APPROVED**\n\nThis task is explicitly authorized by the project owner to proceed with production activation/verification.\n\n[safety]\n- This is activation + verification only.\n- No WhatsApp gateway deployment or real provider calls.\n- Do not enable Semgrep if unsafe for host memory.\n- Do not alter Skill Trust policy.\n- Do not restart unrelated services.\n- If any prerequisite or verification fails, STOP and report the exact blocker instead of declaring production active.\n- No destructive Git operations.\n\n[important]\nThis is owner authorization to execute the task, NOT authorization to bypass governance or Human Merge. Production activation must still follow the existing sanctioned workflow.\n\n[reference]\nParent task: #155 — PROD — Activate OTHMODE Skill Trust Gate after merge #154\nExecution request: use Fable 5.1.",
@@ -129,5 +129,64 @@
       ],
       "removed": []
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260904174515-oinn8z",
+    "othmode_task_id": "OTH-2026-00080",
+    "attempt_id": "gh-issue-162#1",
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "expected_delivery": "report",
+    "model_key": null,
+    "model_requested": null,
+    "model_source": "none",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-162",
+    "branch": "mythos/gh/gh-issue-162",
+    "base_commit": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "claimed_at": "2026-09-04T17:45:14.001Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "9c142a5e6ea7024667f18853598cea5de2c962e177aeb8a214e94b0cbc7454d2",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-04T17:45:14.053Z",
+    "snapshot_sha256": "8bcf60234a298ea2deb091003b654d79a031ec7a68eb002b6d5d2e02953628ff",
+    "fence": 4453,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:4150467",
+      "fence": 4453,
+      "acquired_at": "2026-09-04T17:45:14.001Z",
+      "expires_at": "2026-09-04T19:15:14.001Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+      "branch": "main",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-04T17:44:23.200Z"
+    },
+    "model": "claude-haiku-4-5",
+    "model_selection_mode": "auto"
+  },
+  "history": [
+    {
+      "at": "2026-09-04T17:45:28.667Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260904174515-oinn8z queued; OTHMODE OTH-2026-00080; action investigate (default) → repo-read; model claude-haiku-4-5; fence 4453"
+    }
+  ]
 }
