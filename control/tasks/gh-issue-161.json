@@ -155,7 +155,9 @@
       "owner": "github-bridge@vps-4722f0a9:4094825",
       "fence": 4398,
       "acquired_at": "2026-09-04T17:12:54.664Z",
-      "expires_at": "2026-09-04T18:42:54.664Z"
+      "expires_at": "2026-09-04T18:42:54.664Z",
+      "expired_noted_at": "2026-09-04T18:44:08.883Z",
+      "expired_executor_status": "RUNNING"
     },
     "runtime": {
       "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
@@ -193,6 +195,13 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-04T18:44:09.231Z",
+      "from": "IN_PROGRESS",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "LEASE_EXPIRED: claim lease 2026-09-04T18:42:54.664Z passed 1 min ago while the executor reports RUNNING (retry_at 2026-09-04T18:14:26.243Z) — the attempt is not re-claimed or re-run; the executor owns its recovery"
     }
   ]
 }
