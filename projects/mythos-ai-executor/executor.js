@@ -1217,6 +1217,32 @@ function resourceGuardStatus() {
   };
 }
 
+// Read-only view of the Session Guard (gh-issue-144) for operators and for
+// bin/mythos-session-guard. STRICTLY observational: it calls snapshot(),
+// which never writes the guard's state and never signals a process, so
+// polling this route can neither advance an idle clock nor race the
+// enforcing process. The executor itself never terminates a Desktop Remote
+// session — that is the enforcing unit's job, and only when the operator
+// has enabled it.
+function sessionGuardStatus() {
+  var sg;
+  try { sg = require('./lib/session-guard'); } catch (e) { return { available: false, reason: 'module_unavailable' }; }
+  var cfg = {
+    state_path: path.join(state.root(), 'session-guard.json'),
+    enable_marker_path: path.join(state.root(), 'session-guard.enabled'),
+    // The executor observes the SAME memory signal the Resource Guard
+    // already owns; it never reads /proc/meminfo a second time.
+    pressure_level: resourceGuardStatus().level
+  };
+  var snap;
+  try { snap = sg.snapshot(cfg); } catch (e) { return { available: false, reason: 'snapshot_failed' }; }
+  var rep = sg.report(snap);
+  rep.available = true;
+  rep.enforcement = sg.enforcementEnabled(cfg);
+  rep.tracked_sessions = snap.state_tracked;
+  return rep;
+}
+
 function dispatcherStatus() {
   return {
     running: runningCount(),
@@ -1378,5 +1404,6 @@ module.exports = {
   // that view's exact key set, and host health is a separate concern from
   // dispatch capacity.
   resourceGuardStatus: resourceGuardStatus,
+  sessionGuardStatus: sessionGuardStatus,
   MAX_PARALLEL: MAX_PARALLEL
 };

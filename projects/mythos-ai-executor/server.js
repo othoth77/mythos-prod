@@ -19,6 +19,9 @@
 //                                   missions go through this, not /resume)
 //   GET  /dispatcher                dispatcher capacity/queue status
 //   GET  /resource-guard            host memory pressure state (gh-issue-101)
+//   GET  /session-guard             Claude Desktop Remote session lifecycle
+//                                   counts + planned reclamation (gh-issue-144,
+//                                   read-only: never signals, never mutates)
 //   POST /tasks/<id>/cancel         cooperative cancel (SIGTERM if running)
 //   POST /events/n8n-error          n8n failure-handler sink (logged, notified)
 //   POST /route                     MOS-v2 M-11: governed auto-routing —
@@ -206,6 +209,14 @@ function handler(req, res, token) {
   // Kept off /dispatcher because the console asserts that view's exact keys.
   if (req.method === 'GET' && url === '/resource-guard') {
     return send(res, 200, executor.resourceGuardStatus());
+  }
+
+  // Read-only: how many Claude Desktop Remote sessions are active / idle /
+  // orphaned, how much memory they hold, and what the guard WOULD reclaim.
+  // Observational only — this route never signals a process and never
+  // advances the guard's state (executor.sessionGuardStatus -> snapshot()).
+  if (req.method === 'GET' && url === '/session-guard') {
+    return send(res, 200, executor.sessionGuardStatus());
   }
 
   if ((m = /^\/tasks\/([a-z0-9-]{8,64})\/cancel$/.exec(url)) && req.method === 'POST') {

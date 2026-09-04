@@ -6,6 +6,13 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Fixed — HOSTOPS-2R-FIX — Executor's socket access now actually activates (GitHub issue #132, 2026-09-03)
+
+- **HOSTOPS-2R's own activation step ("deploy's new group membership needs a fresh login session") was the actual production blocker**, and the obvious workaround for it doesn't work: `usermod -aG mythos-hostops deploy` only edits `/etc/group`, it does not refresh the supplementary groups of an already-running `systemd --user` manager, so the Executor kept seeing `EACCES` on the socket even with membership granted and the executor unit restarted. A manual `SupplementaryGroups=mythos-hostops` drop-in fails with `status=216/GROUP` on any `--user` unit (systemd.exec(5): unprivileged user managers lack `CAP_SETGID`) and is not used anywhere in this tree.
+- **Fix: `ops/hostops/refresh-group-membership.sh`**, run by `install-hostops.sh` right after granting group membership. Restarts `user@<uid>.service` (a root system unit) for any user whose manager is already active, forcing a fresh `systemd --user` fork that re-reads `/etc/group` — no reboot, no fresh login. Idempotent: a user with no active manager is skipped, not an error.
+- No change to the socket unit, the root daemon, the helper, or `lib/hostops.js`; `NoNewPrivileges=true` on the executor is untouched. Details: `docs/MYTHOS_HOSTOPS_INTERFACE.md` HOSTOPS-2R-FIX addendum. Suite: new group-refresh test 10/0 (stubbed systemctl/id, no root needed), daemon 14/0 and executor adapter 36/0 re-verified green.
+
+
 ### Fixed — HOSTOPS-2R — Executor → HostOps boundary actually reaches root now (GitHub issue #130, 2026-09-03)
 
 - **The HOSTOPS-1 boundary (`sudo -n mythos-hostops`, called from inside `mythos-ai-executor.service`) was silently non-functional in production.** That service runs `NoNewPrivileges=true` (load-bearing, never weakened); under that flag the kernel ignores the setuid bit on `exec()` for every child of the hardened process, so `sudo` could never actually gain root there. Every real `/hostops/run` call returned `HOSTOPS_UNAVAILABLE`.
