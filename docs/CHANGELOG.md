@@ -6,6 +6,14 @@ This file is updated going forward per `docs/AI_HANDOVER.md`'s stage-completion 
 
 ## [Unreleased]
 
+### Fixed — EXEC-ARCH-0 follow-up — the executor restart is authorised by a record, not by a string (GitHub issue #161, 2026-09-04)
+
+- **The gap:** in PR #159 the `executor-restart` DAG relied on Dagu's own step approval, whose contract is only that the required input `approval_ref` is *present*. Dagu's approval identity in community edition is a shared basic credential, so that credential plus any label — `APP-FAKE` — reached `systemctl --user restart mythos-ai-executor.service`.
+- **Added:** `ops/dagu/bin/mythos-restart-approval` (`request · grant · deny · revoke · verify · list`) over the **existing** executor policy-engine approval entity — the same record `lib/mcp-invoke.js` requires for CONTROLLED MCP tools, as prescribed by `docs/MYTHOS_DAGU_HOST_OPERATIONS.md` §12. No second governance system, no change to the policy engine, the store, or any governance-protected path.
+- **Changed:** `ops/dagu/maintenance/executor-restart.yaml` gains an `approval-verify` step between the gate and the restart; `type: chain` means the restart cannot run when it fails. `verify` exits 0 only for a well-formed `ap-…` id that exists, carries `action_class` `hostops:executor.restart`, is bound to the checkout HEAD being restarted onto, is `GRANTED`, not revoked, decided by a human name within 24 h, and never consumed — then consumes it, so one approval buys one attempt. Unmeasurable HEAD or unwritable store is a fail-closed error, never an authorisation.
+- **Unchanged:** the architecture (`GitHub → Bridge → OTHMODE → Claude Code → PR → human merge`, Dagu as the scheduler) and every other restart gate — Resource Guard, zero `RUNNING` tasks, `--require-restart` drift gate, post-restart identity verification.
+- Tests: `tests/dagu-maintenance-test.js` 22/0 → **31/0**, including a chain simulation that runs the shipped YAML's own commands against a **stubbed** `systemctl` to prove an invalid approval never reaches it. Production not restarted, nothing installed or enabled.
+
 ### Changed — EXEC-ARCH-0 — One execution architecture; PR #158 superseded (2026-09-04)
 
 - **Decision (Search First, live-verified):** Claude Code headless (`providers/claude-code.js`) stays the single execution engine; OpenHands 1.16, mini-SWE-agent v2, SWE-agent and Goose evaluated and REJECTED (API-key-only credential model, Docker/RAM footprint on a swap-full host, headless always-approve, a parallel runtime outside Skill Trust / MCP governance). Dagu 2.16.2 SELECTED as the one scheduler for recurring host maintenance. Records in `projects/command-center/data/open-source-registry.json`; rationale in `docs/MYTHOS_EXECUTION_ARCHITECTURE.md`.
