@@ -1,0 +1,30 @@
+# MYTHOS maintenance DAG — fast-forward the shared checkout to origin/main
+# ops/dagu/maintenance/git-sync-main.yaml  (pinned on disk; Dagu write_dags: false)
+#
+# Replaces AUTOPILOT-0 §5 (lib/autopilot/git-reconcile.js + lock.js + the
+# mythos-autopilot timer). Concurrency = Dagu queue (max 1 active run);
+# retries = retry_policy; audit = Dagu run records + step logs; the mutation
+# itself is ops/dagu/bin/mythos-git-sync (ff-only, dry-run unless the owner
+# marker exists). Every maintenance DAG starts with the Resource Guard gate.
+description: "Fast-forward /home/deploy/projects/mythos-prod main to origin/main (ff-only; dry-run until ~/mythos-ai-executor/maintenance/sync.enabled exists)"
+schedule: "*/5 * * * *"
+type: chain
+queue: mythos-maintenance
+max_active_runs: 1
+timeout_sec: 240
+params:
+  - MYTHOS_ROOT: /home/deploy/projects/mythos-prod
+  - REPO: /home/deploy/projects/mythos-prod
+  - MARKER: /home/deploy/mythos-ai-executor/maintenance/sync.enabled
+  - TOOLS: /home/deploy/projects/mythos-prod/ops/dagu/bin
+steps:
+  - name: resource-guard
+    run: node "$MYTHOS_ROOT/projects/mythos-ai-executor/bin/mythos-resource-guard" status | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["level"]); sys.exit(0 if d.get("admit") else 3)'
+  - name: sync
+    run: '"$TOOLS/mythos-git-sync" "$REPO" $( [ -f "$MARKER" ] && echo --apply )'
+    retry_policy:
+      limit: 2
+      interval_sec: 20
+      exit_code: [2]
+  - name: drift-after-sync
+    run: '"$TOOLS/mythos-drift-check" "$REPO" --no-fetch || true'

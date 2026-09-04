@@ -1,0 +1,21 @@
+# MYTHOS maintenance DAG — read-only drift report SOURCE / CODE / EXECUTOR
+# ops/dagu/maintenance/drift-check.yaml
+# Replaces AUTOPILOT-0 §6 (lib/autopilot/drift.js incl. reflog inference).
+# The executor reports its own identity in GET /health code_identity; an
+# executor without it is EXECUTOR_UNVERIFIED (never CURRENT).
+description: "Report drift between origin/main, the shared checkout and the running executor (read-only)"
+schedule: "*/15 * * * *"
+type: chain
+queue: mythos-maintenance
+max_active_runs: 1
+timeout_sec: 120
+params:
+  - MYTHOS_ROOT: /home/deploy/projects/mythos-prod
+  - REPO: /home/deploy/projects/mythos-prod
+  - TOOLS: /home/deploy/projects/mythos-prod/ops/dagu/bin
+  - HEALTH: http://127.0.0.1:8130/health
+steps:
+  - name: resource-guard
+    run: node "$MYTHOS_ROOT/projects/mythos-ai-executor/bin/mythos-resource-guard" status | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["level"]); sys.exit(0 if d.get("admit") else 3)'
+  - name: drift
+    run: '"$TOOLS/mythos-drift-check" "$REPO" --health "$HEALTH"'

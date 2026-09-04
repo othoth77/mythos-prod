@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# =====================================================
+# MYTHOS — runtime drift check: SOURCE (origin/main) vs CODE (checkout HEAD)
+# vs EXECUTOR (the sha the running daemon reports in GET /health code_identity)
+# ops/dagu/bin/mythos-drift-check
+#
+# Read-only. Replaces lib/autopilot/drift.js (157 lines + reflog inference)
+# with one measurement each: git for SOURCE/CODE, /health for EXECUTOR. An
+# executor that does not report code_identity is EXECUTOR_UNVERIFIED — fail
+# closed: never CURRENT, never restartable.
+#
+# usage: mythos-drift-check <repo> [--health <url>] [--require-restart]
+#                                  [--wait-current <seconds>] [--no-fetch]
+#   --require-restart  exit 4 unless state == EXECUTOR_RESTART_REQUIRED
+#                      (the gate step of executor-restart.yaml)
+#   --wait-current N   poll /health up to N s until the executor runs CODE
+#                      (the verify step after an approved restart); exit 5
+#                      on timeout
+# exit: 0 CURRENT (or a drift merely reported), 2 measurement failed,
+#       4 restart not required, 5 verification timeout, 64 usage
+# =====================================================
+set -u
+REPO=""; HEALTH=${MYTHOS_EXECUTOR_HEALTH_URL:-http://127.0.0.1:8130/health}; REQ=0; WAIT=0; FETCH=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --health) HEALTH=$2; shift ;;
+    --require-restart) REQ=1 ;;
+    --wait-current) WAIT=$2; shift ;;
+    --no-fetch) FETCH=0 ;;
+    -*) echo "usage: mythos-drift-check <repo> [--health <url>] [--require-restart] [--wait-current <s>] [--no-fetch]" >&2; exit 64 ;;
+    *) REPO=$1 ;;
+  esac; shift
+done
+[ -n "$REPO" ] || { echo "usage: mythos-drift-check <repo> [--health <url>]" >&2; exit 64; }
+export GIT_TERMINAL_PROMPT=0 GIT_OPTIONAL_LOCKS=0
+g() { git -C "$REPO" -c core.hooksPath=/var/empty "$@"; }
+CODE=$(g rev-parse HEAD 2>/dev/null) || { echo '{"state":"CODE_UNVERIFIED"}'; exit 2; }
+if [ "$FETCH" = 1 ]; then g fetch --quiet origin main 2>/dev/null || SOURCE_FAIL=1; fi
+SOURCE=$(g rev-parse refs/remotes/origin/main 2>/dev/null) || SOURCE=""
+executor_head() {
+  curl -sf -m 5 "$HEALTH" 2>/dev/null | python3 -c '
+import json,sys
+try:
+    d=json.load(sys.stdin); ci=d.get("code_identity") or {}
+    print((ci.get("head") or "") if ci.get("verified", ci.get("head") is not None) else "")
+except Exception: print("")'
+}
+EXEC=$(executor_head)
+relation() {
+  if [ -z "$SOURCE" ] || [ "${SOURCE_FAIL:-0}" = 1 ]; then echo SOURCE_UNVERIFIED
+  elif [ "$CODE" = "$SOURCE" ]; then echo CURRENT
+  elif g merge-base --is-ancestor "$CODE" "$SOURCE"; then echo CODE_BEHIND_SOURCE
+  elif g merge-base --is-ancestor "$SOURCE" "$CODE"; then echo CODE_AHEAD
+  else echo CODE_DIVERGED; fi
+}
+REL=$(relation)
+if [ -z "$EXEC" ]; then STATE=EXECUTOR_UNVERIFIED
+elif [ "$EXEC" != "$CODE" ]; then STATE=EXECUTOR_RESTART_REQUIRED
+else STATE=$REL; fi
+emit() { printf '{"state":"%s","code_vs_source":"%s","source":"%s","code":"%s","executor":"%s","health":"%s","at":"%s"}\n' "$STATE" "$REL" "$SOURCE" "$CODE" "$EXEC" "$HEALTH" "$(date -u +%FT%TZ)"; }
+if [ "$WAIT" -gt 0 ]; then
+  end=$(( $(date +%s) + WAIT ))
+  while [ "$(date +%s)" -lt "$end" ]; do
+    EXEC=$(executor_head)
+    if [ -n "$EXEC" ] && [ "$EXEC" = "$CODE" ]; then STATE=$REL; emit; exit 0; fi
+    sleep 3
+  done
+  STATE=EXECUTOR_RESTART_REQUIRED; [ -z "$EXEC" ] && STATE=EXECUTOR_UNVERIFIED; emit; exit 5
+fi
+emit
+if [ "$REQ" = 1 ]; then [ "$STATE" = EXECUTOR_RESTART_REQUIRED ] || exit 4; fi
+exit 0

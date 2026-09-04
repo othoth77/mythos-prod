@@ -1,0 +1,21 @@
+# MYTHOS maintenance DAG — remove finished bridge task worktrees (dry-run by default)
+# ops/dagu/maintenance/worktree-gc.yaml
+# Replaces AUTOPILOT-0 §8 (lib/autopilot/worktrees.js). Only merged, clean,
+# unused, >24 h old worktrees in mythos/gh/ are removable; `git worktree remove`
+# (no --force) + `git branch -d` (never -D); ≤5 per run; remote branches never.
+description: "Plan (and, with ~/mythos-ai-executor/maintenance/worktrees.enabled, apply) removal of merged unused bridge task worktrees"
+schedule: "17 */6 * * *"
+type: chain
+queue: mythos-maintenance
+max_active_runs: 1
+timeout_sec: 300
+params:
+  - MYTHOS_ROOT: /home/deploy/projects/mythos-prod
+  - REPO: /home/deploy/projects/mythos-prod
+  - MARKER: /home/deploy/mythos-ai-executor/maintenance/worktrees.enabled
+  - TOOLS: /home/deploy/projects/mythos-prod/ops/dagu/bin
+steps:
+  - name: resource-guard
+    run: node "$MYTHOS_ROOT/projects/mythos-ai-executor/bin/mythos-resource-guard" status | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["level"]); sys.exit(0 if d.get("admit") else 3)'
+  - name: gc
+    run: '"$TOOLS/mythos-worktree-gc" "$REPO" --max 5 --min-age-hours 24 --namespace mythos/gh/ $( [ -f "$MARKER" ] && echo --apply )'
