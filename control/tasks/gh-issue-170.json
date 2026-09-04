@@ -26,7 +26,7 @@
     "notify-config reports no blocking configuration problems.",
     "No message is sent without explicit activation approval."
   ],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-04T20:52:49.615Z",
   "created_by": "github-issue:othoth77",
   "model": "fable-5.1",
@@ -185,8 +185,8 @@
     "claimed_at": "2026-09-04T20:52:53.437Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "ff81a8ed7850f12165d27f8db55dee50a75f1d42a0b18b50b4c0db37758be497",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-04T20:52:53.438Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-04T20:54:10.417Z",
     "snapshot_sha256": "48b8786ede5711d59a9068abe12b354893eb2b5c890dd09e6a4c07e8fe976528",
     "fence": 4771,
     "lease": {
@@ -214,7 +214,8 @@
       "measured_at": "2026-09-04T20:52:52.453Z"
     },
     "model": "claude-fable-5-1",
-    "model_selection_mode": "explicit"
+    "model_selection_mode": "explicit",
+    "claude_session_id": "a28b4282-7d57-4d35-8442-e8d2be8e7f20"
   },
   "history": [
     {
@@ -223,6 +224,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260904205253-8yl808 queued; OTHMODE OTH-2026-00169; action implement (explicit_current_issue) → repo-write; model claude-fable-5-1; fence 4771"
+    },
+    {
+      "at": "2026-09-04T20:54:10.417Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
