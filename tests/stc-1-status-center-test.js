@@ -74,6 +74,9 @@ console.log('§2 registry validation is fail-closed');
   const bad5 = JSON.parse(JSON.stringify(registry));
   bad5.projects[0].dimensions = { roadmap: { percent: 87 } };
   ok(model.validateRegistry(bad5).some(function (e) { return /requires basis/.test(e); }), 'numeric percent without a declared basis caught');
+  const bad6 = JSON.parse(JSON.stringify(registry));
+  bad6.projects[0].directories = ['not-a-projects-path'];
+  ok(model.validateRegistry(bad6).some(function (e) { return /bad directories/.test(e); }), 'malformed directories entry caught');
 }
 
 console.log('§3 evidence verification');
@@ -131,6 +134,30 @@ console.log('§6 repository discovery — nothing silently classified');
   eq(d.new_discoveries[0].classification, 'NEW_DISCOVERY', 'new repo is NEW_DISCOVERY, not auto-classified');
   ok(d.repositories.length === 2, 'known + discovered listed');
   eq(d.repositories[0].classification, 'ACTIVE', 'known classification untouched');
+}
+
+console.log('§6b monorepo project discovery — nothing silently classified');
+{
+  const root = tmpRoot();
+  fs.mkdirSync(path.join(root, 'projects', 'known-thing'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'projects', 'unclaimed-thing'), { recursive: true });
+  const known = [{ id: 'PROJECT-A', directories: ['projects/known-thing'] }];
+  const d = engine.discoverMonorepoProjects(root, known);
+  eq(d.checked, true, 'discovery ran');
+  eq(d.directories_checked, 2, 'both directories seen');
+  eq(d.new_discoveries.length, 1, 'exactly the unclaimed directory surfaces');
+  eq(d.new_discoveries[0].directory, 'projects/unclaimed-thing', 'unclaimed directory named');
+  const clean = engine.discoverMonorepoProjects(root, [
+    { id: 'PROJECT-A', directories: ['projects/known-thing'] },
+    { id: 'PROJECT-B', directories: ['projects/unclaimed-thing'] }
+  ]);
+  eq(clean.new_discoveries, [], 'once claimed, the directory is no longer a discovery');
+  const noProjectsDir = engine.discoverMonorepoProjects(tmpRoot(), known);
+  eq(noProjectsDir.checked, false, 'missing projects/ directory reported, not thrown');
+  // The real registry must claim every real projects/* directory (this is
+  // the recurring reconciliation gh-issue-140 asked for, not a one-off).
+  const real = engine.discoverMonorepoProjects(REPO, registry.projects);
+  eq(real.new_discoveries, [], 'every projects/* directory in THIS repository is claimed by some project');
 }
 
 console.log('§7 review id allocation + snapshot immutability');

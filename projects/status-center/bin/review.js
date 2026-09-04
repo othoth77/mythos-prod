@@ -45,6 +45,8 @@ console.log('Evidence:      ' + s.evidence.length + ' items (' +
   s.evidence.filter(function (e) { return e.evidence_status === 'RECORDED'; }).length + ' recorded, ' +
   s.evidence.filter(function (e) { return e.evidence_status === 'NOT_VERIFIED'; }).length + ' NOT verified)');
 console.log('New repo discoveries: ' + s.new_discoveries.length);
+console.log('New project discoveries (projects/*): ' + s.monorepo_discovery.new_discoveries.length +
+  ' (checked ' + s.monorepo_discovery.directories_checked + ' directories)');
 console.log('Previous review:      ' + (s.previous_review || 'none (baseline)'));
 const ch = s.changes;
 console.log('Changes: +' + ch.added.length + ' added, ' + ch.completed.length + ' completed, ' +
