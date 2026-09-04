@@ -1,6 +1,6 @@
 # MYTHOS WhatsApp — provider strategy, hardening and the replacement gate
 
-**Stage:** `gh-issue-147` (2026-09-03) · GitHub Issue #147
+**Stage:** `gh-issue-147` (2026-09-03) · GitHub Issue #147 · **§3 re-verified live by WA-PROVIDER-2 (2026-09-04)**
 **Predecessors:** #126 (original integration), #124 (PR), #141, #146 (BLOCKED: VPS pressure + deploy permissions)
 **Code:** `projects/mythos-ai-executor/bridge/notify/` · **Layer doc:** `docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md`
 **Decision:** **keep Evolution API as the default adapter; do NOT replace it on unverified grounds; harden the layer and make the provider a configuration value.**
@@ -56,47 +56,69 @@ its guard is written but **not installed**), then measure a candidate under
 
 ---
 
-## 3. Candidate evaluation — and what this run could NOT verify
+## 3. Candidate evaluation — live-verified 2026-09-04 (WA-PROVIDER-2)
 
-### 3.1 Verification status — read this before trusting anything in §3.2
+### 3.1 Verification status
 
-This run had **no outbound research capability**: `WebSearch` and `WebFetch`
-were not granted, `gh` and `curl` were not permitted. Upstream facts about
-every candidate — whether the project is maintained, its licence, its release
-cadence, its real resident memory — could **not** be verified, including for
-**`wa-evolution`**, which Issue #147 names explicitly as a candidate to check.
+The gh-issue-147 run had no outbound research capability and recorded every
+upstream fact as `TO-VERIFY`. **WA-PROVIDER-2 (2026-09-04) closed that gap**
+with a networked session: every fact in §3.2 was read from the upstream
+source named in the "Source" column on 2026-09-04 (GitHub REST API, the raw
+repository files, Docker Hub / ghcr.io registry manifests, and the vendors'
+own documentation). Nothing below is recalled knowledge. **Footprint figures
+are image sizes and vendor-stated minimums, not measurements on this host** —
+step 3 of the gate (§6) is still owed and is still the only source of a
+resident-set number.
 
-That is a hard blocker on one bullet of the scope, and it is reported as such
-rather than papered over with recalled knowledge. **No candidate was adopted,
-recommended for adoption, or introduced into the tree on the strength of
-unverified information**, which is exactly what the issue's decision criterion
-requires.
+### 3.2 What was verified
 
-### 3.2 What can be said without upstream access
+The requirement is unchanged and still tiny: **one outbound plain-text
+message, to one or a few fixed recipients, a few times a day, from a process
+on the same host.** No inbound, no webhooks, no media, no multi-tenancy.
 
-The requirement, established from the bridge code rather than assumed, is
-still deliberately tiny: **one outbound plain-text message, to one or a few
-fixed recipients, a few times a day, from a process on the same host.** No
-inbound, no webhooks, no media, no sessions, no templates, no multi-tenancy.
+| Fact | **Evolution API** | **wa-evolution** | **WAHA** | Source |
+|---|---|---|---|---|
+| Repository | `evolution-foundation/evolution-api` (the `EvolutionAPI/…` URL in older MYTHOS docs now **301-redirects** here) | `jfelipesjc/wa-evolution` | `devlikeapro/waha` | api.github.com |
+| Licence | **Apache-2.0 with two added conditions** (`LICENSE`): keep the logo/copyright in its frontend, and a *"Usage Notification Requirement"* — a system using it "is required to display a clear notification … visible to system administrators and accessible from the system's documentation or settings page", else a commercial licence "may" be required. GitHub classifies it `NOASSERTION`. | MIT | **Apache-2.0** (`LICENSE` at branch `core`). Since **2026.6.1** the former Plus features (unlimited sessions, media, all storages, built-in security) are in Core; *"There's no separate Plus image anymore - just use `devlikeapro/waha`."* | raw `LICENSE` files; waha.devlike.pro/docs/how-to/waha-plus |
+| Maintenance | 9,528 ★ · pushed 2026-07-14 · 208 open issues · last **stable** release **2.3.7 on 2025-12-05**, then only `2.4.0-rc1/rc2` (2026-05) — no stable release for 9 months | **0 ★ · 0 forks · 1 contributor** (51 commits) · created 2026-06-26 · last push 2026-08-01 · tags v0.1.0…**v0.1.10** in five weeks · CI = build, vet, `go test -race`, docker build | 7,334 ★ · pushed 2026-09-01 · releases **2026.8.2 (2026-09-01)**, 2026.8.1, 2026.7.2 — monthly cadence · 2 core maintainers (1,663 + 668 commits) · 2.48 M Docker Hub pulls | api.github.com `/repos`, `/releases`, `/contributors`; hub.docker.com |
+| Protocol stack | Node.js; Baileys-class WhatsApp Web session | **`jfelipesjc/wa-go`** — a WhatsApp Web protocol (Noise/Signal/app-state) **re-implemented from scratch by the same single author** (MIT, 1 ★, 162 Go files / 70 test files, pushed 2026-08-06); *not* whatsmeow, *not* Baileys | engines: **WEBJS** (default, Chromium via Puppeteer), WPP (browser), **NOWEB** (Node WebSocket, no browser), **GOWS** (Go WebSocket, no browser) | README / `go.mod`; waha.devlike.pro/docs/how-to/engines |
+| Required services | **PostgreSQL or MySQL + Redis** (production) · Node 20+ · the reference `docker-compose.yaml` runs **4 containers** (api, manager, redis, postgres:15) | **none** — single static Go binary, embedded SQLite (`modernc.org/sqlite`, no CGO); **1 container** or one systemd unit (a hardened unit file ships in `deploy/`: `NoNewPrivileges`, `ProtectSystem=full`, own user) | none beyond the image; state on a volume | vendor installation docs; repository files |
+| Vendor-stated minimum | *"At least 2GB of available RAM"*, *"5GB of free disk space"* | not stated | not stated. Docs give **no RAM number** for any engine; only *"Not running Chromium saves you CPU and Memory"* and a scaling article's 50 sessions (WEBJS) vs 500 (NOWEB) per server | vendor docs |
+| Image (compressed, registry-reported) | `evoapicloud/evolution-api:latest` **389 MB** (2026-05-06) — **already pulled on this host: 1.83 GB on disk, no container** (`docker images`, 2026-09-04) | `ghcr.io/jfelipesjc/wa-evolution:0.1.10` linux/amd64 **9.6 MB** (alpine + one binary, runs as uid 10001) | `devlikeapro/waha:latest-2026.8.2` **1,156 MB** (ships Chromium; the NOWEB/GOWS engines run inside the same image) | hub.docker.com v2 API; ghcr.io manifest |
+| Text-send contract | `POST /message/sendText/{instance}` · header `apikey` · `{"number","text"}` · id at `key.id` | **byte-identical to Evolution:** `POST /message/sendText/{instance}`, `apikey`, `{"number","text"}`, replies `201 {"key":{"remoteJid","fromMe","id"},"status":"PENDING"}` (`internal/api/messages.go`) — `providers/evolution.js` drives it **unchanged** | `POST /api/sendText` · header **`X-Api-Key`** · `{"session","chatId":"<msisdn>@c.us","text"}` · returns a `WAMessage` whose message id is the top-level **`id`** string (`src/structures/responses.dto.ts`) | source files |
+| `generic` adapter mapping | defaults | defaults (or `evolution` itself) | `PATH=/api/sendText` · `AUTH_HEADER=X-Api-Key` · `BODY={"session":"{{instance}}","chatId":"{{to}}@c.us","text":"{{text}}"}` · `ID_PATH=id` — **no code change**; the template substitutes inside string values, so `{{to}}@c.us` is legal. **Proven** against a local recorder: `tests/mythos-bridge-whatsapp-resilience-test.js` sections `generic-waha` and `evolution-wa-evolution` | `providers/generic.js`; the suite |
+| Security notes | `apikey` header; manager UI is a separate container | `WA_APIKEY` empty **disables auth** (must be set); the `/manager` dashboard has **no auth** and shows QR codes → bind to loopback only, never publish the port | `X-Api-Key`; the Core image now includes the former Plus "built-in security" | README; docs |
 
-| Candidate | Verified here | Not verified |
-|---|---|---|
-| **Evolution API** | the endpoint contract MYTHOS drives (`POST /message/sendText/{instance}`, `apikey` header) is implemented, exercised against a real HTTP server, and covered by 131 checks | current upstream maintenance, licence, real footprint |
-| **wa-evolution** | *nothing* — it could not be reached | everything: existence, maintenance, licence, API shape, footprint |
-| **WAHA** | *nothing* | everything |
-| **MultiWA / WaSphere** | *nothing*; already flagged unidentifiable in #126 | everything |
+**MultiWA / WaSphere** (named in #126 as unidentifiable): they do exist —
+`ribato22/MultiWA` (28 ★, MIT, pushed 2026-09-01) and `wasphere/wasphere`
+(49 ★, MIT, pushed 2026-07-19) — both multi-engine, multi-tenant "WhatsApp
+Business API gateway" products. They are **larger than the requirement, not
+smaller**, and neither is lighter than the three above; they are recorded
+as identified and **not shortlisted**, not as unverifiable.
 
-### 3.3 The decision criterion, applied
+### 3.3 The decision criterion, applied to verified facts
 
-Issue #147 states it: *if a ready-made provider is proven light, compatible
-and safe, prepare a clear path; **if no better alternative is proven, keep the
-current Evolution API and propose stronger isolation and resource management
-instead of replacing it.*** Nothing was proven. Therefore:
+Issue #147's criterion: *if a ready-made provider is proven light, compatible
+and safe, prepare a clear path; if no better alternative is proven, keep
+Evolution API and strengthen isolation instead.* With live data:
 
-> **Evolution API remains the default adapter. No replacement is adopted. The
-> effort goes into removing the coupling and hardening the failure paths — so
-> that when a candidate *is* verified, adopting it costs an environment
-> variable rather than a project.**
+| | Light | Compatible | Safe (maintained, licensed, reviewable) |
+|---|---|---|---|
+| Evolution API | **no** on this host — 2 GB stated minimum + Postgres + Redis + 4 containers, against 1,035 MiB available and 0 swap headroom (§2, re-read 2026-09-04) | yes (the default adapter) | licence carries a **notification obligation** MYTHOS must satisfy in its docs/settings; last stable release 9 months old; maintained |
+| **wa-evolution** | **yes** — 9.6 MB image, one process, SQLite, no services | **yes, byte-for-byte** with the existing adapter | **not proven** — 0 stars, one author, a from-scratch protocol stack two months old with no independent review; a single-maintainer dependency for a production notification channel |
+| **WAHA** | **partly** — the image is the largest (1.16 GB, Chromium included), but the NOWEB/GOWS engines run without a browser; no vendor RAM figure exists, so only a measurement can answer this | yes via `generic` (four environment variables) | **yes** — Apache-2.0, monthly releases, two active maintainers, no Core/Plus split since 2026.6.1 |
+
+> **Decision (WA-PROVIDER-2, 2026-09-04): Evolution API stays the default
+> adapter and nothing is replaced — but the reason has changed from "nothing
+> could be verified" to "nothing is *proven* on this host yet".** The path is
+> now concrete: the two live candidates for gate step 3 are **WAHA with the
+> NOWEB (or GOWS) engine** as the *safe* candidate and **wa-evolution** as the
+> *light* candidate, and both are driven by the existing code — WAHA through
+> `generic` with the mapping above, wa-evolution through `evolution`
+> unchanged. Whichever survives a week under a hard `--memory` cap on this
+> host (gate step 3) is adopted by setting environment variables. Evolution
+> API's own image is the only one already present on the host, and it is also
+> the one whose stated minimum this host cannot currently meet.
 
 ---
 
@@ -230,11 +252,11 @@ Nothing below was performed in this task, and none of it may be skipped.
    session guard, and re-measure. A gateway deployed onto 0 MiB of swap
    headroom endangers the 26 containers already running, and that risk is not
    worth a notification channel.
-2. **Live-verify the candidate** (this is the step this run could not do):
-   repository exists and is maintained, licence, release cadence, whether it
-   is Baileys/web-session based or Cloud-API based, and its documented text-send
-   contract. `wa-evolution` gets this treatment before it is called a candidate
-   in any report, not after.
+2. **Live-verify the candidate** — **DONE 2026-09-04 (WA-PROVIDER-2, §3.2)**
+   for Evolution API, wa-evolution and WAHA: repository, maintenance, licence,
+   release cadence, protocol stack, required services, registry-reported image
+   size and the exact text-send contract, each with its source. Re-run this
+   step if more than ~60 days pass before step 3 starts.
 3. **Measure it, don't read about it.** Run it with a hard `--memory` cap on
    this host for at least a week, `docker stats` sampled, and confirm the
    resident set and the growth of its session store. A footprint claim from a
@@ -257,10 +279,20 @@ Nothing below was performed in this task, and none of it may be skipped.
 
 ## 7. Residual risks
 
-- **The provider question is still open, not answered.** This task did not
-  choose a lighter provider; it removed the cost of choosing one later. Any
-  report that describes #147 as "provider replaced" would be false.
-- **`wa-evolution` remains unexamined.** It needs a networked session (§6.2).
+- **The provider question is narrowed, not answered.** #147 removed the cost
+  of choosing; WA-PROVIDER-2 verified the candidates and named the two to
+  measure. No provider has been replaced, deployed or measured on this host.
+- **`wa-evolution` is examined (§3.2) but not proven.** It is the lightest
+  candidate by an order of magnitude and a byte-for-byte contract match, and
+  it is also a two-month-old, zero-star, single-author re-implementation of
+  the WhatsApp Web protocol. Adopting it means trusting one person's protocol
+  stack for a production channel; that is a measured risk for the owner to
+  accept or refuse at gate step 3, not a reason to pretend it was not looked at.
+- **Evolution API's licence carries an obligation.** Its Apache-2.0 addendum
+  requires a visible "Evolution API is being utilized" notice for
+  administrators; if it is ever deployed, that notice belongs in
+  `docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md` and the Status Center, and its
+  stated 2 GB minimum is not met by this host today.
 - **F1 is not fixed.** No gateway is deployed, so end-to-end WhatsApp delivery
   is still unproven on this host. Everything up to the socket is proven
   against a real HTTP server; the WhatsApp side is not.
