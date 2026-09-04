@@ -27,7 +27,7 @@
     "Delivery ledger and idempotency are verified, and exact evidence is recorded in `docs/AI_HANDOVER.md`.",
     "If the environment lacks the required production configuration or test recipient, leave the task BLOCKED with the exact missing prerequisite."
   ],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-04T20:41:09.545Z",
   "created_by": "github-issue:othoth77",
   "model": "fable-5.1",
@@ -196,8 +196,8 @@
     "claimed_at": "2026-09-04T20:41:14.275Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "71c295e256d33ffada96701a69c2eaa19a91c8450fad15a2ec791a31bb1c8fa9",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-04T20:41:14.276Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-04T20:42:20.574Z",
     "snapshot_sha256": "ca0e48748ef6e2ca387103e087c5849ee27361ca2852a48682631a0e772711de",
     "fence": 4741,
     "lease": {
@@ -225,7 +225,8 @@
       "measured_at": "2026-09-04T20:41:13.314Z"
     },
     "model": "claude-fable-5-1",
-    "model_selection_mode": "explicit"
+    "model_selection_mode": "explicit",
+    "claude_session_id": "1804fafa-f90a-4fa9-b004-100028dbcbc1"
   },
   "history": [
     {
@@ -234,6 +235,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260904204114-zny5n8 queued; OTHMODE OTH-2026-00168; action implement (explicit_current_issue) → repo-write; model claude-fable-5-1; fence 4741"
+    },
+    {
+      "at": "2026-09-04T20:42:20.574Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }
