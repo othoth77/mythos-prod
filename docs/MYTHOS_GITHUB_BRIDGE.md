@@ -191,6 +191,48 @@ Until `main` carries the bridge, the unit runs the binary from the mission workt
 `~/.config/systemd/user/mythos-github-bridge.service.d/worktree.conf` (`MYTHOS_BRIDGE_BIN`). After the merge,
 delete the drop-in and `systemctl --user daemon-reload`.
 
+## 12a. Timer schedule for a oneshot service (2026-09-03, gh-issue-134)
+
+`mythos-github-bridge.service` is `Type=oneshot`; `mythos-github-bridge.timer` must therefore re-arm from the
+service's **inactive** edge and must not carry `Persistent=`:
+
+```ini
+[Timer]
+OnBootSec=1min
+OnUnitInactiveSec=1min
+AccuracySec=15s
+```
+
+Root cause of the 2026-09-03 stall (`SubState=elapsed`, `NextElapseUSecMonotonic=infinity`, Issues #133/#134 not
+claimed): the previous unit had `OnUnitActiveSec=1min` **and** `Persistent=true`. `Persistent=` only has meaning for
+`OnCalendar=`, but it still makes systemd load the last-trigger stamp
+(`~/.local/share/systemd/timers/stamp-mythos-github-bridge.timer`) when the timer starts. With a stamp present the
+already-elapsed `OnBootSec` mark is treated as a fired one-time trigger and disabled, and in a freshly started user
+manager (`user@1001.service` restarted 16:52:59 UTC) the service has never run, so the unit-relative base does not
+exist either → no next elapse at all. Reproduced with transient probes on the host: stamp + `Persistent=true` →
+elapsed/infinity, never runs; the same stamp without `Persistent=` → fires at once and re-arms every ~65 s.
+Invariants: `tests/mythos-github-bridge-timer-test.js`.
+
+Activation on the host (owner/operator step, as `deploy`, after `main` carries this change; no `user@1001` restart):
+
+```bash
+cp projects/mythos-ai-executor/bridge/systemd/mythos-github-bridge.timer ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user restart mythos-github-bridge.timer
+systemctl --user show mythos-github-bridge.timer -p SubState,NextElapseUSecMonotonic   # waiting / ~1min
+```
+
+## 12a2. F1 push guard vs. multi-valued pushurl (2026-09-03, gh-issue-136)
+
+`remote.<r>.pushurl` is multi-valued and additive across config scopes. Since the delivery relay keeps a
+repository-level `remote.origin.pushurl = git@github.com:…` on the shared checkout, a task worktree's worktree-scoped
+`no_push://governance-relay-only` no longer hides it: `git push` would deliver to both, and the old guard's
+`git remote get-url --push origin` (first entry only) reported the SSH url → `PUSH_GUARD_FAILED` on every claim of
+`gh-issue-136`. `applyPushGuard` now: (1) requires the worktree scope to hold exactly the no-push url — any other
+worktree-level value is refused, never repaired; (2) neutralises every inherited push url with a worktree-scoped
+`url.no_push://governance-relay-only.insteadOf=<url>` rewrite (refused if that url is also the fetch url); (3) proves
+the COMPLETE effective set via `git remote get-url --push --all` and that the fetch url is unchanged. The shared
+checkout keeps its SSH pushurl untouched. Tests: `tests/mythos-bridge-push-guard-test.js`.
+
 ## 12b. Pre-merge review fixes (2026-09-02, F1–F3)
 
 | Fix | What changed | Test |
