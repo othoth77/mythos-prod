@@ -1,0 +1,267 @@
+#!/usr/bin/env node
+'use strict';
+// =====================================================
+// MYTHOS — executor-restart approval: request / grant / verify / revoke
+// ops/dagu/bin/mythos-restart-approval
+//
+// EXEC-ARCH-0 shipped executor-restart.yaml with a Dagu step approval whose
+// only requirement was that SOMETHING was typed into the `approval_ref`
+// input. Dagu's approval identity is the shared basic credential, not the
+// owner, so `APP-FAKE` was as good as a decision — the restart step ran on a
+// key-SHAPED label. This tool is the check that was missing: the restart step
+// is now preceded by `verify`, and `verify` only exits 0 for a real, GRANTED,
+// unconsumed, unexpired MYTHOS approval bound to THIS restart.
+//
+// No second governance system: the record is the executor policy engine's
+// `approval` entity (core/policy-engine.js requestApproval / decideApproval,
+// persisted by core/store.js) — the same mechanism lib/mcp-invoke.js already
+// requires for CONTROLLED MCP tools, and the one docs/MYTHOS_DAGU_HOST_
+// OPERATIONS.md §12 prescribes for a RESTART-class DAG step. Neither the
+// policy engine nor the store is modified here; this file only reads them,
+// plus the two lifecycle calls the engine already exposes.
+//
+// What a valid approval must be (all fail-closed, checked in this order):
+//   1. shaped like an executor approval id (`ap-<ts>-<rand>`) — a free-form
+//      string never reaches the store;
+//   2. an existing, parseable `approval` entity;
+//   3. action_class EXACTLY `hostops:executor.restart` — an approval for
+//      another action (or another task) does not authorise a restart;
+//   4. subject_id EXACTLY the checkout HEAD the restart targets — approving
+//      one restart never approves the next one;
+//   5. status GRANTED, never revoked;
+//   6. decided by a HUMAN name (an automated identity cannot approve);
+//   7. decided within --max-age-hours (default 24 h);
+//   8. never consumed. `--consume` stamps it before the restart runs, so one
+//      approval buys exactly one attempt; a failed restart needs a new one.
+//
+// Trust boundary, stated plainly: the approval store is owned by `deploy`,
+// the same account the DAG runs as, so this does not defend against a
+// compromised `deploy` (which could call systemctl directly anyway). What it
+// removes is the gap that mattered: holding the Dagu UI/API credential is no
+// longer sufficient to restart the Executor — a recorded MYTHOS decision is.
+//
+// usage:
+//   mythos-restart-approval request --repo <path> --reason "<why>" [--home <dir>]
+//   mythos-restart-approval grant   <approval-id> --by "<human name>"
+//   mythos-restart-approval deny    <approval-id> --by "<human name>"
+//   mythos-restart-approval revoke  <approval-id> --by "<human name>"
+//   mythos-restart-approval verify  <approval-id> --repo <path> [--consume]
+//                                   [--max-age-hours N] [--home <dir>]
+//   mythos-restart-approval list [--home <dir>]
+// exit: 0 authorised / done, 3 REJECTED, 1 tool error (fail closed), 64 usage
+// =====================================================
+
+var path = require('path');
+var cp = require('child_process');
+
+var ACTION = 'hostops:executor.restart';
+var APPROVAL_ID_RE = /^ap-[a-z0-9]{6,12}-[a-z0-9]{4,8}$/;
+var SHA_RE = /^[0-9a-f]{40}$/;
+var DEFAULT_MAX_AGE_HOURS = 24;
+// Same refusal as service/mythos-governance-approve.js: a decision needs a
+// decider, and the decider cannot be the automation being authorised.
+var AUTOMATED_NAME_RE = /^(claude|agent|automation|bot|system|n8n|mythos|autopilot|dagu|policy|unattended|executor|bridge)\b/i;
+
+var ROOT = path.join(__dirname, '..', '..', '..');
+var CORE = path.join(ROOT, 'projects', 'mythos-ai-executor', 'core');
+
+var argv = process.argv.slice(2);
+var cmd = argv[0];
+var positional = argv[1];
+
+function flag(name) {
+  var i = argv.indexOf('--' + name);
+  return i === -1 ? null : argv[i + 1];
+}
+function has(name) { return argv.indexOf('--' + name) !== -1; }
+
+// Never echo an operator-supplied ref back verbatim: it lands in a Dagu log.
+function safe(s) {
+  return String(s === undefined || s === null ? '' : s).replace(/[^\x20-\x7e]/g, '').slice(0, 64);
+}
+function emit(obj) { process.stdout.write(JSON.stringify(obj) + '\n'); }
+function usage(msg) {
+  process.stderr.write('mythos-restart-approval: ' + msg + '\n' +
+    'usage: mythos-restart-approval request|grant|deny|revoke|verify|list ...\n');
+  process.exit(64);
+}
+function toolError(code, detail) {
+  emit({ result: 'ERROR', code: code, detail: safe(detail), at: new Date().toISOString() });
+  process.exit(1);
+}
+function reject(code, detail, extra) {
+  emit(Object.assign({ result: 'REJECTED', code: code, action: ACTION,
+    detail: safe(detail), at: new Date().toISOString() }, extra || {}));
+  process.exit(3);
+}
+
+if (!cmd || ['request', 'grant', 'deny', 'revoke', 'verify', 'list'].indexOf(cmd) === -1) {
+  usage('unknown command ' + safe(cmd || '(none)'));
+}
+
+// --home wins over the ambient environment so a DAG states the store it means.
+var home = flag('home');
+if (home) process.env.MYTHOS_EXECUTOR_HOME = home;
+
+var store, policyEngine;
+try {
+  store = require(path.join(CORE, 'store'));
+  policyEngine = require(path.join(CORE, 'policy-engine'));
+} catch (e) {
+  toolError('CORE_UNAVAILABLE', 'cannot load the executor approval core: ' + e.message);
+}
+
+// The subject of a restart approval is the checkout HEAD the restarted
+// daemon will load. Measured here, never taken from the operator.
+function headOf(repo) {
+  var out;
+  try {
+    out = cp.execFileSync('git', ['-C', repo, '-c', 'core.hooksPath=/var/empty', 'rev-parse', 'HEAD'],
+      { encoding: 'utf8', env: Object.assign({}, process.env, { GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0' }) }).trim();
+  } catch (e) {
+    return null;
+  }
+  return SHA_RE.test(out) ? out : null;
+}
+
+function loadApproval(id) {
+  if (!APPROVAL_ID_RE.test(String(id || ''))) return { bad: 'APPROVAL_REF_MALFORMED' };
+  var rec;
+  try { rec = store.load('approval', id); } catch (e) { return { bad: 'APPROVAL_UNREADABLE' }; }
+  if (!rec) return { bad: 'APPROVAL_UNKNOWN' };
+  if (rec.__parseError) return { bad: 'APPROVAL_UNREADABLE' };
+  if (rec.entity_type !== 'approval') return { bad: 'APPROVAL_NOT_AN_APPROVAL' };
+  return { approval: rec };
+}
+
+function humanName(by) {
+  var name = String(by || '').trim();
+  if (name.length < 3) return { ok: false, reason: '--by "<human name>" is required: a decision needs a decider' };
+  if (AUTOMATED_NAME_RE.test(name)) return { ok: false, reason: 'an automated identity cannot approve an executor restart' };
+  return { ok: true, name: name };
+}
+
+// --- request -------------------------------------------------------------------
+
+if (cmd === 'request') {
+  var repo = flag('repo');
+  var reason = String(flag('reason') || '').trim();
+  if (!repo) usage('request needs --repo <path>');
+  if (reason.length < 10) usage('request needs --reason "<why this restart is wanted>"');
+  var sha = headOf(repo);
+  if (!sha) toolError('SUBJECT_UNVERIFIED', 'cannot read HEAD of ' + repo);
+  var created;
+  try {
+    created = policyEngine.requestApproval(sha, ACTION, reason.slice(0, 1000), 'mythos-prod');
+  } catch (e) {
+    toolError('REQUEST_FAILED', e.message);
+  }
+  emit({ result: 'REQUESTED', approval: created.id, action: ACTION, subject: sha,
+    status: created.status, at: created.created_at });
+  process.exit(0);
+}
+
+// --- grant / deny / revoke -------------------------------------------------------
+
+if (cmd === 'grant' || cmd === 'deny' || cmd === 'revoke') {
+  var who = humanName(flag('by'));
+  if (!who.ok) usage(who.reason);
+  var found = loadApproval(positional);
+  if (found.bad) reject(found.bad, 'no decidable approval ' + safe(positional), { approval: safe(positional) });
+  var ap = found.approval;
+  // This tool decides restart approvals only — it is not a general approval CLI.
+  if (ap.action_class !== ACTION) {
+    reject('APPROVAL_WRONG_ACTION', 'approval is for ' + safe(ap.action_class) + ', not ' + ACTION, { approval: ap.id });
+  }
+  if (cmd === 'revoke') {
+    ap.status = 'REVOKED';
+    ap.metadata = Object.assign({}, ap.metadata, { revoked_at: new Date().toISOString(), revoked_by: who.name });
+    try { store.save(ap); } catch (e) { toolError('REVOKE_FAILED', e.message); }
+    emit({ result: 'REVOKED', approval: ap.id, action: ACTION, subject: ap.subject_id, by: who.name, at: ap.metadata.revoked_at });
+    process.exit(0);
+  }
+  var decided;
+  try {
+    decided = policyEngine.decideApproval(ap.id, cmd === 'grant', who.name);
+  } catch (e) {
+    reject('DECISION_REFUSED', e.message, { approval: ap.id });
+  }
+  emit({ result: decided.status, approval: decided.id, action: ACTION, subject: decided.subject_id,
+    by: decided.decided_by, at: decided.decided_at });
+  process.exit(0);
+}
+
+// --- list ------------------------------------------------------------------------
+
+if (cmd === 'list') {
+  var rows;
+  try {
+    rows = store.list('approval', function (a) { return a.action_class === ACTION; });
+  } catch (e) {
+    toolError('LIST_FAILED', e.message);
+  }
+  rows.forEach(function (a) {
+    emit({ approval: a.id, status: a.status, subject: a.subject_id, decided_by: a.decided_by || null,
+      decided_at: a.decided_at || null, consumed_at: a.consumed_at || null });
+  });
+  process.exit(0);
+}
+
+// --- verify (the gate the restart step depends on) --------------------------------
+
+var vRepo = flag('repo');
+if (!vRepo) usage('verify needs --repo <path>');
+var maxAgeHours = flag('max-age-hours') === null ? DEFAULT_MAX_AGE_HOURS : Number(flag('max-age-hours'));
+if (!(maxAgeHours > 0)) usage('--max-age-hours must be a positive number');
+
+var expected = headOf(vRepo);
+// Fail CLOSED, not REJECTED: an unmeasurable subject is a tool failure, and a
+// restart must never be authorised against a subject nobody could measure.
+if (!expected) toolError('SUBJECT_UNVERIFIED', 'cannot read HEAD of ' + vRepo);
+
+var res = loadApproval(positional);
+if (res.bad) reject(res.bad, 'not a valid MYTHOS approval reference', { approval: safe(positional), subject: expected });
+var a = res.approval;
+
+if (a.action_class !== ACTION) {
+  reject('APPROVAL_WRONG_ACTION', 'approval authorises ' + safe(a.action_class), { approval: a.id, subject: expected });
+}
+if (String(a.subject_id) !== expected) {
+  reject('APPROVAL_WRONG_SUBJECT', 'approval is bound to ' + safe(String(a.subject_id).slice(0, 12)) +
+    ', the restart targets ' + expected.slice(0, 12), { approval: a.id, subject: expected });
+}
+if (a.metadata && a.metadata.revoked_at) {
+  reject('APPROVAL_REVOKED', 'revoked at ' + safe(a.metadata.revoked_at), { approval: a.id, subject: expected });
+}
+if (a.status !== 'GRANTED') {
+  reject('APPROVAL_NOT_GRANTED', 'approval is ' + safe(a.status), { approval: a.id, subject: expected });
+}
+var decider = humanName(a.decided_by);
+if (!decider.ok) {
+  reject('APPROVAL_NEEDS_HUMAN', decider.reason, { approval: a.id, subject: expected });
+}
+var decidedAt = Date.parse(a.decided_at || '');
+if (!decidedAt) {
+  reject('APPROVAL_UNDATED', 'approval records no decision time', { approval: a.id, subject: expected });
+}
+var ageMs = Date.now() - decidedAt;
+if (ageMs > maxAgeHours * 3600 * 1000) {
+  reject('APPROVAL_EXPIRED', 'decided ' + Math.round(ageMs / 3600000) + ' h ago (max ' + maxAgeHours + ' h)',
+    { approval: a.id, subject: expected });
+}
+if (a.consumed_at) {
+  reject('APPROVAL_CONSUMED', 'already consumed at ' + safe(a.consumed_at), { approval: a.id, subject: expected });
+}
+
+if (has('consume')) {
+  a.consumed_at = new Date().toISOString();
+  a.consumed_by = 'dagu:executor-restart';
+  // A consumption that cannot be persisted would let one approval authorise
+  // an unbounded number of restarts — refuse rather than proceed.
+  try { store.save(a); } catch (e) { toolError('CONSUME_FAILED', e.message); }
+}
+
+emit({ result: 'AUTHORIZED', approval: a.id, action: ACTION, subject: expected,
+  decided_by: decider.name, decided_at: a.decided_at, consumed: has('consume') ? a.consumed_at : null,
+  at: new Date().toISOString() });
+process.exit(0);

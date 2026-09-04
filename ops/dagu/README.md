@@ -5,13 +5,14 @@ Dagu assessment and PoC: `docs/MYTHOS_DAGU_HOST_OPERATIONS.md` (`ops/dagu-poc/`)
 
 ```
 ops/dagu/
-  bin/mythos-git-sync        ff-only sync of a checkout to origin/<branch>   (dry-run unless --apply)
-  bin/mythos-drift-check     SOURCE / CODE / EXECUTOR identity report       (read-only)
-  bin/mythos-worktree-gc     remove merged, clean, unused task worktrees     (dry-run unless --apply)
+  bin/mythos-git-sync          ff-only sync of a checkout to origin/<branch>   (dry-run unless --apply)
+  bin/mythos-drift-check       SOURCE / CODE / EXECUTOR identity report       (read-only)
+  bin/mythos-worktree-gc       remove merged, clean, unused task worktrees     (dry-run unless --apply)
+  bin/mythos-restart-approval  request / grant / verify / revoke the ONE approval a restart needs
   maintenance/git-sync-main.yaml     every 5 min   guard → sync (marker-gated apply) → drift report
   maintenance/drift-check.yaml       every 15 min  guard → drift
   maintenance/worktree-gc.yaml       every 6 h     guard → gc (marker-gated apply)
-  maintenance/executor-restart.yaml  NO schedule   guard → no RUNNING task → drift gate → APPROVAL → restart → verify
+  maintenance/executor-restart.yaml  NO schedule   guard → no RUNNING task → drift gate → APPROVAL GATE → approval-verify → restart → verify
 ```
 
 ## Rules (held by `tests/dagu-maintenance-test.js`)
@@ -30,6 +31,17 @@ ops/dagu/
   `systemctl --user restart mythos-ai-executor.service` — deploy restarting a deploy user unit, no privilege
   crossed, no hostops allowlist change. Verification polls `/health` until `code_identity.head` equals the
   checkout HEAD (90 s) or fails the run.
+* **The Dagu gate is not the authorisation** (GH #161). Dagu's approval identity is the shared basic
+  credential and its gate only checks that `approval_ref` was *present* — `APP-FAKE` used to be enough. The
+  `approval-verify` step now stands between the gate and `systemctl`: `mythos-restart-approval verify`
+  resolves the ref in the **executor policy engine's approval store** (`core/policy-engine.js` /
+  `core/store.js` — the same record `lib/mcp-invoke.js` requires for CONTROLLED MCP tools, and the one
+  `docs/MYTHOS_DAGU_HOST_OPERATIONS.md` §12 prescribes) and exits `3` unless it is: a well-formed `ap-…` id,
+  an existing approval, `action_class` exactly `hostops:executor.restart`, `subject_id` exactly the checkout
+  HEAD this restart targets, `GRANTED`, not revoked, decided by a **human** name, decided within 24 h and
+  never consumed. `--consume` stamps it, so one approval buys one attempt. An unmeasurable HEAD or an
+  unwritable store is exit `1` — fail closed, never an authorisation. No second governance system was
+  introduced and no existing gate was relaxed.
 * `code_identity` is measured once by the executor at start (`executor.js CODE_IDENTITY`, reported in
   `GET /health`). An executor that does not report it is `EXECUTOR_UNVERIFIED` — never `CURRENT`, never
   restartable through this path.
@@ -45,6 +57,13 @@ DAGU_HOME=/home/deploy/dagu-scratch /home/deploy/dagu-poc/bin/dagu start ops/dag
 ops/dagu/bin/mythos-git-sync /home/deploy/projects/mythos-prod            # dry-run
 ops/dagu/bin/mythos-drift-check /home/deploy/projects/mythos-prod
 ops/dagu/bin/mythos-worktree-gc /home/deploy/projects/mythos-prod         # plan only
+
+# the one approval a restart needs (owner, before starting the DAG)
+ops/dagu/bin/mythos-restart-approval request --repo /home/deploy/projects/mythos-prod \
+    --reason "executor is 3 commits behind the checkout"                  # prints ap-…
+ops/dagu/bin/mythos-restart-approval grant  ap-… --by "Othman Haddad"     # then paste ap-… as approval_ref
+ops/dagu/bin/mythos-restart-approval list
+ops/dagu/bin/mythos-restart-approval revoke ap-… --by "Othman Haddad"
 
 # tests (offline; the Dagu dry-validation section runs when MYTHOS_DAGU_BIN is set)
 MYTHOS_DAGU_BIN=/home/deploy/dagu-poc/bin/dagu node tests/dagu-maintenance-test.js

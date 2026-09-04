@@ -5,9 +5,18 @@
 # approval / consume records). The approval is Dagu's own step approval
 # (PoC test 11): the gate step runs, the run pauses at `waiting`, and the
 # restart step has no log until a human POSTs the approval with approval_ref
-# (the MYTHOS governance approval id). No schedule: started by a human or by
-# the executor's hostops path, never by a timer. Deploy restarts a deploy
+# (a MYTHOS approval id). No schedule: started by a human or by the
+# executor's hostops path, never by a timer. Deploy restarts a deploy
 # user unit — no root, no sudo, no hostops allowlist change.
+#
+# Dagu's approval identity is the shared basic credential, and the gate only
+# checks that the required input was PRESENT — so `approval_ref=APP-FAKE`
+# used to be enough. The `approval-verify` step below is the authorisation:
+# mythos-restart-approval verifies the ref against the executor policy
+# engine's approval store (docs/MYTHOS_DAGU_HOST_OPERATIONS.md §12 —
+# action_class `hostops:executor.restart`, GRANTED by a human, bound to THIS
+# checkout HEAD, unexpired, unconsumed) and consumes it. `type: chain` means
+# the restart step never runs when that verification exits non-zero.
 description: "Restart mythos-ai-executor.service (deploy user unit) after main moved — only when drift says EXECUTOR_RESTART_REQUIRED, only after explicit human approval"
 type: chain
 queue: mythos-maintenance
@@ -18,6 +27,7 @@ params:
   - REPO: /home/deploy/projects/mythos-prod
   - TOOLS: /home/deploy/projects/mythos-prod/ops/dagu/bin
   - HEALTH: http://127.0.0.1:8130/health
+  - EXECUTOR_HOME: /home/deploy/mythos-ai-executor
 steps:
   - name: resource-guard
     run: node "$MYTHOS_ROOT/projects/mythos-ai-executor/bin/mythos-resource-guard" status | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["level"]); sys.exit(0 if d.get("admit") and d.get("level") != "CRITICAL" else 3)'
@@ -28,10 +38,12 @@ steps:
   - name: plan
     run: echo "PLAN — restart mythos-ai-executor.service (deploy user unit) so the daemon loads the checkout HEAD; waiting for human approval"
     approval:
-      prompt: "Approve the executor restart? Provide approval_ref (MYTHOS governance approval id or PR number)."
+      prompt: "Approve the executor restart? Provide approval_ref — a GRANTED MYTHOS approval id (ap-...) for hostops:executor.restart bound to this checkout HEAD. A PR number or any other label is refused by the next step."
       input: [approval_ref]
       required: [approval_ref]
+  - name: approval-verify
+    run: node "$TOOLS/mythos-restart-approval" verify "$approval_ref" --repo "$REPO" --home "$EXECUTOR_HOME" --consume
   - name: restart
-    run: echo "approval_ref=$approval_ref" && systemctl --user restart mythos-ai-executor.service
+    run: echo "restarting under the approval verified by the previous step" && systemctl --user restart mythos-ai-executor.service
   - name: verify
     run: '"$TOOLS/mythos-drift-check" "$REPO" --health "$HEALTH" --no-fetch --wait-current 90'

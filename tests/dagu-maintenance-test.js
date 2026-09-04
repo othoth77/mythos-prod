@@ -67,11 +67,11 @@ t('git-sync-main: scheduled, ff-only tool, apply only behind the owner marker', 
   assert.ok(/MARKER: \/home\/deploy\/mythos-ai-executor\/maintenance\/sync\.enabled/.test(s), 'marker path');
   assert.ok(!/--apply\s*$/m.test(s), 'no unconditional --apply');
 });
-t('executor-restart: NOT scheduled; guard → no running task → drift gate → approval → restart → verify, in that order', function () {
+t('executor-restart: NOT scheduled; guard → no running task → drift gate → approval → approval-verify → restart → verify, in that order', function () {
   var s = dagText['executor-restart.yaml'];
   assert.ok(!/^schedule:/m.test(s), 'a restart is never timer-driven');
   var names = []; s.replace(/^  - name: ([a-z-]+)$/mg, function (_, n) { names.push(n); });
-  assert.deepStrictEqual(names, ['resource-guard', 'no-running-task', 'restart-required', 'plan', 'restart', 'verify']);
+  assert.deepStrictEqual(names, ['resource-guard', 'no-running-task', 'restart-required', 'plan', 'approval-verify', 'restart', 'verify']);
   assert.ok(/--require-restart/.test(s), 'gate exits non-zero unless EXECUTOR_RESTART_REQUIRED');
   var planIdx = s.indexOf('- name: plan'), approvalIdx = s.indexOf('approval:'), restartIdx = s.indexOf('- name: restart\n');
   assert.ok(planIdx < approvalIdx && approvalIdx < restartIdx, 'approval sits on the plan step BEFORE the restart step (Dagu runs a step, then pauses)');
@@ -80,6 +80,20 @@ t('executor-restart: NOT scheduled; guard → no running task → drift gate →
   assert.strictEqual((s.replace(/^\s*#.*$/mg, '').match(/^\s*run: .*systemctl/mg) || []).length, 1, 'exactly one systemctl step');
   assert.ok(/--wait-current 90/.test(s), 'verifies identity after restart');
   assert.ok(/"CRITICAL"/.test(s), 'restart refuses under CRITICAL explicitly');
+});
+t('executor-restart: the Dagu step approval is not the authorisation — approval-verify sits between it and systemctl', function () {
+  var s = dagText['executor-restart.yaml'];
+  var verifyIdx = s.indexOf('- name: approval-verify'), restartIdx = s.indexOf('- name: restart\n');
+  assert.ok(verifyIdx > s.indexOf('approval:') && verifyIdx < restartIdx,
+    'approval_ref is verified after the gate and before the restart');
+  var verifyRun = /^  - name: approval-verify\n    run: (.+)$/m.exec(s);
+  assert.ok(verifyRun, 'approval-verify has a run command');
+  assert.ok(/mythos-restart-approval" verify "\$approval_ref"/.test(verifyRun[1]), 'verifies the operator-supplied ref itself');
+  assert.ok(/--repo "\$REPO"/.test(verifyRun[1]), 'binds the approval to the checkout the restart targets');
+  assert.ok(/--consume/.test(verifyRun[1]), 'one approval buys one restart attempt');
+  // The restart step must not be able to re-derive authorisation from the raw input.
+  var restartRun = /^  - name: restart\n    run: (.+)$/m.exec(s);
+  assert.ok(restartRun && !/\$approval_ref/.test(restartRun[1]), 'the restart step consumes no operator input');
 });
 t('worktree-gc: bounded (max 5, min age 24 h, mythos/gh/ namespace), apply only behind the owner marker', function () {
   var s = dagText['worktree-gc.yaml'];
@@ -90,6 +104,14 @@ t('worktree-gc: bounded (max 5, min age 24 h, mythos/gh/ namespace), apply only 
 t('drift-check is read-only (no tool flag that mutates)', function () {
   var s = dagText['drift-check.yaml'];
   assert.ok(!/--apply|systemctl|merge/.test(s));
+});
+t('mythos-restart-approval: no destructive verb, no privilege escalation, no restart of its own', function () {
+  var f = path.join(BIN, 'mythos-restart-approval');
+  var code = fs.readFileSync(f, 'utf8').replace(/^\s*\/\/.*$/mg, '');
+  assert.ok(!/--force|reset --hard|git clean|\bstash\b|rm -rf|branch -D|\bsudo\b|\bdocker\b|systemctl/.test(code),
+    'the approval check never mutates anything and never restarts anything itself');
+  assert.ok(/core\.hooksPath=\/var\/empty/.test(code), 'its one git call runs with hooks disabled');
+  assert.ok((fs.statSync(f).mode & 0o111) !== 0, 'executable');
 });
 t('the tools themselves never contain a destructive git verb', function () {
   ['mythos-git-sync', 'mythos-drift-check', 'mythos-worktree-gc'].forEach(function (b) {
@@ -245,6 +267,174 @@ t('executor GET /health carries code_identity measured from its own checkout', f
   assert.strictEqual(ci.head, git(ROOT, ['rev-parse', 'HEAD']));
   assert.strictEqual(ci.checkout, git(ROOT, ['rev-parse', '--show-toplevel']));
   assert.ok(ci.pid === process.pid && typeof ci.started_at === 'string');
+});
+
+// ---------- approval validation: the restart is authorised by a RECORD, not a string ----------
+// GH #161 / EXEC-ARCH-0 follow-up. Every case runs against a throwaway executor
+// approval store; nothing here touches the real store, and no service is restarted.
+var APPROVAL = path.join(BIN, 'mythos-restart-approval');
+var AP_HOME = path.join(TMP, 'approval-home');
+var AP_DIR = path.join(AP_HOME, 'orchestration', 'approvals');
+var TARGET = git(CO, ['rev-parse', 'HEAD']);
+var apSeq = 0;
+
+function ra(args) {
+  return sh('node "' + APPROVAL + '" ' + args, { env: Object.assign({}, ENV, { MYTHOS_EXECUTOR_HOME: AP_HOME }) });
+}
+// A verify run exactly as the DAG issues it.
+function verifyRef(ref, extra) {
+  return ra('verify "' + ref + '" --repo "' + CO + '" --home "' + AP_HOME + '"' + (extra || ''));
+}
+// Fixture approvals for the states the lifecycle API cannot reach directly
+// (expired, consumed, automated decider, foreign action class).
+function putApproval(fields) {
+  var id = 'ap-' + (Date.now().toString(36) + '0000').slice(0, 10) + '-' + ('f' + (apSeq++)).padStart(6, '0');
+  var rec = Object.assign({
+    id: id, entity_type: 'approval', status: 'GRANTED', created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(), correlation_id: id, parent_id: null, project: 'mythos-prod',
+    metadata: {}, subject_id: TARGET, action_class: 'hostops:executor.restart',
+    reason: 'fixture', decided_by: 'Othman Haddad', decided_at: new Date().toISOString()
+  }, fields || {});
+  fs.mkdirSync(AP_DIR, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(path.join(AP_DIR, id + '.json'), JSON.stringify(rec, null, 2) + '\n', { mode: 0o600 });
+  return id;
+}
+
+t('approval 1/6: a requested + human-granted approval for THIS head authorises the restart, once', function () {
+  var req = ra('request --repo "' + CO + '" --home "' + AP_HOME + '" --reason "executor is behind the checkout head"');
+  assert.strictEqual(req.code, 0, req.err);
+  var reqJson = json(req.out);
+  assert.strictEqual(reqJson.result, 'REQUESTED');
+  assert.strictEqual(reqJson.subject, TARGET);
+  assert.strictEqual(reqJson.action, 'hostops:executor.restart');
+  // PENDING is not authorisation.
+  var pending = verifyRef(reqJson.approval);
+  assert.strictEqual(pending.code, 3); assert.strictEqual(json(pending.out).code, 'APPROVAL_NOT_GRANTED');
+
+  var granted = ra('grant ' + reqJson.approval + ' --by "Othman Haddad"');
+  assert.strictEqual(granted.code, 0, granted.err);
+  assert.strictEqual(json(granted.out).result, 'GRANTED');
+
+  var ok = verifyRef(reqJson.approval, ' --consume');
+  assert.strictEqual(ok.code, 0, ok.err);
+  var okJson = json(ok.out);
+  assert.strictEqual(okJson.result, 'AUTHORIZED');
+  assert.strictEqual(okJson.approval, reqJson.approval);
+  assert.strictEqual(okJson.subject, TARGET);
+  assert.ok(okJson.consumed, 'the approval is stamped consumed before the restart runs');
+
+  // 5/6 (consumed): one approval, one attempt.
+  var again = verifyRef(reqJson.approval, ' --consume');
+  assert.strictEqual(again.code, 3); assert.strictEqual(json(again.out).code, 'APPROVAL_CONSUMED');
+});
+t('approval 2/6: a missing approval_ref is rejected', function () {
+  var empty = verifyRef('');
+  assert.strictEqual(empty.code, 3); assert.strictEqual(json(empty.out).code, 'APPROVAL_REF_MALFORMED');
+});
+t('approval 3/6: an arbitrary/fake ref is rejected before it can reach the store', function () {
+  ['APP-FAKE', 'PR-159', '159', 'ap-' + '../'.repeat(3) + 'etc', 'ap-aaaaaa-bbbb; touch /tmp/pwned'].forEach(function (ref) {
+    var r = verifyRef(ref);
+    assert.strictEqual(r.code, 3, ref + ' must be rejected');
+    assert.strictEqual(json(r.out).code, 'APPROVAL_REF_MALFORMED', ref);
+  });
+  // Well-shaped but nonexistent is still a refusal, never a default-allow.
+  var unknown = verifyRef('ap-zzzzzzzz-999999');
+  assert.strictEqual(unknown.code, 3); assert.strictEqual(json(unknown.out).code, 'APPROVAL_UNKNOWN');
+});
+t('approval 4/6: an approval for another action or another subject does not authorise this restart', function () {
+  var otherAction = putApproval({ action_class: 'mcp:github.pull_request' });
+  var r1 = verifyRef(otherAction);
+  assert.strictEqual(r1.code, 3); assert.strictEqual(json(r1.out).code, 'APPROVAL_WRONG_ACTION');
+
+  var otherSubject = putApproval({ subject_id: 'a'.repeat(40) });
+  var r2 = verifyRef(otherSubject);
+  assert.strictEqual(r2.code, 3); assert.strictEqual(json(r2.out).code, 'APPROVAL_WRONG_SUBJECT');
+
+  // …and this tool cannot be used to decide a foreign approval either.
+  var g = ra('grant ' + otherAction + ' --by "Othman Haddad"');
+  assert.strictEqual(g.code, 3); assert.strictEqual(json(g.out).code, 'APPROVAL_WRONG_ACTION');
+});
+t('approval 5/6: denied, revoked, expired and non-human decisions are all rejected', function () {
+  var denied = putApproval({ status: 'DENIED' });
+  assert.strictEqual(json(verifyRef(denied).out).code, 'APPROVAL_NOT_GRANTED');
+
+  var toRevoke = putApproval({});
+  var rv = ra('revoke ' + toRevoke + ' --by "Othman Haddad"');
+  assert.strictEqual(rv.code, 0, rv.err); assert.strictEqual(json(rv.out).result, 'REVOKED');
+  var rvr = verifyRef(toRevoke);
+  assert.strictEqual(rvr.code, 3); assert.strictEqual(json(rvr.out).code, 'APPROVAL_REVOKED');
+
+  var old = putApproval({ decided_at: new Date(Date.now() - 25 * 3600 * 1000).toISOString() });
+  var oldr = verifyRef(old);
+  assert.strictEqual(oldr.code, 3); assert.strictEqual(json(oldr.out).code, 'APPROVAL_EXPIRED');
+  assert.strictEqual(verifyRef(old, ' --max-age-hours 48').code, 0, 'the window is a stated bound, not a hidden one');
+
+  var undated = putApproval({ decided_at: null });
+  assert.strictEqual(json(verifyRef(undated).out).code, 'APPROVAL_UNDATED');
+
+  ['mythos-autopilot', 'claude', 'dagu', 'x'].forEach(function (name) {
+    var bot = putApproval({ decided_by: name });
+    var r = verifyRef(bot);
+    assert.strictEqual(r.code, 3, name); assert.strictEqual(json(r.out).code, 'APPROVAL_NEEDS_HUMAN', name);
+  });
+  // The grant path refuses an automated decider up front (usage error).
+  var req = json(ra('request --repo "' + CO + '" --home "' + AP_HOME + '" --reason "another restart request"').out);
+  assert.strictEqual(ra('grant ' + req.approval + ' --by "mythos-autopilot"').code, 64);
+  assert.strictEqual(json(verifyRef(req.approval).out).code, 'APPROVAL_NOT_GRANTED', 'still undecided');
+});
+t('approval: fails CLOSED when the subject or the store cannot be measured', function () {
+  var noRepo = ra('verify ap-zzzzzzzz-999999 --repo "' + path.join(TMP, 'not-a-repo') + '" --home "' + AP_HOME + '"');
+  assert.strictEqual(noRepo.code, 1, 'an unmeasurable HEAD is a tool error, never an authorisation');
+  assert.strictEqual(json(noRepo.out).code, 'SUBJECT_UNVERIFIED');
+  var noStore = ra('verify ap-zzzzzzzz-999999 --repo "' + CO + '" --home "' + path.join(TMP, 'no-store') + '"');
+  assert.strictEqual(noStore.code, 3); assert.strictEqual(json(noStore.out).code, 'APPROVAL_UNKNOWN');
+  assert.strictEqual(ra('verify ap-zzzzzzzz-999999 --home "' + AP_HOME + '"').code, 64, 'verify without --repo is a usage error');
+});
+t('approval 6/6: with an invalid ref the DAG chain never reaches systemctl (stubbed)', function () {
+  // The two run commands are taken from the DAG file itself and executed in
+  // chain order against a stub `systemctl`, so this asserts the shipped YAML.
+  var s = dagText['executor-restart.yaml'];
+  var verifyRun = /^  - name: approval-verify\n    run: (.+)$/m.exec(s)[1];
+  var restartRun = /^  - name: restart\n    run: (.+)$/m.exec(s)[1];
+  var stubDir = path.join(TMP, 'stub-bin');
+  var marker = path.join(TMP, 'systemctl-called');
+  fs.mkdirSync(stubDir, { recursive: true });
+  fs.writeFileSync(path.join(stubDir, 'systemctl'), '#!/bin/sh\necho "$@" >> "' + marker + '"\n', { mode: 0o755 });
+
+  function chainEnv(ref) {
+    return Object.assign({}, ENV, {
+      PATH: stubDir + ':' + process.env.PATH,
+      TOOLS: BIN, REPO: CO, EXECUTOR_HOME: AP_HOME, MYTHOS_EXECUTOR_HOME: AP_HOME,
+      approval_ref: ref
+    });
+  }
+  // Refuse to run at all unless the stub really shadows systemctl: this test
+  // must never be able to restart the live executor.
+  assert.strictEqual(sh('command -v systemctl', { env: chainEnv('') }).out.trim(),
+    path.join(stubDir, 'systemctl'), 'the stub must shadow the real systemctl');
+
+  function runChain(ref) {
+    var env = chainEnv(ref);
+    var gate = sh(verifyRun, { env: env });
+    if (gate.code !== 0) return { reached: false, gate: gate };   // type: chain stops here
+    return { reached: true, gate: gate, restart: sh(restartRun, { env: env }) };
+  }
+
+  ['APP-FAKE', 'ap-zzzzzzzz-999999', putApproval({ status: 'PENDING', decided_by: null, decided_at: null })].forEach(function (ref) {
+    var r = runChain(ref);
+    assert.strictEqual(r.reached, false, ref + ' must not reach the restart step');
+  });
+  assert.ok(!fs.existsSync(marker), 'systemctl was never invoked for an invalid approval');
+
+  // Control: a genuine approval does reach the (stubbed) restart, so the test
+  // above proves the gate and not merely a broken command.
+  var good = json(ra('request --repo "' + CO + '" --home "' + AP_HOME + '" --reason "control case for the chain test"').out).approval;
+  assert.strictEqual(ra('grant ' + good + ' --by "Othman Haddad"').code, 0);
+  var okRun = runChain(good);
+  assert.strictEqual(okRun.reached, true, okRun.gate.out + okRun.gate.err);
+  assert.strictEqual(okRun.restart.code, 0, okRun.restart.err);
+  assert.ok(fs.existsSync(marker), 'the stub recorded exactly the approved restart');
+  assert.strictEqual(fs.readFileSync(marker, 'utf8').trim(), '--user restart mythos-ai-executor.service');
 });
 
 // optional: the real Dagu binary validates the DAG files
