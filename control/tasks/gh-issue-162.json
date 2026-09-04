@@ -1,0 +1,133 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-162",
+  "project": "mythos-prod",
+  "objective": "Execute the already-approved production activation of the merged OTHMODE Skill Trust Gate from PR #154.",
+  "scope": [
+    "Verify production checkout is on `main` and contains merge commit `5b995e9562df5cbf1603a571eb3bdb891460fca3`.",
+    "Verify both Skill Trust configuration files exist and `skill-trust-cli.js verify` returns `VERIFY OK`.",
+    "Run the documented offline trust suite and relevant regression tests.",
+    "Restart ONLY the services required to load the merged code:",
+    "`mythos-ai-executor`",
+    "`mythos-command-center.service`",
+    "Verify both services are active/healthy after restart.",
+    "Verify the OTHMODE trust read model/API returns expected trust data.",
+    "Verify the executor enforces the trust gate: untrusted/STALE/REVIEW/BLOCK skills cannot be selected/rendered.",
+    "Verify there is no production trust bypass and do NOT use `MYTHOS_SKILL_TRUST=off`.",
+    "Record exact evidence in `docs/AI_HANDOVER.md`.",
+    "Commit and push the verification/handover update through the existing governed relay. Do not merge automatically."
+  ],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "investigate",
+  "action_raw": "investigate",
+  "action_source": "default",
+  "validation_requirements": [
+    "Production is ACTIVE only if the merged commit is present, both required services are healthy, trust verification passes, the trust API/read model is live, and the executor gate is confirmed active without bypass."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-04T17:43:58.437Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #162 https://github.com/othoth77/mythos-prod/issues/162 — \"Owner-approved OTHMODE Skill Trust production activation — Fable 5.1\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[owner approval]\n**Owner: othoth77 — APPROVED**\n\nThis task is explicitly authorized by the project owner to proceed with production activation/verification.\n\n[safety]\n- This is activation + verification only.\n- No WhatsApp gateway deployment or real provider calls.\n- Do not enable Semgrep if unsafe for host memory.\n- Do not alter Skill Trust policy.\n- Do not restart unrelated services.\n- If any prerequisite or verification fails, STOP and report the exact blocker instead of declaring production active.\n- No destructive Git operations.\n\n[important]\nThis is owner authorization to execute the task, NOT authorization to bypass governance or Human Merge. Production activation must still follow the existing sanctioned workflow.\n\n[reference]\nParent task: #155 — PROD — Activate OTHMODE Skill Trust Gate after merge #154\nExecution request: use Fable 5.1.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 162,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/162",
+    "issue_id": 5351230601,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPvVMiQ",
+    "issue_title": "TASK: Owner-approved OTHMODE Skill Trust production activation — Fable 5.1",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-04T17:41:07Z",
+    "issue_updated_at": "2026-09-04T17:41:07Z",
+    "issue_labels": [
+      "task",
+      "othmode",
+      "production"
+    ],
+    "content_sha256": "9cacd67de1ddcc0ef83853446b7643542fee4a44f64ee4c8d77c240b60089f85",
+    "attempt": 1,
+    "attempt_id": "gh-issue-162#1",
+    "idempotency_key": "6dd59edb68583d01429a4a4ca605a70b578ab1fda39d238cfcdd51622e78f764",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "investigate",
+      "action_raw": "investigate",
+      "action_source": "default",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-read",
+      "expected_delivery": "report",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-04T17:43:58.468Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-04T17:43:58.468Z",
+        "event": "issue_received",
+        "reason": "open Issue #162 with label task",
+        "content_sha256": "9cacd67de1ddcc0ef83853446b7643542fee4a44f64ee4c8d77c240b60089f85"
+      },
+      {
+        "at": "2026-09-04T17:43:58.468Z",
+        "event": "action_resolved",
+        "reason": "default → investigate (raw \"investigate\")"
+      },
+      {
+        "at": "2026-09-04T17:43:58.468Z",
+        "event": "profile_resolved",
+        "reason": "investigate → repo-read (server-side map)"
+      },
+      {
+        "at": "2026-09-04T17:43:58.468Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-04T17:44:00.730Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-162.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-04T17:43:58.468Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5544333970,
+        "url": "https://github.com/othoth77/mythos-prod/issues/162#issuecomment-5544333970",
+        "at": "2026-09-04T17:43:59.842Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
