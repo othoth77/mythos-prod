@@ -88,7 +88,7 @@
       "sha": "8d4faf5daf8bffc2493bd0d88d19029bd464b684",
       "subject": "docs(handover): gh-issue-156 — Skill Trust Gate production activation BLOCKED: offline verify/suites/gate proven, runtime checkout stale (4ffb8d2), restarts need root/approval",
       "branch": "mythos/gh/gh-issue-156",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -174,7 +174,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-156",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-04T12:44:31.295Z"
   }
 }

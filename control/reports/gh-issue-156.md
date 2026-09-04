@@ -12,7 +12,7 @@
 | Runtime | `4ffb8d203f37` on `main` **RUNTIME_STALE_CHECKOUT** |
 | Model | `claude-fable-5-1` (explicit:fable-5.1 (requested "fable-5.1")) |
 | Branch | `mythos/gh/gh-issue-156` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Verified the merged trust gate at 5b995e9: both ledgers present, scanners resolv
 
 ## Commits
 
-- `8d4faf5daf8bffc2493bd0d88d19029bd464b684` docs(handover): gh-issue-156 — Skill Trust Gate production activation BLOCKED: offline verify/suites/gate proven, runtime checkout stale (4ffb8d2), restarts need root/approval (awaiting relay)
+- `8d4faf5daf8bffc2493bd0d88d19029bd464b684` docs(handover): gh-issue-156 — Skill Trust Gate production activation BLOCKED: offline verify/suites/gate proven, runtime checkout stale (4ffb8d2), restarts need root/approval (on origin)
 
 ## Files changed
 
