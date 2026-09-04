@@ -1,0 +1,130 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-160",
+  "project": "mythos-prod",
+  "objective": "Make the MYTHOS architecture understandable to a non-technical owner. Every major system/component must have a short, plain-language explanation in the canonical documentation.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implementation",
+  "action_source": "action_label",
+  "validation_requirements": [
+    "Documentation consistency check.",
+    "Existing relevant documentation/tests must remain green.",
+    "No production mutation.",
+    "No service restart.",
+    "Commit and push through the governed workflow; record SHA, remote HEAD, verification results, and next step in `docs/AI_HANDOVER.md`."
+  ],
+  "status": "PENDING",
+  "created_at": "2026-09-04T17:05:29.950Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #160 https://github.com/othoth77/mythos-prod/issues/160 — \"Add simple non-technical explanation to every MYTHOS system\"\n\nrequested_action: implement — source action_label (written as \"implementation\") → execution profile repo-write\n\n[required behavior]\nDocumentation-only. Do not change runtime behavior, architecture, permissions, services, timers, restart behavior, or production state.\n\n[canonical simple explanations]\nUse these as the baseline wording/framing and preserve the intent:\n\n| System | Simple explanation |\n|---|---|\n| GitHub | The official project notebook — where the project’s real history and decisions are kept. |\n| Bridge | The messenger — receives the task and passes it through the approved path. |\n| OTHMODE | The guard/manager — checks the task and makes sure it follows the project rules. |\n| Claude Code | The worker — performs the approved work. |\n| Worktree | A temporary workshop — a separate safe place where one task is worked on without disturbing the main project. |\n| PR | The review request — shows what was changed and asks for human review. |\n| Human Merge | The final human decision — only the owner decides what becomes part of main. |\n| Dagu | The scheduler/organizer — handles safe repetitive maintenance at scheduled times. |\n| Resource Guard | The resource/energy guard — prevents the system from consuming more resources than allowed. |\n| Drift Check | The matching meter — checks whether what is running matches what the project says should be running. |\n| Git Sync | Synchronization — brings the project copy up to date safely without replacing work destructively. |\n| Worktree GC | The cleanup worker — identifies old temporary workshops that are safe to remove, subject to the project’s safety rules. |\n| Executor Restart | Restarting the worker — used when new code needs the running worker to reload; this remains a separate human-approved action. |\n| Skill Trust | Tool trust check — verifies that an automation skill is allowed to perform the requested kind of work. |\n| MCP Trust | External-door trust check — verifies that connected external tools/services are trusted before they are used. |\n| Lifecycle | The task life record — keeps track of where a task is in its journey from start to completion. |\n| Status Center | The dashboard — gives the owner a simple view of what is happening and the current state of the project. |\n\n[required documentation]\n1. Add a clearly visible section such as `Simple explanation — non-technical` to `docs/AI_HANDOVER.md` and the canonical execution architecture documentation used by EXEC-ARCH-0 / PR #159.\n2. Ensure every major system introduced by the architecture has both a technical role and a one-line plain-language explanation.\n3. Keep terminology consistent across docs. Do not introduce a second competing architecture or another recurring-operations mechanism.\n4. Explicitly preserve the current rule: no automatic Executor restart; restart is a separate human-approved action.\n5. Keep the documentation concise and readable for a non-technical owner.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 160,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/160",
+    "issue_id": 5350936955,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPvDRew",
+    "issue_title": "TASK: Add simple non-technical explanation to every MYTHOS system",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-04T17:05:13Z",
+    "issue_updated_at": "2026-09-04T17:05:13Z",
+    "issue_labels": [
+      "task",
+      "action:implementation"
+    ],
+    "content_sha256": "aee5f9ab70ff9ffef6871c5ad6a2ee81f99bc4097bbd1213c049793ca03094e4",
+    "attempt": 1,
+    "attempt_id": "gh-issue-160#1",
+    "idempotency_key": "d2d9d7f4af2288b604caf76315513b9f598d290c9210c56643dd04456cbd5c03",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implementation",
+      "action_source": "action_label",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "action_label",
+          "raw": "implementation",
+          "action": "implement",
+          "form": null,
+          "line": null
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-04T17:05:29.950Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-04T17:05:29.950Z",
+        "event": "issue_received",
+        "reason": "open Issue #160 with label task",
+        "content_sha256": "aee5f9ab70ff9ffef6871c5ad6a2ee81f99bc4097bbd1213c049793ca03094e4"
+      },
+      {
+        "at": "2026-09-04T17:05:29.950Z",
+        "event": "action_resolved",
+        "reason": "action_label → implement (raw \"implementation\")"
+      },
+      {
+        "at": "2026-09-04T17:05:29.950Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-04T17:05:29.950Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-04T17:05:31.737Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-160.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-04T17:05:29.950Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5543921076,
+        "url": "https://github.com/othoth77/mythos-prod/issues/160#issuecomment-5543921076",
+        "at": "2026-09-04T17:05:31.032Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
