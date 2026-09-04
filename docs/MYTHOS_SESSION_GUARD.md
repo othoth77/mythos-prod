@@ -319,3 +319,45 @@ server's `--token-file` name redacted): 14 root-owned Desktop Remote
 sessions, 2 servers, and the deploy-owned executor processes — each
 classified as recorded, over 2 GiB held, over the ceiling by eight, and
 **zero actions on first observation**.
+
+---
+
+## 11. Execution Lifecycle integration (EXEC-LIFECYCLE-0, 2026-09-04)
+
+The guard is now **lifecycle-aware** while staying the only component that signals a process. Full design:
+`docs/MYTHOS_EXECUTION_LIFECYCLE.md`.
+
+### Why the original rules could not reclaim the 14 sessions
+
+Read-only measurement on 2026-09-04: every resident Desktop Remote session had ended its turn (`end_turn`)
+between 2026-09-01 and 2026-09-03, yet the guard's ledger vetoed all of them as `recent_activity` on every
+tick. An idle `ccd-cli` keeps burning ~2.5 % CPU, so the CPU-tick clock (§3, signal 1) never clears. The
+process was alive; the session was done. Those are different facts.
+
+### What changed
+
+| Input (both optional) | Behaviour |
+|---|---|
+| `cfg.lifecycle_registry` (`MYTHOS_SESSION_GUARD_LIFECYCLE`, default `/home/deploy/mythos-ai-executor/lifecycle` in the runner) | `readLifecycle()` reads `sessions/*.json` + `executions/*.json`. New fences, checked before any rule: `lifecycle_execution_active` (bound to an execution in CREATED/DISPATCHED/RUNNING/REPORTING — never signalled, whatever the ceiling or the pressure level) and `lifecycle_human_review`. New rule **2b** `lifecycle_close_requested`: a session the lifecycle moved to `CLOSE_REQUESTED`/`VERIFYING` (task complete, report on GitHub, no active execution, transcript idle, grace elapsed) is a SIGTERM candidate with required inactivity 0 — every other fence (identity, children, min age, two observations, blast radius) still applies. |
+| `cfg.lifecycle_snapshot` (`MYTHOS_LIFECYCLE_SNAPSHOT`, or the object the runner just produced) | `readTurnIdle()` turns the host snapshot (pid ↔ session uuid ↔ transcript turn) into a **transcript-turn idle clock**: seconds since the last main-line record when that record is an `end_turn`, only with verified identity (`identity_match`), only while the snapshot is < 10 min old. `effectiveIdleSeconds = max(cpu/rss/mtime clock, turn clock)`. `idle_timeout` evidence names `idle_source: transcript_turn` and `turn_idle_seconds`. |
+
+The runner (`ops/session-guard/mythos-session-guard-run.js`) now takes the snapshot **before** planning, hands
+it to the plan, and writes it to `/var/lib/mythos/lifecycle/host-sessions.json` (`root:deploy 0640`; the unit
+gained `ReadWritePaths=/var/lib/mythos/lifecycle`, the installer creates the directory and installs
+`runtime-vps.js` beside the runner). Ids, pids, identity ticks, turn state and timestamps only — no argv, no
+transcript content. Journal line gains `lifecycle: {consulted, bound, turn_idle, turn_idle_sessions}` and `snapshot`.
+
+Without a registry and without a snapshot nothing changes: the guard's own suite (277 checks) is unchanged in
+behaviour, and `plan().lifecycle.consulted` says `false`.
+
+### Live dry run (observe mode, scratch state, no marker — nothing applied)
+
+2026-09-04 08:11 UTC, 15 sessions: `turn_idle_seconds` from 2 586 s to 177 309 s on 14 of them, `null` on
+the one mid-turn. Plan: SIGTERM for pids 4180876, 4181501, 326509 (`idle_timeout`, `idle_source:
+transcript_turn`), 10 more deferred by `max_terminations_per_run`. The running session: effective idle 0.
+
+### Operating
+
+Unchanged switches (§7). Re-run `ops/session-guard/install-session-guard.sh` to deploy the runner, the
+`runtime-vps.js` sibling and the unit change; `mythos-session-guard plan` shows `lifecycle` and, per session,
+`cpu_idle_seconds` / `turn_idle_seconds` / effective `idle_seconds`.

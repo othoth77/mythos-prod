@@ -93,7 +93,25 @@ var DEFAULTS = {
   protect_pids: [],
 
   history_limit: 50,
-  session_retention_ms: 24 * 60 * 60 * 1000
+  session_retention_ms: 24 * 60 * 60 * 1000,
+
+  // Execution Lifecycle registry (lib/lifecycle). When set, the guard
+  // CONSULTS it before any rule: a session bound to an active execution is
+  // vetoed whatever its CPU looks like, a session under HUMAN_REVIEW is
+  // left alone, and a session the lifecycle has moved to CLOSE_REQUESTED
+  // (task completed, report on GitHub, no active execution, idle by the
+  // transcript, grace elapsed) becomes a SIGTERM candidate here — this is
+  // the only process-signalling component, so the delegation lands here.
+  // Absent or unreadable registry = no change in behaviour.
+  lifecycle_registry: null,
+  // The host snapshot (lib/lifecycle/runtime-vps.js snapshot()): per pid,
+  // the Claude session uuid and the transcript's TURN state. An idle
+  // Desktop Remote session keeps burning CPU ticks, so the CPU-based idle
+  // clock above never clears for it; the transcript saying "turn ended at
+  // T" is the evidence that does. Used as an ADDITIONAL idle signal only
+  // when the snapshot is fresh; never as a reason to skip a fence.
+  lifecycle_snapshot: null,
+  lifecycle_snapshot_max_age_ms: 10 * 60 * 1000
 };
 
 // A Desktop Remote session. Path-anchored: the version segment moves
@@ -119,6 +137,8 @@ function config(opts) {
   // in tests. It selects WHICH read-only directory to parse; it grants
   // nothing and relaxes no fence.
   if (process.env.MYTHOS_SESSION_GUARD_PROC) cfg.proc_root = process.env.MYTHOS_SESSION_GUARD_PROC;
+  if (process.env.MYTHOS_SESSION_GUARD_LIFECYCLE) cfg.lifecycle_registry = process.env.MYTHOS_SESSION_GUARD_LIFECYCLE;
+  if (process.env.MYTHOS_LIFECYCLE_SNAPSHOT) cfg.lifecycle_snapshot = process.env.MYTHOS_LIFECYCLE_SNAPSHOT;
   Object.keys(opts || {}).forEach(function (k) { cfg[k] = opts[k]; });
 
   // The ceiling is clamped, never trusted. An operator may lower it; a
@@ -509,6 +529,101 @@ function sessionState(rec, item, now, cfg) {
   return 'active';
 }
 
+// --- Execution Lifecycle consult -------------------------------------------------
+
+var LIFECYCLE_ACTIVE = ['CREATED', 'DISPATCHED', 'RUNNING', 'REPORTING'];
+
+// Reads the registry's session and execution records directly (plain JSON,
+// no dependency on lib/lifecycle so the root runner stays two files) and
+// returns a lookup by pid:start_ticks and by session uuid:
+//   { execution_active, human_review, close_requested, close_phase, state, session_id, execution_id }
+function readLifecycle(cfg) {
+  if (!cfg || !cfg.lifecycle_registry) return null;
+  var base = cfg.lifecycle_registry;
+  function readDir(sub) {
+    var out = [];
+    var names;
+    try { names = fs.readdirSync(path.join(base, sub)); } catch (e) { return out; }
+    names.forEach(function (n) {
+      if (!/\.json$/.test(n)) return;
+      try { var r = JSON.parse(fs.readFileSync(path.join(base, sub, n), 'utf8')); if (r) out.push(r); } catch (e) { /* skip corrupt */ }
+    });
+    return out;
+  }
+  var sessions = readDir('sessions');
+  var executions = readDir('executions');
+  if (!sessions.length && !executions.length) return { by_key: {}, by_ref: {}, sessions: 0 };
+  var activeBySession = {};
+  executions.forEach(function (e) {
+    if (e.session_id && LIFECYCLE_ACTIVE.indexOf(e.execution_state) >= 0) activeBySession[e.session_id] = e.execution_id;
+  });
+  var byKey = {};
+  var byRef = {};
+  sessions.forEach(function (s) {
+    if (s.state === 'CLOSED') return;
+    var info = {
+      session_id: s.session_id, execution_id: s.execution_id || null, state: s.state, close_phase: s.close_phase || 'OBSERVE',
+      execution_active: !!activeBySession[s.session_id], active_execution_id: activeBySession[s.session_id] || null,
+      human_review: s.close_phase === 'HUMAN_REVIEW',
+      close_requested: s.close_phase === 'CLOSE_REQUESTED' || s.close_phase === 'VERIFYING',
+      close_reason: s.close_reason || null
+    };
+    if (s.pid && s.proc_start) byKey[String(s.pid) + ':' + String(s.proc_start)] = info;
+    byRef[s.session_id] = info;
+  });
+  return { by_key: byKey, by_ref: byRef, sessions: sessions.length };
+}
+
+function lifecycleFor(lc, item) {
+  if (!lc || !item) return null;
+  return lc.by_key[item.key] || (item.session_ref ? lc.by_ref[item.session_ref] : null) || null;
+}
+
+// Transcript-turn idle seconds per pid:start_ticks from a fresh snapshot
+// (a file path, or an object the runner just produced). A session whose
+// transcript's last main-line record is an end_turn older than T has been
+// waiting for a human for T seconds, whatever its CPU counters say. Only
+// `turn === 'idle'` with a verified identity contributes; everything else
+// is null = "no evidence", which can never make a session look idle.
+function readTurnIdle(cfg, now) {
+  var snap = cfg.lifecycle_snapshot;
+  if (!snap) return null;
+  if (typeof snap === 'string') {
+    try { snap = JSON.parse(fs.readFileSync(snap, 'utf8')); } catch (e) { return null; }
+  }
+  if (!snap || !Array.isArray(snap.sessions)) return null;
+  var age = now - Date.parse(snap.at);
+  if (isNaN(age) || age < 0 || age > cfg.lifecycle_snapshot_max_age_ms) return null;
+  var out = { at: snap.at, by_key: {} };
+  snap.sessions.forEach(function (s) {
+    if (!s || !s.pid || !s.proc_start || s.identity_match !== true) return;
+    var tr = s.transcript || {};
+    if (tr.turn !== 'idle') { out.by_key[String(s.pid) + ':' + String(s.proc_start)] = null; return; }
+    var last = null;
+    if (tr.last_record_at) last = Date.parse(tr.last_record_at);
+    if (typeof tr.mtime_ms === 'number' && (last === null || tr.mtime_ms > last)) last = tr.mtime_ms;
+    if (last === null || isNaN(last)) return;
+    out.by_key[String(s.pid) + ':' + String(s.proc_start)] = Math.max(0, Math.round((now - last) / 1000));
+  });
+  return out;
+}
+
+function turnIdleFor(ti, item) {
+  if (!ti || !item) return null;
+  var v = ti.by_key[item.key];
+  return typeof v === 'number' ? v : null;
+}
+
+// The idle figure a rule compares against its threshold: the CPU/RSS/
+// transcript-mtime clock, or the transcript-turn clock when that is
+// available and larger. Both are "no activity since"; the turn clock simply
+// knows that an idle ccd-cli's CPU is not work.
+function effectiveIdleSeconds(rec, item, cfg, now) {
+  var idle = idleSeconds(rec, now);
+  var ti = turnIdleFor(cfg._turn_idle, item);
+  return ti !== null && ti > idle ? ti : idle;
+}
+
 // --- Planning ---------------------------------------------------------------
 
 // Every fence that can stop a signal, in one place, returning the FIRST
@@ -519,6 +634,9 @@ function veto(rec, item, inv, cfg, now, requiredIdleSeconds) {
   if (cfg.protect_pids.indexOf(item.pid) >= 0) return 'pid_explicitly_protected';
   if (item.pid <= 1) return 'refuses_init';
   if (item.children > 0) return 'has_child_processes';
+  var lc = lifecycleFor(cfg._lifecycle, item);
+  if (lc && lc.execution_active) return 'lifecycle_execution_active';
+  if (lc && lc.human_review) return 'lifecycle_human_review';
   if (typeof item.cpu_ticks !== 'number') return 'cpu_telemetry_unreadable';
   var age = ageSeconds(item, inv.uptime_seconds, cfg);
   if (age === null) return 'age_unknown';
@@ -534,7 +652,7 @@ function veto(rec, item, inv, cfg, now, requiredIdleSeconds) {
   // idle rule passes the (possibly pressure-lowered) idle threshold, the
   // concurrency rule its own floor, and the SIGKILL escalation 0 — a
   // session already SIGTERMed may legitimately burn CPU shutting down.
-  if (idleSeconds(rec, now) < requiredIdleSeconds) return 'recent_activity';
+  if (effectiveIdleSeconds(rec, item, cfg, now) < requiredIdleSeconds) return 'recent_activity';
   return null;
 }
 
@@ -551,6 +669,10 @@ function plan(state, inv, opts) {
   var byKey = {};
   inv.sessions.forEach(function (i) { byKey[i.key] = i; });
 
+  // One registry read and one snapshot read per plan, shared by every fence below.
+  cfg._lifecycle = (opts && opts._lifecycle) || readLifecycle(cfg);
+  cfg._turn_idle = (opts && opts._turn_idle) || readTurnIdle(cfg, now);
+
   var live = inv.sessions.map(function (item) {
     var rec = st.sessions[item.key] || {
       key: item.key, pid: item.pid, state: 'active', observations: 1,
@@ -563,11 +685,14 @@ function plan(state, inv, opts) {
       rss_mib: item.rss_mib, children: item.children,
       state: rec.state || 'active',
       age_seconds: ageSeconds(item, inv.uptime_seconds, cfg),
-      idle_seconds: idleSeconds(rec, now),
+      idle_seconds: effectiveIdleSeconds(rec, item, cfg, now),
+      cpu_idle_seconds: idleSeconds(rec, now),
+      turn_idle_seconds: turnIdleFor(cfg._turn_idle, item),
       observations: rec.observations || 1,
       orphan_since: rec.orphan_since || null,
       terminate: rec.terminate || null,
-      cmdline: item.cmdline
+      cmdline: item.cmdline,
+      lifecycle: lifecycleFor(cfg._lifecycle, item)
     };
   });
 
@@ -627,6 +752,27 @@ function plan(state, inv, opts) {
     });
   });
 
+  // 2b. Lifecycle close requests. The Execution Lifecycle has already
+  //     established, from the registry and the transcript, that the task is
+  //     complete, its report is on GitHub, no execution is active and the
+  //     session has been idle past its policy and grace. An idle Claude
+  //     session still burns CPU ticks, so the guard's own CPU-based idle
+  //     clock never clears for it — this rule passes 0 as the required
+  //     inactivity and relies on the lifecycle's evidence plus every other
+  //     fence (identity, children, min age, two observations).
+  live.forEach(function (s) {
+    if (!s.lifecycle || !s.lifecycle.close_requested || (s.terminate && s.terminate.signalled_at)) return;
+    if (!candidate(s, 'lifecycle_close_requested', 0)) return;
+    actions.push({
+      key: s.key, pid: s.pid, signal: 'SIGTERM', reason: 'lifecycle_close_requested',
+      evidence: {
+        session_id: s.lifecycle.session_id, execution_id: s.lifecycle.execution_id, close_phase: s.lifecycle.close_phase,
+        close_reason: s.lifecycle.close_reason, age_seconds: s.age_seconds, idle_seconds: s.idle_seconds,
+        rss_mib: s.rss_mib, children: s.children, session_ref: s.session_ref
+      }
+    });
+  });
+
   // 3. Idle timeout. Selected on the MEASURED inactivity against the
   //    effective threshold, not on the `idle` state label — the label is
   //    computed from the standing threshold, so keying off it would make
@@ -644,6 +790,8 @@ function plan(state, inv, opts) {
         reason: pressure ? 'idle_timeout_under_pressure' : 'idle_timeout',
         evidence: {
           idle_seconds: s.idle_seconds, threshold_seconds: idleThreshold,
+          idle_source: (s.turn_idle_seconds !== null && s.turn_idle_seconds > s.cpu_idle_seconds) ? 'transcript_turn' : 'cpu_rss_mtime',
+          turn_idle_seconds: s.turn_idle_seconds,
           pressure_level: pressureLevel, age_seconds: s.age_seconds,
           observations: s.observations, rss_mib: s.rss_mib, children: s.children,
           session_ref: s.session_ref
@@ -703,6 +851,8 @@ function plan(state, inv, opts) {
     at: new Date(now).toISOString(),
     enforce: !!cfg.enforce,
     dry_run: !cfg.enforce,
+    lifecycle: cfg._lifecycle ? { consulted: true, sessions: cfg._lifecycle.sessions, bound: live.filter(function (s) { return s.lifecycle; }).length,
+      turn_idle: !!cfg._turn_idle, turn_idle_at: cfg._turn_idle ? cfg._turn_idle.at : null, turn_idle_sessions: live.filter(function (s) { return s.turn_idle_seconds !== null; }).length } : { consulted: false, turn_idle: !!cfg._turn_idle },
     counts: counts,
     concurrency: concurrency,
     pressure_level: pressureLevel,
@@ -910,6 +1060,7 @@ function report(runResult) {
     enforce: !!pr.enforce,
     counts: counts,
     concurrency: pr.concurrency || null,
+    lifecycle: pr.lifecycle || null,
     pressure_level: pr.pressure_level || null,
     admission: (runResult && runResult.admission) || null,
     planned_terminations: (pr.actions || []).map(function (a) {
@@ -934,6 +1085,10 @@ module.exports = {
   classify: classify,
   looksExecutor: looksExecutor,
   inventory: inventory,
+  readLifecycle: readLifecycle,
+  lifecycleFor: lifecycleFor,
+  readTurnIdle: readTurnIdle,
+  effectiveIdleSeconds: effectiveIdleSeconds,
   sessionKey: sessionKey,
   sessionRef: sessionRef,
   transcriptMtimeMs: transcriptMtimeMs,

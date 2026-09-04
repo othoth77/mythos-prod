@@ -879,11 +879,20 @@ function planAfterIdle(root, idleForMs, cfgExtra, t0) {
   var OPS = path.join(BASE, 'ops', 'session-guard');
   var runnerSrc = fs.readFileSync(path.join(OPS, 'mythos-session-guard-run.js'), 'utf8');
 
-  // The runner is deployed as two root-owned files and must require
-  // nothing else from the repository.
+  // The runner is deployed as root-owned files and must require nothing
+  // else from the repository: its two siblings (session-guard.js and, since
+  // the Execution Lifecycle, the optional runtime-vps.js snapshot writer —
+  // both copied by the installer) and node core.
   var requires = (runnerSrc.match(/require\(([^)]+)\)/g) || []);
-  ok(requires.every(function (r) { return /'fs'|'path'|'\.\/session-guard'/.test(r); }),
-    'the root runner requires only fs, path and its sibling session-guard.js (' + requires.join(' ') + ')');
+  ok(requires.every(function (r) { return /'fs'|'path'|'\.\/session-guard'|'\.\/runtime-vps'/.test(r); }),
+    'the root runner requires only fs, path and its installed siblings (' + requires.join(' ') + ')');
+  ok(/try \{ vpsRuntime = require\('\.\/runtime-vps'\); \} catch/.test(runnerSrc),
+    'the runtime-vps sibling is optional: the runner tolerates its absence');
+  var rtSrc = fs.readFileSync(path.join(BASE, 'projects', 'mythos-ai-executor', 'lib', 'lifecycle', 'runtime-vps.js'), 'utf8');
+  var rtRequires = (rtSrc.match(/require\(([^)]+)\)/g) || []);
+  ok(rtRequires.every(function (r) { return /'fs'|'os'|'path'|'\.\.\/session-guard'|'\.\/session-guard'/.test(r); }),
+    'runtime-vps.js requires only node core and session-guard.js (' + rtRequires.join(' ') + ')');
+  ok(rtSrc.indexOf('child_process') < 0, 'runtime-vps.js never spawns a subprocess');
   ok(runnerSrc.indexOf('child_process') < 0, 'the root runner never spawns a subprocess');
   ok(runnerSrc.indexOf('/proc/meminfo') < 0,
     'the root runner does not read memory itself — it reads the Resource Guard state');

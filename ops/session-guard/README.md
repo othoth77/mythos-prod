@@ -77,3 +77,13 @@ many vetoes fired.
   (2026-09-01 incident). Untouched by this work.
 * `docs/MYTHOS_RESOURCE_GUARD.md` — admission control for **MYTHOS's own**
   tasks. This guard reads its memory level and adds no thresholds of its own.
+
+## Execution Lifecycle (2026-09-04)
+
+The runner now (a) reads the deploy-owned lifecycle registry (`MYTHOS_SESSION_GUARD_LIFECYCLE`, default
+`/home/deploy/mythos-ai-executor/lifecycle`) so sessions bound to an active execution are never signalled and
+lifecycle close requests become SIGTERM candidates, and (b) snapshots pid ↔ Claude session uuid ↔ transcript
+turn state into `/var/lib/mythos/lifecycle/host-sessions.json` **before** planning, giving the plan a
+transcript-turn idle clock (an idle ccd-cli still burns CPU). The installer copies `runtime-vps.js` beside the
+runner and creates the snapshot directory; the unit gained `ReadWritePaths=/var/lib/mythos/lifecycle`.
+Both inputs are optional: absent, the guard behaves exactly as before. See `docs/MYTHOS_SESSION_GUARD.md` §11.

@@ -1,5 +1,59 @@
 # AI Handover
 
+## EXEC-LIFECYCLE-0 — MYTHOS Execution Lifecycle: task / execution / session correlated, VPS + PC (2026-09-04)
+
+**Objective.** Stop treating "a `ccd-cli` process exists" as "a Claude session is working" and "a GitHub
+report exists" as "the session closed". Make MYTHOS able to state, for any unit of work, the TASK state
+(GitHub truth), the EXECUTION state (who/where/attempt), the SESSION state (is the agent process alive,
+mid-turn or idle) and the GitHub evidence — linked `Issue → control task → execution_id → agent → session_id
+→ PID` — and turn the Session Guard from a process counter into a lifecycle-aware guard, for Claude on the
+VPS and Claude on a PC under one model. Design: `docs/MYTHOS_EXECUTION_LIFECYCLE.md`; guard delta:
+`docs/MYTHOS_SESSION_GUARD.md` §11.
+
+**Measured before changing anything (read-only, 2026-09-04 08:0x UTC).** 18 agent-class processes: 14
+Desktop Remote sessions whose transcripts ended with `end_turn` days ago (2.5 GiB), 1 ACTIVE (this
+session), 3 UNKNOWN (executor daemon + helpers). The gh-issue-144 guard (installed, observe mode) vetoed all
+14 as `recent_activity` on every tick: an idle `ccd-cli` burns ~2.5 % CPU so the CPU-tick idle clock never
+clears. Claude Code keeps its own per-pid registry (`~/.claude/sessions/<pid>.json`: sessionId, procStart,
+cwd) and the transcript's last main-line record says running (`tool_use`) vs idle (`end_turn`); the
+installed ccd-cli 2.1.260 carries SessionStart/Stop/SubagentStop/TaskCompleted/SessionEnd hooks.
+
+| Item | State |
+|---|---|
+| Branch | `mythos/execution-lifecycle-20260904` over `5482db8` (`origin/main`), worktree `/home/deploy/worktrees/execution-lifecycle`. Delivery by the governance relay; **not merged, no auto-merge**. |
+| New | `projects/mythos-ai-executor/lib/lifecycle/{model,registry,runtime-vps,runtime-pc,correlate,verify,cleanup,index}.js`; `bin/mythos-lifecycle`; `ops/lifecycle/{claude-lifecycle-hook.js,claude-settings-hooks.example.json,mythos-pc-agent.js,install-lifecycle-hooks.sh,README.md}`; `docs/MYTHOS_EXECUTION_LIFECYCLE.md`; `tests/mythos-lifecycle-test.js` |
+| Changed | `executor.js` (emits EXECUTION_CREATED/DISPATCHED, SESSION_STARTED with pid+start ticks, SESSION_END with process-gone proof, TASK_COMPLETED, REPORT_SUBMITTED for non-bridge tasks, EXECUTION_FAILED; `lifecycle.tick()` in the daemon step; `lifecycleStatus()`), `bridge/github-bridge.js` (task link at claim: issue/control id/OTHMODE id; REPORT_SUBMITTED in `finishTask`), `server.js` (`GET /lifecycle`, `/lifecycle/host`, `/lifecycle/{executions,sessions,tasks}/<id>`; `POST /lifecycle/events` bearer+HMAC relay ingest, evidence-only; `GET/POST /lifecycle/outbox/PC[/ack]`), `lib/session-guard.js` (registry consult: `lifecycle_execution_active` / `lifecycle_human_review` fences, rule 2b `lifecycle_close_requested`; transcript-turn idle clock from the host snapshot), `ops/session-guard/mythos-session-guard-run.js` (snapshot before plan, written to `/var/lib/mythos/lifecycle/host-sessions.json`), `.service` (`ReadWritePaths=/var/lib/mythos/lifecycle`), `install-session-guard.sh` (installs `runtime-vps.js`, creates the directory), `tests/session-guard-test.js` (runner dependency contract now allows the optional sibling), `docs/MYTHOS_SESSION_GUARD.md` §11 |
+| Untouched | the task state machine (`lib/state.js`), the bridge's control protocol and schemas, OTHMODE, the Issues adapter, providers, the executor HTTP contract for existing routes. Every lifecycle call in executor/bridge is best-effort (`emit()` never throws). |
+| Tests | `tests/mythos-lifecycle-test.js` **254/0** (25 scenarios + executor/bridge/HTTP/hook/runner/PC/CLI integrations; synthetic /proc + synthetic `~/.claude`; injected killFn — no real signal). Unchanged suites green in the worktree: executor 390/0, session-guard 277/0, github-bridge 150/0, github-issues 193/0, action-resolution 88/0, whatsapp-notify 131/0, push-guard 23/0, bridge-timer 16/0, resource-guard 91/0. Full suite not rerun (unrelated modules untouched). |
+| Live proof (read-only) | `mythos-lifecycle host` on this VPS: 14 IDLE / 1 ACTIVE / 3 UNKNOWN, all bound pid↔uuid with verified start ticks. Updated root runner in observe mode with scratch state: `turn_idle_seconds` 2 586–177 309 s on 14 sessions, plan = SIGTERM for 3 (`idle_source: transcript_turn`), running session effective idle 0, **nothing applied**. |
+| Installed / enabled | **Nothing.** Hooks not wired, registry directory not created for production, guard runner not re-installed, cleanup marker absent, no relay secret. The executor daemon will start emitting into `~deploy/mythos-ai-executor/lifecycle/` after a merge + restart (best-effort, dry-run cleanup). |
+
+**How it works, in one screen.** Executor/bridge/hooks emit events → `registry.ingest` (idempotent, atomic,
+ledgered) → reducer keeps TASK / EXECUTION / SESSION separate → `REPORT_SUBMITTED` puts the execution in
+VERIFYING and `verify.js` *looks* at the session through its runtime (VPS: `/proc` identity + Claude's
+`sessions/<pid>.json` + transcript turn; PC: relayed state aged by heartbeat) → `COMPLETED + SESSION_OPEN`
+is a first-class state re-checked with 1m/2m/5m/15m/30m/1h backoff → `cleanup.js` walks OBSERVE → ELIGIBLE
+→ GRACE → CLOSE_REQUESTED → VERIFYING → CLOSED only for linked, reported, non-active, transcript-idle
+sessions (dry-run until `cleanup.enabled`; force kill off by policy; failure → HUMAN_REVIEW) → the root
+Session Guard, which alone holds CAP_KILL, applies SIGTERM for `CLOSE_REQUESTED` sessions and uses the
+transcript-turn clock for unlinked ones, under all its existing fences. `recover()` turns a vanished pid
+into UNKNOWN (never FAILED), catches up from the executor's record, and marks superseded attempts.
+
+**Owner steps (in order).** 1 `sudo bash ops/lifecycle/install-lifecycle-hooks.sh` · 2 `sudo bash
+ops/session-guard/install-session-guard.sh` (re-installs runner + `runtime-vps.js`, unit change) · 3 as deploy:
+`systemctl --user restart mythos-ai-executor` after the merge · 4 watch `mythos-lifecycle status|host|cleanup plan`
+and `journalctl -u mythos-session-guard` · 5 `touch ~deploy/mythos-ai-executor/lifecycle/cleanup.enabled` and the
+guard's own marker when satisfied · optional PC agent per `ops/lifecycle/README.md`. Rollbacks: remove the markers,
+`MYTHOS_LIFECYCLE_CLEANUP=off`, `/usr/local/lib/mythos-lifecycle/unwire.js`, or revert the commit.
+
+**Not done / limits.** No hook is live yet, so today's Desktop Remote sessions are correlated only via
+Claude's own registry + transcripts (host view / snapshot) and not linked to executions; the PC agent is a
+reference implementation exercised offline; `gh` is not installed on the host so the PR is an owner step
+(command in the final report); the Issues adapter's comment is not a separate report event.
+
+**Next stage.** Owner review + merge → install steps 1–3 → 2–3 days of observe → enable cleanup, then the
+guard marker → PC agent pilot behind an SSH tunnel with `allow_close:false` first.
+
 ## SESSION-GUARD-1 — Claude Desktop Remote session lifecycle guard (GitHub issue #144, 2026-09-03)
 
 **Objective.** Stop the unbounded accumulation of Claude Desktop Remote sessions on this VPS and
