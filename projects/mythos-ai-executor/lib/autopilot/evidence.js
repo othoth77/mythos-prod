@@ -50,6 +50,9 @@ function collect(opts) {
     try { ev.tests = JSON.parse(fs.readFileSync(opts.tests_file, 'utf8')); } catch (e) { nv('tests', 'cannot read ' + opts.tests_file); }
   } else if (opts.tests) ev.tests = opts.tests;
   else nv('tests', 'no test artifact supplied');
+  // The runner artifact (`mythos-autopilot tests --run --out`) nests the run
+  // under `run`; a bare run object is accepted too.
+  if (ev.tests && ev.tests.run && ev.tests.run.results && !ev.tests.results) ev.tests = ev.tests.run;
   ev.runtime = opts.drift || nv('runtime', 'no drift report supplied');
   ev.deployment = ev.runtime ? { state: ev.runtime.state, next_action: ev.runtime.next_action } : null;
   ev.next_action = nextAction(ev);

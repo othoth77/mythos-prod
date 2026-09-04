@@ -471,6 +471,9 @@ withHealth(function (healthUrl) {
     ok(md.indexOf('| Branch | `mythos/feature-1` |') >= 0 && md.indexOf('NOT_VERIFIED') >= 0, 'markdown renders facts and NOT_VERIFIED');
     var ev2 = EV.collect({ cwd: wt, git: git, fetch: false, tests: { results: [{ suite: 'tests/x-test.js', ok: true, passed: 5, failed: 0 }] } });
     ok(EV.renderMarkdown(ev2).indexOf('x-test.js **5/0**') > 0, 'test counts come from the artifact');
+    var art = path.join(FIX, 'tests-artifact.json'); fs.writeFileSync(art, JSON.stringify({ mode: 'FULL', run: { ok: true, results: [{ suite: 'tests/y-test.js', ok: true, passed: 7, failed: 0 }] } }));
+    var ev3 = EV.collect({ cwd: wt, git: git, fetch: false, tests_file: art });
+    ok(EV.renderMarkdown(ev3).indexOf('y-test.js **7/0**') > 0 && !ev3.not_verified.some(function (n) { return n.field === 'tests'; }), 'runner artifact (nested run) is read from --tests');
   }).then(function () {
     // =====================================================================================
     section('status');
