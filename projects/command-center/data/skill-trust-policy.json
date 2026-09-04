@@ -1,0 +1,56 @@
+{
+  "schema_version": "1.0.0",
+  "policy_version": "1.0.0",
+  "note": "OTHMODE Skill / MCP trust policy (SKILL-TRUST-0). Turns scanner results — NVIDIA SkillSpector, Gitleaks, NVIDIA SkillEvaluator Tier 1, and the gateway's mcp-registry-check snapshot — into exactly one OTHMODE decision: ACCEPT, REVIEW or BLOCK. The most restrictive applicable rule wins. Evaluated by projects/command-center/reference/othmode/trust/policy.js; deterministic, offline, and unit-tested. Invariants no configuration can relax: a missing or failed REQUIRED scanner is never ACCEPT (scanner_failure only chooses between BLOCK and REVIEW); an unparseable or unrecognised result is never ACCEPT; SkillSpector DO_NOT_INSTALL is always BLOCK.",
+  "required_scanners": ["skillspector", "gitleaks", "skillevaluator"],
+  "scanner_failure": "BLOCK",
+  "unknown_result": "REVIEW",
+  "skillspector": {
+    "recommendation": { "SAFE": "ACCEPT", "CAUTION": "REVIEW", "DO_NOT_INSTALL": "BLOCK" },
+    "max_issue_severity": { "CRITICAL": "BLOCK", "HIGH": "BLOCK", "MEDIUM": "REVIEW", "LOW": "REVIEW", "NONE": "ACCEPT" },
+    "clean_caution_is_accept": true,
+    "benign_partial_reasons": ["reference_unresolved"],
+    "note": "SkillSpector reports CAUTION for a zero-score, issue-free skill whenever its analysis is 'partial'. With clean_caution_is_accept the policy accepts such a skill ONLY when every partial reason is listed in benign_partial_reasons (an unresolved local path mention in the prose) and no file was left uninspected; any other partial reason — malformed manifest, uninspected files, size ceilings — stays REVIEW."
+  },
+  "gitleaks": {
+    "any_finding": "BLOCK",
+    "note": "A detected credential pattern blocks. The ledger records rule id, file, line and fingerprint only — never the matched value."
+  },
+  "skillevaluator": {
+    "checks": ["schema", "pii", "license", "unicode", "quality", "lint"],
+    "incomplete_scans": "REVIEW",
+    "categories": {
+      "PII":         { "critical": "BLOCK", "high": "BLOCK", "medium": "REVIEW", "low": "REVIEW" },
+      "UNICODE":     { "critical": "BLOCK", "high": "BLOCK", "medium": "REVIEW", "low": "REVIEW" },
+      "SECURITY":    { "critical": "BLOCK", "high": "BLOCK", "medium": "REVIEW", "low": "REVIEW" },
+      "GITLEAKS":    { "critical": "BLOCK", "high": "BLOCK", "medium": "BLOCK", "low": "BLOCK" },
+      "BANDIT":      { "critical": "REVIEW", "high": "REVIEW" },
+      "SEMGREP":     { "critical": "REVIEW", "high": "REVIEW" },
+      "SCHEMA":      { "critical": "REVIEW" },
+      "LICENSE":     { "critical": "REVIEW" },
+      "QUALITY":     {},
+      "SCRIPT_LINT": {}
+    },
+    "note": "The security check is deliberately NOT in `checks`: it would run SkillSpector a second time. code-integrity is not in `checks` on this host because Semgrep is not installed there and SkillEvaluator marks the whole check INCOMPLETE without it; add it (and Semgrep) when the host has the memory headroom. SCHEMA/LICENSE/QUALITY/SCRIPT_LINT findings are recorded as advisory: this repository's MYTHOS ORIGINAL skills carry no metadata.author, which the default external profile rates HIGH, and that is a publication convention, not a security signal."
+  },
+  "mcp": {
+    "status": { "ONLINE": "ACCEPT", "DEGRADED": "REVIEW", "OFFLINE": "REVIEW", "UNAUTHORIZED": "REVIEW", "ERROR": "REVIEW" },
+    "disabled_server": "REVIEW",
+    "snapshot_absent": "REVIEW",
+    "snapshot_max_age_hours": 48,
+    "snapshot_stale": "REVIEW",
+    "policy_findings": "REVIEW",
+    "credential_findings": "BLOCK",
+    "drift_extra": "REVIEW",
+    "drift_missing": "REVIEW",
+    "note": "MCP trust is a separate layer over the gateway registry check (registration is a claim; the snapshot is the measurement). An extra tool the registry never declared is the tool-poisoning shape this layer can see today; description-level prompt injection needs a scanner that reads tool descriptions and is recorded as the next phase."
+  },
+  "scan": {
+    "timeout_ms": 180000,
+    "max_findings_recorded": 50,
+    "bins": { "skillspector": "skillspector", "gitleaks": "gitleaks", "skillevaluator": "skillevaluator" },
+    "skillspector_baseline": "projects/command-center/data/skillspector-baseline.json",
+    "baseline_note": "The only REVIEW → ACCEPT path for a triaged SkillSpector finding: record it, with a reason, in this Git-reviewed baseline (skillspector baseline <skill> --no-llm -o <file> --reason ...; see upstream docs/SUPPRESSION.md), then rescan. Suppressed findings stay listed in the scan report and in the ledger summary (suppressed count). Absent file = no suppression.",
+    "note": "Binaries resolve on PATH (uv tool installs to ~/.local/bin) or via SKILL_TRUST_<SCANNER>_BIN. Scanners run with a minimal environment (PATH, HOME, LANG, TMPDIR) — never the caller's credentials — and SkillSpector always with --no-llm: no network, no provider key."
+  }
+}

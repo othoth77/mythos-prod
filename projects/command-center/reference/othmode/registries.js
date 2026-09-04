@@ -15,6 +15,7 @@
 var fs = require('fs');
 var path = require('path');
 var resolve = require('./resolve.js');
+var trust = require('./trust/index.js');
 
 // ---------------------------------------------------------------------------
 // Skills — .claude/skills/*/SKILL.md + executor config/skills.json
@@ -77,20 +78,34 @@ function listExecutorSkills() {
   });
 }
 
+// SKILL-TRUST-0: every skill row carries its trust status, computed the
+// same way the executor computes it (content hash vs. the Git ledger). The
+// read model still writes nothing — the ledgers are written by the
+// operator CLI after a scan, and reviewed as a diff like any other change.
+function withTrust(rows) {
+  var ledgers = trust.loadLedgers();
+  rows.forEach(function (s) {
+    var dirName = s.registry === 'claude' ? s.source_path.split('/')[2] : s.id;
+    s.trust = trust.skillTrust(s.registry, dirName, ledgers);
+    if (s.registry === 'executor' && s.status === 'ACTIVE' && !s.trust.trusted) s.status = 'UNTRUSTED';
+  });
+  return rows;
+}
+
 function skills() {
-  var all = listClaudeSkills().concat(listExecutorSkills());
+  var all = withTrust(listClaudeSkills().concat(listExecutorSkills()));
   all.sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
-  return { total: all.length, skills: all };
+  return { total: all.length, skills: all, trust_summary: trust.summarise(all), trust_policy: trust.policyInfo() };
 }
 
 function skillDetail(id) {
-  var claude = listClaudeSkills().filter(function (s) { return s.id === id; })[0];
+  var claude = withTrust(listClaudeSkills()).filter(function (s) { return s.id === id; })[0];
   if (claude) {
     var body = resolve.readText(resolve.repoPath(claude.source_path));
     claude.body = body.ok ? body.data : null;
     return claude;
   }
-  var exec = listExecutorSkills().filter(function (s) { return s.id === id; })[0];
+  var exec = withTrust(listExecutorSkills()).filter(function (s) { return s.id === id; })[0];
   if (exec) {
     var instr = resolve.readText(resolve.repoPath('projects', 'mythos-ai-executor', 'skills', id + '.md'));
     exec.body = instr.ok ? instr.data : null;
@@ -162,8 +177,12 @@ function mcpView() {
         return { name: t, capability: d.capability, decision: d.decision, requires_approval: d.requires_approval,
           registered: true, available: available, healthy: healthy, authorized: authorized, executable: executable };
       });
+      // SKILL-TRUST-0: the MCP trust layer's decision for this server, from
+      // the same measurement (policy in data/skill-trust-policy.json).
+      var trustDecision = trust.mcpTrust(name, s, m, snapshot ? { generated_at: snapshot.generated_at, checker_version: snapshot.checker_version || snapshot.version || null } : null);
       servers.push({
         name: name, purpose: s.purpose, direction: s.direction, transport: s.transport.kind, version: s.version || null,
+        trust: { decision: trustDecision.decision, reasons: trustDecision.reasons },
         enabled: s.enabled, enabled_note: s.enabled_note || null, write_capable: s.write_capable, public: s.public === true,
         auth_required: !!(s.auth && s.auth.required), auth_scheme: s.auth ? s.auth.scheme : null,
         credential_ref: s.auth && s.auth.credential ? s.auth.credential : null,
@@ -176,8 +195,10 @@ function mcpView() {
       });
     });
   }
+  var trustSummary = {};
+  servers.forEach(function (srv) { trustSummary[srv.trust.decision] = (trustSummary[srv.trust.decision] || 0) + 1; });
   return { total: servers.length, servers: servers, checked_at: snapshot ? snapshot.generated_at : null,
-    checked_ok: snapshot ? snapshot.ok === true : null, sources: sources };
+    checked_ok: snapshot ? snapshot.ok === true : null, sources: sources, trust_summary: trustSummary };
 }
 
 function tools() {

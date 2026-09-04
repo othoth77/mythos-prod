@@ -162,7 +162,113 @@
       "verdict": "BUILD the adapter boundary (about 400 lines, no dependency) + ADOPT Evolution API as the default runtime provider, PROVISIONALLY. Search First evidence: no existing MYTHOS component sends WhatsApp; the nearest reusable pattern is the orchestrator ntfy notify() boundary (projects/mythos-orchestrator/runner.js), whose always-non-fatal semantics were adopted and strengthened into a two-phase enqueue/flush design. MultiWA and WaSphere could not be identified as maintained projects without network access and are therefore not eligible to be a default. gh-issue-147 re-applied the same criterion to wa-evolution and WAHA and reached the same answer for the same reason — no network — so the decision is UNCHANGED: keep Evolution API, do not replace it on unverified grounds, and spend the effort removing the coupling instead. Adopting a verified candidate later now costs an environment variable, not a project.",
       "before_deployment": "A networked session MUST live-verify licence, maintenance status and real memory footprint for the chosen provider, and MUST re-open the choice if the footprint is incompatible with this VPS (measured 2026-09-03 21:06 UTC: swap 4095/4095 MiB fully consumed, 1781 MiB RAM available, 4 vCPU, / 83% full; the deploy user CAN now reach the Docker daemon, which was not true on 2026-09-02, so resources rather than permissions are the decisive constraint). Resolve the swap exhaustion (gh-issue-144 session guard, written but NOT installed) BEFORE deploying any gateway; then measure the candidate under a hard --memory cap for a week rather than trusting a README; then drive it through providers/generic.js against a local recorder; then the single controlled real smoke test: mythos-github-bridge notify-test --confirm. No auto-merge, no automatic production deployment.",
       "documentation": "docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md, docs/MYTHOS_WHATSAPP_PROVIDER_STRATEGY.md"
+    },
+    {
+      "name": "NVIDIA SkillSpector",
+      "source": "github",
+      "repository": "NVIDIA/SkillSpector",
+      "version": "v2.11.0 (tag; pinned in the uv tool install)",
+      "license": "Apache-2.0",
+      "purpose": "Static security scanner for agent skills: prompt injection, anti-refusal, data exfiltration, privilege escalation, MCP tool-poisoning patterns, YARA rules, OSV lookups; JSON/SARIF; risk score 0-100 with SAFE/CAUTION/DO_NOT_INSTALL; exit 0/1/2; baseline suppression.",
+      "integration_method": "dependency (isolated uv tool environment under ~deploy/.local, Python 3.14) invoked by projects/command-center/cli/lib/skill-trust-scan.js with --no-llm --format json; adapted by reference/othmode/trust/normalize.js; its baseline file (data/skillspector-baseline.json) is the only REVIEW->ACCEPT triage path",
+      "status": "INTEGRATED",
+      "dependencies": [
+        "uv",
+        "Python 3.12-3.14 (3.14 on this host)",
+        "typer, rich, httpx, pydantic, yara-python, langchain/openai/boto3 (unused in --no-llm mode)"
+      ],
+      "maintenance": "active: 16k stars, pushed 2026-09-01, tags v2.9.1..v2.11.0 (verified 2026-09-04 via api.github.com)",
+      "security": "runs with a minimal environment and no provider key; static mode makes no network call except optional OSV lookups with offline fallback; resource ceilings documented upstream (docs/ANALYSIS_RESOURCE_BOUNDS.md)",
+      "othmode_usage": "Skill Security / Trust Gate - primary security scanner (SKILL-TRUST-0)",
+      "verified_at": "2026-09-04",
+      "verdict": "REUSE. Replaces any custom prompt-injection / exfiltration scanner; not on PyPI, installed from the pinned Git tag."
+    },
+    {
+      "name": "NVIDIA SkillEvaluator",
+      "source": "github",
+      "repository": "NVIDIA/SkillEvaluator",
+      "version": "0.2.1 (main, uv tool install; Python 3.13 provisioned by uv)",
+      "license": "Apache-2.0",
+      "purpose": "Multi-tier skill evaluation. Tier 1 keyless deterministic gates: schema, PII, license, unicode smuggling, quality, script lint, plus security (SkillSpector) and code-integrity (Semgrep+Bandit+Gitleaks). Tier 2 dedup (embeddings), Tier 3 live agent evaluation (Harbor, Docker).",
+      "integration_method": "dependency (isolated uv tool environment, [security] extra) invoked with validate --no-dedup --checks schema,pii,license,unicode,quality,lint -r json; adapted by reference/othmode/trust/normalize.js",
+      "status": "INTEGRATED",
+      "dependencies": [
+        "uv",
+        "Python 3.12-3.13",
+        "click, jinja2, markdown-it-py, pydantic, pyyaml, rich; bandit, pip-audit"
+      ],
+      "maintenance": "active: pushed 2026-09-03 (verified 2026-09-04)",
+      "security": "Tier 1 runs offline; the security check is not requested (SkillSpector runs directly) and code-integrity is not requested on this host (Semgrep absent -> INCOMPLETE)",
+      "othmode_usage": "Quality Gate of the Skill Security / Trust Gate (schema -> PII -> license -> unicode -> quality -> lint)",
+      "verified_at": "2026-09-04",
+      "verdict": "REUSE Tier 1 only. Tier 2 needs an embeddings provider; Tier 3 needs agent credentials + Docker/sandbox: deferred."
+    },
+    {
+      "name": "Gitleaks",
+      "source": "github",
+      "repository": "gitleaks/gitleaks",
+      "version": "v8.30.1 (linux_x64 release tarball, sha256 verified against the release checksums file)",
+      "license": "MIT",
+      "purpose": "Secret detection (API keys, tokens, private keys) over directories and files; JSON report with rule id, file, line, fingerprint.",
+      "integration_method": "binary at ~deploy/.local/bin/gitleaks, invoked as gitleaks dir <target> --report-format json --exit-code 9; adapted by reference/othmode/trust/normalize.js which drops Secret/Match/Line values",
+      "status": "INTEGRATED",
+      "dependencies": [],
+      "maintenance": "active: latest release 2026-03-21 (verified 2026-09-04)",
+      "security": "single static Go binary; no network; findings persisted as locations only",
+      "othmode_usage": "Secrets step of the Skill Security / Trust Gate; also what SkillEvaluator code-integrity would run",
+      "verified_at": "2026-09-04",
+      "verdict": "REUSE. Replaces any custom secret scanner (the MCC write-gate reference/secrets.js remains the last line on ledger writes)."
+    },
+    {
+      "name": "Semgrep",
+      "source": "pypi",
+      "repository": "semgrep/semgrep (PyPI semgrep)",
+      "version": "1.176.0 (not installed on this host)",
+      "license": "LGPL-2.1 (engine); rules under their own licences",
+      "purpose": "Static analysis for skill scripts inside SkillEvaluator code-integrity.",
+      "integration_method": "through SkillEvaluator only (never a custom static analyzer); enabled by installing semgrep and adding code-integrity to skillevaluator.checks in data/skill-trust-policy.json",
+      "status": "APPROVED",
+      "dependencies": [
+        "70 MB wheel; several hundred MB RSS at scan time"
+      ],
+      "maintenance": "active (verified 2026-09-04)",
+      "security": "policy packaged with SkillEvaluator, metrics disabled",
+      "othmode_usage": "deferred: VPS measured ~1 GB free with swap 4095/4095 full on 2026-09-04",
+      "verified_at": "2026-09-04",
+      "verdict": "DEFER on this host for memory reasons; no code change needed to enable later."
+    },
+    {
+      "name": "mcp-scan (three distinct projects)",
+      "source": "github/pypi/npm",
+      "repository": "rhilgenkamp/mcp-scan (fork) | snyk/agent-scan (upstream, ex invariantlabs-ai/mcp-scan; PyPI mcp-scan redirects to snyk-agent-scan 0.6.2) | npm mcp-scan 2.0.10 (Abanoub-Rodolf)",
+      "version": "fork: 0.4 (2026-02) | snyk-agent-scan 0.6.2 | npm 2.0.10",
+      "license": "Apache-2.0 | Apache-2.0 | MIT",
+      "purpose": "MCP server / skill scanning: tool poisoning, prompt injection in tool metadata, toxic flows, secrets, supply chain; proxy mode.",
+      "integration_method": "NOT integrated. The MCP trust layer (reference/othmode/trust/mcp.js) is built over the estate's own mcp-registry-check snapshot instead.",
+      "status": "REJECTED",
+      "dependencies": [],
+      "maintenance": "fork: 0 stars, stale since 2026-02-05 | snyk/agent-scan: 3k stars, active | npm: active (verified 2026-09-04)",
+      "security": "snyk/agent-scan sends tool descriptions and skill content to the Snyk analysis API and needs SNYK_TOKEN + account (README, verified 2026-09-04) - incompatible with the no-egress rule; npm mcp-scan is offline-capable but targets client config files, not an estate registry",
+      "othmode_usage": "none",
+      "verified_at": "2026-09-04",
+      "verdict": "REJECT the fork (stale) and snyk/agent-scan (egress + external account). DEFER npm mcp-scan: the one gap it would close - prompt injection inside live tool descriptions - is recorded as the next MCP phase in docs/OTHMODE_SKILL_TRUST.md section 9."
+    },
+    {
+      "name": "SkillGuard",
+      "source": "github/npm",
+      "repository": "RudrenduPaul/skillguard (npm skillguard-cli, PyPI skillguard-cli)",
+      "version": "0.2.4",
+      "license": "Apache-2.0",
+      "purpose": "Skill scanner with ten rule packs incl. cross-skill privilege chaining (scan-set) and marketplace typosquatting; CLI, library, MCP tool, GitHub Action.",
+      "integration_method": "none",
+      "status": "EVALUATING",
+      "dependencies": [],
+      "maintenance": "1 star, single maintainer, pushed 2026-09-03 (verified 2026-09-04)",
+      "security": "zero-auth, local; not audited here",
+      "othmode_usage": "none - evaluated only, per the SKILL-TRUST-0 mandate",
+      "verified_at": "2026-09-04",
+      "verdict": "DEFER. SkillSpector covers the single-skill surface today; revisit if cross-skill privilege analysis becomes a requirement (the one thing it does that SkillSpector does not)."
     }
   ],
-  "final_review": "2026-08-26 final Search First re-check: every manually built capability (evolution store, sessions, detectors, export) was re-searched against GitHub/PyPI/npm/MCP/Anthropic Skills; no maintained project matched the constraints (zero-dependency Node, fail-closed store semantics, no-exec runtime, GPL exclusion) better than the ~1.5k lines built — verdicts recorded per record above; no dependency added to inflate the registry."
+  "final_review": "2026-08-26 final Search First re-check: every manually built capability (evolution store, sessions, detectors, export) was re-searched against GitHub/PyPI/npm/MCP/Anthropic Skills; no maintained project matched the constraints (zero-dependency Node, fail-closed store semantics, no-exec runtime, GPL exclusion) better than the ~1.5k lines built — verdicts recorded per record above; no dependency added to inflate the registry. || 2026-09-04 SKILL-TRUST-0 Search First: skill/MCP security tooling re-searched (GitHub, PyPI, npm; NVIDIA first). Reused SkillSpector + SkillEvaluator Tier 1 + Gitleaks; deferred Semgrep (host memory) and SkillGuard; rejected the stale mcp-scan fork and snyk/agent-scan (data egress + external account). Built only adapters, a deterministic policy, content-bound ledgers and the executor gate (see docs/OTHMODE_SKILL_TRUST.md)."
 }

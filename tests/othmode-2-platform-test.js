@@ -336,10 +336,20 @@ function finishAsync() {
     ok(!/child_process|eval\s*\(|new\s+Function/.test(src), f + ' contains no exec/eval');
     ok(!/\.innerHTML\s*=|\.outerHTML\s*=|insertAdjacentHTML|document\.write/.test(src), f + ' never assigns markup from strings');
   });
-  fs.readdirSync(refDir).forEach(function (f) {
-    var src = fs.readFileSync(path.join(refDir, f), 'utf8');
-    ok(!/child_process|\beval\s*\(|new\s+Function/.test(src), f + ' contains no exec/eval');
-  });
+  // Recursive since SKILL-TRUST-0 added reference/othmode/trust/: the trust
+  // read model, policy engine and ledger writer are runtime modules and must
+  // be exec-free too. The scanner RUNNER lives outside this directory
+  // (projects/command-center/cli/lib/skill-trust-scan.js) precisely so this
+  // invariant keeps holding.
+  (function walk(dir) {
+    fs.readdirSync(dir, { withFileTypes: true }).forEach(function (d) {
+      var full = path.join(dir, d.name);
+      if (d.isDirectory()) return walk(full);
+      if (!/\.js$/.test(d.name)) return;
+      var src = fs.readFileSync(full, 'utf8');
+      ok(!/child_process|\beval\s*\(|new\s+Function/.test(src), path.relative(refDir, full) + ' contains no exec/eval');
+    });
+  })(refDir);
 
   runActivationTests();
 }

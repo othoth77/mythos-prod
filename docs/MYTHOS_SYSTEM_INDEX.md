@@ -512,6 +512,8 @@ Skills:
 + executor/config/skills.json
 ```
 
+Skill trust (SKILL-TRUST-0): every skill row carries `trust` — the verdict of NVIDIA SkillSpector + Gitleaks + NVIDIA SkillEvaluator through `projects/command-center/data/skill-trust-policy.json`, bound to the skill's sha256 in `projects/command-center/data/skill-trust.json` (dev) and `projects/mythos-ai-executor/config/skill-trust.json` (runtime; enforced by `lib/skills.js`). Overview: `GET /api/othmode/trust`; operator CLI `projects/command-center/cli/skill-trust-cli.js`; design `docs/OTHMODE_SKILL_TRUST.md`.
+
 Tools:
 
 ```text

@@ -45,6 +45,14 @@ process.env.MYTHOS_ADVISORY_KEY_FILE = path.join(FIXTURES, 'no-advisory-credenti
 // paths under pressure — is covered deterministically against fixture
 // /proc files in tests/resource-guard-test.js.
 process.env.MYTHOS_RESOURCE_GUARD = 'off';
+// SKILL-TRUST-0: the M-12 fixture registries below carry no trust
+// attestation (they are throwaway files), so the Security / Trust Gate in
+// lib/skills.js would refuse every one of them and the selection tests
+// would only ever see "no skill available". The gate is switched off for
+// THIS suite; its own behaviour — ledger, hash binding, STALE on change,
+// REVIEW/BLOCK exclusion, the bypass itself — is covered deterministically
+// in tests/skill-trust-test.js against fixture ledgers.
+process.env.MYTHOS_SKILL_TRUST = 'off';
 
 var executor = require(path.join(EXEC, 'executor'));
 var state = require(path.join(EXEC, 'lib', 'state'));
