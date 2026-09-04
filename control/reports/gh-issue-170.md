@@ -12,7 +12,7 @@
 | Runtime | `e3a19a3ad1c8` on `main` |
 | Model | `claude-fable-5-1` (explicit:fable-5.1 (requested "fable-5.1")) |
 | Branch | `mythos/gh/gh-issue-170` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ The repo-write side of #170 is done and committed: ops/whatsapp/evolution/{docke
 
 ## Commits
 
-- `e4fb2d99295c8ce1754fe6dd388cb3b0d41e1928` ops(whatsapp): owner-run provisioning kit for the private Evolution gateway (gh-issue-170) (awaiting relay)
+- `e4fb2d99295c8ce1754fe6dd388cb3b0d41e1928` ops(whatsapp): owner-run provisioning kit for the private Evolution gateway (gh-issue-170) (on origin)
 
 ## Files changed
 
@@ -36,7 +36,7 @@ The repo-write side of #170 is done and committed: ops/whatsapp/evolution/{docke
 
 - tests/whatsapp-gateway-verify-test.js: 24 passed, 0 failed (loopback stub; 0 non-GET requests; apikey header correct on every GET; key absent from all output)
 - node --check ops/whatsapp/evolution/verify.js: ok
-- docker-compose.yml YAML parse (yaml module): ok — loopback publish, Postgres unpublished, caps, ${EVOLUTION_API_KEY=[REDACTED]]} interpolation confirmed; `docker compose config` not run (requires approval)
+- docker-compose.yml YAML parse (yaml module): ok — loopback publish, Postgres unpublished, caps, ${EVOLUTION_API_KEY=[REDACTED]]]} interpolation confirmed; `docker compose config` not run (requires approval)
 - mythos-github-bridge notify-config (read-only): enabled false, provider evolution, 0 recipients, credential absent — unchanged
 - Gateway reachable from production: NOT MET (not deployable from this profile)
 - Credential/config validated: NOT MET (path outside sandbox; creation scripted, verifier checks mode only)

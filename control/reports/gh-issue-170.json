@@ -56,7 +56,7 @@
     "tests": [
       "tests/whatsapp-gateway-verify-test.js: 24 passed, 0 failed (loopback stub; 0 non-GET requests; apikey header correct on every GET; key absent from all output)",
       "node --check ops/whatsapp/evolution/verify.js: ok",
-      "docker-compose.yml YAML parse (yaml module): ok — loopback publish, Postgres unpublished, caps, ${EVOLUTION_API_KEY=[REDACTED]]} interpolation confirmed; `docker compose config` not run (requires approval)",
+      "docker-compose.yml YAML parse (yaml module): ok — loopback publish, Postgres unpublished, caps, ${EVOLUTION_API_KEY=[REDACTED]]]} interpolation confirmed; `docker compose config` not run (requires approval)",
       "mythos-github-bridge notify-config (read-only): enabled false, provider evolution, 0 recipients, credential absent — unchanged",
       "Gateway reachable from production: NOT MET (not deployable from this profile)",
       "Credential/config validated: NOT MET (path outside sandbox; creation scripted, verifier checks mode only)",
@@ -97,13 +97,13 @@
       "sha": "e4fb2d99295c8ce1754fe6dd388cb3b0d41e1928",
       "subject": "ops(whatsapp): owner-run provisioning kit for the private Evolution gateway (gh-issue-170)",
       "branch": "mythos/gh/gh-issue-170",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
     "tests/whatsapp-gateway-verify-test.js: 24 passed, 0 failed (loopback stub; 0 non-GET requests; apikey header correct on every GET; key absent from all output)",
     "node --check ops/whatsapp/evolution/verify.js: ok",
-    "docker-compose.yml YAML parse (yaml module): ok — loopback publish, Postgres unpublished, caps, ${EVOLUTION_API_KEY=[REDACTED]]} interpolation confirmed; `docker compose config` not run (requires approval)",
+    "docker-compose.yml YAML parse (yaml module): ok — loopback publish, Postgres unpublished, caps, ${EVOLUTION_API_KEY=[REDACTED]]]} interpolation confirmed; `docker compose config` not run (requires approval)",
     "mythos-github-bridge notify-config (read-only): enabled false, provider evolution, 0 recipients, credential absent — unchanged",
     "Gateway reachable from production: NOT MET (not deployable from this profile)",
     "Credential/config validated: NOT MET (path outside sandbox; creation scripted, verifier checks mode only)",
@@ -176,7 +176,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-170",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-04T21:09:20.937Z"
   }
 }
