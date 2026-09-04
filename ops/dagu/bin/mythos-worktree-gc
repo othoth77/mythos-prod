@@ -44,7 +44,11 @@ PRIMARY=$(g rev-parse --show-toplevel)
 row() { printf '{"path":"%s","branch":"%s","decision":"%s","reason":"%s"}\n' "$1" "$2" "$3" "$4"; }
 # cwds of THIS user's processes, read once per run (foreign users' cwds are
 # unreadable anyway, and walking all of /proc can block on a stuck mount)
-CWDS=$(ls -ld $(ps -u "$(id -u)" -o pid= 2>/dev/null | sed 's|.*|/proc/&/cwd|') 2>/dev/null | sed -n 's/.* -> //p')
+# `ps -o pid=` right-aligns pids to the column width (7 on a pid_max=4194304
+# host): the padding must go, or every pid shorter than the width becomes a
+# path with a space that `ls` cannot resolve — and an in-use worktree is then
+# reported SAFE_MERGED_UNUSED (found by GH #161's suite run, 2026-09-04).
+CWDS=$(ls -ld $(ps -u "$(id -u)" -o pid= 2>/dev/null | tr -d ' ' | sed 's|.*|/proc/&/cwd|') 2>/dev/null | sed -n 's/.* -> //p')
 in_use() { # a same-user process has its cwd inside the path
   local c; while IFS= read -r c; do
     [ -n "$c" ] || continue

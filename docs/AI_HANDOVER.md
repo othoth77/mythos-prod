@@ -1,5 +1,15 @@
 # AI Handover
 
+## EXEC-ARCH-0 reconciliation — PR #159 carries #161, rebased on main, worktree-GC pid bug fixed (2026-09-04, Fable 5.1)
+
+| Item | State |
+|---|---|
+| Branch | `mythos/execution-architecture-20260904` (PR #159) fast-forwarded to `425fe52` (= `mythos/gh/gh-issue-161`, the approval_ref verification + its handover), then merged with `origin/main` `b7b1382` as `75f8832` (only `docs/AI_HANDOVER.md` conflicted; both sides kept). PR #159 is therefore the single review unit for EXEC-ARCH-0 **and** #161. |
+| Bug found while re-running the suite | `ops/dagu/bin/mythos-worktree-gc` built its same-user cwd list from `ps -o pid=` without stripping the column padding, so every pid shorter than the pid width (7 digits on this host) became `/proc/ 12345/cwd`, unresolvable, and an **in-use worktree was reported `SAFE_MERGED_UNUSED`**. It only passed when the child pid happened to be 7 digits wide (as in the #161 executor run). Fixed with `tr -d ' '` (one line). The IN_USE test now also waits for the spawned child to actually reach the worktree before scanning, so it cannot pass or fail on a fork/chdir race. |
+| Tests | `tests/dagu-maintenance-test.js` as deploy, offline: **31/0** (was 30/1 = the IN_USE case, reproducible with a 5-digit pid; 22-test baseline on `6b5a94b` shows the same class). `open-source-registry.json` parses after the auto-merge. |
+| Production | **NOT TOUCHED** — no restart, no service/timer installed, no marker created, no Dagu run. The merged `main` is still only what the relay pushes; the shared checkout stays on `5b995e9` until the owner fast-forwards it. |
+| Next human action | Review + merge PR #159 (Human Merge). Then, separately and only after approval: install Dagu as a deploy-user service per `ops/dagu/README.md`; the first real executor restart needs a GRANTED `hostops:executor.restart` approval via `ops/dagu/bin/mythos-restart-approval`. |
+
 ## EXEC-ARCH-0 follow-up — `approval_ref` is verified, not trusted (GitHub issue #161, 2026-09-04)
 
 **Objective.** Close the governance gap found in PR #159 before merge: Dagu's `executor-restart` flow must not treat the presence of an arbitrary `approval_ref` string as authorisation to restart the Executor. Focused follow-up — the architecture (`GitHub → Bridge → OTHMODE → Claude Code → PR → human merge`, Dagu as the scheduler for recurring maintenance) is unchanged and was not redesigned.

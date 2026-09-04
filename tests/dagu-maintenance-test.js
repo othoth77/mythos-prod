@@ -252,6 +252,16 @@ t('worktree-gc: a worktree that is a same-user process cwd is IN_USE', function 
   var wt = path.join(TMP, 'wt3'); git(CO, ['branch', '-m', 'other/x', 'mythos/gh/gh-issue-3']);
   var child = cp.spawn('sleep', ['30'], { cwd: wt, stdio: 'ignore' });
   try {
+    // spawn() returns before the child has chdir'ed; under host load the GC's
+    // /proc scan can run first and see no cwd inside wt. Wait for the child to
+    // actually sit in the worktree before scanning (bounded, ~5 s).
+    var want = fs.realpathSync(wt), deadline = Date.now() + 5000, seen = null;
+    while (Date.now() < deadline) {
+      try { seen = fs.readlinkSync('/proc/' + child.pid + '/cwd'); } catch (e) { seen = null; }
+      if (seen === want) break;
+      cp.spawnSync('sleep', ['0.05']);
+    }
+    assert.strictEqual(seen, want, 'child process never reached cwd ' + want);
     var rows = lines(sh('"' + GC + '" "' + CO + '" --no-fetch --min-age-hours 0', { env: ENV }).out);
     var row = rows.filter(function (r) { return r.branch === 'mythos/gh/gh-issue-3'; })[0];
     assert.strictEqual(row.reason, 'IN_USE');
