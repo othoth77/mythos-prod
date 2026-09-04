@@ -10,7 +10,7 @@
   "action_raw": "implementation",
   "action_source": "action_label",
   "validation_requirements": [],
-  "status": "IN_PROGRESS",
+  "status": "COMPLETED",
   "created_at": "2026-09-04T17:12:50.515Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #161 https://github.com/othoth77/mythos-prod/issues/161 — \"Close EXEC-ARCH-0 approval_ref validation gap\"\n\nrequested_action: implement — source action_label (written as \"implementation\") → execution profile repo-write\n\n[required behavior]\nThe restart path must fail closed unless `approval_ref` is a genuine, valid OTHMODE/Governance approval for the requested Executor restart.\n\nAt minimum, validation must establish that the approval reference:\n- was actually issued by the authoritative OTHMODE/Governance approval mechanism;\n- is valid and applicable to this specific restart action;\n- has not been revoked, expired, consumed, or otherwise become invalid;\n- cannot be satisfied by an arbitrary/fake string such as `APP-FAKE`.\n\nThe existing architecture must remain unchanged:\n`GitHub → Bridge → OTHMODE → Claude Code → PR → Human Merge`, with Dagu remaining the scheduler for recurring maintenance. Do **not** introduce a second governance system or redesign OTHMODE.\n\n[implementation constraints]\n- Keep the change minimal and focused on approval validation.\n- Reuse the existing OTHMODE/Governance approval/verifier mechanism if one already exists.\n- Do not weaken existing Resource Guard, running-task, drift, or restart safety gates.\n- Do not restart the production Executor during implementation.\n- Do not install/enable new services or timers as part of this task.\n- No real WhatsApp/provider calls.\n- No destructive Git operations (`reset --hard`, `git clean`, forced deletion, etc.).\n\n[tests / acceptance criteria]\nAdd or update tests proving at least:\n1. valid OTHMODE approval → restart plan is authorized;\n2. missing `approval_ref` → rejected;\n3. malformed/fake `approval_ref` → rejected;\n4. approval for another action/task → rejected;\n5. expired/revoked/consumed approval → rejected (where supported by the existing approval model);\n6. invalid approval cannot reach `systemctl --user restart mythos-ai-executor.service`;\n7. existing restart safety gates still pass/fail as before.\n\nRun the focused governance/restart/Dagu tests plus relevant regression tests.\n\n[delivery]\n- Work from current `main` and create a dedicated branch.\n- Commit and push through the sanctioned relay/governed workflow only.\n- Open a PR targeting `main`; do not merge it.\n- Update `docs/AI_HANDOVER.md` with: task ID, commit SHA, tests/results, files changed, security/governance conclusion, and next step.\n- Clearly state that production was not restarted or otherwise mutated.\n\n[simple explanation]\nThink of `approval_ref` as a key to restart the Executor. PR #159 currently appears to check only that someone handed Dagu a key-shaped label. This task makes Dagu ask the real authority (OTHMODE/Governance): “Is this key genuine and valid for this restart?” Only a confirmed answer may unlock the restart.\n\n[relation]\nThis task is a focused follow-up to PR #159 (`EXEC-ARCH-0`) and must not redesign or supersede the architecture.",
@@ -147,8 +147,8 @@
     "claimed_at": "2026-09-04T17:12:54.664Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "5352db3000f907861183489ae65ebd0cf11a22e4318f1bd9f3b7f7b841f38d75",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-04T18:16:35.904Z",
+    "executor_status": "COMPLETED",
+    "updated_at": "2026-09-04T18:54:16.254Z",
     "snapshot_sha256": "a4ce33f0344419b5552ab287d7676b5d5e938c66a88aecda1e0b5fa48c96af7d",
     "fence": 4398,
     "lease": {
@@ -179,7 +179,8 @@
     },
     "model": "claude-opus-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "3201bebd-8ffa-4e6e-ad38-6c14aaa3d408"
+    "claude_session_id": "3201bebd-8ffa-4e6e-ad38-6c14aaa3d408",
+    "report_file": "control/reports/gh-issue-161.json"
   },
   "history": [
     {
@@ -202,6 +203,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "LEASE_EXPIRED: claim lease 2026-09-04T18:42:54.664Z passed 1 min ago while the executor reports RUNNING (retry_at 2026-09-04T18:14:26.243Z) — the attempt is not re-claimed or re-run; the executor owns its recovery"
+    },
+    {
+      "at": "2026-09-04T18:54:14.340Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended COMPLETED; building report"
+    },
+    {
+      "at": "2026-09-04T18:54:16.254Z",
+      "from": "VALIDATING",
+      "to": "COMPLETED",
+      "by": "github-bridge",
+      "note": "report written (3 commit(s), 10 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
