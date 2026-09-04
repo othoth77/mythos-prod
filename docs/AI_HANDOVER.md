@@ -20,6 +20,94 @@ grounds. **"WhatsApp is down" turned out to be four independent causes, three of
 | Docs | New `docs/MYTHOS_WHATSAPP_PROVIDER_STRATEGY.md` (root-cause split, measured resource reality, candidate evaluation with the unverified parts marked as unverified, the decision, the delivered hardening, and the 7-step gate before any provider is deployed or replaced). `docs/MYTHOS_BRIDGE_WHATSAPP_NOTIFY.md` updated (§3.6 generic adapter, §4 config table, §4.2 the F2 defect, §6.1–6.3, §7 CLI, §8 both suites, §10 risks). Open Source Registry record updated: verdict unchanged, `wa-evolution` recorded as still unverified. |
 | Next stage | Owner decision, in this order: 1) review and merge this branch; 2) install the gh-issue-144 session guard and re-measure swap; 3) a **networked** session to live-verify `wa-evolution` / WAHA per §6 of the strategy doc; 4) only then deploy a gateway, drive it through `generic` against a local recorder, and run `notify-test --confirm` once. No auto-merge, no automatic production deployment. |
 
+## EXEC-LIFECYCLE-0 — MYTHOS Execution Lifecycle: task / execution / session correlated, VPS + PC (2026-09-04)
+
+**Objective.** Stop treating "a `ccd-cli` process exists" as "a Claude session is working" and "a GitHub
+report exists" as "the session closed". Make MYTHOS able to state, for any unit of work, the TASK state
+(GitHub truth), the EXECUTION state (who/where/attempt), the SESSION state (is the agent process alive,
+mid-turn or idle) and the GitHub evidence — linked `Issue → control task → execution_id → agent → session_id
+→ PID` — and turn the Session Guard from a process counter into a lifecycle-aware guard, for Claude on the
+VPS and Claude on a PC under one model. Design: `docs/MYTHOS_EXECUTION_LIFECYCLE.md`; guard delta:
+`docs/MYTHOS_SESSION_GUARD.md` §11.
+
+**Measured before changing anything (read-only, 2026-09-04 08:0x UTC).** 18 agent-class processes: 14
+Desktop Remote sessions whose transcripts ended with `end_turn` days ago (2.5 GiB), 1 ACTIVE (this
+session), 3 UNKNOWN (executor daemon + helpers). The gh-issue-144 guard (installed, observe mode) vetoed all
+14 as `recent_activity` on every tick: an idle `ccd-cli` burns ~2.5 % CPU so the CPU-tick idle clock never
+clears. Claude Code keeps its own per-pid registry (`~/.claude/sessions/<pid>.json`: sessionId, procStart,
+cwd) and the transcript's last main-line record says running (`tool_use`) vs idle (`end_turn`); the
+installed ccd-cli 2.1.260 carries SessionStart/Stop/SubagentStop/TaskCompleted/SessionEnd hooks.
+
+| Item | State |
+|---|---|
+| Branch | `mythos/execution-lifecycle-20260904` over `5482db8` (`origin/main`), worktree `/home/deploy/worktrees/execution-lifecycle`. Delivery by the governance relay; **not merged, no auto-merge**. |
+| New | `projects/mythos-ai-executor/lib/lifecycle/{model,registry,runtime-vps,runtime-pc,correlate,verify,cleanup,index}.js`; `bin/mythos-lifecycle`; `ops/lifecycle/{claude-lifecycle-hook.js,claude-settings-hooks.example.json,mythos-pc-agent.js,install-lifecycle-hooks.sh,README.md}`; `docs/MYTHOS_EXECUTION_LIFECYCLE.md`; `tests/mythos-lifecycle-test.js` |
+| Changed | `executor.js` (emits EXECUTION_CREATED/DISPATCHED, SESSION_STARTED with pid+start ticks, SESSION_END with process-gone proof, TASK_COMPLETED, REPORT_SUBMITTED for non-bridge tasks, EXECUTION_FAILED; `lifecycle.tick()` in the daemon step; `lifecycleStatus()`), `bridge/github-bridge.js` (task link at claim: issue/control id/OTHMODE id; REPORT_SUBMITTED in `finishTask`), `server.js` (`GET /lifecycle`, `/lifecycle/host`, `/lifecycle/{executions,sessions,tasks}/<id>`; `POST /lifecycle/events` bearer+HMAC relay ingest, evidence-only; `GET/POST /lifecycle/outbox/PC[/ack]`), `lib/session-guard.js` (registry consult: `lifecycle_execution_active` / `lifecycle_human_review` fences, rule 2b `lifecycle_close_requested`; transcript-turn idle clock from the host snapshot), `ops/session-guard/mythos-session-guard-run.js` (snapshot before plan, written to `/var/lib/mythos/lifecycle/host-sessions.json`), `.service` (`ReadWritePaths=/var/lib/mythos/lifecycle`), `install-session-guard.sh` (installs `runtime-vps.js`, creates the directory), `tests/session-guard-test.js` (runner dependency contract now allows the optional sibling), `docs/MYTHOS_SESSION_GUARD.md` §11 |
+| Untouched | the task state machine (`lib/state.js`), the bridge's control protocol and schemas, OTHMODE, the Issues adapter, providers, the executor HTTP contract for existing routes. Every lifecycle call in executor/bridge is best-effort (`emit()` never throws). |
+| Tests | `tests/mythos-lifecycle-test.js` **254/0** (25 scenarios + executor/bridge/HTTP/hook/runner/PC/CLI integrations; synthetic /proc + synthetic `~/.claude`; injected killFn — no real signal). Unchanged suites green in the worktree: executor 390/0, session-guard 277/0, github-bridge 150/0, github-issues 193/0, action-resolution 88/0, whatsapp-notify 131/0, push-guard 23/0, bridge-timer 16/0, resource-guard 91/0. Full suite not rerun (unrelated modules untouched). |
+| Live proof (read-only) | `mythos-lifecycle host` on this VPS: 14 IDLE / 1 ACTIVE / 3 UNKNOWN, all bound pid↔uuid with verified start ticks. Updated root runner in observe mode with scratch state: `turn_idle_seconds` 2 586–177 309 s on 14 sessions, plan = SIGTERM for 3 (`idle_source: transcript_turn`), running session effective idle 0, **nothing applied**. |
+| Installed / enabled | **Nothing.** Hooks not wired, registry directory not created for production, guard runner not re-installed, cleanup marker absent, no relay secret. The executor daemon will start emitting into `~deploy/mythos-ai-executor/lifecycle/` after a merge + restart (best-effort, dry-run cleanup). |
+
+**How it works, in one screen.** Executor/bridge/hooks emit events → `registry.ingest` (idempotent, atomic,
+ledgered) → reducer keeps TASK / EXECUTION / SESSION separate → `REPORT_SUBMITTED` puts the execution in
+VERIFYING and `verify.js` *looks* at the session through its runtime (VPS: `/proc` identity + Claude's
+`sessions/<pid>.json` + transcript turn; PC: relayed state aged by heartbeat) → `COMPLETED + SESSION_OPEN`
+is a first-class state re-checked with 1m/2m/5m/15m/30m/1h backoff → `cleanup.js` walks OBSERVE → ELIGIBLE
+→ GRACE → CLOSE_REQUESTED → VERIFYING → CLOSED only for linked, reported, non-active, transcript-idle
+sessions (dry-run until `cleanup.enabled`; force kill off by policy; failure → HUMAN_REVIEW) → the root
+Session Guard, which alone holds CAP_KILL, applies SIGTERM for `CLOSE_REQUESTED` sessions and uses the
+transcript-turn clock for unlinked ones, under all its existing fences. `recover()` turns a vanished pid
+into UNKNOWN (never FAILED), catches up from the executor's record, and marks superseded attempts.
+
+**Owner steps (in order).** 1 `sudo bash ops/lifecycle/install-lifecycle-hooks.sh` · 2 `sudo bash
+ops/session-guard/install-session-guard.sh` (re-installs runner + `runtime-vps.js`, unit change) · 3 as deploy:
+`systemctl --user restart mythos-ai-executor` after the merge · 4 watch `mythos-lifecycle status|host|cleanup plan`
+and `journalctl -u mythos-session-guard` · 5 `touch ~deploy/mythos-ai-executor/lifecycle/cleanup.enabled` and the
+guard's own marker when satisfied · optional PC agent per `ops/lifecycle/README.md`. Rollbacks: remove the markers,
+`MYTHOS_LIFECYCLE_CLEANUP=off`, `/usr/local/lib/mythos-lifecycle/unwire.js`, or revert the commit.
+
+**Not done / limits.** No hook is live yet, so today's Desktop Remote sessions are correlated only via
+Claude's own registry + transcripts (host view / snapshot) and not linked to executions; the PC agent is a
+reference implementation exercised offline; `gh` is not installed on the host so the PR is an owner step
+(command in the final report); the Issues adapter's comment is not a separate report event.
+
+**Next stage.** Owner review + merge → install steps 1–3 → 2–3 days of observe → enable cleanup, then the
+guard marker → PC agent pilot behind an SSH tunnel with `allow_close:false` first.
+
+## gh-issue-142 — gh-issue-128 reconciled by evidence: the governed READ path is live (2026-09-03)
+
+**Objective (GitHub Issue #142).** Finish whatever remained of #128 — but only after checking whether HOSTOPS-2R
+(#130) and HOSTOPS-2R-FIX (#132) already closed it, instead of re-running work already done.
+
+| Item | State |
+|---|---|
+| Prior state | #128 (attempt 1) reported **BLOCKED**: the required single live `POST /hostops/run {operation:health}` call returned `HOSTOPS_UNAVAILABLE` because the HOSTOPS-1 sudo boundary can never work under the executor's `NoNewPrivileges=true`. #130 (HOSTOPS-2R, `8c8ab41`, **merged to main**, confirmed ancestor of current `origin/main` `ff9f71b`) fixed the design with a root socket-activated daemon outside the executor's process tree. #132 (HOSTOPS-2R-FIX, `eebb4b1`, delivered on `mythos/gh/gh-issue-132`, **not yet merged to main**) fixed the one remaining production gap: `usermod -aG` alone never refreshes an already-running `systemd --user` manager's groups, so `deploy`'s manager needed `user@<uid>.service` restarted before the socket was reachable. |
+| Live re-verification (this task) | `id deploy` on the live host now shows group `mythos-hostops` (1003) present — the group-refresh gap #132 diagnosed is already applied on this host. One live `POST /hostops/run {operation:health}` call was made through the running `mythos-ai-executor.service` (127.0.0.1:8130, bearer token read locally from the 0600 `executor.env`, never printed or persisted): **`ok:true`, `operation: host.health.check`, `class: READ`, `audit_id: hostops-mtlx0zuw-284786`, `hostops_exit: 0`**. This is the exact deliverable #128 asked for, now proven against the code currently on `origin/main` plus the host's already-applied group-refresh state. No WRITE/RESTART/DEPLOY verb was invoked; class-based refusal of those verbs is structurally enforced and covered by the passing suites below. |
+| Reconciliation | **#128 is evidence-closable.** Nothing needed re-implementing — the fix already exists on `origin/main` (#130) and the one missing production-activation step (#132's group refresh) is already in effect on the live host, even though #132's branch itself is not yet merged. Merging #132 to main is an owner decision, unchanged by this task. |
+| Tests (as deploy, this worktree, no code changed) | `tests/mythos-hostops-executor-test.js` **36/0** · `tests/mythos-hostops-test.js` **39/0, 2 skipped** · `tests/mythos-hostops-daemon-test.js` **14/0** · `tests/dagu-hostops-allowlist-test.js` **7/0**. |
+| Files changed | `docs/AI_HANDOVER.md` only (this entry). No code, no `control/`, no protected path. |
+| Owner action still open | Merge `mythos/gh/gh-issue-132` to main so the group-refresh script and its docs are not left stranded on a branch while already active in production. |
+## HOSTOPS-2R-FIX — the group-membership activation gap closed (GitHub issue #132, 2026-09-03)
+
+**Objective.** HOSTOPS-2R's own activation instructions said `deploy`'s new
+`mythos-hostops` group membership "needs a fresh login session (or restart the executor's
+user manager)" — that turned out to be the actual production blocker. Live symptoms:
+`deploy` was already listed in `getent group mythos-hostops`, the socket was `0660
+root:mythos-hostops` and listening, `mythos-ai-executor.service` had been restarted on the
+new code, yet `/hostops/run` still hit `EACCES` on `/run/mythos-hostops/hostops.sock`. A
+manual `SupplementaryGroups=mythos-hostops` drop-in on the executor unit made it worse:
+`status=216/GROUP` (systemd.exec(5): that directive has no effect on `--user` units, whose
+manager lacks `CAP_SETGID`). That drop-in was removed before this fix; it is never
+reintroduced.
+
+| Item | State |
+|---|---|
+| Branch | `mythos/gh/gh-issue-132` over `85cbf90` (`origin/main`). Delivery by the governance relay; **not merged**. |
+| Root cause | `usermod -aG mythos-hostops deploy` edits `/etc/group` only — it does not update the supplementary groups of any already-running process, including `user@<uid>.service` (the root system unit that forks `deploy`'s `systemd --user` manager and everything under it). Restarting `mythos-ai-executor.service` alone restarts a *child* of that still-stale manager, so it inherits the old group list, not a fresh read of `/etc/group`. |
+| Fix | New `ops/hostops/refresh-group-membership.sh`, called by `install-hostops.sh` right after the `usermod -aG` calls. Restarts `user@<uid>.service` (root, system-unit territory) for any user whose manager is already active — a fresh `systemd --user` fork re-reads `/etc/group` at that moment. Idempotent/non-disruptive: a user with no active manager (fresh install, or `dagu`, a nologin system account) is simply skipped, not an error. No socket unit, daemon, helper, or adapter code touched; `NoNewPrivileges=true` on the executor untouched. |
+| Tests | `tests/mythos-hostops-group-refresh-test.js` (new, **10/0**): the script run against a stub `systemctl`/`id` (no root/systemd needed) proves an active manager is restarted and an inactive one is left alone; asserts no unit file in the tree declares `SupplementaryGroups=`; asserts `NoNewPrivileges=true` is unchanged; asserts the installer wires the refresh in after group grant, for both `deploy` and `dagu`. All prior HostOps suites re-verified green: daemon 14/0, executor adapter 36/0. |
+| Owner activation | Re-run `sudo bash ops/hostops/install-hostops.sh` on the already-installed host — idempotent, now includes the group refresh, so no logout/login/reboot is required. Then `systemctl --user restart mythos-ai-executor` (as `deploy`) and verify per `docs/MYTHOS_HOSTOPS_INTERFACE.md` HOSTOPS-2R-FIX addendum. |
+| Not done (by session) | No root install performed from this execution session — the installer/systemd/group changes are owner-only per this repository's rules, and this session cannot touch the live VPS. |
 ## SESSION-GUARD-1 — Claude Desktop Remote session lifecycle guard (GitHub issue #144, 2026-09-03)
 
 **Objective.** Stop the unbounded accumulation of Claude Desktop Remote sessions on this VPS and
@@ -44,6 +132,28 @@ bounds.
 | Not done (by design) | No install performed (root systemd + `/usr/local` are owner-only). **No existing session terminated** — the issue forbids it before guard, tests and rollback exist, and all three now do. No change to the Resource Guard, Governance, the Bridge, OTHMODE or any production service. No `git add .`; no auto-merge. `ops/oom/` untouched. |
 | Separate note (not this task's scope) | The executor's `Failed at step GROUP` journal note is **not** part of this lifecycle problem: those sessions are root-owned children of the Desktop Remote server, entirely outside `mythos-ai-executor.service`. Recorded here only so it is not lost; it needs its own issue. |
 | Owner activation (in order) | 1) merge this branch through review; 2) `sudo bash ops/session-guard/install-session-guard.sh`; 3) watch `journalctl -u mythos-session-guard.service -f` and `/var/lib/mythos-session-guard/session-guard.jsonl` for several hours in observe mode and confirm the planned targets and veto reasons look right for this host; 4) `touch /var/lib/mythos-session-guard/session-guard.enabled`; 5) optionally, as a separate decision, install `ops/session-guard/user-0.slice.d/memory.conf`. |
+
+
+## gh-issue-140 — Status Center recuration completing the gh-issue-95 audit (2026-09-03)
+
+**Objective (GitHub Issue #140).** The gh-issue-95 audit had found the Status Center's registry stale and its
+discovery path blind to this repository's own `projects/*` directories, but never implemented a fix — only
+investigated. This stage does the actual implementation: GitHub-verified evidence only, no invented percentage
+or status, "smallest coherent change" over "rebuild what already works" (`lib/engine.js`/`lib/model.js`/the site UI
+were sound and are extended, not replaced).
+
+| Item | State |
+|---|---|
+| Branch | `mythos/gh/gh-issue-140` over `ff9f71b` (`origin/main`). Delivery is the governance relay (`mythos-git-push.timer`, fast-forward only); **never pushed directly, never merged to main.** |
+| Stale entry fixed | `PROJECT-AI-ORCHESTRATION` had read "v1 COMPLETE AND CLOSED 2026-08-19" for ten days and roughly a dozen delivered bridge/executor stages (GitHub Issues intake, model-selection policy, Resource Guard, bridge retry/quota policy, the HostOps read-only boundary — HOSTOPS-2R above, all real, all tested, all on unmerged branches) without the registry entry moving at all. It now states both facts plainly: v1 is still closed as scoped (unchanged), AND the same component has kept evolving since (new evidence `EV-AI-ORCH-EVOLUTION-0903`, plus two independently git-verifiable merged commits `EV-BRIDGE-PUSH-GUARD-COMMIT` `b9a1e6c` and `EV-BRIDGE-TIMER-ONESHOT-COMMIT` `cc41fd7`). No percentage changed — a new `post_v1_evolution` dimension carries a status only (`IN_PROGRESS`), not an invented number. |
+| Missing projects added | Listed every `projects/*` directory (21) and checked which ones no existing project's purpose/evidence text actually covered: 17 already did (confirmed against `git log` and each project's own purpose text — e.g. `mythos-core` is the ID Auto contracts boundary, `personal-intelligence` is `PROJECT-OTH-MASTER`, `meta` supplies `PROJECT-DEVX`'s stage-runner/ledger data). 4 did not: **`mythos-gateway`, `mythos-orchestrator`, `mythos-vault`, `oth-mcp`** — real, tested, partially-deployed components with zero registry entry. Added as `PROJECT-MYTHOS-GATEWAY`, `PROJECT-MYTHOS-ORCHESTRATOR`, `PROJECT-MYTHOS-VAULT`, `PROJECT-OTH-MCP`, each cited against `docs/MYTHOS_MCP_ECOSYSTEM.md` (the existing, detailed MCP-ECOSYSTEM-1 record) and a freshly re-run test suite, not an assumed one. Every project (old and new) now also carries a `directories` field recording which `projects/*` path(s) it accounts for, making the mapping explicit instead of implicit. |
+| Monorepo discovery added | `discoverRepositories` only ever compared GitHub account repositories — structurally blind to a new directory added under this repo's own `projects/`. New `lib/engine.js` `discoverMonorepoProjects(repoRoot, registryProjects)`: lists `projects/*` on disk (fs only, no git, no network), diffs against the union of every project's `directories`, and reports any unclaimed directory as a discovery requiring classification — the same non-silent guarantee `discoverRepositories` already gives GitHub repos. Wired into `runReview` as `snapshot.monorepo_discovery` and printed by `bin/review.js`. Against the real repository right now: 21 directories checked, 0 unclaimed. `lib/model.js` gained matching validation for the new `directories` field (must be an array of `"projects/..."` strings). |
+| Simplify-display assessment | Inspected `assets/app.js` before changing anything: `curation_note` (the multi-paragraph internal curator log) is **never rendered** on the site at all, and every per-evidence `note` is shown only as a hover `title` attribute on a small chip, never dumped inline. The "hide old technical detail, keep operational info" requirement is therefore already substantially met by the existing design; no UI rebuild was made without evidence of a problem. The one concrete UI change is additive: Arabic one-line labels for the 4 new projects, following the exact existing `AR.projects` convention (missing keys already degrade gracefully to no Arabic line, never a crash — verified by `stc-ar` before and after). |
+| Review run for real | `node projects/status-center/bin/review.js` executed (not a dry run): **REVIEW-2026-09-03-001**, 27 projects (was 23), 109 evidence items (77 verified here, 32 RECORDED, **0 NOT_VERIFIED**), 0 new monorepo discoveries, 1 pre-existing unclassified GitHub-repo discovery (`othoth77/spy`, carried over from the 2026-09-02 refresh, still requires an owner classification decision — not something this environment can resolve without a network-verified look at that repo's content). Published to `sites/status.mythosprod.xyz/data/current.json`, `reviews-index.json` (23 snapshots), `health.json`, and the new immutable `reviews/2026/2026-09-03-review-001.json`. Verified after writing: `current.json` carries all 4 new projects and the corrected `PROJECT-AI-ORCHESTRATION.last_change`; `health.json` `repository_head` matches `git rev-parse HEAD`. |
+| Tests | `tests/stc-1-status-center-test.js` **81/0** (was 73; +8 assertions for `discoverMonorepoProjects` and the `directories` validation) · `tests/stc-2-monitor-test.js` **86/0** (unchanged, confirms monitor/live-panel untouched) · `tests/stc-ar-arabic-layer-test.js` **50/0** (before and after the 4 new Arabic labels) · `tests/gateway-boundary-test.js` **37/0** (re-run fresh) · `tests/othk-6-mcp-server-test.js` **58/0** (re-run fresh) · `tests/mcp-ecosystem-test.js` **168/0** (re-run fresh, covers the Vault inventory stat-only check) · `node --check` on every changed `.js` · registry `JSON.parse` + `model.validateRegistry` clean (0 errors). `tests/mythos-orchestrator-0-test.js` (156/0) and `tests/mythos-orchestration-core-test.js` (255/2, the 2 being documented pre-existing VPS-only systemd checks) were **not** re-run — attempted, exceeded this sandbox's command timeout; reused as a prior recorded result since `projects/mythos-orchestrator/` has no commit since 2026-08-15 (AGENTS.md §8: reuse only when the tested code and base commit are unchanged). |
+| Not done, honestly | No live VPS/HTTPS re-verification of `status.mythosprod.xyz` from this environment (no network egress here); publication was verified locally against the repository's own site files only, exactly like the 2026-09-02 discovery-refresh entry before it. The `othoth77/spy` discovery stays unclassified. No GitHub API refresh of `repo-snapshot.json` was attempted (network calls are gated in this sandbox); it is unchanged since 2026-09-02 and still current as far as this session can tell. Deployment to the VPS is a separate, explicitly out-of-scope owner action (`scripts/deploy-status-center.sh`). |
+| Files | changed: `projects/status-center/data/registry.json`, `lib/engine.js`, `lib/model.js`, `bin/review.js`, `sites/status.mythosprod.xyz/assets/app.js`, `docs/ROADMAP.md`, this file; regenerated by the real review run: `sites/status.mythosprod.xyz/data/current.json`, `data/reviews-index.json`, `health.json`; new immutable: `sites/status.mythosprod.xyz/reviews/2026/2026-09-03-review-001.json`; test: `tests/stc-1-status-center-test.js`. No protected path touched — nothing under `control/`, no service/policy/budget file, no `.env`, no credential-shaped string (the Vault/MCP evidence added here is metadata/reference only, matching the existing `EV-MCP-ECOSYSTEM-DOC` convention). |
+| Next stage | Owner: classify `othoth77/spy` in the registry; decide the accumulated unmerged branches named in `EV-AI-ORCH-EVOLUTION-0903`; when ready, deploy this review via `scripts/deploy-status-center.sh` to replace the stale live snapshot. |
 
 ## HOSTOPS-2R — Executor → HostOps fixed to a Unix socket boundary (GitHub issue #130, 2026-09-03)
 

@@ -1,0 +1,13 @@
+{
+  "_comment": "MYTHOS Execution Lifecycle — Claude Code hook wiring. Merge the `hooks` object into the Claude settings of the account that runs the sessions (VPS: /root/.claude/settings.json for Desktop Remote sessions, /home/deploy/.claude/settings.json for the executor's `claude -p`; PC: %USERPROFILE%\\.claude\\settings.json or ~/.claude/settings.json). install-lifecycle-hooks.sh does this merge on the VPS. The hook only spools a small JSON event; it never blocks Claude and exits 0 on every path.",
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "node /usr/local/lib/mythos-lifecycle/claude-lifecycle-hook.js", "timeout": 5 }] }],
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "node /usr/local/lib/mythos-lifecycle/claude-lifecycle-hook.js", "timeout": 5 }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "node /usr/local/lib/mythos-lifecycle/claude-lifecycle-hook.js", "timeout": 5 }] }],
+    "SubagentStop": [{ "hooks": [{ "type": "command", "command": "node /usr/local/lib/mythos-lifecycle/claude-lifecycle-hook.js", "timeout": 5 }] }],
+    "TaskCompleted": [{ "hooks": [{ "type": "command", "command": "node /usr/local/lib/mythos-lifecycle/claude-lifecycle-hook.js", "timeout": 5 }] }],
+    "Notification": [{ "hooks": [{ "type": "command", "command": "node /usr/local/lib/mythos-lifecycle/claude-lifecycle-hook.js", "timeout": 5 }] }],
+    "PreCompact": [{ "hooks": [{ "type": "command", "command": "node /usr/local/lib/mythos-lifecycle/claude-lifecycle-hook.js", "timeout": 5 }] }],
+    "SessionEnd": [{ "hooks": [{ "type": "command", "command": "node /usr/local/lib/mythos-lifecycle/claude-lifecycle-hook.js", "timeout": 5 }] }]
+  }
+}

@@ -151,6 +151,46 @@ function discoverRepositories(registryRepos, discoverySnapshot) {
 }
 
 // ---------------------------------------------------------------------
+// Monorepo project discovery (gh-issue-140): discoverRepositories only
+// ever compared GitHub account repositories — it cannot see a new
+// directory added under this repository's own projects/. Every
+// registry project MAY declare which projects/<name> directories it
+// already accounts for (project.directories); any directory present on
+// disk that no project claims is a discovery requiring classification,
+// exactly like an unclassified GitHub repository. Read-only (fs only,
+// no git, no network); a missing projects/ directory is reported, not
+// thrown.
+// ---------------------------------------------------------------------
+function discoverMonorepoProjects(repoRoot, registryProjects) {
+  const known = Object.create(null);
+  (registryProjects || []).forEach(function (p) {
+    (p.directories || []).forEach(function (d) { known[d] = true; });
+  });
+
+  const projectsDir = path.join(repoRoot, 'projects');
+  let entries;
+  try {
+    entries = fs.readdirSync(projectsDir, { withFileTypes: true })
+      .filter(function (e) { return e.isDirectory(); })
+      .map(function (e) { return 'projects/' + e.name; })
+      .sort();
+  } catch (e) {
+    return { checked: false, directories_checked: 0, new_discoveries: [],
+      note: 'projects/ not readable from ' + repoRoot + ': ' + String(e.message || e) };
+  }
+
+  const news = entries.filter(function (d) { return !known[d]; }).map(function (d) {
+    return {
+      directory: d,
+      note: 'Directory present under projects/ but not claimed by any registry project\'s ' +
+        '"directories" list. Requires classification (existing project or a new one).'
+    };
+  });
+
+  return { checked: true, directories_checked: entries.length, new_discoveries: news };
+}
+
+// ---------------------------------------------------------------------
 // Comparison (§25, §31): diff two review snapshots.
 // ---------------------------------------------------------------------
 function compareReviews(prev, curr) {
@@ -307,6 +347,9 @@ function runReview(opts) {
   // 6. Repository discovery.
   const disco = discoverRepositories(registry.repositories, repoSnapshot);
 
+  // 6b. Monorepo project discovery (this repository's own projects/).
+  const monorepoDisco = discoverMonorepoProjects(repoRoot, registry.projects);
+
   // 7. Previous review for comparison.
   const reviewsRoot = path.join(siteDir, 'reviews');
   const prevFile = findLatestReview(reviewsRoot);
@@ -337,6 +380,7 @@ function runReview(opts) {
     documents: documents,
     repositories: disco.repositories,
     new_discoveries: disco.new_discoveries,
+    monorepo_discovery: monorepoDisco,
     evidence: evidence,
     prs: prLedger.prs,
     source_hierarchy: registry.source_hierarchy || [],
@@ -405,6 +449,7 @@ module.exports = {
   computeTrackProgress: computeTrackProgress,
   reconcileDocuments: reconcileDocuments,
   discoverRepositories: discoverRepositories,
+  discoverMonorepoProjects: discoverMonorepoProjects,
   compareReviews: compareReviews,
   allocateReviewId: allocateReviewId,
   findLatestReview: findLatestReview,
