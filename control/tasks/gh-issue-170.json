@@ -165,6 +165,12 @@
         "control_status": "BLOCKED",
         "report_file": "control/reports/gh-issue-170.json",
         "commits_on_origin": false
+      },
+      "delivered": {
+        "comment_id": 5546477072,
+        "url": "https://github.com/othoth77/mythos-prod/issues/170#issuecomment-5546477072",
+        "at": "2026-09-04T21:09:21.889Z",
+        "existed": false
       }
     },
     "labels": {
