@@ -48,6 +48,14 @@ delete process.env.MYTHOS_MOCK_SCRIPT;
 
 // WhatsApp: deliberately NOT enabled yet — section 1 proves the default.
 delete process.env.MYTHOS_BRIDGE_WHATSAPP_ENABLED;
+// The provider circuit breaker is OFF for this suite, on purpose. Several
+// sections here deliberately drive the gateway into repeated 5xx/timeout
+// failures to prove the retry, backoff, exhaustion and reclaim paths — which
+// is precisely the condition the breaker exists to short-circuit, so leaving
+// it on would make this suite test the breaker instead of what it is for.
+// The breaker's own behaviour is proven in
+// tests/mythos-bridge-whatsapp-resilience-test.js.
+process.env.MYTHOS_BRIDGE_WHATSAPP_BREAKER = 'off';
 delete process.env.MYTHOS_BRIDGE_WHATSAPP_API_KEY;
 process.env.MYTHOS_BRIDGE_WHATSAPP_HOME = path.join(FIX, 'home', 'bridge', 'notify');
 
@@ -611,8 +619,13 @@ function run() {
       ok(evo.isValidRecipient('21620000000') && evo.isValidRecipient('21620000000@s.whatsapp.net'), 'adapter: MSISDN and JID recipients accepted');
       ok(!evo.isValidRecipient('../../etc/passwd') && !evo.isValidRecipient('+216 20 000 000') && !evo.isValidRecipient(''),
         'adapter: a recipient that could inject into the URL or the body is refused');
-      ok(Object.keys(whatsapp.PROVIDERS).length === 1 && whatsapp.PROVIDERS.evolution === evo,
-        'adapter: exactly one registered provider, selected by name — a second one is a new file, not a bridge change');
+      // The registry now carries a second adapter (`generic`). What this
+      // assertion is really about — a provider is selected BY NAME and the
+      // bridge does not change when one is added — is unchanged, and the
+      // full multi-provider contract is proven in
+      // tests/mythos-bridge-whatsapp-resilience-test.js §1.
+      ok(whatsapp.PROVIDERS.evolution === evo && Object.keys(whatsapp.PROVIDERS).length >= 1,
+        'adapter: providers are registered and selected by name — adding one is a new file, not a bridge change');
       return Promise.all([
         evo.sendText({ baseUrl: 'http://127.0.0.1:1', instance: '../escape', apiKey: 'k', to: '21620000000', text: 'x' }),
         evo.sendText({ baseUrl: 'http://127.0.0.1:1', instance: 'ok', apiKey: '', to: '21620000000', text: 'x' }),

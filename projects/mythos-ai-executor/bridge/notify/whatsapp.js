@@ -56,10 +56,17 @@ var crypto = require('crypto');
 var state = require('../../lib/state');
 var redact = require('../../../mythos-orchestrator/lib/redact');
 var evolution = require('./providers/evolution');
+var generic = require('./providers/generic');
 
 // Provider registry. Adding WAHA or the official WhatsApp Business Cloud
 // API is a new file here plus one line — github-bridge.js does not change.
-var PROVIDERS = { evolution: evolution };
+//
+// `generic` goes one step further: it is a configuration-driven adapter, so
+// pointing MYTHOS at a different HTTP WhatsApp gateway (wa-evolution, WAHA,
+// an in-house relay) is an environment change and needs no new file at all.
+// `evolution` stays the default because it is the only shape that has been
+// verified against a real gateway contract in this repository.
+var PROVIDERS = { evolution: evolution, generic: generic };
 
 var KINDS = ['COMPLETED', 'FAILED', 'BLOCKED', 'HUMAN_APPROVAL'];
 var LEDGER_STATES = ['PENDING', 'SENDING', 'SENT', 'EXHAUSTED'];
@@ -77,6 +84,16 @@ var DEFAULT_LEASE_MS = 120000;   // a SENDING claim older than this is stale
 // case (limit x recipients x TIMEOUT_MS) must stay well inside that. A
 // backlog simply drains over the following ticks — the ledger is durable.
 var DEFAULT_FLUSH_LIMIT = 5;
+// Wall-clock ceiling for one flush. `mythos-github-bridge tick` waits for
+// the flush before it exits, so without this a dead gateway costs the tick
+// FLUSH_LIMIT x recipients x TIMEOUT_MS on EVERY 2-minute run. Work that
+// does not fit the budget is simply left PENDING for the next flush.
+var DEFAULT_FLUSH_BUDGET_MS = 60000;
+// Consecutive PROVIDER-level failures (transport, timeout, 5xx) after which
+// the circuit opens. A 4xx is a message problem, not a provider outage, and
+// never trips it.
+var DEFAULT_BREAKER_THRESHOLD = 3;
+var DEFAULT_BREAKER_COOLDOWN_MS = 5 * 60 * 1000;
 
 var MARK = { COMPLETED: '✅', FAILED: '❌', BLOCKED: '⛔', HUMAN_APPROVAL: '🙋' };
 
@@ -91,6 +108,25 @@ function envList(name) {
 
 function bridgeHome() {
   return process.env.MYTHOS_BRIDGE_HOME || path.join(state.root(), 'bridge');
+}
+
+// Per-provider options, so an adapter can be driven entirely from the
+// environment without the layer knowing anything about its shape. Only the
+// selected provider's block is ever read. No value here is a credential —
+// the credential has its own path (credential()) and never passes through
+// config().
+function providerOptions() {
+  return {
+    evolution: null,
+    generic: {
+      path: process.env.MYTHOS_BRIDGE_WHATSAPP_GENERIC_PATH || generic.DEFAULTS.path,
+      authHeader: process.env.MYTHOS_BRIDGE_WHATSAPP_GENERIC_AUTH_HEADER || generic.DEFAULTS.authHeader,
+      authPrefix: process.env.MYTHOS_BRIDGE_WHATSAPP_GENERIC_AUTH_PREFIX === undefined
+        ? generic.DEFAULTS.authPrefix : process.env.MYTHOS_BRIDGE_WHATSAPP_GENERIC_AUTH_PREFIX,
+      bodyTemplate: process.env.MYTHOS_BRIDGE_WHATSAPP_GENERIC_BODY || generic.DEFAULTS.bodyTemplate,
+      idPath: process.env.MYTHOS_BRIDGE_WHATSAPP_GENERIC_ID_PATH || generic.DEFAULTS.idPath
+    }
+  };
 }
 
 function config() {
@@ -114,9 +150,20 @@ function config() {
     backoffMs: Math.max(1000, parseInt(process.env.MYTHOS_BRIDGE_WHATSAPP_BACKOFF_MS || '60000', 10)),
     leaseMs: Math.max(10000, parseInt(process.env.MYTHOS_BRIDGE_WHATSAPP_LEASE_MS || String(DEFAULT_LEASE_MS), 10)),
     flushLimit: Math.max(1, parseInt(process.env.MYTHOS_BRIDGE_WHATSAPP_FLUSH_LIMIT || String(DEFAULT_FLUSH_LIMIT), 10)),
+    flushBudgetMs: Math.max(1000, parseInt(process.env.MYTHOS_BRIDGE_WHATSAPP_FLUSH_BUDGET_MS || String(DEFAULT_FLUSH_BUDGET_MS), 10)),
+    breakerEnabled: process.env.MYTHOS_BRIDGE_WHATSAPP_BREAKER !== 'off',
+    breakerThreshold: Math.max(1, parseInt(process.env.MYTHOS_BRIDGE_WHATSAPP_BREAKER_THRESHOLD || String(DEFAULT_BREAKER_THRESHOLD), 10)),
+    breakerCooldownMs: Math.max(1000, parseInt(process.env.MYTHOS_BRIDGE_WHATSAPP_BREAKER_COOLDOWN_MS || String(DEFAULT_BREAKER_COOLDOWN_MS), 10)),
+    providerOptions: providerOptions(),
     home: home,
-    ledgerDir: path.join(home, 'ledger')
+    ledgerDir: path.join(home, 'ledger'),
+    breakerFile: path.join(home, 'breaker.json')
   };
+}
+
+// The options block for the selected provider, or null.
+function selectedOptions(cfg) {
+  return (cfg.providerOptions && cfg.providerOptions[cfg.provider]) || null;
 }
 
 // The credential, read as late as possible and held only for the duration
@@ -155,32 +202,74 @@ function isPrivateHost(host) {
   return /\.(internal|local|localdomain)$/.test(h);
 }
 
-// Everything that must be true before a message can be attempted. Returns
+// Everything that must be true before a message can be attempted, each
+// problem tagged with the phase that actually needs it. Returns
 // human-readable problems that are safe to log — never a value, only the
 // name of what is missing.
-function readiness(cfg, hasCredential) {
+//
+// The two scopes are the point, not decoration:
+//
+//   queue    every static, structural decision: the provider registration,
+//            the gateway address and the private-network fence, the instance
+//            name, the recipient list and the adapter's own configuration.
+//            All of these come from the same systemd drop-in, are wrong only
+//            because a human made them wrong, and stay wrong until a human
+//            fixes them. Refusing to queue on any of them is the documented
+//            behaviour (§5.2: a non-private gateway queues NOTHING) and it
+//            is preserved exactly.
+//
+//   delivery the credential, and only the credential. It is the one input
+//            that is not an environment value but a file read at send time,
+//            and therefore the one that can fail transiently.
+//
+// Splitting exactly there fixes a real, silent data-loss path: a REPORT is
+// written once and never revisited, so when onReport() refused to queue
+// because that 0600 file happened to be unreadable for a moment, the
+// terminal notification was gone forever — no retry exists at that layer.
+// The credential is now re-read on every flush, where being unreadable costs
+// a retry instead of the message.
+function problemsFor(cfg, hasCredential) {
   var problems = [];
   var provider = PROVIDERS[cfg.provider];
   if (!provider) {
-    problems.push('provider "' + String(cfg.provider).slice(0, 40) + '" is not registered (known: ' + Object.keys(PROVIDERS).join(', ') + ')');
+    problems.push({ scope: 'queue', text: 'provider "' + String(cfg.provider).slice(0, 40) + '" is not registered (known: ' + Object.keys(PROVIDERS).join(', ') + ')' });
     return problems;
   }
-  if (!cfg.baseUrl) problems.push('MYTHOS_BRIDGE_WHATSAPP_BASE_URL is not set');
+  if (!cfg.baseUrl) problems.push({ scope: 'queue', text: 'MYTHOS_BRIDGE_WHATSAPP_BASE_URL is not set' });
   else {
     var host = null;
-    try { host = new (require('url').URL)(cfg.baseUrl).hostname; } catch (e) { problems.push('MYTHOS_BRIDGE_WHATSAPP_BASE_URL is not a valid URL'); }
+    try { host = new (require('url').URL)(cfg.baseUrl).hostname; } catch (e) { problems.push({ scope: 'queue', text: 'MYTHOS_BRIDGE_WHATSAPP_BASE_URL is not a valid URL' }); }
     if (host && !isPrivateHost(host) && !cfg.allowPublic) {
-      problems.push('base url host is not private and MYTHOS_BRIDGE_WHATSAPP_ALLOW_PUBLIC is not 1');
+      problems.push({ scope: 'queue', text: 'base url host is not private and MYTHOS_BRIDGE_WHATSAPP_ALLOW_PUBLIC is not 1' });
     }
   }
-  if (!cfg.instance) problems.push('MYTHOS_BRIDGE_WHATSAPP_INSTANCE is not set');
-  if (!cfg.recipients.length) problems.push('MYTHOS_BRIDGE_WHATSAPP_TO is not set');
+  if (!cfg.instance) problems.push({ scope: 'queue', text: 'MYTHOS_BRIDGE_WHATSAPP_INSTANCE is not set' });
+  if (!cfg.recipients.length) problems.push({ scope: 'queue', text: 'MYTHOS_BRIDGE_WHATSAPP_TO is not set' });
   else {
     var bad = cfg.recipients.filter(function (r) { return !provider.isValidRecipient(r); }).length;
-    if (bad) problems.push(bad + ' recipient(s) are not a digits-only MSISDN or a WhatsApp JID');
+    if (bad) problems.push({ scope: 'queue', text: bad + ' recipient(s) are not a digits-only MSISDN or a WhatsApp JID' });
   }
-  if (!hasCredential) problems.push('no credential (set MYTHOS_BRIDGE_WHATSAPP_API_KEY_FILE, or MYTHOS_BRIDGE_WHATSAPP_API_KEY)');
+  if (!hasCredential) problems.push({ scope: 'delivery', text: 'no credential (set MYTHOS_BRIDGE_WHATSAPP_API_KEY_FILE, or MYTHOS_BRIDGE_WHATSAPP_API_KEY)' });
+  // An adapter may declare its own static configuration problems. Optional:
+  // an adapter without options (evolution) simply does not implement it.
+  if (typeof provider.configProblems === 'function') {
+    provider.configProblems(selectedOptions(cfg)).forEach(function (t) {
+      problems.push({ scope: 'queue', text: String(t).slice(0, 200) });
+    });
+  }
   return problems;
+}
+
+// Full readiness, in the original order. This is what `notify-config`
+// reports and what flush() gates on.
+function readiness(cfg, hasCredential) {
+  return problemsFor(cfg, hasCredential).map(function (p) { return p.text; });
+}
+
+// Only what must be true to write a ledger entry: everything except the
+// credential.
+function queueReadiness(cfg) {
+  return problemsFor(cfg, true).filter(function (p) { return p.scope === 'queue'; }).map(function (p) { return p.text; });
 }
 
 // Operator-facing view. Deliberately carries no value that could be a
@@ -196,7 +285,8 @@ function describe() {
     enabled: cfg.enabled,
     provider: cfg.provider,
     provider_known: !!provider,
-    provider_contract: provider ? provider.describe() : null,
+    providers_available: Object.keys(PROVIDERS),
+    provider_contract: provider ? provider.describe(selectedOptions(cfg)) : null,
     base_url_host: host,
     base_url_private: host ? (function () { try { return isPrivateHost(new (require('url').URL)(cfg.baseUrl).hostname); } catch (e) { return null; } })() : null,
     instance_set: !!cfg.instance,
@@ -207,8 +297,127 @@ function describe() {
     max_attempts: cfg.maxAttempts,
     backoff_ms: cfg.backoffMs,
     timeout_ms: cfg.timeoutMs,
+    flush_limit: cfg.flushLimit,
+    flush_budget_ms: cfg.flushBudgetMs,
+    breaker: breakerStatus(cfg),
     ledger_dir: cfg.ledgerDir,
-    problems: readiness(cfg, hasCred)
+    problems: readiness(cfg, hasCred),
+    queue_problems: queueReadiness(cfg)
+  };
+}
+
+// --- Provider circuit breaker ---------------------------------------------------
+//
+// The bridge's `tick` waits for the flush before it exits. Without a
+// breaker, a gateway that is down or hung costs every single tick
+// FLUSH_LIMIT x recipients x TIMEOUT_MS — 150 s of a 120 s tick interval
+// for two recipients on the defaults — and burns MAX_ATTEMPTS on every
+// queued notification, so a long outage does not delay the messages, it
+// destroys them (they reach EXHAUSTED and are never sent).
+//
+// The breaker turns both of those into one cheap decision: after
+// BREAKER_THRESHOLD consecutive PROVIDER-level failures the flush stops
+// touching the ledger at all until a cooldown expires, then lets exactly one
+// entry through as a probe. Nothing is dropped and no attempt is consumed
+// while the circuit is open — the notifications simply wait, which is the
+// correct behaviour for an outage.
+//
+// Only provider-level failures count: a transport error, a timeout, or a 5xx.
+// A 4xx is the gateway rejecting THIS message (bad recipient, bad body) and
+// says nothing about the gateway's health, so it never opens the circuit.
+function isProviderFailure(result) {
+  if (!result || result.ok) return false;
+  if (result.status === null || result.status === undefined) return true;   // transport / timeout
+  return result.status >= 500;
+}
+
+function readBreaker(cfg) {
+  var empty = { state: 'closed', failures: 0, opened_at: null, open_until: null, cooldown_ms: cfg.breakerCooldownMs, last_error: null, probes: 0 };
+  try {
+    var raw = JSON.parse(fs.readFileSync(cfg.breakerFile, 'utf8'));
+    if (!raw || typeof raw !== 'object') return empty;
+    return {
+      state: raw.state === 'open' ? 'open' : 'closed',
+      failures: Math.max(0, parseInt(raw.failures, 10) || 0),
+      opened_at: raw.opened_at || null,
+      open_until: raw.open_until || null,
+      cooldown_ms: Math.max(1000, parseInt(raw.cooldown_ms, 10) || cfg.breakerCooldownMs),
+      last_error: raw.last_error || null,
+      probes: Math.max(0, parseInt(raw.probes, 10) || 0)
+    };
+  } catch (e) {
+    // An unreadable or corrupt breaker file must never suppress delivery:
+    // fail CLOSED, i.e. towards attempting the send.
+    return empty;
+  }
+}
+
+function writeBreaker(cfg, b) {
+  try {
+    fs.mkdirSync(cfg.home, { recursive: true, mode: 0o700 });
+    var tmp = cfg.breakerFile + '.tmp-' + process.pid;
+    var fd = fs.openSync(tmp, 'w', 0o600);
+    try { fs.writeSync(fd, JSON.stringify(b, null, 2) + '\n'); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+    fs.renameSync(tmp, cfg.breakerFile);
+  } catch (e) {
+    // Losing the breaker state degrades to today's behaviour (always try);
+    // it must never abort a flush.
+  }
+  return b;
+}
+
+// Decides whether this flush may touch the provider at all.
+function breakerGate(cfg, nowMs) {
+  if (!cfg.breakerEnabled) return { allow: true, probe: false, state: 'disabled' };
+  var b = readBreaker(cfg);
+  if (b.state !== 'open') return { allow: true, probe: false, state: b.state, failures: b.failures };
+  var until = Date.parse(b.open_until || 0) || 0;
+  if (nowMs < until) {
+    return { allow: false, probe: false, state: 'open', open_until: b.open_until, failures: b.failures, last_error: b.last_error, retry_in_ms: until - nowMs };
+  }
+  // Cooldown expired: half-open. Exactly ONE entry is allowed through.
+  return { allow: true, probe: true, state: 'half-open', failures: b.failures, open_until: b.open_until };
+}
+
+// Folds one attempt's outcome into the breaker. `providerFailed` is the
+// aggregate of isProviderFailure() over the attempt's recipient results.
+function recordBreaker(cfg, providerFailed, error) {
+  if (!cfg.breakerEnabled) return null;
+  var b = readBreaker(cfg);
+  var now = Date.now();
+  if (!providerFailed) {
+    return writeBreaker(cfg, { state: 'closed', failures: 0, opened_at: null, open_until: null, cooldown_ms: cfg.breakerCooldownMs, last_error: null, probes: b.probes });
+  }
+  b.failures += 1;
+  b.last_error = error ? String(error).slice(0, 200) : b.last_error;
+  if (b.failures >= cfg.breakerThreshold) {
+    // Each consecutive open doubles the cooldown, capped like the per-entry
+    // backoff, so a multi-hour outage costs a handful of probes, not one
+    // probe per tick.
+    var cooldown = b.state === 'open' ? Math.min(b.cooldown_ms * 2, MAX_BACKOFF_MS) : cfg.breakerCooldownMs;
+    b.state = 'open';
+    b.opened_at = new Date(now).toISOString();
+    b.open_until = new Date(now + cooldown).toISOString();
+    b.cooldown_ms = cooldown;
+    b.probes = (b.probes || 0) + 1;
+  }
+  return writeBreaker(cfg, b);
+}
+
+// Operator-facing snapshot; never mutates.
+function breakerStatus(cfg) {
+  cfg = cfg || config();
+  if (!cfg.breakerEnabled) return { enabled: false, state: 'disabled' };
+  var b = readBreaker(cfg);
+  var until = Date.parse(b.open_until || 0) || 0;
+  return {
+    enabled: true,
+    state: b.state === 'open' && Date.now() >= until ? 'half-open' : b.state,
+    failures: b.failures,
+    threshold: cfg.breakerThreshold,
+    open_until: b.open_until,
+    cooldown_ms: b.cooldown_ms,
+    last_error: b.last_error
   };
 }
 
@@ -392,8 +601,12 @@ function onReport(report, opts) {
     if (!kind) return { queued: false, skipped: 'status ' + String(report.status) + ' does not notify' };
     if (cfg.kinds.indexOf(kind) === -1) return { queued: false, kind: kind, skipped: 'kind not enabled' };
 
-    var hasCred = !!credential(cfg);
-    var problems = readiness(cfg, hasCred);
+    // Only QUEUE-scope readiness gates the enqueue. Delivery-scope
+    // configuration (gateway address, instance, credential) is re-checked on
+    // every flush, so a transient credential-read failure delays the message
+    // instead of destroying it — the REPORT is written once and this is the
+    // only moment the notification could ever have been created.
+    var problems = queueReadiness(cfg);
     if (problems.length) return { queued: false, kind: kind, skipped: 'not configured', problems: problems };
 
     var key = ledgerKey(report.task_id, kind);
@@ -446,7 +659,7 @@ function pendingRecipients(entry) {
 // Sends one entry. The lock is held for the whole attempt, and the entry is
 // marked SENDING on disk first, so a crash mid-send leaves a claim that the
 // next flush reclaims (lease expiry) instead of a silent duplicate.
-function deliverEntry(cfg, entry, provider, apiKey) {
+function deliverEntry(cfg, entry, provider, apiKey, deadlineMs) {
   var lock = acquireKeyLock(cfg, entry.key);
   if (!lock) return Promise.resolve({ key: entry.key, skipped: 'locked by another process' });
 
@@ -494,9 +707,15 @@ function deliverEntry(cfg, entry, provider, apiKey) {
   // at-least-once delivery with best-effort de-duplication, not a proven
   // exactly-once guarantee.
   var results = [];
+  var deferred = 0;
   var chain = Promise.resolve();
   targets.forEach(function (to) {
     chain = chain.then(function () {
+      // The flush budget is checked between recipients as well as between
+      // entries: one entry with many recipients must not be able to consume
+      // the whole tick on its own. A recipient skipped here is simply not in
+      // `delivered_to`, which is already the retry rule.
+      if (deadlineMs && Date.now() >= deadlineMs) { deferred++; return null; }
       return provider.sendText({
         baseUrl: cfg.baseUrl,
         instance: cfg.instance,
@@ -504,7 +723,8 @@ function deliverEntry(cfg, entry, provider, apiKey) {
         to: to,
         text: fresh.message,
         timeoutMs: cfg.timeoutMs,
-        apiVersion: cfg.apiVersion
+        apiVersion: cfg.apiVersion,
+        options: selectedOptions(cfg)
       }).then(function (r) {
         results.push({ ok: !!r.ok, status: r.status || null, provider_message_id: r.provider_message_id || null, error: r.error ? redact.redact(String(r.error)).slice(0, 300) : null });
         if (r.ok) {
@@ -518,19 +738,37 @@ function deliverEntry(cfg, entry, provider, apiKey) {
 
   return chain.then(function () {
     var failed = results.filter(function (r) { return !r.ok; });
+    var providerFailed = results.some(isProviderFailure);
     var now = new Date().toISOString();
     fresh.updated_at = now;
     delete fresh.sending_pid;
     // Evidence only: recipients are never written back, only counts and the
     // provider's own message ids.
-    fresh.results = (fresh.results || []).concat([{ at: now, attempt: fresh.attempts, delivered: results.length - failed.length, failed: failed.length, detail: results }]).slice(-10);
-    if (!failed.length) {
+    fresh.results = (fresh.results || []).concat([{ at: now, attempt: fresh.attempts, delivered: results.length - failed.length, failed: failed.length, deferred: deferred, detail: results }]).slice(-10);
+    if (results.length) recordBreaker(cfg, providerFailed, providerFailed ? (failed[0] && failed[0].error) : null);
+    // SENT means EVERY recipient is in `delivered_to`. Deriving it from
+    // "this attempt had no failure" would mark an entry delivered whose
+    // remaining recipients were cut by the flush budget.
+    var remaining = pendingRecipients(fresh);
+    if (!failed.length && !remaining.length) {
       fresh.state = 'SENT';
       fresh.sent_at = now;
       fresh.last_error = null;
       writeEntry(cfg, fresh);
       releaseKeyLock(lock);
       return { key: fresh.key, sent: true, kind: fresh.kind, task_id: fresh.task_id, attempts: fresh.attempts, recipients: results.length };
+    }
+    if (!failed.length) {
+      // Nothing failed; the flush simply ran out of wall clock. That is a
+      // local scheduling decision, not a delivery attempt, so it must not
+      // consume one of MAX_ATTEMPTS, and the remainder is due immediately.
+      fresh.attempts = Math.max(0, (fresh.attempts || 1) - 1);
+      fresh.state = 'PENDING';
+      fresh.next_attempt_at = now;
+      fresh.last_error = null;
+      writeEntry(cfg, fresh);
+      releaseKeyLock(lock);
+      return { key: fresh.key, sent: false, deferred: remaining.length, budget_exhausted: true, kind: fresh.kind, task_id: fresh.task_id, attempts: fresh.attempts, recipients: results.length };
     }
     fresh.last_error = failed[0].error || ('HTTP ' + failed[0].status);
     if (fresh.attempts >= cfg.maxAttempts) {
@@ -556,6 +794,8 @@ function deliverEntry(cfg, entry, provider, apiKey) {
     fresh.updated_at = now;
     delete fresh.sending_pid;
     writeEntry(cfg, fresh);
+    // A misbehaving adapter that rejects is a provider-level fault.
+    recordBreaker(cfg, true, fresh.last_error);
     releaseKeyLock(lock);
     return { key: fresh.key, sent: false, kind: fresh.kind, task_id: fresh.task_id, attempts: fresh.attempts, error: fresh.last_error };
   });
@@ -602,19 +842,48 @@ function flush(opts) {
   try { reclaimed = reclaimStale(cfg); } catch (e) { /* a reclaim failure must not stop delivery */ }
 
   var now = Date.now();
+
+  // The provider circuit. While it is open nothing is attempted, no attempt
+  // is consumed and no entry is touched, so an outage postpones the
+  // notifications instead of exhausting them.
+  var gate = breakerGate(cfg, now);
+  if (!gate.allow) {
+    return Promise.resolve({
+      ok: true, enabled: true, reclaimed: reclaimed, attempted: 0, sent: 0, failed: 0,
+      skipped: 'provider circuit breaker is open', breaker: gate, results: []
+    });
+  }
+
+  var limit = opts.limit || cfg.flushLimit;
+  if (gate.probe) limit = 1;   // half-open: exactly one entry decides the circuit
   var batch;
   try {
-    batch = listEntries(cfg).filter(function (e) { return due(e, now); }).slice(0, opts.limit || cfg.flushLimit);
+    batch = listEntries(cfg).filter(function (e) { return due(e, now); }).slice(0, limit);
   } catch (e) {
     return Promise.resolve({ ok: false, enabled: true, error: redact.redact(String(e && e.message)).slice(0, 300), results: [] });
   }
-  if (!batch.length) return Promise.resolve({ ok: true, enabled: true, reclaimed: reclaimed, attempted: 0, sent: 0, failed: 0, results: [] });
+  if (!batch.length) return Promise.resolve({ ok: true, enabled: true, reclaimed: reclaimed, attempted: 0, sent: 0, failed: 0, breaker: breakerStatus(cfg), results: [] });
 
+  // Wall-clock ceiling for the whole flush. `tick` waits for this before it
+  // exits, so it must be bounded independently of how many recipients or
+  // entries are due.
+  var deadline = now + (opts.budgetMs || cfg.flushBudgetMs);
   var results = [];
   var chain = Promise.resolve();
   batch.forEach(function (entry) {
     chain = chain.then(function () {
-      return deliverEntry(cfg, entry, provider, apiKey).then(function (r) { results.push(r); }, function (e) {
+      if (Date.now() >= deadline) {
+        results.push({ key: entry.key, skipped: 'flush budget exhausted' });
+        return null;
+      }
+      // Re-check the circuit between entries: once this flush has itself
+      // established that the gateway is down, the remaining entries must not
+      // each pay another timeout to re-establish it.
+      if (cfg.breakerEnabled && !breakerGate(cfg, Date.now()).allow) {
+        results.push({ key: entry.key, skipped: 'provider circuit breaker is open' });
+        return null;
+      }
+      return deliverEntry(cfg, entry, provider, apiKey, deadline).then(function (r) { results.push(r); }, function (e) {
         results.push({ key: entry.key, sent: false, error: redact.redact(String(e && e.message)).slice(0, 300) });
       });
     });
@@ -626,7 +895,11 @@ function flush(opts) {
       reclaimed: reclaimed,
       attempted: results.filter(function (r) { return !r.skipped; }).length,
       sent: results.filter(function (r) { return r.sent; }).length,
-      failed: results.filter(function (r) { return r.sent === false; }).length,
+      // A budget cut is not a failure: nothing failed, the flush simply ran
+      // out of wall clock and the remainder is due immediately.
+      failed: results.filter(function (r) { return r.sent === false && !r.budget_exhausted; }).length,
+      deferred: results.filter(function (r) { return r.skipped === 'flush budget exhausted' || r.budget_exhausted; }).length,
+      breaker: breakerStatus(cfg),
       results: results
     };
   });
@@ -649,7 +922,17 @@ function ledgerStatus() {
       sent_at: e.sent_at || null, last_error: e.last_error || null, message_sha256: e.message_sha256
     };
   });
-  return { ledger_dir: cfg.ledgerDir, counts: counts, entries: rows };
+  return { ledger_dir: cfg.ledgerDir, counts: counts, breaker: breakerStatus(cfg), entries: rows };
+}
+
+// Operator override: force the circuit closed after a gateway has been
+// repaired, instead of waiting out the cooldown. It only clears breaker
+// state — it never sends, never touches the ledger and never changes an
+// entry's attempts.
+function resetBreaker() {
+  var cfg = config();
+  writeBreaker(cfg, { state: 'closed', failures: 0, opened_at: null, open_until: null, cooldown_ms: cfg.breakerCooldownMs, last_error: null, probes: 0 });
+  return breakerStatus(cfg);
 }
 
 // The controlled real smoke test. Deliberately NOT reachable from the tick
@@ -675,7 +958,8 @@ function smokeTest(opts) {
     chain = chain.then(function () {
       return provider.sendText({
         baseUrl: cfg.baseUrl, instance: cfg.instance, apiKey: apiKey, to: to,
-        text: text, timeoutMs: cfg.timeoutMs, apiVersion: cfg.apiVersion
+        text: text, timeoutMs: cfg.timeoutMs, apiVersion: cfg.apiVersion,
+        options: selectedOptions(cfg)
       }).then(function (r) {
         results.push({ ok: !!r.ok, status: r.status || null, provider_message_id: r.provider_message_id || null, error: r.error || null });
       });
@@ -692,6 +976,11 @@ module.exports = {
   config: config,
   describe: describe,
   readiness: readiness,
+  queueReadiness: queueReadiness,
+  breakerGate: breakerGate,
+  breakerStatus: breakerStatus,
+  resetBreaker: resetBreaker,
+  isProviderFailure: isProviderFailure,
   isPrivateHost: isPrivateHost,
   notificationKind: notificationKind,
   buildMessage: buildMessage,

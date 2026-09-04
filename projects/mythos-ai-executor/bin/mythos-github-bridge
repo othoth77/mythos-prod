@@ -17,6 +17,7 @@
 //   mythos-github-bridge notify-config       WhatsApp notification configuration + readiness (no secrets)
 //   mythos-github-bridge notify-status       the notification ledger (states, attempts, errors)
 //   mythos-github-bridge notify-flush        deliver due notifications now (retry path, safe to repeat)
+//   mythos-github-bridge notify-breaker-reset  close the provider circuit after a gateway repair (sends nothing)
 //   mythos-github-bridge notify-test --confirm   send ONE real smoke-test message (human-invoked only)
 //
 // GitHub Issues intake (bridge/github-issues.js; needs a token in the env, see docs/MYTHOS_GITHUB_ISSUES.md):
@@ -60,7 +61,22 @@ switch (cmd) {
     break;
   case 'tick': {
     if (process.env.MYTHOS_ISSUES_ENABLED === '1') {
-      issues().issuesTick(executor(), { forceIndex: argv.indexOf('--index') !== -1, only: onlyArg() }).then(function (r) { out(r); process.exit(r.ok ? 0 : 2); }, fail);
+      // The Issues path runs the same bridge tick inside issuesTick(), so it
+      // queues WhatsApp notifications exactly like the plain path does — and
+      // it must therefore flush them exactly like the plain path does. It
+      // did not, which made the whole notification layer inert in the only
+      // configuration production actually runs (the deploy timer drop-in
+      // sets MYTHOS_ISSUES_ENABLED=1): entries were written to the ledger by
+      // every terminal task and nothing ever delivered them. Same ordering
+      // guarantee as below — the flush happens strictly after the tick has
+      // returned, and its outcome never changes this command's exit code.
+      issues().issuesTick(executor(), { forceIndex: argv.indexOf('--index') !== -1, only: onlyArg() }).then(function (r) {
+        return bridge.flushNotifications().then(function (n) {
+          r.notifications = n;
+          out(r);
+          process.exit(r.ok ? 0 : 2);
+        });
+      }, fail);
       break;
     }
     var r = bridge.tick(executor(), { forceIndex: argv.indexOf('--index') !== -1 });
@@ -159,6 +175,11 @@ switch (cmd) {
   case 'notify-flush':
     bridge.flushNotifications().then(function (n) { out(n); process.exit(n && n.ok === false ? 2 : 0); });
     break;
+  case 'notify-breaker-reset':
+    // Closes the provider circuit after the gateway has been repaired,
+    // instead of waiting out the cooldown. Sends nothing.
+    out(bridge.whatsapp.resetBreaker());
+    break;
   case 'notify-test': {
     // The single controlled real message of this stage. It is never invoked
     // by a tick, a timer or a test suite: only by a human, explicitly, and
@@ -175,5 +196,5 @@ switch (cmd) {
   }
   default:
     die('usage: mythos-github-bridge <init|tick|daemon|status|validate <file>|instruction <file>|trail <task_id>|runtime|resolve <file|N|->|issues-tick|issues-status|issues-parse <file|N>|' +
-      'notify-config|notify-status|notify-flush|notify-test --confirm>');
+      'notify-config|notify-status|notify-flush|notify-breaker-reset|notify-test --confirm>');
 }
