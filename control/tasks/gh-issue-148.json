@@ -1,0 +1,124 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-148",
+  "project": "mythos-prod",
+  "objective": "إتمام **Delivery / Reconciliation** للمهمتين #132 و#142 اعتماداً على العمل والأدلة الموجودة فعلياً، بدون إعادة تنفيذ ما تم إنجازه.\n\nالمطلوب هو تحديد ما هو منفذ فعلاً، ما تم دفعه إلى GitHub، وما ينقصه فقط من ناحية delivery / PR / reconciliation، ثم إكمال فجوة التسليم فقط.",
+  "scope": [],
+  "constraints": [],
+  "priority": "normal",
+  "requested_action": "implement",
+  "action_raw": "implement",
+  "action_source": "explicit_current_issue",
+  "validation_requirements": [],
+  "status": "PENDING",
+  "created_at": "2026-09-04T08:10:10.069Z",
+  "created_by": "github-issue:othoth77",
+  "notes": "Source: GitHub Issue #148 https://github.com/othoth77/mythos-prod/issues/148 — \"HostOps Delivery Reconciliation — #132 + #142\"\n\nrequested_action: implement — source explicit_current_issue (written as \"implement\") → execution profile repo-write\n\n[132 — hostops-2r-fix]\n- العثور على الـcommit / branch الموجود فعلياً والتحقق من أن implementation موجود.\n- عدم إعادة بناء الحل إذا كان الـcommit موجوداً.\n- التحقق من المتطلبات الأمنية الأساسية:\n  - `NoNewPrivileges=true`\n  - Unix socket boundary\n  - `SO_PEERCRED`\n  - Resource Guard ordering\n  - عدم استخدام sudo / docker كحل التفافي\n  - عدم وجود WRITE / RESTART / DEPLOY عبر المسار\n- التحقق من tests / report / evidence.\n- إذا كان الـcommit موجوداً لكن لا يوجد PR: تجهيز / إنشاء PR طبيعي إلى `main`.\n- إذا كان موجوداً بالفعل على `main`: اعتباره delivered وتسجيل ذلك.\n- إذا ظهر gap حقيقي في implementation: لا تعِد البناء تلقائياً؛ سجّل الـblocker بشكل منفصل.\n\n[142 — hostops read final verification]\n- عدم إعادة تنفيذ E2E إذا كانت الأدلة الحالية تثبت نجاحه.\n- التحقق من الأدلة الحالية، بما فيها:\n  - `ok:true`\n  - class `READ`\n  - non-empty `audit_id`\n  - `hostops_exit=0`\n  - عدم استدعاء WRITE / RESTART / DEPLOY\n- مطابقة GitHub → OTHMODE → Executor → HostOps → report.\n- التحقق من commit / branch / remote state.\n- إذا كانت متطلبات #142 مثبتة بواسطة #136 أو العمل اللاحق، تتم reconciliation بدلاً من rerun.\n- إذا كان commit موجوداً على remote ولا يوجد PR: تجهيز / إنشاء PR طبيعي.\n- إذا كان على `main`: تسجيل delivery complete.\n\n[delivery flow]\n`GitHub → Verify Existing Work → Reconcile Evidence → Identify Delivery Gap Only → Governance/Relay → PR → Human Review → Human Merge`\n\n[required classification]\nأنشئ نتيجة واضحة لكل مهمة:\n- `DELIVERED`\n- `PR_READY`\n- `ALREADY_ON_MAIN`\n- `BLOCKED`\n\nمع جدول:\n\n| Task | Existing implementation | Evidence | Commit | Remote | PR | Action |\n|---|---|---|---|---|---|---|\n| #132 | | | | | | |\n| #142 | | | | | | |\n\n[hard prohibitions]\n- لا تعِد تنفيذ #132 أو #142 من الصفر.\n- لا تعيد تشغيل E2E بدون حاجة مثبتة.\n- لا manual VPS bypass.\n- لا WRITE / RESTART / DEPLOY.\n- لا تعديل WhatsApp.\n- لا تعديل Status Center / #140.\n- لا تغيير Resource Guard thresholds.\n- لا تغيير MCP / Governance architecture.\n- لا manual control edits.\n- لا `git add .`.\n- لا auto-merge.\n- لا تغلق المهمة بدون evidence.\n\n[scope isolation]\nخارج النطاق:\n- #140 / PR #143\n- WhatsApp #141 / #146 / #147\n- #101 / #103\n- AUTOS-0\n- SPY\n- n8n\n- مشاريع السيارات الأخرى\n\n[git / governance requirements]\nإذا تطلب الأمر تغييراً فعلياً:\n1. dedicated branch.\n2. sync مع آخر `origin/main`.\n3. commit واضح ومحدود.\n4. push عبر المسار المعتمد / Relay.\n5. PR طبيعي إلى `main`.\n6. لا auto-merge.\n\n[completion criteria]\n- التحقق الفعلي من حالة #132 و#142.\n- عدم إعادة أي عمل مكتمل بلا سبب.\n- تحديد أي delivery gap بدقة.\n- إنشاء / تجهيز PR فقط عند الحاجة.\n- عدم auto-merge.\n- تحديث `docs/AI_HANDOVER.md` عند وجود تغيير فعلي، مع SHA / branch / base / remote / tests / next action.\n- إنتاج `mythos_report` نهائي يوضح النتيجة لكل مهمة.",
+  "source": {
+    "kind": "github-issue",
+    "repo": "othoth77/mythos-prod",
+    "issue_number": 148,
+    "issue_url": "https://github.com/othoth77/mythos-prod/issues/148",
+    "issue_id": 5345814333,
+    "issue_node_id": "I_kwDOTnlaF88AAAABPqKnPQ",
+    "issue_title": "TASK: HostOps Delivery Reconciliation — #132 + #142",
+    "issue_author": "othoth77",
+    "issue_created_at": "2026-09-04T08:08:58Z",
+    "issue_updated_at": "2026-09-04T08:08:58Z",
+    "issue_labels": [
+      "task",
+      "hostops"
+    ],
+    "content_sha256": "04e6fad56f55c831afb28b7a4917876783ac304e190bca16631c3636f6ac58a3",
+    "attempt": 1,
+    "attempt_id": "gh-issue-148#1",
+    "idempotency_key": "7ce490b9a2a4a20d290bb224a6c896556456ba7adfceb8dfd944abd7a26588a2",
+    "rerun_of": null,
+    "inherited_from": null,
+    "inherited": {
+      "requested_action": false,
+      "model": false,
+      "scope": false,
+      "constraints": false,
+      "validation_requirements": false
+    },
+    "resolution": {
+      "requested_action": "implement",
+      "action_raw": "implement",
+      "action_source": "explicit_current_issue",
+      "action_conflict": null,
+      "action_candidates": [
+        {
+          "source": "explicit_current_issue",
+          "raw": "implement",
+          "action": "implement",
+          "form": "heading_block",
+          "line": 2
+        },
+        {
+          "source": "default",
+          "raw": "investigate",
+          "action": "investigate",
+          "form": null,
+          "line": null
+        }
+      ],
+      "execution_profile": "repo-write",
+      "expected_delivery": "commit",
+      "model_key": null,
+      "model_id": null,
+      "model_raw": null,
+      "model_source": "none",
+      "model_available": null,
+      "model_reason": "no model named — the executor scores the task",
+      "available_models": [],
+      "resolved_at": "2026-09-04T08:10:10.069Z",
+      "resolved_by": "bridge/action-resolution.js"
+    },
+    "truncated": [],
+    "events": [
+      {
+        "at": "2026-09-04T08:10:10.069Z",
+        "event": "issue_received",
+        "reason": "open Issue #148 with label task",
+        "content_sha256": "04e6fad56f55c831afb28b7a4917876783ac304e190bca16631c3636f6ac58a3"
+      },
+      {
+        "at": "2026-09-04T08:10:10.069Z",
+        "event": "action_resolved",
+        "reason": "explicit_current_issue → implement (raw \"implement\")"
+      },
+      {
+        "at": "2026-09-04T08:10:10.069Z",
+        "event": "profile_resolved",
+        "reason": "implement → repo-write (server-side map)"
+      },
+      {
+        "at": "2026-09-04T08:10:10.069Z",
+        "event": "model_resolved",
+        "reason": "none named — executor scores the task"
+      },
+      {
+        "at": "2026-09-04T08:10:11.827Z",
+        "event": "task_created",
+        "reason": "control/tasks/gh-issue-148.json PENDING; created comment posted"
+      }
+    ],
+    "converted_at": "2026-09-04T08:10:10.069Z",
+    "converted_by": "github-issues",
+    "notifications": {
+      "created": {
+        "comment_id": 5537636403,
+        "url": "https://github.com/othoth77/mythos-prod/issues/148#issuecomment-5537636403",
+        "at": "2026-09-04T08:10:11.040Z",
+        "existed": false
+      }
+    },
+    "labels": {
+      "added": [
+        "mythos:queued"
+      ],
+      "removed": []
+    }
+  }
+}
