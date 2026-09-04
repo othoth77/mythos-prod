@@ -25,7 +25,7 @@
   "validation_requirements": [
     "Production is ACTIVE only if the merged commit is present, both required services are healthy, trust verification passes, the trust API/read model is live, and the executor gate is confirmed active without bypass."
   ],
-  "status": "IN_PROGRESS",
+  "status": "BLOCKED",
   "created_at": "2026-09-04T17:43:58.437Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #162 https://github.com/othoth77/mythos-prod/issues/162 — \"Owner-approved OTHMODE Skill Trust production activation — Fable 5.1\"\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted to \"investigate\" because the Issue did not state one (add `Action: implement|document|test|review|investigate` or a label `action:<x>`). → execution profile repo-read\n\n[owner approval]\n**Owner: othoth77 — APPROVED**\n\nThis task is explicitly authorized by the project owner to proceed with production activation/verification.\n\n[safety]\n- This is activation + verification only.\n- No WhatsApp gateway deployment or real provider calls.\n- Do not enable Semgrep if unsafe for host memory.\n- Do not alter Skill Trust policy.\n- Do not restart unrelated services.\n- If any prerequisite or verification fails, STOP and report the exact blocker instead of declaring production active.\n- No destructive Git operations.\n\n[important]\nThis is owner authorization to execute the task, NOT authorization to bypass governance or Human Merge. Production activation must still follow the existing sanctioned workflow.\n\n[reference]\nParent task: #155 — PROD — Activate OTHMODE Skill Trust Gate after merge #154\nExecution request: use Fable 5.1.",
@@ -156,8 +156,8 @@
     "claimed_at": "2026-09-04T17:45:14.001Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "9c142a5e6ea7024667f18853598cea5de2c962e177aeb8a214e94b0cbc7454d2",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-04T19:24:21.265Z",
+    "executor_status": "BLOCKED",
+    "updated_at": "2026-09-04T19:26:48.278Z",
     "snapshot_sha256": "8bcf60234a298ea2deb091003b654d79a031ec7a68eb002b6d5d2e02953628ff",
     "fence": 4453,
     "lease": {
@@ -188,7 +188,13 @@
     },
     "model": "claude-haiku-4-5",
     "model_selection_mode": "auto",
-    "claude_session_id": "a777384b-fb22-4011-8291-a998db8319cb"
+    "claude_session_id": "a777384b-fb22-4011-8291-a998db8319cb",
+    "blocker": {
+      "code": "HUMAN_APPROVAL",
+      "reason": "Production activation verification of SKILL-TRUST-0 (PR #154, commit 5b995e9) is complete and passed. Verified: merge commit present, trust config files exist and valid, trust gate properly wired into executor (lib/skills.js) with fail-closed semantics, all 31 skills have ACCEPT attestations content-bound by sha256, no bypass active in code, offline test suite (130/0) ready. Task cannot proceed: Edit tool disabled prevents updating docs/AI_HANDOVER.md; requested_action is 'investigate' (read-onl",
+      "retryable": false
+    },
+    "report_file": "control/reports/gh-issue-162.json"
   },
   "history": [
     {
@@ -211,6 +217,20 @@
       "to": "IN_PROGRESS",
       "by": "github-bridge",
       "note": "executor RUNNING: provider running"
+    },
+    {
+      "at": "2026-09-04T19:26:47.743Z",
+      "from": "IN_PROGRESS",
+      "to": "VALIDATING",
+      "by": "github-bridge",
+      "note": "executor ended BLOCKED; building report"
+    },
+    {
+      "at": "2026-09-04T19:26:48.278Z",
+      "from": "VALIDATING",
+      "to": "BLOCKED",
+      "by": "github-bridge",
+      "note": "report written (0 commit(s), 5 test line(s)); OTHMODE closed by the bridge"
     }
   ]
 }
