@@ -1,0 +1,131 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-157",
+  "attempt_id": "gh-issue-157#1",
+  "status": "COMPLETED",
+  "summary": "Diagnosed the MYTHOS Git relay: mythos-git-push.timer (systemd, every 5min+30s jitter) triggers oneshot mythos-git-push.service running the root-owned /usr/local/bin/mythos-git-push, which fast-forward-pushes main and refs/heads/mythos/* from the shared checkout to origin, gated by governance-verify.js. This sandboxed execution identity cannot run systemctl/journalctl (no approver available unattended), so I diagnosed via file evidence instead: the timer is enabled (present in timers.target.wants), and `git ls-remote`/`git merge-base` against origin confirm mythos/gh/gh-issue-156 is already delivered at commit 8d4faf5 (authored 12:38:43Z), cleanly fast-forward of main, roughly 34 minutes before this task even started. The relay was never down or stuck. gh-issue-156's real blocker, per its own handover entry, is unrelated production-restart access (root-only mythos-deploy tool and systemctl --user restart), not git delivery. No relay, service, or application change was needed or made; recorded findings in docs/AI_HANDOVER.md and advanced OTHMODE task OTH-2026-00077 to VALIDATION with full evidence sections.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implementation",
+    "action_source": "action_label",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": null,
+    "model_key": null,
+    "model": "claude-sonnet-5",
+    "model_source": "none",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]",
+    "base_sha": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "branch": "mythos/gh/gh-issue-157",
+    "commit_sha": "1f53470e1656a137ef64a2dbf33b2da4880b510c"
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-04T13:12:00.876Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Diagnosed the MYTHOS Git relay: mythos-git-push.timer (systemd, every 5min+30s jitter) triggers oneshot mythos-git-push.service running the root-owned /usr/local/bin/mythos-git-push, which fast-forward-pushes main and refs/heads/mythos/* from the shared checkout to origin, gated by governance-verify.js. This sandboxed execution identity cannot run systemctl/journalctl (no approver available unattended), so I diagnosed via file evidence instead: the timer is enabled (present in timers.target.wants), and `git ls-remote`/`git merge-base` against origin confirm mythos/gh/gh-issue-156 is already delivered at commit 8d4faf5 (authored 12:38:43Z), cleanly fast-forward of main, roughly 34 minutes before this task even started. The relay was never down or stuck. gh-issue-156's real blocker, per its own handover entry, is unrelated production-restart access (root-only mythos-deploy tool and systemctl --user restart), not git delivery. No relay, service, or application change was needed or made; recorded findings in docs/AI_HANDOVER.md and advanced OTHMODE task OTH-2026-00077 to VALIDATION with full evidence sections.",
+    "tests": [
+      "git ls-remote origin refs/heads/mythos/gh/gh-issue-156: 8d4faf5 present",
+      "git merge-base origin/main origin/mythos/gh/gh-issue-156 == origin/main HEAD: clean fast-forward confirmed"
+    ],
+    "commit": "1f53470e1656a137ef64a2dbf33b2da4880b510c",
+    "remote_head": null,
+    "files_changed": [
+      "docs/AI_HANDOVER.md"
+    ],
+    "residual_risks": [
+      "Live systemd/journald relay state (running/waiting/failed) could not be directly queried from this execution identity in this session — diagnosis relied on file-level evidence (unit enablement + successful delivery observed via git ls-remote) rather than systemctl/journalctl output.",
+      "gh-issue-156's actual blocker (production checkout reconcile + service restart requiring root) remains unresolved and is out of scope for this task."
+    ],
+    "next_stage": "Bridge should close OTH-2026-00077 after verifying this commit and reading the docs/AI_HANDOVER.md entry; issue #156 needs a separate root-privileged action (mythos-deploy + systemctl restart) to actually activate production, unrelated to git relay delivery."
+  },
+  "files_changed": [
+    "docs/AI_HANDOVER.md"
+  ],
+  "commits": [
+    {
+      "sha": "1f53470e1656a137ef64a2dbf33b2da4880b510c",
+      "subject": "docs(handover): gh-issue-157 - Git relay diagnosis: relay healthy, gh-issue-156 delivered",
+      "branch": "mythos/gh/gh-issue-157",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "git ls-remote origin refs/heads/mythos/gh/gh-issue-156: 8d4faf5 present",
+    "git merge-base origin/main origin/mythos/gh/gh-issue-156 == origin/main HEAD: clean fast-forward confirmed"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "report_problems": [],
+    "required_checks": []
+  },
+  "problems": [],
+  "risks": [
+    "Live systemd/journald relay state (running/waiting/failed) could not be directly queried from this execution identity in this session — diagnosis relied on file-level evidence (unit enablement + successful delivery observed via git ls-remote) rather than systemctl/journalctl output.",
+    "gh-issue-156's actual blocker (production checkout reconcile + service restart requiring root) remains unresolved and is out of scope for this task."
+  ],
+  "next_recommended_action": "Bridge should close OTH-2026-00077 after verifying this commit and reading the docs/AI_HANDOVER.md entry; issue #156 needs a separate root-privileged action (mythos-deploy + systemctl restart) to actually activate production, unrelated to git relay delivery.",
+  "completed_at": "2026-09-04T13:22:41.195Z",
+  "execution": {
+    "executor_task_id": "t-20260904131229-rkn2nc",
+    "othmode_task_id": "OTH-2026-00077",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-sonnet-5",
+    "model_requested": null,
+    "model_source": "none",
+    "action_source": "action_label",
+    "action_raw": "implementation",
+    "attempt_id": "gh-issue-157#1",
+    "fence": 3938,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:3693397",
+      "fence": 3938,
+      "acquired_at": "2026-09-04T13:12:26.888Z",
+      "expires_at": "2026-09-04T14:42:26.888Z"
+    },
+    "snapshot_sha256": "05257dc40f865b104c33861cc844a2042e5b8e7cf1c1b329d8eddab65ac0e31e",
+    "model_selection_mode": "auto",
+    "model_selection_reason": "auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]",
+    "claude_session_id": "7da20399-fedd-4d92-8cf1-2ec854df5671",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-04T13:16:48.930Z",
+    "ended_at": "2026-09-04T13:22:26.023Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 1.4250771999999996,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-157",
+    "branch": "mythos/gh/gh-issue-157",
+    "base_commit": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-157",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
