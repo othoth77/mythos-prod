@@ -135,6 +135,12 @@
         "control_status": "COMPLETED",
         "report_file": "control/reports/gh-issue-160.json",
         "commits_on_origin": false
+      },
+      "delivered": {
+        "comment_id": 5544012870,
+        "url": "https://github.com/othoth77/mythos-prod/issues/160#issuecomment-5544012870",
+        "at": "2026-09-04T17:14:12.972Z",
+        "existed": false
       }
     },
     "labels": {
