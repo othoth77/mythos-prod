@@ -1,6 +1,6 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-04T10:36:30.751Z",
+  "generated_at": "2026-09-04T10:36:33.396Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
@@ -1180,7 +1180,7 @@
         "kind": "github-issue",
         "issue_number": 153,
         "issue_url": "https://github.com/othoth77/mythos-prod/issues/153",
-        "issue_state": null
+        "issue_state": "COMPLETED"
       }
     },
     {

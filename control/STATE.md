@@ -1,6 +1,6 @@
 # MYTHOS control — current state
 
-Generated 2026-09-04T10:36:30.751Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
+Generated 2026-09-04T10:36:33.396Z by the bridge on branch `mythos/control` (project `mythos-prod`). Machine-readable twin: `control/state.json`. Protocol: `control/README.md`.
 
 | Status | Count |
 |---|---|
