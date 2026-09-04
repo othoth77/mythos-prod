@@ -1,5 +1,19 @@
 # AI Handover
 
+## gh-issue-157 — Git relay diagnosis: relay healthy, #156 blocked on something else (2026-09-04)
+
+**Objective (GitHub Issue #157, OTHMODE Task OTH-2026-00077, `implement` / repo-write).** Diagnose why the MYTHOS governance Git relay was reported as not delivering `mythos/gh/gh-issue-156` to `origin`, and restore delivery if safely possible. **Outcome: the relay was never down. `mythos/gh/gh-issue-156` is confirmed present on `origin`. No relay/service/application change was made or needed.**
+
+| Item | State |
+|---|---|
+| Branch | `mythos/gh/gh-issue-157` over `5b995e9` (`origin/main`), worktree `/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-157`. This entry is the only change; delivery by the governance relay, not merged. |
+| Relay identified | `mythos-git-push.timer` (systemd, `OnBootSec=2min OnUnitActiveSec=5min RandomizedDelaySec=30`) → oneshot `mythos-git-push.service` (`User=deploy`, `SupplementaryGroups=mythos-gov`) → root-owned `/usr/local/bin/mythos-git-push`. Fast-forward-only push of `main` and `refs/heads/mythos/*` from the shared checkout `/home/deploy/projects/mythos-prod`, gated per-ref by root-owned `/usr/local/lib/mythos/governance-verify.js` against signed approvals in `/var/lib/mythos/governance/approvals`, denials logged to `/var/lib/mythos/governance/log/denied.log`. Source: `projects/mythos-ai-executor/service/{mythos-git-push.timer,.service,.sh,governance-verify.js}`. |
+| Live state (blocker) | This sandboxed execution identity cannot run `systemctl` or `journalctl` — every attempt returned "requires approval" with no approver reachable in an unattended run (`ps aux` shows this session's own `claude` invocation carries no `systemctl`/`journalctl`/`sudo` grant). Live unit-activity state could not be queried directly; diagnosis used file-level evidence instead. |
+| Verified indirectly | (1) `/etc/systemd/system/timers.target.wants/mythos-git-push.timer` exists — timer enabled. (2) `git ls-remote origin refs/heads/mythos/gh/gh-issue-156` (read-only, this worktree only) → `8d4faf5daf8bffc2493bd0d88d19029bd464b684`, the exact handover commit authored locally at `2026-09-04T12:38:43Z` on gh-issue-156 — delivered well inside one 5 min+30 s relay cycle, ~34 min before this task (dispatched `13:12:29Z`) started. (3) `git merge-base origin/main origin/mythos/gh/gh-issue-156` == `origin/main` HEAD (`5b995e9`) — clean fast-forward, no divergence, no denial. (4) `mythos/gh/gh-issue-157` itself is on `origin` at exactly its base commit — normal steady-state behaviour. (5) `/var/lib/mythos/governance` is `0750 root:mythos-gov` as documented; `deploy` gets `EACCES` on `approvals/` and `log/` by design, not a fault. |
+| Real blocker for #156 | Per `origin/mythos/gh/gh-issue-156:docs/AI_HANDOVER.md`, the actual stall is production activation, unrelated to git delivery: (A) reconciling the live checkout at `/home/deploy/projects/mythos-prod` needs the root-only `mythos-deploy` tool; (B) `systemctl --user restart mythos-ai-executor mythos-command-center.service` needs an approval this non-interactive identity cannot obtain — the same root/deploy separation this diagnosis independently hit for `systemctl`/`journalctl`. |
+| Changes | None to relay config, systemd units, application code, OTHMODE policy, or any production service — none were needed or attempted. This handover entry only. |
+| OTHMODE | Task `OTH-2026-00077` advanced to `VALIDATION` with full sections (`search_first`, `execution`, `validation`, `changes`, `outcome`, `problems`) via `othmode-cli.js`-equivalent `tasks.updateTask`; terminal status left to the bridge. |
+
 ## SKILL-TRUST-0 — Skill & MCP Security / Trust Gate (2026-09-04)
 
 **Objective.** Integrate a strong Agent-Skill / MCP scanning and trust layer into OTHMODE with the least custom code, under SEARCH → REUSE → ADAPT → TEST → BUILD ONLY WHAT IS MISSING. Design and operations: `docs/OTHMODE_SKILL_TRUST.md`.
