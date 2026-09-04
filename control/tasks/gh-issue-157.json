@@ -10,7 +10,7 @@
   "action_raw": "implementation",
   "action_source": "action_label",
   "validation_requirements": [],
-  "status": "CLAIMED",
+  "status": "IN_PROGRESS",
   "created_at": "2026-09-04T13:11:57.063Z",
   "created_by": "github-issue:othoth77",
   "notes": "Source: GitHub Issue #157 https://github.com/othoth77/mythos-prod/issues/157 — \"Diagnose and Restore MYTHOS Git Relay Delivery\"\n\nrequested_action: implement — source action_label (written as \"implementation\") → execution profile repo-write\n\nFable is currently waiting on: `Wait for the relay to deliver the branch to origin`.\nThe relevant branch is `mythos/gh/gh-issue-156`.\nIssue #156 has already been given the `rerun` label and should not be blocked by a missing relay delivery.\n\n[required execution]\n1. Inspect the existing MYTHOS governance relay configuration, service/timer state, recent relay logs, and denied/governance logs.\n2. Determine exactly what relay mechanism is responsible for delivering `mythos/*` branches to `origin`.\n3. Verify whether the relay is running, waiting, failed, or blocked.\n4. If it is stopped or failed, restart/recover ONLY the existing relay mechanism using its documented governance procedure. Do not invent a new relay or bypass governance.\n5. Verify that `mythos/gh/gh-issue-156` is delivered to `origin`.\n6. Do not modify application code, OTHMODE policy, production services, or WhatsApp.\n7. Do not force-push or bypass protected governance controls.\n8. Record exact commands, service/timer state, relevant logs, branch delivery result, and any blocker.\n9. Commit/push any required documentation change through the normal governance relay if appropriate.\n\n[success criteria]\n- Relay mechanism identified.\n- Relay state explained.\n- If needed, relay recovered using the existing mechanism.\n- `mythos/gh/gh-issue-156` confirmed on `origin`.\n- No unrelated services or application code changed.\n\n[final report]\nSEARCHED / VERIFIED / EXECUTED / REUSED / CHANGED / RELAY STATUS / BRANCH DELIVERY / BLOCKERS / FINAL STATUS.",
@@ -147,8 +147,8 @@
     "claimed_at": "2026-09-04T13:12:26.888Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "0e2b992baa9520aae636123ceab197ed71841e9dd5ba90f69f28acc642fb76a4",
-    "executor_status": "QUEUED",
-    "updated_at": "2026-09-04T13:12:26.913Z",
+    "executor_status": "RUNNING",
+    "updated_at": "2026-09-04T13:17:32.003Z",
     "snapshot_sha256": "05257dc40f865b104c33861cc844a2042e5b8e7cf1c1b329d8eddab65ac0e31e",
     "fence": 3938,
     "lease": {
@@ -176,7 +176,8 @@
       "measured_at": "2026-09-04T13:12:00.876Z"
     },
     "model": "claude-sonnet-5",
-    "model_selection_mode": "auto"
+    "model_selection_mode": "auto",
+    "claude_session_id": "7da20399-fedd-4d92-8cf1-2ec854df5671"
   },
   "history": [
     {
@@ -185,6 +186,13 @@
       "to": "CLAIMED",
       "by": "github-bridge",
       "note": "executor task t-20260904131229-rkn2nc queued; OTHMODE OTH-2026-00077; action implement (action_label) → repo-write; model claude-sonnet-5; fence 3938"
+    },
+    {
+      "at": "2026-09-04T13:17:32.003Z",
+      "from": "CLAIMED",
+      "to": "IN_PROGRESS",
+      "by": "github-bridge",
+      "note": "executor RUNNING: provider running"
     }
   ]
 }

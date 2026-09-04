@@ -1,22 +1,21 @@
 {
   "protocol": "mythos-control/1",
-  "generated_at": "2026-09-04T13:13:54.526Z",
+  "generated_at": "2026-09-04T13:17:32.009Z",
   "generated_by": "github-bridge@vps-4722f0a9",
   "branch": "mythos/control",
   "project": "mythos-prod",
   "counts": {
     "PENDING": 0,
-    "CLAIMED": 1,
+    "CLAIMED": 0,
     "IN_PROGRESS": 1,
     "VALIDATING": 0,
-    "COMPLETED": 32,
+    "COMPLETED": 33,
     "BLOCKED": 22,
     "FAILED": 0,
     "CANCELLED": 0
   },
   "pending": [],
   "active": [
-    "gh-issue-156-r2",
     "gh-issue-157"
   ],
   "awaiting_review": [
@@ -71,6 +70,7 @@
     "gh-issue-153",
     "gh-issue-155",
     "gh-issue-156",
+    "gh-issue-156-r2",
     "gh-issue-95",
     "gh-issue-97",
     "gh-issue-99"
@@ -1236,7 +1236,7 @@
     },
     {
       "task_id": "gh-issue-156-r2",
-      "status": "IN_PROGRESS",
+      "status": "COMPLETED",
       "priority": "normal",
       "requested_action": "implement",
       "action_source": "action_label",
@@ -1245,11 +1245,11 @@
       "blocker": null,
       "created_at": "2026-09-04T13:05:40.069Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-04T13:07:01.809Z",
+      "updated_at": "2026-09-04T13:17:31.982Z",
       "executor_task_id": "t-20260904130545-xs3643",
       "branch": "mythos/gh/gh-issue-156-r2",
       "task_file": "control/tasks/gh-issue-156-r2.json",
-      "report_file": null,
+      "report_file": "control/reports/gh-issue-156-r2.json",
       "source": {
         "kind": "github-issue",
         "issue_number": 156,
@@ -1259,7 +1259,7 @@
     },
     {
       "task_id": "gh-issue-157",
-      "status": "CLAIMED",
+      "status": "IN_PROGRESS",
       "priority": "normal",
       "requested_action": "implement",
       "action_source": "action_label",
@@ -1268,7 +1268,7 @@
       "blocker": null,
       "created_at": "2026-09-04T13:11:57.063Z",
       "created_by": "github-issue:othoth77",
-      "updated_at": "2026-09-04T13:12:30.293Z",
+      "updated_at": "2026-09-04T13:17:32.003Z",
       "executor_task_id": "t-20260904131229-rkn2nc",
       "branch": "mythos/gh/gh-issue-157",
       "task_file": "control/tasks/gh-issue-157.json",

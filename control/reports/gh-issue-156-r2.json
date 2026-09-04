@@ -1,0 +1,180 @@
+{
+  "protocol": "mythos-control/1",
+  "task_id": "gh-issue-156-r2",
+  "attempt_id": "gh-issue-156-r2#2",
+  "status": "COMPLETED",
+  "summary": "Production activation of the OTHMODE Skill Trust Gate verified ACTIVE. The runtime checkout /home/deploy/projects/mythos-prod is on main at 5b995e9562df5cbf1603a571eb3bdb891460fca3 (fast-forwarded 2026-09-04T12:44:11Z by the governance mechanism `mythos-deploy deploy othmode`, health 200) and both mythos-ai-executor (PID 3631021) and mythos-command-center.service (PID 3631024) started at 12:46:30Z, after the checkout moved, so no reconciliation or restart was needed or issued by this run (systemctl/journalctl are not permitted in this session; a redundant executor restart would have killed the running task). Both ledgers are present and blob-identical to the commit; skill-trust-cli verify on the production checkout → VERIFY OK 31/31 ACCEPT. GET /api/othmode/trust returns 200 with policy 1.0.0, 31 ACCEPT skills and MCP 4 ACCEPT/2 REVIEW (it was 404 in attempt r1 → the merged code is what runs). Gate enforcement proven on the production lib/skills.js with the production ledger: enforcementDisabled()=false, a tampered temp copy goes STALE and is refused by getSkill/selectSkill/renderSkillSection, a missing ledger makes nothing selectable, and this task itself was selected/rendered through the gate. No MYTHOS_SKILL_TRUST bypass exists in either unit, the drop-in, or the two EnvironmentFiles (key names only inspected). Suites 130/147/94/168/390 all green. The four SkillSpector baseline entries were re-verified line by line as false positives and left unchanged (owner approval still pending). No unrelated service, no WhatsApp gateway, no Semgrep, no policy change. Evidence recorded in docs/AI_HANDOVER.md, committed as 8116a83; OTHMODE task OTH-2026-00076 advanced to VERIFICATION without a terminal status.",
+  "resolution": {
+    "requested_action": "implement",
+    "action_raw": "implementation",
+    "action_source": "action_label",
+    "execution_profile": "repo-write",
+    "expected_profile": "repo-write",
+    "model_requested": "Fable 5.1",
+    "model_key": "fable-5.1",
+    "model": "claude-fable-5-1",
+    "model_source": "explicit_current_issue",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "base_sha": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "branch": "mythos/gh/gh-issue-156-r2",
+    "commit_sha": "8116a835e1b4b02c756c015707612ac8f27cad95"
+  },
+  "blocker": null,
+  "runtime_identity": {
+    "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+    "checkout": "/home/deploy/projects/mythos-prod",
+    "head": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "branch": "main",
+    "dirty_files": 0,
+    "base_ref": "origin/main",
+    "base_ref_head": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "expected_head": null,
+    "host": "vps-4722f0a9",
+    "user": "deploy",
+    "node": "v22.22.1",
+    "verified": true,
+    "stale": false,
+    "code": null,
+    "reason": null,
+    "measured_at": "2026-09-04T13:05:44.295Z"
+  },
+  "structured_report": {
+    "mythos_report": true,
+    "status": "completed",
+    "summary": "Production activation of the OTHMODE Skill Trust Gate verified ACTIVE. The runtime checkout /home/deploy/projects/mythos-prod is on main at 5b995e9562df5cbf1603a571eb3bdb891460fca3 (fast-forwarded 2026-09-04T12:44:11Z by the governance mechanism `mythos-deploy deploy othmode`, health 200) and both mythos-ai-executor (PID 3631021) and mythos-command-center.service (PID 3631024) started at 12:46:30Z, after the checkout moved, so no reconciliation or restart was needed or issued by this run (systemctl/journalctl are not permitted in this session; a redundant executor restart would have killed the running task). Both ledgers are present and blob-identical to the commit; skill-trust-cli verify on the production checkout → VERIFY OK 31/31 ACCEPT. GET /api/othmode/trust returns 200 with policy 1.0.0, 31 ACCEPT skills and MCP 4 ACCEPT/2 REVIEW (it was 404 in attempt r1 → the merged code is what runs). Gate enforcement proven on the production lib/skills.js with the production ledger: enforcementDisabled()=false, a tampered temp copy goes STALE and is refused by getSkill/selectSkill/renderSkillSection, a missing ledger makes nothing selectable, and this task itself was selected/rendered through the gate. No MYTHOS_SKILL_TRUST bypass exists in either unit, the drop-in, or the two EnvironmentFiles (key names only inspected). Suites 130/147/94/168/390 all green. The four SkillSpector baseline entries were re-verified line by line as false positives and left unchanged (owner approval still pending). No unrelated service, no WhatsApp gateway, no Semgrep, no policy change. Evidence recorded in docs/AI_HANDOVER.md, committed as 8116a83; OTHMODE task OTH-2026-00076 advanced to VERIFICATION without a terminal status.",
+    "tests": [
+      "skill-trust-cli.js verify (production checkout): VERIFY OK, 31/31 ACCEPT, exit 0",
+      "tests/skill-trust-test.js: 130 passed, 0 failed",
+      "tests/othmode-2-platform-test.js: 147 passed, 0 failed",
+      "tests/othmode-3-tasks-test.js: 94 passed, 0 failed",
+      "tests/mcp-ecosystem-test.js: 168 passed, 0 failed",
+      "tests/mythos-ai-executor-test.js: 390 passed, 0 failed",
+      "runtime checkout at 5b995e9 on main: PASS",
+      "both ledgers present and verified: PASS",
+      "mythos-ai-executor active/healthy after restart: PASS (process started 12:46:30Z, /health 200; systemctl is-active not directly verified)",
+      "mythos-command-center.service active/healthy after restart: PASS (process started 12:46:30Z, /api/othmode/trust 200; systemctl is-active not directly verified)",
+      "GET /api/othmode/trust live with expected data: PASS",
+      "executor trust enforcement in production: PASS (production module + ledger, positive and negative path)",
+      "no MYTHOS_SKILL_TRUST=off bypass in production: PASS",
+      "no unrelated services restarted: PASS",
+      "no WhatsApp gateway deployment: PASS",
+      "docs/AI_HANDOVER.md contains activation evidence: PASS",
+      "verification committed for relay delivery: PASS (8116a83; relay push pending at check time)"
+    ],
+    "commit": "8116a835e1b4b02c756c015707612ac8f27cad95",
+    "remote_head": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "files_changed": [
+      "docs/AI_HANDOVER.md"
+    ],
+    "residual_risks": [
+      "MCP registry-check snapshot dated 2026-09-02T15:51:49Z crosses the policy's 48 h threshold at 15:51 UTC today, flipping the 4 ACCEPT servers to REVIEW (read model only, not an execution gate) until mcp-registry-check is re-run",
+      "SkillSpector cold-start probe exceeded the CLI's 30 s timeout under current host memory (127 MiB free, swap 4095/4095); direct probe answered in 7.7 s — full rescans should run under systemd-run MemoryMax until swap is resolved",
+      "Four SkillSpector baseline suppressions remain 'pending owner review'",
+      "systemctl is-active / journal output could not be read in this session; service health proven by process start ticks and HTTP probes instead",
+      "Remote branch head still at base 5b995e9 at check time — delivery depends on mythos-git-push.timer"
+    ],
+    "next_stage": "Governance relay delivers mythos/gh/gh-issue-156-r2; bridge closes OTH-2026-00076. Owner: approve the 4 baseline entries in a reviewed diff, refresh the mcp-registry-check snapshot before 15:51 UTC, wire verify + skill-trust-test into vps-final-gate.yml (protected path), enable Semgrep only after swap exhaustion is resolved."
+  },
+  "files_changed": [
+    "docs/AI_HANDOVER.md"
+  ],
+  "commits": [
+    {
+      "sha": "8116a835e1b4b02c756c015707612ac8f27cad95",
+      "subject": "docs(handover): gh-issue-156-r2 — OTHMODE Skill Trust Gate production activation verified ACTIVE at 5b995e9",
+      "branch": "mythos/gh/gh-issue-156-r2",
+      "on_origin": false
+    }
+  ],
+  "tests": [
+    "skill-trust-cli.js verify (production checkout): VERIFY OK, 31/31 ACCEPT, exit 0",
+    "tests/skill-trust-test.js: 130 passed, 0 failed",
+    "tests/othmode-2-platform-test.js: 147 passed, 0 failed",
+    "tests/othmode-3-tasks-test.js: 94 passed, 0 failed",
+    "tests/mcp-ecosystem-test.js: 168 passed, 0 failed",
+    "tests/mythos-ai-executor-test.js: 390 passed, 0 failed",
+    "runtime checkout at 5b995e9 on main: PASS",
+    "both ledgers present and verified: PASS",
+    "mythos-ai-executor active/healthy after restart: PASS (process started 12:46:30Z, /health 200; systemctl is-active not directly verified)",
+    "mythos-command-center.service active/healthy after restart: PASS (process started 12:46:30Z, /api/othmode/trust 200; systemctl is-active not directly verified)",
+    "GET /api/othmode/trust live with expected data: PASS",
+    "executor trust enforcement in production: PASS (production module + ledger, positive and negative path)",
+    "no MYTHOS_SKILL_TRUST=off bypass in production: PASS",
+    "no unrelated services restarted: PASS",
+    "no WhatsApp gateway deployment: PASS",
+    "docs/AI_HANDOVER.md contains activation evidence: PASS",
+    "verification committed for relay delivery: PASS (8116a83; relay push pending at check time)"
+  ],
+  "validation": {
+    "git_verified": false,
+    "remote_head": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "report_problems": [],
+    "required_checks": [
+      "[ ] Runtime is deployed at merge commit `5b995e9562df5cbf1603a571eb3bdb891460fca3` or an exact descendant on `main`.",
+      "[ ] Both trust ledgers exist and verify successfully.",
+      "[ ] Offline trust and relevant regression suites pass.",
+      "[ ] `mythos-ai-executor` is active/healthy after restart.",
+      "[ ] `mythos-command-center.service` is active/healthy after restart.",
+      "[ ] `/api/othmode/trust` is live and returns expected trust data.",
+      "[ ] Executor trust enforcement is confirmed in production.",
+      "[ ] No production trust bypass is enabled.",
+      "[ ] No unrelated services were restarted.",
+      "[ ] No WhatsApp gateway deployment occurred.",
+      "[ ] `docs/AI_HANDOVER.md` contains production activation evidence.",
+      "[ ] Verification changes are committed and pushed through the normal governance relay."
+    ]
+  },
+  "problems": [],
+  "risks": [
+    "MCP registry-check snapshot dated 2026-09-02T15:51:49Z crosses the policy's 48 h threshold at 15:51 UTC today, flipping the 4 ACCEPT servers to REVIEW (read model only, not an execution gate) until mcp-registry-check is re-run",
+    "SkillSpector cold-start probe exceeded the CLI's 30 s timeout under current host memory (127 MiB free, swap 4095/4095); direct probe answered in 7.7 s — full rescans should run under systemd-run MemoryMax until swap is resolved",
+    "Four SkillSpector baseline suppressions remain 'pending owner review'",
+    "systemctl is-active / journal output could not be read in this session; service health proven by process start ticks and HTTP probes instead",
+    "Remote branch head still at base 5b995e9 at check time — delivery depends on mythos-git-push.timer"
+  ],
+  "next_recommended_action": "Governance relay delivers mythos/gh/gh-issue-156-r2; bridge closes OTH-2026-00076. Owner: approve the 4 baseline entries in a reviewed diff, refresh the mcp-registry-check snapshot before 15:51 UTC, wire verify + skill-trust-test into vps-final-gate.yml (protected path), enable Semgrep only after swap exhaustion is resolved.",
+  "completed_at": "2026-09-04T13:17:31.905Z",
+  "execution": {
+    "executor_task_id": "t-20260904130545-xs3643",
+    "othmode_task_id": "OTH-2026-00076",
+    "execution_profile": "repo-write",
+    "provider": "claude-code",
+    "model": "claude-fable-5-1",
+    "model_requested": "Fable 5.1",
+    "model_source": "explicit_current_issue",
+    "action_source": "action_label",
+    "action_raw": "implementation",
+    "attempt_id": "gh-issue-156-r2#2",
+    "fence": 3923,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:3676523",
+      "fence": 3923,
+      "acquired_at": "2026-09-04T13:05:45.477Z",
+      "expires_at": "2026-09-04T14:35:45.477Z"
+    },
+    "snapshot_sha256": "be9f53ecdcd2291d272f506f3ed3f9c6d0abeb4d7f32fa6feab6de67605867b6",
+    "model_selection_mode": "explicit",
+    "model_selection_reason": "explicit:fable-5.1 (requested \"fable-5.1\")",
+    "claude_session_id": "87046deb-b09a-457a-9db2-5a052304a446",
+    "executor_status": "COMPLETED",
+    "started_at": "2026-09-04T13:05:48.170Z",
+    "ended_at": "2026-09-04T13:16:42.929Z",
+    "retries": 0,
+    "last_failure": null,
+    "retry_backoff": null,
+    "transition_reason": null,
+    "hostops": null,
+    "quota_waits": 0,
+    "cost_usd": 5.2235485,
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/gh-issue-156-r2",
+    "branch": "mythos/gh/gh-issue-156-r2",
+    "base_commit": "5b995e9562df5cbf1603a571eb3bdb891460fca3",
+    "othmode_closed_by_bridge": true
+  },
+  "delivery": {
+    "branch": "mythos/gh/gh-issue-156-r2",
+    "commits_on_origin": false,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+  }
+}
