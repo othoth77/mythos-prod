@@ -12,7 +12,7 @@
 | Runtime | `5b995e9562df` on `main` **RUNTIME_STALE_CHECKOUT** |
 | Model | `claude-fable-5-1` (explicit:fable-5.1 (requested "fable-5.1")) |
 | Branch | `mythos/gh/gh-issue-167` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Preflight confirmed #162 (t-20260904174515-oinn8z) was already terminal (BLOCKED
 
 ## Commits
 
-- `6963a0b534574d6676215b2fa5e64baef94befd2` docs(gh-167): SKILL-TRUST-1 — record production activation evidence for the Skill Trust Gate (awaiting relay)
+- `6963a0b534574d6676215b2fa5e64baef94befd2` docs(gh-167): SKILL-TRUST-1 — record production activation evidence for the Skill Trust Gate (on origin)
 
 ## Files changed
 

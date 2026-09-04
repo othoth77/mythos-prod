@@ -77,7 +77,7 @@
       "sha": "6963a0b534574d6676215b2fa5e64baef94befd2",
       "subject": "docs(gh-167): SKILL-TRUST-1 — record production activation evidence for the Skill Trust Gate",
       "branch": "mythos/gh/gh-issue-167",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -149,7 +149,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-167",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-04T19:40:05.312Z"
   }
 }
