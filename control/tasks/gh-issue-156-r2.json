@@ -152,6 +152,16 @@
         "at": "2026-09-04T13:05:46.892Z",
         "existed": false,
         "executor_task_id": "t-20260904130545-xs3643"
+      },
+      "report": {
+        "comment_id": 5540992753,
+        "url": "https://github.com/othoth77/mythos-prod/issues/156#issuecomment-5540992753",
+        "at": "2026-09-04T13:17:33.241Z",
+        "existed": false,
+        "status": "COMPLETED",
+        "control_status": "COMPLETED",
+        "report_file": "control/reports/gh-issue-156-r2.json",
+        "commits_on_origin": false
       }
     },
     "labels": {
@@ -161,7 +171,8 @@
       "removed": [
         "mythos:human-approval"
       ]
-    }
+    },
+    "issue_state": "COMPLETED"
   },
   "execution": {
     "executor_task_id": "t-20260904130545-xs3643",
