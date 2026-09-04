@@ -147,8 +147,8 @@
     "claimed_at": "2026-09-04T17:12:54.664Z",
     "claimed_by": "github-bridge@vps-4722f0a9",
     "fingerprint": "5352db3000f907861183489ae65ebd0cf11a22e4318f1bd9f3b7f7b841f38d75",
-    "executor_status": "RUNNING",
-    "updated_at": "2026-09-04T17:14:11.725Z",
+    "executor_status": "WAITING_RETRY",
+    "updated_at": "2026-09-04T18:13:31.744Z",
     "snapshot_sha256": "a4ce33f0344419b5552ab287d7676b5d5e938c66a88aecda1e0b5fa48c96af7d",
     "fence": 4398,
     "lease": {
