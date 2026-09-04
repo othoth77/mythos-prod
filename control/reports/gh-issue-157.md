@@ -12,7 +12,7 @@
 | Runtime | `5b995e9562df` on `main` |
 | Model | `claude-sonnet-5` (auto:balanced→sonnet score=5 [execution_profile:repo-write+2 task_category:implement+3]) |
 | Branch | `mythos/gh/gh-issue-157` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Diagnosed the MYTHOS Git relay: mythos-git-push.timer (systemd, every 5min+30s j
 
 ## Commits
 
-- `1f53470e1656a137ef64a2dbf33b2da4880b510c` docs(handover): gh-issue-157 - Git relay diagnosis: relay healthy, gh-issue-156 delivered (awaiting relay)
+- `1f53470e1656a137ef64a2dbf33b2da4880b510c` docs(handover): gh-issue-157 - Git relay diagnosis: relay healthy, gh-issue-156 delivered (on origin)
 
 ## Files changed
 
