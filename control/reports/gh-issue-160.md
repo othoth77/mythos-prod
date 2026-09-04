@@ -12,7 +12,7 @@
 | Runtime | `5b995e9562df` on `main` |
 | Model | `claude-sonnet-5` (auto:balanced→sonnet score=6 [execution_profile:repo-write+2 task_category:implement+3 complexity_terms(architecture)+1 simplicity_terms(one-line)-1 required_tests>=3+1]) |
 | Branch | `mythos/gh/gh-issue-160` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Added a 'Simple explanation — non-technical' section to docs/AI_HANDOVER.md an
 
 ## Commits
 
-- `3a5efea480764188e675ecd0014b518c874fda26` docs(gh-160): DOC-SIMPLE-0 — plain-language explanation for every MYTHOS system (awaiting relay)
+- `3a5efea480764188e675ecd0014b518c874fda26` docs(gh-160): DOC-SIMPLE-0 — plain-language explanation for every MYTHOS system (on origin)
 
 ## Files changed
 

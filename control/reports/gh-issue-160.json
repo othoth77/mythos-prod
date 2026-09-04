@@ -71,7 +71,7 @@
       "sha": "3a5efea480764188e675ecd0014b518c874fda26",
       "subject": "docs(gh-160): DOC-SIMPLE-0 — plain-language explanation for every MYTHOS system",
       "branch": "mythos/gh/gh-issue-160",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -137,7 +137,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-160",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-04T17:14:11.713Z"
   }
 }
