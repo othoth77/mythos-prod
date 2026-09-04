@@ -12,7 +12,7 @@
 | Runtime | `5482db8c2dae` on `main` |
 | Model | `claude-sonnet-5` (auto:balanced→sonnet score=6 [execution_profile:repo-write+2 task_category:implement+3 complexity_terms(architecture)+1]) |
 | Branch | `mythos/gh/gh-issue-148` |
-| Commits on origin | false |
+| Commits on origin | true |
 | Git verified | false |
 
 ## Summary
@@ -21,7 +21,7 @@ Reconciled gh-issue-132 and gh-issue-142 against existing work per the task's ow
 
 ## Commits
 
-- `6a5abae0a970fc94beae3b7a226270a0c11e20a2` docs(handover): delivery reconciliation for gh-issue-132 and gh-issue-142 (gh-issue-148) (awaiting relay)
+- `6a5abae0a970fc94beae3b7a226270a0c11e20a2` docs(handover): delivery reconciliation for gh-issue-132 and gh-issue-142 (gh-issue-148) (on origin)
 
 ## Files changed
 

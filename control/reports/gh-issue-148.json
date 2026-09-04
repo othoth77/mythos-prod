@@ -67,7 +67,7 @@
       "sha": "6a5abae0a970fc94beae3b7a226270a0c11e20a2",
       "subject": "docs(handover): delivery reconciliation for gh-issue-132 and gh-issue-142 (gh-issue-148)",
       "branch": "mythos/gh/gh-issue-148",
-      "on_origin": false
+      "on_origin": true
     }
   ],
   "tests": [
@@ -127,7 +127,8 @@
   },
   "delivery": {
     "branch": "mythos/gh/gh-issue-148",
-    "commits_on_origin": false,
-    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision."
+    "commits_on_origin": true,
+    "note": "Task-branch commits reach GitHub through the governance relay (mythos-git-push.timer, fast-forward only, every 5 min) and are NOT merged to main; merging is a human decision.",
+    "confirmed_on_origin_at": "2026-09-04T08:22:01.023Z"
   }
 }
