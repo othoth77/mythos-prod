@@ -12,7 +12,7 @@
   "action_raw": "investigate",
   "action_source": "default",
   "validation_requirements": [],
-  "status": "PENDING",
+  "status": "CLAIMED",
   "created_at": "2026-09-05T03:19:08.899Z",
   "created_by": "telegram:5005015506",
   "notes": "Source: Telegram private message (update_id 611867279, chat_id 5005015506, message_id 196, user_id 5005015506, sent 2026-09-05T02:55:25.000Z).\n\nrequested_action: investigate — source default (written as \"investigate\"): defaulted because the message did not state one (write `Action: investigate|review` on its own line) → execution profile repo-read",
@@ -72,5 +72,64 @@
         "existed": false
       }
     }
-  }
+  },
+  "execution": {
+    "executor_task_id": "t-20260905031913-kojnbl",
+    "othmode_task_id": "OTH-2026-00175",
+    "attempt_id": "tg-611867279#1",
+    "requested_action": "investigate",
+    "action_raw": "investigate",
+    "action_source": "default",
+    "execution_profile": "repo-read",
+    "expected_profile": "repo-read",
+    "expected_delivery": "report",
+    "model_key": null,
+    "model_requested": null,
+    "model_source": "none",
+    "worktree": "/home/deploy/mythos-ai-executor/worktrees/gh/tg-611867279",
+    "branch": "mythos/gh/tg-611867279",
+    "base_commit": "c54dbd179feade15e97c2ac71983b13804bc458d",
+    "claimed_at": "2026-09-05T03:19:13.149Z",
+    "claimed_by": "github-bridge@vps-4722f0a9",
+    "fingerprint": "5170431b3dfbb15444f8b44331f3cf03f1c1f619042c8cb6956e563d5764a8ba",
+    "executor_status": "QUEUED",
+    "updated_at": "2026-09-05T03:19:13.149Z",
+    "snapshot_sha256": "5665cc058a7f3e9833eeb166a3e541d363b97c165f3249a75042af6aa8ff899c",
+    "fence": 5778,
+    "lease": {
+      "owner": "github-bridge@vps-4722f0a9:1283160",
+      "fence": 5778,
+      "acquired_at": "2026-09-05T03:19:13.149Z",
+      "expires_at": "2026-09-05T04:49:13.149Z"
+    },
+    "runtime": {
+      "module": "/home/deploy/projects/mythos-prod/projects/mythos-ai-executor/bridge/github-bridge.js",
+      "checkout": "/home/deploy/projects/mythos-prod",
+      "head": "c54dbd179feade15e97c2ac71983b13804bc458d",
+      "branch": "main",
+      "dirty_files": 0,
+      "base_ref": "origin/main",
+      "base_ref_head": "c54dbd179feade15e97c2ac71983b13804bc458d",
+      "expected_head": null,
+      "host": "vps-4722f0a9",
+      "user": "deploy",
+      "node": "v22.22.1",
+      "verified": true,
+      "stale": false,
+      "code": null,
+      "reason": null,
+      "measured_at": "2026-09-05T03:19:12.011Z"
+    },
+    "model": "claude-haiku-4-5",
+    "model_selection_mode": "auto"
+  },
+  "history": [
+    {
+      "at": "2026-09-05T03:19:13.200Z",
+      "from": "PENDING",
+      "to": "CLAIMED",
+      "by": "github-bridge",
+      "note": "executor task t-20260905031913-kojnbl queued; OTHMODE OTH-2026-00175; action investigate (default) → repo-read; model claude-haiku-4-5; fence 5778"
+    }
+  ]
 }
